@@ -1,0 +1,17 @@
+import Nat
+
+union Tree<K> {
+  empty;
+  node(K, Nat, Tree<K>, Tree<K>);
+}
+
+function height<T>(Tree<T>) -> Nat {
+  height(empty) = 0;
+  height(node(n,h,L,R)) = 1 + max(height(L), height(R));
+}
+
+function is_AVL<T>(Tree<T>) -> bool {
+  is_AVL(empty) = true;
+  is_AVL(node(n, h, L, R)) = diff(height(L), height(R)) ≤ 1
+                             and is_AVL(L) and is_AVL(R);
+}

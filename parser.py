@@ -69,37 +69,6 @@ def extract_or(frm):
       case _:
        return [frm]
 
-def parse_tree_to_formula(e):
-    e.meta.filename = filename
-    if e.data == 'nothing':
-        return None
-    elif e.data == 'term_formula':
-        return parse_tree_to_ast(e.children[0])
-    elif e.data == 'if_then_formula':
-       return IfThen(e.meta,
-                     parse_tree_to_formula(e.children[0]),
-                     parse_tree_to_formula(e.children[1]))
-    elif e.data == 'and_formula':
-       left = parse_tree_to_formula(e.children[0])
-       right = parse_tree_to_formula(e.children[1])
-       return And(e.meta, extract_and(left) + extract_and(right))
-    elif e.data == 'or_formula':
-       left = parse_tree_to_formula(e.children[0])
-       right = parse_tree_to_formula(e.children[1])
-       return Or(e.meta, extract_or(left) + extract_or(right))
-    elif e.data == 'all_formula':
-        return All(e.meta,
-                   parse_tree_to_list(e.children[0]),
-                   parse_tree_to_formula(e.children[1]))
-    elif e.data == 'some_formula':
-        return Some(e.meta,
-                   parse_tree_to_list(e.children[0]),
-                   parse_tree_to_formula(e.children[1]))
-    else:
-        raise Exception('unrecognized formula ' + repr(e))
-    
-
-
 def parse_tree_to_case(e):
     tag = str(e.children[0].value)
     body = parse_tree_to_ast(e.children[1])
@@ -146,9 +115,35 @@ def parse_tree_to_ast(e):
         return e
     
     e.meta.filename = filename
+
+    if e.data == 'nothing':
+        return None
+    # formulas
+    elif e.data == 'term_formula':
+        return parse_tree_to_ast(e.children[0])
+    elif e.data == 'if_then_formula':
+       return IfThen(e.meta,
+                     parse_tree_to_ast(e.children[0]),
+                     parse_tree_to_ast(e.children[1]))
+    elif e.data == 'and_formula':
+       left = parse_tree_to_ast(e.children[0])
+       right = parse_tree_to_ast(e.children[1])
+       return And(e.meta, extract_and(left) + extract_and(right))
+    elif e.data == 'or_formula':
+       left = parse_tree_to_ast(e.children[0])
+       right = parse_tree_to_ast(e.children[1])
+       return Or(e.meta, extract_or(left) + extract_or(right))
+    elif e.data == 'all_formula':
+        return All(e.meta,
+                   parse_tree_to_list(e.children[0]),
+                   parse_tree_to_ast(e.children[1]))
+    elif e.data == 'some_formula':
+        return Some(e.meta,
+                   parse_tree_to_list(e.children[0]),
+                   parse_tree_to_ast(e.children[1]))
     
     # types
-    if e.data == 'type_name':
+    elif e.data == 'type_name':
       return TypeName(e.meta, str(e.children[0].value))
     elif e.data == 'int_type':
       return IntType(e.meta)
@@ -237,12 +232,12 @@ def parse_tree_to_ast(e):
     elif e.data == 'let':
         return PLet(e.meta,
                     str(e.children[0].value),
-                    parse_tree_to_formula(e.children[1]),
+                    parse_tree_to_ast(e.children[1]),
                     parse_tree_to_ast(e.children[2]),
                     parse_tree_to_ast(e.children[3]))
     elif e.data == 'annot':
         return PAnnot(e.meta,
-                      parse_tree_to_formula(e.children[0]),
+                      parse_tree_to_ast(e.children[0]),
                       parse_tree_to_ast(e.children[1]))
     elif e.data == 'tuple':
        left = parse_tree_to_ast(e.children[0])
@@ -262,7 +257,7 @@ def parse_tree_to_ast(e):
         return AllElim(e.meta, univ, args)
     elif e.data == 'imp_intro_explicit':
         label = str(e.children[0].value)
-        premise = parse_tree_to_formula(e.children[1])
+        premise = parse_tree_to_ast(e.children[1])
         body = parse_tree_to_ast(e.children[2])
         return ImpIntro(e.meta, label, premise, body)
     elif e.data == 'cases':
@@ -331,7 +326,7 @@ def parse_tree_to_ast(e):
     elif e.data == 'theorem':
         return Theorem(e.meta,
                        str(e.children[0].value),
-                       parse_tree_to_formula(e.children[1]),
+                       parse_tree_to_ast(e.children[1]),
                        parse_tree_to_ast(e.children[2]))
 
     # patterns in function definitions

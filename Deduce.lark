@@ -9,13 +9,17 @@ WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ NEWLINE
 COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
-?term: term "=" term_add                      -> equal
-    | term "≠" term_add                       -> not_equal
-    | term "<" term_add                        -> less
-    | term ">" term_add                        -> greater
-    | term "≤" term_add                       -> less_equal
-    | term "≥" term_add                       -> greater_equal
+?term: term "and" term_compare                    -> and_formula
+    | term "or" term_compare                      -> or_formula
     | term ":" type                           -> annote_type
+    | term_compare
+
+?term_compare: term_compare "=" term_add             -> equal
+    | term_compare "≠" term_add                       -> not_equal
+    | term_compare "<" term_add                        -> less
+    | term_compare ">" term_add                        -> greater
+    | term_compare "≤" term_add                       -> less_equal
+    | term_compare "≥" term_add                       -> greater_equal
     | term_add
 
 ?term_add: term_add "+" term_med                   -> add
@@ -42,19 +46,14 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_hi "(" term_list ")"                    -> call
     | "λ" ident_list "{" term "}"                  -> lambda
     | "switch" term "{" switch_list "}"            -> switch
+    | "if" term "then" term                  -> if_then_formula
+    | "all" var_list "." term                 -> all_formula
+    | "some" var_list "." term                -> some_formula
     | "(" term ")"                                 -> paren
 
 ?term_list:                                        -> empty
     | term                                         -> single
     | term "," term_list                           -> push
-
-?formula: term                                         -> term_formula
-    | formula "and" formula                        -> and_formula
-    | formula "or" formula                         -> or_formula
-    | "if" formula "then" formula                  -> if_then_formula
-    | "all" var_list "." formula                 -> all_formula
-    | "some" var_list "." formula                -> some_formula
-    | "(" formula ")"
     
 ?ident_list:                                       -> empty
     | IDENT                                        -> single
@@ -69,20 +68,20 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push
 
-?equation: term "=" term_add "by" proof            -> equation
+?equation: term_compare "=" term_add "by" proof            -> equation
 
 ?half_equation:  "..." "=" term_add "by" proof     -> half_equation
 
 ?equation_list: half_equation                      -> single
     | half_equation equation_list                  -> push
  
-?proof: "have" formula "by" proof                        -> annot
+?proof: "have" term "by" proof                        -> annot
     | "apply" proof "with" proof                         -> apply
     | proof "," proof                                    -> tuple
     | "suppose" IDENT ";" proof                          -> imp_intro
-    | "suppose" IDENT ":" formula ";" proof              -> imp_intro_explicit
+    | "suppose" IDENT ":" term ";" proof              -> imp_intro_explicit
     | "assume" IDENT ";" proof                          -> imp_intro
-    | "assume" IDENT ":" formula ";" proof              -> imp_intro_explicit
+    | "assume" IDENT ":" term ";" proof              -> imp_intro_explicit
     | "arbitrary"  var_list ";" proof                    -> all_intro
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
@@ -94,7 +93,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?proof_hi: 
     | IDENT                                              -> proof_var
-    | IDENT ":" formula "by" proof ";" proof             -> let
+    | IDENT ":" term "by" proof ";" proof             -> let
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
     | "symmetric" proof                                  -> sym_proof
@@ -109,7 +108,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?case_list: case                                        -> single
     | case case_list                                    -> push
 
-?theorem: "theorem" IDENT ":" formula "proof" proof "end" -> theorem
+?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
 
 ?type: type_params_opt "(" type_list ")" "->" type        -> function_type
  | IDENT "<" type_list ">"                     -> type_inst

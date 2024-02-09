@@ -1,3 +1,6 @@
+# TODO
+# check well-formedness of types
+
 from abstract_syntax import *
 from error import error
 from parser import parse, set_filename
@@ -83,6 +86,8 @@ def substitute(sub, frm):
   match frm:
     case Int(loc, value):
       return frm
+    case Bool(loc, value):
+      return frm
     case TVar(loc, name):
       if name in sub.keys():
         ret = sub[name]
@@ -119,6 +124,10 @@ def substitute(sub, frm):
         ret = frm
     case TypeInst(loc, name, tyargs):
       ret = TypeInst(loc, name, [substitute(sub, ty) for ty in tyargs])
+    case BoolType(loc):
+      ret = frm
+    case IntType(loc):
+      ret = frm
     case _:
       error(frm.location, 'in substitute, unhandled ' + str(frm))
   # print('substitute ' + str(frm) + ' via ' + str_of_env(sub) \
@@ -535,6 +544,30 @@ def synth_term(term, type_env, env, recfun, subterms):
       ret = IntType(loc)
     case Bool(loc, value):
       ret = BoolType(loc)
+    case And(loc, args):
+      for arg in args:
+        check_formula(arg, env, type_env)
+      ret = BoolType(loc)
+    case Or(loc, args):
+      for arg in args:
+        check_formula(arg, env, type_env)
+      ret = BoolType(loc)
+    case IfThen(loc, prem, conc):
+      check_formula(prem, env, type_env)
+      check_formula(conc, env, type_env)
+      ret = BoolType(loc)
+    case All(loc, vars, body):
+      new_type_env = copy_dict(type_env)
+      for (var,ty) in vars:
+        new_type_env[var] = ty
+      check_formula(body, env, new_type_env)      
+      ret = BoolType(loc)
+    case Some(loc, vars, body):
+      new_type_env = copy_dict(type_env)
+      for (var,ty) in vars:
+        new_type_env[var] = ty
+      check_formula(body, env, new_type_env)
+      ret = BoolType(loc)
     case TVar(loc, name):
       if name in type_env.keys():
         ret = type_env[name]
@@ -679,30 +712,7 @@ def check_pattern(pattern, typ, env, type_env):
       error(pattern.location, 'expected a constructor pattern, not ' + str(pattern))
 
 def check_formula(frm, env, type_env):
-  match frm:
-    case Bool(loc, b):
-      pass
-    case And(loc, args):
-      for arg in args:
-        check_formula(arg, env, type_env)
-    case Or(loc, args):
-      for arg in args:
-        check_formula(arg, env, type_env)
-    case IfThen(loc, prem, conc):
-      check_formula(prem, env, type_env)
-      check_formula(conc, env, type_env)
-    case All(loc, vars, body):
-      new_type_env = copy_dict(type_env)
-      for (var,ty) in vars:
-        new_type_env[var] = ty
-      check_formula(body, env, new_type_env)      
-    case Some(loc, vars, body):
-      new_type_env = copy_dict(type_env)
-      for (var,ty) in vars:
-        new_type_env[var] = ty
-      check_formula(body, env, new_type_env)
-    case _:
-      check_term(frm, BoolType(frm.location), type_env, env, None, [])
+  check_term(frm, BoolType(frm.location), type_env, env, None, [])
       
 def check_statement(stmt, env, type_env):
   match stmt:

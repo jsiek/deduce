@@ -127,14 +127,22 @@ end
 function -(Nat,Nat) -> Nat {
   -(0, m) = 0;
   -(suc(n), m) = switch m {
-                     case 0 { suc(n) }
-                     case suc(m') { n - m' }
-                   };
+                   case 0 { suc(n) }
+                   case suc(m') { n - m' }
+                 };
 }
 
 function sub_from(Nat,Nat) -> Nat {
   sub_from(0, m) = m;
   sub_from(suc(n), m) = sub_from(n, pred(m));
+}
+
+function diff(Nat,Nat) -> Nat {
+  diff(0, m) = m;
+  diff(suc(n'), m) = switch m {
+                       case 0 { suc(n') }
+                       case suc(m') { diff(n', m') }
+                     };
 }
 
 theorem sub_one_one: 1 - 1 = 0
