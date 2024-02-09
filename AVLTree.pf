@@ -5,13 +5,45 @@ union Tree<K> {
   node(K, Nat, Tree<K>, Tree<K>);
 }
 
+function compute_height<T>(Tree<T>) -> Nat {
+  compute_height(empty) = 0;
+  compute_height(node(n,h,L,R)) = 1 + max(compute_height(L), compute_height(R));
+}
+
 function height<T>(Tree<T>) -> Nat {
   height(empty) = 0;
-  height(node(n,h,L,R)) = 1 + max(height(L), height(R));
+  height(node(n,h,L,R)) = h;
 }
 
 function is_AVL<T>(Tree<T>) -> bool {
   is_AVL(empty) = true;
-  is_AVL(node(n, h, L, R)) = diff(height(L), height(R)) ≤ 1
+  is_AVL(node(n, h, L, R)) = diff(compute_height(L), compute_height(R)) ≤ 1
                              and is_AVL(L) and is_AVL(R);
+}
+
+/*
+
+  rotate right
+
+       x          y
+      / \        / \
+     y   C      A   x
+    / \            / \
+   A   B          B   C
+
+
+  node(x, hx, node(y, hy, A, B), C)
+  =>
+  hx = 1 + max(height(B), height(C))
+  hy = 1 + max(height(A), hx)
+  node(y, hy, A, node(x, hx, B, C))
+
+*/
+
+define rotate_right : (Nat, Nat, Nat, Nat,
+                       Tree<Nat>, Tree<Nat>, Tree<Nat>) -> Tree<Nat>
+  is λ x, hx, y, hy, A, B, C {
+  let hx = 1 + max(height(B), height(C));
+  let hy = 1 + max(height(A), hx);
+  node(y, hy, A, node(x, hx, B, C))
 }

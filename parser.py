@@ -160,6 +160,10 @@ def parse_tree_to_ast(e):
       return TypeInst(e.meta, str(e.children[0].value),
                       parse_tree_to_list(e.children[1]))
     # terms
+    elif e.data == 'let_term':
+        return TLet(e.meta, str(e.children[0].value),
+                    parse_tree_to_ast(e.children[1]),
+                    parse_tree_to_ast(e.children[2]))
     elif e.data == 'annote_type':
         return TAnnote(e.meta, parse_tree_to_ast(e.children[0]),
                        parse_tree_to_ast(e.children[1]))
@@ -353,8 +357,13 @@ def parse_tree_to_ast(e):
 
     # term definition
     elif e.data == 'define':
-        return Define(e.meta, str(e.children[0].value),
+        return Define(e.meta, str(e.children[0].value), 
+                      None,
                       parse_tree_to_ast(e.children[1]))
+    elif e.data == 'define_annot':
+        return Define(e.meta, str(e.children[0].value), 
+                      parse_tree_to_ast(e.children[1]),
+                      parse_tree_to_ast(e.children[2]))
 
     # import module/file
     elif e.data == 'import':

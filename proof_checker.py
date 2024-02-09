@@ -540,6 +540,11 @@ def synth_term(term, type_env, env, recfun, subterms):
     print('type_env: ' + \
           ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
   match term:
+    case TLet(loc, var, rhs, body):
+      rhs_ty = synth_term(rhs, type_env, env, recfun, subterms)
+      new_type_env = copy_dict(type_env)
+      new_type_env[var] = rhs_ty
+      ret = synth_term(body, new_type_env, env, recfun, subterms)
     case Int(loc, value):
       ret = IntType(loc)
     case Bool(loc, value):
@@ -654,6 +659,11 @@ def check_term(term, typ, type_env, env, recfun, subterms):
         case _:
           error(loc, 'expected a term of type ' + str(typ) + '\n'\
                 + 'but instead got a lambda')
+    case TLet(loc, var, rhs, body):
+      rhs_ty = synth_term(rhs, type_env, env, recfun, subterms)
+      new_type_env = copy_dict(type_env)
+      new_type_env[var] = rhs_ty
+      check_term(body, typ, new_type_env, env, recfun, subterms)
     case _:
       ty = synth_term(term, type_env, env, recfun, subterms)
       if ty != typ:
@@ -716,10 +726,13 @@ def check_formula(frm, env, type_env):
       
 def check_statement(stmt, env, type_env):
   match stmt:
-    case Define(loc, name, body):
+    case Define(loc, name, ty, body):
       if get_verbose():
         print('** check_statement(' + name + ')')
-      ty = synth_term(body, type_env, env, None, [])
+      if ty == None:
+        ty = synth_term(body, type_env, env, None, [])
+      else:
+        check_term(body, ty, type_env, env, None, [])
       env[name] = body
       type_env[name] = ty
     case Theorem(loc, name, frm, pf):

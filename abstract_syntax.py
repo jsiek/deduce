@@ -469,6 +469,11 @@ class TermInst(Term):
     # Type Erasure?
     return self.subject.reduce(env)
 
+@dataclass
+class TLet(Term):
+  var: str
+  rhs: Term
+  body: Term
     
 ################ Formulas ######################################
   
@@ -758,6 +763,7 @@ class RecFun(Statement):
 @dataclass
 class Define(Statement):
   name: str
+  typ: Type
   body: Term
 
 @dataclass

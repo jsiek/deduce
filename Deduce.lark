@@ -49,6 +49,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "if" term "then" term                  -> if_then_formula
     | "all" var_list "." term                 -> all_formula
     | "some" var_list "." term                -> some_formula
+    | "let" IDENT "=" term ";" term                -> let_term
     | "(" term ")"                                 -> paren
 
 ?term_list:                                        -> empty
@@ -93,7 +94,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?proof_hi: 
     | IDENT                                              -> proof_var
-    | IDENT ":" term "by" proof ";" proof             -> let
+    | IDENT ":" term "by" proof ";" proof                -> let
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
     | "symmetric" proof                                  -> sym_proof
@@ -149,7 +150,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     
 ?rec_function: "function" IDENT type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
-?definition: "define" IDENT "is" term                  -> define
+?definition: "define" IDENT "is" term      -> define
+ | "define" IDENT ":" type "is" term       -> define_annot
 
 ?import: "import" IDENT                            -> import
 
