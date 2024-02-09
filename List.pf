@@ -1,0 +1,147 @@
+import Nat
+
+union List<T> {
+  empty;
+  node(T, List<T>);
+}
+
+function length<E>(List<E>) -> Nat {
+  length(empty) = 0;
+  length(node(n, next)) = 1 + length(next);
+}
+
+function append<E>(List<E>, List<E>) -> List<E> {
+  append(empty, ys) = ys;
+  append(node(n, xs), ys) = node(n, append(xs, ys));
+}
+
+function reverse<E>(List<E>) -> List<E> {
+  reverse(empty) = empty;
+  reverse(node(n, next)) = append(reverse(next), node(n, empty));
+}
+
+theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
+  length(append(xs, ys)) = length(xs) + length(ys)
+proof
+  arbitrary U :type;
+  induction List<U>
+  case empty {
+    arbitrary ys:List<U>;
+    have length(append(empty,ys)) = length(empty) + length(ys) by reflexive
+  }
+  case node(n, xs') {
+    arbitrary ys :List<U>;
+    equations
+      length(append(node(n,xs'),ys))
+          = length(node(n, append(xs', ys)))    by reflexive
+      ... = 1 + length(append(xs', ys))         by reflexive
+      ... = 1 + (length(xs') + length(ys))
+                              by rewrite goal with IH[ys] then reflexive
+      ... = length(node(n,xs')) + length(ys)    by reflexive
+  }
+end
+
+theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs :List<U>.
+  append(append(xs, ys), zs) = append(xs, append(ys, zs))
+proof
+  arbitrary U :type;
+  induction List<U>
+  case empty {
+    arbitrary ys :List<U>, zs :List<U>;
+    reflexive
+  }
+  case node(n, xs') {
+    arbitrary ys :List<U>, zs :List<U>;
+    equations
+      append(append(node(n,xs'),ys),zs)
+          = node(n,append(append(xs',ys),zs))         by reflexive
+      ... = append(node(n,xs'),append(ys,zs))
+                                  by rewrite goal with IH[ys,zs] then reflexive
+  }
+end
+
+theorem append_empty: all U :type. all xs :List<U>.
+  append(xs, empty) = xs
+proof
+  arbitrary U :type;
+  induction List<U>
+  case empty {
+    have append(empty, empty) = empty by reflexive
+  }
+  case node(n, xs') {
+    equations
+      append(node(n,xs'),empty)
+          = node(n,append(xs',empty))     by reflexive
+      ... = node(n,xs')                   by rewrite goal with IH then reflexive
+  }
+end
+
+theorem length_reverse: all U :type. all xs :List<U>.
+  length(reverse(xs)) = length(xs)
+proof
+  arbitrary U : type;
+  induction List<U>
+  case empty {
+    have length(reverse(empty)) = length(empty) by reflexive
+  }
+  case node(n, xs') {
+    equations
+      length(reverse(node(n,xs')))
+          = length(append(reverse(xs'), node(n,empty))) by reflexive
+      ... = length(reverse(xs')) + length(node(n,empty))
+                    by rewrite goal with
+                      length_append[U][reverse(xs')][node(n,empty)] then reflexive
+      ... = length(xs') + 1           by rewrite goal with IH then reflexive
+      ... = length(node(n,xs'))
+                       by rewrite goal with add_one[length(xs')] then reflexive
+  }
+end
+
+theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
+  reverse(append(xs, ys)) = append(reverse(ys), reverse(xs))
+proof
+  arbitrary U :type;
+  induction List<U>
+  case empty {
+    arbitrary ys :List<U>;
+    equations
+    reverse(append(empty,ys))
+        = reverse(ys)                          by reflexive
+    ... = append(reverse(ys),empty)
+                  by rewrite goal with append_empty[U][reverse(ys)] then reflexive
+    ... = append(reverse(ys),reverse(empty))   by reflexive
+  }
+  case node(n, xs') {
+    arbitrary ys :List<U>;
+    equations
+    reverse(append(node(n,xs'),ys))
+        = reverse(node(n,append(xs',ys))) by reflexive
+    ... = append(reverse(append(xs',ys)), node(n, empty)) by reflexive
+    ... = append(append(reverse(ys), reverse(xs')), node(n, empty))
+          by rewrite goal with IH[ys] then reflexive
+    ... = append(reverse(ys), append(reverse(xs'), node(n, empty)))
+          by append_assoc[U][reverse(ys)][reverse(xs'), node(n, empty)]
+    ... = append(reverse(ys), reverse(node(n,xs'))) by reflexive
+  }
+end
+
+theorem reverse_reverse: all U :type. all ls :List<U>.
+  reverse(reverse(ls)) = ls
+proof
+  arbitrary U :type;
+  induction List<U>
+  case empty {
+    have reverse(reverse(empty)) = empty by reflexive
+  }
+  case node(n, ls') {
+    equations
+      reverse(reverse(node(n,ls')))
+          = reverse(append(reverse(ls'), node(n,empty))) by reflexive
+      ... = append(reverse(node(n,empty)), reverse(reverse(ls')))
+                  by reverse_append[U][reverse(ls')][node(n,empty)]
+      ... = append(reverse(node(n,empty)), ls') by rewrite goal with IH then reflexive
+      ... = append(node(n,empty), ls') by reflexive
+      ... = node(n,ls') by reflexive
+  }
+end
+

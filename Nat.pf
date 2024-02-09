@@ -1,0 +1,198 @@
+union Nat {
+  zero;
+  suc(Nat);
+}
+
+function +(Nat,Nat) -> Nat {
+  +(0, m) = m;
+  +(suc(n), m) = suc(n + m);
+}
+
+function max(Nat,Nat) -> Nat {
+  max(zero, n) = n;
+  max(suc(m'), n) =
+    switch n {
+      case zero { suc(m') }
+      case suc(n') { suc(max(m',n')) }
+    };
+}
+
+theorem add_zero: all n:Nat. n + 0 = n
+proof
+  induction Nat
+  case 0 {
+    have 0 + 0 = 0 by reflexive
+  }
+  case suc(n') {
+    equations
+      suc(n') + 0 = suc(n' + 0) by reflexive
+              ... = suc(n') by rewrite goal with IH then reflexive
+  }
+end
+
+theorem add_suc: all m:Nat. all n:Nat. m + suc(n) = suc(m + n)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n : Nat;
+    reflexive
+  }
+  case suc(n') {
+    arbitrary n : Nat;
+    IHn: n' + suc(n) = suc(n' + n) by IH[n];
+    have suc(n') + suc(n) = suc(suc(n') + n) by
+    equations
+    suc(n')+suc(n) = suc(n' + suc(n)) by reflexive
+               ... = suc(suc(n' + n)) by rewrite goal with IH[n] then reflexive
+               ... = suc(suc(n') + n) by reflexive
+  }
+end
+
+theorem add_one: all m:Nat. m + 1 = suc(m)
+proof
+  arbitrary m:Nat;
+  equations
+    m + 1 = suc(m + 0)      by add_suc[m][0]
+      ... = suc(m)          by rewrite goal with add_zero[m] then reflexive
+end
+
+theorem add_commute: all n:Nat. all m:Nat. n + m = m + n
+proof
+  induction Nat
+  case 0 {
+    arbitrary m : Nat;
+    equations  0 + m = m       by reflexive
+                 ... = m + 0   by symmetric add_zero[m]
+  }
+  case suc(n') {
+    arbitrary m : Nat;
+    equations
+      suc(n') + m = suc(n' + m)       by reflexive
+              ... = suc(m + n')       by rewrite goal with IH[m] then reflexive
+              ... = m + suc(n')       by symmetric add_suc[m][n']
+  }
+end
+
+theorem add_assoc: all m:Nat. all n:Nat, o:Nat.
+  (m + n) + o = m + (n + o)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat;
+    have (0 + n) + o = 0 + (n + o) by reflexive
+  }
+  case suc(m') {
+    arbitrary n:Nat, o:Nat;
+    equations
+      (suc(m') + n) + o = suc((m' + n) + o) by reflexive
+                    ... = suc(m' + (n + o))
+                                   by rewrite goal with IH[n,o] then reflexive
+                    ... = suc(m') + (n + o) by reflexive
+  }
+end
+
+theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
+  if x + y = x + z then y = z
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat, z:Nat;
+    suppose prem: 0 + y = 0 + z;
+    equations   y = 0 + y      by reflexive
+              ... = 0 + z      by prem
+              ... = z          by reflexive
+  }
+  case suc(x') {
+    arbitrary y:Nat, z:Nat;
+    suppose prem: suc(x') + y = suc(x') + z;
+    p1: suc(x' +  y) = suc(x' + z) by
+      transitive have suc(x' +  y) = suc(x') + y by reflexive
+      transitive prem reflexive;
+    p2: x' + y = x' + z by injective p1;
+    IHyz: if x' + y = x' + z then y = z by IH[y,z];
+    apply IHyz with p2
+  }
+end
+
+function pred(Nat) -> Nat {
+  pred(0) = 0;
+  pred(suc(n)) = n;
+}
+
+theorem pred_one: pred(suc(0)) = 0
+proof
+  reflexive
+end
+
+function -(Nat,Nat) -> Nat {
+  -(0, m) = 0;
+  -(suc(n), m) = switch m {
+                     case 0 { suc(n) }
+                     case suc(m') { n - m' }
+                   };
+}
+
+function sub_from(Nat,Nat) -> Nat {
+  sub_from(0, m) = m;
+  sub_from(suc(n), m) = sub_from(n, pred(m));
+}
+
+theorem sub_one_one: 1 - 1 = 0
+proof
+  reflexive
+end
+
+function ≤(Nat,Nat) -> bool {
+  ≤(0, m) = true;
+  ≤(suc(n'), m) =
+    switch m {
+      case 0 { false }
+      case suc(m') { n' ≤ m' }
+    };
+}
+
+theorem less_equal_refl: all n:Nat. n ≤ n
+proof
+  induction Nat
+  case 0 { have 0 ≤ 0 by . }
+  case suc(n') { have suc(n') ≤ suc(n') by IH }
+end
+
+theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
+  if m ≤ n and n ≤ o then m ≤ o
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat;
+    suppose _;
+    have 0 ≤ o by .
+  }
+  case suc(m') {
+    arbitrary n:Nat, o:Nat;
+    assume Prem : suc(m') ≤ n and n ≤ o;
+    sm_n: suc(m') ≤ n by Prem;
+    n_o: n ≤ o by Prem;
+    switch n {
+      case 0 {
+        sm_z: suc(m') ≤ 0 by rewrite sm_n with EQ;
+        have false by sm_z
+      }
+      case suc(n') {
+        sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with EQ;
+        m_n: m' ≤ n' by sm_sn;
+        sn_o: suc(n') ≤ o by rewrite n_o with EQ;
+        switch o {
+          case 0 {
+            sn_z: suc(n') ≤ 0 by rewrite sn_o with EQ;
+            have false by sn_z
+          }
+          case suc(o') {
+            sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
+            n_o: n' ≤ o' by sn_so;
+            rewrite goal with EQ then apply IH[n',o'] with m_n, n_o
+          }
+        }
+      }
+    }
+  }
+end
