@@ -1,0 +1,8 @@
+theorem T: all P:bool , Q:bool . if P and Q then Q and P
+proof
+  arbitrary P:bool, R:bool;
+  suppose pr: P and R;
+  p: P by pr;
+  r: R by pr;
+  have R and P by r , p
+end

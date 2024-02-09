@@ -1,0 +1,6 @@
+import Nat
+
+theorem T: (λm{m} : (Nat)->Nat)(0) = 0
+proof
+  reflexive
+end

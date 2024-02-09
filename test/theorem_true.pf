@@ -1,0 +1,4 @@
+theorem true_is_true: true
+proof
+.
+end

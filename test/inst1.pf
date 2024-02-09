@@ -1,0 +1,9 @@
+import Nat
+
+theorem T:
+  if (all x:Nat. x = x)
+  then 1 = 1
+proof
+  suppose xeqx;
+  xeqx[1]
+end

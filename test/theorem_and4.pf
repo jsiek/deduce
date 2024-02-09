@@ -1,0 +1,5 @@
+theorem T4: if false then false
+proof
+  suppose f;
+  f , f
+end

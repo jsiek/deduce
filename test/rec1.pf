@@ -1,0 +1,19 @@
+union Nat {
+  zero;
+  suc(Nat);
+}
+
+function add(Nat,Nat) -> Nat {
+  add(zero, m) = m;
+  add(suc(n), m) = suc(add(n, m));
+}
+
+theorem add_zero_one: add(zero, suc(zero)) = suc(zero)
+proof
+  reflexive
+end
+
+theorem add_one_zero: add(suc(zero), zero) = suc(zero)
+proof
+  reflexive
+end
