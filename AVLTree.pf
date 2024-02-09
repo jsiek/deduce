@@ -40,10 +40,10 @@ function is_AVL<T>(Tree<T>) -> bool {
 
 */
 
-define rotate_right : (Nat, Nat, Nat, Nat,
-                       Tree<Nat>, Tree<Nat>, Tree<Nat>) -> Tree<Nat>
-  is λ x, hx, y, hy, A, B, C {
-  let hx = 1 + max(height(B), height(C));
-  let hy = 1 + max(height(A), hx);
-  node(y, hy, A, node(x, hx, B, C))
+define make_node : (Nat, Tree<Nat>, Tree<Nat>) -> Tree<Nat> is
+  λ x, A, B { node(x, 1 + max(height(A), height(B)), A, B) }
+
+define rotate_right : (Nat, Nat, Tree<Nat>, Tree<Nat>, Tree<Nat>) -> Tree<Nat>
+  is λ x, y, A, B, C {
+  make_node(y, A, make_node(x, B, C))
 }
