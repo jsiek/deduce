@@ -21,29 +21,48 @@ function is_AVL<T>(Tree<T>) -> bool {
                              and is_AVL(L) and is_AVL(R);
 }
 
-/*
-
-  rotate right
-
-       x          y
-      / \        / \
-     y   C      A   x
-    / \            / \
-   A   B          B   C
-
-
-  node(x, hx, node(y, hy, A, B), C)
-  =>
-  hx = 1 + max(height(B), height(C))
-  hy = 1 + max(height(A), hx)
-  node(y, hy, A, node(x, hx, B, C))
-
-*/
-
 define make_node : (Nat, Tree<Nat>, Tree<Nat>) -> Tree<Nat> is
   λ x, A, B { node(x, 1 + max(height(A), height(B)), A, B) }
 
-define rotate_right : (Nat, Nat, Tree<Nat>, Tree<Nat>, Tree<Nat>) -> Tree<Nat>
-  is λ x, y, A, B, C {
-  make_node(y, A, make_node(x, B, C))
+define balance : (Tree<Nat>) -> Tree<Nat>
+  is λ A {
+  switch A {
+    case empty { empty }
+    case node(x, xh, L, R) {
+      if height(L) + 1 < height(R) then
+        switch R {
+	  case empty { empty }
+	  case node(y, yh, RL, RR) {
+	    if height(RL) ≤ height(RR) then
+	      make_node(y, make_node(x, L, RL), RR)
+	    else (
+	      switch RL {
+	        case empty { empty } // can't happen
+	        case node(z, zh, RLL, RLR) {
+	          make_node(z, make_node(x, L, RLL), make_node(y, RLR, RR))
+	        }
+	      }
+	    ) 
+	  }
+	}
+      else if height(R) + 1 < height(L) then (
+        switch L {
+	  case empty { empty }
+	  case node(y, yh, LL, LR) {
+	    if height(LR) ≤ height(LL) then
+	      make_node(y, LL, make_node(x, LR, R))
+	    else (
+	      switch LR {
+	        case empty { empty }
+		case node(z, zh, LRL, LRR) {
+		  make_node(z, make_node(y, LL, LRL), make_node(x, LRR, R))
+		}
+              }
+	    )
+	  }
+        }
+      ) else
+        A
+    }
+  }
 }

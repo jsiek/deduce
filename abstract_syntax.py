@@ -174,6 +174,37 @@ class PatternCons(Pattern):
 ################ Terms ######################################
 
 @dataclass
+class Conditional(Term):
+  cond: Term
+  thn: Term
+  els: Term
+
+  def __str__(self):
+      return 'if ' + str(self.cond) \
+        + ' then ' + str(self.thn) \
+        + ' else ' + str(self.els)
+    
+  def __repr__(self):
+      return str(self)
+    
+  def reduce(self, env):
+     cond = self.cond.reduce(env)
+     thn = self.thn.reduce(env)
+     els = self.els.reduce(env)
+     match cond:
+       case Bool(l1, True):
+         return thn
+       case Bool(l1, False):
+         return els
+       case _:
+         return Conditional(self.location, cond, thn, els)
+  
+  def substitute(self, env):
+    return Conditional(self.location, self.cond.substitute(env),
+                       self.thn.substitute(env), self.els.substitute(env))
+  
+  
+@dataclass
 class TAnnote(Term):
   subject: Term
   typ: Type
@@ -483,7 +514,7 @@ class Bool(Formula):
   def __eq__(self, other):
       return self.value == other.value
   def __str__(self):
-    return str(self.value)
+    return 'true' if self.value else 'false'
   def __repr__(self):
     return str(self)
   def reduce(self, env):

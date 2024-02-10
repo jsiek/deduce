@@ -12,6 +12,7 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies4.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/conditional1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/rec1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all2.pf

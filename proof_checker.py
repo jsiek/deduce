@@ -63,8 +63,6 @@ def check_implies(loc, frm1, frm2):
         case _:
           if frm1 != frm2:
             error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
-
-
             
 def instantiate(loc, allfrm, args):
   match allfrm:
@@ -540,6 +538,14 @@ def synth_term(term, type_env, env, recfun, subterms):
     print('type_env: ' + \
           ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
   match term:
+    case Conditional(loc, cond, thn, els):
+      check_term(cond, BoolType(loc), type_env, env, recfun, subterms)
+      thn_ty = synth_term(thn, type_env, env, recfun, subterms)
+      els_ty = synth_term(els, type_env, env, recfun, subterms)
+      if thn_ty != els_ty:
+        error(loc, 'conditional expects same type for the two branches'\
+              + ' but ' + str(thn_ty) + ' ≠ ' + str(els_ty))
+      return thn_ty
     case TLet(loc, var, rhs, body):
       rhs_ty = synth_term(rhs, type_env, env, recfun, subterms)
       new_type_env = copy_dict(type_env)
@@ -733,7 +739,7 @@ def check_statement(stmt, env, type_env):
         ty = synth_term(body, type_env, env, None, [])
       else:
         check_term(body, ty, type_env, env, None, [])
-      env[name] = body
+      env[name] = body.reduce(env)
       type_env[name] = ty
     case Theorem(loc, name, frm, pf):
       if get_verbose():

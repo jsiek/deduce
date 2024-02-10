@@ -172,6 +172,11 @@ def parse_tree_to_ast(e):
                         parse_tree_to_list(e.children[1]))
     elif e.data == 'term_var':
         return TVar(e.meta, str(e.children[0].value))
+    elif e.data == 'conditional':
+        return Conditional(e.meta,
+                           parse_tree_to_ast(e.children[0]),
+                           parse_tree_to_ast(e.children[1]),
+                           parse_tree_to_ast(e.children[2]))
     elif e.data == 'int':
         # return Int(e.meta, int(e.children[0]))
         return intToNat(e.meta, int(e.children[0]))

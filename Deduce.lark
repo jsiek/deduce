@@ -12,6 +12,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?term: term "and" term_compare                    -> and_formula
     | term "or" term_compare                      -> or_formula
     | term ":" type                           -> annote_type
+    | "if" term "then" term "else" term       -> conditional
+    | "if" term "then" term                  -> if_then_formula
     | term_compare
 
 ?term_compare: term_compare "=" term_add             -> equal
@@ -41,12 +43,11 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
     | IDENT                                        -> term_var
-    | term_hi "<" type_list ">"                    -> term_inst
+//    | term_hi "<" type_list ">"                    -> term_inst
     | "-" term_hi                                  -> neg
     | term_hi "(" term_list ")"                    -> call
     | "λ" ident_list "{" term "}"                  -> lambda
     | "switch" term "{" switch_list "}"            -> switch
-    | "if" term "then" term                  -> if_then_formula
     | "all" var_list "." term                 -> all_formula
     | "some" var_list "." term                -> some_formula
     | "let" IDENT "=" term ";" term                -> let_term
