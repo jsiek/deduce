@@ -39,9 +39,9 @@ function sum(Tree) -> Nat {
      
 */
 
-define t1 is node(3, empty, empty)
-define t2 is node(7, empty, empty)
-define t3 is node(4, t1, t2)
+define t1 = node(3, empty, empty)
+define t2 = node(7, empty, empty)
+define t3 = node(4, t1, t2)
 
 theorem thm1: height(t3) = 2
 proof

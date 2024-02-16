@@ -20,6 +20,46 @@ function reverse<E>(List<E>) -> List<E> {
   reverse(node(n, next)) = append(reverse(next), node(n, empty));
 }
 
+theorem length_zero: length(empty) = 0
+proof
+  reflexive
+end
+
+theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
+proof
+  arbitrary U:type, x:U;
+  reflexive
+end
+
+define L1 = node(1, node(2, empty))
+define L2 = node(3, node(4, node(5, empty)))
+define L3 = node(1, node(2, node(3, node(4, node(5, empty)))))
+
+theorem length_L3: length(L3) = 5
+proof
+  reflexive
+end
+
+theorem append_test: append(L1, L2) = L3
+proof
+  reflexive
+end
+
+theorem reverse_test2: reverse(L1) = node(2, node(1, empty))
+proof
+  reflexive
+end
+
+theorem reverse_test3: reverse(L2) = node(5, node(4, node(3, empty)))
+proof
+  reflexive
+end
+
+theorem length_append_123: length(append(L1, L2)) = length(L1) + length(L2)
+proof
+  reflexive
+end  
+
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(append(xs, ys)) = length(xs) + length(ys)
 proof
@@ -41,7 +81,14 @@ proof
   }
 end
 
-theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs :List<U>.
+theorem append_assoc1:
+  append(append(node(1, empty), node(2, empty)), node(3, empty))
+  = append(node(1, empty), append(node(2, empty), node(3, empty)))
+proof
+  reflexive
+end  
+
+theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
   append(append(xs, ys), zs) = append(xs, append(ys, zs))
 proof
   arbitrary U :type;
@@ -97,6 +144,12 @@ proof
   }
 end
 
+theorem reverse_append_123:
+  reverse(append(L1, L2)) = append(reverse(L2), reverse(L1))
+proof
+  reflexive
+end  
+
 theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
   reverse(append(xs, ys)) = append(reverse(ys), reverse(xs))
 proof
@@ -108,7 +161,7 @@ proof
     reverse(append(empty,ys))
         = reverse(ys)                          by reflexive
     ... = append(reverse(ys),empty)
-                  by rewrite goal with append_empty[U][reverse(ys)] then reflexive
+                by rewrite goal with append_empty[U][reverse(ys)] then reflexive
     ... = append(reverse(ys),reverse(empty))   by reflexive
   }
   case node(n, xs') {
@@ -139,9 +192,80 @@ proof
           = reverse(append(reverse(ls'), node(n,empty))) by reflexive
       ... = append(reverse(node(n,empty)), reverse(reverse(ls')))
                   by reverse_append[U][reverse(ls')][node(n,empty)]
-      ... = append(reverse(node(n,empty)), ls') by rewrite goal with IH then reflexive
+      ... = append(reverse(node(n,empty)), ls')
+                  by rewrite goal with IH then reflexive
       ... = append(node(n,empty), ls') by reflexive
       ... = node(n,ls') by reflexive
   }
 end
 
+function down_from(Nat) -> List<Nat> {
+  down_from(zero) = empty;
+  down_from(suc(n)) = node(n, down_from(n));
+}
+
+theorem down_from2: down_from(2) = node(1, node(0, empty))
+proof
+  reflexive
+end
+
+define up_to : (Nat) -> List<Nat> = λ n { reverse(down_from(n)) }
+
+theorem up_to2: up_to(2) = node(0, node(1, empty))
+proof
+  reflexive
+end
+
+theorem up_to3: up_to(3) = node(0, node(1, node(2, empty)))
+proof
+  reflexive
+end
+
+function map<T>(List<T>, (T)->T) -> List<T> {
+  map(empty, f) = empty;
+  map(node(x, ls), f) = node(f(x), map(ls, f));
+}
+
+theorem map_suc: map(L1, λx{ suc(x) } : (Nat)->Nat) = node(2, node(3, empty))
+proof
+  reflexive
+end
+
+function range_aux(Nat, Nat, Nat) -> List<Nat> {
+  range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : (Nat) -> Nat);
+  range_aux(suc(begin'), end, k) =
+    switch end {
+      case zero { empty } /* shouldn't happen */
+      case suc(end') { range_aux(begin', end', suc(k)) }
+    };
+}
+
+define range : (Nat,Nat) -> List<Nat> = λ b, e { range_aux(b, e, 0) }
+
+theorem range_empty: range(0, 0) = empty
+proof
+  reflexive
+end  
+
+theorem range1: range(0, 1) = node(0, empty)
+proof
+  reflexive
+end  
+
+theorem range2: range(0, 2) = node(0, node(1, empty))
+proof
+  reflexive
+end  
+
+theorem range13: range(1, 3) = node(1, node(2, empty))
+proof
+  reflexive
+end  
+
+theorem range25: range(2, 5) = node(2, node(3, node(4, empty)))
+proof
+  reflexive
+end  
+
+
+/* TODO zip */

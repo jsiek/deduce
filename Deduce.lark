@@ -113,7 +113,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
 
 ?type: type_params_opt "(" type_list ")" "->" type        -> function_type
- | IDENT "<" type_list ">"                     -> type_inst
+ | IDENT "<" type_list ">"                                -> type_inst
  | type_hi
 
 ?type_hi: IDENT   -> type_name
@@ -151,8 +151,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     
 ?rec_function: "function" IDENT type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
-?definition: "define" IDENT "is" term      -> define
- | "define" IDENT ":" type "is" term       -> define_annot
+?definition: "define" IDENT "=" term      -> define
+ | "define" IDENT ":" type "=" term       -> define_annot
 
 ?import: "import" IDENT                            -> import
 

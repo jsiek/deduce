@@ -512,6 +512,8 @@ class TLet(Term):
 class Bool(Formula):
   value: bool
   def __eq__(self, other):
+      if not isinstance(other, Bool):
+          return False
       return self.value == other.value
   def __str__(self):
     return 'true' if self.value else 'false'

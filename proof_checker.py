@@ -517,6 +517,8 @@ def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms):
           check_term(arg, param_type, type_env, env, recfun, subterms)
         return return_type
       else:
+        # idea: switch to check_term after all the type variables
+        # have been deduced.
         arg_types = [synth_term(arg, type_env, env, recfun, subterms) \
                      for arg in args]
         matching = {}
@@ -729,7 +731,9 @@ def check_pattern(pattern, typ, env, type_env):
 
 def check_formula(frm, env, type_env):
   check_term(frm, BoolType(frm.location), type_env, env, None, [])
-      
+
+modules = set()
+
 def check_statement(stmt, env, type_env):
   match stmt:
     case Define(loc, name, ty, body):
@@ -789,19 +793,21 @@ def check_statement(stmt, env, type_env):
         else:
           type_env[constr.name] = TypeName(loc, name)
     case Import(loc, name):
-      if get_verbose():
-        print('** check_statement(import ' + name + ')')
-      filename = name + ".pf"
-      file = open(filename, 'r')
-      src = file.read()
-      set_filename(filename)
-      ast = parse(src, trace=False)
-      # TODO: cache the proof-checking of files
-      temp = get_verbose()
-      set_verbose(False)
-      for s in ast:
-        check_statement(s, env, type_env)
-      set_verbose(temp)
+      if name not in modules:
+        modules.add(name)
+        if get_verbose():
+          print('** check_statement(import ' + name + ')')
+        filename = name + ".pf"
+        file = open(filename, 'r')
+        src = file.read()
+        set_filename(filename)
+        ast = parse(src, trace=False)
+        # TODO: cache the proof-checking of files
+        temp = get_verbose()
+        set_verbose(False)
+        for s in ast:
+          check_statement(s, env, type_env)
+        set_verbose(temp)
       
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
