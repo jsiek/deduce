@@ -153,7 +153,7 @@ def parse_tree_to_ast(e):
       return TypeType(e.meta)
     elif e.data == 'function_type':
       return FunctionType(e.meta,
-                          parse_tree_to_list(e.children[0]),
+                          [str(tok.value) for tok in parse_tree_to_list(e.children[0])],
                           parse_tree_to_list(e.children[1]),
                           parse_tree_to_ast(e.children[2]))
     elif e.data == 'type_inst':
@@ -328,7 +328,7 @@ def parse_tree_to_ast(e):
     # union definitions
     elif e.data == 'union':
         return Union(e.meta, str(e.children[0].value),
-                     parse_tree_to_list(e.children[1]),
+                     [str(tok.value) for tok in parse_tree_to_list(e.children[1])],
                      parse_tree_to_list(e.children[2]))
     
     # theorem definitions
@@ -355,7 +355,7 @@ def parse_tree_to_ast(e):
     # recursive functions
     elif e.data == 'rec_fun':
         return RecFun(e.meta, str(e.children[0].value),
-                      parse_tree_to_list(e.children[1]),
+                      [str(tok.value) for tok in parse_tree_to_list(e.children[1])],
                       parse_tree_to_list(e.children[2]),
                       parse_tree_to_ast(e.children[3]),
                       parse_tree_to_list(e.children[4]))

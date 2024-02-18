@@ -55,6 +55,9 @@ class TypeName(Type):
       return False
     return self.name == other.name
 
+  def free_vars(self):
+    return set([self.name])
+  
 @dataclass
 class IntType(Type):
     
@@ -67,6 +70,9 @@ class IntType(Type):
   def __eq__(self, other):
     return isinstance(other, IntType)
 
+  def free_vars(self):
+    return set()
+  
 @dataclass
 class BoolType(Type):
   def __str__(self):
@@ -78,6 +84,9 @@ class BoolType(Type):
   def __eq__(self, other):
     return isinstance(other, BoolType)
 
+  def free_vars(self):
+    return set()
+  
 @dataclass
 class TypeType(Type):
   def __str__(self):
@@ -88,6 +97,9 @@ class TypeType(Type):
 
   def __eq__(self, other):
     return isinstance(other, TypeType)
+
+  def free_vars(self):
+    return set()
   
 @dataclass
 class FunctionType(Type):
@@ -108,10 +120,15 @@ class FunctionType(Type):
       case FunctionType(l2, tv2, pts2, rt2):
         ret = True
         for (pt1, pt2) in zip(self.param_types, pts2):
-          ret = ret and type_equal(pt1, pt2)
-        return ret and type_equal(self.return_type, rt2)
+          ret = ret and pt1 == pt2
+        return ret and self.return_type == rt2
       case _:
         return False
+
+  def free_vars(self):
+    fvs = [pt.free_vars() for pt in self.param_types] \
+      + [self.return_type.free_vars()]
+    return set().union(*fvs) - set(self.type_params)
       
 @dataclass
 class TypeInst(Type):
@@ -134,6 +151,9 @@ class TypeInst(Type):
         return self.name == name
       case _:
         return False
+
+  def free_vars(self):
+    return set().union(*[at.free_vars() for at in self.arg_types])
 
 # This is the type of a constructor such as 'empty' of a generic union
 # when we do not yet know the type arguments.

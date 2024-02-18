@@ -98,17 +98,13 @@ def substitute(sub, frm):
     case IfThen(loc, prem, conc):
       ret = IfThen(loc, substitute(sub, prem), substitute(sub, conc))
     case All(loc, vars, frm2):
-      # TODO: alpha rename
+      # alpha rename
       new_vars = [(generate_name(var[0]),var[1]) for var in vars]
       ren = {var[0]: TVar(loc, new_var[0]) \
               for (var,new_var) in zip(vars, new_vars)}
       frm3 = substitute(ren, frm2)
-      # new_sub = copy_dict(sub)
-      # for var in vars:
-      #   new_sub[var[0]] = TVar(loc,var[0])
+      # apply the substitution to the body
       ret = All(loc, new_vars, substitute(sub, frm3))
-    # case PrimitiveCall(loc, op, args):
-    #   ret = PrimitiveCall(loc, op, [substitute(sub, arg) for arg in args])
     case Call(loc, rator, args, infix):
       ret = Call(loc, substitute(sub, rator),
                  [substitute(sub, arg) for arg in args],
@@ -126,6 +122,17 @@ def substitute(sub, frm):
       ret = frm
     case IntType(loc):
       ret = frm
+    case FunctionType(loc, typarams, param_types, return_type):
+      # alpha rename
+      new_vars = [generate_name(var) for var in typarams]
+      ren = {var: TVar(loc, new_var) \
+              for (var,new_var) in zip(typarams, new_vars)}
+      param_types2 = [substitute(ren, pt) for pt in param_types]
+      return_type2 = substitute(ren, return_type)
+      # apply substitution to the body
+      ret = FunctionType(loc, new_vars, [substitute(sub, pt) for pt in param_types2],
+                         substitute(sub, return_type2))
+    
     case _:
       error(frm.location, 'in substitute, unhandled ' + str(frm))
   # print('substitute ' + str(frm) + ' via ' + str_of_env(sub) \
@@ -315,7 +322,6 @@ def check_proof_of(proof, formula, env, type_env):
         case Call(loc2, TVar(loc3, '='), [lhs, rhs], _):
           lhsNF = lhs.reduce(env)
           rhsNF = rhs.reduce(env)
-          # print('reflexive: ' + str(lhsNF) + ' =? ' + str(rhsNF))
           if lhsNF != rhsNF:
             (lhs,rhs) = isolate_difference(lhsNF, rhsNF)
             msg = 'error in proof by reflexive:\n'
@@ -428,7 +434,7 @@ def check_proof_of(proof, formula, env, type_env):
             goal = instantiate(loc, formula, [trm])
             new_type_env = copy_dict(type_env)
             if len(typarams) > 0:
-              sub = { T.value: ty for (T,ty) in zip(typarams, typ.arg_types)}
+              sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
               parameter_types = [substitute(sub, p) for p in constr.parameters]
             else:
               parameter_types = constr.parameters
@@ -468,8 +474,6 @@ def check_proof_of(proof, formula, env, type_env):
     case RewriteGoal(loc, equation_proof, body):
       equation = check_proof(equation_proof, env, type_env)
       new_formula = rewrite(loc, formula, equation)
-      # print('rewrite goal using equation ' + str(equation) \
-      #       + '\nfrom ' + str(formula) + '\nto   ' + str(new_formula))
       check_proof_of(body, new_formula, env, type_env)
     case _:
       form = check_proof(proof, env, type_env)
@@ -478,7 +482,8 @@ def check_proof_of(proof, formula, env, type_env):
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
     print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")
-    print("\t" + str(matching))
+    print("\tin  " + str(tyvars))
+    print("\twith" + str(matching))
   match (param_ty, arg_ty):
     case (TypeName(l1, n1), TypeName(l2, n2)) if n1 == n2:
       pass
@@ -509,7 +514,7 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
               + "does not match parameter type: " + str(param_ty))
     
       
-def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms):
+def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms, ret_ty):
   match funty:
     case FunctionType(loc2, typarams, param_types, return_type):
       if len(typarams) == 0:
@@ -517,21 +522,44 @@ def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms):
           check_term(arg, param_type, type_env, env, recfun, subterms)
         return return_type
       else:
-        # idea: switch to check_term after all the type variables
-        # have been deduced.
-        arg_types = [synth_term(arg, type_env, env, recfun, subterms) \
-                     for arg in args]
         matching = {}
-        for (param_ty, arg_ty) in zip(param_types, arg_types):
-          type_match(loc, typarams, param_ty, arg_ty, matching)
+        # If there is an expected return type, match that first.
+        if ret_ty:
+          type_match(loc, typarams, return_type, ret_ty, matching)
+        # If we have already deduced the type parameters in the parameter type,
+        # then we can check the term. Otherwise, we synthesize the term's type
+        # and match it against the parameter type.
+        for (arg, param_ty) in zip(args, param_types):
+            param_type = substitute(matching, param_ty)
+            fvs = param_type.free_vars().intersection(set(typarams))
+            if len(fvs) == 0:
+              check_term(arg, param_type, type_env, env, recfun, subterms)
+            else:
+              arg_ty = synth_term(arg, type_env, env, recfun, subterms)
+              type_match(loc, typarams, param_type, arg_ty, matching)
         inst_return_type = substitute(matching, return_type)
         return inst_return_type
     case _:
       error(loc, 'expected operator to have function type, not ' + str(funty))
       
-def type_check_call(loc, rator, args, type_env, env, recfun, subterms):
+def type_check_call(loc, rator, args, type_env, env, recfun, subterms, ret_ty):
   ty = synth_term(rator, type_env, env, recfun, subterms)
-  return type_check_call_helper(loc, ty, args, type_env, env, recfun, subterms)
+  return type_check_call_helper(loc, ty, args, type_env, env, recfun, subterms, ret_ty)
+
+def type_check_rec_call(loc, loc2, name, args, type_env, env, recfun, subterms, ret_ty):
+  match args[0]:
+    case TVar(loc3, arg_name):
+        if not (arg_name in subterms):
+          error(loc, "ill-formed recursive call, " \
+                + "expected first argument to be " \
+                + " or ".join(subterms) + ", not " + arg_name)
+    case _:
+      error(loc, "ill-formed recursive call, " \
+            + "expected first argument to be " \
+            + " or ".join(subterms) + ", not " + str(args[0]))
+  return type_check_call(loc, TVar(loc2,name), args, type_env, env,
+                         recfun, subterms, ret_ty)
+
 
 # TODO: add env parameter
 def synth_term(term, type_env, env, recfun, subterms):
@@ -597,21 +625,11 @@ def synth_term(term, type_env, env, recfun, subterms):
         
     case Call(loc, TVar(loc2, name), args, infix) if name == recfun:
       # recursive call
-      match args[0]:
-        case TVar(loc3, arg_name):
-            if not (arg_name in subterms):
-              error(loc, "ill-formed recursive call, " \
-                    + "expected first argument to be " \
-                    + " or ".join(subterms) + ", not " + arg_name)
-        case _:
-          error(loc, "ill-formed recursive call, " \
-                + "expected first argument to be " \
-                + " or ".join(subterms) + ", not " + str(args[0]))
-      ret = type_check_call(loc, TVar(loc2,name), args, type_env, env,
-                             recfun, subterms)
+      ret = type_check_rec_call(loc, loc2, name, args, type_env, env,
+                                recfun, subterms, None)
     case Call(loc, rator, args, infix):
       # non-recursive call
-      ret = type_check_call(loc, rator, args, type_env, env, recfun, subterms)
+      ret = type_check_call(loc, rator, args, type_env, env, recfun, subterms, None)
     case Switch(loc, subject, cases):
       ty = synth_term(subject, type_env, env, recfun, subterms)
       # TODO: check for completeness
@@ -645,6 +663,8 @@ def synth_term(term, type_env, env, recfun, subterms):
   return ret
   
 def check_term(term, typ, type_env, env, recfun, subterms):
+  if get_verbose():
+    print('check_term: ' + str(term) + ' : ' + str(type) + '?')
   match term:
     case TVar(loc, name) if name in type_env \
                          and isinstance(type_env[name], GenericType):
@@ -672,6 +692,18 @@ def check_term(term, typ, type_env, env, recfun, subterms):
       new_type_env = copy_dict(type_env)
       new_type_env[var] = rhs_ty
       check_term(body, typ, new_type_env, env, recfun, subterms)
+    case Call(loc, TVar(loc2, name), args, infix) if name == '=' or name == '≠':
+      ty = synth_term(term, type_env, env, recfun, subterms)
+      if ty != typ:
+        error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
+      
+    case Call(loc, TVar(loc2, name), args, infix) if name == recfun:
+      # recursive call
+      type_check_rec_call(loc, loc2, name, args, type_env, env,
+                          recfun, subterms, typ)
+    case Call(loc, rator, args, infix):
+      # non-recursive call
+      type_check_call(loc, rator, args, type_env, env, recfun, subterms, typ)
     case _:
       ty = synth_term(term, type_env, env, recfun, subterms)
       if ty != typ:
@@ -703,7 +735,7 @@ def check_constructor_pattern(loc, constr_name, params, typ, env, tyname, type_e
             # constr = node(T, List<T>)
             if constr.name == constr_name:
               if len(typarams) > 0:
-                sub = { T.value: ty for (T,ty) in zip(typarams, typ.arg_types)}
+                sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
                 # print('instantiate constructor: ' + str(sub))
                 parameter_types = [substitute(sub, p) for p in constr.parameters]
               else:
