@@ -209,24 +209,59 @@ proof
   reflexive
 end
 
-theorem map_id: all T:type, f:(T)->T. all xs:List<T>.
-   if (all x:T. f(x) = x) then map(xs, f) = xs
+theorem length_map: all T:type, f:(T)->T. all xs:List<T>.
+  length(map(xs, f)) = length(xs)
 proof
   arbitrary T:type, f:(T)->T;
   induction List<T>
   case empty {
-    assume fxx : (all x:T. f(x) = x);
     reflexive
   }
+  case node(x, ls') {
+    equations
+      length(map(node(x,ls'),f))
+          = suc(length(map(ls',f)))   by reflexive
+      ... = suc(length(ls'))          by rewrite goal with IH then reflexive
+      ... = length(node(x,ls'))       by reflexive
+  }
+end
+
+theorem map_id: all T:type, f:(T)->T. if (all x:T. f(x) = x) then
+   all xs:List<T>. map(xs, f) = xs
+proof
+  arbitrary T:type, f:(T)->T;
+  assume fxx: (all x:T. f(x) = x);
+  induction List<T>
+  case empty {
+    have map(empty,f) = empty by reflexive
+  }
   case node(x, ls) {
-    assume fxx;
     equations
       map(node(x,ls),f)
-          = node(f(x), map(ls, f))   by reflexive
-      ... = node(x, map(ls, f))      by rewrite goal with fxx[x] then reflexive
-      ... = node(x, ls) by rewrite goal with (apply IH with fxx) then reflexive
+          = node(f(x), map(ls, f)) by reflexive
+      ... = node(x, map(ls, f)) by rewrite goal with fxx[x] then reflexive
+      ... = node(x,ls) by rewrite goal with IH then reflexive
   }
-end  
+end
+
+theorem map_append: all T:type, f:(T)->T, ys:List<T>. all xs:List<T>.
+  map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
+proof
+  arbitrary T:type, f:(T)->T, ys:List<T>;
+  induction List<T>
+  case empty {
+    reflexive
+  }
+  case node(x, xs') {
+    equations
+      map(append(node(x,xs'),ys),f)
+          = map(node(x, append(xs',ys)), f)     by reflexive
+      ... = node(f(x), map(append(xs',ys), f))  by reflexive
+      ... = node(f(x), append(map(xs',f), map(ys,f)))
+                                        by (rewrite goal with IH then reflexive)
+      ... = append(map(node(x,xs'),f),map(ys,f)) by reflexive
+  }
+end
 
 function foldr<T,U>(List<T>, U, (T,U)->U) -> U {
   foldr(empty, u, c) = u;
@@ -253,7 +288,8 @@ proof
   reflexive
 end  
 
-theorem foldl_rev: foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
+theorem foldl_rev12:
+  foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 proof
   reflexive
 end  
