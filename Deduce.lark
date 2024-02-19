@@ -95,7 +95,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?proof_hi: 
     | IDENT                                              -> proof_var
-    | IDENT ":" term "by" proof ";" proof                -> let
+    | "have" IDENT ":" term "by" proof ";" proof         -> let
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
     | "symmetric" proof                                  -> sym_proof

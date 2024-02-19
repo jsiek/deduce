@@ -39,7 +39,7 @@ proof
   }
   case suc(n') {
     arbitrary n : Nat;
-    IHn: n' + suc(n) = suc(n' + n) by IH[n];
+    have IHn: n' + suc(n) = suc(n' + n) by IH[n];
     have suc(n') + suc(n) = suc(suc(n') + n) by
     equations
     suc(n')+suc(n) = suc(n' + suc(n)) by reflexive
@@ -105,11 +105,11 @@ proof
   case suc(x') {
     arbitrary y:Nat, z:Nat;
     suppose prem: suc(x') + y = suc(x') + z;
-    p1: suc(x' +  y) = suc(x' + z) by
+    have p1: suc(x' +  y) = suc(x' + z) by
       transitive have suc(x' +  y) = suc(x') + y by reflexive
       transitive prem reflexive;
-    p2: x' + y = x' + z by injective p1;
-    IHyz: if x' + y = x' + z then y = z by IH[y,z];
+    have p2: x' + y = x' + z by injective p1;
+    have IHyz: if x' + y = x' + z then y = z by IH[y,z];
     apply IHyz with p2
   }
 end
@@ -182,25 +182,25 @@ proof
   case suc(m') {
     arbitrary n:Nat, o:Nat;
     assume Prem : suc(m') ≤ n and n ≤ o;
-    sm_n: suc(m') ≤ n by Prem;
-    n_o: n ≤ o by Prem;
+    have sm_n: suc(m') ≤ n by Prem;
+    have n_o: n ≤ o by Prem;
     switch n {
       case 0 {
-        sm_z: suc(m') ≤ 0 by rewrite sm_n with EQ;
+        have sm_z: suc(m') ≤ 0 by rewrite sm_n with EQ;
         have false by sm_z
       }
       case suc(n') {
-        sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with EQ;
-        m_n: m' ≤ n' by sm_sn;
-        sn_o: suc(n') ≤ o by rewrite n_o with EQ;
+        have sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with EQ;
+        have m_n: m' ≤ n' by sm_sn;
+        have sn_o: suc(n') ≤ o by rewrite n_o with EQ;
         switch o {
           case 0 {
-            sn_z: suc(n') ≤ 0 by rewrite sn_o with EQ;
+            have sn_z: suc(n') ≤ 0 by rewrite sn_o with EQ;
             have false by sn_z
           }
           case suc(o') {
-            sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
-            n_o: n' ≤ o' by sn_so;
+            have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
+            have n_o: n' ≤ o' by sn_so;
             rewrite goal with EQ then apply IH[n',o'] with m_n, n_o
           }
         }
