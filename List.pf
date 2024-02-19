@@ -199,6 +199,66 @@ proof
   }
 end
 
+function map<T>(List<T>, (T)->T) -> List<T> {
+  map(empty, f) = empty;
+  map(node(x, ls), f) = node(f(x), map(ls, f));
+}
+
+theorem map_suc: map(L1, λx{ suc(x) } : (Nat)->Nat) = node(2, node(3, empty))
+proof
+  reflexive
+end
+
+theorem map_id: all T:type, f:(T)->T. all xs:List<T>.
+   if (all x:T. f(x) = x) then map(xs, f) = xs
+proof
+  arbitrary T:type, f:(T)->T;
+  induction List<T>
+  case empty {
+    assume fxx : (all x:T. f(x) = x);
+    reflexive
+  }
+  case node(x, ls) {
+    assume fxx;
+    equations
+      map(node(x,ls),f)
+          = node(f(x), map(ls, f))   by reflexive
+      ... = node(x, map(ls, f))      by rewrite goal with fxx[x] then reflexive
+      ... = node(x, ls) by rewrite goal with (apply IH with fxx) then reflexive
+  }
+end  
+
+function foldr<T,U>(List<T>, U, (T,U)->U) -> U {
+  foldr(empty, u, c) = u;
+  foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c));
+}
+
+theorem foldr_add12: foldr(L1, 0, λa,b{ a + b }) = 3
+proof
+  reflexive
+end
+
+theorem foldr_id: foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
+proof
+  reflexive
+end
+
+function foldl<T,U>(List<T>, U, (U,T)->U) -> U {
+  foldl(empty, u, c) = u;
+  foldl(node(t, ls), u, c) = foldl(ls, c(u, t), c);
+}
+
+theorem foldl_add12: foldl(L1, 0, λa,b{ a + b }) = 3
+proof
+  reflexive
+end  
+
+theorem foldl_rev: foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
+proof
+  reflexive
+end  
+
+
 function down_from(Nat) -> List<Nat> {
   down_from(zero) = empty;
   down_from(suc(n)) = node(n, down_from(n));
@@ -217,16 +277,6 @@ proof
 end
 
 theorem up_to3: up_to(3) = node(0, node(1, node(2, empty)))
-proof
-  reflexive
-end
-
-function map<T>(List<T>, (T)->T) -> List<T> {
-  map(empty, f) = empty;
-  map(node(x, ls), f) = node(f(x), map(ls, f));
-}
-
-theorem map_suc: map(L1, λx{ suc(x) } : (Nat)->Nat) = node(2, node(3, empty))
 proof
   reflexive
 end

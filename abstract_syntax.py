@@ -173,6 +173,9 @@ class GenericType(Type):
       case _:
         return False
 
+  def free_vars(self):
+    return set()
+
   
 ################ Patterns ######################################
 
@@ -415,9 +418,11 @@ class Call(Term):
   def __eq__(self, other):
       if not isinstance(other, Call):
           return False
-      ret = self.rator == other.rator \
-          and all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
-      return ret
+      eq_rators = self.rator == other.rator
+      # print('eq? ' + str(self.rator) + ' ' + str(other.rator) + ' = ' + str(eq_rators))
+      eq_rands = all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
+      # print('eq? ' + str(self.args) + ' ' + str(other.args) + ' = ' + str(eq_rands))
+      return eq_rators and eq_rands
 
   def reduce(self, env):
       fun = self.rator.reduce(env)
@@ -604,6 +609,13 @@ class All(Formula):
     # TODO
     return self
 
+  def __eq__(self, other):
+    if not isinstance(other, All):
+      return False
+    ren = {x[0]: TVar(None, y[0]) for (x,y) in zip(self.vars, other.vars)}
+    new_body = self.body.substitute(ren)
+    return new_body == other.body
+  
 @dataclass
 class Some(Formula):
   vars: list[Tuple[str,Type]]
