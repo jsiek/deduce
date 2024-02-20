@@ -57,6 +57,12 @@ class TypeName(Type):
 
   def free_vars(self):
     return set([self.name])
+
+  def substitute(self, sub):
+    if self.name in sub.keys():
+      return sub[self.name]
+    else:
+      return self
   
 @dataclass
 class IntType(Type):
@@ -72,6 +78,9 @@ class IntType(Type):
 
   def free_vars(self):
     return set()
+
+  def substitute(self, sub):
+    return self
   
 @dataclass
 class BoolType(Type):
@@ -86,6 +95,9 @@ class BoolType(Type):
 
   def free_vars(self):
     return set()
+
+  def substitute(self, sub):
+    return self
   
 @dataclass
 class TypeType(Type):
@@ -100,7 +112,10 @@ class TypeType(Type):
 
   def free_vars(self):
     return set()
-  
+
+  def substitute(self, sub):
+    return self
+
 @dataclass
 class FunctionType(Type):
   type_params: List[str]
@@ -129,7 +144,20 @@ class FunctionType(Type):
     fvs = [pt.free_vars() for pt in self.param_types] \
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
-      
+
+  def substitute(self, sub):
+      # alpha rename
+      new_vars = [generate_name(var) for var in self.type_params]
+      ren = {var: TVar(self.location, new_var) \
+              for (var,new_var) in zip(self.type_params, new_vars)}
+      param_types2 = [pt.substitute(ren) for pt in self.param_types]
+      return_type2 = self.return_type.substitute(ren)
+      # apply substitution to the rest
+      return FunctionType(self.location, new_vars,
+                          [pt.substitute(sub) for pt in param_types2],
+                          return_type2.substitute(sub))
+    
+  
 @dataclass
 class TypeInst(Type):
   name: str
@@ -155,6 +183,9 @@ class TypeInst(Type):
   def free_vars(self):
     return set().union(*[at.free_vars() for at in self.arg_types])
 
+  def substitute(self, sub):
+    return TypeInst(self.location, self.name, [ty.substitute(sub) for ty in self.arg_types])
+  
 # This is the type of a constructor such as 'empty' of a generic union
 # when we do not yet know the type arguments.
 @dataclass
@@ -176,6 +207,8 @@ class GenericType(Type):
   def free_vars(self):
     return set()
 
+  def substitute(self, sub):
+    return self
   
 ################ Patterns ######################################
 
@@ -222,9 +255,9 @@ class Conditional(Term):
        case _:
          return Conditional(self.location, cond, thn, els)
   
-  def substitute(self, env):
-    return Conditional(self.location, self.cond.substitute(env),
-                       self.thn.substitute(env), self.els.substitute(env))
+  def substitute(self, sub):
+    return Conditional(self.location, self.cond.substitute(sub),
+                       self.thn.substitute(sub), self.els.substitute(sub))
   
   
 @dataclass
@@ -364,10 +397,11 @@ class Lambda(Term):
     return str(self)
 
   def __eq__(self, other):
-      # to do: alpha-equivalence
       if not isinstance(other, Lambda):
           return False
-      return self.vars == other.vars and self.body == other.body
+      ren = {x: TVar(self.location, y) for (x,y) in zip(self.vars, other.vars) }
+      new_body = self.body.substitute(ren)
+      return new_body == other.body
 
   def reduce(self, env):
       return self
@@ -378,7 +412,7 @@ class Lambda(Term):
       new_vars = [generate_name(p) for p in self.vars]
       for (v,new_v) in zip(self.vars, new_vars):
           new_env[v] = TVar(self.location, new_v)
-      return Lambda(new_vars, self.body.substitute(new_env), name)
+      return Lambda(self.location, new_vars, self.body.substitute(new_env))
 
 def is_match(pattern, arg, subst):
     ret = False
@@ -437,18 +471,37 @@ class Call(Term):
           first_arg = args[0]
           rest_args = args[1:]
           for fun_case in cases:
+              # alpha rename
+              ren = {}
+              fun_case_pattern_parameters = []
+              for p in fun_case.pattern.parameters:
+                  new_p = generate_name(p)
+                  ren[p] = TVar(loc, new_p)
+                  fun_case_pattern_parameters.append(new_p)
+              fun_case_parameters = []
+              for p in fun_case.parameters:
+                  new_p = generate_name(p)
+                  ren[p] = TVar(loc, new_p)
+                  fun_case_parameters.append(new_p)
+              fun_case_pattern = PatternCons(fun_case.pattern.location,
+                                             fun_case.pattern.constructor,
+                                             fun_case_pattern_parameters)
+              fun_case_body = fun_case.body.substitute(ren)
               subst = {}
-              if is_match(fun_case.pattern, first_arg, subst):
+              if is_match(fun_case_pattern, first_arg, subst):
                   new_env = copy_dict(env)
                   for (k,v) in subst.items():
+                      # TODO: not sure if the reduce is needed here -Jeremy
                       new_env[k] = v.reduce(env)
-                  for (k,v) in zip(fun_case.parameters, rest_args):
+                      # new_env[k] = v
+                  bindings = {x:v for (x,v) in zip(fun_case_parameters, rest_args)}
+                  for (k,v) in zip(fun_case_parameters, rest_args):
                       new_env[k] = v.reduce(env)
-                  return fun_case.body.reduce(new_env)
+                  ret = fun_case_body.reduce(new_env)
+                  return ret
           ret = Call(self.location, fun, args, self.infix)
         case _:
           ret = Call(self.location, fun, args, self.infix)
-      # print('reduce call ' + str(self) + ' to ' + str(ret))
       return ret
 
   def substitute(self, env):
@@ -467,6 +520,16 @@ class SwitchCase(AST):
   def __repr__(self):
       return str(self)
 
+  def reduce(self, env):
+      # alpha rename the parameters
+      new_params = [generate_name(x) for x in self.pattern.parameters]
+      ren = {x: TVar(self.location,y) for (x,y) in zip(self.pattern.parameters, new_params)}
+      return SwitchCase(self.location,
+                        PatternCons(self.pattern.location,
+                                    self.pattern.constructor,
+                                    new_params),
+                        self.body.substitute(ren).reduce(env))
+    
   def substitute(self, env):
       new_env = copy_dict(env)
       # alpha rename the parameters
@@ -474,9 +537,18 @@ class SwitchCase(AST):
       for x, new_x in zip(self.pattern.parameters, new_params):
           new_env[x] = TVar(self.location, new_x)
       return SwitchCase(self.location,
-                        PatternCons(self.pattern.constructor, new_params),
+                        PatternCons(self.pattern.location,
+                                    self.pattern.constructor,
+                                    new_params),
                         self.body.substitute(new_env))
-  
+
+  def __eq__(self, other):
+    ren = {}
+    for (x, y) in zip(self.pattern.parameters, other.pattern.parameters):
+        ren[x] = TVar(self.location, y)
+    return self.pattern.constructor == other.pattern.constructor \
+      and self.body.substitute(ren) == other.body
+    
 @dataclass
 class Switch(Term):
   subject: Term
@@ -500,12 +572,17 @@ class Switch(Term):
             for x,v in subst.items():
               new_env[x] = v
             return c.body.reduce(new_env)
-      return Switch(self.location, new_subject, self.cases)
+      new_cases = [c.reduce(env) for c in self.cases]
+      return Switch(self.location, new_subject, new_cases)
   
   def substitute(self, env):
       return Switch(self.location, self.subject.substitute(env),
                     [c.substitute(env) for c in self.cases])
-  
+
+  def __eq__(self, other):
+    eq_subject = self.subject == other.subject
+    eq_cases = all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
+    return eq_subject and eq_cases
 
 @dataclass
 class TermInst(Term):
@@ -525,6 +602,12 @@ class TermInst(Term):
     # Type Erasure?
     return self.subject.reduce(env)
 
+  def substitute(self, sub):
+    return TermInst(self.location, self.subject.substitute(sub),
+                    [ty.substitute(sub) for ty in self.type_args])
+    
+
+  
 @dataclass
 class TLet(Term):
   var: str
@@ -560,7 +643,10 @@ class And(Formula):
       return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   def reduce(self, env):
     return And(self.location, [arg.reduce(env) for arg in self.args])
+  def substitute(self, sub):
+    return And(self.location, [arg.substitute(sub) for arg in self.args])
 
+  
 @dataclass
 class Or(Formula):
   args: list[Formula]
@@ -570,6 +656,8 @@ class Or(Formula):
       return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   def reduce(self, env):
     return Or(self.location, [arg.reduce(env) for arg in self.args])
+  def substitute(self, sub):
+    return Or(self.location, [arg.substitute(sub) for arg in self.args])
 
 # @dataclass
 # class Compare(Formula):
@@ -595,7 +683,11 @@ class IfThen(Formula):
       return Bool(self.location, True)
     else:
       return IfThen(self.location, prem, conc)
+  def substitute(self, sub):
+    return IfThen(self.location, self.premise.substitute(sub),
+                  self.conclusion.substitute(sub))
 
+    
 @dataclass
 class All(Formula):
   vars: list[Tuple[str,Type]]
@@ -615,6 +707,16 @@ class All(Formula):
     ren = {x[0]: TVar(None, y[0]) for (x,y) in zip(self.vars, other.vars)}
     new_body = self.body.substitute(ren)
     return new_body == other.body
+
+  def substitute(self, sub):
+    # alpha rename
+    new_vars = [(generate_name(var[0]),var[1]) for var in self.vars]
+    ren = {var[0]: TVar(self.location, new_var[0]) \
+            for (var,new_var) in zip(self.vars, new_vars)}
+    body2 = self.body.substitute(ren)
+    # apply the substitution to the body
+    return All(self.location, new_vars, body2.substitute(sub))
+    
   
 @dataclass
 class Some(Formula):
@@ -823,6 +925,9 @@ class RecFun(Statement):
         return self.name == other.name
 
     def reduce(self, env):
+        return self
+
+    def substitute(self, sub):
         return self
     
 @dataclass

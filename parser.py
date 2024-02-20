@@ -83,13 +83,13 @@ def parse_tree_to_case_list(e):
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
     
-infix_ops = {'add', 'sub', 'mul', 'div', 'int_div', 'mod',
+infix_ops = {'add', 'sub', 'mul', 'div', 'int_div', 'mod', 'circ',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal'}
 
 prefix_ops = {'neg', 'not'}
 
-operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/',
+operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘',
                    'int_div': 'div', 'mod': '%', 'neg':'-', 
                    'and': 'and', 'or':'or', 'not': 'not',
                    'equal': '=', 'not_equal': '≠',

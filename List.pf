@@ -244,6 +244,12 @@ proof
   }
 end
 
+/*
+TODO: add support for ∀ and Λ
+define ∘ : ∀ T:type. ((T)->T, (T)->T) -> ((T)->T)
+         = ΛT. λ g,f { λ x { g(f(x)) } }
+*/
+
 theorem map_append: all T:type, f:(T)->T, ys:List<T>. all xs:List<T>.
   map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
 proof
@@ -260,6 +266,22 @@ proof
       ... = node(f(x), append(map(xs',f), map(ys,f)))
                                         by (rewrite goal with IH then reflexive)
       ... = append(map(node(x,xs'),f),map(ys,f)) by reflexive
+  }
+end
+
+theorem map_compose: all U:type, f:(U)->U, g:(U)->U. all ls :List<U>.
+  map(map(ls, f), g) = map(ls, λx{ g(f(x)) })
+proof
+  arbitrary U:type, f:(U)->U, g:(U)->U;
+  induction List<U>
+  case empty { reflexive }
+  case node(x, ls) {
+    equations
+    map(map(node(x,ls),f),g)
+	= node(g(f(x)), map(map(ls, f), g))     by reflexive
+    ... = node(g(f(x)), map(ls, λy{g(f(y))}))
+   	                                 by rewrite goal with IH then reflexive
+    ... = map(node(x,ls),λy{g(f(y))})    by reflexive
   }
 end
 

@@ -2,7 +2,7 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\+\-*%=≠<>≤≥&]/
+OPERATOR: /[\+\-*%=≠<>≤≥&∘]/
 IDENT: (/_/|UPPER|LOWER|OPERATOR) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -32,6 +32,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med "/" term_hi                         -> div
     | term_med "%" term_hi                         -> mod
     | term_med "*" term_hi                         -> mul
+    | term_med "∘" term_hi                         -> circ
     | term_hi
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case

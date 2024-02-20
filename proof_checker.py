@@ -69,7 +69,7 @@ def instantiate(loc, allfrm, args):
     case All(loc2, vars, frm):
       if len(args) == len(vars):
         sub = {var[0]: arg for (var,arg) in zip(vars,args)}
-        ret = substitute(sub, frm)
+        ret = frm.substitute(sub)
         return ret
       else:
         error(loc, 'expected ' + str(len(vars)) + ' arguments, ' \
@@ -80,64 +80,64 @@ def instantiate(loc, allfrm, args):
 def str_of_env(env):
   return '{' + ', '.join([k + ": " + str(e) for (k,e) in env.items()]) + '}'
 
-def substitute(sub, frm):
-  match frm:
-    case Int(loc, value):
-      return frm
-    case Bool(loc, value):
-      return frm
-    case TVar(loc, name):
-      if name in sub.keys():
-        ret = sub[name]
-      else:
-        ret = frm
-    case And(loc, args):
-      ret = And(loc, [substitute(sub, arg) for arg in args])
-    case Or(loc, args):
-      ret = Or(loc, [substitute(sub, arg) for arg in args])
-    case IfThen(loc, prem, conc):
-      ret = IfThen(loc, substitute(sub, prem), substitute(sub, conc))
-    case All(loc, vars, frm2):
-      # alpha rename
-      new_vars = [(generate_name(var[0]),var[1]) for var in vars]
-      ren = {var[0]: TVar(loc, new_var[0]) \
-              for (var,new_var) in zip(vars, new_vars)}
-      frm3 = substitute(ren, frm2)
-      # apply the substitution to the body
-      ret = All(loc, new_vars, substitute(sub, frm3))
-    case Call(loc, rator, args, infix):
-      ret = Call(loc, substitute(sub, rator),
-                 [substitute(sub, arg) for arg in args],
-                 infix)
-    case TermInst(loc, subject, tyargs):
-      ret = TermInst(loc, substitute(sub, subject), tyargs)
-    case TypeName(loc, name):
-      if name in sub.keys():
-        ret = sub[name]
-      else:
-        ret = frm
-    case TypeInst(loc, name, tyargs):
-      ret = TypeInst(loc, name, [substitute(sub, ty) for ty in tyargs])
-    case BoolType(loc):
-      ret = frm
-    case IntType(loc):
-      ret = frm
-    case FunctionType(loc, typarams, param_types, return_type):
-      # alpha rename
-      new_vars = [generate_name(var) for var in typarams]
-      ren = {var: TVar(loc, new_var) \
-              for (var,new_var) in zip(typarams, new_vars)}
-      param_types2 = [substitute(ren, pt) for pt in param_types]
-      return_type2 = substitute(ren, return_type)
-      # apply substitution to the body
-      ret = FunctionType(loc, new_vars, [substitute(sub, pt) for pt in param_types2],
-                         substitute(sub, return_type2))
+# def substitute(sub, frm):
+#   match frm:
+#     case Int(loc, value):
+#       return frm
+#     case Bool(loc, value):
+#       return frm
+#     case TVar(loc, name):
+#       if name in sub.keys():
+#         ret = sub[name]
+#       else:
+#         ret = frm
+#     case And(loc, args):
+#       ret = And(loc, [substitute(sub, arg) for arg in args])
+#     case Or(loc, args):
+#       ret = Or(loc, [substitute(sub, arg) for arg in args])
+#     case IfThen(loc, prem, conc):
+#       ret = IfThen(loc, substitute(sub, prem), substitute(sub, conc))
+#     case All(loc, vars, frm2):
+#       # alpha rename
+#       new_vars = [(generate_name(var[0]),var[1]) for var in vars]
+#       ren = {var[0]: TVar(loc, new_var[0]) \
+#               for (var,new_var) in zip(vars, new_vars)}
+#       frm3 = substitute(ren, frm2)
+#       # apply the substitution to the body
+#       ret = All(loc, new_vars, substitute(sub, frm3))
+#     case Call(loc, rator, args, infix):
+#       ret = Call(loc, substitute(sub, rator),
+#                  [substitute(sub, arg) for arg in args],
+#                  infix)
+#     case TermInst(loc, subject, tyargs):
+#       ret = TermInst(loc, substitute(sub, subject), tyargs)
+#     case TypeName(loc, name):
+#       if name in sub.keys():
+#         ret = sub[name]
+#       else:
+#         ret = frm
+#     case TypeInst(loc, name, tyargs):
+#       ret = TypeInst(loc, name, [substitute(sub, ty) for ty in tyargs])
+#     case BoolType(loc):
+#       ret = frm
+#     case IntType(loc):
+#       ret = frm
+#     case FunctionType(loc, typarams, param_types, return_type):
+#       # alpha rename
+#       new_vars = [generate_name(var) for var in typarams]
+#       ren = {var: TVar(loc, new_var) \
+#               for (var,new_var) in zip(typarams, new_vars)}
+#       param_types2 = [substitute(ren, pt) for pt in param_types]
+#       return_type2 = substitute(ren, return_type)
+#       # apply substitution to the body
+#       ret = FunctionType(loc, new_vars, [substitute(sub, pt) for pt in param_types2],
+#                          substitute(sub, return_type2))
     
-    case _:
-      error(frm.location, 'in substitute, unhandled ' + str(frm))
-  # print('substitute ' + str(frm) + ' via ' + str_of_env(sub) \
-  #       + '\nto ' + str(ret))
-  return ret
+#     case _:
+#       error(frm.location, 'in substitute, unhandled ' + str(frm))
+#   # print('substitute ' + str(frm) + ' via ' + str_of_env(sub) \
+#   #       + '\nto ' + str(ret))
+#   return ret
 
 def pattern_to_term(pat):
   match pat:
@@ -152,8 +152,9 @@ def pattern_to_term(pat):
 
 def rewrite(loc, formula, equation):
   (lhs, rhs) = split_equation(loc, equation)
-  # print('rewrite? ' + str(formula) \
-  #       + '\nlhs:     ' + str(lhs) + ' is ' + str(formula == lhs))
+  if get_verbose():
+    print('rewrite? ' + str(formula) \
+          + '\nlhs:     ' + str(lhs) + ' is ' + str(formula == lhs))
   if formula == lhs:
     return rhs
   match formula:
@@ -177,7 +178,8 @@ def rewrite(loc, formula, equation):
                   [rewrite(loc, arg, equation) for arg in args],
                   infix)
     case _:
-      error(loc, 'in rewrite, unhandled ' + str(formula))
+      return formula
+      # error(loc, 'in rewrite, unhandled ' + str(formula))
 
 def facts_to_str(env):
   result = ''
@@ -194,15 +196,15 @@ def isolate_difference_list(list1, list2):
   return None
   
 def isolate_difference(term1, term2):
+  if get_verbose():
+    print('isolate_difference(' + str(term1) + ',' + str(term2) + ')')
   if term1 == term2:
     return None
   else:
     match (term1, term2):
-      case (Lambda(l1, v1, body1), Lambda(l2, v2, body2)):
-        if v1 == v2:
-          return isolate_difference(body1, body2)
-        else:
-          return (v1, v2)
+      case (Lambda(l1, vs1, body1), Lambda(l2, vs2, body2)):
+        ren = {x: TVar(l1, y) for (x,y) in zip(vs1, vs2)}
+        return isolate_difference(body1.substitute(ren), body2)
       case (Call(l1, fun1, args1, infix1), Call(l2, fun2, args2, infix2)):
         if fun1 == fun2:
           return isolate_difference_list(args1, args2)
@@ -360,7 +362,7 @@ def check_proof_of(proof, formula, env, type_env):
           if len(vars) != len(vars2):
             error(proof.location, 'mismatch in number of variables')
           sub = { var2[0]: TVar(loc, var[0]) for (var,var2) in zip(vars,vars2)}
-          frm2 = substitute(sub, formula2)
+          frm2 = formula2.substitute(sub)
           new_type_env = copy_dict(type_env)
           for v in vars:
             new_type_env[v[0]] = v[1]
@@ -380,9 +382,11 @@ def check_proof_of(proof, formula, env, type_env):
         case IfThen(loc, prem2, conc):
           new_env = copy_dict(env)
           new_env[label] = prem2
-          if prem1.reduce(env) != prem2.reduce(env):
+          prem1_red = prem1.reduce(env)
+          prem2_red = prem2.reduce(env)
+          if prem1_red != prem2_red:
             error(loc, 'mismatch in premise:\n' \
-                  + str(prem1) + ' ≠ ' + str(prem2))
+                  + str(prem1_red) + '\n≠ ' + str(prem2_red))
           check_proof_of(body, conc, new_env, type_env)
         case _:
           error(proof.location, 'expected proof of if-then, not ' + str(proof))
@@ -435,7 +439,7 @@ def check_proof_of(proof, formula, env, type_env):
             new_type_env = copy_dict(type_env)
             if len(typarams) > 0:
               sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
-              parameter_types = [substitute(sub, p) for p in constr.parameters]
+              parameter_types = [p.substitute(sub) for p in constr.parameters]
             else:
               parameter_types = constr.parameters
             for (x,t) in zip(indcase.pattern.parameters, parameter_types):
@@ -530,14 +534,14 @@ def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms, re
         # then we can check the term. Otherwise, we synthesize the term's type
         # and match it against the parameter type.
         for (arg, param_ty) in zip(args, param_types):
-            param_type = substitute(matching, param_ty)
+            param_type = param_ty.substitute(matching)
             fvs = param_type.free_vars().intersection(set(typarams))
             if len(fvs) == 0:
               check_term(arg, param_type, type_env, env, recfun, subterms)
             else:
               arg_ty = synth_term(arg, type_env, env, recfun, subterms)
               type_match(loc, typarams, param_type, arg_ty, matching)
-        inst_return_type = substitute(matching, return_type)
+        inst_return_type = return_type.substitute(matching)
         return inst_return_type
     case _:
       error(loc, 'expected operator to have function type, not ' + str(funty))
@@ -565,8 +569,8 @@ def type_check_rec_call(loc, loc2, name, args, type_env, env, recfun, subterms, 
 def synth_term(term, type_env, env, recfun, subterms):
   if get_verbose():
     print('synth_term: ' + str(term))
-    print('type_env: ' + \
-          ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
+    # print('type_env: ' + \
+    #       ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
   match term:
     case Conditional(loc, cond, thn, els):
       check_term(cond, BoolType(loc), type_env, env, recfun, subterms)
@@ -657,14 +661,14 @@ def synth_term(term, type_env, env, recfun, subterms):
       check_term(subject, typ, type_env, env, recfun, subterms)
       ret = typ
     case _:
-      error(term.location, 'cannot deduce a type for ' + str(term))
+      error(term.location, 'cannot synthesize a type for ' + str(term))
   if get_verbose():
     print('\t=> ' + str(ret))
   return ret
   
 def check_term(term, typ, type_env, env, recfun, subterms):
   if get_verbose():
-    print('check_term: ' + str(term) + ' : ' + str(type) + '?')
+    print('check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
     case TVar(loc, name) if name in type_env \
                          and isinstance(type_env[name], GenericType):
@@ -737,7 +741,7 @@ def check_constructor_pattern(loc, constr_name, params, typ, env, tyname, type_e
               if len(typarams) > 0:
                 sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
                 # print('instantiate constructor: ' + str(sub))
-                parameter_types = [substitute(sub, p) for p in constr.parameters]
+                parameter_types = [p.substitute(sub) for p in constr.parameters]
               else:
                 parameter_types = constr.parameters
               for (param, param_type) in zip(params, parameter_types):

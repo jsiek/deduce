@@ -4,6 +4,7 @@ from parser import parse, set_filename
 from lark import exceptions
 
 if __name__ == "__main__":
+    sys.setrecursionlimit(5000)
     filename = sys.argv[1]
     file = open(filename, 'r')
     p = file.read()
