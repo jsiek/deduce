@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from lark.tree import Meta
 from typing import Any, Tuple, List
+from error import error
 
 def copy_dict(d):
   return {k:v for k,v in d.items()}
@@ -43,6 +44,7 @@ class Type(AST):
 @dataclass
 class TypeName(Type):
   name: str
+  index: int = -1
   
   def __str__(self):
     return self.name
@@ -63,6 +65,11 @@ class TypeName(Type):
       return sub[self.name]
     else:
       return self
+
+  def debruijnize(self, bindings):
+    if self.name not in bindings:
+      error(self.location, "debruijnize, can't find " + self.name)
+    self.index = bindings.index(self.name)
   
 @dataclass
 class IntType(Type):
@@ -81,6 +88,9 @@ class IntType(Type):
 
   def substitute(self, sub):
     return self
+
+  def debruijnize(self, bindings):
+    pass
   
 @dataclass
 class BoolType(Type):
@@ -98,6 +108,9 @@ class BoolType(Type):
 
   def substitute(self, sub):
     return self
+
+  def debruijnize(self, bindings):
+    pass
   
 @dataclass
 class TypeType(Type):
@@ -116,6 +129,9 @@ class TypeType(Type):
   def substitute(self, sub):
     return self
 
+  def debruijnize(self, bindings):
+    pass
+  
 @dataclass
 class FunctionType(Type):
   type_params: List[str]
@@ -157,7 +173,13 @@ class FunctionType(Type):
                           [pt.substitute(sub) for pt in param_types2],
                           return_type2.substitute(sub))
     
-  
+  def debruijnize(self, bindings):
+    new_bindings = bindings + list(self.type_params)
+    for p in self.param_types:
+      p.debruijnize(new_bindings)
+    self.return_type.debruijnize(new_bindings)
+
+    
 @dataclass
 class TypeInst(Type):
   name: str
@@ -185,6 +207,10 @@ class TypeInst(Type):
 
   def substitute(self, sub):
     return TypeInst(self.location, self.name, [ty.substitute(sub) for ty in self.arg_types])
+
+  def debruijnize(self, bindings):
+    for ty in self.arg_types:
+      ty.debruijnize(bindings)
   
 # This is the type of a constructor such as 'empty' of a generic union
 # when we do not yet know the type arguments.
@@ -209,6 +235,9 @@ class GenericType(Type):
 
   def substitute(self, sub):
     return self
+
+  def debruijnize(self, bindings):
+    pass
   
 ################ Patterns ######################################
 
@@ -259,7 +288,11 @@ class Conditional(Term):
     return Conditional(self.location, self.cond.substitute(sub),
                        self.thn.substitute(sub), self.els.substitute(sub))
   
-  
+  def debruijnize(self, bindings):
+    self.cond.debruijnize(bindings)
+    self.thn.debruijnize(bindings)
+    self.els.debruijnize(bindings)
+    
 @dataclass
 class TAnnote(Term):
   subject: Term
@@ -275,12 +308,17 @@ class TAnnote(Term):
     return self.subject.reduce(env)
   
   def substitute(self, env):
-    return TAnnote(self.location, self.subject.substitute(env), self.typ)
+    return TAnnote(self.location, self.subject.substitute(env),
+                   self.typ.substitute(env))
   
+  def debruijnize(self, bindings):
+    self.subject.debruijnize(bindings)
+    self.typ.debruijnize(bindings)
   
 @dataclass
 class TVar(Term):
   name: str
+  index: int = -1
 
   def __eq__(self, other):
       if not isinstance(other, TVar):
@@ -308,6 +346,11 @@ class TVar(Term):
           return env[self.name]
       else:
           return self
+        
+  def debruijnize(self, bindings):
+    if self.name not in bindings:
+      error(self.location, "debruijnize, can't find " + self.name)
+    self.index = bindings.index(self.name)
   
 @dataclass
 class Int(Term):
@@ -326,46 +369,9 @@ class Int(Term):
 
   def substitute(self, env):
       return self
-  
-@dataclass
-class PrimitiveCall(Term):
-  op: str
-  args: list[Term]
 
-  def __str__(self):
-    if self.op == 'equal':
-        return str(self.args[0]) + " = " + str(self.args[1])
-    elif self.op == 'add':
-        return str(self.args[0]) + " + " + str(self.args[1])
-    else:
-      return "." + self.op + ".(" + ",".join([str(arg) for arg in self.args]) + ")"
-
-  def __repr__(self):
-    return str(self)
-
-  def __eq__(self, other):
-      if not isinstance(other, PrimitiveCall):
-          return False
-      return self.op == other.op \
-          and all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
-
-  def reduce(self, env):
-      new_args = [arg.reduce(env) for arg in self.args]
-      ret = None
-      if self.op == 'add':
-          if all([isinstance(arg, Int) for arg in new_args]):
-              ret = Int(self.location, new_args[0].value + new_args[1].value)
-      if self.op == 'max':
-          if all([isinstance(arg, Int) for arg in new_args]):
-              ret = Int(self.location, max(new_args[0].value, new_args[1].value))
-
-      if ret == None:
-          ret = PrimitiveCall(self.location, self.op, new_args)
-      return ret
-
-  def substitute(self, env):
-      return PrimitiveCall(self.location, self.op,
-                           [arg.substitute(env) for arg in self.args])
+  def debruijnize(self, bindings):
+    pass
 
 @dataclass
 class FieldAccess(Term):
@@ -414,6 +420,11 @@ class Lambda(Term):
           new_env[v] = TVar(self.location, new_v)
       return Lambda(self.location, new_vars, self.body.substitute(new_env))
 
+  def debruijnize(self, bindings):
+    new_bindings = bindings + list(self.vars)
+    self.body.debruijnize(new_bindings)
+
+    
 def is_match(pattern, arg, subst):
     ret = False
     match (pattern, arg):
@@ -509,6 +520,11 @@ class Call(Term):
                   [arg.substitute(env) for arg in self.args],
                   self.infix)
 
+  def debruijnize(self, bindings):
+    self.rator.debruijnize(bindings)
+    for arg in self.args:
+      arg.debruijnize(bindings)
+    
 @dataclass
 class SwitchCase(AST):
   pattern: Pattern
@@ -542,6 +558,11 @@ class SwitchCase(AST):
                                     new_params),
                         self.body.substitute(new_env))
 
+  def debruijnize(self, bindings):
+    new_bindings = bindings + list(self.pattern.parameters)
+    self.body.debruijnize(new_bindings)
+
+    
   def __eq__(self, other):
     ren = {}
     for (x, y) in zip(self.pattern.parameters, other.pattern.parameters):
@@ -579,6 +600,11 @@ class Switch(Term):
       return Switch(self.location, self.subject.substitute(env),
                     [c.substitute(env) for c in self.cases])
 
+  def debruijnize(self, bindings):
+    self.subject.debruijnize(bindings)
+    for c in self.cases:
+      c.debruijnize(bindings)
+    
   def __eq__(self, other):
     eq_subject = self.subject == other.subject
     eq_cases = all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
@@ -606,6 +632,10 @@ class TermInst(Term):
     return TermInst(self.location, self.subject.substitute(sub),
                     [ty.substitute(sub) for ty in self.type_args])
     
+  def debruijnize(self, bindings):
+    self.subject.debruijnize(bindings)
+    for ty in self.type_args:
+      ty.debruijnize(bindings)
 
   
 @dataclass
@@ -613,7 +643,12 @@ class TLet(Term):
   var: str
   rhs: Term
   body: Term
-    
+
+  def debruijnize(self, bindings):
+    self.rhs.debruijnize(bindings)
+    new_bindings = bindings + [self.var]
+    self.body.debruijnize(new_bindings)
+  
 ################ Formulas ######################################
   
 @dataclass
@@ -630,7 +665,9 @@ class Bool(Formula):
   def reduce(self, env):
     return self
   def substitute(self, env):
-      return self
+    return self
+  def debruijnize(self, bindings):
+    pass
 
 @dataclass
 class And(Formula):
@@ -645,6 +682,9 @@ class And(Formula):
     return And(self.location, [arg.reduce(env) for arg in self.args])
   def substitute(self, sub):
     return And(self.location, [arg.substitute(sub) for arg in self.args])
+  def debruijnize(self, bindings):
+    for arg in self.args:
+      arg.debruijnize(bindings)
 
   
 @dataclass
@@ -658,6 +698,9 @@ class Or(Formula):
     return Or(self.location, [arg.reduce(env) for arg in self.args])
   def substitute(self, sub):
     return Or(self.location, [arg.substitute(sub) for arg in self.args])
+  def debruijnize(self, bindings):
+    for arg in self.args:
+      arg.debruijnize(bindings)
 
 # @dataclass
 # class Compare(Formula):
@@ -686,6 +729,9 @@ class IfThen(Formula):
   def substitute(self, sub):
     return IfThen(self.location, self.premise.substitute(sub),
                   self.conclusion.substitute(sub))
+  def debruijnize(self, bindings):
+    self.premise.debruijnize(bindings)
+    self.conclusion.debruijnize(bindings)
 
     
 @dataclass
@@ -716,6 +762,10 @@ class All(Formula):
     body2 = self.body.substitute(ren)
     # apply the substitution to the body
     return All(self.location, new_vars, body2.substitute(sub))
+  
+  def debruijnize(self, bindings):
+    new_bindings = bindings + [x for (x,t) in self.vars]
+    self.body.debruijnize(new_bindings)
     
   
 @dataclass
@@ -723,15 +773,26 @@ class Some(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
 
+  def debruijnize(self, bindings):
+    new_bindings = bindings + [x for (x,t) in self.vars]
+    self.body.debruijnize(new_bindings)
+  
 ################ Proofs ######################################
   
 @dataclass
 class PVar(Proof):
   name: str
-
+  index: int = -1
+  
   def __str__(self):
       return str(self.name)
-  
+
+  def debruijnize(self, bindings):
+    if self.name not in bindings:
+      error(self.location, "debruijnize, can't find " + self.name)
+    self.index = bindings.index(self.name)
+
+    
 @dataclass
 class PLet(Proof):
   label: str
@@ -740,8 +801,16 @@ class PLet(Proof):
   body: Proof
 
   def __str__(self):
-      return self.label + ': ' + str(self.proved) + ' because ' + str(self.because) + '; ' + str(self.body)
+      return self.label + ': ' + str(self.proved) + ' because ' \
+        + str(self.because) + '; ' + str(self.body)
 
+  def debruijnize(self, bindings):
+    self.proved.debruijnize(bindings)
+    self.because.debruijnize(bindings)
+    new_bindings = bindings + [self.label]
+    self.body.debruijnize(new_bindings)
+
+    
 @dataclass
 class PAnnot(Proof):
   claim: Formula
@@ -749,12 +818,21 @@ class PAnnot(Proof):
 
   def __str__(self):
       return 'have ' + str(self.claim) + ' because ' + str(self.reason)
-  
+
+  def debruijnize(self, bindings):
+    self.claim.debruijnize(bindings)
+    self.reason.debruijnize(bindings)
+    
 @dataclass
 class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Proof]]
 
+  def debruijnize(self, bindings):
+    self.subject.debruijnize(bindings)
+    for c in self.cases:
+      c.debruijnize(bindings)
+  
 @dataclass
 class Apply(Proof):
   implication: Proof
@@ -763,6 +841,10 @@ class Apply(Proof):
   def __str__(self):
       return 'apply ' + str(self.implication) + ' with ' + str(self.arg)
 
+  def debruijnize(self, bindings):
+    self.implication.debruijnize(bindings)
+    self.arg.debruijnize(bindings)
+    
 @dataclass
 class ImpIntro(Proof):
   label: str
@@ -772,6 +854,12 @@ class ImpIntro(Proof):
   def __str__(self):
     return 'suppose ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
 
+  def debruijnize(self, bindings):
+    if self.premise:
+      self.premise.debruijnize(bindings)
+    new_bindings = bindings + [self.label]
+    self.body.debruijnize(new_bindings)
+  
 @dataclass
 class AllIntro(Proof):
   vars: List[Tuple[str,Type]]
@@ -781,6 +869,10 @@ class AllIntro(Proof):
     return 'arbitrary ' + ",".join([x + ":" + str(t) for (x,t) in self.vars]) \
         + '; ' + str(self.body)
 
+  def debruijnize(self, bindings):
+    new_bindings = bindings + [x for (x,t) in self.vars]
+    self.body.debruijnize(new_bindings)
+  
 @dataclass
 class AllElim(Proof):
   univ: Proof
@@ -789,61 +881,89 @@ class AllElim(Proof):
   def __str__(self):
     return str(self.univ) + '[' + ','.join([str(arg) for arg in self.args]) + ']'
 
-
+  def debruijnize(self, bindings):
+    self.univ.debruijnize(bindings)
+    for arg in self.args:
+      arg.debruijnize(bindings)
+  
 @dataclass
 class PTuple(Proof):
   args: List[Proof]
 
   def __str__(self):
     return ', '.join([str(arg) for arg in self.args])
+
+  def debruijnize(self, bindings):
+    for arg in self.args:
+      arg.debruijnize(bindings)
   
 @dataclass
 class PTrue(Proof):
   def __str__(self):
-      return '.'
-
+    return '.'
+  def debruijnize(self, bindings):
+    pass
+  
 @dataclass
 class PReflexive(Proof):
   def __str__(self):
-      return 'reflexive'
+    return 'reflexive'
+  def debruijnize(self, bindings):
+    pass
 
 @dataclass
 class PHole(Proof):
   def __str__(self):
       return '?'
+  def debruijnize(self, bindings):
+    pass
   
 @dataclass
 class PSymmetric(Proof):
   body: Proof
   def __str__(self):
-      return 'symmetric'
+    return 'symmetric'
+  def debruijnize(self, bindings):
+    pass
 
 @dataclass
 class PTransitive(Proof):
   first: Proof
   second: Proof
   def __str__(self):
-      return 'transitive'
+    return 'transitive'
+  def debruijnize(self, bindings):
+    self.first.debruijnize(bindings)
+    self.second.debruijnize(bindings)
 
 @dataclass
 class PInjective(Proof):
   body: Proof
   def __str__(self):
-      return 'injective'
+    return 'injective'
+  def debruijnize(self, bindings):
+    self.body.debruijnize(bindings)
   
 @dataclass
 class IndCase(AST):
   pattern: Pattern
   body: Proof
-    
+
+  def debruijnize(self, bindings):
+    new_bindings = bindings + list(self.pattern.parameters) + ['IH','EQ']
+    self.body.debruijnize(new_bindings)
+  
 @dataclass
 class Induction(Proof):
   typ: str
   cases: List[IndCase]
 
   def __str__(self):
-      return 'induction'
-
+    return 'induction'
+  def debruijnize(self, bindings):
+    for c in self.cases:
+      c.debruijnize(bindings)
+    
 @dataclass
 class SwitchProof(Proof):
   subject: Term
@@ -851,6 +971,11 @@ class SwitchProof(Proof):
 
   def __str__(self):
       return 'switch proof'
+    
+  def debruijnize(self, bindings):
+    self.subject.debruijnize(bindings)
+    for c in self.cases:
+      c.debruijnize(bindings)
     
 @dataclass
 class RewriteGoal(Proof):
@@ -860,6 +985,10 @@ class RewriteGoal(Proof):
   def __str__(self):
       return 'rewrite_goal'
 
+  def debruijnize(self, bindings):
+    self.equation.debruijnize(bindings)
+    self.body.debruijnize(bindings)
+    
 @dataclass
 class RewriteFact(Proof):
   subject: Proof
@@ -868,31 +997,50 @@ class RewriteFact(Proof):
   def __str__(self):
       return 'rewrite_fact'
 
+  def debruijnize(self, bindings):
+    self.subject.debruijnize(bindings)
+    self.equation.debruijnize(bindings)
+    
 ################ Statements ######################################
   
 @dataclass
 class Theorem(Statement):
-    name: str
-    what: Formula
-    proof: Proof
+  name: str
+  what: Formula
+  proof: Proof
 
-    def __str__(self):
-      return 'theorem ' + self.name + ': ' + str(self.what) + '\nbegin\n' \
-          + str(self.proof) + '\nend\n'
+  def __str__(self):
+    return 'theorem ' + self.name + ': ' + str(self.what) + '\nbegin\n' \
+        + str(self.proof) + '\nend\n'
 
-    def __repr__(self):
-      return str(self)
+  def __repr__(self):
+    return str(self)
+
+  def debruijnize(self, bindings):
+    self.what.debruijnize(bindings)
+    self.proof.debruijnize(bindings)
+    return self.name
     
 @dataclass
 class Constructor(AST):
-    name: str
-    parameters: List[Type]
+  name: str
+  parameters: List[Type]
+
+  def debruijnize(self, bindings):
+    for ty in self.parameters:
+      ty.debruijnize(bindings)
     
 @dataclass
 class Union(Statement):
-    name: str
-    type_params: List[str]
-    alternatives: List[Constructor]
+  name: str
+  type_params: List[str]
+  alternatives: List[Constructor]
+
+  def debruijnize(self, bindings):
+    new_bindings = bindings + [self.name] + list(self.type_params)
+    for alt in self.alternatives:
+      alt.debruijnize(new_bindings)
+    return self.name
 
 @dataclass
 class FunCase(AST):
@@ -906,29 +1054,42 @@ class FunCase(AST):
 
   def __repr__(self):
       return str(self)
-  
+
+  def debruijnize(self, bindings):
+    new_bindings = bindings + list(self.pattern.parameters) + list(self.parameters)
+    self.body.debruijnize(new_bindings)
+    
 @dataclass
 class RecFun(Statement):
-    name: str
-    type_params: List[str]
-    params: List[Type]
-    returns: Type
-    cases: List[FunCase]
+  name: str
+  type_params: List[str]
+  params: List[Type]
+  returns: Type
+  cases: List[FunCase]
 
-    def __str__(self):
-      return self.name
+  def debruijnize(self, bindings):
+    new_bindings = bindings + [self.name] + list(self.type_params)
+    for ty in self.params:
+      ty.debruijnize(new_bindings)
+    self.returns.debruijnize(new_bindings)
+    for c in self.cases:
+      c.debruijnize(new_bindings)
+    return self.name
+    
+  def __str__(self):
+    return self.name
 
-    def __repr__(self):
-      return str(self)
+  def __repr__(self):
+    return str(self)
 
-    def __eq__(self, other):
-        return self.name == other.name
+  def __eq__(self, other):
+    return self.name == other.name
 
-    def reduce(self, env):
-        return self
+  def reduce(self, env):
+    return self
 
-    def substitute(self, sub):
-        return self
+  def substitute(self, sub):
+    return self
     
 @dataclass
 class Define(Statement):
@@ -936,11 +1097,19 @@ class Define(Statement):
   typ: Type
   body: Term
 
+  def debruijnize(self, bindings):
+    if self.typ:
+      self.typ.debruijnize(bindings)
+    self.body.debruijnize(bindings)
+    return self.name
+  
 @dataclass
 class Import(Statement):
   name: str
   
-
+  def debruijnize(self, bindings):
+    return None
+  
 def mkEqual(loc, arg1, arg2):
   return Call(loc, TVar(loc, '='), [arg1, arg2], True)
 

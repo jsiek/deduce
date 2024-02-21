@@ -769,6 +769,7 @@ def check_formula(frm, env, type_env):
   check_term(frm, BoolType(frm.location), type_env, env, None, [])
 
 modules = set()
+debruijnized_modules = set()
 
 def check_statement(stmt, env, type_env):
   match stmt:
@@ -836,6 +837,7 @@ def check_statement(stmt, env, type_env):
         filename = name + ".pf"
         file = open(filename, 'r')
         src = file.read()
+        file.close()
         set_filename(filename)
         ast = parse(src, trace=False)
         # TODO: cache the proof-checking of files
@@ -847,7 +849,35 @@ def check_statement(stmt, env, type_env):
       
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
+
+
+def debruijnize_statements(ast, top_level):
+  for s in ast:
+    name = s.debruijnize(top_level)
+    if name:
+      top_level.append(name)
+    match s:
+      case Import(loc, module_name):
+        if module_name not in debruijnized_modules:
+          debruijnized_modules.add(module_name)
+        filename = module_name + ".pf"
+        file = open(filename, 'r')
+        src = file.read()
+        file.close()
+        set_filename(filename)
+        ast = parse(src, trace=False)
+        debruijnize_statements(ast, top_level)
+      case Union(loc, union_name, typarams, alts):
+        for con in alts:
+          top_level.append(con.name)
+      case _:
+        pass
+  
       
+def debruijnize_deduce(ast):
+  top_level = ['=','≠']
+  debruijnize_statements(ast, top_level)
+  
 def check_deduce(ast):
   env = {}
   type_env = {}

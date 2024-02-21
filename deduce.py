@@ -1,4 +1,4 @@
-from proof_checker import check_deduce, set_verbose, get_verbose
+from proof_checker import check_deduce, debruijnize_deduce, set_verbose, get_verbose
 import sys
 from parser import parse, set_filename
 from lark import exceptions
@@ -15,6 +15,7 @@ if __name__ == "__main__":
       if get_verbose():
           print("finished parsing")
       try:
+          debruijnize_deduce(ast)
           check_deduce(ast)
           print(filename + ' is valid')
           exit(0)
