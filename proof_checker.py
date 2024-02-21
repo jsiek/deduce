@@ -80,65 +80,6 @@ def instantiate(loc, allfrm, args):
 def str_of_env(env):
   return '{' + ', '.join([k + ": " + str(e) for (k,e) in env.items()]) + '}'
 
-# def substitute(sub, frm):
-#   match frm:
-#     case Int(loc, value):
-#       return frm
-#     case Bool(loc, value):
-#       return frm
-#     case TVar(loc, name):
-#       if name in sub.keys():
-#         ret = sub[name]
-#       else:
-#         ret = frm
-#     case And(loc, args):
-#       ret = And(loc, [substitute(sub, arg) for arg in args])
-#     case Or(loc, args):
-#       ret = Or(loc, [substitute(sub, arg) for arg in args])
-#     case IfThen(loc, prem, conc):
-#       ret = IfThen(loc, substitute(sub, prem), substitute(sub, conc))
-#     case All(loc, vars, frm2):
-#       # alpha rename
-#       new_vars = [(generate_name(var[0]),var[1]) for var in vars]
-#       ren = {var[0]: TVar(loc, new_var[0]) \
-#               for (var,new_var) in zip(vars, new_vars)}
-#       frm3 = substitute(ren, frm2)
-#       # apply the substitution to the body
-#       ret = All(loc, new_vars, substitute(sub, frm3))
-#     case Call(loc, rator, args, infix):
-#       ret = Call(loc, substitute(sub, rator),
-#                  [substitute(sub, arg) for arg in args],
-#                  infix)
-#     case TermInst(loc, subject, tyargs):
-#       ret = TermInst(loc, substitute(sub, subject), tyargs)
-#     case TypeName(loc, name):
-#       if name in sub.keys():
-#         ret = sub[name]
-#       else:
-#         ret = frm
-#     case TypeInst(loc, name, tyargs):
-#       ret = TypeInst(loc, name, [substitute(sub, ty) for ty in tyargs])
-#     case BoolType(loc):
-#       ret = frm
-#     case IntType(loc):
-#       ret = frm
-#     case FunctionType(loc, typarams, param_types, return_type):
-#       # alpha rename
-#       new_vars = [generate_name(var) for var in typarams]
-#       ren = {var: TVar(loc, new_var) \
-#               for (var,new_var) in zip(typarams, new_vars)}
-#       param_types2 = [substitute(ren, pt) for pt in param_types]
-#       return_type2 = substitute(ren, return_type)
-#       # apply substitution to the body
-#       ret = FunctionType(loc, new_vars, [substitute(sub, pt) for pt in param_types2],
-#                          substitute(sub, return_type2))
-    
-#     case _:
-#       error(frm.location, 'in substitute, unhandled ' + str(frm))
-#   # print('substitute ' + str(frm) + ' via ' + str_of_env(sub) \
-#   #       + '\nto ' + str(ret))
-#   return ret
-
 def pattern_to_term(pat):
   match pat:
     case PatternCons(loc, constr, params):
