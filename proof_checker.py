@@ -208,7 +208,7 @@ def check_proof(proof, env, type_env):
       ret = All(loc, vars, formula)
     case AllElim(loc, univ, args):
       allfrm = check_proof(univ, env, type_env)
-      arg_types = [synth_term(arg, type_env, env, None, []) for arg in args]
+      arg_types = [type_synth_term(arg, type_env, env, None, []) for arg in args]
       match allfrm:
         case All(loc2, vars, frm):
           for ((var,ty), arg_ty) in zip(vars, arg_types):
@@ -390,7 +390,7 @@ def check_proof_of(proof, formula, env, type_env):
           error(loc, "induction expected name of union, not " + type_name)
 
     case SwitchProof(loc, subject, cases):
-      ty = synth_term(subject, type_env, env, None, [])
+      ty = type_synth_term(subject, type_env, env, None, [])
       match ty:
         case TypeName(loc2, name):
           type_name = name
@@ -464,7 +464,7 @@ def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms, re
     case FunctionType(loc2, typarams, param_types, return_type):
       if len(typarams) == 0:
         for (param_type, arg) in zip(param_types, args):
-          check_term(arg, param_type, type_env, env, recfun, subterms)
+          type_check_term(arg, param_type, type_env, env, recfun, subterms)
         return return_type
       else:
         matching = {}
@@ -478,9 +478,9 @@ def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms, re
             param_type = param_ty.substitute(matching)
             fvs = param_type.free_vars().intersection(set(typarams))
             if len(fvs) == 0:
-              check_term(arg, param_type, type_env, env, recfun, subterms)
+              type_check_term(arg, param_type, type_env, env, recfun, subterms)
             else:
-              arg_ty = synth_term(arg, type_env, env, recfun, subterms)
+              arg_ty = type_synth_term(arg, type_env, env, recfun, subterms)
               type_match(loc, typarams, param_type, arg_ty, matching)
         inst_return_type = return_type.substitute(matching)
         return inst_return_type
@@ -488,7 +488,7 @@ def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms, re
       error(loc, 'expected operator to have function type, not ' + str(funty))
       
 def type_check_call(loc, rator, args, type_env, env, recfun, subterms, ret_ty):
-  ty = synth_term(rator, type_env, env, recfun, subterms)
+  ty = type_synth_term(rator, type_env, env, recfun, subterms)
   return type_check_call_helper(loc, ty, args, type_env, env, recfun, subterms, ret_ty)
 
 def type_check_rec_call(loc, loc2, name, args, type_env, env, recfun, subterms, ret_ty):
@@ -507,25 +507,25 @@ def type_check_rec_call(loc, loc2, name, args, type_env, env, recfun, subterms, 
 
 
 # TODO: add env parameter
-def synth_term(term, type_env, env, recfun, subterms):
+def type_synth_term(term, type_env, env, recfun, subterms):
   if get_verbose():
-    print('synth_term: ' + str(term))
+    print('type_synth_term: ' + str(term))
     # print('type_env: ' + \
     #       ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
   match term:
     case Conditional(loc, cond, thn, els):
-      check_term(cond, BoolType(loc), type_env, env, recfun, subterms)
-      thn_ty = synth_term(thn, type_env, env, recfun, subterms)
-      els_ty = synth_term(els, type_env, env, recfun, subterms)
+      type_check_term(cond, BoolType(loc), type_env, env, recfun, subterms)
+      thn_ty = type_synth_term(thn, type_env, env, recfun, subterms)
+      els_ty = type_synth_term(els, type_env, env, recfun, subterms)
       if thn_ty != els_ty:
         error(loc, 'conditional expects same type for the two branches'\
               + ' but ' + str(thn_ty) + ' ≠ ' + str(els_ty))
       return thn_ty
     case TLet(loc, var, rhs, body):
-      rhs_ty = synth_term(rhs, type_env, env, recfun, subterms)
+      rhs_ty = type_synth_term(rhs, type_env, env, recfun, subterms)
       new_type_env = copy_dict(type_env)
       new_type_env[var] = rhs_ty
-      ret = synth_term(body, new_type_env, env, recfun, subterms)
+      ret = type_synth_term(body, new_type_env, env, recfun, subterms)
     case Int(loc, value):
       ret = IntType(loc)
     case Bool(loc, value):
@@ -561,8 +561,8 @@ def synth_term(term, type_env, env, recfun, subterms):
         error(loc, 'undefined name ' + name \
               + '\nscope: ' + ','.join(type_env.keys()))
     case Call(loc, TVar(loc2, name), args, infix) if name == '=' or name == '≠':
-      lhs_ty = synth_term(args[0], type_env, env, recfun, subterms)
-      rhs_ty = synth_term(args[1], type_env, env, recfun, subterms)
+      lhs_ty = type_synth_term(args[0], type_env, env, recfun, subterms)
+      rhs_ty = type_synth_term(args[1], type_env, env, recfun, subterms)
       if lhs_ty != rhs_ty:
         error(loc, 'equality expects same type of thing on left and right-hand side'\
               + ' but ' + str(lhs_ty) + ' ≠ ' + str(rhs_ty))
@@ -576,13 +576,13 @@ def synth_term(term, type_env, env, recfun, subterms):
       # non-recursive call
       ret = type_check_call(loc, rator, args, type_env, env, recfun, subterms, None)
     case Switch(loc, subject, cases):
-      ty = synth_term(subject, type_env, env, recfun, subterms)
+      ty = type_synth_term(subject, type_env, env, recfun, subterms)
       # TODO: check for completeness
       result_type = None
       for c in cases:
         new_type_env = copy_dict(type_env)
         check_pattern(c.pattern, ty, env, new_type_env)
-        case_type = synth_term(c.body, new_type_env, env, recfun, subterms)
+        case_type = type_synth_term(c.body, new_type_env, env, recfun, subterms)
         if not result_type:
           result_type = case_type
         elif case_type != result_type:
@@ -590,7 +590,7 @@ def synth_term(term, type_env, env, recfun, subterms):
                 + str(case_type) + ' ≠ ' + str(result_type))
         ret = result_type
     case TermInst(loc, subject, tyargs):
-      ty = synth_term(subject, type_env, env, recfun, subterms)
+      ty = type_synth_term(subject, type_env, env, recfun, subterms)
       match ty:
         case TypeName(loc2, name):
           ret = TypeInst(loc, name, tyargs)
@@ -599,7 +599,7 @@ def synth_term(term, type_env, env, recfun, subterms):
         case _:
           error(loc, 'expected a type name, not ' + str(ty))
     case TAnnote(loc, subject, typ):
-      check_term(subject, typ, type_env, env, recfun, subterms)
+      type_check_term(subject, typ, type_env, env, recfun, subterms)
       ret = typ
     case _:
       error(term.location, 'cannot synthesize a type for ' + str(term))
@@ -607,9 +607,9 @@ def synth_term(term, type_env, env, recfun, subterms):
     print('\t=> ' + str(ret))
   return ret
   
-def check_term(term, typ, type_env, env, recfun, subterms):
+def type_check_term(term, typ, type_env, env, recfun, subterms):
   if get_verbose():
-    print('check_term: ' + str(term) + ' : ' + str(typ) + '?')
+    print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
     case TVar(loc, name) if name in type_env \
                          and isinstance(type_env[name], GenericType):
@@ -628,17 +628,17 @@ def check_term(term, typ, type_env, env, recfun, subterms):
           new_type_env = copy_dict(type_env)
           for (x,ty) in zip(vars, param_types):
             new_type_env[x] = ty
-          check_term(body, return_type, new_type_env, env, recfun, subterms)
+          type_check_term(body, return_type, new_type_env, env, recfun, subterms)
         case _:
           error(loc, 'expected a term of type ' + str(typ) + '\n'\
                 + 'but instead got a lambda')
     case TLet(loc, var, rhs, body):
-      rhs_ty = synth_term(rhs, type_env, env, recfun, subterms)
+      rhs_ty = type_synth_term(rhs, type_env, env, recfun, subterms)
       new_type_env = copy_dict(type_env)
       new_type_env[var] = rhs_ty
-      check_term(body, typ, new_type_env, env, recfun, subterms)
+      type_check_term(body, typ, new_type_env, env, recfun, subterms)
     case Call(loc, TVar(loc2, name), args, infix) if name == '=' or name == '≠':
-      ty = synth_term(term, type_env, env, recfun, subterms)
+      ty = type_synth_term(term, type_env, env, recfun, subterms)
       if ty != typ:
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
       
@@ -650,7 +650,7 @@ def check_term(term, typ, type_env, env, recfun, subterms):
       # non-recursive call
       type_check_call(loc, rator, args, type_env, env, recfun, subterms, typ)
     case _:
-      ty = synth_term(term, type_env, env, recfun, subterms)
+      ty = type_synth_term(term, type_env, env, recfun, subterms)
       if ty != typ:
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
 
@@ -707,7 +707,7 @@ def check_pattern(pattern, typ, env, type_env):
       error(pattern.location, 'expected a constructor pattern, not ' + str(pattern))
 
 def check_formula(frm, env, type_env):
-  check_term(frm, BoolType(frm.location), type_env, env, None, [])
+  type_check_term(frm, BoolType(frm.location), type_env, env, None, [])
 
 modules = set()
 debruijnized_modules = set()
@@ -718,9 +718,9 @@ def check_statement(stmt, env, type_env):
       if get_verbose():
         print('** check_statement(' + name + ')')
       if ty == None:
-        ty = synth_term(body, type_env, env, None, [])
+        ty = type_synth_term(body, type_env, env, None, [])
       else:
-        check_term(body, ty, type_env, env, None, [])
+        type_check_term(body, ty, type_env, env, None, [])
       env[name] = body.reduce(env)
       type_env[name] = ty
     case Theorem(loc, name, frm, pf):
@@ -745,8 +745,8 @@ def check_statement(stmt, env, type_env):
         check_pattern(fun_case.pattern, params[0], env, new_type_env)
         for (x,typ) in zip(fun_case.parameters, params[1:]):
           new_type_env[x] = typ
-        check_term(fun_case.body, returns, new_type_env, env,
-                   name, fun_case.pattern.parameters)
+        type_check_term(fun_case.body, returns, new_type_env, env,
+                        name, fun_case.pattern.parameters)
       env[name] = stmt
     case Union(loc, name, typarams, alts):
       if get_verbose():
