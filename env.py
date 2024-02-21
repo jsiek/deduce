@@ -21,6 +21,22 @@ class Env:
         curr = curr[1]
     return None    
 
+  def keys(self):
+    result = []
+    curr = self.head
+    while curr:
+      result.append(curr[0][0])
+      curr = curr[1]
+    return result
+
+  def items(self):
+    result = []
+    curr = self.head
+    while curr:
+      result.append(curr[0])
+      curr = curr[1]
+    return result
+  
 if __name__ == "__main__":
   env = Env()
   env = env.extend('hi', 3)
