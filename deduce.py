@@ -12,10 +12,9 @@ if __name__ == "__main__":
     try:
       set_filename(filename)
       ast = parse(p, trace=False)
-      if get_verbose():
-          print("finished parsing")
       try:
           debruijnize_deduce(ast)
+          #print("finished debruijnize:\n" + str(ast))
           check_deduce(ast)
           print(filename + ' is valid')
           exit(0)

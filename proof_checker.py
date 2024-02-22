@@ -178,7 +178,10 @@ def check_proof(proof, env, type_env):
       ret = new_formula
     case PHole(loc):
       error(loc, 'unfinished proof')
-    case PVar(loc, name):
+    case PVar(loc, name, index):
+      # TODO: ret = env.get(name, index)
+      # problem: IndCase used for switch and induction, but
+      # binding structure is different (IH, EQ)
       ret = env.lookup(name)
       if not ret:
         error(loc, 'undefined label ' + name)
@@ -397,7 +400,8 @@ def check_proof_of(proof, formula, env, type_env):
                     + " arguments to " + constr.name \
                     + " not " + len(scase.pattern.parameters))
             new_env = env.extend('EQ', mkEqual(scase.location, 
-                                               subject, pattern_to_term(scase.pattern)))
+                                               subject,
+                                               pattern_to_term(scase.pattern)))
             new_type_env = type_env.extend_all(zip(scase.pattern.parameters,
                                                    constr.parameters))
             check_proof_of(scase.body, formula, new_env, new_type_env)

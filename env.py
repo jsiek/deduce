@@ -21,6 +21,34 @@ class Env:
         curr = curr[1]
     return None    
 
+  def find(self, key):
+    curr = self.head
+    while curr:
+      if key == curr[0][0]:
+        return curr[0]
+      else:
+        curr = curr[1]
+    return None    
+
+  def nth(self, index):
+    curr = self.head
+    while index != 0 and curr:
+      index -= 1
+      curr = curr[1]
+    if curr:
+      return curr[0]
+    else:
+      return None
+  
+  def get(self, key, index):
+    n1 = self.find(key)
+    n2 = self.nth(index)
+    if n1 is n2:
+      return n1[1]
+    else:
+      print(', '.join([k + ':=' + str(v) for (k,v) in self.items()]))
+      raise Exception('variable name and index out of sync: ' + key + ', ' + str(index))
+  
   def keys(self):
     result = []
     curr = self.head
