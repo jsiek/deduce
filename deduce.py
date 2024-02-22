@@ -21,7 +21,10 @@ if __name__ == "__main__":
           exit(0)
       except Exception as e:
           print(str(e))
-          exit(1)
+          # for production, exit
+          #exit(1)
+          # during development, reraise
+          raise e
 
     except exceptions.UnexpectedToken as t:
         print(filename + ":" + str(t.token.line) + "." + str(t.token.column) \

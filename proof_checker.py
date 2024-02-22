@@ -175,21 +175,19 @@ def check_proof(proof, env, type_env):
       formula = check_proof(subject, env, type_env)
       equation = check_proof(equation_proof, env, type_env)
       new_formula = rewrite(loc, formula, equation)
-      return new_formula
+      ret = new_formula
     case PHole(loc):
       error(loc, 'unfinished proof')
     case PVar(loc, name):
-      if name in env.keys():
-        ret = env[name]
-      else:
+      ret = env.lookup(name)
+      if not ret:
         error(loc, 'undefined label ' + name)
     case PTrue(loc):
       ret = Bool(loc, True)
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env, type_env)
       check_proof_of(reason, frm, env, type_env)
-      new_env = copy_dict(env)
-      new_env[label] = frm
+      new_env = env.extend(label, frm)
       ret = check_proof(rest, new_env, type_env)
     case PAnnot(loc, claim, reason):
       check_formula(claim, env, type_env)
@@ -200,8 +198,7 @@ def check_proof(proof, env, type_env):
       ret = And(loc, frms)
     case ImpIntro(loc, label, prem, body):
       check_formula(prem, env, type_env)
-      new_env = copy_dict(env)
-      new_env[label] = prem
+      new_env = env.extend(label, prem)
       conc = check_proof(body, new_env, type_env)
       ret = IfThen(loc, prem, conc)
     case AllIntro(loc, vars, body):
@@ -305,17 +302,13 @@ def check_proof_of(proof, formula, env, type_env):
             error(proof.location, 'mismatch in number of variables')
           sub = { var2[0]: TVar(loc, var[0]) for (var,var2) in zip(vars,vars2)}
           frm2 = formula2.substitute(sub)
-          # new_type_env = copy_dict(type_env)
-          # for v in vars:
-          #   new_type_env[v[0]] = v[1]
           new_type_env = type_env.extend_all(vars)
           check_proof_of(body, frm2, env, new_type_env)
 
     case ImpIntro(loc, label, None, body):
       match formula:
         case IfThen(loc, prem, conc):
-          new_env = copy_dict(env)
-          new_env[label] = prem
+          new_env = env.extend(label, prem)
           check_proof_of(body, conc, new_env, type_env)
         case _:
           error(proof.location, 'expected proof of if-then, not ' + str(proof))
@@ -323,8 +316,7 @@ def check_proof_of(proof, formula, env, type_env):
       check_formula(prem1, env, type_env)
       match formula:
         case IfThen(loc, prem2, conc):
-          new_env = copy_dict(env)
-          new_env[label] = prem2
+          new_env = env.extend(label, prem2)
           prem1_red = prem1.reduce(env)
           prem2_red = prem2.reduce(env)
           if prem1_red != prem2_red:
@@ -337,16 +329,14 @@ def check_proof_of(proof, formula, env, type_env):
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env, type_env)
       check_proof_of(reason, frm, env, type_env)
-      new_env = copy_dict(env)
-      new_env[label] = frm
+      new_env = env.extend(label, frm)
       check_proof_of(rest, formula, new_env, type_env)
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env, type_env)
       match sub_frm:
         case Or(loc, frms):
           for (frm, (label,case)) in zip(frms, cases):
-            new_env = copy_dict(env)
-            new_env[label] = frm
+            new_env = env.extend(label, frm)
             check_proof_of(case, formula, new_env, type_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_frm))
@@ -356,7 +346,7 @@ def check_proof_of(proof, formula, env, type_env):
           type_name = n
         case TypeInst(l1, n, type_args):
           type_name = n
-      match env[type_name]:
+      match env.lookup(type_name):
         case Union(loc2, name, typarams, alts):
           for (constr,indcase) in zip(alts, cases):
             if indcase.pattern.constructor != constr.name:
@@ -375,18 +365,14 @@ def check_proof_of(proof, formula, env, type_env):
               induction_hypotheses = And(indcase.location, induction_hypotheses)
             elif len(induction_hypotheses) == 1:
               induction_hypotheses = induction_hypotheses[0]
-            new_env = copy_dict(env)
-            new_env['IH'] = induction_hypotheses
+            new_env = env.extend('IH', induction_hypotheses)
             trm = pattern_to_term(indcase.pattern)
             goal = instantiate(loc, formula, [trm])
-            #new_type_env = copy_dict(type_env)
             if len(typarams) > 0:
               sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
               parameter_types = [p.substitute(sub) for p in constr.parameters]
             else:
               parameter_types = constr.parameters
-            # for (x,t) in zip(indcase.pattern.parameters, parameter_types):
-            #   new_type_env[x] = t
             new_type_env = type_env.extend_all(zip(indcase.pattern.parameters,
                                                    parameter_types))
             check_proof_of(indcase.body, goal, new_env, new_type_env)
@@ -400,7 +386,7 @@ def check_proof_of(proof, formula, env, type_env):
           type_name = name
         case _:
           error(loc, 'expected term of union type, not ' + str(ty))
-      match env[type_name]:
+      match env.lookup(type_name):
         case Union(loc2, name, typarams, alts):
           for (constr,scase) in zip(alts, cases):
             if scase.pattern.constructor != constr.name:
@@ -410,12 +396,8 @@ def check_proof_of(proof, formula, env, type_env):
               error(scase.location, "expected " + len(constr.parameters) \
                     + " arguments to " + constr.name \
                     + " not " + len(scase.pattern.parameters))
-            new_env = copy_dict(env)
-            new_env['EQ'] = mkEqual(scase.location, 
-                                    subject, pattern_to_term(scase.pattern))
-            # new_type_env = copy_dict(type_env)
-            # for (x,t) in zip(scase.pattern.parameters, constr.parameters):
-            #   new_type_env[x] = t
+            new_env = env.extend('EQ', mkEqual(scase.location, 
+                                               subject, pattern_to_term(scase.pattern)))
             new_type_env = type_env.extend_all(zip(scase.pattern.parameters,
                                                    constr.parameters))
             check_proof_of(scase.body, formula, new_env, new_type_env)
@@ -529,8 +511,6 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       return thn_ty
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, type_env, env, recfun, subterms)
-      # new_type_env = copy_dict(type_env)
-      # new_type_env[var] = rhs_ty
       new_type_env = type_env.extend(var, rhs_ty)
       ret = type_synth_term(body, new_type_env, env, recfun, subterms)
     case Int(loc, value):
@@ -550,16 +530,10 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       check_formula(conc, env, type_env)
       ret = BoolType(loc)
     case All(loc, vars, body):
-      # new_type_env = copy_dict(type_env)
-      # for (var,ty) in vars:
-      #   new_type_env[var] = ty
       new_type_env = type_env.extend_all(vars)
       check_formula(body, env, new_type_env)      
       ret = BoolType(loc)
     case Some(loc, vars, body):
-      # new_type_env = copy_dict(type_env)
-      # for (var,ty) in vars:
-      #   new_type_env[var] = ty
       new_type_env = type_env.extend_all(vars)
       check_formula(body, env, new_type_env)
       ret = BoolType(loc)
@@ -568,12 +542,6 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       if not ret:
         error(loc, 'undefined name ' + name \
               + '\nscope: ' + ','.join(type_env.keys()))
-    
-      # if name in type_env.keys():
-      #   ret = type_env[name]
-      # else:
-      #   error(loc, 'undefined name ' + name \
-      #         + '\nscope: ' + ','.join(type_env.keys()))
     case Call(loc, TVar(loc2, name), args, infix) if name == '=' or name == '≠':
       lhs_ty = type_synth_term(args[0], type_env, env, recfun, subterms)
       rhs_ty = type_synth_term(args[1], type_env, env, recfun, subterms)
@@ -594,8 +562,6 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       # TODO: check for completeness
       result_type = None
       for c in cases:
-        # new_type_env = copy_dict(type_env)
-        # check_pattern(c.pattern, ty, env, new_type_env)
         new_type_env = check_pattern(c.pattern, ty, env, type_env)
         case_type = type_synth_term(c.body, new_type_env, env, recfun, subterms)
         if not result_type:
@@ -641,9 +607,6 @@ def type_check_term(term, typ, type_env, env, recfun, subterms):
     case Lambda(loc, vars, body):
       match typ:
         case FunctionType(loc, typarams, param_types, return_type):
-          # new_type_env = copy_dict(type_env)
-          # for (x,ty) in zip(vars, param_types):
-          #   new_type_env[x] = ty
           new_type_env = type_env.extend_all(zip(vars, param_types))
           type_check_term(body, return_type, new_type_env, env, recfun, subterms)
         case _:
@@ -651,8 +614,6 @@ def type_check_term(term, typ, type_env, env, recfun, subterms):
                 + 'but instead got a lambda')
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, type_env, env, recfun, subterms)
-      # new_type_env = copy_dict(type_env)
-      # new_type_env[var] = rhs_ty
       new_type_env = type_env.extend(var, rhs_ty)
       type_check_term(body, typ, new_type_env, env, recfun, subterms)
     case Call(loc, TVar(loc2, name), args, infix) if name == '=' or name == '≠':
@@ -705,8 +666,6 @@ def check_constructor_pattern(loc, constr_name, params, typ, env, tyname,
               else:
                 parameter_types = constr.parameters
               type_env = type_env.extend_all(zip(params, parameter_types))
-              # for (param, param_type) in zip(params, parameter_types):
-              #   type_env[param] = param_type
           return type_env
         case _:
           error(loc, tyname + ' is not a union type')
@@ -735,20 +694,19 @@ modules = set()
 debruijnized_modules = set()
 
 def check_statement(stmt, env, type_env):
+  if get_verbose():
+    print('** check_statement(' + str(stmt) + ')')
   match stmt:
     case Define(loc, name, ty, body):
-      if get_verbose():
-        print('** check_statement(' + name + ')')
       if ty == None:
         ty = type_synth_term(body, type_env, env, None, [])
       else:
         type_check_term(body, ty, type_env, env, None, [])
-      env[name] = body.reduce(env)
-      return type_env.extend(name, ty)
-      #type_env[name] = ty
+      env = env.extend(name, body.reduce(env))
+      type_env = type_env.extend(name, ty)
+      return (env, type_env)
     case Theorem(loc, name, frm, pf):
       if get_verbose():
-        print('** check_statement(' + name + ')')
         print('checking theorem formula ' + str(frm))
         print('type_env: ' + \
           ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
@@ -758,31 +716,23 @@ def check_statement(stmt, env, type_env):
         print('type_env: ' + \
           ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
       check_proof_of(pf, frm, env, type_env)
-      env[name] = frm
-      return type_env
+      env = env.extend(name, frm)
+      return (env, type_env)
     case RecFun(loc, name, typarams, params, returns, cases):
-      if get_verbose():
-        print('** check_statement(' + name + ')')
-      # type_env[name] = FunctionType(loc, typarams, params, returns)
       type_env = type_env.extend(name, FunctionType(loc, typarams, params,
                                                     returns))
-      #new_type_env = copy_dict(type_env)
       for fun_case in cases:
         new_type_env = check_pattern(fun_case.pattern, params[0], env,
                                      type_env)
         new_type_env = new_type_env.extend_all(zip(fun_case.parameters,
                                                    params[1:]))
-        # for (x,typ) in zip(fun_case.parameters, params[1:]):
-        #  new_type_env[x] = typ
         type_check_term(fun_case.body, returns, new_type_env, env,
                         name, fun_case.pattern.parameters)
-      env[name] = stmt
-      return type_env
+      env = env.extend(name, stmt)
+      return env, type_env
     case Union(loc, name, typarams, alts):
-      if get_verbose():
-        print('** check_statement(' + name + ')')
       # TODO: check for well-defined types in the constructor definitions
-      env[name] = stmt
+      env = env.extend(name, stmt)
       for constr in alts:
         if constr.name in type_env.keys():
           error(loc, 'duplicate constructor name: ' + constr.name)
@@ -792,40 +742,38 @@ def check_statement(stmt, env, type_env):
             return_type = TypeInst(loc, name, tyvars)
           else:
             return_type = TypeName(loc, name)
-          # type_env[constr.name] = FunctionType(constr.location,
-          #                                      typarams,
-          #                                      constr.parameters,
-          #                                      return_type)
           type_env = type_env.extend(constr.name,
                                      FunctionType(constr.location,
                                                   typarams,
                                                   constr.parameters,
                                                   return_type))
         elif len(typarams) > 0:
-          #type_env[constr.name] = GenericType(loc, name)
           type_env = type_env.extend(constr.name, GenericType(loc, name))
         else:
-          #type_env[constr.name] = TypeName(loc, name)
           type_env = type_env.extend(constr.name, TypeName(loc, name))
-      return type_env
+      return (env, type_env)
     case Import(loc, name):
       if name not in modules:
         modules.add(name)
-        if get_verbose():
-          print('** check_statement(import ' + name + ')')
         filename = name + ".pf"
         file = open(filename, 'r')
         src = file.read()
         file.close()
         set_filename(filename)
         ast = parse(src, trace=False)
+        if get_verbose():
+          print('finished parsing')
         # TODO: cache the proof-checking of files
-        temp = get_verbose()
-        set_verbose(False)
+        if get_verbose():
+          print('checking module ' + name)
+        #temp = get_verbose()
+        #set_verbose(False)
         for s in ast:
-          type_env = check_statement(s, env, type_env)
-        set_verbose(temp)
-        return type_env
+          env, type_env = check_statement(s, env, type_env)
+        #set_verbose(temp)
+        if get_verbose():
+          print('finished checking module ' + name)
+        return env, type_env
       
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
@@ -859,9 +807,8 @@ def debruijnize_deduce(ast):
   debruijnize_statements(ast, top_level)
   
 def check_deduce(ast):
-  env = {}
-  #type_env = {}
+  env = Env()
   type_env = Env()
   for s in ast:
-    type_env = check_statement(s, env, type_env)
+    (env,type_env) = check_statement(s, env, type_env)
   

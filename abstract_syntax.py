@@ -307,9 +307,9 @@ class TAnnote(Term):
   def reduce(self, env):
     return self.subject.reduce(env)
   
-  def substitute(self, env):
-    return TAnnote(self.location, self.subject.substitute(env),
-                   self.typ.substitute(env))
+  def substitute(self, sub):
+    return TAnnote(self.location, self.subject.substitute(sub),
+                   self.typ.substitute(sub))
   
   def debruijnize(self, bindings):
     self.subject.debruijnize(bindings)
@@ -336,14 +336,15 @@ class TVar(Term):
       return str(self)
     
   def reduce(self, env):
-      if self.name in env:
-          return env[self.name]
+      res = env.lookup(self.name)
+      if res:
+          return res
       else:
           return self
   
-  def substitute(self, env):
-      if self.name in env.keys():
-          return env[self.name]
+  def substitute(self, sub):
+      if self.name in sub:
+          return sub[self.name]
       else:
           return self
         
@@ -367,7 +368,7 @@ class Int(Term):
   def reduce(self, env):
       return self
 
-  def substitute(self, env):
+  def substitute(self, sub):
       return self
 
   def debruijnize(self, bindings):
@@ -388,7 +389,7 @@ class FieldAccess(Term):
       # TODO
       return self
 
-  def substitute(self, env):
+  def substitute(self, sub):
     return FieldAccess(self.location, self.subject, self.field)
 
 @dataclass
@@ -412,13 +413,13 @@ class Lambda(Term):
   def reduce(self, env):
       return self
 
-  def substitute(self, env):
-      new_env = copy_dict(env)
+  def substitute(self, sub):
       # alpha rename the parameters
       new_vars = [generate_name(p) for p in self.vars]
+      new_sub = copy_dict(sub)
       for (v,new_v) in zip(self.vars, new_vars):
-          new_env[v] = TVar(self.location, new_v)
-      return Lambda(self.location, new_vars, self.body.substitute(new_env))
+        new_sub[v] = TVar(self.location, new_v)
+      return Lambda(self.location, new_vars, self.body.substitute(new_sub))
 
   def debruijnize(self, bindings):
     new_bindings = bindings + list(self.vars)
@@ -474,9 +475,7 @@ class Call(Term):
       args = [arg.reduce(env) for arg in self.args]
       match fun:
         case Lambda(loc, vars, body):
-          new_env = copy_dict(env)
-          for (x,arg) in zip(vars, args):
-            new_env[x] = arg
+          new_env = env.extend_all(zip(vars, args))
           ret = body.reduce(new_env)
         case RecFun(loc, name, typarams, params, returns, cases):
           first_arg = args[0]
@@ -500,14 +499,12 @@ class Call(Term):
               fun_case_body = fun_case.body.substitute(ren)
               subst = {}
               if is_match(fun_case_pattern, first_arg, subst):
-                  new_env = copy_dict(env)
-                  for (k,v) in subst.items():
-                      # TODO: not sure if the reduce is needed here -Jeremy
-                      new_env[k] = v.reduce(env)
-                      # new_env[k] = v
+                  new_env = env.extend_all([(k, v.reduce(env)) \
+                                            for (k,v) in subst.items()])
+                  # TODO: not sure if the reduce is needed here -Jeremy
                   bindings = {x:v for (x,v) in zip(fun_case_parameters, rest_args)}
-                  for (k,v) in zip(fun_case_parameters, rest_args):
-                      new_env[k] = v.reduce(env)
+                  new_env = new_env.extend_all([(k, v.reduce(env)) \
+                                                for (k,v) in zip(fun_case_parameters, rest_args)])
                   ret = fun_case_body.reduce(new_env)
                   return ret
           ret = Call(self.location, fun, args, self.infix)
@@ -515,9 +512,9 @@ class Call(Term):
           ret = Call(self.location, fun, args, self.infix)
       return ret
 
-  def substitute(self, env):
-      return Call(self.location, self.rator.substitute(env),
-                  [arg.substitute(env) for arg in self.args],
+  def substitute(self, sub):
+      return Call(self.location, self.rator.substitute(sub),
+                  [arg.substitute(sub) for arg in self.args],
                   self.infix)
 
   def debruijnize(self, bindings):
@@ -546,17 +543,17 @@ class SwitchCase(AST):
                                     new_params),
                         self.body.substitute(ren).reduce(env))
     
-  def substitute(self, env):
-      new_env = copy_dict(env)
+  def substitute(self, sub):
       # alpha rename the parameters
       new_params = [generate_name(x) for x in self.pattern.parameters]
+      new_sub = copy_dict(sub)
       for x, new_x in zip(self.pattern.parameters, new_params):
-          new_env[x] = TVar(self.location, new_x)
+        new_sub[x] = TVar(self.location, new_x)
       return SwitchCase(self.location,
                         PatternCons(self.pattern.location,
                                     self.pattern.constructor,
                                     new_params),
-                        self.body.substitute(new_env))
+                        self.body.substitute(new_sub))
 
   def debruijnize(self, bindings):
     new_bindings = bindings + list(self.pattern.parameters)
@@ -589,16 +586,14 @@ class Switch(Term):
           # TODO: alpha renaming
           subst = {}
           if is_match(c.pattern, new_subject, subst):
-            new_env = copy_dict(env)
-            for x,v in subst.items():
-              new_env[x] = v
+            new_env = env.extend_all(subst.items())
             return c.body.reduce(new_env)
       new_cases = [c.reduce(env) for c in self.cases]
       return Switch(self.location, new_subject, new_cases)
   
-  def substitute(self, env):
-      return Switch(self.location, self.subject.substitute(env),
-                    [c.substitute(env) for c in self.cases])
+  def substitute(self, sub):
+      return Switch(self.location, self.subject.substitute(sub),
+                    [c.substitute(sub) for c in self.cases])
 
   def debruijnize(self, bindings):
     self.subject.debruijnize(bindings)
@@ -664,7 +659,7 @@ class Bool(Formula):
     return str(self)
   def reduce(self, env):
     return self
-  def substitute(self, env):
+  def substitute(self, sub):
     return self
   def debruijnize(self, bindings):
     pass
@@ -801,7 +796,7 @@ class PLet(Proof):
   body: Proof
 
   def __str__(self):
-      return self.label + ': ' + str(self.proved) + ' because ' \
+      return self.label + ': ' + str(self.proved) + ' by ' \
         + str(self.because) + '; ' + str(self.body)
 
   def debruijnize(self, bindings):
@@ -817,7 +812,7 @@ class PAnnot(Proof):
   reason: Proof
 
   def __str__(self):
-      return 'have ' + str(self.claim) + ' because ' + str(self.reason)
+      return 'have ' + str(self.claim) + ' by ' + str(self.reason)
 
   def debruijnize(self, bindings):
     self.claim.debruijnize(bindings)
