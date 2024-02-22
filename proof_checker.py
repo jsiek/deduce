@@ -179,9 +179,11 @@ def check_proof(proof, env, type_env):
     case PHole(loc):
       error(loc, 'unfinished proof')
     case PVar(loc, name, index):
-      # TODO: ret = env.get(name, index)
+      # TODO:
+      # ret = env.get(name, index)
       # problem: IndCase used for switch and induction, but
       # binding structure is different (IH, EQ)
+      # (fixed, probably)
       ret = env.lookup(name)
       if not ret:
         error(loc, 'undefined label ' + name)

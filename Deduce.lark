@@ -71,6 +71,11 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push
 
+?switch_pf_case: "case" pattern "{" proof "}"      -> switch_pf_case
+
+?switch_pf_case_list: switch_pf_case               -> single
+    | switch_pf_case switch_pf_case_list           -> push
+
 ?equation: term_compare "=" term_add "by" proof            -> equation
 
 ?half_equation:  "..." "=" term_add "by" proof     -> half_equation
@@ -90,7 +95,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "induction" type ind_case_list                     -> induction
     | "rewrite" "goal" "with" proof "then" proof         -> rewrite_goal
     | "rewrite" proof "with" proof                       -> rewrite_fact
-    | "switch" term "{" ind_case_list "}"                -> switch_proof
+    | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "equations" equation equation_list                 -> equations_proof
     | proof_hi
 

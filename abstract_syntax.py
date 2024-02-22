@@ -965,6 +965,18 @@ class Induction(Proof):
       c.debruijnize(bindings)
     
 @dataclass
+class SwitchProofCase(AST):
+  pattern: Pattern
+  body: Proof
+
+  def __str__(self):
+    return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
+
+  def debruijnize(self, bindings):
+    new_bindings = ['EQ'] + list(self.pattern.parameters) + bindings 
+    self.body.debruijnize(new_bindings)
+    
+@dataclass
 class SwitchProof(Proof):
   subject: Term
   cases: List[IndCase]
