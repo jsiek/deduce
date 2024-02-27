@@ -180,11 +180,11 @@ def check_proof(proof, env, type_env):
       error(loc, 'unfinished proof')
     case PVar(loc, name, index):
       # TODO:
-      # ret = env.get(name, index)
+      ret = env.get(loc, name, index)
       # problem: IndCase used for switch and induction, but
       # binding structure is different (IH, EQ)
       # (fixed, probably)
-      ret = env.lookup(name)
+      #ret = env.lookup(name)
       if not ret:
         error(loc, 'undefined label ' + name)
     case PTrue(loc):
@@ -193,6 +193,7 @@ def check_proof(proof, env, type_env):
       check_formula(frm, env, type_env)
       check_proof_of(reason, frm, env, type_env)
       new_env = env.extend(label, frm)
+      new_type_env = type_env.extend(label, None)
       ret = check_proof(rest, new_env, type_env)
     case PAnnot(loc, claim, reason):
       check_formula(claim, env, type_env)
@@ -204,10 +205,14 @@ def check_proof(proof, env, type_env):
     case ImpIntro(loc, label, prem, body):
       check_formula(prem, env, type_env)
       new_env = env.extend(label, prem)
-      conc = check_proof(body, new_env, type_env)
+      new_type_env = type_env.extend(label, None)
+      conc = check_proof(body, new_env, new_type_env)
       ret = IfThen(loc, prem, conc)
     case AllIntro(loc, vars, body):
-      formula = check_proof(body, env, type_env)
+      new_bindings = [(x,None) for (x,ty) in vars]
+      new_env = env.extend_all(new_bindings)
+      new_type_env = type_env.extend_all(vars)
+      formula = check_proof(body, new_env, new_type_env)
       ret = All(loc, vars, formula)
     case AllElim(loc, univ, args):
       allfrm = check_proof(univ, env, type_env)
@@ -269,12 +274,12 @@ def check_proof_of(proof, formula, env, type_env):
           lhsNF = lhs.reduce(env)
           rhsNF = rhs.reduce(env)
           if lhsNF != rhsNF:
-            (lhs,rhs) = isolate_difference(lhsNF, rhsNF)
+            (small_lhs, small_rhs) = isolate_difference(lhsNF, rhsNF)
             msg = 'error in proof by reflexive:\n'
-            if lhs == lhsNF:
+            if small_lhs == lhsNF:
               msg = msg + str(lhsNF) + ' ≠ ' + str(rhsNF)
             else:
-              msg = msg + str(lhs) + ' ≠ ' + str(rhs) + '\n' \
+              msg = msg + str(small_lhs) + ' ≠ ' + str(small_rhs) + '\n' \
                 + 'therefore\n' + str(lhsNF) + ' ≠ ' + str(rhsNF)
             error(proof.location, msg)
         case _:
@@ -305,16 +310,23 @@ def check_proof_of(proof, formula, env, type_env):
         case All(loc2, vars2, formula2):
           if len(vars) != len(vars2):
             error(proof.location, 'mismatch in number of variables')
-          sub = { var2[0]: TVar(loc, var[0]) for (var,var2) in zip(vars,vars2)}
+          sub = {}
+          index = 0
+          for (var,var2) in reversed(list(zip(vars,vars2))):
+            sub[ var2[0] ] = TVar(loc, var[0], index)
+            index += 1
           frm2 = formula2.substitute(sub)
           new_type_env = type_env.extend_all(vars)
-          check_proof_of(body, frm2, env, new_type_env)
+          new_bindings = [(x,None) for (x,ty) in vars]
+          new_env = env.extend_all(new_bindings)
+          check_proof_of(body, frm2, new_env, new_type_env)
 
     case ImpIntro(loc, label, None, body):
       match formula:
         case IfThen(loc, prem, conc):
           new_env = env.extend(label, prem)
-          check_proof_of(body, conc, new_env, type_env)
+          new_type_env = type_env.extend(label, None)
+          check_proof_of(body, conc, new_env, new_type_env)
         case _:
           error(proof.location, 'expected proof of if-then, not ' + str(proof))
     case ImpIntro(loc, label, prem1, body):
@@ -322,12 +334,13 @@ def check_proof_of(proof, formula, env, type_env):
       match formula:
         case IfThen(loc, prem2, conc):
           new_env = env.extend(label, prem2)
+          new_type_env = type_env.extend(label, None)
           prem1_red = prem1.reduce(env)
           prem2_red = prem2.reduce(env)
           if prem1_red != prem2_red:
             error(loc, 'mismatch in premise:\n' \
                   + str(prem1_red) + '\n≠ ' + str(prem2_red))
-          check_proof_of(body, conc, new_env, type_env)
+          check_proof_of(body, conc, new_env, new_type_env)
         case _:
           error(proof.location, 'expected proof of if-then, not ' + str(proof))
       
@@ -335,23 +348,27 @@ def check_proof_of(proof, formula, env, type_env):
       check_formula(frm, env, type_env)
       check_proof_of(reason, frm, env, type_env)
       new_env = env.extend(label, frm)
-      check_proof_of(rest, formula, new_env, type_env)
+      new_type_env = type_env.extend(label, None)
+      check_proof_of(rest, formula, new_env, new_type_env)
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env, type_env)
       match sub_frm:
         case Or(loc, frms):
           for (frm, (label,case)) in zip(frms, cases):
             new_env = env.extend(label, frm)
+            new_type_env = type_env.extend(label, None)
             check_proof_of(case, formula, new_env, type_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_frm))
     case Induction(loc, typ, cases):
       match typ:
-        case TypeName(l1, n):
+        case TypeName(l1, n, i):
           type_name = n
-        case TypeInst(l1, n, type_args):
+          type_index = i
+        case TypeInst(l1, n, type_args, i):
           type_name = n
-      match env.lookup(type_name):
+          type_index = i
+      match env.get(loc, type_name, type_index):
         case Union(loc2, name, typarams, alts):
           for (constr,indcase) in zip(alts, cases):
             if indcase.pattern.constructor != constr.name:
@@ -371,6 +388,7 @@ def check_proof_of(proof, formula, env, type_env):
             elif len(induction_hypotheses) == 1:
               induction_hypotheses = induction_hypotheses[0]
             new_env = env.extend('IH', induction_hypotheses)
+            new_type_env = type_env.extend('IH', None)
             trm = pattern_to_term(indcase.pattern)
             goal = instantiate(loc, formula, [trm])
             if len(typarams) > 0:
@@ -378,8 +396,12 @@ def check_proof_of(proof, formula, env, type_env):
               parameter_types = [p.substitute(sub) for p in constr.parameters]
             else:
               parameter_types = constr.parameters
-            new_type_env = type_env.extend_all(zip(indcase.pattern.parameters,
+            param_bindings = [(x,None) for x in indcase.pattern.parameters]
+            new_env = new_env.extend_all(param_bindings)
+            new_type_env = new_type_env.extend_all(zip(indcase.pattern.parameters,
                                                    parameter_types))
+            #print('checking induction case, new_env= ' + str(new_env))
+            #print()
             check_proof_of(indcase.body, goal, new_env, new_type_env)
         case _:
           error(loc, "induction expected name of union, not " + type_name)
@@ -387,11 +409,12 @@ def check_proof_of(proof, formula, env, type_env):
     case SwitchProof(loc, subject, cases):
       ty = type_synth_term(subject, type_env, env, None, [])
       match ty:
-        case TypeName(loc2, name):
+        case TypeName(loc2, name, index):
           type_name = name
+          type_index = index
         case _:
           error(loc, 'expected term of union type, not ' + str(ty))
-      match env.lookup(type_name):
+      match env.get(loc, type_name, type_index):
         case Union(loc2, name, typarams, alts):
           for (constr,scase) in zip(alts, cases):
             if scase.pattern.constructor != constr.name:
@@ -404,8 +427,11 @@ def check_proof_of(proof, formula, env, type_env):
             new_env = env.extend('EQ', mkEqual(scase.location, 
                                                subject,
                                                pattern_to_term(scase.pattern)))
-            new_type_env = type_env.extend_all(zip(scase.pattern.parameters,
-                                                   constr.parameters))
+            new_type_env = type_env.extend('EQ', None)
+            new_params = [(x,None) for x in scase.pattern.parameters]
+            new_env = new_env.extend_all(new_params)
+            new_type_env = new_type_env.extend_all(zip(scase.pattern.parameters,
+                                                       constr.parameters))
             check_proof_of(scase.body, formula, new_env, new_type_env)
         case _:
           error(loc, "switch expected union type, not " + type_name)
@@ -485,7 +511,7 @@ def type_check_call(loc, rator, args, type_env, env, recfun, subterms, ret_ty):
   ty = type_synth_term(rator, type_env, env, recfun, subterms)
   return type_check_call_helper(loc, ty, args, type_env, env, recfun, subterms, ret_ty)
 
-def type_check_rec_call(loc, loc2, name, args, type_env, env, recfun, subterms, ret_ty):
+def type_check_rec_call(loc, loc2, name, index, args, type_env, env, recfun, subterms, ret_ty):
   match args[0]:
     case TVar(loc3, arg_name):
         if not (arg_name in subterms):
@@ -496,7 +522,7 @@ def type_check_rec_call(loc, loc2, name, args, type_env, env, recfun, subterms, 
       error(loc, "ill-formed recursive call, " \
             + "expected first argument to be " \
             + " or ".join(subterms) + ", not " + str(args[0]))
-  return type_check_call(loc, TVar(loc2,name), args, type_env, env,
+  return type_check_call(loc, TVar(loc2,name,index), args, type_env, env,
                          recfun, subterms, ret_ty)
 
 
@@ -517,8 +543,9 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       return thn_ty
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, type_env, env, recfun, subterms)
+      new_env = env.extend(var, None)
       new_type_env = type_env.extend(var, rhs_ty)
-      ret = type_synth_term(body, new_type_env, env, recfun, subterms)
+      ret = type_synth_term(body, new_type_env, new_env, recfun, subterms)
     case Int(loc, value):
       ret = IntType(loc)
     case Bool(loc, value):
@@ -536,15 +563,17 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       check_formula(conc, env, type_env)
       ret = BoolType(loc)
     case All(loc, vars, body):
+      new_env = env.extend_all([(x, None) for (x,ty) in vars])
       new_type_env = type_env.extend_all(vars)
-      check_formula(body, env, new_type_env)      
+      check_formula(body, new_env, new_type_env)      
       ret = BoolType(loc)
     case Some(loc, vars, body):
+      new_env = env.extend_all([(x, None) for (x,ty) in vars])
       new_type_env = type_env.extend_all(vars)
-      check_formula(body, env, new_type_env)
+      check_formula(body, new_env, new_type_env)
       ret = BoolType(loc)
-    case TVar(loc, name):
-      ret = type_env.lookup(name)
+    case TVar(loc, name, index):
+      ret = type_env.get(loc, name, index)
       if not ret:
         error(loc, 'undefined name ' + name \
               + '\nscope: ' + ','.join(type_env.keys()))
@@ -556,9 +585,9 @@ def type_synth_term(term, type_env, env, recfun, subterms):
               + ' but ' + str(lhs_ty) + ' ≠ ' + str(rhs_ty))
       ret = BoolType(loc)
         
-    case Call(loc, TVar(loc2, name), args, infix) if name == recfun:
+    case Call(loc, TVar(loc2, name, index), args, infix) if name == recfun:
       # recursive call
-      ret = type_check_rec_call(loc, loc2, name, args, type_env, env,
+      ret = type_check_rec_call(loc, loc2, name, index, args, type_env, env,
                                 recfun, subterms, None)
     case Call(loc, rator, args, infix):
       # non-recursive call
@@ -568,8 +597,8 @@ def type_synth_term(term, type_env, env, recfun, subterms):
       # TODO: check for completeness
       result_type = None
       for c in cases:
-        new_type_env = check_pattern(c.pattern, ty, env, type_env)
-        case_type = type_synth_term(c.body, new_type_env, env, recfun, subterms)
+        (new_env, new_type_env) = check_pattern(c.pattern, ty, env, type_env)
+        case_type = type_synth_term(c.body, new_type_env, new_env, recfun, subterms)
         if not result_type:
           result_type = case_type
         elif case_type != result_type:
@@ -627,9 +656,9 @@ def type_check_term(term, typ, type_env, env, recfun, subterms):
       if ty != typ:
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
       
-    case Call(loc, TVar(loc2, name), args, infix) if name == recfun:
+    case Call(loc, TVar(loc2, name, index), args, infix) if name == recfun:
       # recursive call
-      type_check_rec_call(loc, loc2, name, args, type_env, env,
+      type_check_rec_call(loc, loc2, name, index, args, type_env, env,
                           recfun, subterms, typ)
     case Call(loc, rator, args, infix):
       # non-recursive call
@@ -672,7 +701,8 @@ def check_constructor_pattern(loc, constr_name, params, typ, env, tyname,
               else:
                 parameter_types = constr.parameters
               type_env = type_env.extend_all(zip(params, parameter_types))
-          return type_env
+              env = env.extend_all([(x,None) for x in params])
+          return env, type_env
         case _:
           error(loc, tyname + ' is not a union type')
   error(loc, tyname + ' is not a union type')
@@ -699,6 +729,9 @@ def check_formula(frm, env, type_env):
 modules = set()
 debruijnized_modules = set()
 
+top_level = ['=','≠']
+      
+
 def check_statement(stmt, env, type_env):
   if get_verbose():
     print('** check_statement(' + str(stmt) + ')')
@@ -714,6 +747,8 @@ def check_statement(stmt, env, type_env):
     case Theorem(loc, name, frm, pf):
       if get_verbose():
         print('checking theorem formula ' + str(frm))
+        print('env: ' + \
+          ', '.join([k + ' : ' + str(v) for (k,v) in env.items()]))
         print('type_env: ' + \
           ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
       check_formula(frm, env, type_env)
@@ -723,31 +758,37 @@ def check_statement(stmt, env, type_env):
           ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
       check_proof_of(pf, frm, env, type_env)
       env = env.extend(name, frm)
+      type_env = type_env.extend(name, None)
       return (env, type_env)
     case RecFun(loc, name, typarams, params, returns, cases):
+      env = env.extend(name, stmt.reduce(env))
       type_env = type_env.extend(name, FunctionType(loc, typarams, params,
                                                     returns))
       for fun_case in cases:
-        new_type_env = check_pattern(fun_case.pattern, params[0], env,
-                                     type_env)
+        (new_env, new_type_env) = check_pattern(fun_case.pattern, params[0],
+                                                env, type_env)
+        new_env = new_env.extend_all([(x,None) for x in fun_case.parameters])
         new_type_env = new_type_env.extend_all(zip(fun_case.parameters,
                                                    params[1:]))
-        type_check_term(fun_case.body, returns, new_type_env, env,
+        type_check_term(fun_case.body, returns, new_type_env, new_env,
                         name, fun_case.pattern.parameters)
-      env = env.extend(name, stmt)
       return env, type_env
     case Union(loc, name, typarams, alts):
       # TODO: check for well-defined types in the constructor definitions
       env = env.extend(name, stmt)
+      type_env = type_env.extend(name, None)
+      this_index = 0
       for constr in alts:
         if constr.name in type_env.keys():
           error(loc, 'duplicate constructor name: ' + constr.name)
+        env = env.extend(constr.name, None)
+        this_index += 1
         if len(constr.parameters) > 0:
           if len(typarams) > 0:
             tyvars = [TypeName(loc, p) for p in typarams]
-            return_type = TypeInst(loc, name, tyvars)
+            return_type = TypeInst(loc, name, tyvars, this_index)
           else:
-            return_type = TypeName(loc, name)
+            return_type = TypeName(loc, name, this_index)
           type_env = type_env.extend(constr.name,
                                      FunctionType(constr.location,
                                                   typarams,
@@ -756,7 +797,7 @@ def check_statement(stmt, env, type_env):
         elif len(typarams) > 0:
           type_env = type_env.extend(constr.name, GenericType(loc, name))
         else:
-          type_env = type_env.extend(constr.name, TypeName(loc, name))
+          type_env = type_env.extend(constr.name, TypeName(loc, name, this_index))
       return (env, type_env)
     case Import(loc, name):
       if name not in modules:
@@ -767,6 +808,7 @@ def check_statement(stmt, env, type_env):
         file.close()
         set_filename(filename)
         ast = parse(src, trace=False)
+        debruijnize_statements(ast)
         if get_verbose():
           print('finished parsing')
         # TODO: cache the proof-checking of files
@@ -785,11 +827,11 @@ def check_statement(stmt, env, type_env):
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
 
 
-def debruijnize_statements(ast, top_level):
+def debruijnize_statements(ast):
   for s in ast:
     name = s.debruijnize(top_level)
     if name:
-      top_level.append(name)
+      top_level.insert(0, name)
     match s:
       case Import(loc, module_name):
         if module_name not in debruijnized_modules:
@@ -800,21 +842,21 @@ def debruijnize_statements(ast, top_level):
         file.close()
         set_filename(filename)
         ast = parse(src, trace=False)
-        debruijnize_statements(ast, top_level)
+        debruijnize_statements(ast)
       case Union(loc, union_name, typarams, alts):
         for con in alts:
-          top_level.append(con.name)
+          top_level.insert(0, con.name)
       case _:
         pass
   
-      
 def debruijnize_deduce(ast):
-  top_level = ['=','≠']
-  debruijnize_statements(ast, top_level)
+  debruijnize_statements(ast)
   
 def check_deduce(ast):
   env = Env()
   type_env = Env()
+  env = env.extend('≠', None)
+  env = env.extend('=', None)
   for s in ast:
     (env,type_env) = check_statement(s, env, type_env)
   

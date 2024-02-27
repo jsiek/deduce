@@ -95,7 +95,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys :List<U>, zs :List<U>;
-    reflexive
+    have append(append(empty,ys),zs) = append(empty,append(ys,zs)) by reflexive
   }
   case node(n, xs') {
     arbitrary ys :List<U>, zs :List<U>;

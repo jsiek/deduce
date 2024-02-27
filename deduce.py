@@ -8,13 +8,13 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     file = open(filename, 'r')
     p = file.read()
-    set_verbose(False)
+    set_verbose(True)
     try:
       set_filename(filename)
       ast = parse(p, trace=False)
       try:
           debruijnize_deduce(ast)
-          #print("finished debruijnize:\n" + str(ast))
+          # print("finished debruijnize:\n" + str(ast))
           check_deduce(ast)
           print(filename + ' is valid')
           exit(0)

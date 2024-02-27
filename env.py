@@ -1,8 +1,12 @@
+from error import error
 
 class Env:
   def __init__(self, head = None):
     self.head = head
 
+  def __str__(self):
+    return '{' + ', '.join([str(k) + ':=' + str(v) for (k,v) in self.items()]) + '}'
+    
   def extend(self, key, value):
     return Env(((key, value), self.head))
 
@@ -30,6 +34,17 @@ class Env:
         curr = curr[1]
     return None    
 
+  def find_index(self, key):
+    index = 0
+    curr = self.head
+    while curr:
+      if key == curr[0][0]:
+        return index
+      else:
+        curr = curr[1]
+        index += 1
+    return None    
+  
   def nth(self, index):
     curr = self.head
     while index != 0 and curr:
@@ -40,15 +55,31 @@ class Env:
     else:
       return None
   
-  def get(self, key, index):
-    n1 = self.find(key)
+  def get(self, loc, key, index):
+    # TODO: eventually remove the call to find -Jeremy
+    #n1 = self.find(key)
     n2 = self.nth(index)
-    if n1 is n2:
-      return n1[1]
+    if not n2:
+      print('*** error in get ***')
+      print(', '.join([str(k) + ':=' + str(v) for (k,v) in self.items()]))
+      print('***  ***')
+      error(loc, 'undefined variable ' + key + '@' + str(index) \
+            + '\ninstead, found at ' + str(self.find_index(key)))
+    if n2[0] == key:
+      if n2[1]:
+        return n2[1].shift(0, index)
+      else:
+        return None
     else:
-      print(', '.join([k + ':=' + str(v) for (k,v) in self.items()]))
-      raise Exception('variable name and index out of sync: ' + key + ', ' + str(index))
-  
+      print()
+      print('*** error in get')
+      print(', '.join([str(k) + ':=' + str(v) for (k,v) in self.items()]))
+      print()
+      error(loc, 'variable name and index out of sync:\n'
+            + key + ' not at index ' + str(index) + '\nfound ' + n2[0] \
+            + ' there instead\n'\
+            + key + ' is at index ' + str(self.find_index(key)))
+      
   def keys(self):
     result = []
     curr = self.head
