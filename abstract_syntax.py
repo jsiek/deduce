@@ -48,7 +48,7 @@ class TypeName(Type):
   index: int = -1
   
   def __str__(self):
-    return self.name
+    return self.name + '@' + str(self.index)
 
   def __repr__(self):
     return str(self)
@@ -56,7 +56,7 @@ class TypeName(Type):
   def __eq__(self, other):
     if not isinstance(other, TypeName):
       return False
-    return self.name == other.name
+    return self.name == other.name and self.index == other.index
 
   def free_vars(self):
     return set([self.name])
@@ -364,7 +364,7 @@ class TVar(Term):
   def __eq__(self, other):
       if not isinstance(other, TVar):
           return False
-      ret = self.name == other.name
+      ret = self.name == other.name and self.index == other.index
       return ret
   
   def __str__(self):
