@@ -530,8 +530,7 @@ def type_check_rec_call(loc, loc2, name, index, args, type_env, env, recfun, sub
 def type_synth_term(term, type_env, env, recfun, subterms):
   if get_verbose():
     print('type_synth_term: ' + str(term))
-    # print('type_env: ' + \
-    #       ', '.join([k + ' : ' + str(t) for (k,t) in type_env.items()]))
+    print('type_env: ' + str(type_env))
   match term:
     case Conditional(loc, cond, thn, els):
       type_check_term(cond, BoolType(loc), type_env, env, recfun, subterms)
@@ -651,7 +650,7 @@ def type_check_term(term, typ, type_env, env, recfun, subterms):
       rhs_ty = type_synth_term(rhs, type_env, env, recfun, subterms)
       new_type_env = type_env.extend(var, rhs_ty)
       type_check_term(body, typ, new_type_env, env, recfun, subterms)
-    case Call(loc, TVar(loc2, name), args, infix) if name == '=' or name == '≠':
+    case Call(loc, TVar(loc2, name, index), args, infix) if name == '=' or name == '≠':
       ty = type_synth_term(term, type_env, env, recfun, subterms)
       if ty != typ:
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
@@ -679,44 +678,45 @@ def is_constructor(constr_name, env):
         continue
   return False
         
-def check_constructor_pattern(loc, constr_name, params, typ, env, tyname,
+def check_constructor_pattern(loc, constr_name, params, typ, env,
+                              tyname, tyindex,
                               type_env):
   if get_verbose():
     print('check_constructor_pattern: ' + constr_name)
-  for (name,defn) in env.items():
-    if name == tyname:
-      match defn:
-        case Union(loc2, name, typarams, alts):
-          # example:
-          # typ is List<E>
-          # union List<T> { empty; node(T, List<T>); }
-          # constr_name == node
-          for constr in alts:
-            # constr = node(T, List<T>)
-            if constr.name == constr_name:
-              if len(typarams) > 0:
-                sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
-                # print('instantiate constructor: ' + str(sub))
-                parameter_types = [p.substitute(sub) for p in constr.parameters]
-              else:
-                parameter_types = constr.parameters
-              type_env = type_env.extend_all(zip(params, parameter_types))
-              env = env.extend_all([(x,None) for x in params])
-          return env, type_env
-        case _:
-          error(loc, tyname + ' is not a union type')
-  error(loc, tyname + ' is not a union type')
+  defn = env.get(loc, tyname, tyindex)
+  if get_verbose():
+    print('for union: ' + str(defn))
+  match defn:
+    case Union(loc2, name, typarams, alts):
+      # example:
+      # typ is List<E>
+      # union List<T> { empty; node(T, List<T>); }
+      # constr_name == node
+      for constr in alts:
+        # constr = node(T, List<T>)
+        if constr.name == constr_name:
+          if len(typarams) > 0:
+            sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
+            # print('instantiate constructor: ' + str(sub))
+            parameter_types = [p.substitute(sub) for p in constr.parameters]
+          else:
+            parameter_types = constr.parameters
+          type_env = type_env.extend_all(zip(params, parameter_types))
+          env = env.extend_all([(x,None) for x in params])
+      return env, type_env
+    case _:
+      error(loc, tyname + ' is not a union type')
         
 def check_pattern(pattern, typ, env, type_env):
   match pattern:
     case PatternCons(loc, constr, params):
       match typ:
-        case TypeName(loc2, name):
-          return check_constructor_pattern(loc, constr, params, typ, env, name,
+        case TypeName(loc2, name, index):
+          return check_constructor_pattern(loc, constr, params, typ, env, name, index,
                                            type_env)
-        case TypeInst(loc2, name, tyargs):
+        case TypeInst(loc2, name, tyargs, index):
           # TODO: handle the tyargs
-          return check_constructor_pattern(loc, constr, params, typ, env, name,
+          return check_constructor_pattern(loc, constr, params, typ, env, name, index,
                                            type_env)
         case _:
           error(loc, 'expected something of type ' + str(typ) + ' not ' + constr)

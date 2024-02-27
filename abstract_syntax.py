@@ -1131,7 +1131,14 @@ class Constructor(AST):
   def debruijnize(self, bindings):
     for ty in self.parameters:
       ty.debruijnize(bindings)
-    
+
+  def shift(self, cutoff, amount):
+    return Constructor(self.location, self.name,
+                       [ty.shift(cutoff, amount) for ty in self.parameters])
+
+  def __str__(self):
+    return self.name + '(' + ','.join([str(ty) for ty in self.parameters]) + ');'
+      
 @dataclass
 class Union(Statement):
   name: str
@@ -1145,10 +1152,13 @@ class Union(Statement):
     return self.name
 
   def shift(self, cutoff, amount):
-    return self
+    n = len(self.type_params) + 1
+    return Union(self.location, self.name, self.type_params,
+                 [c.shift(cutoff + n, amount) for c in self.alternatives])
 
   def __str__(self):
-    return 'union ' + self.name
+    return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
+      + ' '.join([str(c) for c in self.alternatives]) + '}'
   
 @dataclass
 class FunCase(AST):
