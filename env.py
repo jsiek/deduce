@@ -1,112 +1,195 @@
 from error import error
+from abstract_syntax import *
+from alist import *
 
+@dataclass
+class Binding(AST):
+  pass
+
+@dataclass
+class TypeBinding(Binding):
+  defn : AST = None
+
+@dataclass
+class TermBinding(Binding):
+  typ : Type
+  defn : Term = None
+
+@dataclass
+class ProofBinding(Binding):
+  formula : Formula
+  
 class Env:
-  def __init__(self, head = None):
-    self.head = head
+  def __init__(self, alist = None):
+    self.alist = alist
 
   def __str__(self):
-    return '{' + ', '.join([str(k) + ':=' + str(v) for (k,v) in self.items()]) + '}'
-    
-  def extend(self, key, value):
-    return Env(((key, value), self.head))
+    return 'env:  ' + str_of_alist(self.alist)
 
-  def extend_all(self, kv_pairs):
+  def declare_type(self, loc, name):
+    return Env(cons(cons(name, TypeBinding(loc)), self.alist))
+
+  def declare_type_vars(self, loc, type_vars):
     new_env = self
-    for (k,v) in kv_pairs:
-      new_env = new_env.extend(k, v)
+    for x in type_vars:
+      new_env = new_env.declare_type(loc, x)
     return new_env
   
-  def lookup(self, key):
-    curr = self.head
-    while curr:
-      if key == curr[0][0]:
-        return curr[0][1]
-      else:
-        curr = curr[1]
-    return None    
-
-  def find(self, key):
-    curr = self.head
-    while curr:
-      if key == curr[0][0]:
-        return curr[0]
-      else:
-        curr = curr[1]
-    return None    
-
-  def find_index(self, key):
-    index = 0
-    curr = self.head
-    while curr:
-      if key == curr[0][0]:
-        return index
-      else:
-        curr = curr[1]
-        index += 1
-    return None    
+  def define_type(self, loc, name, defn):
+    return Env(cons(cons(name, TypeBinding(loc, defn)), self.alist))
   
-  def nth(self, index):
-    curr = self.head
-    while index != 0 and curr:
-      index -= 1
+  def declare_term_var(self, loc, name, typ):
+    return Env(cons(cons(name, TermBinding(loc, typ)), self.alist))
+
+  def declare_term_vars(self, loc, xty_pairs):
+    new_env = self
+    for (x,ty) in xty_pairs:
+      new_env = new_env.declare_term_var(x, ty)
+    return new_env
+  
+  def define_term_var(self, loc, name, typ, val):
+    return Env(cons(cons(name, TermBinding(loc, typ, val)), self.alist))
+
+
+  def declare_proof_var(self, loc, name, frm):
+    return Env(cons(cons(name, ProofBinding(loc, typ)), self.alist))
+
+  def type_var_is_defined(self, tyname):
+    if self.get_binding_of_type_var(tyname):
+      return True
+    else:
+      return False
+  
+  def get_binding_of_type_var(self, tyname):
+    match tyname:
+      case TypeName(loc, name, index):
+        curr = self.alist
+        while curr and index != 0:
+          match curr[0][1]:
+            case TypeBinding(loc, defn):
+              index -= 1
+            case TermBinding(loc, typ, defn):
+              pass
+            case ProofBinding(loc, frm):
+              pass
+          curr = curr[1]
+        if curr:
+          if curr[0][0] == name:
+            return curr[0][1]
+          else:
+            error(loc, 'index mismatch for ' + str(tyname) + '\nfound ' + str(curr[0]))
+        else:
+          return None
+      case _:
+        return None
+
+  def term_var_is_defined(self, tyname):
+    if self.get_binding_of_term_var(tyname):
+      return True
+    else:
+      return False
+      
+  def get_binding_of_term_var(self, tvar):
+    match tvar:
+      case TVar(loc, name, index):
+        curr = self.alist
+        while curr and index != 0:
+          match curr[0][1]:
+            case TypeBinding(loc, defn):
+              pass
+            case TermBinding(loc, typ, defn):
+              index -= 1
+            case ProofBinding(loc, frm):
+              pass
+          curr = curr[1]
+        if curr:
+          if curr[0][0] == name:
+            return curr[0][1]
+          else:
+            error(loc, 'index mismatch for ' + str(tvar) + '\nfound ' + str(curr[0]))
+        else:
+          return None
+      case _:
+        return None
+
+  def proof_var_is_defined(self, tyname):
+    if self.get_binding_of_proof_var(tyname):
+      return True
+    else:
+      return False
+    
+  def get_binding_of_proof_var(self, pvar):
+    match pvar:
+      case PVar(loc, name, index):
+        curr = self.alist
+        while curr and index != 0:
+          match curr[0][1]:
+            case TypeBinding(loc, defn):
+              pass
+            case TermBinding(loc, typ, defn):
+              pass
+            case ProofBinding(loc, frm):
+              index -= 1
+          curr = curr[1]
+        if curr:
+          if curr[0][0] == name:
+            return curr[0][1]
+          else:
+            error(loc, 'index mismatch for ' + str(pvar) + '\nfound ' + str(curr[0]))
+        else:
+          return None
+      case _:
+        return None
+
+  def index_of_type_var(self, name):
+    index = 0
+    curr = self.alist
+    while curr and curr[0][0] != name:
+      match curr[0][1]:
+        case TypeBinding(loc, defn):
+          index += 1
+        case TermBinding(loc, typ, defn):
+          pass
+        case ProofBinding(loc, frm):
+          pass
       curr = curr[1]
     if curr:
-      return curr[0]
+      return index
     else:
       return None
-  
-  def get(self, loc, key, index):
-    # TODO: eventually remove the call to find -Jeremy
-    #n1 = self.find(key)
-    n2 = self.nth(index)
-    if not n2:
-      print('*** error in get ***')
-      print(', '.join([str(k) + ':=' + str(v) for (k,v) in self.items()]))
-      print('***  ***')
-      error(loc, 'undefined variable ' + key + '@' + str(index) \
-            + '\ninstead, found at ' + str(self.find_index(key)))
-    if n2[0] == key:
-      if n2[1]:
-        return n2[1].shift(0, index)
-      else:
-        return None
+
+  def index_of_term_var(self, name):
+    index = 0
+    curr = self.alist
+    while curr and curr[0][0] != name:
+      match curr[0][1]:
+        case TypeBinding(loc, defn):
+          pass
+        case TermBinding(loc, typ, defn):
+          index += 1
+        case ProofBinding(loc, frm):
+          pass
+      curr = curr[1]
+    if curr:
+      return index
     else:
-      print()
-      print('*** error in get')
-      print(', '.join([str(k) + ':=' + str(v) for (k,v) in self.items()]))
-      print()
-      error(loc, 'variable name and index out of sync:\n'
-            + key + ' not at index ' + str(index) + '\nfound ' + n2[0] \
-            + ' there instead\n'\
-            + key + ' is at index ' + str(self.find_index(key)))
-      
-  def keys(self):
-    result = []
-    curr = self.head
-    while curr:
-      result.append(curr[0][0])
-      curr = curr[1]
-    return result
+      return None
 
-  def items(self):
-    result = []
-    curr = self.head
-    while curr:
-      result.append(curr[0])
+  def index_of_proof_var(self, name):
+    index = 0
+    curr = self.alist
+    while curr and curr[0][0] != name:
+      match curr[0][1]:
+        case TypeBinding(loc, defn):
+          pass
+        case TermBinding(loc, typ, defn):
+          pass
+        case ProofBinding(loc, frm):
+          index += 1
       curr = curr[1]
-    return result
-  
-if __name__ == "__main__":
-  env = Env()
-  env = env.extend('hi', 3)
-  env = env.extend('lo', 1)
-  assert env.lookup('hi') == 3
-  assert env.lookup('lo') == 1
-  assert env.lookup('foo') == None
+    if curr:
+      return index
+    else:
+      return None
 
-  d = {'x': 4, 'y': 5}
-  env = env.extend_all(d.items())
-  assert env.lookup('x') == 4
-  assert env.lookup('y') == 5
-  assert env.lookup('lo') == 1
   

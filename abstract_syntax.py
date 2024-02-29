@@ -242,6 +242,7 @@ class TypeInst(Type):
 @dataclass
 class GenericType(Type):
   name: str
+  index: int
   # TODO: add deBruijn index
   
   def __str__(self):
@@ -1118,10 +1119,10 @@ class Theorem(Statement):
   def __repr__(self):
     return str(self)
 
-  def debruijnize(self, bindings):
-    self.what.debruijnize(bindings)
-    self.proof.debruijnize(bindings)
-    return self.name
+  def debruijnize(self, env):
+    self.what.debruijnize(env)
+    self.proof.debruijnize(env)
+    return env.declare_proof_var(self.name, self.what)
     
 @dataclass
 class Constructor(AST):
@@ -1145,14 +1146,18 @@ class Union(Statement):
   type_params: List[str]
   alternatives: List[Constructor]
 
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.type_params)) + [self.name] + bindings
-    for alt in self.alternatives:
-      alt.debruijnize(new_bindings)
-    return self.name
+  def debruijnize(self, env):
+    env = env.declare_type(self.name)
+#    new_bindings = list(reversed(self.type_params)) + [self.name] + bindings
+    for con in self.alternatives:
+      con.debruijnize(env)
+      env = env.declare_term_var(con.name, None)
+    return env
 
   def shift(self, cutoff, amount):
-    n = len(self.type_params) + 1
+    # Don't treat the Union name itself as a binder here,
+    # it's more of a global variable. -Jeremy
+    n = len(self.type_params)
     return Union(self.location, self.name, self.type_params,
                  [c.shift(cutoff + n, amount) for c in self.alternatives])
 
@@ -1272,9 +1277,10 @@ class Define(Statement):
 @dataclass
 class Import(Statement):
   name: str
-  
-  def debruijnize(self, bindings):
-    return None
+
+  # see 
+  def debruijnize(self, env):
+    return env
   
 def mkEqual(loc, arg1, arg2):
   return Call(loc, TVar(loc, '='), [arg1, arg2], True)
