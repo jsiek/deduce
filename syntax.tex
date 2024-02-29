@@ -1,0 +1,68 @@
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{amssymb}
+%\usepackage{mathabx}
+\usepackage{stmaryrd}
+\usepackage{semantic}
+\usepackage{natbib}
+
+\newcommand{\SC}{\texttt{;}}
+\newcommand{\LC}{\texttt{\{}}
+\newcommand{\RC}{\texttt{\}}}
+\newcommand{\LP}{\texttt{(}}
+\newcommand{\RP}{\texttt{)}}
+\newcommand{\LS}{\texttt{[}}
+\newcommand{\RS}{\texttt{]}}
+\newcommand{\EQ}{\mathop{\texttt{=}}}
+\newcommand{\OF}{\mathop{\mathtt{of}}}
+
+\title{Syntax of Deduce}
+\author{Jeremy G. Siek}
+
+\begin{document}
+\maketitle
+
+\[
+\begin{array}{lrcl}
+  \text{type names and variables} & C,\alpha,\beta \\
+  \text{types}& \tau & ::= & \alpha \mid \mathtt{int} \mid \mathtt{bool}
+  \mid \mathtt{<} \overline{\alpha} \mathtt{>} \LP \overline{\tau} \RP \to \tau
+  \mid \alpha \mathtt{<} \overline{\tau} \mathtt{>} \\
+  \text{term variables} & x,y,f \\
+  \text{integers} & n \\
+  \text{Booleans} & b & ::= & \mathtt{true} \mid \mathtt{false}\\
+  \text{terms and formulas} & e,\phi &::= & x \mid n \mid b \mid e(\overline{e}) \mid e \mathop{\mathtt{and}} e
+    \mid e \mathop{\mathtt{or}} e \mid \mathtt{if}\; e \;\mathtt{then}\; e\\
+    &&& \mid \mathtt{if}\; e \;\mathtt{then}\; e \;\mathtt{else}\;e
+    \mid e \mathop{\mathtt{:}} \tau \mid \lambda \overline{x} \LC e \RC  \\
+    &&& \mid \mathtt{all}\, \overline{x \mathop{\mathtt{:}} \tau} \mathtt{.}\; e 
+    \mid \mathtt{some}\, \overline{x \mathop{\mathtt{:}} \tau} \mathtt{.}\; e \\
+    &&& \mid \mathtt{let}\; x \mathop{\mathtt{=}} e \mathtt{;}\; e \\
+    &&& \mid \mathtt{switch}\;e\; \LC \; \overline{\mathtt{case}\; \pi\; \LC e \RC} \; \RC\\
+  \text{patterns} & \pi & ::= & f \mid f \LP \overline{x} \RP \\
+  \text{proof variables} & p,q,r \\
+  \text{proofs} & P & ::= & \mathtt{have}\; \phi \; \mathtt{by} \; P \\
+      & & & \mid \mathtt{apply}\; P \;\mathtt{with} \; P \\
+      & & & \mid P \mathop{\mathtt{,}} P \\
+      & & & \mid \mathtt{assume}\; p \mathtt{:}\; \phi \mathtt{;}\; P \\
+  & & & \mid \mathtt{arbitrary}\; \overline{x \mathtt{:}\tau} \mathtt{;}\; P \\
+  & & & \mid \mathtt{cases} \; P\; \overline{\mathtt{case}\; p\; \LC P \RC} \\
+  & & & \mid \mathtt{induction} \; \tau\; \overline{\mathtt{case}\;\pi \; \LC P\RC} \\
+  & & & \mid \mathtt{rewrite}\; P \; \mathtt{with}\; P \\
+  & & & \mid \mathtt{rewrite}\; \mathtt{goal} \; \mathtt{with}\; P \; \mathtt{then}\; P\\
+  & & & \mid \mathtt{switch}\;e\; \LC \overline{\mathtt{case}\; \pi\; \LC P \RP} \RC \\
+  & & & \mid \mathtt{equations}\; e \mathop{\texttt{=}} e \;\mathtt{by}\; P \;\; \overline{\mathtt{...} \mathop{\texttt{=}} e \; \mathtt{by}\; P} \\
+  \text{statements} &s &::=& \mathtt{theorem}\; p\mathtt{:}\; \phi\; \mathtt{proof}\; P\;\mathtt{end} \\
+  &&& \mathtt{union} \; C \mathtt{<} \overline{\alpha} \mathtt{>} \LC\; \overline{\mathit{c}}\;\RC  \\
+  &&& \mathtt{function}\; f \mathtt{<} \overline{\alpha}\mathtt{>} \LP \overline{\tau} \RP{\to}\tau \LC\; \overline{f\LP\pi, \overline{x} \RP \mathop{\texttt{=}} e \mathtt{;}} \;\RC \\
+  &&& \mathtt{define}\; x \mathop{\texttt{:}} \tau \; \texttt{=} \; e \\
+  &&& \mathtt{import}\; m \\
+  \text{constructor decl.} & c & ::= & f \mathtt{;} \mid f \LP \overline{\tau} \RP \mathtt{;}
+\end{array}
+\]
+
+
+
+\end{document}

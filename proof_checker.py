@@ -324,7 +324,7 @@ def check_proof_of(proof, formula, env):
           error(proof.location, 'expected proof of if-then, not ' + str(proof))
           
     case ImpIntro(loc, label, prem1, body):
-      check_formula(prem1, env, type_env)
+      check_formula(prem1, env)
       match formula:
         case IfThen(loc, prem2, conc):
           prem1_red = prem1.reduce(env)
@@ -424,7 +424,6 @@ def check_proof_of(proof, formula, env):
       form = check_proof(proof, env)
       check_implies(proof.location, form.reduce(env), formula.reduce(env))
 
-# TODO: need max index (de Bruijn version of tyvars) -Jeremy      
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
     print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")
@@ -433,16 +432,17 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
   match (param_ty, arg_ty):
     case (TypeName(l1, n1, i1), TypeName(l2, n2, i2)) if n1 == n2 and i1 == i2:
       pass
-    case (TypeName(l1, name, index), _) if name in tyvars:
+    case (TypeName(l1, name, index), _) if param_ty in tyvars:
       if name in matching.keys():
         type_match(loc, tyvars, matching[name], arg_ty, matching)
       else:
         matching[name] = arg_ty
-    case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)):
-      # TODO, handle the type variables
-      for (pt1, pt2) in zip(pts1, pts2):
-        type_match(loc, tyvars, pt1, pt2, matching)
-      type_match(loc, tyvars, rt1, rt2, matching)
+    case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
+        if len(tv1) == len(tv2) and len(pts1) == len(pts2):
+        tyvars = [ty.shift(0, len(tv1)) for ty in tyvars]
+        for (pt1, pt2) in zip(pts1, pts2):
+          type_match(loc, tyvars, pt1, pt2, matching)
+        type_match(loc, tyvars, rt1, rt2, matching)
     case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
         error(loc, "argument type: " + str(arg_ty) + "\n" \
@@ -459,38 +459,47 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         error(loc, "argument type: " + str(arg_ty) + "\n" \
               + "does not match parameter type: " + str(param_ty))
     
-      
-def type_check_call_helper(loc, funty, args, type_env, env, recfun, subterms, ret_ty):
+
+def type_names(loc, names):
+  index = 0
+  result = []
+  for n in reversed(names):
+    result.insert(0, TypeName(loc, n, index))
+    index += 1
+  return result
+
+def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty):
   match funty:
     case FunctionType(loc2, typarams, param_types, return_type):
       if len(typarams) == 0:
         for (param_type, arg) in zip(param_types, args):
-          type_check_term(arg, param_type, type_env, env, recfun, subterms)
+          type_check_term(arg, param_type, env, recfun, subterms)
         return return_type
       else:
         matching = {}
         # If there is an expected return type, match that first.
+        type_params = type_names(loc, typarams)
         if ret_ty:
-          type_match(loc, typarams, return_type, ret_ty, matching)
+          type_match(loc, type_params, return_type, ret_ty, matching)
         # If we have already deduced the type parameters in the parameter type,
         # then we can check the term. Otherwise, we synthesize the term's type
         # and match it against the parameter type.
         for (arg, param_ty) in zip(args, param_types):
             param_type = param_ty.substitute(matching)
-            fvs = param_type.free_vars().intersection(set(typarams))
+            fvs = param_type.free_vars().intersection(set(type_params))
             if len(fvs) == 0:
-              type_check_term(arg, param_type, type_env, env, recfun, subterms)
+              type_check_term(arg, param_type, env, recfun, subterms)
             else:
-              arg_ty = type_synth_term(arg, type_env, env, recfun, subterms)
-              type_match(loc, typarams, param_type, arg_ty, matching)
+              arg_ty = type_synth_term(arg, env, recfun, subterms)
+              type_match(loc, type_params, param_type, arg_ty, matching)
         inst_return_type = return_type.substitute(matching)
         return inst_return_type
     case _:
       error(loc, 'expected operator to have function type, not ' + str(funty))
       
-def type_check_call(loc, rator, args, type_env, env, recfun, subterms, ret_ty):
-  ty = type_synth_term(rator, type_env, env, recfun, subterms)
-  return type_check_call_helper(loc, ty, args, type_env, env, recfun, subterms, ret_ty)
+def type_check_call(loc, rator, args, env, recfun, subterms, ret_ty):
+  ty = type_synth_term(rator, env, recfun, subterms)
+  return type_check_call_helper(loc, ty, args, env, recfun, subterms, ret_ty)
 
 def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty):
   match args[0]:
@@ -503,7 +512,7 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty):
       error(loc, "ill-formed recursive call, " \
             + "expected first argument to be " \
             + " or ".join(subterms) + ", not " + str(args[0]))
-  return type_check_call(loc, tvar, args, type_env, env, recfun, subterms, ret_ty)
+  return type_check_call(loc, tvar, args, env, recfun, subterms, ret_ty)
 
 # well-formed types?
 def check_type(typ, env):
