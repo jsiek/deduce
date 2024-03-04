@@ -4,7 +4,7 @@ def nth(ls, i):
     ls = ls[1]
   return ls
 
-def cons(ls, val)
+def cons(val, ls):
   return (val, ls)
 
 def alist_index(ls, key):
@@ -25,7 +25,7 @@ def alist_items(ls):
 
 def alist_keys(ls):
   if ls:
-    return [ ls[0][0] ] + alist_items(ls[1])
+    return [ ls[0][0] ] + alist_keys(ls[1])
   else:
     return []
   

@@ -72,10 +72,7 @@ class TypeName(Type):
       return self
 
   def debruijnize(self, env):
-    if type_var_is_defined(self.name):
-      self.index = env.index_of_type_var(self.name)
-    else:
-      error(self.location, "debruijnize, can't find " + self.name)
+    self.index = env.index_of_type_var(self.name)
 
   def shift_type_vars(self, cutoff, amount):
     if self.index >= cutoff:
@@ -278,7 +275,7 @@ class Pattern(AST):
 
 @dataclass
 class PatternCons(Pattern):
-  constructor : typ
+  constructor : Term
   parameters : List[str]
 
   def __str__(self):
@@ -295,7 +292,9 @@ class PatternCons(Pattern):
                        self.parameters)
     
   def shift_term_vars(self, cutoff, amount):
-    return self
+    return PatternCons(self.constructor.shift_term_vars(cutoff, amount),
+                       self.parameters)
+
     
 ################ Terms ######################################
 
@@ -412,10 +411,7 @@ class TVar(Term):
           return self
         
   def debruijnize(self, env):
-    if term_var_is_defined(self.name):
-      self.index = env.index_of_term_var(self.name)
-    else:
-      error(self.location, "debruijnize, can't find " + self.name)
+    self.index = env.index_of_term_var(self.name)
 
   def shift_type_vars(self, cutoff, amount):
     return self
@@ -945,11 +941,7 @@ class PVar(Proof):
       return str(self.name) + '@' + str(self.index)
 
   def debruijnize(self, env):
-    if proof_var_is_defined(self.name):
-      self.index = env.index_of_proof_var(self.name)
-    else:
-      error(self.location, "debruijnize, can't find " + self.name)
-
+    self.index = env.index_of_proof_var(self.name)
     
 @dataclass
 class PLet(Proof):
@@ -1198,24 +1190,23 @@ class Theorem(Statement):
   def debruijnize(self, env):
     self.what.debruijnize(env)
     self.proof.debruijnize(env)
-    return env.declare_proof_var(self.name, self.what)
+    return env.declare_proof_var(self.location, self.name, self.what)
     
 @dataclass
 class Constructor(AST):
-  typ: Type
+  name: str
   parameters: List[Type]
 
   def debruijnize(self, env):
-    self.typ.debruijnize(env)
     for ty in self.parameters:
       ty.debruijnize(env)
 
   def shift_type_vars(self, cutoff, amount):
-    return Constructor(self.location, self.typ.shift_type_vars(cutoff, amount),
+    return Constructor(self.location, self.name,
                        [ty.shift_type_vars(cutoff, amount) for ty in self.parameters])
 
   def shift_term_vars(self, cutoff, amount):
-    return Constructor(self.location, self.typ.shift_term_vars(cutoff, amount)
+    return Constructor(self.location, self.name,
                        [ty.shift_term_vars(cutoff, amount) for ty in self.parameters])
   
   def __str__(self):
@@ -1228,11 +1219,11 @@ class Union(Statement):
   alternatives: List[Constructor]
 
   def debruijnize(self, env):
-    env = env.declare_type(self.name)
+    env = env.declare_type(self.location, self.name)
     body_env = env.declare_type_vars(self.location, self.type_params)
     for con in self.alternatives:
       con.debruijnize(body_env)
-      env = env.declare_term_var(con.name, None)
+      env = env.declare_term_var(con.location, con.name, None)
     return env
 
   def shift_type_vars(self, cutoff, amount):
@@ -1264,8 +1255,11 @@ class FunCase(AST):
       return str(self)
 
   def debruijnize(self, env):
-    body_env = env.declare_term_vars([(x,None) for x in self.pattern.parameters])
-    body_env = body_env.declare_term_vars([(x,None) for x in self.parameters])
+    self.pattern.debruijnize(env)
+    body_env = env.declare_term_vars(self.location,
+                                     [(x,None) for x in self.pattern.parameters])
+    body_env = body_env.declare_term_vars(self.location,
+                                          [(x,None) for x in self.parameters])
     self.body.debruijnize(body_env)
     
 @dataclass
@@ -1318,7 +1312,7 @@ class RecFun(Statement):
   def reduce(self, env):
     clos = RecFunClosure(self.location, self.name, self.type_params,
                          self.params, self.returns, self.cases, None)
-    clos.env = env.extend(self.name, clos)
+    clos.env = env.define_term_var(self.location, self.name, None, clos)
     return clos
 
   def substitute(self, sub):

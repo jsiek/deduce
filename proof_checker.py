@@ -180,7 +180,7 @@ def check_proof(proof, env):
       error(loc, 'unfinished proof')
     case PVar(loc, name, index):
       # TODO:
-      ret = env.get(loc, name, index)
+      ret = env.get_formula_of_proof_var(proof)
       # problem: IndCase used for switch and induction, but
       # binding structure is different (IH, EQ)
       # (fixed, probably)
@@ -518,7 +518,7 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty):
 def check_type(typ, env):
   match typ:
     case TypeName(loc, name, index):
-      b = env.get_binding_of_type_var(typ)
+      b = env.get_def_of_type_var(typ)
       if not b:
         error(loc, 'undefined type variable ' + str(typ))
     case IntType(loc):
@@ -554,9 +554,9 @@ def type_synth_term(term, env, recfun, subterms):
     print('env: ' + str(env))
   match term:
     case TVar(loc, name, index):
-      b = env.get_binding_of_term_var(term)
-      if not b:
-        error(loc, 'undefined variable ' + name + '\nin scope: ' + str(env))
+      ret = env.get_type_of_term_var(term)
+      if not ret:
+        error(loc, 'undefined variable ' + str(term) + '\nin scope: ' + str(env))
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, env, recfun, subterms)
       body_env = env.declare_term_var(loc, var, rhs_ty)
@@ -644,12 +644,12 @@ def type_check_term(term, typ, env, recfun, subterms):
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
     case TVar(loc, name, index):
-      b = env.get_binding_of_term_var(term)
-      if not b:
+      var_typ = env.get_type_of_term_var(term)
+      if not var_typ:
         error(loc, 'undefined variable ' + name + '\nin scope: ' + str(env))
-      if b.typ != typ:
+      if var_typ != typ:
         error(loc, 'expected a term of type ' + str(typ) \
-              'but got term ' + str(term) + ' of type ' + str(b.typ))
+              + 'but got term ' + str(term) + ' of type ' + str(var_typ))
     case Lambda(loc, vars, body):
       match typ:
         case FunctionType(loc, typarams, param_types, return_type):
@@ -691,11 +691,11 @@ def is_constructor(constr_name, env):
         continue
   return False
         
-def check_constructor_pattern(loc, constr_name, params, typ, env,
+def check_constructor_pattern(loc, pat_constr, params, typ, env,
                               tyname):
   if get_verbose():
-    print('check_constructor_pattern: ' + constr_name)
-  defn = env.get_binding_of_type_var(tyname).defn
+    print('check_constructor_pattern: ' + str(pat_constr))
+  defn = env.get_def_of_type_var(tyname)
   if get_verbose():
     print('for union: ' + str(defn))
   match defn:
@@ -703,29 +703,33 @@ def check_constructor_pattern(loc, constr_name, params, typ, env,
       # example:
       # typ is List<E>
       # union List<T> { empty; node(T, List<T>); }
-      # constr_name == node
+      # pat_constr == node
       for constr in alts:
         # constr = node(T, List<T>)
-        if constr.name == constr_name:
+        if constr.name == pat_constr.name:
           if len(typarams) > 0:
             sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
             parameter_types = [p.substitute(sub) for p in constr.parameters]
           else:
             parameter_types = constr.parameters
-          env = env.declare_term_vars(zip(params, parameter_types))
+          env = env.declare_term_vars(loc2, zip(params, parameter_types))
       return env
     case _:
-      error(loc, tyname + ' is not a union type')
+      error(loc, str(tyname) + ' is not a union type')
         
 def check_pattern(pattern, typ, env):
+  if get_verbose():
+    print('check pattern: ' + str(pattern))
+    print('against type: ' + str(typ))
+    print('in env: ' + str(env))
   match pattern:
     case PatternCons(loc, constr, params):
       match typ:
         case TypeName(loc2, name, index):
           return check_constructor_pattern(loc, constr, params, typ, env, typ)
-        case TypeInst(loc2, name, tyargs, index):
+        case TypeInst(loc2, inst_typ, tyargs):
           # TODO: handle the tyargs
-          return check_constructor_pattern(loc, constr, params, typ, env, TypeName(loc2, name, index))
+          return check_constructor_pattern(loc, constr, params, typ, env, inst_typ)
         case _:
           error(loc, 'expected something of type ' + str(typ) + ' not ' + constr)
     case _:
@@ -739,6 +743,7 @@ modules = set()
 def check_statement(stmt, env):
   if get_verbose():
     print('** check_statement(' + str(stmt) + ')')
+    print('** env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -769,23 +774,25 @@ def check_statement(stmt, env):
     case Union(loc, name, typarams, alts):
       # TODO: check for well-defined types in the constructor definitions
       env = env.define_type(loc, name, stmt)
+      union_type = TypeName(loc, name, 0)
       body_env = env.declare_type_vars(loc, typarams)
+      body_union_type = union_type.shift_type_vars(0, len(typarams))
       for constr in alts:
         if len(constr.parameters) > 0:
           if len(typarams) > 0:
             tyvars = [TypeName(loc, p) for p in typarams]
-            return_type = TypeInst(loc, name, tyvars, 0)
+            return_type = TypeInst(loc, body_union_type, tyvars)
           else:
-            return_type = TypeName(loc, name, 0)
+            return_type = body_union_type
           for ty in constr.parameters:
             check_type(ty, body_env)
           constr_type = FunctionType(constr.location, typarams, constr.parameters,
                                      return_type)
           env = env.declare_term_var(loc, constr.name, constr_type)
         elif len(typarams) > 0:
-          env = env.declare_term_var(loc, constr.name, GenericType(loc, name))
+          env = env.declare_term_var(loc, constr.name, GenericType(loc, union_type))
         else:
-          env = env.declare_term_var(loc, constr.name, TypeName(loc, name, this_index))
+          env = env.declare_term_var(loc, constr.name, union_type)
       return env
     case Import(loc, name):
       if name not in modules:
@@ -812,8 +819,8 @@ def check_statement(stmt, env):
 
 def debruijnize_deduce(ast):
   env = Env()
-  env = env.declare_term_var(ast.location, '≠', None)
-  env = env.declare_term_var(ast.location, '=', None)
+  env = env.declare_term_var(None, '≠', None)
+  env = env.declare_term_var(None, '=', None)
   for s in ast:
     env = s.debruijnize(env)
   return env
