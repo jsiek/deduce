@@ -12,6 +12,10 @@ def set_filename(fname):
     global filename
     filename = fname
 
+def get_filename():
+    global filename
+    return filename
+    
 ##################################################
 # Concrete Syntax Parser
 ##################################################

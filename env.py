@@ -10,26 +10,15 @@ class Binding(AST):
 class TypeBinding(Binding):
   defn : AST = None
 
-  def shift(self, cutoff, amount):
-    return TypeBinding(self.location, self.defn.shift(cutoff, amount))
-  
 @dataclass
 class TermBinding(Binding):
   typ : Type
   defn : Term = None
 
-  def shift(self, cutoff, amount):
-    return TermBinding(self.location,
-                       self.typ.shift(cutoff, amount),
-                       self.defn.shift(cutoff, amount))
-  
 @dataclass
 class ProofBinding(Binding):
   formula : Formula
 
-  def shift(self, cutoff, amount):
-    return ProofBinding(self.location, self.formula.shift(cutoff, amount))
-  
 class Env:
   def __init__(self, alist = None):
     self.alist = alist
@@ -61,47 +50,25 @@ class Env:
   def define_term_var(self, loc, name, typ, val):
     return Env(cons(cons(name, TermBinding(loc, typ, val)), self.alist))
 
-
   def declare_proof_var(self, loc, name, frm):
     return Env(cons(cons(name, ProofBinding(loc, typ)), self.alist))
 
-  def type_var_is_defined(self, tyname):
-    if self.get_binding_of_type_var(tyname):
-      return True
+  def _def_of_type_var(self, curr, name, index):
+    if curr:
+      if index == 0:
+        assert name == curr[0][0]
+        return curr[0][1].defn
+      else:
+        match curr[0][1]:
+          case TypeBinding(loc, defn):
+            return _def_of_type_var(curr[1], index - 1).shift_type_vars(0, 1)
+          case TermBinding(loc, typ, defn):
+            return _def_of_type_var(curr[1], index).shift_term_vars(0, 1)
+          case ProofBinding(loc, frm):
+            return _def_of_type_var(curr[1], index).shift_proof_vars(0, 1)
     else:
-      return False
-  
-  def get_binding_of_type_var(self, tyname):
-    match tyname:
-      case TypeName(loc, name, index):
-        curr = self.alist
-        amount = 0
-        while curr and index != 0:
-          match curr[0][1]:
-            case TypeBinding(loc, defn):
-              index -= 1
-              amount += 1
-            case TermBinding(loc, typ, defn):
-              pass
-            case ProofBinding(loc, frm):
-              pass
-          curr = curr[1]
-        if curr:
-          if curr[0][0] == name:
-            return curr[0][1].shift(0, amount)
-          else:
-            error(loc, 'index mismatch for ' + str(tyname) + '\nfound ' + str(curr[0]))
-        else:
-          return None
-      case _:
-        return None
-
-  def term_var_is_defined(self, tyname):
-    if self.get_binding_of_term_var(tyname):
-      return True
-    else:
-      return False
-
+      return None
+    
   def _type_of_term_var(self, curr, name, index):
     if curr:
       if index == 0:
@@ -110,11 +77,11 @@ class Env:
       else:
         match curr[0][1]:
           case TypeBinding(loc, defn):
-            return _type_of_term_var(curr[1], index).shift(0, 1)
+            return _type_of_term_var(curr[1], index).shift_type_vars(0, 1)
           case TermBinding(loc, typ, defn):
-            return _type_of_term_var(curr[1], index - 1)
+            return _type_of_term_var(curr[1], index - 1).shift_term_vars(0, 1)
           case ProofBinding(loc, frm):
-            return _type_of_term_var(curr[1], index)
+            return _type_of_term_var(curr[1], index).shift_proof_vars(0, 1)
     else:
       return None
 
@@ -126,55 +93,77 @@ class Env:
       else:
         match curr[0][1]:
           case TypeBinding(loc, defn):
-            return _value_of_term_var(curr[1], index).shift_types(0, 1)
+            return _value_of_term_var(curr[1], index).shift_type_vars(0, 1)
           case TermBinding(loc, typ, defn):
-            return _value_of_term_var(curr[1], index - 1).shift(0, 1)
+            return _value_of_term_var(curr[1], index - 1).shift_term_vars(0, 1)
           case ProofBinding(loc, frm):
-            return _value_of_term_var(curr[1], index)
+            return _value_of_term_var(curr[1], index).shift_proof_vars(0, 1)
+    else:
+      return None
+  
+  def _formula_of_proof_var(self, curr, name, index):
+    if curr:
+      if index == 0:
+        assert name == curr[0][0]
+        return curr[0][1].formula
+      else:
+        match curr[0][1]:
+          case TypeBinding(loc, defn):
+            return _formula_of_proof_var(curr[1], index).shift_type_vars(0, 1)
+          case TermBinding(loc, typ, defn):
+            return _formula_of_proof_var(curr[1], index).shift_term_vars(0, 1)
+          case ProofBinding(loc, frm):
+            return _formula_of_proof_var(curr[1], index - 1).shift_proof_vars(0, 1)
     else:
       return None
     
+  def type_var_is_defined(self, tyname):
+    match tyname:
+      case TypeName(loc, name, index):
+        if self._def_of_type_var(self.alist, name, index)
+          return True
+        else:
+          return False
+      case _:
+        print('expected a type name, not ' + str(tyname))
+        exit(-1)
+
+  def term_var_is_defined(self, tvar):
+    match tvar:
+      case TVar(loc, name, index):
+        if self._type_of_term_var(self.alist, name, index)
+          return True
+        else:
+          return False
+      case _:
+        print('expected a term variable, not ' + str(tvar))
+        exit(-1)
+        
+  def proof_var_is_defined(self, pvar):
+    match pvar:
+      case PVar(loc, name, index):
+        if self._formula_of_proof_var(self.alist, name, index):
+          return True
+        else:
+          return False
+      case _:
+        print('expected proof var, not ' + str(pvar))
+        exit(-1)
+    
+  def get_formula_of_proof_var(self, pvar):
+    match pvar:
+      case PVar(loc, name, index):
+        return self._formula_of_proof_var(self.alist, name, index):
+          
   def get_type_of_term_var(self, tvar):
     match tvar:
       case TVar(loc, name, index):
-        return _type_of_term_var(self.alist, name, index)
+        return self._type_of_term_var(self.alist, name, index)
 
   def get_value_of_term_var(self, tvar):
     match tvar:
       case TVar(loc, name, index):
-        return _value_of_term_var(self.alist, name, index)
-
-      
-  def proof_var_is_defined(self, tyname):
-    if self.get_binding_of_proof_var(tyname):
-      return True
-    else:
-      return False
-    
-  def get_binding_of_proof_var(self, pvar):
-    match pvar:
-      case PVar(loc, name, index):
-        curr = self.alist
-        amount = 0
-        while curr and index != 0:
-          match curr[0][1]:
-            case TypeBinding(loc, defn):
-              pass
-            case TermBinding(loc, typ, defn):
-              pass
-            case ProofBinding(loc, frm):
-              index -= 1
-              amount += 1
-          curr = curr[1]
-        if curr:
-          if curr[0][0] == name:
-            return curr[0][1].shift(0, amount)
-          else:
-            error(loc, 'index mismatch for ' + str(pvar) + '\nfound ' + str(curr[0]))
-        else:
-          return None
-      case _:
-        return None
+        return self._value_of_term_var(self.alist, name, index)
 
   def index_of_type_var(self, name):
     index = 0

@@ -735,7 +735,6 @@ def check_formula(frm, env):
   type_check_term(frm, BoolType(frm.location), env, None, [])
 
 modules = set()
-debruijnized_modules = set()
 
 def check_statement(stmt, env):
   if get_verbose():
@@ -811,33 +810,16 @@ def check_statement(stmt, env):
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
 
-def debruijnize_statements(ast, env):
+def debruijnize_deduce(ast):
+  env = Env()
+  env = env.declare_term_var(ast.location, '≠', None)
+  env = env.declare_term_var(ast.location, '=', None)
   for s in ast:
     env = s.debruijnize(env)
-    match s:
-      case Import(loc, module_name):
-        if module_name not in debruijnized_modules:
-          debruijnized_modules.add(module_name)
-        filename = module_name + ".pf"
-        file = open(filename, 'r')
-        src = file.read()
-        file.close()
-        set_filename(filename)
-        ast = parse(src, trace=False)
-        env = debruijnize_statements(ast, env)
-      case Union(loc, union_name, typarams, alts):
-        for con in alts:
-          top_level.insert(0, con.name)
-      case _:
-        pass
-  
-def debruijnize_deduce(ast):
-  debruijnize_statements(ast)
+  return env
   
 def check_deduce(ast):
   env = Env()
-  env = env.extend('≠', None)
-  env = env.extend('=', None)
   for s in ast:
     env = check_statement(s, env)
   

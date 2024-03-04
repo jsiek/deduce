@@ -21,16 +21,17 @@ class AST:
 
 @dataclass
 class Term(AST):
-    pass
+  def shift_proof_vars(self, cutoff, amount):
+    return self
 
 @dataclass
 class Formula(AST):
-    pass
+  def shift_proof_vars(self, cutoff, amount):
+    return self
 
 @dataclass
 class Proof(AST):
-  def shift(self, cutoff, amount):
-    return self
+  pass
 
 @dataclass
 class Statement(AST):
@@ -38,7 +39,10 @@ class Statement(AST):
 
 @dataclass
 class Type(AST):
-    pass
+  def shift_term_vars(self, cutoff, amount):
+    return self
+  def shift_proof_vars(self, cutoff, amount):
+    return self
 
 ################ Types ######################################
 
@@ -56,7 +60,7 @@ class TypeName(Type):
   def __eq__(self, other):
     if not isinstance(other, TypeName):
       return False
-    return self.name == other.name and self.index == other.index
+    return self.index == other.index
 
   def free_vars(self):
     return set([self.name])
@@ -67,12 +71,13 @@ class TypeName(Type):
     else:
       return self
 
-  def debruijnize(self, bindings):
-    if self.name not in bindings:
+  def debruijnize(self, env):
+    if type_var_is_defined(self.name):
+      self.index = env.index_of_type_var(self.name)
+    else:
       error(self.location, "debruijnize, can't find " + self.name)
-    self.index = bindings.index(self.name)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     if self.index >= cutoff:
       return TypeName(self.location, self.name, self.index + amount)
     else:
@@ -96,10 +101,10 @@ class IntType(Type):
   def substitute(self, sub):
     return self
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     return self
   
 @dataclass
@@ -119,10 +124,10 @@ class BoolType(Type):
   def substitute(self, sub):
     return self
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     return self
   
 @dataclass
@@ -142,10 +147,10 @@ class TypeType(Type):
   def substitute(self, sub):
     return self
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     return self
   
 @dataclass
@@ -179,31 +184,30 @@ class FunctionType(Type):
 
   def substitute(self, sub):
       n = len(self.type_params)
-      new_sub = {k:v.shift(0, n) for (k,v) in sub.items() }
+      new_sub = {k:v.shift_type_vars(0, n) for (k,v) in sub.items() }
       return FunctionType(self.location, self.type_params,
                           [pt.substitute(new_sub) for pt in self.param_types],
                           self.return_type.substitute(new_sub))
     
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.type_params)) + bindings
+  def debruijnize(self, env):
+    body_env = env.declare_type_vars(self.type_params)
     for p in self.param_types:
-      p.debruijnize(new_bindings)
-    self.return_type.debruijnize(new_bindings)
+      p.debruijnize(body_env)
+    self.return_type.debruijnize(body_env)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     n = len(self.type_params)
     return FunctionType(self.location, self.type_params,
-                        [ty.shift(cutoff + n, amount) for ty in self.param_types],
-                        self.return_type.shift(cutoff + n, amount))
+                        [ty.shift_type_vars(cutoff + n, amount) for ty in self.param_types],
+                        self.return_type.shift_type_vars(cutoff + n, amount))
     
 @dataclass
 class TypeInst(Type):
-  name: str
+  typ: Type
   arg_types: List[Type]
-  index: int = -1
 
   def __str__(self):
-    return self.name + \
+    return str(self.typ) + \
       '<' + ','.join([str(arg) for arg in self.arg_types]) + '>'
 
   def __repr__(self):
@@ -211,8 +215,8 @@ class TypeInst(Type):
 
   def __eq__(self, other):
     match other:
-      case TypeInst(l, name, arg_types):
-        return self.name == name and \
+      case TypeInst(l, typ, arg_types):
+        return self.typ == typ and \
           all([t1 == t2 for (t1, t2) in zip(self.arg_types, arg_types)])
       case GenericType(l, name):
         return self.name == name
@@ -226,34 +230,30 @@ class TypeInst(Type):
     return TypeInst(self.location, self.name,
                     [ty.substitute(sub) for ty in self.arg_types])
 
-  def debruijnize(self, bindings):
-    if self.name not in bindings:
-      error(self.location, "debruijnize, can't find " + self.name)
-    self.index = bindings.index(self.name)
+  def debruijnize(self, env):
+    self.typ.debruijnize(env)
     for ty in self.arg_types:
       ty.debruijnize(bindings)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     return TypeInst(self.location, self.name,
-                    [ty.shift(cutoff, amount) for ty in self.arg_types])
+                    [ty.shift_type_vars(cutoff, amount) for ty in self.arg_types])
     
 # This is the type of a constructor such as 'empty' of a generic union
 # when we do not yet know the type arguments.
 @dataclass
 class GenericType(Type):
-  name: str
-  index: int
-  # TODO: add deBruijn index
+  typ: Type
   
   def __str__(self):
-    return self.name + '<?>'
+    return str(self.typ) + '<?>'
 
   def __eq__(self, other):
     match other:
-      case TypeInst(l, name, arg_types):
-        return self.name == name
-      case GenericType(l, name):
-        return self.name == name
+      case TypeInst(l, typ, arg_types):
+        return self.typ == typ
+      case GenericType(l, typ):
+        return self.typ == typ
       case _:
         return False
 
@@ -263,11 +263,12 @@ class GenericType(Type):
   def substitute(self, sub):
     return self
 
-  def debruijnize(self, bindings):
-    pass
+  def debruijnize(self, env):
+    self.typ.debruijnize(env)
 
-  def shift(self, cutoff, amount):
-    return self
+  def shift_type_vars(self, cutoff, amount):
+    return GenericType(self.location,
+                       self.typ.shift_type_vars(cutoff, amount))
   
 ################ Patterns ######################################
 
@@ -277,15 +278,25 @@ class Pattern(AST):
 
 @dataclass
 class PatternCons(Pattern):
-  constructor : str
+  constructor : typ
   parameters : List[str]
 
   def __str__(self):
-      return self.constructor + '(' + ",".join(self.parameters) + ')'
+      return str(self.constructor) + '(' + ",".join(self.parameters) + ')'
 
   def __repr__(self):
       return str(self)
-  
+
+  def debruijnize(self, env):
+    self.constructor.debruijnize(env)
+    
+  def shift_type_vars(self, cutoff, amount):
+    return PatternCons(self.constructor.shift_type_vars(cutoff, amount),
+                       self.parameters)
+    
+  def shift_term_vars(self, cutoff, amount):
+    return self
+    
 ################ Terms ######################################
 
 @dataclass
@@ -318,17 +329,23 @@ class Conditional(Term):
     return Conditional(self.location, self.cond.substitute(sub),
                        self.thn.substitute(sub), self.els.substitute(sub))
   
-  def debruijnize(self, bindings):
-    self.cond.debruijnize(bindings)
-    self.thn.debruijnize(bindings)
-    self.els.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.cond.debruijnize(env)
+    self.thn.debruijnize(env)
+    self.els.debruijnize(env)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     return Conditional(self.location,
-                       self.cond.shift(cutoff, amount),
-                       self.thn.shift(cutoff, amount),
-                       self.els.shift(cutoff, amount))
+                       self.cond.shift_type_vars(cutoff, amount),
+                       self.thn.shift_type_vars(cutoff, amount),
+                       self.els.shift_type_vars(cutoff, amount))
 
+  def shift_term_vars(self, cutoff, amount):
+    return Conditional(self.location,
+                       self.cond.shift_term_vars(cutoff, amount),
+                       self.thn.shift_term_vars(cutoff, amount),
+                       self.els.shift_term_vars(cutoff, amount))
+  
     
 @dataclass
 class TAnnote(Term):
@@ -348,15 +365,20 @@ class TAnnote(Term):
     return TAnnote(self.location, self.subject.substitute(sub),
                    self.typ.substitute(sub))
   
-  def debruijnize(self, bindings):
-    self.subject.debruijnize(bindings)
-    self.typ.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
+    self.typ.debruijnize(env)
 
-  def shift(self, cutoff):
+  def shift_type_vars(self, cutoff):
     return TAnnote(self.location,
-                   self.subject.shift(cutoff, amount),
-                   self.typ.shift(cutoff, amount))
-    
+                   self.subject.shift_type_vars(cutoff, amount),
+                   self.typ.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff):
+    return TAnnote(self.location,
+                   self.subject.shift_term_vars(cutoff, amount),
+                   self.typ.shift_term_vars(cutoff, amount))
+  
 @dataclass
 class TVar(Term):
   name: str
@@ -365,8 +387,7 @@ class TVar(Term):
   def __eq__(self, other):
       if not isinstance(other, TVar):
           return False
-      ret = self.name == other.name and self.index == other.index
-      return ret
+      return self.index == other.index 
   
   def __str__(self):
       if False and self.name == 'zero':
@@ -390,12 +411,16 @@ class TVar(Term):
       else:
           return self
         
-  def debruijnize(self, bindings):
-    if self.name not in bindings:
+  def debruijnize(self, env):
+    if term_var_is_defined(self.name):
+      self.index = env.index_of_term_var(self.name)
+    else:
       error(self.location, "debruijnize, can't find " + self.name)
-    self.index = bindings.index(self.name)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return self
+  
+  def shift_term_vars(self, cutoff, amount):
     if self.index >= cutoff:
       return TVar(self.location, self.name, self.index + amount)
     else:
@@ -419,10 +444,13 @@ class Int(Term):
   def substitute(self, sub):
       return self
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return self
+  
+  def shift_term_vars(self, cutoff, amount):
     return self
 
 @dataclass
@@ -448,17 +476,21 @@ class Lambda(Term):
 
   def substitute(self, sub):
       n = len(self.vars)
-      new_sub = {k: v.shift(0, n) for (k,v) in sub.items()}
+      new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
       return Lambda(self.location, self.vars, self.body.substitute(new_sub))
 
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.vars)) + bindings
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    body_env = env.declare_term_vars(self.vars)
+    self.body.debruijnize(body_env)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     n = len(self.vars)
-    return Lambda(self.location, self.vars, self.body.shift(cutoff + n, amount))
+    return Lambda(self.location, self.vars, self.body.shift_type_vars(cutoff, amount))
 
+  def shift_term_vars(self, cutoff, amount):
+    n = len(self.vars)
+    return Lambda(self.location, self.vars, self.body.shift_term_vars(cutoff + n, amount))
+  
 @dataclass
 class Closure(Term):
   vars: List[str]
@@ -481,14 +513,20 @@ class Closure(Term):
 
   def substitute(self, sub):
       n = len(self.vars)
-      new_sub = {k: v.shift(0, n) for (k,v) in sub.items()}
+      new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
       return Closure(self.location, self.vars, self.body.substitute(new_sub))
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return Closure(self.location, self.vars,
+                   self.body.shift_type_vars(cutoff, amount),
+                   {k: v.shift_type_vars(cutoff, amount) \
+                    for (k,v) in self.env.items()})
+
+  def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
     return Closure(self.location, self.vars,
-                   self.body.shift(cutoff + n, amount),
-                   {k: v.shift(cutoff + n, amount) \
+                   self.body.shift_term_vars(cutoff + n, amount),
+                   {k: v.shift_term_vars(cutoff + n, amount) \
                     for (k,v) in self.env.items()})
   
     
@@ -562,15 +600,20 @@ class Call(Term):
                 [arg.substitute(sub) for arg in self.args],
                 self.infix)
 
-  def shift(self, cutoff, amount):
-    return Call(self.location, self.rator.shift(cutoff, amount),
-                [arg.shift(cutoff, amount) for arg in self.args],
+  def shift_type_vars(self, cutoff, amount):
+    return Call(self.location, self.rator.shift_type_vars(cutoff, amount),
+                [arg.shift_type_vars(cutoff, amount) for arg in self.args],
                 self.infix)
-    
-  def debruijnize(self, bindings):
-    self.rator.debruijnize(bindings)
+
+  def shift_term_vars(self, cutoff, amount):
+    return Call(self.location, self.rator.shift_term_vars(cutoff, amount),
+                [arg.shift_term_vars(cutoff, amount) for arg in self.args],
+                self.infix)
+  
+  def debruijnize(self, env):
+    self.rator.debruijnize(env)
     for arg in self.args:
-      arg.debruijnize(bindings)
+      arg.debruijnize(env)
     
 @dataclass
 class SwitchCase(AST):
@@ -585,7 +628,7 @@ class SwitchCase(AST):
 
   def reduce(self, env):
       n = len(self.pattern.parameters)
-      new_env = {k: v.shift(0, n) for (k,v) in env.items()}
+      new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
       return SwitchCase(self.location,
                         PatternCons(self.pattern.location,
                                     self.pattern.constructor,
@@ -594,32 +637,34 @@ class SwitchCase(AST):
     
   def substitute(self, sub):
       n = len(self.pattern.parameters)
-      new_sub = {k: v.shift(0, n) for (k,v) in sub.items()}
+      new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
       return SwitchCase(self.location,
-                        PatternCons(self.pattern.location,
-                                    self.pattern.constructor,
-                                    self.pattern.parameters),
+                        self.pattern,
                         self.body.substitute(new_sub))
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return SwitchCase(self.location,
+                      self.pattern.shift_type_vars(cutoff, amount),
+                      self.body.shift_type_vars(cutoff, amount))
+
+  def shift_type_vars(self, cutoff, amount):
+    return SwitchCase(self.location,
+                      self.pattern.shift_type_vars(cutoff, amount),
+                      self.body.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff, amount):
     n = len(self.pattern.parameters)
     return SwitchCase(self.location,
-                      PatternCons(self.pattern.location,
-                                  self.pattern.constructor,
-                                  self.pattern.parameters),
-                      self.body.shift(cutoff + n, amount))
-    
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.pattern.parameters)) + bindings
-    self.body.debruijnize(new_bindings)
-
+                      self.pattern.shift_term_vars(cutoff + n, amount),
+                      self.body.shift_term_vars(cutoff + n, amount))
+  
+  def debruijnize(self, env):
+    body_env.declare_term_vars([(x,None) for x in self.pattern.parameters])
+    self.body.debruijnize(body_env)
     
   def __eq__(self, other):
-    ren = {}
-    for (x, y) in zip(self.pattern.parameters, other.pattern.parameters):
-        ren[x] = TVar(self.location, y)
     return self.pattern.constructor == other.pattern.constructor \
-      and self.body.substitute(ren) == other.body
+      and self.body == other.body
     
 @dataclass
 class Switch(Term):
@@ -649,14 +694,18 @@ class Switch(Term):
                     self.subject.substitute(sub),
                     [c.substitute(sub) for c in self.cases])
 
-  def shift(self, cutoff, amount):
-    return Switch(self.location, self.subject.shift(cutoff, amount),
-                  [c.shift(cutoff, amount) for c in self.cases])
-    
-  def debruijnize(self, bindings):
-    self.subject.debruijnize(bindings)
+  def shift_type_vars(self, cutoff, amount):
+    return Switch(self.location, self.subject.shift_type_vars(cutoff, amount),
+                  [c.shift_type_vars(cutoff, amount) for c in self.cases])
+
+  def shift_term_vars(self, cutoff, amount):
+    return Switch(self.location, self.subject.shift_term_vars(cutoff, amount),
+                  [c.shift_term_vars(cutoff, amount) for c in self.cases])
+  
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
     for c in self.cases:
-      c.debruijnize(bindings)
+      c.debruijnize(env)
     
   def __eq__(self, other):
     eq_subject = self.subject == other.subject
@@ -686,14 +735,18 @@ class TermInst(Term):
                     self.subject.substitute(sub),
                     [ty.substitute(sub) for ty in self.type_args])
 
-  def shift(self, cutoff, amount):
-    return TermInst(self.location, self.subject.shift(cutoff, amount),
-                    [ty.shift(cutoff, amount) for ty in self.type_args])
-   
-  def debruijnize(self, bindings):
-    self.subject.debruijnize(bindings)
+  def shift_type_vars(self, cutoff, amount):
+    return TermInst(self.location, self.subject.shift_type_vars(cutoff, amount),
+                    [ty.shift_type_vars(cutoff, amount) for ty in self.type_args])
+
+  def shift_term_vars(self, cutoff, amount):
+    return TermInst(self.location, self.subject.shift_term_vars(cutoff, amount),
+                    [ty.shift_term_vars(cutoff, amount) for ty in self.type_args])
+  
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
     for ty in self.type_args:
-      ty.debruijnize(bindings)
+      ty.debruijnize(env)
 
   
 @dataclass
@@ -702,16 +755,21 @@ class TLet(Term):
   rhs: Term
   body: Term
 
-  def debruijnize(self, bindings):
-    self.rhs.debruijnize(bindings)
-    new_bindings = [self.var] + bindings
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    self.rhs.debruijnize(env)
+    body_env = env.declare_term_var(self.location, self.var, None)
+    self.body.debruijnize(body_env)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     return TLet(self.location, self.var,
-                self.rhs.shift(cutoff, amount),
-                self.body.shift(cutoff + 1, amount))
-    
+                self.rhs.shift_type_vars(cutoff, amount),
+                self.body.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff, amount):
+    return TLet(self.location, self.var,
+                self.rhs.shift_term_vars(cutoff, amount),
+                self.body.shift_term_vars(cutoff + 1, amount))
+  
 ################ Formulas ######################################
   
 @dataclass
@@ -729,9 +787,11 @@ class Bool(Formula):
     return self
   def substitute(self, sub):
     return self
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return self
+  def shift_term_vars(self, cutoff, amount):
     return self
   
 @dataclass
@@ -747,11 +807,13 @@ class And(Formula):
     return And(self.location, [arg.reduce(env) for arg in self.args])
   def substitute(self, sub):
     return And(self.location, [arg.substitute(sub) for arg in self.args])
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     for arg in self.args:
-      arg.debruijnize(bindings)
-  def shift(self, cutoff, amount):
-    return And(self.location, [arg.shift(cutoff, amount) for arg in self.args])
+      arg.debruijnize(env)
+  def shift_type_vars(self, cutoff, amount):
+    return And(self.location, [arg.shift_type_vars(cutoff, amount) for arg in self.args])
+  def shift_term_vars(self, cutoff, amount):
+    return And(self.location, [arg.shift_term_vars(cutoff, amount) for arg in self.args])
   
 @dataclass
 class Or(Formula):
@@ -764,11 +826,13 @@ class Or(Formula):
     return Or(self.location, [arg.reduce(env) for arg in self.args])
   def substitute(self, sub):
     return Or(self.location, [arg.substitute(sub) for arg in self.args])
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     for arg in self.args:
-      arg.debruijnize(bindings)
-  def shift(self, cutoff, amount):
-    return Or(self.location, [arg.shift(cutoff, amount) for arg in self.args])
+      arg.debruijnize(env)
+  def shift_type_vars(self, cutoff, amount):
+    return Or(self.location, [arg.shift_type_vars(cutoff, amount) for arg in self.args])
+  def shift_term_vars(self, cutoff, amount):
+    return Or(self.location, [arg.shift_term_vars(cutoff, amount) for arg in self.args])
 
 # @dataclass
 # class Compare(Formula):
@@ -797,12 +861,15 @@ class IfThen(Formula):
   def substitute(self, sub):
     return IfThen(self.location, self.premise.substitute(sub),
                   self.conclusion.substitute(sub))
-  def shift(self, cutoff, amount):
-    return IfThen(self.location, self.premise.shift(cutoff, amount),
-                  self.conclusion.shift(cutoff, amount))
-  def debruijnize(self, bindings):
-    self.premise.debruijnize(bindings)
-    self.conclusion.debruijnize(bindings)
+  def shift_type_vars(self, cutoff, amount):
+    return IfThen(self.location, self.premise.shift_type_vars(cutoff, amount),
+                  self.conclusion.shift_type_vars(cutoff, amount))
+  def shift_term_vars(self, cutoff, amount):
+    return IfThen(self.location, self.premise.shift_term_vars(cutoff, amount),
+                  self.conclusion.shift_term_vars(cutoff, amount))
+  def debruijnize(self, env):
+    self.premise.debruijnize(env)
+    self.conclusion.debruijnize(env)
 
     
 @dataclass
@@ -815,28 +882,30 @@ class All(Formula):
         + '. ' + str(self.body)
 
   def reduce(self, env):
-    # TODO
-    return self
-
-  def __eq__(self, other):
-    if not isinstance(other, All):
-      return False
-    ren = {x[0]: TVar(None, y[0]) for (x,y) in zip(self.vars, other.vars)}
-    new_body = self.body.substitute(ren)
-    return new_body == other.body
+    n = len(self.vars)
+    new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
+    return All(self.location, self.vars, self.body.reduce(new_env))
 
   def substitute(self, sub):
     n = len(self.vars)
-    new_sub = {k: v.shift(0, n) for (k,v) in sub.items()}
+    new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
     return All(self.location, self.vars, self.body.substitute(new_sub))
+  
+  def __eq__(self, other):
+    if not isinstance(other, All):
+      return False
+    return self.body == other.body
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return All(self.location, self.vars, self.body.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
-    return All(self.location, self.vars, self.body.shift(cutoff + n, amount))
-    
-  def debruijnize(self, bindings):
-    new_bindings = [x for (x,t) in reversed(self.vars)] + bindings
-    self.body.debruijnize(new_bindings)
+    return All(self.location, self.vars, self.body.shift_term_vars(cutoff + n, amount))
+  
+  def debruijnize(self, env):
+    body_env = env.declare_term_vars(self.vars)
+    self.body.debruijnize(body_env)
     
   
 @dataclass
@@ -844,19 +913,27 @@ class Some(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
 
+  def reduce(self, env):
+    n = len(self.vars)
+    new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
+    return Some(self.location, self.vars, self.body.reduce(new_env))
+  
   def substitute(self, sub):
     n = len(self.vars)
-    new_sub = {k: v.shift(0, n) for (k,v) in sub.items()}
+    new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
     return Some(self.location, self.vars, self.body.substitute(new_sub))
   
-  def debruijnize(self, bindings):
-    new_bindings = [x for (x,t) in reversed(self.vars)] + bindings
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    body_env = env.declare_term_vars(self.vars)
+    self.body.debruijnize(body_env)
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
+    return Some(self.location, self.vars, self.body.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
-    return Some(self.location, self.vars, self.body.shift(cutoff + n, amount))
-    
+    return Some(self.location, self.vars, self.body.shift_term_vars(cutoff + n, amount))
+  
 ################ Proofs ######################################
   
 @dataclass
@@ -867,10 +944,11 @@ class PVar(Proof):
   def __str__(self):
       return str(self.name) + '@' + str(self.index)
 
-  def debruijnize(self, bindings):
-    if self.name not in bindings:
+  def debruijnize(self, env):
+    if proof_var_is_defined(self.name):
+      self.index = env.index_of_proof_var(self.name)
+    else:
       error(self.location, "debruijnize, can't find " + self.name)
-    self.index = bindings.index(self.name)
 
     
 @dataclass
@@ -884,11 +962,11 @@ class PLet(Proof):
       return self.label + ': ' + str(self.proved) + ' by ' \
         + str(self.because) + '; ' + str(self.body)
 
-  def debruijnize(self, bindings):
-    self.proved.debruijnize(bindings)
-    self.because.debruijnize(bindings)
-    new_bindings = [self.label] + bindings
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    self.proved.debruijnize(env)
+    self.because.debruijnize(env)
+    body_env = env.declare_proof_var(self.location, self.label, self.proved)
+    self.body.debruijnize(body_env)
 
     
 @dataclass
@@ -899,19 +977,19 @@ class PAnnot(Proof):
   def __str__(self):
       return 'have ' + str(self.claim) + ' by ' + str(self.reason)
 
-  def debruijnize(self, bindings):
-    self.claim.debruijnize(bindings)
-    self.reason.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.claim.debruijnize(env)
+    self.reason.debruijnize(env)
     
 @dataclass
 class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Proof]]
 
-  def debruijnize(self, bindings):
-    self.subject.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
     for c in self.cases:
-      c.debruijnize(bindings)
+      c.debruijnize(env)
   
 @dataclass
 class Apply(Proof):
@@ -921,9 +999,9 @@ class Apply(Proof):
   def __str__(self):
       return 'apply ' + str(self.implication) + ' with ' + str(self.arg)
 
-  def debruijnize(self, bindings):
-    self.implication.debruijnize(bindings)
-    self.arg.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.implication.debruijnize(env)
+    self.arg.debruijnize(env)
     
 @dataclass
 class ImpIntro(Proof):
@@ -934,11 +1012,11 @@ class ImpIntro(Proof):
   def __str__(self):
     return 'suppose ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     if self.premise:
-      self.premise.debruijnize(bindings)
-    new_bindings = [self.label] + bindings
-    self.body.debruijnize(new_bindings)
+      self.premise.debruijnize(env)
+    body_env = env.declare_proof_var(self.location, self.label, self.premise)
+    self.body.debruijnize(body_env)
   
 @dataclass
 class AllIntro(Proof):
@@ -949,12 +1027,9 @@ class AllIntro(Proof):
     return 'arbitrary ' + ",".join([x + ":" + str(t) for (x,t) in self.vars]) \
         + '; ' + str(self.body)
 
-  def debruijnize(self, bindings):
-    new_bindings = [] + bindings
-    for (x,t) in self.vars:
-      t.debruijnize(new_bindings)
-      new_bindings.insert(0, x)
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    body_env = env.declare_term_vars(self.vars)
+    self.body.debruijnize(body_env)
   
 @dataclass
 class AllElim(Proof):
@@ -964,10 +1039,10 @@ class AllElim(Proof):
   def __str__(self):
     return str(self.univ) + '[' + ','.join([str(arg) for arg in self.args]) + ']'
 
-  def debruijnize(self, bindings):
-    self.univ.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.univ.debruijnize(env)
     for arg in self.args:
-      arg.debruijnize(bindings)
+      arg.debruijnize(env)
   
 @dataclass
 class PTuple(Proof):
@@ -976,29 +1051,29 @@ class PTuple(Proof):
   def __str__(self):
     return ', '.join([str(arg) for arg in self.args])
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     for arg in self.args:
-      arg.debruijnize(bindings)
+      arg.debruijnize(env)
   
 @dataclass
 class PTrue(Proof):
   def __str__(self):
     return '.'
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
   
 @dataclass
 class PReflexive(Proof):
   def __str__(self):
     return 'reflexive'
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
 
 @dataclass
 class PHole(Proof):
   def __str__(self):
       return '?'
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     pass
   
 @dataclass
@@ -1006,8 +1081,8 @@ class PSymmetric(Proof):
   body: Proof
   def __str__(self):
     return 'symmetric ' + str(self.body)
-  def debruijnize(self, bindings):
-    self.body.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.body.debruijnize(env)
 
 @dataclass
 class PTransitive(Proof):
@@ -1015,17 +1090,17 @@ class PTransitive(Proof):
   second: Proof
   def __str__(self):
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
-  def debruijnize(self, bindings):
-    self.first.debruijnize(bindings)
-    self.second.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.first.debruijnize(env)
+    self.second.debruijnize(env)
 
 @dataclass
 class PInjective(Proof):
   body: Proof
   def __str__(self):
     return 'injective ' + str(self.body)
-  def debruijnize(self, bindings):
-    self.body.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.body.debruijnize(env)
   
 @dataclass
 class IndCase(AST):
@@ -1035,9 +1110,10 @@ class IndCase(AST):
   def __str__(self):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.pattern.parameters)) + ['IH'] + bindings 
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    body_env = env.declare_proof_var(self.location, 'IH', None)
+    body_env = body_env.declare_term_vars([(x,None) for x in self.pattern.parameters])
+    self.body.debruijnize(body_env)
   
 @dataclass
 class Induction(Proof):
@@ -1048,10 +1124,10 @@ class Induction(Proof):
     return 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([str(c) for c in self.cases])
   
-  def debruijnize(self, bindings):
-    self.typ.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.typ.debruijnize(env)
     for c in self.cases:
-      c.debruijnize(bindings)
+      c.debruijnize(env)
     
 @dataclass
 class SwitchProofCase(AST):
@@ -1061,9 +1137,9 @@ class SwitchProofCase(AST):
   def __str__(self):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.pattern.parameters)) + ['EQ'] + bindings 
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    body_env = body_env.declare_term_vars([(x,None) for x in self.pattern.parameters])
+    self.body.debruijnize(body_env)
     
 @dataclass
 class SwitchProof(Proof):
@@ -1074,10 +1150,10 @@ class SwitchProof(Proof):
       return 'switch ' + str(self.subject) \
         + '{' + '\n'.join([str(c) for c in self.cases]) + '}'
     
-  def debruijnize(self, bindings):
-    self.subject.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
     for c in self.cases:
-      c.debruijnize(bindings)
+      c.debruijnize(env)
     
 @dataclass
 class RewriteGoal(Proof):
@@ -1088,9 +1164,9 @@ class RewriteGoal(Proof):
       return 'rewrite goal with ' + str(self.equation) \
         + ' then ' + str(self.body)
 
-  def debruijnize(self, bindings):
-    self.equation.debruijnize(bindings)
-    self.body.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.equation.debruijnize(env)
+    self.body.debruijnize(env)
     
 @dataclass
 class RewriteFact(Proof):
@@ -1100,9 +1176,9 @@ class RewriteFact(Proof):
   def __str__(self):
       return 'rewrite ' + str(self.subject) + ' with ' + str(self.equation)
 
-  def debruijnize(self, bindings):
-    self.subject.debruijnize(bindings)
-    self.equation.debruijnize(bindings)
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
+    self.equation.debruijnize(env)
     
 ################ Statements ######################################
   
@@ -1126,17 +1202,22 @@ class Theorem(Statement):
     
 @dataclass
 class Constructor(AST):
-  name: str
+  typ: Type
   parameters: List[Type]
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
+    self.typ.debruijnize(env)
     for ty in self.parameters:
-      ty.debruijnize(bindings)
+      ty.debruijnize(env)
 
-  def shift(self, cutoff, amount):
-    return Constructor(self.location, self.name,
-                       [ty.shift(cutoff, amount) for ty in self.parameters])
+  def shift_type_vars(self, cutoff, amount):
+    return Constructor(self.location, self.typ.shift_type_vars(cutoff, amount),
+                       [ty.shift_type_vars(cutoff, amount) for ty in self.parameters])
 
+  def shift_term_vars(self, cutoff, amount):
+    return Constructor(self.location, self.typ.shift_term_vars(cutoff, amount)
+                       [ty.shift_term_vars(cutoff, amount) for ty in self.parameters])
+  
   def __str__(self):
     return self.name + '(' + ','.join([str(ty) for ty in self.parameters]) + ');'
       
@@ -1148,19 +1229,23 @@ class Union(Statement):
 
   def debruijnize(self, env):
     env = env.declare_type(self.name)
-#    new_bindings = list(reversed(self.type_params)) + [self.name] + bindings
+    body_env = env.declare_type_vars(self.location, self.type_params)
     for con in self.alternatives:
-      con.debruijnize(env)
+      con.debruijnize(body_env)
       env = env.declare_term_var(con.name, None)
     return env
 
-  def shift(self, cutoff, amount):
+  def shift_type_vars(self, cutoff, amount):
     # Don't treat the Union name itself as a binder here,
     # it's more of a global variable. -Jeremy
     n = len(self.type_params)
     return Union(self.location, self.name, self.type_params,
-                 [c.shift(cutoff + n, amount) for c in self.alternatives])
+                 [c.shift_type_vars(cutoff + n, amount) for c in self.alternatives])
 
+  def shift_term_vars(self, cutoff, amount):
+    return Union(self.location, self.name, self.type_params,
+                 [c.shift_term_vars(cutoff, amount) for c in self.alternatives])
+  
   def __str__(self):
     return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
       + ' '.join([str(c) for c in self.alternatives]) + '}'
@@ -1178,11 +1263,10 @@ class FunCase(AST):
   def __repr__(self):
       return str(self)
 
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.parameters)) \
-      + list(reversed(self.pattern.parameters)) \
-      + bindings
-    self.body.debruijnize(new_bindings)
+  def debruijnize(self, env):
+    body_env = env.declare_term_vars([(x,None) for x in self.pattern.parameters])
+    body_env = body_env.declare_term_vars([(x,None) for x in self.parameters])
+    self.body.debruijnize(body_env)
     
 @dataclass
 class RecFun(Statement):
@@ -1192,17 +1276,29 @@ class RecFun(Statement):
   returns: Type
   cases: List[FunCase]
 
-  def shift(self, cutoff, amount):
-    return self
-  
-  def debruijnize(self, bindings):
-    new_bindings = list(reversed(self.type_params)) + [self.name] + bindings
+  def shift_type_vars(self, cutoff, amount):
+    n = len(self.type_params)
+    return RecFun(self.location, self.name, self.type_params,
+                  [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
+                  self.returns.shift_type_vars(cutoff + n, amount),
+                  self.casts.shift_type_vars(cutoff + n, amount))
+
+  def shift_term_vars(self, cutoff, amount):
+    n = 1 + len(self.params)
+    return RecFun(self.location, self.name, self.type_params,
+                  [ty.shift_term_vars(cutoff + n, amount) for ty in self.params],
+                  self.returns.shift_term_vars(cutoff + n, amount),
+                  self.casts.shift_term_vars(cutoff + n, amount))
+                  
+  def debruijnize(self, env):
+    env.declare_term_var(self.location, self.name, None)
+    body_env = env.declare_type_vars(self.location, self.type_params)
     for ty in self.params:
-      ty.debruijnize(new_bindings)
-    self.returns.debruijnize(new_bindings)
+      ty.debruijnize(body_env)
+    self.returns.debruijnize(body_env)
     for c in self.cases:
-      c.debruijnize(new_bindings)
-    return self.name
+      c.debruijnize(body_env)
+    return env
     
   def __str__(self):
     return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
@@ -1237,8 +1333,23 @@ class RecFunClosure(Statement):
   cases: List[FunCase]
   env: Any
 
-  def shift(self, cutoff, amount):
-    return self
+  def shift_type_vars(self, cutoff, amount):
+    n = len(self.type_params)
+    return RecFunClosure(self.location, self.name, self.type_params,
+                         [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
+                         self.returns.shift_type_vars(cutoff + n, amount),
+                         self.casts.shift_type_vars(cutoff + n, amount),
+                         {k: v.shift_type_vars(cutoff, amount) \
+                          for (k,v) in self.env.items()})
+
+  def shift_term_vars(self, cutoff, amount):
+    n = 1 + len(self.params)
+    return RecFunClosure(self.location, self.name, self.type_params,
+                         [ty.shift_term_vars(cutoff + n, amount) for ty in self.params],
+                         self.returns.shift_term_vars(cutoff + n, amount),
+                         self.casts.shift_term_vars(cutoff + n, amount),
+                         {k: v.shift_term_vars(cutoff + n, amount) \
+                         for (k,v) in self.env.items()})
   
   def __str__(self):
     return '[recfun ' + self.name + ']'
@@ -1268,19 +1379,49 @@ class Define(Statement):
   typ: Type
   body: Term
 
-  def debruijnize(self, bindings):
+  def debruijnize(self, env):
     if self.typ:
-      self.typ.debruijnize(bindings)
-    self.body.debruijnize(bindings)
-    return self.name
+      self.typ.debruijnize(env)
+    self.body.debruijnize(env)
+    env = env.declare_term_var(self.location, self.name, self.typ)
+    return env
+
+  def shift_type_vars(self, cutoff, amount):
+    return Define(self.location, self.name,
+                  self.typ.shift_type_vars(cutoff, amount),
+                  self.body.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff, amount):
+    return Define(self.location, self.name,
+                  self.typ.shift_term_vars(cutoff, amount),
+                  self.body.shift_term_vars(cutoff, amount))
   
+debruijnized_modules = set()
+
 @dataclass
 class Import(Statement):
   name: str
 
-  # see 
   def debruijnize(self, env):
+    if self.name not in debruijnized_modules:
+      debruijnized_modules.add(self.name)
+    filename = self.name + ".pf"
+    file = open(filename, 'r')
+    src = file.read()
+    file.close()
+    old_filename = get_filename()
+    set_filename(filename)
+    ast = parse(src, trace=False)
+    set_filename(old_filename)
+    for s in ast:
+      env = s.debruijnize(env)
     return env
+
+  def shift_type_vars(self, cutoff, amount):
+    return self
+
+  def shift_term_vars(self, cutoff, amount):
+    return self
   
 def mkEqual(loc, arg1, arg2):
   return Call(loc, TVar(loc, '='), [arg1, arg2], True)
