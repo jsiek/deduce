@@ -1,4 +1,5 @@
 from abstract_syntax import *
+import dataclasses
 from dataclasses import dataclass
 from lark import Lark, Token, Tree, logger
 
@@ -161,7 +162,7 @@ def parse_tree_to_ast(e):
                           parse_tree_to_list(e.children[1]),
                           parse_tree_to_ast(e.children[2]))
     elif e.data == 'type_inst':
-      return TypeInst(e.meta, str(e.children[0].value),
+      return TypeInst(e.meta, TypeName(e.meta, str(e.children[0].value)),
                       parse_tree_to_list(e.children[1]))
     # terms
     elif e.data == 'let_term':
@@ -237,9 +238,10 @@ def parse_tree_to_ast(e):
         eq2 = parse_tree_to_ast(e2)
         return PTransitive(e.meta, eq1, eq2)
     elif e.data == 'injective_proof':
-        e1 = e.children[0]
-        eq1 = parse_tree_to_ast(e1)
-        return PInjective(e.meta, eq1)
+        e1, e2 = e.children
+        constr = parse_tree_to_ast(e1)
+        eq = parse_tree_to_ast(e2)
+        return PInjective(e.meta, constr, eq)
     elif e.data == 'paren':
         return parse_tree_to_ast(e.children[0])
     elif e.data == 'let':
@@ -315,7 +317,7 @@ def parse_tree_to_ast(e):
         rest = parse_tree_to_list(e.children[1])
         eqs = [first]
         for (rhs, reason) in rest:
-            lhs = eqs[-1][1] # previous right-hand side
+            lhs = eqs[-1][1].copy()
             eqs.append((lhs, rhs, reason))
         result = None
         for (lhs, rhs, reason) in reversed(eqs):

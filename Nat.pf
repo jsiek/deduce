@@ -108,7 +108,7 @@ proof
     have p1: suc(x' +  y) = suc(x' + z) by
       transitive have suc(x' +  y) = suc(x') + y by reflexive
       transitive prem reflexive;
-    have p2: x' + y = x' + z by injective p1;
+    have p2: x' + y = x' + z by injective suc then p1;
     have IHyz: if x' + y = x' + z then y = z by IH[y,z];
     apply IHyz with p2
   }

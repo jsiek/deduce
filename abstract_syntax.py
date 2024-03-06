@@ -14,6 +14,10 @@ def generate_name(name):
     new_id = name_id
     name_id += 1
     return ls[0] + '.' + str(new_id)
+
+def base_name(name):
+    ls = name.split('.')
+    return ls[0]
   
 @dataclass
 class AST:
@@ -50,9 +54,12 @@ class Type(AST):
 class TypeName(Type):
   name: str
   index: int = -1
+
+  def copy(self):
+    return TypeName(self.location, self.name, self.index)
   
   def __str__(self):
-    return self.name + '@' + str(self.index)
+    return self.name
 
   def __repr__(self):
     return str(self)
@@ -60,7 +67,7 @@ class TypeName(Type):
   def __eq__(self, other):
     if not isinstance(other, TypeName):
       return False
-    return self.index == other.index
+    return self.name == other.name
 
   def free_vars(self):
     return set([self.name])
@@ -71,6 +78,12 @@ class TypeName(Type):
     else:
       return self
 
+  def uniquify(self, env):
+    if self.name not in env.keys():
+      error(self.location, "uniquify: could not find " + self.name \
+            + '\nin ' + str(env))
+    self.name = env[self.name]
+    
   def debruijnize(self, env):
     self.index = env.index_of_type_var(self.name)
 
@@ -83,6 +96,9 @@ class TypeName(Type):
 @dataclass
 class IntType(Type):
     
+  def copy(self):
+    return IntType(self.location)
+  
   def __str__(self):
     return 'int'
 
@@ -98,6 +114,9 @@ class IntType(Type):
   def substitute(self, sub):
     return self
 
+  def uniquify(self, env):
+    pass
+  
   def debruijnize(self, env):
     pass
 
@@ -106,6 +125,9 @@ class IntType(Type):
   
 @dataclass
 class BoolType(Type):
+  def copy(self):
+    return BoolType(self.location)
+  
   def __str__(self):
     return 'bool'
 
@@ -121,6 +143,9 @@ class BoolType(Type):
   def substitute(self, sub):
     return self
 
+  def uniquify(self, env):
+    pass
+  
   def debruijnize(self, env):
     pass
 
@@ -129,6 +154,9 @@ class BoolType(Type):
   
 @dataclass
 class TypeType(Type):
+  def copy(self):
+    return TypeType(self.location)
+  
   def __str__(self):
     return 'type'
 
@@ -144,6 +172,9 @@ class TypeType(Type):
   def substitute(self, sub):
     return self
 
+  def uniquify(self, env):
+    pass
+  
   def debruijnize(self, env):
     pass
 
@@ -155,6 +186,12 @@ class FunctionType(Type):
   type_params: List[str]
   param_types: List[Type]
   return_type: Type
+
+  def copy(self):
+    return FunctionType(self.location,
+                        [p for p in self.type_params],
+                        [ty.copy() for ty in self.param_types],
+                        self.return_type.copy())
 
   def __str__(self):
     if len(self.type_params) > 0:
@@ -186,8 +223,18 @@ class FunctionType(Type):
                           [pt.substitute(new_sub) for pt in self.param_types],
                           self.return_type.substitute(new_sub))
     
+  def uniquify(self, env):
+    body_env = {x:y for (x,y) in env.items()}
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      body_env[old] = new
+    self.type_params = new_type_params
+    for p in self.param_types:
+      p.uniquify(body_env)
+    self.return_type.uniquify(body_env)
+    
   def debruijnize(self, env):
-    body_env = env.declare_type_vars(self.type_params)
+    body_env = env.declare_type_vars(self.location, self.type_params)
     for p in self.param_types:
       p.debruijnize(body_env)
     self.return_type.debruijnize(body_env)
@@ -203,6 +250,11 @@ class TypeInst(Type):
   typ: Type
   arg_types: List[Type]
 
+  def copy(self):
+    return TypeInst(self.location,
+                    self.typ.copy(),
+                    [ty.copy() for ty in self.arg_types])
+  
   def __str__(self):
     return str(self.typ) + \
       '<' + ','.join([str(arg) for arg in self.arg_types]) + '>'
@@ -224,9 +276,14 @@ class TypeInst(Type):
     return set().union(*[at.free_vars() for at in self.arg_types])
 
   def substitute(self, sub):
-    return TypeInst(self.location, self.name,
+    return TypeInst(self.location, self.typ.substitute(sub),
                     [ty.substitute(sub) for ty in self.arg_types])
 
+  def uniquify(self, env):
+    self.typ.uniquify(env)
+    for ty in self.arg_types:
+      ty.uniquify(env)
+  
   def debruijnize(self, env):
     self.typ.debruijnize(env)
     for ty in self.arg_types:
@@ -241,6 +298,9 @@ class TypeInst(Type):
 @dataclass
 class GenericType(Type):
   typ: Type
+
+  def copy(self):
+    return GenericType(self.location, self.typ.copy())
   
   def __str__(self):
     return str(self.typ) + '<?>'
@@ -260,6 +320,9 @@ class GenericType(Type):
   def substitute(self, sub):
     return self
 
+  def uniquify(self, env):
+    self.typ.uniquify(env)
+  
   def debruijnize(self, env):
     self.typ.debruijnize(env)
 
@@ -278,6 +341,11 @@ class PatternCons(Pattern):
   constructor : Term
   parameters : List[str]
 
+  def copy(self):
+    return PatternCons(self.location,
+                       self.constructor.copy(),
+                       [p for p in self.parameters])
+  
   def __str__(self):
       return str(self.constructor) + '(' + ",".join(self.parameters) + ')'
 
@@ -286,13 +354,18 @@ class PatternCons(Pattern):
 
   def debruijnize(self, env):
     self.constructor.debruijnize(env)
+
+  def uniquify(self, env):
+    self.constructor.uniquify(env)
     
   def shift_type_vars(self, cutoff, amount):
-    return PatternCons(self.constructor.shift_type_vars(cutoff, amount),
+    return PatternCons(self.location,
+                       self.constructor.shift_type_vars(cutoff, amount),
                        self.parameters)
     
   def shift_term_vars(self, cutoff, amount):
-    return PatternCons(self.constructor.shift_term_vars(cutoff, amount),
+    return PatternCons(self.location,
+                       self.constructor.shift_term_vars(cutoff, amount),
                        self.parameters)
 
     
@@ -304,6 +377,11 @@ class Conditional(Term):
   thn: Term
   els: Term
 
+  def copy(self):
+    return Conditional(self.location,
+                       self.cond.copy(),
+                       self.thn.copy(), self.els.copy())
+  
   def __str__(self):
       return 'if ' + str(self.cond) \
         + ' then ' + str(self.thn) \
@@ -333,6 +411,11 @@ class Conditional(Term):
     self.thn.debruijnize(env)
     self.els.debruijnize(env)
 
+  def uniquify(self, env):
+    self.cond.uniquify(env)
+    self.thn.uniquify(env)
+    self.els.uniquify(env)
+    
   def shift_type_vars(self, cutoff, amount):
     return Conditional(self.location,
                        self.cond.shift_type_vars(cutoff, amount),
@@ -351,6 +434,11 @@ class TAnnote(Term):
   subject: Term
   typ: Type
 
+  def copy(self):
+    return TAnnote(self.location,
+                   self.subject.copy(),
+                   self.typ.copy())
+  
   def __str__(self):
       return str(self.subject) + ':' + str(self.typ)
     
@@ -368,6 +456,10 @@ class TAnnote(Term):
     self.subject.debruijnize(env)
     self.typ.debruijnize(env)
 
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    self.typ.uniquify(env)
+    
   def shift_type_vars(self, cutoff):
     return TAnnote(self.location,
                    self.subject.shift_type_vars(cutoff, amount),
@@ -383,22 +475,25 @@ class TVar(Term):
   name: str
   index: int = -1
 
+  def copy(self):
+    return TVar(self.location, self.name, self.index)
+  
   def __eq__(self, other):
       if not isinstance(other, TVar):
           return False
-      return self.index == other.index 
+      return self.name == other.name 
   
   def __str__(self):
-      if False and self.name == 'zero':
+      if self.name == 'zero':
         return '0'
       else:
-        return self.name + '@' + str(self.index)
+        return self.name + '%'
 
   def __repr__(self):
       return str(self)
     
   def reduce(self, env):
-      res = env.get(self.location, self.name, self.index)
+      res = env.get_value_of_term_var(self)
       if res:
           return res
       else:
@@ -413,6 +508,12 @@ class TVar(Term):
   def debruijnize(self, env):
     self.index = env.index_of_term_var(self.name)
 
+  def uniquify(self, env):
+    if self.name not in env.keys():
+      error(self.location, "uniquify: could not find " + self.name \
+            + '\nin ' + str(env))
+    self.name = env[self.name]
+    
   def shift_type_vars(self, cutoff, amount):
     return self
   
@@ -426,6 +527,9 @@ class TVar(Term):
 class Int(Term):
   value: int
 
+  def copy(self):
+    return Int(self.location, self.value)
+  
   def __eq__(self, other):
       if not isinstance(other, Int):
           return False
@@ -440,6 +544,9 @@ class Int(Term):
   def substitute(self, sub):
       return self
 
+  def uniquify(self, env):
+    pass
+  
   def debruijnize(self, env):
     pass
 
@@ -453,6 +560,11 @@ class Int(Term):
 class Lambda(Term):
   vars: List[str]
   body: Term
+
+  def copy(self):
+    return Lambda(self.location,
+                  [v for v in self.vars],
+                  self.body.copy())
   
   def __str__(self):
     return "λ" + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}"
@@ -476,12 +588,24 @@ class Lambda(Term):
       return Lambda(self.location, self.vars, self.body.substitute(new_sub))
 
   def debruijnize(self, env):
-    body_env = env.declare_term_vars(self.vars)
+    body_env = env.declare_term_vars(self.location,
+                                     [(x,None) for x in self.vars])
     self.body.debruijnize(body_env)
 
+  def uniquify(self, env):
+    #print('uniquify Lambda ' + str(self))
+    body_env = {x:y for (x,y) in env.items()}
+    new_vars = [generate_name(x) for x in self.vars]
+    for (old,new) in zip(self.vars, new_vars):
+      body_env[old] = new
+    self.vars = new_vars
+    #print('body_env ' + str(body_env))
+    self.body.uniquify(body_env)
+    
   def shift_type_vars(self, cutoff, amount):
     n = len(self.vars)
-    return Lambda(self.location, self.vars, self.body.shift_type_vars(cutoff, amount))
+    return Lambda(self.location, self.vars,
+                  self.body.shift_type_vars(cutoff, amount))
 
   def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
@@ -494,7 +618,7 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "[closure" + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}]"
+    return "[closure " + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}]"
 
   def __repr__(self):
     return str(self)
@@ -515,26 +639,24 @@ class Closure(Term):
   def shift_type_vars(self, cutoff, amount):
     return Closure(self.location, self.vars,
                    self.body.shift_type_vars(cutoff, amount),
-                   {k: v.shift_type_vars(cutoff, amount) \
-                    for (k,v) in self.env.items()})
+                   self.env.shift_type_vars(cutoff, amount))
 
   def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
     return Closure(self.location, self.vars,
                    self.body.shift_term_vars(cutoff + n, amount),
-                   {k: v.shift_term_vars(cutoff + n, amount) \
-                    for (k,v) in self.env.items()})
+                   self.env.shift_term_vars(cutoff + n, amount))
   
     
 def is_match(pattern, arg, subst):
     ret = False
     match (pattern, arg):
       case (PatternCons(loc1, constr, []),
-            TVar(loc2, name)):
-        ret = constr == name
+            TVar(loc2, name, index)):
+        ret = constr == arg
       case (PatternCons(loc1, constr, params),
-            Call(loc2, TVar(loc3, name), args, infix)):
-        if constr == name and len(params) == len(args):
+            Call(loc2, TVar(loc3, name, index), args, infix)):
+        if constr == TVar(loc3, name, index) and len(params) == len(args):
             for (k,v) in zip(params, args):
                 subst[k] = v
             ret = True
@@ -549,6 +671,12 @@ class Call(Term):
   rator: Term
   args: list[Term]
   infix: bool
+
+  def copy(self):
+    return Call(self.location,
+                self.rator.copy(),
+                [arg.copy() for arg in self.args],
+                self.infix)
   
   def __str__(self):
     if self.infix:
@@ -571,21 +699,31 @@ class Call(Term):
   def reduce(self, env):
       fun = self.rator.reduce(env)
       args = [arg.reduce(env) for arg in self.args]
-      #print('*** reduce call to ' + str(fun))
       match fun:
         case Closure(loc, vars, body, clos_env):
-          new_env = clos_env.extend_all(zip(vars, args))
-          ret = body.reduce(new_env)
+          #print('*** applying function ' + str(fun) + '\nto ' + str(args))
+          body_env = clos_env.define_term_vars(loc, zip(vars, args))
+          #print('*** body ' + str(body_env))
+          ret = body.reduce(body_env)
+          #print('*** call result: ' + str(ret))
         case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
+          #print('*** applying function ' + str(fun) + '\nto ' + str(args))
           first_arg = args[0]
           rest_args = args[1:]
           for fun_case in cases:
               subst = {}
               if is_match(fun_case.pattern, first_arg, subst):
-                  new_env = clos_env.extend_all(subst.items())
-                  new_env = new_env.extend_all(zip(fun_case.parameters, rest_args))
-                  ret = fun_case.body.reduce(new_env)
-                  return ret
+                  #print('*** match subst ' + str(subst))
+                  body_env = clos_env.define_term_vars(loc, subst.items())
+                  body_env = body_env.define_term_vars(loc, zip(fun_case.parameters, rest_args))
+                  #print('*** body ' + str(body_env))
+                  ret = fun_case.body.reduce(body_env)
+                  #print('*** ret ' + str(ret))
+                  num_bindings = len(fun_case.pattern.parameters) + len(fun_case.parameters)
+                  #result = ret.shift_term_vars(0, - num_bindings)
+                  result = ret
+                  #print('*** call result: ' + str(result))
+                  return result
           ret = Call(self.location, fun, args, self.infix)
         case _:
           ret = Call(self.location, fun, args, self.infix)
@@ -610,11 +748,22 @@ class Call(Term):
     self.rator.debruijnize(env)
     for arg in self.args:
       arg.debruijnize(env)
-    
+
+  def uniquify(self, env):
+    #print('uniquify call ' + str(self))
+    self.rator.uniquify(env)
+    for arg in self.args:
+      arg.uniquify(env)
+      
 @dataclass
 class SwitchCase(AST):
   pattern: Pattern
   body: Term
+  
+  def copy(self):
+    return SwitchCase(self.location,
+                      self.pattern.copy(),
+                      self.body.copy())
   
   def __str__(self):
       return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
@@ -624,7 +773,7 @@ class SwitchCase(AST):
 
   def reduce(self, env):
       n = len(self.pattern.parameters)
-      new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
+      #new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
       return SwitchCase(self.location,
                         PatternCons(self.pattern.location,
                                     self.pattern.constructor,
@@ -657,6 +806,15 @@ class SwitchCase(AST):
   def debruijnize(self, env):
     body_env.declare_term_vars([(x,None) for x in self.pattern.parameters])
     self.body.debruijnize(body_env)
+
+  def uniquify(self, env):
+    self.pattern.uniquify(env)
+    body_env = {x:y for (x,y) in env.items()}
+    new_params = [generate_name(x) for x in self.pattern.parameters]
+    for (old,new) in zip(self.pattern.parameters, new_params):
+      body_env[old] = new
+    self.pattern.parameters = new_params
+    self.body.uniquify(body_env)
     
   def __eq__(self, other):
     return self.pattern.constructor == other.pattern.constructor \
@@ -667,6 +825,11 @@ class Switch(Term):
   subject: Term
   cases: List[SwitchCase]
 
+  def copy(self):
+    return Switch(self.location,
+                  self.subject.copy(),
+                  [c.copy() for c in self.cases])
+  
   def __str__(self):
       return 'switch ' + str(self.subject) + '{ ' \
           + ' '.join([str(c) for c in self.cases]) \
@@ -680,7 +843,7 @@ class Switch(Term):
       for c in self.cases:
           subst = {}
           if is_match(c.pattern, new_subject, subst):
-            new_env = env.extend_all(subst.items())
+            new_env = env.define_term_vars(self.location, subst.items())
             return c.body.reduce(new_env)
       new_cases = [c.reduce(env) for c in self.cases]
       return Switch(self.location, new_subject, new_cases)
@@ -702,7 +865,12 @@ class Switch(Term):
     self.subject.debruijnize(env)
     for c in self.cases:
       c.debruijnize(env)
-    
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    for c in self.cases:
+      c.uniquify(env)
+      
   def __eq__(self, other):
     eq_subject = self.subject == other.subject
     eq_cases = all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
@@ -713,6 +881,11 @@ class TermInst(Term):
   subject: Term
   type_args: List[Type]
 
+  def copy(self):
+    return TermInst(self.location,
+                    self.subject.copy(),
+                    [ty.copy() for ty in self.type_args])
+  
   def __str__(self):
     return str(self.subject) + \
       '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
@@ -744,6 +917,11 @@ class TermInst(Term):
     for ty in self.type_args:
       ty.debruijnize(env)
 
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    for ty in self.type_args:
+      ty.uniquify(env)
+      
   
 @dataclass
 class TLet(Term):
@@ -751,11 +929,22 @@ class TLet(Term):
   rhs: Term
   body: Term
 
+  def copy(self):
+    return TLet(self.location, self.var, self.rhs.copy(), self.body.copy())
+  
   def debruijnize(self, env):
     self.rhs.debruijnize(env)
     body_env = env.declare_term_var(self.location, self.var, None)
     self.body.debruijnize(body_env)
 
+  def uniquify(self, env):
+    self.rhs.uniquify(env)
+    body_env = {x:y for (x,y) in env.items()}
+    new_var = generate_name(self.var)
+    body_env[self.var] = new_var
+    self.var = new_var
+    self.body.uniquify(body_env)
+    
   def shift_type_vars(self, cutoff, amount):
     return TLet(self.location, self.var,
                 self.rhs.shift_type_vars(cutoff, amount),
@@ -771,6 +960,10 @@ class TLet(Term):
 @dataclass
 class Bool(Formula):
   value: bool
+  
+  def copy(self):
+    return Bool(self.location, self.value)
+  
   def __eq__(self, other):
       if not isinstance(other, Bool):
           return False
@@ -785,6 +978,8 @@ class Bool(Formula):
     return self
   def debruijnize(self, env):
     pass
+  def uniquify(self, env):
+    pass
   def shift_type_vars(self, cutoff, amount):
     return self
   def shift_term_vars(self, cutoff, amount):
@@ -793,12 +988,18 @@ class Bool(Formula):
 @dataclass
 class And(Formula):
   args: list[Formula]
+
+  def copy(self):
+    return And(self.location, [arg.copy() for arg in self.args])
+  
   def __str__(self):
     return ' and '.join([str(arg) for arg in self.args])
   def __repr__(self):
     return str(self)
   def __eq__(self, other):
-      return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
+    if not isinstance(other, And):
+      return False
+    return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   def reduce(self, env):
     return And(self.location, [arg.reduce(env) for arg in self.args])
   def substitute(self, sub):
@@ -806,6 +1007,9 @@ class And(Formula):
   def debruijnize(self, env):
     for arg in self.args:
       arg.debruijnize(env)
+  def uniquify(self, env):
+    for arg in self.args:
+      arg.uniquify(env)
   def shift_type_vars(self, cutoff, amount):
     return And(self.location, [arg.shift_type_vars(cutoff, amount) for arg in self.args])
   def shift_term_vars(self, cutoff, amount):
@@ -814,10 +1018,14 @@ class And(Formula):
 @dataclass
 class Or(Formula):
   args: list[Formula]
+  def copy(self):
+    return Or(self.location, [arg.copy() for arg in self.args])
   def __str__(self):
     return ' or '.join([str(arg) for arg in self.args])
   def __eq__(self, other):
-      return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
+    if not isinstance(other, Or):
+      return False
+    return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   def reduce(self, env):
     return Or(self.location, [arg.reduce(env) for arg in self.args])
   def substitute(self, sub):
@@ -825,6 +1033,9 @@ class Or(Formula):
   def debruijnize(self, env):
     for arg in self.args:
       arg.debruijnize(env)
+  def uniquify(self, env):
+    for arg in self.args:
+      arg.uniquify(env)
   def shift_type_vars(self, cutoff, amount):
     return Or(self.location, [arg.shift_type_vars(cutoff, amount) for arg in self.args])
   def shift_term_vars(self, cutoff, amount):
@@ -841,6 +1052,8 @@ class Or(Formula):
 class IfThen(Formula):
   premise: Formula
   conclusion : Formula
+  def copy(self):
+    return IfThen(self.location, self.premise.copy(), self.conclusion.copy())
   def __str__(self):
     return 'if ' + str(self.premise) + ' then ' + str(self.conclusion)
   def __repr__(self):
@@ -866,6 +1079,9 @@ class IfThen(Formula):
   def debruijnize(self, env):
     self.premise.debruijnize(env)
     self.conclusion.debruijnize(env)
+  def uniquify(self, env):
+    self.premise.uniquify(env)
+    self.conclusion.uniquify(env)
 
     
 @dataclass
@@ -873,6 +1089,11 @@ class All(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
 
+  def copy(self):
+    return All(self.location,
+               [(x, t.copy()) for (x,t) in self.vars],
+               self.body.copy())
+  
   def __str__(self):
     return 'all ' + ",".join([v + ":" + str(t) for (v,t) in self.vars]) \
         + '. ' + str(self.body)
@@ -885,7 +1106,9 @@ class All(Formula):
   def substitute(self, sub):
     n = len(self.vars)
     new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
-    return All(self.location, self.vars, self.body.substitute(new_sub))
+    return All(self.location,
+               [(x, ty.substitute(sub)) for (x,ty) in self.vars],
+               self.body.substitute(new_sub))
   
   def __eq__(self, other):
     if not isinstance(other, All):
@@ -902,13 +1125,29 @@ class All(Formula):
   def debruijnize(self, env):
     body_env = env.declare_term_vars(self.vars)
     self.body.debruijnize(body_env)
+
+  def uniquify(self, env):
+    body_env = {x:y for (x,y) in env.items()}
+    new_vars = []
+    for (x,ty) in self.vars:
+      t = ty.copy()
+      t.uniquify(body_env)
+      new_x = generate_name(x)
+      new_vars.append( (new_x,t) )
+      body_env[x] = new_x
+    self.vars = new_vars
+    self.body.uniquify(body_env)
     
-  
 @dataclass
 class Some(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
 
+  def copy(self):
+    return Some(self.location,
+               [(x,ty.copy()) for (x,ty) in self.vars],
+               self.body.copy())
+  
   def reduce(self, env):
     n = len(self.vars)
     new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
@@ -917,18 +1156,32 @@ class Some(Formula):
   def substitute(self, sub):
     n = len(self.vars)
     new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
-    return Some(self.location, self.vars, self.body.substitute(new_sub))
+    return Some(self.location,
+                [(x,ty.substitute(sub)) for (x,ty) in self.vars],
+                self.body.substitute(new_sub))
   
   def debruijnize(self, env):
     body_env = env.declare_term_vars(self.vars)
     self.body.debruijnize(body_env)
 
+  def uniquify(self, env):
+    body_env = {x:y for (x,y) in env.items()}
+    new_vars = []
+    for (x,ty) in self.vars:
+      ty.uniquify(body_env)
+      new_x = generate_name(x)
+      new_vars.append(x)
+      body_env[x] = new_x
+    self.vars = new_vars
+    self.body.uniquify(body_env)
+    
   def shift_type_vars(self, cutoff, amount):
     return Some(self.location, self.vars, self.body.shift_type_vars(cutoff, amount))
 
   def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
-    return Some(self.location, self.vars, self.body.shift_term_vars(cutoff + n, amount))
+    return Some(self.location, self.vars,
+                self.body.shift_term_vars(cutoff + n, amount))
   
 ################ Proofs ######################################
   
@@ -937,11 +1190,22 @@ class PVar(Proof):
   name: str
   index: int = -1
   
+  def copy(self):
+    return PVar(self.location, self.name, self.index)
+  
+  def __eq__(self, other):
+    if not isinstance(other, PVar):
+      return False
+    return self.name == other.name
+  
   def __str__(self):
-      return str(self.name) + '@' + str(self.index)
+      return self.name
 
   def debruijnize(self, env):
     self.index = env.index_of_proof_var(self.name)
+
+  def uniquify(self, env):
+    self.name = env[self.name]
     
 @dataclass
 class PLet(Proof):
@@ -960,6 +1224,15 @@ class PLet(Proof):
     body_env = env.declare_proof_var(self.location, self.label, self.proved)
     self.body.debruijnize(body_env)
 
+  def uniquify(self, env):
+    self.proved.uniquify(env)
+    self.because.uniquify(env)
+    body_env = {x:y for (x,y) in env.items()}
+    new_label = generate_name(self.label)
+    body_env[self.label] = new_label
+    self.label = new_label
+    self.body.uniquify(body_env)
+    
     
 @dataclass
 class PAnnot(Proof):
@@ -972,6 +1245,11 @@ class PAnnot(Proof):
   def debruijnize(self, env):
     self.claim.debruijnize(env)
     self.reason.debruijnize(env)
+
+  def uniquify(self, env):
+    #print('uniquify ' + str(self))
+    self.claim.uniquify(env)
+    self.reason.uniquify(env)
     
 @dataclass
 class Cases(Proof):
@@ -982,7 +1260,12 @@ class Cases(Proof):
     self.subject.debruijnize(env)
     for c in self.cases:
       c.debruijnize(env)
-  
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    for c in self.cases:
+      c.uniquify(env)
+      
 @dataclass
 class Apply(Proof):
   implication: Proof
@@ -994,6 +1277,10 @@ class Apply(Proof):
   def debruijnize(self, env):
     self.implication.debruijnize(env)
     self.arg.debruijnize(env)
+
+  def uniquify(self, env):
+    self.implication.uniquify(env)
+    self.arg.uniquify(env)
     
 @dataclass
 class ImpIntro(Proof):
@@ -1009,7 +1296,16 @@ class ImpIntro(Proof):
       self.premise.debruijnize(env)
     body_env = env.declare_proof_var(self.location, self.label, self.premise)
     self.body.debruijnize(body_env)
-  
+
+  def uniquify(self, env):
+    if self.premise:
+      self.premise.uniquify(env)
+    body_env = copy_dict(env)
+    new_label = generate_name(self.label)
+    body_env[self.label] = new_label
+    self.label = new_label
+    self.body.uniquify(body_env)
+    
 @dataclass
 class AllIntro(Proof):
   vars: List[Tuple[str,Type]]
@@ -1022,7 +1318,19 @@ class AllIntro(Proof):
   def debruijnize(self, env):
     body_env = env.declare_term_vars(self.vars)
     self.body.debruijnize(body_env)
-  
+
+  def uniquify(self, env):
+    body_env = copy_dict(env)
+    new_vars = []
+    for (x,ty) in self.vars:
+      t = ty.copy()
+      t.uniquify(body_env)
+      new_x = generate_name(x)
+      new_vars.append( (new_x,t) )
+      body_env[x] = new_x
+    self.vars = new_vars
+    self.body.uniquify(body_env)
+    
 @dataclass
 class AllElim(Proof):
   univ: Proof
@@ -1035,7 +1343,12 @@ class AllElim(Proof):
     self.univ.debruijnize(env)
     for arg in self.args:
       arg.debruijnize(env)
-  
+
+  def uniquify(self, env):
+    self.univ.uniquify(env)
+    for arg in self.args:
+      arg.uniquify(env)
+      
 @dataclass
 class PTuple(Proof):
   args: List[Proof]
@@ -1046,12 +1359,18 @@ class PTuple(Proof):
   def debruijnize(self, env):
     for arg in self.args:
       arg.debruijnize(env)
-  
+
+  def uniquify(self, env):
+    for arg in self.args:
+      arg.uniquify(env)
+      
 @dataclass
 class PTrue(Proof):
   def __str__(self):
     return '.'
   def debruijnize(self, env):
+    pass
+  def uniquify(self, env):
     pass
   
 @dataclass
@@ -1060,12 +1379,16 @@ class PReflexive(Proof):
     return 'reflexive'
   def debruijnize(self, env):
     pass
+  def uniquify(self, env):
+    pass
 
 @dataclass
 class PHole(Proof):
   def __str__(self):
       return '?'
   def debruijnize(self, env):
+    pass
+  def uniquify(self, env):
     pass
   
 @dataclass
@@ -1075,6 +1398,8 @@ class PSymmetric(Proof):
     return 'symmetric ' + str(self.body)
   def debruijnize(self, env):
     self.body.debruijnize(env)
+  def uniquify(self, env):
+    self.body.uniquify(env)
 
 @dataclass
 class PTransitive(Proof):
@@ -1085,14 +1410,22 @@ class PTransitive(Proof):
   def debruijnize(self, env):
     self.first.debruijnize(env)
     self.second.debruijnize(env)
+  def uniquify(self, env):
+    self.first.uniquify(env)
+    self.second.uniquify(env)
 
 @dataclass
 class PInjective(Proof):
+  constr: Type
   body: Proof
   def __str__(self):
-    return 'injective ' + str(self.body)
+    return 'injective ' + str(self.constr) + ' ' + str(self.body)
   def debruijnize(self, env):
+    self.constr.debruijnize(env)
     self.body.debruijnize(env)
+  def uniquify(self, env):
+    self.constr.uniquify(env)
+    self.body.uniquify(env)
   
 @dataclass
 class IndCase(AST):
@@ -1106,7 +1439,17 @@ class IndCase(AST):
     body_env = env.declare_proof_var(self.location, 'IH', None)
     body_env = body_env.declare_term_vars([(x,None) for x in self.pattern.parameters])
     self.body.debruijnize(body_env)
-  
+
+  def uniquify(self, env):
+    body_env = copy_dict(env)
+    body_env['IH'] = 'IH'  # TODO: introduce explicit binders for IH
+    new_params = [generate_name(x) for x in self.pattern.parameters]
+    for (old,new) in zip(self.pattern.parameters, new_params):
+      body_env[old] = new
+    self.pattern.parameters = new_params
+    self.pattern.uniquify(env)
+    self.body.uniquify(body_env)
+    
 @dataclass
 class Induction(Proof):
   typ: Type
@@ -1120,7 +1463,12 @@ class Induction(Proof):
     self.typ.debruijnize(env)
     for c in self.cases:
       c.debruijnize(env)
-    
+
+  def uniquify(self, env):
+    self.typ.uniquify(env)
+    for c in self.cases:
+      c.uniquify(env)
+      
 @dataclass
 class SwitchProofCase(AST):
   pattern: Pattern
@@ -1132,6 +1480,16 @@ class SwitchProofCase(AST):
   def debruijnize(self, env):
     body_env = body_env.declare_term_vars([(x,None) for x in self.pattern.parameters])
     self.body.debruijnize(body_env)
+
+  def uniquify(self, env):
+    self.pattern.uniquify(env)
+    body_env = copy_dict(env)
+    new_params = [generate_name(x) for x in self.pattern.parameters]
+    for (old,new) in zip(self.pattern.parameters, new_params):
+      body_env[old] = new
+    self.pattern.parameters = new_params
+    body_env['EQ'] = 'EQ'
+    self.body.uniquify(body_env)
     
 @dataclass
 class SwitchProof(Proof):
@@ -1146,7 +1504,12 @@ class SwitchProof(Proof):
     self.subject.debruijnize(env)
     for c in self.cases:
       c.debruijnize(env)
-    
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    for c in self.cases:
+      c.uniquify(env)
+      
 @dataclass
 class RewriteGoal(Proof):
   equation: Proof
@@ -1159,6 +1522,10 @@ class RewriteGoal(Proof):
   def debruijnize(self, env):
     self.equation.debruijnize(env)
     self.body.debruijnize(env)
+
+  def uniquify(self, env):
+    self.equation.uniquify(env)
+    self.body.uniquify(env)
     
 @dataclass
 class RewriteFact(Proof):
@@ -1171,6 +1538,10 @@ class RewriteFact(Proof):
   def debruijnize(self, env):
     self.subject.debruijnize(env)
     self.equation.debruijnize(env)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    self.equation.uniquify(env)
     
 ################ Statements ######################################
   
@@ -1191,7 +1562,14 @@ class Theorem(Statement):
     self.what.debruijnize(env)
     self.proof.debruijnize(env)
     return env.declare_proof_var(self.location, self.name, self.what)
-    
+
+  def uniquify(self, env):
+    self.what.uniquify(env)
+    self.proof.uniquify(env)
+    new_name = generate_name(self.name)
+    env[self.name] = new_name
+    self.name = new_name
+  
 @dataclass
 class Constructor(AST):
   name: str
@@ -1201,6 +1579,10 @@ class Constructor(AST):
     for ty in self.parameters:
       ty.debruijnize(env)
 
+  def uniquify(self, env):
+    for ty in self.parameters:
+      ty.uniquify(env)
+      
   def shift_type_vars(self, cutoff, amount):
     return Constructor(self.location, self.name,
                        [ty.shift_type_vars(cutoff, amount) for ty in self.parameters])
@@ -1226,6 +1608,21 @@ class Union(Statement):
       env = env.declare_term_var(con.location, con.name, None)
     return env
 
+  def uniquify(self, env):
+    new_name = generate_name(self.name)
+    env[self.name] = new_name
+    self.name = new_name
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      body_env[old] = new
+    self.type_params = new_type_params
+    for con in self.alternatives:
+      con.uniquify(body_env)
+      new_con_name = generate_name(con.name)
+      env[con.name] = new_con_name
+      con.name = new_con_name
+  
   def shift_type_vars(self, cutoff, amount):
     # Don't treat the Union name itself as a binder here,
     # it's more of a global variable. -Jeremy
@@ -1261,6 +1658,27 @@ class FunCase(AST):
     body_env = body_env.declare_term_vars(self.location,
                                           [(x,None) for x in self.parameters])
     self.body.debruijnize(body_env)
+
+  def uniquify(self, env):
+    self.pattern.uniquify(env)
+    body_env = copy_dict(env)
+    
+    new_pat_params = [generate_name(x) for x in self.pattern.parameters]
+    for (old,new) in zip(self.pattern.parameters, new_pat_params):
+      body_env[old] = new
+    self.pattern.parameters = new_pat_params
+
+    new_params = [generate_name(x) for x in self.parameters]
+    for (old,new) in zip(self.parameters, new_params):
+      body_env[old] = new
+    self.parameters = new_params
+
+    self.body.uniquify(body_env)
+    
+  def shift_term_vars(self, cutoff, amount):
+    n = len(self.pattern.parameters) + len(self.parameters)
+    return FunCase(self.location, self.pattern.shift_term_vars(cutoff, amount),
+                   self.parameters, self.body.shift_term_vars(cutoff + n, amount))
     
 @dataclass
 class RecFun(Statement):
@@ -1278,14 +1696,13 @@ class RecFun(Statement):
                   self.casts.shift_type_vars(cutoff + n, amount))
 
   def shift_term_vars(self, cutoff, amount):
-    n = 1 + len(self.params)
     return RecFun(self.location, self.name, self.type_params,
-                  [ty.shift_term_vars(cutoff + n, amount) for ty in self.params],
-                  self.returns.shift_term_vars(cutoff + n, amount),
-                  self.casts.shift_term_vars(cutoff + n, amount))
+                  self.params,
+                  self.returns,
+                  self.casts.shift_term_vars(cutoff + 1, amount))
                   
   def debruijnize(self, env):
-    env.declare_term_var(self.location, self.name, None)
+    env = env.declare_term_var(self.location, self.name, None)
     body_env = env.declare_type_vars(self.location, self.type_params)
     for ty in self.params:
       ty.debruijnize(body_env)
@@ -1293,7 +1710,24 @@ class RecFun(Statement):
     for c in self.cases:
       c.debruijnize(body_env)
     return env
+
+  def uniquify(self, env):
+    new_name = generate_name(self.name)
+    env[self.name] = new_name
+    self.name = new_name
     
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      body_env[old] = new
+    self.type_params = new_type_params
+    
+    for ty in self.params:
+      ty.uniquify(body_env)
+    self.returns.uniquify(body_env)
+    for c in self.cases:
+      c.uniquify(body_env)
+  
   def __str__(self):
     return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
@@ -1332,26 +1766,28 @@ class RecFunClosure(Statement):
     return RecFunClosure(self.location, self.name, self.type_params,
                          [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
                          self.returns.shift_type_vars(cutoff + n, amount),
-                         self.casts.shift_type_vars(cutoff + n, amount),
-                         {k: v.shift_type_vars(cutoff, amount) \
-                          for (k,v) in self.env.items()})
+                         [case.shift_type_vars(cutoff + n, amount) for case in self.cases],
+                         env) # cycles!?!?!?
 
   def shift_term_vars(self, cutoff, amount):
-    n = 1 + len(self.params)
     return RecFunClosure(self.location, self.name, self.type_params,
-                         [ty.shift_term_vars(cutoff + n, amount) for ty in self.params],
-                         self.returns.shift_term_vars(cutoff + n, amount),
-                         self.casts.shift_term_vars(cutoff + n, amount),
-                         {k: v.shift_term_vars(cutoff + n, amount) \
-                         for (k,v) in self.env.items()})
-  
+                         self.params,
+                         self.returns,
+                         [case.shift_term_vars(cutoff, amount) for case in self.cases],
+                         self.env) # cycles!?!?!
+
+  def shift_proof_vars(self, cutoff, amount):
+    return self
+    
   def __str__(self):
-    return '[recfun ' + self.name + ']'
-  # + '<' + ','.join(self.type_params) + '>' \
-  #     + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
-  #     + ' -> ' + str(self.returns) + '{\n' \
-  #     + '\n'.join([str(c) for c in self.cases]) \
-  #     + '\n}'
+    return '[' + self.name + ']'
+  
+    # return '[' + self.name \
+    #    + '<' + ','.join(self.type_params) + '>' \
+    #    + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
+    #    + ' -> ' + str(self.returns) + '{' \
+    #    + ' '.join([str(c) for c in self.cases]) \
+    #    + '}' + ']'
 
   def __repr__(self):
     return str(self)
@@ -1380,6 +1816,14 @@ class Define(Statement):
     env = env.declare_term_var(self.location, self.name, self.typ)
     return env
 
+  def uniquify(self, env):
+    if self.typ:
+      self.typ.uniquify(env)
+    self.body.uniquify(env)
+    new_name = generate_name(self.name)
+    env[self.name] = new_name
+    self.name = new_name
+  
   def shift_type_vars(self, cutoff, amount):
     return Define(self.location, self.name,
                   self.typ.shift_type_vars(cutoff, amount),
@@ -1395,7 +1839,8 @@ debruijnized_modules = set()
 @dataclass
 class Import(Statement):
   name: str
-
+  ast: AST = None
+  
   def debruijnize(self, env):
     if self.name not in debruijnized_modules:
       debruijnized_modules.add(self.name)
@@ -1411,6 +1856,22 @@ class Import(Statement):
       env = s.debruijnize(env)
     return env
 
+  def uniquify(self, env):
+    if self.name not in debruijnized_modules:
+      debruijnized_modules.add(self.name)
+    filename = self.name + ".pf"
+    file = open(filename, 'r')
+    src = file.read()
+    file.close()
+    from parser import get_filename, set_filename, parse
+    old_filename = get_filename()
+    set_filename(filename)
+    self.ast = parse(src, trace=False)
+    set_filename(old_filename)
+    for s in self.ast:
+      s.uniquify(env)
+    return env
+  
   def shift_type_vars(self, cutoff, amount):
     return self
 

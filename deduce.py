@@ -1,4 +1,4 @@
-from proof_checker import check_deduce, debruijnize_deduce, set_verbose, get_verbose
+from proof_checker import check_deduce, debruijnize_deduce, uniquify_deduce, set_verbose, get_verbose
 import sys
 from parser import parse, set_filename
 from lark import exceptions
@@ -13,8 +13,8 @@ if __name__ == "__main__":
       set_filename(filename)
       ast = parse(p, trace=False)
       try:
-          debruijnize_deduce(ast)
-          # print("finished debruijnize:\n" + str(ast))
+          uniquify_deduce(ast)
+          print("finished uniquify:\n" + str(ast))
           check_deduce(ast)
           print(filename + ' is valid')
           exit(0)

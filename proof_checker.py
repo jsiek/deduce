@@ -3,8 +3,8 @@
 
 from abstract_syntax import *
 from error import error
-from parser import parse, set_filename
-from env import Env
+from parser import parse, set_filename, get_filename
+from env import Env, TypeBinding
 
 verbose = False
 
@@ -85,10 +85,11 @@ def pattern_to_term(pat):
   match pat:
     case PatternCons(loc, constr, params):
       if len(params) > 0:
-        return Call(loc, TVar(loc, constr), [TVar(loc, param) for param in params],
+        return Call(loc, constr,
+                    [TVar(loc, param) for param in params],
                     False)
       else:
-        return TVar(loc, constr)
+        return constr
     case _:
       error(pat.location, "expected a pattern, not " + str(pat))
 
@@ -185,7 +186,7 @@ def check_proof(proof, env):
       # binding structure is different (IH, EQ)
       # (fixed, probably)
       #ret = env.lookup(name)
-      if not ret:
+      if ret == None:
         error(loc, 'undefined label ' + name)
     case PTrue(loc):
       ret = Bool(loc, True)
@@ -195,7 +196,7 @@ def check_proof(proof, env):
       body_env = env.declare_proof_var(loc, label, frm)
       ret = check_proof(rest, body_env)
     case PAnnot(loc, claim, reason):
-      check_formula(claim, env, env)
+      check_formula(claim, env)
       check_proof_of(reason, claim, env)
       ret = claim
     case PTuple(loc, pfs):
@@ -231,7 +232,7 @@ def check_proof(proof, env):
           ret = conc
         case _:
           error(loc, 'expected an if-then, not ' + str(ifthen))
-    case PInjective(loc, eq_pf):
+    case PInjective(loc, constr, eq_pf):
       formula = check_proof(eq_pf, env)
       (a,b) = split_equation(loc, formula)
       match (a,b):
@@ -239,6 +240,8 @@ def check_proof(proof, env):
               Call(loc4,TVar(loc5,f2),[arg2]), infix2):
           if f1 != f2:
             error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
+          if constr != f1:
+            error(loc, 'in injective, ' + constr + ' ≠ ' + f1)
           if not is_constructor(f1, env):
             error(loc, 'in injective, ' + f1 + ' not a constructor')
           return mkEqual(loc, arg1, arg2)
@@ -254,6 +257,12 @@ def check_proof(proof, env):
     print('\t=> ' + str(ret))
   return ret
 
+def get_type_name(ty):
+  match ty:
+    case TypeName(l1, n, i):
+      return ty
+    case TypeInst(l1, ty, type_args):
+      return get_type_name(ty)
 
 def check_proof_of(proof, formula, env):
   if verbose:
@@ -292,13 +301,17 @@ def check_proof_of(proof, formula, env):
       eq1 = check_proof(eq_pf1, env)
       (a2,b) = split_equation(loc, eq1)
       check_proof_of(eq_pf2, mkEqual(loc, b, c), env)
-      if a1 != a2:
-        error(loc, 'for transitive, ' + str(a1) + ' ≠ ' + str(a2))
+      a1r = a1.reduce(env)
+      a2r = a2.reduce(env)
+      if a1r != a2r:
+        error(loc, 'for transitive, ' + str(a1r) + ' ≠ ' + str(a2r))
 
-    case PInjective(loc, eq_pf):
+    case PInjective(loc, constr, eq_pf):
+      if not is_constructor(constr.name, env):
+        error(loc, 'in injective, ' + constr.name + ' not a constructor')
       (a,b) = split_equation(loc, formula)
-      flip_formula = mkEqual(loc, Call(loc, TVar(loc,'suc'), [a], False),
-                             Call(loc, TVar(loc,'suc'), [b], False))
+      flip_formula = mkEqual(loc, Call(loc, constr, [a], False),
+                             Call(loc, constr, [b], False))
       check_proof_of(eq_pf, flip_formula, env)
         
     case AllIntro(loc, vars, body):
@@ -307,10 +320,8 @@ def check_proof_of(proof, formula, env):
           if len(vars) != len(vars2):
             error(proof.location, 'mismatch in number of variables')
           sub = {}
-          index = 0
           for (var,var2) in reversed(list(zip(vars,vars2))):
-            sub[ var2[0] ] = TVar(loc, var[0], index)
-            index += 1
+            sub[ var2[0] ] = TVar(loc, var[0])
           frm2 = formula2.substitute(sub)
           body_env = env.declare_term_vars(loc, vars)
           check_proof_of(body, frm2, body_env)
@@ -352,26 +363,21 @@ def check_proof_of(proof, formula, env):
         case _:
           error(proof.location, "expected 'or', not " + str(sub_frm))
     case Induction(loc, typ, cases):
-      match typ:
-        case TypeName(l1, n, i):
-          tname = typ
-        case TypeInst(l1, n, type_args, i):
-          tname = TypeName(l1, n, i)
-      match env.get_binding_of_type_var(tname).defn:
+      match env.get_def_of_type_var(get_type_name(typ)):
         case Union(loc2, name, typarams, alts):
           for (constr,indcase) in zip(alts, cases):
-            if indcase.pattern.constructor != constr.name:
-              error(indcase.location, "expected a case for " + constr.name \
-                    + " not " + indcase.pattern.constructor)
+            if indcase.pattern.constructor.name != constr.name:
+              error(indcase.location, "expected a case for " + str(constr.name) \
+                    + " not " + str(indcase.pattern.constructor.name))
             if len(indcase.pattern.parameters) != len(constr.parameters):
               error(indcase.location, "expected " + len(constr.parameters) \
                     + " arguments to " + constr.name \
                     + " not " + len(indcase.pattern.parameters))
             induction_hypotheses = [instantiate(loc, formula, [TVar(loc,param)])
-                                    for (param, typ) in 
+                                    for (param, ty) in 
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)
-                                    if typ.name == type_name]
+                                    if get_type_name(ty) == get_type_name(typ)]
             if len(induction_hypotheses) > 1:
               induction_hypotheses = And(indcase.location, induction_hypotheses)
             elif len(induction_hypotheses) == 1:
@@ -387,8 +393,9 @@ def check_proof_of(proof, formula, env):
             body_env = body_env.declare_term_vars(loc, zip(indcase.pattern.parameters,
                                                            parameter_types))
             check_proof_of(indcase.body, goal, body_env)
-        case _:
-          error(loc, "induction expected name of union, not " + type_name)
+        case blah:
+          error(loc, "induction expected name of union, not " + str(typ)
+                + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
 
     case SwitchProof(loc, subject, cases):
       ty = type_synth_term(subject, env, None, [])
@@ -397,17 +404,17 @@ def check_proof_of(proof, formula, env):
           tname = ty
         case _:
           error(loc, 'expected term of union type, not ' + str(ty))
-      match env.get_binding_of_type_var(tname).defn:
+      match env.get_def_of_type_var(tname):
         case Union(loc2, name, typarams, alts):
           for (constr,scase) in zip(alts, cases):
-            if scase.pattern.constructor != constr.name:
-              error(scase.location, "expected a case for " + constr.name \
-                    + " not " + scase.pattern.constructor)
+            if scase.pattern.constructor.name != constr.name:
+              error(scase.location, "expected a case for " + str(constr) \
+                    + " not " + str(scase.pattern.constructor))
             if len(scase.pattern.parameters) != len(constr.parameters):
               error(scase.location, "expected " + len(constr.parameters) \
                     + " arguments to " + constr.name \
                     + " not " + len(scase.pattern.parameters))
-            body_env = env.declare_proof_var('EQ', mkEqual(scase.location, 
+            body_env = env.declare_proof_var(loc, 'EQ', mkEqual(scase.location, 
                                                            subject,
                                                            pattern_to_term(scase.pattern)))
             body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
@@ -486,7 +493,8 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty):
         # and match it against the parameter type.
         for (arg, param_ty) in zip(args, param_types):
             param_type = param_ty.substitute(matching)
-            fvs = param_type.free_vars().intersection(set(type_params))
+            fvs = param_type.free_vars()\
+                            .intersection(set([ty.name for ty in type_params]))
             if len(fvs) == 0:
               type_check_term(arg, param_type, env, recfun, subterms)
             else:
@@ -518,9 +526,9 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty):
 def check_type(typ, env):
   match typ:
     case TypeName(loc, name, index):
-      b = env.get_def_of_type_var(typ)
-      if not b:
-        error(loc, 'undefined type variable ' + str(typ))
+      if not env.type_var_is_defined(typ):
+        error(loc, 'undefined type variable ' + str(typ) + \
+              '\nin ' + str(env))
     case IntType(loc):
       pass
     case BoolType(loc):
@@ -532,20 +540,14 @@ def check_type(typ, env):
       for ty in param_types:
         check_type(ty, env)
       check_type(return_type, env)
-    case TypeInst(loc, name, arg_types, index):
+    case TypeInst(loc, typ, arg_types):
+      check_type(typ, env)
       for ty in arg_types:
         check_type(ty, env)
-      ty = TypeName(loc, name, index)
-      b = env.get_binding_of_type_var(ty)
-      if not b:
-        error(loc, 'undefined type ' + str(ty))
-    case GenericType(loc, name, index):
-      ty = TypeName(loc, name, index)
-      b = env.get_binding_of_type_var(ty)
-      if not b:
-        error(loc, 'undefined type ' + str(ty))
+    case GenericType(loc, typ):
+      check_type(typ, env)
     case _:
-      print('error in check_type: unhandled type ' + str(typ))
+      print('error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
       exit(-1)
         
 def type_synth_term(term, env, recfun, subterms):
@@ -555,7 +557,7 @@ def type_synth_term(term, env, recfun, subterms):
   match term:
     case TVar(loc, name, index):
       ret = env.get_type_of_term_var(term)
-      if not ret:
+      if ret == None:
         error(loc, 'undefined variable ' + str(term) + '\nin scope: ' + str(env))
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, env, recfun, subterms)
@@ -615,7 +617,7 @@ def type_synth_term(term, env, recfun, subterms):
       for c in cases:
         new_env = check_pattern(c.pattern, ty, env)
         case_type = type_synth_term(c.body, new_env, recfun, subterms)
-        if not result_type:
+        if result_type == None:
           result_type = case_type
         elif case_type != result_type:
           error(c.location, 'bodies of cases must have same type, but ' \
@@ -645,11 +647,11 @@ def type_check_term(term, typ, env, recfun, subterms):
   match term:
     case TVar(loc, name, index):
       var_typ = env.get_type_of_term_var(term)
-      if not var_typ:
-        error(loc, 'undefined variable ' + name + '\nin scope: ' + str(env))
+      if var_typ == None:
+        error(loc, 'undefined variable ' + str(term) + '\nin scope: ' + str(env))
       if var_typ != typ:
         error(loc, 'expected a term of type ' + str(typ) \
-              + 'but got term ' + str(term) + ' of type ' + str(var_typ))
+              + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
     case Lambda(loc, vars, body):
       match typ:
         case FunctionType(loc, typarams, param_types, return_type):
@@ -681,14 +683,15 @@ def type_check_term(term, typ, env, recfun, subterms):
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
 
 def is_constructor(constr_name, env):
-  for (name,defn) in env.items():
-    match defn:
-      case Union(loc2, name, typarams, alts):
-        for constr in alts:
-          if constr.name == constr_name:
-            return True
-      case _:
-        continue
+  for (name,binding) in env.dict.items():
+    if isinstance(binding, TypeBinding):
+      match binding.defn:
+        case Union(loc2, name, typarams, alts):
+          for constr in alts:
+            if constr.name == constr_name:
+              return True
+        case _:
+          continue
   return False
         
 def check_constructor_pattern(loc, pat_constr, params, typ, env,
@@ -794,25 +797,9 @@ def check_statement(stmt, env):
         else:
           env = env.declare_term_var(loc, constr.name, union_type)
       return env
-    case Import(loc, name):
-      if name not in modules:
-        modules.add(name)
-        filename = name + ".pf"
-        file = open(filename, 'r')
-        src = file.read()
-        file.close()
-        set_filename(filename)
-        ast = parse(src, trace=False)
-        debruijnize_statements(ast, env)
-        if get_verbose():
-          print('finished parsing')
-        # TODO: cache the proof-checking of files
-        if get_verbose():
-          print('checking module ' + name)
+    case Import(loc, name, ast):
         for s in ast:
           env = check_statement(s, env)
-        if get_verbose():
-          print('finished checking module ' + name)
         return env
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
@@ -824,7 +811,14 @@ def debruijnize_deduce(ast):
   for s in ast:
     env = s.debruijnize(env)
   return env
-  
+
+def uniquify_deduce(ast):
+  env = {}
+  env['≠'] = '≠'
+  env['='] = '='
+  for s in ast:
+    s.uniquify(env)
+
 def check_deduce(ast):
   env = Env()
   for s in ast:
