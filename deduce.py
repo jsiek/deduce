@@ -8,13 +8,14 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     file = open(filename, 'r')
     p = file.read()
-    set_verbose(True)
+    set_verbose(False)
     try:
       set_filename(filename)
       ast = parse(p, trace=False)
       try:
           uniquify_deduce(ast)
-          print("finished uniquify:\n" + str(ast))
+          if get_verbose():
+              print("finished uniquify:\n" + str(ast))
           check_deduce(ast)
           print(filename + ' is valid')
           exit(0)

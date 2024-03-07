@@ -50,48 +50,48 @@ class Type(AST):
 
 ################ Types ######################################
 
-@dataclass
-class TypeName(Type):
-  name: str
-  index: int = -1
+# @dataclass
+# class TypeName(Type):
+#   name: str
+#   index: int = -1
 
-  def copy(self):
-    return TypeName(self.location, self.name, self.index)
+#   def copy(self):
+#     return TypeName(self.location, self.name, self.index)
   
-  def __str__(self):
-    return self.name
+#   def __str__(self):
+#     return self.name + '$'
 
-  def __repr__(self):
-    return str(self)
+#   def __repr__(self):
+#     return str(self)
 
-  def __eq__(self, other):
-    if not isinstance(other, TypeName):
-      return False
-    return self.name == other.name
+#   def __eq__(self, other):
+#     if not isinstance(other, TypeName):
+#       return False
+#     return self.name == other.name
 
-  def free_vars(self):
-    return set([self.name])
+#   def free_vars(self):
+#     return set([self.name])
 
-  def substitute(self, sub):
-    if self.name in sub.keys():
-      return sub[self.name]
-    else:
-      return self
+#   def substitute(self, sub):
+#     if self.name in sub.keys():
+#       return sub[self.name]
+#     else:
+#       return self
 
-  def uniquify(self, env):
-    if self.name not in env.keys():
-      error(self.location, "uniquify: could not find " + self.name \
-            + '\nin ' + str(env))
-    self.name = env[self.name]
+#   def uniquify(self, env):
+#     if self.name not in env.keys():
+#       error(self.location, "uniquify: could not find " + self.name \
+#             + '\nin ' + str(env))
+#     self.name = env[self.name]
     
-  def debruijnize(self, env):
-    self.index = env.index_of_type_var(self.name)
+#   def debruijnize(self, env):
+#     self.index = env.index_of_type_var(self.name)
 
-  def shift_type_vars(self, cutoff, amount):
-    if self.index >= cutoff:
-      return TypeName(self.location, self.name, self.index + amount)
-    else:
-      return self
+#   def shift_type_vars(self, cutoff, amount):
+#     if self.index >= cutoff:
+#       return TypeName(self.location, self.name, self.index + amount)
+#     else:
+#       return self
     
 @dataclass
 class IntType(Type):
@@ -267,8 +267,8 @@ class TypeInst(Type):
       case TypeInst(l, typ, arg_types):
         return self.typ == typ and \
           all([t1 == t2 for (t1, t2) in zip(self.arg_types, arg_types)])
-      case GenericType(l, name):
-        return self.name == name
+      case GenericType(loc, typ):
+        return self.typ == typ
       case _:
         return False
 
@@ -471,15 +471,18 @@ class TAnnote(Term):
                    self.typ.shift_term_vars(cutoff, amount))
   
 @dataclass
-class TVar(Term):
+class Var(AST):
   name: str
   index: int = -1
 
+  def free_vars(self):
+    return set([self.name])
+  
   def copy(self):
-    return TVar(self.location, self.name, self.index)
+    return Var(self.location, self.name, self.index)
   
   def __eq__(self, other):
-      if not isinstance(other, TVar):
+      if not isinstance(other, Var):
           return False
       return self.name == other.name 
   
@@ -487,7 +490,7 @@ class TVar(Term):
       if self.name == 'zero':
         return '0'
       else:
-        return self.name + '%'
+        return self.name
 
   def __repr__(self):
       return str(self)
@@ -519,7 +522,7 @@ class TVar(Term):
   
   def shift_term_vars(self, cutoff, amount):
     if self.index >= cutoff:
-      return TVar(self.location, self.name, self.index + amount)
+      return Var(self.location, self.name, self.index + amount)
     else:
       return self
     
@@ -575,7 +578,7 @@ class Lambda(Term):
   def __eq__(self, other):
       if not isinstance(other, Lambda):
           return False
-      ren = {x: TVar(self.location, y) for (x,y) in zip(self.vars, other.vars) }
+      ren = {x: Var(self.location, y) for (x,y) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
@@ -626,7 +629,8 @@ class Closure(Term):
   def __eq__(self, other):
       if not isinstance(other, Closure):
           return False
-      return self.body == other.body
+      sub = {y: Var(self.location, x) for (x,y) in zip(self.vars, other.vars)}
+      return self.body == other.body.substitute(sub)
 
   def reduce(self, env):
       return self
@@ -652,11 +656,11 @@ def is_match(pattern, arg, subst):
     ret = False
     match (pattern, arg):
       case (PatternCons(loc1, constr, []),
-            TVar(loc2, name, index)):
+            Var(loc2, name, index)):
         ret = constr == arg
       case (PatternCons(loc1, constr, params),
-            Call(loc2, TVar(loc3, name, index), args, infix)):
-        if constr == TVar(loc3, name, index) and len(params) == len(args):
+            Call(loc2, Var(loc3, name, index), args, infix)):
+        if constr == Var(loc3, name, index) and len(params) == len(args):
             for (k,v) in zip(params, args):
                 subst[k] = v
             ret = True
@@ -1100,20 +1104,21 @@ class All(Formula):
 
   def reduce(self, env):
     n = len(self.vars)
-    new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
-    return All(self.location, self.vars, self.body.reduce(new_env))
+    #new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
+    return All(self.location, [(x, ty.reduce(env)) for (x,ty) in self.vars], self.body.reduce(env))
 
   def substitute(self, sub):
     n = len(self.vars)
-    new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
+    #new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
     return All(self.location,
                [(x, ty.substitute(sub)) for (x,ty) in self.vars],
-               self.body.substitute(new_sub))
+               self.body.substitute(sub))
   
   def __eq__(self, other):
     if not isinstance(other, All):
       return False
-    return self.body == other.body
+    sub = {y: Var(self.location, x) for ((x,tx),(y,ty))in zip(self.vars, other.vars)}
+    return self.body == other.body.substitute(sub)
 
   def shift_type_vars(self, cutoff, amount):
     return All(self.location, self.vars, self.body.shift_type_vars(cutoff, amount))
@@ -1879,20 +1884,20 @@ class Import(Statement):
     return self
   
 def mkEqual(loc, arg1, arg2):
-  return Call(loc, TVar(loc, '='), [arg1, arg2], True)
+  return Call(loc, Var(loc, '='), [arg1, arg2], True)
 
 def split_equation(loc, equation):
   match equation:
-    case Call(loc1, TVar(loc2, '='), [L, R], _):
+    case Call(loc1, Var(loc2, '='), [L, R], _):
       return (L, R)
     case _:
       error(loc, 'expected an equality, not ' + str(equation))
 
 def mkZero(loc):
-  return TVar(loc, 'zero')
+  return Var(loc, 'zero')
 
 def mkSuc(loc, arg):
-  return Call(loc, TVar(loc, 'suc'), [arg], False)
+  return Call(loc, Var(loc, 'suc'), [arg], False)
 
 def intToNat(loc, n):
   if n == 0:
@@ -1902,18 +1907,18 @@ def intToNat(loc, n):
 
 def isNat(t):
   match t:
-    case TVar(loc, 'zero'):
+    case Var(loc, 'zero'):
       return True
-    case Call(loc, TVar(loc2, 'suc'), [arg], infix):
+    case Call(loc, Var(loc2, 'suc'), [arg], infix):
       return isNat(arg)
     case _:
       return False
 
 def natToInt(t):
   match t:
-    case TVar(loc, 'zero'):
+    case Var(loc, 'zero'):
       return 0
-    case Call(loc, TVar(loc2, 'suc'), [arg], infix):
+    case Call(loc, Var(loc2, 'suc'), [arg], infix):
       return 1 + natToInt(arg)
 
   

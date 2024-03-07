@@ -137,14 +137,14 @@ class Env:
     
   def type_var_is_defined(self, tyname):
     match tyname:
-      case TypeName(loc, name, index):
+      case Var(loc, name, index):
         return name in self.dict.keys()
       case _:
         raise Exception('expected a type name, not ' + str(tyname))
 
   def term_var_is_defined(self, tvar):
     match tvar:
-      case TVar(loc, name, index):
+      case Var(loc, name, index):
         if self._type_of_term_var(self.dict, name, index):
           return True
         else:
@@ -164,7 +164,7 @@ class Env:
     
   def get_def_of_type_var(self, var):
     match var:
-      case TypeName(loc, name, index):
+      case Var(loc, name, index):
         return self._def_of_type_var(self.dict, name, index)
       case _:
         raise Exception('get_def_of_type_var: unexpected ' + str(var))
@@ -178,10 +178,10 @@ class Env:
           
   def get_type_of_term_var(self, tvar):
     match tvar:
-      case TVar(loc, name, index):
+      case Var(loc, name, index):
         return self._type_of_term_var(self.dict, name, index)
 
   def get_value_of_term_var(self, tvar):
     match tvar:
-      case TVar(loc, name, index):
+      case Var(loc, name, index):
         return self._value_of_term_var(self.dict, name, index)

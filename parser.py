@@ -149,7 +149,7 @@ def parse_tree_to_ast(e):
     
     # types
     elif e.data == 'type_name':
-      return TypeName(e.meta, str(e.children[0].value))
+      return Var(e.meta, str(e.children[0].value))
     elif e.data == 'int_type':
       return IntType(e.meta)
     elif e.data == 'bool_type':
@@ -162,7 +162,7 @@ def parse_tree_to_ast(e):
                           parse_tree_to_list(e.children[1]),
                           parse_tree_to_ast(e.children[2]))
     elif e.data == 'type_inst':
-      return TypeInst(e.meta, TypeName(e.meta, str(e.children[0].value)),
+      return TypeInst(e.meta, Var(e.meta, str(e.children[0].value)),
                       parse_tree_to_list(e.children[1]))
     # terms
     elif e.data == 'let_term':
@@ -176,7 +176,7 @@ def parse_tree_to_ast(e):
         return TermInst(e.meta, parse_tree_to_ast(e.children[0]),
                         parse_tree_to_list(e.children[1]))
     elif e.data == 'term_var':
-        return TVar(e.meta, str(e.children[0].value))
+        return Var(e.meta, str(e.children[0].value))
     elif e.data == 'conditional':
         return Conditional(e.meta,
                            parse_tree_to_ast(e.children[0]),
@@ -202,11 +202,11 @@ def parse_tree_to_ast(e):
                       parse_tree_to_str_list(e.children[0]),
                       parse_tree_to_ast(e.children[1]))
     elif e.data in infix_ops:
-        return Call(e.meta, TVar(e.meta, operator_symbol[e.data]),
+        return Call(e.meta, Var(e.meta, operator_symbol[e.data]),
                     [parse_tree_to_ast(c) for c in e.children],
                     True)
     elif e.data in prefix_ops:
-        return Call(e.meta, TVar(e.meta, operator_symbol[e.data]),
+        return Call(e.meta, Var(e.meta, operator_symbol[e.data]),
                     [parse_tree_to_ast(c) for c in e.children],
                     False)
     elif e.data == 'switch_case':
@@ -350,12 +350,12 @@ def parse_tree_to_ast(e):
 
     # patterns in function definitions
     elif e.data == 'pattern_id':
-        return PatternCons(e.meta, TVar(e.meta, str(e.children[0].value)), [])
+        return PatternCons(e.meta, Var(e.meta, str(e.children[0].value)), [])
     elif e.data == 'pattern_zero':
-        return PatternCons(e.meta, TVar(e.meta, 'zero'), [])
+        return PatternCons(e.meta, Var(e.meta, 'zero'), [])
     elif e.data == 'pattern_apply':
         params = parse_tree_to_str_list(e.children[1])
-        return PatternCons(e.meta, TVar(e.meta, str(e.children[0].value)), params)
+        return PatternCons(e.meta, Var(e.meta, str(e.children[0].value)), params)
     
     # case of a recursive function
     elif e.data == 'fun_case':
