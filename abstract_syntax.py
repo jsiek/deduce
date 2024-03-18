@@ -290,7 +290,8 @@ class TypeInst(Type):
       ty.debruijnize(bindings)
 
   def shift_type_vars(self, cutoff, amount):
-    return TypeInst(self.location, self.name,
+    return TypeInst(self.location,
+                    self.typ.shift_type_vars(cutoff, amount),
                     [ty.shift_type_vars(cutoff, amount) for ty in self.arg_types])
     
 # This is the type of a constructor such as 'empty' of a generic union
@@ -490,7 +491,7 @@ class Var(AST):
       if self.name == 'zero':
         return '0'
       else:
-        return self.name
+        return base_name(self.name)
 
   def __repr__(self):
       return str(self)
@@ -876,6 +877,8 @@ class Switch(Term):
       c.uniquify(env)
       
   def __eq__(self, other):
+    if not isinstance(other, Switch):
+      return False
     eq_subject = self.subject == other.subject
     eq_cases = all([c1 == c2 for (c1,c2) in zip(self.cases, other.cases)])
     return eq_subject and eq_cases
@@ -1099,7 +1102,7 @@ class All(Formula):
                self.body.copy())
   
   def __str__(self):
-    return 'all ' + ",".join([v + ":" + str(t) for (v,t) in self.vars]) \
+    return 'all ' + ",".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
         + '. ' + str(self.body)
 
   def reduce(self, env):

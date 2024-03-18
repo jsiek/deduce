@@ -199,7 +199,7 @@ proof
   }
 end
 
-function map<T>(List<T>, (T)->T) -> List<T> {
+function map<T,U>(List<T>, (T)->U) -> List<U> {
   map(empty, f) = empty;
   map(node(x, ls), f) = node(f(x), map(ls, f));
 }
@@ -269,11 +269,11 @@ proof
   }
 end
 
-theorem map_compose: all U:type, f:(U)->U, g:(U)->U. all ls :List<U>.
+theorem map_compose: all T:type, U:type, V:type, f:(T)->U, g:(U)->V. all ls :List<T>.
   map(map(ls, f), g) = map(ls, λx{ g(f(x)) })
 proof
-  arbitrary U:type, f:(U)->U, g:(U)->U;
-  induction List<U>
+  arbitrary T:type, U:type, V:type, f:(T)->U, g:(U)->V;
+  induction List<T>
   case empty { reflexive }
   case node(x, ls) {
     equations
@@ -375,5 +375,50 @@ proof
   reflexive
 end  
 
+union Pair<T,U> {
+  pair(T,U);
+}
 
-/* TODO zip */
+function first<T,U>(Pair<T,U>) -> T {
+  first(pair(x,y)) = x;
+}
+
+function second<T,U>(Pair<T,U>) -> U {
+  second(pair(x,y)) = y;
+}
+
+function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+  zip(empty, ys) = empty;
+  zip(node(x, xs'), ys) =
+    switch ys {
+      case empty { empty }
+      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
+    };
+}
+
+theorem zip_id_right: all T:type. all xs:List<T>. zip(xs, empty) = empty
+proof
+  arbitrary T:type;
+  induction List<T>
+  case empty { reflexive }
+  case node(x, xs') { reflexive }
+end
+
+theorem zip_map: all T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2, ys:List<U1>.
+  all xs:List<T1>. zip(map(xs, f), map(ys, g)) = map(zip(xs,ys), λ p { pair(f(first(p)), g(second(p))) })
+proof
+  arbitrary T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2, ys:List<U1>;
+  induction List<T1>
+  case empty { reflexive }
+  case node(x, xs') {
+    switch ys {
+    case empty { rewrite goal with EQ then reflexive }
+    case node(y, ys') {
+      equations
+        zip(map(node(x,xs'),f),map(ys,g))
+	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g))) by rewrite goal with EQ then reflexive
+      ... = map(zip(node(x,xs'),ys),λp{pair(f(first(p)),g(second(p)))}) by ?
+    }
+    }
+  }
+end

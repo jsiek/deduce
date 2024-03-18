@@ -408,11 +408,12 @@ def check_proof_of(proof, formula, env):
 
     case SwitchProof(loc, subject, cases):
       ty = type_synth_term(subject, env, None, [])
-      match ty:
-        case Var(loc2, name, index):
-          tname = ty
-        case _:
-          error(loc, 'expected term of union type, not ' + str(ty))
+      tname = get_type_name(ty)
+      # match ty:
+      #   case Var(loc2, name, index):
+      #     tname = ty
+      #   case _:
+      #     error(loc, 'expected term of union type, not ' + str(ty))
       match env.get_def_of_type_var(tname):
         case Union(loc2, name, typarams, alts):
           for (constr,scase) in zip(alts, cases):
@@ -606,10 +607,11 @@ def type_synth_term(term, env, recfun, subterms):
       ret = BoolType(loc)
     case Call(loc, Var(loc2, name), args, infix) if name == '=' or name == '≠':
       lhs_ty = type_synth_term(args[0], env, recfun, subterms)
-      rhs_ty = type_synth_term(args[1], env, recfun, subterms)
-      if lhs_ty != rhs_ty:
-        error(loc, 'equality expects same type of thing on left and right-hand side'\
-              + ' but ' + str(lhs_ty) + ' ≠ ' + str(rhs_ty))
+      type_check_term(args[1], lhs_ty, env, recfun, subterms)
+      # rhs_ty = type_synth_term(args[1], env, recfun, subterms)
+      # if lhs_ty != rhs_ty:
+      #   error(loc, 'equality expects same type of thing on left and right-hand side'\
+      #         + ' but ' + str(lhs_ty) + ' ≠ ' + str(rhs_ty))
       ret = BoolType(loc)
         
     case Call(loc, Var(loc2, name, index), args, infix) if name == recfun:
