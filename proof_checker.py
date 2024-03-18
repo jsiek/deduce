@@ -270,6 +270,13 @@ def get_type_name(ty):
     case TypeInst(l1, ty, type_args):
       return get_type_name(ty)
 
+def get_type_args(ty):
+  match ty:
+    case Var(l1, n, i):
+      return []
+    case TypeInst(l1, ty, type_args):
+      return type_args
+    
 def check_proof_of(proof, formula, env):
   if verbose:
     print('nts: ' + str(formula) + '?')
@@ -424,11 +431,15 @@ def check_proof_of(proof, formula, env):
               error(scase.location, "expected " + len(constr.parameters) \
                     + " arguments to " + constr.name \
                     + " not " + len(scase.pattern.parameters))
-            body_env = env.declare_proof_var(loc, 'EQ', mkEqual(scase.location, 
-                                                           subject,
-                                                           pattern_to_term(scase.pattern)))
+            body_env = env.declare_proof_var(loc, 'EQ',
+                                             mkEqual(scase.location, 
+                                                     subject,
+                                                    pattern_to_term(scase.pattern)))
+            tyargs = get_type_args(ty)
+            sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
+            constr_params = [ty.substitute(sub) for ty in constr.parameters]
             body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
-                                                           constr.parameters))
+                                                           constr_params))
             check_proof_of(scase.body, formula, body_env)
         case _:
           error(loc, "switch expected union type, not " + type_name)

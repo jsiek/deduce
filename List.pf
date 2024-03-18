@@ -404,20 +404,32 @@ proof
   case node(x, xs') { reflexive }
 end
 
-theorem zip_map: all T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2, ys:List<U1>.
-  all xs:List<T1>. zip(map(xs, f), map(ys, g)) = map(zip(xs,ys), λ p { pair(f(first(p)), g(second(p))) })
+theorem zip_map: all T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2.
+  all xs:List<T1>.
+  all ys:List<U1>.
+  zip(map(xs, f), map(ys, g)) = map(zip(xs,ys),
+                                    λp{ pair(f(first(p)), g(second(p))) })
 proof
-  arbitrary T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2, ys:List<U1>;
+  arbitrary T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2;
   induction List<T1>
-  case empty { reflexive }
+  case empty {
+      arbitrary ys:List<U1>;
+      reflexive
+  }
   case node(x, xs') {
+    arbitrary ys:List<U1>;
     switch ys {
     case empty { rewrite goal with EQ then reflexive }
     case node(y, ys') {
       equations
         zip(map(node(x,xs'),f),map(ys,g))
-	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g))) by rewrite goal with EQ then reflexive
-      ... = map(zip(node(x,xs'),ys),λp{pair(f(first(p)),g(second(p)))}) by ?
+	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))
+	      by rewrite goal with EQ then reflexive
+      ... = node(pair(f(x), g(y)), map(zip(xs',ys'),
+                                       λp{pair(f(first(p)),g(second(p)))}))
+            by rewrite goal with IH[ys'] then reflexive
+      ... = map(zip(node(x,xs'),ys),λp{pair(f(first(p)),g(second(p)))})
+            by rewrite goal with EQ then reflexive
     }
     }
   }
