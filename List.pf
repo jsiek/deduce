@@ -406,7 +406,7 @@ proof
 end
 
 define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2) -> (fn Pair<T1,U1> -> Pair<T2,U2>)
-               = generic T { λ f, g { λp{ pair(f(first(p)), g(second(p))) } } }
+               = generic T1,T2,U1,U2 { λ f, g { λp{ pair(f(first(p)), g(second(p))) } } }
 
 theorem zip_map: all T1:type, T2:type, U1:type, U2:type,
   f : fn T1 -> T2, g : fn U1 -> U2.
