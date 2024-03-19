@@ -159,9 +159,9 @@ function ≤(Nat,Nat) -> bool {
     };
 }
 
-define < : (Nat,Nat) -> bool = λ x, y { suc(x) ≤ y }
-define > : (Nat,Nat) -> bool = λ x, y { y < x }
-define ≥ : (Nat,Nat) -> bool = λ x, y { y ≤ x }
+define < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
+define > : fn Nat,Nat -> bool = λ x, y { y < x }
+define ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
 
 theorem less_equal_refl: all n:Nat. n ≤ n
 proof

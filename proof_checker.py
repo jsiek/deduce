@@ -416,11 +416,6 @@ def check_proof_of(proof, formula, env):
     case SwitchProof(loc, subject, cases):
       ty = type_synth_term(subject, env, None, [])
       tname = get_type_name(ty)
-      # match ty:
-      #   case Var(loc2, name, index):
-      #     tname = ty
-      #   case _:
-      #     error(loc, 'expected term of union type, not ' + str(ty))
       match env.get_def_of_type_var(tname):
         case Union(loc2, name, typarams, alts):
           for (constr,scase) in zip(alts, cases):
@@ -477,8 +472,8 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
               + "does not match parameter type: " + str(param_ty))
       for (arg1, arg2) in zip(args1, args2):
         type_match(loc, tyvars, arg1, arg2, matching)
-    # How to handle GenericType?
-    case (TypeInst(l1, n1, args1), GenericType(l2, n2)):
+    # How to handle GenericUnknownInst?
+    case (TypeInst(l1, n1, args1), GenericUnknownInst(l2, n2)):
       if n1 != n2:
         error(loc, "argument type: " + str(arg_ty) + "\n" \
               + "does not match parameter type: " + str(param_ty))
@@ -565,7 +560,7 @@ def check_type(typ, env):
       check_type(typ, env)
       for ty in arg_types:
         check_type(ty, env)
-    case GenericType(loc, typ):
+    case GenericUnknownInst(loc, typ):
       check_type(typ, env)
     case _:
       print('error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
@@ -580,6 +575,10 @@ def type_synth_term(term, env, recfun, subterms):
       ret = env.get_type_of_term_var(term)
       if ret == None:
         error(loc, 'undefined variable ' + str(term) + '\nin scope: ' + str(env))
+    case Generic(loc, type_params, body):
+      body_env = env.declare_type_vars(loc, type_params)
+      body_ty = type_synth_term(body, body_env, recfun, subterms)
+      return GenericType(loc, type_params, body_ty)
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, env, recfun, subterms)
       body_env = env.declare_term_var(loc, var, rhs_ty)
@@ -667,6 +666,18 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
+    case Generic(loc, type_params, body):
+      match typ:
+        case FunctionType(loc2, type_params2, param_types2, return_type2):
+          sub = {U: Var(loc, T) for (T,U) in zip(type_params, type_params2) }
+          new_param_types = [ty.substitute(sub) for ty in param_types2]
+          new_return_type = return_type2.substitute(sub)
+          body_env = env.declare_type_vars(loc, type_params)
+          type_check_term(body, FunctionType(loc2, [], new_param_types, new_return_type),
+                          body_env, recfun, subterms)
+        case _:
+          error(loc, 'expected a generic term, not ' + str(term))
+        
     case Var(loc, name, index):
       var_typ = env.get_type_of_term_var(term)
       if var_typ == None:
@@ -815,7 +826,7 @@ def check_statement(stmt, env):
                                      return_type)
           env = env.declare_term_var(loc, constr.name, constr_type)
         elif len(typarams) > 0:
-          env = env.declare_term_var(loc, constr.name, GenericType(loc, union_type))
+          env = env.declare_term_var(loc, constr.name, GenericUnknownInst(loc, union_type))
         else:
           env = env.declare_term_var(loc, constr.name, union_type)
       return env

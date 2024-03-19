@@ -199,20 +199,20 @@ proof
   }
 end
 
-function map<T,U>(List<T>, (T)->U) -> List<U> {
+function map<T,U>(List<T>, fn T->U) -> List<U> {
   map(empty, f) = empty;
   map(node(x, ls), f) = node(f(x), map(ls, f));
 }
 
-theorem map_suc: map(L1, λx{ suc(x) } : (Nat)->Nat) = node(2, node(3, empty))
+theorem map_suc: map(L1, λx{ suc(x) } : fn Nat->Nat) = node(2, node(3, empty))
 proof
   reflexive
 end
 
-theorem length_map: all T:type, f:(T)->T. all xs:List<T>.
+theorem length_map: all T:type, f:fn T->T. all xs:List<T>.
   length(map(xs, f)) = length(xs)
 proof
-  arbitrary T:type, f:(T)->T;
+  arbitrary T:type, f:fn T->T;
   induction List<T>
   case empty {
     reflexive
@@ -226,10 +226,10 @@ proof
   }
 end
 
-theorem map_id: all T:type, f:(T)->T. if (all x:T. f(x) = x) then
+theorem map_id: all T:type, f:fn T->T. if (all x:T. f(x) = x) then
    all xs:List<T>. map(xs, f) = xs
 proof
-  arbitrary T:type, f:(T)->T;
+  arbitrary T:type, f:fn T->T;
   assume fxx: (all x:T. f(x) = x);
   induction List<T>
   case empty {
@@ -244,16 +244,18 @@ proof
   }
 end
 
-/*
-TODO: add support for ∀ and Λ
-define ∘ : ∀ T:type. ((T)->T, (T)->T) -> ((T)->T)
-         = ΛT. λ g,f { λ x { g(f(x)) } }
-*/
+define ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
+         = generic T { λ g,f { λ x { g(f(x)) } } }
 
-theorem map_append: all T:type, f:(T)->T, ys:List<T>. all xs:List<T>.
+theorem compose_test: ((λx{x} : fn Nat -> Nat) ∘ (λx{x} : fn Nat -> Nat))(zero) = zero
+proof
+  reflexive
+end
+
+theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
   map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
 proof
-  arbitrary T:type, f:(T)->T, ys:List<T>;
+  arbitrary T:type, f:fn T->T, ys:List<T>;
   induction List<T>
   case empty {
     reflexive
@@ -269,23 +271,22 @@ proof
   }
 end
 
-theorem map_compose: all T:type, U:type, V:type, f:(T)->U, g:(U)->V. all ls :List<T>.
-  map(map(ls, f), g) = map(ls, λx{ g(f(x)) })
+theorem map_compose: all T:type, U:type, V:type, f:fn T->U, g:fn U->V. all ls :List<T>.
+  map(map(ls, f), g) = map(ls, g ∘ f)
 proof
-  arbitrary T:type, U:type, V:type, f:(T)->U, g:(U)->V;
+  arbitrary T:type, U:type, V:type, f:fn T->U, g:fn U->V;
   induction List<T>
   case empty { reflexive }
   case node(x, ls) {
     equations
     map(map(node(x,ls),f),g)
-	= node(g(f(x)), map(map(ls, f), g))     by reflexive
-    ... = node(g(f(x)), map(ls, λy{g(f(y))}))
-   	                                 by rewrite goal with IH then reflexive
-    ... = map(node(x,ls),λy{g(f(y))})    by reflexive
+	= node(g(f(x)), map(map(ls, f), g))  by reflexive
+    ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite goal with IH then reflexive
+    ... = map(node(x,ls), g ∘ f)             by reflexive
   }
 end
 
-function foldr<T,U>(List<T>, U, (T,U)->U) -> U {
+function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
   foldr(empty, u, c) = u;
   foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c));
 }
@@ -300,7 +301,7 @@ proof
   reflexive
 end
 
-function foldl<T,U>(List<T>, U, (U,T)->U) -> U {
+function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
   foldl(empty, u, c) = u;
   foldl(node(t, ls), u, c) = foldl(ls, c(u, t), c);
 }
@@ -327,7 +328,7 @@ proof
   reflexive
 end
 
-define up_to : (Nat) -> List<Nat> = λ n { reverse(down_from(n)) }
+define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
 
 theorem up_to2: up_to(2) = node(0, node(1, empty))
 proof
@@ -340,7 +341,7 @@ proof
 end
 
 function range_aux(Nat, Nat, Nat) -> List<Nat> {
-  range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : (Nat) -> Nat);
+  range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : fn Nat->Nat);
   range_aux(suc(begin'), end, k) =
     switch end {
       case zero { empty } /* shouldn't happen */
@@ -348,7 +349,7 @@ function range_aux(Nat, Nat, Nat) -> List<Nat> {
     };
 }
 
-define range : (Nat,Nat) -> List<Nat> = λ b, e { range_aux(b, e, 0) }
+define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
 
 theorem range_empty: range(0, 0) = empty
 proof
@@ -404,13 +405,13 @@ proof
   case node(x, xs') { reflexive }
 end
 
-theorem zip_map: all T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2.
-  all xs:List<T1>.
-  all ys:List<U1>.
-  zip(map(xs, f), map(ys, g)) = map(zip(xs,ys),
-                                    λp{ pair(f(first(p)), g(second(p))) })
+theorem zip_map: all T1:type, T2:type, U1:type, U2:type,
+  f : fn T1 -> T2, g : fn U1 -> U2.
+  all xs:List<T1>. all ys:List<U1>.
+  zip(map(xs, f), map(ys, g))
+  = map(zip(xs,ys), λp{ pair(f(first(p)), g(second(p))) })
 proof
-  arbitrary T1:type, T2:type, U1:type, U2:type, f : (T1) -> T2, g : (U1) -> U2;
+  arbitrary T1:type, T2:type, U1:type, U2:type, f : fn T1 -> T2, g : fn U1 -> U2;
   induction List<T1>
   case empty {
       arbitrary ys:List<U1>;

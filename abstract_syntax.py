@@ -267,7 +267,7 @@ class TypeInst(Type):
       case TypeInst(l, typ, arg_types):
         return self.typ == typ and \
           all([t1 == t2 for (t1, t2) in zip(self.arg_types, arg_types)])
-      case GenericType(loc, typ):
+      case GenericUnknownInst(loc, typ):
         return self.typ == typ
       case _:
         return False
@@ -294,14 +294,62 @@ class TypeInst(Type):
                     self.typ.shift_type_vars(cutoff, amount),
                     [ty.shift_type_vars(cutoff, amount) for ty in self.arg_types])
     
-# This is the type of a constructor such as 'empty' of a generic union
-# when we do not yet know the type arguments.
 @dataclass
 class GenericType(Type):
+  type_params: List[str]
   typ: Type
 
   def copy(self):
-    return GenericType(self.location, self.typ.copy())
+    return GenericType(self.location,
+                       [p for p in self.type_params],
+                       self.typ.copy())
+
+  def __str__(self):
+    return '<' + ','.join([x for x in self.type_params]) + '>' + str(self.typ)
+
+  def __eq__(self, other):
+    match other:
+      case GenericType(l2, tp2, typ2):
+        sub = {y: Var(self.location, x) for (x,y) in zip(self.type_params, tp2)}
+        return self.typ == typ2.substitute(sub)
+      case _:
+        return False
+
+  def free_vars(self):
+    return self.typ.free_vars() - set(self.type_params)
+
+  def substitute(self, sub):
+      n = len(self.type_params)
+      new_sub = {k:v.shift_type_vars(0, n) for (k,v) in sub.items() }
+      return GenericType(self.location, self.type_params,
+                          self.typ.substitute(new_sub))
+    
+  def uniquify(self, env):
+    body_env = {x:y for (x,y) in env.items()}
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      body_env[old] = new
+    self.type_params = new_type_params
+    self.typ.uniquify(body_env)
+    
+  def debruijnize(self, env):
+    body_env = env.declare_type_vars(self.location, self.type_params)
+    self.typ.debruijnize(body_env)
+
+  def shift_type_vars(self, cutoff, amount):
+    n = len(self.type_params)
+    return GenericType(self.location, self.type_params,
+                        self.typ.shift_type_vars(cutoff + n, amount))
+  
+  
+# This is the type of a constructor such as 'empty' of a generic union
+# when we do not yet know the type arguments.
+@dataclass
+class GenericUnknownInst(Type):
+  typ: Type
+
+  def copy(self):
+    return GenericUnknownInst(self.location, self.typ.copy())
   
   def __str__(self):
     return str(self.typ) + '<?>'
@@ -310,7 +358,7 @@ class GenericType(Type):
     match other:
       case TypeInst(l, typ, arg_types):
         return self.typ == typ
-      case GenericType(l, typ):
+      case GenericUnknownInst(l, typ):
         return self.typ == typ
       case _:
         return False
@@ -328,8 +376,8 @@ class GenericType(Type):
     self.typ.debruijnize(env)
 
   def shift_type_vars(self, cutoff, amount):
-    return GenericType(self.location,
-                       self.typ.shift_type_vars(cutoff, amount))
+    return GenericUnknownInst(self.location,
+                              self.typ.shift_type_vars(cutoff, amount))
   
 ################ Patterns ######################################
 
@@ -372,6 +420,60 @@ class PatternCons(Pattern):
     
 ################ Terms ######################################
 
+@dataclass
+class Generic(Term):
+  type_params: List[str]
+  body: Term
+
+  def copy(self):
+    return Generic(self.location,
+                   [T for T in self.type_params],
+                   self.body.copy())
+  
+  def __str__(self):
+    return "generic " + ",".join(self.type_params) + "{" + str(self.body) + "}"
+
+  def __repr__(self):
+    return str(self)
+
+  def __eq__(self, other):
+      if not isinstance(other, Generic):
+          return False
+      ren = {x: Var(self.location, y) for (x,y) in zip(self.type_params, other.type_params) }
+      new_body = self.body.substitute(ren)
+      return new_body == other.body
+
+  def reduce(self, env):
+      return self.body.reduce(env)
+
+  def substitute(self, sub):
+      n = len(self.type_params)
+      new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
+      return Generic(self.location, self.type_params, self.body.substitute(new_sub))
+
+  def debruijnize(self, env):
+    body_env = env.declare_type_vars(self.location,
+                                     [(x,None) for x in self.type_params])
+    self.body.debruijnize(body_env)
+
+  def uniquify(self, env):
+    body_env = {x:y for (x,y) in env.items()}
+    new_type_params = [generate_name(x) for x in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      body_env[old] = new
+    self.type_params = new_type_params
+    self.body.uniquify(body_env)
+    
+  def shift_type_vars(self, cutoff, amount):
+    n = len(self.type_params)
+    return Generic(self.location, self.type_params,
+                  self.body.shift_type_vars(cutoff, amount))
+
+  def shift_term_vars(self, cutoff, amount):
+    return Lambda(self.location, self.type_params, self.body.shift_term_vars(cutoff, amount))
+  
+
+  
 @dataclass
 class Conditional(Term):
   cond: Term
@@ -571,7 +673,7 @@ class Lambda(Term):
                   self.body.copy())
   
   def __str__(self):
-    return "λ" + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}"
+    return "λ" + ",".join(self.vars) + "{" + str(self.body) + "}"
 
   def __repr__(self):
     return str(self)

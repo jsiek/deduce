@@ -8,7 +8,7 @@ function add(Nat,Nat) -> Nat {
   add(suc(n), m) = suc(add(n, m));
 }
 
-define f : (Nat,Nat,Nat)->Nat = λ x, y, z { add(add(x,y),z) }
+define f : fn Nat,Nat,Nat->Nat = λ x, y, z { add(add(x,y),z) }
 
 theorem apply_f: f(zero, suc(zero), suc(suc(zero))) = suc(suc(suc(zero)))
 proof

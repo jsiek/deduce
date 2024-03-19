@@ -48,6 +48,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "-" term_hi                                  -> neg
     | term_hi "(" term_list ")"                    -> call
     | "λ" ident_list "{" term "}"                  -> lambda
+    | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" var_list "." term                 -> all_formula
     | "some" var_list "." term                -> some_formula
@@ -118,14 +119,16 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
 
-?type: type_params_opt "(" type_list ")" "->" type        -> function_type
+?type: type_params_opt "fn" type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                                -> type_inst
+// | "generic" ident_list "." type                          -> generic_type
  | type_hi
 
 ?type_hi: IDENT   -> type_name
  | "int"          -> int_type
  | "bool"         -> bool_type
  | "type"         -> type_type
+ | "(" type ")"   -> paren
 
 ?type_list:                                      -> empty
     | type                                       -> single

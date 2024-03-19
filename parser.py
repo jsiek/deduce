@@ -161,6 +161,10 @@ def parse_tree_to_ast(e):
                           [str(tok.value) for tok in parse_tree_to_list(e.children[0])],
                           parse_tree_to_list(e.children[1]),
                           parse_tree_to_ast(e.children[2]))
+    elif e.data == 'generic_type':
+      return GenericType(e.meta,
+                         [str(tok.value) for tok in parse_tree_to_list(e.children[0])],
+                         parse_tree_to_ast(e.children[1]))
     elif e.data == 'type_inst':
       return TypeInst(e.meta, Var(e.meta, str(e.children[0].value)),
                       parse_tree_to_list(e.children[1]))
@@ -201,6 +205,10 @@ def parse_tree_to_ast(e):
         return Lambda(e.meta,
                       parse_tree_to_str_list(e.children[0]),
                       parse_tree_to_ast(e.children[1]))
+    elif e.data == 'generic':
+        return Generic(e.meta,
+                       parse_tree_to_str_list(e.children[0]),
+                       parse_tree_to_ast(e.children[1]))
     elif e.data in infix_ops:
         return Call(e.meta, Var(e.meta, operator_symbol[e.data]),
                     [parse_tree_to_ast(c) for c in e.children],
