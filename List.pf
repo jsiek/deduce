@@ -405,11 +405,13 @@ proof
   case node(x, xs') { reflexive }
 end
 
+define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2) -> (fn Pair<T1,U1> -> Pair<T2,U2>)
+               = generic T { λ f, g { λp{ pair(f(first(p)), g(second(p))) } } }
+
 theorem zip_map: all T1:type, T2:type, U1:type, U2:type,
   f : fn T1 -> T2, g : fn U1 -> U2.
   all xs:List<T1>. all ys:List<U1>.
-  zip(map(xs, f), map(ys, g))
-  = map(zip(xs,ys), λp{ pair(f(first(p)), g(second(p))) })
+  zip(map(xs, f), map(ys, g)) = map(zip(xs,ys), pairfun(f,g))
 proof
   arbitrary T1:type, T2:type, U1:type, U2:type, f : fn T1 -> T2, g : fn U1 -> U2;
   induction List<T1>
@@ -426,11 +428,10 @@ proof
         zip(map(node(x,xs'),f),map(ys,g))
 	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))
 	      by rewrite goal with EQ then reflexive
-      ... = node(pair(f(x), g(y)), map(zip(xs',ys'),
-                                       λp{pair(f(first(p)),g(second(p)))}))
-            by rewrite goal with IH[ys'] then reflexive
-      ... = map(zip(node(x,xs'),ys),λp{pair(f(first(p)),g(second(p)))})
-            by rewrite goal with EQ then reflexive
+      ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
+              by rewrite goal with IH[ys'] then reflexive
+      ... = map(zip(node(x,xs'),ys), pairfun(f,g))
+              by rewrite goal with EQ then reflexive
     }
     }
   }
