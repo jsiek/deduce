@@ -294,54 +294,6 @@ class TypeInst(Type):
                     self.typ.shift_type_vars(cutoff, amount),
                     [ty.shift_type_vars(cutoff, amount) for ty in self.arg_types])
     
-@dataclass
-class GenericType(Type):
-  type_params: List[str]
-  typ: Type
-
-  def copy(self):
-    return GenericType(self.location,
-                       [p for p in self.type_params],
-                       self.typ.copy())
-
-  def __str__(self):
-    return '<' + ','.join([x for x in self.type_params]) + '>' + str(self.typ)
-
-  def __eq__(self, other):
-    match other:
-      case GenericType(l2, tp2, typ2):
-        sub = {y: Var(self.location, x) for (x,y) in zip(self.type_params, tp2)}
-        return self.typ == typ2.substitute(sub)
-      case _:
-        return False
-
-  def free_vars(self):
-    return self.typ.free_vars() - set(self.type_params)
-
-  def substitute(self, sub):
-      n = len(self.type_params)
-      new_sub = {k:v.shift_type_vars(0, n) for (k,v) in sub.items() }
-      return GenericType(self.location, self.type_params,
-                          self.typ.substitute(new_sub))
-    
-  def uniquify(self, env):
-    body_env = {x:y for (x,y) in env.items()}
-    new_type_params = [generate_name(t) for t in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
-      body_env[old] = new
-    self.type_params = new_type_params
-    self.typ.uniquify(body_env)
-    
-  def debruijnize(self, env):
-    body_env = env.declare_type_vars(self.location, self.type_params)
-    self.typ.debruijnize(body_env)
-
-  def shift_type_vars(self, cutoff, amount):
-    n = len(self.type_params)
-    return GenericType(self.location, self.type_params,
-                        self.typ.shift_type_vars(cutoff + n, amount))
-  
-  
 # This is the type of a constructor such as 'empty' of a generic union
 # when we do not yet know the type arguments.
 @dataclass

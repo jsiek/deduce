@@ -161,10 +161,6 @@ def parse_tree_to_ast(e):
                           [str(tok.value) for tok in parse_tree_to_list(e.children[0])],
                           parse_tree_to_list(e.children[1]),
                           parse_tree_to_ast(e.children[2]))
-    elif e.data == 'generic_type':
-      return GenericType(e.meta,
-                         [str(tok.value) for tok in parse_tree_to_list(e.children[0])],
-                         parse_tree_to_ast(e.children[1]))
     elif e.data == 'type_inst':
       return TypeInst(e.meta, Var(e.meta, str(e.children[0].value)),
                       parse_tree_to_list(e.children[1]))

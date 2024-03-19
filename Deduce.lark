@@ -121,7 +121,6 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?type: type_params_opt "fn" type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                                -> type_inst
-// | "generic" ident_list "." type                          -> generic_type
  | type_hi
 
 ?type_hi: IDENT   -> type_name
