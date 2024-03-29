@@ -50,8 +50,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "λ" ident_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
-    | "all" var_list "." term                 -> all_formula
-    | "some" var_list "." term                -> some_formula
+    | "all" var_list "." term                      -> all_formula
+    | "some" var_list "." term                     -> some_formula
     | "let" IDENT "=" term ";" term                -> let_term
     | "(" term ")"                                 -> paren
 
@@ -88,10 +88,11 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "apply" proof "with" proof                         -> apply
     | proof "," proof                                    -> tuple
     | "suppose" IDENT ";" proof                          -> imp_intro
-    | "suppose" IDENT ":" term ";" proof              -> imp_intro_explicit
-    | "assume" IDENT ";" proof                          -> imp_intro
-    | "assume" IDENT ":" term ";" proof              -> imp_intro_explicit
+    | "suppose" IDENT ":" term ";" proof                 -> imp_intro_explicit
+    | "assume" IDENT ";" proof                           -> imp_intro
+    | "assume" IDENT ":" term ";" proof                  -> imp_intro_explicit
     | "arbitrary"  var_list ";" proof                    -> all_intro
+    | "choose" term_list ";" proof                       -> some_intro
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
     | "rewrite" "goal" "with" proof "then" proof         -> rewrite_goal

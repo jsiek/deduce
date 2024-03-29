@@ -63,7 +63,7 @@ class Env:
       self.dict = {}
 
   def __str__(self):
-    return ','.join([k + ': ' + str(v) for (k,v) in self.dict.items()])
+    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) for (k,v) in self.dict.items()])
 
   def __repr__(self):
     return repr(self.dict)

@@ -20,6 +20,8 @@ union Heap {
 }
 
 function bubble_up_left(Heap,Nat,Direction,Heap) -> Heap {
+  bubble_up_left(empty_heap, x, d1, R) =
+      heap_node(empty_heap, x, d1, R);
   bubble_up_left(heap_node(LL, y, d2, LR), x, d1, R) =
     if y < x then
       heap_node(heap_node(LL, x, d2, LR), y, d1, R)
@@ -29,6 +31,8 @@ function bubble_up_left(Heap,Nat,Direction,Heap) -> Heap {
 
 // Note the flip of the argument order!
 function bubble_up_right(Heap,Nat,Direction,Heap) -> Heap {
+  bubble_up_right(empty_heap, x, d1, L) =
+    heap_node(L, x, d1, empty_heap);
   bubble_up_right(heap_node(RL, y, d2, RR), x, d1, L) =
     if y < x then
       heap_node(L, y, d1, heap_node(RL, x, d2, RR))
@@ -116,14 +120,31 @@ proof
   .
 end
 
+theorem insert_nonempty:
+  all x:Nat. all H: Heap.
+  some L:Heap, R:Heap, y:Nat, d:Direction.
+  first(insert(H, x)) = heap_node(L, y, d, R)
+proof
+  ?
+end
+
 theorem heap_insert:
   all x:Nat. all H: Heap.
-  if is_heap(H) then is_heap(insert(H, x))
+  if is_heap(H) then is_heap(first(insert(H, x)))
 proof
   arbitrary x:Nat;
   induction Heap
-  case empty_heap { ? }
-  case heap_node(L, x, d, R) { ? }
+  case empty_heap { assume prem; . }
+  case heap_node(L, y, d, R) {
+    assume prem: is_heap(heap_node(L,y,d,R));
+    switch d {
+    case go_left {
+      rewrite goal with EQ then
+      ?
+    }
+    case go_right { ? }
+    }
+  }
 end
 
 /*

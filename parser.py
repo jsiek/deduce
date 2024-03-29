@@ -144,8 +144,8 @@ def parse_tree_to_ast(e):
                    parse_tree_to_ast(e.children[1]))
     elif e.data == 'some_formula':
         return Some(e.meta,
-                   parse_tree_to_list(e.children[0]),
-                   parse_tree_to_ast(e.children[1]))
+                    parse_tree_to_list(e.children[0]),
+                    parse_tree_to_ast(e.children[1]))
     
     # types
     elif e.data == 'type_name':
@@ -274,6 +274,10 @@ def parse_tree_to_ast(e):
         univ = parse_tree_to_ast(e.children[0])
         args = parse_tree_to_list(e.children[1])
         return AllElim(e.meta, univ, args)
+    elif e.data == 'some_intro':
+        witnesses = parse_tree_to_list(e.children[0])
+        body = parse_tree_to_ast(e.children[1])
+        return SomeIntro(e.meta, witnesses, body)
     elif e.data == 'imp_intro_explicit':
         label = str(e.children[0].value)
         premise = parse_tree_to_ast(e.children[1])

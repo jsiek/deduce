@@ -284,7 +284,7 @@ def check_proof_of(proof, formula, env):
   match proof:
     case PHole(loc):
       print('environment:\n' + str(env))
-      error(loc, 'unfinished proof:\n' + str(formula))
+      error(loc, 'unfinished proof:\n' + str(formula.reduce(env)))
     
     case PReflexive(loc):
       match formula:
@@ -342,6 +342,15 @@ def check_proof_of(proof, formula, env):
           body_env = env.declare_term_vars(loc, vars)
           check_proof_of(body, frm2, body_env)
 
+    case SomeIntro(loc, witnesses, body):
+      match formula:
+        case Some(loc2, vars, formula2):
+          sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
+          body_frm = formula2.substitute(sub)
+          check_proof_of(body, body_frm, env)
+        case _:
+          error(loc, "choose expects the goal to start with 'some', not " + str(formula))
+          
     case ImpIntro(loc, label, None, body):
       match formula:
         case IfThen(loc, prem, conc):
@@ -730,12 +739,22 @@ def is_constructor(constr_name, env):
         case _:
           continue
   return False
-        
-def check_constructor_pattern(loc, pat_constr, params, typ, env,
-                              tyname):
+
+def lookup_union(loc, typ, env):
+  tyname = None
+  match typ:
+    case Var(loc2, name, index):
+      tyname = typ
+    case TypeInst(loc2, inst_typ, tyargs):
+      tyname = inst_typ
+    case _:
+      error(loc, str(type) + ' is not a union type')
+  return env.get_def_of_type_var(tyname)
+
+def check_constructor_pattern(loc, pat_constr, params, typ, env):
   if get_verbose():
     print('check_constructor_pattern: ' + str(pat_constr))
-  defn = env.get_def_of_type_var(tyname)
+  defn = lookup_union(loc, typ, env)
   if get_verbose():
     print('for union: ' + str(defn))
   match defn:
@@ -755,7 +774,7 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env,
           env = env.declare_term_vars(loc2, zip(params, parameter_types))
       return env
     case _:
-      error(loc, str(tyname) + ' is not a union type')
+      error(loc, str(typ) + ' is not a union type')
         
 def check_pattern(pattern, typ, env):
   if get_verbose():
@@ -764,14 +783,7 @@ def check_pattern(pattern, typ, env):
     print('in env: ' + str(env))
   match pattern:
     case PatternCons(loc, constr, params):
-      match typ:
-        case Var(loc2, name, index):
-          return check_constructor_pattern(loc, constr, params, typ, env, typ)
-        case TypeInst(loc2, inst_typ, tyargs):
-          # TODO: handle the tyargs
-          return check_constructor_pattern(loc, constr, params, typ, env, inst_typ)
-        case _:
-          error(loc, 'expected something of type ' + str(typ) + ' not ' + constr)
+      return check_constructor_pattern(loc, constr, params, typ, env)
     case _:
       error(pattern.location, 'expected a constructor pattern, not ' + str(pattern))
 
@@ -804,12 +816,19 @@ def check_statement(stmt, env):
       env = env.define_term_var(loc, name,
                                 FunctionType(loc, typarams, params, returns),
                                 stmt.reduce(env))
+      uniondef = lookup_union(loc, params[0], env)
+      cases_present = {c.name: False for c in uniondef.alternatives}
       for fun_case in cases:
         body_env = env.declare_type_vars(loc, typarams)
         body_env = check_pattern(fun_case.pattern, params[0], body_env)
+        cases_present[fun_case.pattern.constructor.name] = True
         body_env = body_env.declare_term_vars(loc, zip(fun_case.parameters, params[1:]))
         type_check_term(fun_case.body, returns, body_env,
                         name, fun_case.pattern.parameters)
+
+      for (constr,present) in cases_present.items():
+        if not present:
+          error(loc, 'missing function case for ' + base_name(constr))
       return env
     case Union(loc, name, typarams, alts):
       # TODO: check for well-defined types in the constructor definitions

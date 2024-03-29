@@ -832,7 +832,6 @@ class SwitchCase(AST):
 
   def reduce(self, env):
       n = len(self.pattern.parameters)
-      #new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
       return SwitchCase(self.location,
                         PatternCons(self.pattern.location,
                                     self.pattern.constructor,
@@ -1166,7 +1165,6 @@ class All(Formula):
 
   def reduce(self, env):
     n = len(self.vars)
-    #new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
     return All(self.location, [(x, ty.reduce(env)) for (x,ty) in self.vars], self.body.reduce(env))
 
   def substitute(self, sub):
@@ -1215,10 +1213,14 @@ class Some(Formula):
                [(x,ty.copy()) for (x,ty) in self.vars],
                self.body.copy())
   
+  def __str__(self):
+    return 'some ' + ",".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
+        + '. ' + str(self.body)
+  
   def reduce(self, env):
     n = len(self.vars)
-    new_env = {k: v.shift_term_vars(0, n) for (k,v) in env.items()}
-    return Some(self.location, self.vars, self.body.reduce(new_env))
+    return Some(self.location, [(x, ty.reduce(env)) for (x,ty) in self.vars], self.body.reduce(env))
+
   
   def substitute(self, sub):
     n = len(self.vars)
@@ -1235,9 +1237,10 @@ class Some(Formula):
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
     for (x,ty) in self.vars:
-      ty.uniquify(body_env)
+      t = ty.copy()
+      t.uniquify(body_env)
       new_x = generate_name(x)
-      new_vars.append(x)
+      new_vars.append( (new_x,t) )
       body_env[x] = new_x
     self.vars = new_vars
     self.body.uniquify(body_env)
@@ -1416,6 +1419,20 @@ class AllElim(Proof):
     for arg in self.args:
       arg.uniquify(env)
       
+@dataclass
+class SomeIntro(Proof):
+  witnesses: List[Term]
+  body: Proof
+
+  def __str__(self):
+    return 'choose ' + ",".join([str(t) for t in self.witnesses]) \
+        + '; ' + str(self.body)
+  
+  def uniquify(self, env):
+    for t in self.witnesses:
+      t.uniquify(env)
+    self.body.uniquify(env)
+  
 @dataclass
 class PTuple(Proof):
   args: List[Proof]
@@ -1702,8 +1719,10 @@ class Union(Statement):
                  [c.shift_term_vars(cutoff, amount) for c in self.alternatives])
   
   def __str__(self):
-    return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
-      + ' '.join([str(c) for c in self.alternatives]) + '}'
+    return base_name(self.name)
+  
+    # return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
+    #   + ' '.join([str(c) for c in self.alternatives]) + '}'
   
 @dataclass
 class FunCase(AST):
@@ -1847,7 +1866,7 @@ class RecFunClosure(Statement):
     return self
     
   def __str__(self):
-    return '[' + self.name + ']'
+    return base_name(self.name)
   
     # return '[' + self.name \
     #    + '<' + ','.join(self.type_params) + '>' \

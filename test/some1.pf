@@ -1,0 +1,7 @@
+import Nat
+
+theorem T: some x : Nat. x = x
+proof
+  choose 0;
+  reflexive
+end
