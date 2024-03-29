@@ -1,0 +1,144 @@
+/*
+  This is inspired by the paper
+  A Functional Approach to Standard Binary Heaps
+  by Vladimir Kostyukov.
+
+  This is a min-heap.
+*/
+
+import Nat
+import Pair
+
+union Direction {
+  go_left;
+  go_right;
+}
+
+union Heap {
+  empty_heap;
+  heap_node(Heap, Nat, Direction, Heap);
+}
+
+function bubble_up_left(Heap,Nat,Direction,Heap) -> Heap {
+  bubble_up_left(heap_node(LL, y, d2, LR), x, d1, R) =
+    if y < x then
+      heap_node(heap_node(LL, x, d2, LR), y, d1, R)
+    else
+      heap_node(heap_node(LL, y, d2, LR), x, d1, R);
+}
+
+// Note the flip of the argument order!
+function bubble_up_right(Heap,Nat,Direction,Heap) -> Heap {
+  bubble_up_right(heap_node(RL, y, d2, RR), x, d1, L) =
+    if y < x then
+      heap_node(L, y, d1, heap_node(RL, x, d2, RR))
+    else
+      heap_node(L, x, d1, heap_node(RL, y, d2, RR));
+}
+
+function insert(Heap,Nat) -> Pair<Heap,bool> {
+  insert(empty_heap, x) =
+    pair(heap_node(empty_heap, x, go_left, empty_heap), true);
+  insert(heap_node(L, y, d, R), x) =
+    switch d {
+      case go_left {
+        let p = insert(L, x);
+        let dir = if second(p) then go_right else go_left;
+        pair(bubble_up_left(first(p), y, dir, R), false)
+      }
+      case go_right {
+        let p = insert(R, x);
+        let dir = if second(p) then go_left else go_right;
+        pair(bubble_up_right(first(p), y, dir, L), second(p))
+      }
+    };
+}
+
+function smaller_parent(Heap, Nat) -> bool {
+  smaller_parent(empty_heap, p) = true;
+  smaller_parent(heap_node(L, c, d, R), p) = p ≤ c;
+}
+
+function is_heap(Heap) -> bool {
+  is_heap(empty_heap) = true;
+  is_heap(heap_node(L, x, d, R)) =
+    is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x);
+}
+
+define H1 = heap_node(empty_heap, 1, go_left, empty_heap)
+define H2 = heap_node(empty_heap, 2, go_left, empty_heap)
+define H12 = heap_node(H2, 1, go_right, empty_heap)
+define H3 = heap_node(empty_heap, 3, go_left, empty_heap)
+define H123 = heap_node(H2, 1, go_left, H3)
+define H4 = heap_node(empty_heap, 4, go_left, empty_heap)
+define H24 = heap_node(H4, 2, go_right, empty_heap)
+define H1234 = heap_node(H24, 1, go_left, H3)
+define H142 = heap_node(H4, 1, go_left, H2)
+define H01234 = heap_node(H142, 0, go_right, H3)
+
+theorem insert_H1: insert(empty_heap, 1) = pair(H1, true)
+proof
+  reflexive
+end
+
+theorem insert_H12: insert(H1, 2) = pair(H12, false)
+proof
+  reflexive
+end
+
+theorem insert_H123: insert(H12, 3) = pair(H123, true)
+proof
+  reflexive
+end
+
+theorem heap_H123: is_heap(H123)
+proof
+  .
+end
+
+theorem insert_H1234: insert(H123, 4) = pair(H1234, false)
+proof
+  reflexive
+end
+
+theorem heap_H1234: is_heap(H1234)
+proof
+  .
+end
+
+theorem insert_H01234: insert(H1234, 0) = pair(H01234, false)
+proof
+  reflexive
+end
+
+theorem heap_H01234: is_heap(H01234)
+proof
+  .
+end
+
+/*
+
+theorem heap_insert:
+  all x:Nat. all H: Heap.
+  if is_heap(H) then is_heap(insert(H, x))
+
+*/
+
+/*
+function heapify(Heap) -> Heap {
+  heapify(heap_node(x, L, R)) =
+    switch L {
+      case empty_heap {  heap_node(x, L, R) }
+      case heap_node(y, LL, LR) {
+        switch R {
+          
+        
+        if y ≤ x then
+          heap_node(x, L, R)
+        else
+          heap_node(y, heapify(heap_node(x, LL, LR)), R)
+        
+      }
+    }
+}
+*/

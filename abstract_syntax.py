@@ -542,7 +542,7 @@ class Var(AST):
       return self.name == other.name 
   
   def __str__(self):
-      if self.name == 'zero':
+      if base_name(self.name) == 'zero':
         return '0'
       else:
         return base_name(self.name)
@@ -990,6 +990,11 @@ class TLet(Term):
   rhs: Term
   body: Term
 
+  def reduce(self, env):
+    rhs = self.rhs.reduce(env)
+    body_env = env.define_term_var(self.location, self.var, None, rhs)
+    return self.body.reduce(body_env)
+    
   def copy(self):
     return TLet(self.location, self.var, self.rhs.copy(), self.body.copy())
   
@@ -1964,18 +1969,18 @@ def intToNat(loc, n):
 
 def isNat(t):
   match t:
-    case Var(loc, 'zero'):
+    case Var(loc, name) if base_name(name) == 'zero':
       return True
-    case Call(loc, Var(loc2, 'suc'), [arg], infix):
+    case Call(loc, Var(loc2, name), [arg], infix) if base_name(name) == 'suc':
       return isNat(arg)
     case _:
       return False
 
 def natToInt(t):
   match t:
-    case Var(loc, 'zero'):
+    case Var(loc, name) if base_name(name) == 'zero':
       return 0
-    case Call(loc, Var(loc2, 'suc'), [arg], infix):
+    case Call(loc, Var(loc2, name), [arg], infix) if base_name(name) == 'suc':
       return 1 + natToInt(arg)
 
   
