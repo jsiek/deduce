@@ -116,13 +116,15 @@ proof
   .
 end
 
-/*
-
 theorem heap_insert:
   all x:Nat. all H: Heap.
   if is_heap(H) then is_heap(insert(H, x))
-
-*/
+proof
+  arbitrary x:Nat;
+  induction Heap
+  case empty_heap { ? }
+  case heap_node(L, x, d, R) { ? }
+end
 
 /*
 function heapify(Heap) -> Heap {

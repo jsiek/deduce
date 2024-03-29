@@ -379,6 +379,10 @@ def check_proof_of(proof, formula, env):
         case _:
           error(proof.location, "expected 'or', not " + str(sub_frm))
     case Induction(loc, typ, cases):
+      match formula:
+        case All(loc2, [(var,ty)], frm):
+          if typ != ty:
+            error(loc, "type of induction: " + str(typ) + "\ndoes not match the all-formula's type: " + str(ty))
       match env.get_def_of_type_var(get_type_name(typ)):
         case Union(loc2, name, typarams, alts):
           for (constr,indcase) in zip(alts, cases):
