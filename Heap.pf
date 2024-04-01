@@ -120,12 +120,31 @@ proof
   .
 end
 
+// note inconsistency between induction versus switch regarding
+// whether the goal is updated with the cases. -Jeremy
 theorem insert_nonempty:
   all x:Nat. all H: Heap.
   some L:Heap, R:Heap, y:Nat, d:Direction.
   first(insert(H, x)) = heap_node(L, y, d, R)
 proof
-  ?
+  arbitrary x:Nat;
+  induction Heap
+  case empty_heap {
+    choose empty_heap, empty_heap, x, go_left;
+    reflexive
+    }
+  case heap_node(L1, y1, d1, R1) {
+    have IHL1: (some L:Heap,R:Heap,y:Nat,d:Direction. first(insert(L1,x)) = heap_node(L,y,d,R)) by IH;
+    switch d1 {
+    case go_left {
+      rewrite goal with EQ then
+      obtain L1L, L1R, z, d2 with insertL1 from IHL1;
+      rewrite goal with insertL1 then // note inconsistency in syntax, using 'then' instead of semicolon -Jeremy
+      ?
+    }
+    case go_right { ? }
+    }
+  }
 end
 
 theorem heap_insert:

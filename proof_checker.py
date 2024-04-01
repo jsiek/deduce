@@ -26,7 +26,7 @@ def generate_name(name):
     return ls[0] + '.' + str(new_id)
   
 def check_implies(loc, frm1, frm2):
-  if verbose:
+  if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
   match frm2:
     case Bool(loc, True):
@@ -96,12 +96,14 @@ def pattern_to_term(pat):
 def rewrite(loc, formula, equation):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
-    print('rewrite? ' + str(formula) \
+    print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
           + '\n\t' + str(lhs) + ' =? ' + str(formula) + '\t' + str(formula == lhs))
   if formula == lhs:
     return rhs
   match formula:
     case Var(loc2, name):
+      return formula
+    case Bool(loc2, val):
       return formula
     case And(loc2, args):
       return And(loc2, [rewrite(loc, arg, equation) for arg in args])
@@ -113,6 +115,8 @@ def rewrite(loc, formula, equation):
     case All(loc2, vars, frm2):
       # TODO, deal with variable clash
       return All(loc2, vars, rewrite(loc, frm2, equation))
+    case Some(loc2, vars, frm2):
+      return Some(loc2, vars, rewrite(loc, frm2, equation))
     # case PrimitiveCall(loc2, op, args):
     #   return PrimitiveCall(loc2, op,
     #                        [rewrite(loc, arg, equation) for arg in args])
@@ -120,9 +124,16 @@ def rewrite(loc, formula, equation):
       return Call(loc2, rewrite(loc, rator, equation),
                   [rewrite(loc, arg, equation) for arg in args],
                   infix)
-    case _:
+    case Switch(loc2, subject, cases):
+      return Switch(loc2, rewrite(loc, subject, equation),
+                    [rewrite(loc, c, equation) for c in cases])
+    case SwitchCase(loc2, pat, body):
+      return SwitchCase(loc2, pat, rewrite(loc, body, equation))
+    case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
       return formula
-      # error(loc, 'in rewrite, unhandled ' + str(formula))
+    case _:
+      # return formula
+      error(loc, 'in rewrite, unhandled ' + str(formula))
 
 def facts_to_str(env):
   result = ''
@@ -163,6 +174,8 @@ def isolate_difference(term1, term2):
           return isolate_difference_list(cs1, cs2)
         else:
           return (s1, s2)
+      case(And(l1, args1), And(l2, args2)):
+        return isolate_difference_list(args1, args2)
       case _:
         return (term1, term2)
     
@@ -175,7 +188,9 @@ def check_proof(proof, env):
     case RewriteFact(loc, subject, equation_proof):
       formula = check_proof(subject, env)
       equation = check_proof(equation_proof, env)
-      new_formula = rewrite(loc, formula, equation)
+      frm = formula.reduce(env)
+      eq = equation.reduce(env)
+      new_formula = rewrite(loc, frm, eq)
       ret = new_formula
     case PHole(loc):
       error(loc, 'unfinished proof')
@@ -373,12 +388,14 @@ def check_proof_of(proof, formula, env):
     case ImpIntro(loc, label, prem1, body):
       check_formula(prem1, env)
       match formula:
-        case IfThen(loc, prem2, conc):
+        case IfThen(loc2, prem2, conc):
           prem1_red = prem1.reduce(env)
           prem2_red = prem2.reduce(env)
           if prem1_red != prem2_red:
-            error(loc, 'mismatch in premise:\n' \
-                  + str(prem1_red) + '\n≠ ' + str(prem2_red))
+            (small1, small2) = isolate_difference(prem1_red, prem2_red)
+            msg = str(small1) + ' ≠ ' + str(small2) + '\n' \
+                + 'therefore\n' + str(prem1_red) + ' ≠ ' + str(prem2_red)
+            error(loc, 'mismatch in premise:\n' + msg)
           body_env = env.declare_proof_var(loc, label, prem1_red)
           check_proof_of(body, conc, body_env)
         case _:

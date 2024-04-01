@@ -545,7 +545,7 @@ class Var(AST):
       if base_name(self.name) == 'zero':
         return '0'
       else:
-        return base_name(self.name)
+        return '`' + base_name(self.name)
 
   def __repr__(self):
       return str(self)
@@ -880,6 +880,8 @@ class SwitchCase(AST):
     self.body.uniquify(body_env)
     
   def __eq__(self, other):
+    if not isinstance(other, SwitchCase):
+      return False
     return self.pattern.constructor == other.pattern.constructor \
       and self.body == other.body
     
@@ -1225,7 +1227,6 @@ class Some(Formula):
   def reduce(self, env):
     n = len(self.vars)
     return Some(self.location, [(x, ty.reduce(env)) for (x,ty) in self.vars], self.body.reduce(env))
-
   
   def substitute(self, sub):
     n = len(self.vars)
@@ -1257,6 +1258,12 @@ class Some(Formula):
     n = len(self.vars)
     return Some(self.location, self.vars,
                 self.body.shift_term_vars(cutoff + n, amount))
+
+  def __eq__(self, other):
+    if not isinstance(other, Some):
+      return False
+    sub = {y: Var(self.location, x) for ((x,tx),(y,ty))in zip(self.vars, other.vars)}
+    return self.body == other.body.substitute(sub)
   
 ################ Proofs ######################################
   

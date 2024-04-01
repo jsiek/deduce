@@ -8,7 +8,7 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     file = open(filename, 'r')
     p = file.read()
-    set_verbose(False)
+    set_verbose(True)
     try:
       set_filename(filename)
       ast = parse(p, trace=False)
