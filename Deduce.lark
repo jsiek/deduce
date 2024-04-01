@@ -93,6 +93,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "assume" IDENT ":" term ";" proof                  -> imp_intro_explicit
     | "arbitrary"  var_list ";" proof                    -> all_intro
     | "choose" term_list ";" proof                       -> some_intro
+    | "obtain" ident_list "with" IDENT "from" proof ";" proof -> some_elim
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
     | "rewrite" "goal" "with" proof "then" proof         -> rewrite_goal

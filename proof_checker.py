@@ -97,7 +97,7 @@ def rewrite(loc, formula, equation):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
     print('rewrite? ' + str(formula) \
-          + '\nlhs:     ' + str(lhs) + ' is ' + str(formula == lhs))
+          + '\n\t' + str(lhs) + ' =? ' + str(formula) + '\t' + str(formula == lhs))
   if formula == lhs:
     return rhs
   match formula:
@@ -351,6 +351,17 @@ def check_proof_of(proof, formula, env):
         case _:
           error(loc, "choose expects the goal to start with 'some', not " + str(formula))
           
+    case SomeElim(loc, witnesses, label, some, body):
+      someFormula = check_proof(some, env)
+      match someFormula:
+        case Some(loc2, vars, formula2):
+          sub = {var[0]: Var(loc2, x) for (var,x) in zip(vars,witnesses)}
+          witnessFormula = formula2.substitute(sub)
+          body_env = env.declare_proof_var(loc, label, witnessFormula)
+          check_proof_of(body, formula, body_env)
+        case _:
+          error(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula))
+        
     case ImpIntro(loc, label, None, body):
       match formula:
         case IfThen(loc, prem, conc):

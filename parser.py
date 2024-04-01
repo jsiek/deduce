@@ -278,6 +278,12 @@ def parse_tree_to_ast(e):
         witnesses = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
         return SomeIntro(e.meta, witnesses, body)
+    elif e.data == 'some_elim':
+        witnesses = [tok.value for tok in parse_tree_to_list(e.children[0])]
+        label = parse_tree_to_ast(e.children[1])
+        some = parse_tree_to_ast(e.children[2])
+        body = parse_tree_to_ast(e.children[3])
+        return SomeElim(e.meta, witnesses, label, some, body)
     elif e.data == 'imp_intro_explicit':
         label = str(e.children[0].value)
         premise = parse_tree_to_ast(e.children[1])

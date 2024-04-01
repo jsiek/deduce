@@ -15,6 +15,8 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all3.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/some1.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/some2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/bintree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Nat.pf

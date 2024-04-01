@@ -567,10 +567,13 @@ class Var(AST):
     self.index = env.index_of_term_var(self.name)
 
   def uniquify(self, env):
+    #print('uniquify var ' + str(self))
+    #print(str(env))
     if self.name not in env.keys():
       error(self.location, "uniquify: could not find " + self.name \
             + '\nin ' + str(env))
     self.name = env[self.name]
+    #print('finished uniquify var ' + str(self))
     
   def shift_type_vars(self, cutoff, amount):
     return self
@@ -810,9 +813,11 @@ class Call(Term):
 
   def uniquify(self, env):
     #print('uniquify call ' + str(self))
+    #print(str(env))
     self.rator.uniquify(env)
     for arg in self.args:
       arg.uniquify(env)
+    #print('finished uniquify call ' + str(self))
       
 @dataclass
 class SwitchCase(AST):
@@ -1432,7 +1437,34 @@ class SomeIntro(Proof):
     for t in self.witnesses:
       t.uniquify(env)
     self.body.uniquify(env)
+
+@dataclass
+class SomeElim(Proof):
+  witnesses: List[str]
+  label: str
+  some: Proof
+  body: Proof
+
+  def __str__(self):
+    return 'obtain ' + ",".join(self.witnesses) \
+      + ' with ' + self.label \
+      + ' from ' + str(self.some) \
+      + '; ' + str(self.body)
   
+  def uniquify(self, env):
+    self.some.uniquify(env)
+    body_env = copy_dict(env)
+    new_witnesses = []
+    for x in self.witnesses:
+      new_x = generate_name(x)
+      new_witnesses.append( new_x )
+      body_env[x] = new_x
+    new_label = generate_name(self.label)
+    body_env[self.label] = new_label
+    self.witnesses = new_witnesses
+    self.label = new_label
+    self.body.uniquify(body_env)
+    
 @dataclass
 class PTuple(Proof):
   args: List[Proof]
