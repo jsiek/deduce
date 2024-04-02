@@ -148,6 +148,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?pattern: IDENT                                  -> pattern_id
     | "0"                                        -> pattern_zero
+    | "true"                                     -> pattern_true
+    | "false"                                    -> pattern_false
     | IDENT "(" ident_list ")"                   -> pattern_apply
 
 ?pattern_list:                                      -> empty

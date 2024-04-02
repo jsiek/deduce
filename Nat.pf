@@ -201,7 +201,7 @@ proof
           case suc(o') {
             have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
             have n_o: n' ≤ o' by sn_so;
-            rewrite goal with EQ then apply IH[n',o'] with m_n, n_o
+            have m' ≤ o' by apply IH[n',o'] with m_n, n_o
           }
         }
       }

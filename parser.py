@@ -367,6 +367,10 @@ def parse_tree_to_ast(e):
         return PatternCons(e.meta, Var(e.meta, str(e.children[0].value)), [])
     elif e.data == 'pattern_zero':
         return PatternCons(e.meta, Var(e.meta, 'zero'), [])
+    elif e.data == 'pattern_true':
+        return PatternBool(e.meta, True)
+    elif e.data == 'pattern_false':
+        return PatternBool(e.meta, False)
     elif e.data == 'pattern_apply':
         params = parse_tree_to_str_list(e.children[1])
         return PatternCons(e.meta, Var(e.meta, str(e.children[0].value)), params)

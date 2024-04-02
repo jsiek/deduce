@@ -338,10 +338,35 @@ class Pattern(AST):
     pass
 
 @dataclass
+class PatternBool(Pattern):
+  value : bool
+
+  def __str__(self):
+      return "true" if self.value else "false"
+
+  def __repr__(self):
+      return str(self)
+
+  def uniquify(self, env):
+    pass
+
+  def bindings(self):
+    return []
+
+  def set_bindings(self, new_bindings):
+    pass
+  
+@dataclass
 class PatternCons(Pattern):
   constructor : Term
   parameters : List[str]
 
+  def bindings(self):
+    return self.parameters
+
+  def set_bindings(self, params):
+    self.parameters = params
+  
   def copy(self):
     return PatternCons(self.location,
                        self.constructor.copy(),
@@ -1607,10 +1632,10 @@ class SwitchProofCase(AST):
   def uniquify(self, env):
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
-    new_params = [generate_name(x) for x in self.pattern.parameters]
-    for (old,new) in zip(self.pattern.parameters, new_params):
+    new_params = [generate_name(x) for x in self.pattern.bindings()]
+    for (old,new) in zip(self.pattern.bindings(), new_params):
       body_env[old] = new
-    self.pattern.parameters = new_params
+    self.pattern.set_bindings(new_params)
     body_env['EQ'] = 'EQ'
     self.body.uniquify(body_env)
     
@@ -1723,6 +1748,9 @@ class Union(Statement):
   type_params: List[str]
   alternatives: List[Constructor]
 
+  def reduce(self, env):
+    return self
+  
   def debruijnize(self, env):
     env = env.declare_type(self.location, self.name)
     body_env = env.declare_type_vars(self.location, self.type_params)

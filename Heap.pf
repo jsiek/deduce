@@ -128,14 +128,20 @@ proof
   arbitrary L:Heap, x:Nat, d:Direction, R:Heap;
   switch L {
     case empty_heap {
-      rewrite goal with EQ then
       choose empty_heap, x, d, R;
       reflexive
     }
     case heap_node(LL, y, d2, LR) {
-      rewrite goal with EQ then
-      // TODO: implement switch on a boolean-valued term such as (y < x)
-      ?
+      switch y < x {
+        case true {
+	  choose heap_node(LL,x,d2,LR), y, d, R;
+	  reflexive
+	}
+	case false {
+	  choose heap_node(LL,y,d2,LR),x,d,R;
+	  reflexive
+	}
+      }
     }
   }
 end
@@ -154,12 +160,14 @@ proof
     reflexive
     }
   case heap_node(L1, y1, d1, R1) {
-    have IHL1: (some L:Heap,R:Heap,y:Nat,d:Direction. first(insert(L1,x)) = heap_node(L,y,d,R)) by IH;
+    have IHL1: (some L:Heap,R:Heap,y:Nat,d:Direction.
+                  first(insert(L1,x)) = heap_node(L,y,d,R)) by IH;
     switch d1 {
     case go_left {
       rewrite goal with EQ then
       obtain L1L, L1R, z, d2 with insertL1 from IHL1;
-      rewrite goal with insertL1 then // note inconsistency in syntax, using 'then' instead of semicolon -Jeremy
+      rewrite goal with insertL1 then
+      // inconsistency in syntax, using 'then' instead of semicolon -Jeremy
       ?
     }
     case go_right { ? }

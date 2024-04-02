@@ -131,6 +131,10 @@ def rewrite(loc, formula, equation):
       return SwitchCase(loc2, pat, rewrite(loc, body, equation))
     case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
       return formula
+    case Conditional(loc2, cond, thn, els):
+      return Conditional(loc2, rewrite(loc, cond, equation),
+                         rewrite(loc, thn, equation),
+                         rewrite(loc, els, equation))
     case _:
       # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
@@ -191,7 +195,7 @@ def check_proof(proof, env):
       frm = formula.reduce(env)
       eq = equation.reduce(env)
       new_formula = rewrite(loc, frm, eq)
-      ret = new_formula
+      ret = new_formula.reduce(env)
     case PHole(loc):
       error(loc, 'unfinished proof')
     case PVar(loc, name, index):
@@ -300,7 +304,7 @@ def check_proof_of(proof, formula, env):
     case PHole(loc):
       error(loc, 'unfinished proof:\n\t' + str(formula) \
             + '\nsimplified:\n\t' + str(formula.reduce(env)) \
-            + '\navailable facts:\n' + str(env))
+            + '\navailable facts:\n' + env.proofs_str())
     
     case PReflexive(loc):
       match formula:
@@ -457,38 +461,53 @@ def check_proof_of(proof, formula, env):
 
     case SwitchProof(loc, subject, cases):
       ty = type_synth_term(subject, env, None, [])
-      tname = get_type_name(ty)
-      match env.get_def_of_type_var(tname):
-        case Union(loc2, name, typarams, alts):
-          for (constr,scase) in zip(alts, cases):
-            if scase.pattern.constructor.name != constr.name:
-              error(scase.location, "expected a case for " + str(constr) \
-                    + " not " + str(scase.pattern.constructor))
-            if len(scase.pattern.parameters) != len(constr.parameters):
-              error(scase.location, "expected " + len(constr.parameters) \
-                    + " arguments to " + constr.name \
-                    + " not " + len(scase.pattern.parameters))
-            subject_case = pattern_to_term(scase.pattern)
-            body_env = env.declare_proof_var(loc, 'EQ',
-                                             mkEqual(scase.location, 
-                                                     subject,
-                                                     subject_case))
-            tyargs = get_type_args(ty)
-            sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
-            constr_params = [ty.substitute(sub) for ty in constr.parameters]
-            body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
-                                                           constr_params))
-            # The following breaks a proof in Nat.pf, not sure why. -Jeremy
-            # if isinstance(subject, Var):
-            #   formula = formula.substitute({subject.name: subject_case})
-            check_proof_of(scase.body, formula, body_env)
+      match ty:
+        case BoolType():
+          for scase in cases:
+            if not isinstance(scase.pattern, PatternBool):
+              error(scase.location, "expected pattern 'true' for 'false' in switch on bool")
+            subject_case = Bool(scase.location, True) if scase.pattern.value \
+                           else Bool(scase.location, False)
+            equation = mkEqual(scase.location, subject, subject_case)
+            body_env = env.declare_proof_var(loc, 'EQ', equation)
+            frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
+            check_proof_of(scase.body, frm.reduce(env), body_env)
         case _:
-          error(loc, "switch expected union type, not " + type_name)
+          tname = get_type_name(ty)
+          match env.get_def_of_type_var(tname):
+            case Union(loc2, name, typarams, alts):
+              for (constr,scase) in zip(alts, cases):
+                if scase.pattern.constructor.name != constr.name:
+                  error(scase.location, "expected a case for " + str(constr) \
+                        + " not " + str(scase.pattern.constructor))
+                if len(scase.pattern.parameters) != len(constr.parameters):
+                  error(scase.location, "expected " + len(constr.parameters) \
+                        + " arguments to " + constr.name \
+                        + " not " + len(scase.pattern.parameters))
+                subject_case = pattern_to_term(scase.pattern)
+                body_env = env.declare_proof_var(loc, 'EQ',
+                                                 mkEqual(scase.location, 
+                                                         subject,
+                                                         subject_case))
+                tyargs = get_type_args(ty)
+                sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
+                constr_params = [ty.substitute(sub) for ty in constr.parameters]
+                body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
+                                                               constr_params))
+                if isinstance(subject, Var):
+                  frm = formula.substitute({subject.name: subject_case})
+                else:
+                  frm = formula
+                check_proof_of(scase.body, frm, body_env)
+            case _:
+              error(loc, "switch expected union type, not " + type_name)
           
     case RewriteGoal(loc, equation_proof, body):
       equation = check_proof(equation_proof, env)
-      new_formula = rewrite(loc, formula, equation)
-      check_proof_of(body, new_formula, env)
+      eq = equation.reduce(env)
+      frm = formula.reduce(env)
+      new_formula = rewrite(loc, frm, eq)
+      check_proof_of(body, new_formula.reduce(env), env)
     case _:
       form = check_proof(proof, env)
       check_implies(proof.location, form.reduce(env), formula.reduce(env))
