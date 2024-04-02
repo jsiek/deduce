@@ -63,7 +63,8 @@ class Env:
       self.dict = {}
 
   def __str__(self):
-    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) for (k,v) in self.dict.items()])
+    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) for (k,v) in reversed(self.dict.items()) \
+                       if isinstance(v,ProofBinding)])
 
   def __repr__(self):
     return repr(self.dict)

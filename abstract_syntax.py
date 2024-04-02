@@ -545,7 +545,7 @@ class Var(AST):
       if base_name(self.name) == 'zero':
         return '0'
       else:
-        return '`' + base_name(self.name)
+        return base_name(self.name)
 
   def __repr__(self):
       return str(self)

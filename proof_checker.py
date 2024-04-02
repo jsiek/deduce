@@ -298,8 +298,9 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      print('environment:\n' + str(env))
-      error(loc, 'unfinished proof:\n' + str(formula.reduce(env)))
+      error(loc, 'unfinished proof:\n\t' + str(formula) \
+            + '\nsimplified:\n\t' + str(formula.reduce(env)) \
+            + '\navailable facts:\n' + str(env))
     
     case PReflexive(loc):
       match formula:
@@ -467,15 +468,19 @@ def check_proof_of(proof, formula, env):
               error(scase.location, "expected " + len(constr.parameters) \
                     + " arguments to " + constr.name \
                     + " not " + len(scase.pattern.parameters))
+            subject_case = pattern_to_term(scase.pattern)
             body_env = env.declare_proof_var(loc, 'EQ',
                                              mkEqual(scase.location, 
                                                      subject,
-                                                    pattern_to_term(scase.pattern)))
+                                                     subject_case))
             tyargs = get_type_args(ty)
             sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
             constr_params = [ty.substitute(sub) for ty in constr.parameters]
             body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
                                                            constr_params))
+            # The following breaks a proof in Nat.pf, not sure why. -Jeremy
+            # if isinstance(subject, Var):
+            #   formula = formula.substitute({subject.name: subject_case})
             check_proof_of(scase.body, formula, body_env)
         case _:
           error(loc, "switch expected union type, not " + type_name)

@@ -120,6 +120,26 @@ proof
   .
 end
 
+theorem bubble_up_left_nonempty:
+  all L:Heap, x:Nat, d:Direction, R:Heap.
+  some L1:Heap, x1:Nat, d1:Direction, R1:Heap.
+  bubble_up_left(L, x, d, R) = heap_node(L1, x1, d1, R1)
+proof
+  arbitrary L:Heap, x:Nat, d:Direction, R:Heap;
+  switch L {
+    case empty_heap {
+      rewrite goal with EQ then
+      choose empty_heap, x, d, R;
+      reflexive
+    }
+    case heap_node(LL, y, d2, LR) {
+      rewrite goal with EQ then
+      // TODO: implement switch on a boolean-valued term such as (y < x)
+      ?
+    }
+  }
+end
+
 // note inconsistency between induction versus switch regarding
 // whether the goal is updated with the cases. -Jeremy
 theorem insert_nonempty:
