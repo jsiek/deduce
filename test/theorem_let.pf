@@ -2,6 +2,6 @@ theorem T: if false then false
 proof
   suppose F1: false;
   have L1: if false then false by (suppose F2; F2);
-  apply L1 with F1
+  using L1 with F1
 end
 

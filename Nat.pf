@@ -26,7 +26,7 @@ proof
   case suc(n') {
     equations
       suc(n') + 0 = suc(n' + 0) by reflexive
-              ... = suc(n') by rewrite goal with IH then reflexive
+              ... = suc(n') by rewrite goal with IH; reflexive
   }
 end
 
@@ -43,7 +43,7 @@ proof
     have suc(n') + suc(n) = suc(suc(n') + n) by
     equations
     suc(n')+suc(n) = suc(n' + suc(n)) by reflexive
-               ... = suc(suc(n' + n)) by rewrite goal with IH[n] then reflexive
+               ... = suc(suc(n' + n)) by rewrite goal with IH[n]; reflexive
                ... = suc(suc(n') + n) by reflexive
   }
 end
@@ -53,7 +53,7 @@ proof
   arbitrary m:Nat;
   equations
     m + 1 = suc(m + 0)      by add_suc[m][0]
-      ... = suc(m)          by rewrite goal with add_zero[m] then reflexive
+      ... = suc(m)          by rewrite goal with add_zero[m]; reflexive
 end
 
 theorem add_commute: all n:Nat. all m:Nat. n + m = m + n
@@ -68,7 +68,7 @@ proof
     arbitrary m : Nat;
     equations
       suc(n') + m = suc(n' + m)       by reflexive
-              ... = suc(m + n')       by rewrite goal with IH[m] then reflexive
+              ... = suc(m + n')       by rewrite goal with IH[m]; reflexive
               ... = m + suc(n')       by symmetric add_suc[m][n']
   }
 end
@@ -86,7 +86,7 @@ proof
     equations
       (suc(m') + n) + o = suc((m' + n) + o) by reflexive
                     ... = suc(m' + (n + o))
-                                   by rewrite goal with IH[n,o] then reflexive
+                                   by rewrite goal with IH[n,o]; reflexive
                     ... = suc(m') + (n + o) by reflexive
   }
 end
@@ -108,9 +108,9 @@ proof
     have p1: suc(x' +  y) = suc(x' + z) by
       transitive have suc(x' +  y) = suc(x') + y by reflexive
       transitive prem reflexive;
-    have p2: x' + y = x' + z by injective suc then p1;
+    have p2: x' + y = x' + z by injective suc; p1;
     have IHyz: if x' + y = x' + z then y = z by IH[y,z];
-    apply IHyz with p2
+    using IHyz with p2
   }
 end
 
@@ -201,7 +201,7 @@ proof
           case suc(o') {
             have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
             have n_o: n' ≤ o' by sn_so;
-            have m' ≤ o' by apply IH[n',o'] with m_n, n_o
+            have m' ≤ o' by using IH[n',o'] with m_n, n_o
           }
         }
       }

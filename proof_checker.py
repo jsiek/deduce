@@ -135,6 +135,8 @@ def rewrite(loc, formula, equation):
       return Conditional(loc2, rewrite(loc, cond, equation),
                          rewrite(loc, thn, equation),
                          rewrite(loc, els, equation))
+    case Closure(loc2, vars, body, clos_env):
+      return Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
     case _:
       # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
@@ -249,7 +251,7 @@ def check_proof(proof, env):
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
       return instantiate(loc, allfrm, args)
-    case Apply(loc, imp, arg):
+    case ModusPonens(loc, imp, arg):
       ifthen = check_proof(imp, env)
       match ifthen:
         case IfThen(loc, prem, conc):

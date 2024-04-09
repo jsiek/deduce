@@ -76,7 +76,7 @@ proof
           = length(node(n, append(xs', ys)))    by reflexive
       ... = 1 + length(append(xs', ys))         by reflexive
       ... = 1 + (length(xs') + length(ys))
-                              by rewrite goal with IH[ys] then reflexive
+                              by rewrite goal with IH[ys]; reflexive
       ... = length(node(n,xs')) + length(ys)    by reflexive
   }
 end
@@ -103,7 +103,7 @@ proof
       append(append(node(n,xs'),ys),zs)
           = node(n,append(append(xs',ys),zs))         by reflexive
       ... = append(node(n,xs'),append(ys,zs))
-                                  by rewrite goal with IH[ys,zs] then reflexive
+                                  by rewrite goal with IH[ys,zs]; reflexive
   }
 end
 
@@ -119,7 +119,7 @@ proof
     equations
       append(node(n,xs'),empty)
           = node(n,append(xs',empty))     by reflexive
-      ... = node(n,xs')                   by rewrite goal with IH then reflexive
+      ... = node(n,xs')                   by rewrite goal with IH; reflexive
   }
 end
 
@@ -137,10 +137,10 @@ proof
           = length(append(reverse(xs'), node(n,empty))) by reflexive
       ... = length(reverse(xs')) + length(node(n,empty))
                     by rewrite goal with
-                      length_append[U][reverse(xs')][node(n,empty)] then reflexive
-      ... = length(xs') + 1           by rewrite goal with IH then reflexive
+                      length_append[U][reverse(xs')][node(n,empty)]; reflexive
+      ... = length(xs') + 1           by rewrite goal with IH; reflexive
       ... = length(node(n,xs'))
-                       by rewrite goal with add_one[length(xs')] then reflexive
+                       by rewrite goal with add_one[length(xs')]; reflexive
   }
 end
 
@@ -161,7 +161,7 @@ proof
     reverse(append(empty,ys))
         = reverse(ys)                          by reflexive
     ... = append(reverse(ys),empty)
-                by rewrite goal with append_empty[U][reverse(ys)] then reflexive
+                by rewrite goal with append_empty[U][reverse(ys)]; reflexive
     ... = append(reverse(ys),reverse(empty))   by reflexive
   }
   case node(n, xs') {
@@ -171,7 +171,7 @@ proof
         = reverse(node(n,append(xs',ys))) by reflexive
     ... = append(reverse(append(xs',ys)), node(n, empty)) by reflexive
     ... = append(append(reverse(ys), reverse(xs')), node(n, empty))
-          by rewrite goal with IH[ys] then reflexive
+          by rewrite goal with IH[ys]; reflexive
     ... = append(reverse(ys), append(reverse(xs'), node(n, empty)))
           by append_assoc[U][reverse(ys)][reverse(xs'), node(n, empty)]
     ... = append(reverse(ys), reverse(node(n,xs'))) by reflexive
@@ -193,7 +193,7 @@ proof
       ... = append(reverse(node(n,empty)), reverse(reverse(ls')))
                   by reverse_append[U][reverse(ls')][node(n,empty)]
       ... = append(reverse(node(n,empty)), ls')
-                  by rewrite goal with IH then reflexive
+                  by rewrite goal with IH; reflexive
       ... = append(node(n,empty), ls') by reflexive
       ... = node(n,ls') by reflexive
   }
@@ -221,7 +221,7 @@ proof
     equations
       length(map(node(x,ls'),f))
           = suc(length(map(ls',f)))   by reflexive
-      ... = suc(length(ls'))          by rewrite goal with IH then reflexive
+      ... = suc(length(ls'))          by rewrite goal with IH; reflexive
       ... = length(node(x,ls'))       by reflexive
   }
 end
@@ -239,8 +239,8 @@ proof
     equations
       map(node(x,ls),f)
           = node(f(x), map(ls, f)) by reflexive
-      ... = node(x, map(ls, f)) by rewrite goal with fxx[x] then reflexive
-      ... = node(x,ls) by rewrite goal with IH then reflexive
+      ... = node(x, map(ls, f)) by rewrite goal with fxx[x]; reflexive
+      ... = node(x,ls) by rewrite goal with IH; reflexive
   }
 end
 
@@ -266,7 +266,7 @@ proof
           = map(node(x, append(xs',ys)), f)     by reflexive
       ... = node(f(x), map(append(xs',ys), f))  by reflexive
       ... = node(f(x), append(map(xs',f), map(ys,f)))
-                                        by (rewrite goal with IH then reflexive)
+                                        by (rewrite goal with IH; reflexive)
       ... = append(map(node(x,xs'),f),map(ys,f)) by reflexive
   }
 end
@@ -281,7 +281,7 @@ proof
     equations
     map(map(node(x,ls),f),g)
 	= node(g(f(x)), map(map(ls, f), g))  by reflexive
-    ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite goal with IH then reflexive
+    ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite goal with IH; reflexive
     ... = map(node(x,ls), g ∘ f)             by reflexive
   }
 end
@@ -422,16 +422,16 @@ proof
   case node(x, xs') {
     arbitrary ys:List<U1>;
     switch ys {
-    case empty { rewrite goal with EQ then reflexive }
+    case empty { rewrite goal with EQ; reflexive }
     case node(y, ys') {
       equations
-        zip(map(node(x,xs'),f),map(ys,g))
+        zip(map(node(x,xs'),f),map(node(y,ys'),g))
 	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))
-	      by rewrite goal with EQ then reflexive
+	      by reflexive
       ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
-              by rewrite goal with IH[ys'] then reflexive
-      ... = map(zip(node(x,xs'),ys), pairfun(f,g))
-              by rewrite goal with EQ then reflexive
+              by rewrite goal with IH[ys']; reflexive
+      ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
+              by reflexive
     }
     }
   }

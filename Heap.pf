@@ -164,10 +164,9 @@ proof
                   first(insert(L1,x)) = heap_node(L,y,d,R)) by IH;
     switch d1 {
     case go_left {
-      rewrite goal with EQ then
+      rewrite goal with EQ;
       obtain L1L, L1R, z, d2 with insertL1 from IHL1;
-      rewrite goal with insertL1 then
-      // inconsistency in syntax, using 'then' instead of semicolon -Jeremy
+      rewrite goal with insertL1;
       ?
     }
     case go_right { ? }
@@ -186,7 +185,7 @@ proof
     assume prem: is_heap(heap_node(L,y,d,R));
     switch d {
     case go_left {
-      rewrite goal with EQ then
+      rewrite goal with EQ;
       ?
     }
     case go_right { ? }

@@ -223,9 +223,9 @@ def parse_tree_to_ast(e):
     # proofs
     if e.data == 'proof_var':
         return PVar(e.meta, str(e.children[0].value))
-    elif e.data == 'apply':
+    elif e.data == 'modus_ponens':
         e1, e2 = e.children
-        return Apply(e.meta, parse_tree_to_ast(e1), parse_tree_to_ast(e2))
+        return ModusPonens(e.meta, parse_tree_to_ast(e1), parse_tree_to_ast(e2))
     elif e.data == 'true_proof':
         return PTrue(e.meta)
     elif e.data == 'hole_proof':
@@ -309,6 +309,15 @@ def parse_tree_to_ast(e):
         pat = parse_tree_to_ast(e.children[0])
         body = parse_tree_to_ast(e.children[1])
         return IndCase(e.meta, pat, body)
+    elif e.data == 'apply_defs_goal':
+        definitions = parse_tree_to_list(e.children[0])
+        body = parse_tree_to_ast(e.children[1])
+        return ApplyDefsGoal(e.meta, definitions, body)
+    elif e.data == 'apply_defs_fact':
+        definitions = parse_tree_to_list(e.children[0])
+        subject = parse_tree_to_ast(e.children[1])
+        body = parse_tree_to_ast(e.children[2])
+        return ApplyDefsFact(e.meta, definitions, subject, body)
     elif e.data == 'rewrite_goal':
         eq = parse_tree_to_ast(e.children[0])
         body = parse_tree_to_ast(e.children[1])

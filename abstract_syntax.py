@@ -704,7 +704,7 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "[closure " + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}]"
+    return "closure " + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}"
 
   def __repr__(self):
     return str(self)
@@ -1374,7 +1374,7 @@ class Cases(Proof):
       c.uniquify(env)
       
 @dataclass
-class Apply(Proof):
+class ModusPonens(Proof):
   implication: Proof
   arg: Proof
 
@@ -1658,6 +1658,48 @@ class SwitchProof(Proof):
     for c in self.cases:
       c.uniquify(env)
       
+@dataclass
+class ApplyDefsGoal(Proof):
+  definitions: List[Term]
+  body: Proof
+
+  def __str__(self):
+      return 'apply ' + ', '.join([str(d) for d in self.definitions]) \
+        + ' in goal; ' + str(self.body)
+
+  def debruijnize(self, env):
+    for d in self.definitions:
+      d.debruijnize(env)
+    self.body.debruijnize(env)
+
+  def uniquify(self, env):
+    for d in self.definitions:
+      d.uniquify(env)
+    self.body.uniquify(env)
+
+@dataclass
+class ApplyDefsFact(Proof):
+  definitions: List[Term]
+  subject: Proof
+  body: Proof
+
+  def __str__(self):
+      return 'apply ' + ', '.join([str(d) for d in self.definitions]) \
+        + ' in ' + str(self.subject) + '; ' + str(self.body)
+
+  def debruijnize(self, env):
+    for d in self.definitions:
+      d.debruijnize(env)
+    self.subject.debruijnize(env)
+    self.body.debruijnize(env)
+
+  def uniquify(self, env):
+    for d in self.definitions:
+      d.uniquify(env)
+    self.subject.uniquify(env)
+    self.body.uniquify(env)
+    
+    
 @dataclass
 class RewriteGoal(Proof):
   equation: Proof
