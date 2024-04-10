@@ -29,12 +29,12 @@ def check_implies(loc, frm1, frm2):
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
   match frm2:
-    case Bool(loc, True):
+    case Bool(loc2, True):
       return
-    case And(loc, args):
+    case And(loc2, args):
       for arg2 in args:
         check_implies(loc, frm1, arg2)
-    case Or(loc, args):
+    case Or(loc2, args):
       for arg2 in args:
         try:
           check_implies(loc, frm1, arg2)
@@ -51,9 +51,9 @@ def check_implies(loc, frm1, frm2):
           error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
     case _:
       match frm1:
-        case Bool(loc, False):
+        case Bool(loc2, False):
           return
-        case And(loc, args1):
+        case And(loc2, args1):
           for arg1 in args1:
             try:
               check_implies(loc, arg1, frm2)
@@ -135,8 +135,12 @@ def rewrite(loc, formula, equation):
       return Conditional(loc2, rewrite(loc, cond, equation),
                          rewrite(loc, thn, equation),
                          rewrite(loc, els, equation))
+    case Lambda(loc2, vars, body):
+      return Lambda(loc2, vars, rewrite(loc, body, equation))
     case Closure(loc2, vars, body, clos_env):
       return Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
+    case DefinedValue(loc2, name, body):
+      return DefinedValue(loc2, name, rewrite(loc, body, equation))
     case _:
       # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
@@ -326,7 +330,7 @@ def check_proof_of(proof, formula, env):
             else:
               msg = msg + str(small_lhs) + ' ≠ ' + str(small_rhs) + '\n' \
                 + 'therefore\n' + str(lhsNF) + ' ≠ ' + str(rhsNF)
-            error(proof.location, msg)
+            error(proof.location, msg + '\n\nfacts:\n' + env.proofs_str())
         case _:
           error(proof.location, 'reflexive proves an equality, not ' \
                 + str(formula))
@@ -872,7 +876,7 @@ def check_statement(stmt, env):
         ty = type_synth_term(body, env, None, [])
       else:
         type_check_term(body, ty, env, None, [])
-      return env.define_term_var(loc, name, ty, body.reduce(env))
+      return env.define_term_var(loc, name, ty, DefinedValue(loc, name, body.reduce(env)))
     case Theorem(loc, name, frm, pf):
       if get_verbose():
         print('checking theorem formula ' + str(frm))

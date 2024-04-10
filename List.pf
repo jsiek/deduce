@@ -37,27 +37,27 @@ define L3 = node(1, node(2, node(3, node(4, node(5, empty)))))
 
 theorem length_L3: length(L3) = 5
 proof
-  apply length, + in goal; reflexive
+  apply L1, L2, L3, length, + in goal; reflexive
 end
 
 theorem append_test: append(L1, L2) = L3
 proof
-  apply append in goal; reflexive
+  apply L1, L2, L3, append in goal; reflexive
 end
 
 theorem reverse_test2: reverse(L1) = node(2, node(1, empty))
 proof
-  apply reverse, append in goal; reflexive
+  apply L1, reverse, append in goal; reflexive
 end
 
 theorem reverse_test3: reverse(L2) = node(5, node(4, node(3, empty)))
 proof
-  apply reverse, append in goal; reflexive
+  apply L2, reverse, append in goal; reflexive
 end
 
 theorem length_append_123: length(append(L1, L2)) = length(L1) + length(L2)
 proof
-  apply length, append, + in goal; reflexive
+  apply L1, L2, length, append, + in goal; reflexive
 end  
 
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
@@ -149,7 +149,7 @@ end
 theorem reverse_append_123:
   reverse(append(L1, L2)) = append(reverse(L2), reverse(L1))
 proof
-  apply reverse, append in goal; reflexive
+  apply L1, L2, reverse, append in goal; reflexive
 end  
 
 theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
@@ -208,7 +208,7 @@ function map<T,U>(List<T>, fn T->U) -> List<U> {
 
 theorem map_suc: map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
 proof
-  apply map in goal; reflexive
+  apply L1, map in goal; reflexive
 end
 
 theorem length_map: all T:type, f:fn T->T. all xs:List<T>.
@@ -253,7 +253,7 @@ define id_nat : fn Nat -> Nat = λx{x}
 
 theorem compose_test: (id_nat ∘ id_nat)(zero) = zero
 proof
-  apply id_nat in goal; reflexive
+  apply ∘, id_nat in goal; reflexive
 end
 
 theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
@@ -286,7 +286,7 @@ proof
     map(map(node(x,ls),f),g)
 	= node(g(f(x)), map(map(ls, f), g))  by apply map in goal; reflexive
     ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite goal with IH; reflexive
-    ... = map(node(x,ls), g ∘ f)             by apply map in goal; reflexive
+    ... = map(node(x,ls), g ∘ f)             by apply map, ∘ in goal; reflexive
   }
 end
 
@@ -297,12 +297,12 @@ function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
 
 theorem foldr_add12: foldr(L1, 0, λa,b{ a + b }) = 3
 proof
-  apply foldr, + in goal; reflexive
+  apply L1, foldr, + in goal; reflexive
 end
 
 theorem foldr_id: foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
 proof
-  apply foldr in goal; reflexive
+  apply L1, foldr in goal; reflexive
 end
 
 function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
@@ -312,13 +312,13 @@ function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
 
 theorem foldl_add12: foldl(L1, 0, λa,b{ a + b }) = 3
 proof
-  apply foldl, + in goal; reflexive
+  apply L1, foldl, + in goal; reflexive
 end  
 
 theorem foldl_rev12:
   foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 proof
-  apply foldl in goal; reflexive
+  apply L1, foldl in goal; reflexive
 end  
 
 
@@ -357,27 +357,30 @@ define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
 
 theorem range_empty: range(0, 0) = empty
 proof
-  apply range, range_aux, down_from, reverse, map in goal; reflexive
+  apply range, range_aux, up_to, down_from, reverse, map in goal; reflexive
 end  
 
 theorem range1: range(0, 1) = node(0, empty)
 proof
-  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
+  apply range, range_aux, up_to, down_from, reverse, map, append, + in goal; reflexive
 end  
 
 theorem range2: range(0, 2) = node(0, node(1, empty))
 proof
-  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
+  apply range, range_aux, up_to, down_from, reverse, map, append, + in goal;
+  reflexive
 end  
 
 theorem range13: range(1, 3) = node(1, node(2, empty))
 proof
-  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
+  apply range, range_aux, up_to, down_from, reverse, map, append, + in goal;
+  reflexive
 end  
 
 theorem range25: range(2, 5) = node(2, node(3, node(4, empty)))
 proof
-  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
+  apply range, range_aux, up_to, down_from, reverse, map, append, + in goal;
+  reflexive
 end  
 
 union Pair<T,U> {
@@ -435,7 +438,7 @@ proof
       ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
               by rewrite goal with IH[ys']; reflexive
       ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
-              by apply map, zip in goal; apply first, second in goal; reflexive
+              by apply map, zip, first, second, pairfun in goal; reflexive
     }
     }
   }

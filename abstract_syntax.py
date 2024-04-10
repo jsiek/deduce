@@ -578,7 +578,7 @@ class Var(AST):
   def reduce(self, env):
       res = env.get_value_of_term_var(self)
       if res:
-          return res
+          return res.reduce(env)
       else:
           return self
   
@@ -734,6 +734,30 @@ class Closure(Term):
                    self.body.shift_term_vars(cutoff + n, amount),
                    self.env.shift_term_vars(cutoff + n, amount))
   
+@dataclass
+class DefinedValue(Term):
+  name: str
+  body: Term
+
+  def __str__(self):
+    return "{|" + self.name + " := " + str(self.body) + "|}"
+
+  def __repr__(self):
+    return str(self)
+
+  def __eq__(self, other):
+    if not isinstance(other, DefinedValue):
+      return False
+    return self.name == other.name
+
+  def reduce(self, env):
+    if self in get_reduce_only():
+      return self.body.reduce(env)
+    else:
+      return self
+
+  def substitute(self, sub):
+    return DefinedValue(self.location, self.name, self.body.substitute(sub))
     
 def is_match(pattern, arg, subst):
     ret = False
@@ -797,6 +821,11 @@ class Call(Term):
     fun = self.rator.reduce(env)
     args = [arg.reduce(env) for arg in self.args]
     match fun:
+      # case DefinedValue(loc, name, val):
+      #   if fun in get_reduce_only():
+      #     ret = Call(self.location, val, args, self.infix).reduce(env)
+      #   else:
+      #     ret = Call(self.location, fun, args, self.infix)
       case Closure(loc, vars, body, clos_env):
         #print('*** applying function ' + str(fun) + '\nto ' + str(args))
         body_env = clos_env.define_term_vars(loc, zip(vars, args))
@@ -932,7 +961,7 @@ class Switch(Term):
                   [c.copy() for c in self.cases])
   
   def __str__(self):
-      return 'switch ' + str(self.subject) + '{ ' \
+      return 'switch ' + str(self.subject) + ' { ' \
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
 

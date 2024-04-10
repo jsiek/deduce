@@ -82,42 +82,43 @@ define H01234 = heap_node(H142, 0, go_right, H3)
 
 theorem insert_H1: insert(empty_heap, 1) = pair(H1, true)
 proof
-  reflexive
+  apply insert in goal; reflexive
 end
 
 theorem insert_H12: insert(H1, 2) = pair(H12, false)
 proof
-  reflexive
+  apply insert, bubble_up_left, first, second, ≤ in goal; reflexive
 end
 
 theorem insert_H123: insert(H12, 3) = pair(H123, true)
 proof
-  reflexive
+  apply insert, bubble_up_right, first, second, ≤ in goal; reflexive
 end
 
 theorem heap_H123: is_heap(H123)
 proof
-  .
+  apply is_heap, smaller_parent, ≤ in goal; .
 end
 
 theorem insert_H1234: insert(H123, 4) = pair(H1234, false)
 proof
-  reflexive
+  apply insert, bubble_up_left, first, second, ≤ in goal; reflexive
 end
 
 theorem heap_H1234: is_heap(H1234)
 proof
-  .
+  apply is_heap, smaller_parent, ≤ in goal; .
 end
 
 theorem insert_H01234: insert(H1234, 0) = pair(H01234, false)
 proof
+  apply insert, bubble_up_left, bubble_up_right, first, second, ≤ in goal;
   reflexive
 end
 
 theorem heap_H01234: is_heap(H01234)
 proof
-  .
+  apply is_heap, smaller_parent, ≤ in goal; .
 end
 
 theorem bubble_up_left_nonempty:
@@ -129,12 +130,13 @@ proof
   switch L {
     case empty_heap {
       choose empty_heap, x, d, R;
-      reflexive
+      apply bubble_up_left in goal; reflexive
     }
     case heap_node(LL, y, d2, LR) {
       switch y < x {
         case true {
 	  choose heap_node(LL,x,d2,LR), y, d, R;
+	  apply bubble_up_left in goal;
 	  reflexive
 	}
 	case false {
