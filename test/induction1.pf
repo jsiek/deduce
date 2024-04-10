@@ -12,12 +12,12 @@ theorem add_zero: all n:Nat. add(n, zero) = n
 proof
   induction Nat
   case zero {
-    have add(zero, zero) = zero by reflexive
+    have add(zero, zero) = zero by apply add in goal; reflexive
   }
   case suc(n') {
-    transitive have add(suc(n'), zero) = suc(add(n', zero)) by reflexive
-               have suc(add(n', zero)) = suc(n')
-	          by rewrite goal with IH; reflexive
+    equations
+      add(suc(n'), zero) = suc(add(n', zero))   by apply add in goal; reflexive
+                     ... = suc(n')              by rewrite goal with IH; reflexive
   }
 end
 

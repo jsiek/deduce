@@ -2,7 +2,7 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\+\-*%=≠<>≤≥&∘]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘]/
 IDENT: (/_/|UPPER|LOWER|OPERATOR) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -43,9 +43,9 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?term_hi: INT                                      -> int
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
+    | "-" term_hi                                  -> neg
     | IDENT                                        -> term_var
 //    | term_hi "<" type_list ">"                    -> term_inst
-    | "-" term_hi                                  -> neg
     | term_hi "(" term_list ")"                    -> call
     | "λ" ident_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
@@ -96,8 +96,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "obtain" ident_list "with" IDENT "from" proof ";" proof -> some_elim
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "apply" term_list "in" "goal" ";" proof            -> apply_defs_goal
-    | "apply" term_list "in" proof ";" proof             -> apply_defs_fact
+    | "apply" ident_list "in" "goal" ";" proof            -> apply_defs_goal
+    | "apply" ident_list "in" proof                       -> apply_defs_fact
     | "rewrite" "goal" "with" proof ";" proof            -> rewrite_goal
     | "rewrite" proof "with" proof                       -> rewrite_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof

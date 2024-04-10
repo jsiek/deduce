@@ -191,6 +191,11 @@ def check_proof(proof, env):
     print('synthesize formula while checking proof') ; print('\t' + str(proof))
   ret = None
   match proof:
+    case ApplyDefsFact(loc, definitions, subject):
+      defs = [d.reduce(env) for d in definitions]
+      formula = check_proof(subject, env)
+      new_formula = apply_definitions(loc, formula, defs, env)
+      ret = new_formula
     case RewriteFact(loc, subject, equation_proof):
       formula = check_proof(subject, env)
       equation = check_proof(equation_proof, env)
@@ -510,10 +515,21 @@ def check_proof_of(proof, formula, env):
       frm = formula.reduce(env)
       new_formula = rewrite(loc, frm, eq)
       check_proof_of(body, new_formula.reduce(env), env)
+    case ApplyDefsGoal(loc, definitions, body):
+      defs = [d.reduce(env) for d in definitions]
+      new_formula = apply_definitions(loc, formula, defs, env)
+      check_proof_of(body, new_formula, env)
     case _:
       form = check_proof(proof, env)
       check_implies(proof.location, form.reduce(env), formula.reduce(env))
 
+def apply_definitions(loc, formula, defs, env):
+  old_defs = get_reduce_only()
+  set_reduce_only(defs)
+  new_formula = formula.reduce(env)
+  set_reduce_only(old_defs)
+  return new_formula
+      
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
     print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")

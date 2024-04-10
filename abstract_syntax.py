@@ -752,7 +752,17 @@ def is_match(pattern, arg, subst):
       case _:
         ret = False
     return ret
-        
+
+reduce_only = []
+
+def set_reduce_only(defs):
+  global reduce_only
+  reduce_only = defs
+
+def get_reduce_only():
+  global reduce_only
+  return reduce_only
+  
 @dataclass
 class Call(Term):
   rator: Term
@@ -784,16 +794,17 @@ class Call(Term):
       return eq_rators and eq_rands
 
   def reduce(self, env):
-      fun = self.rator.reduce(env)
-      args = [arg.reduce(env) for arg in self.args]
-      match fun:
-        case Closure(loc, vars, body, clos_env):
-          #print('*** applying function ' + str(fun) + '\nto ' + str(args))
-          body_env = clos_env.define_term_vars(loc, zip(vars, args))
-          #print('*** body ' + str(body_env))
-          ret = body.reduce(body_env)
-          #print('*** call result: ' + str(ret))
-        case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
+    fun = self.rator.reduce(env)
+    args = [arg.reduce(env) for arg in self.args]
+    match fun:
+      case Closure(loc, vars, body, clos_env):
+        #print('*** applying function ' + str(fun) + '\nto ' + str(args))
+        body_env = clos_env.define_term_vars(loc, zip(vars, args))
+        #print('*** body ' + str(body_env))
+        ret = body.reduce(body_env)
+        #print('*** call result: ' + str(ret))
+      case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
+        if fun in get_reduce_only(): # len(get_reduce_only()) == 0 or 
           #print('*** applying function ' + str(fun) + '\nto ' + str(args))
           first_arg = args[0]
           rest_args = args[1:]
@@ -811,10 +822,10 @@ class Call(Term):
                   result = ret
                   #print('*** call result: ' + str(result))
                   return result
-          ret = Call(self.location, fun, args, self.infix)
-        case _:
-          ret = Call(self.location, fun, args, self.infix)
-      return ret
+        ret = Call(self.location, fun, args, self.infix)
+      case _:
+        ret = Call(self.location, fun, args, self.infix)
+    return ret
 
   def substitute(self, sub):
     return Call(self.location, self.rator.substitute(sub),
@@ -1681,24 +1692,20 @@ class ApplyDefsGoal(Proof):
 class ApplyDefsFact(Proof):
   definitions: List[Term]
   subject: Proof
-  body: Proof
 
   def __str__(self):
       return 'apply ' + ', '.join([str(d) for d in self.definitions]) \
-        + ' in ' + str(self.subject) + '; ' + str(self.body)
+        + ' in ' + str(self.subject)
 
   def debruijnize(self, env):
     for d in self.definitions:
       d.debruijnize(env)
     self.subject.debruijnize(env)
-    self.body.debruijnize(env)
 
   def uniquify(self, env):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
-    self.body.uniquify(env)
-    
     
 @dataclass
 class RewriteGoal(Proof):

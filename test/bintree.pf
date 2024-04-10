@@ -45,10 +45,10 @@ define t3 = node(4, t1, t2)
 
 theorem thm1: height(t3) = 2
 proof
-  reflexive
+  apply height, +, max in goal; reflexive
 end
 
 theorem thm2: sum(t3) = 14
 proof
-  reflexive
+  apply sum, + in goal; reflexive
 end

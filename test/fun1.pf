@@ -1,6 +1,8 @@
 import Nat
 
-theorem T: (λm{m} : fn Nat->Nat)(0) = 0
+define f = (λm{m} : fn Nat->Nat)
+
+theorem T: f(0) = 0
 proof
-  reflexive
+  apply f in goal; reflexive
 end

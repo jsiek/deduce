@@ -22,13 +22,13 @@ function reverse<E>(List<E>) -> List<E> {
 
 theorem length_zero: length(empty) = 0
 proof
-  reflexive
+  apply length in goal; reflexive
 end
 
 theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type, x:U;
-  reflexive
+  apply length, + in goal; reflexive
 end
 
 define L1 = node(1, node(2, empty))
@@ -37,27 +37,27 @@ define L3 = node(1, node(2, node(3, node(4, node(5, empty)))))
 
 theorem length_L3: length(L3) = 5
 proof
-  reflexive
+  apply length, + in goal; reflexive
 end
 
 theorem append_test: append(L1, L2) = L3
 proof
-  reflexive
+  apply append in goal; reflexive
 end
 
 theorem reverse_test2: reverse(L1) = node(2, node(1, empty))
 proof
-  reflexive
+  apply reverse, append in goal; reflexive
 end
 
 theorem reverse_test3: reverse(L2) = node(5, node(4, node(3, empty)))
 proof
-  reflexive
+  apply reverse, append in goal; reflexive
 end
 
 theorem length_append_123: length(append(L1, L2)) = length(L1) + length(L2)
 proof
-  reflexive
+  apply length, append, + in goal; reflexive
 end  
 
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
@@ -67,17 +67,18 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>;
-    have length(append(empty,ys)) = length(empty) + length(ys) by reflexive
+    have length(append(empty,ys)) = length(empty) + length(ys)
+        by apply length, append, + in goal; reflexive
   }
   case node(n, xs') {
     arbitrary ys :List<U>;
     equations
       length(append(node(n,xs'),ys))
-          = length(node(n, append(xs', ys)))    by reflexive
-      ... = 1 + length(append(xs', ys))         by reflexive
+          = length(node(n, append(xs', ys)))    by apply length, +, append in goal; reflexive
+      ... = 1 + length(append(xs', ys))         by apply length, + in goal; reflexive
       ... = 1 + (length(xs') + length(ys))
                               by rewrite goal with IH[ys]; reflexive
-      ... = length(node(n,xs')) + length(ys)    by reflexive
+      ... = length(node(n,xs')) + length(ys)    by apply length, + in goal; reflexive
   }
 end
 
@@ -85,7 +86,7 @@ theorem append_assoc1:
   append(append(node(1, empty), node(2, empty)), node(3, empty))
   = append(node(1, empty), append(node(2, empty), node(3, empty)))
 proof
-  reflexive
+  apply append in goal; reflexive
 end  
 
 theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
@@ -95,15 +96,16 @@ proof
   induction List<U>
   case empty {
     arbitrary ys :List<U>, zs :List<U>;
-    have append(append(empty,ys),zs) = append(empty,append(ys,zs)) by reflexive
+    have append(append(empty,ys),zs) = append(empty,append(ys,zs))
+      by apply append in goal; reflexive
   }
   case node(n, xs') {
     arbitrary ys :List<U>, zs :List<U>;
     equations
       append(append(node(n,xs'),ys),zs)
-          = node(n,append(append(xs',ys),zs))         by reflexive
+          = node(n,append(append(xs',ys),zs))         by apply append in goal; reflexive
       ... = append(node(n,xs'),append(ys,zs))
-                                  by rewrite goal with IH[ys,zs]; reflexive
+                                  by rewrite goal with IH[ys,zs]; apply append in goal; reflexive
   }
 end
 
@@ -113,12 +115,12 @@ proof
   arbitrary U :type;
   induction List<U>
   case empty {
-    have append(empty, empty) = empty by reflexive
+    have append(empty, empty) = empty by apply append in goal; reflexive
   }
   case node(n, xs') {
     equations
       append(node(n,xs'),empty)
-          = node(n,append(xs',empty))     by reflexive
+          = node(n,append(xs',empty))     by apply append in goal; reflexive
       ... = node(n,xs')                   by rewrite goal with IH; reflexive
   }
 end
@@ -129,25 +131,25 @@ proof
   arbitrary U : type;
   induction List<U>
   case empty {
-    have length(reverse(empty)) = length(empty) by reflexive
+    have length(reverse(empty)) = length(empty) by apply reverse in goal; reflexive
   }
   case node(n, xs') {
     equations
       length(reverse(node(n,xs')))
-          = length(append(reverse(xs'), node(n,empty))) by reflexive
+          = length(append(reverse(xs'), node(n,empty))) by apply reverse in goal; reflexive
       ... = length(reverse(xs')) + length(node(n,empty))
                     by rewrite goal with
                       length_append[U][reverse(xs')][node(n,empty)]; reflexive
-      ... = length(xs') + 1           by rewrite goal with IH; reflexive
+      ... = length(xs') + 1           by rewrite goal with IH; apply length,+ in goal; reflexive
       ... = length(node(n,xs'))
-                       by rewrite goal with add_one[length(xs')]; reflexive
+                       by rewrite goal with add_one[length(xs')]; apply length, + in goal; reflexive
   }
 end
 
 theorem reverse_append_123:
   reverse(append(L1, L2)) = append(reverse(L2), reverse(L1))
 proof
-  reflexive
+  apply reverse, append in goal; reflexive
 end  
 
 theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
@@ -159,22 +161,22 @@ proof
     arbitrary ys :List<U>;
     equations
     reverse(append(empty,ys))
-        = reverse(ys)                          by reflexive
+        = reverse(ys)                          by apply append in goal; reflexive
     ... = append(reverse(ys),empty)
                 by rewrite goal with append_empty[U][reverse(ys)]; reflexive
-    ... = append(reverse(ys),reverse(empty))   by reflexive
+    ... = append(reverse(ys),reverse(empty))   by apply reverse in goal; reflexive
   }
   case node(n, xs') {
     arbitrary ys :List<U>;
     equations
     reverse(append(node(n,xs'),ys))
-        = reverse(node(n,append(xs',ys))) by reflexive
-    ... = append(reverse(append(xs',ys)), node(n, empty)) by reflexive
+        = reverse(node(n,append(xs',ys))) by apply append in goal; reflexive
+    ... = append(reverse(append(xs',ys)), node(n, empty)) by apply reverse in goal; reflexive
     ... = append(append(reverse(ys), reverse(xs')), node(n, empty))
           by rewrite goal with IH[ys]; reflexive
     ... = append(reverse(ys), append(reverse(xs'), node(n, empty)))
           by append_assoc[U][reverse(ys)][reverse(xs'), node(n, empty)]
-    ... = append(reverse(ys), reverse(node(n,xs'))) by reflexive
+    ... = append(reverse(ys), reverse(node(n,xs'))) by apply reverse in goal; reflexive
   }
 end
 
@@ -184,18 +186,18 @@ proof
   arbitrary U :type;
   induction List<U>
   case empty {
-    have reverse(reverse(empty)) = empty by reflexive
+    have reverse(reverse(empty)) = empty by apply reverse in goal; reflexive
   }
   case node(n, ls') {
     equations
       reverse(reverse(node(n,ls')))
-          = reverse(append(reverse(ls'), node(n,empty))) by reflexive
+          = reverse(append(reverse(ls'), node(n,empty))) by apply reverse in goal; reflexive
       ... = append(reverse(node(n,empty)), reverse(reverse(ls')))
                   by reverse_append[U][reverse(ls')][node(n,empty)]
       ... = append(reverse(node(n,empty)), ls')
                   by rewrite goal with IH; reflexive
-      ... = append(node(n,empty), ls') by reflexive
-      ... = node(n,ls') by reflexive
+      ... = append(node(n,empty), ls') by apply reverse, append in goal; reflexive
+      ... = node(n,ls') by apply append in goal; reflexive
   }
 end
 
@@ -204,9 +206,9 @@ function map<T,U>(List<T>, fn T->U) -> List<U> {
   map(node(x, ls), f) = node(f(x), map(ls, f));
 }
 
-theorem map_suc: map(L1, λx{ suc(x) } : fn Nat->Nat) = node(2, node(3, empty))
+theorem map_suc: map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
 proof
-  reflexive
+  apply map in goal; reflexive
 end
 
 theorem length_map: all T:type, f:fn T->T. all xs:List<T>.
@@ -215,14 +217,14 @@ proof
   arbitrary T:type, f:fn T->T;
   induction List<T>
   case empty {
-    reflexive
+    apply map in goal; reflexive
   }
   case node(x, ls') {
     equations
       length(map(node(x,ls'),f))
-          = suc(length(map(ls',f)))   by reflexive
+          = suc(length(map(ls',f)))   by apply map, length, + in goal; reflexive
       ... = suc(length(ls'))          by rewrite goal with IH; reflexive
-      ... = length(node(x,ls'))       by reflexive
+      ... = length(node(x,ls'))       by apply length, + in goal; reflexive
   }
 end
 
@@ -233,12 +235,12 @@ proof
   assume fxx: (all x:T. f(x) = x);
   induction List<T>
   case empty {
-    have map(empty,f) = empty by reflexive
+    have map(empty,f) = empty by apply map in goal; reflexive
   }
   case node(x, ls) {
     equations
       map(node(x,ls),f)
-          = node(f(x), map(ls, f)) by reflexive
+          = node(f(x), map(ls, f)) by apply map in goal; reflexive
       ... = node(x, map(ls, f)) by rewrite goal with fxx[x]; reflexive
       ... = node(x,ls) by rewrite goal with IH; reflexive
   }
@@ -247,9 +249,11 @@ end
 define ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
          = generic T { λ g,f { λ x { g(f(x)) } } }
 
-theorem compose_test: ((λx{x} : fn Nat -> Nat) ∘ (λx{x} : fn Nat -> Nat))(zero) = zero
+define id_nat : fn Nat -> Nat = λx{x}
+
+theorem compose_test: (id_nat ∘ id_nat)(zero) = zero
 proof
-  reflexive
+  apply id_nat in goal; reflexive
 end
 
 theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
@@ -258,16 +262,16 @@ proof
   arbitrary T:type, f:fn T->T, ys:List<T>;
   induction List<T>
   case empty {
-    reflexive
+    apply map, append in goal; reflexive
   }
   case node(x, xs') {
     equations
       map(append(node(x,xs'),ys),f)
-          = map(node(x, append(xs',ys)), f)     by reflexive
-      ... = node(f(x), map(append(xs',ys), f))  by reflexive
+          = map(node(x, append(xs',ys)), f)     by apply append, map in goal; reflexive
+      ... = node(f(x), map(append(xs',ys), f))  by apply map in goal; reflexive
       ... = node(f(x), append(map(xs',f), map(ys,f)))
                                         by (rewrite goal with IH; reflexive)
-      ... = append(map(node(x,xs'),f),map(ys,f)) by reflexive
+      ... = append(map(node(x,xs'),f),map(ys,f)) by apply map, append in goal; reflexive
   }
 end
 
@@ -276,13 +280,13 @@ theorem map_compose: all T:type, U:type, V:type, f:fn T->U, g:fn U->V. all ls :L
 proof
   arbitrary T:type, U:type, V:type, f:fn T->U, g:fn U->V;
   induction List<T>
-  case empty { reflexive }
+  case empty { apply map in goal; reflexive }
   case node(x, ls) {
     equations
     map(map(node(x,ls),f),g)
-	= node(g(f(x)), map(map(ls, f), g))  by reflexive
+	= node(g(f(x)), map(map(ls, f), g))  by apply map in goal; reflexive
     ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite goal with IH; reflexive
-    ... = map(node(x,ls), g ∘ f)             by reflexive
+    ... = map(node(x,ls), g ∘ f)             by apply map in goal; reflexive
   }
 end
 
@@ -293,12 +297,12 @@ function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
 
 theorem foldr_add12: foldr(L1, 0, λa,b{ a + b }) = 3
 proof
-  reflexive
+  apply foldr, + in goal; reflexive
 end
 
 theorem foldr_id: foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
 proof
-  reflexive
+  apply foldr in goal; reflexive
 end
 
 function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
@@ -308,13 +312,13 @@ function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
 
 theorem foldl_add12: foldl(L1, 0, λa,b{ a + b }) = 3
 proof
-  reflexive
+  apply foldl, + in goal; reflexive
 end  
 
 theorem foldl_rev12:
   foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 proof
-  reflexive
+  apply foldl in goal; reflexive
 end  
 
 
@@ -325,19 +329,19 @@ function down_from(Nat) -> List<Nat> {
 
 theorem down_from2: down_from(2) = node(1, node(0, empty))
 proof
-  reflexive
+  apply down_from in goal; reflexive
 end
 
 define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
 
 theorem up_to2: up_to(2) = node(0, node(1, empty))
 proof
-  reflexive
+  apply up_to, down_from, reverse, append in goal; reflexive
 end
 
 theorem up_to3: up_to(3) = node(0, node(1, node(2, empty)))
 proof
-  reflexive
+  apply up_to, down_from, reverse, append in goal; reflexive
 end
 
 function range_aux(Nat, Nat, Nat) -> List<Nat> {
@@ -353,27 +357,27 @@ define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
 
 theorem range_empty: range(0, 0) = empty
 proof
-  reflexive
+  apply range, range_aux, down_from, reverse, map in goal; reflexive
 end  
 
 theorem range1: range(0, 1) = node(0, empty)
 proof
-  reflexive
+  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
 end  
 
 theorem range2: range(0, 2) = node(0, node(1, empty))
 proof
-  reflexive
+  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
 end  
 
 theorem range13: range(1, 3) = node(1, node(2, empty))
 proof
-  reflexive
+  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
 end  
 
 theorem range25: range(2, 5) = node(2, node(3, node(4, empty)))
 proof
-  reflexive
+  apply range, range_aux, down_from, reverse, map, append, + in goal; reflexive
 end  
 
 union Pair<T,U> {
@@ -401,8 +405,8 @@ theorem zip_id_right: all T:type. all xs:List<T>. zip(xs, empty) = empty
 proof
   arbitrary T:type;
   induction List<T>
-  case empty { reflexive }
-  case node(x, xs') { reflexive }
+  case empty { apply zip in goal; reflexive }
+  case node(x, xs') { apply zip in goal; reflexive }
 end
 
 define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2) -> (fn Pair<T1,U1> -> Pair<T2,U2>)
@@ -417,21 +421,21 @@ proof
   induction List<T1>
   case empty {
       arbitrary ys:List<U1>;
-      reflexive
+      apply map, zip in goal; reflexive
   }
   case node(x, xs') {
     arbitrary ys:List<U1>;
     switch ys {
-    case empty { rewrite goal with EQ; reflexive }
+    case empty { rewrite goal with EQ; apply map, zip in goal; reflexive }
     case node(y, ys') {
       equations
         zip(map(node(x,xs'),f),map(node(y,ys'),g))
 	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))
-	      by reflexive
+	      by apply map, zip in goal; reflexive
       ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
               by rewrite goal with IH[ys']; reflexive
       ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
-              by reflexive
+              by apply map, zip in goal; apply first, second in goal; reflexive
     }
     }
   }

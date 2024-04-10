@@ -21,11 +21,11 @@ theorem add_zero: all n:Nat. n + 0 = n
 proof
   induction Nat
   case 0 {
-    have 0 + 0 = 0 by reflexive
+    have 0 + 0 = 0 by apply + in goal; reflexive
   }
   case suc(n') {
     equations
-      suc(n') + 0 = suc(n' + 0) by reflexive
+      suc(n') + 0 = suc(n' + 0) by apply + in goal; reflexive
               ... = suc(n') by rewrite goal with IH; reflexive
   }
 end
@@ -35,16 +35,16 @@ proof
   induction Nat
   case 0 {
     arbitrary n : Nat;
-    reflexive
+    apply + in goal; reflexive
   }
   case suc(n') {
     arbitrary n : Nat;
     have IHn: n' + suc(n) = suc(n' + n) by IH[n];
     have suc(n') + suc(n) = suc(suc(n') + n) by
     equations
-    suc(n')+suc(n) = suc(n' + suc(n)) by reflexive
+    suc(n')+suc(n) = suc(n' + suc(n)) by apply + in goal; reflexive
                ... = suc(suc(n' + n)) by rewrite goal with IH[n]; reflexive
-               ... = suc(suc(n') + n) by reflexive
+               ... = suc(suc(n') + n) by apply + in goal; reflexive
   }
 end
 
@@ -61,13 +61,13 @@ proof
   induction Nat
   case 0 {
     arbitrary m : Nat;
-    equations  0 + m = m       by reflexive
+    equations  0 + m = m       by apply + in goal; reflexive
                  ... = m + 0   by symmetric add_zero[m]
   }
   case suc(n') {
     arbitrary m : Nat;
     equations
-      suc(n') + m = suc(n' + m)       by reflexive
+      suc(n') + m = suc(n' + m)       by apply + in goal; reflexive
               ... = suc(m + n')       by rewrite goal with IH[m]; reflexive
               ... = m + suc(n')       by symmetric add_suc[m][n']
   }
@@ -79,15 +79,15 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat;
-    have (0 + n) + o = 0 + (n + o) by reflexive
+    have (0 + n) + o = 0 + (n + o) by apply + in goal; reflexive
   }
   case suc(m') {
     arbitrary n:Nat, o:Nat;
     equations
-      (suc(m') + n) + o = suc((m' + n) + o) by reflexive
+      (suc(m') + n) + o = suc((m' + n) + o) by apply + in goal; reflexive
                     ... = suc(m' + (n + o))
                                    by rewrite goal with IH[n,o]; reflexive
-                    ... = suc(m') + (n + o) by reflexive
+                    ... = suc(m') + (n + o) by apply + in goal; reflexive
   }
 end
 
@@ -98,16 +98,16 @@ proof
   case 0 {
     arbitrary y:Nat, z:Nat;
     suppose prem: 0 + y = 0 + z;
-    equations   y = 0 + y      by reflexive
+    equations   y = 0 + y      by apply + in goal; reflexive
               ... = 0 + z      by prem
-              ... = z          by reflexive
+              ... = z          by apply + in goal; reflexive
   }
   case suc(x') {
     arbitrary y:Nat, z:Nat;
     suppose prem: suc(x') + y = suc(x') + z;
     have p1: suc(x' +  y) = suc(x' + z) by
-      transitive have suc(x' +  y) = suc(x') + y by reflexive
-      transitive prem reflexive;
+      transitive have suc(x' +  y) = suc(x') + y by apply + in goal; reflexive
+      transitive prem apply + in goal; reflexive;
     have p2: x' + y = x' + z by injective suc; p1;
     have IHyz: if x' + y = x' + z then y = z by IH[y,z];
     using IHyz with p2
@@ -121,7 +121,7 @@ function pred(Nat) -> Nat {
 
 theorem pred_one: pred(suc(0)) = 0
 proof
-  reflexive
+  apply pred in goal; reflexive
 end
 
 function -(Nat,Nat) -> Nat {
@@ -147,7 +147,7 @@ function diff(Nat,Nat) -> Nat {
 
 theorem sub_one_one: 1 - 1 = 0
 proof
-  reflexive
+  apply - in goal; reflexive
 end
 
 function ≤(Nat,Nat) -> bool {
@@ -166,8 +166,8 @@ define ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
 theorem less_equal_refl: all n:Nat. n ≤ n
 proof
   induction Nat
-  case 0 { have 0 ≤ 0 by . }
-  case suc(n') { have suc(n') ≤ suc(n') by IH }
+  case 0 { have 0 ≤ 0 by apply ≤ in goal; . }
+  case suc(n') { have suc(n') ≤ suc(n') by apply ≤ in goal; IH }
 end
 
 theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
@@ -177,7 +177,7 @@ proof
   case 0 {
     arbitrary n:Nat, o:Nat;
     suppose _;
-    have 0 ≤ o by .
+    have 0 ≤ o by apply ≤ in goal; .
   }
   case suc(m') {
     arbitrary n:Nat, o:Nat;
@@ -187,20 +187,21 @@ proof
     switch n {
       case 0 {
         have sm_z: suc(m') ≤ 0 by rewrite sm_n with EQ;
-        have false by sm_z
+        have false by apply ≤ in sm_z
       }
       case suc(n') {
         have sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with EQ;
-        have m_n: m' ≤ n' by sm_sn;
+        have m_n: m' ≤ n' by apply ≤ in sm_sn;
         have sn_o: suc(n') ≤ o by rewrite n_o with EQ;
         switch o {
           case 0 {
             have sn_z: suc(n') ≤ 0 by rewrite sn_o with EQ;
-            have false by sn_z
+            have false by apply ≤ in sn_z
           }
           case suc(o') {
             have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
-            have n_o: n' ≤ o' by sn_so;
+            have n_o: n' ≤ o' by apply ≤ in sn_so;
+	    apply ≤ in goal; 
             have m' ≤ o' by using IH[n',o'] with m_n, n_o
           }
         }

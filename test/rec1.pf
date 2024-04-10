@@ -12,20 +12,16 @@ define f : fn Nat,Nat,Nat->Nat = λ x, y, z { add(add(x,y),z) }
 
 theorem apply_f: f(zero, suc(zero), suc(suc(zero))) = suc(suc(suc(zero)))
 proof
+  apply f, add in goal;
   reflexive
 end
 
-// 0 Nat: union Nat<> {zero(); suc(Nat@0);}
-// 2 zero: Nat@0 = None,
-// 1 suc: (Nat@0) -> Nat@0 = None,
-// 0 add: (Nat@0,Nat@0) -> Nat@0 = [add<>(Nat@0,Nat@0) -> Nat@0{(zero@2(),m) = m@0 (suc@1(n),m) = suc@3(add@2(n@1,m@0))}],
-
 theorem add_zero_one: add(zero, suc(zero)) = suc(zero)
 proof
-  reflexive
+  apply add in goal; reflexive
 end
 
 theorem add_one_zero: add(suc(zero), zero) = suc(zero)
 proof
-  reflexive
+  apply add in goal; reflexive
 end

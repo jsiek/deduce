@@ -312,12 +312,13 @@ def parse_tree_to_ast(e):
     elif e.data == 'apply_defs_goal':
         definitions = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
-        return ApplyDefsGoal(e.meta, definitions, body)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, t.value) for t in definitions], body)
     elif e.data == 'apply_defs_fact':
         definitions = parse_tree_to_list(e.children[0])
         subject = parse_tree_to_ast(e.children[1])
-        body = parse_tree_to_ast(e.children[2])
-        return ApplyDefsFact(e.meta, definitions, subject, body)
+        return ApplyDefsFact(e.meta,
+                             [Var(e.meta, t.value) for t in definitions],
+                             subject)
     elif e.data == 'rewrite_goal':
         eq = parse_tree_to_ast(e.children[0])
         body = parse_tree_to_ast(e.children[1])
