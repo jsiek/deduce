@@ -163,6 +163,35 @@ define < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
 define > : fn Nat,Nat -> bool = λ x, y { y < x }
 define ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
 
+theorem less_implies_less_equal:
+  all x:Nat. all y:Nat.
+  if x < y then x ≤ y
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat;
+    assume zy: 0 < y;
+    apply ≤ in goal;
+    .
+  }
+  case suc(x') {
+    arbitrary y:Nat;
+    assume sx_y: suc(x') < y;
+    have ssx_y: suc(suc(x')) ≤ y by apply < in sx_y;
+    switch y {
+      case zero {
+        have false by apply ≤ in (rewrite ssx_y with EQ)
+      }
+      case suc(y') {
+        apply ≤ in goal;
+	have ssx_sy: suc(suc(x')) ≤ suc(y') by rewrite ssx_y with EQ;
+        have x_y: x' < y' by (apply <,≤ in goal; apply ≤ in ssx_sy);
+	have x' ≤ y' by using IH[y'] with x_y
+      }
+    }
+  }
+end
+
 theorem less_equal_refl: all n:Nat. n ≤ n
 proof
   induction Nat

@@ -244,6 +244,25 @@ proof
   }
 end
 
+theorem smaller_parent_trans:
+  all L:Heap, x:Nat, y:Nat.
+  if smaller_parent(L, x) and y ≤ x then smaller_parent(L, y)
+proof
+  arbitrary L:Heap, x:Nat, y:Nat;
+  assume prem: smaller_parent(L, x) and y ≤ x;
+  switch L {
+    case empty_heap {
+      apply smaller_parent in goal;
+      .
+    }
+    case heap_node(LL, z, d, LR) {
+      apply smaller_parent in goal;
+      have x_z: x ≤ z by apply smaller_parent in (rewrite prem with EQ);
+      have y ≤ z by using less_equal_trans[y][x,z] with (prem,x_z)
+    }
+  }
+end
+    
 theorem bubble_up_left_insert:
   all L:Heap, x:Nat, R:Heap, d:Direction.
     if is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x)
@@ -257,8 +276,22 @@ proof
       prem
     }
     case heap_node(LL, y, d2, LR) {
+      have defL: L = heap_node(LL, y, d2, LR) by EQ;
       apply bubble_up_left in goal;
-      ?
+      switch y < x {
+        case true {
+	  apply is_heap in goal;
+	  have hLL: is_heap(LL) by apply is_heap in rewrite prem with defL;
+	  have hLR: is_heap(LR) by apply is_heap in rewrite prem with defL;
+	  have spLLy: smaller_parent(LL, y) by apply is_heap in rewrite prem with defL;
+	  have y_x: y ≤ x by ?;
+	  have LLx: smaller_parent(LL, x) by ?;
+	  (apply is_heap in rewrite prem with defL, LLx)
+	}
+	case false {
+	  ?
+	}
+      }
     }
   }
 end
