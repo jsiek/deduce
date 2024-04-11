@@ -1133,7 +1133,7 @@ class And(Formula):
     return And(self.location, [arg.copy() for arg in self.args])
   
   def __str__(self):
-    return ' and '.join([str(arg) for arg in self.args])
+    return ' and '.join(['(' + str(arg) + ')' for arg in self.args])
   def __repr__(self):
     return str(self)
   def __eq__(self, other):

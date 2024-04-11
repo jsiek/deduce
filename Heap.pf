@@ -258,11 +258,17 @@ proof
   case heap_node(L, y, d, R) {
     assume prem: is_heap(heap_node(L,y,d,R));
     switch d {
-    case go_left {
-      rewrite goal with EQ;
-      ?
-    }
-    case go_right { ? }
+      case go_left {
+	rewrite goal with EQ;
+	have is_heap_L: is_heap(L) by apply is_heap in prem;
+	have IHL: if is_heap(L) then is_heap(first(insert(L,x))) by IH;
+        have is_heap_insertL: is_heap(first(insert(L, x)))  by using IHL with is_heap_L;
+	?
+      }
+      case go_right {
+	have is_heap_R: is_heap(R) by apply is_heap in prem;
+	?
+      }
     }
   }
 end

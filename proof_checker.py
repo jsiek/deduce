@@ -42,13 +42,6 @@ def check_implies(loc, frm1, frm2):
         except Exception as e:
           continue
       error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
-    case IfThen(loc2, prem2, conc2):
-      match frm1:
-        case IfThen(loc1, prem1, conc1):
-          check_implies(loc, prem2, prem1)
-          check_implies(loc, conc1, conc2)
-        case _:
-          error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
     case _:
       match frm1:
         case Bool(loc2, False):
@@ -62,8 +55,13 @@ def check_implies(loc, frm1, frm2):
               continue
           error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
         case _:
-          if frm1 != frm2:
-            error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
+          match (frm1, frm2):
+            case (IfThen(loc1, prem1, conc1), IfThen(loc2, prem2, conc2)):
+              check_implies(loc, prem2, prem1)
+              check_implies(loc, conc1, conc2)
+            case _:
+              if frm1 != frm2:
+                error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
             
 def instantiate(loc, allfrm, args):
   match allfrm:
