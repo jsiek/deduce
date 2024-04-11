@@ -244,6 +244,25 @@ proof
   }
 end
 
+theorem bubble_up_left_insert:
+  all L:Heap, x:Nat, R:Heap, d:Direction.
+    if is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x)
+    then is_heap(bubble_up_left(L, x, d, R))
+proof
+  arbitrary L:Heap, x:Nat, R:Heap, d:Direction;
+  assume prem: is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x);
+  switch L {
+    case empty_heap {
+      apply bubble_up_left, is_heap, smaller_parent in goal;
+      prem
+    }
+    case heap_node(LL, y, d2, LR) {
+      apply bubble_up_left in goal;
+      ?
+    }
+  }
+end
+    
 theorem heap_insert:
   all x:Nat. all H: Heap.
   if is_heap(H) then is_heap(first(insert(H, x)))
