@@ -263,6 +263,7 @@ proof
 	have is_heap_L: is_heap(L) by apply is_heap in prem;
         have is_heap_insertL: is_heap(first(insert(L, x)))
 	  by using (conjunct 0 of IH) with is_heap_L;
+	apply insert, first in goal;
 	?
       }
       case go_right {
