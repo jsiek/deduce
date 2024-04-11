@@ -40,6 +40,11 @@ function bubble_up_right(Heap,Nat,Direction,Heap) -> Heap {
       heap_node(L, x, d1, heap_node(RL, y, d2, RR));
 }
 
+// The insert(H,x) function creates a new heap that includes all the
+// keys in the heap H as well as the key x. It returns the new heap
+// and a boolean that indicates whether the new heap is a perfect
+// binary tree.
+
 function insert(Heap,Nat) -> Pair<Heap,bool> {
   insert(empty_heap, x) =
     pair(heap_node(empty_heap, x, go_left, empty_heap), true);
@@ -69,6 +74,8 @@ function is_heap(Heap) -> bool {
     is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x);
 }
 
+//---------------- Testing insert ----------------------------------------------
+
 define H1 = heap_node(empty_heap, 1, go_left, empty_heap)
 define H2 = heap_node(empty_heap, 2, go_left, empty_heap)
 define H12 = heap_node(H2, 1, go_right, empty_heap)
@@ -82,43 +89,52 @@ define H01234 = heap_node(H142, 0, go_right, H3)
 
 theorem insert_H1: insert(empty_heap, 1) = pair(H1, true)
 proof
-  apply insert in goal; reflexive
+  apply H1, insert in goal; reflexive
 end
 
 theorem insert_H12: insert(H1, 2) = pair(H12, false)
 proof
-  apply insert, bubble_up_left, first, second, ≤ in goal; reflexive
+  apply H1, H2, H12, insert, bubble_up_left, first, second, <, ≤ in goal;
+  reflexive
 end
 
 theorem insert_H123: insert(H12, 3) = pair(H123, true)
 proof
-  apply insert, bubble_up_right, first, second, ≤ in goal; reflexive
+  apply H2, H3, H12, H123, insert, bubble_up_right, first, second, <, ≤ in goal;
+  reflexive
 end
 
 theorem heap_H123: is_heap(H123)
 proof
-  apply is_heap, smaller_parent, ≤ in goal; .
+  apply H1, H2, H3, H123, is_heap, smaller_parent, ≤ in goal; .
 end
 
 theorem insert_H1234: insert(H123, 4) = pair(H1234, false)
 proof
-  apply insert, bubble_up_left, first, second, ≤ in goal; reflexive
+  apply H2, H3, H4, H24, H123, H1234, insert, bubble_up_left,
+        first, second, <, ≤ in goal;
+  reflexive
 end
 
 theorem heap_H1234: is_heap(H1234)
 proof
-  apply is_heap, smaller_parent, ≤ in goal; .
+  apply H2, H3, H4, H24, H123, H1234, is_heap, smaller_parent, <, ≤ in goal;
+  .
 end
 
 theorem insert_H01234: insert(H1234, 0) = pair(H01234, false)
 proof
-  apply insert, bubble_up_left, bubble_up_right, first, second, ≤ in goal;
+  apply H2, H3, H4, H24, H142, H123, H1234, H01234, insert,
+        bubble_up_left, bubble_up_right,
+        first, second, <, ≤ in goal;
   reflexive
 end
 
 theorem heap_H01234: is_heap(H01234)
 proof
-  apply is_heap, smaller_parent, ≤ in goal; .
+  apply H2, H3, H4, H24, H142, H123, H1234, H01234,
+      is_heap, smaller_parent, <, ≤ in goal;
+  .
 end
 
 theorem bubble_up_left_nonempty:
@@ -133,10 +149,10 @@ proof
       apply bubble_up_left in goal; reflexive
     }
     case heap_node(LL, y, d2, LR) {
+      apply bubble_up_left in goal;
       switch y < x {
         case true {
 	  choose heap_node(LL,x,d2,LR), y, d, R;
-	  apply bubble_up_left in goal;
 	  reflexive
 	}
 	case false {
@@ -148,30 +164,82 @@ proof
   }
 end
 
+theorem bubble_up_right_nonempty:
+  all L:Heap, x:Nat, d:Direction, R:Heap.
+  some L1:Heap, x1:Nat, d1:Direction, R1:Heap.
+  bubble_up_right(R, x, d, L) = heap_node(L1, x1, d1, R1)
+proof
+  arbitrary L:Heap, x:Nat, d:Direction, R:Heap;
+  switch R {
+    case empty_heap {
+      apply bubble_up_right in goal;
+      choose L, x, d, empty_heap;
+      reflexive
+    }
+    case heap_node(RL, y, d2, RR) {
+      apply bubble_up_right in goal;
+      switch y < x {
+	case true {
+	  choose L, y, d, heap_node(RL,x,d2,RR);
+	  reflexive
+	}
+	case false {
+	  choose L, x, d, heap_node(RL,y,d2,RR);
+	  reflexive
+	}
+      }
+    }
+  }
+end
+
+
 // note inconsistency between induction versus switch regarding
 // whether the goal is updated with the cases. -Jeremy
 theorem insert_nonempty:
   all x:Nat. all H: Heap.
-  some L:Heap, R:Heap, y:Nat, d:Direction.
+  some L:Heap, y:Nat, d:Direction, R:Heap.
   first(insert(H, x)) = heap_node(L, y, d, R)
 proof
   arbitrary x:Nat;
   induction Heap
   case empty_heap {
-    choose empty_heap, empty_heap, x, go_left;
-    reflexive
+    choose empty_heap, x, go_left, empty_heap;
+    apply insert, first in goal; reflexive
     }
   case heap_node(L1, y1, d1, R1) {
-    have IHL1: (some L:Heap,R:Heap,y:Nat,d:Direction.
+    have IHL1: (some L:Heap,y:Nat,d:Direction,R:Heap.
                   first(insert(L1,x)) = heap_node(L,y,d,R)) by IH;
+    have IHR1: (some L:Heap,y:Nat,d:Direction,R:Heap.
+                  first(insert(R1,x)) = heap_node(L,y,d,R)) by IH;
     switch d1 {
-    case go_left {
-      rewrite goal with EQ;
-      obtain L1L, L1R, z, d2 with insertL1 from IHL1;
-      rewrite goal with insertL1;
-      ?
-    }
-    case go_right { ? }
+      case go_left {
+	rewrite goal with EQ;
+	obtain L1L, L1R, z, d2 with insertL1 from IHL1;
+	apply insert, first in goal;
+	rewrite goal with insertL1;
+	switch second(insert(L1, x)) {
+	  case true {
+	    bubble_up_left_nonempty[heap_node(L1L,L1R,z,d2), y1, go_right, R1]
+	  }
+	  case false {
+	    bubble_up_left_nonempty[heap_node(L1L,L1R,z,d2), y1, go_left, R1]
+	  }
+	}
+      }
+      case go_right {
+	rewrite goal with EQ;
+	obtain R1L, R1R, z, d2 with insertR1 from IHR1;
+	apply insert, first in goal;
+	rewrite goal with insertR1;
+	switch second(insert(R1, x)) {
+	  case true {
+	    bubble_up_right_nonempty[L1, y1, go_left, heap_node(R1L,R1R,z,d2)]
+	  }
+	  case false {
+	    bubble_up_right_nonempty[L1, y1, go_right, heap_node(R1L,R1R,z,d2)]
+	  }
+	}
+      }
     }
   }
 end
@@ -182,7 +250,11 @@ theorem heap_insert:
 proof
   arbitrary x:Nat;
   induction Heap
-  case empty_heap { assume prem; . }
+  case empty_heap {
+    assume prem;
+    apply insert, first, is_heap, smaller_parent in goal;
+    .
+  }
   case heap_node(L, y, d, R) {
     assume prem: is_heap(heap_node(L,y,d,R));
     switch d {

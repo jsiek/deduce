@@ -562,6 +562,8 @@ class Var(AST):
     return Var(self.location, self.name, self.index)
   
   def __eq__(self, other):
+      if isinstance(other, DefinedValue):
+        return self == other.body
       if not isinstance(other, Var):
           return False
       return self.name == other.name 
@@ -740,14 +742,15 @@ class DefinedValue(Term):
   body: Term
 
   def __str__(self):
-    return "{|" + self.name + " := " + str(self.body) + "|}"
+    #return "{|" + self.name + " := " + str(self.body) + "|}"
+    return base_name(self.name)
 
   def __repr__(self):
     return str(self)
 
   def __eq__(self, other):
     if not isinstance(other, DefinedValue):
-      return False
+      return self.body == other
     return self.name == other.name
 
   def reduce(self, env):

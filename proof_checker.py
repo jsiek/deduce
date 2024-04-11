@@ -314,8 +314,7 @@ def check_proof_of(proof, formula, env):
   match proof:
     case PHole(loc):
       error(loc, 'unfinished proof:\n\t' + str(formula) \
-            + '\nsimplified:\n\t' + str(formula.reduce(env)) \
-            + '\navailable facts:\n' + env.proofs_str())
+            + '\n\navailable facts:\n' + env.proofs_str())
     
     case PReflexive(loc):
       match formula:
@@ -389,6 +388,8 @@ def check_proof_of(proof, formula, env):
           sub = {var[0]: Var(loc2, x) for (var,x) in zip(vars,witnesses)}
           witnessFormula = formula2.substitute(sub)
           body_env = env.declare_proof_var(loc, label, witnessFormula)
+          witnesses_types = [(x,var[1]) for (var,x) in zip(vars,witnesses)]
+          body_env = body_env.declare_term_vars(loc, witnesses_types)
           check_proof_of(body, formula, body_env)
         case _:
           error(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula))
@@ -482,7 +483,8 @@ def check_proof_of(proof, formula, env):
             equation = mkEqual(scase.location, subject, subject_case)
             body_env = env.declare_proof_var(loc, 'EQ', equation)
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
-            check_proof_of(scase.body, frm.reduce(env), body_env)
+            new_frm = frm.reduce(env)
+            check_proof_of(scase.body, new_frm, body_env)
         case _:
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
@@ -661,7 +663,7 @@ def type_synth_term(term, env, recfun, subterms):
     case Var(loc, name, index):
       ret = env.get_type_of_term_var(term)
       if ret == None:
-        error(loc, 'undefined variable ' + str(term) + '\nin scope: ' + str(env))
+        error(loc, 'undefined variable ' + str(term) + '\nin scope:\n' + str(env))
     case Generic(loc, type_params, body):
       body_env = env.declare_type_vars(loc, type_params)
       body_ty = type_synth_term(body, body_env, recfun, subterms)
@@ -768,7 +770,7 @@ def type_check_term(term, typ, env, recfun, subterms):
     case Var(loc, name, index):
       var_typ = env.get_type_of_term_var(term)
       if var_typ == None:
-        error(loc, 'undefined variable ' + str(term) + '\nin scope: ' + str(env))
+        error(loc, 'undefined variable ' + str(term) + '\nin scope:\n' + str(env))
       if var_typ != typ:
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
