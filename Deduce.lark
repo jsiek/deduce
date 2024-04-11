@@ -87,6 +87,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?proof: "have" term "by" proof                           -> annot
     | "using" proof "with" proof                         -> modus_ponens
     | proof "," proof                                    -> tuple
+    | "conjunct" INT "of" proof                          -> conjunct
     | "suppose" IDENT ";" proof                          -> imp_intro
     | "suppose" IDENT ":" term ";" proof                 -> imp_intro_explicit
     | "assume" IDENT ";" proof                           -> imp_intro

@@ -262,6 +262,9 @@ def parse_tree_to_ast(e):
        left = parse_tree_to_ast(e.children[0])
        right = parse_tree_to_ast(e.children[1])
        return PTuple(e.meta, extract_tuple(left) + extract_tuple(right))
+    elif e.data == 'conjunct':
+       subject = parse_tree_to_ast(e.children[1])
+       return PAndElim(e.meta, int(e.children[0].value), subject)
     elif e.data == 'imp_intro':
         label = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1])

@@ -261,12 +261,14 @@ proof
       case go_left {
 	rewrite goal with EQ;
 	have is_heap_L: is_heap(L) by apply is_heap in prem;
-	have IHL: if is_heap(L) then is_heap(first(insert(L,x))) by IH;
-        have is_heap_insertL: is_heap(first(insert(L, x)))  by using IHL with is_heap_L;
+        have is_heap_insertL: is_heap(first(insert(L, x)))
+	  by using (conjunct 0 of IH) with is_heap_L;
 	?
       }
       case go_right {
 	have is_heap_R: is_heap(R) by apply is_heap in prem;
+        have is_heap_insertR: is_heap(first(insert(R, x)))
+	  by using (conjunct 1 of IH) with is_heap_R;
 	?
       }
     }

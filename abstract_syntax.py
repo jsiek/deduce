@@ -1554,6 +1554,20 @@ class PTuple(Proof):
   def uniquify(self, env):
     for arg in self.args:
       arg.uniquify(env)
+
+@dataclass
+class PAndElim(Proof):
+  which: int
+  subject: Proof
+
+  def __str__(self):
+    return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
+
+  def debruijnize(self, env):
+    self.subject.debruijnize(env)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
       
 @dataclass
 class PTrue(Proof):

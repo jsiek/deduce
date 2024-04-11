@@ -230,6 +230,13 @@ def check_proof(proof, env):
     case PTuple(loc, pfs):
       frms = [check_proof(pf, env) for pf in pfs]
       ret = And(loc, frms)
+    case PAndElim(loc, which, subject):
+      formula = check_proof(subject, env)
+      match formula:
+        case And(loc2, args):
+          ret = args[which]
+        case _:
+          error(loc, 'expected a conjunction, not ' + str(formula))
     case ImpIntro(loc, label, prem, body):
       check_formula(prem, env)
       body_env = env.declare_proof_var(loc, label, prem)
