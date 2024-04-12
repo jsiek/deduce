@@ -723,16 +723,18 @@ class Closure(Term):
   def substitute(self, sub):
       n = len(self.vars)
       new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
-      return Closure(self.location, self.vars, self.body.substitute(new_sub))
+      return Closure(self.location, self.vars, self.body.substitute(new_sub), self.env)
 
   def shift_type_vars(self, cutoff, amount):
-    return Closure(self.location, self.vars,
+    return Closure(self.location,
+                   self.vars,
                    self.body.shift_type_vars(cutoff, amount),
                    self.env.shift_type_vars(cutoff, amount))
 
   def shift_term_vars(self, cutoff, amount):
     n = len(self.vars)
-    return Closure(self.location, self.vars,
+    return Closure(self.location,
+                   self.vars,
                    self.body.shift_term_vars(cutoff + n, amount),
                    self.env.shift_term_vars(cutoff + n, amount))
   
@@ -1240,7 +1242,9 @@ class All(Formula):
 
   def reduce(self, env):
     n = len(self.vars)
-    return All(self.location, [(x, ty.reduce(env)) for (x,ty) in self.vars], self.body.reduce(env))
+    return All(self.location,
+               [(x, ty.reduce(env)) for (x,ty) in self.vars],
+               self.body.reduce(env))
 
   def substitute(self, sub):
     n = len(self.vars)
@@ -1868,7 +1872,10 @@ class Union(Statement):
       new_con_name = generate_name(con.name)
       env[con.name] = new_con_name
       con.name = new_con_name
-  
+
+  def substitute(self, sub):
+    return self
+      
   def shift_type_vars(self, cutoff, amount):
     # Don't treat the Union name itself as a binder here,
     # it's more of a global variable. -Jeremy

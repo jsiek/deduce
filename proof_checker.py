@@ -41,7 +41,7 @@ def check_implies(loc, frm1, frm2):
           return
         except Exception as e:
           continue
-      error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
+      error(loc, 'expected ' + str(frm2) + '\nbut only have\n' + str(frm1))
     case _:
       match frm1:
         case Bool(loc2, False):
@@ -53,15 +53,19 @@ def check_implies(loc, frm1, frm2):
               return
             except Exception as e:
               continue
-          error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
+          error(loc, 'expected ' + str(frm2) + '\nbut only have\n' + str(frm1))
         case _:
           match (frm1, frm2):
             case (IfThen(loc1, prem1, conc1), IfThen(loc2, prem2, conc2)):
               check_implies(loc, prem2, prem1)
               check_implies(loc, conc1, conc2)
+            case (All(loc1, vars1, body1), All(loc2, vars2, body2)):
+              sub = {var2[0]: Var(loc2, var1[0]) for (var1, var2) in zip(vars1, vars2)}
+              body2a = body2.substitute(sub)
+              check_implies(loc, body1, body2a)
             case _:
               if frm1 != frm2:
-                error(loc, 'expected ' + str(frm2) + '\nbut only have ' + str(frm1))
+                error(loc, 'expected ' + str(frm2) + '\nbut only have\n' + str(frm1))
             
 def instantiate(loc, allfrm, args):
   match allfrm:
@@ -318,7 +322,7 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      error(loc, 'unfinished proof:\n\t' + str(formula) \
+      error(loc, 'unfinished proof:\n\t' + str(formula.reduce(env)) \
             + '\n\navailable facts:\n' + env.proofs_str())
     
     case PReflexive(loc):
@@ -591,6 +595,8 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty):
       if len(typarams) == 0:
         for (param_type, arg) in zip(param_types, args):
           type_check_term(arg, param_type, env, recfun, subterms)
+        if ret_ty != None and ret_ty != return_type:
+          error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
         return return_type
       else:
         matching = {}
@@ -790,7 +796,7 @@ def type_check_term(term, typ, env, recfun, subterms):
                 + 'but instead got a lambda')
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, env, recfun, subterms)
-      body_env = body_env.declare_term_var(loc, var, rhs_ty)
+      body_env = env.declare_term_var(loc, var, rhs_ty)
       type_check_term(body, typ, body_env, recfun, subterms)
     case Call(loc, Var(loc2, name, index), args, infix) if name == '=' or name == '≠':
       ty = type_synth_term(term, env, recfun, subterms)
