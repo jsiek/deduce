@@ -179,9 +179,10 @@ end
     
 theorem heap_insert:
   all H: Heap. all x:Nat. 
-  if is_heap(H) then
-    is_heap(first(insert(H, x)))
-    and (all z:Nat. if smaller_parent(H, z) and z ≤ x then smaller_parent(first(insert(H,x)), z))
+  if is_heap(H)
+  then is_heap(first(insert(H, x)))
+       and (all z:Nat. if smaller_parent(H, z) and z ≤ x
+                       then smaller_parent(first(insert(H,x)), z))
 proof
   induction Heap
   case empty_heap {
@@ -189,7 +190,8 @@ proof
     assume prem;
     apply insert, first, is_heap, smaller_parent in goal;
     apply smaller_parent in goal;
-    have (all z:Nat. if (z ≤ x) then z ≤ x) by (arbitrary z:Nat; assume zx : z ≤ x; zx)
+    have (all z:Nat. if (z ≤ x) then z ≤ x)
+        by (arbitrary z:Nat; assume zx : z ≤ x; zx)
   }
   case heap_node(L, y, d, R) {
     arbitrary x:Nat;
@@ -198,13 +200,17 @@ proof
     have is_heap_R: is_heap(R) by apply is_heap in prem;
     have L_y: smaller_parent(L,y) by apply is_heap in prem;
     have R_y: smaller_parent(R,y) by apply is_heap in prem;
+    have is_heap_L_y: is_heap(first(insert(L, y)))
+        by using (conjunct 0 of IH)[y] with is_heap_L;
+    have is_heap_R_y: is_heap(first(insert(R, y)))
+        by using (conjunct 1 of IH)[y] with is_heap_R;
+    have is_heap_L_x: is_heap(first(insert(L, x)))
+        by using (conjunct 0 of IH)[x] with is_heap_L;
+    have is_heap_R_x: is_heap(first(insert(R, x)))
+        by using (conjunct 1 of IH)[x] with is_heap_R;
     apply insert in goal;
     switch d {
       case go_left {
-        have is_heap_L_y: is_heap(first(insert(L, y)))
-            by using (conjunct 0 of IH)[y] with is_heap_L;
-        have is_heap_L_x: is_heap(first(insert(L, x)))
-            by using (conjunct 0 of IH)[x] with is_heap_L;
 	apply first, is_heap in goal;
 	switch x < y {
 	  case true {
@@ -215,221 +221,61 @@ proof
 	    have R_x: smaller_parent(R,x)
   	        by using smaller_parent_trans[R, y, x] with (R_y, x_y);
 	    have Ly_x: smaller_parent(first(insert(L,y)),x)
-	        by using (conjunct 1 of (using (conjunct 0 of IH)[y] with (is_heap_L)))[x]
+	        by using (conjunct 1 of (using (conjunct 0 of IH)[y]
+					 with (is_heap_L)))[x]
 	           with (L_x, x_y);
 	    have zx_zx: (all z:Nat. if (z ≤ y) and (z ≤ x) then z ≤ x)
-			    by (arbitrary y:Nat; assume p; p);
+			    by (arbitrary z:Nat; assume p; p);
 	    apply smaller_parent in goal;
 	    (is_heap_L_y, is_heap_R, Ly_x, R_x, zx_zx)
 	  }
 	  case false {
 	    apply smaller_parent in goal;
-	    have y_x: y ≤ x by EQ;
+	    have y_x: y ≤ x by using not_less_less_equal[x][y]
+     	                       with (assume xy: x < y; rewrite xy with EQ);
 	    have Lx_y: smaller_parent(first(insert(L,x)),y)
-	      by using (conjunct 1 of (using (conjunct 0 of IH)[x] with is_heap_L))[y]
+	      by using (conjunct 1 of (using (conjunct 0 of IH)[x]
+				       with is_heap_L))[y]
    	         with (L_y, y_x);
-	    (is_heap_R, is_heap_L_x)
+            have zy_zy: all z:Nat. (if (z ≤ y) and (z ≤ x) then z ≤ y)
+	      by (arbitrary z:Nat; assume p: z ≤ y and z ≤ x; p);
+	    (is_heap_R, is_heap_L_x, Lx_y, R_y, zy_zy)
 	  }
 	}
       }
       case go_right {
-	?
-      }
-    }
-  }
-end
-
-/*
-theorem bubble_up_left_nonempty:
-  all L:Heap, x:Nat, d:Direction, R:Heap.
-  some L1:Heap, x1:Nat, d1:Direction, R1:Heap.
-  bubble_up_left(L, x, d, R) = heap_node(L1, x1, d1, R1)
-proof
-  arbitrary L:Heap, x:Nat, d:Direction, R:Heap;
-  switch L {
-    case empty_heap {
-      choose empty_heap, x, d, R;
-      apply bubble_up_left in goal; reflexive
-    }
-    case heap_node(LL, y, d2, LR) {
-      apply bubble_up_left in goal;
-      switch y < x {
-        case true {
-	  choose heap_node(LL,x,d2,LR), y, d, R;
-	  reflexive
-	}
-	case false {
-	  choose heap_node(LL,y,d2,LR),x,d,R;
-	  reflexive
-	}
-      }
-    }
-  }
-end
-
-theorem bubble_up_right_nonempty:
-  all L:Heap, x:Nat, d:Direction, R:Heap.
-  some L1:Heap, x1:Nat, d1:Direction, R1:Heap.
-  bubble_up_right(R, x, d, L) = heap_node(L1, x1, d1, R1)
-proof
-  arbitrary L:Heap, x:Nat, d:Direction, R:Heap;
-  switch R {
-    case empty_heap {
-      apply bubble_up_right in goal;
-      choose L, x, d, empty_heap;
-      reflexive
-    }
-    case heap_node(RL, y, d2, RR) {
-      apply bubble_up_right in goal;
-      switch y < x {
-	case true {
-	  choose L, y, d, heap_node(RL,x,d2,RR);
-	  reflexive
-	}
-	case false {
-	  choose L, x, d, heap_node(RL,y,d2,RR);
-	  reflexive
-	}
-      }
-    }
-  }
-end
-
-
-// note inconsistency between induction versus switch regarding
-// whether the goal is updated with the cases. -Jeremy
-theorem insert_nonempty:
-  all x:Nat. all H: Heap.
-  some L:Heap, y:Nat, d:Direction, R:Heap.
-  first(insert(H, x)) = heap_node(L, y, d, R)
-proof
-  arbitrary x:Nat;
-  induction Heap
-  case empty_heap {
-    choose empty_heap, x, go_left, empty_heap;
-    apply insert, first in goal; reflexive
-    }
-  case heap_node(L1, y1, d1, R1) {
-    have IHL1: (some L:Heap,y:Nat,d:Direction,R:Heap.
-                  first(insert(L1,x)) = heap_node(L,y,d,R)) by IH;
-    have IHR1: (some L:Heap,y:Nat,d:Direction,R:Heap.
-                  first(insert(R1,x)) = heap_node(L,y,d,R)) by IH;
-    switch d1 {
-      case go_left {
-	rewrite goal with EQ;
-	obtain L1L, L1R, z, d2 with insertL1 from IHL1;
-	apply insert, first in goal;
-	rewrite goal with insertL1;
-	switch second(insert(L1, x)) {
+	apply first, is_heap in goal;
+	switch x < y {
 	  case true {
-	    bubble_up_left_nonempty[heap_node(L1L,L1R,z,d2), y1, go_right, R1]
+	    have x_l_y: x < y by (rewrite goal with EQ; .);
+	    have x_y: x ≤ y by using less_implies_less_equal[x][y] with x_l_y;
+	    have L_x: smaller_parent(L,x)
+	      by using smaller_parent_trans[L, y, x] with (L_y, x_y);
+	    have R_x: smaller_parent(R,x)
+  	        by using smaller_parent_trans[R, y, x] with (R_y, x_y);
+	    have Ry_x: smaller_parent(first(insert(R,y)),x)
+	        by using (conjunct 1 of (using (conjunct 1 of IH)[y]
+					 with (is_heap_R)))[x]
+	           with (R_x, x_y);
+            apply smaller_parent in goal;
+	    have zx_zx: (all z:Nat. (if (z ≤ y) and (z ≤ x) then z ≤ x))
+	        by (arbitrary z: Nat; assume p; p);
+	    (is_heap_L, is_heap_R_y, L_x, Ry_x, zx_zx)
 	  }
 	  case false {
-	    bubble_up_left_nonempty[heap_node(L1L,L1R,z,d2), y1, go_left, R1]
-	  }
-	}
-      }
-      case go_right {
-	rewrite goal with EQ;
-	obtain R1L, R1R, z, d2 with insertR1 from IHR1;
-	apply insert, first in goal;
-	rewrite goal with insertR1;
-	switch second(insert(R1, x)) {
-	  case true {
-	    bubble_up_right_nonempty[L1, y1, go_left, heap_node(R1L,R1R,z,d2)]
-	  }
-	  case false {
-	    bubble_up_right_nonempty[L1, y1, go_right, heap_node(R1L,R1R,z,d2)]
+	    apply smaller_parent in goal;
+	    have y_x: y ≤ x by using not_less_less_equal[x][y]
+     	                       with (assume xy: x < y; rewrite xy with EQ);
+            have Rx_y: smaller_parent(first(insert(R,x)),y)
+	      by using (conjunct 1 of (using (conjunct 1 of IH)[x]
+				       with is_heap_R))[y]
+   	         with (R_y, y_x);
+            have zy_zy: all z:Nat. (if (z ≤ y) and (z ≤ x) then z ≤ y)
+	      by (arbitrary z:Nat; assume p: z ≤ y and z ≤ x; p);
+	    (is_heap_L, is_heap_R_x, L_y, Rx_y, zy_zy)
 	  }
 	}
       }
     }
   }
 end
-
-theorem bubble_up_left_insert:
-  all L:Heap, x:Nat, R:Heap, d:Direction.
-    if is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x)
-    then is_heap(bubble_up_left(L, x, d, R))
-proof
-  arbitrary L:Heap, x:Nat, R:Heap, d:Direction;
-  assume prem: is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x);
-  switch L {
-    case empty_heap {
-      apply bubble_up_left, is_heap, smaller_parent in goal;
-      prem
-    }
-    case heap_node(LL, y, d2, LR) {
-      have defL: L = heap_node(LL, y, d2, LR) by EQ;
-      apply bubble_up_left in goal;
-      switch y < x {
-        case true {
-	  // bubble_up_left(heap_node(LL, y, d2, LR), x, d, R) = heap_node(heap_node(LL, x, d2, LR), y, d, R)
-	  apply is_heap in goal;
-	  have hLL: is_heap(LL) by apply is_heap in rewrite prem with defL;
-	  have hLR: is_heap(LR) by apply is_heap in rewrite prem with defL;
-	  have spLLy: smaller_parent(LL, y) by apply is_heap in rewrite prem with defL;
-	  have y_l_x: y < x by (rewrite goal with EQ; .);
-	  have y_x: y ≤ x by using less_implies_less_equal[y][x] with y_l_x;
-	  have LLx: smaller_parent(LL, x) by ?;
-	  (apply is_heap in rewrite prem with defL, LLx)
-	}
-	case false {
-	  ?
-	}
-      }
-    }
-  }
-end
-    
-theorem heap_insert:
-  all x:Nat. all H: Heap.
-  if is_heap(H) then is_heap(first(insert(H, x)))
-proof
-  arbitrary x:Nat;
-  induction Heap
-  case empty_heap {
-    assume prem;
-    apply insert, first, is_heap, smaller_parent in goal;
-    .
-  }
-  case heap_node(L, y, d, R) {
-    assume prem: is_heap(heap_node(L,y,d,R));
-    switch d {
-      case go_left {
-	rewrite goal with EQ;
-	have is_heap_L: is_heap(L) by apply is_heap in prem;
-        have is_heap_insertL: is_heap(first(insert(L, x)))
-	  by using (conjunct 0 of IH) with is_heap_L;
-	apply insert, first in goal;
-	?
-      }
-      case go_right {
-	have is_heap_R: is_heap(R) by apply is_heap in prem;
-        have is_heap_insertR: is_heap(first(insert(R, x)))
-	  by using (conjunct 1 of IH) with is_heap_R;
-	?
-      }
-    }
-  }
-end
-*/
-
-/*
-function heapify(Heap) -> Heap {
-  heapify(heap_node(x, L, R)) =
-    switch L {
-      case empty_heap {  heap_node(x, L, R) }
-      case heap_node(y, LL, LR) {
-        switch R {
-          
-        
-        if y ≤ x then
-          heap_node(x, L, R)
-        else
-          heap_node(y, heapify(heap_node(x, LL, LR)), R)
-        
-      }
-    }
-}
-*/

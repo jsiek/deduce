@@ -44,6 +44,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
     | "-" term_hi                                  -> neg
+    | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var
 //    | term_hi "<" type_list ">"                    -> term_inst
     | term_hi "(" term_list ")"                    -> call

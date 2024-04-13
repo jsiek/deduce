@@ -238,3 +238,36 @@ proof
     }
   }
 end
+
+theorem not_less_less_equal:
+  all x: Nat. all y: Nat.
+  if not (x < y) then y ≤ x
+proof
+  induction Nat
+  case zero {
+    arbitrary y: Nat;
+    assume not_0_y: not (0 < y);
+    switch y {
+      case zero { apply ≤ in goal; . }
+      case suc(y') {
+        have false by using (rewrite not_0_y with EQ) with (apply <, ≤ in goal; .)
+      }
+    }
+  }
+  case suc(x') {
+    arbitrary y: Nat;
+    assume not_sx_y: not (suc(x') < y);
+    switch y {
+      case zero { apply ≤ in goal; . }
+      case suc(y') {
+        have not_x_y: not (x' < y')
+	  by (assume x_y: x' < y';
+	      have sx_sy: suc(x') < suc(y') by (apply <, ≤ in goal; apply <, ≤ in x_y);
+	      have sx_y: suc(x') < y by (rewrite goal with EQ; sx_sy);
+	      using not_sx_y with sx_y);
+	apply ≤ in goal;
+	have y' ≤ x' by using IH[y'] with not_x_y
+      }
+    }
+  }
+end

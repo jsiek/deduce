@@ -138,6 +138,9 @@ def parse_tree_to_ast(e):
        left = parse_tree_to_ast(e.children[0])
        right = parse_tree_to_ast(e.children[1])
        return Or(e.meta, extract_or(left) + extract_or(right))
+    elif e.data == 'logical_not':
+       subject = parse_tree_to_ast(e.children[0])
+       return IfThen(e.meta, subject, Bool(e.meta, False))
     elif e.data == 'all_formula':
         return All(e.meta,
                    parse_tree_to_list(e.children[0]),

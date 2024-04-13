@@ -1197,9 +1197,13 @@ class IfThen(Formula):
   def copy(self):
     return IfThen(self.location, self.premise.copy(), self.conclusion.copy())
   def __str__(self):
-    return 'if ' + str(self.premise) + ' then ' + str(self.conclusion)
+    return '(if ' + str(self.premise) + ' then ' + str(self.conclusion) + ')'
   def __repr__(self):
     return str(self)
+  def __eq__(self, other):
+    if not isinstance(other, IfThen):
+      return False
+    return self.premise == other.premise and self.conclusion == other.conclusion
   def reduce(self, env):
     prem = self.premise.reduce(env)
     conc = self.conclusion.reduce(env)
@@ -1225,7 +1229,6 @@ class IfThen(Formula):
     self.premise.uniquify(env)
     self.conclusion.uniquify(env)
 
-    
 @dataclass
 class All(Formula):
   vars: list[Tuple[str,Type]]
