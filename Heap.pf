@@ -84,15 +84,16 @@ function insert(Heap,Nat) -> Pair<Heap,bool> {
 }
 
 
-function smaller_parent(Heap, Nat) -> bool {
-  smaller_parent(empty_heap, p) = true;
-  smaller_parent(heap_node(L, c, d, R), p) = p ≤ c;
+function heap_greater_equal(Heap, Nat) -> bool {
+  heap_greater_equal(empty_heap, p) = true;
+  heap_greater_equal(heap_node(L, c, d, R), p) = p ≤ c;
 }
 
 function is_heap(Heap) -> bool {
   is_heap(empty_heap) = true;
   is_heap(heap_node(L, x, d, R)) =
-    is_heap(L) and is_heap(R) and smaller_parent(L, x) and smaller_parent(R, x);
+    is_heap(L) and is_heap(R) and
+    heap_greater_equal(L, x) and heap_greater_equal(R, x);
 }
 
 //---------------- Testing insert ----------------------------------------------
@@ -127,7 +128,7 @@ end
 
 theorem heap_H123: is_heap(H123)
 proof
-  apply H1, H2, H3, H123, is_heap, smaller_parent, ≤ in goal; .
+  apply H1, H2, H3, H123, is_heap, heap_greater_equal, ≤ in goal; .
 end
 
 theorem insert_H1234: insert(H123, 4) = pair(H1234, false)
@@ -139,7 +140,7 @@ end
 
 theorem heap_H1234: is_heap(H1234)
 proof
-  apply H2, H3, H4, H24, H123, H1234, is_heap, smaller_parent, <, ≤ in goal;
+  apply H2, H3, H4, H24, H123, H1234, is_heap, heap_greater_equal, <, ≤ in goal;
   .
 end
 
@@ -154,24 +155,24 @@ end
 theorem heap_H01234: is_heap(H01234)
 proof
   apply H2, H3, H4, H24, H142, H123, H1234, H01234,
-      is_heap, smaller_parent, <, ≤ in goal;
+      is_heap, heap_greater_equal, <, ≤ in goal;
   .
 end
 
-theorem smaller_parent_trans:
+theorem heap_greater_equal_trans:
   all L:Heap, x:Nat, y:Nat.
-  if smaller_parent(L, x) and y ≤ x then smaller_parent(L, y)
+  if heap_greater_equal(L, x) and y ≤ x then heap_greater_equal(L, y)
 proof
   arbitrary L:Heap, x:Nat, y:Nat;
-  assume prem: smaller_parent(L, x) and y ≤ x;
+  assume prem: heap_greater_equal(L, x) and y ≤ x;
   switch L {
     case empty_heap {
-      apply smaller_parent in goal;
+      apply heap_greater_equal in goal;
       .
     }
     case heap_node(LL, z, d, LR) {
-      apply smaller_parent in goal;
-      have x_z: x ≤ z by apply smaller_parent in (rewrite prem with EQ);
+      apply heap_greater_equal in goal;
+      have x_z: x ≤ z by apply heap_greater_equal in (rewrite prem with EQ);
       have y ≤ z by using less_equal_trans[y][x,z] with (prem,x_z)
     }
   }
@@ -181,15 +182,15 @@ theorem heap_insert:
   all H: Heap. all x:Nat. 
   if is_heap(H)
   then is_heap(first(insert(H, x)))
-       and (all z:Nat. if smaller_parent(H, z) and z ≤ x
-                       then smaller_parent(first(insert(H,x)), z))
+       and (all z:Nat. if heap_greater_equal(H, z) and z ≤ x
+                       then heap_greater_equal(first(insert(H,x)), z))
 proof
   induction Heap
   case empty_heap {
     arbitrary x:Nat;
     assume prem;
-    apply insert, first, is_heap, smaller_parent in goal;
-    apply smaller_parent in goal;
+    apply insert, first, is_heap, heap_greater_equal in goal;
+    apply heap_greater_equal in goal;
     have (all z:Nat. if (z ≤ x) then z ≤ x)
         by (arbitrary z:Nat; assume zx : z ≤ x; zx)
   }
@@ -198,8 +199,8 @@ proof
     assume prem: is_heap(heap_node(L,y,d,R));
     have is_heap_L: is_heap(L) by apply is_heap in prem;
     have is_heap_R: is_heap(R) by apply is_heap in prem;
-    have L_y: smaller_parent(L,y) by apply is_heap in prem;
-    have R_y: smaller_parent(R,y) by apply is_heap in prem;
+    have L_y: heap_greater_equal(L,y) by apply is_heap in prem;
+    have R_y: heap_greater_equal(R,y) by apply is_heap in prem;
     have is_heap_L_y: is_heap(first(insert(L, y)))
         by using (conjunct 0 of IH)[y] with is_heap_L;
     have is_heap_R_y: is_heap(first(insert(R, y)))
@@ -216,24 +217,24 @@ proof
 	  case true {
 	    have x_l_y: x < y by (rewrite goal with EQ; .);
 	    have x_y: x ≤ y by using less_implies_less_equal[x][y] with x_l_y;
-	    have L_x: smaller_parent(L,x) 
-  	        by using smaller_parent_trans[L, y, x] with (L_y, x_y);
-	    have R_x: smaller_parent(R,x)
-  	        by using smaller_parent_trans[R, y, x] with (R_y, x_y);
-	    have Ly_x: smaller_parent(first(insert(L,y)),x)
+	    have L_x: heap_greater_equal(L,x) 
+  	        by using heap_greater_equal_trans[L, y, x] with (L_y, x_y);
+	    have R_x: heap_greater_equal(R,x)
+  	        by using heap_greater_equal_trans[R, y, x] with (R_y, x_y);
+	    have Ly_x: heap_greater_equal(first(insert(L,y)),x)
 	        by using (conjunct 1 of (using (conjunct 0 of IH)[y]
 					 with (is_heap_L)))[x]
 	           with (L_x, x_y);
 	    have zx_zx: (all z:Nat. if (z ≤ y) and (z ≤ x) then z ≤ x)
 			    by (arbitrary z:Nat; assume p; p);
-	    apply smaller_parent in goal;
+	    apply heap_greater_equal in goal;
 	    (is_heap_L_y, is_heap_R, Ly_x, R_x, zx_zx)
 	  }
 	  case false {
-	    apply smaller_parent in goal;
+	    apply heap_greater_equal in goal;
 	    have y_x: y ≤ x by using not_less_less_equal[x][y]
      	                       with (assume xy: x < y; rewrite xy with EQ);
-	    have Lx_y: smaller_parent(first(insert(L,x)),y)
+	    have Lx_y: heap_greater_equal(first(insert(L,x)),y)
 	      by using (conjunct 1 of (using (conjunct 0 of IH)[x]
 				       with is_heap_L))[y]
    	         with (L_y, y_x);
@@ -249,24 +250,24 @@ proof
 	  case true {
 	    have x_l_y: x < y by (rewrite goal with EQ; .);
 	    have x_y: x ≤ y by using less_implies_less_equal[x][y] with x_l_y;
-	    have L_x: smaller_parent(L,x)
-	      by using smaller_parent_trans[L, y, x] with (L_y, x_y);
-	    have R_x: smaller_parent(R,x)
-  	        by using smaller_parent_trans[R, y, x] with (R_y, x_y);
-	    have Ry_x: smaller_parent(first(insert(R,y)),x)
+	    have L_x: heap_greater_equal(L,x)
+	      by using heap_greater_equal_trans[L, y, x] with (L_y, x_y);
+	    have R_x: heap_greater_equal(R,x)
+  	        by using heap_greater_equal_trans[R, y, x] with (R_y, x_y);
+	    have Ry_x: heap_greater_equal(first(insert(R,y)),x)
 	        by using (conjunct 1 of (using (conjunct 1 of IH)[y]
 					 with (is_heap_R)))[x]
 	           with (R_x, x_y);
-            apply smaller_parent in goal;
+            apply heap_greater_equal in goal;
 	    have zx_zx: (all z:Nat. (if (z ≤ y) and (z ≤ x) then z ≤ x))
 	        by (arbitrary z: Nat; assume p; p);
 	    (is_heap_L, is_heap_R_y, L_x, Ry_x, zx_zx)
 	  }
 	  case false {
-	    apply smaller_parent in goal;
+	    apply heap_greater_equal in goal;
 	    have y_x: y ≤ x by using not_less_less_equal[x][y]
      	                       with (assume xy: x < y; rewrite xy with EQ);
-            have Rx_y: smaller_parent(first(insert(R,x)),y)
+            have Rx_y: heap_greater_equal(first(insert(R,x)),y)
 	      by using (conjunct 1 of (using (conjunct 1 of IH)[x]
 				       with is_heap_R))[y]
    	         with (R_y, y_x);
