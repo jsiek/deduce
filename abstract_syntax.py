@@ -1143,7 +1143,24 @@ class And(Formula):
       return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   def reduce(self, env):
-    return And(self.location, [arg.reduce(env) for arg in self.args])
+    new_args = [arg.reduce(env) for arg in self.args]
+    newer_args = []
+    for arg in new_args:
+      match arg:
+        case Bool(loc, val):
+          if val:  # true: throw this away
+            pass
+          else:    # false: the whole thing is false
+            return arg
+        case _:
+          newer_args.append(arg)
+    if len(newer_args) == 0:
+      return Bool(self.location, True)
+    elif len(newer_args) == 1:
+      return newer_args[0]
+    else:
+      return And(self.location, newer_args)
+  
   def substitute(self, sub):
     return And(self.location, [arg.substitute(sub) for arg in self.args])
   def debruijnize(self, env):
@@ -1207,12 +1224,18 @@ class IfThen(Formula):
   def reduce(self, env):
     prem = self.premise.reduce(env)
     conc = self.conclusion.reduce(env)
-    if prem == Bool(self.location, False):
-      return Bool(self.location, True)
-    elif conc == Bool(self.location, True):
-      return Bool(self.location, True)
-    else:
-      return IfThen(self.location, prem, conc)
+    match prem:
+      case Bool(loc, True):
+        return self.conclusion
+      case Bool(loc, False):
+        return Bool(loc, True)
+      case _:
+        match conc:
+          case Bool(loc, True):
+            return Bool(self.location, True)
+          case _:
+            return IfThen(self.location, prem, conc)
+
   def substitute(self, sub):
     return IfThen(self.location, self.premise.substitute(sub),
                   self.conclusion.substitute(sub))

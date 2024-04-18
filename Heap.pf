@@ -314,3 +314,29 @@ proof
     }
   }
 end
+
+theorem perfect_insert:
+  all H: Heap. all x:Nat. 
+  if is_complete(H) and second(insert(H, x))
+  then is_perfect(first(insert(H, x)))
+proof
+  induction Heap
+  case empty_heap {
+    arbitrary x:Nat;
+    apply is_complete, insert, first, second, is_perfect, height in goal;
+    // It shouldn't be necessary to do another apply! -Jeremy
+    apply insert, first, is_perfect, height in goal;
+    reflexive
+  }
+  case heap_node(L, x, d, R) {
+    ?
+  }
+end
+
+theorem complete_insert:
+  all H: Heap. all x:Nat. 
+  if is_complete(H)
+  then is_complete(first(insert(H, x)))
+proof
+  ?
+end
