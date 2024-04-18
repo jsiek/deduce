@@ -469,6 +469,11 @@ class Conditional(Term):
     
   def __repr__(self):
       return str(self)
+
+  def __eq__(self, other):
+    if not isinstance(other, Conditional):
+      return False
+    return self.cond == other.cond and self.thn == other.thn and self.els == other.els
     
   def reduce(self, env):
      cond = self.cond.reduce(env)

@@ -271,3 +271,19 @@ proof
     }
   }
 end
+
+theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
+proof
+  induction Nat
+  case zero {
+    apply max in goal;
+    reflexive
+  }
+  case suc(x') {
+    equations
+    max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
+                                         by (apply max in goal; reflexive)
+    ... = suc(suc(max(x',x')))           by (rewrite goal with IH; reflexive)
+    ... = suc(max(suc(x'),suc(x')))      by (apply max in goal; reflexive)
+  }
+end

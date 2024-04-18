@@ -105,13 +105,43 @@ function is_perfect(Heap) -> bool {
     height(L) = height(R) and is_perfect(L) and is_perfect(R);
 }
 
+//  Def. A jagged tree is a complete but not perfect binary tree.
+function is_jagged(Heap) -> bool {
+  is_jagged(empty_heap) = false;
+  is_jagged(heap_node(L, x, d, R)) =
+    switch d {
+      case go_left {
+        is_jagged(L) and is_perfect(R) and height(L) = suc(height(R))
+      }
+      case go_right {
+        is_perfect(L) and
+	((is_jagged(R) and height(L) = height(R))
+	or (is_perfect(R) and height(L) = suc(height(R))))
+      }
+    };
+}
+
 function is_complete(Heap) -> bool {
   is_complete(empty_heap) = true;
   is_complete(heap_node(L, x, d, R)) =
-    (height(L) = height(R) and is_perfect(L)
-        and (is_perfect(R) or is_complete(R)))
+    switch d {
+      case go_left {
+        ((is_perfect(L) and height(L) = height(R))
+	or (is_jagged(L) and height(L) = suc(height(R))))
+        and is_perfect(R)
+      }
+      case go_right {
+        is_perfect(L)
+	and ((is_perfect(R) and height(L) = suc(height(R)))
+	    or (is_jagged(R) and height(L) = height(R)))
+      }
+    };
+/*
+    (height(L) = height(R) and is_perfect(L) and is_complete(R))
     or (height(L) = suc(height(R)) and is_complete(L) and is_perfect(R));
+*/
 }
+
 
 //---------------- Testing insert ----------------------------------------------
 
@@ -315,6 +345,42 @@ proof
   }
 end
 
+theorem perfect_insert_height:
+  all H: Heap. all x:Nat. 
+  if is_perfect(H)
+  then height(first(insert(H, x))) = suc(height(H))
+proof
+  induction Heap
+  case empty_heap {
+    arbitrary x:Nat;
+    apply is_perfect, insert, height in goal;
+    apply insert, first, height, suc, max in goal;
+    reflexive
+  }
+  case heap_node(L, x, d, R) {
+    switch d {
+      case go_left {
+        arbitrary y:Nat;
+	assume prem;
+	apply insert, first, height in goal;
+	have pL: is_perfect(L) by apply is_perfect in prem;
+	have hLhR: height(L) = height(R) by apply is_perfect in prem;
+	have hiL:
+	   height(first(insert(L, if y < x then x else y))) = suc(height(L))
+	   by (using (conjunct 0 of IH)[if y < x then x else y] with pL);
+	rewrite goal with hiL;
+	rewrite goal with hLhR;
+	rewrite goal with max_suc[height(R)];
+        reflexive
+      }
+      case go_right {
+        ?
+      }
+    }
+  }
+end
+
+/*
 theorem perfect_insert:
   all H: Heap. all x:Nat. 
   if is_complete(H) and second(insert(H, x))
@@ -334,8 +400,15 @@ proof
                  and second(insert(heap_node(L, y, d, R), x));
     switch d {
       case go_left {
-        apply insert, is_complete in goal;
-        ?
+        apply insert, is_complete, first, is_perfect in goal;
+        switch x < y {
+	  case true {
+	    ?
+	  }
+	  case false {
+	    ?
+	  }
+	}
       }
       case go_right {
         ?
@@ -351,3 +424,4 @@ theorem complete_insert:
 proof
   ?
 end
+*/

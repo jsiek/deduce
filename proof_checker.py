@@ -41,7 +41,7 @@ def check_implies(loc, frm1, frm2):
           return
         except Exception as e:
           continue
-      error(loc, 'expected ' + str(frm2) + '\nbut only have\n' + str(frm1))
+      error(loc, 'could not satisfy all the parts of\n' + str(frm2) + '\nfrom the formula\n' + str(frm1))
     case _:
       match frm1:
         case Bool(loc2, False):
@@ -53,7 +53,7 @@ def check_implies(loc, frm1, frm2):
               return
             except Exception as e:
               continue
-          error(loc, 'expected ' + str(frm2) + '\nbut only have\n' + str(frm1))
+          error(loc, 'could not satisfy\n' + str(frm2) + '\nwith any of the parts of\n' + str(frm1))
         case _:
           match (frm1, frm2):
             case (IfThen(loc1, prem1, conc1), IfThen(loc2, prem2, conc2)):
@@ -65,7 +65,7 @@ def check_implies(loc, frm1, frm2):
               check_implies(loc, body1, body2a)
             case _:
               if frm1 != frm2:
-                error(loc, 'expected ' + str(frm2) + '\nbut only have\n' + str(frm1))
+                error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
             
 def instantiate(loc, allfrm, args):
   match allfrm:
