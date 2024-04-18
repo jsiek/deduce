@@ -328,8 +328,19 @@ proof
     apply insert, first, is_perfect, height in goal;
     reflexive
   }
-  case heap_node(L, x, d, R) {
-    ?
+  case heap_node(L, y, d, R) {
+    arbitrary x:Nat;
+    assume prem: is_complete(heap_node(L, y, d, R))
+                 and second(insert(heap_node(L, y, d, R), x));
+    switch d {
+      case go_left {
+        apply insert, is_complete in goal;
+        ?
+      }
+      case go_right {
+        ?
+      }
+    }
   }
 end
 
