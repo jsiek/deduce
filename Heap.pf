@@ -45,24 +45,6 @@ function bubble_up_right(Heap,Nat,Direction,Heap) -> Heap {
 // and a boolean that indicates whether the new heap is a perfect
 // binary tree.
 
-function insert2(Heap,Nat) -> Pair<Heap,bool> {
-  insert2(empty_heap, x) =
-    pair(heap_node(empty_heap, x, go_left, empty_heap), true);
-  insert2(heap_node(L, y, d, R), x) =
-    switch d {
-      case go_left {
-        let p = insert2(L, x);
-        let dir = if second(p) then go_right else go_left;
-        pair(bubble_up_left(first(p), y, dir, R), false)
-      }
-      case go_right {
-        let p = insert2(R, x);
-        let dir = if second(p) then go_left else go_right;
-        pair(bubble_up_right(first(p), y, dir, L), second(p))
-      }
-    };
-}
-
 function insert(Heap,Nat) -> Pair<Heap,bool> {
   insert(empty_heap, x) =
     pair(heap_node(empty_heap, x, go_left, empty_heap), true);
@@ -83,6 +65,22 @@ function insert(Heap,Nat) -> Pair<Heap,bool> {
     };
 }
 
+// pop : Heap -> Pair<Heap, Nat>
+
+// Delete the last node of a perfect tree.
+function del_last(Heap) -> Pair<Heap,Nat> {
+  del_last(empty_heap) = pair(empty_heap, 0); // can't happen
+  del_last(heap_node(L, y, d, R)) =
+    switch R {
+      case empty_heap {
+        pair(empty_heap, y)
+      }
+      case heap_node(RL, z, d2, RR) {
+        let p = del_last(R);
+	pair(heap_node(L, y, go_right, first(p)), second(p))
+      }
+    };
+}
 
 function heap_greater_equal(Heap, Nat) -> bool {
   heap_greater_equal(empty_heap, p) = true;
@@ -94,6 +92,25 @@ function is_heap(Heap) -> bool {
   is_heap(heap_node(L, x, d, R)) =
     is_heap(L) and is_heap(R) and
     heap_greater_equal(L, x) and heap_greater_equal(R, x);
+}
+
+function height(Heap) -> Nat {
+  height(empty_heap) = 0;
+  height(heap_node(L, x, d, R)) = suc(max(height(L), height(R)));
+}
+
+function is_perfect(Heap) -> bool {
+  is_perfect(empty_heap) = true;
+  is_perfect(heap_node(L, x, d, R)) =
+    height(L) = height(R) and is_perfect(L) and is_perfect(R);
+}
+
+function is_complete(Heap) -> bool {
+  is_complete(empty_heap) = true;
+  is_complete(heap_node(L, x, d, R)) =
+    (height(L) = height(R) and is_perfect(L)
+        and (is_perfect(R) or is_complete(R)))
+    or (height(L) = suc(height(R)) and is_complete(L) and is_perfect(R));
 }
 
 //---------------- Testing insert ----------------------------------------------
@@ -158,6 +175,23 @@ proof
       is_heap, heap_greater_equal, <, ≤ in goal;
   .
 end
+
+
+//---------------- Testing del_last ----------------------------------------------
+
+theorem del_last_H1: del_last(H1) = pair(empty_heap, 1)
+proof
+  apply del_last, H1 in goal;
+  reflexive
+end
+
+theorem del_last_h123: del_last(H123) = pair(H12, 3)
+proof
+  apply del_last, H1, H2, H3, H123, H12, first, second in goal;
+  reflexive
+end
+
+//---------------- Correctness of insert ----------------------------------------------
 
 theorem heap_greater_equal_trans:
   all L:Heap, x:Nat, y:Nat.
