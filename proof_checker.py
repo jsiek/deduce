@@ -592,6 +592,8 @@ def type_names(loc, names):
 def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty):
   match funty:
     case FunctionType(loc2, typarams, param_types, return_type):
+      if len(args) != len(param_types):
+        error(loc, 'incorrect number of arguments, expected ' + str(len(param_types)) + ', not ' + str(len(args)))
       if len(typarams) == 0:
         for (param_type, arg) in zip(param_types, args):
           type_check_term(arg, param_type, env, recfun, subterms)

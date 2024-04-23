@@ -151,6 +151,9 @@ class BoolType(Type):
 
   def shift_type_vars(self, cutoff, amount):
     return self
+
+  def reduce(self, env):
+    return self
   
 @dataclass
 class TypeType(Type):
@@ -198,7 +201,7 @@ class FunctionType(Type):
       prefix = '<' + ','.join([x for x in self.type_params]) + '>'
     else:
       prefix = ''
-    return prefix + '(' + ','.join([str(ty) for ty in self.param_types]) + ')'\
+    return 'fn' + prefix + '(' + ','.join([str(ty) for ty in self.param_types]) + ')'\
       + ' -> ' + str(self.return_type)
 
   def __eq__(self, other):
@@ -244,6 +247,11 @@ class FunctionType(Type):
     return FunctionType(self.location, self.type_params,
                         [ty.shift_type_vars(cutoff + n, amount) for ty in self.param_types],
                         self.return_type.shift_type_vars(cutoff + n, amount))
+
+  def reduce(self, env):
+    return FunctionType(self.location, self.type_params,
+                        [ty.reduce(env) for ty in self.param_types],
+                        self.return_type.reduce(env))
     
 @dataclass
 class TypeInst(Type):

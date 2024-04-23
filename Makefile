@@ -26,6 +26,7 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py List.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Pair.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Heap.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
 
 # TODO
 
