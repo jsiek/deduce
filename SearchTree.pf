@@ -156,7 +156,7 @@ proof
 	    have BST_Rx: is_BST(insert(R,x,v))
 	      by using (conjunct 1 of IH)[x,v] with BST_R;
 	    have not_xly: not (x < y) by (assume prem; rewrite prem with EQ); 
-	    have yx: y < x by using trichotomy[y][x] with not_xey, not_xly;
+	    have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
 	    have Rx_y: all_keys(insert(R,x,v),λ k{y < k})
 	      by using insert_all[R][x,v,(λ k {y < k}) : fn(Nat)->bool]
 	         with Ry, yx;

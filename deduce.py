@@ -13,6 +13,8 @@ if __name__ == "__main__":
       set_filename(filename)
       ast = parse(p, trace=False)
       try:
+          if get_verbose():
+              print("starting uniquify:\n" + str(ast))
           uniquify_deduce(ast)
           if get_verbose():
               print("finished uniquify:\n" + str(ast))

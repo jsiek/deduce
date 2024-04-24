@@ -298,7 +298,7 @@ def parse_tree_to_ast(e):
     elif e.data == 'cases':
         return Cases(e.meta,
                      parse_tree_to_ast(e.children[0]),
-                     parse_tree_to_case_list(e.children[1]))
+                     list(parse_tree_to_case_list(e.children[1])))
     elif e.data == 'induction':
         typ = parse_tree_to_ast(e.children[0])
         cases = parse_tree_to_list(e.children[1])

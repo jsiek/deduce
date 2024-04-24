@@ -28,6 +28,50 @@ def generate_name(name):
 def check_implies(loc, frm1, frm2):
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
+  match (frm1, frm2):
+    case (_, Bool(loc2, True)):
+      return
+    case (_, And(loc2, args)):
+      for arg2 in args:
+        check_implies(loc, frm1, arg2)
+    case(Or(loc1, args1), _):
+      for arg1 in args1:
+        try:
+          check_implies(loc, arg1, frm2)
+        except Exception as e:
+          error(loc, 'could not prove\n' + str(frm2) + '\nfrom \n' + str(arg1))
+    case (_, Or(loc2, args)):
+      for arg2 in args:
+        try:
+          check_implies(loc, frm1, arg2)
+          return
+        except Exception as e:
+          continue
+      error(loc, 'could not satisfy all the parts of\n' + str(frm2) + '\nfrom the formula\n' + str(frm1))
+    case (Bool(loc2, False), _):
+      return
+    case (And(loc2, args1), _):
+      for arg1 in args1:
+        try:
+          check_implies(loc, arg1, frm2)
+          return
+        except Exception as e:
+          continue
+      error(loc, 'could not satisfy\n' + str(frm2) + '\nwith any of the parts of\n' + str(frm1))
+    case (IfThen(loc1, prem1, conc1), IfThen(loc2, prem2, conc2)):
+      check_implies(loc, prem2, prem1)
+      check_implies(loc, conc1, conc2)
+    case (All(loc1, vars1, body1), All(loc2, vars2, body2)):
+      sub = {var2[0]: Var(loc2, var1[0]) for (var1, var2) in zip(vars1, vars2)}
+      body2a = body2.substitute(sub)
+      check_implies(loc, body1, body2a)
+    case _:
+      if frm1 != frm2:
+        error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
+
+def check_implies_old(loc, frm1, frm2):
+  if get_verbose():
+    print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
   match frm2:
     case Bool(loc2, True):
       return
@@ -66,7 +110,7 @@ def check_implies(loc, frm1, frm2):
             case _:
               if frm1 != frm2:
                 error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
-            
+                
 def instantiate(loc, allfrm, args):
   match allfrm:
     case All(loc2, vars, frm):

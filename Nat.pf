@@ -289,47 +289,49 @@ proof
 end
 
 theorem trichotomy:
-  all y:Nat. all x:Nat.
-  if not (x = y) and not (x < y)
-  then y < x
+  all x:Nat. all y:Nat.
+  x < y  or  x = y  or  y < x
 proof
   induction Nat
   case zero {
-    arbitrary x:Nat;
-    assume prem;
-    switch x {
-      case zero {
-        have false by using (conjunct 0 of prem) with EQ
-      }
-      case suc(x') {
-        apply <, ≤ in goal;
-        .
-      }
+    arbitrary y:Nat;
+    switch y {
+      case zero { have 0 = 0 by reflexive }
+      case suc(y') { have 0 < suc(y') by apply <,≤ in goal; . }
     }
   }
-  case suc(y') {
-    arbitrary x:Nat;
-    assume prem;
-    switch x {
-      case zero {
-        have false by using (conjunct 1 of prem) with
-	  (rewrite goal with EQ; apply <,≤ in goal; .)
-      }
-      case suc(x') {
-        have not_xey: not (x' = y') by
-	  (assume xey;
-	   using (conjunct 0 of prem) with rewrite goal with EQ;
-	   rewrite goal with xey; reflexive);
-        have not_xly: not (x' < y') by
-	  (assume xly;
-	   using (conjunct 1 of prem) with rewrite goal with EQ;
-	   apply <,≤ in goal;
-	   apply <,≤ in xly);
-        have yx: y' < x'
-	  by using IH[x'] with not_xey, not_xly;
-        apply <,≤ in goal;
-	apply <,≤ in yx
+  case suc(x') {
+    arbitrary y:Nat;
+    switch y {
+      case zero { have 0 < suc(x') by (apply <,≤ in goal; .) }
+      case suc(y') {
+        cases (have (x' < y' or x' = y' or y' < x') by IH[y'])
+	case less { have suc(x') < suc(y') by apply <,≤ in goal; apply <,≤ in less }
+	case eq { have suc(x') = suc(y') by rewrite goal with eq; reflexive }
+	case gtr { have suc(y') < suc(x') by (apply <,≤ in goal; apply <,≤ in gtr) }
       }
     }
   }
 end
+  
+theorem trichotomy2:
+  all y:Nat, x:Nat.
+  if not (x = y) and not (x < y)
+  then y < x
+proof
+  arbitrary y:Nat, x:Nat;
+  assume prem;
+  cases trichotomy[x][y]
+  case less {
+    have nxy: not (x < y) by prem;
+    have false by using nxy with less
+  }
+  case eq {
+    have neq: not (x = y) by prem;
+    have false by using neq with eq
+  }
+  case greater {
+    greater
+  }
+end
+

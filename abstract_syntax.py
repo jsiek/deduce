@@ -741,7 +741,7 @@ class Closure(Term):
       return ret
 
   def reduce(self, env):
-      return self
+      return Closure(self.location, self.vars, self.body.reduce(env), self.env)
 
   def substitute(self, sub):
       n = len(self.vars)
@@ -858,11 +858,14 @@ class Call(Term):
       #   else:
       #     ret = Call(self.location, fun, args, self.infix)
       case Closure(loc, vars, body, clos_env):
-        #print('*** applying function ' + str(fun) + '\nto ' + str(args))
+        # print('*** applying function ' + str(fun) + '\nto ' + str(args))
+        # print('*** parameters and arguments:\n')
+        # for (x,v) in zip(vars, args):
+        #   print(x + ' = ' + str(v))
         body_env = clos_env.define_term_vars(loc, zip(vars, args))
-        #print('*** body ' + str(body_env))
+        # print('*** body_env\n' + str(body_env))
         ret = body.reduce(body_env)
-        #print('*** call result: ' + str(ret))
+        # print('*** call result: ' + str(ret))
       case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
         if fun in get_reduce_only(): # len(get_reduce_only()) == 0 or 
           #print('*** applying function ' + str(fun) + '\nto ' + str(args))
@@ -1469,8 +1472,16 @@ class Cases(Proof):
 
   def uniquify(self, env):
     self.subject.uniquify(env)
-    for c in self.cases:
-      c.uniquify(env)
+    i = 0
+    while i != len(self.cases):
+      body_env = {x:y for (x,y) in env.items()}
+      label = self.cases[i][0]
+      proof = self.cases[i][1]
+      new_label = generate_name(label)
+      self.cases[i] = (new_label, proof)
+      body_env[label] = new_label
+      proof.uniquify(body_env)
+      i += 1
       
 @dataclass
 class ModusPonens(Proof):
