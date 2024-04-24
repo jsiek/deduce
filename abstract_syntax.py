@@ -586,6 +586,7 @@ class Var(AST):
         return '0'
       else:
         return base_name(self.name)
+        #return self.name
 
   def __repr__(self):
       return str(self)
@@ -681,7 +682,8 @@ class Lambda(Term):
       return new_body == other.body
 
   def reduce(self, env):
-      return Closure(self.location, self.vars, self.body, env)
+      #return Closure(self.location, self.vars, self.body, env)
+    return Closure(self.location, self.vars, self.body.reduce(env), env)
 
   def substitute(self, sub):
       n = len(self.vars)
@@ -719,16 +721,24 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "closure " + ",".join([v for v in self.vars]) + "{" + str(self.body) + "}"
+    return "λ " + ",".join([base_name(v) for v in self.vars]) \
+      + "{" + str(self.body) + "}"
 
   def __repr__(self):
     return str(self)
 
   def __eq__(self, other):
+      #print('closure eq?')
       if not isinstance(other, Closure):
+          #print('other not closure')
           return False
       sub = {y: Var(self.location, x) for (x,y) in zip(self.vars, other.vars)}
-      return self.body == other.body.substitute(sub)
+      # print('closure sub ' + str(sub))
+      # print('closure body ' + str(self.body))
+      # print('other body ' + str(other.body.substitute(sub)))
+      ret = self.body == other.body.substitute(sub)
+      # print('ret = ' + str(ret))
+      return ret
 
   def reduce(self, env):
       return self
@@ -833,6 +843,9 @@ class Call(Term):
           return False
       eq_rators = self.rator == other.rator
       eq_rands = all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
+      # print(str(self) + ' eq? ' + str(other))
+      # print('eq_rators = ' + str(eq_rators))
+      # print('eq_rands = ' + str(eq_rands))
       return eq_rators and eq_rands
 
   def reduce(self, env):

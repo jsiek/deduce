@@ -287,3 +287,49 @@ proof
     ... = suc(max(suc(x'),suc(x')))      by (apply max in goal; reflexive)
   }
 end
+
+theorem trichotomy:
+  all y:Nat. all x:Nat.
+  if not (x = y) and not (x < y)
+  then y < x
+proof
+  induction Nat
+  case zero {
+    arbitrary x:Nat;
+    assume prem;
+    switch x {
+      case zero {
+        have false by using (conjunct 0 of prem) with EQ
+      }
+      case suc(x') {
+        apply <, ≤ in goal;
+        .
+      }
+    }
+  }
+  case suc(y') {
+    arbitrary x:Nat;
+    assume prem;
+    switch x {
+      case zero {
+        have false by using (conjunct 1 of prem) with
+	  (rewrite goal with EQ; apply <,≤ in goal; .)
+      }
+      case suc(x') {
+        have not_xey: not (x' = y') by
+	  (assume xey;
+	   using (conjunct 0 of prem) with rewrite goal with EQ;
+	   rewrite goal with xey; reflexive);
+        have not_xly: not (x' < y') by
+	  (assume xly;
+	   using (conjunct 1 of prem) with rewrite goal with EQ;
+	   apply <,≤ in goal;
+	   apply <,≤ in xly);
+        have yx: y' < x'
+	  by using IH[x'] with not_xey, not_xly;
+        apply <,≤ in goal;
+	apply <,≤ in yx
+      }
+    }
+  }
+end
