@@ -101,17 +101,6 @@ proof
   }
 end
 
-theorem insert_less:
-  all T:Tree. all x:Nat, y:Nat, v:Nat.
-  if all_keys(T, λk{k < y}) and x < y
-  then all_keys(insert(T, x, v), λk{k < y})
-proof
-  arbitrary T:Tree;
-  arbitrary x:Nat, y:Nat, v:Nat;
-  assume prem: all_keys(T, λ k {k < y}) and x < y;
-  using insert_all[T][x,v,(λ k {k < y}) : fn(Nat)->bool] with prem
-end
-
 theorem insert_BST:
   all T:Tree. all x:Nat, v:Nat.
   if is_BST(T)
@@ -121,46 +110,47 @@ proof
   case empty_tree {
     arbitrary x:Nat,v:Nat;
     assume prem;
-    apply insert, is_BST, all_keys in goal;
-    .
+    have is_BST(insert(empty_tree,x,v))
+      by apply insert, is_BST, all_keys in goal; .
   }
   case tree_node(L, y, v2, R) {
-    arbitrary x:Nat,v:Nat;
+    arbitrary x:Nat, v:Nat;
     assume prem: is_BST(tree_node(L,y,v2,R));
     have BST_L: is_BST(L) by apply is_BST in prem;
     have BST_R: is_BST(R) by apply is_BST in prem;
-    have Ly: all_keys(L,λ k{k < y})
+    have L_less_y: all_keys(L, λk{k < y})
        by conjunct 0 of (apply is_BST in prem);
-    have Ry: all_keys(R,λ k{y < k})
+    have y_less_R: all_keys(R, λk{y < k})
        by conjunct 1 of (apply is_BST in prem);
     apply insert, is_BST in goal;
     switch x = y {
       case true {
-        apply is_BST in goal;
-        (Ly, Ry, BST_L, BST_R)
+        have is_BST(tree_node(L,y,v2,R))
+            by apply is_BST in goal; L_less_y, y_less_R, BST_L, BST_R
       }
       case false {
         have not_xey: not (x = y) by (assume xy; rewrite xy with EQ);
         switch x < y {
           case true {
 	    have xy: x < y by (rewrite goal with EQ; .);
-	    apply is_BST in goal;
-	    have Lx_y: all_keys(insert(L,x,v),λ k{k < y})
-	      by using insert_less[L][x,y,v] with Ly, xy;
+	    have Lx_less_y: all_keys(insert(L,x,v), λk{k < y})
+	      by using insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
+	         with L_less_y, xy;
 	    have BST_Lx: is_BST(insert(L,x,v))
 	       by using (conjunct 0 of IH)[x,v] with BST_L;
-	    Lx_y, Ry, BST_R, BST_Lx
+	    have is_BST(tree_node(insert(L,x,v),y,v2,R))
+	        by apply is_BST in goal; Lx_less_y, y_less_R, BST_R, BST_Lx
 	  }
 	  case false {
-	    apply is_BST in goal;
 	    have BST_Rx: is_BST(insert(R,x,v))
 	      by using (conjunct 1 of IH)[x,v] with BST_R;
 	    have not_xly: not (x < y) by (assume prem; rewrite prem with EQ); 
 	    have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
-	    have Rx_y: all_keys(insert(R,x,v),λ k{y < k})
-	      by using insert_all[R][x,v,(λ k {y < k}) : fn(Nat)->bool]
-	         with Ry, yx;
-	    Ly, BST_Rx, Rx_y, BST_L
+	    have y_less_Rx: all_keys(insert(R,x,v),λ k{y < k})
+	      by using insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
+	         with y_less_R, yx;
+	    have is_BST(tree_node(L,y,v2,insert(R,x,v)))
+	        by apply is_BST in goal; L_less_y, BST_Rx, y_less_Rx, BST_L
 	  }
 	}
       }
