@@ -183,6 +183,9 @@ class TypeType(Type):
 
   def shift_type_vars(self, cutoff, amount):
     return self
+
+  def reduce(self, env):
+    return self
   
 @dataclass
 class FunctionType(Type):
@@ -593,8 +596,12 @@ class Var(AST):
     
   def reduce(self, env):
       res = env.get_value_of_term_var(self)
-      if res:
-          return res.reduce(env)
+      if res:      
+        match res:
+          case Var(loc, nm, idx):
+              return res
+          case _:
+              return res.reduce(env)
       else:
           return self
   
@@ -721,7 +728,7 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "λ " + ",".join([base_name(v) for v in self.vars]) \
+    return "λ" + ",".join([base_name(v) for v in self.vars]) \
       + "{" + str(self.body) + "}"
 
   def __repr__(self):
@@ -848,10 +855,21 @@ class Call(Term):
       # print('eq_rands = ' + str(eq_rands))
       return eq_rators and eq_rands
 
+    # case Call(loc2, Var(loc3, '='), [lhs, rhs], _)
+    
   def reduce(self, env):
+    #print('*** reduce call ' + str(self))
     fun = self.rator.reduce(env)
+    #print('*** reduced rator ' + str(fun))    
     args = [arg.reduce(env) for arg in self.args]
+    #print('*** reduced args ' + str(args))
+    ret = None
     match fun:
+      case Var(loc, '='):
+        if args[0] == args[1]:
+          ret = Bool(loc, True)
+        else:
+          ret = Call(self.location, fun, args, self.infix)
       # case DefinedValue(loc, name, val):
       #   if fun in get_reduce_only():
       #     ret = Call(self.location, val, args, self.infix).reduce(env)
@@ -888,6 +906,7 @@ class Call(Term):
         ret = Call(self.location, fun, args, self.infix)
       case _:
         ret = Call(self.location, fun, args, self.infix)
+    # print('*** call result: ' + str(ret))
     return ret
 
   def substitute(self, sub):

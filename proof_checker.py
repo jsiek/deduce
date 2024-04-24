@@ -955,7 +955,10 @@ def check_statement(stmt, env):
         body_env = env.declare_type_vars(loc, typarams)
         body_env = check_pattern(fun_case.pattern, params[0], body_env)
         cases_present[fun_case.pattern.constructor.name] = True
-        body_env = body_env.declare_term_vars(loc, zip(fun_case.parameters, params[1:]))
+        if len(fun_case.parameters) != len(params[1:]):
+          error(fun_case.location, 'incorrect number of parameters, expected ' + str(len(params)))
+        body_env = body_env.declare_term_vars(loc, zip(fun_case.parameters,
+                                                       params[1:]))
         type_check_term(fun_case.body, returns, body_env,
                         name, fun_case.pattern.parameters)
 

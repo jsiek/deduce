@@ -7,6 +7,7 @@
 
 import Nat
 import Pair
+import Option
 
 union Tree {
   empty_tree;
@@ -17,7 +18,7 @@ function insert(Tree, Nat, Nat) -> Tree {
   insert(empty_tree, x, v) = tree_node(empty_tree, x, v, empty_tree);
   insert(tree_node(L, y, v2, R), x, v) =
     if x = y then
-      tree_node(L, y, v2, R)
+      tree_node(L, y, v, R)
     else if x < y then
       tree_node(insert(L, x, v), y, v2, R)
     else
@@ -30,15 +31,15 @@ function containsKey(Tree, Nat) -> bool {
     x = y or containsKey(L, x) or containsKey(R, x);
 }
 
-function lookup(Tree, Nat, Nat) -> Nat {
-  lookup(empty_tree, x, d) = d;
-  lookup(tree_node(L, y, v, R), x, d) =
-    if x = y then
-      v
-    else if x < y then
-      lookup(L, x, d)
-    else
-      lookup(R, x, d);
+function lookup(Tree) -> fn (Nat) -> Option<Nat> {
+  lookup(empty_tree) = λx{none};
+  lookup(tree_node(L, y, v, R)) =
+    λx{if x = y then
+	 just(v)
+       else if x < y then
+	 lookup(L)(x)
+       else
+	 lookup(R)(x)};
 }
 
 function all_keys(Tree, fn (Nat) -> bool) -> bool {
@@ -125,7 +126,7 @@ proof
     apply insert, is_BST in goal;
     switch x = y {
       case true {
-        have is_BST(tree_node(L,y,v2,R))
+        have is_BST(tree_node(L,y,v,R))
             by apply is_BST in goal; L_less_y, y_less_R, BST_L, BST_R
       }
       case false {
@@ -146,7 +147,7 @@ proof
 	      by using (conjunct 1 of IH)[x,v] with BST_R;
 	    have not_xly: not (x < y) by (assume prem; rewrite prem with EQ); 
 	    have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
-	    have y_less_Rx: all_keys(insert(R,x,v),λ k{y < k})
+	    have y_less_Rx: all_keys(insert(R,x,v), λk{y < k})
 	      by using insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
 	         with y_less_R, yx;
 	    have is_BST(tree_node(L,y,v2,insert(R,x,v)))
