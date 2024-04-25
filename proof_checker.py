@@ -184,7 +184,10 @@ def rewrite(loc, formula, equation):
     case Lambda(loc2, vars, body):
       return Lambda(loc2, vars, rewrite(loc, body, equation))
     case Closure(loc2, vars, body, clos_env):
-      return Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
+      clos = Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
+      if hasattr(formula, 'typeof'):
+        clos.tyeof = formula.typeof
+      return clos
     case DefinedValue(loc2, name, body):
       return DefinedValue(loc2, name, rewrite(loc, body, equation))
     case _:
@@ -409,7 +412,22 @@ def check_proof_of(proof, formula, env):
       flip_formula = mkEqual(loc, Call(loc, constr, [a], False),
                              Call(loc, constr, [b], False))
       check_proof_of(eq_pf, flip_formula, env)
-        
+
+    case PExtensionality(loc, proof):
+      (lhs,rhs) = split_equation(loc, formula)
+      match lhs.typeof:
+        case FunctionType(loc2, [], [typ], ret_ty):
+          arg_name = generate_name('x')
+          arg = Var(loc, arg_name)
+          formula = All(loc, [(arg_name, typ)], mkEqual(loc, Call(loc, lhs, [arg], False), Call(loc, rhs, [arg], False)))
+          check_proof_of(proof, formula, env)
+        case FunctionType(loc2, [], params, ret_ty):
+          error(loc, 'extensionality expects function with one input parameter, not ' + str(len(params)))
+        case FunctionType(loc2, ty_params, params, ret_ty):
+          error(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params)))
+        case _:
+          error(loc, 'extensionality expects a function, not ' + str(lhs.typ))
+      
     case AllIntro(loc, vars, body):
       match formula:
         case All(loc2, vars2, formula2):
@@ -724,7 +742,7 @@ def type_synth_term(term, env, recfun, subterms):
     case Generic(loc, type_params, body):
       body_env = env.declare_type_vars(loc, type_params)
       body_ty = type_synth_term(body, body_env, recfun, subterms)
-      return GenericType(loc, type_params, body_ty)
+      ret = GenericType(loc, type_params, body_ty)
     case TLet(loc, var, rhs, body):
       rhs_ty = type_synth_term(rhs, env, recfun, subterms)
       body_env = env.declare_term_var(loc, var, rhs_ty)
@@ -736,7 +754,7 @@ def type_synth_term(term, env, recfun, subterms):
       if thn_ty != els_ty:
         error(loc, 'conditional expects same type for the two branches'\
               + ' but ' + str(thn_ty) + ' ≠ ' + str(els_ty))
-      return thn_ty
+      ret = thn_ty
     case Int(loc, value):
       ret = IntType(loc)
     case Bool(loc, value):
@@ -806,6 +824,7 @@ def type_synth_term(term, env, recfun, subterms):
       error(term.location, 'cannot synthesize a type for ' + str(term))
   if get_verbose():
     print('\t=> ' + str(ret))
+  term.typeof = ret
   return ret
   
 def type_check_term(term, typ, env, recfun, subterms):
@@ -860,7 +879,8 @@ def type_check_term(term, typ, env, recfun, subterms):
       ty = type_synth_term(term, env, recfun, subterms)
       if ty != typ:
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
-
+  term.typeof = typ
+  
 def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):

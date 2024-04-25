@@ -114,6 +114,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "symmetric" proof                                  -> sym_proof
     | "transitive" proof proof                           -> trans_proof
     | "injective" term ";" proof                         -> injective_proof
+    | "extensionality" ";" proof                         -> extensionality_proof
     | "(" proof ")"                                      -> paren
     | proof_hi "[" term_list "]"                         -> all_elim
     | "?"                                                -> hole_proof

@@ -32,11 +32,13 @@ proof
 end
 
 theorem update_shadow :
-  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T.
-  update(update(f, x, v), x, w)(y) = update(f, x, w)(y)
+  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U.
+  update(update(f, x, v), x, w) = update(f, x, w)
 proof
-  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T;
+  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U;
   apply update in goal;
+  extensionality;
+  arbitrary y:T;
   switch y = x {
     case true { . }
     case false { . }
@@ -44,13 +46,15 @@ proof
 end
 
 theorem update_permute :
-  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T, z:T.
+  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T.
   if not (x = y)
-  then update(update(f, x, v), y, w)(z) = update(update(f, y, w), x, v)(z)
+  then update(update(f, x, v), y, w) = update(update(f, y, w), x, v)
 proof
-  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T, z:T;
+  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T;
   assume x_neq_y;
   apply update in goal;
+  extensionality;
+  arbitrary z:T;
   switch z = y {
     case true {
       have zy: z = y by (rewrite goal with EQ; .);

@@ -690,12 +690,18 @@ class Lambda(Term):
 
   def reduce(self, env):
       #return Closure(self.location, self.vars, self.body, env)
-    return Closure(self.location, self.vars, self.body.reduce(env), env)
+    clos = Closure(self.location, self.vars, self.body.reduce(env), env)
+    if hasattr(self, 'typeof'):
+      clos.typeof = self.typeof
+    return clos
 
   def substitute(self, sub):
       n = len(self.vars)
       new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
-      return Lambda(self.location, self.vars, self.body.substitute(new_sub))
+      lam = Lambda(self.location, self.vars, self.body.substitute(new_sub))
+      if hasattr(self, 'typeof'):
+        lam.typeof = self.typeof
+      return lam
 
   def debruijnize(self, env):
     body_env = env.declare_term_vars(self.location,
@@ -748,12 +754,20 @@ class Closure(Term):
       return ret
 
   def reduce(self, env):
-      return Closure(self.location, self.vars, self.body.reduce(env), self.env)
+    clos = Closure(self.location, self.vars, self.body.reduce(env), self.env)
+    if hasattr(self, 'typeof'):
+      clos.typeof = self.typeof
+    return clos
+    
 
   def substitute(self, sub):
       n = len(self.vars)
       new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
-      return Closure(self.location, self.vars, self.body.substitute(new_sub), self.env)
+      clos = Closure(self.location, self.vars, self.body.substitute(new_sub), self.env)
+      if hasattr(self, 'typeof'):
+        clos.typeof = self.typeof
+      return clos
+      
 
   def shift_type_vars(self, cutoff, amount):
     return Closure(self.location,
@@ -1717,7 +1731,17 @@ class PInjective(Proof):
   def uniquify(self, env):
     self.constr.uniquify(env)
     self.body.uniquify(env)
-  
+
+@dataclass
+class PExtensionality(Proof):
+  body: Proof
+  def __str__(self):
+    return 'extensionality;\n' + str(self.body)
+  def debruijnize(self, env):
+    self.body.debruijnize(env)
+  def uniquify(self, env):
+    self.body.uniquify(env)
+    
 @dataclass
 class IndCase(AST):
   pattern: Pattern

@@ -249,6 +249,10 @@ def parse_tree_to_ast(e):
         constr = parse_tree_to_ast(e1)
         eq = parse_tree_to_ast(e2)
         return PInjective(e.meta, constr, eq)
+    elif e.data == 'extensionality_proof':
+        e1 = e.children[0]
+        eq1 = parse_tree_to_ast(e1)
+        return PExtensionality(e.meta, eq1)
     elif e.data == 'paren':
         return parse_tree_to_ast(e.children[0])
     elif e.data == 'let':
