@@ -1,0 +1,73 @@
+
+define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
+              = λf,x,v{ λy{ if y = x then v else f(y) } }
+
+theorem update_eq :
+  all T:type, U:type, f: fn (T) -> U, x:T, v:U.
+  update(f, x, v)(x) = v
+proof
+  arbitrary T:type, U:type, f: fn (T) -> U, x:T, v:U;
+  apply update in goal;
+  .
+end
+
+theorem update_not_eq :
+  all T:type, U:type, f: fn (T) -> U, x:T, v:U, y:T.
+  if not (x = y)
+  then update(f, x, v)(y) = f(y)
+proof
+  arbitrary T:type, U:type, f: fn (T) -> U, x:T, v:U, y:T;
+  assume not_eq;
+  apply update in goal;
+  switch y = x {
+    case true {
+      have yx: y = x by (rewrite goal with EQ; .);
+      have xy: x = y by symmetric yx;
+      have false by using not_eq with xy
+    }
+    case false {
+      .
+    }
+  }
+end
+
+theorem update_shadow :
+  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T.
+  update(update(f, x, v), x, w)(y) = update(f, x, w)(y)
+proof
+  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T;
+  apply update in goal;
+  switch y = x {
+    case true { . }
+    case false { . }
+  }
+end
+
+theorem update_permute :
+  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T, z:T.
+  if not (x = y)
+  then update(update(f, x, v), y, w)(z) = update(update(f, y, w), x, v)(z)
+proof
+  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T, z:T;
+  assume x_neq_y;
+  apply update in goal;
+  switch z = y {
+    case true {
+      have zy: z = y by (rewrite goal with EQ; .);
+      switch z = x {
+        case true {
+	  have zx: z = x by (rewrite goal with EQ; .);
+	  have xy: x = y by transitive (symmetric zx) zy;
+	  have false by using x_neq_y with xy
+	}
+	case false {
+	  .
+	}
+      }
+    }
+    case false {
+      .
+    }
+  }
+end
+
