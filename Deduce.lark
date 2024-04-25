@@ -2,7 +2,7 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∅∈]/
 IDENT: (/_/|UPPER|LOWER|OPERATOR) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -22,10 +22,13 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_compare ">" term_add                        -> greater
     | term_compare "≤" term_add                       -> less_equal
     | term_compare "≥" term_add                       -> greater_equal
+    | term_compare "⊆" term_add                       -> subset_equal
     | term_add
 
 ?term_add: term_add "+" term_med                   -> add
     | term_add "-" term_med                        -> sub
+    | term_add "∪" term_med                        -> union_op
+    | term_add "∩" term_med                        -> intersect
     | term_med
 
 ?term_med: term_med "div" term_hi                  -> int_div

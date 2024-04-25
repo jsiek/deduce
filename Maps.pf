@@ -1,4 +1,7 @@
 
+import Sets
+import Option
+
 define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
               = λf,x,v{ λy{ if y = x then v else f(y) } }
 
@@ -75,3 +78,27 @@ proof
   }
 end
 
+/* Partial Maps */
+
+define domain : < T,U > fn (fn(T)->Option<U>) -> fn(T)->bool
+              = λf{λx{ switch f(x) {
+	                 case none { false }
+			 case just(y) { true }
+		  }}}
+
+define restrict : < T,U > fn (fn(T)->Option<U>), (fn(T)->bool) -> (fn(T)->Option<U>)
+                = λf,P{λx{ if P(x) then f(x) else none }}
+		
+theorem restrict_domain:
+  all T:type, U:type, f:fn(T)->Option<U>, P:fn(T)->bool.
+  domain(restrict(f, P)) ⊆ P
+proof
+  arbitrary T:type, U:type, f:fn(T)->Option<U>, P:fn(T)->bool;
+  apply restrict, domain, ⊆ in goal;
+  arbitrary x:T;
+  assume prem;
+  switch P(x) {
+    case true { . }
+    case false { have false by rewrite prem with EQ }
+  }
+end

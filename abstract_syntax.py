@@ -294,7 +294,11 @@ class TypeInst(Type):
     self.typ.uniquify(env)
     for ty in self.arg_types:
       ty.uniquify(env)
-  
+
+  def reduce(self, env):
+    return TypeInst(self.location, self.typ.reduce(env),
+                    [ty.reduce(env) for ty in self.arg_types])
+      
   def debruijnize(self, env):
     self.typ.debruijnize(env)
     for ty in self.arg_types:
@@ -618,8 +622,7 @@ class Var(AST):
     #print('uniquify var ' + str(self))
     #print(str(env))
     if self.name not in env.keys():
-      error(self.location, "uniquify: could not find " + self.name \
-            + '\nin ' + str(env))
+      error(self.location, "undefined variable " + self.name)
     self.name = env[self.name]
     #print('finished uniquify var ' + str(self))
     
@@ -691,16 +694,14 @@ class Lambda(Term):
   def reduce(self, env):
       #return Closure(self.location, self.vars, self.body, env)
     clos = Closure(self.location, self.vars, self.body.reduce(env), env)
-    if hasattr(self, 'typeof'):
-      clos.typeof = self.typeof
+    clos.typeof = self.typeof
     return clos
 
   def substitute(self, sub):
       n = len(self.vars)
       new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
       lam = Lambda(self.location, self.vars, self.body.substitute(new_sub))
-      if hasattr(self, 'typeof'):
-        lam.typeof = self.typeof
+      lam.typeof = self.typeof
       return lam
 
   def debruijnize(self, env):
@@ -755,8 +756,7 @@ class Closure(Term):
 
   def reduce(self, env):
     clos = Closure(self.location, self.vars, self.body.reduce(env), self.env)
-    if hasattr(self, 'typeof'):
-      clos.typeof = self.typeof
+    clos.typeof = self.typeof
     return clos
     
 
@@ -764,23 +764,22 @@ class Closure(Term):
       n = len(self.vars)
       new_sub = {k: v.shift_term_vars(0, n) for (k,v) in sub.items()}
       clos = Closure(self.location, self.vars, self.body.substitute(new_sub), self.env)
-      if hasattr(self, 'typeof'):
-        clos.typeof = self.typeof
+      clos.typeof = self.typeof
       return clos
       
 
-  def shift_type_vars(self, cutoff, amount):
-    return Closure(self.location,
-                   self.vars,
-                   self.body.shift_type_vars(cutoff, amount),
-                   self.env.shift_type_vars(cutoff, amount))
+  # def shift_type_vars(self, cutoff, amount):
+  #   return Closure(self.location,
+  #                  self.vars,
+  #                  self.body.shift_type_vars(cutoff, amount),
+  #                  self.env.shift_type_vars(cutoff, amount))
 
-  def shift_term_vars(self, cutoff, amount):
-    n = len(self.vars)
-    return Closure(self.location,
-                   self.vars,
-                   self.body.shift_term_vars(cutoff + n, amount),
-                   self.env.shift_term_vars(cutoff + n, amount))
+  # def shift_term_vars(self, cutoff, amount):
+  #   n = len(self.vars)
+  #   return Closure(self.location,
+  #                  self.vars,
+  #                  self.body.shift_term_vars(cutoff + n, amount),
+  #                  self.env.shift_term_vars(cutoff + n, amount))
   
 @dataclass
 class DefinedValue(Term):

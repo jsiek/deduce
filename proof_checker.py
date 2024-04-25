@@ -185,8 +185,7 @@ def rewrite(loc, formula, equation):
       return Lambda(loc2, vars, rewrite(loc, body, equation))
     case Closure(loc2, vars, body, clos_env):
       clos = Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
-      if hasattr(formula, 'typeof'):
-        clos.tyeof = formula.typeof
+      clos.typeof = formula.typeof
       return clos
     case DefinedValue(loc2, name, body):
       return DefinedValue(loc2, name, rewrite(loc, body, equation))

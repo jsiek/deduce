@@ -8,6 +8,7 @@
 import Nat
 import Pair
 import Option
+import Maps
 
 union Tree {
   empty_tree;
@@ -154,6 +155,68 @@ proof
 	        by apply is_BST in goal; L_less_y, BST_Rx, y_less_Rx, BST_L
 	  }
 	}
+      }
+    }
+  }
+end
+
+theorem lookup_empty:
+  all k:Nat.
+  lookup(empty_tree)(k) = none
+proof
+  arbitrary k:Nat;
+  apply lookup in goal;
+  .
+end
+
+
+theorem lookup_tree_node:
+  if lookup(tree_node(L,j,w,R)) = f
+  then f(j) = w
+  and lookup(L) = update(f, j, none)
+  and lookup(R) = update(f, j, none)
+proof
+  ?
+end
+
+theorem lookup_insert_update:
+  all T:Tree. all f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat.
+  if lookup(T) = f
+  then lookup(insert(T, k, v)) = update(f, k, just(v))
+proof
+  induction Tree
+  case empty_tree {
+    arbitrary f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat;
+    assume prem;
+    apply insert, lookup in goal;
+    rewrite goal with (symmetric prem);
+    apply lookup in goal;
+    extensionality;
+    arbitrary z:Nat;
+    apply update in goal;
+    switch z = k {
+      case true { . }
+      case false {
+        switch z < k {
+	  case true { . }
+	  case false { . }
+	}
+      }
+    }
+  }
+  case tree_node(L, j, w, R) {
+    arbitrary f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat;
+    assume prem: lookup(tree_node(L,j,w,R)) = f;
+    apply insert, lookup in goal;
+    switch k = j {
+      case true {
+        have kj: k = j by (rewrite goal with EQ; .);
+	rewrite goal with kj;
+	
+        ?
+      }
+      case false {
+        ?
       }
     }
   }

@@ -21,12 +21,12 @@ theorem add_zero: all n:Nat. n + 0 = n
 proof
   induction Nat
   case 0 {
-    have 0 + 0 = 0 by apply + in goal; reflexive
+    have 0 + 0 = 0 by apply + in goal; .
   }
   case suc(n') {
     equations
-      suc(n') + 0 = suc(n' + 0) by apply + in goal; reflexive
-              ... = suc(n') by rewrite goal with IH; reflexive
+      suc(n') + 0 = suc(n' + 0) by apply + in goal; .
+              ... = suc(n') by rewrite goal with IH; .
   }
 end
 
@@ -35,16 +35,16 @@ proof
   induction Nat
   case 0 {
     arbitrary n : Nat;
-    apply + in goal; reflexive
+    apply + in goal; .
   }
   case suc(n') {
     arbitrary n : Nat;
     have IHn: n' + suc(n) = suc(n' + n) by IH[n];
     have suc(n') + suc(n) = suc(suc(n') + n) by
     equations
-    suc(n')+suc(n) = suc(n' + suc(n)) by apply + in goal; reflexive
-               ... = suc(suc(n' + n)) by rewrite goal with IH[n]; reflexive
-               ... = suc(suc(n') + n) by apply + in goal; reflexive
+    suc(n')+suc(n) = suc(n' + suc(n)) by apply + in goal; .
+               ... = suc(suc(n' + n)) by rewrite goal with IH[n]; .
+               ... = suc(suc(n') + n) by apply + in goal; .
   }
 end
 
@@ -53,7 +53,7 @@ proof
   arbitrary m:Nat;
   equations
     m + 1 = suc(m + 0)      by add_suc[m][0]
-      ... = suc(m)          by rewrite goal with add_zero[m]; reflexive
+      ... = suc(m)          by rewrite goal with add_zero[m]; .
 end
 
 theorem add_commute: all n:Nat. all m:Nat. n + m = m + n
@@ -61,14 +61,14 @@ proof
   induction Nat
   case 0 {
     arbitrary m : Nat;
-    equations  0 + m = m       by apply + in goal; reflexive
+    equations  0 + m = m       by apply + in goal; .
                  ... = m + 0   by symmetric add_zero[m]
   }
   case suc(n') {
     arbitrary m : Nat;
     equations
-      suc(n') + m = suc(n' + m)       by apply + in goal; reflexive
-              ... = suc(m + n')       by rewrite goal with IH[m]; reflexive
+      suc(n') + m = suc(n' + m)       by apply + in goal; .
+              ... = suc(m + n')       by rewrite goal with IH[m]; .
               ... = m + suc(n')       by symmetric add_suc[m][n']
   }
 end
@@ -79,15 +79,15 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat;
-    have (0 + n) + o = 0 + (n + o) by apply + in goal; reflexive
+    have (0 + n) + o = 0 + (n + o) by apply + in goal; .
   }
   case suc(m') {
     arbitrary n:Nat, o:Nat;
     equations
-      (suc(m') + n) + o = suc((m' + n) + o) by apply + in goal; reflexive
+      (suc(m') + n) + o = suc((m' + n) + o) by apply + in goal; .
                     ... = suc(m' + (n + o))
-                                   by rewrite goal with IH[n,o]; reflexive
-                    ... = suc(m') + (n + o) by apply + in goal; reflexive
+                                   by rewrite goal with IH[n,o]; .
+                    ... = suc(m') + (n + o) by apply + in goal; .
   }
 end
 
@@ -98,16 +98,16 @@ proof
   case 0 {
     arbitrary y:Nat, z:Nat;
     suppose prem: 0 + y = 0 + z;
-    equations   y = 0 + y      by apply + in goal; reflexive
+    equations   y = 0 + y      by apply + in goal; .
               ... = 0 + z      by prem
-              ... = z          by apply + in goal; reflexive
+              ... = z          by apply + in goal; .
   }
   case suc(x') {
     arbitrary y:Nat, z:Nat;
     suppose prem: suc(x') + y = suc(x') + z;
     have p1: suc(x' +  y) = suc(x' + z) by
-      transitive have suc(x' +  y) = suc(x') + y by apply + in goal; reflexive
-      transitive prem apply + in goal; reflexive;
+      transitive have suc(x' +  y) = suc(x') + y by apply + in goal; .
+      transitive prem apply + in goal; .;
     have p2: x' + y = x' + z by injective suc; p1;
     have IHyz: if x' + y = x' + z then y = z by IH[y,z];
     using IHyz with p2
@@ -121,7 +121,7 @@ function pred(Nat) -> Nat {
 
 theorem pred_one: pred(suc(0)) = 0
 proof
-  apply pred in goal; reflexive
+  apply pred in goal; .
 end
 
 function -(Nat,Nat) -> Nat {
@@ -147,7 +147,7 @@ function diff(Nat,Nat) -> Nat {
 
 theorem sub_one_one: 1 - 1 = 0
 proof
-  apply - in goal; reflexive
+  apply - in goal; .
 end
 
 function ≤(Nat,Nat) -> bool {
@@ -277,14 +277,14 @@ proof
   induction Nat
   case zero {
     apply max in goal;
-    reflexive
+    .
   }
   case suc(x') {
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
-                                         by (apply max in goal; reflexive)
-    ... = suc(suc(max(x',x')))           by (rewrite goal with IH; reflexive)
-    ... = suc(max(suc(x'),suc(x')))      by (apply max in goal; reflexive)
+                                         by (apply max in goal; .)
+    ... = suc(suc(max(x',x')))           by (rewrite goal with IH; .)
+    ... = suc(max(suc(x'),suc(x')))      by (apply max in goal; .)
   }
 end
 
@@ -307,7 +307,7 @@ proof
       case suc(y') {
         cases (have (x' < y' or x' = y' or y' < x') by IH[y'])
 	case less { have suc(x') < suc(y') by apply <,≤ in goal; apply <,≤ in less }
-	case eq { have suc(x') = suc(y') by rewrite goal with eq; reflexive }
+	case eq { have suc(x') = suc(y') by rewrite goal with eq; . }
 	case gtr { have suc(y') < suc(x') by (apply <,≤ in goal; apply <,≤ in gtr) }
       }
     }
