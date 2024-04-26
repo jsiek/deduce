@@ -43,6 +43,9 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 ?switch_list: switch_case                           -> single
     | switch_case switch_list                       -> push
 
+ident: IDENT              -> ident
+    | "operator" OPERATOR -> ident
+
 ?term_hi: INT                                      -> int
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
@@ -66,12 +69,12 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term "," term_list                           -> push
     
 ?ident_list:                                       -> empty
-    | IDENT                                        -> single
-    | IDENT "," ident_list                         -> push
+    | ident                                        -> single
+    | ident "," ident_list                         -> push
 
 ?var_list:                                         -> empty_binding
-    | IDENT ":" type                               -> single_binding
-    | IDENT ":" type "," var_list                  -> push_binding
+    | ident ":" type                               -> single_binding
+    | ident ":" type "," var_list                  -> push_binding
 
 ?ind_case: "case" pattern "{" proof "}"            -> ind_case
 
