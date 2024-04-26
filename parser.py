@@ -147,6 +147,11 @@ def parse_tree_to_ast(e):
         return All(e.meta,
                    parse_tree_to_list(e.children[0]),
                    parse_tree_to_ast(e.children[1]))
+    elif e.data == 'alltype_formula':
+        vars = parse_tree_to_list(e.children[0])
+        return All(e.meta,
+                   [(v, TypeType(e.meta)) for v in vars],
+                   parse_tree_to_ast(e.children[1]))
     elif e.data == 'some_formula':
         return Some(e.meta,
                     parse_tree_to_list(e.children[0]),

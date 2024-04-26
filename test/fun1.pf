@@ -4,5 +4,5 @@ define f = (λm{m} : fn Nat->Nat)
 
 theorem T: f(0) = 0
 proof
-  apply f in goal; reflexive
+  apply f in goal; .
 end

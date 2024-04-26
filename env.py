@@ -125,7 +125,13 @@ class Env:
   
   def _type_of_term_var(self, curr, name, index):
     if name in curr.keys():
-      return curr[name].typ
+      binding = curr[name]
+      if isinstance(binding, TermBinding):
+        return binding.typ
+      elif isinstance(binding, TypeBinding):
+        return TypeType(None)
+      else:
+        raise Exception('expected a term or type variable')
     else:
       return None
 

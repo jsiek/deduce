@@ -5,5 +5,5 @@ proof
   assume prem;
   obtain y with yeqz from prem;
   choose suc(y);
-  rewrite goal with yeqz; reflexive
+  rewrite goal with yeqz; .
 end

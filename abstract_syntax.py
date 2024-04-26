@@ -224,7 +224,7 @@ class FunctionType(Type):
 
   def substitute(self, sub):
       n = len(self.type_params)
-      new_sub = {k:v.shift_type_vars(0, n) for (k,v) in sub.items() }
+      new_sub = {k:v for (k,v) in sub.items() }
       return FunctionType(self.location, self.type_params,
                           [pt.substitute(new_sub) for pt in self.param_types],
                           self.return_type.substitute(new_sub))
@@ -692,7 +692,6 @@ class Lambda(Term):
       return new_body == other.body
 
   def reduce(self, env):
-      #return Closure(self.location, self.vars, self.body, env)
     clos = Closure(self.location, self.vars, self.body.reduce(env), env)
     clos.typeof = self.typeof
     return clos
@@ -842,10 +841,13 @@ class Call(Term):
   infix: bool
 
   def copy(self):
-    return Call(self.location,
+    ret = Call(self.location,
                 self.rator.copy(),
                 [arg.copy() for arg in self.args],
                 self.infix)
+    # if hasattr(self,'typeof'):
+    #   ret.typeof = self.typeof
+    return ret
   
   def __str__(self):
     if self.infix:
@@ -883,6 +885,7 @@ class Call(Term):
           ret = Bool(loc, True)
         else:
           ret = Call(self.location, fun, args, self.infix)
+          #ret.typeof = self.typeof
       # case DefinedValue(loc, name, val):
       #   if fun in get_reduce_only():
       #     ret = Call(self.location, val, args, self.infix).reduce(env)
@@ -917,25 +920,29 @@ class Call(Term):
                   #print('*** call result: ' + str(result))
                   return result
         ret = Call(self.location, fun, args, self.infix)
+        #ret.typeof = self.typeof
       case _:
         ret = Call(self.location, fun, args, self.infix)
+        #ret.typeof = self.typeof
     # print('*** call result: ' + str(ret))
     return ret
 
   def substitute(self, sub):
-    return Call(self.location, self.rator.substitute(sub),
+    ret = Call(self.location, self.rator.substitute(sub),
                 [arg.substitute(sub) for arg in self.args],
                 self.infix)
+    #ret.typeof = self.typeof
+    return ret
 
-  def shift_type_vars(self, cutoff, amount):
-    return Call(self.location, self.rator.shift_type_vars(cutoff, amount),
-                [arg.shift_type_vars(cutoff, amount) for arg in self.args],
-                self.infix)
+  # def shift_type_vars(self, cutoff, amount):
+  #   return Call(self.location, self.rator.shift_type_vars(cutoff, amount),
+  #               [arg.shift_type_vars(cutoff, amount) for arg in self.args],
+  #               self.infix)
 
-  def shift_term_vars(self, cutoff, amount):
-    return Call(self.location, self.rator.shift_term_vars(cutoff, amount),
-                [arg.shift_term_vars(cutoff, amount) for arg in self.args],
-                self.infix)
+  # def shift_term_vars(self, cutoff, amount):
+  #   return Call(self.location, self.rator.shift_term_vars(cutoff, amount),
+  #               [arg.shift_term_vars(cutoff, amount) for arg in self.args],
+  #               self.infix)
   
   def debruijnize(self, env):
     self.rator.debruijnize(env)
@@ -2048,18 +2055,18 @@ class RecFun(Statement):
   returns: Type
   cases: List[FunCase]
 
-  def shift_type_vars(self, cutoff, amount):
-    n = len(self.type_params)
-    return RecFun(self.location, self.name, self.type_params,
-                  [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
-                  self.returns.shift_type_vars(cutoff + n, amount),
-                  self.casts.shift_type_vars(cutoff + n, amount))
+  # def shift_type_vars(self, cutoff, amount):
+  #   n = len(self.type_params)
+  #   return RecFun(self.location, self.name, self.type_params,
+  #                 [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
+  #                 self.returns.shift_type_vars(cutoff + n, amount),
+  #                 self.casts.shift_type_vars(cutoff + n, amount))
 
-  def shift_term_vars(self, cutoff, amount):
-    return RecFun(self.location, self.name, self.type_params,
-                  self.params,
-                  self.returns,
-                  self.casts.shift_term_vars(cutoff + 1, amount))
+  # def shift_term_vars(self, cutoff, amount):
+  #   return RecFun(self.location, self.name, self.type_params,
+  #                 self.params,
+  #                 self.returns,
+  #                 self.casts.shift_term_vars(cutoff + 1, amount))
                   
   def debruijnize(self, env):
     env = env.declare_term_var(self.location, self.name, None)
@@ -2107,6 +2114,8 @@ class RecFun(Statement):
     clos = RecFunClosure(self.location, self.name, self.type_params,
                          self.params, self.returns, self.cases, None)
     clos.env = env.define_term_var(self.location, self.name, None, clos)
+    clos.typeof = FunctionType(self.location, self.type_params,
+                               self.params, self.returns)
     return clos
 
   def substitute(self, sub):
@@ -2121,20 +2130,20 @@ class RecFunClosure(Statement):
   cases: List[FunCase]
   env: Any
 
-  def shift_type_vars(self, cutoff, amount):
-    n = len(self.type_params)
-    return RecFunClosure(self.location, self.name, self.type_params,
-                         [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
-                         self.returns.shift_type_vars(cutoff + n, amount),
-                         [case.shift_type_vars(cutoff + n, amount) for case in self.cases],
-                         env) # cycles!?!?!?
+  # def shift_type_vars(self, cutoff, amount):
+  #   n = len(self.type_params)
+  #   return RecFunClosure(self.location, self.name, self.type_params,
+  #                        [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
+  #                        self.returns.shift_type_vars(cutoff + n, amount),
+  #                        [case.shift_type_vars(cutoff + n, amount) for case in self.cases],
+  #                        env) # cycles!?!?!?
 
-  def shift_term_vars(self, cutoff, amount):
-    return RecFunClosure(self.location, self.name, self.type_params,
-                         self.params,
-                         self.returns,
-                         [case.shift_term_vars(cutoff, amount) for case in self.cases],
-                         self.env) # cycles!?!?!
+  # def shift_term_vars(self, cutoff, amount):
+  #   return RecFunClosure(self.location, self.name, self.type_params,
+  #                        self.params,
+  #                        self.returns,
+  #                        [case.shift_term_vars(cutoff, amount) for case in self.cases],
+  #                        self.env) # cycles!?!?!
 
   def shift_proof_vars(self, cutoff, amount):
     return self
@@ -2239,7 +2248,9 @@ class Import(Statement):
     return self
   
 def mkEqual(loc, arg1, arg2):
-  return Call(loc, Var(loc, '='), [arg1, arg2], True)
+  ret = Call(loc, Var(loc, '='), [arg1, arg2], True)
+  #ret.typeof = BoolType(loc)
+  return ret
 
 def split_equation(loc, equation):
   match equation:
@@ -2252,7 +2263,9 @@ def mkZero(loc):
   return Var(loc, 'zero')
 
 def mkSuc(loc, arg):
-  return Call(loc, Var(loc, 'suc'), [arg], False)
+  ret = Call(loc, Var(loc, 'suc'), [arg], False)
+  #ret.typeof = Var(loc, 'Nat')
+  return ret
 
 def intToNat(loc, n):
   if n == 0:

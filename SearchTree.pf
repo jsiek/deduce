@@ -26,10 +26,9 @@ function insert(Tree, Nat, Nat) -> Tree {
       tree_node(L, y, v2, insert(R, x, v));
 }
 
-function containsKey(Tree, Nat) -> bool {
-  containsKey(empty_tree, x) = false;
-  containsKey(tree_node(L, y, v, R), x) =
-    x = y or containsKey(L, x) or containsKey(R, x);
+function keys(Tree) -> fn(Nat)->bool {
+  containsKey(empty_tree) = λx{false};
+  containsKey(tree_node(L, y, v, R)) = λx{x = y} ∪ keys(L) ∪ keys(R);
 }
 
 function lookup(Tree) -> fn (Nat) -> Option<Nat> {
@@ -170,7 +169,9 @@ proof
 end
 
 
+/*
 theorem lookup_tree_node:
+  all L:Tree, R:Tree, j:Nat, w:Nat, f:fn(Nat)->Option<Nat>.
   if lookup(tree_node(L,j,w,R)) = f
   then f(j) = w
   and lookup(L) = update(f, j, none)
@@ -178,6 +179,7 @@ theorem lookup_tree_node:
 proof
   ?
 end
+*/
 
 theorem lookup_insert_update:
   all T:Tree. all f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat.
@@ -212,8 +214,29 @@ proof
       case true {
         have kj: k = j by (rewrite goal with EQ; .);
 	rewrite goal with kj;
-	
-        ?
+	extensionality;
+	arbitrary x:Nat;
+	apply lookup in goal;
+        switch x = j {
+	  case true {
+	    have xj: x = j by (rewrite goal with EQ; .);
+	    rewrite goal with xj;
+	    have fjj: update(f, j, just(v))(j) = just(v)
+	       by update_eq< Nat, Option<Nat> >[f,j,just(v)];
+	    rewrite goal with fjj;
+	    .
+	  }
+	  case false {
+	    switch x < j {
+	      case true {
+	        ?
+	      }
+	      case false {
+  	        ?
+	      }
+	    }
+	  }
+	}
       }
       case false {
         ?

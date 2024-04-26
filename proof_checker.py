@@ -131,9 +131,12 @@ def pattern_to_term(pat):
   match pat:
     case PatternCons(loc, constr, params):
       if len(params) > 0:
-        return Call(loc, constr,
-                    [Var(loc, param) for param in params],
-                    False)
+        ret = Call(loc, constr,
+                   [Var(loc, param) for param in params],
+                   False)
+        # if hasattr(pat, 'typeof'):
+        #   ret.typeof = pat.typeof
+        return ret
       else:
         return constr
     case _:
@@ -163,13 +166,12 @@ def rewrite(loc, formula, equation):
       return All(loc2, vars, rewrite(loc, frm2, equation))
     case Some(loc2, vars, frm2):
       return Some(loc2, vars, rewrite(loc, frm2, equation))
-    # case PrimitiveCall(loc2, op, args):
-    #   return PrimitiveCall(loc2, op,
-    #                        [rewrite(loc, arg, equation) for arg in args])
     case Call(loc2, rator, args, infix):
-      return Call(loc2, rewrite(loc, rator, equation),
+      call = Call(loc2, rewrite(loc, rator, equation),
                   [rewrite(loc, arg, equation) for arg in args],
                   infix)
+      #call.typeof = formula.typeof
+      return call
     case Switch(loc2, subject, cases):
       return Switch(loc2, rewrite(loc, subject, equation),
                     [rewrite(loc, c, equation) for c in cases])
@@ -307,11 +309,15 @@ def check_proof(proof, env):
       arg_types = [type_synth_term(arg, env, None, []) for arg in args]
       match allfrm:
         case All(loc2, vars, frm):
-          for ((var,ty), arg_ty) in zip(vars, arg_types):
-            if ty != arg_ty:
+          sub = {}
+          for ((var,ty), (arg,arg_ty)) in zip(vars, zip(args,arg_types)):
+            if ty.substitute(sub) != arg_ty:
               error(loc, 'to instantiate: ' + str(allfrm) \
-                    + '\nexpected argument of type: ' + str(ty) \
+                    + '\nexpected argument of type: ' \
+                    + str(ty.substitute(sub)) \
                     + '\nnot: ' + str(arg_ty))
+            if isinstance(ty, TypeType):
+              sub[var] = arg
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
       return instantiate(loc, allfrm, args)
@@ -408,17 +414,26 @@ def check_proof_of(proof, formula, env):
       if not is_constructor(constr.name, env):
         error(loc, 'in injective, ' + constr.name + ' not a constructor')
       (a,b) = split_equation(loc, formula)
-      flip_formula = mkEqual(loc, Call(loc, constr, [a], False),
-                             Call(loc, constr, [b], False))
+      lhs = Call(loc, constr, [a], False)
+      # lhs.typeof = constr
+      rhs = Call(loc, constr, [b], False)
+      # rhs.typeof = constr
+      flip_formula = mkEqual(loc, lhs, rhs)
       check_proof_of(eq_pf, flip_formula, env)
 
     case PExtensionality(loc, proof):
       (lhs,rhs) = split_equation(loc, formula)
-      match lhs.typeof:
+      lhs_type = type_synth_term(lhs, env, None, [])
+      match lhs_type:
         case FunctionType(loc2, [], [typ], ret_ty):
           arg_name = generate_name('x')
           arg = Var(loc, arg_name)
-          formula = All(loc, [(arg_name, typ)], mkEqual(loc, Call(loc, lhs, [arg], False), Call(loc, rhs, [arg], False)))
+          call_lhs = Call(loc, lhs, [arg], False)
+          #call_lhs.typeof = ret_ty
+          call_rhs = Call(loc, rhs, [arg], False)
+          #call_rhs.typeof = ret_ty
+          formula = All(loc, [(arg_name, typ)],
+                        mkEqual(loc, call_lhs, call_rhs))
           check_proof_of(proof, formula, env)
         case FunctionType(loc2, [], params, ret_ty):
           error(loc, 'extensionality expects function with one input parameter, not ' + str(len(params)))
@@ -730,6 +745,9 @@ def check_type(typ, env):
       exit(-1)
         
 def type_synth_term(term, env, recfun, subterms):
+  if hasattr(term, 'typeof'):
+    return term.typeof
+
   if get_verbose():
     print('type_synth_term: ' + str(term))
     print('env: ' + str(env))
@@ -820,7 +838,10 @@ def type_synth_term(term, env, recfun, subterms):
       type_check_term(subject, typ, env, recfun, subterms)
       ret = typ
     case _:
-      error(term.location, 'cannot synthesize a type for ' + str(term))
+      if isinstance(term, Type):
+        ret = TypeType(term.location)
+      else:
+        error(term.location, 'cannot synthesize a type for ' + str(term))
   if get_verbose():
     print('\t=> ' + str(ret))
   term.typeof = ret
@@ -933,6 +954,7 @@ def check_pattern(pattern, typ, env):
     print('check pattern: ' + str(pattern))
     print('against type: ' + str(typ))
     print('in env: ' + str(env))
+  pattern.typeof = typ
   match pattern:
     case PatternCons(loc, constr, params):
       return check_constructor_pattern(loc, constr, params, typ, env)
@@ -965,9 +987,9 @@ def check_statement(stmt, env):
       check_proof_of(pf, frm, env)
       return env.declare_proof_var(loc, name, frm)
     case RecFun(loc, name, typarams, params, returns, cases):
-      env = env.define_term_var(loc, name,
-                                FunctionType(loc, typarams, params, returns),
-                                stmt.reduce(env))
+      fun_type = FunctionType(loc, typarams, params, returns)
+      stmt.typeof = fun_type
+      env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
       uniondef = lookup_union(loc, params[0], env)
       cases_present = {c.name: False for c in uniondef.alternatives}
       for fun_case in cases:

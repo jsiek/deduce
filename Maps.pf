@@ -6,20 +6,22 @@ define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
               = λf,x,v{ λy{ if y = x then v else f(y) } }
 
 theorem update_eq :
-  all T:type, U:type, f: fn (T) -> U, x:T, v:U.
+  < T, U > all f: fn (T) -> U, x:T, v:U.
   update(f, x, v)(x) = v
 proof
-  arbitrary T:type, U:type, f: fn (T) -> U, x:T, v:U;
+  arbitrary T:type, U:type;
+  arbitrary f: fn (T) -> U, x:T, v:U;
   apply update in goal;
   .
 end
 
 theorem update_not_eq :
-  all T:type, U:type, f: fn (T) -> U, x:T, v:U, y:T.
+  < T, U > all f: fn (T) -> U, x:T, v:U, y:T.
   if not (x = y)
   then update(f, x, v)(y) = f(y)
 proof
-  arbitrary T:type, U:type, f: fn (T) -> U, x:T, v:U, y:T;
+  arbitrary T:type, U:type;
+  arbitrary f: fn (T) -> U, x:T, v:U, y:T;
   assume not_eq;
   apply update in goal;
   switch y = x {
@@ -35,10 +37,11 @@ proof
 end
 
 theorem update_shadow :
-  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U.
+  < T, U > all f:fn(T)->U, x:T, v:U, w:U.
   update(update(f, x, v), x, w) = update(f, x, w)
 proof
-  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U;
+  arbitrary T:type, U:type;
+  arbitrary f:fn(T)->U, x:T, v:U, w:U;
   apply update in goal;
   extensionality;
   arbitrary y:T;
@@ -49,11 +52,12 @@ proof
 end
 
 theorem update_permute :
-  all T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T.
+  < T, U > all f:fn(T)->U, x:T, v:U, w:U, y:T.
   if not (x = y)
   then update(update(f, x, v), y, w) = update(update(f, y, w), x, v)
 proof
-  arbitrary T:type, U:type, f:fn(T)->U, x:T, v:U, w:U, y:T;
+  arbitrary T:type, U:type;
+  arbitrary f:fn(T)->U, x:T, v:U, w:U, y:T;
   assume x_neq_y;
   apply update in goal;
   extensionality;
@@ -90,10 +94,11 @@ define restrict : < T,U > fn (fn(T)->Option<U>), (fn(T)->bool) -> (fn(T)->Option
                 = λf,P{λx{ if P(x) then f(x) else none }}
 		
 theorem restrict_domain:
-  all T:type, U:type, f:fn(T)->Option<U>, P:fn(T)->bool.
+  < T, U > all f:fn(T)->Option<U>, P:fn(T)->bool.
   domain(restrict(f, P)) ⊆ P
 proof
-  arbitrary T:type, U:type, f:fn(T)->Option<U>, P:fn(T)->bool;
+  arbitrary T:type, U:type;
+  arbitrary f:fn(T)->Option<U>, P:fn(T)->bool;
   apply restrict, domain, ⊆ in goal;
   arbitrary x:T;
   assume prem;

@@ -12,16 +12,15 @@ define f : fn Nat,Nat,Nat->Nat = λ x, y, z { add(add(x,y),z) }
 
 theorem apply_f: f(zero, suc(zero), suc(suc(zero))) = suc(suc(suc(zero)))
 proof
-  apply f, add in goal;
-  reflexive
+  apply f, add in goal; .
 end
 
 theorem add_zero_one: add(zero, suc(zero)) = suc(zero)
 proof
-  apply add in goal; reflexive
+  apply add in goal; .
 end
 
 theorem add_one_zero: add(suc(zero), zero) = suc(zero)
 proof
-  apply add in goal; reflexive
+  apply add in goal; .
 end

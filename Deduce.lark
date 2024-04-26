@@ -55,10 +55,12 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" var_list "." term                      -> all_formula
+    | "<" ident_list ">" term                       -> alltype_formula
     | "some" var_list "." term                     -> some_formula
     | "let" IDENT "=" term ";" term                -> let_term
     | "(" term ")"                                 -> paren
-
+    | "%" type
+    
 ?term_list:                                        -> empty
     | term                                         -> single
     | term "," term_list                           -> push
@@ -120,6 +122,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | "extensionality" ";" proof                         -> extensionality_proof
     | "(" proof ")"                                      -> paren
     | proof_hi "[" term_list "]"                         -> all_elim
+    | proof_hi "<" type_list ">"                         -> all_elim
     | "?"                                                -> hole_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
