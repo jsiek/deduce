@@ -221,6 +221,8 @@ proof
 	    .
 	  }
 	  case false {
+	    have x_neq_j: not (x = j)
+	       by (assume xj; have false by rewrite xj with EQ);
 	    switch x < j {
 	      case true {
 	        have xk: x < k
@@ -238,6 +240,9 @@ proof
 	      case false {
 	        have not_x_less_j: not (x < j)
 		  by (rewrite goal with EQ; .);
+		have j_less_x: j < x
+		  by using trichotomy2[j,x] with x_neq_j, not_x_less_j;
+		
 		// nts. x != k
 		// know k ≤ x, j ≤ x
 		have BST_R: is_BST(R) by apply is_BST in prem;
@@ -247,7 +252,13 @@ proof
 		have IH_R2: lookup(insert(R,k,v))(x)
  		         = update(lookup(R),k,just(v))(x)
 	          by (rewrite goal with IH_R; .);
-		?
+		switch x = k {
+		  case false { . }
+		  case true {
+		    
+		    ? // nts lookup(R)(x) = just(v)
+		  }
+		}
 	      }
 	    }
 	  }
