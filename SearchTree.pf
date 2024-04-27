@@ -183,11 +183,13 @@ end
 
 theorem lookup_insert_update:
   all T:Tree. all k:Nat, v:Nat.
-  lookup(insert(T, k, v)) = update(lookup(T), k, just(v))
+  if is_BST(T)
+  then lookup(insert(T, k, v)) = update(lookup(T), k, just(v))
 proof
   induction Tree
   case empty_tree {
     arbitrary k:Nat, v:Nat;
+    assume prem;
     apply insert, lookup, update in goal;
     extensionality;
     arbitrary x:Nat;
@@ -203,6 +205,7 @@ proof
   }
   case tree_node(L, j, w, R) {
     arbitrary k:Nat, v:Nat;
+    assume prem;
     apply insert, update in goal;
     switch k = j {
       case true {
@@ -222,9 +225,30 @@ proof
 	      case true {
 	        have xk: x < k
 		    by (rewrite goal with kj; rewrite goal with EQ; .);
+		have xnk: not (x = k)
+		  by using less_implies_not_equal[x][k] with xk;
+		switch x = k {
+		  case true {
+		    have x_eq_k: x = k by (rewrite goal with EQ; .);
+		    have false by using xnk with x_eq_k
+		  }
+		  case false { . }
+                }
+	      }
+	      case false {
+	        have not_x_less_j: not (x < j)
+		  by (rewrite goal with EQ; .);
+		// nts. x != k
+		// know k ≤ x, j ≤ x
+		have BST_R: is_BST(R) by apply is_BST in prem;
+		have IH_R: lookup(insert(R,k,v))
+ 		         = update(lookup(R),k,just(v))
+                     by using (conjunct 1 of IH)[k,v] with BST_R;
+		have IH_R2: lookup(insert(R,k,v))(x)
+ 		         = update(lookup(R),k,just(v))(x)
+	          by (rewrite goal with IH_R; .);
 		?
 	      }
-	      case false { ? }
 	    }
 	  }
 	}
