@@ -4,7 +4,6 @@
 from abstract_syntax import *
 from error import error
 from parser import parse, set_filename, get_filename
-from env import Env, TypeBinding
 
 verbose = False
 
@@ -901,18 +900,6 @@ def type_check_term(term, typ, env, recfun, subterms):
         error(term.location, 'expected term of type ' + str(typ) + ' but got ' + str(ty))
   term.typeof = typ
   
-def is_constructor(constr_name, env):
-  for (name,binding) in env.dict.items():
-    if isinstance(binding, TypeBinding):
-      match binding.defn:
-        case Union(loc2, name, typarams, alts):
-          for constr in alts:
-            if constr.name == constr_name:
-              return True
-        case _:
-          continue
-  return False
-
 def lookup_union(loc, typ, env):
   tyname = None
   match typ:

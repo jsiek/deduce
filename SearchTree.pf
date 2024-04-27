@@ -182,24 +182,19 @@ end
 */
 
 theorem lookup_insert_update:
-  all T:Tree. all f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat.
-  if lookup(T) = f
-  then lookup(insert(T, k, v)) = update(f, k, just(v))
+  all T:Tree. all k:Nat, v:Nat.
+  lookup(insert(T, k, v)) = update(lookup(T), k, just(v))
 proof
   induction Tree
   case empty_tree {
-    arbitrary f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat;
-    assume prem;
-    apply insert, lookup in goal;
-    rewrite goal with (symmetric prem);
-    apply lookup in goal;
+    arbitrary k:Nat, v:Nat;
+    apply insert, lookup, update in goal;
     extensionality;
-    arbitrary z:Nat;
-    apply update in goal;
-    switch z = k {
+    arbitrary x:Nat;
+    switch x = k {
       case true { . }
       case false {
-        switch z < k {
+        switch x < k {
 	  case true { . }
 	  case false { . }
 	}
@@ -207,33 +202,29 @@ proof
     }
   }
   case tree_node(L, j, w, R) {
-    arbitrary f: fn (Nat) -> Option<Nat>, k:Nat, v:Nat;
-    assume prem: lookup(tree_node(L,j,w,R)) = f;
-    apply insert, lookup in goal;
+    arbitrary k:Nat, v:Nat;
+    apply insert, update in goal;
     switch k = j {
       case true {
         have kj: k = j by (rewrite goal with EQ; .);
-	rewrite goal with kj;
+        apply lookup in goal;
 	extensionality;
 	arbitrary x:Nat;
-	apply lookup in goal;
         switch x = j {
 	  case true {
-	    have xj: x = j by (rewrite goal with EQ; .);
-	    rewrite goal with xj;
-	    have fjj: update(f, j, just(v))(j) = just(v)
-	       by update_eq< Nat, Option<Nat> >[f,j,just(v)];
-	    rewrite goal with fjj;
+            have xj: x = j by (rewrite goal with EQ; .);
+	    have xk: x = k by (transitive xj (symmetric kj));
+	    rewrite goal with xk;
 	    .
 	  }
 	  case false {
 	    switch x < j {
 	      case true {
-	        ?
+	        have xk: x < k
+		    by (rewrite goal with kj; rewrite goal with EQ; .);
+		?
 	      }
-	      case false {
-  	        ?
-	      }
+	      case false { ? }
 	    }
 	  }
 	}

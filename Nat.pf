@@ -272,6 +272,28 @@ proof
   }
 end
 
+theorem less_implies_not_equal:
+  all x:Nat. all y:Nat.
+  if x < y then not (x = y)
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat;
+    assume z_less_y;
+    assume z_eq_y;
+    have false by apply <, ≤, in (rewrite z_less_y with (symmetric z_eq_y))
+    }
+  case suc(x') {
+    arbitrary y:Nat;
+    assume sx_less_y;
+    assume xs_eq_y;
+    switch y {
+      case zero { have false by rewrite xs_eq_y with EQ }
+      case suc(y') { ? }
+    }
+  }
+end
+
 theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat
