@@ -2308,6 +2308,15 @@ def constructor_conflict(term1, term2, env):
     case (Call(loc1, Var(_, n1), rands1), Call(loc2, Var(_, n2), rands2)):
       if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
         return True
+    case (Call(loc1, Var(_, n1), rands1), Var(_, n2)):
+      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
+        return True
+    case (Var(_, n1), Var(_, n2)):
+      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
+        return True
+    case (Var(_, n1), Call(loc2, Var(_, n2), rands2)):
+      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
+        return True
   return False
     
 @dataclass

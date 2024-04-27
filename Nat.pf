@@ -289,7 +289,15 @@ proof
     assume xs_eq_y;
     switch y {
       case zero { have false by rewrite xs_eq_y with EQ }
-      case suc(y') { ? }
+      case suc(y') {
+        have x_less_y: x' < y'
+	  by (apply <,≤ in goal;
+	      apply <,≤ in rewrite sx_less_y with EQ);
+        have not_x_eq_y: not (x' = y') by using IH[y'] with x_less_y;
+	
+	have x_eq_y: x' = y' by (injective suc; rewrite xs_eq_y with EQ);
+	have false by using not_x_eq_y with x_eq_y
+      }
     }
   }
 end
