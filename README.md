@@ -96,10 +96,11 @@ the clauses as pattern-matching on the union's alternatives.  In the
 second clause, the pattern `node(n, next)` includes two pattern
 variables `n` and `next` that bind the two sub-parts of the node.  The
 expression after the `=` specifies the return value of the
-function. The clause `empty` says that the length is `0`.  The second
-clause says that the length is one plus the length of the rest of the
-linked list.  Note that the recursive call `length(next)` is allowed
-because `next` is a sub-part of `node(n, next)`.
+function. The clause for `empty` says that its length is `0`.  The
+clause for `node` says that its length is one more than the length of
+the rest of the linked list.  Note that the recursive call
+`length(next)` is allowed because `next` is a sub-part 
+of `node(n,next)`.
 
 Deduce supports generic functions, so we can generalize `length` to
 work on lists with any element type as follows.
@@ -109,9 +110,12 @@ work on lists with any element type as follows.
 	  length(node(n, next)) = 1 + length(next);
 	}
 
-Recursive functions may have more than one parameter. However, 
+Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. For example, here
+is the `append` function that combines two linked lists.
 
 	function append<E>(List<E>, List<E>) -> List<E> {
 	  append(empty, ys) = ys;
 	  append(node(n, xs), ys) = node(n, append(xs, ys));
 	}
+
