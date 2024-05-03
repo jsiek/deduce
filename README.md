@@ -89,11 +89,14 @@ lists of natural numbers.
 	}
 
 There are two clauses in this definition, one for the `empty`
-alternative and another for the `node` alternative.
-The first clause says that length of an empty list is `0`.
-The second clause says that the length of a list of the form
-`node(n, next)` is one more than the length of `next`.
-Note that the recursive call `length(next)` is allowed
+alternative and another for the `node` alternative.  One can think of
+the clauses as pattern-matching on the union's alternatives.  In the
+second clause, the pattern `node(n, next)` includes two pattern
+variables `n` and `next` that bind the two sub-parts of the node.  The
+expression after the `=` specified the return value of the
+function. The clause `empty` says that the length is `0`.  The second
+clause says that the length is one plus the length of the rest of the
+linked list.  Note that the recursive call `length(next)` is allowed
 because `next` is a sub-part of `node(n, next)`.
 
 Deduce supports generic functions, so we can generalize `length` to
@@ -104,4 +107,9 @@ work on lists with any element type as follows.
 	  length(node(n, next)) = 1 + length(next);
 	}
 
+Recursive functions may have more than one parameter. However, 
 
+	function append<E>(List<E>, List<E>) -> List<E> {
+	  append(empty, ys) = ys;
+	  append(node(n, xs), ys) = node(n, append(xs, ys));
+	}
