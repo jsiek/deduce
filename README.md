@@ -71,7 +71,9 @@ is `List<Nat>`.
 
 ### Recursive Functions
 
-The recursive functions of Deduce are somewhat special.
+The recursive functions of Deduce are somewhat special to make sure
+they always terminate.
+
 * The first parameter of the function must be a union.
 * The function definition must include a clause for every
   alternative in the union.
