@@ -95,7 +95,7 @@ alternative and another for the `node` alternative.  One can think of
 the clauses as pattern-matching on the union's alternatives.  In the
 second clause, the pattern `node(n, next)` includes two pattern
 variables `n` and `next` that bind the two sub-parts of the node.  The
-expression after the `=` specified the return value of the
+expression after the `=` specifies the return value of the
 function. The clause `empty` says that the length is `0`.  The second
 clause says that the length is one plus the length of the rest of the
 linked list.  Note that the recursive call `length(next)` is allowed
