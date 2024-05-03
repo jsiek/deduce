@@ -57,10 +57,9 @@ linked list to allow an arbitrary element type as follows.
 ### Definitions
 
 The `define` feature of Deduce associates a name with a value.  The
-following associates the name `L5` with the linked-list on the
-right-hand side. The following definitions associate the name `L23`
-with the linked list contains `2` and `3`, and then `L13` is the
-linked list containing `1`, `2` and `3`.
+following two definitions associate the name `L23` with the
+linked-list containing `2` and `3`, and the name `L13` with the
+linked-list containing `1`, `2` and `3`.
 
 	define L23 = node(2, node(3, empty))
 	define L13 : List<Nat> = node(1, L23)
