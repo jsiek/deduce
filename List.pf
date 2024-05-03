@@ -33,7 +33,7 @@ end
 
 define L1 = node(1, node(2, empty))
 define L2 = node(3, node(4, node(5, empty)))
-define L3 = node(1, node(2, node(3, node(4, node(5, empty)))))
+define L3 : List<Nat> = node(1, node(2, node(3, node(4, node(5, empty)))))
 
 theorem length_L3: length(L3) = 5
 proof
