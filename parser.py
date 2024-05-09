@@ -324,7 +324,12 @@ def parse_tree_to_ast(e):
     elif e.data == 'switch_pf_case':
         pat = parse_tree_to_ast(e.children[0])
         body = parse_tree_to_ast(e.children[1])
-        return SwitchProofCase(e.meta, pat, body)
+        return SwitchProofCase(e.meta, pat, [], body)
+    elif e.data == 'switch_pf_case_assume':
+        pat = parse_tree_to_ast(e.children[0])
+        assms = parse_tree_to_list(e.children[1])
+        body = parse_tree_to_ast(e.children[2])
+        return SwitchProofCase(e.meta, pat, assms, body)
     elif e.data == 'switch_proof':
         subject = parse_tree_to_ast(e.children[0])
         cases = parse_tree_to_list(e.children[1])

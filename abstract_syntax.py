@@ -592,8 +592,8 @@ class Var(AST):
       if base_name(self.name) == 'zero':
         return '0'
       else:
-        #return base_name(self.name)
-        return self.name
+        return base_name(self.name)
+        #return self.name
 
   def __repr__(self):
       return str(self)
@@ -1809,6 +1809,7 @@ class Induction(Proof):
 @dataclass
 class SwitchProofCase(AST):
   pattern: Pattern
+  assumptions: list[Tuple[str,Formula]]
   body: Proof
 
   def __str__(self):
@@ -1821,11 +1822,20 @@ class SwitchProofCase(AST):
   def uniquify(self, env):
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
+    
     new_params = [generate_name(x) for x in self.pattern.bindings()]
     for (old,new) in zip(self.pattern.bindings(), new_params):
       body_env[old] = new
+
+    new_assumptions = [(generate_name(x),f) for (x,f) in self.assumptions]
+    for (x,f) in new_assumptions:
+      if f:
+        f.uniquify(body_env)
+    for ((old,old_frm),(new,new_frm)) in zip(self.assumptions, new_assumptions):
+      body_env[old] = new
+
     self.pattern.set_bindings(new_params)
-    body_env['EQ'] = 'EQ'
+    self.assumptions = new_assumptions
     self.body.uniquify(body_env)
     
 @dataclass
@@ -1967,7 +1977,7 @@ class Constructor(AST):
                        [ty.shift_term_vars(cutoff, amount) for ty in self.parameters])
   
   def __str__(self):
-    return self.name + '(' + ','.join([str(ty) for ty in self.parameters]) + ');'
+    return base_name(self.name) + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
       
 @dataclass
 class Union(Statement):

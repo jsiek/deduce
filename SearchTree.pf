@@ -74,9 +74,9 @@ proof
     have PR: all_keys(R, P) by apply all_keys in prem;    
     apply all_keys, insert in goal;
     switch x = z {
-      case true {
+      case true assume xz_true {
         apply all_keys in goal;
-	have xz: x = z by (rewrite goal with EQ; .);
+	have xz: x = z by (rewrite goal with xz_true; .);
 	have Pz: P(z) by (rewrite prem with xz);
         (apply all_keys in prem, Pz)
       }
@@ -129,11 +129,11 @@ proof
         have is_BST(tree_node(L,y,v,R))
             by apply is_BST in goal; L_less_y, y_less_R, BST_L, BST_R
       }
-      case false {
-        have not_xey: not (x = y) by (assume xy; rewrite xy with EQ);
+      case false assume xy_false {
+        have not_xey: not (x = y) by (assume xy; rewrite xy with xy_false);
         switch x < y {
-          case true {
-	    have xy: x < y by (rewrite goal with EQ; .);
+          case true assume xy_true {
+	    have xy: x < y by (rewrite goal with xy_true; .);
 	    have Lx_less_y: all_keys(insert(L,x,v), λk{k < y})
 	      by using insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
 	         with L_less_y, xy;
@@ -142,10 +142,11 @@ proof
 	    have is_BST(tree_node(insert(L,x,v),y,v2,R))
 	        by apply is_BST in goal; Lx_less_y, y_less_R, BST_R, BST_Lx
 	  }
-	  case false {
+	  case false assume xy_false {
 	    have BST_Rx: is_BST(insert(R,x,v))
 	      by using IHR[x,v] with BST_R;
-	    have not_xly: not (x < y) by (assume prem; rewrite prem with EQ); 
+	    have not_xly: not (x < y)
+	       by (assume prem; rewrite prem with xy_false); 
 	    have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
 	    have y_less_Rx: all_keys(insert(R,x,v), λk{y < k})
 	      by using insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
@@ -208,38 +209,38 @@ proof
     assume prem;
     apply insert, update in goal;
     switch k = j {
-      case true {
-        have kj: k = j by (rewrite goal with EQ; .);
+      case true assume kj_true {
+        have kj: k = j by (rewrite goal with kj_true; .);
         apply lookup in goal;
 	extensionality;
 	arbitrary x:Nat;
         switch x = j {
-	  case true {
-            have xj: x = j by (rewrite goal with EQ; .);
+	  case true assume xj_true {
+            have xj: x = j by (rewrite goal with xj_true; .);
 	    have xk: x = k by (transitive xj (symmetric kj));
 	    rewrite goal with xk;
 	    .
 	  }
-	  case false {
+	  case false assume xj_false {
 	    have x_neq_j: not (x = j)
-	       by (assume xj; have false by rewrite xj with EQ);
+	       by (assume xj; have false by rewrite xj with xj_false);
 	    switch x < j {
-	      case true {
+	      case true assume xj_true {
 	        have xk: x < k
-		    by (rewrite goal with kj; rewrite goal with EQ; .);
+		    by (rewrite goal with kj; rewrite goal with xj_true; .);
 		have xnk: not (x = k)
 		  by using less_implies_not_equal[x][k] with xk;
 		switch x = k {
-		  case true {
-		    have x_eq_k: x = k by (rewrite goal with EQ; .);
+		  case true assume xk_true {
+		    have x_eq_k: x = k by (rewrite goal with xk_true; .);
 		    have false by using xnk with x_eq_k
 		  }
 		  case false { . }
                 }
 	      }
-	      case false {
+	      case false assume xj_false {
 	        have not_x_less_j: not (x < j)
-		  by (rewrite goal with EQ; .);
+		  by (rewrite goal with xj_false; .);
 		have j_less_x: j < x
 		  by using trichotomy2[j,x] with x_neq_j, not_x_less_j;
 		

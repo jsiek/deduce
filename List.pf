@@ -429,7 +429,7 @@ proof
   case node(x, xs') assume IH {
     arbitrary ys:List<U1>;
     switch ys {
-    case empty { rewrite goal with EQ; apply map, zip in goal; . }
+    case empty assume EQ { rewrite goal with EQ; apply map, zip in goal; . }
     case node(y, ys') {
       equations
         zip(map(node(x,xs'),f),map(node(y,ys'),g))

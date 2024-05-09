@@ -528,10 +528,13 @@ def check_proof_of(proof, formula, env):
             error(loc, "type of induction: " + str(typ) + "\ndoes not match the all-formula's type: " + str(ty))
       match env.get_def_of_type_var(get_type_name(typ)):
         case Union(loc2, name, typarams, alts):
+          if len(cases) != len(alts):
+            error(loc, 'expected ' + str(len(alts)) + ' cases for induction, but only have ' + str(len(cases)))
+          
           for (constr,indcase) in zip(alts, cases):
             if indcase.pattern.constructor.name != constr.name:
-              error(indcase.location, "expected a case for " + str(constr.name) \
-                    + " not " + str(indcase.pattern.constructor.name))
+              error(indcase.location, "expected a case for " + str(base_name(constr.name)) \
+                    + " not " + str(base_name(indcase.pattern.constructor.name)))
             if len(indcase.pattern.parameters) != len(constr.parameters):
               error(indcase.location, "expected " + len(constr.parameters) \
                     + " arguments to " + constr.name \
@@ -573,13 +576,38 @@ def check_proof_of(proof, formula, env):
       ty = type_synth_term(subject, env, None, [])
       match ty:
         case BoolType():
+          # check exhaustiveness
+          has_true_case = False
+          has_false_case = False
+          for scase in cases:
+            match scase.pattern:
+              case PatternBool(l1, True):
+                has_true_case = True
+              case PatternBool(l1, False):
+                has_false_case = True
+          if not has_true_case:
+            error(loc, 'missing case for true')
+          if not has_false_case:
+            error(loc, 'missing case for false')
+            
+          # check each case
           for scase in cases:
             if not isinstance(scase.pattern, PatternBool):
-              error(scase.location, "expected pattern 'true' for 'false' in switch on bool")
+              error(scase.location, "expected pattern 'true' or 'false' in switch on bool")
             subject_case = Bool(scase.location, True) if scase.pattern.value \
                            else Bool(scase.location, False)
             equation = mkEqual(scase.location, subject, subject_case)
-            body_env = env.declare_proof_var(loc, 'EQ', equation)
+
+            body_env = env
+            if len(scase.assumptions) == 1:
+              if scase.assumptions[0][1] != None and scase.assumptions[0][1] != equation:
+                error(scase.location, 'expected assumption\n' + str(assumption) \
+                      + '\nnot\n' + str(scase.assumptions[0][1]))
+              body_env = body_env.declare_proof_var(loc, scase.assumptions[0][0], equation)
+
+            if len(scase.assumptions) > 1:
+              error(scase.location, 'only one assumption is allowed in a switch case')
+            
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
             new_frm = frm.reduce(env)
             check_proof_of(scase.body, new_frm, body_env)
@@ -587,6 +615,8 @@ def check_proof_of(proof, formula, env):
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
             case Union(loc2, name, typarams, alts):
+              if len(cases) != len(alts):
+                error(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases)))
               for (constr,scase) in zip(alts, cases):
                 if scase.pattern.constructor.name != constr.name:
                   error(scase.location, "expected a case for " + str(constr) \
@@ -596,10 +626,17 @@ def check_proof_of(proof, formula, env):
                         + " arguments to " + constr.name \
                         + " not " + len(scase.pattern.parameters))
                 subject_case = pattern_to_term(scase.pattern)
-                body_env = env.declare_proof_var(loc, 'EQ',
-                                                 mkEqual(scase.location, 
-                                                         subject,
-                                                         subject_case))
+
+                body_env = env
+                if len(scase.assumptions) == 1:
+                  assumption = mkEqual(scase.location, subject, subject_case)
+                  if scase.assumptions[0][1] != None and scase.assumptions[0][1] != assumption:
+                    error(scase.location, 'expected assumption\n' + str(assumption) \
+                          + '\nnot\n' + str(scase.assumptions[0][1]))
+                  body_env = body_env.declare_proof_var(loc, scase.assumptions[0][0], assumption)
+                if len(scase.assumptions) > 1:
+                  error(scase.location, 'only one assumption is allowed in a switch case')
+                  
                 tyargs = get_type_args(ty)
                 sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
                 constr_params = [ty.substitute(sub) for ty in constr.parameters]

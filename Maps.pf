@@ -25,8 +25,8 @@ proof
   assume not_eq;
   apply update in goal;
   switch y = x {
-    case true {
-      have yx: y = x by (rewrite goal with EQ; .);
+    case true assume yx_true {
+      have yx: y = x by (rewrite goal with yx_true; .);
       have xy: x = y by symmetric yx;
       have false by using not_eq with xy
     }
@@ -63,11 +63,11 @@ proof
   extensionality;
   arbitrary z:T;
   switch z = y {
-    case true {
-      have zy: z = y by (rewrite goal with EQ; .);
+    case true assume zy_true {
+      have zy: z = y by (rewrite goal with zy_true; .);
       switch z = x {
-        case true {
-	  have zx: z = x by (rewrite goal with EQ; .);
+        case true assume zx_true {
+	  have zx: z = x by (rewrite goal with zx_true; .);
 	  have xy: x = y by transitive (symmetric zx) zy;
 	  have false by using x_neq_y with xy
 	}
@@ -104,6 +104,6 @@ proof
   assume prem;
   switch P(x) {
     case true { . }
-    case false { have false by rewrite prem with EQ }
+    case false assume Px_false { have false by rewrite prem with Px_false }
   }
 end

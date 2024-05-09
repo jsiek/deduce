@@ -179,10 +179,10 @@ proof
     assume sx_y: suc(x') < y;
     have ssx_y: suc(suc(x')) ≤ y by apply < in sx_y;
     switch y {
-      case zero {
-        have false by apply ≤ in (rewrite ssx_y with EQ)
+      case zero assume yz {
+        have false by apply ≤ in (rewrite ssx_y with yz)
       }
-      case suc(y') {
+      case suc(y') assume EQ : y = suc(y') {
         apply ≤ in goal;
 	have ssx_sy: suc(suc(x')) ≤ suc(y') by rewrite ssx_y with EQ;
         have x_y: x' < y' by (apply <,≤ in goal; apply ≤ in ssx_sy);
@@ -214,21 +214,21 @@ proof
     have sm_n: suc(m') ≤ n by Prem;
     have n_o: n ≤ o by Prem;
     switch n {
-      case 0 {
-        have sm_z: suc(m') ≤ 0 by rewrite sm_n with EQ;
+      case 0 assume nz {
+        have sm_z: suc(m') ≤ 0 by rewrite sm_n with nz;
         have false by apply ≤ in sm_z
       }
-      case suc(n') {
-        have sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with EQ;
+      case suc(n') assume ns {
+        have sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with ns;
         have m_n: m' ≤ n' by apply ≤ in sm_sn;
-        have sn_o: suc(n') ≤ o by rewrite n_o with EQ;
+        have sn_o: suc(n') ≤ o by rewrite n_o with ns;
         switch o {
-          case 0 {
-            have sn_z: suc(n') ≤ 0 by rewrite sn_o with EQ;
+          case 0 assume oz {
+            have sn_z: suc(n') ≤ 0 by rewrite sn_o with oz;
             have false by apply ≤ in sn_z
           }
-          case suc(o') {
-            have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with EQ;
+          case suc(o') assume os {
+            have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with os;
             have n_o: n' ≤ o' by apply ≤ in sn_so;
 	    apply ≤ in goal; 
             have m' ≤ o' by using IH[n',o'] with m_n, n_o
@@ -249,8 +249,9 @@ proof
     assume not_0_y: not (0 < y);
     switch y {
       case zero { apply ≤ in goal; . }
-      case suc(y') {
-        have false by using (rewrite not_0_y with EQ) with (apply <, ≤ in goal; .)
+      case suc(y') assume ys {
+        have false by using (rewrite not_0_y with ys)
+	               with (apply <, ≤ in goal; .)
       }
     }
   }
@@ -259,12 +260,12 @@ proof
     assume not_sx_y: not (suc(x') < y);
     switch y {
       case zero { apply ≤ in goal; . }
-      case suc(y') {
+      case suc(y') assume ys {
         have not_x_y: not (x' < y')
 	  by (assume x_y: x' < y';
             have sx_sy: suc(x') < suc(y')
 	      by (apply <, ≤ in goal; apply <, ≤ in x_y);
-            have sx_y: suc(x') < y by (rewrite goal with EQ; sx_sy);
+            have sx_y: suc(x') < y by (rewrite goal with ys; sx_sy);
 	    using not_sx_y with sx_y);
 	apply ≤ in goal;
 	have y' ≤ x' by using IH[y'] with not_x_y
@@ -289,13 +290,13 @@ proof
     assume sx_less_y;
     assume xs_eq_y;
     switch y {
-      case zero { have false by rewrite xs_eq_y with EQ }
-      case suc(y') {
+      case zero assume yz { have false by rewrite xs_eq_y with yz }
+      case suc(y') assume ys {
         have x_less_y: x' < y'
 	  by (apply <,≤ in goal;
-	      apply <,≤ in rewrite sx_less_y with EQ);
+	      apply <,≤ in rewrite sx_less_y with ys);
         have not_x_eq_y: not (x' = y') by using IH[y'] with x_less_y;
-	have x_eq_y: x' = y' by (injective suc; rewrite xs_eq_y with EQ);
+	have x_eq_y: x' = y' by (injective suc; rewrite xs_eq_y with ys);
 	have false by using not_x_eq_y with x_eq_y
       }
     }
