@@ -25,6 +25,12 @@ Deduce supports the following language features:
 * recursive functions
 * higher-order functions
 * anonymous functions
+* the natural numbers
+* pairs
+* booleans and conditional expressions
+* switch
+
+The following subsections describe each of these features.
 
 ### Unions
 
@@ -140,3 +146,53 @@ example, the following computes whether all the elements of the list
 
     define L13_positive = all_elements(L13, λx{ 0 < x })
 
+### The Natural Numbers
+
+The natural numbers are not a builtin type in Deduce but instead they
+are defined as a `union` type:
+
+	union Nat {
+	  zero;
+	  suc(Nat);
+	}
+
+The file `Nat.pf` includes the above definition together with many
+operations on natural numbers and theorems about them.
+
+### Pairs
+
+Pairs are defined as a `union` type:
+
+	union Pair<T,U> {
+	  pair(T,U);
+	}
+
+The file `Pair.pf` includes the above definition and several
+operations on pairs, such as `first` and `second`.
+
+### Booleans and Conditional Expressions
+
+Deduce includes the values `true` and `false` of type `bool` and the
+usual boolean operations such as `and`, `or`, and `not`.  Deduce also
+provides an if-then-else expression that branches on the value of a
+boolean. For example, the following expression
+
+    if 0 ≤ 1 then 3+4 else 5+6
+
+is equivalent to `7`. 
+
+### Switch
+
+One can also `switch` on a value of union type.  For example, the
+following `zip` function combines two lists into a list of pairs.  It
+is a recursive function that pattern-matches on the first list and
+uses `switch` to pattern-match on the second list.
+
+	function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+	  zip(empty, ys) = empty;
+	  zip(node(x, xs'), ys) =
+		switch ys {
+		  case empty { empty }
+		  case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
+		};
+	}
