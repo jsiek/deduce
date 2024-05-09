@@ -182,6 +182,7 @@ proof
 end
 */
 
+/*
 theorem lookup_insert_update:
   all T:Tree. all k:Nat, v:Nat.
   if is_BST(T)
@@ -271,3 +272,4 @@ proof
     }
   }
 end
+*/

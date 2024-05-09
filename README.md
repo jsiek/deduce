@@ -23,6 +23,8 @@ Deduce supports the following language features:
 * unions
 * definitions
 * recursive functions
+* higher-order functions
+* anonymous functions
 
 ### Unions
 
@@ -118,4 +120,23 @@ is the `append` function that combines two linked lists.
 	  append(empty, ys) = ys;
 	  append(node(n, xs), ys) = node(n, append(xs, ys));
 	}
+
+### Higher-order Functions
+
+Functions may be passed as parameters to a function and they may be
+returned from a function. For example, the following function checks
+whether every element of a list satisfies a predicate.
+
+	function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+	  all_elements(empty, P) = true;
+	  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P);
+	}
+
+### Anonymous Functions
+
+Anonymous functions can be created with a `λ` expression.  For
+example, the following computes whether all the elements of the list
+`L13` are positive.
+
+    define L13_positive = all_elements(L13, λx{ 0 < x })
 

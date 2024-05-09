@@ -404,6 +404,13 @@ function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
     };
 }
 
+function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+  all_elements(empty, P) = true;
+  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P);
+}
+
+define L1_positive = all_elements(L1, λx{ 0 < x })
+
 theorem zip_id_right: all T:type. all xs:List<T>. zip(xs, empty) = empty
 proof
   arbitrary T:type;
