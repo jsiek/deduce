@@ -14,7 +14,7 @@ proof
   case zero {
     have add(zero, zero) = zero by apply add in goal; .
   }
-  case suc(n') {
+  case suc(n') assume IH {
     equations
       add(suc(n'), zero) = suc(add(n', zero))   by apply add in goal; .
                      ... = suc(n')              by rewrite goal with IH; .

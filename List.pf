@@ -70,7 +70,7 @@ proof
     have length(append(empty,ys)) = length(empty) + length(ys)
         by apply length, append, + in goal; .
   }
-  case node(n, xs') {
+  case node(n, xs') assume IH {
     arbitrary ys :List<U>;
     equations
       length(append(node(n,xs'),ys))
@@ -99,7 +99,7 @@ proof
     have append(append(empty,ys),zs) = append(empty,append(ys,zs))
       by apply append in goal; .
   }
-  case node(n, xs') {
+  case node(n, xs') assume IH {
     arbitrary ys :List<U>, zs :List<U>;
     equations
       append(append(node(n,xs'),ys),zs)
@@ -117,7 +117,7 @@ proof
   case empty {
     have append(empty, empty) = empty by apply append in goal; .
   }
-  case node(n, xs') {
+  case node(n, xs') assume IH {
     equations
       append(node(n,xs'),empty)
           = node(n,append(xs',empty))     by apply append in goal; .
@@ -133,7 +133,7 @@ proof
   case empty {
     have length(reverse(empty)) = length(empty) by apply reverse in goal; .
   }
-  case node(n, xs') {
+  case node(n, xs') assume IH {
     equations
       length(reverse(node(n,xs')))
           = length(append(reverse(xs'), node(n,empty))) by apply reverse in goal; .
@@ -166,7 +166,7 @@ proof
                 by rewrite goal with append_empty[U][reverse(ys)]; .
     ... = append(reverse(ys),reverse(empty))   by apply reverse in goal; .
   }
-  case node(n, xs') {
+  case node(n, xs') assume IH {
     arbitrary ys :List<U>;
     equations
     reverse(append(node(n,xs'),ys))
@@ -188,7 +188,7 @@ proof
   case empty {
     have reverse(reverse(empty)) = empty by apply reverse in goal; .
   }
-  case node(n, ls') {
+  case node(n, ls') assume IH {
     equations
       reverse(reverse(node(n,ls')))
           = reverse(append(reverse(ls'), node(n,empty))) by apply reverse in goal; .
@@ -219,7 +219,7 @@ proof
   case empty {
     apply map in goal; .
   }
-  case node(x, ls') {
+  case node(x, ls') assume IH {
     equations
       length(map(node(x,ls'),f))
           = suc(length(map(ls',f)))   by apply map, length, + in goal; .
@@ -237,7 +237,7 @@ proof
   case empty {
     have map(empty,f) = empty by apply map in goal; .
   }
-  case node(x, ls) {
+  case node(x, ls) assume IH {
     equations
       map(node(x,ls),f)
           = node(f(x), map(ls, f)) by apply map in goal; .
@@ -264,7 +264,7 @@ proof
   case empty {
     apply map, append in goal; .
   }
-  case node(x, xs') {
+  case node(x, xs') assume IH {
     equations
       map(append(node(x,xs'),ys),f)
           = map(node(x, append(xs',ys)), f)     by apply append, map in goal; .
@@ -281,7 +281,7 @@ proof
   arbitrary T:type, U:type, V:type, f:fn T->U, g:fn U->V;
   induction List<T>
   case empty { apply map in goal; . }
-  case node(x, ls) {
+  case node(x, ls) assume IH {
     equations
     map(map(node(x,ls),f),g)
 	= node(g(f(x)), map(map(ls, f), g))  by apply map in goal; .
@@ -426,7 +426,7 @@ proof
       arbitrary ys:List<U1>;
       apply map, zip in goal; .
   }
-  case node(x, xs') {
+  case node(x, xs') assume IH {
     arbitrary ys:List<U1>;
     switch ys {
     case empty { rewrite goal with EQ; apply map, zip in goal; . }

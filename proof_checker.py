@@ -235,6 +235,11 @@ def isolate_difference(term1, term2):
           return (s1, s2)
       case(And(l1, args1), And(l2, args2)):
         return isolate_difference_list(args1, args2)
+      case (All(l1, vars1, body1), All(l2, vars2, body2)):
+        if len(vars1) != len(vars2):
+          return (term1, term2)
+        ren = {x: Var(l1,y) for ((x,t1),(y,t2)) in zip(vars1, vars2) }
+        return isolate_difference(body1.substitute(ren), body2)
       case _:
         return (term1, term2)
     
@@ -536,11 +541,20 @@ def check_proof_of(proof, formula, env):
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)
                                     if get_type_name(ty) == get_type_name(typ)]
-            if len(induction_hypotheses) > 1:
-              induction_hypotheses = And(indcase.location, induction_hypotheses)
-            elif len(induction_hypotheses) == 1:
-              induction_hypotheses = induction_hypotheses[0]
-            body_env = env.declare_proof_var(loc, 'IH', induction_hypotheses)
+            # if len(induction_hypotheses) > 1:
+            #   induction_hypotheses = And(indcase.location, induction_hypotheses)
+            # elif len(induction_hypotheses) == 1:
+            #   induction_hypotheses = induction_hypotheses[0]
+            # body_env = env.declare_proof_var(loc, 'IH', induction_hypotheses)
+            body_env = env
+            for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
+              if frm1 != None and frm1 != frm2:
+                (small_frm1,small_frm2) = isolate_difference(frm1, frm2)
+                msg = 'incorrect induction hypothesis, expected\n' + str(frm2) + '\nbut got\n' + str(frm1) \
+                  + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
+                error(loc, msg)
+              body_env = body_env.declare_proof_var(loc, x, frm2)
+              
             trm = pattern_to_term(indcase.pattern)
             goal = instantiate(loc, formula, [trm])
             if len(typarams) > 0:

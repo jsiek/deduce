@@ -592,8 +592,8 @@ class Var(AST):
       if base_name(self.name) == 'zero':
         return '0'
       else:
-        return base_name(self.name)
-        #return self.name
+        #return base_name(self.name)
+        return self.name
 
   def __repr__(self):
       return str(self)
@@ -1455,6 +1455,8 @@ class PVar(Proof):
     self.index = env.index_of_proof_var(self.name)
 
   def uniquify(self, env):
+    if self.name not in env.keys():
+      error(self.location, "undefined proof variable " + self.name)
     self.name = env[self.name]
     
 @dataclass
@@ -1753,10 +1755,13 @@ class PExtensionality(Proof):
 @dataclass
 class IndCase(AST):
   pattern: Pattern
+  induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
   def __str__(self):
-    return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
+    return 'case ' + str(self.pattern) \
+      + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
+      + '{' + str(self.body) + '}'
 
   def debruijnize(self, env):
     body_env = env.declare_proof_var(self.location, 'IH', None)
@@ -1765,12 +1770,21 @@ class IndCase(AST):
 
   def uniquify(self, env):
     body_env = copy_dict(env)
-    body_env['IH'] = 'IH'  # TODO: introduce explicit binders for IH
+
     new_params = [generate_name(x) for x in self.pattern.parameters]
     for (old,new) in zip(self.pattern.parameters, new_params):
       body_env[old] = new
+      
+    new_hyps = [(generate_name(x),f) for (x,f) in self.induction_hypotheses]
+    for ((old,old_frm),(new,new_frm)) in zip(self.induction_hypotheses, new_hyps):
+      body_env[old] = new
+    for (x,f) in new_hyps:
+      if f:
+        f.uniquify(body_env)
+      
     self.pattern.parameters = new_params
     self.pattern.uniquify(env)
+    self.induction_hypotheses = new_hyps
     self.body.uniquify(body_env)
     
 @dataclass

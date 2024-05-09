@@ -67,7 +67,7 @@ proof
     apply all_keys, insert in goal;
     conjunct 1 of prem
   }
-  case tree_node(L, z, v2, R) {
+  case tree_node(L, z, v2, R) assume IHL, IHR {
     arbitrary x:Nat,v:Nat,P: fn(Nat) -> bool;
     assume prem: all_keys(tree_node(L,z,v2,R),P) and P(x);
     have PL: all_keys(L, P) by apply all_keys in prem;
@@ -86,14 +86,14 @@ proof
 	    apply all_keys in goal;
 	    have Pz: P(z) by apply all_keys in prem;
 	    have LxP: all_keys(insert(L,x,v),P)
-	      by using (conjunct 0 of IH)[x,v,P] with PL, prem;
+	      by using IHL[x,v,P] with PL, prem;
 	    (LxP, Pz, PR)
 	  }
 	  case false {
 	    apply all_keys in goal;
 	    have Pz: P(z) by apply all_keys in prem;
 	    have RxP: all_keys(insert(R,x,v),P)
-	      by using (conjunct 1 of IH)[x,v,P] with PR, prem;
+	      by using IHR[x,v,P] with PR, prem;
 	    (PL, Pz, RxP)
 	  }
 	}
@@ -114,7 +114,7 @@ proof
     have is_BST(insert(empty_tree,x,v))
       by apply insert, is_BST, all_keys in goal; .
   }
-  case tree_node(L, y, v2, R) {
+  case tree_node(L, y, v2, R) assume IHL, IHR {
     arbitrary x:Nat, v:Nat;
     assume prem: is_BST(tree_node(L,y,v2,R));
     have BST_L: is_BST(L) by apply is_BST in prem;
@@ -138,13 +138,13 @@ proof
 	      by using insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
 	         with L_less_y, xy;
 	    have BST_Lx: is_BST(insert(L,x,v))
-	       by using (conjunct 0 of IH)[x,v] with BST_L;
+	       by using IHL[x,v] with BST_L;
 	    have is_BST(tree_node(insert(L,x,v),y,v2,R))
 	        by apply is_BST in goal; Lx_less_y, y_less_R, BST_R, BST_Lx
 	  }
 	  case false {
 	    have BST_Rx: is_BST(insert(R,x,v))
-	      by using (conjunct 1 of IH)[x,v] with BST_R;
+	      by using IHR[x,v] with BST_R;
 	    have not_xly: not (x < y) by (assume prem; rewrite prem with EQ); 
 	    have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
 	    have y_less_Rx: all_keys(insert(R,x,v), λk{y < k})
@@ -203,7 +203,7 @@ proof
       }
     }
   }
-  case tree_node(L, j, w, R) {
+  case tree_node(L, j, w, R) assume IHL, IHR {
     arbitrary k:Nat, v:Nat;
     assume prem;
     apply insert, update in goal;
@@ -248,7 +248,7 @@ proof
 		have BST_R: is_BST(R) by apply is_BST in prem;
 		have IH_R: lookup(insert(R,k,v))
  		         = update(lookup(R),k,just(v))
-                     by using (conjunct 1 of IH)[k,v] with BST_R;
+                     by using IHR[k,v] with BST_R;
 		have IH_R2: lookup(insert(R,k,v))(x)
  		         = update(lookup(R),k,just(v))(x)
 	          by (rewrite goal with IH_R; .);

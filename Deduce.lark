@@ -76,7 +76,14 @@ ident: IDENT              -> ident
     | ident ":" type                               -> single_binding
     | ident ":" type "," var_list                  -> push_binding
 
+?assumption_list:                                  -> empty_binding
+    | ident ":" term                               -> single_binding
+    | ident                                        -> single_var
+    | ident ":" term "," assumption_list           -> push_binding
+    | ident "," assumption_list                    -> push_var
+
 ?ind_case: "case" pattern "{" proof "}"            -> ind_case
+    | "case" pattern "assume" assumption_list "{" proof "}" -> ind_case_assume
 
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push

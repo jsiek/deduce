@@ -23,7 +23,7 @@ proof
   case 0 {
     have 0 + 0 = 0 by apply + in goal; .
   }
-  case suc(n') {
+  case suc(n') assume IH {
     equations
       suc(n') + 0 = suc(n' + 0) by apply + in goal; .
               ... = suc(n') by rewrite goal with IH; .
@@ -37,7 +37,7 @@ proof
     arbitrary n : Nat;
     apply + in goal; .
   }
-  case suc(n') {
+  case suc(n') assume IH {
     arbitrary n : Nat;
     have IHn: n' + suc(n) = suc(n' + n) by IH[n];
     have suc(n') + suc(n) = suc(suc(n') + n) by
@@ -64,7 +64,7 @@ proof
     equations  0 + m = m       by apply + in goal; .
                  ... = m + 0   by symmetric add_zero[m]
   }
-  case suc(n') {
+  case suc(n') assume IH {
     arbitrary m : Nat;
     equations
       suc(n') + m = suc(n' + m)       by apply + in goal; .
@@ -81,7 +81,7 @@ proof
     arbitrary n:Nat, o:Nat;
     have (0 + n) + o = 0 + (n + o) by apply + in goal; .
   }
-  case suc(m') {
+  case suc(m') assume IH {
     arbitrary n:Nat, o:Nat;
     equations
       (suc(m') + n) + o = suc((m' + n) + o) by apply + in goal; .
@@ -102,7 +102,7 @@ proof
               ... = 0 + z      by prem
               ... = z          by apply + in goal; .
   }
-  case suc(x') {
+  case suc(x') assume IH {
     arbitrary y:Nat, z:Nat;
     suppose prem: suc(x') + y = suc(x') + z;
     have p1: suc(x' +  y) = suc(x' + z) by
@@ -174,7 +174,7 @@ proof
     apply ≤ in goal;
     .
   }
-  case suc(x') {
+  case suc(x') assume IH {
     arbitrary y:Nat;
     assume sx_y: suc(x') < y;
     have ssx_y: suc(suc(x')) ≤ y by apply < in sx_y;
@@ -196,7 +196,7 @@ theorem less_equal_refl: all n:Nat. n ≤ n
 proof
   induction Nat
   case 0 { have 0 ≤ 0 by apply ≤ in goal; . }
-  case suc(n') { have suc(n') ≤ suc(n') by apply ≤ in goal; IH }
+  case suc(n') assume IH { have suc(n') ≤ suc(n') by apply ≤ in goal; IH }
 end
 
 theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
@@ -208,7 +208,7 @@ proof
     suppose _;
     have 0 ≤ o by apply ≤ in goal; .
   }
-  case suc(m') {
+  case suc(m') assume IH {
     arbitrary n:Nat, o:Nat;
     assume Prem : suc(m') ≤ n and n ≤ o;
     have sm_n: suc(m') ≤ n by Prem;
@@ -254,7 +254,7 @@ proof
       }
     }
   }
-  case suc(x') {
+  case suc(x') assume IH {
     arbitrary y: Nat;
     assume not_sx_y: not (suc(x') < y);
     switch y {
@@ -262,9 +262,10 @@ proof
       case suc(y') {
         have not_x_y: not (x' < y')
 	  by (assume x_y: x' < y';
-	      have sx_sy: suc(x') < suc(y') by (apply <, ≤ in goal; apply <, ≤ in x_y);
-	      have sx_y: suc(x') < y by (rewrite goal with EQ; sx_sy);
-	      using not_sx_y with sx_y);
+            have sx_sy: suc(x') < suc(y')
+	      by (apply <, ≤ in goal; apply <, ≤ in x_y);
+            have sx_y: suc(x') < y by (rewrite goal with EQ; sx_sy);
+	    using not_sx_y with sx_y);
 	apply ≤ in goal;
 	have y' ≤ x' by using IH[y'] with not_x_y
       }
@@ -283,7 +284,7 @@ proof
     assume z_eq_y;
     have false by apply <, ≤, in (rewrite z_less_y with (symmetric z_eq_y))
     }
-  case suc(x') {
+  case suc(x') assume IH {
     arbitrary y:Nat;
     assume sx_less_y;
     assume xs_eq_y;
@@ -308,7 +309,7 @@ proof
     apply max in goal;
     .
   }
-  case suc(x') {
+  case suc(x') assume IH {
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
                                          by (apply max in goal; .)
@@ -329,7 +330,7 @@ proof
       case suc(y') { have 0 < suc(y') by apply <,≤ in goal; . }
     }
   }
-  case suc(x') {
+  case suc(x') assume IH {
     arbitrary y:Nat;
     switch y {
       case zero { have 0 < suc(x') by (apply <,≤ in goal; .) }

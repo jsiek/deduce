@@ -53,10 +53,16 @@ def parse_tree_to_list(e):
         ident = parse_tree_to_ast(e.children[0])
         typ = parse_tree_to_ast(e.children[1])
         return tuple([(ident,typ)])
+    elif e.data == 'single_var':
+        ident = parse_tree_to_ast(e.children[0])
+        return tuple([(ident,None)])
     elif e.data == 'push_binding':
         ident = parse_tree_to_ast(e.children[0])
         typ = parse_tree_to_ast(e.children[1])
         return tuple([(ident,typ)]) + parse_tree_to_list(e.children[2])
+    elif e.data == 'push_var':
+        ident = parse_tree_to_ast(e.children[0])
+        return tuple([(ident,None)]) + parse_tree_to_list(e.children[1])
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
@@ -326,7 +332,12 @@ def parse_tree_to_ast(e):
     elif e.data == 'ind_case':
         pat = parse_tree_to_ast(e.children[0])
         body = parse_tree_to_ast(e.children[1])
-        return IndCase(e.meta, pat, body)
+        return IndCase(e.meta, pat, [], body)
+    elif e.data == 'ind_case_assume':
+        pat = parse_tree_to_ast(e.children[0])
+        ind_hyps = parse_tree_to_list(e.children[1])
+        body = parse_tree_to_ast(e.children[2])
+        return IndCase(e.meta, pat, ind_hyps, body)
     elif e.data == 'apply_defs_goal':
         definitions = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
