@@ -3,7 +3,7 @@ INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
 OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∅∈]/
-IDENT: (/_/|UPPER|LOWER|OPERATOR) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
+IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ NEWLINE
@@ -178,15 +178,15 @@ ident: IDENT              -> ident
     | pattern                                       -> single
     | pattern "," ident_list                        -> push
     
-?fun_case: IDENT "(" pattern_list ")" "=" term ";"   -> fun_case
+?fun_case: ident "(" pattern_list ")" "=" term ";"   -> fun_case
 
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
     
-?rec_function: "function" IDENT type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
-?definition: "define" IDENT "=" term      -> define
- | "define" IDENT ":" type "=" term       -> define_annot
+?definition: "define" ident "=" term      -> define
+ | "define" ident ":" type "=" term       -> define_annot
 
 ?import: "import" IDENT                            -> import
 

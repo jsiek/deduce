@@ -426,7 +426,7 @@ def parse_tree_to_ast(e):
                        parse_tree_to_ast(e.children[2]))
     # recursive functions
     elif e.data == 'rec_fun':
-        return RecFun(e.meta, str(e.children[0].value),
+        return RecFun(e.meta, parse_tree_to_ast(e.children[0]),
                       parse_tree_to_list(e.children[1]),
                       parse_tree_to_list(e.children[2]),
                       parse_tree_to_ast(e.children[3]),
@@ -434,11 +434,11 @@ def parse_tree_to_ast(e):
 
     # term definition
     elif e.data == 'define':
-        return Define(e.meta, str(e.children[0].value), 
+        return Define(e.meta, parse_tree_to_ast(e.children[0]), 
                       None,
                       parse_tree_to_ast(e.children[1]))
     elif e.data == 'define_annot':
-        return Define(e.meta, str(e.children[0].value), 
+        return Define(e.meta, parse_tree_to_ast(e.children[0]), 
                       parse_tree_to_ast(e.children[1]),
                       parse_tree_to_ast(e.children[2]))
 

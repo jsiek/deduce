@@ -3,9 +3,9 @@ union Nat {
   suc(Nat);
 }
 
-function +(Nat,Nat) -> Nat {
-  +(zero, m) = m;
-  +(suc(n), m) = suc(n + m);
+function operator +(Nat,Nat) -> Nat {
+  operator +(zero, m) = m;
+  operator +(suc(n), m) = suc(n + m);
 }
 
 function max(Nat,Nat) -> Nat {
@@ -45,10 +45,10 @@ define t3 = node(4, t1, t2)
 
 theorem thm1: height(t3) = 2
 proof
-  apply height, +, max, t1, t2, t3 in goal; .
+  apply height, operator +, max, t1, t2, t3 in goal; .
 end
 
 theorem thm2: sum(t3) = 14
 proof
-  apply sum, +, t1, t2, t3 in goal; .
+  apply sum, operator +, t1, t2, t3 in goal; .
 end

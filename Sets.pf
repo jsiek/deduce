@@ -3,20 +3,20 @@
   Represent sets as predicates, that is, functions to bool.
 */
 
-define ∪ : < T > fn (fn(T)->bool), (fn(T)->bool) -> (fn(T)->bool)
+define operator ∪ : < T > fn (fn(T)->bool), (fn(T)->bool) -> (fn(T)->bool)
          = λP,Q{λx{ P(x) or Q(x) }}
 
-define ∩ : < T > fn (fn(T)->bool), (fn(T)->bool) -> (fn(T)->bool)
+define operator ∩ : < T > fn (fn(T)->bool), (fn(T)->bool) -> (fn(T)->bool)
          = λP,Q{λx{ P(x) and Q(x) }}
 
 define diff : < T > fn (fn(T)->bool), (fn(T)->bool) -> (fn(T)->bool)
          = λP,Q{λx{ P(x) and not Q(x) }}
 
-define ⊆ : < T > fn (fn(T)->bool), (fn(T)->bool) -> bool
+define operator ⊆ : < T > fn (fn(T)->bool), (fn(T)->bool) -> bool
          = generic T { λP,Q{all x:T. if P(x) then Q(x)} }
 
-define ∅ : < T > fn(T)->bool
+define operator ∅ : < T > fn(T)->bool
          = λx{ false }
 
-define ∈ : < T > fn T, (fn(T)->bool) -> bool
+define operator ∈ : < T > fn T, (fn(T)->bool) -> bool
          = λx,f{ f(x) }

@@ -99,7 +99,7 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type;
   arbitrary f:fn(T)->Option<U>, P:fn(T)->bool;
-  apply restrict, domain, ⊆ in goal;
+  apply restrict, domain, operator ⊆ in goal;
   arbitrary x:T;
   assume prem;
   switch P(x) {
