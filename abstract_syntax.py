@@ -1516,15 +1516,17 @@ class Cases(Proof):
   def uniquify(self, env):
     self.subject.uniquify(env)
     i = 0
+    new_cases = []
     while i != len(self.cases):
       body_env = {x:y for (x,y) in env.items()}
       label = self.cases[i][0]
       proof = self.cases[i][1]
       new_label = generate_name(label)
-      self.cases[i] = (new_label, proof)
+      new_cases.append((new_label, proof))
       body_env[label] = new_label
       proof.uniquify(body_env)
       i += 1
+    self.cases = new_cases
       
 @dataclass
 class ModusPonens(Proof):
@@ -2341,6 +2343,10 @@ def constructor_conflict(term1, term2, env):
     case (Var(_, n1), Call(loc2, Var(_, n2), rands2)):
       if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
         return True
+    case (Bool(_, True), Bool(_, False)):
+      return True
+    case (Bool(_, False), Bool(_, True)):
+      return True
   return False
     
 @dataclass

@@ -313,10 +313,14 @@ def parse_tree_to_ast(e):
         premise = parse_tree_to_ast(e.children[1])
         body = parse_tree_to_ast(e.children[2])
         return ImpIntro(e.meta, label, premise, body)
+    elif e.data == 'case':
+        tag = str(e.children[0].value)
+        body = parse_tree_to_ast(e.children[1])
+        return (tag, body)
     elif e.data == 'cases':
         return Cases(e.meta,
                      parse_tree_to_ast(e.children[0]),
-                     list(parse_tree_to_case_list(e.children[1])))
+                     parse_tree_to_list(e.children[1]))
     elif e.data == 'induction':
         typ = parse_tree_to_ast(e.children[0])
         cases = parse_tree_to_list(e.children[1])

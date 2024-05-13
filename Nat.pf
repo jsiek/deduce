@@ -307,6 +307,39 @@ proof
   }
 end
 
+theorem less_implies_not_greater:
+  all x:Nat. all y:Nat.
+  if x < y then not (y < x)
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat;
+    assume zero_less_y;
+    assume y_less_zero;
+    have false by (apply operator <, operator ≤ in y_less_zero)
+    }
+  case suc(x') assume IH {
+    arbitrary y:Nat;
+    assume sx_less_y;
+    assume y_less_sx;
+    switch y {
+      case zero assume y_eq_zero {
+        have false by (apply operator <, operator ≤ in
+	               (rewrite sx_less_y with y_eq_zero))
+      }
+      case suc(y') assume ys {
+        have x_less_y: x' < y' by
+   	   apply operator <, operator ≤ in goal;
+	   apply operator <, operator ≤ in (rewrite sx_less_y with ys);
+        have y_less_x: y' < x' by
+   	   apply operator <, operator ≤ in goal;
+	   apply operator <, operator ≤ in (rewrite y_less_sx with ys);
+        have false by using (using IH[y'] with x_less_y) with y_less_x
+      }
+    }
+  }
+end
+
 theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat

@@ -35,11 +35,11 @@ function lookup(Tree) -> fn (Nat) -> Option<Nat> {
   lookup(empty_tree) = λx{none};
   lookup(tree_node(L, y, v, R)) =
     λx{if x = y then
-	 just(v)
+         just(v)
        else if x < y then
-	 lookup(L)(x)
+         lookup(L)(x)
        else
-	 lookup(R)(x)};
+         lookup(R)(x)};
 }
 
 function all_keys(Tree, fn (Nat) -> bool) -> bool {
@@ -76,27 +76,27 @@ proof
     switch x = z {
       case true assume xz_true {
         apply all_keys in goal;
-	have xz: x = z by (rewrite goal with xz_true; .);
-	have Pz: P(z) by (rewrite prem with xz);
+        have xz: x = z by (rewrite goal with xz_true; .);
+        have Pz: P(z) by (rewrite prem with xz);
         (apply all_keys in prem, Pz)
       }
       case false {
         switch x < z {
-	  case true {
-	    apply all_keys in goal;
-	    have Pz: P(z) by apply all_keys in prem;
-	    have LxP: all_keys(insert(L,x,v),P)
-	      by using IHL[x,v,P] with PL, prem;
-	    (LxP, Pz, PR)
-	  }
-	  case false {
-	    apply all_keys in goal;
-	    have Pz: P(z) by apply all_keys in prem;
-	    have RxP: all_keys(insert(R,x,v),P)
-	      by using IHR[x,v,P] with PR, prem;
-	    (PL, Pz, RxP)
-	  }
-	}
+          case true {
+            apply all_keys in goal;
+            have Pz: P(z) by apply all_keys in prem;
+            have LxP: all_keys(insert(L,x,v),P)
+              by using IHL[x,v,P] with PL, prem;
+            (LxP, Pz, PR)
+          }
+          case false {
+            apply all_keys in goal;
+            have Pz: P(z) by apply all_keys in prem;
+            have RxP: all_keys(insert(R,x,v),P)
+              by using IHR[x,v,P] with PR, prem;
+            (PL, Pz, RxP)
+          }
+        }
       }
     }
   }
@@ -133,28 +133,28 @@ proof
         have not_xey: not (x = y) by (assume xy; rewrite xy with xy_false);
         switch x < y {
           case true assume xy_true {
-	    have xy: x < y by (rewrite goal with xy_true; .);
-	    have Lx_less_y: all_keys(insert(L,x,v), λk{k < y})
-	      by using insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
-	         with L_less_y, xy;
-	    have BST_Lx: is_BST(insert(L,x,v))
-	       by using IHL[x,v] with BST_L;
-	    have is_BST(tree_node(insert(L,x,v),y,v2,R))
-	        by apply is_BST in goal; Lx_less_y, y_less_R, BST_R, BST_Lx
-	  }
-	  case false assume xy_false {
-	    have BST_Rx: is_BST(insert(R,x,v))
-	      by using IHR[x,v] with BST_R;
-	    have not_xly: not (x < y)
-	       by (assume prem; rewrite prem with xy_false); 
-	    have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
-	    have y_less_Rx: all_keys(insert(R,x,v), λk{y < k})
-	      by using insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
-	         with y_less_R, yx;
-	    have is_BST(tree_node(L,y,v2,insert(R,x,v)))
-	        by apply is_BST in goal; L_less_y, BST_Rx, y_less_Rx, BST_L
-	  }
-	}
+            have xy: x < y by (rewrite goal with xy_true; .);
+            have Lx_less_y: all_keys(insert(L,x,v), λk{k < y})
+              by using insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
+                 with L_less_y, xy;
+            have BST_Lx: is_BST(insert(L,x,v))
+               by using IHL[x,v] with BST_L;
+            have is_BST(tree_node(insert(L,x,v),y,v2,R))
+                by apply is_BST in goal; Lx_less_y, y_less_R, BST_R, BST_Lx
+          }
+          case false assume xy_false {
+            have BST_Rx: is_BST(insert(R,x,v))
+              by using IHR[x,v] with BST_R;
+            have not_xly: not (x < y)
+               by (assume prem; rewrite prem with xy_false); 
+            have yx: y < x by using trichotomy2[y,x] with not_xey, not_xly;
+            have y_less_Rx: all_keys(insert(R,x,v), λk{y < k})
+              by using insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
+                 with y_less_R, yx;
+            have is_BST(tree_node(L,y,v2,insert(R,x,v)))
+                by apply is_BST in goal; L_less_y, BST_Rx, y_less_Rx, BST_L
+          }
+        }
       }
     }
   }
@@ -182,7 +182,32 @@ proof
 end
 */
 
-/*
+theorem true_is_true: all x:bool. if x then x = true
+proof
+  arbitrary x:bool;
+  assume x_true;
+  switch x {
+    case true { . }
+    case false assume x_false {
+      have false by rewrite x_true with x_false
+    }
+  }
+end
+
+theorem false_is_false: all x:bool. if not x then x = false
+proof
+  arbitrary x:bool;
+  assume not_x;
+  switch x {
+    case true assume x_true {
+      have x_is_true: x by (rewrite goal with x_true; .);
+      have false by using not_x with x_is_true
+    }
+    case false { . }
+  }
+end
+
+
 theorem lookup_insert_update:
   all T:Tree. all k:Nat, v:Nat.
   if is_BST(T)
@@ -193,83 +218,175 @@ proof
     arbitrary k:Nat, v:Nat;
     assume prem;
     apply insert, lookup, update in goal;
-    extensionality;
-    arbitrary x:Nat;
+    extensionality; arbitrary x:Nat;
     switch x = k {
       case true { . }
       case false {
         switch x < k {
-	  case true { . }
-	  case false { . }
-	}
+          case true { . }
+          case false { . }
+        }
       }
     }
   }
   case tree_node(L, j, w, R) assume IHL, IHR {
     arbitrary k:Nat, v:Nat;
     assume prem;
-    apply insert, update in goal;
-    switch k = j {
-      case true assume kj_true {
-        have kj: k = j by (rewrite goal with kj_true; .);
-        apply lookup in goal;
-	extensionality;
-	arbitrary x:Nat;
-        switch x = j {
-	  case true assume xj_true {
-            have xj: x = j by (rewrite goal with xj_true; .);
-	    have xk: x = k by (transitive xj (symmetric kj));
-	    rewrite goal with xk;
-	    .
-	  }
-	  case false assume xj_false {
-	    have x_neq_j: not (x = j)
-	       by (assume xj; have false by rewrite xj with xj_false);
-	    switch x < j {
-	      case true assume xj_true {
-	        have xk: x < k
-		    by (rewrite goal with kj; rewrite goal with xj_true; .);
-		have xnk: not (x = k)
-		  by using less_implies_not_equal[x][k] with xk;
-		switch x = k {
-		  case true assume xk_true {
-		    have x_eq_k: x = k by (rewrite goal with xk_true; .);
-		    have false by using xnk with x_eq_k
-		  }
-		  case false { . }
-                }
-	      }
-	      case false assume xj_false {
-	        have not_x_less_j: not (x < j)
-		  by (rewrite goal with xj_false; .);
-		have j_less_x: j < x
-		  by using trichotomy2[j,x] with x_neq_j, not_x_less_j;
-		
-		// nts. x != k
-		// know k ≤ x, j ≤ x
-		have BST_R: is_BST(R) by apply is_BST in prem;
-		have IH_R: lookup(insert(R,k,v))
- 		         = update(lookup(R),k,just(v))
-                     by using IHR[k,v] with BST_R;
-		have IH_R2: lookup(insert(R,k,v))(x)
- 		         = update(lookup(R),k,just(v))(x)
-	          by (rewrite goal with IH_R; .);
-		switch x = k {
-		  case false { . }
+    extensionality; arbitrary x:Nat;
+    cases trichotomy[x][j]
+    case x_less_j {
+      have not_xj: not (x = j)
+        by using less_implies_not_equal[x][j] with x_less_j;
+      switch k < j {
+        case true assume k_less_j_true {
+          apply insert in goal;
+	  rewrite goal with k_less_j_true;
+	  have k_less_j: k < j by (rewrite goal with k_less_j_true; .);
+	  have not_kj: not (k = j)
+	      by using less_implies_not_equal[k][j] with k_less_j;
+	  rewrite goal with using false_is_false[k = j] with not_kj;
+	  apply lookup, insert, update in goal;
+	  rewrite goal with using false_is_false[x = j] with not_xj;
+	  rewrite goal with (using true_is_true[x < j] with x_less_j);
+	  have BST_L: is_BST(L) by apply is_BST in prem;
+	  have IHL2: lookup(insert(L,k,v)) = update(lookup(L),k,just(v))
+	    by using IHL[k,v] with BST_L;
+	  rewrite goal with IHL2; apply update in goal;
+          .
+        }
+        case false assume k_less_j_false {
+	  have not_k_less_j: not (k < j)
+	     by (assume kj; have false by rewrite kj with k_less_j_false);
+	  apply lookup, update in goal;
+	  have lookupL: lookup(insert(tree_node(L,j,w,R),k,v))(x) = lookup(L)(x)
+	    by (apply insert, lookup in goal;
+	        switch k = j {
 		  case true {
-		    
-		    ? // nts lookup(R)(x) = just(v)
+		    apply lookup in goal;
+		    rewrite goal with using false_is_false[x = j] with not_xj;
+		    rewrite goal with (using true_is_true[x < j] with x_less_j);
+		    .
 		  }
-		}
-	      }
-	    }
-	  }
-	}
+		  case false assume kj_false {
+		    rewrite goal with k_less_j_false;
+		    apply lookup in goal;
+		    rewrite goal with using false_is_false[x = j] with not_xj;
+		    rewrite goal with (using true_is_true[x < j] with x_less_j);
+		    .
+		  }
+		});
+          rewrite goal with lookupL;
+	  have x_neq_k: not (x = k)
+	    by (assume xk; using (rewrite not_k_less_j with xk)
+	                   with (rewrite x_less_j with xk));
+          rewrite goal with using false_is_false[x = k] with x_neq_k;
+          rewrite goal with using false_is_false[x = j] with not_xj;
+	  rewrite goal with (using true_is_true[x < j] with x_less_j);
+          .
+        }
       }
-      case false {
-        ?
+    }
+    case x_eq_j {
+      rewrite goal with x_eq_j;
+      apply insert in goal;
+      switch k = j {
+        case true assume kj {
+	  apply lookup, update in goal;
+	  have jk: j = k by symmetric (rewrite goal with kj; .);
+	  rewrite goal with jk;
+	  .
+	}
+        case false assume kj_false {
+          have jk_false: (j = k) = false
+              by (using false_is_false[j = k] with
+                  (assume jk; have false by rewrite kj_false with jk));
+	  switch k < j {
+	    case true {
+	      apply lookup, update in goal;
+	      rewrite goal with jk_false;
+	      .
+	    }
+	    case false {
+	      apply lookup, update in goal;
+	      rewrite goal with jk_false;
+              .
+	    }
+          }
+        }
+      }
+    }
+    case j_less_x {
+      have not_x_less_j: not (x < j)
+        by using less_implies_not_greater[j][x] with j_less_x;
+      have not_jx: not (j = x)
+        by using less_implies_not_equal[j][x] with j_less_x;
+      have not_xj: not (x = j)
+        by (assume xj; using not_jx with symmetric xj);
+      switch j < k {
+	case true assume j_less_k_true {
+	  have j_less_k: j < k by (rewrite goal with j_less_k_true; .);
+	  have not_jk: not (j = k)
+	    by using less_implies_not_equal[j][k] with j_less_k;
+	  apply insert in goal;
+	  rewrite goal with using false_is_false[k = j]
+	       with (assume kj; using not_jk with symmetric kj);
+	  have not_k_less_j: not (k < j)
+	       by using less_implies_not_greater[j][k] with j_less_k;
+	  rewrite goal with using false_is_false[k < j] with not_k_less_j;
+	  apply lookup, update in goal;
+	  rewrite goal with using false_is_false[x = j]
+	    with (assume xj; using not_jx with symmetric xj);
+	  have not_xj: not (x < j)
+	    by using less_implies_not_greater[j][x] with j_less_x;
+	  rewrite goal with using false_is_false[x < j] with not_xj;
+	  have BST_R: is_BST(R) by apply is_BST in prem;
+	  have IHR2: lookup(insert(R,k,v)) = update(lookup(R),k,just(v))
+	    by using IHR[k,v] with BST_R;
+	  rewrite goal with IHR2; apply update in goal;
+	  .
+	}
+        case false assume j_less_k_false {
+	  have not_jk: not (j < k)
+	    by (assume jk; have false by rewrite jk with j_less_k_false);
+	  apply lookup, update in goal;
+	  have lookupR: lookup(insert(tree_node(L,j,w,R),k,v))(x) = lookup(R)(x)
+	    by (apply insert, lookup in goal;
+	        switch k = j {
+		  case true {
+		    apply lookup in goal;
+		    rewrite goal with using false_is_false[x = j] with not_xj;
+		    rewrite goal with using false_is_false[x < j]
+		                      with not_x_less_j;
+		    .
+		  }
+		  case false assume kj_false {
+		    have not_j_eq_k: not (j = k)
+		       by (assume jk; rewrite (symmetric jk) with kj_false);
+		    have k_less_j: k < j
+		       by using trichotomy2[k, j] with (not_j_eq_k, not_jk);
+		    rewrite goal with using true_is_true[k < j]
+		           with k_less_j;
+	            apply lookup in goal;
+		    rewrite goal with (using false_is_false[x = j]
+ 		                       with assume xj;
+				         using not_jx with symmetric xj);
+                    rewrite goal with (using false_is_false[x < j]
+		                      with not_x_less_j);
+		    .
+		  }
+		});
+	  rewrite goal with lookupR;
+	  have x_neq_k: not (x = k)
+	    by (assume xk; using (rewrite not_jk with (symmetric xk))
+	                   with j_less_x);
+          rewrite goal with (using false_is_false[x = k] with x_neq_k);
+          rewrite goal with (using false_is_false[x = j] with
+	    assume xj; (using not_jx with symmetric xj));
+	  rewrite goal with (using false_is_false[x < j] with not_x_less_j);
+          .
+        }
       }
     }
   }
 end
-*/
+
