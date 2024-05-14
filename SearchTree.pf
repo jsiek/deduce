@@ -217,6 +217,41 @@ proof
   case empty_tree {
     arbitrary k:Nat, v:Nat;
     assume prem;
+    extensionality; arbitrary x:Nat;
+    switch x = k {
+      case true assume xk_true {
+        equations
+          lookup(insert(empty_tree,k,v))(x) = just(v)
+  	      by (apply insert, lookup in goal; rewrite goal with xk_true; .)
+	 ... = update(lookup(empty_tree),k,just(v))(x)
+  	      by (apply lookup,insert,update in goal; rewrite goal with xk_true;.)
+      }
+      case false assume xk_false {
+        switch x < k {
+          case true assume x_less_k_true {
+	    have x_neq_k: not (x = k)
+	      by (using less_implies_not_equal[x][k] with rewrite goal with x_less_k_true; .);
+	    have xk_false: (x = k) = false
+	      by using false_is_false[x = k] with x_neq_k;
+	    equations
+	      lookup(insert(empty_tree,k,v))(x) = none
+	          by (apply insert, lookup in goal; rewrite goal with x_less_k_true;
+	              rewrite goal with using false_is_false[x = k] with x_neq_k;.)
+              ... = update(lookup(empty_tree),k,just(v))(x)
+	          by (apply lookup, update in goal; rewrite goal with xk_false;.)
+	  }
+          case false assume x_less_k_false {
+	    equations
+  	      lookup(insert(empty_tree,k,v))(x) = none
+  	          by (apply insert, lookup in goal; rewrite goal with xk_false; rewrite goal with x_less_k_false; .)
+  	      ... = update(lookup(empty_tree),k,just(v))(x)
+	          by ?
+	  }
+        }
+      }
+    }
+
+/*    
     apply insert, lookup, update in goal;
     extensionality; arbitrary x:Nat;
     switch x = k {
@@ -228,6 +263,7 @@ proof
         }
       }
     }
+*/    
   }
   case tree_node(L, j, w, R) assume IHL, IHR {
     arbitrary k:Nat, v:Nat;
