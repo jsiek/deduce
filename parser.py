@@ -357,6 +357,12 @@ def parse_tree_to_ast(e):
         return ApplyDefsFact(e.meta,
                              [Var(e.meta, t) for t in definitions],
                              subject)
+    elif e.data == 'enable_defs':
+        definitions = parse_tree_to_list(e.children[0])
+        subject = parse_tree_to_ast(e.children[1])
+        return EnableDefs(e.meta,
+                          [Var(e.meta, t) for t in definitions],
+                          subject)
     elif e.data == 'rewrite_goal':
         eq = parse_tree_to_ast(e.children[0])
         body = parse_tree_to_ast(e.children[1])

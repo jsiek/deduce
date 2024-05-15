@@ -123,7 +123,7 @@ proof
        by conjunct 0 of (apply is_BST in prem);
     have y_less_R: all_keys(R, λk{y < k})
        by conjunct 1 of (apply is_BST in prem);
-    apply insert, is_BST in goal;
+    apply insert in goal;
     switch x = y {
       case true {
         have is_BST(tree_node(L,y,v,R))
@@ -220,11 +220,12 @@ proof
     extensionality; arbitrary x:Nat;
     switch x = k {
       case true assume xk_true {
+        enable insert, lookup, update;
         equations
           lookup(insert(empty_tree,k,v))(x) = just(v)
-  	      by (apply insert, lookup in goal; rewrite goal with xk_true; .)
+  	      by (rewrite goal with xk_true; .)
 	 ... = update(lookup(empty_tree),k,just(v))(x)
-  	      by (apply lookup,insert,update in goal; rewrite goal with xk_true;.)
+  	      by (rewrite goal with xk_true; .)
       }
       case false assume xk_false {
         switch x < k {
@@ -245,7 +246,7 @@ proof
   	      lookup(insert(empty_tree,k,v))(x) = none
   	          by (apply insert, lookup in goal; rewrite goal with xk_false; rewrite goal with x_less_k_false; .)
   	      ... = update(lookup(empty_tree),k,just(v))(x)
-	          by ?
+	          by (apply update, lookup in goal; rewrite goal with xk_false; .)
 	  }
         }
       }

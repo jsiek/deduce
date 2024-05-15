@@ -582,32 +582,37 @@ class Var(AST):
     return Var(self.location, self.name, self.index)
   
   def __eq__(self, other):
-      if isinstance(other, DefinedValue):
-        return self == other.body
+      # if isinstance(other, DefinedValue):
+      #   return self == other.body
+      if isinstance(other, RecFunClosure):
+        return self.name == other.name
       if not isinstance(other, Var):
-          return False
+        return False
       return self.name == other.name 
   
   def __str__(self):
       if base_name(self.name) == 'zero':
         return '0'
       else:
-        return base_name(self.name)
-        #return self.name
+        #return base_name(self.name)
+        return self.name
 
   def __repr__(self):
       return str(self)
     
   def reduce(self, env):
-      res = env.get_value_of_term_var(self)
-      if res:      
-        match res:
-          case Var(loc, nm, idx):
-              return res
-          case _:
-              return res.reduce(env)
+      if self in get_reduce_only():
+        res = env.get_value_of_term_var(self)
+        if res:      
+          match res:
+            case Var(loc, nm, idx):
+                return res
+            case _:
+                return res.reduce(env)
+        else:
+            return self
       else:
-          return self
+        return self
   
   def substitute(self, sub):
       if self.name in sub:
@@ -824,6 +829,7 @@ def is_match(pattern, arg, subst):
         ret = False
     return ret
 
+# The variables that should be reduced.
 reduce_only = []
 
 def set_reduce_only(defs):
@@ -900,10 +906,15 @@ class Call(Term):
         #   print(x + ' = ' + str(v))
         body_env = clos_env.define_term_vars(loc, zip(vars, args))
         # print('*** body_env\n' + str(body_env))
+        old_defs = get_reduce_only()
+        set_reduce_only(old_defs + [Var(loc, x) for x in vars])
         ret = body.reduce(body_env)
+        set_reduce_only(old_defs)
         # print('*** call result: ' + str(ret))
       case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
-        if fun in get_reduce_only(): # len(get_reduce_only()) == 0 or 
+        #print('*** clos_env ' + str(clos_env))
+        #if fun in get_reduce_only(): # len(get_reduce_only()) == 0 or
+        if True:
           #print('*** applying function ' + str(fun) + '\nto ' + str(args))
           first_arg = args[0]
           rest_args = args[1:]
@@ -913,8 +924,13 @@ class Call(Term):
                   #print('*** match subst ' + str(subst))
                   body_env = clos_env.define_term_vars(loc, subst.items())
                   body_env = body_env.define_term_vars(loc, zip(fun_case.parameters, rest_args))
-                  #print('*** body ' + str(body_env))
+                  #print('*** body_env ' + str(body_env))
+                  old_defs = get_reduce_only()
+                  set_reduce_only(old_defs + [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters])
+                  #print('*** body (before reduce) ' + str(fun_case.body))
                   ret = fun_case.body.reduce(body_env)
+                  #print('*** body (after reduce) ' + str(ret))
+                  set_reduce_only(old_defs)
                   #print('*** ret ' + str(ret))
                   num_bindings = len(fun_case.pattern.parameters) + len(fun_case.parameters)
                   #result = ret.shift_term_vars(0, - num_bindings)
@@ -1049,7 +1065,12 @@ class Switch(Term):
           subst = {}
           if is_match(c.pattern, new_subject, subst):
             new_env = env.define_term_vars(self.location, subst.items())
-            return c.body.reduce(new_env)
+            old_defs = get_reduce_only()
+            set_reduce_only(old_defs + [Var(self.location, x) \
+                                        for x in subst.keys()])
+            ret = c.body.reduce(new_env)
+            set_reduce_only(old_defs)
+            return ret
       new_cases = [c.reduce(env) for c in self.cases]
       return Switch(self.location, new_subject, new_cases)
   
@@ -1896,6 +1917,20 @@ class ApplyDefsFact(Proof):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
+
+@dataclass
+class EnableDefs(Proof):
+  definitions: List[Term]
+  subject: Proof
+
+  def __str__(self):
+      return 'enable ' + ', '.join([str(d) for d in self.definitions]) \
+        + ';\n' + str(self.subject)
+
+  def uniquify(self, env):
+    for d in self.definitions:
+      d.uniquify(env)
+    self.subject.uniquify(env)
     
 @dataclass
 class RewriteGoal(Proof):
@@ -2142,8 +2177,10 @@ class RecFun(Statement):
     clos = RecFunClosure(self.location, self.name, self.type_params,
                          self.params, self.returns, self.cases, None)
     clos.env = env.define_term_var(self.location, self.name, None, clos)
+    #clos.env = env
     clos.typeof = FunctionType(self.location, self.type_params,
                                self.params, self.returns)
+    #print('**** RecFun.reduce clos.env = ' + str(clos.env))
     return clos
 
   def substitute(self, sub):
@@ -2177,7 +2214,8 @@ class RecFunClosure(Statement):
     return self
     
   def __str__(self):
-    return base_name(self.name)
+    #return base_name(self.name)
+    return '$' + self.name
   
     # return '[' + self.name \
     #    + '<' + ','.join(self.type_params) + '>' \
@@ -2190,6 +2228,8 @@ class RecFunClosure(Statement):
     return str(self)
 
   def __eq__(self, other):
+    if isinstance(other, Var):
+      return self.name == other.name
     if not isinstance(other, RecFunClosure):
       return False
     return self.name == other.name
@@ -2411,7 +2451,7 @@ class Env:
       self.dict = {}
 
   def __str__(self):
-    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
+    return ',\n'.join(['\t' + k + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
   def proofs_str(self):

@@ -116,6 +116,7 @@ ident: IDENT              -> ident
     | "induction" type ind_case_list                     -> induction
     | "apply" ident_list "in" "goal" ";" proof            -> apply_defs_goal
     | "apply" ident_list "in" proof                       -> apply_defs_fact
+    | "enable" ident_list ";" proof                      -> enable_defs
     | "rewrite" "goal" "with" proof ";" proof            -> rewrite_goal
     | "rewrite" proof "with" proof                       -> rewrite_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof

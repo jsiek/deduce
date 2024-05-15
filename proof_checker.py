@@ -254,6 +254,12 @@ def check_proof(proof, env):
       formula = check_proof(subject, env)
       new_formula = apply_definitions(loc, formula, defs, env)
       ret = new_formula
+    case EnableDefs(loc, definitions, subject):
+      defs = [d.reduce(env) for d in definitions]
+      old_defs = get_reduce_only()
+      set_reduce_only(defs + old_defs)
+      ret = check_proof(subject, env)
+      set_reduce_only(old_defs)
     case RewriteFact(loc, subject, equation_proof):
       formula = check_proof(subject, env)
       equation = check_proof(equation_proof, env)
@@ -380,7 +386,14 @@ def check_proof_of(proof, formula, env):
     case PHole(loc):
       error(loc, 'unfinished proof:\n\t' + str(formula.reduce(env)) \
             + '\n\navailable facts:\n' + env.proofs_str())
-    
+
+    case EnableDefs(loc, definitions, subject):
+      defs = [d.reduce(env) for d in definitions]
+      old_defs = get_reduce_only()
+      set_reduce_only(defs + old_defs)
+      check_proof_of(subject, formula, env)
+      set_reduce_only(old_defs)
+      
     case PReflexive(loc):
       match formula:
         case Call(loc2, Var(loc3, '='), [lhs, rhs], _):
@@ -1014,7 +1027,8 @@ def check_statement(stmt, env):
         ty = type_synth_term(body, env, None, [])
       else:
         type_check_term(body, ty, env, None, [])
-      return env.define_term_var(loc, name, ty, DefinedValue(loc, name, body.reduce(env)))
+      #return env.define_term_var(loc, name, ty, DefinedValue(loc, name, body.reduce(env)))
+      return env.define_term_var(loc, name, ty, body)
     case Theorem(loc, name, frm, pf):
       if get_verbose():
         print('checking theorem formula ' + str(frm))

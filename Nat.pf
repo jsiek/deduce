@@ -188,6 +188,7 @@ proof
 	have ssx_sy: suc(suc(x')) ≤ suc(y') by rewrite ssx_y with EQ;
         have x_y: x' < y' by (apply operator <, operator ≤ in goal;
 	                      apply operator ≤ in ssx_sy);
+        //enable operator ≤;
 	have x' ≤ y' by using IH[y'] with x_y
       }
     }
