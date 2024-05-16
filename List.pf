@@ -76,7 +76,7 @@ proof
     equations
       length(append(node(n,xs'),ys))
           = 1 + length(append(xs', ys))        by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite goal with IH[ys]; .
+      ... = 1 + (length(xs') + length(ys))     by rewrite with IH[ys]; .
       ... = length(node(n,xs')) + length(ys)   by .
   }
 end
@@ -104,7 +104,7 @@ proof
     equations
       append(append(node(n,xs'),ys),zs)
           = node(n,append(append(xs',ys),zs))  by .
-      ... = append(node(n,xs'),append(ys,zs))  by rewrite goal with IH[ys,zs]; .
+      ... = append(node(n,xs'),append(ys,zs))  by rewrite with IH[ys,zs]; .
   }
 end
 
@@ -120,7 +120,7 @@ proof
     equations
       append(node(n,xs'),empty)
           = node(n,append(xs',empty))     by apply append in goal; .
-      ... = node(n,xs')                   by rewrite goal with IH; .
+      ... = node(n,xs')                   by rewrite with IH; .
   }
 end
 
@@ -138,10 +138,10 @@ proof
       length(reverse(node(n,xs')))
           = length(append(reverse(xs'), node(n,empty))) by .
       ... = length(reverse(xs')) + length(node(n,empty))
-                    by rewrite goal with
+                    by rewrite with
                        length_append[U][reverse(xs')][node(n,empty)]; .
-      ... = length(xs') + 1        by rewrite goal with IH; .
-      ... = length(node(n,xs'))    by rewrite goal with add_one[length(xs')]; .
+      ... = length(xs') + 1        by rewrite with IH; .
+      ... = length(node(n,xs'))    by rewrite with add_one[length(xs')]; .
   }
 end
 
@@ -162,7 +162,7 @@ proof
     reverse(append(empty,ys))
         = reverse(ys)                          by apply append in goal; .
     ... = append(reverse(ys),empty)
-                by rewrite goal with append_empty[U][reverse(ys)]; .
+                by rewrite with append_empty[U][reverse(ys)]; .
     ... = append(reverse(ys),reverse(empty))   by apply reverse in goal; .
   }
   case node(n, xs') assume IH {
@@ -172,7 +172,7 @@ proof
       reverse(append(node(n,xs'),ys))
 	  = reverse(node(n,append(xs',ys))) by .
       ... = append(append(reverse(ys), reverse(xs')), node(n, empty))
-	    by rewrite goal with IH[ys]; .
+	    by rewrite with IH[ys]; .
       ... = append(reverse(ys), append(reverse(xs'), node(n, empty)))
 	    by append_assoc[U][reverse(ys)][reverse(xs'), node(n, empty)]
       ... = append(reverse(ys), reverse(node(n,xs'))) by .
@@ -195,7 +195,7 @@ proof
       ... = append(reverse(node(n,empty)), reverse(reverse(ls')))
                   by reverse_append[U][reverse(ls')][node(n,empty)]
       ... = append(reverse(node(n,empty)), ls')
-                  by rewrite goal with IH; .
+                  by rewrite with IH; .
       ... = node(n,ls') by .
   }
 end
@@ -223,7 +223,7 @@ proof
     equations
       length(map(node(x,ls'),f))
           = suc(length(map(ls',f)))  by .
-      ... = suc(length(ls'))         by rewrite goal with IH; .
+      ... = suc(length(ls'))         by rewrite with IH; .
       ... = length(node(x,ls'))      by .
   }
 end
@@ -241,8 +241,8 @@ proof
     equations
       map(node(x,ls),f)
           = node(f(x), map(ls, f)) by apply map in goal; .
-      ... = node(x, map(ls, f))    by rewrite goal with fxx[x]; .
-      ... = node(x,ls)             by rewrite goal with IH; .
+      ... = node(x, map(ls, f))    by rewrite with fxx[x]; .
+      ... = node(x,ls)             by rewrite with IH; .
   }
 end
 
@@ -270,7 +270,7 @@ proof
       map(append(node(x,xs'),ys),f)
           = node(f(x), map(append(xs',ys), f))    by .
       ... = node(f(x), append(map(xs',f), map(ys,f)))
-                                        by (rewrite goal with IH; .)
+                                        by (rewrite with IH; .)
       ... = append(map(node(x,xs'),f),map(ys,f))  by .
   }
 end
@@ -286,7 +286,7 @@ proof
     equations
       map(map(node(x,ls),f),g)
 	  = node(g(f(x)), map(map(ls, f), g))  by .
-      ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite goal with IH; .
+      ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite with IH; .
       ... = map(node(x,ls), g ∘ f)             by .
   }
 end
@@ -439,14 +439,14 @@ proof
   case node(x, xs') assume IH {
     arbitrary ys:List<U1>;
     switch ys {
-    case empty assume EQ { rewrite goal with EQ; apply map, zip in goal; . }
+    case empty assume EQ { rewrite with EQ; apply map, zip in goal; . }
     case node(y, ys') {
       enable map, zip;
       equations
         zip(map(node(x,xs'),f),map(node(y,ys'),g))
 	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))      by .
       ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
-              by rewrite goal with IH[ys']; .
+              by rewrite with IH[ys']; .
       ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
               by apply first, second, pairfun in goal; .
     }

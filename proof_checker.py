@@ -663,11 +663,15 @@ def check_proof_of(proof, formula, env):
             case _:
               error(loc, "switch expected union type, not " + type_name)
           
-    case RewriteGoal(loc, equation_proof, body):
-      equation = check_proof(equation_proof, env)
-      eq = equation.reduce(env)
-      frm = formula.reduce(env)
-      new_formula = rewrite(loc, frm, eq)
+    case RewriteGoal(loc, equation_proofs, body):
+      equations = [check_proof(proof, env) for proof in equation_proofs]
+      eqns = [equation.reduce(env) for equation in equations]
+      new_formula = formula.reduce(env)
+      for eq in eqns:
+        if not is_equation(eq):
+          eq = make_boolean_equation(eq)
+        new_formula = rewrite(loc, new_formula, eq)
+        new_formula = new_formula.reduce(env)
       check_proof_of(body, new_formula.reduce(env), env)
     case ApplyDefsGoal(loc, definitions, body):
       defs = [d.reduce(env) for d in definitions]

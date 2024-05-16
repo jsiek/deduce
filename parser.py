@@ -364,9 +364,9 @@ def parse_tree_to_ast(e):
                           [Var(e.meta, t) for t in definitions],
                           subject)
     elif e.data == 'rewrite_goal':
-        eq = parse_tree_to_ast(e.children[0])
+        eqns = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
-        return RewriteGoal(e.meta, eq, body)
+        return RewriteGoal(e.meta, eqns, body)
     elif e.data == 'rewrite_fact':
         subject = parse_tree_to_ast(e.children[0])
         eq = parse_tree_to_ast(e.children[1])

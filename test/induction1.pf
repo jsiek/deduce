@@ -17,7 +17,7 @@ proof
   case suc(n') assume IH {
     equations
       add(suc(n'), zero) = suc(add(n', zero))   by apply add in goal; .
-                     ... = suc(n')              by rewrite goal with IH; .
+                     ... = suc(n')              by rewrite with IH; .
   }
 end
 

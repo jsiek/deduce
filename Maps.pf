@@ -26,7 +26,7 @@ proof
   apply update in goal;
   switch y = x {
     case true assume yx_true {
-      have yx: y = x by (rewrite goal with yx_true; .);
+      have yx: y = x by (rewrite with yx_true; .);
       have xy: x = y by symmetric yx;
       have false by using not_eq with xy
     }
@@ -64,10 +64,10 @@ proof
   arbitrary z:T;
   switch z = y {
     case true assume zy_true {
-      have zy: z = y by (rewrite goal with zy_true; .);
+      have zy: z = y by (rewrite with zy_true; .);
       switch z = x {
         case true assume zx_true {
-	  have zx: z = x by (rewrite goal with zx_true; .);
+	  have zx: z = x by (rewrite with zx_true; .);
 	  have xy: x = y by transitive (symmetric zx) zy;
 	  have false by using x_neq_y with xy
 	}

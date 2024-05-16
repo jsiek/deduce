@@ -1934,19 +1934,21 @@ class EnableDefs(Proof):
     
 @dataclass
 class RewriteGoal(Proof):
-  equation: Proof
+  equations: List[Proof]
   body: Proof
 
   def __str__(self):
-      return 'rewrite goal with ' + str(self.equation) \
-        + ' then ' + str(self.body)
+      return 'rewrite goal with ' + ','.join([str(eqn) for eqn in self.equations]) \
+        + ';\n' + str(self.body)
 
   def debruijnize(self, env):
-    self.equation.debruijnize(env)
+    for eqn in self.equations:
+      eqn.debruijnize(env)
     self.body.debruijnize(env)
 
   def uniquify(self, env):
-    self.equation.uniquify(env)
+    for eqn in self.equations:
+      eqn.uniquify(env)
     self.body.uniquify(env)
     
 @dataclass
@@ -2214,8 +2216,8 @@ class RecFunClosure(Statement):
     return self
     
   def __str__(self):
-    #return base_name(self.name)
-    return '$' + self.name
+    return base_name(self.name)
+    #return '$' + self.name
   
     # return '[' + self.name \
     #    + '<' + ','.join(self.type_params) + '>' \
@@ -2317,7 +2319,6 @@ class Import(Statement):
   
 def mkEqual(loc, arg1, arg2):
   ret = Call(loc, Var(loc, '='), [arg1, arg2], True)
-  #ret.typeof = BoolType(loc)
   return ret
 
 def split_equation(loc, equation):
@@ -2327,6 +2328,22 @@ def split_equation(loc, equation):
     case _:
       error(loc, 'expected an equality, not ' + str(equation))
 
+def is_equation(formula):
+  match formula:
+    case Call(loc1, Var(loc2, '='), [L, R], _):
+      return True
+    case _:
+      return False
+
+def make_boolean_equation(formula):
+  match formula:
+    case IfThen(loc, frm, Bool(_, False)):
+      return mkEqual(loc, frm,
+                     Bool(formula.location, False))
+    case _:
+      return mkEqual(formula.location, formula,
+                     Bool(formula.location, True))
+      
 def mkZero(loc):
   return Var(loc, 'zero')
 

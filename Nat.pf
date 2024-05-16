@@ -26,7 +26,7 @@ proof
   case suc(n') assume IH {
     equations
       suc(n') + 0 = suc(n' + 0) by apply operator + in goal; .
-              ... = suc(n') by rewrite goal with IH; .
+              ... = suc(n') by rewrite with IH; .
   }
 end
 
@@ -43,7 +43,7 @@ proof
     have suc(n') + suc(n) = suc(suc(n') + n) by
     equations
     suc(n')+suc(n) = suc(n' + suc(n)) by apply operator + in goal; .
-               ... = suc(suc(n' + n)) by rewrite goal with IH[n]; .
+               ... = suc(suc(n' + n)) by rewrite with IH[n]; .
                ... = suc(suc(n') + n) by apply operator + in goal; .
   }
 end
@@ -53,7 +53,7 @@ proof
   arbitrary m:Nat;
   equations
     m + 1 = suc(m + 0)      by add_suc[m][0]
-      ... = suc(m)          by rewrite goal with add_zero[m]; .
+      ... = suc(m)          by rewrite with add_zero[m]; .
 end
 
 theorem add_commute: all n:Nat. all m:Nat. n + m = m + n
@@ -68,7 +68,7 @@ proof
     arbitrary m : Nat;
     equations
       suc(n') + m = suc(n' + m)       by apply operator + in goal; .
-              ... = suc(m + n')       by rewrite goal with IH[m]; .
+              ... = suc(m + n')       by rewrite with IH[m]; .
               ... = m + suc(n')       by symmetric add_suc[m][n']
   }
 end
@@ -86,7 +86,7 @@ proof
     equations
       (suc(m') + n) + o = suc((m' + n) + o) by apply operator + in goal; .
                     ... = suc(m' + (n + o))
-                                   by rewrite goal with IH[n,o]; .
+                                   by rewrite with IH[n,o]; .
                     ... = suc(m') + (n + o) by apply operator + in goal; .
   }
 end
@@ -269,7 +269,7 @@ proof
             have sx_sy: suc(x') < suc(y')
 	      by (apply operator <, operator ≤ in goal;
 	          apply operator <, operator ≤ in x_y);
-            have sx_y: suc(x') < y by (rewrite goal with ys; sx_sy);
+            have sx_y: suc(x') < y by (rewrite with ys; sx_sy);
 	    using not_sx_y with sx_y);
 	apply operator ≤ in goal;
 	have y' ≤ x' by using IH[y'] with not_x_y
@@ -352,7 +352,7 @@ proof
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
                                          by (apply max in goal; .)
-    ... = suc(suc(max(x',x')))           by (rewrite goal with IH; .)
+    ... = suc(suc(max(x',x')))           by (rewrite with IH; .)
     ... = suc(max(suc(x'),suc(x')))      by (apply max in goal; .)
   }
 end
@@ -380,7 +380,7 @@ proof
 	case less { have suc(x') < suc(y')
 	  by apply operator <, operator ≤ in goal;
 	     apply operator <, operator ≤ in less }
-	case eq { have suc(x') = suc(y') by rewrite goal with eq; . }
+	case eq { have suc(x') = suc(y') by rewrite with eq; . }
 	case gtr { have suc(y') < suc(x')
 	  by (apply operator <, operator ≤ in goal;
 	      apply operator <, operator ≤ in gtr) }
