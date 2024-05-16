@@ -102,6 +102,7 @@ ident: IDENT              -> ident
     | half_equation equation_list                  -> push
  
 ?proof: "have" term "by" proof                           -> annot
+    | "show" term ";" proof                              -> annot
     | "using" proof "with" proof                         -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
