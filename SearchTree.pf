@@ -245,6 +245,24 @@ proof
   }
 end
 
+theorem lookup_insert_update_empty_short:
+  all k:Nat, v:Nat.
+  lookup(insert(empty_tree, k, v)) = update(lookup(empty_tree), k, just(v))
+proof
+  arbitrary k:Nat, v:Nat;
+  extensionality; arbitrary x:Nat;
+  enable insert, lookup, update;
+  switch x = k {
+    case true assume xk_true { . }
+    case false assume xk_false {
+      switch x < k {
+	case true { . }
+	case false { . }
+      }
+    }
+  }
+end
+
 theorem lookup_insert_update:
   all T:Tree. all k:Nat, v:Nat.
   if is_BST(T)
@@ -254,8 +272,7 @@ proof
   case empty_tree {
     arbitrary k:Nat, v:Nat;
     assume prem;
-    show lookup(insert(empty_tree, k, v))
-         = update(lookup(empty_tree), k, just(v));
+    show lookup(insert(empty_tree,k,v)) = update(lookup(empty_tree),k,just(v));
     lookup_insert_update_empty[k,v]
   }
   case tree_node(L, j, w, R) assume IHL, IHR {
@@ -265,18 +282,18 @@ proof
     cases trichotomy[x][j]
     case x_less_j {
       have not_xj: not (x = j)
-        by using less_implies_not_equal[x][j] with x_less_j;
+        by using less_not_equal[x][j] with x_less_j;
       switch k < j {
         case true assume k_less_j_true {
           have k_less_j: k < j by (rewrite with k_less_j_true; .);
           have not_kj: not (k = j)
-              by using less_implies_not_equal[k][j] with k_less_j;
+              by using less_not_equal[k][j] with k_less_j;
           have BST_L: is_BST(L) by apply is_BST in prem;
           enable lookup, insert, update;
           equations
             lookup(insert(tree_node(L,j,w,R),k,v))(x)
                 = lookup(insert(L,k,v))(x)
-                      by (rewrite with k_less_j_true | not_kj | not_xj | x_less_j; .)
+                      by (rewrite with k_less_j_true|not_kj|not_xj|x_less_j; .)
             ... = update(lookup(L),k,just(v))(x)
                       by (rewrite with (using IHL[k,v] with BST_L); .)
             ... = update(lookup(tree_node(L,j,w,R)), k, just(v))(x)
@@ -285,28 +302,19 @@ proof
         case false assume k_less_j_false {
           have not_k_less_j: not (k < j)
              by (assume kj; have false by rewrite kj with k_less_j_false);
-          apply lookup, update in goal;
-          have lookupL: lookup(insert(tree_node(L,j,w,R),k,v))(x) = lookup(L)(x)
-            by (apply insert, lookup in goal;
-                switch k = j {
-                  case true {
-                    apply lookup in goal;
-                    rewrite with not_xj | x_less_j;
-                    .
-                  }
-                  case false assume kj_false {
-                    rewrite with k_less_j_false;
-                    apply lookup in goal;
-                    rewrite with not_xj | x_less_j;
-                    .
-                  }
-                });
-          rewrite with lookupL;
           have x_neq_k: not (x = k)
-            by (assume xk; using (rewrite not_k_less_j with xk)
-                           with (rewrite x_less_j with xk));
-          rewrite with x_neq_k | not_xj | x_less_j;
-          .
+            by (assume x_eq_k; using (rewrite not_k_less_j with x_eq_k)
+                               with (rewrite x_less_j with x_eq_k));
+          enable insert, lookup, update;			
+          equations
+            lookup(insert(tree_node(L,j,w,R),k,v))(x)
+	        = lookup(L)(x)
+                   by (switch k = j {
+		      case true { rewrite with not_xj | x_less_j; . }
+		      case false {rewrite with k_less_j_false|not_xj|x_less_j;.}
+		      })
+	    ... = update(lookup(tree_node(L,j,w,R)),k,just(v))(x)
+                    by (rewrite with not_k_less_j|x_neq_k|x_less_j|not_xj; .)
         }
       }
     }
@@ -343,14 +351,14 @@ proof
       have not_x_less_j: not (x < j)
         by using less_implies_not_greater[j][x] with j_less_x;
       have not_jx: not (j = x)
-        by using less_implies_not_equal[j][x] with j_less_x;
+        by using less_not_equal[j][x] with j_less_x;
       have not_xj: not (x = j)
         by (assume xj; using not_jx with symmetric xj);
       switch j < k {
         case true assume j_less_k_true {
           have j_less_k: j < k by (rewrite with j_less_k_true; .);
           have not_jk: not (j = k)
-            by using less_implies_not_equal[j][k] with j_less_k;
+            by using less_not_equal[j][k] with j_less_k;
           apply insert in goal;
           rewrite with using false_is_false[k = j]
                with (assume kj; using not_jk with symmetric kj);

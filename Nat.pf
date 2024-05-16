@@ -278,7 +278,7 @@ proof
   }
 end
 
-theorem less_implies_not_equal:
+theorem less_not_equal:
   all x:Nat. all y:Nat.
   if x < y then not (x = y)
 proof
