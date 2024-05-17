@@ -279,6 +279,11 @@ def parse_tree_to_ast(e):
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0]),
                       parse_tree_to_ast(e.children[1]))
+    elif e.data == 'term_proof':
+        return PTerm(e.meta,
+                     parse_tree_to_ast(e.children[0]),
+                     parse_tree_to_ast(e.children[1]),
+                     parse_tree_to_ast(e.children[2]))
     elif e.data == 'tuple':
        left = parse_tree_to_ast(e.children[0])
        right = parse_tree_to_ast(e.children[1])
@@ -316,7 +321,12 @@ def parse_tree_to_ast(e):
     elif e.data == 'case':
         tag = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1])
-        return (tag, body)
+        return (tag, None, body)
+    elif e.data == 'case_annot':
+        tag = str(e.children[0].value)
+        frm = parse_tree_to_ast(e.children[1])
+        body = parse_tree_to_ast(e.children[2])
+        return (tag, frm, body)
     elif e.data == 'cases':
         return Cases(e.meta,
                      parse_tree_to_ast(e.children[0]),

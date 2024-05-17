@@ -289,6 +289,10 @@ def check_proof(proof, env):
       check_formula(claim, env)
       check_proof_of(reason, claim, env)
       ret = claim
+    case PTerm(loc, term, because, rest):
+      typ = type_synth_term(term, env, None, [])
+      frm = check_proof_of(because, term, env)
+      ret = check_proof(rest, env)
     case PTuple(loc, pfs):
       frms = [check_proof(pf, env) for pf in pfs]
       ret = And(loc, frms)
@@ -528,8 +532,10 @@ def check_proof_of(proof, formula, env):
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
       match sub_frm:
-        case Or(loc, frms):
-          for (frm, (label,case)) in zip(frms, cases):
+        case Or(loc1, frms):
+          for (frm, (label,frm2,case)) in zip(frms, cases):
+            if frm2 and frm != frm2:
+              error(loc, 'case ' + str(frm2) + '\ndoes not match\n' + str(frm))
             body_env = env.declare_proof_var(loc, label, frm)
             check_proof_of(case, formula, body_env)
         case _:

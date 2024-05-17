@@ -1226,7 +1226,7 @@ class And(Formula):
     return And(self.location, [arg.copy() for arg in self.args])
   
   def __str__(self):
-    return ' and '.join(['(' + str(arg) + ')' for arg in self.args])
+    return ' and '.join([str(arg) for arg in self.args])
   def __repr__(self):
     return str(self)
   def __eq__(self, other):
@@ -1505,6 +1505,21 @@ class PLet(Proof):
     body_env[self.label] = new_label
     self.label = new_label
     self.body.uniquify(body_env)
+
+@dataclass
+class PTerm(Proof):
+  term: Term
+  because: Proof
+  body: Proof
+
+  def __str__(self):
+      return 'term ' + str(self.term) + ' by ' \
+        + str(self.because) + '; ' + str(self.body)
+
+  def uniquify(self, env):
+    self.term.uniquify(env)
+    self.because.uniquify(env)
+    self.body.uniquify(env)
     
     
 @dataclass
@@ -1541,11 +1556,14 @@ class Cases(Proof):
     while i != len(self.cases):
       body_env = {x:y for (x,y) in env.items()}
       label = self.cases[i][0]
-      proof = self.cases[i][1]
+      formula = self.cases[i][1]
+      proof = self.cases[i][2]
+      if formula:
+        formula.uniquify(env)
       new_label = generate_name(label)
-      new_cases.append((new_label, proof))
       body_env[label] = new_label
       proof.uniquify(body_env)
+      new_cases.append((new_label, formula, proof))
       i += 1
     self.cases = new_cases
       

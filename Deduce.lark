@@ -106,6 +106,7 @@ ident: IDENT              -> ident
     
 ?proof: "have" term "by" proof                           -> annot
     | "show" term ";" proof                              -> annot
+    | "show" term "by" proof                             -> annot
     | "using" proof "with" proof                         -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
@@ -118,8 +119,9 @@ ident: IDENT              -> ident
     | "obtain" ident_list "with" IDENT "from" proof ";" proof -> some_elim
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "apply" ident_list "in" "goal" ";" proof            -> apply_defs_goal
-    | "apply" ident_list "in" proof                       -> apply_defs_fact
+    | "apply" ident_list "in" "goal" ";" proof           -> apply_defs_goal
+    | "definition" ident_list ";" proof                  -> apply_defs_goal
+    | "apply" ident_list "in" proof                      -> apply_defs_fact
     | "enable" ident_list ";" proof                      -> enable_defs
     | "rewrite" "with" proof_list ";" proof              -> rewrite_goal
     | "rewrite" proof "with" proof                       -> rewrite_fact
@@ -130,6 +132,7 @@ ident: IDENT              -> ident
 ?proof_hi: 
     | IDENT                                              -> proof_var
     | "have" IDENT ":" term "by" proof ";" proof         -> let
+    | "term" term "by" proof ";" proof                   -> term_proof
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
     | "symmetric" proof                                  -> sym_proof
@@ -142,6 +145,7 @@ ident: IDENT              -> ident
     | "?"                                                -> hole_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
+    | "case" IDENT ":" term "{" proof "}"                -> case_annot
 
 ?case_list: case                                        -> single
     | case case_list                                    -> push
