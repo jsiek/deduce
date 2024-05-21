@@ -5,5 +5,5 @@ proof
   assume prem;
   obtain y with yeqz from prem;
   choose suc(y);
-  rewrite with yeqz; .
+  rewrite yeqz; .
 end

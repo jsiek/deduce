@@ -360,7 +360,12 @@ def parse_tree_to_ast(e):
     elif e.data == 'apply_defs_goal':
         definitions = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
-        return ApplyDefsGoal(e.meta, [Var(e.meta, t) for t in definitions], body)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, t) for t in definitions],
+                             body)
+    elif e.data == 'apply_defs_goal_end':
+        definitions = parse_tree_to_list(e.children[0])
+        return ApplyDefsGoal(e.meta, [Var(e.meta, t) for t in definitions],
+                             PTrue(e.meta))
     elif e.data == 'apply_defs_fact':
         definitions = parse_tree_to_list(e.children[0])
         subject = parse_tree_to_ast(e.children[1])
@@ -377,10 +382,13 @@ def parse_tree_to_ast(e):
         eqns = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
         return RewriteGoal(e.meta, eqns, body)
+    elif e.data == 'rewrite_goal_end':
+        eqns = parse_tree_to_list(e.children[0])
+        return RewriteGoal(e.meta, eqns, PTrue(e.meta))
     elif e.data == 'rewrite_fact':
-        subject = parse_tree_to_ast(e.children[0])
-        eq = parse_tree_to_ast(e.children[1])
-        return RewriteFact(e.meta, subject, eq)
+        eqns = parse_tree_to_list(e.children[0])
+        subject = parse_tree_to_ast(e.children[1])
+        return RewriteFact(e.meta, subject, eqns)
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0])
         rhs = parse_tree_to_ast(e.children[1])

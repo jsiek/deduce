@@ -1956,7 +1956,7 @@ class RewriteGoal(Proof):
   body: Proof
 
   def __str__(self):
-      return 'rewrite goal with ' + ','.join([str(eqn) for eqn in self.equations]) \
+      return 'rewrite with ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ';\n' + str(self.body)
 
   def debruijnize(self, env):
@@ -1972,18 +1972,21 @@ class RewriteGoal(Proof):
 @dataclass
 class RewriteFact(Proof):
   subject: Proof
-  equation: Proof
+  equations: List[Proof]
 
   def __str__(self):
-      return 'rewrite ' + str(self.subject) + ' with ' + str(self.equation)
+      return 'rewrite ' + ','.join([str(eqn) for eqn in self.equations]) \
+        + ' in ' + str(self.subject)
 
   def debruijnize(self, env):
+    for eqn in self.equations:
+      eqn.debruijnize(env)
     self.subject.debruijnize(env)
-    self.equation.debruijnize(env)
 
   def uniquify(self, env):
+    for eqn in self.equations:
+      eqn.uniquify(env)
     self.subject.uniquify(env)
-    self.equation.uniquify(env)
     
 ################ Statements ######################################
   

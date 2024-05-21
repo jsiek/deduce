@@ -119,12 +119,13 @@ ident: IDENT              -> ident
     | "obtain" ident_list "with" IDENT "from" proof ";" proof -> some_elim
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "apply" ident_list "in" "goal" ";" proof           -> apply_defs_goal
     | "definition" ident_list ";" proof                  -> apply_defs_goal
-    | "apply" ident_list "in" proof                      -> apply_defs_fact
+    | "definition" ident_list "."                        -> apply_defs_goal_end
+    | "definition" ident_list "in" proof                 -> apply_defs_fact
     | "enable" ident_list ";" proof                      -> enable_defs
-    | "rewrite" "with" proof_list ";" proof              -> rewrite_goal
-    | "rewrite" proof "with" proof                       -> rewrite_fact
+    | "rewrite" proof_list ";" proof                     -> rewrite_goal
+    | "rewrite" proof_list "."                           -> rewrite_goal_end
+    | "rewrite" proof_list "in" proof                    -> rewrite_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "equations" equation equation_list                 -> equations_proof
     | proof_hi
@@ -151,6 +152,7 @@ ident: IDENT              -> ident
     | case case_list                                    -> push
 
 ?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
+ | "lemma" IDENT ":" term "proof" proof "end"          -> theorem
 
 ?type: type_params_opt "fn" type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                                -> type_inst

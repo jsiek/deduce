@@ -20,15 +20,31 @@ function reverse<E>(List<E>) -> List<E> {
   reverse(node(n, next)) = append(reverse(next), node(n, empty));
 }
 
-theorem length_zero: length(empty) = 0
+theorem length_empty: length(empty) = 0
 proof
-  apply length in goal; .
+  definition length.
+end
+
+theorem length_node42: length(node(42, empty)) = 1
+proof
+  definition length, operator +.
+end
+
+theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+proof
+  arbitrary x:Nat;
+  definition length, operator +.
+end
+
+theorem length_node42_again: length(node(42, empty)) = 1
+proof
+  length_one_nat[42]
 end
 
 theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type, x:U;
-  apply length, operator + in goal; .
+  definition length, operator +.
 end
 
 define L1 = node(1, node(2, empty))
@@ -37,46 +53,45 @@ define L3 : List<Nat> = node(1, node(2, node(3, node(4, node(5, empty)))))
 
 theorem length_L3: length(L3) = 5
 proof
-  apply L1, L2, L3, length, operator + in goal; .
+  definition L1, L2, L3, length, operator +.
 end
 
 theorem append_test: append(L1, L2) = L3
 proof
-  apply L1, L2, L3, append in goal; .
+  definition L1, L2, L3, append.
 end
 
 theorem reverse_test2: reverse(L1) = node(2, node(1, empty))
 proof
-  apply L1, reverse, append in goal; .
+  definition L1, reverse, append.
 end
 
 theorem reverse_test3: reverse(L2) = node(5, node(4, node(3, empty)))
 proof
-  apply L2, reverse, append in goal; .
+  definition L2, reverse, append.
 end
 
 theorem length_append_123: length(append(L1, L2)) = length(L1) + length(L2)
 proof
-  apply L1, L2, length, append, operator + in goal; .
+  definition L1, L2, length, append, operator +.
 end  
 
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(append(xs, ys)) = length(xs) + length(ys)
 proof
   arbitrary U :type;
+  enable length, append, operator +;
   induction List<U>
   case empty {
     arbitrary ys:List<U>;
-    have length(append(empty,ys)) = length(empty) + length(ys)
-        by apply length, append, operator + in goal; .
+    show length(append(empty,ys)) = length(empty) + length(ys)  by .
   }
   case node(n, xs') assume IH {
     arbitrary ys :List<U>;
-    enable length, operator +, append;
     equations
       length(append(node(n,xs'),ys))
           = 1 + length(append(xs', ys))        by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite with IH[ys]; .
+      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys].
       ... = length(node(n,xs')) + length(ys)   by .
   }
 end
@@ -85,42 +100,41 @@ theorem append_assoc1:
   append(append(node(1, empty), node(2, empty)), node(3, empty))
   = append(node(1, empty), append(node(2, empty), node(3, empty)))
 proof
-  apply append in goal; .
+  definition append.
 end  
 
 theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
   append(append(xs, ys), zs) = append(xs, append(ys, zs))
 proof
   arbitrary U :type;
+  enable append;
   induction List<U>
   case empty {
     arbitrary ys :List<U>, zs :List<U>;
-    have append(append(empty,ys),zs) = append(empty,append(ys,zs))
-      by apply append in goal; .
+    show append(append(empty,ys),zs) = append(empty,append(ys,zs))  by .
   }
   case node(n, xs') assume IH {
     arbitrary ys :List<U>, zs :List<U>;
-    enable append;
     equations
       append(append(node(n,xs'),ys),zs)
           = node(n,append(append(xs',ys),zs))  by .
-      ... = append(node(n,xs'),append(ys,zs))  by rewrite with IH[ys,zs]; .
+      ... = append(node(n,xs'),append(ys,zs))  by rewrite IH[ys,zs].
   }
 end
 
 theorem append_empty: all U :type. all xs :List<U>.
   append(xs, empty) = xs
 proof
-  arbitrary U :type;
+  arbitrary U:type;
   induction List<U>
   case empty {
-    have append(empty, empty) = empty by apply append in goal; .
+    show append(empty, empty) = empty  by definition append.
   }
-  case node(n, xs') assume IH {
+  case node(n, xs') assume IH: append(xs',empty) = xs' {
     equations
       append(node(n,xs'),empty)
-          = node(n,append(xs',empty))     by apply append in goal; .
-      ... = node(n,xs')                   by rewrite with IH; .
+          = node(n, append(xs',empty))  by definition append.
+      ... = node(n,xs')                 by rewrite IH.
   }
 end
 
@@ -130,7 +144,7 @@ proof
   arbitrary U : type;
   induction List<U>
   case empty {
-    have length(reverse(empty)) = length(empty) by apply reverse in goal; .
+    have length(reverse(empty)) = length(empty)  by definition reverse.
   }
   case node(n, xs') assume IH {
     enable length, reverse, operator +;
@@ -138,17 +152,17 @@ proof
       length(reverse(node(n,xs')))
           = length(append(reverse(xs'), node(n,empty))) by .
       ... = length(reverse(xs')) + length(node(n,empty))
-                    by rewrite with
-                       length_append[U][reverse(xs')][node(n,empty)]; .
-      ... = length(xs') + 1        by rewrite with IH; .
-      ... = length(node(n,xs'))    by rewrite with add_one[length(xs')]; .
+                    by rewrite
+                       length_append[U][reverse(xs')][node(n,empty)].
+      ... = length(xs') + 1        by rewrite IH.
+      ... = length(node(n,xs'))    by rewrite add_one[length(xs')].
   }
 end
 
 theorem reverse_append_123:
   reverse(append(L1, L2)) = append(reverse(L2), reverse(L1))
 proof
-  apply L1, L2, reverse, append in goal; .
+  definition L1, L2, reverse, append.
 end  
 
 theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
@@ -160,10 +174,10 @@ proof
     arbitrary ys :List<U>;
     equations
     reverse(append(empty,ys))
-        = reverse(ys)                          by apply append in goal; .
+        = reverse(ys)                          by definition append.
     ... = append(reverse(ys),empty)
-                by rewrite with append_empty[U][reverse(ys)]; .
-    ... = append(reverse(ys),reverse(empty))   by apply reverse in goal; .
+                by rewrite append_empty[U][reverse(ys)].
+    ... = append(reverse(ys),reverse(empty))   by definition reverse.
   }
   case node(n, xs') assume IH {
     arbitrary ys :List<U>;
@@ -172,7 +186,7 @@ proof
       reverse(append(node(n,xs'),ys))
 	  = reverse(node(n,append(xs',ys))) by .
       ... = append(append(reverse(ys), reverse(xs')), node(n, empty))
-	    by rewrite with IH[ys]; .
+	    by rewrite IH[ys].
       ... = append(reverse(ys), append(reverse(xs'), node(n, empty)))
 	    by append_assoc[U][reverse(ys)][reverse(xs'), node(n, empty)]
       ... = append(reverse(ys), reverse(node(n,xs'))) by .
@@ -185,7 +199,7 @@ proof
   arbitrary U :type;
   induction List<U>
   case empty {
-    have reverse(reverse(empty)) = empty by apply reverse in goal; .
+    have reverse(reverse(empty)) = empty by definition reverse.
   }
   case node(n, ls') assume IH {
     enable reverse, append;
@@ -195,7 +209,7 @@ proof
       ... = append(reverse(node(n,empty)), reverse(reverse(ls')))
                   by reverse_append[U][reverse(ls')][node(n,empty)]
       ... = append(reverse(node(n,empty)), ls')
-                  by rewrite with IH; .
+                  by rewrite IH.
       ... = node(n,ls') by .
   }
 end
@@ -207,7 +221,7 @@ function map<T,U>(List<T>, fn T->U) -> List<U> {
 
 theorem map_suc: map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
 proof
-  apply L1, map in goal; .
+  definition L1, map.
 end
 
 theorem length_map: all T:type, f:fn T->T. all xs:List<T>.
@@ -216,14 +230,14 @@ proof
   arbitrary T:type, f:fn T->T;
   induction List<T>
   case empty {
-    apply map in goal; .
+    definition map.
   }
   case node(x, ls') assume IH {
     enable map, length, operator +;
     equations
       length(map(node(x,ls'),f))
           = suc(length(map(ls',f)))  by .
-      ... = suc(length(ls'))         by rewrite with IH; .
+      ... = suc(length(ls'))         by rewrite IH.
       ... = length(node(x,ls'))      by .
   }
 end
@@ -235,14 +249,14 @@ proof
   assume fxx: (all x:T. f(x) = x);
   induction List<T>
   case empty {
-    have map(empty,f) = empty      by apply map in goal; .
+    have map(empty,f) = empty      by definition map.
   }
   case node(x, ls) assume IH {
     equations
       map(node(x,ls),f)
-          = node(f(x), map(ls, f)) by apply map in goal; .
-      ... = node(x, map(ls, f))    by rewrite with fxx[x]; .
-      ... = node(x,ls)             by rewrite with IH; .
+          = node(f(x), map(ls, f)) by definition map.
+      ... = node(x, map(ls, f))    by rewrite fxx[x].
+      ... = node(x,ls)             by rewrite IH.
   }
 end
 
@@ -253,7 +267,7 @@ define id_nat : fn Nat -> Nat = λx{x}
 
 theorem compose_test: (id_nat ∘ id_nat)(zero) = zero
 proof
-  apply operator ∘, id_nat in goal; .
+  definition operator ∘, id_nat.
 end
 
 theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
@@ -262,7 +276,7 @@ proof
   arbitrary T:type, f:fn T->T, ys:List<T>;
   induction List<T>
   case empty {
-    apply map, append in goal; .
+    definition map, append.
   }
   case node(x, xs') assume IH {
     enable map, append;
@@ -270,7 +284,7 @@ proof
       map(append(node(x,xs'),ys),f)
           = node(f(x), map(append(xs',ys), f))    by .
       ... = node(f(x), append(map(xs',f), map(ys,f)))
-                                        by (rewrite with IH; .)
+                                        by (rewrite IH.)
       ... = append(map(node(x,xs'),f),map(ys,f))  by .
   }
 end
@@ -280,13 +294,13 @@ theorem map_compose: all T:type, U:type, V:type, f:fn T->U, g:fn U->V.
 proof
   arbitrary T:type, U:type, V:type, f:fn T->U, g:fn U->V;
   induction List<T>
-  case empty { apply map in goal; . }
+  case empty { definition map. }
   case node(x, ls) assume IH {
     enable map, operator ∘;
     equations
       map(map(node(x,ls),f),g)
 	  = node(g(f(x)), map(map(ls, f), g))  by .
-      ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite with IH; .
+      ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite IH.
       ... = map(node(x,ls), g ∘ f)             by .
   }
 end
@@ -298,12 +312,12 @@ function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
 
 theorem foldr_add12: foldr(L1, 0, λa,b{ a + b }) = 3
 proof
-  apply L1, foldr, operator + in goal; .
+  definition L1, foldr, operator +.
 end
 
 theorem foldr_id: foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
 proof
-  apply L1, foldr in goal; .
+  definition L1, foldr.
 end
 
 function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
@@ -313,13 +327,13 @@ function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
 
 theorem foldl_add12: foldl(L1, 0, λa,b{ a + b }) = 3
 proof
-  apply L1, foldl, operator + in goal; .
+  definition L1, foldl, operator +.
 end  
 
 theorem foldl_rev12:
   foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 proof
-  apply L1, foldl in goal; .
+  definition L1, foldl.
 end  
 
 
@@ -330,19 +344,19 @@ function down_from(Nat) -> List<Nat> {
 
 theorem down_from2: down_from(2) = node(1, node(0, empty))
 proof
-  apply down_from in goal; .
+  definition down_from.
 end
 
 define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
 
 theorem up_to2: up_to(2) = node(0, node(1, empty))
 proof
-  apply up_to, down_from, reverse, append in goal; .
+  definition up_to, down_from, reverse, append.
 end
 
 theorem up_to3: up_to(3) = node(0, node(1, node(2, empty)))
 proof
-  apply up_to, down_from, reverse, append in goal; .
+  definition up_to, down_from, reverse, append.
 end
 
 function range_aux(Nat, Nat, Nat) -> List<Nat> {
@@ -358,31 +372,31 @@ define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
 
 theorem range_empty: range(0, 0) = empty
 proof
-  apply range, range_aux, up_to, down_from, reverse, map in goal; .
+  definition range, range_aux, up_to, down_from, reverse, map.
 end  
 
 theorem range1: range(0, 1) = node(0, empty)
 proof
-  apply range, range_aux, up_to, down_from, reverse, map, append, operator +
-  in goal; .
+  enable range, range_aux, up_to, down_from, reverse, map, append, operator +;
+  .
 end  
 
 theorem range2: range(0, 2) = node(0, node(1, empty))
 proof
-  apply range, range_aux, up_to, down_from, reverse, map, append, operator +
-  in goal; .
+  enable range, range_aux, up_to, down_from, reverse, map, append, operator +;
+  .
 end  
 
 theorem range13: range(1, 3) = node(1, node(2, empty))
 proof
-  apply range, range_aux, up_to, down_from, reverse, map, append, operator +
-  in goal; .
+  enable range, range_aux, up_to, down_from, reverse, map, append, operator +;
+  .
 end  
 
 theorem range25: range(2, 5) = node(2, node(3, node(4, empty)))
 proof
-  apply range, range_aux, up_to, down_from, reverse, map, append, operator +
-  in goal; .
+  enable range, range_aux, up_to, down_from, reverse, map, append, operator +;
+  .
 end  
 
 union Pair<T,U> {
@@ -417,8 +431,8 @@ theorem zip_id_right: all T:type. all xs:List<T>. zip(xs, empty) = empty
 proof
   arbitrary T:type;
   induction List<T>
-  case empty { apply zip in goal; . }
-  case node(x, xs') { apply zip in goal; . }
+  case empty { definition zip. }
+  case node(x, xs') { definition zip. }
 end
 
 define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2)
@@ -431,25 +445,26 @@ theorem zip_map: all T1:type, T2:type, U1:type, U2:type,
   zip(map(xs, f), map(ys, g)) = map(zip(xs,ys), pairfun(f,g))
 proof
   arbitrary T1:type, T2:type, U1:type, U2:type, f:fn T1 -> T2, g:fn U1 -> U2;
+  enable map, zip;
   induction List<T1>
   case empty {
-      arbitrary ys:List<U1>;
-      apply map, zip in goal; .
+    arbitrary ys:List<U1>;
+    show zip(map(empty,f),map(ys,g))
+       = map(zip(empty:List<T1>,ys), pairfun(f,g))  by .
   }
   case node(x, xs') assume IH {
     arbitrary ys:List<U1>;
     switch ys {
-    case empty assume EQ { rewrite with EQ; apply map, zip in goal; . }
-    case node(y, ys') {
-      enable map, zip;
-      equations
-        zip(map(node(x,xs'),f),map(node(y,ys'),g))
-	  = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))      by .
-      ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
-              by rewrite with IH[ys']; .
-      ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
-              by apply first, second, pairfun in goal; .
-    }
+      case empty assume EQ { rewrite EQ. }
+      case node(y, ys') {
+	equations
+	  zip(map(node(x,xs'),f),map(node(y,ys'),g))
+	    = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))      by .
+	... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
+		by rewrite IH[ys'].
+	... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
+		by definition first, second, pairfun.
+      }
     }
   }
 end

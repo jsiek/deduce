@@ -17,100 +17,99 @@ function max(Nat,Nat) -> Nat {
     };
 }
 
-theorem add_zero: all n:Nat. n + 0 = n
+theorem add_zero: all n:Nat.  n + 0 = n
 proof
+  enable operator +;
   induction Nat
   case 0 {
-    have 0 + 0 = 0 by apply operator + in goal; .
+    show 0 + 0 = 0   by .
   }
   case suc(n') assume IH {
     equations
-      suc(n') + 0 = suc(n' + 0) by apply operator + in goal; .
-              ... = suc(n') by rewrite with IH; .
+      suc(n') + 0 = suc(n' + 0)  by .
+              ... = suc(n')      by rewrite IH; .
   }
 end
 
-theorem add_suc: all m:Nat. all n:Nat. m + suc(n) = suc(m + n)
+theorem add_suc: all m:Nat. all n:Nat.  m + suc(n) = suc(m + n)
 proof
+  enable operator +;
   induction Nat
   case 0 {
     arbitrary n : Nat;
-    apply operator + in goal; .
+    show 0 + suc(n) = suc(0 + n)  by .
   }
   case suc(n') assume IH {
     arbitrary n : Nat;
-    have IHn: n' + suc(n) = suc(n' + n) by IH[n];
-    have suc(n') + suc(n) = suc(suc(n') + n) by
     equations
-    suc(n')+suc(n) = suc(n' + suc(n)) by apply operator + in goal; .
-               ... = suc(suc(n' + n)) by rewrite with IH[n]; .
-               ... = suc(suc(n') + n) by apply operator + in goal; .
+      suc(n') + suc(n) = suc(n' + suc(n))  by .
+                   ... = suc(suc(n' + n))  by rewrite IH[n]; .
+                   ... = suc(suc(n') + n)  by .
   }
 end
 
-theorem add_one: all m:Nat. m + 1 = suc(m)
+theorem add_one: all m:Nat.  m + 1 = suc(m)
 proof
   arbitrary m:Nat;
   equations
-    m + 1 = suc(m + 0)      by add_suc[m][0]
-      ... = suc(m)          by rewrite with add_zero[m]; .
+    m + 1 = suc(m + 0)  by add_suc[m][0]
+      ... = suc(m)      by rewrite add_zero[m]; .
 end
 
-theorem add_commute: all n:Nat. all m:Nat. n + m = m + n
+theorem add_commute: all n:Nat. all m:Nat.  n + m = m + n
 proof
+  enable operator +;
   induction Nat
   case 0 {
     arbitrary m : Nat;
-    equations  0 + m = m       by apply operator + in goal; .
-                 ... = m + 0   by symmetric add_zero[m]
+    equations  0 + m = m      by .
+                 ... = m + 0  by symmetric add_zero[m]
   }
   case suc(n') assume IH {
     arbitrary m : Nat;
-    equations
-      suc(n') + m = suc(n' + m)       by apply operator + in goal; .
-              ... = suc(m + n')       by rewrite with IH[m]; .
-              ... = m + suc(n')       by symmetric add_suc[m][n']
+    equations suc(n') + m = suc(n' + m)  by .
+                      ... = suc(m + n')  by rewrite IH[m]; .
+                      ... = m + suc(n')  by symmetric add_suc[m][n']
   }
 end
 
 theorem add_assoc: all m:Nat. all n:Nat, o:Nat.
   (m + n) + o = m + (n + o)
 proof
+  enable operator +;
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat;
-    have (0 + n) + o = 0 + (n + o) by apply operator + in goal; .
+    have (0 + n) + o = 0 + (n + o)   by .
   }
   case suc(m') assume IH {
     arbitrary n:Nat, o:Nat;
     equations
-      (suc(m') + n) + o = suc((m' + n) + o) by apply operator + in goal; .
-                    ... = suc(m' + (n + o))
-                                   by rewrite with IH[n,o]; .
-                    ... = suc(m') + (n + o) by apply operator + in goal; .
+      (suc(m') + n) + o = suc((m' + n) + o)  by .
+                    ... = suc(m' + (n + o))  by rewrite IH[n,o]; .
+                    ... = suc(m') + (n + o)  by .
   }
 end
 
 theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y = x + z then y = z
 proof
+  enable operator +;
   induction Nat
   case 0 {
     arbitrary y:Nat, z:Nat;
     suppose prem: 0 + y = 0 + z;
-    equations   y = 0 + y      by apply operator + in goal; .
+    equations   y = 0 + y      by .
               ... = 0 + z      by prem
-              ... = z          by apply operator + in goal; .
+              ... = z          by .
   }
   case suc(x') assume IH {
     arbitrary y:Nat, z:Nat;
-    suppose prem: suc(x') + y = suc(x') + z;
-    have p1: suc(x' +  y) = suc(x' + z) by
-      transitive have suc(x' +  y) = suc(x') + y by apply operator + in goal; .
-      transitive prem apply operator + in goal; .;
-    have p2: x' + y = x' + z by injective suc; p1;
-    have IHyz: if x' + y = x' + z then y = z by IH[y,z];
-    using IHyz with p2
+    assume prem: suc(x') + y = suc(x') + z;
+    show y = z  by using IH[y,z] with
+    show x' + y = x' + z;
+    injective suc;
+    show suc(x' + y) = suc(x' + z)  by prem
   }
 end
 
@@ -121,7 +120,7 @@ function pred(Nat) -> Nat {
 
 theorem pred_one: pred(suc(0)) = 0
 proof
-  apply pred in goal; .
+  definition pred; .
 end
 
 function operator -(Nat,Nat) -> Nat {
@@ -148,7 +147,7 @@ function diff(Nat,Nat) -> Nat {
 
 theorem sub_one_one: 1 - 1 = 0
 proof
-  apply operator - in goal; .
+  definition operator -; .
 end
 
 function operator ≤(Nat,Nat) -> bool {
@@ -172,24 +171,22 @@ proof
   case zero {
     arbitrary y:Nat;
     assume zy: 0 < y;
-    apply operator ≤ in goal;
+    definition operator ≤;
     .
   }
   case suc(x') assume IH {
     arbitrary y:Nat;
     assume sx_y: suc(x') < y;
-    have ssx_y: suc(suc(x')) ≤ y by apply operator < in sx_y;
+    have ssx_y: suc(suc(x')) ≤ y  by definition operator < in sx_y;
     switch y {
       case zero assume yz {
-        have false by apply operator ≤ in (rewrite ssx_y with yz)
+        have false  by definition operator ≤ in (rewrite yz in ssx_y)
       }
       case suc(y') assume EQ : y = suc(y') {
-        apply operator ≤ in goal;
-	have ssx_sy: suc(suc(x')) ≤ suc(y') by rewrite ssx_y with EQ;
-        have x_y: x' < y' by (apply operator <, operator ≤ in goal;
-	                      apply operator ≤ in ssx_sy);
-        //enable operator ≤;
-	have x' ≤ y' by using IH[y'] with x_y
+        have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y;
+	enable operator <, operator ≤;
+        have x_y: x' < y'  by ssx_sy;
+        have x' ≤ y'  by using IH[y'] with x_y
       }
     }
   }
@@ -197,44 +194,46 @@ end
 
 theorem less_equal_refl: all n:Nat. n ≤ n
 proof
+  enable operator ≤;
   induction Nat
-  case 0 { have 0 ≤ 0 by apply operator ≤ in goal; . }
-  case suc(n') assume IH { have suc(n') ≤ suc(n') by apply operator ≤ in goal; IH }
+  case 0 { have 0 ≤ 0  by . }
+  case suc(n') assume IH { have suc(n') ≤ suc(n')  by IH }
 end
 
 theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
   if m ≤ n and n ≤ o then m ≤ o
 proof
+  enable operator ≤;
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat;
     suppose _;
-    have 0 ≤ o by apply operator ≤ in goal; .
+    have 0 ≤ o  by .
   }
   case suc(m') assume IH {
     arbitrary n:Nat, o:Nat;
-    assume Prem : suc(m') ≤ n and n ≤ o;
-    have sm_n: suc(m') ≤ n by Prem;
-    have n_o: n ≤ o by Prem;
+    assume Prem: suc(m') ≤ n and n ≤ o;
+    have sm_n: suc(m') ≤ n  by Prem;
+    have n_o: n ≤ o  by Prem;
     switch n {
       case 0 assume nz {
-        have sm_z: suc(m') ≤ 0 by rewrite sm_n with nz;
-        have false by apply operator ≤ in sm_z
+        have sm_z: suc(m') ≤ 0  by rewrite nz in sm_n;
+        have false  by sm_z
       }
       case suc(n') assume ns {
-        have sm_sn: suc(m') ≤ suc(n') by rewrite sm_n with ns;
-        have m_n: m' ≤ n' by apply operator ≤ in sm_sn;
-        have sn_o: suc(n') ≤ o by rewrite n_o with ns;
+        have sm_sn: suc(m') ≤ suc(n')  by rewrite ns in sm_n;
+        have m_n: m' ≤ n'  by sm_sn;
+        have sn_o: suc(n') ≤ o  by rewrite ns in n_o;
         switch o {
           case 0 assume oz {
-            have sn_z: suc(n') ≤ 0 by rewrite sn_o with oz;
-            have false by apply operator ≤ in sn_z
+            have sn_z: suc(n') ≤ 0  by rewrite oz in sn_o;
+            have false  by sn_z
           }
           case suc(o') assume os {
-            have sn_so: suc(n') ≤ suc(o') by rewrite sn_o with os;
-            have n_o: n' ≤ o' by apply operator ≤ in sn_so;
-	    apply operator ≤ in goal; 
-            have m' ≤ o' by using IH[n',o'] with m_n, n_o
+            have sn_so: suc(n') ≤ suc(o')  by rewrite os in sn_o;
+            have n_o: n' ≤ o'  by sn_so;
+            definition operator ≤; 
+            have m' ≤ o'  by using IH[n',o'] with m_n, n_o
           }
         }
       }
@@ -246,15 +245,16 @@ theorem not_less_less_equal:
   all x: Nat. all y: Nat.
   if not (x < y) then y ≤ x
 proof
+  enable operator ≤;
   induction Nat
   case zero {
     arbitrary y: Nat;
     assume not_0_y: not (0 < y);
     switch y {
-      case zero { apply operator ≤ in goal; . }
+      case zero { . }
       case suc(y') assume ys {
-        have false by using (rewrite not_0_y with ys)
-	               with (apply operator <, operator ≤ in goal; .)
+        show false by using (rewrite ys in not_0_y)
+                       with (definition operator <; .)
       }
     }
   }
@@ -262,17 +262,15 @@ proof
     arbitrary y: Nat;
     assume not_sx_y: not (suc(x') < y);
     switch y {
-      case zero { apply operator ≤ in goal; . }
+      case zero { . }
       case suc(y') assume ys {
         have not_x_y: not (x' < y')
-	  by (assume x_y: x' < y';
+          by (assume x_y: x' < y';
             have sx_sy: suc(x') < suc(y')
-	      by (apply operator <, operator ≤ in goal;
-	          apply operator <, operator ≤ in x_y);
-            have sx_y: suc(x') < y by (rewrite with ys; sx_sy);
-	    using not_sx_y with sx_y);
-	apply operator ≤ in goal;
-	have y' ≤ x' by using IH[y'] with not_x_y
+              by (definition operator <; definition operator < in x_y);
+            have sx_y: suc(x') < y by (rewrite ys; sx_sy);
+            using not_sx_y with sx_y);
+        show y' ≤ x' by using IH[y'] with not_x_y
       }
     }
   }
@@ -282,27 +280,28 @@ theorem less_not_equal:
   all x:Nat. all y:Nat.
   if x < y then not (x = y)
 proof
+  enable operator ≤;
   induction Nat
   case zero {
     arbitrary y:Nat;
     assume z_less_y;
     assume z_eq_y;
-    have false by apply operator <, operator ≤, in
-       (rewrite z_less_y with (symmetric z_eq_y))
+    show false by definition operator <, in
+       (rewrite symmetric z_eq_y in z_less_y)
     }
   case suc(x') assume IH {
     arbitrary y:Nat;
     assume sx_less_y;
     assume xs_eq_y;
     switch y {
-      case zero assume yz { have false by rewrite xs_eq_y with yz }
+      case zero assume yz { have false by rewrite yz in xs_eq_y }
       case suc(y') assume ys {
         have x_less_y: x' < y'
-	  by (apply operator <, operator ≤ in goal;
-	      apply operator <, operator ≤ in rewrite sx_less_y with ys);
+          by (definition operator <;
+              definition operator < in rewrite ys in sx_less_y);
         have not_x_eq_y: not (x' = y') by using IH[y'] with x_less_y;
-	have x_eq_y: x' = y' by (injective suc; rewrite xs_eq_y with ys);
-	have false by using not_x_eq_y with x_eq_y
+        have x_eq_y: x' = y' by (injective suc; rewrite ys in xs_eq_y);
+        have false by using not_x_eq_y with x_eq_y
       }
     }
   }
@@ -317,7 +316,7 @@ proof
     arbitrary y:Nat;
     assume zero_less_y;
     assume y_less_zero;
-    have false by (apply operator <, operator ≤ in y_less_zero)
+    have false by (definition operator <, operator ≤ in y_less_zero)
     }
   case suc(x') assume IH {
     arbitrary y:Nat;
@@ -325,16 +324,16 @@ proof
     assume y_less_sx;
     switch y {
       case zero assume y_eq_zero {
-        have false by (apply operator <, operator ≤ in
-	               (rewrite sx_less_y with y_eq_zero))
+        have false by (definition operator <, operator ≤ in
+                       (rewrite  y_eq_zero in sx_less_y))
       }
       case suc(y') assume ys {
         have x_less_y: x' < y' by
-   	   apply operator <, operator ≤ in goal;
-	   apply operator <, operator ≤ in (rewrite sx_less_y with ys);
+           definition operator <, operator ≤;
+           definition operator <, operator ≤ in (rewrite ys in sx_less_y);
         have y_less_x: y' < x' by
-   	   apply operator <, operator ≤ in goal;
-	   apply operator <, operator ≤ in (rewrite y_less_sx with ys);
+           definition operator <, operator ≤;
+           definition operator <, operator ≤ in (rewrite ys in y_less_sx);
         have false by using (using IH[y'] with x_less_y) with y_less_x
       }
     }
@@ -345,15 +344,15 @@ theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat
   case zero {
-    apply max in goal;
+    definition max;
     .
   }
   case suc(x') assume IH {
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
-                                         by (apply max in goal; .)
-    ... = suc(suc(max(x',x')))           by (rewrite with IH; .)
-    ... = suc(max(suc(x'),suc(x')))      by (apply max in goal; .)
+                                         by (definition max; .)
+    ... = suc(suc(max(x',x')))           by (rewrite IH; .)
+    ... = suc(max(suc(x'),suc(x')))      by (definition max; .)
   }
 end
 
@@ -367,23 +366,21 @@ proof
     switch y {
       case zero { have 0 = 0 by reflexive }
       case suc(y') {
-        have 0 < suc(y') by apply operator <, operator ≤ in goal; .
+        have 0 < suc(y') by definition operator <, operator ≤; .
       }
     }
   }
   case suc(x') assume IH {
     arbitrary y:Nat;
+    enable operator ≤;
     switch y {
-      case zero { have 0 < suc(x') by (apply operator <, operator ≤ in goal; .)}
+      case zero { have 0 < suc(x')  by (definition operator <; .)}
       case suc(y') {
+        enable operator <;
         cases (have (x' < y' or x' = y' or y' < x') by IH[y'])
-	case less { have suc(x') < suc(y')
-	  by apply operator <, operator ≤ in goal;
-	     apply operator <, operator ≤ in less }
-	case eq { have suc(x') = suc(y') by rewrite with eq; . }
-	case gtr { have suc(y') < suc(x')
-	  by (apply operator <, operator ≤ in goal;
-	      apply operator <, operator ≤ in gtr) }
+        case less { show suc(x') < suc(y')  by less }
+        case equal { show suc(x') = suc(y')  by rewrite equal; . }
+        case greater { show suc(y') < suc(x')  by greater }
       }
     }
   }
@@ -395,18 +392,18 @@ theorem trichotomy2:
   then y < x
 proof
   arbitrary y:Nat, x:Nat;
-  assume prem;
+  assume prem: not (x = y) and not (x < y);
   cases trichotomy[x][y]
-  case less {
-    have nxy: not (x < y) by prem;
-    have false by using nxy with less
+  case less: x < y {
+    have not_less: not (x < y)  by prem;
+    have false  by using not_less with less
   }
-  case eq {
-    have neq: not (x = y) by prem;
-    have false by using neq with eq
+  case equal: x = y {
+    have not_equal: not (x = y)  by prem;
+    have false  by using not_equal with equal
   }
-  case greater {
-    greater
+  case greater: y < x {
+    show y <  x by greater
   }
 end
 

@@ -260,13 +260,16 @@ def check_proof(proof, env):
       set_reduce_only(defs + old_defs)
       ret = check_proof(subject, env)
       set_reduce_only(old_defs)
-    case RewriteFact(loc, subject, equation_proof):
+    case RewriteFact(loc, subject, equation_proofs):
       formula = check_proof(subject, env)
-      equation = check_proof(equation_proof, env)
-      frm = formula.reduce(env)
-      eq = equation.reduce(env)
-      new_formula = rewrite(loc, frm, eq)
-      ret = new_formula.reduce(env)
+      eqns = [check_proof(proof, env) for proof in equation_proofs]
+      new_formula = formula.reduce(env)
+      for eq in eqns:
+        if not is_equation(eq):
+          eq = make_boolean_equation(eq)
+        new_formula = rewrite(loc, new_formula, eq)
+        new_formula = new_formula.reduce(env)
+      ret = new_formula
     case PHole(loc):
       error(loc, 'unfinished proof')
     case PVar(loc, name, index):

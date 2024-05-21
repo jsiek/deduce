@@ -45,10 +45,10 @@ define t3 = node(4, t1, t2)
 
 theorem thm1: height(t3) = 2
 proof
-  apply height, operator +, max, t1, t2, t3 in goal; .
+  definition height, operator +, max, t1, t2, t3; .
 end
 
 theorem thm2: sum(t3) = 14
 proof
-  apply sum, operator +, t1, t2, t3 in goal; .
+  definition sum, operator +, t1, t2, t3; .
 end
