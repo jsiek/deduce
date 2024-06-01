@@ -26,11 +26,11 @@ Deduce supports the following language features:
 * natural numbers
 * imports
 * definitions
+* booleans and conditional expressions
 * recursive functions
 * higher-order functions
 * anonymous functions
 * pairs
-* booleans and conditional expressions
 * switch
 
 The following subsections describe each of these features.
@@ -44,8 +44,8 @@ to represent a linked-list of natural numbers, we could define the
 following union.
 
 	union NatList {
-	  empty;
-	  node(Nat, NatList);
+	  empty
+	  node(Nat, NatList)
 	}
 
 We can then construct values of type `NatList` using the
@@ -61,8 +61,8 @@ with one or more type parameters. For example, we can generalize our
 linked list to allow an arbitrary element type as follows.
 
 	union List<T> {
-	  empty;
-	  node(T, List<T>);
+	  empty
+	  node(T, List<T>)
 	}
 
 ## The Natural Numbers
@@ -71,8 +71,8 @@ The natural numbers are not a builtin type in Deduce but instead they
 are defined as a `union` type:
 
 	union Nat {
-	  zero;
-	  suc(Nat);
+	  zero
+	  suc(Nat)
 	}
 
 The file `Nat.pf` includes the above definition together with some
@@ -101,6 +101,17 @@ colon.  In the above, `L13` is a list of natural numbers, so its type
 is `List<Nat>`.
 
 
+## Booleans and Conditional Expressions
+
+Deduce includes the values `true` and `false` of type `bool` and the
+usual boolean operations such as `and`, `or`, and `not`.  Deduce also
+provides an if-then-else expression that branches on the value of a
+boolean. For example, the following expression
+
+    if true then 7 else 5+6
+
+is equivalent to `7`. 
+
 ## Recursive Functions
 
 The recursive functions of Deduce are somewhat special to make sure
@@ -118,8 +129,8 @@ type. For example, here's the definition of a `length` function for
 lists of natural numbers.
 
 	function length(NatList) -> Nat {
-	  length(empty) = 0;
-	  length(node(n, next)) = 1 + length(next);
+	  length(empty) = 0
+	  length(node(n, next)) = 1 + length(next)
 	}
 
 There are two clauses in this definition, one for the `empty`
@@ -138,8 +149,8 @@ Deduce supports generic functions, so we can generalize `length` to
 work on lists with any element type as follows.
 
 	function length<E>(List<E>) -> Nat {
-	  length(empty) = 0;
-	  length(node(n, next)) = 1 + length(next);
+	  length(empty) = 0
+	  length(node(n, next)) = 1 + length(next)
 	}
 
 Recursive functions may have more than one parameter but pattern
@@ -147,8 +158,8 @@ matching is only supported for the first parameter. For example, here
 is the `append` function that combines two linked lists.
 
 	function append<E>(List<E>, List<E>) -> List<E> {
-	  append(empty, ys) = ys;
-	  append(node(n, xs), ys) = node(n, append(xs, ys));
+	  append(empty, ys) = ys
+	  append(node(n, xs), ys) = node(n, append(xs, ys))
 	}
 
 ## Higher-order Functions
@@ -158,8 +169,8 @@ returned from a function. For example, the following function checks
 whether every element of a list satisfies a predicate.
 
 	function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
-	  all_elements(empty, P) = true;
-	  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P);
+	  all_elements(empty, P) = true
+	  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
 	}
 
 ## Anonymous Functions
@@ -175,22 +186,11 @@ example, the following computes whether all the elements of the list
 Pairs are defined as a `union` type:
 
 	union Pair<T,U> {
-	  pair(T,U);
+	  pair(T,U)
 	}
 
 The file `Pair.pf` includes the above definition and several
 operations on pairs, such as `first` and `second`.
-
-## Booleans and Conditional Expressions
-
-Deduce includes the values `true` and `false` of type `bool` and the
-usual boolean operations such as `and`, `or`, and `not`.  Deduce also
-provides an if-then-else expression that branches on the value of a
-boolean. For example, the following expression
-
-    if 0 ≤ 1 then 3+4 else 5+6
-
-is equivalent to `7`. 
 
 ## Switch
 
@@ -200,12 +200,12 @@ The `zip` function is recursive, pattern-matching on the first list, and
 uses `switch` to pattern-match on the second list.
 
 	function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
-	  zip(empty, ys) = empty;
+	  zip(empty, ys) = empty
 	  zip(node(x, xs'), ys) =
 		switch ys {
 		  case empty { empty }
 		  case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
-		};
+		}
 	}
 
 # Writing Proofs in Deduce
@@ -241,7 +241,7 @@ the `definition` statement.
 
 	theorem length_empty: length(empty) = 0
 	proof
-	  definition length;
+	  definition length
 	  ?
 	end
 
@@ -263,19 +263,10 @@ accomplished with a period.
 
 	theorem length_empty: length(empty) = 0
 	proof
-	  definition length;
-	  .
+	  definition length.
 	end
 
 Run Deduce on the file to see it respond that the file is valid.
-
-We can simplify the above proof by removing the semicolon, as
-the `definition` statement is the last one in the proof.
-
-	theorem length_empty: length(empty) = 0
-	proof
-	  definition length.
-	end
 
 Let's try a slightly more complex theorem, that the length
 of a list with just a single node is indeed `1`. Based
@@ -284,7 +275,7 @@ definition of `length`.
 
 	theorem length_node42: length(node(42, empty)) = 1
 	proof
-	  definition length;
+	  definition length
 	  ?
 	end
 
@@ -298,7 +289,7 @@ we can refer to as `operator +`.
 
 	theorem length_node42: length(node(42, empty)) = 1
 	proof
-	  definition length, operator +;
+	  definition {length, operator +}
 	  ?
 	end
 
@@ -311,7 +302,7 @@ so we can conclude the proof with a period.
 
 	theorem length_node42: length(node(42, empty)) = 1
 	proof
-	  definition length, operator +.
+	  definition {length, operator +}.
 	end
 
 ## Generalizing with `all` formulas
@@ -342,7 +333,7 @@ but we could have chosen a different name.
 
 	theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 	proof
-	  arbitrary x:Nat;
+	  arbitrary x:Nat
 	  ?
 	end
 
@@ -358,8 +349,8 @@ before, using the definitions of `length` and addition.
 
 	theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 	proof
-	  arbitrary x:Nat;
-	  definition length, operator +.
+	  arbitrary x:Nat
+	  definition {length, operator +}.
 	end
 
 Once we have proved that an `all` formula is true, we can use it by
@@ -380,9 +371,17 @@ the `arbitrary` statement.
 
 	theorem length_one: all U:type, x:U. length(node(x, empty)) = 1
 	proof
-	  arbitrary U:type, x:U;
-	  definition length, operator +.
+	  arbitrary U:type, x:U
+	  definition {length, operator +}.
 	end
+
+To summmarize this section:
+* To state that a formula is true for all entities of a given type,
+  use Deduce's `all` formula.
+* To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
+  (We'll see a second method in the next section.)
+* To using a fact that is an `all` formula, instantiate the fact
+  by using square brackets around the specific entity.
 
 ## Proving `all` Formulas with Induction
 
@@ -398,8 +397,8 @@ an empty list. Suppose we try to use `arbitrary` for both the
 	theorem append_empty: all U :type. all xs :List<U>.
 	  append(xs, empty) = xs
 	proof
-	  arbitrary U:type;
-	  arbitrary xs:List<U>;
+	  arbitrary U:type
+	  arbitrary xs:List<U>
 	  ?
 	end
 
@@ -413,9 +412,9 @@ We might try to expand the definition of `append` as follows.
 	theorem append_empty: all U :type. all xs :List<U>.
 	  append(xs, empty) = xs
 	proof
-	  arbitrary U:type;
-	  arbitrary xs:List<U>;
-	  definition append;
+	  arbitrary U:type
+	  arbitrary xs:List<U>
+	  definition append
 	  ?
 	end
 
@@ -428,13 +427,13 @@ Deduce was unable to expand the definition of `append` because that
 function pattern matches on its first argument, but we don't know
 whether `xs` is an `empty` list or a `node`.
 
-So instead of using `arbitrary xs:List<U>;` to prove the `all xs`, we
+So instead of using `arbitrary xs:List<U>` to prove the `all xs`, we
 proceed by induction as follows.
 
 	theorem append_empty: all U :type. all xs :List<U>.
 	  append(xs, empty) = xs
 	proof
-	  arbitrary U:type;
+	  arbitrary U:type
 	  induction List<U>
 	  case empty {
 		?
@@ -490,7 +489,7 @@ Deduce provides the `term` statement as way to use Deduce to expand
 definitions for us.
 
 	case node(n, xs') assume IH: append(xs',empty) = xs' {
-	  term append(node(n,xs'),empty) by definition append; ?;
+	  term append(node(n,xs'),empty) by definition append ?
 	  ?
 	}
 
@@ -499,17 +498,41 @@ Deduce responds with
 	unfinished proof:
 		node(n,append(xs',empty))
 
-So we know that 
+We use Deduce's `have` statement to label this equality.
+We choose the label `step1`, state the equality, and then
+provide its proof after the `by` keyword.
 
-    append(node(n,xs'),empty) = node(n, append(xs',empty))        (1)
+	case node(n, xs') assume IH: append(xs',empty) = xs' {
+	  have step1: append(node(n,xs'),empty)
+				  = node(n, append(xs',empty))  by definition append.
+	  ?
+	}
 
 Next, we see that the subterm `append(xs',empty)` matches the
-right-hand side of the induction hypothesis `IH`. So we have
+right-hand side of the induction hypothesis `IH`. We use the
+`rewrite` statement to apply the `IH` equation to this subterm.
 
-    node(n, append(xs',empty)) = node(n, xs')                     (2)
+    have step2: node(n, append(xs',empty))
+                = node(n,xs')                 by rewrite IH.
 
-To complete the proof, we need to string together equations (1) and (2).
-We can do this in Deduce using an `equations` statement.
+To complete the proof, we combine equations (1) and (2) using
+the `transitive` statement.
+
+    transitive step1 step2
+
+To summarize this section:
+* To prove an `all` formula that concerns entities of a `union` type,
+  use Deduce's `induction` statement.
+
+## Equational Reasoning
+
+Combining a sequence of equations using `transitive` is quite common,
+so Deduce provides the `equations` statement to streamline this
+process.  After the first equation, the left-hand side of each
+equation is written as `...` because it is just a repetition of the
+right-hand side of the previous equation. We can refactor the
+proof of the `node` case of the `append_empty` theorem using
+`equations` as follows.
 
 	case node(n, xs') assume IH: append(xs',empty) = xs' {
 	  equations
@@ -517,4 +540,215 @@ We can do this in Deduce using an `equations` statement.
 			= node(n, append(xs',empty))  by definition append.
 		... = node(n,xs')                 by rewrite IH.
 	}
+
+Here is the completed proof of the `append_empty` theorem.
+
+	theorem append_empty: all U :type. all xs :List<U>.
+	  append(xs, empty) = xs
+	proof
+	  arbitrary U:type
+	  induction List<U>
+	  case empty {
+		show append(empty, empty) = empty  by definition append.
+	  }
+	  case node(n, xs') assume IH: append(xs',empty) = xs' {
+		equations
+		  append(node(n,xs'),empty)
+			  = node(n, append(xs',empty))  by definition append.
+		  ... = node(n,xs')                 by rewrite IH.
+	  }
+	end
+
+## Reasoning about `and` (Conjunction)
+
+	theorem positive_all_1_2:
+	  all_elements(node(1, node(2, empty)), λx{0 ≤ x})
+	proof
+	  have one_pos: 0 ≤ 1 by definition operator ≤.
+	  have two_pos: 0 ≤ 2 by definition operator ≤.
+	  definition all_elements
+	  show 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
+	end
+
+
+
+
+
+
+## Reasoning about `or` (Disjunction)
+
+
+## Reasoning about `not`
+
+
+## Conditional Formulas (Implication)
+
+Some logical statements are true only under certain conditions, so
+Deduce provides an `if`-`then` formula.  To demonstrate how to work
+with `if`-`then` formulas, we shall prove a property about the
+`filter` function defined below. This function takes a list and a
+predicate and produces a list that includes only those elements from
+the input list that satisfy the predicate.
+
+	function filter<E>(List<E>, fn (E)->bool) -> List<E> {
+	  filter(empty, P) = empty
+	  filter(node(x, ls), P) =
+		if P(x) then node(x, filter(ls, P))
+		else filter(ls, P)
+	}
+
+Of course, if all the elements in the list satisfy the predicate, then
+the output of `filter` is the same as the input list.  Note the use of
+"if" and "then" in the previous sentence.  This statement translates
+into Deduce in a straightforward ways, as follows.  (Recall that we
+have already defined the `all_elements` function.)
+
+	theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
+	  if all_elements(xs, P) then filter(xs, P) = xs
+	proof
+	  ?
+	end
+
+The beginning of the proof proceeds as usual, using `arbitrary`
+for `T` and `P` and then `induction` for `xs`.
+
+	arbitrary T:type, P:fn (T)->bool
+	induction List<T>
+	case empty {
+	  ?
+	}
+    case node(x, xs') assume IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+	  ?
+	}
+
+In the case for `empty`, it remains to prove the following.
+
+	unfinished proof:
+		(if all_elements(empty,P) then filter(empty,P) = empty)
+
+To prove an `if`-`then` formula, we `assume` the condition and then
+prove the conclusion. The `assume` statement of Deduce requires a
+label, so that you can use the assumption in the proof of the
+conclusion. However, in this particular case the assumption is not
+useful.
+
+    assume cond: all_elements(empty,P)
+    ?
+
+Now we need to prove the conclusion
+
+	unfinished proof:
+		filter(empty,P) = empty
+
+but that is just the definition of `filter`, so we conclude this case
+as follows.
+
+	case empty {
+	  assume cond: all_elements(empty,P)
+	  show filter(empty,P) = empty by definition filter.
+	}
+
+Next we turn our attention to the case for `node`.
+
+    case node(x, xs') assume IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+	  ?
+	}
+
+The goal for this case is stated as follows.
+
+	unfinished proof:
+		(if all_elements(node(x,xs'),P) then filter(node(x,xs'),P) = node(x,xs'))
+
+Again we need to prove an `if`-`then` formula. So we assume the condition.
+
+    assume Pxs: all_elements(node(x,xs'),P)
+    ?
+
+The keyword `suppose` can be used instead of `assume`.
+Now we need to prove the conclusion.
+
+	unfinished proof:
+		filter(node(x,xs'),P) = node(x,xs')
+
+We proceed by using the definition of filter.
+
+    assume Pxs: all_elements(node(x,xs'),P)
+    definition filter
+    ?
+
+So the conclusion is transformed into the following.
+
+	unfinished proof:
+		if P(x) then node(x,filter(xs',P)) else filter(xs',P) = node(x,xs')
+
+The right-hand side of the equation involves an `if`-`then`-`else`
+term, so we need to figure out whether `P(x)` is true. Let us look at
+the available facts.
+
+	available facts:
+		Pxs: all_elements(node(x,xs'),P),
+		IH: (if all_elements(xs',P) then filter(xs',P) = xs'),
+        ...
+
+Thinking for a moment, we realize that `Pxs` implies that `P(x)` is true.
+So we go ahead and prove `P(x)` using the definition of `all_elements`
+and then rewrite the goal with the fact that `P(x)` is true
+(i.e., `P(x) = true`).
+
+    definition filter
+    have Px: P(x) by definition all_elements in Pxs
+    rewrite Px
+    ?
+
+The right-hand side of the equation simplifies to the "then" branch,
+so it remains to prove the following.
+
+	unfinished proof:
+		node(x,filter(xs',P)) = node(x,xs')
+
+At this point in the proof we need to use the induction hypothesis
+`IH`.  However, `IH` is an `if`-`then` formula, so we need to prove
+that its condition `all_elements(xs',P)` is true in order to use its
+conclusion. Thankfully, this also follows from `Pxs`.
+
+    have Pxs': all_elements(xs',P) by definition all_elements in Pxs
+
+We use Deduce's `apply`-`to` statement (aka. modus ponens) to obtain
+the conclusion of an `if`-`then` formula.
+
+    have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
+
+We conclude by using the equation `IH_conc` to rewrite the goal.
+
+    rewrite IH_conc.
+	
+Our proof of `filter_all` is complete. Here is the proof in its entirety.	
+
+	theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
+	  if all_elements(xs, P) then filter(xs, P) = xs
+	proof
+	  arbitrary T:type, P:fn (T)->bool
+	  induction List<T>
+	  case empty {
+		assume cond: all_elements(empty,P)
+		show filter(empty,P) = empty by definition filter.
+	  }
+	  case node(x, xs') assume IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+		assume Pxs: all_elements(node(x,xs'),P)
+		definition filter
+		have Px: P(x) by definition all_elements in Pxs
+		rewrite Px
+		show node(x,filter(xs',P)) = node(x,xs')
+		have Pxs': all_elements(xs',P) by definition all_elements in Pxs
+		have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
+		rewrite IH_conc.
+	  }
+	end
+
+To summarize this section:
+* A conditional formula is stated in Deduce using the `if`-`then` syntax.
+* To prove an `if`-`then` formula, `assume` the premise and prove the conclusion.
+* To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the
+  condition.
+
 

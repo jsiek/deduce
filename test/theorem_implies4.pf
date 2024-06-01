@@ -1,6 +1,6 @@
 theorem T: if false then false
 proof
-  suppose f;
-  have ff2f: if (false and true) then false by (suppose _ ; f);
-  using ff2f with . , f
+  suppose f
+  have ff2f: if (false and true) then false by (suppose _ f)
+  apply ff2f to . , f
 end

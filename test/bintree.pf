@@ -1,35 +1,35 @@
 union Nat {
-  zero;
-  suc(Nat);
+  zero
+  suc(Nat)
 }
 
 function operator +(Nat,Nat) -> Nat {
-  operator +(zero, m) = m;
-  operator +(suc(n), m) = suc(n + m);
+  operator +(zero, m) = m
+  operator +(suc(n), m) = suc(n + m)
 }
 
 function max(Nat,Nat) -> Nat {
-  max(zero, n) = n;
+  max(zero, n) = n
   max(suc(m'), n) =
     switch n {
       case zero { suc(m') }
       case suc(n') { suc(max(m',n')) }
-    };
+    }
 }
 
 union Tree {
-  empty;
-  node(Nat, Tree, Tree);
+  empty
+  node(Nat, Tree, Tree)
 }
 
 function height(Tree) -> Nat {
-  height(empty) = 0;
-  height(node(n,L,R)) = 1 + max(height(L), height(R));
+  height(empty) = 0
+  height(node(n,L,R)) = 1 + max(height(L), height(R))
 }
 
 function sum(Tree) -> Nat {
-  sum(empty) = 0;
-  sum(node(n,L,R)) = n + sum(L) + sum(R);
+  sum(empty) = 0
+  sum(node(n,L,R)) = n + sum(L) + sum(R)
 }
 
 /*
@@ -45,10 +45,10 @@ define t3 = node(4, t1, t2)
 
 theorem thm1: height(t3) = 2
 proof
-  definition height, operator +, max, t1, t2, t3; .
+  definition {height, operator +, max, t1, t2, t3}.
 end
 
 theorem thm2: sum(t3) = 14
 proof
-  definition sum, operator +, t1, t2, t3; .
+  definition {sum, operator +, t1, t2, t3}.
 end

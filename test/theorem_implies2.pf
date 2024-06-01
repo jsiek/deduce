@@ -1,5 +1,5 @@
 theorem T2: if false then false
 proof
-  suppose F;
+  suppose F
   F
 end

@@ -1,9 +1,9 @@
 union Option<T> {
-  none;
-  just(T);
+  none
+  just(T)
 }
 
 function after<T,U>(Option<T>, fn (T) -> U) -> Option<U> {
-  after(none, f) = none;
-  after(just(x), f) = just(f(x));
+  after(none, f) = none
+  after(just(x), f) = just(f(x))
 }

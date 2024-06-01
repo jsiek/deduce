@@ -9,8 +9,8 @@ theorem update_eq :
   < T, U > all f: fn (T) -> U, x:T, v:U.
   update(f, x, v)(x) = v
 proof
-  arbitrary T:type, U:type;
-  arbitrary f: fn (T) -> U, x:T, v:U;
+  arbitrary T:type, U:type
+  arbitrary f: fn (T) -> U, x:T, v:U
   definition update.
 end
 
@@ -19,15 +19,15 @@ theorem update_not_eq :
   if not (x = y)
   then update(f, x, v)(y) = f(y)
 proof
-  arbitrary T:type, U:type;
-  arbitrary f: fn (T) -> U, x:T, v:U, y:T;
-  assume not_eq;
-  definition update;
+  arbitrary T:type, U:type
+  arbitrary f: fn (T) -> U, x:T, v:U, y:T
+  assume not_eq
+  definition update
   switch y = x {
     case true assume yx_true {
-      have yx: y = x by (rewrite yx_true; .);
-      have xy: x = y by symmetric yx;
-      have false by using not_eq with xy
+      have yx: y = x by (rewrite yx_true.)
+      have xy: x = y by symmetric yx
+      show false by apply not_eq to xy
     }
     case false {
       .
@@ -39,11 +39,11 @@ theorem update_shadow :
   < T, U > all f:fn(T)->U, x:T, v:U, w:U.
   update(update(f, x, v), x, w) = update(f, x, w)
 proof
-  arbitrary T:type, U:type;
-  arbitrary f:fn(T)->U, x:T, v:U, w:U;
-  definition update;
-  extensionality;
-  arbitrary y:T;
+  arbitrary T:type, U:type
+  arbitrary f:fn(T)->U, x:T, v:U, w:U
+  definition update
+  extensionality
+  arbitrary y:T
   switch y = x {
     case true { . }
     case false { . }
@@ -55,20 +55,20 @@ theorem update_permute :
   if not (x = y)
   then update(update(f, x, v), y, w) = update(update(f, y, w), x, v)
 proof
-  arbitrary T:type, U:type;
-  arbitrary f:fn(T)->U, x:T, v:U, w:U, y:T;
-  assume x_neq_y;
-  definition update;
-  extensionality;
-  arbitrary z:T;
+  arbitrary T:type, U:type
+  arbitrary f:fn(T)->U, x:T, v:U, w:U, y:T
+  assume x_neq_y
+  definition update
+  extensionality
+  arbitrary z:T
   switch z = y {
     case true assume zy_true {
-      have zy: z = y by (rewrite zy_true; .);
+      have zy: z = y by (rewrite zy_true.)
       switch z = x {
         case true assume zx_true {
-	  have zx: z = x by (rewrite zx_true; .);
-	  have xy: x = y by transitive (symmetric zx) zy;
-	  have false by using x_neq_y with xy
+	  have zx: z = x by (rewrite zx_true.)
+	  have xy: x = y by transitive (symmetric zx) zy
+	  show false by apply x_neq_y to xy
 	}
 	case false {
 	  .
@@ -96,11 +96,11 @@ theorem restrict_domain:
   < T, U > all f:fn(T)->Option<U>, P:fn(T)->bool.
   domain(restrict(f, P)) ⊆ P
 proof
-  arbitrary T:type, U:type;
-  arbitrary f:fn(T)->Option<U>, P:fn(T)->bool;
-  definition restrict, domain, operator ⊆;
-  arbitrary x:T;
-  assume prem;
+  arbitrary T:type, U:type
+  arbitrary f:fn(T)->Option<U>, P:fn(T)->bool
+  definition {restrict, domain, operator ⊆}
+  arbitrary x:T
+  assume prem
   switch P(x) {
     case true { . }
     case false assume Px_false { have false by rewrite Px_false in prem  }

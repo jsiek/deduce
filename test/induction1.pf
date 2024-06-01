@@ -1,23 +1,23 @@
 union Nat {
-  zero;
-  suc(Nat);
+  zero
+  suc(Nat)
 }
 
 function add(Nat,Nat) -> Nat {
-  add(zero, m) = m;
-  add(suc(n), m) = suc(add(n, m));
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
 }
 
 theorem add_zero: all n:Nat. add(n, zero) = n
 proof
   induction Nat
   case zero {
-    have add(zero, zero) = zero by definition add; .
+    have add(zero, zero) = zero by definition {add}.
   }
   case suc(n') assume IH {
     equations
-      add(suc(n'), zero) = suc(add(n', zero))   by definition add; .
-                     ... = suc(n')              by rewrite IH; .
+      add(suc(n'), zero) = suc(add(n', zero))   by definition {add}.
+                     ... = suc(n')              by rewrite {IH}.
   }
 end
 

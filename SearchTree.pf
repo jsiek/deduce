@@ -12,7 +12,7 @@ import Maps
 
 theorem ex_mid: all b:bool. b or not b
 proof
-  arbitrary b:bool;
+  arbitrary b:bool
   switch b {
     case true { . }
     case false { . }
@@ -20,48 +20,48 @@ proof
 end
 
 union Tree {
-  empty_tree;
-  tree_node(Tree, Nat, Nat, Tree);
+  empty_tree
+  tree_node(Tree, Nat, Nat, Tree)
 }
 
 function insert(Tree, Nat, Nat) -> Tree {
-  insert(empty_tree, x, v) = tree_node(empty_tree, x, v, empty_tree);
+  insert(empty_tree, x, v) = tree_node(empty_tree, x, v, empty_tree)
   insert(tree_node(L, y, v2, R), x, v) =
     if x = y then
       tree_node(L, y, v, R)
     else if x < y then
       tree_node(insert(L, x, v), y, v2, R)
     else
-      tree_node(L, y, v2, insert(R, x, v));
+      tree_node(L, y, v2, insert(R, x, v))
 }
 
 function keys(Tree) -> fn(Nat)->bool {
-  containsKey(empty_tree) = λx{false};
-  containsKey(tree_node(L, y, v, R)) = λx{x = y} ∪ keys(L) ∪ keys(R);
+  containsKey(empty_tree) = λx{false}
+  containsKey(tree_node(L, y, v, R)) = λx{x = y} ∪ keys(L) ∪ keys(R)
 }
 
 function lookup(Tree) -> fn (Nat) -> Option<Nat> {
-  lookup(empty_tree) = λx{none};
+  lookup(empty_tree) = λx{none}
   lookup(tree_node(L, y, v, R)) =
     λx{if x = y then
          just(v)
        else if x < y then
          lookup(L)(x)
        else
-         lookup(R)(x)};
+         lookup(R)(x)}
 }
 
 function all_keys(Tree, fn (Nat) -> bool) -> bool {
-  all_keys(empty_tree, P) = true;
+  all_keys(empty_tree, P) = true
   all_keys(tree_node(L, x, v, R), P) =
-    all_keys(L, P) and P(x) and all_keys(R, P);
+    all_keys(L, P) and P(x) and all_keys(R, P)
 }
 
 function is_BST(Tree) -> bool {
-  is_BST(empty_tree) = true;
+  is_BST(empty_tree) = true
   is_BST(tree_node(L, x, v, R)) =
     all_keys(L, λk{k < x}) and all_keys(R, λk{x < k}) and
-    is_BST(L) and is_BST(R);
+    is_BST(L) and is_BST(R)
 }
 
 theorem insert_all:
@@ -71,35 +71,35 @@ theorem insert_all:
 proof
   induction Tree
   case empty_tree {
-    arbitrary x:Nat,v:Nat, P: fn(Nat) -> bool;
-    assume prem: all_keys(empty_tree,P) and P(x);
-    show all_keys(insert(empty_tree, x, v), P);
-    definition all_keys, insert;
+    arbitrary x:Nat,v:Nat, P: fn(Nat) -> bool
+    assume prem: all_keys(empty_tree,P) and P(x)
+    show all_keys(insert(empty_tree, x, v), P)
+    definition {all_keys, insert}
     show P(x)  by prem
   }
   case tree_node(L, z, v2, R) assume IHL, IHR {
-    arbitrary x:Nat,v:Nat,P: fn(Nat) -> bool;
-    assume prem: all_keys(tree_node(L,z,v2,R),P) and P(x);
-    enable all_keys, insert;
-    have PL: all_keys(L, P)  by prem;
-    have Pz: P(z)  by prem;
-    have PR: all_keys(R, P)  by prem;
-    show all_keys(insert(tree_node(L, z, v2, R), x, v), P);
+    arbitrary x:Nat,v:Nat,P: fn(Nat) -> bool
+    assume prem: all_keys(tree_node(L,z,v2,R),P) and P(x)
+    enable {all_keys, insert}
+    have PL: all_keys(L, P)  by prem
+    have Pz: P(z)  by prem
+    have PR: all_keys(R, P)  by prem
+    show all_keys(insert(tree_node(L, z, v2, R), x, v), P)
     cases ex_mid[x = z]
     case xz: x = z {
-      rewrite xz;
+      rewrite xz
       show all_keys(L,P) and P(z) and all_keys(R,P)  by (PL, Pz, PR)
     }
     case not_xz: not (x = z) {
       cases ex_mid[x < z]
       case xlz: x < z {
-        have LxP: all_keys(insert(L,x,v),P)  by using IHL[x,v,P] with PL, prem;
-        rewrite not_xz | xlz;
+        have LxP: all_keys(insert(L,x,v),P)  by apply IHL[x,v,P] to PL, prem
+        rewrite {not_xz | xlz}
         show all_keys(insert(L,x,v),P) and P(z) and all_keys(R,P)  by LxP,Pz,PR
       }
       case not_xlz: not (x < z) {
-        have RxP: all_keys(insert(R,x,v),P)  by using IHR[x,v,P] with PR, prem;
-        rewrite not_xz | not_xlz;
+        have RxP: all_keys(insert(R,x,v),P)  by apply IHR[x,v,P] to PR, prem
+        rewrite {not_xz | not_xlz}
         show all_keys(L,P) and P(z) and all_keys(insert(R,x,v),P) by PL,Pz,RxP
       }
     }
@@ -112,45 +112,44 @@ theorem insert_BST:
 proof
   induction Tree
   case empty_tree {
-    arbitrary x:Nat,v:Nat;
-    assume prem;
-    show is_BST(insert(empty_tree,x,v))  by definition is_BST,insert,all_keys.
+    arbitrary x:Nat,v:Nat
+    assume prem
+    show is_BST(insert(empty_tree,x,v))  by definition {is_BST,insert,all_keys}.
   }
   case tree_node(L, y, v2, R) assume IHL, IHR {
-    arbitrary x:Nat, v:Nat;
-    assume prem: is_BST(tree_node(L,y,v2,R));
-    enable is_BST;
-    have BST_L: is_BST(L)  by prem;
-    have BST_R: is_BST(R)  by prem;
-    have L_less_y: all_keys(L, λk{k < y})  by prem;
-    have y_less_R: all_keys(R, λk{y < k})  by prem;
-    show is_BST(insert(tree_node(L, y, v2, R), x, v));
-    definition insert;
+    arbitrary x:Nat, v:Nat
+    assume prem: is_BST(tree_node(L,y,v2,R))
+    enable is_BST
+    have BST_L: is_BST(L)  by prem
+    have BST_R: is_BST(R)  by prem
+    have L_less_y: all_keys(L, λk{k < y})  by prem
+    have y_less_R: all_keys(R, λk{y < k})  by prem
+    show is_BST(insert(tree_node(L, y, v2, R), x, v))
+    definition insert
     switch x = y {
       case true {
         show is_BST(tree_node(L,y,v,R))  by L_less_y, y_less_R, BST_L, BST_R
       }
       case false assume xy_false {
-        have not_xey: not (x = y) by (assume xy; rewrite xy_false in xy);
+        have not_xey: not (x = y) by (assume xy rewrite xy_false in xy)
         switch x < y {
           case true assume xy_true {
-            have xy: x < y  by (rewrite xy_true.);
+            have xy: x < y  by (rewrite xy_true.)
             have Lx_less_y: all_keys(insert(L,x,v), λk{k < y})
-              by using insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
-                 with L_less_y, xy;
-            have BST_Lx: is_BST(insert(L,x,v))   by using IHL[x,v] with BST_L;
+              by apply insert_all[L][x,v,(λk{k < y}):fn(Nat)->bool]
+                 to L_less_y, xy
+            have BST_Lx: is_BST(insert(L,x,v))   by apply IHL[x,v] to BST_L
             show is_BST(tree_node(insert(L,x,v),y,v2,R))
                 by Lx_less_y, y_less_R, BST_R, BST_Lx
           }
           case false assume xy_false {
-            have BST_Rx: is_BST(insert(R,x,v))
-              by using IHR[x,v] with BST_R;
+            have BST_Rx: is_BST(insert(R,x,v))  by apply IHR[x,v] to BST_R
             have not_xly: not (x < y)
-               by (assume prem; rewrite xy_false in prem); 
-            have yx: y < x  by using trichotomy2[y,x] with not_xey, not_xly;
+               by (assume prem rewrite xy_false in prem)
+            have yx: y < x  by apply trichotomy2[y,x] to not_xey, not_xly
             have y_less_Rx: all_keys(insert(R,x,v), λk{y < k})
-              by using insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
-                 with y_less_R, yx;
+              by apply insert_all[R][x,v,(λk{y < k}):fn(Nat)->bool]
+                 to y_less_R, yx
             show is_BST(tree_node(L,y,v2,insert(R,x,v)))
                 by L_less_y, BST_Rx, y_less_Rx, BST_L
           }
@@ -164,16 +163,15 @@ theorem lookup_empty:
   all k:Nat.
   lookup(empty_tree)(k) = none
 proof
-  arbitrary k:Nat;
-  definition lookup;
-  .
+  arbitrary k:Nat
+  definition lookup.
 end
 
 
 theorem true_is_true: all x:bool. if x then x = true
 proof
-  arbitrary x:bool;
-  assume x_true;
+  arbitrary x:bool
+  assume x_true
   switch x {
     case true { . }
     case false assume x_false {
@@ -184,12 +182,12 @@ end
 
 theorem false_is_false: all x:bool. if not x then x = false
 proof
-  arbitrary x:bool;
-  assume not_x;
+  arbitrary x:bool
+  assume not_x
   switch x {
     case true assume x_true {
-      have x_is_true: x  by (rewrite x_true.);
-      have false  by using not_x with x_is_true
+      have x_is_true: x  by (rewrite x_true.)
+      show false  by apply not_x to x_is_true
     }
     case false { . }
   }
@@ -199,11 +197,11 @@ theorem lookup_insert_update_empty:
   all k:Nat, v:Nat.
   lookup(insert(empty_tree, k, v)) = update(lookup(empty_tree), k, just(v))
 proof
-  arbitrary k:Nat, v:Nat;
-  extensionality; arbitrary x:Nat;
+  arbitrary k:Nat, v:Nat
+  extensionality arbitrary x:Nat
   switch x = k {
     case true assume xk_true {
-      enable insert, lookup, update;
+      enable {insert, lookup, update}
       equations
 	lookup(insert(empty_tree,k,v))(x)
 	    = just(v)                            by (rewrite xk_true.)
@@ -213,18 +211,18 @@ proof
     case false assume xk_false {
       switch x < k {
 	case true assume x_less_k_true {
-	  enable insert, lookup, update;
+	  enable {insert, lookup, update}
 	  equations
 	    lookup(insert(empty_tree,k,v))(x)
-		= none          by (rewrite x_less_k_true | xk_false.)
+		= none          by (rewrite {x_less_k_true | xk_false}.)
 	    ... = update(lookup(empty_tree),k,just(v))(x)
 				by (rewrite xk_false.)
 	}
 	case false assume x_less_k_false {
-	  enable insert, lookup, update;
+	  enable {insert, lookup, update}
 	  equations
 	    lookup(insert(empty_tree,k,v))(x)
-		= none          by (rewrite xk_false | x_less_k_false.)
+		= none          by (rewrite {xk_false | x_less_k_false}.)
 	    ... = update(lookup(empty_tree),k,just(v))(x)
 				by (rewrite xk_false.)
 	}
@@ -237,9 +235,9 @@ theorem lookup_insert_update_empty_short:
   all k:Nat, v:Nat.
   lookup(insert(empty_tree, k, v)) = update(lookup(empty_tree), k, just(v))
 proof
-  arbitrary k:Nat, v:Nat;
-  extensionality; arbitrary x:Nat;
-  enable insert, lookup, update;
+  arbitrary k:Nat, v:Nat
+  extensionality arbitrary x:Nat
+  enable {insert, lookup, update}
   switch x = k {
     case true assume xk_true { . }
     case false assume xk_false {
@@ -258,86 +256,86 @@ theorem lookup_insert_update:
 proof
   induction Tree
   case empty_tree {
-    arbitrary k:Nat, v:Nat;
-    assume prem;
-    show lookup(insert(empty_tree,k,v)) = update(lookup(empty_tree),k,just(v));
+    arbitrary k:Nat, v:Nat
+    assume prem
+    show lookup(insert(empty_tree,k,v)) = update(lookup(empty_tree),k,just(v))
     lookup_insert_update_empty[k,v]
   }
   case tree_node(L, j, w, R) assume IHL, IHR {
-    arbitrary k:Nat, v:Nat;
-    assume prem;
-    extensionality; arbitrary x:Nat;
+    arbitrary k:Nat, v:Nat
+    assume prem
+    extensionality arbitrary x:Nat
     cases trichotomy[x][j]
     case x_less_j {
-      have not_xj: not (x = j)  by using less_not_equal[x][j] with x_less_j;
+      have not_xj: not (x = j)  by apply less_not_equal[x][j] to x_less_j
       switch k < j {
         case true assume k_less_j_true {
-          have k_less_j: k < j by (rewrite k_less_j_true.);
+          have k_less_j: k < j by (rewrite k_less_j_true.)
           have not_kj: not (k = j)
-              by using less_not_equal[k][j] with k_less_j;
-          have BST_L: is_BST(L) by definition is_BST in prem;
-          enable lookup, insert, update;
+              by apply less_not_equal[k][j] to k_less_j
+          have BST_L: is_BST(L)  by definition is_BST in prem
+          enable {lookup, insert, update}
           equations
             lookup(insert(tree_node(L,j,w,R),k,v))(x)
                 = lookup(insert(L,k,v))(x)
-                      by (rewrite k_less_j_true|not_kj|not_xj|x_less_j.)
+                      by (rewrite {k_less_j_true|not_kj|not_xj|x_less_j}.)
             ... = update(lookup(L),k,just(v))(x)
-                      by (rewrite (using IHL[k,v] with BST_L).)
+                      by (rewrite (apply IHL[k,v] to BST_L).)
             ... = update(lookup(tree_node(L,j,w,R)), k, just(v))(x)
-                      by (rewrite not_xj | x_less_j.)
+                      by (rewrite {not_xj | x_less_j}.)
         }
         case false assume k_less_j_false {
           have not_k_less_j: not (k < j)
-             by (assume kj; have false by rewrite k_less_j_false in kj);
+             by (assume kj have false by rewrite k_less_j_false in kj)
           have x_neq_k: not (x = k)
-            by (assume x_eq_k; using (rewrite x_eq_k in not_k_less_j)
-                               with (rewrite x_eq_k in x_less_j));
-          enable insert, lookup, update;			
+            by (assume x_eq_k apply (rewrite x_eq_k in not_k_less_j)
+                              to (rewrite x_eq_k in x_less_j))
+          enable {insert, lookup, update}			
           equations
             lookup(insert(tree_node(L,j,w,R),k,v))(x)
 	        = lookup(L)(x)
                    by (switch k = j {
-		      case true { rewrite not_xj | x_less_j. }
-		      case false {rewrite k_less_j_false|not_xj|x_less_j;.}
+		      case true { rewrite {not_xj | x_less_j}. }
+		      case false {rewrite {k_less_j_false|not_xj|x_less_j}.}
 		      })
 	    ... = update(lookup(tree_node(L,j,w,R)),k,just(v))(x)
-                    by (rewrite not_k_less_j|x_neq_k|x_less_j|not_xj.)
+                    by (rewrite {not_k_less_j|x_neq_k|x_less_j|not_xj}.)
         }
       }
     }
     case x_eq_j {
       switch k = j {
         case true assume kj {
-          have jk: j = k by symmetric (rewrite kj.);
-	  enable insert, lookup, update;
+          have jk: j = k by symmetric (rewrite kj.)
+	  enable {insert, lookup, update}
 	  equations
 	    lookup(insert(tree_node(L,j,w,R),k,v))(x)
-	        = just(v)    	              by (rewrite kj|x_eq_j.)
+	        = just(v)    	              by (rewrite {kj|x_eq_j}.)
             ... = update(lookup(tree_node(L,j,w,R)),k,just(v))(x)
- 	                                      by (rewrite x_eq_j|jk.)
+ 	                                      by (rewrite {x_eq_j|jk}.)
 	}
 	case false assume kj_false {
           have jk_false: (j = k) = false
-              by (using false_is_false[j = k] with
-                  (assume jk; have false by rewrite jk in kj_false));
+              by (apply false_is_false[j = k]
+	          to (assume jk have false by rewrite jk in kj_false))
 	  show lookup(insert(tree_node(L,j,w,R),k,v))(x)
-	       = update(lookup(tree_node(L,j,w,R)),k,just(v))(x);
+	       = update(lookup(tree_node(L,j,w,R)),k,just(v))(x)
           switch k < j {
 	    case true assume klj: (k < j) = true {
-	      enable insert, lookup, update;
+	      enable {insert, lookup, update}
 	      equations
 	        lookup(insert(tree_node(L,j,w,R),k,v))(x)
-	           = just(w)           by (rewrite kj_false|klj|x_eq_j.)
+	           = just(w)           by (rewrite {kj_false|klj|x_eq_j}.)
 	        ... = update(lookup(tree_node(L,j,w,R)),k,just(v))(x)
-	                               by (rewrite x_eq_j|jk_false.)
+	                               by (rewrite {x_eq_j|jk_false}.)
 	    }
 	    case false assume not_klj: (k < j) = false {
-	      enable insert, lookup, update;
+	      enable {insert, lookup, update}
               equations
 	        lookup(insert(tree_node(L,j,w,R),k,v))(x)
-                    = just(w)         by rewrite kj_false|not_klj|x_eq_j.
+                    = just(w)         by rewrite {kj_false|not_klj|x_eq_j}.
                 ... = update(lookup(tree_node(L,j,w,R)),k,just(v))(x)
-                                      by rewrite x_eq_j|jk_false.
+                                      by rewrite {x_eq_j|jk_false}.
 	    }
 	  }
 	}
@@ -345,73 +343,66 @@ proof
     }
     case j_less_x {
       have not_x_less_j: not (x < j)
-        by using less_implies_not_greater[j][x] with j_less_x;
+        by apply less_implies_not_greater[j][x] to j_less_x
       have not_jx: not (j = x)
-        by using less_not_equal[j][x] with j_less_x;
+        by apply less_not_equal[j][x] to j_less_x
       have not_xj: not (x = j)
-        by (assume xj; using not_jx with symmetric xj);
+        by (assume xj apply not_jx to symmetric xj)
       switch j < k {
         case true assume j_less_k_true {
-          have j_less_k: j < k by (rewrite j_less_k_true.);
+          have j_less_k: j < k by (rewrite j_less_k_true.)
           have not_jk: not (j = k)
-            by using less_not_equal[j][k] with j_less_k;
-          definition insert;
-          rewrite using false_is_false[k = j]
-               with (assume kj; using not_jk with symmetric kj);
+            by apply less_not_equal[j][k] to j_less_k
+          definition insert
+          rewrite apply false_is_false[k = j]
+                  to (assume kj apply not_jk to symmetric kj)
           have not_k_less_j: not (k < j)
-               by using less_implies_not_greater[j][k] with j_less_k;
-          rewrite using false_is_false[k < j] with not_k_less_j;
-          definition lookup, update;
-          rewrite using false_is_false[x = j]
-            with (assume xj; using not_jx with symmetric xj);
+               by apply less_implies_not_greater[j][k] to j_less_k
+          rewrite apply false_is_false[k < j] to not_k_less_j
+          definition {lookup, update}
+          rewrite apply false_is_false[x = j]
+                  to (assume xj apply not_jx to symmetric xj)
           have not_xj: not (x < j)
-            by using less_implies_not_greater[j][x] with j_less_x;
-          rewrite using false_is_false[x < j] with not_xj;
-          have BST_R: is_BST(R) by definition is_BST in prem;
+            by apply less_implies_not_greater[j][x] to j_less_x
+          rewrite apply false_is_false[x < j] to not_xj
+          have BST_R: is_BST(R) by definition is_BST in prem
           have IHR2: lookup(insert(R,k,v)) = update(lookup(R),k,just(v))
-            by using IHR[k,v] with BST_R;
-          rewrite IHR2; definition update;
+            by apply IHR[k,v] to BST_R
+          rewrite IHR2 definition update
           .
         }
         case false assume j_less_k_false {
           have not_jk: not (j < k)
-            by (assume jk; have false by rewrite j_less_k_false in jk);
-          definition lookup, update;
+            by (assume jk have false by rewrite j_less_k_false in jk)
+          definition {lookup, update}
           have lookupR: lookup(insert(tree_node(L,j,w,R),k,v))(x) = lookup(R)(x)
-            by (definition insert, lookup;
+            by (definition {insert, lookup}
                 switch k = j {
                   case true {
-                    definition lookup;
-                    rewrite using false_is_false[x = j] with not_xj;
-                    rewrite using false_is_false[x < j]
-                                      with not_x_less_j;
-                    .
+                    definition lookup
+                    rewrite apply false_is_false[x = j] to not_xj
+                    rewrite apply false_is_false[x < j] to not_x_less_j.
                   }
                   case false assume kj_false {
                     have not_j_eq_k: not (j = k)
-                       by (assume jk; rewrite kj_false in symmetric jk);
+                       by (assume jk rewrite kj_false in symmetric jk)
                     have k_less_j: k < j
-                       by using trichotomy2[k, j] with (not_j_eq_k, not_jk);
-                    rewrite using true_is_true[k < j]
-                           with k_less_j;
-                    definition lookup;
-                    rewrite (using false_is_false[x = j]
-                                       with assume xj;
-                                         using not_jx with symmetric xj);
-                    rewrite (using false_is_false[x < j]
-                                      with not_x_less_j);
-                    .
+                       by apply trichotomy2[k, j] to (not_j_eq_k, not_jk)
+                    rewrite apply true_is_true[k < j] to k_less_j
+                    definition lookup
+                    rewrite (apply false_is_false[x = j]
+                             to assume xj apply not_jx to symmetric xj)
+                    rewrite (apply false_is_false[x < j] to not_x_less_j).
                   }
-                });
-          rewrite lookupR;
+                })
+          rewrite lookupR
           have x_neq_k: not (x = k)
-            by (assume xk; using (rewrite (symmetric xk) in not_jk)
-                           with j_less_x);
-          rewrite x_neq_k;
-          rewrite (using false_is_false[x = j] with
-            assume xj; (using not_jx with symmetric xj));
-          rewrite not_x_less_j;
-          .
+            by (assume xk apply (rewrite (symmetric xk) in not_jk)
+                          to j_less_x)
+          rewrite x_neq_k
+          rewrite (apply false_is_false[x = j] 
+                   to assume xj (apply not_jx to symmetric xj))
+          rewrite not_x_less_j.
         }
       }
     }

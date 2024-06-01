@@ -1,13 +1,13 @@
 union Pair<T,U> {
-  pair(T,U);
+  pair(T,U)
 }
 
 function first<T,U>(Pair<T,U>) -> T {
-  first(pair(x,y)) = x;
+  first(pair(x,y)) = x
 }
 
 function second<T,U>(Pair<T,U>) -> U {
-  second(pair(x,y)) = y;
+  second(pair(x,y)) = y
 }
 
 define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2)

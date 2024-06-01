@@ -1,5 +1,5 @@
 theorem T1: if true then true
 proof
-  suppose T;
+  suppose T
   .
 end

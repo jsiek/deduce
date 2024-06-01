@@ -1,5 +1,5 @@
 theorem T4: if false then false
 proof
-  suppose f;
+  suppose f
   f , f
 end

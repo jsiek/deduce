@@ -60,7 +60,7 @@ ident: IDENT              -> ident
     | "all" var_list "." term                      -> all_formula
     | "<" ident_list ">" term                       -> alltype_formula
     | "some" var_list "." term                     -> some_formula
-    | "let" IDENT "=" term ";" term                -> let_term
+    | "let" IDENT "=" term term                    -> let_term
     | "(" term ")"                                 -> paren
     | "%" type
     
@@ -105,41 +105,44 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
     
 ?proof: "have" term "by" proof                           -> annot
-    | "show" term ";" proof                              -> annot
+    | "show" term proof                                  -> annot
     | "show" term "by" proof                             -> annot
-    | "using" proof "with" proof                         -> modus_ponens
+    | "apply" proof "to" proof                         -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
-    | "suppose" IDENT ";" proof                          -> imp_intro
-    | "suppose" IDENT ":" term ";" proof                 -> imp_intro_explicit
-    | "assume" IDENT ";" proof                           -> imp_intro
-    | "assume" IDENT ":" term ";" proof                  -> imp_intro_explicit
-    | "arbitrary"  var_list ";" proof                    -> all_intro
-    | "choose" term_list ";" proof                       -> some_intro
-    | "obtain" ident_list "with" IDENT "from" proof ";" proof -> some_elim
+    | "suppose" IDENT proof                              -> imp_intro
+    | "suppose" IDENT ":" term proof                     -> imp_intro_explicit
+    | "assume" IDENT proof                               -> imp_intro
+    | "assume" IDENT ":" term proof                      -> imp_intro_explicit
+    | "arbitrary"  var_list proof                        -> all_intro
+    | "choose" term_list proof                           -> some_intro
+    | "obtain" ident_list "with" IDENT "from" proof proof -> some_elim
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "definition" ident_list ";" proof                  -> apply_defs_goal
-    | "definition" ident_list "."                        -> apply_defs_goal_end
-    | "definition" ident_list "in" proof                 -> apply_defs_fact
-    | "enable" ident_list ";" proof                      -> enable_defs
-    | "rewrite" proof_list ";" proof                     -> rewrite_goal
-    | "rewrite" proof_list "."                           -> rewrite_goal_end
-    | "rewrite" proof_list "in" proof                    -> rewrite_fact
+    | "definition" "{" ident_list "}" proof              -> apply_defs_goal
+    | "definition" ident proof                           -> apply_defs_goal_one
+    | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
+    | "definition" ident "in" proof                      -> apply_defs_fact_one
+    | "enable" "{" ident_list "}" proof                  -> enable_defs
+    | "enable" ident proof                               -> enable_def
+    | "rewrite" "{" proof_list "}" proof                 -> rewrite_goal
+    | "rewrite" proof proof                              -> rewrite_goal_one
+    | "rewrite" "{" proof_list "}" "in" proof            -> rewrite_fact
+    | "rewrite" proof "in" proof                         -> rewrite_fact_one
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "equations" equation equation_list                 -> equations_proof
     | proof_hi
 
 ?proof_hi: 
     | IDENT                                              -> proof_var
-    | "have" IDENT ":" term "by" proof ";" proof         -> let
-    | "term" term "by" proof ";" proof                   -> term_proof
+    | "have" IDENT ":" term "by" proof proof             -> let
+    | "term" term "by" proof proof                       -> term_proof
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
     | "symmetric" proof                                  -> sym_proof
     | "transitive" proof proof                           -> trans_proof
-    | "injective" term ";" proof                         -> injective_proof
-    | "extensionality" ";" proof                         -> extensionality_proof
+    | "injective" term proof                             -> injective_proof
+    | "extensionality" proof                             -> extensionality_proof
     | "(" proof ")"                                      -> paren
     | proof_hi "[" term_list "]"                         -> all_elim
     | proof_hi "<" type_list ">"                         -> all_elim
@@ -171,8 +174,8 @@ ident: IDENT              -> ident
 ?type_params_opt:                                -> empty
    | "<" ident_list ">"
 
-?constr: IDENT ";"                               -> constr_id
-    | IDENT "(" type_list ")" ";"                -> constr_apply
+?constr: IDENT                                   -> constr_id
+    | IDENT "(" type_list ")"                    -> constr_apply
 
 ?constr_list: constr                             -> single
     | constr constr_list                         -> push
@@ -189,7 +192,7 @@ ident: IDENT              -> ident
     | pattern                                       -> single
     | pattern "," ident_list                        -> push
     
-?fun_case: ident "(" pattern_list ")" "=" term ";"   -> fun_case
+?fun_case: ident "(" pattern_list ")" "=" term      -> fun_case
 
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
