@@ -646,8 +646,8 @@ subformula, so here we prove `x ≤ y or y < x` with `x ≤ y`.
 	}
 
 In the second case, we consider the situation where `x = y`. Here we
-can rewrite the `x` to `y` and then use the reflexive property of the
-less-equal relation.
+can prove that `x ≤ y` by rewriting the `x` to `y` and then using the
+reflexive property of the less-equal relation to prove that `y ≤ y`.
 
 	case x_eq_y: x = y {
 	  have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
