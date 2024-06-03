@@ -682,8 +682,8 @@ Here is the completed proof of the `dichotomy` theorem.
 	end
 
 To summarize this section:
-* Use `or` in Deduce to express that at least one of two formulas is true.
-* To prove an `or` formula, prove either one of the two formulas.
+* Use `or` in Deduce to express that at least one of two or more formulas is true.
+* To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
 ## Reasoning about `not`
