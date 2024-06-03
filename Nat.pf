@@ -330,31 +330,11 @@ theorem less_not_equal:
   all x:Nat. all y:Nat.
   if x < y then not (x = y)
 proof
-  enable operator ≤
-  induction Nat
-  case zero {
-    arbitrary y:Nat
-    assume z_less_y
-    assume z_eq_y
-    show false by definition operator < in
-       (rewrite symmetric z_eq_y in z_less_y)
-    }
-  case suc(x') assume IH {
-    arbitrary y:Nat
-    assume sx_less_y
-    assume xs_eq_y
-    switch y {
-      case zero assume yz { have false by rewrite yz in xs_eq_y }
-      case suc(y') assume ys {
-        have x_less_y: x' < y'
-          by (definition operator <
-              definition operator < in rewrite ys in sx_less_y)
-        have not_x_eq_y: not (x' = y') by apply IH[y'] to x_less_y
-        have x_eq_y: x' = y' by (injective suc rewrite ys in xs_eq_y)
-        have false by apply not_x_eq_y to x_eq_y
-      }
-    }
-  }
+  arbitrary x:Nat arbitrary y:Nat
+  assume x_l_y: x < y
+  assume x_y: x = y
+  have y_l_y: y < y by rewrite x_y in x_l_y
+  show false by apply less_irreflexive[y] to y_l_y
 end
 
 theorem less_implies_not_greater:

@@ -224,6 +224,7 @@ language and provide examples of their use.
 * Reasoning about `or` (Disjunction)
 * Conditional Formulas (Implication)
 * Reasoning about `not`
+* The `switch` Proof Statement
 
 We recommend that you work through the examples in this
 section. Create a file with a `.pf` suffix that contains all of the
@@ -952,3 +953,7 @@ To summarize this section:
 * Therefore, to prove a `not` formula, assume `P` then prove `false`.
 * To use a formula like `not P`, apply it to a proof of `P` to
   obtain a proof of `false`.
+
+## The `switch` Proof Statement
+
+TBD
