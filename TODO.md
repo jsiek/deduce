@@ -1,3 +1,5 @@
+[ ] Explain false.
+
 [x] explain existentials using even number example
 
 [x] Mutually recursive functions
@@ -17,6 +19,7 @@
 [ ] Fix syntax error messages inside imports
 
 [ ] print parenthesis for * and + properly
+
 
 
 
