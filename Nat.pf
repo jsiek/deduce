@@ -493,3 +493,17 @@ proof
     show x ≤ y or y < x by y_l_x
   }
 end
+
+theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+proof
+  arbitrary x:Nat
+  switch x {
+    case zero {
+      show true or 0 < 0 by .
+    }
+    case suc(x') {
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      show suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
+  }
+end

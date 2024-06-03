@@ -956,4 +956,73 @@ To summarize this section:
 
 ## The `switch` Proof Statement
 
-TBD
+Similar to Deduce's `switch` statement for writing functions, there is
+also a `switch` statement for writing proofs. As an example, let us
+consider how to prove the following theorem.
+
+	theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+	proof
+	  ?
+	end
+
+We could proceed by induction, but we it turns out we don't need the
+induction hypothesis. In such situations, we can instead use `switch`.
+Like induction, `switch` works on unions and there is one case for
+each alternative of the union. Unlike induction, the goal formula does
+not need to be an `all` formula. Instead, you indicate which entity to
+switch on, as in `switch x` below.
+
+	arbitrary x:Nat
+	switch x {
+	  case zero {
+		?
+	  }
+	  case suc(x') {
+		?
+	  }
+	}
+
+Deduce responds that in the first case we need to prove the following.
+
+	unfinished proof:
+		true or 0 < 0
+
+So we just need to prove `true`, which is what the period is for.
+
+	case zero {
+	  show true or 0 < 0 by .
+	}
+
+In the second case, for `x = suc(x')`, we need to prove the following.
+
+	unfinished proof:
+		false or 0 < suc(x')
+
+There's no hope of proving `false`, so we better prove `0 < suc(x')`.
+Thankfully that follows from the definitions of `<` and `≤`.
+
+    case suc(x') {
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      show suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
+
+Here is the completed proof that every natural number is either zero
+or positive.
+
+	theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+	proof
+	  arbitrary x:Nat
+	  switch x {
+		case zero {
+		  show true or 0 < 0 by .
+		}
+		case suc(x') {
+		  have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+		  show suc(x') = 0 or 0 < suc(x') by z_l_sx
+		}
+	  }
+	end
+	
+To summarize this section:
+* Use `switch` on an entity of union type to split the proof into
+  cases, with one case for each alternative of the union.
