@@ -91,7 +91,7 @@ contents of `Nat.pf` as follows
 ## Definitions
 
 The `define` feature of Deduce associates a name with a value.  The
-following two definitions associate the name `L23` with the
+following definitions associate the name `L23` with the
 linked-list containing `2` and `3`, and the name `L13` with the
 linked-list containing `1`, `2` and `3`.
 
