@@ -1116,11 +1116,11 @@ Here is the complete proof.
 	  definition Even
 	  show some m:Nat. x + y = 2 * m
 	  choose a + b
-	  rewrite x_2a rewrite y_2b
+	  rewrite {x_2a | y_2b}
 	  show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 	end
 
 To summarize this section:
 * The `some` formula expresses that a property is true for at least one entity.
-* Deduce's `obtain` statement lets you use a fact that's a `some` formula.
+* Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.

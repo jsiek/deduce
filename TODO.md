@@ -18,5 +18,5 @@
 
 [ ] print parenthesis for * and + properly
 
-[ ] Fix bug in multiple rewrites, see theorem addition_of_evens in Nat.pf.
+
 
