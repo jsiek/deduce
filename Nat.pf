@@ -311,6 +311,21 @@ proof
   }
 end
 
+theorem less_irreflexive:  all x:Nat. not (x < x)
+proof
+  induction Nat
+  case zero {
+    assume z_l_z: 0 < 0
+    show false by definition {operator <, operator ≤} in z_l_z
+  }
+  case suc(x') assume IH: not (x' < x') {
+    assume sx_l_sx: suc(x') < suc(x')
+    enable {operator <, operator ≤}
+    have x_l_x: x' < x' by sx_l_sx
+    show false by apply IH to x_l_x
+  }
+end
+
 theorem less_not_equal:
   all x:Nat. all y:Nat.
   if x < y then not (x = y)

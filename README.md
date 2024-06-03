@@ -686,9 +686,6 @@ To summarize this section:
 * To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
-## Reasoning about `not`
-
-
 ## Conditional Formulas (Implication)
 
 Some logical statements are true only under certain conditions, so
@@ -861,3 +858,82 @@ To summarize this section:
   condition.
 
 
+## Reasoning about `not`
+
+To express that a formula is false, precede it with `not`.  For
+example, for any natural number `x`, it is not the case that `x < x`.
+
+	theorem less_irreflexive:  all x:Nat. not (x < x)
+	proof
+      ?
+	end
+
+Deduce treats `not` as syntactic sugar for a conditional formal with a
+`false` conclusion. Thus, Deduce responds to the above partial proof
+with the following message.
+
+	unfinished proof:
+		all x:Nat. (if x < x then false)
+
+We can proceed by induction.
+
+	induction Nat
+	case zero {
+	  ?
+	}
+	case suc(x') assume IH: not (x' < x') {
+	  ?
+	}
+
+In the first case, we must prove the following conditional formula.
+
+	unfinished proof:
+		(if 0 < 0 then false)
+
+So we assume the premise `0 < 0`, from which we can conclude `false`
+by the definitions of `<` and `≤`.
+
+	case zero {
+	  assume z_l_z: 0 < 0
+	  show false by definition {operator <, operator ≤} in z_l_z
+	}
+
+In the case where `x = suc(x')`, we must prove the following 
+
+	unfinished proof:
+		(if suc(x') < suc(x') then false)
+
+So we assume the premise `suc(x') < suc(x')` from which we
+can prove that `x' < x'` using the definitions of `<` and `≤`.
+
+    assume sx_l_sx: suc(x') < suc(x')
+    enable {operator <, operator ≤}
+    have x_l_x: x' < x' by sx_l_sx
+
+We conclude this case by applying the induction hypothesis to `x' < x'`.
+
+    show false by apply IH to x_l_x
+
+Here is the completed proof that less-than is irreflexive.
+
+	theorem less_irreflexive:  all x:Nat. not (x < x)
+	proof
+	  induction Nat
+	  case zero {
+		assume z_l_z: 0 < 0
+		show false by definition {operator <, operator ≤} in z_l_z
+	  }
+	  case suc(x') assume IH: not (x' < x') {
+		assume sx_l_sx: suc(x') < suc(x')
+		enable {operator <, operator ≤}
+		have x_l_x: x' < x' by sx_l_sx
+		show false by apply IH to x_l_x
+	  }
+	end
+
+To summarize this section:
+* To expression that a formula is false, use `not`.
+* Deduce treats the formula `not P` just like `if P then false`.
+* Therefore, to prove a `not` formula, assume `P` then prove `false`.
+* To use a formula like `not P`, apply it to a proof of `P` to
+  obtain a proof of `false`.
