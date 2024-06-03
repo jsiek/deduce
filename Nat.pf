@@ -533,7 +533,7 @@ proof
     ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
     ... = (x + (y + a' * x)) + a' * y by rewrite add_assoc[x][y,a'*x].
     ... = (x + (a' * x + y)) + a' * y by rewrite add_commute[a'*x][y].
-    ... = ((x + a' * x) + y) + a' * y by (rewrite symmetric add_assoc[x][a'*x,y].)
+    ... = ((x + a' * x) + y) + a' * y by rewrite symmetric add_assoc[x][a'*x,y].
     ... = (x + a' * x) + (y + a' * y) by add_assoc[x+a'*x][y,a'*y]
   }
 end
@@ -549,6 +549,7 @@ function is_odd(Nat) -> bool {
 }
 
 define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
+define Odd : fn Nat -> bool = λ n { some m:Nat. n = suc (2 * m) }
 
 theorem addition_of_evens:
   all x:Nat, y:Nat.
@@ -565,4 +566,45 @@ proof
   choose a + b
   rewrite {x_2a | y_2b}
   show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+end
+
+theorem is_even_odd:
+  all n:Nat.
+  (if is_even(n) then Even(n))
+  and (if is_odd(n) then Odd(n))
+proof
+  induction Nat
+  case zero {
+    have part1: if is_even(0) then Even(0)
+      by assume _
+         show Even(0)
+         by definition Even
+	    choose 0
+	    definition {operator *, operator +}.
+   have part2: if is_odd(0) then Odd(0)
+     by assume zero_odd
+        have false by definition is_odd in zero_odd
+    part1, part2
+  }
+  case suc(n') assume IH {
+    have part1: (if is_even(suc(n')) then Even(suc(n'))) by
+      (assume suc_even: is_even(suc(n'))
+       have odd_n: is_odd(n') by definition is_even in suc_even
+       have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
+       obtain m with n_2m from definition Odd in Odd_n
+       definition Even
+       choose suc(m)
+       rewrite n_2m
+       definition {operator *, operator+}
+       rewrite {add_zero[m] | add_suc[m][m]}.)
+    have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
+      (assume suc_odd: is_odd(suc(n'))
+       have even_n: is_even(n') by definition is_odd in suc_odd
+       have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
+       obtain m with n_2m from definition Even in Even_n
+       definition Odd
+       choose m
+       rewrite n_2m.)
+    part1, part2
+  }
 end

@@ -854,7 +854,7 @@ class Call(Term):
   
   def __str__(self):
     if self.infix:
-      return  str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1])
+      return  "(" + str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1]) + ")"
     elif isNat(self):
       return str(natToInt(self))
     else:
