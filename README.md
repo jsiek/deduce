@@ -21,6 +21,15 @@ This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
 
+I recommend that you work through the examples in this
+introduction. Create a file named `examples.pf` in the top `deduce`
+directory and add the examples one at a time. To check the file, run
+the `deduce.py` script on the file from the `deduce` directory.
+
+	python ./deduce.py ./examples.pf
+
+You will need Python version 3.10 or later.
+
 # Functional Programming in Deduce
 
 Deduce supports the following language features:
@@ -225,11 +234,6 @@ language and provide examples of their use.
 * Conditional Formulas (Implication)
 * Reasoning about `not`
 * The `switch` Proof Statement
-
-We recommend that you work through the examples in this
-section. Create a file with a `.pf` suffix that contains all of the
-definitions from the previous section. You will add the examples to
-that file.
 
 ## Working with Definitions
 
