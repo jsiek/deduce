@@ -17,7 +17,9 @@ programs, so it serves as a better starting place educationally, and
 understood, so it's straightforward to build and maintain the Deduce
 proof checker.
 
-TODO: road map
+This introduction to Deduce has two parts. The first part gives a
+tutorial on how to write functional programs in Deduce.  The second
+part shows how to write proofs in Deduce.
 
 # Functional Programming in Deduce
 
@@ -210,10 +212,23 @@ uses `switch` to pattern-match on the second list.
 
 # Writing Proofs in Deduce
 
-We consider a sequence of examples of increasing complexity,
-introducing features of the Deduce proof language as we go.  Create a
-file with a `.pf` suffix that contains all of the definitions from the
-previous section. You will add these examples to that file.
+This section provides a tutorial on writing proofs in Deduce.  In the
+following subsections we introduce the features of the Deduce proof
+language and provide examples of their use.
+
+* Working with Definitions
+* Generalizing with `all` formulas
+* Proving `all` Formulas with Induction
+* Equational Reasoning
+* Reasoning about `and` (Conjunction)
+* Reasoning about `or` (Disjunction)
+* Conditional Formulas (Implication)
+* Reasoning about `not`
+
+We recommend that you work through the examples in this
+section. Create a file with a `.pf` suffix that contains all of the
+definitions from the previous section. You will add the examples to
+that file.
 
 ## Working with Definitions
 
