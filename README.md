@@ -29,6 +29,10 @@ the `deduce.py` script on the file from the `deduce` directory.
 	python ./deduce.py ./examples.pf
 
 You will need Python version 3.10 or later.
+You also need to install the Lark Parsing library which
+you can obtain from the following location.
+
+    https://github.com/lark-parser/lark
 
 # Functional Programming in Deduce
 
