@@ -496,7 +496,7 @@ def parse_tree_to_ast(e):
         return parse_tree_to_list(e.children[0])
     elif e.data == 'proof_hi' and e.children == []:
         # TODO: improve this error message!
-        raise Exception('unexpected end of proof after the semicolon')
+        raise Exception('unexpected end of proof')
     else:
         raise Exception('unhandled parse tree', e)
 

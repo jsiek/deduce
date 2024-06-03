@@ -199,6 +199,42 @@ proof
   case suc(n') assume IH { have suc(n') ≤ suc(n')  by IH }
 end
 
+theorem less_equal_antisymmetric:
+  all x:Nat. all y:Nat. 
+  if x ≤ y and y ≤ x
+  then x = y
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat
+    suppose zy_yz: 0 ≤ y and y ≤ 0
+    switch y {
+      case zero { . }
+      case suc(y') assume y_suc {
+        have sy_z: suc(y') ≤ 0 by rewrite y_suc in zy_yz
+        show false by definition operator ≤ in sy_z
+      }
+    }
+  }
+  case suc(x') assume IH {
+    arbitrary y:Nat
+    suppose sxy_ysx: suc(x') ≤ y and y ≤ suc(x')
+    switch y {
+      case zero assume y_z {
+        have sx_z: suc(x') ≤ 0 by rewrite y_z in sxy_ysx
+	show false by definition operator ≤ in sx_z
+      }
+      case suc(y') assume y_suc {
+        enable operator ≤
+        have x_le_y: x' ≤ y' by rewrite y_suc in sxy_ysx
+	have y_le_x: y' ≤ x' by rewrite y_suc in sxy_ysx
+        have x_y: x' = y' by (apply IH[y'] to x_le_y, y_le_x)
+	show suc(x') = suc(y') by rewrite x_y.
+      }
+    }
+  }
+end
+
 theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
   if m ≤ n and n ≤ o then m ≤ o
 proof
@@ -405,3 +441,60 @@ proof
   }
 end
 
+theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
+proof
+  have one_pos: 0 ≤ 1 by definition operator ≤.
+  have two_pos: 0 ≤ 2 by definition operator ≤.
+  show 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
+end
+
+theorem positive_2: 0 ≤ 2
+proof
+  show 0 ≤ 2 by positive_1_and_2
+end
+
+theorem less_implies_less_equal:
+  all x:Nat. all y:Nat.
+  if x < y  then  x ≤ y
+proof
+  enable {operator ≤, operator <}
+  induction Nat
+  case zero {
+    arbitrary y:Nat
+    suppose z_y: 0 < y
+    show 0 ≤ y by .
+  }
+  case suc(x') assume IH {
+    arbitrary y:Nat
+    switch y {
+      case zero {
+        suppose sx_z: suc(x') < 0
+	have false by sx_z
+      }
+      case suc(y') {
+        suppose sx_sy: suc(x') < suc(y')
+	have x_y: x' < y' by sx_sy
+	have x_le_y: x' ≤ y' by (apply IH[y'] to x_y)
+	show suc(x') ≤ suc(y') by x_le_y
+      }
+    }
+  }
+end
+
+theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+proof
+  arbitrary x:Nat, y:Nat
+  have tri: x < y or x = y or y < x by trichotomy[x][y]
+  cases tri
+  case x_l_y: x < y {
+    have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+    show x ≤ y or y < x by x_le_y
+  }
+  case x_eq_y: x = y {
+    have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+    show x ≤ y or y < x by x_le_y
+  }
+  case y_l_x: y < x {
+    show x ≤ y or y < x by y_l_x
+  }
+end

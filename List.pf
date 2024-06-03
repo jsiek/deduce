@@ -494,11 +494,3 @@ proof
   }
 end
 
-theorem positive_all_1_2:
-  all_elements(node(1, node(2, empty)), λx{0 ≤ x})
-proof
-  have one_pos: 0 ≤ 1 by definition operator ≤.
-  have two_pos: 0 ≤ 2 by definition operator ≤.
-  definition all_elements
-  show 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
-end

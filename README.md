@@ -561,22 +561,130 @@ Here is the completed proof of the `append_empty` theorem.
 
 ## Reasoning about `and` (Conjunction)
 
-	theorem positive_all_1_2:
-	  all_elements(node(1, node(2, empty)), λx{0 ≤ x})
+To create a single formula that expresses that two formulas are true,
+combine the two formulas with `and` (i.e. conjunction). The following
+example proves that `0 ≤ 1 and 0 ≤ 2`.  This is accomplished by
+separately proving that `0 ≤ 1` is true and that `0 ≤ 2` is true, then
+using the comma operator to combine those proofs: `one_pos, two_pos`.
+
+	theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
 	proof
 	  have one_pos: 0 ≤ 1 by definition operator ≤.
 	  have two_pos: 0 ≤ 2 by definition operator ≤.
-	  definition all_elements
 	  show 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 	end
 
+On the other hand, in Deduce you can use a conjunction as if it were
+one of its subformulas, implicitly. In the following we use the
+fact that `0 ≤ 1 and 0 ≤ 2` to prove `0 ≤ 2`.
 
+	theorem positive_2: 0 ≤ 2
+	proof
+	  show 0 ≤ 2 by positive_1_and_2
+	end
 
-
-
+To summarize this section:
+* Use `and` in Deduce to express the truth of two formulas.
+* To prove an `and` formula, prove its parts and then combine them using comma.
+* You can implicitly use an `and` formula as one of its parts. 
 
 ## Reasoning about `or` (Disjunction)
 
+Two create a formula that expresses that at least one of two formulas
+is true (i.e. disjunction), use `or` to combine the formulas.
+
+For example, consider the following variation on the trichotomy law
+for numbers, which states that for any two natural numbers `x` and `y`, 
+either `x ≤ y` or `y < x`.
+
+	theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+	proof
+	  ?
+	end
+
+We can prove this using the `trichotomy` theorem from `Nat.pf`,
+which tells us that `x < y` or `x = y` or `y < x`.
+
+	theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+	proof
+	  arbitrary x:Nat, y:Nat
+	  have tri: x < y or x = y or y < x by trichotomy[x][y]
+	  ?
+	end
+
+In Deduce, you can use an `or` fact by doing case analysis with the
+`cases` statement. There is one `case` for each subformula of the
+`or`.
+
+	have tri: x < y or x = y or y < x by trichotomy[x][y]
+	cases tri
+	case x_l_y: x < y {
+	  ?
+	}
+	case x_eq_y: x = y {
+	  ?
+	}
+	case y_l_x: y < x {
+	  ?
+	}
+
+In the first case, we consider the situation where `x < y` and still need to
+prove that `x ≤ y or y < x`. Thankfully, the theorem 
+`less_implies_less_equal` in `Nat.pf` tells us that `x ≤ y`.
+
+	case x_l_y: x < y {
+	  have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+	  ?
+	}
+
+In Deduce, an `or` formula can be proved using a proof of either
+subformula, so here we prove `x ≤ y or y < x` with `x ≤ y`.
+
+	case x_l_y: x < y {
+	  have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+	  show x ≤ y or y < x by x_le_y
+	}
+
+In the second case, we consider the situation where `x = y`. Here we
+can rewrite the `x` to `y` and then use the reflexive property of the
+less-equal relation.
+
+	case x_eq_y: x = y {
+	  have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+	  show x ≤ y or y < x by x_le_y
+	}
+
+In the third case, we consider the situation where `y < x`.
+So we can immediately conclude that `x ≤ y or y < x`.
+
+	case y_l_x: y < x {
+	  show x ≤ y or y < x by y_l_x
+	}
+
+Here is the completed proof of the `dichotomy` theorem.
+
+	theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+	proof
+	  arbitrary x:Nat, y:Nat
+	  have tri: x < y or x = y or y < x by trichotomy[x][y]
+	  cases tri
+	  case x_l_y: x < y {
+		have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+		show x ≤ y or y < x by x_le_y
+	  }
+	  case x_eq_y: x = y {
+		have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+		show x ≤ y or y < x by x_le_y
+	  }
+	  case y_l_x: y < x {
+		show x ≤ y or y < x by y_l_x
+	  }
+	end
+
+To summarize this section:
+* Use `or` in Deduce to express that at least one of two formulas is true.
+* To prove an `or` formula, prove either one of the two formulas.
+* To use a fact that is an `or` formula, use the `cases` statement.
 
 ## Reasoning about `not`
 
@@ -609,8 +717,9 @@ have already defined the `all_elements` function.)
 	  ?
 	end
 
-The beginning of the proof proceeds as usual, using `arbitrary`
-for `T` and `P` and then `induction` for `xs`.
+The beginning of the proof proceeds as usual for a formula that begins
+with `all`, using `arbitrary` for `T` and `P` and then `induction` for
+`xs`.
 
 	arbitrary T:type, P:fn (T)->bool
 	induction List<T>
