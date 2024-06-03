@@ -624,12 +624,9 @@ class Var(AST):
     self.index = env.index_of_term_var(self.name)
 
   def uniquify(self, env):
-    #print('uniquify var ' + str(self))
-    #print(str(env))
     if self.name not in env.keys():
-      error(self.location, "undefined variable " + self.name)
+      error(self.location, "uniquify: undefined variable " + self.name)
     self.name = env[self.name]
-    #print('finished uniquify var ' + str(self))
     
   def shift_type_vars(self, cutoff, amount):
     return self
@@ -857,7 +854,7 @@ class Call(Term):
   
   def __str__(self):
     if self.infix:
-      return str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1])
+      return  str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1])
     elif isNat(self):
       return str(natToInt(self))
     else:
@@ -2014,6 +2011,9 @@ class Theorem(Statement):
     new_name = generate_name(self.name)
     env[self.name] = new_name
     self.name = new_name
+
+  def uniquify_body(self, env):
+    pass
   
 @dataclass
 class Constructor(AST):
@@ -2071,6 +2071,9 @@ class Union(Statement):
       env[con.name] = new_con_name
       con.name = new_con_name
 
+  def uniquify_body(self, env):
+    pass
+  
   def substitute(self, sub):
     return self
       
@@ -2141,19 +2144,6 @@ class RecFun(Statement):
   returns: Type
   cases: List[FunCase]
 
-  # def shift_type_vars(self, cutoff, amount):
-  #   n = len(self.type_params)
-  #   return RecFun(self.location, self.name, self.type_params,
-  #                 [ty.shift_type_vars(cutoff + n, amount) for ty in self.params],
-  #                 self.returns.shift_type_vars(cutoff + n, amount),
-  #                 self.casts.shift_type_vars(cutoff + n, amount))
-
-  # def shift_term_vars(self, cutoff, amount):
-  #   return RecFun(self.location, self.name, self.type_params,
-  #                 self.params,
-  #                 self.returns,
-  #                 self.casts.shift_term_vars(cutoff + 1, amount))
-                  
   def debruijnize(self, env):
     env = env.declare_term_var(self.location, self.name, None)
     body_env = env.declare_type_vars(self.location, self.type_params)
@@ -2173,14 +2163,22 @@ class RecFun(Statement):
     new_type_params = [generate_name(t) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
       body_env[old] = new
+    self.old_type_params = self.type_params
     self.type_params = new_type_params
     
     for ty in self.params:
       ty.uniquify(body_env)
     self.returns.uniquify(body_env)
+
+  def uniquify_body(self, env):
+    body_env = copy_dict(env)
+    for (old,new) in zip(self.old_type_params, self.type_params):
+      body_env[old] = new
+    
     for c in self.cases:
       c.uniquify(body_env)
-  
+
+    
   def __str__(self):
     return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
@@ -2284,6 +2282,9 @@ class Define(Statement):
     env[self.name] = new_name
     self.name = new_name
   
+  def uniquify_body(self, env):
+    pass
+  
   def shift_type_vars(self, cutoff, amount):
     return Define(self.location, self.name,
                   self.typ.shift_type_vars(cutoff, amount),
@@ -2330,7 +2331,12 @@ class Import(Statement):
     set_filename(old_filename)
     for s in self.ast:
       s.uniquify(env)
+    for s in self.ast:
+      s.uniquify_body(env)
     return env
+  
+  def uniquify_body(self, env):
+    pass
   
   def shift_type_vars(self, cutoff, amount):
     return self

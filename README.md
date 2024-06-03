@@ -238,6 +238,7 @@ language and provide examples of their use.
 * Conditional Formulas (Implication)
 * Reasoning about `not`
 * The `switch` Proof Statement
+* Reasoning about `some` (Exists)
 
 ## Working with Definitions
 
@@ -1034,3 +1035,92 @@ or positive.
 To summarize this section:
 * Use `switch` on an entity of union type to split the proof into
   cases, with one case for each alternative of the union.
+
+## Reasoning about `some` (Exists)
+
+In Deduce, you can express that there is at least one entity that
+satisfies a given property using the `some` formula.  For example, one
+way to define an even number is to say that it is a number that is 2
+times some other number. We express this in Deduce as follows.
+
+    define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
+
+As an example of how to reason about `some` formulas, let us prove a
+classic property of the even numbers, that the addition of two even
+numbers is an even number. Here's the beginning of the proof.
+
+	theorem addition_of_evens:
+	  all x:Nat, y:Nat.
+	  if Even(x) and Even(y) then Even(x + y)
+	proof
+	  arbitrary x:Nat, y:Nat
+	  assume even_xy: Even(x) and Even(y)
+      have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
+      have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
+	  ?
+	end
+
+The next step in the proof is to make use of the facts `even_x` and `even_y`.
+We can make use of a `some` formula using the `obtain` statement of Deduce.
+
+	obtain a with x_2a from even_x
+	obtain b with y_2b from even_y
+
+Deduce responds with
+
+	available facts:
+		y_2b: y = 2 * b,
+		x_2a: x = 2 * a,
+
+The `a` and `b` are new variables and the two facts `y_2b` and `x_2a`
+are the subformulas of the `some`, but with `a` and `b` replacing `m`.
+
+We still need to prove the following:
+
+	unfinished proof:
+		Even(x + y)
+
+So we use the definition of `Even`
+
+    definition Even
+    ?
+
+and now we need to prove
+
+	unfinished proof:
+		some m:Nat. x + y = 2 * m
+
+To prove a `some` formula, we use Deduce's `choose` statement.  This
+requires some thinking on our part.  What number can we plug in for
+`m` such that doubling it is equal to `x + y`? Given what we know
+about `a` and `b`, the answer is `a + b`. We conclude the proof
+by using the equations for `x` and `y` and the distributivity
+property of multiplication over addition (from `Nat.pf`).
+
+	choose a + b
+	rewrite x_2a rewrite y_2b
+	show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+
+Here is the complete proof.
+
+	theorem addition_of_evens:
+	  all x:Nat, y:Nat.
+	  if Even(x) and Even(y) then Even(x + y)
+	proof
+	  arbitrary x:Nat, y:Nat
+	  assume even_xy: Even(x) and Even(y)
+	  have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
+	  have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
+	  obtain a with x_2a from even_x
+	  obtain b with y_2b from even_y
+	  definition Even
+	  show some m:Nat. x + y = 2 * m
+	  choose a + b
+	  rewrite x_2a rewrite y_2b
+	  show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+	end
+
+To summarize this section:
+* The `some` formula expresses that a property is true for at least one entity.
+* Deduce's `obtain` statement lets you use a fact that's a `some` formula.
+* To prove a `some` formula, use Deduce's `choose` statement.

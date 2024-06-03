@@ -831,7 +831,7 @@ def type_synth_term(term, env, recfun, subterms):
     case Var(loc, name, index):
       ret = env.get_type_of_term_var(term)
       if ret == None:
-        error(loc, 'undefined variable ' + str(term) + '\nin scope:\n' + str(env))
+        error(loc, 'while type checking, undefined variable ' + str(term) + '\nin scope:\n' + str(env))
     case Generic(loc, type_params, body):
       body_env = env.declare_type_vars(loc, type_params)
       body_ty = type_synth_term(body, body_env, recfun, subterms)
@@ -1030,6 +1030,55 @@ def check_formula(frm, env):
 
 modules = set()
 
+def check_declaration(stmt, env):
+  if get_verbose():
+    print('** check_declaration(' + str(stmt) + ')')
+    print('** env: ' + str(env))
+  match stmt:
+    case Define(loc, name, ty, body):
+      if ty == None:
+        ty = type_synth_term(body, env, None, [])
+      return env.define_term_var(loc, name, ty, body)
+    case Theorem(loc, name, frm, pf):
+      check_formula(frm, env)
+      return env.declare_proof_var(loc, name, frm)
+    case RecFun(loc, name, typarams, params, returns, cases):
+      fun_type = FunctionType(loc, typarams, params, returns)
+      stmt.typeof = fun_type
+      return env.define_term_var(loc, name, fun_type, stmt.reduce(env))
+    case Union(loc, name, typarams, alts):
+      # TODO: check for well-defined types in the constructor definitions
+      env = env.define_type(loc, name, stmt)
+      union_type = Var(loc, name, 0)
+      body_env = env.declare_type_vars(loc, typarams)
+      body_union_type = union_type #.shift_type_vars(0, len(typarams))
+      for constr in alts:
+        if len(constr.parameters) > 0:
+          if len(typarams) > 0:
+            tyvars = [Var(loc, p) for p in typarams]
+            return_type = TypeInst(loc, body_union_type, tyvars)
+          else:
+            return_type = body_union_type
+          for ty in constr.parameters:
+            check_type(ty, body_env)
+          constr_type = FunctionType(constr.location, typarams, constr.parameters,
+                                     return_type)
+          env = env.declare_term_var(loc, constr.name, constr_type)
+        elif len(typarams) > 0:
+          env = env.declare_term_var(loc, constr.name, GenericUnknownInst(loc, union_type))
+        else:
+          env = env.declare_term_var(loc, constr.name, union_type)
+      return env
+    case Import(loc, name, ast):
+        for s in ast:
+          env = check_declaration(s, env)
+        for s in ast:
+          check_statement(s, env)
+        return env
+    case _:
+      error(stmt.location, "unrecognized statement:\n" + str(stmt))
+
+# TODO: strip out the environment-returning logic
 def check_statement(stmt, env):
   if get_verbose():
     print('** check_statement(' + str(stmt) + ')')
@@ -1040,7 +1089,6 @@ def check_statement(stmt, env):
         ty = type_synth_term(body, env, None, [])
       else:
         type_check_term(body, ty, env, None, [])
-      #return env.define_term_var(loc, name, ty, DefinedValue(loc, name, body.reduce(env)))
       return env.define_term_var(loc, name, ty, body)
     case Theorem(loc, name, frm, pf):
       if get_verbose():
@@ -1097,11 +1145,11 @@ def check_statement(stmt, env):
       return env
     case Import(loc, name, ast):
         for s in ast:
-          env = check_statement(s, env)
+          check_statement(s, env)
         return env
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
-
+      
 def debruijnize_deduce(ast):
   env = Env()
   env = env.declare_term_var(None, '≠', None)
@@ -1116,9 +1164,13 @@ def uniquify_deduce(ast):
   env['='] = '='
   for s in ast:
     s.uniquify(env)
+  for s in ast:
+    s.uniquify_body(env)
 
 def check_deduce(ast):
   env = Env()
   for s in ast:
-    env = check_statement(s, env)
+    env = check_declaration(s, env)
+  for s in ast:
+    check_statement(s, env)
   
