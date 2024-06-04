@@ -265,6 +265,8 @@ language and provide examples of their use.
 * Reasoning about `and` (Conjunction)
 * Reasoning about `or` (Disjunction)
 * Conditional Formulas (Implication)
+* Reasoning about `true`
+* Reasoning about `false`
 * Reasoning about `not`
 * The `switch` Proof Statement
 * Reasoning about `some` (Exists)
