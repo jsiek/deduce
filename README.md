@@ -22,10 +22,10 @@ following is a proof that appending two lists and then applying the
 `map` function is the same as first applying `map` to the two lists
 and then appending them.
 
-    theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
+    theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
       map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
     proof
-      arbitrary T:type, f:fn T->T, ys:List<T>
+      arbitrary T : type, f : fn T->T, ys : List<T>
       induction List<T>
       case empty {
         equations
