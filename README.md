@@ -22,27 +22,27 @@ following is a proof that appending two lists and then applying the
 `map` function is the same as first applying `map` to the two lists
 and then appending them.
 
-	theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
-	  map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
-	proof
-	  arbitrary T:type, f:fn T->T, ys:List<T>
-	  induction List<T>
-	  case empty {
-		equations
-		  map(append(empty,ys), f)
-			  = map(ys, f)                       by definition append.
-		  ... = append(empty, map(ys, f))        by definition append.
-		  ... = append(map(empty,f), map(ys, f)) by definition map.
-	  }
-	  case node(x, xs') assume IH {
-		enable {map, append}
-		equations
-		  map(append(node(x,xs'),ys),f)
-			  = node(f(x), map(append(xs',ys), f))         by .
-		  ... = node(f(x), append(map(xs',f), map(ys,f)))  by rewrite IH.
-		  ... = append(map(node(x,xs'),f),map(ys,f))       by .
-	  }
-	end
+    theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
+      map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
+    proof
+      arbitrary T:type, f:fn T->T, ys:List<T>
+      induction List<T>
+      case empty {
+        equations
+          map(append(empty,ys), f)
+              = map(ys, f)                       by definition append.
+          ... = append(empty, map(ys, f))        by definition append.
+          ... = append(map(empty,f), map(ys, f)) by definition map.
+      }
+      case node(x, xs') assume IH {
+        enable {map, append}
+        equations
+          map(append(node(x,xs'),ys),f)
+              = node(f(x), map(append(xs',ys), f))         by .
+          ... = node(f(x), append(map(xs',f), map(ys,f)))  by rewrite IH.
+          ... = append(map(node(x,xs'),f),map(ys,f))       by .
+      }
+    end
 
 This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
