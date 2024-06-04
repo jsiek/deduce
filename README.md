@@ -168,7 +168,7 @@ they always terminate.
   current alternative of the union.
 
 A recursive function begins with the `function` keyword, followed by
-the name of the function, then the paramters types and the return
+the name of the function, then the parameters types and the return
 type. For example, here's the definition of a `length` function for
 lists of natural numbers.
 
@@ -278,7 +278,7 @@ list is `0`. Of course, this is a direct consequence of the definition
 of `length`, so this first example is about how to use definitions.
 To get started, we write down the theorem we would like to prove.  A
 theorem starts with a label, followed by a colon, then the formula
-followed by the proof. But intead of writing the proof, we'll simply
+followed by the proof. But instead of writing the proof, we'll simply
 write `?` to say that we're not done yet.
 
     theorem length_empty: length(empty) = 0
@@ -306,13 +306,13 @@ Now Deduce responds with
     unfinished proof:
         true
 
-Deduce expanded the definition of `length` in the currect goal,
+Deduce expanded the definition of `length` in the correct goal,
 changing `length(empty) = 0` to `0 = 0`. In particular, Deduce noticed
 that `length(empty)` matches the first clause in the definition of
 `length` and then replaced it with the right-hand side of the first
 clause. Deduce then simplified `0 = 0` to `true`. In general, whenever
 Deduce sees an equality with the same left and right-hand side, it
-automatically simplies it to `true`.
+automatically simplifies it to `true`.
 
 To finish the proof, we just need to prove `true`, which is
 accomplished with a period.
@@ -431,7 +431,7 @@ the `arbitrary` statement.
       definition {length, operator +}.
     end
 
-To summmarize this section:
+To summarize this section:
 * To state that a formula is true for all entities of a given type,
   use Deduce's `all` formula.
 * To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
@@ -959,11 +959,11 @@ union are in fact different. So in the next example, because `foo` and
 	  .
 	end
 
-The above proof is just a period because Deduce simplies any formula
+The above proof is just a period because Deduce simplifies any formula
 of the form `if false then ...` to `true`, which is related to our
 next point.
 
-So far we've discussed how a proof of `false` can arrise.  Next let's
+So far we've discussed how a proof of `false` can arise.  Next let's
 talk about how you can use `false` once you've got it.  The answer is
 anything! The Principle of Explosion from logic tells us that `false`
 implies anything. For example, normally we don't know whether or not
@@ -1222,3 +1222,12 @@ To summarize this section:
 * The `some` formula expresses that a property is true for at least one entity.
 * Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.
+
+<!--  LocalWords:  aka fn ys xs IH pf py NatList builtin suc bool nat
+ -->
+<!--  LocalWords:  Equational Deduce's subterm pos subformulas tri eq
+ -->
+<!--  LocalWords:  subformula le refl ls cond Pxs Px ponens conc prem
+ -->
+<!--  LocalWords:  contra foo sx xy dist mult
+ -->
