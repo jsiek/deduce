@@ -1098,7 +1098,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
 	choose a + b
-	rewrite x_2a rewrite y_2b
+	rewrite x_2a | y_2b
 	show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1116,7 +1116,7 @@ Here is the complete proof.
 	  definition Even
 	  show some m:Nat. x + y = 2 * m
 	  choose a + b
-	  rewrite {x_2a | y_2b}
+	  rewrite x_2a | y_2b
 	  show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 	end
 
