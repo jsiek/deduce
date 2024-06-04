@@ -394,18 +394,10 @@ def parse_tree_to_ast(e):
         eqns = parse_tree_to_list(e.children[0])
         body = parse_tree_to_ast(e.children[1])
         return RewriteGoal(e.meta, eqns, body)
-    elif e.data == 'rewrite_goal_one':
-        eqn = parse_tree_to_ast(e.children[0])
-        body = parse_tree_to_ast(e.children[1])
-        return RewriteGoal(e.meta, [eqn], body)
     elif e.data == 'rewrite_fact':
         eqns = parse_tree_to_list(e.children[0])
         subject = parse_tree_to_ast(e.children[1])
         return RewriteFact(e.meta, subject, eqns)
-    elif e.data == 'rewrite_fact_one':
-        eqn = parse_tree_to_ast(e.children[0])
-        subject = parse_tree_to_ast(e.children[1])
-        return RewriteFact(e.meta, subject, [eqn])
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0])
         rhs = parse_tree_to_ast(e.children[1])

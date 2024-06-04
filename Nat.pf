@@ -564,7 +564,7 @@ proof
   definition Even
   show some m:Nat. x + y = 2 * m
   choose a + b
-  rewrite {x_2a | y_2b}
+  rewrite x_2a | y_2b
   show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 end
 
@@ -596,7 +596,7 @@ proof
        choose suc(m)
        rewrite n_2m
        definition {operator *, operator+}
-       rewrite {add_zero[m] | add_suc[m][m]}.)
+       rewrite add_zero[m] | add_suc[m][m].)
     have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
       (assume suc_odd: is_odd(suc(n'))
        have even_n: is_even(n') by definition is_odd in suc_odd

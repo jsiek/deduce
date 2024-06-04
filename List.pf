@@ -186,7 +186,7 @@ proof
       reverse(append(node(n,xs'),ys))
 	  = reverse(node(n,append(xs',ys))) by .
       ... = append(append(reverse(ys), reverse(xs')), node(n, empty))
-	    by rewrite {IH[ys]}.
+	    by rewrite IH[ys].
       ... = append(reverse(ys), append(reverse(xs'), node(n, empty)))
 	    by append_assoc[U][reverse(ys)][reverse(xs'), node(n, empty)]
       ... = append(reverse(ys), reverse(node(n,xs'))) by .
@@ -300,7 +300,7 @@ proof
     equations
       map(map(node(x,ls),f),g)
 	  = node(g(f(x)), map(map(ls, f), g))  by .
-      ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite {IH}.
+      ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite IH.
       ... = map(node(x,ls), g ∘ f)             by .
   }
 end
@@ -451,13 +451,13 @@ proof
   case node(x, xs') assume IH {
     arbitrary ys:List<U1>
     switch ys {
-      case empty assume EQ { rewrite {EQ}. }
+      case empty assume EQ { rewrite EQ. }
       case node(y, ys') {
 	equations
 	  zip(map(node(x,xs'),f),map(node(y,ys'),g))
 	    = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))      by .
 	... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
-		by rewrite {IH[ys']}.
+		by rewrite IH[ys'].
 	... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
 		by definition {first, second, pairfun}.
       }
