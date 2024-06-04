@@ -1901,8 +1901,8 @@ class ApplyDefsGoal(Proof):
   body: Proof
 
   def __str__(self):
-      return 'apply ' + ', '.join([str(d) for d in self.definitions]) \
-        + ' in goal; ' + str(self.body)
+      return 'definition {' + ', '.join([str(d) for d in self.definitions]) \
+        + '}' + str(self.body)
 
   def debruijnize(self, env):
     for d in self.definitions:
@@ -1953,8 +1953,8 @@ class RewriteGoal(Proof):
   body: Proof
 
   def __str__(self):
-      return 'rewrite with ' + ','.join([str(eqn) for eqn in self.equations]) \
-        + ';\n' + str(self.body)
+      return 'rewrite ' + '|'.join([str(eqn) for eqn in self.equations]) \
+        + '\n' + str(self.body)
 
   def debruijnize(self, env):
     for eqn in self.equations:
