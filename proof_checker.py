@@ -68,48 +68,6 @@ def check_implies(loc, frm1, frm2):
       if frm1 != frm2:
         error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
 
-def check_implies_old(loc, frm1, frm2):
-  if get_verbose():
-    print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
-  match frm2:
-    case Bool(loc2, True):
-      return
-    case And(loc2, args):
-      for arg2 in args:
-        check_implies(loc, frm1, arg2)
-    case Or(loc2, args):
-      for arg2 in args:
-        try:
-          check_implies(loc, frm1, arg2)
-          return
-        except Exception as e:
-          continue
-      error(loc, 'could not satisfy all the parts of\n' + str(frm2) + '\nfrom the formula\n' + str(frm1))
-    case _:
-      match frm1:
-        case Bool(loc2, False):
-          return
-        case And(loc2, args1):
-          for arg1 in args1:
-            try:
-              check_implies(loc, arg1, frm2)
-              return
-            except Exception as e:
-              continue
-          error(loc, 'could not satisfy\n' + str(frm2) + '\nwith any of the parts of\n' + str(frm1))
-        case _:
-          match (frm1, frm2):
-            case (IfThen(loc1, prem1, conc1), IfThen(loc2, prem2, conc2)):
-              check_implies(loc, prem2, prem1)
-              check_implies(loc, conc1, conc2)
-            case (All(loc1, vars1, body1), All(loc2, vars2, body2)):
-              sub = {var2[0]: Var(loc2, var1[0]) for (var1, var2) in zip(vars1, vars2)}
-              body2a = body2.substitute(sub)
-              check_implies(loc, body1, body2a)
-            case _:
-              if frm1 != frm2:
-                error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
-                
 def instantiate(loc, allfrm, args):
   match allfrm:
     case All(loc2, vars, frm):
@@ -243,7 +201,91 @@ def isolate_difference(term1, term2):
       case _:
         return (term1, term2)
     
+def type_check_proof(proof, env):
+  match proof:
+    case ApplyDefsFact(loc, definitions, subject):
+      for d in definitions:
+        type_synth_term(d, env, None, [])
+      type_check_proof(subject, env)
+    case EnableDefs(loc, definitions, subject):
+      for d in definitions:
+        type_synth_term(d, env, None, [])
+      type_check_proof(subject, env)
+    case RewriteFact(loc, subject, equation_proofs):
+      type_check_proof(subject, env)
+      for proof in equation_proofs:
+        type_check_proof(proof, env)
+    case PHole(loc):
+      pass
+    case PVar(loc, name, index):
+      ret = env.get_formula_of_proof_var(proof)
+      if ret == None:
+        error(loc, 'undefined label ' + name)
+    case PTrue(loc):
+      pass
+    case PLet(loc, label, frm, reason, rest):
+      type_check_formula(frm, env)
+      type_check_proof(reason, env)
+      type_check_proof(rest, body_env)
+    case PAnnot(loc, claim, reason):
+      type_check_formula(claim, env)
+      type_check_proof(reason, env)
+    case PTerm(loc, term, because, rest):
+      type_synth_term(term, env, None, [])
+      type_check_proof(because, env)
+      type_check_proof(rest, env)
+    case PTuple(loc, pfs):
+      for pf in pfs:
+        type_check_proof(pf, env)
+    case PAndElim(loc, which, subject):
+      type_check_proof(subject, env)
+    case ImpIntro(loc, label, prem, body):
+      type_check_formula(prem, env)
+      body_env = env.declare_proof_var(loc, label, prem)
+      type_check_proof(body, body_env)
+    case AllIntro(loc, vars, body):
+      body_env = env
+      for (x,ty) in vars:
+        if isinstance(ty, TypeType):
+          body_env.declare_type(loc, x)
+        else:
+          body_env.declare_term_var(loc, x, ty)
+      type_check_proof(body, body_env)
+    case AllElim(loc, univ, args):
+      type_check_proof(univ, env)
+      for arg in args:
+        type_synth_term(arg, env, None, [])
+    case ModusPonens(loc, imp, arg):
+      ifthen = check_proof(imp, env)
+      match ifthen:
+        case IfThen(loc, prem, conc):
+          check_proof_of(arg, prem, env)
+          ret = conc
+        case _:
+          error(loc, 'expected an if-then, not ' + str(ifthen))
+    case PInjective(loc, constr, eq_pf):
+      formula = check_proof(eq_pf, env)
+      (a,b) = split_equation(loc, formula)
+      match (a,b):
+        case (Call(loc2,Var(loc3,f1),[arg1], infix1),
+              Call(loc4,Var(loc5,f2),[arg2]), infix2):
+          if f1 != f2:
+            error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
+          if constr != f1:
+            error(loc, 'in injective, ' + constr + ' ≠ ' + f1)
+          if not is_constructor(f1, env):
+            error(loc, 'in injective, ' + f1 + ' not a constructor')
+          return mkEqual(loc, arg1, arg2)
+        case _:
+          error(loc, 'in injective, non-applicable formula: ' + str(formula))
+    case PSymmetric(loc, eq_pf):
+      frm = check_proof(eq_pf, env)
+      (a,b) = split_equation(loc, frm)
+      return mkEqual(loc, b, a)
+    case _:
+      error(proof.location, 'in check_proof, unhandled ' + str(proof))
 
+  
 def check_proof(proof, env):
   if verbose:
     print('synthesize formula while checking proof') ; print('\t' + str(proof))
@@ -273,14 +315,7 @@ def check_proof(proof, env):
     case PHole(loc):
       error(loc, 'unfinished proof')
     case PVar(loc, name, index):
-      # TODO:
       ret = env.get_formula_of_proof_var(proof)
-      # problem: IndCase used for switch and induction, but
-      # binding structure is different (IH, EQ)
-      # (fixed, probably)
-      #ret = env.lookup(name)
-      if ret == None:
-        error(loc, 'undefined label ' + name)
     case PTrue(loc):
       ret = Bool(loc, True)
     case PLet(loc, label, frm, reason, rest):
@@ -303,6 +338,10 @@ def check_proof(proof, env):
       formula = check_proof(subject, env)
       match formula:
         case And(loc2, args):
+          if which >= len(args):
+            error(loc, 'out of bounds, access to conjunct ' + str(which) \
+                  + ' but there are only ' + str(len(args)) + ' conjuncts' \
+                  + ' in formula\n\t' + str(formula))
           ret = args[which]
         case _:
           error(loc, 'expected a conjunction, not ' + str(formula))
@@ -922,6 +961,9 @@ def type_synth_term(term, env, recfun, subterms):
     print('\t=> ' + str(ret))
   term.typeof = ret
   return ret
+
+def type_check_formula(term, env):
+  type_check_term(term, BoolType(term.location), env, None, [])
   
 def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
@@ -1073,15 +1115,16 @@ def check_declaration(stmt, env):
         for s in ast:
           env = check_declaration(s, env)
         for s in ast:
+          type_check_statement(s, env)
+        for s in ast:
           check_statement(s, env)
         return env
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
 
-# TODO: strip out the environment-returning logic
-def check_statement(stmt, env):
+def type_check_statement(stmt, env):
   if get_verbose():
-    print('** check_statement(' + str(stmt) + ')')
+    print('** type_check_statement(' + str(stmt) + ')')
     print('** env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
@@ -1089,16 +1132,11 @@ def check_statement(stmt, env):
         ty = type_synth_term(body, env, None, [])
       else:
         type_check_term(body, ty, env, None, [])
-      return env.define_term_var(loc, name, ty, body)
     case Theorem(loc, name, frm, pf):
       if get_verbose():
         print('checking theorem formula ' + str(frm))
         print(str(env))
       check_formula(frm, env)
-      if get_verbose():
-        print('checking proof of theorem')
-      check_proof_of(pf, frm, env)
-      return env.declare_proof_var(loc, name, frm)
     case RecFun(loc, name, typarams, params, returns, cases):
       fun_type = FunctionType(loc, typarams, params, returns)
       stmt.typeof = fun_type
@@ -1119,7 +1157,6 @@ def check_statement(stmt, env):
       for (constr,present) in cases_present.items():
         if not present:
           error(loc, 'missing function case for ' + base_name(constr))
-      return env
     case Union(loc, name, typarams, alts):
       # TODO: check for well-defined types in the constructor definitions
       env = env.define_type(loc, name, stmt)
@@ -1137,16 +1174,28 @@ def check_statement(stmt, env):
             check_type(ty, body_env)
           constr_type = FunctionType(constr.location, typarams, constr.parameters,
                                      return_type)
-          env = env.declare_term_var(loc, constr.name, constr_type)
-        elif len(typarams) > 0:
-          env = env.declare_term_var(loc, constr.name, GenericUnknownInst(loc, union_type))
-        else:
-          env = env.declare_term_var(loc, constr.name, union_type)
-      return env
     case Import(loc, name, ast):
-        for s in ast:
-          check_statement(s, env)
-        return env
+      pass
+    case _:
+      error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
+
+def check_statement(stmt, env):
+  if get_verbose():
+    print('** check_statement(' + str(stmt) + ')')
+    print('** env: ' + str(env))
+  match stmt:
+    case Define(loc, name, ty, body):
+      pass
+    case Theorem(loc, name, frm, pf):
+      if get_verbose():
+        print('checking proof of theorem')
+      check_proof_of(pf, frm, env)
+    case RecFun(loc, name, typarams, params, returns, cases):
+      pass
+    case Union(loc, name, typarams, alts):
+      pass
+    case Import(loc, name, ast):
+      pass
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
       
@@ -1171,6 +1220,8 @@ def check_deduce(ast):
   env = Env()
   for s in ast:
     env = check_declaration(s, env)
+  for s in ast:
+    type_check_statement(s, env)
   for s in ast:
     check_statement(s, env)
   

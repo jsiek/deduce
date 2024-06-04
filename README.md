@@ -17,6 +17,33 @@ programs, so it serves as a better starting place educationally, and
 understood, so it's straightforward to build and maintain the Deduce
 proof checker.
 
+As a taster for what it looks like to write proofs in Deduce, the
+following is a proof that appending two lists and then applying the
+`map` function is the same as first applying `map` to the two lists
+and then appending them.
+
+	theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
+	  map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
+	proof
+	  arbitrary T:type, f:fn T->T, ys:List<T>
+	  induction List<T>
+	  case empty {
+		equations
+		  map(append(empty,ys), f)
+			  = map(ys, f)                       by definition append.
+		  ... = append(empty, map(ys, f))        by definition append.
+		  ... = append(map(empty,f), map(ys, f)) by definition map.
+	  }
+	  case node(x, xs') assume IH {
+		enable {map, append}
+		equations
+		  map(append(node(x,xs'),ys),f)
+			  = node(f(x), map(append(xs',ys), f))         by .
+		  ... = node(f(x), append(map(xs',f), map(ys,f)))  by rewrite IH.
+		  ... = append(map(node(x,xs'),f),map(ys,f))       by .
+	  }
+	end
+
 This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
@@ -26,7 +53,7 @@ introduction. Create a file named `examples.pf` in the top `deduce`
 directory and add the examples one at a time. To check the file, run
 the `deduce.py` script on the file from the `deduce` directory.
 
-	python ./deduce.py ./examples.pf
+    python ./deduce.py ./examples.pf
 
 You will need Python version 3.10 or later.
 You also need to install the Lark Parsing library which
@@ -969,10 +996,10 @@ Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
 consider how to prove the following theorem.
 
-	theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
-	proof
-	  ?
-	end
+    theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+    proof
+      ?
+    end
 
 We could proceed by induction, but we it turns out we don't need the
 induction hypothesis. In such situations, we can instead use `switch`.
@@ -981,31 +1008,31 @@ each alternative of the union. Unlike induction, the goal formula does
 not need to be an `all` formula. Instead, you indicate which entity to
 switch on, as in `switch x` below.
 
-	arbitrary x:Nat
-	switch x {
-	  case zero {
-		?
-	  }
-	  case suc(x') {
-		?
-	  }
-	}
+    arbitrary x:Nat
+    switch x {
+      case zero {
+        ?
+      }
+      case suc(x') {
+        ?
+      }
+    }
 
 Deduce responds that in the first case we need to prove the following.
 
-	unfinished proof:
-		true or 0 < 0
+    unfinished proof:
+        true or 0 < 0
 
 So we just need to prove `true`, which is what the period is for.
 
-	case zero {
-	  show true or 0 < 0 by .
-	}
+    case zero {
+      show true or 0 < 0 by .
+    }
 
 In the second case, for `x = suc(x')`, we need to prove the following.
 
-	unfinished proof:
-		false or 0 < suc(x')
+    unfinished proof:
+        false or 0 < suc(x')
 
 There's no hope of proving `false`, so we better prove `0 < suc(x')`.
 Thankfully that follows from the definitions of `<` and `≤`.
@@ -1018,20 +1045,20 @@ Thankfully that follows from the definitions of `<` and `≤`.
 Here is the completed proof that every natural number is either zero
 or positive.
 
-	theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
-	proof
-	  arbitrary x:Nat
-	  switch x {
-		case zero {
-		  show true or 0 < 0 by .
-		}
-		case suc(x') {
-		  have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-		  show suc(x') = 0 or 0 < suc(x') by z_l_sx
-		}
-	  }
-	end
-	
+    theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+    proof
+      arbitrary x:Nat
+      switch x {
+        case zero {
+          show true or 0 < 0 by .
+        }
+        case suc(x') {
+          have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+          show suc(x') = 0 or 0 < suc(x') by z_l_sx
+        }
+      }
+    end
+    
 To summarize this section:
 * Use `switch` on an entity of union type to split the proof into
   cases, with one case for each alternative of the union.
@@ -1049,36 +1076,36 @@ As an example of how to reason about `some` formulas, let us prove a
 classic property of the even numbers, that the addition of two even
 numbers is an even number. Here's the beginning of the proof.
 
-	theorem addition_of_evens:
-	  all x:Nat, y:Nat.
-	  if Even(x) and Even(y) then Even(x + y)
-	proof
-	  arbitrary x:Nat, y:Nat
-	  assume even_xy: Even(x) and Even(y)
+    theorem addition_of_evens:
+      all x:Nat, y:Nat.
+      if Even(x) and Even(y) then Even(x + y)
+    proof
+      arbitrary x:Nat, y:Nat
+      assume even_xy: Even(x) and Even(y)
       have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
       have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
-	  ?
-	end
+      ?
+    end
 
 The next step in the proof is to make use of the facts `even_x` and `even_y`.
 We can make use of a `some` formula using the `obtain` statement of Deduce.
 
-	obtain a with x_2a from even_x
-	obtain b with y_2b from even_y
+    obtain a with x_2a from even_x
+    obtain b with y_2b from even_y
 
 Deduce responds with
 
-	available facts:
-		y_2b: y = 2 * b,
-		x_2a: x = 2 * a,
+    available facts:
+        y_2b: y = 2 * b,
+        x_2a: x = 2 * a,
 
 The `a` and `b` are new variables and the two facts `y_2b` and `x_2a`
 are the subformulas of the `some`, but with `a` and `b` replacing `m`.
 
 We still need to prove the following:
 
-	unfinished proof:
-		Even(x + y)
+    unfinished proof:
+        Even(x + y)
 
 So we use the definition of `Even`
 
@@ -1087,8 +1114,8 @@ So we use the definition of `Even`
 
 and now we need to prove
 
-	unfinished proof:
-		some m:Nat. x + y = 2 * m
+    unfinished proof:
+        some m:Nat. x + y = 2 * m
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
 requires some thinking on our part.  What number can we plug in for
@@ -1097,28 +1124,28 @@ about `a` and `b`, the answer is `a + b`. We conclude the proof
 by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
-	choose a + b
-	rewrite x_2a | y_2b
-	show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+    choose a + b
+    rewrite x_2a | y_2b
+    show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
 
-	theorem addition_of_evens:
-	  all x:Nat, y:Nat.
-	  if Even(x) and Even(y) then Even(x + y)
-	proof
-	  arbitrary x:Nat, y:Nat
-	  assume even_xy: Even(x) and Even(y)
-	  have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
-	  have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
-	  obtain a with x_2a from even_x
-	  obtain b with y_2b from even_y
-	  definition Even
-	  show some m:Nat. x + y = 2 * m
-	  choose a + b
-	  rewrite x_2a | y_2b
-	  show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
-	end
+    theorem addition_of_evens:
+      all x:Nat, y:Nat.
+      if Even(x) and Even(y) then Even(x + y)
+    proof
+      arbitrary x:Nat, y:Nat
+      assume even_xy: Even(x) and Even(y)
+      have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
+      have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
+      obtain a with x_2a from even_x
+      obtain b with y_2b from even_y
+      definition Even
+      show some m:Nat. x + y = 2 * m
+      choose a + b
+      rewrite x_2a | y_2b
+      show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+    end
 
 To summarize this section:
 * The `some` formula expresses that a property is true for at least one entity.
