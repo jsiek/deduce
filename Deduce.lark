@@ -116,7 +116,7 @@ ident: IDENT              -> ident
     | "assume" IDENT ":" term proof                      -> imp_intro_explicit
     | "arbitrary"  var_list proof                        -> all_intro
     | "choose" term_list proof                           -> some_intro
-    | "obtain" ident_list "with" IDENT "from" proof proof -> some_elim
+    | "obtain" ident_list "where" IDENT "from" proof proof -> some_elim
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
     | "definition" "{" ident_list "}" proof              -> apply_defs_goal

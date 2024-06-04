@@ -1161,8 +1161,8 @@ numbers is an even number. Here's the beginning of the proof.
 The next step in the proof is to make use of the facts `even_x` and `even_y`.
 We can make use of a `some` formula using the `obtain` statement of Deduce.
 
-    obtain a with x_2a from even_x
-    obtain b with y_2b from even_y
+    obtain a where x_2a from even_x
+    obtain b where y_2b from even_y
 
 Deduce responds with
 
@@ -1209,8 +1209,8 @@ Here is the complete proof.
       assume even_xy: Even(x) and Even(y)
       have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
       have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
-      obtain a with x_2a from even_x
-      obtain b with y_2b from even_y
+      obtain a where x_2a from even_x
+      obtain b where y_2b from even_y
       definition Even
       show some m:Nat. x + y = 2 * m
       choose a + b

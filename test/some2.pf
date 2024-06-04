@@ -3,7 +3,7 @@ import Nat
 theorem T: if (some x:Nat. x = 0) then (some x:Nat. x = 1)
 proof
   assume prem
-  obtain y with yeqz from prem
+  obtain y where yeqz from prem
   choose suc(y)
   rewrite yeqz.
 end

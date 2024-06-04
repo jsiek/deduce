@@ -559,8 +559,8 @@ proof
   assume even_xy: Even(x) and Even(y)
   have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
-  obtain a with x_2a from even_x
-  obtain b with y_2b from even_y
+  obtain a where x_2a from even_x
+  obtain b where y_2b from even_y
   definition Even
   show some m:Nat. x + y = 2 * m
   choose a + b
@@ -591,7 +591,7 @@ proof
       (assume suc_even: is_even(suc(n'))
        have odd_n: is_odd(n') by definition is_even in suc_even
        have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
-       obtain m with n_2m from definition Odd in Odd_n
+       obtain m where n_2m from definition Odd in Odd_n
        definition Even
        choose suc(m)
        rewrite n_2m
@@ -601,7 +601,7 @@ proof
       (assume suc_odd: is_odd(suc(n'))
        have even_n: is_even(n') by definition is_odd in suc_odd
        have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
-       obtain m with n_2m from definition Even in Even_n
+       obtain m where n_2m from definition Even in Even_n
        definition Odd
        choose m
        rewrite n_2m.)
