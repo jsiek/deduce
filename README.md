@@ -34,7 +34,9 @@ and then appending them.
           ... = append(empty, map(ys, f))        by definition append.
           ... = append(map(empty,f), map(ys, f)) by definition map.
       }
-      case node(x, xs') assume IH {
+      case node(x, xs')
+        assume IH: map(append(xs',ys), f) = append(map(xs',f), map(ys, f))
+      {
         enable {map, append}
         equations
           map(append(node(x,xs'),ys),f)
