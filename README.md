@@ -23,7 +23,7 @@ following is a proof that appending two lists and then applying the
 and then appending them.
 
     theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
-      map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
+      map(append(xs,ys), f) = append(map(xs,f), map(ys,f))
     proof
       arbitrary T : type, f : fn T->T, ys : List<T>
       induction List<T>
