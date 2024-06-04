@@ -486,6 +486,14 @@ def check_proof_of(proof, formula, env):
       check_proof_of(reason, frm, env)
       body_env = env.declare_proof_var(loc, label, frm)
       check_proof_of(rest, formula, body_env)
+
+    case PAnnot(loc, claim, reason):
+      check_formula(claim, env)
+      claim_red = claim.reduce(env)
+      formula_red = formula.reduce(env)
+      check_implies(loc, claim_red, formula_red)
+      check_proof_of(reason, claim, env)
+      
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
       match sub_frm:
@@ -497,6 +505,7 @@ def check_proof_of(proof, formula, env):
             check_proof_of(case, formula, body_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_frm))
+          
     case Induction(loc, typ, cases):
       match formula:
         case All(loc2, [(var,ty)], frm):
@@ -772,10 +781,9 @@ def check_type(typ, env):
 def type_synth_term(term, env, recfun, subterms):
   if hasattr(term, 'typeof'):
     return term.typeof
-
   if get_verbose():
     print('type_synth_term: ' + str(term))
-    print('env: ' + str(env))
+    #print('env: ' + str(env))
   match term:
     case Var(loc, name, index):
       ret = env.get_type_of_term_var(term)
@@ -969,7 +977,7 @@ def check_pattern(pattern, typ, env):
   if get_verbose():
     print('check pattern: ' + str(pattern))
     print('against type: ' + str(typ))
-    print('in env: ' + str(env))
+    #print('in env: ' + str(env))
   pattern.typeof = typ
   match pattern:
     case PatternCons(loc, constr, params):
@@ -985,7 +993,7 @@ modules = set()
 def process_declaration(stmt, env):
   if get_verbose():
     print('** process_declaration(' + str(stmt) + ')')
-    print('** env: ' + str(env))
+    #print('** env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -1035,7 +1043,7 @@ def process_declaration(stmt, env):
 def type_check_stmt(stmt, env):
   if get_verbose():
     print('** type_check_stmt(' + str(stmt) + ')')
-    print('** env: ' + str(env))
+    #print('** env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -1074,7 +1082,7 @@ def type_check_stmt(stmt, env):
 def check_proofs(stmt, env):
   if get_verbose():
     print('** check_proofs(' + str(stmt) + ')')
-    print('** env: ' + str(env))
+    #print('** env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       pass

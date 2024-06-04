@@ -912,6 +912,73 @@ To summarize this section:
   condition.
 
 
+## Reasoning about `true`
+
+There's not much to say about `true`. It's true!  And as we've already
+seen, proving `true` is easy. Just use a period.
+
+	theorem really_trivial: true
+	proof
+	  .
+	end
+
+One almost never sees `true` written explicitly in a formula. However,
+it is common for a formula to simplify to `true` after some rewriting.
+
+## Reasoning about `false`
+
+The formula `false` is also rarely written explicitly in a formula.
+However, it can arise in contradictory situations. For example,
+in the following we have a situation in which `true = false`.
+That can't be, so Deduce simplifies `true = false` to just `false`.
+
+	theorem contra_false: all a:bool, b:bool.
+	  if a = b and a = true and b = false then false
+	proof
+	  arbitrary a:bool, b:bool
+	  assume prem: a = b and a = true and b = false
+	  have a_true: a = true by prem
+	  have b_true: b = false by prem
+	  show false by rewrite a_true | b_true in prem
+	end
+
+More generally, Deduce knows that the different constructors of a
+union are in fact different. So in the next example, because `foo` and
+`bar` are different constructors, Deduce simplifies `foo = bar` to
+`false`.
+
+	union U {
+	  foo
+	  bar
+	}
+	
+	theorem foo_bar_false: if foo = bar then false
+	proof
+	  .
+	end
+
+The above proof is just a period because Deduce simplies any formula
+of the form `if false then ...` to `true`, which is related to our
+next point.
+
+So far we've discussed how a proof of `false` can arrise.  Next let's
+talk about how you can use `false` once you've got it.  The answer is
+anything! The Principle of Explosion from logic tells us that `false`
+implies anything. For example, normally we don't know whether or not
+two arbitrary Booleans `x` and `y` are the same or different.  But if
+we have a premise that is `false`, it doesn't matter.
+
+	theorem false_any: all x:bool, y:bool. if false then x = y
+	proof
+	  arbitrary x:bool, y:bool
+	  assume f: false
+	  show x = y by f
+	end
+
+To summarize this section:
+* Deduce simplifies any obviously contradictory equation to `false`.
+* `false` implies anything.
+
 ## Reasoning about `not`
 
 To express that a formula is false, precede it with `not`.  For

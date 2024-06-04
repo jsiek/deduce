@@ -1,5 +1,5 @@
 theorem T: all x : int. x = x 
 proof
   arbitrary y:int
-  have y = y by reflexive
+  show y = y by reflexive
 end

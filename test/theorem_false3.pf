@@ -1,0 +1,9 @@
+union U {
+  foo
+  bar
+}
+
+theorem foo_bar_false: if foo = bar then false
+proof
+  .
+end

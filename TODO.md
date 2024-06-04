@@ -1,4 +1,12 @@
-[ ] Explain false.
+[ ] Revisit syntax for rewriting with a set of equations (replace bar)
+
+[ ] Fix syntax error messages inside imports
+
+[ ] print parenthesis for * and + properly
+
+[x] Explain false.
+
+[x] Change order of checking for PAnnot
 
 [x] explain existentials using even number example
 
@@ -14,11 +22,6 @@
 		  is_odd(suc(n)) = is_even(n)
 		}
 
-[ ] Revisit syntax for rewriting with a set of equations (replace bar)
-
-[ ] Fix syntax error messages inside imports
-
-[ ] print parenthesis for * and + properly
 
 
 
