@@ -312,7 +312,14 @@ def parse_tree_to_ast(e):
         label = parse_tree_to_ast(e.children[1])
         some = parse_tree_to_ast(e.children[2])
         body = parse_tree_to_ast(e.children[3])
-        return SomeElim(e.meta, witnesses, label, some, body)
+        return SomeElim(e.meta, witnesses, label, None, some, body)
+    elif e.data == 'some_elim_explicit':
+        witnesses = parse_tree_to_list(e.children[0])
+        label = parse_tree_to_ast(e.children[1])
+        prop = parse_tree_to_ast(e.children[2])
+        some = parse_tree_to_ast(e.children[3])
+        body = parse_tree_to_ast(e.children[4])
+        return SomeElim(e.meta, witnesses, label, prop, some, body)
     elif e.data == 'imp_intro_explicit':
         label = str(e.children[0].value)
         premise = parse_tree_to_ast(e.children[1])

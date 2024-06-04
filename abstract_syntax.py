@@ -1665,12 +1665,14 @@ class SomeIntro(Proof):
 class SomeElim(Proof):
   witnesses: List[str]
   label: str
+  prop: Formula
   some: Proof
   body: Proof
 
   def __str__(self):
     return 'obtain ' + ",".join(self.witnesses) \
-      + ' with ' + self.label \
+      + ' where ' + self.label \
+      + (' : ' + str(self.prop) if self.prop else '') \
       + ' from ' + str(self.some) \
       + '; ' + str(self.body)
   
@@ -1686,6 +1688,8 @@ class SomeElim(Proof):
     body_env[self.label] = new_label
     self.witnesses = new_witnesses
     self.label = new_label
+    if self.prop:
+      self.prop.uniquify(body_env)
     self.body.uniquify(body_env)
     
 @dataclass

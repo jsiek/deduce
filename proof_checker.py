@@ -444,13 +444,17 @@ def check_proof_of(proof, formula, env):
         case _:
           error(loc, "choose expects the goal to start with 'some', not " + str(formula))
           
-    case SomeElim(loc, witnesses, label, some, body):
+    case SomeElim(loc, witnesses, label, prop, some, body):
       someFormula = check_proof(some, env)
       match someFormula:
         case Some(loc2, vars, formula2):
           sub = {var[0]: Var(loc2, x) for (var,x) in zip(vars,witnesses)}
           witnessFormula = formula2.substitute(sub)
-          body_env = env.declare_proof_var(loc, label, witnessFormula)
+          if prop:
+            check_implies(loc, witnessFormula, prop)
+          else:
+            prop = witnessFormula
+          body_env = env.declare_proof_var(loc, label, prop)
           witnesses_types = [(x,var[1]) for (var,x) in zip(vars,witnesses)]
           body_env = body_env.declare_term_vars(loc, witnesses_types)
           check_proof_of(body, formula, body_env)
