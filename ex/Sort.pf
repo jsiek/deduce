@@ -16,28 +16,6 @@ function insert(List<Nat>,Nat) -> List<Nat> {
       node(y, insert(next, x))
 }
 
-theorem all_elements_implies: all T:type. all xs:List<T>. all P: fn T -> bool, Q: fn T -> bool.
-  if all_elements(xs,P) and (all z:T. if P(z) then Q(z)) then all_elements(xs,Q)
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary P: fn T -> bool, Q: fn T -> bool
-    assume _
-    definition all_elements.
-  }
-  case node(x, xs') assume IH {
-    arbitrary P: fn T -> bool, Q: fn T -> bool
-    assume prem
-    definition all_elements
-    show Q(x) and all_elements(xs',Q)
-    have Px: P(x) by definition all_elements in prem
-    have Qx: Q(x) by apply (conjunct 1 of prem)[x] to Px
-    have Pxs: all_elements(xs',P) by definition all_elements in prem
-    Qx , apply IH[P,Q] to Pxs , prem
-  }
-end
-
 theorem less_equal_insert:
   all xs:List<Nat>. all x:Nat, y:Nat.
   if y ≤ x and all_elements(xs, λb{y ≤ b} : fn Nat -> bool)

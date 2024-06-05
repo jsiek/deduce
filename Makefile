@@ -33,6 +33,7 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py Option.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Sets.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
 
 # TODO
 
