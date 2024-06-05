@@ -1,4 +1,5 @@
 import Nat
+import Option
 
 union List<T> {
   empty
@@ -7,7 +8,7 @@ union List<T> {
 
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
-  length(node(n, next)) = 1 + length(next)
+  length(node(n, next)) = suc(length(next))
 }
 
 function append<E>(List<E>, List<E>) -> List<E> {
@@ -521,3 +522,16 @@ proof
   }
 end
 
+function summation(List<Nat>, fn Nat->Nat) -> Nat {
+  summation(empty, f) = 0
+  summation(node(j, js), f) = f(j) + summation(js, f)
+}
+
+function nth<T>(List<T>, Nat) -> Option<T> {
+  nth(empty, i) = none
+  nth(node(x, xs), i) =
+    if i = 0 then
+      just(x)
+    else
+       nth(xs, pred(i))
+}

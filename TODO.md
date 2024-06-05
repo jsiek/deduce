@@ -1,3 +1,7 @@
+[ ] issue of nontermination for foldr in sum_fold
+
+[ ] issue of conjunction intro in checking mode
+
 [ ] Revisit syntax for rewriting with a set of equations (replace bar)
 
 [ ] Fix syntax error messages inside imports

@@ -1,0 +1,21 @@
+import Nat
+import List
+import Option
+
+theorem sum_fold: all xs:List<Nat>. all init:Nat.
+  summation(down_from(length(xs)), λi{default(nth(xs,i), 0)}: fn Nat -> Nat) + init
+  =
+  foldl(xs, init, λa,b{a + b})
+  // foldr goes into infinite loop
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary init:Nat
+    definition {length, down_from, summation, foldl, operator +}.
+  }
+  case node(x, xs') assume IH {
+    arbitrary init:Nat
+    definition{length, down_from, summation,foldl}
+    ?
+  }
+end

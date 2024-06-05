@@ -524,6 +524,9 @@ class Lambda(Term):
       return new_body == other.body
 
   def reduce(self, env):
+    # term_env = env.term_dict()
+    # new_body = self.body.substitute(term_env)
+    # clos = Closure(self.location, self.vars, new_body, env)
     clos = Closure(self.location, self.vars, self.body.reduce(env), env)
     clos.typeof = self.typeof
     return clos
@@ -692,11 +695,13 @@ class Call(Term):
         set_reduce_only(old_defs)
       case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
         if True:
+          #print('*** reduce recursive fun ' + name)
           first_arg = args[0]
           rest_args = args[1:]
           for fun_case in cases:
               subst = {}
               if is_match(fun_case.pattern, first_arg, subst):
+                  #print('*** beta ' + str(subst))
                   body_env = clos_env.define_term_vars(loc, subst.items())
                   body_env = body_env.define_term_vars(loc, zip(fun_case.parameters, rest_args))
                   old_defs = get_reduce_only()

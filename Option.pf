@@ -7,3 +7,8 @@ function after<T,U>(Option<T>, fn (T) -> U) -> Option<U> {
   after(none, f) = none
   after(just(x), f) = just(f(x))
 }
+
+function default<T>(Option<T>, T) -> T {
+  after(none, y) = y
+  after(just(x), y) = x
+}
