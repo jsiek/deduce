@@ -1,0 +1,121 @@
+import Nat
+import List
+
+function sorted(List<Nat>) -> bool {
+  sorted(empty) = true
+  sorted(node(a, next)) =
+    sorted(next) and all_elements(next, λb{ a ≤ b })
+}
+
+function insert(List<Nat>,Nat) -> List<Nat> {
+  insert(empty, x) = node(x, empty)
+  insert(node(y, next), x) =
+    if x ≤ y then
+      node(x, node(y, next))
+    else
+      node(y, insert(next, x))
+}
+
+theorem all_elements_implies: all T:type. all xs:List<T>. all P: fn T -> bool, Q: fn T -> bool.
+  if all_elements(xs,P) and (all z:T. if P(z) then Q(z)) then all_elements(xs,Q)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary P: fn T -> bool, Q: fn T -> bool
+    assume _
+    definition all_elements.
+  }
+  case node(x, xs') assume IH {
+    arbitrary P: fn T -> bool, Q: fn T -> bool
+    assume prem
+    definition all_elements
+    show Q(x) and all_elements(xs',Q)
+    have Px: P(x) by definition all_elements in prem
+    have Qx: Q(x) by apply (conjunct 1 of prem)[x] to Px
+    have Pxs: all_elements(xs',P) by definition all_elements in prem
+    Qx , apply IH[P,Q] to Pxs , prem
+  }
+end
+
+theorem less_equal_insert:
+  all xs:List<Nat>. all x:Nat, y:Nat.
+  if y ≤ x and all_elements(xs, λb{y ≤ b} : fn Nat -> bool)
+  then all_elements(insert(xs,x), λb{y ≤ b} : fn Nat -> bool)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary x:Nat, y:Nat
+    assume prem
+    definition insert    
+    show all_elements(node(x,empty), λb{y ≤ b} : fn Nat -> bool)
+    definition all_elements
+    show y ≤ x by prem
+  }
+  case node(a, xs') assume IH {
+    arbitrary x:Nat, y:Nat
+    assume prem
+    have y_le_x: y ≤ x by prem
+    have y_le_a: y ≤ a by definition all_elements in prem
+    have y_le_xs: all_elements(xs', λb{y ≤ b}) by definition all_elements in prem
+    definition insert
+    cases dichotomy[x,a]
+    case x_le_a: x ≤ a {
+      rewrite x_le_a
+      definition all_elements
+      have y_le_a: y ≤ a by apply less_equal_trans[y][x,a] to y_le_x, x_le_a
+      have y_le_xs: all_elements(xs',λb{(y ≤ b)}) by definition all_elements in prem
+      y_le_x, y_le_a, y_le_xs
+    }
+    case a_l_x: a < x {
+      have not_x_le_a: not (x ≤ a) by apply less_not_greater_equal[a][x] to a_l_x
+      rewrite not_x_le_a
+      definition all_elements
+      have y_le_xsx: all_elements(insert(xs',x),λb{(y ≤ b)}) by apply IH[x,y] to y_le_x, y_le_xs
+      y_le_a, y_le_xsx
+    }
+  }
+end
+
+theorem insert_sorted: all xs:List<Nat>. all x:Nat.
+  if sorted(xs) then sorted(insert(xs, x))
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary x:Nat
+    assume _
+    show sorted(insert(empty,x))
+    definition {insert, sorted, all_elements}.
+  }
+  case node(y, next) assume IH {
+    arbitrary x:Nat
+    assume s_yn: sorted(node(y,next))
+    have s_n: sorted(next) by definition sorted in s_yn
+    have y_next: all_elements(next,λb{(y ≤ b)}) by definition sorted in s_yn
+    show sorted(insert(node(y,next),x))
+    definition insert
+    cases dichotomy[x,y]
+    case x_le_y: x ≤ y {
+      rewrite x_le_y
+      show sorted(node(x,node(y,next)))
+      definition {sorted, all_elements}
+      have x_next: all_elements(next,λb{(x ≤ b)})
+        by apply all_elements_implies[Nat][next][λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
+	   to y_next , (arbitrary z:Nat
+	                assume y_z: y ≤ z
+	                show x ≤ z by apply less_equal_trans[x][y,z] to x_le_y , y_z)
+      s_n, y_next, x_le_y, x_next
+    }
+    case y_l_x: y < x {
+      have not_x_le_y: not (x ≤ y) by apply less_not_greater_equal[y][x] to y_l_x
+      rewrite not_x_le_y
+      show sorted(node(y,insert(next,x)))
+      definition {sorted, all_elements}
+      have s_next_x: sorted(insert(next,x)) by apply IH[x] to s_n
+      have y_le_x: y ≤ x by apply less_implies_less_equal[y][x] to y_l_x
+      have y_le_next_x: all_elements(insert(next,x),λb{(y ≤ b)})
+        by apply less_equal_insert[next][x,y] to y_le_x, y_next
+      s_next_x, y_le_next_x
+    }
+  }
+end

@@ -4,6 +4,14 @@
 
 [ ] print parenthesis for * and + properly
 
+[ ] create a language for testing Deduce functions (tst file extension)
+    it adds support for
+	[ ] random number generation
+	[ ] error (halt with message)
+	[ ] loops?
+
+[ ] create student exercises
+
 [x] Explain false.
 
 [x] Change order of checking for PAnnot

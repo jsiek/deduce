@@ -1,4 +1,4 @@
-from proof_checker import check_deduce, debruijnize_deduce, uniquify_deduce, set_verbose, get_verbose
+from proof_checker import check_deduce, uniquify_deduce, set_verbose, get_verbose
 import sys
 from parser import parse, set_filename
 from lark import exceptions

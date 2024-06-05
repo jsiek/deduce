@@ -253,7 +253,7 @@ proof
   case suc(m') assume IH {
     arbitrary n:Nat, o:Nat
     assume Prem: suc(m') ≤ n and n ≤ o
-    have sm_n: suc(m') ≤ n  by Prem
+    have sm_n: suc(m') ≤ n  by Prem // bug
     have n_o: n ≤ o  by Prem
     switch n {
       case 0 assume nz {
@@ -328,6 +328,48 @@ proof
     enable {operator <, operator ≤}
     have x_l_x: x' < x' by sx_l_sx
     show false by apply IH to x_l_x
+  }
+end
+
+theorem less_not_greater_equal:
+  all x:Nat. all y:Nat.
+  if x < y then not (y ≤ x)
+proof
+  induction Nat
+  case zero {
+    arbitrary y : Nat
+    assume z_l_y: 0 < y
+    assume y_le_z: y ≤ 0
+    switch y {
+      case zero assume y_z: y = 0 {
+        definition {operator <, operator ≤}
+	in (rewrite y_z in z_l_y)
+      }
+      case suc(y') assume y_s: y = suc(y') {
+        definition {operator ≤}
+	in (rewrite y_s in y_le_z)
+      }
+    }
+  }
+  case suc(x') assume IH {
+    arbitrary y : Nat
+    assume sx_less_y
+    assume y_le_sx
+    switch y {
+      case zero assume y_eq_zero {
+        have false by (definition {operator <, operator ≤} in
+                       (rewrite y_eq_zero in sx_less_y))
+      }
+      case suc(y') assume ys {
+        have x_less_y: x' < y' by
+           definition {operator <, operator ≤}
+           definition {operator <, operator ≤} in (rewrite ys in sx_less_y)
+	have y_le_x: y' ≤ x' by
+	   definition {operator <, operator ≤}
+	   in (rewrite ys in y_le_sx)
+        have false by apply (apply IH[y'] to x_less_y) to y_le_x
+      }
+    }
   }
 end
 

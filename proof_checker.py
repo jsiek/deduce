@@ -345,7 +345,7 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      error(loc, 'unfinished proof:\n\t' + str(formula.reduce(env)) \
+      error(loc, 'unfinished proof:\n\t' + str(formula) \
             + '\n\navailable facts:\n' + env.proofs_str())
 
     case EnableDefs(loc, definitions, subject):
@@ -483,7 +483,7 @@ def check_proof_of(proof, formula, env):
           body_env = env.declare_proof_var(loc, label, prem1_red)
           check_proof_of(body, conc, body_env)
         case _:
-          error(proof.location, 'expected proof of if-then, not ' + str(proof))
+          error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
       
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)
@@ -497,6 +497,18 @@ def check_proof_of(proof, formula, env):
       formula_red = formula.reduce(env)
       check_implies(loc, claim_red, formula_red)
       check_proof_of(reason, claim, env)
+
+    # Want something like the following to help with interactive proof development, but
+    # it need to be smarter than the following. -Jeremy
+    # case PTuple(loc, pfs):
+    #   match formula:
+    #     case And(loc, frms):
+    #       for (frm,pf) in zip(frms, pfs):
+    #         print('PTuple\n\tfrm: ' + str(frm) + '\n\t' + str(pf))
+    #         check_proof_of(pf, frm, env)
+    #     case _:
+    #       error(loc, 'the comma proof operator is for logical and, not ' + str(formula))
+
       
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
@@ -674,7 +686,6 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         matching[name] = arg_ty
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
         if len(tv1) == len(tv2) and len(pts1) == len(pts2):
-        #tyvars = [ty.shift(0, len(tv1)) for ty in tyvars]
         for (pt1, pt2) in zip(pts1, pts2):
           type_match(loc, tyvars, pt1, pt2, matching)
         type_match(loc, tyvars, rt1, rt2, matching)
@@ -1015,7 +1026,7 @@ def process_declaration(stmt, env):
       env = env.define_type(loc, name, stmt)
       union_type = Var(loc, name, 0)
       body_env = env.declare_type_vars(loc, typarams)
-      body_union_type = union_type #.shift_type_vars(0, len(typarams))
+      body_union_type = union_type
       for constr in alts:
         if len(constr.parameters) > 0:
           if len(typarams) > 0:
@@ -1103,14 +1114,6 @@ def check_proofs(stmt, env):
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
       
-def debruijnize_deduce(ast):
-  env = Env()
-  env = env.declare_term_var(None, '≠', None)
-  env = env.declare_term_var(None, '=', None)
-  for s in ast:
-    env = s.debruijnize(env)
-  return env
-
 def uniquify_deduce(ast):
   env = {}
   env['≠'] = '≠'
