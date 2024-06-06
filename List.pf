@@ -616,3 +616,29 @@ proof
     definition {foldl,flip,foldr}.
   }
 end
+
+theorem flip_flip:
+  all T:type, f:fn T,T->T. flip(flip(f)) = f
+proof
+  arbitrary T:type, f:fn T,T->T
+  extensionality
+  arbitrary x:T, y:T
+  definition flip.
+end
+
+theorem foldl_foldr:
+  all T:type, xs:List<T>, b:T, f:fn T,T->T.
+  foldl(xs, b, f) = foldr(reverse(xs), b, flip(f))
+proof
+  arbitrary T:type, xs:List<T>, b:T, f:fn T,T->T
+  equations
+    foldl(xs, b, f)
+        = foldl(xs,foldr(empty,b,flip(f)),flip(flip(f)))
+              by definition foldr rewrite flip_flip[T,f].
+    ... = foldr(rev_app(xs,empty),b,flip(f))
+              by symmetric foldr_rev_app_foldl[T][xs][empty,b,flip(f)]
+    ... = foldr(append(reverse(xs),empty), b, flip(f))
+              by rewrite rev_app_reverse_append[T][xs][empty].
+    ... = foldr(reverse(xs), b, flip(f)) 
+             by rewrite append_empty[T][reverse(xs)].
+end

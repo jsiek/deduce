@@ -402,12 +402,12 @@ def check_proof_of(proof, formula, env):
       (lhs,rhs) = split_equation(loc, formula)
       lhs_type = type_synth_term(lhs, env, None, [])
       match lhs_type:
-        case FunctionType(loc2, [], [typ], ret_ty):
-          arg_name = generate_name('x')
-          arg = Var(loc, arg_name)
-          call_lhs = Call(loc, lhs, [arg], False)
-          call_rhs = Call(loc, rhs, [arg], False)
-          formula = All(loc, [(arg_name, typ)],
+        case FunctionType(loc2, [], typs, ret_ty):
+          names = [generate_name('x') for ty in typs]
+          args = [Var(loc, x) for x in names]
+          call_lhs = Call(loc, lhs, args, False)
+          call_rhs = Call(loc, rhs, args, False)
+          formula = All(loc, list(zip(names,typs)),
                         mkEqual(loc, call_lhs, call_rhs))
           check_proof_of(proof, formula, env)
         case FunctionType(loc2, [], params, ret_ty):

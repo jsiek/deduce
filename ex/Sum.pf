@@ -80,3 +80,49 @@ proof
       ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by rewrite sum_01.
   }
 end
+
+theorem nth_node:
+  all T:type, x:T, xs:List<T>, i:Nat, d:T. nth(node(x,xs),d)(suc(i)) = nth(xs,d)(i)
+proof
+  arbitrary T:type, x:T, xs:List<T>, i:Nat, d:T
+  definition {nth,pred}.
+end
+
+
+theorem summation_append:
+  all xs:List<Nat>. all ys:List<Nat>.
+  summation(length(append(xs,ys)), 0, nth(append(xs,ys), 0))
+  = summation(length(xs), 0, nth(xs,0)) + summation(length(ys), 0, nth(ys,0))
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary ys:List<Nat>
+    definition {append,length,nth,summation,operator +}.
+  }
+  case node(x,xs') assume IH {
+    arbitrary ys:List<Nat>
+    definition {append,length,summation}
+    have n_x_xs_ys: nth(node(x,append(xs',ys)),0)(0) = x by definition nth.
+    rewrite n_x_xs_ys
+    have n_x_xs: nth(node(x,xs'),0)(0) = x by definition nth.
+    rewrite n_x_xs
+    have IH': summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
+            = summation(length(xs'),0,nth(xs',0)) + summation(length(ys),0,nth(ys,0)) by IH[ys]
+    have s1: summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
+           = summation(length(append(xs',ys)),1,nth(node(x,append(xs',ys)),0))
+	 by apply summation_suc[length(append(xs',ys))][nth(append(xs',ys),0),nth(node(x,append(xs',ys)),0),0]
+	    to arbitrary i:Nat rewrite nth_node[Nat,x,append(xs',ys),i,0].
+    have s2: summation(length(xs'),0,nth(xs',0)) = summation(length(xs'),1,nth(node(x,xs'),0))
+         by apply summation_suc[length(xs')][nth(xs',0), nth(node(x,xs'),0),0] 
+	    to arbitrary i:Nat rewrite nth_node[Nat,x,xs',i,0].
+    equations
+	x + summation(length(append(xs',ys)),1,nth(node(x,append(xs',ys)),0))
+        = x + summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
+	  by rewrite symmetric apply summation_suc[length(append(xs',ys))][nth(append(xs',ys),0),nth(node(x,append(xs',ys)),0),0]
+ 	               to (arbitrary i:Nat rewrite nth_node[Nat,x,append(xs',ys),i,0].).
+    ... = x + (summation(length(xs'),0,nth(xs',0)) + summation(length(ys),0,nth(ys,0)))   by rewrite IH[ys].
+    ... = x + (summation(length(xs'),1,nth(node(x,xs'),0)) + summation(length(ys),0,nth(ys,0)))  by rewrite s2.
+    ... = (x + summation(length(xs'),1,nth(node(x,xs'),0))) + summation(length(ys),0,nth(ys,0))
+          by symmetric add_assoc[x][summation(length(xs'),1,nth(node(x,xs'),0)), summation(length(ys),0,nth(ys,0))]
+  }
+end
