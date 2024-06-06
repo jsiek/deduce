@@ -452,13 +452,11 @@ class Var(AST):
     
   def reduce(self, env):
       if self in get_reduce_only():
+        #print('*** reducing var ' + self.name)
         res = env.get_value_of_term_var(self)
-        if res:      
-          match res:
-            case Var(loc, nm, idx):
-                return res
-            case _:
-                return res.reduce(env)
+        if res:
+          #print('\t var ' + self.name + ' => ' + str(res))
+          return res
         else:
             return self
       else:
@@ -524,9 +522,6 @@ class Lambda(Term):
       return new_body == other.body
 
   def reduce(self, env):
-    # term_env = env.term_dict()
-    # new_body = self.body.substitute(term_env)
-    # clos = Closure(self.location, self.vars, new_body, env)
     clos = Closure(self.location, self.vars, self.body.reduce(env), env)
     clos.typeof = self.typeof
     return clos
@@ -553,7 +548,7 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "λ" + ",".join([base_name(v) for v in self.vars]) \
+    return "λᶜ" + ",".join([base_name(v) for v in self.vars]) \
       + "{" + str(self.body) + "}"
 
   def __repr__(self):
@@ -651,7 +646,7 @@ class Call(Term):
   
   def __str__(self):
     if self.infix:
-      return  "(" + str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1]) + ")"
+      return  str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1])
     elif isNat(self):
       return str(natToInt(self))
     else:
@@ -674,13 +669,15 @@ class Call(Term):
     
   def reduce(self, env):
     #print('*** reduce call ' + str(self))
+    #print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
     fun = self.rator.reduce(env)
-    #print('*** reduced rator ' + str(fun))    
+    #print('*** rator => ' + str(fun))    
     args = [arg.reduce(env) for arg in self.args]
-    #print('*** reduced args ' + str(args))
+    #print('*** args => ' + ', '.join([str(arg) for arg in args]))
     ret = None
     match fun:
       case Var(loc, '='):
+        #print('*** reduce equality ' + str(fun))
         if args[0] == args[1]:
           ret = Bool(loc, True)
         elif constructor_conflict(args[0], args[1], env):
@@ -688,7 +685,15 @@ class Call(Term):
         else:
           ret = Call(self.location, fun, args, self.infix)
       case Closure(loc, vars, body, clos_env):
+        #print('*** reduce closure ' + str(fun))
         body_env = clos_env.define_term_vars(loc, zip(vars, args))
+        old_defs = get_reduce_only()
+        set_reduce_only(old_defs + [Var(loc, x) for x in vars])
+        ret = body.reduce(body_env)
+        set_reduce_only(old_defs)
+      case Lambda(loc, vars, body):
+        #print('*** reduce lambda ' + str(fun))
+        body_env = env.define_term_vars(loc, zip(vars, args))
         old_defs = get_reduce_only()
         set_reduce_only(old_defs + [Var(loc, x) for x in vars])
         ret = body.reduce(body_env)
@@ -701,19 +706,27 @@ class Call(Term):
           for fun_case in cases:
               subst = {}
               if is_match(fun_case.pattern, first_arg, subst):
-                  #print('*** beta ' + str(subst))
+                  #print('*** beta ' + name)
                   body_env = clos_env.define_term_vars(loc, subst.items())
                   body_env = body_env.define_term_vars(loc, zip(fun_case.parameters, rest_args))
                   old_defs = get_reduce_only()
-                  set_reduce_only(old_defs + [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters])
+                  reduce_defs = [x for x in old_defs]
+                  if name in reduce_defs:
+                    reduce_defs.remove(name)
+                  reduce_defs += [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters]
+                  set_reduce_only(reduce_defs)
                   ret = fun_case.body.reduce(body_env)
                   set_reduce_only(old_defs)
                   num_bindings = len(fun_case.pattern.parameters) + len(fun_case.parameters)
                   result = ret
                   return result
         ret = Call(self.location, fun, args, self.infix)
+      case Generic(loc, typarams, body):
+        ret = Call(self.location, body, args, self.infix).reduce(env)
       case _:
+        #print("*** can't reduce, not a redex: " + str(fun))
         ret = Call(self.location, fun, args, self.infix)
+    #print('*** finished reducing call\n\t' + str(self) + '\n\t' + str(ret))
     return ret
 
   def substitute(self, sub):
@@ -793,7 +806,6 @@ class Switch(Term):
       return str(self)
   
   def reduce(self, env):
-      # print('reducing\n\t' + str(self))
       new_subject = self.subject.reduce(env)
       for c in self.cases:
           subst = {}
@@ -805,13 +817,8 @@ class Switch(Term):
             ret = c.body.reduce(new_env)
             set_reduce_only(old_defs)
             return ret
-      #new_cases = [c.reduce(env) for c in self.cases]
-      term_env = env.term_dict()
-      # print('term_env:\n\t' + str(term_env))
-      # print('env:\n\t' + str(env))
-      new_cases = [c.substitute(term_env) for c in self.cases]
+      new_cases = [c.reduce(env) for c in self.cases]
       ret = Switch(self.location, new_subject, new_cases)
-      # print('finished reducing\n\t' + str(ret))
       return ret
   
   def substitute(self, sub):
@@ -1775,31 +1782,38 @@ class Define(Statement):
   
   def uniquify_body(self, env):
     pass
-  
-debruijnized_modules = set()
 
+uniquified_modules = {}
+  
 @dataclass
 class Import(Statement):
   name: str
   ast: AST = None
+
+  def __str__(self):
+    return 'import ' + self.name
   
   def uniquify(self, env):
-    if self.name not in debruijnized_modules:
-      debruijnized_modules.add(self.name)
-    filename = self.name + ".pf"
-    file = open(filename, 'r')
-    src = file.read()
-    file.close()
-    from parser import get_filename, set_filename, parse
-    old_filename = get_filename()
-    set_filename(filename)
-    self.ast = parse(src, trace=False)
-    set_filename(old_filename)
-    for s in self.ast:
-      s.uniquify(env)
-    for s in self.ast:
-      s.uniquify_body(env)
-    return env
+    global uniquified_modules
+    if self.name in uniquified_modules.keys():
+      self.ast = uniquified_modules[self.name]
+      return env
+    else:
+      filename = self.name + ".pf"
+      file = open(filename, 'r')
+      src = file.read()
+      file.close()
+      from parser import get_filename, set_filename, parse
+      old_filename = get_filename()
+      set_filename(filename)
+      self.ast = parse(src, trace=False)
+      uniquified_modules[self.name] = self.ast
+      set_filename(old_filename)
+      for s in self.ast:
+        s.uniquify(env)
+      for s in self.ast:
+        s.uniquify_body(env)
+      return env
   
   def uniquify_body(self, env):
     pass
@@ -2062,7 +2076,11 @@ class Env:
       case Var(loc, name, index):
         return self._value_of_term_var(self.dict, name, index)
 
-  def term_dict(self):
-    return {k: b.defn for (k,b) in self.dict.items() \
-            if isinstance(b,TermBinding) and b.defn != None}
+  # def term_dict(self):
+  #   return {k: b.defn for (k,b) in self.dict.items() \
+  #           if isinstance(b,TermBinding) and b.defn != None}
       
+  # def remove_term_var(self, x):
+  #   new_dict = copy_dict(self.dict)
+  #   del new_dict[x]
+  #   return Env(new_dict)

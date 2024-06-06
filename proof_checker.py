@@ -91,8 +91,6 @@ def pattern_to_term(pat):
         ret = Call(loc, constr,
                    [Var(loc, param) for param in params],
                    False)
-        # if hasattr(pat, 'typeof'):
-        #   ret.typeof = pat.typeof
         return ret
       else:
         return constr
@@ -127,7 +125,6 @@ def rewrite(loc, formula, equation):
       call = Call(loc2, rewrite(loc, rator, equation),
                   [rewrite(loc, arg, equation) for arg in args],
                   infix)
-      #call.typeof = formula.typeof
       return call
     case Switch(loc2, subject, cases):
       return Switch(loc2, rewrite(loc, subject, equation),
@@ -141,13 +138,17 @@ def rewrite(loc, formula, equation):
                          rewrite(loc, thn, equation),
                          rewrite(loc, els, equation))
     case Lambda(loc2, vars, body):
-      return Lambda(loc2, vars, rewrite(loc, body, equation))
+      lam = Lambda(loc2, vars, rewrite(loc, body, equation))
+      lam.typeof = formula.typeof
+      return lam
     case Closure(loc2, vars, body, clos_env):
       clos = Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
       clos.typeof = formula.typeof
       return clos
     case DefinedValue(loc2, name, body):
       return DefinedValue(loc2, name, rewrite(loc, body, equation))
+    case Generic(loc2, typarams, body):
+      return Generic(loc2, typarams, rewrite(loc, body, equation))
     case _:
       # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
@@ -393,9 +394,7 @@ def check_proof_of(proof, formula, env):
         error(loc, 'in injective, ' + constr.name + ' not a constructor')
       (a,b) = split_equation(loc, formula)
       lhs = Call(loc, constr, [a], False)
-      # lhs.typeof = constr
       rhs = Call(loc, constr, [b], False)
-      # rhs.typeof = constr
       flip_formula = mkEqual(loc, lhs, rhs)
       check_proof_of(eq_pf, flip_formula, env)
 
@@ -407,9 +406,7 @@ def check_proof_of(proof, formula, env):
           arg_name = generate_name('x')
           arg = Var(loc, arg_name)
           call_lhs = Call(loc, lhs, [arg], False)
-          #call_lhs.typeof = ret_ty
           call_rhs = Call(loc, rhs, [arg], False)
-          #call_rhs.typeof = ret_ty
           formula = All(loc, [(arg_name, typ)],
                         mkEqual(loc, call_lhs, call_rhs))
           check_proof_of(proof, formula, env)
@@ -798,7 +795,6 @@ def type_synth_term(term, env, recfun, subterms):
     return term.typeof
   if get_verbose():
     print('type_synth_term: ' + str(term))
-    #print('env: ' + str(env))
   match term:
     case Var(loc, name, index):
       ret = env.get_type_of_term_var(term)
@@ -1045,13 +1041,13 @@ def process_declaration(stmt, env):
           env = env.declare_term_var(loc, constr.name, union_type)
       return env
     case Import(loc, name, ast):
-        for s in ast:
-          env = process_declaration(s, env)
-        for s in ast:
-          type_check_stmt(s, env)
-        for s in ast:
-          check_proofs(s, env)
-        return env
+      for s in ast:
+        env = process_declaration(s, env)
+      for s in ast:
+        type_check_stmt(s, env)
+      for s in ast:
+        check_proofs(s, env)
+      return env
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
 

@@ -527,11 +527,21 @@ function summation(List<Nat>, fn Nat->Nat) -> Nat {
   summation(node(j, js), f) = f(j) + summation(js, f)
 }
 
-function nth<T>(List<T>, Nat) -> Option<T> {
-  nth(empty, i) = none
-  nth(node(x, xs), i) =
+function nth<T>(List<T>, T) -> (fn Nat -> T) {
+  nth(empty, default) = λi{default}
+  nth(node(x, xs), default) = λi{
     if i = 0 then
-      just(x)
+      x
     else
-       nth(xs, pred(i))
+       nth(xs, default)(pred(i))
+ }
+}
+
+function drop<T>(Nat, List<T>) -> List<T> {
+  drop(0, xs) = xs
+  drop(suc(n), xs) =
+    switch xs {
+      case empty { empty }
+      case node(x, xs') { drop(n, xs') }
+    }
 }

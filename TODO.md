@@ -1,4 +1,4 @@
-[ ] issue of nontermination for foldr in sum_fold
+[ ] don't print globals in available facts
 
 [ ] issue of conjunction intro in checking mode
 
@@ -15,6 +15,8 @@
 	[ ] loops?
 
 [ ] create student exercises
+
+[x] issue of nontermination for foldr in sum_fold
 
 [x] Explain false.
 

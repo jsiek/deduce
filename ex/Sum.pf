@@ -2,20 +2,47 @@ import Nat
 import List
 import Option
 
-theorem sum_fold: all xs:List<Nat>. all init:Nat.
-  summation(down_from(length(xs)), λi{default(nth(xs,i), 0)}: fn Nat -> Nat) + init
-  =
-  foldl(xs, init, λa,b{a + b})
-  // foldr goes into infinite loop
+function sum(List<Nat>) -> Nat {
+  sum(empty) = 0
+  sum(node(x, xs)) = x + sum(xs)
+}
+
+// [3, 5, 1, 8]
+// [0, 4)
+// sum(3 :: [5, 1, 8]) = 3 + sum([5,1,8])
+// summation([0,4), nth(xs, 0)) = nth(xs,0)(0) + summation([1,4), nth(xs,0))
+
+theorem sum_summation: all xs:List<Nat>. all start:Nat.
+  if start ≤ length(xs) then
+  sum(drop(start, xs)) = summation(range(start,length(xs)), nth(xs,0))
 proof
   induction List<Nat>
   case empty {
-    arbitrary init:Nat
-    definition {length, down_from, summation, foldl, operator +}.
+    arbitrary start:Nat
+    definition length
+    assume s_le_z: start ≤ 0
+    have s_eq_z: start = 0 by apply zero_le_zero[start] to s_le_z
+    rewrite s_eq_z
+    definition {drop, sum, range, range_aux, up_to, down_from, reverse, map, summation}.
   }
   case node(x, xs') assume IH {
-    arbitrary init:Nat
-    definition{length, down_from, summation,foldl}
+    arbitrary start:Nat
+    assume s_le_xxs
     ?
   }
 end
+
+/*
+theorem foldr_sum: all xs:List<Nat>. all init:Nat.
+  foldr(xs, init, λa,b{a + b})
+  = summation(inds, λi{default(nth(xs,i), 0)}) + init
+proof
+  induction List<Nat>
+  case empty {
+    ?
+  }
+  case node(x, xs') assume IH {
+    ?
+  }
+end
+*/

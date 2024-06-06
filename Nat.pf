@@ -650,3 +650,16 @@ proof
     part1, part2
   }
 end
+
+theorem zero_le_zero: all x:Nat. if x ≤ 0 then x = 0
+proof
+  induction Nat
+  case zero {
+    assume _
+    .
+  }
+  case suc(x') {
+    assume prem: suc(x') ≤ 0
+    show false by definition operator ≤ in prem
+  }
+end

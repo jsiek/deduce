@@ -14,10 +14,10 @@ if __name__ == "__main__":
       ast = parse(p, trace=False)
       try:
           if get_verbose():
-              print("starting uniquify:\n" + str(ast))
+              print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
           uniquify_deduce(ast)
           if get_verbose():
-              print("finished uniquify:\n" + str(ast))
+              print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
           check_deduce(ast)
           print(filename + ' is valid')
           exit(0)
