@@ -2,6 +2,19 @@ import Nat
 import List
 import Option
 
+// how many?
+// starting point
+function summation(Nat, Nat, fn Nat->Nat) -> Nat {
+  summation(0, i, f) = f(i)
+  summation(suc(k), i, f) = f(i + k) + summation(k, i, f)
+}
+
+function sum_accum(List<Nat>, Nat) -> Nat {
+  sum_accum(empty, s) = s
+  sum_accum(node(x, xs), s) = sum_accum(xs, x + s)
+}
+
+
 function sum(List<Nat>) -> Nat {
   sum(empty) = 0
   sum(node(x, xs)) = x + sum(xs)
@@ -15,6 +28,7 @@ function sum(List<Nat>) -> Nat {
 // summation([start,start+len), nth(xs,0)) = summation([0,len), nth(drop(start,xs), 0))     len = length(drop(start,xs))
 // nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
 
+/*
 theorem sum_summation: all xs:List<Nat>. all start:Nat.
   if start ≤ length(xs) then
   sum(drop(start, xs)) = summation(range(start,length(xs)), nth(xs,0))
@@ -34,6 +48,7 @@ proof
     ?
   }
 end
+*/
 
 /*
 theorem foldr_sum: all xs:List<Nat>. all init:Nat.

@@ -522,11 +522,6 @@ proof
   }
 end
 
-function summation(List<Nat>, fn Nat->Nat) -> Nat {
-  summation(empty, f) = 0
-  summation(node(j, js), f) = f(j) + summation(js, f)
-}
-
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
   nth(empty, default) = λi{default}
   nth(node(x, xs), default) = λi{
