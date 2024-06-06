@@ -510,8 +510,8 @@ proof
     arbitrary y:Nat
     switch y {
       case zero {
-        suppose sx_z: suc(x') < 0
-	have false by sx_z
+        . //suppose sx_z: suc(x') < 0
+	//have false by sx_z
       }
       case suc(y') {
         suppose sx_sy: suc(x') < suc(y')

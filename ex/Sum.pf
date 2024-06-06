@@ -10,7 +10,10 @@ function sum(List<Nat>) -> Nat {
 // [3, 5, 1, 8]
 // [0, 4)
 // sum(3 :: [5, 1, 8]) = 3 + sum([5,1,8])
-// summation([0,4), nth(xs, 0)) = nth(xs,0)(0) + summation([1,4), nth(xs,0))
+// summation([0,4), nth([3, 5, 1, 8], 0)) = nth([3, 5, 1, 8],0)(0) + summation([1,4), nth([3, 5, 1, 8],0))
+// summation([1,4), nth([3, 5, 1, 8],0)) = summation([0,3), nth([5, 1, 8],0))
+// summation([start,start+len), nth(xs,0)) = summation([0,len), nth(drop(start,xs), 0))     len = length(drop(start,xs))
+// nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
 
 theorem sum_summation: all xs:List<Nat>. all start:Nat.
   if start ≤ length(xs) then

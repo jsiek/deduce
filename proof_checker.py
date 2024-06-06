@@ -639,7 +639,7 @@ def check_proof_of(proof, formula, env):
                   frm = formula.substitute({subject.name: subject_case})
                 else:
                   frm = formula
-                check_proof_of(scase.body, frm, body_env)
+                check_proof_of(scase.body, frm.reduce(body_env), body_env)
             case _:
               error(loc, "switch expected union type, not " + type_name)
           

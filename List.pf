@@ -545,3 +545,31 @@ function drop<T>(Nat, List<T>) -> List<T> {
       case node(x, xs') { drop(n, xs') }
     }
 }
+
+theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
+  nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
+proof
+  arbitrary T:type
+  induction Nat
+  case zero {
+    arbitrary xs:List<T>, i:Nat, d:T
+    definition {drop, operator+}.
+  }
+  case suc(n') assume IH {
+    arbitrary xs:List<T>, i:Nat, d:T
+    definition drop
+    switch xs {
+      case empty {
+        definition nth.
+      }
+      case node(x, xs') {
+	definition nth
+	have nsz: not (suc(n') + i = 0) by
+	  assume sz show false by definition operator + in sz
+	rewrite nsz
+	definition {pred, operator +}
+	show nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
+      }
+    }
+  }
+end
