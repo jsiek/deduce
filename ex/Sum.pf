@@ -12,47 +12,47 @@ function sum(List<Nat>) -> Nat {
   sum(node(x, xs)) = x + sum(xs)
 }
 
-// [3, 5, 1, 8]
-// [0, 4)
-// sum(3 :: [5, 1, 8]) = 3 + sum([5,1,8])
-// summation([0,4), nth([3, 5, 1, 8], 0)) = nth([3, 5, 1, 8],0)(0) + summation([1,4), nth([3, 5, 1, 8],0))
-// summation([1,4), nth([3, 5, 1, 8],0)) = summation([0,3), nth([5, 1, 8],0))
-// summation([start,start+len), nth(xs,0)) = summation([0,len), nth(drop(start,xs), 0))     len = length(drop(start,xs))
-// nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
+theorem summation_suc: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+  if (all i:Nat. f(i) = g(suc(i)))
+  then summation(k, s, f) = summation(k, suc(s), g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    assume _
+    definition summation.
+  }
+  case suc(k') assume IH {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    assume f_g: all i:Nat. f(i) = g(suc(i))
+    definition summation
+    rewrite symmetric f_g[s]
+    have IH': summation(k',suc(s),f) = summation(k',suc(suc(s)),g)
+                 by apply IH[f,g,suc(s)] to f_g
+    rewrite symmetric IH'.
+  }
+end
 
-/*
-theorem sum_summation: all xs:List<Nat>. all start:Nat.
-  if start ≤ length(xs) then
-  sum(drop(start, xs)) = summation(range(start,length(xs)), nth(xs,0))
+theorem sum_summation: all xs:List<Nat>.
+  sum(xs) = summation(length(xs), 0, nth(xs,0))
 proof
   induction List<Nat>
   case empty {
-    arbitrary start:Nat
-    definition length
-    assume s_le_z: start ≤ 0
-    have s_eq_z: start = 0 by apply zero_le_zero[start] to s_le_z
-    rewrite s_eq_z
-    definition {drop, sum, range, range_aux, up_to, down_from, reverse, map, summation}.
+    definition {sum, length, nth, summation}.
   }
-  case node(x, xs') assume IH {
-    arbitrary start:Nat
-    assume s_le_xxs
-    ?
-  }
-end
-*/
-
-/*
-theorem foldr_sum: all xs:List<Nat>. all init:Nat.
-  foldr(xs, init, λa,b{a + b})
-  = summation(inds, λi{default(nth(xs,i), 0)}) + init
-proof
-  induction List<Nat>
-  case empty {
-    ?
-  }
-  case node(x, xs') assume IH {
-    ?
+  case node(x, xs') assume IH: sum(xs') = summation(length(xs'),0,nth(xs',0)) {
+    have nth_node: all i:Nat. nth(xs',0)(i) = nth(node(x,xs'),0)(suc(i))
+      by arbitrary i:Nat definition {nth,pred}.
+    have sum_01: summation(length(xs'), 0, nth(xs',0))
+               = summation(length(xs'), 1, nth(node(x,xs'),0))
+      by rewrite (apply summation_suc[length(xs')]
+                    [nth(xs',0), nth(node(x,xs'), 0), 0] to nth_node).
+    definition {sum, length, summation}
+    have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
+    rewrite n_x
+    equations
+      x + sum(xs') = x + summation(length(xs'),0,nth(xs',0))     by rewrite IH.
+               ... = x + summation(length(xs'),1,nth(node(x,xs'),0))
+	                     by rewrite sum_01.
   }
 end
-*/
