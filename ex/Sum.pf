@@ -51,8 +51,32 @@ proof
     have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
     rewrite n_x
     equations
-      x + sum(xs') = x + summation(length(xs'),0,nth(xs',0))     by rewrite IH.
-               ... = x + summation(length(xs'),1,nth(node(x,xs'),0))
-	                     by rewrite sum_01.
+      x + sum(xs')
+          = x + summation(length(xs'),0,nth(xs',0))           by rewrite IH.
+      ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by rewrite sum_01.
+  }
+end
+
+theorem foldr_summation: all xs:List<Nat>.
+  foldr(xs, 0, λa,b{a + b}) = summation(length(xs), 0, nth(xs,0))
+proof
+  induction List<Nat>
+  case empty {
+    definition {foldr,length,summation}.
+  }
+  case node(x, xs') assume IH {
+    have nth_node: all i:Nat. nth(xs',0)(i) = nth(node(x,xs'),0)(suc(i))
+      by arbitrary i:Nat definition {nth,pred}.
+    have sum_01: summation(length(xs'), 0, nth(xs',0))
+               = summation(length(xs'), 1, nth(node(x,xs'),0))
+      by rewrite (apply summation_suc[length(xs')]
+                    [nth(xs',0), nth(node(x,xs'), 0), 0] to nth_node).
+    definition {foldr,length,summation}
+    have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
+    rewrite n_x
+    equations
+      x + foldr(xs',0,λa,b{a + b})
+          = x + summation(length(xs'),0,nth(xs',0))           by rewrite IH.
+      ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by rewrite sum_01.
   }
 end

@@ -262,7 +262,7 @@ proof
 end
 
 define operator ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
-                  = generic T { λ g,f { λ x { g(f(x)) } } }
+                  = generic T,U,V { λ g,f { λ x { g(f(x)) } } }
 
 define id_nat : fn Nat -> Nat = λx{x}
 
@@ -566,5 +566,53 @@ proof
 	show nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
       }
     }
+  }
+end
+
+define flip : < T,U,V > fn (fn T,U->V) ->(fn U,T->V)
+  = generic T,U,V { λf{ λx,y{ f(y,x) }}}
+
+function rev_app<T>(List<T>, List<T>) -> List<T> {
+  rev_app(empty, ys) = ys
+  rev_app(node(x, xs), ys) = rev_app(xs, node(x, ys))
+}
+
+theorem rev_app_reverse_append: all T:type. all xs:List<T>. all ys:List<T>.
+  rev_app(xs, ys) = append(reverse(xs), ys)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>
+    definition {append, rev_app,reverse}.
+  }
+  case node(x, xs') assume IH {
+    arbitrary ys:List<T>
+    definition {append, rev_app, reverse}
+    equations
+      rev_app(xs', node(x,ys))
+          = append(reverse(xs'), node(x,ys)) by IH[node(x,ys)]
+      ... = append(reverse(xs'), append(node(x,empty), ys))
+            by definition append.
+      ... = append(append(reverse(xs'), node(x,empty)), ys)
+            by symmetric append_assoc[T][reverse(xs')][node(x,empty),ys]
+  }
+end
+
+theorem foldr_rev_app_foldl:
+  all T:type. all xs:List<T>. all ys:List<T>, b:T, f:fn T,T->T.
+  foldr(rev_app(xs,ys), b, f) = foldl(xs, foldr(ys,b,f), flip(f))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, b:T, f:fn T,T->T
+    definition {rev_app,foldl}.
+  }
+  case node(x, xs') assume IH {
+    arbitrary ys:List<T>, b:T, f:fn T,T->T
+    definition {rev_app}
+    rewrite IH[node(x,ys),b,f]
+    definition {foldl,flip,foldr}.
   }
 end
