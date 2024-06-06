@@ -2,18 +2,10 @@ import Nat
 import List
 import Option
 
-// how many?
-// starting point
 function summation(Nat, Nat, fn Nat->Nat) -> Nat {
-  summation(0, i, f) = f(i)
-  summation(suc(k), i, f) = f(i + k) + summation(k, i, f)
+  summation(0, begin, f) = 0
+  summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
 }
-
-function sum_accum(List<Nat>, Nat) -> Nat {
-  sum_accum(empty, s) = s
-  sum_accum(node(x, xs), s) = sum_accum(xs, x + s)
-}
-
 
 function sum(List<Nat>) -> Nat {
   sum(empty) = 0
