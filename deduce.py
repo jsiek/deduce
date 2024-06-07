@@ -11,8 +11,8 @@ if __name__ == "__main__":
     set_verbose(False)
     try:
       set_filename(filename)
-      ast = parse(p, trace=False)
       try:
+          ast = parse(p, trace=False)
           if get_verbose():
               print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
           uniquify_deduce(ast)

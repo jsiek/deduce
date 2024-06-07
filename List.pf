@@ -642,3 +642,4 @@ proof
     ... = foldr(reverse(xs), b, flip(f)) 
              by rewrite append_empty[T][reverse(xs)].
 end
+

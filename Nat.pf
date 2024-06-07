@@ -113,9 +113,9 @@ proof
     suppose prem: suc(x') + y = suc(x') + z
     conclude y = z
       by (apply IH[y,z] to
- 	 suffices x' + y = x' + z
- 	 injective suc
- 	 have suc(x' + y) = suc(x' + z)  by prem)
+         suffices x' + y = x' + z
+         injective suc
+         have suc(x' + y) = suc(x' + z)  by prem)
   }
 end
 
@@ -189,7 +189,7 @@ proof
       }
       case suc(y') suppose EQ : y = suc(y') {
         have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y
-	enable {operator <, operator ≤}
+        enable {operator <, operator ≤}
         have x_y: x' < y'  by ssx_sy
         have x' ≤ y'  by apply IH[y'] to x_y
       }
@@ -228,14 +228,14 @@ proof
     switch y {
       case zero suppose y_z {
         have sx_z: suc(x') ≤ 0 by rewrite y_z in sxy_ysx
-	conclude false by definition operator ≤ in sx_z
+        conclude false by definition operator ≤ in sx_z
       }
       case suc(y') suppose y_suc {
         enable operator ≤
         have x_le_y: x' ≤ y' by rewrite y_suc in sxy_ysx
-	have y_le_x: y' ≤ x' by rewrite y_suc in sxy_ysx
+        have y_le_x: y' ≤ x' by rewrite y_suc in sxy_ysx
         have x_y: x' = y' by (apply IH[y'] to x_le_y, y_le_x)
-	conclude suc(x') = suc(y') by rewrite x_y.
+        conclude suc(x') = suc(y') by rewrite x_y.
       }
     }
   }
@@ -344,11 +344,11 @@ proof
     switch y {
       case zero suppose y_z: y = 0 {
         definition {operator <, operator ≤}
-	in (rewrite y_z in z_l_y)
+        in (rewrite y_z in z_l_y)
       }
       case suc(y') suppose y_s: y = suc(y') {
         definition {operator ≤}
-	in (rewrite y_s in y_le_z)
+        in (rewrite y_s in y_le_z)
       }
     }
   }
@@ -365,9 +365,9 @@ proof
         have x_less_y: x' < y' by
            definition {operator <, operator ≤}
            definition {operator <, operator ≤} in (rewrite ys in sx_less_y)
-	have y_le_x: y' ≤ x' by
-	   definition {operator <, operator ≤}
-	   in (rewrite ys in y_le_sx)
+        have y_le_x: y' ≤ x' by
+           definition {operator <, operator ≤}
+           in (rewrite ys in y_le_sx)
         have false by apply (apply IH[y'] to x_less_y) to y_le_x
       }
     }
@@ -512,13 +512,13 @@ proof
     switch y {
       case zero {
         . //suppose sx_z: suc(x') < 0
-	//have false by sx_z
+        //have false by sx_z
       }
       case suc(y') {
         suppose sx_sy: suc(x') < suc(y')
-	have x_y: x' < y' by sx_sy
-	have x_le_y: x' ≤ y' by (apply IH[y'] to x_y)
-	conclude suc(x') ≤ suc(y') by x_le_y
+        have x_y: x' < y' by sx_sy
+        have x_le_y: x' ≤ y' by (apply IH[y'] to x_y)
+        conclude suc(x') ≤ suc(y') by x_le_y
       }
     }
   }
@@ -553,6 +553,21 @@ proof
       have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
+  }
+end
+
+theorem less_equal_add: all x:Nat. all y:Nat.
+  x ≤ x + y
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat
+    definition operator ≤.
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    definition {operator +, operator ≤}
+    conclude x' ≤ x' + y  by IH[y]
   }
 end
 
@@ -622,8 +637,8 @@ proof
       by suppose _
          have Even(0)
          by definition Even
-	    choose 0
-	    definition {operator *, operator +}.
+            choose 0
+            definition {operator *, operator +}.
    have part2: if is_odd(0) then Odd(0)
      by suppose zero_odd
         have false by definition is_odd in zero_odd
@@ -662,5 +677,135 @@ proof
   case suc(x') {
     suppose prem: suc(x') ≤ 0
     conclude false by definition operator ≤ in prem
+  }
+end
+
+function summation(Nat, Nat, fn Nat->Nat) -> Nat {
+  summation(0, begin, f) = 0
+  summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
+}
+
+theorem summation_cong2: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat. 
+  if (all i:Nat. if i < k then f(s + i) = g(t + i))
+  then summation(k, s, f) = summation(k, t, g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f:fn(Nat) -> Nat,g:fn(Nat) -> Nat,s:Nat,t:Nat
+    suppose f_g
+    definition summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f:fn(Nat) -> Nat,g:fn(Nat) -> Nat,s:Nat,t:Nat
+    suppose f_g
+    suffices summation(suc(k'),s,f) = summation(suc(k'),t,g)
+    definition summation
+    have f_g_s: f(s) = g(t) by
+       rewrite add_zero[s] | add_zero[t] in
+       (apply f_g[0] to definition {operator <, operator ≤}.)
+    have IH': summation(k',suc(s),f) = summation(k',suc(t),g)
+      by apply IH[f,g,suc(s),suc(t)] 
+         to arbitrary i:Nat suppose i_k: i < k'
+	    suffices f(suc(s) + i) = g(suc(t) + i)
+	    have fsi_gtsi: f(s + suc(i)) = g(t + suc(i))
+	      by apply f_g[suc(i)] to enable {operator <, operator ≤} i_k
+	    enable operator + rewrite add_suc[s][i] | add_suc[t][i] in fsi_gtsi
+    rewrite f_g_s | IH'.
+  }
+end
+
+theorem summation_cong: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+  if (all i:Nat. if s ≤ i and i < s + k then f(i) = g(i))
+  then summation(k, s, f) = summation(k, s, g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    suppose _
+    definition summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    suppose f_g: all i:Nat. if s ≤ i and i < s + suc(k') then f(i) = g(i)
+    definition summation
+    have f_g_s: f(s) = g(s) by
+        (have s_s: s ≤ s by less_equal_refl[s]
+	 have s_sk: s < s + suc(k') by (enable {operator <,operator ≤}
+	                                rewrite add_suc[s][k']
+ 	                                less_equal_add[s][k'])
+         apply f_g[s] to s_s, s_sk)
+    have IH': summation(k',suc(s),f) = summation(k',suc(s),g)
+                  by apply IH[f,g,suc(s)] to (arbitrary i:Nat suppose ss_i_and_i_ss_k
+		                              have s_i: s ≤ i by
+					         apply less_implies_less_equal[s][i]
+					         to definition operator < ss_i_and_i_ss_k
+			                      have i_s_k: i < s + suc(k') by
+					         enable {operator <, operator +}
+						 rewrite add_suc[s][k']
+					         (conjunct 1 of ss_i_and_i_ss_k)
+		                              conclude f(i) = g(i) by apply f_g[i] to s_i, i_s_k)
+    rewrite f_g_s | IH'.
+  }
+end
+
+theorem summation_suc: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+  if (all i:Nat. f(i) = g(suc(i)))
+  then summation(k, s, f) = summation(k, suc(s), g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    suppose _
+    definition summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    suppose f_g: all i:Nat. f(i) = g(suc(i))
+    definition summation
+    rewrite symmetric f_g[s]
+    have IH': summation(k',suc(s),f) = summation(k',suc(suc(s)),g)
+                 by apply IH[f,g,suc(s)] to f_g
+    rewrite symmetric IH'.
+  }
+end
+
+theorem summation_add:
+  all a:Nat. all b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat.
+  if (all i:Nat. if i < a then g(s + i) = f(s + i))
+  and (all i:Nat. if i < b then h(t + i) = f(s + a + i))
+  then summation(a + b, s, f) = summation(a, s, g) + summation(b, t, h)
+proof
+  induction Nat
+  case zero {
+    arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
+    suppose g_f_and_h_f
+    enable {operator +}
+    definition {summation}
+    conclude summation(b,s,f) = summation(b,t,h)
+      by apply summation_cong2[b][f,h,s,t]
+         to arbitrary i:Nat
+	    suppose i_b: i < b
+	    conclude f(s + i) = h(t + i)
+	    by rewrite add_zero[s] in
+	       symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
+  }
+  case suc(a') suppose IH {
+    arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
+    suppose g_f_and_h_f
+    definition {operator +, summation}
+    have fs_gs: f(s) = g(s) by symmetric
+        rewrite add_zero[s] | add_zero[t]
+	in apply (conjunct 0 of g_f_and_h_f)[0] to definition {operator <,operator ≤}.
+    have IH': summation(a' + b,suc(s),f) = summation(a',suc(s),g) + summation(b,t,h)
+      by have p1: all i:Nat. (if i < a' then g(suc(s) + i) = f(suc(s) + i))
+	   by arbitrary i:Nat suppose i_a: i < a'
+	      enable {operator +}  rewrite add_suc[s][i] in
+	      (apply (conjunct 0 of g_f_and_h_f)[suc(i)] to enable {operator <, operator ≤} i_a)
+         have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + a' + i))
+	   by arbitrary i:Nat suppose i_b: i < b
+	      enable {operator +} rewrite add_suc[s][a'] in
+	      apply (conjunct 1 of g_f_and_h_f)[i] to i_b
+         apply IH[b,suc(s),t,f,g,h] to p1, p2
+    rewrite fs_gs | IH' | add_assoc[g(s)][summation(a',suc(s),g), summation(b,t,h)].
   }
 end

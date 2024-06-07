@@ -2,36 +2,10 @@ import Nat
 import List
 import Option
 
-function summation(Nat, Nat, fn Nat->Nat) -> Nat {
-  summation(0, begin, f) = 0
-  summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
-}
-
 function sum(List<Nat>) -> Nat {
   sum(empty) = 0
   sum(node(x, xs)) = x + sum(xs)
 }
-
-theorem summation_suc: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
-  if (all i:Nat. f(i) = g(suc(i)))
-  then summation(k, s, f) = summation(k, suc(s), g)
-proof
-  induction Nat
-  case zero {
-    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
-    assume _
-    definition summation.
-  }
-  case suc(k') assume IH {
-    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
-    assume f_g: all i:Nat. f(i) = g(suc(i))
-    definition summation
-    rewrite symmetric f_g[s]
-    have IH': summation(k',suc(s),f) = summation(k',suc(suc(s)),g)
-                 by apply IH[f,g,suc(s)] to f_g
-    rewrite symmetric IH'.
-  }
-end
 
 theorem sum_summation: all xs:List<Nat>.
   sum(xs) = summation(length(xs), 0, nth(xs,0))
@@ -40,7 +14,7 @@ proof
   case empty {
     definition {sum, length, nth, summation}.
   }
-  case node(x, xs') assume IH: sum(xs') = summation(length(xs'),0,nth(xs',0)) {
+  case node(x, xs') suppose IH: sum(xs') = summation(length(xs'),0,nth(xs',0)) {
     have nth_node: all i:Nat. nth(xs',0)(i) = nth(node(x,xs'),0)(suc(i))
       by arbitrary i:Nat definition {nth,pred}.
     have sum_01: summation(length(xs'), 0, nth(xs',0))
@@ -64,7 +38,7 @@ proof
   case empty {
     definition {foldr,length,summation}.
   }
-  case node(x, xs') assume IH {
+  case node(x, xs') suppose IH {
     have nth_node: all i:Nat. nth(xs',0)(i) = nth(node(x,xs'),0)(suc(i))
       by arbitrary i:Nat definition {nth,pred}.
     have sum_01: summation(length(xs'), 0, nth(xs',0))
@@ -99,29 +73,24 @@ proof
     arbitrary ys:List<Nat>
     definition {append,length,nth,summation,operator +}.
   }
-  case node(x,xs') assume IH {
+  case node(x,xs') suppose IH {
     arbitrary ys:List<Nat>
     definition {append,length,summation}
     have n_x_xs_ys: nth(node(x,append(xs',ys)),0)(0) = x by definition nth.
     rewrite n_x_xs_ys
     have n_x_xs: nth(node(x,xs'),0)(0) = x by definition nth.
     rewrite n_x_xs
-    have IH': summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
-            = summation(length(xs'),0,nth(xs',0)) + summation(length(ys),0,nth(ys,0)) by IH[ys]
-    have s1: summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
-           = summation(length(append(xs',ys)),1,nth(node(x,append(xs',ys)),0))
-	 by apply summation_suc[length(append(xs',ys))][nth(append(xs',ys),0),nth(node(x,append(xs',ys)),0),0]
-	    to arbitrary i:Nat rewrite nth_node[Nat,x,append(xs',ys),i,0].
-    have s2: summation(length(xs'),0,nth(xs',0)) = summation(length(xs'),1,nth(node(x,xs'),0))
+    have sum_01: summation(length(xs'),0,nth(xs',0)) = summation(length(xs'),1,nth(node(x,xs'),0))
          by apply summation_suc[length(xs')][nth(xs',0), nth(node(x,xs'),0),0] 
-	    to arbitrary i:Nat rewrite nth_node[Nat,x,xs',i,0].
+            to arbitrary i:Nat rewrite nth_node[Nat,x,xs',i,0].
     equations
-	x + summation(length(append(xs',ys)),1,nth(node(x,append(xs',ys)),0))
+          x + summation(length(append(xs',ys)),1,nth(node(x,append(xs',ys)),0))
         = x + summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
-	  by rewrite symmetric apply summation_suc[length(append(xs',ys))][nth(append(xs',ys),0),nth(node(x,append(xs',ys)),0),0]
- 	               to (arbitrary i:Nat rewrite nth_node[Nat,x,append(xs',ys),i,0].).
+          by rewrite symmetric apply summation_suc[length(append(xs',ys))]
+                                                  [nth(append(xs',ys),0), nth(node(x,append(xs',ys)),0), 0]
+                       to (arbitrary i:Nat rewrite nth_node[Nat,x,append(xs',ys),i,0].).
     ... = x + (summation(length(xs'),0,nth(xs',0)) + summation(length(ys),0,nth(ys,0)))   by rewrite IH[ys].
-    ... = x + (summation(length(xs'),1,nth(node(x,xs'),0)) + summation(length(ys),0,nth(ys,0)))  by rewrite s2.
+    ... = x + (summation(length(xs'),1,nth(node(x,xs'),0)) + summation(length(ys),0,nth(ys,0)))  by rewrite sum_01.
     ... = (x + summation(length(xs'),1,nth(node(x,xs'),0))) + summation(length(ys),0,nth(ys,0))
           by symmetric add_assoc[x][summation(length(xs'),1,nth(node(x,xs'),0)), summation(length(ys),0,nth(ys,0))]
   }

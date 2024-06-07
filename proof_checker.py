@@ -460,11 +460,11 @@ def check_proof_of(proof, formula, env):
         
     case ImpIntro(loc, label, None, body):
       match formula:
-        case IfThen(loc, prem, conc):
+        case IfThen(loc2, prem, conc):
           body_env = env.declare_proof_var(loc, label, prem)
           check_proof_of(body, conc, body_env)
         case _:
-          error(proof.location, 'expected proof of if-then, not ' + str(proof))
+          error(proof.location, 'expected proof of ' + str(formula) + '\n\tnot a proof of if-then: ' + str(proof))
           
     case ImpIntro(loc, label, prem1, body):
       check_formula(prem1, env)
