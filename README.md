@@ -525,7 +525,7 @@ However, to make the proof more readable by other humans, I recommend
 restating the goal using the `show` statement.
 
     case empty {
-      show append(empty, empty) = empty  by definition append.
+      conclude append(empty, empty) = empty  by definition append.
     }
 
 Next let us focus on the case for `node`. Deduce tells us that we need
@@ -605,7 +605,7 @@ Here is the completed proof of the `append_empty` theorem.
       arbitrary U:type
       induction List<U>
       case empty {
-        show append(empty, empty) = empty  by definition append.
+        conclude append(empty, empty) = empty  by definition append.
       }
       case node(n, xs') suppose IH: append(xs',empty) = xs' {
         equations
@@ -627,7 +627,7 @@ using the comma operator to combine those proofs: `one_pos, two_pos`.
     proof
       have one_pos: 0 ≤ 1 by definition operator ≤.
       have two_pos: 0 ≤ 2 by definition operator ≤.
-      show 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
+      conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
     end
 
 On the other hand, in Deduce you can use a conjunction as if it were
@@ -636,7 +636,7 @@ fact that `0 ≤ 1 and 0 ≤ 2` to prove `0 ≤ 2`.
 
     theorem positive_2: 0 ≤ 2
     proof
-      show 0 ≤ 2 by positive_1_and_2
+      conclude 0 ≤ 2 by positive_1_and_2
     end
 
 To summarize this section:
@@ -698,7 +698,7 @@ subformula, so here we prove `x ≤ y or y < x` with `x ≤ y`.
 
     case x_l_y: x < y {
       have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
-      show x ≤ y or y < x by x_le_y
+      conclude x ≤ y or y < x by x_le_y
     }
 
 In the second case, we consider the situation where `x = y`. Here we
@@ -707,14 +707,14 @@ reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
       have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
-      show x ≤ y or y < x by x_le_y
+      conclude x ≤ y or y < x by x_le_y
     }
 
 In the third case, we consider the situation where `y < x`.
 So we can immediately conclude that `x ≤ y or y < x`.
 
     case y_l_x: y < x {
-      show x ≤ y or y < x by y_l_x
+      conclude x ≤ y or y < x by y_l_x
     }
 
 Here is the completed proof of the `dichotomy` theorem.
@@ -726,14 +726,14 @@ Here is the completed proof of the `dichotomy` theorem.
       cases tri
       case x_l_y: x < y {
         have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
-        show x ≤ y or y < x by x_le_y
+        conclude x ≤ y or y < x by x_le_y
       }
       case x_eq_y: x = y {
         have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
-        show x ≤ y or y < x by x_le_y
+        conclude x ≤ y or y < x by x_le_y
       }
       case y_l_x: y < x {
-        show x ≤ y or y < x by y_l_x
+        conclude x ≤ y or y < x by y_l_x
       }
     end
 
@@ -807,7 +807,7 @@ as follows.
 
     case empty {
       suppose cond: all_elements(empty,P)
-      show filter(empty,P) = empty by definition filter.
+      conclude filter(empty,P) = empty by definition filter.
     }
 
 Next we turn our attention to the case for `node`.
@@ -883,7 +883,7 @@ We conclude by using the equation `IH_conc` to rewrite the goal.
 
     rewrite IH_conc.
     
-Our proof of `filter_all` is complete. Here is the proof in its entirety.   
+Our proof of `filter_all` is complete. Here is the proof in its entirety.
 
     theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
       if all_elements(xs, P) then filter(xs, P) = xs
@@ -892,14 +892,14 @@ Our proof of `filter_all` is complete. Here is the proof in its entirety.
       induction List<T>
       case empty {
         suppose cond: all_elements(empty,P)
-        show filter(empty,P) = empty by definition filter.
+        conclude filter(empty,P) = empty by definition filter.
       }
       case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
         suppose Pxs: all_elements(node(x,xs'),P)
         definition filter
         have Px: P(x) by definition all_elements in Pxs
         rewrite Px
-        show node(x,filter(xs',P)) = node(x,xs')
+        suffices node(x,filter(xs',P)) = node(x,xs')
         have Pxs': all_elements(xs',P) by definition all_elements in Pxs
         have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
         rewrite IH_conc.
@@ -940,7 +940,7 @@ That can't be, so Deduce simplifies `true = false` to just `false`.
 	  suppose prem: a = b and a = true and b = false
 	  have a_true: a = true by prem
 	  have b_true: b = false by prem
-	  show false by rewrite a_true | b_true in prem
+	  conclude false by rewrite a_true | b_true in prem
 	end
 
 More generally, Deduce knows that the different constructors of a
@@ -973,7 +973,7 @@ we have a premise that is `false`, it doesn't matter.
 	proof
 	  arbitrary x:bool, y:bool
 	  suppose f: false
-	  show x = y by f
+	  conclude x = y by f
 	end
 
 To summarize this section:
@@ -1017,7 +1017,7 @@ by the definitions of `<` and `≤`.
 
     case zero {
       suppose z_l_z: 0 < 0
-      show false by definition {operator <, operator ≤} in z_l_z
+      conclude false by definition {operator <, operator ≤} in z_l_z
     }
 
 In the case where `x = suc(x')`, we must prove the following 
@@ -1034,7 +1034,7 @@ can prove that `x' < x'` using the definitions of `<` and `≤`.
 
 We conclude this case by applying the induction hypothesis to `x' < x'`.
 
-    show false by apply IH to x_l_x
+    conclude false by apply IH to x_l_x
 
 Here is the completed proof that less-than is irreflexive.
 
@@ -1043,13 +1043,13 @@ Here is the completed proof that less-than is irreflexive.
       induction Nat
       case zero {
         suppose z_l_z: 0 < 0
-        show false by definition {operator <, operator ≤} in z_l_z
+        conclude false by definition {operator <, operator ≤} in z_l_z
       }
       case suc(x') suppose IH: not (x' < x') {
         suppose sx_l_sx: suc(x') < suc(x')
         enable {operator <, operator ≤}
         have x_l_x: x' < x' by sx_l_sx
-        show false by apply IH to x_l_x
+        conclude false by apply IH to x_l_x
       }
     end
 
@@ -1096,7 +1096,7 @@ Deduce responds that in the first case we need to prove the following.
 So we just need to prove `true`, which is what the period is for.
 
     case zero {
-      show true or 0 < 0 by .
+      conclude true or 0 < 0 by .
     }
 
 In the second case, for `x = suc(x')`, we need to prove the following.
@@ -1109,7 +1109,7 @@ Thankfully that follows from the definitions of `<` and `≤`.
 
     case suc(x') {
       have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-      show suc(x') = 0 or 0 < suc(x') by z_l_sx
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
 
 Here is the completed proof that every natural number is either zero
@@ -1120,11 +1120,11 @@ or positive.
       arbitrary x:Nat
       switch x {
         case zero {
-          show true or 0 < 0 by .
+          conclude true or 0 < 0 by .
         }
         case suc(x') {
           have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-          show suc(x') = 0 or 0 < suc(x') by z_l_sx
+          conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
         }
       }
     end
@@ -1196,7 +1196,7 @@ property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
     rewrite x_2a | y_2b
-    show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+    conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
 
@@ -1211,10 +1211,10 @@ Here is the complete proof.
       obtain a where x_2a: x = 2*a from even_x
       obtain b where y_2b: y = 2*b from even_y
       definition Even
-      show some m:Nat. x + y = 2 * m
+      suffices some m:Nat. x + y = 2 * m
       choose a + b
       rewrite x_2a | y_2b
-      show (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+      conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
     end
 
 To summarize this section:
