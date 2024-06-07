@@ -21,10 +21,10 @@ theorem update_not_eq :
 proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U, y:T
-  assume not_eq
+  suppose not_eq
   definition update
   switch y = x {
-    case true assume yx_true {
+    case true suppose yx_true {
       have yx: y = x by (rewrite yx_true.)
       have xy: x = y by symmetric yx
       show false by apply not_eq to xy
@@ -57,15 +57,15 @@ theorem update_permute :
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->U, x:T, v:U, w:U, y:T
-  assume x_neq_y
+  suppose x_neq_y
   definition update
   extensionality
   arbitrary z:T
   switch z = y {
-    case true assume zy_true {
+    case true suppose zy_true {
       have zy: z = y by (rewrite zy_true.)
       switch z = x {
-        case true assume zx_true {
+        case true suppose zx_true {
 	  have zx: z = x by (rewrite zx_true.)
 	  have xy: x = y by transitive (symmetric zx) zy
 	  show false by apply x_neq_y to xy
@@ -100,9 +100,9 @@ proof
   arbitrary f:fn(T)->Option<U>, P:fn(T)->bool
   definition {restrict, domain, operator ⊆}
   arbitrary x:T
-  assume prem
+  suppose prem
   switch P(x) {
     case true { . }
-    case false assume Px_false { have false by rewrite Px_false in prem  }
+    case false suppose Px_false { have false by rewrite Px_false in prem  }
   }
 end

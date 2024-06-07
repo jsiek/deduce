@@ -29,7 +29,7 @@ proof
   case 0 {
     show 0 + 0 = 0   by .
   }
-  case suc(n') assume IH {
+  case suc(n') suppose IH {
     equations
       suc(n') + 0 = suc(n' + 0)  by .
               ... = suc(n')      by rewrite IH.
@@ -44,7 +44,7 @@ proof
     arbitrary n : Nat
     show 0 + suc(n) = suc(0 + n)  by .
   }
-  case suc(n') assume IH {
+  case suc(n') suppose IH {
     arbitrary n : Nat
     equations
       suc(n') + suc(n) = suc(n' + suc(n))  by .
@@ -70,7 +70,7 @@ proof
     equations  0 + m = m      by .
                  ... = m + 0  by symmetric add_zero[m]
   }
-  case suc(n') assume IH {
+  case suc(n') suppose IH {
     arbitrary m : Nat
     equations suc(n') + m = suc(n' + m)  by .
                       ... = suc(m + n')  by rewrite IH[m].
@@ -87,7 +87,7 @@ proof
     arbitrary n:Nat, o:Nat
     have (0 + n) + o = 0 + (n + o)   by .
   }
-  case suc(m') assume IH {
+  case suc(m') suppose IH {
     arbitrary n:Nat, o:Nat
     equations
       (suc(m') + n) + o = suc((m' + n) + o)  by .
@@ -108,9 +108,9 @@ proof
               ... = 0 + z      by prem
               ... = z          by .
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y:Nat, z:Nat
-    assume prem: suc(x') + y = suc(x') + z
+    suppose prem: suc(x') + y = suc(x') + z
     show y = z  by apply IH[y,z] to
     show x' + y = x' + z
     injective suc
@@ -175,18 +175,18 @@ proof
   induction Nat
   case zero {
     arbitrary y:Nat
-    assume zy: 0 < y
+    suppose zy: 0 < y
     definition operator ≤.
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y:Nat
-    assume sx_y: suc(x') < y
+    suppose sx_y: suc(x') < y
     have ssx_y: suc(suc(x')) ≤ y  by definition operator < in sx_y
     switch y {
-      case zero assume yz {
+      case zero suppose yz {
         have false  by definition operator ≤ in (rewrite yz in ssx_y)
       }
-      case suc(y') assume EQ : y = suc(y') {
+      case suc(y') suppose EQ : y = suc(y') {
         have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y
 	enable {operator <, operator ≤}
         have x_y: x' < y'  by ssx_sy
@@ -201,7 +201,7 @@ proof
   enable operator ≤
   induction Nat
   case 0 { have 0 ≤ 0  by . }
-  case suc(n') assume IH { have suc(n') ≤ suc(n')  by IH }
+  case suc(n') suppose IH { have suc(n') ≤ suc(n')  by IH }
 end
 
 theorem less_equal_antisymmetric:
@@ -215,21 +215,21 @@ proof
     suppose zy_yz: 0 ≤ y and y ≤ 0
     switch y {
       case zero { . }
-      case suc(y') assume y_suc {
+      case suc(y') suppose y_suc {
         have sy_z: suc(y') ≤ 0 by rewrite y_suc in zy_yz
         show false by definition operator ≤ in sy_z
       }
     }
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y:Nat
     suppose sxy_ysx: suc(x') ≤ y and y ≤ suc(x')
     switch y {
-      case zero assume y_z {
+      case zero suppose y_z {
         have sx_z: suc(x') ≤ 0 by rewrite y_z in sxy_ysx
 	show false by definition operator ≤ in sx_z
       }
-      case suc(y') assume y_suc {
+      case suc(y') suppose y_suc {
         enable operator ≤
         have x_le_y: x' ≤ y' by rewrite y_suc in sxy_ysx
 	have y_le_x: y' ≤ x' by rewrite y_suc in sxy_ysx
@@ -250,26 +250,26 @@ proof
     suppose _
     have 0 ≤ o  by .
   }
-  case suc(m') assume IH {
+  case suc(m') suppose IH {
     arbitrary n:Nat, o:Nat
-    assume Prem: suc(m') ≤ n and n ≤ o
+    suppose Prem: suc(m') ≤ n and n ≤ o
     have sm_n: suc(m') ≤ n  by Prem // bug
     have n_o: n ≤ o  by Prem
     switch n {
-      case 0 assume nz {
+      case 0 suppose nz {
         have sm_z: suc(m') ≤ 0  by rewrite nz in sm_n
         have false  by sm_z
       }
-      case suc(n') assume ns {
+      case suc(n') suppose ns {
         have sm_sn: suc(m') ≤ suc(n')  by rewrite ns in sm_n
         have m_n: m' ≤ n'  by sm_sn
         have sn_o: suc(n') ≤ o  by rewrite ns in n_o
         switch o {
-          case 0 assume oz {
+          case 0 suppose oz {
             have sn_z: suc(n') ≤ 0  by rewrite oz in sn_o
             show false  by sn_z
           }
-          case suc(o') assume os {
+          case suc(o') suppose os {
             have sn_so: suc(n') ≤ suc(o')  by rewrite os in sn_o
             have n_o: n' ≤ o'  by sn_so
             definition operator ≤
@@ -289,23 +289,23 @@ proof
   induction Nat
   case zero {
     arbitrary y: Nat
-    assume not_0_y: not (0 < y)
+    suppose not_0_y: not (0 < y)
     switch y {
       case zero { . }
-      case suc(y') assume ys {
+      case suc(y') suppose ys {
         show false by apply (rewrite ys in not_0_y)
                       to (definition operator <.)
       }
     }
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y: Nat
-    assume not_sx_y: not (suc(x') < y)
+    suppose not_sx_y: not (suc(x') < y)
     switch y {
       case zero { . }
-      case suc(y') assume ys {
+      case suc(y') suppose ys {
         have not_x_y: not (x' < y')
-          by (assume x_y: x' < y'
+          by (suppose x_y: x' < y'
             have sx_sy: suc(x') < suc(y')
               by definition operator < (definition operator < in x_y)
             have sx_y: suc(x') < y by (rewrite ys sx_sy)
@@ -320,11 +320,11 @@ theorem less_irreflexive:  all x:Nat. not (x < x)
 proof
   induction Nat
   case zero {
-    assume z_l_z: 0 < 0
+    suppose z_l_z: 0 < 0
     show false by definition {operator <, operator ≤} in z_l_z
   }
-  case suc(x') assume IH: not (x' < x') {
-    assume sx_l_sx: suc(x') < suc(x')
+  case suc(x') suppose IH: not (x' < x') {
+    suppose sx_l_sx: suc(x') < suc(x')
     enable {operator <, operator ≤}
     have x_l_x: x' < x' by sx_l_sx
     show false by apply IH to x_l_x
@@ -338,29 +338,29 @@ proof
   induction Nat
   case zero {
     arbitrary y : Nat
-    assume z_l_y: 0 < y
-    assume y_le_z: y ≤ 0
+    suppose z_l_y: 0 < y
+    suppose y_le_z: y ≤ 0
     switch y {
-      case zero assume y_z: y = 0 {
+      case zero suppose y_z: y = 0 {
         definition {operator <, operator ≤}
 	in (rewrite y_z in z_l_y)
       }
-      case suc(y') assume y_s: y = suc(y') {
+      case suc(y') suppose y_s: y = suc(y') {
         definition {operator ≤}
 	in (rewrite y_s in y_le_z)
       }
     }
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y : Nat
-    assume sx_less_y
-    assume y_le_sx
+    suppose sx_less_y
+    suppose y_le_sx
     switch y {
-      case zero assume y_eq_zero {
+      case zero suppose y_eq_zero {
         have false by (definition {operator <, operator ≤} in
                        (rewrite y_eq_zero in sx_less_y))
       }
-      case suc(y') assume ys {
+      case suc(y') suppose ys {
         have x_less_y: x' < y' by
            definition {operator <, operator ≤}
            definition {operator <, operator ≤} in (rewrite ys in sx_less_y)
@@ -378,8 +378,8 @@ theorem less_not_equal:
   if x < y then not (x = y)
 proof
   arbitrary x:Nat arbitrary y:Nat
-  assume x_l_y: x < y
-  assume x_y: x = y
+  suppose x_l_y: x < y
+  suppose x_y: x = y
   have y_l_y: y < y by rewrite x_y in x_l_y
   show false by apply less_irreflexive[y] to y_l_y
 end
@@ -391,20 +391,20 @@ proof
   induction Nat
   case zero {
     arbitrary y:Nat
-    assume zero_less_y
-    assume y_less_zero
+    suppose zero_less_y
+    suppose y_less_zero
     have false by (definition {operator <, operator ≤} in y_less_zero)
     }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y:Nat
-    assume sx_less_y
-    assume y_less_sx
+    suppose sx_less_y
+    suppose y_less_sx
     switch y {
-      case zero assume y_eq_zero {
+      case zero suppose y_eq_zero {
         have false by (definition {operator <, operator ≤} in
                        (rewrite y_eq_zero in sx_less_y))
       }
-      case suc(y') assume ys {
+      case suc(y') suppose ys {
         have x_less_y: x' < y' by
            definition {operator <, operator ≤}
            definition {operator <, operator ≤} in (rewrite ys in sx_less_y)
@@ -423,7 +423,7 @@ proof
   case zero {
     definition max.
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
                                          by definition max.
@@ -446,7 +446,7 @@ proof
       }
     }
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y:Nat
     enable operator ≤
     switch y {
@@ -468,7 +468,7 @@ theorem trichotomy2:
   then y < x
 proof
   arbitrary y:Nat, x:Nat
-  assume prem: not (x = y) and not (x < y)
+  suppose prem: not (x = y) and not (x < y)
   cases trichotomy[x][y]
   case less: x < y {
     have not_less: not (x < y)  by prem
@@ -506,7 +506,7 @@ proof
     suppose z_y: 0 < y
     show 0 ≤ y by .
   }
-  case suc(x') assume IH {
+  case suc(x') suppose IH {
     arbitrary y:Nat
     switch y {
       case zero {
@@ -565,7 +565,7 @@ proof
     show 0 * (x + y) = 0 * x + 0 * y
     definition {operator *, operator +}.
   }
-  case suc(a') assume IH {
+  case suc(a') suppose IH {
     arbitrary x:Nat, y:Nat
     show suc(a') * (x + y) = suc(a') * x + suc(a') * y
     definition operator *
@@ -598,7 +598,7 @@ theorem addition_of_evens:
   if Even(x) and Even(y) then Even(x + y)
 proof
   arbitrary x:Nat, y:Nat
-  assume even_xy: Even(x) and Even(y)
+  suppose even_xy: Even(x) and Even(y)
   have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
@@ -618,19 +618,19 @@ proof
   induction Nat
   case zero {
     have part1: if is_even(0) then Even(0)
-      by assume _
+      by suppose _
          show Even(0)
          by definition Even
 	    choose 0
 	    definition {operator *, operator +}.
    have part2: if is_odd(0) then Odd(0)
-     by assume zero_odd
+     by suppose zero_odd
         have false by definition is_odd in zero_odd
     part1, part2
   }
-  case suc(n') assume IH {
+  case suc(n') suppose IH {
     have part1: (if is_even(suc(n')) then Even(suc(n'))) by
-      (assume suc_even: is_even(suc(n'))
+      (suppose suc_even: is_even(suc(n'))
        have odd_n: is_odd(n') by definition is_even in suc_even
        have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
        obtain m where n_2m from definition Odd in Odd_n
@@ -640,7 +640,7 @@ proof
        definition {operator *, operator+}
        rewrite add_zero[m] | add_suc[m][m].)
     have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
-      (assume suc_odd: is_odd(suc(n'))
+      (suppose suc_odd: is_odd(suc(n'))
        have even_n: is_even(n') by definition is_odd in suc_odd
        have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
        obtain m where n_2m from definition Even in Even_n
@@ -655,11 +655,11 @@ theorem zero_le_zero: all x:Nat. if x ≤ 0 then x = 0
 proof
   induction Nat
   case zero {
-    assume _
+    suppose _
     .
   }
   case suc(x') {
-    assume prem: suc(x') ≤ 0
+    suppose prem: suc(x') ≤ 0
     show false by definition operator ≤ in prem
   }
 end

@@ -24,15 +24,15 @@ proof
   induction List<Nat>
   case empty {
     arbitrary x:Nat, y:Nat
-    assume prem
+    suppose prem
     definition insert    
     show all_elements(node(x,empty), λb{y ≤ b} : fn Nat -> bool)
     definition all_elements
     show y ≤ x by prem
   }
-  case node(a, xs') assume IH {
+  case node(a, xs') suppose IH {
     arbitrary x:Nat, y:Nat
-    assume prem
+    suppose prem
     have y_le_x: y ≤ x by prem
     have y_le_a: y ≤ a by definition all_elements in prem
     have y_le_xs: all_elements(xs', λb{y ≤ b}) by definition all_elements in prem
@@ -61,13 +61,13 @@ proof
   induction List<Nat>
   case empty {
     arbitrary x:Nat
-    assume _
+    suppose _
     show sorted(insert(empty,x))
     definition {insert, sorted, all_elements}.
   }
-  case node(y, next) assume IH {
+  case node(y, next) suppose IH {
     arbitrary x:Nat
-    assume s_yn: sorted(node(y,next))
+    suppose s_yn: sorted(node(y,next))
     have s_n: sorted(next) by definition sorted in s_yn
     have y_next: all_elements(next,λb{(y ≤ b)}) by definition sorted in s_yn
     show sorted(insert(node(y,next),x))
@@ -80,7 +80,7 @@ proof
       have x_next: all_elements(next,λb{(x ≤ b)})
         by apply all_elements_implies[Nat][next][λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
 	   to y_next , (arbitrary z:Nat
-	                assume y_z: y ≤ z
+	                suppose y_z: y ≤ z
 	                show x ≤ z by apply less_equal_trans[x][y,z] to x_le_y , y_z)
       s_n, y_next, x_le_y, x_next
     }

@@ -14,7 +14,7 @@ proof
   case zero {
     have add(zero, zero) = zero by definition {add}.
   }
-  case suc(n') assume IH {
+  case suc(n') suppose IH {
     equations
       add(suc(n'), zero) = suc(add(n', zero))   by definition {add}.
                      ... = suc(n')              by rewrite IH.
