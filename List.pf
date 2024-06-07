@@ -85,7 +85,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    show length(append(empty,ys)) = length(empty) + length(ys)  by .
+    conclude length(append(empty,ys)) = length(empty) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
@@ -112,7 +112,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys :List<U>, zs :List<U>
-    show append(append(empty,ys),zs) = append(empty,append(ys,zs))  by .
+    conclude append(append(empty,ys),zs) = append(empty,append(ys,zs))  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>, zs :List<U>
@@ -129,7 +129,7 @@ proof
   arbitrary U:type
   induction List<U>
   case empty {
-    show append(empty, empty) = empty  by definition append.
+    conclude append(empty, empty) = empty  by definition append.
   }
   case node(n, xs') suppose IH: append(xs',empty) = xs' {
     equations
@@ -451,7 +451,7 @@ proof
   induction List<T1>
   case empty {
     arbitrary ys:List<U1>
-    show zip(map(empty,f),map(ys,g))
+    conclude zip(map(empty,f),map(ys,g))
        = map(zip(empty:List<T1>,ys), pairfun(f,g))  by .
   }
   case node(x, xs') suppose IH {
@@ -486,14 +486,14 @@ proof
   induction List<T>
   case empty {
     suppose cond: all_elements(empty,P)
-    show filter(empty,P) = empty by definition filter.
+    conclude filter(empty,P) = empty by definition filter.
   }
   case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
     suppose Pxs: all_elements(node(x,xs'),P)
     definition filter
     have Px: P(x) by definition all_elements in Pxs
     rewrite Px
-    show node(x,filter(xs',P)) = node(x,xs')
+    suffices node(x,filter(xs',P)) = node(x,xs')
     have Pxs': all_elements(xs',P) by definition all_elements in Pxs
     have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
     rewrite IH_conc.
@@ -514,7 +514,7 @@ proof
     arbitrary P: fn T -> bool, Q: fn T -> bool
     suppose prem
     definition all_elements
-    show Q(x) and all_elements(xs',Q)
+    suffices Q(x) and all_elements(xs',Q)
     have Px: P(x) by definition all_elements in prem
     have Qx: Q(x) by apply (conjunct 1 of prem)[x] to Px
     have Pxs: all_elements(xs',P) by definition all_elements in prem
@@ -560,10 +560,10 @@ proof
       case node(x, xs') {
 	definition nth
 	have nsz: not (suc(n') + i = 0) by
-	  suppose sz show false by definition operator + in sz
+	  suppose sz conclude false by definition operator + in sz
 	rewrite nsz
 	definition {pred, operator +}
-	show nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
+	conclude nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
       }
     }
   }

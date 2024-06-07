@@ -5,5 +5,5 @@ proof
   suppose prem: a = b and a = true and b = false
   have a_true: a = true by prem
   have b_true: b = false by prem
-  show false by rewrite a_true | b_true in prem
+  conclude false by rewrite a_true | b_true in prem
 end

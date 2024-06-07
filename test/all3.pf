@@ -4,5 +4,5 @@ proof
   suppose pr: P and R
   have p: P by pr
   have r: R by pr
-  show R and P by r , p
+  conclude R and P by r , p
 end

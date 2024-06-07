@@ -27,7 +27,7 @@ proof
     case true suppose yx_true {
       have yx: y = x by (rewrite yx_true.)
       have xy: x = y by symmetric yx
-      show false by apply not_eq to xy
+      conclude false by apply not_eq to xy
     }
     case false {
       .
@@ -68,7 +68,7 @@ proof
         case true suppose zx_true {
 	  have zx: z = x by (rewrite zx_true.)
 	  have xy: x = y by transitive (symmetric zx) zy
-	  show false by apply x_neq_y to xy
+	  conclude false by apply x_neq_y to xy
 	}
 	case false {
 	  .

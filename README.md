@@ -35,7 +35,7 @@ and then appending them.
           ... = append(map(empty,f), map(ys, f)) by definition map.
       }
       case node(x, xs')
-        assume IH: map(append(xs',ys), f) = append(map(xs',f), map(ys, f))
+        suppose IH: map(append(xs',ys), f) = append(map(xs',f), map(ys, f))
       {
         enable {map, append}
         equations
@@ -494,7 +494,7 @@ proceed by induction as follows.
       case empty {
         ?
       }
-      case node(n, xs') assume IH: append(xs',empty) = xs' {
+      case node(n, xs') suppose IH: append(xs',empty) = xs' {
         ?
       }
     end
@@ -544,7 +544,7 @@ Looking at the goal, we notice that we can expand the definition of
 Deduce provides the `term` statement as way to use Deduce to expand
 definitions for us.
 
-    case node(n, xs') assume IH: append(xs',empty) = xs' {
+    case node(n, xs') suppose IH: append(xs',empty) = xs' {
       term append(node(n,xs'),empty) by definition append ?
       ?
     }
@@ -558,7 +558,7 @@ We use Deduce's `have` statement to label this equality.
 We choose the label `step1`, state the equality, and then
 provide its proof after the `by` keyword.
 
-    case node(n, xs') assume IH: append(xs',empty) = xs' {
+    case node(n, xs') suppose IH: append(xs',empty) = xs' {
       have step1: append(node(n,xs'),empty)
                   = node(n, append(xs',empty))  by definition append.
       ?
@@ -590,7 +590,7 @@ right-hand side of the previous equation. We can refactor the
 proof of the `node` case of the `append_empty` theorem using
 `equations` as follows.
 
-    case node(n, xs') assume IH: append(xs',empty) = xs' {
+    case node(n, xs') suppose IH: append(xs',empty) = xs' {
       equations
         append(node(n,xs'),empty)
             = node(n, append(xs',empty))  by definition append.
@@ -607,7 +607,7 @@ Here is the completed proof of the `append_empty` theorem.
       case empty {
         show append(empty, empty) = empty  by definition append.
       }
-      case node(n, xs') assume IH: append(xs',empty) = xs' {
+      case node(n, xs') suppose IH: append(xs',empty) = xs' {
         equations
           append(node(n,xs'),empty)
               = node(n, append(xs',empty))  by definition append.
@@ -779,7 +779,7 @@ with `all`, using `arbitrary` for `T` and `P` and then `induction` for
     case empty {
       ?
     }
-    case node(x, xs') assume IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+    case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
       ?
     }
 
@@ -788,13 +788,13 @@ In the case for `empty`, it remains to prove the following.
     unfinished proof:
         (if all_elements(empty,P) then filter(empty,P) = empty)
 
-To prove an `if`-`then` formula, we `assume` the condition and then
-prove the conclusion. The `assume` statement of Deduce requires a
+To prove an `if`-`then` formula, we `suppose` the condition and then
+prove the conclusion. The `suppose` statement of Deduce requires a
 label, so that you can use the assumption in the proof of the
 conclusion. However, in this particular case the assumption is not
 useful.
 
-    assume cond: all_elements(empty,P)
+    suppose cond: all_elements(empty,P)
     ?
 
 Now we need to prove the conclusion
@@ -806,13 +806,13 @@ but that is just the definition of `filter`, so we conclude this case
 as follows.
 
     case empty {
-      assume cond: all_elements(empty,P)
+      suppose cond: all_elements(empty,P)
       show filter(empty,P) = empty by definition filter.
     }
 
 Next we turn our attention to the case for `node`.
 
-    case node(x, xs') assume IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+    case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
       ?
     }
 
@@ -823,10 +823,9 @@ The goal for this case is stated as follows.
 
 Again we need to prove an `if`-`then` formula. So we assume the condition.
 
-    assume Pxs: all_elements(node(x,xs'),P)
+    suppose Pxs: all_elements(node(x,xs'),P)
     ?
 
-The keyword `suppose` can be used instead of `assume`.
 Now we need to prove the conclusion.
 
     unfinished proof:
@@ -834,7 +833,7 @@ Now we need to prove the conclusion.
 
 We proceed by using the definition of filter.
 
-    assume Pxs: all_elements(node(x,xs'),P)
+    suppose Pxs: all_elements(node(x,xs'),P)
     definition filter
     ?
 
@@ -892,11 +891,11 @@ Our proof of `filter_all` is complete. Here is the proof in its entirety.
       arbitrary T:type, P:fn (T)->bool
       induction List<T>
       case empty {
-        assume cond: all_elements(empty,P)
+        suppose cond: all_elements(empty,P)
         show filter(empty,P) = empty by definition filter.
       }
-      case node(x, xs') assume IH: if all_elements(xs',P) then filter(xs',P) = xs' {
-        assume Pxs: all_elements(node(x,xs'),P)
+      case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+        suppose Pxs: all_elements(node(x,xs'),P)
         definition filter
         have Px: P(x) by definition all_elements in Pxs
         rewrite Px
@@ -909,7 +908,7 @@ Our proof of `filter_all` is complete. Here is the proof in its entirety.
 
 To summarize this section:
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
-* To prove an `if`-`then` formula, `assume` the premise and prove the conclusion.
+* To prove an `if`-`then` formula, `suppose` the premise and prove the conclusion.
 * To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the
   condition.
 
@@ -938,7 +937,7 @@ That can't be, so Deduce simplifies `true = false` to just `false`.
 	  if a = b and a = true and b = false then false
 	proof
 	  arbitrary a:bool, b:bool
-	  assume prem: a = b and a = true and b = false
+	  suppose prem: a = b and a = true and b = false
 	  have a_true: a = true by prem
 	  have b_true: b = false by prem
 	  show false by rewrite a_true | b_true in prem
@@ -973,7 +972,7 @@ we have a premise that is `false`, it doesn't matter.
 	theorem false_any: all x:bool, y:bool. if false then x = y
 	proof
 	  arbitrary x:bool, y:bool
-	  assume f: false
+	  suppose f: false
 	  show x = y by f
 	end
 
@@ -1004,7 +1003,7 @@ We can proceed by induction.
     case zero {
       ?
     }
-    case suc(x') assume IH: not (x' < x') {
+    case suc(x') suppose IH: not (x' < x') {
       ?
     }
 
@@ -1017,7 +1016,7 @@ So we assume the premise `0 < 0`, from which we can conclude `false`
 by the definitions of `<` and `≤`.
 
     case zero {
-      assume z_l_z: 0 < 0
+      suppose z_l_z: 0 < 0
       show false by definition {operator <, operator ≤} in z_l_z
     }
 
@@ -1029,7 +1028,7 @@ In the case where `x = suc(x')`, we must prove the following
 So we assume the premise `suc(x') < suc(x')` from which we
 can prove that `x' < x'` using the definitions of `<` and `≤`.
 
-    assume sx_l_sx: suc(x') < suc(x')
+    suppose sx_l_sx: suc(x') < suc(x')
     enable {operator <, operator ≤}
     have x_l_x: x' < x' by sx_l_sx
 
@@ -1043,11 +1042,11 @@ Here is the completed proof that less-than is irreflexive.
     proof
       induction Nat
       case zero {
-        assume z_l_z: 0 < 0
+        suppose z_l_z: 0 < 0
         show false by definition {operator <, operator ≤} in z_l_z
       }
-      case suc(x') assume IH: not (x' < x') {
-        assume sx_l_sx: suc(x') < suc(x')
+      case suc(x') suppose IH: not (x' < x') {
+        suppose sx_l_sx: suc(x') < suc(x')
         enable {operator <, operator ≤}
         have x_l_x: x' < x' by sx_l_sx
         show false by apply IH to x_l_x
@@ -1057,7 +1056,7 @@ Here is the completed proof that less-than is irreflexive.
 To summarize this section:
 * To expression that a formula is false, use `not`.
 * Deduce treats the formula `not P` just like `if P then false`.
-* Therefore, to prove a `not` formula, assume `P` then prove `false`.
+* Therefore, to prove a `not` formula, suppose `P` then prove `false`.
 * To use a formula like `not P`, apply it to a proof of `P` to
   obtain a proof of `false`.
 
@@ -1152,7 +1151,7 @@ numbers is an even number. Here's the beginning of the proof.
       if Even(x) and Even(y) then Even(x + y)
     proof
       arbitrary x:Nat, y:Nat
-      assume even_xy: Even(x) and Even(y)
+      suppose even_xy: Even(x) and Even(y)
       have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
       have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
       ?
@@ -1206,7 +1205,7 @@ Here is the complete proof.
       if Even(x) and Even(y) then Even(x + y)
     proof
       arbitrary x:Nat, y:Nat
-      assume even_xy: Even(x) and Even(y)
+      suppose even_xy: Even(x) and Even(y)
       have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
       have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
       obtain a where x_2a: x = 2*a from even_x

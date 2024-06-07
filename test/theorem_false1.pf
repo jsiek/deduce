@@ -2,5 +2,5 @@ theorem false_any: all x:bool, y:bool. if false then x = y
 proof
   arbitrary x:bool, y:bool
   suppose f: false
-  show x = y by f
+  conclude x = y by f
 end

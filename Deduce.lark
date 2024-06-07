@@ -105,9 +105,9 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
     
 ?proof: "have" term "by" proof                           -> annot
-    | "show" term proof                                  -> annot
-    | "show" term "by" proof                             -> annot
-    | "apply" proof "to" proof                         -> modus_ponens
+    | "suffices" term proof                              -> annot
+    | "conclude" term "by" proof                         -> annot
+    | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
     | "suppose" IDENT proof                              -> imp_intro

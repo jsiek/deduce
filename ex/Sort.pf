@@ -26,9 +26,9 @@ proof
     arbitrary x:Nat, y:Nat
     suppose prem
     definition insert    
-    show all_elements(node(x,empty), λb{y ≤ b} : fn Nat -> bool)
+    suffices all_elements(node(x,empty), λb{y ≤ b} : fn Nat -> bool)
     definition all_elements
-    show y ≤ x by prem
+    conclude y ≤ x by prem
   }
   case node(a, xs') suppose IH {
     arbitrary x:Nat, y:Nat
@@ -62,32 +62,31 @@ proof
   case empty {
     arbitrary x:Nat
     suppose _
-    show sorted(insert(empty,x))
-    definition {insert, sorted, all_elements}.
+    conclude sorted(insert(empty,x))  by definition {insert, sorted, all_elements}.
   }
   case node(y, next) suppose IH {
     arbitrary x:Nat
     suppose s_yn: sorted(node(y,next))
     have s_n: sorted(next) by definition sorted in s_yn
     have y_next: all_elements(next,λb{(y ≤ b)}) by definition sorted in s_yn
-    show sorted(insert(node(y,next),x))
+    suffices sorted(insert(node(y,next),x))
     definition insert
     cases dichotomy[x,y]
     case x_le_y: x ≤ y {
       rewrite x_le_y
-      show sorted(node(x,node(y,next)))
+      suffices sorted(node(x,node(y,next)))
       definition {sorted, all_elements}
       have x_next: all_elements(next,λb{(x ≤ b)})
         by apply all_elements_implies[Nat][next][λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
 	   to y_next , (arbitrary z:Nat
 	                suppose y_z: y ≤ z
-	                show x ≤ z by apply less_equal_trans[x][y,z] to x_le_y , y_z)
+	                conclude x ≤ z by apply less_equal_trans[x][y,z] to x_le_y , y_z)
       s_n, y_next, x_le_y, x_next
     }
     case y_l_x: y < x {
       have not_x_le_y: not (x ≤ y) by apply less_not_greater_equal[y][x] to y_l_x
       rewrite not_x_le_y
-      show sorted(node(y,insert(next,x)))
+      suffices sorted(node(y,insert(next,x)))
       definition {sorted, all_elements}
       have s_next_x: sorted(insert(next,x)) by apply IH[x] to s_n
       have y_le_x: y ≤ x by apply less_implies_less_equal[y][x] to y_l_x
