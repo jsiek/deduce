@@ -569,6 +569,58 @@ proof
   }
 end
 
+theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  if i < length(xs)
+  then nth(append(xs, ys), d)(i) = nth(xs, d)(i)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, i:Nat, d:T
+    suppose i_z: i < length(empty)
+    conclude false by definition {length, operator <, operator ≤} in i_z
+  }
+  case node(x, xs) suppose IH {
+    arbitrary ys:List<T>, i:Nat, d:T
+    suppose i_xxs: i < length(node(x,xs))
+    definition append
+    switch i {
+      case zero {
+        definition nth.
+      }
+      case suc(i') suppose i_si {
+        definition {nth, pred}
+	have i_xs: i' < length(xs) by
+	    enable {operator <, operator ≤}
+	    conclude i' < length(xs) by rewrite i_si in definition length in i_xxs
+	apply IH[ys, i', d] to i_xs
+      }
+    }
+  }
+end
+
+theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  if i ≤ length(ys)
+  then nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, i:Nat, d:T
+    suppose _
+    definition {append, nth, length, operator +}.
+  }
+  case node(x, xs) suppose IH {
+    arbitrary ys:List<T>, i:Nat, d:T
+    suppose le_i
+    definition {append,length, nth}
+    have X: not (suc(length(xs)) + i = 0) by suppose eq_z enable operator + have false by eq_z
+    rewrite X
+    definition {operator +, pred}
+    apply IH[ys, i, d] to le_i
+  }
+end
+
 define flip : < T,U,V > fn (fn T,U->V) ->(fn U,T->V)
   = generic T,U,V { λf{ λx,y{ f(y,x) }}}
 

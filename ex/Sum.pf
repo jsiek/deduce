@@ -68,30 +68,23 @@ theorem summation_append:
   summation(length(append(xs,ys)), 0, nth(append(xs,ys), 0))
   = summation(length(xs), 0, nth(xs,0)) + summation(length(ys), 0, nth(ys,0))
 proof
-  induction List<Nat>
-  case empty {
-    arbitrary ys:List<Nat>
-    definition {append,length,nth,summation,operator +}.
-  }
-  case node(x,xs') suppose IH {
-    arbitrary ys:List<Nat>
-    definition {append,length,summation}
-    have n_x_xs_ys: nth(node(x,append(xs',ys)),0)(0) = x by definition nth.
-    rewrite n_x_xs_ys
-    have n_x_xs: nth(node(x,xs'),0)(0) = x by definition nth.
-    rewrite n_x_xs
-    have sum_01: summation(length(xs'),0,nth(xs',0)) = summation(length(xs'),1,nth(node(x,xs'),0))
-         by apply summation_suc[length(xs')][nth(xs',0), nth(node(x,xs'),0),0] 
-            to arbitrary i:Nat rewrite nth_node[Nat,x,xs',i,0].
-    equations
-          x + summation(length(append(xs',ys)),1,nth(node(x,append(xs',ys)),0))
-        = x + summation(length(append(xs',ys)),0,nth(append(xs',ys),0))
-          by rewrite symmetric apply summation_suc[length(append(xs',ys))]
-                                                  [nth(append(xs',ys),0), nth(node(x,append(xs',ys)),0), 0]
-                       to (arbitrary i:Nat rewrite nth_node[Nat,x,append(xs',ys),i,0].).
-    ... = x + (summation(length(xs'),0,nth(xs',0)) + summation(length(ys),0,nth(ys,0)))   by rewrite IH[ys].
-    ... = x + (summation(length(xs'),1,nth(node(x,xs'),0)) + summation(length(ys),0,nth(ys,0)))  by rewrite sum_01.
-    ... = (x + summation(length(xs'),1,nth(node(x,xs'),0))) + summation(length(ys),0,nth(ys,0))
-          by symmetric add_assoc[x][summation(length(xs'),1,nth(node(x,xs'),0)), summation(length(ys),0,nth(ys,0))]
-  }
+  arbitrary xs:List<Nat>
+  arbitrary ys:List<Nat>
+  have p1: all i:Nat. (if i < length(xs) then nth(xs,0)(0 + i) = nth(append(xs,ys),0)(0 + i))
+    by arbitrary i:Nat suppose i_xs: i < length(xs)
+       definition operator +
+       symmetric apply nth_append_front[Nat][xs][ys, i, 0] to i_xs
+  have p2: all i:Nat. (if i < length(ys)
+                       then nth(ys,0)(0 + i) = nth(append(xs,ys),0)(0 + length(xs) + i))
+    by arbitrary i:Nat suppose i_ys: i < length(ys)
+       definition operator +
+       have i_ys: i ≤ length(ys) by apply less_implies_less_equal[i][length(ys)]
+                                    to (enable {operator <, operator ≤} i_ys)
+       symmetric (apply nth_append_back[Nat][xs][ys,i,0] to i_ys)
+  
+  rewrite length_append[Nat][xs][ys]
+  conclude summation(length(xs) + length(ys), 0, nth(append(xs,ys), 0))
+        = summation(length(xs), 0, nth(xs,0)) + summation(length(ys), 0, nth(ys,0))
+      by apply summation_add[length(xs)][length(ys), 0, 0, nth(append(xs,ys), 0), nth(xs,0), nth(ys,0)]
+         to p1, p2
 end
