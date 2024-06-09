@@ -1,3 +1,5 @@
+[ ] remove parent param from parser, not needed anymore
+
 [ ] issue of conjunction intro in checking mode
 
 [ ] Revisit syntax for rewriting with a set of equations (replace bar)

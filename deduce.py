@@ -10,31 +10,29 @@ if __name__ == "__main__":
     file = open(filename, 'r')
     p = file.read()
     set_verbose(False)
+    set_filename(filename)
     try:
-      set_filename(filename)
-      try:
-          ast = parse(p, trace=False)
-          if get_verbose():
-              print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
-          uniquify_deduce(ast)
-          if get_verbose():
-              print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
-          check_deduce(ast)
-          print(filename + ' is valid')
-          exit(0)
-      except Exception as e:
-          print(str(e))
-          # for production, exit
-          exit(1)
-          # during development, reraise
-          #raise e
+        ast = parse(p, trace=False)
+        if get_verbose():
+            print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
+        uniquify_deduce(ast)
+        if get_verbose():
+            print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
+        check_deduce(ast)
+        print(filename + ' is valid')
+        exit(0)
 
     except exceptions.UnexpectedToken as t:
         print(filename + ":" + str(t.token.line) + "." + str(t.token.column) \
               + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-              + "error in parsing: unexpected token '" + t.token.value + "'")
-        print('expected one of ' + ', '.join([str(e) for e in t.expected]))
+              + "error in parsing, unexpected string: " + t.token.type.lower()[1:])
+        #print('expected one of ' + ', '.join([str(e) for e in t.expected]))
         exit(-1)
-        #print(str(t))
         
-    # print(str(ast))
+    except Exception as e:
+        print(str(e))
+        # for production, exit
+        exit(1)
+        # during development, reraise
+        #raise e
+

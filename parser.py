@@ -499,11 +499,6 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'program':
         return parse_tree_to_list(e.children[0], None)
     
-    elif e.data == 'proof_hi' and e.children == []:
-        if parent:
-            error(parent.meta, 'unexpected end of proof')
-        else:
-            raise Exception('unexpected end of proof')
     else:
         raise Exception('unhandled parse tree', e)
 
