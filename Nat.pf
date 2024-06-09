@@ -190,9 +190,8 @@ proof
       }
       case suc(y') suppose EQ : y = suc(y') {
         have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y
-        have x_y: x' < y'
-	    by definition operator <
-	       definition operator ≤ in ssx_sy
+        have x_y: x' < y'  by definition operator < definition operator ≤ in ssx_sy
+	suffices suc(x') ≤ suc(y')
         definition operator ≤	       
         conclude x' ≤ y'  by apply IH[y'] to x_y
       }
