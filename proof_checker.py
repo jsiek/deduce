@@ -663,7 +663,7 @@ def check_proof_of(proof, formula, env):
 
 def apply_definitions(loc, formula, defs, env):
   old_defs = get_reduce_only()
-  set_reduce_only(defs)
+  set_reduce_only(old_defs + defs)
   new_formula = formula.reduce(env)
   set_reduce_only(old_defs)
   return new_formula
@@ -1004,7 +1004,7 @@ modules = set()
 def process_declaration(stmt, env):
   if get_verbose():
     print('** process_declaration(' + str(stmt) + ')')
-    #print('** env: ' + str(env))
+    print('** env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -1048,6 +1048,9 @@ def process_declaration(stmt, env):
       for s in ast:
         check_proofs(s, env)
       return env
+    case Assert(loc, frm):
+      check_formula(frm, env)
+      return env
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
 
@@ -1087,6 +1090,8 @@ def type_check_stmt(stmt, env):
       pass
     case Import(loc, name, ast):
       pass
+    case Assert(loc, frm):
+      pass
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
 
@@ -1107,6 +1112,10 @@ def check_proofs(stmt, env):
       pass
     case Import(loc, name, ast):
       pass
+    case Assert(loc, frm):
+      set_reduce_all(True)
+      frm.reduce(env)
+      set_reduce_all(False)
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
       

@@ -490,6 +490,10 @@ def parse_tree_to_ast(e):
     # import module/file
     elif e.data == 'import':
         return Import(e.meta, str(e.children[0].value))
+
+    # assert formula
+    elif e.data == 'assert':
+        return Assert(e.meta, parse_tree_to_ast(e.children[0]))
     
     # whole program
     elif e.data == 'program':

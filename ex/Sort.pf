@@ -27,7 +27,7 @@ proof
     suppose prem
     definition insert    
     suffices all_elements(node(x,empty), λb{y ≤ b} : fn Nat -> bool)
-    definition all_elements
+    definition {all_elements, all_elements}
     conclude y ≤ x by prem
   }
   case node(a, xs') suppose IH {
@@ -40,7 +40,7 @@ proof
     cases dichotomy[x,a]
     case x_le_a: x ≤ a {
       rewrite x_le_a
-      definition all_elements
+      definition {all_elements, all_elements}
       have y_le_a: y ≤ a by apply less_equal_trans[y][x,a] to y_le_x, x_le_a
       have y_le_xs: all_elements(xs',λb{(y ≤ b)}) by definition all_elements in prem
       y_le_x, y_le_a, y_le_xs
@@ -62,7 +62,8 @@ proof
   case empty {
     arbitrary x:Nat
     suppose _
-    conclude sorted(insert(empty,x))  by definition {insert, sorted, all_elements}.
+    conclude sorted(insert(empty,x))
+        by definition {insert, sorted, sorted, all_elements}.
   }
   case node(y, next) suppose IH {
     arbitrary x:Nat
@@ -75,7 +76,7 @@ proof
     case x_le_y: x ≤ y {
       rewrite x_le_y
       suffices sorted(node(x,node(y,next)))
-      definition {sorted, all_elements}
+      definition {sorted, sorted, all_elements}
       have x_next: all_elements(next,λb{(x ≤ b)})
         by apply all_elements_implies[Nat][next][λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
 	   to y_next , (arbitrary z:Nat

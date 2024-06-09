@@ -43,15 +43,6 @@ define t1 = node(3, empty, empty)
 define t2 = node(7, empty, empty)
 define t3 = node(4, t1, t2)
 
-theorem thm1: height(t3) = 2
-proof
-  definition {t3,height}
-  definition {t1,t2,height}
-  definition {max, operator +}.
-end
+assert height(t3) = 2
+assert sum(t3) = 14
 
-theorem thm2: sum(t3) = 14
-proof
-  definition {t3,sum}
-  definition {t1,t2,sum,operator +}.
-end

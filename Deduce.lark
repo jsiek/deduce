@@ -201,11 +201,14 @@ ident: IDENT              -> ident
 
 ?import: "import" IDENT                            -> import
 
+?assert: "assert" term                             -> assert
+
 ?statement: theorem
  | union
  | rec_function
  | definition
  | import
+ | assert
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

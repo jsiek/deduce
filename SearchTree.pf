@@ -74,7 +74,7 @@ proof
     arbitrary x:Nat,v:Nat, P: fn(Nat) -> bool
     suppose prem: all_keys(empty_tree,P) and P(x)
     suffices all_keys(insert(empty_tree, x, v), P)
-    definition {all_keys, insert}
+    definition {all_keys, all_keys, insert}
     conclude P(x)  by prem
   }
   case tree_node(L, z, v2, R) suppose IHL, IHR {
@@ -114,7 +114,8 @@ proof
   case empty_tree {
     arbitrary x:Nat,v:Nat
     suppose prem
-    conclude is_BST(insert(empty_tree,x,v))  by definition {is_BST,insert,all_keys}.
+    conclude is_BST(insert(empty_tree,x,v))
+      by definition {is_BST,is_BST,insert,all_keys}.
   }
   case tree_node(L, y, v2, R) suppose IHL, IHR {
     arbitrary x:Nat, v:Nat

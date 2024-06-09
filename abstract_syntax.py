@@ -451,7 +451,7 @@ class Var(AST):
       return str(self)
     
   def reduce(self, env):
-      if self in get_reduce_only():
+      if self in get_reduce_only() or get_reduce_all():
         #print('*** reducing var ' + self.name)
         res = env.get_value_of_term_var(self)
         if res:
@@ -628,7 +628,17 @@ def set_reduce_only(defs):
 def get_reduce_only():
   global reduce_only
   return reduce_only
-  
+
+reduce_all = False
+
+def get_reduce_all():
+  global reduce_all
+  return reduce_all
+
+def set_reduce_all(b):
+  global reduce_all
+  reduce_all = b
+
 @dataclass
 class Call(Term):
   rator: Term
@@ -706,19 +716,26 @@ class Call(Term):
           for fun_case in cases:
               subst = {}
               if is_match(fun_case.pattern, first_arg, subst):
-                  #print('*** beta ' + name)
+                  #print('*** reduce call ' + str(self))
+                  #print('*** recursive function ' + name)
+                  #print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
                   body_env = clos_env.define_term_vars(loc, subst.items())
                   body_env = body_env.define_term_vars(loc, zip(fun_case.parameters, rest_args))
                   old_defs = get_reduce_only()
                   reduce_defs = [x for x in old_defs]
-                  if name in reduce_defs:
-                    reduce_defs.remove(name)
+                  if Var(loc, name) in reduce_defs:
+                    #print('\tremoving from reduce_defs: ' + name)
+                    reduce_defs.remove(Var(loc,name))
+                  else:
+                    #print('\t' + name + ' not in reduce_defs: ' + ','.join([str(x) for x in reduce_defs]))
+                    pass
                   reduce_defs += [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters]
                   set_reduce_only(reduce_defs)
                   ret = fun_case.body.reduce(body_env)
                   set_reduce_only(old_defs)
                   num_bindings = len(fun_case.pattern.parameters) + len(fun_case.parameters)
                   result = ret
+                  #print('*** finished reducing call\n\t' + str(self) + '  ===>  ' + str(result))
                   return result
         ret = Call(self.location, fun, args, self.infix)
       case Generic(loc, typarams, body):
@@ -1784,6 +1801,19 @@ class Define(Statement):
     pass
 
 uniquified_modules = {}
+  
+@dataclass
+class Assert(Statement):
+  formula : Term
+
+  def __str__(self):
+    return 'assert ' + str(self.formula)
+
+  def uniquify(self, env):
+    pass
+  
+  def uniquify_body(self, env):
+    self.formula.uniquify(env)
   
 @dataclass
 class Import(Statement):

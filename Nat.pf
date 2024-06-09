@@ -153,6 +153,7 @@ function diff(Nat,Nat) -> Nat {
 
 theorem sub_one_one: 1 - 1 = 0
 proof
+  definition operator -
   definition operator -.
 end
 
@@ -190,7 +191,7 @@ proof
       case suc(y') suppose EQ : y = suc(y') {
         have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y
         enable {operator <, operator ≤}
-        have x_y: x' < y'  by ssx_sy
+        have x_y: x' < y'  by definition operator ≤ in ssx_sy
         have x' ≤ y'  by apply IH[y'] to x_y
       }
     }
@@ -327,7 +328,7 @@ proof
   case suc(x') suppose IH: not (x' < x') {
     suppose sx_l_sx: suc(x') < suc(x')
     enable {operator <, operator ≤}
-    have x_l_x: x' < x' by sx_l_sx
+    have x_l_x: x' < x' by definition operator ≤ in sx_l_sx
     conclude false by apply IH to x_l_x
   }
 end
@@ -362,12 +363,9 @@ proof
                        (rewrite y_eq_zero in sx_less_y))
       }
       case suc(y') suppose ys {
-        have x_less_y: x' < y' by
-           definition {operator <, operator ≤}
-           definition {operator <, operator ≤} in (rewrite ys in sx_less_y)
-        have y_le_x: y' ≤ x' by
-           definition {operator <, operator ≤}
-           in (rewrite ys in y_le_sx)
+        enable {operator <, operator ≤}
+        have x_less_y: x' < y' by rewrite ys in sx_less_y
+        have y_le_x: y' ≤ x' by rewrite ys in y_le_sx
         have false by apply (apply IH[y'] to x_less_y) to y_le_x
       }
     }
@@ -406,12 +404,9 @@ proof
                        (rewrite y_eq_zero in sx_less_y))
       }
       case suc(y') suppose ys {
-        have x_less_y: x' < y' by
-           definition {operator <, operator ≤}
-           definition {operator <, operator ≤} in (rewrite ys in sx_less_y)
-        have y_less_x: y' < x' by
-           definition {operator <, operator ≤}
-           definition {operator <, operator ≤} in (rewrite ys in y_less_sx)
+        enable {operator <, operator ≤}
+        have x_less_y: x' < y' by rewrite ys in sx_less_y
+        have y_less_x: y' < x' by rewrite ys in y_less_sx
         have false by apply (apply IH[y'] to x_less_y) to y_less_x
       }
     }
@@ -427,7 +422,7 @@ proof
   case suc(x') suppose IH {
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
-                                         by definition max.
+                                         by definition {max,max}.
     ... = suc(suc(max(x',x')))           by rewrite IH.
     ... = suc(max(suc(x'),suc(x')))      by definition max.
   }
@@ -443,21 +438,26 @@ proof
     switch y {
       case zero { have 0 = 0 by reflexive }
       case suc(y') {
-        have 0 < suc(y') by definition {operator <, operator ≤}.
+        enable {operator <, operator ≤, operator ≤}
+        have 0 < suc(y') by .
       }
     }
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
-    enable operator ≤
+    //enable operator ≤
     switch y {
-      case zero { have 0 < suc(x')  by definition operator <.}
+      case zero {
+        have 0 < suc(x')  by definition {operator ≤,operator ≤,operator <}.
+      }
       case suc(y') {
         enable operator <
         cases (have (x' < y' or x' = y' or y' < x') by IH[y'])
-        case less { conclude suc(x') < suc(y')  by less }
+        case less { conclude suc(x') < suc(y')  by definition operator ≤ less }
         case equal { conclude suc(x') = suc(y')  by rewrite equal . }
-        case greater { conclude suc(y') < suc(x')  by greater }
+        case greater {
+	  conclude suc(y') < suc(x')  by definition operator ≤  greater
+	}
       }
     }
   }
@@ -500,23 +500,24 @@ theorem less_implies_less_equal:
   all x:Nat. all y:Nat.
   if x < y  then  x ≤ y
 proof
-  enable {operator ≤, operator <}
+  //enable {operator ≤, operator <}
   induction Nat
   case zero {
     arbitrary y:Nat
     suppose z_y: 0 < y
-    conclude 0 ≤ y by .
+    conclude 0 ≤ y by definition operator ≤ .
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
     switch y {
       case zero {
-        . //suppose sx_z: suc(x') < 0
+        definition {operator <, operator ≤}. //suppose sx_z: suc(x') < 0
         //have false by sx_z
       }
       case suc(y') {
         suppose sx_sy: suc(x') < suc(y')
-        have x_y: x' < y' by sx_sy
+	enable {operator ≤, operator ≤, operator <}
+	have x_y: x' < y' by sx_sy
         have x_le_y: x' ≤ y' by (apply IH[y'] to x_y)
         conclude suc(x') ≤ suc(y') by x_le_y
       }
@@ -550,7 +551,8 @@ proof
       conclude true or 0 < 0 by .
     }
     case suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      have z_l_sx: 0 < suc(x')
+          by definition {operator <, operator ≤, operator ≤}.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }
@@ -638,7 +640,7 @@ proof
          have Even(0)
          by definition Even
             choose 0
-            definition {operator *, operator +}.
+            definition {operator *, operator *, operator *, operator +}.
    have part2: if is_odd(0) then Odd(0)
      by suppose zero_odd
         have false by definition is_odd in zero_odd
@@ -653,7 +655,7 @@ proof
        definition Even
        choose suc(m)
        rewrite n_2m
-       definition {operator *, operator+}
+       definition {operator *, operator *, operator *, operator+}
        rewrite add_zero[m] | add_suc[m][m].)
     have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
       (suppose suc_odd: is_odd(suc(n'))
@@ -702,13 +704,14 @@ proof
     definition summation
     have f_g_s: f(s) = g(t) by
        rewrite add_zero[s] | add_zero[t] in
-       (apply f_g[0] to definition {operator <, operator ≤}.)
+       (apply f_g[0] to definition {operator <, operator ≤, operator ≤}.)
     have IH': summation(k',suc(s),f) = summation(k',suc(t),g)
       by apply IH[f,g,suc(s),suc(t)] 
          to arbitrary i:Nat suppose i_k: i < k'
 	    suffices f(suc(s) + i) = g(suc(t) + i)
 	    have fsi_gtsi: f(s + suc(i)) = g(t + suc(i))
-	      by apply f_g[suc(i)] to enable {operator <, operator ≤} i_k
+	      by apply f_g[suc(i)] to
+	         enable {operator <, operator ≤, operator ≤} i_k
 	    enable operator + rewrite add_suc[s][i] | add_suc[t][i] in fsi_gtsi
     rewrite f_g_s | IH'.
   }
@@ -795,11 +798,13 @@ proof
     definition {operator +, summation}
     have fs_gs: f(s) = g(s) by symmetric
         rewrite add_zero[s] | add_zero[t]
-	in apply (conjunct 0 of g_f_and_h_f)[0] to definition {operator <,operator ≤}.
-    have IH': summation(a' + b,suc(s),f) = summation(a',suc(s),g) + summation(b,t,h)
+	in apply (conjunct 0 of g_f_and_h_f)[0]
+	   to definition {operator <, operator ≤, operator ≤}.
+    have IH': summation(a' + b,suc(s),f)
+            = summation(a',suc(s),g) + summation(b,t,h)
       by have p1: all i:Nat. (if i < a' then g(suc(s) + i) = f(suc(s) + i))
 	   by arbitrary i:Nat suppose i_a: i < a'
-	      enable {operator +}  rewrite add_suc[s][i] in
+	      enable {operator +, operator ≤}  rewrite add_suc[s][i] in
 	      (apply (conjunct 0 of g_f_and_h_f)[suc(i)] to enable {operator <, operator ≤} i_a)
          have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + a' + i))
 	   by arbitrary i:Nat suppose i_b: i < b

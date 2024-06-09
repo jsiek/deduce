@@ -21,67 +21,38 @@ function reverse<E>(List<E>) -> List<E> {
   reverse(node(n, next)) = append(reverse(next), node(n, empty))
 }
 
-theorem length_empty: length(empty) = 0
-proof
-  definition length.
-end
-
-theorem length_node42: length(node(42, empty)) = 1
-proof
-  definition {length, operator +}.
-end
+assert length(empty) = 0
+assert length(node(42, empty)) = 1
 
 theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 proof
   arbitrary x:Nat
-  definition {length, operator +}.
+  definition {length, length, operator +}.
 end
 
-theorem length_node42_again: length(node(42, empty)) = 1
-proof
-  length_one_nat[42]
-end
+assert length(node(42, empty)) = 1
 
 theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type, x:U
-  definition {length, operator +}.
+  definition {length, length, operator +}.
 end
 
 define L1 = node(1, node(2, empty))
 define L2 = node(3, node(4, node(5, empty)))
 define L3 : List<Nat> = node(1, node(2, node(3, node(4, node(5, empty)))))
 
-theorem length_L3: length(L3) = 5
-proof
-  definition {L1, L2, L3, length, operator +}.
-end
-
-theorem append_test: append(L1, L2) = L3
-proof
-  definition {L1, L2, L3, append}.
-end
-
-theorem reverse_test2: reverse(L1) = node(2, node(1, empty))
-proof
-  definition {L1, reverse, append}.
-end
-
-theorem reverse_test3: reverse(L2) = node(5, node(4, node(3, empty)))
-proof
-  definition {L2, reverse, append}.
-end
-
-theorem length_append_123: length(append(L1, L2)) = length(L1) + length(L2)
-proof
-  definition {L1, L2, length, append, operator +}.
-end  
+assert length(L3) = 5
+assert append(L1, L2) = L3
+assert reverse(L1) = node(2, node(1, empty))
+assert reverse(L2) = node(5, node(4, node(3, empty)))
+assert length(append(L1, L2)) = length(L1) + length(L2)
 
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(append(xs, ys)) = length(xs) + length(ys)
 proof
   arbitrary U :type
-  enable {length, append, operator +}
+  enable {length, append, operator +, operator +}
   induction List<U>
   case empty {
     arbitrary ys:List<U>
@@ -97,12 +68,8 @@ proof
   }
 end
 
-theorem append_assoc1:
-  append(append(node(1, empty), node(2, empty)), node(3, empty))
-  = append(node(1, empty), append(node(2, empty), node(3, empty)))
-proof
-  definition append.
-end  
+assert append(append(node(1, empty), node(2, empty)), node(3, empty))
+     = append(node(1, empty), append(node(2, empty), node(3, empty)))
 
 theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
   append(append(xs, ys), zs) = append(xs, append(ys, zs))
@@ -160,11 +127,7 @@ proof
   }
 end
 
-theorem reverse_append_123:
-  reverse(append(L1, L2)) = append(reverse(L2), reverse(L1))
-proof
-  definition {L1, L2, reverse, append}.
-end  
+assert reverse(append(L1, L2)) = append(reverse(L2), reverse(L1))
 
 theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
   reverse(append(xs, ys)) = append(reverse(ys), reverse(xs))
@@ -203,7 +166,7 @@ proof
     have reverse(reverse(empty)) = empty by definition reverse.
   }
   case node(n, ls') suppose IH {
-    enable {reverse, append}
+    enable {reverse, reverse, append, append}
     equations
       reverse(reverse(node(n,ls')))
           = reverse(append(reverse(ls'), node(n,empty))) by .
@@ -220,10 +183,7 @@ function map<T,U>(List<T>, fn T->U) -> List<U> {
   map(node(x, ls), f) = node(f(x), map(ls, f))
 }
 
-theorem map_suc: map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
-proof
-  definition {L1, map}.
-end
+assert map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
 
 theorem length_map: all T:type, f:fn T->T. all xs:List<T>.
   length(map(xs, f)) = length(xs)
@@ -266,10 +226,7 @@ define operator ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
 
 define id_nat : fn Nat -> Nat = λx{x}
 
-theorem compose_test: (id_nat ∘ id_nat)(zero) = zero
-proof
-  definition {operator ∘, id_nat}.
-end
+assert (id_nat ∘ id_nat)(zero) = zero
 
 theorem map_append: all T:type, f: fn T->T, ys:List<T>. all xs:List<T>.
   map(append(xs,ys), f) = append(map(xs,f), map(ys, f))
@@ -316,54 +273,28 @@ function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
   foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c))
 }
 
-theorem foldr_add12: foldr(L1, 0, λa,b{ a + b }) = 3
-proof
-  definition {L1, foldr, operator +}.
-end
-
-theorem foldr_id: foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
-proof
-  definition {L1, foldr}.
-end
+assert foldr(L1, 0, λa,b{ a + b }) = 3
+assert foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
 
 function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
   foldl(empty, u, c) = u
   foldl(node(t, ls), u, c) = foldl(ls, c(u, t), c)
 }
 
-theorem foldl_add12: foldl(L1, 0, λa,b{ a + b }) = 3
-proof
-  definition {L1, foldl, operator +}.
-end  
-
-theorem foldl_rev12:
-  foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
-proof
-  definition {L1, foldl}.
-end  
-
+assert foldl(L1, 0, λa,b{ a + b }) = 3
+assert foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 
 function down_from(Nat) -> List<Nat> {
   down_from(zero) = empty
   down_from(suc(n)) = node(n, down_from(n))
 }
 
-theorem down_from2: down_from(2) = node(1, node(0, empty))
-proof
-  definition down_from.
-end
+assert down_from(2) = node(1, node(0, empty))
 
 define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
 
-theorem up_to2: up_to(2) = node(0, node(1, empty))
-proof
-  definition {up_to, down_from, reverse, append}.
-end
-
-theorem up_to3: up_to(3) = node(0, node(1, node(2, empty)))
-proof
-  definition {up_to, down_from, reverse, append}.
-end
+assert up_to(2) = node(0, node(1, empty))
+assert up_to(3) = node(0, node(1, node(2, empty)))
 
 function range_aux(Nat, Nat, Nat) -> List<Nat> {
   range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : fn Nat->Nat)
@@ -376,30 +307,11 @@ function range_aux(Nat, Nat, Nat) -> List<Nat> {
 
 define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
 
-theorem range_empty: range(0, 0) = empty
-proof
-  definition {range, range_aux, up_to, down_from, reverse, map}.
-end  
-
-theorem range1: range(0, 1) = node(0, empty)
-proof
-  enable {range, range_aux, up_to, down_from, reverse, map, append, operator +}.
-end  
-
-theorem range2: range(0, 2) = node(0, node(1, empty))
-proof
-  enable {range, range_aux, up_to, down_from, reverse, map, append, operator +}.
-end  
-
-theorem range13: range(1, 3) = node(1, node(2, empty))
-proof
-  enable {range, range_aux, up_to, down_from, reverse, map, append, operator +}.
-end  
-
-theorem range25: range(2, 5) = node(2, node(3, node(4, empty)))
-proof
-  enable {range, range_aux, up_to, down_from, reverse, map, append, operator +}.
-end  
+assert range(0, 0) = empty
+assert range(0, 1) = node(0, empty)
+assert range(0, 2) = node(0, node(1, empty))
+assert range(1, 3) = node(1, node(2, empty))
+assert range(2, 5) = node(2, node(3, node(4, empty)))
 
 union Pair<T,U> {
   pair(T,U)
@@ -645,7 +557,7 @@ proof
       rev_app(xs', node(x,ys))
           = append(reverse(xs'), node(x,ys)) by IH[node(x,ys)]
       ... = append(reverse(xs'), append(node(x,empty), ys))
-            by definition append.
+            by definition {append,append}.
       ... = append(append(reverse(xs'), node(x,empty)), ys)
             by symmetric append_assoc[T][reverse(xs')][node(x,empty),ys]
   }
