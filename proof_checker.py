@@ -2,18 +2,8 @@
 # check well-formedness of types
 
 from abstract_syntax import *
-from error import error
+from error import error, get_verbose, set_verbose
 from parser import parse, set_filename, get_filename
-
-verbose = False
-
-def set_verbose(b):
-  global verbose
-  verbose = b
-
-def get_verbose():
-  global verbose
-  return verbose
 
 name_id = 0
 
@@ -203,7 +193,7 @@ def isolate_difference(term1, term2):
         return (term1, term2)
     
 def check_proof(proof, env):
-  if verbose:
+  if get_verbose():
     print('synthesize formula while checking proof') ; print('\t' + str(proof))
   ret = None
   match proof:
@@ -322,7 +312,7 @@ def check_proof(proof, env):
       return mkEqual(loc, b, a)
     case _:
       error(proof.location, 'in check_proof, unhandled ' + str(proof))
-  if verbose:
+  if get_verbose():
     print('\t=> ' + str(ret))
   return ret
 
@@ -341,7 +331,7 @@ def get_type_args(ty):
       return type_args
     
 def check_proof_of(proof, formula, env):
-  if verbose:
+  if get_verbose():
     print('nts: ' + str(formula) + '?')
     print('\t' + str(proof))
   match proof:
@@ -448,7 +438,7 @@ def check_proof_of(proof, formula, env):
           sub = {var[0]: Var(loc2, x) for (var,x) in zip(vars,witnesses)}
           witnessFormula = formula2.substitute(sub)
           if prop:
-            check_implies(loc, witnessFormula, prop)
+            check_implies(loc, witnessFormula.reduce(env), prop.reduce(env))
           else:
             prop = witnessFormula
           body_env = env.declare_local_proof_var(loc, label, prop)
@@ -666,6 +656,7 @@ def apply_definitions(loc, formula, defs, env):
   set_reduce_only(old_defs + defs)
   new_formula = formula.reduce(env)
   set_reduce_only(old_defs)
+  #print('apply defs: ' + str(formula) + ' ===> ' + str(new_formula))
   return new_formula
       
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
@@ -1003,8 +994,8 @@ modules = set()
 
 def process_declaration(stmt, env):
   if get_verbose():
-    print('** process_declaration(' + str(stmt) + ')')
-    print('** env: ' + str(env))
+    print('process_declaration(' + str(stmt) + ')')
+    print('env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -1056,8 +1047,8 @@ def process_declaration(stmt, env):
 
 def type_check_stmt(stmt, env):
   if get_verbose():
-    print('** type_check_stmt(' + str(stmt) + ')')
-    #print('** env: ' + str(env))
+    print('type_check_stmt(' + str(stmt) + ')')
+    #print('env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -1097,8 +1088,8 @@ def type_check_stmt(stmt, env):
 
 def check_proofs(stmt, env):
   if get_verbose():
-    print('** check_proofs(' + str(stmt) + ')')
-    #print('** env: ' + str(env))
+    print('check_proofs(' + str(stmt) + ')')
+    #print('env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       pass
@@ -1114,8 +1105,15 @@ def check_proofs(stmt, env):
       pass
     case Assert(loc, frm):
       set_reduce_all(True)
-      frm.reduce(env)
+      result = frm.reduce(env)
       set_reduce_all(False)
+      match result:
+        case Bool(loc2, True):
+          pass
+        case Bool(loc2, False):
+          error(loc, 'assertion failed: ' + str(frm))
+        case result:
+          error(loc, 'assertion expected Boolean result, not ' + str(result))
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
       

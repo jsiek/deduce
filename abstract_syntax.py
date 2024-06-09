@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from lark.tree import Meta
 from typing import Any, Tuple, List
-from error import error
+from error import error, set_verbose, get_verbose
 
 def copy_dict(d):
   return {k:v for k,v in d.items()}
@@ -295,7 +295,7 @@ class PatternCons(Pattern):
   
   def __str__(self):
       return str(self.constructor) \
-        + '(' + ",".join([base_name(p) for p in self.parameters]) + ')'
+        + '(' + ",".join([p for p in self.parameters]) + ')'
 
   def __repr__(self):
       return str(self)
@@ -444,22 +444,26 @@ class Var(AST):
       if base_name(self.name) == 'zero':
         return '0'
       else:
-        return base_name(self.name)
-        #return self.name
+        #return base_name(self.name)
+        return self.name
 
   def __repr__(self):
       return str(self)
     
   def reduce(self, env):
-      if self in get_reduce_only() or get_reduce_all():
-        #print('*** reducing var ' + self.name)
+      if get_reduce_all() or (self in get_reduce_only()):
+        if get_verbose():
+          print('reducing var ' + self.name)
         res = env.get_value_of_term_var(self)
         if res:
-          #print('\t var ' + self.name + ' => ' + str(res))
-          return res
+          if get_verbose():
+            print('\t var ' + self.name + ' ===> ' + str(res))
+          return res.reduce(env)
         else:
             return self
       else:
+        if get_verbose():
+          print('not reducing var ' + self.name)
         return self
   
   def substitute(self, sub):
@@ -569,8 +573,8 @@ class Closure(Term):
 
   def substitute(self, sub):
       n = len(self.vars)
-      new_sub = {k: v for (k,v) in sub.items()}
-      clos = Closure(self.location, self.vars, self.body.substitute(new_sub), self.env)
+      #new_sub = {k: v for (k,v) in sub.items()}
+      clos = Closure(self.location, self.vars, self.body.substitute(sub), self.env)
       clos.typeof = self.typeof
       return clos
   
@@ -678,16 +682,16 @@ class Call(Term):
     # case Call(loc2, Var(loc3, '='), [lhs, rhs], _)
     
   def reduce(self, env):
-    #print('*** reduce call ' + str(self))
+    #print('reduce call ' + str(self))
     #print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
     fun = self.rator.reduce(env)
-    #print('*** rator => ' + str(fun))    
+    #print('rator => ' + str(fun))    
     args = [arg.reduce(env) for arg in self.args]
-    #print('*** args => ' + ', '.join([str(arg) for arg in args]))
+    #print('args => ' + ', '.join([str(arg) for arg in args]))
     ret = None
     match fun:
       case Var(loc, '='):
-        #print('*** reduce equality ' + str(fun))
+        #print('reduce equality ' + str(fun))
         if args[0] == args[1]:
           ret = Bool(loc, True)
         elif constructor_conflict(args[0], args[1], env):
@@ -695,32 +699,43 @@ class Call(Term):
         else:
           ret = Call(self.location, fun, args, self.infix)
       case Closure(loc, vars, body, clos_env):
-        #print('*** reduce closure ' + str(fun))
-        body_env = clos_env.define_term_vars(loc, zip(vars, args))
+        #print('reduce closure ' + str(fun))
+        subst = {k: v for (k,v) in zip(vars, args)}
+        body_env = env
+        new_body = body.substitute(subst)
         old_defs = get_reduce_only()
         set_reduce_only(old_defs + [Var(loc, x) for x in vars])
-        ret = body.reduce(body_env)
+        ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
       case Lambda(loc, vars, body):
-        #print('*** reduce lambda ' + str(fun))
-        body_env = env.define_term_vars(loc, zip(vars, args))
+        #print('reduce lambda ' + str(fun))
+        subst = {k: v for (k,v) in zip(vars, args)}
+        body_env = env
+        new_body = body.substitute(subst)
         old_defs = get_reduce_only()
         set_reduce_only(old_defs + [Var(loc, x) for x in vars])
-        ret = body.reduce(body_env)
+        ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
       case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
         if True:
-          #print('*** reduce recursive fun ' + name)
+          #print('reduce recursive fun ' + name)
           first_arg = args[0]
           rest_args = args[1:]
           for fun_case in cases:
               subst = {}
               if is_match(fun_case.pattern, first_arg, subst):
-                  #print('*** reduce call ' + str(self))
-                  #print('*** recursive function ' + name)
-                  #print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
-                  body_env = clos_env.define_term_vars(loc, subst.items())
-                  body_env = body_env.define_term_vars(loc, zip(fun_case.parameters, rest_args))
+                  if get_verbose():
+                    print('reduce call ' + str(self))
+                    print('recursive function ' + name)
+                    #print('first param/arg ' + str(subst))
+                    #print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
+
+                  body_env = env
+                  for (k,v) in zip(fun_case.parameters, rest_args):
+                    subst[k] = v
+                  new_fun_case_body = fun_case.body.substitute(subst)
+                    
+                  #print('rest params/args ' + str(list(zip(fun_case.parameters, rest_args))))
                   old_defs = get_reduce_only()
                   reduce_defs = [x for x in old_defs]
                   if Var(loc, name) in reduce_defs:
@@ -731,19 +746,19 @@ class Call(Term):
                     pass
                   reduce_defs += [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters]
                   set_reduce_only(reduce_defs)
-                  ret = fun_case.body.reduce(body_env)
+                  ret = new_fun_case_body.reduce(body_env)
                   set_reduce_only(old_defs)
-                  num_bindings = len(fun_case.pattern.parameters) + len(fun_case.parameters)
                   result = ret
-                  #print('*** finished reducing call\n\t' + str(self) + '  ===>  ' + str(result))
+                  if get_verbose():
+                    print('finished reducing call\n\t' + str(self) + '  ===>  ' + str(result))
                   return result
         ret = Call(self.location, fun, args, self.infix)
       case Generic(loc, typarams, body):
         ret = Call(self.location, body, args, self.infix).reduce(env)
       case _:
-        #print("*** can't reduce, not a redex: " + str(fun))
+        #print("can't reduce, not a redex: " + str(fun))
         ret = Call(self.location, fun, args, self.infix)
-    #print('*** finished reducing call\n\t' + str(self) + '\n\t' + str(ret))
+    #print('finished reducing call\n\t' + str(self) + '\n\t' + str(ret))
     return ret
 
   def substitute(self, sub):
@@ -827,11 +842,12 @@ class Switch(Term):
       for c in self.cases:
           subst = {}
           if is_match(c.pattern, new_subject, subst):
-            new_env = env.define_term_vars(self.location, subst.items())
+            new_body = c.body.substitute(subst)
+            new_env = env
             old_defs = get_reduce_only()
             set_reduce_only(old_defs + [Var(self.location, x) \
                                         for x in subst.keys()])
-            ret = c.body.reduce(new_env)
+            ret = new_body.reduce(new_env)
             set_reduce_only(old_defs)
             return ret
       new_cases = [c.reduce(env) for c in self.cases]
@@ -1741,7 +1757,7 @@ class RecFun(Statement):
     #clos.env = env
     clos.typeof = FunctionType(self.location, self.type_params,
                                self.params, self.returns)
-    #print('**** RecFun.reduce clos.env = ' + str(clos.env))
+    #print('*RecFun.reduce clos.env = ' + str(clos.env))
     return clos
 
   def substitute(self, sub):
@@ -1789,6 +1805,9 @@ class Define(Statement):
   typ: Type
   body: Term
 
+  def __str__(self):
+    return 'define ' + self.name + ' = ' + str(self.body)
+  
   def uniquify(self, env):
     if self.typ:
       self.typ.uniquify(env)

@@ -186,13 +186,15 @@ proof
     have ssx_y: suc(suc(x')) ≤ y  by definition operator < in sx_y
     switch y {
       case zero suppose yz {
-        have false  by definition operator ≤ in (rewrite yz in ssx_y)
+        conclude false  by definition operator ≤ in (rewrite yz in ssx_y)
       }
       case suc(y') suppose EQ : y = suc(y') {
         have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y
-        enable {operator <, operator ≤}
-        have x_y: x' < y'  by definition operator ≤ in ssx_sy
-        have x' ≤ y'  by apply IH[y'] to x_y
+        have x_y: x' < y'
+	    by definition operator <
+	       definition operator ≤ in ssx_sy
+        definition operator ≤	       
+        conclude x' ≤ y'  by apply IH[y'] to x_y
       }
     }
   }
@@ -287,16 +289,15 @@ theorem not_less_less_equal:
   all x: Nat. all y: Nat.
   if not (x < y) then y ≤ x
 proof
-  enable operator ≤
   induction Nat
   case zero {
     arbitrary y: Nat
     suppose not_0_y: not (0 < y)
     switch y {
-      case zero { . }
+      case zero { definition operator ≤. }
       case suc(y') suppose ys {
         conclude false by apply (rewrite ys in not_0_y)
-                      to (definition operator <.)
+                      to (definition operator < definition {operator ≤,operator ≤}.)
       }
     }
   }
@@ -304,15 +305,18 @@ proof
     arbitrary y: Nat
     suppose not_sx_y: not (suc(x') < y)
     switch y {
-      case zero { . }
+      case zero { definition operator ≤. }
       case suc(y') suppose ys {
         have not_x_y: not (x' < y')
           by (suppose x_y: x' < y'
             have sx_sy: suc(x') < suc(y')
-              by definition operator < (definition operator < in x_y)
+              by definition operator <
+	         definition operator ≤
+		 (definition operator < in x_y)
             have sx_y: suc(x') < y by (rewrite ys sx_sy)
             apply not_sx_y to sx_y)
-        conclude y' ≤ x' by apply IH[y'] to not_x_y
+        definition operator ≤
+	conclude y' ≤ x' by apply IH[y'] to not_x_y
       }
     }
   }
@@ -327,8 +331,11 @@ proof
   }
   case suc(x') suppose IH: not (x' < x') {
     suppose sx_l_sx: suc(x') < suc(x')
-    enable {operator <, operator ≤}
-    have x_l_x: x' < x' by definition operator ≤ in sx_l_sx
+    //enable {operator <, operator ≤}
+    have x_l_x: x' < x' by
+       definition operator <
+       definition operator ≤ in
+       definition operator < in sx_l_sx
     conclude false by apply IH to x_l_x
   }
 end
@@ -363,9 +370,12 @@ proof
                        (rewrite y_eq_zero in sx_less_y))
       }
       case suc(y') suppose ys {
-        enable {operator <, operator ≤}
-        have x_less_y: x' < y' by rewrite ys in sx_less_y
-        have y_le_x: y' ≤ x' by rewrite ys in y_le_sx
+        have x_less_y: x' < y' by
+	  definition operator <
+	  definition operator ≤ in
+	  definition operator < in
+	  rewrite ys in sx_less_y
+        have y_le_x: y' ≤ x' by definition operator ≤ in rewrite ys in y_le_sx
         have false by apply (apply IH[y'] to x_less_y) to y_le_x
       }
     }
@@ -404,9 +414,13 @@ proof
                        (rewrite y_eq_zero in sx_less_y))
       }
       case suc(y') suppose ys {
-        enable {operator <, operator ≤}
-        have x_less_y: x' < y' by rewrite ys in sx_less_y
-        have y_less_x: y' < x' by rewrite ys in y_less_sx
+        have x_less_y: x' < y' by
+	  definition operator <
+	  definition operator ≤ in definition operator < in
+	  rewrite ys in sx_less_y
+        have y_less_x: y' < x' by definition operator <
+	  definition operator ≤ in definition operator < in
+	  rewrite ys in y_less_sx
         have false by apply (apply IH[y'] to x_less_y) to y_less_x
       }
     }
@@ -422,7 +436,7 @@ proof
   case suc(x') suppose IH {
     equations
     max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
-                                         by definition {max,max}.
+                                         by definition max definition max.
     ... = suc(suc(max(x',x')))           by rewrite IH.
     ... = suc(max(suc(x'),suc(x')))      by definition max.
   }
@@ -445,18 +459,23 @@ proof
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
-    //enable operator ≤
     switch y {
       case zero {
         have 0 < suc(x')  by definition {operator ≤,operator ≤,operator <}.
       }
       case suc(y') {
-        enable operator <
+        //enable operator <
         cases (have (x' < y' or x' = y' or y' < x') by IH[y'])
-        case less { conclude suc(x') < suc(y')  by definition operator ≤ less }
+        case less { conclude suc(x') < suc(y')
+	    by definition operator < definition operator ≤ 
+	       definition operator < in less
+	}
         case equal { conclude suc(x') = suc(y')  by rewrite equal . }
         case greater {
-	  conclude suc(y') < suc(x')  by definition operator ≤  greater
+	  conclude suc(y') < suc(x')
+	      by definition operator <
+	         definition operator ≤
+	         definition operator < in greater
 	}
       }
     }
@@ -511,8 +530,7 @@ proof
     arbitrary y:Nat
     switch y {
       case zero {
-        definition {operator <, operator ≤}. //suppose sx_z: suc(x') < 0
-        //have false by sx_z
+        definition {operator <, operator ≤}.
       }
       case suc(y') {
         suppose sx_sy: suc(x') < suc(y')

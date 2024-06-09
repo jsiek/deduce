@@ -30,8 +30,6 @@ proof
   definition {length, length, operator +}.
 end
 
-assert length(node(42, empty)) = 1
-
 theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type, x:U
@@ -42,6 +40,7 @@ define L1 = node(1, node(2, empty))
 define L2 = node(3, node(4, node(5, empty)))
 define L3 : List<Nat> = node(1, node(2, node(3, node(4, node(5, empty)))))
 
+assert length(L1) = 2
 assert length(L3) = 5
 assert append(L1, L2) = L3
 assert reverse(L1) = node(2, node(1, empty))

@@ -1,3 +1,13 @@
+verbose = False
+
+def set_verbose(b):
+  global verbose
+  verbose = b
+
+def get_verbose():
+  global verbose
+  return verbose
+
 # flag for expect fail
 
 expect_fail_flag = False
@@ -44,3 +54,4 @@ class StaticError(Exception):
 
 def static_error(location, msg):
   raise StaticError(error_header(location) + msg)
+
