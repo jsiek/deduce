@@ -25,7 +25,7 @@ if __name__ == "__main__":
     except exceptions.UnexpectedToken as t:
         print(filename + ":" + str(t.token.line) + "." + str(t.token.column) \
               + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-              + "error in parsing, unexpected string: " + t.token.type.lower()[1:])
+              + "error in parsing, unexpected token: " + t.token.type.lower()[1:])
         #print('expected one of ' + ', '.join([str(e) for e in t.expected]))
         exit(-1)
         
