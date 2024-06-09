@@ -237,7 +237,7 @@ def check_proof(proof, env):
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)
       check_proof_of(reason, frm, env)
-      body_env = env.declare_proof_var(loc, label, frm)
+      body_env = env.declare_local_proof_var(loc, label, frm)
       ret = check_proof(rest, body_env)
     case PAnnot(loc, claim, reason):
       check_formula(claim, env)
@@ -263,7 +263,7 @@ def check_proof(proof, env):
           error(loc, 'expected a conjunction, not ' + str(formula))
     case ImpIntro(loc, label, prem, body):
       check_formula(prem, env)
-      body_env = env.declare_proof_var(loc, label, prem)
+      body_env = env.declare_local_proof_var(loc, label, prem)
       conc = check_proof(body, body_env)
       ret = IfThen(loc, prem, conc)
     case AllIntro(loc, vars, body):
@@ -346,8 +346,8 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      error(loc, 'unfinished proof:\n\t' + str(formula) \
-            + '\n\navailable facts:\n' + env.proofs_str())
+      error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) \
+            + '\nGivens:\n' + env.proofs_str())
 
     case EnableDefs(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]
@@ -369,7 +369,7 @@ def check_proof_of(proof, formula, env):
             else:
               msg = msg + str(small_lhs) + ' ≠ ' + str(small_rhs) + '\n' \
                 + 'therefore\n' + str(lhsNF) + ' ≠ ' + str(rhsNF)
-            error(proof.location, msg + '\n\nfacts:\n' + env.proofs_str())
+            error(proof.location, msg + '\n\nGivens:\n\t' + env.proofs_str())
         case _:
           error(proof.location, 'reflexive proves an equality, not ' \
                 + str(formula))
@@ -451,7 +451,7 @@ def check_proof_of(proof, formula, env):
             check_implies(loc, witnessFormula, prop)
           else:
             prop = witnessFormula
-          body_env = env.declare_proof_var(loc, label, prop)
+          body_env = env.declare_local_proof_var(loc, label, prop)
           witnesses_types = [(x,var[1]) for (var,x) in zip(vars,witnesses)]
           body_env = body_env.declare_term_vars(loc, witnesses_types)
           check_proof_of(body, formula, body_env)
@@ -461,7 +461,7 @@ def check_proof_of(proof, formula, env):
     case ImpIntro(loc, label, None, body):
       match formula:
         case IfThen(loc2, prem, conc):
-          body_env = env.declare_proof_var(loc, label, prem)
+          body_env = env.declare_local_proof_var(loc, label, prem)
           check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'expected proof of ' + str(formula) + '\n\tnot a proof of if-then: ' + str(proof))
@@ -477,7 +477,7 @@ def check_proof_of(proof, formula, env):
             msg = str(small1) + ' ≠ ' + str(small2) + '\n' \
                 + 'therefore\n' + str(prem1_red) + ' ≠ ' + str(prem2_red)
             error(loc, 'mismatch in premise:\n' + msg)
-          body_env = env.declare_proof_var(loc, label, prem1_red)
+          body_env = env.declare_local_proof_var(loc, label, prem1_red)
           check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
@@ -485,7 +485,7 @@ def check_proof_of(proof, formula, env):
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)
       check_proof_of(reason, frm, env)
-      body_env = env.declare_proof_var(loc, label, frm)
+      body_env = env.declare_local_proof_var(loc, label, frm)
       check_proof_of(rest, formula, body_env)
 
     case PAnnot(loc, claim, reason):
@@ -514,7 +514,7 @@ def check_proof_of(proof, formula, env):
           for (frm, (label,frm2,case)) in zip(frms, cases):
             if frm2 and frm != frm2:
               error(loc, 'case ' + str(frm2) + '\ndoes not match\n' + str(frm))
-            body_env = env.declare_proof_var(loc, label, frm)
+            body_env = env.declare_local_proof_var(loc, label, frm)
             check_proof_of(case, formula, body_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_frm))
@@ -549,7 +549,7 @@ def check_proof_of(proof, formula, env):
                 msg = 'incorrect induction hypothesis, expected\n' + str(frm2) + '\nbut got\n' + str(frm1) \
                   + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
                 error(loc, msg)
-              body_env = body_env.declare_proof_var(loc, x, frm2)
+              body_env = body_env.declare_local_proof_var(loc, x, frm2)
               
             trm = pattern_to_term(indcase.pattern)
             goal = instantiate(loc, formula, [trm])
@@ -596,7 +596,7 @@ def check_proof_of(proof, formula, env):
               if scase.assumptions[0][1] != None and scase.assumptions[0][1] != equation:
                 error(scase.location, 'expected assumption\n' + str(assumption) \
                       + '\nnot\n' + str(scase.assumptions[0][1]))
-              body_env = body_env.declare_proof_var(loc, scase.assumptions[0][0], equation)
+              body_env = body_env.declare_local_proof_var(loc, scase.assumptions[0][0], equation)
 
             if len(scase.assumptions) > 1:
               error(scase.location, 'only one assumption is allowed in a switch case')
@@ -626,7 +626,7 @@ def check_proof_of(proof, formula, env):
                   if scase.assumptions[0][1] != None and scase.assumptions[0][1] != assumption:
                     error(scase.location, 'expected assumption\n' + str(assumption) \
                           + '\nnot\n' + str(scase.assumptions[0][1]))
-                  body_env = body_env.declare_proof_var(loc, scase.assumptions[0][0], assumption)
+                  body_env = body_env.declare_local_proof_var(loc, scase.assumptions[0][0], assumption)
                 if len(scase.assumptions) > 1:
                   error(scase.location, 'only one assumption is allowed in a switch case')
                   

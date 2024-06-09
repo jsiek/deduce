@@ -1959,6 +1959,7 @@ class TermBinding(Binding):
 @dataclass
 class ProofBinding(Binding):
   formula : Formula
+  local : bool
   
   def __str__(self):
     return str(self.formula)
@@ -1977,7 +1978,7 @@ class Env:
   def proofs_str(self):
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
-                       if isinstance(v,ProofBinding)])
+                       if isinstance(v,ProofBinding) and v.local])
   
   def __repr__(self):
     return repr(self.dict)
@@ -2022,9 +2023,14 @@ class Env:
   
   def declare_proof_var(self, loc, name, frm):
     new_env = Env(self.dict)
-    new_env.dict[name] = ProofBinding(loc, frm)
+    new_env.dict[name] = ProofBinding(loc, frm, False)
     return new_env
 
+  def declare_local_proof_var(self, loc, name, frm):
+    new_env = Env(self.dict)
+    new_env.dict[name] = ProofBinding(loc, frm, True)
+    return new_env
+  
   def _def_of_type_var(self, curr, name, index):
     if name in curr.keys():
       return curr[name].defn

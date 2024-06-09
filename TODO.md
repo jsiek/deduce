@@ -1,5 +1,3 @@
-[ ] don't print globals in available facts
-
 [ ] issue of conjunction intro in checking mode
 
 [ ] Revisit syntax for rewriting with a set of equations (replace bar)
@@ -8,13 +6,16 @@
 
 [ ] print parenthesis for * and + properly
 
-[ ] create a language for testing Deduce functions (tst file extension)
-    it adds support for
+[ ] create a test feature that adds support for
 	[ ] random number generation
 	[ ] error (halt with message)
 	[ ] loops?
 
 [ ] create student exercises
+
+[ ] specify number of unfoldings in definition and enable
+
+[x] don't print globals in available facts
 
 [x] issue of nontermination for foldr in sum_fold
 
