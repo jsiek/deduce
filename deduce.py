@@ -4,6 +4,12 @@ import sys
 from parser import parse, set_filename
 from lark import exceptions
 
+def token_name(str):
+    str = str.lower()
+    if str[0] == '$':
+        str = str[1:]
+    return str
+
 if __name__ == "__main__":
     sys.setrecursionlimit(5000)
     filename = sys.argv[1]
@@ -25,7 +31,7 @@ if __name__ == "__main__":
     except exceptions.UnexpectedToken as t:
         print(filename + ":" + str(t.token.line) + "." + str(t.token.column) \
               + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-              + "error in parsing, unexpected token: " + t.token.type.lower()[1:])
+              + "error in parsing, unexpected token: " + token_name(t.token.type))
         #print('expected one of ' + ', '.join([str(e) for e in t.expected]))
         exit(-1)
         
