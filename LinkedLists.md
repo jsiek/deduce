@@ -171,8 +171,10 @@ define second_elts = 8
 define first_list = interval(first_elts,1)
 define second_list = interval(second_elts, first_elts + 1)
 define output_list = append(first_list, second_list)
-assert all_elements(interval(first_elts, 0), λi{ nth(output_list, 0)(i) = nth(first_list,0)(i) })
-assert all_elements(interval(second_elts, 0), λi{ nth(output_list, 0)(first_elts + i) = nth(second_list,0)(i) })
+assert all_elements(interval(first_elts, 0), 
+                    λi{ nth(output_list, 0)(i) = nth(first_list,0)(i) })
+assert all_elements(interval(second_elts, 0),
+                    λi{ nth(output_list, 0)(first_elts + i) = nth(second_list,0)(i) })
 ```
 
 
