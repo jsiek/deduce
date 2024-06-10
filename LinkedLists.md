@@ -5,21 +5,21 @@ includes a link to the next node, or to the special empty value that
 signifies the end of the list. In Deduce we can represent a linked
 list with the following `union` type.
 
-``` {.c #list}
+``` {.deduce #list}
 union List<T> {
   empty
   node(T, List<T>)
 }
 ```
 
-``` {.c #length}
+``` {.deduce #length}
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = suc(length(next))
 }
 ```
 
-```{.c #nth}
+```{.deduce #nth}
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
   nth(empty, default) = λi{default}
   nth(node(x, xs), default) = λi{
@@ -31,7 +31,7 @@ function nth<T>(List<T>, T) -> (fn Nat -> T) {
 }
 ```
 
-```{.c file=ex/LinkedLists.pf}
+```{.deduce file=ex/LinkedLists.pf}
 import Nat
 
 <<list>>
