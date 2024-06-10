@@ -187,7 +187,8 @@ formula.  We can do this by generalizing the above assertions. Instead
 of using specific lists and specific indices, we use `all` formulas to
 talk about all possible lists and indices. Also, for convenience, we
 split up correctness into two theorems, one about the first input list
-`xs` and the other about the second input list `ys`.
+`xs` and the other about the second input list `ys`. We recommend
+that your proofs use induction on `List<T>`.
 
 ```
 theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
