@@ -84,6 +84,88 @@ and directly return an element `T`. We made this design choice because
 it means we can use `nth` with several other functions and theorems that 
 work with functions of the type `fn Nat -> T`.
 
+## Correct Software via Write, Test, Prove
+
+We recommend a three step process to constructing correct software,
+
+1. Write down the specification and the code for a subcomponent, such as a function,
+2. Create tests for the function and run them (unit and property-based testing).
+   If they all pass, proceed to step 2, otherwise return to step 1.
+3. Prove that the function is correct with respect to its specification.
+
+We recognize that once step 3 is complete, step 2 is obsolete.  The
+proof of correctness supercedes the tests. However there are two good
+reasons to perform testing even when you are planning to do a proof of
+correctness. First, testing is faster than proof with respect to
+revealing bugs in your code. Second, creating the tests will help you
+formulate the statement of correctness.
+
+## Example: Intervals
+
+As an example of the write-test-prove methodology, we consider the
+`interval` function.
+
+**Specification:** `interval(count, start)` returns a list of natural
+numbers of length `count`, where the element at position `i` is `i +
+start`.
+
+### Write
+
+We most straightforward way to implement `interval` in Deduce
+is to define it as a `function` that pattern matches on the `count`.
+
+```
+function interval(Nat, Nat) -> List<Nat> {
+  interval(zero, n) = ???
+  interval(suc(k), n) = ???
+}
+```
+
+For the clause where `count=zero`, we must return a list of length `zero`.
+So our only choice is the `empty` list.
+
+```
+  interval(zero, n) = empty
+```
+
+For the clause where `count=suc(k)`, we must return a list of length `suc(k)`.
+So it has at least one node.
+
+```
+  interval(suc(k), n) = node(???, ???)
+```
+
+The specification tells us that the element at position `0` of the
+return value is `n + 0` or simply `n`.
+
+```
+  interval(suc(k), n) = node(n, ???)
+```
+
+The `next` of this node should be a list of length `k` that starts
+with the element `n + 1`. Thankfully we can construct such a list
+with a recursive call to `interval`.
+
+```
+  interval(suc(k), n) = node(n, interval(k, suc(n)))
+```
+
+Putting these pieces together, we have the following complete
+defintion of `interval`.
+
+``` {.c #interval}
+function interval(Nat, Nat) -> List<Nat> {
+  interval(zero, n) = empty
+  interval(suc(k), n) = node(n, interval(k, suc(n)))
+}
+```
+
+### Test
+
+
+### Prove
+
+
 
 ## Exercise: Define Append
 
@@ -103,7 +185,7 @@ function append<E>(List<E>, List<E>) -> List<E> {
 ```
 
 
-## Testing
+## Testing Append
 
 The following code tests your `append` function, making sure that
 appending `1,2,3` with `5,6` produces the sequence `1,2,3,4,5`.
@@ -151,10 +233,6 @@ assert all_elements(interval(3, 0), λi{ nth(list_1_5, 0)(i) = nth(list_123,0)(i
 assert all_elements(interval(2, 0), λi{ nth(list_1_5, 0)(3 + i) = nth(list_45,0)(i) })
 ```
 
-The `interval(count, start)` function produces a list of natural
-numbers of length `count`, where the first element is `start`, the
-second is `start + 1`, and so on.
-
 The `all_elements` function takes a list and a function and checks
 whether applying the function to every element of the list always
 produces `true`.
@@ -176,8 +254,6 @@ assert all_elements(interval(first_elts, 0),
 assert all_elements(interval(second_elts, 0),
                     λi{ nth(output_list, 0)(first_elts + i) = nth(second_list,0)(i) })
 ```
-
-
 
 ## Exercise: Prove that Append is Correct
 
@@ -212,6 +288,7 @@ end
 <<list>>
 <<length>>
 <<nth>>
+<<interval>>
 
 function append<E>(List<E>, List<E>) -> List<E> {
   append(empty, ys) = ys
@@ -222,10 +299,6 @@ function append<E>(List<E>, List<E>) -> List<E> {
 <<test_length_123>>
 <<test_nth_123>>
 <<test_append_123_45>>
-function interval(Nat, Nat) -> List<Nat> {
-  interval(zero, n) = empty
-  interval(suc(k), n) = node(n, interval(k, suc(n)))
-}
 function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
