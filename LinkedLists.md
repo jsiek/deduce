@@ -102,8 +102,11 @@ function append<E>(List<E>, List<E>) -> List<E> {
 }
 ```
 
-The following is an example use of `append` to combine the sequence
-`1,2,3` with `5,6` to produce the sequence `1,2,3,4,5`.
+
+## Testing
+
+The following code tests your `append` function, making sure that
+appending `1,2,3` with `5,6` produces the sequence `1,2,3,4,5`.
 
 ``` {.c #test_append_123_45}
 define list_45 : List<Nat> = node(4, node(5, empty))
@@ -117,8 +120,8 @@ assert nth(list_1_5, 0)(3) = nth(list_45,0)(0)
 assert nth(list_1_5, 0)(4) = nth(list_45,0)(1)
 ```
 
-We have formulated the above `assert` statements in a
-subtly different way. We could have written
+We have formulated these `assert` statements in a subtly different way
+than before. We could have written
 
 ```
 assert nth(list_1_5, 0)(0) = 1
@@ -135,7 +138,44 @@ the specification of `append`.  The element at position `0` of
 `list_1_5` has to be the same as the element at position of `0` of
 `list_123` because 1) `list_123` was the first input list in the call
 to `append` and 2) because the element at position `0` of `list_123`
-came before the other elements of `list_123`.
+came before the other elements of `list_123`. 
+
+Furthermore, by formulating the assertions in this way, we can better
+automate our testing. In the following we collapse the three
+assertions concerning `list_123` into a single assertion, and
+similarly for `list_45`. We make use of two auxilliary functions
+`interval` and `all_elements` that we describe next.
+
+``` {.c #test_append_123_45_again}
+assert all_elements(interval(3, 0), λi{ nth(list_1_5, 0)(i) = nth(list_123,0)(i) })
+assert all_elements(interval(2, 0), λi{ nth(list_1_5, 0)(3 + i) = nth(list_45,0)(i) })
+```
+
+The `interval(count, start)` function produces a list of natural
+numbers of length `count`, where the first element is `start`, the
+second is `start + 1`, and so on.
+
+The `all_elements` function takes a list and a function and checks
+whether applying the function to every element of the list always
+produces `true`.
+
+Going a step further, we can easily adapt the tests to apply to longer
+lists. Here we increase the combined size to `20` elements. We could
+go with longer lists, but Deduce currently has a slow interpreter, so
+the assertions would take a long time (e.g., a minute for `100` elements).
+
+``` {.c #test_append_large}
+define num_elts = 20
+define first_elts = 12
+define second_elts = 8
+define first_list = interval(first_elts,1)
+define second_list = interval(second_elts, first_elts + 1)
+define output_list = append(first_list, second_list)
+assert all_elements(interval(first_elts, 0), λi{ nth(output_list, 0)(i) = nth(first_list,0)(i) })
+assert all_elements(interval(second_elts, 0), λi{ nth(output_list, 0)(first_elts + i) = nth(second_list,0)(i) })
+```
+
+
 
 ## Exercise: Prove that Append is Correct
 
@@ -179,6 +219,16 @@ function append<E>(List<E>, List<E>) -> List<E> {
 <<test_length_123>>
 <<test_nth_123>>
 <<test_append_123_45>>
+function interval(Nat, Nat) -> List<Nat> {
+  interval(zero, n) = empty
+  interval(suc(k), n) = node(n, interval(k, suc(n)))
+}
+function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+  all_elements(empty, P) = true
+  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
+}
+<<test_append_123_45_again>>
+<<test_append_large>>
 
 theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
   if i < length(xs)

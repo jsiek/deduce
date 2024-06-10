@@ -312,6 +312,21 @@ assert range(0, 2) = node(0, node(1, empty))
 assert range(1, 3) = node(1, node(2, empty))
 assert range(2, 5) = node(2, node(3, node(4, empty)))
 
+function interval(Nat, Nat) -> List<Nat> {
+  interval(zero, n) = empty
+  interval(suc(k), n) = node(n, interval(k, suc(n)))
+}
+
+assert interval(0, 0) = empty
+assert interval(1, 0) = node(0, empty)
+assert interval(2, 0) = node(0, node(1, empty))
+assert interval(3, 0) = node(0, node(1, node(2, empty)))
+
+assert interval(0, 3) = empty
+assert interval(1, 3) = node(3, empty)
+assert interval(2, 3) = node(3, node(4, empty))
+assert interval(3, 3) = node(3, node(4, node(5, empty)))
+
 union Pair<T,U> {
   pair(T,U)
 }
