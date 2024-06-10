@@ -1,5 +1,3 @@
-[ ] remove parent param from parser, not needed anymore
-
 [ ] issue of conjunction intro in checking mode
 
 [ ] Revisit syntax for rewriting with a set of equations (replace bar)
@@ -17,6 +15,8 @@
 
 [ ] specify number of unfoldings in definition and enable
 
+[ ] remove parent param from parser, not needed anymore
+
 [x] don't print globals in available facts
 
 [x] issue of nontermination for foldr in sum_fold
@@ -29,16 +29,17 @@
 
 [x] Mutually recursive functions
 
-		function is_even(Nat) -> bool {
-		  is_even(0) = true
-		  is_even(suc(n)) = is_odd(n)
-		}
+``` {.java file=ex/even_odd.pf}
+function is_even(Nat) -> bool {
+  is_even(0) = true
+  is_even(suc(n)) = is_odd(n)
+}
 
-		function is_odd(Nat) -> bool {
-		  is_odd(0) = false
-		  is_odd(suc(n)) = is_even(n)
-		}
-
+function is_odd(Nat) -> bool {
+  is_odd(0) = false
+  is_odd(suc(n)) = is_even(n)
+}
+```
 
 
 

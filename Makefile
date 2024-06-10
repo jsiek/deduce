@@ -36,5 +36,10 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sum.pf
 
+book:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/LinkedLists.pf
+
+
 # TODO
 

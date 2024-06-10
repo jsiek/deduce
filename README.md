@@ -22,29 +22,31 @@ following is a proof that appending two lists and then applying the
 `map` function is the same as first applying `map` to the two lists
 and then appending them.
 
-    theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
-      map(append(xs,ys), f) = append(map(xs,f), map(ys,f))
-    proof
-      arbitrary T : type, f : fn T->T, ys : List<T>
-      induction List<T>
-      case empty {
-        equations
-          map(append(empty,ys), f)
-              = map(ys, f)                       by definition append.
-          ... = append(empty, map(ys, f))        by definition append.
-          ... = append(map(empty,f), map(ys, f)) by definition map.
-      }
-      case node(x, xs')
-        suppose IH: map(append(xs',ys), f) = append(map(xs',f), map(ys, f))
-      {
-        enable {map, append}
-        equations
-          map(append(node(x,xs'),ys),f)
-              = node(f(x), map(append(xs',ys), f))         by .
-          ... = node(f(x), append(map(xs',f), map(ys,f)))  by rewrite IH.
-          ... = append(map(node(x,xs'),f),map(ys,f))       by .
-      }
-    end
+``` {.java #map_append file=ex/readme.pf}
+theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
+  map(append(xs,ys), f) = append(map(xs,f), map(ys,f))
+proof
+  arbitrary T : type, f : fn T->T, ys : List<T>
+  induction List<T>
+  case empty {
+    equations
+      map(append(empty,ys), f)
+          = map(ys, f)                       by definition append.
+      ... = append(empty, map(ys, f))        by definition append.
+      ... = append(map(empty,f), map(ys, f)) by definition map.
+  }
+  case node(x, xs')
+    suppose IH: map(append(xs',ys), f) = append(map(xs',f), map(ys, f))
+  {
+    enable {map, append}
+    equations
+      map(append(node(x,xs'),ys),f)
+          = node(f(x), map(append(xs',ys), f))         by .
+      ... = node(f(x), append(map(xs',f), map(ys,f)))  by rewrite IH.
+      ... = append(map(node(x,xs'),f),map(ys,f))       by .
+  }
+end
+```
 
 This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
@@ -87,10 +89,12 @@ alternative ways to construct values of the union type. For example,
 to represent a linked-list of natural numbers, we could define the
 following union.
 
-    union NatList {
-      empty
-      node(Nat, NatList)
-    }
+``` {.deduce #NatList}
+union NatList {
+  empty
+  node(Nat, NatList)
+}
+```
 
 We can then construct values of type `NatList` using the
 alternatives. For example, `node(1, node(2, empty))` creates a
@@ -918,10 +922,10 @@ To summarize this section:
 There's not much to say about `true`. It's true!  And as we've already
 seen, proving `true` is easy. Just use a period.
 
-	theorem really_trivial: true
-	proof
-	  .
-	end
+    theorem really_trivial: true
+    proof
+      .
+    end
 
 One almost never sees `true` written explicitly in a formula. However,
 it is common for a formula to simplify to `true` after some rewriting.
@@ -933,30 +937,30 @@ However, it can arise in contradictory situations. For example,
 in the following we have a situation in which `true = false`.
 That can't be, so Deduce simplifies `true = false` to just `false`.
 
-	theorem contra_false: all a:bool, b:bool.
-	  if a = b and a = true and b = false then false
-	proof
-	  arbitrary a:bool, b:bool
-	  suppose prem: a = b and a = true and b = false
-	  have a_true: a = true by prem
-	  have b_true: b = false by prem
-	  conclude false by rewrite a_true | b_true in prem
-	end
+    theorem contra_false: all a:bool, b:bool.
+      if a = b and a = true and b = false then false
+    proof
+      arbitrary a:bool, b:bool
+      suppose prem: a = b and a = true and b = false
+      have a_true: a = true by prem
+      have b_true: b = false by prem
+      conclude false by rewrite a_true | b_true in prem
+    end
 
 More generally, Deduce knows that the different constructors of a
 union are in fact different. So in the next example, because `foo` and
 `bar` are different constructors, Deduce simplifies `foo = bar` to
 `false`.
 
-	union U {
-	  foo
-	  bar
-	}
-	
-	theorem foo_bar_false: if foo = bar then false
-	proof
-	  .
-	end
+    union U {
+      foo
+      bar
+    }
+    
+    theorem foo_bar_false: if foo = bar then false
+    proof
+      .
+    end
 
 The above proof is just a period because Deduce simplifies any formula
 of the form `if false then ...` to `true`, which is related to our
@@ -969,12 +973,12 @@ implies anything. For example, normally we don't know whether or not
 two arbitrary Booleans `x` and `y` are the same or different.  But if
 we have a premise that is `false`, it doesn't matter.
 
-	theorem false_any: all x:bool, y:bool. if false then x = y
-	proof
-	  arbitrary x:bool, y:bool
-	  suppose f: false
-	  conclude x = y by f
-	end
+    theorem false_any: all x:bool, y:bool. if false then x = y
+    proof
+      arbitrary x:bool, y:bool
+      suppose f: false
+      conclude x = y by f
+    end
 
 To summarize this section:
 * Deduce simplifies any obviously contradictory equation to `false`.
