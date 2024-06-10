@@ -90,7 +90,7 @@ We recommend a three step process to constructing correct software,
 
 1. Write down the specification and the code for a subcomponent, such as a function,
 2. Create tests for the function and run them (unit and property-based testing).
-   If they all pass, proceed to step 2, otherwise return to step 1.
+   If they all pass, proceed to step 3, otherwise return to step 1.
 3. Prove that the function is correct with respect to its specification.
 
 We recognize that once step 3 is complete, step 2 is obsolete.  The
