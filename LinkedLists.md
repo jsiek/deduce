@@ -1,3 +1,4 @@
+## Introduction to Linked Lists
 
 A **linked list** is a data structure that represents a sequence of
 elements.  Each element is stored inside a `node` and each node also
@@ -16,7 +17,7 @@ For example, the sequence of numbers `1, 2, 3` is represented
 by the following linked list.
 
 ``` {.c #list_123}
-define list_123 = node(1, node(2, node(3, empty)))
+define list_123 : List<Nat> = node(1, node(2, node(3, empty)))
 ```
 
 Next we introduce two fundamental operations on linked lists.  The
@@ -30,6 +31,10 @@ function length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = suc(length(next))
 }
+```
+
+``` {.c #test_length_123}
+assert length(list_123) = 3
 ```
 
 We will be representing numbers using the `Nat` type, which stands for
@@ -65,5 +70,5 @@ function nth<T>(List<T>, T) -> (fn Nat -> T) {
 <<nth>>
 
 <<list_123>>
-
+<<test_length_123>>
 ```
