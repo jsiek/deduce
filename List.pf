@@ -511,24 +511,21 @@ proof
 end
 
 theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
-  if i ≤ length(ys)
-  then nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
+  nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
 proof
   arbitrary T:type
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat, d:T
-    suppose _
     definition {append, nth, length, operator +}.
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
-    suppose le_i
     definition {append,length, nth}
     have X: not (suc(length(xs)) + i = 0) by suppose eq_z enable operator + have false by eq_z
     rewrite X
     definition {operator +, pred}
-    apply IH[ys, i, d] to le_i
+    IH[ys, i, d]
   }
 end
 

@@ -112,6 +112,7 @@ define list_1_5 = append(list_123, list_45)
 assert nth(list_1_5, 0)(0) = nth(list_123,0)(0)
 assert nth(list_1_5, 0)(1) = nth(list_123,0)(1)
 assert nth(list_1_5, 0)(2) = nth(list_123,0)(2)
+
 assert nth(list_1_5, 0)(3) = nth(list_45,0)(0)
 assert nth(list_1_5, 0)(4) = nth(list_45,0)(1)
 ```
@@ -136,9 +137,30 @@ the specification of `append`.  The element at position `0` of
 to `append` and 2) because the element at position `0` of `list_123`
 came before the other elements of `list_123`.
 
-## Prove that Append is Correct
+## Exercise: Prove that Append is Correct
 
+Prove that `append` satisfies its specification on all possible
+inputs.  First, we need to translate the specification into a Deduce
+formula.  We can do this by generalizing the above assertions. Instead
+of using specific lists and specific indices, we use `all` formulas to
+talk about all possible lists and indices. Also, for convenience, we
+split up correctness into two theorems, one about the first input list
+`xs` and the other about the second input list `ys`.
 
+```
+theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  if i < length(xs)
+  then nth(append(xs, ys), d)(i) = nth(xs, d)(i)
+proof
+  FILL IN HERE
+end
+
+theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
+proof
+  FILL IN HERE
+end
+```
 
 <!--
 ```{.c file=ex/LinkedLists.pf}
@@ -157,5 +179,54 @@ function append<E>(List<E>, List<E>) -> List<E> {
 <<test_length_123>>
 <<test_nth_123>>
 <<test_append_123_45>>
+
+theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  if i < length(xs)
+  then nth(append(xs, ys), d)(i) = nth(xs, d)(i)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, i:Nat, d:T
+    suppose i_z: i < length(empty)
+    conclude false by definition {length, operator <, operator ≤} in i_z
+  }
+  case node(x, xs) suppose IH {
+    arbitrary ys:List<T>, i:Nat, d:T
+    suppose i_xxs: i < length(node(x,xs))
+    definition append
+    switch i {
+      case zero {
+        definition nth.
+      }
+      case suc(i') suppose i_si {
+        definition {nth, pred}
+	have i_xs: i' < length(xs) by
+	    enable {operator <, operator ≤}
+	    conclude i' < length(xs) by rewrite i_si in definition length in i_xxs
+	apply IH[ys, i', d] to i_xs
+      }
+    }
+  }
+end
+
+theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, i:Nat, d:T
+    definition {append, nth, length, operator +}.
+  }
+  case node(x, xs) suppose IH {
+    arbitrary ys:List<T>, i:Nat, d:T
+    definition {append,length, nth}
+    have X: not (suc(length(xs)) + i = 0) by suppose eq_z enable operator + have false by eq_z
+    rewrite X
+    definition {operator +, pred}
+    IH[ys, i, d]
+  }
+end
 ```
 -->

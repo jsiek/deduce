@@ -80,7 +80,7 @@ proof
        definition operator +
        have i_ys: i ≤ length(ys) by apply less_implies_less_equal[i][length(ys)]
                                     to (enable {operator <, operator ≤} i_ys)
-       symmetric (apply nth_append_back[Nat][xs][ys,i,0] to i_ys)
+       symmetric nth_append_back[Nat][xs][ys,i,0]
   
   rewrite length_append[Nat][xs][ys]
   conclude summation(length(xs) + length(ys), 0, nth(append(xs,ys), 0))
