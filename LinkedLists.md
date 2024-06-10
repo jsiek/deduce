@@ -86,7 +86,7 @@ work with functions of the type `fn Nat -> T`.
 
 ## Correct Software via Write, Test, Prove
 
-We recommend a three step process to constructing correct software,
+We recommend a three step process to constructing correct software.
 
 1. Write down the specification and the code for a subcomponent, such as a function,
 2. Create tests for the function and run them (unit and property-based testing).
