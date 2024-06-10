@@ -111,8 +111,8 @@ start`.
 
 ### Write
 
-We most straightforward way to implement `interval` in Deduce
-is to define it as a `function` that pattern matches on the `count`.
+A straightforward way to implement `interval` in Deduce is to define
+it as a `function` that pattern matches on the `count`.
 
 ```
 function interval(Nat, Nat) -> List<Nat> {
