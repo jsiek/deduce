@@ -84,14 +84,14 @@ and directly return an element `T`. We made this design choice because
 it means we can use `nth` with several other functions and theorems that 
 work with functions of the type `fn Nat -> T`.
 
-## Correct Software via Write, Test, Prove
+## Correct Software via Write, Test, and Prove
 
 We recommend a three step process to constructing correct software.
 
-1. Write down the specification and the code for a subcomponent, such as a function,
-2. Create tests for the function and run them (unit and property-based testing).
-   If they all pass, proceed to step 3, otherwise return to step 1.
-3. Prove that the function is correct with respect to its specification.
+1. **Write** down the specification and the code for a subcomponent, such as a function,
+2. **Test** the function (via unit and property-based testing).
+   If all the tests pass, proceed to step 3, otherwise return to step 1.
+3. **Prove** that the function is correct with respect to its specification.
 
 We recognize that once step 3 is complete, step 2 is obsolete.  The
 proof of correctness supercedes the tests. However there are two good
