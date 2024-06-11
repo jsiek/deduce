@@ -1,0 +1,29 @@
+import Nat
+import List
+
+// order: least-significant first
+
+function inc(List<bool>) -> List<bool> {
+  inc(empty) = node(true, empty)
+  inc(node(b, bs)) =
+     if b then
+       node(false, inc(bs))
+     else
+       node(true, bs)
+}
+
+function to_binary(Nat) -> List<bool> {
+  to_binary(zero) = node(false, empty)
+  to_binary(suc(n)) = inc(to_binary(n))
+}
+
+function from_binary(List<bool>) -> Nat {
+  from_binary(empty) = 0
+  from_binary(node(b, bs)) =
+    if b then
+      suc(2 * from_binary(bs))
+    else
+      2 * from_binary(bs)
+}
+
+define log : fn Nat -> Nat = λn{ length(to_binary(n)) }

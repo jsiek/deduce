@@ -927,7 +927,12 @@ class TLet(Term):
     self.var = new_var
     self.body.uniquify(body_env)
     
-  
+  def substitute(self, sub):
+    new_rhs = self.rhs.substitute(sub)
+    new_body = self.body.substitute(sub)
+    return TLet(self.location, self.var, new_rhs, new_body)
+
+    
 ################ Formulas ######################################
   
 @dataclass

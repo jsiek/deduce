@@ -1,0 +1,81 @@
+import List
+import Nat
+import Pair
+import Binary
+
+union Tree<T> {
+  tree_empty
+  tree_node(T, Tree<T>, Tree<T>)
+}
+
+// first parameter is the log of the length of the list
+function tree_of<T>(Nat, List<T>) -> Pair< Tree<T>, List<T> > {
+  tree_of(0, ls) = pair(tree_empty, ls)
+  tree_of(suc(n), xs) =
+    switch xs {
+      case empty {
+        pair(tree_empty, empty)
+      }
+      case node(x, xs) {
+        let p1 = tree_of(n, xs)
+	let p2 = tree_of(n, second(p1))
+	pair(tree_node(x, first(p1), first(p2)), second(p2))
+      }
+    }
+}
+
+assert tree_of(2, node(1, node(2, node(3, empty))))
+     = pair(tree_node(1, tree_node(2, tree_empty, tree_empty),
+                         tree_node(3, tree_empty, tree_empty)),
+	    empty)
+
+
+// first parameter is the sum of the lengths
+function merge(Nat, List<Nat>, List<Nat>) -> List<Nat> {
+  merge(0, xs, ys) = empty
+  merge(suc(n), xs, ys) =
+    switch xs {
+      case empty { ys }
+      case node(x, xs') {
+	switch ys {
+	  case empty {
+	    node(x, xs')
+	  }
+	  case node(y, ys') {
+	    if x ≤ y then
+	      node(x, merge(n, xs', node(y, ys')))
+	    else
+	      node(y, merge(n, node(x, xs'), ys'))
+	  }
+	}
+     }
+   }
+}
+
+function insert(List<Nat>,Nat) -> List<Nat> {
+  insert(empty, x) = node(x, empty)
+  insert(node(y, next), x) =
+    if x ≤ y then
+      node(x, node(y, next))
+    else
+      node(y, insert(next, x))
+}
+
+// Turn a binary tree into a sorted list
+function msort(Tree<Nat>) -> List<Nat> {
+  msort(tree_empty) = empty
+  msort(tree_node(x, L, R)) =
+    let ls = msort(L)
+    let rs = msort(R)
+    let xs = merge(length(ls) + length(rs), ls, rs)
+    insert(xs, x)
+}
+
+define merge_sort : fn List<Nat> -> List<Nat>
+  = λxs{ msort(first(tree_of(log(length(xs)), xs))) }
+
+assert merge_sort(empty) = empty
+assert merge_sort(node(1, empty)) = node(1, empty)
+assert merge_sort(node(2, node(1, empty))) = node(1, node(2, empty))
+assert merge_sort(node(3, node(2, node(1, empty)))) = node(1, node(2, node(3, empty)))
+assert merge_sort(node(4, node(3, node(2, node(1, empty))))) = node(1, node(2, node(3, node(4, empty))))
