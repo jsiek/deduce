@@ -266,6 +266,7 @@ language and provide examples of their use.
 * Generalizing with `all` formulas
 * Proving `all` Formulas with Induction
 * Equational Reasoning
+* Reasoning about natural numbers
 * Reasoning about `and` (Conjunction)
 * Reasoning about `or` (Disjunction)
 * Conditional Formulas (Implication)
