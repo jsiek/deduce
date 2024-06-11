@@ -1077,7 +1077,7 @@ class All(Formula):
                self.body.copy())
   
   def __str__(self):
-    return 'all ' + ",".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
+    return 'all ' + ", ".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
         + '. ' + str(self.body)
 
   def reduce(self, env):

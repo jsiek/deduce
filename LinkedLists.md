@@ -89,7 +89,7 @@ work with functions of the type `fn Nat -> T`.
 We recommend a three step process to constructing correct software.
 
 1. **Write** down the specification and the code for a subcomponent, such as a function,
-2. **Test** the function (via unit and property-based testing).
+2. **Test** the function on a diverse choice of inputs.
    If all the tests pass, proceed to step 3, otherwise return to step 1.
 3. **Prove** that the function is correct with respect to its specification.
 
@@ -97,8 +97,9 @@ We recognize that once step 3 is complete, step 2 is obsolete.  The
 proof of correctness supercedes the tests. However there are two good
 reasons to perform testing even when you are planning to do a proof of
 correctness. First, testing is faster than proof with respect to
-revealing bugs in your code. Second, creating the tests will help you
-formulate the statement of correctness.
+revealing bugs in your code and will therefore save time for the
+proof.  Second, creating the tests will help you formulate the
+statement of the correctness theorem.
 
 ## Example: Intervals
 
@@ -220,10 +221,12 @@ implementaiton.
 
 ### Prove `interval` Correct
 
-Once we have finished testing `interval` with `assert` statements, we
-can move on to proving that `interval` is correct for all inputs.
-Looking back at the specification of `interval`, there are two
-parts. We will prove each part with a separate theorem.  
+Once we have finished testing `interval` we can move on to proving
+that `interval` is correct for all inputs.  Looking back at the
+specification of `interval`, there are two
+parts. We will prove each part with a separate theorem.
+
+#### Prove the `interval_length` theorem
 
 The first part of the specification says that `interval(count, start)`
 returns a list of length `count`. We want to prove that this is true
@@ -261,7 +264,7 @@ proof
   case 0 {
     ?
   }
-  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+  case suc(count') suppose IH {
     ?
   }
 end
@@ -283,8 +286,7 @@ So now we need to prove
 	length(interval(0,start)) = 0
 ```
 Of course, by definition we have `interval(0,start) = empty`
-and `length(empty) = 0`, so we can conclude by
-using `definition {interval, length}`.
+and `length(empty) = 0`, so we can conclude using those definitions.
 ```
   case 0 {
     arbitrary start:Nat
@@ -292,9 +294,60 @@ using `definition {interval, length}`.
   }
 ```
 
+Turning to the case `count = suc(count')`, Deduce tells us the goal
+for this case and the induction hypothesis.
 
+```
+incomplete proof
+Goal:
+	all start:Nat. length(interval(suc(count'),start)) = suc(count')
+Givens:
+	IH: all start:Nat. length(interval(count',start)) = count'
+```
 
-``` {.c #interval_length_correct}
+To improve readability of the proof, I often like to copy the formula
+for the induction hypothesis and paste it into the `suppose` as shown
+below.
+
+```
+  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+	?
+  }
+```
+
+For the proof of this case, we again start with `arbitrary` to handle
+`all start` then use the definitions of `interval` and `length`.
+
+```
+  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+    arbitrary start:Nat
+	definition {interval, length}
+	?
+  }
+```
+
+Deduce tells us that we need to prove the following.
+```
+suc(length(interval(count',suc(start)))) = suc(count')
+```
+Here the induction hyposthesis `IH` comes to the rescue. 
+If we instantate the `all start` with `suc(start)`, we get
+```
+length(interval(count',suc(start))) = count'
+```
+which is just what we need to conclude.
+```
+  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+    arbitrary start:Nat
+	definition {interval, length}
+	conclude suc(length(interval(count',suc(start)))) = suc(count')  by rewrite IH[suc(start)].
+  }
+```
+
+Putting the two cases together, we have the following completed proof
+that the output of `interval` has the appropriate length.
+
+``` {.c #interval_length}
 theorem interval_length:
   all count:Nat. all start:Nat. length(interval(count, start)) = count
 proof
@@ -306,11 +359,230 @@ proof
   case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
     arbitrary start:Nat
 	definition {interval, length}
-	suffices suc(length(interval(count',suc(start)))) = suc(count')
-    rewrite IH[suc(start)].
+	conclude suc(length(interval(count',suc(start)))) = suc(count')  by rewrite IH[suc(start)].
   }
 end
 ```
+
+#### Prove the `interval_nth` theorem
+
+The second part of the specification of `interval` says that
+the element at position `i` of the output is `i + start`.
+Of course, there is no element at position `i` if `i` is too big,
+so our theorem needs to be conditional, with the premise `i < count`.
+
+```
+theorem interval_nth: all count:Nat. all start:Nat, d:Nat, i:Nat.
+  if i < count
+  then nth(interval(count, start), d)(i) = i + start
+proof
+   ?
+end
+```
+
+Because this proof is about a recursive function whose first parameter
+is of type `Nat`, we proceed by induction on `Nat`.
+
+```
+  induction Nat
+  case 0 {
+    ?
+  }
+  case suc(count') suppose IH {
+    ?
+  }
+```
+
+In the case `count = 0`, Deduce tells us that we need to prove
+
+```
+all start:Nat, d:Nat, i:Nat. (if i < 0 then nth(interval(0,start),d)(i) = i + start)
+```
+
+So we can start the proof of this case with `arbitrary` and `suppose`,
+then use the definitions of `interval` and `nth`.
+
+```
+  case 0 {
+	arbitrary start:Nat, d:Nat, i:Nat
+	suppose i_l_z: i < 0
+	definition {interval, nth}
+    ?
+  }
+```
+
+Deduce responds with
+```
+Goal:
+	d = i + start
+Givens:
+	i_l_z: i < 0
+```
+Now we are in a strange situation. The goal seems rather difficult to prove 
+because we don't know anything about `start` and `d`. The givens (aka. assumptions)
+are also strange. How can the natural number `i` be less than `0`?
+Of course it cannot. Thus, `i < 0` implies `false` and then we can use
+the principle of explosion, which states that `false` implies anything,
+to prove that `d = i + start`.
+
+```
+  case 0 {
+	arbitrary start:Nat, d:Nat, i:Nat
+	suppose i_l_z: i < 0
+	definition {interval, nth}
+	conclude false  by definition {operator <, operator ≤} in i_l_z
+  }
+```
+
+Next we turn to the case for `count = suc(count')`. Deduce tells us
+the formula for the induction hypothesis, so we paste that into
+the `suppose IH`. Looking at the goal formula, we begin the proof
+with `arbitrary`, `suppose`, and use the definitions of `interval` and `nth`.
+
+```
+  case suc(count') 
+    suppose IH: all start:Nat, d:Nat, i:Nat. 
+	            if i < count' then nth(interval(count',start),d)(i) = i + start
+  {
+    arbitrary start:Nat, d:Nat, i:Nat
+	suppose i_l_sc: i < suc(count')
+	definition {interval, nth}
+	?
+  }
+```
+
+Deduce responds with the following.
+
+```
+Goal:
+	if i = 0 then start else nth(interval(count',suc(start)),d)(pred(i)) = i + start
+```
+
+What we're seeing here is that the `nth` function uses an `if`-`then`-`else`
+with `i = 0` as the condition. So to reason about this goal, we need to
+break our proof down into two cases, when `i = 0` and `i ≠ 0`. One
+convenient way to do that in Deduce is with a `switch`.
+
+```
+	switch i {
+	  case 0 {
+	    ?
+	  }
+	  case suc(i') suppose i_sc: i = suc(i') {
+        ?
+	  }
+	}
+```
+
+Let us proceed with the case for `i = 0`. Deduce simplifies the goal
+and responds with 
+```
+Goal:
+	start = 0 + start
+```
+
+which follows directly from the definition of addition.
+
+```
+	  case 0 {
+	    conclude start = 0 + start   by definition operator +.
+	  }
+```
+
+In the case for `i = suc(i')`, Deduce tells us that we need to prove
+```
+	nth(interval(count',suc(start)),d)(pred(suc(i'))) = suc(i') + start
+```
+This looks quite similar to the induction hypothesis instantiated with
+`suc(start)`, `d`, and `i'`:
+```
+if i' < count' then nth(interval(count',suc(start)),d)(i') = i' + suc(start)
+```
+One difference is `pred(suc(i'))` versus `i'`, but they are equal by the
+definition of `pred`.
+```
+	  case suc(i') suppose i_sc: i = suc(i') {
+	    definition pred
+		?
+	  }
+```
+Deduce responds with
+```
+Goal:
+	nth(interval(count',suc(start)),d)(i') = suc(i') + start
+```
+So if we use the induction hypothesis, then we will just need to
+prove that `i' + suc(start) = suc(i') + start`, which is certainly
+true and will just require a little reasoning about addition.
+But to use the induction hypothesis, we need to prove that `i' < count'`.
+This follows from the givens `i_l_sc: i < suc(count')`
+and `i_sc: i = suc(i')` and the definitions of `<` and `≤`.
+
+```
+	  case suc(i') suppose i_sc: i = suc(i') {
+	    definition pred
+		have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
+		                              rewrite i_sc in i_l_sc
+        ?
+	  }
+```
+
+Now we can complete the proof of this case by linking together a few
+equations, starting with the induction hypothesis, then using the
+`add_suc` theorem from `Nat.pf` (which states that `m + suc(n) =
+suc(m + n)`), and finally using the definition of addition (which
+states that `suc(n) + m = suc(n + m)`).
+
+```
+        equations
+		  nth(interval(count',suc(start)),d)(i') 
+		      = i' + suc(start)                   by apply IH[suc(start), d, i'] to i_l_cnt
+		  ... = suc(i' + start)                   by add_suc[i'][start]
+		  ... = suc(i') + start                   by definition operator +.
+```
+
+Putting together all these pieces, we have the following complete proof
+of the `interval_nth` theorem. At this point we know that the `interval`
+function is 100% correct!
+
+``` {.c #interval_nth }
+theorem interval_nth: all count:Nat. all start:Nat, d:Nat, i:Nat.
+  if i < count
+  then nth(interval(count, start), d)(i) = i + start
+proof
+  induction Nat
+  case 0 {
+	arbitrary start:Nat, d:Nat, i:Nat
+	suppose i_l_z: i < 0
+	definition {interval, nth}
+	conclude false  by definition {operator <, operator ≤} in i_l_z
+  }
+  case suc(count') 
+    suppose IH: all start:Nat, d:Nat, i:Nat. 
+	            if i < count' then nth(interval(count',start),d)(i) = i + start
+  {
+    arbitrary start:Nat, d:Nat, i:Nat
+	suppose i_l_sc: i < suc(count')
+	definition {interval, nth}
+	switch i {
+	  case 0 {
+	    conclude start = 0 + start   by definition operator +.
+	  }
+	  case suc(i') suppose i_sc: i = suc(i') {
+	    definition pred
+		have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
+		                              rewrite i_sc in i_l_sc
+        equations
+		  nth(interval(count',suc(start)),d)(i') 
+		      = i' + suc(start)                   by apply IH[suc(start), d, i'] to i_l_cnt
+		  ... = suc(i' + start)                   by add_suc[i'][start]
+		  ... = suc(i') + start                   by definition operator +.
+	  }
+	}
+  }
+end
+```
+
 
 ## Exercise: Define Append
 
@@ -421,7 +693,8 @@ function append<E>(List<E>, List<E>) -> List<E> {
 }
 
 <<test_interval>>
-<<interval_length_correct>>
+<<interval_length>>
+<<interval_nth>>
 
 <<list_123>>
 <<test_length_123>>
