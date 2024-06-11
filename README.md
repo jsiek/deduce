@@ -619,6 +619,50 @@ Here is the completed proof of the `append_empty` theorem.
       }
     end
 
+## Reasoning about natural numbers
+
+As metioned previously, the `Nat.pf` file includes the definition of
+natural numbers, operations on them (e.g. addition), and proofs about
+those operations. Here we discuss how to reason about
+addition. Reasoning about the other operations follows a similar
+pattern.
+
+Here is the definition of addition from `Nat.pf`:
+```
+function operator +(Nat,Nat) -> Nat {
+  operator +(0, m) = m
+  operator +(suc(n), m) = suc(n + m)
+}
+```
+
+As we saw above with the `append` function, we can use Deduce's
+`definition` statement whenever we want to rewrite the goal or a given
+fact according to the equations for addition. Here are the two
+defining equations, but written with infix notation:
+
+```
+  0 + m = m
+  suc(n) + m = suc(n + m)
+```
+
+The `Nat.pf` file also includes proofs of several more equations.
+Here we list the names of the theorems and the formula. (To add more
+theorems, pull requests on the github repository are most welcome!)
+
+```
+add_zero: all n:Nat.  n + 0 = n
+add_suc: all m:Nat. all n:Nat.  m + suc(n) = suc(m + n)
+add_commute: all n:Nat. all m:Nat.  n + m = m + n
+add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
+left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
+```
+
+You can use these theorems just like a given of the specified formula.
+For example, `add_zero[x]` is a proof of `x + 0 = x` and `apply
+left_cancel[2][a,b] to p` is a proof of `a = b` so long as `p` is a
+given for the formula `2 + a = 2 + b`.
+
+
 ## Reasoning about `and` (Conjunction)
 
 To create a single formula that expresses that two formulas are true,
