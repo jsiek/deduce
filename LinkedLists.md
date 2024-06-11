@@ -109,10 +109,10 @@ As an example of the write-test-prove methodology, we consider the
 numbers of length `count`, where the element at position `i` is `i +
 start`.
 
-### Write
+### Write `interval`
 
 A straightforward way to implement `interval` in Deduce is to define
-it as a `function` that pattern matches on the `count`.
+it as a `function` that pattern-matches on the `count`.
 
 ```
 function interval(Nat, Nat) -> List<Nat> {
@@ -151,7 +151,7 @@ with a recursive call to `interval`.
 ```
 
 Putting these pieces together, we have the following complete
-defintion of `interval`.
+definition of `interval`.
 
 ``` {.c #interval}
 function interval(Nat, Nat) -> List<Nat> {
@@ -160,12 +160,157 @@ function interval(Nat, Nat) -> List<Nat> {
 }
 ```
 
-### Test
+### Test `interval`
+
+Let us test that our definition of `interval` is behaving the way we expect it to.
+In general, one should test many variations of each input to a function.
+Here we test with the values `0`, `1` and `2` for the first parameter
+and `0` and `3` for the second parameter.
+
+``` {.c #test_interval}
+assert length(interval(0, 0)) = 0
+
+assert length(interval(1, 0)) = 1
+assert nth(interval(1, 0), 7)(0) = 0 + 0
+
+assert length(interval(2, 0)) = 2
+assert nth(interval(2, 0), 7)(0) = 0 + 0
+assert nth(interval(2, 0), 7)(1) = 1 + 0
+
+assert length(interval(0, 3)) = 0
+
+assert length(interval(1, 3)) = 1
+assert nth(interval(1, 3), 7)(0) = 0 + 3
+
+assert length(interval(2, 3)) = 2
+assert nth(interval(2, 3), 7)(0) = 0 + 3
+assert nth(interval(2, 3), 7)(1) = 1 + 3
+```
+
+Yeah! All of these `assert` statements execute without error.
+
+We have formulated these `assert` statements in a subtly different way
+than before. When we tested the `length` and `nth` functions above, we
+wrote `assert` statements that compared the results to our expected
+output. Here we have instead written the `assert` statements based on
+the specification of `interval(count, start)`. 
+The specification says that the length of the output should be the
+same as the `count` parameter.  So in the above we wrote `asssert`
+statements that check whether the length is the same as the `count`.
+Furthermore, the specification says that the element at position `i`
+of the output is `i + start`. So we have used the `nth` function to
+check, for every position `i` in the output list, whether the element
+is `i + start`.
+
+The benefit of writing tests based on the specification is that it
+reduces the possibility of discrepencies between the specification and
+the tests. After all, what it means for a function to be correct is
+that it behaves according to its specification, not that it passes
+some ad-hoc tests based on a loose interpretation of the
+specification.
+
+In general, when a test fails, it often means that either the
+implementation of the function-under-test is incorrect, or the test
+itself is incorrect. A careful reading of the function's specification
+will help you figure out which is at fault. Unfortunately, it is also
+possible for the specification to be incorrect! The good thing about
+the testing approach described here is that it helps to reveal
+inconsistencies between the specification, the tests, and the
+implementaiton.
+
+### Prove `interval` Correct
+
+Once we have finished testing `interval` with `assert` statements, we
+can move on to proving that `interval` is correct for all inputs.
+Looking back at the specification of `interval`, there are two
+parts. We will prove each part with a separate theorem.  
+
+The first part of the specification says that `interval(count, start)`
+returns a list of length `count`. We want to prove that this is true
+for all possible choices of `count` and `start`, so we shall use
+Deduce's `all` formula. Recall that there are two ways to prove that n
+`all` formula in Deduce: 1) using `arbitrary` or 2) using
+`induction`. When proving a theorem about a recursive function, one
+typically needs to use `induction` for the first parameter of the
+function, in the case `count`. So our initial plan is to use
+`induction` for `count` and `arbitrary` for `start`. Because we are
+going to use different proof methods for each variable, we need to use
+a separate `all` formula for each one, as follows.
+
+```
+theorem interval_length:
+  all count:Nat. all start:Nat. length(interval(count, start)) = count
+proof
+  ?
+end
+```
+
+There is also the question of whether `all count:Nat` should come
+before or after `all start:Nat`. It is always safe to first choose the
+variable for which you're using induction. If you make the other
+choice, the induction hypothesis will be weaker, which sometimes is
+convenient but other times prevents the proof from going through.
+
+Now let us start the proof. We proceed by induction on the `count`. 
+
+```
+theorem interval_length:
+  all count:Nat. all start:Nat. length(interval(count, start)) = count
+proof
+  induction Nat
+  case 0 {
+    ?
+  }
+  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+    ?
+  }
+end
+```
+
+In the case for `count = 0`, Deduce tells us that we need to prove
+```
+	all start:Nat. length(interval(0,start)) = 0
+```
+As mentioned earlier, we'll use `arbitrary` for `start`.
+```
+  case 0 {
+    arbitrary start:Nat
+	?
+  }
+```
+So now we need to prove
+```
+	length(interval(0,start)) = 0
+```
+Of course, by definition we have `interval(0,start) = empty`
+and `length(empty) = 0`, so we can conclude by
+using `definition {interval, length}`.
+```
+  case 0 {
+    arbitrary start:Nat
+	conclude length(interval(0, start)) = 0  by	definition {interval, length}.
+  }
+```
 
 
-### Prove
 
-
+``` {.c #interval_length_correct}
+theorem interval_length:
+  all count:Nat. all start:Nat. length(interval(count, start)) = count
+proof
+  induction Nat
+  case 0 {
+    arbitrary start:Nat
+	conclude length(interval(0, start)) = 0  by	definition {interval, length}.
+  }
+  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+    arbitrary start:Nat
+	definition {interval, length}
+	suffices suc(length(interval(count',suc(start)))) = suc(count')
+    rewrite IH[suc(start)].
+  }
+end
+```
 
 ## Exercise: Define Append
 
@@ -202,31 +347,11 @@ assert nth(list_1_5, 0)(3) = nth(list_45,0)(0)
 assert nth(list_1_5, 0)(4) = nth(list_45,0)(1)
 ```
 
-We have formulated these `assert` statements in a subtly different way
-than before. We could have written
-
-```
-assert nth(list_1_5, 0)(0) = 1
-```
-
-but we instead wrote 
-
-```
-assert nth(list_1_5, 0)(0) = nth(list_123,0)(0)
-```
-
-The difference is that the later assertion is more directly related to
-the specification of `append`.  The element at position `0` of
-`list_1_5` has to be the same as the element at position of `0` of
-`list_123` because 1) `list_123` was the first input list in the call
-to `append` and 2) because the element at position `0` of `list_123`
-came before the other elements of `list_123`. 
-
-Furthermore, by formulating the assertions in this way, we can better
-automate our testing. In the following we collapse the three
-assertions concerning `list_123` into a single assertion, and
-similarly for `list_45`. We make use of two auxilliary functions
-`interval` and `all_elements` that we describe next.
+Another benefit of formulating the assertions based on the spefication
+is that it enables us to automate our testing. In the following we
+collapse the three assertions concerning `list_123` into a single
+assertion, and similarly for `list_45`. We make use of two auxilliary
+functions `interval` and `all_elements` that we describe next.
 
 ``` {.c #test_append_123_45_again}
 assert all_elements(interval(3, 0), λi{ nth(list_1_5, 0)(i) = nth(list_123,0)(i) })
@@ -294,6 +419,9 @@ function append<E>(List<E>, List<E>) -> List<E> {
   append(empty, ys) = ys
   append(node(n, xs), ys) = node(n, append(xs, ys))
 }
+
+<<test_interval>>
+<<interval_length_correct>>
 
 <<list_123>>
 <<test_length_123>>

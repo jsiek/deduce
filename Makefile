@@ -21,6 +21,7 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/bintree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Nat.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py Binary.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/some1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/some2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/inst1.pf
@@ -33,8 +34,9 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py Option.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Sets.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sum.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/MergeSort.pf
 
 book:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
