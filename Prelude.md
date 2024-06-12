@@ -6,14 +6,13 @@ correct code, and (3) achieving a deeper understanding of testing,
 logic, and proof, all of which are needed for constructing correct
 code. These blog posts take a functional programming approach to data
 structures and algorithms because, in that setting, there are software
-tools that can help to make sure that our proofs about correctness are
-themselves correct! In particular, these posts will use the Deduce
-language for writing programs, testing them, and proving theorems.
-Unlike most functional languages and proof assistants, the syntax of
-Deduce is meant to be easy to learn for people familiar with languages
-such as Java or Python. The `README.md` file in the Deduce github
-repository provides an introduction to Deduce. We recommend reading
-that first.
+tools that make sure that our proofs about correctness are themselves
+correct! In particular, these posts will use the Deduce language for
+writing programs, testing them, and proving theorems.  Unlike most
+functional languages and proof assistants, the syntax of Deduce is
+meant to be easy to learn for people familiar with languages such as
+Java or Python. The `README.md` file in the Deduce github repository
+provides an introduction to Deduce. We recommend reading that first.
 
     https://github.com/jsiek/deduce/tree/main
 
