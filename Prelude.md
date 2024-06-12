@@ -20,7 +20,10 @@ These blog posts will cover a limited number of the data structures
 and algorithms, as the pace will be slower due to the increased focus
 on correctness. The rough plan is to cover the following topics.
 
-* Linked Lists, Sorting
-* Binary Trees, Binary Search Trees, Balanced Binary Search Trees
+* Linked Lists
+* Sorting
+* Binary Trees
+* Binary Search Trees
+* Balanced Binary Search Trees
 * Heaps and Priority Queues
 
