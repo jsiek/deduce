@@ -75,7 +75,7 @@ Deduce supports the following language features:
 * booleans and conditional expressions
 * recursive functions
 * higher-order functions
-* [anonymous functions (lambda)](#lambda)
+* [anonymous functions (lambda)](README.md#lambda)
 * pairs
 * switch
 
