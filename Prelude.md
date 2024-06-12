@@ -1,7 +1,7 @@
 # Prelude
 
 This is the first in what I hope to be a sequence of blog posts about
-(1) data structures and algorithms, (2) a methodology for constructing
+(1) data structures and algorithms, (2) an approach to constructing
 correct code, and (3) achieving a deeper understanding of testing,
 logic, and proof, all of which are needed for constructing correct
 code. These blog posts take a functional programming approach to data

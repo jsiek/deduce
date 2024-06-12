@@ -22,7 +22,7 @@ alternative ways to construct values of the union type. For example,
 to represent a linked-list of natural numbers, we could define the
 following union.
 
-``` {.deduce #NatList}
+```
 union NatList {
   empty
   node(Nat, NatList)

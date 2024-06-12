@@ -41,9 +41,9 @@ assert length(list_123) = 3
 ```
 
 The return type of `length` is `Nat` which stands for **natural
-number** (that is, the non-negative integers).  The `suc(n)` operation
-computes `1 + n` and is short for successor. Similarly, the `pred(n)`
-operation is short for predecessor and computes `n - 1`, except that
+number** (that is, the non-negative integers).  The `suc(n)` constructor
+represents `1 + n` and is short for successor. The `pred(n)`
+function is short for predecessor and computes `n - 1`, except that
 `pred(0) = 0`.
 
 ```{.c #importNat}
@@ -132,16 +132,16 @@ it as a `function` that pattern-matches on the `count`.
 
 ```
 function interval(Nat, Nat) -> List<Nat> {
-  interval(zero, n) = ?
+  interval(0, n) = ?
   interval(suc(k), n) = ?
 }
 ```
 
-For the clause where `count = zero`, we must return a list of length `zero`.
+For the clause where `count = 0`, we must return a list of length `0`.
 So our only choice is the `empty` list.
 
 ```
-  interval(zero, n) = empty
+  interval(0, n) = empty
 ```
 
 For the clause where `count = suc(k)`, we must return a list of length `suc(k)`.
@@ -171,7 +171,7 @@ definition of `interval`.
 
 ``` {.c #interval}
 function interval(Nat, Nat) -> List<Nat> {
-  interval(zero, n) = empty
+  interval(0, n) = empty
   interval(suc(k), n) = node(n, interval(k, suc(n)))
 }
 ```
@@ -286,7 +286,7 @@ end
 
 In the case for `count = 0`, Deduce tells us that we need to prove
 ```
-    all start:Nat. length(interval(0,start)) = 0
+  all start:Nat. length(interval(0,start)) = 0
 ```
 As mentioned earlier, we'll use `arbitrary` for `start`.
 ```
@@ -297,14 +297,15 @@ As mentioned earlier, we'll use `arbitrary` for `start`.
 ```
 So now we need to prove
 ```
-    length(interval(0,start)) = 0
+  length(interval(0,start)) = 0
 ```
 Of course, by definition we have `interval(0,start) = empty`
 and `length(empty) = 0`, so we can conclude using those definitions.
 ```
   case 0 {
     arbitrary start:Nat
-    conclude length(interval(0, start)) = 0  by definition {interval, length}.
+    conclude length(interval(0, start)) = 0
+	    by definition {interval, length}.
   }
 ```
 
@@ -324,7 +325,9 @@ for the induction hypothesis and paste it into the `suppose` as shown
 below.
 
 ```
-  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+  case suc(count') 
+    suppose IH: all start:Nat. length(interval(count', start)) = count' 
+  {
     ?
   }
 ```
@@ -333,7 +336,9 @@ For the proof of this case, we again start with `arbitrary` to handle
 `all start` then use the definitions of `interval` and `length`.
 
 ```
-  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+  case suc(count')
+    suppose IH: all start:Nat. length(interval(count', start)) = count'
+  {
     arbitrary start:Nat
     definition {interval, length}
     ?
@@ -351,10 +356,13 @@ length(interval(count',suc(start))) = count'
 ```
 which is just what we need to conclude.
 ```
-  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+  case suc(count') 
+    suppose IH: all start:Nat. length(interval(count', start)) = count' 
+  {
     arbitrary start:Nat
     definition {interval, length}
-    conclude suc(length(interval(count',suc(start)))) = suc(count')  by rewrite IH[suc(start)].
+    conclude suc(length(interval(count',suc(start)))) = suc(count')
+	    by rewrite IH[suc(start)].
   }
 ```
 
@@ -368,12 +376,16 @@ proof
   induction Nat
   case 0 {
     arbitrary start:Nat
-    conclude length(interval(0, start)) = 0  by definition {interval, length}.
+    conclude length(interval(0, start)) = 0
+	    by definition {interval, length}.
   }
-  case suc(count') suppose IH: all start:Nat. length(interval(count', start)) = count' {
+  case suc(count')
+    suppose IH: all start:Nat. length(interval(count', start)) = count' 
+  {
     arbitrary start:Nat
     definition {interval, length}
-    conclude suc(length(interval(count',suc(start)))) = suc(count')  by rewrite IH[suc(start)].
+    conclude suc(length(interval(count',suc(start)))) = suc(count')
+	    by rewrite IH[suc(start)].
   }
 end
 ```
@@ -410,7 +422,8 @@ is of type `Nat`, we proceed by induction on `Nat`.
 In the case `count = 0`, Deduce tells us that we need to prove
 
 ```
-all start:Nat, d:Nat, i:Nat. (if i < 0 then nth(interval(0,start),d)(i) = i + start)
+all start:Nat, d:Nat, i:Nat.
+    if i < 0 then nth(interval(0,start),d)(i) = i + start
 ```
 
 So we can start the proof of this case with `arbitrary` and `suppose`,
@@ -456,7 +469,7 @@ with `arbitrary`, `suppose`, and use the definitions of `interval` and `nth`.
 ```
   case suc(count') 
     suppose IH: all start:Nat, d:Nat, i:Nat. 
-                if i < count' then nth(interval(count',start),d)(i) = i + start
+        if i < count' then nth(interval(count',start),d)(i) = i + start
   {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_sc: i < suc(count')
@@ -469,7 +482,8 @@ Deduce responds with the following.
 
 ```
 Goal:
-    if i = 0 then start else nth(interval(count',suc(start)),d)(pred(i)) = i + start
+    if i = 0 then start
+	else nth(interval(count',suc(start)),d)(pred(i)) = i + start
 ```
 
 What we're seeing here is that the `nth` function uses an `if`-`then`-`else`
@@ -478,14 +492,14 @@ break our proof down into two cases, when `i = 0` and `i ≠ 0`. One
 convenient way to do that in Deduce is with a `switch`.
 
 ```
-    switch i {
-      case 0 {
-        ?
-      }
-      case suc(i') suppose i_sc: i = suc(i') {
-        ?
-      }
-    }
+  switch i {
+	case 0 {
+	  ?
+	}
+	case suc(i') suppose i_sc: i = suc(i') {
+	  ?
+	}
+  }
 ```
 
 Let us proceed with the case for `i = 0`. Deduce simplifies the goal
@@ -498,27 +512,28 @@ Goal:
 which follows directly from the definition of addition.
 
 ```
-      case 0 {
-        conclude start = 0 + start   by definition operator +.
-      }
+  case 0 {
+	conclude start = 0 + start   by definition operator +.
+  }
 ```
 
 In the case for `i = suc(i')`, Deduce tells us that we need to prove
 ```
-    nth(interval(count',suc(start)),d)(pred(suc(i'))) = suc(i') + start
+  nth(interval(count',suc(start)),d)(pred(suc(i'))) = suc(i') + start
 ```
 This looks quite similar to the induction hypothesis instantiated with
 `suc(start)`, `d`, and `i'`:
 ```
-if i' < count' then nth(interval(count',suc(start)),d)(i') = i' + suc(start)
+  if i' < count' 
+  then nth(interval(count',suc(start)),d)(i') = i' + suc(start)
 ```
 One difference is `pred(suc(i'))` versus `i'`, but they are equal by the
 definition of `pred`.
 ```
-      case suc(i') suppose i_sc: i = suc(i') {
-        definition pred
-        ?
-      }
+  case suc(i') suppose i_sc: i = suc(i') {
+	definition pred
+	?
+  }
 ```
 Deduce responds with
 ```
@@ -533,12 +548,12 @@ This follows from the givens `i_l_sc: i < suc(count')`
 and `i_sc: i = suc(i')` and the definitions of `<` and `≤`.
 
 ```
-      case suc(i') suppose i_sc: i = suc(i') {
-        definition pred
-        have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
-                                      rewrite i_sc in i_l_sc
-        ?
-      }
+  case suc(i') suppose i_sc: i = suc(i') {
+	definition pred
+	have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
+								  rewrite i_sc in i_l_sc
+	?
+  }
 ```
 
 Now we can complete the proof of this case by linking together a few
@@ -548,11 +563,11 @@ suc(m + n)`), and finally using the definition of addition (which
 states that `suc(n) + m = suc(n + m)`).
 
 ```
-        equations
-          nth(interval(count',suc(start)),d)(i') 
-              = i' + suc(start)                   by apply IH[suc(start), d, i'] to i_l_cnt
-          ... = suc(i' + start)                   by add_suc[i'][start]
-          ... = suc(i') + start                   by definition operator +.
+  equations
+	nth(interval(count',suc(start)),d)(i') 
+		= i' + suc(start)        by apply IH[suc(start), d, i'] to i_l_cnt
+	... = suc(i' + start)        by add_suc[i'][start]
+	... = suc(i') + start        by definition operator +.
 ```
 
 Putting together all these pieces, we have the following complete proof
@@ -573,7 +588,7 @@ proof
   }
   case suc(count') 
     suppose IH: all start:Nat, d:Nat, i:Nat. 
-                if i < count' then nth(interval(count',start),d)(i) = i + start
+        if i < count' then nth(interval(count',start),d)(i) = i + start
   {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_sc: i < suc(count')
@@ -588,9 +603,9 @@ proof
                                       rewrite i_sc in i_l_sc
         equations
           nth(interval(count',suc(start)),d)(i') 
-              = i' + suc(start)                   by apply IH[suc(start), d, i'] to i_l_cnt
-          ... = suc(i' + start)                   by add_suc[i'][start]
-          ... = suc(i') + start                   by definition operator +.
+              = i' + suc(start)    by apply IH[suc(start), d, i'] to i_l_cnt
+          ... = suc(i' + start)    by add_suc[i'][start]
+          ... = suc(i') + start    by definition operator +.
       }
     }
   }
@@ -638,8 +653,10 @@ named `all_elements` that we describe next.
 ``` {.c #test_append_123_45}
 define list_45 : List<Nat> = node(4, node(5, empty))
 define list_1_5 = append(list_123, list_45)
-assert all_elements(interval(3, 0), λi{ nth(list_1_5, 0)(i) = nth(list_123,0)(i) })
-assert all_elements(interval(2, 0), λi{ nth(list_1_5, 0)(3 + i) = nth(list_45,0)(i) })
+assert all_elements(interval(3, 0),
+                    λi{ nth(list_1_5, 0)(i) = nth(list_123,0)(i) })
+assert all_elements(interval(2, 0),
+                    λi{ nth(list_1_5, 0)(3 + i) = nth(list_45,0)(i) })
 ```
 
 The `all_elements` function takes a list and a function and checks
@@ -660,9 +677,9 @@ define first_list = interval(first_elts,1)
 define second_list = interval(second_elts, first_elts + 1)
 define output_list = append(first_list, second_list)
 assert all_elements(interval(first_elts, 0), 
-                    λi{ nth(output_list, 0)(i) = nth(first_list,0)(i) })
+          λi{ nth(output_list, 0)(i) = nth(first_list,0)(i) })
 assert all_elements(interval(second_elts, 0),
-                    λi{ nth(output_list, 0)(first_elts + i) = nth(second_list,0)(i) })
+          λi{ nth(output_list, 0)(first_elts + i) = nth(second_list,0)(i) })
 ```
 
 ## Exercise: Prove that Append is Correct
@@ -677,14 +694,16 @@ split up correctness into two theorems, one about the first input list
 that your proofs use induction on `List<T>`.
 
 ```
-theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+theorem nth_append_front:
+  all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
   if i < length(xs)
   then nth(append(xs, ys), d)(i) = nth(xs, d)(i)
 proof
   FILL IN HERE
 end
 
-theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+theorem nth_append_back: 
+  all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
   nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
 proof
   FILL IN HERE
@@ -746,7 +765,7 @@ proof
     suppose i_xxs: i < length(node(x,xs))
     definition append
     switch i {
-      case zero {
+      case 0 {
         definition nth.
       }
       case suc(i') suppose i_si {

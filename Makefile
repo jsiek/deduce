@@ -38,13 +38,14 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/MergeSort.pf
 
-book:
+check_blog1:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/LinkedLists.pf
 
-blog:
+blog1:
 	/usr/local/bin/pandoc Prelude.md -o Prelude.html
 	/usr/local/bin/pandoc LinkedLists.md -o LinkedLists.html
+	cat Prelude.html LinkedLists.html > blog1.html
 
 
 # TODO
