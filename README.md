@@ -113,9 +113,9 @@ linked list to allow an arbitrary element type as follows.
       node(T, List<T>)
     }
 
-## The Natural Numbers
+## Natural Numbers
 
-The natural numbers are not a builtin type in Deduce but instead they
+Natural numbers are not a builtin type in Deduce but instead they
 are defined as a `union` type:
 
     union Nat {
