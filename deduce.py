@@ -4,7 +4,11 @@ import sys
 from parser import parse, set_filename
 from lark import exceptions
 
-def token_name(str):
+def token_str(token):
+    if len(token.value) > 0:
+        str = token.value
+    else:
+        str =  t.token.type
     str = str.lower()
     if str[0] == '$':
         str = str[1:]
@@ -31,7 +35,7 @@ if __name__ == "__main__":
     except exceptions.UnexpectedToken as t:
         print(filename + ":" + str(t.token.line) + "." + str(t.token.column) \
               + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-              + "error in parsing, unexpected token: " + token_name(t.token.type))
+              + "error in parsing, unexpected token: " + token_str(t.token))
         #print('expected one of ' + ', '.join([str(e) for e in t.expected]))
         exit(-1)
         

@@ -441,6 +441,107 @@ proof
   }
 end
 
+theorem max_suc2: all x:Nat, y:Nat. max(suc(x), suc(y)) = suc(max(x,y))
+proof
+  arbitrary x:Nat, y:Nat
+  switch x {
+    case 0 {
+      arbitrary 
+      suffices max(1,suc(y)) = suc(max(0,y))
+      definition {max, max}.
+    }
+    case suc(x') {
+      arbitrary y:Nat
+      switch y {
+	case 0 {
+	  definition {max, max}.
+	}
+	case suc(y') {
+	  definition {max, max}.
+	}
+      }
+    }
+  }
+end
+
+theorem max_greater_right: all y:Nat. all x:Nat. 
+  y ≤ max(x, y)
+proof
+  induction Nat
+  case 0 {
+    arbitrary x:Nat
+    definition operator ≤.
+  }
+  case suc(y') suppose IH {
+    arbitrary x:Nat
+    switch x {
+      case 0 {
+        definition max
+        less_equal_refl[suc(y')]
+      }
+      case suc(x') {
+        rewrite max_suc2[x',y']
+	definition operator ≤
+	conclude y' ≤ max(x', y') by IH[x']
+      }
+    }
+  }
+end
+
+theorem max_greater_left: all x:Nat. all y:Nat. 
+  x ≤ max(x, y)
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    definition operator ≤.
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        suffices suc(x') ≤ max(suc(x'),0)
+	definition max
+	conclude suc(x') ≤ suc(x')  by less_equal_refl[suc(x')]
+      }
+      case suc(y') {
+        definition {max, operator ≤}
+        conclude x' ≤ max(x',y')  by IH[y']
+      }
+    }
+  }
+end
+
+theorem max_is_left_or_right: all x:Nat. all y:Nat.
+  max(x, y) = x or max(x, y) = y
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    definition max.
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        definition max.
+      }
+      case suc(y') {
+        definition max
+	cases IH[y']
+        case m_x: max(x',y') = x' {
+	  suffices suc(max(x',y')) = suc(x')
+	  rewrite m_x.
+	}
+	case m_y: max(x',y') = y' {
+	  suffices suc(max(x',y')) = suc(y')
+	  rewrite m_y.
+	}
+      }
+    }
+  }
+end
+
 theorem trichotomy:
   all x:Nat. all y:Nat.
   x < y  or  x = y  or  y < x
@@ -786,6 +887,32 @@ proof
     have IH': summation(k',suc(s),f) = summation(k',suc(suc(s)),g)
                  by apply IH[f,g,suc(s)] to f_g
     rewrite symmetric IH'.
+  }
+end
+
+theorem summation_cong: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat. 
+  if (all i:Nat. f(s + i) = g(t + i))
+  then summation(k, s, f) = summation(k, t, g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat
+    suppose _
+    definition summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat
+    suppose f_g: all i:Nat. f(s + i) = g(t + i)
+    definition summation
+    have fs_gt: f(s) = g(t)   by rewrite add_zero[s] | add_zero[t] in f_g[0]
+    have all_f_g: all i:Nat. f(suc(s) + i) = g(suc(t) + i)
+      by arbitrary i:Nat
+	 definition operator + 
+	 rewrite add_suc[s][i] | add_suc[t][i] in f_g[suc(i)]
+    equations
+          f(s) + summation(k',suc(s),f)
+        = g(t) + summation(k',suc(s),f)   by rewrite fs_gt.
+    ... = g(t) + summation(k',suc(t),g)   by rewrite (apply IH[f,g,suc(s),suc(t)] to all_f_g).
   }
 end
 

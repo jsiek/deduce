@@ -98,7 +98,7 @@ def parse_tree_to_case_list(e):
 infix_ops = {'add', 'sub', 'mul', 'div', 'int_div', 'mod', 'circ',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
-             'subset_equal', 'union_op', 'intersect'}
+             'subset_equal', 'union_op', 'intersect', 'membership'}
 
 prefix_ops = {'neg', 'not'}
 
@@ -108,7 +108,8 @@ operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘'
                    'equal': '=', 'not_equal': '≠',
                    'less': '<', 'greater': '>',
                    'less_equal': '≤', 'greater_equal': '≥',
-                   'subset_equal': '⊆', 'union_op': '∪', 'intersect': '∩'}
+                   'subset_equal': '⊆', 'union_op': '∪', 'intersect': '∩',
+                   'membership': '∈'}
 
 impl_num = 0
 def next_impl_num():

@@ -23,6 +23,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_compare "≤" term_add                       -> less_equal
     | term_compare "≥" term_add                       -> greater_equal
     | term_compare "⊆" term_add                       -> subset_equal
+    | term_compare "∈" term_add                       -> membership
     | term_add
 
 ?term_add: term_add "+" term_med                   -> add

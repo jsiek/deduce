@@ -663,6 +663,13 @@ The `all_elements` function takes a list and a function and checks
 whether applying the function to every element of the list always
 produces `true`.
 
+``` {.c #all_elements}
+function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+  all_elements(empty, P) = true
+  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
+}
+```
+
 Going a step further, we can adapt the tests to apply to longer lists
 by automating the creation of the input lists. Here we increase the
 combined size to `20` elements. We could go with longer lists, but
@@ -733,10 +740,7 @@ function append<E>(List<E>, List<E>) -> List<E> {
 <<test_length_123>>
 <<test_nth_123>>
 
-function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
-  all_elements(empty, P) = true
-  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
-}
+<<all_elements>>
 <<test_append_123_45>>
 
 // Solution: Test Append

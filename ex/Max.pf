@@ -1,0 +1,114 @@
+import Nat
+import List
+import Sets
+
+function max_element(List<Nat>, Nat) -> Nat {
+  max_element(empty, d) = d
+  max_element(node(x, xs), d) = max(x, max_element(xs, d))
+}
+
+theorem max_elt_default:  all xs :List<Nat>. all d:Nat.
+  d ≤ max_element(xs, d)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary d:Nat
+    suffices d ≤ max_element(empty,d)
+    definition max_element
+    conclude d ≤ d  by less_equal_refl[d]
+  }
+  case node(x, xs') suppose IH {
+    arbitrary d:Nat
+    definition max_element
+    suffices d ≤ max(x,max_element(xs',d))
+    have d_xsd: d ≤ max_element(xs',d) by IH[d]
+    have xsd_x_xsd: max_element(xs',d) ≤ max(x,max_element(xs',d))
+      by max_greater_right[max_element(xs',d)][x]
+    conclude d ≤ max(x,max_element(xs',d))
+     by apply less_equal_trans[d][max_element(xs',d), max(x,max_element(xs',d))]
+        to d_xsd, xsd_x_xsd
+  }
+end
+
+function set_of<T>(List<T>) -> fn(T) -> bool {
+  set_of(empty) = λx{ false }
+  set_of(node(x, xs)) = λy{ x = y} ∪ set_of(xs)
+}
+
+theorem max_elt_greater_elt: all xs :List<Nat>. all y:Nat, d:Nat.
+  if y ∈ set_of(xs)
+  then y ≤ max_element(xs, d)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat, d:Nat
+    suppose impossible: y ∈ set_of(empty)
+    conclude false
+        by definition {set_of, operator ∈} in impossible
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, d:Nat
+    suppose y_in_xxs: y ∈ set_of(node(x, xs'))
+    definition max_element
+    suffices y ≤ max(x,max_element(xs',d))
+    have xy_or_y_xs: x = y or y ∈ set_of(xs')
+      by enable {set_of, operator ∪, operator ∈} y_in_xxs
+    cases xy_or_y_xs
+    case x_y: x = y {
+      rewrite x_y
+      conclude y ≤ max(y,max_element(xs',d))
+          by max_greater_left[y][max_element(xs',d)]
+    }
+    case y_in_xs: y ∈ set_of(xs') {
+      have y_le_xs: y ≤ max_element(xs',d)   by apply IH[y,d] to y_in_xs
+      have xs_le_xxs: max_element(xs',d) ≤ max(x,max_element(xs',d))
+        by max_greater_right[max_element(xs',d)][x]
+      conclude y ≤ max(x,max_element(xs',d))
+        by apply less_equal_trans[y][max_element(xs',d),
+	                             max(x,max_element(xs',d))]
+           to y_le_xs, xs_le_xxs
+    }
+  }
+end
+
+theorem max_elt_elt_or_d: all xs:List<Nat>. all d:Nat.
+  max_element(xs, d) ∈ set_of(xs)
+  or max_element(xs, d) = d
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary d:Nat
+    conclude max_element(empty,d) = d
+      by definition max_element.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary d:Nat
+    cases IH[d]
+    case mxs_in_xs: max_element(xs',d) ∈ set_of(xs') {
+      suffices max_element(node(x,xs'),d) ∈ set_of(node(x,xs'))
+      definition {max_element, set_of}
+      cases max_is_left_or_right[x][max_element(xs',d)]
+      case m_x: max(x,max_element(xs',d)) = x {
+        rewrite m_x
+	definition {operator ∈, operator ∪}.
+      }
+      case m_mxs: max(x,max_element(xs',d)) = max_element(xs',d) {
+        rewrite m_mxs
+        apply in_right_union[Nat, max_element(xs',d), λy{x = y} : fn(Nat)->bool, set_of(xs')]
+	to mxs_in_xs
+      }
+    }
+    case mxs_d: max_element(xs',d) = d {
+      definition {max_element, set_of}
+      rewrite mxs_d
+      cases max_is_left_or_right[x][d]
+      case m_x: max(x,d) = x {
+        rewrite m_x
+        definition { operator ∪, operator ∈}.
+      }
+      case m_d: max(x,d) = d {
+        rewrite m_d.
+      }
+    }
+  }
+end
