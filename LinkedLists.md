@@ -245,7 +245,7 @@ parts. We will prove each part with a separate theorem.
 The first part of the specification says that `interval(count, start)`
 returns a list of length `count`. We want to prove that this is true
 for all possible choices of `count` and `start`, so we shall use
-Deduce's `all` formula. Recall that there are two ways to prove that n
+Deduce's `all` formula. Recall that there are two ways to prove an
 `all` formula in Deduce: 1) using `arbitrary` or 2) using
 `induction`. When proving a theorem about a recursive function, one
 typically needs to use `induction` for the first parameter of the
