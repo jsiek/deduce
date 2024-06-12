@@ -4,8 +4,8 @@ This section provides a tutorial on writing proofs in Deduce.  In the
 following subsections we introduce the features of the Deduce proof
 language and provide examples of their use.
 
-* Working with Definitions
-* Generalizing with `all` formulas
+* [Working with Definitions](#working-with-definitions)
+* [Generalizing with `all` formulas](#generalizing-with-all-formulas)
 * Proving `all` Formulas with Induction
 * Equational Reasoning
 * Reasoning about natural numbers
