@@ -94,7 +94,7 @@ We recommend a three step process to constructing correct software.
 3. **Prove** that the function is correct with respect to its specification.
 
 We recognize that once step 3 is complete, step 2 is obsolete.  The
-proof of correctness supercedes the tests. However there are two good
+proof of correctness supersedes the tests. However there are two good
 reasons to perform testing even when you are planning to do a proof of
 correctness. First, testing is faster than proof with respect to
 revealing bugs in your code and will therefore save time for the
@@ -196,7 +196,7 @@ wrote `assert` statements that compared the results to our expected
 output. Here we have instead written the `assert` statements based on
 the specification of `interval(count, start)`. 
 The specification says that the length of the output should be the
-same as the `count` parameter.  So in the above we wrote `asssert`
+same as the `count` parameter.  So in the above we wrote `assert`
 statements that check whether the length is the same as the `count`.
 Furthermore, the specification says that the element at position `i`
 of the output is `i + start`. So we have used the `nth` function to
@@ -204,7 +204,7 @@ check, for every position `i` in the output list, whether the element
 is `i + start`.
 
 The benefit of writing tests based on the specification is that it
-reduces the possibility of discrepencies between the specification and
+reduces the possibility of discrepancies between the specification and
 the tests. After all, what it means for a function to be correct is
 that it behaves according to its specification, not that it passes
 some ad-hoc tests based on a loose interpretation of the
@@ -217,7 +217,7 @@ will help you figure out which is at fault. Unfortunately, it is also
 possible for the specification to be incorrect! The good thing about
 the testing approach described here is that it helps to reveal
 inconsistencies between the specification, the tests, and the
-implementaiton.
+implementation.
 
 ### Prove `interval` Correct
 
@@ -330,8 +330,8 @@ Deduce tells us that we need to prove the following.
 ```
 suc(length(interval(count',suc(start)))) = suc(count')
 ```
-Here the induction hyposthesis `IH` comes to the rescue. 
-If we instantate the `all start` with `suc(start)`, we get
+Here the induction hypothesis `IH` comes to the rescue. 
+If we instantiate the `all start` with `suc(start)`, we get
 ```
 length(interval(count',suc(start))) = count'
 ```
@@ -602,30 +602,28 @@ function append<E>(List<E>, List<E>) -> List<E> {
 ```
 
 
-## Testing Append
+## Exercise: Test Append
 
-The following code tests your `append` function, making sure that
-appending `1,2,3` with `5,6` produces the sequence `1,2,3,4,5`.
+Write `assert` statements to test the `append` function that you have
+defined.  Formulate the assertions to closely match the above
+specification of above.  Refer to the assertions that we wrote above
+to test `interval` to see an example of how to write the tests.
+
+
+## More Automation in Tests
+
+An added benefit of formulating the assertions based on the
+specification is that it enables us to automate our testing. In the
+following code we append the list `1, 2, 3` with `4, 5` and then check
+the resulting list using only two `assert` statements. The first
+`assert` checks whether the front part of the result matches the first
+input list and the second `assert` checks whether the back part of the
+result matches the second input list. We make use of another function
+named `all_elements` that we describe next.
 
 ``` {.c #test_append_123_45}
 define list_45 : List<Nat> = node(4, node(5, empty))
 define list_1_5 = append(list_123, list_45)
-
-assert nth(list_1_5, 0)(0) = nth(list_123,0)(0)
-assert nth(list_1_5, 0)(1) = nth(list_123,0)(1)
-assert nth(list_1_5, 0)(2) = nth(list_123,0)(2)
-
-assert nth(list_1_5, 0)(3) = nth(list_45,0)(0)
-assert nth(list_1_5, 0)(4) = nth(list_45,0)(1)
-```
-
-Another benefit of formulating the assertions based on the spefication
-is that it enables us to automate our testing. In the following we
-collapse the three assertions concerning `list_123` into a single
-assertion, and similarly for `list_45`. We make use of two auxilliary
-functions `interval` and `all_elements` that we describe next.
-
-``` {.c #test_append_123_45_again}
 assert all_elements(interval(3, 0), λi{ nth(list_1_5, 0)(i) = nth(list_123,0)(i) })
 assert all_elements(interval(2, 0), λi{ nth(list_1_5, 0)(3 + i) = nth(list_45,0)(i) })
 ```
@@ -634,10 +632,11 @@ The `all_elements` function takes a list and a function and checks
 whether applying the function to every element of the list always
 produces `true`.
 
-Going a step further, we can easily adapt the tests to apply to longer
-lists. Here we increase the combined size to `20` elements. We could
-go with longer lists, but Deduce currently has a slow interpreter, so
-the assertions would take a long time (e.g., a minute for `100` elements).
+Going a step further, we can adapt the tests to apply to longer lists
+by automating the creation of the input lists. Here we increase the
+combined size to `20` elements. We could go with longer lists, but
+Deduce currently has a slow interpreter, so the assertions would take
+a long time (e.g., a minute for `100` elements).
 
 ``` {.c #test_append_large}
 define num_elts = 20
@@ -699,12 +698,21 @@ function append<E>(List<E>, List<E>) -> List<E> {
 <<list_123>>
 <<test_length_123>>
 <<test_nth_123>>
-<<test_append_123_45>>
+
 function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
 }
-<<test_append_123_45_again>>
+<<test_append_123_45>>
+
+// Solution: Test Append
+assert nth(list_1_5, 0)(0) = nth(list_123,0)(0)
+assert nth(list_1_5, 0)(1) = nth(list_123,0)(1)
+assert nth(list_1_5, 0)(2) = nth(list_123,0)(2)
+
+assert nth(list_1_5, 0)(3) = nth(list_45,0)(0)
+assert nth(list_1_5, 0)(4) = nth(list_45,0)(1)
+
 <<test_append_large>>
 
 theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
@@ -757,3 +765,8 @@ proof
 end
 ```
 -->
+
+<!--  LocalWords:  suc pred importNat xs fn Deduce's IH aka sc cnt pf
+ -->
+<!--  LocalWords:  num elts ys bool xxs si eq
+ -->
