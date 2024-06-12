@@ -68,16 +68,16 @@ you can obtain from the following location.
 # Functional Programming in Deduce
 
 Deduce supports the following language features:
-* unions
-* natural numbers
-* imports
-* definitions
-* booleans and conditional expressions
-* recursive functions
-* higher-order functions
-* [anonymous functions (lambda)](#anonymous-functions-lambda)
-* pairs
-* switch
+* [Unions](#unions)
+* [Natural Numbers](#natural-numbers)
+* [Imports](#imports)
+* [Definitions](#definitions)
+* [Booleans and Conditional Expressions](#booleans-and-conditional-expressions)
+* [Recursive Functions](#recursive-functions)
+* [Higher-order Functions](#higher-order-functions)
+* [Anonymous Functions (Lambda)](#anonymous-functions-lambda)
+* [Pairs](#pairs)
+* [Switch](#switch)
 
 The following subsections describe each of these features.
 
