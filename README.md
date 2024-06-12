@@ -53,7 +53,7 @@ tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
 
 * [Functional Programming in Deduce](./FunctionalProgramming.md)
-* [Proving Theorems in Deduce](./ProofIntro.md)
+* [Writing Proofs in Deduce](./ProofIntro.md)
 
 I recommend that you work through the examples in this
 introduction. Create a file named `examples.pf` in the top `deduce`
