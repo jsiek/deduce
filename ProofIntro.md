@@ -6,17 +6,17 @@ language and provide examples of their use.
 
 * [Working with Definitions](#working-with-definitions)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
-* Proving `all` Formulas with Induction
-* Equational Reasoning
-* Reasoning about natural numbers
-* Reasoning about `and` (Conjunction)
-* Reasoning about `or` (Disjunction)
-* Conditional Formulas (Implication)
-* Reasoning about `true`
-* Reasoning about `false`
-* Reasoning about `not`
-* The `switch` Proof Statement
-* Reasoning about `some` (Exists)
+* [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
+* [Equational Reasoning](#equational-reasoning)
+* [Reasoning about natural numbers](#reasoning-about-natural-numbers)
+* [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
+* [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
+* [Conditional Formulas (Implication)](#conditional-formulas-implication)
+* [Reasoning about `true`](#reasoning-about-true)
+* [Reasoning about `false`](#reasoning-about-false)
+* [Reasoning about `not`](#reasoning-about-not)
+* [`switch` Proof Statement](#switch-proof-statement)
+* [Reasoning about `some` (Exists)](#reasoning-about-some-exists)
 
 ## Working with Definitions
 
@@ -851,7 +851,7 @@ To summarize this section:
 * To use a formula like `not P`, apply it to a proof of `P` to
   obtain a proof of `false`.
 
-## The `switch` Proof Statement
+## `switch` Proof Statement
 
 Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
