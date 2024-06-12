@@ -75,7 +75,7 @@ Deduce supports the following language features:
 * booleans and conditional expressions
 * recursive functions
 * higher-order functions
-* [anonymous functions (lambda)](README.md#lambda)
+* [anonymous functions (lambda)](#anonymous-functions-lambda)
 * pairs
 * switch
 
@@ -221,7 +221,7 @@ whether every element of a list satisfies a predicate.
       all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
     }
 
-## Anonymous Functions (Lambda) #lambda
+## Anonymous Functions (Lambda)
 
 Anonymous functions can be created with a `λ` expression.  For
 example, the following computes whether all the elements of the list
