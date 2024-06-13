@@ -49,6 +49,13 @@ blog1:
 	/usr/local/bin/pandoc LinkedLists.md -o LinkedLists.html
 	cat Prelude.html LinkedLists.html > blog1.html
 
+check_blog2:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/LinearSearch.pf
+
+blog2:
+	/usr/local/bin/pandoc LinearSearch.md -o LinearSearch.html
+
 
 # TODO
 

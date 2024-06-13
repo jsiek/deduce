@@ -16,6 +16,77 @@ assert search(list_439, 3) = 1
 assert search(list_439, 9) = 2
 assert search(list_439, 0) = 3
 
+theorem search_present2: all xs:List<Nat>. all y:Nat, d:Nat.
+  let i = search(xs, y)
+  if i < length(xs)
+  then nth(xs, d)(i) = y
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat, d:Nat
+    definition {search,length}
+    suppose imp: 0 < 0
+    conclude false  by definition {operator <, operator ≤} in imp
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, d:Nat
+    definition {search,length}
+    suppose prem
+    switch x = y {
+      case true suppose xy {
+        definition nth
+        rewrite xy.
+      }
+      case false suppose not_xy {
+        definition {nth, pred}
+        conclude nth(xs',d)(search(xs',y)) = y
+	  by enable  {operator <, operator ≤}
+	     apply (definition {} in IH[y, d]) to
+	     rewrite not_xy in prem
+      }
+    }
+  }
+end
+
+theorem search_absent2: all xs:List<Nat>. all y:Nat, d:Nat.
+  if length(xs) ≤ search(xs, y)
+  then not (y ∈ set_of(xs))
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat, d:Nat
+    suppose _
+    conclude not (y ∈ set_of(empty))
+        by definition {set_of, operator ∈}.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, d:Nat
+    suppose s_xxs_len_xxs
+    switch x = y {
+      case true suppose xy {
+        suppose y_xxs: y ∈ set_of(node(x,xs'))
+        enable {search, length, operator ≤}
+	conclude false  by rewrite xy in s_xxs_len_xxs
+      }
+      case false suppose not_xy {
+        suppose y_xxs: y ∈ set_of(node(x,xs'))
+	have xy_or_y_xs: x = y or y ∈ set_of(xs')
+	  by (enable {set_of, operator ∈, operator ∪} y_xxs)
+	cases xy_or_y_xs
+	case x_y {
+	  conclude false   by rewrite not_xy in x_y
+	}
+	case y_xs {
+          have sxs_lxs: length(xs') ≤ search(xs',y)
+	    by rewrite not_xy in definition {search,length,operator ≤} in
+	       s_xxs_len_xxs
+	  conclude false  by apply (apply IH[y,d] to sxs_lxs) to y_xs
+	}
+      }
+    }
+  }
+end
+
 
 theorem search_present: all xs:List<Nat>. all y:Nat, d:Nat.
   if y ∈ set_of(xs)
@@ -125,3 +196,13 @@ proof
     }
   }
 end
+
+function search_last(List<Nat>, Nat) -> Nat {
+  search_last(empty, y) = 0
+  search_last(node(x, xs'), y) =
+    let i = search_last(xs', y)
+    if x = y then
+      (if i < length(xs') then i else 0)
+    else
+      suc(i)
+}

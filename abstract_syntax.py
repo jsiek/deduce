@@ -911,6 +911,12 @@ class TLet(Term):
   rhs: Term
   body: Term
 
+  def __str__(self):
+    return 'let ' + base_name(self.var) + ' = ' + str(self.rhs) \
+      + '\n\t' + str(self.body)
+  def __repr__(self):
+    return str(self)
+  
   def reduce(self, env):
     new_body = self.body.substitute({self.var: self.rhs})
     return new_body.reduce(env)

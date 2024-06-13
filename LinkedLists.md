@@ -113,7 +113,7 @@ code.
 
 ## Example: Intervals
 
-As an example of the write-test-prove methodology, we consider the
+As an example of the write-test-prove approach, we consider the
 `interval` function.
 
 **Specification:** `interval(count, start)` returns a list of natural
