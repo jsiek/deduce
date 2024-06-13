@@ -42,7 +42,7 @@ default:
 
 check_blog1:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	/opt/homebrew/bin/python3.10 ./deduce.py ex/LinkedLists.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py LinkedLists.pf
 
 blog1:
 	/usr/local/bin/pandoc Prelude.md -o Prelude.html
@@ -51,7 +51,7 @@ blog1:
 
 check_blog2:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	/opt/homebrew/bin/python3.10 ./deduce.py ex/LinearSearch.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py LinearSearch.pf
 
 blog2:
 	/usr/local/bin/pandoc LinearSearch.md -o LinearSearch.html

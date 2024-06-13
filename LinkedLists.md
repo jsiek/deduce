@@ -718,7 +718,7 @@ end
 ```
 
 <!--
-```{.c file=ex/LinkedLists.pf}
+```{.c file=LinkedLists.pf}
 <<importNat>>
 
 <<list>>
