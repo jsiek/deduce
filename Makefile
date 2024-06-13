@@ -34,11 +34,11 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py Option.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Sets.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py ex/Search.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sum.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/MergeSort.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Max.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/Search.pf
 
 check_blog1:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle

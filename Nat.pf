@@ -958,3 +958,98 @@ proof
     rewrite fs_gs | IH' | add_assoc[g(s)][summation(a',suc(s),g), summation(b,t,h)].
   }
 end
+
+function equal(Nat, Nat) -> bool {
+  equal(0, n) =
+    switch n {
+      case 0 { true }
+      case suc(n') { false }
+    }
+  equal(suc(m'), n) =
+    switch n {
+      case 0 { false }
+      case suc(n') { equal(m', n') }
+    }
+}
+
+theorem equal_refl: all n:Nat. equal(n,n)
+proof
+  induction Nat
+  case 0 {
+    definition equal.
+  }
+  case suc(n') suppose IH {
+    definition equal
+    IH
+  }
+end
+
+theorem equal_complete: all m:Nat. all n:Nat.
+  if (m = n) then equal(m, n)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    switch n {
+      case 0 { definition equal. }
+      case suc(n') { . }
+    }
+  }
+  case suc(m') {
+    arbitrary n:Nat
+    switch n {
+      case 0 { . }
+      case suc(n') {
+        suppose sm_sn: suc(m') = suc(n')
+	definition equal
+	have m_n: m' = n' by injective suc sm_sn
+	rewrite m_n
+	equal_refl[n']
+      }
+    }
+  }
+end
+
+theorem not_equal_not_eq: all m:Nat, n:Nat.
+  if not equal(m, n) then not (m = n)
+proof
+  arbitrary m:Nat, n:Nat
+  suppose not_m_n
+  suppose m_n
+  have eq_m_n: equal(m, n) by rewrite m_n equal_refl[n]
+  apply not_m_n to eq_m_n
+end
+
+theorem equal_sound: all m:Nat. all n:Nat.
+  if equal(m, n) then (m = n)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    suppose eq
+    switch n {
+      case 0 { . }
+      case suc(n') suppose n_sn {
+        conclude false by definition equal in (rewrite n_sn in eq)
+      }
+    }
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    suppose eq: equal(suc(m'),n)
+    switch n {
+      case 0 suppose n_0 {
+        conclude false by definition equal in rewrite n_0 in eq
+      }
+      case suc(n') suppose n_sn {
+        have eq_mn: equal(m', n')
+            by definition equal in rewrite n_sn in eq
+        have m_n: m' = n'
+            by apply IH[n'] to eq_mn
+        conclude suc(m') = suc(n')
+            by rewrite m_n.
+      }
+    }
+  }
+end
+

@@ -912,9 +912,8 @@ class TLet(Term):
   body: Term
 
   def reduce(self, env):
-    rhs = self.rhs.reduce(env)
-    body_env = env.define_term_var(self.location, self.var, None, rhs)
-    return self.body.reduce(body_env)
+    new_body = self.body.substitute({self.var: self.rhs})
+    return new_body.reduce(env)
     
   def copy(self):
     return TLet(self.location, self.var, self.rhs.copy(), self.body.copy())
@@ -1944,8 +1943,12 @@ def is_constructor(constr_name, env):
 def constructor_conflict(term1, term2, env):
   match (term1, term2):
     case (Call(loc1, Var(_, n1), rands1), Call(loc2, Var(_, n2), rands2)):
-      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
-        return True
+      if is_constructor(n1, env) and is_constructor(n2, env):
+        if n1 != n2:
+          return True
+        else:
+          return any([constructor_conflict(rand1, rand2, env) \
+                      for (rand1, rand2) in zip(rands1, rands2)])
     case (Call(loc1, Var(_, n1), rands1), Var(_, n2)):
       if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
         return True
