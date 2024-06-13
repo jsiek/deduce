@@ -4,12 +4,12 @@ In this blog post we'll study a classic and simple algorithm known as
 Sequential Search (aka. Linear Search). The basic idea of the
 algorithm is to look for the location of a particular item within a
 linked list, traversing the list front to back.  Here is the
-specification of the `search` function that we will create.
+specification of this `search` function.
 
-**Specification:** The `search(xs, y)` function returns a
-natural number `i`. If `i < length(xs)`, then
-`i` is the index of the first occurence of `y` in the list `xs`.
-If `length(xs) ≤ i`, `y` is not in the list `xs`.
+**Specification:** The `search(xs, y)` function returns a natural
+number `i` such that `i ≤ length(xs)`.  If `i < length(xs)`, then `i`
+is the index of the first occurence of `y` in the list `xs`.  If `i =
+length(xs)`, `y` is not in the list `xs`.
 
 We follow the write-test-prove approach to develop a correct
 implementation of `search`. We then propose two exercises for the
@@ -77,20 +77,19 @@ If `x ≠ y`, then we need to search the rest of the list `xs'` for `y`.
 We can make the recursive call `search(xs', y)`, but then we need to
 decide how to adapt its result to produce a result that makes sense
 for `node(x, xs')`. The only way to reason about the result of a
-recursive call is to use the specification of the function.
-The specification of `search` splits into two cases on the result:
-(1) `search(xs', y) < length(xs')` and (2) `length(xs) ≤ search(xs', y)`.
-In case (1), `search(xs',y)` is returning the index of the first `y` 
-inside `xs'`. Because `x ≠ y`, that location will also be the
-first `y` inside `node(x, xs')`. However, we need to add one to the
-index to take into account that we're adding a node to the front of the list.
-So for case (1), the result should be `suc(search(xs', y))`.
-In case (2), `search(xs',y)` did not find `y` in `xs'`, so it is
-returning a number that is greater or equal to `length(xs)`.
-Because `x ≠ y`, we need to indicate that `y` was not found in
-`node(x, xs')`, so we need to return a number that is greater
-or equal to `length(node(x, xs'))`. Thus, we need to add one
-to the index, so the result should again be `suc(search(xs', y))`.
+recursive call is to use the specification of the function.  The
+specification of `search` splits into two cases on the result: (1)
+`search(xs', y) < length(xs')` and (2) `length(xs) ≤ search(xs', y)`.
+In case (1), `search(xs',y)` is returning the index of the first `y`
+inside `xs'`. Because `x ≠ y`, that location will also be the first
+`y` inside `node(x, xs')`. However, we need to add one to the index to
+take into account that we're adding a node to the front of the list.
+So for case (1), the result should be `suc(search(xs', y))`.  In case
+(2), `search(xs',y)` did not find `y` in `xs'`, so it is returning
+`length(xs')`.  Because `x ≠ y`, we need to indicate that `y` is also not
+found in `node(x, xs')`, so we need to return `length(node(x,
+xs'))`. Thus, we need to add one to the index, so the result should
+again be `suc(search(xs', y))`.
 
 Here is the completed code for `search`.
 
@@ -108,14 +107,23 @@ function search(List<Nat>, Nat) -> Nat {
 ## Test `search`
 
 Focusing on the specification of `search`, there are several things
-that we should test. We should test whether `search` finds the correct
-index of the elements in the list. To do that we can make use of `nth`
-to lookup the element at a given index and we can use `all_elements`
-to automate the testing over all the elements of the list. 
+that we should test. First, we should test whether `search` always
+returns a number that is less-or-equal to the length of the list.  We
+can use `all_elements` and `interval` to automate the testing over a
+bunch of values, some of which are in the list and some are not.
 
 ``` {.c #search_test1}
 define list_1223 = node(1, node(2, node(2, node(3, empty))))
 
+assert all_elements(interval(0, 5),
+  λx{ search(list_1223, x) ≤ length(list_1223) })
+```
+
+Most importantly, we should test whether `search` finds the correct
+index of the elements in the list. To do that we can make use of `nth`
+to lookup the element at a given index.
+
+``` {.c #search_test2}
 assert all_elements(list_1223,
   λx{ nth(list_1223, 0)( search(list_1223, x) ) = x })
 ```
@@ -125,7 +133,7 @@ can do this by iterating over all the indexes and checking that what
 `search` returns is an index that is less-than or equal to the current
 index.
 
-``` {.c #search_test2}
+``` {.c #search_test3}
 assert all_elements(interval(0, length(list_1223)),
    λi{ search(list_1223, nth(list_1223, 0)(i)) ≤ i })
 ```
@@ -133,23 +141,53 @@ assert all_elements(interval(0, length(list_1223)),
 Finally, we check that `search` fails gracefully when the value being
 searched for is not present in the list.
 
-``` {.c #search_test3}
+``` {.c #search_test4}
 assert length(list_1223) ≤ search(list_1223, 0)
 assert length(list_1223) ≤ search(list_1223, 4)
 ```
 
-
-
 ## Prove `search` Correct
+
+``` {.c #search_length}
+theorem search_length: all xs:List<Nat>. all y:Nat.
+  search(xs, y) ≤ length(xs)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat
+	conclude search(empty,y) ≤ length(empty)
+        by definition {search, length, operator ≤}.
+  }
+  case node(x, xs') 
+    suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
+  {
+    arbitrary y:Nat
+	definition {search, length}
+	switch x = y {
+	  case true suppose xy_true {
+        conclude 0 ≤ suc(length(xs'))  by definition operator ≤.
+	  }
+	  case false suppose xy_false {
+	    conclude suc(search(xs',y)) ≤ suc(length(xs'))
+		  by definition operator ≤ IH[y]
+	  }
+	}
+  }
+end
+```
 
 <!--
 ``` {.c file=LinearSearch.pf}
 import Nat
 import LinkedLists
 <<search>>
+
 <<search_test1>>
 <<search_test2>>
 <<search_test3>>
+<<search_test4>>
+
+<<search_length>>
 
 ```
 -->
