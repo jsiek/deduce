@@ -30,11 +30,6 @@ proof
   }
 end
 
-function set_of<T>(List<T>) -> fn(T) -> bool {
-  set_of(empty) = λx{ false }
-  set_of(node(x, xs)) = λy{ x = y} ∪ set_of(xs)
-}
-
 theorem max_elt_greater_elt: all xs :List<Nat>. all y:Nat, d:Nat.
   if y ∈ set_of(xs)
   then y ≤ max_element(xs, d)

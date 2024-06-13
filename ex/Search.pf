@@ -1,0 +1,160 @@
+import Nat
+import List
+
+function equal(Nat, Nat) -> bool {
+  equal(0, n) =
+    switch n {
+      case 0 { true }
+      case suc(n') { false }
+    }
+  equal(suc(m'), n) =
+    switch n {
+      case 0 { false }
+      case suc(n') { equal(m', n') }
+    }
+}
+
+theorem equal_refl: all n:Nat. equal(n,n)
+proof
+  induction Nat
+  case 0 {
+    definition equal.
+  }
+  case suc(n') suppose IH {
+    definition equal
+    IH
+  }
+end
+
+theorem equal_complete: all m:Nat. all n:Nat.
+  if (m = n) then equal(m, n)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    switch n {
+      case 0 { definition equal. }
+      case suc(n') { . }
+    }
+  }
+  case suc(m') {
+    arbitrary n:Nat
+    switch n {
+      case 0 { . }
+      case suc(n') {
+        suppose sm_sn: suc(m') = suc(n')
+	definition equal
+	have m_n: m' = n' by injective suc sm_sn
+	rewrite m_n
+	equal_refl[n']
+      }
+    }
+  }
+end
+
+theorem not_equal_not_eq: all m:Nat, n:Nat.
+  if not equal(m, n) then not (m = n)
+proof
+  arbitrary m:Nat, n:Nat
+  suppose not_m_n
+  suppose m_n
+  have eq_m_n: equal(m, n) by rewrite m_n equal_refl[n]
+  apply not_m_n to eq_m_n
+end
+
+theorem equal_sound: all m:Nat. all n:Nat.
+  if equal(m, n) then (m = n)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    suppose eq
+    switch n {
+      case 0 { . }
+      case suc(n') suppose n_sn {
+        conclude false by definition equal in (rewrite n_sn in eq)
+      }
+    }
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    suppose eq: equal(suc(m'),n)
+    switch n {
+      case 0 suppose n_0 {
+        conclude false by definition equal in rewrite n_0 in eq
+      }
+      case suc(n') suppose n_sn {
+        have eq_mn: equal(m', n')
+            by definition equal in rewrite n_sn in eq
+        have m_n: m' = n'
+            by apply IH[n'] to eq_mn
+        conclude suc(m') = suc(n')
+            by rewrite m_n.
+      }
+    }
+  }
+end
+
+function search(List<Nat>, Nat) -> Nat {
+  search(empty, y) = 0
+  search(node(x, xs), y) =
+    if equal(x, y) then
+      0
+    else
+      suc(search(xs, y))
+}
+
+define list_439 = node(4, node(3, node(9, empty)))
+assert search(list_439, 4) = 0
+assert search(list_439, 3) = 1
+assert search(list_439, 9) = 2
+assert search(list_439, 0) = 3
+
+
+theorem search_present: all xs:List<Nat>. all y:Nat, d:Nat.
+  if y ∈ set_of(xs)
+  then nth(xs, d)( search(xs, y) ) = y
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat, d:Nat
+    suppose y_empty: y ∈ set_of(empty)
+    conclude false   by definition {set_of, operator ∈} in y_empty
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, d:Nat
+    suppose y_xxs: y ∈ set_of(node(x,xs'))
+    definition {nth, search}
+    switch equal(x, y) {
+      case true suppose xy_true {
+        conclude x = y   by apply equal_sound[x][y] to rewrite xy_true.
+      }
+      case false suppose xy_false {
+        definition pred
+	have x_y_or_y_xs: x = y or y ∈ set_of(xs')
+	    by enable {set_of,operator ∪, operator ∈} y_xxs
+	cases x_y_or_y_xs
+	case x_y: x = y {
+	  have not_x_y: not (x = y)
+	      by apply not_equal_not_eq[x,y] to rewrite xy_false.
+	  conclude false   by apply not_x_y to x_y
+	}
+	case y_xs: y ∈ set_of(xs') {
+	  conclude nth(xs',d)(search(xs',y)) = y
+	      by apply IH[y,d] to y_xs
+	}
+      }
+    }
+  }
+end
+
+/*
+theorem search_absent: all xs:List<Nat>. all y:Nat, d:Nat.
+  if not (y ∈ set_of(xs))
+  then search(xs, y) = length(xs)
+proof
+  ?
+end
+
+  TODO: search finds the first
+*/

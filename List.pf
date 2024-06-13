@@ -1,5 +1,6 @@
 import Nat
 import Option
+import Sets
 
 union List<T> {
   empty
@@ -19,6 +20,11 @@ function append<E>(List<E>, List<E>) -> List<E> {
 function reverse<E>(List<E>) -> List<E> {
   reverse(empty) = empty
   reverse(node(n, next)) = append(reverse(next), node(n, empty))
+}
+
+function set_of<T>(List<T>) -> fn(T) -> bool {
+  set_of(empty) = λx{ false }
+  set_of(node(x, xs)) = λy{ x = y} ∪ set_of(xs)
 }
 
 assert length(empty) = 0
