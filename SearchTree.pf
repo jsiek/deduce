@@ -5,19 +5,11 @@
 
 */
 
+import Base
 import Nat
 import Pair
 import Option
 import Maps
-
-theorem ex_mid: all b:bool. b or not b
-proof
-  arbitrary b:bool
-  switch b {
-    case true { . }
-    case false { . }
-  }
-end
 
 union Tree {
   empty_tree

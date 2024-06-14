@@ -1,0 +1,62 @@
+/*
+Represent sets as predicates, that is, functions to bool.
+*/
+
+union Set<T> {
+  ∅
+  char_fun(fn(T) -> bool)
+}
+
+function rep<T>(Set<T>) -> fn(T)->bool {
+  rep(operator ∅) = λx{ false }
+  rep(char_fun(f)) = f
+}
+
+define single : < T > fn T -> Set<T>
+         = generic T { λx { char_fun(λy{x = y}) } }
+
+define operator ∪ : < T > fn Set<T>, Set<T> -> Set<T>
+         = generic T { λP,Q{ char_fun(λx{ rep(P)(x) or rep(Q)(x) }) } }
+
+define operator ∩ : < T > fn Set<T>, Set<T> -> Set<T>
+         = generic T { λP,Q{ char_fun(λx{ rep(P)(x) and rep(Q)(x) }) } }
+
+define operator ∈ : < T > fn T, Set<T> -> bool
+         = generic T { λx,S{ rep(S)(x) } }
+
+define operator ⊆ : < T > fn Set<T>, Set<T> -> bool
+         = generic T { λP,Q{all x:T. if x ∈ P then x ∈ Q} }
+
+theorem single_member: all T:type, x:T.  x ∈ single(x)
+proof
+  arbitrary T:type, x:T
+  definition {single, operator ∈, rep}.
+end
+
+theorem single_equal: all T:type, x:T, y:T.
+    if y ∈ single(x) then x = y
+proof
+  arbitrary T:type, x:T, y:T
+  suppose y_in_x: y ∈ single(x)
+  enable {operator ∈, single, rep}
+  y_in_x
+end
+
+theorem empty_no_members: all T:type, x:T.
+  not (x ∈ ∅)
+proof
+  arbitrary T:type, x:T
+  suppose x_in_empty: x ∈ ∅
+  enable {∅, operator ∈, rep}
+  x_in_empty
+end
+
+theorem member_union: all T:type, x:T, A:Set<T>, B:Set<T>.
+  if x ∈ (A ∪ B)
+  then x ∈ A or x ∈ B
+proof
+  arbitrary T:type, x:T, A:Set<T>, B:Set<T>
+  suppose x_AB: x ∈ (A ∪ B)
+  enable {operator ∈, operator ∪, rep}
+  x_AB
+end

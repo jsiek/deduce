@@ -1,0 +1,25 @@
+
+theorem or_not: all P:bool, Q:bool.
+  if (P or Q) and not P
+  then Q
+proof
+  arbitrary P:bool, Q:bool
+  suppose prem
+  cases conjunct 0 of prem
+  case p {
+    conclude false  by apply (conjunct 1 of prem) to p
+  }
+  case q {
+    q
+  }
+end
+
+theorem ex_mid: all b:bool. b or not b
+proof
+  arbitrary b:bool
+  switch b {
+    case true { . }
+    case false { . }
+  }
+end
+

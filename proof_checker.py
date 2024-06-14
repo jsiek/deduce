@@ -29,14 +29,6 @@ def check_implies(loc, frm1, frm2):
           check_implies(loc, arg1, frm2)
         except Exception as e:
           error(loc, 'could not prove\n' + str(frm2) + '\nfrom \n' + str(arg1))
-    case (_, Or(loc2, args)):
-      for arg2 in args:
-        try:
-          check_implies(loc, frm1, arg2)
-          return
-        except Exception as e:
-          continue
-      error(loc, 'could not satisfy all the parts of\n' + str(frm2) + '\nfrom the formula\n' + str(frm1))
     case (Bool(loc2, False), _):
       return
     case (And(loc2, args1), _):
@@ -47,6 +39,14 @@ def check_implies(loc, frm1, frm2):
         except Exception as e:
           continue
       error(loc, 'could not satisfy\n' + str(frm2) + '\nwith any of the parts of\n' + str(frm1))
+    case (_, Or(loc2, args)):
+      for arg2 in args:
+        try:
+          check_implies(loc, frm1, arg2)
+          return
+        except Exception as e:
+          continue
+      error(loc, 'could not satisfy all the parts of\n' + str(frm2) + '\nfrom the formula\n' + str(frm1))
     case (IfThen(loc1, prem1, conc1), IfThen(loc2, prem2, conc2)):
       check_implies(loc, prem2, prem1)
       check_implies(loc, conc1, conc2)
@@ -908,8 +908,23 @@ def type_check_term(term, typ, env, recfun, subterms):
       if var_typ == None:
         error(loc, 'undefined variable ' + str(term) + '\nin scope:\n' + str(env))
       if var_typ != typ:
+        # Try to instantiate var_typ to typ
+        match (var_typ, typ):
+          case (FunctionType(loc1, typarams, param_types1, ret_type1),
+                FunctionType(loc2, [], param_types2, ret_type2)):
+            if len(typarams) > 0:
+              matching = {}
+              type_params = type_names(loc, typarams)
+              try:
+                type_match(loc, type_params, ret_type1, ret_type2, matching)
+                for (p1, p2) in zip(param_types1, param_types2):
+                    type_match(loc, type_params, p1, p2, matching)
+                return
+              except Exception as e:
+                pass
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
+        
     case Lambda(loc, vars, body):
       match typ:
         case FunctionType(loc, typarams, param_types, return_type):

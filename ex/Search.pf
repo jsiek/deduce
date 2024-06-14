@@ -206,3 +206,12 @@ function search_last(List<Nat>, Nat) -> Nat {
     else
       suc(i)
 }
+
+function search_if<T>(List<T>, fn T->bool) -> Nat {
+  search_if(empty, P) = 0
+  search_if(node(x, xs), P) =
+    if P(x) then
+      0
+    else
+      suc(search_if(xs, P))
+}

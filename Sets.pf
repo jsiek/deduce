@@ -1,4 +1,9 @@
+/*
 
+OBSOLETE
+use Set.pf instead
+
+*/
 /*
   Represent sets as predicates, that is, functions to bool.
 */
@@ -17,6 +22,8 @@ define operator ⊆ : < T > fn (fn(T)->bool), (fn(T)->bool) -> bool
 
 define operator ∅ : < T > fn(T)->bool
          = λx{ false }
+
+define single : < T > fn T -> (fn(T)->bool) = λx{λy{ x = y}}
 
 define operator ∈ : < T > fn T, (fn(T)->bool) -> bool
          = λx,f{ f(x) }

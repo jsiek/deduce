@@ -674,21 +674,261 @@ end
 ### Prove that search fails only when it should
 
 The last sentence in the specification for `search(xs, y)` says that
-if `i = length(xs)`, `y` is not in the list `xs`.
+if `i = length(xs)`, `y` is not in the list `xs`. How do we express
+that `y` is not in the list? In some sense, that is what `search` is
+for, but it would be vacuous to prove a theorem that says `search`
+returns `length(xs)` if `search` returns `lengt(xs)`. Instead we need
+an alternative and intuitive way to express membership in a list.
 
+One approach to expressing list membership that works well is to
+convert the list to a set and then use set membership.  The file
+`Set.pf` defines the `Set` type, operations on sets such as
+memberhsip, union, and intersection. The `Set.pf` files also proves
+many theorems about these operations.  The following `set_of` function
+converts a list into a set.
 
+``` {.deduce #set_of}
+function set_of<T>(List<T>) -> Set<T> {
+  set_of(empty) = ∅
+  set_of(node(x, xs)) = single(x) ∪ set_of(xs)
+}
+```
 
+We can now express our last correctness theorem for `search` as
+follows.
 
 ```
-theorem search_absent:
-all xs:List<Nat>. all y:Nat, d:Nat.
+theorem search_absent: all xs:List<Nat>. all y:Nat, d:Nat.
   if search(xs, y) = length(xs)
   then not (y ∈ set_of(xs))
 ```
 
+We proceed by induction on `xs`. 
+In the case for `xs = empty`, we take the following goal-directed steps
+
+```
+  case empty {
+    arbitrary y:Nat, d:Nat
+    suppose _
+	?
+  }
+```
+
+and Deduce responds with
+
+```
+Goal:
+	(if y ∈ set_of(empty) then false)
+```
+
+which we prove using the `empty_no_members` theorem from `Set.pf`.
+
+```
+  conclude not (y ∈ set_of(empty))
+      by definition {set_of} empty_no_members[Nat,y]
+```
+
+Turning to the case for `xs = node(x, xs')`, we take several
+goal-directed steps.
+
+```
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, d:Nat
+    suppose s_xxs_len_xxs: search(node(x,xs'),y) = length(node(x,xs'))
+	definition set_of
+    ?
+```
+
+We need to show that `y` is not in `node(x, xs')`, which amounts to
+the following.
+
+```
+Goal:
+	(if y ∈ single(x) ∪ set_of(xs') then false)
+```
+
+Towards proving a contradiction, we can assume `y ∈ single(x) ∪
+set_of(xs')`.
+
+```
+  suppose y_in_x_union_xs: y ∈ single(x) ∪ set_of(xs')
+```
+
+Now the main information we have to work with is the premise
+`s_xxs_len_xxs` above, concerning `search(node(x,xs'), y)`.  Thinking
+about the code for `search`, we know it will branch on whether `x = y`,
+so we better `switch` on that.
+
+```
+  switch x = y {
+	case true suppose xy {
+	  ?
+	}
+	case false suppose not_xy {
+	  ?
+	}
+  }
+```
+
+In the case where `x = y`, we have `search(node(x,xs'),y) = 0` but
+`length(node(x,xs'))` is at least `1`, so we have a contradition.
+
+```
+  case true suppose xy {
+	have s_xxs_0: search(node(x,xs'),y) = 0
+		by definition search  rewrite xy.
+	have z_len_xxs: 0 = length(node(x,xs'))
+		by rewrite s_xxs_0 in s_xxs_len_xxs
+	conclude false  by definition length in z_len_xxs
+  }
+```
+
+In the case where `x ≠ y`, we can show that `y ∈ set_of(xs')` and then
+invoke the induction hypothesis to obtain the contradition.  In
+patricular, the premise `y_in_x_union_xs` gives us the following.
+
+```
+  have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+	  by apply member_union[Nat,y,single(x),set_of(xs')]
+		 to y_in_x_union_xs
+```
+
+But `x ≠ y` implies `not (y ∈ single(x))`.
+
+```
+  have not_ysx: not (y ∈ single(x))
+	by suppose ysx
+	   rewrite xy_false in
+	   apply single_equal[Nat,x,y] to ysx
+```
+
+So it must be that `y ∈ set_of(xs')` (using `or_not` from `Base.pf`).
+
+```
+  have y_xs: y ∈ set_of(xs')
+	by apply or_not[y ∈ single(x), y ∈ set_of(xs')] 
+	   to ysx_or_y_xs, not_ysx
+```
+
+To satisfy the premise of the induction hypothesis, we prove the
+following.
+
+```
+  have sxs_lxs: search(xs',y) = length(xs')
+	by injective suc
+	   rewrite xy_false in definition {search,length} in
+	   s_xxs_len_xxs
+```
+
+So we apply the induction hypothesis to 
+get `y ∉ set_of(xs')`, which contradicts `y ∈ set_of(xs)`.
+
+```
+  have y_not_xs: not (y ∈ set_of(xs'))
+	by apply IH[y,d] to sxs_lxs
+  conclude false  by apply y_not_xs to y_xs
+```
+
+Here is the complete proof of `search_absent`.
+
+``` {.deduce #search_absent}
+theorem search_absent: all xs:List<Nat>. all y:Nat, d:Nat.
+  if search(xs, y) = length(xs)
+  then not (y ∈ set_of(xs))
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat, d:Nat
+    suppose _
+    conclude not (y ∈ set_of(empty))
+        by definition {set_of} empty_no_members[Nat,y]
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, d:Nat
+    suppose s_xxs_len_xxs: search(node(x,xs'),y) = length(node(x,xs'))
+	definition set_of
+	suppose y_in_x_union_xs: y ∈ single(x) ∪ set_of(xs')
+    switch x = y {
+      case true suppose xy {
+	    have s_xxs_0: search(node(x,xs'),y) = 0
+		    by definition search  rewrite xy.
+	    have z_len_xxs: 0 = length(node(x,xs'))
+		    by rewrite s_xxs_0 in s_xxs_len_xxs
+	    conclude false  by definition length in z_len_xxs
+      }
+      case false suppose xy_false {
+	    have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+	        by apply member_union[Nat,y,single(x),set_of(xs')]
+			   to y_in_x_union_xs
+	    have not_ysx: not (y ∈ single(x))
+		  by suppose ysx
+		     rewrite xy_false in
+			 apply single_equal[Nat,x,y] to ysx
+	    have y_xs: y ∈ set_of(xs')
+		  by apply or_not[y ∈ single(x), y ∈ set_of(xs')] 
+		     to ysx_or_y_xs, not_ysx
+		have sxs_lxs: search(xs',y) = length(xs')
+		  by injective suc
+			 rewrite xy_false in definition {search,length} in
+			 s_xxs_len_xxs
+	    have y_not_xs: not (y ∈ set_of(xs'))
+		  by apply IH[y,d] to sxs_lxs
+		conclude false  by apply y_not_xs to y_xs
+      }
+    }
+  }
+end
+```
+
+## Exercise `search_last`
+
+Apply the write-test-prove approach to develop a correct
+implementation of the `search_last(xs, y)` function, which is like
+`search(xs, y)` except that it finds the last occurence of `y` in `xs`
+instead of the first.
+
+In particular, you need to
+
+* write a specification for `search_last`,
+* write the code for `search_last`,
+* test `search_last` on diverse inputs, and
+* prove that `search_last` is correct.
+
+```
+function search_last(List<Nat>, Nat) -> Nat {
+    FILL IN HERE
+}
+```
+
+## Exercise `search_if`
+
+The `search_if(xs, P)` function is a generalization of `search(xs, y)`.
+Instead of searching for the first occurence of element `y`,
+the `search_if` function searches for the location of the first 
+element that satisfied predicate `P` (i.e. an element `y` in `xs`
+such that `P(y)` is `true`). Apply the write-test-prove
+approach to develop a correct implementation of `search_if`.
+
+In particular, you need to
+
+* write a specification for `search_if`,
+* write the code for `search_if`,
+* test `search_if` on diverse inputs, and
+* prove that `search_if` is correct.
+
+```
+function search_if<T>(List<T>, fn T->bool) -> Nat {
+    FILL IN HERE
+}
+```
+
+
 <!--
 ``` {.deduce file=LinearSearch.pf} 
-import Nat import LinkedLists
+import Base
+import Nat
+import LinkedLists
+import Set
 <<search>>
 
 <<search_test1>>
@@ -699,5 +939,7 @@ import Nat import LinkedLists
 <<search_length>>
 <<search_present>>
 <<search_first>>
+<<set_of>>
+<<search_absent>>
 ```
 -->

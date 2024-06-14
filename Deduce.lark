@@ -3,7 +3,7 @@ INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
 OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∅∈]/
-IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
+IDENT: (/_/|UPPER|LOWER|/∅/) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ NEWLINE
@@ -179,7 +179,7 @@ ident: IDENT              -> ident
     
 ?union: "union" IDENT type_params_opt "{" constr_list "}" -> union
 
-?pattern: IDENT                                  -> pattern_id
+?pattern: ident                                  -> pattern_id
     | "0"                                        -> pattern_zero
     | "true"                                     -> pattern_true
     | "false"                                    -> pattern_false
