@@ -93,7 +93,7 @@ again be `suc(search(xs', y))`.
 
 Here is the completed code for `search`.
 
-``` {.c #search}
+``` {.deduce #search}
 function search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0
   search(node(x, xs'), y) =
@@ -112,7 +112,7 @@ returns a number that is less-or-equal to the length of the list.  We
 can use `all_elements` and `interval` to automate the testing over a
 bunch of values, some of which are in the list and some are not.
 
-``` {.c #search_test1}
+``` {.deduce #search_test1}
 define list_1223 = node(1, node(2, node(2, node(3, empty))))
 
 assert all_elements(interval(0, 5),
@@ -123,7 +123,7 @@ Most importantly, we should test whether `search` finds the correct
 index of the elements in the list. To do that we can make use of `nth`
 to lookup the element at a given index.
 
-``` {.c #search_test2}
+``` {.deduce #search_test2}
 assert all_elements(list_1223,
   λx{ nth(list_1223, 0)( search(list_1223, x) ) = x })
 ```
@@ -133,7 +133,7 @@ can do this by iterating over all the indexes and checking that what
 `search` returns is an index that is less-than or equal to the current
 index.
 
-``` {.c #search_test3}
+``` {.deduce #search_test3}
 assert all_elements(interval(0, length(list_1223)),
    λi{ search(list_1223, nth(list_1223, 0)(i)) ≤ i })
 ```
@@ -141,14 +141,140 @@ assert all_elements(interval(0, length(list_1223)),
 Finally, we check that `search` fails gracefully when the value being
 searched for is not present in the list.
 
-``` {.c #search_test4}
-assert length(list_1223) ≤ search(list_1223, 0)
-assert length(list_1223) ≤ search(list_1223, 4)
+``` {.deduce #search_test4}
+assert search(list_1223, 0) = length(list_1223)
+assert search(list_1223, 4) = length(list_1223)
 ```
 
 ## Prove `search` Correct
 
-``` {.c #search_length}
+We break down the specification of `search` into four parts and prove
+four theorems.
+
+### Prove `search` is less-or-equal `length`
+
+The first part of the specification of `search` says that
+the `search(xs, y)` function returns a natural number `i` such that `i
+≤ length(xs)`. Because `search` is recursive, we're going to 
+prove this by induction on its first parameter `xs`.
+
+```
+theorem search_length: all xs:List<Nat>. all y:Nat.
+  search(xs, y) ≤ length(xs)
+proof
+  induction List<Nat>
+  case empty {
+    ?
+  }
+  case node(x, xs') 
+    suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
+  {
+    ?
+  }
+end
+```
+
+In the case for `xs = empty`, Deduce tells us that we need to prove
+
+```
+Goal:
+    all y:Nat. search(empty,y) ≤ length(empty)
+```
+
+So we start with `arbitrary y:Nat` and then conclude using the
+definitions of `search`, `length`, and `operator ≤`.
+
+```
+  case empty {
+    arbitrary y:Nat
+	conclude search(empty,y) ≤ length(empty)
+        by definition {search, length, operator ≤}.
+  }
+```
+
+In the case for `xs = node(x, xs')`, Deduce tells us that we need to prove
+
+```
+Goal:
+	all y:Nat. search(node(x,xs'),y) ≤ length(node(x,xs'))
+```
+
+So we start with `arbitrary y:Nat` and use the definitions of `search`
+and `length`.
+
+```
+  case node(x, xs') 
+    suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
+  {
+    arbitrary y:Nat
+	definition {search, length}
+	?
+  }
+```
+
+The goal is transformed to the following, with the body of `search`
+expanded on the left of the `≤` and the body of `length` expanded on
+the right.
+
+```
+Goal:
+	if x = y then 0 else suc(search(xs',y)) ≤ suc(length(xs'))
+```
+
+In general, it is a good idea to let the structure of the code direct
+the structure of your proof. In this case, the code for `search` is a
+conditional on `x = y`, so in our proof we can `switch` on `x = y` as
+follows.
+
+```
+  case node(x, xs') 
+    suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
+  {
+    arbitrary y:Nat
+	definition {search, length, operator ≤}
+	switch x = y {
+	  case true suppose xy_true: (x = y) = true {
+        ?
+	  }
+	  case false suppose xy_false: (x = y) = false {
+	    ?
+	  }
+	}
+  }
+```
+
+In the case for `true`, the left-hand side of the `≤` becomes `0`, so
+we can conclude by the definition of `operator ≤`.
+
+```
+  case true {
+	conclude 0 ≤ suc(length(xs'))  by definition operator ≤.
+  }
+```
+
+In the case for `false`, the left-hand side of the `≤` becomes
+`suc(search(xs',y))`, so we have `suc` on both side of `≤`.  Therefore
+we apply the definition of `≤` and it remains to prove the following.
+
+```
+Goal:
+	search(xs',y) ≤ length(xs')
+```
+
+We conclude the proof of the `false` case by using the induction hypothesis
+
+```
+  case false {
+	definition operator ≤
+	conclude search(xs',y) ≤ length(xs')
+	  by IH[y]
+  }
+```
+
+Putting all of the pieces together, we have a complete proof of
+`search_length`.
+
+``` {.deduce #search_length}
 theorem search_length: all xs:List<Nat>. all y:Nat.
   search(xs, y) ≤ length(xs)
 proof
@@ -164,22 +290,287 @@ proof
     arbitrary y:Nat
 	definition {search, length}
 	switch x = y {
-	  case true suppose xy_true {
+	  case true {
         conclude 0 ≤ suc(length(xs'))  by definition operator ≤.
 	  }
-	  case false suppose xy_false {
-	    conclude suc(search(xs',y)) ≤ suc(length(xs'))
-		  by definition operator ≤ IH[y]
+	  case false {
+	    definition operator ≤
+	    conclude search(xs',y) ≤ length(xs')
+		  by IH[y]
 	  }
 	}
   }
 end
 ```
 
+
+### Prove `search(xs, y)` finds an occurence of `y`
+
+The specification of `search(xs, y)` says that if the result is
+less-than `length(xs)`, then the result is the index of the first
+occurence of `y` in `xs`. First off, this means that `search(xs, y)`
+is indeed an index for `y`, which we can express using `nth` as
+follows.
+
+```
+nth(xs, 0)( search(xs, y) ) = y
+```
+
+So we can formulate the following theorem, which we'll prove by
+induction on `xs`.
+
+```
+theorem search_present: all xs:List<Nat>. all y:Nat.
+  if search(xs, y) < length(xs)
+  then nth(xs, 0)( search(xs, y) ) = y
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat
+    ?
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat
+    ?
+  }
+end
+```
+
+In the case for `xs = empty`, Deduce tells us that we need to prove
+
+```
+Goal:
+	(if search(empty,y) < length(empty) then nth(empty,0)(search(empty,y)) = y)
+```
+
+Proceeding in a goal-directed way, we `suppose` the premise but then
+realize that the premise is false. So we can conclude using the
+principle of explosion.
+
+```
+  case empty {
+    arbitrary y:Nat
+	suppose prem: search(empty,y) < length(empty)
+	conclude false by definition {search, length, operator <, operator ≤} 
+	                  in prem
+  }
+```
+
+Moving on to the case for `xs = node(x, xs')`, we again `suppose`
+the premise.
+
+```
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat
+	suppose sxxs_len: search(node(x,xs'),y) < length(node(x,xs'))
+	?
+  }
+```
+
+Deduce tells us that we need to prove
+
+```
+Goal:
+	nth(node(x,xs'),0)(search(node(x,xs'),y)) = y
+```
+
+We see `search` applied to a `node` argument, so we can expand its
+definition. (We could also expand `nth` but we postpone doing that
+for the sake of readability.)
+
+```
+Goal:
+	nth(node(x,xs'),0)((if x = y then 0 else suc(search(xs',y)))) = y
+```
+
+Similar to the proof of `search_length`, we now need to `switch` on `x
+= y`.
+
+```
+	definition {search}
+	switch x = y {
+      case true suppose xy_true {
+	    ?
+	  }
+	  case false suppose xy_false {
+	    ?
+	  }
+	}
+```
+
+In the case for `true`, Deduce tells us that we need to prove
+
+```
+Goal:
+	nth(node(x,xs'),0)(0) = y
+```
+
+We conclude using the definition of `nth` and the fact that `x = y`.
+
+```
+      case true suppose xy_true {
+	    conclude nth(node(x,xs'),0)(0) = y
+	      by definition nth rewrite xy_true.
+	  }
+```
+
+In the case for `false`, we need to prove
+
+```
+Goal:
+	nth(node(x,xs'),0)(suc(search(xs',y))) = y
+```
+
+Now if we apply the definitions of `nth` and `pred`, the goal becomes.
+
+```
+Goal:
+	nth(xs',0)(search(xs',y)) = y
+```
+
+This looks a lot like the conclusion of our induction hypothesis:
+
+```
+Givens:
+	...
+	IH: all y:Nat. (if search(xs',y) < length(xs') 
+	                then nth(xs',0)(search(xs',y)) = y)
+```
+
+So we just need to prove the premise, that `search(xs',y) < length(xs')`.
+Thankfully, that can be proved from the premise 
+`search(node(x,xs'),y) < length(node(x,xs'))`.
+
+```
+  have sxs_len: search(xs',y) < length(xs')
+	by enable {search, length, operator <, operator ≤}
+	   rewrite xy_false in sxxs_len
+```
+
+We conclude by applying the induction hypothesis.
+
+```
+  conclude nth(xs',0)(search(xs',y)) = y
+	by apply IH[y] to sxs_len
+```
+
+Here is the the complete proof of `search_present`.
+
+``` {.deduce #search_present}
+theorem search_present: all xs:List<Nat>. all y:Nat.
+  if search(xs, y) < length(xs)
+  then nth(xs, 0)( search(xs, y) ) = y
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat
+	suppose prem: search(empty,y) < length(empty)
+	conclude false by definition {search, length, operator <, operator ≤} 
+	                  in prem
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat
+	suppose sxxs_len: search(node(x,xs'),y) < length(node(x,xs'))
+	definition {search}
+	switch x = y {
+      case true suppose xy_true {
+	    conclude nth(node(x,xs'),0)(0) = y
+	      by definition nth rewrite xy_true.
+	  }
+	  case false suppose xy_false {
+	    definition {nth, pred}
+		have sxs_len: search(xs',y) < length(xs')
+		  by enable {search, length, operator <, operator ≤}
+		     rewrite xy_false in sxxs_len
+	    conclude nth(xs',0)(search(xs',y)) = y
+		  by apply IH[y] to sxs_len
+	  }
+	}
+  }
+end
+```
+
+
+### Prove `search(xs, y)` finds first occurence of `y`
+
+
+Next, for the index to be the first, it means that for any other
+location `i` of `y`, the result of `search(xs, y)` is less-or-equal to
+`i`.
+
+```
+all i:Nat. if nth(xs, 0)(i) = y then search(xs, y) ≤ i
+```
+
+
+``` {.deduce #search_first}
+theorem search_first: all xs:List<Nat>. all y:Nat.
+  if search(xs, y) < length(xs)
+  then nth(xs, 0)( search(xs, y) ) = y
+  and (all i:Nat. if nth(xs, 0)(i) = y then search(xs, y) ≤ i)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat
+	definition {search, length, operator <, operator ≤}.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat
+	suppose sxxs_len: search(node(x,xs'),y) < length(node(x,xs'))
+	definition {search, length}
+	switch x = y {
+      case true suppose xy_true {
+	    definition {operator <, operator ≤}
+	    definition {nth}
+		rewrite xy_true
+		arbitrary i:Nat
+	    definition operator ≤.
+	  }
+	  case false suppose xy_false {
+		have sxs_len: search(xs',y) < length(xs')
+		  by enable {operator <, operator ≤}
+		     rewrite xy_false in definition {search, length} in
+			 sxxs_len
+	    have IH1: nth(xs',0)(search(xs',y)) = y
+		  by apply IH[y] to sxs_len
+	    definition {nth, pred}
+		have IH2: all i:Nat. (if (if i = 0 then x else nth(xs',0)(pred(i))) = y then suc(search(xs',y)) ≤ i)
+		  by arbitrary i:Nat
+		     suppose prem
+			 switch i {
+		       case 0 suppose i_z {
+			     have x_y: x = y by rewrite i_z in prem
+				 conclude false by rewrite xy_false in x_y
+			   }
+			   case suc(i') suppose i_si {
+			     definition operator ≤
+				 suffices search(xs',y) ≤ i'
+				 have nth_i_y: nth(xs',0)(i') = y
+				   by definition pred in rewrite i_si in prem
+			     have IH': if nth(xs',0)(i') = y then search(xs',y) ≤ i'
+			       by (conjunct 1 of (apply IH[y] to sxs_len))[i']
+			     apply IH' to nth_i_y
+			   }
+		     }
+        IH1, IH2
+	  }
+	}
+  }
+end
+```
+
+### Prove that search fails only when it should
+
+```
+theorem search_absent:
+all xs:List<Nat>. all y:Nat, d:Nat.
+  if search(xs, y) = length(xs)
+  then not (y ∈ set_of(xs))
+```
+
 <!--
-``` {.c file=LinearSearch.pf}
-import Nat
-import LinkedLists
+``` {.deduce file=LinearSearch.pf} 
+import Nat import LinkedLists
 <<search>>
 
 <<search_test1>>
@@ -188,6 +579,7 @@ import LinkedLists
 <<search_test4>>
 
 <<search_length>>
-
+<<search_present>>
+<<search_first>>
 ```
 -->

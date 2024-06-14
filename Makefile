@@ -40,6 +40,10 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Max.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Search.pf
 
+check_README:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py README.pf
+
 check_blog1:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
 	/opt/homebrew/bin/python3.10 ./deduce.py LinkedLists.pf

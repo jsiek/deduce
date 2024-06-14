@@ -520,6 +520,8 @@ def check_proof_of(proof, formula, env):
             error(loc, 'expected ' + str(len(alts)) + ' cases for induction, but only have ' + str(len(cases)))
           
           for (constr,indcase) in zip(alts, cases):
+            if get_verbose():
+                print('\nCase ' + str(indcase.pattern))
             if indcase.pattern.constructor.name != constr.name:
               error(indcase.location, "expected a case for " + str(base_name(constr.name)) \
                     + " not " + str(base_name(indcase.pattern.constructor.name)))

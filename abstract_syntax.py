@@ -358,9 +358,9 @@ class Conditional(Term):
                        self.thn.copy(), self.els.copy())
   
   def __str__(self):
-      return 'if ' + str(self.cond) \
+      return '(if ' + str(self.cond) \
         + ' then ' + str(self.thn) \
-        + ' else ' + str(self.els)
+        + ' else ' + str(self.els) + ')'
     
   def __repr__(self):
       return str(self)
@@ -717,41 +717,40 @@ class Call(Term):
         ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
       case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
-        if True:
-          #print('reduce recursive fun ' + name)
-          first_arg = args[0]
-          rest_args = args[1:]
-          for fun_case in cases:
-              subst = {}
-              if is_match(fun_case.pattern, first_arg, subst):
-                  if get_verbose():
-                    print('reduce call ' + str(self))
-                    print('recursive function ' + name)
-                    #print('first param/arg ' + str(subst))
-                    #print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
+        #print('reduce recursive fun ' + name)
+        first_arg = args[0]
+        rest_args = args[1:]
+        for fun_case in cases:
+            subst = {}
+            if is_match(fun_case.pattern, first_arg, subst):
+                if get_verbose():
+                  print('reduce call ' + str(self))
+                  print('recursive function ' + name)
+                  #print('first param/arg ' + str(subst))
+                  print('\tonly: ' + ', '.join([str(f) for f in get_reduce_only()]))
 
-                  body_env = env
-                  for (k,v) in zip(fun_case.parameters, rest_args):
-                    subst[k] = v
-                  new_fun_case_body = fun_case.body.substitute(subst)
-                    
-                  #print('rest params/args ' + str(list(zip(fun_case.parameters, rest_args))))
-                  old_defs = get_reduce_only()
-                  reduce_defs = [x for x in old_defs]
-                  if Var(loc, name) in reduce_defs:
-                    #print('\tremoving from reduce_defs: ' + name)
-                    reduce_defs.remove(Var(loc,name))
-                  else:
-                    #print('\t' + name + ' not in reduce_defs: ' + ','.join([str(x) for x in reduce_defs]))
-                    pass
-                  reduce_defs += [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters]
-                  set_reduce_only(reduce_defs)
-                  ret = new_fun_case_body.reduce(body_env)
-                  set_reduce_only(old_defs)
-                  result = ret
-                  if get_verbose():
-                    print('finished reducing call\n\t' + str(self) + '  ===>  ' + str(result))
-                  return result
+                body_env = env
+                for (k,v) in zip(fun_case.parameters, rest_args):
+                  subst[k] = v
+                new_fun_case_body = fun_case.body.substitute(subst)
+
+                #print('rest params/args ' + str(list(zip(fun_case.parameters, rest_args))))
+                old_defs = get_reduce_only()
+                reduce_defs = [x for x in old_defs]
+                if Var(loc, name) in reduce_defs:
+                  #print('\tremoving from reduce_defs: ' + name)
+                  reduce_defs.remove(Var(loc,name))
+                else:
+                  #print('\t' + name + ' not in reduce_defs: ' + ','.join([str(x) for x in reduce_defs]))
+                  pass
+                reduce_defs += [Var(loc, x) for x in fun_case.pattern.parameters + fun_case.parameters]
+                set_reduce_only(reduce_defs)
+                ret = new_fun_case_body.reduce(body_env)
+                set_reduce_only(old_defs)
+                result = ret
+                if get_verbose():
+                  print('finished reducing call\n\t' + str(self) + '  ===>  ' + str(result))
+                return result
         ret = Call(self.location, fun, args, self.infix)
       case Generic(loc, typarams, body):
         ret = Call(self.location, body, args, self.infix).reduce(env)
@@ -1783,8 +1782,10 @@ class RecFunClosure(Statement):
   env: Any
 
   def __str__(self):
-    return base_name(self.name)
-    #return '$' + self.name
+    if get_verbose():
+      return '$' + self.name
+    else:
+      return base_name(self.name)
   
     # return '[' + self.name \
     #    + '<' + ','.join(self.type_params) + '>' \

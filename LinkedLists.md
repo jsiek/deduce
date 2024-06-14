@@ -6,7 +6,7 @@ stores a link to the next node, or to the special empty value that
 signifies the end of the list. In Deduce we can implement linked
 lists with the following `union` type.
 
-``` {.c #list}
+``` {.deduce #list}
 union List<T> {
   empty
   node(T, List<T>)
@@ -16,7 +16,7 @@ union List<T> {
 For example, the sequence of numbers `1, 2, 3` is represented
 by the following linked list.
 
-``` {.c #list_123}
+``` {.deduce #list_123}
 define list_123 : List<Nat> = node(1, node(2, node(3, empty)))
 ```
 
@@ -26,7 +26,7 @@ given list. The length of an empty list is `0` and the length of a
 list that starts with a node is one more than the length of the list
 starting at the next node.
 
-``` {.c #length}
+``` {.deduce #length}
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = suc(length(next))
@@ -36,7 +36,7 @@ function length<E>(List<E>) -> Nat {
 Of course, the length of `list_123` is `3`. We can ask Deduce to check
 this fact using the `assert` statement.
 
-``` {.c #test_length_123}
+``` {.deduce #test_length_123}
 assert length(list_123) = 3
 ```
 
@@ -46,7 +46,7 @@ represents `1 + n` and is short for successor. The `pred(n)`
 function is short for predecessor and computes `n - 1`, except that
 `pred(0) = 0`.
 
-```{.c #importNat}
+```{.deduce #importNat}
 import Nat
 ```
 
@@ -55,7 +55,7 @@ retrieves the element at position `i` in the list `xs`. However, if `i`
 is greater or equal to the length of `xs`, then `nth` returns the
 default value `d`. 
 
-```{.c #nth}
+```{.deduce #nth}
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
   nth(empty, default) = λi{default}
   nth(node(x, xs), default) = λi{
@@ -70,7 +70,7 @@ function nth<T>(List<T>, T) -> (fn Nat -> T) {
 Here are examples of applying `nth` to the list `1, 2, 3`,
 using `0` as the default value.
 
-``` {.c #test_nth_123}
+``` {.deduce #test_nth_123}
 assert nth(list_123, 0)(0) = 1
 assert nth(list_123, 0)(1) = 2
 assert nth(list_123, 0)(2) = 3
@@ -121,7 +121,7 @@ numbers of length `count`, where the element at position `i` is `i +
 start`.
 
 For example, `interval(3,5)` produces the list `5, 6, 7`:
-``` {.c #interval_example}
+``` {.deduce #interval_example}
 assert interval(3, 5) = node(5, node(6, node(7, empty)))
 ```
 
@@ -169,7 +169,7 @@ with a recursive call to `interval`.
 Putting these pieces together, we have the following complete
 definition of `interval`.
 
-``` {.c #interval}
+``` {.deduce #interval}
 function interval(Nat, Nat) -> List<Nat> {
   interval(0, n) = empty
   interval(suc(k), n) = node(n, interval(k, suc(n)))
@@ -183,7 +183,7 @@ In general, one should test many variations of each input to a function.
 Here we test with the values `0`, `1` and `2` for the first parameter
 and `0` and `3` for the second parameter.
 
-``` {.c #test_interval}
+``` {.deduce #test_interval}
 assert length(interval(0, 0)) = 0
 
 assert length(interval(1, 0)) = 1
@@ -369,7 +369,7 @@ which is just what we need to conclude.
 Putting the two cases together, we have the following completed proof
 that the output of `interval` has the appropriate length.
 
-``` {.c #interval_length}
+``` {.deduce #interval_length}
 theorem interval_length:
   all count:Nat. all start:Nat. length(interval(count, start)) = count
 proof
@@ -574,7 +574,7 @@ Putting together all these pieces, we have the following complete proof
 of the `interval_nth` theorem. At this point we know that the `interval`
 function is 100% correct!
 
-``` {.c #interval_nth }
+``` {.deduce #interval_nth }
 theorem interval_nth: all count:Nat. all start:Nat, d:Nat, i:Nat.
   if i < count
   then nth(interval(count, start), d)(i) = i + start
@@ -650,7 +650,7 @@ input list and the second `assert` checks whether the back part of the
 result matches the second input list. We make use of another function
 named `all_elements` that we describe next.
 
-``` {.c #test_append_123_45}
+``` {.deduce #test_append_123_45}
 define list_45 : List<Nat> = node(4, node(5, empty))
 define list_1_5 = append(list_123, list_45)
 assert all_elements(interval(3, 0),
@@ -663,7 +663,7 @@ The `all_elements` function takes a list and a function and checks
 whether applying the function to every element of the list always
 produces `true`.
 
-``` {.c #all_elements}
+``` {.deduce #all_elements}
 function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
@@ -676,7 +676,7 @@ combined size to `20` elements. We could go with longer lists, but
 Deduce currently has a slow interpreter, so the assertions would take
 a long time (e.g., a minute for `100` elements).
 
-``` {.c #test_append_large}
+``` {.deduce #test_append_large}
 define num_elts = 20
 define first_elts = 12
 define second_elts = 8
@@ -718,7 +718,7 @@ end
 ```
 
 <!--
-```{.c file=LinkedLists.pf}
+```{.deduce file=LinkedLists.pf}
 <<importNat>>
 
 <<list>>
