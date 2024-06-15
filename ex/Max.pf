@@ -1,6 +1,6 @@
 import Nat
 import List
-import Sets
+import Set
 
 function max_element(List<Nat>, Nat) -> Nat {
   max_element(empty, d) = d
@@ -39,17 +39,20 @@ proof
     arbitrary y:Nat, d:Nat
     suppose impossible: y ∈ set_of(empty)
     conclude false
-        by definition {set_of, operator ∈} in impossible
+        by apply empty_no_members[Nat, y]
+	   to definition {set_of} in impossible
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose y_in_xxs: y ∈ set_of(node(x, xs'))
     definition max_element
     suffices y ≤ max(x,max_element(xs',d))
-    have xy_or_y_xs: x = y or y ∈ set_of(xs')
-      by enable {set_of, operator ∪, operator ∈} y_in_xxs
+    have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+      by apply member_union[Nat,y, single(x), set_of(xs')]
+	 to definition set_of in y_in_xxs
     cases xy_or_y_xs
-    case x_y: x = y {
+    case y_in_sx: y ∈ single(x) {
+      have x_y: x = y by apply single_equal[Nat,x,y] to y_in_sx
       rewrite x_y
       conclude y ≤ max(y,max_element(xs',d))
           by max_greater_left[y][max_element(xs',d)]
@@ -85,11 +88,13 @@ proof
       cases max_is_left_or_right[x][max_element(xs',d)]
       case m_x: max(x,max_element(xs',d)) = x {
         rewrite m_x
-	definition {operator ∈, operator ∪}.
+	//definition {operator ∈, operator ∪}
+	apply in_left_union[Nat,x,single(x),set_of(xs')]
+	to single_member[Nat,x]
       }
       case m_mxs: max(x,max_element(xs',d)) = max_element(xs',d) {
         rewrite m_mxs
-        apply in_right_union[Nat, max_element(xs',d), λy{x = y} : fn(Nat)->bool, set_of(xs')]
+        apply in_right_union[Nat, max_element(xs',d), single(x), set_of(xs')]
 	to mxs_in_xs
       }
     }
@@ -99,7 +104,10 @@ proof
       cases max_is_left_or_right[x][d]
       case m_x: max(x,d) = x {
         rewrite m_x
-        definition { operator ∪, operator ∈}.
+	have x_sx_xs: x ∈ (single(x) ∪ set_of(xs'))
+	  by apply in_left_union[Nat,x,single(x),set_of(xs')]
+	     to single_member[Nat,x]
+        x_sx_xs
       }
       case m_d: max(x,d) = d {
         rewrite m_d.

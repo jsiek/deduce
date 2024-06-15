@@ -57,7 +57,8 @@ proof
     arbitrary y:Nat, d:Nat
     suppose _
     conclude not (y ∈ set_of(empty))
-        by definition {set_of, operator ∈}.
+        by definition {set_of}
+	   empty_no_members[Nat,y]
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
@@ -69,11 +70,13 @@ proof
 	conclude false  by rewrite xy in s_xxs_len_xxs
       }
       case false suppose not_xy {
-        suppose y_xxs: y ∈ set_of(node(x,xs'))
-	have xy_or_y_xs: x = y or y ∈ set_of(xs')
-	  by (enable {set_of, operator ∈, operator ∪} y_xxs)
+        suppose y_in_xxs: y ∈ set_of(node(x,xs'))
+	have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+	  by apply member_union[Nat,y, single(x), set_of(xs')]
+	     to definition set_of in y_in_xxs
 	cases xy_or_y_xs
-	case x_y {
+	case y_sx: y ∈ single(x) {
+	  have x_y: x = y by apply single_equal[Nat,x,y] to y_sx
 	  conclude false   by rewrite not_xy in x_y
 	}
 	case y_xs {
@@ -97,11 +100,12 @@ proof
   case empty {
     arbitrary y:Nat, d:Nat
     suppose y_empty: y ∈ set_of(empty)
-    conclude false   by definition {set_of, operator ∈} in y_empty
+    conclude false   by apply empty_no_members[Nat,y]
+                        to definition {set_of} in y_empty
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
-    suppose y_xxs: y ∈ set_of(node(x,xs'))
+    suppose y_in_xxs: y ∈ set_of(node(x,xs'))
     definition {nth, search}
     switch x = y {
       case true suppose xy_true {
@@ -109,10 +113,12 @@ proof
       }
       case false suppose xy_false {
         definition pred
-	have x_y_or_y_xs: x = y or y ∈ set_of(xs')
-	    by enable {set_of,operator ∪, operator ∈} y_xxs
-	cases x_y_or_y_xs
-	case x_y: x = y {
+	have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+	  by apply member_union[Nat,y, single(x), set_of(xs')]
+	     to definition set_of in y_in_xxs
+	cases xy_or_y_xs
+	case y_sx: y ∈ single(x) {
+	  have x_y: x = y by apply single_equal[Nat,x,y] to y_sx
 	  conclude false   by rewrite xy_false in x_y
 	}
 	case y_xs: y ∈ set_of(xs') {
@@ -142,15 +148,22 @@ proof
     definition {search, length}
     switch x = y {
       case true suppose xy {
+        have x_y: x = y by rewrite xy.
         conclude false
-            by enable {set_of, operator ∪, operator ∈}
-	       apply y_not_xxs to rewrite xy.
+            by enable {set_of}
+	       apply y_not_xxs
+	       to (apply in_left_union[Nat,y, single(x), set_of(xs)]
+		   to rewrite x_y single_member[Nat, y])
       }
       case false suppose not_xy {
         suffices suc(search(xs,y)) = suc(length(xs))
 	have s_l: search(xs,y) = length(xs)
-          by enable {set_of, operator ∈, operator ∪}
-	     apply IH[y, d] to y_not_xxs
+          by enable {set_of}
+	     apply IH[y, d]
+	     to suppose y_xs
+	        (apply y_not_xxs to
+		definition set_of
+		apply in_right_union[Nat,y, single(x), set_of(xs)] to y_xs)
 	rewrite s_l.
       }
     }

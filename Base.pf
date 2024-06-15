@@ -23,3 +23,20 @@ proof
   }
 end
 
+theorem or_sym: all P:bool, Q:bool.  (P or Q) = (Q or P)
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+
+theorem and_sym: all P:bool, Q:bool.  (P and Q) = (Q and P)
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end

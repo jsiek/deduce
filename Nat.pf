@@ -1053,3 +1053,22 @@ proof
   }
 end
 
+theorem add_to_zero: all n:Nat. all m:Nat.
+  if n + m = 0
+  then n = 0 and m = 0
+proof
+  induction Nat
+  case 0 {
+    arbitrary m:Nat
+    suppose zmz
+    have mz: m = 0
+      by definition operator + in zmz
+    rewrite mz.
+  }
+  case suc(n') suppose IH {
+    arbitrary m:Nat
+    suppose snmz: suc(n') + m = 0
+    conclude false
+        by definition operator + in snmz
+  }
+end

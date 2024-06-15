@@ -2,13 +2,13 @@
 Represent sets as predicates, that is, functions to bool.
 */
 
+import Base
+
 union Set<T> {
-  ∅
   char_fun(fn(T) -> bool)
 }
 
 function rep<T>(Set<T>) -> fn(T)->bool {
-  rep(operator ∅) = λx{ false }
   rep(char_fun(f)) = f
 }
 
@@ -43,11 +43,11 @@ proof
 end
 
 theorem empty_no_members: all T:type, x:T.
-  not (x ∈ ∅)
+  not (x ∈ char_fun(λx{false}))
 proof
   arbitrary T:type, x:T
-  suppose x_in_empty: x ∈ ∅
-  enable {∅, operator ∈, rep}
+  suppose x_in_empty: x ∈ char_fun(λx{false})
+  enable {operator ∈, rep}
   x_in_empty
 end
 
@@ -59,4 +59,99 @@ proof
   suppose x_AB: x ∈ (A ∪ B)
   enable {operator ∈, operator ∪, rep}
   x_AB
+end
+
+theorem union_empty: all T:type, A:Set<T>.
+  A ∪ char_fun(λx{false}) = A
+proof
+  arbitrary T:type, A:Set<T>
+  definition {operator ∪, rep, char_fun}
+  switch A {
+    case char_fun(f) {
+      have eq: (λx{f(x) or false} : fn T->bool) = f
+        by extensionality arbitrary x:T
+	   definition {}.
+      rewrite eq.
+    }
+  }
+end
+
+theorem empty_union: all T:type, A:Set<T>.
+  char_fun(λx{false} : fn T->bool) ∪ A = A
+proof
+  arbitrary T:type, A:Set<T>
+  definition {operator ∪, rep, char_fun}
+  switch A {
+    case char_fun(f) {
+      have eq: (λx{f(x) or false} : fn T->bool) = f
+        by extensionality arbitrary x:T
+	   definition {}.
+      rewrite eq.
+    }
+  }
+end
+
+theorem union_sym: all T:type, A:Set<T>, B:Set<T>.
+  A ∪ B = B ∪ A
+proof
+  arbitrary T:type, A:Set<T>, B:Set<T>
+  definition {operator ∪}
+  switch A {
+    case char_fun(f) {
+      switch B {
+	case char_fun(g) {
+	  definition rep
+	  have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
+	    by extensionality arbitrary x:T definition{}
+	       rewrite or_sym[f(x),g(x)].
+	  rewrite fg_gf.
+	}
+      }
+    }
+  }
+end
+
+theorem union_assoc: all T:type, A:Set<T>, B:Set<T>, C:Set<T>.
+  (A ∪ B) ∪ C = A ∪ (B ∪ C)
+proof
+  arbitrary T:type, A:Set<T>, B:Set<T>, C:Set<T>
+  definition {operator ∪}
+  switch A {
+    case char_fun(f) {
+      switch B {
+	case char_fun(g) {
+	  switch C {
+	    case char_fun(h) {
+	      definition rep
+	      have fgh_eq: (λx{(f(x) or g(x)) or h(x)} : fn T->bool)
+	                 = λx{f(x) or (g(x) or h(x))}
+	        by extensionality arbitrary x:T
+		   definition {}.
+              rewrite fgh_eq.
+	    }
+	  }
+	}
+      }
+    }
+  }
+end
+
+theorem in_left_union:
+  all T:type, x:T, A: Set<T>, B:Set<T>.
+  if x ∈ A then x ∈ (A ∪ B)
+proof
+  arbitrary T:type, x:T, A: Set<T>, B:Set<T>
+  suppose x_A: x ∈ A
+  definition {operator ∈, operator ∪, rep}
+  definition operator ∈ in x_A
+end
+
+theorem in_right_union:
+  all T:type, x:T, A: Set<T>, B:Set<T>.
+  if x ∈ B then x ∈ (A ∪ B)
+proof
+  arbitrary T:type, x:T, A: Set<T>, B:Set<T>
+  suppose x_B: x ∈ B
+  definition {operator ∈, operator ∪, rep}
+  definition operator ∈ in x_B
 end

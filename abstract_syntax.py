@@ -552,7 +552,7 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "λᶜ" + ",".join([base_name(v) for v in self.vars]) \
+    return "λ" + ",".join([base_name(v) for v in self.vars]) \
       + "{" + str(self.body) + "}"
 
   def __repr__(self):
@@ -660,7 +660,7 @@ class Call(Term):
   
   def __str__(self):
     if self.infix:
-      return  str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1])
+      return  "(" + str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1]) + ")"
     elif isNat(self):
       return str(natToInt(self))
     else:
@@ -1001,7 +1001,19 @@ class And(Formula):
   def uniquify(self, env):
     for arg in self.args:
       arg.uniquify(env)
-  
+
+def list_of_or(arg):
+  match arg:
+    case Or(loc, args):
+      return args
+    case _:
+      return [arg]
+
+def flatten_or(args):
+  lol = [list_of_or(arg) for arg in args]
+  ret = sum(lol, [])
+  return ret
+    
 @dataclass
 class Or(Formula):
   args: list[Formula]
@@ -1009,7 +1021,7 @@ class Or(Formula):
     return Or(self.location, [arg.copy() for arg in self.args])
   
   def __str__(self):
-    return ' or '.join([str(arg) for arg in self.args])
+    return '(' + ' or '.join([str(arg) for arg in self.args]) + ')'
   
   def __eq__(self, other):
     if not isinstance(other, Or):
@@ -1017,7 +1029,23 @@ class Or(Formula):
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
   def reduce(self, env):
-    return Or(self.location, [arg.reduce(env) for arg in self.args])
+    new_args = flatten_or([arg.reduce(env) for arg in self.args])
+    newer_args = []
+    for arg in new_args:
+      match arg:
+        case Bool(loc, val):
+          if val:  # true: the whole thing is true
+            return arg 
+          else:    # false: throw this away
+            pass
+        case _:
+          newer_args.append(arg)
+    if len(newer_args) == 0:
+      return Bool(self.location, False)
+    elif len(newer_args) == 1:
+      return newer_args[0]
+    else:
+      return Or(self.location, newer_args)
   
   def substitute(self, sub):
     return Or(self.location, [arg.substitute(sub) for arg in self.args])

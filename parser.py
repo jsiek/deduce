@@ -144,10 +144,12 @@ def parse_tree_to_ast(e, parent):
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
        return And(e.meta, extract_and(left) + extract_and(right))
+       #return And(e.meta, [left,right])
     elif e.data == 'or_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
        return Or(e.meta, extract_or(left) + extract_or(right))
+       #return Or(e.meta, [left, right])
     elif e.data == 'logical_not':
        subject = parse_tree_to_ast(e.children[0], e)
        return IfThen(e.meta, subject, Bool(e.meta, False))
