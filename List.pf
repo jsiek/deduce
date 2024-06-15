@@ -454,6 +454,115 @@ proof
   }
 end
 
+theorem set_of_empty: all T:type, xs:List<T>.
+  if set_of(xs) = char_fun(λx{false})
+  then xs = empty
+proof
+  arbitrary T:type, xs:List<T>
+  switch xs {
+    case empty {
+      .
+    }
+    case node(x, xs') {
+      suppose prem
+      have x_xxs: x ∈ (single(x) ∪ set_of(xs'))
+        by apply in_left_union[T,x,single(x),set_of(xs')]
+	   to single_member[T, x]
+      conclude false
+        by apply empty_no_members[T,x]
+	   to (rewrite (definition set_of in prem) in x_xxs)
+    }
+  }
+end
+
+function remove<T>(List<T>, T) -> List<T> {
+  remove(empty, y) = empty
+  remove(node(x, xs'), y) =
+    if x = y then
+      xs'
+    else
+      node(x, remove(xs', y))
+}
+
+function remove_all<T>(List<T>, T) -> List<T> {
+  remove_all(empty, y) = empty
+  remove_all(node(x, xs'), y) =
+    if x = y then
+      remove_all(xs', y)
+    else
+      node(x, remove_all(xs', y))
+}
+
+theorem remove_all_absent: all T:type. all xs:List<T>. all y:T.
+  not (y ∈ set_of(remove_all(xs, y)))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary y:T
+    definition {remove_all, set_of}
+    empty_no_members[T,y]
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:T
+    definition {remove_all, set_of}
+    switch x = y {
+      case true {
+        IH[y]
+      }
+      case false suppose xy_false {
+	suppose y_in_sx_xsy
+	have y_in_sx_or_xsy: y ∈ single(x) or y ∈ set_of(remove_all(xs',y))
+	  by apply member_union[T,y,single(x), set_of(remove_all(xs',y))]
+	     to y_in_sx_xsy
+	cases y_in_sx_or_xsy
+	case y_in_sx {
+	  have xy: x = y by apply single_equal[T, x, y] to y_in_sx
+	  conclude false by rewrite xy_false in xy
+	}
+	case y_in_xsy {
+	  conclude false by apply IH[y] to y_in_xsy
+	}
+      }
+    }
+  }
+end
+
+/*
+UNDER CONSTRUCTION
+
+theorem all_elements_set_of: all T:type. all xs:List<T>. all ys:List<T>, P:fn T -> bool.
+  if set_of(xs) = set_of(ys)
+  then all_elements(xs, P) = all_elements(ys, P)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, P:fn T -> bool
+    suppose s_mt_ys
+    have ys_mt: ys = empty
+        by apply set_of_empty[T,ys]
+	   to symmetric (definition set_of in s_mt_ys)
+    rewrite ys_mt.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<T>, P:fn T -> bool
+    suppose s_xxs_s_ys
+    switch x ∈ set_of(xs') {
+      case true suppose x_xs {
+        ?
+      }
+      case false suppose not_x_xs {
+        have xs_ysx: all_elements(xs',P) = all_elements(remove(ys, x), P)
+          by apply IH[remove(ys, x), P] to ?
+        ?
+      }
+    }
+
+  }
+end
+*/
+
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
   nth(empty, default) = λi{default}
   nth(node(x, xs), default) = λi{
