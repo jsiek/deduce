@@ -18,15 +18,15 @@ function insert(List<Nat>,Nat) -> List<Nat> {
 
 theorem less_equal_insert:
   all xs:List<Nat>. all x:Nat, y:Nat.
-  if y ≤ x and all_elements(xs, λb{y ≤ b} : fn Nat -> bool)
-  then all_elements(insert(xs,x), λb{y ≤ b} : fn Nat -> bool)
+  if y ≤ x and all_elements(xs, λb{y ≤ b})
+  then all_elements(insert(xs,x), λb{y ≤ b})
 proof
   induction List<Nat>
   case empty {
     arbitrary x:Nat, y:Nat
     suppose prem
     definition insert    
-    suffices all_elements(node(x,empty), λb{y ≤ b} : fn Nat -> bool)
+    suffices all_elements(node(x,empty), λb{y ≤ b})
     definition {all_elements, all_elements}
     conclude y ≤ x by prem
   }
@@ -35,21 +35,25 @@ proof
     suppose prem
     have y_le_x: y ≤ x by prem
     have y_le_a: y ≤ a by definition all_elements in prem
-    have y_le_xs: all_elements(xs', λb{y ≤ b}) by definition all_elements in prem
+    have y_le_xs: all_elements(xs', λb{y ≤ b})
+        by definition all_elements in prem
     definition insert
     cases dichotomy[x,a]
     case x_le_a: x ≤ a {
       rewrite x_le_a
       definition {all_elements, all_elements}
       have y_le_a: y ≤ a by apply less_equal_trans[y][x,a] to y_le_x, x_le_a
-      have y_le_xs: all_elements(xs',λb{(y ≤ b)}) by definition all_elements in prem
+      have y_le_xs: all_elements(xs',λb{(y ≤ b)})
+          by definition all_elements in prem
       y_le_x, y_le_a, y_le_xs
     }
     case a_l_x: a < x {
-      have not_x_le_a: not (x ≤ a) by apply less_not_greater_equal[a][x] to a_l_x
+      have not_x_le_a: not (x ≤ a)
+          by apply less_not_greater_equal[a][x] to a_l_x
       rewrite not_x_le_a
       definition all_elements
-      have y_le_xsx: all_elements(insert(xs',x),λb{(y ≤ b)}) by apply IH[x,y] to y_le_x, y_le_xs
+      have y_le_xsx: all_elements(insert(xs',x),λb{(y ≤ b)})
+          by apply IH[x,y] to y_le_x, y_le_xs
       y_le_a, y_le_xsx
     }
   }
@@ -88,14 +92,14 @@ proof
     }
     case y_l_x: y < x {
       have not_x_le_y: not (x ≤ y)
-        by apply less_not_greater_equal[y][x] to y_l_x
+          by apply less_not_greater_equal[y][x] to y_l_x
       rewrite not_x_le_y
       suffices sorted(node(y,insert(next,x)))
       definition {sorted, all_elements}
       have s_next_x: sorted(insert(next,x)) by apply IH[x] to s_n
       have y_le_x: y ≤ x by apply less_implies_less_equal[y][x] to y_l_x
       have y_le_next_x: all_elements(insert(next,x),λb{(y ≤ b)})
-        by apply less_equal_insert[next][x,y] to y_le_x, y_next
+          by apply less_equal_insert[next][x,y] to y_le_x, y_next
       s_next_x, y_le_next_x
     }
   }
