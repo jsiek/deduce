@@ -7,6 +7,7 @@ union Tree<T> {
   tree_empty
   tree_node(T, Tree<T>, Tree<T>)
 }
+// TODO: change to put the elements in the leaves!
 
 // first parameter is the log of the length of the list
 function tree_of<T>(Nat, List<T>) -> Pair< Tree<T>, List<T> > {
@@ -79,6 +80,20 @@ assert merge_sort(node(1, empty)) = node(1, empty)
 assert merge_sort(node(2, node(1, empty))) = node(1, node(2, empty))
 assert merge_sort(node(3, node(2, node(1, empty)))) = node(1, node(2, node(3, empty)))
 assert merge_sort(node(4, node(3, node(2, node(1, empty))))) = node(1, node(2, node(3, node(4, empty))))
+
+function msort2(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
+  msort(0, xs) =
+    switch xs {
+      case empty { pair(empty, empty) }
+      case node(x, xs') { pair(node(x, empty), xs') }
+    }
+  msort(suc(n'), xs) =
+    let p1 = msort2(n', xs)
+    let p2 = msort2(n', second(p1))
+    let ys = first(p1)
+    let zs = first(p2)
+    pair(merge(length(ys) + length(zs), ys, zs), second(p2))
+}
 
 function sorted(List<Nat>) -> bool {
   sorted(empty) = true
