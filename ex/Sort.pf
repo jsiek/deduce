@@ -78,14 +78,17 @@ proof
       suffices sorted(node(x,node(y,next)))
       definition {sorted, sorted, all_elements}
       have x_next: all_elements(next,λb{(x ≤ b)})
-        by apply all_elements_implies[Nat][next][λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
+        by apply all_elements_implies[Nat][next]
+	         [λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
 	   to y_next , (arbitrary z:Nat
 	                suppose y_z: y ≤ z
-	                conclude x ≤ z by apply less_equal_trans[x][y,z] to x_le_y , y_z)
+	                conclude x ≤ z by apply less_equal_trans[x][y,z]
+			                  to x_le_y , y_z)
       s_n, y_next, x_le_y, x_next
     }
     case y_l_x: y < x {
-      have not_x_le_y: not (x ≤ y) by apply less_not_greater_equal[y][x] to y_l_x
+      have not_x_le_y: not (x ≤ y)
+        by apply less_not_greater_equal[y][x] to y_l_x
       rewrite not_x_le_y
       suffices sorted(node(y,insert(next,x)))
       definition {sorted, all_elements}
@@ -96,4 +99,43 @@ proof
       s_next_x, y_le_next_x
     }
   }
+end
+
+function isort(List<Nat>, List<Nat>) -> List<Nat> {
+  isort(empty, ys) = ys
+  isort(node(x, xs), ys) = isort(xs, insert(ys, x))
+}
+
+theorem isort_sorted: all xs:List<Nat>. all ys:List<Nat>.
+  if sorted(ys)
+  then sorted( isort(xs, ys) )
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary ys:List<Nat>
+    suppose s_ys: sorted(ys)
+    definition isort
+    conclude sorted(ys) by s_ys
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<Nat>
+    suppose s_ys: sorted(ys)
+    definition isort
+    have s_ys_x: sorted(insert(ys, x))
+        by apply insert_sorted[ys][x] to s_ys
+    conclude sorted(isort(xs',insert(ys,x)))
+        by apply IH[insert(ys,x)] to s_ys_x
+  }
+end
+
+define insertion_sort : fn List<Nat> -> List<Nat>
+    = λxs{ isort(xs, empty) }
+
+theorem insertion_sort_sorted: all xs:List<Nat>. 
+  sorted( insertion_sort(xs) )
+proof
+  arbitrary xs:List<Nat>
+  definition insertion_sort
+  conclude sorted(isort(xs,empty))
+      by apply isort_sorted[xs][empty] to definition sorted.
 end

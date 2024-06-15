@@ -1,5 +1,11 @@
 # Sequential Search
 
+This is the second blog post in a
+[series](https://siek.blogspot.com/2024/06/data-structures-and-algorithms-correctly.html)
+about developing correct implementations of basic data structures and
+algorithms using the [Deduce](https://github.com/jsiek/deduce)
+language and proof checker.
+
 In this blog post we'll study a classic and simple algorithm known as
 Sequential Search (aka. Linear Search). The basic idea of the
 algorithm is to look for the location of a particular item within a
