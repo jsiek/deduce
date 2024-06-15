@@ -15,7 +15,7 @@ We follow the write-test-prove approach to develop a correct
 implementation of `search`. We then propose two exercises for the
 reader.
 
-## Write `search`
+## Write the `search` function
 
 Before diving into the code for `search`, let us look again at the
 definition of the `List` type.
@@ -104,7 +104,7 @@ function search(List<Nat>, Nat) -> Nat {
 }
 ```
 
-## Test `search`
+## Test the `search` function
 
 Focusing on the specification of `search`, there are several things
 that we should test. First, we should test whether `search` always
@@ -233,10 +233,10 @@ follows.
     arbitrary y:Nat
 	definition {search, length, operator ≤}
 	switch x = y {
-	  case true suppose xy_true: (x = y) = true {
+	  case true {
         ?
 	  }
-	  case false suppose xy_false: (x = y) = false {
+	  case false {
 	    ?
 	  }
 	}

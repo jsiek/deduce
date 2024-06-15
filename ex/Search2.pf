@@ -1,0 +1,58 @@
+import Nat
+import List
+import Option
+
+function search(List<Nat>, Nat) -> Option<Nat> {
+  search(empty, y) = none
+  search(node(x, xs), y) =
+    if x = y then
+      just(0)
+    else
+      switch search(xs, y) {
+        case none { none }
+	case just(i) { just(suc(i)) }
+      }
+}
+
+theorem search_present: all xs:List<Nat>. all y:Nat, i:Nat.
+  if search(xs, y) = just(i)
+  then nth(xs, 0)(i) = y
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat, i:Nat
+    suppose prem
+    conclude false by definition search in prem
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat, i:Nat
+    suppose search_just: search(node(x,xs'),y) = just(i)
+    switch x = y {
+      case true suppose xy_true {
+        have i_z: i = 0
+	  by symmetric injective just rewrite xy_true in
+	     definition search in search_just
+	definition nth rewrite i_z | xy_true.
+      }
+      case false suppose xy_false {
+        switch search(xs', y) {
+	  case none suppose s_none {
+	    conclude false
+	      by rewrite s_none in
+	         (rewrite xy_false in (definition search in search_just))
+	  }
+	  case just(i') suppose s_just {
+	    have i_si: i = suc(i')
+	      by symmetric injective just
+                rewrite s_just in
+   	        (rewrite xy_false in definition search in search_just)
+	    rewrite i_si
+	    definition {nth, pred}
+	    conclude nth(xs',0)(i') = y
+	      by apply IH[y,i'] to s_just
+	  }
+	}
+      }
+    }
+  }
+end
