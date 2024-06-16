@@ -60,6 +60,13 @@ check_blog2:
 blog2:
 	/usr/local/bin/pandoc LinearSearch.md -o LinearSearch.html
 
+check_blog3:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py InsertionSort.pf
+
+blog3:
+	/usr/local/bin/pandoc InsertionSort.md -o InsertionSort.html
+
 
 # TODO
 

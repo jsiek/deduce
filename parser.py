@@ -210,6 +210,11 @@ def parse_tree_to_ast(e, parent):
         return Bool(e.meta, True)
     elif e.data == 'false_literal':
         return Bool(e.meta, False)
+    elif e.data == 'emptyset_literal':
+        return Call(e.meta,
+                    Var(e.meta, 'char_fun'),
+                    [Lambda(e.meta, ['_'], Bool(e.meta, False))],
+                    False)
     elif e.data == 'field_access':
         subject = parse_tree_to_ast(e.children[0], e)
         field_name = str(e.children[1].value)

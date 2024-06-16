@@ -1,5 +1,7 @@
 [ ] fix generics, implement type passing, see operator ⊆ in Set.pf
 
+[ ] print char_fun(λx{false}) as ∅
+
 [ ] issue of conjunction intro in checking mode
 
 [ ] Revisit syntax for rewriting with a set of equations (replace bar)

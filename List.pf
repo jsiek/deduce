@@ -23,7 +23,7 @@ function reverse<E>(List<E>) -> List<E> {
 }
 
 function set_of<T>(List<T>) -> Set<T> {
-  set_of(empty) = char_fun(λx{ false })
+  set_of(empty) = ∅
   set_of(node(x, xs)) = single(x) ∪ set_of(xs)
 }
 
@@ -455,7 +455,7 @@ proof
 end
 
 theorem set_of_empty: all T:type, xs:List<T>.
-  if set_of(xs) = char_fun(λx{false})
+  if set_of(xs) = ∅
   then xs = empty
 proof
   arbitrary T:type, xs:List<T>

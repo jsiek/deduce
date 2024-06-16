@@ -8,6 +8,13 @@ union Set<T> {
   char_fun(fn(T) -> bool)
 }
 
+/*
+  The Deduce parser translates
+  ∅
+  into
+  char_fun(λx{false})
+*/
+
 function rep<T>(Set<T>) -> fn(T)->bool {
   rep(char_fun(f)) = f
 }
@@ -62,7 +69,7 @@ proof
 end
 
 theorem union_empty: all T:type, A:Set<T>.
-  A ∪ char_fun(λx{false}) = A
+  A ∪ ∅ = A
 proof
   arbitrary T:type, A:Set<T>
   definition {operator ∪, rep, char_fun}

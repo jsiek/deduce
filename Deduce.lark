@@ -2,8 +2,8 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∅∈]/
-IDENT: (/_/|UPPER|LOWER|/∅/) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈]/
+IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ NEWLINE
@@ -50,6 +50,7 @@ ident: IDENT              -> ident
 ?term_hi: INT                                      -> int
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
+    | "∅"                                          -> emptyset_literal
     | "-" term_hi                                  -> neg
     | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var
