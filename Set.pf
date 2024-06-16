@@ -155,3 +155,32 @@ proof
   definition {operator ∈, operator ∪, rep}
   definition operator ∈ in x_B
 end
+
+/*
+  UNDER CONSTRUCTION
+  need to fix generics, implement type passing
+theorem subset_equal:
+  all T:type, A:Set<T>, B:Set<T>.
+  if A ⊆ B and B ⊆ A
+  then A = B
+proof
+  arbitrary U:type, A:Set<U>, B:Set<U>
+  suppose prem
+  switch A {
+    case char_fun(f) suppose A_f {
+      switch B {
+        case char_fun(g) suppose B_g {
+          have f_g: f = g
+	    by extensionality
+	       arbitrary x:U
+               have fx_to_gx: if f(x) then g(x)
+                  by (definition operator ⊆ in (conjunct 0 of prem))
+               apply iff_equal[f(x),g(x)]
+               to ?
+          rewrite f_g.
+	}
+      }
+    }
+  }
+end
+*/

@@ -330,7 +330,7 @@ class Generic(Term):
       return new_body == other.body
 
   def reduce(self, env):
-      return self.body.reduce(env)
+      return Generic(self.location, self.type_params, self.body.reduce(env))
 
   def substitute(self, sub):
       n = len(self.type_params)
@@ -656,6 +656,8 @@ class Call(Term):
                 self.infix)
     # if hasattr(self,'typeof'):
     #   ret.typeof = self.typeof
+    # if hasattr(self,'type_subst'):
+    #   ret.type_subst = self.type_subst
     return ret
   
   def __str__(self):

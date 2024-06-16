@@ -40,3 +40,20 @@ proof
     case false { . }
   }
 end
+
+theorem iff_equal: all P:bool, Q:bool.
+  if (if P then Q) and (if Q then P)  
+  then P = Q
+proof
+  arbitrary P:bool, Q:bool
+  switch P {
+    case true {
+      suppose q
+      rewrite q.
+    }
+    case false {
+      suppose not_q
+      rewrite not_q.
+    }
+  }
+end

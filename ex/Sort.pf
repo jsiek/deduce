@@ -1,5 +1,6 @@
 import Nat
 import List
+import Set
 
 function sorted(List<Nat>) -> bool {
   sorted(empty) = true
@@ -105,6 +106,32 @@ proof
   }
 end
 
+theorem insert_contents: all xs:List<Nat>. all y:Nat.
+  set_of(insert(xs,y)) = single(y) ∪ set_of(xs)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary y:Nat
+    conclude set_of(insert(empty,y)) = single(y) ∪ set_of(empty)
+        by definition {insert, set_of, set_of}.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary y:Nat
+    definition {insert, set_of}
+    switch y ≤ x {
+      case true suppose yx_true {
+        definition set_of.
+      }
+      case false suppose yx_false {
+        rewrite IH[y]
+	rewrite symmetric union_assoc[Nat, single(y), single(x), set_of(xs')]
+	rewrite union_sym[Nat, single(y), single(x)]
+	rewrite union_assoc[Nat, single(x), single(y), set_of(xs')].
+      }
+    }
+  }
+end
+
 function isort(List<Nat>, List<Nat>) -> List<Nat> {
   isort(empty, ys) = ys
   isort(node(x, xs), ys) = isort(xs, insert(ys, x))
@@ -132,6 +159,25 @@ proof
   }
 end
 
+theorem isort_contents: all xs:List<Nat>. all ys:List<Nat>.
+  set_of( isort(xs, ys) ) = set_of(xs) ∪ set_of(ys)
+proof
+  induction List<Nat>
+  case empty {
+    arbitrary ys:List<Nat>
+    definition {isort, set_of}
+    rewrite empty_union[Nat, set_of(ys)].
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<Nat>
+    definition {isort, set_of}
+    rewrite IH[insert(ys,x)]
+    rewrite insert_contents[ys][x]
+    rewrite union_sym[Nat, single(x), set_of(xs')]
+    rewrite union_assoc[Nat, set_of(xs'), single(x), set_of(ys)].
+  }
+end
+
 define insertion_sort : fn List<Nat> -> List<Nat>
     = λxs{ isort(xs, empty) }
 
@@ -142,4 +188,14 @@ proof
   definition insertion_sort
   conclude sorted(isort(xs,empty))
       by apply isort_sorted[xs][empty] to definition sorted.
+end
+
+theorem insertion_sort_contents: all xs:List<Nat>. 
+  set_of( insertion_sort(xs) ) = set_of(xs)
+proof
+  arbitrary xs:List<Nat>
+  definition insertion_sort
+  rewrite isort_contents[xs][empty]
+  definition set_of
+  rewrite union_empty[Nat,set_of(xs)].
 end

@@ -704,7 +704,7 @@ def type_names(loc, names):
     index += 1
   return result
 
-def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty):
+def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty, call):
   match funty:
     case FunctionType(loc2, typarams, param_types, return_type):
       if len(args) != len(param_types):
@@ -738,11 +738,11 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty):
     case _:
       error(loc, 'expected operator to have function type, not ' + str(funty))
       
-def type_check_call(loc, rator, args, env, recfun, subterms, ret_ty):
+def type_check_call(loc, rator, args, env, recfun, subterms, ret_ty, call):
   ty = type_synth_term(rator, env, recfun, subterms)
-  return type_check_call_helper(loc, ty, args, env, recfun, subterms, ret_ty)
+  return type_check_call_helper(loc, ty, args, env, recfun, subterms, ret_ty, call)
 
-def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty):
+def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty, call):
   match args[0]:
     case Var(loc3, arg_name):
         if not (arg_name in subterms):
@@ -753,7 +753,7 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty):
       error(loc, "ill-formed recursive call, " \
             + "expected first argument to be " \
             + " or ".join(subterms) + ", not " + str(args[0]))
-  return type_check_call(loc, tvar, args, env, recfun, subterms, ret_ty)
+  return type_check_call(loc, tvar, args, env, recfun, subterms, ret_ty, call)
 
 # well-formed types?
 def check_type(typ, env):
@@ -845,10 +845,10 @@ def type_synth_term(term, env, recfun, subterms):
     case Call(loc, Var(loc2, name, index), args, infix) if name == recfun:
       # recursive call
       ret = type_check_rec_call(loc, Var(loc2, name, index), args, env,
-                                recfun, subterms, None)
+                                recfun, subterms, None, term)
     case Call(loc, rator, args, infix):
       # non-recursive call
-      ret = type_check_call(loc, rator, args, env, recfun, subterms, None)
+      ret = type_check_call(loc, rator, args, env, recfun, subterms, None, term)
     case Switch(loc, subject, cases):
       ty = type_synth_term(subject, env, recfun, subterms)
       # TODO: check for completeness
@@ -946,10 +946,10 @@ def type_check_term(term, typ, env, recfun, subterms):
     case Call(loc, Var(loc2, name, index), args, infix) if name == recfun:
       # recursive call
       type_check_rec_call(loc, Var(loc2, name, index), args, env,
-                          recfun, subterms, typ)
+                          recfun, subterms, typ, term)
     case Call(loc, rator, args, infix):
       # non-recursive call
-      type_check_call(loc, rator, args, env, recfun, subterms, typ)
+      type_check_call(loc, rator, args, env, recfun, subterms, typ, term)
     case _:
       ty = type_synth_term(term, env, recfun, subterms)
       if ty != typ:

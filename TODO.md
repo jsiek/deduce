@@ -1,3 +1,5 @@
+[ ] fix generics, implement type passing, see operator ⊆ in Set.pf
+
 [ ] issue of conjunction intro in checking mode
 
 [ ] Revisit syntax for rewriting with a set of equations (replace bar)
