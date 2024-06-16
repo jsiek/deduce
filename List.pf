@@ -1,6 +1,7 @@
 import Nat
 import Option
 import Set
+import MultiSet
 
 union List<T> {
   empty
@@ -25,6 +26,11 @@ function reverse<E>(List<E>) -> List<E> {
 function set_of<T>(List<T>) -> Set<T> {
   set_of(empty) = ∅
   set_of(node(x, xs)) = single(x) ∪ set_of(xs)
+}
+
+function mset_of<T>(List<T>) -> MultiSet<T> {
+  mset_of(empty) = m_fun(λ{0})
+  mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
 }
 
 assert length(empty) = 0

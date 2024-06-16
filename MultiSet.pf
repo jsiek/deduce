@@ -1,0 +1,120 @@
+/*
+  Represent multisets as function to Nat.
+  */
+
+import Base
+import Nat
+
+union MultiSet<T> {
+  m_fun(fn(T) -> Nat)
+}
+
+function count<T>(MultiSet<T>) -> fn(T)->Nat {
+  count(m_fun(f)) = f
+}
+
+define m_one : < T > fn T -> MultiSet<T>
+         = generic T { λx { m_fun(λy{if x = y then 1 else 0}) } }
+
+define operator ⨄ : < T > fn MultiSet<T>, MultiSet<T> -> MultiSet<T>
+         = generic T { λP,Q{ m_fun(λx{ count(P)(x) + count(Q)(x) }) } }
+
+theorem m_one_count: all T:type, x:T. count(m_one(x))(x) = 1
+proof
+  arbitrary T:type, x:T
+  definition {count, m_one}.
+end
+
+theorem m_empty_zero: all T:type, x:T.
+  count(m_fun(λy{0}: fn T->Nat))(x) = 0
+proof
+  arbitrary T:type, x:T
+  definition {count}.
+end
+
+theorem count_sum: all T:type, A:MultiSet<T>, B:MultiSet<T>, x:T.
+  count(A ⨄ B)(x) = count(A)(x) + count(B)(x)
+proof
+  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>, x:T
+  definition {count, operator ⨄}.
+end
+
+theorem m_sum_empty: all T:type, A:MultiSet<T>.
+  A ⨄ m_fun(λy{0}: fn T->Nat) = A
+proof
+  arbitrary T:type, A:MultiSet<T>
+  definition {operator ⨄, count}
+  switch A {
+    case m_fun(f) {
+      have eq: (λx{(f(x) + 0)} : fn T->Nat) = f
+        by extensionality arbitrary x:T
+           rewrite add_zero[f(x)].
+      rewrite eq.
+    }
+  }
+end
+
+theorem empty_m_sum: all T:type, A:MultiSet<T>.
+  m_fun(λx{0} : fn T->Nat) ⨄ A = A
+proof
+  arbitrary T:type, A:MultiSet<T>
+  definition {operator ⨄, rep, m_fun}
+  switch A {
+    case m_fun(f) {
+      have eq: (λx{0 + f(x)} : fn T->Nat) = f
+        by extensionality arbitrary x:T
+	   definition {operator +}.
+      definition count
+      rewrite eq.
+    }
+  }
+end
+
+
+theorem m_sum_sym: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+  A ⨄ B = B ⨄ A
+proof
+  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>
+  definition {operator ⨄}
+  switch A {
+    case m_fun(f) {
+      switch B {
+        case m_fun(g) {
+	  definition count
+	  have eq: (λx{(f(x) + g(x))} : fn T->Nat) = λx{(g(x) + f(x))}
+	    by extensionality arbitrary x:T
+	       rewrite add_commute[f(x)][g(x)].
+	  rewrite eq.
+	}
+      }
+    }
+  }
+end
+
+theorem m_sum_assoc: all T:type, A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>.
+  (A ⨄ B) ⨄ C = A ⨄ (B ⨄ C)
+proof
+  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>
+  definition {operator ⨄}
+  switch A {
+    case m_fun(f) {
+      switch B {
+	case m_fun(g) {
+	  switch C {
+	    case m_fun(h) {
+	      definition count
+	      have fgh_eq: (λx{(f(x) + g(x)) + h(x)} : fn T->Nat)
+	                 = λx{f(x) + (g(x) + h(x))}
+	        by extensionality arbitrary x:T
+		   definition {}
+		   rewrite add_assoc[f(x)][g(x),h(x)].
+              rewrite fgh_eq.
+	    }
+	  }
+	}
+      }
+    }
+  }
+end
+
+
