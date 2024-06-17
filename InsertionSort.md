@@ -1,6 +1,6 @@
 # Insertion Sort
 
-This is the second blog post in a
+This is the third blog post in a
 [series](https://siek.blogspot.com/2024/06/data-structures-and-algorithms-correctly.html)
 about developing correct implementations of basic data structures and
 algorithms using the [Deduce](https://github.com/jsiek/deduce)
@@ -32,7 +32,8 @@ function sorted(List<Nat>) -> bool {
 ```
 
 We follow the write-test-prove approach to develop a correct
-implementation of `insertion_sort`.
+implementation of `insertion_sort`. We then propose an exercise for
+the reader.
 
 # Write the `insertion_sort` function
 
@@ -142,10 +143,10 @@ list contains the elements from the input and the inserted element.
 We could use the `search` function that we developed in the previous
 blog post to check whether the elements from the input list are in the
 output list. However, doing that would ignore a subtle issue, which is
-that there can be one or more occurences of the same element in the
+that there can be one or more occurrences of the same element in the
 input list, and the output list should have the same number of
-occurences. To take this into account, we need a new function to
-`count` the number of occurences of an element.
+occurrences. To take this into account, we need a new function to
+`count` the number of occurrences of an element.
 
 ``` {.deduce #count}
 function count<T>(List<T>) -> fn T->Nat {
@@ -159,6 +160,9 @@ function count<T>(List<T>) -> fn T->Nat {
 }
 ```
 
+Here's a test that checks whether `insert` produces a sorted list with
+the correct `count` for every element on the input list as well as the
+inserted element.
 
 ``` {.deduce #test_insert_1234}
 define list_1234 = node(1, node(2, node(3, node(4, empty))))
@@ -212,8 +216,27 @@ and `insertion_sort` with respect to their specification.
 
 ## Prove correctness of `insert`
 
-Our first task is to prove that `insert(xs, y)` produces a list
-that contains `y` and the elements of `xs`.
+Our first task is to prove that `insert(xs, y)` produces a list that
+contains `y` and the elements of `xs`. In our tests, we used the
+`count` function to accomplish this. Note that `count` returns a
+function `fn T->Nat`, which is the same thing as a multiset.  The file
+`MultiSet.pf` defines the `MultiSet<T>` type and operations on them such
+as `m_one(x)` for creating a multiset that only contains `x` and `A ⨄ B`
+for combining two multisets.  The file `List.pf` defines a function
+`mset_of` that converts a list into a multiset.
+
+```
+function mset_of<T>(List<T>) -> MultiSet<T> {
+  mset_of(empty) = m_fun(λ{0})
+  mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
+}
+```
+
+So we express the requirements on the contents of `insert(xs, y)` as
+follows: converting `insert(xs, y)` into a multiset is the same as
+converting `xs` into a multiset and then adding `y`. The proof is
+relatively straightforward, making use of several theorems about
+multisets from `MultiSet.pf`.
 
 ``` {.deduce #insert_contents} 
 theorem insert_contents: all xs:List<Nat>. all y:Nat.
@@ -227,22 +250,32 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
-    definition {insert, mset_of}
+    definition insert
     switch y ≤ x {
       case true suppose yx_true {
-        definition mset_of.
+	    conclude mset_of(node(y,node(x,xs'))) = m_one(y) ⨄ mset_of(node(x,xs'))
+            by definition {mset_of,mset_of}.
       }
       case false suppose yx_false {
-        rewrite IH[y]
-    rewrite symmetric m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
-    rewrite m_sum_sym[Nat, m_one(y), m_one(x)]
-    rewrite m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')].
+	    equations
+			  mset_of(node(x,insert(xs',y))) 
+			= m_one(x) ⨄ mset_of(insert(xs',y))
+			  by definition mset_of.
+		... = m_one(x) ⨄ (m_one(y) ⨄ mset_of(xs'))
+			  by rewrite IH[y].
+		... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
+			  by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')].
+		... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
+			  by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
+		... = m_one(y) ⨄ (m_one(x) ⨄ mset_of(xs'))
+			  by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')].
+		... = m_one(y) ⨄ mset_of(node(x,xs'))
+			  by definition mset_of.
       }
     }
   }
 end
 ```
-
 
 Our second task is to prove that `insert` produces a sorted list,
 assuming the input list is sorted.
@@ -385,32 +418,74 @@ here.)
   have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_xs
 ```
 
+The second requires more thinking. We know that `x ≤ y` in this case
+and we already proved that `x` is less-or-equal all the elements in
+`xs'`. So we know that `all_elements(node(y, xs'), λb{x ≤ b})`
+but what we need is `all_elements(insert(xs', y), λb{x ≤ b})`
 
+```
+  have x_le_y: x ≤ y
+	  by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
+		 have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
+								to dichotomy[y,x], not_yx
+		 apply less_implies_less_equal[x][y] to x_l_y
+  have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
+		 by definition all_elements  x_le_y, x_le_xs'
+```
 
-``` {.deduce #less_equal_insert}
-theorem less_equal_insert:
-  all xs:List<Nat>, x:Nat, y:Nat.
-  if y ≤ x and all_elements(xs, λb{y ≤ b})
-  then all_elements(insert(xs,x), λb{y ≤ b})
+The `all_elements` function shouldn't care about the ordering of the
+elements in the list, and indeed there is the following theorem in
+`List.pf`:
+
+```
+theorem all_elements_set_of: all T:type, xs:List<T>, ys:List<T>, P:fn T -> bool.
+  if set_of(xs) = set_of(ys)
+  then all_elements(xs, P) = all_elements(ys, P)
+```
+
+So we need to show that `set_of(insert(xs',y)) = set_of(node(y,xs'))`.
+Thankfully, we already showed that this is true for `mset_of` in the
+`insert_contents` theorem, and multiset equality implies set equality:
+(also from `List.pf`)
+
+```
+theorem mset_equal_implies_set_equal: all T:type, xs:List<T>, ys:List<T>.
+  if mset_of(xs) = mset_of(ys)
+  then set_of(xs) = set_of(ys)
+```
+
+So we use these three theorems to prove the following.
+
+``` {.deduce #all_elements_insert_node}
+theorem all_elements_insert_node: all xs:List<Nat>, x:Nat, P:fn Nat->bool.
+  all_elements(insert(xs,x), P)
+  = all_elements(node(x,xs), P)
 proof
-  arbitrary xs:List<Nat>, x:Nat, y:Nat
-  suppose y_le_x_and_y_le_xs
+  arbitrary xs:List<Nat>, x:Nat, P:fn Nat->bool
   have m_xs_x: mset_of(insert(xs, x)) = mset_of(node(x, xs))
       by definition mset_of insert_contents[xs][x]
   have ixsx_xxs: set_of(insert(xs, x)) = set_of(node(x, xs))
      by apply mset_equal_implies_set_equal[Nat,insert(xs, x), node(x, xs)] 
 	    to m_xs_x
-  have all_ixsx_xxs: all_elements(insert(xs,x),λb{y ≤ b})
-                   = all_elements(node(x, xs),λb{y ≤ b})
-      by apply all_elements_set_of[Nat, insert(xs,x), node(x, xs), 
-	                               λb{y ≤ b} : fn Nat->bool]
-	     to ixsx_xxs
-  rewrite all_ixsx_xxs		 
-  definition all_elements
-  y_le_x_and_y_le_xs
+  apply all_elements_set_of[Nat, insert(xs,x), node(x, xs), P]
+  to ixsx_xxs
 end
 ```
 
+We apply this theorem to prove that `x` is less-or-equal all the
+elements in `insert(xs',y)` and then we conclude this final case of
+proof of `insert_sorted`.
+
+```
+  have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
+	  by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
+		 x_le_y_xs'
+  conclude sorted(insert(xs',y)) and
+		   all_elements(insert(xs',y),λb{x ≤ b})
+	  by s_xs'_y, x_le_xs'_y
+```
+
+Here is the complete proof of `insert_sorted`.
 
 ``` {.deduce #insert_sorted}
 theorem insert_sorted: all xs:List<Nat>. all y:Nat.
@@ -427,13 +502,13 @@ proof
     arbitrary y:Nat
     suppose s_xxs: sorted(node(x,xs'))
     have s_xs: sorted(xs') by definition sorted in s_xxs
+    have x_le_xs': all_elements(xs',λb{(x ≤ b)}) by definition sorted in s_xxs
     suffices sorted(insert(node(x,xs'),y))
     definition insert
     switch y ≤ x {
       case true suppose yx_true {
         suffices sorted(node(y,node(x,xs')))
         definition {sorted, sorted, all_elements}
-        have x_le_xs': all_elements(xs',λb{(x ≤ b)}) by definition sorted in s_xxs
         have y_le_x: y ≤ x by rewrite yx_true.
         have x_le_implies_y_le: all z:Nat. (if x ≤ z then y ≤ z)
           by arbitrary z:Nat  suppose x_le_z: x ≤ z
@@ -444,44 +519,54 @@ proof
              to x_le_xs', x_le_implies_y_le
         s_xs, x_le_xs', y_le_x, y_le_xs'
       }
-      case false {
-        definition {sorted}
-		suffices sorted(insert(xs',y)) and
-		         all_elements(insert(xs',y),λb{x ≤ b})
+      case false suppose yx_false {
+        definition sorted
         have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_xs
-        ?
+        have x_le_y: x ≤ y
+		    by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
+		       have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
+			                          to dichotomy[y,x], not_yx
+			   apply less_implies_less_equal[x][y] to x_l_y
+        have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
+			   by definition all_elements  x_le_y, x_le_xs'
+        have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
+            by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
+			   x_le_y_xs'
+		conclude sorted(insert(xs',y)) and
+		         all_elements(insert(xs',y),λb{x ≤ b})
+            by s_xs'_y, x_le_xs'_y
       }
     }
-/*
-    cases dichotomy[y,x]
-    case y_le_x: y ≤ x {
-      rewrite y_le_x
-      suffices sorted(node(y,node(x,xs')))
-      definition {sorted, sorted, all_elements}
-      have y_xs': all_elements(xs',λb{(y ≤ b)})
-        by apply all_elements_implies[Nat][xs']
-             [λb{(x ≤ b)} : fn Nat -> bool, λb{(y ≤ b)} : fn Nat -> bool]
-       to x_xs' , (arbitrary z:Nat
-                    suppose x_z: x ≤ z
-                    conclude y ≤ z by apply less_equal_trans[y][x,z]
-                              to y_le_x , x_z)
-      s_xs, x_xs', y_le_x, y_xs'
-    }
-    case x_l_y: x < y {
-      have not_y_le_x: not (y ≤ x)
-          by apply less_not_greater_equal[x][y] to x_l_y
-      rewrite not_y_le_x
-      suffices sorted(node(x,insert(xs',y)))
-      definition {sorted, all_elements}
-      have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_n
-      have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
-      have x_le_xs'_y: all_elements(insert(xs',y),λb{(x ≤ b)})
-          by apply less_equal_insert[xs'][y,x] to x_le_y, x_xs'
-      s_xs'_y, x_le_xs'_y
-    }
-    */
   }
 end
+```
+
+## Exercise: tail-recursive variant of `insertion_sort`
+
+The `insertion_sort` function uses more computer memory than necessary
+because it uses one frame on the procedure call stack for every
+element in the input list. This can be avoided if we instead implement
+Insertion Sort using a tail-recursive function. That is, as a function
+that immediately returns after the recursive call. For this exercise,
+formulate a tail recursive version of `insertion_sort` and prove that
+it is correct.
+
+As a hint, define an auxiliary function `isort(xs,ys)` that takes a
+list `xs` and an already sorted list `ys` and returns a sorted list
+that includes the contents of both `xs` and `ys`.
+
+```
+function isort(List<Nat>, List<Nat>) -> List<Nat> {
+  FILL IN HERE
+}
+```
+
+Once you have defined `isort`, you can implement Insertion Sort as
+follows.
+
+```
+define insertion_sort2 : fn List<Nat> -> List<Nat>
+    = λxs{ isort(xs, empty) }
 ```
 
 
@@ -504,72 +589,14 @@ import List
 <<test_insertion_sort>>
 
 <<insert_contents>>
-<<less_equal_insert>>
+<<all_elements_insert_node>>
 <<insert_sorted>>
 ```
-
-``` {.deduce #insert_count_same}
-theorem insert_count_same: all xs:List<Nat>. all y:Nat.
-  count(insert(xs, y), y) = suc(count(xs, y))
-proof
-  induction List<Nat>
-  case empty {
-    arbitrary y:Nat
-    conclude count(insert(empty,y),y) = suc(count(empty,y))
-        by definition {insert, count, count}.
-  }
-  case node(x, xs') suppose IH {
-    arbitrary y:Nat
-    definition{insert, count}
-    switch y ≤ x {
-      case true {
-        definition count.
-      }
-      case false {
-        switch y = x {
-          case true {
-            rewrite IH[y].
-          }
-          case false {
-            rewrite IH[y].
-          }
-        }
-      }
-    }
-  }
-end
-```
-
-``` {.deduce #insert_count_diff}
-theorem insert_count_same: all xs:List<Nat>. all y:Nat, z:Nat.
-  if not (z = y)
-  then count(insert(xs, y), z) = count(xs, z)
-proof
-  induction List<Nat>
-  case empty {
-    arbitrary y:Nat, z:Nat
-    suppose z_neq_y
-    suffices count(insert(empty,y),z) = count(empty,z)
-    definition {insert, count}
-    rewrite z_neq_y
-    definition count.
-  }
-  case node(x, xs') suppose IH {
-    arbitrary y:Nat, z:Nat
-    suppose z_neq_y
-    suffices count(insert(node(x,xs'),y),z) = count(node(x,xs'),z)
-    definition {insert, count}
-    switch y ≤ x {
-      case true {
-        rewrite z_neq_y
-        definition count.
-      }
-      case false {
-        rewrite z_neq_y
-        rewrite apply IH[y,z] to z_neq_y.
-      }
-    }
-  }
-end
-```
 -->
+
+<!--  LocalWords:  xs quot bool fn suc TODO MultiSet pf mset IH yx le
+ -->
+<!--  LocalWords:  assoc sym xxs trans ys ixsx isort InsertionSort
+ -->
+<!--  LocalWords:  diff neq
+ -->
