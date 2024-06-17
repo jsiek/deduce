@@ -70,7 +70,8 @@ function insertion_sort(List<Nat>) -> List<Nat> {
 But what do we do with the element `x`?  This is where we need to
 define an auxiliary function that inserts `x` into the appropriate
 location within the result of sorting the rest of the list. We'll
-choose the name `insert` for this auxiliary function.
+choose the name `insert` for this auxiliary function. 
+Here is the completed code for `insertion_sort`.
 
 ``` {.deduce #insertion_sort}
 function insertion_sort(List<Nat>) -> List<Nat> {
@@ -373,7 +374,7 @@ The third is true in the current case.
 The fourth, which states that `y` is less-or-equal all the elements in
 `xs'` follows transitively from `y ≤ x` and the that `x` is
 less-or-equal all the elements in `xs'` (`x_le_xs'`) using the theorem
-`all_elements_implies`:
+`all_elements_implies` (in `List.pf`):
 
 ```
 theorem all_elements_implies: 
@@ -554,6 +555,98 @@ proof
 end
 ```
 
+## Prove the correctness of `insertion_sort`
+
+Referring back at the specification of `insertion_sort(xs)`, we need
+to prove that (1) it outputs a list that contains the same elements as
+`xs`, and (2) the output is sorted.
+
+As we did for `insert`, we use multisets and `mset_of` to express the
+requirement o the contents of the output of `insertion_sort`.
+
+```
+theorem insertion_sort_contents: all xs:List<Nat>.
+  mset_of(insertion_sort(xs)) = mset_of(xs)
+```
+
+The `insertion_sort(xs)` function is recursive, so we
+proceed by induction on `xs`. In the case for `xs = empty`,
+we conclude the following using the definitions
+of `insertion_sort` and `mset_of`.
+
+```
+  case empty {
+    conclude mset_of(insertion_sort(empty)) = mset_of(empty)
+	  by definition {insertion_sort, mset_of}.
+  }
+```
+
+In the case for `xs = node(x, xs')`, after applying the definitions of
+`insertion_sort` and `mset_of`, we need to show that
+
+```
+mset_of(insert(insertion_sort(xs'),x)) = m_one(x) ⨄ mset_of(xs')
+```
+
+This follows from the `insert_contents` theorem and
+the induction hypothesis as follows.
+
+```
+  equations
+		  mset_of(insert(insertion_sort(xs'),x)) 
+		= m_one(x) ⨄ mset_of(insertion_sort(xs'))
+		  by insert_contents[insertion_sort(xs')][x]
+	... = m_one(x) ⨄ mset_of(xs')
+		  by rewrite IH.
+```
+
+Here is the complete proof of `insertion_sort_contents`.
+
+``` {.deduce #insertion_sort_contents}
+theorem insertion_sort_contents: all xs:List<Nat>.
+  mset_of(insertion_sort(xs)) = mset_of(xs)
+proof
+  induction List<Nat>
+  case empty {
+    conclude mset_of(insertion_sort(empty)) = mset_of(empty)
+	  by definition {insertion_sort, mset_of}.
+  }
+  case node(x, xs') suppose IH {
+    definition {insertion_sort, mset_of}
+	equations
+ 	        mset_of(insert(insertion_sort(xs'),x)) 
+	      = m_one(x) ⨄ mset_of(insertion_sort(xs'))
+		    by insert_contents[insertion_sort(xs')][x]
+	  ... = m_one(x) ⨄ mset_of(xs')
+	        by rewrite IH.
+  }
+end
+```
+
+Finally, we prove that `insertion_sort(xs)` produces a sorted list.
+Of course the proof is by induction on `xs`. The case for `empty`
+follows from the relevant definitions. The case for `node(x, xs')`
+follows from the `insert_sorted` theorem and the induction hypothesis.
+
+``` {.deduce #insertion_sort_sorted}
+theorem insertion_sort_sorted: all xs:List<Nat>. 
+  sorted( insertion_sort(xs) )
+proof
+  induction List<Nat>
+  case empty {
+    conclude sorted(insertion_sort(empty))
+  	    by definition {insertion_sort, sorted}.
+  }
+  case node(x, xs') suppose IH: sorted( insertion_sort(xs') ) {
+    definition {insertion_sort, sorted}
+	conclude sorted(insert(insertion_sort(xs'),x))
+	    by apply insert_sorted[insertion_sort(xs')][x]
+		   to IH
+  }
+end
+```
+
+
 ## Exercise: tail-recursive variant of `insertion_sort`
 
 The `insertion_sort` function uses more computer memory than necessary
@@ -604,6 +697,9 @@ import List
 <<insert_contents>>
 <<all_elements_insert_node>>
 <<insert_sorted>>
+
+<<insertion_sort_contents>>
+<<insertion_sort_sorted>>
 ```
 -->
 

@@ -22,7 +22,7 @@ on correctness. The rough plan is to cover the following topics.
 
 * Linked Lists (this post)
 * [Sequential Search](https://siek.blogspot.com/2024/06/sequential-search-correctly.html)
-* Insertion Sort
+* [Insertion Sort](https://siek.blogspot.com/2024/06/insertion-sort-correctly.html)
 * Merge Sort
 * Binary Trees
 * Binary Search Trees
