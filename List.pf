@@ -481,6 +481,52 @@ proof
   }
 end
 
+theorem mset_of_empty: all T:type, xs:List<T>.
+  if mset_of(xs) = m_fun(λx{0})
+  then xs = empty
+proof
+  arbitrary T:type, xs:List<T>
+  switch xs {
+    case empty {
+      .
+    }
+    case node(x, xs') {
+      suppose prem
+      have cnt_x_z: cnt(m_fun(λx{0} : fn T->Nat))(x) = 0
+        by definition cnt.
+      have cnt_x_pos: 1 ≤ cnt(m_fun(λx{0} : fn T->Nat))(x)
+        by rewrite symmetric prem
+	   definition {mset_of, cnt, operator ⨄, m_one}
+	   less_equal_add[1][cnt(mset_of(xs'))(x)]
+      conclude false
+          by definition {cnt, operator ≤} in
+	     (rewrite cnt_x_z in cnt_x_pos)
+    }
+  }
+end
+
+theorem som_mset_eq_set: all T:type. all xs:List<T>.
+  set_of_mset(mset_of(xs)) = set_of(xs)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    definition {mset_of, set_of, set_of_mset}
+    have eq:(λx{(if cnt(m_fun(λx{0} : fn T->Nat))(x) = 0 then false else true)} : fn T->bool)
+            = λ_{false}
+     by extensionality
+        arbitrary x:T
+	definition {cnt}.
+    rewrite eq.
+  }
+  case node(x, xs') suppose IH {
+    definition {mset_of, set_of}
+    rewrite som_union[T, m_one(x), mset_of(xs')]
+    rewrite som_one_single[T, x]
+    rewrite IH.
+  }
+end
+
 function remove<T>(List<T>, T) -> List<T> {
   remove(empty, y) = empty
   remove(node(x, xs'), y) =
@@ -489,6 +535,8 @@ function remove<T>(List<T>, T) -> List<T> {
     else
       node(x, remove(xs', y))
 }
+
+
 
 function remove_all<T>(List<T>, T) -> List<T> {
   remove_all(empty, y) = empty
@@ -534,40 +582,99 @@ proof
   }
 end
 
-/*
-UNDER CONSTRUCTION
+theorem all_elements_member: all T:type. all ys: List<T>. all x:T, P: fn T->bool.
+  if all_elements(ys, P) and x ∈ set_of(ys)
+  then P(x)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary x:T, P:fn T->bool
+    suppose prem
+    enable {set_of, operator ∈, rep}
+    conclude false  by prem
+  }
+  case node(y, ys') suppose IH {
+    arbitrary x:T, P:fn T->bool
+    suppose prem
+    have x_sy_or_x_ys: x ∈ single(y) or x ∈ set_of(ys')
+      by enable {set_of}
+         apply member_union[T, x, single(y), set_of(ys')] to prem
+    cases x_sy_or_x_ys
+    case x_sy {
+      have y_eq_x: y = x  by apply single_equal[T,y,x] to x_sy
+      conclude P(x)   by enable {all_elements} rewrite y_eq_x in
+	                 conjunct 0 of prem
+    }
+    case x_ys {
+      have ys_P: all_elements(ys',P)
+          by definition all_elements in conjunct 0 of prem
+      conclude P(x)
+          by apply IH[x,P] to ys_P, x_ys
+    }
+  }
+end
 
-theorem all_elements_set_of: all T:type. all xs:List<T>. all ys:List<T>, P:fn T -> bool.
-  if set_of(xs) = set_of(ys)
-  then all_elements(xs, P) = all_elements(ys, P)
+theorem all_elements_set_of_implies:
+  all T:type. all xs:List<T>. all ys:List<T>, P:fn T -> bool.
+  if (all z:T. if z ∈ set_of(xs) then z ∈ set_of(ys)) and all_elements(ys, P)
+  then all_elements(xs, P) 
 proof
   arbitrary T:type
   induction List<T>
   case empty {
     arbitrary ys:List<T>, P:fn T -> bool
-    suppose s_mt_ys
-    have ys_mt: ys = empty
-        by apply set_of_empty[T,ys]
-	   to symmetric (definition set_of in s_mt_ys)
-    rewrite ys_mt.
+    suppose prem
+    conclude all_elements(empty,P)
+        by definition all_elements.
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>, P:fn T -> bool
-    suppose s_xxs_s_ys
-    switch x ∈ set_of(xs') {
-      case true suppose x_xs {
-        ?
-      }
-      case false suppose not_x_xs {
-        have xs_ysx: all_elements(xs',P) = all_elements(remove(ys, x), P)
-          by apply IH[remove(ys, x), P] to ?
-        ?
-      }
-    }
-
+    suppose prem
+    definition all_elements
+    suffices P(x) and all_elements(xs',P)
+    have x_in_ys: x ∈ set_of(ys)
+      by definition {set_of, operator ∈, single, operator ∪, rep} in
+         (conjunct 0 of prem)[x]
+    have P_x: P(x)
+      by apply all_elements_member[T][ys][x, P] to prem, x_in_ys
+    have xs_ys: all z:T. (if z ∈ set_of(xs') then z ∈ set_of(ys))
+      by arbitrary z:T suppose z_xs
+         have z_xxs: z ∈ set_of(node(x,xs'))
+	     by enable {set_of, operator ∈, operator ∪, rep} z_xs
+         apply (conjunct 0 of prem)[z] to z_xxs
+    have xs_P: all_elements(xs',P)
+      by apply IH[ys, P] to xs_ys, prem
+    P_x, xs_P
   }
 end
-*/
+
+theorem all_elements_set_of: all T:type, xs:List<T>, ys:List<T>, P:fn T -> bool.
+  if set_of(xs) = set_of(ys)
+  then all_elements(xs, P) = all_elements(ys, P)
+proof
+  arbitrary T:type, xs:List<T>, ys:List<T>, P:fn T -> bool
+  suppose xs_ys
+  switch all_elements(xs, P) {
+    case true suppose xs_P_true {
+      have xs_P: all_elements(xs,P)
+          by rewrite xs_P_true.
+      have ys_xs: all z:T. (if z ∈ set_of(ys) then z ∈ set_of(xs))
+          by arbitrary z:T suppose z_ys  rewrite xs_ys  z_ys
+      rewrite (apply all_elements_set_of_implies[T][ys][xs, P] to xs_P, ys_xs).
+    }
+    case false suppose xs_P_false {
+      have not_ys_P: not all_elements(ys,P)
+        by suppose ys_P: all_elements(ys,P)
+	   have xs_P: all_elements(xs, P)
+	     by have xs_ys: all z:T. (if z ∈ set_of(xs) then z ∈ set_of(ys))
+	         by arbitrary z:T suppose z_xs  rewrite symmetric xs_ys  z_xs
+	        apply all_elements_set_of_implies[T][xs][ys, P] to xs_ys, ys_P
+	   rewrite xs_P_false in xs_P
+      rewrite not_ys_P.
+    }
+  }
+end
 
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
   nth(empty, default) = λi{default}
@@ -739,3 +846,17 @@ proof
              by rewrite append_empty[T][reverse(xs)].
 end
 
+theorem mset_equal_implies_set_equal: all T:type, xs:List<T>, ys:List<T>.
+  if mset_of(xs) = mset_of(ys)
+  then set_of(xs) = set_of(ys)
+proof
+  arbitrary T:type, xs:List<T>, ys:List<T>
+  suppose xs_ys
+  equations
+    set_of(xs) = set_of_mset(mset_of(xs))
+               by symmetric som_mset_eq_set[T][xs]
+           ... = set_of_mset(mset_of(ys))
+               by rewrite xs_ys.
+	   ... = set_of(ys)
+               by som_mset_eq_set[T][ys]
+end

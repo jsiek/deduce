@@ -164,11 +164,13 @@ proof
 end
 
 /*
-  UNDER CONSTRUCTION
+  TODO: use operator ⊆, but first
   need to fix generics, implement type passing
+  */
 theorem subset_equal:
   all T:type, A:Set<T>, B:Set<T>.
-  if A ⊆ B and B ⊆ A
+  if (all x:T. if x ∈ A then x ∈ B) and
+     (all x:T. if x ∈ B then x ∈ A)
   then A = B
 proof
   arbitrary U:type, A:Set<U>, B:Set<U>
@@ -181,13 +183,19 @@ proof
 	    by extensionality
 	       arbitrary x:U
                have fx_to_gx: if f(x) then g(x)
-                  by (definition operator ⊆ in (conjunct 0 of prem))
+                  by definition {operator ∈, rep} in
+                     rewrite A_f | B_g in
+                     (conjunct 0 of prem)[x]
+               have gx_to_fx: if g(x) then f(x)
+                  by definition {operator ∈, rep} in
+                     rewrite A_f | B_g in
+                     (conjunct 1 of prem)[x]
                apply iff_equal[f(x),g(x)]
-               to ?
+               to fx_to_gx, gx_to_fx
           rewrite f_g.
 	}
       }
     }
   }
 end
-*/
+
