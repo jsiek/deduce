@@ -26,8 +26,8 @@ after it.
 ``` {.deduce #sorted }
 function sorted(List<Nat>) -> bool {
   sorted(empty) = true
-  sorted(node(a, next)) =
-    sorted(next) and all_elements(next, λb{ a ≤ b })
+  sorted(node(x, xs)) =
+    sorted(xs) and all_elements(xs, λy{ x ≤ y })
 }
 ```
 
@@ -221,8 +221,9 @@ contains `y` and the elements of `xs`. In our tests, we used the
 `count` function to accomplish this. Note that `count` returns a
 function `fn T->Nat`, which is the same thing as a multiset.  The file
 `MultiSet.pf` defines the `MultiSet<T>` type and operations on them such
-as `m_one(x)` for creating a multiset that only contains `x` and `A ⨄ B`
-for combining two multisets.  The file `List.pf` defines a function
+as `m_one(x)` for creating a multiset that only contains `x` and
+the operator `A ⨄ B` for combining two multisets.
+The file `List.pf` defines a function
 `mset_of` that converts a list into a multiset.
 
 ```
@@ -253,24 +254,24 @@ proof
     definition insert
     switch y ≤ x {
       case true suppose yx_true {
-	    conclude mset_of(node(y,node(x,xs'))) = m_one(y) ⨄ mset_of(node(x,xs'))
+        conclude mset_of(node(y,node(x,xs'))) = m_one(y) ⨄ mset_of(node(x,xs'))
             by definition {mset_of,mset_of}.
       }
       case false suppose yx_false {
-	    equations
-			  mset_of(node(x,insert(xs',y))) 
-			= m_one(x) ⨄ mset_of(insert(xs',y))
-			  by definition mset_of.
-		... = m_one(x) ⨄ (m_one(y) ⨄ mset_of(xs'))
-			  by rewrite IH[y].
-		... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
-			  by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')].
-		... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
-			  by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
-		... = m_one(y) ⨄ (m_one(x) ⨄ mset_of(xs'))
-			  by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')].
-		... = m_one(y) ⨄ mset_of(node(x,xs'))
-			  by definition mset_of.
+        equations
+              mset_of(node(x,insert(xs',y))) 
+            = m_one(x) ⨄ mset_of(insert(xs',y))
+              by definition mset_of.
+        ... = m_one(x) ⨄ (m_one(y) ⨄ mset_of(xs'))
+              by rewrite IH[y].
+        ... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
+              by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')].
+        ... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
+              by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
+        ... = m_one(y) ⨄ (m_one(x) ⨄ mset_of(xs'))
+              by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')].
+        ... = m_one(y) ⨄ mset_of(node(x,xs'))
+              by definition mset_of.
       }
     }
   }
@@ -375,7 +376,8 @@ less-or-equal all the elements in `xs'` (`x_le_xs'`) using the theorem
 `all_elements_implies`:
 
 ```
-theorem all_elements_implies: all T:type. all xs:List<T>. all P: fn T -> bool, Q: fn T -> bool.
+theorem all_elements_implies: 
+  all T:type. all xs:List<T>. all P: fn T -> bool, Q: fn T -> bool.
   if all_elements(xs,P) and (all z:T. if P(z) then Q(z)) 
   then all_elements(xs,Q)
 ```
@@ -420,25 +422,33 @@ here.)
 
 The second requires more thinking. We know that `x ≤ y` in this case
 and we already proved that `x` is less-or-equal all the elements in
-`xs'`. So we know that `all_elements(node(y, xs'), λb{x ≤ b})`
-but what we need is `all_elements(insert(xs', y), λb{x ≤ b})`
+`xs'`. So we know that
+```
+all_elements(node(y, xs'), λb{x ≤ b})
+```
+but what we need is
+```
+all_elements(insert(xs', y), λb{x ≤ b})
+```
 
+Here are the proofs of what we know so far.
 ```
   have x_le_y: x ≤ y
-	  by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
-		 have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
-								to dichotomy[y,x], not_yx
-		 apply less_implies_less_equal[x][y] to x_l_y
+      by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
+         have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
+                                to dichotomy[y,x], not_yx
+         apply less_implies_less_equal[x][y] to x_l_y
   have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-		 by definition all_elements  x_le_y, x_le_xs'
+         by definition all_elements  x_le_y, x_le_xs'
 ```
 
-The `all_elements` function shouldn't care about the ordering of the
+Now the `all_elements` function shouldn't care about the ordering of the
 elements in the list, and indeed there is the following theorem in
 `List.pf`:
 
 ```
-theorem all_elements_set_of: all T:type, xs:List<T>, ys:List<T>, P:fn T -> bool.
+theorem all_elements_set_of:
+  all T:type, xs:List<T>, ys:List<T>, P:fn T -> bool.
   if set_of(xs) = set_of(ys)
   then all_elements(xs, P) = all_elements(ys, P)
 ```
@@ -449,7 +459,8 @@ Thankfully, we already showed that this is true for `mset_of` in the
 (also from `List.pf`)
 
 ```
-theorem mset_equal_implies_set_equal: all T:type, xs:List<T>, ys:List<T>.
+theorem mset_equal_implies_set_equal: 
+  all T:type, xs:List<T>, ys:List<T>.
   if mset_of(xs) = mset_of(ys)
   then set_of(xs) = set_of(ys)
 ```
@@ -457,16 +468,16 @@ theorem mset_equal_implies_set_equal: all T:type, xs:List<T>, ys:List<T>.
 So we use these three theorems to prove the following.
 
 ``` {.deduce #all_elements_insert_node}
-theorem all_elements_insert_node: all xs:List<Nat>, x:Nat, P:fn Nat->bool.
-  all_elements(insert(xs,x), P)
-  = all_elements(node(x,xs), P)
+theorem all_elements_insert_node:
+  all xs:List<Nat>, x:Nat, P:fn Nat->bool.
+  all_elements(insert(xs,x), P) = all_elements(node(x,xs), P)
 proof
   arbitrary xs:List<Nat>, x:Nat, P:fn Nat->bool
   have m_xs_x: mset_of(insert(xs, x)) = mset_of(node(x, xs))
       by definition mset_of insert_contents[xs][x]
   have ixsx_xxs: set_of(insert(xs, x)) = set_of(node(x, xs))
      by apply mset_equal_implies_set_equal[Nat,insert(xs, x), node(x, xs)] 
-	    to m_xs_x
+        to m_xs_x
   apply all_elements_set_of[Nat, insert(xs,x), node(x, xs), P]
   to ixsx_xxs
 end
@@ -478,11 +489,11 @@ proof of `insert_sorted`.
 
 ```
   have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
-	  by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
-		 x_le_y_xs'
+      by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
+         x_le_y_xs'
   conclude sorted(insert(xs',y)) and
-		   all_elements(insert(xs',y),λb{x ≤ b})
-	  by s_xs'_y, x_le_xs'_y
+           all_elements(insert(xs',y),λb{x ≤ b})
+      by s_xs'_y, x_le_xs'_y
 ```
 
 Here is the complete proof of `insert_sorted`.
@@ -502,7 +513,8 @@ proof
     arbitrary y:Nat
     suppose s_xxs: sorted(node(x,xs'))
     have s_xs: sorted(xs') by definition sorted in s_xxs
-    have x_le_xs': all_elements(xs',λb{(x ≤ b)}) by definition sorted in s_xxs
+    have x_le_xs': all_elements(xs',λb{(x ≤ b)}) 
+        by definition sorted in s_xxs
     suffices sorted(insert(node(x,xs'),y))
     definition insert
     switch y ≤ x {
@@ -512,10 +524,11 @@ proof
         have y_le_x: y ≤ x by rewrite yx_true.
         have x_le_implies_y_le: all z:Nat. (if x ≤ z then y ≤ z)
           by arbitrary z:Nat  suppose x_le_z: x ≤ z
-             conclude y ≤ z by apply less_equal_trans[y][x,z] to y_le_x , x_le_z
+             conclude y ≤ z
+               by apply less_equal_trans[y][x,z] to y_le_x , x_le_z
         have y_le_xs': all_elements(xs',λb{(y ≤ b)})
           by apply all_elements_implies[Nat][xs']
-                       [λb{(x ≤ b)} : fn Nat->bool, λb{(y ≤ b)} : fn Nat->bool]
+                  [λb{(x ≤ b)} : fn Nat->bool, λb{(y ≤ b)} : fn Nat->bool]
              to x_le_xs', x_le_implies_y_le
         s_xs, x_le_xs', y_le_x, y_le_xs'
       }
@@ -523,17 +536,17 @@ proof
         definition sorted
         have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_xs
         have x_le_y: x ≤ y
-		    by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
-		       have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
-			                          to dichotomy[y,x], not_yx
-			   apply less_implies_less_equal[x][y] to x_l_y
+            by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
+               have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
+                                      to dichotomy[y,x], not_yx
+               apply less_implies_less_equal[x][y] to x_l_y
         have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-			   by definition all_elements  x_le_y, x_le_xs'
+               by definition all_elements  x_le_y, x_le_xs'
         have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
             by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
-			   x_le_y_xs'
-		conclude sorted(insert(xs',y)) and
-		         all_elements(insert(xs',y),λb{x ≤ b})
+               x_le_y_xs'
+        conclude sorted(insert(xs',y)) and
+                 all_elements(insert(xs',y),λb{x ≤ b})
             by s_xs'_y, x_le_xs'_y
       }
     }
