@@ -118,6 +118,104 @@ end
 
 theorem merge_contents: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
   if length(xs) + length(ys) = n
+  then mset_of(merge(n, xs, ys)) = mset_of(xs) ⨄ mset_of(ys)
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose prem
+    have lxs_lys_z: length(xs) = 0 and length(ys) = 0
+      by apply add_to_zero[length(xs)][length(ys)] to prem
+    have xs_mt: xs = empty
+      by apply length_zero_empty[Nat,xs] to lxs_lys_z
+    have ys_mt: ys = empty
+      by apply length_zero_empty[Nat,ys] to lxs_lys_z
+    rewrite xs_mt | ys_mt
+    definition {merge, mset_of}
+    symmetric m_sum_empty[Nat, m_fun(λx{0}) :MultiSet<Nat>]
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose prem
+    switch xs {
+      case empty {
+        definition {merge, mset_of}
+        conclude mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
+          by symmetric empty_m_sum[Nat, mset_of(ys)]
+      }
+      case node(x, xs') suppose xs_xxs {
+        switch ys {
+          case empty {
+            definition {merge, mset_of}
+            rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')].
+          }
+          case node(y, ys') suppose ys_yys {
+            definition merge
+            switch x ≤ y {
+              case true suppose xy_true {
+                definition mset_of
+                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
+                  by enable length rewrite xs_xxs | ys_yys in prem
+                have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+                  by enable {operator +,length}
+                     injective suc sxs_sys_sn
+                have IH': mset_of(merge(n',xs',node(y,ys')))
+                        = mset_of(xs') ⨄ mset_of(node(y, ys'))
+                  by apply IH[xs', node(y, ys')] to len_xs_yys
+                rewrite IH'
+                definition mset_of
+                rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+                                    (m_one(y) ⨄ mset_of(ys'))].
+              }
+              case false suppose xy_false {
+                definition mset_of
+                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
+                  by enable length rewrite xs_xxs | ys_yys in prem
+                have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
+                  by enable {operator +,length}
+                     injective suc
+		     rewrite add_suc[length(xs')][length(ys')] in
+		     sxs_sys_sn
+                have IH': mset_of(merge(n',node(x,xs'),ys'))
+                        = mset_of(node(x,xs')) ⨄ mset_of(ys')
+                  by apply IH[node(x,xs'), ys'] to len_xxs_ys
+                rewrite IH'
+                definition mset_of
+                equations
+  		  m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
+		      = m_one(y) ⨄ (m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
+		      by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+		                             mset_of(ys')].
+		  ... = (m_one(y) ⨄ m_one(x)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
+                      by rewrite m_sum_assoc[Nat, m_one(y), m_one(x),
+		               (mset_of(xs') ⨄ mset_of(ys'))].
+		  ... = (m_one(x) ⨄ m_one(y)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
+                      by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
+		  ... = m_one(x) ⨄ (m_one(y) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
+                      by rewrite m_sum_assoc[Nat, m_one(x), m_one(y),
+		          (mset_of(xs') ⨄ mset_of(ys'))].
+		  ... = m_one(x) ⨄ ((m_one(y) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
+                      by rewrite m_sum_assoc[Nat, m_one(y), mset_of(xs'),
+		          mset_of(ys')].
+		  ... = m_one(x) ⨄ ((mset_of(xs') ⨄ m_one(y)) ⨄ mset_of(ys'))
+                      by rewrite m_sum_sym[Nat, m_one(y), mset_of(xs')].
+		  ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
+                      by rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(y),
+		         mset_of(ys')].
+		  ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
+                      by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+		          (m_one(y) ⨄ mset_of(ys'))].
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+end
+
+theorem merge_contents_set_of: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
+  if length(xs) + length(ys) = n
   then set_of(merge(n, xs, ys)) = set_of(xs) ∪ set_of(ys)
 proof
   induction Nat

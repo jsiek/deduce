@@ -52,9 +52,8 @@ function search(List<Nat>, Nat) -> Nat {
 ```
 
 Let us consider the case for the `empty` list. Looking at the
-specification of `search`, we need to return a number that
-is greater or equal to zero because `y` is certainly not in the
-`empty` list. Let us choose `0`.
+specification of `search`, we need to return `0`, the length of the
+`empty` list, because `y` is not in the `empty` list.
 
 ```
 function search(List<Nat>, Nat) -> Nat {
