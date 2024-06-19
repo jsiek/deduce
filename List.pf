@@ -676,6 +676,50 @@ proof
   }
 end
 
+theorem all_elements_append: all T:type. all xs:List<T>.
+  all ys:List<T>, P:fn T -> bool.
+  if all_elements(xs, P) and all_elements(ys, P)
+  then all_elements(append(xs, ys), P)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, P:fn T -> bool
+    suppose ys_P
+    definition append
+    conclude all_elements(ys, P) by ys_P
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<T>, P:fn T -> bool
+    suppose all_xxs_ys
+    definition {append, append, all_elements}
+    suffices P(x) and all_elements(append(xs',ys),P)
+    have Px: P(x)  by definition all_elements in all_xxs_ys
+    have Pxsys: all_elements(append(xs',ys),P)
+      by apply IH[ys,P] to definition all_elements in all_xxs_ys
+    Px, Pxsys
+  }
+end
+
+theorem set_of_append: all T:type. all xs:List<T>.
+  all ys:List<T>.
+  set_of(append(xs, ys)) = set_of(xs) ∪ set_of(ys)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>
+    definition {append, set_of}
+    rewrite empty_union[T, set_of(ys)].
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<T>
+    definition {append, set_of}
+    rewrite IH[ys]
+    rewrite union_assoc[T, single(x), set_of(xs'), set_of(ys)].
+  }
+end
+
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
   nth(empty, default) = λi{default}
   nth(node(x, xs), default) = λi{

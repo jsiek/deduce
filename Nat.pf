@@ -1072,3 +1072,18 @@ proof
         by definition operator + in snmz
   }
 end
+
+theorem not_less_equal_greater:
+  all x:Nat, y:Nat.
+  if not (x ≤ y) then y < x
+proof
+  arbitrary x:Nat, y:Nat
+  suppose not_xy
+  cases dichotomy[x,y]
+  case x_le_y {
+    apply not_xy to x_le_y
+  }
+  case y_l_x {
+    y_l_x
+  }
+end

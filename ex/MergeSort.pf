@@ -53,6 +53,7 @@ function merge(Nat, List<Nat>, List<Nat>) -> List<Nat> {
    }
 }
 
+/*
 function insert(List<Nat>,Nat) -> List<Nat> {
   insert(empty, x) = node(x, empty)
   insert(node(y, next), x) =
@@ -63,37 +64,43 @@ function insert(List<Nat>,Nat) -> List<Nat> {
 }
 
 // Turn a binary tree into a sorted list
-function msort(Tree<Nat>) -> List<Nat> {
-  msort(tree_empty) = empty
-  msort(tree_node(x, L, R)) =
-    let ls = msort(L)
-    let rs = msort(R)
+function msort_tree(Tree<Nat>) -> List<Nat> {
+  msort_tree(tree_empty) = empty
+  msort_tree(tree_node(x, L, R)) =
+    let ls = msort_tree(L)
+    let rs = msort_tree(R)
     let xs = merge(length(ls) + length(rs), ls, rs)
     insert(xs, x)
 }
 
 define merge_sort : fn List<Nat> -> List<Nat>
-  = λxs{ msort(first(tree_of(log(length(xs)), xs))) }
+  = λxs{ msort_tree(first(tree_of(log(length(xs)), xs))) }
+*/
 
-assert merge_sort(empty) = empty
-assert merge_sort(node(1, empty)) = node(1, empty)
-assert merge_sort(node(2, node(1, empty))) = node(1, node(2, empty))
-assert merge_sort(node(3, node(2, node(1, empty)))) = node(1, node(2, node(3, empty)))
-assert merge_sort(node(4, node(3, node(2, node(1, empty))))) = node(1, node(2, node(3, node(4, empty))))
-
-function msort2(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
+function msort(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
   msort(0, xs) =
     switch xs {
       case empty { pair(empty, empty) }
       case node(x, xs') { pair(node(x, empty), xs') }
     }
   msort(suc(n'), xs) =
-    let p1 = msort2(n', xs)
-    let p2 = msort2(n', second(p1))
+    let p1 = msort(n', xs)
+    let p2 = msort(n', second(p1))
     let ys = first(p1)
     let zs = first(p2)
     pair(merge(length(ys) + length(zs), ys, zs), second(p2))
 }
+
+define merge_sort : fn List<Nat> -> List<Nat>
+  = λxs{ first(msort(log(length(xs)), xs)) }
+  
+assert merge_sort(empty) = empty
+assert merge_sort(node(1, empty)) = node(1, empty)
+assert merge_sort(node(2, node(1, empty))) = node(1, node(2, empty))
+assert merge_sort(node(3, node(2, node(1, empty))))
+       = node(1, node(2, node(3, empty)))
+assert merge_sort(node(4, node(3, node(2, node(1, empty)))))
+       = node(1, node(2, node(3, node(4, empty))))
 
 function sorted(List<Nat>) -> bool {
   sorted(empty) = true
@@ -214,102 +221,22 @@ proof
   }
 end
 
-theorem merge_contents_set_of: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
-  if length(xs) + length(ys) = n
-  then set_of(merge(n, xs, ys)) = set_of(xs) ∪ set_of(ys)
+theorem set_of_merge: all xs:List<Nat>, ys:List<Nat>.
+  set_of(merge(length(xs) + length(ys), xs, ys)) = set_of(xs) ∪ set_of(ys)
 proof
-  induction Nat
-  case 0 {
-    arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem
-    have lxs_lys_z: length(xs) = 0 and length(ys) = 0
-      by apply add_to_zero[length(xs)][length(ys)] to prem
-    have xs_mt: xs = empty
-      by apply length_zero_empty[Nat,xs] to lxs_lys_z
-    have ys_mt: ys = empty
-      by apply length_zero_empty[Nat,ys] to lxs_lys_z
-    rewrite xs_mt | ys_mt
-    definition {merge, set_of}
-    symmetric union_empty[Nat, char_fun(λx{false}) :Set<Nat>]
-  }
-  case suc(n') suppose IH {
-    arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem
-    switch xs {
-      case empty {
-        definition {merge, set_of}
-        conclude set_of(ys) = char_fun(λx{false}) ∪ set_of(ys)
-          by symmetric empty_union[Nat, set_of(ys)]
-      }
-      case node(x, xs') suppose xs_xxs {
-        switch ys {
-          case empty {
-            definition {merge, set_of}
-            rewrite union_empty[Nat, single(x) ∪ set_of(xs')].
-          }
-          case node(y, ys') suppose ys_yys {
-            definition merge
-            switch x ≤ y {
-              case true suppose xy_true {
-                definition set_of
-                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable length rewrite xs_xxs | ys_yys in prem
-                have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-                  by enable {operator +,length}
-                     injective suc sxs_sys_sn
-                have IH': set_of(merge(n',xs',node(y,ys')))
-                        = set_of(xs') ∪ set_of(node(y, ys'))
-                  by apply IH[xs', node(y, ys')] to len_xs_yys
-                rewrite IH'
-                definition set_of
-                rewrite union_assoc[Nat, single(x), set_of(xs'),
-                                    (single(y) ∪ set_of(ys'))].
-              }
-              case false suppose xy_false {
-                definition set_of
-                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable length rewrite xs_xxs | ys_yys in prem
-                have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
-                  by enable {operator +,length}
-                     injective suc
-		     rewrite add_suc[length(xs')][length(ys')] in
-		     sxs_sys_sn
-                have IH': set_of(merge(n',node(x,xs'),ys'))
-                        = set_of(node(x,xs')) ∪ set_of(ys')
-                  by apply IH[node(x,xs'), ys'] to len_xxs_ys
-                rewrite IH'
-                definition set_of
-                equations
-  		  single(y) ∪ ((single(x) ∪ set_of(xs')) ∪ set_of(ys'))
-		      = single(y) ∪ (single(x) ∪ (set_of(xs') ∪ set_of(ys')))
-		      by rewrite union_assoc[Nat, single(x), set_of(xs'),
-		                             set_of(ys')].
-		  ... = (single(y) ∪ single(x)) ∪ (set_of(xs') ∪ set_of(ys'))
-                      by rewrite union_assoc[Nat, single(y), single(x),
-		               (set_of(xs') ∪ set_of(ys'))].
-		  ... = (single(x) ∪ single(y)) ∪ (set_of(xs') ∪ set_of(ys'))
-                      by rewrite union_sym[Nat, single(x), single(y)].
-		  ... = single(x) ∪ (single(y) ∪ (set_of(xs') ∪ set_of(ys')))
-                      by rewrite union_assoc[Nat, single(x), single(y),
-		          (set_of(xs') ∪ set_of(ys'))].
-		  ... = single(x) ∪ ((single(y) ∪ set_of(xs')) ∪ set_of(ys'))
-                      by rewrite union_assoc[Nat, single(y), set_of(xs'),
-		          set_of(ys')].
-		  ... = single(x) ∪ ((set_of(xs') ∪ single(y)) ∪ set_of(ys'))
-                      by rewrite union_sym[Nat, single(y), set_of(xs')].
-		  ... = single(x) ∪ (set_of(xs') ∪ (single(y) ∪ set_of(ys')))
-                      by rewrite union_assoc[Nat, set_of(xs'), single(y),
-		         set_of(ys')].
-		  ... = (single(x) ∪ set_of(xs')) ∪ (single(y) ∪ set_of(ys'))
-                      by rewrite union_assoc[Nat, single(x), set_of(xs'),
-		          (single(y) ∪ set_of(ys'))].
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  arbitrary xs:List<Nat>, ys:List<Nat>
+  have mset_of_merge: mset_of(merge(length(xs) + length(ys), xs, ys))
+                    = mset_of(xs) ⨄ mset_of(ys)
+    by apply merge_contents[length(xs) + length(ys)][xs, ys] to .
+  equations
+    set_of(merge(length(xs) + length(ys), xs, ys))
+        = set_of_mset(mset_of(merge(length(xs) + length(ys), xs, ys)))
+          by symmetric som_mset_eq_set[Nat]
+	                     [merge(length(xs) + length(ys), xs, ys)]
+    ... = set_of_mset(mset_of(xs)) ∪ set_of_mset(mset_of(ys))
+          by rewrite mset_of_merge  som_union[Nat,mset_of(xs),mset_of(ys)]
+    ... = set_of(xs) ∪ set_of(ys)
+          by rewrite som_mset_eq_set[Nat][xs] | som_mset_eq_set[Nat][ys].
 end
 
 theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
@@ -344,24 +271,42 @@ proof
             conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
           }
           case node(y, ys') suppose ys_yys {
+            have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
+                by enable length rewrite xs_xxs | ys_yys in prem
+	    have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+	      by enable {operator +,length}
+		 injective suc sxs_sys_sn
+            have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
+              by definition {operator +,length}
+	         rewrite symmetric len_xs_yys
+		 definition length
+		 rewrite add_suc[length(xs')][length(ys')].
+	    have s_xs: sorted(xs')
+	      by enable sorted rewrite xs_xxs in prem
+	    have s_xxs: sorted(node(x, xs'))
+	      by enable sorted rewrite xs_xxs in prem
+	    have s_ys: sorted(ys')
+	      by definition sorted in rewrite ys_yys in prem
+	    have s_yys: sorted(node(y,ys'))
+	      by rewrite ys_yys in prem
+	    have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
+	      by apply IH[xs',node(y,ys')]
+		 to s_xs, s_yys, len_xs_yys
+	    have IH_xxs_ys: sorted(merge(n',node(x,xs'),ys'))
+	      by apply IH[node(x,xs'),ys']
+		 to s_xxs, s_ys, len_xxs_ys
+	    have x_le_xs: all_elements(xs', λb{x ≤ b})
+	      by definition sorted in rewrite xs_xxs in prem
+	      /*
+	    have x_le_xxs: all_elements(node(x,xs'), λb{x ≤ b})
+	      by definition all_elements
+	         less_equal_refl[x], x_le_xs
+		 */
+	    have y_le_ys: all_elements(ys', λb{y ≤ b})
+	      by definition sorted in rewrite ys_yys in prem
+	    
             switch x ≤ y {
               case true suppose xy_true {
-                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable length rewrite xs_xxs | ys_yys in prem
-                have len_xs_ys: length(xs') + length(node(y,ys')) = n'
-                  by enable {operator +,length}
-                     injective suc sxs_sys_sn
-                have s_xs: sorted(xs')
-                  by enable sorted rewrite xs_xxs in prem
-                have s_yys: sorted(node(y,ys'))
-                  by rewrite ys_yys in prem
-                have IH': sorted(merge(n',xs',node(y,ys')))
-                  by apply IH[xs',node(y,ys')]
-                     to s_xs, s_yys, len_xs_ys
-                have x_le_xs: all_elements(xs', λb{x ≤ b})
-                  by definition sorted in rewrite xs_xxs in prem
-                have y_le_ys: all_elements(ys', λb{y ≤ b})
-                  by definition sorted in rewrite ys_yys in prem
                 have x_y: x ≤ y by rewrite xy_true.
                 have y_le_implies_x_le: all z:Nat. if y ≤ z then x ≤ z
                   by arbitrary z:Nat suppose y_z
@@ -374,13 +319,80 @@ proof
                   by definition all_elements
                      x_y, x_le_ys
                 definition sorted
+		suffices sorted(merge(n',xs',node(y,ys')))
+		     and all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b})
+		have som: set_of(merge(n',xs',node(y,ys')))
+		   = set_of(xs') ∪ set_of(node(y,ys'))
+		     by rewrite symmetric len_xs_yys
+		        set_of_merge[xs', node(y, ys')]
+		have set_of_xs_yys_append:
+		       set_of(xs') ∪ set_of(node(y,ys'))
+		     = set_of(append(xs', node(y, ys')))
+		     by symmetric set_of_append[Nat][xs'][node(y, ys')]
+		have set_of_merge_append:
+		     set_of(merge(n',xs',node(y,ys')))
+		     = set_of(append(xs', node(y, ys')))
+		     by transitive som set_of_xs_yys_append
+		have all_xs_yys:
+		     all_elements(append(xs', node(y, ys')), λb{x ≤ b})
+		  by apply all_elements_append[Nat][xs']
+		              [node(y,ys'), λb{x ≤ b}:fn Nat->bool]
+		     to x_le_xs, x_le_yys
                 have x_le_m_xs_yys:
                   all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
-                  by ?
-                ?
+                  by rewrite (apply all_elements_set_of[Nat,
+		      merge(n',xs',node(y,ys')), append(xs', node(y, ys')),
+		         λb{x ≤ b}:fn Nat->bool]
+			 to set_of_merge_append)
+	             all_xs_yys
+                IH_xs_yys, x_le_m_xs_yys
               }
-              case false {
-                ?
+              case false suppose xy_false {
+	        definition sorted
+		suffices sorted(merge(n',node(x,xs'),ys'))
+		   and all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
+
+		have som: set_of(merge(n',node(x,xs'),ys'))
+		   = set_of(node(x,xs')) ∪ set_of(ys')
+		     by rewrite symmetric len_xxs_ys
+		        set_of_merge[node(x,xs'), ys']
+		have set_of_xxs_ys_append:
+		       set_of(node(x,xs')) ∪ set_of(ys')
+		     = set_of(append(node(x,xs'), ys'))
+		     by symmetric set_of_append[Nat][node(x,xs')][ys']
+		have set_of_merge_append:
+		     set_of(merge(n',node(x,xs'),ys'))
+		     = set_of(append(node(x,xs'), ys'))
+		     by transitive som set_of_xxs_ys_append
+		     
+		have not_x_y: not (x ≤ y)
+		  by suppose xs rewrite xy_false in xs
+		have y_x: y ≤ x
+		  by apply less_implies_less_equal[y][x] to
+		     (apply not_less_equal_greater[x,y] to not_x_y)
+                have x_le_implies_y_le: all z:Nat. if x ≤ z then y ≤ z
+                  by arbitrary z:Nat suppose x_z
+                     apply less_equal_trans[y][x,z] to y_x, x_z
+                have y_le_xs: all_elements(xs', λb{y ≤ b})
+                  by apply all_elements_implies[Nat][xs']
+                       [λb{x ≤ b} : fn Nat -> bool, λb{y ≤ b} : fn Nat -> bool]
+                     to x_le_xs, x_le_implies_y_le
+                have y_le_xxs: all_elements(node(x,xs'), λb{y ≤ b})
+                  by definition all_elements
+                     y_x, y_le_xs
+		have all_xxs_ys:
+		     all_elements(append(node(x,xs'), ys'), λb{y ≤ b})
+		  by apply all_elements_append[Nat][node(x,xs')]
+		              [ys', λb{y ≤ b}:fn Nat->bool]
+		     to y_le_xxs, y_le_ys
+                have y_le_m_xxs_ys:
+                  all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
+                  by rewrite (apply all_elements_set_of[Nat,
+		      merge(n',node(x,xs'),ys'), append(node(x,xs'), ys'),
+		         λb{y ≤ b}:fn Nat->bool]
+			 to set_of_merge_append)
+	             all_xxs_ys
+                IH_xxs_ys, y_le_m_xxs_ys
               }
             }
           }
@@ -388,4 +400,114 @@ proof
       }
     }
   }
+end
+
+theorem msort_empty: all n:Nat.
+  first(msort(n, empty)) = empty
+  and
+  second(msort(n, empty)) = empty
+proof
+  induction Nat
+  case 0 {
+    definition {msort, first, second}.
+  }
+  case suc(n') suppose IH {
+    definition {msort, first,length}
+    have first_empty: first(msort(n',empty)) = empty
+      by rewrite conjunct 0 of IH.
+    have second_empty: second(msort(n',empty)) = empty
+      by rewrite conjunct 1 of IH.
+    rewrite first_empty
+    rewrite second_empty
+    rewrite first_empty
+    definition {operator +, merge, second}
+    rewrite second_empty.
+  }
+end
+
+theorem msort_first_empty: all n:Nat.
+  first(msort(n, empty)) = empty
+proof
+  arbitrary n:Nat
+  conjunct 0 of msort_empty[n]
+end
+
+theorem msort_second_empty: all n:Nat.
+  second(msort(n, empty)) = empty
+proof
+  arbitrary n:Nat
+  conjunct 1 of msort_empty[n]
+end
+
+theorem msort_sorted: all n:Nat. all xs:List<Nat>. 
+  sorted(first(msort(n, xs)))
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>
+    switch xs {
+      case empty {
+        definition {msort, first, sorted}.
+      }
+      case node(x, xs') {
+        definition {msort, first, sorted, sorted, all_elements}.
+      }
+    }
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>
+    have IH1: sorted(first(msort(n',xs)))
+      by IH[xs]
+    have IH2: sorted(first(msort(n',second(msort(n',xs)))))
+      by IH[second(msort(n',xs))]
+    definition {msort, first}
+    apply merge_sorted[length(first(msort(n',xs))) + length(first(msort(n',second(msort(n',xs)))))]
+      [first(msort(n',xs)),
+       first(msort(n',second(msort(n',xs))))] to IH1, IH2
+  }
+end
+
+theorem merge_sort_sorted: all xs:List<Nat>.
+  sorted(merge_sort(xs))
+proof
+  arbitrary xs:List<Nat>
+  definition merge_sort
+  msort_sorted[log(length(xs))][xs]
+end
+
+theorem msort_contents: all n:Nat. all xs:List<Nat>.
+  mset_of(first(msort(n, xs)))  ⨄  mset_of(second(msort(n, xs)))
+  = mset_of(xs)
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>
+    definition msort
+    switch xs {
+      case empty {
+        definition {first, second, mset_of, operator ⨄,cnt, operator+}.
+      }
+      case node(x, xs') {
+        definition {first, second, mset_of, mset_of}
+	rewrite m_sum_empty[Nat,m_one(x)].
+      }
+    }
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>
+    definition msort
+    have IH1: mset_of(first(msort(n',xs))) ⨄ mset_of(second(msort(n',xs)))
+             = mset_of(xs)
+	     by IH[xs]
+    rewrite IH1	      
+    ?
+  }
+end
+
+theorem merge_sort_contents: all xs:List<Nat>.
+  mset_of(merge_sort(xs)) = mset_of(xs)
+proof
+  arbitrary xs:List<Nat>
+  definition merge_sort
+  ?
 end
