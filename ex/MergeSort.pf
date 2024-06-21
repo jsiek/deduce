@@ -805,5 +805,14 @@ theorem merge_sort_contents: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
+  let ys = first(msort(suc(log(length(xs))),xs))
+  have ys_def: first(msort(suc(log(length(xs))),xs)) = ys  by definition ys.
+  let ls = second(msort(suc(log(length(xs))),xs))
+  have ls_def: second(msort(suc(log(length(xs))),xs)) = ls  by definition ls.
+  
+  have len_xs: length(xs) < pow2(suc(log(length(xs))))
+    by sorry
+  have len_msort: length(ys) = length(xs)
+    by rewrite ys_def in apply msort_length_less[suc(log(length(xs)))][xs] to len_xs
   ?
 end
