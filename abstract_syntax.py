@@ -1231,6 +1231,24 @@ class PLet(Proof):
     self.body.uniquify(body_env)
 
 @dataclass
+class PTLet(Proof):
+  var: str
+  rhs : Term
+  body: Proof
+
+  def __str__(self):
+      return 'let ' + self.var + ' = ' + str(self.rhs) + '\n' \
+         + str(self.body)
+
+  def uniquify(self, env):
+    self.rhs.uniquify(env)
+    body_env = {x:y for (x,y) in env.items()}
+    new_var = generate_name(self.var)
+    body_env[self.var] = new_var
+    self.var = new_var
+    self.body.uniquify(body_env)
+    
+@dataclass
 class PTerm(Proof):
   term: Term
   because: Proof
@@ -1435,6 +1453,15 @@ class PHole(Proof):
   
   def __str__(self):
       return '?'
+    
+  def uniquify(self, env):
+    pass
+
+@dataclass
+class PSorry(Proof):
+  
+  def __str__(self):
+      return 'sorry'
     
   def uniquify(self, env):
     pass

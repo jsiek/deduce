@@ -904,3 +904,65 @@ proof
 	   ... = set_of(ys)
                by som_mset_eq_set[T][ys]
 end
+
+/*
+theorem mset_length: all T:type. all xs:List<T>. all ys:List<T>.
+  if mset_of(xs) = mset_of(ys)
+  then length(xs) = length(ys)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>
+    suppose prem
+    definition {length}
+    switch ys {
+      case empty {
+        .
+      }
+      case node(y, ys') suppose ys_yys {
+	let m_empty = (λx{0} : fn T->Nat)
+        have eq: m_empty
+  	         = λx{(if y = x then 1 else 0) + cnt(mset_of(ys'))(x)}
+	  by injective m_fun
+	     definition m_empty
+	     definition {mset_of,m_one,operator ⨄, cnt} in
+	     rewrite ys_yys in prem
+	have app_empty_z: m_empty(y) = 0
+	   by definition m_empty.
+	have not_app_empty_z: not (m_empty(y) = 0)
+	   by rewrite eq
+	      definition operator +.
+        conclude false
+          by apply not_app_empty_z to app_empty_z
+      }
+    }
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<T>
+    suppose prem
+    switch ys {
+      case empty suppose ys_empty {
+	let m_empty = (λx{0} : fn T->Nat)
+        have eq: (λz{(if x = z then 1 else 0) + cnt(mset_of(xs'))(z)} : fn T->Nat)
+  	         = m_empty
+	  by injective m_fun
+	     definition m_empty
+	     definition {mset_of,m_one,operator ⨄, cnt} in
+	     rewrite ys_empty in prem
+	have app_empty_z: m_empty(x) = 0
+	   by definition m_empty.
+	have not_app_empty_z: not (m_empty(x) = 0)
+	   by rewrite symmetric eq
+	      definition operator+.
+        conclude false
+          by apply not_app_empty_z to app_empty_z
+      }
+      case node(y, ys') suppose ys_yys {
+        definition length
+        ?
+      }
+    }
+  }
+end
+*/

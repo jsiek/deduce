@@ -392,6 +392,48 @@ proof
   conclude false by apply less_irreflexive[y] to y_l_y
 end
 
+theorem less_implies_not_less_equal:
+  all x:Nat. all y:Nat.
+  if x < y then not (y ≤ x)
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat
+    suppose y_pos
+    suppose y_le_z
+    switch y {
+      case 0 suppose y_z {
+        conclude false   by definition {operator <, operator≤} in
+	                    rewrite y_z in y_pos
+      }
+      case suc(y') suppose y_sy {
+        conclude false   by definition operator≤ in rewrite y_sy in y_le_z
+      }
+    }
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    suppose sx_l_y
+    suppose y_le_sx
+    switch y {
+      case 0 suppose y_z {
+        conclude false  by definition{operator<, operator≤} in
+	                   rewrite y_z in sx_l_y
+      }
+      case suc(y') suppose y_sy {
+	have x_l_y: x' < y'
+	  by definition {operator<}
+	     definition {operator ≤} in
+	     definition {operator<} in rewrite y_sy in sx_l_y
+        have y_le_x: y' ≤ x'
+	  by definition operator≤ in rewrite y_sy in y_le_sx
+	conclude false  by apply (apply IH[y'] to x_l_y) to y_le_x
+      }
+    }
+  }
+end
+
+
 theorem less_implies_not_greater:
   all x:Nat. all y:Nat.
   if x < y then not (y < x)
@@ -425,6 +467,7 @@ proof
     }
   }
 end
+
 
 theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
@@ -680,7 +723,7 @@ theorem less_equal_add: all x:Nat. all y:Nat.
   x ≤ x + y
 proof
   induction Nat
-  case zero {
+  case 0 {
     arbitrary y:Nat
     definition operator ≤.
   }
@@ -1086,4 +1129,37 @@ proof
   case y_l_x {
     y_l_x
   }
+end
+
+theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
+  if x + y ≤ x + z then y ≤ z
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat, z:Nat
+    suppose y_le_z: 0 + y ≤ 0 + z
+    conclude y ≤ z
+        by definition {operator+, operator≤} in y_le_z
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat, z:Nat
+    suppose sx_y_le_sx_z: suc(x') + y ≤ suc(x') + z
+    have x_y_le_x_z: x' + y ≤ x' + z
+      by definition {operator +, operator ≤} in sx_y_le_sx_z
+    conclude y ≤ z
+      by apply IH[y,z] to x_y_le_x_z
+  }
+end
+
+theorem less_left_cancel: all x:Nat, y:Nat, z:Nat.
+  if x + y < x + z then y < z
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  definition {operator <}
+  suppose sxy_xz
+  have x_sy_le_xz: x + suc(y) ≤ x + z
+    by rewrite add_suc[x][y]
+       sxy_xz
+  conclude suc(y) ≤ z
+    by apply less_equal_left_cancel[x][suc(y), z] to x_sy_le_xz
 end

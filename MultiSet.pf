@@ -107,7 +107,6 @@ proof
 	      have fgh_eq: (λx{(f(x) + g(x)) + h(x)} : fn T->Nat)
 	                 = λx{f(x) + (g(x) + h(x))}
 	        by extensionality arbitrary x:T
-		   definition {}
 		   rewrite add_assoc[f(x)][g(x),h(x)].
               rewrite fgh_eq.
 	    }
@@ -157,7 +156,6 @@ proof
     = λx{((if cnt(A)(x) = 0 then false else true)
          or (if cnt(B)(x) = 0 then false else true))}
     by extensionality  arbitrary x:T
-       definition {}
        switch cnt(A)(x) {
          case 0 suppose Ax_z {
 	   rewrite Ax_z

@@ -256,6 +256,8 @@ def parse_tree_to_ast(e, parent):
         return PTrue(e.meta)
     elif e.data == 'hole_proof':
         return PHole(e.meta)
+    elif e.data == 'sorry_proof':
+        return PSorry(e.meta)
     elif e.data == 'refl_proof':
         return PReflexive(e.meta)
     elif e.data == 'sym_proof':
@@ -284,6 +286,11 @@ def parse_tree_to_ast(e, parent):
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e),
                     parse_tree_to_ast(e.children[3], e))
+    elif e.data == 'let_term_proof':
+        return PTLet(e.meta,
+                     str(e.children[0].value),
+                     parse_tree_to_ast(e.children[1], e),
+                     parse_tree_to_ast(e.children[2], e))
     elif e.data == 'annot':
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),

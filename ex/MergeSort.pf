@@ -92,7 +92,7 @@ function msort(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
 }
 
 define merge_sort : fn List<Nat> -> List<Nat>
-  = λxs{ first(msort(log(length(xs)), xs)) }
+  = λxs{ first(msort(suc(log(length(xs))), xs)) }
   
 assert merge_sort(empty) = empty
 assert merge_sort(node(1, empty)) = node(1, empty)
@@ -472,12 +472,116 @@ theorem merge_sort_sorted: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
-  msort_sorted[log(length(xs))][xs]
+  msort_sorted[suc(log(length(xs)))][xs]
+end
+
+theorem merge_length: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
+  if length(xs) + length(ys) = n
+  then length(merge(n, xs, ys)) = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose _
+    definition {merge, length}.
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose prem
+    definition {merge}
+    switch xs {
+      case empty suppose xs_empty {
+        conclude length(ys) = suc(n')
+	  by definition {length, operator+} in
+	     rewrite xs_empty in prem
+      }
+      case node(x, xs') suppose xs_xxs {
+        switch ys {
+	  case empty suppose ys_empty {
+	    conclude length(node(x,xs')) = suc(n')
+	      by definition {length}
+	         rewrite add_zero[suc(length(xs'))] in
+	         definition {length} in
+	         rewrite xs_xxs | ys_empty in prem
+	  }
+	  case node(y, ys') suppose ys_yys {
+	    switch x ≤ y {
+	      case true {
+                have suc_len_xs_yys:
+                   suc(length(xs') + length(node(y,ys'))) = suc(n')
+                  by definition {length}
+                     definition {operator+} in
+                     rewrite ys_yys in
+                     definition length in
+                     rewrite xs_xxs in prem
+                have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+                   by injective suc suc_len_xs_yys
+                definition length
+                rewrite apply IH[xs', node(y, ys')] to len_xs_yys.
+              }
+              case false {
+                definition length
+                have suc_len: suc(length(xs) + length(ys')) = suc(n')
+                  by rewrite add_suc[length(xs)][length(ys')] in
+                     definition length in
+                     rewrite ys_yys in prem
+                rewrite (rewrite xs_xxs in apply IH[xs, ys']
+                                          to injective suc suc_len).
+              }
+            }
+	  }
+	}
+      }
+    }
+  }
+end
+
+theorem msort_length: all n:Nat. all xs:List<Nat>.
+  length(first(msort(n, xs)))  +  length(second(msort(n, xs))) = length(xs)
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>
+    switch xs {
+      case empty {
+        definition {msort, first, second, length, operator+}.
+      }
+      case node(x, xs') {
+        definition {msort, length, length, first, second, operator+, operator+}.
+      }
+    }
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>
+    definition {msort, first, second}
+
+    let ys = first(msort(n',xs))
+    let ls = second(msort(n',xs))
+    have ys_def: first(msort(n',xs)) = ys  by definition ys.
+    have ls_def: second(msort(n',xs)) = ls  by definition ls.
+    rewrite ys_def | ls_def
+    
+    let zs = first(msort(n', ls))
+    let ms = second(msort(n', ls))
+    have zs_def: first(msort(n', ls)) = zs by definition zs.
+    have ms_def: second(msort(n', ls)) = ms by definition ms.
+    rewrite zs_def | ms_def
+
+    have ys_ls_xs: length(ys) + length(ls) = length(xs)
+      by rewrite ys_def | ls_def in IH[xs]
+    have zs_ms_ls: length(zs) + length(ms) = length(ls)
+      by rewrite zs_def | ms_def in IH[ls]
+    rewrite symmetric ys_ls_xs
+    rewrite symmetric zs_ms_ls
+    
+    rewrite (apply merge_length[length(ys) + length(zs)][ys,zs] to .)
+    rewrite add_assoc[length(ys)][length(zs), length(ms)]
+    .
+  }
 end
 
 theorem msort_contents: all n:Nat. all xs:List<Nat>.
-  mset_of(first(msort(n, xs)))  ⨄  mset_of(second(msort(n, xs)))
-  = mset_of(xs)
+  mset_of(first(msort(n, xs)))  ⨄  mset_of(second(msort(n, xs))) = mset_of(xs)
 proof
   induction Nat
   case 0 {
@@ -495,14 +599,206 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
-    definition msort
-    have IH1: mset_of(first(msort(n',xs))) ⨄ mset_of(second(msort(n',xs)))
-             = mset_of(xs)
-	     by IH[xs]
-    rewrite IH1	      
-    ?
+    definition {msort, first, second}
+    
+    let ys = first(msort(n',xs))
+    let ls = second(msort(n',xs))
+    have ys_def: first(msort(n',xs)) = ys  by definition ys.
+    have ls_def: second(msort(n',xs)) = ls  by definition ls.
+    rewrite ys_def | ls_def
+    
+    let zs = first(msort(n', ls))
+    let ms = second(msort(n', ls))
+    have zs_def: first(msort(n', ls)) = zs by definition zs.
+    have ms_def: second(msort(n', ls)) = ms by definition ms.
+    rewrite zs_def | ms_def
+
+    have IH1: mset_of(ys) ⨄ mset_of(ls) = mset_of(xs)
+	by definition {ys, ls} IH[xs]
+    have IH2: mset_of(zs) ⨄ mset_of(ms) = mset_of(ls)
+	by definition {zs, ms} IH[ls]
+    have m_ys_zs: mset_of(merge(length(ys) + length(zs), ys, zs)) = mset_of(ys) ⨄ mset_of(zs)
+        by apply merge_contents[length(ys) + length(zs)][ys, zs] to .
+    rewrite m_ys_zs
+    rewrite symmetric IH1
+    rewrite symmetric IH2
+    rewrite m_sum_assoc[Nat, mset_of(ys), mset_of(zs), mset_of(ms)].
   }
 end
+
+assert msort(0, interval(10, 1)) = pair(interval(1,1), interval(9, 2))
+assert msort(1, interval(10, 1)) = pair(interval(2,1), interval(8, 3))
+assert msort(2, interval(10, 1)) = pair(interval(4,1), interval(6, 5))
+assert msort(3, interval(10, 1)) = pair(interval(8,1), interval(2, 9))
+assert msort(3, interval(8, 1)) = pair(interval(8,1), empty)
+assert msort(3, interval(7, 1)) = pair(interval(7,1), empty)
+assert msort(3, interval(6, 1)) = pair(interval(6,1), empty)
+
+theorem msort_length_less_equal: all n:Nat. all xs:List<Nat>.
+  if pow2(n) ≤ length(xs)
+  then length(first( msort(n, xs) )) = pow2(n)
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>
+    suppose prem
+    switch xs {
+      case empty suppose xs_mt {
+        conclude false
+            by definition {pow2, length, operator≤} in
+               rewrite xs_mt in prem
+      }
+      case node(x, xs') suppose xs_xxs {
+        definition {msort,first, length, length, pow2}.
+      }
+    }
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>
+    suppose prem
+    have len_xs: pow2(n') + pow2(n') ≤ length(xs)
+      by rewrite add_zero[pow2(n')] in
+         definition {pow2, operator*, operator*,operator*} in prem
+    definition {pow2, msort, first}
+
+    let ys = first(msort(n',xs))
+    let ls = second(msort(n',xs))
+    have ys_def: first(msort(n',xs)) = ys  by definition ys.
+    have ls_def: second(msort(n',xs)) = ls  by definition ls.
+    rewrite ys_def | ls_def
+    
+    let zs = first(msort(n', ls))
+    let ms = second(msort(n', ls))
+    have zs_def: first(msort(n', ls)) = zs by definition zs.
+    have ms_def: second(msort(n', ls)) = ms by definition ms.
+    rewrite zs_def | ms_def
+
+    have p2n_le_xs: pow2(n') ≤ length(xs)
+      by have p2n_le_2p2n: pow2(n') ≤ pow2(n') + pow2(n')
+           by less_equal_add[pow2(n')][pow2(n')]
+         apply less_equal_trans[pow2(n')][pow2(n') + pow2(n'), length(xs)]
+         to p2n_le_2p2n, len_xs
+
+    have len_ys: length(ys) = pow2(n')
+      by rewrite ys_def in apply IH[xs] to p2n_le_xs
+      
+    have len_ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
+      by rewrite ys_def | ls_def in msort_length[n'][xs]
+
+    have p2n_le_ls: pow2(n') ≤ length(ls)
+      by have pp_pl: pow2(n') + pow2(n') ≤ pow2(n') + length(ls)
+           by rewrite symmetric len_ys_ls_eq_xs | len_ys in len_xs
+         apply less_equal_left_cancel[pow2(n')][pow2(n'), length(ls)] to pp_pl
+            
+    have len_zs: length(zs) = pow2(n')
+      by rewrite zs_def in apply IH[ls] to p2n_le_ls
+
+    have len_ys_zs: length(ys) + length(zs) = 2 * pow2(n')
+      by rewrite len_ys | len_zs
+         definition {operator*,operator*,operator*}
+         rewrite add_zero[pow2(n')].
+
+    conclude length(merge(length(ys) + length(zs),ys,zs)) = 2 * pow2(n')
+      by rewrite len_ys_zs
+         apply merge_length[2 * pow2(n')][ys, zs] to len_ys_zs
+  }
+end
+
+theorem msort_length_less: all n:Nat. all xs:List<Nat>.
+  if length(xs) < pow2(n)
+  then length(first( msort(n, xs) )) = length(xs)
+proof
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>
+    suppose prem
+    switch xs {
+      case empty suppose xs_mt {
+        definition {msort, length, first}.
+      }
+      case node(x, xs') suppose xs_xxs {
+        definition {msort,first, length, length}
+        have xs_0: length(xs') = 0
+          by definition {operator ≤, length, operator<, pow2} in rewrite xs_xxs in prem
+        rewrite xs_0.
+      }
+    }
+  }
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>
+    suppose prem
+    definition{msort, first}
+
+    let ys = first(msort(n',xs))
+    let ls = second(msort(n',xs))
+    have ys_def: first(msort(n',xs)) = ys  by definition ys.
+    have ls_def: second(msort(n',xs)) = ls  by definition ls.
+    rewrite ys_def | ls_def
+    
+    let zs = first(msort(n', ls))
+    let ms = second(msort(n', ls))
+    have zs_def: first(msort(n', ls)) = zs by definition zs.
+    have ms_def: second(msort(n', ls)) = ms by definition ms.
+    rewrite zs_def | ms_def
+
+    have xs_le_two_p2n: length(xs) < pow2(n') + pow2(n')
+      by rewrite add_zero[pow2(n')] in
+         definition {pow2, operator*,operator*,operator*} in prem
+
+    have ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
+      by rewrite ys_def | ls_def in msort_length[n'][xs]
+
+    have pn_xs_or_xs_pn: pow2(n') ≤ length(xs) or length(xs) < pow2(n')
+      by dichotomy[pow2(n'), length(xs)]
+    cases pn_xs_or_xs_pn
+    case pn_xs: pow2(n') ≤ length(xs) {
+    
+      have ys_pn: length(ys) = pow2(n')
+          by rewrite ys_def in apply msort_length_less_equal[n'][xs] to pn_xs
+
+      have ls_l_pn: length(ls) < pow2(n')
+          by have pn_ls_l_2pn: pow2(n') + length(ls) < pow2(n') + pow2(n')
+               by rewrite symmetric ys_ls_eq_xs | ys_pn in xs_le_two_p2n
+             apply less_left_cancel[pow2(n'), length(ls), pow2(n')] to pn_ls_l_2pn
+
+      have len_zs: length(zs) = length(ls)
+          by rewrite zs_def in apply IH[ls] to ls_l_pn
+
+      equations
+        length(merge(length(ys) + length(zs),ys,zs))
+            = length(ys) + length(zs)
+              by apply merge_length[length(ys) + length(zs)][ys,zs] to .
+        ... = length(ys) + length(ls)
+              by rewrite len_zs.
+        ... = length(xs)
+              by ys_ls_eq_xs
+    }
+    case xs_pn: length(xs) < pow2(n') {
+    
+      have len_ys: length(ys) = length(xs)
+        by rewrite ys_def in apply IH[xs] to xs_pn
+
+      have len_ls: length(ls) = 0
+        by apply left_cancel[length(ys)][length(ls), 0] to
+           rewrite add_zero[length(ys)] | len_ys
+           rewrite len_ys in ys_ls_eq_xs
+
+      have ls_l_pn: length(ls) < pow2(n')
+        by rewrite len_ls  pow_positive[n'] 
+      
+      have len_zs: length(zs) = 0
+        by rewrite zs_def | len_ls in apply IH[ls] to ls_l_pn
+
+      equations
+        length(merge(length(ys) + length(zs),ys,zs))
+          = length(ys) + length(zs)
+            by apply merge_length[length(ys) + length(zs)][ys, zs] to .
+      ... = length(xs)
+            by rewrite len_zs | add_zero[length(ys)] | len_ys.
+    }   
+  }
+end
+
 
 theorem merge_sort_contents: all xs:List<Nat>.
   mset_of(merge_sort(xs)) = mset_of(xs)

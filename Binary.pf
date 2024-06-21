@@ -5,17 +5,28 @@ import List
 
 function inc(List<bool>) -> List<bool> {
   inc(empty) = node(true, empty)
-  inc(node(b, bs)) =
+  inc(node(b, bs')) =
      if b then
-       node(false, inc(bs))
+       node(false, inc(bs'))
      else
-       node(true, bs)
+       node(true, bs')
 }
 
 function to_binary(Nat) -> List<bool> {
   to_binary(zero) = node(false, empty)
   to_binary(suc(n)) = inc(to_binary(n))
 }
+
+assert to_binary(0) = node(false, empty)
+assert to_binary(1) = node(true, empty)
+assert to_binary(2) = node(false, node(true, empty))
+assert to_binary(3) = node(true, node(true, empty))
+assert to_binary(4) = node(false, node(false, node(true, empty)))
+assert to_binary(5) = node(true, node(false, node(true, empty)))
+assert to_binary(6) = node(false, node(true, node(true, empty)))
+assert to_binary(7) = node(true, node(true, node(true, empty)))
+assert to_binary(8) = node(false, node(false, node(false, node(true, empty))))
+assert to_binary(9) = node(true, node(false, node(false, node(true, empty))))
 
 function from_binary(List<bool>) -> Nat {
   from_binary(empty) = 0
@@ -26,4 +37,126 @@ function from_binary(List<bool>) -> Nat {
       2 * from_binary(bs)
 }
 
-define log : fn Nat -> Nat = λn{ length(to_binary(n)) }
+assert from_binary(node(false, empty)) = 0
+assert from_binary(node(true, empty)) = 1
+assert from_binary(node(false, node(true, empty))) = 2
+assert from_binary(node(true, node(true, empty))) = 3
+assert from_binary(node(false, node(false, node(true, empty)))) = 4
+
+define log : fn Nat -> Nat = λn{ pred(length(to_binary(n))) }
+
+assert log(1) = 0
+assert log(2) = 1
+assert log(3) = 1
+assert log(4) = 2
+assert log(5) = 2
+assert log(6) = 2
+assert log(7) = 2
+assert log(8) = 3
+assert log(9) = 3
+assert log(10) = 3
+assert log(11) = 3
+assert log(12) = 3
+assert log(13) = 3
+assert log(14) = 3
+assert log(15) = 3
+assert log(16) = 4
+
+function pow2(Nat) -> Nat {
+  pow2(0) = 1
+  pow2(suc(n')) = 2 * pow2(n')
+}
+
+assert pow2(0) = 1
+assert pow2(1) = 2
+assert pow2(2) = 4
+assert pow2(3) = 8
+assert pow2(4) = 16
+
+
+/*
+theorem length_to_binary_2: all n:Nat.
+  length(to_binary(2 * suc(n))) = suc(length(to_binary(n)))
+proof
+  induction Nat
+  case 0 {
+    definition {operator*,operator*, operator+, to_binary, length, to_binary,
+                to_binary, inc, length, length}.
+  }
+  case suc(n') suppose IH {
+    definition {operator*, to_binary, operator+, to_binary}
+    ?
+  }
+end
+
+
+theorem log_pow_inverse: all n:Nat.
+  log(pow2(n)) = n
+proof
+  induction Nat
+  case 0 {
+    definition {pow2, log, to_binary, to_binary, inc, length, pred}.
+  }
+  case suc(n') suppose IH: log(pow2(n')) = n' {
+    definition {pow2, log}
+    suffices pred(length(to_binary(2 * pow2(n')))) = suc(n')
+    ?
+  }
+end
+*/
+
+theorem length_inc: all b:List<bool>.
+  0 < length(inc(b))
+proof
+  arbitrary b:List<bool>
+  switch b {
+    case empty {
+      definition {inc, length, operator <, operator ≤}.
+    }
+    case node(d, b') {
+      definition {inc, length}
+      switch d {
+        case true {
+          definition {operator <, operator ≤}.
+	}
+	case false {
+          definition {operator <, operator ≤}.
+	}
+      }
+    }
+  }
+end
+
+theorem positive_suc: all n:Nat.
+  if 0 < n
+  then some n':Nat. n = suc(n')
+proof
+  arbitrary n:Nat
+  switch n {
+    case 0 {
+      suppose z_l_z: 0 < 0
+      conclude false  by definition {operator<, operator≤} in z_l_z
+    }
+    case suc(n') {
+      suppose z_l_sn: 0 < suc(n')
+      choose n'.
+    }
+  }
+end
+
+theorem pow_positive: all n:Nat. 0 < pow2(n)
+proof
+  induction Nat
+  case 0 {
+    definition {pow2, operator<, operator≤}.
+  }
+  case suc(n') suppose IH {
+    definition {pow2, operator<, operator≤}
+    obtain pn' where pn_s: pow2(n') = suc(pn')
+        from apply positive_suc[pow2(n')] to IH
+    rewrite pn_s
+    definition {operator*,operator*,operator*}
+    rewrite add_zero[suc(pn')]
+    definition {operator+}.
+  }
+end

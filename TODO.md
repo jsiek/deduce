@@ -1,3 +1,5 @@
+[ ] add let-binding in proofs
+
 [ ] fix generics, implement type passing, see operator ⊆ in Set.pf
 
 [ ] print char_fun(λx{false}) as ∅

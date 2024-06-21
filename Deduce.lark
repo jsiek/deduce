@@ -135,6 +135,7 @@ ident: IDENT              -> ident
 
 ?proof_hi: IDENT                                         -> proof_var
     | "have" IDENT ":" term "by" proof proof             -> let
+    | "let" IDENT "=" term proof                         -> let_term_proof
     | "term" term "by" proof proof                       -> term_proof
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
@@ -146,6 +147,7 @@ ident: IDENT              -> ident
     | proof_hi "[" term_list "]"                         -> all_elim
     | proof_hi "<" type_list ">"                         -> all_elim
     | "?"                                                -> hole_proof
+    | "sorry"                                            -> sorry_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
     | "case" IDENT ":" term "{" proof "}"                -> case_annot

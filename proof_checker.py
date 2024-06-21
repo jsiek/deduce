@@ -139,6 +139,8 @@ def rewrite(loc, formula, equation):
       return DefinedValue(loc2, name, rewrite(loc, body, equation))
     case Generic(loc2, typarams, body):
       return Generic(loc2, typarams, rewrite(loc, body, equation))
+    case TAnnote(loc2, subject, typ):
+      return TAnnote(loc, rewrite(loc, subject, equation), typ)
     case _:
       # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
@@ -220,10 +222,16 @@ def check_proof(proof, env):
       ret = new_formula
     case PHole(loc):
       error(loc, 'unfinished proof')
+    case PSorry(loc):
+      error(loc, "can't use sorry in context with unkown goal")
     case PVar(loc, name, index):
       ret = env.get_formula_of_proof_var(proof)
     case PTrue(loc):
       ret = Bool(loc, True)
+    case PTLet(loc, var, rhs, rest):
+      typ = type_synth_term(rhs, env, None, [])
+      body_env = env.define_term_var(loc, var, typ, rhs)
+      ret = check_proof(rest, body_env)
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)
       check_proof_of(reason, frm, env)
@@ -339,6 +347,9 @@ def check_proof_of(proof, formula, env):
       error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) \
             + '\nGivens:\n' + env.proofs_str())
 
+    case PSorry(loc):
+      print('warning, unfinished proof')
+      
     case EnableDefs(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]
       old_defs = get_reduce_only()
@@ -471,6 +482,11 @@ def check_proof_of(proof, formula, env):
           check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
+      
+    case PTLet(loc, var, rhs, rest):
+      typ = type_synth_term(rhs, env, None, [])
+      body_env = env.define_term_var(loc, var, typ, rhs)
+      ret = check_proof_of(rest, formula, body_env)
       
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)
