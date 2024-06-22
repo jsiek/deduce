@@ -2,6 +2,7 @@ import Nat
 import Option
 import Set
 import MultiSet
+import Pair
 
 union List<T> {
   empty
@@ -36,17 +37,10 @@ function mset_of<T>(List<T>) -> MultiSet<T> {
 assert length(empty) = 0
 assert length(node(42, empty)) = 1
 
-theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
-proof
-  arbitrary x:Nat
-  definition {length, length, operator +}.
-end
-
-theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
-proof
-  arbitrary U:type, x:U
-  definition {length, length, operator +}.
-end
+function map<T,U>(List<T>, fn T->U) -> List<U> {
+  map(empty, f) = empty
+  map(node(x, ls), f) = node(f(x), map(ls, f))
+}
 
 define L1 = node(1, node(2, empty))
 define L2 = node(3, node(4, node(5, empty)))
@@ -58,6 +52,163 @@ assert append(L1, L2) = L3
 assert reverse(L1) = node(2, node(1, empty))
 assert reverse(L2) = node(5, node(4, node(3, empty)))
 assert length(append(L1, L2)) = length(L1) + length(L2)
+
+assert map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
+
+function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
+  foldr(empty, u, c) = u
+  foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c))
+}
+
+assert foldr(L1, 0, λa,b{ a + b }) = 3
+assert foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
+
+function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
+  foldl(empty, u, c) = u
+  foldl(node(t, ls), u, c) = foldl(ls, c(u, t), c)
+}
+
+assert foldl(L1, 0, λa,b{ a + b }) = 3
+assert foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
+
+function down_from(Nat) -> List<Nat> {
+  down_from(zero) = empty
+  down_from(suc(n)) = node(n, down_from(n))
+}
+
+assert down_from(2) = node(1, node(0, empty))
+
+define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
+
+assert up_to(2) = node(0, node(1, empty))
+assert up_to(3) = node(0, node(1, node(2, empty)))
+
+function range_aux(Nat, Nat, Nat) -> List<Nat> {
+  range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : fn Nat->Nat)
+  range_aux(suc(begin'), end, k) =
+    switch end {
+      case zero { empty } /* shouldn't happen */
+      case suc(end') { range_aux(begin', end', suc(k)) }
+    }
+}
+
+define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
+
+assert range(0, 0) = empty
+assert range(0, 1) = node(0, empty)
+assert range(0, 2) = node(0, node(1, empty))
+assert range(1, 3) = node(1, node(2, empty))
+assert range(2, 5) = node(2, node(3, node(4, empty)))
+
+function interval(Nat, Nat) -> List<Nat> {
+  interval(zero, n) = empty
+  interval(suc(k), n) = node(n, interval(k, suc(n)))
+}
+
+assert interval(0, 0) = empty
+assert interval(1, 0) = node(0, empty)
+assert interval(2, 0) = node(0, node(1, empty))
+assert interval(3, 0) = node(0, node(1, node(2, empty)))
+
+assert interval(0, 3) = empty
+assert interval(1, 3) = node(3, empty)
+assert interval(2, 3) = node(3, node(4, empty))
+assert interval(3, 3) = node(3, node(4, node(5, empty)))
+
+function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+  zip(empty, ys) = empty
+  zip(node(x, xs'), ys) =
+    switch ys {
+      case empty { empty }
+      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
+    }
+}
+
+function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+  all_elements(empty, P) = true
+  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
+}
+
+define L1_positive = all_elements(L1, λx{ 0 < x })
+
+define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2)
+                                    -> (fn Pair<T1,U1> -> Pair<T2,U2>)
+  = generic T1,T2,U1,U2 { λ f, g { λp{ pair(f(first(p)), g(second(p))) } } }
+
+function filter<E>(List<E>, fn (E)->bool) -> List<E> {
+  filter(empty, P) = empty
+  filter(node(x, ls), P) =
+    if P(x) then node(x, filter(ls, P))
+    else filter(ls, P)
+}
+
+function remove<T>(List<T>, T) -> List<T> {
+  remove(empty, y) = empty
+  remove(node(x, xs'), y) =
+    if x = y then
+      xs'
+    else
+      node(x, remove(xs', y))
+}
+
+function remove_all<T>(List<T>, T) -> List<T> {
+  remove_all(empty, y) = empty
+  remove_all(node(x, xs'), y) =
+    if x = y then
+      remove_all(xs', y)
+    else
+      node(x, remove_all(xs', y))
+}
+
+function nth<T>(List<T>, T) -> (fn Nat -> T) {
+  nth(empty, default) = λi{default}
+  nth(node(x, xs), default) = λi{
+    if i = 0 then
+      x
+    else
+       nth(xs, default)(pred(i))
+ }
+}
+
+function take<T>(Nat, List<T>) -> List<T> {
+  take(0, xs) = empty
+  take(suc(n), xs) =
+    switch xs {
+      case empty { empty }
+      case node(x, xs') { node(x, take(n, xs')) }
+    }
+}
+
+function drop<T>(Nat, List<T>) -> List<T> {
+  drop(0, xs) = xs
+  drop(suc(n), xs) =
+    switch xs {
+      case empty { empty }
+      case node(x, xs') { drop(n, xs') }
+    }
+}
+
+define flip : < T,U,V > fn (fn T,U->V) ->(fn U,T->V)
+  = generic T,U,V { λf{ λx,y{ f(y,x) }}}
+
+function rev_app<T>(List<T>, List<T>) -> List<T> {
+  rev_app(empty, ys) = ys
+  rev_app(node(x, xs), ys) = rev_app(xs, node(x, ys))
+}
+
+/********************** Theorems *********************************/
+
+theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+proof
+  arbitrary x:Nat
+  definition {length, length, operator +}.
+end
+
+theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
+proof
+  arbitrary U:type, x:U
+  definition {length, length, operator +}.
+end
 
 theorem length_zero_empty: all T:type, xs:List<T>.
   if length(xs) = 0
@@ -204,13 +355,6 @@ proof
   }
 end
 
-function map<T,U>(List<T>, fn T->U) -> List<U> {
-  map(empty, f) = empty
-  map(node(x, ls), f) = node(f(x), map(ls, f))
-}
-
-assert map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
-
 theorem length_map: all T:type, f:fn T->T. all xs:List<T>.
   length(map(xs, f)) = length(xs)
 proof
@@ -294,94 +438,6 @@ proof
   }
 end
 
-function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
-  foldr(empty, u, c) = u
-  foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c))
-}
-
-assert foldr(L1, 0, λa,b{ a + b }) = 3
-assert foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
-
-function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
-  foldl(empty, u, c) = u
-  foldl(node(t, ls), u, c) = foldl(ls, c(u, t), c)
-}
-
-assert foldl(L1, 0, λa,b{ a + b }) = 3
-assert foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
-
-function down_from(Nat) -> List<Nat> {
-  down_from(zero) = empty
-  down_from(suc(n)) = node(n, down_from(n))
-}
-
-assert down_from(2) = node(1, node(0, empty))
-
-define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
-
-assert up_to(2) = node(0, node(1, empty))
-assert up_to(3) = node(0, node(1, node(2, empty)))
-
-function range_aux(Nat, Nat, Nat) -> List<Nat> {
-  range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : fn Nat->Nat)
-  range_aux(suc(begin'), end, k) =
-    switch end {
-      case zero { empty } /* shouldn't happen */
-      case suc(end') { range_aux(begin', end', suc(k)) }
-    }
-}
-
-define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
-
-assert range(0, 0) = empty
-assert range(0, 1) = node(0, empty)
-assert range(0, 2) = node(0, node(1, empty))
-assert range(1, 3) = node(1, node(2, empty))
-assert range(2, 5) = node(2, node(3, node(4, empty)))
-
-function interval(Nat, Nat) -> List<Nat> {
-  interval(zero, n) = empty
-  interval(suc(k), n) = node(n, interval(k, suc(n)))
-}
-
-assert interval(0, 0) = empty
-assert interval(1, 0) = node(0, empty)
-assert interval(2, 0) = node(0, node(1, empty))
-assert interval(3, 0) = node(0, node(1, node(2, empty)))
-
-assert interval(0, 3) = empty
-assert interval(1, 3) = node(3, empty)
-assert interval(2, 3) = node(3, node(4, empty))
-assert interval(3, 3) = node(3, node(4, node(5, empty)))
-
-union Pair<T,U> {
-  pair(T,U)
-}
-
-function first<T,U>(Pair<T,U>) -> T {
-  first(pair(x,y)) = x
-}
-
-function second<T,U>(Pair<T,U>) -> U {
-  second(pair(x,y)) = y
-}
-
-function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
-  zip(empty, ys) = empty
-  zip(node(x, xs'), ys) =
-    switch ys {
-      case empty { empty }
-      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
-    }
-}
-
-function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
-  all_elements(empty, P) = true
-  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
-}
-
-define L1_positive = all_elements(L1, λx{ 0 < x })
-
 theorem zip_id_right: all T:type. all xs:List<T>. zip(xs, empty) = empty
 proof
   arbitrary T:type
@@ -389,10 +445,6 @@ proof
   case empty { definition zip. }
   case node(x, xs') { definition zip. }
 end
-
-define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2)
-                                    -> (fn Pair<T1,U1> -> Pair<T2,U2>)
-  = generic T1,T2,U1,U2 { λ f, g { λp{ pair(f(first(p)), g(second(p))) } } }
 
 theorem zip_map: all T1:type, T2:type, U1:type, U2:type,
   f : fn T1 -> T2, g : fn U1 -> U2.
@@ -423,14 +475,6 @@ proof
     }
   }
 end
-
-function filter<E>(List<E>, fn (E)->bool) -> List<E> {
-  filter(empty, P) = empty
-  filter(node(x, ls), P) =
-    if P(x) then node(x, filter(ls, P))
-    else filter(ls, P)
-}
-
 
 theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
   if all_elements(xs, P) then filter(xs, P) = xs
@@ -541,26 +585,6 @@ proof
     rewrite IH.
   }
 end
-
-function remove<T>(List<T>, T) -> List<T> {
-  remove(empty, y) = empty
-  remove(node(x, xs'), y) =
-    if x = y then
-      xs'
-    else
-      node(x, remove(xs', y))
-}
-
-
-
-function remove_all<T>(List<T>, T) -> List<T> {
-  remove_all(empty, y) = empty
-  remove_all(node(x, xs'), y) =
-    if x = y then
-      remove_all(xs', y)
-    else
-      node(x, remove_all(xs', y))
-}
 
 theorem remove_all_absent: all T:type. all xs:List<T>. all y:T.
   not (y ∈ set_of(remove_all(xs, y)))
@@ -735,25 +759,6 @@ proof
   }
 end
 
-function nth<T>(List<T>, T) -> (fn Nat -> T) {
-  nth(empty, default) = λi{default}
-  nth(node(x, xs), default) = λi{
-    if i = 0 then
-      x
-    else
-       nth(xs, default)(pred(i))
- }
-}
-
-function drop<T>(Nat, List<T>) -> List<T> {
-  drop(0, xs) = xs
-  drop(suc(n), xs) =
-    switch xs {
-      case empty { empty }
-      case node(x, xs') { drop(n, xs') }
-    }
-}
-
 theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
   nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
 proof
@@ -830,14 +835,6 @@ proof
     IH[ys, i, d]
   }
 end
-
-define flip : < T,U,V > fn (fn T,U->V) ->(fn U,T->V)
-  = generic T,U,V { λf{ λx,y{ f(y,x) }}}
-
-function rev_app<T>(List<T>, List<T>) -> List<T> {
-  rev_app(empty, ys) = ys
-  rev_app(node(x, xs), ys) = rev_app(xs, node(x, ys))
-}
 
 theorem rev_app_reverse_append: all T:type. all xs:List<T>. all ys:List<T>.
   rev_app(xs, ys) = append(reverse(xs), ys)
@@ -920,64 +917,3 @@ proof
                by som_mset_eq_set[T][ys]
 end
 
-/*
-theorem mset_length: all T:type. all xs:List<T>. all ys:List<T>.
-  if mset_of(xs) = mset_of(ys)
-  then length(xs) = length(ys)
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>
-    suppose prem
-    definition {length}
-    switch ys {
-      case empty {
-        .
-      }
-      case node(y, ys') suppose ys_yys {
-	let m_empty = (λx{0} : fn T->Nat)
-        have eq: m_empty
-  	         = λx{(if y = x then 1 else 0) + cnt(mset_of(ys'))(x)}
-	  by injective m_fun
-	     definition m_empty
-	     definition {mset_of,m_one,operator ⨄, cnt} in
-	     rewrite ys_yys in prem
-	have app_empty_z: m_empty(y) = 0
-	   by definition m_empty.
-	have not_app_empty_z: not (m_empty(y) = 0)
-	   by rewrite eq
-	      definition operator +.
-        conclude false
-          by apply not_app_empty_z to app_empty_z
-      }
-    }
-  }
-  case node(x, xs') suppose IH {
-    arbitrary ys:List<T>
-    suppose prem
-    switch ys {
-      case empty suppose ys_empty {
-	let m_empty = (λx{0} : fn T->Nat)
-        have eq: (λz{(if x = z then 1 else 0) + cnt(mset_of(xs'))(z)} : fn T->Nat)
-  	         = m_empty
-	  by injective m_fun
-	     definition m_empty
-	     definition {mset_of,m_one,operator ⨄, cnt} in
-	     rewrite ys_empty in prem
-	have app_empty_z: m_empty(x) = 0
-	   by definition m_empty.
-	have not_app_empty_z: not (m_empty(x) = 0)
-	   by rewrite symmetric eq
-	      definition operator+.
-        conclude false
-          by apply not_app_empty_z to app_empty_z
-      }
-      case node(y, ys') suppose ys_yys {
-        definition length
-        ?
-      }
-    }
-  }
-end
-*/

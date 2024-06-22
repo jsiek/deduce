@@ -68,6 +68,13 @@ check_blog3:
 blog3:
 	/usr/local/bin/pandoc InsertionSort.md -o InsertionSort.html
 
+check_blog4:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py MergeSort.pf
+
+blog4:
+	/usr/local/bin/pandoc MergeSort.md -o MergeSort.html
+
 
 # TODO
 

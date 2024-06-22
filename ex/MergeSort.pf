@@ -3,34 +3,6 @@ import Nat
 import Pair
 import Log
 
-union Tree<T> {
-  tree_empty
-  tree_node(T, Tree<T>, Tree<T>)
-}
-// TODO: change to put the elements in the leaves!
-
-// first parameter is the log of the length of the list
-function tree_of<T>(Nat, List<T>) -> Pair< Tree<T>, List<T> > {
-  tree_of(0, ls) = pair(tree_empty, ls)
-  tree_of(suc(n), xs) =
-    switch xs {
-      case empty {
-        pair(tree_empty, empty)
-      }
-      case node(x, xs) {
-        let p1 = tree_of(n, xs)
-        let p2 = tree_of(n, second(p1))
-        pair(tree_node(x, first(p1), first(p2)), second(p2))
-      }
-    }
-}
-
-assert tree_of(2, node(1, node(2, node(3, empty))))
-     = pair(tree_node(1, tree_node(2, tree_empty, tree_empty),
-                         tree_node(3, tree_empty, tree_empty)),
-            empty)
-
-
 // first parameter is the sum of the lengths
 function merge(Nat, List<Nat>, List<Nat>) -> List<Nat> {
   merge(0, xs, ys) = empty
@@ -52,30 +24,6 @@ function merge(Nat, List<Nat>, List<Nat>) -> List<Nat> {
      }
    }
 }
-
-/*
-function insert(List<Nat>,Nat) -> List<Nat> {
-  insert(empty, x) = node(x, empty)
-  insert(node(y, next), x) =
-    if x ≤ y then
-      node(x, node(y, next))
-    else
-      node(y, insert(next, x))
-}
-
-// Turn a binary tree into a sorted list
-function msort_tree(Tree<Nat>) -> List<Nat> {
-  msort_tree(tree_empty) = empty
-  msort_tree(tree_node(x, L, R)) =
-    let ls = msort_tree(L)
-    let rs = msort_tree(R)
-    let xs = merge(length(ls) + length(rs), ls, rs)
-    insert(xs, x)
-}
-
-define merge_sort : fn List<Nat> -> List<Nat>
-  = λxs{ msort_tree(first(tree_of(log(length(xs)), xs))) }
-*/
 
 function msort(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
   msort(0, xs) =
@@ -297,11 +245,6 @@ proof
 		 to s_xxs, s_ys, len_xxs_ys
 	    have x_le_xs: all_elements(xs', λb{x ≤ b})
 	      by definition sorted in rewrite xs_xxs in prem
-	      /*
-	    have x_le_xxs: all_elements(node(x,xs'), λb{x ≤ b})
-	      by definition all_elements
-	         less_equal_refl[x], x_le_xs
-		 */
 	    have y_le_ys: all_elements(ys', λb{y ≤ b})
 	      by definition sorted in rewrite ys_yys in prem
 	    
