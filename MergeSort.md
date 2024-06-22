@@ -174,29 +174,71 @@ assert all_elements(append(L_1337, L_2348),
 
 ## Test `msort`
 
+In the following tests, we vary the gas from `0` to `3`, varying how
+much of the input list `L18` gets sorted in the call to `msort`.  The
+`take(n,xs)` function returns the first `n` elements of `xs` and
+`drop(n,xs)` drops the first `n` elements of `xs` and returns the
+remaining portion of `xs`.
+
 ``` {.deduce #test_msort}
-assert msort(0, append(L_1337, L_2348)) 
-  = pair(insertion_sort(take(pow2(0), append(L_1337, L_2348))), 
-         drop(pow2(0), append(L_1337, L_2348)))
+define L18 = append(L_1337, L_2348)
 
-assert msort(1, append(L_1337, L_2348)) 
-  = pair(insertion_sort(take(pow2(1), append(L_1337, L_2348))), 
-         drop(pow2(1), append(L_1337, L_2348)))
+define p0 = msort(0, L18)
+define t0 = take(pow2(0), L18)
+define d0 = drop(pow2(0), L18)
+assert sorted(first(p0))
+assert all_elements(t0, λx{count(t0)(x) = count(first(p0))(x) })
+assert all_elements(d0, λx{count(d0)(x) = count(second(p0))(x) })
 
-assert msort(2, append(L_1337, L_2348)) 
-  = pair(insertion_sort(take(pow2(2), append(L_1337, L_2348))), 
-         drop(pow2(2), append(L_1337, L_2348)))
+define p1 = msort(1, L18)
+define t1 = take(pow2(1), L18)
+define d1 = drop(pow2(1), L18)
+assert sorted(first(p1))
+assert all_elements(t1, λx{count(t1)(x) = count(first(p1))(x) })
+assert all_elements(d1, λx{count(d1)(x) = count(second(p1))(x) })
 
-assert msort(3, append(L_1337, L_2348)) 
-  = pair(insertion_sort(take(pow2(3), append(L_1337, L_2348))), 
-         drop(pow2(3), append(L_1337, L_2348)))
+define p2 = msort(2, L18)
+define t2 = take(pow2(2), L18)
+define d2 = drop(pow2(2), L18)
+assert sorted(first(p2))
+assert all_elements(t2, λx{count(t2)(x) = count(first(p2))(x) })
+assert all_elements(d2, λx{count(d2)(x) = count(second(p2))(x) })
+
+define p3 = msort(3, L18)
+define t3 = take(pow2(3), L18)
+define d3 = drop(pow2(3), L18)
+assert sorted(first(p3))
+assert all_elements(t3, λx{count(t3)(x) = count(first(p3))(x) })
+assert all_elements(d3, λx{count(d3)(x) = count(second(p3))(x) })
 ```
 
 ## Test `merge_sort`
 
-``` {.deduce #test_merge_sort}
+Next we test that `merge_sort` returns a sorted list that contains the
+same elements as the input list. For input, we reuse the list `L18`
+from above.
 
+``` {.deduce #test_merge_sort}
+define s_L18 = merge_sort(L18)
+assert sorted(s_L18)
+assert all_elements(t0, λx{count(L18)(x) = count(s_L18)(x) })
 ```
+
+We can bundle many tests, with varying-length inputs, into one
+`assert` by using `all_elements` and `interval`. 
+
+``` {.deduce #test_merge_sort_many}
+assert all_elements(interval(3, 0),
+    λn{ let xs = reverse(interval(n, 0))
+	    let ls = merge_sort(xs)
+	    sorted(ls) and
+		all_elements(xs, λx{count(xs)(x) = count(ls)(x)})
+	})
+```
+
+# Prove
+
+
 
 
 <!--
@@ -214,5 +256,6 @@ import Log
 <<test_merge>>
 <<test_msort>>
 <<test_merge_sort>>
+<<test_merge_sort_many>>
 ```
 -->
