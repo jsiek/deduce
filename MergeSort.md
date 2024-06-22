@@ -224,7 +224,7 @@ assert sorted(s_L18)
 assert all_elements(t0, λx{count(L18)(x) = count(s_L18)(x) })
 ```
 
-We can bundle many tests, with varying-length inputs, into one
+We can bundle several tests, with varying-length inputs, into one
 `assert` by using `all_elements` and `interval`. 
 
 ``` {.deduce #test_merge_sort_many}
@@ -238,7 +238,154 @@ assert all_elements(interval(3, 0),
 
 # Prove
 
+Compared to the proof of correctness for `insertion_sort`, we have
+considerably more work to do for `merge_sort`. Instead of two
+functions, we have three functions to consider: `merge`, `msort`, and
+`merge_sort`. Furthermore, these functions are more complex than
+`insert` and `insertion_sort`. Nevertheless, we are up to the
+challenge!
 
+## Prove correctness of `merge`
+
+The specificaiton of `merge` has two parts, one part saying that the
+elements of the output must be the elements of the two input lists,
+and the another part saying that the output must be sorted, provided
+the two input lists are sorted.
+
+Here is how we state the theorem for the first part.
+```
+theorem merge_contents: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
+  if length(xs) + length(ys) = n
+  then mset_of(merge(n, xs, ys)) = mset_of(xs) ⨄ mset_of(ys)
+```
+
+Here is the theorem stating that the output of `merge` is sort.
+
+```
+theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
+  if sorted(xs) and sorted(ys)
+     and length(xs) + length(ys) = n
+  then sorted(merge(n, xs, ys))
+```
+
+We begin with the proof of `merge_contents`.  Because `merge(n, xs,
+ys)` is recursive on the natural number `n`, we proceed by induction
+on `Nat`.
+
+```
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose _
+    ?
+  }
+  case suc(n') suppose IH {
+    ?
+  }
+```
+
+In the case for `n = 0`, we need to prove `sorted(merge(0, xs, ys))`.
+But `merge(0, xs, ys) = empty`, and `sorted(empty)` is trivially true.
+So we conclude the case for `n = 0` as follows.
+
+```
+    definition merge
+    conclude sorted(empty) by definition sorted.
+```
+
+We move on to the case for `n = suc(n')`.
+
+```
+  case suc(n') suppose IH {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose prem: sorted(xs) and sorted(ys) 
+	              and length(xs) + length(ys) = suc(n')
+    ?
+  }
+```
+
+The goal is:
+
+```
+  sorted(merge(suc(n'),xs,ys))
+```
+
+Looking a the `suc` clause of `merge`, there is a `switch` on `xs` and
+then on `ys`. So our proof will be structured analogously.
+
+```
+  definition merge
+  switch xs {
+	case empty {
+	  ?
+	}
+	case node(x, xs') suppose xs_xxs {
+	  ?
+	}
+```
+
+In the case for `xs = empty`, `merge` returns `ys`, and we already
+know that `ys` is sorted from the premise.
+
+```
+	case empty {
+	  conclude sorted(ys) by prem
+	}
+```
+
+In the case for `xs = node(x, xs')` we need to switch on `ys`.
+
+```
+  case node(x, xs') suppose xs_xxs {
+	switch ys {
+	  case empty {
+		?
+	  }
+	  case node(y, ys') suppose ys_yys {
+		?
+	  }
+	}
+  }
+```
+
+In the case for `ys = empty`, `merge` returns `node(x, xs')`
+(aka. `xs`), and we already know that `xs` is sorted from the premise.
+
+```
+  case empty {
+	conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
+  }
+```
+
+In the case for `ys = node(y, ys')`, `merge` branches on whether `x ≤ y`.
+We'll do the same in the proof.
+
+```
+  switch x ≤ y {
+    case true suppose xy_true {
+	  ?
+	}
+	case false suppose xy_false {
+	  ?
+	}
+  }
+```
+
+In the case where `x ≤ y`, `merge` returns
+`merge(n',xs',node(y,ys'))`. So we need to prove the following.
+
+```
+  sorted(merge(n',xs',node(y,ys'))) 
+  and all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
+```
+
+
+
+
+
+## Prove correctness of `msort`
+
+## Prove correctness of `merge_sort`
 
 
 <!--

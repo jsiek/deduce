@@ -195,15 +195,9 @@ proof
   induction Nat
   case 0 {
     arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem
-    have lxs_lys_z: length(xs) = 0 and length(ys) = 0
-      by apply add_to_zero[length(xs)][length(ys)] to prem
-    have xs_mt: xs = empty
-      by apply length_zero_empty[Nat,xs] to lxs_lys_z
-    have ys_mt: ys = empty
-      by apply length_zero_empty[Nat,ys] to lxs_lys_z
-    rewrite xs_mt | ys_mt
-    definition {merge, sorted}.
+    suppose _
+    definition merge
+    conclude sorted(empty) by definition sorted.
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
@@ -288,7 +282,7 @@ proof
 		         λb{x ≤ b}:fn Nat->bool]
 			 to set_of_merge_append)
 	             all_xs_yys
-                IH_xs_yys, x_le_m_xs_yys
+		IH_xs_yys, x_le_m_xs_yys
               }
               case false suppose xy_false {
 	        definition sorted
