@@ -263,8 +263,8 @@ Here is the theorem stating that the output of `merge` is sort.
 
 ```
 theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
-  if sorted(xs) and sorted(ys)
-     and length(xs) + length(ys) = n
+  if sorted(xs) and sorted(ys) and
+     length(xs) + length(ys) = n
   then sorted(merge(n, xs, ys))
 ```
 
@@ -298,8 +298,8 @@ We move on to the case for `n = suc(n')`.
 ```
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem: sorted(xs) and sorted(ys) 
-	              and length(xs) + length(ys) = suc(n')
+    suppose prem: sorted(xs) and sorted(ys) and
+	              length(xs) + length(ys) = suc(n')
     ?
   }
 ```
@@ -375,11 +375,18 @@ In the case where `x ≤ y`, `merge` returns
 `merge(n',xs',node(y,ys'))`. So we need to prove the following.
 
 ```
-  sorted(merge(n',xs',node(y,ys'))) 
-  and all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
+  sorted(merge(n',xs',node(y,ys'))) and
+  all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
 ```
 
-
+To show that the result is sorted, we will invoke the induction
+hypothesis intantiated to `xs'` and `node(y,ys')`. But to do so
+we need to satisfy its premises:
+```
+  sorted(xs') and
+  sorted(node(y,ys')) and
+  length(xs') + length(node(y,ys')) = n'
+```
 
 
 

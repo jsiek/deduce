@@ -188,8 +188,8 @@ proof
 end
 
 theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
-  if sorted(xs) and sorted(ys)
-     and length(xs) + length(ys) = n
+  if sorted(xs) and sorted(ys) and
+     length(xs) + length(ys) = n
   then sorted(merge(n, xs, ys))
 proof
   induction Nat
@@ -256,8 +256,8 @@ proof
                   by definition all_elements
                      x_y, x_le_ys
                 definition sorted
-		suffices sorted(merge(n',xs',node(y,ys')))
-		     and all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b})
+		suffices sorted(merge(n',xs',node(y,ys'))) and
+		         all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b})
 		have som: set_of(merge(n',xs',node(y,ys')))
 		   = set_of(xs') ∪ set_of(node(y,ys'))
 		     by rewrite symmetric len_xs_yys
@@ -286,8 +286,8 @@ proof
               }
               case false suppose xy_false {
 	        definition sorted
-		suffices sorted(merge(n',node(x,xs'),ys'))
-		   and all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
+		suffices sorted(merge(n',node(x,xs'),ys')) and
+		         all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
 
 		have som: set_of(merge(n',node(x,xs'),ys'))
 		   = set_of(node(x,xs')) ∪ set_of(ys')
@@ -340,8 +340,7 @@ proof
 end
 
 theorem msort_empty: all n:Nat.
-  first(msort(n, empty)) = empty
-  and
+  first(msort(n, empty)) = empty and
   second(msort(n, empty)) = empty
 proof
   induction Nat
