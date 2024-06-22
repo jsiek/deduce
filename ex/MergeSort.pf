@@ -1,7 +1,7 @@
 import List
 import Nat
 import Pair
-import Binary
+import Log
 
 union Tree<T> {
   tree_empty
@@ -805,14 +805,38 @@ theorem merge_sort_contents: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
-  let ys = first(msort(suc(log(length(xs))),xs))
-  have ys_def: first(msort(suc(log(length(xs))),xs)) = ys  by definition ys.
-  let ls = second(msort(suc(log(length(xs))),xs))
-  have ls_def: second(msort(suc(log(length(xs))),xs)) = ls  by definition ls.
+  let n = suc(log(length(xs)))
+  have n_def: suc(log(length(xs))) = n  by definition n.
+  let ys = first(msort(n,xs))
+  have ys_def: first(msort(n,xs)) = ys  by definition ys.
+  let ls = second(msort(n,xs))
+  have ls_def: second(msort(n,xs)) = ls  by definition ls.
   
-  have len_xs: length(xs) < pow2(suc(log(length(xs))))
-    by sorry
-  have len_msort: length(ys) = length(xs)
-    by rewrite ys_def in apply msort_length_less[suc(log(length(xs)))][xs] to len_xs
-  ?
+  have len_xs: length(xs) < pow2(n)
+    by rewrite symmetric n_def
+       ?
+  have len_ys: length(ys) = length(xs)
+    by rewrite ys_def in apply msort_length_less[n][xs] to len_xs
+  have ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
+    by rewrite ys_def | ls_def in msort_length[n][xs]
+  have len_ls: length(ls) = 0
+    by apply left_cancel[length(ys)][length(ls), 0] to
+       rewrite add_zero[length(ys)] | len_ys
+       rewrite len_ys in ys_ls_eq_xs
+  have ls_mt: ls = empty
+    by apply length_zero_empty[Nat, ls] to len_ls
+
+  have ys_ls_eq_xs: mset_of(ys)  ⨄  mset_of(ls) = mset_of(xs)
+    by rewrite ys_def | ls_def in msort_contents[n][xs]
+
+  rewrite n_def
+  rewrite ys_def
+  equations
+    mset_of(ys)
+        = mset_of(ys)  ⨄  m_fun(λx{0})
+          by rewrite m_sum_empty[Nat, mset_of(ys)].
+    ... = mset_of(ys)  ⨄  mset_of(ls)
+          by rewrite ls_mt definition mset_of.
+    ... = mset_of(xs)
+          by ys_ls_eq_xs
 end

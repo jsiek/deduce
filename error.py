@@ -49,6 +49,9 @@ def warning(location, msg):
 def error(location, msg):
   raise Exception(error_header(location) + msg)
 
+def warning(location, msg):
+  print(error_header(location) + msg)
+
 class StaticError(Exception):
   pass
 

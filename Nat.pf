@@ -1163,3 +1163,124 @@ proof
   conclude suc(y) ≤ z
     by apply less_equal_left_cancel[x][suc(y), z] to x_sy_le_xz
 end
+
+function div2(Nat) -> Nat {
+  div2(0) = 0
+  div2(suc(n')) = div2_aux(n')
+}
+
+function div2_aux(Nat) -> Nat {
+  div2_aux(0) = 0
+  div2_aux(suc(n')) = suc(div2(n'))
+}
+
+assert div2(0) = 0
+assert div2(1) = 0
+assert div2(2) = 1
+assert div2(3) = 1
+assert div2(4) = 2
+assert div2(5) = 2
+assert div2(6) = 3
+assert div2(7) = 3
+assert div2(8) = 4
+assert div2(9) = 4
+assert div2(10) = 5
+
+theorem div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
+proof
+  arbitrary n:Nat
+  definition {div2, div2_aux}.
+end
+
+theorem div2_double: all n:Nat.
+  div2(n + n) = n
+proof
+  induction Nat
+  case 0 {
+    definition {operator+, div2}.
+  }
+  case suc(n') suppose IH {
+    definition {operator+}
+    rewrite add_suc[n'][n']
+    rewrite div2_add_2[n' + n']
+    rewrite IH.
+  }
+end
+
+theorem div2_times2: all n:Nat.
+  div2(2 * n) = n
+proof
+  arbitrary n:Nat
+  definition {operator*,operator*,operator*,operator+}
+  rewrite add_zero[n]
+  div2_double[n]
+end
+
+theorem div2_suc_double: all n:Nat.
+  div2(suc(n + n)) = n
+proof
+  induction Nat
+  case 0 {
+    definition {operator+, div2, div2_aux}.
+  }
+  case suc(n') suppose IH {
+    definition {operator+, div2, div2_aux}
+    rewrite add_suc[n'][n']
+    rewrite IH.
+  }
+end
+
+theorem div2_suc_times2: all n:Nat.
+  div2(suc(2 * n)) = n
+proof
+  arbitrary n:Nat
+  definition {operator*,operator*,operator*,operator+}
+  rewrite add_zero[n]
+  div2_suc_double[n]
+end
+
+function pow2(Nat) -> Nat {
+  pow2(0) = 1
+  pow2(suc(n')) = 2 * pow2(n')
+}
+
+assert pow2(0) = 1
+assert pow2(1) = 2
+assert pow2(2) = 4
+assert pow2(3) = 8
+assert pow2(4) = 16
+
+theorem positive_suc: all n:Nat.
+  if 0 < n
+  then some n':Nat. n = suc(n')
+proof
+  arbitrary n:Nat
+  switch n {
+    case 0 {
+      suppose z_l_z: 0 < 0
+      conclude false  by definition {operator<, operator≤} in z_l_z
+    }
+    case suc(n') {
+      suppose z_l_sn: 0 < suc(n')
+      choose n'.
+    }
+  }
+end
+
+theorem pow_positive: all n:Nat. 0 < pow2(n)
+proof
+  induction Nat
+  case 0 {
+    definition {pow2, operator<, operator≤}.
+  }
+  case suc(n') suppose IH {
+    definition {pow2, operator<, operator≤}
+    obtain pn' where pn_s: pow2(n') = suc(pn')
+        from apply positive_suc[pow2(n')] to IH
+    rewrite pn_s
+    definition {operator*,operator*,operator*}
+    rewrite add_zero[suc(pn')]
+    definition {operator+}.
+  }
+end
+

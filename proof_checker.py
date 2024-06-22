@@ -2,7 +2,7 @@
 # check well-formedness of types
 
 from abstract_syntax import *
-from error import error, get_verbose, set_verbose
+from error import error, warning, get_verbose, set_verbose
 from parser import parse, set_filename, get_filename
 
 name_id = 0
@@ -348,7 +348,7 @@ def check_proof_of(proof, formula, env):
             + '\nGivens:\n' + env.proofs_str())
 
     case PSorry(loc):
-      print('warning, unfinished proof')
+      warning(loc, 'unfinished proof')
       
     case EnableDefs(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]

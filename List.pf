@@ -59,6 +59,21 @@ assert reverse(L1) = node(2, node(1, empty))
 assert reverse(L2) = node(5, node(4, node(3, empty)))
 assert length(append(L1, L2)) = length(L1) + length(L2)
 
+theorem length_zero_empty: all T:type, xs:List<T>.
+  if length(xs) = 0
+  then xs = empty
+proof
+  arbitrary T:type, xs:List<T>
+  switch xs {
+    case empty { . }
+    case node(x, xs') {
+      suppose len_z
+      conclude false
+          by definition length in len_z
+    }
+  }
+end
+
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(append(xs, ys)) = length(xs) + length(ys)
 proof
