@@ -170,6 +170,53 @@ define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
 define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
 define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
 
+theorem less_equal_implies_less_or_equal:
+  all x:Nat. all y:Nat.
+  if x ≤ y then x < y or x = y
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        .
+      }
+      case suc(y') {
+        suppose _
+	definition {operator<, operator≤}.
+      }
+    }
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    suppose sx_le_y
+    switch y {
+      case 0 suppose yz {
+        conclude false  by definition operator≤ in rewrite yz in sx_le_y
+      }
+      case suc(y') suppose y_sy {
+        have x_le_y: x' ≤ y'
+	  by definition operator≤ in rewrite y_sy in sx_le_y
+	have xy_or_xy: x' < y' or x' = y'
+	  by apply IH[y'] to x_le_y
+	cases xy_or_xy
+	case x_l_y {
+	  have sx_l_sy: suc(x') < suc(y')
+	    by enable {operator<, operator≤} x_l_y
+          conclude (suc(x') < suc(y') or suc(x') = suc(y'))
+  	    by sx_l_sy
+	}
+	case x_y {
+	  have sx_sy: suc(x') = suc(y')
+	    by rewrite x_y.
+          conclude (suc(x') < suc(y') or suc(x') = suc(y'))
+  	    by sx_sy
+	}
+      }
+    }
+  }
+end
+
 theorem less_implies_less_equal:
   all x:Nat. all y:Nat.
   if x < y then x ≤ y

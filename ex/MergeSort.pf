@@ -92,7 +92,7 @@ function msort(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
 }
 
 define merge_sort : fn List<Nat> -> List<Nat>
-  = λxs{ first(msort(suc(log(length(xs))), xs)) }
+  = λxs{ first(msort(log(length(xs)), xs)) }
   
 assert merge_sort(empty) = empty
 assert merge_sort(node(1, empty)) = node(1, empty)
@@ -472,7 +472,7 @@ theorem merge_sort_sorted: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
-  msort_sorted[suc(log(length(xs)))][xs]
+  msort_sorted[log(length(xs))][xs]
 end
 
 theorem merge_length: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
@@ -805,18 +805,30 @@ theorem merge_sort_contents: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
-  let n = suc(log(length(xs)))
-  have n_def: suc(log(length(xs))) = n  by definition n.
+  let n = log(length(xs))
+  have n_def: log(length(xs)) = n  by definition n.
   let ys = first(msort(n,xs))
   have ys_def: first(msort(n,xs)) = ys  by definition ys.
   let ls = second(msort(n,xs))
   have ls_def: second(msort(n,xs)) = ls  by definition ls.
   
-  have len_xs: length(xs) < pow2(n)
+  have len_xs: length(xs) ≤ pow2(n)
     by rewrite symmetric n_def
-       ?
+       less_equal_pow_log[length(xs)]
   have len_ys: length(ys) = length(xs)
-    by rewrite ys_def in apply msort_length_less[n][xs] to len_xs
+    by cases apply less_equal_implies_less_or_equal[length(xs)][pow2(n)]
+             to len_xs
+       case len_xs_less {
+         rewrite ys_def in apply msort_length_less[n][xs] to len_xs_less
+       }
+       case len_xs_equal {
+         have pn_le_xs: pow2(n) ≤ length(xs)
+	   by rewrite len_xs_equal  less_equal_refl[pow2(n)]
+	 have len_ys_pow2: length(ys) = pow2(n)
+	   by rewrite symmetric ys_def
+	      apply msort_length_less_equal[n][xs] to pn_le_xs
+         transitive len_ys_pow2 (symmetric len_xs_equal)
+       }
   have ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
     by rewrite ys_def | ls_def in msort_length[n][xs]
   have len_ls: length(ls) = 0

@@ -21,6 +21,7 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/bintree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Nat.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py Log.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Binary.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/some1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/some2.pf
@@ -30,13 +31,13 @@ default:
 	/opt/homebrew/bin/python3.10 ./deduce.py List.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Pair.pf
 #	/opt/homebrew/bin/python3.10 ./deduce.py Heap.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py Maps.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py Set.pf
+#	/opt/homebrew/bin/python3.10 ./deduce.py Maps.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Option.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py Sets.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
+#	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sum.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Sort.pf
-#	/opt/homebrew/bin/python3.10 ./deduce.py ex/MergeSort.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py ex/MergeSort.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Max.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Search.pf
 
