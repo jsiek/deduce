@@ -60,6 +60,13 @@ end
 
 define log : fn Nat -> Nat = λn{ find_log(n, 0, 0) }
 
+assert log(1) = 0
+assert log(2) = 1
+assert log(3) = 2
+assert log(4) = 2
+assert log(5) = 3
+assert log(8) = 3
+
 theorem less_equal_pow_log: all n:Nat.
   n ≤ pow2(log(n))
 proof

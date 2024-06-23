@@ -31,7 +31,7 @@ function merge_sort(List<Nat>) -> List<Nat> {
   merge_sort(empty) = empty
   merge_sort(node(x,xs')) =
     let p = split(node(x,xs'))
-	merge(merge_sort(first(p)), merge_sort(second(p)))
+    merge(merge_sort(first(p)), merge_sort(second(p)))
 }
 ```
 
@@ -52,7 +52,7 @@ function msort(Nat, List<Nat>) -> List<Nat> {
   msort(0, xs) = xs
   msort(suc(n'), xs) =
     let p = split(xs)
-	merge(msort(n', first(p)), msort(n', second(p)))
+    merge(msort(n', first(p)), msort(n', second(p)))
 }
 
 define merge_sort : fn List<Nat> -> List<Nat>
@@ -230,10 +230,10 @@ We can bundle several tests, with varying-length inputs, into one
 ``` {.deduce #test_merge_sort_many}
 assert all_elements(interval(3, 0),
     λn{ let xs = reverse(interval(n, 0))
-	    let ls = merge_sort(xs)
-	    sorted(ls) and
-		all_elements(xs, λx{count(xs)(x) = count(ls)(x)})
-	})
+        let ls = merge_sort(xs)
+        sorted(ls) and
+        all_elements(xs, λx{count(xs)(x) = count(ls)(x)})
+    })
 ```
 
 # Prove
@@ -299,7 +299,7 @@ We move on to the case for `n = suc(n')`.
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose prem: sorted(xs) and sorted(ys) and
-	              length(xs) + length(ys) = suc(n')
+                  length(xs) + length(ys) = suc(n')
     ?
   }
 ```
@@ -316,35 +316,35 @@ then on `ys`. So our proof will be structured analogously.
 ```
   definition merge
   switch xs {
-	case empty {
-	  ?
-	}
-	case node(x, xs') suppose xs_xxs {
-	  ?
-	}
+    case empty {
+      ?
+    }
+    case node(x, xs') suppose xs_xxs {
+      ?
+    }
 ```
 
 In the case for `xs = empty`, `merge` returns `ys`, and we already
 know that `ys` is sorted from the premise.
 
 ```
-	case empty {
-	  conclude sorted(ys) by prem
-	}
+    case empty {
+      conclude sorted(ys) by prem
+    }
 ```
 
 In the case for `xs = node(x, xs')` we need to switch on `ys`.
 
 ```
   case node(x, xs') suppose xs_xxs {
-	switch ys {
-	  case empty {
-		?
-	  }
-	  case node(y, ys') suppose ys_yys {
-		?
-	  }
-	}
+    switch ys {
+      case empty {
+        ?
+      }
+      case node(y, ys') suppose ys_yys {
+        ?
+      }
+    }
   }
 ```
 
@@ -353,7 +353,7 @@ In the case for `ys = empty`, `merge` returns `node(x, xs')`
 
 ```
   case empty {
-	conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
+    conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
   }
 ```
 
@@ -363,16 +363,17 @@ We'll do the same in the proof.
 ```
   switch x ≤ y {
     case true suppose xy_true {
-	  ?
-	}
-	case false suppose xy_false {
-	  ?
-	}
+      ?
+    }
+    case false suppose xy_false {
+      ?
+    }
   }
 ```
 
 In the case where `x ≤ y`, `merge` returns
-`merge(n',xs',node(y,ys'))`. So we need to prove the following.
+`node(x, merge(n',xs',node(y,ys')))`. 
+So we need to prove the following.
 
 ```
   sorted(merge(n',xs',node(y,ys'))) and
@@ -386,6 +387,71 @@ we need to satisfy its premises:
   sorted(xs') and
   sorted(node(y,ys')) and
   length(xs') + length(node(y,ys')) = n'
+```
+
+They all follow from the current premises.
+
+```
+  have s_xs: sorted(xs')
+    by enable sorted rewrite xs_xxs in prem
+  have s_yys: sorted(node(y,ys'))
+    by rewrite ys_yys in prem
+  have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+    by enable {operator +,length}
+       have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
+         by rewrite xs_xxs | ys_yys in prem
+       injective suc sxs
+```
+
+So we invoke the induction hypothesis as follows to show that the
+recursive call to `merge` produces a sorted list.
+
+```
+  have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
+    by apply IH[xs',node(y,ys')]
+       to s_xs, s_yys, len_xs_yys
+```
+
+It remains to prove that `x` is less-or-equal to to all the elements
+in the rest of the output list:
+
+```
+  all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
+```
+
+We'll show that `x` is less than each of the parts: `xs'`, `y`, and
+`ys'`. Then we'll put those parts together to prove the above.
+The first two are straightforward:
+
+```
+  have x_le_xs: all_elements(xs', λb{x ≤ b})
+    by definition sorted in rewrite xs_xxs in prem
+  have x_y: x ≤ y by rewrite xy_true.
+```
+
+To prove that `x` is less than all the elements in `ys'`, we make use
+of the `all_elements_implies` theorem together with `x ≤ y`
+and the fact that `y` is less than all the elements in `ys'`.
+
+```
+  have y_le_ys: all_elements(ys', λb{y ≤ b})
+    by definition sorted in rewrite ys_yys in prem
+
+  have x_le_ys: all_elements(ys', λb{x ≤ b})
+	by have yz_xz: all z:Nat. if y ≤ z then x ≤ z
+		 by arbitrary z:Nat suppose y_z
+			apply less_equal_trans[x][y,z] to x_y, y_z
+	   apply all_elements_implies[Nat][ys']
+		 [λb{y ≤ b} : fn Nat -> bool, λb{x ≤ b} : fn Nat -> bool]
+	   to y_le_ys, yz_xz
+```
+
+
+
+```
+  have x_le_yys: all_elements(node(y,ys'), λb{x ≤ b})
+	by definition all_elements
+	   x_y, x_le_ys
 ```
 
 

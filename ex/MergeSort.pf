@@ -129,37 +129,37 @@ proof
                 have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
                   by enable {operator +,length}
                      injective suc
-		     rewrite add_suc[length(xs')][length(ys')] in
-		     sxs_sys_sn
+                     rewrite add_suc[length(xs')][length(ys')] in
+                     sxs_sys_sn
                 have IH': mset_of(merge(n',node(x,xs'),ys'))
                         = mset_of(node(x,xs')) ⨄ mset_of(ys')
                   by apply IH[node(x,xs'), ys'] to len_xxs_ys
                 rewrite IH'
                 definition mset_of
                 equations
-  		  m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
-		      = m_one(y) ⨄ (m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
-		      by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-		                             mset_of(ys')].
-		  ... = (m_one(y) ⨄ m_one(x)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
-                      by rewrite m_sum_assoc[Nat, m_one(y), m_one(x),
-		               (mset_of(xs') ⨄ mset_of(ys'))].
-		  ... = (m_one(x) ⨄ m_one(y)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
-                      by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
-		  ... = m_one(x) ⨄ (m_one(y) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
-                      by rewrite m_sum_assoc[Nat, m_one(x), m_one(y),
-		          (mset_of(xs') ⨄ mset_of(ys'))].
-		  ... = m_one(x) ⨄ ((m_one(y) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
-                      by rewrite m_sum_assoc[Nat, m_one(y), mset_of(xs'),
-		          mset_of(ys')].
-		  ... = m_one(x) ⨄ ((mset_of(xs') ⨄ m_one(y)) ⨄ mset_of(ys'))
-                      by rewrite m_sum_sym[Nat, m_one(y), mset_of(xs')].
-		  ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
-                      by rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(y),
-		         mset_of(ys')].
-		  ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
+                  m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
+                      = m_one(y) ⨄ (m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
                       by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-		          (m_one(y) ⨄ mset_of(ys'))].
+                                             mset_of(ys')].
+                  ... = (m_one(y) ⨄ m_one(x)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
+                      by rewrite m_sum_assoc[Nat, m_one(y), m_one(x),
+                               (mset_of(xs') ⨄ mset_of(ys'))].
+                  ... = (m_one(x) ⨄ m_one(y)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
+                      by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
+                  ... = m_one(x) ⨄ (m_one(y) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
+                      by rewrite m_sum_assoc[Nat, m_one(x), m_one(y),
+                          (mset_of(xs') ⨄ mset_of(ys'))].
+                  ... = m_one(x) ⨄ ((m_one(y) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
+                      by rewrite m_sum_assoc[Nat, m_one(y), mset_of(xs'),
+                          mset_of(ys')].
+                  ... = m_one(x) ⨄ ((mset_of(xs') ⨄ m_one(y)) ⨄ mset_of(ys'))
+                      by rewrite m_sum_sym[Nat, m_one(y), mset_of(xs')].
+                  ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
+                      by rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(y),
+                         mset_of(ys')].
+                  ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
+                      by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+                          (m_one(y) ⨄ mset_of(ys'))].
               }
             }
           }
@@ -180,7 +180,7 @@ proof
     set_of(merge(length(xs) + length(ys), xs, ys))
         = set_of_mset(mset_of(merge(length(xs) + length(ys), xs, ys)))
           by symmetric som_mset_eq_set[Nat]
-	                     [merge(length(xs) + length(ys), xs, ys)]
+                             [merge(length(xs) + length(ys), xs, ys)]
     ... = set_of_mset(mset_of(xs)) ∪ set_of_mset(mset_of(ys))
           by rewrite mset_of_merge  som_union[Nat,mset_of(xs),mset_of(ys)]
     ... = set_of(xs) ∪ set_of(ys)
@@ -213,100 +213,111 @@ proof
             conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
           }
           case node(y, ys') suppose ys_yys {
-            have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                by enable length rewrite xs_xxs | ys_yys in prem
-	    have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-	      by enable {operator +,length}
-		 injective suc sxs_sys_sn
+            /* Apply the induction hypothesis
+	     * to prove sorted(merge(n',xs',node(y,ys')))
+	     */
+            have s_xs: sorted(xs')
+              by enable sorted rewrite xs_xxs in prem
+            have s_yys: sorted(node(y,ys'))
+              by rewrite ys_yys in prem
+            have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+              by enable {operator +,length}
+                 have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
+                    by rewrite xs_xxs | ys_yys in prem
+                 injective suc sxs
+            have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
+              by apply IH[xs',node(y,ys')]
+                 to s_xs, s_yys, len_xs_yys
+
+            /* Apply the induction hypothesis
+	     * to prove sorted(merge(n',node(x,xs'),ys'))
+	     */
             have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
               by definition {operator +,length}
-	         rewrite symmetric len_xs_yys
-		 definition length
-		 rewrite add_suc[length(xs')][length(ys')].
-	    have s_xs: sorted(xs')
-	      by enable sorted rewrite xs_xxs in prem
-	    have s_xxs: sorted(node(x, xs'))
-	      by enable sorted rewrite xs_xxs in prem
-	    have s_ys: sorted(ys')
-	      by definition sorted in rewrite ys_yys in prem
-	    have s_yys: sorted(node(y,ys'))
-	      by rewrite ys_yys in prem
-	    have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
-	      by apply IH[xs',node(y,ys')]
-		 to s_xs, s_yys, len_xs_yys
-	    have IH_xxs_ys: sorted(merge(n',node(x,xs'),ys'))
-	      by apply IH[node(x,xs'),ys']
-		 to s_xxs, s_ys, len_xxs_ys
-	    have x_le_xs: all_elements(xs', λb{x ≤ b})
-	      by definition sorted in rewrite xs_xxs in prem
-	    have y_le_ys: all_elements(ys', λb{y ≤ b})
-	      by definition sorted in rewrite ys_yys in prem
-	    
+                 rewrite symmetric len_xs_yys
+                 definition length
+                 rewrite add_suc[length(xs')][length(ys')].
+            have s_xxs: sorted(node(x, xs'))
+              by enable sorted rewrite xs_xxs in prem
+            have s_ys: sorted(ys')
+              by definition sorted in rewrite ys_yys in prem
+            have IH_xxs_ys: sorted(merge(n',node(x,xs'),ys'))
+              by apply IH[node(x,xs'),ys']
+                 to s_xxs, s_ys, len_xxs_ys
+
+            have x_le_xs: all_elements(xs', λb{x ≤ b})
+              by definition sorted in rewrite xs_xxs in prem
+            have y_le_ys: all_elements(ys', λb{y ≤ b})
+              by definition sorted in rewrite ys_yys in prem
+            
             switch x ≤ y {
               case true suppose xy_true {
+                definition sorted
+                suffices sorted(merge(n',xs',node(y,ys'))) and
+                         all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b})
+	      
                 have x_y: x ≤ y by rewrite xy_true.
-                have y_le_implies_x_le: all z:Nat. if y ≤ z then x ≤ z
-                  by arbitrary z:Nat suppose y_z
-                     apply less_equal_trans[x][y,z] to x_y, y_z
                 have x_le_ys: all_elements(ys', λb{x ≤ b})
-                  by apply all_elements_implies[Nat][ys']
+                  by have yz_xz: all z:Nat. if y ≤ z then x ≤ z
+                       by arbitrary z:Nat suppose y_z
+                          apply less_equal_trans[x][y,z] to x_y, y_z
+                     apply all_elements_implies[Nat][ys']
                        [λb{y ≤ b} : fn Nat -> bool, λb{x ≤ b} : fn Nat -> bool]
-                     to y_le_ys, y_le_implies_x_le
+                     to y_le_ys, yz_xz
+		     
                 have x_le_yys: all_elements(node(y,ys'), λb{x ≤ b})
                   by definition all_elements
                      x_y, x_le_ys
-                definition sorted
-		suffices sorted(merge(n',xs',node(y,ys'))) and
-		         all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b})
-		have som: set_of(merge(n',xs',node(y,ys')))
-		   = set_of(xs') ∪ set_of(node(y,ys'))
-		     by rewrite symmetric len_xs_yys
-		        set_of_merge[xs', node(y, ys')]
-		have set_of_xs_yys_append:
-		       set_of(xs') ∪ set_of(node(y,ys'))
-		     = set_of(append(xs', node(y, ys')))
-		     by symmetric set_of_append[Nat][xs'][node(y, ys')]
-		have set_of_merge_append:
-		     set_of(merge(n',xs',node(y,ys')))
-		     = set_of(append(xs', node(y, ys')))
-		     by transitive som set_of_xs_yys_append
-		have all_xs_yys:
+                have all_xs_yys:
 		     all_elements(append(xs', node(y, ys')), λb{x ≤ b})
-		  by apply all_elements_append[Nat][xs']
-		              [node(y,ys'), λb{x ≤ b}:fn Nat->bool]
-		     to x_le_xs, x_le_yys
+                  by apply all_elements_append[Nat][xs']
+                              [node(y,ys'), λb{x ≤ b}:fn Nat->bool]
+                     to x_le_xs, x_le_yys
+			 
+                have set_of_merge_append:
+                     set_of(merge(n',xs',node(y,ys')))
+                     = set_of(append(xs', node(y, ys')))
+                   by equations
+                            set_of(merge(n',xs',node(y,ys')))
+                          = set_of(xs') ∪ set_of(node(y,ys'))
+                              by rewrite symmetric len_xs_yys
+                                 set_of_merge[xs', node(y, ys')]
+                      ... = set_of(append(xs', node(y, ys')))
+                              by symmetric set_of_append[Nat][xs'][node(y, ys')]
+			      
                 have x_le_m_xs_yys:
                   all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
                   by rewrite (apply all_elements_set_of[Nat,
-		      merge(n',xs',node(y,ys')), append(xs', node(y, ys')),
-		         λb{x ≤ b}:fn Nat->bool]
-			 to set_of_merge_append)
-	             all_xs_yys
-		IH_xs_yys, x_le_m_xs_yys
+                      merge(n',xs',node(y,ys')), append(xs', node(y, ys')),
+                         λb{x ≤ b}:fn Nat->bool]
+                         to set_of_merge_append)
+                     all_xs_yys
+		     
+                IH_xs_yys, x_le_m_xs_yys
               }
               case false suppose xy_false {
-	        definition sorted
-		suffices sorted(merge(n',node(x,xs'),ys')) and
-		         all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
+                definition sorted
+                suffices sorted(merge(n',node(x,xs'),ys')) and
+                         all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
 
-		have som: set_of(merge(n',node(x,xs'),ys'))
-		   = set_of(node(x,xs')) ∪ set_of(ys')
-		     by rewrite symmetric len_xxs_ys
-		        set_of_merge[node(x,xs'), ys']
-		have set_of_xxs_ys_append:
-		       set_of(node(x,xs')) ∪ set_of(ys')
-		     = set_of(append(node(x,xs'), ys'))
-		     by symmetric set_of_append[Nat][node(x,xs')][ys']
-		have set_of_merge_append:
-		     set_of(merge(n',node(x,xs'),ys'))
-		     = set_of(append(node(x,xs'), ys'))
-		     by transitive som set_of_xxs_ys_append
-		     
-		have not_x_y: not (x ≤ y)
-		  by suppose xs rewrite xy_false in xs
-		have y_x: y ≤ x
-		  by apply less_implies_less_equal[y][x] to
-		     (apply not_less_equal_greater[x,y] to not_x_y)
+                have som: set_of(merge(n',node(x,xs'),ys'))
+                   = set_of(node(x,xs')) ∪ set_of(ys')
+                     by rewrite symmetric len_xxs_ys
+                        set_of_merge[node(x,xs'), ys']
+                have set_of_xxs_ys_append:
+                       set_of(node(x,xs')) ∪ set_of(ys')
+                     = set_of(append(node(x,xs'), ys'))
+                     by symmetric set_of_append[Nat][node(x,xs')][ys']
+                have set_of_merge_append:
+                     set_of(merge(n',node(x,xs'),ys'))
+                     = set_of(append(node(x,xs'), ys'))
+                     by transitive som set_of_xxs_ys_append
+                     
+                have not_x_y: not (x ≤ y)
+                  by suppose xs rewrite xy_false in xs
+                have y_x: y ≤ x
+                  by apply less_implies_less_equal[y][x] to
+                     (apply not_less_equal_greater[x,y] to not_x_y)
                 have x_le_implies_y_le: all z:Nat. if x ≤ z then y ≤ z
                   by arbitrary z:Nat suppose x_z
                      apply less_equal_trans[y][x,z] to y_x, x_z
@@ -317,18 +328,18 @@ proof
                 have y_le_xxs: all_elements(node(x,xs'), λb{y ≤ b})
                   by definition all_elements
                      y_x, y_le_xs
-		have all_xxs_ys:
-		     all_elements(append(node(x,xs'), ys'), λb{y ≤ b})
-		  by apply all_elements_append[Nat][node(x,xs')]
-		              [ys', λb{y ≤ b}:fn Nat->bool]
-		     to y_le_xxs, y_le_ys
+                have all_xxs_ys:
+                     all_elements(append(node(x,xs'), ys'), λb{y ≤ b})
+                  by apply all_elements_append[Nat][node(x,xs')]
+                              [ys', λb{y ≤ b}:fn Nat->bool]
+                     to y_le_xxs, y_le_ys
                 have y_le_m_xxs_ys:
                   all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
                   by rewrite (apply all_elements_set_of[Nat,
-		      merge(n',node(x,xs'),ys'), append(node(x,xs'), ys'),
-		         λb{y ≤ b}:fn Nat->bool]
-			 to set_of_merge_append)
-	             all_xxs_ys
+                      merge(n',node(x,xs'),ys'), append(node(x,xs'), ys'),
+                         λb{y ≤ b}:fn Nat->bool]
+                         to set_of_merge_append)
+                     all_xxs_ys
                 IH_xxs_ys, y_le_m_xxs_ys
               }
             }
@@ -428,21 +439,21 @@ proof
     switch xs {
       case empty suppose xs_empty {
         conclude length(ys) = suc(n')
-	  by definition {length, operator+} in
-	     rewrite xs_empty in prem
+          by definition {length, operator+} in
+             rewrite xs_empty in prem
       }
       case node(x, xs') suppose xs_xxs {
         switch ys {
-	  case empty suppose ys_empty {
-	    conclude length(node(x,xs')) = suc(n')
-	      by definition {length}
-	         rewrite add_zero[suc(length(xs'))] in
-	         definition {length} in
-	         rewrite xs_xxs | ys_empty in prem
-	  }
-	  case node(y, ys') suppose ys_yys {
-	    switch x ≤ y {
-	      case true {
+          case empty suppose ys_empty {
+            conclude length(node(x,xs')) = suc(n')
+              by definition {length}
+                 rewrite add_zero[suc(length(xs'))] in
+                 definition {length} in
+                 rewrite xs_xxs | ys_empty in prem
+          }
+          case node(y, ys') suppose ys_yys {
+            switch x ≤ y {
+              case true {
                 have suc_len_xs_yys:
                    suc(length(xs') + length(node(y,ys'))) = suc(n')
                   by definition {length}
@@ -465,8 +476,8 @@ proof
                                           to injective suc suc_len).
               }
             }
-	  }
-	}
+          }
+        }
       }
     }
   }
@@ -529,7 +540,7 @@ proof
       }
       case node(x, xs') {
         definition {first, second, mset_of, mset_of}
-	rewrite m_sum_empty[Nat,m_one(x)].
+        rewrite m_sum_empty[Nat,m_one(x)].
       }
     }
   }
@@ -550,9 +561,9 @@ proof
     rewrite zs_def | ms_def
 
     have IH1: mset_of(ys) ⨄ mset_of(ls) = mset_of(xs)
-	by definition {ys, ls} IH[xs]
+        by definition {ys, ls} IH[xs]
     have IH2: mset_of(zs) ⨄ mset_of(ms) = mset_of(ls)
-	by definition {zs, ms} IH[ls]
+        by definition {zs, ms} IH[ls]
     have m_ys_zs: mset_of(merge(length(ys) + length(zs), ys, zs)) = mset_of(ys) ⨄ mset_of(zs)
         by apply merge_contents[length(ys) + length(zs)][ys, zs] to .
     rewrite m_ys_zs
@@ -759,10 +770,10 @@ proof
        }
        case len_xs_equal {
          have pn_le_xs: pow2(n) ≤ length(xs)
-	   by rewrite len_xs_equal  less_equal_refl[pow2(n)]
-	 have len_ys_pow2: length(ys) = pow2(n)
-	   by rewrite symmetric ys_def
-	      apply msort_length_less_equal[n][xs] to pn_le_xs
+           by rewrite len_xs_equal  less_equal_refl[pow2(n)]
+         have len_ys_pow2: length(ys) = pow2(n)
+           by rewrite symmetric ys_def
+              apply msort_length_less_equal[n][xs] to pn_le_xs
          transitive len_ys_pow2 (symmetric len_xs_equal)
        }
   have ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
