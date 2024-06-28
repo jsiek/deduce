@@ -555,26 +555,31 @@ proof
   }
 end
 
-theorem all_elements_implies: all T:type. all xs:List<T>. all P: fn T -> bool, Q: fn T -> bool.
-  if all_elements(xs,P) and (all z:T. if P(z) then Q(z)) then all_elements(xs,Q)
+theorem all_elements_eq_member: all T:type, xs:List<T>, P: fn(T)->bool.
+  all_elements(xs,P) = (all x:T. if x ∈ set_of(xs) then P(x))
+proof
+  arbitrary T:type, xs:List<T>, P: fn(T)->bool
+  apply iff_equal[all_elements(xs,P), (all x:T. if x ∈ set_of(xs) then P(x))]
+  to member_implies_all_elements[T][xs][P],
+     all_elements_implies_member[T][xs][P]
+end
+
+theorem all_elements_implies: all T:type. all xs:List<T>.
+  all P: fn T -> bool, Q: fn T -> bool.
+  if all_elements(xs,P) and (all z:T. if P(z) then Q(z))
+  then all_elements(xs,Q)
 proof
   arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary P: fn T -> bool, Q: fn T -> bool
-    suppose _
-    definition all_elements.
-  }
-  case node(x, xs') suppose IH {
-    arbitrary P: fn T -> bool, Q: fn T -> bool
-    suppose prem
-    definition all_elements
-    suffices Q(x) and all_elements(xs',Q)
-    have Px: P(x) by definition all_elements in prem
-    have Qx: Q(x) by apply (conjunct 1 of prem)[x] to Px
-    have Pxs: all_elements(xs',P) by definition all_elements in prem
-    Qx , apply IH[P,Q] to Pxs , prem
-  }
+  arbitrary xs:List<T>
+  arbitrary P: fn T -> bool, Q: fn T -> bool
+  suppose prem: all_elements(xs,P) and all z:T. (if P(z) then Q(z))
+  have Pxs: (all x:T. if x ∈ set_of(xs) then P(x))
+    by rewrite all_elements_eq_member[T,xs,P] in (conjunct 0 of prem)
+  rewrite all_elements_eq_member[T,xs,Q]
+  arbitrary y:T
+  suppose y_xs
+  have Py: P(y) by apply Pxs[y] to y_xs
+  conclude Q(y) by apply (conjunct 1 of prem)[y] to Py
 end
 
 theorem set_of_empty: all T:type, xs:List<T>.
@@ -679,71 +684,16 @@ proof
   }
 end
 
-theorem all_elements_member: all T:type. all ys: List<T>. all x:T, P: fn T->bool.
+theorem all_elements_member:
+  all T:type. all ys: List<T>. all x:T, P: fn T->bool.
   if all_elements(ys, P) and x ∈ set_of(ys)
   then P(x)
 proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary x:T, P:fn T->bool
-    suppose prem
-    enable {set_of, operator ∈, rep}
-    conclude false  by prem
-  }
-  case node(y, ys') suppose IH {
-    arbitrary x:T, P:fn T->bool
-    suppose prem
-    have x_sy_or_x_ys: x ∈ single(y) or x ∈ set_of(ys')
-      by enable {set_of}
-         apply member_union[T, x, single(y), set_of(ys')] to prem
-    cases x_sy_or_x_ys
-    case x_sy {
-      have y_eq_x: y = x  by apply single_equal[T,y,x] to x_sy
-      conclude P(x)   by enable {all_elements} rewrite y_eq_x in
-	                 conjunct 0 of prem
-    }
-    case x_ys {
-      have ys_P: all_elements(ys',P)
-          by definition all_elements in conjunct 0 of prem
-      conclude P(x)
-          by apply IH[x,P] to ys_P, x_ys
-    }
-  }
-end
-
-theorem all_elements_set_of_implies:
-  all T:type. all xs:List<T>. all ys:List<T>, P:fn T -> bool.
-  if (all z:T. if z ∈ set_of(xs) then z ∈ set_of(ys)) and all_elements(ys, P)
-  then all_elements(xs, P) 
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>, P:fn T -> bool
-    suppose prem
-    conclude all_elements(empty,P)
-        by definition all_elements.
-  }
-  case node(x, xs') suppose IH {
-    arbitrary ys:List<T>, P:fn T -> bool
-    suppose prem
-    definition all_elements
-    suffices P(x) and all_elements(xs',P)
-    have x_in_ys: x ∈ set_of(ys)
-      by definition {set_of, operator ∈, single, operator ∪, rep} in
-         (conjunct 0 of prem)[x]
-    have P_x: P(x)
-      by apply all_elements_member[T][ys][x, P] to prem, x_in_ys
-    have xs_ys: all z:T. (if z ∈ set_of(xs') then z ∈ set_of(ys))
-      by arbitrary z:T suppose z_xs
-         have z_xxs: z ∈ set_of(node(x,xs'))
-	     by enable {set_of, operator ∈, operator ∪, rep} z_xs
-         apply (conjunct 0 of prem)[z] to z_xxs
-    have xs_P: all_elements(xs',P)
-      by apply IH[ys, P] to xs_ys, prem
-    P_x, xs_P
-  }
+  arbitrary T:type arbitrary ys:List<T>
+  arbitrary x:T, P:fn T->bool
+  suppose prem
+  apply (rewrite all_elements_eq_member[T, ys, P] in conjunct 0 of prem)[x]
+  to conjunct 1 of prem
 end
 
 theorem all_elements_set_of: all T:type, xs:List<T>, ys:List<T>, P:fn T -> bool.
@@ -752,50 +702,8 @@ theorem all_elements_set_of: all T:type, xs:List<T>, ys:List<T>, P:fn T -> bool.
 proof
   arbitrary T:type, xs:List<T>, ys:List<T>, P:fn T -> bool
   suppose xs_ys
-  switch all_elements(xs, P) {
-    case true suppose xs_P_true {
-      have xs_P: all_elements(xs,P)
-          by rewrite xs_P_true.
-      have ys_xs: all z:T. (if z ∈ set_of(ys) then z ∈ set_of(xs))
-          by arbitrary z:T suppose z_ys  rewrite xs_ys  z_ys
-      rewrite (apply all_elements_set_of_implies[T][ys][xs, P] to xs_P, ys_xs).
-    }
-    case false suppose xs_P_false {
-      have not_ys_P: not all_elements(ys,P)
-        by suppose ys_P: all_elements(ys,P)
-	   have xs_P: all_elements(xs, P)
-	     by have xs_ys: all z:T. (if z ∈ set_of(xs) then z ∈ set_of(ys))
-	         by arbitrary z:T suppose z_xs  rewrite symmetric xs_ys  z_xs
-	        apply all_elements_set_of_implies[T][xs][ys, P] to xs_ys, ys_P
-	   rewrite xs_P_false in xs_P
-      rewrite not_ys_P.
-    }
-  }
-end
-
-theorem all_elements_append: all T:type. all xs:List<T>.
-  all ys:List<T>, P:fn T -> bool.
-  if all_elements(xs, P) and all_elements(ys, P)
-  then all_elements(append(xs, ys), P)
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>, P:fn T -> bool
-    suppose ys_P
-    definition append
-    conclude all_elements(ys, P) by ys_P
-  }
-  case node(x, xs') suppose IH {
-    arbitrary ys:List<T>, P:fn T -> bool
-    suppose all_xxs_ys
-    definition {append, append, all_elements}
-    suffices P(x) and all_elements(append(xs',ys),P)
-    have Px: P(x)  by definition all_elements in all_xxs_ys
-    have Pxsys: all_elements(append(xs',ys),P)
-      by apply IH[ys,P] to definition all_elements in all_xxs_ys
-    Px, Pxsys
-  }
+  rewrite all_elements_eq_member[T,xs,P] | all_elements_eq_member[T,ys,P]
+  rewrite xs_ys.
 end
 
 theorem set_of_append: all T:type. all xs:List<T>.
@@ -816,6 +724,32 @@ proof
     rewrite union_assoc[T, single(x), set_of(xs'), set_of(ys)].
   }
 end
+
+theorem all_elements_append: all T:type. all xs:List<T>.
+  all ys:List<T>, P:fn T -> bool.
+  if all_elements(xs, P) and all_elements(ys, P)
+  then all_elements(append(xs, ys), P)
+proof
+  arbitrary T:type arbitrary xs:List<T>
+  arbitrary ys:List<T>, P:fn T -> bool
+  suppose prem
+  rewrite all_elements_eq_member[T, append(xs,ys), P]
+  rewrite set_of_append[T][xs][ys]
+  arbitrary x:T
+  suppose x_xs_ys
+  have x_xs_or_x_ys: x ∈ set_of(xs) or x ∈ set_of(ys)
+    by apply member_union[T,x,set_of(xs),set_of(ys)] to x_xs_ys
+  cases x_xs_or_x_ys
+  case x_xs {
+    apply (rewrite all_elements_eq_member[T,xs,P] in conjunct 0 of prem)[x]
+    to x_xs
+  }
+  case x_ys {
+    apply (rewrite all_elements_eq_member[T,ys,P] in conjunct 1 of prem)[x]
+    to x_ys
+  }
+end
+
 
 theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
   nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
