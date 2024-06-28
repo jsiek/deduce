@@ -78,7 +78,7 @@ proof
   induction Nat
   case 0 {
     arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem
+    suppose prem: length(xs) + length(ys) = 0
     have lxs_lys_z: length(xs) = 0 and length(ys) = 0
       by apply add_to_zero[length(xs)][length(ys)] to prem
     have xs_mt: xs = empty
@@ -91,7 +91,7 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem
+    suppose prem: length(xs) + length(ys) = suc(n')
     switch xs {
       case empty {
         definition {merge, mset_of}
@@ -266,8 +266,7 @@ proof
                      to y_le_ys, yz_xz
 		     
                 have x_le_yys: all_elements(node(y,ys'), λb{x ≤ b})
-                  by definition all_elements
-                     x_y, x_le_ys
+                  by definition all_elements  (x_y, x_le_ys)
                 have all_xs_yys:
 		     all_elements(append(xs', node(y, ys')), λb{x ≤ b})
                   by apply all_elements_append[Nat][xs']

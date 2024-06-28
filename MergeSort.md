@@ -268,9 +268,94 @@ theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
   then sorted(merge(n, xs, ys))
 ```
 
+### Prove the `merge_contents` theorem
+
 We begin with the proof of `merge_contents`.  Because `merge(n, xs,
 ys)` is recursive on the natural number `n`, we proceed by induction
 on `Nat`.
+
+```
+  induction Nat
+  case 0 {
+    arbitrary xs:List<Nat>, ys:List<Nat>
+    suppose prem: length(xs) + length(ys) = 0
+    ?
+  }
+  case suc(n') suppose IH {
+    ?
+  }
+```
+
+In the case for `n = 0`, we need to prove
+
+```
+  mset_of(merge(0,xs,ys)) = mset_of(xs) ⨄ mset_of(ys)
+```
+
+and `merge(0,xs,ys)` returns `empty`, so we need to show
+that `mset_of(xs) ⨄ mset_of(ys)` is the empty multiset.
+From the premise `prem`, both `xs` and `ys` must be `empty`.
+
+```
+  have lxs_lys_z: length(xs) = 0 and length(ys) = 0
+	by apply add_to_zero[length(xs)][length(ys)] to prem
+  have xs_mt: xs = empty
+	by apply length_zero_empty[Nat,xs] to lxs_lys_z
+  have ys_mt: ys = empty
+	by apply length_zero_empty[Nat,ys] to lxs_lys_z
+```
+
+After rewriting with those equalities and applying the definition of
+`merge` and `mset_of`:
+
+```
+  rewrite xs_mt | ys_mt
+  definition {merge, mset_of}
+```
+
+it remains to prove `m_fun(λ{0}) = m_fun(λ{0}) ⨄ m_fun(λ{0})` (the
+union of two empty multisets is the empty multiset), which we prove
+with the theorem `m_sum_empty` from `MultiSet.pf`.
+
+```
+  symmetric m_sum_empty[Nat, m_fun(λx{0}) :MultiSet<Nat>]
+```
+
+In the case for `n = suc(n')`, we need to prove
+
+```
+  mset_of(merge(suc(n'),xs,ys)) = mset_of(xs) ⨄ mset_of(ys)
+```
+
+Looking a the `suc` clause of `merge`, there is a `switch` on `xs` and
+then on `ys`. So our proof will be structured analogously.
+
+```
+  switch xs {
+    case empty {
+      ?
+    }
+    case node(x, xs') suppose xs_xxs {
+      ?
+    }
+  }
+```
+
+
+
+```
+  case empty {
+	definition {merge, mset_of}
+	conclude mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
+	  by symmetric empty_m_sum[Nat, mset_of(ys)]
+  }
+```
+
+### Prove the `merge_sorted` theorem
+
+Next up is the `merge_sorted` theorem.  The structure of the proof
+will be similar to the one for `merge_contents`, because they both
+follow the structure of `merge`. So begin with induction on `Nat`.
 
 ```
   induction Nat
@@ -322,6 +407,7 @@ then on `ys`. So our proof will be structured analogously.
     case node(x, xs') suppose xs_xxs {
       ?
     }
+  }
 ```
 
 In the case for `xs = empty`, `merge` returns `ys`, and we already
@@ -446,13 +532,15 @@ and the fact that `y` is less than all the elements in `ys'`.
 	   to y_le_ys, yz_xz
 ```
 
-
+Putting the fact together for `y` and `ys'` is easy.
 
 ```
   have x_le_yys: all_elements(node(y,ys'), λb{x ≤ b})
-	by definition all_elements
-	   x_y, x_le_ys
+	by definition all_elements  (x_y, x_le_ys)
 ```
+
+The next step is to prove that `x` is less than all the
+elements in the output to the call to `merge`.
 
 
 

@@ -536,12 +536,10 @@ proof
   arbitrary x:Nat, y:Nat
   switch x {
     case 0 {
-      arbitrary 
       suffices max(1,suc(y)) = suc(max(0,y))
       definition {max, max}.
     }
     case suc(x') {
-      arbitrary y:Nat
       switch y {
 	case 0 {
 	  definition {max, max}.

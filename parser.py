@@ -430,6 +430,8 @@ def parse_tree_to_ast(e, parent):
         rhs = parse_tree_to_ast(e.children[0], e)
         reason = parse_tree_to_ast(e.children[1], e)
         return (rhs, reason)
+    elif e.data == 'hole_in_middle_proof':
+        return PHole(e.meta)
     elif e.data == 'equations_proof':
         first = parse_tree_to_ast(e.children[0], e)
         rest = parse_tree_to_list(e.children[1], e)

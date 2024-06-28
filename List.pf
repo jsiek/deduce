@@ -497,6 +497,64 @@ proof
   }
 end
 
+theorem all_elements_implies_member: all T:type. all xs:List<T>.
+  all P: fn T -> bool.
+  if all_elements(xs,P)
+  then (all x:T. if x ∈ set_of(xs) then P(x))
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary P:fn T -> bool
+    suppose _
+    arbitrary x:T
+    suppose x_in_mt
+    conclude false  by definition {set_of, operator ∈, rep} in x_in_mt
+  }
+  case node(x, xs') suppose IH {
+    arbitrary P:fn T -> bool
+    suppose P_xxs: all_elements(node(x,xs'),P)
+    arbitrary y:T
+    enable {set_of, operator ∈, rep, operator ∪, single, all_elements}
+    suppose prem: x = y or rep(set_of(xs'))(y)
+    cases prem
+    case xy {
+      conclude P(y)  by rewrite xy in P_xxs
+    }
+    case y_xs {
+      have P_xs: all_elements(xs', P)  by P_xxs
+      conclude P(y)  by apply (apply IH[P] to P_xs)[y] to y_xs
+    }
+  }
+end
+
+theorem member_implies_all_elements: all T:type. all xs:List<T>.
+  all P: fn T -> bool.
+  if (all x:T. if x ∈ set_of(xs) then P(x))
+  then all_elements(xs,P)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary P: fn T -> bool
+    suppose _
+    definition all_elements.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary P: fn T -> bool
+    suppose prem
+    definition all_elements
+    suffices P(x) and all_elements(xs',P)
+    enable {set_of,operator ∪, operator∈, rep, single}
+    have Px: P(x)
+        by (apply prem[x] to .)
+    have Pxs: all_elements(xs',P)
+        by apply IH[P] to arbitrary z:T suppose z_xs
+	                  apply prem[z] to z_xs
+    Px, Pxs
+  }
+end
+
 theorem all_elements_implies: all T:type. all xs:List<T>. all P: fn T -> bool, Q: fn T -> bool.
   if all_elements(xs,P) and (all z:T. if P(z) then Q(z)) then all_elements(xs,Q)
 proof

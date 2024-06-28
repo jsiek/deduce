@@ -1116,9 +1116,14 @@ class All(Formula):
 
   def reduce(self, env):
     n = len(self.vars)
-    return All(self.location,
-               [(x, ty.reduce(env)) for (x,ty) in self.vars],
-               self.body.reduce(env))
+    new_body = self.body.reduce(env)
+    match new_body:
+      case Bool(_, b):
+        return new_body
+      case _:
+        return All(self.location,
+                   [(x, ty.reduce(env)) for (x,ty) in self.vars],
+                   new_body)
 
   def substitute(self, sub):
     n = len(self.vars)

@@ -432,7 +432,10 @@ def check_proof_of(proof, formula, env):
           frm2 = formula2.substitute(sub)
           body_env = env.declare_term_vars(loc, vars)
           check_proof_of(body, frm2, body_env)
-
+        case _:
+          error(loc, 'arbitrary is proof of an all formula, not\n' \
+                + str(formula))
+                
     case SomeIntro(loc, witnesses, body):
       match formula:
         case Some(loc2, vars, formula2):
