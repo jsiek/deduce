@@ -264,54 +264,37 @@ proof
                      apply all_elements_implies[Nat][ys']
                        [λb{y ≤ b} : fn Nat -> bool, λb{x ≤ b} : fn Nat -> bool]
                      to y_le_ys, yz_xz
-		     
                 have x_le_yys: all_elements(node(y,ys'), λb{x ≤ b})
                   by definition all_elements  (x_y, x_le_ys)
-                have all_xs_yys:
-		     all_elements(append(xs', node(y, ys')), λb{x ≤ b})
-                  by apply all_elements_append[Nat][xs']
-                              [node(y,ys'), λb{x ≤ b}:fn Nat->bool]
-                     to x_le_xs, x_le_yys
-			 
-                have set_of_merge_append:
-                     set_of(merge(n',xs',node(y,ys')))
-                     = set_of(append(xs', node(y, ys')))
-                   by equations
-                            set_of(merge(n',xs',node(y,ys')))
-                          = set_of(xs') ∪ set_of(node(y,ys'))
-                              by rewrite symmetric len_xs_yys
-                                 set_of_merge[xs', node(y, ys')]
-                      ... = set_of(append(xs', node(y, ys')))
-                              by symmetric set_of_append[Nat][xs'][node(y, ys')]
-			      
                 have x_le_m_xs_yys:
                   all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
-                  by rewrite (apply all_elements_set_of[Nat,
-                      merge(n',xs',node(y,ys')), append(xs', node(y, ys')),
-                         λb{x ≤ b}:fn Nat->bool]
-                         to set_of_merge_append)
-                     all_xs_yys
-		     
+		  by apply member_implies_all_elements[Nat]
+		              [merge(n',xs',node(y,ys'))]
+		              [λb{x ≤ b}:fn Nat->bool]
+	             to arbitrary z:Nat
+		        suppose z_in_merge
+			have z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
+			  by rewrite set_of_merge[xs',node(y,ys')] in
+			     rewrite symmetric len_xs_yys in z_in_merge
+			cases apply member_union
+			             [Nat,z,set_of(xs'),set_of(node(y,ys'))]
+			      to z_in_xs_yys
+			case z_in_xs {
+			  apply all_elements_member[Nat][xs']
+			                [z,λb{x ≤ b}:fn Nat->bool]
+			  to x_le_xs, z_in_xs
+			}
+			case z_in_ys {
+			  apply all_elements_member[Nat][node(y,ys')]
+			      [z,λb{x ≤ b}:fn Nat->bool]
+			  to x_le_yys, z_in_ys
+			}
                 IH_xs_yys, x_le_m_xs_yys
               }
               case false suppose xy_false {
                 definition sorted
                 suffices sorted(merge(n',node(x,xs'),ys')) and
                          all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
-
-                have som: set_of(merge(n',node(x,xs'),ys'))
-                   = set_of(node(x,xs')) ∪ set_of(ys')
-                     by rewrite symmetric len_xxs_ys
-                        set_of_merge[node(x,xs'), ys']
-                have set_of_xxs_ys_append:
-                       set_of(node(x,xs')) ∪ set_of(ys')
-                     = set_of(append(node(x,xs'), ys'))
-                     by symmetric set_of_append[Nat][node(x,xs')][ys']
-                have set_of_merge_append:
-                     set_of(merge(n',node(x,xs'),ys'))
-                     = set_of(append(node(x,xs'), ys'))
-                     by transitive som set_of_xxs_ys_append
-                     
                 have not_x_y: not (x ≤ y)
                   by suppose xs rewrite xy_false in xs
                 have y_x: y ≤ x
@@ -327,18 +310,29 @@ proof
                 have y_le_xxs: all_elements(node(x,xs'), λb{y ≤ b})
                   by definition all_elements
                      y_x, y_le_xs
-                have all_xxs_ys:
-                     all_elements(append(node(x,xs'), ys'), λb{y ≤ b})
-                  by apply all_elements_append[Nat][node(x,xs')]
-                              [ys', λb{y ≤ b}:fn Nat->bool]
-                     to y_le_xxs, y_le_ys
                 have y_le_m_xxs_ys:
                   all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b})
-                  by rewrite (apply all_elements_set_of[Nat,
-                      merge(n',node(x,xs'),ys'), append(node(x,xs'), ys'),
-                         λb{y ≤ b}:fn Nat->bool]
-                         to set_of_merge_append)
-                     all_xxs_ys
+		  by apply member_implies_all_elements[Nat]
+		              [merge(n',node(x,xs'),ys')]
+		              [λb{y ≤ b}:fn Nat->bool]
+	             to arbitrary z:Nat
+		        suppose z_in_merge
+			have z_in_xxs_ys: z ∈ set_of(node(x,xs')) ∪ set_of(ys')
+			  by rewrite set_of_merge[node(x,xs'),ys'] in
+			     rewrite symmetric len_xxs_ys in z_in_merge
+			cases apply member_union
+			             [Nat,z,set_of(node(x,xs')),set_of(ys')]
+			      to z_in_xxs_ys
+			case z_in_xxs {
+			  apply all_elements_member[Nat][node(x,xs')]
+			                [z,λb{y ≤ b}:fn Nat->bool]
+			  to y_le_xxs, z_in_xxs
+			}
+			case z_in_ys {
+			  apply all_elements_member[Nat][ys']
+			      [z,λb{y ≤ b}:fn Nat->bool]
+			  to y_le_ys, z_in_ys
+			}
                 IH_xxs_ys, y_le_m_xxs_ys
               }
             }

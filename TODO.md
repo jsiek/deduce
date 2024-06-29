@@ -1,4 +1,8 @@
-[ ] add let-binding in proofs
+[ ] implicit instantiation for all's
+
+[ ] change 'let' to 'define'
+
+[x] add let-binding in proofs
 
 [ ] fix generics, implement type passing, see operator ⊆ in Set.pf
 
