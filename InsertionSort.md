@@ -268,7 +268,7 @@ proof
         ... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
               by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')].
         ... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
-              by rewrite m_sum_sym[Nat, m_one(x), m_one(y)].
+              by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)].
         ... = m_one(y) ⨄ (m_one(x) ⨄ mset_of(xs'))
               by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')].
         ... = m_one(y) ⨄ mset_of(node(x,xs'))

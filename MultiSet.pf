@@ -72,7 +72,7 @@ proof
 end
 
 
-theorem m_sum_sym: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+theorem m_sum_commutes: all T:type, A:MultiSet<T>, B:MultiSet<T>.
   A ⨄ B = B ⨄ A
 proof
   arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>

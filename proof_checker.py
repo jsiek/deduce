@@ -276,16 +276,11 @@ def check_proof(proof, env):
       ret = All(loc, vars, formula)
     case AllElim(loc, univ, args):
       allfrm = check_proof(univ, env)
-      arg_types = [type_synth_term(arg, env, None, []) for arg in args]
       match allfrm:
         case All(loc2, vars, frm):
           sub = {}
-          for ((var,ty), (arg,arg_ty)) in zip(vars, zip(args,arg_types)):
-            if ty.substitute(sub) != arg_ty:
-              error(loc, 'to instantiate: ' + str(allfrm) \
-                    + '\nexpected argument of type: ' \
-                    + str(ty.substitute(sub)) \
-                    + '\nnot: ' + str(arg_ty))
+          for ((var,ty), arg) in zip(vars, args):
+            type_check_term(arg, ty.substitute(sub), env, None, [])
             if isinstance(ty, TypeType):
               sub[var] = arg
         case _:

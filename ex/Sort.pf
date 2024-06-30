@@ -83,8 +83,7 @@ proof
       suffices sorted(node(x,node(y,next)))
       definition {sorted, sorted, all_elements}
       have x_next: all_elements(next,λb{(x ≤ b)})
-        by apply all_elements_implies[Nat][next]
-	         [λb{(y ≤ b)} : fn Nat -> bool, λb{(x ≤ b)} : fn Nat -> bool]
+        by apply all_elements_implies[Nat][next][λb{(y ≤ b)}, λb{(x ≤ b)}]
 	   to y_next , (arbitrary z:Nat
 	                suppose y_z: y ≤ z
 	                conclude x ≤ z by apply less_equal_trans[x][y,z]
@@ -125,7 +124,7 @@ proof
       case false suppose yx_false {
         rewrite IH[y]
 	rewrite symmetric m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
-	rewrite m_sum_sym[Nat, m_one(y), m_one(x)]
+	rewrite m_sum_commutes[Nat, m_one(y), m_one(x)]
 	rewrite m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')].
       }
     }
@@ -173,7 +172,7 @@ proof
     definition {isort, mset_of}
     rewrite IH[insert(ys,x)]
     rewrite insert_contents[ys][x]
-    rewrite m_sum_sym[Nat, m_one(x), mset_of(xs')]
+    rewrite m_sum_commutes[Nat, m_one(x), mset_of(xs')]
     rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(x), mset_of(ys)].
   }
 end
