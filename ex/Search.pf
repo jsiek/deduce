@@ -48,20 +48,20 @@ proof
   }
 end
 
-theorem search_absent2: all xs:List<Nat>. all y:Nat, d:Nat.
+theorem search_absent2: all xs:List<Nat>. all y:Nat.
   if length(xs) ≤ search(xs, y)
   then not (y ∈ set_of(xs))
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat, d:Nat
+    arbitrary y:Nat
     suppose _
     conclude not (y ∈ set_of(empty))
         by definition {set_of}
 	   empty_no_members[Nat,y]
   }
   case node(x, xs') suppose IH {
-    arbitrary y:Nat, d:Nat
+    arbitrary y:Nat
     suppose s_xxs_len_xxs
     switch x = y {
       case true suppose xy {
@@ -83,7 +83,7 @@ proof
           have sxs_lxs: length(xs') ≤ search(xs',y)
 	    by rewrite not_xy in definition {search,length,operator ≤} in
 	       s_xxs_len_xxs
-	  conclude false  by apply (apply IH[y,d] to sxs_lxs) to y_xs
+	  conclude false  by apply (apply IH to sxs_lxs) to y_xs
 	}
       }
     }

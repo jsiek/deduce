@@ -552,7 +552,7 @@ class Closure(Term):
   env: Any
   
   def __str__(self):
-    return "λ" + ",".join([base_name(v) for v in self.vars]) \
+    return "λᶜ" + ",".join([base_name(v) for v in self.vars]) \
       + "{" + str(self.body) + "}"
 
   def __repr__(self):

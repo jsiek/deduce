@@ -193,6 +193,16 @@ def isolate_difference(term1, term2):
         return isolate_difference(body1.substitute(ren), body2)
       case _:
         return (term1, term2)
+
+def collect_all_if_then(loc, frm):
+    match frm:
+      case All(loc2, vars, frm):
+        (rest_vars, prem, conc) = collect_all_if_then(loc, frm)
+        return ([Var(loc2, x) for (x,t) in vars] + rest_vars, prem, conc)
+      case IfThen(_, prem, conc):
+        return ([], prem, conc)
+      case _:
+        error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
     
 def check_proof(proof, env):
   if get_verbose():
@@ -289,11 +299,21 @@ def check_proof(proof, env):
     case ModusPonens(loc, imp, arg):
       ifthen = check_proof(imp, env)
       match ifthen:
-        case IfThen(loc, prem, conc):
+        case IfThen(loc2, prem, conc):
           check_proof_of(arg, prem, env)
           ret = conc
+        case All(_, _, _):
+          (vars, prem, conc) = collect_all_if_then(loc, ifthen)
+          arg_frm = check_proof(arg, env)
+          matching = {}
+          formula_match(loc, vars, prem, arg_frm, matching, env)
+          for x in vars:
+              if x.name not in matching.keys():
+                  error(loc, "could not deduce an instantiation for variable "\
+                        + str(x))
+          ret = conc.substitute(matching)
         case _:
-          error(loc, 'expected an if-then, not ' + str(ifthen))
+          error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
     case PInjective(loc, constr, eq_pf):
       formula = check_proof(eq_pf, env)
       (a,b) = split_equation(loc, formula)
@@ -682,11 +702,53 @@ def apply_definitions(loc, formula, defs, env):
   #print('apply defs: ' + str(formula) + ' ===> ' + str(new_formula))
   return new_formula
       
+def formula_match(loc, vars, goal_frm, frm, matching, env):
+  if get_verbose():
+    print("formula_match(" + str(goal_frm) + "," + str(frm) + ")")
+    print("\tin  " + ','.join([str(x) for x in vars]))
+    print("\twith " + str(matching))
+  match (goal_frm, frm):
+    case (Var(l1, n1, i1), Var(l2, n2, i2)) if n1 == n2 and i1 == i2:
+      pass
+    case (Var(l1, name, index), _) if goal_frm in vars:
+      if name in matching.keys():
+        formula_match(loc, vars, matching[name], frm, matching, env)
+      else:
+        matching[name] = frm
+    case (Call(loc2, goal_rator, goal_rands, goal_infix),
+          Call(loc3, rator, rands, infix)):
+      formula_match(loc, vars, goal_rator, rator, matching, env)
+      for (goal_rand, rand) in zip(goal_rands, rands):
+          new_goal_rand = goal_rand.substitute(matching)
+          formula_match(loc, vars, new_goal_rand, rand, matching, env)
+    case (And(loc2, goal_args),
+          And(loc3, args)):
+      for (goal_arg, arg) in zip(goal_args, args):
+          new_goal_arg = goal_arg.substitute(matching)
+          formula_match(loc, vars, new_goal_arg, arg, matching, env)
+    case (Or(loc2, goal_args),
+          Or(loc3, args)):
+      for (goal_arg, arg) in zip(goal_args, args):
+          new_goal_arg = goal_arg.substitute(matching)
+          formula_match(loc, vars, new_goal_arg, arg, matching, env)
+    case (IfThen(loc2, goal_prem, goal_conc),
+          IfThen(loc3, prem, conc)):
+      formula_match(loc, vars, goal_prem, prem, matching, env)
+      new_goal_conc = goal_conc.substitute(matching)
+      formula_match(loc, vars, new_goal_conc, conc, matching, env)
+    # UNDER CONSTRUCTION
+    case _:
+      red_goal = goal_frm.reduce(env)
+      red_frm = frm.reduce(env)
+      if red_goal != red_frm:
+          error(loc, "formula: " + str(red_frm) + "\n" \
+                + "does not match expected formula: " + str(red_goal))
+    
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
     print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")
     print("\tin  " + str(tyvars))
-    print("\twith" + str(matching))
+    print("\twith " + str(matching))
   match (param_ty, arg_ty):
     case (Var(l1, n1, i1), Var(l2, n2, i2)) if n1 == n2 and i1 == i2:
       pass
