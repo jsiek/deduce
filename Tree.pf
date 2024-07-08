@@ -1,5 +1,5 @@
+import Option
 import List
-import LinearSearch
 
 union Direction {
   left
@@ -17,8 +17,8 @@ function tree_data<E>(Tree<E>) -> Option<E> {
 }
 
 function locate<E>(List<Direction>, Tree<E>) -> Tree<E> {
-  location(empty, T) = T
-  location(node(d, ds), T) =
+  locate(empty, T) = T
+  locate(node(d, ds), T) =
     switch d {
       case left {
 	switch T {
@@ -74,11 +74,24 @@ function locate_first<E>(Tree<E>) -> List<Direction> {
     }
 }
 
-define T123 = tree_node(tree_node(empty_tree, 1, empty_tree),
-                        2,
-			tree_node(empty_tree, 3, empty_tree))
+define T1 = tree_node(empty_tree, 1, empty_tree)
+define T3 = tree_node(empty_tree, 3, empty_tree)
+define T123 = tree_node(T1, 2, T3)
 
 assert tree_data(locate(locate_first(T123), T123)) = head(in_order(T123))
+
+function prev_ancester(List<Direction>) -> List<Direction> {
+  prev_ancester(empty) = empty
+  prev_ancester(node(d, ds)) =
+    switch d {
+      case left {
+        ds
+      }
+      case right {
+        prev_ancester(ds)
+      }
+    }
+}
 
 define next : < E > fn Tree<E>, List<Direction> -> List<Direction> =
   generic E { λ T, ds {
@@ -89,10 +102,9 @@ define next : < E > fn Tree<E>, List<Direction> -> List<Direction> =
       case tree_node(L, x, R) {
         switch R {
 	  case empty_tree {
-	    define rev_ds = reverse(ds)
-	    reverse(drop(search(rev_ds, left), rev_ds))
+	    reverse(prev_ancester(reverse(ds)))
 	  }
-	  case node(RL, y, RR) {
+	  case tree_node(RL, y, RR) {
 	    append(ds, node(right, locate_first(R)))
 	  }
 	}
@@ -102,3 +114,4 @@ define next : < E > fn Tree<E>, List<Direction> -> List<Direction> =
   }
 
 assert locate(next(T123, node(left, empty)), T123) = T123
+assert locate(next(T123, empty), T123) = T3
