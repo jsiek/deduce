@@ -17,7 +17,7 @@ assert search(list_439, 9) = 2
 assert search(list_439, 0) = 3
 
 theorem search_present2: all xs:List<Nat>. all y:Nat, d:Nat.
-  let i = search(xs, y)
+  define i = search(xs, y)
   if i < length(xs)
   then nth(xs, d)(i) = y
 proof
@@ -93,7 +93,7 @@ end
 
 theorem search_present: all xs:List<Nat>. all y:Nat, d:Nat.
   if y ∈ set_of(xs)
-  then let i = search(xs, y)
+  then define i = search(xs, y)
        nth(xs, d)(i) = y
 proof
   induction List<Nat>
@@ -213,7 +213,7 @@ end
 function search_last(List<Nat>, Nat) -> Nat {
   search_last(empty, y) = 0
   search_last(node(x, xs'), y) =
-    let i = search_last(xs', y)
+    define i = search_last(xs', y)
     if x = y then
       (if i < length(xs') then i else 0)
     else

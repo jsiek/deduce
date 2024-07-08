@@ -185,7 +185,7 @@ def parse_tree_to_ast(e, parent):
       return TypeInst(e.meta, Var(e.meta, str(e.children[0].value)),
                       parse_tree_to_list(e.children[1], e))
     # terms
-    elif e.data == 'let_term':
+    elif e.data == 'define_term':
         return TLet(e.meta, str(e.children[0].value),
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e))
@@ -286,7 +286,7 @@ def parse_tree_to_ast(e, parent):
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e),
                     parse_tree_to_ast(e.children[3], e))
-    elif e.data == 'let_term_proof':
+    elif e.data == 'define_term_proof':
         return PTLet(e.meta,
                      str(e.children[0].value),
                      parse_tree_to_ast(e.children[1], e),

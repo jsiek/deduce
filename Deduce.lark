@@ -63,7 +63,7 @@ ident: IDENT              -> ident
     | "all" var_list "." term                      -> all_formula
     | "<" ident_list ">" term                       -> alltype_formula
     | "some" var_list "." term                     -> some_formula
-    | "let" IDENT "=" term term                    -> let_term
+    | "define" IDENT "=" term term                 -> define_term
     | "(" term ")"                                 -> paren
     | "%" type
     
@@ -136,7 +136,7 @@ ident: IDENT              -> ident
 
 ?proof_hi: IDENT                                         -> proof_var
     | "have" IDENT ":" term "by" proof proof             -> let
-    | "let" IDENT "=" term proof                         -> let_term_proof
+    | "define" IDENT "=" term proof                      -> define_term_proof
     | "term" term "by" proof proof                       -> term_proof
     | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof

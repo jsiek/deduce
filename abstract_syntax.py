@@ -913,7 +913,7 @@ class TLet(Term):
   body: Term
 
   def __str__(self):
-    return 'let ' + base_name(self.var) + ' = ' + str(self.rhs) \
+    return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) \
       + '\n\t' + str(self.body)
   def __repr__(self):
     return str(self)
@@ -1242,7 +1242,7 @@ class PTLet(Proof):
   body: Proof
 
   def __str__(self):
-      return 'let ' + self.var + ' = ' + str(self.rhs) + '\n' \
+      return 'define ' + self.var + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
   def uniquify(self, env):

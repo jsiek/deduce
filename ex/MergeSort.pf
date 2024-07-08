@@ -32,10 +32,10 @@ function msort(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
       case node(x, xs') { pair(node(x, empty), xs') }
     }
   msort(suc(n'), xs) =
-    let p1 = msort(n', xs)
-    let p2 = msort(n', second(p1))
-    let ys = first(p1)
-    let zs = first(p2)
+    define p1 = msort(n', xs)
+    define p2 = msort(n', second(p1))
+    define ys = first(p1)
+    define zs = first(p2)
     pair(merge(length(ys) + length(zs), ys, zs), second(p2))
 }
 
@@ -400,8 +400,8 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
-    let ys = first(msort(n',xs))
-    let zs = first(msort(n',second(msort(n',xs))))
+    define ys = first(msort(n',xs))
+    define zs = first(msort(n',second(msort(n',xs))))
     have IH1: sorted(ys)  by definition ys IH[xs]
     have IH2: sorted(zs)  by definition zs IH[second(msort(n',xs))]
     definition {msort, first}
@@ -498,14 +498,14 @@ proof
     arbitrary xs:List<Nat>
     definition {msort, first, second}
 
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
     rewrite ys_def | ls_def
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
     rewrite zs_def | ms_def
@@ -550,13 +550,13 @@ proof
     arbitrary xs:List<Nat>
     definition {msort, first, second}
     
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     rewrite have first(msort(n',xs)) = ys  by definition ys.
     rewrite have second(msort(n',xs)) = ls  by definition ls.
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     rewrite have first(msort(n', ls)) = zs by definition zs.
     rewrite have second(msort(n', ls)) = ms by definition ms.
 
@@ -611,14 +611,14 @@ proof
          definition {pow2, operator*, operator*,operator*} in prem
     definition {pow2, msort, first}
 
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
     rewrite ys_def | ls_def
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
     rewrite zs_def | ms_def
@@ -679,14 +679,14 @@ proof
     suppose prem
     definition{msort, first}
 
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
     rewrite ys_def | ls_def
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
     rewrite zs_def | ms_def
@@ -754,15 +754,12 @@ theorem mset_of_merge_sort: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
-  let n = log(length(xs))
+  define n = log(length(xs))
   have n_def: log(length(xs)) = n  by definition n.
-  let ys = first(msort(n,xs))
+  define ys = first(msort(n,xs))
   have ys_def: first(msort(n,xs)) = ys  by definition ys.
-  let ls = second(msort(n,xs))
+  define ls = second(msort(n,xs))
   have ls_def: second(msort(n,xs)) = ls  by definition ls.
-
-  stop ?
-
   have len_xs: length(xs) ≤ pow2(n)
     by rewrite symmetric n_def
        less_equal_pow_log[length(xs)]
