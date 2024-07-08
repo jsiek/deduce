@@ -687,8 +687,8 @@ import List
 <<sorted>>
 <<insert>>
 <<insertion_sort>>
-
 <<count>>
+
 <<test_insert_1234>>
 <<test_insert_empty>>
 

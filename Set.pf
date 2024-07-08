@@ -40,10 +40,11 @@ proof
   definition {single, operator ∈, rep}.
 end
 
-theorem single_equal: all T:type, x:T, y:T.
+theorem single_equal: all T:type. all x:T, y:T.
     if y ∈ single(x) then x = y
 proof
-  arbitrary T:type, x:T, y:T
+  arbitrary T:type
+  arbitrary x:T, y:T
   suppose y_in_x: y ∈ single(x)
   enable {operator ∈, single, rep}
   y_in_x
@@ -58,11 +59,12 @@ proof
   x_in_empty
 end
 
-theorem member_union: all T:type, x:T, A:Set<T>, B:Set<T>.
+theorem member_union: all T:type. all x:T, A:Set<T>, B:Set<T>.
   if x ∈ (A ∪ B)
   then x ∈ A or x ∈ B
 proof
-  arbitrary T:type, x:T, A:Set<T>, B:Set<T>
+  arbitrary T:type
+  arbitrary x:T, A:Set<T>, B:Set<T>
   suppose x_AB: x ∈ (A ∪ B)
   enable {operator ∈, operator ∪, rep}
   x_AB
@@ -144,20 +146,22 @@ proof
 end
 
 theorem in_left_union:
-  all T:type, x:T, A: Set<T>, B:Set<T>.
+  all T:type, B:Set<T>. all x:T, A: Set<T>.
   if x ∈ A then x ∈ (A ∪ B)
 proof
-  arbitrary T:type, x:T, A: Set<T>, B:Set<T>
+  arbitrary T:type, B:Set<T>
+  arbitrary x:T, A: Set<T>
   suppose x_A: x ∈ A
   definition {operator ∈, operator ∪, rep}
   definition operator ∈ in x_A
 end
 
 theorem in_right_union:
-  all T:type, x:T, A: Set<T>, B:Set<T>.
+  all T:type, A: Set<T>. all x:T, B:Set<T>.
   if x ∈ B then x ∈ (A ∪ B)
 proof
-  arbitrary T:type, x:T, A: Set<T>, B:Set<T>
+  arbitrary T:type, A: Set<T>
+  arbitrary x:T, B:Set<T>
   suppose x_B: x ∈ B
   definition {operator ∈, operator ∪, rep}
   definition operator ∈ in x_B

@@ -794,8 +794,7 @@ patricular, the premise `y_in_x_union_xs` gives us the following.
 
 ```
   have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-	  by apply member_union[Nat,y,single(x),set_of(xs')]
-		 to y_in_x_union_xs
+	  by apply member_union[Nat] to y_in_x_union_xs
 ```
 
 But `x ≠ y` implies `not (y ∈ single(x))`.
@@ -804,7 +803,7 @@ But `x ≠ y` implies `not (y ∈ single(x))`.
   have not_ysx: not (y ∈ single(x))
 	by suppose ysx
 	   rewrite xy_false in
-	   apply single_equal[Nat,x,y] to ysx
+	   apply single_equal[Nat] to ysx
 ```
 
 So it must be that `y ∈ set_of(xs')` (using `or_not` from `Base.pf`).
@@ -863,12 +862,11 @@ proof
       }
       case false suppose xy_false {
 	    have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-	        by apply member_union[Nat,y,single(x),set_of(xs')]
-			   to y_in_x_union_xs
+	        by apply member_union[Nat] to y_in_x_union_xs
 	    have not_ysx: not (y ∈ single(x))
 		  by suppose ysx
 		     rewrite xy_false in
-			 apply single_equal[Nat,x,y] to ysx
+			 apply single_equal[Nat] to ysx
 	    have y_xs: y ∈ set_of(xs')
 		  by apply or_not[y ∈ single(x), y ∈ set_of(xs')] 
 		     to ysx_or_y_xs, not_ysx

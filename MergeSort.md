@@ -30,7 +30,7 @@ following.
 function merge_sort(List<Nat>) -> List<Nat> {
   merge_sort(empty) = empty
   merge_sort(node(x,xs')) =
-    let p = split(node(x,xs'))
+    define p = split(node(x,xs'))
     merge(merge_sort(first(p)), merge_sort(second(p)))
 }
 ```
@@ -51,7 +51,7 @@ terms of `msort`.
 function msort(Nat, List<Nat>) -> List<Nat> {
   msort(0, xs) = xs
   msort(suc(n'), xs) =
-    let p = split(xs)
+    define p = split(xs)
     merge(msort(n', first(p)), msort(n', second(p)))
 }
 
@@ -90,10 +90,10 @@ function msort(Nat, List<Nat>) -> Pair< List<Nat>, List<Nat> > {
       case node(x, xs') { pair(node(x, empty), xs') }
     }
   msort(suc(n'), xs) =
-    let p1 = msort(n', xs)
-    let p2 = msort(n', second(p1))
-    let ys = first(p1)
-    let zs = first(p2)
+    define p1 = msort(n', xs)
+    define p2 = msort(n', second(p1))
+    define ys = first(p1)
+    define zs = first(p2)
     pair(merge(length(ys) + length(zs), ys, zs), second(p2))
 }
 ```
@@ -230,8 +230,8 @@ We can bundle several tests, with varying-length inputs, into one
 
 ``` {.deduce #test_merge_sort_many}
 assert all_elements(interval(3, 0),
-    λn{ let xs = reverse(interval(n, 0))
-        let ls = merge_sort(xs)
+    λn{ define xs = reverse(interval(n, 0))
+        define ls = merge_sort(xs)
         sorted(ls) and
         all_elements(xs, λx{count(xs)(x) = count(ls)(x)})
     })
@@ -807,16 +807,14 @@ proof
                   arbitrary z:Nat
                   suppose z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
                   suffices x ≤ z
-                  cases apply member_union
-                               [Nat,z,set_of(xs'),set_of(node(y,ys'))]
-                        to z_in_xs_yys
+                  cases apply member_union[Nat] to z_in_xs_yys
                   case z_in_xs: z ∈ set_of(xs') {
                     conclude x ≤ z by
                       apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
                       to x_le_xs, z_in_xs
                   }
                   case z_in_ys: z ∈ set_of(node(y,ys')) {
-                    cases apply member_union[Nat,z,single(y),set_of(ys')]
+                    cases apply member_union[Nat]
                           to definition set_of in z_in_ys
                     case z_sy: z ∈ single(y) {
                       have y_z: y = z
@@ -851,12 +849,10 @@ proof
                   arbitrary z:Nat
                   suppose z_in_xxs_ys: z ∈ set_of(node(x,xs')) ∪ set_of(ys')
                   suffices y ≤ z
-                  cases apply member_union
-                               [Nat,z,set_of(node(x,xs')),set_of(ys')]
-                        to z_in_xxs_ys
+                  cases apply member_union[Nat] to z_in_xxs_ys
                   case z_in_xxs: z ∈ set_of(node(x,xs')) {
                     have z_in_sx_or_xs: z ∈ single(x) or z ∈ set_of(xs')
-                      by apply member_union[Nat,z,single(x),set_of(xs')]
+                      by apply member_union[Nat]
                          to definition set_of in z_in_xxs
                     cases z_in_sx_or_xs
                     case z_in_sx: z ∈ single(x) {
@@ -920,13 +916,13 @@ proof
     arbitrary xs:List<Nat>
     definition {msort, first, second}
     
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     rewrite have first(msort(n',xs)) = ys  by definition ys.
     rewrite have second(msort(n',xs)) = ls  by definition ls.
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     rewrite have first(msort(n', ls)) = zs by definition zs.
     rewrite have second(msort(n', ls)) = ms by definition ms.
 
@@ -969,8 +965,8 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
-    let ys = first(msort(n',xs))
-    let zs = first(msort(n',second(msort(n',xs))))
+    define ys = first(msort(n',xs))
+    define zs = first(msort(n',second(msort(n',xs))))
     have IH1: sorted(ys)  by definition ys IH[xs]
     have IH2: sorted(zs)  by definition zs IH[second(msort(n',xs))]
     definition {msort, first}
@@ -1033,14 +1029,14 @@ proof
          definition {pow2, operator*, operator*,operator*} in prem
     definition {pow2, msort, first}
 
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
     rewrite ys_def | ls_def
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
     rewrite zs_def | ms_def
@@ -1107,14 +1103,14 @@ proof
     suppose prem
     definition{msort, first}
 
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
     rewrite ys_def | ls_def
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
     rewrite zs_def | ms_def
@@ -1221,11 +1217,11 @@ theorem mset_of_merge_sort: all xs:List<Nat>.
 proof
   arbitrary xs:List<Nat>
   definition merge_sort
-  let n = log(length(xs))
+  define n = log(length(xs))
   have n_def: log(length(xs)) = n  by definition n.
-  let ys = first(msort(n,xs))
+  define ys = first(msort(n,xs))
   have ys_def: first(msort(n,xs)) = ys  by definition ys.
-  let ls = second(msort(n,xs))
+  define ls = second(msort(n,xs))
   have ls_def: second(msort(n,xs)) = ls  by definition ls.
 
   have len_xs: length(xs) ≤ pow2(n)
@@ -1292,7 +1288,7 @@ Test and prove the correctness of the classic definition of
 function msort(Nat, List<Nat>) -> List<Nat> {
   msort(0, xs) = xs
   msort(suc(n'), xs) =
-    let p = split(xs)
+    define p = split(xs)
     merge(msort(n', first(p)), msort(n', second(p)))
 }
 
@@ -1407,14 +1403,14 @@ proof
     arbitrary xs:List<Nat>
     definition {msort, first, second}
 
-    let ys = first(msort(n',xs))
-    let ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
     rewrite ys_def | ls_def
     
-    let zs = first(msort(n', ls))
-    let ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
     rewrite zs_def | ms_def
@@ -1431,6 +1427,7 @@ proof
     .
   }
 end
+
 <<msort_length_less_equal>>
 <<msort_length_less>>
 

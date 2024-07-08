@@ -334,7 +334,7 @@ def check_proof(proof, env):
       (a,b) = split_equation(loc, frm)
       return mkEqual(loc, b, a)
     case _:
-      error(proof.location, 'in check_proof, unhandled ' + str(proof))
+      error(proof.location, 'need to be in goal-directed mode for\n\t' + str(proof))
   if get_verbose():
     print('\t=> ' + str(ret))
   return ret

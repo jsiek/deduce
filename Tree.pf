@@ -1,0 +1,104 @@
+import List
+import LinearSearch
+
+union Direction {
+  left
+  right
+}
+
+union Tree<E> {
+  empty_tree
+  tree_node(Tree<E>, E, Tree<E>)
+}
+
+function tree_data<E>(Tree<E>) -> Option<E> {
+  tree_data(empty_tree) = none
+  tree_data(tree_node(L, x, R)) = just(x)
+}
+
+function locate<E>(List<Direction>, Tree<E>) -> Tree<E> {
+  location(empty, T) = T
+  location(node(d, ds), T) =
+    switch d {
+      case left {
+	switch T {
+	  case empty_tree {
+	    empty_tree
+	  }
+	  case tree_node(L, x, R) {
+	    locate(ds, L)
+	  }
+	}
+      }
+      case right {
+	switch T {
+	  case empty_tree {
+	    empty_tree
+	  }
+	  case tree_node(L, x, R) {
+	    locate(ds, R)
+	  }
+	}
+      }
+    }
+}
+
+function pre_order<E>(Tree<E>) -> List<E> {
+  pre_order(empty_tree) = empty
+  pre_order(tree_node(L, x, R)) =
+    node(x, append(pre_order(L), pre_order(R)))
+}
+
+function in_order<E>(Tree<E>) -> List<E> {
+  in_order(empty_tree) = empty
+  in_order(tree_node(L, x, R)) =
+    append(in_order(L), node(x, in_order(R)))
+}
+
+function post_order<E>(Tree<E>) -> List<E> {
+  post_order(empty_tree) = empty
+  post_order(tree_node(L, x, R)) =
+    append(post_order(L), append(post_order(R), node(x, empty)))
+}
+
+function locate_first<E>(Tree<E>) -> List<Direction> {
+  locate_first(empty_tree) = empty
+  locate_first(tree_node(L, x, R)) =
+    switch L {
+      case empty_tree {
+        empty
+      }
+      case tree_node(LL, y, LR) {
+        node(left, locate_first(L))
+      }
+    }
+}
+
+define T123 = tree_node(tree_node(empty_tree, 1, empty_tree),
+                        2,
+			tree_node(empty_tree, 3, empty_tree))
+
+assert tree_data(locate(locate_first(T123), T123)) = head(in_order(T123))
+
+define next : < E > fn Tree<E>, List<Direction> -> List<Direction> =
+  generic E { λ T, ds {
+    switch locate(ds, T) {
+      case empty_tree {
+        empty
+      }
+      case tree_node(L, x, R) {
+        switch R {
+	  case empty_tree {
+	    define rev_ds = reverse(ds)
+	    reverse(drop(search(rev_ds, left), rev_ds))
+	  }
+	  case node(RL, y, RR) {
+	    append(ds, node(right, locate_first(R)))
+	  }
+	}
+      }
+    }
+    }
+  }
+
+assert locate(next(T123, node(left, empty)), T123) = T123

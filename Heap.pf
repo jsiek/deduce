@@ -207,7 +207,7 @@ proof
 end
 
 
-//---------------- Testing del_last ----------------------------------------------
+//---------------- Testing del_last --------------------------------------------
 
 theorem del_last_H1: del_last(H1) = pair(empty_heap, 1)
 proof
@@ -221,7 +221,7 @@ proof
   reflexive
 end
 
-//---------------- Correctness of insert ----------------------------------------------
+//---------------- Correctness of insert ---------------------------------------
 
 theorem heap_greater_equal_trans:
   all L:Heap, x:Nat, y:Nat.

@@ -48,11 +48,10 @@ proof
     definition max_element
     suffices y ≤ max(x,max_element(xs',d))
     have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-      by apply member_union[Nat,y, single(x), set_of(xs')]
-	 to definition set_of in y_in_xxs
+      by apply member_union[Nat] to definition set_of in y_in_xxs
     cases xy_or_y_xs
     case y_in_sx: y ∈ single(x) {
-      have x_y: x = y by apply single_equal[Nat,x,y] to y_in_sx
+      have x_y: x = y by apply single_equal[Nat] to y_in_sx
       rewrite x_y
       conclude y ≤ max(y,max_element(xs',d))
           by max_greater_left[y][max_element(xs',d)]
@@ -62,9 +61,7 @@ proof
       have xs_le_xxs: max_element(xs',d) ≤ max(x,max_element(xs',d))
         by max_greater_right[max_element(xs',d)][x]
       conclude y ≤ max(x,max_element(xs',d))
-        by apply less_equal_trans[y][max_element(xs',d),
-	                             max(x,max_element(xs',d))]
-           to y_le_xs, xs_le_xxs
+        by apply less_equal_trans to y_le_xs, xs_le_xxs
     }
   }
 end
@@ -88,14 +85,11 @@ proof
       cases max_is_left_or_right[x][max_element(xs',d)]
       case m_x: max(x,max_element(xs',d)) = x {
         rewrite m_x
-	//definition {operator ∈, operator ∪}
-	apply in_left_union[Nat,x,single(x),set_of(xs')]
-	to single_member[Nat,x]
+	apply in_left_union[Nat,set_of(xs')] to single_member[Nat,x]
       }
       case m_mxs: max(x,max_element(xs',d)) = max_element(xs',d) {
         rewrite m_mxs
-        apply in_right_union[Nat, max_element(xs',d), single(x), set_of(xs')]
-	to mxs_in_xs
+        apply in_right_union[Nat, single(x)] to mxs_in_xs
       }
     }
     case mxs_d: max_element(xs',d) = d {
@@ -105,8 +99,7 @@ proof
       case m_x: max(x,d) = x {
         rewrite m_x
 	have x_sx_xs: x ∈ (single(x) ∪ set_of(xs'))
-	  by apply in_left_union[Nat,x,single(x),set_of(xs')]
-	     to single_member[Nat,x]
+	  by apply in_left_union[Nat,set_of(xs')] to single_member[Nat,x]
         x_sx_xs
       }
       case m_d: max(x,d) = d {

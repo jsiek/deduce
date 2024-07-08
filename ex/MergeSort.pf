@@ -265,16 +265,14 @@ proof
                   arbitrary z:Nat
                   suppose z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
                   suffices x ≤ z
-                  cases apply member_union
-                               [Nat,z,set_of(xs'),set_of(node(y,ys'))]
-                        to z_in_xs_yys
+                  cases apply member_union[Nat] to z_in_xs_yys
                   case z_in_xs: z ∈ set_of(xs') {
                     conclude x ≤ z by
                       apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
                       to x_le_xs, z_in_xs
                   }
                   case z_in_ys: z ∈ set_of(node(y,ys')) {
-                    cases apply member_union[Nat,z,single(y),set_of(ys')]
+                    cases apply member_union[Nat]
                           to definition set_of in z_in_ys
                     case z_sy: z ∈ single(y) {
                       have y_z: y = z
@@ -309,12 +307,10 @@ proof
                   arbitrary z:Nat
                   suppose z_in_xxs_ys: z ∈ set_of(node(x,xs')) ∪ set_of(ys')
                   suffices y ≤ z
-                  cases apply member_union
-                               [Nat,z,set_of(node(x,xs')),set_of(ys')]
-                        to z_in_xxs_ys
+                  cases apply member_union[Nat] to z_in_xxs_ys
                   case z_in_xxs: z ∈ set_of(node(x,xs')) {
                     have z_in_sx_or_xs: z ∈ single(x) or z ∈ set_of(xs')
-                      by apply member_union[Nat,z,single(x),set_of(xs')]
+                      by apply member_union[Nat]
                          to definition set_of in z_in_xxs
                     cases z_in_sx_or_xs
                     case z_in_sx: z ∈ single(x) {
@@ -324,15 +320,15 @@ proof
                     }
                     case z_in_xs: z ∈ set_of(xs') {
                       have x_z: x ≤ z
-                        by apply all_elements_member[Nat][xs'][z,λb{x ≤ b}]
+                        by apply all_elements_member[Nat]
                            to x_le_xs, z_in_xs
                       conclude y ≤ z 
-                         by apply less_equal_trans[y][x,z] to y_x, x_z
+                         by apply less_equal_trans to y_x, x_z
                     }
                   }
                   case z_in_ys: z ∈ set_of(ys') {
                     conclude y ≤ z by
-                      apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+                      apply all_elements_member[Nat]
                       to y_le_ys, z_in_ys
                   }
               }
@@ -406,7 +402,7 @@ proof
     have IH2: sorted(zs)  by definition zs IH[second(msort(n',xs))]
     definition {msort, first}
     definition {ys, zs} in
-    apply merge_sorted[length(ys) + length(zs)][ys, zs] to IH1, IH2
+    apply merge_sorted[length(ys) + length(zs)] to IH1, IH2
   }
 end
 
@@ -626,11 +622,10 @@ proof
     have p2n_le_xs: pow2(n') ≤ length(xs)
       by have p2n_le_2p2n: pow2(n') ≤ pow2(n') + pow2(n')
            by less_equal_add[pow2(n')][pow2(n')]
-         apply less_equal_trans[pow2(n')][pow2(n') + pow2(n'), length(xs)]
-         to p2n_le_2p2n, len_xs
+         apply less_equal_trans to p2n_le_2p2n, len_xs
 
     have len_ys: length(ys) = pow2(n')
-      by rewrite ys_def in apply IH[xs] to p2n_le_xs
+      by rewrite ys_def in apply IH to p2n_le_xs
       
     have len_ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
       by rewrite ys_def | ls_def in msort_length[n'][xs]
@@ -638,7 +633,7 @@ proof
     have p2n_le_ls: pow2(n') ≤ length(ls)
       by have pp_pl: pow2(n') + pow2(n') ≤ pow2(n') + length(ls)
            by rewrite symmetric len_ys_ls_eq_xs | len_ys in len_xs
-         apply less_equal_left_cancel[pow2(n')][pow2(n'), length(ls)] to pp_pl
+         apply less_equal_left_cancel to pp_pl
             
     have len_zs: length(zs) = pow2(n')
       by rewrite zs_def in apply IH[ls] to p2n_le_ls
@@ -650,7 +645,7 @@ proof
 
     conclude length(merge(length(ys) + length(zs),ys,zs)) = 2 * pow2(n')
       by rewrite len_ys_zs
-         apply merge_length[2 * pow2(n')][ys, zs] to len_ys_zs
+         apply merge_length[2 * pow2(n')] to len_ys_zs
   }
 end
 
@@ -704,15 +699,15 @@ proof
     case pn_xs: pow2(n') ≤ length(xs) {
     
       have ys_pn: length(ys) = pow2(n')
-          by rewrite ys_def in apply msort_length_less_equal[n'][xs] to pn_xs
+          by rewrite ys_def in apply msort_length_less_equal to pn_xs
 
       have ls_l_pn: length(ls) < pow2(n')
           by have pn_ls_l_2pn: pow2(n') + length(ls) < pow2(n') + pow2(n')
                by rewrite symmetric ys_ls_eq_xs | ys_pn in xs_le_two_p2n
-             apply less_left_cancel[pow2(n'), length(ls), pow2(n')] to pn_ls_l_2pn
+             apply less_left_cancel to pn_ls_l_2pn
 
       have len_zs: length(zs) = length(ls)
-          by rewrite zs_def in apply IH[ls] to ls_l_pn
+          by rewrite zs_def in apply IH to ls_l_pn
 
       equations
         length(merge(length(ys) + length(zs),ys,zs))
@@ -726,7 +721,7 @@ proof
     case xs_pn: length(xs) < pow2(n') {
     
       have len_ys: length(ys) = length(xs)
-        by rewrite ys_def in apply IH[xs] to xs_pn
+        by rewrite ys_def in apply IH to xs_pn
 
       have len_ls: length(ls) = 0
         by apply left_cancel[length(ys)][length(ls), 0] to
@@ -737,7 +732,7 @@ proof
         by rewrite len_ls  pow_positive[n'] 
       
       have len_zs: length(zs) = 0
-        by rewrite zs_def | len_ls in apply IH[ls] to ls_l_pn
+        by rewrite zs_def | len_ls in apply IH to ls_l_pn
 
       equations
         length(merge(length(ys) + length(zs),ys,zs))
@@ -764,17 +759,16 @@ proof
     by rewrite symmetric n_def
        less_equal_pow_log[length(xs)]
   have len_ys: length(ys) = length(xs)
-    by cases apply less_equal_implies_less_or_equal[length(xs)][pow2(n)]
-             to len_xs
+    by cases apply less_equal_implies_less_or_equal to len_xs
        case len_xs_less {
-         rewrite ys_def in apply msort_length_less[n][xs] to len_xs_less
+         rewrite ys_def in apply msort_length_less to len_xs_less
        }
        case len_xs_equal {
          have pn_le_xs: pow2(n) ≤ length(xs)
            by rewrite len_xs_equal  less_equal_refl[pow2(n)]
          have len_ys_pow2: length(ys) = pow2(n)
            by rewrite symmetric ys_def
-              apply msort_length_less_equal[n][xs] to pn_le_xs
+              apply msort_length_less_equal to pn_le_xs
          transitive len_ys_pow2 (symmetric len_xs_equal)
        }
   have len_ys_ls_eq_xs: length(ys) + length(ls) = length(xs)

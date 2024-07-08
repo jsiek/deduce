@@ -732,6 +732,8 @@ function append<E>(List<E>, List<E>) -> List<E> {
   append(node(n, xs), ys) = node(n, append(xs, ys))
 }
 
+<<all_elements>>
+
 <<test_interval>>
 <<interval_length>>
 <<interval_nth>>
@@ -740,7 +742,6 @@ function append<E>(List<E>, List<E>) -> List<E> {
 <<test_length_123>>
 <<test_nth_123>>
 
-<<all_elements>>
 <<test_append_123_45>>
 
 // Solution: Test Append
