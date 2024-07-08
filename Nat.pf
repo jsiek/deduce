@@ -1329,3 +1329,7 @@ proof
   }
 end
 
+function iterate<T>(Nat, T, fn T -> T) -> T {
+  iterate(0, init, f) = init
+  iterate(suc(n), init, f) = f(iterate(n, init, f))
+}

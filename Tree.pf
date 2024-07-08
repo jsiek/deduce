@@ -115,3 +115,12 @@ define next : < E > fn Tree<E>, List<Direction> -> List<Direction> =
 
 assert locate(next(T123, node(left, empty)), T123) = T123
 assert locate(next(T123, empty), T123) = T3
+
+/*
+theorem next_correct: all E:type. all i:Nat, T:Tree<E>.
+  nth(in_order(T), empty)(i)
+       = iterate(i, locate_first(T), λ ds { next(T, ds) })
+proof
+  ?
+end
+*/
