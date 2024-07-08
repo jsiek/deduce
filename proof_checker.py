@@ -325,6 +325,8 @@ def get_type_name(ty):
       return ty
     case TypeInst(l1, ty, type_args):
       return get_type_name(ty)
+    case _:
+      raise Exception('unhandled case in get_type_name')
 
 def get_type_args(ty):
   match ty:
@@ -332,6 +334,8 @@ def get_type_args(ty):
       return []
     case TypeInst(l1, ty, type_args):
       return type_args
+    case _:
+      raise Exception('unhandled case in get_type_args')
     
 def check_proof_of(proof, formula, env):
   if get_verbose():
@@ -509,7 +513,6 @@ def check_proof_of(proof, formula, env):
     #         check_proof_of(pf, frm, env)
     #     case _:
     #       error(loc, 'the comma proof operator is for logical and, not ' + str(formula))
-
       
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
@@ -528,6 +531,8 @@ def check_proof_of(proof, formula, env):
         case All(loc2, [(var,ty)], frm):
           if typ != ty:
             error(loc, "type of induction: " + str(typ) + "\ndoes not match the all-formula's type: " + str(ty))
+        case _:
+          error(loc, 'induction expected an all-formula, not ' + str(formula))
       match env.get_def_of_type_var(get_type_name(typ)):
         case Union(loc2, name, typarams, alts):
           if len(cases) != len(alts):
@@ -584,6 +589,8 @@ def check_proof_of(proof, formula, env):
                 has_true_case = True
               case PatternBool(l1, False):
                 has_false_case = True
+              case _:
+                raise Exception('unhandled case in switch proof')
           if not has_true_case:
             error(loc, 'missing case for true')
           if not has_false_case:
@@ -708,7 +715,6 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       if param_ty != arg_ty:
         error(loc, "argument type: " + str(arg_ty) + "\n" \
               + "does not match parameter type: " + str(param_ty))
-    
 
 def type_names(loc, names):
   index = 0
@@ -952,6 +958,7 @@ def type_check_term(term, typ, env, recfun, subterms):
       rhs_ty = type_synth_term(rhs, env, recfun, subterms)
       body_env = env.declare_term_var(loc, var, rhs_ty)
       type_check_term(body, typ, body_env, recfun, subterms)
+      
     case Call(loc, Var(loc2, name, index), args, infix) if name == '=' or name == '≠':
       ty = type_synth_term(term, env, recfun, subterms)
       if ty != typ:
