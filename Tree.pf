@@ -62,7 +62,15 @@ function post_order<E>(Tree<E>) -> List<E> {
 }
 
 function tree_take<E>(List<Direction>, Tree<E>) -> Tree<E> {
-  tree_take(empty, T) = empty_tree
+  tree_take(empty, T) =
+    switch T {
+      case empty_tree {
+	empty_tree
+      }
+      case tree_node(L, x, R) {
+	L
+      }
+    }
   tree_take(node(d, ds), T) =
     switch d {
       case left {
@@ -89,7 +97,15 @@ function tree_take<E>(List<Direction>, Tree<E>) -> Tree<E> {
 }
 
 function tree_drop<E>(List<Direction>, Tree<E>) -> Tree<E> {
-  tree_drop(empty, T) = empty_tree
+  tree_drop(empty, T) =
+    switch T {
+      case empty_tree {
+	empty_tree
+      }
+      case tree_node(L, x, R) {
+	R
+      }
+    }
   tree_drop(node(d, ds), T) =
     switch d {
       case left {
@@ -187,78 +203,50 @@ proof
   }
 end
 
-theorem tree_take_drop_in_order:
-  all E:type. all l:List<Direction>. all T:Tree<E>. 
-  append(in_order(tree_take(l, T)),
-         append(in_order(locate(l, T)),
-	        in_order(tree_drop(l, T))))
-  = in_order(T)		
+theorem take_locate_drop_in_order:
+  all E:type. all l:List<Direction>. all T:Tree<E>, x:E.
+  if tree_data(locate(l,T)) = just(x)
+  then append(in_order(tree_take(l, T)),
+              node(x, in_order(tree_drop(l, T))))
+     = in_order(T)
 proof
   arbitrary E:type
   induction List<Direction>
   case empty {
-    arbitrary T:Tree<E>
-    equations
-          append(in_order(tree_take(empty,T)),
-            append(in_order(locate(empty,T)),
-	           in_order(tree_drop(empty,T))))
-        = append(in_order(T),empty)
-	    by definition {tree_take,in_order,append,locate, tree_drop}.
-    ... = in_order(T)
-            by append_empty[E][in_order(T)]
+    arbitrary T:Tree<E>, x:E
+    switch T {
+      case empty_tree {
+        definition {locate, tree_data}.
+      }
+      case tree_node(L, y, R) {
+        definition {locate,tree_data, tree_take, tree_drop, in_order}
+	suppose jy_jx
+	have xy: x = y
+	  by injective just symmetric jy_jx
+        rewrite xy.
+      }
+    }
   }
   case node(d, ds) suppose IH {
-    arbitrary T:Tree<E>
+    arbitrary T:Tree<E>, x:E
     switch d {
       case left {
         switch T {
 	  case empty_tree {
-	    definition {tree_take,in_order,locate,tree_drop,append}.
+	    ?
 	  }
 	  case tree_node(L, x, R) {
-	    definition {tree_take,locate,tree_drop,in_order}
-	    have IH_L: append(in_order(tree_take(ds,L)),append(in_order(locate(ds,L)),in_order(tree_drop(ds,L)))) = in_order(L)
-	      by IH[L]
-	    define takeL = in_order(tree_take(ds,L))
-	    define locL = in_order(locate(ds,L))
-	    define dropL = in_order(tree_drop(ds,L))
-            definition {takeL, locL, dropL} in
-	    conclude append(takeL, append(locL, append(dropL, node(x,in_order(R)))))
-    	           = append(in_order(L),node(x,in_order(R))) by
-	    equations
-	          append(takeL, append(locL, append(dropL, node(x,in_order(R)))))
-		= append(takeL, append(append(locL, dropL), node(x,in_order(R))))
-		   by rewrite append_assoc[E][locL][dropL, node(x,in_order(R))].
-	    ... = append(append(takeL, append(locL, dropL)), node(x,in_order(R)))
-	           by rewrite append_assoc[E][takeL][append(locL, dropL), node(x,in_order(R))].
-	    ... = append(in_order(L),node(x,in_order(R)))
-                    by definition {takeL, locL, dropL} rewrite IH_L.
+	    ?
 	  }
 	}
       }
       case right {
         switch T {
 	  case empty_tree {
-	    definition {tree_take,in_order,locate,tree_drop,append}.
+	    ?
 	  }
 	  case tree_node(L, x, R) {
-	    definition {tree_take,locate,tree_drop,in_order}
-	    define takeR = in_order(tree_take(ds,R))
-	    define locR = in_order(locate(ds,R))
-	    define dropR = in_order(tree_drop(ds,R))
-	    have IH_R: append(takeR, append(locR, dropR)) = in_order(R)
-	        by definition {takeR, locR, dropR} IH[R]
-            definition {takeR, locR, dropR} in
-	    conclude append(append(in_order(L),node(x,takeR)),append(locR,dropR))
-	           = append(in_order(L),node(x,in_order(R))) by
-            equations
-	          append(append(in_order(L),node(x,takeR)), append(locR, dropR))
-		= append(in_order(L), append(node(x,takeR), append(locR, dropR)))
-		    by append_assoc[E][in_order(L)][node(x, takeR), append(locR, dropR)]
-	    ... = append(in_order(L), node(x, append(takeR, append(locR, dropR))))
-	            by definition append.
-	    ... = append(in_order(L),node(x,in_order(R)))
-	            by rewrite IH_R.
+	    ?
 	  }
 	}
       }
