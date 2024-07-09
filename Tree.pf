@@ -61,6 +61,60 @@ function post_order<E>(Tree<E>) -> List<E> {
     append(post_order(L), append(post_order(R), node(x, empty)))
 }
 
+function tree_take<E>(List<Direction>, Tree<E>) -> Tree<E> {
+  tree_take(empty, T) = empty_tree
+  tree_take(node(d, ds), T) =
+    switch d {
+      case left {
+        switch T {
+	  case empty_tree {
+	    empty_tree
+	  }
+	  case tree_node(L, x, R) {
+	    tree_take(ds, L)
+	  }
+	}
+      }
+      case right {
+        switch T {
+	  case empty_tree {
+	    empty_tree
+	  }
+	  case tree_node(L, x, R) {
+	    tree_node(L, x, tree_take(ds, R))
+	  }
+	}
+      }
+    }
+}
+
+function tree_drop<E>(List<Direction>, Tree<E>) -> Tree<E> {
+  tree_drop(empty, T) = empty_tree
+  tree_drop(node(d, ds), T) =
+    switch d {
+      case left {
+        switch T {
+	  case empty_tree {
+	    empty_tree
+	  }
+	  case tree_node(L, x, R) {
+	    tree_node(tree_drop(ds, L), x, R)
+	  }
+	}
+      }
+      case right {
+        switch T {
+	  case empty_tree {
+	    empty_tree
+	  }
+	  case tree_node(L, x, R) {
+	    tree_drop(ds, R)
+	  }
+	}
+      }
+    }
+}
+
 function locate_first<E>(Tree<E>) -> List<Direction> {
   locate_first(empty_tree) = empty
   locate_first(tree_node(L, x, R)) =
@@ -77,8 +131,11 @@ function locate_first<E>(Tree<E>) -> List<Direction> {
 define T1 = tree_node(empty_tree, 1, empty_tree)
 define T3 = tree_node(empty_tree, 3, empty_tree)
 define T123 = tree_node(T1, 2, T3)
+define T1234 = tree_node(T123, 4, empty_tree)
 
+assert tree_data(locate(locate_first(T1), T1)) = head(in_order(T1))
 assert tree_data(locate(locate_first(T123), T123)) = head(in_order(T123))
+assert tree_data(locate(locate_first(T1234), T1234)) = head(in_order(T1234))
 
 theorem locate_first_head_in_order:
   all E:type. all T:Tree<E>.
@@ -125,6 +182,85 @@ proof
 	         to pos_len
 	... = head(in_order(tree_node(L,x,R)))
 	      by definition {in_order}.
+      }
+    }
+  }
+end
+
+theorem tree_take_drop_in_order:
+  all E:type. all l:List<Direction>. all T:Tree<E>. 
+  append(in_order(tree_take(l, T)),
+         append(in_order(locate(l, T)),
+	        in_order(tree_drop(l, T))))
+  = in_order(T)		
+proof
+  arbitrary E:type
+  induction List<Direction>
+  case empty {
+    arbitrary T:Tree<E>
+    equations
+          append(in_order(tree_take(empty,T)),
+            append(in_order(locate(empty,T)),
+	           in_order(tree_drop(empty,T))))
+        = append(in_order(T),empty)
+	    by definition {tree_take,in_order,append,locate, tree_drop}.
+    ... = in_order(T)
+            by append_empty[E][in_order(T)]
+  }
+  case node(d, ds) suppose IH {
+    arbitrary T:Tree<E>
+    switch d {
+      case left {
+        switch T {
+	  case empty_tree {
+	    definition {tree_take,in_order,locate,tree_drop,append}.
+	  }
+	  case tree_node(L, x, R) {
+	    definition {tree_take,locate,tree_drop,in_order}
+	    have IH_L: append(in_order(tree_take(ds,L)),append(in_order(locate(ds,L)),in_order(tree_drop(ds,L)))) = in_order(L)
+	      by IH[L]
+	    define takeL = in_order(tree_take(ds,L))
+	    define locL = in_order(locate(ds,L))
+	    define dropL = in_order(tree_drop(ds,L))
+            definition {takeL, locL, dropL} in
+	    conclude append(takeL, append(locL, append(dropL, node(x,in_order(R)))))
+    	           = append(in_order(L),node(x,in_order(R))) by
+	    equations
+	          append(takeL, append(locL, append(dropL, node(x,in_order(R)))))
+		= append(takeL, append(append(locL, dropL), node(x,in_order(R))))
+		   by rewrite append_assoc[E][locL][dropL, node(x,in_order(R))].
+	    ... = append(append(takeL, append(locL, dropL)), node(x,in_order(R)))
+	           by rewrite append_assoc[E][takeL][append(locL, dropL), node(x,in_order(R))].
+	    ... = append(in_order(L),node(x,in_order(R)))
+                    by definition {takeL, locL, dropL} rewrite IH_L.
+	  }
+	}
+      }
+      case right {
+        switch T {
+	  case empty_tree {
+	    definition {tree_take,in_order,locate,tree_drop,append}.
+	  }
+	  case tree_node(L, x, R) {
+	    definition {tree_take,locate,tree_drop,in_order}
+	    define takeR = in_order(tree_take(ds,R))
+	    define locR = in_order(locate(ds,R))
+	    define dropR = in_order(tree_drop(ds,R))
+	    have IH_R: append(takeR, append(locR, dropR)) = in_order(R)
+	        by definition {takeR, locR, dropR} IH[R]
+            definition {takeR, locR, dropR} in
+	    conclude append(append(in_order(L),node(x,takeR)),append(locR,dropR))
+	           = append(in_order(L),node(x,in_order(R))) by
+            equations
+	          append(append(in_order(L),node(x,takeR)), append(locR, dropR))
+		= append(in_order(L), append(node(x,takeR), append(locR, dropR)))
+		    by append_assoc[E][in_order(L)][node(x, takeR), append(locR, dropR)]
+	    ... = append(in_order(L), node(x, append(takeR, append(locR, dropR))))
+	            by definition append.
+	    ... = append(in_order(L),node(x,in_order(R)))
+	            by rewrite IH_R.
+	  }
+	}
       }
     }
   }
