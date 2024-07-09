@@ -233,19 +233,39 @@ proof
       case left {
         switch T {
 	  case empty_tree {
-	    ?
+	    definition {locate, tree_data, tree_take, tree_drop, in_order}.
 	  }
-	  case tree_node(L, x, R) {
-	    ?
+	  case tree_node(L, y, R) {
+	    definition {locate,tree_take,tree_drop, in_order}
+	    suppose locL_x: tree_data(locate(ds,L)) = just(x)
+	    define take_L = in_order(tree_take(ds,L))
+	    define drop_L = in_order(tree_drop(ds,L))
+	    have IH_L: append(take_L, node(x, drop_L)) = in_order(L)
+	      by definition {take_L, drop_L} apply IH[L,x] to locL_x
+	    definition {take_L, drop_L} in
+	    conclude append(take_L, node(x, append(drop_L, node(y, in_order(R)))))
+	      = append(in_order(L), node(y, in_order(R))) by
+            equations
+	      append(take_L, node(x, append(drop_L, node(y, in_order(R)))))
+	        = append(append(take_L, node(x, drop_L)), node(y, in_order(R)))
+  	            by enable append symmetric append_assoc[E][take_L][node(x,drop_L),node(y, in_order(R))]
+	    ... = append(in_order(L), node(y, in_order(R)))
+	            by rewrite IH_L.
 	  }
 	}
       }
       case right {
         switch T {
 	  case empty_tree {
-	    ?
+	    definition {locate, tree_data, tree_take, tree_drop, in_order}.
 	  }
-	  case tree_node(L, x, R) {
+	  case tree_node(L, y, R) {
+	    definition {locate,tree_take,tree_drop, in_order}
+	    suppose locR_x: tree_data(locate(ds,R)) = just(x)
+	    define take_R = in_order(tree_take(ds,R))
+	    define drop_R = in_order(tree_drop(ds,R))
+	    have IH_R: append(take_R, node(x, drop_R)) = in_order(R)
+	      by definition {take_R, drop_R} apply IH[R,x] to locR_x
 	    ?
 	  }
 	}
