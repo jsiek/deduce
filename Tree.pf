@@ -80,6 +80,56 @@ define T123 = tree_node(T1, 2, T3)
 
 assert tree_data(locate(locate_first(T123), T123)) = head(in_order(T123))
 
+theorem locate_first_head_in_order:
+  all E:type. all T:Tree<E>.
+  tree_data(locate(locate_first(T), T)) = head(in_order(T))
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case empty_tree {
+    equations
+          tree_data(locate(locate_first(empty_tree),empty_tree))
+        = none
+           by definition {locate_first, locate, tree_data}.
+    ... = head(in_order(empty_tree))
+           by definition {head, in_order}.
+  }
+  case tree_node(L, x, R) suppose IH {
+    definition {locate_first}
+    switch L {
+      case empty_tree {
+        equations
+              tree_data(locate(empty,tree_node(empty_tree,x,R)))
+            = just(x)
+                by definition {locate, tree_data}.
+        ... = head(in_order(tree_node(empty_tree,x,R)))
+                by definition {in_order,head,in_order,append}.
+      }
+      case tree_node(LL, y, LR) suppose Ldef {
+        rewrite symmetric Ldef
+	have pos_len: 0 < length(in_order(L))
+	  by rewrite Ldef definition {in_order}
+	     rewrite length_append[E][in_order(LL)][node(y, in_order(LR))]
+	     definition {length, operator <}
+	     rewrite add_suc[length(in_order(LL))][length(in_order(LR))]
+	     definition {operator ≤,operator ≤}.
+        equations
+  	      tree_data(locate(node(left,locate_first(L)),tree_node(L,x,R)))
+	    = tree_data(locate(locate_first(L),L))
+	      by definition locate.
+	... = head(in_order(L))
+	      by IH
+	... = head(append(in_order(L),node(x,in_order(R))))
+              by symmetric
+	         apply head_append[E][in_order(L)][node(x,in_order(R))]
+	         to pos_len
+	... = head(in_order(tree_node(L,x,R)))
+	      by definition {in_order}.
+      }
+    }
+  }
+end
+
 function prev_ancester(List<Direction>) -> List<Direction> {
   prev_ancester(empty) = empty
   prev_ancester(node(d, ds)) =

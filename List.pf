@@ -196,6 +196,16 @@ function rev_app<T>(List<T>, List<T>) -> List<T> {
   rev_app(node(x, xs), ys) = rev_app(xs, node(x, ys))
 }
 
+function head<T>(List<T>) -> Option<T> {
+  head(empty) = none
+  head(node(x, xs)) = just(x)
+}
+
+function tail<T>(List<T>) -> List<T> {
+  tail(empty) = empty
+  tail(node(x, xs)) = xs
+}
+
 /********************** Theorems *********************************/
 
 theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
@@ -909,12 +919,23 @@ proof
                by som_mset_eq_set[T][ys]
 end
 
-function head<T>(List<T>) -> Option<T> {
-  head(empty) = none
-  head(node(x, xs)) = just(x)
-}
-
-function tail<T>(List<T>) -> List<T> {
-  tail(empty) = empty
-  tail(node(x, xs)) = xs
-}
+theorem head_append: all E:type. all L:List<E>. all R:List<E>.
+  if 0 < length(L) 
+  then head(append(L, R)) = head(L)
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary R:List<E>
+    suppose pos_len
+    conclude false  by definition {length, operator <, operator ≤} in pos_len
+  }
+  case node(x, xs) suppose IH {
+    arbitrary R:List<E>
+    suppose pos_len
+    equations
+          head(append(node(x,xs),R))
+        = just(x)                           by definition {append,head}.
+    ... = head(node(x,xs))                  by definition head.
+  }
+end
