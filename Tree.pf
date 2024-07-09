@@ -240,6 +240,36 @@ proof
   }
 end
 
+theorem locate_first_drop_tail: all E:type. all T:Tree<E>.
+  in_order(tree_drop(locate_first(T), T)) = tail(in_order(T))
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case empty_tree {
+    definition {locate_first, tree_drop, in_order, tail}.
+  }
+  case tree_node(L, x, R) suppose IH_L, IH_R {
+    definition locate_first
+    switch L {
+      case empty_tree {
+        definition {tree_drop, in_order, in_order, append, tail}.
+      }
+      case tree_node(LL, y, LR) suppose L_def {
+        rewrite symmetric L_def
+        definition {tree_drop, in_order}
+	rewrite IH_L
+	have pos_len: 0 < length(in_order(L))
+	  by rewrite L_def definition in_order
+	     rewrite length_append[E][in_order(LL)][node(y, in_order(LR))]
+	     definition length rewrite add_suc[length(in_order(LL))][length(in_order(LR))]
+	     definition {operator<,operator≤}.
+        symmetric
+	apply tail_append[E][in_order(L)][node(x,in_order(R))] to pos_len
+      }
+    }
+  }
+end
+
 theorem take_locate_drop_in_order:
   all E:type. all l:List<Direction>. all T:Tree<E>, x:E.
   if tree_data(locate(l,T)) = just(x)

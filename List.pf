@@ -939,3 +939,22 @@ proof
     ... = head(node(x,xs))                  by definition head.
   }
 end
+
+theorem tail_append: all E:type. all L:List<E>. all R:List<E>.
+  if 0 < length(L) 
+  then tail(append(L, R)) = append(tail(L), R)
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary R:List<E>
+    suppose pos_len
+    conclude false
+      by definition {length, operator <, operator≤} in pos_len
+  }
+  case node(x, xs') suppose IH {
+    arbitrary R:List<E>
+    suppose pos_len
+    definition {append,tail}.
+  }
+end
