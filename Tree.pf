@@ -203,6 +203,43 @@ proof
   }
 end
 
+theorem locate_first_head_in_order2:
+  all E:type, T:Tree<E>, x:E, xs:List<E>.
+  if in_order(T) = node(x, xs)
+  then tree_data(locate(locate_first(T), T)) = just(x)
+proof
+  arbitrary E:type, T:Tree<E>, x:E, xs:List<E>
+  suppose inT: in_order(T) = node(x, xs)
+  conclude tree_data(locate(locate_first(T), T)) = just(x)
+    by definition head in rewrite inT in locate_first_head_in_order[E][T]
+end
+
+theorem locate_first_take_empty:
+  all E:type. all T:Tree<E>.
+  tree_take(locate_first(T), T) = empty_tree
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case empty_tree {
+    conclude tree_take(locate_first(empty_tree),empty_tree) = empty_tree
+      by definition {locate_first, tree_take}.
+  }
+  case tree_node(L, x, R) suppose IH_L, IH_R {
+    switch L {
+      case empty_tree {
+        conclude tree_take(locate_first(tree_node(empty_tree,x,R)),tree_node(empty_tree,x,R)) = empty_tree
+          by definition {locate_first, tree_take}.
+      }
+      case tree_node(LL, y, LR) suppose L_def {
+        definition {locate_first}
+	rewrite symmetric L_def
+	definition tree_take
+        IH_L
+      }
+    }
+  }
+end
+
 theorem take_locate_drop_in_order:
   all E:type. all l:List<Direction>. all T:Tree<E>, x:E.
   if tree_data(locate(l,T)) = just(x)
