@@ -266,7 +266,17 @@ proof
 	    define drop_R = in_order(tree_drop(ds,R))
 	    have IH_R: append(take_R, node(x, drop_R)) = in_order(R)
 	      by definition {take_R, drop_R} apply IH[R,x] to locR_x
-	    ?
+	    definition {take_R, drop_R} in
+	    conclude append(append(in_order(L),node(y,take_R)),node(x,drop_R))
+ 	           = append(in_order(L),node(y,in_order(R))) by
+            equations
+	      append(append(in_order(L),node(y,take_R)),node(x,drop_R))
+	        = append(in_order(L),append(node(y,take_R),node(x,drop_R)))
+		    by append_assoc[E][in_order(L)][node(y, take_R), node(x, drop_R)]
+	    ... = append(in_order(L),node(y,append(take_R,node(x,drop_R))))
+	            by definition append.
+	    ... = append(in_order(L),node(y,in_order(R)))
+	            by rewrite IH_R.
 	  }
 	}
       }
