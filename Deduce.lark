@@ -208,12 +208,15 @@ ident: IDENT              -> ident
 
 ?assert: "assert" term                             -> assert
 
+?print: "print" term                               -> print
+
 ?statement: theorem
  | union
  | rec_function
  | definition
  | import
  | assert
+ | print
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

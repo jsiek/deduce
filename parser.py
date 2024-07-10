@@ -513,7 +513,11 @@ def parse_tree_to_ast(e, parent):
     # assert formula
     elif e.data == 'assert':
         return Assert(e.meta, parse_tree_to_ast(e.children[0], e))
-    
+
+    # print term
+    elif e.data == 'print':
+        return Print(e.meta, parse_tree_to_ast(e.children[0], e))
+
     # whole program
     elif e.data == 'program':
         return parse_tree_to_list(e.children[0], None)

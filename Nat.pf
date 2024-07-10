@@ -373,15 +373,13 @@ proof
   induction Nat
   case zero {
     suppose z_l_z: 0 < 0
-    conclude false by definition {operator <, operator ≤} in z_l_z
+    enable {operator <, operator ≤}
+    conclude false by z_l_z
   }
   case suc(x') suppose IH: not (x' < x') {
     suppose sx_l_sx: suc(x') < suc(x')
-    //enable {operator <, operator ≤}
-    have x_l_x: x' < x' by
-       definition operator <
-       definition operator ≤ in
-       definition operator < in sx_l_sx
+    enable {operator <, operator ≤}
+    have x_l_x: x' < x' by sx_l_sx
     conclude false by apply IH to x_l_x
   }
 end

@@ -1142,6 +1142,9 @@ def process_declaration(stmt, env):
     case Assert(loc, frm):
       check_formula(frm, env)
       return env
+    case Print(loc, trm):
+      type_synth_term(trm, env, None, [])
+      return env
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
 
@@ -1183,6 +1186,8 @@ def type_check_stmt(stmt, env):
       pass
     case Assert(loc, frm):
       pass
+    case Print(loc, trm):
+      pass
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
 
@@ -1203,6 +1208,11 @@ def check_proofs(stmt, env):
       pass
     case Import(loc, name, ast):
       pass
+    case Print(loc, trm):
+      set_reduce_all(True)
+      result = trm.reduce(env)
+      set_reduce_all(False)
+      print(str(result))
     case Assert(loc, frm):
       set_reduce_all(True)
       result = frm.reduce(env)

@@ -1906,7 +1906,20 @@ class Assert(Statement):
   
   def uniquify_body(self, env):
     self.formula.uniquify(env)
+
+@dataclass
+class Print(Statement):
+  term : Term
+
+  def __str__(self):
+    return 'print ' + str(self.term)
+
+  def uniquify(self, env):
+    pass
   
+  def uniquify_body(self, env):
+    self.term.uniquify(env)
+    
 @dataclass
 class Import(Statement):
   name: str
