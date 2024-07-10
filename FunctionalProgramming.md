@@ -272,6 +272,15 @@ and whose return type is `bool`.
 assert remove_if(L13, λx {x ≤ 1}) = node(2, node(3, empty))
 ```
 
+### Non-empty Lists and Average
+
+Define a `union` type named `NEList` for non-empty list.  Design the
+alternatives in the `union` carefuly to make it impossible to create
+an empty list.
+
+Define a function named `average` that computes the mean of a
+non-empty list and check that it works on a few inputs.
+
 <!--
 ```{.deduce file=FunctionalProgramming.pf}
 <<Nat>>
@@ -333,5 +342,24 @@ function remove_if<E>(List<E>, fn (E)->bool) -> List<E> {
     else node(x, remove_if(ls, P))
 }
 <<test_remove_if>>
+
+union NEList<T> {
+  single(T)
+  another(T, NEList<T>)
+}
+
+function len_ne<T>(NEList<T>) -> Nat {
+  len_ne(single(x)) = 1
+  len_ne(another(x, xs)) = suc(len_ne(xs))
+}
+
+function sum_ne(NEList<Nat>) -> Nat {
+  sum_ne(single(x)) = x
+  sum_ne(another(x, xs)) = x + sum_ne(xs)
+}
+
+define average : fn NEList<Nat> -> Nat = λ ne { sum_ne(ne) / len_ne(ne) }
+assert average(another(3, another(2, single(1)))) = 2
+assert average(another(4, another(5, single(6)))) = 5
 ```
 -->

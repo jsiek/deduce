@@ -29,6 +29,8 @@ if __name__ == "__main__":
             error_expected = True
     
     try:
+        if get_verbose():
+            print("about to parse")
         ast = parse(p, trace=False)
         if get_verbose():
             print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))

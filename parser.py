@@ -95,7 +95,7 @@ def parse_tree_to_case_list(e):
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
     
-infix_ops = {'add', 'sub', 'mul', 'div', 'int_div', 'mod', 'circ',
+infix_ops = {'add', 'sub', 'mul', 'div', 'mod', 'circ',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
              'subset_equal', 'union_op', 'intersect', 'membership', 'multiset_sum'}
@@ -103,7 +103,7 @@ infix_ops = {'add', 'sub', 'mul', 'div', 'int_div', 'mod', 'circ',
 prefix_ops = {'neg', 'not'}
 
 operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘',
-                   'int_div': 'div', 'mod': '%', 'neg':'-', 
+                   'mod': '%', 'neg':'-', 
                    'and': 'and', 'or':'or', 'not': 'not',
                    'equal': '=', 'not_equal': '≠',
                    'less': '<', 'greater': '>',
@@ -205,7 +205,10 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'int':
         return intToNat(e.meta, int(e.children[0]))
     elif e.data == 'ident':
-        return str(e.children[0].value)
+        if 0 < len(e.children) :
+            return str(e.children[0].value)
+        else:
+            return '/'
     elif e.data == 'true_literal':
         return Bool(e.meta, True)
     elif e.data == 'false_literal':

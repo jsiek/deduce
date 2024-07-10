@@ -157,6 +157,48 @@ proof
   definition operator -.
 end
 
+/*
+  From Agda.Builtin.Nat.
+
+  To divide n by m, we use iterative subtraction, except that we only
+  subtract 1 from n at a time.  We use j to keep track of how much of
+  m has been subtracted from n. Each time j gets to zero, we add one
+  to the answer and reset j at m.
+  
+*/
+function div_helper(Nat,Nat,Nat,Nat) -> Nat {
+  div_helper(0, k, m, j) = k
+  div_helper(suc(n'), k, m, j) =
+    switch j {
+      case 0 {
+        div_helper(n', suc(k), m, m)
+      }
+      case suc(j') {
+        div_helper(n', k, m, j')
+      }
+    }
+}
+
+function operator /(Nat,Nat) -> Nat {
+  operator /(0, m) = 0
+  operator /(suc(n'), m) =
+    switch m {
+      case 0 {
+        0
+      }
+      case suc(m') {
+        div_helper(suc(n'), 0, m', m')
+      }
+    }
+}
+
+assert 2 / 1 = 2
+assert 4 / 2 = 2
+assert 5 / 2 = 2
+assert 6 / 2 = 3
+assert 9 / 3 = 3
+assert 10 / 3 = 3
+
 function operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
   operator ≤(suc(n'), m) =
