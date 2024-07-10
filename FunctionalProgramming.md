@@ -14,6 +14,8 @@ Deduce supports the following language features:
 * [Switch](#switch)
 
 The following subsections describe each of these features.
+There are several [exercises](#exercises) at the end 
+that you can use to check your understanding.
 
 ## Unions
 
@@ -62,7 +64,9 @@ union Nat {
 ```
 
 The file `Nat.pf` includes the above definition together with some
-operations on natural numbers and theorems about them.
+operations on natural numbers and theorems about them.  The numerals
+`0`, `1`, `2`, etc. are shorthand for the natural numbers `zero`,
+`suc(zero)`, `suc(suc(zero))`, etc.
 
 ## Imports
 
