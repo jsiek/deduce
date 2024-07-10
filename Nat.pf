@@ -157,47 +157,65 @@ proof
   definition operator -.
 end
 
+union Pos {
+  one
+  succ(Pos)
+}
+
+import Option
+
+function nat2pos(Nat) -> Option<Pos> {
+  nat2pos(0) = none
+  nat2pos(suc(n')) =
+    switch nat2pos(n') {
+      case none {
+        just(one)
+      }
+      case just(p) {
+        just(succ(p))
+      }
+    }
+}
+
+assert nat2pos(0) = none
+assert nat2pos(1) = just(one)
+assert nat2pos(2) = just(succ(one))
+assert nat2pos(3) = just(succ(succ(one)))
+
 /*
   From Agda.Builtin.Nat.
 
   To divide n by m, we use iterative subtraction, except that we only
   subtract 1 from n at a time.  We use j to keep track of how much of
-  m has been subtracted from n. Each time j gets to zero, we add one
+  m has been subtracted from n. Each time j gets to one, we add one
   to the answer and reset j at m.
   
 */
-function div_helper(Nat,Nat,Nat,Nat) -> Nat {
+function div_helper(Nat,Nat,Pos,Pos) -> Nat {
   div_helper(0, k, m, j) = k
   div_helper(suc(n'), k, m, j) =
     switch j {
-      case 0 {
+      case one {
         div_helper(n', suc(k), m, m)
       }
-      case suc(j') {
+      case succ(j') {
         div_helper(n', k, m, j')
       }
     }
 }
 
-function operator /(Nat,Nat) -> Nat {
+function operator /(Nat,Pos) -> Nat {
   operator /(0, m) = 0
-  operator /(suc(n'), m) =
-    switch m {
-      case 0 {
-        0
-      }
-      case suc(m') {
-        div_helper(suc(n'), 0, m', m')
-      }
-    }
+  operator /(suc(n'), m) = div_helper(suc(n'), 0, m, m)
 }
 
-assert 2 / 1 = 2
-assert 4 / 2 = 2
-assert 5 / 2 = 2
-assert 6 / 2 = 3
-assert 9 / 3 = 3
-assert 10 / 3 = 3
+assert default(after(nat2pos(1),λd{ 2 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 4 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 5 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 6 / d = 3}), false)
+assert default(after(nat2pos(3),λd{ 3 / d = 1}), false)
+assert default(after(nat2pos(3),λd{ 9 / d = 3}), false)
+assert default(after(nat2pos(3),λd{ 10 / d = 3}), false)
 
 function operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
@@ -1359,13 +1377,15 @@ proof
     definition {pow2, operator<, operator≤}.
   }
   case suc(n') suppose IH {
-    definition {pow2, operator<, operator≤}
+    definition {pow2}
     obtain pn' where pn_s: pow2(n') = suc(pn')
         from apply positive_suc[pow2(n')] to IH
     rewrite pn_s
     definition {operator*,operator*,operator*}
     rewrite add_zero[suc(pn')]
-    definition {operator+}.
+    definition {operator+}
+    rewrite add_suc[pn'][pn']
+    definition {operator<, operator≤}.
   }
 end
 

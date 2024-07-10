@@ -280,6 +280,8 @@ an empty list.
 
 Define a function named `average` that computes the mean of a
 non-empty list and check that it works on a few inputs.
+Note that the second parameter of the division operator `/` 
+is of type `Pos`, which is defined in `Nat.pf`.
 
 <!--
 ```{.deduce file=FunctionalProgramming.pf}
@@ -348,9 +350,9 @@ union NEList<T> {
   another(T, NEList<T>)
 }
 
-function len_ne<T>(NEList<T>) -> Nat {
-  len_ne(single(x)) = 1
-  len_ne(another(x, xs)) = suc(len_ne(xs))
+function len_ne<T>(NEList<T>) -> Pos {
+  len_ne(single(x)) = one
+  len_ne(another(x, xs)) = succ(len_ne(xs))
 }
 
 function sum_ne(NEList<Nat>) -> Nat {

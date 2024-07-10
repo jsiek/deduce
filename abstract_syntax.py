@@ -443,9 +443,11 @@ class Var(AST):
   def __str__(self):
       if base_name(self.name) == 'zero':
         return '0'
+      elif get_verbose():
+        return self.name
       else:
         return base_name(self.name)
-        #return self.name
+        
 
   def __repr__(self):
       return str(self)
@@ -843,6 +845,9 @@ class Switch(Term):
       for c in self.cases:
           subst = {}
           if is_match(c.pattern, new_subject, subst):
+            if get_verbose():
+              print('switch, matched ' + str(c.pattern) + ' and ' \
+                    + str(new_subject))
             new_body = c.body.substitute(subst)
             new_env = env
             old_defs = get_reduce_only()
@@ -851,8 +856,7 @@ class Switch(Term):
             ret = new_body.reduce(new_env)
             set_reduce_only(old_defs)
             return ret
-      new_cases = [c.reduce(env) for c in self.cases]
-      ret = Switch(self.location, new_subject, new_cases)
+      ret = Switch(self.location, new_subject, self.cases)
       return ret
   
   def substitute(self, sub):
