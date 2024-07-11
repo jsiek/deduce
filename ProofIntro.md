@@ -112,6 +112,10 @@ proof
 end
 ```
 
+### Exercise
+
+Prove that `append(node(1,empty), node(2, empty)) = node(1,node(2,empty))`.
+
 ## Generalizing with `all` formulas
 
 In the proof of `length_node42` it did not matter that the element in
@@ -195,6 +199,20 @@ To summarize this section:
   (We'll see a second method in the next section.)
 * To using a fact that is an `all` formula, instantiate the fact
   by using square brackets around the specific entity.
+
+### Exercise
+
+Prove that
+```
+all T:type, x:T, y:T. append(node(x,empty), node(y, empty)) = node(x,node(y,empty))
+```
+
+Prove again that 
+```
+append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
+```
+but this time use the previous theorem.
+
 
 ## Proving `all` Formulas with Induction
 
@@ -1053,9 +1071,29 @@ import FunctionalProgramming
 
 <<length_empty>>
 <<length_node42>>
+
+theorem append_12: 
+  append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
+proof
+  definition {append, append}.
+end
+
 <<length_one_nat>>
 <<length_node42_again>>
 <<length_one>>
+
+theorem append_xy: all T:type, x:T, y:T.
+  append(node(x,empty), node(y, empty)) = node(x,node(y,empty))
+proof
+  definition {append, append}.
+end
+
+theorem append_12_again: 
+  append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
+proof
+  append_xy[Nat, 1, 2]
+end
+
 <<append_empty>>
 <<positive_1_and_2>>
 <<positive_2>>
