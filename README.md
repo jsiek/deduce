@@ -22,7 +22,7 @@ following is a proof that appending two lists and then applying the
 `map` function is the same as first applying `map` to the two lists
 and then appending them.
 
-``` {.c #map_append}
+``` {.deduce #map_append}
 theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
   map(append(xs,ys), f) = append(map(xs,f), map(ys,f))
 proof
@@ -78,8 +78,9 @@ you can obtain from the following location.
  -->
 
 <!--
-``` {.c file=README.pf}
+``` {.deduce file=README.pf}
 import List
+
 <<map_append>>
 ```
 -->

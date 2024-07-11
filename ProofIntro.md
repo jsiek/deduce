@@ -346,14 +346,50 @@ right-hand side of the induction hypothesis `IH`. We use the
     have step2: node(n, append(xs',empty))
                 = node(n,xs')                 by rewrite IH.
 
+In more detail, the `rewrite` statement changes the current goal by
+replacing each occurence of the left-hand side of an equation with the
+right-hand side of the equation. In the above example, `IH` is
+a proof of the equation `append(xs', empty) = xs'`, so
+`rewrite IH` replaces each `append(xs', empty)` that it finds
+in the goal with `xs'`.
+
 To complete the proof, we combine equations (1) and (2) using
 the `transitive` statement.
 
-    transitive step1 step2
+    conclude append(node(n,xs'),empty) = node(n,xs')
+        by transitive step1 step2
+
+Here is the completed proof of `append_empty`.
+
+```{.deduce #append_empty}
+theorem append_empty: all U :type. all xs :List<U>.
+  append(xs, empty) = xs
+proof
+  arbitrary U:type
+  induction List<U>
+  case empty {
+    conclude append(empty, empty) = empty  by definition append.
+  }
+  case node(n, xs') suppose IH: append(xs',empty) = xs' {
+    have step1: append(node(n,xs'),empty)
+                = node(n, append(xs',empty))  by definition append.
+    have step2: node(n, append(xs',empty))
+                = node(n,xs')                 by rewrite IH.
+    conclude append(node(n,xs'),empty) = node(n,xs')
+        by transitive step1 step2
+  }
+end
+```
 
 To summarize this section:
 * To prove an `all` formula that concerns entities of a `union` type,
   use Deduce's `induction` statement.
+* Use the `rewrite` statement to apply an equation to the current
+  goal.
+
+### Exercise
+
+Prove that `length(append(xs, ys)) = length(xs) + length(ys)`.
 
 ## Equational Reasoning
 
@@ -372,10 +408,10 @@ proof of the `node` case of the `append_empty` theorem using
         ... = node(n,xs')                 by rewrite IH.
     }
 
-Here is the completed proof of the `append_empty` theorem.
+Here is the completed proof of the new `append_empty_eqn` theorem.
 
-```{.deduce #append_empty}
-theorem append_empty: all U :type. all xs :List<U>.
+```{.deduce #append_empty_eqn}
+theorem append_empty_eqn: all U :type. all xs :List<U>.
   append(xs, empty) = xs
 proof
   arbitrary U:type
@@ -391,6 +427,11 @@ proof
   }
 end
 ```
+
+### Exercise
+
+Prove again that `length(append(xs, ys)) = length(xs) + length(ys)`,
+but this time using the `equations` statement.
 
 ## Reasoning about natural numbers
 
@@ -428,6 +469,11 @@ add_suc: all m:Nat. all n:Nat.  m + suc(n) = suc(m + n)
 add_commute: all n:Nat. all m:Nat.  n + m = m + n
 add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
 left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
+dist_mult_add: all a:Nat. all x:Nat, y:Nat. a * (x + y) = a * x + a * y
+mult_zero: all n:Nat. n * 0 = 0
+mult_one: all n:Nat. n * 1 = n
+mult_commute: all m:Nat. all n:Nat. m * n = n * m
+mult_assoc: all m:Nat. all n:Nat, o:Nat. (m * n) * o = m * (n * o)
 ```
 
 You can use these theorems just like a given of the specified formula.
@@ -1095,6 +1141,28 @@ proof
 end
 
 <<append_empty>>
+<<append_empty_eqn>>
+
+theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
+  length(append(xs, ys)) = length(xs) + length(ys)
+proof
+  arbitrary U :type
+  enable {length, append, operator +, operator +}
+  induction List<U>
+  case empty {
+    arbitrary ys:List<U>
+    conclude length(append(empty,ys)) = length(empty) + length(ys)  by .
+  }
+  case node(n, xs') suppose IH {
+    arbitrary ys :List<U>
+    equations
+      length(append(node(n,xs'),ys))
+          = 1 + length(append(xs', ys))        by .
+      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys].
+      ... = length(node(n,xs')) + length(ys)   by .
+  }
+end
+
 <<positive_1_and_2>>
 <<positive_2>>
 <<dichotomy>>

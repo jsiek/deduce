@@ -1663,14 +1663,6 @@ proof
   }
 end
 
-/*
-theorem mult_assoc: all m:Nat, n:Nat, o:Nat.
-  (m * n) * o = m * (n * o)
-proof
-  ?
-end
-*/
-
 theorem mult_suc: all m:Nat. all n:Nat.
   m * suc(n) = m + m * n
 proof
@@ -1721,6 +1713,27 @@ proof
   rewrite mult_commute[n][1]
   definition {operator*,operator*}
   rewrite add_zero[n].
+end
+
+theorem mult_assoc: all m:Nat. all n:Nat, o:Nat.
+  (m * n) * o = m * (n * o)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat
+    suffices (0 * n) * o = 0 * (n * o)
+    definition operator*.
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat, o:Nat
+    suffices (suc(m') * n) * o = suc(m') * (n * o)
+    definition {operator*}
+    suffices (n + m'*n)*o = n*o + m'*(n*o)
+    rewrite mult_commute[n + m' * n][o]
+    rewrite dist_mult_add[o][n, m' * n]
+    rewrite mult_commute[o][n] | mult_commute[o][m'*n]
+    rewrite IH[n,o].
+  }
 end
 
 theorem division: all n:Nat, m:Pos.

@@ -1,5 +1,5 @@
 
-default: check_fun check_intro
+default: check_README check_fun check_intro
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_false1.pf
