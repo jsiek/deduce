@@ -179,11 +179,6 @@ function nat2pos(Nat) -> Option<Pos> {
     }
 }
 
-assert nat2pos(0) = none
-assert nat2pos(1) = just(one)
-assert nat2pos(2) = just(succ(one))
-assert nat2pos(3) = just(succ(succ(one)))
-
 function operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
   operator ≤(suc(n'), m) =
@@ -1244,18 +1239,6 @@ function div2_aux(Nat) -> Nat {
   div2_aux(suc(n')) = suc(div2(n'))
 }
 
-assert div2(0) = 0
-assert div2(1) = 0
-assert div2(2) = 1
-assert div2(3) = 1
-assert div2(4) = 2
-assert div2(5) = 2
-assert div2(6) = 3
-assert div2(7) = 3
-assert div2(8) = 4
-assert div2(9) = 4
-assert div2(10) = 5
-
 theorem div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
 proof
   arbitrary n:Nat
@@ -1313,12 +1296,6 @@ function pow2(Nat) -> Nat {
   pow2(0) = 1
   pow2(suc(n')) = 2 * pow2(n')
 }
-
-assert pow2(0) = 1
-assert pow2(1) = 2
-assert pow2(2) = 4
-assert pow2(3) = 8
-assert pow2(4) = 16
 
 theorem positive_suc: all n:Nat.
   if 0 < n
@@ -1405,9 +1382,6 @@ function find_quotient(Nat,Nat,Pos,Nat) -> Nat {
     else
       q
 }
-
-assert default(after(nat2pos(3), λthree{ find_quotient(5, 5, three, 0) = 1 }), false)
-assert default(after(nat2pos(3), λthree{ find_quotient(6, 6, three, 0) = 2 }), false)
 
 theorem sub_zero: all n:Nat.
   n - 0 = n
@@ -1676,15 +1650,6 @@ proof
   }
 end
   
-
-assert default(after(nat2pos(1),λd{ 2 / d = 2}), false)
-assert default(after(nat2pos(2),λd{ 4 / d = 2}), false)
-assert default(after(nat2pos(2),λd{ 5 / d = 2}), false)
-assert default(after(nat2pos(2),λd{ 6 / d = 3}), false)
-assert default(after(nat2pos(3),λd{ 3 / d = 1}), false)
-assert default(after(nat2pos(3),λd{ 9 / d = 3}), false)
-assert default(after(nat2pos(3),λd{ 10 / d = 3}), false)
-
 theorem mult_zero: all n:Nat.
   n * 0 = 0
 proof

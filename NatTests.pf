@@ -1,0 +1,35 @@
+import Nat
+
+assert nat2pos(0) = none
+assert nat2pos(1) = just(one)
+assert nat2pos(2) = just(succ(one))
+assert nat2pos(3) = just(succ(succ(one)))
+
+assert div2(0) = 0
+assert div2(1) = 0
+assert div2(2) = 1
+assert div2(3) = 1
+assert div2(4) = 2
+assert div2(5) = 2
+assert div2(6) = 3
+assert div2(7) = 3
+assert div2(8) = 4
+assert div2(9) = 4
+assert div2(10) = 5
+
+assert pow2(0) = 1
+assert pow2(1) = 2
+assert pow2(2) = 4
+assert pow2(3) = 8
+assert pow2(4) = 16
+
+assert default(after(nat2pos(3), λthree{ find_quotient(5, 5, three, 0) = 1 }), false)
+assert default(after(nat2pos(3), λthree{ find_quotient(6, 6, three, 0) = 2 }), false)
+
+assert default(after(nat2pos(1),λd{ 2 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 4 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 5 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 6 / d = 3}), false)
+assert default(after(nat2pos(3),λd{ 3 / d = 1}), false)
+assert default(after(nat2pos(3),λd{ 9 / d = 3}), false)
+assert default(after(nat2pos(3),λd{ 10 / d = 3}), false)
