@@ -22,7 +22,8 @@ function max(Nat,Nat) -> Nat {
     }
 }
 
-theorem add_zero: all n:Nat.  n + 0 = n
+theorem add_zero: all n:Nat.
+  n + 0 = n
 proof
   enable operator +
   induction Nat
@@ -36,7 +37,8 @@ proof
   }
 end
 
-theorem add_suc: all m:Nat. all n:Nat.  m + suc(n) = suc(m + n)
+theorem add_suc: all m:Nat. all n:Nat.
+  m + suc(n) = suc(m + n)
 proof
   enable operator +
   induction Nat
@@ -204,18 +206,13 @@ function divide(Nat,Nat,Pos,Pos) -> Nat {
     }
 }
 
+/*
 function operator /(Nat,Pos) -> Nat {
   operator /(0, m) = 0
   operator /(suc(n'), m) = divide(suc(n'), 0, m, m)
 }
 
-assert default(after(nat2pos(1),λd{ 2 / d = 2}), false)
-assert default(after(nat2pos(2),λd{ 4 / d = 2}), false)
-assert default(after(nat2pos(2),λd{ 5 / d = 2}), false)
-assert default(after(nat2pos(2),λd{ 6 / d = 3}), false)
-assert default(after(nat2pos(3),λd{ 3 / d = 1}), false)
-assert default(after(nat2pos(3),λd{ 9 / d = 3}), false)
-assert default(after(nat2pos(3),λd{ 10 / d = 3}), false)
+*/
 
 function operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
@@ -1610,6 +1607,15 @@ proof
   }
 end
 
+theorem less_equal_suc: all n:Nat.
+  n ≤ suc(n)
+proof
+  arbitrary n:Nat
+  definition {operator+,operator+} in
+  rewrite add_commute[n][1] in
+  less_equal_add[n][1]
+end
+
 theorem find_quotient_correct: all u:Nat. all q:Nat, n:Nat, m:Pos.
   if q * pos2nat(m) ≤ n and n < u * pos2nat(m)
   then some r : Nat. find_quotient(u, n, m, q) * pos2nat(m) + r = n
@@ -1625,10 +1631,7 @@ proof
   case suc(u') suppose IH {
     arbitrary q:Nat, n:Nat, m:Pos
     suppose prem
-    have n_sn: n ≤ suc(n)
-      by definition {operator+,operator+} in
-	 rewrite add_commute[n][1] in
-	 less_equal_add[n][1]
+    have n_sn: n ≤ suc(n)   by less_equal_suc[n]
     definition find_quotient
     switch suc(q) * pos2nat(m) ≤ n {
       case true suppose sqm_le_n {
@@ -1711,6 +1714,147 @@ proof
         choose n - q * M
         enable {R,M} qm_r_eq_n, nqm_l_m
       }
+    }
+  }
+end
+
+function operator /(Nat,Pos) -> Nat {
+  operator /(0, m) = 0
+  operator /(suc(n'), m) =
+    find_quotient(suc(suc(n')) * pos2nat(m), suc(n'), m, 0)
+}
+
+assert default(after(nat2pos(1),λd{ 2 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 4 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 5 / d = 2}), false)
+assert default(after(nat2pos(2),λd{ 6 / d = 3}), false)
+assert default(after(nat2pos(3),λd{ 3 / d = 1}), false)
+assert default(after(nat2pos(3),λd{ 9 / d = 3}), false)
+assert default(after(nat2pos(3),λd{ 10 / d = 3}), false)
+
+theorem mult_zero: all n:Nat.
+  n * 0 = 0
+proof
+  induction Nat
+  case 0 {
+    definition operator*.
+  }
+  case suc(n') suppose IH {
+    definition {operator*, operator+}
+    IH
+  }
+end
+
+/*
+theorem mult_assoc: all m:Nat, n:Nat, o:Nat.
+  (m * n) * o = m * (n * o)
+proof
+  ?
+end
+*/
+
+theorem mult_suc: all m:Nat. all n:Nat.
+  m * suc(n) = m + m * n
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    definition {operator*, operator+}.
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    suffices suc(m') * suc(n) = suc(m') + suc(m') * n
+    definition {operator*, operator+}
+    suffices suc(n + m' * suc(n)) = suc(m' + (n + m' * n))
+    equations
+          suc(n + m' * suc(n))
+        = suc(n + (m' + m' * n))
+	  by rewrite IH[n].
+    ... = suc((n + m') + m' * n)
+          by rewrite add_assoc[n][m', m' * n].
+    ... = suc((m' + n) + m' * n)
+          by rewrite add_commute[n][m'].
+    ... = suc(m' + (n + m' * n))
+          by rewrite add_assoc[m'][n, m' * n].
+  }
+end
+
+theorem mult_commute: all m:Nat. all n:Nat.
+  m * n = n * m
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    definition operator*
+    rewrite mult_zero[n].
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    definition operator*
+    rewrite mult_suc[n][m']
+    rewrite IH[n].
+  }
+end
+
+theorem mult_one: all n:Nat.
+  n * 1 = n
+proof
+  arbitrary n:Nat
+  rewrite mult_commute[n][1]
+  definition {operator*,operator*}
+  rewrite add_zero[n].
+end
+
+theorem division: all n:Nat, m:Pos.
+  some r : Nat. (n / m) * pos2nat(m) + r = n  and  r < pos2nat(m)
+proof
+  arbitrary n:Nat, m:Pos
+  switch n {
+    case 0 {
+      choose 0
+      definition {operator/, operator*, operator+, operator<}
+      definition operator< in pos_positive[m]
+    }
+    case suc(n') suppose n_sn {
+      have qm_le_n: 0 * pos2nat(m) ≤ n
+	by definition {operator*,operator≤}.
+      define u = suc(n) * pos2nat(m)
+      have n_l_um: n < u * pos2nat(m)
+        by definition {operator<, u, operator*}
+	   switch m {
+	     case one {
+	       definition {pos2nat,operator+}
+	       rewrite mult_one[n]
+	       rewrite mult_one[n]
+	       definition {operator+}
+	       less_equal_refl[suc(n)]
+	     }
+	     case succ(m') suppose m_sm {
+	       definition pos2nat
+	       definition {operator+, operator≤ }
+	       rewrite mult_commute[n][suc(pos2nat(m'))]
+	       definition operator*
+	       rewrite mult_commute[(pos2nat(m') + (n + pos2nat(m') * n))][suc(pos2nat(m'))]
+	       definition operator*
+	       rewrite add_commute[pos2nat(m')][((pos2nat(m') + (n + pos2nat(m') * n)) + pos2nat(m') * (pos2nat(m') + (n + pos2nat(m') * n)))]
+	       rewrite add_assoc[(pos2nat(m') + (n + pos2nat(m') * n))][pos2nat(m') * (pos2nat(m') + (n + pos2nat(m') * n)), pos2nat(m')]
+	       rewrite add_commute[pos2nat(m')][(n + pos2nat(m') * n)]
+	       rewrite add_assoc[n][pos2nat(m') * n, pos2nat(m')]
+	       rewrite add_assoc[n][(pos2nat(m') * n + pos2nat(m')),
+	           (pos2nat(m') * (n + (pos2nat(m') * n + pos2nat(m'))) + pos2nat(m'))]
+	       less_equal_add[n][((pos2nat(m') * n + pos2nat(m')) + (pos2nat(m') * (n + (pos2nat(m') * n + pos2nat(m'))) + pos2nat(m')))]
+	     }
+	   }
+      have fqc: some r:Nat. find_quotient(u, n, m, 0) * pos2nat(m) + r = n
+                    and r < pos2nat(m)
+        by apply find_quotient_correct[u][0, n, m] to qm_le_n, n_l_um
+      obtain r where R: find_quotient(u, n, m, 0) * pos2nat(m) + r = n
+			and r < pos2nat(m)
+	  from fqc
+      choose r
+      definition operator/
+      rewrite symmetric n_sn
+      definition u in R
     }
   }
 end

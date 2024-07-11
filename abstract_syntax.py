@@ -3,6 +3,10 @@ from lark.tree import Meta
 from typing import Any, Tuple, List
 from error import error, set_verbose, get_verbose
 
+infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
+                    '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3}
+prefix_precedence = {'-': 5, 'not': 4}
+
 def copy_dict(d):
   return {k:v for k,v in d.items()}
 
@@ -645,6 +649,45 @@ def set_reduce_all(b):
   global reduce_all
   reduce_all = b
 
+def is_operator(trm):
+  match trm:
+    case Var(loc, name, idx):
+      return base_name(name) in infix_precedence.keys() \
+          or base_name(name) in prefix_precedence.keys()
+    case RecFunClosure(loc, name, typarams, params, returns, cases, env):
+      return base_name(name) in infix_precedence.keys() \
+          or base_name(name) in prefix_precedence.keys()
+    case _:
+      return False
+
+def operator_name(trm):
+  match trm:
+    case Var(loc, name, idx):
+      return base_name(name)
+    case RecFunClosure(loc, name, typarams, params, returns, cases, env):
+      return base_name(name)
+    case _:
+      raise Exception('operator_name, unexpected term ' + str(trm))
+    
+def precedence(trm):
+  match trm:
+    case Call(loc1, rator, args, infix) if is_operator(rator):
+      op_name = operator_name(rator)
+      if len(args) == 2:
+        return infix_precedence.get(op_name, None)
+      elif len(args) == 1:
+        return prefix_precedence.get(op_name, None)
+      else:
+        return None
+    case _:
+      return None
+
+def op_arg_str(trm, arg):
+  if precedence(trm) != None and precedence(arg) != None:
+    if precedence(arg) <= precedence(trm):
+      return "(" + str(arg) + ")"
+  return str(arg)
+    
 @dataclass
 class Call(Term):
   rator: Term
@@ -664,7 +707,8 @@ class Call(Term):
   
   def __str__(self):
     if self.infix:
-      return  str(self.args[0]) + " " + str(self.rator) + " " + str(self.args[1])
+      return op_arg_str(self, self.args[0]) + " " + str(self.rator) \
+        + " " + op_arg_str(self, self.args[1])
     elif isNat(self):
       return str(natToInt(self))
     else:
