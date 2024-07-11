@@ -1,5 +1,5 @@
 
-default:
+default: check_fun check_intro
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_false1.pf
@@ -54,6 +54,10 @@ check_README:
 check_fun:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
 	/opt/homebrew/bin/python3.10 ./deduce.py FunctionalProgramming.pf
+
+check_intro:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py ProofIntro.pf
 
 check_blog1:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle

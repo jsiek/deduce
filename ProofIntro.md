@@ -64,21 +64,23 @@ automatically simplifies it to `true`.
 To finish the proof, we just need to prove `true`, which is
 accomplished with a period.
 
-    theorem length_empty: length(empty) = 0
-    proof
-      definition length.
-    end
+```{.deduce #length_empty}
+theorem length_empty: length(empty) = 0
+proof
+  definition length.
+end
+```
 
 Run Deduce on the file to see it respond that the file is valid.
 
 Let's try a slightly more complex theorem, that the length
 of a list with just a single node is indeed `1`. Based
 on what we learned above, we better start by applying the
-definition of `length`.
+definition of `length` a couple of times.
 
     theorem length_node42: length(node(42, empty)) = 1
     proof
-      definition length
+      definition {length, length}
       ?
     end
 
@@ -92,7 +94,7 @@ we can refer to as `operator +`.
 
     theorem length_node42: length(node(42, empty)) = 1
     proof
-      definition {length, operator +}
+      definition {length, length, operator +, operator+}
       ?
     end
 
@@ -103,10 +105,12 @@ Deduce responds with
 
 so we can conclude the proof with a period.
 
-    theorem length_node42: length(node(42, empty)) = 1
-    proof
-      definition {length, operator +}.
-    end
+```{.deduce #length_node42}
+theorem length_node42: length(node(42, empty)) = 1
+proof
+  definition {length, length, operator +, operator +}.
+end
+```
 
 ## Generalizing with `all` formulas
 
@@ -150,21 +154,25 @@ a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
 before, using the definitions of `length` and addition.
 
-    theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
-    proof
-      arbitrary x:Nat
-      definition {length, operator +}.
-    end
+```{.deduce #length_one_nat}
+theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+proof
+  arbitrary x:Nat
+  definition {length, length, operator +, operator+}.
+end
+```
 
 Once we have proved that an `all` formula is true, we can use it by
 supplying an entity of the appropriate type inside square brackets. In
 the following we prove the `length_node42` theorem again, but this
 time the proof makes use of `length_one_nat`.
 
-    theorem length_node42_again: length(node(42, empty)) = 1
-    proof
-      length_one_nat[42]
-    end
+```{.deduce #length_node42_again}
+theorem length_node42_again: length(node(42, empty)) = 1
+proof
+  length_one_nat[42]
+end
+```
 
 We can generalize the theorem yet again by noticing that it does not
 matter whether the element is a natural number. It could be a value of
@@ -172,11 +180,13 @@ any type. In Deduce we can also use the `all` statement to generalize
 types. In the following, we add `U:type` to the `all` formula and to
 the `arbitrary` statement.
 
-    theorem length_one: all U:type, x:U. length(node(x, empty)) = 1
-    proof
-      arbitrary U:type, x:U
-      definition {length, operator +}.
-    end
+```{.deduce #length_one}
+theorem length_one: all U:type, x:U. length(node(x, empty)) = 1
+proof
+  arbitrary U:type, x:U
+  definition {length, length, operator +, operator+}.
+end
+```
 
 To summarize this section:
 * To state that a formula is true for all entities of a given type,
@@ -346,21 +356,23 @@ proof of the `node` case of the `append_empty` theorem using
 
 Here is the completed proof of the `append_empty` theorem.
 
-    theorem append_empty: all U :type. all xs :List<U>.
-      append(xs, empty) = xs
-    proof
-      arbitrary U:type
-      induction List<U>
-      case empty {
-        conclude append(empty, empty) = empty  by definition append.
-      }
-      case node(n, xs') suppose IH: append(xs',empty) = xs' {
-        equations
-          append(node(n,xs'),empty)
-              = node(n, append(xs',empty))  by definition append.
-          ... = node(n,xs')                 by rewrite IH.
-      }
-    end
+```{.deduce #append_empty}
+theorem append_empty: all U :type. all xs :List<U>.
+  append(xs, empty) = xs
+proof
+  arbitrary U:type
+  induction List<U>
+  case empty {
+	conclude append(empty, empty) = empty  by definition append.
+  }
+  case node(n, xs') suppose IH: append(xs',empty) = xs' {
+	equations
+	  append(node(n,xs'),empty)
+		  = node(n, append(xs',empty))  by definition append.
+	  ... = node(n,xs')                 by rewrite IH.
+  }
+end
+```
 
 ## Reasoning about natural numbers
 
@@ -414,21 +426,25 @@ example proves that `0 ≤ 1 and 0 ≤ 2`.  This is accomplished by
 separately proving that `0 ≤ 1` is true and that `0 ≤ 2` is true, then
 using the comma operator to combine those proofs: `one_pos, two_pos`.
 
-    theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
-    proof
-      have one_pos: 0 ≤ 1 by definition operator ≤.
-      have two_pos: 0 ≤ 2 by definition operator ≤.
-      conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
-    end
+```{.deduce #positive_1_and_2}
+theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
+proof
+  have one_pos: 0 ≤ 1 by definition operator ≤.
+  have two_pos: 0 ≤ 2 by definition operator ≤.
+  conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
+end
+```
 
 On the other hand, in Deduce you can use a conjunction as if it were
 one of its subformulas, implicitly. In the following we use the
 fact that `0 ≤ 1 and 0 ≤ 2` to prove `0 ≤ 2`.
 
-    theorem positive_2: 0 ≤ 2
-    proof
-      conclude 0 ≤ 2 by positive_1_and_2
-    end
+```{.deduce #positive_2}
+theorem positive_2: 0 ≤ 2
+proof
+  conclude 0 ≤ 2 by positive_1_and_2
+end
+```
 
 To summarize this section:
 * Use `and` in Deduce to express the truth of two formulas.
@@ -510,23 +526,25 @@ So we can immediately conclude that `x ≤ y or y < x`.
 
 Here is the completed proof of the `dichotomy` theorem.
 
-    theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
-    proof
-      arbitrary x:Nat, y:Nat
-      have tri: x < y or x = y or y < x by trichotomy[x][y]
-      cases tri
-      case x_l_y: x < y {
-        have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
-        conclude x ≤ y or y < x by x_le_y
-      }
-      case x_eq_y: x = y {
-        have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
-        conclude x ≤ y or y < x by x_le_y
-      }
-      case y_l_x: y < x {
-        conclude x ≤ y or y < x by y_l_x
-      }
-    end
+```{.deduce #dichotomy}
+theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+proof
+  arbitrary x:Nat, y:Nat
+  have tri: x < y or x = y or y < x by trichotomy[x][y]
+  cases tri
+  case x_l_y: x < y {
+	have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+	conclude x ≤ y or y < x by x_le_y
+  }
+  case x_eq_y: x = y {
+	have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+	conclude x ≤ y or y < x by x_le_y
+  }
+  case y_l_x: y < x {
+	conclude x ≤ y or y < x by y_l_x
+  }
+end
+```
 
 To summarize this section:
 * Use `or` in Deduce to express that at least one of two or more formulas is true.
@@ -542,12 +560,14 @@ with `if`-`then` formulas, we shall prove a property about the
 predicate and produces a list that includes only those elements from
 the input list that satisfy the predicate.
 
-    function filter<E>(List<E>, fn (E)->bool) -> List<E> {
-      filter(empty, P) = empty
-      filter(node(x, ls), P) =
-        if P(x) then node(x, filter(ls, P))
-        else filter(ls, P)
-    }
+```{.deduce #filter}
+function filter<E>(List<E>, fn (E)->bool) -> List<E> {
+  filter(empty, P) = empty
+  filter(node(x, ls), P) =
+	if P(x) then node(x, filter(ls, P))
+	else filter(ls, P)
+}
+```
 
 Of course, if all the elements in the list satisfy the predicate, then
 the output of `filter` is the same as the input list.  Note the use of
@@ -676,26 +696,28 @@ We conclude by using the equation `IH_conc` to rewrite the goal.
     
 Our proof of `filter_all` is complete. Here is the proof in its entirety.
 
-    theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
-      if all_elements(xs, P) then filter(xs, P) = xs
-    proof
-      arbitrary T:type, P:fn (T)->bool
-      induction List<T>
-      case empty {
-        suppose cond: all_elements(empty,P)
-        conclude filter(empty,P) = empty by definition filter.
-      }
-      case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
-        suppose Pxs: all_elements(node(x,xs'),P)
-        definition filter
-        have Px: P(x) by definition all_elements in Pxs
-        rewrite Px
-        suffices node(x,filter(xs',P)) = node(x,xs')
-        have Pxs': all_elements(xs',P) by definition all_elements in Pxs
-        have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
-        rewrite IH_conc.
-      }
-    end
+```{.deduce #filter_all}
+theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
+  if all_elements(xs, P) then filter(xs, P) = xs
+proof
+  arbitrary T:type, P:fn (T)->bool
+  induction List<T>
+  case empty {
+	suppose cond: all_elements(empty,P)
+	conclude filter(empty,P) = empty by definition filter.
+  }
+  case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
+	suppose Pxs: all_elements(node(x,xs'),P)
+	definition filter
+	have Px: P(x) by definition all_elements in Pxs
+	rewrite Px
+	suffices node(x,filter(xs',P)) = node(x,xs')
+	have Pxs': all_elements(xs',P) by definition all_elements in Pxs
+	have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
+	rewrite IH_conc.
+  }
+end
+```
 
 To summarize this section:
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
@@ -709,10 +731,12 @@ To summarize this section:
 There's not much to say about `true`. It's true!  And as we've already
 seen, proving `true` is easy. Just use a period.
 
-    theorem really_trivial: true
-    proof
-      .
-    end
+```{.deduce #really_trivial}
+theorem really_trivial: true
+proof
+  .
+end
+```
 
 One almost never sees `true` written explicitly in a formula. However,
 it is common for a formula to simplify to `true` after some rewriting.
@@ -724,15 +748,17 @@ However, it can arise in contradictory situations. For example,
 in the following we have a situation in which `true = false`.
 That can't be, so Deduce simplifies `true = false` to just `false`.
 
-    theorem contra_false: all a:bool, b:bool.
-      if a = b and a = true and b = false then false
-    proof
-      arbitrary a:bool, b:bool
-      suppose prem: a = b and a = true and b = false
-      have a_true: a = true by prem
-      have b_true: b = false by prem
-      conclude false by rewrite a_true | b_true in prem
-    end
+```{.deduce #contra_false}
+theorem contra_false: all a:bool, b:bool.
+  if a = b and a = true and b = false then false
+proof
+  arbitrary a:bool, b:bool
+  suppose prem: a = b and a = true and b = false
+  have a_true: a = true by prem
+  have b_true: b = false by prem
+  conclude false by rewrite a_true | b_true in prem
+end
+```
 
 More generally, Deduce knows that the different constructors of a
 union are in fact different. So in the next example, because `foo` and
@@ -760,12 +786,14 @@ implies anything. For example, normally we don't know whether or not
 two arbitrary Booleans `x` and `y` are the same or different.  But if
 we have a premise that is `false`, it doesn't matter.
 
-    theorem false_any: all x:bool, y:bool. if false then x = y
-    proof
-      arbitrary x:bool, y:bool
-      suppose f: false
-      conclude x = y by f
-    end
+```{.deduce #false_any}
+theorem false_any: all x:bool, y:bool. if false then x = y
+proof
+  arbitrary x:bool, y:bool
+  suppose f: false
+  conclude x = y by f
+end
+```
 
 To summarize this section:
 * Deduce simplifies any obviously contradictory equation to `false`.
@@ -829,20 +857,22 @@ We conclude this case by applying the induction hypothesis to `x' < x'`.
 
 Here is the completed proof that less-than is irreflexive.
 
-    theorem less_irreflexive:  all x:Nat. not (x < x)
-    proof
-      induction Nat
-      case zero {
-        suppose z_l_z: 0 < 0
-        conclude false by definition {operator <, operator ≤} in z_l_z
-      }
-      case suc(x') suppose IH: not (x' < x') {
-        suppose sx_l_sx: suc(x') < suc(x')
-        enable {operator <, operator ≤}
-        have x_l_x: x' < x' by sx_l_sx
-        conclude false by apply IH to x_l_x
-      }
-    end
+```{.deduce #less_irreflexive}
+theorem less_irreflexive:  all x:Nat. not (x < x)
+proof
+  induction Nat
+  case zero {
+	suppose z_l_z: 0 < 0
+	conclude false by definition {operator <, operator ≤} in z_l_z
+  }
+  case suc(x') suppose IH: not (x' < x') {
+	suppose sx_l_sx: suc(x') < suc(x')
+	enable {operator <, operator ≤}
+	have x_l_x: x' < x' by sx_l_sx
+	conclude false by apply IH to x_l_x
+  }
+end
+```
 
 To summarize this section:
 * To expression that a formula is false, use `not`.
@@ -906,20 +936,22 @@ Thankfully that follows from the definitions of `<` and `≤`.
 Here is the completed proof that every natural number is either zero
 or positive.
 
-    theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
-    proof
-      arbitrary x:Nat
-      switch x {
-        case zero {
-          conclude true or 0 < 0 by .
-        }
-        case suc(x') {
-          have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-          conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
-        }
-      }
-    end
-    
+```{.deduce #zero_or_positive}
+theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+proof
+  arbitrary x:Nat
+  switch x {
+	case zero {
+	  conclude true or 0 < 0 by .
+	}
+	case suc(x') {
+	  have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+	  conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+	}
+  }
+end
+```
+
 To summarize this section:
 * Use `switch` on an entity of union type to split the proof into
   cases, with one case for each alternative of the union.
@@ -991,24 +1023,50 @@ property of multiplication over addition (from `Nat.pf`).
 
 Here is the complete proof.
 
-    theorem addition_of_evens:
-      all x:Nat, y:Nat.
-      if Even(x) and Even(y) then Even(x + y)
-    proof
-      arbitrary x:Nat, y:Nat
-      suppose even_xy: Even(x) and Even(y)
-      have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
-      have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
-      obtain a where x_2a: x = 2*a from even_x
-      obtain b where y_2b: y = 2*b from even_y
-      definition Even
-      suffices some m:Nat. x + y = 2 * m
-      choose a + b
-      rewrite x_2a | y_2b
-      conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
-    end
+```{.deduce #addition_of_evens}
+theorem addition_of_evens:
+  all x:Nat, y:Nat.
+  if Even(x) and Even(y) then Even(x + y)
+proof
+  arbitrary x:Nat, y:Nat
+  suppose even_xy: Even(x) and Even(y)
+  have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
+  have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
+  obtain a where x_2a: x = 2*a from even_x
+  obtain b where y_2b: y = 2*b from even_y
+  definition Even
+  suffices some m:Nat. x + y = 2 * m
+  choose a + b
+  rewrite x_2a | y_2b
+  conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+end
+```
 
 To summarize this section:
 * The `some` formula expresses that a property is true for at least one entity.
 * Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.
+
+<!--
+```{.deduce file=ProofIntro.pf}
+import FunctionalProgramming
+
+<<length_empty>>
+<<length_node42>>
+<<length_one_nat>>
+<<length_node42_again>>
+<<length_one>>
+<<append_empty>>
+<<positive_1_and_2>>
+<<positive_2>>
+<<dichotomy>>
+<<filter>>
+<<filter_all>>
+<<really_trivial>>
+<<contra_false>>
+<<false_any>>
+<<less_irreflexive>>
+<<zero_or_positive>>
+<<addition_of_evens>>
+```
+-->

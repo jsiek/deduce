@@ -1,8 +1,6 @@
 [ ] implicit instantiation for all's
-
-[ ] change 'let' to 'define'
-
-[x] add let-binding in proofs
+  [x] in an apply
+  [ ] in checking mode
 
 [ ] fix generics, implement type passing, see operator ⊆ in Set.pf
 
@@ -14,8 +12,6 @@
 
 [ ] Fix syntax error messages inside imports
 
-[ ] print parenthesis for * and + properly
-
 [ ] create a test feature that adds support for
 	[ ] random number generation
 	[ ] error (halt with message)
@@ -26,6 +22,12 @@
 [ ] specify number of unfoldings in definition and enable
 
 [ ] remove parent param from parser, not needed anymore
+
+[x] change 'let' to 'define'
+
+[x] add let-binding in proofs
+
+[x] print parenthesis for * and + properly
 
 [x] don't print globals in available facts
 
