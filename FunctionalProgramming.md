@@ -225,10 +225,10 @@ uses `switch` to pattern-match on the second list.
 function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = empty
   zip(node(x, xs'), ys) =
-	switch ys {
-	  case empty { empty }
-	  case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
-	}
+    switch ys {
+      case empty { empty }
+      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
+    }
 }
 ```
 
@@ -310,12 +310,12 @@ function dot(List<Nat>,List<Nat>) -> Nat {
   dot(empty, ys) = 0
   dot(node(x, xs'), ys) =
     switch ys {
-	  case empty {
-	    0
-	  }
-	  case node(y, ys') {
-	    x * y + dot(xs', ys')
-	  }
+      case empty {
+        0
+      }
+      case node(y, ys') {
+        x * y + dot(xs', ys')
+      }
     }
 }
 
@@ -327,13 +327,13 @@ function last<E>(List<E>) -> Option<E> {
   last(empty) = none
   last(node(x, xs')) = 
     switch xs' {
-	  case empty {
-	    just(x)
-	  }
-	  case node(y, ys) {
-	    last(xs')
-	  }
-	}
+      case empty {
+        just(x)
+      }
+      case node(y, ys) {
+        last(xs')
+      }
+    }
 }
 <<test_last>>
 

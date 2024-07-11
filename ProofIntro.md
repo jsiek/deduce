@@ -363,13 +363,13 @@ proof
   arbitrary U:type
   induction List<U>
   case empty {
-	conclude append(empty, empty) = empty  by definition append.
+    conclude append(empty, empty) = empty  by definition append.
   }
   case node(n, xs') suppose IH: append(xs',empty) = xs' {
-	equations
-	  append(node(n,xs'),empty)
-		  = node(n, append(xs',empty))  by definition append.
-	  ... = node(n,xs')                 by rewrite IH.
+    equations
+      append(node(n,xs'),empty)
+          = node(n, append(xs',empty))  by definition append.
+      ... = node(n,xs')                 by rewrite IH.
   }
 end
 ```
@@ -533,15 +533,15 @@ proof
   have tri: x < y or x = y or y < x by trichotomy[x][y]
   cases tri
   case x_l_y: x < y {
-	have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
-	conclude x ≤ y or y < x by x_le_y
+    have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+    conclude x ≤ y or y < x by x_le_y
   }
   case x_eq_y: x = y {
-	have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
-	conclude x ≤ y or y < x by x_le_y
+    have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+    conclude x ≤ y or y < x by x_le_y
   }
   case y_l_x: y < x {
-	conclude x ≤ y or y < x by y_l_x
+    conclude x ≤ y or y < x by y_l_x
   }
 end
 ```
@@ -564,8 +564,8 @@ the input list that satisfy the predicate.
 function filter<E>(List<E>, fn (E)->bool) -> List<E> {
   filter(empty, P) = empty
   filter(node(x, ls), P) =
-	if P(x) then node(x, filter(ls, P))
-	else filter(ls, P)
+    if P(x) then node(x, filter(ls, P))
+    else filter(ls, P)
 }
 ```
 
@@ -703,18 +703,18 @@ proof
   arbitrary T:type, P:fn (T)->bool
   induction List<T>
   case empty {
-	suppose cond: all_elements(empty,P)
-	conclude filter(empty,P) = empty by definition filter.
+    suppose cond: all_elements(empty,P)
+    conclude filter(empty,P) = empty by definition filter.
   }
   case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
-	suppose Pxs: all_elements(node(x,xs'),P)
-	definition filter
-	have Px: P(x) by definition all_elements in Pxs
-	rewrite Px
-	suffices node(x,filter(xs',P)) = node(x,xs')
-	have Pxs': all_elements(xs',P) by definition all_elements in Pxs
-	have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
-	rewrite IH_conc.
+    suppose Pxs: all_elements(node(x,xs'),P)
+    definition filter
+    have Px: P(x) by definition all_elements in Pxs
+    rewrite Px
+    suffices node(x,filter(xs',P)) = node(x,xs')
+    have Pxs': all_elements(xs',P) by definition all_elements in Pxs
+    have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
+    rewrite IH_conc.
   }
 end
 ```
@@ -862,14 +862,14 @@ theorem less_irreflexive:  all x:Nat. not (x < x)
 proof
   induction Nat
   case zero {
-	suppose z_l_z: 0 < 0
-	conclude false by definition {operator <, operator ≤} in z_l_z
+    suppose z_l_z: 0 < 0
+    conclude false by definition {operator <, operator ≤} in z_l_z
   }
   case suc(x') suppose IH: not (x' < x') {
-	suppose sx_l_sx: suc(x') < suc(x')
-	enable {operator <, operator ≤}
-	have x_l_x: x' < x' by sx_l_sx
-	conclude false by apply IH to x_l_x
+    suppose sx_l_sx: suc(x') < suc(x')
+    enable {operator <, operator ≤}
+    have x_l_x: x' < x' by sx_l_sx
+    conclude false by apply IH to x_l_x
   }
 end
 ```
@@ -941,13 +941,13 @@ theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
 proof
   arbitrary x:Nat
   switch x {
-	case zero {
-	  conclude true or 0 < 0 by .
-	}
-	case suc(x') {
-	  have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-	  conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
-	}
+    case zero {
+      conclude true or 0 < 0 by .
+    }
+    case suc(x') {
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
   }
 end
 ```
