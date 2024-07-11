@@ -184,36 +184,6 @@ assert nat2pos(1) = just(one)
 assert nat2pos(2) = just(succ(one))
 assert nat2pos(3) = just(succ(succ(one)))
 
-/*
-  From Agda.Builtin.Nat.
-
-  To divide n by m, we use iterative subtraction, except that we only
-  subtract 1 from n at a time.  We use j to keep track of how much of
-  m has been subtracted from n. Each time j gets to one, we add one
-  to the answer and reset j at m.
-  
-*/
-function divide(Nat,Nat,Pos,Pos) -> Nat {
-  divide(0, k, m, j) = k
-  divide(suc(n'), k, m, j) =
-    switch j {
-      case one {
-        divide(n', suc(k), m, m)
-      }
-      case succ(j') {
-        divide(n', k, m, j')
-      }
-    }
-}
-
-/*
-function operator /(Nat,Pos) -> Nat {
-  operator /(0, m) = 0
-  operator /(suc(n'), m) = divide(suc(n'), 0, m, m)
-}
-
-*/
-
 function operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
   operator ≤(suc(n'), m) =
@@ -1408,59 +1378,6 @@ proof
 end
 
 /*
-   p is already processed
-   n = n' + p
-   divide(n', k, m, j) = k + q
-   q * m ≤ n'
-   
-   p = k * m + (m - j)
-
-   
-   
-   m * divide(n', k, m, j) = m * k + n'
-   
-
-           n' k  m  j      k * m  (m - j)  n' + (m - j)  k * m + n' + (m - j)   p
-    divide(5, 0, 3, 3)       0       0        5                5                0
-  = divide(4, 0, 3, 2)       0       1        5                5                1
-  = divide(3, 0, 3, 1)       0       2        5                5                2
-  = divide(2, 1, 3, 3)       3       0        2                5                3
-  = divide(1, 1, 3, 2)       3       1        2                5                4
-  = divide(0, 1, 3, 1)       3       2        2                5                5
-  = 1
-
-  k * m 
-
-*/
-/*
-theorem divide_correct: all n:Nat. all k:Nat,m:Pos,j:Pos.
-  if pos2nat(j) ≤ pos2nat(m)
-  then pos2nat(m) * divide(n, k, m, j) + pos2nat(j)
-       = n + pos2nat(m) * k
-proof
-  induction Nat
-  case 0 {
-    arbitrary k:Nat,m:Pos,j:Pos
-    suppose prem
-    definition {divide, operator+}
-    ?
-  }
-  case suc(n') suppose IH {
-    arbitrary k:Nat,m:Pos,j:Pos
-    suppose prem
-    definition divide
-    switch j {
-      case one {
-        ?
-      }
-      case succ(j') {
-        ?
-      }
-    }
-  }
-end
-*/
-/*
 theorem div_one: all n:Nat.
   n / one = n
 proof
@@ -1541,7 +1458,23 @@ proof
     }
   }
 end
-  
+
+theorem add_sub_identity: all m:Nat. all n:Nat. 
+  (m + n) - m = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    definition operator+
+    rewrite sub_zero[n].
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    definition {operator+,operator-}
+    IH[n]
+  }
+end
+
 theorem sub_add_identity: all n:Nat. all m:Nat.
   if m ≤ n
   then m + (n - m) = n
@@ -1724,6 +1657,26 @@ function operator /(Nat,Pos) -> Nat {
     find_quotient(suc(suc(n')) * pos2nat(m), suc(n'), m, 0)
 }
 
+function operator%(Nat,Pos) -> Nat {
+  operator %(0, m) = 0
+  operator %(suc(n'), m) = suc(n') - (suc(n') / m) * pos2nat(m)
+}
+
+theorem mod_def: all n:Nat, m:Pos.
+  n % m = n - (n / m) * pos2nat(m)
+proof
+  arbitrary n:Nat, m:Pos
+  switch n {
+    case 0 {
+      definition {operator-,operator%}.
+    }
+    case suc(n') {
+      definition {operator%}.
+    }
+  }
+end
+  
+
 assert default(after(nat2pos(1),λd{ 2 / d = 2}), false)
 assert default(after(nat2pos(2),λd{ 4 / d = 2}), false)
 assert default(after(nat2pos(2),λd{ 5 / d = 2}), false)
@@ -1857,4 +1810,37 @@ proof
       definition u in R
     }
   }
+end
+
+theorem division_remainder: all n:Nat, m:Pos.
+  (n / m) * pos2nat(m) + (n % m) = n
+proof
+  arbitrary n:Nat, m:Pos
+  rewrite mod_def[n,m]
+  define a = (n / m) * pos2nat(m)
+  obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
+    from division[n, m]
+  have ar_n: a + r = n   by definition a R
+  have a_le_a_r: a ≤ a + r  by less_equal_add[a][r]
+  have n_eq_a_r: n = a + r
+    by definition a symmetric conjunct 0 of R
+  have a_le_n: a ≤ n   by rewrite n_eq_a_r a_le_a_r
+  have nmm_le_n: (n / m) * pos2nat(m) ≤ n  by definition a in a_le_n
+  conclude (n / m) * pos2nat(m) + (n - (n / m) * pos2nat(m)) = n
+    by apply sub_add_identity to nmm_le_n
+end
+
+theorem remainder_less_divisor: all n:Nat, m:Pos.
+  n % m < pos2nat(m)
+proof
+  arbitrary n:Nat, m:Pos
+  rewrite mod_def[n,m]
+  define a = (n / m) * pos2nat(m)
+  obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
+    from division[n, m]
+  have ar_n: a + r = n   by definition a R
+  have ar_a_a: (a + r) - a = r  by add_sub_identity[a][r]
+  have r_na: r = n - a  by rewrite symmetric ar_n symmetric ar_a_a
+  rewrite symmetric definition a in r_na 
+  conjunct 1 of R
 end
