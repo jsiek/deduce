@@ -6,6 +6,7 @@ language and provide examples of their use.
 
 * [Working with Definitions](#working-with-definitions)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
+* [Rewriting with Equations](#rewriting-with-equations)
 * [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
 * [Equational Reasoning](#equational-reasoning)
 * [Reasoning about natural numbers](#reasoning-about-natural-numbers)
@@ -214,6 +215,60 @@ append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
 but this time use the previous theorem.
 
 
+## Rewriting with Equations
+
+Deduce provides the `rewrite` statement to apply an equation to the
+current goal, or to a fact. In particular, `rewrite` replaces each
+occurence of the left-hand side of an equation with the right-hand
+side of the equation.
+
+For example, let us prove the following theorem using `rewrite`
+with the above `length_one` theorem.
+
+```
+theorem length_one_equal: all U:type, x:U, y:U.
+  length(node(x,empty)) = length(node(y,empty))
+proof
+  arbitrary U:type, x:U, y:U
+  ?
+end
+```
+
+To replace `length(node(x,empty))` with `1`, we rewrite
+using the `length_one` theorem instantiated at `U` and `x`.
+
+```
+rewrite length_one[U,x]
+```
+
+Deduce tells us that the current goal has become
+
+```
+1 = length(node(y,empty))
+```
+
+We rewrite again using `length_one`, which time instantiated
+with `y`.
+
+```
+  rewrite length_one[U,y]
+```
+
+Deduce changes the goal to `1 = 1`, which simplies to just `true`
+so we can finish the proof with a period.
+
+Here is the completed proof of `length_one_equal`.
+
+```{.deduce #length_one_equal}
+theorem length_one_equal: all U:type, x:U, y:U.
+  length(node(x,empty)) = length(node(y,empty))
+proof
+  arbitrary U:type, x:U, y:U
+  rewrite length_one[U,x]
+  rewrite length_one[U,y].
+end
+```
+
 ## Proving `all` Formulas with Induction
 
 Sometimes the `arbitrary` statement does not give us enough
@@ -346,13 +401,6 @@ right-hand side of the induction hypothesis `IH`. We use the
     have step2: node(n, append(xs',empty))
                 = node(n,xs')                 by rewrite IH.
 
-In more detail, the `rewrite` statement changes the current goal by
-replacing each occurence of the left-hand side of an equation with the
-right-hand side of the equation. In the above example, `IH` is
-a proof of the equation `append(xs', empty) = xs'`, so
-`rewrite IH` replaces each `append(xs', empty)` that it finds
-in the goal with `xs'`.
-
 To complete the proof, we combine equations (1) and (2) using
 the `transitive` statement.
 
@@ -459,13 +507,12 @@ defining equations, but written with infix notation:
   suc(n) + m = suc(n + m)
 ```
 
-The `Nat.pf` file also includes proofs of several more equations.
+The `Nat.pf` file also includes proofs of many equations.
 Here we list the names of the theorems and the formula. (To add more
 theorems, pull requests on the github repository are most welcome!)
 
 ```
 add_zero: all n:Nat.  n + 0 = n
-add_suc: all m:Nat. all n:Nat.  m + suc(n) = suc(m + n)
 add_commute: all n:Nat. all m:Nat.  n + m = m + n
 add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
 left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
@@ -481,6 +528,11 @@ For example, `add_zero[x]` is a proof of `x + 0 = x` and `apply
 left_cancel[2][a,b] to p` is a proof of `a = b` so long as `p` is a
 given for the formula `2 + a = 2 + b`.
 
+### Exercise
+
+```
+right_cancel: all x:Nat. all y:Nat, z:Nat.  if x + z = y + z then x = y
+```
 
 ## Reasoning about `and` (Conjunction)
 
@@ -1127,6 +1179,7 @@ end
 <<length_one_nat>>
 <<length_node42_again>>
 <<length_one>>
+<<length_one_equal>>
 
 theorem append_xy: all T:type, x:T, y:T.
   append(node(x,empty), node(y, empty)) = node(x,node(y,empty))
@@ -1160,6 +1213,28 @@ proof
           = 1 + length(append(xs', ys))        by .
       ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys].
       ... = length(node(n,xs')) + length(ys)   by .
+  }
+end
+
+theorem right_cancel: all z:Nat. all x:Nat, y:Nat.
+  if x + z = y + z then x = y
+proof
+  induction Nat
+  case 0 {
+    arbitrary x:Nat, y:Nat
+	rewrite add_zero[x] | add_zero[y]
+	suppose x_y
+	conclude x = y by x_y
+  }
+  case suc(z') suppose IH {
+    arbitrary x:Nat, y:Nat
+	rewrite add_commute[x][suc(z')] | add_commute[y][suc(z')]
+	definition operator+
+	suppose szx_eq_szy
+	have zx_eq_zy: z' + x = z' + y
+	  by injective suc szx_eq_szy
+	conclude x = y  by apply IH[x,y] to
+	  rewrite add_commute[z'][x] | add_commute[z'][y] in zx_eq_zy
   }
 end
 
