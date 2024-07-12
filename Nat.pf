@@ -813,9 +813,9 @@ proof
     arbitrary x:Nat, y:Nat
     suffices suc(a') * (x + y) = suc(a') * x + suc(a') * y
     definition operator *
-    suffices x + y + a' * (x + y) = (x + a' * x) + (y + a' * y)
+    suffices (x + y) + a' * (x + y) = (x + a' * x) + (y + a' * y)
     equations
-    x + y + a' * (x + y) = x + y + (a' * x + a' * y) by rewrite IH[x,y].
+    (x + y) + a' * (x + y) = (x + y) + (a' * x + a' * y) by rewrite IH[x,y].
     ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
     ... = (x + (y + a' * x)) + a' * y by rewrite add_assoc[x][y,a'*x].
     ... = (x + (a' * x + y)) + a' * y by rewrite add_commute[a'*x][y].
@@ -1058,9 +1058,9 @@ proof
            by arbitrary i:Nat suppose i_a: i < a'
               enable {operator +, operator ≤}  rewrite add_suc[s][i] in
               (apply (conjunct 0 of g_f_and_h_f)[suc(i)] to enable {operator <, operator ≤} i_a)
-         have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + a' + i))
+         have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + (a' + i)))
            by arbitrary i:Nat suppose i_b: i < b
-              enable {operator +} rewrite add_suc[s][a'] in
+              enable {operator +} rewrite add_suc[s][a'+i] in
               apply (conjunct 1 of g_f_and_h_f)[i] to i_b
          apply IH[b,suc(s),t,f,g,h] to p1, p2
     rewrite fs_gs | IH' | add_assoc[g(s)][summation(a',suc(s),g), summation(b,t,h)].

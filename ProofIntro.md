@@ -6,10 +6,11 @@ language and provide examples of their use.
 
 * [Working with Definitions](#working-with-definitions)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
-* [Rewriting with Equations](#rewriting-with-equations)
-* [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
+* [Rewriting the Goal with Equations](#rewriting-the-goal-with-equations)
+* [Proving Intermediate Facts with `have`](#proving-intermediate-facts-with-have)
 * [Equational Reasoning](#equational-reasoning)
-* [Reasoning about natural numbers](#reasoning-about-natural-numbers)
+* [Reasoning about Natural Numbers](#reasoning-about-natural-numbers)
+* [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
 * [Conditional Formulas (Implication)](#conditional-formulas-implication)
@@ -215,12 +216,12 @@ append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
 but this time use the previous theorem.
 
 
-## Rewriting with Equations
+## Rewriting the Goal with Equations
 
 Deduce provides the `rewrite` statement to apply an equation to the
-current goal, or to a fact. In particular, `rewrite` replaces each
-occurence of the left-hand side of an equation with the right-hand
-side of the equation.
+current goal. In particular, `rewrite` replaces each occurence of the
+left-hand side of an equation with the right-hand side of the
+equation.
 
 For example, let us prove the following theorem using `rewrite`
 with the above `length_one` theorem.
@@ -251,11 +252,11 @@ We rewrite again using `length_one`, which time instantiated
 with `y`.
 
 ```
-  rewrite length_one[U,y]
+rewrite length_one[U,y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplies to just `true`
-so we can finish the proof with a period.
+Deduce changes the goal to `1 = 1`, which simplies to just `true` so
+we can finish the proof with a period.
 
 Here is the completed proof of `length_one_equal`.
 
@@ -268,6 +269,133 @@ proof
   rewrite length_one[U,y].
 end
 ```
+
+Multiple `rewrite` statements can be combined into one `rewrite` where
+each equation is separated by `|`. So the above proof could instead
+end with the following statement.
+
+```
+rewrite length_one[U,x] | length_one[U,y].
+```
+
+## Reasoning about Natural Numbers
+
+As metioned previously, the `Nat.pf` file includes the definition of
+natural numbers, operations on them (e.g. addition), and proofs about
+those operations. Here we discuss how to reason about
+addition. Reasoning about the other operations follows a similar
+pattern.
+
+Here is the definition of addition from `Nat.pf`:
+```
+function operator +(Nat,Nat) -> Nat {
+  operator +(0, m) = m
+  operator +(suc(n), m) = suc(n + m)
+}
+```
+
+Recall that we can use Deduce's `definition` statement whenever we
+want to rewrite the goal according to the equations for addition. Here
+are the two defining equations, but written with infix notation:
+
+```
+  0 + m = m
+  suc(n) + m = suc(n + m)
+```
+
+The `Nat.pf` file also includes proofs of many equations.
+Here we list the names of the theorems and the formula. (To add more
+theorems, pull requests on the github repository are most welcome!)
+
+```
+add_zero: all n:Nat.  n + 0 = n
+add_commute: all n:Nat. all m:Nat.  n + m = m + n
+add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
+left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
+dist_mult_add: all a:Nat. all x:Nat, y:Nat. a * (x + y) = a * x + a * y
+mult_zero: all n:Nat. n * 0 = 0
+mult_one: all n:Nat. n * 1 = n
+mult_commute: all m:Nat. all n:Nat. m * n = n * m
+mult_assoc: all m:Nat. all n:Nat, o:Nat. (m * n) * o = m * (n * o)
+```
+
+You can use these theorems just like a given of the specified formula.
+For example, `add_zero[x]` is a proof of `x + 0 = x` and `apply
+left_cancel[2][a,b] to p` is a proof of `a = b` so long as `p` is a
+given for the formula `2 + a = 2 + b`.
+
+### Exercise
+
+Prove the following theorem using `left_cancel`. Also, use
+`add_commute` in a `rewrite` statement.
+
+```
+right_cancel: all x:Nat, y:Nat, z:Nat. if x + z = y + z then x = y
+```
+
+## Proving Intermediate Facts with `have`
+
+One often needs to prove some intermediate facts on the way to proving
+the final goal of a theorem. The `have` statement of Deduce provides a
+way to state and prove a fact and give it a label so that it can be
+used later in the proof. For example, consider the proof of
+
+```
+x + y + z = z + y + x
+```
+
+It takes several uses of `add_commute` and `add_assoc` to prove
+this. In the following, we use `have` five times to create each
+intermediate step in the reasoning, and then finish the proof by
+connecting them all together using `transitive`.
+
+```{.deduce #xyz_zyx}
+theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  have step1: x + y + z = x + z + y
+    by rewrite add_commute[y][z].
+  have step2: x + z + y = (x + z) + y
+    by rewrite add_assoc[x][z,y].
+  have step3: (x + z) + y = (z + x) + y
+    by rewrite add_commute[z][x].
+  have step4: (z + x) + y = z + (x + y)
+    by rewrite add_assoc[z][x,y].
+  have step5: z + (x + y) = z + y + x
+    by rewrite add_commute[x][y].
+  transitive step1 (transitive step2 (transitive step3
+    (transitive step4 step5)))
+end
+```
+
+## Equational Reasoning
+
+Combining a sequence of equations using `transitive` is quite common,
+so Deduce provides the `equations` statement to streamline this
+process.  After the first equation, the left-hand side of each
+equation is written as `...` because it is just a repetition of the
+right-hand side of the previous equation. Here's another proof of the
+theorem about `x + y + z`, this time using an `equations` statement.
+
+```{.deduce #xyz_zyx_eqn}
+theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  equations
+    x + y + z = x + z + y      by rewrite add_commute[y][z].
+          ... = (x + z) + y    by rewrite add_assoc[x][z,y].
+          ... = (z + x) + y    by rewrite add_commute[z][x].
+          ... = z + x + y      by rewrite add_assoc[z][x,y].
+          ... = z + y + x      by rewrite add_commute[x][y].
+end
+```
+
+### Exercise
+
+Prove that `x + y + z = z + y + x` but using fewer than 5 steps.
+
 
 ## Proving `all` Formulas with Induction
 
@@ -407,59 +535,12 @@ the `transitive` statement.
     conclude append(node(n,xs'),empty) = node(n,xs')
         by transitive step1 step2
 
-Here is the completed proof of `append_empty`.
+Here is the completed proof of `append_empty`, but replacing the
+intermediate `have` statements and `transitive` by an `equations`
+statement.
 
 ```{.deduce #append_empty}
 theorem append_empty: all U :type. all xs :List<U>.
-  append(xs, empty) = xs
-proof
-  arbitrary U:type
-  induction List<U>
-  case empty {
-    conclude append(empty, empty) = empty  by definition append.
-  }
-  case node(n, xs') suppose IH: append(xs',empty) = xs' {
-    have step1: append(node(n,xs'),empty)
-                = node(n, append(xs',empty))  by definition append.
-    have step2: node(n, append(xs',empty))
-                = node(n,xs')                 by rewrite IH.
-    conclude append(node(n,xs'),empty) = node(n,xs')
-        by transitive step1 step2
-  }
-end
-```
-
-To summarize this section:
-* To prove an `all` formula that concerns entities of a `union` type,
-  use Deduce's `induction` statement.
-* Use the `rewrite` statement to apply an equation to the current
-  goal.
-
-### Exercise
-
-Prove that `length(append(xs, ys)) = length(xs) + length(ys)`.
-
-## Equational Reasoning
-
-Combining a sequence of equations using `transitive` is quite common,
-so Deduce provides the `equations` statement to streamline this
-process.  After the first equation, the left-hand side of each
-equation is written as `...` because it is just a repetition of the
-right-hand side of the previous equation. We can refactor the
-proof of the `node` case of the `append_empty` theorem using
-`equations` as follows.
-
-    case node(n, xs') suppose IH: append(xs',empty) = xs' {
-      equations
-        append(node(n,xs'),empty)
-            = node(n, append(xs',empty))  by definition append.
-        ... = node(n,xs')                 by rewrite IH.
-    }
-
-Here is the completed proof of the new `append_empty_eqn` theorem.
-
-```{.deduce #append_empty_eqn}
-theorem append_empty_eqn: all U :type. all xs :List<U>.
   append(xs, empty) = xs
 proof
   arbitrary U:type
@@ -476,63 +557,13 @@ proof
 end
 ```
 
-### Exercise
-
-Prove again that `length(append(xs, ys)) = length(xs) + length(ys)`,
-but this time using the `equations` statement.
-
-## Reasoning about natural numbers
-
-As metioned previously, the `Nat.pf` file includes the definition of
-natural numbers, operations on them (e.g. addition), and proofs about
-those operations. Here we discuss how to reason about
-addition. Reasoning about the other operations follows a similar
-pattern.
-
-Here is the definition of addition from `Nat.pf`:
-```
-function operator +(Nat,Nat) -> Nat {
-  operator +(0, m) = m
-  operator +(suc(n), m) = suc(n + m)
-}
-```
-
-As we saw above with the `append` function, we can use Deduce's
-`definition` statement whenever we want to rewrite the goal or a given
-fact according to the equations for addition. Here are the two
-defining equations, but written with infix notation:
-
-```
-  0 + m = m
-  suc(n) + m = suc(n + m)
-```
-
-The `Nat.pf` file also includes proofs of many equations.
-Here we list the names of the theorems and the formula. (To add more
-theorems, pull requests on the github repository are most welcome!)
-
-```
-add_zero: all n:Nat.  n + 0 = n
-add_commute: all n:Nat. all m:Nat.  n + m = m + n
-add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
-left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
-dist_mult_add: all a:Nat. all x:Nat, y:Nat. a * (x + y) = a * x + a * y
-mult_zero: all n:Nat. n * 0 = 0
-mult_one: all n:Nat. n * 1 = n
-mult_commute: all m:Nat. all n:Nat. m * n = n * m
-mult_assoc: all m:Nat. all n:Nat, o:Nat. (m * n) * o = m * (n * o)
-```
-
-You can use these theorems just like a given of the specified formula.
-For example, `add_zero[x]` is a proof of `x + 0 = x` and `apply
-left_cancel[2][a,b] to p` is a proof of `a = b` so long as `p` is a
-given for the formula `2 + a = 2 + b`.
+To summarize this section:
+* To prove an `all` formula that concerns entities of a `union` type,
+  use Deduce's `induction` statement.
 
 ### Exercise
 
-```
-right_cancel: all x:Nat. all y:Nat, z:Nat.  if x + z = y + z then x = y
-```
+Prove that `length(append(xs, ys)) = length(xs) + length(ys)`.
 
 ## Reasoning about `and` (Conjunction)
 
@@ -1194,7 +1225,6 @@ proof
 end
 
 <<append_empty>>
-<<append_empty_eqn>>
 
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(append(xs, ys)) = length(xs) + length(ys)
@@ -1216,26 +1246,26 @@ proof
   }
 end
 
-theorem right_cancel: all z:Nat. all x:Nat, y:Nat.
+theorem right_cancel: all x:Nat, y:Nat, z:Nat.
   if x + z = y + z then x = y
 proof
-  induction Nat
-  case 0 {
-    arbitrary x:Nat, y:Nat
-	rewrite add_zero[x] | add_zero[y]
-	suppose x_y
-	conclude x = y by x_y
-  }
-  case suc(z') suppose IH {
-    arbitrary x:Nat, y:Nat
-	rewrite add_commute[x][suc(z')] | add_commute[y][suc(z')]
-	definition operator+
-	suppose szx_eq_szy
-	have zx_eq_zy: z' + x = z' + y
-	  by injective suc szx_eq_szy
-	conclude x = y  by apply IH[x,y] to
-	  rewrite add_commute[z'][x] | add_commute[z'][y] in zx_eq_zy
-  }
+  arbitrary x:Nat, y:Nat, z:Nat
+  rewrite add_commute[x][z] | add_commute[y][z]
+  left_cancel[z][x,y]
+end
+
+<<xyz_zyx>>
+<<xyz_zyx_eqn>>
+
+theorem xyz_zyx_eqn2: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  equations
+    x + y + z = (x + y) + z    by rewrite add_assoc[x][y,z].
+          ... = z + (x + y)    by rewrite add_commute[x+y][z].
+          ... = z + (y + x)    by rewrite add_commute[x][y].
+          ... = z + y + x      by add_assoc[z][y,x]
 end
 
 <<positive_1_and_2>>

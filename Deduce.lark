@@ -26,7 +26,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_compare "∈" term_add                       -> membership
     | term_add
 
-?term_add: term_add "+" term_med                   -> add
+?term_add: term_med "+" term_add                   -> add
     | term_add "-" term_med                        -> sub
     | term_add "∪" term_med                        -> union_op
     | term_add "∩" term_med                        -> intersect
@@ -35,7 +35,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?term_med: term_med "/" term_hi                    -> div
     | term_med "%" term_hi                         -> mod
-    | term_med "*" term_hi                         -> mul
+    | term_hi "*" term_med                         -> mul
     | term_med "∘" term_hi                         -> circ
     | term_hi
 
