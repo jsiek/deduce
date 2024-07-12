@@ -4,7 +4,7 @@ This section provides a tutorial on writing proofs in Deduce.  In the
 following subsections we introduce the features of the Deduce proof
 language and provide examples of their use. 
 
-* [Working with Definitions](#working-with-definitions)
+* [Applying Definitions to the Goal](#applying-definitions-to-the-goal)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
 * [Rewriting the Goal with Equations](#rewriting-the-goal-with-equations)
 * [Proving Intermediate Facts with `have`](#proving-intermediate-facts-with-have)
@@ -21,7 +21,7 @@ language and provide examples of their use.
 * [Rewriting Facts with Equations](#rewriting-facts-with-equations)
 * [Reasoning about `some` (Exists)](#reasoning-about-some-exists)
 
-## Working with Definitions
+## Applying Definitions to the Goal
 
 We begin with an simple example, proving that the length of an empty
 list is `0`. Of course, this is a direct consequence of the definition
