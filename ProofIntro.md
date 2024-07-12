@@ -374,8 +374,29 @@ Givens:
 ```
 
 We proceed four more times, using `have` to create each intermediate
-step in the reasoning, and then finish the proof by connecting them
-all together using `transitive`.
+step in the reasoning.
+
+```
+  have step2: x + z + y = (x + z) + y
+    by rewrite add_assoc[x][z,y].
+  have step3: (x + z) + y = (z + x) + y
+    by rewrite add_commute[z][x].
+  have step4: (z + x) + y = z + (x + y)
+    by rewrite add_assoc[z][x,y].
+  have step5: z + (x + y) = z + y + x
+    by rewrite add_commute[x][y].
+```
+
+We finish the proof by connecting them all together using Deduce's
+`transitive` statement. The `transitive` statement takes two proofs of
+equations `a = b` and `b = c`, and proves `a = c`.
+
+```
+  transitive step1 (transitive step2 (transitive step3
+    (transitive step4 step5)))
+```
+
+Here is the complete proof of the `xyz_zyx` theorem.
 
 ```{.deduce #xyz_zyx}
 theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
@@ -923,6 +944,9 @@ so we can prove that `length(xs) + length(ys) = 0` as follows.
   have len_xs_len_ys: length(xs) + length(ys) = 0
     by transitive (symmetric length_append[T][xs][ys]) len_xs_ys
 ```
+
+Note that Deduce's the `symmetric` statement takes a proof
+of some equality like `a = b` and flips it around to `b = a`.
 
 Now from `Nat.pf` we have the following `if`-`then` fact.
 
