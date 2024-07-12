@@ -319,10 +319,11 @@ mult_commute: all m:Nat. all n:Nat. m * n = n * m
 mult_assoc: all m:Nat. all n:Nat, o:Nat. (m * n) * o = m * (n * o)
 ```
 
-You can use these theorems just like a given of the specified formula.
-For example, `add_zero[x]` is a proof of `x + 0 = x` and `apply
-left_cancel[2][a,b] to p` is a proof of `a = b` so long as `p` is a
-given for the formula `2 + a = 2 + b`.
+You can use these theorems by instantiating them with particular
+entities. For example, `add_zero[2]` is a proof of `2 + 0 = 2`.
+We have not yet discussed how to use the `if-then` formula in
+`left_cancel`, but we will get to that in the section below on
+[Conditional Formulas (Implication)](#conditional-formulas-implication).
 
 ### Exercise
 
@@ -698,7 +699,7 @@ To summarize this section:
 * To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
-## Conditional Formulas (Implication)
+## Conditional Formulas (Implication)o
 
 Some logical statements are true only under certain conditions, so
 Deduce provides an `if`-`then` formula.  To demonstrate how to work
