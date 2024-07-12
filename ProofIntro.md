@@ -9,7 +9,7 @@ language and provide examples of their use.
 * [Rewriting the Goal with Equations](#rewriting-the-goal-with-equations)
 * [Reasoning about Natural Numbers](#reasoning-about-natural-numbers)
 * [Proving Intermediate Facts with `have`](#proving-intermediate-facts-with-have)
-* [Equational Reasoning](#equational-reasoning)
+* [Chaining Equations with `equations`](#chaining-equations-with-equations)
 * [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
@@ -397,7 +397,7 @@ proof
 end
 ```
 
-## Equational Reasoning
+## Chaining Equations with `equations`
 
 Combining a sequence of equations using `transitive` is quite common,
 so Deduce provides the `equations` statement to streamline this
