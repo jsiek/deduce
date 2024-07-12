@@ -448,11 +448,10 @@ proof
   }
 end
 
-theorem less_not_equal:
-  all x:Nat. all y:Nat.
+theorem less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
-  arbitrary x:Nat arbitrary y:Nat
+  arbitrary x:Nat, y:Nat
   suppose x_l_y: x < y
   suppose x_y: x = y
   have y_l_y: y < y by rewrite x_y in x_l_y
@@ -522,19 +521,14 @@ proof
                        (rewrite y_eq_zero in sx_less_y))
       }
       case suc(y') suppose ys {
-        have x_less_y: x' < y' by
-          definition operator <
-          definition operator ≤ in definition operator < in
-          rewrite ys in sx_less_y
-        have y_less_x: y' < x' by definition operator <
-          definition operator ≤ in definition operator < in
-          rewrite ys in y_less_sx
+        enable {operator<,operator≤}
+        have x_less_y: x' < y'  by rewrite ys in sx_less_y
+        have y_less_x: y' < x'  by rewrite ys in y_less_sx
         have false by apply (apply IH[y'] to x_less_y) to y_less_x
       }
     }
   }
 end
-
 
 theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof

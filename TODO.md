@@ -1,6 +1,8 @@
+[ ] add section on rewrite-in to the introduction
+
 [ ] implicit instantiation for all's
   [x] in an apply
-  [ ] in checking mode
+  [ ] in checking mode, as part of check_implies?
 
 [ ] fix generics, implement type passing, see operator ⊆ in Set.pf
 

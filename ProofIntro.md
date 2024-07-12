@@ -2,7 +2,7 @@
 
 This section provides a tutorial on writing proofs in Deduce.  In the
 following subsections we introduce the features of the Deduce proof
-language and provide examples of their use.
+language and provide examples of their use. 
 
 * [Working with Definitions](#working-with-definitions)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
@@ -13,11 +13,12 @@ language and provide examples of their use.
 * [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
-* [Conditional Formulas (Implication)](#conditional-formulas-implication)
+* [`switch` Proof Statement](#switch-proof-statement)
+* [Conditional Formulas (Implication) and Applying Definitions to Facts](#conditional-formulas-implication-and-applying-definitions-to-facts)
 * [Reasoning about `true`](#reasoning-about-true)
 * [Reasoning about `false`](#reasoning-about-false)
 * [Reasoning about `not`](#reasoning-about-not)
-* [`switch` Proof Statement](#switch-proof-statement)
+* [Rewriting Facts with Equations](#rewriting-facts-with-equations)
 * [Reasoning about `some` (Exists)](#reasoning-about-some-exists)
 
 ## Working with Definitions
@@ -312,6 +313,7 @@ add_zero: all n:Nat.  n + 0 = n
 add_commute: all n:Nat. all m:Nat.  n + m = m + n
 add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
 left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
+add_to_zero: all n:Nat. all m:Nat. if n + m = 0 then n = 0 and m = 0
 dist_mult_add: all a:Nat. all x:Nat, y:Nat. a * (x + y) = a * x + a * y
 mult_zero: all n:Nat. n * 0 = 0
 mult_one: all n:Nat. n * 1 = n
@@ -321,7 +323,7 @@ mult_assoc: all m:Nat. all n:Nat, o:Nat. (m * n) * o = m * (n * o)
 
 You can use these theorems by instantiating them with particular
 entities. For example, `add_zero[2]` is a proof of `2 + 0 = 2`.
-We have not yet discussed how to use the `if-then` formula in
+We have not yet discussed how to use the `if`-`then` formula in
 `left_cancel`, but we will get to that in the section below on
 [Conditional Formulas (Implication)](#conditional-formulas-implication).
 
@@ -345,10 +347,35 @@ used later in the proof. For example, consider the proof of
 x + y + z = z + y + x
 ```
 
-It takes several uses of `add_commute` and `add_assoc` to prove
-this. In the following, we use `have` five times to create each
-intermediate step in the reasoning, and then finish the proof by
-connecting them all together using `transitive`.
+It takes several uses of `add_commute` and `add_assoc` to prove this.
+To get starts, we use `have` to prove `step1`, which states that 
+`x + y + z = x + z + y` (flipping the `y` and `z`).
+
+```
+theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  have step1: x + y + z = x + z + y
+    by rewrite add_commute[y][z].
+  ?
+end
+```
+
+Deduce prints the current goal and the **givens**, that is, the facts
+that we aleady know are true, which now includes `step1`.
+
+```
+incomplete proof
+Goal:
+	x + (y + z) = z + (y + x)
+Givens:
+	step1: x + (y + z) = x + (z + y)
+```
+
+We proceed four more times, using `have` to create each intermediate
+step in the reasoning, and then finish the proof by connecting them
+all together using `transitive`.
 
 ```{.deduce #xyz_zyx}
 theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
@@ -695,184 +722,262 @@ end
 ```
 
 To summarize this section:
-* Use `or` in Deduce to express that at least one of two or more formulas is true.
+* Use `or` in Deduce to express that at least one of two or more
+  formulas is true.
 * To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
-## Conditional Formulas (Implication)
+## `switch` Proof Statement
 
-Some logical statements are true only under certain conditions, so
-Deduce provides an `if`-`then` formula.  To demonstrate how to work
-with `if`-`then` formulas, we shall prove a property about the
-`filter` function defined below. This function takes a list and a
-predicate and produces a list that includes only those elements from
-the input list that satisfy the predicate.
+Similar to Deduce's `switch` statement for writing functions, there is
+also a `switch` statement for writing proofs. As an example, let us
+consider how to prove the following theorem.
 
-```{.deduce #filter}
-function filter<E>(List<E>, fn (E)->bool) -> List<E> {
-  filter(empty, P) = empty
-  filter(node(x, ls), P) =
-    if P(x) then node(x, filter(ls, P))
-    else filter(ls, P)
-}
-```
-
-Of course, if all the elements in the list satisfy the predicate, then
-the output of `filter` is the same as the input list.  Note the use of
-"if" and "then" in the previous sentence.  This statement translates
-into Deduce in a straightforward ways, as follows.  (Recall that we
-have already defined the `all_elements` function.)
-
-    theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
-      if all_elements(xs, P) then filter(xs, P) = xs
+    theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
     proof
       ?
     end
 
-The beginning of the proof proceeds as usual for a formula that begins
-with `all`, using `arbitrary` for `T` and `P` and then `induction` for
-`xs`.
+We could proceed by induction, but we it turns out we don't need the
+induction hypothesis. In such situations, we can instead use `switch`.
+Like induction, `switch` works on unions and there is one case for
+each alternative of the union. Unlike induction, the goal formula does
+not need to be an `all` formula. Instead, you indicate which entity to
+switch on, as in `switch x` below.
 
-    arbitrary T:type, P:fn (T)->bool
-    induction List<T>
-    case empty {
-      ?
-    }
-    case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
-      ?
-    }
-
-In the case for `empty`, it remains to prove the following.
-
-    unfinished proof:
-        (if all_elements(empty,P) then filter(empty,P) = empty)
-
-To prove an `if`-`then` formula, we `suppose` the condition and then
-prove the conclusion. The `suppose` statement of Deduce requires a
-label, so that you can use the assumption in the proof of the
-conclusion. However, in this particular case the assumption is not
-useful.
-
-    suppose cond: all_elements(empty,P)
-    ?
-
-Now we need to prove the conclusion
-
-    unfinished proof:
-        filter(empty,P) = empty
-
-but that is just the definition of `filter`, so we conclude this case
-as follows.
-
-    case empty {
-      suppose cond: all_elements(empty,P)
-      conclude filter(empty,P) = empty by definition filter.
+    arbitrary x:Nat
+    switch x {
+      case zero {
+        ?
+      }
+      case suc(x') {
+        ?
+      }
     }
 
-Next we turn our attention to the case for `node`.
+Deduce responds that in the first case we need to prove the following.
 
-    case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
-      ?
+    unfinished proof:
+        true or 0 < 0
+
+So we just need to prove `true`, which is what the period is for.
+
+    case zero {
+      conclude true or 0 < 0 by .
     }
 
-The goal for this case is stated as follows.
+In the second case, for `x = suc(x')`, we need to prove the following.
 
     unfinished proof:
-        (if all_elements(node(x,xs'),P) then filter(node(x,xs'),P) = node(x,xs'))
+        false or 0 < suc(x')
 
-Again we need to prove an `if`-`then` formula. So we assume the condition.
+There's no hope of proving `false`, so we better prove `0 < suc(x')`.
+Thankfully that follows from the definitions of `<` and `≤`.
 
-    suppose Pxs: all_elements(node(x,xs'),P)
-    ?
+    case suc(x') {
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
 
-Now we need to prove the conclusion.
+Here is the completed proof that every natural number is either zero
+or positive.
 
-    unfinished proof:
-        filter(node(x,xs'),P) = node(x,xs')
-
-We proceed by using the definition of filter.
-
-    suppose Pxs: all_elements(node(x,xs'),P)
-    definition filter
-    ?
-
-So the conclusion is transformed into the following.
-
-    unfinished proof:
-        if P(x) then node(x,filter(xs',P)) else filter(xs',P) = node(x,xs')
-
-The right-hand side of the equation involves an `if`-`then`-`else`
-term, so we need to figure out whether `P(x)` is true. Let us look at
-the available facts.
-
-    available facts:
-        Pxs: all_elements(node(x,xs'),P),
-        IH: (if all_elements(xs',P) then filter(xs',P) = xs'),
-        ...
-
-Thinking for a moment, we realize that `Pxs` implies that `P(x)` is true.
-So we go ahead and prove `P(x)` using the definition of `all_elements`
-and then rewrite the goal with the fact that `P(x)` is true
-(i.e., `P(x) = true`).
-
-    definition filter
-    have Px: P(x) by definition all_elements in Pxs
-    rewrite Px
-    ?
-
-The right-hand side of the equation simplifies to the "then" branch,
-so it remains to prove the following.
-
-    unfinished proof:
-        node(x,filter(xs',P)) = node(x,xs')
-
-At this point in the proof we need to use the induction hypothesis
-`IH`.  However, `IH` is an `if`-`then` formula, so we need to prove
-that its condition `all_elements(xs',P)` is true in order to use its
-conclusion. Thankfully, this also follows from `Pxs`.
-
-    have Pxs': all_elements(xs',P) by definition all_elements in Pxs
-
-We use Deduce's `apply`-`to` statement (aka. modus ponens) to obtain
-the conclusion of an `if`-`then` formula.
-
-    have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
-
-We conclude by using the equation `IH_conc` to rewrite the goal.
-
-    rewrite IH_conc.
-    
-Our proof of `filter_all` is complete. Here is the proof in its entirety.
-
-```{.deduce #filter_all}
-theorem filter_all: all T:type, P:fn (T)->bool. all xs:List<T>. 
-  if all_elements(xs, P) then filter(xs, P) = xs
+```{.deduce #zero_or_positive}
+theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
 proof
-  arbitrary T:type, P:fn (T)->bool
-  induction List<T>
-  case empty {
-    suppose cond: all_elements(empty,P)
-    conclude filter(empty,P) = empty by definition filter.
-  }
-  case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
-    suppose Pxs: all_elements(node(x,xs'),P)
-    definition filter
-    have Px: P(x) by definition all_elements in Pxs
-    rewrite Px
-    suffices node(x,filter(xs',P)) = node(x,xs')
-    have Pxs': all_elements(xs',P) by definition all_elements in Pxs
-    have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
-    rewrite IH_conc.
+  arbitrary x:Nat
+  switch x {
+    case zero {
+      conclude true or 0 < 0 by .
+    }
+    case suc(x') {
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
   }
 end
 ```
 
 To summarize this section:
+* Use `switch` on an entity of union type to split the proof into
+  cases, with one case for each alternative of the union.
+
+## Conditional Formulas (Implication) and Applying Definitions to Facts
+
+Some logical statements are true only under certain conditions, so
+Deduce provides an `if`-`then` formula.  To demonstrate how to work
+with `if`-`then` formulas, we prove that if a list has length zero,
+then it must be the `empty` list. Along the way we will also learn how
+to apply a definition to an already-known fact.
+
+```
+theorem length_zero_empty: all T:type, xs:List<T>.
+  if length(xs) = 0 then xs = empty
+proof
+  arbitrary T:type, xs:List<T>
+  ?
+end
+```
+
+Deduce tells us:
+
+```
+incomplete proof
+Goal:
+	(if length(xs) = 0 then xs = empty)
+```
+
+To prove an `if`-`then` formula, we `suppose` the condition and then
+prove the conclusion.
+
+```
+  suppose len_z: length(xs) = 0
+```
+
+Deduce adds `len_z` to the givens (similar to `have`).
+
+```
+incomplete proof
+Goal:
+	xs = empty
+Givens:
+	len_z: length(xs) = 0
+```
+
+Next we `switch` on the list `xs`. In the case when `xs` is `empty` it
+will be trivial to prove `xs = empty`. In the other case, we will
+obtain a contradiction.
+
+```
+  switch xs {
+    case empty { . }
+    case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
+      ?
+    }
+  }
+```
+
+We can put the facts `len_z` and `xs_xxs` together
+to obtain the dubious looking `length(node(x,xs')) = 0`.
+
+```
+	have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+```
+
+The contradiction becomes apparent to Deduce once we apply the
+definition of `length` to this fact. We do so using Deduce's
+`definition`-`in` statement as follows. 
+
+```
+    conclude false  by definition length in len_z2
+```
+
+We discuss contradictions and `false` in more detail in the upcoming section
+[Reasoning about `false`](#reasoning-about-false).
+
+Here is the complete proof of `length_zero_empty`.
+
+```{.deduce #length_zero_empty}
+theorem length_zero_empty: all T:type, xs:List<T>.
+  if length(xs) = 0 then xs = empty
+proof
+  arbitrary T:type, xs:List<T>
+  suppose len_z: length(xs) = 0
+  switch xs {
+    case empty { . }
+    case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
+	  have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+      conclude false  by definition length in len_z2
+    }
+  }
+end
+```
+
+The next topic to discuss is how to use an `if`-`then` fact that is
+already proven.  We use Deduce's `apply`-`to` statement (aka. modus
+ponens) to obtain the conclusion of an `if`-`then` formula by
+supplying a proof of the condition.  We demonstrate several uses of
+`apply`-`to` in the proof of the following theorem, which builds on
+`length_zero_empty`.
+
+```
+theorem length_append_zero_empty: all T:type, xs:List<T>, ys:List<T>.
+  if length(append(xs, ys)) = 0
+  then xs = empty and ys = empty
+proof
+  arbitrary T:type, xs:List<T>, ys:List<T>
+  suppose len_xs_ys: length(append(xs, ys)) = 0
+  ?
+end
+```
+
+Recall that in a previous exercise, you proved that
+
+```
+length(append(xs,ys)) = length(xs) + length(ys)
+```
+
+so we can prove that `length(xs) + length(ys) = 0` as follows.
+
+```
+  have len_xs_len_ys: length(xs) + length(ys) = 0
+    by transitive (symmetric length_append[T][xs][ys]) len_xs_ys
+```
+
+Now from `Nat.pf` we have the following `if`-`then` fact.
+
+```
+add_to_zero: all n:Nat. all m:Nat. if n + m = 0 then n = 0 and m = 0
+```
+
+Here is our first use of `apply`-`to` to obtain `length(xs) = 0` and
+the same for `ys`.
+
+```
+  have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
+  have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
+```
+
+We conclude that `xs = empty and ys = empty` with our second use of
+`apply`-`to`, where we make use of the previous theorem
+`length_zero_empty`.
+
+```
+  conclude xs = empty and ys = empty
+  by (apply length_zero_empty[T,xs] to len_xs),
+     (apply length_zero_empty[T,ys] to len_ys)
+```
+
+Here is the complete proof of `length_append_zero_empty`.
+
+```{.deduce #length_append_zero_empty}
+theorem length_append_zero_empty: all T:type, xs:List<T>, ys:List<T>.
+  if length(append(xs, ys)) = 0
+  then xs = empty and ys = empty
+proof
+  arbitrary T:type, xs:List<T>, ys:List<T>
+  suppose len_xs_ys: length(append(xs, ys)) = 0
+  have len_xs_len_ys: length(xs) + length(ys) = 0
+    by transitive (symmetric length_append[T][xs][ys]) len_xs_ys
+  have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
+  have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
+  conclude xs = empty and ys = empty
+  by (apply length_zero_empty[T,xs] to len_xs),
+     (apply length_zero_empty[T,ys] to len_ys)
+end
+```
+
+To summarize this section:
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
-* To prove an `if`-`then` formula, `suppose` the premise and prove the conclusion.
+* To prove an `if`-`then` formula, `suppose` the condition
+  and prove the conclusion.
 * To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the
   condition.
+* To apply a definition to a fact, use `definition`-`in`.
 
+### Exercise
+
+Prove that `all x:Nat. if x ≤ 0 then x = 0`.
 
 ## Reasoning about `true`
 
@@ -1029,80 +1134,87 @@ To summarize this section:
 * To use a formula like `not P`, apply it to a proof of `P` to
   obtain a proof of `false`.
 
-## `switch` Proof Statement
+## Rewriting Facts with Equations
 
-Similar to Deduce's `switch` statement for writing functions, there is
-also a `switch` statement for writing proofs. As an example, let us
-consider how to prove the following theorem.
+In the section
+[Rewriting the Goal with Equations](#rewriting-the-goal-with-equations) 
+we learned that the `rewrite` statement of Deduce applies an equation
+to the current goal.  There is a second variant of `rewrite` that
+applies an equation to a fact. As an example, we'll prove the
+following theorem that is a straightforward use of `less_irreflexive`.
 
-    theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
-    proof
-      ?
-    end
-
-We could proceed by induction, but we it turns out we don't need the
-induction hypothesis. In such situations, we can instead use `switch`.
-Like induction, `switch` works on unions and there is one case for
-each alternative of the union. Unlike induction, the goal formula does
-not need to be an `all` formula. Instead, you indicate which entity to
-switch on, as in `switch x` below.
-
-    arbitrary x:Nat
-    switch x {
-      case zero {
-        ?
-      }
-      case suc(x') {
-        ?
-      }
-    }
-
-Deduce responds that in the first case we need to prove the following.
-
-    unfinished proof:
-        true or 0 < 0
-
-So we just need to prove `true`, which is what the period is for.
-
-    case zero {
-      conclude true or 0 < 0 by .
-    }
-
-In the second case, for `x = suc(x')`, we need to prove the following.
-
-    unfinished proof:
-        false or 0 < suc(x')
-
-There's no hope of proving `false`, so we better prove `0 < suc(x')`.
-Thankfully that follows from the definitions of `<` and `≤`.
-
-    case suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
-    }
-
-Here is the completed proof that every natural number is either zero
-or positive.
-
-```{.deduce #zero_or_positive}
-theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+```
+theorem less_not_equal: all x:Nat, y:Nat.
+  if x < y then not (x = y)
 proof
-  arbitrary x:Nat
-  switch x {
-    case zero {
-      conclude true or 0 < 0 by .
-    }
-    case suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
-    }
-  }
+  arbitrary x:Nat, y:Nat
+  suppose x_l_y: x < y
+  ?
 end
 ```
 
-To summarize this section:
-* Use `switch` on an entity of union type to split the proof into
-  cases, with one case for each alternative of the union.
+Deduce responds with the current goal, in which `not (x = y)` is
+expanding into `if x = y then false`.
+
+```
+incomplete proof
+Goal:
+	(if x = y then false)
+Givens:
+	x_l_y: x < y
+```
+
+So following the usual recipte to prove an `if`-`then`, we `suppose` the
+condition `x = y`.
+
+```
+  suppose x_y: x = y
+```
+
+Now we need to prove false, and we have the hint to use the
+`less_irreflexive` theorem.
+
+```
+incomplete proof
+Goal:
+	false
+Givens:
+	x_y: x = y,
+	x_l_y: x < y
+```
+
+Here is where the second variant of `rewrite` comes in.  We can use it
+to apply the equation `x = y` to the fact `x < y` to get `y < y`.
+Note the extra keyword `in` that is used in this version of `rewrite`.
+
+```
+  have y_l_y: y < y by  rewrite x_y in x_l_y
+```
+
+We arrive at the contradition by applying `less_irreflexive` 
+to `y < y`.
+
+```
+  conclude false by apply less_irreflexive[y] to y_l_y
+```
+
+Here is the complete proof of `less_not_equal`.
+
+```{.deduce #less_not_equal}
+theorem less_not_equal: all x:Nat, y:Nat.
+  if x < y then not (x = y)
+proof
+  arbitrary x:Nat, y:Nat
+  suppose x_l_y: x < y
+  suppose x_y: x = y
+  have y_l_y: y < y by rewrite x_y in x_l_y
+  conclude false by apply less_irreflexive[y] to y_l_y
+end
+```
+
+### Exercise
+
+UNDER CONSTRUCTION
 
 ## Reasoning about `some` (Exists)
 
@@ -1272,12 +1384,13 @@ end
 <<positive_1_and_2>>
 <<positive_2>>
 <<dichotomy>>
-<<filter>>
-<<filter_all>>
+<<length_zero_empty>>
+<<length_append_zero_empty>>
 <<really_trivial>>
 <<contra_false>>
 <<false_any>>
 <<less_irreflexive>>
+<<less_not_equal>>
 <<zero_or_positive>>
 <<addition_of_evens>>
 ```
