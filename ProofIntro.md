@@ -13,7 +13,7 @@ language and provide examples of their use.
 * [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
-* [Conditional Formulas (Implication)](#conditional-formulas-implication)
+* [Conditional Formulas: Implication](#conditional-formulas-implication)
 * [Reasoning about `true`](#reasoning-about-true)
 * [Reasoning about `false`](#reasoning-about-false)
 * [Reasoning about `not`](#reasoning-about-not)
@@ -323,7 +323,7 @@ You can use these theorems by instantiating them with particular
 entities. For example, `add_zero[2]` is a proof of `2 + 0 = 2`.
 We have not yet discussed how to use the `if-then` formula in
 `left_cancel`, but we will get to that in the section below on
-[Conditional Formulas (Implication)](#conditional-formulas-implication).
+[Conditional Formulas: Implication](#conditional-formulas-implication).
 
 ### Exercise
 
