@@ -326,8 +326,8 @@ given for the formula `2 + a = 2 + b`.
 
 ### Exercise
 
-Prove the following theorem using `left_cancel`. Also, use
-`add_commute` in a `rewrite` statement.
+Prove the following theorem using `left_cancel` and using
+`add_commute` with `rewrite`.
 
 ```
 right_cancel: all x:Nat, y:Nat, z:Nat. if x + z = y + z then x = y
