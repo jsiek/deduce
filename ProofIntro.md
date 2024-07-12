@@ -13,7 +13,7 @@ language and provide examples of their use.
 * [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
-* [`switch` Proof Statement](#switch-proof-statement)
+* [The `switch` Proof Statement](#the-switch-proof-statement)
 * [Conditional Formulas (Implication) and Applying Definitions to Facts](#conditional-formulas-implication-and-applying-definitions-to-facts)
 * [Reasoning about `true`](#reasoning-about-true)
 * [Reasoning about `false`](#reasoning-about-false)
@@ -727,7 +727,7 @@ To summarize this section:
 * To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
-## `switch` Proof Statement
+## The `switch` Proof Statement
 
 Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
