@@ -1,5 +1,5 @@
 \documentclass[12pt]{article}
-\usepackage[noprint]{booklet}
+\usepackage[print]{booklet}
 
 %\usepackage{palatino}
 %\usepackage{garamond}
@@ -34,8 +34,9 @@
 
 \newunicodechar{≤}{\ensuremath{\leq}}
 
-%% \pdfoutput = 1
-%% \setpdftargetpages
+% The following are necessary when using the print option of the booklet package. -Jeremy
+\pdfoutput = 1
+\setpdftargetpages
 
 \title{Functional Programming in Deduce}
 \author{Jeremy G. Siek}
@@ -45,27 +46,7 @@
 \maketitle
 
 
-%% Each section of this booklet describes one of these features. There
-%% are several exercises at the end that you can use to check your
-%% understanding.
-
 \tableofcontents
-
-%% Deduce supports the following language features:
-%% \begin{itemize}
-%% \item Unions
-%% \item Natural Numbers
-%% \item Imports
-%% \item Definitions
-%% \item Printing Values
-%% \item Booleans and Conditional Expressions
-%% \item Recursive Functions
-%% \item Higher-order Functions
-%% \item Anonymous Functions (Lambda)
-%% \item Pairs
-%% \item Switch
-%% \end{itemize}
-
 
 \pagebreak
 
@@ -117,16 +98,14 @@ You can ask Deduce to print a value to standard output using the
     print five
 \end{verbatim}
 
-\noindent The output is
-
-\begin{verbatim}
-    5
-\end{verbatim}
+\noindent The output is \texttt{5}.
 
 \section{Functions ($\lambda$)}
 
-Functions are created with a $\lambda$ expression. For example, the
-following defines a function for computing the area of a rectangle.
+Functions are created with a $\lambda$ expression.  Their syntax
+starts with $\lambda$, followed by parameter names, then the body of
+the function enclosed in braces.  For example, the following defines a
+function for computing the area of a rectangle.
 
 \begin{verbatim}
     define area : fn Nat,Nat -> Nat = λ h, w { h * w }
@@ -142,11 +121,7 @@ arguments.
     print area(3, 4)
 \end{verbatim}
 
-\noindent The output is
-
-\begin{verbatim}
-    12
-\end{verbatim}
+\noindent The output is \texttt{12}.
 
 A $\lambda$ expression may only appear in a context where Deduce knows
 what it's type should be. The following produces an error because the
@@ -162,13 +137,13 @@ following \texttt{define} does not include a type annotation.
     cannot synthesize a type for λh,w{h * w}
 \end{verbatim}
 
-\section{Unions}
+\section{Unions and Switch}
 \label{sec:union}
 
 The \texttt{union} feature of Deduce defines a type whose values are
-created by one or more alternative constructors.  A union definition
-speficies a name for the union type and its body specifies the name of
-each constructor and its parameter types. For example, we define the
+created by one or more constructors.  A union definition specifies a
+name for the union type and its body specifies the name of each
+constructor and its parameter types. For example, we define the
 following union to represent a linked-list of natural numbers.
 
 \begin{verbatim}
@@ -200,14 +175,14 @@ lists to any element types as follows.
 \end{verbatim}
 
 Constructing values of a generic union looks the same as for a regular
-union. Deduce figures out the type parameter \texttt{T} from the types
-of the constructor arguments.
+union. Deduce figures out the type for \texttt{T} from the types of
+the constructor arguments.
 
 \begin{verbatim}
     define L12 = node(1, node(2, empty))
 \end{verbatim}
 
-\section{Switch}
+\pagebreak
 
 You can branch on a value of union type using \texttt{switch}. For
 example, the following function returns the first element of a
@@ -250,7 +225,7 @@ you. For example, if you try the following:
 
 \section{Natural Numbers}
 
-Natural numbers are not a builtin type in Deduce but instead they are
+Natural numbers are not a built-in type in Deduce but instead they are
 defined as a \texttt{union} type:
 
 \begin{verbatim}
@@ -289,21 +264,21 @@ error if the result is \texttt{false}. For example, the following
 
 \section{Recursive Functions}
 
-The recursive functions of Deduce are somewhat special to make sure
-they always terminate.
+Recursive functions in Deduce are somewhat special to make sure they
+always terminate.
 
 \begin{itemize}
 \item The first parameter of the function must be a union.
 \item The function definition must include a clause for every
-  alternative in the union.
-\item The first argument of every recursive call must be a sub-part of the
-  current alternative of the union.
+  constructor in the union.
+\item The first argument of every recursive call must be a sub-part of
+  the current constructor of the union.
 \end{itemize}
 
 A recursive function begins with the \texttt{function} keyword,
 followed by the name of the function, then the parameters types and
 the return type. Finally, the function body includes one clause for
-every alternative of the union. Each clause is an equation whose
+every constructor of the union. Each clause is an equation whose
 left-hand side is the function applied to a constructor pattern and
 whose right-hand side is the value of the function for that case.
 
@@ -361,8 +336,8 @@ combination of \texttt{define}, \texttt{generic}, and $\lambda$.
       }
 \end{verbatim}
 
-\noindent The type of a generic function starts with its type
-parameters surrounded by \texttt{<} and \texttt{>}.
+\noindent The type of a generic function, such as \texttt{head},
+starts with its type parameters surrounded by \texttt{<} and \texttt{>}.
 
 \section{Higher-order Functions}
 
@@ -371,7 +346,7 @@ returned from a function. For example, the following function checks
 whether every element of a list satisfies a predicate.
 
 \begin{verbatim}
-function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+function all_elements<T>(List<T>, fn T->bool)->bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = 
     P(x) and all_elements(xs', P)
@@ -383,9 +358,9 @@ function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
 Pairs are defined as a \texttt{union} type:
 
 \begin{verbatim}
-union Pair<T,U> {
-  pair(T,U)
-}
+    union Pair<T,U> {
+      pair(T,U)
+    }
 \end{verbatim}
 
 The file \texttt{Pair.pf} includes the above definition and several
@@ -444,3 +419,5 @@ Note that the second parameter of the division operator \texttt{/}
 is of type \texttt{Pos}, which is defined in \texttt{Nat.pf}.
 
 \end{document}
+
+% LocalWords:  Deduce's pf fn NatList suc bool len app NEList Pos
