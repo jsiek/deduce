@@ -1238,7 +1238,17 @@ end
 
 ### Exercise
 
-UNDER CONSTRUCTION
+Prove the following theorem without using `less_not_equal`.
+
+```
+greater_not_equal: all x:Nat, y:Nat. if x > y then not (x = y)
+```
+
+Note that greater-than is defined as follows in `Nat.pf`:
+
+```
+define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
+```
 
 ## Reasoning about `some` (Exists)
 
@@ -1415,6 +1425,18 @@ end
 <<false_any>>
 <<less_irreflexive>>
 <<less_not_equal>>
+
+theorem greater_not_equal: all x:Nat, y:Nat.
+  if x > y then not (x = y)
+proof
+  arbitrary x:Nat, y:Nat
+  suppose x_g_y: x > y
+  suppose x_y: x = y
+  have y_g_y: y > y  by rewrite x_y in x_g_y
+  have y_l_y: y < y  by definition operator> in y_g_y
+  conclude false by apply less_irreflexive[y] to y_l_y
+end
+
 <<zero_or_positive>>
 <<addition_of_evens>>
 ```

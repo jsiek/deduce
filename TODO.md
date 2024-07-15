@@ -1,3 +1,6 @@
+[ ] change how reduce and definition work, more substitution,
+    no variable stuff in reduce.
+
 [ ] add section on rewrite-in to the introduction
 
 [ ] implicit instantiation for all's
