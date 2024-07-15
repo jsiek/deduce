@@ -15,6 +15,8 @@ default: check_README check_fun check_intro
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies3.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies4.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/rec1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all2.pf

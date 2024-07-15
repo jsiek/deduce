@@ -1,0 +1,63 @@
+import Nat
+
+define five = 2 + 3
+define six : Nat = 1 + five
+
+print five
+
+define area : fn Nat,Nat -> Nat = λ h, w { h  * w }
+
+print area(3, 4)
+
+union NatList {
+  nil
+  cons(Nat, NatList)
+}
+define NL12 = cons(1, cons(2, nil))
+
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+define L12 = node(1, node(2, empty))
+
+import Option
+
+define front : fn NatList -> Option<Nat> =
+  λ ls { 
+    switch ls {
+      case nil { none }
+      case cons(x, ls') { just(x) }
+    }
+  }
+
+print front(NL12)
+
+print (if true then 7 else 5+6)
+
+assert (if true then 7 else 5+6) = 7
+
+function len(NatList) -> Nat {
+  len(nil) = 0
+  len(cons(n, next)) = 1 + len(next)
+}
+
+function app(NatList, NatList) -> NatList {
+  app(nil, ys) = ys
+  app(cons(n, xs), ys) = cons(n, app(xs, ys))
+}
+
+function length<E>(List<E>) -> Nat {
+  length(empty) = 0
+  length(node(n, next)) = suc(length(next))
+}
+
+define head : < T > fn List<T> -> Option<T> =
+  generic T { λ ls { 
+      switch ls {
+        case empty { none }
+        case node(x, ls') { just(x) }
+      }
+    }
+  }
+

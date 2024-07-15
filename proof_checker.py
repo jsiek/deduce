@@ -933,10 +933,11 @@ def type_synth_term(term, env, recfun, subterms):
       ret = type_check_call(loc, rator, args, env, recfun, subterms, None, term)
     case Switch(loc, subject, cases):
       ty = type_synth_term(subject, env, recfun, subterms)
-      # TODO: check for completeness
+      dfn = lookup_union(loc, ty, env)
+      cases_present = {}
       result_type = None
       for c in cases:
-        new_env = check_pattern(c.pattern, ty, env)
+        new_env = check_pattern(c.pattern, ty, env, cases_present)
         case_type = type_synth_term(c.body, new_env, recfun, subterms)
         if result_type == None:
           result_type = case_type
@@ -944,6 +945,13 @@ def type_synth_term(term, env, recfun, subterms):
           error(c.location, 'bodies of cases must have same type, but ' \
                 + str(case_type) + ' ≠ ' + str(result_type))
         ret = result_type
+      match dfn:
+        case Union(loc2, name, typarams, alts):
+          for alt in alts:
+              if alt.name not in cases_present.keys():
+                  error(loc, 'this switch is missing a case for: ' + str(alt))
+        case _:
+          error(loc, 'expected a union type, not ' + str(ty))
     case TermInst(loc, subject, tyargs):
       ty = type_synth_term(subject, env, recfun, subterms)
       match ty:
@@ -1050,7 +1058,7 @@ def lookup_union(loc, typ, env):
       error(loc, str(type) + ' is not a union type')
   return env.get_def_of_type_var(tyname)
 
-def check_constructor_pattern(loc, pat_constr, params, typ, env):
+def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
   if get_verbose():
     print('check_constructor_pattern: ' + str(pat_constr))
   defn = lookup_union(loc, typ, env)
@@ -1062,6 +1070,7 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env):
       # typ is List<E>
       # union List<T> { empty; node(T, List<T>); }
       # pat_constr == node
+      found_pat_constr = False
       for constr in alts:
         # constr = node(T, List<T>)
         if constr.name == pat_constr.name:
@@ -1070,12 +1079,17 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env):
             parameter_types = [p.substitute(sub) for p in constr.parameters]
           else:
             parameter_types = constr.parameters
+          #print('pattern variables: ' + str(list(zip(params, parameter_types))))
           env = env.declare_term_vars(loc2, zip(params, parameter_types))
+          cases_present[constr.name] = True
+          found_pat_constr = True
+      if not found_pat_constr:
+          error(loc, base_name(pat_constr.name) + ' is not a constructor of union ' + str(defn))
       return env
     case _:
       error(loc, str(typ) + ' is not a union type')
         
-def check_pattern(pattern, typ, env):
+def check_pattern(pattern, typ, env, cases_present):
   if get_verbose():
     print('check pattern: ' + str(pattern))
     print('against type: ' + str(typ))
@@ -1083,7 +1097,7 @@ def check_pattern(pattern, typ, env):
   pattern.typeof = typ
   match pattern:
     case PatternCons(loc, constr, params):
-      return check_constructor_pattern(loc, constr, params, typ, env)
+      return check_constructor_pattern(loc, constr, params, typ, env, cases_present)
     case _:
       error(pattern.location, 'expected a constructor pattern, not ' + str(pattern))
 
@@ -1164,22 +1178,20 @@ def type_check_stmt(stmt, env):
       fun_type = FunctionType(loc, typarams, params, returns)
       stmt.typeof = fun_type
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
-      uniondef = lookup_union(loc, params[0], env)
-      cases_present = {c.name: False for c in uniondef.alternatives}
+      cases_present = {}
       for fun_case in cases:
         body_env = env.declare_type_vars(loc, typarams)
-        body_env = check_pattern(fun_case.pattern, params[0], body_env)
-        cases_present[fun_case.pattern.constructor.name] = True
+        body_env = check_pattern(fun_case.pattern, params[0], body_env, cases_present)
         if len(fun_case.parameters) != len(params[1:]):
           error(fun_case.location, 'incorrect number of parameters, expected ' + str(len(params)))
         body_env = body_env.declare_term_vars(loc, zip(fun_case.parameters,
                                                        params[1:]))
         type_check_term(fun_case.body, returns, body_env,
                         name, fun_case.pattern.parameters)
-
-      for (constr,present) in cases_present.items():
-        if not present:
-          error(loc, 'missing function case for ' + base_name(constr))
+      uniondef = lookup_union(loc, params[0], env)
+      for c in uniondef.alternatives:
+        if not c.name in cases_present.keys():
+          error(loc, 'missing function case for ' + base_name(c.name))
     case Union(loc, name, typarams, alts):
       pass
     case Import(loc, name, ast):

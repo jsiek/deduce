@@ -191,16 +191,6 @@ function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
 }
 ```
 
-## Anonymous Functions (Lambda)
-
-Anonymous functions can be created with a `λ` expression.  For
-example, the following computes whether all the elements of the list
-`L13` are positive.
-
-```{.deduce #L13_pos}
-define L13_positive = all_elements(L13, λx{ 0 < x })
-```
-
 ## Pairs
 
 Pairs are defined as a `union` type:
@@ -214,23 +204,6 @@ union Pair<T,U> {
 The file `Pair.pf` includes the above definition and several
 operations on pairs, such as `first` and `second`.
 
-## Switch
-
-One can `switch` on a value of union type.  For example, the following
-`zip` function combines two lists into a single list of pairs.  The
-`zip` function is recursive, pattern-matching on the first list, and
-uses `switch` to pattern-match on the second list.
-
-```{.deduce #zip}
-function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
-  zip(empty, ys) = empty
-  zip(node(x, xs'), ys) =
-    switch ys {
-      case empty { empty }
-      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
-    }
-}
-```
 
 ## Exercises
 
@@ -296,9 +269,7 @@ is of type `Pos`, which is defined in `Nat.pf`.
 <<length>>
 <<append>>
 <<all_elements>>
-<<L13_pos>>
 <<Pair>>
-<<zip>>
 
 function sum(List<Nat>) -> Nat {
   sum(empty) = 0

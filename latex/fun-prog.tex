@@ -1,14 +1,41 @@
 \documentclass[12pt]{article}
-\usepackage[print]{booklet}
+\usepackage[noprint]{booklet}
 
 %\usepackage{palatino}
 %\usepackage{garamond}
 \usepackage{times}
 \usepackage{listings}
+
 \renewcommand\ttdefault{lmtt}
 
-\pdfoutput = 1
-\setpdftargetpages
+\setcounter{tocdepth}{1}
+
+\usepackage{newunicodechar}
+\newunicodechar{∷}{{::}}
+\newunicodechar{⊤}{\ensuremath{\top}}
+\newunicodechar{⊥}{\ensuremath{\bot}}
+\newunicodechar{₁}{\ensuremath{_1}}
+\newunicodechar{₂}{\ensuremath{_2}}
+\newunicodechar{₃}{\ensuremath{_3}}
+
+\newunicodechar{β}{\ensuremath{\beta}}
+\newunicodechar{γ}{\ensuremath{\gamma}}
+\newunicodechar{λ}{\ensuremath{\lambda}}
+\newunicodechar{Λ}{\ensuremath{\Lambda}}
+\newunicodechar{μ}{\ensuremath{\mu}}
+\newunicodechar{ν}{\ensuremath{\nu}}
+\newunicodechar{ρ}{\ensuremath{\rho}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{Π}{\ensuremath{\Pi}}
+\newunicodechar{ξ}{\ensuremath{\xi}}
+\newunicodechar{Γ}{\ensuremath{\Gamma}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{Σ}{\ensuremath{\Sigma}}
+
+\newunicodechar{≤}{\ensuremath{\leq}}
+
+%% \pdfoutput = 1
+%% \setpdftargetpages
 
 \title{Functional Programming in Deduce}
 \author{Jeremy G. Siek}
@@ -44,6 +71,97 @@
 
 \large
 
+\section{Introduction}
+
+The Deduce proof assistant includes two languages, the Deduce
+programming language and the Deduce proof language. This booklet
+introduces the Deduce programming language. This language is designed
+so that it is straightforward to prove the correctness of programs
+written in Deduce. Primarily this means that Deduce is a ``pure''
+language; it does not support side effecting operations such as
+writing to memory through a pointer.
+
+\section{Import}
+
+The \texttt{import} feature of Deduce makes available the contents of
+another Deduce file in the current file. For example, the following
+imports Deduce's library for natural numbers from the file
+\texttt{Nat.pf}.
+
+\begin{verbatim}
+import Nat
+\end{verbatim}
+
+\section{Definitions}
+
+The \texttt{define} feature of Deduce associates a name with a value.
+The following definitions associate the name \texttt{five} with the
+natural number \texttt{5}, and the name \texttt{six} with the natural
+number \texttt{6}.
+
+\begin{verbatim}
+    define five = 2 + 3
+    define six : Nat = 1 + five
+\end{verbatim}
+
+\noindent Optionally, the type can be specified after the name,
+following a colon.  In the above, \texttt{six} holds a natural number,
+so its type is \texttt{Nat}.
+
+\section{Printing Values}
+
+You can ask Deduce to print a value to standard output using the
+\texttt{print} statement.
+
+\begin{verbatim}
+    print five
+\end{verbatim}
+
+\noindent The output is
+
+\begin{verbatim}
+    5
+\end{verbatim}
+
+\section{Functions ($\lambda$)}
+
+Functions are created with a $\lambda$ expression. For example, the
+following defines a function for computing the area of a rectangle.
+
+\begin{verbatim}
+    define area : fn Nat,Nat -> Nat = λ h, w { h * w }
+\end{verbatim}
+
+\noindent The type of a function starts with \texttt{fn}, followed by
+the parameter types, then \texttt{->}, and finally the return type.
+
+To call a function, apply it to the appropriate number and type of
+arguments.
+
+\begin{verbatim}
+    print area(3, 4)
+\end{verbatim}
+
+\noindent The output is
+
+\begin{verbatim}
+    12
+\end{verbatim}
+
+A $\lambda$ expression may only appear in a context where Deduce knows
+what it's type should be. The following produces an error because the
+following \texttt{define} does not include a type annotation.
+
+\begin{verbatim}
+    define area = λ h, w { h * w }
+\end{verbatim}
+
+\noindent Deduce prints the following error message.
+
+\begin{verbatim}
+    cannot synthesize a type for λh,w{h * w}
+\end{verbatim}
+
 \section{Unions}
 \label{sec:union}
 
@@ -65,7 +183,7 @@ We construct values of type \texttt{NatList} using the constructors
 are \texttt{1} and \texttt{2}, write:
 
 \begin{verbatim}
-    cons(1, cons(2, nil))
+    define NL12 = cons(1, cons(2, nil))
 \end{verbatim}
 
 Unions may be recursive: a constructor may include a parameter type
@@ -86,68 +204,243 @@ union. Deduce figures out the type parameter \texttt{T} from the types
 of the constructor arguments.
 
 \begin{verbatim}
-    node(1, node(2, empty))
+    define L12 = node(1, node(2, empty))
 \end{verbatim}
+
+\section{Switch}
+
+You can branch on a value of union type using \texttt{switch}. For
+example, the following function returns the first element of a
+\texttt{NatList}.
+
+\begin{verbatim}
+    import Option
+
+    define front : fn NatList -> Option<Nat> =
+      λ ls { 
+        switch ls {
+          case nil { none }
+          case cons(x, ls') { just(x) }
+        }
+      }
+\end{verbatim}
+\noindent The output of 
+\begin{verbatim}
+    print front(NL12)
+\end{verbatim}
+\noindent is \texttt{just(1)}.
+
+The \texttt{switch} compares the discriminated value with the
+constructor pattern of each \texttt{case} and when it finds a match,
+it initializes the pattern variables from the parts of the
+discriminated value and then evaluates the branch associated with the
+\texttt{case}.
+
+If you forget a \texttt{case} in a \texttt{switch}, Deduce will tell
+you. For example, if you try the following:
+\begin{verbatim}
+    define broken_front : fn NatList -> Option<Nat> =
+      λ ls { switch ls { case nil { none } } }
+\end{verbatim}
+\noindent Deduce responds with
+\begin{verbatim}
+    this switch is missing a case for: cons(Nat,NatList)
+\end{verbatim}
+
 
 \section{Natural Numbers}
 
-Natural numbers are not a builtin type in Deduce but instead they
-are defined as a `union` type:
+Natural numbers are not a builtin type in Deduce but instead they are
+defined as a \texttt{union} type:
 
 \begin{verbatim}
-union Nat {
-  zero
-  suc(Nat)
+    union Nat {
+      zero
+      suc(Nat)
+    }
+\end{verbatim}
+
+The file \texttt{Nat.pf} includes the above definition together with
+some operations on natural numbers and theorems about them.  The
+numerals \texttt{0}, \texttt{1}, \texttt{2}, etc. are shorthand for
+the natural numbers \texttt{zero}, \texttt{suc(zero)},
+\texttt{suc(suc(zero))}, etc.
+
+\section{Booleans, Conditional Expressions, and Assert}
+
+Deduce includes the values \texttt{true} and \texttt{false} of type
+\texttt{bool} and the usual boolean operations such as \texttt{and},
+\texttt{or}, and \texttt{not}.  Deduce also provides an if-then-else
+expression that branches on the value of a boolean. For example, the
+following if-then-else expression is evaluates to \texttt{7}.
+
+\begin{verbatim}
+    print (if true then 7 else 5+6)
+\end{verbatim}
+
+The \texttt{assert} statement evaluates an expression and reports an
+error if the result is \texttt{false}. For example, the following
+\texttt{assert} does nothing because the expression evaluates to
+\texttt{true}.
+
+\begin{verbatim}
+    assert (if true then 7 else 5+6) = 7
+\end{verbatim}
+
+\section{Recursive Functions}
+
+The recursive functions of Deduce are somewhat special to make sure
+they always terminate.
+
+\begin{itemize}
+\item The first parameter of the function must be a union.
+\item The function definition must include a clause for every
+  alternative in the union.
+\item The first argument of every recursive call must be a sub-part of the
+  current alternative of the union.
+\end{itemize}
+
+A recursive function begins with the \texttt{function} keyword,
+followed by the name of the function, then the parameters types and
+the return type. Finally, the function body includes one clause for
+every alternative of the union. Each clause is an equation whose
+left-hand side is the function applied to a constructor pattern and
+whose right-hand side is the value of the function for that case.
+
+For example, here's the definition of a \texttt{len} function for
+lists of natural numbers.
+
+\begin{verbatim}
+    function len(NatList) -> Nat {
+      len(nil) = 0
+      len(cons(n, next)) = 1 + len(next)
+    }
+\end{verbatim}
+
+There are two clauses in the body. The clause for \texttt{nil} says
+that its length is \texttt{0}.  The clause for \texttt{cons} says that
+its length is one more than the length of the rest of the linked list.
+Deduce approves of the recursive call \texttt{len(next)} because
+\texttt{next} is part of \texttt{cons(n, next)}.
+
+Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. For example, here
+is a function \texttt{app} that combines two linked lists.
+
+\begin{verbatim}
+    function app(NatList, NatList) -> NatList {
+      app(nil, ys) = ys
+      app(cons(n, xs), ys) = cons(n, app(xs, ys))
+    }
+\end{verbatim}
+
+\section{Generic Functions}
+
+Deduce supports generic functions, so we can generalize \texttt{len}
+to work on lists with any element type by defining the following
+\texttt{length} function.
+
+\begin{verbatim}
+    function length<E>(List<E>) -> Nat {
+      length(empty) = 0
+      length(node(n, next)) = suc(length(next))
+    }
+\end{verbatim}
+
+Generic functions that are not recursive can be defined using a
+combination of \texttt{define}, \texttt{generic}, and $\lambda$.
+
+\begin{verbatim}
+    define head : < T > fn List<T> -> Option<T> =
+      generic T { λ ls { 
+          switch ls {
+            case empty { none }
+            case node(x, ls') { just(x) }
+          }
+        }
+      }
+\end{verbatim}
+
+\noindent The type of a generic function starts with its type
+parameters surrounded by \texttt{<} and \texttt{>}.
+
+\section{Higher-order Functions}
+
+Functions may be passed as parameters to a function and they may be
+returned from a function. For example, the following function checks
+whether every element of a list satisfies a predicate.
+
+\begin{verbatim}
+function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+  all_elements(empty, P) = true
+  all_elements(node(x, xs'), P) = 
+    P(x) and all_elements(xs', P)
 }
 \end{verbatim}
 
-The file \texttt{Nat.pf} includes the above definition together with some
-operations on natural numbers and theorems about them.  The numerals
-\texttt{0}, \texttt{1}, \texttt{2}, etc. are shorthand for the natural numbers \texttt{zero},
-\texttt{suc(zero)}, \texttt{suc(suc(zero))}, etc.
+\section{Pairs}
 
-\section{Imports}
-
-The \texttt{import} declaration makes available the contents of another
-Deduce file in the current file. For example, you can import the
-contents of \texttt{Nat.pf} as follows
+Pairs are defined as a \texttt{union} type:
 
 \begin{verbatim}
-import Nat
+union Pair<T,U> {
+  pair(T,U)
+}
 \end{verbatim}
 
-\section{Definitions}
+The file \texttt{Pair.pf} includes the above definition and several
+operations on pairs, such as \texttt{first} and \texttt{second}.
 
-The \texttt{define} feature of Deduce associates a name with a value.  The
-following definitions associate the name \texttt{L23} with the
-linked-list containing \texttt{2} and \texttt{3}, and the name \texttt{L13} with the
-linked-list containing \texttt{1}, \texttt{2} and \texttt{3}.
+\section{Exercises}
+
+\subsection{Sum the Elements in a List}
+
+Define a function named \texttt{sum} that adds up all the elements of a \texttt{List<Nat>}.
 
 \begin{verbatim}
-define L23 = node(2, node(3, empty))
-define L13 : List<Nat> = node(1, L23)
+assert sum(L13) = 6
 \end{verbatim}
 
-If desired, the type can be specified after the name, following a
-colon.  In the above, \texttt{L13} is a list of natural numbers, so its type
-is \texttt{List<Nat>}.
+\subsection{Inner Product}
 
-\section{Printing Values}
-
-You can ask Deduce to print a value to standard output using the
-\texttt{print} statement.
+Define a function named \texttt{dot} that computes the inner product of two \texttt{List<Nat>}.
 
 \begin{verbatim}
-print L13
+define L46 = node(4, node(5, node(6, empty)))
+assert dot(L13,L46) = 32
 \end{verbatim}
 
-The output is
+\subsection{Last Element in a List}
+
+Define a generic function named \texttt{last} that returns the last element
+of a \texttt{List<E>}, if there is one. The return type should be \texttt{Option<E>}.
+(\texttt{Option} is defined in the file \texttt{Option.pf}.)
 
 \begin{verbatim}
-node(1,node(2,node(3,empty)))
+assert last(L13) = just(3)
 \end{verbatim}
 
+\subsection{Remove Elements from a List}
 
+Define a generic function named \texttt{remove\_if} that removes elements
+from a list if satisfy a predicate. So \texttt{remove\_if} should have two
+parameters: (1) a \texttt{List<E>} and (2) a function whose parameter is \texttt{E} 
+and whose return type is \texttt{bool}.
 
+\begin{verbatim}
+assert remove_if(L13, λx {x ≤ 1}) 
+       = node(2, node(3, empty))
+\end{verbatim}
+
+\subsection{Non-empty Lists and Average}
+
+Define a \texttt{union} named \texttt{NEList} for non-empty list.
+Design the alternatives in the \texttt{union} to make it impossible to
+create an empty list.
+
+Define a function named \texttt{average} that computes the mean of a
+non-empty list and check that it works on a few inputs.
+Note that the second parameter of the division operator \texttt{/} 
+is of type \texttt{Pos}, which is defined in \texttt{Nat.pf}.
 
 \end{document}

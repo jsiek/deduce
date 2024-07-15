@@ -298,8 +298,11 @@ class PatternCons(Pattern):
                        [p for p in self.parameters])
   
   def __str__(self):
-      return str(self.constructor) \
-        + '(' + ",".join([p for p in self.parameters]) + ')'
+      if len(self.parameters) > 0:
+        return str(self.constructor) \
+          + '(' + ",".join([p for p in self.parameters]) + ')'
+      else:
+        return str(self.constructor)
 
   def __repr__(self):
       return str(self)
@@ -1753,7 +1756,10 @@ class Constructor(AST):
       ty.uniquify(env)
       
   def __str__(self):
-    return base_name(self.name) + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
+    if len(self.parameters) > 0:
+      return base_name(self.name) + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
+    else:
+      return base_name(self.name)
       
 @dataclass
 class Union(Statement):
