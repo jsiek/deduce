@@ -1,29 +1,105 @@
 # Functional Programming in Deduce
 
 Deduce supports the following language features:
-* [Unions](#unions)
-* [Natural Numbers](#natural-numbers)
-* [Imports](#imports)
+* [Import](#imports)
 * [Definitions](#definitions)
 * [Printing Values](#printing-values)
-* [Booleans and Conditional Expressions](#booleans-and-conditional-expressions)
+* [Functions (λ)](#functions)
+* [Unions and Switch](#unions)
+* [Natural Numbers](#natural-numbers)
+* [Booleans, Conditional Expressions, and Assert](#booleans-and-conditional-expressions)
 * [Recursive Functions](#recursive-functions)
+* [Generic Functions](#generic-functions)
 * [Higher-order Functions](#higher-order-functions)
-* [Anonymous Functions (Lambda)](#anonymous-functions-lambda)
 * [Pairs](#pairs)
-* [Switch](#switch)
 
 The following subsections describe each of these features.
 There are several [exercises](#exercises) at the end 
 that you can use to check your understanding.
 
-## Unions
+## Import
 
-The `union` feature of Deduce is a tagged union.  A union declaration
-provides the name for the union type.  The body of the union specifies
-alternative ways to construct values of the union type. For example,
-to represent a linked-list of natural numbers, we could define the
-following union.
+The `import` declaration makes available the contents of another
+Deduce file in the current file. For example, you can import the
+contents of `Nat.pf` as follows
+
+```{.deduce #ImportNat}
+import Nat
+```
+
+## Definitions
+
+The `define` feature of Deduce associates a name with a value.
+The following definitions associate the name `five` with the
+natural number `5`, and the name `six` with the natural
+number `6`.
+
+```{.deduce #five_six}
+define five = 2 + 3
+define six : Nat = 1 + five
+```
+
+Optionally, the type can be specified after the name, following a
+colon.  In the above, `six` holds a natural number, so its type is
+`Nat`.
+
+## Printing Values
+
+You can ask Deduce to print a value to standard output using the
+`print` statement.
+
+```{.deduce #print_five}
+print five
+```
+
+The output is `5`.
+
+
+## Functions (λ)
+
+Functions are created with a λ expression.  Their syntax starts with
+λ, followed by parameter names, then the body of the function enclosed
+in braces.  For example, the following defines a function for
+computing the area of a rectangle.
+
+```{.deduce #area}
+define area : fn Nat,Nat -> Nat = λ h, w { h * w }
+```
+
+The type of a function starts with `fn`, followed by the
+parameter types, then `->`, and finally the return type.
+
+To call a function, apply it to the appropriate number and type of
+arguments.
+
+```{.deduce #print_area}
+print area(3, 4)
+```
+
+The output is `12`.
+
+A λ expression may only appear in a context where Deduce knows what
+it's type should be. The following produces an error because the
+following `define` does not include a type annotation.
+
+```{.deduce #bad_area}
+define area = λ h, w { h * w }
+```
+
+Deduce prints the following error message.
+
+```
+cannot synthesize a type for λh,w{h * w}
+```
+
+
+## Unions and Switch
+
+The `union` feature of Deduce defines a type whose values are created
+by one or more constructors.  A union definition specifies a name for
+the union type and its body specifies the name of each constructor and
+its parameter types. For example, we define the following union to
+represent a linked-list of natural numbers.
 
 ```{.deduce #NatList}
 union NatList {
@@ -32,17 +108,19 @@ union NatList {
 }
 ```
 
-We can then construct values of type `NatList` using the
-alternatives. For example, `cons(1, cons(2, nil))` creates a
-linked-list whose elements are the numbers `1` and `2`.
+We can then construct values of type `NatList` using the constructors
+`nil` and `cons`.  To create a linked-list whose elements are
+`1` and `2`, write:
 
-Unions may be recursive. An alternative within a union, such as `cons`
-above, may include a parameter whose type is again the same union
-type, in this case `NatList`.
+```{.deduce #NL12}
+define NL12 = cons(1, cons(2, nil))
+```
 
-Deduce supports generic unions, that is, one can parameterize a union
-with one or more type parameters. For example, we can generalize our
-linked list to allow an arbitrary element type as follows.
+Unions may be recursive: a constructor may include a parameter type
+that is the union type, e.g., the `NatList` parameter of
+`cons`. Unions may be generic: one can parameterize a union
+with one or more type parameters. For example, we generalize linked
+lists to any element types as follows.
 
 ```{.deduce #List}
 union List<T> {
@@ -50,6 +128,59 @@ union List<T> {
   node(T, List<T>)
 }
 ```
+
+Constructing values of a generic union looks the same as for a regular
+union. Deduce figures out the type for `T` from the types of
+the constructor arguments.
+
+```{.deduce #L12}
+define L12 = node(1, node(2, empty))
+```
+
+You can branch on a value of union type using `switch`. For
+example, the following function returns the first element of a
+`NatList`.
+
+```{.deduce #front}
+    import Option
+
+    define front : fn NatList -> Option<Nat> =
+      λ ls { 
+        switch ls {
+          case nil { none }
+          case cons(x, ls') { just(x) }
+        }
+      }
+```
+
+The output of 
+
+```{.deduce #print_front}
+print front(NL12)
+```
+
+is `just(1)`.
+
+The `switch` compares the discriminated value with the
+constructor pattern of each `case` and when it finds a match,
+it initializes the pattern variables from the parts of the
+discriminated value and then evaluates the branch associated with the
+`case`.
+
+If you forget a `case` in a `switch`, Deduce will tell
+you. For example, if you try the following:
+
+```{.deduce #broken_front}
+define broken_front : fn NatList -> Option<Nat> =
+  λ ls { switch ls { case nil { none } } }
+```
+
+Deduce responds with
+
+```
+this switch is missing a case for: cons(Nat,NatList)
+```
+
 
 ## Natural Numbers
 
@@ -68,70 +199,38 @@ operations on natural numbers and theorems about them.  The numerals
 `0`, `1`, `2`, etc. are shorthand for the natural numbers `zero`,
 `suc(zero)`, `suc(suc(zero))`, etc.
 
-## Imports
+## Booleans, Conditional Expressions, and Assert
 
-The `import` declaration makes available the contents of another
-Deduce file in the current file. For example, you can import the
-contents of `Nat.pf` as follows
+Deduce includes the values `true` and `false` of type
+`bool` and the usual boolean operations such as `and`,
+`or`, and `not`.  Deduce also provides an if-then-else
+expression that branches on the value of a boolean. For example, the
+following if-then-else expression is evaluates to `7`.
 
-```{.deduce #ImportNat}
-import Nat
+```{.deduce #print7}
+print (if true then 7 else 5+6)
 ```
 
-## Definitions
+The `assert` statement evaluates an expression and reports an
+error if the result is `false`. For example, the following
+`assert` does nothing because the expression evaluates to
+`true`.
 
-The `define` feature of Deduce associates a name with a value.  The
-following definitions associate the name `L23` with the
-linked-list containing `2` and `3`, and the name `L13` with the
-linked-list containing `1`, `2` and `3`.
-
-```{.deduce #List13}
-define L23 = node(2, node(3, empty))
-define L13 : List<Nat> = node(1, L23)
-```
-
-If desired, the type can be specified after the name, following a
-colon.  In the above, `L13` is a list of natural numbers, so its type
-is `List<Nat>`.
-
-## Printing Values
-
-You can ask Deduce to print a value to standard output using the
-`print` statement.
-
-```{.deduce #print_L13}
-print L13
-```
-
-The output is
-
-```
-node(1,node(2,node(3,empty)))
-```
-
-
-## Booleans and Conditional Expressions
-
-Deduce includes the values `true` and `false` of type `bool` and the
-usual boolean operations such as `and`, `or`, and `not`.  Deduce also
-provides an if-then-else expression that branches on the value of a
-boolean. For example, the following if-then-else expression is
-equivalent to `7`, so the `assert` succeeds.
-
-```{.deduce #IfThenElse}
+```{.deduce #assert_if_true}
 assert (if true then 7 else 5+6) = 7
 ```
 
+
 ## Recursive Functions
 
-The recursive functions of Deduce are somewhat special to make sure
-they always terminate.
+Recursive functions in Deduce are somewhat special to make sure they
+always terminate.
 
 * The first parameter of the function must be a union.
 * The function definition must include a clause for every
-  alternative in the union.
+  constructor in the union.
 * The first argument of every recursive call must be a sub-part of the
-  current alternative of the union.
+  current constructor of the union.
 
 A recursive function begins with the `function` keyword, followed by
 the name of the function, then the parameters types and the return
@@ -145,17 +244,24 @@ function len(NatList) -> Nat {
 }
 ```
 
-There are two clauses in this definition, one for the `empty`
-alternative and another for the `node` alternative.  One can think of
-the clauses as pattern-matching on the union's alternatives.  In the
-second clause, the pattern `node(n, next)` includes two pattern
-variables `n` and `next` that bind the two sub-parts of the node.  The
-expression after the `=` specifies the return value of the
-function. The clause for `empty` says that its length is `0`.  The
-clause for `node` says that its length is one more than the length of
-the rest of the linked list.  Note that the recursive call
-`length(next)` is allowed because `next` is a sub-part 
-of `node(n,next)`.
+There are two clauses in the body. The clause for `nil` says
+that its length is `0`.  The clause for `cons` says that
+its length is one more than the length of the rest of the linked list.
+Deduce approves of the recursive call `len(next)` because
+`next` is part of `cons(n, next)`.
+
+Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. For example, here
+is the `app` function that combines two linked lists.
+
+```{.deduce #app}
+function app(NatList, NatList) -> NatList {
+  app(nil, ys) = ys
+  app(cons(n, xs), ys) = cons(n, app(xs, ys))
+}
+```
+
+## Generic Functions
 
 Deduce supports generic functions, so we can generalize `length` to
 work on lists with any element type as follows.
@@ -167,16 +273,24 @@ function length<E>(List<E>) -> Nat {
 }
 ```
 
-Recursive functions may have more than one parameter but pattern
-matching is only supported for the first parameter. For example, here
-is the `append` function that combines two linked lists.
+Generic functions that are not recursive can be defined using a
+combination of `define`, `generic`, and λ.
 
-```{.deduce #append}
-function append<E>(List<E>, List<E>) -> List<E> {
-  append(empty, ys) = ys
-  append(node(n, xs), ys) = node(n, append(xs, ys))
-}
+```{.deduce #head}
+define head : < T > fn List<T> -> Option<T> =
+  generic T { λ ls { 
+	  switch ls {
+		case empty { none }
+		case node(x, ls') { just(x) }
+	  }
+	}
+  }
 ```
+
+The type of a generic function, such as `head`, starts with its
+type parameters surrounded by `<` and `>`.
+
+
 
 ## Higher-order Functions
 
@@ -185,7 +299,7 @@ returned from a function. For example, the following function checks
 whether every element of a list satisfies a predicate.
 
 ```{.deduce #all_elements}
-function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
+function all_elements<T>(List<T>, fn T->bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
 }
@@ -212,6 +326,7 @@ operations on pairs, such as `first` and `second`.
 Define a function named `sum` that adds up all the elements of a `List<Nat>`.
 
 ```{.deduce #test_sum}
+define L13 = node(1, node(2, node(3, empty)))
 assert sum(L13) = 6
 ```
 
@@ -260,14 +375,22 @@ is of type `Pos`, which is defined in `Nat.pf`.
 ```{.deduce file=FunctionalProgramming.pf}
 <<Nat>>
 <<ImportNat>>
+<<five_six>>
+<<print_five>>
+<<area>>
+<<print_area>>
 <<NatList>>
+<<NL12>>
 <<List>>
-<<List13>>
-<<print_L13>>
-<<IfThenElse>>
+<<L12>>
+<<front>>
+<<print_front>>
+<<print7>>
+<<assert_if_true>>
 <<lenNatList>>
+<<app>>
 <<length>>
-<<append>>
+<<head>>
 <<all_elements>>
 <<Pair>>
 
