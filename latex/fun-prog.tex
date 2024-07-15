@@ -1,10 +1,11 @@
-\documentclass[12pt]{book}
-\usepackage[noprint]{booklet}
-\usepackage{agda}
+\documentclass[12pt]{article}
+\usepackage[print]{booklet}
 
 %\usepackage{palatino}
 %\usepackage{garamond}
 \usepackage{times}
+\usepackage{listings}
+\renewcommand\ttdefault{lmtt}
 
 \pdfoutput = 1
 \setpdftargetpages
@@ -12,127 +13,139 @@
 \title{Functional Programming in Deduce}
 \author{Jeremy G. Siek}
 
-\usepackage{newunicodechar}
-\newunicodechar{∷}{{::}}
-\newunicodechar{⊤}{\ensuremath{\top}}
-\newunicodechar{⊥}{\ensuremath{\bot}}
-\newunicodechar{₁}{\ensuremath{_1}}
-\newunicodechar{₂}{\ensuremath{_2}}
-\newunicodechar{₃}{\ensuremath{_3}}
-
-\newunicodechar{β}{\ensuremath{\beta}}
-\newunicodechar{γ}{\ensuremath{\gamma}}
-\newunicodechar{λ}{\ensuremath{\lambda}}
-\newunicodechar{Λ}{\ensuremath{\Lambda}}
-\newunicodechar{μ}{\ensuremath{\mu}}
-\newunicodechar{ν}{\ensuremath{\nu}}
-\newunicodechar{ρ}{\ensuremath{\rho}}
-\newunicodechar{σ}{\ensuremath{\sigma}}
-\newunicodechar{Π}{\ensuremath{\Pi}}
-\newunicodechar{ξ}{\ensuremath{\xi}}
-\newunicodechar{Γ}{\ensuremath{\Gamma}}
-\newunicodechar{Δ}{\ensuremath{\Delta}}
-\newunicodechar{Σ}{\ensuremath{\Sigma}}
-
-\newunicodechar{∀}{\ensuremath{\forall}}
-\newunicodechar{∃}{\ensuremath{\exists}}
-\newunicodechar{⊎}{\ensuremath{\uplus}}
-\newunicodechar{ᵖ}{\ensuremath{^p}}
-\newunicodechar{≡}{\ensuremath{\equiv}}
-\newunicodechar{≢}{\ensuremath{\not\equiv}}
-\newunicodechar{⊑}{\ensuremath{\sqsubseteq}}
-\newunicodechar{★}{\ensuremath{\star}}
-\newunicodechar{∼}{\ensuremath{\sim}}
-\newunicodechar{⌈}{\ensuremath{\lceil}}
-\newunicodechar{⌉}{\ensuremath{\rceil}}
-\newunicodechar{·}{\ensuremath{\cdot}}
-\newunicodechar{•}{\ensuremath{\bullet}}
-
-\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
-\newunicodechar{↠}{\ensuremath{\longrightarrow^{*}}}
-\newunicodechar{⇓}{\ensuremath{\Downarrow}}
-\newunicodechar{⇑}{\ensuremath{\Uparrow}}
-\newunicodechar{⟶}{\ensuremath{\longrightarrow}}
-
-\newunicodechar{ι}{\ensuremath{\iota}}
-\newunicodechar{ₜ}{\ensuremath{_t}}
-\newunicodechar{⊢}{\ensuremath{\vdash}}
-\newunicodechar{⊩}{\ensuremath{\Vdash}}
-\newunicodechar{⊨}{\ensuremath{\vDash}}
-\newunicodechar{⦂}{\ensuremath{\mathop{:}}}
-\newunicodechar{∈}{\ensuremath{\in}}
-\newunicodechar{∋}{\ensuremath{\ni}}
-\newunicodechar{′}{\ensuremath{'}}
-\newunicodechar{″}{\ensuremath{''}}
-\newunicodechar{ƛ}{\ensuremath{\lambda}}
-\newunicodechar{≼}{\ensuremath{\preceq}}
-\newunicodechar{≽}{\ensuremath{\succeq}}
-\newunicodechar{ᵥ}{\ensuremath{_v}}
-\newunicodechar{ˢ}{\ensuremath{^s}}
-\newunicodechar{∅}{\ensuremath{\emptyset}}
-\newunicodechar{∣}{\ensuremath{|}}
-\newunicodechar{ᴸ}{\ensuremath{^L}}
-\newunicodechar{ᴿ}{\ensuremath{^R}}
-\newunicodechar{▷}{\ensuremath{\triangleright}}
-\newunicodechar{ᵍ}{\ensuremath{^g}}
-\newunicodechar{ᵒ}{\ensuremath{^{\circ}}}
-\newunicodechar{⩦}{\ensuremath{\equiv}}
-\newunicodechar{∎}{\ensuremath{\blacksquare}}
-\newunicodechar{□}{\ensuremath{\square}}
-\newunicodechar{■}{\ensuremath{\blacksquare}}
-\newunicodechar{⇔}{\ensuremath{\iff}}
-\newunicodechar{𝒱}{\ensuremath{\mathcal{V}}}
-\newunicodechar{̬}{}
-\newunicodechar{𝒫}{\ensuremath{\mathcal{P}}}
-\newunicodechar{ℰ}{\ensuremath{\mathcal{E}}}
-\newunicodechar{≤}{\ensuremath{\leq}}
-
-\newunicodechar{ℕ}{\ensuremath{\mathbb{N}}}
-\newunicodechar{𝔹}{\ensuremath{\mathbb{B}}}
-
-\newunicodechar{⦉}{\ensuremath{\llfloor}}
-\newunicodechar{⦊}{\ensuremath{\rrfloor}}
-\newunicodechar{⟦}{\ensuremath{[}}
-\newunicodechar{⟧}{\ensuremath{]}}
-\newunicodechar{⦅}{\ensuremath{\llparenthesis}}
-\newunicodechar{⦆}{\ensuremath{\rrparenthesis}}
-\newunicodechar{⟪}{\ensuremath{\langle\!\!\langle}}
-\newunicodechar{⟫}{\ensuremath{\rangle\!\!\rangle}}
-\newunicodechar{⟨}{\ensuremath{\langle}}
-\newunicodechar{⟩}{\ensuremath{\rangle}}
-\newunicodechar{∶}{:}
-\newunicodechar{⨟}{\ensuremath{\fatsemi}}
-\newunicodechar{↑}{\ensuremath{\uparrow}}
-\newunicodechar{≠}{\ensuremath{\neq}}
-
 \begin{document}
-
 
 \maketitle
 
-\Large
 
-\input{FunctionalProgramming}
+%% Each section of this booklet describes one of these features. There
+%% are several exercises at the end that you can use to check your
+%% understanding.
+
+\tableofcontents
+
+%% Deduce supports the following language features:
+%% \begin{itemize}
+%% \item Unions
+%% \item Natural Numbers
+%% \item Imports
+%% \item Definitions
+%% \item Printing Values
+%% \item Booleans and Conditional Expressions
+%% \item Recursive Functions
+%% \item Higher-order Functions
+%% \item Anonymous Functions (Lambda)
+%% \item Pairs
+%% \item Switch
+%% \end{itemize}
+
 
 \pagebreak
 
-Testing 2
+\large
 
-\pagebreak
+\section{Unions}
+\label{sec:union}
 
-Testing 3
+The \texttt{union} feature of Deduce defines a type whose values are
+created by one or more alternative constructors.  A union definition
+speficies a name for the union type and its body specifies the name of
+each constructor and its parameter types. For example, we define the
+following union to represent a linked-list of natural numbers.
 
-\pagebreak
+\begin{verbatim}
+    union NatList {
+      nil
+      cons(Nat, NatList)
+    }
+\end{verbatim}
 
-Testing 4
+We construct values of type \texttt{NatList} using the constructors
+\texttt{nil} and \texttt{cons}. To create a linked-list whose elements
+are \texttt{1} and \texttt{2}, write:
 
-\pagebreak
+\begin{verbatim}
+    cons(1, cons(2, nil))
+\end{verbatim}
 
-Testing 5
+Unions may be recursive: a constructor may include a parameter type
+that is the union type, e.g., the \texttt{NatList} parameter of
+\texttt{cons}. Unions may be generic: one can parameterize a union
+with one or more type parameters. For example, we generalize linked
+lists to any element types as follows.
 
-\pagebreak
+\begin{verbatim}
+    union List<T> {
+      empty
+      node(T, List<T>)
+    }
+\end{verbatim}
 
-Testing 6
+Constructing values of a generic union looks the same as for a regular
+union. Deduce figures out the type parameter \texttt{T} from the types
+of the constructor arguments.
+
+\begin{verbatim}
+    node(1, node(2, empty))
+\end{verbatim}
+
+\section{Natural Numbers}
+
+Natural numbers are not a builtin type in Deduce but instead they
+are defined as a `union` type:
+
+\begin{verbatim}
+union Nat {
+  zero
+  suc(Nat)
+}
+\end{verbatim}
+
+The file \texttt{Nat.pf} includes the above definition together with some
+operations on natural numbers and theorems about them.  The numerals
+\texttt{0}, \texttt{1}, \texttt{2}, etc. are shorthand for the natural numbers \texttt{zero},
+\texttt{suc(zero)}, \texttt{suc(suc(zero))}, etc.
+
+\section{Imports}
+
+The \texttt{import} declaration makes available the contents of another
+Deduce file in the current file. For example, you can import the
+contents of \texttt{Nat.pf} as follows
+
+\begin{verbatim}
+import Nat
+\end{verbatim}
+
+\section{Definitions}
+
+The \texttt{define} feature of Deduce associates a name with a value.  The
+following definitions associate the name \texttt{L23} with the
+linked-list containing \texttt{2} and \texttt{3}, and the name \texttt{L13} with the
+linked-list containing \texttt{1}, \texttt{2} and \texttt{3}.
+
+\begin{verbatim}
+define L23 = node(2, node(3, empty))
+define L13 : List<Nat> = node(1, L23)
+\end{verbatim}
+
+If desired, the type can be specified after the name, following a
+colon.  In the above, \texttt{L13} is a list of natural numbers, so its type
+is \texttt{List<Nat>}.
+
+\section{Printing Values}
+
+You can ask Deduce to print a value to standard output using the
+\texttt{print} statement.
+
+\begin{verbatim}
+print L13
+\end{verbatim}
+
+The output is
+
+\begin{verbatim}
+node(1,node(2,node(3,empty)))
+\end{verbatim}
 
 
 
