@@ -958,3 +958,61 @@ proof
     definition {append,tail}.
   }
 end
+
+union ListZipper<T> {
+  mkZip(List<T>, List<T>)
+}
+
+function zip2list<T>(ListZipper<T>) -> List<T> {
+  zip2list(mkZip(ctx, ls)) = rev_app(ctx, ls)
+}
+
+function zip_left<T>(ListZipper<T>) -> ListZipper<T> {
+  zip_left(mkZip(ctx, ls)) =
+	switch ctx {
+	  case empty { mkZip(empty, ls) }
+	  case node(x, ctx') { mkZip(ctx', node(x, ls)) }
+	}
+}
+
+function zip_right<T>(ListZipper<T>) -> ListZipper<T> {
+  zip_right(mkZip(ctx, ls)) =
+	switch ls {
+	  case empty {  mkZip(ctx, empty) }
+	  case node(x, ls') { mkZip(node(x,ctx), ls') }
+	}
+}
+
+theorem left_2list_identity: all T:type, z:ListZipper<T>.
+  zip2list(z) = zip2list(zip_left(z))
+proof
+  arbitrary T:type, z:ListZipper<T>
+  switch z {
+    case mkZip(ctx, ls) {
+      definition zip_left
+      switch ctx {
+        case empty { . }
+	case node(x,ctx') {
+	  definition {zip2list, rev_app}.
+	}
+      }
+    }
+  }
+end
+
+theorem right_2list_identity: all T:type, z:ListZipper<T>.
+  zip2list(z) = zip2list(zip_right(z))
+proof
+  arbitrary T:type, z:ListZipper<T>
+  switch z {
+    case mkZip(ctx, ls) {
+      definition zip_right
+      switch ls {
+        case empty { . }
+	case node(x,ls') {
+	  definition {zip2list, rev_app}.
+	}
+      }
+    }
+  }
+end

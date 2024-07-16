@@ -1348,6 +1348,8 @@ import FunctionalProgramming
 <<length_empty>>
 <<length_node42>>
 
+import List
+
 theorem append_12: 
   append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
 proof

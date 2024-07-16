@@ -192,6 +192,25 @@ define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
 define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
 define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
 
+theorem suc_less_equal: all x:Nat, y:Nat.
+  if suc(x) ≤ suc(y)
+  then x ≤ y
+proof
+  arbitrary x:Nat, y:Nat
+  suppose prem
+  definition operator≤ in prem
+end
+
+theorem suc_less: all x:Nat, y:Nat.
+  if suc(x) < suc(y)
+  then x < y
+proof
+  arbitrary x:Nat, y:Nat
+  suppose prem
+  definition operator<
+  apply suc_less_equal[suc(x), y] to definition operator< in prem
+end
+
 theorem less_equal_implies_less_or_equal:
   all x:Nat. all y:Nat.
   if x ≤ y then x < y or x = y
