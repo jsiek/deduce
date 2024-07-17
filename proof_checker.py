@@ -321,11 +321,11 @@ def check_proof(proof, env):
         case (Call(loc2,Var(loc3,f1),[arg1], infix1),
               Call(loc4,Var(loc5,f2),[arg2]), infix2):
           if f1 != f2:
-            error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
+            error(loc, 'in injective, ' + str(f1) + ' ≠ ' + str(f2))
           if constr != f1:
-            error(loc, 'in injective, ' + constr + ' ≠ ' + f1)
+            error(loc, 'in injective, ' + str(constr) + ' ≠ ' + str(f1))
           if not is_constructor(f1, env):
-            error(loc, 'in injective, ' + f1 + ' not a constructor')
+            error(loc, 'in injective, ' + str(f1) + ' not a constructor')
           return mkEqual(loc, arg1, arg2)
         case _:
           error(loc, 'in injective, non-applicable formula: ' + str(formula))
@@ -565,9 +565,9 @@ def check_proof_of(proof, formula, env):
               error(indcase.location, "expected a case for " + str(base_name(constr.name)) \
                     + " not " + str(base_name(indcase.pattern.constructor.name)))
             if len(indcase.pattern.parameters) != len(constr.parameters):
-              error(indcase.location, "expected " + len(constr.parameters) \
-                    + " arguments to " + constr.name \
-                    + " not " + len(indcase.pattern.parameters))
+              error(indcase.location, "expected " + str(len(constr.parameters)) \
+                    + " arguments to " + base_name(constr.name) \
+                    + " not " + str(len(indcase.pattern.parameters)))
             induction_hypotheses = [instantiate(loc, formula, [Var(loc,param)])
                                     for (param, ty) in 
                                     zip(indcase.pattern.parameters,
@@ -648,9 +648,9 @@ def check_proof_of(proof, formula, env):
                   error(scase.location, "expected a case for " + str(constr) \
                         + " not " + str(scase.pattern.constructor))
                 if len(scase.pattern.parameters) != len(constr.parameters):
-                  error(scase.location, "expected " + len(constr.parameters) \
-                        + " arguments to " + constr.name \
-                        + " not " + len(scase.pattern.parameters))
+                  error(scase.location, "expected " + str(len(constr.parameters)) \
+                        + " arguments to " + base_name(constr.name) \
+                        + " not " + str(len(scase.pattern.parameters)))
                 subject_case = pattern_to_term(scase.pattern)
 
                 body_env = env

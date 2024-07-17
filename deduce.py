@@ -3,6 +3,7 @@ from proof_checker import check_deduce, uniquify_deduce
 import sys
 from parser import parse, set_filename
 from lark import exceptions
+import traceback
 
 def token_str(token):
     if len(token.value) > 0:
@@ -60,6 +61,8 @@ if __name__ == "__main__":
             exit(0)
         else:
             print(str(e))
+            # Use the following when debugging internal exceptions -Jeremy
+            # print(traceback.format_exc())
             # for production, exit
             exit(1)
             # during development, reraise

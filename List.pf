@@ -167,7 +167,17 @@ function nth<T>(List<T>, T) -> (fn Nat -> T) {
       x
     else
        nth(xs, default)(pred(i))
- }
+  }
+}
+
+function get<T>(List<T>) -> (fn Nat -> Option<T>) {
+  get(empty) = λi{none}
+  get(node(x, xs)) = λi{
+    if i = 0 then
+       just(x)
+    else
+       get(xs)(pred(i))
+  }
 }
 
 function take<T>(Nat, List<T>) -> List<T> {

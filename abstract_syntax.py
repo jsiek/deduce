@@ -2208,7 +2208,7 @@ class Env:
       elif isinstance(binding, TypeBinding):
         return TypeType(None)
       else:
-        raise Exception('expected a term or type variable')
+        raise Exception('expected a term or type variable, not ' + name)
     else:
       return None
 

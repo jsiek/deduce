@@ -1,0 +1,56 @@
+import Tree
+
+/*
+         4
+       /   \
+      2     6
+     / \   / \
+    1   3 5   7
+*/
+
+define T1 = tree_node(empty_tree, 1, empty_tree)
+define T3 = tree_node(empty_tree, 3, empty_tree)
+define T5 = tree_node(empty_tree, 5, empty_tree)
+define T7 = tree_node(empty_tree, 7, empty_tree)
+define T2 = tree_node(T1, 2, T3)
+define T6 = tree_node(T5, 6, T7)
+define T4 = tree_node(T2, 4, T6)
+
+define ino = in_order(T4)
+define L17 = node(1, node(2, node(3, node(4, node(5, node(6, node(7, empty)))))))
+assert ino = L17
+
+define z1 = first_ctx(T4, empty)
+assert zip_get(z1) = just(1)
+assert zip_index(z1) = 0
+assert zip2tree(z1) = T4
+
+define z2 = zip_next(z1)
+assert zip_get(z2) = just(2)
+assert zip_index(z2) = 1
+assert zip2tree(z2) = T4
+
+define z3 = zip_next(z2)
+assert zip_get(z3) = just(3)
+assert zip_index(z3) = 2
+assert zip2tree(z3) = T4
+
+define z4 = zip_next(z3)
+assert zip_get(z4) = just(4)
+assert zip_index(z4) = 3
+assert zip2tree(z4) = T4
+
+define z5 = zip_next(z4)
+assert zip_get(z5) = just(5)
+assert zip_index(z5) = 4
+assert zip2tree(z5) = T4
+
+define z6 = zip_next(z5)
+assert zip_get(z6) = just(6)
+assert zip_index(z6) = 5
+assert zip2tree(z6) = T4
+
+define z7 = zip_next(z6)
+assert zip_get(z7) = just(7)
+assert zip_index(z7) = 6
+assert zip2tree(z7) = T4
