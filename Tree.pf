@@ -23,9 +23,9 @@ function right_child<E>(Tree<E>) -> Tree<E> {
   right_child(tree_node(L, x, R)) = R
 }
 
-function tree_nodes<E>(Tree<E>) -> Nat {
-  tree_nodes(empty_tree) = 0
-  tree_nodes(tree_node(L, x, R)) = suc(tree_nodes(L) + tree_nodes(R))
+function num_nodes<E>(Tree<E>) -> Nat {
+  num_nodes(empty_tree) = 0
+  num_nodes(tree_node(L, x, R)) = suc(num_nodes(L) + num_nodes(R))
 }
 
 function height<E>(Tree<E>) -> Nat {
@@ -168,9 +168,162 @@ function drop_ctx<E>(List<Frame<E>>) -> List<Frame<E>> {
     }
 }
 
-function zip_index<E>(TreeZipper<E>) -> Nat {
-  zip_index(treeZip(ctx, L, x, R)) = tree_nodes(plug_tree(take_ctx(ctx), empty_tree)) + tree_nodes(L)
+
+function zip_take<E>(TreeZipper<E>) -> Tree<E> {
+  zip_take(treeZip(ctx, L, x, R)) = plug_tree(take_ctx(ctx), L)
 }
+
+define zip_index : < E > fn(TreeZipper<E>) -> Nat = λ z { num_nodes(zip_take(z))}
+
+theorem length_in_order: all E:type. all t:Tree<E>.
+  length(in_order(t)) = num_nodes(t)
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case empty_tree {
+    definition {in_order, length, num_nodes}.
+  }
+  case tree_node(L, x, R) suppose IH_L, IH_R {
+    definition {in_order, length, num_nodes}
+    rewrite length_append[E][in_order(L)][node(x, in_order(R))]
+    definition {length}
+    rewrite IH_L | IH_R
+    rewrite add_suc[num_nodes(L)][num_nodes(R)].
+  }
+end
+
+lemma in_order_plug: all E:type. all ctx:List<Frame<E>>. all A:Tree<E>, B:Tree<E>.
+  if in_order(A) = in_order(B)
+  then in_order(plug_tree(ctx, A)) = in_order(plug_tree(ctx, B))
+proof
+  arbitrary E:type
+  induction List<Frame<E>>
+  case empty {
+    arbitrary A:Tree<E>, B:Tree<E>
+    suppose A_B
+    definition plug_tree
+    A_B
+  }
+  case node(f, ctx') suppose IH {
+    arbitrary A:Tree<E>, B:Tree<E>
+    switch f {
+      case leftF(L, x) {
+        suppose A_B
+        definition plug_tree
+        have LA_LB: in_order(tree_node(L,x,A)) = in_order(tree_node(L,x,B))
+           by definition in_order rewrite A_B.
+        conclude in_order(plug_tree(ctx',tree_node(L,x,A)))
+               = in_order(plug_tree(ctx',tree_node(L,x,B)))
+            by apply IH[tree_node(L, x, A), tree_node(L, x, B)] to LA_LB
+      }
+      case rightF(x, R) {
+        suppose A_B
+        definition plug_tree
+        have AR_BR: in_order(tree_node(A,x,R)) = in_order(tree_node(B,x,R))
+           by definition in_order rewrite A_B.
+        conclude in_order(plug_tree(ctx',tree_node(A,x,R)))
+               = in_order(plug_tree(ctx',tree_node(B,x,R)))
+            by apply IH[tree_node(A, x, R), tree_node(B, x, R)] to AR_BR
+      }
+    }
+  }
+end
+
+lemma num_nodes_plug: all E:type. all ctx:List<Frame<E>>. all t:Tree<E>.
+  num_nodes(plug_tree(ctx, t)) = num_nodes(plug_tree(ctx, empty_tree)) + num_nodes(t)
+proof  
+  arbitrary E:type
+  induction List<Frame<E>>
+  case empty {
+    arbitrary t:Tree<E>
+    conclude num_nodes(plug_tree(empty,t)) = num_nodes(plug_tree(empty,empty_tree)) + num_nodes(t)
+        by definition {plug_tree, num_nodes, operator+}.
+  }
+  case node(f, ctx') suppose IH {
+    arbitrary t:Tree<E>
+    switch f {
+      case leftF(L, x) {
+        definition {plug_tree, num_nodes}
+        rewrite IH[tree_node(L,x,t)]
+        rewrite IH[tree_node(L,x,empty_tree)]
+        definition {num_nodes, num_nodes}
+        rewrite add_zero[num_nodes(L)]
+        rewrite add_assoc[num_nodes(plug_tree(ctx',empty_tree))][suc(num_nodes(L)), num_nodes(t)]
+        definition {operator+}.
+      }
+      case rightF(x, R) {
+        definition {plug_tree, num_nodes}
+        rewrite IH[tree_node(t,x,R)]
+        rewrite IH[tree_node(empty_tree,x,R)]
+        definition {num_nodes, num_nodes, operator+}
+        rewrite add_assoc[num_nodes(plug_tree(ctx',empty_tree))][suc(num_nodes(R)), num_nodes(t)]
+        definition {operator+}
+        rewrite add_commute[num_nodes(R)][num_nodes(t)].
+      }
+    }
+  }
+end
+
+lemma in_order_plug_take2: all E:type. all ctx:List<Frame<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  in_order(plug_tree(take_ctx(ctx),A))
+  = take(num_nodes(plug_tree(take_ctx(ctx),A)), in_order(zip2tree(treeZip(ctx,A,x,B))))
+proof
+  arbitrary E:type
+  induction List<Frame<E>>
+  case empty {
+    arbitrary A:Tree<E>, x:E, B:Tree<E>
+    definition {take_ctx, plug_tree, zip2tree, in_order}
+    rewrite symmetric length_in_order[E][A]
+    rewrite take_append[E][in_order(A)][node(x, in_order(B))].
+  }
+  case node(f, ctx') suppose IH {
+    arbitrary A:Tree<E>, x:E, B:Tree<E>
+    switch f {
+      case leftF(L, z) {  // tree_node(L, z, tree_node(A,x,B))
+        definition {take_ctx, plug_tree, zip2tree, in_order}
+        rewrite num_nodes_plug[E][take_ctx(ctx')][tree_node(L,z,A)]
+        definition {num_nodes}
+        suffices in_order(plug_tree(take_ctx(ctx'),tree_node(L,z,A)))
+               = take(num_nodes(plug_tree(take_ctx(ctx'),empty_tree)) + suc(num_nodes(L) + num_nodes(A)),
+                      in_order(plug_tree(ctx', tree_node(L,z,tree_node(A,x,B)))))
+        have IH2: in_order(plug_tree(take_ctx(ctx'),tree_node(L,z,A)))
+                = take(num_nodes(plug_tree(take_ctx(ctx'),tree_node(L,z,A))),in_order(zip2tree(treeZip(ctx',tree_node(L,z,A),x,B))))
+          by IH[tree_node(L, z, A), x, B]
+        have IH3: in_order(plug_tree(take_ctx(ctx'),tree_node(L,z,A)))
+                = take(num_nodes(plug_tree(take_ctx(ctx'),tree_node(L,z,A))),in_order(plug_tree(ctx',tree_node(tree_node(L,z,A),x,B))))
+          by definition zip2tree in IH2
+        rewrite IH3
+        rewrite num_nodes_plug[E][take_ctx(ctx')][tree_node(L,z,A)]
+        definition {num_nodes}
+        have LA_B_L_AB: in_order(tree_node(tree_node(L,z,A),x,B)) = in_order(tree_node(L,z,tree_node(A,x,B)))
+          by in_order_assoc[E][L][z,A,x,B]
+        rewrite (apply in_order_plug[E][ctx'][tree_node(tree_node(L,z,A),x,B), tree_node(L,z,tree_node(A,x,B))]
+                 to LA_B_L_AB).
+      }
+      case rightF(z, R) { // tree_node(tree_node(A, x, b), z, R)
+        definition {take_ctx, plug_tree, zip2tree, in_order}
+        rewrite IH[A,x,tree_node(B, z, R)]
+        definition {zip2tree}
+        have eq: in_order(tree_node(A,x,tree_node(B,z,R))) = in_order(tree_node(tree_node(A,x,B),z,R))
+          by symmetric in_order_assoc[E][A][x,B,z,R]
+        rewrite (apply in_order_plug[E][ctx'][tree_node(A,x,tree_node(B,z,R)), tree_node(tree_node(A,x,B),z,R)]
+                 to eq).
+      }
+    }
+  }
+end
+
+theorem in_order_take_ctx: all E:type, z:TreeZipper<E>.
+  in_order(zip_take(z)) = take(zip_index(z), in_order(zip2tree(z)))
+proof
+  arbitrary E:type, z:TreeZipper<E>
+  switch z {
+    case treeZip(ctx, A, x, B) {
+      definition {zip_take, zip_index}
+      in_order_plug_take2[E][ctx][A,x,B]
+    }
+  }
+end
 
 lemma in_order_plug_take: all E:type. all ctx:List<Frame<E>>. all t:Tree<E>.
   in_order(plug_tree(take_ctx(ctx), t)) = append( in_order(plug_tree(take_ctx(ctx),empty_tree)), in_order(t))
@@ -270,7 +423,7 @@ drop_ctx(ctx)[empty_tree]
 */
 /*
 theorem next_up_correct: all E:type. all ctx:List<Frame<E>>. all A:Tree<E>, x:E, B:Tree<E>.
-  if 0 < tree_nodes(plug_tree(drop_ctx(ctx), empty_tree))
+  if 0 < num_nodes(plug_tree(drop_ctx(ctx), empty_tree))
   then some ctx':List<Frame<E>>, C:Tree<E>, y:E, D:Tree<E>.
        next_up(ctx, tree_node(A, x, B)) = treeZip(ctx', tree_node(C, y, D))
   and append(in_order(plug_tree(take_ctx(ctx), empty_tree)), append(in_order(A), node(x, in_order(B))))
@@ -282,7 +435,7 @@ proof
   induction List<Frame<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    definition {plug_tree, drop_ctx, tree_nodes}
+    definition {plug_tree, drop_ctx, num_nodes}
     suppose prem
     conclude false  by apply less_irreflexive[0] to prem
   }
@@ -291,7 +444,7 @@ proof
     switch f {
       case leftF(L, z) {
         suppose prem
-        have prem2: 0 < tree_nodes(plug_tree(drop_ctx(next_ctx),empty_tree))
+        have prem2: 0 < num_nodes(plug_tree(drop_ctx(next_ctx),empty_tree))
           by definition {drop_ctx} in prem
         obtain ctx', C, y, D where eqs from (apply IH[L, z, tree_node(A, x, B)] to prem2)
         choose ctx', C, y, D
@@ -376,134 +529,121 @@ proof
   }
 end
 
-lemma tree_nodes_plug: all E:type. all ctx:List<Frame<E>>. all t:Tree<E>.
-  tree_nodes(plug_tree(ctx, t)) = tree_nodes(plug_tree(ctx, empty_tree)) + tree_nodes(t)
-proof  
-  arbitrary E:type
-  induction List<Frame<E>>
-  case empty {
-    arbitrary t:Tree<E>
-    conclude tree_nodes(plug_tree(empty,t)) = tree_nodes(plug_tree(empty,empty_tree)) + tree_nodes(t)
-        by definition {plug_tree, tree_nodes, operator+}.
-  }
-  case node(f, ctx') suppose IH {
-    arbitrary t:Tree<E>
-    switch f {
-      case leftF(L, x) {
-        definition {plug_tree, tree_nodes}
-        rewrite IH[tree_node(L,x,t)]
-        rewrite IH[tree_node(L,x,empty_tree)]
-        definition {tree_nodes, tree_nodes}
-        rewrite add_zero[tree_nodes(L)]
-        rewrite add_assoc[tree_nodes(plug_tree(ctx',empty_tree))][suc(tree_nodes(L)), tree_nodes(t)]
-        definition {operator+}.
-      }
-      case rightF(x, R) {
-        definition {plug_tree, tree_nodes}
-        rewrite IH[tree_node(t,x,R)]
-        rewrite IH[tree_node(empty_tree,x,R)]
-        definition {tree_nodes, tree_nodes, operator+}
-        rewrite add_assoc[tree_nodes(plug_tree(ctx',empty_tree))][suc(tree_nodes(R)), tree_nodes(t)]
-        definition {operator+}
-        rewrite add_commute[tree_nodes(R)][tree_nodes(t)].
-      }
-    }
-  }
-end
-
 lemma next_up_index: all E:type. all ctx:List<Frame<E>>. all A:Tree<E>, x:E, B:Tree<E>.
-  if suc(zip_index(treeZip(ctx, A,x,B)) + tree_nodes(B)) < tree_nodes(zip2tree(treeZip(ctx, A,x,B)))
-  then zip_index(next_up(ctx, A, x, B)) = suc(zip_index(treeZip(ctx, A,x,B)) + tree_nodes(B))
+  if suc(zip_index(treeZip(ctx, A,x,B)) + num_nodes(B)) < num_nodes(zip2tree(treeZip(ctx, A,x,B)))
+  then zip_index(next_up(ctx, A, x, B)) = suc(zip_index(treeZip(ctx, A,x,B)) + num_nodes(B))
 proof
   arbitrary E:type
+  definition zip_index
   induction List<Frame<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     suppose prem
     conclude false
       by apply less_irreflexive
-         to definition {zip_index, take_ctx, plug_tree, tree_nodes, operator+, zip2tree} in prem
+         to definition {zip_index, take_ctx, plug_tree, num_nodes, operator+, zip2tree, zip_take} in prem
   }
   case node(f, ctx') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     suppose prem
     switch f {
       case leftF(L, y) suppose f_eq {
-        definition {next_up, zip_index, take_ctx, plug_tree}
-        have prem2: suc(zip_index(treeZip(ctx',L,y,tree_node(A,x,B))) + tree_nodes(tree_node(A,x,B)))
-                    < tree_nodes(zip2tree(treeZip(ctx',L,y,tree_node(A,x,B))))
-          by  definition {zip_index, tree_nodes, zip2tree}
-              rewrite tree_nodes_plug[E][ctx'][tree_node(L,y,tree_node(A,x,B))]
-              definition {tree_nodes, tree_nodes}
-              rewrite symmetric add_suc[(tree_nodes(plug_tree(take_ctx(ctx'),empty_tree)) + tree_nodes(L))]
-                                       [(tree_nodes(A) + tree_nodes(B))] in
-              definition operator+ in                                      
-              rewrite add_assoc[suc(tree_nodes(plug_tree(take_ctx(ctx'),empty_tree)) + tree_nodes(L))]
-                               [tree_nodes(A), tree_nodes(B)] in
-              rewrite add_suc[tree_nodes(plug_tree(take_ctx(ctx'),empty_tree))][tree_nodes(L)] in
-              rewrite add_zero[tree_nodes(L)] in
-              definition {tree_nodes, tree_nodes} in
-              rewrite tree_nodes_plug[E][ctx'][tree_node(L,y,tree_node(A,x,B))] in
-              definition {tree_nodes, tree_nodes} in
-              rewrite tree_nodes_plug[E][take_ctx(ctx')][tree_node(L, y, empty_tree)] in
-              definition {zip_index, take_ctx, plug_tree, zip_index, zip2tree} in rewrite f_eq in prem
+        definition {next_up, zip_index, take_ctx, plug_tree, zip_take}
+        define X = num_nodes(plug_tree(take_ctx(ctx'),empty_tree))
+        define Y = num_nodes(L)
+        define Z = num_nodes(A)
+        define W = num_nodes(B)
+        define P = num_nodes(plug_tree(ctx',empty_tree))
+        have X_eq: X = num_nodes(plug_tree(take_ctx(ctx'),empty_tree)) by definition X.
+        have Y_eq: Y = num_nodes(L) by definition Y.
+        have Z_eq: Z = num_nodes(A) by definition Z.
+        have W_eq: W = num_nodes(B) by definition W.
+        have P_eq: P = num_nodes(plug_tree(ctx',empty_tree)) by definition P.
+        
+        have prem3: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
+          by definition {X,Y,Z,W,P} definition {num_nodes, num_nodes} in
+             rewrite num_nodes_plug[E][ctx'][tree_node(L,y,tree_node(A,x,B))] in
+             rewrite num_nodes_plug[E][take_ctx(ctx')][tree_node(L,y,A)] in 
+             definition {take_ctx, zip_take, zip2tree, plug_tree} in rewrite f_eq in prem
+        have prem_normal: suc(suc((X + Y) + (Z + W))) < suc(suc(P + (Y + (Z + W))))
+          by  rewrite add_assoc[X][Y, Z+W]
+              rewrite add_assoc[Y][Z, W] in
+              rewrite add_assoc[X][Y+Z, W] in
+              definition operator+ in
+              rewrite add_suc[P][Y + (Z + W)] in          
+              rewrite add_suc[P][suc(Y + (Z + W))] in          
+              rewrite add_suc[X][Y+Z] in          
+              rewrite add_suc[Y][Z+W] in
+              prem3
+        have prem2: suc(num_nodes(zip_take(treeZip(ctx',L,y,tree_node(A,x,B)))) + num_nodes(tree_node(A,x,B)))
+                    < num_nodes(zip2tree(treeZip(ctx',L,y,tree_node(A,x,B))))
+             by  definition {zip2tree, num_nodes, zip_take}
+                 rewrite num_nodes_plug[E][take_ctx(ctx')][L]
+                 rewrite num_nodes_plug[E][ctx'][tree_node(L,y,tree_node(A,x,B))]
+                 definition {num_nodes, num_nodes}
+                 rewrite symmetric X_eq
+                 rewrite symmetric Y_eq
+                 rewrite symmetric Z_eq
+                 rewrite symmetric W_eq
+                 rewrite symmetric P_eq
+                 rewrite add_suc[X+Y][Z+W]
+                 rewrite add_suc[Y][Z+W]
+                 rewrite add_suc[P][suc(Y + (Z + W))]
+                 rewrite add_suc[P][Y + (Z + W)]
+                 prem_normal
         rewrite apply IH[L,y,tree_node(A,x,B)] to prem2
-        definition {zip_index, tree_nodes}
-        rewrite tree_nodes_plug[E][take_ctx(ctx')][tree_node(L,y,empty_tree)]
-        definition {tree_nodes, tree_nodes}
-        rewrite add_zero[tree_nodes(L)]
-        define X = tree_nodes(plug_tree(take_ctx(ctx'),empty_tree))
-        define Y = tree_nodes(L)
-        define Z = tree_nodes(A)
-        define W = tree_nodes(B)
-        have eq: suc((X + Y) + suc(Z + W)) = suc(((X + suc(Y)) + Z) + W) by
+        definition {zip_take, num_nodes}
+        rewrite num_nodes_plug[E][take_ctx(ctx')][L]
+        rewrite num_nodes_plug[E][take_ctx(ctx')][tree_node(L,y,A)]
+        definition num_nodes
+        have eq2: suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W) by
           equations
                 suc((X + Y) + suc(Z + W))
               = suc(suc(X + Y) + (Z + W))      by rewrite add_suc[X+Y][Z+W] definition operator+.
           ... = suc(suc((X + Y) + (Z + W)))    by definition operator+.
           ... = suc(suc(((X + Y) + Z) + W))    by rewrite add_assoc[X+Y][Z,W].
-          ... = suc(suc((X + Y) + Z) + W)      by definition operator+.
-          ... = suc((suc(X + Y) + Z) + W)      by definition operator+.
-          ... = suc(((X + suc(Y)) + Z) + W)    by rewrite add_suc[X][Y].
-        rewrite (definition {X,Y,Z,W} in eq).
+          ... = suc(suc((X + (Y + Z)) + W))    by rewrite add_assoc[X][Y,Z].
+          ... = suc(suc(X + (Y + Z)) + W)      by definition operator+.
+          ... = suc((X + suc(Y + Z)) + W)      by rewrite add_suc[X][Y+Z].
+        rewrite (definition {X,Y,Z,W} in eq2).
       }
       case rightF(y, R) {
-      definition {next_up, zip_index, tree_nodes, take_ctx}
-      define X = tree_nodes(plug_tree(take_ctx(ctx'),empty_tree))
-      define Y = tree_nodes(A)
-      define Z = tree_nodes(B)
-      have eq: X + suc(Y + Z) = suc((X + Y) + Z)
-          by rewrite add_suc[X][Y+Z] rewrite add_assoc[X][Y,Z].
-      rewrite (definition {X,Y,Z} in eq).
+        definition {next_up, zip_index, num_nodes, take_ctx, zip_take}
+        rewrite num_nodes_plug[E][take_ctx(ctx')][tree_node(A,x,B)]
+        rewrite num_nodes_plug[E][take_ctx(ctx')][A]
+        definition {num_nodes}
+        define X = num_nodes(plug_tree(take_ctx(ctx'),empty_tree))
+        define Y = num_nodes(A)
+        define Z = num_nodes(B)
+        have eq: X + suc(Y + Z) = suc((X + Y) + Z)
+            by rewrite add_suc[X][Y+Z] rewrite add_assoc[X][Y,Z].
+        rewrite (definition {X,Y,Z} in eq).
       }
     }
   }
 end
 
+
 lemma first_ctx_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, ctx:List<Frame<E>>.
-  zip_index(first_ctx(A,y,B, ctx)) = tree_nodes(plug_tree(take_ctx(ctx), empty_tree))
+  zip_index(first_ctx(A,y,B, ctx)) = num_nodes(plug_tree(take_ctx(ctx), empty_tree))
 proof
   arbitrary E:type
   induction Tree<E>
   case empty_tree {
     arbitrary y:E, B:Tree<E>, ctx:List<Frame<E>>
-    definition {first_ctx, tree_nodes, zip_index}
-    rewrite add_zero[tree_nodes(plug_tree(take_ctx(ctx),empty_tree))].
+    definition {first_ctx, num_nodes, zip_index, zip_take}.
   }
   case tree_node(L, x, R) suppose IH {
     arbitrary y:E, B:Tree<E>, ctx:List<Frame<E>>
     definition {first_ctx}
     switch L {
       case empty_tree suppose L_eq {
-        definition {zip_index, tree_nodes, first_ctx}
-        rewrite add_zero[tree_nodes(plug_tree(take_ctx(ctx),empty_tree))]
-        rewrite add_zero[tree_nodes(plug_tree(take_ctx(node(rightF(y,B),ctx)),empty_tree))]
-        definition {take_ctx}.
+        definition {zip_index, num_nodes, first_ctx, zip_take, take_ctx}.
       }
       case tree_node(LL, z, LR) suppose L_eq {
         rewrite symmetric L_eq
         have IH2: zip_index(first_ctx(L,x,R,node(rightF(y,B),ctx)))
-                = tree_nodes(plug_tree(take_ctx(node(rightF(y,B),ctx)),empty_tree))
+                = num_nodes(plug_tree(take_ctx(node(rightF(y,B),ctx)),empty_tree))
             by IH[x, R, node(rightF(y,B),ctx)]
         definition {first_ctx}
         rewrite IH2
@@ -514,7 +654,7 @@ proof
 end
 
 theorem zip_next_index: all E:type, z : TreeZipper<E>.
-  if suc(zip_index(z)) < tree_nodes(zip2tree(z)) and 0 < tree_nodes(focus(z))
+  if suc(zip_index(z)) < num_nodes(zip2tree(z)) and 0 < num_nodes(focus(z))
   then zip_index(zip_next(z)) = suc(zip_index(z))
 proof
   arbitrary E:type, z : TreeZipper<E>
@@ -524,50 +664,59 @@ proof
       definition {zip_next}
       switch R {
         case empty_tree suppose R_eq {
-          have prem2: suc(zip_index(treeZip(ctx,L,x,empty_tree)) + tree_nodes(empty_tree))
-                < tree_nodes(zip2tree(treeZip(ctx,L,x,empty_tree)))
-            by definition {tree_nodes} rewrite add_zero[zip_index(treeZip(ctx,L,x,empty_tree))]
-               definition {tree_nodes} in rewrite z_eq | R_eq in prem
+          have prem2: suc(zip_index(treeZip(ctx,L,x,empty_tree)) + num_nodes(empty_tree))
+                < num_nodes(zip2tree(treeZip(ctx,L,x,empty_tree)))
+            by definition {num_nodes} rewrite add_zero[zip_index(treeZip(ctx,L,x,empty_tree))]
+               definition {num_nodes} in rewrite z_eq | R_eq in prem
           rewrite add_zero[zip_index(treeZip(ctx,L,x,empty_tree))] in
-          definition tree_nodes in
+          definition num_nodes in
           apply next_up_index[E][ctx][L, x, empty_tree] to prem2
         }
         case tree_node(RL, y, RR) suppose R_eq {
-          definition{zip_index}
           rewrite first_ctx_index[E][RL][y,RR,node(leftF(L,x),ctx)]
-          definition {take_ctx, plug_tree}
-          rewrite tree_nodes_plug[E][take_ctx(ctx)][tree_node(L,x,empty_tree)]
-          definition {tree_nodes, tree_nodes}
-          rewrite add_zero[tree_nodes(L)]
-          rewrite add_suc[tree_nodes(plug_tree(take_ctx(ctx),empty_tree))][tree_nodes(L)].
+          definition {take_ctx, plug_tree, zip_index, zip_take}
+          rewrite num_nodes_plug[E][take_ctx(ctx)][tree_node(L,x,empty_tree)]
+          definition {num_nodes, num_nodes}
+          rewrite num_nodes_plug[E][take_ctx(ctx)][L]
+          rewrite add_zero[num_nodes(L)]          
+          rewrite add_suc[num_nodes(plug_tree(take_ctx(ctx),empty_tree))][num_nodes(L)].
         }
       }
     }
   }
 end
 
-theorem length_in_order: all E:type. all t:Tree<E>.
-  length(in_order(t)) = tree_nodes(t)
-proof
-  sorry
-end
-
+/*
 lemma nth_in_order_plug: all E:type. all ctx:List<Frame<E>>. all L:Tree<E>, x:E, R:Tree<E>, a:E.
-  nth(in_order(plug_tree(ctx,tree_node(L,x,R))),a)(tree_nodes(plug_tree(take_ctx(ctx),empty_tree)) + tree_nodes(L)) = x
+  nth(in_order(plug_tree(ctx,tree_node(L,x,R))),a)(num_nodes(plug_tree(take_ctx(ctx),empty_tree)) + num_nodes(L)) = x
 proof
   arbitrary E:type
   induction List<Frame<E>>
   case empty {
     arbitrary L:Tree<E>, x:E, R:Tree<E>, a:E
-    definition {plug_tree, in_order, take_ctx, tree_nodes, operator+}
-    have eq: nth(append(in_order(L),node(x,in_order(R))),a)(tree_nodes(L)) = nth(node(x,in_order(R)),a)(0)
+    definition {plug_tree, in_order, take_ctx, num_nodes, operator+}
+    have eq: nth(append(in_order(L),node(x,in_order(R))),a)(num_nodes(L)) = nth(node(x,in_order(R)),a)(0)
       by rewrite length_in_order[E][L] in
          rewrite add_zero[length(in_order(L))] in nth_append_back[E][in_order(L)][node(x, in_order(R)), 0, a]
     rewrite eq
     definition nth.
   }
   case node(f, ctx') suppose IH {
-    ?
+    arbitrary L:Tree<E>, x:E, R:Tree<E>, a:E
+    switch f {
+      case leftF(A, z) {
+        definition {plug_tree, take_ctx}
+        have IH2: nth(in_order(plug_tree(ctx',tree_node(A,z,tree_node(L,x,R)))),a)
+                     (num_nodes(plug_tree(take_ctx(ctx'),empty_tree)) + num_nodes(A)) = z
+          by IH[A,z,tree_node(L,x,R), a]
+        rewrite num_nodes_plug[E][take_ctx(ctx')][tree_node(A,z,empty_tree)]
+        definition {num_nodes, num_nodes} rewrite add_zero[num_nodes(A)]
+        ?
+      }
+      case rightF(z, B) {
+        ?
+      }
+    }
   }
 end
 
@@ -582,3 +731,4 @@ proof
     }
   }
 end
+*/

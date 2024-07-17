@@ -770,6 +770,21 @@ proof
   }
 end
 
+theorem take_append: all E:type. all xs:List<E>. all ys:List<E>.
+  take(length(xs), append(xs, ys)) = xs
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary ys:List<E>
+    definition {length, append, take}.
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<E>
+    definition {length, append, take}
+    rewrite IH[ys].
+  }
+end
 
 theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
   nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
