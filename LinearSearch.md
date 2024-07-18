@@ -929,9 +929,9 @@ function search_if<T>(List<T>, fn T->bool) -> Nat {
 <!--
 ``` {.deduce file=LinearSearch.pf} 
 import Base
-import Nat
 import LinkedLists
 import Set
+import Nat
 <<search>>
 
 <<search_test1>>

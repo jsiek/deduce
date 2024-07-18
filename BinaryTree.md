@@ -68,23 +68,54 @@ The example tree has `6` nodes.
 assert num_nodes(T3) = 6
 ```
 
+Now for the main event of this blog post, the in-order tree traversal.
+The idea of this traversal is that for each node in the tree, we
+follow this recipe:
+
+1. process the left subtree
+2. process the current node
+3. process the right subtree
+
+What it means to process a node can be different for different uses of
+an in-order traversal. But to make things concrete, we study an
+in-order traversal that produces a list. So here is our definition of
+the `in_order` function.
+
+```{.deduce #in_order}
+function in_order<E>(Tree<E>) -> List<E> {
+  in_order(EmptyTree) = empty
+  in_order(TreeNode(L, x, R)) =
+    append(in_order(L), node(x, in_order(R)))
+}
+```
+
+The result of `in_order` for `T3` is the list `0,1,2,3,4,5`.
+
+```{.deduce #test_in_order}
+assert in_order(T3) = interval(6, 0)
+```
+
 
 
 <!--
 ```{.deduce file=BinaryTree.pf} 
 import Nat
+import List
 
 <<Tree>>
 <<height>>
 <<num_nodes>>
+<<in_order>>
 ```
 
 ```{.deduce file=BinaryTreeTest.pf} 
 import Nat
+import List
 import BinaryTree
 
 <<BinaryTree05>>
 <<test_height>>
 <<test_num_nodes>>
+<<test_in_order>>
 ```
 -->
