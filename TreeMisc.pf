@@ -1,3 +1,7 @@
+/*
+ This is out-of-date.
+*/
+
 import Option
 import List
 import Tree
@@ -177,7 +181,7 @@ end
 
 
 function frame_size<E>(InOrdFrame<E>) -> Nat {
-  frame_size(rightInOrd(L, x)) = tree_nodes(L) + tree_nodes(L)
+  frame_size(rightInOrd(L, x)) = num_nodes(L) + num_nodes(L)
 }
 
 function context_size<E>(List<InOrdFrame<E>>) -> Nat {
@@ -186,7 +190,7 @@ function context_size<E>(List<InOrdFrame<E>>) -> Nat {
 }
 
 define metric : < E > fn Tree<E>, List<InOrdFrame<E>> -> Nat =
-    generic E { λ t, ctx { tree_nodes(t) + tree_nodes(t) + context_size(ctx) } }
+    generic E { λ t, ctx { num_nodes(t) + num_nodes(t) + context_size(ctx) } }
 
 lemma metric1: all E:type, L:Tree<E>, x:E, ctx:List<InOrdFrame<E>>, n:Nat.
   if metric(empty_tree, node(rightInOrd(L,x), ctx)) < suc(n)
@@ -194,10 +198,10 @@ lemma metric1: all E:type, L:Tree<E>, x:E, ctx:List<InOrdFrame<E>>, n:Nat.
 proof
   arbitrary E:type, L:Tree<E>, x:E, ctx:List<InOrdFrame<E>>, n:Nat
   suppose prem
-  have prem2: tree_nodes(L) + (tree_nodes(L) + context_size(ctx)) < n
-    by apply suc_less[(tree_nodes(L) + (tree_nodes(L) + context_size(ctx))), n]
-       to rewrite add_assoc[tree_nodes(L)][tree_nodes(L), context_size(ctx)] in
-          definition {metric, tree_nodes, context_size, frame_size, operator+} in prem
+  have prem2: num_nodes(L) + (num_nodes(L) + context_size(ctx)) < n
+    by apply suc_less[(num_nodes(L) + (num_nodes(L) + context_size(ctx))), n]
+       to rewrite add_assoc[num_nodes(L)][num_nodes(L), context_size(ctx)] in
+          definition {metric, num_nodes, context_size, frame_size, operator+} in prem
   definition {metric}
   prem2
 end
@@ -208,20 +212,20 @@ lemma metric2: all E:type, L:Tree<E>, x:E, R:Tree<E>, ctx:List<InOrdFrame<E>>, n
 proof
   arbitrary E:type, L:Tree<E>, x:E, R:Tree<E>, ctx:List<InOrdFrame<E>>, n:Nat
   suppose prem
-  define a = tree_nodes(R)
-  define b = tree_nodes(L)
+  define a = num_nodes(R)
+  define b = num_nodes(L)
   define c = context_size(ctx)
   have prem2: suc((b + a) + ((b + a) + c)) < n
     by definition {a,b,c}
-       apply suc_less[(suc((tree_nodes(L) + tree_nodes(R)) +
-                            ((tree_nodes(L) + tree_nodes(R)) + context_size(ctx)))), n]
-       to rewrite add_suc[(tree_nodes(L) + tree_nodes(R))]
-                      [((tree_nodes(L) + tree_nodes(R)) + context_size(ctx))] in
-       definition {metric, tree_nodes, operator+} in prem
+       apply suc_less[(suc((num_nodes(L) + num_nodes(R)) +
+                            ((num_nodes(L) + num_nodes(R)) + context_size(ctx)))), n]
+       to rewrite add_suc[(num_nodes(L) + num_nodes(R))]
+                      [((num_nodes(L) + num_nodes(R)) + context_size(ctx))] in
+       definition {metric, num_nodes, operator+} in prem
   definition {metric, context_size, frame_size}
-  rewrite add_suc[tree_nodes(R)][((tree_nodes(L) + tree_nodes(L)) + context_size(ctx))]
-  rewrite add_suc[tree_nodes(R)]
-    [(tree_nodes(R) + ((tree_nodes(L) + tree_nodes(L)) + context_size(ctx)))]
+  rewrite add_suc[num_nodes(R)][((num_nodes(L) + num_nodes(L)) + context_size(ctx))]
+  rewrite add_suc[num_nodes(R)]
+    [(num_nodes(R) + ((num_nodes(L) + num_nodes(L)) + context_size(ctx)))]
   rewrite add_assoc
   have eq: suc(a + (a + ((b + b) + c))) = suc((b + a) + ((b + a) + c))
     by equations
@@ -290,17 +294,17 @@ proof
 end
 
 theorem in_order_stack_correct: all E:type, t:Tree<E>.
-  in_order_stack(suc(2 * tree_nodes(t)), t, empty, empty) = in_order(t)
+  in_order_stack(suc(2 * num_nodes(t)), t, empty, empty) = in_order(t)
 proof
   arbitrary E:type, t:Tree<E>
-  have m: metric(t,empty) < suc(2 * tree_nodes(t))
+  have m: metric(t,empty) < suc(2 * num_nodes(t))
     by definition {metric, context_size, operator<, operator≤, operator*}
-       rewrite add_zero[tree_nodes(t)]
-       less_equal_refl[tree_nodes(t) + tree_nodes(t)]
+       rewrite add_zero[num_nodes(t)]
+       less_equal_refl[num_nodes(t) + num_nodes(t)]
   equations
-        in_order_stack(suc(2 * tree_nodes(t)),t,empty,empty)
+        in_order_stack(suc(2 * num_nodes(t)),t,empty,empty)
       = in_order_accum(plugInOrd(empty,t),empty)
-             by apply in_order_stack_correct_aux[suc(2 * tree_nodes(t))][E, t, empty, empty]
+             by apply in_order_stack_correct_aux[suc(2 * num_nodes(t))][E, t, empty, empty]
                 to m
   ... = in_order_accum(t,empty)
         by definition plugInOrd.
