@@ -415,6 +415,18 @@ in the tree returned by `ti_take`.
 define ti_index : < E > fn(TreeIter<E>) -> Nat = λ iter { num_nodes(ti_take(iter))}
 ```
 
+### Exercise: Implement and test the `ti_prev` Operation
+
+The `ti_prev` operation (for previous) moves the iterator backward by
+one position with respect to in-order traversal.
+
+```
+ti_prev : < E > fn TreeIter<E> -> TreeIter<E>
+```
+
+Implement and test the `ti_prev` operation.
+
+
 ## Conclusion
 
 This completes the implementation of the 5 tree iterator operations.

@@ -242,6 +242,10 @@ def check_proof(proof, env):
       typ = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, typ, rhs)
       ret = check_proof(rest, body_env)
+    case PTLetNew(loc, var, rhs, rest):
+      typ = type_synth_term(rhs, env, None, [])
+      body_env = env.define_term_var(loc, var, typ, rhs)
+      ret = check_proof(rest, body_env)
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)
       check_proof_of(reason, frm, env)
@@ -509,6 +513,14 @@ def check_proof_of(proof, formula, env):
       typ = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, typ, rhs)
       ret = check_proof_of(rest, formula, body_env)
+
+    case PTLetNew(loc, var, rhs, rest):
+      typ = type_synth_term(rhs, env, None, [])
+      body_env = env.define_term_var(loc, var, typ, rhs)
+      equation = mkEqual(loc, Var(loc, var), rhs)
+      frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
+      # TODO: also rewrite the body_env -Jeremy
+      ret = check_proof_of(rest, frm, body_env)
       
     case PLet(loc, label, frm, reason, rest):
       check_formula(frm, env)

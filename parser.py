@@ -294,6 +294,11 @@ def parse_tree_to_ast(e, parent):
                      str(e.children[0].value),
                      parse_tree_to_ast(e.children[1], e),
                      parse_tree_to_ast(e.children[2], e))
+    elif e.data == 'new_define_term_proof':
+        return PTLetNew(e.meta,
+                        str(e.children[0].value),
+                        parse_tree_to_ast(e.children[1], e),
+                        parse_tree_to_ast(e.children[2], e))
     elif e.data == 'annot':
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
