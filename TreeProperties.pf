@@ -249,12 +249,11 @@ proof
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
         rewrite num_nodes_plug[E][take_path(path')][A]
         definition {num_nodes}
-        define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-        define Y = num_nodes(A)
-        define Z = num_nodes(B)
-        have eq: X + suc(Y + Z) = suc((X + Y) + Z)
+        define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+        define_ Y = num_nodes(A)
+        define_ Z = num_nodes(B)
+        conclude X + suc(Y + Z) = suc((X + Y) + Z)
             by rewrite add_suc[X][Y+Z] rewrite add_assoc[X][Y,Z].
-        rewrite (definition {X,Y,Z} in eq).
       }
     }
   }

@@ -517,7 +517,7 @@ def check_proof_of(proof, formula, env):
     case PTLetNew(loc, var, rhs, rest):
       typ = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, typ, rhs)
-      equation = mkEqual(loc, Var(loc, var), rhs)
+      equation = mkEqual(loc, rhs, Var(loc, var))
       frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
       # TODO: also rewrite the body_env -Jeremy
       ret = check_proof_of(rest, frm, body_env)
