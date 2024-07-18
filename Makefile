@@ -95,6 +95,7 @@ blog4:
 check_blog5:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
 	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTree.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTreeTest.pf
 
 # TODO
 
