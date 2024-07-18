@@ -182,7 +182,7 @@ union TreeIter<E> {
 }
 ```
 
-### The `ti2tree` operation
+### The `ti2tree` Operation
 
 Of the tree iterator operations, we will first implement `ti2tree`
 because it will help to explain this zipper-style representation.  We
@@ -227,7 +227,7 @@ assert ti2tree(iter3) = T3
 assert ti2tree(iter7) = T3
 ```
 
-### The `ti_first` operation
+### The `ti_first` Operation
 
 Recall that the `ti_first` operation returns an iterator pointing to
 the first node (with respect to the in-order traversal) of a non-empty
@@ -262,7 +262,7 @@ As promised above, applying `ti_first` to `T3` gives us node `0`.
 assert ti_get(ti_first(T1, 3, T6)) = 0
 ```
 
-### The `ti_get` operation
+### The `ti_get` Operation
 
 Recall that the `ti_get` operator should return the data of the node
 at the current position. This is straightforward to implement because
@@ -274,7 +274,7 @@ function ti_get<E>(TreeIter<E>) -> E {
 }
 ```
 
-### The `ti_next` operation
+### The `ti_next` Operation
 
 Recall that the `ti_next` operator moves the iterator forward by one
 position with respect to the in-order traversal. This operation is
@@ -352,6 +352,67 @@ define iter4 = ti_next(iter3_)
 assert ti_get(iter4) = 4
 ```
 
+### The `ti_index` Operation
+
+Recall that the `ti_index` operator returns the position of the
+iterator as a natural number. More specifically, `ti_index` returns
+the position of the current node with respect to the in the in-order
+traversal. The following demonstrates this invariant on `iter0` and
+`iter7.`
+
+```{.deduce #test_ti_index}
+define L0 = in_order(ti2tree(iter0))
+define i0 = ti_index(iter0)
+assert ti_get(iter0) = nth(L0, 42)(i0)
+
+define L7 = in_order(ti2tree(iter7))
+define i7 = ti_index(iter7)
+assert ti_get(iter7) = nth(L7, 42)(i7)
+```
+
+The idea for implementing `ti_index` is that we'll count how many
+nodes are in the portion of the tree that comes before the current
+position. We define an auxiliary function that constructs this portion
+of the tree, calling it `ti_take` because it is reminiscent of the
+`take(n, ls)` function in `List.py`, which returns the prefix of list
+`ls` of length `n`. Furthermore, we use a second auxiliary function
+named `take_path` that applies this idea to the path of the iterator.
+So to implement the `take_path` function, we throw away the subtrees
+to the right of the path (by removing `LeftD(x, R)`) and we keep the
+subtrees to the left of the path (by keeping `Right(L, x)`).
+
+```{.deduce #take_path}
+function take_path<E>(List<Direction<E>>) -> List<Direction<E>> {
+  take_path(empty) = empty
+  take_path(node(f, path')) =
+    switch f {
+      case RightD(L, x) {
+        node(RightD(L,x), take_path(path'))
+      }
+      case LeftD(x, R) {
+        take_path(path')
+      }
+    }
+}
+```
+
+We implement `ti_take` by applying `take_path` to the path of the
+iterator, and then plug the left subtree `L` into the result.  (The
+node `x` and subtree `R` are not before node `x` with respect to
+in-order traversal.)
+
+```{.deduce #ti_take}
+function ti_take<E>(TreeIter<E>) -> Tree<E> {
+  ti_take(TrItr(path, L, x, R)) = plug_tree(take_path(path), L)
+}
+```
+
+Finally, we implement `ti_index` by counting the number of nodes
+in the tree returned by `ti_take`.
+
+```{.deduce #ti_index}
+define ti_index : < E > fn(TreeIter<E>) -> Nat = λ iter { num_nodes(ti_take(iter))}
+```
 
 <!--
 ```{.deduce file=BinaryTree.pf} 
@@ -371,45 +432,9 @@ import List
 <<ti_get>>
 <<next_up>>
 <<ti_next>>
-
-function next_up<E>(List<Direction<E>>, Tree<E>, E, Tree<E>) -> TreeIter<E> {
-  next_up(empty, A, z, B) = TrItr(empty, A, z, B)
-  next_up(node(f, path'), A, z, B) =
-    switch f {
-      case RightD(L, x) {
-        next_up(path', L, x, TreeNode(A, z, B))
-      }
-      case LeftD(x, R) {
-        TrItr(path', TreeNode(A, z, B), x, R)
-      }
-    }
-}
-
-function ti_next<E>(TreeIter<E>) -> TreeIter<E> {
-  ti_next(TrItr(path, L, x, R)) =
-    switch R {
-      case EmptyTree {
-        next_up(path, L, x, R)
-      }
-      case TreeNode(RL, y, RR) {
-        first_path(RL, y, RR, node(RightD(L, x), path))
-      }
-    }
-}
-
-
-function take_path<E>(List<Direction<E>>) -> List<Direction<E>> {
-  take_path(empty) = empty
-  take_path(node(f, path')) =
-    switch f {
-      case RightD(L, x) {
-        node(RightD(L,x), take_path(path'))
-      }
-      case LeftD(x, R) {
-        take_path(path')
-      }
-    }
-}
+<<take_path>>
+<<ti_take>>
+<<ti_index>>
 
 function drop_path<E>(List<Direction<E>>) -> List<Direction<E>> {
   drop_path(empty) = empty
@@ -423,13 +448,6 @@ function drop_path<E>(List<Direction<E>>) -> List<Direction<E>> {
       }
     }
 }
-
-function ti_take<E>(TreeIter<E>) -> Tree<E> {
-  ti_take(TrItr(path, L, x, R)) = plug_tree(take_path(path), L)
-}
-
-define ti_index : < E > fn(TreeIter<E>) -> Nat = λ z { num_nodes(ti_take(z))}
-
 ```
 
 ```{.deduce file=BinaryTreeTest.pf} 
@@ -445,5 +463,6 @@ import BinaryTree
 <<test_ti2tree>>
 <<test_ti_first>>
 <<test_ti_next>>
+<<test_ti_index>>
 ```
 -->
