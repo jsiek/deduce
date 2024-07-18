@@ -154,7 +154,7 @@ left-or-right decisions. For example, to represent the position of
 node `4` of the example tree, we record the path `R,L,L` (`R` for
 right and `L` for left).
 
-![Diagram of the iterator at position 4](./Iter4.png)
+![Diagram of the iterator at position 4](https://www.dropbox.com/scl/fi/3kpijipyfufv71sks0maf/Iter4.png?rlkey=qt33fb2h9mhymbs6vo2i4oqd8&raw=1)
 
 When we come to implement the `ti_next` operation, we will sometimes
 need to climb the tree. For example, to get from `4` to `5`.  To make
@@ -281,7 +281,7 @@ Recall that the `ti_next` operator moves the iterator forward by one
 position with respect to the in-order traversal. This operation is
 non-trivial to implement. Consider again our example tree.
 
-![Diagram of a Binary Tree](./BinaryTree07.png)
+![Diagram of a Binary Tree](https://www.dropbox.com/scl/fi/0jp518lh06ym8fcnlw7jg/BinaryTree07.png?rlkey=8g8beeabeqakb3c9kk6z3vrja&st=cj3qj2s8&raw=1)
 
 Suppose the current node is `2`. Then the next node is `3`, which
 requires climbing a fair ways up the tree. On the other hand, if the
