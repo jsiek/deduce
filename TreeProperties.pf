@@ -31,19 +31,19 @@ end
        
    --------------------------------------------------------- */
 
-lemma first_ctx_stable: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, ctx:List<Direction<E>>.
-  ti2tree(first_ctx(A, y, B, ctx)) = plug_tree(ctx, TreeNode(A, y, B))
+lemma first_path_stable: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+  ti2tree(first_path(A, y, B, path)) = plug_tree(path, TreeNode(A, y, B))
 proof
   arbitrary E:type
   induction Tree<E>
   case EmptyTree {
-    arbitrary y:E, B:Tree<E>, ctx:List<Direction<E>>
-    definition {first_ctx, ti2tree}.
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    definition {first_path, ti2tree}.
   }
   case TreeNode(L, x, R) suppose IH_L, IH_R {
-    arbitrary y:E, B:Tree<E>, ctx:List<Direction<E>>
-    definition {first_ctx, ti2tree}
-    rewrite IH_L[x,R,node(LeftD(y,B),ctx)]
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    definition {first_path, ti2tree}
+    rewrite IH_L[x,R,node(LeftD(y,B),path)]
     definition {plug_tree}.
   }
 end
@@ -53,34 +53,34 @@ theorem ti_first_stable: all E:type, A:Tree<E>, x:E, B:Tree<E>.
 proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
   definition {ti_first, ti2tree}
-  rewrite first_ctx_stable[E][A][x,B,empty]
+  rewrite first_path_stable[E][A][x,B,empty]
   definition {plug_tree}.
 end
 
-lemma first_ctx_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, ctx:List<Direction<E>>.
-  ti_index(first_ctx(A,y,B, ctx)) = num_nodes(plug_tree(take_ctx(ctx), EmptyTree))
+lemma first_path_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+  ti_index(first_path(A,y,B, path)) = num_nodes(plug_tree(take_path(path), EmptyTree))
 proof
   arbitrary E:type
   induction Tree<E>
   case EmptyTree {
-    arbitrary y:E, B:Tree<E>, ctx:List<Direction<E>>
-    definition {first_ctx, num_nodes, ti_index, ti_take}.
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    definition {first_path, num_nodes, ti_index, ti_take}.
   }
   case TreeNode(L, x, R) suppose IH {
-    arbitrary y:E, B:Tree<E>, ctx:List<Direction<E>>
-    definition {first_ctx}
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    definition {first_path}
     switch L {
       case EmptyTree suppose L_eq {
-        definition {ti_index, num_nodes, first_ctx, ti_take, take_ctx}.
+        definition {ti_index, num_nodes, first_path, ti_take, take_path}.
       }
       case TreeNode(LL, z, LR) suppose L_eq {
         rewrite symmetric L_eq
-        have IH2: ti_index(first_ctx(L,x,R,node(LeftD(y,B),ctx)))
-                = num_nodes(plug_tree(take_ctx(node(LeftD(y,B),ctx)),EmptyTree))
-            by IH[x, R, node(LeftD(y,B),ctx)]
-        definition {first_ctx}
+        have IH2: ti_index(first_path(L,x,R,node(LeftD(y,B),path)))
+                = num_nodes(plug_tree(take_path(node(LeftD(y,B),path)),EmptyTree))
+            by IH[x, R, node(LeftD(y,B),path)]
+        definition {first_path}
         rewrite IH2
-        definition take_ctx.
+        definition take_path.
       }
     }
   }
@@ -91,9 +91,9 @@ theorem ti_first_index: all E:type, A:Tree<E>, x:E, B:Tree<E>.
 proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
   definition ti_first
-  rewrite first_ctx_index[E][A][x,B,empty]
-  suffices num_nodes(plug_tree(take_ctx(empty),EmptyTree)) = 0
-  definition {take_ctx, plug_tree, num_nodes}.
+  rewrite first_path_index[E][A][x,B,empty]
+  suffices num_nodes(plug_tree(take_path(empty),EmptyTree)) = 0
+  definition {take_path, plug_tree, num_nodes}.
 end
 
 /* ------------------------------------------------------
@@ -108,8 +108,8 @@ end
 
    ----------------------------------------------------- */
 
-lemma next_up_stable: all E:type. all ctx:List<Direction<E>>. all A:Tree<E>, y:E, B:Tree<E>.
-  plug_tree(ctx, TreeNode(A,y,B)) = ti2tree(next_up(ctx, A, y, B))
+lemma next_up_stable: all E:type. all path:List<Direction<E>>. all A:Tree<E>, y:E, B:Tree<E>.
+  plug_tree(path, TreeNode(A,y,B)) = ti2tree(next_up(path, A, y, B))
 proof
   arbitrary E:type
   induction List<Direction<E>>
@@ -117,7 +117,7 @@ proof
     arbitrary A:Tree<E>, y:E, B:Tree<E>
     definition {plug_tree, next_up, ti2tree}.
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary A:Tree<E>, y:E, B:Tree<E>
     definition {plug_tree, next_up}
     switch f {
@@ -131,8 +131,8 @@ proof
   }
 end
 
-lemma num_nodes_plug: all E:type. all ctx:List<Direction<E>>. all t:Tree<E>.
-  num_nodes(plug_tree(ctx, t)) = num_nodes(plug_tree(ctx, EmptyTree)) + num_nodes(t)
+lemma num_nodes_plug: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  num_nodes(plug_tree(path, t)) = num_nodes(plug_tree(path, EmptyTree)) + num_nodes(t)
 proof  
   arbitrary E:type
   induction List<Direction<E>>
@@ -141,7 +141,7 @@ proof
     conclude num_nodes(plug_tree(empty,t)) = num_nodes(plug_tree(empty,EmptyTree)) + num_nodes(t)
         by definition {plug_tree, num_nodes, operator+}.
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary t:Tree<E>
     switch f {
       case RightD(L, x) {
@@ -150,7 +150,7 @@ proof
         rewrite IH[TreeNode(L,x,EmptyTree)]
         definition {num_nodes, num_nodes}
         rewrite add_zero[num_nodes(L)]
-        rewrite add_assoc[num_nodes(plug_tree(ctx',EmptyTree))][suc(num_nodes(L)), num_nodes(t)]
+        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][suc(num_nodes(L)), num_nodes(t)]
         definition {operator+}.
       }
       case LeftD(x, R) {
@@ -158,7 +158,7 @@ proof
         rewrite IH[TreeNode(t,x,R)]
         rewrite IH[TreeNode(EmptyTree,x,R)]
         definition {num_nodes, num_nodes, operator+}
-        rewrite add_assoc[num_nodes(plug_tree(ctx',EmptyTree))][suc(num_nodes(R)), num_nodes(t)]
+        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][suc(num_nodes(R)), num_nodes(t)]
         definition {operator+}
         rewrite add_commute[num_nodes(R)][num_nodes(t)].
       }
@@ -166,9 +166,9 @@ proof
   }
 end
 
-lemma next_up_index: all E:type. all ctx:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
-  if suc(ti_index(TrItr(ctx, A,x,B)) + num_nodes(B)) < num_nodes(ti2tree(TrItr(ctx, A,x,B)))
-  then ti_index(next_up(ctx, A, x, B)) = suc(ti_index(TrItr(ctx, A,x,B)) + num_nodes(B))
+lemma next_up_index: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  if suc(ti_index(TrItr(path, A,x,B)) + num_nodes(B)) < num_nodes(ti2tree(TrItr(path, A,x,B)))
+  then ti_index(next_up(path, A, x, B)) = suc(ti_index(TrItr(path, A,x,B)) + num_nodes(B))
 proof
   arbitrary E:type
   definition ti_index
@@ -178,30 +178,30 @@ proof
     suppose prem
     conclude false
       by apply less_irreflexive
-         to definition {ti_index, take_ctx, plug_tree, num_nodes, operator+, ti2tree, ti_take} in prem
+         to definition {ti_index, take_path, plug_tree, num_nodes, operator+, ti2tree, ti_take} in prem
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     suppose prem
     switch f {
       case RightD(L, y) suppose f_eq {
-        definition {next_up, ti_index, take_ctx, plug_tree, ti_take}
-        define X = num_nodes(plug_tree(take_ctx(ctx'),EmptyTree))
+        definition {next_up, ti_index, take_path, plug_tree, ti_take}
+        define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
         define Y = num_nodes(L)
         define Z = num_nodes(A)
         define W = num_nodes(B)
-        define P = num_nodes(plug_tree(ctx',EmptyTree))
-        have X_eq: X = num_nodes(plug_tree(take_ctx(ctx'),EmptyTree)) by definition X.
+        define P = num_nodes(plug_tree(path',EmptyTree))
+        have X_eq: X = num_nodes(plug_tree(take_path(path'),EmptyTree)) by definition X.
         have Y_eq: Y = num_nodes(L) by definition Y.
         have Z_eq: Z = num_nodes(A) by definition Z.
         have W_eq: W = num_nodes(B) by definition W.
-        have P_eq: P = num_nodes(plug_tree(ctx',EmptyTree)) by definition P.
+        have P_eq: P = num_nodes(plug_tree(path',EmptyTree)) by definition P.
         
         have prem3: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
           by definition {X,Y,Z,W,P} definition {num_nodes, num_nodes} in
-             rewrite num_nodes_plug[E][ctx'][TreeNode(L,y,TreeNode(A,x,B))] in
-             rewrite num_nodes_plug[E][take_ctx(ctx')][TreeNode(L,y,A)] in 
-             definition {take_ctx, ti_take, ti2tree, plug_tree} in rewrite f_eq in prem
+             rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))] in
+             rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)] in 
+             definition {take_path, ti_take, ti2tree, plug_tree} in rewrite f_eq in prem
         have prem_normal: suc(suc((X + Y) + (Z + W))) < suc(suc(P + (Y + (Z + W))))
           by  rewrite add_assoc[X][Y, Z+W]
               rewrite add_assoc[Y][Z, W] in
@@ -212,11 +212,11 @@ proof
               rewrite add_suc[X][Y+Z] in          
               rewrite add_suc[Y][Z+W] in
               prem3
-        have prem2: suc(num_nodes(ti_take(TrItr(ctx',L,y,TreeNode(A,x,B)))) + num_nodes(TreeNode(A,x,B)))
-                    < num_nodes(ti2tree(TrItr(ctx',L,y,TreeNode(A,x,B))))
+        have prem2: suc(num_nodes(ti_take(TrItr(path',L,y,TreeNode(A,x,B)))) + num_nodes(TreeNode(A,x,B)))
+                    < num_nodes(ti2tree(TrItr(path',L,y,TreeNode(A,x,B))))
              by  definition {ti2tree, num_nodes, ti_take}
-                 rewrite num_nodes_plug[E][take_ctx(ctx')][L]
-                 rewrite num_nodes_plug[E][ctx'][TreeNode(L,y,TreeNode(A,x,B))]
+                 rewrite num_nodes_plug[E][take_path(path')][L]
+                 rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))]
                  definition {num_nodes, num_nodes}
                  rewrite symmetric X_eq
                  rewrite symmetric Y_eq
@@ -230,8 +230,8 @@ proof
                  prem_normal
         rewrite apply IH[L,y,TreeNode(A,x,B)] to prem2
         definition {ti_take, num_nodes}
-        rewrite num_nodes_plug[E][take_ctx(ctx')][L]
-        rewrite num_nodes_plug[E][take_ctx(ctx')][TreeNode(L,y,A)]
+        rewrite num_nodes_plug[E][take_path(path')][L]
+        rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)]
         definition num_nodes
         have eq2: suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W) by
           equations
@@ -245,11 +245,11 @@ proof
         rewrite (definition {X,Y,Z,W} in eq2).
       }
       case LeftD(y, R) {
-        definition {next_up, ti_index, num_nodes, take_ctx, ti_take}
-        rewrite num_nodes_plug[E][take_ctx(ctx')][TreeNode(A,x,B)]
-        rewrite num_nodes_plug[E][take_ctx(ctx')][A]
+        definition {next_up, ti_index, num_nodes, take_path, ti_take}
+        rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
+        rewrite num_nodes_plug[E][take_path(path')][A]
         definition {num_nodes}
-        define X = num_nodes(plug_tree(take_ctx(ctx'),EmptyTree))
+        define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
         define Y = num_nodes(A)
         define Z = num_nodes(B)
         have eq: X + suc(Y + Z) = suc((X + Y) + Z)
@@ -267,26 +267,26 @@ proof
   arbitrary E:type, z : TreeIter<E>
   suppose prem
   switch z {
-    case TrItr(ctx, L, x, R) suppose z_eq {
+    case TrItr(path, L, x, R) suppose z_eq {
       definition {ti_next}
       switch R {
         case EmptyTree suppose R_eq {
-          have prem2: suc(ti_index(TrItr(ctx,L,x,EmptyTree)) + num_nodes(EmptyTree))
-                < num_nodes(ti2tree(TrItr(ctx,L,x,EmptyTree)))
-            by definition {num_nodes} rewrite add_zero[ti_index(TrItr(ctx,L,x,EmptyTree))]
+          have prem2: suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
+                < num_nodes(ti2tree(TrItr(path,L,x,EmptyTree)))
+            by definition {num_nodes} rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))]
                definition {num_nodes} in rewrite z_eq | R_eq in prem
-          rewrite add_zero[ti_index(TrItr(ctx,L,x,EmptyTree))] in
+          rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))] in
           definition num_nodes in
-          apply next_up_index[E][ctx][L, x, EmptyTree] to prem2
+          apply next_up_index[E][path][L, x, EmptyTree] to prem2
         }
         case TreeNode(RL, y, RR) suppose R_eq {
-          rewrite first_ctx_index[E][RL][y,RR,node(RightD(L,x),ctx)]
-          definition {take_ctx, plug_tree, ti_index, ti_take}
-          rewrite num_nodes_plug[E][take_ctx(ctx)][TreeNode(L,x,EmptyTree)]
+          rewrite first_path_index[E][RL][y,RR,node(RightD(L,x),path)]
+          definition {take_path, plug_tree, ti_index, ti_take}
+          rewrite num_nodes_plug[E][take_path(path)][TreeNode(L,x,EmptyTree)]
           definition {num_nodes, num_nodes}
-          rewrite num_nodes_plug[E][take_ctx(ctx)][L]
+          rewrite num_nodes_plug[E][take_path(path)][L]
           rewrite add_zero[num_nodes(L)]          
-          rewrite add_suc[num_nodes(plug_tree(take_ctx(ctx),EmptyTree))][num_nodes(L)].
+          rewrite add_suc[num_nodes(plug_tree(take_path(path),EmptyTree))][num_nodes(L)].
         }
       }
     }
@@ -298,15 +298,15 @@ theorem ti_next_stable: all E:type, z:TreeIter<E>.
 proof
   arbitrary E:type, z:TreeIter<E>
   switch z {
-    case TrItr(ctx, L, x, R) {
+    case TrItr(path, L, x, R) {
       switch R {
         case EmptyTree {
           definition {ti2tree, ti_next}
-          rewrite symmetric next_up_stable[E][ctx][L,x,EmptyTree].
+          rewrite symmetric next_up_stable[E][path][L,x,EmptyTree].
         }
         case TreeNode(RL, y, RR) {
           definition {ti2tree, ti_next}
-          rewrite first_ctx_stable[E][RL][y,RR,node(RightD(L,x),ctx)]
+          rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
           definition {plug_tree}.
         }
       }
@@ -322,115 +322,115 @@ end
    
    -------------------------------------------------------- */
 
-lemma in_order_plug_take: all E:type. all ctx:List<Direction<E>>. all t:Tree<E>.
-  in_order(plug_tree(take_ctx(ctx), t)) = append( in_order(plug_tree(take_ctx(ctx),EmptyTree)), in_order(t))
+lemma in_order_plug_take: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  in_order(plug_tree(take_path(path), t)) = append( in_order(plug_tree(take_path(path),EmptyTree)), in_order(t))
 proof
   arbitrary E:type
   induction List<Direction<E>>
   case empty {
     arbitrary t:Tree<E>
-    definition {take_ctx, plug_tree, in_order, append}.
+    definition {take_path, plug_tree, in_order, append}.
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary t:Tree<E>
     switch f {
       case RightD(L, x) {
-        definition {take_ctx, plug_tree}
+        definition {take_path, plug_tree}
         equations
-              in_order(plug_tree(take_ctx(ctx'),TreeNode(L,x,t)))
-            = append(in_order(plug_tree(take_ctx(ctx'),EmptyTree)), in_order(TreeNode(L,x,t)))
+              in_order(plug_tree(take_path(path'),TreeNode(L,x,t)))
+            = append(in_order(plug_tree(take_path(path'),EmptyTree)), in_order(TreeNode(L,x,t)))
                   by IH[TreeNode(L,x,t)]
-        ... = append( in_order(plug_tree(take_ctx(ctx'),EmptyTree)), append(in_order(L), node(x, in_order(t))))
+        ... = append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, in_order(t))))
                   by definition in_order.
-        ... = append( in_order(plug_tree(take_ctx(ctx'),EmptyTree)), append(append(in_order(L), node(x, empty)), in_order(t)))
+        ... = append( in_order(plug_tree(take_path(path'),EmptyTree)), append(append(in_order(L), node(x, empty)), in_order(t)))
                   by rewrite append_assoc[E][in_order(L)][node(x,empty), in_order(t)] definition {append, append}.
-        ... = append(append( in_order(plug_tree(take_ctx(ctx'),EmptyTree)), append(in_order(L), node(x, empty))), in_order(t))
-                  by rewrite append_assoc[E][in_order(plug_tree(take_ctx(ctx'),EmptyTree))][append(in_order(L), node(x, empty)), in_order(t)].
-        ... = append(append( in_order(plug_tree(take_ctx(ctx'),EmptyTree)), append(in_order(L), node(x, in_order(EmptyTree)))), in_order(t))
+        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, empty))), in_order(t))
+                  by rewrite append_assoc[E][in_order(plug_tree(take_path(path'),EmptyTree))][append(in_order(L), node(x, empty)), in_order(t)].
+        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, in_order(EmptyTree)))), in_order(t))
                   by definition in_order.
-        ... = append(append( in_order(plug_tree(take_ctx(ctx'),EmptyTree)), in_order(TreeNode(L,x,EmptyTree))), in_order(t))
+        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), in_order(TreeNode(L,x,EmptyTree))), in_order(t))
                   by definition {in_order, in_order}.
-        ... = append(in_order(plug_tree(take_ctx(ctx'), TreeNode(L,x,EmptyTree))),in_order(t))
+        ... = append(in_order(plug_tree(take_path(path'), TreeNode(L,x,EmptyTree))),in_order(t))
                   by rewrite IH[TreeNode(L,x,EmptyTree)].
       }
       case LeftD(x, R) {
-        definition {take_ctx}
-        conclude in_order(plug_tree(take_ctx(ctx'),t))
-               = append(in_order(plug_tree(take_ctx(ctx'),EmptyTree)),in_order(t))
+        definition {take_path}
+        conclude in_order(plug_tree(take_path(path'),t))
+               = append(in_order(plug_tree(take_path(path'),EmptyTree)),in_order(t))
             by IH[t]
       }
     }
   }
 end
 
-lemma in_order_plug_drop: all E:type. all ctx:List<Direction<E>>. all t:Tree<E>.
-  in_order(plug_tree(drop_ctx(ctx), t)) = append( in_order(t), in_order(plug_tree(drop_ctx(ctx),EmptyTree)))
+lemma in_order_plug_drop: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  in_order(plug_tree(drop_path(path), t)) = append( in_order(t), in_order(plug_tree(drop_path(path),EmptyTree)))
 proof
   arbitrary E:type
   induction List<Direction<E>>
   case empty {
     arbitrary t:Tree<E>
-    definition {drop_ctx, plug_tree, in_order}
+    definition {drop_path, plug_tree, in_order}
     rewrite append_empty[E][in_order(t)].
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary t:Tree<E>
     switch f {
       case RightD(L, x) {
-        definition {drop_ctx}
-        conclude in_order(plug_tree(drop_ctx(ctx'),t))
-               = append(in_order(t),in_order(plug_tree(drop_ctx(ctx'),EmptyTree)))
+        definition {drop_path}
+        conclude in_order(plug_tree(drop_path(path'),t))
+               = append(in_order(t),in_order(plug_tree(drop_path(path'),EmptyTree)))
             by IH[t]
       }
       case LeftD(x, R) {
-        definition {drop_ctx, plug_tree}
-        have IH2: in_order(plug_tree(drop_ctx(ctx'),TreeNode(t,x,R)))
-                = append(in_order(TreeNode(t,x,R)),in_order(plug_tree(drop_ctx(ctx'),EmptyTree)))
+        definition {drop_path, plug_tree}
+        have IH2: in_order(plug_tree(drop_path(path'),TreeNode(t,x,R)))
+                = append(in_order(TreeNode(t,x,R)),in_order(plug_tree(drop_path(path'),EmptyTree)))
                 by IH[TreeNode(t,x,R)]
         equations
-          in_order(plug_tree(drop_ctx(ctx'),TreeNode(t,x,R)))
-              = append(in_order(TreeNode(t,x,R)), in_order(plug_tree(drop_ctx(ctx'),EmptyTree)))
+          in_order(plug_tree(drop_path(path'),TreeNode(t,x,R)))
+              = append(in_order(TreeNode(t,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree)))
                    by IH2
-          ... = append( append(in_order(t), node(x, in_order(R))), in_order(plug_tree(drop_ctx(ctx'), EmptyTree)))
+          ... = append( append(in_order(t), node(x, in_order(R))), in_order(plug_tree(drop_path(path'), EmptyTree)))
                    by definition in_order.
-          ... = append( append(in_order(t), in_order(TreeNode(EmptyTree,x,R))), in_order(plug_tree(drop_ctx(ctx'), EmptyTree)))
+          ... = append( append(in_order(t), in_order(TreeNode(EmptyTree,x,R))), in_order(plug_tree(drop_path(path'), EmptyTree)))
                    by definition {in_order,in_order,append}.
-          ... = append(in_order(t), in_order(plug_tree(drop_ctx(ctx'), TreeNode(EmptyTree,x,R))))
+          ... = append(in_order(t), in_order(plug_tree(drop_path(path'), TreeNode(EmptyTree,x,R))))
                    by rewrite IH[TreeNode(EmptyTree,x,R)]
-                      rewrite append_assoc[E][in_order(t)][in_order(TreeNode(EmptyTree,x,R)), in_order(plug_tree(drop_ctx(ctx'),EmptyTree))].
+                      rewrite append_assoc[E][in_order(t)][in_order(TreeNode(EmptyTree,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree))].
       }
     }      
   }
 end
 
-lemma in_order_plug_take_drop: all E:type. all ctx:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
-  in_order(plug_tree(ctx, TreeNode(A, x, B)))
-  = append(in_order(plug_tree(take_ctx(ctx), A)), node(x, in_order(plug_tree(drop_ctx(ctx), B))))
+lemma in_order_plug_take_drop: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  in_order(plug_tree(path, TreeNode(A, x, B)))
+  = append(in_order(plug_tree(take_path(path), A)), node(x, in_order(plug_tree(drop_path(path), B))))
 proof
   arbitrary E:type
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    definition {plug_tree, take_ctx, drop_ctx, in_order}.
+    definition {plug_tree, take_path, drop_path, in_order}.
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    define X = in_order(plug_tree(take_ctx(ctx'),EmptyTree))
+    define X = in_order(plug_tree(take_path(path'),EmptyTree))
     define Z = in_order(A)
     define W = in_order(B)
-    define Q = in_order(plug_tree(drop_ctx(ctx'), EmptyTree))
+    define Q = in_order(plug_tree(drop_path(path'), EmptyTree))
     switch f {
       case RightD(L, y) {
-        definition {plug_tree, take_ctx, drop_ctx, in_order}
+        definition {plug_tree, take_path, drop_path, in_order}
         define Y = in_order(L)
         equations
-              in_order(plug_tree(ctx',TreeNode(L,y,TreeNode(A,x,B))))
-            = append(in_order(plug_tree(take_ctx(ctx'),L)), node(y, in_order(plug_tree(drop_ctx(ctx'), TreeNode(A,x,B)))))
+              in_order(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
+            = append(in_order(plug_tree(take_path(path'),L)), node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B)))))
                  by IH[L,y,TreeNode(A,x,B)]
-        ... = append(append(X, Y),  node(y, in_order(plug_tree(drop_ctx(ctx'), TreeNode(A,x,B)))))
-                 by definition {X,Y} rewrite in_order_plug_take[E][ctx'][L].
+        ... = append(append(X, Y),  node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B)))))
+                 by definition {X,Y} rewrite in_order_plug_take[E][path'][L].
         ... = append(append(X, Y),  node(y, append(in_order(TreeNode(A,x,B)), Q)))
-                 by definition {Q} rewrite in_order_plug_drop[E][ctx'][TreeNode(A,x,B)].
+                 by definition {Q} rewrite in_order_plug_drop[E][path'][TreeNode(A,x,B)].
         ... = append(append(X, Y),  node(y, append(append(Z, node(x, W)), Q)))
                  by definition {in_order, Z, W}.
         ... = append(X, append(Y, node(y, append(Z, append(node(x, W), Q)))))
@@ -441,22 +441,22 @@ proof
         ... = append(append(X, append(Y, node(y, Z))),  node(x, append(W, Q)))
                  by rewrite append_assoc[E][X][append(Y, node(y, Z)), node(x, append(W, Q))]
                     rewrite append_assoc[E][Y][node(y, Z), node(x, append(W, Q))].
-        ... = append(append(X, append(Y, node(y, Z))),  node(x, in_order(plug_tree(drop_ctx(ctx'), B))))
-                 by definition {Q,W} rewrite in_order_plug_drop[E][ctx'][B].
-        ... = append(in_order(plug_tree(take_ctx(ctx'), TreeNode(L,y,A))), node(x,in_order(plug_tree(drop_ctx(ctx'),B))))
-                 by definition {X,Y,Z} rewrite in_order_plug_take[E][ctx'][TreeNode(L,y,A)] definition in_order.
+        ... = append(append(X, append(Y, node(y, Z))),  node(x, in_order(plug_tree(drop_path(path'), B))))
+                 by definition {Q,W} rewrite in_order_plug_drop[E][path'][B].
+        ... = append(in_order(plug_tree(take_path(path'), TreeNode(L,y,A))), node(x,in_order(plug_tree(drop_path(path'),B))))
+                 by definition {X,Y,Z} rewrite in_order_plug_take[E][path'][TreeNode(L,y,A)] definition in_order.
       }
       case LeftD(y, R) {
-        definition {plug_tree, take_ctx, drop_ctx, in_order}
+        definition {plug_tree, take_path, drop_path, in_order}
         define Y = in_order(R)
         equations
-              in_order(plug_tree(ctx',TreeNode(TreeNode(A,x,B),y,R)))
-            = append(in_order(plug_tree(take_ctx(ctx'),TreeNode(A,x,B))), node(y,in_order(plug_tree(drop_ctx(ctx'),R))))
+              in_order(plug_tree(path',TreeNode(TreeNode(A,x,B),y,R)))
+            = append(in_order(plug_tree(take_path(path'),TreeNode(A,x,B))), node(y,in_order(plug_tree(drop_path(path'),R))))
               by IH[TreeNode(A,x,B), y, R]
-        ... = append(in_order(plug_tree(take_ctx(ctx'),TreeNode(A,x,B))), node(y, append(Y, Q)))
-              by definition {Y,Q} rewrite in_order_plug_drop[E][ctx'][R].
+        ... = append(in_order(plug_tree(take_path(path'),TreeNode(A,x,B))), node(y, append(Y, Q)))
+              by definition {Y,Q} rewrite in_order_plug_drop[E][path'][R].
         ... = append(append(X, append(Z, node(x, W))), node(y, append(Y, Q)))
-              by definition {X, Z, W} rewrite in_order_plug_take[E][ctx'][TreeNode(A,x,B)] definition in_order.
+              by definition {X, Z, W} rewrite in_order_plug_take[E][path'][TreeNode(A,x,B)] definition in_order.
         ... = append(X, append(Z, node(x, append(W, node(y, append(Y, Q))))))
               by rewrite append_assoc[E][X][append(Z, node(x, W)), node(y, append(Y, Q))]
                  rewrite append_assoc[E][Z][node(x, W), node(y, append(Y, Q))]
@@ -465,31 +465,31 @@ proof
               by rewrite append_assoc[E][W][node(y, Y), Q]
                  rewrite append_assoc[E][X][Z, node(x, append(W, append(node(y, Y), Q)))]
                  definition append.
-        ... = append(in_order(plug_tree(take_ctx(ctx'),A)), node(x,append(append(W, node(y, Y)), Q)))
-              by definition {X,Z} rewrite in_order_plug_take[E][ctx'][A].
-        ... = append(in_order(plug_tree(take_ctx(ctx'),A)),node(x,in_order(plug_tree(drop_ctx(ctx'),TreeNode(B,y,R)))))
-              by definition {W,Y,Q} rewrite in_order_plug_drop[E][ctx'][TreeNode(B,y,R)] definition in_order.
+        ... = append(in_order(plug_tree(take_path(path'),A)), node(x,append(append(W, node(y, Y)), Q)))
+              by definition {X,Z} rewrite in_order_plug_take[E][path'][A].
+        ... = append(in_order(plug_tree(take_path(path'),A)),node(x,in_order(plug_tree(drop_path(path'),TreeNode(B,y,R)))))
+              by definition {W,Y,Q} rewrite in_order_plug_drop[E][path'][TreeNode(B,y,R)] definition in_order.
       }
     }
   }
 end
 
-lemma nth_in_order_plug_take: all E:type, ctx:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E.
-  nth(in_order(plug_tree(ctx,TreeNode(L,x,R))),a)(num_nodes(plug_tree(take_ctx(ctx),EmptyTree)) + num_nodes(L)) = x
+lemma nth_in_order_plug_take: all E:type, path:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E.
+  nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)(num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L)) = x
 proof
-  arbitrary E:type, ctx:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E
-  rewrite in_order_plug_take_drop[E][ctx][L,x,R]
-  rewrite in_order_plug_take[E][ctx][L]
-  define X = in_order(plug_tree(take_ctx(ctx),EmptyTree))
+  arbitrary E:type, path:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E
+  rewrite in_order_plug_take_drop[E][path][L,x,R]
+  rewrite in_order_plug_take[E][path][L]
+  define X = in_order(plug_tree(take_path(path),EmptyTree))
   define Y = in_order(L)
-  have X_def: X = in_order(plug_tree(take_ctx(ctx),EmptyTree)) by definition X.
+  have X_def: X = in_order(plug_tree(take_path(path),EmptyTree)) by definition X.
   have Y_def: Y = in_order(L) by definition Y.
   rewrite symmetric length_in_order[E][L]
-  rewrite symmetric length_in_order[E][plug_tree(take_ctx(ctx),EmptyTree)]
+  rewrite symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
   rewrite symmetric X_def
   rewrite symmetric Y_def
-  define Z = in_order(plug_tree(drop_ctx(ctx),R))
-  have Z_def: Z = in_order(plug_tree(drop_ctx(ctx),R)) by definition Z.
+  define Z = in_order(plug_tree(drop_path(path),R))
+  have Z_def: Z = in_order(plug_tree(drop_path(path),R)) by definition Z.
   rewrite symmetric Z_def
   rewrite symmetric length_append[E][X][Y]
   rewrite (rewrite add_zero[length(append(X,Y))] in nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
@@ -501,10 +501,10 @@ theorem ti_index_get_in_order: all E:type, z:TreeIter<E>, a:E.
 proof
   arbitrary E:type, z:TreeIter<E>, a:E
   switch z {
-    case TrItr(ctx, L, x, R) {
+    case TrItr(path, L, x, R) {
       definition {ti2tree, ti_get, ti_index, ti_take}
-      rewrite num_nodes_plug[E][take_ctx(ctx)][L]
-      rewrite nth_in_order_plug_take[E, ctx, L,x,R,a].
+      rewrite num_nodes_plug[E][take_path(path)][L]
+      rewrite nth_in_order_plug_take[E, path, L,x,R,a].
     }
   }
 end
@@ -527,11 +527,11 @@ function post_order<E>(Tree<E>) -> List<E> {
 }
 
 function focus<E>(TreeIter<E>) -> Tree<E> {
-  focus(TrItr(ctx, L, x, R)) = TreeNode(L, x, R)
+  focus(TrItr(path, L, x, R)) = TreeNode(L, x, R)
 }
 
 function context<E>(TreeIter<E>) -> List<Direction<E>> {
-  context(TrItr(ctx, L, x, R)) = ctx
+  context(TrItr(path, L, x, R)) = path
 }
 
 function tree_data<E>(Tree<E>) -> Option<E> {
@@ -549,9 +549,9 @@ function right_child<E>(Tree<E>) -> Tree<E> {
   right_child(TreeNode(L, x, R)) = R
 }
 
-theorem in_order_plug: all E:type. all ctx:List<Direction<E>>. all A:Tree<E>, B:Tree<E>.
+theorem in_order_plug: all E:type. all path:List<Direction<E>>. all A:Tree<E>, B:Tree<E>.
   if in_order(A) = in_order(B)
-  then in_order(plug_tree(ctx, A)) = in_order(plug_tree(ctx, B))
+  then in_order(plug_tree(path, A)) = in_order(plug_tree(path, B))
 proof
   arbitrary E:type
   induction List<Direction<E>>
@@ -561,7 +561,7 @@ proof
     definition plug_tree
     A_B
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary A:Tree<E>, B:Tree<E>
     switch f {
       case RightD(L, x) {
@@ -569,8 +569,8 @@ proof
         definition plug_tree
         have LA_LB: in_order(TreeNode(L,x,A)) = in_order(TreeNode(L,x,B))
            by definition in_order rewrite A_B.
-        conclude in_order(plug_tree(ctx',TreeNode(L,x,A)))
-               = in_order(plug_tree(ctx',TreeNode(L,x,B)))
+        conclude in_order(plug_tree(path',TreeNode(L,x,A)))
+               = in_order(plug_tree(path',TreeNode(L,x,B)))
             by apply IH[TreeNode(L, x, A), TreeNode(L, x, B)] to LA_LB
       }
       case LeftD(x, R) {
@@ -578,8 +578,8 @@ proof
         definition plug_tree
         have AR_BR: in_order(TreeNode(A,x,R)) = in_order(TreeNode(B,x,R))
            by definition in_order rewrite A_B.
-        conclude in_order(plug_tree(ctx',TreeNode(A,x,R)))
-               = in_order(plug_tree(ctx',TreeNode(B,x,R)))
+        conclude in_order(plug_tree(path',TreeNode(A,x,R)))
+               = in_order(plug_tree(path',TreeNode(B,x,R)))
             by apply IH[TreeNode(A, x, R), TreeNode(B, x, R)] to AR_BR
       }
     }
@@ -608,63 +608,63 @@ proof
   }
 end
 
-theorem in_order_plug_take2: all E:type. all ctx:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
-  in_order(plug_tree(take_ctx(ctx),A))
-  = take(num_nodes(plug_tree(take_ctx(ctx),A)), in_order(ti2tree(TrItr(ctx,A,x,B))))
+theorem in_order_plug_take2: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  in_order(plug_tree(take_path(path),A))
+  = take(num_nodes(plug_tree(take_path(path),A)), in_order(ti2tree(TrItr(path,A,x,B))))
 proof
   arbitrary E:type
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    definition {take_ctx, plug_tree, ti2tree, in_order}
+    definition {take_path, plug_tree, ti2tree, in_order}
     rewrite symmetric length_in_order[E][A]
     rewrite take_append[E][in_order(A)][node(x, in_order(B))].
   }
-  case node(f, ctx') suppose IH {
+  case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     switch f {
       case RightD(L, z) {  // TreeNode(L, z, TreeNode(A,x,B))
-        definition {take_ctx, plug_tree, ti2tree, in_order}
-        rewrite num_nodes_plug[E][take_ctx(ctx')][TreeNode(L,z,A)]
+        definition {take_path, plug_tree, ti2tree, in_order}
+        rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,z,A)]
         definition {num_nodes}
-        suffices in_order(plug_tree(take_ctx(ctx'),TreeNode(L,z,A)))
-               = take(num_nodes(plug_tree(take_ctx(ctx'),EmptyTree)) + suc(num_nodes(L) + num_nodes(A)),
-                      in_order(plug_tree(ctx', TreeNode(L,z,TreeNode(A,x,B)))))
-        have IH2: in_order(plug_tree(take_ctx(ctx'),TreeNode(L,z,A)))
-                = take(num_nodes(plug_tree(take_ctx(ctx'),TreeNode(L,z,A))),in_order(ti2tree(TrItr(ctx',TreeNode(L,z,A),x,B))))
+        suffices in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
+               = take(num_nodes(plug_tree(take_path(path'),EmptyTree)) + suc(num_nodes(L) + num_nodes(A)),
+                      in_order(plug_tree(path', TreeNode(L,z,TreeNode(A,x,B)))))
+        have IH2: in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
+                = take(num_nodes(plug_tree(take_path(path'),TreeNode(L,z,A))),in_order(ti2tree(TrItr(path',TreeNode(L,z,A),x,B))))
           by IH[TreeNode(L, z, A), x, B]
-        have IH3: in_order(plug_tree(take_ctx(ctx'),TreeNode(L,z,A)))
-                = take(num_nodes(plug_tree(take_ctx(ctx'),TreeNode(L,z,A))),in_order(plug_tree(ctx',TreeNode(TreeNode(L,z,A),x,B))))
+        have IH3: in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
+                = take(num_nodes(plug_tree(take_path(path'),TreeNode(L,z,A))),in_order(plug_tree(path',TreeNode(TreeNode(L,z,A),x,B))))
           by definition ti2tree in IH2
         rewrite IH3
-        rewrite num_nodes_plug[E][take_ctx(ctx')][TreeNode(L,z,A)]
+        rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,z,A)]
         definition {num_nodes}
         have LA_B_L_AB: in_order(TreeNode(TreeNode(L,z,A),x,B)) = in_order(TreeNode(L,z,TreeNode(A,x,B)))
           by in_order_assoc[E][L][z,A,x,B]
-        rewrite (apply in_order_plug[E][ctx'][TreeNode(TreeNode(L,z,A),x,B), TreeNode(L,z,TreeNode(A,x,B))]
+        rewrite (apply in_order_plug[E][path'][TreeNode(TreeNode(L,z,A),x,B), TreeNode(L,z,TreeNode(A,x,B))]
                  to LA_B_L_AB).
       }
       case LeftD(z, R) { // TreeNode(TreeNode(A, x, b), z, R)
-        definition {take_ctx, plug_tree, ti2tree, in_order}
+        definition {take_path, plug_tree, ti2tree, in_order}
         rewrite IH[A,x,TreeNode(B, z, R)]
         definition {ti2tree}
         have eq: in_order(TreeNode(A,x,TreeNode(B,z,R))) = in_order(TreeNode(TreeNode(A,x,B),z,R))
           by symmetric in_order_assoc[E][A][x,B,z,R]
-        rewrite (apply in_order_plug[E][ctx'][TreeNode(A,x,TreeNode(B,z,R)), TreeNode(TreeNode(A,x,B),z,R)]
+        rewrite (apply in_order_plug[E][path'][TreeNode(A,x,TreeNode(B,z,R)), TreeNode(TreeNode(A,x,B),z,R)]
                  to eq).
       }
     }
   }
 end
 
-theorem in_order_take_ctx: all E:type, z:TreeIter<E>.
+theorem in_order_take_path: all E:type, z:TreeIter<E>.
   in_order(ti_take(z)) = take(ti_index(z), in_order(ti2tree(z)))
 proof
   arbitrary E:type, z:TreeIter<E>
   switch z {
-    case TrItr(ctx, A, x, B) {
+    case TrItr(path, A, x, B) {
       definition {ti_take, ti_index}
-      in_order_plug_take2[E][ctx][A,x,B]
+      in_order_plug_take2[E][path][A,x,B]
     }
   }
 end

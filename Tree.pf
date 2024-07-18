@@ -33,87 +33,87 @@ union TreeIter<E> {
 }
 
 function ti2tree<E>(TreeIter<E>) -> Tree<E> {
-  ti2tree(TrItr(ctx, L, x, R)) = plug_tree(ctx, TreeNode(L, x, R))
+  ti2tree(TrItr(path, L, x, R)) = plug_tree(path, TreeNode(L, x, R))
 }
 
 function ti_get<E>(TreeIter<E>) -> E {
-  ti_get(TrItr(ctx, L, x, R)) = x
+  ti_get(TrItr(path, L, x, R)) = x
 }
 
-function first_ctx<E>(Tree<E>, E, Tree<E>, List<Direction<E>>) -> TreeIter<E> {
-  first_ctx(EmptyTree, x, R, ctx) = TrItr(ctx, EmptyTree, x, R)
-  first_ctx(TreeNode(LL, y, LR), x, R, ctx) = first_ctx(LL, y, LR, node(LeftD(x, R), ctx))
+function first_path<E>(Tree<E>, E, Tree<E>, List<Direction<E>>) -> TreeIter<E> {
+  first_path(EmptyTree, x, R, path) = TrItr(path, EmptyTree, x, R)
+  first_path(TreeNode(LL, y, LR), x, R, path) = first_path(LL, y, LR, node(LeftD(x, R), path))
 }
 
 define ti_first : < E > fn Tree<E>,E,Tree<E> -> TreeIter<E>
-    = λ L,x,R { first_ctx(L, x, R, empty) }
+    = λ L,x,R { first_path(L, x, R, empty) }
 
 function next_up<E>(List<Direction<E>>, Tree<E>, E, Tree<E>) -> TreeIter<E> {
   next_up(empty, A, z, B) = TrItr(empty, A, z, B)
-  next_up(node(f, ctx'), A, z, B) =
+  next_up(node(f, path'), A, z, B) =
     switch f {
       case RightD(L, x) {
-        next_up(ctx', L, x, TreeNode(A, z, B))
+        next_up(path', L, x, TreeNode(A, z, B))
       }
       case LeftD(x, R) {
-        TrItr(ctx', TreeNode(A, z, B), x, R)
+        TrItr(path', TreeNode(A, z, B), x, R)
       }
     }
 }
 
 function ti_next<E>(TreeIter<E>) -> TreeIter<E> {
-  ti_next(TrItr(ctx, L, x, R)) =
+  ti_next(TrItr(path, L, x, R)) =
     switch R {
       case EmptyTree {
-        next_up(ctx, L, x, R)
+        next_up(path, L, x, R)
       }
       case TreeNode(RL, y, RR) {
-        first_ctx(RL, y, RR, node(RightD(L, x), ctx))
+        first_path(RL, y, RR, node(RightD(L, x), path))
       }
     }
 }
 
 function plug_tree<E>(List<Direction<E>>, Tree<E>) -> Tree<E> {
   plug_tree(empty, t) = t
-  plug_tree(node(f, ctx'), t) =
+  plug_tree(node(f, path'), t) =
     switch f {
       case RightD(L, x) {
-        plug_tree(ctx', TreeNode(L, x, t))
+        plug_tree(path', TreeNode(L, x, t))
       }
       case LeftD(x, R) {
-        plug_tree(ctx', TreeNode(t, x, R))
+        plug_tree(path', TreeNode(t, x, R))
       }
     }
 }
 
-function take_ctx<E>(List<Direction<E>>) -> List<Direction<E>> {
-  take_ctx(empty) = empty
-  take_ctx(node(f, ctx')) =
+function take_path<E>(List<Direction<E>>) -> List<Direction<E>> {
+  take_path(empty) = empty
+  take_path(node(f, path')) =
     switch f {
       case RightD(L, x) {
-        node(RightD(L,x), take_ctx(ctx'))
+        node(RightD(L,x), take_path(path'))
       }
       case LeftD(x, R) {
-        take_ctx(ctx')
+        take_path(path')
       }
     }
 }
 
-function drop_ctx<E>(List<Direction<E>>) -> List<Direction<E>> {
-  drop_ctx(empty) = empty
-  drop_ctx(node(f, ctx')) =
+function drop_path<E>(List<Direction<E>>) -> List<Direction<E>> {
+  drop_path(empty) = empty
+  drop_path(node(f, path')) =
     switch f {
       case RightD(L, x) {
-        drop_ctx(ctx')
+        drop_path(path')
       }
       case LeftD(x, R) {
-        node(LeftD(x, R), drop_ctx(ctx'))
+        node(LeftD(x, R), drop_path(path'))
       }
     }
 }
 
 function ti_take<E>(TreeIter<E>) -> Tree<E> {
-  ti_take(TrItr(ctx, L, x, R)) = plug_tree(take_ctx(ctx), L)
+  ti_take(TrItr(path, L, x, R)) = plug_tree(take_path(path), L)
 }
 
 define ti_index : < E > fn(TreeIter<E>) -> Nat = λ z { num_nodes(ti_take(z))}
