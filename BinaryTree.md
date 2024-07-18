@@ -1,4 +1,4 @@
-# Binary Trees with In-order Iterators
+# Binary Trees with In-order Iterators (Part 1)
 
 This is the fifth blog post in a
 [series](https://siek.blogspot.com/2024/06/data-structures-and-algorithms-correctly.html)
@@ -11,7 +11,8 @@ node has at most two children. We study the in-order tree traversal,
 as that will become important when we study binary search trees.
 Furthermore, we implement tree iterators that keep track of a location
 within the tree and can move forward with respect to the in-order
-traversal.
+traversal. We shall prove that our implementation of tree iterators
+is correct in Part 2 of this blog post.
 
 ## Binary Trees
 
@@ -26,7 +27,7 @@ union Tree<E> {
 
 For example, we can represent the following binary tree 
 
-![Diagram of a Binary Tree](./BinaryTree07.png)
+![Diagram of a Binary Tree](https://www.dropbox.com/scl/fi/0jp518lh06ym8fcnlw7jg/BinaryTree07.png?rlkey=8g8beeabeqakb3c9kk6z3vrja&dl=0)
 
 with a bunch of tree nodes like so:
 
@@ -187,7 +188,7 @@ union TreeIter<E> {
 Of the tree iterator operations, we will first implement `ti2tree`
 because it will help to explain this zipper-style representation.  We
 start by defining the auxiliary function `plug_tree`, which
-recontructs a tree from a path and the subtree at the specified
+reconstructs a tree from a path and the subtree at the specified
 position. The `plug_tree` function is defined by recursion on the
 path, so it moves upward in the tree with each recursive call.
 Consider the case for `LeftD(x, R)` below.  To plug tree `t` into the
@@ -374,7 +375,7 @@ The idea for implementing `ti_index` is that we'll count how many
 nodes are in the portion of the tree that comes before the current
 position. We define an auxiliary function that constructs this portion
 of the tree, calling it `ti_take` because it is reminiscent of the
-`take(n, ls)` function in `List.py`, which returns the prefix of list
+`take(n, ls)` function in `List.pf`, which returns the prefix of list
 `ls` of length `n`. Furthermore, we use a second auxiliary function
 named `take_path` that applies this idea to the path of the iterator.
 So to implement the `take_path` function, we throw away the subtrees
@@ -413,6 +414,12 @@ in the tree returned by `ti_take`.
 ```{.deduce #ti_index}
 define ti_index : < E > fn(TreeIter<E>) -> Nat = λ iter { num_nodes(ti_take(iter))}
 ```
+
+## Conclusion
+
+This completes the implementation of the 5 tree iterator operations.
+In Part 2 of this blog post, we will prove that these operations are correct.
+
 
 <!--
 ```{.deduce file=BinaryTree.pf} 
@@ -466,3 +473,10 @@ import BinaryTree
 <<test_ti_index>>
 ```
 -->
+
+<!--  LocalWords:  EmptyTree TreeNode BinaryTree suc num ti fn iter
+ -->
+<!--  LocalWords:  TreeIter Huet LeftD RightD TrItr LL LR RL RR ls 
+ -->
+<!--  LocalWords:  pf BinaryTreeTest
+ -->

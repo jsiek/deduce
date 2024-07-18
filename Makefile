@@ -97,5 +97,7 @@ check_blog5:
 	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTreeTest.pf
 
-# TODO
+blog5:
+	/usr/local/bin/pandoc BinaryTree.md -o BinaryTree.html
+
 
