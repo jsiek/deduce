@@ -22,13 +22,32 @@ union Tree<E> {
 }
 ```
 
+For example, we can represent the following binary tree 
+
 ![Diagram of a Binary Tree](./BinaryTree06.png)
+
+with a bunch of tree nodes like so:
+
+```{.deduce #BinaryTree06}
+define T0 = TreeNode(EmptyTree, 0, EmptyTree)
+define T2 = TreeNode(EmptyTree, 2, EmptyTree)
+define T1 = TreeNode(T0, 1, T2)
+define T4 = TreeNode(EmptyTree, 4, EmptyTree)
+define T6 = TreeNode(EmptyTree, 6, EmptyTree)
+define T3 = TreeNode(T4, 3, T6)
+```
+
+
+
 
 
 
 <!--
 ``` {.deduce file=BinaryTree.pf} 
+import Nat
+
 <<Tree>>
+<<BinaryTree06>>
 
 ```
 -->
