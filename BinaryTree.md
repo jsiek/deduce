@@ -26,7 +26,7 @@ union Tree<E> {
 
 For example, we can represent the following binary tree 
 
-![Diagram of a Binary Tree](./BinaryTree05.png)
+![Diagram of a Binary Tree](./BinaryTree07.png)
 
 with a bunch of tree nodes like so:
 
