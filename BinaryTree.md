@@ -1,4 +1,4 @@
-# Binary Trees with Iterators
+# Binary Trees with In-order Iterators
 
 This is the fifth blog post in a
 [series](https://siek.blogspot.com/2024/06/data-structures-and-algorithms-correctly.html)
@@ -12,6 +12,8 @@ as that will become important when we study binary search trees.
 Furthermore, we develop tree iterators that keep track of a location
 within the tree and can move forward with respect to the in-order
 traversal.
+
+## Binary Trees
 
 We begin by defining a `union` for binary trees:
 
@@ -32,9 +34,11 @@ with a bunch of tree nodes like so:
 define T0 = TreeNode(EmptyTree, 0, EmptyTree)
 define T2 = TreeNode(EmptyTree, 2, EmptyTree)
 define T1 = TreeNode(T0, 1, T2)
-define T5 = TreeNode(EmptyTree, 5, EmptyTree)
-define T4 = TreeNode(EmptyTree, 4, T5)
-define T3 = TreeNode(T1, 3, T4)
+define T4 = TreeNode(EmptyTree, 4, EmptyTree)
+define T5 = TreeNode(T4, 5, EmptyTree)
+define T7 = TreeNode(EmptyTree, 7, EmptyTree)
+define T6 = TreeNode(T5, 6, T7)
+define T3 = TreeNode(T1, 3, T6)
 ```
 
 We define the height of a tree with the following recursive function.
@@ -46,10 +50,10 @@ function height<E>(Tree<E>) -> Nat {
 }
 ```
 
-The example tree has height `3`.
+The example tree has height `4`.
 
 ```{.deduce #test_height}
-assert height(T3) = 3
+assert height(T3) = 4
 ```
 
 We count the number of nodes in a binary tree with the `num_nodes`
@@ -62,11 +66,13 @@ function num_nodes<E>(Tree<E>) -> Nat {
 }
 ```
 
-The example tree has `6` nodes.
+The example tree has `8` nodes.
 
 ```{.deduce #test_num_nodes}
-assert num_nodes(T3) = 6
+assert num_nodes(T3) = 8
 ```
+
+## In-order Tree Traversal
 
 Now for the main event of this blog post, the in-order tree traversal.
 The idea of this traversal is that for each node in the tree, we
@@ -76,24 +82,27 @@ follow this recipe:
 2. process the current node
 3. process the right subtree
 
-What it means to process a node can be different for different uses of
-an in-order traversal. But to make things concrete, we study an
-in-order traversal that produces a list. So here is our definition of
-the `in_order` function.
+What it means to process a node can be different for different
+instantiations of the in-order traversal. But to make things concrete,
+we study an in-order traversal that produces a list. So here is our
+definition of the `in_order` function.
 
 ```{.deduce #in_order}
 function in_order<E>(Tree<E>) -> List<E> {
   in_order(EmptyTree) = empty
-  in_order(TreeNode(L, x, R)) =
-    append(in_order(L), node(x, in_order(R)))
+  in_order(TreeNode(L, x, R)) = append(in_order(L), node(x, in_order(R)))
 }
 ```
 
-The result of `in_order` for `T3` is the list `0,1,2,3,4,5`.
+The result of `in_order` for `T3` is the list `0,1,2,3,4,5,6,7`.
 
 ```{.deduce #test_in_order}
-assert in_order(T3) = interval(6, 0)
+assert in_order(T3) = interval(8, 0)
 ```
+
+## In-order Tree Iterators
+
+
 
 
 
