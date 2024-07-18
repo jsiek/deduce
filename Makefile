@@ -92,6 +92,9 @@ check_blog4:
 blog4:
 	/usr/local/bin/pandoc MergeSort.md -o MergeSort.html
 
+check_blog5:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTree.pf
 
 # TODO
 
