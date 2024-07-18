@@ -186,18 +186,23 @@ Of the tree iterator operations, we will first implement `ti2tree`
 because it will help to explain this zipper-style representation.  We
 start by defining the auxilliary function `plug_tree`, which
 recontructs a tree from a path and the subtree at the specified
-position.
+position. The `plug_tree` function is defined by recursion on the
+path, so it moves upward in the tree with each recursive call.
+Consider the case for `LeftD(x, R)` below.  To plug tree `t` into the
+path `node(LeftD(x, R), path')`, we used the extra data stored in
+`LeftD(x, R)` to create `TreeNode(t, x, R)` which we then pass to the
+recursive call, to plug the new tree node into the rest of the path.
 
 ```{.deduce #plug_tree}
 function plug_tree<E>(List<Direction<E>>, Tree<E>) -> Tree<E> {
   plug_tree(empty, t) = t
   plug_tree(node(f, path'), t) =
     switch f {
-      case RightD(L, x) {
-        plug_tree(path', TreeNode(L, x, t))
-      }
       case LeftD(x, R) {
         plug_tree(path', TreeNode(t, x, R))
+      }
+      case RightD(L, x) {
+        plug_tree(path', TreeNode(L, x, t))
       }
     }
 }
@@ -211,8 +216,13 @@ function ti2tree<E>(TreeIter<E>) -> Tree<E> {
 }
 ```
 
+Moving an iterator does not change the tree that it is traversing, so
+`ti2tree` returns `T3` for iterators `iter0`, `iter3`, and `iter7`.
+
 ```{.deduce #test_ti2tree}
-assert ti2tree(ti_first(T1, 3, T6)) = T3
+assert ti2tree(iter0) = T3
+assert ti2tree(iter3) = T3
+assert ti2tree(iter7) = T3
 ```
 
 
