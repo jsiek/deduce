@@ -119,7 +119,7 @@ ti_index : < E > fn(TreeIter<E>) -> Nat
 
 * The `ti2tree` operator returns the tree that the iterator is traversing.
 
-* The `ti_first` operator returns an itereator pointing to the first
+* The `ti_first` operator returns an iterator pointing to the first
   node (with respect to the in-order traversal) of a non-empty tree.  We
   represent non-empty trees with three things: the left subtree, the
   data in the root node, and the right subtree.
@@ -182,9 +182,11 @@ union TreeIter<E> {
 }
 ```
 
+### The `ti2tree` operation
+
 Of the tree iterator operations, we will first implement `ti2tree`
 because it will help to explain this zipper-style representation.  We
-start by defining the auxilliary function `plug_tree`, which
+start by defining the auxiliary function `plug_tree`, which
 recontructs a tree from a path and the subtree at the specified
 position. The `plug_tree` function is defined by recursion on the
 path, so it moves upward in the tree with each recursive call.
@@ -225,6 +227,130 @@ assert ti2tree(iter3) = T3
 assert ti2tree(iter7) = T3
 ```
 
+### The `ti_first` operation
+
+Recall that the `ti_first` operation returns an iterator pointing to
+the first node (with respect to the in-order traversal) of a non-empty
+tree. For example, applying `ti_first` to `T3` should give us node
+`0`.  The idea to implement `ti_first` is simple: we walk down the
+tree going left at each step, until we get to a leaf. 
+
+To implement `ti_first` we define the auxiliary function `first_path`
+that takes a non-empty tree and the path-so-far and proceeds going to
+the left down the tree. (The `first_path` function will also come
+in handy when implementing `ti_next`.)
+
+```{.deduce #first_path}
+function first_path<E>(Tree<E>, E, Tree<E>, List<Direction<E>>) -> TreeIter<E> {
+  first_path(EmptyTree, x, R, path) = TrItr(path, EmptyTree, x, R)
+  first_path(TreeNode(LL, y, LR), x, R, path) = first_path(LL, y, LR, node(LeftD(x, R), path))
+}
+```
+
+We implement `ti_first` simply as a call to `first_path` where the
+path-so-far is `empty`.
+
+```{.deduce #ti_first}
+define ti_first : < E > fn Tree<E>,E,Tree<E> -> TreeIter<E>
+    = λ L,x,R { first_path(L, x, R, empty) }
+
+```
+
+As promised above, applying `ti_first` to `T3` gives us node `0`.
+
+```{.deduce #test_ti_first}
+assert ti_get(ti_first(T1, 3, T6)) = 0
+```
+
+### The `ti_get` operation
+
+Recall that the `ti_get` operator should return the data of the node
+at the current position. This is straightforward to implement because
+that data is stored directly in the tree iterator.
+
+```{.deduce #ti_get}
+function ti_get<E>(TreeIter<E>) -> E {
+  ti_get(TrItr(path, L, x, R)) = x
+}
+```
+
+### The `ti_next` operation
+
+Recall that the `ti_next` operator moves the iterator forward by one
+position with respect to the in-order traversal. This operation is
+non-trivial to implement. Consider again our example tree.
+
+![Diagram of a Binary Tree](./BinaryTree07.png)
+
+Suppose the current node is `2`. Then the next node is `3`, which
+requires climbing a fair ways up the tree. On the other hand, if the
+current node is `3`, then the next node is `4`, way back down the
+tree. So there are two different scenarios that we need to handle.
+
+1. If the current node has a right child, then the next node is the
+   *first* node of the right child's subtree (with respect to in-order
+   traversal). For example, node `3` has right child `6`, and the
+   first node of that subtree is `4`.
+
+2. If the current node does not have a right child, then the next node
+   is the ancestor after the first left branch. For example, node `2`
+   does not have a right child, so we go up the tree. We go up to `1`
+   via a right branch and then up to `3` via a left branch, so `3` is
+   the next node of `2`.
+
+For (1) we already have `first_path`, so we just need an auxiliary
+function for (2), which we call `next_up`. This function takes a path
+and the current non-empty subtree and returns the iterator for the
+next position. If the direction is `RightD`, we keep going up the
+tree.  If the direction is `LeftD(x, R)`, we stop and return an
+iterator for the parent node `x`.
+
+```{.deduce #next_up}
+function next_up<E>(List<Direction<E>>, Tree<E>, E, Tree<E>) -> TreeIter<E> {
+  next_up(empty, A, z, B) = TrItr(empty, A, z, B)
+  next_up(node(f, path'), A, z, B) =
+    switch f {
+      case RightD(L, x) {
+        next_up(path', L, x, TreeNode(A, z, B))
+      }
+      case LeftD(x, R) {
+        TrItr(path', TreeNode(A, z, B), x, R)
+      }
+    }
+}
+```
+
+Now that we have both `next_up` and `first_path`, we implement
+`ti_next` by checking whether the right child `R` is empty. If it is,
+we invoke `next_up`, and if not, we invoke `first_path`.
+
+```{.deduce #ti_next}
+function ti_next<E>(TreeIter<E>) -> TreeIter<E> {
+  ti_next(TrItr(path, L, x, R)) =
+    switch R {
+      case EmptyTree {
+        next_up(path, L, x, R)
+      }
+      case TreeNode(RL, y, RR) {
+        first_path(RL, y, RR, node(RightD(L, x), path))
+      }
+    }
+}
+```
+
+To see `ti_next` in action, in the following we go from position `2`
+up to position `3` and then back down to position `4.`
+
+```{.deduce #test_ti_next}
+define iter2 = ti_next(ti_next(iter0))
+assert ti_get(iter2) = 2
+
+define iter3_ = ti_next(iter2)
+assert ti_get(iter3_) = 3
+
+define iter4 = ti_next(iter3_)
+assert ti_get(iter4) = 4
+```
 
 
 <!--
@@ -240,18 +366,11 @@ import List
 <<TreeIter>>
 <<plug_tree>>
 <<ti2tree>>
-
-function ti_get<E>(TreeIter<E>) -> E {
-  ti_get(TrItr(path, L, x, R)) = x
-}
-
-function first_path<E>(Tree<E>, E, Tree<E>, List<Direction<E>>) -> TreeIter<E> {
-  first_path(EmptyTree, x, R, path) = TrItr(path, EmptyTree, x, R)
-  first_path(TreeNode(LL, y, LR), x, R, path) = first_path(LL, y, LR, node(LeftD(x, R), path))
-}
-
-define ti_first : < E > fn Tree<E>,E,Tree<E> -> TreeIter<E>
-    = λ L,x,R { first_path(L, x, R, empty) }
+<<first_path>>
+<<ti_first>>
+<<ti_get>>
+<<next_up>>
+<<ti_next>>
 
 function next_up<E>(List<Direction<E>>, Tree<E>, E, Tree<E>) -> TreeIter<E> {
   next_up(empty, A, z, B) = TrItr(empty, A, z, B)
@@ -324,5 +443,7 @@ import BinaryTree
 <<test_in_order>>
 <<test_first_get>>
 <<test_ti2tree>>
+<<test_ti_first>>
+<<test_ti_next>>
 ```
 -->
