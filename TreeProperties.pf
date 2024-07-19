@@ -60,7 +60,7 @@ theorem ti_first_stable: all E:type, A:Tree<E>, x:E, B:Tree<E>.
   ti2tree(ti_first(A, x, B)) = TreeNode(A, x, B)
 proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
-  definition {ti_first, ti2tree}
+  definition ti_first
   equations  ti2tree(first_path(A,x,B,empty))
            = plug_tree(empty,TreeNode(A,x,B))  by first_path_stable[E][A][x,B,empty]
        ... = TreeNode(A,x,B)                   by definition plug_tree.
