@@ -30,10 +30,10 @@ So we skip to the proof of correctness for `ti_first`.
 
 ## Correctness of `ti_first`
 
-Let us recall and make explicit the specification of `ti_first`:
+Let us make explicit the specification of `ti_first`:
 
 **Specification:** The `ti_first(A, x, B)` function returns an
-iterator pointing to the first node with respect to in-order
+iterator pointing to the first node, with respect to in-order
 traversal, of the tree `TreeNode(A, x, B)`.
 
 Also, recall that we said the following about `ti2tree` and
@@ -375,6 +375,64 @@ end
 ```
 
 ## Correctness of `ti_next`
+
+We start by writing down a more careful specification of `ti_next`.
+
+**Specification:** The `ti_next(iter)` operation returns an iterator
+whose position is one more than the position of `iter` with respect to
+in-order traversal, assuming the `iter` is not at the end of the
+in-order traversal.
+
+To make this specification formal, we can again use `ti_index` to talk
+about the position of the iterator. So we begin to prove the following
+theorem `ti_next_index`, taking the usual initial steps in the proof
+as guided by the formula to be proved and the definition of `ti_next`,
+which performs a `switch` on the right child `R` of the current node.
+
+```
+theorem ti_next_index: all E:type, iter : TreeIter<E>.
+  if suc(ti_index(iter)) < num_nodes(ti2tree(iter))
+  then ti_index(ti_next(iter)) = suc(ti_index(iter))
+proof
+  arbitrary E:type, iter : TreeIter<E>
+  suppose prem: suc(ti_index(iter)) < num_nodes(ti2tree(iter))
+  switch iter {
+    case TrItr(path, L, x, R) suppose iter_eq {
+      definition ti_next
+      switch R {
+        case EmptyTree suppose R_eq {
+          ?
+        }
+        case TreeNode(RL, y, RR) suppose R_eq {
+          ?
+        }
+      }
+    }
+  }
+end
+```
+
+In the case `R = EmptyTree`, `ti_next` calls the auxiliary function
+`next_up` and we need to prove.
+
+```
+ti_index(next_up(path,L,x,EmptyTree)) = suc(ti_index(TrItr(path,L,x,EmptyTree)))
+```
+
+As usual, we must create a lemma that generalizes this equation.
+Looking at the definition of `next_up`, we see that the recursive call
+grows the fourth argument, so we must replace the `EmptyTree` with an
+arbitrary tree `R`:
+
+```
+ti_index(next_up(path,L,x,R)) = suc(ti_index(TrItr(path,L,x,R)))
+```
+
+But this equation is incorrect. Consider the case when the current
+node `x` is node `1` in our example tree.
+
+![Diagram for path to node 1](./TreeNode1.png)
+
 
 ## Correctness of `ti_get` and `ti_index`
 

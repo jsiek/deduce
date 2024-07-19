@@ -263,24 +263,29 @@ proof
   }
 end
 
-theorem ti_next_index: all E:type, z : TreeIter<E>.
-  if suc(ti_index(z)) < num_nodes(ti2tree(z))
-  then ti_index(ti_next(z)) = suc(ti_index(z))
+theorem ti_next_index: all E:type, iter : TreeIter<E>.
+  if suc(ti_index(iter)) < num_nodes(ti2tree(iter))
+  then ti_index(ti_next(iter)) = suc(ti_index(iter))
 proof
-  arbitrary E:type, z : TreeIter<E>
-  suppose prem
-  switch z {
-    case TrItr(path, L, x, R) suppose z_eq {
-      definition {ti_next}
+  arbitrary E:type, iter : TreeIter<E>
+  suppose prem: suc(ti_index(iter)) < num_nodes(ti2tree(iter))
+  switch iter {
+    case TrItr(path, L, x, R) suppose iter_eq {
+      definition ti_next
       switch R {
         case EmptyTree suppose R_eq {
           have prem2: suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
-                < num_nodes(ti2tree(TrItr(path,L,x,EmptyTree)))
-            by definition {num_nodes} rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))]
-               definition {num_nodes} in rewrite z_eq | R_eq in prem
-          rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))] in
-          definition num_nodes in
-          apply next_up_index[E][path][L, x, EmptyTree] to prem2
+                      < num_nodes(ti2tree(TrItr(path,L,x,EmptyTree)))
+            by enable num_nodes
+               rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))]
+               rewrite iter_eq | R_eq in prem
+          equations
+                ti_index(next_up(path,L,x,EmptyTree))
+              = suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
+                by apply next_up_index[E][path][L, x, EmptyTree] to prem2
+          ... = suc(ti_index(TrItr(path,L,x,EmptyTree)))
+                by definition num_nodes
+                   rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))].
         }
         case TreeNode(RL, y, RR) suppose R_eq {
           rewrite first_path_index[E][RL][y,RR,node(RightD(L,x),path)]
@@ -296,11 +301,11 @@ proof
   }
 end
 
-theorem ti_next_stable: all E:type, z:TreeIter<E>.
-  ti2tree(ti_next(z)) = ti2tree(z)
+theorem ti_next_stable: all E:type, iter:TreeIter<E>.
+  ti2tree(ti_next(iter)) = ti2tree(iter)
 proof
-  arbitrary E:type, z:TreeIter<E>
-  switch z {
+  arbitrary E:type, iter:TreeIter<E>
+  switch iter {
     case TrItr(path, L, x, R) {
       switch R {
         case EmptyTree {
@@ -320,8 +325,8 @@ end
 /* --------------------------------------------------------
    Theorem about ti_get and ti_index:
    
-   ti_index_get_in_order: all E:type, z:TreeIter<E>, a:E.
-       ti_get(z) = nth(in_order(ti2tree(z)), a)(ti_index(z))
+   ti_index_get_in_order: all E:type, iter:TreeIter<E>, a:E.
+       ti_get(iter) = nth(in_order(ti2tree(iter)), a)(ti_index(iter))
    
    -------------------------------------------------------- */
 
