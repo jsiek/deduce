@@ -39,17 +39,20 @@ proof
   induction Tree<E>
   case EmptyTree {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
-    conclude ti2tree(first_path(EmptyTree,y,B,path))
-           = plug_tree(path,TreeNode(EmptyTree,y,B))
-        by definition {first_path, ti2tree}.
+    equations  ti2tree(first_path(EmptyTree,y,B,path))
+             = ti2tree(TrItr(path,EmptyTree,y,B))       by definition first_path.
+         ... = plug_tree(path,TreeNode(EmptyTree,y,B))  by definition ti2tree.
   }
   case TreeNode(L, x, R) suppose IH_L, IH_R {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
-    definition {first_path, ti2tree}
-    suffices ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
-           = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
-    rewrite IH_L[x,R,node(LeftD(y,B),path)]
-    definition {plug_tree}.
+    equations
+          ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+        = ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
+             by definition first_path.
+    ... = plug_tree(node(LeftD(y,B),path),TreeNode(L,x,R))
+             by IH_L[x,R,node(LeftD(y,B),path)]
+    ... = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+             by definition plug_tree.
   }
 end
 
@@ -58,8 +61,9 @@ theorem ti_first_stable: all E:type, A:Tree<E>, x:E, B:Tree<E>.
 proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
   definition {ti_first, ti2tree}
-  rewrite first_path_stable[E][A][x,B,empty]
-  definition {plug_tree}.
+  equations  ti2tree(first_path(A,x,B,empty))
+           = plug_tree(empty,TreeNode(A,x,B))  by first_path_stable[E][A][x,B,empty]
+       ... = TreeNode(A,x,B)                   by definition plug_tree.
 end
 
 lemma first_path_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.

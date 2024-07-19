@@ -191,8 +191,192 @@ proof
 end
 ```
 
+Our next task is to prove that creating an iterator from a tree using
+`ti_first` and then applying `ti2tree` produces the original tree.
+
+```
+theorem ti_first_stable: all E:type, A:Tree<E>, x:E, B:Tree<E>.
+  ti2tree(ti_first(A, x, B)) = TreeNode(A, x, B)
+proof
+  arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
+  definition {ti_first, ti2tree}
+  ?
+end
+```
+
+After expanding the definitions of `ti_first` and `ti2tree`, we are
+left to prove that
+
+```
+ti2tree(first_path(A,x,B,empty)) = TreeNode(A,x,B)
+```
+
+So we need to prove another lemma about `first_path` and again we need
+to generalize the `empty` path to an arbitrary path. Let us consider
+again the situation where the current node `x` is `5`.
+
+![Diagram for lemma first path index](./first_path1.png)
+
+The result of `first_path(A,x,B,path)` will be the path to node `4`,
+and the result of `ti2tree` will be the whole tree, not just `TreeNode(A,x,B)`
+as in the above equation. However, we can construct the whole tree
+from the `path` and `TreeNode(A,x,B)` using the `plug_tree` function.
+So we have the following lemma to prove.
+
+```
+lemma first_path_stable:
+  all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+  ti2tree(first_path(A, y, B, path)) = plug_tree(path, TreeNode(A, y, B))
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case EmptyTree {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    ?
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    ?
+  }
+end
+```
+
+In the case `A = EmptyTree`, we prove the equation using the
+definitions of `first_path` and `ti2tree`.
+
+```
+    equations  ti2tree(first_path(EmptyTree,y,B,path))
+             = ti2tree(TrItr(path,EmptyTree,y,B))       by definition first_path.
+         ... = plug_tree(path,TreeNode(EmptyTree,y,B))  by definition ti2tree.
+```
+
+In the case `A = TreeNode(L, x, R)`, we need to prove that
+```
+  ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+= plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+```
+
+We probably need to expand the definition of `first_path`, but doing
+so in your head is hard. So we can instead ask Deduce to do it.  We
+start by constructing an equation with a bogus right-hand side
+and apply the definition of `first_path`.
+
+```
+    equations
+          ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+        = EmptyTree
+             by definition first_path ?
+    ... = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+             by ?
+```
+
+Deduce responds with
+
+```
+incomplete proof
+Goal:
+	ti2tree(first_path(L,x,R,node(LeftD(y,B),path))) = EmptyTree
+```
+
+in which the left-hand side has expanded the definition of
+`first_path`. So we cut and paste that into our proof and move on to
+the next step.
+
+```
+    equations
+          ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+        = ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
+             by definition first_path.
+    ... = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+             by ?
+```
+
+We now have something that matches the induction hypothesis, so we
+instantiate it and ask Deduce to tell us the new right-hand side.
+
+```
+    equations
+          ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+        = ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
+             by definition first_path.
+    ... = EmptyTree
+             by IH_L[x,R,node(LeftD(y,B),path)]
+    ... = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+             by ?
+```
+
+Deduce responds with
+
+```
+expected
+ti2tree(first_path(L,x,R,node(LeftD(y,B),path))) = EmptyTree
+but only have
+ti2tree(first_path(L,x,R,node(LeftD(y,B),path))) = plug_tree(node(LeftD(y,B),path),TreeNode(L,x,R))
+```
+
+So we cut and paste the right-hand side of the induction hypothesis
+to replace `EmptyTree`.
+
+```
+    equations
+          ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+        = ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
+             by definition first_path.
+    ... = plug_tree(node(LeftD(y,B),path),TreeNode(L,x,R))
+             by IH_L[x,R,node(LeftD(y,B),path)]
+    ... = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+             by ?
+```
+
+The final step of the proof is easy; we just apply the definition of `plug_tree`.
+Here is the completed proof of `first_path_stable`.
+
+```{.deduce #first_path_stable}
+lemma first_path_stable:
+  all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+  ti2tree(first_path(A, y, B, path)) = plug_tree(path, TreeNode(A, y, B))
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case EmptyTree {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    equations  ti2tree(first_path(EmptyTree,y,B,path))
+             = ti2tree(TrItr(path,EmptyTree,y,B))       by definition first_path.
+         ... = plug_tree(path,TreeNode(EmptyTree,y,B))  by definition ti2tree.
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    equations
+          ti2tree(first_path(TreeNode(L,x,R),y,B,path))
+        = ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
+             by definition first_path.
+    ... = plug_tree(node(LeftD(y,B),path),TreeNode(L,x,R))
+             by IH_L[x,R,node(LeftD(y,B),path)]
+    ... = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
+             by definition plug_tree.
+  }
+end
+```
+
+Returning to the `ti_first_stable` theorem, the equation follows from
+our `first_path_stable` lemma and the definition of `plug_tree`.
 
 
+```{.deduce #ti_first_stable}
+theorem ti_first_stable: all E:type, A:Tree<E>, x:E, B:Tree<E>.
+  ti2tree(ti_first(A, x, B)) = TreeNode(A, x, B)
+proof
+  arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
+  definition {ti_first, ti2tree}
+  equations  ti2tree(first_path(A,x,B,empty))
+           = plug_tree(empty,TreeNode(A,x,B))  by first_path_stable[E][A][x,B,empty]
+       ... = TreeNode(A,x,B)                   by definition plug_tree.
+end
+```
+
+## Correctness of `ti_next`
+
+## Correctness of `ti_get` and `ti_index`
 
 
 
@@ -203,5 +387,7 @@ import BinaryTree
 <<first_path_index>>
 <<ti_first_index>>
 
+<<first_path_stable>>
+<<ti_first_stable>>
 ```
 -->
