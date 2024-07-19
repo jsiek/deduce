@@ -44,7 +44,10 @@ So we have two properties to prove about `ti_first`. For the first
 property, we need a way to formalize &quot;the first node with respect
 to in-order traversal&quot;. This is where the `ti_index` operation
 comes in. If `ti_first` returns the first node, then its index should
-be `0`. So we have the following theorem:
+be `0`.  (One might worry that if `ti_index` is incorrect, then this
+property would not force `ti_first` to be correct. Not to worry, we
+will prove that `ti_index` is correct!)  So we have the following
+theorem:
 
 ```
 theorem ti_first_index: all E:type, A:Tree<E>, x:E, B:Tree<E>.
@@ -169,11 +172,36 @@ proof
 end
 ```
 
+Returning to the proof of `ti_first_index`, we need to prove that
+`ti_index(first_path(A,x,B,empty)) = 0`. So we apply the
+`first_path_index` lemma and then the definitions of `take_path`,
+`plug_tree`, and `num_nodes`. Here is the completed proof of
+`ti_first_index`.
+
+```{.deduce #ti_first_index}
+theorem ti_first_index: all E:type, A:Tree<E>, x:E, B:Tree<E>.
+  ti_index(ti_first(A, x, B)) = 0
+proof
+  arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
+  definition ti_first
+  equations  ti_index(first_path(A,x,B,empty))
+           = num_nodes(plug_tree(take_path(empty),EmptyTree))
+                       by first_path_index[E][A][x,B,empty]
+       ... = 0      by definition {take_path, plug_tree, num_nodes}.
+end
+```
+
+
+
+
+
+
 <!--
 ```{.deduce file=BinaryTreeProof.pf} 
 import BinaryTree
 
 <<first_path_index>>
+<<ti_first_index>>
 
 ```
 -->
