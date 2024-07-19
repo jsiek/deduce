@@ -69,25 +69,19 @@ proof
   induction Tree<E>
   case EmptyTree {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
-    definition {first_path, num_nodes, ti_index, ti_take}.
+    conclude ti_index(first_path(EmptyTree,y,B,path))
+           = num_nodes(plug_tree(take_path(path),EmptyTree))
+                by definition {first_path, ti_index, ti_take}.
   }
   case TreeNode(L, x, R) suppose IH {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
     definition {first_path}
-    switch L {
-      case EmptyTree suppose L_eq {
-        definition {ti_index, num_nodes, first_path, ti_take, take_path}.
-      }
-      case TreeNode(LL, z, LR) suppose L_eq {
-        rewrite symmetric L_eq
-        have IH2: ti_index(first_path(L,x,R,node(LeftD(y,B),path)))
-                = num_nodes(plug_tree(take_path(node(LeftD(y,B),path)),EmptyTree))
-            by IH[x, R, node(LeftD(y,B),path)]
-        definition {first_path}
-        rewrite IH2
-        definition take_path.
-      }
-    }
+    equations
+          ti_index(first_path(L,x,R,node(LeftD(y,B),path)))
+        = num_nodes(plug_tree(take_path(node(LeftD(y,B),path)),EmptyTree))
+                by IH[x, R, node(LeftD(y,B), path)]
+    ... = num_nodes(plug_tree(take_path(path),EmptyTree))
+                by definition take_path.
   }
 end
 
@@ -96,7 +90,6 @@ theorem ti_first_index: all E:type, A:Tree<E>, x:E, B:Tree<E>.
 proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
   definition ti_first
-  stop ?
   rewrite first_path_index[E][A][x,B,empty]
   suffices num_nodes(plug_tree(take_path(empty),EmptyTree)) = 0
   definition {take_path, plug_tree, num_nodes}.

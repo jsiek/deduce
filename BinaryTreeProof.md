@@ -83,7 +83,97 @@ lemma first_path_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List
   ti_index(first_path(A,y,B, path)) = 0
 ```
 
-But now this lemma is false. Consider the following situation.
+But now this lemma is false. Consider the following situation in which
+the current node `y` is `5` and the `path` is `L,R` (going from node
+`5` up to node `3`).
 
 ![Diagram for lemma first path index](./first_path1.png)
 
+The index of node `5` is not `0`, it is `5`! Instead the index of node
+`5` is equal to the number of nodes that come before `5` according to
+in-order travesal. We can obtain that portion of the tree using
+functions that we have already defined, in particular `take_path`
+followed by `plug_tree`. So we can formulate the lemma as follows.
+
+```
+lemma first_path_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+  ti_index(first_path(A,y,B, path)) = num_nodes(plug_tree(take_path(path), EmptyTree))
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case EmptyTree {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    ?
+  }
+  case TreeNode(L, x, R) suppose IH {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    ?
+  }
+end
+```
+
+For the case `A = EmptyTree`, the goal simply follows from the
+definitions of `first_path`, `ti_index`, and `ti_take`.
+
+```
+    conclude ti_index(first_path(EmptyTree,y,B,path))
+           = num_nodes(plug_tree(take_path(path),EmptyTree))
+                by definition {first_path, ti_index, ti_take}.
+```
+
+For the case `A = TreeNode(L, x, R)`, after expanding the definition
+of `first_path`, we need to prove:
+
+```
+  ti_index(first_path(L,x,R,node(LeftD(y,B),path)))
+= num_nodes(plug_tree(take_path(path),EmptyTree))
+```
+
+But that follows from the induction hypothesis and the
+definition of `take_path`.
+
+```
+    definition {first_path}
+    equations
+          ti_index(first_path(L,x,R,node(LeftD(y,B),path)))
+        = num_nodes(plug_tree(take_path(node(LeftD(y,B),path)),EmptyTree))
+                by IH[x, R, node(LeftD(y,B), path)]
+    ... = num_nodes(plug_tree(take_path(path),EmptyTree))
+                by definition take_path.
+```
+
+Here is the completed proof of the `first_path_index` lemma.
+
+```{.deduce #first_path_index}
+lemma first_path_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+  ti_index(first_path(A,y,B, path)) = num_nodes(plug_tree(take_path(path), EmptyTree))
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case EmptyTree {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    conclude ti_index(first_path(EmptyTree,y,B,path))
+           = num_nodes(plug_tree(take_path(path),EmptyTree))
+                by definition {first_path, ti_index, ti_take}.
+  }
+  case TreeNode(L, x, R) suppose IH {
+    arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
+    definition {first_path}
+    equations
+          ti_index(first_path(L,x,R,node(LeftD(y,B),path)))
+        = num_nodes(plug_tree(take_path(node(LeftD(y,B),path)),EmptyTree))
+                by IH[x, R, node(LeftD(y,B), path)]
+    ... = num_nodes(plug_tree(take_path(path),EmptyTree))
+                by definition take_path.
+  }
+end
+```
+
+<!--
+```{.deduce file=BinaryTreeProof.pf} 
+import BinaryTree
+
+<<first_path_index>>
+
+```
+-->

@@ -100,4 +100,11 @@ check_blog5:
 blog5:
 	/usr/local/bin/pandoc BinaryTree.md -o BinaryTree.html
 
+check_blog6:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTreeProof.pf
+
+blog6:
+	/usr/local/bin/pandoc BinaryTreeProof.md -o BinaryTreeProof.html
+
 
