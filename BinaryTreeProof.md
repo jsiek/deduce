@@ -85,5 +85,5 @@ lemma first_path_index: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List
 
 But now this lemma is false. Consider the following situation.
 
-[Diagram for lemma first path index](./first_path1.png)
+![Diagram for lemma first path index](./first_path1.png)
 
