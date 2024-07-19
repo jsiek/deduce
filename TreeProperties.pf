@@ -31,18 +31,23 @@ end
        
    --------------------------------------------------------- */
 
-lemma first_path_stable: all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
+lemma first_path_stable:
+  all E:type. all A:Tree<E>. all y:E, B:Tree<E>, path:List<Direction<E>>.
   ti2tree(first_path(A, y, B, path)) = plug_tree(path, TreeNode(A, y, B))
 proof
   arbitrary E:type
   induction Tree<E>
   case EmptyTree {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
-    definition {first_path, ti2tree}.
+    conclude ti2tree(first_path(EmptyTree,y,B,path))
+           = plug_tree(path,TreeNode(EmptyTree,y,B))
+        by definition {first_path, ti2tree}.
   }
   case TreeNode(L, x, R) suppose IH_L, IH_R {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
     definition {first_path, ti2tree}
+    suffices ti2tree(first_path(L,x,R,node(LeftD(y,B),path)))
+           = plug_tree(path,TreeNode(TreeNode(L,x,R),y,B))
     rewrite IH_L[x,R,node(LeftD(y,B),path)]
     definition {plug_tree}.
   }
@@ -473,24 +478,21 @@ proof
   }
 end
 
-lemma nth_in_order_plug_take: all E:type, path:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E.
-  nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)(num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L)) = x
+lemma nth_in_order_plug_take:
+  all E:type, path:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E.
+  nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)
+     (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L)) = x
 proof
   arbitrary E:type, path:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E
   rewrite in_order_plug_take_drop[E][path][L,x,R]
-  rewrite in_order_plug_take[E][path][L]
-  define X = in_order(plug_tree(take_path(path),EmptyTree))
-  define Y = in_order(L)
-  have X_def: X = in_order(plug_tree(take_path(path),EmptyTree)) by definition X.
-  have Y_def: Y = in_order(L) by definition Y.
-  rewrite symmetric length_in_order[E][L]
-  rewrite symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
-  rewrite symmetric X_def
-  rewrite symmetric Y_def
-  define Z = in_order(plug_tree(drop_path(path),R))
-  have Z_def: Z = in_order(plug_tree(drop_path(path),R)) by definition Z.
-  rewrite symmetric Z_def
+        | in_order_plug_take[E][path][L]
+        | symmetric length_in_order[E][L]
+        | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
+  define_ X = in_order(plug_tree(take_path(path),EmptyTree))
+  define_ Y = in_order(L)
+  define_ Z = in_order(plug_tree(drop_path(path),R))
   rewrite symmetric length_append[E][X][Y]
+  suffices nth(append(append(X,Y), node(x,Z)), a)(length(append(X,Y))) = x
   rewrite (rewrite add_zero[length(append(X,Y))] in nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
   definition nth.
 end
