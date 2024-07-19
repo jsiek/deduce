@@ -519,7 +519,6 @@ def check_proof_of(proof, formula, env):
       body_env = env.define_term_var(loc, var, typ, rhs)
       equation = mkEqual(loc, rhs, Var(loc, var)).reduce(env)
       frm = rewrite(loc, formula.reduce(env), equation)
-      # TODO: also rewrite the body_env -Jeremy
       new_body_env = Env({k: ProofBinding(b.location, rewrite(loc, b.formula, equation), b.local) \
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})

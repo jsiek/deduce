@@ -219,8 +219,10 @@ function ti2tree<E>(TreeIter<E>) -> Tree<E> {
 }
 ```
 
-Moving an iterator does not change the tree that it is traversing, so
-`ti2tree` returns `T3` for iterators `iter0`, `iter3`, and `iter7`.
+Creating an iterator from a tree using `ti_first` and then applying
+`ti2tree` produces the original tree. Furthermore, moving an iterator
+does not change the tree that it is traversing, so `ti2tree` returns
+`T3` for iterators `iter0`, `iter3`, and `iter7`.
 
 ```{.deduce #test_ti2tree}
 assert ti2tree(iter0) = T3

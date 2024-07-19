@@ -96,6 +96,7 @@ theorem ti_first_index: all E:type, A:Tree<E>, x:E, B:Tree<E>.
 proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
   definition ti_first
+  stop ?
   rewrite first_path_index[E][A][x,B,empty]
   suffices num_nodes(plug_tree(take_path(empty),EmptyTree)) = 0
   definition {take_path, plug_tree, num_nodes}.
