@@ -428,10 +428,124 @@ arbitrary tree `R`:
 ti_index(next_up(path,L,x,R)) = suc(ti_index(TrItr(path,L,x,R)))
 ```
 
-But this equation is incorrect. Consider the case when the current
-node `x` is node `1` in our example tree.
+But this equation is incorrect. Consider the situation below where the
+current node `x` is node `1` in our example tree. The index of the
+`next_up` from node `1` is `3`, but the index of node `1` is `1` and
+of course, adding one to that is `2`, not `3`!
 
 ![Diagram for path to node 1](./TreeNode1.png)
+
+So we need to change this equation to account for the situation where
+`R` is not empty, but instead an arbitrary subtree. The solution is to
+add the number of nodes in `R` to the right-hand side:
+
+```
+ti_index(next_up(path,L,x,R)) = suc(ti_index(TrItr(path,L,x,R))) + num_nodes(R)
+```
+
+One more addition is necessary to formulate the lemma.  The above
+equation is only meaningful when the index on the right-hand side is
+in bounds. That is, it must be smaller than the number of nodes in the
+tree. So we formula the lemma `next_up_index` as follows and take a
+few obvious steps into the proof.
+
+```
+lemma next_up_index: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  if suc(ti_index(TrItr(path, A, x, B)) + num_nodes(B)) < num_nodes(ti2tree(TrItr(path, A, x, B)))
+  then ti_index(next_up(path, A, x, B)) = suc(ti_index(TrItr(path, A,x,B)) + num_nodes(B))
+proof
+  arbitrary E:type
+  induction List<Direction<E>>
+  case empty {
+    arbitrary A:Tree<E>, x:E, B:Tree<E>
+    suppose prem: suc(ti_index(TrItr(empty,A,x,B)) + num_nodes(B)) 
+                  < num_nodes(ti2tree(TrItr(empty,A,x,B)))
+    ?
+  }
+  case node(f, path') suppose IH {
+    arbitrary A:Tree<E>, x:E, B:Tree<E>
+    suppose prem
+    switch f {
+      case LeftD(y, R) {
+        ?
+      }
+      case RightD(L, y) suppose f_eq {
+        ?
+      }
+    }
+  }
+end
+```
+
+In the case `path = empty`, the premise is false because there are no
+nodes that come afterwards in the in-order traversal. In particular,
+the premise implies the following contradictory inequality.
+
+```
+    have AB_l_AB: suc(num_nodes(A) + num_nodes(B)) < suc(num_nodes(A) + num_nodes(B))
+      by definition {ti_index, ti_take, take_path, plug_tree, ti2tree, num_nodes} 
+         in prem
+    conclude false  by apply less_irreflexive to AB_l_AB
+```
+
+Next consider the case `path = node(LeftD(y, R), path')`.
+After expanding all the relevant definitions, we need to
+prove that
+
+```
+  num_nodes(plug_tree(take_path(path'), TreeNode(A,x,B))) 
+= suc(num_nodes(plug_tree(take_path(path'), A)) + num_nodes(B))
+```
+
+We need a lemma that relates `num_nodes` and `plug_tree`. 
+So we pause the current proof for the following exercise.
+
+
+## Exercise: prove the `num_nodes_plug` lemma
+
+```
+lemma num_nodes_plug: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  num_nodes(plug_tree(path, t)) = num_nodes(plug_tree(path, EmptyTree)) + num_nodes(t)
+```
+
+## Back to `next_up_index` and the correctness of `ti_next`
+
+We use `num_nodes_plug` on both the left and right-hand sides of the equation,
+and the definition of `num_nodes`.
+
+```
+    rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
+    rewrite num_nodes_plug[E][take_path(path')][A]
+    definition num_nodes
+```
+
+After that it suffices to prove the following.
+
+```
+  num_nodes(plug_tree(take_path(path'),EmptyTree)) + suc(num_nodes(A) + num_nodes(B)) 
+= suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(A)) + num_nodes(B))
+```
+
+This equation is rather big, so let's squint at it by giving names to its parts.
+(This is a new version of `define` that I'm experimenting with.)
+
+```
+    define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+    define_ Y = num_nodes(A)
+    define_ Z = num_nodes(B)
+```
+
+Now it's easy to see that our goal is true using some simple
+arithmetic.
+
+```
+    conclude X + suc(Y + Z) = suc((X + Y) + Z)
+        by rewrite add_suc[X][Y+Z] | add_assoc[X][Y,Z].
+```
+
+Finally, consider the case `path = node(RightD(L, y), path')`.
+
+
 
 
 ## Correctness of `ti_get` and `ti_index`
@@ -447,5 +561,42 @@ import BinaryTree
 
 <<first_path_stable>>
 <<ti_first_stable>>
+
+lemma num_nodes_plug: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  num_nodes(plug_tree(path, t)) = num_nodes(plug_tree(path, EmptyTree)) + num_nodes(t)
+proof  
+  arbitrary E:type
+  induction List<Direction<E>>
+  case empty {
+    arbitrary t:Tree<E>
+    conclude num_nodes(plug_tree(empty,t)) = num_nodes(plug_tree(empty,EmptyTree)) + num_nodes(t)
+        by definition {plug_tree, num_nodes, operator+}.
+  }
+  case node(f, path') suppose IH {
+    arbitrary t:Tree<E>
+    switch f {
+      case RightD(L, x) {
+        definition {plug_tree, num_nodes}
+        rewrite IH[TreeNode(L,x,t)]
+        rewrite IH[TreeNode(L,x,EmptyTree)]
+        definition {num_nodes, num_nodes}
+        rewrite add_zero[num_nodes(L)]
+        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][suc(num_nodes(L)), num_nodes(t)]
+        definition {operator+}.
+      }
+      case LeftD(x, R) {
+        definition {plug_tree, num_nodes}
+        rewrite IH[TreeNode(t,x,R)]
+        rewrite IH[TreeNode(EmptyTree,x,R)]
+        definition {num_nodes, num_nodes, operator+}
+        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][suc(num_nodes(R)), num_nodes(t)]
+        definition {operator+}
+        rewrite add_commute[num_nodes(R)][num_nodes(t)].
+      }
+    }
+  }
+end
+
+<<next_up_index>>
 ```
 -->

@@ -171,7 +171,7 @@ proof
 end
 
 lemma next_up_index: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
-  if suc(ti_index(TrItr(path, A,x,B)) + num_nodes(B)) < num_nodes(ti2tree(TrItr(path, A,x,B)))
+  if suc(ti_index(TrItr(path, A, x, B)) + num_nodes(B)) < num_nodes(ti2tree(TrItr(path, A, x, B)))
   then ti_index(next_up(path, A, x, B)) = suc(ti_index(TrItr(path, A,x,B)) + num_nodes(B))
 proof
   arbitrary E:type
@@ -252,12 +252,12 @@ proof
         definition {next_up, ti_index, num_nodes, take_path, ti_take}
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
         rewrite num_nodes_plug[E][take_path(path')][A]
-        definition {num_nodes}
+        definition num_nodes
         define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
         define_ Y = num_nodes(A)
         define_ Z = num_nodes(B)
         conclude X + suc(Y + Z) = suc((X + Y) + Z)
-            by rewrite add_suc[X][Y+Z] rewrite add_assoc[X][Y,Z].
+            by rewrite add_suc[X][Y+Z] | add_assoc[X][Y,Z].
       }
     }
   }
