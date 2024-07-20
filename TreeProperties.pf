@@ -190,6 +190,7 @@ proof
     switch f {
       case RightD(L, y) suppose f_eq {
         definition {next_up, ti_index, take_path, plug_tree, ti_take}
+        
         define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
         define Y = num_nodes(L)
         define Z = num_nodes(A)
@@ -274,15 +275,16 @@ proof
       definition ti_next
       switch R {
         case EmptyTree suppose R_eq {
-          have prem2: suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
-                      < num_nodes(ti2tree(TrItr(path,L,x,EmptyTree)))
+          have next_up_index_prem:
+              suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
+              < num_nodes(ti2tree(TrItr(path,L,x,EmptyTree)))
             by enable num_nodes
                rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))]
                rewrite iter_eq | R_eq in prem
           equations
                 ti_index(next_up(path,L,x,EmptyTree))
               = suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
-                by apply next_up_index[E][path][L, x, EmptyTree] to prem2
+                by apply next_up_index[E][path][L, x, EmptyTree] to next_up_index_prem
           ... = suc(ti_index(TrItr(path,L,x,EmptyTree)))
                 by definition num_nodes
                    rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))].
