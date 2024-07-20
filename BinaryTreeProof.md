@@ -90,7 +90,7 @@ But now this lemma is false. Consider the following situation in which
 the current node `y` is `5` and the `path` is `L,R` (going from node
 `5` up to node `3`).
 
-![Diagram for lemma first path index](./first_path1.png)
+![Diagram for lemma first path index](https://www.dropbox.com/scl/fi/kbvmzv9b6p61w1y91uhsr/first_path1.png?rlkey=3dq3xvj09v1fmsowuscftrcst&raw=1)
 
 The index of node `5` is not `0`, it is `5`! Instead the index of node
 `5` is equal to the number of nodes that come before `5` according to
@@ -215,7 +215,7 @@ So we need to prove another lemma about `first_path` and again we need
 to generalize the `empty` path to an arbitrary path. Let us consider
 again the situation where the current node `x` is `5`.
 
-![Diagram for lemma first path index](./first_path1.png)
+![Diagram for lemma first path index](https://www.dropbox.com/scl/fi/kbvmzv9b6p61w1y91uhsr/first_path1.png?rlkey=3dq3xvj09v1fmsowuscftrcst&raw=1)
 
 The result of `first_path(A,x,B,path)` will be the path to node `4`,
 and the result of `ti2tree` will be the whole tree, not just `TreeNode(A,x,B)`
@@ -436,7 +436,7 @@ where the current node `x` is node `1` in our example tree. The index
 of the `next_up` from node `1` is `3`, but the index of node `1` is
 `1` and of course, adding one to that is `2`, not `3`!
 
-![Diagram for path to node 1](./TreeNode1.png)
+![Diagram for path to node 1](https://www.dropbox.com/scl/fi/fqsp867i04af0dh4caw6l/TreeNode1.png?rlkey=s33a2p8lya9k8azb1zedcw1l0&raw=1)
 
 So we need to change this equation to account for the situation where
 `R` is not empty, but instead an arbitrary subtree. The solution is to
@@ -864,7 +864,7 @@ stable with respect to `ti2tree`. Following the definition of
 `ti_next`, we switch on the iterator and then on the right child of
 the current node. 
 
-```{.deduce #ti_next_stable}
+```
 theorem ti_next_stable: all E:type, iter:TreeIter<E>.
   ti2tree(ti_next(iter)) = ti2tree(iter)
 proof
@@ -874,11 +874,11 @@ proof
       switch R {
         case EmptyTree {
           definition {ti2tree, ti_next}
-          <<ti_next_stable_case_R_EmptyTree>>
+          ?
         }
         case TreeNode(RL, y, RR) {
           definition {ti2tree, ti_next}
-          <<ti_next_stable_case_R_TreeNode>>
+          ?
         }
       }
     }
@@ -904,9 +904,9 @@ lemma next_up_stable: all E:type. all path:List<Direction<E>>. all A:Tree<E>, y:
 
 ## Back to `ti_next_stable`
 
-Now we conclude the `R = EmptyTree` of the `ti_next_stable` theorem.
+Now we conclude the `R = EmptyTree` case of the `ti_next_stable` theorem.
 
-```{.deduce #ti_next_stable_case_R_EmptyTree}
+```
     conclude ti2tree(next_up(path,L,x,EmptyTree))
        = plug_tree(path,TreeNode(L,x,EmptyTree))
       by next_up_stable[E][path][L,x,EmptyTree]
@@ -916,16 +916,304 @@ In the case `R = TreeNode(RL, y, RR)`, we need prove the following,
 which is to say that `first_path` is stable. Thankfully we already
 proved that lemma!
 
-```{.deduce #ti_next_stable_case_R_TreeNode}
+```
     conclude ti2tree(first_path(RL,y,RR,node(RightD(L,x),path))) 
            = plug_tree(path,TreeNode(L,x,TreeNode(RL,y,RR)))
       by rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
          definition {plug_tree}.
 ```
 
+Here is the completed proof of `ti_next_stable`.
+
+```{.deduce #ti_next_stable}
+theorem ti_next_stable: all E:type, iter:TreeIter<E>.
+  ti2tree(ti_next(iter)) = ti2tree(iter)
+proof
+  arbitrary E:type, iter:TreeIter<E>
+  switch iter {
+    case TrItr(path, L, x, R) {
+      switch R {
+        case EmptyTree {
+          definition {ti2tree, ti_next}
+          conclude ti2tree(next_up(path,L,x,EmptyTree))
+             = plug_tree(path,TreeNode(L,x,EmptyTree))
+            by next_up_stable[E][path][L,x,EmptyTree]
+        }
+        case TreeNode(RL, y, RR) {
+          definition {ti2tree, ti_next}
+          conclude ti2tree(first_path(RL,y,RR,node(RightD(L,x),path))) 
+                 = plug_tree(path,TreeNode(L,x,TreeNode(RL,y,RR)))
+            by rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
+               definition {plug_tree}.
+        }
+      }
+    }
+  }
+end
+```
 
 ## Correctness of `ti_get` and `ti_index`
 
+Recall that `ti_get(iter)` should return the data in the current node
+of `iter` and `ti_index` should return the position of `iter` as a
+natural number with respect to in-order traversal. Thus, if we apply
+`in_order` to the tree, the element at position `ti_index(iter)`
+should be the same as `ti_get(iter)`. So we have the following theorem
+to prove.
+
+```
+theorem ti_index_get_in_order: all E:type, iter:TreeIter<E>, a:E.
+  ti_get(iter) = nth(in_order(ti2tree(iter)), a)(ti_index(iter))
+proof
+  arbitrary E:type, iter:TreeIter<E>, a:E
+  switch iter {
+    case TrItr(path, L, x, R) {
+      definition {ti2tree, ti_get, ti_index, ti_take}
+      ?
+    }
+  }
+end
+```
+
+After expanding with some definitions, we are left to prove
+
+```
+x = nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)
+       (num_nodes(plug_tree(take_path(path),L)))
+```
+
+We see `num_nodes` applied to `plug_tree`, so we can 
+use the `num_nodes_plug` lemma
+```
+      rewrite num_nodes_plug[E][take_path(path)][L]
+```
+
+The goal now is to prove
+
+```
+x = nth(in_order(plug_tree(path, TreeNode(L,x,R))),a)
+       (num_nodes(plug_tree(take_path(path), EmptyTree)) + num_nodes(L))
+```
+
+The next step to take is not so obvious. Perhaps one hint is that
+we have the following theorem about `nth` from `List.pf` that
+also involves addition in the index argument of `nth`.
+
+```
+theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+  nth(append(xs, ys), d)(length(xs) + i) = nth(ys, d)(i)
+```
+
+So we would need to prove a lemma that relates `in_order` and
+`plug_tree` to `append`.  Now the `take_path` function returns the
+part of the tree before the `path`, so perhaps it can be used to
+create the `xs` in `nth_append_back`. But what about `ys`? It seems
+like we need a function that returns the part of the tree after the
+`path`. Let us call this function `drop_path`.
+
+```{.deduce #drop_path}
+function drop_path<E>(List<Direction<E>>) -> List<Direction<E>> {
+  drop_path(empty) = empty
+  drop_path(node(f, path')) =
+    switch f {
+      case RightD(L, x) {
+        drop_path(path')
+      }
+      case LeftD(x, R) {
+        node(LeftD(x, R), drop_path(path'))
+      }
+    }
+}
+```
+
+So using `take_path` and `drop_path`, we should be able to come up
+with an equation for `in_order(plug_tree(path, TreeNode(A, x, B)))`.
+The part of tree before `x` should be `take_path(path)` followed
+by the subtree `A`. The part of the tree after `x` should be 
+the subtree `B` followed by `drop_path(path)`.
+
+```
+lemma in_order_plug_take_drop: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  in_order(plug_tree(path, TreeNode(A, x, B)))
+  = append(in_order(plug_tree(take_path(path), A)), 
+           node(x, in_order(plug_tree(drop_path(path), B))))
+```
+
+It turns out that to prove this, we will also need a lemma about the
+combination of `plug_tree` and `take_path`:
+
+```
+lemma in_order_plug_take: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  in_order(plug_tree(take_path(path), t)) 
+  = append( in_order(plug_tree(take_path(path),EmptyTree)), in_order(t))
+```
+
+and a lemma about the combination of `plug_tree` and `drop_path`:
+
+```
+lemma in_order_plug_drop: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  in_order(plug_tree(drop_path(path), t)) = append( in_order(t), in_order(plug_tree(drop_path(path),EmptyTree)))
+```
+
+## Exercise: prove the `in_order_plug...` lemmas
+
+Prove the three lemmas `in_order_plug_take_drop`,
+`in_order_plug_take`, and `in_order_plug_drop`.
+
+## Back to the proof of `ti_index_get_in_order`
+
+Our goal was to prove
+
+```
+x = nth(in_order(plug_tree(path,TreeNode(L,x,R))), a)
+       (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+```
+
+So we use lemma `in_order_plug_take_drop` to get the following
+
+```
+  in_order(plug_tree(path,TreeNode(L,x,R)))
+= append(in_order(plug_tree(take_path(path),L)), node(x, in_order(plug_tree(drop_path(path),R))))
+```
+
+and then lemma `in_order_plug_take` separates out the `L`.
+
+```
+  in_order(plug_tree(take_path(path), L))
+= append(in_order(plug_tree(take_path(path),EmptyTree)), in_order(L))
+```
+
+So rewriting with the above equations
+
+```
+    rewrite in_order_plug_take_drop[E][path][L,x,R]
+    rewrite in_order_plug_take[E][path][L]
+```
+
+transforms our goal to
+
+```
+x = nth(append(append(in_order(plug_tree(take_path(path),EmptyTree)), in_order(L)),
+               node(x,in_order(plug_tree(drop_path(path),R)))),a)
+       (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+```
+
+Recall that our plan is to use the `nth_append_back` lemma, in which
+the index argument to `nth` is `length(xs)`, but in the above we have
+the index expressed in terms of `num_nodes`. The following exercise
+proves a theorem that relates `length` and `in_order` to `num_nodes`.
+
+
+## Exercise: prove the `length_in_order` theorem
+
+```
+theorem length_in_order: all E:type. all t:Tree<E>.
+  length(in_order(t)) = num_nodes(t)
+```
+
+## Back to `ti_index_get_in_order`
+
+Now we rewrite with the `length_in_order` lemma a couple times, give
+some short names to these big expressions, and apply `length_append`
+from `List.pf`.
+
+```
+      rewrite symmetric length_in_order[E][L]
+            | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
+      define_ X = in_order(plug_tree(take_path(path),EmptyTree))
+      define_ Y = in_order(L)
+      define_ Z = in_order(plug_tree(drop_path(path),R))
+      rewrite symmetric length_append[E][X][Y]
+```
+
+Now we're in a position to use `nth_append_back`.
+
+```
+x = nth(append(append(X,Y), node(x, Z)), a)
+       (length(append(X,Y)))
+```
+
+In particular, `nth_append_back[E][append(X,Y)][node(x,Z), 0, a]`
+gives us 
+
+```
+  nth(append(append(X,Y), node(x,Z)),a)(length(append(X,Y)) + 0) 
+= nth(node(x,Z),a)(0)
+```
+
+With that we prove the goal using `add_zero` and the definition of
+`nth`.
+
+```
+  conclude x = nth(append(append(X,Y), node(x,Z)), a)(length(append(X,Y)))
+    by rewrite (rewrite add_zero[length(append(X,Y))] in
+                nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
+       definition nth.
+```
+
+Here is the complete proof of `ti_index_get_in_order`.
+
+```{.deduce #ti_index_get_in_order}
+theorem ti_index_get_in_order: all E:type, z:TreeIter<E>, a:E.
+  ti_get(z) = nth(in_order(ti2tree(z)), a)(ti_index(z))
+proof
+  arbitrary E:type, z:TreeIter<E>, a:E
+  switch z {
+    case TrItr(path, L, x, R) {
+      definition {ti2tree, ti_get, ti_index, ti_take}
+      rewrite num_nodes_plug[E][take_path(path)][L]
+      
+      suffices x = nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)
+                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+      rewrite in_order_plug_take_drop[E][path][L,x,R]
+      rewrite in_order_plug_take[E][path][L]
+      
+      suffices x = nth(append(append(in_order(plug_tree(take_path(path),EmptyTree)),
+                                     in_order(L)),
+                              node(x,in_order(plug_tree(drop_path(path),R)))),a)
+                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+      rewrite symmetric length_in_order[E][L]
+            | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
+      define_ X = in_order(plug_tree(take_path(path),EmptyTree))
+      define_ Y = in_order(L)
+      define_ Z = in_order(plug_tree(drop_path(path),R))
+      rewrite symmetric length_append[E][X][Y]
+      
+      conclude x = nth(append(append(X,Y), node(x,Z)), a)(length(append(X,Y)))
+        by rewrite (rewrite add_zero[length(append(X,Y))] in
+                    nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
+           definition nth.
+    }
+  }
+end
+```
+
+This concludes the proofs of correctness for in-order iterator
+and the five operations `ti2tree`, `ti_first`, `ti_get`, `ti_next`,
+and `ti_index`.
+
+## Exercise: Prove that `ti_prev` is correct
+
+In the previous post there was an exercise to implement `ti_prev`,
+which moves the iterator backwards one position with respect to
+in-order traversal. This exercise is to prove that your implementation
+of `ti_prev` is correct. There are two theorems to prove.  The first
+one makes sure that `ti_prev` reduces the index of the iterator by
+one.
+
+```
+theorem ti_prev_index: all E:type, iter : TreeIter<E>.
+  if 0 < ti_index(iter)
+  then ti_index(ti_prev(iter)) = pred(ti_index(iter))
+```
+
+The second theorem makes sure that the resulting iterator is still an
+iterator for the same tree.
+
+```
+theorem ti_prev_stable: all E:type, iter:TreeIter<E>.
+  ti2tree(ti_prev(iter)) = ti2tree(iter)
+```
 
 
 <!--
@@ -1001,5 +1289,180 @@ proof
 end
 
 <<ti_next_stable>>
+
+<<drop_path>>
+
+theorem length_in_order: all E:type. all t:Tree<E>.
+  length(in_order(t)) = num_nodes(t)
+proof
+  arbitrary E:type
+  induction Tree<E>
+  case EmptyTree {
+    definition {in_order, length, num_nodes}.
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    definition {in_order, length, num_nodes}
+    rewrite length_append[E][in_order(L)][node(x, in_order(R))]
+    definition {length}
+    rewrite IH_L | IH_R
+    rewrite add_suc[num_nodes(L)][num_nodes(R)].
+  }
+end
+
+lemma in_order_plug_take: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  in_order(plug_tree(take_path(path), t)) = append( in_order(plug_tree(take_path(path),EmptyTree)), in_order(t))
+proof
+  arbitrary E:type
+  induction List<Direction<E>>
+  case empty {
+    arbitrary t:Tree<E>
+    definition {take_path, plug_tree, in_order, append}.
+  }
+  case node(f, path') suppose IH {
+    arbitrary t:Tree<E>
+    switch f {
+      case LeftD(x, R) {
+        definition {take_path}
+        conclude in_order(plug_tree(take_path(path'),t))
+               = append(in_order(plug_tree(take_path(path'),EmptyTree)),in_order(t))
+            by IH[t]
+      }
+      case RightD(L, x) {
+        definition {take_path, plug_tree}
+        equations
+              in_order(plug_tree(take_path(path'),TreeNode(L,x,t)))
+            = append(in_order(plug_tree(take_path(path'),EmptyTree)), in_order(TreeNode(L,x,t)))
+                  by IH[TreeNode(L,x,t)]
+        ... = append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, in_order(t))))
+                  by definition in_order.
+        ... = append( in_order(plug_tree(take_path(path'),EmptyTree)), append(append(in_order(L), node(x, empty)), in_order(t)))
+                  by rewrite append_assoc[E][in_order(L)][node(x,empty), in_order(t)] definition {append, append}.
+        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, empty))), in_order(t))
+                  by rewrite append_assoc[E][in_order(plug_tree(take_path(path'),EmptyTree))][append(in_order(L), node(x, empty)), in_order(t)].
+        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, in_order(EmptyTree)))), in_order(t))
+                  by definition in_order.
+        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), in_order(TreeNode(L,x,EmptyTree))), in_order(t))
+                  by definition {in_order, in_order}.
+        ... = append(in_order(plug_tree(take_path(path'), TreeNode(L,x,EmptyTree))),in_order(t))
+                  by rewrite IH[TreeNode(L,x,EmptyTree)].
+      }
+    }
+  }
+end
+
+lemma in_order_plug_drop: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
+  in_order(plug_tree(drop_path(path), t)) = append( in_order(t), in_order(plug_tree(drop_path(path),EmptyTree)))
+proof
+  arbitrary E:type
+  induction List<Direction<E>>
+  case empty {
+    arbitrary t:Tree<E>
+    definition {drop_path, plug_tree, in_order}
+    rewrite append_empty[E][in_order(t)].
+  }
+  case node(f, path') suppose IH {
+    arbitrary t:Tree<E>
+    switch f {
+      case LeftD(x, R) {
+        definition {drop_path, plug_tree}
+        have IH2: in_order(plug_tree(drop_path(path'),TreeNode(t,x,R)))
+                = append(in_order(TreeNode(t,x,R)),in_order(plug_tree(drop_path(path'),EmptyTree)))
+                by IH[TreeNode(t,x,R)]
+        equations
+          in_order(plug_tree(drop_path(path'),TreeNode(t,x,R)))
+              = append(in_order(TreeNode(t,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree)))
+                   by IH2
+          ... = append( append(in_order(t), node(x, in_order(R))), in_order(plug_tree(drop_path(path'), EmptyTree)))
+                   by definition in_order.
+          ... = append( append(in_order(t), in_order(TreeNode(EmptyTree,x,R))), in_order(plug_tree(drop_path(path'), EmptyTree)))
+                   by definition {in_order,in_order,append}.
+          ... = append(in_order(t), in_order(plug_tree(drop_path(path'), TreeNode(EmptyTree,x,R))))
+                   by rewrite IH[TreeNode(EmptyTree,x,R)]
+                      rewrite append_assoc[E][in_order(t)][in_order(TreeNode(EmptyTree,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree))].
+      }
+      case RightD(L, x) {
+        definition {drop_path}
+        conclude in_order(plug_tree(drop_path(path'),t))
+               = append(in_order(t),in_order(plug_tree(drop_path(path'),EmptyTree)))
+            by IH[t]
+      }
+    }
+  }
+end
+
+lemma in_order_plug_take_drop: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
+  in_order(plug_tree(path, TreeNode(A, x, B)))
+  = append(in_order(plug_tree(take_path(path), A)), node(x, in_order(plug_tree(drop_path(path), B))))
+proof
+  arbitrary E:type
+  induction List<Direction<E>>
+  case empty {
+    arbitrary A:Tree<E>, x:E, B:Tree<E>
+    definition {plug_tree, take_path, drop_path, in_order}.
+  }
+  case node(f, path') suppose IH {
+    arbitrary A:Tree<E>, x:E, B:Tree<E>
+    define X = in_order(plug_tree(take_path(path'),EmptyTree))
+    define Z = in_order(A)
+    define W = in_order(B)
+    define Q = in_order(plug_tree(drop_path(path'), EmptyTree))
+    switch f {
+      case LeftD(y, R) {
+        definition {plug_tree, take_path, drop_path, in_order}
+        define Y = in_order(R)
+        equations
+              in_order(plug_tree(path',TreeNode(TreeNode(A,x,B),y,R)))
+            = append(in_order(plug_tree(take_path(path'),TreeNode(A,x,B))), node(y,in_order(plug_tree(drop_path(path'),R))))
+              by IH[TreeNode(A,x,B), y, R]
+        ... = append(in_order(plug_tree(take_path(path'),TreeNode(A,x,B))), node(y, append(Y, Q)))
+              by definition {Y,Q} rewrite in_order_plug_drop[E][path'][R].
+        ... = append(append(X, append(Z, node(x, W))), node(y, append(Y, Q)))
+              by definition {X, Z, W} rewrite in_order_plug_take[E][path'][TreeNode(A,x,B)] definition in_order.
+        ... = append(X, append(Z, node(x, append(W, node(y, append(Y, Q))))))
+              by rewrite append_assoc[E][X][append(Z, node(x, W)), node(y, append(Y, Q))]
+                 rewrite append_assoc[E][Z][node(x, W), node(y, append(Y, Q))]
+                 definition append.
+        ... = append(append(X, Z), node(x, append(append(W, node(y, Y)), Q)))
+              by rewrite append_assoc[E][W][node(y, Y), Q]
+                 rewrite append_assoc[E][X][Z, node(x, append(W, append(node(y, Y), Q)))]
+                 definition append.
+        ... = append(in_order(plug_tree(take_path(path'),A)), node(x,append(append(W, node(y, Y)), Q)))
+              by definition {X,Z} rewrite in_order_plug_take[E][path'][A].
+        ... = append(in_order(plug_tree(take_path(path'),A)),node(x,in_order(plug_tree(drop_path(path'),TreeNode(B,y,R)))))
+              by definition {W,Y,Q} rewrite in_order_plug_drop[E][path'][TreeNode(B,y,R)] definition in_order.
+      }
+      case RightD(L, y) {
+        definition {plug_tree, take_path, drop_path, in_order}
+        define Y = in_order(L)
+        equations
+              in_order(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
+            = append(in_order(plug_tree(take_path(path'),L)), node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B)))))
+                 by IH[L,y,TreeNode(A,x,B)]
+        ... = append(append(X, Y),  node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B)))))
+                 by definition {X,Y} rewrite in_order_plug_take[E][path'][L].
+        ... = append(append(X, Y),  node(y, append(in_order(TreeNode(A,x,B)), Q)))
+                 by definition {Q} rewrite in_order_plug_drop[E][path'][TreeNode(A,x,B)].
+        ... = append(append(X, Y),  node(y, append(append(Z, node(x, W)), Q)))
+                 by definition {in_order, Z, W}.
+        ... = append(X, append(Y, node(y, append(Z, append(node(x, W), Q)))))
+                 by rewrite append_assoc[E][X][Y, node(y, append(append(Z, node(x, W)), Q))]
+                    rewrite append_assoc[E][Z][node(x,W), Q].
+        ... = append(X, append(Y, append(node(y, Z), node(x, append(W, Q)))))
+                 by definition append.
+        ... = append(append(X, append(Y, node(y, Z))),  node(x, append(W, Q)))
+                 by rewrite append_assoc[E][X][append(Y, node(y, Z)), node(x, append(W, Q))]
+                    rewrite append_assoc[E][Y][node(y, Z), node(x, append(W, Q))].
+        ... = append(append(X, append(Y, node(y, Z))),  node(x, in_order(plug_tree(drop_path(path'), B))))
+                 by definition {Q,W} rewrite in_order_plug_drop[E][path'][B].
+        ... = append(in_order(plug_tree(take_path(path'), TreeNode(L,y,A))), node(x,in_order(plug_tree(drop_path(path'),B))))
+                 by definition {X,Y,Z} rewrite in_order_plug_take[E][path'][TreeNode(L,y,A)] definition in_order.
+      }
+    }
+  }
+end
+
+<<ti_index_get_in_order>>
+
+
 ```
 -->

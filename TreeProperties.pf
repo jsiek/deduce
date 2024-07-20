@@ -515,7 +515,26 @@ proof
     case TrItr(path, L, x, R) {
       definition {ti2tree, ti_get, ti_index, ti_take}
       rewrite num_nodes_plug[E][take_path(path)][L]
-      rewrite nth_in_order_plug_take[E, path, L,x,R,a].
+      
+      suffices x = nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)
+                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+      rewrite in_order_plug_take_drop[E][path][L,x,R]
+            | in_order_plug_take[E][path][L]
+      suffices x = nth(append(append(in_order(plug_tree(take_path(path),EmptyTree)),
+                                     in_order(L)),
+                              node(x,in_order(plug_tree(drop_path(path),R)))),a)
+                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+      rewrite symmetric length_in_order[E][L]
+            | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
+      define_ X = in_order(plug_tree(take_path(path),EmptyTree))
+      define_ Y = in_order(L)
+      define_ Z = in_order(plug_tree(drop_path(path),R))
+      rewrite symmetric length_append[E][X][Y]
+      
+      suffices x = nth(append(append(X,Y), node(x,Z)), a)(length(append(X,Y)))
+      rewrite (rewrite add_zero[length(append(X,Y))] in
+               nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
+      definition nth.
     }
   }
 end

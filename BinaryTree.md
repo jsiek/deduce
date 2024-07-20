@@ -456,19 +456,6 @@ import List
 <<take_path>>
 <<ti_take>>
 <<ti_index>>
-
-function drop_path<E>(List<Direction<E>>) -> List<Direction<E>> {
-  drop_path(empty) = empty
-  drop_path(node(f, path')) =
-    switch f {
-      case RightD(L, x) {
-        drop_path(path')
-      }
-      case LeftD(x, R) {
-        node(LeftD(x, R), drop_path(path'))
-      }
-    }
-}
 ```
 
 ```{.deduce file=BinaryTreeTest.pf} 
