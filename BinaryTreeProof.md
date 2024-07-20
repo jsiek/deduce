@@ -567,7 +567,7 @@ The left-hand side matches the induction hypothesis, so we have
 ```
 
 But we need to prove the premise of the induction hypothesis.  We can
-do that as follows, which many uses of `num_nodes_plug` and some
+do that as follows, with many uses of `num_nodes_plug` and some
 arithmetic that we package up into lemma `XYZW_equal`.
 
 ```
@@ -767,6 +767,7 @@ We can start by applying the `first_path_index` lemma, which
 gives us
 
 ```
+equations
       ti_index(first_path(RL,y,RR,node(RightD(L,x),path))) 
     = num_nodes(plug_tree(take_path(node(RightD(L,x),path)),EmptyTree))
 ```
@@ -856,6 +857,73 @@ proof
 end
 ```
 
+## Proof of `ti_next_stable`
+
+The second correctness condition for `ti_next(iter)` is that it is
+stable with respect to `ti2tree`. Following the definition of
+`ti_next`, we switch on the iterator and then on the right child of
+the current node. 
+
+```{.deduce #ti_next_stable}
+theorem ti_next_stable: all E:type, iter:TreeIter<E>.
+  ti2tree(ti_next(iter)) = ti2tree(iter)
+proof
+  arbitrary E:type, iter:TreeIter<E>
+  switch iter {
+    case TrItr(path, L, x, R) {
+      switch R {
+        case EmptyTree {
+          definition {ti2tree, ti_next}
+          <<ti_next_stable_case_R_EmptyTree>>
+        }
+        case TreeNode(RL, y, RR) {
+          definition {ti2tree, ti_next}
+          <<ti_next_stable_case_R_TreeNode>>
+        }
+      }
+    }
+  }
+end
+```
+
+For the case `R = EmptyTree`, we need to prove the following, which
+amounts to proving that `next_up` is stable.
+
+```
+ti2tree(next_up(path,L,x,EmptyTree)) = plug_tree(path,TreeNode(L,x,EmptyTree))
+```
+
+We'll pause the current proof to prove the `next_up_stable` lemma.
+
+## Exercise: `next_up_stable` lemma
+
+```
+lemma next_up_stable: all E:type. all path:List<Direction<E>>. all A:Tree<E>, y:E, B:Tree<E>.
+  ti2tree(next_up(path, A, y, B)) = plug_tree(path, TreeNode(A,y,B))
+```
+
+## Back to `ti_next_stable`
+
+Now we conclude the `R = EmptyTree` of the `ti_next_stable` theorem.
+
+```{.deduce #ti_next_stable_case_R_EmptyTree}
+    conclude ti2tree(next_up(path,L,x,EmptyTree))
+       = plug_tree(path,TreeNode(L,x,EmptyTree))
+      by next_up_stable[E][path][L,x,EmptyTree]
+```
+
+In the case `R = TreeNode(RL, y, RR)`, we need prove the following,
+which is to say that `first_path` is stable. Thankfully we already
+proved that lemma!
+
+```{.deduce #ti_next_stable_case_R_TreeNode}
+    conclude ti2tree(first_path(RL,y,RR,node(RightD(L,x),path))) 
+           = plug_tree(path,TreeNode(L,x,TreeNode(RL,y,RR)))
+      by rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
+         definition {plug_tree}.
+```
+
+
 ## Correctness of `ti_get` and `ti_index`
 
 
@@ -908,5 +976,30 @@ end
 <<XYZW_equal>>
 <<next_up_index>>
 <<ti_next_index>>
+
+lemma next_up_stable: all E:type. all path:List<Direction<E>>. all A:Tree<E>, y:E, B:Tree<E>.
+  ti2tree(next_up(path, A, y, B)) = plug_tree(path, TreeNode(A,y,B))
+proof
+  arbitrary E:type
+  induction List<Direction<E>>
+  case empty {
+    arbitrary A:Tree<E>, y:E, B:Tree<E>
+    definition {plug_tree, next_up, ti2tree}.
+  }
+  case node(f, path') suppose IH {
+    arbitrary A:Tree<E>, y:E, B:Tree<E>
+    definition {plug_tree, next_up}
+    switch f {
+      case LeftD(x, R) {
+        definition ti2tree.
+      }
+      case RightD(L, x) {
+        IH[L,x,TreeNode(A,y,B)]
+      }
+    }
+  }
+end
+
+<<ti_next_stable>>
 ```
 -->

@@ -312,12 +312,16 @@ proof
       switch R {
         case EmptyTree {
           definition {ti2tree, ti_next}
-          rewrite symmetric next_up_stable[E][path][L,x,EmptyTree].
+          conclude ti2tree(next_up(path,L,x,EmptyTree))
+             = plug_tree(path,TreeNode(L,x,EmptyTree))
+            by symmetric next_up_stable[E][path][L,x,EmptyTree]
         }
         case TreeNode(RL, y, RR) {
           definition {ti2tree, ti_next}
-          rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
-          definition {plug_tree}.
+          conclude ti2tree(first_path(RL,y,RR,node(RightD(L,x),path))) 
+                 = plug_tree(path,TreeNode(L,x,TreeNode(RL,y,RR)))
+            by rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
+               definition {plug_tree}.
         }
       }
     }
