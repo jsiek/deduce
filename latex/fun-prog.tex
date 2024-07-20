@@ -1,10 +1,163 @@
 \documentclass[12pt]{article}
 \usepackage[print]{booklet}
-
+% The following are necessary when using the print option of the booklet package. -Jeremy
+\pdfoutput = 1
+\setpdftargetpages
 %When changing to the print option, uncomment the following
 %to preserve the table of contents page numbering.
 %When changing to the noprint option, comment the following.
-\nofiles
+%\nofiles
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\usepackage[margin=4cm,a4paper]{geometry}
+%\usepackage[landscape]{geometry}
+\usepackage[object=vectorian]{pgfornament}
+\usepackage{xfp}
+\usetikzlibrary{calc}
+\usepackage{blindtext}
+\usepackage[manualmark]{scrlayer-scrpage}
+% scrlayer-scrpage %
+\clearpairofpagestyles
+\addtokomafont{pagehead}{\color{blue!50!green!80!black}\large}
+%\chead*{The current page style is \toplevelpagestyle{} \ifstr{\toplevelpagestyle}{\currentpagestyle}{}{as alias for \currentpagestyle}.}
+\cfoot*{\pagemark}
+
+
+%\newcommand\om{5mm}% ornament margin
+\newcommand\om{25mm}% ornament margin
+\newcommand\wom{31mm}% west ornament margin
+\newcommand\som{10mm}% south ornament margin
+\newcommand\nom{20mm}% north ornament margin
+\newcommand\ow{2cm}% ornament width
+\newcommand\oh{2cm}% ornament height
+\newcommand\ols{0mm}% ornament line shift %1.5mm
+%\newcommand\on{63}% ornament number
+\newcommand\on{39}% ornament number
+\newcommand\magicOrnamentOffset{0.25cm}
+
+\def\lencorner{2}
+\def\lencornerdivtwo{\fpeval{\lencorner/{2}}}
+\def\lencornerdivthree{\fpeval{\lencorner/{3}}}
+\newcommand\lencornerdivthreecm{\lencornerdivthree cm}
+\newcommand\lencornerdivtwocm{\lencornerdivtwo cm}
+
+
+\colorlet{bordercolor}{black}
+\tikzset{mainborder/.style={line width=0.65mm}}
+\tikzset{thinborder/.style={line width=0.2mm}}
+
+% define the border and save it in a box
+\newsavebox\border
+\sbox\border{%
+\tikz[color=bordercolor]{
+  \useasboundingbox(0,0)rectangle(\paperwidth,-\paperheight);
+  
+  % ornaments %
+  \foreach[count=\i]\a/\p/\s in {%
+  north west/{\wom,-\nom}/none,
+  north east/{{\paperwidth-\om},-\nom}/v,
+  south east/{{\paperwidth-\om},{-\paperheight+\som}}/c,%
+  south west/{\wom,{-\paperheight+\som}}/h%
+  }\node[anchor=\a](n\i) at (\p){
+    \pgfornament[width=\ow,height=\oh, symmetry=\s]{\on}
+  };
+
+  %% \begin{scope}[mainborder]
+  %%   %% lines %%
+  %%   \draw ([yshift=-\ols]n1.north east) -- ([yshift=-\ols]n2.north west);
+  %%   \draw ([xshift=-\ols]n2.south east) -- ([xshift=-\ols]n3.north east);
+  %%   \draw ([yshift=\ols]n3.south west) -- ([yshift=\ols]n4.south east) ;
+  %%   \draw ([xshift=\ols]n4.north west) -- ([xshift=\ols]n1.south west);
+  %%   %% corners %%
+  %%   % top left %
+  %%   \coordinate (B) at ([xshift=-\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n1.north east);
+  %%   \coordinate (C) at ([xshift=\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n1.north west);
+  %%   \draw (n1.south west) arc (180:90:\lencornerdivthree) -- (C) -- (B) arc (180:90:\lencornerdivthree);
+  %%   % bottom left %
+  %%   \coordinate (Y) at ([xshift=\lencornerdivthreecm, yshift=\lencornerdivthreecm]n4.south west);
+  %%   \coordinate (Z) at ([xshift=-\lencornerdivthreecm, yshift=\lencornerdivthreecm]n4.south east);
+  %%   \draw (n4.north west) arc (180:270:\lencornerdivthree) -- (Y) -- (Z) arc (180:270:\lencornerdivthree);
+  %%   % top right %
+  %%   \coordinate (S) at ([xshift=-\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n2.north east);
+  %%   \coordinate (T) at ([xshift=-\lencornerdivthreecm, yshift=\lencornerdivthreecm]n2.south east);
+  %%   \draw (n2.north west) arc (90:0:\lencornerdivthree) -- (S) -- (T) arc (90:0:\lencornerdivthree);
+  %%   % bottom right %
+  %%   \coordinate (F) at ([xshift=-\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n3.north east);
+  %%   \coordinate (G) at ([xshift=-\lencornerdivthreecm, yshift=\lencornerdivthreecm]n3.south east);
+  %%   \draw (n3.south west) arc (-90:0:\lencornerdivthree) -- (G) -- (F) arc (-90:0:\lencornerdivthree);
+  %% \end{scope}
+
+  %% [thin borders] %%
+  %% \begin{scope}[thinborder]
+  %%   % top left
+  %%   \coordinate (topLeftBottom) at ([xshift=\ols+3mm, yshift=-3mm]n1.south west); %down
+  %%   \coordinate (topLeftTop) at ([xshift=3mm, yshift=\ols-3mm]n1.north east); %up
+  %%   \coordinate (topLeftCenter) at ([yshift=-\lencornerdivtwocm-\magicOrnamentOffset, xshift=\lencornerdivtwocm+\magicOrnamentOffset]n1.north west);
+  %%   % bottom left
+  %%   \coordinate (bottomLeftBottom) at ([xshift=+3mm, yshift=\ols+3mm]n4.south east);
+  %%   \coordinate (bottomLeftTop) at ([xshift=\ols+3mm, yshift=3mm]n4.north west);
+  %%   \coordinate (bottomLeftCenter) at ([yshift=\lencornerdivtwocm+\magicOrnamentOffset, xshift=\lencornerdivtwocm+\magicOrnamentOffset]n4.south west);
+  %%   % bottom right
+  %%   \coordinate (bottomRightBottom) at ([xshift=-3mm, yshift=\ols+3mm]n3.south west);
+  %%   \coordinate (bottomRightTop) at ([xshift=-\ols-3mm, yshift=3mm]n3.north east);
+  %%   \coordinate (bottomRightCenter) at ([yshift=\lencornerdivtwocm+\magicOrnamentOffset, xshift=-\lencornerdivtwocm-\magicOrnamentOffset]n3.south east); 
+  %%   % top right
+  %%   \coordinate (topRightBottom) at ([xshift=\ols-3mm, yshift=-\ols-3mm]n2.south east);
+  %%   \coordinate (topRightTop) at ([xshift=-\ols-3mm, yshift=-\ols-3mm]n2.north west);
+  %%   \coordinate (topRightCenter) at ([yshift=-\lencornerdivtwocm-\magicOrnamentOffset, xshift=-\lencornerdivtwocm-\magicOrnamentOffset]n2.north east); 
+  %%   %% lines %%
+  %%   \draw (topLeftTop) -- (topRightTop); % top
+  %%   \draw (bottomRightBottom) -- (bottomLeftBottom) ; % bottom 
+  %%   \draw (topRightBottom) -- (bottomRightTop); % right
+  %%   \draw (bottomLeftTop) -- (topLeftBottom); % left 
+  %%   %% top left %%
+  %%   % loops %
+  %%   \draw (topLeftBottom) arc (180:0:0.2) arc (0:-180:0.1) coordinate (topLeftLower); % bottom
+  %%   \draw (topLeftTop) arc (90:270:0.2) arc (-90:90:0.1) coordinate (topLeftUpper); %top
+  %%   % brackets to center %
+  %%   \draw (topLeftCenter) to [in=90, out=280] (topLeftLower); % left
+  %%   \draw (topLeftUpper) to [in=0, out=175] (topLeftCenter); % right
+  %%   %% bottom left %%
+  %%   % loops %
+  %%   \draw (bottomLeftBottom) arc (270:90:0.2) arc (90:-90:0.1) coordinate (bottomLeftLower);
+  %%   \draw (bottomLeftTop) arc (-180:0:0.2) arc (0:180:0.1) coordinate (bottomLeftUpper);
+  %%   % brackets to center %
+  %%   \draw (bottomLeftCenter) to [in=175, out=0] (bottomLeftLower); % left
+  %%   \draw (bottomLeftUpper) to [in=90, out=280] (bottomLeftCenter); % right
+  %%   %% bottom right %%
+  %%   %% loops %%
+  %%   \draw (bottomRightBottom) arc (-90:90:0.2) arc (90:270:0.1) coordinate (bottomRightLower);
+  %%   \draw (bottomRightTop) arc (0:-180:0.2) arc (180:0:0.1) coordinate (bottomRightUpper);
+  %%   %% brackets to center %
+  %%   \draw (bottomRightCenter) to [in=0, out=175] (bottomRightLower);
+  %%   \draw (bottomRightUpper) to  [in=90, out=280] (bottomRightCenter);
+  %%   %% top right %%
+  %%   % loops %
+  %%   \draw (topRightBottom) arc (0:180:0.2) arc (-180:0:0.1) coordinate (topRightLower);
+  %%   \draw (topRightTop) arc (90:-90:0.2) arc (270:90:0.1) coordinate (topRightUpper);
+  %%   % brackets to center %
+  %%   \draw (topRightCenter) to [in=90, out=280] (topRightLower);
+  %%   \draw (topRightUpper) to  [in=175, out=0] (topRightCenter);
+  %% \end{scope}
+}}
+
+
+% define a switch to enable and disable the border
+\newif\ifBorder
+% define a new layer
+\DeclareNewLayer[{%
+    background,
+    page,
+    contents={\ifBorder\usebox\border\fi}
+  }]{border.bg}
+% add the border layer to all layer page styles (scrheadings, plain, empty, ...) ...
+\AddLayersAtBeginOfPageStyle{@everystyle@}{border.bg}
+% but no border on empty pages 
+\AddToLayerPageStyleOptions{empty}{oninit=\Borderfalse}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %\usepackage{palatino}
 %\usepackage{garamond}
@@ -39,14 +192,21 @@
 
 \newunicodechar{≤}{\ensuremath{\leq}}
 
-% The following are necessary when using the print option of the booklet package. -Jeremy
-\pdfoutput = 1
-\setpdftargetpages
 
-\title{Functional Programming in Deduce}
+\title{Programming in Deduce}
 \author{Jeremy G. Siek}
 
+
 \begin{document}
+
+%% \pagestyle{fancy}
+%% \fancyhead{}
+%% \fancyhead[L]{Programming in Deduce}
+%% \fancyhead[R]{Jeremy G. Siek}
+%%\fancyhead[L]{\pgfornament[width = 1cm]{39}}
+%% \fancyhead[R]{\pgfornament[width = 1cm]{40}}
+
+\Bordertrue
 
 \maketitle
 
@@ -63,9 +223,9 @@ The Deduce proof assistant includes two languages, the Deduce
 programming language and the Deduce proof language. This booklet
 introduces the Deduce programming language. This language is designed
 so that it is straightforward to prove the correctness of programs
-written in Deduce. Primarily this means that Deduce is a ``pure''
-language; it does not support side effecting operations such as
-writing to memory through a pointer.
+written in Deduce. Primarily this means that Deduce does not provide
+side effecting operations such as modifying the value stored at a
+location in memory.
 
 \section{Import}
 
