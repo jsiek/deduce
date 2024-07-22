@@ -152,16 +152,16 @@ proof
   arbitrary b:List<bool>
   switch b {
     case empty {
-      definition {inc, length, operator <, operator ≤}.
+      definition {inc, length, operator <, operator ≤, length, operator ≤}.
     }
     case node(d, b') {
       definition {inc, length}
       switch d {
         case true {
-          definition {operator <, operator ≤}.
+          definition {operator <, operator ≤, operator ≤}.
 	}
 	case false {
-          definition {operator <, operator ≤}.
+          definition {operator <, operator ≤, operator ≤}.
 	}
       }
     }

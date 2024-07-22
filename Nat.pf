@@ -224,7 +224,7 @@ proof
       }
       case suc(y') {
         suppose _
-        definition {operator<, operator≤}.
+        definition {operator<, operator≤, operator≤}.
       }
     }
   }
@@ -690,7 +690,8 @@ proof
     arbitrary y:Nat
     switch y {
       case zero {
-        have 0 < suc(x')  by definition {operator ≤,operator ≤,operator <}.
+        have 0 < suc(x')
+          by definition {operator<, operator≤, operator≤}.
       }
       case suc(y') {
         //enable operator <
@@ -1339,7 +1340,7 @@ theorem pow_positive: all n:Nat. 0 < pow2(n)
 proof
   induction Nat
   case 0 {
-    definition {pow2, operator<, operator≤}.
+    definition {pow2, operator<, operator≤, operator≤}.
   }
   case suc(n') suppose IH {
     definition {pow2}
@@ -1350,7 +1351,7 @@ proof
     rewrite add_zero[suc(pn')]
     definition {operator+}
     rewrite add_suc[pn'][pn']
-    definition {operator<, operator≤}.
+    definition {operator<, operator≤, operator≤}.
   }
 end
 
@@ -1368,10 +1369,10 @@ theorem pos_positive: all p:Pos. 0 < pos2nat(p)
 proof
   induction Pos
   case one {
-    definition {pos2nat, operator<, operator≤}.
+    definition {pos2nat, operator<, operator≤, operator≤}.
   }
   case succ(p') {
-    definition {pos2nat, operator<, operator≤}.
+    definition {pos2nat, operator<, operator≤, operator≤}.
   }
 end
 
@@ -1775,15 +1776,14 @@ proof
         by definition {operator<, u, operator*}
 	   switch m {
 	     case one {
-	       definition {pos2nat,operator+}
+	       definition {pos2nat, operator+, operator+, operator+}
 	       rewrite mult_one[n]
 	       rewrite mult_one[n]
-	       definition {operator+}
 	       less_equal_refl[suc(n)]
 	     }
 	     case succ(m') suppose m_sm {
 	       definition pos2nat
-	       definition {operator+, operator≤ }
+	       definition {operator+, operator+, operator≤}
 	       rewrite mult_commute[n][suc(pos2nat(m'))]
 	       definition operator*
 	       rewrite mult_commute[(pos2nat(m') + (n + pos2nat(m') * n))][suc(pos2nat(m'))]

@@ -486,7 +486,7 @@ proof
         definition {msort, first, second, length, operator+}.
       }
       case node(x, xs') {
-        definition {msort, length, length, first, second, operator+, operator+}.
+        definition {msort, first, second, length, length, operator+, operator+}.
       }
     }
   }
@@ -663,9 +663,9 @@ proof
       }
       case node(x, xs') suppose xs_xxs {
         definition {msort,first, length, length}
-        have xs_0: length(xs') = 0
-          by definition {operator ≤, length, operator<, pow2} in rewrite xs_xxs in prem
-        rewrite xs_0.
+        conclude false
+          by definition {length, pow2, operator<, operator ≤, operator ≤} in
+             rewrite xs_xxs in prem
       }
     }
   }

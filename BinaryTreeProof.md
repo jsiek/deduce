@@ -653,7 +653,7 @@ proof
     suppose prem: suc(ti_index(TrItr(empty,A,x,B)) + num_nodes(B)) 
                   < num_nodes(ti2tree(TrItr(empty,A,x,B)))
     have AB_l_AB: suc(num_nodes(A) + num_nodes(B)) < suc(num_nodes(A) + num_nodes(B))
-      by definition {ti_index, ti_take, take_path, plug_tree, ti2tree, num_nodes} 
+      by definition {ti_index, ti_take, take_path, plug_tree, ti2tree, num_nodes, plug_tree} 
          in prem
     conclude false  by apply less_irreflexive to AB_l_AB
   }
@@ -1272,7 +1272,7 @@ proof
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, y:E, B:Tree<E>
-    definition {plug_tree, next_up, ti2tree}.
+    definition {plug_tree, next_up, ti2tree, plug_tree}.
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, y:E, B:Tree<E>

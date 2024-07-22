@@ -812,7 +812,7 @@ proof
       conclude true or 0 < 0 by .
     }
     case suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤, operator ≤}.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }

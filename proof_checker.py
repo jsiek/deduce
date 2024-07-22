@@ -141,6 +141,8 @@ def rewrite(loc, formula, equation):
       return Generic(loc2, typarams, rewrite(loc, body, equation))
     case TAnnote(loc2, subject, typ):
       return TAnnote(loc, rewrite(loc, subject, equation), typ)
+    case TLet(loc2, var, rhs, body):
+      return TLet(loc2, var, rewrite(loc, rhs, equation), rewrite(loc, body, equation))
     case _:
       # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
@@ -302,6 +304,13 @@ def check_proof(proof, env):
       return instantiate(loc, allfrm, args)
     case ModusPonens(loc, imp, arg):
       ifthen = check_proof(imp, env)
+      match ifthen:
+        case IfThen(loc2, prem, conc):
+          pass
+        case All(_, _, _):
+          pass
+        case _:
+          ifthen = ifthen.reduce(env)
       match ifthen:
         case IfThen(loc2, prem, conc):
           check_proof_of(arg, prem, env)
@@ -702,18 +711,23 @@ def check_proof_of(proof, formula, env):
       check_proof_of(body, new_formula.reduce(env), env)
     case ApplyDefsGoal(loc, definitions, body):
       defs = [d.reduce(env) for d in definitions]
+      #print('definitions orig goal: ' + str(formula))      
       new_formula = apply_definitions(loc, formula, defs, env)
+      #print('definitions new goal: ' + str(new_formula))
       check_proof_of(body, new_formula, env)
     case _:
       form = check_proof(proof, env)
       check_implies(proof.location, form.reduce(env), formula.reduce(env))
 
 def apply_definitions(loc, formula, defs, env):
-  old_defs = get_reduce_only()
-  set_reduce_only(old_defs + defs)
-  new_formula = formula.reduce(env)
-  set_reduce_only(old_defs)
-  #print('apply defs: ' + str(formula) + ' ===> ' + str(new_formula))
+  new_formula = formula
+  for var in defs:
+      rhs = env.get_value_of_term_var(var)
+      if rhs != None:
+          equation = mkEqual(loc, var, rhs)
+          new_formula = rewrite(loc, new_formula, equation)
+          new_formula = new_formula.reduce(env)
+          #print('apply define new_formula = ' + str(new_formula))
   return new_formula
       
 def formula_match(loc, vars, goal_frm, frm, matching, env):

@@ -41,7 +41,7 @@ proof
         definition {nth, pred}
         conclude nth(xs',d)(search(xs',y)) = y
 	  by enable  {operator <, operator ≤}
-	     apply (definition {} in IH[y, d]) to
+	     apply IH[y, d] to
 	     rewrite not_xy in prem
       }
     }

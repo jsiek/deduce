@@ -487,7 +487,7 @@ proof
 	... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
 		by rewrite IH[ys'].
 	... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))
-		by definition {first, second, pairfun}.
+		by definition {pairfun, first, second}.
       }
     }
   }
@@ -563,8 +563,7 @@ proof
     definition all_elements
     suffices P(x) and all_elements(xs',P)
     enable {set_of,operator ∪, operator∈, rep, single}
-    have Px: P(x)
-        by (apply prem[x] to .)
+    have Px: P(x)  by prem[x]
     have Pxs: all_elements(xs',P)
         by apply IH[P] to arbitrary z:T suppose z_xs
 	                  apply prem[z] to z_xs
@@ -634,8 +633,12 @@ proof
       have cnt_x_z: cnt(m_fun(λx{0} : fn T->Nat))(x) = 0
         by definition cnt.
       have cnt_x_pos: 1 ≤ cnt(m_fun(λx{0} : fn T->Nat))(x)
-        by rewrite symmetric prem
-	   definition {mset_of, cnt, operator ⨄, m_one}
+        by 
+           rewrite symmetric prem
+           definition mset_of
+           definition operator ⨄
+           definition cnt
+           definition m_one
 	   less_equal_add[1][cnt(mset_of(xs'))(x)]
       conclude false
           by definition {cnt, operator ≤} in

@@ -119,7 +119,7 @@ proof
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, y:E, B:Tree<E>
-    definition {plug_tree, next_up, ti2tree}.
+    definition {plug_tree, next_up, ti2tree, plug_tree}.
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, y:E, B:Tree<E>
@@ -181,8 +181,9 @@ proof
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     suppose prem
     conclude false
-      by apply less_irreflexive
-         to definition {ti_index, take_path, plug_tree, num_nodes, operator+, ti2tree, ti_take} in prem
+      by apply less_irreflexive to
+         definition {ti_take, ti2tree, take_path, plug_tree, num_nodes} in
+         prem
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
@@ -203,10 +204,12 @@ proof
         have P_eq: P = num_nodes(plug_tree(path',EmptyTree)) by definition P.
         
         have prem3: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
-          by definition {X,Y,Z,W,P} definition {num_nodes, num_nodes} in
+          by definition {X,Y,Z,W,P}
+             definition {num_nodes, num_nodes} in
              rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))] in
-             rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)] in 
-             definition {take_path, ti_take, ti2tree, plug_tree} in rewrite f_eq in prem
+             rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)] in
+             definition {ti_take, take_path, ti2tree, plug_tree} in
+             rewrite f_eq in prem
         have prem_normal: suc(suc((X + Y) + (Z + W))) < suc(suc(P + (Y + (Z + W))))
           by  rewrite add_assoc[X][Y, Z+W]
               rewrite add_assoc[Y][Z, W] in
@@ -234,7 +237,7 @@ proof
                  rewrite add_suc[P][Y + (Z + W)]
                  prem_normal
         rewrite apply IH[L,y,TreeNode(A,x,B)] to prem2
-        definition {ti_take, num_nodes}
+        definition {ti_take, take_path, num_nodes, plug_tree}
         rewrite num_nodes_plug[E][take_path(path')][L]
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)]
         definition num_nodes
@@ -250,7 +253,7 @@ proof
         rewrite (definition {X,Y,Z,W} in eq2).
       }
       case LeftD(y, R) {
-        definition {next_up, ti_index, num_nodes, take_path, ti_take}
+        definition {next_up, ti_index, num_nodes, ti_take, take_path}
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
         rewrite num_nodes_plug[E][take_path(path')][A]
         definition num_nodes
@@ -662,7 +665,7 @@ proof
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    definition {take_path, plug_tree, ti2tree, in_order}
+    definition {take_path, ti2tree, plug_tree, in_order}
     rewrite symmetric length_in_order[E][A]
     rewrite take_append[E][in_order(A)][node(x, in_order(B))].
   }
@@ -670,7 +673,7 @@ proof
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     switch f {
       case RightD(L, z) {  // TreeNode(L, z, TreeNode(A,x,B))
-        definition {take_path, plug_tree, ti2tree, in_order}
+        definition {take_path, ti2tree, plug_tree, in_order}
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,z,A)]
         definition {num_nodes}
         suffices in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
@@ -691,7 +694,7 @@ proof
                  to LA_B_L_AB).
       }
       case LeftD(z, R) { // TreeNode(TreeNode(A, x, b), z, R)
-        definition {take_path, plug_tree, ti2tree, in_order}
+        definition {take_path, ti2tree, plug_tree, in_order}
         rewrite IH[A,x,TreeNode(B, z, R)]
         definition {ti2tree}
         have eq: in_order(TreeNode(A,x,TreeNode(B,z,R))) = in_order(TreeNode(TreeNode(A,x,B),z,R))
@@ -709,7 +712,7 @@ proof
   arbitrary E:type, z:TreeIter<E>
   switch z {
     case TrItr(path, A, x, B) {
-      definition {ti_take, ti_index}
+      definition {ti_index, ti_take}
       in_order_plug_take2[E][path][A,x,B]
     }
   }

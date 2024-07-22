@@ -556,7 +556,7 @@ proof
   arbitrary xs:List<Nat>, ys:List<Nat>
   have mset_of_merge: mset_of(merge(length(xs) + length(ys), xs, ys))
                     = mset_of(xs) ⨄ mset_of(ys)
-    by apply mset_of_merge[length(xs) + length(ys)][xs, ys] to .
+    by mset_of_merge[length(xs) + length(ys)][xs, ys]
   equations
     set_of(merge(length(xs) + length(ys), xs, ys))
         = set_of_mset(mset_of(merge(length(xs) + length(ys), xs, ys)))
@@ -929,7 +929,7 @@ proof
     equations
           mset_of(merge(length(ys) + length(zs),ys,zs)) ⨄ mset_of(ms)
         = (mset_of(ys) ⨄ mset_of(zs)) ⨄ mset_of(ms)
-          by rewrite (apply mset_of_merge[length(ys) + length(zs)][ys,zs] to .).
+          by rewrite (mset_of_merge[length(ys) + length(zs)][ys,zs]).
     ... = mset_of(ys) ⨄ (mset_of(zs) ⨄ mset_of(ms))
           by rewrite m_sum_assoc[Nat, mset_of(ys), mset_of(zs), mset_of(ms)].
     ... = mset_of(ys) ⨄ mset_of(ls)
@@ -1092,7 +1092,7 @@ proof
       case node(x, xs') suppose xs_xxs {
         definition {msort,first, length, length}
         have xs_0: length(xs') = 0
-          by definition {operator ≤, length, operator<, pow2} in 
+          by definition {operator ≤, length, operator<, pow2, operator ≤, operator ≤} in 
 		     rewrite xs_xxs in prem
         rewrite xs_0.
       }
@@ -1141,7 +1141,7 @@ proof
       equations
         length(merge(length(ys) + length(zs),ys,zs))
             = length(ys) + length(zs)
-              by apply merge_length[length(ys) + length(zs)][ys,zs] to .
+              by merge_length[length(ys) + length(zs)][ys,zs]
         ... = length(ys) + length(ls)
               by rewrite len_zs.
         ... = length(xs)
@@ -1166,7 +1166,7 @@ proof
       equations
         length(merge(length(ys) + length(zs),ys,zs))
           = length(ys) + length(zs)
-            by apply merge_length[length(ys) + length(zs)][ys, zs] to .
+            by merge_length[length(ys) + length(zs)][ys, zs]
       ... = length(xs)
             by rewrite len_zs | add_zero[length(ys)] | len_ys.
     }
@@ -1395,7 +1395,7 @@ proof
         definition {msort, first, second, length, operator+}.
       }
       case node(x, xs') {
-        definition {msort, length, length, first, second, operator+, operator+}.
+        definition {msort, length, length, first, second, operator+, operator+, length}.
       }
     }
   }
@@ -1422,7 +1422,7 @@ proof
     rewrite symmetric ys_ls_xs
     rewrite symmetric zs_ms_ls
     
-    rewrite (apply merge_length[length(ys) + length(zs)][ys,zs] to .)
+    rewrite merge_length[length(ys) + length(zs)][ys,zs]
     rewrite add_assoc[length(ys)][length(zs), length(ms)]
     .
   }
