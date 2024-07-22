@@ -724,10 +724,8 @@ def apply_definitions(loc, formula, defs, env):
   for var in defs:
       rhs = env.get_value_of_term_var(var)
       if rhs != None:
-          equation = mkEqual(loc, var, rhs)
-          new_formula = rewrite(loc, new_formula, equation)
+          new_formula = new_formula.substitute({var.name: rhs})
           new_formula = new_formula.reduce(env)
-          #print('apply define new_formula = ' + str(new_formula))
   return new_formula
       
 def formula_match(loc, vars, goal_frm, frm, matching, env):
