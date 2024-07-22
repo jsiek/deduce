@@ -65,17 +65,17 @@ end
 
 theorem summation_append:
   all xs:List<Nat>. all ys:List<Nat>.
-  summation(length(append(xs,ys)), 0, nth(append(xs,ys), 0))
+  summation(length(xs ++ ys), 0, nth(xs ++ ys, 0))
   = summation(length(xs), 0, nth(xs,0)) + summation(length(ys), 0, nth(ys,0))
 proof
   arbitrary xs:List<Nat>
   arbitrary ys:List<Nat>
-  have p1: all i:Nat. (if i < length(xs) then nth(xs,0)(0 + i) = nth(append(xs,ys),0)(0 + i))
+  have p1: all i:Nat. (if i < length(xs) then nth(xs,0)(0 + i) = nth(xs ++ ys,0)(0 + i))
     by arbitrary i:Nat suppose i_xs: i < length(xs)
        definition operator +
        symmetric apply nth_append_front[Nat][xs][ys, i, 0] to i_xs
   have p2: all i:Nat. (if i < length(ys)
-                       then nth(ys,0)(0 + i) = nth(append(xs,ys),0)(0 + length(xs) + i))
+                       then nth(ys,0)(0 + i) = nth(xs ++ ys,0)(0 + length(xs) + i))
     by arbitrary i:Nat suppose i_ys: i < length(ys)
        definition operator +
        have i_ys: i ≤ length(ys) by apply less_implies_less_equal[i][length(ys)]
@@ -83,8 +83,8 @@ proof
        symmetric nth_append_back[Nat][xs][ys,i,0]
   
   rewrite length_append[Nat][xs][ys]
-  conclude summation(length(xs) + length(ys), 0, nth(append(xs,ys), 0))
+  conclude summation(length(xs) + length(ys), 0, nth(xs ++ ys, 0))
         = summation(length(xs), 0, nth(xs,0)) + summation(length(ys), 0, nth(ys,0))
-      by apply summation_add[length(xs)][length(ys), 0, 0, nth(append(xs,ys), 0), nth(xs,0), nth(ys,0)]
+      by apply summation_add[length(xs)][length(ys), 0, 0, nth(xs ++ ys, 0), nth(xs,0), nth(ys,0)]
          to p1, p2
 end

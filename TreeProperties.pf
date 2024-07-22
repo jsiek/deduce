@@ -337,13 +337,14 @@ end
    -------------------------------------------------------- */
 
 lemma in_order_plug_take: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
-  in_order(plug_tree(take_path(path), t)) = append( in_order(plug_tree(take_path(path),EmptyTree)), in_order(t))
+  in_order(plug_tree(take_path(path), t))
+  = in_order(plug_tree(take_path(path),EmptyTree)) ++ in_order(t)
 proof
   arbitrary E:type
   induction List<Direction<E>>
   case empty {
     arbitrary t:Tree<E>
-    definition {take_path, plug_tree, in_order, append}.
+    definition {take_path, plug_tree, in_order, operator++}.
   }
   case node(f, path') suppose IH {
     arbitrary t:Tree<E>
@@ -352,25 +353,29 @@ proof
         definition {take_path, plug_tree}
         equations
               in_order(plug_tree(take_path(path'),TreeNode(L,x,t)))
-            = append(in_order(plug_tree(take_path(path'),EmptyTree)), in_order(TreeNode(L,x,t)))
+            = in_order(plug_tree(take_path(path'),EmptyTree)) ++ in_order(TreeNode(L,x,t))
                   by IH[TreeNode(L,x,t)]
-        ... = append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, in_order(t))))
+        ... = in_order(plug_tree(take_path(path'),EmptyTree)) ++ (in_order(L) ++ node(x, in_order(t)))
                   by definition in_order.
-        ... = append( in_order(plug_tree(take_path(path'),EmptyTree)), append(append(in_order(L), node(x, empty)), in_order(t)))
-                  by rewrite append_assoc[E][in_order(L)][node(x,empty), in_order(t)] definition {append, append}.
-        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, empty))), in_order(t))
-                  by rewrite append_assoc[E][in_order(plug_tree(take_path(path'),EmptyTree))][append(in_order(L), node(x, empty)), in_order(t)].
-        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), append(in_order(L), node(x, in_order(EmptyTree)))), in_order(t))
+        ... = in_order(plug_tree(take_path(path'),EmptyTree))
+              ++ ((in_order(L) ++ node(x, empty)) ++ in_order(t))
+                  by rewrite append_assoc[E][in_order(L)][node(x,empty), in_order(t)] definition {operator++, operator++}.
+        ... = (in_order(plug_tree(take_path(path'),EmptyTree)) ++ (in_order(L) ++ node(x, empty)))
+               ++ in_order(t)
+                  by rewrite append_assoc[E][in_order(plug_tree(take_path(path'),EmptyTree))][in_order(L) ++ node(x, empty), in_order(t)].
+        ... = (in_order(plug_tree(take_path(path'),EmptyTree))
+               ++ (in_order(L) ++ node(x, in_order(EmptyTree)))) ++ in_order(t)
                   by definition in_order.
-        ... = append(append( in_order(plug_tree(take_path(path'),EmptyTree)), in_order(TreeNode(L,x,EmptyTree))), in_order(t))
+        ... = (in_order(plug_tree(take_path(path'),EmptyTree)) ++ in_order(TreeNode(L,x,EmptyTree)))
+              ++ in_order(t)
                   by definition {in_order, in_order}.
-        ... = append(in_order(plug_tree(take_path(path'), TreeNode(L,x,EmptyTree))),in_order(t))
+        ... = in_order(plug_tree(take_path(path'), TreeNode(L,x,EmptyTree))) ++ in_order(t)
                   by rewrite IH[TreeNode(L,x,EmptyTree)].
       }
       case LeftD(x, R) {
         definition {take_path}
         conclude in_order(plug_tree(take_path(path'),t))
-               = append(in_order(plug_tree(take_path(path'),EmptyTree)),in_order(t))
+               = in_order(plug_tree(take_path(path'),EmptyTree)) ++ in_order(t)
             by IH[t]
       }
     }
@@ -378,7 +383,7 @@ proof
 end
 
 lemma in_order_plug_drop: all E:type. all path:List<Direction<E>>. all t:Tree<E>.
-  in_order(plug_tree(drop_path(path), t)) = append( in_order(t), in_order(plug_tree(drop_path(path),EmptyTree)))
+  in_order(plug_tree(drop_path(path), t)) = in_order(t) ++ in_order(plug_tree(drop_path(path),EmptyTree))
 proof
   arbitrary E:type
   induction List<Direction<E>>
@@ -393,25 +398,27 @@ proof
       case RightD(L, x) {
         definition {drop_path}
         conclude in_order(plug_tree(drop_path(path'),t))
-               = append(in_order(t),in_order(plug_tree(drop_path(path'),EmptyTree)))
+               = in_order(t) ++ in_order(plug_tree(drop_path(path'),EmptyTree))
             by IH[t]
       }
       case LeftD(x, R) {
         definition {drop_path, plug_tree}
         have IH2: in_order(plug_tree(drop_path(path'),TreeNode(t,x,R)))
-                = append(in_order(TreeNode(t,x,R)),in_order(plug_tree(drop_path(path'),EmptyTree)))
+                = in_order(TreeNode(t,x,R)) ++ in_order(plug_tree(drop_path(path'),EmptyTree))
                 by IH[TreeNode(t,x,R)]
         equations
           in_order(plug_tree(drop_path(path'),TreeNode(t,x,R)))
-              = append(in_order(TreeNode(t,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree)))
+              = in_order(TreeNode(t,x,R)) ++ in_order(plug_tree(drop_path(path'),EmptyTree))
                    by IH2
-          ... = append( append(in_order(t), node(x, in_order(R))), in_order(plug_tree(drop_path(path'), EmptyTree)))
+          ... = (in_order(t) ++ node(x, in_order(R))) ++ in_order(plug_tree(drop_path(path'), EmptyTree))
                    by definition in_order.
-          ... = append( append(in_order(t), in_order(TreeNode(EmptyTree,x,R))), in_order(plug_tree(drop_path(path'), EmptyTree)))
-                   by definition {in_order,in_order,append}.
-          ... = append(in_order(t), in_order(plug_tree(drop_path(path'), TreeNode(EmptyTree,x,R))))
+          ... = (in_order(t) ++ in_order(TreeNode(EmptyTree,x,R)))
+                ++ in_order(plug_tree(drop_path(path'), EmptyTree))
+                   by definition {in_order,in_order,operator++}.
+          ... = in_order(t) ++ in_order(plug_tree(drop_path(path'), TreeNode(EmptyTree,x,R)))
                    by rewrite IH[TreeNode(EmptyTree,x,R)]
-                      rewrite append_assoc[E][in_order(t)][in_order(TreeNode(EmptyTree,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree))].
+                      rewrite append_assoc[E][in_order(t)]
+                    [in_order(TreeNode(EmptyTree,x,R)), in_order(plug_tree(drop_path(path'),EmptyTree))].
       }
     }      
   }
@@ -419,7 +426,7 @@ end
 
 lemma in_order_plug_take_drop: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
   in_order(plug_tree(path, TreeNode(A, x, B)))
-  = append(in_order(plug_tree(take_path(path), A)), node(x, in_order(plug_tree(drop_path(path), B))))
+  = in_order(plug_tree(take_path(path), A)) ++ node(x, in_order(plug_tree(drop_path(path), B)))
 proof
   arbitrary E:type
   induction List<Direction<E>>
@@ -439,50 +446,58 @@ proof
         define Y = in_order(L)
         equations
               in_order(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
-            = append(in_order(plug_tree(take_path(path'),L)), node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B)))))
+            = in_order(plug_tree(take_path(path'),L))
+                ++ node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B))))
                  by IH[L,y,TreeNode(A,x,B)]
-        ... = append(append(X, Y),  node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B)))))
+        ... = (X ++ Y) ++ node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B))))
                  by definition {X,Y} rewrite in_order_plug_take[E][path'][L].
-        ... = append(append(X, Y),  node(y, append(in_order(TreeNode(A,x,B)), Q)))
+        ... = (X ++ Y) ++ node(y, (in_order(TreeNode(A,x,B)) ++ Q))
                  by definition {Q} rewrite in_order_plug_drop[E][path'][TreeNode(A,x,B)].
-        ... = append(append(X, Y),  node(y, append(append(Z, node(x, W)), Q)))
+        ... = (X ++ Y) ++ node(y, ((Z ++ node(x, W)) ++ Q))
                  by definition {in_order, Z, W}.
-        ... = append(X, append(Y, node(y, append(Z, append(node(x, W), Q)))))
-                 by rewrite append_assoc[E][X][Y, node(y, append(append(Z, node(x, W)), Q))]
+        ... = X ++ (Y ++ node(y, (Z ++ (node(x, W) ++ Q))))
+                 by rewrite append_assoc[E][X][Y, node(y, ((Z ++ node(x, W)) ++ Q))]
                     rewrite append_assoc[E][Z][node(x,W), Q].
-        ... = append(X, append(Y, append(node(y, Z), node(x, append(W, Q)))))
-                 by definition append.
-        ... = append(append(X, append(Y, node(y, Z))),  node(x, append(W, Q)))
-                 by rewrite append_assoc[E][X][append(Y, node(y, Z)), node(x, append(W, Q))]
-                    rewrite append_assoc[E][Y][node(y, Z), node(x, append(W, Q))].
-        ... = append(append(X, append(Y, node(y, Z))),  node(x, in_order(plug_tree(drop_path(path'), B))))
+        ... = (X ++ (Y ++ (node(y, Z) ++ node(x, W ++ Q))))
+                 by definition operator++.
+        ... = (X ++ (Y ++ node(y, Z))) ++ node(x, W ++ Q)
+                 by rewrite append_assoc[E][X][(Y ++ node(y, Z)), node(x, W ++ Q)]
+                    rewrite append_assoc[E][Y][node(y, Z), node(x, W ++ Q)].
+        ... = (X ++ (Y ++ node(y, Z))) ++ node(x, in_order(plug_tree(drop_path(path'), B)))
                  by definition {Q,W} rewrite in_order_plug_drop[E][path'][B].
-        ... = append(in_order(plug_tree(take_path(path'), TreeNode(L,y,A))), node(x,in_order(plug_tree(drop_path(path'),B))))
-                 by definition {X,Y,Z} rewrite in_order_plug_take[E][path'][TreeNode(L,y,A)] definition in_order.
+        ... = in_order(plug_tree(take_path(path'), TreeNode(L,y,A)))
+              ++ node(x,in_order(plug_tree(drop_path(path'),B)))
+                 by definition {X,Y,Z} rewrite in_order_plug_take[E][path'][TreeNode(L,y,A)]
+                    definition in_order.
       }
       case LeftD(y, R) {
         definition {plug_tree, take_path, drop_path, in_order}
         define Y = in_order(R)
         equations
               in_order(plug_tree(path',TreeNode(TreeNode(A,x,B),y,R)))
-            = append(in_order(plug_tree(take_path(path'),TreeNode(A,x,B))), node(y,in_order(plug_tree(drop_path(path'),R))))
+            = in_order(plug_tree(take_path(path'),TreeNode(A,x,B)))
+                ++ node(y,in_order(plug_tree(drop_path(path'),R)))
               by IH[TreeNode(A,x,B), y, R]
-        ... = append(in_order(plug_tree(take_path(path'),TreeNode(A,x,B))), node(y, append(Y, Q)))
+        ... = in_order(plug_tree(take_path(path'),TreeNode(A,x,B))) ++ node(y, Y ++ Q)
               by definition {Y,Q} rewrite in_order_plug_drop[E][path'][R].
-        ... = append(append(X, append(Z, node(x, W))), node(y, append(Y, Q)))
-              by definition {X, Z, W} rewrite in_order_plug_take[E][path'][TreeNode(A,x,B)] definition in_order.
-        ... = append(X, append(Z, node(x, append(W, node(y, append(Y, Q))))))
-              by rewrite append_assoc[E][X][append(Z, node(x, W)), node(y, append(Y, Q))]
-                 rewrite append_assoc[E][Z][node(x, W), node(y, append(Y, Q))]
-                 definition append.
-        ... = append(append(X, Z), node(x, append(append(W, node(y, Y)), Q)))
+        ... = (X ++ (Z ++ node(x, W))) ++ node(y, Y ++ Q)
+              by definition {X, Z, W} rewrite in_order_plug_take[E][path'][TreeNode(A,x,B)]
+                 definition in_order.
+        ... = X ++ (Z ++ node(x, (W ++ node(y, Y ++ Q))))
+              by rewrite append_assoc[E][X][(Z ++ node(x, W)), node(y, Y ++ Q)]
+                 rewrite append_assoc[E][Z][node(x, W), node(y, Y ++ Q)]
+                 definition operator++.
+        ... = (X ++ Z) ++ node(x, ((W ++ node(y, Y)) ++ Q))
               by rewrite append_assoc[E][W][node(y, Y), Q]
-                 rewrite append_assoc[E][X][Z, node(x, append(W, append(node(y, Y), Q)))]
-                 definition append.
-        ... = append(in_order(plug_tree(take_path(path'),A)), node(x,append(append(W, node(y, Y)), Q)))
+                 rewrite append_assoc[E][X][Z, node(x, W ++ (node(y, Y) ++ Q))]
+                 definition operator++.
+        ... = in_order(plug_tree(take_path(path'),A)) ++ node(x, ((W ++ node(y, Y)) ++ Q))
               by definition {X,Z} rewrite in_order_plug_take[E][path'][A].
-        ... = append(in_order(plug_tree(take_path(path'),A)),node(x,in_order(plug_tree(drop_path(path'),TreeNode(B,y,R)))))
-              by definition {W,Y,Q} rewrite in_order_plug_drop[E][path'][TreeNode(B,y,R)] definition in_order.
+        ... = in_order(plug_tree(take_path(path'),A))
+              ++ node(x,in_order(plug_tree(drop_path(path'), TreeNode(B,y,R))))
+              by definition {W,Y,Q}
+                 rewrite in_order_plug_drop[E][path'][TreeNode(B,y,R)]
+                 definition in_order.
       }
     }
   }
@@ -502,8 +517,9 @@ proof
   define_ Y = in_order(L)
   define_ Z = in_order(plug_tree(drop_path(path),R))
   rewrite symmetric length_append[E][X][Y]
-  suffices nth(append(append(X,Y), node(x,Z)), a)(length(append(X,Y))) = x
-  rewrite (rewrite add_zero[length(append(X,Y))] in nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
+  suffices nth((X ++ Y) ++ node(x,Z), a)(length(X ++ Y)) = x
+  rewrite (rewrite add_zero[length(X ++ Y)] in
+           nth_append_back[E][X ++ Y][node(x,Z), 0, a])
   definition nth.
 end
 
@@ -520,9 +536,8 @@ proof
                       (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
       rewrite in_order_plug_take_drop[E][path][L,x,R]
             | in_order_plug_take[E][path][L]
-      suffices x = nth(append(append(in_order(plug_tree(take_path(path),EmptyTree)),
-                                     in_order(L)),
-                              node(x,in_order(plug_tree(drop_path(path),R)))),a)
+      suffices x = nth(((in_order(plug_tree(take_path(path),EmptyTree)) ++ in_order(L))
+                        ++ node(x, in_order(plug_tree(drop_path(path),R)))), a)
                       (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
       rewrite symmetric length_in_order[E][L]
             | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
@@ -531,9 +546,9 @@ proof
       define_ Z = in_order(plug_tree(drop_path(path),R))
       rewrite symmetric length_append[E][X][Y]
       
-      suffices x = nth(append(append(X,Y), node(x,Z)), a)(length(append(X,Y)))
-      rewrite (rewrite add_zero[length(append(X,Y))] in
-               nth_append_back[E][append(X,Y)][node(x,Z), 0, a])
+      suffices x = nth((X ++ Y) ++ node(x,Z), a)(length(X ++ Y))
+      rewrite (rewrite add_zero[length(X ++ Y)] in
+               nth_append_back[E][X ++ Y][node(x,Z), 0, a])
       definition nth.
     }
   }
@@ -547,13 +562,13 @@ end
 function pre_order<E>(Tree<E>) -> List<E> {
   pre_order(EmptyTree) = empty
   pre_order(TreeNode(L, x, R)) =
-    node(x, append(pre_order(L), pre_order(R)))
+    node(x, (pre_order(L) ++ pre_order(R)))
 }
 
 function post_order<E>(Tree<E>) -> List<E> {
   post_order(EmptyTree) = empty
   post_order(TreeNode(L, x, R)) =
-    append(post_order(L), append(post_order(R), node(x, empty)))
+    post_order(L) ++ (post_order(R) ++ node(x, empty))
 }
 
 function focus<E>(TreeIter<E>) -> Tree<E> {
@@ -624,17 +639,18 @@ proof
   induction Tree<E>
   case EmptyTree {
     arbitrary x:E, B:Tree<E>, y:E, C:Tree<E>
-    definition {in_order, in_order, in_order, append}.
+    definition {in_order, in_order, in_order, operator++}.
   }
   case TreeNode(L, z, R) {
     arbitrary x:E, B:Tree<E>, y:E, C:Tree<E>
     definition {in_order, in_order, in_order}
     equations
-          append(append( append(in_order(L), node(z,in_order(R))), node(x,in_order(B))), node(y,in_order(C)))
-        = append( append(in_order(L), node(z,in_order(R))),  append( node(x,in_order(B)), node(y,in_order(C))))
-          by rewrite append_assoc[E][append(in_order(L), node(z,in_order(R)))][node(x,in_order(B)), node(y,in_order(C))].
-    ... = append( append(in_order(L), node(z,in_order(R))),  node(x, append(in_order(B), node(y,in_order(C)))))
-          by definition append.
+          (( (in_order(L) ++ node(z,in_order(R))) ++ node(x,in_order(B))) ++ node(y,in_order(C)))
+        = (in_order(L) ++ node(z,in_order(R))) ++  (node(x,in_order(B)) ++ node(y,in_order(C)))
+          by rewrite append_assoc[E][in_order(L) ++ node(z,in_order(R))]
+                        [node(x,in_order(B)), node(y,in_order(C))].
+    ... = (in_order(L) ++ node(z,in_order(R))) ++ node(x, in_order(B) ++ node(y,in_order(C)))
+          by definition operator++.
   }
 end
 

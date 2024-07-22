@@ -169,7 +169,7 @@ define L_1337 = node(1, node(3, node(3, node(7, empty))))
 define L_2348 = node(2, node(3, node(4, node(8, empty))))
 define L_12333478 = merge(length(L_1337) + length(L_2348), L_1337, L_2348)
 assert sorted(L_12333478)
-assert all_elements(append(L_1337, L_2348),
+assert all_elements(L_1337 ++ L_2348,
   λx{count(L_1337)(x) + count(L_2348)(x) = count(L_12333478)(x) })
 ```
 
@@ -182,7 +182,7 @@ much of the input list `L18` gets sorted in the call to `msort`.  The
 remaining portion of `xs`.
 
 ``` {.deduce #test_msort}
-define L18 = append(L_1337, L_2348)
+define L18 = L_1337 ++ L_2348
 
 define p0 = msort(0, L18)
 define t0 = take(pow2(0), L18)

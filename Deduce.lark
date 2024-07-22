@@ -31,6 +31,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_add "∪" term_med                        -> union_op
     | term_add "∩" term_med                        -> intersect
     | term_add "⨄" term_med                        -> multiset_sum
+    | term_med "++" term_add                       -> append
     | term_med
 
 ?term_med: term_med "/" term_hi                    -> div
@@ -46,7 +47,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ident: IDENT              -> ident
     | "operator" OPERATOR -> ident
-    | "operator" "/" -> ident
+    | "operator" "++"     -> ident_append
+    | "operator" "/"      -> ident_div
 
 ?term_hi: INT                                      -> int
     | "true"                                       -> true_literal

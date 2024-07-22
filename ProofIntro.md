@@ -117,7 +117,7 @@ end
 
 ### Exercise
 
-Prove that `append(node(1,empty), node(2, empty)) = node(1,node(2,empty))`.
+Prove that `node(1,empty) ++ node(2, empty) = node(1, node(2, empty))`.
 
 ## Generalizing with `all` formulas
 
@@ -207,12 +207,12 @@ To summarize this section:
 
 Prove that
 ```
-all T:type, x:T, y:T. append(node(x,empty), node(y, empty)) = node(x,node(y,empty))
+all T:type, x:T, y:T. node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
 ```
 
 Prove again that 
 ```
-append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
+node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 ```
 but this time use the previous theorem.
 
@@ -458,7 +458,7 @@ an empty list. Suppose we try to use `arbitrary` for both the
 `all U` and the `all xs`.
 
     theorem append_empty: all U :type. all xs :List<U>.
-      append(xs, empty) = xs
+      xs ++ empty = xs
     proof
       arbitrary U:type
       arbitrary xs:List<U>
@@ -468,25 +468,25 @@ an empty list. Suppose we try to use `arbitrary` for both the
 Deduce replies that we need to prove
 
     unfinished proof:
-        append(xs,empty) = xs
+        xs ++ empty = xs
 
 We might try to expand the definition of `append` as follows.
 
     theorem append_empty: all U :type. all xs :List<U>.
-      append(xs, empty) = xs
+      xs ++ empty = xs
     proof
       arbitrary U:type
       arbitrary xs:List<U>
-      definition append
+      definition operator++
       ?
     end
 
 But Deduce replies with the same goal.
 
     unfinished proof:
-        append(xs,empty) = xs
+        xs ++ empty = xs
 
-Deduce was unable to expand the definition of `append` because that
+Deduce was unable to expand the definition of append because that
 function pattern matches on its first argument, but we don't know
 whether `xs` is an `empty` list or a `node`.
 
@@ -494,14 +494,14 @@ So instead of using `arbitrary xs:List<U>` to prove the `all xs`, we
 proceed by induction as follows.
 
     theorem append_empty: all U :type. all xs :List<U>.
-      append(xs, empty) = xs
+      xs ++ empty = xs
     proof
       arbitrary U:type
       induction List<U>
       case empty {
         ?
       }
-      case node(n, xs') suppose IH: append(xs',empty) = xs' {
+      case node(n, xs') suppose IH: xs' ++ empty = xs' {
         ?
       }
     end
@@ -520,19 +520,19 @@ Let us first focus on the case for `empty`. Deduce tells us that we
 need to prove the following.
 
     unfinished proof:
-        append(empty,empty) = empty
+        empty ++ empty = empty
 
-This follows directly from the definition of `append`.
+This follows directly from the definition of append.
 
     case empty {
-      definition append.
+      definition operator++.
     }
 
 However, to make the proof more readable by other humans, I recommend
 restating the goal using the `show` statement.
 
     case empty {
-      conclude append(empty, empty) = empty  by definition append.
+      conclude empty ++ empty = empty  by definition operator++.
     }
 
 Next let us focus on the case for `node`. Deduce tells us that we need
@@ -540,10 +540,10 @@ to prove the following and that `IH` has been added to the available
 facts.
 
     unfinished proof:
-        append(node(n,xs'),empty) = node(n,xs')
+        node(n,xs') ++ empty = node(n,xs')
 
     available facts:
-        IH: append(xs',empty) = xs',
+        IH: xs' ++ empty = xs',
         ...
 
 Looking at the goal, we notice that we can expand the definition of
@@ -551,37 +551,37 @@ Looking at the goal, we notice that we can expand the definition of
 Deduce provides the `term` statement as way to use Deduce to expand
 definitions for us.
 
-    case node(n, xs') suppose IH: append(xs',empty) = xs' {
-      term append(node(n,xs'),empty) by definition append ?
+    case node(n, xs') suppose IH: xs' ++ empty = xs' {
+      term node(n,xs') ++ empty by definition operator++ ?
       ?
     }
 
 Deduce responds with
 
     unfinished proof:
-        node(n,append(xs',empty))
+        node(n, xs' ++ empty)
 
 We use Deduce's `have` statement to label this equality.
 We choose the label `step1`, state the equality, and then
 provide its proof after the `by` keyword.
 
-    case node(n, xs') suppose IH: append(xs',empty) = xs' {
-      have step1: append(node(n,xs'),empty)
-                  = node(n, append(xs',empty))  by definition append.
+    case node(n, xs') suppose IH: xs' ++ empty = xs' {
+      have step1: node(n,xs') ++ empty
+                = node(n, xs' ++ empty)  by definition operator++.
       ?
     }
 
-Next, we see that the subterm `append(xs',empty)` matches the
+Next, we see that the subterm `xs' ++ empty` matches the
 right-hand side of the induction hypothesis `IH`. We use the
 `rewrite` statement to apply the `IH` equation to this subterm.
 
-    have step2: node(n, append(xs',empty))
+    have step2: node(n, xs' ++ empty)
                 = node(n,xs')                 by rewrite IH.
 
 To complete the proof, we combine equations (1) and (2) using
 the `transitive` statement.
 
-    conclude append(node(n,xs'),empty) = node(n,xs')
+    conclude node(n,xs') ++ empty = node(n,xs')
         by transitive step1 step2
 
 Here is the completed proof of `append_empty`, but replacing the
@@ -590,18 +590,18 @@ statement.
 
 ```{.deduce #append_empty}
 theorem append_empty: all U :type. all xs :List<U>.
-  append(xs, empty) = xs
+  xs ++ empty = xs
 proof
   arbitrary U:type
   induction List<U>
   case empty {
-    conclude append(empty, empty) = empty  by definition append.
+    conclude empty ++ empty = empty  by definition operator++.
   }
-  case node(n, xs') suppose IH: append(xs',empty) = xs' {
+  case node(n, xs') suppose IH: xs' ++ empty = xs' {
     equations
-      append(node(n,xs'),empty)
-          = node(n, append(xs',empty))  by definition append.
-      ... = node(n,xs')                 by rewrite IH.
+      node(n,xs') ++ empty
+          = node(n, xs' ++ empty)   by definition operator++.
+      ... = node(n,xs')             by rewrite IH.
   }
 end
 ```
@@ -612,7 +612,7 @@ To summarize this section:
 
 ### Exercise
 
-Prove that `length(append(xs, ys)) = length(xs) + length(ys)`.
+Prove that `length(xs ++ ys) = length(xs) + length(ys)`.
 
 ## Reasoning about `and` (Conjunction)
 
@@ -923,11 +923,11 @@ supplying a proof of the condition.  We demonstrate several uses of
 
 ```
 theorem length_append_zero_empty: all T:type, xs:List<T>, ys:List<T>.
-  if length(append(xs, ys)) = 0
+  if length(xs ++ ys) = 0
   then xs = empty and ys = empty
 proof
   arbitrary T:type, xs:List<T>, ys:List<T>
-  suppose len_xs_ys: length(append(xs, ys)) = 0
+  suppose len_xs_ys: length(xs ++ ys) = 0
   ?
 end
 ```
@@ -935,7 +935,7 @@ end
 Recall that in a previous exercise, you proved that
 
 ```
-length(append(xs,ys)) = length(xs) + length(ys)
+length(xs ++ ys) = length(xs) + length(ys)
 ```
 
 so we can prove that `length(xs) + length(ys) = 0` as follows.
@@ -976,11 +976,11 @@ Here is the complete proof of `length_append_zero_empty`.
 
 ```{.deduce #length_append_zero_empty}
 theorem length_append_zero_empty: all T:type, xs:List<T>, ys:List<T>.
-  if length(append(xs, ys)) = 0
+  if length(xs ++ ys) = 0
   then xs = empty and ys = empty
 proof
   arbitrary T:type, xs:List<T>, ys:List<T>
-  suppose len_xs_ys: length(append(xs, ys)) = 0
+  suppose len_xs_ys: length(xs ++ ys) = 0
   have len_xs_len_ys: length(xs) + length(ys) = 0
     by transitive (symmetric length_append[T][xs][ys]) len_xs_ys
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
@@ -1351,9 +1351,9 @@ import FunctionalProgramming
 import List
 
 theorem append_12: 
-  append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
+  node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 proof
-  definition {append, append}.
+  definition {operator++, operator++}.
 end
 
 <<length_one_nat>>
@@ -1362,13 +1362,13 @@ end
 <<length_one_equal>>
 
 theorem append_xy: all T:type, x:T, y:T.
-  append(node(x,empty), node(y, empty)) = node(x,node(y,empty))
+  node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
 proof
-  definition {append, append}.
+  definition {operator++, operator++}.
 end
 
 theorem append_12_again: 
-  append(node(1,empty), node(2, empty)) = node(1,node(2,empty))
+  node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 proof
   append_xy[Nat, 1, 2]
 end
@@ -1376,20 +1376,20 @@ end
 <<append_empty>>
 
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
-  length(append(xs, ys)) = length(xs) + length(ys)
+  length(xs ++  ys) = length(xs) + length(ys)
 proof
   arbitrary U :type
-  enable {length, append, operator +, operator +}
+  enable {length, operator++, operator +, operator +}
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    conclude length(append(empty,ys)) = length(empty) + length(ys)  by .
+    conclude length(empty ++ ys) = length(empty) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
     equations
-      length(append(node(n,xs'),ys))
-          = 1 + length(append(xs', ys))        by .
+      length(node(n,xs') ++ ys)
+          = 1 + length(xs' ++ ys)              by .
       ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys].
       ... = length(node(n,xs')) + length(ys)   by .
   }

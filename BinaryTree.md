@@ -91,7 +91,7 @@ definition of the `in_order` function.
 ```{.deduce #in_order}
 function in_order<E>(Tree<E>) -> List<E> {
   in_order(EmptyTree) = empty
-  in_order(TreeNode(L, x, R)) = append(in_order(L), node(x, in_order(R)))
+  in_order(TreeNode(L, x, R)) = in_order(L) ++ node(x, in_order(R))
 }
 ```
 

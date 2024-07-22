@@ -98,7 +98,8 @@ def parse_tree_to_case_list(e):
 infix_ops = {'add', 'sub', 'mul', 'div', 'mod', 'circ',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
-             'subset_equal', 'union_op', 'intersect', 'membership', 'multiset_sum'}
+             'subset_equal', 'union_op', 'intersect', 'membership', 'multiset_sum',
+             'append'}
 
 prefix_ops = {'neg', 'not'}
 
@@ -109,7 +110,7 @@ operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘'
                    'less': '<', 'greater': '>',
                    'less_equal': '≤', 'greater_equal': '≥',
                    'subset_equal': '⊆', 'union_op': '∪', 'intersect': '∩',
-                   'membership': '∈', 'multiset_sum': '⨄'}
+                   'membership': '∈', 'multiset_sum': '⨄', 'append': '++'}
 
 impl_num = 0
 def next_impl_num():
@@ -205,10 +206,11 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'int':
         return intToNat(e.meta, int(e.children[0]))
     elif e.data == 'ident':
-        if 0 < len(e.children) :
-            return str(e.children[0].value)
-        else:
-            return '/'
+        return str(e.children[0].value)
+    elif e.data == 'ident_div':
+        return '/'
+    elif e.data == 'ident_append':
+        return '++'
     elif e.data == 'true_literal':
         return Bool(e.meta, True)
     elif e.data == 'false_literal':

@@ -24,26 +24,26 @@ and then appending them.
 
 ``` {.deduce #map_append}
 theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
-  map(append(xs,ys), f) = append(map(xs,f), map(ys,f))
+  map(xs ++ ys, f) = map(xs,f) ++ map(ys,f)
 proof
   arbitrary T : type, f : fn T->T, ys : List<T>
   induction List<T>
   case empty {
     equations
-      map(append(empty,ys), f)
-          = map(ys, f)                       by definition append.
-      ... = append(empty, map(ys, f))        by definition append.
-      ... = append(map(empty,f), map(ys, f)) by definition map.
+      map(empty ++ ys, f)
+          = map(ys, f)                  by definition operator++.
+      ... = empty ++  map(ys, f)        by definition operator++.
+      ... = map(empty,f) ++ map(ys, f)  by definition map.
   }
   case node(x, xs')
-    suppose IH: map(append(xs',ys), f) = append(map(xs',f), map(ys, f))
+    suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
   {
-    enable {map, append}
+    enable {map, operator++}
     equations
-      map(append(node(x,xs'),ys),f)
-          = node(f(x), map(append(xs',ys), f))         by .
-      ... = node(f(x), append(map(xs',f), map(ys,f)))  by rewrite IH.
-      ... = append(map(node(x,xs'),f),map(ys,f))       by .
+      map(node(x,xs') ++ ys, f)
+          = node(f(x), map(xs' ++ ys, f))         by .
+      ... = node(f(x), map(xs',f) ++ map(ys,f))   by rewrite IH.
+      ... = map(node(x,xs'),f) ++ map(ys,f)       by .
   }
 end
 ```
