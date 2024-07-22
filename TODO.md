@@ -1,6 +1,3 @@
-[ ] change how reduce and definition work, more substitution,
-    no variable stuff in reduce.
-
 [ ] add section on rewrite-in to the introduction
 
 [ ] implicit instantiation for all's
@@ -27,6 +24,8 @@
 [ ] specify number of unfoldings in definition and enable
 
 [ ] remove parent param from parser, not needed anymore
+
+[x] change how definition works, use substitution insetad of reduce
 
 [x] change 'let' to 'define'
 
