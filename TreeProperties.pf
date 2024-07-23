@@ -95,7 +95,7 @@ proof
   arbitrary E:type, A:Tree<E>, x:E, B:Tree<E>
   definition ti_first
   equations  ti_index(first_path(A,x,B,empty))
-           = num_nodes(plug_tree(take_path(empty),EmptyTree))
+           = num_nodes(plug_tree(take_path(empty : List<Direction<E>>),EmptyTree))
                        by first_path_index[E][A][x,B,empty]
        ... = 0      by definition {take_path, plug_tree, num_nodes}.
 end
@@ -142,7 +142,7 @@ proof
   induction List<Direction<E>>
   case empty {
     arbitrary t:Tree<E>
-    conclude num_nodes(plug_tree(empty,t)) = num_nodes(plug_tree(empty,EmptyTree)) + num_nodes(t)
+    conclude num_nodes(plug_tree(empty,t)) = num_nodes(plug_tree(empty,EmptyTree : Tree<E>)) + num_nodes(t)
         by definition {plug_tree, num_nodes, operator+}.
   }
   case node(f, path') suppose IH {
@@ -279,14 +279,14 @@ proof
       switch R {
         case EmptyTree suppose R_eq {
           have next_up_index_prem:
-              suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
+              suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree : Tree<E>))
               < num_nodes(ti2tree(TrItr(path,L,x,EmptyTree)))
             by enable num_nodes
                rewrite add_zero[ti_index(TrItr(path,L,x,EmptyTree))]
                rewrite iter_eq | R_eq in prem
           equations
                 ti_index(next_up(path,L,x,EmptyTree))
-              = suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree))
+              = suc(ti_index(TrItr(path,L,x,EmptyTree)) + num_nodes(EmptyTree : Tree<E>))
                 by apply next_up_index[E][path][L, x, EmptyTree] to next_up_index_prem
           ... = suc(ti_index(TrItr(path,L,x,EmptyTree)))
                 by definition num_nodes

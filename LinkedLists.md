@@ -762,7 +762,7 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat, d:T
-    suppose i_z: i < length(empty)
+    suppose i_z: i < length(empty : List<T>)
     conclude false by definition {length, operator <, operator ≤} in i_z
   }
   case node(x, xs) suppose IH {

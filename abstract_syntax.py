@@ -705,6 +705,8 @@ class Call(Term):
     #   ret.typeof = self.typeof
     # if hasattr(self,'type_subst'):
     #   ret.type_subst = self.type_subst
+    if hasattr(self, 'type_args'):
+      ret.type_args = self.type_args
     return ret
   
   def __str__(self):
@@ -714,7 +716,11 @@ class Call(Term):
     elif isNat(self):
       return str(natToInt(self))
     else:
-      return str(self.rator) + "(" + ",".join([str(arg) for arg in self.args]) + ")"
+      if hasattr(self, 'type_args'):
+        type_inst = '<' + ','.join([str(t) for t in self.type_args]) + '>'
+      else:
+        type_inst = ''
+      return str(self.rator) + type_inst + "(" + ",".join([str(arg) for arg in self.args]) + ")"
 
   def __repr__(self):
     return str(self)
@@ -803,10 +809,21 @@ class Call(Term):
                 return result
         ret = Call(self.location, fun, args, self.infix)
       case Generic(loc, typarams, body):
-        ret = Call(self.location, body, args, self.infix).reduce(env)
+        if hasattr(self, 'type_args'):
+          sub = {x:t for (x,t) in zip(typarams, self.type_args)}
+          new_body = body.substitute(sub)
+          #print('type passing: ' + str(sub))
+          ret = Call(self.location, new_body, args, self.infix).reduce(env)
+          #print('applying generic: ' + str(self) + ' ==> ' + str(new_body))
+        else:
+          #print('!!! applying generic, call missing the type_args field: ' + str(self))
+          ret = Call(self.location, body, args, self.infix).reduce(env)
+          #error(self.location, 'internal error in application of generic, missing type_args for\n\t' + str(self))
       case _:
         #print("can't reduce, not a redex: " + str(fun))
         ret = Call(self.location, fun, args, self.infix)
+        if hasattr(self, 'type_args'):
+          ret.type_args = self.type_args
     #print('finished reducing call\n\t' + str(self) + '\n\t' + str(ret))
     return ret
 
@@ -814,6 +831,8 @@ class Call(Term):
     ret = Call(self.location, self.rator.substitute(sub),
                 [arg.substitute(sub) for arg in self.args],
                 self.infix)
+    if hasattr(self, 'type_args'):
+      ret.type_args = self.type_args
     return ret
 
   def uniquify(self, env):
@@ -1221,7 +1240,7 @@ class Some(Formula):
     n = len(self.vars)
     new_sub = {k: v for (k,v) in sub.items()}
     return Some(self.location,
-                [(x,ty.substitute(sub)) for (x,ty) in self.vars],
+                [(x, ty.substitute(sub)) for (x,ty) in self.vars],
                 self.body.substitute(new_sub))
   
   def uniquify(self, env):
@@ -1239,8 +1258,11 @@ class Some(Formula):
   def __eq__(self, other):
     if not isinstance(other, Some):
       return False
-    sub = {y: Var(self.location, x) for ((x,tx),(y,ty))in zip(self.vars, other.vars)}
-    return self.body == other.body.substitute(sub)
+    if all([tx == ty for ((x,tx),(y,ty))in zip(self.vars, other.vars)]):
+      sub = {y: Var(self.location, x) for ((x,tx),(y,ty))in zip(self.vars, other.vars)}
+      return self.body == other.body.substitute(sub)
+    else:
+      return False
   
 ################ Proofs ######################################
   

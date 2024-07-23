@@ -137,7 +137,7 @@ proof
   case empty {
     arbitrary y:Nat, d:Nat
     suppose _
-    conclude search(empty,y) = length(empty)
+    conclude search(empty,y) = length(empty : List<Nat>)
         by definition {search, length}.
   }
   case node(x, xs) suppose IH {

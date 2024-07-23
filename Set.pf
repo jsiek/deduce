@@ -168,8 +168,7 @@ proof
 end
 
 /*
-  TODO: use operator ⊆, but first
-  need to fix generics, implement type passing
+  TODO: use operator ⊆ now that type passing is implemented
   */
 theorem subset_equal:
   all T:type, A:Set<T>, B:Set<T>.

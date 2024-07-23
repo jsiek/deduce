@@ -286,7 +286,7 @@ proof
   induction List<Nat>
   case empty {
     arbitrary y:Nat
-	conclude search(empty,y) ≤ length(empty)
+	conclude search(empty,y) ≤ length(empty : List<Nat>)
         by definition {search, length, operator ≤}.
   }
   case node(x, xs') 
@@ -469,7 +469,7 @@ proof
   induction List<Nat>
   case empty {
     arbitrary y:Nat
-	suppose prem: search(empty,y) < length(empty)
+	suppose prem: search(empty,y) < length(empty : List<Nat>)
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
   }
@@ -641,7 +641,7 @@ proof
   induction List<Nat>
   case empty {
     arbitrary y:Nat, i:Nat
-	suppose prem: search(empty,y) < length(empty) and nth(empty,0)(i) = y
+	suppose prem: search(empty,y) < length(empty : List<Nat>) and nth(empty,0)(i) = y
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
   }

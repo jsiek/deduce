@@ -68,7 +68,7 @@ To finish the proof, we just need to prove `true`, which is
 accomplished with a period.
 
 ```{.deduce #length_empty}
-theorem length_empty: length(empty) = 0
+theorem length_empty: length(empty : List<Nat>) = 0
 proof
   definition length.
 end
@@ -595,7 +595,7 @@ proof
   arbitrary U:type
   induction List<U>
   case empty {
-    conclude empty ++ empty = empty  by definition operator++.
+    conclude (empty : List<U>) ++ empty = empty  by definition operator++.
   }
   case node(n, xs') suppose IH: xs' ++ empty = xs' {
     equations
@@ -1383,7 +1383,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    conclude length(empty ++ ys) = length(empty) + length(ys)  by .
+    conclude length(empty ++ ys) = length(empty : List<U>) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>

@@ -782,6 +782,8 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       if name in matching.keys():
         type_match(loc, tyvars, matching[name], arg_ty, matching)
       else:
+        if get_verbose():
+            print('matching ' + name + ' := ' + str(arg_ty))
         matching[name] = arg_ty
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
         if len(tv1) == len(tv2) and len(pts1) == len(pts2):
@@ -824,6 +826,7 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty, call
           error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
         return return_type
       else:
+        #print('in call, function type: ' + str(funty))
         matching = {}
         # If there is an expected return type, match that first.
         type_params = type_names(loc, typarams)
@@ -840,7 +843,13 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty, call
               type_check_term(arg, param_type, env, recfun, subterms)
             else:
               arg_ty = type_synth_term(arg, env, recfun, subterms)
+              #print('arg_ty = ' + str(arg_ty))
               type_match(loc, type_params, param_type, arg_ty, matching)
+        #print('deduced type arguments: ' + str(matching))
+        for x in typarams:
+            if x not in matching.keys():
+                error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' + base_name(x))
+        call.type_args = [matching[x] for x in typarams]
         inst_return_type = return_type.substitute(matching)
         return inst_return_type
     case _:
@@ -1135,7 +1144,7 @@ modules = set()
 def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
-    print('env: ' + str(env))
+    #print('env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -1201,7 +1210,11 @@ def type_check_stmt(stmt, env):
     case Theorem(loc, name, frm, pf):
       pass
     case RecFun(loc, name, typarams, params, returns, cases):
-      fun_type = FunctionType(loc, typarams, params, returns)
+      new_typarams = [generate_name(t) for t in typarams]
+      sub = {x: Var(loc, y) for (x,y) in zip(typarams, new_typarams)}
+      new_params = [p.substitute(sub) for p in params]
+      new_returns = returns.substitute(sub)
+      fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
       stmt.typeof = fun_type
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
       cases_present = {}

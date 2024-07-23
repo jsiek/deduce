@@ -529,13 +529,13 @@ proof
     switch xs {
       case empty {
         definition {first, second}
-        suffices mset_of(empty) ⨄ mset_of(empty) = mset_of(empty)
+        suffices mset_of(empty : List<Nat>) ⨄ mset_of(empty : List<Nat>) = mset_of(empty : List<Nat>)
         definition {mset_of}
         rewrite m_sum_empty[Nat,m_fun(λx{0})].
       }
       case node(x, xs') {
         definition {first, second, mset_of}
-        suffices m_one(x) ⨄ mset_of(empty) ⨄ mset_of(xs')
+        suffices m_one(x) ⨄ mset_of(empty : List<Nat>) ⨄ mset_of(xs')
                = m_one(x) ⨄ mset_of(xs')
         definition {mset_of}
         rewrite m_sum_empty[Nat,m_one(x)].
