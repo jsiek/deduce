@@ -167,15 +167,12 @@ proof
   definition operator ∈ in x_B
 end
 
-/*
-  TODO: use operator ⊆ now that type passing is implemented
-  */
 theorem subset_equal:
   all T:type, A:Set<T>, B:Set<T>.
-  if (all x:T. if x ∈ A then x ∈ B) and
-     (all x:T. if x ∈ B then x ∈ A)
+  if A ⊆ B and B ⊆ A
   then A = B
 proof
+  definition operator⊆ 
   arbitrary U:type, A:Set<U>, B:Set<U>
   suppose prem
   switch A {
@@ -201,4 +198,5 @@ proof
     }
   }
 end
+
 
