@@ -66,8 +66,9 @@ def instantiate(loc, allfrm, args):
         ret = frm.substitute(sub)
         return ret
       else:
-        error(loc, 'expected ' + str(len(vars)) + ' arguments, ' \
-              + 'not ' + str(len(args)))
+        error(loc, 'expected ' + str(len(vars)) + ' arguments, not ' \
+              + str(len(args)) + ', ' \
+              + 'to instantiate:\n\t' + str(allfrm))
     case _:
       error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   
@@ -87,12 +88,27 @@ def pattern_to_term(pat):
     case _:
       error(pat.location, "expected a pattern, not " + str(pat))
 
+num_rewrites = 0
+
+def reset_num_rewrites():
+    global num_rewrites
+    num_rewrites = 0
+
+def inc_rewrites():
+    global num_rewrites
+    num_rewrites = 1 + num_rewrites
+
+def get_num_rewrites():
+    global num_rewrites
+    return num_rewrites
+    
 def rewrite(loc, formula, equation):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
     print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
           + '\n\t' + str(lhs) + ' =? ' + str(formula) + '\t' + str(formula == lhs))
   if formula == lhs:
+    inc_rewrites()
     return rhs
   match formula:
     case Var(loc2, name):
@@ -115,6 +131,8 @@ def rewrite(loc, formula, equation):
       call = Call(loc2, rewrite(loc, rator, equation),
                   [rewrite(loc, arg, equation) for arg in args],
                   infix)
+      if hasattr(formula, 'type_args'):
+          call.type_args = formula.type_args
       return call
     case Switch(loc2, subject, cases):
       return Switch(loc2, rewrite(loc, subject, equation),
@@ -229,7 +247,11 @@ def check_proof(proof, env):
       for eq in eqns:
         if not is_equation(eq):
           eq = make_boolean_equation(eq)
+        reset_num_rewrites()
         new_formula = rewrite(loc, new_formula, eq)
+        if get_num_rewrites() == 0:
+            error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
+                  + '\nin\n\t' + str(new_formula))
         new_formula = new_formula.reduce(env)
       ret = new_formula
     case PHole(loc):
@@ -749,7 +771,11 @@ def check_proof_of(proof, formula, env):
       for eq in eqns:
         if not is_equation(eq):
           eq = make_boolean_equation(eq)
+        reset_num_rewrites()
         new_formula = rewrite(loc, new_formula, eq)
+        if get_num_rewrites() == 0:
+            error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
+                  + '\nin\n\t' + str(new_formula))
         new_formula = new_formula.reduce(env)
       check_proof_of(body, new_formula.reduce(env), env)
     case ApplyDefsGoal(loc, definitions, body):
@@ -869,7 +895,7 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty, call
           error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
         return return_type
       else:
-        #print('in call, function type: ' + str(funty))
+        #print('in call: ' + str(call) + '\n\tfunction type: ' + str(funty))
         matching = {}
         # If there is an expected return type, match that first.
         type_params = type_names(loc, typarams)
@@ -888,12 +914,13 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty, call
               arg_ty = type_synth_term(arg, env, recfun, subterms)
               #print('arg_ty = ' + str(arg_ty))
               type_match(loc, type_params, param_type, arg_ty, matching)
-        #print('deduced type arguments: ' + str(matching))
+        #print('\tdeduced type arguments: ' + str(matching))
         for x in typarams:
             if x not in matching.keys():
                 error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' + base_name(x))
         call.type_args = [matching[x] for x in typarams]
         inst_return_type = return_type.substitute(matching)
+        #print('\tcall is now:  ' + str(call))
         return inst_return_type
     case _:
       error(loc, 'expected operator to have function type, not ' + str(funty))

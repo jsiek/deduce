@@ -908,7 +908,8 @@ proof
     case empty { . }
     case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
 	  have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
-      conclude false  by definition length in len_z2
+      conclude false  by apply not_one_add_zero[length(xs')]
+                         to definition length in len_z2
     }
   }
 end

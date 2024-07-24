@@ -16,7 +16,9 @@ proof
     rewrite length_append[E][in_order(L)][node(x, in_order(R))]
     definition {length}
     rewrite IH_L | IH_R
-    rewrite add_suc[num_nodes(L)][num_nodes(R)].
+    rewrite add_commute[1][num_nodes(R)]
+    rewrite add_commute[1][num_nodes(L) + num_nodes(R)]
+    rewrite add_assoc[num_nodes(L)][num_nodes(R), 1].
   }
 end
 
@@ -154,16 +156,17 @@ proof
         rewrite IH[TreeNode(L,x,EmptyTree)]
         definition {num_nodes, num_nodes}
         rewrite add_zero[num_nodes(L)]
-        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][suc(num_nodes(L)), num_nodes(t)]
-        definition {operator+}.
+        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][1 + num_nodes(L), num_nodes(t)]
+        rewrite add_assoc[1][num_nodes(L), num_nodes(t)].
       }
       case LeftD(x, R) {
         definition {plug_tree, num_nodes}
         rewrite IH[TreeNode(t,x,R)]
         rewrite IH[TreeNode(EmptyTree,x,R)]
-        definition {num_nodes, num_nodes, operator+}
-        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][suc(num_nodes(R)), num_nodes(t)]
-        definition {operator+}
+        definition {num_nodes, num_nodes}
+        rewrite zero_add[num_nodes(R)]
+        rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][1 + num_nodes(R), num_nodes(t)]
+        rewrite add_assoc[1][num_nodes(R), num_nodes(t)]
         rewrite add_commute[num_nodes(R)][num_nodes(t)].
       }
     }
@@ -182,7 +185,7 @@ proof
     suppose prem
     conclude false
       by apply less_irreflexive to
-         definition {ti_take, ti2tree, take_path, plug_tree, num_nodes} in
+         definition {ti_take, ti2tree, take_path, plug_tree, num_nodes, operator+, operator+} in
          prem
   }
   case node(f, path') suppose IH {
@@ -205,6 +208,7 @@ proof
         
         have prem3: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
           by definition {X,Y,Z,W,P}
+             definition {operator+, operator+} in
              definition {num_nodes, num_nodes} in
              rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))] in
              rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)] in
@@ -226,6 +230,7 @@ proof
                  rewrite num_nodes_plug[E][take_path(path')][L]
                  rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))]
                  definition {num_nodes, num_nodes}
+                 definition {operator+, operator+}
                  rewrite symmetric X_eq
                  rewrite symmetric Y_eq
                  rewrite symmetric Z_eq
@@ -240,7 +245,7 @@ proof
         definition {ti_take, take_path, num_nodes, plug_tree}
         rewrite num_nodes_plug[E][take_path(path')][L]
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)]
-        definition num_nodes
+        definition {num_nodes, operator+, operator+}
         have eq2: suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W) by
           equations
                 suc((X + Y) + suc(Z + W))
@@ -256,7 +261,7 @@ proof
         definition {next_up, ti_index, num_nodes, ti_take, take_path}
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
         rewrite num_nodes_plug[E][take_path(path')][A]
-        definition num_nodes
+        definition {num_nodes, operator+, operator+}
         define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
         define_ Y = num_nodes(A)
         define_ Z = num_nodes(B)
@@ -298,7 +303,8 @@ proof
           rewrite num_nodes_plug[E][take_path(path)][TreeNode(L,x,EmptyTree)]
           definition {num_nodes, num_nodes}
           rewrite num_nodes_plug[E][take_path(path)][L]
-          rewrite add_zero[num_nodes(L)]          
+          rewrite add_zero[num_nodes(L)]
+          definition {operator+, operator+}
           rewrite add_suc[num_nodes(plug_tree(take_path(path),EmptyTree))][num_nodes(L)].
         }
       }
@@ -675,7 +681,7 @@ proof
       case RightD(L, z) {  // TreeNode(L, z, TreeNode(A,x,B))
         definition {take_path, ti2tree, plug_tree, in_order}
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,z,A)]
-        definition {num_nodes}
+        definition {num_nodes, operator+, operator+}
         suffices in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
                = take(num_nodes(plug_tree(take_path(path'),EmptyTree)) + suc(num_nodes(L) + num_nodes(A)),
                       in_order(plug_tree(path', TreeNode(L,z,TreeNode(A,x,B)))))
@@ -687,7 +693,7 @@ proof
           by definition ti2tree in IH2
         rewrite IH3
         rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,z,A)]
-        definition {num_nodes}
+        definition {num_nodes, operator+, operator+}
         have LA_B_L_AB: in_order(TreeNode(TreeNode(L,z,A),x,B)) = in_order(TreeNode(L,z,TreeNode(A,x,B)))
           by in_order_assoc[E][L][z,A,x,B]
         rewrite (apply in_order_plug[E][path'][TreeNode(TreeNode(L,z,A),x,B), TreeNode(L,z,TreeNode(A,x,B))]

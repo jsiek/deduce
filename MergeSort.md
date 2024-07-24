@@ -485,9 +485,10 @@ proof
               case true suppose xy_true {
                 definition mset_of
                 have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable length rewrite xs_xxs | ys_yys in prem
+                  by enable {length,operator+,operator+}
+                     rewrite xs_xxs | ys_yys in prem
                 have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-                  by enable {operator +,length}
+                  by enable {operator +, operator +,length}
                      injective suc sxs_sys_sn
                 have IH': mset_of(merge(n',xs',node(y,ys')))
                         = mset_of(xs') ⨄ mset_of(node(y, ys'))
@@ -500,9 +501,10 @@ proof
               case false suppose xy_false {
                 definition mset_of
                 have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable length rewrite xs_xxs | ys_yys in prem
+                  by enable {length, operator+, operator+}
+                     rewrite xs_xxs | ys_yys in prem
                 have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
-                  by enable {operator +,length}
+                  by enable {operator +, operator +, length}
                      injective suc
                      rewrite add_suc[length(xs')][length(ys')] in
                      sxs_sys_sn
@@ -764,7 +766,7 @@ proof
             have s_yys: sorted(node(y,ys'))
               by rewrite ys_yys in prem
             have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-              by enable {operator +,length}
+              by enable {operator +, operator +, length}
                  have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
                     by rewrite xs_xxs | ys_yys in prem
                  injective suc sxs
@@ -776,9 +778,9 @@ proof
              * to prove sorted(merge(n',node(x,xs'),ys'))
              */
             have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
-              by definition {operator +,length}
+              by definition {operator +, operator +, length}
                  rewrite symmetric len_xs_yys
-                 definition length
+                 definition {length,operator+, operator+}
                  rewrite add_suc[length(xs')][length(ys')].
             have s_xxs: sorted(node(x, xs'))
               by enable sorted rewrite xs_xxs in prem
@@ -1017,7 +1019,7 @@ proof
       case node(x, xs') suppose xs_xxs {
         definition {msort,first}
         conclude length(node(x,empty)) = pow2(0)
-            by definition {length, length, pow2}.
+            by definition {length, length, pow2, operator+, operator+}.
       }
     }
   }
@@ -1029,17 +1031,15 @@ proof
          definition {pow2, operator*, operator*,operator*} in prem
     definition {pow2, msort, first}
 
-    define ys = first(msort(n',xs))
-    define ls = second(msort(n',xs))
+    define_ ys = first(msort(n',xs))
+    define_ ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
-    rewrite ys_def | ls_def
     
-    define zs = first(msort(n', ls))
-    define ms = second(msort(n', ls))
+    define_ zs = first(msort(n', ls))
+    define_ ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
-    rewrite zs_def | ms_def
 
     have p2n_le_xs: pow2(n') ≤ length(xs)
       by have p2n_le_2p2n: pow2(n') ≤ pow2(n') + pow2(n')
@@ -1092,7 +1092,8 @@ proof
       case node(x, xs') suppose xs_xxs {
         definition {msort,first, length, length}
         have xs_0: length(xs') = 0
-          by definition {operator ≤, length, operator<, pow2, operator ≤, operator ≤} in 
+          by definition {operator ≤, length, operator+, operator+, operator<, 
+                         pow2, operator ≤, operator ≤} in 
 		     rewrite xs_xxs in prem
         rewrite xs_0.
       }
@@ -1103,17 +1104,15 @@ proof
     suppose prem
     definition{msort, first}
 
-    define ys = first(msort(n',xs))
-    define ls = second(msort(n',xs))
+    define_ ys = first(msort(n',xs))
+    define_ ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys.
     have ls_def: second(msort(n',xs)) = ls  by definition ls.
-    rewrite ys_def | ls_def
     
-    define zs = first(msort(n', ls))
-    define ms = second(msort(n', ls))
+    define_ zs = first(msort(n', ls))
+    define_ ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs.
     have ms_def: second(msort(n', ls)) = ms by definition ms.
-    rewrite zs_def | ms_def
 
     have xs_le_two_p2n: length(xs) < pow2(n') + pow2(n')
       by rewrite add_zero[pow2(n')] in
@@ -1347,8 +1346,8 @@ proof
         switch ys {
           case empty suppose ys_empty {
             conclude length(node(x,xs')) = suc(n')
-              by definition {length}
-                 rewrite add_zero[suc(length(xs'))] in
+              by definition length
+                 rewrite add_zero[1 + length(xs')] in
                  definition {length} in
                  rewrite xs_xxs | ys_empty in prem
           }
@@ -1357,24 +1356,26 @@ proof
               case true {
                 have suc_len_xs_yys:
                    suc(length(xs') + length(node(y,ys'))) = suc(n')
-                  by definition {length}
-                     definition {operator+} in
+                  by definition {length, operator+, operator+}
+                     definition {operator+, operator+} in
                      rewrite ys_yys in
                      definition length in
                      rewrite xs_xxs in prem
                 have len_xs_yys: length(xs') + length(node(y,ys')) = n'
                    by injective suc suc_len_xs_yys
                 definition length
-                rewrite apply IH[xs', node(y, ys')] to len_xs_yys.
+                rewrite apply IH[xs', node(y, ys')] to len_xs_yys
+                conclude 1 + n' = suc(n')   by one_add_suc[n']
               }
               case false {
                 definition length
                 have suc_len: suc(length(xs) + length(ys')) = suc(n')
                   by rewrite add_suc[length(xs)][length(ys')] in
-                     definition length in
+                     definition {length, operator+, operator+} in
                      rewrite ys_yys in prem
                 rewrite (rewrite xs_xxs in apply IH[xs, ys']
-                                          to injective suc suc_len).
+                                          to injective suc suc_len)
+                conclude 1 + n' = suc(n')    by one_add_suc[n']
               }
             }
           }

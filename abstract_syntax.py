@@ -324,7 +324,8 @@ class Generic(Term):
                    self.body.copy())
   
   def __str__(self):
-    return "generic " + ",".join(self.type_params) + "{" + str(self.body) + "}"
+    return "generic " + ",".join([base_name(t) for t in self.type_params]) \
+      + "{" + str(self.body) + "}"
 
   def __repr__(self):
     return str(self)
@@ -710,16 +711,16 @@ class Call(Term):
     return ret
   
   def __str__(self):
+    if False and hasattr(self, 'type_args'):
+      type_inst = '<' + ','.join([str(t) for t in self.type_args]) + '>'
+    else:
+      type_inst = ''
     if self.infix:
-      return op_arg_str(self, self.args[0]) + " " + str(self.rator) \
+      return op_arg_str(self, self.args[0]) + " " + str(self.rator) + type_inst \
         + " " + op_arg_str(self, self.args[1])
     elif isNat(self):
       return str(natToInt(self))
     else:
-      if hasattr(self, 'type_args'):
-        type_inst = '<' + ','.join([str(t) for t in self.type_args]) + '>'
-      else:
-        type_inst = ''
       return str(self.rator) + type_inst + "(" + ",".join([str(arg) for arg in self.args]) + ")"
 
   def __repr__(self):
@@ -808,19 +809,18 @@ class Call(Term):
                   print('finished reducing call\n\t' + str(self) + '  ===>  ' + str(result))
                 return result
         ret = Call(self.location, fun, args, self.infix)
+        if hasattr(self, 'type_args'):
+          ret.type_args = self.type_args
+          
       case Generic(loc, typarams, body):
         if hasattr(self, 'type_args'):
           sub = {x:t for (x,t) in zip(typarams, self.type_args)}
           new_body = body.substitute(sub)
-          #print('type passing: ' + str(sub))
           ret = Call(self.location, new_body, args, self.infix).reduce(env)
-          #print('applying generic: ' + str(self) + ' ==> ' + str(new_body))
         else:
-          #print('!!! applying generic, call missing the type_args field: ' + str(self))
-          ret = Call(self.location, body, args, self.infix).reduce(env)
-          #error(self.location, 'internal error in application of generic, missing type_args for\n\t' + str(self))
+          error(self.location, 'in call to generic, no type_args for\n\t' \
+                + str(self))
       case _:
-        #print("can't reduce, not a redex: " + str(fun))
         ret = Call(self.location, fun, args, self.infix)
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
@@ -1976,8 +1976,8 @@ class RecFunClosure(Statement):
     if get_verbose():
       return '$' + self.name
     else:
-      return '$' + base_name(self.name)
-      #return base_name(self.name)
+      #return '$' + base_name(self.name)
+      return base_name(self.name)
   
     # return '[' + self.name \
     #    + '<' + ','.join(self.type_params) + '>' \

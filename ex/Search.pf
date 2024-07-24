@@ -40,9 +40,10 @@ proof
       case false suppose not_xy {
         definition {nth, pred}
         conclude nth(xs',d)(search(xs',y)) = y
-	  by enable  {operator <, operator ≤}
-	     apply IH[y, d] to
-	     rewrite not_xy in prem
+          by enable  {operator <, operator ≤}
+             apply IH[y, d] to
+             rewrite one_add_suc[length(xs')] in
+             rewrite not_xy in prem
       }
     }
   }
@@ -58,7 +59,7 @@ proof
     suppose _
     conclude not (y ∈ set_of(empty))
         by definition {set_of}
-	   empty_no_members[Nat,y]
+           empty_no_members[Nat,y]
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
@@ -67,23 +68,25 @@ proof
       case true suppose xy {
         suppose y_xxs: y ∈ set_of(node(x,xs'))
         enable {search, length, operator ≤}
-	conclude false  by rewrite xy in s_xxs_len_xxs
+        conclude false  by definition {operator+,operator+,operator≤} in
+                           rewrite xy in s_xxs_len_xxs
       }
       case false suppose not_xy {
         suppose y_in_xxs: y ∈ set_of(node(x,xs'))
-	have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-	  by apply member_union[Nat] to definition set_of in y_in_xxs
-	cases xy_or_y_xs
-	case y_sx: y ∈ single(x) {
-	  have x_y: x = y by apply single_equal[Nat] to y_sx
-	  conclude false   by rewrite not_xy in x_y
-	}
-	case y_xs {
+        have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+          by apply member_union[Nat] to definition set_of in y_in_xxs
+        cases xy_or_y_xs
+        case y_sx: y ∈ single(x) {
+          have x_y: x = y by apply single_equal[Nat] to y_sx
+          conclude false   by rewrite not_xy in x_y
+        }
+        case y_xs {
           have sxs_lxs: length(xs') ≤ search(xs',y)
-	    by rewrite not_xy in definition {search,length,operator ≤} in
-	       s_xxs_len_xxs
-	  conclude false  by apply (apply IH to sxs_lxs) to y_xs
-	}
+            by rewrite not_xy in
+               definition {search,length,operator+,operator+,operator ≤} in
+               s_xxs_len_xxs
+          conclude false  by apply (apply IH to sxs_lxs) to y_xs
+        }
       }
     }
   }
@@ -112,18 +115,18 @@ proof
       }
       case false suppose xy_false {
         definition pred
-	have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-	  by apply member_union[Nat]
-	     to definition set_of in y_in_xxs
-	cases xy_or_y_xs
-	case y_sx: y ∈ single(x) {
-	  have x_y: x = y by apply single_equal[Nat] to y_sx
-	  conclude false   by rewrite xy_false in x_y
-	}
-	case y_xs: y ∈ set_of(xs') {
-	  conclude nth(xs',d)(search(xs',y)) = y
-	      by apply IH[y,d] to y_xs
-	}
+        have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
+          by apply member_union[Nat]
+             to definition set_of in y_in_xxs
+        cases xy_or_y_xs
+        case y_sx: y ∈ single(x) {
+          have x_y: x = y by apply single_equal[Nat] to y_sx
+          conclude false   by rewrite xy_false in x_y
+        }
+        case y_xs: y ∈ set_of(xs') {
+          conclude nth(xs',d)(search(xs',y)) = y
+              by apply IH[y,d] to y_xs
+        }
       }
     }
   }
@@ -150,20 +153,21 @@ proof
         have x_y: x = y by rewrite xy.
         conclude false
             by enable {set_of}
-	       apply y_not_xxs
-	       to (apply in_left_union[Nat,set_of(xs)][y, single(x)]
-		   to rewrite x_y single_member[Nat, y])
+               apply y_not_xxs
+               to (apply in_left_union[Nat,set_of(xs)][y, single(x)]
+                   to rewrite x_y single_member[Nat, y])
       }
       case false suppose not_xy {
+        definition {operator+, operator+}
         suffices suc(search(xs,y)) = suc(length(xs))
-	have s_l: search(xs,y) = length(xs)
+        have s_l: search(xs,y) = length(xs)
           by enable {set_of}
-	     apply IH[y, d]
-	     to suppose y_xs
-	        (apply y_not_xxs to
-		definition set_of
-		apply in_right_union[Nat,single(x)] to y_xs)
-	rewrite s_l.
+             apply IH[y, d]
+             to suppose y_xs
+                (apply y_not_xxs to
+                definition set_of
+                apply in_right_union[Nat,single(x)] to y_xs)
+        rewrite s_l.
       }
     }
   }
@@ -191,19 +195,21 @@ proof
       }
       case false suppose not_xy {
         suffices suc(search(xs',y)) ≤ i
-	switch i { 
+        switch i { 
           case 0 suppose i_z: i = 0 {
-	    conclude false
-	      by rewrite not_xy in definition nth in rewrite i_z in prem
-	  }
-	  case suc(i') suppose i_si: i = suc(i') {
-	    suffices suc(search(xs',y)) ≤ suc(i')
-	    definition operator ≤
-	    conclude search(xs',y) ≤ i'
-	        by enable {length, nth, pred, operator <, operator ≤}
-		   apply IH[y,d,i'] to rewrite i_si in prem
-	  }
-	}
+            conclude false
+              by rewrite not_xy in definition nth in rewrite i_z in prem
+          }
+          case suc(i') suppose i_si: i = suc(i') {
+            suffices suc(search(xs',y)) ≤ suc(i')
+            definition operator ≤
+            conclude search(xs',y) ≤ i'
+                by enable {length, nth, pred, operator <, operator ≤}
+                   apply IH[y,d,i'] to
+                   definition {operator+,operator+} in
+                   rewrite i_si in prem
+          }
+        }
       }
     }
   }

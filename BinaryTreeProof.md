@@ -1305,7 +1305,10 @@ proof
     rewrite length_append[E][in_order(L)][node(x, in_order(R))]
     definition {length}
     rewrite IH_L | IH_R
-    rewrite add_suc[num_nodes(L)][num_nodes(R)].
+    rewrite symmetric add_assoc[num_nodes(L)][1, num_nodes(R)]
+    rewrite add_commute[num_nodes(L)][1]
+    rewrite one_add_suc[num_nodes(L)]
+    definition operator+.
   }
 end
 

@@ -143,7 +143,7 @@ theorem zero_add: all n:Nat.
   0 + n = n
 proof
   arbitrary n:Nat
-  conclude 0 + n = n by definition operator+.
+  conclude 0 + n = n by definition_ operator+
 end
 
 theorem add_zero: all n:Nat.
@@ -151,13 +151,43 @@ theorem add_zero: all n:Nat.
 proof
   induction Nat
   case 0 {
-    conclude 0 + 0 = 0   by definition operator+.
+    conclude 0 + 0 = 0   by definition_ operator+
   }
   case suc(n') suppose IH: n' + 0 = n' {
     equations
       suc(n') + 0 = suc(n' + 0)  by definition_ operator+
               ... = suc(n')      by rewrite_ IH
   }
+end
+
+lemma suc_add: all m:Nat, n:Nat.
+  suc(m) + n = suc(m + n)
+proof
+  arbitrary m:Nat, n:Nat
+  definition_ operator+
+end
+
+theorem suc_one_add: all n:Nat.
+  suc(n) = 1 + n
+proof
+  arbitrary n:Nat
+  equations
+    suc(n) = suc(0 + n)        by definition_ operator+
+       ... = suc(0) + n        by symmetric suc_add[0, n]
+end
+
+theorem one_add_suc: all n:Nat.
+  1 + n = suc(n)
+proof
+  arbitrary n:Nat
+  symmetric suc_one_add[n]
+end
+
+lemma not_one_add_zero: all n:Nat.
+  not (1 + n = 0)
+proof
+  arbitrary n:Nat
+  definition_ operator+
 end
 
 lemma add_suc: all m:Nat. all n:Nat.
@@ -173,7 +203,7 @@ proof
     arbitrary n : Nat
     equations
       suc(n') + suc(n) = suc(n' + suc(n))  by .
-                   ... = suc(suc(n' + n))  by rewrite IH[n].
+                   ... = suc(suc(n' + n))  by rewrite_ IH[n]
                    ... = suc(suc(n') + n)  by .
   }
 end
@@ -190,7 +220,7 @@ proof
   case suc(n') suppose IH {
     arbitrary m : Nat
     equations suc(n') + m = suc(n' + m)  by .
-                      ... = suc(m + n')  by rewrite IH[m].
+                      ... = suc(m + n')  by rewrite_ IH[m]
                       ... = m + suc(n')  by symmetric add_suc[m][n']
   }
 end
@@ -198,7 +228,7 @@ end
 theorem one_add: all m:Nat.  1 + m = suc(m)
 proof
   arbitrary m:Nat
-  definition {operator+, operator+}.
+  definition_ {operator+, operator+}
 end
 
 theorem add_one: all m:Nat.  m + 1 = suc(m)
@@ -222,7 +252,7 @@ proof
     arbitrary n:Nat, o:Nat
     equations
       (suc(m') + n) + o = suc((m' + n) + o)  by .
-                    ... = suc(m' + (n + o))  by rewrite IH[n,o].
+                    ... = suc(m' + (n + o))  by rewrite_ IH[n,o]
                     ... = suc(m') + (n + o)  by .
   }
 end
@@ -276,7 +306,7 @@ end
  
 theorem pred_one: pred(suc(0)) = 0
 proof
-  definition pred.
+  definition_ pred
 end
 
 /*
@@ -302,11 +332,11 @@ proof
   induction Nat
   case 0 {
     suffices 0 - 0 = 0
-    definition operator-.
+    definition_ operator-
   }
   case suc(n') suppose IH {
     suffices suc(n') - 0 = suc(n')
-    definition operator-.
+    definition_ operator-
   }
 end
 
@@ -320,42 +350,15 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat
-    definition operator+
-    rewrite sub_zero[n].
+    equations   (0 + n) - 0 = n - 0    by rewrite_ zero_add[n]
+                        ... = n        by sub_zero[n]
   }
   case suc(m') suppose IH {
     arbitrary n:Nat
-    definition {operator+,operator-}
-    IH[n]
-  }
-end
-
-/*
- Properties of Multiplication and Addition
-*/
-
-theorem dist_mult_add:
-  all a:Nat. all x:Nat, y:Nat.
-  a * (x + y) = a * x + a * y
-proof
-  induction Nat
-  case zero {
-    arbitrary x:Nat, y:Nat
-    suffices 0 * (x + y) = 0 * x + 0 * y
-    definition {operator *, operator +}.
-  }
-  case suc(a') suppose IH {
-    arbitrary x:Nat, y:Nat
-    suffices suc(a') * (x + y) = suc(a') * x + suc(a') * y
-    definition operator *
-    suffices (x + y) + a' * (x + y) = (x + a' * x) + (y + a' * y)
-    equations
-    (x + y) + a' * (x + y) = (x + y) + (a' * x + a' * y) by rewrite IH[x,y].
-    ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
-    ... = (x + (y + a' * x)) + a' * y by rewrite add_assoc[x][y,a'*x].
-    ... = (x + (a' * x + y)) + a' * y by rewrite add_commute[a'*x][y].
-    ... = ((x + a' * x) + y) + a' * y by rewrite symmetric add_assoc[x][a'*x,y].
-    ... = (x + a' * x) + (y + a' * y) by add_assoc[x+a'*x][y,a'*y]
+    equations   (suc(m') + n) - suc(m')
+              = suc(m' + n) - suc(m')      by rewrite_ suc_add[m',n]
+          ... = (m' + n) - m'              by definition_ operator-
+          ... = n                          by IH[n]
   }
 end
 
@@ -363,17 +366,33 @@ end
  Properties of Multiplication
 */
 
+theorem zero_mult: all n:Nat.
+  0 * n = 0
+proof
+  arbitrary n:Nat
+  definition_ operator*
+end
+  
 theorem mult_zero: all n:Nat.
   n * 0 = 0
 proof
   induction Nat
   case 0 {
-    definition operator*.
+    conclude 0 * 0 = 0   by definition_ operator*
   }
   case suc(n') suppose IH {
-    definition {operator*, operator+}
-    IH
+    equations     suc(n') * 0
+                = 0 + n' * 0      by definition_ operator*
+            ... = n' * 0          by zero_add[n'*0]
+            ... = 0               by IH
   }
+end
+
+lemma suc_mult: all m:Nat, n:Nat.
+  suc(m) * n = n + m * n
+proof
+  arbitrary m:Nat, n:Nat
+  definition_ operator*
 end
 
 lemma mult_suc: all m:Nat. all n:Nat.
@@ -382,23 +401,19 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat
-    definition {operator*, operator+}.
+    equations    0 * suc(n) = 0            by zero_mult[suc(n)]
+                        ... = 0 * n        by symmetric zero_mult[n]
+                        ... = 0 + 0 * n    by symmetric zero_add[0*n]
   }
   case suc(m') suppose IH {
     arbitrary n:Nat
-    suffices suc(m') * suc(n) = suc(m') + suc(m') * n
-    definition {operator*, operator+}
     suffices suc(n + m' * suc(n)) = suc(m' + (n + m' * n))
-    equations
-          suc(n + m' * suc(n))
-        = suc(n + (m' + m' * n))
-	  by rewrite IH[n].
-    ... = suc((n + m') + m' * n)
-          by rewrite add_assoc[n][m', m' * n].
-    ... = suc((m' + n) + m' * n)
-          by rewrite add_commute[n][m'].
-    ... = suc(m' + (n + m' * n))
-          by rewrite add_assoc[m'][n, m' * n].
+      by definition_ {operator*, operator+}
+    equations   suc(n + m' * suc(n))
+              = suc(n + (m' + m' * n))     by rewrite_ IH[n]
+          ... = suc((n + m') + m' * n)     by rewrite_ add_assoc[n][m', m' * n]
+          ... = suc((m' + n) + m' * n)     by rewrite_ add_commute[n][m']
+          ... = suc(m' + (n + m' * n))     by rewrite_ add_assoc[m'][n, m' * n]
   }
 end
 
@@ -408,14 +423,15 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat
-    definition operator*
-    rewrite mult_zero[n].
+    equations    0 * n = 0          by zero_mult[n]
+                   ... = n * 0      by symmetric mult_zero[n]
   }
-  case suc(m') suppose IH {
+  case suc(m') suppose IH: all n:Nat. m' * n = n * m' {
     arbitrary n:Nat
-    definition operator*
-    rewrite mult_suc[n][m']
-    rewrite IH[n].
+    equations    suc(m') * n
+               = n + m' * n     by definition_ operator*
+           ... = n + (n * m')   by rewrite_ IH[n]
+           ... = n * suc(m')    by symmetric mult_suc[n][m']
   }
 end
 
@@ -423,46 +439,83 @@ theorem one_mult: all n:Nat.
   1 * n = n
 proof
   arbitrary n:Nat
-  definition {operator*, operator*}
-  rewrite add_zero[n].
+  equations     1 * n = n + 0 * n    by suc_mult[0,n]
+                  ... = n + 0        by rewrite_ zero_mult[n]
+                  ... = n            by add_zero[n]
 end
   
 theorem mult_one: all n:Nat.
   n * 1 = n
 proof
   arbitrary n:Nat
-  rewrite mult_commute[n][1]
-  one_mult[n]
+  equations    n * 1 = 1 * n    by mult_commute[n][1]
+                 ... = n        by one_mult[n]
 end
 
 theorem two_mult: all n:Nat.
   2 * n = n + n
 proof
   arbitrary n:Nat
-  definition {operator*, operator*, operator*}
-  definition {operator+}
-  rewrite add_zero[n].
+  equations   2 * n = n + 1 * n    by suc_mult[1,n]
+                ... = n + n        by rewrite_ one_mult[n]
 end
 
+theorem dist_mult_add:
+  all a:Nat. all x:Nat, y:Nat.
+  a * (x + y) = a * x + a * y
+proof
+  induction Nat
+  case zero {
+    arbitrary x:Nat, y:Nat
+    equations   0 * (x + y)
+              = 0                by zero_mult[x+y]
+          ... = 0 + 0            by symmetric add_zero[0]
+          ... = 0 * x + 0 * y    by rewrite_ zero_mult[x] | zero_mult[y]
+  }
+  case suc(a') suppose IH {
+    arbitrary x:Nat, y:Nat
+    suffices (x + y) + a' * (x + y) = (x + a' * x) + (y + a' * y)
+        by definition_ operator *
+    equations
+    (x + y) + a' * (x + y) = (x + y) + (a' * x + a' * y) by rewrite_ IH[x,y]
+    ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
+    ... = (x + (y + a' * x)) + a' * y by rewrite_ add_assoc[x][y,a'*x]
+    ... = (x + (a' * x + y)) + a' * y by rewrite_ add_commute[a'*x][y]
+    ... = ((x + a' * x) + y) + a' * y by rewrite_ symmetric add_assoc[x][a'*x,y]
+    ... = (x + a' * x) + (y + a' * y) by add_assoc[x+a'*x][y,a'*y]
+  }
+end
 
+theorem dist_mult_add_right:
+  all x:Nat, y:Nat, a:Nat.
+  (x + y) * a = x * a + y * a
+proof
+  arbitrary x:Nat, y:Nat, a:Nat
+  equations
+  (x + y) * a = a * (x + y)       by mult_commute[x+y][a]
+          ... = a * x + a * y     by dist_mult_add[a][x,y]
+          ... = x * a + a * y     by rewrite_ mult_commute[x][a]
+          ... = x * a + y * a     by rewrite_ mult_commute[y][a]
+end
+  
 theorem mult_assoc: all m:Nat. all n:Nat, o:Nat.
   (m * n) * o = m * (n * o)
 proof
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat
-    suffices (0 * n) * o = 0 * (n * o)
-    definition operator*.
+    equations   (0 * n) * o = 0 * o         by rewrite_ zero_mult[n]
+                        ... = 0             by zero_mult[o]
+                        ... = 0 * (n * o)   by symmetric zero_mult[n*o]
   }
-  case suc(m') suppose IH {
+  case suc(m') suppose IH: all n:Nat, o:Nat. (m' * n) * o = m' * (n * o) {
     arbitrary n:Nat, o:Nat
-    suffices (suc(m') * n) * o = suc(m') * (n * o)
-    definition {operator*}
-    suffices (n + m'*n)*o = n*o + m'*(n*o)
-    rewrite mult_commute[n + m' * n][o]
-    rewrite dist_mult_add[o][n, m' * n]
-    rewrite mult_commute[o][n] | mult_commute[o][m'*n]
-    rewrite IH[n,o].
+    equations
+          (suc(m') * n) * o
+        = (n + m' * n) * o          by definition_ operator*
+    ... = n * o + (m' * n) * o      by dist_mult_add_right[n, m'*n, o]
+    ... = n * o + m' * (n * o)      by rewrite_ IH[n,o]
+    ... = suc(m') * (n * o)         by definition_ operator*
   }
 end
 
@@ -485,7 +538,7 @@ theorem suc_less: all x:Nat, y:Nat.
 proof
   arbitrary x:Nat, y:Nat
   suppose prem
-  definition operator<
+  suffices suc(x) ≤ y    by definition_ operator<
   apply suc_less_equal[suc(x), y] to definition operator< in prem
 end
 
@@ -502,7 +555,9 @@ proof
       }
       case suc(y') {
         suppose _
-        definition {operator<, operator≤, operator≤}.
+        suffices suc(0) ≤ suc(y')    by definition_ operator<
+        suffices 0 ≤ y'    by definition_ operator≤
+        definition_ operator≤
       }
     }
   }
@@ -543,8 +598,8 @@ proof
   induction Nat
   case zero {
     arbitrary y:Nat
-    suppose zy: 0 < y
-    definition operator ≤.
+    suppose _
+    conclude 0 ≤ y  by definition_ operator ≤
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
@@ -556,10 +611,12 @@ proof
       }
       case suc(y') suppose EQ : y = suc(y') {
         have ssx_sy: suc(suc(x')) ≤ suc(y')  by rewrite EQ in ssx_y
-        have x_y: x' < y'  by definition operator < definition operator ≤ in ssx_sy
+        have x_y: x' < y'
+            by suffices suc(x') ≤ y'  by definition_ operator <
+               definition operator ≤ in ssx_sy
         suffices suc(x') ≤ suc(y')
-        definition operator ≤          
-        conclude x' ≤ y'  by apply IH[y'] to x_y
+        suffices x' ≤ y'   by definition_ operator ≤          
+        apply IH[y'] to x_y
       }
     }
   }
@@ -641,7 +698,6 @@ proof
           case suc(o') suppose os {
             have sn_so: suc(n') ≤ suc(o')  by rewrite os in sn_o
             have n_o: n' ≤ o'  by sn_so
-            definition operator ≤
             conclude m' ≤ o'  by apply IH[n',o'] to m_n, n_o
           }
         }
@@ -659,10 +715,11 @@ proof
     arbitrary y: Nat
     suppose not_0_y: not (0 < y)
     switch y {
-      case zero { definition operator ≤. }
+      case zero { definition_ operator ≤ }
       case suc(y') suppose ys {
         conclude false by apply (rewrite ys in not_0_y)
-                      to (definition operator < definition {operator ≤,operator ≤}.)
+                          to (suffices 1 ≤ suc(y')  by definition_ operator <
+                              definition_ {operator ≤,operator ≤})
       }
     }
   }
@@ -675,13 +732,13 @@ proof
         have not_x_y: not (x' < y')
           by (suppose x_y: x' < y'
             have sx_sy: suc(x') < suc(y')
-              by definition operator <
-                 definition operator ≤
+              by suffices suc(suc(x')) ≤ suc(y') by definition_ operator <
+                 suffices suc(x') ≤ y' by definition_ operator ≤
                  (definition operator < in x_y)
             have sx_y: suc(x') < y by (rewrite ys sx_sy)
             apply not_sx_y to sx_y)
-        definition operator ≤
-        conclude y' ≤ x' by apply IH[y'] to not_x_y
+        suffices y' ≤ x'  by definition_ operator ≤
+        apply IH[y'] to not_x_y
       }
     }
   }
@@ -793,7 +850,7 @@ proof
       }
       case suc(y') suppose y_sy {
         have x_l_y: x' < y'
-          by definition {operator<}
+          by suffices suc(x') ≤ y' by definition_ operator<
              definition {operator ≤} in
              definition {operator<} in rewrite y_sy in sx_l_y
         have y_le_x: y' ≤ x'
@@ -855,20 +912,21 @@ proof
     switch y {
       case zero {
         have 0 < suc(x')
-          by definition {operator<, operator≤, operator≤}.
+          by definition_ {operator<, operator≤, operator≤}
       }
       case suc(y') {
         //enable operator <
         cases (have (x' < y' or x' = y' or y' < x') by IH[y'])
         case less { conclude suc(x') < suc(y')
-            by definition operator < definition operator ≤ 
+            by suffices suc(suc(x')) ≤ suc(y')  by definition_ operator <
+               suffices suc(x') ≤ y'  by definition_ operator ≤ 
                definition operator < in less
         }
         case equal { conclude suc(x') = suc(y')  by rewrite equal . }
         case greater {
           conclude suc(y') < suc(x')
-              by definition operator <
-                 definition operator ≤
+              by suffices suc(suc(y')) ≤ suc(x') by definition_ operator <
+                 suffices suc(y') ≤ x'  by definition_ operator ≤
                  definition operator < in greater
         }
       }
@@ -899,8 +957,8 @@ end
 
 theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
-  have one_pos: 0 ≤ 1 by definition operator ≤.
-  have two_pos: 0 ≤ 2 by definition operator ≤.
+  have one_pos: 0 ≤ 1 by definition_ operator ≤
+  have two_pos: 0 ≤ 2 by definition_ operator ≤
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 
@@ -918,13 +976,13 @@ proof
   case zero {
     arbitrary y:Nat
     suppose z_y: 0 < y
-    conclude 0 ≤ y by definition operator ≤ .
+    conclude 0 ≤ y by definition_ operator ≤
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
     switch y {
       case zero {
-        definition {operator <, operator ≤}.
+        definition_ {operator <, operator ≤}
       }
       case suc(y') {
         suppose sx_sy: suc(x') < suc(y')
@@ -964,7 +1022,7 @@ proof
     }
     case suc(x') {
       have z_l_sx: 0 < suc(x')
-          by definition {operator <, operator ≤, operator ≤}.
+          by definition_ {operator <, operator ≤, operator ≤}
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }
@@ -1025,12 +1083,12 @@ proof
   induction Nat
   case 0 {
     arbitrary y:Nat
-    definition operator ≤.
+    conclude 0 ≤ 0 + y  by definition_ operator ≤
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
-    definition {operator +, operator ≤}
-    conclude x' ≤ x' + y  by IH[y]
+    suffices x' ≤ x' + y   by definition_ {operator +, operator ≤}
+    IH[y]
   }
 end
 
@@ -1041,6 +1099,13 @@ proof
   definition {operator+,operator+} in
   rewrite add_commute[n][1] in
   less_equal_add[n][1]
+end
+
+theorem less_one_add: all n:Nat.
+  0 < 1 + n
+proof
+  arbitrary n:Nat
+  definition_ {operator<, operator≤, operator+, operator≤}
 end
 
 theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
@@ -1067,7 +1132,7 @@ theorem less_left_cancel: all x:Nat, y:Nat, z:Nat.
   if x + y < x + z then y < z
 proof
   arbitrary x:Nat, y:Nat, z:Nat
-  definition {operator <}
+  suffices if suc(x + y) ≤ x + z then suc(y) ≤ z  by definition_ operator <
   suppose sxy_xz
   have x_sy_le_xz: x + suc(y) ≤ x + z
     by rewrite add_suc[x][y]
@@ -1087,27 +1152,27 @@ proof
   induction Nat
   case 0 {
     arbitrary l:Nat, m:Nat
-    suppose m_le_z
-    suffices l + (0 - m) = (l + 0) - m
-    definition operator-
-    rewrite add_zero[l]
+    suppose m_le_z: m ≤ 0
+    suffices l + 0 = (l + 0) - m    by definition_ operator-
+    suffices l = l - m              by rewrite_ add_zero[l]
     have m_z: m = 0 by apply zero_le_zero to m_le_z
-    rewrite m_z | sub_zero[l].
+    rewrite_ m_z | sub_zero[l]
   }
   case suc(n') suppose IH {
     arbitrary l:Nat, m:Nat
     suppose m_le_sn
-    definition {operator-}
     switch m {
       case 0 {
-        suffices l + suc(n') = (l + suc(n')) - 0
+        suffices l + suc(n') = (l + suc(n')) - 0  by definition_ {operator-}
         rewrite sub_zero[l + suc(n')].
       }
       case suc(m') suppose m_sm {
         suffices l + (n' - m') = (l + suc(n')) - suc(m')
-        rewrite add_suc[l][n']
-        definition operator-
+             by definition_ {operator-}
+        suffices l + (n' - m') = suc(l + n') - suc(m')
+             by rewrite_ add_suc[l][n']
         suffices l + (n' - m') = (l + n') - m'
+             by definition_ operator-
         have m_n: m' ≤ n'
           by definition operator ≤ in rewrite m_sm in m_le_sn
         apply IH[l, m'] to m_n
@@ -1126,8 +1191,8 @@ proof
     suppose m_le_z
     suffices m + (0 - m) = 0
     have m_z: m = 0 by apply zero_le_zero to m_le_z
-    rewrite m_z
-    definition {operator-, operator+}.
+    suffices 0 + (0 - 0) = 0   by rewrite_ m_z
+    definition_ {operator-, operator+}
   }
   case suc(n') suppose IH {
     arbitrary m:Nat
@@ -1136,14 +1201,15 @@ proof
     switch m {
       case 0 {
         suffices 0 + (suc(n') - 0) = suc(n')
-        definition {operator-,operator+}.
+        definition_ {operator-,operator+}
       }
       case suc(m') suppose m_sm {
         suffices suc(m') + (suc(n') - suc(m')) = suc(n')
-        definition {operator-,operator+}
+        suffices suc(m' + (n' - m')) = suc(n')
+          by definition_ {operator-,operator+}
         have m_n: m' ≤ n'  by definition operator≤ in rewrite m_sm in m_le_sn
         have IH_m: m' + (n' - m') = n' by apply IH[m'] to m_n
-        rewrite IH_m.
+        rewrite_ IH_m
       }
     }
   }
@@ -1507,15 +1573,14 @@ proof
          to arbitrary i:Nat
             suppose i_b: i < b
             conclude f(s + i) = h(t + i)
-            by rewrite add_zero[s] in
-               symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
+            by symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
   }
   case suc(a') suppose IH {
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
     suppose g_f_and_h_f
     definition {operator +, summation}
     have fs_gs: f(s) = g(s) by symmetric
-        rewrite add_zero[s] | add_zero[t]
+        rewrite add_zero[s]
         in apply (conjunct 0 of g_f_and_h_f)[0]
            to definition {operator <, operator ≤, operator ≤}.
     have IH': summation(a' + b,suc(s),f)

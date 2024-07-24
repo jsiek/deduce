@@ -11,7 +11,7 @@ union List<T> {
 
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
-  length(node(n, next)) = suc(length(next))
+  length(node(n, next)) = 1 + length(next)
 }
 
 function operator ++ <E>(List<E>, List<E>) -> List<E> {
@@ -221,13 +221,17 @@ function tail<T>(List<T>) -> List<T> {
 theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 proof
   arbitrary x:Nat
-  definition {length, length, operator +}.
+  equations
+  length(node(x, empty)) = 1 + 0  by definition_ {length, length}
+                     ... = 1      by add_zero[1]
 end
 
 theorem length_one: all U :type, x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type, x:U
-  definition {length, length, operator +}.
+  equations
+    length(node(x, empty)) = 1 + 0  by definition_ {length, length}
+                       ... = 1      by add_zero[1]
 end
 
 theorem length_zero_empty: all T:type, xs:List<T>.
@@ -240,7 +244,8 @@ proof
     case node(x, xs') {
       suppose len_z
       conclude false
-          by definition length in len_z
+          by apply not_one_add_zero[length(xs')] to
+             definition length in len_z
     }
   }
 end
@@ -381,12 +386,11 @@ proof
     definition map.
   }
   case node(x, ls') suppose IH {
-    enable {map, length, operator +}
     equations
       length(map(node(x,ls'),f))
-          = suc(length(map(ls',f)))  by .
-      ... = suc(length(ls'))         by rewrite IH.
-      ... = length(node(x,ls'))      by .
+          = 1 + length(map(ls',f))  by definition_ {map, length}
+      ... = 1 + length(ls')         by rewrite_ IH
+      ... = length(node(x,ls'))     by definition_ {length}
   }
 end
 
@@ -479,7 +483,7 @@ proof
   case node(x, xs') suppose IH {
     arbitrary ys:List<U1>
     switch ys {
-      case empty suppose EQ { rewrite EQ. }
+      case empty suppose EQ { . }
       case node(y, ys') {
 	equations
 	  zip(map(node(x,xs'),f),map(node(y,ys'),g))
@@ -642,7 +646,7 @@ proof
 	   less_equal_add[1][cnt(mset_of(xs'))(x)]
       conclude false
           by definition {cnt, operator ≤} in
-	     (rewrite cnt_x_z in cnt_x_pos)
+	     cnt_x_pos
     }
   }
 end
@@ -781,7 +785,8 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
-    definition {length, operator++, take}
+    definition {length, operator++, take, operator+}
+    rewrite zero_add[length(xs')]
     rewrite IH[ys].
   }
 end
@@ -837,7 +842,9 @@ proof
         definition {nth, pred}
 	have i_xs: i' < length(xs) by
 	    enable {operator <, operator ≤}
-	    conclude i' < length(xs) by rewrite i_si in definition length in i_xxs
+	    conclude i' < length(xs)
+              by rewrite i_si in
+                 definition {length, operator+,operator+} in i_xxs
 	apply IH[ys, i', d] to i_xs
       }
     }
@@ -856,9 +863,10 @@ proof
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
     definition {operator++,length, nth}
-    have X: not (suc(length(xs)) + i = 0) by suppose eq_z enable operator + have false by eq_z
+    have X: not ((1 + length(xs)) + i = 0)
+      by suppose eq_z enable operator + have false by eq_z
     rewrite X
-    definition {operator +, pred}
+    definition {operator +, pred, operator+}
     IH[ys, i, d]
   }
 end

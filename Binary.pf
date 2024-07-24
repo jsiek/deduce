@@ -166,16 +166,21 @@ proof
   arbitrary b:List<bool>
   switch b {
     case empty {
-      definition {inc, length, operator <, operator ≤, length, operator ≤}.
+      suffices 0 < length(node(true,empty))       by definition_ inc
+      suffices 0 < 1 + 0  by definition_ {length, length}
+      suffices 0 < 1      by rewrite_ add_zero[1]
+      definition_ {operator <, operator ≤, operator ≤}
     }
     case node(d, b') {
       definition {inc, length}
       switch d {
         case true {
-          definition {operator <, operator ≤, operator ≤}.
+          conclude 0 < 1 + length(inc(b'))
+              by less_one_add[length(inc(b'))]
 	}
 	case false {
-          definition {operator <, operator ≤, operator ≤}.
+          conclude 0 < 1 + length(b')
+              by less_one_add[length(b')]
 	}
       }
     }
@@ -245,7 +250,7 @@ proof
 end
 
 theorem length_dub: all bs:List<bool>.
-  length(dub(bs)) = suc(length(bs))
+  length(dub(bs)) = 1 + length(bs)
 proof
   arbitrary bs:List<bool>
   definition {dub, length}.
@@ -261,8 +266,10 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary bs:List<bool>
-    definition {iter_dub,length,operator+,dub}
-    rewrite IH[bs].
+    definition {iter_dub, length, dub}
+    rewrite IH[bs]
+    rewrite suc_one_add[n']
+    rewrite add_assoc[1][n', length(bs)].
   }
 end
 
@@ -272,7 +279,7 @@ proof
   arbitrary n:Nat
   rewrite length_iter_dub[n][to_binary(1)]
   definition {to_binary, length, to_binary, inc, length}
-  rewrite add_suc[n][0] | add_zero[n].
+  rewrite add_zero[1] | suc_one_add[n] | add_commute[1][n].
 end
 
 assert iter_dub( 1, to_binary(1) ) = to_binary(2)
@@ -375,7 +382,7 @@ proof
 end
 
 theorem blah: all n:Nat.
-  length(dub(to_binary(n))) = suc(length(to_binary(n)))
+  length(dub(to_binary(n))) = 1 + length(to_binary(n))
 proof
   arbitrary n:Nat
   length_dub[to_binary(n)]

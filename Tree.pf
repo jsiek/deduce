@@ -9,7 +9,7 @@ union Tree<E> {
 
 function num_nodes<E>(Tree<E>) -> Nat {
   num_nodes(EmptyTree) = 0
-  num_nodes(TreeNode(L, x, R)) = suc(num_nodes(L) + num_nodes(R))
+  num_nodes(TreeNode(L, x, R)) = 1 + num_nodes(L) + num_nodes(R)
 }
 
 function height<E>(Tree<E>) -> Nat {

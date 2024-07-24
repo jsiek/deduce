@@ -29,7 +29,7 @@ starting at the next node.
 ``` {.deduce #length}
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
-  length(node(n, next)) = suc(length(next))
+  length(node(n, next)) = 1 + length(next)
 }
 ```
 
@@ -41,19 +41,17 @@ assert length(list_123) = 3
 ```
 
 The return type of `length` is `Nat` which stands for **natural
-number** (that is, the non-negative integers).  The `suc(n)` constructor
-represents `1 + n` and is short for successor. The `pred(n)`
-function is short for predecessor and computes `n - 1`, except that
-`pred(0) = 0`.
+number** (that is, the non-negative integers).
 
 ```{.deduce #importNat}
 import Nat
 ```
 
-The second fundamental operation on linked lists is `nth(xs,d)(i)`, which
-retrieves the element at position `i` in the list `xs`. However, if `i`
-is greater or equal to the length of `xs`, then `nth` returns the
-default value `d`. 
+The second fundamental operation on linked lists is `nth(xs,d)(i)`,
+which retrieves the element at position `i` in the list `xs`. However,
+if `i` is greater or equal to the length of `xs`, then `nth` returns
+the default value `d`.  The `pred(n)` function is short for
+predecessor and computes `n - 1`, except that `pred(0) = 0`.
 
 ```{.deduce #nth}
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
@@ -129,6 +127,8 @@ assert interval(3, 5) = node(5, node(6, node(7, empty)))
 
 A straightforward way to implement `interval` in Deduce is to define
 it as a `function` that pattern-matches on the `count`.
+The `suc(n)` constructor for natural numbers
+represents `1 + n` and is short for successor. 
 
 ```
 function interval(Nat, Nat) -> List<Nat> {

@@ -23,6 +23,7 @@ proof
                     [nth(xs',0), nth(node(x,xs'), 0), 0] to nth_node).
     definition {sum, length, summation}
     have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
+    definition {operator+, operator+}
     rewrite n_x
     equations
       x + sum(xs')
@@ -47,6 +48,7 @@ proof
                     [nth(xs',0), nth(node(x,xs'), 0), 0] to nth_node).
     definition {foldr,length,summation}
     have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
+    definition {operator+, operator+}
     rewrite n_x
     equations
       x + foldr(xs',0,λa,b{a + b})
