@@ -305,6 +305,11 @@ def parse_tree_to_ast(e, parent):
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'suffices':
+        return Suffices(e.meta,
+                        parse_tree_to_ast(e.children[0], e),
+                        parse_tree_to_ast(e.children[1], e),
+                        parse_tree_to_ast(e.children[2], e))
     elif e.data == 'term_proof':
         return PTerm(e.meta,
                      parse_tree_to_ast(e.children[0], e),
@@ -417,6 +422,9 @@ def parse_tree_to_ast(e, parent):
         return EnableDefs(e.meta,
                           [Var(e.meta, t) for t in definitions],
                           subject)
+    elif e.data == 'reason_definition':
+        definitions = parse_tree_to_list(e.children[0], e)
+        return ApplyDefs(e.meta, [Var(e.meta, t) for t in definitions])
     elif e.data == 'enable_def':
         definition = parse_tree_to_ast(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
@@ -431,6 +439,9 @@ def parse_tree_to_ast(e, parent):
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return RewriteFact(e.meta, subject, eqns)
+    elif e.data == 'reason_rewrite':
+        eqns = parse_tree_to_list(e.children[0], e)
+        return Rewrite(e.meta, eqns)
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0], e)
         rhs = parse_tree_to_ast(e.children[1], e)

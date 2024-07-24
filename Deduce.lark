@@ -108,10 +108,14 @@ ident: IDENT              -> ident
  
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
-    
+
+?reason: "definition" "{" ident_list "}"           -> reason_definition
+    | "rewrite" proof_list                         -> reason_rewrite
+
 ?proof: "have" term "by" proof                           -> annot
     | "suffices" term proof                              -> annot
     | "conclude" term "by" proof                         -> annot
+    | "suffices_" term "by" reason proof                 -> suffices
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct

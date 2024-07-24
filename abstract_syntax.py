@@ -1370,7 +1370,21 @@ class PAnnot(Proof):
   def uniquify(self, env):
     self.claim.uniquify(env)
     self.reason.uniquify(env)
-    
+
+@dataclass
+class Suffices(Proof):
+  claim: Formula
+  reason: Proof
+  body: Proof
+
+  def __str__(self):
+    return 'suffices ' + str(self.claim) + '   by ' + str(self.reason) + '\n' + str(self.body)
+
+  def uniquify(self, env):
+    self.claim.uniquify(env)
+    self.reason.uniquify(env)
+    self.body.uniquify(env)
+  
 @dataclass
 class Cases(Proof):
   subject: Proof
@@ -1691,6 +1705,17 @@ class SwitchProof(Proof):
       c.uniquify(env)
       
 @dataclass
+class ApplyDefs(Proof):
+  definitions: List[Term]
+
+  def __str__(self):
+      return 'definition {' + ', '.join([str(d) for d in self.definitions]) + '}'
+
+  def uniquify(self, env):
+    for d in self.definitions:
+      d.uniquify(env)
+
+@dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
@@ -1731,6 +1756,17 @@ class EnableDefs(Proof):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
+    
+@dataclass
+class Rewrite(Proof):
+  equations: List[Proof]
+
+  def __str__(self):
+      return 'rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
+
+  def uniquify(self, env):
+    for eqn in self.equations:
+      eqn.uniquify(env)
     
 @dataclass
 class RewriteGoal(Proof):

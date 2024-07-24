@@ -95,21 +95,30 @@ theorem from_inc:  all bs:List<bool>.
 proof
   induction List<bool>
   case empty {
-    definition {inc, from_binary, from_binary,
-                operator*,operator*,operator*, operator+}.
+    equations
+          from_binary(inc(empty))
+        = from_binary(node(true,empty))         by definition inc.
+    ... = 1                                     by enable {operator+, operator*}
+                                                   definition {from_binary, from_binary}.
+    ... = suc(from_binary(empty))               by definition {from_binary}.
   }
-  case node(b, bs') suppose IH {
-    definition {inc}
+  case node(b, bs') suppose IH: from_binary(inc(bs')) = suc(from_binary(bs')) {
     switch b {
       case true {
-        definition from_binary
-	rewrite IH
-	definition {operator*,operator*,operator*,operator+}
-	rewrite add_zero[from_binary(bs')]
-	rewrite symmetric add_suc[from_binary(bs')][from_binary(bs')].
+        equations
+                from_binary(inc(node(true,bs')))
+              = 2 * from_binary(inc(bs'))               by definition {inc, from_binary}.
+          ... = 2 * suc(from_binary(bs'))               by rewrite IH.
+          ... = suc(suc(2 * from_binary(bs')))          by definition {operator*,operator*,operator*,operator+}
+                                                           rewrite add_zero[from_binary(bs')]
+                                                           rewrite add_suc[from_binary(bs')][from_binary(bs')].
+          ... = suc(from_binary(node(true,bs')))        by definition {from_binary}.
       }
       case false {
-        definition from_binary.
+        equations
+              from_binary(inc(node(false,bs')))
+            = from_binary(node(true,bs'))               by definition {inc}.
+        ... = suc(from_binary(node(false,bs')))         by definition {from_binary}.
       }
     }
   }
