@@ -99,7 +99,7 @@ ident: IDENT              -> ident
 ?switch_pf_case_list: switch_pf_case               -> single
     | switch_pf_case switch_pf_case_list           -> push
 
-?equation: term_compare "=" term_add "by" proof            -> equation
+?equation: term_compare "=" term_add "by" proof    -> equation
 
 ?half_equation:  "..." "=" term_add "by" proof     -> half_equation
 
@@ -109,13 +109,10 @@ ident: IDENT              -> ident
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
 
-?reason: "definition" "{" ident_list "}"           -> reason_definition
-    | "rewrite" proof_list                         -> reason_rewrite
-
 ?proof: "have" term "by" proof                           -> annot
     | "suffices" term proof                              -> annot
     | "conclude" term "by" proof                         -> annot
-    | "suffices_" term "by" reason proof                 -> suffices
+    | "suffices" term "by" proof proof                   -> suffices
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
@@ -127,6 +124,9 @@ ident: IDENT              -> ident
     | "obtain" ident_list "where" IDENT ":" term "from" proof proof -> some_elim_explicit
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
+    | "definition_" "{" ident_list "}"                   -> reason_definition
+    | "definition_" ident                                -> reason_definition_one
+    | "rewrite_" proof_list                              -> reason_rewrite
     | "definition" "{" ident_list "}" proof              -> apply_defs_goal
     | "definition" ident proof                           -> apply_defs_goal_one
     | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact

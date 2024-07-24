@@ -1976,7 +1976,8 @@ class RecFunClosure(Statement):
     if get_verbose():
       return '$' + self.name
     else:
-      return base_name(self.name)
+      return '$' + base_name(self.name)
+      #return base_name(self.name)
   
     # return '[' + self.name \
     #    + '<' + ','.join(self.type_params) + '>' \

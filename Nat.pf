@@ -1,3 +1,5 @@
+import Option
+
 union Nat {
   zero
   suc(Nat)
@@ -22,22 +24,143 @@ function max(Nat,Nat) -> Nat {
     }
 }
 
+function pred(Nat) -> Nat {
+  pred(0) = 0
+  pred(suc(n)) = n
+}
+
+function operator -(Nat,Nat) -> Nat {
+  operator -(0, m) = 0
+  operator -(suc(n), m) =
+    switch m {
+      case 0 { suc(n) }
+      case suc(m') { n - m' }
+    }
+}
+
+union Pos {
+  one
+  succ(Pos)
+}
+
+function nat2pos(Nat) -> Option<Pos> {
+  nat2pos(0) = none
+  nat2pos(suc(n')) =
+    switch nat2pos(n') {
+      case none {
+        just(one)
+      }
+      case just(p) {
+        just(succ(p))
+      }
+    }
+}
+
+function pos2nat(Pos) -> Nat {
+  pos2nat(one) = 1
+  pos2nat(succ(p)) = suc(pos2nat(p))
+}
+
+function find_quotient(Nat,Nat,Pos,Nat) -> Nat {
+  find_quotient(0, n, m, q) = q
+  find_quotient(suc(u), n, m, q) =
+    if suc(q) * pos2nat(m) ≤ n then
+      (if n < u * pos2nat(m) then
+         find_quotient(u, n, m, suc(q))
+       else
+         u)
+    else
+      q
+}
+
+function operator /(Nat,Pos) -> Nat {
+  operator /(0, m) = 0
+  operator /(suc(n'), m) =
+    find_quotient(suc(suc(n')) * pos2nat(m), suc(n'), m, 0)
+}
+
+function operator%(Nat,Pos) -> Nat {
+  operator %(0, m) = 0
+  operator %(suc(n'), m) = suc(n') - (suc(n') / m) * pos2nat(m)
+}
+
+function operator ≤(Nat,Nat) -> bool {
+  operator ≤(0, m) = true
+  operator ≤(suc(n'), m) =
+    switch m {
+      case 0 { false }
+      case suc(m') { n' ≤ m' }
+    }
+}
+
+define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
+define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
+define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
+
+function summation(Nat, Nat, fn Nat->Nat) -> Nat {
+  summation(0, begin, f) = 0
+  summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
+}
+
+function iterate<T>(Nat, T, fn T -> T) -> T {
+  iterate(0, init, f) = init
+  iterate(suc(n), init, f) = f(iterate(n, init, f))
+}
+
+function pow2(Nat) -> Nat {
+  pow2(0) = 1
+  pow2(suc(n')) = 2 * pow2(n')
+}
+
+function div2(Nat) -> Nat {
+  div2(0) = 0
+  div2(suc(n')) = div2_aux(n')
+}
+
+function div2_aux(Nat) -> Nat {
+  div2_aux(0) = 0
+  div2_aux(suc(n')) = suc(div2(n'))
+}
+
+function equal(Nat, Nat) -> bool {
+  equal(0, n) =
+    switch n {
+      case 0 { true }
+      case suc(n') { false }
+    }
+  equal(suc(m'), n) =
+    switch n {
+      case 0 { false }
+      case suc(n') { equal(m', n') }
+    }
+}
+
+/*
+ Properties of Addition
+ */
+
+theorem zero_add: all n:Nat.
+  0 + n = n
+proof
+  arbitrary n:Nat
+  conclude 0 + n = n by definition operator+.
+end
+
 theorem add_zero: all n:Nat.
   n + 0 = n
 proof
-  enable operator +
   induction Nat
   case 0 {
-    conclude 0 + 0 = 0   by .
+    conclude 0 + 0 = 0   by definition operator+.
   }
-  case suc(n') suppose IH {
+  case suc(n') suppose IH: n' + 0 = n' {
     equations
-      suc(n') + 0 = suc(n' + 0)  by .
-              ... = suc(n')      by rewrite IH.
+      suc(n') + 0 = suc(n' + 0)  by definition_ operator+
+              ... = suc(n')      by rewrite_ IH
   }
 end
 
-theorem add_suc: all m:Nat. all n:Nat.
+lemma add_suc: all m:Nat. all n:Nat.
   m + suc(n) = suc(m + n)
 proof
   enable operator +
@@ -55,14 +178,6 @@ proof
   }
 end
 
-theorem add_one: all m:Nat.  m + 1 = suc(m)
-proof
-  arbitrary m:Nat
-  equations
-    m + 1 = suc(m + 0)  by add_suc[m][0]
-      ... = suc(m)      by rewrite add_zero[m].
-end
-
 theorem add_commute: all n:Nat. all m:Nat.  n + m = m + n
 proof
   enable operator +
@@ -78,6 +193,20 @@ proof
                       ... = suc(m + n')  by rewrite IH[m].
                       ... = m + suc(n')  by symmetric add_suc[m][n']
   }
+end
+
+theorem one_add: all m:Nat.  1 + m = suc(m)
+proof
+  arbitrary m:Nat
+  definition {operator+, operator+}.
+end
+
+theorem add_one: all m:Nat.  m + 1 = suc(m)
+proof
+  arbitrary m:Nat
+  equations
+    m + 1 = 1 + m       by add_commute[m][1]
+      ... = suc(m)      by one_add[m]
 end
 
 theorem add_assoc: all m:Nat. all n:Nat, o:Nat.
@@ -121,76 +250,225 @@ proof
   }
 end
 
-function pred(Nat) -> Nat {
-  pred(0) = 0
-  pred(suc(n)) = n
-}
+theorem add_to_zero: all n:Nat. all m:Nat.
+  if n + m = 0
+  then n = 0 and m = 0
+proof
+  induction Nat
+  case 0 {
+    arbitrary m:Nat
+    suppose zmz
+    have mz: m = 0
+      by definition operator + in zmz
+    rewrite mz.
+  }
+  case suc(n') suppose IH {
+    arbitrary m:Nat
+    suppose snmz: suc(n') + m = 0
+    conclude false
+        by definition operator + in snmz
+  }
+end
 
+/*
+ Properties of pred
+ */
+ 
 theorem pred_one: pred(suc(0)) = 0
 proof
   definition pred.
 end
 
-function operator -(Nat,Nat) -> Nat {
-  operator -(0, m) = 0
-  operator -(suc(n), m) =
-    switch m {
-      case 0 { suc(n) }
-      case suc(m') { n - m' }
-    }
-}
-
-function sub_from(Nat,Nat) -> Nat {
-  sub_from(0, m) = m
-  sub_from(suc(n), m) = sub_from(n, pred(m))
-}
-
-function diff(Nat,Nat) -> Nat {
-  diff(0, m) = m
-  diff(suc(n'), m) = switch m {
-                       case 0 { suc(n') }
-                       case suc(m') { diff(n', m') }
-                     }
-}
-
-theorem sub_one_one: 1 - 1 = 0
+/*
+ Properties of Subtraction
+ */
+ 
+theorem sub_cancel: all n:Nat. n - n = 0
 proof
-  definition operator -
-  definition operator -.
+  induction Nat
+  case 0 {
+    conclude 0 - 0 = 0   by definition_ operator-
+  }
+  case suc(n') suppose IH: n' - n' = 0 {
+    equations
+      suc(n') - suc(n') = n' - n'    by definition_ operator-
+                    ... = 0          by IH
+  }
 end
 
-union Pos {
-  one
-  succ(Pos)
-}
+theorem sub_zero: all n:Nat.
+  n - 0 = n
+proof
+  induction Nat
+  case 0 {
+    suffices 0 - 0 = 0
+    definition operator-.
+  }
+  case suc(n') suppose IH {
+    suffices suc(n') - 0 = suc(n')
+    definition operator-.
+  }
+end
 
-import Option
+/*
+ Properties of Addition and Subtraction
+ */
 
-function nat2pos(Nat) -> Option<Pos> {
-  nat2pos(0) = none
-  nat2pos(suc(n')) =
-    switch nat2pos(n') {
-      case none {
-        just(one)
-      }
-      case just(p) {
-        just(succ(p))
-      }
-    }
-}
+theorem add_sub_identity: all m:Nat. all n:Nat. 
+  (m + n) - m = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    definition operator+
+    rewrite sub_zero[n].
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    definition {operator+,operator-}
+    IH[n]
+  }
+end
 
-function operator ≤(Nat,Nat) -> bool {
-  operator ≤(0, m) = true
-  operator ≤(suc(n'), m) =
-    switch m {
-      case 0 { false }
-      case suc(m') { n' ≤ m' }
-    }
-}
+/*
+ Properties of Multiplication and Addition
+*/
 
-define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
-define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
-define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
+theorem dist_mult_add:
+  all a:Nat. all x:Nat, y:Nat.
+  a * (x + y) = a * x + a * y
+proof
+  induction Nat
+  case zero {
+    arbitrary x:Nat, y:Nat
+    suffices 0 * (x + y) = 0 * x + 0 * y
+    definition {operator *, operator +}.
+  }
+  case suc(a') suppose IH {
+    arbitrary x:Nat, y:Nat
+    suffices suc(a') * (x + y) = suc(a') * x + suc(a') * y
+    definition operator *
+    suffices (x + y) + a' * (x + y) = (x + a' * x) + (y + a' * y)
+    equations
+    (x + y) + a' * (x + y) = (x + y) + (a' * x + a' * y) by rewrite IH[x,y].
+    ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
+    ... = (x + (y + a' * x)) + a' * y by rewrite add_assoc[x][y,a'*x].
+    ... = (x + (a' * x + y)) + a' * y by rewrite add_commute[a'*x][y].
+    ... = ((x + a' * x) + y) + a' * y by rewrite symmetric add_assoc[x][a'*x,y].
+    ... = (x + a' * x) + (y + a' * y) by add_assoc[x+a'*x][y,a'*y]
+  }
+end
+
+/*
+ Properties of Multiplication
+*/
+
+theorem mult_zero: all n:Nat.
+  n * 0 = 0
+proof
+  induction Nat
+  case 0 {
+    definition operator*.
+  }
+  case suc(n') suppose IH {
+    definition {operator*, operator+}
+    IH
+  }
+end
+
+lemma mult_suc: all m:Nat. all n:Nat.
+  m * suc(n) = m + m * n
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    definition {operator*, operator+}.
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    suffices suc(m') * suc(n) = suc(m') + suc(m') * n
+    definition {operator*, operator+}
+    suffices suc(n + m' * suc(n)) = suc(m' + (n + m' * n))
+    equations
+          suc(n + m' * suc(n))
+        = suc(n + (m' + m' * n))
+	  by rewrite IH[n].
+    ... = suc((n + m') + m' * n)
+          by rewrite add_assoc[n][m', m' * n].
+    ... = suc((m' + n) + m' * n)
+          by rewrite add_commute[n][m'].
+    ... = suc(m' + (n + m' * n))
+          by rewrite add_assoc[m'][n, m' * n].
+  }
+end
+
+theorem mult_commute: all m:Nat. all n:Nat.
+  m * n = n * m
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat
+    definition operator*
+    rewrite mult_zero[n].
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    definition operator*
+    rewrite mult_suc[n][m']
+    rewrite IH[n].
+  }
+end
+
+theorem one_mult: all n:Nat.
+  1 * n = n
+proof
+  arbitrary n:Nat
+  definition {operator*, operator*}
+  rewrite add_zero[n].
+end
+  
+theorem mult_one: all n:Nat.
+  n * 1 = n
+proof
+  arbitrary n:Nat
+  rewrite mult_commute[n][1]
+  one_mult[n]
+end
+
+theorem two_mult: all n:Nat.
+  2 * n = n + n
+proof
+  arbitrary n:Nat
+  definition {operator*, operator*, operator*}
+  definition {operator+}
+  rewrite add_zero[n].
+end
+
+
+theorem mult_assoc: all m:Nat. all n:Nat, o:Nat.
+  (m * n) * o = m * (n * o)
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat
+    suffices (0 * n) * o = 0 * (n * o)
+    definition operator*.
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat, o:Nat
+    suffices (suc(m') * n) * o = suc(m') * (n * o)
+    definition {operator*}
+    suffices (n + m'*n)*o = n*o + m'*(n*o)
+    rewrite mult_commute[n + m' * n][o]
+    rewrite dist_mult_add[o][n, m' * n]
+    rewrite mult_commute[o][n] | mult_commute[o][m'*n]
+    rewrite IH[n,o].
+  }
+end
+
+/*
+ Properties of Less-Than, Greater-Than, etc.
+*/
 
 theorem suc_less_equal: all x:Nat, y:Nat.
   if suc(x) ≤ suc(y)
@@ -557,120 +835,6 @@ proof
   }
 end
 
-theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
-proof
-  induction Nat
-  case zero {
-    definition max.
-  }
-  case suc(x') suppose IH {
-    equations
-    max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
-                                         by definition max definition max.
-    ... = suc(suc(max(x',x')))           by rewrite IH.
-    ... = suc(max(suc(x'),suc(x')))      by definition max.
-  }
-end
-
-theorem max_suc2: all x:Nat, y:Nat. max(suc(x), suc(y)) = suc(max(x,y))
-proof
-  arbitrary x:Nat, y:Nat
-  switch x {
-    case 0 {
-      suffices max(1,suc(y)) = suc(max(0,y))
-      definition {max, max}.
-    }
-    case suc(x') {
-      switch y {
-        case 0 {
-          definition {max, max}.
-        }
-        case suc(y') {
-          definition {max, max}.
-        }
-      }
-    }
-  }
-end
-
-theorem max_greater_right: all y:Nat. all x:Nat. 
-  y ≤ max(x, y)
-proof
-  induction Nat
-  case 0 {
-    arbitrary x:Nat
-    definition operator ≤.
-  }
-  case suc(y') suppose IH {
-    arbitrary x:Nat
-    switch x {
-      case 0 {
-        definition max
-        less_equal_refl[suc(y')]
-      }
-      case suc(x') {
-        rewrite max_suc2[x',y']
-        definition operator ≤
-        conclude y' ≤ max(x', y') by IH[x']
-      }
-    }
-  }
-end
-
-theorem max_greater_left: all x:Nat. all y:Nat. 
-  x ≤ max(x, y)
-proof
-  induction Nat
-  case 0 {
-    arbitrary y:Nat
-    definition operator ≤.
-  }
-  case suc(x') suppose IH {
-    arbitrary y:Nat
-    switch y {
-      case 0 {
-        suffices suc(x') ≤ max(suc(x'),0)
-        definition max
-        conclude suc(x') ≤ suc(x')  by less_equal_refl[suc(x')]
-      }
-      case suc(y') {
-        definition {max, operator ≤}
-        conclude x' ≤ max(x',y')  by IH[y']
-      }
-    }
-  }
-end
-
-theorem max_is_left_or_right: all x:Nat. all y:Nat.
-  max(x, y) = x or max(x, y) = y
-proof
-  induction Nat
-  case 0 {
-    arbitrary y:Nat
-    definition max.
-  }
-  case suc(x') suppose IH {
-    arbitrary y:Nat
-    switch y {
-      case 0 {
-        definition max.
-      }
-      case suc(y') {
-        definition max
-        cases IH[y']
-        case m_x: max(x',y') = x' {
-          suffices suc(max(x',y')) = suc(x')
-          rewrite m_x.
-        }
-        case m_y: max(x',y') = y' {
-          suffices suc(max(x',y')) = suc(y')
-          rewrite m_y.
-        }
-      }
-    }
-  }
-end
-
 theorem trichotomy:
   all x:Nat. all y:Nat.
   x < y  or  x = y  or  y < x
@@ -806,6 +970,55 @@ proof
   }
 end
 
+theorem zero_le_zero: all x:Nat. if x ≤ 0 then x = 0
+proof
+  induction Nat
+  case zero {
+    suppose _
+    .
+  }
+  case suc(x') {
+    suppose prem: suc(x') ≤ 0
+    conclude false by definition operator ≤ in prem
+  }
+end
+
+theorem not_less_equal_greater:
+  all x:Nat, y:Nat.
+  if not (x ≤ y) then y < x
+proof
+  arbitrary x:Nat, y:Nat
+  suppose not_xy
+  cases dichotomy[x,y]
+  case x_le_y {
+    apply not_xy to x_le_y
+  }
+  case y_l_x {
+    y_l_x
+  }
+end
+
+theorem positive_suc: all n:Nat.
+  if 0 < n
+  then some n':Nat. n = suc(n')
+proof
+  arbitrary n:Nat
+  switch n {
+    case 0 {
+      suppose z_l_z: 0 < 0
+      conclude false  by definition {operator<, operator≤} in z_l_z
+    }
+    case suc(n') {
+      suppose z_l_sn: 0 < suc(n')
+      choose n'.
+    }
+  }
+end
+
+/*
+ Properties of Less-Than and Addition
+ */
+
 theorem less_equal_add: all x:Nat. all y:Nat.
   x ≤ x + y
 proof
@@ -821,30 +1034,275 @@ proof
   }
 end
 
-theorem dist_mult_add:
-  all a:Nat. all x:Nat, y:Nat.
-  a * (x + y) = a * x + a * y
+theorem less_equal_suc: all n:Nat.
+  n ≤ suc(n)
+proof
+  arbitrary n:Nat
+  definition {operator+,operator+} in
+  rewrite add_commute[n][1] in
+  less_equal_add[n][1]
+end
+
+theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
+  if x + y ≤ x + z then y ≤ z
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat, z:Nat
+    suppose y_le_z: 0 + y ≤ 0 + z
+    conclude y ≤ z
+        by definition {operator+, operator≤} in y_le_z
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat, z:Nat
+    suppose sx_y_le_sx_z: suc(x') + y ≤ suc(x') + z
+    have x_y_le_x_z: x' + y ≤ x' + z
+      by definition {operator +, operator ≤} in sx_y_le_sx_z
+    conclude y ≤ z
+      by apply IH[y,z] to x_y_le_x_z
+  }
+end
+
+theorem less_left_cancel: all x:Nat, y:Nat, z:Nat.
+  if x + y < x + z then y < z
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  definition {operator <}
+  suppose sxy_xz
+  have x_sy_le_xz: x + suc(y) ≤ x + z
+    by rewrite add_suc[x][y]
+       sxy_xz
+  conclude suc(y) ≤ z
+    by apply less_equal_left_cancel[x][suc(y), z] to x_sy_le_xz
+end
+
+/*
+ Properties of Less-Than, Addition, and Subtraction
+ */
+
+theorem sub_add_assoc: all n:Nat. all l:Nat,m:Nat.
+  if m ≤ n
+  then l + (n - m) = (l + n) - m
+proof
+  induction Nat
+  case 0 {
+    arbitrary l:Nat, m:Nat
+    suppose m_le_z
+    suffices l + (0 - m) = (l + 0) - m
+    definition operator-
+    rewrite add_zero[l]
+    have m_z: m = 0 by apply zero_le_zero to m_le_z
+    rewrite m_z | sub_zero[l].
+  }
+  case suc(n') suppose IH {
+    arbitrary l:Nat, m:Nat
+    suppose m_le_sn
+    definition {operator-}
+    switch m {
+      case 0 {
+        suffices l + suc(n') = (l + suc(n')) - 0
+        rewrite sub_zero[l + suc(n')].
+      }
+      case suc(m') suppose m_sm {
+        suffices l + (n' - m') = (l + suc(n')) - suc(m')
+        rewrite add_suc[l][n']
+        definition operator-
+        suffices l + (n' - m') = (l + n') - m'
+        have m_n: m' ≤ n'
+          by definition operator ≤ in rewrite m_sm in m_le_sn
+        apply IH[l, m'] to m_n
+      }
+    }
+  }
+end
+
+theorem sub_add_identity: all n:Nat. all m:Nat.
+  if m ≤ n
+  then m + (n - m) = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary m:Nat
+    suppose m_le_z
+    suffices m + (0 - m) = 0
+    have m_z: m = 0 by apply zero_le_zero to m_le_z
+    rewrite m_z
+    definition {operator-, operator+}.
+  }
+  case suc(n') suppose IH {
+    arbitrary m:Nat
+    suppose m_le_sn
+    suffices m + (suc(n') - m) = suc(n')
+    switch m {
+      case 0 {
+        suffices 0 + (suc(n') - 0) = suc(n')
+        definition {operator-,operator+}.
+      }
+      case suc(m') suppose m_sm {
+        suffices suc(m') + (suc(n') - suc(m')) = suc(n')
+        definition {operator-,operator+}
+        have m_n: m' ≤ n'  by definition operator≤ in rewrite m_sm in m_le_sn
+        have IH_m: m' + (n' - m') = n' by apply IH[m'] to m_n
+        rewrite IH_m.
+      }
+    }
+  }
+end
+
+theorem less_equal_add_sub: all m:Nat. all n:Nat, o:Nat.
+  if n ≤ m and m ≤ n + o
+  then m - n ≤ o
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat
+    suppose prem
+    definition {operator -, operator ≤}.
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat, o:Nat
+    suppose prem
+    definition {operator -}
+    switch n {
+      case 0 suppose n_z {
+        conclude suc(m') ≤ o
+          by definition operator+ in rewrite n_z in prem
+      }
+      case suc(n') suppose n_sn {
+        have n_m: n' ≤ m'
+          by definition operator ≤ in rewrite n_sn
+             in conjunct 0 of prem
+        have m_no: m' ≤ n' + o
+          by definition {operator ≤, operator +} in rewrite n_sn in 
+             conjunct 1 of prem
+        conclude m' - n' ≤ o  by apply IH[n',o] to n_m, m_no
+      }
+    }
+  }
+end
+
+/*
+  Properties of max
+  */
+
+theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat
   case zero {
-    arbitrary x:Nat, y:Nat
-    suffices 0 * (x + y) = 0 * x + 0 * y
-    definition {operator *, operator +}.
+    definition max.
   }
-  case suc(a') suppose IH {
-    arbitrary x:Nat, y:Nat
-    suffices suc(a') * (x + y) = suc(a') * x + suc(a') * y
-    definition operator *
-    suffices (x + y) + a' * (x + y) = (x + a' * x) + (y + a' * y)
+  case suc(x') suppose IH {
     equations
-    (x + y) + a' * (x + y) = (x + y) + (a' * x + a' * y) by rewrite IH[x,y].
-    ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
-    ... = (x + (y + a' * x)) + a' * y by rewrite add_assoc[x][y,a'*x].
-    ... = (x + (a' * x + y)) + a' * y by rewrite add_commute[a'*x][y].
-    ... = ((x + a' * x) + y) + a' * y by rewrite symmetric add_assoc[x][a'*x,y].
-    ... = (x + a' * x) + (y + a' * y) by add_assoc[x+a'*x][y,a'*y]
+    max(suc(suc(x')),suc(x')) = suc(max(suc(x'),x'))
+                                         by definition max definition max.
+    ... = suc(suc(max(x',x')))           by rewrite IH.
+    ... = suc(max(suc(x'),suc(x')))      by definition max.
   }
 end
+
+theorem max_suc2: all x:Nat, y:Nat. max(suc(x), suc(y)) = suc(max(x,y))
+proof
+  arbitrary x:Nat, y:Nat
+  switch x {
+    case 0 {
+      suffices max(1,suc(y)) = suc(max(0,y))
+      definition {max, max}.
+    }
+    case suc(x') {
+      switch y {
+        case 0 {
+          definition {max, max}.
+        }
+        case suc(y') {
+          definition {max, max}.
+        }
+      }
+    }
+  }
+end
+
+theorem max_greater_right: all y:Nat. all x:Nat. 
+  y ≤ max(x, y)
+proof
+  induction Nat
+  case 0 {
+    arbitrary x:Nat
+    definition operator ≤.
+  }
+  case suc(y') suppose IH {
+    arbitrary x:Nat
+    switch x {
+      case 0 {
+        definition max
+        less_equal_refl[suc(y')]
+      }
+      case suc(x') {
+        rewrite max_suc2[x',y']
+        definition operator ≤
+        conclude y' ≤ max(x', y') by IH[x']
+      }
+    }
+  }
+end
+
+theorem max_greater_left: all x:Nat. all y:Nat. 
+  x ≤ max(x, y)
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    definition operator ≤.
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        suffices suc(x') ≤ max(suc(x'),0)
+        definition max
+        conclude suc(x') ≤ suc(x')  by less_equal_refl[suc(x')]
+      }
+      case suc(y') {
+        definition {max, operator ≤}
+        conclude x' ≤ max(x',y')  by IH[y']
+      }
+    }
+  }
+end
+
+theorem max_is_left_or_right: all x:Nat. all y:Nat.
+  max(x, y) = x or max(x, y) = y
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    definition max.
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        definition max.
+      }
+      case suc(y') {
+        definition max
+        cases IH[y']
+        case m_x: max(x',y') = x' {
+          suffices suc(max(x',y')) = suc(x')
+          rewrite m_x.
+        }
+        case m_y: max(x',y') = y' {
+          suffices suc(max(x',y')) = suc(y')
+          rewrite m_y.
+        }
+      }
+    }
+  }
+end
+
+
+/*
+ Odd and Even Numbers
+ */
 
 function is_even(Nat) -> bool {
   is_even(0) = true
@@ -917,23 +1375,9 @@ proof
   }
 end
 
-theorem zero_le_zero: all x:Nat. if x ≤ 0 then x = 0
-proof
-  induction Nat
-  case zero {
-    suppose _
-    .
-  }
-  case suc(x') {
-    suppose prem: suc(x') ≤ 0
-    conclude false by definition operator ≤ in prem
-  }
-end
-
-function summation(Nat, Nat, fn Nat->Nat) -> Nat {
-  summation(0, begin, f) = 0
-  summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
-}
+/*
+ Properties of Summation
+ */
 
 theorem summation_cong2: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat. 
   if (all i:Nat. if i < k then f(s + i) = g(t + i))
@@ -1089,19 +1533,9 @@ proof
   }
 end
 
-function equal(Nat, Nat) -> bool {
-  equal(0, n) =
-    switch n {
-      case 0 { true }
-      case suc(n') { false }
-    }
-  equal(suc(m'), n) =
-    switch n {
-      case 0 { false }
-      case suc(n') { equal(m', n') }
-    }
-}
-
+/*
+ Properties of equal
+*/
 theorem equal_refl: all n:Nat. equal(n,n)
 proof
   induction Nat
@@ -1183,84 +1617,10 @@ proof
   }
 end
 
-theorem add_to_zero: all n:Nat. all m:Nat.
-  if n + m = 0
-  then n = 0 and m = 0
-proof
-  induction Nat
-  case 0 {
-    arbitrary m:Nat
-    suppose zmz
-    have mz: m = 0
-      by definition operator + in zmz
-    rewrite mz.
-  }
-  case suc(n') suppose IH {
-    arbitrary m:Nat
-    suppose snmz: suc(n') + m = 0
-    conclude false
-        by definition operator + in snmz
-  }
-end
-
-theorem not_less_equal_greater:
-  all x:Nat, y:Nat.
-  if not (x ≤ y) then y < x
-proof
-  arbitrary x:Nat, y:Nat
-  suppose not_xy
-  cases dichotomy[x,y]
-  case x_le_y {
-    apply not_xy to x_le_y
-  }
-  case y_l_x {
-    y_l_x
-  }
-end
-
-theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
-  if x + y ≤ x + z then y ≤ z
-proof
-  induction Nat
-  case 0 {
-    arbitrary y:Nat, z:Nat
-    suppose y_le_z: 0 + y ≤ 0 + z
-    conclude y ≤ z
-        by definition {operator+, operator≤} in y_le_z
-  }
-  case suc(x') suppose IH {
-    arbitrary y:Nat, z:Nat
-    suppose sx_y_le_sx_z: suc(x') + y ≤ suc(x') + z
-    have x_y_le_x_z: x' + y ≤ x' + z
-      by definition {operator +, operator ≤} in sx_y_le_sx_z
-    conclude y ≤ z
-      by apply IH[y,z] to x_y_le_x_z
-  }
-end
-
-theorem less_left_cancel: all x:Nat, y:Nat, z:Nat.
-  if x + y < x + z then y < z
-proof
-  arbitrary x:Nat, y:Nat, z:Nat
-  definition {operator <}
-  suppose sxy_xz
-  have x_sy_le_xz: x + suc(y) ≤ x + z
-    by rewrite add_suc[x][y]
-       sxy_xz
-  conclude suc(y) ≤ z
-    by apply less_equal_left_cancel[x][suc(y), z] to x_sy_le_xz
-end
-
-function div2(Nat) -> Nat {
-  div2(0) = 0
-  div2(suc(n')) = div2_aux(n')
-}
-
-function div2_aux(Nat) -> Nat {
-  div2_aux(0) = 0
-  div2_aux(suc(n')) = suc(div2(n'))
-}
-
+/*
+ Properties of div2
+ */
+ 
 theorem div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
 proof
   arbitrary n:Nat
@@ -1314,28 +1674,25 @@ proof
   div2_suc_double[n]
 end
 
-function pow2(Nat) -> Nat {
-  pow2(0) = 1
-  pow2(suc(n')) = 2 * pow2(n')
-}
+/*
+ Properties of pos2nat
+ */
 
-theorem positive_suc: all n:Nat.
-  if 0 < n
-  then some n':Nat. n = suc(n')
+theorem pos_positive: all p:Pos. 0 < pos2nat(p)
 proof
-  arbitrary n:Nat
-  switch n {
-    case 0 {
-      suppose z_l_z: 0 < 0
-      conclude false  by definition {operator<, operator≤} in z_l_z
-    }
-    case suc(n') {
-      suppose z_l_sn: 0 < suc(n')
-      choose n'.
-    }
+  induction Pos
+  case one {
+    definition {pos2nat, operator<, operator≤, operator≤}.
+  }
+  case succ(p') {
+    definition {pos2nat, operator<, operator≤, operator≤}.
   }
 end
 
+/*
+ Properties of pow2
+ */
+ 
 theorem pow_positive: all n:Nat. 0 < pow2(n)
 proof
   induction Nat
@@ -1355,26 +1712,9 @@ proof
   }
 end
 
-function iterate<T>(Nat, T, fn T -> T) -> T {
-  iterate(0, init, f) = init
-  iterate(suc(n), init, f) = f(iterate(n, init, f))
-}
-
-function pos2nat(Pos) -> Nat {
-  pos2nat(one) = 1
-  pos2nat(succ(p)) = suc(pos2nat(p))
-}
-
-theorem pos_positive: all p:Pos. 0 < pos2nat(p)
-proof
-  induction Pos
-  case one {
-    definition {pos2nat, operator<, operator≤, operator≤}.
-  }
-  case succ(p') {
-    definition {pos2nat, operator<, operator≤, operator≤}.
-  }
-end
+/*
+ Properties of Division and Modulo
+ */
 
 /*
 theorem div_one: all n:Nat.
@@ -1392,158 +1732,6 @@ proof
   }
 end
 */
-
-function find_quotient(Nat,Nat,Pos,Nat) -> Nat {
-  find_quotient(0, n, m, q) = q
-  find_quotient(suc(u), n, m, q) =
-    if suc(q) * pos2nat(m) ≤ n then
-      (if n < u * pos2nat(m) then
-         find_quotient(u, n, m, suc(q))
-       else
-         u)
-    else
-      q
-}
-
-theorem sub_zero: all n:Nat.
-  n - 0 = n
-proof
-  induction Nat
-  case 0 {
-    suffices 0 - 0 = 0
-    definition operator-.
-  }
-  case suc(n') suppose IH {
-    suffices suc(n') - 0 = suc(n')
-    definition operator-.
-  }
-end
-
-theorem sub_add_assoc: all n:Nat. all l:Nat,m:Nat.
-  if m ≤ n
-  then l + (n - m) = (l + n) - m
-proof
-  induction Nat
-  case 0 {
-    arbitrary l:Nat, m:Nat
-    suppose m_le_z
-    suffices l + (0 - m) = (l + 0) - m
-    definition operator-
-    rewrite add_zero[l]
-    have m_z: m = 0 by apply zero_le_zero to m_le_z
-    rewrite m_z | sub_zero[l].
-  }
-  case suc(n') suppose IH {
-    arbitrary l:Nat, m:Nat
-    suppose m_le_sn
-    definition {operator-}
-    switch m {
-      case 0 {
-        suffices l + suc(n') = (l + suc(n')) - 0
-        rewrite sub_zero[l + suc(n')].
-      }
-      case suc(m') suppose m_sm {
-        suffices l + (n' - m') = (l + suc(n')) - suc(m')
-        rewrite add_suc[l][n']
-        definition operator-
-        suffices l + (n' - m') = (l + n') - m'
-        have m_n: m' ≤ n'
-          by definition operator ≤ in rewrite m_sm in m_le_sn
-        apply IH[l, m'] to m_n
-      }
-    }
-  }
-end
-
-theorem add_sub_identity: all m:Nat. all n:Nat. 
-  (m + n) - m = n
-proof
-  induction Nat
-  case 0 {
-    arbitrary n:Nat
-    definition operator+
-    rewrite sub_zero[n].
-  }
-  case suc(m') suppose IH {
-    arbitrary n:Nat
-    definition {operator+,operator-}
-    IH[n]
-  }
-end
-
-theorem sub_add_identity: all n:Nat. all m:Nat.
-  if m ≤ n
-  then m + (n - m) = n
-proof
-  induction Nat
-  case 0 {
-    arbitrary m:Nat
-    suppose m_le_z
-    suffices m + (0 - m) = 0
-    have m_z: m = 0 by apply zero_le_zero to m_le_z
-    rewrite m_z
-    definition {operator-, operator+}.
-  }
-  case suc(n') suppose IH {
-    arbitrary m:Nat
-    suppose m_le_sn
-    suffices m + (suc(n') - m) = suc(n')
-    switch m {
-      case 0 {
-        suffices 0 + (suc(n') - 0) = suc(n')
-        definition {operator-,operator+}.
-      }
-      case suc(m') suppose m_sm {
-        suffices suc(m') + (suc(n') - suc(m')) = suc(n')
-        definition {operator-,operator+}
-        have m_n: m' ≤ n'  by definition operator≤ in rewrite m_sm in m_le_sn
-        have IH_m: m' + (n' - m') = n' by apply IH[m'] to m_n
-        rewrite IH_m.
-      }
-    }
-  }
-end
-
-theorem less_equal_add_sub: all m:Nat. all n:Nat, o:Nat.
-  if n ≤ m and m ≤ n + o
-  then m - n ≤ o
-proof
-  induction Nat
-  case 0 {
-    arbitrary n:Nat, o:Nat
-    suppose prem
-    definition {operator -, operator ≤}.
-  }
-  case suc(m') suppose IH {
-    arbitrary n:Nat, o:Nat
-    suppose prem
-    definition {operator -}
-    switch n {
-      case 0 suppose n_z {
-        conclude suc(m') ≤ o
-          by definition operator+ in rewrite n_z in prem
-      }
-      case suc(n') suppose n_sn {
-        have n_m: n' ≤ m'
-          by definition operator ≤ in rewrite n_sn
-             in conjunct 0 of prem
-        have m_no: m' ≤ n' + o
-          by definition {operator ≤, operator +} in rewrite n_sn in 
-             conjunct 1 of prem
-        conclude m' - n' ≤ o  by apply IH[n',o] to n_m, m_no
-      }
-    }
-  }
-end
-
-theorem less_equal_suc: all n:Nat.
-  n ≤ suc(n)
-proof
-  arbitrary n:Nat
-  definition {operator+,operator+} in
-  rewrite add_commute[n][1] in
-  less_equal_add[n][1]
-end
 
 theorem find_quotient_correct: all u:Nat. all q:Nat, n:Nat, m:Pos.
   if q * pos2nat(m) ≤ n and n < u * pos2nat(m)
@@ -1647,17 +1835,6 @@ proof
   }
 end
 
-function operator /(Nat,Pos) -> Nat {
-  operator /(0, m) = 0
-  operator /(suc(n'), m) =
-    find_quotient(suc(suc(n')) * pos2nat(m), suc(n'), m, 0)
-}
-
-function operator%(Nat,Pos) -> Nat {
-  operator %(0, m) = 0
-  operator %(suc(n'), m) = suc(n') - (suc(n') / m) * pos2nat(m)
-}
-
 theorem mod_def: all n:Nat, m:Pos.
   n % m = n - (n / m) * pos2nat(m)
 proof
@@ -1669,92 +1846,6 @@ proof
     case suc(n') {
       definition {operator%}.
     }
-  }
-end
-  
-theorem mult_zero: all n:Nat.
-  n * 0 = 0
-proof
-  induction Nat
-  case 0 {
-    definition operator*.
-  }
-  case suc(n') suppose IH {
-    definition {operator*, operator+}
-    IH
-  }
-end
-
-theorem mult_suc: all m:Nat. all n:Nat.
-  m * suc(n) = m + m * n
-proof
-  induction Nat
-  case 0 {
-    arbitrary n:Nat
-    definition {operator*, operator+}.
-  }
-  case suc(m') suppose IH {
-    arbitrary n:Nat
-    suffices suc(m') * suc(n) = suc(m') + suc(m') * n
-    definition {operator*, operator+}
-    suffices suc(n + m' * suc(n)) = suc(m' + (n + m' * n))
-    equations
-          suc(n + m' * suc(n))
-        = suc(n + (m' + m' * n))
-	  by rewrite IH[n].
-    ... = suc((n + m') + m' * n)
-          by rewrite add_assoc[n][m', m' * n].
-    ... = suc((m' + n) + m' * n)
-          by rewrite add_commute[n][m'].
-    ... = suc(m' + (n + m' * n))
-          by rewrite add_assoc[m'][n, m' * n].
-  }
-end
-
-theorem mult_commute: all m:Nat. all n:Nat.
-  m * n = n * m
-proof
-  induction Nat
-  case 0 {
-    arbitrary n:Nat
-    definition operator*
-    rewrite mult_zero[n].
-  }
-  case suc(m') suppose IH {
-    arbitrary n:Nat
-    definition operator*
-    rewrite mult_suc[n][m']
-    rewrite IH[n].
-  }
-end
-
-theorem mult_one: all n:Nat.
-  n * 1 = n
-proof
-  arbitrary n:Nat
-  rewrite mult_commute[n][1]
-  definition {operator*,operator*}
-  rewrite add_zero[n].
-end
-
-theorem mult_assoc: all m:Nat. all n:Nat, o:Nat.
-  (m * n) * o = m * (n * o)
-proof
-  induction Nat
-  case 0 {
-    arbitrary n:Nat, o:Nat
-    suffices (0 * n) * o = 0 * (n * o)
-    definition operator*.
-  }
-  case suc(m') suppose IH {
-    arbitrary n:Nat, o:Nat
-    suffices (suc(m') * n) * o = suc(m') * (n * o)
-    definition {operator*}
-    suffices (n + m'*n)*o = n*o + m'*(n*o)
-    rewrite mult_commute[n + m' * n][o]
-    rewrite dist_mult_add[o][n, m' * n]
-    rewrite mult_commute[o][n] | mult_commute[o][m'*n]
-    rewrite IH[n,o].
   }
 end
 

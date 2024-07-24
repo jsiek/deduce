@@ -425,6 +425,9 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'reason_definition':
         definitions = parse_tree_to_list(e.children[0], e)
         return ApplyDefs(e.meta, [Var(e.meta, t) for t in definitions])
+    elif e.data == 'reason_definition_one':
+        dfn = parse_tree_to_ast(e.children[0], e)
+        return ApplyDefs(e.meta, [Var(e.meta, dfn)])
     elif e.data == 'enable_def':
         definition = parse_tree_to_ast(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)

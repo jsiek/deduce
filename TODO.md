@@ -1,3 +1,10 @@
+
+[ ] hide the suc-oriented arithmetic
+
+[ ] rewrite with all-quantified equations
+
+[ ] error when rewrite doesn't rewrite
+
 [ ] add section on rewrite-in to the introduction
 
 [ ] implicit instantiation for all's
