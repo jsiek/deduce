@@ -1,3 +1,4 @@
+[ ] equations for ≤, etc. (anything with transitivity)
 
 [ ] hide the suc-oriented arithmetic
 
@@ -27,6 +28,8 @@
 [ ] specify number of unfoldings in _definition and enable
 
 [ ] remove parent param from parser, not needed anymore
+
+[x] add section on suffices to the intro
 
 [x] error when rewrite doesn't rewrite
 

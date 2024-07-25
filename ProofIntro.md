@@ -82,13 +82,19 @@ Deduce responds that we still need to prove the following obvious fact.
     remains to prove:
         1 + 0 = 1
 
-But that is just a consequence of the definition of addition, which
-we can refer to as `operator +`.
+But that is just a consequence of the definition of addition, which we
+can refer to as `operator +`.  To carry on with proving what remains,
+we can use the `suffies` statement as follows. We write the formula
+that is left to prove after the `suffices` keyword then `by` then the
+`definition` statement that we're using to transform the goal.
+After the `suffices`, the goal change to the `suffices` formula,
+which here is `1 + 0 = 1`.
 
 ```{.deduce #length_node42}
 theorem length_node42: length(node(42, empty)) = 1
 proof
-  definition {length, length, operator +, operator +}
+  suffices 1 + 0 = 1  by definition {length, length}
+  definition {operator +, operator +}
 end
 ```
 
