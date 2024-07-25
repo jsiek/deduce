@@ -37,7 +37,7 @@ define operator ⊆ : < T > fn Set<T>, Set<T> -> bool
 theorem single_member: all T:type, x:T.  x ∈ single(x)
 proof
   arbitrary T:type, x:T
-  definition {single, operator ∈, rep}.
+  definition_ {single, operator ∈, rep}
 end
 
 theorem single_equal: all T:type. all x:T, y:T.
@@ -59,6 +59,24 @@ proof
   x_in_empty
 end
 
+theorem union_member: all T:type. all x:T, A:Set<T>, B:Set<T>.
+  if x ∈ A or x ∈ B
+  then x ∈ (A ∪ B)
+proof
+  arbitrary T:type
+  arbitrary x:T, A:Set<T>, B:Set<T>
+  suppose prem: x ∈ A or x ∈ B
+  suffices rep(A)(x) or rep(B)(x)
+      by definition_ {operator∪, operator∈, rep}
+  cases prem
+  case xA: x ∈ A {
+    conclude rep(A)(x) by definition operator∈ in xA
+  }
+  case xB: x ∈ B {
+    conclude rep(B)(x) by definition operator∈ in xB
+  }
+end
+
 theorem member_union: all T:type. all x:T, A:Set<T>, B:Set<T>.
   if x ∈ (A ∪ B)
   then x ∈ A or x ∈ B
@@ -77,10 +95,9 @@ proof
   definition {operator ∪, rep, char_fun}
   switch A {
     case char_fun(f) {
-      have eq: (λx{f(x) or false} : fn T->bool) = f
-        by extensionality arbitrary x:T
-	   definition {}.
-      rewrite eq.
+      have eq: (λx{f(x)} : fn T->bool) = f
+        by extensionality arbitrary x:T.
+      rewrite_ eq
     }
   }
 end
@@ -93,9 +110,8 @@ proof
   switch A {
     case char_fun(f) {
       have eq: (λx{f(x) or false} : fn T->bool) = f
-        by extensionality arbitrary x:T
-	   definition {}.
-      rewrite eq.
+        by extensionality arbitrary x:T.
+      rewrite_ eq
     }
   }
 end
@@ -111,9 +127,9 @@ proof
 	case char_fun(g) {
 	  definition rep
 	  have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
-	    by extensionality arbitrary x:T definition{}
-	       rewrite or_sym[f(x),g(x)].
-	  rewrite fg_gf.
+	    by extensionality arbitrary x:T 
+	       rewrite_ or_sym[f(x),g(x)]
+	  rewrite_ fg_gf
 	}
       }
     }
@@ -163,8 +179,7 @@ proof
   arbitrary T:type, A: Set<T>
   arbitrary x:T, B:Set<T>
   suppose x_B: x ∈ B
-  definition {operator ∈, operator ∪, rep}
-  definition operator ∈ in x_B
+  conclude x ∈ A ∪ B   by apply union_member[T][x,A,B] to x_B
 end
 
 theorem subset_equal:
@@ -192,7 +207,7 @@ proof
                      (conjunct 1 of prem)[x]
                apply iff_equal[f(x),g(x)]
                to fx_to_gx, gx_to_fx
-          rewrite f_g.
+          rewrite_ f_g
 	}
       }
     }

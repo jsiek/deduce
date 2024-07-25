@@ -49,11 +49,11 @@ proof
   switch P {
     case true {
       suppose q
-      rewrite q.
+      rewrite_ q
     }
     case false {
       suppose not_q
-      rewrite not_q.
+      rewrite_ not_q
     }
   }
 end

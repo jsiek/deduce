@@ -778,12 +778,12 @@ def check_proof_of(proof, formula, env):
                   + '\nin\n\t' + str(new_formula))
         new_formula = new_formula.reduce(env)
       check_proof_of(body, new_formula.reduce(env), env)
+      #warning(loc, 'old-style rewrite will be deprecated')
     case ApplyDefsGoal(loc, definitions, body):
       defs = [d.reduce(env) for d in definitions]
-      #print('definitions orig goal: ' + str(formula))      
       new_formula = apply_definitions(loc, formula, defs, env)
-      #print('definitions new goal: ' + str(new_formula))
       check_proof_of(body, new_formula, env)
+      #warning(loc, 'old-style definition will be deprecated')
     case _:
       form = check_proof(proof, env)
       check_implies(proof.location, form.reduce(env), formula.reduce(env))
