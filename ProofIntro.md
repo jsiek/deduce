@@ -84,10 +84,10 @@ Deduce responds that we still need to prove the following obvious fact.
 
 But that is just a consequence of the definition of addition, which we
 can refer to as `operator +`.  To carry on with proving what remains,
-we can use the `suffies` statement as follows. We write the formula
+we can use the `suffices` statement as follows. We write the formula
 that is left to prove after the `suffices` keyword then `by` then the
 `definition` statement that we're using to transform the goal.
-After the `suffices`, the goal change to the `suffices` formula,
+After the `suffices`, the goal changes to the `suffices` formula,
 which here is `1 + 0 = 1`.
 
 ```{.deduce #length_node42}
@@ -445,25 +445,9 @@ Deduce replies that we need to prove
     unfinished proof:
         xs ++ empty = xs
 
-We might try to expand the definition of `append` as follows.
-
-    theorem append_empty: all U :type. all xs :List<U>.
-      xs ++ empty = xs
-    proof
-      arbitrary U:type
-      arbitrary xs:List<U>
-      _definition operator++
-      ?
-    end
-
-But Deduce replies with the same goal.
-
-    unfinished proof:
-        xs ++ empty = xs
-
-Deduce was unable to expand the definition of append because that
-function pattern matches on its first argument, but we don't know
-whether `xs` is an `empty` list or a `node`.
+But now we're stuck because the definition of append pattern matches
+on its first argument, but we don't know whether `xs` is an `empty`
+list or a `node`.
 
 So instead of using `arbitrary xs:List<U>` to prove the `all xs`, we
 proceed by induction as follows.
@@ -600,8 +584,8 @@ using the comma operator to combine those proofs: `one_pos, two_pos`.
 ```{.deduce #positive_1_and_2}
 theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
-  have one_pos: 0 ≤ 1 by _definition operator ≤.
-  have two_pos: 0 ≤ 2 by _definition operator ≤.
+  have one_pos: 0 ≤ 1 by definition operator ≤
+  have two_pos: 0 ≤ 2 by definition operator ≤
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 ```
@@ -684,7 +668,9 @@ can prove that `x ≤ y` by rewriting the `x` to `y` and then using the
 reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
-      have x_le_y: x ≤ y by _rewrite x_eq_y less_equal_refl[y]
+      have x_le_y: x ≤ y by
+          suffices y ≤ y  by rewrite x_eq_y
+          less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
 
@@ -708,7 +694,9 @@ proof
     conclude x ≤ y or y < x by x_le_y
   }
   case x_eq_y: x = y {
-    have x_le_y: x ≤ y by _rewrite x_eq_y less_equal_refl[y]
+    have x_le_y: x ≤ y by
+        suffices y ≤ y  by rewrite x_eq_y
+        less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
   case y_l_x: y < x {
@@ -771,7 +759,7 @@ There's no hope of proving `false`, so we better prove `0 < suc(x')`.
 Thankfully that follows from the definitions of `<` and `≤`.
 
     case suc(x') {
-      have z_l_sx: 0 < suc(x') by _definition {operator <, operator ≤}.
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
 
@@ -1270,15 +1258,10 @@ We still need to prove the following:
     unfinished proof:
         Even(x + y)
 
-So we use the definition of `Even`
+So we use the definition of `Even` in a `suffices` statement
 
-    _definition Even
+    suffices some m:Nat. x + y = 2 * m   by definition Even
     ?
-
-and now we need to prove
-
-    unfinished proof:
-        some m:Nat. x + y = 2 * m
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
 requires some thinking on our part.  What number can we plug in for
@@ -1288,8 +1271,8 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    _rewrite x_2a | y_2b
-    conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+    suffices 2 * a + 2 * b = 2 * (a + b)   by rewrite x_2a | y_2b
+    symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
 
@@ -1304,11 +1287,10 @@ proof
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  _definition Even
-  suffices some m:Nat. x + y = 2 * m
+  suffices some m:Nat. x + y = 2 * m   by definition Even
   choose a + b
-  _rewrite x_2a | y_2b
-  conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
+  suffices 2 * a + 2 * b = 2 * (a + b)   by rewrite x_2a | y_2b
+  symmetric dist_mult_add[2][a,b]
 end
 ```
 
