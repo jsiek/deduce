@@ -97,28 +97,28 @@ proof
   case empty {
     equations
           from_binary(inc(empty))
-        = from_binary(node(true,empty))         by definition_ inc
-    ... = suc(2 * 0)                            by definition_ {from_binary, from_binary}
-    ... = 1                                     by rewrite_ mult_zero[2]
-    ... = suc(from_binary(empty))               by definition_ from_binary
+        = from_binary(node(true,empty))         by definition inc
+    ... = suc(2 * 0)                            by definition {from_binary, from_binary}
+    ... = 1                                     by rewrite mult_zero[2]
+    ... = suc(from_binary(empty))               by definition from_binary
   }
   case node(b, bs') suppose IH: from_binary(inc(bs')) = suc(from_binary(bs')) {
     switch b {
       case true {
         equations
                 from_binary(inc(node(true,bs')))
-              = 2 * from_binary(inc(bs'))               by definition_ {inc, from_binary}
-          ... = 2 * suc(from_binary(bs'))               by rewrite_ IH
-          ... = suc(suc(2 * from_binary(bs')))          by definition {operator*,operator*,operator*,operator+}
-                                                           rewrite add_zero[from_binary(bs')]
-                                                           rewrite add_suc[from_binary(bs')][from_binary(bs')].
-          ... = suc(from_binary(node(true,bs')))        by definition_ {from_binary}
+              = 2 * from_binary(inc(bs'))               by definition {inc, from_binary}
+          ... = 2 * suc(from_binary(bs'))               by rewrite IH
+          ... = suc(suc(2 * from_binary(bs')))          by _definition {operator*,operator*,operator*,operator+}
+                                                           _rewrite add_zero[from_binary(bs')]
+                                                           _rewrite add_suc[from_binary(bs')][from_binary(bs')].
+          ... = suc(from_binary(node(true,bs')))        by definition {from_binary}
       }
       case false {
         equations
               from_binary(inc(node(false,bs')))
-            = from_binary(node(true,bs'))               by definition_ inc
-        ... = suc(from_binary(node(false,bs')))         by definition_ from_binary
+            = from_binary(node(true,bs'))               by definition inc
+        ... = suc(from_binary(node(false,bs')))         by definition from_binary
       }
     }
   }
@@ -131,16 +131,16 @@ proof
   case 0 {
     equations
           from_binary(to_binary(0))
-        = from_binary(node(false,empty))  by definition_ to_binary
-    ... = 2 * 0                           by definition_ {from_binary, from_binary}
+        = from_binary(node(false,empty))  by definition to_binary
+    ... = 2 * 0                           by definition {from_binary, from_binary}
     ... = 0                               by mult_zero[2]
   }
   case suc(n') suppose IH: from_binary(to_binary(n')) = n' {
     equations
           from_binary(to_binary(suc(n')))
-        = from_binary(inc(to_binary(n')))   by definition_ to_binary
-    ... = suc(from_binary(to_binary(n')))   by rewrite_ from_inc[to_binary(n')]
-    ... = suc(n')                           by rewrite_ IH
+        = from_binary(inc(to_binary(n')))   by definition to_binary
+    ... = suc(from_binary(to_binary(n')))   by rewrite from_inc[to_binary(n')]
+    ... = suc(n')                           by rewrite IH
   }
 end
 
@@ -150,10 +150,10 @@ theorem log_pow_inverse: all n:Nat.
 proof
   induction Nat
   case 0 {
-    definition {pow2, log, to_binary, to_binary, inc, length, pred}.
+    _definition {pow2, log, to_binary, to_binary, inc, length, pred}.
   }
   case suc(n') suppose IH: log(pow2(n')) = n' {
-    definition {pow2, log}
+    _definition {pow2, log}
     suffices pred(length(to_binary(2 * pow2(n')))) = suc(n')
     ?
   }
@@ -166,13 +166,13 @@ proof
   arbitrary b:List<bool>
   switch b {
     case empty {
-      suffices 0 < length(node(true,empty))       by definition_ inc
-      suffices 0 < 1 + 0  by definition_ {length, length}
-      suffices 0 < 1      by rewrite_ add_zero[1]
-      definition_ {operator <, operator ≤, operator ≤}
+      suffices 0 < length(node(true,empty))       by definition inc
+      suffices 0 < 1 + 0  by definition {length, length}
+      suffices 0 < 1      by rewrite add_zero[1]
+      definition {operator <, operator ≤, operator ≤}
     }
     case node(d, b') {
-      definition {inc, length}
+      _definition {inc, length}
       switch d {
         case true {
           conclude 0 < 1 + length(inc(b'))
@@ -193,12 +193,12 @@ proof
   induction Nat
   case 0 {
     arbitrary bs:List<bool>
-    definition add_nb.
+    _definition add_nb.
   }
   case suc(m') suppose IH {
     arbitrary bs:List<bool>
-    definition add_nb
-    rewrite IH[bs].
+    _definition add_nb
+    _rewrite IH[bs].
   }
 end
 
@@ -206,7 +206,7 @@ theorem add_suc_to:  all m:Nat, n:Nat.
   add_nb(suc(m), to_binary(n)) = add_nb(m, to_binary(suc(n)))
 proof
   arbitrary m:Nat, n:Nat
-  definition {to_binary, add_nb}
+  _definition {to_binary, add_nb}
   symmetric add_nb_inc[m][to_binary(n)]
 end
 
@@ -214,7 +214,7 @@ theorem add_nb_shift: all m:Nat, bs:List<bool>.
   add_nb(m, inc(bs)) = add_nb(suc(m), bs)
 proof
   arbitrary m:Nat, bs:List<bool>
-  definition add_nb
+  _definition add_nb
   add_nb_inc[m][bs]
 end
 
@@ -224,12 +224,12 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat
-    definition {operator +, add_nb}.
+    _definition {operator +, add_nb}.
   }
   case suc(m') suppose IH {
     arbitrary n:Nat
-    definition {operator +, add_nb, to_binary}
-    rewrite IH[n].
+    _definition {operator +, add_nb, to_binary}
+    _rewrite IH[n].
   }
 end
 
@@ -237,8 +237,8 @@ theorem to_binary_2: all n:Nat.
   to_binary(2 * n) = add_nb(n, to_binary(n))
 proof
   arbitrary n:Nat
-  definition {operator*,operator*,operator*}
-  rewrite add_zero[n]
+  _definition {operator*,operator*,operator*}
+  _rewrite add_zero[n]
   to_binary_add[n][n]
 end
 
@@ -246,14 +246,14 @@ theorem binary_times_2: all bs:List<bool>.
   from_binary(dub(bs)) = 2 * from_binary(bs)
 proof
   arbitrary bs:List<bool>
-  definition {dub,from_binary}.
+  _definition {dub,from_binary}.
 end
 
 theorem length_dub: all bs:List<bool>.
   length(dub(bs)) = 1 + length(bs)
 proof
   arbitrary bs:List<bool>
-  definition {dub, length}.
+  _definition {dub, length}.
 end
 
 theorem length_iter_dub: all n:Nat. all bs:List<bool>.
@@ -262,14 +262,14 @@ proof
   induction Nat
   case 0 {
     arbitrary bs:List<bool>
-    definition {iter_dub,length,operator+}.
+    _definition {iter_dub,length,operator+}.
   }
   case suc(n') suppose IH {
     arbitrary bs:List<bool>
-    definition {iter_dub, length, dub}
-    rewrite IH[bs]
-    rewrite suc_one_add[n']
-    rewrite add_assoc[1][n', length(bs)].
+    _definition {iter_dub, length, dub}
+    _rewrite IH[bs]
+    _rewrite suc_one_add[n']
+    _rewrite add_assoc[1][n', length(bs)].
   }
 end
 
@@ -277,9 +277,9 @@ theorem length_iter_dub: all n:Nat.
   length(iter_dub(n, to_binary(1))) = suc(n)
 proof
   arbitrary n:Nat
-  rewrite length_iter_dub[n][to_binary(1)]
-  definition {to_binary, length, to_binary, inc, length}
-  rewrite add_zero[1] | suc_one_add[n] | add_commute[1][n].
+  _rewrite length_iter_dub[n][to_binary(1)]
+  _definition {to_binary, length, to_binary, inc, length}
+  _rewrite add_zero[1] | suc_one_add[n] | add_commute[1][n].
 end
 
 assert iter_dub( 1, to_binary(1) ) = to_binary(2)
@@ -299,12 +299,12 @@ proof
   induction Nat
   case 0 {
     arbitrary bs:List<bool>
-    definition {iter_dub,iter_times2}.
+    _definition {iter_dub,iter_times2}.
   }
   case suc(n') suppose IH {
     arbitrary bs:List<bool>
-    definition {iter_dub,iter_times2,from_binary,dub}
-    rewrite IH[bs].
+    _definition {iter_dub,iter_times2,from_binary,dub}
+    _rewrite IH[bs].
   }
 end
 
@@ -312,11 +312,11 @@ theorem iter_times2_pow2: all n:Nat.  iter_times2(n, 1) = pow2(n)
 proof
   induction Nat
   case 0 {
-    definition {iter_times2,pow2}.
+    _definition {iter_times2,pow2}.
   }
   case suc(n') suppose IH {
-    definition {iter_times2,pow2}
-    rewrite IH.
+    _definition {iter_times2,pow2}
+    _rewrite IH.
   }
 end
 
@@ -324,9 +324,9 @@ theorem iter_dub_pow2: all n:Nat.
   from_binary(iter_dub(n, to_binary(1))) = pow2(n)
 proof
   arbitrary n:Nat
-  rewrite symmetric iter_times2_pow2[n]
-  rewrite iter_dub_times2[n][to_binary(1)]
-  rewrite from_to_binary[1].
+  _rewrite symmetric iter_times2_pow2[n]
+  _rewrite iter_dub_times2[n][to_binary(1)]
+  _rewrite from_to_binary[1].
 end
 
 define log_b : fn List<bool> -> Nat = λbs{ pred(length(bs)) }
@@ -335,7 +335,7 @@ theorem dv2_dub: all bs:List<bool>.
   dv2(dub(bs)) = bs
 proof
   arbitrary bs:List<bool>
-  definition {dub, dv2}.
+  _definition {dub, dv2}.
 end
 
 theorem iter_dv2_dub: all n:Nat. all bs:List<bool>.
@@ -344,13 +344,13 @@ proof
   induction Nat
   case 0 {
     arbitrary bs:List<bool>
-    definition {iter_dub, iter_dv2}.
+    _definition {iter_dub, iter_dv2}.
   }
   case suc(n') suppose IH {
     arbitrary bs:List<bool>
-    definition {iter_dub, iter_dv2}
-    rewrite dv2_dub[iter_dub(n',bs)]
-    rewrite IH[bs].
+    _definition {iter_dub, iter_dv2}
+    _rewrite dv2_dub[iter_dub(n',bs)]
+    _rewrite IH[bs].
   }
 end
 
@@ -358,7 +358,7 @@ theorem from_dub: all bs:List<bool>.
   from_binary(dub(bs)) = 2 * from_binary(bs)
 proof
   arbitrary bs:List<bool>
-  definition {dub, from_binary}.
+  _definition {dub, from_binary}.
 end
 
 theorem from_dv2: all bs:List<bool>.
@@ -366,16 +366,16 @@ theorem from_dv2: all bs:List<bool>.
 proof
   induction List<bool>
   case empty {
-    definition {from_binary, dv2, div2}.
+    _definition {from_binary, dv2, div2}.
   }
   case node(b, bs') suppose IH {
-    definition {dv2, from_binary}
+    _definition {dv2, from_binary}
     switch b {
       case false {
-        rewrite div2_times2[from_binary(bs')].
+        _rewrite div2_times2[from_binary(bs')].
       }
       case true {
-        rewrite div2_suc_times2[from_binary(bs')].
+        _rewrite div2_suc_times2[from_binary(bs')].
       }
     }
   }
@@ -397,8 +397,8 @@ theorem log_2n: all n:Nat.
 proof
   arbitrary n:Nat
   suppose _
-  definition log
-  rewrite to_binary_add[n][n]
+  _definition log
+  _rewrite to_binary_add[n][n]
   ?
 end
 */
@@ -409,11 +409,11 @@ theorem less_pow_log: all n:Nat.
 proof
   induction Nat
   case 0 {
-    definition {pow2, log, to_binary, length, pred, pow2,operator <,operator ≤}
-    definition {operator*,operator*,operator*, operator+}.
+    _definition {pow2, log, to_binary, length, pred, pow2,operator <,operator ≤}
+    _definition {operator*,operator*,operator*, operator+}.
   }
   case suc(n') suppose IH {
-    definition {pow2, log, to_binary}
+    _definition {pow2, log, to_binary}
     sorry
   }
 end

@@ -31,7 +31,7 @@ theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
 write `?` to say that we're not done yet.
 
-    theorem length_empty: length(empty) = 0
+    theorem length_nat_empty: length[Nat](empty) = 0
     proof
       ?
     end
@@ -45,34 +45,21 @@ to remind us of what is left to prove.
 To tell Deduce to apply the definition of `length`, we can use
 the `definition` statement.
 
-    theorem length_empty: length(empty) = 0
-    proof
-      definition length
-      ?
-    end
-
-Now Deduce responds with
-
-    unfinished proof:
-        true
+```{.deduce #length_nat_empty}
+theorem length_nat_empty: length[Nat](empty) = 0
+proof
+  definition length
+end
+```
 
 Deduce expanded the definition of `length` in the correct goal,
 changing `length(empty) = 0` to `0 = 0`. In particular, Deduce noticed
 that `length(empty)` matches the first clause in the definition of
 `length` and then replaced it with the right-hand side of the first
-clause. Deduce then simplified `0 = 0` to `true`. In general, whenever
-Deduce sees an equality with the same left and right-hand side, it
-automatically simplifies it to `true`.
-
-To finish the proof, we just need to prove `true`, which is
-accomplished with a period.
-
-```{.deduce #length_empty}
-theorem length_empty: length(empty : List<Nat>) = 0
-proof
-  definition length.
-end
-```
+clause. Deduce then simplified `0 = 0` to `true` and therefore
+accepted the `definition` statement. In general, whenever Deduce sees
+an equality with the same left and right-hand side, it automatically
+simplifies it to `true`.
 
 Run Deduce on the file to see it respond that the file is valid.
 
@@ -84,34 +71,24 @@ definition of `length` a couple of times.
     theorem length_node42: length(node(42, empty)) = 1
     proof
       definition {length, length}
-      ?
     end
 
 Deduce responds that we still need to prove the following obvious fact.
 
-    unfinished proof:
+    failed to prove:
+        length(node(42,empty)) = 1
+    by
+        definition {length, length}
+    remains to prove:
         1 + 0 = 1
 
 But that is just a consequence of the definition of addition, which
 we can refer to as `operator +`.
 
-    theorem length_node42: length(node(42, empty)) = 1
-    proof
-      definition {length, length, operator +, operator+}
-      ?
-    end
-
-Deduce responds with
-
-    unfinished proof:
-        true
-
-so we can conclude the proof with a period.
-
 ```{.deduce #length_node42}
 theorem length_node42: length(node(42, empty)) = 1
 proof
-  definition {length, length, operator +, operator +}.
+  definition {length, length, operator +, operator +}
 end
 ```
 
@@ -165,7 +142,7 @@ before, using the definitions of `length` and addition.
 theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 proof
   arbitrary x:Nat
-  definition {length, length, operator +, operator+}.
+  definition {length, length, operator +, operator +}
 end
 ```
 
@@ -191,7 +168,7 @@ the `arbitrary` statement.
 theorem length_one: all U:type, x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type, x:U
-  definition {length, length, operator +, operator+}.
+  definition {length, length, operator +, operator+}
 end
 ```
 
@@ -246,14 +223,15 @@ rewrite length_one[U,x]
 Deduce tells us that the current goal has become
 
 ```
-1 = length(node(y,empty))
+remains to prove:
+	1 = length(node(y,empty))
 ```
 
-We rewrite again using `length_one`, which time instantiated
-with `y`.
+We rewrite again, separated by a vertical bar, using `length_one`,
+this time instantiated with `y`.
 
 ```
-rewrite length_one[U,y]
+rewrite length_one[U,x] | length_one[U,y]
 ```
 
 Deduce changes the goal to `1 = 1`, which simplies to just `true` so
@@ -266,17 +244,8 @@ theorem length_one_equal: all U:type, x:U, y:U.
   length(node(x,empty)) = length(node(y,empty))
 proof
   arbitrary U:type, x:U, y:U
-  rewrite length_one[U,x]
-  rewrite length_one[U,y].
+  rewrite length_one[U,x] | length_one[U,y]
 end
-```
-
-Multiple `rewrite` statements can be combined into one `rewrite` where
-each equation is separated by `|`. So the above proof could instead
-end with the following statement.
-
-```
-rewrite length_one[U,x] | length_one[U,y].
 ```
 
 ## Reasoning about Natural Numbers
@@ -357,7 +326,7 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by rewrite add_commute[y][z].
+    by rewrite add_commute[y][z]
   ?
 end
 ```
@@ -378,13 +347,13 @@ step in the reasoning.
 
 ```
   have step2: x + z + y = (x + z) + y
-    by rewrite add_assoc[x][z,y].
+    by rewrite add_assoc[x][z,y]
   have step3: (x + z) + y = (z + x) + y
-    by rewrite add_commute[z][x].
+    by rewrite add_commute[z][x]
   have step4: (z + x) + y = z + (x + y)
-    by rewrite add_assoc[z][x,y].
+    by rewrite add_assoc[z][x,y]
   have step5: z + (x + y) = z + y + x
-    by rewrite add_commute[x][y].
+    by rewrite add_commute[x][y]
 ```
 
 We finish the proof by connecting them all together using Deduce's
@@ -404,15 +373,15 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by rewrite add_commute[y][z].
+    by rewrite add_commute[y][z]
   have step2: x + z + y = (x + z) + y
-    by rewrite add_assoc[x][z,y].
+    by rewrite add_assoc[x][z,y]
   have step3: (x + z) + y = (z + x) + y
-    by rewrite add_commute[z][x].
+    by rewrite add_commute[z][x]
   have step4: (z + x) + y = z + (x + y)
-    by rewrite add_assoc[z][x,y].
+    by rewrite add_assoc[z][x,y]
   have step5: z + (x + y) = z + y + x
-    by rewrite add_commute[x][y].
+    by rewrite add_commute[x][y]
   transitive step1 (transitive step2 (transitive step3
     (transitive step4 step5)))
 end
@@ -433,11 +402,11 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by rewrite add_commute[y][z].
-          ... = (x + z) + y    by rewrite add_assoc[x][z,y].
-          ... = (z + x) + y    by rewrite add_commute[z][x].
-          ... = z + x + y      by rewrite add_assoc[z][x,y].
-          ... = z + y + x      by rewrite add_commute[x][y].
+    x + y + z = x + z + y      by rewrite add_commute[y][z]
+          ... = (x + z) + y    by rewrite add_assoc[x][z,y]
+          ... = (z + x) + y    by rewrite add_commute[z][x]
+          ... = z + x + y      by rewrite add_assoc[z][x,y]
+          ... = z + y + x      by rewrite add_commute[x][y]
 end
 ```
 
@@ -477,7 +446,7 @@ We might try to expand the definition of `append` as follows.
     proof
       arbitrary U:type
       arbitrary xs:List<U>
-      definition operator++
+      _definition operator++
       ?
     end
 
@@ -525,14 +494,14 @@ need to prove the following.
 This follows directly from the definition of append.
 
     case empty {
-      definition operator++.
+      definition operator++
     }
 
 However, to make the proof more readable by other humans, I recommend
 restating the goal using the `show` statement.
 
     case empty {
-      conclude empty ++ empty = empty  by definition operator++.
+      conclude empty ++ empty = empty  by definition operator++
     }
 
 Next let us focus on the case for `node`. Deduce tells us that we need
@@ -552,14 +521,14 @@ Deduce provides the `term` statement as way to use Deduce to expand
 definitions for us.
 
     case node(n, xs') suppose IH: xs' ++ empty = xs' {
-      term node(n,xs') ++ empty by definition operator++ ?
+      term node(n,xs') ++ empty by definition operator++
       ?
     }
 
 Deduce responds with
 
-    unfinished proof:
-        node(n, xs' ++ empty)
+    remains to prove:
+        node(n,xs' ++ empty)
 
 We use Deduce's `have` statement to label this equality.
 We choose the label `step1`, state the equality, and then
@@ -567,7 +536,7 @@ provide its proof after the `by` keyword.
 
     case node(n, xs') suppose IH: xs' ++ empty = xs' {
       have step1: node(n,xs') ++ empty
-                = node(n, xs' ++ empty)  by definition operator++.
+                = node(n, xs' ++ empty)  by definition operator++
       ?
     }
 
@@ -576,7 +545,7 @@ right-hand side of the induction hypothesis `IH`. We use the
 `rewrite` statement to apply the `IH` equation to this subterm.
 
     have step2: node(n, xs' ++ empty)
-                = node(n,xs')                 by rewrite IH.
+                = node(n,xs')                 by rewrite IH
 
 To complete the proof, we combine equations (1) and (2) using
 the `transitive` statement.
@@ -595,13 +564,13 @@ proof
   arbitrary U:type
   induction List<U>
   case empty {
-    conclude (empty : List<U>) ++ empty = empty  by definition operator++.
+    conclude (empty : List<U>) ++ empty = empty  by definition operator++
   }
   case node(n, xs') suppose IH: xs' ++ empty = xs' {
     equations
       node(n,xs') ++ empty
-          = node(n, xs' ++ empty)   by definition operator++.
-      ... = node(n,xs')             by rewrite IH.
+          = node(n, xs' ++ empty)   by definition operator++
+      ... = node(n,xs')             by rewrite IH
   }
 end
 ```
@@ -625,8 +594,8 @@ using the comma operator to combine those proofs: `one_pos, two_pos`.
 ```{.deduce #positive_1_and_2}
 theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
-  have one_pos: 0 ≤ 1 by definition operator ≤.
-  have two_pos: 0 ≤ 2 by definition operator ≤.
+  have one_pos: 0 ≤ 1 by _definition operator ≤.
+  have two_pos: 0 ≤ 2 by _definition operator ≤.
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 ```
@@ -709,7 +678,7 @@ can prove that `x ≤ y` by rewriting the `x` to `y` and then using the
 reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
-      have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+      have x_le_y: x ≤ y by _rewrite x_eq_y less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
 
@@ -733,7 +702,7 @@ proof
     conclude x ≤ y or y < x by x_le_y
   }
   case x_eq_y: x = y {
-    have x_le_y: x ≤ y by rewrite x_eq_y less_equal_refl[y]
+    have x_le_y: x ≤ y by _rewrite x_eq_y less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
   case y_l_x: y < x {
@@ -796,7 +765,7 @@ There's no hope of proving `false`, so we better prove `0 < suc(x')`.
 Thankfully that follows from the definitions of `<` and `≤`.
 
     case suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}.
+      have z_l_sx: 0 < suc(x') by _definition {operator <, operator ≤}.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
 
@@ -812,7 +781,7 @@ proof
       conclude true or 0 < 0 by .
     }
     case suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤, operator ≤}.
+      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤, operator ≤}
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }
@@ -1213,7 +1182,7 @@ to apply the equation `x = y` to the fact `x < y` to get `y < y`.
 Note the extra keyword `in` that is used in this version of `rewrite`.
 
 ```
-  have y_l_y: y < y by  rewrite x_y in x_l_y
+  have y_l_y: y < y   by rewrite x_y in x_l_y
 ```
 
 We arrive at the contradition by applying `less_irreflexive` 
@@ -1297,7 +1266,7 @@ We still need to prove the following:
 
 So we use the definition of `Even`
 
-    definition Even
+    _definition Even
     ?
 
 and now we need to prove
@@ -1313,7 +1282,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    rewrite x_2a | y_2b
+    _rewrite x_2a | y_2b
     conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1329,10 +1298,10 @@ proof
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  definition Even
+  _definition Even
   suffices some m:Nat. x + y = 2 * m
   choose a + b
-  rewrite x_2a | y_2b
+  _rewrite x_2a | y_2b
   conclude (2 * a) + (2 * b) = 2 * (a + b) by symmetric dist_mult_add[2][a,b]
 end
 ```
@@ -1346,7 +1315,7 @@ To summarize this section:
 ```{.deduce file=ProofIntro.pf}
 import FunctionalProgramming
 
-<<length_empty>>
+<<length_nat_empty>>
 <<length_node42>>
 
 import List
@@ -1354,7 +1323,7 @@ import List
 theorem append_12: 
   node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 proof
-  definition {operator++, operator++}.
+  definition {operator++, operator++}
 end
 
 <<length_one_nat>>
@@ -1365,7 +1334,7 @@ end
 theorem append_xy: all T:type, x:T, y:T.
   node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
 proof
-  definition {operator++, operator++}.
+  definition {operator++, operator++}
 end
 
 theorem append_12_again: 
@@ -1391,7 +1360,7 @@ proof
     equations
       length(node(n,xs') ++ ys)
           = 1 + length(xs' ++ ys)              by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys].
+      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys]
       ... = length(node(n,xs')) + length(ys)   by .
   }
 end
@@ -1400,8 +1369,7 @@ theorem right_cancel: all x:Nat, y:Nat, z:Nat.
   if x + z = y + z then x = y
 proof
   arbitrary x:Nat, y:Nat, z:Nat
-  rewrite add_commute[x][z] | add_commute[y][z]
-  left_cancel[z][x,y]
+  rewrite add_commute[x][z] | add_commute[y][z] | left_cancel[z][x,y]
 end
 
 <<xyz_zyx>>
@@ -1412,9 +1380,9 @@ theorem xyz_zyx_eqn2: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = (x + y) + z    by rewrite add_assoc[x][y,z].
-          ... = z + (x + y)    by rewrite add_commute[x+y][z].
-          ... = z + (y + x)    by rewrite add_commute[x][y].
+    x + y + z = (x + y) + z    by rewrite add_assoc[x][y,z]
+          ... = z + (x + y)    by rewrite add_commute[x+y][z]
+          ... = z + (y + x)    by rewrite add_commute[x][y]
           ... = z + y + x      by add_assoc[z][y,x]
 end
 

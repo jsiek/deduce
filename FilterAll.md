@@ -58,12 +58,12 @@ Now we need to prove the conclusion
     unfinished proof:
         filter(empty,P) = empty
 
-but that is just the definition of `filter`, so we conclude this case
+but that is just the _definition of `filter`, so we conclude this case
 as follows.
 
     case empty {
       suppose cond: all_elements(empty,P)
-      conclude filter(empty,P) = empty by definition filter.
+      conclude filter(empty,P) = empty by _definition filter.
     }
 
 Next we turn our attention to the case for `node`.
@@ -91,10 +91,10 @@ Now we need to prove the conclusion.
     unfinished proof:
         filter(node(x,xs'),P) = node(x,xs')
 
-We proceed by using the definition of filter.
+We proceed by using the _definition of filter.
 
     suppose Pxs: all_elements(node(x,xs'),P)
-    definition filter
+    _definition filter
     ?
 
 So the conclusion is transformed into the following.
@@ -112,13 +112,13 @@ the available facts.
         ...
 
 Thinking for a moment, we realize that `Pxs` implies that `P(x)` is true.
-So we go ahead and prove `P(x)` using the definition of `all_elements`
-and then rewrite the goal with the fact that `P(x)` is true
+So we go ahead and prove `P(x)` using the _definition of `all_elements`
+and then _rewrite the goal with the fact that `P(x)` is true
 (i.e., `P(x) = true`).
 
-    definition filter
-    have Px: P(x) by definition all_elements in Pxs
-    rewrite Px
+    _definition filter
+    have Px: P(x) by _definition all_elements in Pxs
+    _rewrite Px
     ?
 
 The right-hand side of the equation simplifies to the "then" branch,
@@ -132,16 +132,16 @@ At this point in the proof we need to use the induction hypothesis
 that its condition `all_elements(xs',P)` is true in order to use its
 conclusion. Thankfully, this also follows from `Pxs`.
 
-    have Pxs': all_elements(xs',P) by definition all_elements in Pxs
+    have Pxs': all_elements(xs',P) by _definition all_elements in Pxs
 
 We use Deduce's `apply`-`to` statement (aka. modus ponens) to obtain
 the conclusion of an `if`-`then` formula.
 
     have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
 
-We conclude by using the equation `IH_conc` to rewrite the goal.
+We conclude by using the equation `IH_conc` to _rewrite the goal.
 
-    rewrite IH_conc.
+    _rewrite IH_conc.
     
 Our proof of `filter_all` is complete. Here is the proof in its entirety.
 
@@ -153,17 +153,17 @@ proof
   induction List<T>
   case empty {
     suppose cond: all_elements(empty,P)
-    conclude filter(empty,P) = empty by definition filter.
+    conclude filter(empty,P) = empty by _definition filter.
   }
   case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
     suppose Pxs: all_elements(node(x,xs'),P)
-    definition filter
-    have Px: P(x) by definition all_elements in Pxs
-    rewrite Px
+    _definition filter
+    have Px: P(x) by _definition all_elements in Pxs
+    _rewrite Px
     suffices node(x,filter(xs',P)) = node(x,xs')
-    have Pxs': all_elements(xs',P) by definition all_elements in Pxs
+    have Pxs': all_elements(xs',P) by _definition all_elements in Pxs
     have IH_conc: filter(xs',P) = xs' by apply IH to Pxs'
-    rewrite IH_conc.
+    _rewrite IH_conc.
   }
 end
 ```

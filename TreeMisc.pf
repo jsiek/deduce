@@ -32,16 +32,16 @@ proof
   arbitrary T:type, z:TreeZipper<T>
   switch z {
     case treeZip(ctx, t) {
-      definition {zip_up, zip2tree}
+      _definition {zip_up, zip2tree}
       switch ctx {
         case empty { . }
         case node(f, ctx') {
           switch f {
             case leftF(L, x) {
-              definition {plug_tree}.
+              _definition {plug_tree}.
             }
             case rightF(x, R) {
-              definition {plug_tree}.
+              _definition {plug_tree}.
             }
           }
         }
@@ -63,15 +63,15 @@ proof
   induction Tree<E>
   case empty_tree {
     arbitrary ls:List<E>
-    definition {in_order_accum, in_order, append}.
+    _definition {in_order_accum, in_order, append}.
   }
   case tree_node(L, x, R) suppose IH_L, IH_R {
     arbitrary ls:List<E>
-    definition {in_order_accum, in_order}
-    rewrite IH_R[ls]
-    rewrite IH_L[node(x, append(in_order(R), ls))]
-    rewrite append_assoc[E][in_order(L)][node(x, in_order(R)), ls]
-    definition {append}.
+    _definition {in_order_accum, in_order}
+    _rewrite IH_R[ls]
+    _rewrite IH_L[node(x, append(in_order(R), ls))]
+    _rewrite append_assoc[E][in_order(L)][node(x, in_order(R)), ls]
+    _definition {append}.
   }
 end
 
@@ -127,17 +127,17 @@ proof
   case empty {
     arbitrary t1:Tree<E>, t2:Tree<E>
     suppose t1_t2
-    definition plugInOrd
+    _definition plugInOrd
     t1_t2
   }
   case node(f, ctx') suppose IH {
     arbitrary t1:Tree<E>, t2:Tree<E>
     suppose t1_t2
-    definition plugInOrd
+    _definition plugInOrd
     switch f {
       case rightInOrd(L, x) {
         have Lxt1_Lxt2: in_order(tree_node(L,x,t1)) = in_order(tree_node(L,x,t2))
-          by definition in_order rewrite t1_t2.
+          by _definition in_order _rewrite t1_t2.
         apply IH[tree_node(L,x,t1), tree_node(L,x,t2)] to Lxt1_Lxt2
       }
     }
@@ -152,28 +152,28 @@ proof
   induction List<InOrdFrame<E>>
   case empty {
     arbitrary t:Tree<E>, ls:List<E>, x:E
-    definition {plugInOrd, in_order_accum, in_order_accum}.
+    _definition {plugInOrd, in_order_accum, in_order_accum}.
   }
   case node(f, ctx') suppose IH {
     arbitrary t:Tree<E>, ls:List<E>, x:E
     switch f {
       case rightInOrd(L, y) {
-        definition {plugInOrd}
+        _definition {plugInOrd}
         have IH_Lyt: in_order_accum(plugInOrd(ctx',tree_node(L,y,t)),node(x,ls))
                    = in_order_accum(plugInOrd(ctx',tree_node(tree_node(L,y,t),x,empty_tree)),ls)
           by IH[tree_node(L,y,t), ls, x]
-        rewrite IH_Lyt
+        _rewrite IH_Lyt
         
         equations
               in_order_accum(plugInOrd(ctx', tree_node(tree_node(L,y,t),x,empty_tree)), ls)
             = append(in_order(plugInOrd(ctx', tree_node(tree_node(L,y,t),x,empty_tree))), ls)
               by in_order_accum_correct[E][plugInOrd(ctx', tree_node(tree_node(L,y,t),x,empty_tree))][ls]
         ... = append(in_order(plugInOrd(ctx', tree_node(L,y,tree_node(t,x,empty_tree)))), ls)
-              by rewrite (apply in_order_plug_cong[E][ctx'][tree_node(tree_node(L,y,t),x,empty_tree),
+              by _rewrite (apply in_order_plug_cong[E][ctx'][tree_node(tree_node(L,y,t),x,empty_tree),
                                                             tree_node(L,y,tree_node(t,x,empty_tree))]
                           to in_order_assoc[E][L][y, t, x, empty_tree]).
         ... = in_order_accum(plugInOrd(ctx', tree_node(L,y,tree_node(t,x,empty_tree))), ls)
-              by rewrite in_order_accum_correct[E][plugInOrd(ctx', tree_node(L,y,tree_node(t,x,empty_tree)))][ls].
+              by _rewrite in_order_accum_correct[E][plugInOrd(ctx', tree_node(L,y,tree_node(t,x,empty_tree)))][ls].
       }
     }
   }
@@ -200,9 +200,9 @@ proof
   suppose prem
   have prem2: num_nodes(L) + (num_nodes(L) + context_size(ctx)) < n
     by apply suc_less[(num_nodes(L) + (num_nodes(L) + context_size(ctx))), n]
-       to rewrite add_assoc[num_nodes(L)][num_nodes(L), context_size(ctx)] in
-          definition {metric, num_nodes, context_size, frame_size, operator+} in prem
-  definition {metric}
+       to _rewrite add_assoc[num_nodes(L)][num_nodes(L), context_size(ctx)] in
+          _definition {metric, num_nodes, context_size, frame_size, operator+} in prem
+  _definition {metric}
   prem2
 end
 
@@ -216,29 +216,29 @@ proof
   define b = num_nodes(L)
   define c = context_size(ctx)
   have prem2: suc((b + a) + ((b + a) + c)) < n
-    by definition {a,b,c}
+    by _definition {a,b,c}
        apply suc_less[(suc((num_nodes(L) + num_nodes(R)) +
                             ((num_nodes(L) + num_nodes(R)) + context_size(ctx)))), n]
-       to rewrite add_suc[(num_nodes(L) + num_nodes(R))]
+       to _rewrite add_suc[(num_nodes(L) + num_nodes(R))]
                       [((num_nodes(L) + num_nodes(R)) + context_size(ctx))] in
-       definition {metric, num_nodes, operator+} in prem
-  definition {metric, context_size, frame_size}
-  rewrite add_suc[num_nodes(R)][((num_nodes(L) + num_nodes(L)) + context_size(ctx))]
-  rewrite add_suc[num_nodes(R)]
+       _definition {metric, num_nodes, operator+} in prem
+  _definition {metric, context_size, frame_size}
+  _rewrite add_suc[num_nodes(R)][((num_nodes(L) + num_nodes(L)) + context_size(ctx))]
+  _rewrite add_suc[num_nodes(R)]
     [(num_nodes(R) + ((num_nodes(L) + num_nodes(L)) + context_size(ctx)))]
-  rewrite add_assoc
+  _rewrite add_assoc
   have eq: suc(a + (a + ((b + b) + c))) = suc((b + a) + ((b + a) + c))
     by equations
          suc(a + (a + ((b + b) + c)))
-           = suc(a + ((a + (b + b)) + c))      by rewrite add_assoc[a][b + b,c].
-       ... = suc(a + (((a + b) + b) + c))      by rewrite add_assoc[a][b,b].
-       ... = suc(a + (((b + a) + b) + c))      by rewrite add_commute[b][a].
-       ... = suc(a + ((b + (a + b)) + c))      by rewrite add_assoc[b][a,b].
-       ... = suc(a + (b + ((a + b) + c)))      by rewrite add_assoc[b][a+b,c].
-       ... = suc((a + b) + ((a + b) + c))      by rewrite add_assoc[a][b,((a + b) + c)].
-       ... = suc((b + a) + ((b + a) + c))      by rewrite add_commute[b][a].
-  rewrite (definition {a,b,c} in eq)
-  definition {a,b,c} in prem2
+           = suc(a + ((a + (b + b)) + c))      by _rewrite add_assoc[a][b + b,c].
+       ... = suc(a + (((a + b) + b) + c))      by _rewrite add_assoc[a][b,b].
+       ... = suc(a + (((b + a) + b) + c))      by _rewrite add_commute[b][a].
+       ... = suc(a + ((b + (a + b)) + c))      by _rewrite add_assoc[b][a,b].
+       ... = suc(a + (b + ((a + b) + c)))      by _rewrite add_assoc[b][a+b,c].
+       ... = suc((a + b) + ((a + b) + c))      by _rewrite add_assoc[a][b,((a + b) + c)].
+       ... = suc((b + a) + ((b + a) + c))      by _rewrite add_commute[b][a].
+  _rewrite (_definition {a,b,c} in eq)
+  _definition {a,b,c} in prem2
 end
 
 lemma in_order_stack_correct_aux:
@@ -250,28 +250,28 @@ proof
   case 0 {
     arbitrary E:type, t:Tree<E>, ctx:List<InOrdFrame<E>>, ls:List<E>
     suppose m_l_z: metric(t, ctx) < 0
-    conclude false  by definition {operator<, operator≤} in m_l_z
+    conclude false  by _definition {operator<, operator≤} in m_l_z
   }
   case suc(n') suppose IH {
     arbitrary E:type, t:Tree<E>, ctx:List<InOrdFrame<E>>, ls:List<E>
     suppose prem
-    definition in_order_stack
+    _definition in_order_stack
     switch t {
       case empty_tree suppose t_eq {
         switch ctx {
           case empty {
-            definition {plugInOrd, in_order_accum}.
+            _definition {plugInOrd, in_order_accum}.
           }
           case node(f, ctx') suppose ctx_eq {
             switch f {
               case rightInOrd(L, x) suppose f_eq {
-                definition {plugInOrd}
+                _definition {plugInOrd}
                 have metric_less: metric(L, ctx') < n'
-                  by (apply metric1[E, L, x, ctx', n'] to rewrite t_eq | ctx_eq | f_eq in prem)
+                  by (apply metric1[E, L, x, ctx', n'] to _rewrite t_eq | ctx_eq | f_eq in prem)
                 have IH_L: in_order_stack(n',L,ctx',node(x,ls))
                              = in_order_accum(plugInOrd(ctx',L),node(x,ls))
                   by apply IH[E, L, ctx', node(x, ls)] to metric_less
-                rewrite IH_L
+                _rewrite IH_L
                 suffices in_order_accum(plugInOrd(ctx',L),node(x,ls))
                        = in_order_accum(plugInOrd(ctx',tree_node(L,x,empty_tree)),ls)
                 in_order_plug_node[E][ctx'][L, ls, x]
@@ -282,12 +282,12 @@ proof
       }
       case tree_node(L, x, R) suppose t_eq {
         have metric_less: metric(R, node(rightInOrd(L,x), ctx)) < n'
-            by apply metric2[E, L, x, R, ctx, n'] to rewrite t_eq in prem
+            by apply metric2[E, L, x, R, ctx, n'] to _rewrite t_eq in prem
         have IH_R: in_order_stack(n',R,node(rightInOrd(L,x),ctx),ls)
                  = in_order_accum(plugInOrd(node(rightInOrd(L,x),ctx),R),ls)
             by apply IH[E, R, node(rightInOrd(L,x), ctx), ls] to metric_less
-        rewrite IH_R
-        definition plugInOrd.
+        _rewrite IH_R
+        _definition plugInOrd.
       }
     }
   }
@@ -298,8 +298,8 @@ theorem in_order_stack_correct: all E:type, t:Tree<E>.
 proof
   arbitrary E:type, t:Tree<E>
   have m: metric(t,empty) < suc(2 * num_nodes(t))
-    by definition {metric, context_size, operator<, operator≤, operator*}
-       rewrite add_zero[num_nodes(t)]
+    by _definition {metric, context_size, operator<, operator≤, operator*}
+       _rewrite add_zero[num_nodes(t)]
        less_equal_refl[num_nodes(t) + num_nodes(t)]
   equations
         in_order_stack(suc(2 * num_nodes(t)),t,empty,empty)
@@ -307,7 +307,7 @@ proof
              by apply in_order_stack_correct_aux[suc(2 * num_nodes(t))][E, t, empty, empty]
                 to m
   ... = in_order_accum(t,empty)
-        by definition plugInOrd.
+        by _definition plugInOrd.
   ... = append(in_order(t), empty)
         by in_order_accum_correct[E][t][empty]
   ... = in_order(t)
@@ -451,33 +451,33 @@ proof
     equations
           tree_data(locate(locate_first(empty_tree),empty_tree))
         = none
-           by definition {locate_first, locate, tree_data}.
+           by _definition {locate_first, locate, tree_data}.
     ... = head(in_order(empty_tree))
-           by definition {head, in_order}.
+           by _definition {head, in_order}.
   }
   case tree_node(L, x, R) suppose IH {
-    definition {locate_first}
+    _definition {locate_first}
     switch L {
       case empty_tree {
         equations
               tree_data(locate(empty,tree_node(empty_tree,x,R)))
             = just(x)
-                by definition {locate, tree_data}.
+                by _definition {locate, tree_data}.
         ... = head(in_order(tree_node(empty_tree,x,R)))
-                by definition {in_order,head,in_order,append}.
+                by _definition {in_order,head,in_order,append}.
       }
       case tree_node(LL, y, LR) suppose Ldef {
-        rewrite symmetric Ldef
+        _rewrite symmetric Ldef
         have pos_len: 0 < length(in_order(L))
-          by rewrite Ldef definition {in_order}
-             rewrite length_append[E][in_order(LL)][node(y, in_order(LR))]
-             definition {length, operator <}
-             rewrite add_suc[length(in_order(LL))][length(in_order(LR))]
-             definition {operator ≤,operator ≤}.
+          by _rewrite Ldef _definition {in_order}
+             _rewrite length_append[E][in_order(LL)][node(y, in_order(LR))]
+             _definition {length, operator <}
+             _rewrite add_suc[length(in_order(LL))][length(in_order(LR))]
+             _definition {operator ≤,operator ≤}.
         equations
               tree_data(locate(node(left,locate_first(L)),tree_node(L,x,R)))
             = tree_data(locate(locate_first(L),L))
-              by definition locate.
+              by _definition locate.
         ... = head(in_order(L))
               by IH
         ... = head(append(in_order(L),node(x,in_order(R))))
@@ -485,7 +485,7 @@ proof
                  apply head_append[E][in_order(L)][node(x,in_order(R))]
                  to pos_len
         ... = head(in_order(tree_node(L,x,R)))
-              by definition {in_order}.
+              by _definition {in_order}.
       }
     }
   }
@@ -499,7 +499,7 @@ proof
   arbitrary E:type, T:Tree<E>, x:E, xs:List<E>
   suppose inT: in_order(T) = node(x, xs)
   conclude tree_data(locate(locate_first(T), T)) = just(x)
-    by definition head in rewrite inT in locate_first_head_in_order[E][T]
+    by _definition head in _rewrite inT in locate_first_head_in_order[E][T]
 end
 
 theorem locate_first_take_empty:
@@ -510,18 +510,18 @@ proof
   induction Tree<E>
   case empty_tree {
     conclude tree_take(locate_first(empty_tree),empty_tree) = empty_tree
-      by definition {locate_first, tree_take}.
+      by _definition {locate_first, tree_take}.
   }
   case tree_node(L, x, R) suppose IH_L, IH_R {
     switch L {
       case empty_tree {
         conclude tree_take(locate_first(tree_node(empty_tree,x,R)),tree_node(empty_tree,x,R)) = empty_tree
-          by definition {locate_first, tree_take}.
+          by _definition {locate_first, tree_take}.
       }
       case tree_node(LL, y, LR) suppose L_def {
-        definition {locate_first}
-        rewrite symmetric L_def
-        definition tree_take
+        _definition {locate_first}
+        _rewrite symmetric L_def
+        _definition tree_take
         IH_L
       }
     }
@@ -534,23 +534,23 @@ proof
   arbitrary E:type
   induction Tree<E>
   case empty_tree {
-    definition {locate_first, tree_drop, in_order, tail}.
+    _definition {locate_first, tree_drop, in_order, tail}.
   }
   case tree_node(L, x, R) suppose IH_L, IH_R {
-    definition locate_first
+    _definition locate_first
     switch L {
       case empty_tree {
-        definition {tree_drop, in_order, in_order, append, tail}.
+        _definition {tree_drop, in_order, in_order, append, tail}.
       }
       case tree_node(LL, y, LR) suppose L_def {
-        rewrite symmetric L_def
-        definition {tree_drop, in_order}
-        rewrite IH_L
+        _rewrite symmetric L_def
+        _definition {tree_drop, in_order}
+        _rewrite IH_L
         have pos_len: 0 < length(in_order(L))
-          by rewrite L_def definition in_order
-             rewrite length_append[E][in_order(LL)][node(y, in_order(LR))]
-             definition length rewrite add_suc[length(in_order(LL))][length(in_order(LR))]
-             definition {operator<,operator≤}.
+          by _rewrite L_def _definition in_order
+             _rewrite length_append[E][in_order(LL)][node(y, in_order(LR))]
+             _definition length _rewrite add_suc[length(in_order(LL))][length(in_order(LR))]
+             _definition {operator<,operator≤}.
         symmetric
         apply tail_append[E][in_order(L)][node(x,in_order(R))] to pos_len
       }
@@ -571,14 +571,14 @@ proof
     arbitrary T:Tree<E>, x:E
     switch T {
       case empty_tree {
-        definition {locate, tree_data}.
+        _definition {locate, tree_data}.
       }
       case tree_node(L, y, R) {
-        definition {locate,tree_data, tree_take, tree_drop, in_order}
+        _definition {locate,tree_data, tree_take, tree_drop, in_order}
         suppose jy_jx
         have xy: x = y
           by injective just symmetric jy_jx
-        rewrite xy.
+        _rewrite xy.
       }
     }
   }
@@ -588,16 +588,16 @@ proof
       case left {
         switch T {
           case empty_tree {
-            definition {locate, tree_data, tree_take, tree_drop, in_order}.
+            _definition {locate, tree_data, tree_take, tree_drop, in_order}.
           }
           case tree_node(L, y, R) {
-            definition {locate,tree_take,tree_drop, in_order}
+            _definition {locate,tree_take,tree_drop, in_order}
             suppose locL_x: tree_data(locate(ds,L)) = just(x)
             define take_L = in_order(tree_take(ds,L))
             define drop_L = in_order(tree_drop(ds,L))
             have IH_L: append(take_L, node(x, drop_L)) = in_order(L)
-              by definition {take_L, drop_L} apply IH[L,x] to locL_x
-            definition {take_L, drop_L} in
+              by _definition {take_L, drop_L} apply IH[L,x] to locL_x
+            _definition {take_L, drop_L} in
             conclude append(take_L, node(x, append(drop_L, node(y, in_order(R)))))
               = append(in_order(L), node(y, in_order(R))) by
             equations
@@ -605,23 +605,23 @@ proof
                 = append(append(take_L, node(x, drop_L)), node(y, in_order(R)))
                     by enable append symmetric append_assoc[E][take_L][node(x,drop_L),node(y, in_order(R))]
             ... = append(in_order(L), node(y, in_order(R)))
-                    by rewrite IH_L.
+                    by _rewrite IH_L.
           }
         }
       }
       case right {
         switch T {
           case empty_tree {
-            definition {locate, tree_data, tree_take, tree_drop, in_order}.
+            _definition {locate, tree_data, tree_take, tree_drop, in_order}.
           }
           case tree_node(L, y, R) {
-            definition {locate,tree_take,tree_drop, in_order}
+            _definition {locate,tree_take,tree_drop, in_order}
             suppose locR_x: tree_data(locate(ds,R)) = just(x)
             define take_R = in_order(tree_take(ds,R))
             define drop_R = in_order(tree_drop(ds,R))
             have IH_R: append(take_R, node(x, drop_R)) = in_order(R)
-              by definition {take_R, drop_R} apply IH[R,x] to locR_x
-            definition {take_R, drop_R} in
+              by _definition {take_R, drop_R} apply IH[R,x] to locR_x
+            _definition {take_R, drop_R} in
             conclude append(append(in_order(L),node(y,take_R)),node(x,drop_R))
                    = append(in_order(L),node(y,in_order(R))) by
             equations
@@ -629,9 +629,9 @@ proof
                 = append(in_order(L),append(node(y,take_R),node(x,drop_R)))
                     by append_assoc[E][in_order(L)][node(y, take_R), node(x, drop_R)]
             ... = append(in_order(L),node(y,append(take_R,node(x,drop_R))))
-                    by definition append.
+                    by _definition append.
             ... = append(in_order(L),node(y,in_order(R)))
-                    by rewrite IH_R.
+                    by _rewrite IH_R.
           }
         }
       }

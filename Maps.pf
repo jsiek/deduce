@@ -11,7 +11,7 @@ theorem update_eq :
 proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U
-  definition update.
+  _definition update.
 end
 
 theorem update_not_eq :
@@ -22,10 +22,10 @@ proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U, y:T
   suppose not_eq
-  definition update
+  _definition update
   switch y = x {
     case true suppose yx_true {
-      have yx: y = x by (rewrite yx_true.)
+      have yx: y = x by (_rewrite yx_true.)
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -41,7 +41,7 @@ theorem update_shadow :
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->U, x:T, v:U, w:U
-  definition update
+  _definition update
   extensionality
   arbitrary y:T
   switch y = x {
@@ -58,15 +58,15 @@ proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->U, x:T, v:U, w:U, y:T
   suppose x_neq_y
-  definition update
+  _definition update
   extensionality
   arbitrary z:T
   switch z = y {
     case true suppose zy_true {
-      have zy: z = y by (rewrite zy_true.)
+      have zy: z = y by (_rewrite zy_true.)
       switch z = x {
         case true suppose zx_true {
-	  have zx: z = x by (rewrite zx_true.)
+	  have zx: z = x by (_rewrite zx_true.)
 	  have xy: x = y by transitive (symmetric zx) zy
 	  conclude false by apply x_neq_y to xy
 	}
@@ -98,11 +98,11 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, P:fn(T)->bool
-  definition {restrict, domain, operator ⊆}
+  _definition {restrict, domain, operator ⊆}
   arbitrary x:T
   suppose prem
   switch P(x) {
     case true { . }
-    case false suppose Px_false { have false by rewrite Px_false in prem  }
+    case false suppose Px_false { have false by _rewrite Px_false in prem  }
   }
 end

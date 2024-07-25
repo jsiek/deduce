@@ -86,7 +86,7 @@ follow this recipe:
 What it means to process a node can be different for different
 instantiations of the in-order traversal. But to make things concrete,
 we study an in-order traversal that produces a list. So here is our
-definition of the `in_order` function.
+_definition of the `in_order` function.
 
 ```{.deduce #in_order}
 function in_order<E>(Tree<E>) -> List<E> {

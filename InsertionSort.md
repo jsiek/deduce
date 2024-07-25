@@ -248,31 +248,31 @@ proof
   case empty {
     arbitrary y:Nat
     conclude mset_of(insert(empty,y)) = m_one(y) ⨄ mset_of(empty)
-        by definition {insert, mset_of, mset_of}.
+        by definition {insert, mset_of, mset_of}
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
-    definition insert
+    _definition insert
     switch y ≤ x {
       case true suppose yx_true {
         conclude mset_of(node(y,node(x,xs'))) = m_one(y) ⨄ mset_of(node(x,xs'))
-            by definition {mset_of,mset_of}.
+            by definition {mset_of,mset_of}
       }
       case false suppose yx_false {
         equations
               mset_of(node(x,insert(xs',y))) 
             = m_one(x) ⨄ mset_of(insert(xs',y))
-              by definition mset_of.
+              by definition mset_of
         ... = m_one(x) ⨄ (m_one(y) ⨄ mset_of(xs'))
-              by rewrite IH[y].
+              by rewrite IH[y]
         ... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
-              by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')].
+              by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')]
         ... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
-              by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)].
+              by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
         ... = m_one(y) ⨄ (m_one(x) ⨄ mset_of(xs'))
-              by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')].
+              by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')]
         ... = m_one(y) ⨄ mset_of(node(x,xs'))
-              by definition mset_of.
+              by definition mset_of
       }
     }
   }
@@ -304,7 +304,7 @@ The case for `xs = empty` is a straightforward use of definitions.
     arbitrary y:Nat
     suppose _
     conclude sorted(insert(empty,y))
-        by definition {insert, sorted, sorted, all_elements}.
+        by definition {insert, sorted, sorted, all_elements}
   }
 ```
 
@@ -315,7 +315,7 @@ Here's the beginning of the case for `xs = node(x, xs')`.
     arbitrary y:Nat
     suppose s_xxs: sorted(node(x,xs'))
     suffices sorted(insert(node(x,xs'),y))
-    definition insert
+    _definition insert
     ?
   }
 ```
@@ -346,7 +346,7 @@ In the case when `y ≤ x` is `true`, the goal simplifies to
 definitions, 
 
 ```
-  definition {sorted, sorted, all_elements}
+  _definition {sorted, sorted, all_elements}
 ```
 
 we need to prove
@@ -368,7 +368,7 @@ The first two of these follows from the premise `sorted(node(x,xs'))`.
 The third is true in the current case.
 
 ```
-  have y_le_x: y ≤ x by rewrite yx_true.
+  have y_le_x: y ≤ x by rewrite yx_true
 ```
 
 The fourth, which states that `y` is less-or-equal all the elements in
@@ -440,7 +440,7 @@ Here are the proofs of what we know so far.
                                 to dichotomy[y,x], not_yx
          apply less_implies_less_equal[x][y] to x_l_y
   have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-         by definition all_elements  x_le_y, x_le_xs'
+         by _definition all_elements  x_le_y, x_le_xs'
 ```
 
 Now the `all_elements` function shouldn't care about the ordering of the
@@ -475,7 +475,7 @@ theorem all_elements_insert_node:
 proof
   arbitrary xs:List<Nat>, x:Nat, P:fn Nat->bool
   have m_xs_x: mset_of(insert(xs, x)) = mset_of(node(x, xs))
-      by definition mset_of insert_contents[xs][x]
+      by _definition mset_of insert_contents[xs][x]
   have ixsx_xxs: set_of(insert(xs, x)) = set_of(node(x, xs))
      by apply mset_equal_implies_set_equal[Nat,insert(xs, x), node(x, xs)] 
         to m_xs_x
@@ -490,7 +490,7 @@ proof of `insert_sorted`.
 
 ```
   have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
-      by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
+      by _rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
          x_le_y_xs'
   conclude sorted(insert(xs',y)) and
            all_elements(insert(xs',y),λb{x ≤ b})
@@ -508,7 +508,7 @@ proof
     arbitrary y:Nat
     suppose _
     conclude sorted(insert(empty,y))
-        by definition {insert, sorted, sorted, all_elements}.
+        by definition {insert, sorted, sorted, all_elements}
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
@@ -517,12 +517,12 @@ proof
     have x_le_xs': all_elements(xs',λb{(x ≤ b)}) 
         by definition sorted in s_xxs
     suffices sorted(insert(node(x,xs'),y))
-    definition insert
+    _definition insert
     switch y ≤ x {
       case true suppose yx_true {
         suffices sorted(node(y,node(x,xs')))
-        definition {sorted, sorted, all_elements}
-        have y_le_x: y ≤ x by rewrite yx_true.
+        _definition {sorted, sorted, all_elements}
+        have y_le_x: y ≤ x by rewrite yx_true
         have x_le_implies_y_le: all z:Nat. (if x ≤ z then y ≤ z)
           by arbitrary z:Nat  suppose x_le_z: x ≤ z
              conclude y ≤ z
@@ -534,7 +534,7 @@ proof
         s_xs, x_le_xs', y_le_x, y_le_xs'
       }
       case false suppose yx_false {
-        definition sorted
+        _definition sorted
         have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_xs
         have x_le_y: x ≤ y
             by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
@@ -542,9 +542,9 @@ proof
                                       to dichotomy[y,x], not_yx
                apply less_implies_less_equal[x][y] to x_l_y
         have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-               by definition all_elements  x_le_y, x_le_xs'
+               by _definition all_elements  x_le_y, x_le_xs'
         have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
-            by rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
+            by _rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
                x_le_y_xs'
         conclude sorted(insert(xs',y)) and
                  all_elements(insert(xs',y),λb{x ≤ b})
@@ -577,7 +577,7 @@ of `insertion_sort` and `mset_of`.
 ```
   case empty {
     conclude mset_of(insertion_sort(empty)) = mset_of(empty)
-	  by definition {insertion_sort, mset_of}.
+	  by definition {insertion_sort, mset_of}
   }
 ```
 
@@ -597,7 +597,7 @@ the induction hypothesis as follows.
 		= m_one(x) ⨄ mset_of(insertion_sort(xs'))
 		  by insert_contents[insertion_sort(xs')][x]
 	... = m_one(x) ⨄ mset_of(xs')
-		  by rewrite IH.
+		  by rewrite IH
 ```
 
 Here is the complete proof of `insertion_sort_contents`.
@@ -609,16 +609,16 @@ proof
   induction List<Nat>
   case empty {
     conclude mset_of(insertion_sort(empty)) = mset_of(empty)
-	  by definition {insertion_sort, mset_of}.
+	  by definition {insertion_sort, mset_of}
   }
   case node(x, xs') suppose IH {
-    definition {insertion_sort, mset_of}
+    _definition {insertion_sort, mset_of}
 	equations
  	        mset_of(insert(insertion_sort(xs'),x)) 
 	      = m_one(x) ⨄ mset_of(insertion_sort(xs'))
 		    by insert_contents[insertion_sort(xs')][x]
 	  ... = m_one(x) ⨄ mset_of(xs')
-	        by rewrite IH.
+	        by rewrite IH
   }
 end
 ```
@@ -635,10 +635,10 @@ proof
   induction List<Nat>
   case empty {
     conclude sorted(insertion_sort(empty))
-  	    by definition {insertion_sort, sorted}.
+  	    by definition {insertion_sort, sorted}
   }
   case node(x, xs') suppose IH: sorted( insertion_sort(xs') ) {
-    definition {insertion_sort, sorted}
+    _definition {insertion_sort, sorted}
 	conclude sorted(insert(insertion_sort(xs'),x))
 	    by apply insert_sorted[insertion_sort(xs')][x]
 		   to IH

@@ -236,7 +236,7 @@ proof
     }
     case heap_node(LL, z, d, LR) {
       apply heap_greater_equal in goal;
-      have x_z: x ≤ z by apply heap_greater_equal in (rewrite prem with EQ);
+      have x_z: x ≤ z by apply heap_greater_equal in (_rewrite prem with EQ);
       have y ≤ z by using less_equal_trans[y][x,z] with (prem,x_z)
     }
   }
@@ -279,7 +279,7 @@ proof
 	apply first, is_heap in goal;
 	switch x < y {
 	  case true {
-	    have x_l_y: x < y by (rewrite goal with EQ; .);
+	    have x_l_y: x < y by (_rewrite goal with EQ; .);
 	    have x_y: x ≤ y by using less_implies_less_equal[x][y] with x_l_y;
 	    have L_x: heap_greater_equal(L,x) 
   	        by using heap_greater_equal_trans[L, y, x] with (L_y, x_y);
@@ -297,7 +297,7 @@ proof
 	  case false {
 	    apply heap_greater_equal in goal;
 	    have y_x: y ≤ x by using not_less_less_equal[x][y]
-     	                       with (assume xy: x < y; rewrite xy with EQ);
+     	                       with (assume xy: x < y; _rewrite xy with EQ);
 	    have Lx_y: heap_greater_equal(first(insert(L,x)),y)
 	      by using (conjunct 1 of (using (conjunct 0 of IH)[x]
 				       with is_heap_L))[y]
@@ -312,7 +312,7 @@ proof
 	apply first, is_heap in goal;
 	switch x < y {
 	  case true {
-	    have x_l_y: x < y by (rewrite goal with EQ; .);
+	    have x_l_y: x < y by (_rewrite goal with EQ; .);
 	    have x_y: x ≤ y by using less_implies_less_equal[x][y] with x_l_y;
 	    have L_x: heap_greater_equal(L,x)
 	      by using heap_greater_equal_trans[L, y, x] with (L_y, x_y);
@@ -330,7 +330,7 @@ proof
 	  case false {
 	    apply heap_greater_equal in goal;
 	    have y_x: y ≤ x by using not_less_less_equal[x][y]
-     	                       with (assume xy: x < y; rewrite xy with EQ);
+     	                       with (assume xy: x < y; _rewrite xy with EQ);
             have Rx_y: heap_greater_equal(first(insert(R,x)),y)
 	      by using (conjunct 1 of (using (conjunct 1 of IH)[x]
 				       with is_heap_R))[y]
@@ -368,9 +368,9 @@ proof
 	have hiL:
 	   height(first(insert(L, if y < x then x else y))) = suc(height(L))
 	   by (using (conjunct 0 of IH)[if y < x then x else y] with pL);
-	rewrite goal with hiL;
-	rewrite goal with hLhR;
-	rewrite goal with max_suc[height(R)];
+	_rewrite goal with hiL;
+	_rewrite goal with hLhR;
+	_rewrite goal with max_suc[height(R)];
         reflexive
       }
       case go_right {

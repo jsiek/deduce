@@ -305,7 +305,7 @@ and `length(empty) = 0`, so we can conclude using those definitions.
   case 0 {
     arbitrary start:Nat
     conclude length(interval(0, start)) = 0
-	    by definition {interval, length}.
+	    by definition {interval, length}
   }
 ```
 
@@ -333,14 +333,14 @@ below.
 ```
 
 For the proof of this case, we again start with `arbitrary` to handle
-`all start` then use the definitions of `interval` and `length`.
+`all start` then use the _definitions of `interval` and `length`.
 
 ```
   case suc(count')
     suppose IH: all start:Nat. length(interval(count', start)) = count'
   {
     arbitrary start:Nat
-    definition {interval, length}
+    _definition {interval, length}
     ?
   }
 ```
@@ -360,9 +360,9 @@ which is just what we need to conclude.
     suppose IH: all start:Nat. length(interval(count', start)) = count' 
   {
     arbitrary start:Nat
-    definition {interval, length}
+    _definition {interval, length}
     conclude suc(length(interval(count',suc(start)))) = suc(count')
-	    by rewrite IH[suc(start)].
+	    by rewrite IH[suc(start)]
   }
 ```
 
@@ -377,15 +377,15 @@ proof
   case 0 {
     arbitrary start:Nat
     conclude length(interval(0, start)) = 0
-	    by definition {interval, length}.
+	    by _definition {interval, length}.
   }
   case suc(count')
     suppose IH: all start:Nat. length(interval(count', start)) = count' 
   {
     arbitrary start:Nat
-    definition {interval, length}
-    conclude suc(length(interval(count',suc(start)))) = suc(count')
-	    by rewrite IH[suc(start)].
+    _definition {interval, length}
+    conclude 1 + length(interval(count',suc(start))) = suc(count')
+	    by rewrite suc_one_add[count'] | IH[suc(start)]
   }
 end
 ```
@@ -433,7 +433,7 @@ then use the definitions of `interval` and `nth`.
   case 0 {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_z: i < 0
-    definition {interval, nth}
+    _definition {interval, nth}
     ?
   }
 ```
@@ -456,7 +456,7 @@ to prove that `d = i + start`.
   case 0 {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_z: i < 0
-    definition {interval, nth}
+    _definition {interval, nth}
     conclude false  by definition {operator <, operator ≤} in i_l_z
   }
 ```
@@ -473,7 +473,7 @@ with `arbitrary`, `suppose`, and use the definitions of `interval` and `nth`.
   {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_sc: i < suc(count')
-    definition {interval, nth}
+    _definition {interval, nth}
     ?
   }
 ```
@@ -513,7 +513,7 @@ which follows directly from the definition of addition.
 
 ```
   case 0 {
-	conclude start = 0 + start   by definition operator +.
+	conclude start = 0 + start   by definition operator +
   }
 ```
 
@@ -531,7 +531,7 @@ One difference is `pred(suc(i'))` versus `i'`, but they are equal by the
 definition of `pred`.
 ```
   case suc(i') suppose i_sc: i = suc(i') {
-	definition pred
+	_definition pred
 	?
   }
 ```
@@ -549,7 +549,7 @@ and `i_sc: i = suc(i')` and the definitions of `<` and `≤`.
 
 ```
   case suc(i') suppose i_sc: i = suc(i') {
-	definition pred
+	_definition pred
 	have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
 								  rewrite i_sc in i_l_sc
 	?
@@ -567,7 +567,7 @@ states that `suc(n) + m = suc(n + m)`).
 	nth(interval(count',suc(start)),d)(i') 
 		= i' + suc(start)        by apply IH[suc(start), d, i'] to i_l_cnt
 	... = suc(i' + start)        by add_suc[i'][start]
-	... = suc(i') + start        by definition operator +.
+	... = suc(i') + start        by definition operator +
 ```
 
 Putting together all these pieces, we have the following complete proof
@@ -583,7 +583,7 @@ proof
   case 0 {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_z: i < 0
-    definition {interval, nth}
+    _definition {interval, nth}
     conclude false  by definition {operator <, operator ≤} in i_l_z
   }
   case suc(count') 
@@ -592,20 +592,20 @@ proof
   {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_sc: i < suc(count')
-    definition {interval, nth}
+    _definition {interval, nth}
     switch i {
       case 0 {
-        conclude start = 0 + start   by definition operator +.
+        conclude start = 0 + start   by definition operator +
       }
       case suc(i') suppose i_sc: i = suc(i') {
-        definition pred
+        _definition pred
         have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
                                       rewrite i_sc in i_l_sc
         equations
           nth(interval(count',suc(start)),d)(i') 
               = i' + suc(start)    by apply IH[suc(start), d, i'] to i_l_cnt
           ... = suc(i' + start)    by add_suc[i'][start]
-          ... = suc(i') + start    by definition operator +.
+          ... = suc(i') + start    by definition operator +
       }
     }
   }
@@ -768,17 +768,20 @@ proof
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
     suppose i_xxs: i < length(node(x,xs))
-    definition append
+    _definition append
     switch i {
       case 0 {
-        definition nth.
+        definition nth
       }
       case suc(i') suppose i_si {
-        definition {nth, pred}
-    have i_xs: i' < length(xs) by
-        enable {operator <, operator ≤}
-        conclude i' < length(xs) by rewrite i_si in definition length in i_xxs
-    apply IH[ys, i', d] to i_xs
+        _definition {nth, pred}
+        have i_xs: i' < length(xs) by
+            enable {operator <, operator ≤}
+            conclude i' < length(xs) by
+               rewrite i_si in
+               rewrite one_add_suc[length(xs)] in 
+               definition length in i_xxs
+        apply IH[ys, i', d] to i_xs
       }
     }
   }
@@ -791,14 +794,15 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat, d:T
-    definition {append, nth, length, operator +}.
+    definition {append, nth, length, operator +}
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
-    definition {append,length, nth}
-    have X: not (suc(length(xs)) + i = 0) by suppose eq_z enable operator + have false by eq_z
-    rewrite X
-    definition {operator +, pred}
+    _definition {append,length, nth}
+    have X: not ((1 + length(xs)) + i = 0) 
+      by suppose eq_z enable operator + have false by eq_z
+    _rewrite X
+    _definition {operator +, operator+, pred}
     IH[ys, i, d]
   }
 end

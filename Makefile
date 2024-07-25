@@ -52,19 +52,19 @@ default: check_README check_fun check_intro
 	/opt/homebrew/bin/python3.10 ./deduce.py ex/Search.pf
 
 check_README:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py README.pf
 
 check_fun:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py FunctionalProgramming.pf
 
 check_intro:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py ProofIntro.pf
 
 check_blog1:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py LinkedLists.pf
 
 blog1:
@@ -73,28 +73,28 @@ blog1:
 	cat Prelude.html LinkedLists.html > blog1.html
 
 check_blog2:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py LinearSearch.pf
 
 blog2:
 	/usr/local/bin/pandoc LinearSearch.md -o LinearSearch.html
 
 check_blog3:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py InsertionSort.pf
 
 blog3:
 	/usr/local/bin/pandoc InsertionSort.md -o InsertionSort.html
 
 check_blog4:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py MergeSort.pf
 
 blog4:
 	/usr/local/bin/pandoc MergeSort.md -o MergeSort.html
 
 check_blog5:
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py BinaryTreeTest.pf
 
@@ -109,3 +109,7 @@ blog6:
 	/usr/local/bin/pandoc BinaryTreeProof.md -o BinaryTreeProof.html
 
 check_blogs:  check_blog1 check_blog2 check_blog3 check_blog4 check_blog5 check_blog6
+
+clean:
+	rm -f BinaryTree.pf LinkedLists.pf BinaryTreeProof.pf MergeSort.pf Prelude.pf
+	rm -f FunctionalProgramming.pf ProofIntro.pf InsertionSort.pf README.pf LinearSearch.pf

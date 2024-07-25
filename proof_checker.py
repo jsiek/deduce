@@ -111,6 +111,9 @@ def rewrite(loc, formula, equation):
     inc_rewrites()
     return rhs
   match formula:
+    case TermInst(loc2, subject, tyargs):
+      return TermInst(loc2, rewrite(loc, subject, equation),
+                      [rewrite(loc, t, equation) for t in tyargs])
     case Var(loc2, name):
       return formula
     case Bool(loc2, val):
@@ -572,8 +575,8 @@ def check_proof_of(proof, formula, env):
       defs = [d.reduce(env) for d in definitions]
       new_formula = apply_definitions(loc, formula, defs, env)
       if new_formula != Bool(loc, True):
-          error(loc, 'failed to prove: ' + str(formula) + '\n\tby ' + str(proof) \
-                + '\nremains to prove: ' + str(new_formula))
+          error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
+                + '\nremains to prove:\n\t' + str(new_formula))
 
     case Rewrite(loc, equation_proofs):
       equations = [check_proof(proof, env) for proof in equation_proofs]
@@ -585,8 +588,8 @@ def check_proof_of(proof, formula, env):
         new_formula = rewrite(loc, new_formula, eq)
         new_formula = new_formula.reduce(env)
       if new_formula != Bool(loc, True):
-          error(loc, 'failed to prove: ' + str(formula) + '\n\tby ' + str(proof) \
-                + '\nremains to prove: ' + str(new_formula))
+          error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
+                + '\nremains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
       match reason:
@@ -917,7 +920,9 @@ def type_check_call_helper(loc, funty, args, env, recfun, subterms, ret_ty, call
         #print('\tdeduced type arguments: ' + str(matching))
         for x in typarams:
             if x not in matching.keys():
-                error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' + base_name(x))
+                error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' \
+                      + base_name(x) + ' to instantiate ' + str(call.rator) \
+                      + '\n\twhose type is: ' + str(funty))
         call.type_args = [matching[x] for x in typarams]
         inst_return_type = return_type.substitute(matching)
         #print('\tcall is now:  ' + str(call))
@@ -1063,9 +1068,13 @@ def type_synth_term(term, env, recfun, subterms):
         case Var(loc2, name):
           ret = TypeInst(loc, name, tyargs)
         case FunctionType(loc2, typarams, param_types, return_type):
-          ret = ty
+          sub = {x: t for (x,t) in zip(typarams, tyargs)}
+          inst_param_types = [t.substitute(sub) for t in param_types]
+          inst_return_type = return_type.substitute(sub)
+          ret = FunctionType(loc2, [], inst_param_types, inst_return_type)
         case _:
           error(loc, 'expected a type name, not ' + str(ty))
+          
     case TAnnote(loc, subject, typ):
       type_check_term(subject, typ, env, recfun, subterms)
       ret = typ

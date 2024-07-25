@@ -139,7 +139,7 @@ class FunctionType(Type):
 
   def __str__(self):
     if len(self.type_params) > 0:
-      prefix = '<' + ','.join([x for x in self.type_params]) + '>'
+      prefix = '<' + ','.join([base_name(x) for x in self.type_params]) + '>'
     else:
       prefix = ''
     return 'fn' + prefix + '(' + ','.join([str(ty) for ty in self.param_types]) + ')'\
@@ -1280,7 +1280,7 @@ class PVar(Proof):
     return self.name == other.name
   
   def __str__(self):
-      return self.name
+      return base_name(self.name)
 
   def uniquify(self, env):
     if self.name not in env.keys():

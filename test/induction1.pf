@@ -12,12 +12,12 @@ theorem add_zero: all n:Nat. add(n, zero) = n
 proof
   induction Nat
   case zero {
-    have add(zero, zero) = zero by definition {add}.
+    have add(zero, zero) = zero by _definition {add}.
   }
   case suc(n') suppose IH {
     equations
-      add(suc(n'), zero) = suc(add(n', zero))   by definition {add}.
-                     ... = suc(n')              by rewrite IH.
+      add(suc(n'), zero) = suc(add(n', zero))   by _definition {add}.
+                     ... = suc(n')              by _rewrite IH.
   }
 end
 

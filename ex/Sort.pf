@@ -26,9 +26,9 @@ proof
   case empty {
     arbitrary x:Nat, y:Nat
     suppose prem
-    definition insert    
+    _definition insert    
     suffices all_elements(node(x,empty), λb{y ≤ b})
-    definition {all_elements, all_elements}
+    _definition {all_elements, all_elements}
     conclude y ≤ x by prem
   }
   case node(a, xs') suppose IH {
@@ -38,11 +38,11 @@ proof
     have y_le_a: y ≤ a by definition all_elements in prem
     have y_le_xs: all_elements(xs', λb{y ≤ b})
         by definition all_elements in prem
-    definition insert
+    _definition insert
     cases dichotomy[x,a]
     case x_le_a: x ≤ a {
-      rewrite x_le_a
-      definition {all_elements, all_elements}
+      _rewrite x_le_a
+      _definition {all_elements, all_elements}
       have y_le_a: y ≤ a by apply less_equal_trans to y_le_x, x_le_a
       have y_le_xs: all_elements(xs',λb{(y ≤ b)})
           by definition all_elements in prem
@@ -51,8 +51,8 @@ proof
     case a_l_x: a < x {
       have not_x_le_a: not (x ≤ a)
           by apply less_not_greater_equal to a_l_x
-      rewrite not_x_le_a
-      definition all_elements
+      _rewrite not_x_le_a
+      _definition all_elements
       have y_le_xsx: all_elements(insert(xs',x),λb{(y ≤ b)})
 	  by apply IH to y_le_x, y_le_xs
       y_le_a, y_le_xsx
@@ -68,7 +68,7 @@ proof
     arbitrary x:Nat
     suppose _
     conclude sorted(insert(empty,x))
-        by definition {insert, sorted, sorted, all_elements}.
+        by _definition {insert, sorted, sorted, all_elements}.
   }
   case node(y, next) suppose IH {
     arbitrary x:Nat
@@ -76,12 +76,12 @@ proof
     have s_n: sorted(next) by definition sorted in s_yn
     have y_next: all_elements(next,λb{(y ≤ b)}) by definition sorted in s_yn
     suffices sorted(insert(node(y,next),x))
-    definition insert
+    _definition insert
     cases dichotomy[x,y]
     case x_le_y: x ≤ y {
-      rewrite x_le_y
+      _rewrite x_le_y
       suffices sorted(node(x,node(y,next)))
-      definition {sorted, sorted, all_elements}
+      _definition {sorted, sorted, all_elements}
       have x_next: all_elements(next,λb{(x ≤ b)})
         by apply all_elements_implies[Nat][next][λb{(y ≤ b)}, λb{(x ≤ b)}]
 	   to y_next , (arbitrary z:Nat
@@ -93,9 +93,9 @@ proof
     case y_l_x: y < x {
       have not_x_le_y: not (x ≤ y)
           by apply less_not_greater_equal to y_l_x
-      rewrite not_x_le_y
+      _rewrite not_x_le_y
       suffices sorted(node(y,insert(next,x)))
-      definition {sorted, all_elements}
+      _definition {sorted, all_elements}
       have s_next_x: sorted(insert(next,x)) by apply IH[x] to s_n
       have y_le_x: y ≤ x by apply less_implies_less_equal to y_l_x
       have y_le_next_x: all_elements(insert(next,x),λb{(y ≤ b)})
@@ -112,20 +112,20 @@ proof
   case empty {
     arbitrary y:Nat
     conclude mset_of(insert(empty,y)) = m_one(y) ⨄ mset_of(empty)
-        by definition {insert, mset_of, mset_of}.
+        by _definition {insert, mset_of, mset_of}.
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
-    definition {insert, mset_of}
+    _definition {insert, mset_of}
     switch y ≤ x {
       case true suppose yx_true {
-        definition mset_of.
+        _definition mset_of.
       }
       case false suppose yx_false {
-        rewrite IH[y]
-	rewrite symmetric m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
-	rewrite m_sum_commutes[Nat, m_one(y), m_one(x)]
-	rewrite m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')].
+        _rewrite IH[y]
+	_rewrite symmetric m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
+	_rewrite m_sum_commutes[Nat, m_one(y), m_one(x)]
+	_rewrite m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')].
       }
     }
   }
@@ -144,13 +144,13 @@ proof
   case empty {
     arbitrary ys:List<Nat>
     suppose s_ys: sorted(ys)
-    definition isort
+    _definition isort
     conclude sorted(ys) by s_ys
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<Nat>
     suppose s_ys: sorted(ys)
-    definition isort
+    _definition isort
     have s_ys_x: sorted(insert(ys, x))
         by apply insert_sorted[ys][x] to s_ys
     conclude sorted(isort(xs',insert(ys,x)))
@@ -164,16 +164,16 @@ proof
   induction List<Nat>
   case empty {
     arbitrary ys:List<Nat>
-    definition {isort, mset_of}
-    rewrite empty_m_sum[Nat, mset_of(ys)].
+    _definition {isort, mset_of}
+    _rewrite empty_m_sum[Nat, mset_of(ys)].
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<Nat>
-    definition {isort, mset_of}
-    rewrite IH[insert(ys,x)]
-    rewrite insert_contents[ys][x]
-    rewrite m_sum_commutes[Nat, m_one(x), mset_of(xs')]
-    rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(x), mset_of(ys)].
+    _definition {isort, mset_of}
+    _rewrite IH[insert(ys,x)]
+    _rewrite insert_contents[ys][x]
+    _rewrite m_sum_commutes[Nat, m_one(x), mset_of(xs')]
+    _rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(x), mset_of(ys)].
   }
 end
 
@@ -184,17 +184,17 @@ theorem insertion_sort_sorted: all xs:List<Nat>.
   sorted( insertion_sort(xs) )
 proof
   arbitrary xs:List<Nat>
-  definition insertion_sort
+  _definition insertion_sort
   conclude sorted(isort(xs,empty))
-      by apply isort_sorted[xs][empty] to definition sorted.
+      by apply isort_sorted[xs][empty] to _definition sorted.
 end
 
 theorem insertion_sort_contents: all xs:List<Nat>. 
   mset_of( insertion_sort(xs) ) = mset_of(xs)
 proof
   arbitrary xs:List<Nat>
-  definition insertion_sort
-  rewrite isort_contents[xs][empty]
-  definition mset_of
-  rewrite m_sum_empty[Nat,mset_of(xs)].
+  _definition insertion_sort
+  _rewrite isort_contents[xs][empty]
+  _definition mset_of
+  _rewrite m_sum_empty[Nat,mset_of(xs)].
 end

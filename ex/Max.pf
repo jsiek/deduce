@@ -14,12 +14,12 @@ proof
   case empty {
     arbitrary d:Nat
     suffices d ≤ max_element(empty,d)
-    definition max_element
+    _definition max_element
     conclude d ≤ d  by less_equal_refl[d]
   }
   case node(x, xs') suppose IH {
     arbitrary d:Nat
-    definition max_element
+    _definition max_element
     suffices d ≤ max(x,max_element(xs',d))
     have d_xsd: d ≤ max_element(xs',d) by IH[d]
     have xsd_x_xsd: max_element(xs',d) ≤ max(x,max_element(xs',d))
@@ -45,14 +45,14 @@ proof
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose y_in_xxs: y ∈ set_of(node(x, xs'))
-    definition max_element
+    _definition max_element
     suffices y ≤ max(x,max_element(xs',d))
     have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
       by apply member_union[Nat] to definition set_of in y_in_xxs
     cases xy_or_y_xs
     case y_in_sx: y ∈ single(x) {
       have x_y: x = y by apply single_equal[Nat] to y_in_sx
-      rewrite x_y
+      _rewrite x_y
       conclude y ≤ max(y,max_element(xs',d))
           by max_greater_left[y][max_element(xs',d)]
     }
@@ -74,36 +74,36 @@ proof
   case empty {
     arbitrary d:Nat
     conclude max_element(empty,d) = d
-      by definition max_element.
+      by _definition max_element.
   }
   case node(x, xs') suppose IH {
     arbitrary d:Nat
     cases IH[d]
     case mxs_in_xs: max_element(xs',d) ∈ set_of(xs') {
       suffices max_element(node(x,xs'),d) ∈ set_of(node(x,xs'))
-      definition {max_element, set_of}
+      _definition {max_element, set_of}
       cases max_is_left_or_right[x][max_element(xs',d)]
       case m_x: max(x,max_element(xs',d)) = x {
-        rewrite m_x
+        _rewrite m_x
 	apply in_left_union[Nat,set_of(xs')] to single_member[Nat,x]
       }
       case m_mxs: max(x,max_element(xs',d)) = max_element(xs',d) {
-        rewrite m_mxs
+        _rewrite m_mxs
         apply in_right_union[Nat, single(x)] to mxs_in_xs
       }
     }
     case mxs_d: max_element(xs',d) = d {
-      definition {max_element, set_of}
-      rewrite mxs_d
+      _definition {max_element, set_of}
+      _rewrite mxs_d
       cases max_is_left_or_right[x][d]
       case m_x: max(x,d) = x {
-        rewrite m_x
+        _rewrite m_x
 	have x_sx_xs: x ∈ (single(x) ∪ set_of(xs'))
 	  by apply in_left_union[Nat,set_of(xs')] to single_member[Nat,x]
         x_sx_xs
       }
       case m_d: max(x,d) = d {
-        rewrite m_d.
+        _rewrite m_d.
       }
     }
   }

@@ -269,7 +269,7 @@ work on lists with any element type as follows.
 ```{.deduce #length}
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
-  length(node(n, next)) = suc(length(next))
+  length(node(n, next)) = 1 + length(next)
 }
 ```
 

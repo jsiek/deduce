@@ -24,21 +24,21 @@ proof
   induction List<Nat>
   case empty {
     arbitrary y:Nat, d:Nat
-    definition {search,length}
+    _definition {search,length}
     suppose imp: 0 < 0
     conclude false  by definition {operator <, operator ≤} in imp
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
-    definition {search,length}
+    _definition {search,length}
     suppose prem
     switch x = y {
       case true suppose xy {
-        definition nth
-        rewrite xy.
+        _definition nth
+        rewrite xy
       }
       case false suppose not_xy {
-        definition {nth, pred}
+        _definition {nth, pred}
         conclude nth(xs',d)(search(xs',y)) = y
           by enable  {operator <, operator ≤}
              apply IH[y, d] to
@@ -58,7 +58,7 @@ proof
     arbitrary y:Nat
     suppose _
     conclude not (y ∈ set_of(empty))
-        by definition {set_of}
+        by _definition {set_of}
            empty_no_members[Nat,y]
   }
   case node(x, xs') suppose IH {
@@ -108,13 +108,13 @@ proof
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose y_in_xxs: y ∈ set_of(node(x,xs'))
-    definition {nth, search}
+    _definition {nth, search}
     switch x = y {
       case true suppose xy_true {
-        conclude x = y   by rewrite xy_true.
+        conclude x = y   by _rewrite xy_true.
       }
       case false suppose xy_false {
-        definition pred
+        _definition pred
         have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
           by apply member_union[Nat]
              to definition set_of in y_in_xxs
@@ -141,33 +141,33 @@ proof
     arbitrary y:Nat, d:Nat
     suppose _
     conclude search(empty,y) = length(empty : List<Nat>)
-        by definition {search, length}.
+        by _definition {search, length}.
   }
   case node(x, xs) suppose IH {
     arbitrary y:Nat, d:Nat
     suppose y_not_xxs: not (y ∈ set_of(node(x,xs)))
     suffices search(node(x,xs),y) = length(node(x,xs))
-    definition {search, length}
+    _definition {search, length}
     switch x = y {
       case true suppose xy {
-        have x_y: x = y by rewrite xy.
+        have x_y: x = y by _rewrite xy.
         conclude false
             by enable {set_of}
                apply y_not_xxs
                to (apply in_left_union[Nat,set_of(xs)][y, single(x)]
-                   to rewrite x_y single_member[Nat, y])
+                   to _rewrite x_y single_member[Nat, y])
       }
       case false suppose not_xy {
-        definition {operator+, operator+}
+        _definition {operator+, operator+}
         suffices suc(search(xs,y)) = suc(length(xs))
         have s_l: search(xs,y) = length(xs)
           by enable {set_of}
              apply IH[y, d]
              to suppose y_xs
                 (apply y_not_xxs to
-                definition set_of
+                _definition set_of
                 apply in_right_union[Nat,single(x)] to y_xs)
-        rewrite s_l.
+        _rewrite s_l.
       }
     }
   }
@@ -181,17 +181,17 @@ proof
   case empty {
     arbitrary y:Nat, d:Nat, i:Nat
     suppose prem
-    definition search
-    conclude 0 ≤ i   by definition operator ≤.
+    _definition search
+    conclude 0 ≤ i   by _definition operator ≤.
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat, i:Nat
     suppose prem
     suffices search(node(x,xs'),y) ≤ i
-    definition search
+    _definition search
     switch x = y {
       case true suppose xy {
-        conclude 0 ≤ i   by definition operator ≤.
+        conclude 0 ≤ i   by _definition operator ≤.
       }
       case false suppose not_xy {
         suffices suc(search(xs',y)) ≤ i
@@ -202,7 +202,7 @@ proof
           }
           case suc(i') suppose i_si: i = suc(i') {
             suffices suc(search(xs',y)) ≤ suc(i')
-            definition operator ≤
+            _definition operator ≤
             conclude search(xs',y) ≤ i'
                 by enable {length, nth, pred, operator <, operator ≤}
                    apply IH[y,d,i'] to

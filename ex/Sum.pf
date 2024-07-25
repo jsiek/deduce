@@ -12,23 +12,23 @@ theorem sum_summation: all xs:List<Nat>.
 proof
   induction List<Nat>
   case empty {
-    definition {sum, length, nth, summation}.
+    _definition {sum, length, nth, summation}.
   }
   case node(x, xs') suppose IH: sum(xs') = summation(length(xs'),0,nth(xs',0)) {
     have nth_node: all i:Nat. nth(xs',0)(i) = nth(node(x,xs'),0)(suc(i))
-      by arbitrary i:Nat definition {nth,pred}.
+      by arbitrary i:Nat _definition {nth,pred}.
     have sum_01: summation(length(xs'), 0, nth(xs',0))
                = summation(length(xs'), 1, nth(node(x,xs'),0))
-      by rewrite (apply summation_suc[length(xs')]
+      by _rewrite (apply summation_suc[length(xs')]
                     [nth(xs',0), nth(node(x,xs'), 0), 0] to nth_node).
-    definition {sum, length, summation}
-    have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
-    definition {operator+, operator+}
-    rewrite n_x
+    _definition {sum, length, summation}
+    have n_x: nth(node(x,xs'),0)(0) = x by _definition nth.
+    _definition {operator+, operator+}
+    _rewrite n_x
     equations
       x + sum(xs')
-          = x + summation(length(xs'),0,nth(xs',0))           by rewrite IH.
-      ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by rewrite sum_01.
+          = x + summation(length(xs'),0,nth(xs',0))           by _rewrite IH.
+      ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by _rewrite sum_01.
   }
 end
 
@@ -37,23 +37,23 @@ theorem foldr_summation: all xs:List<Nat>.
 proof
   induction List<Nat>
   case empty {
-    definition {foldr,length,summation}.
+    _definition {foldr,length,summation}.
   }
   case node(x, xs') suppose IH {
     have nth_node: all i:Nat. nth(xs',0)(i) = nth(node(x,xs'),0)(suc(i))
-      by arbitrary i:Nat definition {nth,pred}.
+      by arbitrary i:Nat _definition {nth,pred}.
     have sum_01: summation(length(xs'), 0, nth(xs',0))
                = summation(length(xs'), 1, nth(node(x,xs'),0))
-      by rewrite (apply summation_suc[length(xs')]
+      by _rewrite (apply summation_suc[length(xs')]
                     [nth(xs',0), nth(node(x,xs'), 0), 0] to nth_node).
-    definition {foldr,length,summation}
-    have n_x: nth(node(x,xs'),0)(0) = x by definition nth.
-    definition {operator+, operator+}
-    rewrite n_x
+    _definition {foldr,length,summation}
+    have n_x: nth(node(x,xs'),0)(0) = x by _definition nth.
+    _definition {operator+, operator+}
+    _rewrite n_x
     equations
       x + foldr(xs',0,λa,b{a + b})
-          = x + summation(length(xs'),0,nth(xs',0))           by rewrite IH.
-      ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by rewrite sum_01.
+          = x + summation(length(xs'),0,nth(xs',0))           by _rewrite IH.
+      ... = x + summation(length(xs'),1,nth(node(x,xs'),0))   by _rewrite sum_01.
   }
 end
 
@@ -61,7 +61,7 @@ theorem nth_node:
   all T:type, x:T, xs:List<T>, i:Nat, d:T. nth(node(x,xs),d)(suc(i)) = nth(xs,d)(i)
 proof
   arbitrary T:type, x:T, xs:List<T>, i:Nat, d:T
-  definition {nth,pred}.
+  _definition {nth,pred}.
 end
 
 
@@ -74,17 +74,17 @@ proof
   arbitrary ys:List<Nat>
   have p1: all i:Nat. (if i < length(xs) then nth(xs,0)(0 + i) = nth(xs ++ ys,0)(0 + i))
     by arbitrary i:Nat suppose i_xs: i < length(xs)
-       definition operator +
+       _definition operator +
        symmetric apply nth_append_front[Nat][xs][ys, i, 0] to i_xs
   have p2: all i:Nat. (if i < length(ys)
                        then nth(ys,0)(0 + i) = nth(xs ++ ys,0)(0 + length(xs) + i))
     by arbitrary i:Nat suppose i_ys: i < length(ys)
-       definition operator +
+       _definition operator +
        have i_ys: i ≤ length(ys) by apply less_implies_less_equal[i][length(ys)]
                                     to (enable {operator <, operator ≤} i_ys)
        symmetric nth_append_back[Nat][xs][ys,i,0]
   
-  rewrite length_append[Nat][xs][ys]
+  _rewrite length_append[Nat][xs][ys]
   conclude summation(length(xs) + length(ys), 0, nth(xs ++ ys, 0))
         = summation(length(xs), 0, nth(xs,0)) + summation(length(ys), 0, nth(ys,0))
       by apply summation_add[length(xs)][length(ys), 0, 0, nth(xs ++ ys, 0), nth(xs,0), nth(ys,0)]

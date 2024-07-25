@@ -22,7 +22,7 @@ proof
   case empty {
     arbitrary y:Nat, i:Nat
     suppose prem
-    conclude false by definition search in prem
+    conclude false by _definition search in prem
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, i:Nat
@@ -30,24 +30,24 @@ proof
     switch x = y {
       case true suppose xy_true {
         have i_z: i = 0
-	  by symmetric injective just rewrite xy_true in
-	     definition search in search_just
-	definition nth rewrite i_z | xy_true.
+	  by symmetric injective just _rewrite xy_true in
+	     _definition search in search_just
+	_definition nth _rewrite i_z | xy_true.
       }
       case false suppose xy_false {
         switch search(xs', y) {
 	  case none suppose s_none {
 	    conclude false
-	      by rewrite s_none in
-	         (rewrite xy_false in (definition search in search_just))
+	      by _rewrite s_none in
+	         (_rewrite xy_false in (_definition search in search_just))
 	  }
 	  case just(i') suppose s_just {
 	    have i_si: i = suc(i')
 	      by symmetric injective just
-                rewrite s_just in
-   	        (rewrite xy_false in definition search in search_just)
-	    rewrite i_si
-	    definition {nth, pred}
+                _rewrite s_just in
+   	        (_rewrite xy_false in _definition search in search_just)
+	    _rewrite i_si
+	    _definition {nth, pred}
 	    conclude nth(xs',0)(i') = y
 	      by apply IH[y,i'] to s_just
 	  }

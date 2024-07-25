@@ -24,7 +24,7 @@ reader.
 ## Write the `search` function
 
 Before diving into the code for `search`, let us look again at the
-definition of the `List` type.
+_definition of the `List` type.
 
 ```
 union List<T> {
@@ -187,13 +187,13 @@ Goal:
 ```
 
 So we start with `arbitrary y:Nat` and then conclude using the
-definitions of `search`, `length`, and `operator ≤`.
+_definitions of `search`, `length`, and `operator ≤`.
 
 ```
   case empty {
     arbitrary y:Nat
 	conclude search(empty,y) ≤ length(empty)
-        by definition {search, length, operator ≤}.
+        by _definition {search, length, operator ≤}.
   }
 ```
 
@@ -204,7 +204,7 @@ Goal:
 	all y:Nat. search(node(x,xs'),y) ≤ length(node(x,xs'))
 ```
 
-So we start with `arbitrary y:Nat` and use the definitions of `search`
+So we start with `arbitrary y:Nat` and use the _definitions of `search`
 and `length`.
 
 ```
@@ -212,7 +212,7 @@ and `length`.
     suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
   {
     arbitrary y:Nat
-	definition {search, length}
+	_definition {search, length}
 	?
   }
 ```
@@ -236,7 +236,7 @@ follows.
     suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
   {
     arbitrary y:Nat
-	definition {search, length, operator ≤}
+	_definition {search, length, operator ≤}
 	switch x = y {
 	  case true {
         ?
@@ -249,17 +249,17 @@ follows.
 ```
 
 In the case for `x = y`, the left-hand side of the `≤` becomes `0`, so
-we can conclude by the definition of `operator ≤`.
+we can conclude by the _definition of `operator ≤`.
 
 ```
   case true {
-	conclude 0 ≤ suc(length(xs'))  by definition operator ≤.
+	conclude 0 ≤ suc(length(xs'))  by _definition operator ≤.
   }
 ```
 
 In the case for `x ≠ y`, the left-hand side of the `≤` becomes
 `suc(search(xs',y))`, so we have `suc` on both side of `≤`.  Therefore
-we apply the definition of `≤` and it remains to prove the following.
+we apply the _definition of `≤` and it remains to prove the following.
 
 ```
 Goal:
@@ -270,7 +270,7 @@ We conclude the proof of the `false` case by using the induction hypothesis
 
 ```
   case false {
-	definition operator ≤
+	_definition operator ≤
 	conclude search(xs',y) ≤ length(xs')
 	  by IH[y]
   }
@@ -287,19 +287,19 @@ proof
   case empty {
     arbitrary y:Nat
 	conclude search(empty,y) ≤ length(empty : List<Nat>)
-        by definition {search, length, operator ≤}.
+        by _definition {search, length, operator ≤}.
   }
   case node(x, xs') 
     suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
   {
     arbitrary y:Nat
-	definition {search, length}
+	_definition {search, length}
 	switch x = y {
 	  case true {
-        conclude 0 ≤ suc(length(xs'))  by definition operator ≤.
+        conclude 0 ≤ 1 + length(xs')  by _definition operator ≤.
 	  }
 	  case false {
-	    definition operator ≤
+	    _definition {operator ≤, operator+, operator+}
 	    conclude search(xs',y) ≤ length(xs')
 		  by IH[y]
 	  }
@@ -392,7 +392,7 @@ Similar to the proof of `search_length`, we now need to `switch` on `x
 = y`.
 
 ```
-	definition {search}
+	_definition {search}
 	switch x = y {
       case true suppose xy_true {
 	    ?
@@ -415,7 +415,7 @@ We conclude using the definition of `nth` and the fact that `x = y`.
 ```
       case true suppose xy_true {
 	    conclude nth(node(x,xs'),0)(0) = y
-	      by definition nth rewrite xy_true.
+	      by _definition nth rewrite xy_true
 	  }
 ```
 
@@ -476,16 +476,16 @@ proof
   case node(x, xs') suppose IH {
     arbitrary y:Nat
 	suppose sxxs_len: search(node(x,xs'),y) < length(node(x,xs'))
-	definition {search}
+	_definition {search}
 	switch x = y {
       case true suppose xy_true {
 	    conclude nth(node(x,xs'),0)(0) = y
-	      by definition nth rewrite xy_true.
+	      by _definition nth rewrite xy_true
 	  }
 	  case false suppose xy_false {
-	    definition {nth, pred}
+	    _definition {nth, pred}
 		have sxs_len: search(xs',y) < length(xs')
-		  by enable {search, length, operator <, operator ≤}
+		  by enable {search, length, operator <, operator ≤, operator+, operator+}
 		     rewrite xy_false in sxxs_len
 	    conclude nth(xs',0)(search(xs',y)) = y
 		  by apply IH[y] to sxs_len
@@ -545,7 +545,7 @@ Goal:
 We apply the definition of `search` and then `switch` on `x = y`.
 
 ```
-  definition search
+  _definition search
   switch x = y {
 	case true {
 	  ?
@@ -561,7 +561,7 @@ need to prove that `0 ≤ i`, which follows from the definition of `≤`.
 
 ```
   case true {
-	conclude 0 ≤ i   by definition operator ≤.
+	conclude 0 ≤ i   by definition operator ≤
   }
 ```
 
@@ -649,10 +649,10 @@ proof
     arbitrary y:Nat, i:Nat
 	suppose prem: search(node(x,xs'),y) < length(node(x,xs')) 
 	              and nth(node(x,xs'),0)(i) = y
-	definition search
+	_definition search
 	switch x = y {
 	  case true {
-	    conclude 0 ≤ i   by definition operator ≤.
+	    conclude 0 ≤ i   by definition operator ≤
 	  }
 	  case false suppose xy_false {
 	    switch i {
@@ -661,9 +661,9 @@ proof
 	          by enable nth rewrite i_z | xy_false in prem
 		  }
 		  case suc(i') suppose i_si: i = suc(i') {
-		    definition operator ≤
+		    _definition operator ≤
 			have sxs_len: search(xs',y) < length(xs')
-			  by enable {search, length, operator <, operator ≤}
+			  by enable {search, length, operator <, operator ≤, operator+, operator+}
 				 rewrite xy_false in (conjunct 0 of prem)
 	        have nth_i_y: nth(xs',0)(i') = y
 			  by enable {nth, pred} rewrite i_si in (conjunct 1 of prem)
@@ -730,7 +730,7 @@ which we prove using the `empty_no_members` theorem from `Set.pf`.
 
 ```
   conclude not (y ∈ set_of(empty))
-      by definition {set_of} empty_no_members[Nat,y]
+      by _definition {set_of} empty_no_members[Nat,y]
 ```
 
 Turning to the case for `xs = node(x, xs')`, we take several
@@ -740,7 +740,7 @@ goal-directed steps.
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose s_xxs_len_xxs: search(node(x,xs'),y) = length(node(x,xs'))
-	definition set_of
+	_definition set_of
     ?
 ```
 
@@ -781,7 +781,7 @@ In the case where `x = y`, we have `search(node(x,xs'),y) = 0` but
 ```
   case true suppose xy {
 	have s_xxs_0: search(node(x,xs'),y) = 0
-		by definition search  rewrite xy.
+		by _definition search  rewrite xy
 	have z_len_xxs: 0 = length(node(x,xs'))
 		by rewrite s_xxs_0 in s_xxs_len_xxs
 	conclude false  by definition length in z_len_xxs
@@ -845,20 +845,20 @@ proof
     arbitrary y:Nat, d:Nat
     suppose _
     conclude not (y ∈ set_of(empty))
-        by definition {set_of} empty_no_members[Nat,y]
+        by _definition {set_of} empty_no_members[Nat,y]
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose s_xxs_len_xxs: search(node(x,xs'),y) = length(node(x,xs'))
-	definition set_of
+	_definition set_of
 	suppose y_in_x_union_xs: y ∈ single(x) ∪ set_of(xs')
     switch x = y {
       case true suppose xy {
 	    have s_xxs_0: search(node(x,xs'),y) = 0
-		    by definition search  rewrite xy.
+		    by _definition search  rewrite xy
 	    have z_len_xxs: 0 = length(node(x,xs'))
 		    by rewrite s_xxs_0 in s_xxs_len_xxs
-	    conclude false  by definition length in z_len_xxs
+	    conclude false  by definition {length, operator+} in z_len_xxs
       }
       case false suppose xy_false {
 	    have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
@@ -872,7 +872,7 @@ proof
 		     to ysx_or_y_xs, not_ysx
 		have sxs_lxs: search(xs',y) = length(xs')
 		  by injective suc
-			 rewrite xy_false in definition {search,length} in
+			 rewrite xy_false in definition {search,length,operator+,operator+} in
 			 s_xxs_len_xxs
 	    have y_not_xs: not (y ∈ set_of(xs'))
 		  by apply IH[y,d] to sxs_lxs

@@ -34,8 +34,8 @@ theorem in_left_union:
 proof
   arbitrary T:type, x:T, A: fn(T)->bool, B:fn(T)->bool
   suppose x_A: x ∈ A
-  definition {operator ∈, operator ∪}
-  conclude A(x)  by definition operator ∈ in x_A
+  _definition {operator ∈, operator ∪}
+  conclude A(x)  by _definition operator ∈ in x_A
 end
 
 theorem in_right_union:
@@ -44,6 +44,6 @@ theorem in_right_union:
 proof
   arbitrary T:type, x:T, A: fn(T)->bool, B:fn(T)->bool
   suppose x_B: x ∈ B
-  definition {operator ∈, operator ∪}
-  conclude B(x)  by definition operator ∈ in x_B
+  _definition {operator ∈, operator ∪}
+  conclude B(x)  by _definition operator ∈ in x_B
 end

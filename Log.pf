@@ -17,31 +17,31 @@ proof
   case 0 {
     arbitrary n:Nat, l:Nat
     suppose n_le_pl: n ≤ pow2(l)
-    definition {find_log, operator+}
+    _definition {find_log, operator+}
     n_le_pl
   }
   case suc(m') suppose IH {
     arbitrary n:Nat, l:Nat
     suppose prem
-    definition find_log
+    _definition find_log
     switch pow2(l) < suc(n) {
       case true {
         have sn_le_spl: suc(n) ≤ suc(pow2(l))
-	  by definition operator ≤  prem
+	  by _definition operator ≤  prem
         obtain p where pl_sp: pow2(l) = suc(p) from
 	  (apply positive_suc[pow2(l)] to pow_positive[l])
         have sn_le_psl: suc(n) ≤ pow2(suc(l))
-	  by definition {pow2, operator*,operator*,operator*,operator+}
-	     rewrite add_zero[pow2(l)] | pl_sp
-	     definition operator≤
-	     rewrite symmetric pl_sp | add_commute[p][pow2(l)]
+	  by _definition {pow2, operator*,operator*,operator*,operator+}
+	     _rewrite add_zero[pow2(l)] | pl_sp
+	     _definition operator≤
+	     _rewrite symmetric pl_sp | add_commute[p][pow2(l)]
 	     conclude n ≤ pow2(l) + p
 	       by apply less_equal_trans[n][pow2(l), pow2(l) + p] 
 	          to prem, less_equal_add[pow2(l)][p]
         have IH': m' + suc(n) ≤ pow2(find_log(m',suc(n),suc(l)))
 	  by apply IH[suc(n),suc(l)] to sn_le_psl
 	conclude suc(m') + n ≤ pow2(find_log(m',suc(n),suc(l)))
-	  by definition operator+ rewrite add_suc[m'][n] in IH'
+	  by _definition operator+ rewrite add_suc[m'][n] in IH'
       }
       case false suppose pl_l_sn_false {
         have not_pl_l_sn: not (pow2(l) < suc(n))
@@ -52,7 +52,7 @@ proof
         have IH': m' + suc(n) ≤ pow2(find_log(m',suc(n),l))
 	  by apply IH[suc(n), l] to sn_le_pl
         conclude suc(m') + n ≤ pow2(find_log(m',suc(n),l))
-	  by definition operator + rewrite add_suc[m'][n] in IH'
+	  by _definition operator + rewrite add_suc[m'][n] in IH'
       }
     }
   }
@@ -71,7 +71,7 @@ theorem less_equal_pow_log: all n:Nat.
   n ≤ pow2(log(n))
 proof
   arbitrary n:Nat
-  definition log
+  _definition log
   have f1: n + 0 ≤ pow2(find_log(n, 0, 0))
     by apply add_less_equal_pow_find_log[n][0,0] to
        apply less_implies_less_equal[0][pow2(0)] to pow_positive[0]

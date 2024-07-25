@@ -31,9 +31,9 @@ proof
   case empty {
     equations
       map(empty ++ ys, f)
-          = map(ys, f)                  by definition operator++.
-      ... = empty ++  map(ys, f)        by definition operator++.
-      ... = map(empty,f) ++ map(ys, f)  by definition map.
+          = map(ys, f)                  by definition operator++
+      ... = empty ++  map(ys, f)        by definition operator++
+      ... = map(empty,f) ++ map(ys, f)  by definition map
   }
   case node(x, xs')
     suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
@@ -42,7 +42,7 @@ proof
     equations
       map(node(x,xs') ++ ys, f)
           = node(f(x), map(xs' ++ ys, f))         by .
-      ... = node(f(x), map(xs',f) ++ map(ys,f))   by rewrite IH.
+      ... = node(f(x), map(xs',f) ++ map(ys,f))   by _rewrite IH.
       ... = map(node(x,xs'),f) ++ map(ys,f)       by .
   }
 end

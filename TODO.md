@@ -3,8 +3,6 @@
 
 [ ] rewrite with all-quantified equations
 
-[ ] error when rewrite doesn't rewrite
-
 [ ] add section on rewrite-in to the introduction
 
 [ ] implicit instantiation for all's
@@ -26,13 +24,15 @@
 
 [ ] create student exercises
 
-[ ] specify number of unfoldings in definition and enable
+[ ] specify number of unfoldings in _definition and enable
 
 [ ] remove parent param from parser, not needed anymore
 
+[x] error when rewrite doesn't rewrite
+
 [x] fix generics, implement type passing, see operator ⊆ in Set.pf
 
-[x] change how definition works, use substitution insetad of reduce
+[x] change how _definition works, use substitution insetad of reduce
 
 [x] change 'let' to 'define'
 
