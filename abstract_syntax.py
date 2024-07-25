@@ -442,7 +442,7 @@ class Var(AST):
   def __eq__(self, other):
       # if isinstance(other, DefinedValue):
       #   return self == other.body
-      if isinstance(other, RecFunClosure):
+      if isinstance(other, RecFun):
         return self.name == other.name
       if not isinstance(other, Var):
         return False
@@ -535,9 +535,6 @@ class Lambda(Term):
       return new_body == other.body
 
   def reduce(self, env):
-    #clos = Closure(self.location, self.vars, self.body.reduce(env), env)
-    #clos.typeof = self.typeof
-    #return clos
     lam = Lambda(self.location, self.vars, self.body.reduce(env))
     lam.typeof = self.typeof
     return lam
@@ -557,39 +554,6 @@ class Lambda(Term):
     self.vars = new_vars
     self.body.uniquify(body_env)
     
-# @dataclass
-# class Closure(Term):
-#   vars: List[str]
-#   body: Term
-#   env: Any
-  
-#   def __str__(self):
-#     return "λᶜ" + ",".join([base_name(v) for v in self.vars]) \
-#       + "{" + str(self.body) + "}"
-
-#   def __repr__(self):
-#     return str(self)
-
-#   def __eq__(self, other):
-#       if not isinstance(other, Closure):
-#           #print('other not closure')
-#           return False
-#       sub = {y: Var(self.location, x) for (x,y) in zip(self.vars, other.vars)}
-#       ret = self.body == other.body.substitute(sub)
-#       return ret
-
-#   def reduce(self, env):
-#     clos = Closure(self.location, self.vars, self.body.reduce(env), self.env)
-#     clos.typeof = self.typeof
-#     return clos
-
-#   def substitute(self, sub):
-#       n = len(self.vars)
-#       #new_sub = {k: v for (k,v) in sub.items()}
-#       clos = Closure(self.location, self.vars, self.body.substitute(sub), self.env)
-#       clos.typeof = self.typeof
-#       return clos
-  
 @dataclass
 class DefinedValue(Term):
   name: str
@@ -660,7 +624,7 @@ def is_operator(trm):
     case Var(loc, name, idx):
       return base_name(name) in infix_precedence.keys() \
           or base_name(name) in prefix_precedence.keys()
-    case RecFunClosure(loc, name, typarams, params, returns, cases, env):
+    case RecFun(loc, name, typarams, params, returns, cases):
       return base_name(name) in infix_precedence.keys() \
           or base_name(name) in prefix_precedence.keys()
     case _:
@@ -670,7 +634,7 @@ def operator_name(trm):
   match trm:
     case Var(loc, name, idx):
       return base_name(name)
-    case RecFunClosure(loc, name, typarams, params, returns, cases, env):
+    case RecFun(loc, name, typarams, params, returns, cases):
       return base_name(name)
     case _:
       raise Exception('operator_name, unexpected term ' + str(trm))
@@ -758,15 +722,6 @@ class Call(Term):
           ret = Bool(loc, False)
         else:
           ret = Call(self.location, fun, args, self.infix)
-      # case Closure(loc, vars, body, clos_env):
-      #   #print('reduce closure ' + str(fun))
-      #   subst = {k: v for (k,v) in zip(vars, args)}
-      #   body_env = env
-      #   new_body = body.substitute(subst)
-      #   old_defs = get_reduce_only()
-      #   set_reduce_only(old_defs + [Var(loc, x) for x in vars])
-      #   ret = new_body.reduce(body_env)
-      #   set_reduce_only(old_defs)
       case Lambda(loc, vars, body):
         #print('reduce lambda ' + str(fun))
         subst = {k: v for (k,v) in zip(vars, args)}
@@ -776,7 +731,7 @@ class Call(Term):
         set_reduce_only(old_defs + [Var(loc, x) for x in vars])
         ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
-      case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
+      case RecFun(loc, name, typarams, params, returns, cases): #, clos_env):
         #print('reduce recursive fun ' + name)
         first_arg = args[0]
         rest_args = args[1:]
@@ -1949,56 +1904,12 @@ class RecFun(Statement):
     return str(self)
 
   def __eq__(self, other):
-    if not isinstance(other, RecFun):
-      return False
-    return self.name == other.name
-
-  def reduce(self, env):
-    clos = RecFunClosure(self.location, self.name, self.type_params,
-                         self.params, self.returns, self.cases, None)
-    clos.env = env.define_term_var(self.location, self.name, None, clos)
-    #clos.env = env
-    clos.typeof = FunctionType(self.location, self.type_params,
-                               self.params, self.returns)
-    #print('*RecFun.reduce clos.env = ' + str(clos.env))
-    return clos
-
-  def substitute(self, sub):
-    return self
-
-@dataclass
-class RecFunClosure(Statement):
-  name: str
-  type_params: List[str]
-  params: List[Type]
-  returns: Type
-  cases: List[FunCase]
-  env: Any
-
-  def __str__(self):
-    if get_verbose():
-      return '$' + self.name
-    else:
-      #return '$' + base_name(self.name)
-      return base_name(self.name)
-  
-    # return '[' + self.name \
-    #    + '<' + ','.join(self.type_params) + '>' \
-    #    + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
-    #    + ' -> ' + str(self.returns) + '{' \
-    #    + ' '.join([str(c) for c in self.cases]) \
-    #    + '}' + ']'
-
-  def __repr__(self):
-    return str(self)
-
-  def __eq__(self, other):
     if isinstance(other, Var):
       return self.name == other.name
-    if not isinstance(other, RecFunClosure):
+    elif not isinstance(other, RecFun):
       return False
     return self.name == other.name
-
+  
   def reduce(self, env):
     return self
 

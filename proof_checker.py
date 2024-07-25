@@ -142,7 +142,7 @@ def rewrite(loc, formula, equation):
                     [rewrite(loc, c, equation) for c in cases])
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, rewrite(loc, body, equation))
-    case RecFunClosure(loc, name, typarams, params, returns, cases, clos_env):
+    case RecFun(loc, name, typarams, params, returns, cases):
       return formula
     case Conditional(loc2, cond, thn, els):
       return Conditional(loc2, rewrite(loc, cond, equation),
@@ -152,20 +152,20 @@ def rewrite(loc, formula, equation):
       lam = Lambda(loc2, vars, rewrite(loc, body, equation))
       lam.typeof = formula.typeof
       return lam
-    # case Closure(loc2, vars, body, clos_env):
-    #   clos = Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
-    #   clos.typeof = formula.typeof
-    #   return clos
+  
     case DefinedValue(loc2, name, body):
       return DefinedValue(loc2, name, rewrite(loc, body, equation))
+  
     case Generic(loc2, typarams, body):
       return Generic(loc2, typarams, rewrite(loc, body, equation))
+  
     case TAnnote(loc2, subject, typ):
       return TAnnote(loc, rewrite(loc, subject, equation), typ)
+  
     case TLet(loc2, var, rhs, body):
       return TLet(loc2, var, rewrite(loc, rhs, equation), rewrite(loc, body, equation))
+  
     case _:
-      # return formula
       error(loc, 'in rewrite, unhandled ' + str(formula))
 
 def facts_to_str(env):
