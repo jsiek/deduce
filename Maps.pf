@@ -1,5 +1,5 @@
 
-import Sets
+import Set
 import Option
 
 define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
@@ -11,7 +11,7 @@ theorem update_eq :
 proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U
-  _definition update.
+  definition update
 end
 
 theorem update_not_eq :
@@ -83,26 +83,30 @@ end
 
 /* Partial Maps */
 
-define domain : < T,U > fn (fn(T)->Option<U>) -> fn(T)->bool
-              = λf{λx{ switch f(x) {
+define domain : < T,U > fn (fn(T)->Option<U>) -> Set<T>
+              = λf{char_fun(λx{ switch f(x) {
 	                 case none { false }
 			 case just(y) { true }
-		  }}}
+		  }})}
 
-define restrict : < T,U > fn (fn(T)->Option<U>), (fn(T)->bool) -> (fn(T)->Option<U>)
-                = λf,P{λx{ if P(x) then f(x) else none }}
+define restrict : < T,U > fn (fn(T)->Option<U>), (Set<T>) -> (fn(T)->Option<U>)
+                = λf,P{λx{ if x ∈ P then f(x) else none }}
 		
 theorem restrict_domain:
-  < T, U > all f:fn(T)->Option<U>, P:fn(T)->bool.
+  < T, U > all f:fn(T)->Option<U>, P:Set<T>.
   domain(restrict(f, P)) ⊆ P
 proof
   arbitrary T:type, U:type
-  arbitrary f:fn(T)->Option<U>, P:fn(T)->bool
+  arbitrary f:fn(T)->Option<U>, P:Set<T>
   _definition {restrict, domain, operator ⊆}
   arbitrary x:T
   suppose prem
-  switch P(x) {
+  switch x ∈ P {
     case true { . }
-    case false suppose Px_false { have false by _rewrite Px_false in prem  }
+    case false suppose Px_false {
+      have false by
+        rewrite (definition operator∈ in Px_false) in
+        definition {operator∈, rep} in prem
+    }
   }
 end

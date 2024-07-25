@@ -30,6 +30,7 @@ tests:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/after.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Set.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py Maps.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Nat.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py NatTests.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Log.pf

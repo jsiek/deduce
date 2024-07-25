@@ -517,9 +517,12 @@ class Lambda(Term):
   body: Term
 
   def copy(self):
-    return Lambda(self.location,
-                  [v for v in self.vars],
-                  self.body.copy())
+    lam = Lambda(self.location,
+                 [v for v in self.vars],
+                 self.body.copy())
+    if hasattr(self,'typeof'):
+      lam.typeof = self.typeof
+    return lam
   
   def __str__(self):
     return "λ" + ",".join([base_name(x) for x in self.vars]) + "{" + str(self.body) + "}"
@@ -1097,7 +1100,12 @@ class IfThen(Formula):
   def copy(self):
     return IfThen(self.location, self.premise.copy(), self.conclusion.copy())
   def __str__(self):
-    return '(if ' + str(self.premise) + ' then ' + str(self.conclusion) + ')'
+    match self.conclusion:
+      case Bool(loc, False):
+        return 'not (' + str(self.premise) + ')'
+      case _:
+        return '(if ' + str(self.premise) \
+          + ' then ' + str(self.conclusion) + ')'
   def __repr__(self):
     return str(self)
   def __eq__(self, other):
@@ -1138,8 +1146,8 @@ class All(Formula):
                self.body.copy())
   
   def __str__(self):
-    return 'all ' + ", ".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
-        + '. ' + str(self.body)
+    return '(all ' + ", ".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
+        + '. ' + str(self.body) + ')'
 
   def reduce(self, env):
     n = len(self.vars)
@@ -1894,11 +1902,13 @@ class RecFun(Statement):
 
     
   def __str__(self):
-    return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
-      + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
-      + ' -> ' + str(self.returns) + '{\n' \
-      + '\n'.join([str(c) for c in self.cases]) \
-      + '\n}'
+    return base_name(self.name)
+  
+    # return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
+    #   + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
+    #   + ' -> ' + str(self.returns) + '{\n' \
+    #   + '\n'.join([str(c) for c in self.cases]) \
+    #   + '\n}'
 
   def __repr__(self):
     return str(self)

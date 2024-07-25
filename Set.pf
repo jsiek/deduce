@@ -51,10 +51,10 @@ proof
 end
 
 theorem empty_no_members: all T:type, x:T.
-  not (x ∈ char_fun(λx{false}))
+  not (x ∈ ∅)
 proof
   arbitrary T:type, x:T
-  suppose x_in_empty: x ∈ char_fun(λx{false})
+  suppose x_in_empty: x ∈ ∅
   enable {operator ∈, rep}
   x_in_empty
 end
@@ -92,25 +92,29 @@ theorem union_empty: all T:type, A:Set<T>.
   A ∪ ∅ = A
 proof
   arbitrary T:type, A:Set<T>
-  _definition {operator ∪, rep, char_fun}
+  suffices char_fun(λx{rep(A)(x)} : fn T->bool) = A
+      by definition {operator ∪, rep, char_fun}
   switch A {
     case char_fun(f) {
-      have eq: (λx{f(x) or false} : fn T->bool) = f
-        by extensionality arbitrary x:T.
+      have eq: (λx{f(x)} : fn T->bool) = f
+          by extensionality arbitrary x:T.
+      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)
+          by definition rep
       rewrite eq
     }
   }
 end
 
 theorem empty_union: all T:type, A:Set<T>.
-  char_fun(λx{false} : fn T->bool) ∪ A = A
+  char_fun[T](λx{false}) ∪ A = A
 proof
   arbitrary T:type, A:Set<T>
-  _definition {operator ∪, rep, char_fun}
+  suffices char_fun[T](λx{rep(A)(x)}) = A
+      by definition {operator ∪, rep, char_fun}
   switch A {
     case char_fun(f) {
-      have eq: (λx{f(x) or false} : fn T->bool) = f
-        by extensionality arbitrary x:T.
+      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by definition rep
+      have eq: (λx{f(x)} : fn T->bool) = f  by extensionality arbitrary x:T.
       rewrite eq
     }
   }
@@ -120,12 +124,16 @@ theorem union_sym: all T:type, A:Set<T>, B:Set<T>.
   A ∪ B = B ∪ A
 proof
   arbitrary T:type, A:Set<T>, B:Set<T>
-  _definition {operator ∪}
+  suffices char_fun(λx{(rep(A)(x) or rep(B)(x))} : fn T->bool)
+         = char_fun(λx{(rep(B)(x) or rep(A)(x))})
+      by definition operator ∪
   switch A {
     case char_fun(f) {
       switch B {
 	case char_fun(g) {
-	  _definition rep
+	  suffices char_fun(λx{(f(x) or g(x))} : fn T->bool)
+                 = char_fun(λx{(g(x) or f(x))})
+              by definition rep
 	  have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
 	    by extensionality arbitrary x:T 
 	       rewrite or_sym[f(x),g(x)]
@@ -140,24 +148,7 @@ theorem union_assoc: all T:type, A:Set<T>, B:Set<T>, C:Set<T>.
   (A ∪ B) ∪ C = A ∪ (B ∪ C)
 proof
   arbitrary T:type, A:Set<T>, B:Set<T>, C:Set<T>
-  _definition {operator ∪}
-  switch A {
-    case char_fun(f) {
-      switch B {
-	case char_fun(g) {
-	  switch C {
-	    case char_fun(h) {
-	      _definition rep
-	      have fgh_eq: (λx{(f(x) or g(x)) or h(x)} : fn T->bool)
-	                 = λx{f(x) or (g(x) or h(x))}
-	        by extensionality arbitrary x:T.
-              rewrite fgh_eq
-	    }
-	  }
-	}
-      }
-    }
-  }
+  definition {operator ∪, rep}
 end
 
 theorem in_left_union:
@@ -167,7 +158,8 @@ proof
   arbitrary T:type, B:Set<T>
   arbitrary x:T, A: Set<T>
   suppose x_A: x ∈ A
-  _definition {operator ∈, operator ∪, rep}
+  suffices (rep(A)(x) or rep(B)(x))
+      by definition {operator ∈, operator ∪, rep}
   definition operator ∈ in x_A
 end
 
@@ -186,7 +178,10 @@ theorem subset_equal:
   if A ⊆ B and B ⊆ A
   then A = B
 proof
-  _definition operator⊆ 
+  suffices all T:type, A:Set<T>, B:Set<T>.
+    if (all x:T. (if x ∈ A then x ∈ B)) and (all x:T. (if x ∈ B then x ∈ A))
+    then A = B
+        by definition operator⊆
   arbitrary U:type, A:Set<U>, B:Set<U>
   suppose prem
   switch A {

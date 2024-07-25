@@ -592,12 +592,14 @@ def check_proof_of(proof, formula, env):
                 + '\nremains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
+      type_check_term(claim, BoolType(loc), env, None, [])
       match reason:
         case ApplyDefs(loc2, definitions):
           defs = [d.reduce(env) for d in definitions]
           new_formula = apply_definitions(loc, formula, defs, env)
-          check_implies(loc, claim, new_formula)
-          check_proof_of(rest, claim, env)
+          new_claim = claim.reduce(env)
+          check_implies(loc, new_claim, new_formula)
+          check_proof_of(rest, new_claim, env)
           
         case Rewrite(loc2, equation_proofs):
           equations = [check_proof(proof, env) for proof in equation_proofs]
@@ -608,8 +610,9 @@ def check_proof_of(proof, formula, env):
               eq = make_boolean_equation(eq)
             new_formula = rewrite(loc, new_formula, eq)
             new_formula = new_formula.reduce(env)
-          check_implies(loc, claim, new_formula)
-          check_proof_of(rest, claim, env)
+          new_claim = claim.reduce(env)
+          check_implies(loc, new_claim, new_formula)
+          check_proof_of(rest, new_claim, env)
           
         case _:          
           error(loc, 'in suffices-by, reason can only be definition_ or rewrite_, not: ' + str(reason))
@@ -1028,10 +1031,6 @@ def type_synth_term(term, env, recfun, subterms):
     case Call(loc, Var(loc2, name), args, infix) if name == '=' or name == '≠':
       lhs_ty = type_synth_term(args[0], env, recfun, subterms)
       type_check_term(args[1], lhs_ty, env, recfun, subterms)
-      # rhs_ty = type_synth_term(args[1], env, recfun, subterms)
-      # if lhs_ty != rhs_ty:
-      #   error(loc, 'equality expects same type of thing on left and right-hand side'\
-      #         + ' but ' + str(lhs_ty) + ' ≠ ' + str(rhs_ty))
       ret = BoolType(loc)
         
     case Call(loc, Var(loc2, name, index), args, infix) if name == recfun:
