@@ -34,7 +34,7 @@ function mset_of<T>(List<T>) -> MultiSet<T> {
   mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
 }
 
-assert length(empty : List<Nat>) = 0
+assert length[Nat](empty) = 0
 assert length(node(42, empty)) = 1
 
 function map<T,U>(List<T>, fn T->U) -> List<U> {
@@ -258,14 +258,14 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    conclude length(empty ++ ys) = length(empty : List<U>) + length(ys)  by .
+    conclude length(empty ++ ys) = length[U](empty) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
     equations
       length(node(n,xs') ++ ys)
-          = 1 + length(xs' ++ ys)        by .
-      ... = 1 + (length(xs') + length(ys))     by _rewrite IH[ys].
+          = 1 + length(xs' ++ ys)              by .
+      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys]
       ... = length(node(n,xs')) + length(ys)   by .
   }
 end
@@ -314,7 +314,7 @@ proof
   arbitrary U : type
   induction List<U>
   case empty {
-    have length(reverse(empty : List<U>)) = length(empty : List<U>)
+    have length(reverse[U](empty)) = length[U](empty)
         by definition reverse
   }
   case node(n, xs') suppose IH {
@@ -364,7 +364,7 @@ proof
   arbitrary U :type
   induction List<U>
   case empty {
-    have reverse(reverse(empty : List<U>)) = empty by definition reverse
+    have reverse(reverse[U](empty)) = empty by definition reverse
   }
   case node(n, ls') suppose IH {
     enable {reverse, reverse, operator++, operator++}
@@ -479,7 +479,7 @@ proof
   case empty {
     arbitrary ys:List<U1>
     conclude zip(map(empty,f),map(ys,g))
-       = map(zip(empty:List<T1>,ys), pairfun(f,g))  by .
+       = map(zip[T1,U1](empty,ys), pairfun(f,g))  by .
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<U1>
@@ -843,7 +843,7 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat, d:T
-    suppose i_z: i < length(empty : List<T>)
+    suppose i_z: i < length[T](empty)
     conclude false by definition {length, operator <, operator ≤} in i_z
   }
   case node(x, xs) suppose IH {

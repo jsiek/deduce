@@ -300,7 +300,7 @@ class PatternCons(Pattern):
   def __str__(self):
       if len(self.parameters) > 0:
         return str(self.constructor) \
-          + '(' + ",".join([p for p in self.parameters]) + ')'
+          + '(' + ",".join([base_name(p) for p in self.parameters]) + ')'
       else:
         return str(self.constructor)
 
