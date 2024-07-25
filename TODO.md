@@ -1,3 +1,5 @@
+[ ] Remove closures??
+
 [ ] equations for ≤, etc. (anything with transitivity)
 
 [ ] hide the suc-oriented arithmetic
