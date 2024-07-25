@@ -95,7 +95,7 @@ proof
   _definition {operator ∪, rep, char_fun}
   switch A {
     case char_fun(f) {
-      have eq: (λx{f(x)} : fn T->bool) = f
+      have eq: (λx{f(x) or false} : fn T->bool) = f
         by extensionality arbitrary x:T.
       rewrite eq
     }

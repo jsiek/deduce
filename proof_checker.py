@@ -152,10 +152,10 @@ def rewrite(loc, formula, equation):
       lam = Lambda(loc2, vars, rewrite(loc, body, equation))
       lam.typeof = formula.typeof
       return lam
-    case Closure(loc2, vars, body, clos_env):
-      clos = Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
-      clos.typeof = formula.typeof
-      return clos
+    # case Closure(loc2, vars, body, clos_env):
+    #   clos = Closure(loc2, vars, rewrite(loc, body, equation), clos_env)
+    #   clos.typeof = formula.typeof
+    #   return clos
     case DefinedValue(loc2, name, body):
       return DefinedValue(loc2, name, rewrite(loc, body, equation))
     case Generic(loc2, typarams, body):

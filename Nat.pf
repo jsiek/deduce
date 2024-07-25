@@ -532,6 +532,17 @@ proof
   definition operator≤ in prem
 end
 
+theorem less_suc: all x:Nat, y:Nat.
+  if x < y
+  then suc(x) < suc(y)
+proof
+  arbitrary x:Nat, y:Nat
+  suppose x_l_y: x < y
+  suffices suc(suc(x)) ≤ suc(y)   by definition operator<
+  suffices suc(x) ≤ y             by definition operator≤ 
+  definition operator< in x_l_y
+end
+
 theorem suc_less: all x:Nat, y:Nat.
   if suc(x) < suc(y)
   then x < y
@@ -576,7 +587,7 @@ proof
         cases xy_or_xy
         case x_l_y {
           have sx_l_sy: suc(x') < suc(y')
-            by enable {operator<, operator≤} x_l_y
+            by apply less_suc to x_l_y
           conclude (suc(x') < suc(y') or suc(x') = suc(y'))
             by sx_l_sy
         }
@@ -755,8 +766,7 @@ proof
   }
   case suc(x') suppose IH: not (x' < x') {
     suppose sx_l_sx: suc(x') < suc(x')
-    enable {operator <, operator ≤}
-    have x_l_x: x' < x' by sx_l_sx
+    have x_l_x: x' < x' by apply suc_less to sx_l_sx
     conclude false by apply IH to x_l_x
   }
 end

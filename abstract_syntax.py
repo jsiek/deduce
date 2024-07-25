@@ -535,9 +535,12 @@ class Lambda(Term):
       return new_body == other.body
 
   def reduce(self, env):
-    clos = Closure(self.location, self.vars, self.body.reduce(env), env)
-    clos.typeof = self.typeof
-    return clos
+    #clos = Closure(self.location, self.vars, self.body.reduce(env), env)
+    #clos.typeof = self.typeof
+    #return clos
+    lam = Lambda(self.location, self.vars, self.body.reduce(env))
+    lam.typeof = self.typeof
+    return lam
 
   def substitute(self, sub):
       n = len(self.vars)
@@ -554,38 +557,38 @@ class Lambda(Term):
     self.vars = new_vars
     self.body.uniquify(body_env)
     
-@dataclass
-class Closure(Term):
-  vars: List[str]
-  body: Term
-  env: Any
+# @dataclass
+# class Closure(Term):
+#   vars: List[str]
+#   body: Term
+#   env: Any
   
-  def __str__(self):
-    return "λᶜ" + ",".join([base_name(v) for v in self.vars]) \
-      + "{" + str(self.body) + "}"
+#   def __str__(self):
+#     return "λᶜ" + ",".join([base_name(v) for v in self.vars]) \
+#       + "{" + str(self.body) + "}"
 
-  def __repr__(self):
-    return str(self)
+#   def __repr__(self):
+#     return str(self)
 
-  def __eq__(self, other):
-      if not isinstance(other, Closure):
-          #print('other not closure')
-          return False
-      sub = {y: Var(self.location, x) for (x,y) in zip(self.vars, other.vars)}
-      ret = self.body == other.body.substitute(sub)
-      return ret
+#   def __eq__(self, other):
+#       if not isinstance(other, Closure):
+#           #print('other not closure')
+#           return False
+#       sub = {y: Var(self.location, x) for (x,y) in zip(self.vars, other.vars)}
+#       ret = self.body == other.body.substitute(sub)
+#       return ret
 
-  def reduce(self, env):
-    clos = Closure(self.location, self.vars, self.body.reduce(env), self.env)
-    clos.typeof = self.typeof
-    return clos
+#   def reduce(self, env):
+#     clos = Closure(self.location, self.vars, self.body.reduce(env), self.env)
+#     clos.typeof = self.typeof
+#     return clos
 
-  def substitute(self, sub):
-      n = len(self.vars)
-      #new_sub = {k: v for (k,v) in sub.items()}
-      clos = Closure(self.location, self.vars, self.body.substitute(sub), self.env)
-      clos.typeof = self.typeof
-      return clos
+#   def substitute(self, sub):
+#       n = len(self.vars)
+#       #new_sub = {k: v for (k,v) in sub.items()}
+#       clos = Closure(self.location, self.vars, self.body.substitute(sub), self.env)
+#       clos.typeof = self.typeof
+#       return clos
   
 @dataclass
 class DefinedValue(Term):
@@ -755,15 +758,15 @@ class Call(Term):
           ret = Bool(loc, False)
         else:
           ret = Call(self.location, fun, args, self.infix)
-      case Closure(loc, vars, body, clos_env):
-        #print('reduce closure ' + str(fun))
-        subst = {k: v for (k,v) in zip(vars, args)}
-        body_env = env
-        new_body = body.substitute(subst)
-        old_defs = get_reduce_only()
-        set_reduce_only(old_defs + [Var(loc, x) for x in vars])
-        ret = new_body.reduce(body_env)
-        set_reduce_only(old_defs)
+      # case Closure(loc, vars, body, clos_env):
+      #   #print('reduce closure ' + str(fun))
+      #   subst = {k: v for (k,v) in zip(vars, args)}
+      #   body_env = env
+      #   new_body = body.substitute(subst)
+      #   old_defs = get_reduce_only()
+      #   set_reduce_only(old_defs + [Var(loc, x) for x in vars])
+      #   ret = new_body.reduce(body_env)
+      #   set_reduce_only(old_defs)
       case Lambda(loc, vars, body):
         #print('reduce lambda ' + str(fun))
         subst = {k: v for (k,v) in zip(vars, args)}

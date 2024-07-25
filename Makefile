@@ -1,5 +1,9 @@
 
-default: check_README check_fun check_intro
+default: tests check_docs
+
+check_docs: check_README check_fun check_intro 
+
+tests:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/generic1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true_error.pf --error
@@ -25,6 +29,7 @@ default: check_README check_fun check_intro
 	/opt/homebrew/bin/python3.10 ./deduce.py test/bintree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/after.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py Set.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Nat.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py NatTests.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Log.pf
@@ -41,7 +46,6 @@ default: check_README check_fun check_intro
 	/opt/homebrew/bin/python3.10 ./deduce.py TreeProperties.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Heap2.pf
 #	/opt/homebrew/bin/python3.10 ./deduce.py Heap.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py Set.pf
 #	/opt/homebrew/bin/python3.10 ./deduce.py Maps.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Option.pf
 #	/opt/homebrew/bin/python3.10 ./deduce.py SearchTree.pf
