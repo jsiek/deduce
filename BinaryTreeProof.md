@@ -903,11 +903,9 @@ proof
     case TrItr(path, L, x, R) {
       switch R {
         case EmptyTree {
-          _definition {ti2tree, ti_next}
           ?
         }
         case TreeNode(RL, y, RR) {
-          _definition {ti2tree, ti_next}
           ?
         }
       }
@@ -916,14 +914,18 @@ proof
 end
 ```
 
-For the case `R = EmptyTree`, we need to prove the following, which
-amounts to proving that `next_up` is stable.
+For the case `R = EmptyTree`, after unfolding the definitions of
+`ti2tree` and `ti_next`, we need to prove the following, which amounts
+to proving that `next_up` is stable.
 
 ```
-ti2tree(next_up(path,L,x,EmptyTree)) = plug_tree(path,TreeNode(L,x,EmptyTree))
+    suffices ti2tree(next_up(path,L,x,EmptyTree))
+           = plug_tree(path,TreeNode(L,x,EmptyTree))
+        by definition {ti2tree, ti_next}
 ```
 
-We'll pause the current proof to prove the `next_up_stable` lemma.
+We'll pause the current proof to pose the `next_up_stable` lemma as an
+exercise.
 
 ## Exercise: `next_up_stable` lemma
 
@@ -934,23 +936,28 @@ lemma next_up_stable: all E:type. all path:List<Direction<E>>. all A:Tree<E>, y:
 
 ## Back to `ti_next_stable`
 
-Now we conclude the `R = EmptyTree` case of the `ti_next_stable` theorem.
+The `R = EmptyTree` case of the `ti_next_stable` theorem now follows
+from the `next_up_stable` lemma.
 
 ```
-    conclude ti2tree(next_up(path,L,x,EmptyTree))
-       = plug_tree(path,TreeNode(L,x,EmptyTree))
-      by next_up_stable[E][path][L,x,EmptyTree]
+    next_up_stable[E][path][L,x,EmptyTree]
 ```
 
-In the case `R = TreeNode(RL, y, RR)`, we need prove the following,
-which is to say that `first_path` is stable. Thankfully we already
-proved that lemma!
+In the case `R = TreeNode(RL, y, RR)`, after unfolding the appropriate
+definitions, we need the property that `first_path` is
+stable. Thankfully we already proved that lemma!
 
 ```
-    conclude ti2tree(first_path(RL,y,RR,node(RightD(L,x),path))) 
-           = plug_tree(path,TreeNode(L,x,TreeNode(RL,y,RR)))
-      by _rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
-         definition plug_tree
+    equations
+          ti2tree(ti_next(TrItr(path,L,x,TreeNode(RL,y,RR)))) 
+        = ti2tree(first_path(RL,y,RR,node(RightD(L,x),path)))
+          by definition ti_next
+    ... = plug_tree(node(RightD(L,x),path),TreeNode(RL,y,RR))
+          by rewrite first_path_stable[E][RL][y,RR,node(RightD(L,x),path)]
+    ... = plug_tree(path,TreeNode(L,x,TreeNode(RL,y,RR)))
+          by definition plug_tree
+    ... = ti2tree(TrItr(path,L,x,TreeNode(RL,y,RR)))
+          by definition ti2tree
 ```
 
 Here is the completed proof of `ti_next_stable`.
@@ -970,7 +977,6 @@ proof
           next_up_stable[E][path][L,x,EmptyTree]
         }
         case TreeNode(RL, y, RR) {
-          suffices ti2tree(ti_next(TrItr(path,L,x,TreeNode(RL,y,RR)))) = ti2tree(TrItr(path,L,x,TreeNode(RL,y,RR)))
           equations
                 ti2tree(ti_next(TrItr(path,L,x,TreeNode(RL,y,RR)))) 
               = ti2tree(first_path(RL,y,RR,node(RightD(L,x),path)))
