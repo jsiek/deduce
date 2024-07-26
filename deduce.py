@@ -1,7 +1,7 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
 import sys
-from parser import parse, set_filename
+from parser import parse, set_filename, get_filename
 from lark import exceptions
 import traceback
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         if error_expected:
             exit(0)
         else:
-            print(filename + ":" + str(t.token.line) + "." + str(t.token.column) \
+            print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
                   + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
                   + "error in parsing, unexpected token: " + token_str(t.token))
             #print('expected one of ' + ', '.join([str(e) for e in t.expected]))

@@ -104,7 +104,7 @@ proof
   switch x ∈ P {
     case true { . }
     case false suppose Px_false {
-      have false by
+      conclude false by
         rewrite (definition operator∈ in Px_false) in
         definition {operator∈, rep} in prem
     }

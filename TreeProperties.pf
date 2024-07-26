@@ -519,16 +519,21 @@ lemma nth_in_order_plug_take:
      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L)) = x
 proof
   arbitrary E:type, path:List<Direction<E>>, L:Tree<E>, x:E, R:Tree<E>, a:E
-  _rewrite in_order_plug_take_drop[E][path][L,x,R]
-        | in_order_plug_take[E][path][L]
-        | symmetric length_in_order[E][L]
-        | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
+  suffices nth((in_order(plug_tree(take_path(path), EmptyTree)) ++ in_order(L))
+                ++ node(x, in_order(plug_tree(drop_path(path), R))), a)
+              (length(in_order(plug_tree(take_path(path), EmptyTree))) + length(in_order(L)))
+           = x
+      with rewrite in_order_plug_take_drop[E][path][L,x,R]
+                 | in_order_plug_take[E][path][L]
+                 | symmetric length_in_order[E][L]
+                 | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
   define_ X = in_order(plug_tree(take_path(path),EmptyTree))
   define_ Y = in_order(L)
   define_ Z = in_order(plug_tree(drop_path(path),R))
-  _rewrite symmetric length_append[E][X][Y]
-  suffices nth((X ++ Y) ++ node(x,Z), a)(length(X ++ Y)) = x
-  _rewrite (rewrite add_zero[length(X ++ Y)] in
+  suffices nth((X ++ Y) ++ node(x,Z),a)(length(X ++ Y)) = x
+      with rewrite symmetric length_append[E][X][Y]
+  suffices nth(node(x, Z), a)(0) = x
+      with rewrite (rewrite add_zero[length(X ++ Y)] in
            nth_append_back[E][X ++ Y][node(x,Z), 0, a])
   definition nth
 end
@@ -543,12 +548,12 @@ proof
       _rewrite num_nodes_plug[E][take_path(path)][L]
       
       suffices x = nth(in_order(plug_tree(path,TreeNode(L,x,R))),a)
-                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))  by .
       _rewrite in_order_plug_take_drop[E][path][L,x,R]
             | in_order_plug_take[E][path][L]
       suffices x = nth(((in_order(plug_tree(take_path(path),EmptyTree)) ++ in_order(L))
                         ++ node(x, in_order(plug_tree(drop_path(path),R)))), a)
-                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))
+                      (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L))  by .
       _rewrite symmetric length_in_order[E][L]
             | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
       define_ X = in_order(plug_tree(take_path(path),EmptyTree))
@@ -556,7 +561,7 @@ proof
       define_ Z = in_order(plug_tree(drop_path(path),R))
       _rewrite symmetric length_append[E][X][Y]
       
-      suffices x = nth((X ++ Y) ++ node(x,Z), a)(length(X ++ Y))
+      suffices x = nth((X ++ Y) ++ node(x,Z), a)(length(X ++ Y))  by .
       _rewrite (rewrite add_zero[length(X ++ Y)] in
                nth_append_back[E][X ++ Y][node(x,Z), 0, a])
       definition nth
@@ -685,7 +690,7 @@ proof
         _definition {num_nodes, operator+, operator+}
         suffices in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
                = take(num_nodes(plug_tree(take_path(path'),EmptyTree)) + suc(num_nodes(L) + num_nodes(A)),
-                      in_order(plug_tree(path', TreeNode(L,z,TreeNode(A,x,B)))))
+                      in_order(plug_tree(path', TreeNode(L,z,TreeNode(A,x,B)))))  by .
         have IH2: in_order(plug_tree(take_path(path'),TreeNode(L,z,A)))
                 = take(num_nodes(plug_tree(take_path(path'),TreeNode(L,z,A))),in_order(ti2tree(TrItr(path',TreeNode(L,z,A),x,B))))
           by IH[TreeNode(L, z, A), x, B]

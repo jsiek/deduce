@@ -3,7 +3,6 @@
 
 from abstract_syntax import *
 from error import error, warning, get_verbose, set_verbose
-from parser import parse, set_filename, get_filename
 
 name_id = 0
 
@@ -56,7 +55,14 @@ def check_implies(loc, frm1, frm2):
       check_implies(loc, body1, body2a)
     case _:
       if frm1 != frm2:
-        error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
+        (small_frm1, small_frm2) = isolate_difference(frm1, frm2)
+        if small_frm1 != frm1:
+            msg = 'error, the proved formula does not match the goal\n' \
+                + '\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' \
+                + 'therefore\n\t' + str(frm1) + '\n\t≠ ' + str(frm2)
+            error(loc, msg)
+        else:
+            error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
 
 def instantiate(loc, allfrm, args):
   match allfrm:
@@ -196,7 +202,7 @@ def isolate_difference(term1, term2):
         if fun1 == fun2:
           return isolate_difference_list(args1, args2)
         else:
-          return (fun1, fun2)
+          return isolate_difference(fun1, fun2)
       case (SwitchCase(l1, p1, body1), SwitchCase(l2, p2, body2)):
         if p1 == p2:
           return isolate_difference(body1, body2)
@@ -594,10 +600,12 @@ def check_proof_of(proof, formula, env):
     case Suffices(loc, claim, reason, rest):
       type_check_term(claim, BoolType(loc), env, None, [])
       claim_red = claim.reduce(env)
-      check_proof_of(reason, IfThen(loc, claim_red, formula), env)
+      imp = IfThen(loc, claim_red, formula).reduce(env)
+      check_proof_of(reason, imp, env)
       check_proof_of(rest, claim_red, env)
       
     case SufficesDef(loc, claim, definitions, rest):
+      type_check_term(claim, BoolType(loc), env, None, [])
       defs = [d.reduce(env) for d in definitions]
       new_formula = apply_definitions(loc, formula, defs, env)
       new_claim = claim.reduce(env)
@@ -605,6 +613,7 @@ def check_proof_of(proof, formula, env):
       check_proof_of(rest, new_claim, env)
 
     case SufficesRewrite(loc, claim, equation_proofs, rest):
+      type_check_term(claim, BoolType(loc), env, None, [])
       equations = [check_proof(proof, env) for proof in equation_proofs]
       eqns = [equation.reduce(env) for equation in equations]
       new_formula = formula.reduce(env)
@@ -614,6 +623,8 @@ def check_proof_of(proof, formula, env):
         new_formula = rewrite(loc, new_formula, eq)
         new_formula = new_formula.reduce(env)
       new_claim = claim.reduce(env)
+      # print('suffices rewrite:\n\tnew claim: ' + repr(new_claim) + '\n'\
+      #       + '\tnew formula: ' + repr(new_formula))
       check_implies(loc, new_claim, new_formula)
       check_proof_of(rest, new_claim, env)
           

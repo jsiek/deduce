@@ -314,7 +314,7 @@ proof
   arbitrary U : type
   induction List<U>
   case empty {
-    have length(reverse[U](empty)) = length[U](empty)
+    conclude length(reverse[U](empty)) = length[U](empty)
         by definition reverse
   }
   case node(n, xs') suppose IH {
@@ -364,7 +364,7 @@ proof
   arbitrary U :type
   induction List<U>
   case empty {
-    have reverse(reverse[U](empty)) = empty by definition reverse
+    conclude reverse(reverse[U](empty)) = empty by definition reverse
   }
   case node(n, ls') suppose IH {
     enable {reverse, reverse, operator++, operator++}
@@ -402,7 +402,7 @@ proof
   suppose fxx: (all x:T. f(x) = x)
   induction List<T>
   case empty {
-    have map(empty,f) = empty      by definition map
+    conclude map(empty,f) = empty      by definition map
   }
   case node(x, ls) suppose IH {
     equations
@@ -571,7 +571,7 @@ proof
     have Px: P(x)  by prem[x]
     have Pxs: all_elements(xs',P)
         by apply IH[P] to
-           suffices all x:T. (if x ∈ set_of(xs') then P(x))
+           suffices all x:T. (if x ∈ set_of(xs') then P(x))  by .
            arbitrary z:T suppose z_xs
 	   apply prem[z] to z_xs
     Px, Pxs
@@ -880,7 +880,7 @@ proof
     arbitrary ys:List<T>, i:Nat, d:T
     _definition {operator++,length, nth}
     have X: not ((1 + length(xs)) + i = 0)
-      by suppose eq_z enable operator + have false by eq_z
+      by suppose eq_z enable operator + conclude false by eq_z
     _rewrite X
     _definition {operator +, pred, operator+}
     IH[ys, i, d]

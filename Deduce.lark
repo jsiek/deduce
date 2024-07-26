@@ -27,11 +27,11 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_add
 
 ?term_add: term_med "+" term_add                   -> add
-    | term_add "-" term_med                        -> sub
-    | term_add "∪" term_med                        -> union_op
-    | term_add "∩" term_med                        -> intersect
-    | term_add "⨄" term_med                        -> multiset_sum
+    | term_med "∪" term_add                        -> union_op
+    | term_med "∩" term_add                        -> intersect
+    | term_med "⨄" term_add                        -> multiset_sum
     | term_med "++" term_add                       -> append
+    | term_add "-" term_med                        -> sub
     | term_med
 
 ?term_med: term_med "/" term_hi                    -> div
@@ -109,9 +109,7 @@ ident: IDENT              -> ident
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
 
-?proof: "have" term "by" proof                           -> annot
-    | "conclude" term "by" proof                         -> annot
-    | "suffices" term proof                              -> annot
+?proof: "conclude" term "by" proof                         -> annot
     | "suffices" term "by" proof proof                   -> suffices
     | "suffices" term "with" "definition" "{" ident_list "}" proof -> suffices_def
     | "suffices" term "with" "definition" ident proof    -> suffices_def_one
@@ -139,6 +137,7 @@ ident: IDENT              -> ident
     | "_rewrite" proof_list proof                         -> rewrite_goal
     | "rewrite" proof_list "in" proof                    -> rewrite_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
+    | "switch" term "for" ident "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation equation_list                 -> equations_proof
     | "stop" "?" proof                                   -> hole_in_middle_proof
     | proof_hi

@@ -4,7 +4,8 @@ from typing import Any, Tuple, List
 from error import error, set_verbose, get_verbose
 
 infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
-                    '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3}
+                    '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
+                    '++': 6, '⨄': 6}
 prefix_precedence = {'-': 5, 'not': 4}
 
 def copy_dict(d):
@@ -58,8 +59,8 @@ class IntType(Type):
   def __str__(self):
     return 'int'
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
     return isinstance(other, IntType)
@@ -81,8 +82,8 @@ class BoolType(Type):
   def __str__(self):
     return 'bool'
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
     return isinstance(other, BoolType)
@@ -107,8 +108,8 @@ class TypeType(Type):
   def __str__(self):
     return 'type'
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
     return isinstance(other, TypeType)
@@ -196,8 +197,8 @@ class TypeInst(Type):
     return str(self.typ) + \
       '<' + ','.join([str(arg) for arg in self.arg_types]) + '>'
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
     match other:
@@ -269,8 +270,8 @@ class PatternBool(Pattern):
   def __str__(self):
       return "true" if self.value else "false"
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
 
   def uniquify(self, env):
     pass
@@ -304,8 +305,8 @@ class PatternCons(Pattern):
       else:
         return str(self.constructor)
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
 
   def uniquify(self, env):
     self.constructor.uniquify(env)
@@ -327,8 +328,8 @@ class Generic(Term):
     return "generic " + ",".join([base_name(t) for t in self.type_params]) \
       + "{" + str(self.body) + "}"
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
       if not isinstance(other, Generic):
@@ -370,8 +371,8 @@ class Conditional(Term):
         + ' then ' + str(self.thn) \
         + ' else ' + str(self.els) + ')'
     
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
 
   def __eq__(self, other):
     if not isinstance(other, Conditional):
@@ -413,8 +414,8 @@ class TAnnote(Term):
   def __str__(self):
       return str(self.subject) + ':' + str(self.typ)
     
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
     
   def reduce(self, env):
     return self.subject.reduce(env)
@@ -456,8 +457,8 @@ class Var(AST):
       else:
         return base_name(self.name)
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
     
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
@@ -527,8 +528,8 @@ class Lambda(Term):
   def __str__(self):
     return "λ" + ",".join([base_name(x) for x in self.vars]) + "{" + str(self.body) + "}"
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
@@ -566,8 +567,8 @@ class DefinedValue(Term):
     #return "{|" + self.name + " := " + str(self.body) + "|}"
     return base_name(self.name)
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
     if not isinstance(other, DefinedValue):
@@ -682,7 +683,7 @@ class Call(Term):
   
   def __str__(self):
     if False and hasattr(self, 'type_args'):
-      type_inst = '<' + ','.join([str(t) for t in self.type_args]) + '>'
+      type_inst = '<' + ', '.join([str(t) for t in self.type_args]) + '>'
     else:
       type_inst = ''
     if self.infix:
@@ -691,10 +692,10 @@ class Call(Term):
     elif isNat(self):
       return str(natToInt(self))
     else:
-      return str(self.rator) + type_inst + "(" + ",".join([str(arg) for arg in self.args]) + ")"
+      return str(self.rator) + type_inst + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
       if not isinstance(other, Call):
@@ -815,8 +816,8 @@ class SwitchCase(AST):
   def __str__(self):
       return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
 
   def reduce(self, env):
       n = len(self.pattern.parameters)
@@ -863,8 +864,8 @@ class Switch(Term):
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
   
   def reduce(self, env):
       new_subject = self.subject.reduce(env)
@@ -916,8 +917,8 @@ class TermInst(Term):
     return str(self.subject) + \
       '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
 
   def reduce(self, env):
     # TODO: reduce type_args?
@@ -945,8 +946,8 @@ class TLet(Term):
   def __str__(self):
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) \
       + '\n\t' + str(self.body)
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
   
   def reduce(self, env):
     new_body = self.body.substitute({self.var: self.rhs})
@@ -984,8 +985,8 @@ class Bool(Formula):
       return self.value == other.value
   def __str__(self):
     return 'true' if self.value else 'false'
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
   def reduce(self, env):
     return self
   def substitute(self, sub):
@@ -1002,8 +1003,8 @@ class And(Formula):
   
   def __str__(self):
     return ' and '.join([str(arg) for arg in self.args])
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
   def __eq__(self, other):
     if not isinstance(other, And):
       return False
@@ -1106,8 +1107,8 @@ class IfThen(Formula):
       case _:
         return '(if ' + str(self.premise) \
           + ' then ' + str(self.conclusion) + ')'
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
   def __eq__(self, other):
     if not isinstance(other, IfThen):
       return False
@@ -1809,8 +1810,8 @@ class Theorem(Statement):
     return 'theorem ' + self.name + ': ' + str(self.what) + '\nbegin\n' \
         + str(self.proof) + '\nend\n'
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def uniquify(self, env):
     self.what.uniquify(env)
@@ -1883,8 +1884,8 @@ class FunCase(AST):
       return '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
-  def __repr__(self):
-      return str(self)
+  # def __repr__(self):
+  #     return str(self)
 
   def uniquify(self, env):
     self.pattern.uniquify(env)
@@ -1945,8 +1946,8 @@ class RecFun(Statement):
     #   + '\n'.join([str(c) for c in self.cases]) \
     #   + '\n}'
 
-  def __repr__(self):
-    return str(self)
+  # def __repr__(self):
+  #   return str(self)
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -2178,8 +2179,8 @@ class Env:
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,ProofBinding) and v.local])
   
-  def __repr__(self):
-    return repr(self.dict)
+  # def __repr__(self):
+  #   return repr(self.dict)
   
   def declare_type(self, loc, name):
     new_env = Env(self.dict)

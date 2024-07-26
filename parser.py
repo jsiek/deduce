@@ -402,6 +402,12 @@ def parse_tree_to_ast(e, parent):
         subject = parse_tree_to_ast(e.children[0], e)
         cases = parse_tree_to_list(e.children[1], e)
         return SwitchProof(e.meta, subject, cases)
+    elif e.data == 'switch_proof_for':
+        subject = parse_tree_to_ast(e.children[0], e)
+        defn = parse_tree_to_ast(e.children[1], e)
+        cases = parse_tree_to_list(e.children[2], e)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, defn)],
+                             SwitchProof(e.meta, subject, cases))
     elif e.data == 'ind_case':
         pat = parse_tree_to_ast(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)

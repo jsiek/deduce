@@ -314,7 +314,7 @@ Here's the beginning of the case for `xs = node(x, xs')`.
   case node(x, xs') suppose IH {
     arbitrary y:Nat
     suppose s_xxs: sorted(node(x,xs'))
-    suffices sorted(insert(node(x,xs'),y))
+    suffices sorted(insert(node(x,xs'),y))  by .
     _definition insert
     ?
   }
@@ -516,11 +516,11 @@ proof
     have s_xs: sorted(xs') by definition sorted in s_xxs
     have x_le_xs': all_elements(xs',λb{(x ≤ b)}) 
         by definition sorted in s_xxs
-    suffices sorted(insert(node(x,xs'),y))
+    suffices sorted(insert(node(x,xs'),y))  by .
     _definition insert
     switch y ≤ x {
       case true suppose yx_true {
-        suffices sorted(node(y,node(x,xs')))
+        suffices sorted(node(y,node(x,xs')))  by .
         _definition {sorted, sorted, all_elements}
         have y_le_x: y ≤ x by rewrite yx_true
         have x_le_implies_y_le: all z:Nat. (if x ≤ z then y ≤ z)

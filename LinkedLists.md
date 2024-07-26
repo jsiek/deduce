@@ -800,7 +800,7 @@ proof
     arbitrary ys:List<T>, i:Nat, d:T
     _definition {append,length, nth}
     have X: not ((1 + length(xs)) + i = 0) 
-      by suppose eq_z enable operator + have false by eq_z
+      by suppose eq_z enable operator + conclude false by eq_z
     _rewrite X
     _definition {operator +, operator+, pred}
     IH[ys, i, d]

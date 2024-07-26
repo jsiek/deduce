@@ -26,9 +26,7 @@ proof
   case empty {
     arbitrary x:Nat, y:Nat
     suppose prem
-    _definition insert    
-    suffices all_elements(node(x,empty), λb{y ≤ b})
-    _definition {all_elements, all_elements}
+    suffices all_elements(node(x,empty), λb{y ≤ b})      with definition insert     _definition {all_elements, all_elements}
     conclude y ≤ x by prem
   }
   case node(a, xs') suppose IH {
@@ -75,32 +73,36 @@ proof
     suppose s_yn: sorted(node(y,next))
     have s_n: sorted(next) by definition sorted in s_yn
     have y_next: all_elements(next,λb{(y ≤ b)}) by definition sorted in s_yn
-    suffices sorted(insert(node(y,next),x))
-    _definition insert
-    cases dichotomy[x,y]
-    case x_le_y: x ≤ y {
-      _rewrite x_le_y
-      suffices sorted(node(x,node(y,next)))
-      _definition {sorted, sorted, all_elements}
-      have x_next: all_elements(next,λb{(x ≤ b)})
-        by apply all_elements_implies[Nat][next][λb{(y ≤ b)}, λb{(x ≤ b)}]
-	   to y_next , (arbitrary z:Nat
-	                suppose y_z: y ≤ z
-	                conclude x ≤ z by apply less_equal_trans
-			                  to x_le_y , y_z)
-      s_n, y_next, x_le_y, x_next
-    }
-    case y_l_x: y < x {
-      have not_x_le_y: not (x ≤ y)
-          by apply less_not_greater_equal to y_l_x
-      _rewrite not_x_le_y
-      suffices sorted(node(y,insert(next,x)))
-      _definition {sorted, all_elements}
-      have s_next_x: sorted(insert(next,x)) by apply IH[x] to s_n
-      have y_le_x: y ≤ x by apply less_implies_less_equal to y_l_x
-      have y_le_next_x: all_elements(insert(next,x),λb{(y ≤ b)})
-          by apply less_equal_insert to y_le_x, y_next
-      s_next_x, y_le_next_x
+    suffices sorted(insert(node(y,next),x)) by .
+    switch x ≤ y for insert {
+      case true  suppose x_le_y_true {
+        have x_le_y: x ≤ y   by rewrite x_le_y_true
+        suffices sorted(next)
+             and all_elements(next, λb{y ≤ b})
+             and x ≤ y
+             and all_elements(next, λb{x ≤ b})
+                            with definition {sorted, sorted, all_elements}
+        have x_le_next: all_elements(next, λb{(x ≤ b)})
+          by apply all_elements_implies[Nat][next][λb{(y ≤ b)}, λb{(x ≤ b)}]
+             to y_next , (arbitrary z:Nat
+                          suppose y_z: y ≤ z
+                          conclude x ≤ z by apply less_equal_trans
+                                            to x_le_y , y_z)
+        s_n, y_next, x_le_y, x_le_next
+      }
+      case false  suppose x_le_y_false {
+        have not_x_le_y: not (x ≤ y)
+            by suppose x_le_y rewrite x_le_y_false in x_le_y
+        have y_l_x: y < x  by apply not_less_equal_greater to not_x_le_y
+        suffices sorted(insert(next, x))
+             and all_elements(insert(next, x), λb{y ≤ b})
+                        with definition {sorted, all_elements}
+        have s_next_x: sorted(insert(next,x)) by apply IH[x] to s_n
+        have y_le_x: y ≤ x by apply less_implies_less_equal to y_l_x
+        have y_le_next_x: all_elements(insert(next,x),λb{(y ≤ b)})
+            by apply less_equal_insert to y_le_x, y_next
+        s_next_x, y_le_next_x
+      }
     }
   }
 end
@@ -116,16 +118,24 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
-    _definition {insert, mset_of}
-    switch y ≤ x {
+    suffices mset_of(insert(node(x, xs'), y))
+           = m_one(y) ⨄ mset_of(node(x, xs'))    by .
+    switch y ≤ x for insert {
       case true suppose yx_true {
-        _definition mset_of.
+        definition {mset_of,mset_of}
       }
       case false suppose yx_false {
-        _rewrite IH[y]
-	_rewrite symmetric m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
-	_rewrite m_sum_commutes[Nat, m_one(y), m_one(x)]
-	_rewrite m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')].
+	equations
+              mset_of(node(x, insert(xs', y)))
+            = m_one(x) ⨄ mset_of(insert(xs', y))          by definition mset_of
+        ... = m_one(x) ⨄ m_one(y) ⨄ mset_of(xs')          by rewrite IH[y]
+        ... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
+                by symmetric m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')]
+        ... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
+                by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
+        ... = m_one(y) ⨄ m_one(x) ⨄ mset_of(xs')
+                by m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
+        ... = m_one(y) ⨄ mset_of(node(x, xs'))            by definition mset_of
       }
     }
   }

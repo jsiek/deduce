@@ -3,7 +3,6 @@ define some_equal : < T > fn T -> bool
 
 theorem T: some_equal(true)
 proof
-  _definition some_equal
-  suffices some x:bool. x = true
+  suffices some x:bool. x = true  with definition some_equal
   choose true.
 end

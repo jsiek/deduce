@@ -312,7 +312,7 @@ theorem iter_times2_pow2: all n:Nat.  iter_times2(n, 1) = pow2(n)
 proof
   induction Nat
   case 0 {
-    _definition {iter_times2,pow2}.
+    definition {iter_times2,pow2}
   }
   case suc(n') suppose IH {
     _definition {iter_times2,pow2}

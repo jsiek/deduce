@@ -146,7 +146,7 @@ proof
   case node(x, xs) suppose IH {
     arbitrary y:Nat, d:Nat
     suppose y_not_xxs: not (y ∈ set_of(node(x,xs)))
-    suffices search(node(x,xs),y) = length(node(x,xs))
+    suffices search(node(x,xs),y) = length(node(x,xs))  by .
     _definition {search, length}
     switch x = y {
       case true suppose xy {
@@ -159,7 +159,7 @@ proof
       }
       case false suppose not_xy {
         _definition {operator+, operator+}
-        suffices suc(search(xs,y)) = suc(length(xs))
+        suffices suc(search(xs,y)) = suc(length(xs))  by .
         have s_l: search(xs,y) = length(xs)
           by enable {set_of}
              apply IH[y, d]
@@ -187,21 +187,21 @@ proof
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat, i:Nat
     suppose prem
-    suffices search(node(x,xs'),y) ≤ i
+    suffices search(node(x,xs'),y) ≤ i  by .
     _definition search
     switch x = y {
       case true suppose xy {
         conclude 0 ≤ i   by _definition operator ≤.
       }
       case false suppose not_xy {
-        suffices suc(search(xs',y)) ≤ i
+        suffices suc(search(xs',y)) ≤ i  by .
         switch i { 
           case 0 suppose i_z: i = 0 {
             conclude false
               by rewrite not_xy in definition nth in rewrite i_z in prem
           }
           case suc(i') suppose i_si: i = suc(i') {
-            suffices suc(search(xs',y)) ≤ suc(i')
+            suffices suc(search(xs',y)) ≤ suc(i')  by .
             _definition operator ≤
             conclude search(xs',y) ≤ i'
                 by enable {length, nth, pred, operator <, operator ≤}
