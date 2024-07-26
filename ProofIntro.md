@@ -93,7 +93,7 @@ which here is `1 + 0 = 1`.
 ```{.deduce #length_node42}
 theorem length_node42: length(node(42, empty)) = 1
 proof
-  suffices 1 + 0 = 1  by definition {length, length}
+  suffices 1 + 0 = 1   with definition {length, length}
   definition {operator +, operator +}
 end
 ```
@@ -669,7 +669,7 @@ reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
       have x_le_y: x ≤ y by
-          suffices y ≤ y  by rewrite x_eq_y
+          suffices y ≤ y  with rewrite x_eq_y
           less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
@@ -695,7 +695,7 @@ proof
   }
   case x_eq_y: x = y {
     have x_le_y: x ≤ y by
-        suffices y ≤ y  by rewrite x_eq_y
+        suffices y ≤ y   with rewrite x_eq_y
         less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
@@ -1260,7 +1260,7 @@ We still need to prove the following:
 
 So we use the definition of `Even` in a `suffices` statement
 
-    suffices some m:Nat. x + y = 2 * m   by definition Even
+    suffices some m:Nat. x + y = 2 * m   with definition Even
     ?
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
@@ -1271,7 +1271,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    suffices 2 * a + 2 * b = 2 * (a + b)   by rewrite x_2a | y_2b
+    suffices 2 * a + 2 * b = 2 * (a + b)   with rewrite x_2a | y_2b
     symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1287,9 +1287,9 @@ proof
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  suffices some m:Nat. x + y = 2 * m   by definition Even
+  suffices some m:Nat. x + y = 2 * m   with definition Even
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)   by rewrite x_2a | y_2b
+  suffices 2 * a + 2 * b = 2 * (a + b)   with rewrite x_2a | y_2b
   symmetric dist_mult_add[2][a,b]
 end
 ```

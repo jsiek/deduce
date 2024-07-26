@@ -1112,9 +1112,12 @@ class IfThen(Formula):
     if not isinstance(other, IfThen):
       return False
     return self.premise == other.premise and self.conclusion == other.conclusion
+  
   def reduce(self, env):
     prem = self.premise.reduce(env)
     conc = self.conclusion.reduce(env)
+    if prem == conc:
+      return Bool(self.location, True)
     match prem:
       case Bool(loc, True):
         return self.conclusion
@@ -1337,6 +1340,38 @@ class PAnnot(Proof):
     self.claim.uniquify(env)
     self.reason.uniquify(env)
 
+@dataclass
+class SufficesDef(Proof):
+  claim: Formula
+  definitions: List[Term]
+  body: Proof
+
+  def __str__(self):
+    return 'suffices ' + str(self.claim) + '\n' \
+      + '    definition {' + ', '.join([str(d) for d in self.definitions]) + '}'
+  
+  def uniquify(self, env):
+    self.claim.uniquify(env)
+    for d in self.definitions:
+      d.uniquify(env)
+    self.body.uniquify(env)
+
+@dataclass
+class SufficesRewrite(Proof):
+  claim: Formula
+  equations: List[Proof]
+  body: Proof
+
+  def __str__(self):
+    return 'suffices ' + str(self.claim) + '\n' \
+      + '    rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
+  
+  def uniquify(self, env):
+    self.claim.uniquify(env)
+    for eqn in self.equations:
+      eqn.uniquify(env)
+    self.body.uniquify(env)
+  
 @dataclass
 class Suffices(Proof):
   claim: Formula

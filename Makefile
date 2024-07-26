@@ -20,6 +20,9 @@ tests:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies3.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies4.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/suffices1.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/suffices_def.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/suffices_rewrite.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/rec1.pf

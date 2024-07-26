@@ -110,9 +110,12 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: "have" term "by" proof                           -> annot
-    | "suffices" term proof                              -> annot
     | "conclude" term "by" proof                         -> annot
+    | "suffices" term proof                              -> annot
     | "suffices" term "by" proof proof                   -> suffices
+    | "suffices" term "with" "definition" "{" ident_list "}" proof -> suffices_def
+    | "suffices" term "with" "definition" ident proof    -> suffices_def_one
+    | "suffices" term "with" "rewrite" proof_list proof  -> suffices_rewrite
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct

@@ -593,29 +593,29 @@ def check_proof_of(proof, formula, env):
     
     case Suffices(loc, claim, reason, rest):
       type_check_term(claim, BoolType(loc), env, None, [])
-      match reason:
-        case ApplyDefs(loc2, definitions):
-          defs = [d.reduce(env) for d in definitions]
-          new_formula = apply_definitions(loc, formula, defs, env)
-          new_claim = claim.reduce(env)
-          check_implies(loc, new_claim, new_formula)
-          check_proof_of(rest, new_claim, env)
-          
-        case Rewrite(loc2, equation_proofs):
-          equations = [check_proof(proof, env) for proof in equation_proofs]
-          eqns = [equation.reduce(env) for equation in equations]
-          new_formula = formula.reduce(env)
-          for eq in eqns:
-            if not is_equation(eq):
-              eq = make_boolean_equation(eq)
-            new_formula = rewrite(loc, new_formula, eq)
-            new_formula = new_formula.reduce(env)
-          new_claim = claim.reduce(env)
-          check_implies(loc, new_claim, new_formula)
-          check_proof_of(rest, new_claim, env)
-          
-        case _:          
-          error(loc, 'in suffices-by, reason can only be definition_ or rewrite_, not: ' + str(reason))
+      claim_red = claim.reduce(env)
+      check_proof_of(reason, IfThen(loc, claim_red, formula), env)
+      check_proof_of(rest, claim_red, env)
+      
+    case SufficesDef(loc, claim, definitions, rest):
+      defs = [d.reduce(env) for d in definitions]
+      new_formula = apply_definitions(loc, formula, defs, env)
+      new_claim = claim.reduce(env)
+      check_implies(loc, new_claim, new_formula)
+      check_proof_of(rest, new_claim, env)
+
+    case SufficesRewrite(loc, claim, equation_proofs, rest):
+      equations = [check_proof(proof, env) for proof in equation_proofs]
+      eqns = [equation.reduce(env) for equation in equations]
+      new_formula = formula.reduce(env)
+      for eq in eqns:
+        if not is_equation(eq):
+          eq = make_boolean_equation(eq)
+        new_formula = rewrite(loc, new_formula, eq)
+        new_formula = new_formula.reduce(env)
+      new_claim = claim.reduce(env)
+      check_implies(loc, new_claim, new_formula)
+      check_proof_of(rest, new_claim, env)
           
     # Want something like the following to help with interactive proof development, but
     # it need to be smarter than the following. -Jeremy

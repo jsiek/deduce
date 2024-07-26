@@ -310,6 +310,22 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         parse_tree_to_ast(e.children[2], e))
+    elif e.data == 'suffices_def':
+        claim = parse_tree_to_ast(e.children[0], e)
+        defs = parse_tree_to_list(e.children[1], e)
+        definitions = [Var(e.meta, x) for x in defs]
+        rest = parse_tree_to_ast(e.children[2], e)
+        return SufficesDef(e.meta, claim, definitions, rest)
+    elif e.data == 'suffices_def_one':
+        return SufficesDef(e.meta,
+                           parse_tree_to_ast(e.children[0], e),
+                           [Var(e.meta, parse_tree_to_ast(e.children[1], e))],
+                           parse_tree_to_ast(e.children[2], e))
+    elif e.data == 'suffices_rewrite':
+        return SufficesRewrite(e.meta,
+                               parse_tree_to_ast(e.children[0], e),
+                               parse_tree_to_list(e.children[1], e),
+                               parse_tree_to_ast(e.children[2], e))
     elif e.data == 'term_proof':
         return PTerm(e.meta,
                      parse_tree_to_ast(e.children[0], e),
@@ -420,7 +436,7 @@ def parse_tree_to_ast(e, parent):
         definitions = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return EnableDefs(e.meta,
-                          [Var(e.meta, t) for t in definitions],
+                          [Var(e.meta, x) for x in definitions],
                           subject)
     elif e.data == 'reason_definition':
         definitions = parse_tree_to_list(e.children[0], e)
