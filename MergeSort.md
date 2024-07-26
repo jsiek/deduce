@@ -918,16 +918,11 @@ proof
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
     _definition {msort, first, second}
-    
-    define ys = first(msort(n',xs))
-    define ls = second(msort(n',xs))
-    _rewrite conclude first(msort(n',xs)) = ys  by definition ys
-    _rewrite conclude second(msort(n',xs)) = ls  by definition ls
-    
-    define zs = first(msort(n', ls))
-    define ms = second(msort(n', ls))
-    _rewrite conclude first(msort(n', ls)) = zs by definition zs
-    _rewrite conclude second(msort(n', ls)) = ms by definition ms
+
+    define_ ys = first(msort(n',xs))
+    define_ ls = second(msort(n',xs))
+    define_ zs = first(msort(n', ls))
+    define_ ms = second(msort(n', ls))
 
     equations
           mset_of(merge(length(ys) + length(zs),ys,zs)) ⨄ mset_of(ms)
