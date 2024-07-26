@@ -441,8 +441,6 @@ class Var(AST):
     return Var(self.location, self.name, self.index)
   
   def __eq__(self, other):
-      # if isinstance(other, DefinedValue):
-      #   return self == other.body
       if isinstance(other, RecFun):
         return self.name == other.name
       if not isinstance(other, Var):
@@ -557,32 +555,6 @@ class Lambda(Term):
       body_env[old] = new
     self.vars = new_vars
     self.body.uniquify(body_env)
-    
-@dataclass
-class DefinedValue(Term):
-  name: str
-  body: Term
-
-  def __str__(self):
-    #return "{|" + self.name + " := " + str(self.body) + "|}"
-    return base_name(self.name)
-
-  # def __repr__(self):
-  #   return str(self)
-
-  def __eq__(self, other):
-    if not isinstance(other, DefinedValue):
-      return self.body == other
-    return self.name == other.name
-
-  def reduce(self, env):
-    if self in get_reduce_only():
-      return self.body.reduce(env)
-    else:
-      return self
-
-  def substitute(self, sub):
-    return DefinedValue(self.location, self.name, self.body.substitute(sub))
     
 def is_match(pattern, arg, subst):
     ret = False

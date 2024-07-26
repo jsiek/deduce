@@ -159,9 +159,6 @@ def rewrite(loc, formula, equation):
       lam.typeof = formula.typeof
       return lam
   
-    case DefinedValue(loc2, name, body):
-      return DefinedValue(loc2, name, rewrite(loc, body, equation))
-  
     case Generic(loc2, typarams, body):
       return Generic(loc2, typarams, rewrite(loc, body, equation))
   
