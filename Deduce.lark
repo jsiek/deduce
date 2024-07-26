@@ -144,7 +144,7 @@ ident: IDENT              -> ident
 
 ?proof_hi: IDENT                                         -> proof_var
     | "have" IDENT ":" term "by" proof proof             -> let
-    | "define" IDENT "=" term proof                      -> define_term_proof
+//    | "define" IDENT "=" term proof                      -> define_term_proof
     | "define_" IDENT "=" term proof                     -> new_define_term_proof
     | "term" term "by" proof proof                       -> term_proof
     | "."                                                -> true_proof

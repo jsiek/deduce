@@ -24,8 +24,8 @@ function in_order<E>(Tree<E>) -> List<E> {
 }
 
 union Direction<E> {
-  RightD(Tree<E>, E)
   LeftD(E,Tree<E>)
+  RightD(Tree<E>, E)
 }
 
 union TreeIter<E> {

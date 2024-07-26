@@ -1857,13 +1857,13 @@ proof
             Q
           }
           case false suppose n_l_um_false {
-            define M = pos2nat(m)
-            define R = n - u' * M
+            define_ M = pos2nat(m)
+            define_ R = n - u' * M
             choose R
 	    have um_le_n: u' * M ≤ n
 	      by have not_n_l_um: not (n < u' * M)
 	           by suffices not (n < u' * pos2nat(m))  by definition M
-                      suppose p rewrite n_l_um_false in p
+                      suppose p rewrite (definition M in n_l_um_false) in p
 		 apply not_less_less_equal to not_n_l_um
 	    have um_r_eq_n: u' * M + R = n
 	      by suffices u' * M + (n - u' * M) = n  by definition R
@@ -1873,7 +1873,7 @@ proof
 	         have sn_le_um_m: suc(n) ≤ (u' * M) + M
 		   by suffices suc(n) ≤ M + u' * M  by rewrite add_commute[u' * M][M]
                       suffices suc(n) ≤ pos2nat(m) + u' * pos2nat(m)  by definition M
-		      definition {operator <, operator*} in prem
+		      definition {operator <, operator*, M} in prem
 		 have um_le_sn: u' * M ≤ suc(n)
 		   by apply less_equal_trans to um_le_n, n_sn
 		 have sn_um_le_m: suc(n) - (u' * M) ≤ M
@@ -1885,22 +1885,22 @@ proof
     		           apply sub_add_assoc[n][1, u'*M] to um_le_n
 	              suffices suc(n) - u' * M ≤ M  by rewrite eq
                       sn_um_le_m
-            definition M in um_r_eq_n, r_l_m
+            um_r_eq_n, r_l_m
           }
         }
       }
       case false suppose sqn_g_n {
-        define M = pos2nat(m)
-        define R = n - q * M
+        define_ M = pos2nat(m)
+        define_ R = n - q * M
         
         have qm_le_sn: q * M ≤ suc(n)
           by have qm_le_n: q * M ≤ n
                by suffices q * pos2nat(m) ≤ n  by definition M
-                  prem
+                  definition M in prem
              apply less_equal_trans to qm_le_n, n_sn
         have sn_le_qm_m: suc(n) ≤ q * M + M
           by have not_sqm_le_n: not (suc(q) * M ≤ n)
-                 by suppose p rewrite sqn_g_n in definition M in p
+                 by suppose p rewrite sqn_g_n in p
              have n_l_sqm: n < suc(q) * M
                  by apply not_less_equal_greater to not_sqm_le_n
              rewrite add_commute[M][q*M] in
@@ -1908,7 +1908,7 @@ proof
         have sn_qm_le_m: suc(n) - q * M ≤ M
           by apply less_equal_add_sub to qm_le_sn, sn_le_qm_m
         have qm_le_n: q * M ≤ n   by suffices q * pos2nat(m) ≤ n  by definition M
-                                     prem
+                                     definition M in prem
         have s_nqm_le_m: suc(n - q * M) ≤ M
           by have eq: 1 + (n - q * M) = (1 + n) - q * M
                by apply sub_add_assoc[n][1,q*M] to qm_le_n
@@ -1958,7 +1958,7 @@ proof
     case suc(n') suppose n_sn {
       have qm_le_n: 0 * pos2nat(m) ≤ n
 	by definition {operator*,operator≤}
-      define u = suc(n) * pos2nat(m)
+      define_ u = suc(n) * pos2nat(m)
       have n_l_um: n < u * pos2nat(m)
         by suffices suc(n) ≤ (pos2nat(m) + n * pos2nat(m)) * pos2nat(m)
               by definition {operator<, u, operator*}
@@ -2017,7 +2017,7 @@ proof
   arbitrary n:Nat, m:Pos
   suffices (n / m) * pos2nat(m) + (n - (n / m) * pos2nat(m)) = n
       by rewrite mod_def[n,m]
-  define a = (n / m) * pos2nat(m)
+  define_ a = (n / m) * pos2nat(m)
   obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
     from division[n, m]
   have ar_n: a + r = n   by _definition a R
@@ -2025,9 +2025,8 @@ proof
   have n_eq_a_r: n = a + r
     by _definition a symmetric conjunct 0 of R
   have a_le_n: a ≤ n   by _rewrite n_eq_a_r a_le_a_r
-  have nmm_le_n: (n / m) * pos2nat(m) ≤ n  by definition a in a_le_n
-  conclude (n / m) * pos2nat(m) + (n - (n / m) * pos2nat(m)) = n
-    by apply sub_add_identity to nmm_le_n
+  conclude a + (n - a) = n
+    by apply sub_add_identity to a_le_n
 end
 
 theorem remainder_less_divisor: all n:Nat, m:Pos.
@@ -2036,13 +2035,12 @@ proof
   arbitrary n:Nat, m:Pos
   suffices n - (n / m) * pos2nat(m) < pos2nat(m)
       by rewrite mod_def[n,m]
-  define a = (n / m) * pos2nat(m)
+  define_ a = (n / m) * pos2nat(m)
   obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
     from division[n, m]
   have ar_n: a + r = n   by _definition a R
   have ar_a_a: (a + r) - a = r  by add_sub_identity[a][r]
   have r_na: r = n - a  by _rewrite symmetric ar_n symmetric ar_a_a
-  suffices r < pos2nat(m)
-    by rewrite symmetric definition a in r_na
+  suffices r < pos2nat(m)   by rewrite symmetric r_na
   conjunct 1 of R
 end

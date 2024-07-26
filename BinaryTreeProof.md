@@ -1452,14 +1452,14 @@ proof
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    define X = in_order(plug_tree(take_path(path'),EmptyTree))
-    define Z = in_order(A)
-    define W = in_order(B)
-    define Q = in_order(plug_tree(drop_path(path'), EmptyTree))
+    define_ X = in_order(plug_tree(take_path(path'),EmptyTree))
+    define_ Z = in_order(A)
+    define_ W = in_order(B)
+    define_ Q = in_order(plug_tree(drop_path(path'), EmptyTree))
     switch f {
       case LeftD(y, R) {
         _definition {plug_tree, take_path, drop_path, in_order}
-        define Y = in_order(R)
+        define_ Y = in_order(R)
         equations
               in_order(plug_tree(path',TreeNode(TreeNode(A,x,B),y,R)))
             = in_order(plug_tree(take_path(path'),TreeNode(A,x,B))) ++ node(y,in_order(plug_tree(drop_path(path'),R)))
@@ -1483,7 +1483,7 @@ proof
       }
       case RightD(L, y) {
         _definition {plug_tree, take_path, drop_path, in_order}
-        define Y = in_order(L)
+        define_ Y = in_order(L)
         equations
               in_order(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
             = in_order(plug_tree(take_path(path'),L)) ++ node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B))))

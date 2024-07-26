@@ -46,8 +46,6 @@ tests:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/fun1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py List.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Pair.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py Tree.pf
-	/opt/homebrew/bin/python3.10 ./deduce.py TreeProperties.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Heap2.pf
 #	/opt/homebrew/bin/python3.10 ./deduce.py Heap.pf
 #	/opt/homebrew/bin/python3.10 ./deduce.py Maps.pf

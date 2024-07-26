@@ -57,9 +57,11 @@ def check_implies(loc, frm1, frm2):
       if frm1 != frm2:
         (small_frm1, small_frm2) = isolate_difference(frm1, frm2)
         if small_frm1 != frm1:
-            msg = 'error, the proved formula does not match the goal\n' \
-                + '\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' \
-                + 'therefore\n\t' + str(frm1) + '\n\t≠ ' + str(frm2)
+            msg = 'error, the proved formula:\n' \
+                + '\t' + str(frm1) + '\n' \
+            + 'does not match the goal:\n' \
+            + '\t' + str(frm2) + '\n' \
+            + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2)
             error(loc, msg)
         else:
             error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))

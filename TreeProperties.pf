@@ -127,11 +127,11 @@ proof
     arbitrary A:Tree<E>, y:E, B:Tree<E>
     _definition {plug_tree, next_up}
     switch f {
-      case RightD(L, x) {
-        IH[L,x,TreeNode(A,y,B)]
-      }
       case LeftD(x, R) {
         _definition ti2tree.
+      }
+      case RightD(L, x) {
+        IH[L,x,TreeNode(A,y,B)]
       }
     }
   }
@@ -150,15 +150,6 @@ proof
   case node(f, path') suppose IH {
     arbitrary t:Tree<E>
     switch f {
-      case RightD(L, x) {
-        _definition {plug_tree, num_nodes}
-        _rewrite IH[TreeNode(L,x,t)]
-        _rewrite IH[TreeNode(L,x,EmptyTree)]
-        _definition {num_nodes, num_nodes}
-        _rewrite add_zero[num_nodes(L)]
-        _rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][1 + num_nodes(L), num_nodes(t)]
-        _rewrite add_assoc[1][num_nodes(L), num_nodes(t)].
-      }
       case LeftD(x, R) {
         _definition {plug_tree, num_nodes}
         _rewrite IH[TreeNode(t,x,R)]
@@ -169,8 +160,30 @@ proof
         _rewrite add_assoc[1][num_nodes(R), num_nodes(t)]
         _rewrite add_commute[num_nodes(R)][num_nodes(t)].
       }
+      case RightD(L, x) {
+        _definition {plug_tree, num_nodes}
+        _rewrite IH[TreeNode(L,x,t)]
+        _rewrite IH[TreeNode(L,x,EmptyTree)]
+        _definition {num_nodes, num_nodes}
+        _rewrite add_zero[num_nodes(L)]
+        _rewrite add_assoc[num_nodes(plug_tree(path',EmptyTree))][1 + num_nodes(L), num_nodes(t)]
+        _rewrite add_assoc[1][num_nodes(L), num_nodes(t)].
+      }
     }
   }
+end
+
+lemma XYZW_equal: all X:Nat, Y:Nat, Z:Nat, W:Nat.
+  suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W)
+proof
+  arbitrary X:Nat, Y:Nat, Z:Nat, W:Nat
+  enable {operator+}
+  equations
+        suc((X + Y) + suc(Z + W))
+      = suc(suc(X + Y) + (Z + W))      by rewrite add_suc[X+Y][Z+W]
+  ... = suc(suc(((X + Y) + Z) + W))    by rewrite add_assoc[X+Y][Z,W]
+  ... = suc(suc((X + (Y + Z)) + W))    by rewrite add_assoc[X][Y,Z]
+  ... = suc((X + suc(Y + Z)) + W)      by rewrite add_suc[X][Y+Z]
 end
 
 lemma next_up_index: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E, B:Tree<E>.
@@ -178,96 +191,89 @@ lemma next_up_index: all E:type. all path:List<Direction<E>>. all A:Tree<E>, x:E
   then ti_index(next_up(path, A, x, B)) = suc(ti_index(TrItr(path, A,x,B)) + num_nodes(B))
 proof
   arbitrary E:type
-  _definition ti_index
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    suppose prem
-    conclude false
-      by apply less_irreflexive to
-         definition {ti_take, ti2tree, take_path, plug_tree, num_nodes, operator+, operator+} in
-         prem
+    suppose prem: suc(ti_index(TrItr(empty,A,x,B)) + num_nodes(B)) 
+                  < num_nodes(ti2tree(TrItr(empty,A,x,B)))
+    have AB_l_AB: suc(num_nodes(A) + num_nodes(B)) < suc(num_nodes(A) + num_nodes(B))
+      by definition {ti_index, ti_take, take_path, plug_tree, ti2tree, num_nodes, plug_tree, operator+, operator+} 
+         in prem
+    conclude false  by apply less_irreflexive to AB_l_AB
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
     suppose prem
     switch f {
-      case RightD(L, y) suppose f_eq {
-        _definition {next_up, ti_index, take_path, plug_tree, ti_take}
-        
-        define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-        define Y = num_nodes(L)
-        define Z = num_nodes(A)
-        define W = num_nodes(B)
-        define P = num_nodes(plug_tree(path',EmptyTree))
-        have X_eq: X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-            by definition X
-        have Y_eq: Y = num_nodes(L) by definition Y
-        have Z_eq: Z = num_nodes(A) by definition Z
-        have W_eq: W = num_nodes(B) by definition W
-        have P_eq: P = num_nodes(plug_tree(path',EmptyTree)) by definition P
-        
-        have prem3: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
-          by _definition {X,Y,Z,W,P}
-             definition {operator+, operator+} in
-             definition {num_nodes, num_nodes} in
-             rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))] in
-             rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)] in
-             definition {ti_take, take_path, ti2tree, plug_tree} in
-             rewrite f_eq in prem
-        have prem_normal: suc(suc((X + Y) + (Z + W))) < suc(suc(P + (Y + (Z + W))))
-          by  _rewrite add_assoc[X][Y, Z+W]
-              rewrite add_assoc[Y][Z, W] in
-              rewrite add_assoc[X][Y+Z, W] in
-              definition operator+ in
-              rewrite add_suc[P][Y + (Z + W)] in          
-              rewrite add_suc[P][suc(Y + (Z + W))] in          
-              rewrite add_suc[X][Y+Z] in          
-              rewrite add_suc[Y][Z+W] in
-              prem3
-        have prem2: suc(num_nodes(ti_take(TrItr(path',L,y,TreeNode(A,x,B)))) + num_nodes(TreeNode(A,x,B)))
-                    < num_nodes(ti2tree(TrItr(path',L,y,TreeNode(A,x,B))))
-             by  _definition {ti2tree, num_nodes, ti_take}
-                 _rewrite num_nodes_plug[E][take_path(path')][L]
-                 _rewrite num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))]
-                 _definition {num_nodes, num_nodes}
-                 _definition {operator+, operator+}
-                 _rewrite symmetric X_eq
-                 _rewrite symmetric Y_eq
-                 _rewrite symmetric Z_eq
-                 _rewrite symmetric W_eq
-                 _rewrite symmetric P_eq
-                 _rewrite add_suc[X+Y][Z+W]
-                 _rewrite add_suc[Y][Z+W]
-                 _rewrite add_suc[P][suc(Y + (Z + W))]
-                 _rewrite add_suc[P][Y + (Z + W)]
-                 prem_normal
-        _rewrite apply IH[L,y,TreeNode(A,x,B)] to prem2
-        _definition {ti_take, take_path, num_nodes, plug_tree}
-        _rewrite num_nodes_plug[E][take_path(path')][L]
-        _rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)]
-        _definition {num_nodes, operator+, operator+}
-        have eq2: suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W) by
-          equations
-                suc((X + Y) + suc(Z + W))
-              = suc(suc(X + Y) + (Z + W))      by _rewrite add_suc[X+Y][Z+W] definition operator+
-          ... = suc(suc((X + Y) + (Z + W)))    by definition operator+
-          ... = suc(suc(((X + Y) + Z) + W))    by rewrite add_assoc[X+Y][Z,W]
-          ... = suc(suc((X + (Y + Z)) + W))    by rewrite add_assoc[X][Y,Z]
-          ... = suc(suc(X + (Y + Z)) + W)      by definition operator+
-          ... = suc((X + suc(Y + Z)) + W)      by rewrite add_suc[X][Y+Z]
-        rewrite (definition {X,Y,Z,W} in eq2)
-      }
       case LeftD(y, R) {
-        _definition {next_up, ti_index, num_nodes, ti_take, take_path}
-        _rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
-        _rewrite num_nodes_plug[E][take_path(path')][A]
-        _definition {num_nodes, operator+, operator+}
+        suffices num_nodes(plug_tree(take_path(path'),TreeNode(A,x,B))) 
+               = suc(num_nodes(plug_tree(take_path(path'),A)) + num_nodes(B))
+            with definition {next_up, ti_index, ti_take, take_path}
+        suffices num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(TreeNode(A,x,B)) 
+               = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(A)) + num_nodes(B))
+            with rewrite num_nodes_plug[E][take_path(path')][TreeNode(A,x,B)]
+                     | num_nodes_plug[E][take_path(path')][A]
+        suffices num_nodes(plug_tree(take_path(path'),EmptyTree)) + suc(num_nodes(A) + num_nodes(B)) 
+               = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(A)) + num_nodes(B))
+            with definition num_nodes
         define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
         define_ Y = num_nodes(A)
         define_ Z = num_nodes(B)
         conclude X + suc(Y + Z) = suc((X + Y) + Z)
             by rewrite add_suc[X][Y+Z] | add_assoc[X][Y,Z]
+      }
+      case RightD(L, y) suppose f_eq {
+        suffices ti_index(next_up(path',L,y,TreeNode(A,x,B))) 
+               = suc(ti_index(TrItr(node(RightD(L,y),path'),A,x,B)) + num_nodes(B))
+            with definition next_up
+        have IH_prem: suc(num_nodes(plug_tree(take_path(path'),L)) 
+                          + suc(num_nodes(A) + num_nodes(B))) 
+                      < num_nodes(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
+          by suffices suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(L)) 
+                          + suc(num_nodes(A) + num_nodes(B))) 
+                      < num_nodes(plug_tree(path',EmptyTree)) + num_nodes(TreeNode(L,y,TreeNode(A,x,B)))
+                 with rewrite num_nodes_plug[E][take_path(path')][L]
+                          | num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))]
+             suffices suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(L)) 
+                          + suc(num_nodes(A) + num_nodes(B))) 
+                      < num_nodes(plug_tree(path',EmptyTree)) + suc(num_nodes(L) + suc(num_nodes(A) + num_nodes(B)))
+                 with definition {num_nodes, num_nodes}
+             define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+             define_ Y = num_nodes(L) define_ Z = num_nodes(A) define_ W = num_nodes(B)
+             define_ P = num_nodes(plug_tree(path',EmptyTree))
+             suffices suc((X + Y) + suc(Z + W)) < P + suc(Y + suc(Z + W))  by .
+             have prem2: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
+               by enable {X,Y,Z,W,P}
+                  definition {num_nodes, num_nodes} in
+                  rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)]
+                        | num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))] in
+                  definition {ti_index, ti_take, take_path, ti2tree, plug_tree} in
+                  rewrite f_eq in prem
+             suffices suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
+                 with rewrite XYZW_equal[X,Y,Z,W]
+             prem2
+        equations
+              ti_index(next_up(path',L,y,TreeNode(A,x,B))) 
+            = suc(ti_index(TrItr(path',L,y,TreeNode(A,x,B))) + num_nodes(TreeNode(A,x,B)))
+                by apply IH[L,y,TreeNode(A,x,B)] 
+                   to _definition {ti_index, ti_take, num_nodes, ti2tree} IH_prem
+        ... = suc(num_nodes(plug_tree(take_path(path'),L)) + suc(num_nodes(A) + num_nodes(B)))
+              by definition {ti_index, ti_take, num_nodes}
+        ... = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(L))
+                  + suc(num_nodes(A) + num_nodes(B)))
+              by rewrite num_nodes_plug[E][take_path(path')][L]
+        ... = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) 
+                  + suc(num_nodes(L) + num_nodes(A))) + num_nodes(B))
+              by define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+                 define_ Y = num_nodes(L) define_ Z = num_nodes(A) define_ W = num_nodes(B)
+                 define_ P = num_nodes(plug_tree(path',EmptyTree))
+                 conclude suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W)
+                     by XYZW_equal[X,Y,Z,W]
+        ... = suc(num_nodes(plug_tree(take_path(path'),TreeNode(L,y,A))) + num_nodes(B))
+              by _rewrite num_nodes_plug[E][take_path(path')][TreeNode(L,y,A)]
+                 definition {num_nodes, num_nodes}
+        ... = suc(ti_index(TrItr(node(RightD(L,y),path'),A,x,B)) + num_nodes(B))
+              by definition {ti_index, ti_take, take_path, plug_tree}
       }
     }
   }
@@ -446,14 +452,14 @@ proof
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    define X = in_order(plug_tree(take_path(path'),EmptyTree))
-    define Z = in_order(A)
-    define W = in_order(B)
-    define Q = in_order(plug_tree(drop_path(path'), EmptyTree))
+    define_ X = in_order(plug_tree(take_path(path'),EmptyTree))
+    define_ Z = in_order(A)
+    define_ W = in_order(B)
+    define_ Q = in_order(plug_tree(drop_path(path'), EmptyTree))
     switch f {
       case RightD(L, y) {
         _definition {plug_tree, take_path, drop_path, in_order}
-        define Y = in_order(L)
+        define_ Y = in_order(L)
         equations
               in_order(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
             = in_order(plug_tree(take_path(path'),L))
@@ -482,7 +488,7 @@ proof
       }
       case LeftD(y, R) {
         _definition {plug_tree, take_path, drop_path, in_order}
-        define Y = in_order(R)
+        define_ Y = in_order(R)
         equations
               in_order(plug_tree(path',TreeNode(TreeNode(A,x,B),y,R)))
             = in_order(plug_tree(take_path(path'),TreeNode(A,x,B)))
