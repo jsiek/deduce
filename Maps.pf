@@ -3,7 +3,7 @@ import Set
 import Option
 
 define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
-              = λf,x,v{ λy{ if y = x then v else f(y) } }
+              = generic T, U { λf,x,v{ λy{ if y = x then v else f(y) } } }
 
 theorem update_eq :
   < T, U > all f: fn (T) -> U, x:T, v:U.
@@ -35,8 +35,7 @@ proof
   }
 end
 
-theorem update_shadow :
-  < T, U > all f:fn(T)->U, x:T, v:U, w:U.
+theorem update_shadow : all T:type, U:type. all f:fn(T)->U, x:T, v:U, w:U.
   update(update(f, x, v), x, w) = update(f, x, w)
 proof
   arbitrary T:type, U:type
@@ -84,13 +83,14 @@ end
 /* Partial Maps */
 
 define domain : < T,U > fn (fn(T)->Option<U>) -> Set<T>
-              = λf{char_fun(λx{ switch f(x) {
-	                 case none { false }
-			 case just(y) { true }
-		  }})}
+              = generic T, U { λf{char_fun(λx{
+                  switch f(x) {
+	            case none { false }
+		    case just(y) { true }
+		}})}}
 
 define restrict : < T,U > fn (fn(T)->Option<U>), (Set<T>) -> (fn(T)->Option<U>)
-                = λf,P{λx{ if x ∈ P then f(x) else none }}
+                = generic T, U { λf,P { λx { if x ∈ P then f(x) else none }}}
 		
 theorem restrict_domain:
   < T, U > all f:fn(T)->Option<U>, P:Set<T>.

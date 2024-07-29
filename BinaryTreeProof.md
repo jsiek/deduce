@@ -543,9 +543,9 @@ This equation is rather big, so let's squint at it by giving names to its parts.
 (This is a new version of `define` that I'm experimenting with.)
 
 ```
-    define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-    define_ Y = num_nodes(A)
-    define_ Z = num_nodes(B)
+    define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+    define Y = num_nodes(A)
+    define Z = num_nodes(B)
 ```
 
 Now it's easy to see that our goal is true using some simple
@@ -587,9 +587,9 @@ arithmetic that we package up into lemma `XYZW_equal`.
       by _rewrite num_nodes_plug[E][take_path(path')][L]
           | num_nodes_plug[E][path'][TreeNode(L,y,TreeNode(A,x,B))]
          _definition {num_nodes, num_nodes}
-         define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-         define_ Y = num_nodes(L) define_ Z = num_nodes(A) define_ W = num_nodes(B)
-         define_ P = num_nodes(plug_tree(path',EmptyTree))
+         define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+         define Y = num_nodes(L) define Z = num_nodes(A) define W = num_nodes(B)
+         define P = num_nodes(plug_tree(path',EmptyTree))
          suffices suc((X + Y) + suc(Z + W)) < P + suc(Y + suc(Z + W))  by .
          have prem2: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
            by enable {X,Y,Z,W,P}
@@ -636,9 +636,9 @@ which we can do with yet more uses of `num_nodes_plug` and `XYZW_equal`.
           by rewrite num_nodes_plug[E][take_path(path')][L]
     ... = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) 
               + suc(num_nodes(L) + num_nodes(A))) + num_nodes(B))
-          by define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-             define_ Y = num_nodes(L) define_ Z = num_nodes(A) define_ W = num_nodes(B)
-             define_ P = num_nodes(plug_tree(path',EmptyTree))
+          by define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+             define Y = num_nodes(L) define Z = num_nodes(A) define W = num_nodes(B)
+             define P = num_nodes(plug_tree(path',EmptyTree))
              conclude suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W)
                  by XYZW_equal[X,Y,Z,W]
     ... = suc(num_nodes(plug_tree(take_path(path'),TreeNode(L,y,A))) + num_nodes(B))
@@ -682,9 +682,9 @@ proof
         suffices num_nodes(plug_tree(take_path(path'),EmptyTree)) + suc(num_nodes(A) + num_nodes(B)) 
                = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) + num_nodes(A)) + num_nodes(B))
             with definition num_nodes
-        define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-        define_ Y = num_nodes(A)
-        define_ Z = num_nodes(B)
+        define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+        define Y = num_nodes(A)
+        define Z = num_nodes(B)
         conclude X + suc(Y + Z) = suc((X + Y) + Z)
             by rewrite add_suc[X][Y+Z] | add_assoc[X][Y,Z]
       }
@@ -704,9 +704,9 @@ proof
                           + suc(num_nodes(A) + num_nodes(B))) 
                       < num_nodes(plug_tree(path',EmptyTree)) + suc(num_nodes(L) + suc(num_nodes(A) + num_nodes(B)))
                  with definition {num_nodes, num_nodes}
-             define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-             define_ Y = num_nodes(L) define_ Z = num_nodes(A) define_ W = num_nodes(B)
-             define_ P = num_nodes(plug_tree(path',EmptyTree))
+             define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+             define Y = num_nodes(L) define Z = num_nodes(A) define W = num_nodes(B)
+             define P = num_nodes(plug_tree(path',EmptyTree))
              suffices suc((X + Y) + suc(Z + W)) < P + suc(Y + suc(Z + W))  by .
              have prem2: suc((X + suc(Y + Z)) + W) < P + suc(Y + suc(Z + W))
                by enable {X,Y,Z,W,P}
@@ -730,9 +730,9 @@ proof
               by rewrite num_nodes_plug[E][take_path(path')][L]
         ... = suc((num_nodes(plug_tree(take_path(path'),EmptyTree)) 
                   + suc(num_nodes(L) + num_nodes(A))) + num_nodes(B))
-              by define_ X = num_nodes(plug_tree(take_path(path'),EmptyTree))
-                 define_ Y = num_nodes(L) define_ Z = num_nodes(A) define_ W = num_nodes(B)
-                 define_ P = num_nodes(plug_tree(path',EmptyTree))
+              by define X = num_nodes(plug_tree(take_path(path'),EmptyTree))
+                 define Y = num_nodes(L) define Z = num_nodes(A) define W = num_nodes(B)
+                 define P = num_nodes(plug_tree(path',EmptyTree))
                  conclude suc((X + Y) + suc(Z + W)) = suc((X + suc(Y + Z)) + W)
                      by XYZW_equal[X,Y,Z,W]
         ... = suc(num_nodes(plug_tree(take_path(path'),TreeNode(L,y,A))) + num_nodes(B))
@@ -1163,9 +1163,9 @@ from `List.pf`.
 ```
       _rewrite symmetric length_in_order[E][L]
             | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
-      define_ X = in_order(plug_tree(take_path(path),EmptyTree))
-      define_ Y = in_order(L)
-      define_ Z = in_order(plug_tree(drop_path(path),R))
+      define X = in_order(plug_tree(take_path(path),EmptyTree))
+      define Y = in_order(L)
+      define Z = in_order(plug_tree(drop_path(path),R))
       _rewrite symmetric length_append[E][X][Y]
 ```
 
@@ -1216,9 +1216,9 @@ proof
                       (num_nodes(plug_tree(take_path(path),EmptyTree)) + num_nodes(L)) by .
       _rewrite symmetric length_in_order[E][L]
             | symmetric length_in_order[E][plug_tree(take_path(path),EmptyTree)]
-      define_ X = in_order(plug_tree(take_path(path),EmptyTree))
-      define_ Y = in_order(L)
-      define_ Z = in_order(plug_tree(drop_path(path),R))
+      define X = in_order(plug_tree(take_path(path),EmptyTree))
+      define Y = in_order(L)
+      define Z = in_order(plug_tree(drop_path(path),R))
       _rewrite symmetric length_append[E][X][Y]
       
       conclude x = nth((X ++ Y) ++ node(x,Z), a)(length(X ++ Y))
@@ -1452,14 +1452,14 @@ proof
   }
   case node(f, path') suppose IH {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    define_ X = in_order(plug_tree(take_path(path'),EmptyTree))
-    define_ Z = in_order(A)
-    define_ W = in_order(B)
-    define_ Q = in_order(plug_tree(drop_path(path'), EmptyTree))
+    define X = in_order(plug_tree(take_path(path'),EmptyTree))
+    define Z = in_order(A)
+    define W = in_order(B)
+    define Q = in_order(plug_tree(drop_path(path'), EmptyTree))
     switch f {
       case LeftD(y, R) {
         _definition {plug_tree, take_path, drop_path, in_order}
-        define_ Y = in_order(R)
+        define Y = in_order(R)
         equations
               in_order(plug_tree(path',TreeNode(TreeNode(A,x,B),y,R)))
             = in_order(plug_tree(take_path(path'),TreeNode(A,x,B))) ++ node(y,in_order(plug_tree(drop_path(path'),R)))
@@ -1483,7 +1483,7 @@ proof
       }
       case RightD(L, y) {
         _definition {plug_tree, take_path, drop_path, in_order}
-        define_ Y = in_order(L)
+        define Y = in_order(L)
         equations
               in_order(plug_tree(path',TreeNode(L,y,TreeNode(A,x,B))))
             = in_order(plug_tree(take_path(path'),L)) ++ node(y, in_order(plug_tree(drop_path(path'), TreeNode(A,x,B))))

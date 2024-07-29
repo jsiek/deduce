@@ -919,11 +919,11 @@ proof
     arbitrary xs:List<Nat>
     _definition {msort, first, second}
 
-    define_ ys = first(msort(n',xs))
-    define_ ls = second(msort(n',xs))
-    define_ zs = first(msort(n', ls))
-    define_ ms = second(msort(n', ls))
-
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
+    
     equations
           mset_of(merge(length(ys) + length(zs),ys,zs)) ⨄ mset_of(ms)
         = (mset_of(ys) ⨄ mset_of(zs)) ⨄ mset_of(ms)
@@ -1027,13 +1027,13 @@ proof
          definition {pow2, operator*, operator*,operator*} in prem
     _definition {pow2, msort, first}
 
-    define_ ys = first(msort(n',xs))
-    define_ ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys
     have ls_def: second(msort(n',xs)) = ls  by definition ls
     
-    define_ zs = first(msort(n', ls))
-    define_ ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs
     have ms_def: second(msort(n', ls)) = ms by definition ms
 
@@ -1100,13 +1100,13 @@ proof
     suppose prem
     _definition{msort, first}
 
-    define_ ys = first(msort(n',xs))
-    define_ ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys
     have ls_def: second(msort(n',xs)) = ls  by definition ls
     
-    define_ zs = first(msort(n', ls))
-    define_ ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs
     have ms_def: second(msort(n', ls)) = ms by definition ms
 
@@ -1248,8 +1248,6 @@ proof
   have ys_ls_eq_xs: mset_of(ys)  ⨄  mset_of(ls) = mset_of(xs)
     by rewrite ys_def | ls_def in mset_of_msort[n][xs]
 
-  _rewrite n_def
-  _rewrite ys_def
   equations
     mset_of(ys)
         = mset_of(ys)  ⨄  m_fun(λx{0})
@@ -1404,13 +1402,11 @@ proof
     define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by definition ys
     have ls_def: second(msort(n',xs)) = ls  by definition ls
-    _rewrite ys_def | ls_def
     
     define zs = first(msort(n', ls))
     define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by definition zs
     have ms_def: second(msort(n', ls)) = ms by definition ms
-    _rewrite zs_def | ms_def
 
     have ys_ls_xs: length(ys) + length(ls) = length(xs)
       by rewrite ys_def | ls_def in IH[xs]

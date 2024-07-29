@@ -404,8 +404,7 @@ proof
     have IH1: sorted(ys)  by _definition ys IH[xs]
     have IH2: sorted(zs)  by _definition zs IH[second(msort(n',xs))]
     _definition {msort, first}
-    definition {ys, zs} in
-    apply merge_sorted[length(ys) + length(zs)] to IH1, IH2
+    definition {ys, zs} in apply merge_sorted[length(ys) + length(zs)] to IH1, IH2
   }
 end
 
@@ -502,13 +501,11 @@ proof
     define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by _definition ys.
     have ls_def: second(msort(n',xs)) = ls  by _definition ls.
-    _rewrite ys_def | ls_def
     
     define zs = first(msort(n', ls))
     define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by _definition zs.
     have ms_def: second(msort(n', ls)) = ms by _definition ms.
-    _rewrite zs_def | ms_def
 
     have ys_ls_xs: length(ys) + length(ls) = length(xs)
       by rewrite ys_def | ls_def in IH[xs]
@@ -552,13 +549,8 @@ proof
     
     define ys = first(msort(n',xs))
     define ls = second(msort(n',xs))
-    _rewrite conclude first(msort(n',xs)) = ys  by _definition ys.
-    _rewrite conclude second(msort(n',xs)) = ls  by _definition ls.
-    
     define zs = first(msort(n', ls))
     define ms = second(msort(n', ls))
-    _rewrite conclude first(msort(n', ls)) = zs by _definition zs.
-    _rewrite conclude second(msort(n', ls)) = ms by _definition ms.
 
     equations
           mset_of(merge(length(ys) + length(zs),ys,zs)) ⨄ mset_of(ms)
@@ -611,13 +603,13 @@ proof
          definition {pow2, operator*, operator*,operator*} in prem
     _definition {pow2, msort, first}
 
-    define_ ys = first(msort(n',xs))
-    define_ ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by _definition ys.
     have ls_def: second(msort(n',xs)) = ls  by _definition ls.
     
-    define_ zs = first(msort(n', ls))
-    define_ ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by _definition zs.
     have ms_def: second(msort(n', ls)) = ms by _definition ms.
 
@@ -676,13 +668,13 @@ proof
     suppose prem
     _definition{msort, first}
 
-    define_ ys = first(msort(n',xs))
-    define_ ls = second(msort(n',xs))
+    define ys = first(msort(n',xs))
+    define ls = second(msort(n',xs))
     have ys_def: first(msort(n',xs)) = ys  by _definition ys.
     have ls_def: second(msort(n',xs)) = ls  by _definition ls.
     
-    define_ zs = first(msort(n', ls))
-    define_ ms = second(msort(n', ls))
+    define zs = first(msort(n', ls))
+    define ms = second(msort(n', ls))
     have zs_def: first(msort(n', ls)) = zs by _definition zs.
     have ms_def: second(msort(n', ls)) = ms by _definition ms.
 
@@ -783,8 +775,6 @@ proof
   have ys_ls_eq_xs: mset_of(ys)  ⨄  mset_of(ls) = mset_of(xs)
     by rewrite ys_def | ls_def in mset_of_msort[n][xs]
 
-  _rewrite n_def
-  _rewrite ys_def
   equations
     mset_of(ys)
         = mset_of(ys)  ⨄  m_fun(λx{0})

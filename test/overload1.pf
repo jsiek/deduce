@@ -1,0 +1,12 @@
+union A {
+  a
+}
+
+union B {
+  b
+}
+
+define f : fn A -> bool = λ x { true }
+define f : fn B -> bool = λ x { true }
+
+assert f(a) and f(b)

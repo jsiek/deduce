@@ -255,7 +255,7 @@ path-so-far is `empty`.
 
 ```{.deduce #ti_first}
 define ti_first : < E > fn Tree<E>,E,Tree<E> -> TreeIter<E>
-    = λ L,x,R { first_path(L, x, R, empty) }
+    = generic E { λ L,x,R { first_path(L, x, R, empty) } }
 
 ```
 
@@ -414,7 +414,8 @@ Finally, we implement `ti_index` by counting the number of nodes
 in the tree returned by `ti_take`.
 
 ```{.deduce #ti_index}
-define ti_index : < E > fn(TreeIter<E>) -> Nat = λ iter { num_nodes(ti_take(iter))}
+define ti_index : < E > fn(TreeIter<E>) -> Nat = 
+    generic E { λ iter { num_nodes(ti_take(iter))} }
 ```
 
 ### Exercise: Implement and test the `ti_prev` Operation

@@ -69,14 +69,14 @@ def parse_tree_to_list(e, parent):
 
 def extract_and(frm):
     match frm:
-      case And(loc, args):
+      case And(loc, tyof, args):
         return args
       case _:
        return [frm]
 
 def extract_or(frm):
     match frm:
-      case Or(loc, args):
+      case Or(loc, tyof, args):
         return args
       case _:
        return [frm]
@@ -138,39 +138,37 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'term_formula':
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'if_then_formula':
-       return IfThen(e.meta,
+       return IfThen(e.meta, None,
                      parse_tree_to_ast(e.children[0], e),
                      parse_tree_to_ast(e.children[1], e))
     elif e.data == 'and_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
-       return And(e.meta, extract_and(left) + extract_and(right))
-       #return And(e.meta, [left,right])
+       return And(e.meta, None, extract_and(left) + extract_and(right))
     elif e.data == 'or_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
-       return Or(e.meta, extract_or(left) + extract_or(right))
-       #return Or(e.meta, [left, right])
+       return Or(e.meta, None, extract_or(left) + extract_or(right))
     elif e.data == 'logical_not':
        subject = parse_tree_to_ast(e.children[0], e)
-       return IfThen(e.meta, subject, Bool(e.meta, False))
+       return IfThen(e.meta, None, subject, Bool(e.meta, None, False))
     elif e.data == 'all_formula':
-        return All(e.meta,
+        return All(e.meta, None,
                    parse_tree_to_list(e.children[0], e),
                    parse_tree_to_ast(e.children[1], e))
     elif e.data == 'alltype_formula':
         vars = parse_tree_to_list(e.children[0], e)
-        return All(e.meta,
+        return All(e.meta, None,
                    [(v, TypeType(e.meta)) for v in vars],
                    parse_tree_to_ast(e.children[1], e))
     elif e.data == 'some_formula':
-        return Some(e.meta,
+        return Some(e.meta, None,
                     parse_tree_to_list(e.children[0], e),
                     parse_tree_to_ast(e.children[1], e))
     
     # types
     elif e.data == 'type_name':
-      return Var(e.meta, str(e.children[0].value))
+      return Var(e.meta, None, str(e.children[0].value))
     elif e.data == 'int_type':
       return IntType(e.meta)
     elif e.data == 'bool_type':
@@ -183,23 +181,25 @@ def parse_tree_to_ast(e, parent):
                           parse_tree_to_list(e.children[1], e),
                           parse_tree_to_ast(e.children[2], e))
     elif e.data == 'type_inst':
-      return TypeInst(e.meta, Var(e.meta, str(e.children[0].value)),
+      return TypeInst(e.meta, Var(e.meta, None, str(e.children[0].value)),
                       parse_tree_to_list(e.children[1], e))
     # terms
     elif e.data == 'define_term':
-        return TLet(e.meta, str(e.children[0].value),
+        return TLet(e.meta, None, str(e.children[0].value),
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e))
     elif e.data == 'annote_type':
-        return TAnnote(e.meta, parse_tree_to_ast(e.children[0], e),
+        return TAnnote(e.meta, None, parse_tree_to_ast(e.children[0], e),
                        parse_tree_to_ast(e.children[1], e))
     elif e.data == 'term_inst':
-        return TermInst(e.meta, parse_tree_to_ast(e.children[0], e),
-                        parse_tree_to_list(e.children[1], e))
+        return TermInst(e.meta, None,
+                        parse_tree_to_ast(e.children[0], e),
+                        parse_tree_to_list(e.children[1], e),
+                        False)
     elif e.data == 'term_var':
-        return Var(e.meta, parse_tree_to_ast(e.children[0], e))
+        return Var(e.meta, None, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'conditional':
-        return Conditional(e.meta,
+        return Conditional(e.meta, None,
                            parse_tree_to_ast(e.children[0], e),
                            parse_tree_to_ast(e.children[1], e),
                            parse_tree_to_ast(e.children[2], e))
@@ -212,44 +212,46 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'ident_append':
         return '++'
     elif e.data == 'true_literal':
-        return Bool(e.meta, True)
+        return Bool(e.meta, None, True)
     elif e.data == 'false_literal':
-        return Bool(e.meta, False)
+        return Bool(e.meta, None, False)
     elif e.data == 'emptyset_literal':
-        return Call(e.meta,
-                    Var(e.meta, 'char_fun'),
-                    [Lambda(e.meta, ['_'], Bool(e.meta, False))],
+        return Call(e.meta, None,
+                    Var(e.meta, None, 'char_fun'),
+                    [Lambda(e.meta, None, ['_'], Bool(e.meta, None, False))],
                     False)
     elif e.data == 'field_access':
         subject = parse_tree_to_ast(e.children[0], e)
         field_name = str(e.children[1].value)
-        return FieldAccess(e.meta, subject, field_name)
+        return FieldAccess(e.meta, None, subject, field_name)
     elif e.data == 'call':
         rator = parse_tree_to_ast(e.children[0], e)
         rands = parse_tree_to_list(e.children[1], e)
-        return Call(e.meta, rator, rands, False)
+        return Call(e.meta, None, rator, rands, False)
     elif e.data == 'lambda':
-        return Lambda(e.meta,
+        return Lambda(e.meta, None,
                       parse_tree_to_list(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e))
     elif e.data == 'generic':
-        return Generic(e.meta,
+        return Generic(e.meta, None,
                        parse_tree_to_list(e.children[0], e),
                        parse_tree_to_ast(e.children[1], e))
     elif e.data in infix_ops:
-        return Call(e.meta, Var(e.meta, operator_symbol[e.data]),
+        return Call(e.meta, None, Var(e.meta, None, operator_symbol[e.data]),
                     [parse_tree_to_ast(c, e) for c in e.children],
                     True)
     elif e.data in prefix_ops:
-        return Call(e.meta, Var(e.meta, operator_symbol[e.data]),
+        return Call(e.meta, None, Var(e.meta, None, operator_symbol[e.data]),
                     [parse_tree_to_ast(c, e) for c in e.children],
                     False)
     elif e.data == 'switch_case':
         e1 , e2 = e.children
-        return SwitchCase(e.meta, parse_tree_to_ast(e1, e), parse_tree_to_ast(e2, e))
+        return SwitchCase(e.meta, parse_tree_to_ast(e1, e),
+                          parse_tree_to_ast(e2, e))
     elif e.data == 'switch':
         e1 , e2 = e.children
-        return Switch(e.meta, parse_tree_to_ast(e1, e), parse_tree_to_list(e2, e))
+        return Switch(e.meta, None, parse_tree_to_ast(e1, e),
+                      parse_tree_to_list(e2, e))
     
     # proofs
     if e.data == 'proof_var':
@@ -292,11 +294,6 @@ def parse_tree_to_ast(e, parent):
                     parse_tree_to_ast(e.children[2], e),
                     parse_tree_to_ast(e.children[3], e))
     elif e.data == 'define_term_proof':
-        return PTLet(e.meta,
-                     str(e.children[0].value),
-                     parse_tree_to_ast(e.children[1], e),
-                     parse_tree_to_ast(e.children[2], e))
-    elif e.data == 'new_define_term_proof':
         return PTLetNew(e.meta,
                         str(e.children[0].value),
                         parse_tree_to_ast(e.children[1], e),
@@ -313,13 +310,13 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'suffices_def':
         claim = parse_tree_to_ast(e.children[0], e)
         defs = parse_tree_to_list(e.children[1], e)
-        definitions = [Var(e.meta, x) for x in defs]
+        definitions = [Var(e.meta, None, x) for x in defs]
         rest = parse_tree_to_ast(e.children[2], e)
         return SufficesDef(e.meta, claim, definitions, rest)
     elif e.data == 'suffices_def_one':
         return SufficesDef(e.meta,
                            parse_tree_to_ast(e.children[0], e),
-                           [Var(e.meta, parse_tree_to_ast(e.children[1], e))],
+                           [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))],
                            parse_tree_to_ast(e.children[2], e))
     elif e.data == 'suffices_rewrite':
         return SufficesRewrite(e.meta,
@@ -406,7 +403,7 @@ def parse_tree_to_ast(e, parent):
         subject = parse_tree_to_ast(e.children[0], e)
         defn = parse_tree_to_ast(e.children[1], e)
         cases = parse_tree_to_list(e.children[2], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, defn)],
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, defn)],
                              SwitchProof(e.meta, subject, cases))
     elif e.data == 'ind_case':
         pat = parse_tree_to_ast(e.children[0], e)
@@ -420,41 +417,41 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'apply_defs_goal':
         definitions = parse_tree_to_list(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, t) for t in definitions],
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, t) for t in definitions],
                              body)
     elif e.data == 'apply_defs_goal_one':
         definition = parse_tree_to_ast(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, definition)], body)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, definition)], body)
     elif e.data == 'apply_defs_fact':
         definitions = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsFact(e.meta,
-                             [Var(e.meta, t) for t in definitions],
+                             [Var(e.meta, None, t) for t in definitions],
                              subject)
     elif e.data == 'apply_defs_fact_one':
         definition = parse_tree_to_ast(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsFact(e.meta,
-                             [Var(e.meta, definition)],
+                             [Var(e.meta, None, definition)],
                              subject)
     elif e.data == 'enable_defs':
         definitions = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return EnableDefs(e.meta,
-                          [Var(e.meta, x) for x in definitions],
+                          [Var(e.meta, None, x) for x in definitions],
                           subject)
     elif e.data == 'reason_definition':
         definitions = parse_tree_to_list(e.children[0], e)
-        return ApplyDefs(e.meta, [Var(e.meta, t) for t in definitions])
+        return ApplyDefs(e.meta, [Var(e.meta, None, t) for t in definitions])
     elif e.data == 'reason_definition_one':
         dfn = parse_tree_to_ast(e.children[0], e)
-        return ApplyDefs(e.meta, [Var(e.meta, dfn)])
+        return ApplyDefs(e.meta, [Var(e.meta, None, dfn)])
     elif e.data == 'enable_def':
         definition = parse_tree_to_ast(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return EnableDefs(e.meta,
-                          [Var(e.meta, definition)],
+                          [Var(e.meta, None, definition)],
                           subject)
     elif e.data == 'rewrite_goal':
         eqns = parse_tree_to_list(e.children[0], e)
@@ -517,17 +514,17 @@ def parse_tree_to_ast(e, parent):
     # patterns in function definitions
     elif e.data == 'pattern_id':
         id = parse_tree_to_ast(e.children[0], e)
-        return PatternCons(e.meta, Var(e.meta, id), [])
+        return PatternCons(e.meta, Var(e.meta, None, id), [])
         #return PatternCons(e.meta, Var(e.meta, str(e.children[0].value)), [])
     elif e.data == 'pattern_zero':
-        return PatternCons(e.meta, Var(e.meta, 'zero'), [])
+        return PatternCons(e.meta, Var(e.meta, None, 'zero'), [])
     elif e.data == 'pattern_true':
         return PatternBool(e.meta, True)
     elif e.data == 'pattern_false':
         return PatternBool(e.meta, False)
     elif e.data == 'pattern_apply':
         params = parse_tree_to_list(e.children[1], e)
-        return PatternCons(e.meta, Var(e.meta, str(e.children[0].value)), params)
+        return PatternCons(e.meta, Var(e.meta, None, str(e.children[0].value)), params)
     
     # case of a recursive function
     elif e.data == 'fun_case':

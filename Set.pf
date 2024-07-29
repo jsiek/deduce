@@ -92,14 +92,14 @@ theorem union_empty: all T:type, A:Set<T>.
   A ∪ ∅ = A
 proof
   arbitrary T:type, A:Set<T>
-  suffices char_fun(λx{rep(A)(x)} : fn T->bool) = A
-      by definition {operator ∪, rep, char_fun}
+  suffices A ∪ char_fun[T](λ_{false}) = A   by .
+  suffices char_fun[T](λx{rep(A)(x)}) = A   with definition {operator ∪, rep}
   switch A {
     case char_fun(f) {
       have eq: (λx{f(x)} : fn T->bool) = f
           by extensionality arbitrary x:T.
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)
-          by definition rep
+          with definition rep
       rewrite eq
     }
   }

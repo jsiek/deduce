@@ -919,7 +919,7 @@ proof
   case zero {
     arbitrary y:Nat
     switch y {
-      case zero { conclude 0 = 0 by reflexive }
+      case zero { conclude 0 = 0 by . }
       case suc(y') {
         enable {operator <, operator ≤, operator ≤}
         conclude 0 < suc(y') by .
@@ -1857,8 +1857,8 @@ proof
             Q
           }
           case false suppose n_l_um_false {
-            define_ M = pos2nat(m)
-            define_ R = n - u' * M
+            define M = pos2nat(m)
+            define R = n - u' * M
             choose R
 	    have um_le_n: u' * M ≤ n
 	      by have not_n_l_um: not (n < u' * M)
@@ -1890,8 +1890,8 @@ proof
         }
       }
       case false suppose sqn_g_n {
-        define_ M = pos2nat(m)
-        define_ R = n - q * M
+        define M = pos2nat(m)
+        define R = n - q * M
         
         have qm_le_sn: q * M ≤ suc(n)
           by have qm_le_n: q * M ≤ n
@@ -1958,7 +1958,7 @@ proof
     case suc(n') suppose n_sn {
       have qm_le_n: 0 * pos2nat(m) ≤ n
 	by definition {operator*,operator≤}
-      define_ u = suc(n) * pos2nat(m)
+      define u = suc(n) * pos2nat(m)
       have n_l_um: n < u * pos2nat(m)
         by suffices suc(n) ≤ (pos2nat(m) + n * pos2nat(m)) * pos2nat(m)
               by definition {operator<, u, operator*}
@@ -1972,7 +1972,7 @@ proof
 	     case succ(m') suppose m_sm {
 	       suffices suc(n) ≤ (suc(pos2nat(m')) + n * suc(pos2nat(m'))) * suc(pos2nat(m'))
                  by definition pos2nat
-               define_ M = pos2nat(m')
+               define M = pos2nat(m')
                suffices n ≤ M + (M + n * suc(M)) * suc(M)
                   by definition {operator+, operator*, operator+, operator≤}
                have eq: M + (M + n * suc(M)) * suc(M)
@@ -2017,7 +2017,7 @@ proof
   arbitrary n:Nat, m:Pos
   suffices (n / m) * pos2nat(m) + (n - (n / m) * pos2nat(m)) = n
       by rewrite mod_def[n,m]
-  define_ a = (n / m) * pos2nat(m)
+  define a = (n / m) * pos2nat(m)
   obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
     from division[n, m]
   have ar_n: a + r = n   by _definition a R
@@ -2035,7 +2035,7 @@ proof
   arbitrary n:Nat, m:Pos
   suffices n - (n / m) * pos2nat(m) < pos2nat(m)
       by rewrite mod_def[n,m]
-  define_ a = (n / m) * pos2nat(m)
+  define a = (n / m) * pos2nat(m)
   obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
     from division[n, m]
   have ar_n: a + r = n   by _definition a R
