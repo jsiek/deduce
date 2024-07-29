@@ -333,23 +333,45 @@ below.
 ```
 
 For the proof of this case, we again start with `arbitrary` to handle
-`all start` then use the _definitions of `interval` and `length`.
+`all start` then use the definitions of `interval` and `length`
+in a `suffices` statement. For that we need to write out the new goal,
+but to avoid figuring that out ourselves, we can start out by
+just using `true` (incorrectly) and then Deduce will give us
+the new goal in the error message.
 
 ```
   case suc(count')
     suppose IH: all start:Nat. length(interval(count', start)) = count'
   {
     arbitrary start:Nat
-    _definition {interval, length}
+    suffices true
+        with definition {interval, length}
     ?
   }
 ```
 
-Deduce tells us that we need to prove the following.
+Deduce replies with
 ```
-suc(length(interval(count',suc(start)))) = suc(count')
+expected
+1 + length(interval(count', suc(start))) = suc(count')
+but only have
+true
 ```
-Here the induction hypothesis `IH` comes to the rescue. 
+
+So we copy that into the `suffices` statment.
+
+```
+  case suc(count')
+    suppose IH: all start:Nat. length(interval(count', start)) = count'
+  {
+    arbitrary start:Nat
+    suffices 1 + length(interval(count', suc(start))) = suc(count')
+        with definition {interval, length}
+    ?
+  }
+```
+
+Here is where the induction hypothesis `IH` comes to the rescue. 
 If we instantiate the `all start` with `suc(start)`, we get
 ```
 length(interval(count',suc(start))) = count'
@@ -360,9 +382,9 @@ which is just what we need to conclude.
     suppose IH: all start:Nat. length(interval(count', start)) = count' 
   {
     arbitrary start:Nat
-    _definition {interval, length}
-    conclude suc(length(interval(count',suc(start)))) = suc(count')
-	    by rewrite IH[suc(start)]
+    suffices 1 + length(interval(count', suc(start))) = suc(count')
+        with definition {interval, length}
+    rewrite suc_one_add[count'] | IH[suc(start)]
   }
 ```
 
@@ -377,15 +399,15 @@ proof
   case 0 {
     arbitrary start:Nat
     conclude length(interval(0, start)) = 0
-	    by _definition {interval, length}.
+	    by definition {interval, length}
   }
   case suc(count')
     suppose IH: all start:Nat. length(interval(count', start)) = count' 
   {
     arbitrary start:Nat
-    _definition {interval, length}
-    conclude 1 + length(interval(count',suc(start))) = suc(count')
-	    by rewrite suc_one_add[count'] | IH[suc(start)]
+    suffices 1 + length(interval(count', suc(start))) = suc(count')
+        with definition {interval, length}
+    rewrite suc_one_add[count'] | IH[suc(start)]
   }
 end
 ```
@@ -433,38 +455,31 @@ then use the definitions of `interval` and `nth`.
   case 0 {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_z: i < 0
-    _definition {interval, nth}
+    suffices d = i + start  with definition {interval, nth}
     ?
   }
 ```
 
-Deduce responds with
-```
-Goal:
-    d = i + start
-Givens:
-    i_l_z: i < 0
-```
-Now we are in a strange situation. The goal seems rather difficult to prove 
-because we don't know anything about `start` and `d`. The givens (aka. assumptions)
-are also strange. How can the natural number `i` be less than `0`?
-Of course it cannot. Thus, `i < 0` implies `false` and then we can use
-the principle of explosion, which states that `false` implies anything,
-to prove that `d = i + start`.
+Now we are in a strange situation. The goal `d = i + start` seems
+rather difficult to prove because we don't know anything about `start`
+and `d`. The givens (aka. assumptions) are also strange. How can the
+natural number `i` be less than `0`?  Of course it cannot. Thus, 
+`i < 0` implies `false` and then we can use the principle of explosion,
+which states that `false` implies anything, to prove that `d = i + start`.
 
 ```
   case 0 {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_z: i < 0
-    _definition {interval, nth}
+    suffices d = i + start  with definition {interval, nth}
     conclude false  by definition {operator <, operator ≤} in i_l_z
   }
 ```
 
 Next we turn to the case for `count = suc(count')`. Deduce tells us
-the formula for the induction hypothesis, so we paste that into
-the `suppose IH`. Looking at the goal formula, we begin the proof
-with `arbitrary`, `suppose`, and use the definitions of `interval` and `nth`.
+the formula for the induction hypothesis, so we paste that into the
+`suppose IH`. Directed by the goal formula, we begin the proof with
+`arbitrary`, `suppose`.
 
 ```
   case suc(count') 
@@ -473,26 +488,32 @@ with `arbitrary`, `suppose`, and use the definitions of `interval` and `nth`.
   {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_sc: i < suc(count')
-    _definition {interval, nth}
     ?
   }
 ```
 
-Deduce responds with the following.
+So the goal becomes:
 
 ```
-Goal:
-    if i = 0 then start
-	else nth(interval(count',suc(start)),d)(pred(i)) = i + start
+nth(interval(suc(count'), start), d)(i) = i + start
 ```
 
-What we're seeing here is that the `nth` function uses an `if`-`then`-`else`
-with `i = 0` as the condition. So to reason about this goal, we need to
-break our proof down into two cases, when `i = 0` and `i ≠ 0`. One
-convenient way to do that in Deduce is with a `switch`.
+We spot the opportunity to expand the definition of `interval`.
+
 
 ```
-  switch i {
+    suffices nth(node(start, interval(count', suc(start))), d)(i) = i + start
+        with definition interval
+    ?
+```
+
+Next we would like to expand `nth`, but note that to resolve the
+`if`-`then`-`else` inside `nth`, we need to know whether `i` is `0` or
+not. So we `switch` on `i` and expand the definition of `nth` at the
+same time, using a `switch`-`for` statement.
+
+```
+  switch i for nth {
 	case 0 {
 	  ?
 	}
@@ -502,8 +523,7 @@ convenient way to do that in Deduce is with a `switch`.
   }
 ```
 
-Let us proceed with the case for `i = 0`. Deduce simplifies the goal
-and responds with 
+Let us proceed with the case for `i = 0`. Deduce responds with 
 ```
 Goal:
     start = 0 + start
@@ -512,34 +532,34 @@ Goal:
 which follows directly from the definition of addition.
 
 ```
-  case 0 {
-	conclude start = 0 + start   by definition operator +
-  }
+    conclude start = 0 + start  by definition operator +
 ```
 
 In the case for `i = suc(i')`, Deduce tells us that we need to prove
+
 ```
   nth(interval(count',suc(start)),d)(pred(suc(i'))) = suc(i') + start
 ```
+
 This looks quite similar to the induction hypothesis instantiated with
 `suc(start)`, `d`, and `i'`:
+
 ```
   if i' < count' 
   then nth(interval(count',suc(start)),d)(i') = i' + suc(start)
 ```
+
 One difference is `pred(suc(i'))` versus `i'`, but they are equal by the
 definition of `pred`.
+
 ```
   case suc(i') suppose i_sc: i = suc(i') {
-	_definition pred
+    suffices nth(interval(count',suc(start)),d)(i') = suc(i') + start
+        with definition {pred}
 	?
   }
 ```
-Deduce responds with
-```
-Goal:
-    nth(interval(count',suc(start)),d)(i') = suc(i') + start
-```
+
 So if we use the induction hypothesis, then we will just need to
 prove that `i' + suc(start) = suc(i') + start`, which is certainly
 true and will just require a little reasoning about addition.
@@ -549,7 +569,8 @@ and `i_sc: i = suc(i')` and the definitions of `<` and `≤`.
 
 ```
   case suc(i') suppose i_sc: i = suc(i') {
-	_definition pred
+    suffices nth(interval(count',suc(start)),d)(i') = suc(i') + start
+        with definition {pred}
 	have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
 								  rewrite i_sc in i_l_sc
 	?
@@ -583,8 +604,8 @@ proof
   case 0 {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_z: i < 0
-    _definition {interval, nth}
-    conclude false  by definition {operator <, operator ≤} in i_l_z
+    suffices d = i + start  with definition {interval, nth}
+    conclude false by definition {operator <, operator ≤} in i_l_z
   }
   case suc(count') 
     suppose IH: all start:Nat, d:Nat, i:Nat. 
@@ -592,13 +613,15 @@ proof
   {
     arbitrary start:Nat, d:Nat, i:Nat
     suppose i_l_sc: i < suc(count')
-    _definition {interval, nth}
-    switch i {
+    suffices nth(node(start, interval(count', suc(start))), d)(i) = i + start
+        with definition interval
+    switch i for nth {
       case 0 {
-        conclude start = 0 + start   by definition operator +
+        conclude start = 0 + start  by definition operator +
       }
       case suc(i') suppose i_sc: i = suc(i') {
-        _definition pred
+        suffices nth(interval(count',suc(start)),d)(i') = suc(i') + start
+            with definition {pred}
         have i_l_cnt: i' < count'  by enable {operator <, operator ≤}
                                       rewrite i_sc in i_l_sc
         equations
@@ -611,7 +634,6 @@ proof
   }
 end
 ```
-
 
 ## Exercise: Define Append
 
@@ -768,13 +790,13 @@ proof
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
     suppose i_xxs: i < length(node(x,xs))
-    _definition append
-    switch i {
-      case 0 {
-        definition nth
-      }
+    suffices nth(node(x, append(xs, ys)), d)(i) = nth(node(x, xs), d)(i)
+        with definition append
+    switch i for nth {
+      case 0 { . }
       case suc(i') suppose i_si {
-        _definition {nth, pred}
+        suffices nth(append(xs, ys), d)(i') = nth(xs, d)(i')
+            with definition pred
         have i_xs: i' < length(xs) by
             enable {operator <, operator ≤}
             conclude i' < length(xs) by
@@ -798,11 +820,9 @@ proof
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
-    _definition {append,length, nth}
-    have X: not ((1 + length(xs)) + i = 0) 
-      by suppose eq_z enable operator + conclude false by eq_z
-    _rewrite X
-    _definition {operator +, operator+, pred}
+    suffices nth(append(xs, ys), d)(length(xs) + i)
+           = nth(ys, d)(i)
+        with definition {append, length, nth, operator+, pred, operator+}
     IH[ys, i, d]
   }
 end

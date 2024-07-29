@@ -1973,11 +1973,8 @@ class RecFun(Statement):
 
     
   def __str__(self):
-    if len(self.type_params) == 0:
-      return base_name(self.name) + '<>'
-    else:
-      return base_name(self.name) + '<' + ','.join([base_name(t) for t in self.type_params]) + '>'
-
+    return base_name(self.name)
+    
   def to_string(self):
     return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
