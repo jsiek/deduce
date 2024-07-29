@@ -1,0 +1,8 @@
+union A {
+  a
+}
+
+define f : fn A -> bool = λ x { true }
+define f : fn A -> bool = λ x { true }
+
+assert f(a)

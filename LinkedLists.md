@@ -26,7 +26,7 @@ given list. The length of an empty list is `0` and the length of a
 list that starts with a node is one more than the length of the list
 starting at the next node.
 
-``` {.deduce #length}
+``` {.deduce #length_list}
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = 1 + length(next)
@@ -663,7 +663,7 @@ The `all_elements` function takes a list and a function and checks
 whether applying the function to every element of the list always
 produces `true`.
 
-``` {.deduce #all_elements}
+``` {.deduce #all_elements_list}
 function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
@@ -722,7 +722,7 @@ end
 <<importNat>>
 
 <<list>>
-<<length>>
+<<length_list>>
 <<nth>>
 <<interval>>
 <<interval_example>>
@@ -732,7 +732,7 @@ function append<E>(List<E>, List<E>) -> List<E> {
   append(node(n, xs), ys) = node(n, append(xs, ys))
 }
 
-<<all_elements>>
+<<all_elements_list>>
 
 <<test_interval>>
 <<interval_length>>

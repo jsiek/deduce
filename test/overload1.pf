@@ -6,7 +6,20 @@ union B {
   b
 }
 
-define f : fn A -> bool = λ x { true }
-define f : fn B -> bool = λ x { true }
+union C {
+  c
+}
 
-assert f(a) and f(b)
+union D {
+  d
+}
+
+define f : fn A -> bool = λ x { true }
+define f : fn B -> bool = λ x { false }
+define f : fn C -> bool = λ x { true }
+define f : fn D -> bool = λ x { false }
+
+assert f(a)
+assert not f(b)
+assert f(c)
+assert not f(d)

@@ -1,0 +1,18 @@
+union A {
+  a
+}
+
+union B {
+  b
+}
+
+union C1 {
+  Make(A)
+}
+
+union C2 {
+  Make(B)
+}
+
+assert Make(a) = Make(a)
+assert Make(b) = Make(b)

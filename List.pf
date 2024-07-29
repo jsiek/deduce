@@ -131,10 +131,6 @@ function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
 
 define L1_positive = all_elements(L1, λx{ 0 < x })
 
-define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2)
-                                    -> (fn Pair<T1,U1> -> Pair<T2,U2>)
-  = generic T1,T2,U1,U2 { λ f, g { λp{ pair(f(first(p)), g(second(p))) } } }
-
 function filter<E>(List<E>, fn (E)->bool) -> List<E> {
   filter(empty, P) = empty
   filter(node(x, ls), P) =

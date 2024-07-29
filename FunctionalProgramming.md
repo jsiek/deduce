@@ -373,7 +373,6 @@ is of type `Pos`, which is defined in `Nat.pf`.
 
 <!--
 ```{.deduce file=FunctionalProgramming.pf}
-<<Nat>>
 <<ImportNat>>
 <<five_six>>
 <<print_five>>
@@ -440,22 +439,22 @@ function remove_if<E>(List<E>, fn (E)->bool) -> List<E> {
 <<test_remove_if>>
 
 union NEList<T> {
-  single(T)
+  singleton(T)
   another(T, NEList<T>)
 }
 
 function len_ne<T>(NEList<T>) -> Pos {
-  len_ne(single(x)) = one
+  len_ne(singleton(x)) = one
   len_ne(another(x, xs)) = succ(len_ne(xs))
 }
 
 function sum_ne(NEList<Nat>) -> Nat {
-  sum_ne(single(x)) = x
+  sum_ne(singleton(x)) = x
   sum_ne(another(x, xs)) = x + sum_ne(xs)
 }
 
 define average : fn NEList<Nat> -> Nat = λ ne { sum_ne(ne) / len_ne(ne) }
-assert average(another(3, another(2, single(1)))) = 2
-assert average(another(4, another(5, single(6)))) = 5
+assert average(another(3, another(2, singleton(1)))) = 2
+assert average(another(4, another(5, singleton(6)))) = 5
 ```
 -->

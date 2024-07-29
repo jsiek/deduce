@@ -128,35 +128,35 @@ class TypeType(Type):
   
 @dataclass
 class OverloadType(Type):
-  types: List[Type]
+  types: List[Tuple[str,Type]]
 
   def __str__(self):
-    return '(' + ' & '.join([str(ty) for ty in self.types]) + ')'
+    return '(' + ' & '.join([x + ': ' + str(ty) for (x,ty) in self.types]) + ')'
 
   def __eq__(self, other):
     match other:
       case OverloadType(l2, types2):
         ret = True
-        for (t1, t2) in zip(self.types, types2):
+        for ((x,t1), (y,t2)) in zip(self.types, types2):
           ret = ret and t1 == t2
         return ret
       case _:
         return False
 
   def free_vars(self):
-    fvs = [pt.free_vars() for pt in self.types]
+    fvs = [t.free_vars() for (x,t) in self.types]
     return set().union(*fvs)
 
   def substitute(self, sub):
-      return OverloadType(self.location, [pt.substitute(sub) for pt in self.types])
+      return OverloadType(self.location, [(x, t.substitute(sub)) for (x,t) in self.types])
 
     
   def uniquify(self, env):
-    for t in self.types:
+    for (x,t) in self.types:
       t.uniquify(env)
     
   def reduce(self, env):
-    return OverloadType(self.location, [ty.reduce(env) for ty in self.types])
+    return OverloadType(self.location, [(x, ty.reduce(env)) for (x,ty) in self.types])
       
     
 @dataclass
@@ -176,7 +176,7 @@ class FunctionType(Type):
       prefix = '<' + ','.join([base_name(x) for x in self.type_params]) + '>'
     else:
       prefix = ''
-    return 'fn' + prefix + '(' + ','.join([str(ty) for ty in self.param_types]) + ')'\
+    return prefix + 'fn ' + ','.join([str(ty) for ty in self.param_types]) \
       + ' -> ' + str(self.return_type)
 
   def __eq__(self, other):
@@ -1141,8 +1141,8 @@ class IfThen(Formula):
   
   def __str__(self):
     match self.conclusion:
-      case Bool(loc, False):
-        return 'not (' + str(self.premise) + ')'
+      case Bool(loc, tyof, False):
+        return 'not ' + str(self.premise)
       case _:
         return '(if ' + str(self.premise) \
           + ' then ' + str(self.conclusion) + ')'
@@ -1887,8 +1887,11 @@ class Union(Statement):
     self.type_params = new_type_params
     for con in self.alternatives:
       con.uniquify(body_env)
-      new_con_name = generate_name(con.name)
-      env[con.name] = new_con_name
+      if con.name not in env.keys():
+        new_con_name = generate_name(con.name)
+        env[con.name] = new_con_name
+      else:
+        new_con_name = env[con.name]
       con.name = new_con_name
 
   def uniquify_body(self, env):
@@ -1942,8 +1945,11 @@ class RecFun(Statement):
   cases: List[FunCase]
 
   def uniquify(self, env):
-    new_name = generate_name(self.name)
-    env[self.name] = new_name
+    if self.name not in env.keys():
+      new_name = generate_name(self.name)
+      env[self.name] = new_name
+    else:
+      new_name = env[self.name]
     self.name = new_name
     
     body_env = copy_dict(env)
@@ -2002,7 +2008,9 @@ class Define(Statement):
   body: Term
 
   def __str__(self):
-    return 'define ' + self.name + ' = ' + str(self.body)
+    return 'define ' + self.name \
+      + (' : ' + str(self.typ) if self.typ else '') \
+      + ' = ' + str(self.body)
   
   def uniquify(self, env):
     if self.typ:

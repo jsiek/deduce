@@ -1301,12 +1301,11 @@ To summarize this section:
 
 <!--
 ```{.deduce file=ProofIntro.pf}
-import FunctionalProgramming
+import List
 
 <<length_nat_empty>>
 <<length_node42>>
 
-import List
 
 theorem append_12: 
   node(1,empty) ++ node(2, empty) = node(1, node(2, empty))

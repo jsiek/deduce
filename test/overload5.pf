@@ -1,0 +1,36 @@
+union A {
+  a
+}
+
+union B {
+  b
+}
+
+union C {
+  c
+}
+
+union D {
+  d
+}
+
+function f(A) -> bool {
+  f(a) = true
+}
+
+function f(B) -> bool {
+  f(b) = false
+}
+
+function f(C) -> bool {
+  f(c) = true
+}
+
+function f(D) -> bool {
+  f(d) = false
+}
+
+assert f(a)
+assert not f(b)
+assert f(c)
+assert not f(d)

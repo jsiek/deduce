@@ -15,6 +15,8 @@
 from abstract_syntax import *
 from error import error, warning, get_verbose, set_verbose
 
+imported_modules = set()
+
 name_id = 0
 
 def generate_name(name):
@@ -944,55 +946,84 @@ def type_names(loc, names):
     index += 1
   return result
 
+def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
+                          typarams, param_types, return_type):
+  if len(args) != len(param_types):
+    error(loc, 'incorrect number of arguments, expected ' + str(len(param_types)) \
+          + ', not ' + str(len(args)))
+  if len(typarams) == 0:
+    new_args = []
+    for (param_type, arg) in zip(param_types, args):
+      new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
+    if ret_ty != None and ret_ty != return_type:
+      error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
+    return Call(loc, return_type, new_rator, new_args, call.infix)
+  else:
+    matching = {}
+    # If there is an expected return type, match that first.
+    type_params = type_names(loc, typarams)
+    if ret_ty:
+      type_match(loc, type_params, return_type, ret_ty, matching)
+    # If we have already deduced the type parameters in the parameter type,
+    # then we can check the term. Otherwise, we synthesize the term's type
+    # and match it against the parameter type.
+    new_args = []
+    for (arg, param_ty) in zip(args, param_types):
+        param_type = param_ty.substitute(matching)
+        fvs = param_type.free_vars()\
+                        .intersection(set([ty.name for ty in type_params]))
+        if len(fvs) == 0:
+          new_arg = type_check_term(arg, param_type, env, recfun, subterms)
+        else:
+          new_arg = type_synth_term(arg, env, recfun, subterms)
+          type_match(loc, type_params, param_type, new_arg.typeof, matching)
+        new_args.append(new_arg)
+
+    # Were all the type parameters deduced?
+    for x in typarams:
+        if x not in matching.keys():
+            error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' \
+                  + base_name(x) + ' to instantiate ' + str(call.rator) \
+                  + '\n\twhose type is: ' + str(funty))
+
+    type_args = [matching[x] for x in typarams]
+    inst_params = [p.substitute(matching) for p in param_types]
+    inst_return_type = return_type.substitute(matching)
+    inst_funty = FunctionType(loc, [], inst_params, inst_return_type)
+    inst_rator = TermInst(loc, inst_funty, new_rator, type_args, True)
+    return Call(loc, inst_return_type, inst_rator, new_args, call.infix)
+
 def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, call):
   if get_verbose():
       print('tc_call_helper(' + str(call) + ')')
   funty = new_rator.typeof
   match funty:
-    case FunctionType(loc2, typarams, param_types, return_type):
-      if len(args) != len(param_types):
-        error(loc, 'incorrect number of arguments, expected ' + str(len(param_types)) + ', not ' + str(len(args)))
-      if len(typarams) == 0:
-        new_args = []
-        for (param_type, arg) in zip(param_types, args):
-          new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
-        if ret_ty != None and ret_ty != return_type:
-          error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
-        return Call(loc, return_type, new_rator, new_args, call.infix)
+    case OverloadType(loc2, overloads):
+      num_matches = 0
+      for (x, funty) in overloads:
+          match funty:
+            case FunctionType(loc2, typarams, param_types, return_type):
+              try:
+                new_call = type_check_call_funty(loc, Var(loc2, funty, x), args, env, recfun,
+                                                 subterms, ret_ty, call,
+                                                 typarams, param_types, return_type)
+                num_matches += 1
+              except Exception as e:
+                pass
+      if num_matches == 0:
+          error(loc, 'could not find a match for call to function ' \
+                + str(new_rator) + '\n'\
+                + 'overloads:\n\t' \
+                + '\n\t'.join([str(ty) for (x,ty) in overloads]))
+      elif num_matches > 1:
+          error(loc, 'in call to ' + str(new_rator) + '\n'\
+                + 'ambiguous overloads:\n\t' \
+                + '\n\t'.join([str(ty) for (x,ty) in overloads]))
       else:
-        matching = {}
-        # If there is an expected return type, match that first.
-        type_params = type_names(loc, typarams)
-        if ret_ty:
-          type_match(loc, type_params, return_type, ret_ty, matching)
-        # If we have already deduced the type parameters in the parameter type,
-        # then we can check the term. Otherwise, we synthesize the term's type
-        # and match it against the parameter type.
-        new_args = []
-        for (arg, param_ty) in zip(args, param_types):
-            param_type = param_ty.substitute(matching)
-            fvs = param_type.free_vars()\
-                            .intersection(set([ty.name for ty in type_params]))
-            if len(fvs) == 0:
-              new_arg = type_check_term(arg, param_type, env, recfun, subterms)
-            else:
-              new_arg = type_synth_term(arg, env, recfun, subterms)
-              type_match(loc, type_params, param_type, new_arg.typeof, matching)
-            new_args.append(new_arg)
-            
-        # Were all the type parameters deduced?
-        for x in typarams:
-            if x not in matching.keys():
-                error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' \
-                      + base_name(x) + ' to instantiate ' + str(call.rator) \
-                      + '\n\twhose type is: ' + str(funty))
-                
-        type_args = [matching[x] for x in typarams]
-        inst_params = [p.substitute(matching) for p in param_types]
-        inst_return_type = return_type.substitute(matching)
-        inst_funty = FunctionType(loc2, [], inst_params, inst_return_type)
-        inst_rator = TermInst(loc, inst_funty, new_rator, type_args, True)
-        return Call(loc, inst_return_type, inst_rator, new_args, call.infix)
+          return new_call
+    case FunctionType(loc2, typarams, param_types, return_type):
+      return type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
+                                   typarams, param_types, return_type)
     case _:
       error(loc, 'expected operator to have function type, not ' + str(funty))
       
@@ -1184,7 +1215,7 @@ def type_synth_term(term, env, recfun, subterms):
       else:
         error(term.location, 'cannot synthesize a type for ' + str(term))
   if get_verbose():
-    print('\t=> ' + str(ret))
+    print('\t=> ' + str(ret) + ' : ' + str(ret.typeof))
   return ret
 
 def type_check_formula(term, env):
@@ -1209,6 +1240,8 @@ def type_check_term(term, typ, env, recfun, subterms):
         
     case Var(loc, _, name):
       var_typ = env.get_type_of_term_var(term)
+      if get_verbose():
+          print('var_typ = ' + str(var_typ))
       if var_typ == None:
         error(loc, 'undefined variable ' + str(term) \
               + '\nin scope:\n' + str(env))
@@ -1338,6 +1371,16 @@ def check_formula(frm, env):
 
 modules = set()
 
+def add_overload(loc, old_var_ty, new_ty, name):
+    match old_var_ty:
+      case OverloadType(loc2, old_overloads):
+        overloads = old_overloads
+      case _:
+        overloads = [(name, old_var_ty)]
+    new_name = generate_name(name)
+    ovld_ty = OverloadType(loc, [(new_name, new_ty)] + overloads)
+    return ovld_ty, new_name
+
 def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
@@ -1351,9 +1394,16 @@ def process_declaration(stmt, env):
         check_type(ty, env)
         new_body = body
         new_ty = ty
-      return Define(loc, name, ty, new_body), \
-          env.declare_term_var(loc, name, new_ty)
-  
+
+      old_var_ty = env.get_type_of_term_var(Var(loc, None, name))
+      if old_var_ty == None:
+          return Define(loc, name, new_ty, new_body), \
+              env.declare_term_var(loc, name, new_ty)
+      else:
+          ovld_ty, new_name = add_overload(loc, old_var_ty, new_ty, name)
+          return Define(loc, new_name, new_ty, new_body), \
+              env.declare_term_var(loc, name, ovld_ty)
+          
     case Theorem(loc, name, frm, pf):
       return stmt, env
   
@@ -1363,13 +1413,21 @@ def process_declaration(stmt, env):
       for t in params:
           check_type(t, body_env)
       fun_type = FunctionType(loc, typarams, params, returns)
-      return stmt, env.declare_term_var(loc, name, fun_type)
-  
+
+      old_var_ty = env.get_type_of_term_var(Var(loc, None, name))
+      if old_var_ty == None:      
+          return stmt, env.declare_term_var(loc, name, fun_type)
+      else:
+          ovld_ty, new_name = add_overload(loc, old_var_ty, fun_type, name)
+          return RecFun(loc, new_name, typarams, params, returns, cases), \
+              env.declare_term_var(loc, name, ovld_ty)
+      
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, stmt)
       union_type = Var(loc, None, name)
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
+      new_alts = []
       for constr in alts:
         if len(constr.parameters) > 0:
           if len(typarams) > 0:
@@ -1379,30 +1437,49 @@ def process_declaration(stmt, env):
             return_type = body_union_type
           for ty in constr.parameters:
             check_type(ty, body_env)
-          constr_type = FunctionType(constr.location, typarams, constr.parameters,
-                                     return_type)
-          env = env.declare_term_var(loc, constr.name, constr_type)
+          constr_type = FunctionType(constr.location, typarams,
+                                     constr.parameters, return_type)
         elif len(typarams) > 0:
-          env = env.declare_term_var(loc, constr.name, GenericUnknownInst(loc, union_type))
+          constr_type = GenericUnknownInst(loc, union_type)
         else:
-          env = env.declare_term_var(loc, constr.name, union_type)
-      return stmt, env
+          constr_type = union_type
+
+        old_var_ty = env.get_type_of_term_var(Var(loc, None, constr.name))
+        if old_var_ty == None:
+            new_constr = constr
+            env = env.declare_term_var(loc, constr.name, constr_type)
+        else:
+            ovld_ty, new_constr_name = \
+                add_overload(constr.location, old_var_ty, constr_type,
+                             constr.name)
+            new_constr = Constructor(constr.location,
+                                     new_constr_name, constr_type)
+            env = env.declare_term_var(loc, constr.name, ovld_ty)
+        new_alts.append(new_constr)
+        
+      return Union(loc, name, typarams, new_alts), env
   
     case Import(loc, name, ast):
-      ast2 = []
-      for s in ast:
-        new_s, env = process_declaration(s, env)
-        ast2.append(new_s)
-        
-      ast3 = []
-      for s in ast2:
-        new_s, env = type_check_stmt(s, env)
-        ast3.append(new_s)
-        
-      for s in ast3:
-        check_proofs(s, env)
-        
-      return Import(loc, name, ast3), env
+      if name in imported_modules:
+          return stmt, env
+      else:
+          imported_modules.add(name)
+          ast2 = []
+          for s in ast:
+            new_s, env = process_declaration(s, env)
+            ast2.append(new_s)
+
+          ast3 = []
+          for s in ast2:
+            new_s = type_check_stmt(s, env)
+            ast3.append(new_s)
+
+          for s in ast3:
+            env = collect_env(s, env)
+          for s in ast3:
+            check_proofs(s, env)
+
+          return Import(loc, name, ast3), env
   
     case Assert(loc, frm):
       return stmt, env
@@ -1436,13 +1513,11 @@ def type_check_stmt(stmt, env):
       else:
         new_body = type_check_term(body, ty, env, None, [])
         new_ty = ty
-      return Define(loc, name, new_ty, new_body), \
-          env.define_term_var(loc, name, new_ty, new_body)
+      return Define(loc, name, new_ty, new_body)
         
     case Theorem(loc, name, frm, pf):
       new_frm = check_formula(frm, env)
-      return Theorem(loc, name, new_frm, pf), \
-          env.declare_proof_var(loc, name, new_frm)
+      return Theorem(loc, name, new_frm, pf)
   
     case RecFun(loc, name, typarams, params, returns, cases):
       # alpha rename the type parameters in the function's type
@@ -1466,26 +1541,57 @@ def type_check_stmt(stmt, env):
           error(loc, 'missing function case for ' + base_name(c.name))
 
       new_recfun = RecFun(loc, name, typarams, params, returns, new_cases)
-      return new_recfun, \
-          env.define_term_var(loc, name, fun_type, new_recfun)
+      return new_recfun
           
     case Union(loc, name, typarams, alts):
-      return stmt, env
+      return stmt
   
     case Import(loc, name, ast):
-      return stmt, env
+      return stmt
   
     case Assert(loc, frm):
       new_frm = check_formula(frm, env)
-      return Assert(loc, new_frm), env
+      return Assert(loc, new_frm)
   
     case Print(loc, trm):
       new_trm = type_synth_term(trm, env, None, [])
-      return Print(loc, new_trm), env
+      return Print(loc, new_trm)
   
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
 
+def collect_env(stmt, env):
+  match stmt:
+    case Define(loc, name, ty, body):
+      return env.define_term_var(loc, name, ty, body)
+        
+    case Theorem(loc, name, frm, pf):
+      return env.declare_proof_var(loc, name, frm)
+  
+    case RecFun(loc, name, typarams, params, returns, cases):
+      # alpha rename the type parameters in the function's type
+      new_typarams = [generate_name(t) for t in typarams]
+      sub = {x: Var(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
+      new_params = [p.substitute(sub) for p in params]
+      new_returns = returns.substitute(sub)
+      fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
+      return env.define_term_var(loc, name, fun_type, stmt)
+          
+    case Union(loc, name, typarams, alts):
+      return env
+  
+    case Import(loc, name, ast):
+      return env
+  
+    case Assert(loc, frm):
+      return env
+  
+    case Print(loc, trm):
+      return env
+  
+    case _:
+      error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
+      
 def check_proofs(stmt, env):
   if get_verbose():
     print('check_proofs(' + str(stmt) + ')')
@@ -1550,17 +1656,21 @@ def check_deduce(ast):
           print(s)
 
   if get_verbose():
+      print('env:\n' + str(env))          
       print('--------- Type Checking ------------------------')
   ast3 = []
   for s in ast2:
-    new_s, env = type_check_stmt(s, env)
+    new_s = type_check_stmt(s, env)
     ast3.append(new_s)
   if get_verbose():
       for s in ast3:
         print(s)
       
   if get_verbose():
+      print('env:\n' + str(env))          
       print('--------- Proof Checking ------------------------')
+  for s in ast3:
+    env = collect_env(s, env)
   for s in ast3:
     check_proofs(s, env)
   

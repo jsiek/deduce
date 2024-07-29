@@ -4,7 +4,6 @@ default: tests check_docs
 check_docs: check_README check_fun check_intro 
 
 tests:
-	/opt/homebrew/bin/python3.10 ./deduce.py test/generic1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_false1.pf
@@ -26,6 +25,12 @@ tests:
 	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/rec1.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/generic1.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/overload1.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/overload2.pf --error
+	/opt/homebrew/bin/python3.10 ./deduce.py test/overload3.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/overload4.pf --error
+	/opt/homebrew/bin/python3.10 ./deduce.py test/overload5.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all3.pf
@@ -120,3 +125,4 @@ check_blogs:  check_blog1 check_blog2 check_blog3 check_blog4 check_blog5 check_
 clean:
 	rm -f BinaryTree.pf LinkedLists.pf BinaryTreeProof.pf MergeSort.pf Prelude.pf
 	rm -f FunctionalProgramming.pf ProofIntro.pf InsertionSort.pf README.pf LinearSearch.pf
+	rm -rf .entangled
