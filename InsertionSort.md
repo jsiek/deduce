@@ -252,11 +252,10 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
-    _definition insert
-    switch y ≤ x {
+    switch y ≤ x for insert {
       case true suppose yx_true {
         conclude mset_of(node(y,node(x,xs'))) = m_one(y) ⨄ mset_of(node(x,xs'))
-            by definition {mset_of,mset_of}
+            by definition {mset_of, mset_of}
       }
       case false suppose yx_false {
         equations
@@ -299,13 +298,12 @@ its first argument `xs`.
 
 The case for `xs = empty` is a straightforward use of definitions.
 
-```
-  case empty {
+```{.deduce #insert_sorted_case_empty}
+    // <<insert_sorted_case_empty>> =
     arbitrary y:Nat
     suppose _
     conclude sorted(insert(empty,y))
         by definition {insert, sorted, sorted, all_elements}
-  }
 ```
 
 Here's the beginning of the case for `xs = node(x, xs')`.
@@ -315,59 +313,49 @@ Here's the beginning of the case for `xs = node(x, xs')`.
     arbitrary y:Nat
     suppose s_xxs: sorted(node(x,xs'))
     suffices sorted(insert(node(x,xs'),y))  by .
-    _definition insert
     ?
   }
 ```
 
-As we can see in the goal, `insert` branches on whether `y ≤ x`.
+In the goal we see an opportunity to use the definition of
+`insert`. However, `insert` branches on whether `y ≤ x`, so we use a
+`switch`-`for` statement to do the same in our proof.
 
 ```
-Goal:
-    sorted(if y ≤ x then node(y,node(x,xs')) 
-           else node(x,insert(xs',y)))
-```
-
-So our proof also branches on `y ≤ x`.
-
-```
-  switch y ≤ x {
-    case true {
+  switch y ≤ x for insert {
+    case true suppose yx_true {
       ?
     }
-    case false {
+    case false suppose yx_false {
       ?
     }
   }
 ```
 
-In the case when `y ≤ x` is `true`, the goal simplifies to
-`sorted(node(y,node(x,xs')))`. After applying the relevant
-definitions, 
+In the case when `y ≤ x` is `true`, we apply the relevant definitions
+to arive at the following four subgoals.
 
-```
-  _definition {sorted, sorted, all_elements}
-```
 
-we need to prove
-
-```
-  sorted(xs') and
-  all_elements(xs',λb{x ≤ b}) and
-  y ≤ x and
-  all_elements(xs',λb{y ≤ b})
+```{.deduce #insert_sorted_case_node_less_defs}
+    suffices sorted(xs') 
+         and all_elements(xs', λb{x ≤ b}) 
+         and y ≤ x
+         and all_elements(xs', λb{y ≤ b})
+             with definition {sorted, sorted, all_elements}
 ```
 
 The first two of these follows from the premise `sorted(node(x,xs'))`.
 
-```
+```{.deduce #insert_sorted_case_node_s_xs__x_le_xs}
+  // <<insert_sorted_case_node_s_xs__x_le_xs>> =
   have s_xs: sorted(xs') by definition sorted in s_xxs
   have x_le_xs': all_elements(xs',λb{(x ≤ b)}) by definition sorted in s_xxs
 ```
 
 The third is true in the current case.
 
-```
+```{.deduce #insert_sorted_y_le_x}
+  // <<insert_sorted_y_le_x>> =
   have y_le_x: y ≤ x by rewrite yx_true
 ```
 
@@ -387,20 +375,25 @@ To satisfy the second premise of `all_elements_implies`, we use `y ≤
 x` to prove that if `x` is less than any other element, then so is
 `y`.
 
-```
+```{.deduce #insert_sorted_x_le_implies_y_le}
+  // <<insert_sorted_x_le_implies_y_le>> =
   have x_le_implies_y_le: all z:Nat. (if x ≤ z then y ≤ z)
     by arbitrary z:Nat  suppose x_le_z: x ≤ z
        conclude y ≤ z by apply less_equal_trans[y][x,z] to y_le_x , x_le_z
 ```
 
-Now we apply `all_elements_implies` to prove `all_elements(xs',λb{(y ≤ b)})`
-and then conclude this case for when `y ≤ x`.
+Now we apply `all_elements_implies` to prove `all_elements(xs',λb{(y ≤ b)})`.
 
-```
+```{.deduce #insert_sorted_y_le_xs}
+  // <<insert_sorted_y_le_xs>> =
   have y_le_xs': all_elements(xs',λb{(y ≤ b)})
     by apply all_elements_implies[Nat][xs']
              [λb{(x ≤ b)} : fn Nat->bool, λb{(y ≤ b)} : fn Nat->bool]
        to x_le_xs', x_le_implies_y_le
+```
+and then conclude this case for when `y ≤ x`.
+```{.deduce #insert_sorted_case_node_le_conclusion}
+  // <<insert_sorted_case_node_le_conclusion>> =
   s_xs, x_le_xs', y_le_x, y_le_xs'
 ```
 
@@ -408,16 +401,19 @@ Next we turn our attention to the case for when `y ≤ x` is `false`.
 After applying the definition of `insert`, Deduce tells us that
 we need to prove.
 
-```
-  sorted(insert(xs',y)) and
-  all_elements(insert(xs',y), λb{x ≤ b})
+```{.deduce #insert_sorted_case_node_g_def}
+    // <<insert_sorted_case_node_g_def>> =
+    suffices sorted(insert(xs',y)) 
+         and all_elements(insert(xs',y),λb{x ≤ b})
+             with definition sorted
 ```
 
 The first follows from the induction hypothesis.  (Though we need to
 move the proof of `s_xs` out of the `y ≤ x` case so that we can use it
 here.)
 
-```
+```{.deduce #insert_sorted_s_xs_y}
+  // <<insert_sorted_s_xs_y>> =
   have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_xs
 ```
 
@@ -505,50 +501,38 @@ theorem insert_sorted: all xs:List<Nat>. all y:Nat.
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat
-    suppose _
-    conclude sorted(insert(empty,y))
-        by definition {insert, sorted, sorted, all_elements}
+    <<insert_sorted_case_empty>>
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
     suppose s_xxs: sorted(node(x,xs'))
-    have s_xs: sorted(xs') by definition sorted in s_xxs
-    have x_le_xs': all_elements(xs',λb{(x ≤ b)}) 
-        by definition sorted in s_xxs
     suffices sorted(insert(node(x,xs'),y))  by .
-    _definition insert
-    switch y ≤ x {
+    <<insert_sorted_case_node_s_xs__x_le_xs>>
+    switch y ≤ x for insert {
       case true suppose yx_true {
         suffices sorted(node(y,node(x,xs')))  by .
-        _definition {sorted, sorted, all_elements}
-        have y_le_x: y ≤ x by rewrite yx_true
-        have x_le_implies_y_le: all z:Nat. (if x ≤ z then y ≤ z)
-          by arbitrary z:Nat  suppose x_le_z: x ≤ z
-             conclude y ≤ z
-               by apply less_equal_trans[y][x,z] to y_le_x , x_le_z
-        have y_le_xs': all_elements(xs',λb{(y ≤ b)})
-          by apply all_elements_implies[Nat][xs']
-                  [λb{(x ≤ b)} : fn Nat->bool, λb{(y ≤ b)} : fn Nat->bool]
-             to x_le_xs', x_le_implies_y_le
-        s_xs, x_le_xs', y_le_x, y_le_xs'
+        <<insert_sorted_case_node_less_defs>>
+        <<insert_sorted_y_le_x>>
+        <<insert_sorted_x_le_implies_y_le>>
+        <<insert_sorted_y_le_xs>>
+        <<insert_sorted_case_node_le_conclusion>>
       }
       case false suppose yx_false {
-        _definition sorted
-        have s_xs'_y: sorted(insert(xs',y)) by apply IH[y] to s_xs
+        <<insert_sorted_case_node_g_def>>
+        <<insert_sorted_s_xs_y>>
         have x_le_y: x ≤ y
             by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
                have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
                                       to dichotomy[y,x], not_yx
                apply less_implies_less_equal[x][y] to x_l_y
         have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-               by _definition all_elements  x_le_y, x_le_xs'
+            by _definition all_elements  x_le_y, x_le_xs'
         have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
             by _rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
                x_le_y_xs'
-        conclude sorted(insert(xs',y)) and
-                 all_elements(insert(xs',y),λb{x ≤ b})
-            by s_xs'_y, x_le_xs'_y
+        conclude sorted(insert(xs',y)) 
+             and all_elements(insert(xs',y),λb{x ≤ b})
+                 by s_xs'_y, x_le_xs'_y
       }
     }
   }
@@ -612,7 +596,9 @@ proof
 	  by definition {insertion_sort, mset_of}
   }
   case node(x, xs') suppose IH {
-    _definition {insertion_sort, mset_of}
+    suffices mset_of(insert(insertion_sort(xs'),x)) 
+           = m_one(x) ⨄ mset_of(xs')
+        with definition {insertion_sort, mset_of}
 	equations
  	        mset_of(insert(insertion_sort(xs'),x)) 
 	      = m_one(x) ⨄ mset_of(insertion_sort(xs'))
@@ -638,10 +624,9 @@ proof
   	    by definition {insertion_sort, sorted}
   }
   case node(x, xs') suppose IH: sorted( insertion_sort(xs') ) {
-    _definition {insertion_sort, sorted}
-	conclude sorted(insert(insertion_sort(xs'),x))
-	    by apply insert_sorted[insertion_sort(xs')][x]
-		   to IH
+	suffices sorted(insert(insertion_sort(xs'),x))
+        with definition {insertion_sort, sorted}
+	apply insert_sorted[insertion_sort(xs')][x] to IH
   }
 end
 ```

@@ -946,8 +946,8 @@ def type_names(loc, names):
     index += 1
   return result
 
-def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
-                          typarams, param_types, return_type):
+def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
+                          call, typarams, param_types, return_type):
   if len(args) != len(param_types):
     error(loc, 'incorrect number of arguments, expected ' + str(len(param_types)) \
           + ', not ' + str(len(args)))
@@ -982,9 +982,10 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, c
     # Were all the type parameters deduced?
     for x in typarams:
         if x not in matching.keys():
-            error(loc, 'in call ' + str(call) + '\n\tcould not deduce a type for ' \
+            error(loc, 'in call ' + str(call) \
+                  + '\n\tcould not deduce a type for ' \
                   + base_name(x) + ' to instantiate ' + str(call.rator) \
-                  + '\n\twhose type is: ' + str(funty))
+                  + '\n\twhose type is: ' + str(new_rator.typeof))
 
     type_args = [matching[x] for x in typarams]
     inst_params = [p.substitute(matching) for p in param_types]

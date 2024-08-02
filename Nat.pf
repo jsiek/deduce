@@ -1076,6 +1076,19 @@ proof
   }
 end
 
+theorem not_zero_suc: all n:Nat.
+  if not (n = 0)
+  then some n':Nat. n = suc(n')
+proof
+  arbitrary n:Nat
+  switch n {
+    case 0 { . }
+    case suc(n') {
+      choose n'.
+    }
+  }
+end
+
 theorem positive_suc: all n:Nat.
   if 0 < n
   then some n':Nat. n = suc(n')

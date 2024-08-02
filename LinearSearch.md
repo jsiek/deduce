@@ -24,7 +24,7 @@ reader.
 ## Write the `search` function
 
 Before diving into the code for `search`, let us look again at the
-_definition of the `List` type.
+definition of the `List` type.
 
 ```
 union List<T> {
@@ -187,15 +187,20 @@ Goal:
 ```
 
 So we start with `arbitrary y:Nat` and then conclude using the
-_definitions of `search`, `length`, and `operator ≤`.
+definitions of `search`, `length`, and `operator ≤`.
 
-```
-  case empty {
+```{.deduce #search_length_case_empty}
+    // <<search_length_case_empty>> =
     arbitrary y:Nat
-	conclude search(empty,y) ≤ length(empty)
-        by _definition {search, length, operator ≤}.
-  }
+	conclude search(empty,y) ≤ length[Nat](empty)
+        by definition {search, length, operator ≤}
 ```
+
+In these blog post we use a literate programming tool named Entangled to
+translate the markdown files into Deduce proof files.  Entangled lets
+us label chunks of proof and then paste them into larger proofs.  So
+that you can see the label names, we include them in comments, as in
+the `<<search_length_case_empty>>` label above.
 
 In the case for `xs = node(x, xs')`, Deduce tells us that we need to prove
 
@@ -204,76 +209,48 @@ Goal:
 	all y:Nat. search(node(x,xs'),y) ≤ length(node(x,xs'))
 ```
 
-So we start with `arbitrary y:Nat` and use the _definitions of `search`
-and `length`.
+So we start with `arbitrary y:Nat` and note that the definitions of
+`search` has an `if`-`then`-`else`, so we proceed with a 
+`switch`-`for` statement.
 
 ```
-  case node(x, xs') 
-    suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
-  {
     arbitrary y:Nat
-	_definition {search, length}
-	?
-  }
-```
-
-The goal is transformed to the following, with the body of `search`
-expanded on the left of the `≤` and the body of `length` expanded on
-the right.
-
-```
-Goal:
-	if x = y then 0 else suc(search(xs',y)) ≤ suc(length(xs'))
-```
-
-In general, it is a good idea to let the structure of the code direct
-the structure of your proof. In this case, the code for `search` is a
-conditional on `x = y`, so in our proof we can `switch` on `x = y` as
-follows.
-
-```
-  case node(x, xs') 
-    suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
-  {
-    arbitrary y:Nat
-	_definition {search, length, operator ≤}
-	switch x = y {
+	switch x = y for search {
 	  case true {
         ?
 	  }
 	  case false {
-	    ?
+        ?
 	  }
-	}
-  }
+    }
 ```
 
-In the case for `x = y`, the left-hand side of the `≤` becomes `0`, so
-we can conclude by the _definition of `operator ≤`.
+In the case for `x = y`, the goal becomes
 
 ```
-  case true {
-	conclude 0 ≤ suc(length(xs'))  by _definition operator ≤.
-  }
+0 ≤ length(node(x, xs'))
 ```
 
-In the case for `x ≠ y`, the left-hand side of the `≤` becomes
-`suc(search(xs',y))`, so we have `suc` on both side of `≤`.  Therefore
-we apply the _definition of `≤` and it remains to prove the following.
+so we need to use the definition of `length` and then we
+can complete the proof using the definition of `≤`.
 
-```
-Goal:
-	search(xs',y) ≤ length(xs')
+```{.deduce #search_length_case_node_eq}
+    // <<search_length_case_node_eq>> =
+    suffices 0 ≤ 1 + length(xs')  with definition length
+    definition operator ≤
 ```
 
-We conclude the proof of the `false` case by using the induction hypothesis
+In the case for `x ≠ y`, after applying the definitions of
+`length`, `≤`, and `+`, it remains to prove that
+`search(xs', y) ≤ length(xs')`. But that is just the induction
+hypothesis
 
-```
-  case false {
-	_definition operator ≤
-	conclude search(xs',y) ≤ length(xs')
-	  by IH[y]
-  }
+
+```{.deduce #search_length_case_node_not_eq}
+    // <<search_length_case_node_not_eq>> =
+    suffices search(xs', y) ≤ length(xs')
+        with definition {length, operator ≤, operator+, operator+}
+    IH[y]
 ```
 
 Putting all of the pieces together, we have a complete proof of
@@ -285,23 +262,18 @@ theorem search_length: all xs:List<Nat>. all y:Nat.
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat
-	conclude search(empty,y) ≤ length(empty : List<Nat>)
-        by _definition {search, length, operator ≤}.
+    <<search_length_case_empty>>
   }
   case node(x, xs') 
     suppose IH: all y:Nat. search(xs',y) ≤ length(xs') 
   {
     arbitrary y:Nat
-	_definition {search, length}
-	switch x = y {
+	switch x = y for search {
 	  case true {
-        conclude 0 ≤ 1 + length(xs')  by _definition operator ≤.
+        <<search_length_case_node_eq>>
 	  }
 	  case false {
-	    _definition {operator ≤, operator+, operator+}
-	    conclude search(xs',y) ≤ length(xs')
-		  by IH[y]
+        <<search_length_case_node_not_eq>>
 	  }
 	}
   }
@@ -331,45 +303,48 @@ theorem search_present: all xs:List<Nat>. all y:Nat.
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat
     ?
   }
   case node(x, xs') suppose IH {
-    arbitrary y:Nat
     ?
   }
 end
 ```
 
-In the case for `xs = empty`, Deduce tells us that we need to prove
+In the case for `xs = empty`, we proceed in a goal-directed way using
+`arbitrary` for the `all y` and then `suppose` for the `if`.
 
 ```
-Goal:
-	(if search(empty,y) < length(empty) then nth(empty,0)(search(empty,y)) = y)
-```
-
-Proceeding in a goal-directed way, we `suppose` the premise but then
-realize that the premise is false. So we can conclude using the
-principle of explosion.
-
-```
-  case empty {
     arbitrary y:Nat
-	suppose prem: search(empty,y) < length(empty)
+    suppose prem: search(empty,y) < length[Nat](empty)
+    ?
+```
+
+Then we need to prove
+
+```
+nth(empty, 0)(search(empty, y)) = y
+```
+
+but that looks impossible! So hopefully the premise is also false,
+which will let us finish this case using the principle of explosion.
+Indeed, applying all of the relevant definitions to the premise yields
+`false`.
+
+```{.deduce #search_present_case_empty}
+    arbitrary y:Nat
+	suppose prem: search(empty,y) < length[Nat](empty)
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
-  }
 ```
 
-Moving on to the case for `xs = node(x, xs')`, we again `suppose`
-the premise.
+Moving on to the case for `xs = node(x, xs')`, we again begin
+with `arbitrary` and `suppose`.
 
 ```
-  case node(x, xs') suppose IH {
     arbitrary y:Nat
 	suppose sxxs_len: search(node(x,xs'),y) < length(node(x,xs'))
 	?
-  }
 ```
 
 Deduce tells us that we need to prove
@@ -379,21 +354,12 @@ Goal:
 	nth(node(x,xs'),0)(search(node(x,xs'),y)) = y
 ```
 
-We see `search` applied to a `node` argument, so we can expand its
-definition. (We could also expand `nth` but we postpone doing that
-for the sake of readability.)
+We see `search` applied to a `node` argument and note that again that
+the body of `search` contains an `if`-`then`-`else`, so we proceed
+with a `switch`-`for` statement.
 
 ```
-Goal:
-	nth(node(x,xs'),0)((if x = y then 0 else suc(search(xs',y)))) = y
-```
-
-Similar to the proof of `search_length`, we now need to `switch` on `x
-= y`.
-
-```
-	_definition {search}
-	switch x = y {
+	switch x = y for search {
       case true suppose xy_true {
 	    ?
 	  }
@@ -412,11 +378,9 @@ Goal:
 
 We conclude using the definition of `nth` and the fact that `x = y`.
 
-```
-      case true suppose xy_true {
-	    conclude nth(node(x,xs'),0)(0) = y
-	      by _definition nth rewrite xy_true
-	  }
+```{.deduce #search_present_case_node_eq}
+    suffices x = y with definition nth
+    rewrite xy_true
 ```
 
 In the case where `x ≠ y`, we need to prove
@@ -426,11 +390,12 @@ Goal:
 	nth(node(x,xs'),0)(suc(search(xs',y))) = y
 ```
 
-Now if we apply the definitions of `nth` and `pred`, the goal becomes.
+Now if we apply the definitions of `nth` and `pred`, the goal becomes:
 
-```
-Goal:
-	nth(xs',0)(search(xs',y)) = y
+```{.deduce #search_present_case_node_nth_pred}
+    // <<search_present_case_node_nth_pred>> =
+    suffices nth(xs', 0)(search(xs', y)) = y
+        with definition {nth, pred}
 ```
 
 This looks a lot like the conclusion of our induction hypothesis:
@@ -442,19 +407,22 @@ Givens:
 	                then nth(xs',0)(search(xs',y)) = y)
 ```
 
-So we just need to prove the premise, that `search(xs',y) < length(xs')`.
+So we just need to prove the premise of the `IH`, 
+that `search(xs',y) < length(xs')`.
 Thankfully, that can be proved from the premise 
 `search(node(x,xs'),y) < length(node(x,xs'))`.
 
-```
-  have sxs_len: search(xs',y) < length(xs')
-	by enable {search, length, operator <, operator ≤}
-	   rewrite xy_false in sxxs_len
+```{.deduce #search_present_IH_premise}
+  // <<search_present_IH_premise>> =
+    have sxs_len: search(xs',y) < length(xs')
+      by enable {search, length, operator <, operator ≤, 
+                 operator+, operator+}
+         rewrite xy_false in sxxs_len
 ```
 
 We conclude by applying the induction hypothesis.
 
-```
+```{.deduce #search_present_apply_IH}
   conclude nth(xs',0)(search(xs',y)) = y
 	by apply IH[y] to sxs_len
 ```
@@ -468,33 +436,24 @@ theorem search_present: all xs:List<Nat>. all y:Nat.
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat
-	suppose prem: search(empty,y) < length(empty : List<Nat>)
-	conclude false by definition {search, length, operator <, operator ≤} 
-	                  in prem
+    <<search_present_case_empty>>
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
 	suppose sxxs_len: search(node(x,xs'),y) < length(node(x,xs'))
-	_definition {search}
-	switch x = y {
+	switch x = y for search {
       case true suppose xy_true {
-	    conclude nth(node(x,xs'),0)(0) = y
-	      by _definition nth rewrite xy_true
+        <<search_present_case_node_eq>>
 	  }
 	  case false suppose xy_false {
-	    _definition {nth, pred}
-		have sxs_len: search(xs',y) < length(xs')
-		  by enable {search, length, operator <, operator ≤, operator+, operator+}
-		     rewrite xy_false in sxxs_len
-	    conclude nth(xs',0)(search(xs',y)) = y
-		  by apply IH[y] to sxs_len
+	    <<search_present_case_node_nth_pred>>
+        <<search_present_IH_premise>>
+        <<search_present_apply_IH>>
 	  }
 	}
   }
 end
 ```
-
 
 ### Prove `search(xs, y)` finds the first occurence of `y`
 
@@ -513,14 +472,12 @@ theorem search_first: all xs:List<Nat>. all y:Nat, i:Nat.
 We proceed by induction on `xs`. We can handle the case for `xs =
 empty` in the same way as in `search_present`; the premise is false.
 
-```
-  induction List<Nat>
-  case empty {
+```{.deduce #search_first_case_empty}
+    // <<search_first_case_empty>> =
     arbitrary y:Nat, i:Nat
-	suppose prem: search(empty,y) < length(empty) and nth(empty,0)(i) = y
+	suppose prem: search(empty,y) < length[Nat](empty) and nth(empty,0)(i) = y
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
-  }
 ```
 
 In the case for `xs = node(x, xs')`, we proceed in a goal-directed
@@ -542,11 +499,11 @@ Goal:
 	search(node(x,xs'),y) ≤ i
 ```
 
-We apply the definition of `search` and then `switch` on `x = y`.
+We apply the definition of `search` and `switch` on `x = y`
+with a `switch`-`for` statement.
 
 ```
-  _definition search
-  switch x = y {
+  switch x = y for search {
 	case true {
 	  ?
 	}
@@ -559,10 +516,8 @@ We apply the definition of `search` and then `switch` on `x = y`.
 In the case where `x = y`, the result of `search` is `0`, so just
 need to prove that `0 ≤ i`, which follows from the definition of `≤`.
 
-```
-  case true {
-	conclude 0 ≤ i   by definition operator ≤
-  }
+```{.deduce #search_first_case_node_true}
+    conclude 0 ≤ i   by definition operator ≤
 ```
 
 In the case where `x ≠ y`, we need to prove
@@ -573,31 +528,34 @@ Goal:
 ```
 
 What do we now about `i`? The premise `nth(node(x,xs'),0)(i) = y`
-tells us that `i ≠ 0`. So we can `switch` on `i` and use the principle
-explosion to handle the case where `i = 0`.
+tells us that `i ≠ 0`, which means that `i` is the successor of
+some other number `i′`.
 
-```
-  case 0 suppose i_z: i = 0 {
-	conclude false
-	  by enable nth rewrite i_z | xy_false in prem
-  }
-```
-
-We are left with the case where `i = suc(i')`. Using the definition of
-`≤`, the goal becomes
-
-```
-Goal:
-	search(xs',y) ≤ i'
+```{.deduce #search_first_case_node_false_1}
+    // <<search_first_case_node_false_1>> =
+    have not_iz: not (i = 0)
+      by suppose i_z 
+         conclude false by rewrite i_z | xy_false in 
+                           definition nth in prem
+    obtain i' where i_si: i = suc(i') from apply not_zero_suc to not_iz
+    suffices suc(search(xs', y)) ≤ suc(i')  with rewrite i_si
 ```
 
-This looks like the conclusion of the induction hypothesis
+Now we can further simplify the goal with the definition of `≤`.
+
+```{.deduce #search_first_case_node_false_2}
+    // <<search_first_case_node_false_2>> =
+    suffices search(xs', y) ≤ i'   with definition operator≤ 
+```
+
+The goal looks like the conclusion of the induction hypothesis
 instantiated at `i'`.
 
 ```
 Givens:
 	...
-	IH: all y:Nat, i:Nat. (if search(xs',y) < length(xs') and nth(xs',0)(i) = y then search(xs',y) ≤ i)
+	IH: all y:Nat, i:Nat. (if search(xs',y) < length(xs') and nth(xs',0)(i) = y 
+                           then search(xs',y) ≤ i)
 ```
 
 So we need to prove the two premises of the `IH`. They follow from the
@@ -605,30 +563,36 @@ given `prem`:
 
 ```
 Givens:
-	prem: search(node(x,xs'),y) < length(node(x,xs')) and nth(node(x,xs'),0)(i) = y,
+	prem: search(node(x,xs'),y) < length(node(x,xs')) 
+          and nth(node(x,xs'),0)(i) = y
 ```
 
 In particular, the first premise of `IH` follows from the
 first conjunct of `prem`.
-```
-  have sxs_len: search(xs',y) < length(xs')
-	by enable {search, length, operator <, operator ≤}
-	   rewrite xy_false in (conjunct 0 of prem)
+
+```{.deduce #search_first_IH_prem_1}
+    // <<search_first_IH_prem_1>> =
+    have IH_prem_1: search(xs',y) < length(xs')
+      by enable {search, length, operator <, operator ≤, 
+                 operator+, operator+}
+         rewrite xy_false in (conjunct 0 of prem)
 ```
 
 The second premise of the `IH` follows from the second
 conjunct of `prem`.
 
-```
-  have nth_i_y: nth(xs',0)(i') = y
-	by enable {nth, pred} rewrite i_si in (conjunct 1 of prem)
+```{.deduce #search_first_IH_prem_2}
+    // <<search_first_IH_prem_2>> =
+    have IH_prem_2: nth(xs',0)(i') = y
+      by enable {nth, pred} rewrite i_si in (conjunct 1 of prem)
 ```
 
 We conclude the case for `i = suc(i')` by applying the induction
 hypothesis.
 
-```
-  conclude search(xs',y) ≤ i'   by apply IH[y,i'] to sxs_len, nth_i_y
+```{.deduce #search_first_apply_IH}
+    // <<search_first_apply_IH>> =
+    apply IH[y,i'] to IH_prem_1, IH_prem_2
 ```
 
 Here is the complete proof of `search_first`.
@@ -640,36 +604,22 @@ theorem search_first: all xs:List<Nat>. all y:Nat, i:Nat.
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat, i:Nat
-	suppose prem: search(empty,y) < length(empty : List<Nat>) and nth(empty,0)(i) = y
-	conclude false by definition {search, length, operator <, operator ≤} 
-	                  in prem
+    <<search_first_case_empty>>
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, i:Nat
 	suppose prem: search(node(x,xs'),y) < length(node(x,xs')) 
 	              and nth(node(x,xs'),0)(i) = y
-	_definition search
-	switch x = y {
+	switch x = y for search {
 	  case true {
-	    conclude 0 ≤ i   by definition operator ≤
+	    <<search_first_case_node_true>>
 	  }
 	  case false suppose xy_false {
-	    switch i {
-	      case 0 suppose i_z: i = 0 {
-		    conclude false
-	          by enable nth rewrite i_z | xy_false in prem
-		  }
-		  case suc(i') suppose i_si: i = suc(i') {
-		    _definition operator ≤
-			have sxs_len: search(xs',y) < length(xs')
-			  by enable {search, length, operator <, operator ≤, operator+, operator+}
-				 rewrite xy_false in (conjunct 0 of prem)
-	        have nth_i_y: nth(xs',0)(i') = y
-			  by enable {nth, pred} rewrite i_si in (conjunct 1 of prem)
-		    conclude search(xs',y) ≤ i'   by apply IH[y,i'] to sxs_len, nth_i_y
-		  }
-	    }
+        <<search_first_case_node_false_1>>
+        <<search_first_case_node_false_2>>
+        <<search_first_IH_prem_1>>
+        <<search_first_IH_prem_2>>
+        <<search_first_apply_IH>>
 	  }
 	}
   }
@@ -723,14 +673,18 @@ and Deduce responds with
 
 ```
 Goal:
-	(if y ∈ set_of(empty) then false)
+	not y ∈ set_of(empty)
 ```
 
-which we prove using the `empty_no_members` theorem from `Set.pf`.
+which we prove using the definition of `set_of` and
+the `empty_no_members` theorem from `Set.pf`.
 
-```
-  conclude not (y ∈ set_of(empty))
-      by _definition {set_of} empty_no_members[Nat,y]
+```{.deduce #search_absent_case_empty}
+    // <<search_absent_case_empty>> =
+    arbitrary y:Nat, d:Nat
+    suppose _
+    suffices not (y ∈ ∅) with definition set_of
+    empty_no_members[Nat,y]
 ```
 
 Turning to the case for `xs = node(x, xs')`, we take several
@@ -740,26 +694,26 @@ goal-directed steps.
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose s_xxs_len_xxs: search(node(x,xs'),y) = length(node(x,xs'))
-	_definition set_of
+	suffices not (y ∈ single(x) ∪ set_of(xs'))  with definition set_of
     ?
+  }
 ```
 
-We need to show that `y` is not in `node(x, xs')`, which amounts to
-the following.
+Now we need to prove a `not` formula:
 
 ```
 Goal:
-	(if y ∈ single(x) ∪ set_of(xs') then false)
+	not (y ∈ single(x) ∪ set_of(xs'))
 ```
 
-Towards proving a contradiction, we can assume `y ∈ single(x) ∪
-set_of(xs')`.
+So we assume `y ∈ single(x) ∪ set_of(xs')` and then prove `false`
+(a contradiction).
 
 ```
   suppose y_in_x_union_xs: y ∈ single(x) ∪ set_of(xs')
 ```
 
-Now the main information we have to work with is the premise
+The main information we have to work with is the premise
 `s_xxs_len_xxs` above, concerning `search(node(x,xs'), y)`.  Thinking
 about the code for `search`, we know it will branch on whether `x = y`,
 so we better `switch` on that.
@@ -776,39 +730,33 @@ so we better `switch` on that.
 ```
 
 In the case where `x = y`, we have `search(node(x,xs'),y) = 0` but
-`length(node(x,xs'))` is at least `1`, so we have a contradition.
+`length(node(x,xs'))` is `1 + length(xs')`, so we have a contradiction.
 
-```
-  case true suppose xy {
-	have s_xxs_0: search(node(x,xs'),y) = 0
-		by _definition search  rewrite xy
-	have z_len_xxs: 0 = length(node(x,xs'))
-		by rewrite s_xxs_0 in s_xxs_len_xxs
-	conclude false  by definition length in z_len_xxs
-  }
+```{.deduce #search_absent_case_node_equal}
+    // <<search_absent_case_node_equal>> =
+    have xy: x = y by rewrite xy_true
+    have s_yxs_len_yxs: search(node(y,xs'),y) = length(node(y,xs'))
+        by rewrite xy in s_xxs_len_xxs
+    have zero_1_plus: 0 = 1 + length(xs')
+        by definition {search, length} in s_yxs_len_yxs
+    conclude false  by definition {operator+} in zero_1_plus
 ```
 
 In the case where `x ≠ y`, we can show that `y ∈ set_of(xs')` and then
 invoke the induction hypothesis to obtain the contradition.  In
-patricular, the premise `y_in_x_union_xs` gives us the following.
+particular, the premise `y_in_x_union_xs` gives us 
+`y ∈ single(x) or y ∈ set_of(xs')`.
+But `x ≠ y` implies `not (y ∈ single(x))`.
+So it must be that `y ∈ set_of(xs')` (using `or_not` from `Base.pf`).
 
-```
+```{.deduce #search_absent_case_node_notequal_y_in_xs}
+  // <<search_absent_case_node_notequal_y_in_xs>> =
   have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
 	  by apply member_union[Nat] to y_in_x_union_xs
-```
-
-But `x ≠ y` implies `not (y ∈ single(x))`.
-
-```
   have not_ysx: not (y ∈ single(x))
 	by suppose ysx
 	   rewrite xy_false in
 	   apply single_equal[Nat] to ysx
-```
-
-So it must be that `y ∈ set_of(xs')` (using `or_not` from `Base.pf`).
-
-```
   have y_xs: y ∈ set_of(xs')
 	by apply or_not[y ∈ single(x), y ∈ set_of(xs')] 
 	   to ysx_or_y_xs, not_ysx
@@ -817,17 +765,20 @@ So it must be that `y ∈ set_of(xs')` (using `or_not` from `Base.pf`).
 To satisfy the premise of the induction hypothesis, we prove the
 following.
 
-```
-  have sxs_lxs: search(xs',y) = length(xs')
-	by injective suc
-	   rewrite xy_false in definition {search,length} in
-	   s_xxs_len_xxs
+```{.deduce #search_absent_IH_prem}
+    // <<search_absent_IH_prem>> =
+    have sxs_lxs: search(xs',y) = length(xs')
+      by injective suc
+         rewrite xy_false in
+         definition {search,length,operator+,operator+} in
+         s_xxs_len_xxs
 ```
 
 So we apply the induction hypothesis to 
 get `y ∉ set_of(xs')`, which contradicts `y ∈ set_of(xs)`.
 
-```
+```{.deduce #search_absent_apply_IH}
+  // <<search_absent_apply_IH>> =
   have y_not_xs: not (y ∈ set_of(xs'))
 	by apply IH[y,d] to sxs_lxs
   conclude false  by apply y_not_xs to y_xs
@@ -842,41 +793,21 @@ theorem search_absent: all xs:List<Nat>. all y:Nat, d:Nat.
 proof
   induction List<Nat>
   case empty {
-    arbitrary y:Nat, d:Nat
-    suppose _
-    conclude not (y ∈ set_of(empty))
-        by _definition {set_of} empty_no_members[Nat,y]
+    <<search_absent_case_empty>>
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat, d:Nat
     suppose s_xxs_len_xxs: search(node(x,xs'),y) = length(node(x,xs'))
-	_definition set_of
+	suffices not (y ∈ single(x) ∪ set_of(xs'))  with definition set_of
 	suppose y_in_x_union_xs: y ∈ single(x) ∪ set_of(xs')
     switch x = y {
-      case true suppose xy {
-	    have s_xxs_0: search(node(x,xs'),y) = 0
-		    by _definition search  rewrite xy
-	    have z_len_xxs: 0 = length(node(x,xs'))
-		    by rewrite s_xxs_0 in s_xxs_len_xxs
-	    conclude false  by definition {length, operator+} in z_len_xxs
+      case true suppose xy_true {
+        <<search_absent_case_node_equal>>
       }
       case false suppose xy_false {
-	    have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-	        by apply member_union[Nat] to y_in_x_union_xs
-	    have not_ysx: not (y ∈ single(x))
-		  by suppose ysx
-		     rewrite xy_false in
-			 apply single_equal[Nat] to ysx
-	    have y_xs: y ∈ set_of(xs')
-		  by apply or_not[y ∈ single(x), y ∈ set_of(xs')] 
-		     to ysx_or_y_xs, not_ysx
-		have sxs_lxs: search(xs',y) = length(xs')
-		  by injective suc
-			 rewrite xy_false in definition {search,length,operator+,operator+} in
-			 s_xxs_len_xxs
-	    have y_not_xs: not (y ∈ set_of(xs'))
-		  by apply IH[y,d] to sxs_lxs
-		conclude false  by apply y_not_xs to y_xs
+        <<search_absent_case_node_notequal_y_in_xs>>
+        <<search_absent_IH_prem>>
+        <<search_absent_apply_IH>>
       }
     }
   }
