@@ -1076,6 +1076,16 @@ proof
   }
 end
 
+theorem not_less_equal_less_equal:
+  all x:Nat, y:Nat.
+  if not (x ≤ y) then y ≤ x
+proof
+  arbitrary x:Nat, y:Nat
+  suppose not_xy
+  have y_l_x: y < x  by apply not_less_equal_greater to not_xy
+  apply less_implies_less_equal to y_l_x
+end
+
 theorem not_zero_suc: all n:Nat.
   if not (n = 0)
   then some n':Nat. n = suc(n')

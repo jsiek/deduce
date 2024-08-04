@@ -418,30 +418,31 @@ here.)
 ```
 
 The second requires more thinking. We know that `x ≤ y` in this case
-and we already proved that `x` is less-or-equal all the elements in
-`xs'`. So we know that
-```
-all_elements(node(y, xs'), λb{x ≤ b})
-```
-but what we need is
-```
-all_elements(insert(xs', y), λb{x ≤ b})
-```
+by the following reasoning.
 
-Here are the proofs of what we know so far.
-```
+```{.deduce #insert_sorted_x_le_y}
+  // <<insert_sorted_x_le_y>> =
   have x_le_y: x ≤ y
       by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
-         have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
-                                to dichotomy[y,x], not_yx
-         apply less_implies_less_equal[x][y] to x_l_y
-  have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-         by _definition all_elements  x_le_y, x_le_xs'
+         apply not_less_equal_less_equal to not_yx
 ```
 
-Now the `all_elements` function shouldn't care about the ordering of the
-elements in the list, and indeed there is the following theorem in
-`List.pf`:
+We have already proved that `x` is less-or-equal all the elements in
+`xs'`.  So we know that `x` is less-or-equal all the element in
+`node(y, xs')` by the definition of `all_elements`.
+
+```{.deduce #insert_sorted_x_le_y_xs}
+  // <<insert_sorted_x_le_y_xs>> =
+  have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
+      by suffices x ≤ y and all_elements(xs', λb{x ≤ b}) 
+              with definition all_elements
+         x_le_y, x_le_xs'
+```
+
+However, what we need to prove is that `x` is less-or-equal to
+`insert(xs', y)`. But the `all_elements` function shouldn't care about
+the ordering of the elements in the list, and indeed there is the
+following theorem in `List.pf`:
 
 ```
 theorem all_elements_set_of:
@@ -481,13 +482,20 @@ end
 ```
 
 We apply this theorem to prove that `x` is less-or-equal all the
-elements in `insert(xs',y)` and then we conclude this final case of
-proof of `insert_sorted`.
+elements in `insert(xs',y)`.
 
-```
+```{.deduce #insert_sorted_x_le_xs_y}
+  // <<insert_sorted_x_le_xs_y>> =
   have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
       by _rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
          x_le_y_xs'
+```
+
+Now we have the two facts we need to conclude this final case of proof
+of `insert_sorted`.
+
+```{.deduce #insert_sorted_case_node_g_conclusion}
+  // <<insert_sorted_case_node_g_conclusion>> =
   conclude sorted(insert(xs',y)) and
            all_elements(insert(xs',y),λb{x ≤ b})
       by s_xs'_y, x_le_xs'_y
@@ -520,19 +528,10 @@ proof
       case false suppose yx_false {
         <<insert_sorted_case_node_g_def>>
         <<insert_sorted_s_xs_y>>
-        have x_le_y: x ≤ y
-            by have not_yx: not (y ≤ x)  by suppose yx rewrite yx_false in yx
-               have x_l_y: x < y   by apply or_not[y ≤ x, x < y] 
-                                      to dichotomy[y,x], not_yx
-               apply less_implies_less_equal[x][y] to x_l_y
-        have x_le_y_xs': all_elements(node(y, xs'),λb{(x ≤ b)})
-            by _definition all_elements  x_le_y, x_le_xs'
-        have x_le_xs'_y: all_elements(insert(xs',y), λb{x ≤ b})
-            by _rewrite all_elements_insert_node[xs',y,λb{x≤b}:fn Nat->bool]
-               x_le_y_xs'
-        conclude sorted(insert(xs',y)) 
-             and all_elements(insert(xs',y),λb{x ≤ b})
-                 by s_xs'_y, x_le_xs'_y
+        <<insert_sorted_x_le_y>>
+        <<insert_sorted_x_le_y_xs>>
+        <<insert_sorted_x_le_xs_y>>
+        <<insert_sorted_case_node_g_conclusion>>
       }
     }
   }
