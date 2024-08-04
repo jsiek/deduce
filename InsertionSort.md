@@ -472,7 +472,9 @@ theorem all_elements_insert_node:
 proof
   arbitrary xs:List<Nat>, x:Nat, P:fn Nat->bool
   have m_xs_x: mset_of(insert(xs, x)) = mset_of(node(x, xs))
-      by _definition mset_of insert_contents[xs][x]
+      by suffices mset_of(insert(xs, x)) = m_one(x) ⨄ mset_of(xs)
+             with definition mset_of
+         insert_contents[xs][x]
   have ixsx_xxs: set_of(insert(xs, x)) = set_of(node(x, xs))
      by apply mset_equal_implies_set_equal[Nat,insert(xs, x), node(x, xs)] 
         to m_xs_x
@@ -557,24 +559,27 @@ proceed by induction on `xs`. In the case for `xs = empty`,
 we conclude the following using the definitions
 of `insertion_sort` and `mset_of`.
 
-```
-  case empty {
+```{.deduce #insertion_sort_contents_case_empty}
+    // <<insertion_sort_contents_case_empty>> =
     conclude mset_of(insertion_sort(empty)) = mset_of(empty)
 	  by definition {insertion_sort, mset_of}
-  }
 ```
 
 In the case for `xs = node(x, xs')`, after applying the definitions of
-`insertion_sort` and `mset_of`, we need to show that
+`insertion_sort` and `mset_of`, it suffices show that
 
-```
-mset_of(insert(insertion_sort(xs'),x)) = m_one(x) ⨄ mset_of(xs')
+```{.deduce #insertion_sort_contents_case_node_defs}
+    // <<insertion_sort_contents_case_node_defs>> =
+    suffices mset_of(insert(insertion_sort(xs'),x)) 
+           = m_one(x) ⨄ mset_of(xs')
+        with definition {insertion_sort, mset_of}
 ```
 
-This follows from the `insert_contents` theorem and
-the induction hypothesis as follows.
+The goal follows from the `insert_contents` theorem and the induction
+hypothesis as follows.
 
-```
+```{.deduce #insertion_sort_contents_case_node_equations}
+  // <<insertion_sort_contents_case_node_equations>> =
   equations
 		  mset_of(insert(insertion_sort(xs'),x)) 
 		= m_one(x) ⨄ mset_of(insertion_sort(xs'))
@@ -591,19 +596,11 @@ theorem insertion_sort_contents: all xs:List<Nat>.
 proof
   induction List<Nat>
   case empty {
-    conclude mset_of(insertion_sort(empty)) = mset_of(empty)
-	  by definition {insertion_sort, mset_of}
+    <<insertion_sort_contents_case_empty>>
   }
   case node(x, xs') suppose IH {
-    suffices mset_of(insert(insertion_sort(xs'),x)) 
-           = m_one(x) ⨄ mset_of(xs')
-        with definition {insertion_sort, mset_of}
-	equations
- 	        mset_of(insert(insertion_sort(xs'),x)) 
-	      = m_one(x) ⨄ mset_of(insertion_sort(xs'))
-		    by insert_contents[insertion_sort(xs')][x]
-	  ... = m_one(x) ⨄ mset_of(xs')
-	        by rewrite IH
+    <<insertion_sort_contents_case_node_defs>>
+    <<insertion_sort_contents_case_node_equations>>
   }
 end
 ```
