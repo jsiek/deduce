@@ -108,9 +108,6 @@ class TypeType(Type):
   def __str__(self):
     return 'type'
 
-  # def __repr__(self):
-  #   return str(self)
-
   def __eq__(self, other):
     return isinstance(other, TypeType)
 
@@ -443,9 +440,6 @@ class TAnnote(Term):
   def __str__(self):
       return str(self.subject) + ':' + str(self.typ)
     
-  # def __repr__(self):
-  #     return str(self)
-    
   def reduce(self, env):
     return self.subject.reduce(env)
   
@@ -633,27 +627,31 @@ def set_reduce_all(b):
 
 def is_operator(trm):
   match trm:
-    case Var(loc, ty, name):
+    case Var(loc, tyof, name):
       return base_name(name) in infix_precedence.keys() \
           or base_name(name) in prefix_precedence.keys()
     case RecFun(loc, name, typarams, params, returns, cases):
       return base_name(name) in infix_precedence.keys() \
           or base_name(name) in prefix_precedence.keys()
+    case TermInst(loc, tyof, subject, tyargs, inferred):
+      return is_operator(subject)
     case _:
       return False
 
 def operator_name(trm):
   match trm:
-    case Var(loc, ty, name):
+    case Var(loc, tyof, name):
       return base_name(name)
     case RecFun(loc, name, typarams, params, returns, cases):
       return base_name(name)
+    case TermInst(loc, tyof, subject, tyargs):
+      return operator_name(subject)
     case _:
       raise Exception('operator_name, unexpected term ' + str(trm))
     
 def precedence(trm):
   match trm:
-    case Call(loc1, ty, rator, args, infix) if is_operator(rator):
+    case Call(loc1, tyof, rator, args, infix) if is_operator(rator):
       op_name = operator_name(rator)
       if len(args) == 2:
         return infix_precedence.get(op_name, None)
@@ -686,17 +684,13 @@ class Call(Term):
     return ret
   
   def __str__(self):
-    if False and hasattr(self, 'type_args'):
-      type_inst = '<' + ', '.join([str(t) for t in self.type_args]) + '>'
-    else:
-      type_inst = ''
     if self.infix:
-      return op_arg_str(self, self.args[0]) + " " + str(self.rator) + type_inst \
+      return op_arg_str(self, self.args[0]) + " " + str(self.rator) \
         + " " + op_arg_str(self, self.args[1])
     elif isNat(self):
       return str(natToInt(self))
     else:
-      return str(self.rator) + type_inst + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
+      return str(self.rator) + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
 
   def __eq__(self, other):
       if not isinstance(other, Call):

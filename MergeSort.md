@@ -297,7 +297,8 @@ and `merge(0,xs,ys)` returns `empty`, so we need to show
 that `mset_of(xs) ⨄ mset_of(ys)` is the empty multiset.
 From the premise `prem`, both `xs` and `ys` must be `empty`.
 
-```
+```{.deduce #mset_of_merge_case_zero_xs_ys_empty}
+  // <<mset_of_merge_case_zero_xs_ys_empty>> =
   have lxs_lys_z: length(xs) = 0 and length(ys) = 0
     by apply add_to_zero[length(xs)][length(ys)] to prem
   have xs_mt: xs = empty
@@ -309,17 +310,20 @@ From the premise `prem`, both `xs` and `ys` must be `empty`.
 After rewriting with those equalities and applying the definition of
 `merge` and `mset_of`:
 
-```
-  _rewrite xs_mt | ys_mt
-  _definition {merge, mset_of}
+```{.deduce #mset_of_merge_case_zero_suffices}
+  suffices mset_of(merge(0, empty, empty)) = mset_of(empty) ⨄ mset_of(empty)
+      with rewrite xs_mt | ys_mt
+  suffices m_fun[Nat](λ{0}) = m_fun[Nat](λ{0}) ⨄ m_fun[Nat](λ{0})
+      with definition {merge, mset_of}
 ```
 
 it remains to prove `m_fun(λ{0}) = m_fun(λ{0}) ⨄ m_fun(λ{0})` (the sum
 of two empty multisets is the empty multiset), which we prove with the
 theorem `m_sum_empty` from `MultiSet.pf`.
 
-```
-  symmetric m_sum_empty[Nat, m_fun(λx{0}) :MultiSet<Nat>]
+```{.deduce #mset_of_merge_case_zero_conclusion}
+  // <<mset_of_merge_case_zero_conclusion>> =
+  symmetric m_sum_empty[Nat, m_fun[Nat](λx{0})]
 ```
 
 In the case for `n = suc(n')`, we need to prove
@@ -452,91 +456,89 @@ proof
   case 0 {
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose prem: length(xs) + length(ys) = 0
-    have lxs_lys_z: length(xs) = 0 and length(ys) = 0
-      by apply add_to_zero[length(xs)][length(ys)] to prem
-    have xs_mt: xs = empty
-      by apply length_zero_empty[Nat,xs] to lxs_lys_z
-    have ys_mt: ys = empty
-      by apply length_zero_empty[Nat,ys] to lxs_lys_z
-    _rewrite xs_mt | ys_mt
-    _definition {merge, mset_of}
-    symmetric m_sum_empty[Nat, m_fun(λx{0}) :MultiSet<Nat>]
+    <<mset_of_merge_case_zero_xs_ys_empty>>
+    <<mset_of_merge_case_zero_suffices>>
+    <<mset_of_merge_case_zero_conclusion>>
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose prem: length(xs) + length(ys) = suc(n')
-    switch xs {
+    switch xs for merge {
       case empty {
-        _definition {merge, mset_of}
-        conclude mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
-          by symmetric empty_m_sum[Nat, mset_of(ys)]
+        suffices mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
+            with definition {mset_of}
+        symmetric empty_m_sum[Nat, mset_of(ys)]
       }
       case node(x, xs') suppose xs_xxs {
-        switch ys {
+        switch ys for merge {
           case empty {
-            _definition {merge, mset_of}
-            conclude m_one(x) ⨄ mset_of(xs')
+            suffices m_one(x) ⨄ mset_of(xs')
                    = (m_one(x) ⨄ mset_of(xs')) ⨄ m_fun(λ{0})
-              by rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')]
+                with definition {mset_of}
+            rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')]
           }
           case node(y, ys') suppose ys_yys {
-            _definition merge
+          
             switch x ≤ y {
               case true suppose xy_true {
-                _definition mset_of
-                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable {length,operator+,operator+}
-                     rewrite xs_xxs | ys_yys in prem
-                have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+                have IH_prem: length(xs') + length(node(y,ys')) = n'
                   by enable {operator +, operator +,length}
-                     injective suc sxs_sys_sn
-                have IH': mset_of(merge(n',xs',node(y,ys')))
-                        = mset_of(xs') ⨄ mset_of(node(y, ys'))
-                  by apply IH[xs', node(y, ys')] to len_xs_yys
-                _rewrite IH'
-                _definition mset_of
-                rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-                                    (m_one(y) ⨄ mset_of(ys'))]
+                     have suc_len: suc(length(xs')) + suc(length(ys')) = suc(n')
+                            by rewrite xs_xxs | ys_yys in prem
+                     injective suc suc_len
+                equations
+                      mset_of(node(x, merge(n', xs', node(y, ys')))) 
+                    = m_one(x) ⨄ mset_of(merge(n',xs',node(y,ys')))
+                        by definition mset_of
+                ... = m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(node(y, ys')))
+                        by rewrite (apply IH[xs', node(y, ys')] to IH_prem)
+                ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
+                        by definition mset_of
+                ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
+                        by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+                                              (m_one(y) ⨄ mset_of(ys'))]
+                ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
+                        by definition mset_of
               }
               case false suppose xy_false {
-                _definition mset_of
-                have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-                  by enable {length, operator+, operator+}
-                     rewrite xs_xxs | ys_yys in prem
-                have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
+                have IH_prem: length(node(x,xs')) + length(ys') = n'
                   by enable {operator +, operator +, length}
+                     have suc_len: suc(length(xs')) + suc(length(ys')) = suc(n')
+                          by rewrite xs_xxs | ys_yys in prem
                      injective suc
-                     rewrite add_suc[length(xs')][length(ys')] in
-                     sxs_sys_sn
-                have IH': mset_of(merge(n',node(x,xs'),ys'))
-                        = mset_of(node(x,xs')) ⨄ mset_of(ys')
-                  by apply IH[node(x,xs'), ys'] to len_xxs_ys
+                     rewrite add_suc[length(xs')][length(ys')] in suc_len
                 equations
-                        m_one(y) ⨄ mset_of(merge(n',node(x,xs'),ys'))
-                      = m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
-                      by _rewrite IH' definition mset_of
+                        mset_of(node(y, merge(n', node(x, xs'), ys')))
+                      = m_one(y) ⨄ mset_of(merge(n',node(x,xs'),ys'))
+                          by definition mset_of
+                  ... = m_one(y) ⨄ mset_of(node(x,xs')) ⨄ mset_of(ys')
+                          by rewrite (apply IH[node(x,xs'), ys'] to IH_prem)
+                  ... = m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
+                          by definition mset_of
                   ... = m_one(y) ⨄ (m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
-                      by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+                          by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
                                              mset_of(ys')]
                   ... = (m_one(y) ⨄ m_one(x)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
-                      by rewrite m_sum_assoc[Nat, m_one(y), m_one(x),
+                          by rewrite m_sum_assoc[Nat, m_one(y), m_one(x),
                                (mset_of(xs') ⨄ mset_of(ys'))]
                   ... = (m_one(x) ⨄ m_one(y)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
-                      by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
+                          by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
                   ... = m_one(x) ⨄ (m_one(y) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
-                      by rewrite m_sum_assoc[Nat, m_one(x), m_one(y),
-                          (mset_of(xs') ⨄ mset_of(ys'))]
+                          by rewrite m_sum_assoc[Nat, m_one(x), m_one(y),
+                              (mset_of(xs') ⨄ mset_of(ys'))]
                   ... = m_one(x) ⨄ ((m_one(y) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
-                      by rewrite m_sum_assoc[Nat, m_one(y), mset_of(xs'),
-                          mset_of(ys')]
+                          by rewrite m_sum_assoc[Nat, m_one(y), mset_of(xs'),
+                              mset_of(ys')]
                   ... = m_one(x) ⨄ ((mset_of(xs') ⨄ m_one(y)) ⨄ mset_of(ys'))
-                      by rewrite m_sum_commutes[Nat, m_one(y), mset_of(xs')]
+                          by rewrite m_sum_commutes[Nat, m_one(y), mset_of(xs')]
                   ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
-                      by rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(y),
-                         mset_of(ys')]
+                          by rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(y),
+                              mset_of(ys')]
                   ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
-                      by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-                          (m_one(y) ⨄ mset_of(ys'))]
+                          by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+                              (m_one(y) ⨄ mset_of(ys'))]
+                  ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
+                          by definition mset_of
               }
             }
           }
@@ -603,10 +605,10 @@ proof
           case node(y, ys') suppose ys_yys {
             switch x ≤ y {
               case true suppose xy_true {
-			    ?
+                ?
               }
               case false suppose xy_false {
-			    ?
+                ?
               }
             }
           }
@@ -664,17 +666,17 @@ To prove the first, we invoke the induction hypothesis intantiated to
 
 ```
   have s_xs: sorted(xs')
-	by enable sorted rewrite xs_xxs in prem
+    by enable sorted rewrite xs_xxs in prem
   have s_yys: sorted(node(y,ys'))
-	by rewrite ys_yys in prem
+    by rewrite ys_yys in prem
   have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-	by enable {operator +,length}
-	   have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
-		  by rewrite xs_xxs | ys_yys in prem
-	   injective suc sxs
+    by enable {operator +,length}
+       have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
+          by rewrite xs_xxs | ys_yys in prem
+       injective suc sxs
   have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
-	by apply IH[xs',node(y,ys')]
-	   to s_xs, s_yys, len_xs_yys
+    by apply IH[xs',node(y,ys')]
+       to s_xs, s_yys, len_xs_yys
 ```
 
 It remains to prove that `x` is less-or-equal to to all the elements
@@ -702,10 +704,10 @@ that `node(x, xs')` is sorted.
 
 ```
   have x_le_xs: all_elements(xs', λb{x ≤ b})
-	by definition sorted in rewrite xs_xxs in prem
+    by definition sorted in rewrite xs_xxs in prem
   conclude x ≤ z by
-	apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
-	to x_le_xs, z_in_xs
+    apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
+    to x_le_xs, z_in_xs
 ```
 
 Next, consider the case where `y = z`. Then we can
@@ -717,13 +719,13 @@ sorted, we know `y ≤ z`.  Then combined with `x ≤ y`, we conclude that
 
 ```
   have y_le_ys: all_elements(ys', λb{y ≤ b})
-	by definition sorted in rewrite ys_yys in prem
+    by definition sorted in rewrite ys_yys in prem
   have y_z: y ≤ z
-	by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
-	   to y_le_ys, z_in_ys
+    by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+       to y_le_ys, z_in_ys
   have x_y: x ≤ y by rewrite xy_true
   conclude x ≤ z
-	by apply less_equal_trans[x][y,z] to x_y, y_z
+    by apply less_equal_trans[x][y,z] to x_y, y_z
 ```
 
 The last case to consider is for `ys = node(y, ys')` and `(x ≤ y) =
@@ -1090,7 +1092,7 @@ proof
         have xs_0: length(xs') = 0
           by definition {operator ≤, length, operator+, operator+, operator<, 
                          pow2, operator ≤, operator ≤} in 
-		     rewrite xs_xxs in prem
+             rewrite xs_xxs in prem
         rewrite xs_0
       }
     }

@@ -98,7 +98,8 @@ def parse_tree_to_case_list(e):
 infix_ops = {'add', 'sub', 'mul', 'div', 'mod', 'circ',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
-             'subset_equal', 'union_op', 'intersect', 'membership', 'multiset_sum',
+             'subset_equal', 'union_op', 'intersect', 'membership',
+             'multiset_sum',
              'append'}
 
 prefix_ops = {'neg', 'not'}
