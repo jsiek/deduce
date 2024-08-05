@@ -649,6 +649,15 @@ proof
   case suc(n') suppose IH { conclude suc(n') ≤ suc(n')  by IH }
 end
 
+theorem equal_implies_less_equal: all x:Nat, y:Nat.
+  if x = y then x ≤ y
+proof
+  arbitrary x:Nat, y:Nat
+  suppose x_y
+  suffices y ≤ y  with rewrite x_y
+  less_equal_refl[y]
+end
+
 theorem less_equal_antisymmetric:
   all x:Nat. all y:Nat. 
   if x ≤ y and y ≤ x

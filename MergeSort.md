@@ -565,107 +565,74 @@ end
 
 ### Prove the `merge_sorted` theorem
 
-Next up is the `merge_sorted` theorem.  The structure of the proof
-will be similar to the one for `mset_of_merge`, because they both
-follow the structure of `merge`. So begin with induction on `Nat`.
+Next up is the `merge_sorted` theorem.
 
 ```
 theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
   if sorted(xs) and sorted(ys) and length(xs) + length(ys) = n
   then sorted(merge(n, xs, ys))
-proof
-  induction Nat
-  case 0 {
-    ?
-  }
-  case suc(n') suppose IH {
-    arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose prem
-    _definition merge
-    switch xs {
-      case empty {
-        ?
-      }
-      case node(x, xs') suppose xs_xxs {
-        switch ys {
-          case empty {
-            ?
-          }
-          case node(y, ys') suppose ys_yys {
-            switch x ≤ y {
-              case true suppose xy_true {
-                ?
-              }
-              case false suppose xy_false {
-                ?
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-end
 ```
+
+The structure of the proof will be similar to the one for
+`mset_of_merge`, because they both follow the structure of `merge`. So
+begin with induction on `Nat`.
 
 In the case for `n = 0`, we need to prove `sorted(merge(0, xs, ys))`.
 But `merge(0, xs, ys) = empty`, and `sorted(empty)` is trivially true.
 So we conclude the case for `n = 0` as follows.
 
-```
-  case 0 {
+```{.deduce #merge_sorted_case_zero}
+    // <<merge_sorted_case_zero>> =
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose _
-    _definition merge
-    conclude sorted(empty) by definition sorteda
-  }
+    suffices sorted(empty)  with definition merge
+    definition sorted
 ```
 
 We move on to the case for `n = suc(n')` and `xs = empty`. Here
 `merge` returns `ys`, and we already know that `ys` is sorted from the
 premise.
 
-```
-    case empty {
-      conclude sorted(ys) by prem
-    }
+```{.deduce #merge_sorted_case_suc_empty}
+    // <<merge_sorted_case_suc_empty>> =
+    conclude sorted(ys) by prem
 ```
 
 In the case for `xs = node(x, xs')` and `ys = empty`, the `merge`
 function returns `node(x, xs')` (aka. `xs`), and we already know that
 `xs` is sorted from the premise.
 
-```
-  case empty {
+```{.deduce #merge_sorted_case_suc_node_empty}
+    // <<merge_sorted_case_suc_node_empty>> =
     conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
-  }
 ```
 
 In the case for `ys = node(y, ys')` and `(x ≤ y) = true`, the `merge`
 function returns `node(x, merge(n',xs',node(y,ys')))`. So we need to
 prove the following.
 
-```
-  sorted(merge(n',xs',node(y,ys'))) and
-  all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})
+```{.deduce #merge_sorted_less_equal_suffices}
+    suffices sorted(merge(n',xs',node(y,ys'))) and
+             all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b}) 
+                 with definition sorted
 ```
 
 To prove the first, we invoke the induction hypothesis intantiated to
 `xs'` and `node(y,ys')` as follows.
 
-```
-  have s_xs: sorted(xs')
-    by enable sorted rewrite xs_xxs in prem
-  have s_yys: sorted(node(y,ys'))
-    by rewrite ys_yys in prem
-  have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-    by enable {operator +,length}
-       have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
-          by rewrite xs_xxs | ys_yys in prem
-       injective suc sxs
-  have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
-    by apply IH[xs',node(y,ys')]
-       to s_xs, s_yys, len_xs_yys
+```{.deduce #merge_sorted_IH_xs_yys}
+    // <<merge_sorted_IH_xs_yys>> =
+    have s_xs: sorted(xs')
+      by definition sorted in rewrite xs_xxs in prem
+    have s_yys: sorted(node(y,ys'))
+      by rewrite ys_yys in prem
+    have len_xs_yys: length(xs') + length(node(y,ys')) = n'
+      by enable {operator +, operator +, length}
+         have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
+            by rewrite xs_xxs | ys_yys in prem
+         injective suc sxs
+    have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
+      by apply IH[xs',node(y,ys')] to s_xs, s_yys, len_xs_yys
 ```
 
 It remains to prove that `x` is less-or-equal to to all the elements
@@ -676,50 +643,76 @@ in the rest of the output list:
 ```
 
 The theorem `all_elements_eq_member` in `List.pf` says
+
 ```
   all_elements(xs,P) = (all x:T. if x ∈ set_of(xs) then P(x))
 ```
-which combined with the `set_of_merge` corollary above,
-simplifies our goal to
 
-```
-  all z:Nat. (if z ∈ set_of(xs') ∪ set_of(node(y,ys')) then x ≤ z)
+which combined with the `set_of_merge` corollary above,
+simplifies our goal as follows
+
+```{.deduce #x_le_merge_suffices}
+    // <<x_le_merge_suffices>> =
+    suffices (all z:Nat. (if z ∈ set_of(xs') ∪ set_of(node(y, ys')) then x ≤ z))
+        with rewrite all_elements_eq_member[Nat, merge(n', xs', node(y,ys')),
+                                            λb{x ≤ b}]
+                   | symmetric len_xs_yys | set_of_merge[xs',node(y,ys')]
+    arbitrary z:Nat
+    suppose z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
 ```
 
 So we have a few cases to consider and need to prove `x ≤ z` in each one.
-Consider the case where `z ∈ set_of(xs')`. 
-Then we can deduce `x ≤ z` from the fact
-that `node(x, xs')` is sorted.
+Consider the case where `z ∈ set_of(xs')`.
+Because `node(x, xs')` is sorted, we know `x` is less-or-equal every element
+of `xs'`:
 
-```
+```{.deduce #merge_sorted_x_le_xs}
+  // <<x_le_xs>> =
   have x_le_xs: all_elements(xs', λb{x ≤ b})
     by definition sorted in rewrite xs_xxs in prem
+```
+
+so `x` is less-or-equal to `z`, being one of the elements in `xs'`.
+
+```{.deduce #merge_sorted_z_in_xs}
   conclude x ≤ z by
     apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
     to x_le_xs, z_in_xs
 ```
 
-Next, consider the case where `y = z`. Then we can
-immediately conclude because `x ≤ y`.
+Next, consider the case where `z ∈ single(y)` and therefore
+`y = z`. Then we can immediately conclude because `x ≤ y`.
+
+```{.deduce #merge_sorted_z_in_y}
+    have y_z: y = z   by definition {operator ∈, single, rep} in z_sy
+    conclude x ≤ z    by rewrite symmetric y_z | xy_true
+```
 
 Finally, consider when `z ∈ set_of(ys')`. Because `node(y,ys')` is
-sorted, we know `y ≤ z`.  Then combined with `x ≤ y`, we conclude that
-`x ≤ z` by transitivity.
+sorted, we know that `y` is less-or-equal all elements of `ys'`.
 
+```{.deduce #merge_sorted_y_le_ys}
+    have y_le_ys: all_elements(ys', λb{y ≤ b})
+      by definition sorted in rewrite ys_yys in prem
 ```
-  have y_le_ys: all_elements(ys', λb{y ≤ b})
-    by definition sorted in rewrite ys_yys in prem
-  have y_z: y ≤ z
-    by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
-       to y_le_ys, z_in_ys
-  have x_y: x ≤ y by rewrite xy_true
-  conclude x ≤ z
-    by apply less_equal_trans[x][y,z] to x_y, y_z
+
+Therefore we have `y ≤ z`. Combined with `x ≤ y`, 
+we conclude that `x ≤ z` by transitivity.
+
+```{.deduce #merge_sorted_z_in_ys}
+    // <<merge_sorted_z_in_ys>> =
+    have y_z: y ≤ z
+      by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+         to y_le_ys, z_in_ys
+    have x_y: x ≤ y by rewrite xy_true
+    conclude x ≤ z
+        by apply less_equal_trans[x][y,z] to x_y, y_z
 ```
 
 The last case to consider is for `ys = node(y, ys')` and `(x ≤ y) =
 false`. The reasoning is similar to the case for `(x ≤ y) = true`,
-so we'll skip the detailed explanation.
+so we skip the detailed explanation and refer the reader to the
+below proof.
 
 Here's the completed proof of `merge_sorted`.
 
@@ -730,97 +723,63 @@ theorem merge_sorted: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
 proof
   induction Nat
   case 0 {
-    arbitrary xs:List<Nat>, ys:List<Nat>
-    suppose _
-    suffices sorted(empty)  with definition merge
-    definition sorted
+    <<merge_sorted_case_zero>>
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose prem
     switch xs for merge {
       case empty {
-        conclude sorted(ys) by prem
+        <<merge_sorted_case_suc_empty>>
       }
       case node(x, xs') suppose xs_xxs {
         switch ys for merge {
           case empty {
-            conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
+            <<merge_sorted_case_suc_node_empty>>
           }
           case node(y, ys') suppose ys_yys {
-            /* Apply the induction hypothesis
-             * to prove sorted(merge(n',xs',node(y,ys')))
-             */
-            have s_xs: sorted(xs')
-              by definition sorted in rewrite xs_xxs in prem
-            have s_yys: sorted(node(y,ys'))
-              by rewrite ys_yys in prem
-            have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-              by enable {operator +, operator +, length}
-                 have sxs: suc(length(xs')) + suc(length(ys')) = suc(n')
-                    by rewrite xs_xxs | ys_yys in prem
-                 injective suc sxs
-            have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
-              by apply IH[xs',node(y,ys')] to s_xs, s_yys, len_xs_yys
-
-            /* Apply the induction hypothesis
-             * to prove sorted(merge(n',node(x,xs'),ys'))
-             */
-            have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
-              by enable {operator +, operator +, length}
-                 have suc_len: suc(length(xs') + suc(length(ys'))) = suc(n')
-                   by rewrite xs_xxs | ys_yys in prem
-                 injective suc
-                 rewrite add_suc[length(xs')][length(ys')] in suc_len
-            have s_xxs: sorted(node(x, xs'))
-              by enable sorted rewrite xs_xxs in prem
-            have s_ys: sorted(ys')
-              by definition sorted in rewrite ys_yys in prem
-            have IH_xxs_ys: sorted(merge(n',node(x,xs'),ys'))
-              by apply IH[node(x,xs'),ys'] to s_xxs, s_ys, len_xxs_ys
-
-            have x_le_xs: all_elements(xs', λb{x ≤ b})
-              by definition sorted in rewrite xs_xxs in prem
-            have y_le_ys: all_elements(ys', λb{y ≤ b})
-              by definition sorted in rewrite ys_yys in prem
-            
+            <<merge_sorted_IH_xs_yys>>
+            <<merge_sorted_x_le_xs>>
+            <<merge_sorted_y_le_ys>>
             switch x ≤ y {
               case true suppose xy_true {
-                suffices sorted(merge(n',xs',node(y,ys'))) and
-                         all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b}) 
-                             with definition sorted
+                <<merge_sorted_less_equal_suffices>>
                 have x_le_merge: all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b}) by
-                    suffices (all z:Nat. (if z ∈ set_of(xs') ∪ set_of(node(y, ys')) then x ≤ z))
-                        with rewrite all_elements_eq_member[Nat,merge(n',xs',node(y,ys')),λb{x ≤ b}]
-                                   | symmetric len_xs_yys | set_of_merge[xs',node(y,ys')]
-                    arbitrary z:Nat
-                    suppose z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
+                    <<x_le_merge_suffices>>
                     suffices x ≤ z  by .
                     cases apply member_union[Nat] to z_in_xs_yys
                     case z_in_xs: z ∈ set_of(xs') {
-                      conclude x ≤ z by
-                        apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
-                        to x_le_xs, z_in_xs
+                      <<merge_sorted_z_in_xs>>
                     }
                     case z_in_ys: z ∈ set_of(node(y,ys')) {
                       cases apply member_union[Nat] to definition set_of in z_in_ys
                       case z_sy: z ∈ single(y) {
-                        have y_z: y = z
-                            by definition {operator ∈, single, rep} in z_sy
-                        conclude x ≤ z by rewrite symmetric y_z | xy_true
+                        <<merge_sorted_z_in_y>>
                       }
                       case z_in_ys: z ∈ set_of(ys') {
-                        have y_z: y ≤ z
-                          by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
-                             to y_le_ys, z_in_ys
-                        have x_y: x ≤ y by rewrite xy_true
-                        conclude x ≤ z
-                            by apply less_equal_trans[x][y,z] to x_y, y_z
+                        <<merge_sorted_z_in_ys>>
                       }
                     }
                 IH_xs_yys, x_le_merge
               }
               case false suppose xy_false {
+              
+                /* Apply the induction hypothesis
+                 * to prove sorted(merge(n',node(x,xs'),ys'))
+                 */
+                have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
+                  by enable {operator +, operator +, length}
+                     have suc_len: suc(length(xs') + suc(length(ys'))) = suc(n')
+                       by rewrite xs_xxs | ys_yys in prem
+                     injective suc
+                     rewrite add_suc[length(xs')][length(ys')] in suc_len
+                have s_xxs: sorted(node(x, xs'))
+                  by enable sorted rewrite xs_xxs in prem
+                have s_ys: sorted(ys')
+                  by definition sorted in rewrite ys_yys in prem
+                have IH_xxs_ys: sorted(merge(n',node(x,xs'),ys'))
+                  by apply IH[node(x,xs'),ys'] to s_xxs, s_ys, len_xxs_ys
+
                 have not_x_y: not (x ≤ y)
                   by suppose xs rewrite xy_false in xs
                 have y_x: y ≤ x
@@ -947,13 +906,18 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
-    define ys = first(msort(n',xs))
-    define zs = first(msort(n',second(msort(n',xs))))
-    have IH1: sorted(ys)  by _definition ys IH[xs]
-    have IH2: sorted(zs)  by _definition zs IH[second(msort(n',xs))]
-    _definition {msort, first}
-    definition {ys, zs} in
-    apply merge_sorted[length(ys) + length(zs)][ys, zs] to IH1, IH2
+    suffices sorted(merge(length(first(msort(n', xs))) 
+                          + length(first(msort(n', second(msort(n', xs))))), 
+                          first(msort(n', xs)), 
+                          first(msort(n', second(msort(n', xs))))))
+        with definition {msort, first}
+    define ys = first(msort(n', xs))
+    define ls = second(msort(n', xs))
+    define zs = first(msort(n', ls))
+    have IH1: sorted(ys)  by enable {ys}  IH[xs]
+    have IH2: sorted(zs)  by enable {zs}  IH[ls]
+    conclude sorted(merge(length(ys) + length(zs), ys, zs))
+      by apply merge_sorted[length(ys) + length(zs)][ys, zs] to IH1, IH2
   }
 end
 ```
@@ -997,9 +961,9 @@ proof
                rewrite xs_mt in prem
       }
       case node(x, xs') suppose xs_xxs {
-        _definition {msort,first}
-        conclude length(node(x,empty)) = pow2(0)
-            by definition {length, length, pow2, operator+, operator+}
+        suffices length(node(x,empty)) = pow2(0)
+            with definition {msort,first}
+        definition {length, length, pow2, operator+, operator+}
       }
     }
   }
@@ -1009,46 +973,45 @@ proof
     have len_xs: pow2(n') + pow2(n') ≤ length(xs)
       by rewrite add_zero[pow2(n')] in
          definition {pow2, operator*, operator*,operator*} in prem
-    _definition {pow2, msort, first}
-
+    suffices length(merge(length(first(msort(n', xs))) 
+                            + length(first(msort(n', second(msort(n', xs))))), 
+                          first(msort(n', xs)), 
+                          first(msort(n', second(msort(n', xs))))))
+             = 2 * pow2(n')
+        with definition {pow2, msort, first}
     define ys = first(msort(n',xs))
     define ls = second(msort(n',xs))
-    have ys_def: first(msort(n',xs)) = ys  by definition ys
-    have ls_def: second(msort(n',xs)) = ls  by definition ls
-    
     define zs = first(msort(n', ls))
     define ms = second(msort(n', ls))
-    have zs_def: first(msort(n', ls)) = zs by definition zs
-    have ms_def: second(msort(n', ls)) = ms by definition ms
-
-    have p2n_le_xs: pow2(n') ≤ length(xs)
-      by have p2n_le_2p2n: pow2(n') ≤ pow2(n') + pow2(n')
-           by less_equal_add[pow2(n')][pow2(n')]
-         apply less_equal_trans[pow2(n')][pow2(n') + pow2(n'), length(xs)]
-         to p2n_le_2p2n, len_xs
-
-    have len_ys: length(ys) = pow2(n')
-      by rewrite ys_def in apply IH[xs] to p2n_le_xs
-      
-    have len_ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
-      by rewrite ys_def | ls_def in msort_length[n'][xs]
-
-    have p2n_le_ls: pow2(n') ≤ length(ls)
-      by have pp_pl: pow2(n') + pow2(n') ≤ pow2(n') + length(ls)
-           by rewrite symmetric len_ys_ls_eq_xs | len_ys in len_xs
-         apply less_equal_left_cancel[pow2(n')][pow2(n'), length(ls)] to pp_pl
-            
-    have len_zs: length(zs) = pow2(n')
-      by rewrite zs_def in apply IH[ls] to p2n_le_ls
-
-    have len_ys_zs: length(ys) + length(zs) = 2 * pow2(n')
-      by _rewrite len_ys | len_zs
-         _definition {operator*,operator*,operator*}
-         rewrite add_zero[pow2(n')]
-
-    conclude length(merge(length(ys) + length(zs),ys,zs)) = 2 * pow2(n')
-      by _rewrite len_ys_zs
-         apply merge_length[2 * pow2(n')][ys, zs] to len_ys_zs
+    have len_ys: length(ys) = pow2(n') by {
+         have p2n_le_xs: pow2(n') ≤ length(xs) by
+             have p2n_le_2p2n: pow2(n') ≤ pow2(n') + pow2(n') by
+                 less_equal_add[pow2(n')][pow2(n')]
+             apply less_equal_trans[pow2(n')][pow2(n') + pow2(n'), length(xs)]
+             to p2n_le_2p2n, len_xs
+         enable {ys} 
+         apply IH[xs] to p2n_le_xs
+    }
+    have len_zs: length(zs) = pow2(n') by {
+         have len_ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
+           by enable {ys, ls} msort_length[n'][xs]
+         have p2n_le_ls: pow2(n') ≤ length(ls)
+           by have pp_pl: pow2(n') + pow2(n') ≤ pow2(n') + length(ls)
+                by rewrite symmetric len_ys_ls_eq_xs | len_ys in len_xs
+              apply less_equal_left_cancel[pow2(n')][pow2(n'), length(ls)] to pp_pl
+         enable {zs} 
+         apply IH[ls] to p2n_le_ls
+    }
+    have len_ys_zs: length(ys) + length(zs) = 2 * pow2(n') by {
+      equations
+        length(ys) + length(zs) 
+          = pow2(n') + pow2(n')    by rewrite len_ys | len_zs
+      ... = 2 * pow2(n')           by symmetric two_mult[pow2(n')]
+    }
+    equations
+          length(merge(length(ys) + length(zs), ys, zs))
+        = length(merge(2 * pow2(n'), ys, zs))   by rewrite len_ys_zs
+    ... = 2 * pow2(n')                          by apply merge_length[2 * pow2(n')][ys, zs] to len_ys_zs
   }
 end
 ```
@@ -1070,11 +1033,12 @@ proof
         definition {msort, length, first}
       }
       case node(x, xs') suppose xs_xxs {
-        _definition {msort,first, length, length}
+        suffices 1 + 0 = 1 + length(xs')
+            with definition {msort, first, length, length}
         have xs_0: length(xs') = 0
-          by definition {operator ≤, length, operator+, operator+, operator<, 
-                         pow2, operator ≤, operator ≤} in 
-             rewrite xs_xxs in prem
+            by definition {operator ≤, length, operator+, operator+, operator<, 
+                           pow2, operator ≤, operator ≤} in 
+               rewrite xs_xxs in prem
         rewrite xs_0
       }
     }
@@ -1082,24 +1046,23 @@ proof
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
     suppose prem
-    _definition{msort, first}
-
+    suffices length(merge(length(first(msort(n', xs))) 
+                          + length(first(msort(n', second(msort(n', xs))))), 
+                          first(msort(n', xs)), 
+                          first(msort(n', second(msort(n', xs))))))
+             = length(xs)
+        with definition{msort, first}
     define ys = first(msort(n',xs))
     define ls = second(msort(n',xs))
-    have ys_def: first(msort(n',xs)) = ys  by definition ys
-    have ls_def: second(msort(n',xs)) = ls  by definition ls
-    
     define zs = first(msort(n', ls))
     define ms = second(msort(n', ls))
-    have zs_def: first(msort(n', ls)) = zs by definition zs
-    have ms_def: second(msort(n', ls)) = ms by definition ms
 
     have xs_le_two_p2n: length(xs) < pow2(n') + pow2(n')
       by rewrite add_zero[pow2(n')] in
          definition {pow2, operator*,operator*,operator*} in prem
 
     have ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
-      by rewrite ys_def | ls_def in msort_length[n'][xs]
+      by enable {ys,ls} msort_length[n'][xs]
 
     have pn_xs_or_xs_pn: pow2(n') ≤ length(xs) or length(xs) < pow2(n')
       by dichotomy[pow2(n'), length(xs)]
@@ -1107,7 +1070,7 @@ proof
     case pn_xs: pow2(n') ≤ length(xs) {
     
       have ys_pn: length(ys) = pow2(n')
-          by rewrite ys_def in apply msort_length_less_equal[n'][xs] to pn_xs
+          by enable {ys} apply msort_length_less_equal[n'][xs] to pn_xs
 
       have ls_l_pn: length(ls) < pow2(n')
           by have pn_ls_l_2pn: pow2(n') + length(ls) < pow2(n') + pow2(n')
@@ -1115,7 +1078,7 @@ proof
              apply less_left_cancel[pow2(n'), length(ls), pow2(n')] to pn_ls_l_2pn
 
       have len_zs: length(zs) = length(ls)
-          by rewrite zs_def in apply IH[ls] to ls_l_pn
+          by enable {zs} apply IH[ls] to ls_l_pn
 
       equations
         length(merge(length(ys) + length(zs),ys,zs))
@@ -1129,18 +1092,19 @@ proof
     case xs_pn: length(xs) < pow2(n') {
     
       have len_ys: length(ys) = length(xs)
-        by rewrite ys_def in apply IH[xs] to xs_pn
+        by enable {ys} apply IH[xs] to xs_pn
 
       have len_ls: length(ls) = 0
         by apply left_cancel[length(ys)][length(ls), 0] to
-           _rewrite add_zero[length(ys)] | len_ys
-           rewrite len_ys in ys_ls_eq_xs
+           suffices length(ys) + length(ls) = length(ys)
+               by rewrite add_zero[length(ys)]
+           rewrite symmetric len_ys in ys_ls_eq_xs
 
       have ls_l_pn: length(ls) < pow2(n')
-        by _rewrite len_ls  pow_positive[n'] 
+        by rewrite symmetric len_ls in pow_positive[n'] 
       
       have len_zs: length(zs) = 0
-        by rewrite zs_def | len_ls in apply IH[ls] to ls_l_pn
+        by enable {zs} rewrite len_ls in apply IH[ls] to ls_l_pn
 
       equations
         length(merge(length(ys) + length(zs),ys,zs))
@@ -1163,7 +1127,8 @@ theorem merge_sort_sorted: all xs:List<Nat>.
   sorted(merge_sort(xs))
 proof
   arbitrary xs:List<Nat>
-  _definition merge_sort
+  suffices sorted(first(msort(log(length(xs)), xs)))
+      with definition merge_sort
   msort_sorted[log(length(xs))][xs]
 end
 ```
@@ -1179,12 +1144,13 @@ mset_of(first(msort(log(length(xs)),xs))) = mset_of(xs)
 which means we need to show that all the elements in `xs` end up in
 the first output and that there are not any leftovers.  Let `ys` be
 the first output of `msort` and `ls` be the leftovers.  The theorem
-`less_equal_pow_log` in `Log.pf` tells us that `length(xs) ≤
-pow2(log(length(xs)))`. So in the case where they are equal, we can
+`less_equal_pow_log` in `Log.pf` tells us that
+`length(xs) ≤ pow2(log(length(xs)))`. 
+So in the case where they are equal, we can
 use the `msort_length_less_equal` theorem to show that `length(ys) =
 length(xs)`. In the case where `length(xs)` is strictly smaller, we
-use the `msort_length_less` theorem to prove that `length(ys) =
-length(xs)`. Finally, we show that the length of `ls` is zero
+use the `msort_length_less` theorem to prove that
+`length(ys) = length(xs)`. Finally, we show that the length of `ls` is zero
 by use of `msort_length` and some properties of arithmetic like
 `left_cancel` (in `Nat.pf`).
 
@@ -1195,51 +1161,46 @@ theorem mset_of_merge_sort: all xs:List<Nat>.
   mset_of(merge_sort(xs)) = mset_of(xs)
 proof
   arbitrary xs:List<Nat>
-  _definition merge_sort
+  suffices mset_of(first(msort(log(length(xs)), xs))) = mset_of(xs)
+      with definition merge_sort
   define n = log(length(xs))
-  have n_def: log(length(xs)) = n  by definition n
   define ys = first(msort(n,xs))
-  have ys_def: first(msort(n,xs)) = ys  by definition ys
   define ls = second(msort(n,xs))
-  have ls_def: second(msort(n,xs)) = ls  by definition ls
 
   have len_xs: length(xs) ≤ pow2(n)
-    by _rewrite symmetric n_def
-       less_equal_pow_log[length(xs)]
+    by enable {n} less_equal_pow_log[length(xs)]
   have len_ys: length(ys) = length(xs)
     by cases apply less_equal_implies_less_or_equal[length(xs)][pow2(n)]
              to len_xs
-       case len_xs_less {
-         rewrite ys_def in apply msort_length_less[n][xs] to len_xs_less
+       case len_xs_less: length(xs) < pow2(n) {
+         enable {ys} apply msort_length_less[n][xs] to len_xs_less
        }
-       case len_xs_equal {
+       case len_xs_equal: length(xs) = pow2(n) {
          have pn_le_xs: pow2(n) ≤ length(xs)
-           by _rewrite len_xs_equal  less_equal_refl[pow2(n)]
+           by apply equal_implies_less_equal to symmetric len_xs_equal
          have len_ys_pow2: length(ys) = pow2(n)
-           by _rewrite symmetric ys_def
-              apply msort_length_less_equal[n][xs] to pn_le_xs
+           by enable {ys} apply msort_length_less_equal[n][xs] to pn_le_xs
          transitive len_ys_pow2 (symmetric len_xs_equal)
        }
   have len_ys_ls_eq_xs: length(ys) + length(ls) = length(xs)
-    by rewrite ys_def | ls_def in msort_length[n][xs]
+    by enable {ys, ls} msort_length[n][xs]
   have len_ls: length(ls) = 0
     by apply left_cancel[length(ys)][length(ls), 0] to
-       _rewrite add_zero[length(ys)] | len_ys
-       rewrite len_ys in len_ys_ls_eq_xs
+       suffices length(ys) + length(ls) = length(ys)
+           with rewrite add_zero[length(ys)]
+       rewrite symmetric len_ys in len_ys_ls_eq_xs
   have ls_mt: ls = empty
     by apply length_zero_empty[Nat, ls] to len_ls
 
   have ys_ls_eq_xs: mset_of(ys)  ⨄  mset_of(ls) = mset_of(xs)
-    by rewrite ys_def | ls_def in mset_of_msort[n][xs]
+    by enable {ys, ls} mset_of_msort[n][xs]
 
   equations
-    mset_of(ys)
-        = mset_of(ys)  ⨄  m_fun(λx{0})
-          by rewrite m_sum_empty[Nat, mset_of(ys)]
-    ... = mset_of(ys)  ⨄  mset_of(ls)
-          by _rewrite ls_mt definition mset_of
-    ... = mset_of(xs)
-          by ys_ls_eq_xs
+          mset_of(ys)
+        = mset_of(ys)  ⨄  m_fun(λx{0})   by rewrite m_sum_empty[Nat,mset_of(ys)]
+    ... = mset_of(ys)  ⨄  mset_of(empty) by definition mset_of
+    ... = mset_of(ys)  ⨄  mset_of(ls)    by rewrite ls_mt 
+    ... = mset_of(xs)                    by ys_ls_eq_xs
 end
 ```
 
