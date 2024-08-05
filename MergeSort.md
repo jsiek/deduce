@@ -336,7 +336,7 @@ Looking a the `suc` clause of `merge`, there is a `switch` on `xs` and
 then on `ys`. So our proof will be structured analogously.
 
 ```
-  switch xs {
+  switch xs for merge {
     case empty {
       ?
     }
@@ -346,23 +346,22 @@ then on `ys`. So our proof will be structured analogously.
   }
 ```
 
-In the case for `xs = empty`, we conclude simply by use of the
-definitions of `merge` and `mset_of` and the fact that combining
-`mset_of(ys)` with the empty multiset produces `mset_of(ys)`.
+In the case for `xs = empty`, we conclude by the definition of
+`mset_of` and the fact that combining `mset_of(ys)` with the empty
+multiset produces `mset_of(ys)`.
 
-```
-  case empty {
-    _definition {merge, mset_of}
-    conclude mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
-      by symmetric empty_m_sum[Nat, mset_of(ys)]
-  }
+```{.deduce #mset_of_merge_case_suc_empty}
+    // <<mset_of_merge_case_suc_empty>> =
+    suffices mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
+        with definition {mset_of}
+    symmetric empty_m_sum[Nat, mset_of(ys)]
 ```
 
 In the case for `xs = node(x, xs')`, `merge` performs a switch on
 `ys`, so our proof does too.
 
 ```
-  switch ys {
+  switch ys for merge {
     case empty {
       ?
     }
@@ -376,18 +375,18 @@ We conclude by use of the definitions of `merge` and `mset_of` and the
 fact that combining `mset_of(ys)` with the empty multiset produces
 `mset_of(ys)`.
 
-```
-  _definition {merge, mset_of}
-  conclude m_one(x) ⨄ mset_of(xs')
-         = (m_one(x) ⨄ mset_of(xs')) ⨄ m_fun(λ{0})
-    by rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')]
+```{.deduce #mset_of_merge_case_suc_node_empty}
+    // <<mset_of_merge_case_suc_node_empty>> =
+    suffices m_one(x) ⨄ mset_of(xs')
+           = (m_one(x) ⨄ mset_of(xs')) ⨄ m_fun(λ{0})
+        with definition {mset_of}
+    rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')]
 ```
 
 In the case for `ys = node(y, ys')`, we continue to follow the
 structure of `merge` and switch on `x ≤ y`.
 
 ```
-  _definition merge
   switch x ≤ y {
     case true suppose xy_true {
       ?
@@ -400,52 +399,101 @@ structure of `merge` and switch on `x ≤ y`.
 
 In the case for `(x ≤ y) = true`, the goal becomes
 ```
-m_one(x) ⨄ mset_of(merge(n',xs',node(y,ys'))) 
-= m_one(x) ⨄ mset_of(xs') ⨄ m_one(y) ⨄ mset_of(ys')
+  mset_of(node(x, merge(n', xs', node(y, ys')))) 
+= mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
 ```
 
-Which follows from the induction hypothesis
-instantiated with `xs'` and `node(y,ys')`.
+Which follows from the conclusion of the induction hypothesis
+(instantiated with `xs'` and `node(y,ys')`):
+
 ```
   mset_of(merge(n',xs',node(y,ys')))
 = mset_of(xs') ⨄ mset_of(node(y, ys'))
 ```
 
-Filling in the details, we prove this case as follows.
+The induction hypothesis is a conditional, so we first must prove its
+premise as follows.
 
+```{.deduce #mset_of_merge_x_le_y_IH_prem}
+    // <<mset_of_merge_x_le_y_IH_prem>> =
+    have IH_prem: length(xs') + length(node(y,ys')) = n'
+      by enable {operator +, operator +,length}
+         have suc_len: suc(length(xs')) + suc(length(ys')) = suc(n')
+                by rewrite xs_xxs | ys_yys in prem
+         injective suc suc_len
 ```
-  case true suppose xy_true {
-    _definition mset_of
-    have sxs_sys_sn: suc(length(xs')) + suc(length(ys')) = suc(n')
-      by enable length rewrite xs_xxs | ys_yys in prem
-    have len_xs_yys: length(xs') + length(node(y,ys')) = n'
-      by enable {operator +,length}
-         injective suc sxs_sys_sn
-    have IH': mset_of(merge(n',xs',node(y,ys')))
-            = mset_of(xs') ⨄ mset_of(node(y, ys'))
-      by apply IH[xs', node(y, ys')] to len_xs_yys
-    _rewrite IH'
-    _definition mset_of
-    rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-                       (m_one(y) ⨄ mset_of(ys'))]
-  }
+
+We conclude this case with the following equational reasoning, using
+the induction hypothesis in the second step.
+
+```{.deduce #mset_of_merge_x_le_y_equations}
+    // <<mset_of_merge_x_le_y_equations>> =
+    equations
+          mset_of(node(x, merge(n', xs', node(y, ys')))) 
+        = m_one(x) ⨄ mset_of(merge(n',xs',node(y,ys')))
+            by definition mset_of
+    ... = m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(node(y, ys')))
+            by rewrite (apply IH[xs', node(y, ys')] to IH_prem)
+    ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
+            by definition mset_of
+    ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
+            by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+                                  (m_one(y) ⨄ mset_of(ys'))]
+    ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
+            by definition mset_of
 ```
 
 In the case for `(x ≤ y) = false`, the goal becomes
 ```
-  m_one(y) ⨄ mset_of(merge(n',node(x,xs'),ys')) 
-= m_one(x) ⨄ mset_of(xs') ⨄ m_one(y) ⨄ mset_of(ys')
+  mset_of(node(y, merge(n', node(x, xs'), ys'))) 
+= mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
 ```
 
-The induction hypothesis instantiated with `node(x,xs')`
-and `ys'` is
+The conclusion of the induction hypothesis
+(instantiated with `node(x,xs')` and `ys'`) is
+
 ```
   mset_of(merge(n',node(x,xs'),ys'))
 = mset_of(node(x,xs')) ⨄ mset_of(ys')
 ```
 
-So the goal follows from the fact that multiset sum is associative and
-commutative.
+so the goal will follow from the fact that multiset sum is associative
+and commutative.
+
+We first prove the premise of the induction hypothesis.
+
+```{.deduce #mset_of_merge_x_g_y_IH_prem}
+    have IH_prem: length(node(x,xs')) + length(ys') = n'
+      by enable {operator +, operator +, length}
+         have suc_len: suc(length(xs')) + suc(length(ys')) = suc(n')
+              by rewrite xs_xxs | ys_yys in prem
+         injective suc
+         rewrite add_suc[length(xs')][length(ys')] in suc_len
+```
+
+Then we proceed with applying the induction hypothesis in the second
+step, followed by the equational reasoning about multiset sum.
+
+```{.deduce #mset_of_merge_x_g_y_equations}
+    equations
+            mset_of(node(y, merge(n', node(x, xs'), ys')))
+          = m_one(y) ⨄ mset_of(merge(n',node(x,xs'),ys'))
+              by definition mset_of
+      ... = m_one(y) ⨄ mset_of(node(x,xs')) ⨄ mset_of(ys')
+              by rewrite (apply IH[node(x,xs'), ys'] to IH_prem)
+      ... = m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
+              by definition mset_of
+      ... = ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys')) ⨄ m_one(y)
+              by m_sum_commutes[Nat, m_one(y), (m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys')]
+      ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (mset_of(ys') ⨄ m_one(y))
+              by m_sum_assoc[Nat, m_one(x) ⨄ mset_of(xs'), mset_of(ys'), m_one(y)]
+      ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
+              by rewrite m_sum_commutes[Nat, mset_of(ys'), m_one(y)]
+      ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
+              by definition mset_of
+```
+
+Here is the completed proof of `mset_of_merge`.
 
 ``` {.deduce #mset_of_merge}
 theorem mset_of_merge: all n:Nat. all xs:List<Nat>, ys:List<Nat>.
@@ -465,80 +513,22 @@ proof
     suppose prem: length(xs) + length(ys) = suc(n')
     switch xs for merge {
       case empty {
-        suffices mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
-            with definition {mset_of}
-        symmetric empty_m_sum[Nat, mset_of(ys)]
+        <<mset_of_merge_case_suc_empty>>
       }
       case node(x, xs') suppose xs_xxs {
         switch ys for merge {
           case empty {
-            suffices m_one(x) ⨄ mset_of(xs')
-                   = (m_one(x) ⨄ mset_of(xs')) ⨄ m_fun(λ{0})
-                with definition {mset_of}
-            rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')]
+            <<mset_of_merge_case_suc_node_empty>>
           }
           case node(y, ys') suppose ys_yys {
-          
             switch x ≤ y {
               case true suppose xy_true {
-                have IH_prem: length(xs') + length(node(y,ys')) = n'
-                  by enable {operator +, operator +,length}
-                     have suc_len: suc(length(xs')) + suc(length(ys')) = suc(n')
-                            by rewrite xs_xxs | ys_yys in prem
-                     injective suc suc_len
-                equations
-                      mset_of(node(x, merge(n', xs', node(y, ys')))) 
-                    = m_one(x) ⨄ mset_of(merge(n',xs',node(y,ys')))
-                        by definition mset_of
-                ... = m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(node(y, ys')))
-                        by rewrite (apply IH[xs', node(y, ys')] to IH_prem)
-                ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
-                        by definition mset_of
-                ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
-                        by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-                                              (m_one(y) ⨄ mset_of(ys'))]
-                ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
-                        by definition mset_of
+                <<mset_of_merge_x_le_y_IH_prem>>
+                <<mset_of_merge_x_le_y_equations>>
               }
               case false suppose xy_false {
-                have IH_prem: length(node(x,xs')) + length(ys') = n'
-                  by enable {operator +, operator +, length}
-                     have suc_len: suc(length(xs')) + suc(length(ys')) = suc(n')
-                          by rewrite xs_xxs | ys_yys in prem
-                     injective suc
-                     rewrite add_suc[length(xs')][length(ys')] in suc_len
-                equations
-                        mset_of(node(y, merge(n', node(x, xs'), ys')))
-                      = m_one(y) ⨄ mset_of(merge(n',node(x,xs'),ys'))
-                          by definition mset_of
-                  ... = m_one(y) ⨄ mset_of(node(x,xs')) ⨄ mset_of(ys')
-                          by rewrite (apply IH[node(x,xs'), ys'] to IH_prem)
-                  ... = m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
-                          by definition mset_of
-                  ... = m_one(y) ⨄ (m_one(x) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
-                          by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-                                             mset_of(ys')]
-                  ... = (m_one(y) ⨄ m_one(x)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
-                          by rewrite m_sum_assoc[Nat, m_one(y), m_one(x),
-                               (mset_of(xs') ⨄ mset_of(ys'))]
-                  ... = (m_one(x) ⨄ m_one(y)) ⨄ (mset_of(xs') ⨄ mset_of(ys'))
-                          by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
-                  ... = m_one(x) ⨄ (m_one(y) ⨄ (mset_of(xs') ⨄ mset_of(ys')))
-                          by rewrite m_sum_assoc[Nat, m_one(x), m_one(y),
-                              (mset_of(xs') ⨄ mset_of(ys'))]
-                  ... = m_one(x) ⨄ ((m_one(y) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
-                          by rewrite m_sum_assoc[Nat, m_one(y), mset_of(xs'),
-                              mset_of(ys')]
-                  ... = m_one(x) ⨄ ((mset_of(xs') ⨄ m_one(y)) ⨄ mset_of(ys'))
-                          by rewrite m_sum_commutes[Nat, m_one(y), mset_of(xs')]
-                  ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
-                          by rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(y),
-                              mset_of(ys')]
-                  ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
-                          by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
-                              (m_one(y) ⨄ mset_of(ys'))]
-                  ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
-                          by definition mset_of
+                <<mset_of_merge_x_g_y_IH_prem>>
+                <<mset_of_merge_x_g_y_equations>>
               }
             }
           }
@@ -558,18 +548,17 @@ theorem set_of_merge: all xs:List<Nat>, ys:List<Nat>.
   set_of(merge(length(xs) + length(ys), xs, ys)) = set_of(xs) ∪ set_of(ys)
 proof
   arbitrary xs:List<Nat>, ys:List<Nat>
-  have mset_of_merge: mset_of(merge(length(xs) + length(ys), xs, ys))
-                    = mset_of(xs) ⨄ mset_of(ys)
-    by mset_of_merge[length(xs) + length(ys)][xs, ys]
   equations
     set_of(merge(length(xs) + length(ys), xs, ys))
         = set_of_mset(mset_of(merge(length(xs) + length(ys), xs, ys)))
-          by symmetric som_mset_eq_set[Nat]
+            by symmetric som_mset_eq_set[Nat]
                              [merge(length(xs) + length(ys), xs, ys)]
+    ... = set_of_mset(mset_of(xs) ⨄ mset_of(ys))
+            by rewrite mset_of_merge[length(xs) + length(ys)][xs, ys]
     ... = set_of_mset(mset_of(xs)) ∪ set_of_mset(mset_of(ys))
-          by _rewrite mset_of_merge  som_union[Nat,mset_of(xs),mset_of(ys)]
+            by som_union[Nat, mset_of(xs), mset_of(ys)]
     ... = set_of(xs) ∪ set_of(ys)
-          by rewrite som_mset_eq_set[Nat][xs] | som_mset_eq_set[Nat][ys]
+            by rewrite som_mset_eq_set[Nat][xs] | som_mset_eq_set[Nat][ys]
 end
 ```
 
