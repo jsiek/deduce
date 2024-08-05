@@ -732,19 +732,18 @@ proof
   case 0 {
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose _
-    _definition merge
-    conclude sorted(empty) by definition sorted
+    suffices sorted(empty)  with definition merge
+    definition sorted
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>, ys:List<Nat>
     suppose prem
-    _definition merge
-    switch xs {
+    switch xs for merge {
       case empty {
         conclude sorted(ys) by prem
       }
       case node(x, xs') suppose xs_xxs {
-        switch ys {
+        switch ys for merge {
           case empty {
             conclude sorted(node(x,xs'))  by rewrite xs_xxs in prem
           }
@@ -753,7 +752,7 @@ proof
              * to prove sorted(merge(n',xs',node(y,ys')))
              */
             have s_xs: sorted(xs')
-              by enable sorted rewrite xs_xxs in prem
+              by definition sorted in rewrite xs_xxs in prem
             have s_yys: sorted(node(y,ys'))
               by rewrite ys_yys in prem
             have len_xs_yys: length(xs') + length(node(y,ys')) = n'
@@ -762,24 +761,23 @@ proof
                     by rewrite xs_xxs | ys_yys in prem
                  injective suc sxs
             have IH_xs_yys: sorted(merge(n',xs',node(y,ys')))
-              by apply IH[xs',node(y,ys')]
-                 to s_xs, s_yys, len_xs_yys
+              by apply IH[xs',node(y,ys')] to s_xs, s_yys, len_xs_yys
 
             /* Apply the induction hypothesis
              * to prove sorted(merge(n',node(x,xs'),ys'))
              */
             have len_xxs_ys: length(node(x,xs')) + length(ys') = n'
-              by _definition {operator +, operator +, length}
-                 _rewrite symmetric len_xs_yys
-                 _definition {length,operator+, operator+}
-                 rewrite add_suc[length(xs')][length(ys')]
+              by enable {operator +, operator +, length}
+                 have suc_len: suc(length(xs') + suc(length(ys'))) = suc(n')
+                   by rewrite xs_xxs | ys_yys in prem
+                 injective suc
+                 rewrite add_suc[length(xs')][length(ys')] in suc_len
             have s_xxs: sorted(node(x, xs'))
               by enable sorted rewrite xs_xxs in prem
             have s_ys: sorted(ys')
               by definition sorted in rewrite ys_yys in prem
             have IH_xxs_ys: sorted(merge(n',node(x,xs'),ys'))
-              by apply IH[node(x,xs'),ys']
-                 to s_xxs, s_ys, len_xxs_ys
+              by apply IH[node(x,xs'),ys'] to s_xxs, s_ys, len_xxs_ys
 
             have x_le_xs: all_elements(xs', λb{x ≤ b})
               by definition sorted in rewrite xs_xxs in prem
@@ -788,41 +786,39 @@ proof
             
             switch x ≤ y {
               case true suppose xy_true {
-                _definition sorted
                 suffices sorted(merge(n',xs',node(y,ys'))) and
-                         all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b}) by.
-                IH_xs_yys, 
-                conclude all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b})  by
-                  _rewrite all_elements_eq_member
-                     [Nat,merge(n',xs',node(y,ys')),λb{x ≤ b}]
-                  _rewrite symmetric len_xs_yys
-                  _rewrite set_of_merge[xs',node(y,ys')]
-                  arbitrary z:Nat
-                  suppose z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
-                  suffices x ≤ z  by .
-                  cases apply member_union[Nat] to z_in_xs_yys
-                  case z_in_xs: z ∈ set_of(xs') {
-                    conclude x ≤ z by
-                      apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
-                      to x_le_xs, z_in_xs
-                  }
-                  case z_in_ys: z ∈ set_of(node(y,ys')) {
-                    cases apply member_union[Nat]
-                          to definition set_of in z_in_ys
-                    case z_sy: z ∈ single(y) {
-                      have y_z: y = z
-                          by definition {operator ∈, single, rep} in z_sy
-                      conclude x ≤ z by rewrite symmetric y_z | xy_true
+                         all_elements(merge(n',xs',node(y,ys')), λb{x ≤ b}) 
+                             with definition sorted
+                have x_le_merge: all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b}) by
+                    suffices (all z:Nat. (if z ∈ set_of(xs') ∪ set_of(node(y, ys')) then x ≤ z))
+                        with rewrite all_elements_eq_member[Nat,merge(n',xs',node(y,ys')),λb{x ≤ b}]
+                                   | symmetric len_xs_yys | set_of_merge[xs',node(y,ys')]
+                    arbitrary z:Nat
+                    suppose z_in_xs_yys: z ∈ set_of(xs') ∪ set_of(node(y,ys'))
+                    suffices x ≤ z  by .
+                    cases apply member_union[Nat] to z_in_xs_yys
+                    case z_in_xs: z ∈ set_of(xs') {
+                      conclude x ≤ z by
+                        apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
+                        to x_le_xs, z_in_xs
                     }
-                    case z_in_ys: z ∈ set_of(ys') {
-                      have y_z: y ≤ z
-                        by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
-                           to y_le_ys, z_in_ys
-                      have x_y: x ≤ y by rewrite xy_true
-                      conclude x ≤ z
-                          by apply less_equal_trans[x][y,z] to x_y, y_z
+                    case z_in_ys: z ∈ set_of(node(y,ys')) {
+                      cases apply member_union[Nat] to definition set_of in z_in_ys
+                      case z_sy: z ∈ single(y) {
+                        have y_z: y = z
+                            by definition {operator ∈, single, rep} in z_sy
+                        conclude x ≤ z by rewrite symmetric y_z | xy_true
+                      }
+                      case z_in_ys: z ∈ set_of(ys') {
+                        have y_z: y ≤ z
+                          by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+                             to y_le_ys, z_in_ys
+                        have x_y: x ≤ y by rewrite xy_true
+                        conclude x ≤ z
+                            by apply less_equal_trans[x][y,z] to x_y, y_z
+                      }
                     }
-                  }
+                IH_xs_yys, x_le_merge
               }
               case false suppose xy_false {
                 have not_x_y: not (x ≤ y)
@@ -830,42 +826,39 @@ proof
                 have y_x: y ≤ x
                   by apply less_implies_less_equal[y][x] to
                      (apply not_less_equal_greater[x,y] to not_x_y)
-                _definition sorted
                 suffices sorted(merge(n',node(x,xs'),ys')) and
-                         all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b}) by.
-                IH_xxs_ys, 
-                conclude all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b}) by
-                  _rewrite all_elements_eq_member
-                     [Nat,merge(n',node(x,xs'),ys'),λb{y ≤ b}]
-                  _rewrite symmetric len_xxs_ys
-                  _rewrite set_of_merge[node(x,xs'),ys']
-                  arbitrary z:Nat
-                  suppose z_in_xxs_ys: z ∈ set_of(node(x,xs')) ∪ set_of(ys')
-                  suffices y ≤ z  by.
-                  cases apply member_union[Nat] to z_in_xxs_ys
-                  case z_in_xxs: z ∈ set_of(node(x,xs')) {
-                    have z_in_sx_or_xs: z ∈ single(x) or z ∈ set_of(xs')
-                      by apply member_union[Nat]
-                         to definition set_of in z_in_xxs
-                    cases z_in_sx_or_xs
-                    case z_in_sx: z ∈ single(x) {
-                      have x_z: x = z
-                          by definition {operator ∈, single, rep} in z_in_sx
-                      conclude y ≤ z  by _rewrite symmetric x_z  y_x
+                         all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b}) 
+                    with definition sorted
+                have y_le_merge: all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b}) by
+                    suffices (all z:Nat. (if z ∈ set_of(node(x, xs')) ∪ set_of(ys') then y ≤ z))
+                        with rewrite all_elements_eq_member[Nat,merge(n',node(x,xs'),ys'),λb{y ≤ b}]
+                                   | symmetric len_xxs_ys | set_of_merge[node(x,xs'),ys']
+                    arbitrary z:Nat
+                    suppose z_in_xxs_ys: z ∈ set_of(node(x,xs')) ∪ set_of(ys')
+                    suffices y ≤ z  by.
+                    cases apply member_union[Nat] to z_in_xxs_ys
+                    case z_in_xxs: z ∈ set_of(node(x,xs')) {
+                      have z_in_sx_or_xs: z ∈ single(x) or z ∈ set_of(xs')
+                        by apply member_union[Nat] to definition set_of in z_in_xxs
+                      cases z_in_sx_or_xs
+                      case z_in_sx: z ∈ single(x) {
+                        have x_z: x = z  by definition {operator ∈, single, rep} in z_in_sx
+                        conclude y ≤ z  by rewrite x_z in y_x
+                      }
+                      case z_in_xs: z ∈ set_of(xs') {
+                        have x_z: x ≤ z
+                          by apply all_elements_member[Nat][xs'][z,λb{x ≤ b}]
+                             to x_le_xs, z_in_xs
+                        conclude y ≤ z 
+                           by apply less_equal_trans[y][x,z] to y_x, x_z
+                      }
                     }
-                    case z_in_xs: z ∈ set_of(xs') {
-                      have x_z: x ≤ z
-                        by apply all_elements_member[Nat][xs'][z,λb{x ≤ b}]
-                           to x_le_xs, z_in_xs
-                      conclude y ≤ z 
-                         by apply less_equal_trans[y][x,z] to y_x, x_z
+                    case z_in_ys: z ∈ set_of(ys') {
+                      conclude y ≤ z by
+                        apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+                        to y_le_ys, z_in_ys
                     }
-                  }
-                  case z_in_ys: z ∈ set_of(ys') {
-                    conclude y ≤ z by
-                      apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
-                      to y_le_ys, z_in_ys
-                  }
+                IH_xxs_ys, y_le_merge
               }
             }
           }
@@ -888,33 +881,33 @@ proof
   induction Nat
   case 0 {
     arbitrary xs:List<Nat>
-    _definition msort
-    switch xs {
+    switch xs for msort {
       case empty {
-        _definition {first, second}
-        suffices mset_of[Nat](empty) ⨄ mset_of[Nat](empty) 
-               = mset_of[Nat](empty) by .
-        _definition {mset_of}
+        suffices m_fun[Nat](λ{0}) ⨄ m_fun[Nat](λ{0}) = m_fun[Nat](λ{0})
+            with definition {first, second, mset_of}
         rewrite m_sum_empty[Nat,m_fun(λx{0})]
       }
       case node(x, xs') {
-        _definition {first, second, mset_of}
-        suffices (m_one(x) ⨄ mset_of[Nat](empty)) ⨄ mset_of(xs')
-               = m_one(x) ⨄ mset_of(xs') by .
-        _definition {mset_of}
+        suffices (m_one(x) ⨄ m_fun[Nat](λ{0})) ⨄ mset_of(xs')
+               = m_one(x) ⨄ mset_of(xs')
+            with definition {first, second, mset_of, mset_of}
         rewrite m_sum_empty[Nat,m_one(x)]
       }
     }
   }
   case suc(n') suppose IH {
     arbitrary xs:List<Nat>
-    _definition {msort, first, second}
-
+    suffices mset_of(merge(length(first(msort(n', xs))) 
+                           + length(first(msort(n', second(msort(n', xs))))),
+                           first(msort(n', xs)),
+                           first(msort(n', second(msort(n', xs)))))) 
+             ⨄ mset_of(second(msort(n', second(msort(n', xs))))) 
+             = mset_of(xs)
+        with definition {msort, first, second}
     define ys = first(msort(n',xs))
     define ls = second(msort(n',xs))
     define zs = first(msort(n', ls))
     define ms = second(msort(n', ls))
-    
     equations
           mset_of(merge(length(ys) + length(zs),ys,zs)) ⨄ mset_of(ms)
         = (mset_of(ys) ⨄ mset_of(zs)) ⨄ mset_of(ms)
@@ -923,9 +916,9 @@ proof
           by rewrite m_sum_assoc[Nat, mset_of(ys), mset_of(zs), mset_of(ms)]
     ... = mset_of(ys) ⨄ mset_of(ls)
           by rewrite conclude mset_of(zs) ⨄ mset_of(ms) = mset_of(ls)
-                     by _definition {zs, ms} IH[ls]
+                     by enable {zs, ms} IH[ls]
     ... = mset_of(xs)
-          by _definition {ys, ls} IH[xs]
+          by enable {ys, ls} IH[xs]
   }
 end
 ```
@@ -942,13 +935,13 @@ proof
     arbitrary xs:List<Nat>
     switch xs {
       case empty {
-        _definition {msort, first}
-        conclude sorted(empty)  by definition sorted
+        suffices sorted(empty)  with definition {msort, first}
+        definition sorted
       }
       case node(x, xs') {
-        _definition {msort, first}
-        conclude sorted(node(x,empty))
-            by definition {sorted, sorted, all_elements}
+        suffices sorted(node(x,empty))
+            with definition {msort, first}
+        definition {sorted, sorted, all_elements}
       }
     }
   }
