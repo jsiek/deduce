@@ -52,7 +52,7 @@ is after the colon. For example, this tree contains
 The following code builds this binary search tree
 using the `Tree` union type defined in the
 [Binary Tree](https://siek.blogspot.com/2024/07/binary-trees-with-in-order-iterators.html) 
-blog post.
+blog post and the `Pair` type from the `Pair.pf` file.
 
 ```{.deduce #BST1}
 define BST_1 = TreeNode(EmptyTree, pair(1, 53), EmptyTree)
@@ -70,11 +70,13 @@ There are three operations in the binary search tree interface:
   builds a tree that does not contain any key-value associations.
   
 * `BST_insert : fn Tree<Pair<Nat,Nat>>, Nat, Nat -> Tree<Pair<Nat,Nat>>` 
+
   The operation `BST_insert(T, k, v)` produces a new tree that
   associates value `v` with key `k` and for all other keys,
   associates with the values according to tree `T`.
 
 * `BST_search : fn Tree<Pair<Nat,Nat>>, Nat -> Option<Nat>`
+
   The operation `BST_search(T, k)` returns the value associated with
   key `k` in tree `T`, if there is one.
 
