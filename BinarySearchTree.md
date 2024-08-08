@@ -65,7 +65,9 @@ define BST_14 = TreeNode(BST_13, pair(14, 27), BST_19)
 define BST_10 = TreeNode(BST_6, pair(10, 32), BST_14)
 ```
 
-There are three operations in the binary search tree interface:
+There are three operations in the binary search tree interface with
+the following specifications.
+
 * The `EmptyTree` constructor from the `Tree` union type, which
   builds a tree that does not contain any key-value associations.
   
