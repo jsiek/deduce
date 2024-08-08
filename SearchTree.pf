@@ -61,6 +61,7 @@ theorem insert_all:
   if all_keys(T, P) and P(x)
   then all_keys(insert(T, x, v), P)
 proof
+  stop ?
   induction Tree
   case empty_tree {
     arbitrary x:Nat,v:Nat, P: fn(Nat) -> bool

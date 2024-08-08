@@ -120,6 +120,13 @@ check_blog6:
 blog6:
 	/usr/local/bin/pandoc BinaryTreeProof.md -o BinaryTreeProof.html
 
+check_blog7:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py BinarySearchTree.pf
+
+blog7:
+	/usr/local/bin/pandoc BinarySearchTree.md -o BinarySearchTree.html
+
 check_blogs:  check_blog1 check_blog2 check_blog3 check_blog4 check_blog5 check_blog6
 
 clean:

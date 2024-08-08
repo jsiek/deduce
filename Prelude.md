@@ -24,7 +24,8 @@ on correctness. The rough plan is to cover the following topics.
 * [Sequential Search](https://siek.blogspot.com/2024/06/sequential-search-correctly.html)
 * [Insertion Sort](https://siek.blogspot.com/2024/06/insertion-sort-correctly.html)
 * [Merge Sort](https://siek.blogspot.com/2024/06/merge-sort-with-leftovers-correctly.html)
-* [Binary Trees](https://siek.blogspot.com/2024/07/binary-trees-with-in-order-iterators.html)
+* [Binary Trees (Part 1)](https://siek.blogspot.com/2024/07/binary-trees-with-in-order-iterators.html)
+* [Binary Trees (Part 2)](https://siek.blogspot.com/2024/07/binary-trees-with-in-order-iterators_20.html)
 * Binary Search Trees
 * Balanced Binary Search Trees
 * Heaps and Priority Queues
