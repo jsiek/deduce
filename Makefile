@@ -3,7 +3,7 @@ default: tests check_docs
 
 check_docs: check_README check_fun check_intro 
 
-tests:
+tests: check_blog5
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_true_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_false1.pf
@@ -123,6 +123,7 @@ blog6:
 check_blog7:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
 	/opt/homebrew/bin/python3.10 ./deduce.py BinarySearchTree.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py BinarySearchTreeTest.pf
 
 blog7:
 	/usr/local/bin/pandoc BinarySearchTree.md -o BinarySearchTree.html
@@ -132,4 +133,5 @@ check_blogs:  check_blog1 check_blog2 check_blog3 check_blog4 check_blog5 check_
 clean:
 	rm -f BinaryTree.pf LinkedLists.pf BinaryTreeProof.pf MergeSort.pf Prelude.pf
 	rm -f FunctionalProgramming.pf ProofIntro.pf InsertionSort.pf README.pf LinearSearch.pf
+	rm -f BinarySearchTree.pf BinarySearchTreeTest.pf
 	rm -rf .entangled

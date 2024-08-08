@@ -12,7 +12,7 @@ develop a correct binary search tree data structure. That is, we are
 going to implement a data structure that supports searching for a
 value based on its associated key. The data structure will also
 support inserting new values. We will store the keys and their values
-in a binary tree and implement `search` and `insert` operations.
+in a binary tree and implement `BST_search` and `BST_insert` operations.
 These operations are efficient (logarithmic time) when the binary tree
 is balanced, but we will save how to balance trees for a later blog
 post.
@@ -49,9 +49,34 @@ is after the colon. For example, this tree contains
 
 ![Diagram of a Binary Search Tree](./BinarySearchTree1.png)
 
-specification
+The following code builds this binary search tree
+using the `Tree` union type defined in the
+[Binary Tree](https://siek.blogspot.com/2024/07/binary-trees-with-in-order-iterators.html) 
+blog post.
 
+```{.deduce #BST1}
+define BST_1 = TreeNode(EmptyTree, pair(1, 53), EmptyTree)
+define BST_9 = TreeNode(EmptyTree, pair(9, 42), EmptyTree)
+define BST_6 = TreeNode(BST_1, pair(6, 85), BST9)
+define BST_11 = TreeNode(EmptyTree, pair(11, 99), EmptyTree)
+define BST_13 = TreeNode(BST_11, pair(13, 69), EmptyTree)
+define BST_19 = TreeNode(EmptyTree, pair(19, 74), EmptyTree)
+define BST_14 = TreeNode(BST_13, pair(14, 27), BST_19)
+define BST_10 = TreeNode(BST_6, pair(10, 32), BST_14)
+```
 
+There are three operations in the binary search tree interface:
+* The `EmptyTree` constructor from the `Tree` union type, which
+  builds a tree that does not contain any key-value associations.
+  
+* `BST_insert : fn Tree<Pair<Nat,Nat>>, Nat, Nat -> Tree<Pair<Nat,Nat>>` 
+  The operation `BST_insert(T, k, v)` produces a new tree that
+  associates value `v` with key `k` and for all other keys,
+  associates with the values according to tree `T`.
+
+* `BST_search : fn Tree<Pair<Nat,Nat>>, Nat -> Option<Nat>`
+  The operation `BST_search(T, k)` returns the value associated with
+  key `k` in tree `T`, if there is one.
 
 
 ```{.deduce #all_nodes}
@@ -71,8 +96,42 @@ function is_BST(Tree<Pair<Nat,Nat>>) -> bool {
 }
 ```
 
+```{.deduce #BST_search}
+function BST_search(Tree<Pair<Nat,Nat>>, Nat) -> Option<Nat> {
+  BST_search(EmptyTree, k) = none
+  BST_search(TreeNode(L, x, R), k) =
+    if k = first(x) then
+      just(second(x))
+    else if k < first(x) then
+      BST_search(L, k)
+    else
+      BST_search(R, k)
+}
 ```
+
+```{.deduce #BST_insert}
+function BST_insert(Tree<Pair<Nat,Nat>>, Nat, Nat) -> Tree<Pair<Nat,Nat>> {
+  BST_insert(EmptyTree, k, v) = TreeNode(EmptyTree, pair(k, v), EmptyTree)
+  BST_insert(TreeNode(L, x, R), k, v) =
+    if k = first(x) then
+      TreeNode(L, pair(k, v), R)
+    else if k < first(x) then
+      TreeNode(BST_insert(L, k, v), x, R)
+    else
+      TreeNode(L, x, BST_insert(R, k, v))
+}
 ```
+
+## Test
+
+```{.deduce #testBstSearch}
+
+assert BST_search(EmptyTree, 5) = none
+
+assert BST_search(BST_1_53, 1) = just(53)
+assert BST_search(BST_1_53, 2) = none
+```
+
 
 <!--
 ```{.deduce file=BinarySearchTree.pf} 
@@ -81,11 +140,16 @@ import BinaryTree
 
 <<all_nodes>>
 <<is_BST>>
+<<BST_search>>
+<<BST_insert>>
 
 ```
 
 ```{.deduce file=BinarySearchTreeTest.pf} 
+import BinarySearchTree
 
+<<BST1>>
+<<testBstSearch>>
 
 ```
 -->
