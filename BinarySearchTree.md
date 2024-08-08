@@ -73,12 +73,13 @@ There are three operations in the binary search tree interface:
 
   The operation `BST_insert(T, k, v)` produces a new tree that
   associates value `v` with key `k` and for all other keys,
-  associates with the values according to tree `T`.
+  associates keys with the values according to tree `T`.
 
 * `BST_search : fn Tree<Pair<Nat,Nat>>, Nat -> Option<Nat>`
 
-  The operation `BST_search(T, k)` returns the value associated with
-  key `k` in tree `T`, if there is one.
+  The operation `BST_search(T, k)` returns `just(v)` if `v` is the
+  value associated with key `k` in tree `T`, and otherwise returns
+  `none`.
 
 
 ```{.deduce #all_nodes}
