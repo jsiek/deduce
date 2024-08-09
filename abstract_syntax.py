@@ -938,9 +938,10 @@ class TermInst(Term):
                     self.inferred)
   
   def __str__(self):
-    return str(self.subject) + \
-      ('' if False and self.inferred     \
-      else '[' + ','.join([str(ty) for ty in self.type_args]) + ']')
+    if self.inferred:
+      return str(self.subject)
+    else:
+      return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
