@@ -6,26 +6,32 @@ about developing correct implementations of basic data structures and
 algorithms using the [Deduce](https://github.com/jsiek/deduce)
 language and proof checker.
 
-This post continues on the theme of binary trees, that is trees in
-which each node has at most two children. The focus of this post is to
-develop a correct binary search tree data structure. That is, we are
-going to implement a data structure that supports searching for a
-value based on its associated key. The data structure will also
-support inserting new values. 
+## The Search Interface
 
-This interface can also be implemented in a simple but less efficient
-way, using a function to map keys to values. With this approach, the
-search operation is just function call.  The `Maps.pf` file defines
-two operations to for building such maps. The `empty_map` operation
-returns a function that maps every input to `none`.
+This post continues on the theme of binary trees, that is, trees in
+which each node has at most two children. The focus of this post is
+implement the Search interface using binary trees.
+The *Search* interface includes operations to 
+(1) create an empty data structure,
+(2) search for a value based on its associated key, and
+(3) insert a new key-value association.
+
+## Function Implmentation of Search
+
+The Search interface can also be implemented in a simple but less
+efficient way, using a function to map keys to values. With this
+approach, the operation to search for a value is just function call.
+The `Maps.pf` file defines the `empty_map` operation, which returns a
+function that maps every input to `none`.
 
 ```{.deduce #empty_map_5}
 assert @empty_map<Nat,Nat>(5) = none
 ```
 
-The `update(f, k, v)` operation returns a function that associates the
-key `k` with `v` but otherwise behaves like the given function `f`.
-Here is an example use of `update`.
+The `Maps.pf` file also defined the `update(f, k, v)` operation, which
+returns a function that associates the key `k` with `v` but otherwise
+behaves like the given function `f`.  Here is an example use of
+`update`.
 
 ```{.deduce #update_empty_4}
 define m2 = update(@empty_map<Nat,Nat>, 4, just(99))
@@ -33,6 +39,10 @@ assert m2(4) = just(99)
 assert m2(5) = none
 ```
 
+We will use this function implementation of the Search interface to
+specify the correctness of the binary tree implementation of Search.
+
+## Binary Tree Implementation of Search
 
 We will store the keys and their values in a binary tree and implement
 `BST_search` and `BST_insert` operations.  These operations are
@@ -95,17 +105,17 @@ here are their **specifications**.
   a binary search tree that does not contain any key-value
   associations.
   
-* `BST_search : fn Tree<Pair<Nat,Nat>>, Nat -> Option<Nat>`
+* `BST_search : fn Tree<Pair<Nat,Nat>> -> (fn Nat -> Option<Nat>)`
 
-  The operation `BST_search(T, k)` returns `just(v)` if `v` is the
-  value associated with key `k` in tree `T`, and otherwise returns
-  `none`.
+  The operation `BST_search(T)` returns a function that maps each key
+  to its associated value.
 
 * `BST_insert : fn Tree<Pair<Nat,Nat>>, Nat, Nat -> Tree<Pair<Nat,Nat>>` 
 
   The operation `BST_insert(T, k, v)` produces a new tree that
-  associates value `v` with key `k` and for all other keys,
-  associates keys with the values according to tree `T`.
+  associates value `v` with key `k` and for all other keys, associates
+  keys with the values according to tree `T`. In other words,
+  `BST_insert(T, k, v) = update(BST_search(T), k, v)`.
 
 
 ## Write the `BST_search` and `BST_insert` functions
@@ -210,10 +220,127 @@ end
 ```
 
 ```{.deduce #BST_search_insert_update}
-theorem BST_search_insert_udpate:
-  BST_search(BST_insert(T, k, v), j) = update(BST_search(T), k, just(v))
+theorem BST_search_insert_udpate: all T:Tree<Pair<Nat,Nat>>. all k:Nat, v:Nat.
+  BST_search(BST_insert(T, k, v)) = update(BST_search(T), k, just(v))
 proof
-  ?
+  induction Tree<Pair<Nat,Nat>>
+  case EmptyTree {
+    arbitrary k:Nat, v:Nat
+    extensionality
+    arbitrary i:Nat
+    suffices (if i = k then just(v) else (if i < k then @none<Nat> else @none<Nat>)) 
+           = (if i = k then just(v) else @none<Nat>)
+        with definition {BST_insert, BST_search, BST_search, first, second, update}
+    switch i = k {
+      case true { . }
+      case false {
+        switch i < k {
+          case true { . }
+          case false { . }
+        }
+      }
+    }
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary k:Nat, v:Nat
+    extensionality
+    arbitrary i:Nat
+    suffices BST_search(BST_insert(TreeNode(L, x, R), k, v))(i) 
+           = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+      by .
+    switch k = first(x) for BST_insert {
+      case true suppose k_fx_true {
+        have k_eq_fx: k = first(x) by rewrite k_fx_true
+        suffices BST_search(TreeNode(L, pair(k, v), R))(i) 
+               = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)   by .
+        cases trichotomy[i][k]
+        case i_less_k: i < k {
+          have not_i_eq_k: not (i = k)   by apply less_not_equal to i_less_k
+          equations
+                BST_search(TreeNode(L, pair(k, v), R))(i) 
+              = BST_search(L)(i)
+                    by _definition {BST_search, first}
+                       rewrite not_i_eq_k | i_less_k
+          ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                    by _definition {update,BST_search}
+                       rewrite symmetric k_eq_fx | not_i_eq_k | i_less_k
+        }
+        case i_eq_k: i = k {
+          suffices BST_search(TreeNode(L, pair(k, v), R))(k)
+                  = update(BST_search(TreeNode(L, x, R)), k, just(v))(k)
+                  with rewrite i_eq_k
+          equations
+            BST_search(TreeNode(L, pair(k, v), R))(k)
+              = just(v)          by definition {BST_search, first, second}
+          ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(k)
+                                 by definition {BST_search, update}
+        }
+        case k_less_i: k < i {
+          ?
+        }
+      }
+      case false suppose k_fx_false {
+        ?
+      }
+    }
+    
+    /*
+    cases trichotomy[i][k]
+    case i_less_k: i < k {
+      sorry
+    }
+    case i_eq_k: i = k {
+      _rewrite i_eq_k
+      switch k = first(x) for BST_search, update {
+        case true {
+          conclude BST_search(BST_insert(TreeNode(L, x, R), k, v))(k) = just(v)
+            by ? 
+        }
+        case false {
+          ?
+        }
+      }
+    }
+    case k_less_i: k < i {
+      ?
+    }
+    */
+    /*
+    switch k = first(x) for BST_insert {
+      case true suppose k_fx_true {
+         switch i = k {
+           case true suppose ik_true {
+             have i_k: i = k by rewrite ik_true
+             suffices BST_search(TreeNode(L, pair(k, v), R))(k) 
+                    = update(BST_search(TreeNode(L, x, R)), k, just(v))(k)
+                 with rewrite i_k
+             equations 
+                    BST_search(TreeNode(L, pair(k, v), R))(k) 
+                 = just(v)          by definition {BST_search, first, second}
+             ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(k)
+                                    by definition {BST_search,update}
+           }
+           case false {
+             switch i < k {
+               case true suppose i_k_true {
+               
+                 suffices BST_search(TreeNode(L, pair(k, v), R))(i) 
+                          = update(BST_search(TreeNode(L, x, R)), k, just(v))(i) by .
+                 ?
+               }
+               case false {
+                 ?
+               }
+             }
+           }
+         }
+      }
+      case false suppose k_fx_false {
+        ?
+      }
+    }
+    */
+  }
 end
 ```
 
@@ -248,6 +375,7 @@ import Maps
 <<BST_insert>>
 
 <<BST_search_EmptyTree>>
+<<BST_search_insert_update>>
 ```
 
 ```{.deduce file=BinarySearchTreeTest.pf} 
