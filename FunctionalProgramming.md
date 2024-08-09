@@ -290,7 +290,6 @@ define head : < T > fn List<T> -> Option<T> =
 The type of a generic function, such as `head`, starts with its
 type parameters surrounded by `<` and `>`.
 
-
 Calling a generic function is just like calling a normal funtion,
 most of the time. For example, the following invokes the
 generic `length` function on an argument of type `List<Nat>`
