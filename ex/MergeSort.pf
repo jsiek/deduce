@@ -529,14 +529,14 @@ proof
     switch xs {
       case empty {
         _definition {first, second}
-        suffices mset_of[Nat](empty) ⨄ mset_of[Nat](empty)
-               = mset_of[Nat](empty) by .
+        suffices mset_of(@empty<Nat>) ⨄ mset_of(@empty<Nat>)
+               = mset_of(@empty<Nat>) by .
         _definition {mset_of}
         _rewrite m_sum_empty[Nat,m_fun(λx{0})].
       }
       case node(x, xs') {
         _definition {first, second, mset_of}
-        suffices (m_one(x) ⨄ mset_of[Nat](empty)) ⨄ mset_of(xs')
+        suffices (m_one(x) ⨄ mset_of(@empty<Nat>)) ⨄ mset_of(xs')
                = m_one(x) ⨄ mset_of(xs') by .
         _definition {mset_of}
         _rewrite m_sum_empty[Nat,m_one(x)].

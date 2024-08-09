@@ -32,7 +32,7 @@ For example, we can represent the following binary tree
 with a bunch of tree nodes like so:
 
 ```{.deduce #BinaryTree05}
-define mt = EmptyTree[Nat]
+define mt = @EmptyTree<Nat>
 define T0 = TreeNode(mt, 0, mt)
 define T2 = TreeNode(mt, 2, mt)
 define T1 = TreeNode(T0, 1, T2)

@@ -26,6 +26,7 @@ tests: #check_blog5
 	/opt/homebrew/bin/python3.10 ./deduce.py test/switch_term_error.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/rec1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/generic1.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/generic2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/overload1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/overload2.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/overload3.pf

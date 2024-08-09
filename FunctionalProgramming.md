@@ -291,6 +291,42 @@ The type of a generic function, such as `head`, starts with its
 type parameters surrounded by `<` and `>`.
 
 
+Calling a generic function is just like calling a normal funtion,
+most of the time. For example, the following invokes the
+generic `length` function on an argument of type `List<Nat>`
+and Deduce figures out that the type parameter `E` must be `Nat`.
+
+```{.deduce #apply_length}
+assert length(node(42, empty)) = 1
+```
+
+However, there are times when there is not enough information for
+Deduce to determine the type parameters of a generic. For example,
+both the `length` function and the `empty` constructor are generic, so
+Deduce cannot figure out what type of list is being constructed in the
+following.
+
+```{.deduce}
+assert length(empty) = 0
+```
+
+Deduce responds with the error:
+
+```
+Cannot infer type arguments for
+	empty
+Please make them explicit.
+```
+
+The solution is to explicitly instantiate either `empty` or `length`.
+The syntax starts with `@`, followed by the generic entity, and finishes
+with the type arguments surrounded by `<` and `>`. Here's the 
+example again with the explicit instantiation.
+
+```{.deduce #apply_length_empty}
+assert length(@empty<Nat>) = 0
+```
+
 
 ## Higher-order Functions
 
@@ -389,6 +425,8 @@ is of type `Pos`, which is defined in `Nat.pf`.
 <<lenNatList>>
 <<app>>
 <<length>>
+<<apply_length>>
+<<apply_length_empty>>
 <<head>>
 <<all_elements>>
 <<Pair>>

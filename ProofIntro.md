@@ -31,7 +31,7 @@ theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
 write `?` to say that we're not done yet.
 
-    theorem length_nat_empty: length[Nat](empty) = 0
+    theorem length_nat_empty: length(@empty<Nat>) = 0
     proof
       ?
     end
@@ -46,7 +46,7 @@ To tell Deduce to apply the definition of `length`, we can use
 the `definition` statement.
 
 ```{.deduce #length_nat_empty}
-theorem length_nat_empty: length[Nat](empty) = 0
+theorem length_nat_empty: length(@empty<Nat>) = 0
 proof
   definition length
 end
@@ -1340,7 +1340,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    conclude length[U](empty ++ ys) = length[U](empty) + length(ys)  by .
+    conclude length(@empty<U> ++ ys) = length(@empty<U>) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>

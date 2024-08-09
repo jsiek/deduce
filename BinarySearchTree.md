@@ -16,7 +16,7 @@ in a simple but less efficient way, using a function to map keys to
 values.
 
 ```{.deduce #empty_map_5}
-assert empty_map[Nat,Nat](5) = none
+assert @empty_map<Nat,Nat>(5) = none
 ```
 
 
@@ -65,7 +65,7 @@ using the `Tree` union type defined in the
 blog post and the `Pair` type from the `Pair.pf` file.
 
 ```{.deduce #BST1}
-define mt = EmptyTree[Pair<Nat,Nat>]
+define mt = @EmptyTree<Pair<Nat,Nat>>
 define BST_1 = TreeNode(mt, pair(1, 53), mt)
 define BST_9 = TreeNode(mt, pair(9, 42), mt)
 define BST_6 = TreeNode(BST_1, pair(6, 85), BST_9)

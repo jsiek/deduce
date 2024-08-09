@@ -57,7 +57,7 @@ ident: IDENT              -> ident
     | "-" term_hi                                  -> neg
     | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var
-    | term_hi "[" type_list "]"                    -> term_inst
+    | "@" term_hi "<" type_list ">"                -> term_inst
     | term_hi "(" term_list ")"                    -> call
     | "λ" ident_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic

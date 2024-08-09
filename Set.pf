@@ -92,25 +92,22 @@ theorem union_empty: all T:type, A:Set<T>.
   A ∪ ∅ = A
 proof
   arbitrary T:type, A:Set<T>
-  suffices A ∪ char_fun[T](λ_{false}) = A   by .
-  suffices char_fun[T](λx{rep(A)(x)}) = A   with definition {operator ∪, rep}
+  suffices A ∪ @char_fun<T>(λ_{false}) = A   by .
+  suffices @char_fun<T>(λx{rep(A)(x)}) = A   with definition {operator ∪, rep}
   switch A {
     case char_fun(f) {
-      have eq: (λx{f(x)} : fn T->bool) = f
-          by extensionality arbitrary x:T.
-      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)
-          with definition rep
+      have eq: (λx{f(x)} : fn T->bool) = f   by extensionality arbitrary x:T.
+      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   with definition rep
       rewrite eq
     }
   }
 end
 
 theorem empty_union: all T:type, A:Set<T>.
-  char_fun[T](λx{false}) ∪ A = A
+  @char_fun<T>(λx{false}) ∪ A = A
 proof
   arbitrary T:type, A:Set<T>
-  suffices char_fun[T](λx{rep(A)(x)}) = A
-      by definition {operator ∪, rep, char_fun}
+  suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep, char_fun}
   switch A {
     case char_fun(f) {
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by definition rep
@@ -124,15 +121,14 @@ theorem union_sym: all T:type, A:Set<T>, B:Set<T>.
   A ∪ B = B ∪ A
 proof
   arbitrary T:type, A:Set<T>, B:Set<T>
-  suffices char_fun(λx{(rep(A)(x) or rep(B)(x))} : fn T->bool)
-         = char_fun(λx{(rep(B)(x) or rep(A)(x))})
+  suffices @char_fun<T>(λx{(rep(A)(x) or rep(B)(x))})
+             = char_fun(λx{(rep(B)(x) or rep(A)(x))})
       by definition operator ∪
   switch A {
     case char_fun(f) {
       switch B {
 	case char_fun(g) {
-	  suffices char_fun(λx{(f(x) or g(x))} : fn T->bool)
-                 = char_fun(λx{(g(x) or f(x))})
+	  suffices @char_fun<T>(λx{(f(x) or g(x))}) = char_fun(λx{(g(x) or f(x))})
               by definition rep
 	  have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
 	    by extensionality arbitrary x:T 

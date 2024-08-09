@@ -313,7 +313,7 @@ After rewriting with those equalities and applying the definition of
 ```{.deduce #mset_of_merge_case_zero_suffices}
   suffices mset_of(merge(0, empty, empty)) = mset_of(empty) ⨄ mset_of(empty)
       with rewrite xs_mt | ys_mt
-  suffices m_fun[Nat](λ{0}) = m_fun[Nat](λ{0}) ⨄ m_fun[Nat](λ{0})
+  suffices @m_fun<Nat>(λ{0}) = @m_fun<Nat>(λ{0}) ⨄ @m_fun<Nat>(λ{0})
       with definition {merge, mset_of}
 ```
 
@@ -323,7 +323,7 @@ theorem `m_sum_empty` from `MultiSet.pf`.
 
 ```{.deduce #mset_of_merge_case_zero_conclusion}
   // <<mset_of_merge_case_zero_conclusion>> =
-  symmetric m_sum_empty[Nat, m_fun[Nat](λx{0})]
+  symmetric m_sum_empty[Nat, @m_fun<Nat>(λx{0})]
 ```
 
 In the case for `n = suc(n')`, we need to prove
@@ -842,12 +842,12 @@ proof
     arbitrary xs:List<Nat>
     switch xs for msort {
       case empty {
-        suffices m_fun[Nat](λ{0}) ⨄ m_fun[Nat](λ{0}) = m_fun[Nat](λ{0})
+        suffices @m_fun<Nat>(λ{0}) ⨄ @m_fun<Nat>(λ{0}) = @m_fun<Nat>(λ{0})
             with definition {first, second, mset_of}
         rewrite m_sum_empty[Nat,m_fun(λx{0})]
       }
       case node(x, xs') {
-        suffices (m_one(x) ⨄ m_fun[Nat](λ{0})) ⨄ mset_of(xs')
+        suffices (m_one(x) ⨄ @m_fun<Nat>(λ{0})) ⨄ mset_of(xs')
                = m_one(x) ⨄ mset_of(xs')
             with definition {first, second, mset_of, mset_of}
         rewrite m_sum_empty[Nat,m_one(x)]

@@ -192,7 +192,7 @@ definitions of `search`, `length`, and `operator ≤`.
 ```{.deduce #search_length_case_empty}
     // <<search_length_case_empty>> =
     arbitrary y:Nat
-	conclude search(empty,y) ≤ length[Nat](empty)
+	conclude search(empty,y) ≤ length(@empty<Nat>)
         by definition {search, length, operator ≤}
 ```
 
@@ -316,7 +316,7 @@ In the case for `xs = empty`, we proceed in a goal-directed way using
 
 ```
     arbitrary y:Nat
-    suppose prem: search(empty,y) < length[Nat](empty)
+    suppose prem: search(empty,y) < length(@empty<Nat>)
     ?
 ```
 
@@ -333,7 +333,7 @@ Indeed, applying all of the relevant definitions to the premise yields
 
 ```{.deduce #search_present_case_empty}
     arbitrary y:Nat
-	suppose prem: search(empty,y) < length[Nat](empty)
+	suppose prem: search(empty,y) < length(@empty<Nat>)
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
 ```
@@ -475,7 +475,7 @@ empty` in the same way as in `search_present`; the premise is false.
 ```{.deduce #search_first_case_empty}
     // <<search_first_case_empty>> =
     arbitrary y:Nat, i:Nat
-	suppose prem: search(empty,y) < length[Nat](empty) and nth[Nat](empty,0)(i) = y
+	suppose prem: search(empty,y) < length(@empty<Nat>) and nth(@empty<Nat>, 0)(i) = y
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
 ```
