@@ -1340,7 +1340,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    conclude length(empty ++ ys) = length(empty : List<U>) + length(ys)  by .
+    conclude length[U](empty ++ ys) = length[U](empty) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>

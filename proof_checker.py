@@ -716,7 +716,7 @@ def check_proof_of(proof, formula, env):
                                                            parameter_types))
             
             trm = pattern_to_term(indcase.pattern)
-            new_trm = type_synth_term(trm , body_env, None, [])
+            new_trm = type_check_term(trm, typ, body_env, None, [])
             goal = instantiate(loc, formula, [new_trm])
             
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
@@ -800,7 +800,7 @@ def check_proof_of(proof, formula, env):
                 body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
                                                                constr_params))
                 
-                new_subject_case = type_synth_term(subject_case, body_env, None, [])
+                new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
                 
                 if len(scase.assumptions) == 1:
                   assumption = mkEqual(scase.location, subject, subject_case)
@@ -952,6 +952,7 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     error(loc, 'incorrect number of arguments, expected ' + str(len(param_types)) \
           + ', not ' + str(len(args)))
   if len(typarams) == 0:
+    #print('type check call to regular: ' + str(call))
     new_args = []
     for (param_type, arg) in zip(param_types, args):
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
@@ -959,6 +960,7 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
       error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
     return Call(loc, return_type, new_rator, new_args, call.infix)
   else:
+    #print('type check call to generic: ' + str(call))
     matching = {}
     # If there is an expected return type, match that first.
     type_params = type_names(loc, typarams)
@@ -967,18 +969,29 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     # If we have already deduced the type parameters in the parameter type,
     # then we can check the term. Otherwise, we synthesize the term's type
     # and match it against the parameter type.
-    new_args = []
-    for (arg, param_ty) in zip(args, param_types):
-        param_type = param_ty.substitute(matching)
-        fvs = param_type.free_vars()\
-                        .intersection(set([ty.name for ty in type_params]))
-        if len(fvs) == 0:
-          new_arg = type_check_term(arg, param_type, env, recfun, subterms)
-        else:
-          new_arg = type_synth_term(arg, env, recfun, subterms)
-          type_match(loc, type_params, param_type, new_arg.typeof, matching)
-        new_args.append(new_arg)
-
+    try:
+      new_args = []
+      for (arg, param_ty) in zip(args, param_types):
+          param_type = param_ty.substitute(matching)
+          fvs = param_type.free_vars()\
+                          .intersection(set([ty.name for ty in type_params]))
+          # print('arg = ' + str(arg))
+          # print('param_type = ' + str(param_type))
+          # print('fvs = ' + ', '.join([base_name(x) for x in fvs]) + '\n')
+          if len(fvs) == 0:
+            new_arg = type_check_term(arg, param_type, env, recfun, subterms)
+          else:
+            new_arg = type_synth_term(arg, env, recfun, subterms)
+            type_match(loc, type_params, param_type, new_arg.typeof, matching)
+          new_args.append(new_arg)
+    except Exception as e:
+        new_msg = str(e) + '\n\n\t' + 'in context of call ' + str(call) + '\n' \
+            + '\tfunction type: ' + str(FunctionType(loc, typarams, param_types,
+                                                     return_type)) + '\n' \
+            + '\tinferred type arguments: ' \
+            + ', '.join([base_name(x) + ' := ' + str(ty) for (x,ty) in matching.items()])
+        raise Exception(new_msg)
+    
     # Were all the type parameters deduced?
     for x in typarams:
         if x not in matching.keys():
@@ -1086,6 +1099,11 @@ def type_synth_term(term, env, recfun, subterms):
       ty = env.get_type_of_term_var(term)
       if ty == None:
         error(loc, 'while type checking, undefined variable ' + str(term) + '\nin scope:\n' + str(env))
+      match ty:
+        case GenericUnknownInst(loc2, union_type):
+          error(loc, 'Cannot infer type arguments for\n' \
+                + '\t' + base_name(name) + '\nPlease make them explicit.')
+      
       ret = Var(loc, ty, name)
       
     case Generic(loc, _, type_params, body):
@@ -1106,7 +1124,7 @@ def type_synth_term(term, env, recfun, subterms):
       new_els = type_synth_term(els, env, recfun, subterms)
       if new_thn.typeof != new_els.typeof:
         error(loc, 'conditional expects same type for the two branches'\
-              + ' but ' + str(thn_ty) + ' ≠ ' + str(els_ty))
+              + ' but ' + str(new_thn.typeof) + ' ≠ ' + str(new_els.typeof))
       ret = Conditional(loc, new_thn.typeof, new_cond, new_thn, new_els)
       
     case Int(loc, _, value):
@@ -1190,7 +1208,23 @@ def type_synth_term(term, env, recfun, subterms):
                   error(loc, 'this switch is missing a case for: ' + str(alt))
         case _:
           error(loc, 'expected a union type, not ' + str(ty))
-          
+
+    case TermInst(loc, _, Var(loc2, tyof, name), tyargs, inferred):
+      ty = env.get_type_of_term_var(Var(loc2, tyof, name))
+      match ty:
+        case Var(loc2, ty2, name):
+          retty = TypeInst(loc, name, tyargs)
+        case FunctionType(loc2, typarams, param_types, return_type):
+          sub = {x: t for (x,t) in zip(typarams, tyargs)}
+          inst_param_types = [t.substitute(sub) for t in param_types]
+          inst_return_type = return_type.substitute(sub)
+          retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
+        case GenericUnknownInst(loc2, union_type):
+          retty = TypeInst(loc2, union_type, tyargs)
+        case _:
+          error(loc, 'expected a type name, not ' + str(ty))
+      ret = TermInst(loc, retty, Var(loc2, tyof, name), tyargs, inferred)
+      
     case TermInst(loc, _, subject, tyargs, inferred):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
@@ -1202,6 +1236,8 @@ def type_synth_term(term, env, recfun, subterms):
           inst_param_types = [t.substitute(sub) for t in param_types]
           inst_return_type = return_type.substitute(sub)
           retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
+        case GenericUnknownInst(loc2, union_type):
+          retty = TypeInst(loc2, union_type, tyargs)
         case _:
           error(loc, 'expected a type name, not ' + str(ty))
       ret = TermInst(loc, retty, new_subject, tyargs, inferred)
@@ -1226,6 +1262,19 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
+    case TermInst(loc, _, subject, tyargs, inferred):
+      match typ:
+        case TypeInst(loc2, unionty, tyargs2):
+          if not all([ty1 == ty2 for (ty1,ty2) in zip(tyargs, tyargs2)]):
+              error(loc, 'mismatch in type arguments, expected:\n' \
+                    + ', '.join([str(ty) for ty in tyargs2]) + '\nbut got\n' \
+                    + ', '.join([str(ty) for ty in tyargs]))
+          new_subject = type_check_term(subject, GenericUnknownInst(loc2, unionty),
+                                        env, recfun, subterms)
+          return TermInst(loc, typ, new_subject, tyargs, inferred)
+        case _:
+          error(loc, 'UNDER CONSTRUCTION TermInst : ' + str(term) + ' : ' + str(typ))
+      
     case Generic(loc, _, type_params, body):
       match typ:
         case FunctionType(loc2, type_params2, param_types2, return_type2):
@@ -1246,25 +1295,27 @@ def type_check_term(term, typ, env, recfun, subterms):
       if var_typ == None:
         error(loc, 'undefined variable ' + str(term) \
               + '\nin scope:\n' + str(env))
+      match (var_typ, typ):
+        case (GenericUnknownInst(loc2, union1), TypeInst(loc3, union2, tyargs)):
+          if union1 == union2:
+              return TermInst(loc, typ, Var(loc, typ, name), tyargs, True)
+        case (FunctionType(loc1, typarams, param_types1, ret_type1),
+              FunctionType(loc2, [], param_types2, ret_type2)):
+          if len(typarams) > 0:
+            matching = {}
+            type_params = type_names(loc, typarams)
+            try:
+              type_match(loc, type_params, ret_type1, ret_type2, matching)
+              for (p1, p2) in zip(param_types1, param_types2):
+                  type_match(loc, type_params, p1, p2, matching)
+              type_args = [matching[x] for x in type_params]
+              return TermInst(Var(loc, var_typ, name),
+                              type_args, True)
+            except Exception as e:
+              pass
       if var_typ == typ:
         return Var(loc, typ, name)
       else:
-        # Try to instantiate var_typ to typ
-        match (var_typ, typ):
-          case (FunctionType(loc1, typarams, param_types1, ret_type1),
-                FunctionType(loc2, [], param_types2, ret_type2)):
-            if len(typarams) > 0:
-              matching = {}
-              type_params = type_names(loc, typarams)
-              try:
-                type_match(loc, type_params, ret_type1, ret_type2, matching)
-                for (p1, p2) in zip(param_types1, param_types2):
-                    type_match(loc, type_params, p1, p2, matching)
-                type_args = [matching[x] for x in type_params]
-                return TermInst(Var(loc, var_typ, name),
-                                type_args, True)
-              except Exception as e:
-                pass
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
   
@@ -1303,6 +1354,43 @@ def type_check_term(term, typ, env, recfun, subterms):
     case Call(loc, _, rator, args, infix):
       # non-recursive call
       return type_check_call(loc, rator, args, env, recfun, subterms, typ, term)
+
+    case Switch(loc, _, subject, cases):
+      new_subject = type_synth_term(subject, env, recfun, subterms)
+      ty = new_subject.typeof
+      dfn = lookup_union(loc, ty, env)
+      cases_present = {}
+      result_type = [None] # boxed to allow mutable update in process_case
+      
+      def process_case(c, result_type, cases_present):
+        new_env = check_pattern(c.pattern, ty, env, cases_present)
+        new_body = type_check_term(c.body, typ, new_env, recfun, subterms)
+        case_type = new_body.typeof
+        if result_type[0] == None:
+          result_type[0] = case_type
+        elif case_type != result_type[0]:
+          error(c.location, 'bodies of cases must have same type, but ' \
+                + str(case_type) + ' ≠ ' + str(result_type[0]))
+        return SwitchCase(c.location, c.pattern, new_body)
+
+      new_cases = [process_case(c, result_type, cases_present) for c in cases]
+
+      # Check case coverage
+      match dfn:
+        case Union(loc2, name, typarams, alts):
+          for alt in alts:
+              if alt.name not in cases_present.keys():
+                  error(loc, 'this switch is missing a case for: ' + str(alt))
+        case _:
+          error(loc, 'expected a union type, not ' + str(ty))
+      
+      return Switch(loc, result_type[0], new_subject, new_cases)
+      
+    case Conditional(loc, _, cond, thn, els):
+      new_cond = type_check_term(cond, BoolType(loc), env, recfun, subterms)
+      new_thn = type_check_term(thn, typ, env, recfun, subterms)
+      new_els = type_check_term(els, typ, env, recfun, subterms)
+      return Conditional(loc, typ, new_cond, new_thn, new_els)
   
     case _:
       if get_verbose():

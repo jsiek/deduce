@@ -32,12 +32,13 @@ For example, we can represent the following binary tree
 with a bunch of tree nodes like so:
 
 ```{.deduce #BinaryTree05}
-define T0 = TreeNode(EmptyTree, 0, EmptyTree)
-define T2 = TreeNode(EmptyTree, 2, EmptyTree)
+define mt = EmptyTree[Nat]
+define T0 = TreeNode(mt, 0, mt)
+define T2 = TreeNode(mt, 2, mt)
 define T1 = TreeNode(T0, 1, T2)
-define T4 = TreeNode(EmptyTree, 4, EmptyTree)
-define T5 = TreeNode(T4, 5, EmptyTree)
-define T7 = TreeNode(EmptyTree, 7, EmptyTree)
+define T4 = TreeNode(mt, 4, mt)
+define T5 = TreeNode(T4, 5, mt)
+define T7 = TreeNode(mt, 7, mt)
 define T6 = TreeNode(T5, 6, T7)
 define T3 = TreeNode(T1, 3, T6)
 ```

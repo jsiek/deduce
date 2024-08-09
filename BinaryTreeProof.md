@@ -157,7 +157,7 @@ proof
   induction Tree<E>
   case EmptyTree {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
-    conclude ti_index(first_path(EmptyTree,y,B,path))
+    conclude ti_index(first_path(EmptyTree[E], y, B, path))
            = num_nodes(plug_tree(take_path(path),EmptyTree))
                 by definition {first_path, ti_index, ti_take}
   }
@@ -250,7 +250,7 @@ In the case `A = EmptyTree`, we prove the equation using the
 definitions of `first_path` and `ti2tree`.
 
 ```
-    equations  ti2tree(first_path(EmptyTree,y,B,path))
+    equations  ti2tree(first_path(EmptyTree[e],y,B,path))
              = ti2tree(TrItr(path,EmptyTree,y,B))       by definition first_path
          ... = plug_tree(path,TreeNode(EmptyTree,y,B))  by definition ti2tree
 ```
@@ -344,7 +344,7 @@ proof
   induction Tree<E>
   case EmptyTree {
     arbitrary y:E, B:Tree<E>, path:List<Direction<E>>
-    equations  ti2tree(first_path(EmptyTree,y,B,path))
+    equations  ti2tree(first_path(EmptyTree[E], y, B, path))
              = ti2tree(TrItr(path,EmptyTree,y,B))       by definition first_path
          ... = plug_tree(path,TreeNode(EmptyTree,y,B))  by definition ti2tree
   }
@@ -374,8 +374,8 @@ proof
   suffices ti2tree(first_path(A,x,B,empty)) = TreeNode(A,x,B)
       with definition ti_first
   equations  ti2tree(first_path(A,x,B,empty))
-           = plug_tree(empty,TreeNode(A,x,B))  by first_path_stable[E][A][x,B,empty]
-       ... = TreeNode(A,x,B)                   by definition plug_tree
+           = plug_tree[E](empty, TreeNode(A,x,B))  by first_path_stable[E][A][x,B,empty]
+       ... = TreeNode(A,x,B)                       by definition plug_tree
 end
 ```
 
@@ -660,8 +660,8 @@ proof
   induction List<Direction<E>>
   case empty {
     arbitrary A:Tree<E>, x:E, B:Tree<E>
-    suppose prem: suc(ti_index(TrItr(empty,A,x,B)) + num_nodes(B)) 
-                  < num_nodes(ti2tree(TrItr(empty,A,x,B)))
+    suppose prem: suc(ti_index(TrItr[E](empty,A,x,B)) + num_nodes(B)) 
+                  < num_nodes(ti2tree(TrItr[E](empty,A,x,B)))
     have AB_l_AB: suc(num_nodes(A) + num_nodes(B)) < suc(num_nodes(A) + num_nodes(B))
       by definition {ti_index, ti_take, take_path, plug_tree, ti2tree, num_nodes, plug_tree} 
          in prem
@@ -1275,7 +1275,7 @@ proof
   induction List<Direction<E>>
   case empty {
     arbitrary t:Tree<E>
-    conclude num_nodes(plug_tree(empty,t)) = num_nodes(plug_tree(empty : List<Direction<E>>, EmptyTree)) + num_nodes(t)
+    conclude num_nodes(plug_tree[E](empty,t)) = num_nodes(plug_tree(empty : List<Direction<E>>, EmptyTree)) + num_nodes(t)
         by definition {plug_tree, num_nodes, operator+}
   }
   case node(f, path') suppose IH {

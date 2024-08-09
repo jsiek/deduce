@@ -61,7 +61,7 @@ function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
 }
 
 assert foldr(L1, 0, λa,b{ a + b }) = 3
-assert foldr(L1, empty, λx,ls{ node(x,ls) }) = L1
+assert foldr(L1, empty[Nat], λx,ls{ node(x,ls) }) = L1
 
 function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
   foldl(empty, u, c) = u
@@ -69,7 +69,7 @@ function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
 }
 
 assert foldl(L1, 0, λa,b{ a + b }) = 3
-assert foldl(L1, empty, λls,x{ node(x,ls) }) = node(2,node(1,empty))
+assert foldl(L1, empty[Nat], λls,x{ node(x,ls) }) = node(2,node(1,empty))
 
 function down_from(Nat) -> List<Nat> {
   down_from(zero) = empty
@@ -254,7 +254,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys:List<U>
-    conclude length(empty ++ ys) = length[U](empty) + length(ys)  by .
+    conclude length(empty[U] ++ ys) = length[U](empty) + length(ys)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
@@ -277,7 +277,7 @@ proof
   induction List<U>
   case empty {
     arbitrary ys :List<U>, zs :List<U>
-    conclude (empty ++ ys) ++ zs = empty ++ (ys ++ zs)  by .
+    conclude (empty[U] ++ ys) ++ zs = empty ++ (ys ++ zs)  by .
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>, zs :List<U>
@@ -335,7 +335,7 @@ proof
   case empty {
     arbitrary ys :List<U>
     equations
-    reverse(empty ++ ys)
+    reverse(empty[U] ++ ys)
         = reverse(ys)                     by definition operator++
     ... = reverse(ys) ++ empty            by rewrite append_empty[U][reverse(ys)]
     ... = reverse(ys) ++ reverse(empty)   by definition reverse
@@ -398,7 +398,7 @@ proof
   suppose fxx: (all x:T. f(x) = x)
   induction List<T>
   case empty {
-    conclude map(empty,f) = empty      by definition map
+    conclude map(empty[T], f) = empty      by definition map
   }
   case node(x, ls) suppose IH {
     equations
@@ -423,10 +423,10 @@ proof
   induction List<T>
   case empty {
     equations
-      map(empty ++ ys, f)
+      map(empty[T] ++ ys, f)
           = map(ys, f)                  by definition operator++
-      ... = empty ++ map(ys, f)         by definition operator++
-      ... = map(empty,f) ++ map(ys, f)  by definition map
+      ... = empty[T] ++ map(ys, f)         by definition operator++
+      ... = map(empty[T], f) ++ map(ys, f)  by definition map
   }
   case node(x, xs')
     suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
@@ -474,7 +474,7 @@ proof
   induction List<T1>
   case empty {
     arbitrary ys:List<U1>
-    conclude zip(map(empty,f),map(ys,g))
+    conclude zip(map(empty[T1], f),map(ys,g))
        = map(zip[T1,U1](empty,ys), pairfun(f,g))  by .
   }
   case node(x, xs') suppose IH {
@@ -500,8 +500,8 @@ proof
   arbitrary T:type, P:fn (T)->bool
   induction List<T>
   case empty {
-    suppose cond: all_elements(empty,P)
-    conclude filter(empty,P) = empty by definition filter
+    suppose cond: all_elements(empty[T], P)
+    conclude filter(empty[T], P) = empty by definition filter
   }
   case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
     suppose Pxs: all_elements(node(x,xs'),P)
@@ -939,7 +939,7 @@ proof
   arbitrary T:type, xs:List<T>, b:T, f:fn T,T->T
   equations
     foldl(xs, b, f)
-        = foldl(xs,foldr(empty,b,flip(f)),flip(flip(f)))
+        = foldl(xs,foldr(empty[T], b, flip(f)), flip(flip(f)))
               by _definition foldr _rewrite flip_flip[T,f].
     ... = foldr(rev_app(xs,empty),b,flip(f))
               by symmetric foldr_rev_app_foldl[T][xs][empty,b,flip(f)]

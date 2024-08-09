@@ -475,7 +475,7 @@ empty` in the same way as in `search_present`; the premise is false.
 ```{.deduce #search_first_case_empty}
     // <<search_first_case_empty>> =
     arbitrary y:Nat, i:Nat
-	suppose prem: search(empty,y) < length[Nat](empty) and nth(empty,0)(i) = y
+	suppose prem: search(empty,y) < length[Nat](empty) and nth[Nat](empty,0)(i) = y
 	conclude false by definition {search, length, operator <, operator ≤} 
 	                  in prem
 ```

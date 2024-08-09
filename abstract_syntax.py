@@ -170,11 +170,11 @@ class FunctionType(Type):
 
   def __str__(self):
     if len(self.type_params) > 0:
-      prefix = '<' + ','.join([base_name(x) for x in self.type_params]) + '>'
+      prefix = '<' + ','.join([base_name(x) for x in self.type_params]) + '> '
     else:
       prefix = ''
-    return prefix + 'fn ' + ','.join([str(ty) for ty in self.param_types]) \
-      + ' -> ' + str(self.return_type)
+    return '(' + prefix + 'fn ' + ', '.join([str(ty) for ty in self.param_types]) \
+      + ' -> ' + str(self.return_type) + ')'
 
   def __eq__(self, other):
     match other:
@@ -232,8 +232,8 @@ class TypeInst(Type):
       case TypeInst(l, typ, arg_types):
         return self.typ == typ and \
           all([t1 == t2 for (t1, t2) in zip(self.arg_types, arg_types)])
-      case GenericUnknownInst(loc, typ):
-        return self.typ == typ
+      # case GenericUnknownInst(loc, typ):
+      #   return self.typ == typ
       case _:
         return False
 
@@ -268,8 +268,8 @@ class GenericUnknownInst(Type):
 
   def __eq__(self, other):
     match other:
-      case TypeInst(l, typ, arg_types):
-        return self.typ == typ
+      # case TypeInst(l, typ, arg_types):
+      #   return self.typ == typ
       case GenericUnknownInst(l, typ):
         return self.typ == typ
       case _:
@@ -939,7 +939,7 @@ class TermInst(Term):
   
   def __str__(self):
     return str(self.subject) + \
-      ('' if self.inferred     \
+      ('' if False and self.inferred     \
       else '[' + ','.join([str(ty) for ty in self.type_args]) + ']')
 
   def reduce(self, env):
@@ -2147,7 +2147,8 @@ def is_constructor(constr_name, env):
 
 def constructor_conflict(term1, term2, env):
   match (term1, term2):
-    case (Call(loc1, tyof1, Var(_, tyof2, n1), rands1), Call(loc2, tyof3, Var(_, tyof4, n2), rands2)):
+    case (Call(loc1, tyof1, Var(_, tyof2, n1), rands1),
+          Call(loc2, tyof3, Var(_, tyof4, n2), rands2)):
       if is_constructor(n1, env) and is_constructor(n2, env):
         if n1 != n2:
           return True
