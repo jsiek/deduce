@@ -228,17 +228,42 @@ proof
     arbitrary k:Nat, v:Nat
     extensionality
     arbitrary i:Nat
-    suffices (if i = k then just(v) else (if i < k then @none<Nat> else @none<Nat>)) 
-           = (if i = k then just(v) else @none<Nat>)
-        with definition {BST_insert, BST_search, BST_search, first, second, update}
-    switch i = k {
-      case true { . }
-      case false {
-        switch i < k {
-          case true { . }
-          case false { . }
-        }
-      }
+    suffices BST_search(BST_insert(EmptyTree, k, v))(i) 
+           = update(BST_search(EmptyTree), k, just(v))(i)  by .
+    cases trichotomy[i][k]
+    case i_less_k: i < k {
+        have not_i_eq_k: not (i = k)   by apply less_not_equal to i_less_k
+        equations
+            BST_search(BST_insert(EmptyTree, k, v))(i) 
+             = @none<Nat>
+                by _definition {BST_insert, BST_search, BST_search, first, second}
+                   rewrite not_i_eq_k | i_less_k
+         ... = update(BST_search(EmptyTree), k, just(v))(i)
+                by _definition {BST_search, update}
+                   rewrite not_i_eq_k 
+    }
+    case i_eq_k: i = k {
+        equations
+            BST_search(BST_insert(EmptyTree, k, v))(i) 
+             = just(v)
+                by _definition {BST_insert, BST_search, first, second}
+                   rewrite i_eq_k
+         ... = update(BST_search(EmptyTree), k, just(v))(i)
+                by _definition {BST_search, update}
+                   rewrite i_eq_k
+    }
+    case k_less_i: k < i {
+        have not_k_eq_i: not (k = i)   by apply less_not_equal to k_less_i
+        have not_i_eq_k: not (i = k)   by suppose ik apply not_k_eq_i to symmetric ik
+        have not_i_less_k: not (i < k) by apply less_implies_not_greater to k_less_i
+        equations
+            BST_search(BST_insert(EmptyTree, k, v))(i) 
+             = @none<Nat>
+                by _definition {BST_insert, BST_search, BST_search, first, second}
+                   rewrite not_i_eq_k | not_i_less_k
+         ... = update(BST_search(EmptyTree), k, just(v))(i)
+                by _definition {BST_search, update}
+                   rewrite not_i_eq_k 
     }
   }
   case TreeNode(L, x, R) suppose IH_L, IH_R {
