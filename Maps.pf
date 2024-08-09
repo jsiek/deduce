@@ -2,9 +2,6 @@
 import Set
 import Option
 
-define empty_map : < T, U > fn T -> Option<U>
-       = generic T, U { λk { @none<U> } }
-
 define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
               = generic T, U { λf,x,v{ λy{ if y = x then v else f(y) } } }
 
@@ -84,6 +81,9 @@ proof
 end
 
 /* Partial Maps */
+
+define empty_map : < T, U > fn T -> Option<U>
+       = generic T, U { λk { @none<U> } }
 
 define domain : < T,U > fn (fn(T)->Option<U>) -> Set<T>
               = generic T, U { λf{char_fun(λx{

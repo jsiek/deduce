@@ -11,15 +11,27 @@ which each node has at most two children. The focus of this post is to
 develop a correct binary search tree data structure. That is, we are
 going to implement a data structure that supports searching for a
 value based on its associated key. The data structure will also
-support inserting new values. This interface can also be implemented
-in a simple but less efficient way, using a function to map keys to
-values.
+support inserting new values. 
+
+This interface can also be implemented in a simple but less efficient
+way, using a function to map keys to values. With this approach, the
+search operation is just function call.  The `Maps.pf` file defines
+two operations to for building such maps. The `empty_map` operation
+returns a function that maps every input to `none`.
 
 ```{.deduce #empty_map_5}
 assert @empty_map<Nat,Nat>(5) = none
 ```
 
+The `update(f, k, v)` operation returns a function that associates the
+key `k` with `v` but otherwise behaves like the given function `f`.
+Here is an example use of `update`.
 
+```{.deduce #update_empty_4}
+define m2 = update(@empty_map<Nat,Nat>, 4, just(99))
+assert m2(4) = just(99)
+assert m2(5) = none
+```
 
 
 We will store the keys and their values in a binary tree and implement
@@ -243,6 +255,7 @@ import BinarySearchTree
 import Maps
 
 <<empty_map_5>>
+<<update_empty_4>>
 
 <<BST1>>
 <<testBSTSearch1>>

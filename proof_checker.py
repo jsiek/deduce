@@ -1262,19 +1262,6 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
-    case TermInst(loc, _, subject, tyargs, inferred):
-      match typ:
-        case TypeInst(loc2, unionty, tyargs2):
-          if not all([ty1 == ty2 for (ty1,ty2) in zip(tyargs, tyargs2)]):
-              error(loc, 'mismatch in type arguments, expected:\n' \
-                    + ', '.join([str(ty) for ty in tyargs2]) + '\nbut got\n' \
-                    + ', '.join([str(ty) for ty in tyargs]))
-          new_subject = type_check_term(subject, GenericUnknownInst(loc2, unionty),
-                                        env, recfun, subterms)
-          return TermInst(loc, typ, new_subject, tyargs, inferred)
-        case _:
-          error(loc, 'UNDER CONSTRUCTION TermInst : ' + str(term) + ' : ' + str(typ))
-      
     case Generic(loc, _, type_params, body):
       match typ:
         case FunctionType(loc2, type_params2, param_types2, return_type2):
