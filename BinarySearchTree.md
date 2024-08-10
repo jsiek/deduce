@@ -219,6 +219,9 @@ proof
 end
 ```
 
+
+
+
 ```{.deduce #BST_search_insert_update}
 theorem BST_search_insert_udpate: all T:Tree<Pair<Nat,Nat>>. all k:Nat, v:Nat.
   BST_search(BST_insert(T, k, v)) = update(BST_search(T), k, just(v))
@@ -301,70 +304,143 @@ proof
                                  by definition {BST_search, update}
         }
         case k_less_i: k < i {
-          ?
+          have not_i_eq_k: not (i = k) 
+            by have nki: not (k = i) by apply less_not_equal to k_less_i
+               suppose i_eq_k apply nki to symmetric i_eq_k
+          have not_i_less_k: not (i < k) 
+              by apply less_implies_not_greater to k_less_i
+          equations
+                BST_search(TreeNode(L, pair(k, v), R))(i) 
+              = BST_search(R)(i)
+                  by _definition {BST_search, first, second}
+                     rewrite not_i_eq_k | not_i_less_k
+          ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                  by _definition {update, BST_search}
+                     rewrite symmetric k_eq_fx | not_i_eq_k | not_i_less_k
         }
       }
       case false suppose k_fx_false {
-        ?
-      }
-    }
-    
-    /*
-    cases trichotomy[i][k]
-    case i_less_k: i < k {
-      sorry
-    }
-    case i_eq_k: i = k {
-      _rewrite i_eq_k
-      switch k = first(x) for BST_search, update {
-        case true {
-          conclude BST_search(BST_insert(TreeNode(L, x, R), k, v))(k) = just(v)
-            by ? 
+        
+        switch k < first(x) {
+          case true suppose k_less_fx_true {
+          
+            cases trichotomy[i][first(x)]
+            case i_less_fx: i < first(x) {
+              have not_i_eq_fx: not (i = first(x)) by apply less_not_equal to i_less_fx
+              equations
+                    BST_search(TreeNode(BST_insert(L, k, v), x, R))(i) 
+                  = BST_search(BST_insert(L, k, v))(i)
+                      by _definition{BST_search}
+                         rewrite not_i_eq_fx | i_less_fx
+              ... = update(BST_search(L), k, just(v))(i)
+                      by rewrite IH_L[k,v]
+              ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i) by
+                      switch i = k {
+                        case true suppose ik_true {
+                          _definition {BST_search,update}
+                          rewrite ik_true
+                        }
+                        case false suppose ik_false {
+                          _definition {BST_search,update}
+                          rewrite ik_false | not_i_eq_fx | i_less_fx
+                        }
+                      }
+            }
+            case i_eq_fx: i = first(x) {
+              have not_fx_eq_k: not (first(x) = k)
+                by suppose fx_eq_k
+                   conclude false by rewrite k_fx_false in symmetric fx_eq_k 
+              equations
+                    BST_search(TreeNode(BST_insert(L, k, v), x, R))(i) 
+                  = just(second(x))
+                      by _definition BST_search
+                         rewrite i_eq_fx
+              ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                      by _definition {BST_search,update}
+                         rewrite i_eq_fx | not_fx_eq_k
+            }
+            case fx_less_i: first(x) < i {
+              have not_i_eq_fx: not (i = first(x))
+                by suppose i_eq_fx
+                   apply (apply less_not_equal to fx_less_i) to symmetric i_eq_fx
+              have not_i_less_fx: not (i < first(x))
+                by apply less_implies_not_greater to fx_less_i
+              have not_i_eq_k: not (i = k)
+                by suppose i_eq_k
+                   have fx_less_k: first(x) < k   by rewrite i_eq_k in fx_less_i
+                   have not_k_less_fx: not (k < first(x)) by apply less_implies_not_greater to fx_less_k
+                   conclude false by apply not_k_less_fx to rewrite k_less_fx_true
+              equations
+                    BST_search(TreeNode(BST_insert(L, k, v), x, R))(i) 
+                  = BST_search(R)(i)
+                      by _definition BST_search
+                         rewrite not_i_eq_fx | not_i_less_fx
+              ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                      by _definition {BST_search, update}
+                         rewrite not_i_eq_k | not_i_eq_fx | not_i_less_fx
+            }
+          }
+          case false suppose k_less_fx_false {
+          
+            cases trichotomy[i][first(x)]
+            case i_less_fx: i < first(x) {
+              have not_i_eq_fx: not (i = first(x)) by apply less_not_equal to i_less_fx
+              have not_i_eq_k: not (i = k)
+                by suppose i_eq_k
+                   have k_less_fx: k < first(x)  by rewrite i_eq_k in i_less_fx
+                   conclude false by rewrite k_less_fx_false in k_less_fx
+              equations
+                    BST_search(TreeNode(L, x, BST_insert(R, k, v)))(i) 
+                  = BST_search(L)(i)
+                     by _definition BST_search
+                        rewrite not_i_eq_fx | i_less_fx
+              ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                     by _definition {BST_search,update}
+                        rewrite not_i_eq_k | not_i_eq_fx | i_less_fx
+            }
+            case i_eq_fx: i = first(x) {
+              have not_fx_eq_k: not (first(x) = k)
+                by suppose fx_eq_k
+                   conclude false by rewrite k_fx_false in symmetric fx_eq_k 
+              have not_i_eq_k: not (i = k)
+                by suppose i_eq_k 
+                   have k_eq_fx: k = first(x) by rewrite i_eq_k in i_eq_fx
+                   apply not_fx_eq_k to symmetric k_eq_fx
+              equations
+                    BST_search(TreeNode(L, x, BST_insert(R, k, v)))(i) 
+                  = just(second(x))
+                      by _definition BST_search 
+                         rewrite i_eq_fx
+              ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                      by _definition {BST_search, update} 
+                         rewrite not_i_eq_k | i_eq_fx
+            }
+            case fx_less_i: first(x) < i {
+              have not_i_eq_fx: not (i = first(x)) 
+                by suppose i_eq_fx
+                   apply (apply less_not_equal to fx_less_i) to symmetric i_eq_fx
+              have not_i_less_fx: not (i < first(x)) by apply less_implies_not_greater to fx_less_i
+              equations
+                    BST_search(TreeNode(L, x, BST_insert(R, k, v)))(i) 
+                  = BST_search(BST_insert(R, k, v))(i)
+                      by _definition BST_search
+                         rewrite not_i_eq_fx | not_i_less_fx
+              ... = update(BST_search(R), k, just(v))(i)
+                      by rewrite IH_R[k,v]
+              ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(i)
+                      by switch i = k for BST_search, update {
+                           case true {
+                             .
+                           }
+                           case false {
+                             rewrite not_i_eq_fx | not_i_less_fx
+                           }
+                         }
+            }
+          }
         }
-        case false {
-          ?
-        }
       }
     }
-    case k_less_i: k < i {
-      ?
-    }
-    */
-    /*
-    switch k = first(x) for BST_insert {
-      case true suppose k_fx_true {
-         switch i = k {
-           case true suppose ik_true {
-             have i_k: i = k by rewrite ik_true
-             suffices BST_search(TreeNode(L, pair(k, v), R))(k) 
-                    = update(BST_search(TreeNode(L, x, R)), k, just(v))(k)
-                 with rewrite i_k
-             equations 
-                    BST_search(TreeNode(L, pair(k, v), R))(k) 
-                 = just(v)          by definition {BST_search, first, second}
-             ... = update(BST_search(TreeNode(L, x, R)), k, just(v))(k)
-                                    by definition {BST_search,update}
-           }
-           case false {
-             switch i < k {
-               case true suppose i_k_true {
-               
-                 suffices BST_search(TreeNode(L, pair(k, v), R))(i) 
-                          = update(BST_search(TreeNode(L, x, R)), k, just(v))(i) by .
-                 ?
-               }
-               case false {
-                 ?
-               }
-             }
-           }
-         }
-      }
-      case false suppose k_fx_false {
-        ?
-      }
-    }
-    */
   }
 end
 ```
