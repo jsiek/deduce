@@ -262,30 +262,28 @@ define max' : fn Nat, Nat -> Nat
             = λx,y{ if x ≤ y then y else x }
 ```
 
-To prove that `x ≤ max'(x,y)` we consider two cases, when `x ≤ y` and
-when `y < x`. In the first case, we apply the definition of `max'` **and**
-we rewrite with the fact `x ≤ y`, which resolves the
+To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
+or not. If `x ≤ y` is true, we apply the definition of `max'` **and**
+we rewrite with the fact that `x ≤ y` is true, which resolves the
 `if`-`then`-`else` inside of `max'` to just `y`. So we are left to
-prove that `x ≤ y`, which we already know.
-Similarly, in the second case, we apply the definition of `max'`
-and rewrite with `not (x ≤ y)` to resolve the
-`if`-`then`-`else` inside of `max'` to just `x`. So
-we are left to prove `x ≤ x`, which of course is true.
+prove that `x ≤ y`, which we already know.  Similarly, if `x ≤ y` is
+false, we apply the definition of `max'` and rewrite with the fact
+that `(x ≤ y)`. This resolves the `if`-`then`-`else` inside of `max'`
+to just `x`. So we are left to prove `x ≤ x`, which of course is true.
 
 ```{.deduce #less_alt_max}
 theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
 proof
   arbitrary x:Nat, y:Nat
-  cases dichotomy[x,y]
-  case x_le_y: x ≤ y {
-    suffices x ≤ y   with definition max' and rewrite x_le_y
-    x_le_y
-  }
-  case y_l_x: y < x {
-    have not_x_le_y: not (x ≤ y)
-       by apply less_not_greater_equal to y_l_x
-    suffices x ≤ x   with definition max' and rewrite not_x_le_y
-    less_equal_refl[x]
+  switch x ≤ y {
+    case true suppose x_le_y_true {
+      suffices x ≤ y   with definition max' and rewrite x_le_y_true
+      rewrite x_le_y_true
+    }
+    case false suppose x_le_y_false {
+      suffices x ≤ x   with definition max' and rewrite x_le_y_false
+      less_equal_refl[x]
+    }
   }
 end
 ```
