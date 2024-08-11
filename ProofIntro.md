@@ -268,7 +268,7 @@ we rewrite with the fact that `x ≤ y` is true, which resolves the
 `if`-`then`-`else` inside of `max'` to just `y`. So we are left to
 prove that `x ≤ y`, which we already know.  Similarly, if `x ≤ y` is
 false, we apply the definition of `max'` and rewrite with the fact
-that `(x ≤ y)`. This resolves the `if`-`then`-`else` inside of `max'`
+that `x ≤ y` is false. This resolves the `if`-`then`-`else` inside of `max'`
 to just `x`. So we are left to prove `x ≤ x`, which of course is true.
 
 ```{.deduce #less_alt_max}
