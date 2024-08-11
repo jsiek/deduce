@@ -308,6 +308,19 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         parse_tree_to_ast(e.children[2], e))
+    elif e.data == 'suffices_def_rewrite':
+        claim = parse_tree_to_ast(e.children[0], e)
+        defs = parse_tree_to_list(e.children[1], e)
+        definitions = [Var(e.meta, None, x) for x in defs]
+        eqns = parse_tree_to_list(e.children[2], e)
+        rest = parse_tree_to_ast(e.children[3], e)
+        return SufficesDefRewrite(e.meta, claim, definitions, eqns, rest)
+    elif e.data == 'suffices_def_one_rewrite':
+        claim = parse_tree_to_ast(e.children[0], e)
+        definitions = [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))]
+        eqns = parse_tree_to_list(e.children[2], e)
+        rest = parse_tree_to_ast(e.children[3], e)
+        return SufficesDefRewrite(e.meta, claim, definitions, eqns, rest)
     elif e.data == 'suffices_def':
         claim = parse_tree_to_ast(e.children[0], e)
         defs = parse_tree_to_list(e.children[1], e)
@@ -445,6 +458,20 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'reason_definition':
         definitions = parse_tree_to_list(e.children[0], e)
         return ApplyDefs(e.meta, [Var(e.meta, None, t) for t in definitions])
+    
+    elif e.data == 'reason_def_rewrite':
+        definitions = parse_tree_to_list(e.children[0], e)
+        eqns = parse_tree_to_list(e.children[1], e)
+        return ApplyDefsGoal(e.meta,
+                             [Var(e.meta, None, t) for t in definitions],
+                             Rewrite(e.meta, eqns))
+    elif e.data == 'reason_def_one_rewrite':
+        dfn = parse_tree_to_ast(e.children[0], e)
+        definitions = [Var(e.meta, None, dfn)]
+        eqns = parse_tree_to_list(e.children[1], e)
+        return ApplyDefsGoal(e.meta,
+                             definitions,
+                             Rewrite(e.meta, eqns))
     elif e.data == 'reason_definition_one':
         dfn = parse_tree_to_ast(e.children[0], e)
         return ApplyDefs(e.meta, [Var(e.meta, None, dfn)])

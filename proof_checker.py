@@ -621,17 +621,32 @@ def check_proof_of(proof, formula, env):
       imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
       check_proof_of(reason, imp, env)
       check_proof_of(rest, claim_red, env)
+
+    case SufficesDefRewrite(loc, claim, definitions, equation_proofs, rest):
+      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+      defs = [d.reduce(env) for d in definitions]
+      equations = [check_proof(proof, env) for proof in equation_proofs]
+      red_claim = new_claim.reduce(env)
+      
+      new_formula = apply_definitions(loc, formula, defs, env)
+      new_formula = new_formula.reduce(env)
+        
+      eqns = [equation.reduce(env) for equation in equations]
+      for eq in eqns:
+        if not is_equation(eq):
+          eq = make_boolean_equation(eq)
+        new_formula = rewrite(loc, new_formula, eq)
+        new_formula = new_formula.reduce(env)
+      
+      check_implies(loc, red_claim, new_formula)
+      check_proof_of(rest, red_claim, env)
       
     case SufficesDef(loc, claim, definitions, rest):
       new_claim = type_check_term(claim, BoolType(loc), env, None, [])
       defs = [d.reduce(env) for d in definitions]
       red_claim = new_claim.reduce(env)
-      #print('SufficesDef:\n' + '\tclaim: ' + str(red_claim) + '\n\tformula: ' + str(formula))
       new_formula = apply_definitions(loc, formula, defs, env)
       red_formula = new_formula.reduce(env)
-      #print('\tred_formula: ' + str(red_formula))
-      # Problem: there's no way for the claim to talk directly about
-      # the reduced RecFun.
       check_implies(loc, red_claim, red_formula)
       check_proof_of(rest, red_claim, env)
 

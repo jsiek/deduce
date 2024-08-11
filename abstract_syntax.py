@@ -1366,6 +1366,26 @@ class PAnnot(Proof):
     self.reason.uniquify(env)
 
 @dataclass
+class SufficesDefRewrite(Proof):
+  claim: Formula
+  definitions: List[Term]
+  equations: List[Proof]
+  body: Proof
+
+  def __str__(self):
+    return 'suffices ' + str(self.claim) + '\n' \
+      + '\twith definition {' + ', '.join([str(d) for d in self.definitions]) + '}\n' \
+      + '\trewrite ' + '|'.join([str(eqn) for eqn in self.equations])
+  
+  def uniquify(self, env):
+    self.claim.uniquify(env)
+    for d in self.definitions:
+      d.uniquify(env)
+    for eqn in self.equations:
+      eqn.uniquify(env)
+    self.body.uniquify(env)
+
+@dataclass
 class SufficesDef(Proof):
   claim: Formula
   definitions: List[Term]
@@ -1373,7 +1393,7 @@ class SufficesDef(Proof):
 
   def __str__(self):
     return 'suffices ' + str(self.claim) + '\n' \
-      + '    definition {' + ', '.join([str(d) for d in self.definitions]) + '}'
+      + '\twith definition {' + ', '.join([str(d) for d in self.definitions]) + '}'
   
   def uniquify(self, env):
     self.claim.uniquify(env)
@@ -1389,7 +1409,7 @@ class SufficesRewrite(Proof):
 
   def __str__(self):
     return 'suffices ' + str(self.claim) + '\n' \
-      + '    rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
+      + '\twith rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
   
   def uniquify(self, env):
     self.claim.uniquify(env)

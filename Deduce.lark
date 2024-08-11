@@ -114,6 +114,8 @@ ident: IDENT              -> ident
     | "suffices" term "with" "definition" "{" ident_list "}" proof -> suffices_def
     | "suffices" term "with" "definition" ident proof    -> suffices_def_one
     | "suffices" term "with" "rewrite" proof_list proof  -> suffices_rewrite
+    | "suffices" term "with" "definition" "{" ident_list "}" "and" "rewrite" proof_list proof -> suffices_def_rewrite
+    | "suffices" term "with" "definition" ident "and" "rewrite" proof_list proof -> suffices_def_one_rewrite    
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
@@ -128,6 +130,8 @@ ident: IDENT              -> ident
     | "definition" "{" ident_list "}"                   -> reason_definition
     | "definition" ident                                -> reason_definition_one
     | "rewrite" proof_list                              -> reason_rewrite
+    | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
+    | "definition" ident "and" "rewrite" proof_list       -> reason_def_one_rewrite
     | "_definition" "{" ident_list "}" proof              -> apply_defs_goal
     | "_definition" ident proof                           -> apply_defs_goal_one
     | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
