@@ -254,6 +254,43 @@ proof
 end
 ```
 
+Sometimes one needs to apply a set of definitions and rewrites
+to the goal. Consider the following definition of `max`.
+
+```{.deduce #alt_max}
+define max' : fn Nat, Nat -> Nat
+            = λx,y{ if x ≤ y then y else x }
+```
+
+To prove that `x ≤ max'(x,y)` we consider two cases, when `x ≤ y` and
+when `y < x`. In the first case, we apply the definition of `max'` **and**
+we rewrite with the fact `x ≤ y`, which resolves the
+`if`-`then`-`else` inside of `max'` to just `y`. So we are left to
+prove that `x ≤ y`, which we already know.
+Similarly, in the second case, we apply the definition of `max'`
+and rewrite with `not (x ≤ y)` to resolve the
+`if`-`then`-`else` inside of `max'` to just `x`. So
+we are left to prove `x ≤ x`, which of course is true.
+
+```{.deduce #less_alt_max}
+theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
+proof
+  arbitrary x:Nat, y:Nat
+  cases dichotomy[x,y]
+  case x_le_y: x ≤ y {
+    suffices x ≤ y   with definition max' and rewrite x_le_y
+    x_le_y
+  }
+  case y_l_x: y < x {
+    have not_x_le_y: not (x ≤ y)
+       by apply less_not_greater_equal to y_l_x
+    suffices x ≤ x   with definition max' and rewrite not_x_le_y
+    less_equal_refl[x]
+  }
+end
+```
+
+
 ## Reasoning about Natural Numbers
 
 As metioned previously, the `Nat.pf` file includes the definition of
@@ -1317,6 +1354,9 @@ end
 <<length_node42_again>>
 <<length_one>>
 <<length_one_equal>>
+
+<<alt_max>>
+<<less_alt_max>>
 
 theorem append_xy: all T:type, x:T, y:T.
   node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
