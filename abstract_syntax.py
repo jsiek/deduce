@@ -1137,7 +1137,7 @@ class IfThen(Formula):
   def __str__(self):
     match self.conclusion:
       case Bool(loc, tyof, False):
-        return 'not ' + str(self.premise)
+        return 'not (' + str(self.premise) + ')'
       case _:
         return '(if ' + str(self.premise) \
           + ' then ' + str(self.conclusion) + ')'

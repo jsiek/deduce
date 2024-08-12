@@ -1174,7 +1174,7 @@ end
 \begin{verbatim}
 incomplete proof
 Goal:
-        (if length(xs) = 0 then xs = empty)
+    (if length(xs) = 0 then xs = empty)
 \end{verbatim}
 
 To prove an \texttt{if}-\texttt{then} formula, we \texttt{suppose} the
@@ -1189,14 +1189,14 @@ Deduce adds \texttt{len\_z} to the givens (similar to \texttt{have}).
 \begin{verbatim}
 incomplete proof
 Goal:
-        xs = empty
+    xs = empty
 Givens:
-        len_z: length(xs) = 0
+    len_z: length(xs) = 0
 \end{verbatim}
 
 Next we \texttt{switch} on the list \texttt{xs}. In the case when
-\texttt{xs} is \texttt{empty} it will be trivial to prove \texttt{xs =
-  empty}. In the other case, we will obtain a contradiction.
+\texttt{xs} is \texttt{empty} it is trivial to prove \texttt{xs = empty}.
+In the other case, we will obtain a contradiction.
 
 \begin{verbatim}
   switch xs {
@@ -1211,7 +1211,8 @@ We can put the facts \texttt{len\_z} and \texttt{xs\_xxs} together
 to obtain the dubious looking \texttt{length(node(x,xs')) = 0}.
 
 \begin{verbatim}
-    have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+    have len_z2: length(node(x,xs')) = 0
+        by rewrite xs_xxs in len_z
 \end{verbatim}
 
 The contradiction becomes apparent to Deduce once we apply the
@@ -1222,9 +1223,9 @@ definition of \texttt{length} to this fact. We do so using Deduce's
     conclude false  by definition length in len_z2
 \end{verbatim}
 
-We discuss contradictions and \texttt{false} in more detail in
-section~\ref{sec:false}.
-
+\noindent We discuss contradictions and \texttt{false} in more detail
+in section~\ref{sec:false}.
+%
 Here is the complete proof of \texttt{length\_zero\_empty}.
 
 \begin{verbatim}
@@ -1236,7 +1237,8 @@ proof
   switch xs {
     case empty { . }
     case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
-          have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+      have len_z2: length(node(x,xs')) = 0
+          by rewrite xs_xxs in len_z
       conclude false  by apply not_one_add_zero[length(xs')]
                          to definition length in len_z2
     }
@@ -1248,7 +1250,7 @@ The next topic to discuss is how to use an \texttt{if}-\texttt{then}
 fact that is already proven.  We use Deduce's
 \texttt{apply}-\texttt{to} statement (aka. modus ponens) to obtain the
 conclusion of an \texttt{if}-\texttt{then} formula by supplying a
-proof of the condition.  We demonstrate several uses of
+proof of its condition.  We demonstrate several uses of
 \texttt{apply}-\texttt{to} in the proof of the following theorem,
 which builds on \texttt{length\_zero\_empty}.
 
@@ -1299,9 +1301,9 @@ add_to_zero: all n:Nat. all m:Nat.
       by apply add_to_zero to len_xs_len_ys
 \end{verbatim}
 
-We conclude that \texttt{xs = empty and ys = empty} with another use
-of \texttt{apply}-\texttt{to}, where we make use of the previous
-theorem \texttt{length\_zero\_empty}.
+We conclude that \texttt{xs = empty and ys = empty} by more uses of
+\texttt{apply}-\texttt{to} with the theorem
+\texttt{length\_zero\_empty}.
 
 \begin{verbatim}
   conclude xs = empty and ys = empty
@@ -1335,9 +1337,9 @@ To summarize this section:
 \begin{itemize}
 \item A conditional formula is stated in Deduce using the
   \texttt{if}-\texttt{then} syntax.
-\item To prove an \texttt{if}-\texttt{then} formula, \texttt{suppose}
-  the condition and prove the conclusion.
-\item To use a fact that is an \texttt{if}-\texttt{then} formula,
+\item To prove an \texttt{if}-\texttt{then}, \texttt{suppose} the
+  condition and prove the conclusion.
+\item To use a fact that is an \texttt{if}-\texttt{then},
   \texttt{apply} it \texttt{to} a proof of the condition.
 \item To apply a definition to a fact, use
   \texttt{definition}-\texttt{in}.
@@ -1442,21 +1444,13 @@ To summarize this section:
 To express that a formula is false, precede it with \texttt{not}.  For
 example, for any natural number \texttt{x}, it is not the case that
 \texttt{x < x}.
-
 \begin{verbatim}
     theorem less_irreflexive:  all x:Nat. not (x < x)
     proof
       ?
     end
 \end{verbatim}
-Deduce treats \texttt{not} as syntactic sugar for a conditional formal with a
-\texttt{false} conclusion. Thus, Deduce responds to the above partial proof
-with the following message.
-\begin{verbatim}
-    incomplete proof:
-        all x:Nat. (if x < x then false)
-\end{verbatim}
-We can proceed by induction.
+We proceed by induction.
 \begin{verbatim}
     induction Nat
     case zero {
@@ -1466,27 +1460,22 @@ We can proceed by induction.
       ?
     }
 \end{verbatim}
-In the first case, we must prove the following conditional formula.
-\begin{verbatim}
-    incomplete proof:
-        (if 0 < 0 then false)
-\end{verbatim}
-So we assume the premise \texttt{0 < 0}, from which we can conclude
+Deduce treats \texttt{not} as syntactic sugar for a conditional formal with a
+\texttt{false} conclusion. So in the first case, we must prove 
+that \texttt{0 < 0} implies \texttt{false}.
+We \texttt{suppose} the premise \texttt{0 < 0} and then conclude
 \texttt{false} by the definitions of \texttt{<} and \texttt{≤}.
 \begin{verbatim}
     case zero {
       suppose z_l_z: 0 < 0
-      conclude false by definition {operator <, operator ≤} in z_l_z
+      conclude false 
+          by definition {operator <, operator ≤} in z_l_z
     }
 \end{verbatim}
-In the case where \texttt{x = suc(x')}, we must prove the following
-\begin{verbatim}
-    incomplete proof:
-        (if suc(x') < suc(x') then false)
-\end{verbatim}
-So we assume the premise \texttt{suc(x') < suc(x')} from which we can
-prove that \texttt{x' < x'} using the definitions of \texttt{<} and
-\texttt{≤}.
+In the case where \texttt{x = suc(x')}, we must prove that
+\texttt{suc(x') < suc(x')} implies \texttt{false}.  So we assume the
+premise \texttt{suc(x') < suc(x')} from which we prove that
+\texttt{x' < x'} using the definitions of \texttt{<} and \texttt{≤}.
 \begin{verbatim}
     suppose sx_l_sx: suc(x') < suc(x')
     enable {operator <, operator ≤}

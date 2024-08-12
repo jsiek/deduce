@@ -1102,14 +1102,7 @@ example, for any natural number `x`, it is not the case that `x < x`.
       ?
     end
 
-Deduce treats `not` as syntactic sugar for a conditional formal with a
-`false` conclusion. Thus, Deduce responds to the above partial proof
-with the following message.
-
-    incomplete proof:
-        all x:Nat. (if x < x then false)
-
-We can proceed by induction.
+We proceed by induction.
 
     induction Nat
     case zero {
@@ -1119,24 +1112,19 @@ We can proceed by induction.
       ?
     }
 
-In the first case, we must prove the following conditional formula.
-
-    incomplete proof:
-        (if 0 < 0 then false)
-
-So we assume the premise `0 < 0`, from which we can conclude `false`
-by the definitions of `<` and `≤`.
+Deduce treats `not` as syntactic sugar for a conditional formal with a
+`false` conclusion. So in the first case, we must prove 
+that `0 < 0` implies `false`.
+So we `suppose` the premise `0 < 0` and then conclude `false` by the
+definitions of `<` and `≤`.
 
     case zero {
       suppose z_l_z: 0 < 0
       conclude false by definition {operator <, operator ≤} in z_l_z
     }
 
-In the case where `x = suc(x')`, we must prove the following 
-
-    incomplete proof:
-        (if suc(x') < suc(x') then false)
-
+In the case where `x = suc(x')`, we must prove 
+that `suc(x') < suc(x')` implies `false`.
 So we assume the premise `suc(x') < suc(x')` from which we
 can prove that `x' < x'` using the definitions of `<` and `≤`.
 
