@@ -54,7 +54,7 @@ part shows how to write proofs in Deduce.
 
 * [Functional Programming in Deduce](./FunctionalProgramming.md)
   also available as a PDF [booklet](./latex/fun-prog.pdf).
-  (Hint: print using short-edge binding.)
+  (Hint: print using short-edge binding and scale to fit.)
 * [Writing Proofs in Deduce](./ProofIntro.md)
   also available as a PDF [booklet](./latex/proof-intro.pdf).
 
