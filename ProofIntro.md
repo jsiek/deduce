@@ -791,7 +791,8 @@ To summarize this section:
 ## Applying Definitions and Rewrites to the Goal
 
 Sometimes one needs to apply a set of definitions and rewrites
-to the goal. Consider the following definition of `max`.
+to the goal. Consider the following definition of `max'`.
+(There is a different definition of `max` in `Nat.pf`.)
 
 ```{.deduce #alt_max}
 define max' : fn Nat, Nat -> Nat
