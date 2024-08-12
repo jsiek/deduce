@@ -802,11 +802,23 @@ define max' : fn Nat, Nat -> Nat
 To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
 or not. If `x ≤ y` is true, we apply the definition of `max'` **and**
 we rewrite with the fact that `x ≤ y` is true, which resolves the
-`if`-`then`-`else` inside of `max'` to just `y`. So we are left to
-prove that `x ≤ y`, which we already know.  Similarly, if `x ≤ y` is
-false, we apply the definition of `max'` and rewrite with the fact
-that `x ≤ y` is false. This resolves the `if`-`then`-`else` inside of `max'`
-to just `x`. So we are left to prove `x ≤ x`, which of course is true.
+`if`-`then`-`else` inside of `max'` to just `y`. 
+
+```
+    suffices x ≤ y   with definition max' and rewrite x_le_y_true
+```
+
+So we are left to prove that `x ≤ y`, which we already know.
+Similarly, if `x ≤ y` is false, we apply the definition of `max'` and
+rewrite with the fact that `x ≤ y` is false. 
+
+```
+    suffices x ≤ x   with definition max' and rewrite x_le_y_false
+```
+
+This resolves the `if`-`then`-`else` inside of `max'` to just `x`. So
+we are left to prove `x ≤ x`, which of course is true.
+Here is the complete proof that `x ≤ max'(x,y)`.
 
 ```{.deduce #less_alt_max}
 theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
