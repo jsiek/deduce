@@ -56,6 +56,7 @@ part shows how to write proofs in Deduce.
   also available as a PDF [booklet](./latex/fun-prog.pdf).
   (Hint: print using short-edge binding.)
 * [Writing Proofs in Deduce](./ProofIntro.md)
+  also available as a PDF [booklet](./latex/proof-intro.pdf).
 
 I recommend that you work through the examples in this
 introduction. Create a file named `examples.pf` in the top `deduce`
