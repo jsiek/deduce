@@ -1,0 +1,440 @@
+\documentclass[12pt]{article}
+\usepackage[noprint]{booklet}
+% The following are necessary when using the print option of the booklet package. -Jeremy
+\pdfoutput = 1
+\setpdftargetpages
+
+% When changing to the print option, uncomment the \nofiles
+% to preserve the table of contents page numbering.
+
+% When changing to the noprint option, comment the \nofiles.
+
+%\nofiles
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\usepackage[margin=4cm,a4paper]{geometry}
+%\usepackage[landscape]{geometry}
+\usepackage[object=vectorian]{pgfornament}
+\usepackage{xfp}
+\usetikzlibrary{calc}
+\usepackage{blindtext}
+\usepackage[manualmark]{scrlayer-scrpage}
+% scrlayer-scrpage %
+\clearpairofpagestyles
+\addtokomafont{pagehead}{\color{blue!50!green!80!black}\large}
+%\chead*{The current page style is \toplevelpagestyle{} \ifstr{\toplevelpagestyle}{\currentpagestyle}{}{as alias for \currentpagestyle}.}
+\cfoot*{\pagemark}
+
+
+%\newcommand\om{5mm}% ornament margin
+\newcommand\om{25mm}% ornament margin
+%\newcommand\wom{31mm}% west ornament margin
+\newcommand\wom{26mm}% west ornament margin
+\newcommand\som{10mm}% south ornament margin
+\newcommand\nom{20mm}% north ornament margin
+\newcommand\ow{2cm}% ornament width
+\newcommand\oh{2cm}% ornament height
+\newcommand\ols{0mm}% ornament line shift %1.5mm
+%\newcommand\on{63}% ornament number
+\newcommand\on{41}% ornament number
+\newcommand\magicOrnamentOffset{0.25cm}
+
+\def\lencorner{2}
+\def\lencornerdivtwo{\fpeval{\lencorner/{2}}}
+\def\lencornerdivthree{\fpeval{\lencorner/{3}}}
+\newcommand\lencornerdivthreecm{\lencornerdivthree cm}
+\newcommand\lencornerdivtwocm{\lencornerdivtwo cm}
+
+
+\colorlet{bordercolor}{black}
+\tikzset{mainborder/.style={line width=0.65mm}}
+\tikzset{thinborder/.style={line width=0.2mm}}
+
+% define the border and save it in a box
+\newsavebox\border
+\sbox\border{%
+\tikz[color=bordercolor]{
+  \useasboundingbox(0,0)rectangle(\paperwidth,-\paperheight);
+  
+  % ornaments %
+  \foreach[count=\i]\a/\p/\s in {%
+  north west/{\wom,-\nom}/none,
+  north east/{{\paperwidth-\om},-\nom}/v,
+  south east/{{\paperwidth-\om},{-\paperheight+\som}}/c,%
+  south west/{\wom,{-\paperheight+\som}}/h%
+  }\node[anchor=\a](n\i) at (\p){
+    \pgfornament[width=\ow,height=\oh, symmetry=\s]{\on}
+  };
+
+  %% \begin{scope}[mainborder]
+  %%   %% lines %%
+  %%   \draw ([yshift=-\ols]n1.north east) -- ([yshift=-\ols]n2.north west);
+  %%   \draw ([xshift=-\ols]n2.south east) -- ([xshift=-\ols]n3.north east);
+  %%   \draw ([yshift=\ols]n3.south west) -- ([yshift=\ols]n4.south east) ;
+  %%   \draw ([xshift=\ols]n4.north west) -- ([xshift=\ols]n1.south west);
+  %%   %% corners %%
+  %%   % top left %
+  %%   \coordinate (B) at ([xshift=-\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n1.north east);
+  %%   \coordinate (C) at ([xshift=\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n1.north west);
+  %%   \draw (n1.south west) arc (180:90:\lencornerdivthree) -- (C) -- (B) arc (180:90:\lencornerdivthree);
+  %%   % bottom left %
+  %%   \coordinate (Y) at ([xshift=\lencornerdivthreecm, yshift=\lencornerdivthreecm]n4.south west);
+  %%   \coordinate (Z) at ([xshift=-\lencornerdivthreecm, yshift=\lencornerdivthreecm]n4.south east);
+  %%   \draw (n4.north west) arc (180:270:\lencornerdivthree) -- (Y) -- (Z) arc (180:270:\lencornerdivthree);
+  %%   % top right %
+  %%   \coordinate (S) at ([xshift=-\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n2.north east);
+  %%   \coordinate (T) at ([xshift=-\lencornerdivthreecm, yshift=\lencornerdivthreecm]n2.south east);
+  %%   \draw (n2.north west) arc (90:0:\lencornerdivthree) -- (S) -- (T) arc (90:0:\lencornerdivthree);
+  %%   % bottom right %
+  %%   \coordinate (F) at ([xshift=-\lencornerdivthreecm, yshift=-\lencornerdivthreecm]n3.north east);
+  %%   \coordinate (G) at ([xshift=-\lencornerdivthreecm, yshift=\lencornerdivthreecm]n3.south east);
+  %%   \draw (n3.south west) arc (-90:0:\lencornerdivthree) -- (G) -- (F) arc (-90:0:\lencornerdivthree);
+  %% \end{scope}
+
+  [thin borders] %%
+  \begin{scope}[thinborder]
+    % top left
+    \coordinate (topLeftBottom) at ([xshift=\ols+3mm, yshift=-3mm]n1.south west); %down
+    \coordinate (topLeftTop) at ([xshift=3mm, yshift=\ols-3mm]n1.north east); %up
+    \coordinate (topLeftCenter) at ([yshift=-\lencornerdivtwocm-\magicOrnamentOffset, xshift=\lencornerdivtwocm+\magicOrnamentOffset]n1.north west);
+    % bottom left
+    \coordinate (bottomLeftBottom) at ([xshift=+3mm, yshift=\ols+3mm]n4.south east);
+    \coordinate (bottomLeftTop) at ([xshift=\ols+3mm, yshift=3mm]n4.north west);
+    \coordinate (bottomLeftCenter) at ([yshift=\lencornerdivtwocm+\magicOrnamentOffset, xshift=\lencornerdivtwocm+\magicOrnamentOffset]n4.south west);
+    % bottom right
+    \coordinate (bottomRightBottom) at ([xshift=-3mm, yshift=\ols+3mm]n3.south west);
+    \coordinate (bottomRightTop) at ([xshift=-\ols-3mm, yshift=3mm]n3.north east);
+    \coordinate (bottomRightCenter) at ([yshift=\lencornerdivtwocm+\magicOrnamentOffset, xshift=-\lencornerdivtwocm-\magicOrnamentOffset]n3.south east); 
+    % top right
+    \coordinate (topRightBottom) at ([xshift=\ols-3mm, yshift=-\ols-3mm]n2.south east);
+    \coordinate (topRightTop) at ([xshift=-\ols-3mm, yshift=-\ols-3mm]n2.north west);
+    \coordinate (topRightCenter) at ([yshift=-\lencornerdivtwocm-\magicOrnamentOffset, xshift=-\lencornerdivtwocm-\magicOrnamentOffset]n2.north east); 
+    %% lines %%
+    \draw (topLeftTop) -- (topRightTop); % top
+    \draw (bottomRightBottom) -- (bottomLeftBottom) ; % bottom 
+    \draw (topRightBottom) -- (bottomRightTop); % right
+    \draw (bottomLeftTop) -- (topLeftBottom); % left 
+    %% top left %%
+    %% % loops %
+    %% \draw (topLeftBottom) arc (180:0:0.2) arc (0:-180:0.1) coordinate (topLeftLower); % bottom
+    %% \draw (topLeftTop) arc (90:270:0.2) arc (-90:90:0.1) coordinate (topLeftUpper); %top
+  %%   % brackets to center %
+  %%   \draw (topLeftCenter) to [in=90, out=280] (topLeftLower); % left
+  %%   \draw (topLeftUpper) to [in=0, out=175] (topLeftCenter); % right
+  %%   %% bottom left %%
+  %%   % loops %
+  %%   \draw (bottomLeftBottom) arc (270:90:0.2) arc (90:-90:0.1) coordinate (bottomLeftLower);
+  %%   \draw (bottomLeftTop) arc (-180:0:0.2) arc (0:180:0.1) coordinate (bottomLeftUpper);
+  %%   % brackets to center %
+  %%   \draw (bottomLeftCenter) to [in=175, out=0] (bottomLeftLower); % left
+  %%   \draw (bottomLeftUpper) to [in=90, out=280] (bottomLeftCenter); % right
+  %%   %% bottom right %%
+  %%   %% loops %%
+  %%   \draw (bottomRightBottom) arc (-90:90:0.2) arc (90:270:0.1) coordinate (bottomRightLower);
+  %%   \draw (bottomRightTop) arc (0:-180:0.2) arc (180:0:0.1) coordinate (bottomRightUpper);
+  %%   %% brackets to center %
+  %%   \draw (bottomRightCenter) to [in=0, out=175] (bottomRightLower);
+  %%   \draw (bottomRightUpper) to  [in=90, out=280] (bottomRightCenter);
+  %%   %% top right %%
+  %%   % loops %
+  %%   \draw (topRightBottom) arc (0:180:0.2) arc (-180:0:0.1) coordinate (topRightLower);
+  %%   \draw (topRightTop) arc (90:-90:0.2) arc (270:90:0.1) coordinate (topRightUpper);
+  %%   % brackets to center %
+  %%   \draw (topRightCenter) to [in=90, out=280] (topRightLower);
+  %%   \draw (topRightUpper) to  [in=175, out=0] (topRightCenter);
+  \end{scope}
+}}
+
+
+% define a switch to enable and disable the border
+\newif\ifBorder
+% define a new layer
+\DeclareNewLayer[{%
+    background,
+    page,
+    contents={\ifBorder\usebox\border\fi}
+  }]{border.bg}
+% add the border layer to all layer page styles (scrheadings, plain, empty, ...) ...
+\AddLayersAtBeginOfPageStyle{@everystyle@}{border.bg}
+% but no border on empty pages 
+\AddToLayerPageStyleOptions{empty}{oninit=\Borderfalse}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\usepackage{palatino}
+%\usepackage{garamond}
+\usepackage{times}
+\usepackage{listings}
+
+\renewcommand\ttdefault{lmtt}
+
+\setcounter{tocdepth}{1}
+
+\usepackage{newunicodechar}
+\newunicodechar{∷}{{::}}
+\newunicodechar{⊤}{\ensuremath{\top}}
+\newunicodechar{⊥}{\ensuremath{\bot}}
+\newunicodechar{₁}{\ensuremath{_1}}
+\newunicodechar{₂}{\ensuremath{_2}}
+\newunicodechar{₃}{\ensuremath{_3}}
+
+\newunicodechar{β}{\ensuremath{\beta}}
+\newunicodechar{γ}{\ensuremath{\gamma}}
+\newunicodechar{λ}{\ensuremath{\lambda}}
+\newunicodechar{Λ}{\ensuremath{\Lambda}}
+\newunicodechar{μ}{\ensuremath{\mu}}
+\newunicodechar{ν}{\ensuremath{\nu}}
+\newunicodechar{ρ}{\ensuremath{\rho}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{Π}{\ensuremath{\Pi}}
+\newunicodechar{ξ}{\ensuremath{\xi}}
+\newunicodechar{Γ}{\ensuremath{\Gamma}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{Σ}{\ensuremath{\Sigma}}
+
+\newunicodechar{≤}{\ensuremath{\leq}}
+
+
+\title{Proving Theorems in Deduce}
+\author{Jeremy G. Siek}
+
+
+\begin{document}
+
+%% \pagestyle{fancy}
+%% \fancyhead{}
+%% \fancyhead[L]{Programming in Deduce}
+%% \fancyhead[R]{Jeremy G. Siek}
+%%\fancyhead[L]{\pgfornament[width = 1cm]{39}}
+%% \fancyhead[R]{\pgfornament[width = 1cm]{40}}
+
+\Bordertrue
+
+\maketitle
+
+
+\tableofcontents
+
+\pagebreak
+
+%\large
+
+\section{Introduction}
+
+The Deduce proof assistant includes two languages, the Deduce
+programming language and the Deduce proof language. This booklet
+introduces the Deduce proof language.
+
+\section{Applying Definitions to the Goal}
+
+We begin with an simple example, proving that the length of an empty
+list is \texttt{0}. Of course, this is a direct consequence of the
+definition of \texttt{length}, so this first example is about how to
+use definitions.  To get started, we write down the theorem we would
+like to prove.  A theorem consists of (1) the keyword
+\texttt{theorem}, (2) a name for the theorem, (3) a colon, (4) the
+formula, (5) the keyword \texttt{proof}, (6) the proof of the formula,
+and (7) the keyword \texttt{end}. But for now, instead of writing the
+proof, we'll simply write \texttt{?} to say that we're not done yet.
+
+\begin{verbatim}
+    theorem length_nat_empty: length(@empty<Nat>) = 0
+    proof
+      ?
+    end
+\end{verbatim}
+
+\noindent Run Deduce on the file. Deduce will respond with the following message
+to remind us of what is left to prove.
+
+\begin{verbatim}
+    unfinished proof:
+        length(empty) = 0
+\end{verbatim}
+
+To tell Deduce to apply the definition of \texttt{length}, we can use
+the \texttt{definition} statement.
+
+\begin{verbatim}
+theorem length_nat_empty: length(@empty<Nat>) = 0
+proof
+  definition length
+end
+\end{verbatim}
+
+\noindent Deduce expanded the definition of \texttt{length} in the
+goal, changing \texttt{length(empty) = 0} to \texttt{0 = 0}. In
+particular, Deduce noticed that \texttt{length(empty)} matches the
+first clause in the definition of \texttt{length} and then replaced it
+with the right-hand side of the first clause. Deduce then simplified
+\texttt{0 = 0} to \texttt{true} and therefore accepted the
+\texttt{definition} statement. In general, whenever Deduce sees an
+equality with the same left and right-hand side, it automatically
+simplifies it to \texttt{true}.
+
+Run Deduce on the file to see it respond that the file is valid.
+
+Let's try a slightly more complex theorem, that the length
+of a list with just a single node is indeed \texttt{1}. Based
+on what we learned above, we better start by applying the
+definition of \texttt{length} a couple of times.
+
+\begin{verbatim}
+theorem length_node42: length(node(42, empty)) = 1
+proof
+  definition {length, length}
+end
+\end{verbatim}
+
+\noindent Deduce responds that we still need to prove the following
+obvious fact.
+
+\begin{verbatim}
+    failed to prove:
+        length(node(42,empty)) = 1
+    by
+        definition {length, length}
+    remains to prove:
+        1 + 0 = 1
+\end{verbatim}
+
+\noindent But that is just a consequence of the definition of
+addition, which we can refer to as \texttt{operator +}.  To carry on
+with proving what remains, we can use the \texttt{suffices} statement
+as follows. We write the formula that is left to prove after the
+\texttt{suffices} keyword then \texttt{by} then the
+\texttt{definition} statement that we're using to transform the goal.
+After the \texttt{suffices}, the goal changes to the \texttt{suffices}
+formula, which here is \texttt{1 + 0 = 1}.
+
+\begin{verbatim}
+theorem length_node42: length(node(42, empty)) = 1
+proof
+  suffices 1 + 0 = 1   with definition {length, length}
+  definition {operator +, operator +}
+end
+\end{verbatim}
+
+\subsection*{Exercise}
+
+Prove that \texttt{node(1,empty) ++ node(2, empty) = node(1, node(2, empty))}.
+
+
+\section{Generalizing with \texttt{all} Formulas}
+
+In the proof of \texttt{length\_node42} it did not matter that the
+element in the node was \texttt{42}. We can generalize this theorem by
+using an \texttt{all} formula. We begin the formula with \texttt{all
+  x:Nat} to say that the formula must be true for all natural numbers
+and the variable \texttt{x} will be used as a stand-in to refer to any
+of them.  We replace the \texttt{42} in the formula with \texttt{x} to
+obtain the following theorem.
+
+\begin{verbatim}
+theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+proof
+  ?
+end
+\end{verbatim}
+Deduce responds with
+\begin{verbatim}
+unfinished proof:
+    all x:Nat. length(node(x,empty)) = 1
+\end{verbatim}
+
+The most straightforward way to prove an \texttt{all} formula in
+Deduce is with an \texttt{arbitrary} statement. When you use
+\texttt{arbitrary} you are promising to prove the formula for a
+hypothetical entity that can stand in for all entities of the
+specified type. The \texttt{arbitrary} statement asks you to name the
+hypothetical entity. Here we choose \texttt{x} but we could have
+chosen a different name.
+
+\begin{verbatim}
+theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+proof
+  arbitrary x:Nat
+  ?
+end
+\end{verbatim}
+
+\noindent Deduce responds with
+
+\begin{verbatim}
+unfinished proof:
+    length(node(x,empty)) = 1
+\end{verbatim}
+
+We don't know anything about this hypothetical \texttt{x} other than
+it being a natural number. But as we previously observed, we don't
+need any more information about \texttt{x} for this proof.  We
+complete the proof as before, using the definitions of \texttt{length}
+and addition.
+
+\begin{verbatim}
+theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+proof
+  arbitrary x:Nat
+  definition {length, length, operator +, operator +}
+end
+\end{verbatim}
+
+Once we have proved that an \texttt{all} formula is true, we can use it by
+supplying an entity of the appropriate type inside square brackets. In
+the following we prove the \texttt{length\_node42} theorem again, but this
+time the proof makes use of \texttt{length\_one\_nat}.
+
+\begin{verbatim}
+theorem length_node42_again: length(node(42, empty)) = 1
+proof
+  length_one_nat[42]
+end
+\end{verbatim}
+
+We can further generalize the theorem by noticing that it does not
+matter whether the element is a natural number. It could be a value of
+any type. In Deduce we can also use the \texttt{all} statement to
+generalize types. In the following, we add \texttt{U:type} to the
+\texttt{all} formula and to the \texttt{arbitrary} statement.
+
+\begin{verbatim}
+theorem length_one: all U:type, x:U. length(node(x, empty)) = 1
+proof
+  arbitrary U:type, x:U
+  definition {length, length, operator +, operator+}
+end
+\end{verbatim}
+
+To summarize this section:
+\begin{itemize}
+\item To state that a formula is true for all entities of a given
+  type, use Deduce's \texttt{all} formula.
+\item To prove that an \texttt{all} formula is true, use Deduce's
+  \texttt{arbitrary} statement.  (We'll see a second method in the
+  next section.)
+\item To use a fact that is an \texttt{all} formula, instantiate the
+  fact by using square brackets around the specific entity.
+\end{itemize}
+
+\subsection*{Exercise}
+
+Prove that
+\begin{verbatim}
+all T:type, x:T, y:T. 
+    node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
+\end{verbatim}
+
+\noindent Prove again that 
+\begin{verbatim}
+node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
+\end{verbatim}
+but this time use the previous theorem.
+
+
+
+
+\end{document}
+
+% LocalWords:  Deduce's pf fn NatList suc bool len app NEList Pos

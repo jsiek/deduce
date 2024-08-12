@@ -52,10 +52,10 @@ proof
 end
 ```
 
-Deduce expanded the definition of `length` in the correct goal,
-changing `length(empty) = 0` to `0 = 0`. In particular, Deduce noticed
-that `length(empty)` matches the first clause in the definition of
-`length` and then replaced it with the right-hand side of the first
+Deduce expanded the definition of `length` in the goal, changing
+`length(empty) = 0` to `0 = 0`. In particular, Deduce noticed that
+`length(empty)` matches the first clause in the definition of `length`
+and then replaced it with the right-hand side of the first
 clause. Deduce then simplified `0 = 0` to `true` and therefore
 accepted the `definition` statement. In general, whenever Deduce sees
 an equality with the same left and right-hand side, it automatically
