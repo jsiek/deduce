@@ -258,11 +258,10 @@ end
 
 ## Reasoning about Natural Numbers
 
-As metioned previously, the `Nat.pf` file includes the definition of
-natural numbers, operations on them (e.g. addition), and proofs about
-those operations. Here we discuss how to reason about
-addition. Reasoning about the other operations follows a similar
-pattern.
+The `Nat.pf` file includes the definition of natural numbers,
+operations on them (e.g. addition), and proofs about those
+operations. Here we discuss how to reason about addition. Reasoning
+about the other operations follows a similar pattern.
 
 Here is the definition of addition from `Nat.pf`:
 ```
@@ -490,7 +489,7 @@ This follows directly from the definition of append.
     }
 
 However, to make the proof more readable by other humans, I recommend
-restating the goal using the `show` statement.
+restating the goal using the `conclude` statement.
 
     case empty {
       conclude empty ++ empty = empty  by definition operator++
@@ -556,7 +555,7 @@ proof
   arbitrary U:type
   induction List<U>
   case empty {
-    conclude (empty : List<U>) ++ empty = empty  by definition operator++
+    conclude @empty<U> ++ empty = empty  by definition operator++
   }
   case node(n, xs') suppose IH: xs' ++ empty = xs' {
     equations
