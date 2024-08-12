@@ -14,6 +14,7 @@ language and provide examples of their use.
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
 * [The `switch` Proof Statement](#the-switch-proof-statement)
+* [Applying Definitions and Rewrites to the Goal](#applying-definitions-and-rewrites-to-the-goal)
 * [Conditional Formulas (Implication) and Applying Definitions to Facts](#conditional-formulas-implication-and-applying-definitions-to-facts)
 * [Reasoning about `true`](#reasoning-about-true)
 * [Reasoning about `false`](#reasoning-about-false)
@@ -251,40 +252,6 @@ theorem length_one_equal: all U:type, x:U, y:U.
 proof
   arbitrary U:type, x:U, y:U
   rewrite length_one[U,x] | length_one[U,y]
-end
-```
-
-Sometimes one needs to apply a set of definitions and rewrites
-to the goal. Consider the following definition of `max`.
-
-```{.deduce #alt_max}
-define max' : fn Nat, Nat -> Nat
-            = λx,y{ if x ≤ y then y else x }
-```
-
-To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
-or not. If `x ≤ y` is true, we apply the definition of `max'` **and**
-we rewrite with the fact that `x ≤ y` is true, which resolves the
-`if`-`then`-`else` inside of `max'` to just `y`. So we are left to
-prove that `x ≤ y`, which we already know.  Similarly, if `x ≤ y` is
-false, we apply the definition of `max'` and rewrite with the fact
-that `x ≤ y` is false. This resolves the `if`-`then`-`else` inside of `max'`
-to just `x`. So we are left to prove `x ≤ x`, which of course is true.
-
-```{.deduce #less_alt_max}
-theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
-proof
-  arbitrary x:Nat, y:Nat
-  switch x ≤ y {
-    case true suppose x_le_y_true {
-      suffices x ≤ y   with definition max' and rewrite x_le_y_true
-      rewrite x_le_y_true
-    }
-    case false suppose x_le_y_false {
-      suffices x ≤ x   with definition max' and rewrite x_le_y_false
-      less_equal_refl[x]
-    }
-  }
 end
 ```
 
@@ -820,6 +787,43 @@ end
 To summarize this section:
 * Use `switch` on an entity of union type to split the proof into
   cases, with one case for each alternative of the union.
+
+## Applying Definitions and Rewrites to the Goal
+
+Sometimes one needs to apply a set of definitions and rewrites
+to the goal. Consider the following definition of `max`.
+
+```{.deduce #alt_max}
+define max' : fn Nat, Nat -> Nat
+            = λx,y{ if x ≤ y then y else x }
+```
+
+To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
+or not. If `x ≤ y` is true, we apply the definition of `max'` **and**
+we rewrite with the fact that `x ≤ y` is true, which resolves the
+`if`-`then`-`else` inside of `max'` to just `y`. So we are left to
+prove that `x ≤ y`, which we already know.  Similarly, if `x ≤ y` is
+false, we apply the definition of `max'` and rewrite with the fact
+that `x ≤ y` is false. This resolves the `if`-`then`-`else` inside of `max'`
+to just `x`. So we are left to prove `x ≤ x`, which of course is true.
+
+```{.deduce #less_alt_max}
+theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
+proof
+  arbitrary x:Nat, y:Nat
+  switch x ≤ y {
+    case true suppose x_le_y_true {
+      suffices x ≤ y   with definition max' and rewrite x_le_y_true
+      rewrite x_le_y_true
+    }
+    case false suppose x_le_y_false {
+      suffices x ≤ x   with definition max' and rewrite x_le_y_false
+      less_equal_refl[x]
+    }
+  }
+end
+```
+
 
 ## Conditional Formulas (Implication) and Applying Definitions to Facts
 

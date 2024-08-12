@@ -432,6 +432,99 @@ node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 \end{verbatim}
 but this time use the previous theorem.
 
+\section{Rewriting the Goal with Equations}
+
+Deduce provides the \texttt{rewrite} statement to apply an equation to the
+current goal. In particular, \texttt{rewrite} replaces each occurence of the
+left-hand side of an equation with the right-hand side of the
+equation.
+
+For example, let us prove the following theorem using \texttt{rewrite}
+with the above \texttt{length\_one} theorem.
+
+\begin{verbatim}
+theorem length_one_equal: all U:type, x:U, y:U.
+  length(node(x,empty)) = length(node(y,empty))
+proof
+  arbitrary U:type, x:U, y:U
+  ?
+end
+\end{verbatim}
+
+To replace \texttt{length(node(x,empty))} with \texttt{1}, we rewrite
+using the \texttt{length\_one} theorem instantiated at \texttt{U} and \texttt{x}.
+
+\begin{verbatim}
+rewrite length_one[U,x]
+\end{verbatim}
+
+\noindent Deduce tells us that the current goal has become
+
+\begin{verbatim}
+remains to prove:
+	1 = length(node(y,empty))
+\end{verbatim}
+
+\noindent We rewrite again, separated by a vertical bar, using
+\texttt{length\_one}, this time instantiated with \texttt{y}.
+
+\begin{verbatim}
+rewrite length_one[U,x] | length_one[U,y]
+\end{verbatim}
+
+\noindent Deduce changes the goal to \texttt{1 = 1}, which simplies to
+just \texttt{true} so we can finish the proof with a period.
+
+Here is the completed proof of \texttt{length\_one\_equal}.
+
+\begin{verbatim}
+theorem length_one_equal: all U:type, x:U, y:U.
+  length(node(x,empty)) = length(node(y,empty))
+proof
+  arbitrary U:type, x:U, y:U
+  rewrite length_one[U,x] | length_one[U,y]
+end
+\end{verbatim}
+
+Sometimes one needs to apply a set of definitions and rewrites to the
+goal. Consider the following definition of \texttt{max'}.
+(There is a different definition of \texttt{max} in the
+\texttt{Nat.pf} file, which we discuss in the next section.)
+
+\begin{verbatim}
+define max' : fn Nat, Nat -> Nat
+            = λx,y{ if x ≤ y then y else x }
+\end{verbatim}
+
+To prove that \texttt{x ≤ max'(x,y)} we consider two cases, whether
+\texttt{x ≤ y} or not. If \texttt{x ≤ y} is true, we apply the
+definition of \texttt{max'} \textbf{and} we rewrite with the fact that
+\texttt{x ≤ y} is true, which resolves the
+\texttt{if}-\texttt{then}-\texttt{else} inside of \texttt{max'} to
+just \texttt{y}. So we are left to prove that \texttt{x ≤ y}, which we
+already know.  Similarly, if \texttt{x ≤ y} is false, we apply the
+definition of \texttt{max'} and rewrite with the fact that \texttt{x ≤
+  y} is false. This resolves the
+\texttt{if}-\texttt{then}-\texttt{else} inside of \texttt{max'} to
+just \texttt{x}. So we are left to prove \texttt{x ≤ x}, which of
+course is true.
+
+\begin{verbatim}
+theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
+proof
+  arbitrary x:Nat, y:Nat
+  switch x ≤ y {
+    case true suppose x_le_y_true {
+      suffices x ≤ y   with definition max' and rewrite x_le_y_true
+      rewrite x_le_y_true
+    }
+    case false suppose x_le_y_false {
+      suffices x ≤ x   with definition max' and rewrite x_le_y_false
+      less_equal_refl[x]
+    }
+  }
+end
+\end{verbatim}
 
 
 
