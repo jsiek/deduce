@@ -1535,15 +1535,14 @@ proof
 end
 \end{verbatim}
 
-Deduce responds with the current goal, in which \texttt{not (x = y)} is
-expanding into \texttt{if x = y then false}.
+Deduce responds with the current goal, \texttt{not (x = y)}.
 
 \begin{verbatim}
 incomplete proof
 Goal:
-        (if x = y then false)
+    not (x = y)
 Givens:
-        x_l_y: x < y
+    x_l_y: x < y
 \end{verbatim}
 
 So following the usual recipe to prove an \texttt{if}-\texttt{then},
@@ -1553,16 +1552,16 @@ we \texttt{suppose} the condition \texttt{x = y}.
   suppose x_y: x = y
 \end{verbatim}
 
-Now we need to prove false, and we have the hint to use the
+Now we need to prove \texttt{false}, and we have the hint to use the
 \texttt{less\_irreflexive} theorem.
 
 \begin{verbatim}
 incomplete proof
 Goal:
-        false
+    false
 Givens:
-        x_y: x = y,
-        x_l_y: x < y
+    x_y: x = y,
+    x_l_y: x < y
 \end{verbatim}
 
 Here is where the second variant of \texttt{rewrite} comes in.  We can
@@ -1711,7 +1710,7 @@ To summarize this section:
 \item The \texttt{some} formula expresses that a property is true for
   at least one entity.
 \item Deduce's \texttt{obtain} statement lets you make
-  use of a fact that is a \texttt{some} formula.
+  use of a fact that is a \texttt{some}.
 \item To prove a \texttt{some} formula, use Deduce's \texttt{choose}
   statement.
 \end{itemize}
