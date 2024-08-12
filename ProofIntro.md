@@ -40,7 +40,7 @@ write `?` to say that we're not done yet.
 Run Deduce on the file. Deduce will respond with the following message
 to remind us of what is left to prove.
 
-    unfinished proof:
+    incomplete proof:
         length(empty) = 0
 
 To tell Deduce to apply the definition of `length`, we can use
@@ -119,7 +119,7 @@ the formula with `x` to obtain the following theorem statement.
 
 Deduce responds with
 
-    unfinished proof:
+    incomplete proof:
         all x:Nat. length(node(x,empty)) = 1
 
 The most straightforward way to prove an `all` formula in Deduce is
@@ -137,7 +137,7 @@ but we could have chosen a different name.
 
 Deduce responds with
 
-    unfinished proof:
+    incomplete proof:
         length(node(x,empty)) = 1
 
 We don't know anything about this hypothetical `x` other than it being
@@ -183,7 +183,8 @@ To summarize this section:
 * To state that a formula is true for all entities of a given type,
   use Deduce's `all` formula.
 * To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
-  (We'll see a second method in the next section.)
+  (We'll see a second method in the section
+  [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction).)
 * To using a fact that is an `all` formula, instantiate the fact
   by using square brackets around the specific entity.
 
@@ -241,8 +242,8 @@ this time instantiated with `y`.
 rewrite length_one[U,x] | length_one[U,y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplies to just `true` so
-we can finish the proof with a period.
+Deduce changes the goal to `1 = 1`, which simplies to just `true`
+, so Deduce accepts the `rewrite` statement.
 
 Here is the completed proof of `length_one_equal`.
 
@@ -324,7 +325,7 @@ x + y + z = z + y + x
 ```
 
 It takes several uses of `add_commute` and `add_assoc` to prove this.
-To get starts, we use `have` to prove `step1`, which states that 
+To get started, we use `have` to prove `step1`, which states that 
 `x + y + z = x + z + y` (flipping the `y` and `z`).
 
 ```
@@ -443,7 +444,7 @@ an empty list. Suppose we try to use `arbitrary` for both the
 
 Deduce replies that we need to prove
 
-    unfinished proof:
+    incomplete proof:
         xs ++ empty = xs
 
 But now we're stuck because the definition of append pattern matches
@@ -479,7 +480,7 @@ We must give a label for the induction hypothesis so here we choose
 Let us first focus on the case for `empty`. Deduce tells us that we
 need to prove the following.
 
-    unfinished proof:
+    incomplete proof:
         empty ++ empty = empty
 
 This follows directly from the definition of append.
@@ -492,14 +493,14 @@ However, to make the proof more readable by other humans, I recommend
 restating the goal using the `conclude` statement.
 
     case empty {
-      conclude empty ++ empty = empty  by definition operator++
+      conclude @empty<U> ++ empty = empty  by definition operator++
     }
 
 Next let us focus on the case for `node`. Deduce tells us that we need
 to prove the following and that `IH` has been added to the available
 facts.
 
-    unfinished proof:
+    incomplete proof:
         node(n,xs') ++ empty = node(n,xs')
 
     available facts:
@@ -723,7 +724,7 @@ consider how to prove the following theorem.
       ?
     end
 
-We could proceed by induction, but we it turns out we don't need the
+We could proceed by induction, but it turns out we don't need the
 induction hypothesis. In such situations, we can instead use `switch`.
 Like induction, `switch` works on unions and there is one case for
 each alternative of the union. Unlike induction, the goal formula does
@@ -742,7 +743,7 @@ switch on, as in `switch x` below.
 
 Deduce responds that in the first case we need to prove the following.
 
-    unfinished proof:
+    incomplete proof:
         true or 0 < 0
 
 So we just need to prove `true`, which is what the period is for.
@@ -753,7 +754,7 @@ So we just need to prove `true`, which is what the period is for.
 
 In the second case, for `x = suc(x')`, we need to prove the following.
 
-    unfinished proof:
+    incomplete proof:
         false or 0 < suc(x')
 
 There's no hope of proving `false`, so we better prove `0 < suc(x')`.
@@ -1105,7 +1106,7 @@ Deduce treats `not` as syntactic sugar for a conditional formal with a
 `false` conclusion. Thus, Deduce responds to the above partial proof
 with the following message.
 
-    unfinished proof:
+    incomplete proof:
         all x:Nat. (if x < x then false)
 
 We can proceed by induction.
@@ -1120,7 +1121,7 @@ We can proceed by induction.
 
 In the first case, we must prove the following conditional formula.
 
-    unfinished proof:
+    incomplete proof:
         (if 0 < 0 then false)
 
 So we assume the premise `0 < 0`, from which we can conclude `false`
@@ -1133,7 +1134,7 @@ by the definitions of `<` and `≤`.
 
 In the case where `x = suc(x')`, we must prove the following 
 
-    unfinished proof:
+    incomplete proof:
         (if suc(x') < suc(x') then false)
 
 So we assume the premise `suc(x') < suc(x')` from which we
@@ -1306,7 +1307,7 @@ are the subformulas of the `some`, but with `a` and `b` replacing `m`.
 
 We still need to prove the following:
 
-    unfinished proof:
+    incomplete proof:
         Even(x + y)
 
 So we use the definition of `Even` in a `suffices` statement

@@ -1,5 +1,5 @@
 \documentclass[12pt]{article}
-\usepackage[print]{booklet}
+\usepackage[noprint]{booklet}
 % The following are necessary when using the print option of the booklet package. -Jeremy
 \pdfoutput = 1
 \setpdftargetpages
@@ -9,8 +9,9 @@
 
 % When changing to the noprint option, comment the \nofiles.
 
-\nofiles
+%\nofiles
 
+\pagespersignature{64}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -222,13 +223,14 @@
 
 %\section{Introduction}
 
-The Deduce proof assistant includes two languages, the Deduce
-programming language and the Deduce proof language. This booklet
-introduces the Deduce proof language.
+This booklet introduces the Deduce proof language whereas the booklet
+``Programming in Deduce`` introduces the programming language.  This
+booklet freely uses definitions that were introduced in ``Programming
+in Deduce``, so we recommend reading that booklet first.
 
-\section{Applying Definitions to the Goal}
+\section{Theorems and Applying Definitions to the Goal}
 
-We begin with an simple example, proving that the length of an empty
+We begin with a simple example, proving that the length of an empty
 list is \texttt{0}. Of course, this is a direct consequence of the
 definition of \texttt{length}, so this first example is about how to
 use definitions.  To get started, we write down the theorem we would
@@ -249,7 +251,7 @@ end
 to remind us of what is left to prove.
 
 \begin{verbatim}
-unfinished proof:
+incomplete proof:
     length(empty) = 0
 \end{verbatim}
 
@@ -339,7 +341,7 @@ end
 \end{verbatim}
 Deduce responds with
 \begin{verbatim}
-unfinished proof:
+incomplete proof:
     all x:Nat. length(node(x,empty)) = 1
 \end{verbatim}
 
@@ -362,7 +364,7 @@ end
 \noindent Deduce responds with
 
 \begin{verbatim}
-unfinished proof:
+incomplete proof:
     length(node(x,empty)) = 1
 \end{verbatim}
 
@@ -411,8 +413,8 @@ To summarize this section:
 \item To state that a formula is true for all entities of a given
   type, use Deduce's \texttt{all} formula.
 \item To prove that an \texttt{all} formula is true, use Deduce's
-  \texttt{arbitrary} statement.  (We'll see a second method in the
-  next section.)
+  \texttt{arbitrary} statement.  (We'll see a second method in 
+  section~\ref{sec:induction}.)
 \item To use a fact that is an \texttt{all} formula, instantiate the
   fact by using square brackets around the specific entity.
 \end{itemize}
@@ -464,7 +466,7 @@ rewrite length_one[U,x]
 
 \begin{verbatim}
 remains to prove:
-	1 = length(node(y,empty))
+        1 = length(node(y,empty))
 \end{verbatim}
 
 \noindent We rewrite again, separated by a vertical bar, using
@@ -475,7 +477,7 @@ rewrite length_one[U,x] | length_one[U,y]
 \end{verbatim}
 
 \noindent Deduce changes the goal to \texttt{1 = 1}, which simplies to
-just \texttt{true} so we can finish the proof with a period.
+just \texttt{true}, so Deduce accepts the \texttt{rewrite} statement.
 
 Here is the completed proof of \texttt{length\_one\_equal}.
 
@@ -565,7 +567,7 @@ x + y + z = z + y + x
 \end{verbatim}
 
 It takes several uses of \texttt{add\_commute} and \texttt{add\_assoc}
-to prove this.  To get starts, we use \texttt{have} to prove
+to prove this.  To get started, we use \texttt{have} to prove
 \texttt{step1}, which states that \texttt{x + y + z = x + z + y}
 (flipping the \texttt{y} and \texttt{z}).
 
@@ -586,36 +588,34 @@ facts that we aleady know are true, which now includes \texttt{step1}.
 \begin{verbatim}
 incomplete proof
 Goal:
-	x + (y + z) = z + (y + x)
+    x + (y + z) = z + (y + x)
 Givens:
-	step1: x + (y + z) = x + (z + y)
+    step1: x + (y + z) = x + (z + y)
 \end{verbatim}
 
 We proceed four more times, using \texttt{have} to create each
 intermediate step in the reasoning.
 
+{\small
 \begin{verbatim}
-  have step2: x + z + y = (x + z) + y
-    by rewrite add_assoc[x][z,y]
-  have step3: (x + z) + y = (z + x) + y
-    by rewrite add_commute[z][x]
-  have step4: (z + x) + y = z + (x + y)
-    by rewrite add_assoc[z][x,y]
-  have step5: z + (x + y) = z + y + x
-    by rewrite add_commute[x][y]
+  have step2: x + z + y = (x + z) + y by rewrite add_assoc[x][z,y]
+  have step3: (x + z) + y = (z + x) + y by rewrite add_commute[z][x]
+  have step4: (z + x) + y = z + (x + y) by rewrite add_assoc[z][x,y]
+  have step5: z + (x + y) = z + y + x by rewrite add_commute[x][y]
 \end{verbatim}
+}
 
 We finish the proof by connecting them all together using Deduce's
 \texttt{transitive} statement. The \texttt{transitive} statement takes
-two proofs of equations \texttt{a = b} and \texttt{b = c}, and proves
-\texttt{a = c}.
+two proofs of equations, such as \texttt{a = b} and \texttt{b = c},
+and proves \texttt{a = c}.
 
 \begin{verbatim}
   transitive step1 (transitive step2 (transitive step3
     (transitive step4 step5)))
 \end{verbatim}
 
-Figure~\ref{fig:xyz-theorem} shows the complete proof of the
+\noindent Figure~\ref{fig:xyz-theorem} shows the complete proof of the
 \texttt{xyz\_zyx} theorem.
 
 \begin{figure}[tbp]
@@ -647,12 +647,12 @@ end
 \section{Chaining Equations with \texttt{equations}}
 
 Combining a sequence of equations using \texttt{transitive} is quite
-common, so Deduce provides the \texttt{equations} statement to
-streamline this process.  After the first equation, the left-hand side
-of each equation is written as \texttt{...} because it is just a
-repetition of the right-hand side of the previous equation. Here's
-another proof of the theorem about \texttt{x + y + z}, this time using
-an \texttt{equations} statement.
+common but also cumbersome, so Deduce provides the \texttt{equations}
+statement to streamline this process.  After the first equation, the
+left-hand side of each equation is written as \texttt{...} because it
+is just a repetition of the right-hand side of the previous
+equation. Here's another proof of the theorem about \texttt{x + y +
+  z}, this time using an \texttt{equations} statement.
 
 \begin{verbatim}
 theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
@@ -682,8 +682,8 @@ information to prove an \texttt{all} formula. In those situations, so
 long as the type of the \texttt{all} variable is a \texttt{union}
 type, we can use the more powerful \texttt{induction} statement.
 
-For example, consider the following theorem about appending a list to
-an empty list. Suppose we try to use \texttt{arbitrary} for both the
+For example, consider this theorem about appending a list to an empty
+list. Suppose we try to use \texttt{arbitrary} for both the
 \texttt{all U} and the \texttt{all xs}.
 
 \begin{verbatim}
@@ -696,16 +696,16 @@ proof
 end
 \end{verbatim}
 
-Deduce replies that we need to prove
+\noindent Deduce replies that we need to prove
 
 \begin{verbatim}
-    unfinished proof:
+    incomplete proof:
         xs ++ empty = xs
 \end{verbatim}
 
-But now we're stuck because the definition of append pattern matches
-on its first argument, but we don't know whether \texttt{xs} is an
-\texttt{empty} list or a \texttt{node}.
+\noindent But now we're stuck because the definition of append pattern
+matches on its first argument, but we don't know whether \texttt{xs}
+is an \texttt{empty} list or a \texttt{node}.
 
 So instead of using \texttt{arbitrary xs:List<U>} to prove the
 \texttt{all xs}, we proceed by induction as follows.
@@ -727,21 +727,20 @@ So instead of using \texttt{arbitrary xs:List<U>} to prove the
 
 When doing a proof by induction, there is one \texttt{case} for every
 alternative in the \texttt{union} type. Here the union type is
-\texttt{List<U>}, so we have a case for the \texttt{empty} and
-\texttt{node} alternatives.  Furthermore, because \texttt{node}
-includes a recursive argument, that is, and argument of type
-\texttt{List<U>}, in the case for \texttt{node} we get to assume that
-the formula we are trying to prove is already true for the
-argument. This is commonly known at the \textbf{induction hypothesis}.
-We must give a label for the induction hypothesis so here we choose
-\texttt{IH} for short.
+\texttt{List<U>}, so we have one case for \texttt{empty} and one case
+for \texttt{node}.  Furthermore, because \texttt{node} includes a
+recursive argument, that is, and argument of type \texttt{List<U>}, in
+the case for \texttt{node} we get to assume that the formula we are
+trying to prove is already true for the argument. This is commonly
+known at the \textbf{induction hypothesis}.  We must give a label for
+the induction hypothesis so here we choose \texttt{IH} for short.
 
 Let us first focus on the case for \texttt{empty}. Deduce tells us that we
 need to prove the following.
 
 \begin{verbatim}
-    unfinished proof:
-        empty ++ empty = empty
+incomplete proof:
+    empty ++ empty = empty
 \end{verbatim}
 This follows directly from the definition of append.
 \begin{verbatim}
@@ -753,7 +752,8 @@ However, to make the proof more readable by other humans, I recommend
 restating the goal using the \texttt{conclude} statement.
 \begin{verbatim}
     case empty {
-      conclude empty ++ empty = empty  by definition operator++
+      conclude @empty<U> ++ empty = empty
+          by definition operator++
     }
 \end{verbatim}
 
@@ -761,12 +761,12 @@ Next let us focus on the case for \texttt{node}. Deduce tells us that
 we need to prove the following and that \texttt{IH} has been added to
 the available facts.
 \begin{verbatim}
-    unfinished proof:
-        node(n,xs') ++ empty = node(n,xs')
+incomplete proof:
+    node(n,xs') ++ empty = node(n,xs')
 
-    available facts:
-        IH: xs' ++ empty = xs',
-        ...
+available facts:
+    IH: xs' ++ empty = xs',
+    ...
 \end{verbatim}
 Looking at the goal, we notice that we can expand the definition of
 \texttt{append} on the right-hand side, because it is applied to a
@@ -895,9 +895,9 @@ To summarize this section:
 Two create a formula that expresses that at least one of two formulas
 is true (i.e. disjunction), use \texttt{or} to combine the formulas.
 
-For example, consider the following variation on the trichotomy law
-for numbers, which states that for any two natural numbers \texttt{x}
-and \texttt{y}, either \texttt{x ≤ y} or \texttt{y < x}.
+For example, consider the following variation on the trichotomy law,
+which states that for any two natural numbers \texttt{x} and
+\texttt{y}, either \texttt{x ≤ y} or \texttt{y < x}.
 
 \begin{verbatim}
     theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
@@ -1025,7 +1025,7 @@ proof
   ?
 end
 \end{verbatim}
-We could proceed by induction, but we it turns out we don't need the
+We could proceed by induction, but it turns out we don't need the
 induction hypothesis. In such situations, we can instead use \texttt{switch}.
 Like induction, \texttt{switch} works on unions and there is one case for
 each alternative of the union. Unlike induction, the goal formula does
@@ -1044,7 +1044,7 @@ switch x {
 \end{verbatim}
 Deduce responds that in the first case we need to prove the following.
 \begin{verbatim}
-unfinished proof:
+incomplete proof:
     true or 0 < 0
 \end{verbatim}
 So we just need to prove \texttt{true}, which is what the period is for.
@@ -1055,7 +1055,7 @@ So we just need to prove \texttt{true}, which is what the period is for.
 \end{verbatim}
 In the second case, for \texttt{x = suc(x')}, we need to prove the following.
 \begin{verbatim}
-unfinished proof:
+incomplete proof:
     false or 0 < suc(x')
 \end{verbatim}
 There's no hope of proving \texttt{false}, so we better prove
@@ -1109,7 +1109,7 @@ define max' : fn Nat, Nat -> Nat
 
 To prove that \texttt{x ≤ max'(x,y)} we consider two cases, whether
 \texttt{x ≤ y} or not. If \texttt{x ≤ y} is true, we apply the
-definition of \texttt{max'} **and** we rewrite with the fact that
+definition of \texttt{max'} \textbf{and} we rewrite with the fact that
 \texttt{x ≤ y} is true, which resolves the
 \texttt{if}-\texttt{then}-\texttt{else} inside of \texttt{max'} to
 just \texttt{y}.
@@ -1174,7 +1174,7 @@ end
 \begin{verbatim}
 incomplete proof
 Goal:
-	(if length(xs) = 0 then xs = empty)
+        (if length(xs) = 0 then xs = empty)
 \end{verbatim}
 
 To prove an \texttt{if}-\texttt{then} formula, we \texttt{suppose} the
@@ -1189,9 +1189,9 @@ Deduce adds \texttt{len\_z} to the givens (similar to \texttt{have}).
 \begin{verbatim}
 incomplete proof
 Goal:
-	xs = empty
+        xs = empty
 Givens:
-	len_z: length(xs) = 0
+        len_z: length(xs) = 0
 \end{verbatim}
 
 Next we \texttt{switch} on the list \texttt{xs}. In the case when
@@ -1236,7 +1236,7 @@ proof
   switch xs {
     case empty { . }
     case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
-	  have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+          have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
       conclude false  by apply not_one_add_zero[length(xs')]
                          to definition length in len_z2
     }
@@ -1453,7 +1453,7 @@ Deduce treats \texttt{not} as syntactic sugar for a conditional formal with a
 \texttt{false} conclusion. Thus, Deduce responds to the above partial proof
 with the following message.
 \begin{verbatim}
-    unfinished proof:
+    incomplete proof:
         all x:Nat. (if x < x then false)
 \end{verbatim}
 We can proceed by induction.
@@ -1468,7 +1468,7 @@ We can proceed by induction.
 \end{verbatim}
 In the first case, we must prove the following conditional formula.
 \begin{verbatim}
-    unfinished proof:
+    incomplete proof:
         (if 0 < 0 then false)
 \end{verbatim}
 So we assume the premise \texttt{0 < 0}, from which we can conclude
@@ -1481,7 +1481,7 @@ So we assume the premise \texttt{0 < 0}, from which we can conclude
 \end{verbatim}
 In the case where \texttt{x = suc(x')}, we must prove the following
 \begin{verbatim}
-    unfinished proof:
+    incomplete proof:
         (if suc(x') < suc(x') then false)
 \end{verbatim}
 So we assume the premise \texttt{suc(x') < suc(x')} from which we can
@@ -1552,9 +1552,9 @@ expanding into \texttt{if x = y then false}.
 \begin{verbatim}
 incomplete proof
 Goal:
-	(if x = y then false)
+        (if x = y then false)
 Givens:
-	x_l_y: x < y
+        x_l_y: x < y
 \end{verbatim}
 
 So following the usual recipe to prove an \texttt{if}-\texttt{then},
@@ -1570,10 +1570,10 @@ Now we need to prove false, and we have the hint to use the
 \begin{verbatim}
 incomplete proof
 Goal:
-	false
+        false
 Givens:
-	x_y: x = y,
-	x_l_y: x < y
+        x_y: x = y,
+        x_l_y: x < y
 \end{verbatim}
 
 Here is where the second variant of \texttt{rewrite} comes in.  We can
@@ -1658,9 +1658,9 @@ The next step in the proof is to make use of the facts
 \end{verbatim}
 Deduce responds with
 \begin{verbatim}
-    available facts:
-        y_2b: y = 2*b,
-        x_2a: x = 2*a,
+available facts:
+    y_2b: y = 2*b,
+    x_2a: x = 2*a,
 \end{verbatim}
 The \texttt{a} and \texttt{b} are new variables and the two facts
 \texttt{y\_2b} and \texttt{x\_2a} are the subformulas of the
@@ -1669,8 +1669,8 @@ The \texttt{a} and \texttt{b} are new variables and the two facts
 
 We still need to prove the following:
 \begin{verbatim}
-    unfinished proof:
-        Even(x + y)
+incomplete proof:
+    Even(x + y)
 \end{verbatim}
 So we use the definition of \texttt{Even} in a \texttt{suffices} statement
 \begin{verbatim}

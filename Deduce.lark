@@ -21,7 +21,9 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_compare "<" term_add                        -> less
     | term_compare ">" term_add                        -> greater
     | term_compare "≤" term_add                       -> less_equal
+    | term_compare "<=" term_add                       -> less_equal
     | term_compare "≥" term_add                       -> greater_equal
+    | term_compare ">=" term_add                       -> greater_equal
     | term_compare "⊆" term_add                       -> subset_equal
     | term_compare "∈" term_add                       -> membership
     | term_add
