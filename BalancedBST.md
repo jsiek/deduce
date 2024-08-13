@@ -34,8 +34,142 @@ Here are three trees that do not satisfy the AVL invariant:
 
 The main idea of the AVL algorithm is that we can change the height of
 some nodes in the tree without disturbing the ordering of the keys by
-means of the following left and right rotations:
+means of the following left and right rotations. In the below diagram,
+each triangle represents a subtree while the circles represent a
+single tree node as usual.
 
 ![Diagram of left and right rotation](https://www.dropbox.com/scl/fi/lob6iu0xc8zyg51tlvfqg/Rotate.png?rlkey=de7qa94a2ganr4dustmm30axn&raw=1)
 
+Notice that a right rotation decreases the height of the node labeled
+`x` and increases the height of the node labeled `y`.  The left
+rotation does the opposite. Also notice that the rotations do not
+change the ordering of the tree with respect to an in-order traversal.
+The tree on the left has an in-order traversal of `A,y,B,x,C` and so
+does the tree on right right. Thus, the search operation will yield
+the same results for the two trees.
 
+```{.deduce #rotate_right}
+define rotate_right : fn Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>, 
+                         Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>,
+                         Tree<Pair<Nat,Nat>> -> Tree<Pair<Nat,Nat>>
+       = λ A,x,B,y,C {
+         TreeNode(A, x, TreeNode(B, y, C))
+       }
+```
+
+```{.deduce #test_rotate_right}
+assert rotate_right(EmptyTree, pair(1,55), EmptyTree, pair(2,37), EmptyTree)
+  = TreeNode(EmptyTree, pair(1,55), TreeNode(EmptyTree, pair(2,37), EmptyTree))
+```
+
+```{.deduce #rotate_left}
+define rotate_left : fn Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>, 
+                         Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>,
+                         Tree<Pair<Nat,Nat>> -> Tree<Pair<Nat,Nat>>
+       = λ A,x,B,y,C {
+         TreeNode(TreeNode(A, x, B), y, C)
+       }
+```
+
+```{.deduce #test_rotate_left}
+assert rotate_left(EmptyTree, pair(1,55), EmptyTree, pair(2,37), EmptyTree)
+  = TreeNode(TreeNode(EmptyTree, pair(1,55), EmptyTree), pair(2,37), EmptyTree)
+```
+
+
+```{.deduce #search_rotate_right}
+theorem search_rotate_right: 
+  all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>.
+  BST_search(TreeNode(TreeNode(A, x, B), y, C))
+  = BST_search(rotate_right(A, x, B, y, C))
+proof
+  arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>
+  extensionality
+  arbitrary i:Nat
+  suffices BST_search(TreeNode(TreeNode(A, x, B), y, C))(i) 
+         = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
+      with definition rotate_right
+  cases trichotomy[i][first(y)]
+  case i_less_fy: i < first(y) {
+    have not_i_eq_fy: not (i = first(y))
+      by apply less_not_equal to i_less_fy
+    cases trichotomy[i][first(x)]
+    case i_less_fx: i < first(x) {
+      have not_i_eq_fx: not (i = first(x))
+        by apply less_not_equal to i_less_fx
+      equations
+            BST_search(TreeNode(TreeNode(A, x, B), y, C))(i)
+          = BST_search(A)(i)
+            by definition {BST_search,BST_search}
+               and rewrite not_i_eq_fy | i_less_fy | not_i_eq_fx | i_less_fx
+      ... = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
+            by definition {BST_search,BST_search}
+               and rewrite not_i_eq_fy | i_less_fy | not_i_eq_fx | i_less_fx
+    }
+    case i_eq_fx: i = first(x) {
+      equations
+            BST_search(TreeNode(TreeNode(A, x, B), y, C))(i)
+          = just(second(x))
+            by definition {BST_search,BST_search}
+               and rewrite not_i_eq_fy | i_less_fy | i_eq_fx
+      ... = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
+            by definition {BST_search,BST_search}
+               and rewrite not_i_eq_fy | i_less_fy | i_eq_fx
+    }
+    case i_greater_fx: first(x) < i {
+      have not_i_eq_fx: not (i = first(x))
+        by suppose i_eq_fx
+           apply (apply less_not_equal to i_greater_fx) to symmetric i_eq_fx
+      have not_i_less_fx: not (i < first(x))
+        by apply less_implies_not_greater to i_greater_fx
+      equations
+            BST_search(TreeNode(TreeNode(A, x, B), y, C))(i)
+          = BST_search(B)(i)
+            by definition {BST_search,BST_search}
+               and rewrite not_i_eq_fy | i_less_fy | not_i_eq_fx | not_i_less_fx
+      ... = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
+            by definition {BST_search,BST_search}
+               and rewrite not_i_eq_fy | i_less_fy | not_i_eq_fx | not_i_less_fx
+    }
+  }
+  case i_eq_fy: i = first(y) {
+    ?
+  }
+  case i_greater_fy: first(y) < i {
+    ?
+  }
+end
+```
+
+
+<!--
+```{.deduce file=BalancedBST.pf} 
+
+import Maps
+import BinaryTree
+import BinarySearchTree
+
+<<rotate_right>>
+<<rotate_left>>
+
+<<search_rotate_right>>
+
+```
+-->
+
+<!--
+```{.deduce file=BalancedBSTTest.pf} 
+import Maps
+import BinaryTree
+import BinarySearchTree
+import BalancedBST
+
+<<test_rotate_right>>
+<<test_rotate_left>>
+
+```
+-->

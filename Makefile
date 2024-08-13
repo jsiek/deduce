@@ -137,6 +137,14 @@ check_blog7:
 blog7:
 	/usr/local/bin/pandoc BinarySearchTree.md -o BinarySearchTree.html
 
+check_blog8:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle
+	/opt/homebrew/bin/python3.10 ./deduce.py BalancedBST.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py BalancedBSTTest.pf
+
+blog8:
+	/usr/local/bin/pandoc BalancedBST.md -o BalancedBST.html
+
 check_blogs:  check_blog1 check_blog2 check_blog3 check_blog4 check_blog5 check_blog6 check_blog7
 
 clean:
