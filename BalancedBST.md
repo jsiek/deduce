@@ -41,10 +41,10 @@ single tree node as usual.
 ![Diagram of left and right rotation](https://www.dropbox.com/scl/fi/lob6iu0xc8zyg51tlvfqg/Rotate.png?rlkey=de7qa94a2ganr4dustmm30axn&raw=1)
 
 Notice that a right rotation decreases the height of the node labeled
-`x` and increases the height of the node labeled `y`.  The left
+`y` and increases the height of the node labeled `x`.  The left
 rotation does the opposite. Also notice that the rotations do not
 change the ordering of the tree with respect to an in-order traversal.
-The tree on the left has an in-order traversal of `A,y,B,x,C` and so
+The tree on the left has an in-order traversal of `A,x,B,y,C` and so
 does the tree on right right. Thus, the search operation will yield
 the same results for the two trees.
 
@@ -75,6 +75,53 @@ define rotate_left : fn Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>,
 assert rotate_left(EmptyTree, pair(1,55), EmptyTree, pair(2,37), EmptyTree)
   = TreeNode(TreeNode(EmptyTree, pair(1,55), EmptyTree), pair(2,37), EmptyTree)
 ```
+
+```{.deduce #rotate_right_on}
+define rotate_right_on : fn Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>, 
+                         Tree<Pair<Nat,Nat>>) -> Tree<Pair<Nat,Nat>>
+   = λ AxB, y, C {
+       switch AxB {
+         case EmptyTree { EmptyTree } // can't happen
+         case TreeNode(A, x, B) {
+           rotate_right(A, x, B, y, C)
+         }
+       }
+   }
+```
+
+```{.deduce #rotate_left_on}
+define rotate_left_on : fn Tree<Pair<Nat,Nat>>, Pair<Nat,Nat>, 
+                         Tree<Pair<Nat,Nat>>) -> Tree<Pair<Nat,Nat>>
+   = λ A, x, ByC {
+       switch ByC {
+         case EmptyTree { EmptyTree } // can't happen
+         case TreeNode(B, y, C) {
+           rotate_left(A, x, B, y, C)
+         }
+       }
+   }
+```
+
+
+```{.deduce #balance}
+function balance(Tree<Pair<Nat,Nat>>) -> Tree<Pair<Nat,Nat>> {
+  balance(EmptyTree) = EmptyTree
+  balance(TreeNode(L, x, R)) =
+    if 1 + height(L) < height(R) then
+      switch R {
+        case EmptyTree { EmptyTree } // can't happen
+        case TreeNode(RL, y, RR) {
+          if height(RL) ≤ height(RR) then
+            rotate_left(L, x, RL, y, RR)
+          else
+            rotate_left_on(L, x, rotate_right_on(RL, y, RR))
+        }
+      }
+    else
+      
+}
+```
+
 
 
 
@@ -187,6 +234,7 @@ import Maps
 import BinaryTree
 import BinarySearchTree
 
+<<BST_type>>
 <<rotate_right>>
 <<rotate_left>>
 
