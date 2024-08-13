@@ -1178,6 +1178,21 @@ proof
   definition {operator<, operator≤, operator+, operator≤}
 end
 
+theorem greater_any_zero: all x:Nat, y:Nat.
+  if x < y
+  then 0 < y
+proof
+  arbitrary x:Nat, y:Nat
+  suppose x_l_y
+  suffices 1 ≤ y  with definition operator<
+  have sx_le_y: 1 + x ≤ y  by
+    suffices suc(x) ≤ y  with definition {operator+,operator+}
+    definition operator< in x_l_y
+  have one_le_sx: 1 ≤ 1 + x
+    by less_equal_add[1][x]
+  apply less_equal_trans to (one_le_sx, sx_le_y)
+end
+
 theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y ≤ x + z then y ≤ z
 proof

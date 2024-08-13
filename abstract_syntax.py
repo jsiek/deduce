@@ -1021,7 +1021,19 @@ class Bool(Formula):
     return self
   def uniquify(self, env):
     pass
-  
+
+def list_of_and(arg):
+  match arg:
+    case And(loc, tyof, args):
+      return args
+    case _:
+      return [arg]
+    
+def flatten_and(args):
+  lol = [list_of_and(arg) for arg in args]
+  ret = sum(lol, [])
+  return ret
+
 @dataclass
 class And(Formula):
   args: list[Formula]
@@ -1030,7 +1042,7 @@ class And(Formula):
     return And(self.location, self.typeof, [arg.copy() for arg in self.args])
   
   def __str__(self):
-    return ' and '.join([str(arg) for arg in self.args])
+    return '(' + ' and '.join([str(arg) for arg in self.args]) + ')'
 
   def __eq__(self, other):
     if not isinstance(other, And):
@@ -1038,7 +1050,8 @@ class And(Formula):
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
   def reduce(self, env):
-    new_args = [arg.reduce(env) for arg in self.args]
+    #new_args = [arg.reduce(env) for arg in self.args]
+    new_args = flatten_and([arg.reduce(env) for arg in self.args])
     newer_args = []
     for arg in new_args:
       match arg:

@@ -626,22 +626,6 @@ end
 ```
 
 <!--
-```{.deduce #all_nodes}
-function all_nodes<E>(Tree<E>, fn E -> bool) -> bool {
-  all_keys(EmptyTree, P) = true
-  all_keys(TreeNode(L, x, R), P) = all_nodes(L, P) and P(x) and all_nodes(R, P)
-}
-```
-
-```{.deduce #is_BST}
-function is_BST(Tree<Pair<Nat,Nat>>) -> bool {
-  is_BST(EmptyTree) = true
-  is_BST(TreeNode(L, kv, R)) = 
-      define k = first(kv) define v = second(kv)
-      all_nodes(L, λl{ first(l) < k }) and all_nodes(R, λr{ first(r) > k })
-      and is_BST(L) and is_BST(R)
-}
-```
 -->
 
 <!--
