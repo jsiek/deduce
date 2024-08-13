@@ -1,0 +1,6 @@
+theorem T: all P:bool, Q:bool. if P or P then Q
+proof
+  arbitrary P:bool, Q:bool
+  suppose prem
+  conclude Q by prem
+end

@@ -14,11 +14,18 @@ tests: #check_blog5
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_and2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_and3.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_and4.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_and5.pf --error
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_and6.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies3.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies4.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies5.pf --error
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_implies6.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or2.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or3.pf --error
+	/opt/homebrew/bin/python3.10 ./deduce.py test/theorem_or4.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/suffices1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/suffices_def.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/suffices_rewrite.pf
@@ -35,6 +42,7 @@ tests: #check_blog5
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all3.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py test/all4.pf --error
 	/opt/homebrew/bin/python3.10 ./deduce.py test/bintree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/after.pf

@@ -1,0 +1,5 @@
+theorem T: if (all P:bool. P) then (all Q:bool. not Q)
+proof
+  suppose prem
+  prem
+end

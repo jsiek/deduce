@@ -32,17 +32,30 @@ def check_implies(loc, frm1, frm2):
   match (frm1, frm2):
     case (_, Bool(loc2, tyof2, True)):
       return
+  
     case (_, And(loc2, tyof2, args)):
-      for arg2 in args:
-        check_implies(loc, frm1, arg2)
+      try:
+        for arg2 in args:
+          check_implies(loc, frm1, arg2)
+      except Exception as e:
+          msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+              + '\nimplies\n'\
+              + '\t' + str(frm2)
+          raise Exception(msg)
+        
     case(Or(loc1, tyof1, args1), _):
       for arg1 in args1:
         try:
           check_implies(loc, arg1, frm2)
         except Exception as e:
-          error(loc, 'could not prove\n' + str(frm2) + '\nfrom \n' + str(arg1))
+          msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+              + '\nimplies\n'\
+              + '\t' + str(frm2)
+          raise Exception(msg)
+      
     case (Bool(loc2, tyof2, False), _):
       return
+  
     case (And(loc2, tyof2, args1), _):
       for arg1 in args1:
         try:
@@ -50,7 +63,12 @@ def check_implies(loc, frm1, frm2):
           return
         except Exception as e:
           continue
-      error(loc, 'could not satisfy\n' + str(frm2) + '\nwith any of the parts of\n' + str(frm1))
+      error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
+            + 'implies\n\t' + str(frm2) + '\n' \
+            + 'because we could not prove at least one of\n'
+            + '\n'.join(['\t' + str(arg1) + '   implies   ' + str(frm2)\
+                         for arg1 in args1]))
+            
     case (_, Or(loc2, tyof2, args2)):
       for arg2 in args2:
         try:
@@ -58,15 +76,34 @@ def check_implies(loc, frm1, frm2):
           return
         except Exception as e:
           continue
-      error(loc, 'could not satisfy any part of\n' + str(frm2) + '\nfrom the formula\n' + str(frm1))
+      error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
+            + 'implies\n\t' + str(frm2) + '\n' \
+            + 'because we could not prove at least one of\n'
+            + '\n'.join(['\t' + str(frm1) + '   implies   ' + str(arg2)\
+                         for arg2 in args2]))
+      
     case (IfThen(loc1, tyof1, prem1, conc1), IfThen(loc2, tyof2, prem2, conc2)):
-      check_implies(loc, prem2, prem1)
-      check_implies(loc, conc1, conc2)
+      try:
+        check_implies(loc, prem2, prem1)
+        check_implies(loc, conc1, conc2)
+      except Exception as e:
+        msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+            + '\nimplies\n'\
+            + '\t' + str(frm2)
+        raise Exception(msg)
+      
     case (All(loc1, tyof1, vars1, body1), All(loc2, tyof2, vars2, body2)):
-      sub = {var2[0]: Var(loc2, var1[1], var1[0])\
-             for (var1, var2) in zip(vars1, vars2)}
-      body2a = body2.substitute(sub)
-      check_implies(loc, body1, body2a)
+      try:
+          sub = {var2[0]: Var(loc2, var1[1], var1[0])\
+                 for (var1, var2) in zip(vars1, vars2)}
+          body2a = body2.substitute(sub)
+          check_implies(loc, body1, body2a)
+      except Exception as e:
+        msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+            + '\nimplies\n'\
+            + '\t' + str(frm2)
+        raise Exception(msg)
+          
     case _:
       if frm1 != frm2:
         (small_frm1, small_frm2) = isolate_difference(frm1, frm2)
@@ -78,7 +115,8 @@ def check_implies(loc, frm1, frm2):
             + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2)
             error(loc, msg)
         else:
-            error(loc, 'expected\n' + str(frm2) + '\nbut only have\n' + str(frm1))
+            error(loc, '\nCould not prove that\n\t' + str(frm1) \
+                  + '\nimplies\n\t' + str(frm2))
 
 def instantiate(loc, allfrm, args):
   match allfrm:
