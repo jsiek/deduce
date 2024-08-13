@@ -77,22 +77,24 @@ assert rotate_left(EmptyTree, pair(1,55), EmptyTree, pair(2,37), EmptyTree)
 ```
 
 
-```{.deduce #search_rotate_right}
+
+```{.deduce #search_rotate}
 theorem search_rotate_right: 
   all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
       B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
       C:Tree<Pair<Nat,Nat>>.
-  BST_search(TreeNode(TreeNode(A, x, B), y, C))
-  = BST_search(rotate_right(A, x, B, y, C))
+  if first(x) < first(y)
+  then  BST_search(TreeNode(TreeNode(A, x, B), y, C))
+      = BST_search(TreeNode(A, x, TreeNode(B, y, C)))
 proof
   arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
       B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
       C:Tree<Pair<Nat,Nat>>
+  suppose fx_less_fy
+  have not_fx_eq_fy: not (first(x) = first(y))
+    by apply less_not_equal to fx_less_fy
   extensionality
   arbitrary i:Nat
-  suffices BST_search(TreeNode(TreeNode(A, x, B), y, C))(i) 
-         = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
-      with definition rotate_right
   cases trichotomy[i][first(y)]
   case i_less_fy: i < first(y) {
     have not_i_eq_fy: not (i = first(y))
@@ -137,14 +139,46 @@ proof
     }
   }
   case i_eq_fy: i = first(y) {
-    ?
+    have i_greater_fx: first(x) < i
+      by rewrite symmetric i_eq_fy in fx_less_fy
+    have not_i_eq_fx: not (i = first(x))
+      by suppose i_eq_fx
+         apply (apply less_not_equal to i_greater_fx) to symmetric i_eq_fx
+    have not_i_less_fx: not (i < first(x))
+      by apply less_implies_not_greater to i_greater_fx
+    equations
+          BST_search(TreeNode(TreeNode(A, x, B), y, C))(i)
+        = just(second(y))
+          by definition {BST_search,BST_search}
+             and rewrite i_eq_fy | not_i_eq_fx | not_i_less_fx
+    ... = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
+          by definition {BST_search,BST_search}
+             and rewrite not_i_eq_fx | not_i_less_fx | i_eq_fy
   }
   case i_greater_fy: first(y) < i {
-    ?
+    have not_i_eq_fy: not (i = first(y))
+      by suppose i_eq_fy
+         apply (apply less_not_equal to i_greater_fy) to symmetric i_eq_fy
+    have not_i_less_fy: not (i < first(y))
+      by apply less_implies_not_greater to i_greater_fy
+    have i_greater_fx: first(x) < i
+      by apply less_trans to (fx_less_fy, i_greater_fy)
+    have not_i_eq_fx: not (i = first(x))
+      by suppose i_eq_fx
+         apply (apply less_not_equal to i_greater_fx) to symmetric i_eq_fx
+    have not_i_less_fx: not (i < first(x))
+      by apply less_implies_not_greater to i_greater_fx
+    equations
+          BST_search(TreeNode(TreeNode(A, x, B), y, C))(i)
+        = BST_search(C)(i)
+          by definition {BST_search,BST_search}
+             and rewrite not_i_eq_fy | not_i_less_fy
+    ... = BST_search(TreeNode(A, x, TreeNode(B, y, C)))(i)
+          by definition {BST_search,BST_search}
+          and rewrite not_i_eq_fy | not_i_less_fy | not_i_eq_fx | not_i_less_fx
   }
 end
 ```
-
 
 <!--
 ```{.deduce file=BalancedBST.pf} 
@@ -156,7 +190,7 @@ import BinarySearchTree
 <<rotate_right>>
 <<rotate_left>>
 
-<<search_rotate_right>>
+<<search_rotate>>
 
 ```
 -->

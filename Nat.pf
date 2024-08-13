@@ -530,7 +530,7 @@ proof
   definition operator≤ in prem
 end
 
-theorem less_equal_suc: all x:Nat, y:Nat.
+theorem suc_less_equal_suc: all x:Nat, y:Nat.
   if x ≤ y
   then suc(x) ≤ suc(y)
 proof
@@ -1151,6 +1151,24 @@ proof
   definition {operator+,operator+} in
   rewrite add_commute[n][1] in
   less_equal_add[n][1]
+end
+
+theorem less_trans: all m:Nat, n:Nat, o:Nat.
+  if m < n and n < o then m < o
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  suppose prem
+  suffices suc(m) ≤ o   with definition operator <
+  have _5: suc(m) ≤ suc(suc(m))
+     by less_equal_suc[suc(m)]
+  have _3: suc(suc(m)) ≤ suc(n) by
+     suffices suc(m) ≤ n with definition operator≤
+     definition operator < in prem
+  have _2: suc(n) ≤ o   by definition operator < in prem
+  have _4: suc(suc(m)) ≤ o
+     by apply less_equal_trans to (_3, _2)
+  conclude suc(m) ≤ o
+     by apply less_equal_trans to (_5, _4)
 end
 
 theorem less_one_add: all n:Nat.
