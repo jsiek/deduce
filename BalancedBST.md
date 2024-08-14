@@ -482,11 +482,15 @@ proof
       have y_less_C: all_nodes(C, λr{first(y) < first(r)}) 
         by definition {is_BST, is_BST} in rewrite AxB_node in prem
       have x_less_C: all_nodes(C, λr{first(x) < first(r)}) 
-        by define P = λr{first(y) < first(r)} : fn Pair<Nat,Nat> -> bool 
-           define Q = λr{first(x) < first(r)} : fn Pair<Nat,Nat> -> bool 
-           have above_y_implies_above_x: (all z:Pair<Nat,Nat>. if P(z) then Q(z))
-              by sorry
-           apply all_nodes_implies< Pair<Nat,Nat> >[C][P, Q]
+        by define aboveY = λr{first(y) < first(r)} : fn Pair<Nat,Nat> -> bool 
+           define aboveX = λr{first(x) < first(r)} : fn Pair<Nat,Nat> -> bool 
+           have above_y_implies_above_x: (all z:Pair<Nat,Nat>. if aboveY(z) then aboveX(z))
+              by arbitrary z:Pair<Nat,Nat>
+                 suppose z_aboveY
+                 have y_less_z: first(y) < first(z)  by definition aboveY in z_aboveY
+                 suffices first(x) < first(z)  with definition aboveX
+                 apply less_trans to fx_less_fy, y_less_z
+           apply all_nodes_implies< Pair<Nat,Nat> >[C][aboveY, aboveX]
            to (y_less_C, above_y_implies_above_x)
       have BST_B: is_BST(B)
         by definition {is_BST, is_BST} in rewrite AxB_node in prem
@@ -554,8 +558,8 @@ proof
                       by rewrite symmetric all_nodes_rotate_right_on[RL,y,RR, λr{first(x) < first(r)}] 
                          in x_less_RLyRR
                     have BST_RR: is_BST(rotate_right_on(RL, y, RR))
-                      by sorry
-                    ?
+                      by apply is_BST_rotate_right_on[RL,y,RR] to BST_RLyRR
+                    L_less_x, BST_L, x_less_RLyRR, x_less_RR, BST_RR
               have hRR_pos: 0 < height(rotate_right_on(RL, y, RR))
                  by apply rotate_right_on_height[RL,y,RR] to hRL_pos
               have _2: BST_search(rotate_left_on(L, x, rotate_right_on(RL, y, RR)))
