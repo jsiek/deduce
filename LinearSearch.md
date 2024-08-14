@@ -684,7 +684,7 @@ the `empty_no_members` theorem from `Set.pf`.
     arbitrary y:Nat, d:Nat
     suppose _
     suffices not (y ∈ ∅) with definition set_of
-    empty_no_members[Nat,y]
+    empty_no_members<Nat>[y]
 ```
 
 Turning to the case for `xs = node(x, xs')`, we take several
@@ -752,11 +752,11 @@ So it must be that `y ∈ set_of(xs')` (using `or_not` from `Base.pf`).
 ```{.deduce #search_absent_case_node_notequal_y_in_xs}
   // <<search_absent_case_node_notequal_y_in_xs>> =
   have ysx_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-	  by apply member_union[Nat] to y_in_x_union_xs
+	  by apply member_union<Nat> to y_in_x_union_xs
   have not_ysx: not (y ∈ single(x))
 	by suppose ysx
 	   rewrite xy_false in
-	   apply single_equal[Nat] to ysx
+	   apply single_equal<Nat> to ysx
   have y_xs: y ∈ set_of(xs')
 	by apply or_not[y ∈ single(x), y ∈ set_of(xs')] 
 	   to ysx_or_y_xs, not_ysx

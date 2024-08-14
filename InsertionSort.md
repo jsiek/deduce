@@ -265,11 +265,11 @@ proof
         ... = m_one(x) ⨄ (m_one(y) ⨄ mset_of(xs'))
               by rewrite IH[y]
         ... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
-              by rewrite m_sum_assoc[Nat,m_one(x),m_one(y),mset_of(xs')]
+              by rewrite m_sum_assoc<Nat>[m_one(x),m_one(y),mset_of(xs')]
         ... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
-              by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
+              by rewrite m_sum_commutes<Nat>[ m_one(x), m_one(y)]
         ... = m_one(y) ⨄ (m_one(x) ⨄ mset_of(xs'))
-              by rewrite m_sum_assoc[Nat,m_one(y),m_one(x),mset_of(xs')]
+              by rewrite m_sum_assoc<Nat>[m_one(y),m_one(x),mset_of(xs')]
         ... = m_one(y) ⨄ mset_of(node(x,xs'))
               by definition mset_of
       }
@@ -387,7 +387,7 @@ Now we apply `all_elements_implies` to prove `all_elements(xs',λb{(y ≤ b)})`.
 ```{.deduce #insert_sorted_y_le_xs}
   // <<insert_sorted_y_le_xs>> =
   have y_le_xs': all_elements(xs',λb{(y ≤ b)})
-    by apply all_elements_implies[Nat][xs']
+    by apply all_elements_implies<Nat>[xs']
              [λb{(x ≤ b)} : fn Nat->bool, λb{(y ≤ b)} : fn Nat->bool]
        to x_le_xs', x_le_implies_y_le
 ```
@@ -476,9 +476,9 @@ proof
              with definition mset_of
          insert_contents[xs][x]
   have ixsx_xxs: set_of(insert(xs, x)) = set_of(node(x, xs))
-     by apply mset_equal_implies_set_equal[Nat,insert(xs, x), node(x, xs)] 
+     by apply mset_equal_implies_set_equal<Nat>[insert(xs, x), node(x, xs)] 
         to m_xs_x
-  apply all_elements_set_of[Nat, insert(xs,x), node(x, xs), P]
+  apply all_elements_set_of<Nat>[ insert(xs,x), node(x, xs), P]
   to ixsx_xxs
 end
 ```

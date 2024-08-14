@@ -302,9 +302,9 @@ From the premise `prem`, both `xs` and `ys` must be `empty`.
   have lxs_lys_z: length(xs) = 0 and length(ys) = 0
     by apply add_to_zero[length(xs)][length(ys)] to prem
   have xs_mt: xs = empty
-    by apply length_zero_empty[Nat,xs] to lxs_lys_z
+    by apply length_zero_empty<Nat>[xs] to lxs_lys_z
   have ys_mt: ys = empty
-    by apply length_zero_empty[Nat,ys] to lxs_lys_z
+    by apply length_zero_empty<Nat>[ys] to lxs_lys_z
 ```
 
 After rewriting with those equalities and applying the definition of
@@ -323,7 +323,7 @@ theorem `m_sum_empty` from `MultiSet.pf`.
 
 ```{.deduce #mset_of_merge_case_zero_conclusion}
   // <<mset_of_merge_case_zero_conclusion>> =
-  symmetric m_sum_empty[Nat, @m_fun<Nat>(λx{0})]
+  symmetric m_sum_empty<Nat>[ @m_fun<Nat>(λx{0})]
 ```
 
 In the case for `n = suc(n')`, we need to prove
@@ -354,7 +354,7 @@ multiset produces `mset_of(ys)`.
     // <<mset_of_merge_case_suc_empty>> =
     suffices mset_of(ys) = m_fun(λx{0}) ⨄ mset_of(ys)
         with definition {mset_of}
-    symmetric empty_m_sum[Nat, mset_of(ys)]
+    symmetric empty_m_sum<Nat>[ mset_of(ys)]
 ```
 
 In the case for `xs = node(x, xs')`, `merge` performs a switch on
@@ -380,7 +380,7 @@ fact that combining `mset_of(ys)` with the empty multiset produces
     suffices m_one(x) ⨄ mset_of(xs')
            = (m_one(x) ⨄ mset_of(xs')) ⨄ m_fun(λ{0})
         with definition {mset_of}
-    rewrite m_sum_empty[Nat, m_one(x) ⨄ mset_of(xs')]
+    rewrite m_sum_empty<Nat>[ m_one(x) ⨄ mset_of(xs')]
 ```
 
 In the case for `ys = node(y, ys')`, we continue to follow the
@@ -437,7 +437,7 @@ the induction hypothesis in the second step.
     ... = m_one(x) ⨄ (mset_of(xs') ⨄ (m_one(y) ⨄ mset_of(ys')))
             by definition mset_of
     ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
-            by rewrite m_sum_assoc[Nat, m_one(x), mset_of(xs'),
+            by rewrite m_sum_assoc<Nat>[ m_one(x), mset_of(xs'),
                                   (m_one(y) ⨄ mset_of(ys'))]
     ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
             by definition mset_of
@@ -484,11 +484,11 @@ step, followed by the equational reasoning about multiset sum.
       ... = m_one(y) ⨄ ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys'))
               by definition mset_of
       ... = ((m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys')) ⨄ m_one(y)
-              by m_sum_commutes[Nat, m_one(y), (m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys')]
+              by m_sum_commutes<Nat>[ m_one(y), (m_one(x) ⨄ mset_of(xs')) ⨄ mset_of(ys')]
       ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (mset_of(ys') ⨄ m_one(y))
-              by m_sum_assoc[Nat, m_one(x) ⨄ mset_of(xs'), mset_of(ys'), m_one(y)]
+              by m_sum_assoc<Nat>[ m_one(x) ⨄ mset_of(xs'), mset_of(ys'), m_one(y)]
       ... = (m_one(x) ⨄ mset_of(xs')) ⨄ (m_one(y) ⨄ mset_of(ys'))
-              by rewrite m_sum_commutes[Nat, mset_of(ys'), m_one(y)]
+              by rewrite m_sum_commutes<Nat>[ mset_of(ys'), m_one(y)]
       ... = mset_of(node(x, xs')) ⨄ mset_of(node(y, ys'))
               by definition mset_of
 ```
@@ -551,14 +551,14 @@ proof
   equations
     set_of(merge(length(xs) + length(ys), xs, ys))
         = set_of_mset(mset_of(merge(length(xs) + length(ys), xs, ys)))
-            by symmetric som_mset_eq_set[Nat]
+            by symmetric som_mset_eq_set<Nat>
                              [merge(length(xs) + length(ys), xs, ys)]
     ... = set_of_mset(mset_of(xs) ⨄ mset_of(ys))
             by rewrite mset_of_merge[length(xs) + length(ys)][xs, ys]
     ... = set_of_mset(mset_of(xs)) ∪ set_of_mset(mset_of(ys))
-            by som_union[Nat, mset_of(xs), mset_of(ys)]
+            by som_union<Nat>[ mset_of(xs), mset_of(ys)]
     ... = set_of(xs) ∪ set_of(ys)
-            by rewrite som_mset_eq_set[Nat][xs] | som_mset_eq_set[Nat][ys]
+            by rewrite som_mset_eq_set<Nat>[xs] | som_mset_eq_set<Nat>[ys]
 end
 ```
 
@@ -654,7 +654,7 @@ simplifies our goal as follows
 ```{.deduce #x_le_merge_suffices}
     // <<x_le_merge_suffices>> =
     suffices (all z:Nat. (if z ∈ set_of(xs') ∪ set_of(node(y, ys')) then x ≤ z))
-        with rewrite all_elements_eq_member[Nat, merge(n', xs', node(y,ys')),
+        with rewrite all_elements_eq_member<Nat>[ merge(n', xs', node(y,ys')),
                                             λb{x ≤ b}]
                    | symmetric len_xs_yys | set_of_merge[xs',node(y,ys')]
     arbitrary z:Nat
@@ -676,7 +676,7 @@ so `x` is less-or-equal to `z`, being one of the elements in `xs'`.
 
 ```{.deduce #merge_sorted_z_in_xs}
   conclude x ≤ z by
-    apply all_elements_member[Nat][xs'][z, λb{x ≤ b}]
+    apply all_elements_member<Nat>[xs'][z, λb{x ≤ b}]
     to x_le_xs, z_in_xs
 ```
 
@@ -702,7 +702,7 @@ we conclude that `x ≤ z` by transitivity.
 ```{.deduce #merge_sorted_z_in_ys}
     // <<merge_sorted_z_in_ys>> =
     have y_z: y ≤ z
-      by apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+      by apply all_elements_member<Nat>[ys'][z,λb{y ≤ b}]
          to y_le_ys, z_in_ys
     have x_y: x ≤ y by rewrite xy_true
     conclude x ≤ z
@@ -747,12 +747,12 @@ proof
                 have x_le_merge: all_elements(merge(n',xs',node(y,ys')),λb{x ≤ b}) by
                     <<x_le_merge_suffices>>
                     suffices x ≤ z  by .
-                    cases apply member_union[Nat] to z_in_xs_yys
+                    cases apply member_union<Nat> to z_in_xs_yys
                     case z_in_xs: z ∈ set_of(xs') {
                       <<merge_sorted_z_in_xs>>
                     }
                     case z_in_ys: z ∈ set_of(node(y,ys')) {
-                      cases apply member_union[Nat] to definition set_of in z_in_ys
+                      cases apply member_union<Nat> to definition set_of in z_in_ys
                       case z_sy: z ∈ single(y) {
                         <<merge_sorted_z_in_y>>
                       }
@@ -790,15 +790,15 @@ proof
                     with definition sorted
                 have y_le_merge: all_elements(merge(n',node(x,xs'),ys'),λb{y ≤ b}) by
                     suffices (all z:Nat. (if z ∈ set_of(node(x, xs')) ∪ set_of(ys') then y ≤ z))
-                        with rewrite all_elements_eq_member[Nat,merge(n',node(x,xs'),ys'),λb{y ≤ b}]
+                        with rewrite all_elements_eq_member<Nat>[merge(n',node(x,xs'),ys'),λb{y ≤ b}]
                                    | symmetric len_xxs_ys | set_of_merge[node(x,xs'),ys']
                     arbitrary z:Nat
                     suppose z_in_xxs_ys: z ∈ set_of(node(x,xs')) ∪ set_of(ys')
                     suffices y ≤ z  by.
-                    cases apply member_union[Nat] to z_in_xxs_ys
+                    cases apply member_union<Nat> to z_in_xxs_ys
                     case z_in_xxs: z ∈ set_of(node(x,xs')) {
                       have z_in_sx_or_xs: z ∈ single(x) or z ∈ set_of(xs')
-                        by apply member_union[Nat] to definition set_of in z_in_xxs
+                        by apply member_union<Nat> to definition set_of in z_in_xxs
                       cases z_in_sx_or_xs
                       case z_in_sx: z ∈ single(x) {
                         have x_z: x = z  by definition {operator ∈, single, rep} in z_in_sx
@@ -806,7 +806,7 @@ proof
                       }
                       case z_in_xs: z ∈ set_of(xs') {
                         have x_z: x ≤ z
-                          by apply all_elements_member[Nat][xs'][z,λb{x ≤ b}]
+                          by apply all_elements_member<Nat>[xs'][z,λb{x ≤ b}]
                              to x_le_xs, z_in_xs
                         conclude y ≤ z 
                            by apply less_equal_trans[y][x,z] to y_x, x_z
@@ -814,7 +814,7 @@ proof
                     }
                     case z_in_ys: z ∈ set_of(ys') {
                       conclude y ≤ z by
-                        apply all_elements_member[Nat][ys'][z,λb{y ≤ b}]
+                        apply all_elements_member<Nat>[ys'][z,λb{y ≤ b}]
                         to y_le_ys, z_in_ys
                     }
                 IH_xxs_ys, y_le_merge
@@ -844,13 +844,13 @@ proof
       case empty {
         suffices @m_fun<Nat>(λ{0}) ⨄ @m_fun<Nat>(λ{0}) = @m_fun<Nat>(λ{0})
             with definition {first, second, mset_of}
-        rewrite m_sum_empty[Nat,m_fun(λx{0})]
+        rewrite m_sum_empty<Nat>[m_fun(λx{0})]
       }
       case node(x, xs') {
         suffices (m_one(x) ⨄ @m_fun<Nat>(λ{0})) ⨄ mset_of(xs')
                = m_one(x) ⨄ mset_of(xs')
             with definition {first, second, mset_of, mset_of}
-        rewrite m_sum_empty[Nat,m_one(x)]
+        rewrite m_sum_empty<Nat>[m_one(x)]
       }
     }
   }
@@ -872,7 +872,7 @@ proof
         = (mset_of(ys) ⨄ mset_of(zs)) ⨄ mset_of(ms)
           by rewrite (mset_of_merge[length(ys) + length(zs)][ys,zs])
     ... = mset_of(ys) ⨄ (mset_of(zs) ⨄ mset_of(ms))
-          by rewrite m_sum_assoc[Nat, mset_of(ys), mset_of(zs), mset_of(ms)]
+          by rewrite m_sum_assoc<Nat>[ mset_of(ys), mset_of(zs), mset_of(ms)]
     ... = mset_of(ys) ⨄ mset_of(ls)
           by rewrite conclude mset_of(zs) ⨄ mset_of(ms) = mset_of(ls)
                      by enable {zs, ms} IH[ls]
@@ -1190,14 +1190,14 @@ proof
            with rewrite add_zero[length(ys)]
        rewrite symmetric len_ys in len_ys_ls_eq_xs
   have ls_mt: ls = empty
-    by apply length_zero_empty[Nat, ls] to len_ls
+    by apply length_zero_empty<Nat>[ ls] to len_ls
 
   have ys_ls_eq_xs: mset_of(ys)  ⨄  mset_of(ls) = mset_of(xs)
     by enable {ys, ls} mset_of_msort[n][xs]
 
   equations
           mset_of(ys)
-        = mset_of(ys)  ⨄  m_fun(λx{0})   by rewrite m_sum_empty[Nat,mset_of(ys)]
+        = mset_of(ys)  ⨄  m_fun(λx{0})   by rewrite m_sum_empty<Nat>[mset_of(ys)]
     ... = mset_of(ys)  ⨄  mset_of(empty) by definition mset_of
     ... = mset_of(ys)  ⨄  mset_of(ls)    by rewrite ls_mt 
     ... = mset_of(xs)                    by ys_ls_eq_xs
