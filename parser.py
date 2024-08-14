@@ -361,6 +361,10 @@ def parse_tree_to_ast(e, parent):
         univ = parse_tree_to_ast(e.children[0], e)
         args = parse_tree_to_list(e.children[1], e)
         return AllElim(e.meta, univ, args)
+    elif e.data == 'all_elim_types':
+        univ = parse_tree_to_ast(e.children[0], e)
+        type_args = parse_tree_to_list(e.children[1], e)
+        return AllElimTypes(e.meta, univ, type_args)
     elif e.data == 'some_intro':
         witnesses = parse_tree_to_list(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)

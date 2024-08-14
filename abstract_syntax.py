@@ -1519,6 +1519,19 @@ class AllIntro(Proof):
     self.body.uniquify(body_env)
     
 @dataclass
+class AllElimTypes(Proof):
+  univ: Proof
+  args: List[Type]
+
+  def __str__(self):
+    return str(self.univ) + '<' + ','.join([str(arg) for arg in self.args]) + '>'
+
+  def uniquify(self, env):
+    self.univ.uniquify(env)
+    for arg in self.args:
+      arg.uniquify(env)
+      
+@dataclass
 class AllElim(Proof):
   univ: Proof
   args: List[Term]

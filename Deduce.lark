@@ -160,7 +160,7 @@ ident: IDENT              -> ident
     | "extensionality" proof                             -> extensionality_proof
     | "(" proof ")"                                      -> paren
     | proof_hi "[" term_list "]"                         -> all_elim
-    | proof_hi "<" type_list ">"                         -> all_elim
+    | proof_hi "<" type_list ">"                         -> all_elim_types
     | "?"                                                -> hole_proof
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"

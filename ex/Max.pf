@@ -39,7 +39,7 @@ proof
     arbitrary y:Nat, d:Nat
     suppose impossible: y ∈ set_of(empty)
     conclude false
-        by apply empty_no_members[Nat, y]
+        by apply empty_no_members<Nat>[y]
 	   to definition {set_of} in impossible
   }
   case node(x, xs') suppose IH {
@@ -48,10 +48,10 @@ proof
     _definition max_element
     suffices y ≤ max(x,max_element(xs',d))   by .
     have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-      by apply member_union[Nat] to definition set_of in y_in_xxs
+      by apply member_union<Nat> to definition set_of in y_in_xxs
     cases xy_or_y_xs
     case y_in_sx: y ∈ single(x) {
-      have x_y: x = y by apply single_equal[Nat] to y_in_sx
+      have x_y: x = y by apply single_equal<Nat> to y_in_sx
       _rewrite x_y
       conclude y ≤ max(y,max_element(xs',d))
           by max_greater_left[y][max_element(xs',d)]
@@ -85,12 +85,13 @@ proof
       _definition {max_element, set_of}
       cases max_is_left_or_right[x][max_element(xs',d)]
       case m_x: max(x,max_element(xs',d)) = x {
-        _rewrite m_x
-	apply in_left_union[Nat,set_of(xs')] to single_member[Nat,x]
+        suffices x ∈ single(x) ∪ set_of(xs')  with rewrite m_x
+	apply in_left_union<Nat>[set_of(xs'), x, single(x)] to single_member<Nat>[x]
       }
       case m_mxs: max(x,max_element(xs',d)) = max_element(xs',d) {
-        _rewrite m_mxs
-        apply in_right_union[Nat, single(x)] to mxs_in_xs
+        suffices max_element(xs', d) ∈ single(x) ∪ set_of(xs')
+            with rewrite m_mxs
+        apply in_right_union<Nat>[single(x), max_element(xs',d), set_of(xs')] to mxs_in_xs
       }
     }
     case mxs_d: max_element(xs',d) = d {
@@ -100,7 +101,7 @@ proof
       case m_x: max(x,d) = x {
         _rewrite m_x
 	have x_sx_xs: x ∈ (single(x) ∪ set_of(xs'))
-	  by apply in_left_union[Nat,set_of(xs')] to single_member[Nat,x]
+	  by apply in_left_union<Nat>[set_of(xs'), x, single(x)] to single_member<Nat>[x]
         x_sx_xs
       }
       case m_d: max(x,d) = d {

@@ -383,7 +383,18 @@ theorem rotate_right_on_height: all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, B:Tr
   if 0 < height(A)
   then 0 < height(rotate_right_on(A, x, B))
 proof
-  sorry
+  arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, B:Tree<Pair<Nat,Nat>>
+  suppose hA_pos
+  switch A for rotate_right_on {
+    case EmptyTree suppose A_empty {
+      conclude false
+        by definition {height, operator<, operator≤} in rewrite A_empty in hA_pos
+    }
+    case TreeNode(AL, y, AR) suppose A_node {
+      conclude 0 < height(rotate_right(AL, y, AR, x, B))
+          by definition {rotate_right, height, height, operator<, operator≤, operator≤}
+    }
+  }
 end
 ```
 
@@ -401,6 +412,35 @@ proof
     case TreeNode(L, y, R) {
       definition {rotate_right, all_nodes, all_nodes}
     }
+  }
+end
+```
+
+```{.deduce #all_nodes_implies}
+theorem all_nodes_implies: all T:type. all A:Tree<T>.
+  all P: fn T -> bool, Q: fn T -> bool.
+  if all_nodes(A,P) and (all z:T. if P(z) then Q(z))
+  then all_nodes(A,Q)
+proof
+  arbitrary T:type
+  induction Tree<T>
+  case EmptyTree {
+    arbitrary P: fn T -> bool, Q: fn T -> bool
+    suppose prem
+    definition all_nodes
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary P: fn T -> bool, Q: fn T -> bool
+    suppose prem
+    suffices all_nodes(L, Q) and Q(x) and all_nodes(R, Q)
+        with definition all_nodes
+    have Px: P(x) by definition all_nodes in prem
+    have Qx: Q(x) by apply (conjunct 1 of prem)[x] to Px
+    have R_P: all_nodes(R, P) by definition all_nodes in prem
+    have L_P: all_nodes(L, P) by definition all_nodes in prem
+    have R_Q: all_nodes(R, Q) by apply IH_R[P,Q] to (R_P, prem)
+    have L_Q: all_nodes(L, Q) by apply IH_L[P,Q] to (L_P, prem)
+    L_Q, Qx, R_Q
   }
 end
 ```
@@ -435,14 +475,19 @@ proof
         by definition {is_BST, is_BST} in rewrite AxB_node in prem
       have fx_less_fy: first(x) < first(y) 
         by definition {is_BST, is_BST, all_nodes} in rewrite AxB_node in prem
-      have x_less_C: all_nodes(C, λr{first(x) < first(r)}) 
-        by sorry
       have BST_A: is_BST(A) 
         by definition {is_BST, is_BST} in rewrite AxB_node in prem
       have B_less_y: all_nodes(B, λl{first(l) < first(y)}) 
-        by sorry
+        by definition {is_BST, is_BST, all_nodes} in rewrite AxB_node in prem
       have y_less_C: all_nodes(C, λr{first(y) < first(r)}) 
         by definition {is_BST, is_BST} in rewrite AxB_node in prem
+      have x_less_C: all_nodes(C, λr{first(x) < first(r)}) 
+        by define P = λr{first(y) < first(r)} : fn Pair<Nat,Nat> -> bool 
+           define Q = λr{first(x) < first(r)} : fn Pair<Nat,Nat> -> bool 
+           have above_y_implies_above_x: (all z:Pair<Nat,Nat>. if P(z) then Q(z))
+              by sorry
+           apply all_nodes_implies< Pair<Nat,Nat> >[C][P, Q]
+           to (y_less_C, above_y_implies_above_x)
       have BST_B: is_BST(B)
         by definition {is_BST, is_BST} in rewrite AxB_node in prem
       have BST_C: is_BST(C)
@@ -508,6 +553,8 @@ proof
                     have x_less_RR: all_nodes(rotate_right_on(RL, y, RR), λr{first(x) < first(r)}) 
                       by rewrite symmetric all_nodes_rotate_right_on[RL,y,RR, λr{first(x) < first(r)}] 
                          in x_less_RLyRR
+                    have BST_RR: is_BST(rotate_right_on(RL, y, RR))
+                      by sorry
                     ?
               have hRR_pos: 0 < height(rotate_right_on(RL, y, RR))
                  by apply rotate_right_on_height[RL,y,RR] to hRL_pos
@@ -560,6 +607,7 @@ import BinarySearchTree
 <<search_compositional>>
 <<rotate_right_on_height>>
 <<all_nodes_rotate_right_on>>
+<<all_nodes_implies>>
 <<is_BST_rotate_right_on>>
 <<search_balance>>
 

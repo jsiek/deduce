@@ -20,30 +20,34 @@ define m_one : < T > fn T -> MultiSet<T>
 define operator ⨄ : < T > fn MultiSet<T>, MultiSet<T> -> MultiSet<T>
          = generic T { λP,Q{ m_fun(λx{ cnt(P)(x) + cnt(Q)(x) }) } }
 
-theorem m_one_cnt: all T:type, x:T. cnt(m_one(x))(x) = 1
+theorem m_one_cnt: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
-  arbitrary T:type, x:T
+  arbitrary T:type
+  arbitrary x:T
   _definition {cnt, m_one}.
 end
 
-theorem m_empty_zero: all T:type, x:T.
+theorem m_empty_zero: all T:type. all x:T.
   cnt(m_fun(λy{0}: fn T->Nat))(x) = 0
 proof
-  arbitrary T:type, x:T
+  arbitrary T:type
+  arbitrary x:T
   _definition {cnt}.
 end
 
-theorem cnt_sum: all T:type, A:MultiSet<T>, B:MultiSet<T>, x:T.
+theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
   cnt(A ⨄ B)(x) = cnt(A)(x) + cnt(B)(x)
 proof
-  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>, x:T
+  arbitrary T:type
+  arbitrary A:MultiSet<T>, B:MultiSet<T>, x:T
   _definition {cnt, operator ⨄}.
 end
 
-theorem m_sum_empty: all T:type, A:MultiSet<T>.
+theorem m_sum_empty: all T:type. all A:MultiSet<T>.
   A ⨄ m_fun(λy{0}: fn T->Nat) = A
 proof
-  arbitrary T:type, A:MultiSet<T>
+  arbitrary T:type
+  arbitrary A:MultiSet<T>
   _definition {operator ⨄, cnt}
   switch A {
     case m_fun(f) {
@@ -55,10 +59,11 @@ proof
   }
 end
 
-theorem empty_m_sum: all T:type, A:MultiSet<T>.
+theorem empty_m_sum: all T:type. all A:MultiSet<T>.
   m_fun(λx{0} : fn T->Nat) ⨄ A = A
 proof
-  arbitrary T:type, A:MultiSet<T>
+  arbitrary T:type
+  arbitrary A:MultiSet<T>
   _definition {operator ⨄, m_fun}
   switch A {
     case m_fun(f) {
@@ -72,10 +77,11 @@ proof
 end
 
 
-theorem m_sum_commutes: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+theorem m_sum_commutes: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
   A ⨄ B = B ⨄ A
 proof
-  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>
+  arbitrary T:type
+  arbitrary A:MultiSet<T>, B:MultiSet<T>
   _definition {operator ⨄}
   switch A {
     case m_fun(f) {
@@ -92,10 +98,11 @@ proof
   }
 end
 
-theorem m_sum_assoc: all T:type, A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>.
+theorem m_sum_assoc: all T:type. all A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>.
   (A ⨄ B) ⨄ C = A ⨄ (B ⨄ C)
 proof
-  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>
+  arbitrary T:type
+  arbitrary A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>
   _definition {operator ⨄}
   switch A {
     case m_fun(f) {
@@ -120,10 +127,11 @@ end
 define set_of_mset : < T > fn MultiSet<T> -> Set<T>
   = generic T {λM{char_fun(λx{ if cnt(M)(x) = 0 then false else true })}}
 
-theorem som_one_single: all T:type, x:T.
+theorem som_one_single: all T:type. all x:T.
   set_of_mset(m_one(x)) = single(x)
 proof
-  arbitrary T:type, z:T
+  arbitrary T:type
+  arbitrary z:T
   _definition {m_one, single, set_of_mset}
   have eq: (λx{(if cnt(m_fun(λy{(if z = y then 1 else 0)}: fn T->Nat))(x) = 0
                then false else true)} : fn T->bool)
@@ -147,10 +155,11 @@ proof
   rewrite eq
 end
 
-theorem som_union: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
   set_of_mset(A ⨄ B) = set_of_mset(A) ∪ set_of_mset(B)
 proof
-  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>
+  arbitrary T:type
+  arbitrary A:MultiSet<T>, B:MultiSet<T>
   _definition {set_of_mset, operator ∪, operator ⨄, cnt, rep}
   have eq: (λx{(if cnt(A)(x) + cnt(B)(x) = 0 then false else true)}: fn T->bool)
     = λx{((if cnt(A)(x) = 0 then false else true)

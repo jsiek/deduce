@@ -83,7 +83,7 @@ proof
              and all_elements(next, λb{x ≤ b})
                             with definition {sorted, sorted, all_elements}
         have x_le_next: all_elements(next, λb{(x ≤ b)})
-          by apply all_elements_implies[Nat][next][λb{(y ≤ b)}, λb{(x ≤ b)}]
+          by apply all_elements_implies<Nat>[next][λb{(y ≤ b)}, λb{(x ≤ b)}]
              to y_next , (arbitrary z:Nat
                           suppose y_z: y ≤ z
                           conclude x ≤ z by apply less_equal_trans
@@ -130,11 +130,11 @@ proof
             = m_one(x) ⨄ mset_of(insert(xs', y))          by definition mset_of
         ... = m_one(x) ⨄ m_one(y) ⨄ mset_of(xs')          by rewrite IH[y]
         ... = (m_one(x) ⨄ m_one(y)) ⨄ mset_of(xs')
-                by symmetric m_sum_assoc[Nat, m_one(x), m_one(y), mset_of(xs')]
+                by symmetric m_sum_assoc<Nat>[m_one(x), m_one(y), mset_of(xs')]
         ... = (m_one(y) ⨄ m_one(x)) ⨄ mset_of(xs')
-                by rewrite m_sum_commutes[Nat, m_one(x), m_one(y)]
+                by rewrite m_sum_commutes<Nat>[m_one(x), m_one(y)]
         ... = m_one(y) ⨄ m_one(x) ⨄ mset_of(xs')
-                by m_sum_assoc[Nat, m_one(y), m_one(x), mset_of(xs')]
+                by m_sum_assoc<Nat>[m_one(y), m_one(x), mset_of(xs')]
         ... = m_one(y) ⨄ mset_of(node(x, xs'))            by definition mset_of
       }
     }
@@ -175,15 +175,15 @@ proof
   case empty {
     arbitrary ys:List<Nat>
     _definition {isort, mset_of}
-    _rewrite empty_m_sum[Nat, mset_of(ys)].
+    _rewrite empty_m_sum<Nat>[mset_of(ys)].
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<Nat>
     _definition {isort, mset_of}
     _rewrite IH[insert(ys,x)]
     _rewrite insert_contents[ys][x]
-    _rewrite m_sum_commutes[Nat, m_one(x), mset_of(xs')]
-    _rewrite m_sum_assoc[Nat, mset_of(xs'), m_one(x), mset_of(ys)].
+    _rewrite m_sum_commutes<Nat>[m_one(x), mset_of(xs')]
+    _rewrite m_sum_assoc<Nat>[mset_of(xs'), m_one(x), mset_of(ys)].
   }
 end
 
@@ -206,5 +206,5 @@ proof
   _definition insertion_sort
   _rewrite isort_contents[xs][empty]
   _definition mset_of
-  _rewrite m_sum_empty[Nat,mset_of(xs)].
+  _rewrite m_sum_empty<Nat>[mset_of(xs)].
 end

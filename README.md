@@ -23,15 +23,16 @@ following is a proof that appending two lists and then applying the
 and then appending them.
 
 ``` {.deduce #map_append}
-theorem map_append: all T : type, f : fn T->T, ys : List<T>. all xs : List<T>.
+theorem map_append: all T : type. all f : fn T->T, ys : List<T>. all xs : List<T>.
   map(xs ++ ys, f) = map(xs,f) ++ map(ys,f)
 proof
-  arbitrary T : type, f : fn T->T, ys : List<T>
+  arbitrary T : type
+  arbitrary f : fn T->T, ys : List<T>
   induction List<T>
   case empty {
     equations
       map(@empty<T> ++ ys, f)
-          = map(ys, f)                      by definition operator++
+          = map(ys, f)                       by definition operator++
       ... = @empty<T> ++ map(ys, f)          by definition operator++
       ... = map(@empty<T>, f) ++ map(ys, f)  by definition map
   }
@@ -42,7 +43,7 @@ proof
     equations
       map(node(x,xs') ++ ys, f)
           = node(f(x), map(xs' ++ ys, f))         by .
-      ... = node(f(x), map(xs',f) ++ map(ys,f))   by _rewrite IH.
+      ... = node(f(x), map(xs',f) ++ map(ys,f))   by rewrite IH
       ... = map(node(x,xs'),f) ++ map(ys,f)       by .
   }
 end

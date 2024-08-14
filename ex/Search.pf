@@ -59,7 +59,7 @@ proof
     suppose _
     conclude not (y ∈ set_of(empty))
         by _definition {set_of}
-           empty_no_members[Nat,y]
+           empty_no_members<Nat>[y]
   }
   case node(x, xs') suppose IH {
     arbitrary y:Nat
@@ -74,10 +74,10 @@ proof
       case false suppose not_xy {
         suppose y_in_xxs: y ∈ set_of(node(x,xs'))
         have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-          by apply member_union[Nat] to definition set_of in y_in_xxs
+          by apply member_union<Nat> to definition set_of in y_in_xxs
         cases xy_or_y_xs
         case y_sx: y ∈ single(x) {
-          have x_y: x = y by apply single_equal[Nat] to y_sx
+          have x_y: x = y by apply single_equal<Nat> to y_sx
           conclude false   by rewrite not_xy in x_y
         }
         case y_xs {
@@ -102,7 +102,7 @@ proof
   case empty {
     arbitrary y:Nat, d:Nat
     suppose y_empty: y ∈ set_of(empty)
-    conclude false   by apply empty_no_members[Nat,y]
+    conclude false   by apply empty_no_members<Nat>[y]
                         to definition {set_of} in y_empty
   }
   case node(x, xs') suppose IH {
@@ -116,11 +116,11 @@ proof
       case false suppose xy_false {
         _definition pred
         have xy_or_y_xs: y ∈ single(x) or y ∈ set_of(xs')
-          by apply member_union[Nat]
+          by apply member_union<Nat>
              to definition set_of in y_in_xxs
         cases xy_or_y_xs
         case y_sx: y ∈ single(x) {
-          have x_y: x = y by apply single_equal[Nat] to y_sx
+          have x_y: x = y by apply single_equal<Nat> to y_sx
           conclude false   by rewrite xy_false in x_y
         }
         case y_xs: y ∈ set_of(xs') {
@@ -154,8 +154,8 @@ proof
         conclude false
             by enable {set_of}
                apply y_not_xxs
-               to (apply in_left_union[Nat,set_of(xs)][y, single(x)]
-                   to _rewrite x_y single_member[Nat, y])
+               to (apply in_left_union<Nat>[set_of(xs)][y, single(x)]
+                   to _rewrite x_y single_member<Nat>[ y])
       }
       case false suppose not_xy {
         _definition {operator+, operator+}
@@ -166,7 +166,7 @@ proof
              to suppose y_xs
                 (apply y_not_xxs to
                 _definition set_of
-                apply in_right_union[Nat,single(x)] to y_xs)
+                apply in_right_union<Nat>[single(x)] to y_xs)
         _rewrite s_l.
       }
     }

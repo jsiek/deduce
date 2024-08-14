@@ -388,8 +388,25 @@ def check_proof(proof, env):
           for ((var,ty), arg) in zip(vars, args):
             new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
             if isinstance(ty, TypeType):
-              sub[var] = new_arg
+                error(loc, 'unexpected type parameter ' + base_name(var) \
+                      + ' in term instantiation')
             new_args.append(new_arg)
+        case _:
+          error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
+      return instantiate(loc, allfrm, new_args)
+
+    case AllElimTypes(loc, univ, type_args):
+      allfrm = check_proof(univ, env)
+      match allfrm:
+        case All(loc2, tyof, vars, frm):
+          sub = {}
+          new_args = []
+          for ((var,ty), type_arg) in zip(vars, type_args):
+            check_type(type_arg, env)
+            if not isinstance(ty, TypeType):
+                error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
+            sub[var] = type_arg
+            new_args.append(type_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
       return instantiate(loc, allfrm, new_args)
@@ -415,7 +432,9 @@ def check_proof(proof, env):
           for x in vars:
               if x.name not in matching.keys():
                   error(loc, "could not deduce an instantiation for variable "\
-                        + str(x))
+                        + str(x) + '\n' \
+                        + 'for application of\n\t' + str(ifthen) + '\n'\
+                        + 'to\n\t' + str(arg))
           ret = conc.substitute(matching)
         case _:
           error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
@@ -546,7 +565,11 @@ def check_proof_of(proof, formula, env):
       match formula:
         case All(loc2, tyof, vars2, formula2):
           if len(vars) != len(vars2):
-            error(proof.location, 'mismatch in number of variables')
+            error(proof.location, 'mismatch in number of variables for the goal: ' \
+                  + str(len(vars2)) + '\n' \
+                  + '\t' + str(formula) + '\n' \
+                  + 'and the number in the arbitrary statement: ' + str(len(vars)) + '\n' \
+                  + '\t' + ', '.join([base_name(x) + ':' + str(ty) for (x,ty) in vars]))
           sub = {}
           for (var,var2) in reversed(list(zip(vars,vars2))):
             if isinstance(var[1], TypeType):
@@ -1205,6 +1228,18 @@ def type_synth_term(term, env, recfun, subterms):
       ret = IfThen(loc, ty, new_prem, new_conc)
       
     case All(loc, _, vars, body):
+      all_types = None
+      for (x,ty) in vars:
+          if isinstance(ty, TypeType):
+              if all_types == None or all_types == True:
+                all_types = True
+              else:
+                  error(loc, 'cannot mix type and term variables in an all formula')
+          else:
+              if all_types == None or all_types == False:
+                  all_types = False
+              else:
+                  error(loc, 'cannot mix type and term variables in an all formula')
       body_env = env.declare_term_vars(loc, vars)
       new_body = check_formula(body, body_env)      
       ty = BoolType(loc)

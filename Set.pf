@@ -34,9 +34,10 @@ define operator ∈ : < T > fn T, Set<T> -> bool
 define operator ⊆ : < T > fn Set<T>, Set<T> -> bool
          = generic T { λP,Q{all x:T. if x ∈ P then x ∈ Q} }
 
-theorem single_member: all T:type, x:T.  x ∈ single(x)
+theorem single_member: all T:type. all x:T.  x ∈ single(x)
 proof
-  arbitrary T:type, x:T
+  arbitrary T:type
+  arbitrary x:T
   definition {single, operator ∈, rep}
 end
 
@@ -50,10 +51,11 @@ proof
   y_in_x
 end
 
-theorem empty_no_members: all T:type, x:T.
+theorem empty_no_members: all T:type. all x:T.
   not (x ∈ ∅)
 proof
-  arbitrary T:type, x:T
+  arbitrary T:type
+  arbitrary x:T
   suppose x_in_empty: x ∈ ∅
   enable {operator ∈, rep}
   x_in_empty
@@ -88,10 +90,11 @@ proof
   x_AB
 end
 
-theorem union_empty: all T:type, A:Set<T>.
+theorem union_empty: all T:type. all A:Set<T>.
   A ∪ ∅ = A
 proof
-  arbitrary T:type, A:Set<T>
+  arbitrary T:type
+  arbitrary A:Set<T>
   suffices A ∪ @char_fun<T>(λ_{false}) = A   by .
   suffices @char_fun<T>(λx{rep(A)(x)}) = A   with definition {operator ∪, rep}
   switch A {
@@ -103,10 +106,11 @@ proof
   }
 end
 
-theorem empty_union: all T:type, A:Set<T>.
+theorem empty_union: all T:type. all A:Set<T>.
   @char_fun<T>(λx{false}) ∪ A = A
 proof
-  arbitrary T:type, A:Set<T>
+  arbitrary T:type
+  arbitrary A:Set<T>
   suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep, char_fun}
   switch A {
     case char_fun(f) {
@@ -117,10 +121,11 @@ proof
   }
 end
 
-theorem union_sym: all T:type, A:Set<T>, B:Set<T>.
+theorem union_sym: all T:type. all A:Set<T>, B:Set<T>.
   A ∪ B = B ∪ A
 proof
-  arbitrary T:type, A:Set<T>, B:Set<T>
+  arbitrary T:type
+  arbitrary A:Set<T>, B:Set<T>
   suffices @char_fun<T>(λx{(rep(A)(x) or rep(B)(x))})
              = char_fun(λx{(rep(B)(x) or rep(A)(x))})
       by definition operator ∪
@@ -140,18 +145,20 @@ proof
   }
 end
 
-theorem union_assoc: all T:type, A:Set<T>, B:Set<T>, C:Set<T>.
+theorem union_assoc: all T:type. all A:Set<T>, B:Set<T>, C:Set<T>.
   (A ∪ B) ∪ C = A ∪ (B ∪ C)
 proof
-  arbitrary T:type, A:Set<T>, B:Set<T>, C:Set<T>
+  arbitrary T:type
+  arbitrary A:Set<T>, B:Set<T>, C:Set<T>
   definition {operator ∪, rep}
 end
 
 theorem in_left_union:
-  all T:type, B:Set<T>. all x:T, A: Set<T>.
+  all T:type. all B:Set<T>. all x:T, A: Set<T>.
   if x ∈ A then x ∈ (A ∪ B)
 proof
-  arbitrary T:type, B:Set<T>
+  arbitrary T:type
+  arbitrary B:Set<T>
   arbitrary x:T, A: Set<T>
   suppose x_A: x ∈ A
   suffices (rep(A)(x) or rep(B)(x))
@@ -160,25 +167,27 @@ proof
 end
 
 theorem in_right_union:
-  all T:type, A: Set<T>. all x:T, B:Set<T>.
+  all T:type. all A: Set<T>. all x:T, B:Set<T>.
   if x ∈ B then x ∈ (A ∪ B)
 proof
-  arbitrary T:type, A: Set<T>
+  arbitrary T:type
+  arbitrary A: Set<T>
   arbitrary x:T, B:Set<T>
   suppose x_B: x ∈ B
-  conclude x ∈ A ∪ B   by apply union_member[T][x,A,B] to x_B
+  conclude x ∈ A ∪ B   by apply union_member<T>[x,A,B] to x_B
 end
 
 theorem subset_equal:
-  all T:type, A:Set<T>, B:Set<T>.
+  all T:type. all A:Set<T>, B:Set<T>.
   if A ⊆ B and B ⊆ A
   then A = B
 proof
-  suffices all T:type, A:Set<T>, B:Set<T>.
+  suffices all T:type. all A:Set<T>, B:Set<T>.
     if (all x:T. (if x ∈ A then x ∈ B)) and (all x:T. (if x ∈ B then x ∈ A))
     then A = B
         by definition operator⊆
-  arbitrary U:type, A:Set<U>, B:Set<U>
+  arbitrary U:type
+  arbitrary A:Set<U>, B:Set<U>
   suppose prem
   switch A {
     case char_fun(f) suppose A_f {

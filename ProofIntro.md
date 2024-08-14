@@ -168,13 +168,14 @@ end
 We can generalize the theorem yet again by noticing that it does not
 matter whether the element is a natural number. It could be a value of
 any type. In Deduce we can also use the `all` statement to generalize
-types. In the following, we add `U:type` to the `all` formula and to
-the `arbitrary` statement.
+types. In the following, we add `all U:type` to the formula and 
+another `arbitrary` statement.
 
 ```{.deduce #length_one}
-theorem length_one: all U:type, x:U. length(node(x, empty)) = 1
+theorem length_one: all U:type. all x:U. length(node(x, empty)) = 1
 proof
-  arbitrary U:type, x:U
+  arbitrary U:type
+  arbitrary x:U
   definition {length, length, operator +, operator+}
 end
 ```
@@ -192,7 +193,7 @@ To summarize this section:
 
 Prove that
 ```
-all T:type, x:T, y:T. node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
+all T:type. all x:T, y:T. node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
 ```
 
 Prove again that 
@@ -213,10 +214,11 @@ For example, let us prove the following theorem using `rewrite`
 with the above `length_one` theorem.
 
 ```
-theorem length_one_equal: all U:type, x:U, y:U.
+theorem length_one_equal: all U:type. all x:U, y:U.
   length(node(x,empty)) = length(node(y,empty))
 proof
-  arbitrary U:type, x:U, y:U
+  arbitrary U:type
+  arbitrary x:U, y:U
   ?
 end
 ```
@@ -225,7 +227,7 @@ To replace `length(node(x,empty))` with `1`, we rewrite
 using the `length_one` theorem instantiated at `U` and `x`.
 
 ```
-rewrite length_one[U,x]
+rewrite length_one<U>[x]
 ```
 
 Deduce tells us that the current goal has become
@@ -239,7 +241,7 @@ We rewrite again, separated by a vertical bar, using `length_one`,
 this time instantiated with `y`.
 
 ```
-rewrite length_one[U,x] | length_one[U,y]
+rewrite length_one<U>[x] | length_one<U>[y]
 ```
 
 Deduce changes the goal to `1 = 1`, which simplies to just `true`
@@ -248,11 +250,12 @@ Deduce changes the goal to `1 = 1`, which simplies to just `true`
 Here is the completed proof of `length_one_equal`.
 
 ```{.deduce #length_one_equal}
-theorem length_one_equal: all U:type, x:U, y:U.
+theorem length_one_equal: all U:type. all x:U, y:U.
   length(node(x,empty)) = length(node(y,empty))
 proof
-  arbitrary U:type, x:U, y:U
-  rewrite length_one[U,x] | length_one[U,y]
+  arbitrary U:type
+  arbitrary x:U, y:U
+  rewrite length_one<U>[x] | length_one<U>[y]
 end
 ```
 
@@ -847,10 +850,11 @@ then it must be the `empty` list. Along the way we will also learn how
 to apply a definition to an already-known fact.
 
 ```
-theorem length_zero_empty: all T:type, xs:List<T>.
+theorem length_zero_empty: all T:type. all xs:List<T>.
   if length(xs) = 0 then xs = empty
 proof
-  arbitrary T:type, xs:List<T>
+  arbitrary T:type
+  arbitrary xs:List<T>
   ?
 end
 ```
@@ -914,10 +918,11 @@ We discuss contradictions and `false` in more detail in the upcoming section
 Here is the complete proof of `length_zero_empty`.
 
 ```{.deduce #length_zero_empty}
-theorem length_zero_empty: all T:type, xs:List<T>.
+theorem length_zero_empty: all T:type. all xs:List<T>.
   if length(xs) = 0 then xs = empty
 proof
-  arbitrary T:type, xs:List<T>
+  arbitrary T:type
+  arbitrary xs:List<T>
   suppose len_z: length(xs) = 0
   switch xs {
     case empty { . }
@@ -938,11 +943,12 @@ supplying a proof of the condition.  We demonstrate several uses of
 `length_zero_empty`.
 
 ```
-theorem length_append_zero_empty: all T:type, xs:List<T>, ys:List<T>.
+theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
   if length(xs ++ ys) = 0
   then xs = empty and ys = empty
 proof
-  arbitrary T:type, xs:List<T>, ys:List<T>
+  arbitrary T:type
+  arbitrary xs:List<T>, ys:List<T>
   suppose len_xs_ys: length(xs ++ ys) = 0
   ?
 end
@@ -958,7 +964,7 @@ so we can prove that `length(xs) + length(ys) = 0` as follows.
 
 ```
   have len_xs_len_ys: length(xs) + length(ys) = 0
-    by transitive (symmetric length_append[T][xs][ys]) len_xs_ys
+    by transitive (symmetric length_append<T>[xs][ys]) len_xs_ys
 ```
 
 Note that Deduce's the `symmetric` statement takes a proof
@@ -984,26 +990,27 @@ We conclude that `xs = empty and ys = empty` with our second use of
 
 ```
   conclude xs = empty and ys = empty
-  by (apply length_zero_empty[T,xs] to len_xs),
-     (apply length_zero_empty[T,ys] to len_ys)
+  by (apply length_zero_empty<T>[xs] to len_xs),
+     (apply length_zero_empty<T>[ys] to len_ys)
 ```
 
 Here is the complete proof of `length_append_zero_empty`.
 
 ```{.deduce #length_append_zero_empty}
-theorem length_append_zero_empty: all T:type, xs:List<T>, ys:List<T>.
+theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
   if length(xs ++ ys) = 0
   then xs = empty and ys = empty
 proof
-  arbitrary T:type, xs:List<T>, ys:List<T>
+  arbitrary T:type
+  arbitrary xs:List<T>, ys:List<T>
   suppose len_xs_ys: length(xs ++ ys) = 0
   have len_xs_len_ys: length(xs) + length(ys) = 0
-    by transitive (symmetric length_append[T][xs][ys]) len_xs_ys
+    by transitive (symmetric length_append<T>[xs][ys]) len_xs_ys
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
   have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
   conclude xs = empty and ys = empty
-  by (apply length_zero_empty[T,xs] to len_xs),
-     (apply length_zero_empty[T,ys] to len_ys)
+  by (apply length_zero_empty<T>[xs] to len_xs),
+     (apply length_zero_empty<T>[ys] to len_ys)
 end
 ```
 
@@ -1361,16 +1368,18 @@ end
 <<alt_max>>
 <<less_alt_max>>
 
-theorem append_xy: all T:type, x:T, y:T.
+theorem append_xy: all T:type. all x:T, y:T.
   node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
 proof
+  arbitrary T:type
+  arbitrary x:T, y:T
   definition {operator++, operator++}
 end
 
 theorem append_12_again: 
   node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 proof
-  append_xy[Nat, 1, 2]
+  append_xy<Nat>[1, 2]
 end
 
 <<append_empty>>
