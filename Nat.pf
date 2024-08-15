@@ -135,6 +135,19 @@ function equal(Nat, Nat) -> bool {
     }
 }
 
+function dist(Nat, Nat) -> Nat {
+  dist(0, n) = n
+  dist(suc(m), n) =
+    switch n {
+      case 0 {
+        suc(m)
+      }
+      case suc(n) {
+        dist(m, n)
+      }
+    }
+}
+
 /*
  Properties of Addition
  */
@@ -1450,6 +1463,77 @@ proof
 end
 
 
+theorem max_equal_greater: all x:Nat. all y:Nat.
+  if x ≤ y
+  then max(x, y) = y
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    suppose _
+    conclude max(0, y) = y   by definition max
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    suppose sx_le_y
+    switch y for max {
+      case 0 suppose y_z {
+        conclude false  by definition operator≤ in
+                           rewrite y_z in sx_le_y
+      }
+      case suc(y') suppose y_suc {
+        have x_l_y: x' ≤ y'
+            by definition operator≤ in rewrite y_suc in sx_le_y
+        conclude suc(max(x', y')) = suc(y')
+            by rewrite apply IH to x_l_y
+      }
+    }
+  }
+end
+
+theorem max_less_equal: all x:Nat. all y:Nat, z:Nat.
+  if x ≤ z
+  and y ≤ z
+  then max(x, y) ≤ z
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat, z:Nat
+    suppose prem
+    suffices y ≤ z  with definition max
+    prem
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat, z:Nat
+    suppose prem
+    switch y for max {
+      case 0 {
+        conclude suc(x') ≤ z by prem
+      }
+      case suc(y') suppose y_suc {
+        suffices suc(max(x', y')) ≤ z   by .
+        switch z {
+          case 0 suppose z_zero {
+            conclude false
+                by definition operator≤ in
+                   rewrite z_zero in prem
+          }
+          case suc(z') suppose z_suc {
+            suffices max(x', y') ≤ z'  with definition operator≤
+            have x_le_z: x' ≤ z' by
+                definition operator≤ in rewrite z_suc in prem
+            have y_le_z: y' ≤ z' by
+                definition operator≤ in
+                rewrite y_suc | z_suc in prem
+            apply IH to x_le_z, y_le_z
+          }
+        }
+      }
+    }
+  }
+end
+
+
 /*
  Odd and Even Numbers
  */
@@ -2109,3 +2193,4 @@ proof
   suffices r < pos2nat(m)   by rewrite symmetric r_na
   conjunct 1 of R
 end
+

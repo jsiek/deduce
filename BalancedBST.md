@@ -1321,6 +1321,226 @@ proof
 end
 ```
 
+## `AVL_insert` Maintains Balance
+
+
+```{.deduce #is_AVL}
+function is_AVL(Tree<Pair<Nat,Nat>>) -> bool {
+  is_AVL(EmptyTree) = true
+  is_AVL(TreeNode(L, x, R)) = 
+      height(R) ≤ 1 + height(L)
+      and height(L) ≤ 1 + height(R)
+      and is_AVL(L) 
+      and is_AVL(R)
+}
+```
+
+```{.deduce #is_AVL_balance}
+theorem is_AVL_balance: all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>.
+  if is_AVL(L) and is_AVL(R)
+  and height(R) ≤ 2 + height(L)
+  and height(L) ≤ 2 + height(R)
+  then is_AVL(balance(L, x, R))
+proof
+  arbitrary L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>
+  suppose prem
+  have AVL_L: is_AVL(L) by prem
+  have AVL_R: is_AVL(R) by prem
+  
+  switch 1 + height(L) < height(R) {
+    case true suppose tall_right {
+    
+      have R_eq_two_L: height(R) = 2 + height(L) by
+          have R_le_two_L: height(R) ≤ 2 + height(L) by prem
+          have two_L_le_R: 2 + height(L) ≤ height(R) by 
+             _definition {operator+,operator+,operator+}
+             rewrite (definition {operator<, operator+,operator+} in tall_right)
+          apply less_equal_antisymmetric to R_le_two_L, two_L_le_R
+             
+    
+      switch R {
+        case EmptyTree suppose R_mt {
+          conclude false
+            by definition {height, operator<, operator≤} in rewrite R_mt in tall_right
+        }
+        case TreeNode(RL, z, RR) suppose R_node {
+          switch height(RL) ≤ height(RR) {
+            case true suppose tall_RR {
+              have RL_le_RR: height(RL) ≤ height(RR) by rewrite tall_RR
+            
+              suffices is_AVL(rotate_left(L, x, RL, z, RR))
+                  with definition balance
+                   and rewrite (rewrite R_node in tall_right) | tall_RR
+                   
+              suffices height(RR) ≤ 1 + suc(max(height(L), height(RL)))
+                and suc(max(height(L), height(RL))) ≤ 1 + height(RR) 
+                and height(RL) ≤ 1 + height(L) 
+                and height(L) ≤ 1 + height(RL) 
+                and is_AVL(L) and is_AVL(RL) and is_AVL(RR)
+                     with definition {rotate_left, is_AVL, is_AVL, height}
+                     
+              have max_RL_RR_eq_RR: max(height(RL), height(RR)) = height(RR)
+                by apply max_equal_greater to 
+                   (conclude height(RL) ≤ height(RR) by rewrite tall_RR)
+              
+              have R_eq_one_RR: height(R) = 1 + height(RR) by
+                _rewrite R_node
+                _definition height
+                _rewrite max_RL_RR_eq_RR
+                definition {operator+,operator+}
+                
+              have R_eq_one_RR: height(R) = 1 + height(RR) by
+                _rewrite R_node
+                _definition height
+                _rewrite max_RL_RR_eq_RR
+                definition {operator+,operator+}
+                
+              have RR_eq_one_LL: height(RR) = 1 + height(L) by
+                _definition {operator+,operator+}
+                injective suc
+                definition {operator+,operator+,operator+} in
+                rewrite R_eq_one_RR in R_eq_two_L
+                     
+              have _1: height(RR) ≤ 1 + suc(max(height(L), height(RL))) by
+                have step1: height(RR) ≤ max(height(RL), height(RR))
+                   by max_greater_right[height(RR)][height(RL)]
+                have step2: max(height(RL), height(RR)) ≤ suc(height(L)) by 
+                    have X: suc(max(height(RL), height(RR))) ≤ 2 + height(L)
+                       by definition height in rewrite R_node in prem
+                    definition {operator+, operator≤, operator+, operator+} in X
+                have step3: suc(height(L)) ≤ suc(max(height(L), height(RL))) by 
+                    have X: height(L) ≤ max(height(L), height(RL))
+                       by max_greater_left[height(L)][height(RL)]
+                    _definition operator≤ X
+                have step4: suc(max(height(L), height(RL))) 
+                            ≤ 1 + suc(max(height(L), height(RL)))
+                   by _definition {operator+,operator+}
+                      less_equal_suc[suc(max(height(L), height(RL)))]
+                apply less_equal_trans to (apply less_equal_trans to step1, step2),
+                                          (apply less_equal_trans to step3, step4)
+                                          
+              have _2: suc(max(height(L), height(RL))) ≤ 1 + height(RR) by 
+                suffices max(height(L), height(RL)) ≤ height(RR)
+                    with definition {operator+, operator+, operator≤}
+                have L_le_RR: height(L) ≤ height(RR) by 
+                    _rewrite RR_eq_one_LL
+                    _definition {operator+, operator+}
+                    less_equal_suc[height(L)]
+                apply max_less_equal to L_le_RR, RL_le_RR
+                                          
+              have _3: height(RL) ≤ 1 + height(L) by 
+                _rewrite symmetric RR_eq_one_LL
+                RL_le_RR
+              
+              have _4: height(L) ≤ 1 + height(RL) by 
+                have RR_le_one_RL: height(RR) ≤ 1 + height(RL)
+                  by definition is_AVL in rewrite R_node in AVL_R
+                have one_L_le_one_RL: 1 + height(L) ≤ 1 + height(RL)
+                  by rewrite RR_eq_one_LL in RR_le_one_RL
+                have L_le_one_L: height(L) ≤ 1 + height(L) by 
+                  _definition {operator+, operator+}
+                  less_equal_suc[height(L)]
+                apply less_equal_trans to (L_le_one_L, one_L_le_one_RL)
+                
+              have _6: is_AVL(RL) by definition is_AVL in rewrite R_node in AVL_R
+              
+              have _7: is_AVL(RR) by definition is_AVL in rewrite R_node in AVL_R
+              
+              (_1, _2, _3, _4, AVL_L, _6, _7)
+            }
+            case false suppose tall_RL {
+              suffices is_AVL(rotate_left_on(L, x, rotate_right_on(RL, z, RR)))
+                  with definition balance
+                   and rewrite (rewrite R_node in tall_right) | tall_RL
+              ?
+            }
+          }
+        }
+      }
+    }
+    case false suppose not_tall_right {
+      switch 1 + height(R) < height(L) {
+        case true suppose tall_left {
+          switch L {
+            case EmptyTree suppose L_mt {
+              sorry
+            }
+            case TreeNode(LL, z, LR) suppose L_node {
+              switch height(LR) ≤ height(LL) {
+                case true suppose tall_LL {
+                  sorry
+                }
+                case false suppose tall_LR {
+                  sorry
+                }
+              }
+            }
+          }
+        }
+        case false suppose not_tall_left {
+          sorry
+        }
+      }
+    }
+  }
+end
+```
+
+```{.deduce #is_AVL_insert}
+theorem is_AVL_insert: all T:Tree<Pair<Nat,Nat>>. all k:Nat, v:Nat.
+  if is_AVL(T)
+  then is_AVL(AVL_insert(T, k, v))
+proof
+  induction Tree<Pair<Nat,Nat>>
+  case EmptyTree {
+    arbitrary k:Nat, v:Nat
+    suppose AVL_mt
+    definition {AVL_insert, is_AVL, height, operator+, operator≤, is_AVL}
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary k:Nat, v:Nat
+    suppose AVL_LxR
+    have AVL_L: is_AVL(L) by definition is_AVL in AVL_LxR
+    have AVL_R: is_AVL(R) by definition is_AVL in AVL_LxR
+    cases trichotomy[k][first(x)]
+    case k_less_x: k < first(x) {
+      have not_k_eq_x: not (k = first(x))  by apply less_not_equal to k_less_x
+      suffices is_AVL(balance(AVL_insert(L, k, v), x, R))
+          with definition AVL_insert and rewrite not_k_eq_x | k_less_x
+      have AVL_insL: is_AVL(AVL_insert(L, k, v))
+        by apply IH_L[k,v] to AVL_L
+      have R_le_two_insL: height(R) ≤ 2 + height(AVL_insert(L,k,v)) by sorry
+      have insL_le_two_R: height(AVL_insert(L,k,v)) ≤ 2 + height(R) by sorry
+      apply is_AVL_balance[AVL_insert(L,k,v), x, R] 
+      to AVL_insL, AVL_R, R_le_two_insL, insL_le_two_R
+    }
+    case k_eq_x: k = first(x) {
+      suffices is_AVL(TreeNode(L, pair(first(x), v), R))
+          with definition AVL_insert and rewrite k_eq_x
+      suffices height(R) ≤ 1 + height(L) and height(L) ≤ 1 + height(R) 
+           and is_AVL(L) and is_AVL(R)   with definition is_AVL
+      definition is_AVL in AVL_LxR
+    }
+    case k_greater_x: first(x) < k {
+      have not_k_less_x: not (k < first(x))   
+          by apply less_implies_not_greater to k_greater_x
+      have not_k_eq_x: not (k = first(x))
+         by suppose k_eq_x
+            apply (apply less_not_equal to k_greater_x) to symmetric k_eq_x
+      suffices is_AVL(balance(L, x, AVL_insert(R, k, v)))
+          with definition AVL_insert and rewrite not_k_eq_x | not_k_less_x
+      have AVL_insR: is_AVL(AVL_insert(R,k,v))
+        by apply IH_R[k,v] to AVL_R
+      have insR_le_two_L: height(AVL_insert(R,k,v)) ≤ 2 + height(L) by sorry
+      have L_le_two_insR: height(L) ≤ 2 + height(AVL_insert(R,k,v)) by sorry
+      apply is_AVL_balance[L, x, AVL_insert(R,k,v)] 
+      to AVL_L, AVL_insR, insR_le_two_L, L_le_two_insR
+    }
+  }
+end
+```
+
+
 <!--
 ```{.deduce file=BalancedBST.pf} 
 
@@ -1358,6 +1578,10 @@ import BinarySearchTree
 <<all_nodes_AVL_insert>>
 <<is_BST_AVL_insert>>
 <<AVL_search_insert_update>>
+
+<<is_AVL>>
+<<is_AVL_balance>>
+<<is_AVL_insert>>
 
 ```
 -->
