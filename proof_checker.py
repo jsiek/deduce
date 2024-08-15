@@ -428,7 +428,12 @@ def check_proof(proof, env):
           (vars, prem, conc) = collect_all_if_then(loc, ifthen)
           arg_frm = check_proof(arg, env)
           matching = {}
-          formula_match(loc, vars, prem, arg_frm, matching, env)
+          try:
+            formula_match(loc, vars, prem, arg_frm, matching, env)
+          except Exception as e:
+            msg = str(e) + '\nwhile trying to deduce instantiation of\n\t' + str(ifthen) + '\n'\
+                + 'to apply to\n\t' + str(arg_frm)
+            raise Exception(msg)
           for x in vars:
               if x.name not in matching.keys():
                   error(loc, "could not deduce an instantiation for variable "\

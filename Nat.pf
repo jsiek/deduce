@@ -1462,8 +1462,44 @@ proof
   }
 end
 
+theorem max_zero: all x:Nat.
+  max(x, 0) = x
+proof
+  induction Nat
+  case 0 {
+    conclude max(0, 0) = 0  by definition max
+  }
+  case suc(x') suppose IH {
+    conclude max(suc(x'), 0) = suc(x')  by definition max
+  }
+end
 
-theorem max_equal_greater: all x:Nat. all y:Nat.
+theorem max_symmetric:  all x:Nat. all y:Nat.
+  max(x,y) = max(y,x)
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    suffices y = max(y, 0)  with definition max
+    rewrite max_zero[y]
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        conclude max(suc(x'), 0) = max(0, suc(x'))
+          by definition max
+      }
+      case suc(y') suppose y_suc {
+        suffices suc(max(x', y')) = suc(max(y', x'))
+            with rewrite max_suc2[x',y'] | max_suc2[y',x']
+        rewrite IH[y']
+      }
+    }
+  }
+end
+
+theorem max_equal_greater_right: all x:Nat. all y:Nat.
   if x ≤ y
   then max(x, y) = y
 proof
@@ -1489,6 +1525,18 @@ proof
       }
     }
   }
+end
+
+theorem max_equal_greater_left: all x:Nat. all y:Nat.
+  if y ≤ x
+  then max(x, y) = x
+proof
+  arbitrary x:Nat
+  arbitrary y:Nat
+  suppose prem
+  suffices max(y, x) = x
+     with rewrite max_symmetric[x][y]
+  apply max_equal_greater_right to prem
 end
 
 theorem max_less_equal: all x:Nat. all y:Nat, z:Nat.
