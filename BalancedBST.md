@@ -437,7 +437,9 @@ end
 ```
 
 ```{.deduce #all_nodes_rotate_right_on}
-theorem all_nodes_rotate_right_on: all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, B:Tree<Pair<Nat,Nat>>, P:fn Pair<Nat,Nat>->bool.
+theorem all_nodes_rotate_right_on: 
+  all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, B:Tree<Pair<Nat,Nat>>, 
+      P:fn Pair<Nat,Nat>->bool.
   all_nodes(rotate_right_on(A, x, B), P)
   = all_nodes(TreeNode(A, x, B), P)
 proof
@@ -501,6 +503,115 @@ proof
 end
 ```
 
+```{.deduce #is_BST_rotate_left}
+theorem is_BST_rotate_left: 
+  all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>.
+  if is_BST(TreeNode(A, x, TreeNode(B, y, C)))
+  then is_BST(rotate_left(A, x, B, y, C))
+proof
+  arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>
+  suppose BST_AxByC
+  suffices all_nodes(A, λl{first(l) < first(y)}) 
+       and first(x) < first(y) 
+       and all_nodes(B, λl{first(l) < first(y)}) 
+       and all_nodes(C, λr{first(y) < first(r)}) 
+       and all_nodes(A, λl{first(l) < first(x)}) 
+       and all_nodes(B, λr{first(x) < first(r)}) 
+       and is_BST(A) 
+       and is_BST(B) 
+       and is_BST(C)
+              with definition {rotate_left, is_BST, is_BST, all_nodes}
+  have x_less_y: first(x) < first(y) 
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have A_less_x: all_nodes(A, λl{first(l) < first(x)}) 
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have A_less_y: all_nodes(A, λl{first(l) < first(y)}) by
+       define belowY = λl{first(l) < first(y)} : fn Pair<Nat,Nat> -> bool 
+       define belowX = λl{first(l) < first(x)} : fn Pair<Nat,Nat> -> bool
+       have belowX_implies_belowY: (all z:Pair<Nat,Nat>. if belowX(z) then belowY(z))
+         by arbitrary z:Pair<Nat,Nat>
+            suppose z_belowX
+            have z_l_x: first(z) < first(x)  by definition belowX in z_belowX
+            suffices first(z) < first(y)  with definition belowY
+            apply less_trans to z_l_x, x_less_y
+       apply all_nodes_implies<Pair<Nat,Nat>>[A][belowX, belowY]
+       to (A_less_x, belowX_implies_belowY)
+  have B_less_y: all_nodes(B, λl{first(l) < first(y)}) 
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have y_less_C: all_nodes(C, λr{first(y) < first(r)}) 
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have x_less_B: all_nodes(B, λr{first(x) < first(r)}) 
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have BST_A: is_BST(A)
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have BST_B: is_BST(B)
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  have BST_C: is_BST(C)
+    by definition {is_BST, is_BST, all_nodes} in BST_AxByC
+  A_less_y, x_less_y, B_less_y, y_less_C, A_less_x, x_less_B, BST_A, BST_B, BST_C
+end
+```
+
+```{.deduce #is_BST_rotate_right}
+theorem is_BST_rotate_right: 
+  all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>.
+  if is_BST(TreeNode(TreeNode(A, x, B), y, C))
+  then is_BST(rotate_right(A, x, B, y, C))
+proof
+  arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>
+  suppose prem
+
+  suffices all_nodes(A, λl{first(l) < first(x)}) 
+       and all_nodes(B, λr{first(x) < first(r)}) 
+       and first(x) < first(y) 
+       and all_nodes(C, λr{first(x) < first(r)}) 
+       and is_BST(A) 
+       and all_nodes(B, λl{first(l) < first(y)}) 
+       and all_nodes(C, λr{first(y) < first(r)}) 
+       and is_BST(B) 
+       and is_BST(C)
+              with definition {rotate_right, is_BST, is_BST, all_nodes}
+  have A_less_x: all_nodes(A, λl{first(l) < first(x)})
+    by definition {is_BST, is_BST} in prem
+  have x_less_B: all_nodes(B, λr{first(x) < first(r)}) 
+    by definition {is_BST, is_BST} in prem
+  have fx_less_fy: first(x) < first(y) 
+    by definition {is_BST, is_BST, all_nodes} in prem
+  have BST_A: is_BST(A) 
+    by definition {is_BST, is_BST} in prem
+  have B_less_y: all_nodes(B, λl{first(l) < first(y)}) 
+    by definition {is_BST, is_BST, all_nodes} in prem
+  have y_less_C: all_nodes(C, λr{first(y) < first(r)}) 
+    by definition {is_BST, is_BST} in prem
+  have x_less_C: all_nodes(C, λr{first(x) < first(r)}) 
+    by define aboveY = λr{first(y) < first(r)} : fn Pair<Nat,Nat> -> bool 
+       define aboveX = λr{first(x) < first(r)} : fn Pair<Nat,Nat> -> bool 
+       have above_y_implies_above_x: (all z:Pair<Nat,Nat>. if aboveY(z) then aboveX(z))
+          by arbitrary z:Pair<Nat,Nat>
+             suppose z_aboveY
+             have y_less_z: first(y) < first(z)  by definition aboveY in z_aboveY
+             suffices first(x) < first(z)  with definition aboveX
+             apply less_trans to fx_less_fy, y_less_z
+       apply all_nodes_implies< Pair<Nat,Nat> >[C][aboveY, aboveX]
+       to (y_less_C, above_y_implies_above_x)
+  have BST_B: is_BST(B)
+    by definition {is_BST, is_BST} in prem
+  have BST_C: is_BST(C)
+    by definition {is_BST, is_BST} in prem
+  (A_less_x, x_less_B, fx_less_fy, x_less_C, BST_A, B_less_y, y_less_C, BST_B, BST_C)
+
+end
+```
+
+
 ```{.deduce #is_BST_rotate_right_on}
 theorem is_BST_rotate_right_on: all AxB:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, C:Tree<Pair<Nat,Nat>>.
   if is_BST(TreeNode(AxB, y, C))
@@ -515,44 +626,7 @@ proof
       definition is_BST in prem
     }
     case TreeNode(A, x, B) suppose AxB_node {
-      suffices all_nodes(A, λl{first(l) < first(x)}) 
-           and all_nodes(B, λr{first(x) < first(r)}) 
-           and first(x) < first(y) 
-           and all_nodes(C, λr{first(x) < first(r)}) 
-           and is_BST(A) 
-           and all_nodes(B, λl{first(l) < first(y)}) 
-           and all_nodes(C, λr{first(y) < first(r)}) 
-           and is_BST(B) 
-           and is_BST(C)
-                  with definition {rotate_right, is_BST, is_BST, all_nodes}
-      have A_less_x: all_nodes(A, λl{first(l) < first(x)})
-        by definition {is_BST, is_BST} in rewrite AxB_node in prem
-      have x_less_B: all_nodes(B, λr{first(x) < first(r)}) 
-        by definition {is_BST, is_BST} in rewrite AxB_node in prem
-      have fx_less_fy: first(x) < first(y) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite AxB_node in prem
-      have BST_A: is_BST(A) 
-        by definition {is_BST, is_BST} in rewrite AxB_node in prem
-      have B_less_y: all_nodes(B, λl{first(l) < first(y)}) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite AxB_node in prem
-      have y_less_C: all_nodes(C, λr{first(y) < first(r)}) 
-        by definition {is_BST, is_BST} in rewrite AxB_node in prem
-      have x_less_C: all_nodes(C, λr{first(x) < first(r)}) 
-        by define aboveY = λr{first(y) < first(r)} : fn Pair<Nat,Nat> -> bool 
-           define aboveX = λr{first(x) < first(r)} : fn Pair<Nat,Nat> -> bool 
-           have above_y_implies_above_x: (all z:Pair<Nat,Nat>. if aboveY(z) then aboveX(z))
-              by arbitrary z:Pair<Nat,Nat>
-                 suppose z_aboveY
-                 have y_less_z: first(y) < first(z)  by definition aboveY in z_aboveY
-                 suffices first(x) < first(z)  with definition aboveX
-                 apply less_trans to fx_less_fy, y_less_z
-           apply all_nodes_implies< Pair<Nat,Nat> >[C][aboveY, aboveX]
-           to (y_less_C, above_y_implies_above_x)
-      have BST_B: is_BST(B)
-        by definition {is_BST, is_BST} in rewrite AxB_node in prem
-      have BST_C: is_BST(C)
-        by definition {is_BST, is_BST} in rewrite AxB_node in prem
-      (A_less_x, x_less_B, fx_less_fy, x_less_C, BST_A, B_less_y, y_less_C, BST_B, BST_C)
+      apply is_BST_rotate_right to (rewrite AxB_node in prem)
     }
   }
 end
@@ -572,44 +646,7 @@ proof
       definition is_BST in prem
     }
     case TreeNode(B, y, C) suppose ByC_node {
-      suffices all_nodes(A, λl{first(l) < first(y)}) 
-           and first(x) < first(y) 
-           and all_nodes(B, λl{first(l) < first(y)}) 
-           and all_nodes(C, λr{first(y) < first(r)}) 
-           and all_nodes(A, λl{first(l) < first(x)}) 
-           and all_nodes(B, λr{first(x) < first(r)}) 
-           and is_BST(A) 
-           and is_BST(B) 
-           and is_BST(C)
-                  with definition {rotate_left, is_BST, is_BST, all_nodes}
-      have x_less_y: first(x) < first(y) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have A_less_x: all_nodes(A, λl{first(l) < first(x)}) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have A_less_y: all_nodes(A, λl{first(l) < first(y)}) by
-           define belowY = λl{first(l) < first(y)} : fn Pair<Nat,Nat> -> bool 
-           define belowX = λl{first(l) < first(x)} : fn Pair<Nat,Nat> -> bool
-           have belowX_implies_belowY: (all z:Pair<Nat,Nat>. if belowX(z) then belowY(z))
-             by arbitrary z:Pair<Nat,Nat>
-                suppose z_belowX
-                have z_l_x: first(z) < first(x)  by definition belowX in z_belowX
-                suffices first(z) < first(y)  with definition belowY
-                apply less_trans to z_l_x, x_less_y
-           apply all_nodes_implies<Pair<Nat,Nat>>[A][belowX, belowY]
-           to (A_less_x, belowX_implies_belowY)
-      have B_less_y: all_nodes(B, λl{first(l) < first(y)}) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have y_less_C: all_nodes(C, λr{first(y) < first(r)}) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have x_less_B: all_nodes(B, λr{first(x) < first(r)}) 
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have BST_A: is_BST(A)
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have BST_B: is_BST(B)
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      have BST_C: is_BST(C)
-        by definition {is_BST, is_BST, all_nodes} in rewrite ByC_node in prem
-      A_less_y, x_less_y, B_less_y, y_less_C, A_less_x, x_less_B, BST_A, BST_B, BST_C
+      apply is_BST_rotate_left to (rewrite ByC_node in prem)
     }
   }
 end
@@ -773,6 +810,254 @@ proof
   }
 end
 ```
+```{.deduce #is_BST_balance}
+theorem is_BST_balance: all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>.
+  if is_BST(TreeNode(L, x, R))
+  then is_BST(balance(L, x, R))
+proof
+  arbitrary L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>
+  suppose BST_LxR
+  have BST_L: is_BST(L) by definition is_BST in BST_LxR
+  have BST_R: is_BST(R) by definition is_BST in BST_LxR
+  have L_less_x: all_nodes(L, λl{first(l) < first(x)})
+    by definition is_BST in BST_LxR
+  have x_less_R: all_nodes(R, λr{first(x) < first(r)}) 
+    by definition is_BST in BST_LxR
+  
+  switch 1 + height(L) < height(R) {
+    case true suppose tall_right {
+      switch R {
+        case EmptyTree suppose R_mt {
+          suffices is_BST(EmptyTree)
+              with definition balance
+               and rewrite (rewrite R_mt in tall_right)
+          definition is_BST
+        }
+        case TreeNode(RL, z, RR) suppose R_node {
+          switch height(RL) ≤ height(RR) {
+            case true suppose tall_RR {
+              suffices is_BST(rotate_left(L, x, RL, z, RR))
+                  with definition balance
+                  and rewrite (rewrite R_node in tall_right) | tall_RR
+              have BST_LxRLzRR: is_BST(TreeNode(L, x, TreeNode(RL, z, RR)))
+                by _definition {is_BST,all_nodes,is_BST}
+                   definition {is_BST, is_BST, all_nodes} in rewrite R_node in BST_LxR
+              apply is_BST_rotate_left to BST_LxRLzRR
+            }
+            case false suppose tall_RL {
+              suffices is_BST(rotate_left_on(L, x, rotate_right_on(RL, z, RR)))
+                  with definition balance
+                  and rewrite (rewrite R_node in tall_right) | tall_RL
+              have BST_RLzRR: is_BST(TreeNode(RL, z, RR))
+                by definition is_BST in rewrite R_node in BST_LxR
+              have BST_rr_RLzRR: is_BST(rotate_right_on(RL, z, RR))
+                by apply is_BST_rotate_right_on to BST_RLzRR
+              have BST_Lx_rr_RLzRR: is_BST(TreeNode(L, x, rotate_right_on(RL, z, RR))) by
+                   _definition is_BST
+                   have x_less_rr_RLzRR: all_nodes(rotate_right_on(RL, z, RR),
+                                                   λr{first(x) < first(r)}) by
+                       suffices all_nodes(TreeNode(RL, z, RR), λr{first(x) < first(r)})
+                           with rewrite all_nodes_rotate_right_on[RL,z,RR, λr{first(x)<first(r)}]
+                       definition is_BST in rewrite R_node in BST_LxR
+                   L_less_x, x_less_rr_RLzRR, BST_L, BST_rr_RLzRR
+              apply is_BST_rotate_left_on to BST_Lx_rr_RLzRR
+            }
+          }
+        }
+      }
+    }
+    case false suppose not_tall_right {
+      switch 1 + height(R) < height(L) {
+        case true suppose tall_left {
+          switch L {
+            case EmptyTree suppose L_mt {
+              suffices is_BST(EmptyTree)
+                  with definition balance
+                  and rewrite (rewrite L_mt in not_tall_right) | (rewrite L_mt in tall_left)
+              definition is_BST
+            }
+            case TreeNode(LL, z, LR) suppose L_node {
+              switch height(LR) ≤ height(LL) {
+                case true suppose tall_LL {
+                  suffices is_BST(rotate_right(LL, z, LR, x, R))
+                      with definition balance
+                      and rewrite (rewrite L_node in not_tall_right)
+                          | (rewrite L_node in tall_left)
+                          | tall_LL
+                  have BST_LLzLRxR: is_BST(TreeNode(TreeNode(LL, z, LR), x, R))
+                    by _definition {is_BST, is_BST, all_nodes, all_nodes}
+                       definition {is_BST,is_BST, all_nodes,all_nodes} in
+                       rewrite L_node in BST_LxR
+                  apply is_BST_rotate_right to BST_LLzLRxR
+                }
+                case false suppose tall_LR {
+                  suffices is_BST(rotate_right_on(rotate_left_on(LL, z, LR), x, R))
+                       with definition balance
+                       and rewrite (rewrite L_node in not_tall_right)
+                            | (rewrite L_node in tall_left)
+                            | tall_LR
+                  have BST_LLzRL: is_BST(TreeNode(LL, z, LR))
+                    by definition is_BST in rewrite L_node in BST_LxR
+                  have BST_rl_LLzLR: is_BST(rotate_left_on(LL, z, LR))
+                    by apply is_BST_rotate_left_on to BST_LLzRL
+                  have BST_rlLLzLR_x_R: is_BST(TreeNode(rotate_left_on(LL, z, LR), x, R))
+                    by _definition is_BST
+                       have LLzLR_less_x: all_nodes(TreeNode(LL, z, LR), λl{first(l) < first(x)})
+                         by definition is_BST in rewrite L_node in BST_LxR
+                       have rlLLzLR_less_x:
+                           all_nodes(rotate_left_on(LL, z, LR), λl{first(l) < first(x)}) by
+                         _rewrite all_nodes_rotate_left_on[LL,z,LR, λl{first(l) < first(x)}]
+                         LLzLR_less_x
+                       rlLLzLR_less_x, x_less_R, BST_rl_LLzLR, BST_R
+                  apply is_BST_rotate_right_on to BST_rlLLzLR_x_R
+                }
+              }
+            }
+          }
+        }
+        case false suppose not_tall_left {
+          _definition balance
+          _rewrite not_tall_right | not_tall_left
+          BST_LxR
+        }
+      }
+    }
+  }
+end
+```
+
+```{.deduce #all_nodes_balance}
+theorem all_nodes_balance:
+    all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>,P:fn Pair<Nat,Nat>->bool.
+  if all_nodes(TreeNode(L, x, R), P)
+  then all_nodes(balance(L, x, R), P)
+proof
+  arbitrary L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>,
+     P:fn Pair<Nat,Nat>->bool
+  suppose prem
+  switch 1 + height(L) < height(R) {
+    case true suppose tall_right {
+      switch R {
+        case EmptyTree suppose R_mt {
+          suffices all_nodes(@EmptyTree<Pair<Nat,Nat>>, P)
+              with definition balance
+              and rewrite (rewrite R_mt in tall_right)
+          definition all_nodes
+        }
+        case TreeNode(RL, z, RR) suppose R_node {
+          switch height(RL) ≤ height(RR) {
+            case true suppose tall_RR {
+              _definition balance
+              _rewrite (rewrite R_node in tall_right) | tall_RR
+              _definition {rotate_left, all_nodes, all_nodes}
+              definition {all_nodes, all_nodes} in rewrite R_node in prem
+            }
+            case false suppose tall_RL {
+              _definition balance
+              _rewrite (rewrite R_node in tall_right) | tall_RL
+              _rewrite all_nodes_rotate_left_on[L,x,rotate_right_on(RL, z, RR),P]
+              _definition all_nodes
+              _rewrite all_nodes_rotate_right_on[RL,z,RR,P]
+              _definition all_nodes
+              definition {all_nodes, all_nodes} in rewrite R_node in prem
+            }
+          }
+        }
+      }
+    }
+    case false suppose not_tall_right {
+      switch 1 + height(R) < height(L) {
+        case true suppose tall_left {
+          switch L {
+            case EmptyTree suppose L_mt {
+              _definition {balance, all_nodes}
+              rewrite (rewrite L_mt in not_tall_right) | (rewrite L_mt in tall_left)
+            }
+            case TreeNode(LL, z, LR) suppose L_node {
+              _definition {balance, all_nodes}
+              _rewrite (rewrite L_node in not_tall_right) | (rewrite L_node in tall_left)
+              switch height(LR) ≤ height(LL) {
+                case true suppose tall_LL {
+                  _definition {rotate_right, all_nodes}
+                  definition {all_nodes, all_nodes} in rewrite L_node in prem
+                }
+                case false suppose tall_LR {
+                  _rewrite all_nodes_rotate_right_on[rotate_left_on(LL, z, LR),x,R,P]
+                  _definition all_nodes
+                  _rewrite all_nodes_rotate_left_on[LL, z, LR, P]
+                  _definition all_nodes
+                  definition {all_nodes,all_nodes} in rewrite L_node in prem
+                }
+              }
+            }
+          }
+        }
+        case false suppose not_tall_left {
+          suffices all_nodes(TreeNode(L, x, R), P)
+              with definition balance
+              and rewrite not_tall_right | not_tall_left
+          prem
+        }
+      }
+    }
+  }
+end
+```
+
+```{.deduce #all_nodes_AVL_insert}
+theorem all_nodes_AVL_insert: 
+  all A:Tree<Pair<Nat,Nat>>.
+  all k:Nat, v:Nat, P:fn Pair<Nat,Nat>->bool.
+  if all_nodes(A, P) and P(pair(k,v))
+  then all_nodes(AVL_insert(A, k, v), P)
+proof
+  induction Tree<Pair<Nat,Nat>>
+  case EmptyTree {
+    arbitrary k:Nat, v:Nat, P:fn Pair<Nat,Nat>->bool
+    suppose prem
+    suffices P(pair(k,v))
+        with definition {AVL_insert, all_nodes, all_nodes}
+    prem
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary k:Nat, v:Nat, P:fn Pair<Nat,Nat>->bool
+    suppose prem
+    cases trichotomy[k][first(x)]
+    case k_less_x: k < first(x) {
+      have not_k_eq_x: not (k = first(x))  by apply less_not_equal to k_less_x
+      suffices all_nodes(balance(AVL_insert(L, k, v), x, R), P)
+          with definition AVL_insert
+          and rewrite not_k_eq_x | k_less_x
+      have insL_P: all_nodes(AVL_insert(L, k, v), P)
+        by apply IH_L[k,v,P] to (definition all_nodes in prem)
+      have insLxR_P: all_nodes(TreeNode(AVL_insert(L, k, v), x, R), P)
+        by _definition all_nodes
+           insL_P, (definition all_nodes in prem)
+      apply all_nodes_balance to insLxR_P
+    }
+    case k_eq_x: k = first(x) {
+      suffices all_nodes(L, P) and P(pair(first(x), v)) and all_nodes(R, P)
+          with definition {AVL_insert, all_nodes} and rewrite k_eq_x
+      rewrite k_eq_x in definition all_nodes in prem
+    }
+    case k_greater_x: first(x) < k {
+      have not_k_less_x: not (k < first(x))   by apply less_implies_not_greater to k_greater_x
+      have not_k_eq_x: not (k = first(x))
+         by suppose k_eq_x
+            apply (apply less_not_equal to k_greater_x) to symmetric k_eq_x
+      suffices all_nodes(balance(L, x, AVL_insert(R, k, v)), P)
+          with definition AVL_insert
+          and rewrite not_k_eq_x | not_k_less_x
+      have insR_P: all_nodes(AVL_insert(R, k, v), P)
+        by apply IH_R[k,v,P] to (definition all_nodes in prem)
+      have LxinsR_P: all_nodes(TreeNode(L, x, AVL_insert(R, k, v)), P)
+        by _definition all_nodes
+           (definition all_nodes in prem), insR_P
+      apply all_nodes_balance to LxinsR_P
+    }
+  }
+end
+```
 
 ```{.deduce #is_BST_AVL_insert}
 theorem is_BST_AVL_insert: all A:Tree<Pair<Nat,Nat>>. all k:Nat, v:Nat.
@@ -788,30 +1073,56 @@ proof
   case TreeNode(L, x, R) suppose IH_L, IH_R {
     arbitrary k:Nat, v:Nat
     suppose BST_LxR
+    have BST_L: is_BST(L) by definition is_BST in BST_LxR
+    have BST_R: is_BST(R) by definition is_BST in BST_LxR
+    have L_less_x: all_nodes(L, λl{first(l) < first(x)})
+      by definition is_BST in BST_LxR
+    have x_less_R: all_nodes(R, λr{first(x) < first(r)}) 
+      by definition is_BST in BST_LxR
+    have BST_AVL_L: is_BST(AVL_insert(L, k, v))
+      by apply IH_L[k, v] to BST_L
+    have BST_AVL_R: is_BST(AVL_insert(R, k, v))
+      by apply IH_R[k, v] to BST_R
     cases trichotomy[k][first(x)]
     case k_less_fx: k < first(x) {
       have not_k_eq_fx: not (k = first(x))  by apply less_not_equal to k_less_fx
-      _definition AVL_insert
-      _rewrite not_k_eq_fx | k_less_fx
-      ?
+      suffices is_BST(balance(AVL_insert(L, k, v), x, R))
+          with definition AVL_insert and rewrite not_k_eq_fx | k_less_fx
+      have BST_insLxR: is_BST(TreeNode(AVL_insert(L, k, v), x, R)) by
+        _definition is_BST
+        have k_l_x: (λl{first(l) < first(x)} : fn Pair<Nat,Nat>->bool)(pair(k,v))
+            by _definition first k_less_fx
+        have insL_less_x: all_nodes(AVL_insert(L, k, v), λl{first(l) < first(x)}) by 
+            apply all_nodes_AVL_insert to L_less_x, k_l_x
+        insL_less_x, x_less_R, BST_AVL_L, BST_R
+      apply is_BST_balance to BST_insLxR
     }
     case k_eq_fx: k = first(x) {
-      ?
+      suffices is_BST(TreeNode(L, pair(first(x), v), R))
+          with definition {AVL_insert} and rewrite k_eq_fx
+      suffices all_nodes(L, λl{first(l) < first(x)}) 
+           and all_nodes(R, λr{first(x) < first(r)}) 
+           and is_BST(L) and is_BST(R)
+          with definition {is_BST, first}
+      L_less_x, x_less_R, BST_L, BST_R
     }
     case k_greater_fx: first(x) < k {
-      ?
+      have not_k_less_fx: not (k < first(x))   by apply less_implies_not_greater to k_greater_fx
+      have not_k_eq_fx: not (k = first(x))
+         by suppose k_eq_fx
+            apply (apply less_not_equal to k_greater_fx) to symmetric k_eq_fx
+      suffices is_BST(balance(L, x, AVL_insert(R, k, v)))
+          with definition AVL_insert and rewrite not_k_eq_fx | not_k_less_fx
+      have BST_LxinsR: is_BST(TreeNode(L, x, AVL_insert(R, k, v))) by
+          _definition is_BST
+          have x_l_k: (λr{first(x) < first(r)} : fn Pair<Nat,Nat>->bool)(pair(k,v))
+            by _definition first k_greater_fx
+          have x_less_insR: all_nodes(AVL_insert(R, k, v), λr{first(x) < first(r)})
+            by apply all_nodes_AVL_insert to x_less_R, x_l_k
+          L_less_x, x_less_insR, BST_L, BST_AVL_R
+      apply is_BST_balance to BST_LxinsR
     }
   }
-end
-```
-
-```{.deduce #all_nodes_AVL_insert}
-theorem all_nodes_AVL_insert: 
-  all A:Tree<Pair<Nat,Nat>>, k:Nat, v:Nat, P:fn Pair<Nat,Nat>->bool.
-  if all_nodes(A, P) and P(pair(k,v))
-  then all_nodes(AVL_insert(A, k, v), P)
-proof
-  sorry
 end
 ```
 
@@ -1037,11 +1348,15 @@ import BinarySearchTree
 <<all_nodes_rotate_right_on>>
 <<all_nodes_rotate_left_on>>
 <<all_nodes_implies>>
+<<is_BST_rotate_left>>
+<<is_BST_rotate_right>>
 <<is_BST_rotate_right_on>>
 <<is_BST_rotate_left_on>>
 <<search_balance>>
-<<is_BST_AVL_insert>>
+<<is_BST_balance>>
+<<all_nodes_balance>>
 <<all_nodes_AVL_insert>>
+<<is_BST_AVL_insert>>
 <<AVL_search_insert_update>>
 
 ```
