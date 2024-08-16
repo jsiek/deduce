@@ -752,7 +752,8 @@ def check_proof_of(proof, formula, env):
 
       match red_claim:
         case Hole(loc2, tyof):
-          error(loc, '\nsuffices to prove:\n\t' + str(new_formula))
+          error(loc, '\nsuffices to prove:\n\t' + str(new_formula) \
+                + '\nGivens:\n' + env.proofs_str())
         case _:
           check_implies(loc, red_claim, new_formula)
           check_proof_of(rest, red_claim, env)
