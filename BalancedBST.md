@@ -613,7 +613,8 @@ end
 
 
 ```{.deduce #is_BST_rotate_right_on}
-theorem is_BST_rotate_right_on: all AxB:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, C:Tree<Pair<Nat,Nat>>.
+theorem is_BST_rotate_right_on: 
+  all AxB:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, C:Tree<Pair<Nat,Nat>>.
   if is_BST(TreeNode(AxB, y, C))
   then is_BST(rotate_right_on(AxB, y, C))
 proof
@@ -1321,7 +1322,7 @@ proof
 end
 ```
 
-## `AVL_insert` Maintains Balance
+## AVL Insertion Maintains Balance
 
 
 ```{.deduce #is_AVL}
@@ -1440,6 +1441,70 @@ proof
 end
 ```
 
+```{.deduce #right_taller}
+function right_taller<E>(Tree<E>) -> bool {
+  right_taller(EmptyTree) = true
+  right_taller(TreeNode(L, x, R)) = height(L) ≤ height(R)
+}
+```
+
+```{.deduce #left_taller}
+function left_taller<E>(Tree<E>) -> bool {
+  left_taller(EmptyTree) = true
+  left_taller(TreeNode(L, x, R)) = height(R) ≤ height(L)
+}
+```
+
+```{.deduce #is_AVL_rotate_left_on}
+theorem is_AVL_rotate_left_on: 
+  all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      ByC:Tree<Pair<Nat,Nat>>.
+  if is_AVL(A)
+  and 1 + height(A) < height(ByC)
+  and is_AVL(ByC)
+  and right_taller(ByC)
+  and height(ByC) ≤ 2 + height(A)
+  and height(A) ≤ 2 + height(ByC)
+  then is_AVL(rotate_left_on(A, x, ByC))
+proof
+  arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      ByC:Tree<Pair<Nat,Nat>>
+  suppose prem
+  switch ByC {
+    case EmptyTree suppose ByC_empty {
+      conclude false by
+        definition {height,operator<, operator≤} in 
+        rewrite ByC_empty in (conjunct 1 of prem)
+    }
+    case TreeNode(B, y, C) suppose ByC_node {
+      suffices is_AVL(rotate_left(A, x, B, y, C))
+          with definition rotate_left_on
+          
+      have prem_1: 1 + height(A) < height(TreeNode(B,y,C))
+        by rewrite ByC_node in prem
+        
+      have prem_2: height(B) ≤ height(C)
+        by definition right_taller in
+           rewrite ByC_node in prem
+        
+      have prem_3: is_AVL(A) by prem
+      
+      have prem_4: is_AVL(TreeNode(B,y,C)) 
+          by rewrite ByC_node in prem
+      
+      have prem_5: height(TreeNode(B,y,C)) ≤ 2 + height(A) 
+          by rewrite ByC_node in prem
+      
+      have prem_6: height(A) ≤ 2 + height(TreeNode(B,y,C))
+          by rewrite ByC_node in prem
+      
+      apply is_AVL_rotate_left[A,x,B,y,C]
+      to prem_1, prem_2, prem_3, prem_4, prem_5, prem_6
+    }
+  }
+end
+```
+
 ```{.deduce #is_AVL_rotate_right}
 theorem is_AVL_rotate_right:
   all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, B:Tree<Pair<Nat,Nat>>, 
@@ -1535,6 +1600,40 @@ proof
 end
 ```
 
+```{.deduce #is_AVL_rotate_right_on}
+theorem is_AVL_rotate_right_on:
+  all AxB:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, C:Tree<Pair<Nat,Nat>>.
+  if is_AVL(C)
+  and is_AVL(AxB)
+  and left_taller(AxB)
+  and 1 + height(C) < height(AxB) 
+  and height(C) ≤ 2 + height(AxB)
+  and height(AxB) ≤ 2 + height(C)
+  then is_AVL(rotate_right_on(AxB, y, C))
+proof
+  arbitrary AxB:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, C:Tree<Pair<Nat,Nat>>
+  suppose prem
+  switch AxB {
+    case EmptyTree suppose AxB_empty {
+      sorry
+    }
+    case TreeNode(A, x, B) suppose AxB_node {
+      suffices is_AVL(rotate_right(A, x, B, y, C))
+          with definition rotate_right_on
+      have p1: 1 + height(C) < height(TreeNode(A, x, B)) by rewrite AxB_node in prem
+      have p2: height(B) ≤ height(A) 
+          by definition left_taller in rewrite AxB_node in prem
+      have p3: is_AVL(C) by prem
+      have p4: is_AVL(TreeNode(A, x, B)) by rewrite AxB_node in prem
+      have p5: height(C) ≤ 2 + height(TreeNode(A, x, B)) by rewrite AxB_node in prem
+      have p6: height(TreeNode(A, x, B)) ≤ 2 + height(C) by rewrite AxB_node in prem
+      apply is_AVL_rotate_right[A,x,B,y,C]
+      to p1, p2, p3, p4, p5, p6
+    }
+  }
+end
+```
+
 ```{.deduce #is_AVL_balance}
 theorem is_AVL_balance: all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>.
   if is_AVL(L) and is_AVL(R)
@@ -1560,7 +1659,8 @@ proof
       switch R {
         case EmptyTree suppose R_mt {
           conclude false
-            by definition {height, operator<, operator≤} in rewrite R_mt in tall_right
+            by definition {height, operator<, operator≤} in
+               rewrite R_mt in tall_right
         }
         case TreeNode(RL, z, RR) suppose R_node {
           switch height(RL) ≤ height(RR) {
@@ -1592,7 +1692,8 @@ proof
           switch L {
             case EmptyTree suppose L_mt {
               conclude false
-                by definition {operator<, operator+, operator+, operator≤, height} in
+                by definition {operator<, operator+, operator+, operator≤,
+                      height} in
                    rewrite L_mt in tall_left
             }
             case TreeNode(LL, z, LR) suppose L_node {
@@ -1616,7 +1717,17 @@ proof
           }
         }
         case false suppose not_tall_left {
-          sorry
+          suffices is_AVL(TreeNode(L, x, R))
+              with definition balance
+              and rewrite not_tall_right | not_tall_left
+          _definition is_AVL
+          have R_le_one_L: height(R) ≤ 1 + height(L) by
+            have X: not (1 + height(L) < height(R)) by rewrite not_tall_right
+            apply not_less_less_equal to X
+          have L_le_one_R: height(L) ≤ 1 + height(R) by
+            have X: not (1 + height(R) < height(L)) by rewrite not_tall_left
+            apply not_less_less_equal to X
+          R_le_one_L, L_le_one_R, AVL_L, AVL_R
         }
       }
     }
@@ -1718,8 +1829,12 @@ import BinarySearchTree
 <<AVL_search_insert_update>>
 
 <<is_AVL>>
+<<right_taller>>
+<<left_taller>>
 <<is_AVL_rotate_left>>
+<<is_AVL_rotate_left_on>>
 <<is_AVL_rotate_right>>
+<<is_AVL_rotate_right_on>>
 <<is_AVL_balance>>
 <<is_AVL_insert>>
 

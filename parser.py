@@ -206,6 +206,8 @@ def parse_tree_to_ast(e, parent):
                            parse_tree_to_ast(e.children[2], e))
     elif e.data == 'int':
         return intToNat(e.meta, int(e.children[0]))
+    elif e.data == 'hole_formula':
+        return Hole(e.meta, None)
     elif e.data == 'ident':
         return str(e.children[0].value)
     elif e.data == 'ident_div':
@@ -326,17 +328,19 @@ def parse_tree_to_ast(e, parent):
         defs = parse_tree_to_list(e.children[1], e)
         definitions = [Var(e.meta, None, x) for x in defs]
         rest = parse_tree_to_ast(e.children[2], e)
-        return SufficesDef(e.meta, claim, definitions, rest)
+        return SufficesDefRewrite(e.meta, claim, definitions, [], rest)
     elif e.data == 'suffices_def_one':
-        return SufficesDef(e.meta,
-                           parse_tree_to_ast(e.children[0], e),
-                           [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))],
-                           parse_tree_to_ast(e.children[2], e))
+        return SufficesDefRewrite(e.meta,
+                                  parse_tree_to_ast(e.children[0], e),
+                                  [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))],
+                                  [],
+                                  parse_tree_to_ast(e.children[2], e))
     elif e.data == 'suffices_rewrite':
-        return SufficesRewrite(e.meta,
-                               parse_tree_to_ast(e.children[0], e),
-                               parse_tree_to_list(e.children[1], e),
-                               parse_tree_to_ast(e.children[2], e))
+        return SufficesDefRewrite(e.meta,
+                                  parse_tree_to_ast(e.children[0], e),
+                                  [],
+                                  parse_tree_to_list(e.children[1], e),
+                                  parse_tree_to_ast(e.children[2], e))
     elif e.data == 'term_proof':
         return PTerm(e.meta,
                      parse_tree_to_ast(e.children[0], e),

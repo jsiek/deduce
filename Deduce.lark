@@ -68,6 +68,7 @@ ident: IDENT              -> ident
     | "<" ident_list ">" term                       -> alltype_formula
     | "some" var_list "." term                     -> some_formula
     | "define" IDENT "=" term term                 -> define_term
+    | "?"                                          -> hole_formula
     | "(" term ")"                                 -> paren
     | "%" type
     

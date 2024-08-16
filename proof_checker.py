@@ -703,33 +703,14 @@ def check_proof_of(proof, formula, env):
           eq = make_boolean_equation(eq)
         new_formula = rewrite(loc, new_formula, eq)
         new_formula = new_formula.reduce(env)
-      
-      check_implies(loc, red_claim, new_formula)
-      check_proof_of(rest, red_claim, env)
-      
-    case SufficesDef(loc, claim, definitions, rest):
-      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-      defs = [d.reduce(env) for d in definitions]
-      red_claim = new_claim.reduce(env)
-      new_formula = apply_definitions(loc, formula, defs, env)
-      red_formula = new_formula.reduce(env)
-      check_implies(loc, red_claim, red_formula)
-      check_proof_of(rest, red_claim, env)
 
-    case SufficesRewrite(loc, claim, equation_proofs, rest):
-      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-      equations = [check_proof(proof, env) for proof in equation_proofs]
-      eqns = [equation.reduce(env) for equation in equations]
-      new_formula = formula.reduce(env)
-      for eq in eqns:
-        if not is_equation(eq):
-          eq = make_boolean_equation(eq)
-        new_formula = rewrite(loc, new_formula, eq)
-        new_formula = new_formula.reduce(env)
-      red_claim = new_claim.reduce(env)
-      check_implies(loc, red_claim, new_formula)
-      check_proof_of(rest, red_claim, env)
-          
+      match red_claim:
+        case Hole(loc2, tyof):
+          error(loc, '\nsuffices to prove:\n\t' + str(new_formula))
+        case _:
+          check_implies(loc, red_claim, new_formula)
+          check_proof_of(rest, red_claim, env)
+      
     # Want something like the following to help with interactive proof development, but
     # it need to be smarter than the following. -Jeremy
     # case PTuple(loc, pfs):
@@ -1355,6 +1336,8 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
+    case Hole(loc, tyof):
+      return Hole(loc, BoolType(loc))
     case Generic(loc, _, type_params, body):
       match typ:
         case FunctionType(loc2, type_params2, param_types2, return_type2):

@@ -996,9 +996,20 @@ class TLet(Term):
     new_body = self.body.substitute(sub)
     return TLet(self.location, self.typeof, self.var, new_rhs, new_body)
 
-    
 ################ Formulas ######################################
   
+@dataclass
+class Hole(Formula):
+  
+  def __str__(self):
+      return '?'
+    
+  def uniquify(self, env):
+    pass
+
+  def reduce(self, env):
+    return self
+    
 @dataclass
 class Bool(Formula):
   value: bool
@@ -1397,38 +1408,6 @@ class SufficesDefRewrite(Proof):
       eqn.uniquify(env)
     self.body.uniquify(env)
 
-@dataclass
-class SufficesDef(Proof):
-  claim: Formula
-  definitions: List[Term]
-  body: Proof
-
-  def __str__(self):
-    return 'suffices ' + str(self.claim) + '\n' \
-      + '\twith definition {' + ', '.join([str(d) for d in self.definitions]) + '}'
-  
-  def uniquify(self, env):
-    self.claim.uniquify(env)
-    for d in self.definitions:
-      d.uniquify(env)
-    self.body.uniquify(env)
-
-@dataclass
-class SufficesRewrite(Proof):
-  claim: Formula
-  equations: List[Proof]
-  body: Proof
-
-  def __str__(self):
-    return 'suffices ' + str(self.claim) + '\n' \
-      + '\twith rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
-  
-  def uniquify(self, env):
-    self.claim.uniquify(env)
-    for eqn in self.equations:
-      eqn.uniquify(env)
-    self.body.uniquify(env)
-  
 @dataclass
 class Suffices(Proof):
   claim: Formula
