@@ -103,7 +103,18 @@ def check_implies(loc, frm1, frm2):
             + '\nimplies\n'\
             + '\t' + str(frm2)
         raise Exception(msg)
-          
+
+    case (All(loc1, tyof1, vars1, body1), _):
+       matching = {}
+       try:
+         #print('*** trying to instantiate\n\t' + str(frm1) + '\nto\n\t' + str(frm2))
+         vars, body = collect_all(frm1)
+         formula_match(loc, vars, body, frm2, matching, Env())
+       except Exception as e:
+         error(loc, '\nCould not prove that\n\t' + str(frm1) \
+                  + '\ninstantiates to\n\t' + str(frm2) \
+               + '\nbecause ' + str(e))
+       
     case _:
       if frm1 != frm2:
         (small_frm1, small_frm2) = isolate_difference(frm1, frm2)
@@ -281,7 +292,15 @@ def collect_all_if_then(loc, frm):
         return ([], prem, conc)
       case _:
         error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
-    
+
+def collect_all(frm):
+    match frm:
+      case All(loc2, tyof, vars, frm):
+        (rest_vars, body) = collect_all(frm)
+        return ([Var(loc2, None, x) for (x,t) in vars] + rest_vars, body)
+      case _:
+        return ([], frm)
+        
 def check_proof(proof, env):
   if get_verbose():
     print('check_proof:')
@@ -321,7 +340,10 @@ def check_proof(proof, env):
       error(loc, "can't use sorry in context with unkown goal")
       
     case PVar(loc, name):
-      ret = env.get_formula_of_proof_var(proof)
+      try:
+        ret = env.get_formula_of_proof_var(proof)
+      except Exception as e:
+        error(loc, str(e))
       
     case PTrue(loc):
       ret = Bool(loc, BoolType(loc), True)
@@ -333,9 +355,14 @@ def check_proof(proof, env):
       
     case PLet(loc, label, frm, reason, rest):
       new_frm = check_formula(frm, env)
-      check_proof_of(reason, new_frm, env)
-      body_env = env.declare_local_proof_var(loc, label, new_frm)
-      ret = check_proof(rest, body_env)
+      match new_frm:
+        case Hole(loc2, tyof):
+          proved_formula = check_proof(reason, env)
+          error(loc, "\nhave " + label + ':\n\t' + str(proved_formula))
+        case _:
+          check_proof_of(reason, new_frm, env)
+          body_env = env.declare_local_proof_var(loc, label, new_frm)
+          ret = check_proof(rest, body_env)
       
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
@@ -464,7 +491,21 @@ def check_proof(proof, env):
       frm = check_proof(eq_pf, env)
       (a,b) = split_equation(loc, frm)
       return mkEqual(loc, b, a)
-  
+
+    case PTransitive(loc, eq_pf1, eq_pf2):
+      eq1 = check_proof(eq_pf1, env)
+      eq2 = check_proof(eq_pf2, env)
+      (a,b1) = split_equation(loc, eq1)
+      (b2,c) = split_equation(loc, eq2)
+      b1r = b1.reduce(env)
+      b2r = b2.reduce(env)
+      if b1r != b2r:
+        error(loc, 'error in transitive,\nyou proved\n\t'
+              + str(eq1) + '\nand\n\t' + str(eq2) + '\n' \
+              + 'but the middle formulas do not match:\n\t' \
+              + str(b1r) + '\n≠\n\t' + str(b2r))
+      else:
+        return mkEqual(loc, a, c)
     case _:
       error(proof.location, 'need to be in goal-directed mode for\n\t' + str(proof))
   if get_verbose():
@@ -650,9 +691,14 @@ def check_proof_of(proof, formula, env):
       
     case PLet(loc, label, frm, reason, rest):
       new_frm = check_formula(frm, env)
-      check_proof_of(reason, new_frm, env)
-      body_env = env.declare_local_proof_var(loc, label, new_frm)
-      check_proof_of(rest, formula, body_env)
+      match new_frm:
+        case Hole(loc2, tyof):
+          proved_formula = check_proof(reason, env)
+          error(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
+        case _:
+          check_proof_of(reason, new_frm, env)
+          body_env = env.declare_local_proof_var(loc, label, new_frm)
+          check_proof_of(rest, formula, body_env)
 
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
@@ -926,7 +972,7 @@ def formula_match(loc, vars, goal_frm, frm, matching, env):
   if get_verbose():
     print("formula_match(" + str(goal_frm) + "," + str(frm) + ")")
     print("\tin  " + ','.join([str(x) for x in vars]))
-    print("\twith " + str(matching))
+    print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
   match (goal_frm, frm):
     case (Var(l1, t1, n1), Var(l2, t2, n2)) if n1 == n2:
       pass
@@ -934,6 +980,8 @@ def formula_match(loc, vars, goal_frm, frm, matching, env):
       if name in matching.keys():
         formula_match(loc, vars, matching[name], frm, matching, env)
       else:
+        if get_verbose():
+            print("formula_match, " + base_name(name) + ' := ' + str(frm))
         matching[name] = frm
     case (Call(loc2, tyof2, goal_rator, goal_rands, goal_infix),
           Call(loc3, tyof3, rator, rands, infix)):

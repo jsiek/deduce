@@ -2320,7 +2320,10 @@ class Env:
   
   def _formula_of_proof_var(self, curr, name):
     if name in curr.keys():
-      return curr[name].formula
+      if isinstance(curr[name], ProofBinding):
+        return curr[name].formula
+      else:
+        raise Exception('expected a proof variable but instead got ' + base_name(name))
     else:
       return None
     

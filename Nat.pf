@@ -1157,6 +1157,15 @@ proof
   }
 end
 
+theorem less_equal_add_left: all x:Nat, y:Nat.
+  y ≤ x + y
+proof
+  arbitrary x:Nat, y:Nat
+  suffices y ≤ y + x
+     with rewrite add_commute[x][y]
+  less_equal_add[y][x]
+end
+
 theorem less_equal_suc: all n:Nat.
   n ≤ suc(n)
 proof
@@ -1350,6 +1359,19 @@ end
   Properties of max
   */
 
+theorem max_same: all x:Nat. max(x,x) = x
+proof
+  induction Nat
+  case 0 {
+    conclude max(0, 0) = 0  by definition max
+  }
+  case suc(x') suppose IH {
+    suffices suc(max(x', x')) = suc(x')
+      with definition max
+    conclude suc(max(x', x')) = suc(x') by rewrite IH
+  }
+end
+
 theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat
@@ -1494,6 +1516,39 @@ proof
         suffices suc(max(x', y')) = suc(max(y', x'))
             with rewrite max_suc2[x',y'] | max_suc2[y',x']
         rewrite IH[y']
+      }
+    }
+  }
+end
+
+theorem max_assoc: all x:Nat. all y:Nat,z:Nat.
+  max(max(x, y), z) = max(x, max(y, z))
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat,z:Nat
+    conclude max(max(0, y), z) = max(0, max(y, z))
+        by definition max
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat,z:Nat
+    switch y {
+      case 0 {
+        conclude max(max(suc(x'), 0), z) = max(suc(x'), max(0, z))
+          by definition max
+      }
+      case suc(y') suppose y_suc {
+        switch z {
+          case 0 {
+            conclude max(max(suc(x'), suc(y')), 0) = max(suc(x'), max(suc(y'), 0))
+                by definition max
+          }
+          case suc(z') suppose z_suc {
+            suffices suc(max(max(x', y'), z')) = suc(max(x', max(y', z')))
+               with definition max
+            rewrite IH[y',z']
+          }
+        }
       }
     }
   }
