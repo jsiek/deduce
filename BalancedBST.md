@@ -1615,7 +1615,10 @@ proof
   suppose prem
   switch AxB {
     case EmptyTree suppose AxB_empty {
-      sorry
+      conclude false
+        by definition {height,operator+,operator<,operator≤} in 
+           rewrite AxB_empty in
+           conjunct 3 of prem
     }
     case TreeNode(A, x, B) suppose AxB_node {
       suffices is_AVL(rotate_right(A, x, B, y, C))
@@ -1714,8 +1717,10 @@ proof
                 definition {operator+,operator+,operator+} in X
                 
               switch RL {
-                case EmptyTree {
-                  sorry
+                case EmptyTree suppose RL_mt {
+                  conclude false
+                    by definition {height,operator≤} in 
+                       rewrite RL_mt in tall_RL
                 }
                 case TreeNode(A, y, B) suppose RL_node {
                   suffices is_AVL(TreeNode(TreeNode(L, x, A), y, 
