@@ -2127,13 +2127,222 @@ proof
 end
 ```
 
+```{.deduce #height_balance}
+theorem height_balance:
+    all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>.
+  height(balance(L, x, R)) ≤ suc(max(height(L), height(R)))
+  and suc(max(height(L), height(R))) ≤ height(balance(L, x, R))
+proof
+  arbitrary L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>
+  switch 1 + height(L) < height(R) {
+    case true suppose tall_right {
+      switch R {
+        case EmptyTree suppose R_mt {
+          sorry
+        }
+        case TreeNode(RL, z, RR) suppose R_node {
+          switch height(RL) ≤ height(RR) {
+            case true suppose tall_RR {
+              sorry
+            }
+            case false suppose tall_RL {
+              sorry
+            }
+          }
+        }
+      }
+    }
+    case false suppose not_tall_right {
+      switch 1 + height(R) < height(L) {
+        case true suppose tall_left {
+          switch L {
+            case EmptyTree suppose L_mt {
+              sorry
+            }
+            case TreeNode(LL, z, LR) suppose L_node {
+              switch height(LR) ≤ height(LL) {
+                case true suppose tall_LL {
+                  sorry
+                }
+                case false suppose tall_LR {
+                  sorry
+                }
+              }
+            }
+          }
+        }
+        case false suppose not_tall_left {
+          sorry
+        }
+      }
+    }
+  }
+end
+```
+
 ```{.deduce #height_AVL_insert}
 theorem height_AVL_insert: all T:Tree<Pair<Nat,Nat>>. all k:Nat, v:Nat.
   height(AVL_insert(T, k, v)) ≤ suc(height(T))
   and
   height(T) ≤ height(AVL_insert(T, k, v))
 proof
-  sorry
+  induction Tree<Pair<Nat,Nat>>
+  case EmptyTree {
+    arbitrary k:Nat, v:Nat
+    suffices 1 ≤ 1 and 0 ≤ 1
+        with definition {AVL_insert, height, height, max}
+    definition {operator≤,operator≤}
+  }
+  case TreeNode(L, x, R) suppose IH_L, IH_R {
+    arbitrary k:Nat, v:Nat
+    cases trichotomy[k][first(x)]
+    case k_less_x: k < first(x) {
+      have not_k_eq_x: not (k = first(x))  by apply less_not_equal to k_less_x
+      suffices height(balance(AVL_insert(L, k, v), x, R)) 
+               ≤ suc(suc(max(height(L), height(R)))) 
+           and suc(max(height(L), height(R)))
+               ≤ height(balance(AVL_insert(L, k, v), x, R))
+          with definition {AVL_insert, height}
+          and rewrite not_k_eq_x | k_less_x
+      have IH_L1: height(AVL_insert(L, k, v)) ≤ suc(height(L))
+          by IH_L[k,v]
+      have IH_L2: height(L) ≤ height(AVL_insert(L, k, v))
+          by IH_L[k,v]
+          
+      have part1: height(balance(AVL_insert(L, k, v), x, R)) 
+                ≤ suc(suc(max(height(L), height(R)))) by {
+        have le1: height(balance(AVL_insert(L, k, v), x, R)) 
+                 ≤ suc(max(height(AVL_insert(L, k, v)), height(R)))
+                 by height_balance[AVL_insert(L, k, v), x, R]
+        have le2: suc(max(height(AVL_insert(L, k, v)), height(R)))
+                ≤ suc(suc(max(height(L), height(R)))) by {
+          suffices max(height(AVL_insert(L, k, v)), height(R))
+                 ≤ suc(max(height(L), height(R)))
+              with definition operator≤
+          have le3: height(AVL_insert(L,k,v)) ≤ suc(max(height(L),height(R))) by
+              have le5: suc(height(L)) ≤ suc(max(height(L),height(R))) by
+                  suffices height(L) ≤ max(height(L), height(R))
+                     with definition operator≤
+                  max_greater_left
+              apply less_equal_trans to IH_L1, le5
+          have le4: height(R) ≤ suc(max(height(L), height(R))) by
+              have le6: suc(height(R)) ≤ suc(max(height(L), height(R))) by
+                  suffices height(R) ≤ max(height(L), height(R))
+                      with definition operator≤
+                  max_greater_right
+              apply less_equal_trans to (less_equal_suc[height(R)], le6)
+          apply max_less_equal to le3, le4
+        }
+        apply less_equal_trans to le1, le2
+      }
+      have part2: suc(max(height(L), height(R)))
+               ≤ height(balance(AVL_insert(L, k, v), x, R)) by {
+        have le1: suc(max(height(L), height(R)))
+                ≤ suc(max(height(AVL_insert(L, k, v)), height(R))) by {
+          suffices max(height(L), height(R))
+                   ≤ max(height(AVL_insert(L, k, v)), height(R))
+              with definition operator≤
+          have L_le_max: height(L) ≤ max(height(AVL_insert(L, k, v)), height(R))
+             by have L_le_insL: height(L) ≤ height(AVL_insert(L,k,v)) by IH_L2
+                apply less_equal_trans to (L_le_insL,
+                   max_greater_left[height(AVL_insert(L,k,v))][height(R)])
+          have R_le_max: height(R) ≤ max(height(AVL_insert(L, k, v)), height(R))
+             by max_greater_right
+          apply max_less_equal to L_le_max, R_le_max
+        }
+        have le2: suc(max(height(AVL_insert(L, k, v)), height(R))) 
+                ≤ height(balance(AVL_insert(L, k, v), x, R))
+            by height_balance[AVL_insert(L, k, v), x, R]
+        apply less_equal_trans to le1, le2
+      }
+      part1, part2
+    }
+    case k_eq_x: k = first(x) {
+      suffices suc(max(height(L), height(R))) 
+             ≤ suc(suc(max(height(L), height(R)))) 
+           and suc(max(height(L), height(R))) 
+             ≤ suc(max(height(L), height(R)))
+          with definition {AVL_insert, height}
+          and rewrite k_eq_x
+      have part1: suc(max(height(L), height(R))) 
+             ≤ suc(suc(max(height(L), height(R))))  by less_equal_suc
+      have part2: suc(max(height(L), height(R))) 
+             ≤ suc(max(height(L), height(R)))  by
+          suffices max(height(L), height(R)) ≤ max(height(L), height(R))
+              with definition operator≤
+          less_equal_refl
+      part1, part2
+    }
+    case k_greater_x: first(x) < k {
+      have not_k_eq_x: not (k = first(x))
+         by suppose k_eq_x
+            apply (apply less_not_equal to k_greater_x) to symmetric k_eq_x
+      have not_k_less_x: not (k < first(x))
+          by apply less_implies_not_greater to k_greater_x
+      suffices height(balance(L, x, AVL_insert(R, k, v))) 
+               ≤ suc(suc(max(height(L), height(R)))) 
+           and suc(max(height(L), height(R)))
+               ≤ height(balance(L, x, AVL_insert(R, k, v)))
+          with definition {AVL_insert, height}
+          and rewrite not_k_eq_x | not_k_less_x
+      have part1: height(balance(L, x, AVL_insert(R, k, v))) 
+               ≤ suc(suc(max(height(L), height(R)))) by {
+        have le1: height(balance(L, x, AVL_insert(R, k, v)))
+            ≤ suc(max(height(L), height(AVL_insert(R, k, v))))
+            by height_balance[L, x, AVL_insert(R, k, v)]
+        have le2: suc(max(height(L), height(AVL_insert(R, k, v))))
+                ≤ suc(suc(max(height(L), height(R)))) by {
+          suffices max(height(L), height(AVL_insert(R, k, v)))
+                 ≤ suc(max(height(L), height(R)))
+             with definition operator≤
+          have L_le_suc_max: height(L) ≤ suc(max(height(L), height(R))) by {
+             have L_le_suc_L: height(L) ≤ suc(height(L)) by less_equal_suc
+             have suc_L_le_suc_max: 
+                 suc(height(L)) ≤ suc(max(height(L), height(R))) by
+               suffices height(L) ≤ max(height(L), height(R))
+                  with definition operator≤
+               max_greater_left
+             apply less_equal_trans to L_le_suc_L, suc_L_le_suc_max
+          }
+          have insR_le_suc_max: height(AVL_insert(R, k, v))
+                   ≤ suc(max(height(L), height(R))) by {
+             have ins_R_le_suc_R: height(AVL_insert(R, k, v)) ≤ suc(height(R))
+                by conjunct 0 of IH_R[k,v]
+             have suc_R_le_suc_max: suc(height(R)) 
+                 ≤ suc(max(height(L), height(R))) by
+               suffices height(R) ≤ max(height(L), height(R))
+                   with definition operator≤
+               max_greater_right
+             apply less_equal_trans to ins_R_le_suc_R, suc_R_le_suc_max
+          }
+          apply max_less_equal to L_le_suc_max, insR_le_suc_max
+        }
+        apply less_equal_trans to le1, le2
+      }
+      have part2: suc(max(height(L), height(R)))
+               ≤ height(balance(L, x, AVL_insert(R, k, v))) by {
+        have le1: suc(max(height(L), height(R)))
+                ≤ suc(max(height(L), height(AVL_insert(R, k, v)))) by {
+            suffices max(height(L), height(R))
+                   ≤ max(height(L), height(AVL_insert(R, k, v)))
+               with definition operator≤
+            have L_le_max: height(L) ≤ max(height(L), height(AVL_insert(R,k,v)))
+              by max_greater_left
+            have R_le_max: height(R) ≤ max(height(L), height(AVL_insert(R,k,v)))
+              by have insR_le: height(AVL_insert(R,k,v)) 
+                               ≤ max(height(L), height(AVL_insert(R,k,v)))
+                     by max_greater_right
+                 apply less_equal_trans to (conjunct 1 of IH_R[k,v]), insR_le
+            apply max_less_equal to L_le_max, R_le_max
+        }
+        have le2: suc(max(height(L), height(AVL_insert(R, k, v))))
+                ≤ height(balance(L, x, AVL_insert(R, k, v)))
+            by height_balance[L, x, AVL_insert(R, k, v)]
+        apply less_equal_trans to le1, le2
+      }
+      part1, part2
+    }
+  }
 end
 ```
 
@@ -2280,6 +2489,7 @@ import BinarySearchTree
 <<is_AVL>>
 <<right_taller>>
 <<left_taller>>
+<<height_balance>>
 <<height_AVL_insert>>
 <<is_AVL_rotate_left>>
 <<is_AVL_rotate_left_on>>
