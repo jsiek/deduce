@@ -2127,6 +2127,60 @@ proof
 end
 ```
 
+```{.deduce #height_rotate_left}
+theorem height_rotate_left:
+  all A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>.
+  if suc(height(A)) ≤ max(height(B), height(C))
+  and height(B) ≤ height(C)
+  then height(rotate_left(A, x, B, y, C))
+        ≤ suc(max(height(A), suc(max(height(B), height(C)))))
+proof
+  arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
+      B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
+      C:Tree<Pair<Nat,Nat>>
+  suppose prem
+  suffices max(suc(max(height(A), height(B))), height(C)) 
+           ≤ max(height(A), suc(max(height(B), height(C))))
+      with definition {rotate_left, height, height, operator≤}
+      
+  have part1: suc(max(height(A), height(B))) 
+              ≤ max(height(A), suc(max(height(B), height(C)))) by 
+    suffices max(suc(height(A)), suc(height(B))) 
+         ≤ max(height(A), suc(max(height(B), height(C))))
+      with rewrite symmetric max_suc2[height(A), height(B)]
+    have one_A_le_max: suc(height(A)) 
+                       ≤ max(height(A), suc(max(height(B), height(C)))) by {
+      have le1: suc(height(A)) ≤ max(height(B), height(C)) by prem
+      have le2: max(height(B), height(C)) 
+              ≤ suc(max(height(B), height(C))) by less_equal_suc
+      have le3: suc(max(height(B), height(C)))
+              ≤ max(height(A), suc(max(height(B), height(C))))
+              by max_greater_right
+      apply less_equal_trans to (le1,
+         apply less_equal_trans to le2, le3)
+    }
+    have one_B_le_max: suc(height(B)) ≤ max(height(A), 
+                                  suc(max(height(B), height(C)))) by {
+                                  
+      have le1: suc(height(B)) ≤ suc(max(height(B), height(C))) by 
+          _definition operator≤ max_greater_left
+      have le3: suc(max(height(B), height(C)))
+              ≤ max(height(A), suc(max(height(B), height(C)))) by 
+          max_greater_right
+      apply less_equal_trans to le1, le3
+    }
+    apply max_less_equal to one_A_le_max, one_B_le_max
+    
+  have part2: height(C)
+              ≤ max(height(A), suc(max(height(B), height(C)))) by sorry
+  
+  
+  apply max_less_equal to part1, part2
+end
+```
+
 ```{.deduce #height_balance}
 theorem height_balance:
     all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>.
@@ -2138,11 +2192,37 @@ proof
     case true suppose tall_right {
       switch R {
         case EmptyTree suppose R_mt {
-          sorry
+          conclude false
+            by definition {height, operator<, operator≤} in
+               rewrite R_mt in tall_right
         }
         case TreeNode(RL, z, RR) suppose R_node {
           switch height(RL) ≤ height(RR) {
             case true suppose tall_RR {
+              suffices height(rotate_left(L, x, RL, z, RR))
+                       ≤ suc(max(height(L), height(TreeNode(RL, z, RR)))) 
+              and suc(max(height(L), height(TreeNode(RL, z, RR))))
+                  ≤ height(rotate_left(L, x, RL, z, RR))
+                    with definition {balance}
+                    and rewrite (rewrite R_node in tall_right) | tall_RR
+                    
+              have one_L_l_R: 1 + height(L) < height(TreeNode(RL, z, RR))
+                by rewrite (rewrite R_node in tall_right)
+              have one_L_le_max_RL_RR: 
+                   suc(height(L)) ≤ max(height(RL), height(RR))
+                by definition {height, operator+,operator+,operator<,operator≤}
+                   in one_L_l_R
+              have RL_le_RR: height(RL) ≤ height(RR)
+                 by rewrite tall_RR
+                
+              have part1: height(rotate_left(L, x, RL, z, RR))
+                       ≤ suc(max(height(L), height(TreeNode(RL, z, RR)))) by {
+                suffices height(rotate_left(L, x, RL, z, RR))
+                  ≤ suc(max(height(L), suc(max(height(RL), height(RR)))))
+                  with definition height 
+                apply height_rotate_left[L, x, RL, z, RR] 
+                to one_L_le_max_RL_RR, RL_le_RR
+              }
               sorry
             }
             case false suppose tall_RL {
@@ -2489,6 +2569,7 @@ import BinarySearchTree
 <<is_AVL>>
 <<right_taller>>
 <<left_taller>>
+<<height_rotate_left>>
 <<height_balance>>
 <<height_AVL_insert>>
 <<is_AVL_rotate_left>>
