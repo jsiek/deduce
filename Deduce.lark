@@ -2,7 +2,7 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -17,7 +17,8 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_compare
 
 ?term_compare: term_compare "=" term_add             -> equal
-    | term_compare "≠" term_add                       -> not_equal
+    | term_compare "≠" term_add                       -> not_equal
+    | term_compare "/=" term_add                       -> not_equal
     | term_compare "<" term_add                        -> less
     | term_compare ">" term_add                        -> greater
     | term_compare "≤" term_add                       -> less_equal
@@ -25,13 +26,18 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_compare "≥" term_add                       -> greater_equal
     | term_compare ">=" term_add                       -> greater_equal
     | term_compare "⊆" term_add                       -> subset_equal
+    | term_compare "(=" term_add                       -> subset_equal
     | term_compare "∈" term_add                       -> membership
+    | term_compare "in" term_add                       -> membership
     | term_add
 
 ?term_add: term_med "+" term_add                   -> add
     | term_med "∪" term_add                        -> union_op
+    | term_med "|" term_add                        -> union_op
     | term_med "∩" term_add                        -> intersect
+    | term_med "&" term_add                        -> intersect
     | term_med "⨄" term_add                        -> multiset_sum
+    | term_med "[+]" term_add                      -> multiset_sum
     | term_med "++" term_add                       -> append
     | term_add "-" term_med                        -> sub
     | term_med
@@ -40,6 +46,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med "%" term_hi                         -> mod
     | term_hi "*" term_med                         -> mul
     | term_med "∘" term_hi                         -> circ
+    | term_med "[o]" term_hi                        -> circ
     | term_hi
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
@@ -51,17 +58,25 @@ ident: IDENT              -> ident
     | "operator" OPERATOR -> ident
     | "operator" "++"     -> ident_append
     | "operator" "/"      -> ident_div
+    | "operator" "|"      -> ident_union
+    | "operator" "&"      -> ident_interesect
+    | "operator" "in"      -> ident_member
+    | "operator" "[+]"      -> ident_multiset_sum
+    | "operator" "[o]"      -> ident_circ
+    | "operator" "(="      -> ident_subset_equal
 
 ?term_hi: INT                                      -> int
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
     | "∅"                                          -> emptyset_literal
+    | "[0]"                                        -> emptyset_literal
     | "-" term_hi                                  -> neg
     | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var
     | "@" term_hi "<" type_list ">"                -> term_inst
     | term_hi "(" term_list ")"                    -> call
     | "λ" ident_list "{" term "}"                  -> lambda
+    | "fun" ident_list "{" term "}"                 -> lambda
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" var_list "." term                      -> all_formula

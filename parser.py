@@ -107,7 +107,7 @@ prefix_ops = {'neg', 'not'}
 operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘',
                    'mod': '%', 'neg':'-', 
                    'and': 'and', 'or':'or', 'not': 'not',
-                   'equal': '=', 'not_equal': '≠',
+                   'equal': '=', 'not_equal': '≠',
                    'less': '<', 'greater': '>',
                    'less_equal': '≤', 'greater_equal': '≥',
                    'subset_equal': '⊆', 'union_op': '∪', 'intersect': '∩',
@@ -214,6 +214,18 @@ def parse_tree_to_ast(e, parent):
         return '/'
     elif e.data == 'ident_append':
         return '++'
+    elif e.data == 'ident_union':
+        return '∪'
+    elif e.data == 'ident_intersect':
+        return '∩'
+    elif e.data == 'ident_member':
+        return '∈'
+    elif e.data == 'ident_multiset_sum':
+        return '⨄'
+    elif e.data == 'ident_subset_equal':
+        return '⊆'
+    elif e.data == 'ident_circ':
+        return '∘'
     elif e.data == 'true_literal':
         return Bool(e.meta, None, True)
     elif e.data == 'false_literal':
@@ -239,6 +251,12 @@ def parse_tree_to_ast(e, parent):
         return Generic(e.meta, None,
                        parse_tree_to_list(e.children[0], e),
                        parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'not_equal':
+        kids = [parse_tree_to_ast(c, e) for c in e.children]
+        return IfThen(e.meta, None, 
+                      Call(e.meta, None, Var(e.meta, None, '='),
+                           kids, True),
+                      Bool(e.meta, None, False))
     elif e.data in infix_ops:
         return Call(e.meta, None, Var(e.meta, None, operator_symbol[e.data]),
                     [parse_tree_to_ast(c, e) for c in e.children],

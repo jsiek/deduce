@@ -79,19 +79,21 @@ proof
   }
 end
 
+// Testing alternative asci symbols
 theorem member_union: all T:type. all x:T, A:Set<T>, B:Set<T>.
-  if x ∈ (A ∪ B)
-  then x ∈ A or x ∈ B
+  if x in (A | B)
+  then x in A or x in B
 proof
   arbitrary T:type
   arbitrary x:T, A:Set<T>, B:Set<T>
-  suppose x_AB: x ∈ (A ∪ B)
-  enable {operator ∈, operator ∪, rep}
+  suppose x_AB: x in (A | B)
+  enable {operator in, operator |, rep}
   x_AB
 end
 
+// testing alternate syntax for ∅
 theorem union_empty: all T:type. all A:Set<T>.
-  A ∪ ∅ = A
+  A ∪ [0] = A
 proof
   arbitrary T:type
   arbitrary A:Set<T>

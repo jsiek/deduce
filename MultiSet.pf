@@ -43,12 +43,13 @@ proof
   _definition {cnt, operator ⨄}.
 end
 
+// Testing alternate asci notation 
 theorem m_sum_empty: all T:type. all A:MultiSet<T>.
-  A ⨄ m_fun(λy{0}: fn T->Nat) = A
+  A [+] m_fun(λy{0}: fn T->Nat) = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
-  _definition {operator ⨄, cnt}
+  _definition {operator [+], cnt}
   switch A {
     case m_fun(f) {
       have eq: (λx{(f(x) + 0)} : fn T->Nat) = f

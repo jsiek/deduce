@@ -2,6 +2,9 @@
 import Set
 import Option
 
+define operator ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
+                  = generic T,U,V { λ g,f { λ x { g(f(x)) } } }
+
 define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
               = generic T, U { λf,x,v{ λy{ if y = x then v else f(y) } } }
 

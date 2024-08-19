@@ -3,6 +3,7 @@ import Option
 import Set
 import MultiSet
 import Pair
+import Maps
 
 union List<T> {
   empty
@@ -413,12 +414,9 @@ proof
   }
 end
 
-define operator ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
-                  = generic T,U,V { λ g,f { λ x { g(f(x)) } } }
-
 define id_nat : fn Nat -> Nat = λx{x}
 
-assert (id_nat ∘ id_nat)(zero) = zero
+assert (id_nat [o] id_nat)(zero) = zero
 
 theorem map_append: all T:type. all f: fn T->T, ys:List<T>. all xs:List<T>.
   map(xs ++ ys, f) = map(xs,f) ++ map(ys, f)
@@ -458,7 +456,7 @@ proof
       map(map(node(x,ls),f),g)
 	  = node(g(f(x)), map(map(ls, f), g))  by .
       ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite IH
-      ... = map(node(x,ls), g ∘ f)             by .
+      ... = map(node(x,ls), g [o] f)           by .
   }
 end
 

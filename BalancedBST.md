@@ -2136,48 +2136,82 @@ theorem height_rotate_left:
   and height(B) ≤ height(C)
   then height(rotate_left(A, x, B, y, C))
         ≤ suc(max(height(A), suc(max(height(B), height(C)))))
+   and max(height(A), suc(max(height(B), height(C))))
+        ≤ height(rotate_left(A, x, B, y, C))
 proof
   arbitrary A:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, 
       B:Tree<Pair<Nat,Nat>>, y:Pair<Nat,Nat>, 
       C:Tree<Pair<Nat,Nat>>
   suppose prem
-  suffices max(suc(max(height(A), height(B))), height(C)) 
+  have B_le_C: height(B) ≤ height(C) by prem
+  
+  have rl_le_suc_max: height(rotate_left(A, x, B, y, C))
+        ≤ suc(max(height(A), suc(max(height(B), height(C))))) by {
+    suffices max(suc(max(height(A), height(B))), height(C)) 
+             ≤ max(height(A), suc(max(height(B), height(C))))
+        with definition {rotate_left, height, height, operator≤}
+
+    have part1: suc(max(height(A), height(B))) 
+                ≤ max(height(A), suc(max(height(B), height(C)))) by 
+      suffices max(suc(height(A)), suc(height(B))) 
            ≤ max(height(A), suc(max(height(B), height(C))))
-      with definition {rotate_left, height, height, operator≤}
+        with rewrite symmetric max_suc2[height(A), height(B)]
+      have one_A_le_max: suc(height(A)) 
+                         ≤ max(height(A), suc(max(height(B), height(C)))) by {
+        have le1: suc(height(A)) ≤ max(height(B), height(C)) by prem
+        have le2: max(height(B), height(C)) 
+                ≤ suc(max(height(B), height(C))) by less_equal_suc
+        have le3: suc(max(height(B), height(C)))
+                ≤ max(height(A), suc(max(height(B), height(C))))
+                by max_greater_right
+        apply less_equal_trans to (le1,
+           apply less_equal_trans to le2, le3)
+      }
+      have one_B_le_max: suc(height(B)) ≤ max(height(A), 
+                                    suc(max(height(B), height(C)))) by {
+
+        have le1: suc(height(B)) ≤ suc(max(height(B), height(C))) by 
+            _definition operator≤ max_greater_left
+        have le3: suc(max(height(B), height(C)))
+                ≤ max(height(A), suc(max(height(B), height(C)))) by 
+            max_greater_right
+        apply less_equal_trans to le1, le3
+      }
+      apply max_less_equal to one_A_le_max, one_B_le_max
+
+    have part2: height(C)
+                ≤ max(height(A), suc(max(height(B), height(C)))) by {
+      have le1: height(C) ≤ max(height(B), height(C)) by max_greater_right
+      have le2: max(height(B), height(C))
+        ≤ suc(max(height(B), height(C))) by less_equal_suc
+      have le3: suc(max(height(B), height(C)))
+        ≤ max(height(A), suc(max(height(B), height(C)))) by max_greater_right
+      apply less_equal_trans to le1,
+        (apply less_equal_trans to le2, le3)
+    }
+    apply max_less_equal to part1, part2
+  }
+  have max_le_rl: max(height(A), suc(max(height(B), height(C))))
+                    ≤ height(rotate_left(A, x, B, y, C)) by {
+    suffices max(height(A), suc(max(height(B), height(C)))) 
+           ≤ suc(max(suc(max(height(A), height(B))), height(C)))
+        with definition {rotate_left, height, height, operator≤}
+    have A_le: height(A) ≤ max(suc(max(height(A), height(B))), height(C)) by {
+      have le1: height(A) ≤ suc(height(A)) by less_equal_suc
+      have le2: suc(height(A)) ≤ max(suc(height(A)), suc(height(B))) by max_greater_left
+      have le3: max(suc(height(A)), suc(height(B))) ≤ suc(max(height(A), height(B))) by 
+          suffices suc(max(height(A), height(B))) ≤ suc(max(height(A), height(B)))
+             with rewrite max_suc2[height(A), height(B)]
+          less_equal_refl
+      have le4: suc(max(height(A), height(B))) ≤ max(suc(max(height(A), height(B))), height(C))
+         by max_greater_left
       
-  have part1: suc(max(height(A), height(B))) 
-              ≤ max(height(A), suc(max(height(B), height(C)))) by 
-    suffices max(suc(height(A)), suc(height(B))) 
-         ≤ max(height(A), suc(max(height(B), height(C))))
-      with rewrite symmetric max_suc2[height(A), height(B)]
-    have one_A_le_max: suc(height(A)) 
-                       ≤ max(height(A), suc(max(height(B), height(C)))) by {
-      have le1: suc(height(A)) ≤ max(height(B), height(C)) by prem
-      have le2: max(height(B), height(C)) 
-              ≤ suc(max(height(B), height(C))) by less_equal_suc
-      have le3: suc(max(height(B), height(C)))
-              ≤ max(height(A), suc(max(height(B), height(C))))
-              by max_greater_right
-      apply less_equal_trans to (le1,
-         apply less_equal_trans to le2, le3)
+      apply less_equal_trans to (apply less_equal_trans to le1, le2),
+          (apply less_equal_trans to le3, le4)
     }
-    have one_B_le_max: suc(height(B)) ≤ max(height(A), 
-                                  suc(max(height(B), height(C)))) by {
-                                  
-      have le1: suc(height(B)) ≤ suc(max(height(B), height(C))) by 
-          _definition operator≤ max_greater_left
-      have le3: suc(max(height(B), height(C)))
-              ≤ max(height(A), suc(max(height(B), height(C)))) by 
-          max_greater_right
-      apply less_equal_trans to le1, le3
-    }
-    apply max_less_equal to one_A_le_max, one_B_le_max
-    
-  have part2: height(C)
-              ≤ max(height(A), suc(max(height(B), height(C)))) by sorry
-  
-  
-  apply max_less_equal to part1, part2
+    sorry
+  }
+  rl_le_suc_max, max_le_rl
 end
 ```
 
@@ -2185,7 +2219,8 @@ end
 theorem height_balance:
     all L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>.
   height(balance(L, x, R)) ≤ suc(max(height(L), height(R)))
-  and suc(max(height(L), height(R))) ≤ height(balance(L, x, R))
+  and
+  max(height(L), height(R)) ≤ height(balance(L, x, R))
 proof
   arbitrary L:Tree<Pair<Nat,Nat>>, x:Pair<Nat,Nat>, R:Tree<Pair<Nat,Nat>>
   switch 1 + height(L) < height(R) {
@@ -2201,7 +2236,7 @@ proof
             case true suppose tall_RR {
               suffices height(rotate_left(L, x, RL, z, RR))
                        ≤ suc(max(height(L), height(TreeNode(RL, z, RR)))) 
-              and suc(max(height(L), height(TreeNode(RL, z, RR))))
+              and max(height(L), height(TreeNode(RL, z, RR)))
                   ≤ height(rotate_left(L, x, RL, z, RR))
                     with definition {balance}
                     and rewrite (rewrite R_node in tall_right) | tall_RR
@@ -2223,7 +2258,15 @@ proof
                 apply height_rotate_left[L, x, RL, z, RR] 
                 to one_L_le_max_RL_RR, RL_le_RR
               }
-              sorry
+              have part2: max(height(L), height(TreeNode(RL, z, RR)))
+                  ≤ height(rotate_left(L, x, RL, z, RR)) by {
+                suffices max(height(L), suc(max(height(RL), height(RR))))
+                       ≤ height(rotate_left(L, x, RL, z, RR))
+                  with definition height
+                apply height_rotate_left[L,x,RL,z,RR]
+                to one_L_le_max_RL_RR, RL_le_RR
+              }
+              part1, part2
             }
             case false suppose tall_RL {
               sorry
@@ -2317,22 +2360,26 @@ proof
       }
       have part2: suc(max(height(L), height(R)))
                ≤ height(balance(AVL_insert(L, k, v), x, R)) by {
+               
         have le1: suc(max(height(L), height(R)))
-                ≤ suc(max(height(AVL_insert(L, k, v)), height(R))) by {
-          suffices max(height(L), height(R))
-                   ≤ max(height(AVL_insert(L, k, v)), height(R))
-              with definition operator≤
+                ≤ max(height(AVL_insert(L, k, v)), height(R)) by {
+
+          have L_le_insL: height(L) ≤ height(AVL_insert(L,k,v)) by IH_L2
+
           have L_le_max: height(L) ≤ max(height(AVL_insert(L, k, v)), height(R))
-             by have L_le_insL: height(L) ≤ height(AVL_insert(L,k,v)) by IH_L2
-                apply less_equal_trans to (L_le_insL,
+             by apply less_equal_trans to (IH_L2,
                    max_greater_left[height(AVL_insert(L,k,v))][height(R)])
+                   
           have R_le_max: height(R) ≤ max(height(AVL_insert(L, k, v)), height(R))
              by max_greater_right
-          apply max_less_equal to L_le_max, R_le_max
+             
+          //apply max_less_equal to L_le_max, R_le_max
+          sorry
         }
-        have le2: suc(max(height(AVL_insert(L, k, v)), height(R))) 
+        have le2: max(height(AVL_insert(L, k, v)), height(R))
                 ≤ height(balance(AVL_insert(L, k, v), x, R))
             by height_balance[AVL_insert(L, k, v), x, R]
+            
         apply less_equal_trans to le1, le2
       }
       part1, part2
@@ -2415,10 +2462,11 @@ proof
                  apply less_equal_trans to (conjunct 1 of IH_R[k,v]), insR_le
             apply max_less_equal to L_le_max, R_le_max
         }
-        have le2: suc(max(height(L), height(AVL_insert(R, k, v))))
+        have le2: max(height(L), height(AVL_insert(R, k, v)))
                 ≤ height(balance(L, x, AVL_insert(R, k, v)))
             by height_balance[L, x, AVL_insert(R, k, v)]
-        apply less_equal_trans to le1, le2
+        //apply less_equal_trans to le1, le2
+        sorry
       }
       part1, part2
     }
@@ -2449,7 +2497,7 @@ proof
           with definition AVL_insert and rewrite not_k_eq_x | k_less_x
       have AVL_insL: is_AVL(AVL_insert(L, k, v))
         by apply IH_L[k,v] to AVL_L
-      have R_le_two_insL: height(R) ≤ 2 + height(AVL_insert(L,k,v)) by 
+      have R_le_two_insL: height(R) ≤ 2 + height(AVL_insert(L,k,v)) by {
         have L_le_insL: height(L) ≤ height(AVL_insert(L,k,v)) by
            height_AVL_insert[L][k,v]
         have R_le_one_L: height(R) ≤ 1 + height(L) by
@@ -2465,7 +2513,7 @@ proof
            L_le_insL
         apply less_equal_trans to R_le_one_L, 
             (apply less_equal_trans to one_L_two_L, two_L_le_2_insL)
-        
+      }
       have insL_le_two_R: height(AVL_insert(L,k,v)) ≤ 2 + height(R) by 
         have insL_le_one_L: height(AVL_insert(L,k,v)) ≤ suc(height(L))
             by height_AVL_insert[L][k,v]

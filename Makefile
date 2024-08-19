@@ -43,11 +43,13 @@ tests: #check_blog5
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all2.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all3.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/all4.pf --error
+	/opt/homebrew/bin/python3.10 ./deduce.py test/not_equal.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/bintree.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/induction1.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py test/after.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Base.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Set.pf
+	/opt/homebrew/bin/python3.10 ./deduce.py MultiSet.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Maps.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py Nat.pf
 	/opt/homebrew/bin/python3.10 ./deduce.py NatTests.pf
