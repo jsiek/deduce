@@ -64,40 +64,83 @@ simplifies it to `true`.
 
 Run Deduce on the file to see it respond that the file is valid.
 
-Let's try a slightly more complex theorem, that the length
-of a list with just a single node is indeed `1`. Based
-on what we learned above, we better start by applying the
-definition of `length` a couple of times.
+Let's try a slightly more complex theorem, that the length of a list
+with just a single node is indeed `1`. Based on what we learned above,
+we might try using the definition of `length`.
 
     theorem length_node42: length(node(42, empty)) = 1
     proof
-      definition {length, length}
+      definition length
     end
 
-Deduce responds that we still need to prove the following obvious fact.
+Deduce responds with
 
     failed to prove:
-        length(node(42,empty)) = 1
+        length(node(42, empty)) = 1
     by
-        definition {length, length}
+        definition {length}
     remains to prove:
+        1 + length(empty) = 1
+
+It is quite common to apply a definition and then need to prove the
+remaining goal. Deduce provides the `suffices` statement for this
+purpose. The `suffices` keyword is followed by the new goal formula,
+then the keyword `with`, followed by a definition statement. However,
+it's easiest to let Deduce figure out the new goal formula, so to
+start you can use `?` as the goal formula.
+
+    theorem length_node42: length(node(42, empty)) = 1
+    proof
+      suffices ? 
+          with definition length
+      ?
+    end
+
+Deduce responds with
+
+    suffices to prove:
+        1 + length(empty) = 1
+
+We need to apply the definition of `length` again to simplify
+`length(empty)`, so we add another `length` to the definition
+statement.
+
+    theorem length_node42: length(node(42, empty)) = 1
+    proof
+      suffices ? 
+          with definition {length, length}
+      ?
+    end
+
+Deduce responds this time with
+
+    suffices to prove:
         1 + 0 = 1
 
-But that is just a consequence of the definition of addition, which we
-can refer to as `operator +`.  To carry on with proving what remains,
-we can use the `suffices` statement as follows. We write the formula
-that is left to prove after the `suffices` keyword then `by` then the
-`definition` statement that we're using to transform the goal.
-After the `suffices`, the goal changes to the `suffices` formula,
-which here is `1 + 0 = 1`.
+Which is a nice formula to use for the `suffices`. So we cut and
+paste that to replace the `?`.
+
+    theorem length_node42: length(node(42, empty)) = 1
+    proof
+      suffices 1 + 0 = 1 
+          with definition {length, length}
+      ?
+    end
+
+Finally we need to prove, `1 + 0 = 1`. That can be proved by two uses
+of the definition of addition, which we explain in the upcoming
+section on [Reasoning about Natural
+Numbers](#reasoning-about-natural-numbers).
 
 ```{.deduce #length_node42}
 theorem length_node42: length(node(42, empty)) = 1
 proof
-  suffices 1 + 0 = 1   with definition {length, length}
+  suffices 1 + 0 = 1
+      with definition {length, length}
   definition {operator +, operator +}
 end
 ```
+
 
 ### Exercise
 

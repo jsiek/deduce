@@ -62,7 +62,7 @@ if __name__ == "__main__":
         else:
             print(str(e))
             # Use the following when debugging internal exceptions -Jeremy
-            print(traceback.format_exc())
+            # print(traceback.format_exc())
             # for production, exit
             exit(1)
             # during development, reraise
