@@ -101,7 +101,7 @@ blog1:
 
 check_blog2:
 	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/LinearSearch.pf
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/LinearSearch.pf --dir $(BLOG_DIR) 
 
 blog2:
 	cd $(BLOG_DIR); /usr/local/bin/pandoc LinearSearch.md -o LinearSearch.html
@@ -115,7 +115,7 @@ blog3:
 
 check_blog4:
 	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/MergeSort.pf
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/MergeSort.pf --dir $(BLOG_DIR) 
 
 blog4:
 	cd $(BLOG_DIR); /usr/local/bin/pandoc MergeSort.md -o MergeSort.html
@@ -123,30 +123,30 @@ blog4:
 check_blog5:
 	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTree.pf
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTreeTest.pf
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTreeTest.pf --dir $(BLOG_DIR) 
 
 blog5:
 	cd $(BLOG_DIR); /usr/local/bin/pandoc BinaryTree.md -o BinaryTree.html
 
 check_blog6:
 	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTreeProof.pf
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTreeProof.pf --dir $(BLOG_DIR) 
 
 blog6:
 	$(BLOG_DIR); /usr/local/bin/pandoc BinaryTreeProof.md -o BinaryTreeProof.html
 
 check_blog7:
 	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinarySearchTree.pf
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinarySearchTreeTest.pf
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinarySearchTree.pf --dir $(BLOG_DIR) 
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinarySearchTreeTest.pf --dir $(BLOG_DIR) 
 
 blog7:
 	cd $(BLOG_DIR); /usr/local/bin/pandoc BinarySearchTree.md -o BinarySearchTree.html
 
 check_blog8:
 	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BalancedBST.pf
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BalancedBSTTest.pf
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/BalancedBST.pf --dir $(BLOG_DIR) 
+	$(PYTHON) ./deduce.py $(BLOG_DIR)/BalancedBSTTest.pf --dir $(BLOG_DIR) 
 
 blog8:
 	cd $(BLOG_DIR); /usr/local/bin/pandoc BalancedBST.md -o BalancedBST.html

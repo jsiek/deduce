@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from lark.tree import Meta
 from typing import Any, Tuple, List
 from error import error, set_verbose, get_verbose
+import os
 
 infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
@@ -23,7 +24,17 @@ def generate_name(name):
 def base_name(name):
     ls = name.split('.')
     return ls[0]
+
+import_directories = ["."]
   
+def get_import_directories():
+  global import_directories
+  return import_directories
+
+def add_import_directory(dir):
+  global import_directories
+  import_directories.append(dir)
+
 @dataclass
 class AST:
     location: Meta
@@ -2069,6 +2080,13 @@ class Print(Statement):
   
   def uniquify_body(self, env):
     self.term.uniquify(env)
+
+def find_file(loc, name):
+  for dir in get_import_directories():
+    filename = dir + "/" + name + ".pf"
+    if os.path.isfile(filename):
+      return filename
+  error(loc, 'could not find a file for import: ' + name)
     
 @dataclass
 class Import(Statement):
@@ -2084,7 +2102,7 @@ class Import(Statement):
       self.ast = uniquified_modules[self.name]
       return env
     else:
-      filename = self.name + ".pf"
+      filename = find_file(self.location, self.name)
       file = open(filename, 'r')
       src = file.read()
       file.close()

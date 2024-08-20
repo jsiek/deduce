@@ -1,5 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
+from abstract_syntax import add_import_directory
 import sys
 from parser import parse, set_filename, get_filename
 from lark import exceptions
@@ -27,6 +28,10 @@ if __name__ == "__main__":
     error_expected = False
     if '--error' in sys.argv:
         error_expected = True
+
+    for i in range(1, len(sys.argv)):
+        if sys.argv[i] == '--dir':
+            add_import_directory(sys.argv[i+1])
     
     try:
         if get_verbose():
