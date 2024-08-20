@@ -17,13 +17,29 @@ def set_filename(fname):
 def get_filename():
     global filename
     return filename
-    
+
+
+deduce_directory = '???'
+
+def set_deduce_directory(dir):
+    global deduce_directory
+    deduce_directory = dir
+
+def get_deduce_directory():
+    global deduce_directory
+    return deduce_directory
+
 ##################################################
 # Concrete Syntax Parser
 ##################################################
 
-lark_parser = Lark(open("./Deduce.lark").read(), start='program', parser='lalr',
-                   debug=True, propagate_positions=True)
+lark_parser = None
+
+def init_parser():
+  global lark_parser
+  lark_file = get_deduce_directory() + "/Deduce.lark"
+  lark_parser = Lark(open(lark_file).read(), start='program', parser='lalr',
+                     debug=True, propagate_positions=True)
 
 ##################################################
 # Parsing Concrete to Abstract Syntax

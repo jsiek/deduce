@@ -2,7 +2,8 @@ from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
 from abstract_syntax import add_import_directory
 import sys
-from parser import parse, set_filename, get_filename
+import os
+from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
 from lark import exceptions
 import traceback
 
@@ -18,6 +19,9 @@ def token_str(token):
 
 if __name__ == "__main__":
     sys.setrecursionlimit(5000)
+
+    set_deduce_directory(os.path.dirname(sys.argv[0]))
+    init_parser()
     
     filename = sys.argv[1]
     file = open(filename, 'r')

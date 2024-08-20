@@ -1,12 +1,10 @@
-BLOG_DIR=/Users/jsiek/deduce-private/blog
-EX_DIR=/Users/jsiek/deduce-private/ex
 PYTHON=/opt/homebrew/bin/python3.10
 
 default: tests check_docs
 
 check_docs: check_README check_fun check_intro 
 
-tests: #check_blog5
+tests: 
 	$(PYTHON) ./deduce.py test/theorem_true.pf
 	$(PYTHON) ./deduce.py test/theorem_true_error.pf --error
 	$(PYTHON) ./deduce.py test/theorem_false1.pf
@@ -68,16 +66,6 @@ tests: #check_blog5
 	$(PYTHON) ./deduce.py Binary.pf
 	$(PYTHON) ./deduce.py Option.pf
 
-examples:
-	$(PYTHON) ./deduce.py $(EX_DIR)/Sum.pf
-	$(PYTHON) ./deduce.py $(EX_DIR)/Sort.pf
-	$(PYTHON) ./deduce.py $(EX_DIR)/MergeSort.pf
-	$(PYTHON) ./deduce.py $(EX_DIR)/Max.pf
-	$(PYTHON) ./deduce.py $(EX_DIR)/Search.pf
-	$(PYTHON) ./deduce.py $(EX_DIR)/Heap2.pf 
-#	$(PYTHON) ./deduce.py Heap.pf
-#	$(PYTHON) ./deduce.py SearchTree.pf
-
 check_README:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) ./deduce.py README.pf
@@ -90,73 +78,6 @@ check_intro:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) ./deduce.py ProofIntro.pf
 
-check_blog1:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/LinkedLists.pf
-
-blog1:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc Prelude.md -o Prelude.html
-	cd $(BLOG_DIR); /usr/local/bin/pandoc LinkedLists.md -o LinkedLists.html
-	cd $(BLOG_DIR); cat Prelude.html LinkedLists.html > blog1.html
-
-check_blog2:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/LinearSearch.pf --dir $(BLOG_DIR) 
-
-blog2:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc LinearSearch.md -o LinearSearch.html
-
-check_blog3:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/InsertionSort.pf
-
-blog3:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc InsertionSort.md -o InsertionSort.html
-
-check_blog4:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/MergeSort.pf --dir $(BLOG_DIR) 
-
-blog4:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc MergeSort.md -o MergeSort.html
-
-check_blog5:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTree.pf
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTreeTest.pf --dir $(BLOG_DIR) 
-
-blog5:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc BinaryTree.md -o BinaryTree.html
-
-check_blog6:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinaryTreeProof.pf --dir $(BLOG_DIR) 
-
-blog6:
-	$(BLOG_DIR); /usr/local/bin/pandoc BinaryTreeProof.md -o BinaryTreeProof.html
-
-check_blog7:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinarySearchTree.pf --dir $(BLOG_DIR) 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BinarySearchTreeTest.pf --dir $(BLOG_DIR) 
-
-blog7:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc BinarySearchTree.md -o BinarySearchTree.html
-
-check_blog8:
-	cd $(BLOG_DIR); /Users/jsiek/Library/Python/3.11/bin/entangled tangle
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BalancedBST.pf --dir $(BLOG_DIR) 
-	$(PYTHON) ./deduce.py $(BLOG_DIR)/BalancedBSTTest.pf --dir $(BLOG_DIR) 
-
-blog8:
-	cd $(BLOG_DIR); /usr/local/bin/pandoc BalancedBST.md -o BalancedBST.html
-
-check_blogs:  check_blog1 check_blog2 check_blog3 check_blog4 check_blog5 check_blog6 check_blog7
-
 clean:
-	rm -f $(BLOG_DIR)/BinaryTree.pf $(BLOG_DIR)/LinkedLists.pf $(BLOG_DIR)/BinaryTreeProof.pf
-	rm -f $(BLOG_DIR)/MergeSort.pf $(BLOG_DIR)/Prelude.pf
-	rm -rf $(BLOG_DIR)/InsertionSort.pf $(BLOG_DIR)/LinearSearch.pf
-	rm -f $(BLOG_DIR)/BinarySearchTree.pf $(BLOG_DIR)/BinarySearchTreeTest.pf
 	rm -f README.pf FunctionalProgramming.pf ProofIntro.pf
 	rm -rf .entangled
