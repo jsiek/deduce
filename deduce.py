@@ -24,7 +24,7 @@ if __name__ == "__main__":
     init_parser()
     
     filename = sys.argv[1]
-    file = open(filename, 'r')
+    file = open(filename, 'r', encoding="utf-8")
     p = file.read()
     set_verbose(False)
     set_filename(filename)

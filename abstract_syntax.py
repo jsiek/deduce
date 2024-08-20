@@ -2103,7 +2103,7 @@ class Import(Statement):
       return env
     else:
       filename = find_file(self.location, self.name)
-      file = open(filename, 'r')
+      file = open(filename, 'r', encoding="utf-8")
       src = file.read()
       file.close()
       from parser import get_filename, set_filename, parse
