@@ -25,9 +25,8 @@ if __name__ == "__main__":
     set_filename(filename)
 
     error_expected = False
-    if len(sys.argv) >= 3:
-        if sys.argv[2] == '--error':
-            error_expected = True
+    if '--error' in sys.argv:
+        error_expected = True
     
     try:
         if get_verbose():
