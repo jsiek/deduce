@@ -38,7 +38,8 @@ lark_parser = None
 def init_parser():
   global lark_parser
   lark_file = get_deduce_directory() + "/Deduce.lark"
-  lark_parser = Lark(open(lark_file).read(), start='program', parser='lalr',
+  lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
+                     start='program', parser='lalr',
                      debug=True, propagate_positions=True)
 
 ##################################################
