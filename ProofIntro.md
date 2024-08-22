@@ -323,8 +323,19 @@ operations on them (e.g. addition), and proofs about those
 operations. Here we discuss how to reason about addition. Reasoning
 about the other operations follows a similar pattern.
 
-Here is the definition of addition from `Nat.pf`:
+Here is the definition of natural numbers from `Nat.pf`:
+```{.deduce}
+union Nat {
+  zero
+  suc(Nat)
+}
 ```
+The parser for Deduce translates `0` into `zero`,
+`1` into `suc(zero)`, `2` into `suc(suc(zero))`, and so on.
+
+
+Here is the definition of addition from `Nat.pf`:
+```{.deduce}
 function operator +(Nat,Nat) -> Nat {
   operator +(0, m) = m
   operator +(suc(n), m) = suc(n + m)
