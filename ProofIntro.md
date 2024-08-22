@@ -144,7 +144,16 @@ end
 
 ### Exercise
 
-Prove that `node(1,empty) ++ node(2, empty) = node(1, node(2, empty))`.
+Prove that `node(1,empty) ++ node(2, empty) = node(1, node(2, empty))`
+by filling in the `?` below.
+
+```{.deduce #append_node_1_node_2}
+theorem append_node_1_node_2:
+  node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
+proof
+  ?
+end
+```
 
 ## Generalizing with `all` formulas
 
@@ -234,9 +243,13 @@ To summarize this section:
 
 ### Exercise
 
-Prove that
-```
-all T:type. all x:T, y:T. node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
+Complete the following proof.
+```{.deduce #append_node_x_node_y}
+theorem append_xy:
+  all T:type. all x:T, y:T. node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
+proof
+  ?
+end
 ```
 
 Prove again that 
@@ -352,11 +365,15 @@ We have not yet discussed how to use the `if`-`then` formula in
 
 ### Exercise
 
-Prove the following theorem using `left_cancel` and using
-`add_commute` with `rewrite`.
+Prove the following theorem using the `add_zero` and `mult_one`
+theorems from `Nat.pf`.
 
-```
-right_cancel: all x:Nat, y:Nat, z:Nat. if x + z = y + z then x = y
+```{.deduce #x_0_x_eq_2_x}
+theorem x_0_x_eq_2_x: 
+  all x:Nat. (x + 0) + x = (x + x) * 1
+proof
+  ?
+end
 ```
 
 ## Proving Intermediate Facts with `have`
@@ -1292,16 +1309,16 @@ end
 
 ### Exercise
 
-Prove the following theorem without using `less_not_equal`.
+Using the `rewrite`-`in` statement, prove the following variation on
+the transitivity theorem for `≤`. Prove that if `x = y` and `y ≤ `z`,
+then `x ≤ z`.
 
-```
-greater_not_equal: all x:Nat, y:Nat. if x > y then not (x = y)
-```
-
-Note that greater-than is defined as follows in `Nat.pf`:
-
-```
-define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
+```{.deduce #equal_less_trans}
+theorem equal_less_trans: all x:Nat, y:Nat, z:Nat.
+  if x = y and y ≤ z then x ≤ z
+proof
+  ?
+end
 ```
 
 ## Reasoning about `some` (Exists)
@@ -1411,62 +1428,11 @@ end
 <<alt_max>>
 <<less_alt_max>>
 
-theorem append_xy: all T:type. all x:T, y:T.
-  node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
-proof
-  arbitrary T:type
-  arbitrary x:T, y:T
-  definition {operator++, operator++}
-end
-
-theorem append_12_again: 
-  node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
-proof
-  append_xy<Nat>[1, 2]
-end
-
 <<append_empty>>
-
-theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
-  length(xs ++  ys) = length(xs) + length(ys)
-proof
-  arbitrary U :type
-  enable {length, operator++, operator +, operator +}
-  induction List<U>
-  case empty {
-    arbitrary ys:List<U>
-    conclude length(@empty<U> ++ ys) = length(@empty<U>) + length(ys)  by .
-  }
-  case node(n, xs') suppose IH {
-    arbitrary ys :List<U>
-    equations
-      length(node(n,xs') ++ ys)
-          = 1 + length(xs' ++ ys)              by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys]
-      ... = length(node(n,xs')) + length(ys)   by .
-  }
-end
-
-theorem right_cancel: all x:Nat, y:Nat, z:Nat.
-  if x + z = y + z then x = y
-proof
-  arbitrary x:Nat, y:Nat, z:Nat
-  rewrite add_commute[x][z] | add_commute[y][z] | left_cancel[z][x,y]
-end
 
 <<xyz_zyx>>
 <<xyz_zyx_eqn>>
 
-theorem xyz_zyx_eqn2: all x:Nat, y:Nat, z:Nat.
-  x + y + z = z + y + x
-proof
-  arbitrary x:Nat, y:Nat, z:Nat
-  equations
-    x + y + z = (x + y) + z    by rewrite add_assoc[x][y,z]
-          ... = z + (x + y)    by rewrite add_commute[x+y][z]
-          ... = z + (y + x)    by rewrite add_commute[x][y]
-          ... = z + y + x      by add_assoc[z][y,x]
-end
 
 <<positive_1_and_2>>
 <<positive_2>>
@@ -1478,17 +1444,6 @@ end
 <<false_any>>
 <<less_irreflexive>>
 <<less_not_equal>>
-
-theorem greater_not_equal: all x:Nat, y:Nat.
-  if x > y then not (x = y)
-proof
-  arbitrary x:Nat, y:Nat
-  suppose x_g_y: x > y
-  suppose x_y: x = y
-  have y_g_y: y > y  by rewrite x_y in x_g_y
-  have y_l_y: y < y  by definition operator> in y_g_y
-  conclude false by apply less_irreflexive[y] to y_l_y
-end
 
 <<zero_or_positive>>
 <<addition_of_evens>>
