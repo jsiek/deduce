@@ -241,6 +241,12 @@ def parse_tree_to_ast(e, parent):
         return '⨄'
     elif e.data == 'ident_subset_equal':
         return '⊆'
+    elif e.data == 'ident_less_equal':
+        return '≤'
+    elif e.data == 'ident_greater_equal':
+        return '≥'
+    elif e.data == 'ident_not_equal':
+        return '≠'
     elif e.data == 'ident_circ':
         return '∘'
     elif e.data == 'true_literal':

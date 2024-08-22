@@ -64,6 +64,9 @@ ident: IDENT              -> ident
     | "operator" "[+]"      -> ident_multiset_sum
     | "operator" "[o]"      -> ident_circ
     | "operator" "(="      -> ident_subset_equal
+    | "operator" "<="      -> ident_less_equal
+    | "operator" ">="      -> ident_greater_equal
+    | "operator" "/="      -> ident_not_equal
 
 ?term_hi: INT                                      -> int
     | "true"                                       -> true_literal
