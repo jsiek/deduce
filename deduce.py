@@ -1,6 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory
+from abstract_syntax import add_import_directory, print_theorems
 import sys
 import os
 from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
@@ -51,6 +51,7 @@ if __name__ == "__main__":
             print('an error was expected, but it was not caught')
             exit(-1)
         else:
+            print_theorems(filename, ast)
             print(filename + ' is valid')
             exit(0)
 
