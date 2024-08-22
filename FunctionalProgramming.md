@@ -103,22 +103,22 @@ represent a linked-list of natural numbers.
 
 ```{.deduce #NatList}
 union NatList {
-  nil
-  cons(Nat, NatList)
+  Empty
+  Node(Nat, NatList)
 }
 ```
 
 We can then construct values of type `NatList` using the constructors
-`nil` and `cons`.  To create a linked-list whose elements are
+`Empty` and `Node`.  To create a linked-list whose elements are
 `1` and `2`, write:
 
 ```{.deduce #NL12}
-define NL12 = cons(1, cons(2, nil))
+define NL12 = Node(1, Node(2, Empty))
 ```
 
 Unions may be recursive: a constructor may include a parameter type
 that is the union type, e.g., the `NatList` parameter of
-`cons`. Unions may be generic: one can parameterize a union
+`Node`. Unions may be generic: one can parameterize a union
 with one or more type parameters. For example, we generalize linked
 lists to any element types as follows.
 
@@ -147,8 +147,8 @@ example, the following function returns the first element of a
     define front : fn NatList -> Option<Nat> =
       λ ls { 
         switch ls {
-          case nil { none }
-          case cons(x, ls') { just(x) }
+          case Empty { none }
+          case Node(x, ls') { just(x) }
         }
       }
 ```
@@ -172,13 +172,13 @@ you. For example, if you try the following:
 
 ```{.deduce #broken_front}
 define broken_front : fn NatList -> Option<Nat> =
-  λ ls { switch ls { case nil { none } } }
+  λ ls { switch ls { case Empty { none } } }
 ```
 
 Deduce responds with
 
 ```
-this switch is missing a case for: cons(Nat,NatList)
+this switch is missing a case for: Node(Nat,NatList)
 ```
 
 
@@ -239,16 +239,16 @@ lists of natural numbers.
 
 ```{.deduce #lenNatList}
 function len(NatList) -> Nat {
-  len(nil) = 0
-  len(cons(n, next)) = 1 + len(next)
+  len(Empty) = 0
+  len(Node(n, next)) = 1 + len(next)
 }
 ```
 
-There are two clauses in the body. The clause for `nil` says
-that its length is `0`.  The clause for `cons` says that
+There are two clauses in the body. The clause for `Empty` says
+that its length is `0`.  The clause for `Node` says that
 its length is one more than the length of the rest of the linked list.
 Deduce approves of the recursive call `len(next)` because
-`next` is part of `cons(n, next)`.
+`next` is part of `Node(n, next)`.
 
 Recursive functions may have more than one parameter but pattern
 matching is only supported for the first parameter. For example, here
@@ -256,8 +256,8 @@ is the `app` function that combines two linked lists.
 
 ```{.deduce #app}
 function app(NatList, NatList) -> NatList {
-  app(nil, ys) = ys
-  app(cons(n, xs), ys) = cons(n, app(xs, ys))
+  app(Empty, ys) = ys
+  app(Node(n, xs), ys) = Node(n, app(xs, ys))
 }
 ```
 
