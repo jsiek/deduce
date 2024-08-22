@@ -481,6 +481,9 @@ proof
 end
 ```
 
+The `equations` feature is implemented in Deduce by translating them
+into a bunch of `transitive` statements.
+
 ### Exercise
 
 Prove that `x + y + z = z + y + x` but using fewer than 5 steps.
@@ -636,7 +639,16 @@ To summarize this section:
 
 ### Exercise
 
-Prove that `length(xs ++ ys) = length(xs) + length(ys)`.
+Fill in the proof of the following theorem about `length` and
+`append`.
+
+```{.deduce #length_append}
+theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
+  length(xs ++ ys) = length(xs) + length(ys)
+proof
+  ?
+end
+```
 
 ## Reasoning about `and` (Conjunction)
 
