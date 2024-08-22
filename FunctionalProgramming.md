@@ -261,6 +261,26 @@ function app(NatList, NatList) -> NatList {
 }
 ```
 
+If you need to pattern match on a parameter that is not the first, you
+can use a `switch` statement. For example, the following `zip`
+function (defined in `List.pf`) combines two lists into a single list
+of pairs. The function is defined by two clauses that pattern match on
+the first parameter. However, `zip` also needs to match on the second
+parameter `ys`, which is accomplished with a `switch` statement.
+
+
+```{.deduce #zip_example}
+function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+  zip(empty, ys) = empty
+  zip(node(x, xs'), ys) =
+    switch ys {
+      case empty { empty }
+      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
+    }
+}
+```
+
+
 ## Generic Functions
 
 Deduce supports generic functions, so we can generalize `length` to
