@@ -320,7 +320,10 @@ end
 
 The `Nat.pf` file includes the definition of natural numbers,
 operations on them (e.g. addition), and proofs about those
-operations. Here we discuss how to reason about addition. Reasoning
+operations. Also, Deduce automatically generates a summary of the
+theorems and puts them in the file `Nat.thm`.
+
+Here we discuss how to reason about addition. Reasoning
 about the other operations follows a similar pattern.
 
 Here is the definition of natural numbers from `Nat.pf`:
