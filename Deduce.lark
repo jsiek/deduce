@@ -6,7 +6,7 @@ OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
-LINECOMMENT: "//" /[^\n]*/ NEWLINE
+LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
 ?term: term "and" term_compare                    -> and_formula
