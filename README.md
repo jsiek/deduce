@@ -54,10 +54,7 @@ tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
 
 * [Functional Programming in Deduce](./FunctionalProgramming.md)
-  also available as a PDF [booklet](./latex/fun-prog.pdf).
-  (Hint: print using short-edge binding and scale to fit.)
 * [Writing Proofs in Deduce](./ProofIntro.md)
-  also available as a PDF [booklet](./latex/proof-intro.pdf).
 
 I recommend that you work through the examples in this
 introduction. Create a file named `examples.pf` in the top `deduce`
