@@ -1,3 +1,8 @@
+[ ] generalize precedence to everything, e.g. to fix printing of
+    parentheses in 'all'.
+
+[ ] don't import lemmas
+
 [ ] equations for ≤, etc. (anything with transitivity)
 
 [ ] hide the suc-oriented arithmetic
@@ -25,49 +30,10 @@
 
 [ ] create student exercises
 
-[ ] specify number of unfoldings in _definition and enable
+[ ] specify number of unfoldings in definition
 
 [ ] remove parent param from parser, not needed anymore
 
-[x] Remove closures
-
-[x] add section on suffices to the intro
-
-[x] error when rewrite doesn't rewrite
-
-[x] fix generics, implement type passing, see operator ⊆ in Set.pf
-
-[x] change how _definition works, use substitution insetad of reduce
-
-[x] change 'let' to 'define'
-
-[x] add let-binding in proofs
-
-[x] print parenthesis for * and + properly
-
-[x] don't print globals in available facts
-
-[x] issue of nontermination for foldr in sum_fold
-
-[x] Explain false.
-
-[x] Change order of checking for PAnnot
-
-[x] explain existentials using even number example
-
-[x] Mutually recursive functions
-
-``` {.java file=ex/even_odd.pf}
-function is_even(Nat) -> bool {
-  is_even(0) = true
-  is_even(suc(n)) = is_odd(n)
-}
-
-function is_odd(Nat) -> bool {
-  is_odd(0) = false
-  is_odd(suc(n)) = is_even(n)
-}
-```
 
 
 
