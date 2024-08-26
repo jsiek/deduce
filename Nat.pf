@@ -1359,7 +1359,7 @@ end
   Properties of max
   */
 
-theorem max_same: all x:Nat. max(x,x) = x
+lemma max_same: all x:Nat. max(x,x) = x
 proof
   induction Nat
   case 0 {
@@ -1372,7 +1372,7 @@ proof
   }
 end
 
-theorem max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
+lemma max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat
   case zero {
@@ -1387,7 +1387,7 @@ proof
   }
 end
 
-theorem max_suc2: all x:Nat, y:Nat. max(suc(x), suc(y)) = suc(max(x,y))
+lemma max_suc2: all x:Nat, y:Nat. max(suc(x), suc(y)) = suc(max(x,y))
 proof
   arbitrary x:Nat, y:Nat
   switch x {
@@ -1484,7 +1484,7 @@ proof
   }
 end
 
-theorem max_zero: all x:Nat.
+lemma max_zero: all x:Nat.
   max(x, 0) = x
 proof
   induction Nat
@@ -1716,7 +1716,7 @@ end
  Properties of Summation
  */
 
-theorem summation_cong2: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat. 
+theorem summation_cong: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat. 
   if (all i:Nat. if i < k then f(s + i) = g(t + i))
   then summation(k, s, f) = summation(k, t, g)
 proof
@@ -1747,7 +1747,7 @@ proof
   }
 end
 
-theorem summation_cong: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+lemma summation_cong4: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
   if (all i:Nat. if s ≤ i and i < s + k then f(i) = g(i))
   then summation(k, s, f) = summation(k, s, g)
 proof
@@ -1788,26 +1788,18 @@ theorem summation_suc: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat.
   if (all i:Nat. f(i) = g(suc(i)))
   then summation(k, s, f) = summation(k, suc(s), g)
 proof
-  induction Nat
-  case zero {
-    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
-    suppose _
-    definition summation
-  }
-  case suc(k') suppose IH {
-    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
-    suppose f_g: all i:Nat. f(i) = g(suc(i))
-    suffices f(s) + summation(k',suc(s),f) = g(suc(s)) + summation(k',suc(suc(s)),g)
-      by definition summation
-    suffices f(s) + summation(k',suc(s),f) = f(s) + summation(k',suc(suc(s)),g)
-      by rewrite symmetric f_g[s]
-    have IH': summation(k',suc(s),f) = summation(k',suc(suc(s)),g)
-                 by apply IH[f,g,suc(s)] to f_g
-    rewrite symmetric IH'
-  }
+  arbitrary k:Nat
+  arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+  suppose prem
+  have sum_prem: (all i:Nat. (if i < k then f(s + i) = g(suc(s) + i))) by
+      arbitrary i:Nat
+      suppose i_less_k
+      suffices f(s+i) = g(suc(s+i))  with definition operator+
+      prem[s+i]
+  apply summation_cong[k][f, g, s, suc(s)] to sum_prem
 end
 
-theorem summation_cong: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat. 
+lemma summation_cong3: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat. 
   if (all i:Nat. f(s + i) = g(t + i))
   then summation(k, s, f) = summation(k, t, g)
 proof
@@ -1845,7 +1837,7 @@ proof
     suppose g_f_and_h_f
     enable {operator +}
     suffices summation(b,s,f) = summation(b,t,h)  by definition summation
-    apply summation_cong2[b][f,h,s,t]
+    apply summation_cong[b][f,h,s,t]
     to arbitrary i:Nat
        suppose i_b: i < b
        conclude f(s + i) = h(t + i)
@@ -1994,7 +1986,7 @@ proof
   div2_double[n]
 end
 
-theorem div2_suc_double: all n:Nat.
+lemma div2_suc_double: all n:Nat.
   div2(suc(n + n)) = n
 proof
   induction Nat
@@ -2059,24 +2051,7 @@ end
  Properties of Division and Modulo
  */
 
-/*
-theorem div_one: all n:Nat.
-  n / one = n
-proof
-  arbitrary n:Nat
-  switch n {
-    case zero {
-      definition operator/
-    }
-    case suc(n') {
-      _definition operator/
-      sorry
-    }
-  }
-end
-*/
-
-theorem find_quotient_correct: all u:Nat. all q:Nat, n:Nat, m:Pos.
+lemma find_quotient_correct: all u:Nat. all q:Nat, n:Nat, m:Pos.
   if q * pos2nat(m) ≤ n and n < u * pos2nat(m)
   then some r : Nat. find_quotient(u, n, m, q) * pos2nat(m) + r = n
                      and r < pos2nat(m)
@@ -2296,4 +2271,21 @@ proof
   suffices r < pos2nat(m)   by rewrite symmetric r_na
   conjunct 1 of R
 end
+
+/*
+theorem div_one: all n:Nat.
+  n / one = n
+proof
+  arbitrary n:Nat
+  switch n {
+    case zero {
+      definition operator/
+    }
+    case suc(n') {
+      _definition operator/
+      sorry
+    }
+  }
+end
+*/
 

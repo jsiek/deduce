@@ -1865,10 +1865,12 @@ class Theorem(Statement):
   name: str
   what: Formula
   proof: Proof
+  isLemma: bool
 
   def __str__(self):
-    return 'theorem ' + self.name + ': ' + str(self.what) + '\nbegin\n' \
-        + str(self.proof) + '\nend\n'
+    return ('lemma ' if self.isLemma else 'theorem ') \
+      + self.name + ': ' + str(self.what) \
+      + '\nbegin\n' + str(self.proof) + '\nend\n'
 
   # def __repr__(self):
   #   return str(self)
@@ -2405,6 +2407,6 @@ def print_theorems(filename, ast):
   print('This file summarizes the theorems proved in the file:\n\t' + filename, file=theorem_file)
   print('', file=theorem_file)
   for s in ast:
-    if isinstance(s, Theorem):
+    if isinstance(s, Theorem) and not s.isLemma:
       print(base_name(s.name) + ': ' + str(s.what) + '\n', file=theorem_file)
   theorem_file.close()

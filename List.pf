@@ -460,7 +460,7 @@ proof
   }
 end
 
-theorem zip_id_right: all T:type, U:type. all xs:List<T>. zip(xs, @empty<U>) = empty
+theorem zip_id_right: all T:type, U:type. all xs:List<T>. @zip<T,U>(xs, empty) = empty
 proof
   arbitrary T:type, U:type
   induction List<T>

@@ -191,7 +191,7 @@ ident: IDENT              -> ident
     | case case_list                                    -> push
 
 ?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
- | "lemma" IDENT ":" term "proof" proof "end"          -> theorem
+ | "lemma" IDENT ":" term "proof" proof "end"          -> lemma
 
 ?type: type_params_opt "fn" type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                                -> type_inst

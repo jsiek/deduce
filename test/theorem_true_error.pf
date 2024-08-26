@@ -1,3 +1,4 @@
+// error expected because true does not imply false
 theorem true_is_false: false
 proof
   .

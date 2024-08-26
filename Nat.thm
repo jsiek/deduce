@@ -6,15 +6,9 @@ zero_add: (all n:Nat. 0 + n = n)
 
 add_zero: (all n:Nat. n + 0 = n)
 
-suc_add: (all m:Nat, n:Nat. suc(m) + n = suc(m + n))
-
 suc_one_add: (all n:Nat. suc(n) = 1 + n)
 
 one_add_suc: (all n:Nat. 1 + n = suc(n))
-
-not_one_add_zero: (all n:Nat. not (1 + n = 0))
-
-add_suc: (all m:Nat. (all n:Nat. m + suc(n) = suc(m + n)))
 
 add_commute: (all n:Nat. (all m:Nat. n + m = m + n))
 
@@ -39,10 +33,6 @@ add_sub_identity: (all m:Nat. (all n:Nat. (m + n) - m = n))
 zero_mult: (all n:Nat. 0 * n = 0)
 
 mult_zero: (all n:Nat. n * 0 = 0)
-
-suc_mult: (all m:Nat, n:Nat. suc(m) * n = n + m * n)
-
-mult_suc: (all m:Nat. (all n:Nat. m * suc(n) = m + m * n))
 
 mult_commute: (all m:Nat. (all n:Nat. m * n = n * m))
 
@@ -138,19 +128,11 @@ sub_add_identity: (all n:Nat. (all m:Nat. (if m ≤ n then m + (n - m) = n)))
 
 less_equal_add_sub: (all m:Nat. (all n:Nat, o:Nat. (if (n ≤ m and m ≤ n + o) then m - n ≤ o)))
 
-max_same: (all x:Nat. max(x, x) = x)
-
-max_suc: (all x:Nat. max(suc(x), x) = suc(max(x, x)))
-
-max_suc2: (all x:Nat, y:Nat. max(suc(x), suc(y)) = suc(max(x, y)))
-
 max_greater_right: (all y:Nat. (all x:Nat. y ≤ max(x, y)))
 
 max_greater_left: (all x:Nat. (all y:Nat. x ≤ max(x, y)))
 
 max_is_left_or_right: (all x:Nat. (all y:Nat. (max(x, y) = x or max(x, y) = y)))
-
-max_zero: (all x:Nat. max(x, 0) = x)
 
 max_symmetric: (all x:Nat. (all y:Nat. max(x, y) = max(y, x)))
 
@@ -166,13 +148,9 @@ addition_of_evens: (all x:Nat, y:Nat. (if (Even(x) and Even(y)) then Even(x + y)
 
 is_even_odd: (all n:Nat. ((if is_even(n) then Even(n)) and (if is_odd(n) then Odd(n))))
 
-summation_cong2: (all k:Nat. (all f:(fn Nat -> Nat), g:(fn Nat -> Nat), s:Nat, t:Nat. (if (all i:Nat. (if i < k then f(s + i) = g(t + i))) then summation(k, s, f) = summation(k, t, g))))
-
-summation_cong: (all k:Nat. (all f:(fn Nat -> Nat), g:(fn Nat -> Nat), s:Nat. (if (all i:Nat. (if (s ≤ i and i < s + k) then f(i) = g(i))) then summation(k, s, f) = summation(k, s, g))))
+summation_cong: (all k:Nat. (all f:(fn Nat -> Nat), g:(fn Nat -> Nat), s:Nat, t:Nat. (if (all i:Nat. (if i < k then f(s + i) = g(t + i))) then summation(k, s, f) = summation(k, t, g))))
 
 summation_suc: (all k:Nat. (all f:(fn Nat -> Nat), g:(fn Nat -> Nat), s:Nat. (if (all i:Nat. f(i) = g(suc(i))) then summation(k, s, f) = summation(k, suc(s), g))))
-
-summation_cong: (all k:Nat. (all f:(fn Nat -> Nat), g:(fn Nat -> Nat), s:Nat, t:Nat. (if (all i:Nat. f(s + i) = g(t + i)) then summation(k, s, f) = summation(k, t, g))))
 
 summation_add: (all a:Nat. (all b:Nat, s:Nat, t:Nat, f:(fn Nat -> Nat), g:(fn Nat -> Nat), h:(fn Nat -> Nat). (if ((all i:Nat. (if i < a then g(s + i) = f(s + i))) and (all i:Nat. (if i < b then h(t + i) = f(s + (a + i))))) then summation(a + b, s, f) = summation(a, s, g) + summation(b, t, h))))
 
@@ -190,15 +168,11 @@ div2_double: (all n:Nat. div2(n + n) = n)
 
 div2_times2: (all n:Nat. div2(2 * n) = n)
 
-div2_suc_double: (all n:Nat. div2(suc(n + n)) = n)
-
 div2_suc_times2: (all n:Nat. div2(suc(2 * n)) = n)
 
 pos_positive: (all p:Pos. 0 < pos2nat(p))
 
 pow_positive: (all n:Nat. 0 < pow2(n))
-
-find_quotient_correct: (all u:Nat. (all q:Nat, n:Nat, m:Pos. (if (q * pos2nat(m) ≤ n and n < u * pos2nat(m)) then some r:Nat. (find_quotient(u, n, m, q) * pos2nat(m) + r = n and r < pos2nat(m)))))
 
 mod_def: (all n:Nat, m:Pos. n % m = n - (n / m) * pos2nat(m))
 

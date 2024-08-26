@@ -1605,7 +1605,7 @@ def process_declaration(stmt, env):
           return Define(loc, new_name, new_ty, new_body), \
               env.declare_term_var(loc, name, ovld_ty)
           
-    case Theorem(loc, name, frm, pf):
+    case Theorem(loc, name, frm, pf, isLemma):
       return stmt, env
   
     case RecFun(loc, name, typarams, params, returns, cases):
@@ -1716,9 +1716,9 @@ def type_check_stmt(stmt, env):
         new_ty = ty
       return Define(loc, name, new_ty, new_body)
         
-    case Theorem(loc, name, frm, pf):
+    case Theorem(loc, name, frm, pf, isLemma):
       new_frm = check_formula(frm, env)
-      return Theorem(loc, name, new_frm, pf)
+      return Theorem(loc, name, new_frm, pf, isLemma)
   
     case RecFun(loc, name, typarams, params, returns, cases):
       # alpha rename the type parameters in the function's type
@@ -1766,7 +1766,7 @@ def collect_env(stmt, env):
     case Define(loc, name, ty, body):
       return env.define_term_var(loc, name, ty, body)
         
-    case Theorem(loc, name, frm, pf):
+    case Theorem(loc, name, frm, pf, isLemma):
       return env.declare_proof_var(loc, name, frm)
   
     case RecFun(loc, name, typarams, params, returns, cases):
@@ -1800,7 +1800,7 @@ def check_proofs(stmt, env):
   match stmt:
     case Define(loc, name, ty, body):
       pass
-    case Theorem(loc, name, frm, pf):
+    case Theorem(loc, name, frm, pf, isLemma):
       if get_verbose():
         print('checking proof of theorem ' + base_name(name))
       check_proof_of(pf, frm, env)

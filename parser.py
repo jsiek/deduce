@@ -586,7 +586,14 @@ def parse_tree_to_ast(e, parent):
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
-                       parse_tree_to_ast(e.children[2], e))
+                       parse_tree_to_ast(e.children[2], e),
+                       isLemma = False)
+    elif e.data == 'lemma':
+        return Theorem(e.meta,
+                       str(e.children[0].value),
+                       parse_tree_to_ast(e.children[1], e),
+                       parse_tree_to_ast(e.children[2], e),
+                       isLemma = True)
 
     # patterns in function definitions
     elif e.data == 'pattern_id':
