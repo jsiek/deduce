@@ -223,7 +223,7 @@ def parse_tree_to_ast(e, parent):
                            parse_tree_to_ast(e.children[2], e))
     elif e.data == 'int':
         return intToNat(e.meta, int(e.children[0]))
-    elif e.data == 'hole_formula':
+    elif e.data == 'hole_term':
         return Hole(e.meta, None)
     elif e.data == 'ident':
         return str(e.children[0].value)
