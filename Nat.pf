@@ -1484,7 +1484,13 @@ proof
   }
 end
 
-lemma max_zero: all x:Nat.
+theorem zero_max: all x:Nat.
+  max(0, x) = x
+proof
+  definition max
+end
+
+theorem max_zero: all x:Nat.
   max(x, 0) = x
 proof
   induction Nat

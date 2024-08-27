@@ -588,46 +588,46 @@ facts.
         ...
 
 Looking at the goal, we notice that we can expand the definition of
-`append` on the right-hand side, because it is applied to a `node`.
-Deduce provides the `term` statement as way to use Deduce to expand
-definitions for us.
+`++` on the right-hand side, because it is applied to a `node`.
+Perhaps we forget the exact definition of `++`, so we can let
+Deduce tell us the expansion by putting `?` on the right-hand side of
+the equation.
 
     case node(n, xs') suppose IH: xs' ++ empty = xs' {
-      term node(n,xs') ++ empty by definition operator++
-      ?
+      equations
+        node(n,xs') ++ empty
+            = ?                       by definition operator++
+        ... = node(n,xs')             by ?
     }
 
 Deduce responds with
 
     remains to prove:
-        node(n,xs' ++ empty)
+        node(n, xs' ++ empty) = ?
 
-We use Deduce's `have` statement to label this equality.
-We choose the label `step1`, state the equality, and then
-provide its proof after the `by` keyword.
+It has transformed the left-hand side of the equation by expanding the
+definition of append.  We copy and paste the `node(n, xs' ++ empty)`
+to replace the `?`.
 
     case node(n, xs') suppose IH: xs' ++ empty = xs' {
-      have step1: node(n,xs') ++ empty
-                = node(n, xs' ++ empty)  by definition operator++
-      ?
+      equations
+        node(n,xs') ++ empty
+            = node(n, xs' ++ empty)   by definition operator++
+        ... = node(n,xs')             by ?
     }
 
 Next, we see that the subterm `xs' ++ empty` matches the
 right-hand side of the induction hypothesis `IH`. We use the
 `rewrite` statement to apply the `IH` equation to this subterm.
 
-    have step2: node(n, xs' ++ empty)
-                = node(n,xs')                 by rewrite IH
+    case node(n, xs') suppose IH: xs' ++ empty = xs' {
+      equations
+        node(n,xs') ++ empty
+            = node(n, xs' ++ empty)   by definition operator++
+        ... = node(n,xs')             by rewrite IH
+    }
 
-To complete the proof, we combine equations (1) and (2) using
-the `transitive` statement.
-
-    conclude node(n,xs') ++ empty = node(n,xs')
-        by transitive step1 step2
-
-Here is the completed proof of `append_empty`, but replacing the
-intermediate `have` statements and `transitive` by an `equations`
-statement.
+Here is the completed proof of `append_empty`.
 
 ```{.deduce #append_empty}
 theorem append_empty: all U :type. all xs :List<U>.
@@ -653,8 +653,7 @@ To summarize this section:
 
 ### Exercise
 
-Fill in the proof of the following theorem about `length` and
-`append`.
+Fill in the proof of the following theorem about `length` and `++`.
 
 ```{.deduce #length_append}
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.

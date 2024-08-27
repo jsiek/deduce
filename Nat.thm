@@ -134,6 +134,10 @@ max_greater_left: (all x:Nat. (all y:Nat. x ≤ max(x, y)))
 
 max_is_left_or_right: (all x:Nat. (all y:Nat. (max(x, y) = x or max(x, y) = y)))
 
+zero_max: (all x:Nat. max(0, x) = x)
+
+max_zero: (all x:Nat. max(x, 0) = x)
+
 max_symmetric: (all x:Nat. (all y:Nat. max(x, y) = max(y, x)))
 
 max_assoc: (all x:Nat. (all y:Nat, z:Nat. max(max(x, y), z) = max(x, max(y, z))))

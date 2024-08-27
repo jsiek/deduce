@@ -231,8 +231,10 @@ def rewrite(loc, formula, equation):
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, rewrite(loc, rhs, equation), rewrite(loc, body, equation))
   
+    case Hole(loc2, tyof):
+      return formula
     case _:
-      error(loc, 'in rewrite, unhandled ' + str(formula))
+      error(loc, 'in rewrite function, unhandled ' + str(formula))
 
 def facts_to_str(env):
   result = ''
@@ -711,8 +713,9 @@ def check_proof_of(proof, formula, env):
       defs = [d.reduce(env) for d in definitions]
       new_formula = apply_definitions(loc, formula, defs, env)
       if new_formula != Bool(loc, None, True):
-          error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
-                + '\nremains to prove:\n\t' + str(new_formula))
+          # error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
+          #       + '\nremains to prove:\n\t' + str(new_formula))
+          error(loc, 'remains to prove:\n\t' + str(new_formula))
 
     case Rewrite(loc, equation_proofs):
       equations = [check_proof(proof, env) for proof in equation_proofs]
@@ -724,8 +727,9 @@ def check_proof_of(proof, formula, env):
         new_formula = rewrite(loc, new_formula, eq)
         new_formula = new_formula.reduce(env)
       if new_formula != Bool(loc, None, True):
-          error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
-                + '\nremains to prove:\n\t' + str(new_formula))
+          # error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
+          #       + '\nremains to prove:\n\t' + str(new_formula))
+          error(loc, 'remains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
       new_claim = type_check_term(claim, BoolType(loc), env, None, [])

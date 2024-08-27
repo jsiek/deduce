@@ -1021,6 +1021,12 @@ class Hole(Formula):
 
   def reduce(self, env):
     return self
+
+  def copy(self):
+    return Hole(self.location, self.typeof)
+
+  def substitute(self, sub):
+    return self
     
 @dataclass
 class Bool(Formula):
