@@ -606,8 +606,8 @@ Deduce responds with
         node(n, xs' ++ empty) = ?
 
 It has transformed the left-hand side of the equation by expanding the
-definition of append.  We copy and paste the `node(n, xs' ++ empty)`
-to replace the `?`.
+definition of `++`.  We copy and paste the `node(n, xs' ++ empty)` to
+replace the `?`.
 
     case node(n, xs') suppose IH: xs' ++ empty = xs' {
       equations
