@@ -1008,10 +1008,8 @@ class TLet(Term):
     new_body = self.body.substitute(sub)
     return TLet(self.location, self.typeof, self.var, new_rhs, new_body)
 
-################ Formulas ######################################
-  
 @dataclass
-class Hole(Formula):
+class Hole(Term):
   
   def __str__(self):
       return '?'
@@ -1028,6 +1026,8 @@ class Hole(Formula):
   def substitute(self, sub):
     return self
     
+################ Formulas ######################################
+  
 @dataclass
 class Bool(Formula):
   value: bool
