@@ -328,54 +328,6 @@ proof
   }
 end
 
-assert reverse(L1 ++ L2) = reverse(L2) ++ reverse(L1)
-
-theorem reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
-  reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)
-proof
-  arbitrary U :type
-  induction List<U>
-  case empty {
-    arbitrary ys :List<U>
-    equations
-    reverse(@empty<U> ++ ys)
-        = reverse(ys)                     by definition operator++
-    ... = reverse(ys) ++ empty            by rewrite append_empty<U>[reverse(ys)]
-    ... = reverse(ys) ++ reverse(empty)   by definition reverse
-  }
-  case node(n, xs') suppose IH {
-    arbitrary ys :List<U>
-    enable {reverse, operator++}
-    equations
-      reverse(node(n,xs') ++ ys)
-	  = reverse(node(n, xs' ++ ys)) by .
-      ... = (reverse(ys) ++ reverse(xs')) ++ node(n, empty)
-	    by _rewrite IH[ys].
-      ... = reverse(ys) ++ (reverse(xs') ++ node(n, empty))
-	    by append_assoc<U>[reverse(ys)][reverse(xs'), node(n, empty)]
-      ... = reverse(ys) ++ reverse(node(n,xs')) by .
-  }
-end
-
-theorem reverse_reverse: all U :type. all ls :List<U>.
-  reverse(reverse(ls)) = ls
-proof
-  arbitrary U :type
-  induction List<U>
-  case empty {
-    conclude reverse(reverse(@empty<U>)) = empty by definition reverse
-  }
-  case node(n, ls') suppose IH {
-    enable {reverse, reverse, operator++, operator++}
-    equations
-      reverse(reverse(node(n,ls')))
-          = reverse(reverse(ls') ++ node(n,empty)) by .
-      ... = reverse(node(n,empty)) ++ reverse(reverse(ls'))
-                  by reverse_append<U>[reverse(ls')][node(n,empty)]
-      ... = reverse(node(n,empty)) ++ ls'  by _rewrite IH.
-      ... = node(n,ls') by .
-  }
-end
 
 theorem length_map: all T:type. all f:fn T->T. all xs:List<T>.
   length(map(xs, f)) = length(xs)

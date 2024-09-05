@@ -16,10 +16,6 @@ append_empty: (all U:type. (all xs:List<U>. xs ++ empty = xs))
 
 length_reverse: (all U:type. (all xs:List<U>. length(reverse(xs)) = length(xs)))
 
-reverse_append: (all U:type. (all xs:List<U>. (all ys:List<U>. reverse(xs ++ ys) = reverse(ys) ++ reverse(xs))))
-
-reverse_reverse: (all U:type. (all ls:List<U>. reverse(reverse(ls)) = ls))
-
 length_map: (all T:type. (all f:(fn T -> T). (all xs:List<T>. length(map(xs, f)) = length(xs))))
 
 map_id: (all T:type. (all f:(fn T -> T). (if (all x:T. f(x) = x) then (all xs:List<T>. map(xs, f) = xs))))
