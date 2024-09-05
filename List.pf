@@ -845,7 +845,7 @@ proof
   }
 end
 
-theorem rev_app_reverse_append: all T:type. all xs:List<T>. all ys:List<T>.
+lemma rev_app_reverse_append: all T:type. all xs:List<T>. all ys:List<T>.
   rev_app(xs, ys) = reverse(xs) ++ ys
 proof
   arbitrary T:type
@@ -867,7 +867,7 @@ proof
   }
 end
 
-theorem foldr_rev_app_foldl:
+lemma foldr_rev_app_foldl:
   all T:type. all xs:List<T>. all ys:List<T>, b:T, f:fn T,T->T.
   foldr(rev_app(xs,ys), b, f) = foldl(xs, foldr(ys,b,f), flip(f))
 proof

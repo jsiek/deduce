@@ -62,10 +62,6 @@ nth_append_front: (all T:type. (all xs:List<T>. (all ys:List<T>, i:Nat, d:T. (if
 
 nth_append_back: (all T:type. (all xs:List<T>. (all ys:List<T>, i:Nat, d:T. nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i))))
 
-rev_app_reverse_append: (all T:type. (all xs:List<T>. (all ys:List<T>. rev_app(xs, ys) = reverse(xs) ++ ys)))
-
-foldr_rev_app_foldl: (all T:type. (all xs:List<T>. (all ys:List<T>, b:T, f:(fn T, T -> T). foldr(rev_app(xs, ys), b, f) = foldl(xs, foldr(ys, b, f), flip(f)))))
-
 flip_flip: (all T:type. (all f:(fn T, T -> T). flip(flip(f)) = f))
 
 foldl_foldr: (all T:type. (all xs:List<T>, b:T, f:(fn T, T -> T). foldl(xs, b, f) = foldr(reverse(xs), b, flip(f))))
