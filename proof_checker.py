@@ -531,15 +531,65 @@ def get_type_args(ty):
       return type_args
     case _:
       raise Exception('unhandled case in get_type_args')
-    
+
+def proof_advice(formula, env):
+    prefix = 'Advice:\n'
+    match formula:
+      case Bool(loc, tyof, True):
+        return prefix + '\tYou can complete the proof with a period.\n'
+      case Bool(loc, tyof, False):
+        return prefix \
+            + '\tYou can complete the proof by finding a contradiction:\n' \
+            + '\tif `np` proves `not P` and `p` proves `P`, \n' \
+            + '\tthen `apply np to p` proves false.\n'
+      case And(loc, tyof, args):
+        return prefix \
+            + '\tYou can complete the proof by separately proving each of ' \
+            + 'the following\n\tformulas then combine the proofs with commas.\n' \
+            + '\n'.join('\t\t' + str(arg) for arg in args)
+      case Or(loc, tyof, args):
+        return prefix \
+            + '\tYou can complete the proof by proving any one of the following formulas:\n' \
+            + '\n'.join('\t\t' + str(arg) for arg in args)
+      case IfThen(loc, tyof, prem, conc):
+        return prefix \
+            + '\tYou can complete the proof with:\n' \
+            + '\t\tsuppose premise_label: ' + str(prem) + '\n' \
+            + '\tfollowed by a proof of:\n' \
+            + '\t\t' + str(conc)
+      case All(loc, tyof, vars, body):
+        return prefix \
+            + '\tYou can complete the proof with:\n' \
+            + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
+            + '\tfolowed by a proof of:\n' \
+            + '\t\t' + str(body)
+      case Some(loc, tyof, vars, body):
+        letters = []
+        new_vars = {}
+        i = 65
+        for (x,ty) in vars:
+            letters.append(chr(i))
+            new_vars[x] = Var(loc,ty, chr(i))
+            i = i + 1
+        return prefix \
+            + '\tYou can complete the proof with:\n' \
+            + '\t\tchoose ' + ', '.join(letters) + '\n' \
+            + '\twhere you replace ' + ', '.join(letters) \
+            + ' with your choice(s),\n' \
+            + '\tthen prove:\n' \
+            + '\t\t' + str(body.substitute(new_vars))
+      case _:
+        return ''
+  
 def check_proof_of(proof, formula, env):
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) \
-            + '\nGivens:\n' + env.proofs_str())
+      error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) + '\n'\
+            + proof_advice(formula, env) + '\n' \
+            + 'Givens:\n' + env.proofs_str())
 
     case PSorry(loc):
       warning(loc, 'unfinished proof')
