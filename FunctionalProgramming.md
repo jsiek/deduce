@@ -407,7 +407,7 @@ assert last(L13) = just(3)
 ### Remove Elements from a List
 
 Define a generic function named `remove_if` that removes elements
-from a list if satisfy a predicate. So `remove_if` should have two
+from a list if they satisfy a predicate. So `remove_if` should have two
 parameters: (1) a `List<E>` and (2) a function whose parameter is `E` 
 and whose return type is `bool`.
 

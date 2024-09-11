@@ -1169,13 +1169,15 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty, call):
   match args[0]:
     case Var(loc3, tyof, arg_name):
         if not (arg_name in subterms):
-          error(loc, "ill-formed recursive call, " \
+          error(loc, "ill-formed recursive call\n" \
                 + "expected first argument to be " \
-                + " or ".join(subterms) + ", not " + arg_name)
+                + " or ".join([base_name(x) for x in subterms]) \
+                + ", not " + base_name(arg_name))
     case _:
-      error(loc, "ill-formed recursive call, " \
+      error(loc, "ill-formed recursive call\n" \
             + "expected first argument to be " \
-            + " or ".join(subterms) + ", not " + str(args[0]))
+            + " or ".join([base_name(x) for x in subterms]) \
+            + ", not " + str(args[0]))
   return type_check_call(loc, tvar, args, env, recfun, subterms, ret_ty, call)
 
 # well-formed types
