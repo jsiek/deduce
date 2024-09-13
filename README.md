@@ -69,6 +69,25 @@ you can obtain from the following location.
 
     https://github.com/lark-parser/lark
 
+Deduce uses some Unicode characters, but in case it is difficult
+for you to use Unicode, there are regular ASCI equivalents that
+you can use instead.
+
+| Unicode | ASCI |
+| ------- | ---- |
+| ≠       | /=   |
+| ≤       | <=   |
+| ≥       | >=   |
+| ⊆       | (=   |
+| ∈       | in   |
+| ∪       | \|   |
+| ∩       | &    |
+| ⨄       | [+]  |
+| ∘       | [o]  |
+| ∅       | [0]  |
+| λ       | fun |
+
+
 <!--  LocalWords:  aka fn ys xs IH pf py NatList builtin suc bool nat
  -->
 <!--  LocalWords:  Equational Deduce's subterm pos subformulas tri eq
