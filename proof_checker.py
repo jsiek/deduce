@@ -561,7 +561,7 @@ def proof_advice(formula, env):
         return prefix \
             + '\tYou can complete the proof with:\n' \
             + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
-            + '\tfolowed by a proof of:\n' \
+            + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
       case Some(loc, tyof, vars, body):
         letters = []

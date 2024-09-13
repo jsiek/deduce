@@ -1335,7 +1335,7 @@ end
 ### Exercise
 
 Using the `rewrite`-`in` statement, prove the following variation on
-the transitivity theorem for `≤`. Prove that if `x = y` and `y ≤ `z`,
+the transitivity theorem for `≤`. Prove that if `x = y` and `y ≤ z`,
 then `x ≤ z`.
 
 ```{.deduce #equal_less_trans}

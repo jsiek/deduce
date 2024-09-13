@@ -1,5 +1,5 @@
-theorem T: all x : int. x = x 
+theorem T: all x : bool. x = x 
 proof
-  arbitrary y:int
-  conclude y = y by .
+  arbitrary x:bool
+  conclude x = x by .
 end
