@@ -127,17 +127,16 @@ paste that to replace the `?`.
       ?
     end
 
-Finally we need to prove, `1 + 0 = 1`. That can be proved by two uses
-of the definition of addition, which we explain in the upcoming
-section on [Reasoning about Natural
-Numbers](#reasoning-about-natural-numbers).
+Finally we need to prove, `1 + 0 = 1`. That can be proved using the
+`add_zero` theorem from the file `Nat.pf`, which we explain in the upcoming
+section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
 
 ```{.deduce #length_node42}
 theorem length_node42: length(node(42, empty)) = 1
 proof
   suffices 1 + 0 = 1
       with definition {length, length}
-  definition {operator +, operator +}
+  add_zero[1]
 end
 ```
 
@@ -195,13 +194,15 @@ Deduce responds with
 We don't know anything about this hypothetical `x` other than it being
 a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
-before, using the definitions of `length` and addition.
+before, using the definitions of `length` and the `add_zero` theorem.
 
 ```{.deduce #length_one_nat}
 theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 proof
   arbitrary x:Nat
-  definition {length, length, operator +, operator +}
+  suffices 1 + 0 = 1
+      with definition {length, length}
+  add_zero[1]
 end
 ```
 
@@ -228,7 +229,9 @@ theorem length_one: all U:type. all x:U. length(node(x, empty)) = 1
 proof
   arbitrary U:type
   arbitrary x:U
-  definition {length, length, operator +, operator+}
+  suffices 1 + 0 = 1
+      with definition {length, length}
+  add_zero[1]
 end
 ```
 
