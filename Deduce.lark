@@ -182,6 +182,7 @@ ident: IDENT              -> ident
     | proof_hi "<" type_list ">"                         -> all_elim_types
     | "?"                                                -> hole_proof
     | "sorry"                                            -> sorry_proof
+    | "help" proof                                       -> help_use_proof
     | "{" proof "}"
 
 ?case: "case" IDENT "{" proof "}"                        -> case

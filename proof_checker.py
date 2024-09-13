@@ -340,6 +340,10 @@ def check_proof(proof, env):
       
     case PSorry(loc):
       error(loc, "can't use sorry in context with unkown goal")
+
+    case PHelpUse(loc, proof):
+      formula = check_proof(proof, env)
+      error(loc, proof_use_advice(proof, formula, env))
       
     case PVar(loc, name):
       try:
@@ -532,6 +536,85 @@ def get_type_args(ty):
     case _:
       raise Exception('unhandled case in get_type_args')
 
+label_count = 0
+
+def reset_label():
+    label_count = 1
+
+def generate_label():
+    global label_count
+    l = 'label_' + str(label_count)
+    label_count = label_count + 1
+    return l
+  
+def proof_use_advice(proof, formula, env):
+    prefix = 'Advice about using fact:\n' \
+        + '\t' + str(formula) + '\n\n'
+    match formula:
+      case Bool(loc, tyof, True):
+        return prefix + '\tThis fact is useless.\n'
+      case Bool(loc, tyof, False):
+        return prefix \
+            + '\tThis fact can implicitly prove anything!\n'
+      case And(loc, tyof, args):
+        return prefix \
+            + '\tThis fact can implicitly prove any of ' \
+            + 'the following formulas.\n' \
+            + '\n'.join('\t\t' + str(arg) for arg in args)
+      case Or(loc, tyof, args):
+        reset_label()
+        return prefix \
+            + '\tProceed with a cases statement:\n' \
+            + '\t\tcases ' + str(proof) + '\n' \
+            + '\n'.join(['\t\tcase ' + generate_label() + ' : ' + str(arg) + ' { ? }' \
+                         for arg in args])
+      case IfThen(loc, tyof, prem, conc):
+        return prefix \
+            + '\tApply this if-then formula to a proof of its premise:\n' \
+            + '\t\t' + str(prem) + '\n' \
+            + '\tto obtain a proof of its conclusion:\n' \
+            + '\t\t' + str(conc) + '\n' \
+            + '\tby using an apply-to statement:\n' \
+            + '\t\tapply ' + str(proof) + ' to ?'
+      case All(loc, tyof, vars, body):
+        letters = []
+        new_vars = {}
+        i = 65
+        for (x,ty) in vars:
+            letters.append(chr(i))
+            new_vars[x] = Var(loc,ty, chr(i))
+            i = i + 1
+        plural = 's' if len(vars) > 1 else ''
+        pronoun = 'them' if len(vars) > 1 else 'it'
+        return prefix \
+            + '\tInstantiate this all formula with your choice' + plural + ' for ' \
+            + ', '.join([base_name(x) for (x,ty) in vars]) + '\n' \
+            + '\tby writing ' + pronoun + ' in square-brackets like so:\n' \
+            + '\t\t ' + str(proof) + '[' + ', '.join(letters) + ']' + '\n' \
+            + '\tto obtain a proof of:\n' \
+            + '\t\t' + str(body.substitute(new_vars))
+      case Some(loc, tyof, vars, body):
+        letters = []
+        new_vars = {}
+        i = 65
+        for (x,ty) in vars:
+            letters.append(chr(i))
+            new_vars[x] = Var(loc,ty, chr(i))
+            i = i + 1
+        new_body = body.substitute(new_vars)
+        return prefix \
+            + '\tProceed with:\n' \
+            + '\t\tobtain ' + ', '.join(letters) + ' where label: ' + str(new_body) + ' from ' + str(proof) +'\n' \
+            + '\twhere ' + ', '.join(letters) + (' are new names of your choice' if len(vars) > 1 \
+                                                 else ' is a new name of your choice' )
+
+      case Call(loc2, tyof2, Var(loc3, tyof3, '='), [lhs, rhs], _):
+        return prefix \
+            + '\tYou can use this equality in a rewrite statement:\n' \
+            + '\t\trewrite ' + str(proof) + '\n'
+      case _:
+        return 'Sorry, I have no advice for this kind of formula.'
+            
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
     match formula:
@@ -578,6 +661,12 @@ def proof_advice(formula, env):
             + ' with your choice(s),\n' \
             + '\tthen prove:\n' \
             + '\t\t' + str(body.substitute(new_vars))
+      case Call(loc2, tyof2, Var(loc3, tyof3, '='), [lhs, rhs], _):
+        return prefix \
+            + '\tTo prove this equality, there are several kinds of statements that might help:\n' \
+            + '\t\tdefinition,\n' \
+            + '\t\trewrite, or\n' \
+            + '\t\tequations\n' 
       case _:
         return ''
   

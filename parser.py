@@ -302,13 +302,16 @@ def parse_tree_to_ast(e, parent):
         return PVar(e.meta, str(e.children[0].value))
     elif e.data == 'modus_ponens':
         e1, e2 = e.children
-        return ModusPonens(e.meta, parse_tree_to_ast(e1, e), parse_tree_to_ast(e2, e))
+        return ModusPonens(e.meta, parse_tree_to_ast(e1, e),
+                           parse_tree_to_ast(e2, e))
     elif e.data == 'true_proof':
         return PTrue(e.meta)
     elif e.data == 'hole_proof':
         return PHole(e.meta)
     elif e.data == 'sorry_proof':
         return PSorry(e.meta)
+    elif e.data == 'help_use_proof':
+        return PHelpUse(e.meta, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'refl_proof':
         return PReflexive(e.meta)
     elif e.data == 'sym_proof':

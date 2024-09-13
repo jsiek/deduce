@@ -1642,6 +1642,16 @@ class PSorry(Proof):
     
   def uniquify(self, env):
     pass
+
+@dataclass
+class PHelpUse(Proof):
+  proof : Proof
+  
+  def __str__(self):
+      return 'help ' + str(self.proof)
+    
+  def uniquify(self, env):
+    self.proof.uniquify(env)
   
 @dataclass
 class PSymmetric(Proof):
