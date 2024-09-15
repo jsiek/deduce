@@ -140,7 +140,7 @@ class OverloadType(Type):
   types: List[Tuple[str,Type]]
 
   def __str__(self):
-    return '(' + ' & '.join([x + ': ' + str(ty) for (x,ty) in self.types]) + ')'
+    return '(' + ' & '.join([base_name(x) + ': ' + str(ty) for (x,ty) in self.types]) + ')'
 
   def __eq__(self, other):
     match other:
