@@ -668,7 +668,7 @@ def proof_advice(formula, env):
             + '\t\trewrite, or\n' \
             + '\t\tequations\n' 
       case _:
-        return ''
+        return '\tConsider using one of the following givens.\n'
   
 def check_proof_of(proof, formula, env):
   if get_verbose():
