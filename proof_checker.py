@@ -1742,13 +1742,14 @@ def process_declaration(stmt, env):
         new_ty = ty
 
       old_var_ty = env.get_type_of_term_var(Var(loc, None, name))
-      if old_var_ty == None:
-          return Define(loc, name, new_ty, new_body), \
-              env.declare_term_var(loc, name, new_ty)
-      else:
+      match old_var_ty:
+        case FunctionType() | OverloadType():
           ovld_ty, new_name = add_overload(loc, old_var_ty, new_ty, name)
           return Define(loc, new_name, new_ty, new_body), \
               env.declare_term_var(loc, name, ovld_ty)
+        case _:
+          return Define(loc, name, new_ty, new_body), \
+              env.declare_term_var(loc, name, new_ty)
           
     case Theorem(loc, name, frm, pf, isLemma):
       return stmt, env
