@@ -1967,16 +1967,29 @@ def check_proofs(stmt, env):
       print(str(result))
       
     case Assert(loc, frm):
-      set_reduce_all(True)
-      result = frm.reduce(env)
-      set_reduce_all(False)
-      match result:
-        case Bool(loc2, tyof, True):
-          pass
-        case Bool(loc2, tyof, False):
-          error(loc, 'assertion failed: ' + str(frm))
-        case result:
-          error(loc, 'assertion expected Boolean result, not ' + str(result))
+      match frm:
+        case Call(loc2, tyof2, Var(loc3, tyof3, '='), [lhs, rhs], _):
+          set_reduce_all(True)
+          L = lhs.reduce(env)
+          R = rhs.reduce(env)
+          set_reduce_all(False)
+          if L == R:
+            pass
+          else:
+              error(loc, 'assertion failed:\n' +
+                    '\t' + str(L) + ' ≠ ' + str(R) + '\n')
+        case _:
+          set_reduce_all(True)
+          result = frm.reduce(env)
+          set_reduce_all(False)
+          match result:
+            case Bool(loc2, tyof, True):
+              pass
+            case Bool(loc2, tyof, False):
+              error(loc, 'assertion failed: ' + str(frm))
+            case result:
+              error(loc, 'assertion expected Boolean result, not ' \
+                    + str(result))
           
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))

@@ -14,7 +14,7 @@ define r4 : bool =
     case orange { false }
     case banana(r) { r }
   }
-//print(r4)
+assert r4
 
 import Nat
 
@@ -30,7 +30,7 @@ function len(NatList) -> Nat { // what is ->?,
   len(Node(x, rest)) = 1 + len(rest)
 }
 
-//print(len(L))
+assert len(L) = 3
 
 union List<ElementType> {
   empty
