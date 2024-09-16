@@ -241,8 +241,8 @@ To summarize this section:
 * To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
   (We'll see a second method in the section
   [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction).)
-* To using a fact that is an `all` formula, instantiate the fact
-  by using square brackets around the specific entity.
+* To use a fact that is an `all` formula, instantiate the fact
+  by following it with square brackets around the specific entity.
 
 ### Exercise
 
