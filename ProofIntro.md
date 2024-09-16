@@ -303,8 +303,8 @@ this time instantiated with `y`.
 rewrite length_one<U>[x] | length_one<U>[y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplies to just `true`
-, so Deduce accepts the `rewrite` statement.
+Deduce changes the goal to `1 = 1`, which simplies to just `true`,
+so Deduce accepts the `rewrite` statement.
 
 Here is the completed proof of `length_one_equal`.
 
@@ -405,7 +405,7 @@ x + y + z = z + y + x
 ```
 
 It takes several uses of `add_commute` and `add_assoc` to prove this.
-To get started, we use `have` to prove `step1`, which states that 
+To get started, we use `have` to give the label `step1` to a proof of
 `x + y + z = x + z + y` (flipping the `y` and `z`).
 
 ```
@@ -419,7 +419,7 @@ proof
 end
 ```
 
-Deduce prints the current goal and the **givens**, that is, the facts
+Deduce prints the current goal and the **givens**, that is, the formulas
 that we aleady know are true, which now includes `step1`.
 
 ```
@@ -446,7 +446,10 @@ step in the reasoning.
 
 We finish the proof by connecting them all together using Deduce's
 `transitive` statement. The `transitive` statement takes two proofs of
-equations `a = b` and `b = c`, and proves `a = c`.
+equations `a = b` and `b = c`, and proves `a = c`. Here we use the
+intermediate facts `step1`, `step2`, etc. by referencing their
+label. In general, to use one of the given facts, one just needs to
+use its label.
 
 ```
   transitive step1 (transitive step2 (transitive step3
