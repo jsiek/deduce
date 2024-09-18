@@ -1,0 +1,74 @@
+import List
+
+theorem length_nat_empty: length(@empty<Nat>) = 0
+proof
+  definition length
+end
+
+theorem length_node42: length(node(42, empty)) = 1
+proof
+  suffices 1 + 0 = 1
+      with definition {length, length}
+  add_zero[1]
+end
+
+theorem length_node: all U:type. all x:U. length(node(x, empty)) = 1
+proof
+  arbitrary U:type
+  arbitrary x:U
+  suffices 1 + 0 = 1
+      with definition {length, length}
+  add_zero[1]
+end
+
+theorem length_node42_again: length(node(42, empty)) = 1
+proof
+  length_node<Nat>[42]
+end
+
+theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
+  x + (y + z) = z + (y + x)
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  have step1: x + (y + z) = x + (z + y)
+    by rewrite add_commute[y][z]
+  have step2: x + (z + y) = (x + z) + y
+    by symmetric add_assoc[x][z,y]
+  have step3: (x + z) + y = (z + x) + y
+    by rewrite add_commute[x][z]
+  have step4: (z + x) + y = z + (x + y)
+    by add_assoc[z][x,y]
+  have step5: z + (x + y) = z + (y + x)
+    by rewrite add_commute[x][y]
+  transitive step1
+    (transitive step2
+       (transitive step3
+         (transitive step4 step5)))
+end
+
+theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  equations
+    x + y + z = x + z + y      by rewrite add_commute[y][z]
+          ... = (x + z) + y    by rewrite add_assoc[x][z,y]
+          ... = (z + x) + y    by rewrite add_commute[z][x]
+          ... = z + x + y      by rewrite add_assoc[z][x,y]
+          ... = z + y + x      by rewrite add_commute[x][y]
+end
+
+theorem append_empty: all U :type. all xs :List<U>.
+  xs ++ empty = xs
+proof
+  arbitrary U:type
+  induction List<U>
+  case empty {
+    definition operator++
+  }
+  case node(n, ys) suppose IH: ys ++ empty = ys {
+    suffices node(n, ys ++ empty) = node(n, ys)
+       with definition operator++
+    rewrite IH
+  }
+end

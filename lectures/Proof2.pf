@@ -1,0 +1,102 @@
+import List
+import Nat
+
+// discuss choices regarding induction
+
+theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
+  length(xs ++ ys) = length(xs) + length(ys)
+proof
+  arbitrary U:type
+  induction List<U>
+  case empty {
+    arbitrary ys:List<U>
+    suffices length(ys) = length(@empty<U>) + length(ys)
+        with definition operator++
+    suffices length(ys) = 0 + length(ys)
+       with definition length
+    symmetric zero_add[length(ys)]
+  }
+  case node(x, xs')
+    suppose IH: (all ys:List<U>. length(xs' ++ ys)
+                 = length(xs') + length(ys)) {
+    arbitrary ys:List<U>
+    sorry
+  }
+end
+
+
+theorem length_zero_empty: all T:type. all xs:List<T>.
+  if length(xs) = 0 then xs = empty
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    assume len_mt_z: length(@empty<T>) = 0
+    conclude @empty<T> = empty  by .
+  }
+  case node(x, xs') suppose IH {
+    assume len_node_zero: length(node(x, xs')) = 0
+    have X: 1 + length(xs') = 0
+       by definition length in len_node_zero
+    have F: false
+       by definition operator+ in X
+    F
+  }
+end
+
+theorem length_zero_empty2: all T:type. all xs:List<T>.
+  if length(xs) = 0 then xs = empty
+proof
+  arbitrary T:type
+  arbitrary xs:List<T>
+  switch xs {
+    case empty {
+      conclude true by .
+    }
+    case node(x, xs') {
+      assume len_node_zero: length(node(x, xs')) = 0
+      have X: 1 + length(xs') = 0
+         by definition length in len_node_zero
+      have F: false
+         by definition operator+ in X
+      F
+    }
+  }
+end
+
+theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
+  if length(xs ++ ys) = 0
+  then xs = empty and ys = empty
+proof
+  arbitrary T:type
+  arbitrary xs:List<T>, ys:List<T>
+  assume len_xsys_z: length(xs ++ ys) = 0
+  have step1: length(xs) + length(ys) = 0
+    by rewrite length_append<T>[xs][ys] in len_xsys_z
+
+  have step2: length(xs) = 0 and length(ys) = 0
+     by apply add_to_zero[length(xs)][length(ys)]
+        to step1
+        
+  have xs_mt: xs = empty
+     by apply length_zero_empty<T>[xs] to step2
+  have ys_mt: ys = empty
+     by apply length_zero_empty<T>[ys] to step2
+     
+  xs_mt, ys_mt
+  
+  /* this should work but did not -Jeremy
+  (apply length_zero_empty<T>[xs] to step2,
+   apply length_zero_empty<T>[ys] to step2)
+   */
+   // this worked instead, look at the grammar. -Jeremy
+   /*
+  (apply length_zero_empty<T>[xs] to step2),
+   (apply length_zero_empty<T>[ys] to step2)
+   */
+end
+
+
+
+
+
