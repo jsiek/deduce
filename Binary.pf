@@ -172,13 +172,15 @@ proof
       definition {operator <, operator ≤, operator ≤}
     }
     case node(d, b') {
-      _definition {inc, length}
+      _definition {inc}
       switch d {
         case true {
+          _definition length
           conclude 0 < 1 + length(inc(b'))
               by less_one_add[length(inc(b'))]
 	}
 	case false {
+          _definition length
           conclude 0 < 1 + length(b')
               by less_one_add[length(b')]
 	}
@@ -262,11 +264,11 @@ proof
   induction Nat
   case 0 {
     arbitrary bs:List<bool>
-    _definition {iter_dub,length,operator+}.
+    definition {iter_dub,operator+}
   }
   case suc(n') suppose IH {
     arbitrary bs:List<bool>
-    _definition {iter_dub, length, dub}
+    _definition {iter_dub, dub, length}
     _rewrite IH[bs]
     _rewrite suc_one_add[n']
     _rewrite add_assoc[1][n', length(bs)].
@@ -278,7 +280,7 @@ theorem length_iter_dub: all n:Nat.
 proof
   arbitrary n:Nat
   _rewrite length_iter_dub[n][to_binary(1)]
-  _definition {to_binary, length, to_binary, inc, length}
+  _definition {to_binary, to_binary, inc, length, length}
   _rewrite add_zero[1] | suc_one_add[n] | add_commute[1][n].
 end
 
@@ -303,7 +305,7 @@ proof
   }
   case suc(n') suppose IH {
     arbitrary bs:List<bool>
-    _definition {iter_dub,iter_times2,from_binary,dub}
+    _definition {iter_dub,iter_times2,dub,from_binary}
     _rewrite IH[bs].
   }
 end

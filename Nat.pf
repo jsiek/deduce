@@ -1223,7 +1223,7 @@ proof
     arbitrary y:Nat, z:Nat
     suppose y_le_z: 0 + y ≤ 0 + z
     conclude y ≤ z
-        by definition {operator+, operator≤} in y_le_z
+        by definition {operator+} in y_le_z
   }
   case suc(x') suppose IH {
     arbitrary y:Nat, z:Nat
@@ -1987,7 +1987,7 @@ theorem div2_times2: all n:Nat.
   div2(2 * n) = n
 proof
   arbitrary n:Nat
-  suffices div2(n + (n + 0)) = n  by definition {operator*,operator*,operator*,operator+}
+  suffices div2(n + (n + 0)) = n  by definition {operator*,operator*,operator*}
   suffices div2(n + n) = n        by rewrite add_zero[n]
   div2_double[n]
 end
@@ -2010,7 +2010,7 @@ theorem div2_suc_times2: all n:Nat.
   div2(suc(2 * n)) = n
 proof
   arbitrary n:Nat
-  suffices div2(suc(n + (n + 0))) = n  by definition {operator*,operator*,operator*,operator+}
+  suffices div2(suc(n + (n + 0))) = n  by definition {operator*,operator*,operator*}
   suffices div2(suc(n + n)) = n  by rewrite add_zero[n]
   div2_suc_double[n]
 end
@@ -2197,7 +2197,7 @@ proof
               by definition {operator<, u, operator*}
 	   switch m {
 	     case one {
-               suffices suc(n) ≤ suc(n * 1) * 1    by definition {pos2nat, operator+, operator+, operator+}
+               suffices suc(n) ≤ suc(n * 1) * 1    by definition {pos2nat, operator+, operator+}
 	       suffices suc(n) ≤ suc(n * 1)        by rewrite mult_one[suc(n * 1)]
 	       suffices suc(n) ≤ suc(n)            by rewrite mult_one[n]
 	       less_equal_refl[suc(n)]

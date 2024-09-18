@@ -24,7 +24,7 @@ theorem m_one_cnt: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
   arbitrary T:type
   arbitrary x:T
-  _definition {cnt, m_one}.
+  _definition {m_one, cnt}.
 end
 
 theorem m_empty_zero: all T:type. all x:T.
@@ -40,7 +40,7 @@ theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>, x:T
-  _definition {cnt, operator ⨄}.
+  definition {operator ⨄, cnt}
 end
 
 // Testing alternate asci notation 

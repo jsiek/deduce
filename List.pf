@@ -656,13 +656,13 @@ proof
         suffices not (y ∈ set_of(remove_all(node(y,xs'),y)))
             by rewrite x_eq_y
         suffices not (y ∈ set_of(remove_all(xs',y)))
-            by definition {remove_all, set_of}
+            by definition remove_all
         IH[y]
       }
       case false suppose xy_false {
         suffices not (y ∈ set_of(if x = y then remove_all(xs',y)
                                  else node(x,remove_all(xs',y))))
-            by definition {remove_all, set_of}
+            by definition remove_all
 	suppose y_in_sx_xsy
 	have y_in_sx_or_xsy: y ∈ single(x) or y ∈ set_of(remove_all(xs',y))
 	  by apply member_union<T>[y,single(x), set_of(remove_all(xs',y))]
@@ -759,7 +759,7 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
-    _definition {length, operator++, take, operator+}
+    _definition {length, operator++, operator+, take}
     _rewrite zero_add[length(xs')]
     _rewrite IH[ys].
   }
@@ -786,7 +786,7 @@ proof
 	have nsz: not (suc(n') + i = 0) by
 	  suppose sz conclude false by definition operator + in sz
 	_rewrite nsz
-	_definition {pred, operator +}
+	_definition {operator +, pred}
 	conclude nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
       }
     }
@@ -832,7 +832,7 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat, d:T
-    _definition {operator++, nth, length, operator +}.
+    _definition {operator++, length, operator +}.
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
@@ -852,11 +852,11 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>
-    _definition {operator++, rev_app,reverse}.
+    definition {rev_app,reverse,operator++}
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>
-    _definition {operator++, rev_app, reverse}
+    _definition {rev_app, reverse}
     equations
       rev_app(xs', node(x,ys))
           = reverse(xs') ++ node(x,ys) by IH[node(x,ys)]

@@ -503,7 +503,10 @@ class Var(Term):
   
   def substitute(self, sub):
       if self.name in sub:
-          return sub[self.name]
+          trm = sub[self.name]
+          if not isinstance(trm, RecFun):
+            set_reduced_defs([self.name] + get_reduced_defs())
+          return trm
       else:
           return self
         
@@ -636,6 +639,17 @@ def set_reduce_all(b):
   global reduce_all
   reduce_all = b
 
+# Definitions that were reduced.
+reduced_defs = []
+
+def set_reduced_defs(defs):
+  global reduced_defs
+  reduced_defs = defs
+
+def get_reduced_defs():
+  global reduced_defs
+  return reduced_defs
+  
 def is_operator(trm):
   match trm:
     case Var(loc, tyof, name):
@@ -767,6 +781,7 @@ class Call(Term):
                 set_reduce_only(reduce_defs)
                 ret = new_fun_case_body.reduce(body_env)
                 set_reduce_only(old_defs)
+                set_reduced_defs([name] + get_reduced_defs())
                 result = ret
                 return result
             else:
@@ -797,6 +812,7 @@ class Call(Term):
                 set_reduce_only(reduce_defs)
                 ret = new_fun_case_body.reduce(body_env)
                 set_reduce_only(old_defs)
+                set_reduced_defs([name] + get_reduced_defs())
                 result = ret
                 return result
             else:

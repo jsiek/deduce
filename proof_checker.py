@@ -668,7 +668,7 @@ def proof_advice(formula, env):
             + '\t\trewrite, or\n' \
             + '\t\tequations\n' 
       case _:
-        return '\tConsider using one of the following givens.\n'
+        return '\n\tConsider using one of the following givens.\n'
   
 def check_proof_of(proof, formula, env):
   if get_verbose():
@@ -1106,9 +1106,13 @@ def apply_definitions(loc, formula, defs, env):
       rhs = env.get_value_of_term_var(var)
       #print('apply definition, ' + str(var) + ' = ' + str(rhs))
       if rhs != None:
+          set_reduced_defs([])
           new_formula = new_formula.substitute({var.name: rhs})
           #print('\tsubstitute ==> ' + str(new_formula))
           new_formula = new_formula.reduce(env)
+          if var.name not in get_reduced_defs():
+              error(loc, 'could not find a place to apply definition of ' + base_name(var.name) \
+                    + ' in:\n' + '\t' + str(formula))
           #print('\treduce ==> ' + str(new_formula))
   return new_formula
       

@@ -31,9 +31,9 @@ proof
         obtain p where pl_sp: pow2(l) = suc(p) from
 	  (apply positive_suc[pow2(l)] to pow_positive[l])
         have sn_le_psl: suc(n) ≤ pow2(suc(l))
-	  by _definition {pow2, operator*,operator*,operator*,operator+}
+	  by _definition {pow2, operator*,operator*,operator*}
 	     _rewrite add_zero[pow2(l)] | pl_sp
-	     _definition operator≤
+             _definition {operator+, operator≤}
 	     _rewrite symmetric pl_sp | add_commute[p][pow2(l)]
 	     conclude n ≤ pow2(l) + p
 	       by apply less_equal_trans[n][pow2(l), pow2(l) + p] 

@@ -19,7 +19,6 @@ def token_str(token):
 
 if __name__ == "__main__":
     sys.setrecursionlimit(5000)
-    sys.stdout.reconfigure(encoding='utf-8')
 
     set_deduce_directory(os.path.dirname(sys.argv[0]))
     init_parser()
