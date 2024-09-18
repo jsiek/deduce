@@ -505,7 +505,7 @@ class Var(Term):
       if self.name in sub:
           trm = sub[self.name]
           if not isinstance(trm, RecFun):
-            set_reduced_defs([self.name] + get_reduced_defs())
+            add_reduced_def(self.name)
           return trm
       else:
           return self
@@ -640,16 +640,20 @@ def set_reduce_all(b):
   reduce_all = b
 
 # Definitions that were reduced.
-reduced_defs = []
+reduced_defs = set()
 
-def set_reduced_defs(defs):
+def reset_reduced_defs():
   global reduced_defs
-  reduced_defs = defs
+  reduced_defs = set()
 
 def get_reduced_defs():
   global reduced_defs
   return reduced_defs
-  
+
+def add_reduced_def(df):
+  global reduced_defs
+  reduced_defs.add(df)
+
 def is_operator(trm):
   match trm:
     case Var(loc, tyof, name):
@@ -781,7 +785,7 @@ class Call(Term):
                 set_reduce_only(reduce_defs)
                 ret = new_fun_case_body.reduce(body_env)
                 set_reduce_only(old_defs)
-                set_reduced_defs([name] + get_reduced_defs())
+                add_reduced_def(name)
                 result = ret
                 return result
             else:
@@ -812,7 +816,7 @@ class Call(Term):
                 set_reduce_only(reduce_defs)
                 ret = new_fun_case_body.reduce(body_env)
                 set_reduce_only(old_defs)
-                set_reduced_defs([name] + get_reduced_defs())
+                add_reduced_def(name)
                 result = ret
                 return result
             else:

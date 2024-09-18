@@ -1106,7 +1106,7 @@ def apply_definitions(loc, formula, defs, env):
       rhs = env.get_value_of_term_var(var)
       #print('apply definition, ' + str(var) + ' = ' + str(rhs))
       if rhs != None:
-          set_reduced_defs([])
+          reset_reduced_defs()
           new_formula = new_formula.substitute({var.name: rhs})
           #print('\tsubstitute ==> ' + str(new_formula))
           new_formula = new_formula.reduce(env)
