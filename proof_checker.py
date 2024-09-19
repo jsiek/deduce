@@ -326,7 +326,7 @@ def check_proof(proof, env):
       new_formula = formula.reduce(env)
       for eq in eqns:
         if not is_equation(eq):
-          eq = make_boolean_equation(eq)
+            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
         reset_num_rewrites()
         new_formula = rewrite(loc, new_formula, eq)
         if get_num_rewrites() == 0:
@@ -862,12 +862,14 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       for eq in eqns:
         if not is_equation(eq):
-          eq = make_boolean_equation(eq)
+            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+        reset_num_rewrites()
         new_formula = rewrite(loc, new_formula, eq)
+        if get_num_rewrites() == 0:
+            error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
+                  + '\nin\n\t' + str(new_formula))
         new_formula = new_formula.reduce(env)
       if new_formula != Bool(loc, None, True):
-          # error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
-          #       + '\nremains to prove:\n\t' + str(new_formula))
           error(loc, 'remains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
@@ -889,7 +891,7 @@ def check_proof_of(proof, formula, env):
       eqns = [equation.reduce(env) for equation in equations]
       for eq in eqns:
         if not is_equation(eq):
-          eq = make_boolean_equation(eq)
+          error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
         new_formula = rewrite(loc, new_formula, eq)
         new_formula = new_formula.reduce(env)
 
@@ -1025,7 +1027,6 @@ def check_proof_of(proof, formula, env):
 
             if len(scase.assumptions) > 1:
               error(scase.location, 'only one assumption is allowed in a switch case')
-            
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
             new_frm = frm.reduce(env)
             check_proof_of(scase.body, new_frm, body_env)
@@ -1080,7 +1081,7 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       for eq in eqns:
         if not is_equation(eq):
-          eq = make_boolean_equation(eq)
+          error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
         reset_num_rewrites()
         new_formula = rewrite(loc, new_formula, eq)
         if get_num_rewrites() == 0:

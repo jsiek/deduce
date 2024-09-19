@@ -150,7 +150,7 @@ proof
 	   have not_zy: not (z = y)
 	     by suppose zy
 	        rewrite yz_false in symmetric zy
-	   rewrite not_zy
+	   rewrite (apply eq_false to not_zy)
 	 }
        }
   rewrite eq

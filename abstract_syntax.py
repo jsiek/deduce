@@ -2178,15 +2178,6 @@ def is_equation(formula):
     case _:
       return False
 
-def make_boolean_equation(formula):
-  match formula:
-    case IfThen(loc, tyof, frm, Bool(_, _, False)):
-      return mkEqual(loc, frm,
-                     Bool(formula.location, None, False))
-    case _:
-      return mkEqual(formula.location, formula,
-                     Bool(formula.location, None, True))
-      
 def mkZero(loc):
   return Var(loc, None, 'zero')
 

@@ -62,6 +62,7 @@ tests:
 	$(PYTHON) ./deduce.py test/conditional1.pf
 	$(PYTHON) ./deduce.py test/fun1.pf
 	$(PYTHON) ./deduce.py List.pf
+	$(PYTHON) ./deduce.py ListTests.pf
 	$(PYTHON) ./deduce.py Pair.pf
 	$(PYTHON) ./deduce.py Binary.pf
 	$(PYTHON) ./deduce.py Option.pf

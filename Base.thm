@@ -10,5 +10,9 @@ or_sym: (all P:bool, Q:bool. (P or Q) = (Q or P))
 
 and_sym: (all P:bool, Q:bool. (P and Q) = (Q and P))
 
+eq_true: (all P:bool. (if P then P = true))
+
+eq_false: (all P:bool. (if not (P) then P = false))
+
 iff_equal: (all P:bool, Q:bool. (if ((if P then Q) and (if Q then P)) then P = Q))
 

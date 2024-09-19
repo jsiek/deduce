@@ -1,0 +1,53 @@
+import Nat
+import List
+
+define L1 = node(1, node(2, empty))
+define L2 = node(3, node(4, node(5, empty)))
+define L3 : List<Nat> = node(1, node(2, node(3, node(4, node(5, empty)))))
+
+assert length(L1) = 2
+assert length(L3) = 5
+assert L1 ++ L2 = L3
+assert reverse(L1) = node(2, node(1, empty))
+assert reverse(L2) = node(5, node(4, node(3, empty)))
+assert length(L1 ++ L2) = length(L1) + length(L2)
+
+assert map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
+
+assert foldr(L1, 0, λa,b{ a + b }) = 3
+assert foldr(L1, @empty<Nat>, λx,ls{ node(x,ls) }) = L1
+
+assert foldl(L1, 0, λa,b{ a + b }) = 3
+assert foldl(L1, @empty<Nat>, λls,x{ node(x,ls) }) = node(2,node(1,empty))
+
+assert down_from(2) = node(1, node(0, empty))
+
+assert up_to(2) = node(0, node(1, empty))
+assert up_to(3) = node(0, node(1, node(2, empty)))
+
+assert range(0, 0) = empty
+assert range(0, 1) = node(0, empty)
+assert range(0, 2) = node(0, node(1, empty))
+assert range(1, 3) = node(1, node(2, empty))
+assert range(2, 5) = node(2, node(3, node(4, empty)))
+
+assert interval(0, 0) = empty
+assert interval(1, 0) = node(0, empty)
+assert interval(2, 0) = node(0, node(1, empty))
+assert interval(3, 0) = node(0, node(1, node(2, empty)))
+
+assert interval(0, 3) = empty
+assert interval(1, 3) = node(3, empty)
+assert interval(2, 3) = node(3, node(4, empty))
+assert interval(3, 3) = node(3, node(4, node(5, empty)))
+
+assert (node(1, empty) ++ node(2, empty)) ++ node(3, empty)
+     = node(1, empty) ++ (node(2, empty) ++ node(3, empty))
+
+assert (id_nat [o] id_nat)(zero) = zero
+
+assert length(@empty<Nat>) = 0
+assert length(node(42, empty)) = 1
+
+define L1_positive = all_elements(L1, λx{ 0 < x })
+

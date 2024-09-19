@@ -41,6 +41,34 @@ proof
   }
 end
 
+theorem eq_true: all P:bool. if P then P = true
+proof
+  arbitrary P:bool
+  assume p
+  switch P {
+    case true {
+      .
+    }
+    case false suppose P_false {
+      rewrite P_false in p
+    }
+  }
+end
+
+theorem eq_false: all P:bool. if not P then P = false
+proof
+  arbitrary P:bool
+  assume not_p
+  switch P {
+    case true suppose P_true {
+      rewrite P_true in not_p
+    }
+    case false suppose P_false {
+      .
+    }
+  }
+end
+
 theorem iff_equal: all P:bool, Q:bool.
   if (if P then Q) and (if Q then P)  
   then P = Q
@@ -49,11 +77,11 @@ proof
   switch P {
     case true {
       suppose q
-      rewrite q
+      rewrite (apply eq_true to q)
     }
     case false {
       suppose not_q
-      rewrite not_q
+      rewrite (apply eq_false to not_q)
     }
   }
 end

@@ -35,54 +35,27 @@ function mset_of<T>(List<T>) -> MultiSet<T> {
   mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
 }
 
-assert length(@empty<Nat>) = 0
-assert length(node(42, empty)) = 1
-
 function map<T,U>(List<T>, fn T->U) -> List<U> {
   map(empty, f) = empty
   map(node(x, ls), f) = node(f(x), map(ls, f))
 }
-
-define L1 = node(1, node(2, empty))
-define L2 = node(3, node(4, node(5, empty)))
-define L3 : List<Nat> = node(1, node(2, node(3, node(4, node(5, empty)))))
-
-assert length(L1) = 2
-assert length(L3) = 5
-assert L1 ++ L2 = L3
-assert reverse(L1) = node(2, node(1, empty))
-assert reverse(L2) = node(5, node(4, node(3, empty)))
-assert length(L1 ++ L2) = length(L1) + length(L2)
-
-assert map(L1, suc : fn Nat->Nat) = node(2, node(3, empty))
 
 function foldr<T,U>(List<T>, U, fn T,U->U) -> U {
   foldr(empty, u, c) = u
   foldr(node(t, ls), u, c) = c(t, foldr(ls, u, c))
 }
 
-assert foldr(L1, 0, λa,b{ a + b }) = 3
-assert foldr(L1, @empty<Nat>, λx,ls{ node(x,ls) }) = L1
-
 function foldl<T,U>(List<T>, U, fn U,T->U) -> U {
   foldl(empty, u, c) = u
   foldl(node(t, ls), u, c) = foldl(ls, c(u, t), c)
 }
-
-assert foldl(L1, 0, λa,b{ a + b }) = 3
-assert foldl(L1, @empty<Nat>, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 
 function down_from(Nat) -> List<Nat> {
   down_from(zero) = empty
   down_from(suc(n)) = node(n, down_from(n))
 }
 
-assert down_from(2) = node(1, node(0, empty))
-
 define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
-
-assert up_to(2) = node(0, node(1, empty))
-assert up_to(3) = node(0, node(1, node(2, empty)))
 
 function range_aux(Nat, Nat, Nat) -> List<Nat> {
   range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : fn Nat->Nat)
@@ -95,26 +68,10 @@ function range_aux(Nat, Nat, Nat) -> List<Nat> {
 
 define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
 
-assert range(0, 0) = empty
-assert range(0, 1) = node(0, empty)
-assert range(0, 2) = node(0, node(1, empty))
-assert range(1, 3) = node(1, node(2, empty))
-assert range(2, 5) = node(2, node(3, node(4, empty)))
-
 function interval(Nat, Nat) -> List<Nat> {
   interval(zero, n) = empty
   interval(suc(k), n) = node(n, interval(k, suc(n)))
 }
-
-assert interval(0, 0) = empty
-assert interval(1, 0) = node(0, empty)
-assert interval(2, 0) = node(0, node(1, empty))
-assert interval(3, 0) = node(0, node(1, node(2, empty)))
-
-assert interval(0, 3) = empty
-assert interval(1, 3) = node(3, empty)
-assert interval(2, 3) = node(3, node(4, empty))
-assert interval(3, 3) = node(3, node(4, node(5, empty)))
 
 function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = empty
@@ -129,8 +86,6 @@ function all_elements<T>(List<T>, fn (T) -> bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
 }
-
-define L1_positive = all_elements(L1, λx{ 0 < x })
 
 function filter<E>(List<E>, fn (E)->bool) -> List<E> {
   filter(empty, P) = empty
@@ -269,9 +224,6 @@ proof
   }
 end
 
-assert (node(1, empty) ++ node(2, empty)) ++ node(3, empty)
-     = node(1, empty) ++ (node(2, empty) ++ node(3, empty))
-
 theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
   (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
 proof
@@ -367,8 +319,6 @@ proof
 end
 
 define id_nat : fn Nat -> Nat = λx{x}
-
-assert (id_nat [o] id_nat)(zero) = zero
 
 theorem map_append: all T:type. all f: fn T->T, ys:List<T>. all xs:List<T>.
   map(xs ++ ys, f) = map(xs,f) ++ map(ys, f)
@@ -467,7 +417,7 @@ proof
     suffices (if P(x) then node(x,filter(xs',P)) else filter(xs',P)) = node(x,xs')
         by definition filter
     suffices node(x,filter(xs',P)) = node(x,xs')
-        by rewrite Px
+        by rewrite (apply eq_true to Px)
     have Pxs': all_elements(xs',P) by definition all_elements in Pxs
     have IH': filter(xs',P) = xs' by apply IH to Pxs'
     rewrite IH'
@@ -785,7 +735,7 @@ proof
 	_definition nth
 	have nsz: not (suc(n') + i = 0) by
 	  suppose sz conclude false by definition operator + in sz
-	_rewrite nsz
+	_rewrite (apply eq_false to nsz)
 	_definition {operator +, pred}
 	conclude nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
       }
@@ -839,7 +789,7 @@ proof
     _definition {operator++,length, nth}
     have X: not ((1 + length(xs)) + i = 0)
       by suppose eq_z enable operator + conclude false by eq_z
-    _rewrite X
+    _rewrite (apply eq_false to X)
     _definition {operator +, pred, operator+}
     IH[ys, i, d]
   }

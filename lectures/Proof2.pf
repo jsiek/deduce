@@ -20,7 +20,14 @@ proof
     suppose IH: (all ys:List<U>. length(xs' ++ ys)
                  = length(xs') + length(ys)) {
     arbitrary ys:List<U>
-    sorry
+    equations
+          length(node(x, xs') ++ ys)
+        = length(node(x, xs' ++ ys)) by definition operator++
+    ... = 1 + length(xs' ++ ys) by definition length
+    ... = 1 + (length(xs') + length(ys)) by rewrite IH
+    ... = (1 + length(xs')) + length(ys) by rewrite add_assoc[1][length(xs'),length(ys)]
+    ... = length(node(x, xs')) + length(ys)
+           by definition length
   }
 end
 
