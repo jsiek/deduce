@@ -494,8 +494,8 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
     x + y + z = x + z + y      by rewrite add_commute[y][z]
-          ... = (x + z) + y    by rewrite add_assoc[x][z,y]
-          ... = (z + x) + y    by rewrite add_commute[z][x]
+          ... = (x + z) + y    by rewrite symmetric add_assoc[x][z,y]
+          ... = (z + x) + y    by rewrite symmetric add_commute[z][x]
           ... = z + x + y      by rewrite add_assoc[z][x,y]
           ... = z + y + x      by rewrite add_commute[x][y]
 end

@@ -32,9 +32,9 @@ proof
   case empty {
     equations
       map(@empty<T> ++ ys, f)
-          = map(ys, f)                       by definition operator++
-      ... = @empty<T> ++ map(ys, f)          by definition operator++
-      ... = map(@empty<T>, f) ++ map(ys, f)  by definition map
+          = map(ys, f)                            by definition operator++
+      ... = [| @empty<T> ++ map(ys, f) |]         by definition operator++
+      ... = [| map(@empty<T>, f) ++ map(ys, f) |] by definition map
   }
   case node(x, xs')
     suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)

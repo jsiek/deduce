@@ -1,6 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory, print_theorems
+from abstract_syntax import add_import_directory, print_theorems, set_default_mark_LHS
 import sys
 import os
 from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
@@ -33,6 +33,9 @@ if __name__ == "__main__":
     if '--error' in sys.argv:
         error_expected = True
 
+    if '--left-to-right' in sys.argv:
+        set_default_mark_LHS(True)
+        
     for i in range(1, len(sys.argv)):
         if sys.argv[i] == '--dir':
             add_import_directory(sys.argv[i+1])
@@ -75,5 +78,5 @@ if __name__ == "__main__":
             # for production, exit
             exit(1)
             # during development, reraise
-            #raise e
+            # raise e
 

@@ -172,8 +172,22 @@ def inc_rewrites():
 def get_num_rewrites():
     global num_rewrites
     return num_rewrites
-    
+
 def rewrite(loc, formula, equation):
+    num_marks = count_marks(formula)
+    if num_marks == 0:
+        return rewrite_aux(loc, formula, equation)
+    elif num_marks == 1:
+        try:
+            find_mark(formula)
+            error(loc, 'in rewrite, find_mark failed on formula:\n\t' + str(formula))
+        except MarkException as ex:
+            new_subject = rewrite_aux(loc, ex.subject, equation)
+            return replace_mark(formula, new_subject)
+    else:
+        error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
+
+def rewrite_aux(loc, formula, equation):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
     print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
@@ -183,53 +197,53 @@ def rewrite(loc, formula, equation):
     return rhs
   match formula:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
-      return TermInst(loc2, tyof, rewrite(loc, subject, equation), tyargs, inferred)
+      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation), tyargs, inferred)
     case Var(loc2, tyof, name):
       return formula
     case Bool(loc2, tyof, val):
       return formula
     case And(loc2, tyof, args):
-      return And(loc2, tyof, [rewrite(loc, arg, equation) for arg in args])
+      return And(loc2, tyof, [rewrite_aux(loc, arg, equation) for arg in args])
     case Or(loc2, tyof, args):
-      return Or(loc2, tyof, [rewrite(loc, arg, equation) for arg in args])
+      return Or(loc2, tyof, [rewrite_aux(loc, arg, equation) for arg in args])
     case IfThen(loc2, tyof, prem, conc):
-      return IfThen(loc2, tyof, rewrite(loc, prem, equation),
-                    rewrite(loc, conc, equation))
+      return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation),
+                    rewrite_aux(loc, conc, equation))
     case All(loc2, tyof, vars, frm2):
-      # TODO, deal with variable clash
-      return All(loc2, tyof, vars, rewrite(loc, frm2, equation))
+      return All(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
     case Some(loc2, tyof, vars, frm2):
-      return Some(loc2, tyof, vars, rewrite(loc, frm2, equation))
+      return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
     case Call(loc2, tyof, rator, args, infix):
       call = Call(loc2, tyof,
-                  rewrite(loc, rator, equation),
-                  [rewrite(loc, arg, equation) for arg in args],
+                  rewrite_aux(loc, rator, equation),
+                  [rewrite_aux(loc, arg, equation) for arg in args],
                   infix)
       if hasattr(formula, 'type_args'):
           call.type_args = formula.type_args
       return call
     case Switch(loc2, tyof, subject, cases):
-      return Switch(loc2, tyof, rewrite(loc, subject, equation),
-                    [rewrite(loc, c, equation) for c in cases])
+      return Switch(loc2, tyof, rewrite_aux(loc, subject, equation),
+                    [rewrite_aux(loc, c, equation) for c in cases])
     case SwitchCase(loc2, pat, body):
-      return SwitchCase(loc2, pat, rewrite(loc, body, equation))
+      return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation))
     case RecFun(loc, name, typarams, params, returns, cases):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
-      return Conditional(loc2, tyof, rewrite(loc, cond, equation),
-                         rewrite(loc, thn, equation),
-                         rewrite(loc, els, equation))
+      return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation),
+                         rewrite_aux(loc, thn, equation),
+                         rewrite_aux(loc, els, equation))
     case Lambda(loc2, tyof, vars, body):
-      return Lambda(loc2, tyof, vars, rewrite(loc, body, equation))
+      return Lambda(loc2, tyof, vars, rewrite_aux(loc, body, equation))
   
     case Generic(loc2, tyof, typarams, body):
-      return Generic(loc2, tyof, typarams, rewrite(loc, body, equation))
+      return Generic(loc2, tyof, typarams, rewrite_aux(loc, body, equation))
   
     case TAnnote(loc2, tyof, subject, typ):
-      return TAnnote(loc, tyof, rewrite(loc, subject, equation), typ)
+      return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation), typ)
   
     case TLet(loc2, tyof, var, rhs, body):
-      return TLet(loc2, tyof, var, rewrite(loc, rhs, equation), rewrite(loc, body, equation))
+      return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation),
+                  rewrite_aux(loc, body, equation))
   
     case Hole(loc2, tyof):
       return formula
@@ -373,7 +387,7 @@ def check_proof(proof, env):
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
       check_proof_of(reason, new_claim, env)
-      ret = new_claim
+      ret = remove_mark(new_claim)
       
     case PTerm(loc, term, because, rest):
       new_term = type_synth_term(term, env, None, [])
@@ -637,7 +651,7 @@ def proof_advice(formula, env):
       case IfThen(loc, tyof, prem, conc):
         return prefix \
             + '\tYou can complete the proof with:\n' \
-            + '\t\tsuppose premise_label: ' + str(prem) + '\n' \
+            + '\t\tsuppose label: ' + str(prem) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
       case All(loc, tyof, vars, body):
@@ -715,12 +729,15 @@ def check_proof_of(proof, formula, env):
 
     case PTransitive(loc, eq_pf1, eq_pf2):
       (a1,c) = split_equation(loc, formula)
+      
       eq1 = check_proof(eq_pf1, env)
       (a2,b) = split_equation(loc, eq1)
+      
       check_proof_of(eq_pf2, mkEqual(loc, b, c), env)
+      
       a1r = a1.reduce(env)
       a2r = a2.reduce(env)
-      if a1r != a2r:
+      if remove_mark(a1r) != remove_mark(a2r):
         error(loc, 'for transitive,\n\t' + str(a1r) + '\n≠\n\t' + str(a2r))
 
     case PInjective(loc, constr, eq_pf):
@@ -860,15 +877,16 @@ def check_proof_of(proof, formula, env):
       equations = [check_proof(proof, env) for proof in equation_proofs]
       eqns = [equation.reduce(env) for equation in equations]
       new_formula = formula.reduce(env)
-      for eq in eqns:
-        if not is_equation(eq):
-            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-        reset_num_rewrites()
-        new_formula = rewrite(loc, new_formula, eq)
-        if get_num_rewrites() == 0:
-            error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
-                  + '\nin\n\t' + str(new_formula))
-        new_formula = new_formula.reduce(env)
+      # for eq in eqns:
+      #   if not is_equation(eq):
+      #       error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+      #   reset_num_rewrites()
+      #   new_formula = rewrite(loc, new_formula, eq)
+      #   if get_num_rewrites() == 0:
+      #       error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
+      #             + '\nin\n\t' + str(new_formula))
+      #   new_formula = new_formula.reduce(env)
+      new_formula = apply_rewrites(loc, new_formula, eqns, env)
       if new_formula != Bool(loc, None, True):
           error(loc, 'remains to prove:\n\t' + str(new_formula))
     
@@ -1099,24 +1117,64 @@ def check_proof_of(proof, formula, env):
       form = check_proof(proof, env)
       form_red = form.reduce(env)
       formula_red = formula.reduce(env)
-      check_implies(proof.location, form_red, formula_red)
+      check_implies(proof.location, form_red, remove_mark(formula_red))
 
 def apply_definitions(loc, formula, defs, env):
-  new_formula = formula
+  num_marks = count_marks(formula)
+  if num_marks == 0:
+      new_formula = formula
+  elif num_marks == 1:
+      try:
+          find_mark(formula)
+          error(loc, 'in apply_definitions, find_mark failed on formula:\n\t' + str(formula))
+      except MarkException as ex:
+          new_formula = ex.subject
+  else:
+      error(loc, 'in definition, formula contains more than one mark:\n\t' + str(formula))
+
   for var in defs:
       rhs = env.get_value_of_term_var(var)
-      #print('apply definition, ' + str(var) + ' = ' + str(rhs))
       if rhs != None:
           reset_reduced_defs()
           new_formula = new_formula.substitute({var.name: rhs})
-          #print('\tsubstitute ==> ' + str(new_formula))
           new_formula = new_formula.reduce(env)
           if var.name not in get_reduced_defs():
               error(loc, 'could not find a place to apply definition of ' + base_name(var.name) \
-                    + ' in:\n' + '\t' + str(formula))
-          #print('\treduce ==> ' + str(new_formula))
-  return new_formula
+                    + ' in:\n' + '\t' + str(new_formula))
+  if num_marks == 0:          
+      return new_formula
+  else:
+      return replace_mark(formula, new_formula).reduce(env)
+
+def apply_rewrites(loc, formula, eqns, env):
+  num_marks = count_marks(formula)
+  if num_marks == 0:
+      new_formula = formula
+  elif num_marks == 1:
+      try:
+          find_mark(formula)
+          error(loc, 'in apply_rewrites, find_mark failed on formula:\n\t' + str(formula))
+      except MarkException as ex:
+          new_formula = ex.subject
+  else:
+      error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
+
+  for eq in eqns:
+    if not is_equation(eq):
+        error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+    reset_num_rewrites()
+    new_formula = rewrite_aux(loc, new_formula, eq)
+    if get_num_rewrites() == 0:
+        error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
+              + '\nin\n\t' + str(new_formula))
+    new_formula = new_formula.reduce(env)
       
+  if num_marks == 0:          
+      return new_formula
+  else:
+      return replace_mark(formula, new_formula).reduce(env)
+
+  
 def formula_match(loc, vars, goal_frm, frm, matching, env):
   if get_verbose():
     print("formula_match(" + str(goal_frm) + "," + str(frm) + ")")
@@ -1356,6 +1414,10 @@ def type_synth_term(term, env, recfun, subterms):
   if get_verbose():
     print('type_synth_term: ' + str(term))
   match term:
+    case Mark(loc, tyof, subject):
+      new_subject = type_synth_term(subject, env, recfun, subterms)
+      ret = Mark(loc, new_subject.typeof, new_subject)
+  
     case Var(loc, _, name):
       ty = env.get_type_of_term_var(term)
       if ty == None:

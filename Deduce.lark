@@ -88,6 +88,7 @@ ident: IDENT              -> ident
     | "define" IDENT "=" term term                 -> define_term
     | "?"                                          -> hole_term
     | "(" term ")"                                 -> paren
+    | "[|" term "|]"                               -> mark
     | "%" type
     
 ?term_list:                                        -> empty

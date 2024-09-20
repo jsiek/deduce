@@ -1045,7 +1045,36 @@ class Hole(Term):
 
   def substitute(self, sub):
     return self
+
+@dataclass
+class Mark(Term):
+  subject: Term
+
+  def __eq__(self, other):
+    if isinstance(other, Mark):
+      return self.subject == other.subject
+    else:
+      return self.subject == other
+  
+  def copy(self):
+    return self.subject.copy()
+    # return Mark(self.location, self.typeof,
+    #             self.subject.copy())
+  
+  def __str__(self):
+    return '[|' + str(self.subject) + '|]'
+
+  def reduce(self, env):
+    subject_red = self.subject.reduce(env)
+    return Mark(self.location, self.typeof, subject_red)
     
+  def substitute(self, sub):
+    return Mark(self.location, self.typeof,
+                self.subject.substitute(sub))
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+
 ################ Formulas ######################################
   
 @dataclass
@@ -2437,3 +2466,177 @@ def print_theorems(filename, ast):
     if isinstance(s, Theorem) and not s.isLemma:
       print(base_name(s.name) + ': ' + str(s.what) + '\n', file=theorem_file)
   theorem_file.close()
+
+############# Marks for controlling rewriting and definitions #########################
+
+default_mark_LHS = False
+
+def set_default_mark_LHS(b):
+  global default_mark_LHS
+  default_mark_LHS = b
+  
+def get_default_mark_LHS():
+  global default_mark_LHS
+  return default_mark_LHS
+
+@dataclass
+class MarkException(BaseException):
+    subject: Term
+
+def count_marks(formula):
+  match formula:
+    case Mark(loc2, tyof, subject):
+      return 1
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      return count_marks(subject)
+    case Var(loc2, tyof, name):
+      return 0
+    case Bool(loc2, tyof, val):
+      return 0
+    case And(loc2, tyof, args):
+      return sum([count_marks(arg) for arg in args])
+    case Or(loc2, tyof, args):
+      return sum([count_marks(arg) for arg in args])
+    case IfThen(loc2, tyof, prem, conc):
+      return count_marks(prem) + count_marks(conc)
+    case All(loc2, tyof, vars, frm2):
+      return count_marks(frm2)
+    case Some(loc2, tyof, vars, frm2):
+      return count_marks(frm2)
+    case Call(loc2, tyof, rator, args, infix):
+      return count_marks(rator) + sum([count_marks(arg) for arg in args])
+    case Switch(loc2, tyof, subject, cases):
+      return count_marks(subject) + sum([count_marks(c) for c in cases])
+    case SwitchCase(loc2, pat, body):
+      return count_marks(body)
+    case RecFun(loc, name, typarams, params, returns, cases):
+      return 0
+    case Conditional(loc2, tyof, cond, thn, els):
+      return count_marks(cond) + count_marks(thn) + count_marks(els)
+    case Lambda(loc2, tyof, vars, body):
+      return count_marks(body)
+    case Generic(loc2, tyof, typarams, body):
+      return count_marks(body)
+    case TAnnote(loc2, tyof, subject, typ):
+      return count_marks(subject)
+    case TLet(loc2, tyof, var, rhs, body):
+      return count_marks(rhs) + count_marks(body)
+    case Hole(loc2, tyof):
+      return 0
+    case _:
+      error(loc, 'in count_marks function, unhandled ' + str(formula))
+
+def find_mark(formula):
+  match formula:
+    case Mark(loc2, tyof, subject):
+      raise MarkException(subject)
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      find_mark(subject)
+    case Var(loc2, tyof, name):
+      pass
+    case Bool(loc2, tyof, val):
+      pass
+    case And(loc2, tyof, args):
+      for arg in args:
+          find_mark(arg)
+    case Or(loc2, tyof, args):
+      for arg in args:
+          find_mark(arg)
+    case IfThen(loc2, tyof, prem, conc):
+      find_mark(prem)
+      find_mark(conc)
+    case All(loc2, tyof, vars, frm2):
+      find_mark(frm2)
+    case Some(loc2, tyof, vars, frm2):
+      find_mark(frm2)
+    case Call(loc2, tyof, rator, args, infix):
+      find_mark(rator)
+      for arg in args:
+          find_mark(arg)
+    case Switch(loc2, tyof, subject, cases):
+      find_mark(subject)
+      for c in cases:
+          find_mark(c)
+    case SwitchCase(loc2, pat, body):
+      find_mark(body)
+    case RecFun(loc, name, typarams, params, returns, cases):
+      pass
+    case Conditional(loc2, tyof, cond, thn, els):
+      find_mark(cond)
+      find_mark(thn)
+      find_mark(els)
+    case Lambda(loc2, tyof, vars, body):
+      find_mark(body)
+    case Generic(loc2, tyof, typarams, body):
+      find_mark(body)
+    case TAnnote(loc2, tyof, subject, typ):
+      find_mark(subject)
+    case TLet(loc2, tyof, var, rhs, body):
+      find_mark(rhs)
+      find_mark(body)
+    case Hole(loc2, tyof):
+      pass
+    case _:
+      error(loc, 'in find_mark function, unhandled ' + str(formula))
+
+def replace_mark(formula, replacement):
+  match formula:
+    case Mark(loc2, tyof, subject):
+      return replacement
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      return TermInst(loc2, tyof, replace_mark(subject, replacement), tyargs, inferred)
+    case Var(loc2, tyof, name):
+      return formula
+    case Bool(loc2, tyof, val):
+      return formula
+    case And(loc2, tyof, args):
+      return And(loc2, tyof, [replace_mark(arg, replacement) for arg in args])
+    case Or(loc2, tyof, args):
+      return Or(loc2, tyof, [replace_mark(arg, replacement) for arg in args])
+    case IfThen(loc2, tyof, prem, conc):
+      return IfThen(loc2, tyof, replace_mark(prem, replacement),
+                    replace_mark(conc, replacement))
+    case All(loc2, tyof, vars, frm2):
+      return All(loc2, tyof, vars, replace_mark(frm2, replacement))
+    case Some(loc2, tyof, vars, frm2):
+      return Some(loc2, tyof, vars, replace_mark(frm2, replacement))
+    case Call(loc2, tyof, rator, args, infix):
+      return Call(loc2, tyof, replace_mark(rator, replacement),
+                  [replace_mark(arg, replacement) for arg in args], infix)
+    case Switch(loc2, tyof, subject, cases):
+      return Switch(loc2, tyof, replace_mark(subject, replacement),
+                    [replace_mark(c, replacement) for c in cases])
+    case SwitchCase(loc2, pat, body):
+      return SwitchCase(loc2, pat, replace_mark(body, replacement))
+    case RecFun(loc, name, typarams, params, returns, cases):
+      return formula
+    case Conditional(loc2, tyof, cond, thn, els):
+      return Conditional(loc2, tyof, replace_mark(cond, replacement),
+                         replace_mark(thn, replacement),
+                         replace_mark(els, replacement))
+    case Lambda(loc2, tyof, vars, body):
+      return Lambda(loc2, tyof, vars, replace_mark(body, replacement))
+    case Generic(loc2, tyof, typarams, body):
+      return Generic(loc2, tyof, typarams, replace_mark(body, replacement))
+    case TAnnote(loc2, tyof, subject, typ):
+      return TAnnote(loc2, tyof, replace_mark(subject, replacement))
+    case TLet(loc2, tyof, var, rhs, body):
+      return TLet(loc2, tyof, var, replace_mark(rhs, replacement),
+                  replace_mark(body, replacement))
+    case Hole(loc2, tyof):
+      return formula
+    case _:
+      error(loc, 'in replace_mark function, unhandled ' + str(formula))
+
+def remove_mark(formula):
+  num_marks = count_marks(formula)
+  if num_marks == 0:
+      return formula
+  else:
+        try:
+            find_mark(formula)
+            error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
+        except MarkException as ex:
+            return replace_mark(formula, ex.subject)
+      
+

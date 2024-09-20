@@ -214,6 +214,8 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_list(e.children[1], e),
                         False)
+    elif e.data == 'mark':
+        return Mark(e.meta, None, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'term_var':
         return Var(e.meta, None, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'conditional':
@@ -564,7 +566,14 @@ def parse_tree_to_ast(e, parent):
             eqs.append((lhs, rhs, reason))
         result = None
         for (lhs, rhs, reason) in reversed(eqs):
-            eq_proof = PAnnot(e.meta, mkEqual(e.meta, lhs, rhs), reason)
+            
+            num_marks = count_marks(rhs)
+            if num_marks == 0 and get_default_mark_LHS():
+                new_lhs = Mark(e.meta, None, lhs)
+            else:
+                new_lhs = lhs
+            
+            eq_proof = PAnnot(e.meta, mkEqual(e.meta, new_lhs, rhs), reason)
             if result == None:
                 result = eq_proof
             else:
