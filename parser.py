@@ -554,15 +554,16 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'half_equation':
         rhs = parse_tree_to_ast(e.children[0], e)
         reason = parse_tree_to_ast(e.children[1], e)
-        return (rhs, reason)
+        return (None, rhs, reason)
     elif e.data == 'hole_in_middle_proof':
         return PHole(e.meta)
     elif e.data == 'equations_proof':
         first = parse_tree_to_ast(e.children[0], e)
         rest = parse_tree_to_list(e.children[1], e)
         eqs = [first]
-        for (rhs, reason) in rest:
-            lhs = eqs[-1][1].copy()
+        for (lhs,rhs, reason) in rest:
+            if lhs == None:
+                lhs = eqs[-1][1].copy()
             eqs.append((lhs, rhs, reason))
         result = None
         for (lhs, rhs, reason) in reversed(eqs):

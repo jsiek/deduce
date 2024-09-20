@@ -100,7 +100,7 @@ proof
         = from_binary(node(true,empty))         by definition inc
     ... = suc(2 * 0)                            by definition {from_binary, from_binary}
     ... = 1                                     by rewrite mult_zero[2]
-    ... = [| suc(from_binary(empty)) |]         by definition from_binary
+    ... ={ suc(from_binary(empty)) }            by definition from_binary
   }
   case node(b, bs') suppose IH: from_binary(inc(bs')) = suc(from_binary(bs')) {
     switch b {
@@ -115,20 +115,15 @@ proof
                   by definition operator+
           ... = suc(suc(from_binary(bs') + from_binary(bs')))
                   by rewrite add_suc[from_binary(bs')][from_binary(bs')]
-          ... = [| suc(suc(2 * from_binary(bs'))) |] by rewrite two_mult[from_binary(bs')]
-          /*
-          by _definition {operator*,operator*,operator*,operator+}
-                                                           _rewrite add_zero[from_binary(bs')]
-                                                           _rewrite add_suc[from_binary(bs')][from_binary(bs')].
-                                                           */
-          ... = [| suc(from_binary(node(true,bs'))) |]       by definition {from_binary}
+          ... ={ suc(suc(2 * from_binary(bs'))) }       by rewrite two_mult[from_binary(bs')]
+          ... ={ suc(from_binary(node(true,bs'))) }     by definition {from_binary}
       }
       case false {
         equations
               from_binary(inc(node(false,bs')))
             = from_binary(node(true,bs'))               by definition inc
         ... = suc(2 * from_binary(bs'))                 by definition from_binary
-        ... = [| suc(from_binary(node(false,bs'))) |]   by definition from_binary
+        ... ={ suc(from_binary(node(false,bs'))) }      by definition from_binary
       }
     }
   }

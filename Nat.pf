@@ -185,8 +185,8 @@ theorem suc_one_add: all n:Nat.
 proof
   arbitrary n:Nat
   equations
-    suc(n) = [| suc(0 + n) |]       by definition operator+
-       ... = suc(0) + n             by symmetric suc_add[0, n]
+    suc(n) ={ suc(0 + n) }      by definition operator+
+       ... = suc(0) + n         by symmetric suc_add[0, n]
 end
 
 theorem one_add_suc: all n:Nat.
@@ -422,7 +422,7 @@ proof
         with definition {operator*, operator+}
     equations   suc(n + m' * suc(n))
               = suc(n + (m' + m' * n))       by rewrite IH[n]
-          ... = [| suc((n + m') + m' * n) |] by rewrite add_assoc[n][m', m' * n]
+          ... ={ suc((n + m') + m' * n) }    by rewrite add_assoc[n][m', m' * n]
           ... = suc((m' + n) + m' * n)       by rewrite add_commute[n][m']
           ... = suc(m' + (n + m' * n))       by rewrite add_assoc[m'][n, m' * n]
   }
@@ -481,19 +481,20 @@ proof
     equations   0 * (x + y)
               = 0                     by zero_mult[x+y]
           ... = 0 + 0                 by symmetric add_zero[0]
-          ... = [| 0 * x + 0 * y |]   by rewrite zero_mult[x] | zero_mult[y]
+          ... ={ 0 * x + 0 * y }      by rewrite zero_mult[x] | zero_mult[y]
   }
   case suc(a') suppose IH {
     arbitrary x:Nat, y:Nat
     suffices (x + y) + a' * (x + y) = (x + a' * x) + (y + a' * y)
         with definition operator *
     equations
-    (x + y) + a' * (x + y) = (x + y) + (a' * x + a' * y) by rewrite IH[x,y]
-    ... = ((x + y) + a' * x) + a' * y by symmetric add_assoc[x+y][a'*x,a'*y]
-    ... = (x + (y + a' * x)) + a' * y by rewrite add_assoc[x][y,a'*x]
-    ... = [| (x + (a' * x + y)) + a' * y |] by rewrite add_commute[a'*x][y]
-    ... = ((x + a' * x) + y) + a' * y by rewrite symmetric add_assoc[x][a'*x,y]
-    ... = (x + a' * x) + (y + a' * y) by add_assoc[x+a'*x][y,a'*y]
+            (x + y) + a' * (x + y)
+          = (x + y) + (a' * x + a' * y)       by rewrite IH[x,y]
+      ... = ((x + y) + a' * x) + a' * y       by symmetric add_assoc[x+y][a'*x,a'*y]
+      ... = (x + (y + a' * x)) + a' * y       by rewrite add_assoc[x][y,a'*x]
+      ... = (x + (a' * x + y)) + a' * y       by rewrite add_commute[y][a'*x]
+      ... = ((x + a' * x) + y) + a' * y       by rewrite symmetric add_assoc[x][a'*x,y]
+      ... = (x + a' * x) + (y + a' * y)       by add_assoc[x+a'*x][y,a'*y]
   }
 end
 
@@ -505,8 +506,8 @@ proof
   equations
   (x + y) * a = a * (x + y)         by mult_commute[x+y][a]
           ... = a * x + a * y       by dist_mult_add[a][x,y]
-          ... = [| x * a + a * y |] by rewrite mult_commute[x][a]
-          ... = [| x * a + y * a |] by rewrite mult_commute[y][a]
+          ... = x * a + a * y       by rewrite mult_commute[a][x]
+          ... = x * a + y * a       by rewrite mult_commute[a][y]
 end
   
 theorem mult_assoc: all m:Nat. all n:Nat, o:Nat.
@@ -526,7 +527,7 @@ proof
         = (n + m' * n) * o          by definition operator*
     ... = n * o + (m' * n) * o      by dist_mult_add_right[n, m'*n, o]
     ... = n * o + m' * (n * o)      by rewrite IH[n,o]
-    ... = [| suc(m') * (n * o) |]   by definition operator*
+    ... = {suc(m') * (n * o)}   by definition operator*
   }
 end
 
@@ -1380,10 +1381,10 @@ proof
   }
   case suc(x') suppose IH {
     equations
-    [| max(suc(suc(x')),suc(x')) |] = suc(max(suc(x'),x'))
+    {max(suc(suc(x')),suc(x'))} = suc(max(suc(x'),x'))
                                           by definition max
     ... = suc(suc(max(x',x')))            by rewrite IH
-    ... = [| suc(max(suc(x'),suc(x'))) |] by definition max
+    ... = {suc(max(suc(x'),suc(x')))} by definition max
   }
 end
 
@@ -2218,7 +2219,7 @@ proof
                        ... = suc(M) * ((n + M * n) + M) + M
                                       by rewrite mult_commute[((n + M * n) + M)][suc(M)]
                        ... = (((n + M * n) + M) + M * ((n + M * n) + M)) + M  by definition operator*
-                       ... = ([| n + M * n + M |] + M * ((n + M * n) + M)) + M
+                       ... = ({n + M * n + M} + M * ((n + M * n) + M)) + M
                                  by rewrite symmetric add_assoc[n][M*n,M]
                        ... = (n + (M * n + M)) + (M * ((n + M * n) + M) + M)
                                       by rewrite add_assoc[(n + M * n + M)][M * ((n + M * n) + M),M]

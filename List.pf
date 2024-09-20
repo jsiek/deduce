@@ -295,7 +295,7 @@ proof
       length(map(node(x,ls'),f))
           = 1 + length(map(ls',f))  by definition {map, length}
       ... = 1 + length(ls')         by rewrite IH
-      ... = [| length(node(x,ls')) |]     by definition {length}
+      ... ={ length(node(x,ls')) }     by definition {length}
   }
 end
 
@@ -330,8 +330,8 @@ proof
     equations
       map(@empty<T> ++ ys, f)
           = map(ys, f)                  by definition operator++
-      ... = [| @empty<T> ++ map(ys, f) |]        by definition operator++
-      ... = [| map(@empty<T>, f) ++ map(ys, f) |]  by definition map
+      ... ={ @empty<T> ++ map(ys, f) }        by definition operator++
+      ... ={ map(@empty<T>, f) ++ map(ys, f) }  by definition map
   }
   case node(x, xs')
     suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
@@ -396,7 +396,7 @@ proof
 		by rewrite IH[ys']
         ... = node(pair(f(x), g(y)), map(zip(xs', ys'), λp{pair(f(first(p)), g(second(p)))}))
                by definition pairfun
-	... = [| map(zip(node(x,xs'),node(y,ys')), pairfun(f,g)) |]
+	... ={ map(zip(node(x,xs'),node(y,ys')), pairfun(f,g)) }
 		by definition {pairfun, first, second}
       }
     }
@@ -812,7 +812,7 @@ proof
     equations
       rev_app(xs', node(x,ys))
           = reverse(xs') ++ node(x,ys) by IH[node(x,ys)]
-      ... = reverse(xs') ++ [| (node(x,empty) ++ ys) |]
+      ... = reverse(xs') ++ { (node(x,empty) ++ ys) }
             by _definition {operator++,operator++}.
       ... = (reverse(xs') ++ node(x,empty)) ++ ys
             by symmetric append_assoc<T>[reverse(xs')][node(x,empty),ys]
@@ -855,7 +855,7 @@ proof
   arbitrary xs:List<T>, b:T, f:fn T,T->T
   equations
     foldl(xs, b, f)
-        = [| foldl(xs,foldr(@empty<T>, b, flip(f)), flip(flip(f))) |]
+        ={ foldl(xs,foldr(@empty<T>, b, flip(f)), flip(flip(f))) }
               by _definition foldr _rewrite flip_flip<T>[f].
     ... = foldr(rev_app(xs,empty),b,flip(f))
               by symmetric foldr_rev_app_foldl<T>[xs][empty,b,flip(f)]
@@ -898,7 +898,7 @@ proof
     equations
           head(node(x,xs) ++ R)
         = just(x)                           by definition {operator++,head}
-    ... = [| head(node(x,xs)) |]            by definition head
+    ... ={ head(node(x,xs)) }            by definition head
   }
 end
 
