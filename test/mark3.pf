@@ -1,0 +1,17 @@
+union C {
+  c
+}
+
+function f(C) -> bool {
+  f(c) = true
+}
+
+theorem T: (f(c) and f(c)) = (f(c) and f(c))
+proof
+  equations
+     ({f(c)} and f(c)) = (true and f(c))    by definition f
+                     | (true and {f(c)})
+                     = (true and true)    by definition f
+                 ... = ({f(c)} and true)  by definition f
+                 ... = (f(c) and {f(c)})  by definition f
+end
