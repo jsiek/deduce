@@ -22,19 +22,16 @@ if __name__ == "__main__":
 
     set_deduce_directory(os.path.dirname(sys.argv[0]))
     init_parser()
-    
+
     filename = sys.argv[1]
     file = open(filename, 'r', encoding="utf-8")
     p = file.read()
-    set_verbose(False)
     set_filename(filename)
 
-    error_expected = False
-    if '--error' in sys.argv:
-        error_expected = True
-
-    if '--left-to-right' in sys.argv:
-        set_default_mark_LHS(True)
+    # Check command line arguments
+    error_expected = '--error' in sys.argv
+    set_verbose('--verbose' in sys.argv)
+    set_default_mark_LHS('--left-to-right' in sys.argv)
         
     for i in range(1, len(sys.argv)):
         if sys.argv[i] == '--dir':
