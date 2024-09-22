@@ -40,6 +40,7 @@ tests:
 	$(PYTHON) ./deduce.py test/overload3.pf
 	$(PYTHON) ./deduce.py test/overload4.pf --error
 	$(PYTHON) ./deduce.py test/overload5.pf
+	$(PYTHON) ./deduce.py test/overload6.pf
 	$(PYTHON) ./deduce.py test/all1.pf
 	$(PYTHON) ./deduce.py test/all2.pf
 	$(PYTHON) ./deduce.py test/all3.pf
