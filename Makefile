@@ -1,5 +1,5 @@
 #PYTHON=/opt/homebrew/bin/python3.10
-PYTHON = python3
+PYTHON = python3 # TODO: use an ENV file!!!!!
 
 TEST_PASS_DIR = ./test/should-pass/*.pf
 TEST_ERROR_DIR = ./test/should-error/*.pf
