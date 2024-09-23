@@ -6,10 +6,6 @@ zero_add: (all n:Nat. 0 + n = n)
 
 add_zero: (all n:Nat. n + 0 = n)
 
-suc_one_add: (all n:Nat. suc(n) = 1 + n)
-
-one_add_suc: (all n:Nat. 1 + n = suc(n))
-
 add_commute: (all n:Nat. (all m:Nat. n + m = m + n))
 
 one_add: (all m:Nat. 1 + m = suc(m))
