@@ -275,7 +275,7 @@ proof
     arbitrary bs:List<bool>
     _definition {iter_dub, dub, length}
     _rewrite IH[bs]
-    _rewrite suc_one_add[n']
+    _rewrite symmetric one_add[n'] 
     _rewrite add_assoc[1][n', length(bs)].
   }
 end
@@ -286,7 +286,7 @@ proof
   arbitrary n:Nat
   _rewrite length_iter_dub[n][to_binary(1)]
   _definition {to_binary, to_binary, inc, length, length}
-  _rewrite add_zero[1] | suc_one_add[n] | add_commute[1][n].
+  _rewrite add_zero[1] | symmetric one_add[n] | add_commute[1][n].
 end
 
 assert iter_dub( 1, to_binary(1) ) = to_binary(2)
