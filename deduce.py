@@ -11,34 +11,19 @@ def token_str(token):
     if len(token.value) > 0:
         str = token.value
     else:
-        str =  t.token.type
+        str = token.type
     str = str.lower()
     if str[0] == '$':
         str = str[1:]
     return str
 
-if __name__ == "__main__":
-    sys.setrecursionlimit(5000)
-
-    set_deduce_directory(os.path.dirname(sys.argv[0]))
-    init_parser()
-
-    filename = sys.argv[1]
+def deduce_file(filename, error_expected):
     file = open(filename, 'r', encoding="utf-8")
     p = file.read()
     set_filename(filename)
-
-    # Check command line arguments
-    error_expected = '--error' in sys.argv
-    set_verbose('--verbose' in sys.argv)
-    set_default_mark_LHS('--left-to-right' in sys.argv)
-        
-    for i in range(1, len(sys.argv)):
-        if sys.argv[i] == '--dir':
-            add_import_directory(sys.argv[i+1])
-    
     try:
         if get_verbose():
+            print("Deducing file:", filename)
             print("about to parse")
         ast = parse(p, trace=False)
         if get_verbose():
@@ -48,12 +33,11 @@ if __name__ == "__main__":
             print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
         check_deduce(ast)
         if error_expected:
-            print('an error was expected, but it was not caught')
+            print('an error was expected in', filename, "but it was not caught")
             exit(-1)
         else:
             print_theorems(filename, ast)
             print(filename + ' is valid')
-            exit(0)
 
     except exceptions.UnexpectedToken as t:
         if error_expected:
@@ -77,3 +61,45 @@ if __name__ == "__main__":
             # during development, reraise
             # raise e
 
+
+if __name__ == "__main__":
+    # Check command line arguments
+    filenames = []
+    error_expected = False
+
+    already_processed_next = False
+    for i in range(1, len(sys.argv)):
+        if already_processed_next:
+            already_processed_next = False
+            continue
+    
+        argument = sys.argv[i]
+
+        if argument == '--error':
+            error_expected = True
+        elif argument == '--verbose':
+            set_verbose(True)
+        elif argument == '--left-to-right':
+            set_default_mark_LHS(True)
+        elif argument == '--dir':
+            add_import_directory(sys.argv[i+1])
+            already_processed_next = True
+        else:
+            filenames.append(argument)
+    
+    if len(filenames) == 0:
+        print("Couldn't find a file to deduce!")
+        exit(1)
+
+    if len(filenames) > 1:
+        print("TODO: support deducing multiple files")
+        exit(1)
+    
+    # Start deducing
+    sys.setrecursionlimit(5000) # We can probably use a loop for some tail recursive functions
+
+    set_deduce_directory(os.path.dirname(sys.argv[0]))
+    init_parser()
+
+    for filename in filenames:
+        deduce_file(filename, error_expected)
