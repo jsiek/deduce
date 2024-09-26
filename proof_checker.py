@@ -663,6 +663,8 @@ def proof_advice(formula, env):
         
         inductive_var = vars[0] # we can only induct on the first argument at the moment so
 
+        # NOTE: Maybe we shouldn't give induction advice for non recursivelyd efined unions
+
         if str(inductive_var[1]) == 'type': 
           return arb_advice # don't give induction adivce for type variables
 
@@ -672,7 +674,7 @@ def proof_advice(formula, env):
               return arb_advice
                 
             ind_advice = '\n\tIf that fails, you can try induction with:\n' \
-              +  '\t\tinduction ' + base_name(name) + '\n'
+              +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
                 
             # base case
             base_constr = alts[0]
