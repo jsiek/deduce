@@ -23,6 +23,7 @@ def deduce_file(filename, error_expected):
     set_filename(filename)
     try:
         if get_verbose():
+            print("Deducing file:", filename)
             print("about to parse")
         ast = parse(p, trace=False)
         if get_verbose():
@@ -66,10 +67,10 @@ if __name__ == "__main__":
     filenames = []
     error_expected = False
 
-    already_processed = False
+    already_processed_next = False
     for i in range(1, len(sys.argv)):
-        if already_processed:
-            already_processed = False
+        if already_processed_next:
+            already_processed_next = False
             continue
     
         argument = sys.argv[i]
@@ -82,7 +83,7 @@ if __name__ == "__main__":
             set_default_mark_LHS(True)
         elif argument == '--dir':
             add_import_directory(sys.argv[i+1])
-            already_processed = True
+            already_processed_next = True
         else:
             filenames.append(argument)
     
