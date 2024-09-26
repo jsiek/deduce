@@ -663,7 +663,8 @@ def proof_advice(formula, env):
         
         inductive_var = vars[0] # we can only induct on the first argument at the moment so
 
-        # NOTE: Maybe we shouldn't give induction advice for non recursivelyd efined unions
+        # NOTE: Maybe we shouldn't give induction advice for non recursively defined unions
+        # However right now we will
 
         if str(inductive_var[1]) == 'type': 
           return arb_advice # don't give induction adivce for type variables
@@ -678,14 +679,15 @@ def proof_advice(formula, env):
                 
             # base case
             base_constr = alts[0]
-            ind_advice += '\t\t  case ' + str(base_constr) + ' {\n' \
-                + '\t\t    ?\n\t\t  }\n'
+            ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
             induction_hypothesis = str(body)
 
             # all inductive steps
             for i in range(1, len(alts)):
-              ind_advice += '\t\t  case ' + str(alts[1].substitute(base_name(inductive_var[0]))) + ' suppose IH: ' + induction_hypothesis + ' {\n' \
-                  + '\t\t    ?\n\t\t  }'
+              name = base_name(alts[i].name) + '(' + ', '.join([str(x) if str(x) != str(inductive_var[1]) 
+                                                                else base_name(inductive_var[0]) for x in alts[i].parameters]) + ')'
+
+              ind_advice += '\t\tcase ' + name + ' suppose IH: ' + induction_hypothesis + ' {\n\t\t  ?\n\t\t}'
 
             return arb_advice + ind_advice
 
