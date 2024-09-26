@@ -655,11 +655,38 @@ def proof_advice(formula, env):
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
       case All(loc, tyof, vars, body):
-        return prefix \
+        arb_advice = prefix \
             + '\tYou can complete the proof with:\n' \
             + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
+        
+        inductive_var = vars[0] # we can only induct on the first argument at the moment so
+        match env.get_def_of_type_var(get_type_name(inductive_var[1])):
+          case Union(loc2, name, typarams, alts):
+            if len(alts) < 2:
+              return arb_advice
+                
+            ind_advice = '\n\tIf that fails, you can try induction with:\n' \
+              +  '\t\tinduction ' + base_name(name) + '\n'
+                
+            # base case
+            base_constr = alts[0]
+            ind_advice += '\t\t  case ' + str(base_constr) + ' {\n' \
+                + '\t\t    ?\n\t\t  }\n'
+            induction_hypothesis = str(body)
+
+            # all inductive steps
+            for i in range(1, len(alts)):
+              ind_advice += '\t\t  case ' + str(alts[1].substitute(base_name(inductive_var[0]))) + ' suppose IH: ' + induction_hypothesis + ' {\n' \
+                  + '\t\t    ?\n\t\t  }'
+
+            return arb_advice + ind_advice
+
+          case _:
+            return arb_advice
+        
+
       case Some(loc, tyof, vars, body):
         letters = []
         new_vars = {}

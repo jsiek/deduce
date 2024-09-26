@@ -1959,11 +1959,15 @@ class Constructor(AST):
     for ty in self.parameters:
       ty.uniquify(env)
       
+  def substitute(self, names):
+      return base_name(self.name) + '(' + ','.join([str(ty) for ty in names]) + ')'
+
   def __str__(self):
     if len(self.parameters) > 0:
       return base_name(self.name) + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
     else:
       return base_name(self.name)
+  
       
 @dataclass
 class Union(Statement):
