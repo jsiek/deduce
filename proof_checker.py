@@ -662,6 +662,10 @@ def proof_advice(formula, env):
             + '\t\t' + str(body)
         
         inductive_var = vars[0] # we can only induct on the first argument at the moment so
+
+        if str(inductive_var[1]) == 'type': 
+          return arb_advice # don't give induction adivce for type variables
+
         match env.get_def_of_type_var(get_type_name(inductive_var[1])):
           case Union(loc2, name, typarams, alts):
             if len(alts) < 2:
@@ -685,7 +689,7 @@ def proof_advice(formula, env):
 
           case _:
             return arb_advice
-        
+
 
       case Some(loc, tyof, vars, body):
         letters = []
