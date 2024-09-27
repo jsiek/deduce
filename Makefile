@@ -1,4 +1,4 @@
-PYTHON = $(shell command -v python3)
+PYTHON = $(shell command -v python3.11)
 
 TEST_PASS_DIR = ./test/should-pass/*.pf
 TEST_ERROR_DIR = ./test/should-error/*.pf
@@ -9,18 +9,18 @@ check_docs: check_README check_fun check_intro
 
 tests-should-pass:
 	for test in $(TEST_PASS_DIR); do \
-	  $(PYTHON) ./deduce.py $$test; \
+	  $(PYTHON) ./deduce.py $$test || break; \
 	done
 
 tests-should-error:
 	for test in $(TEST_ERROR_DIR); do \
-	  $(PYTHON) ./deduce.py $$test --error && echo $$test correctly errors!; \
+	  $(PYTHON) ./deduce.py $$test --error || break ; \
 	done
 
 
 tests-lib: 
 	for test in ./*.pf; do \
-	  $(PYTHON) ./deduce.py $$test; \
+	  $(PYTHON) ./deduce.py $$test || break; \
 	done
 
 tests: tests-should-pass tests-should-error tests-lib

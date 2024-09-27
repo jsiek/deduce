@@ -842,7 +842,9 @@ def check_proof_of(proof, formula, env):
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
       equation = mkEqual(loc, new_rhs, Var(loc, None, var)).reduce(env)
       frm = rewrite(loc, formula.reduce(env), equation)
-      new_body_env = Env({k: ProofBinding(b.location, rewrite(loc, b.formula, equation), b.local) \
+      new_body_env = Env({k: ProofBinding(b.location, \
+                                          rewrite(loc, b.formula, equation), \
+                                          b.local) \
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})
       ret = check_proof_of(rest, frm, new_body_env)
@@ -862,7 +864,7 @@ def check_proof_of(proof, formula, env):
       new_claim = check_formula(claim, env)
       claim_red = new_claim.reduce(env)
       formula_red = formula.reduce(env)
-      check_implies(loc, claim_red, formula_red)
+      check_implies(loc, claim_red, remove_mark(formula_red))
       check_proof_of(reason, claim_red, env)
 
     case ApplyDefs(loc, definitions):
@@ -891,36 +893,54 @@ def check_proof_of(proof, formula, env):
           error(loc, 'remains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
-      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-      claim_red = new_claim.reduce(env)
-      imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
-      check_proof_of(reason, imp, env)
-      check_proof_of(rest, claim_red, env)
-
-    case SufficesDefRewrite(loc, claim, definitions, equation_proofs, rest):
-      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-      defs = [d.reduce(env) for d in definitions]
-      equations = [check_proof(proof, env) for proof in equation_proofs]
-      red_claim = new_claim.reduce(env)
+      def_or_rewrite = False
       
-      new_formula = apply_definitions(loc, formula, defs, env)
-      new_formula = new_formula.reduce(env)
-        
-      eqns = [equation.reduce(env) for equation in equations]
-      for eq in eqns:
-        if not is_equation(eq):
-          error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-        new_formula = rewrite(loc, new_formula, eq)
+      match reason:
+        case ApplyDefs(loc2, defs):
+           def_or_rewrite = True
+           definitions = defs
+           equation_proofs = [] 
+        case ApplyDefsGoal(loc2, defs, Rewrite(loc3, eqns)):
+           def_or_rewrite = True
+           definitions = defs
+           equation_proofs = eqns 
+        case Rewrite(loc2, eqns):
+           def_or_rewrite = True
+           definitions = []
+           equation_proofs = eqns 
+        case _:
+           def_or_rewrite = False
+
+      if def_or_rewrite:
+        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+        defs = [d.reduce(env) for d in definitions]
+        equations = [check_proof(proof, env) for proof in equation_proofs]
+        red_claim = new_claim.reduce(env)
+
+        new_formula = apply_definitions(loc, formula, defs, env)
         new_formula = new_formula.reduce(env)
 
-      match red_claim:
-        case Hole(loc2, tyof):
-          warning(loc, '\nsuffices to prove:\n\t' + str(new_formula))
-          check_proof_of(rest, new_formula, env)
-        case _:
-          check_implies(loc, red_claim, new_formula)
-          check_proof_of(rest, red_claim, env)
-      
+        eqns = [equation.reduce(env) for equation in equations]
+        for eq in eqns:
+          if not is_equation(eq):
+            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+          new_formula = rewrite(loc, new_formula, eq)
+          new_formula = new_formula.reduce(env)
+
+        match red_claim:
+          case Hole(loc2, tyof):
+            warning(loc, '\nsuffices to prove:\n\t' + str(new_formula))
+            check_proof_of(rest, new_formula, env)
+          case _:
+            check_implies(loc, red_claim, new_formula)
+            check_proof_of(rest, red_claim, env)
+      else:
+        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+        claim_red = new_claim.reduce(env)
+        imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
+        check_proof_of(reason, imp, env)
+        check_proof_of(rest, claim_red, env)
+
     # Want something like the following to help with interactive proof development, but
     # it need to be smarter than the following. -Jeremy
     # case PTuple(loc, pfs):
@@ -1597,6 +1617,9 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
+    case Mark(loc, tyof, subject):
+      new_subject = type_check_term(subject, typ, env, recfun, subterms)
+      return Mark(loc, new_subject.typeof, new_subject)
     case Hole(loc, tyof):
       return Hole(loc, BoolType(loc))
     case Generic(loc, _, type_params, body):

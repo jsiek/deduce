@@ -1062,7 +1062,7 @@ class Mark(Term):
     #             self.subject.copy())
   
   def __str__(self):
-    return '[|' + str(self.subject) + '|]'
+    return '{' + str(self.subject) + '}'
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
@@ -1456,33 +1456,13 @@ class PAnnot(Proof):
     self.reason.uniquify(env)
 
 @dataclass
-class SufficesDefRewrite(Proof):
-  claim: Formula
-  definitions: List[Term]
-  equations: List[Proof]
-  body: Proof
-
-  def __str__(self):
-    return 'suffices ' + str(self.claim) + '\n' \
-      + '\twith definition {' + ', '.join([str(d) for d in self.definitions]) + '}\n' \
-      + '\trewrite ' + '|'.join([str(eqn) for eqn in self.equations])
-  
-  def uniquify(self, env):
-    self.claim.uniquify(env)
-    for d in self.definitions:
-      d.uniquify(env)
-    for eqn in self.equations:
-      eqn.uniquify(env)
-    self.body.uniquify(env)
-
-@dataclass
 class Suffices(Proof):
   claim: Formula
   reason: Proof
   body: Proof
 
   def __str__(self):
-    return 'suffices ' + str(self.claim) + '   by ' + str(self.reason) + '\n' + str(self.body)
+    return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + str(self.body)
 
   def uniquify(self, env):
     self.claim.uniquify(env)
@@ -2469,7 +2449,7 @@ def print_theorems(filename, ast):
 
 ############# Marks for controlling rewriting and definitions #########################
 
-default_mark_LHS = False
+default_mark_LHS = True
 
 def set_default_mark_LHS(b):
   global default_mark_LHS

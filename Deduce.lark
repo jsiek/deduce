@@ -132,20 +132,15 @@ ident: IDENT              -> ident
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
 
-?proof: "conclude" term "by" proof                         -> annot
+?proof: "conclude" term "by" proof                       -> annot
     | "suffices" term "by" proof proof                   -> suffices
-    | "suffices" term "with" "definition" "{" ident_list "}" proof -> suffices_def
-    | "suffices" term "with" "definition" ident proof    -> suffices_def_one
-    | "suffices" term "with" "rewrite" proof_list proof  -> suffices_rewrite
-    | "suffices" term "with" "definition" "{" ident_list "}" "and" "rewrite" proof_list proof -> suffices_def_rewrite
-    | "suffices" term "with" "definition" ident "and" "rewrite" proof_list proof -> suffices_def_one_rewrite    
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
     | "suppose" IDENT proof                              -> imp_intro
     | "suppose" IDENT ":" term proof                     -> imp_intro_explicit
-    | "assume" IDENT proof                              -> imp_intro
-    | "assume" IDENT ":" term proof                     -> imp_intro_explicit
+    | "assume" IDENT proof                               -> imp_intro
+    | "assume" IDENT ":" term proof                      -> imp_intro_explicit
     | "arbitrary"  var_list proof                        -> all_intro
     | "choose" term_list proof                           -> some_intro
     | "obtain" ident_list "where" IDENT "from" proof proof -> some_elim

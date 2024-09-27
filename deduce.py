@@ -1,6 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory, print_theorems, set_default_mark_LHS
+from abstract_syntax import add_import_directory, print_theorems
 import sys
 import os
 from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
@@ -79,8 +79,6 @@ if __name__ == "__main__":
             error_expected = True
         elif argument == '--verbose':
             set_verbose(True)
-        elif argument == '--left-to-right':
-            set_default_mark_LHS(True)
         elif argument == '--dir':
             add_import_directory(sys.argv[i+1])
             already_processed_next = True

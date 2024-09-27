@@ -356,37 +356,6 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         parse_tree_to_ast(e.children[2], e))
-    elif e.data == 'suffices_def_rewrite':
-        claim = parse_tree_to_ast(e.children[0], e)
-        defs = parse_tree_to_list(e.children[1], e)
-        definitions = [Var(e.meta, None, x) for x in defs]
-        eqns = parse_tree_to_list(e.children[2], e)
-        rest = parse_tree_to_ast(e.children[3], e)
-        return SufficesDefRewrite(e.meta, claim, definitions, eqns, rest)
-    elif e.data == 'suffices_def_one_rewrite':
-        claim = parse_tree_to_ast(e.children[0], e)
-        definitions = [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))]
-        eqns = parse_tree_to_list(e.children[2], e)
-        rest = parse_tree_to_ast(e.children[3], e)
-        return SufficesDefRewrite(e.meta, claim, definitions, eqns, rest)
-    elif e.data == 'suffices_def':
-        claim = parse_tree_to_ast(e.children[0], e)
-        defs = parse_tree_to_list(e.children[1], e)
-        definitions = [Var(e.meta, None, x) for x in defs]
-        rest = parse_tree_to_ast(e.children[2], e)
-        return SufficesDefRewrite(e.meta, claim, definitions, [], rest)
-    elif e.data == 'suffices_def_one':
-        return SufficesDefRewrite(e.meta,
-                                  parse_tree_to_ast(e.children[0], e),
-                                  [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))],
-                                  [],
-                                  parse_tree_to_ast(e.children[2], e))
-    elif e.data == 'suffices_rewrite':
-        return SufficesDefRewrite(e.meta,
-                                  parse_tree_to_ast(e.children[0], e),
-                                  [],
-                                  parse_tree_to_list(e.children[1], e),
-                                  parse_tree_to_ast(e.children[2], e))
     elif e.data == 'term_proof':
         return PTerm(e.meta,
                      parse_tree_to_ast(e.children[0], e),
