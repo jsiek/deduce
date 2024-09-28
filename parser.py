@@ -536,8 +536,7 @@ def parse_tree_to_ast(e, parent):
             eqs.append((lhs, rhs, reason))
         result = None
         for (lhs, rhs, reason) in reversed(eqs):
-            
-            num_marks = count_marks(rhs)
+            num_marks = count_marks(lhs) + count_marks(rhs)
             if num_marks == 0 and get_default_mark_LHS():
                 new_lhs = Mark(e.meta, None, lhs)
             else:

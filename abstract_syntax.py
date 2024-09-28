@@ -969,7 +969,7 @@ class TermInst(Term):
                     self.inferred)
   
   def __str__(self):
-    if self.inferred:
+    if False and self.inferred:
       return str(self.subject)
     else:
       return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
@@ -2467,7 +2467,7 @@ class MarkException(BaseException):
 def count_marks(formula):
   match formula:
     case Mark(loc2, tyof, subject):
-      return 1
+      return 1 + count_marks(subject)
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return count_marks(subject)
     case Var(loc2, tyof, name):
