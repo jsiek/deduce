@@ -664,7 +664,8 @@ def proof_advice(formula, env):
         inductive_var = vars[0] # we can only induct on the first argument at the moment so
 
         # NOTE: Maybe we shouldn't give induction advice for non recursively defined unions
-        # However right now we will
+        # However right now we will because I haven't added that check yet
+        # Maybe even suggest a switch instead
 
         if str(inductive_var[1]) == 'type': 
           return arb_advice # don't give induction adivce for type variables
@@ -674,21 +675,30 @@ def proof_advice(formula, env):
             if len(alts) < 2:
               return arb_advice
                 
-            ind_advice = '\n\tIf that fails, you can try induction with:\n' \
+            ind_advice = '\n\n\tIf that fails, you can try induction with:\n' \
               +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
                 
             # base case
             base_constr = alts[0]
             ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
-            induction_hypothesis = str(body)
+            induction_hypothesis = str(body).replace(base_name(inductive_var[0]), "LMAO")
 
             # all inductive steps
+            funny_words = ["CHANGEME", "TMP", "DEDUCABLE", "INDUCTIVE", "HAMBORGER"]
+
             for i in range(1, len(alts)):
-              name = base_name(alts[i].name) + '(' + ', '.join([str(x) if str(x) != str(inductive_var[1]) 
-                                                                else base_name(inductive_var[0]) for x in alts[i].parameters]) + ')'
+              funny_index = ~(len(alts) - len(name) + name_id ^ 53 * 541) % len(funny_words) # pseudorandom generator
+              joinable = []
+              joined = 0
+              for x in alts[i].parameters:
+                joinable.append(funny_words[funny_index] + str(joined))
+                joined += 1
+                funny_index = (funny_index * 53) % len(funny_words)
 
+
+              name = base_name(alts[i].name) + '(' + ', '.join(joinable) + ')'
               ind_advice += '\t\tcase ' + name + ' suppose IH: ' + induction_hypothesis + ' {\n\t\t  ?\n\t\t}'
-
+              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(joinable) + '\n\tWith your own name(s)'
             return arb_advice + ind_advice
 
           case _:
@@ -975,8 +985,8 @@ def check_proof_of(proof, formula, env):
             if frm2:
                 new_frm2 = check_formula(frm2, env)
                 red_frm2 = new_frm2.reduce(env)
-            if frm2 and frm != red_frm2:
-              error(loc, 'case ' + str(red_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
+                if frm2 and frm != red_frm2:
+                  error(loc, 'case ' + str(red_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
             body_env = env.declare_local_proof_var(loc, label, frm)
             check_proof_of(case, formula, body_env)
         case _:
