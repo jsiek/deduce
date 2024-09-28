@@ -959,7 +959,6 @@ def check_proof_of(proof, formula, env):
           for (frm, (label,frm2,case)) in zip(frms, cases):
             if frm2:
                 new_frm2 = check_formula(frm2, env)
-                #red_frm2 = new_frm2.reduce(env)
             if frm2 and (frm != new_frm2): # was frm != red_frm2
               error(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
             body_env = env.declare_local_proof_var(loc, label, frm)
