@@ -63,11 +63,19 @@ the `deduce.py` script on the file from the `deduce` directory.
 
     python ./deduce.py ./examples.pf
 
-You will need Python version 3.10 or later.
-You also need to install the Lark Parsing library which
-you can obtain from the following location.
+You will need [Python](https://www.python.org/) version 3.10 or later.
+Here are some
+[instructions](https://wiki.python.org/moin/BeginnersGuide/Download)
+and links to the download for various systems.
 
-    https://github.com/lark-parser/lark
+You also need to install the
+[Lark](https://github.com/lark-parser/lark) Parsing library, which you
+can do by running the following command in the same directory as
+`deduce.py`.
+
+```bash
+python -m pip install lark
+```
 
 Deduce uses some Unicode characters, but in case it is difficult
 for you to use Unicode, there are regular ASCI equivalents that

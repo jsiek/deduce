@@ -92,7 +92,7 @@ start you can use `?` as the goal formula.
     theorem length_node42: length(node(42, empty)) = 1
     proof
       suffices ? 
-          with definition length
+          by definition length
       ?
     end
 
@@ -108,7 +108,7 @@ statement.
     theorem length_node42: length(node(42, empty)) = 1
     proof
       suffices ? 
-          with definition {length, length}
+          by definition {length, length}
       ?
     end
 
@@ -123,7 +123,7 @@ paste that to replace the `?`.
     theorem length_node42: length(node(42, empty)) = 1
     proof
       suffices 1 + 0 = 1 
-          with definition {length, length}
+          by definition {length, length}
       ?
     end
 
@@ -135,7 +135,7 @@ section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
 theorem length_node42: length(node(42, empty)) = 1
 proof
   suffices 1 + 0 = 1
-      with definition {length, length}
+      by definition {length, length}
   add_zero[1]
 end
 ```
@@ -201,7 +201,7 @@ theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
 proof
   arbitrary x:Nat
   suffices 1 + 0 = 1
-      with definition {length, length}
+      by definition {length, length}
   add_zero[1]
 end
 ```
@@ -230,7 +230,7 @@ proof
   arbitrary U:type
   arbitrary x:U
   suffices 1 + 0 = 1
-      with definition {length, length}
+      by definition {length, length}
   add_zero[1]
 end
 ```
@@ -765,7 +765,7 @@ reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
       have x_le_y: x ≤ y by
-          suffices y ≤ y  with rewrite x_eq_y
+          suffices y ≤ y  by rewrite x_eq_y
           less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
@@ -791,7 +791,7 @@ proof
   }
   case x_eq_y: x = y {
     have x_le_y: x ≤ y by
-        suffices y ≤ y   with rewrite x_eq_y
+        suffices y ≤ y  by rewrite x_eq_y
         less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
@@ -899,7 +899,7 @@ we rewrite with the fact that `x ≤ y` is true, which resolves the
 `if`-`then`-`else` inside of `max'` to just `y`. 
 
 ```
-    suffices x ≤ y   with definition max' and rewrite x_le_y_true
+    suffices x ≤ y  by definition max' and rewrite x_le_y_true
 ```
 
 So we are left to prove that `x ≤ y`, which we already know.
@@ -907,7 +907,7 @@ Similarly, if `x ≤ y` is false, we apply the definition of `max'` and
 rewrite with the fact that `x ≤ y` is false. 
 
 ```
-    suffices x ≤ x   with definition max' and rewrite x_le_y_false
+    suffices x ≤ x  by definition max' and rewrite x_le_y_false
 ```
 
 This resolves the `if`-`then`-`else` inside of `max'` to just `x`. So
@@ -920,11 +920,11 @@ proof
   arbitrary x:Nat, y:Nat
   switch x ≤ y {
     case true suppose x_le_y_true {
-      suffices x ≤ y   with definition max' and rewrite x_le_y_true
+      suffices x ≤ y  by definition max' and rewrite x_le_y_true
       rewrite x_le_y_true
     }
     case false suppose x_le_y_false {
-      suffices x ≤ x   with definition max' and rewrite x_le_y_false
+      suffices x ≤ x  by definition max' and rewrite x_le_y_false
       less_equal_refl[x]
     }
   }
@@ -1398,7 +1398,7 @@ We still need to prove the following:
 
 So we use the definition of `Even` in a `suffices` statement
 
-    suffices some m:Nat. x + y = 2 * m   with definition Even
+    suffices some m:Nat. x + y = 2 * m  by definition Even
     ?
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
@@ -1409,7 +1409,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    suffices 2 * a + 2 * b = 2 * (a + b)   with rewrite x_2a | y_2b
+    suffices 2 * a + 2 * b = 2 * (a + b)  by rewrite x_2a | y_2b
     symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1425,9 +1425,9 @@ proof
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  suffices some m:Nat. x + y = 2 * m   with definition Even
+  suffices some m:Nat. x + y = 2 * m  by definition Even
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)   with rewrite x_2a | y_2b
+  suffices 2 * a + 2 * b = 2 * (a + b)  by rewrite x_2a | y_2b
   symmetric dist_mult_add[2][a,b]
 end
 ```

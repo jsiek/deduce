@@ -3,7 +3,7 @@ define d = true
 
 theorem T: d
 proof
-  suffices true   with definition d
+  suffices true   by definition d
   .
 end
 

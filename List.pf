@@ -416,7 +416,8 @@ proof
   case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
     suppose Pxs: all_elements(node(x,xs'),P)
     have Px: P(x) by definition all_elements in Pxs
-    suffices (if P(x) then node(x,filter(xs',P)) else filter(xs',P)) = node(x,xs')
+    suffices (if P(x) then node(x,filter(xs',P))
+              else filter(xs',P)) = node(x,xs')
         by definition filter
     suffices node(x,filter(xs',P)) = node(x,xs')
         by rewrite (apply eq_true to Px)
