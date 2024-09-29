@@ -1,7 +1,7 @@
 from abstract_syntax import *
 import dataclasses
 from dataclasses import dataclass
-from lark import Lark, Token, Tree, logger
+from lark import Lark, Token, Tree, logger, exceptions
 from error import *
 
 from lark import logger
@@ -548,6 +548,8 @@ def parse_tree_to_ast(e, parent):
             else:
                 result = PTransitive(e.meta, eq_proof, result)
         return result
+    elif e.data == 'ident_proof_error':
+        error(e.meta, "parsing error: " + repr(e))
     
     # constructor declaration
     elif e.data == 'constr_id':
@@ -633,14 +635,22 @@ def parse_tree_to_ast(e, parent):
     else:
         raise Exception('unhandled parse tree', e)
 
-def parse(s, trace = False):
-    lexed = lark_parser.lex(s)
+def token_str(token, program_text):
+    return program_text[token.start_pos:token.end_pos]
+
+def parse(program_text, trace = False, error_expected = False):
+  try:    
+    # if trace:
+    #     print('lexing!')
+    # lexed = lark_parser.lex(program_text)
+    # if trace:
+    #     print('tokens: ')
+    #     for word in lexed:
+    #         print(repr(word))
+    #     print('')
     if trace:
-        print('tokens: ')
-        for word in lexed:
-            print(repr(word))
-        print('')
-    parse_tree = lark_parser.parse(s)
+        print('parsing!')
+    parse_tree = lark_parser.parse(program_text)
     if trace:
         print('parse tree: ')
         print(parse_tree)
@@ -651,3 +661,15 @@ def parse(s, trace = False):
         print(ast)
         print('')
     return ast
+
+  except exceptions.UnexpectedToken as t:
+      if error_expected:
+          exit(0)
+      else:
+          print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
+                + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
+                + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n' \
+                + "(The error may be immediately before this token.)")
+
+          exit(-1)
+        

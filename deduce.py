@@ -4,28 +4,17 @@ from abstract_syntax import add_import_directory, print_theorems
 import sys
 import os
 from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
-from lark import exceptions
 import traceback
-
-def token_str(token):
-    if len(token.value) > 0:
-        str = token.value
-    else:
-        str = token.type
-    str = str.lower()
-    if str[0] == '$':
-        str = str[1:]
-    return str
 
 def deduce_file(filename, error_expected):
     file = open(filename, 'r', encoding="utf-8")
-    p = file.read()
+    program_text = file.read()
     set_filename(filename)
     try:
         if get_verbose():
             print("Deducing file:", filename)
             print("about to parse")
-        ast = parse(p, trace=False)
+        ast = parse(program_text, trace=False, error_expected=error_expected)
         if get_verbose():
             print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
         uniquify_deduce(ast)
@@ -39,18 +28,9 @@ def deduce_file(filename, error_expected):
             print_theorems(filename, ast)
             print(filename + ' is valid')
 
-    except exceptions.UnexpectedToken as t:
-        if error_expected:
-            exit(0)
-        else:
-            print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
-                  + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-                  + "error in parsing, unexpected token: " + token_str(t.token))
-            #print('expected one of ' + ', '.join([str(e) for e in t.expected]))
-            exit(-1)
-        
     except Exception as e:
         if error_expected:
+            print(filename + ' has an error as expected')
             exit(0)
         else:
             print(str(e))
