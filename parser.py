@@ -159,6 +159,10 @@ def parse_tree_to_ast(e, parent):
        return IfThen(e.meta, None,
                      parse_tree_to_ast(e.children[0], e),
                      parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'iff_formula':
+        # Convert to two if-thens (sugaring)
+        # TODO: This is a nightmare
+        return And(e.meta, None, extract_and(IfThen(e.meta, None, parse_tree_to_ast(e.children[0], e), parse_tree_to_ast(e.children[1], e))) + extract_and(IfThen(e.meta, None, parse_tree_to_ast(e.children[1], e),parse_tree_to_ast(e.children[0], e) )))
     elif e.data == 'and_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)

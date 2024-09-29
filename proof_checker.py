@@ -1236,9 +1236,9 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         matching[name] = arg_ty
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
         if len(tv1) == len(tv2) and len(pts1) == len(pts2):
-        for (pt1, pt2) in zip(pts1, pts2):
-          type_match(loc, tyvars, pt1, pt2, matching)
-        type_match(loc, tyvars, rt1, rt2, matching)
+      for (pt1, pt2) in zip(pts1, pts2):
+        type_match(loc, tyvars, pt1, pt2, matching)
+      type_match(loc, tyvars, rt1, rt2, matching)
     case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
         error(loc, "argument type: " + str(arg_ty) + "\n" \

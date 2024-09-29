@@ -1518,7 +1518,7 @@ class ModusPonens(Proof):
   arg: Proof
 
   def __str__(self):
-      return 'apply ' + str(self.implication) + ' with ' + str(self.arg)
+      return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
 
   def uniquify(self, env):
     self.implication.uniquify(env)
