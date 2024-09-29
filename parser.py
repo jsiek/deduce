@@ -664,12 +664,12 @@ def parse(program_text, trace = False, error_expected = False):
 
   except exceptions.UnexpectedToken as t:
       if error_expected:
-          exit(0)
+          raise Exception()
       else:
           print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
                 + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
                 + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n' \
                 + "(The error may be immediately before this token.)")
 
-          exit(-1)
+          exit(1)
         

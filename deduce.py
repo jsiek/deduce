@@ -30,7 +30,7 @@ def deduce_file(filename, error_expected):
 
     except Exception as e:
         if error_expected:
-            print(filename + ' has an error as expected')
+            print(filename + ' caught an error as expected')
             exit(0)
         else:
             print(str(e))
