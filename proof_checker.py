@@ -680,25 +680,34 @@ def proof_advice(formula, env):
                 
             # base case
             base_constr = alts[0]
+            potential_names = ['q', 'p', 'r', 'z', 'y', 'x']
+
+            for name in vars:
+              if base_name(name[0]) in potential_names:
+                potential_names.remove(base_name(name))
+
             ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
-            induction_hypothesis = str(body).replace(base_name(inductive_var[0]), "LMAO")
 
             # all inductive steps
-            funny_words = ["CHANGEME", "TMP", "DEDUCABLE", "INDUCTIVE", "HAMBORGER"]
-
+            inductive_var_type = inductive_var[1]
             for i in range(1, len(alts)):
-              funny_index = ~(len(alts) - len(name) + name_id ^ 53 * 541) % len(funny_words) # pseudorandom generator
-              joinable = []
-              joined = 0
+              names_in_use = []
+              # induction_hypothesis = str(body).replace(base_name(inductive_var[0]), potential_names[0])
+              induction_hypothesis = str(body)
+
+              this_case_name = potential_names.pop()
               for x in alts[i].parameters:
-                joinable.append(funny_words[funny_index] + str(joined))
-                joined += 1
-                funny_index = (funny_index * 53) % len(funny_words)
+                this_param_name = this_case_name + "\'"
+                if str(x) == str(inductive_var_type):
+                    induction_hypothesis = induction_hypothesis.replace(base_name(inductive_var[0]), this_param_name)
+                names_in_use.append(this_param_name)
+                this_case_name += "s"
 
-
-              name = base_name(alts[i].name) + '(' + ', '.join(joinable) + ')'
-              ind_advice += '\t\tcase ' + name + ' suppose IH: ' + induction_hypothesis + ' {\n\t\t  ?\n\t\t}'
-              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(joinable) + '\n\tWith your own name(s)'
+              name = base_name(alts[i].name) + '(' + ', '.join(names_in_use) + ')'
+              ind_advice += '\t\tcase ' + name + ' suppose IH: ' \
+                  + induction_hypothesis \
+                  + ' {\n\t\t  ?\n\t\t}'
+              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(names_in_use) + '\n\tWith your own name(s)'
             return arb_advice + ind_advice
 
           case _:
