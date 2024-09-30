@@ -681,9 +681,10 @@ def proof_advice(formula, env):
             # base case
             base_constr = alts[0]
             potential_names = ['q', 'p', 'r', 'z', 'y', 'x']
+            names_in_use = [base_name(x[0]) for x in vars]
 
-            for name in vars:
-              if base_name(name[0]) in potential_names:
+            for name in names_in_use:
+              if name in potential_names:
                 potential_names.remove(base_name(name))
 
             ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
@@ -691,23 +692,26 @@ def proof_advice(formula, env):
             # all inductive steps
             inductive_var_type = inductive_var[1]
             for i in range(1, len(alts)):
-              names_in_use = []
-              # induction_hypothesis = str(body).replace(base_name(inductive_var[0]), potential_names[0])
+              case_names = []
               induction_hypothesis = str(body)
 
               this_case_name = potential_names.pop()
               for x in alts[i].parameters:
                 this_param_name = this_case_name + "\'"
+                while this_param_name in names_in_use:
+                  this_param_name += '\''
+                
                 if str(x) == str(inductive_var_type):
                     induction_hypothesis = induction_hypothesis.replace(base_name(inductive_var[0]), this_param_name)
+                case_names.append(this_param_name)
                 names_in_use.append(this_param_name)
-                this_case_name += "s"
+                this_case_name += 's'
 
-              name = base_name(alts[i].name) + '(' + ', '.join(names_in_use) + ')'
+              name = base_name(alts[i].name) + '(' + ', '.join(case_names) + ')'
               ind_advice += '\t\tcase ' + name + ' suppose IH: ' \
                   + induction_hypothesis \
                   + ' {\n\t\t  ?\n\t\t}'
-              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(names_in_use) + '\n\tWith your own name(s)'
+              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(case_names) + '\n\tWith your own name(s)'
             return arb_advice + ind_advice
 
           case _:
