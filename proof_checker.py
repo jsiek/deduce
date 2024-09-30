@@ -673,19 +673,21 @@ def proof_advice(formula, env):
         match env.get_def_of_type_var(get_type_name(inductive_var[1])):
           case Union(loc2, name, typarams, alts):
             if len(alts) < 2:
-              return arb_advice
+              return arb_advice # You can't do induction if there's only one case!!!!
                 
             ind_advice = '\n\n\tIf that fails, you can try induction with:\n' \
               +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
                 
-            # base case
-            base_constr = alts[0]
+            # setting up names
             potential_names = ['q', 'p', 'r', 'z', 'y', 'x']
             names_in_use = [base_name(x[0]) for x in vars]
 
+            #base case
+            base_constr = alts[0]
             for name in names_in_use:
-              if name in potential_names:
+              while name in potential_names: # may god help your soul if this runs more than 2 times
                 potential_names.remove(base_name(name))
+                potential_names.insert(0, name + "\'") # insert the name backwards so we get names like y' before x'''''''''
 
             ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
 
@@ -699,19 +701,23 @@ def proof_advice(formula, env):
               for x in alts[i].parameters:
                 this_param_name = this_case_name + "\'"
                 while this_param_name in names_in_use:
-                  this_param_name += '\''
+                  this_param_name += '\'' # me when y'''''''''''''
                 
                 if str(x) == str(inductive_var_type):
                     induction_hypothesis = induction_hypothesis.replace(base_name(inductive_var[0]), this_param_name)
+                
+                
                 case_names.append(this_param_name)
                 names_in_use.append(this_param_name)
-                this_case_name += 's'
+                this_case_name += 's' # setup the next case name
 
+              # print the case name
               name = base_name(alts[i].name) + '(' + ', '.join(case_names) + ')'
               ind_advice += '\t\tcase ' + name + ' suppose IH: ' \
                   + induction_hypothesis \
                   + ' {\n\t\t  ?\n\t\t}'
               ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(case_names) + '\n\tWith your own name(s)'
+            
             return arb_advice + ind_advice
 
           case _:
