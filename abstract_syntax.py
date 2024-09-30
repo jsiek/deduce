@@ -1944,6 +1944,7 @@ class Constructor(AST):
       return base_name(self.name) + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
     else:
       return base_name(self.name)
+  
       
 @dataclass
 class Union(Statement):
