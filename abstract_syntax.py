@@ -2419,7 +2419,7 @@ class Env:
         else:
           return False
       case _:
-        raise Exceptiona('expected a term variable, not ' + str(tvar))
+        raise Exception('expected a term variable, not ' + str(tvar))
         
   def proof_var_is_defined(self, pvar):
     match pvar:
@@ -2635,6 +2635,7 @@ def remove_mark(formula):
   else:
         try:
             find_mark(formula)
+            loc = formula.location if hasattr(formula, 'location') else None
             error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
