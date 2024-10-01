@@ -465,6 +465,8 @@ def check_proof(proof, env):
           pass
         case All(loc2, tyof, vars, body):
           pass
+        case And(loc2, tyof, args):
+          pass
         case _:
           ifthen = ifthen.reduce(env)
       match ifthen:
@@ -472,17 +474,20 @@ def check_proof(proof, env):
           check_proof_of(arg, prem, env)
           ret = conc
         case And(loc2, tyof, args):
+          rets = []
           for imp in args:
             try:
               match imp:
                 case IfThen(_, _, prem, conc):
                   check_proof_of(arg, prem, env)
-                  ret = conc
+                  rets.append(conc)
                 # TODO: Do we need to handle All here?
                 case _:
                   error(loc, "in 'apply', expected an if-then formula, not " + str(imp))
             except Exception as e:
               pass
+          if len(rets) == 1: ret = rets[0]
+          elif len(rets) > 1: ret = And(loc2, tyof, rets)
         case All(loc2, tyof, vars, body):
           (vars, prem, conc) = collect_all_if_then(loc, ifthen)
           arg_frm = check_proof(arg, env)
