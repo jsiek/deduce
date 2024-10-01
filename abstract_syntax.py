@@ -1119,7 +1119,27 @@ class And(Formula):
     return And(self.location, self.typeof, [arg.copy() for arg in self.args])
   
   def __str__(self):
-    return '(' + ' and '.join([str(arg) for arg in self.args]) + ')'
+    ret_args = []
+    skip = False
+    for i in range(len(self.args) - 1):
+      if skip: 
+        skip = False
+        continue
+      match self.args[i]:
+        case IfThen(loc, tyof, prem, conc):
+          if (self.args[i + 1]) == IfThen(loc, tyof, conc, prem):
+            ret_args.append('(' + str(prem) + ' ⇔ ' + str(conc) + ')')
+            skip = True
+            continue
+      ret_args.append(self.args[i])
+    
+    if not skip:
+      ret_args.append(self.args[-1])
+
+    if len(ret_args) == 1:
+      return str(ret_args[0])
+
+    return '(' + ' and '.join([str(arg) for arg in ret_args]) + ')'
 
   def __eq__(self, other):
     if not isinstance(other, And):
