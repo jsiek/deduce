@@ -9,13 +9,15 @@ WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
-?term: term "and" term_compare                    -> and_formula
-    | term "or" term_compare                      -> or_formula
-    | term ":" type                           -> annote_type
-    | "if" term "then" term "else" term       -> conditional
-    | "if" term "then" term                  -> if_then_formula
-    | term "⇔" term                              -> iff_formula
-    | term "<=>" term                           -> iff_formula
+?term: term "⇔" term_log                            -> iff_formula
+    | term "<=>" term_log                      -> iff_formula
+    | term_log
+
+?term_log: term_log "and" term_compare                    -> and_formula
+    | term_log "or" term_compare                      -> or_formula
+    | term_log ":" type                           -> annote_type
+    | "if" term_log "then" term_log "else" term_log       -> conditional
+    | "if" term_log "then" term_log                  -> if_then_formula
     | term_compare
 
 ?term_compare: term_compare "=" term_add             -> equal
