@@ -160,9 +160,10 @@ def parse_tree_to_ast(e, parent):
                      parse_tree_to_ast(e.children[0], e),
                      parse_tree_to_ast(e.children[1], e))
     elif e.data == 'iff_formula':
-        # Convert to two if-thens (sugaring)
-        # TODO: This is a nightmare
-        return And(e.meta, None, extract_and(IfThen(e.meta, None, parse_tree_to_ast(e.children[0], e), parse_tree_to_ast(e.children[1], e))) + extract_and(IfThen(e.meta, None, parse_tree_to_ast(e.children[1], e),parse_tree_to_ast(e.children[0], e) )))
+        left = parse_tree_to_ast(e.children[0], e)
+        right = parse_tree_to_ast(e.children[1], e)
+        return And(e.meta, None, extract_and(IfThen(e.meta, None, left.copy(), right.copy())) 
+                               + extract_and(IfThen(e.meta, None, right.copy(), left.copy())))
     elif e.data == 'and_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
@@ -264,10 +265,10 @@ def parse_tree_to_ast(e, parent):
                     Var(e.meta, None, 'char_fun'),
                     [Lambda(e.meta, None, ['_'], Bool(e.meta, None, False))],
                     False)
-    elif e.data == 'field_access':
-        subject = parse_tree_to_ast(e.children[0], e)
-        field_name = str(e.children[1].value)
-        return FieldAccess(e.meta, None, subject, field_name)
+    # elif e.data == 'field_access':
+        # subject = parse_tree_to_ast(e.children[0], e)
+        # field_name = str(e.children[1].value)
+        # return FieldAccess(e.meta, None, subject, field_name)
     elif e.data == 'call':
         rator = parse_tree_to_ast(e.children[0], e)
         rands = parse_tree_to_list(e.children[1], e)

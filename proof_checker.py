@@ -471,6 +471,18 @@ def check_proof(proof, env):
         case IfThen(loc2, tyof, prem, conc):
           check_proof_of(arg, prem, env)
           ret = conc
+        case And(loc2, tyof, args):
+          for imp in args:
+            try:
+              match imp:
+                case IfThen(_, _, prem, conc):
+                  check_proof_of(arg, prem, env)
+                  ret = conc
+                # TODO: Do we need to handle All here?
+                case _:
+                  error(loc, "in 'apply', expected an if-then formula, not " + str(imp))
+            except Exception as e:
+              pass
         case All(loc2, tyof, vars, body):
           (vars, prem, conc) = collect_all_if_then(loc, ifthen)
           arg_frm = check_proof(arg, env)
