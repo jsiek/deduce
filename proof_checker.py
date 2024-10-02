@@ -302,10 +302,21 @@ def isolate_difference(term1, term2):
 def collect_all_if_then(loc, frm):
     match frm:
       case All(loc2, tyof, vars, frm):
-        (rest_vars, prem, conc) = collect_all_if_then(loc, frm)
-        return ([Var(loc2, None, x) for (x,t) in vars] + rest_vars, prem, conc)
+        (rest_vars, mps) = collect_all_if_then(loc, frm)
+        return ([Var(loc2, None, x) for (x,t) in vars] + rest_vars, mps)
       case IfThen(loc2, tyof, prem, conc):
-        return ([], prem, conc)
+        return ([], [(prem, conc)])
+      case And(loc2, tyof, args):
+        # TODO:
+        mps1 = []
+        vars = []
+        for arg in args:
+          (rest_vars, mps) = collect_all_if_then(loc, arg)
+          mps1 += mps
+          vars += rest_vars
+        if len(mps1) == 0:
+          error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
+        return (vars, mps1)
       case _:
         error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
 
@@ -473,38 +484,45 @@ def check_proof(proof, env):
         case IfThen(loc2, tyof, prem, conc):
           check_proof_of(arg, prem, env)
           ret = conc
+        # TODO: Badd error messages here
         case And(loc2, tyof, args):
+          vars, imps = collect_all_if_then(loc, ifthen)
           rets = []
-          for imp in args:
+          for prem, conc in imps:
             try:
-              match imp:
-                case IfThen(_, _, prem, conc):
-                  check_proof_of(arg, prem, env)
-                  rets.append(conc)
+              check_proof_of(arg, prem, env)
+              rets.append(conc)
                 # TODO: Do we need to handle All here?
-                case _:
-                  error(loc, "in 'apply', expected an if-then formula, not " + str(imp))
             except Exception as e:
               pass
           if len(rets) == 1: ret = rets[0]
           elif len(rets) > 1: ret = And(loc2, tyof, rets)
         case All(loc2, tyof, vars, body):
-          (vars, prem, conc) = collect_all_if_then(loc, ifthen)
+          (vars, imps) = collect_all_if_then(loc, ifthen)
+          rets = []
           arg_frm = check_proof(arg, env)
           matching = {}
-          try:
-            formula_match(loc, vars, prem, arg_frm, matching, env)
-          except Exception as e:
-            msg = str(e) + '\nwhile trying to deduce instantiation of\n\t' + str(ifthen) + '\n'\
-                + 'to apply to\n\t' + str(arg_frm)
-            raise Exception(msg)
-          for x in vars:
-              if x.name not in matching.keys():
+          # TODO:
+          for prem, conc in imps: 
+            try:
+              matching = {}
+              formula_match(loc, vars, prem, arg_frm, matching, env)
+
+              for x in vars:
+                if x.name not in matching.keys():
                   error(loc, "could not deduce an instantiation for variable "\
                         + str(x) + '\n' \
                         + 'for application of\n\t' + str(ifthen) + '\n'\
                         + 'to\n\t' + str(arg))
-          ret = conc.substitute(matching)
+              rets.append(conc.substitute(matching))
+            except Exception as e:
+              msg = str(e) + '\nwhile trying to deduce instantiation of\n\t' + str(ifthen) + '\n'\
+                  + 'to apply to\n\t' + str(arg_frm)
+              # raise Exception(msg)
+          if len(rets) == 1: ret = rets[0]
+          elif len(rets) > 1: ret = And(loc2, tyof, rets)
+          else:
+            error(loc, "could not deduce an instation")
         case _:
           error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
           
