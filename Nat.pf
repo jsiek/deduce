@@ -535,44 +535,33 @@ end
  Properties of Less-Than, Greater-Than, etc.
 */
 
-theorem suc_less_equal: all x:Nat, y:Nat.
-  if suc(x) ≤ suc(y)
-  then x ≤ y
+theorem suc_less_equal_iff_less_equal_suc: all x:Nat, y:Nat.
+  x ≤ y ⇔ suc(x) ≤ suc(y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose prem
-  definition operator≤ in prem
+  have sle : if x ≤ y then suc(x) ≤ suc(y)
+    by suppose prem
+      suffices x ≤ y with definition operator≤
+      prem
+  have els : if suc(x) ≤ suc(y) then x ≤ y
+    by suppose prem
+      definition operator≤ in prem
+  sle, els
 end
 
-theorem suc_less_equal_suc: all x:Nat, y:Nat.
-  if x ≤ y
-  then suc(x) ≤ suc(y)
+theorem less_suc_iff_suc_less: all x:Nat, y:Nat.
+  x < y ⇔ suc(x) < suc(y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose prem
-  suffices x ≤ y   with definition operator ≤
-  prem
-end
-
-theorem less_suc: all x:Nat, y:Nat.
-  if x < y
-  then suc(x) < suc(y)
-proof
-  arbitrary x:Nat, y:Nat
-  suppose x_l_y: x < y
-  suffices suc(suc(x)) ≤ suc(y)   with definition operator<
-  suffices suc(x) ≤ y             with definition operator≤ 
-  definition operator< in x_l_y
-end
-
-theorem suc_less: all x:Nat, y:Nat.
-  if suc(x) < suc(y)
-  then x < y
-proof
-  arbitrary x:Nat, y:Nat
-  suppose prem
-  suffices suc(x) ≤ y      with definition operator<
-  apply suc_less_equal[suc(x), y] to definition operator< in prem
+  have ls : if x < y then suc(x) < suc(y)
+    by suppose x_l_y
+      suffices suc(x) ≤ y with definition {operator<, operator≤}
+      definition operator< in x_l_y
+  have sl : if suc(x) < suc(y) then x < y
+    by suppose sx_l_sy
+      suffices suc(x) ≤ y      with definition operator<
+      apply suc_less_equal_iff_less_equal_suc[suc(x), y] to definition operator< in sx_l_sy
+  ls, sl
 end
 
 theorem less_equal_implies_less_or_equal:
@@ -609,7 +598,7 @@ proof
         cases xy_or_xy
         case x_l_y {
           have sx_l_sy: suc(x') < suc(y')
-            by apply less_suc to x_l_y
+            by apply less_suc_iff_suc_less to x_l_y
           conclude (suc(x') < suc(y') or suc(x') = suc(y'))
             by sx_l_sy
         }
@@ -797,47 +786,8 @@ proof
   }
   case suc(x') suppose IH: not (x' < x') {
     suppose sx_l_sx: suc(x') < suc(x')
-    have x_l_x: x' < x' by apply suc_less to sx_l_sx
+    have x_l_x: x' < x' by apply less_suc_iff_suc_less to sx_l_sx
     conclude false by apply IH to x_l_x
-  }
-end
-
-theorem less_not_greater_equal:
-  all x:Nat. all y:Nat.
-  if x < y then not (y ≤ x)
-proof
-  induction Nat
-  case zero {
-    arbitrary y : Nat
-    suppose z_l_y: 0 < y
-    suppose y_le_z: y ≤ 0
-    switch y {
-      case zero suppose y_z: y = 0 {
-        definition {operator <, operator ≤}
-        in (rewrite y_z in z_l_y)
-      }
-      case suc(y') suppose y_s: y = suc(y') {
-        definition {operator ≤}
-        in (rewrite y_s in y_le_z)
-      }
-    }
-  }
-  case suc(x') suppose IH {
-    arbitrary y : Nat
-    suppose sx_less_y
-    suppose y_le_sx
-    switch y {
-      case zero suppose y_eq_zero {
-        enable {operator <, operator ≤}
-        conclude false  by rewrite y_eq_zero in sx_less_y
-      }
-      case suc(y') suppose ys {
-        enable {operator <, operator ≤}
-        have x_less_y: x' < y' by  rewrite ys in sx_less_y
-        have y_le_x: y' ≤ x' by  rewrite ys in y_le_sx
-        conclude false  by apply (apply IH[y'] to x_less_y) to y_le_x
-      }
-    }
   }
 end
 
@@ -860,78 +810,6 @@ proof
   have y_g_y: y > y  by rewrite x_y in x_g_y
   have y_l_y: y < y  by definition operator> in y_g_y
   conclude false by apply less_irreflexive[y] to y_l_y
-end
-
-theorem less_implies_not_less_equal:
-  all x:Nat. all y:Nat.
-  if x < y then not (y ≤ x)
-proof
-  induction Nat
-  case zero {
-    arbitrary y:Nat
-    suppose y_pos
-    suppose y_le_z
-    switch y {
-      case 0 suppose y_z {
-        conclude false   by definition {operator <, operator≤} in
-                            rewrite y_z in y_pos
-      }
-      case suc(y') suppose y_sy {
-        conclude false   by definition operator≤ in rewrite y_sy in y_le_z
-      }
-    }
-  }
-  case suc(x') suppose IH {
-    arbitrary y:Nat
-    suppose sx_l_y
-    suppose y_le_sx
-    switch y {
-      case 0 suppose y_z {
-        conclude false  by definition{operator<, operator≤} in
-                           rewrite y_z in sx_l_y
-      }
-      case suc(y') suppose y_sy {
-        have x_l_y: x' < y'
-          by suffices suc(x') ≤ y' with definition operator<
-             definition {operator ≤} in
-             definition {operator<} in rewrite y_sy in sx_l_y
-        have y_le_x: y' ≤ x'
-          by definition operator≤ in rewrite y_sy in y_le_sx
-        conclude false  by apply (apply IH[y'] to x_l_y) to y_le_x
-      }
-    }
-  }
-end
-
-
-theorem less_implies_not_greater:
-  all x:Nat. all y:Nat.
-  if x < y then not (y < x)
-proof
-  induction Nat
-  case zero {
-    arbitrary y:Nat
-    suppose zero_less_y
-    suppose y_less_zero
-    conclude false by (definition {operator <, operator ≤} in y_less_zero)
-  }
-  case suc(x') suppose IH {
-    arbitrary y:Nat
-    suppose sx_less_y
-    suppose y_less_sx
-    switch y {
-      case zero suppose y_eq_zero {
-        conclude false by (definition {operator <, operator ≤} in
-                       (rewrite y_eq_zero in sx_less_y))
-      }
-      case suc(y') suppose ys {
-        enable {operator<,operator≤}
-        have x_less_y: x' < y'  by rewrite ys in sx_less_y
-        have y_less_x: y' < x'  by rewrite ys in y_less_sx
-        conclude false by apply (apply IH[y'] to x_less_y) to y_less_x
-      }
-    }
-  }
 end
 
 theorem trichotomy:
@@ -1084,20 +962,63 @@ proof
   }
 end
 
-theorem not_less_equal_greater:
+theorem not_less_equal_iff_greater:
   all x:Nat, y:Nat.
-  if not (x ≤ y) then y < x
+  not (x ≤ y) ⇔ (y < x)
 proof
   arbitrary x:Nat, y:Nat
-  suppose not_xy
-  cases dichotomy[x,y]
-  case x_le_y {
-    apply not_xy to x_le_y
+  have nle_g : if not (x ≤ y) then y < x
+    by suppose not_xy
+    cases dichotomy[x,y]
+    case x_le_y { apply not_xy to x_le_y }
+    case y_l_x { y_l_x }
+  have g_nle : if y < x then not (x ≤ y) 
+    by suppose ylx
+      have y_le_x : y <= x by apply less_implies_less_equal to ylx
+      suppose label : x <= y
+      have xy_a_yx : x <= y and y <= x by y_le_x, label
+      have y_e_x:  y=x by symmetric (apply less_equal_antisymmetric to xy_a_yx)
+      have x_ne_y: not (y = x) by apply less_not_equal to ylx
+      rewrite y_e_x in x_ne_y
+  nle_g, g_nle
+end
+
+
+theorem less_implies_not_greater:
+  all x:Nat. all y:Nat.
+  if x < y then not (y < x)
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat
+    suppose zero_less_y
+    suppose y_less_zero
+    conclude false by (definition {operator <, operator ≤} in y_less_zero)
   }
-  case y_l_x {
-    y_l_x
+  case suc(x') suppose IH {
+    arbitrary y:Nat
+    suppose sx_less_y
+    suppose y_less_sx
+    switch y {
+      case zero suppose y_eq_zero {
+        conclude false by (definition {operator <, operator ≤} in
+                       (rewrite y_eq_zero in sx_less_y))
+      }
+      case suc(y') suppose ys {
+        enable {operator<,operator≤}
+        have x_less_y: x' < y'  by rewrite ys in sx_less_y
+        have y_less_x: y' < x'  by rewrite ys in y_less_sx
+        conclude false by apply (apply IH[y'] to x_less_y) to y_less_x
+      }
+    }
   }
 end
+// TODO: Try to fix less_implies_not_greater
+// theorem less_not_greater: all x:Nat. all y:Nat.
+//   if x < y then not (y < x)
+// proof
+//   ?
+// end
 
 theorem not_less_equal_less_equal:
   all x:Nat, y:Nat.
@@ -1105,7 +1026,7 @@ theorem not_less_equal_less_equal:
 proof
   arbitrary x:Nat, y:Nat
   suppose not_xy
-  have y_l_x: y < x  by apply not_less_equal_greater to not_xy
+  have y_l_x: y < x  by apply not_less_equal_iff_greater to not_xy
   apply less_implies_less_equal to y_l_x
 end
 
@@ -2136,7 +2057,7 @@ proof
           by have not_sqm_le_n: not (suc(q) * M ≤ n)
                  by suppose p rewrite sqn_g_n in p
              have n_l_sqm: n < suc(q) * M
-                 by apply not_less_equal_greater to not_sqm_le_n
+                 by apply not_less_equal_iff_greater to not_sqm_le_n
              rewrite add_commute[M][q*M] in
              definition {operator<,operator*} in n_l_sqm
         have sn_qm_le_m: suc(n) - q * M ≤ M
