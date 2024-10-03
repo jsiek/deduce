@@ -1,3 +1,6 @@
+# Deduce 
+
+![Deduce logo: blue and purple hippo](logos/Main-Logo.svg)
 Deduce is an automated proof checker meant for use in education. The
 intended audience is students with (roughly) the following background
 knowledge and skills:
@@ -16,6 +19,8 @@ programs, so it serves as a better starting place educationally, and
 (2) the technology for automatically checking those proofs is well
 understood, so it's straightforward to build and maintain the Deduce
 proof checker.
+
+## Proof Example
 
 As a taster for what it looks like to write proofs in Deduce, the
 following is a proof that appending two lists and then applying the
@@ -48,20 +53,7 @@ proof
   }
 end
 ```
-
-This introduction to Deduce has two parts. The first part gives a
-tutorial on how to write functional programs in Deduce.  The second
-part shows how to write proofs in Deduce.
-
-* [Functional Programming in Deduce](./FunctionalProgramming.md)
-* [Writing Proofs in Deduce](./ProofIntro.md)
-
-I recommend that you work through the examples in this
-introduction. Create a file named `examples.pf` in the top `deduce`
-directory and add the examples one at a time. To check the file, run
-the `deduce.py` script on the file from the `deduce` directory.
-
-    python ./deduce.py ./examples.pf
+## Installation
 
 You will need [Python](https://www.python.org/) version 3.10 or later.
 Here are some
@@ -77,6 +69,29 @@ can do by running the following command in the same directory as
 python -m pip install lark
 ```
 
+## Getting Started
+This introduction to Deduce has two parts. The first part gives a
+tutorial on how to write functional programs in Deduce.  The second
+part shows how to write proofs in Deduce.
+
+* [Functional Programming in Deduce](./FunctionalProgramming.md)
+* [Writing Proofs in Deduce](./ProofIntro.md)
+
+I recommend that you work through the examples in this
+introduction. Create a file named `examples.pf` in the top `deduce`
+directory and add the examples one at a time. To check the file, run
+the `deduce.py` script on the file from the `deduce` directory.
+
+```bash
+python ./deduce.py ./examples.pf
+```
+
+You can also download one of these extensions for programming in Deduce in some common text editors. 
+- VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode))
+- Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
+- Vim (not now, not ever)
+
+## Deduce Unicode
 Deduce uses some Unicode characters, but in case it is difficult
 for you to use Unicode, there are regular ASCI equivalents that
 you can use instead.
