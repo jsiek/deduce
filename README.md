@@ -1,3 +1,7 @@
+# Deduce 
+
+![Deduce logo: blue and purple hippo](logos/Main-Logo.svg)
+
 Deduce is an automated proof checker meant for use in education. The
 intended audience is students with (roughly) the following background
 knowledge and skills:
