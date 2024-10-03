@@ -84,20 +84,6 @@ def parse_tree_to_list(e, parent):
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
-def extract_and(frm):
-    match frm:
-      case And(loc, tyof, args):
-        return args
-      case _:
-       return [frm]
-
-def extract_or(frm):
-    match frm:
-      case Or(loc, tyof, args):
-        return args
-      case _:
-       return [frm]
-
 def parse_tree_to_case(e):
     tag = str(e.children[0].value)
     body = parse_tree_to_ast(e.children[1], e)
@@ -591,7 +577,9 @@ def parse_tree_to_ast(e, parent):
         return PatternBool(e.meta, False)
     elif e.data == 'pattern_apply':
         params = parse_tree_to_list(e.children[1], e)
-        return PatternCons(e.meta, Var(e.meta, None, str(e.children[0].value)), params)
+        return PatternCons(e.meta,
+                           Var(e.meta, None, str(e.children[0].value)),
+                           params)
     
     # case of a recursive function
     elif e.data == 'fun_case':

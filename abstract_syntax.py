@@ -1980,10 +1980,10 @@ class Union(Statement):
     return self
       
   def __str__(self):
-    return base_name(self.name)
+    #return base_name(self.name)
   
-    # return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
-    #   + ' '.join([str(c) for c in self.alternatives]) + '}'
+    return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
+       + ' '.join([str(c) for c in self.alternatives]) + '}'
   
 @dataclass
 class FunCase(AST):
@@ -2620,4 +2620,18 @@ def remove_mark(formula):
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
       
+def extract_and(frm):
+    match frm:
+      case And(loc, tyof, args):
+        return args
+      case _:
+       return [frm]
+
+def extract_or(frm):
+    match frm:
+      case Or(loc, tyof, args):
+        return args
+      case _:
+       return [frm]
+
 

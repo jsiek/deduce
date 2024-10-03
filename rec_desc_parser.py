@@ -51,6 +51,9 @@ def parse_identifier(token_list, i):
   token = token_list[i]
   if token.type == 'IDENT':
     return (token.value, i + 1)
+  elif token.value == 'operator':
+    i = i + 1
+    return (token_list[i].value, i + 1)
   else:
     error(meta_from_tokens(token, token),
           'expected an identifier, not ' + token.value)
@@ -68,12 +71,14 @@ def meta_from_tokens(start_token, end_token):
 
 def parse_term_hi(token_list, i):
   token = token_list[i]
-  if token.type == 'TRUE':
-    return Bool(meta_from_tokens(token_list[i],token_list[i]),
-                None, True), i + 1
+  if token.type == 'INT' or token.value == '0':
+    return (intToNat(meta_from_tokens(token,token), int(token.value)), i + 1)
+  elif token.type == 'TRUE':
+    return (Bool(meta_from_tokens(token_list[i],token_list[i]),
+                 None, True), i + 1)
   elif token.type == 'FALSE':
-    return Bool(meta_from_tokens(token_list[i],token_list[i]),
-                None, False), i + 1
+    return (Bool(meta_from_tokens(token_list[i],token_list[i]),
+                 None, False), i + 1)
   elif token.type == 'LPAR':
     i = i + 1
     term, i = parse_term(token_list, i)
@@ -82,10 +87,49 @@ def parse_term_hi(token_list, i):
             'expected a closing parentheses, not\n\t' \
             + token_list[i].value)
     i = i + 1
-    return term, i
+    return (term, i)
+  elif token.type == 'SWITCH':
+    start = i
+    i = i + 1
+    subject, i = parse_term(token_list, i)
+    if token_list[i].type != 'LBRACE':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected `{` after subject of switch, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    cases = []
+    while token_list[i].type == 'CASE':
+      switch_case, i = parse_switch_case(token_list, i)
+      cases.append(switch_case)
+    if token_list[i].type != 'RBRACE':
+      error(meta_from_tokens(token_list[start],token_list[i]),
+            'expected a `}` after last case of switch, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    return Switch(meta_from_tokens(token, token_list[i-1]), None,
+                  subject, cases), i
+  elif token.type == 'FUN' or token.type == 'Λ':
+    i = i + 1
+    params, i = parse_ident_list(token_list, i)
+    if token_list[i].type != 'LBRACE':
+      error(meta_from_tokens(token_list[start],token_list[i]),
+            'expected a `{` after parameters of fun, not\n\t' + token_list[i].value)
+    i = i + 1
+    body, i = parse_term(token_list, i)
+    if token_list[i].type != 'RBRACE':
+      error(meta_from_tokens(token, token_list[i]),
+            'expected a `}` after body of fun, not\n\t' + token_list[i].value)
+    i = i + 1
+    return (Lambda(meta_from_tokens(token, token_list[i-1]), None, params, body), i)
   else:
-    error(meta_from_tokens(token_list[i],token_list[i]),
-          'expected a term or formula, not\n\t' + token_list[i].value)
+    try:
+      start = i
+      name, i = parse_identifier(token_list, i)
+      var = Var(meta_from_tokens(token_list[start], token_list[i-1]), None, name)
+      return var,i
+    except Exception as e:  
+      error(meta_from_tokens(token_list[i],token_list[i]),
+            'expected a term or formula, not\n\t' + token_list[i].value)
   
 def parse_term(token_list, i):
   token = token_list[i]
@@ -102,11 +146,40 @@ def parse_term(token_list, i):
   
   else:
     term, i = parse_term_hi(token_list, i)
-    while token_list[i].type == 'AND':
-      i = i + 1
-      right, i = parse_term_hi(token_list, i)
-      term = And(meta_from_tokens(token, token_list[i-1]), None,
-                 [term, right])
+    if i < len(token_list):
+      while token_list[i].type == 'AND':
+        i = i + 1
+        right, i = parse_term_hi(token_list, i)
+        term = And(meta_from_tokens(token, token_list[i-1]), None,
+                   extract_and(term) + extract_and(right))
+
+      if token_list[i].type == 'LPAR':
+        start = i
+        i = i + 1
+        args, i = parse_term_list(token_list, i)
+        if token_list[i].type != 'RPAR':
+          error(meta_from_tokens(token_list[start], token_list[i-1]),
+                'expected a closing parenthesis')
+        i = i + 1
+        term = Call(meta_from_tokens(token, token_list[i-1]), None,
+                    term, args, False)
+
+      if token_list[i].type == 'SLASH':
+        rator = Var(meta_from_tokens(token_list[i], token_list[i]),
+                    None, '/')
+        i = i + 1
+        right, i = parse_term(token_list, i)
+        term = Call(meta_from_tokens(token, token_list[i-1]), None,
+                    rator, [term,right], True)
+
+      if token_list[i].type == 'EQUAL':
+        rator = Var(meta_from_tokens(token_list[i], token_list[i]),
+                    None, '=')
+        i = i + 1
+        right, i = parse_term(token_list, i)
+        term = Call(meta_from_tokens(token, token_list[i-1]), None,
+                    rator, [term,right], True)
+      
     return term, i
 
 def parse_assumption(token_list, i):
@@ -184,31 +257,270 @@ def parse_proof(token_list, i):
       proof = PTuple(meta_from_tokens(token_list[start], token_list[i-1]), 
                     [proof, right])
     return proof, i
-  
+
+def parse_theorem(token_list, i):
+  i = i + 1
+  name, i = parse_identifier(token_list, i)
+  if token_list[i].type != 'COLON':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected a colon after theorem name, not\n\t' \
+          + token_list[i].value)
+  i = i + 1
+  what, i = parse_term(token_list, i)
+  if token_list[i].type != 'PROOF':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected the keyword `proof` after formula of theorem, not\n\t' \
+          + token_list[i].value)
+  i = i + 1
+  proof, i = parse_proof(token_list, i)
+  if token_list[i].type != 'END':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected the keyword `end` after proof of theorem, not\n\t' \
+          + token_list[i].value)
+  i = i + 1
+  return Theorem(meta_from_tokens(token, token_list[i-1]),
+                 name, what, proof, False), i
+
+def parse_union(token_list, i):
+  start = i
+  i = i + 1
+  name, i = parse_identifier(token_list, i)
+  # todo: parse optional type parameters
+
+  if token_list[i].type != 'LBRACE':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected `{` after name of union, not\n\t' \
+          + token_list[i].value)
+  i = i + 1
+  constr_list = []
+  while token_list[i].type != 'RBRACE':
+    constr, i = parse_constructor(token_list, i)
+    constr_list.append(constr)
+  i = i + 1
+
+  meta = meta_from_tokens(token_list[start], token_list[i-1])
+  return Union(meta, name, [], constr_list), i
+
+def parse_function(token_list, i):
+  begin = i
+  i = i + 1
+  name, i = parse_identifier(token_list, i)
+  # todo: parse optional type parameters
+  type_params = []
+
+  if token_list[i].type == 'LPAR':
+    start = i
+    i = i + 1
+    param_types, i = parse_type_list(token_list, i)
+    if token_list[i].type != 'RPAR':
+      error(meta_from_tokens(token_list[start], token_list[i-1]),
+            'expected a closing parenthesis')
+    i = i + 1
+
+  if token_list[i].value != '->':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected `->` between function parameter types and return type')
+  i = i + 1
+  return_type, i = parse_type(token_list, i)
+
+  if token_list[i].type != 'LBRACE':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected open brace `{` after the return type of the function')
+  i = i + 1
+
+  cases = []
+  while token_list[i].type != 'RBRACE':
+    fun_case, i = parse_fun_case(token_list, i)
+    cases.append(fun_case)
+  i = i + 1
+  return RecFun(meta_from_tokens(token_list[begin], token_list[i-1]), name,
+                type_params, param_types, return_type, cases), i
+    
+def parse_define(token_list, i):
+  start = i
+  i = i + 1
+  name, i = parse_identifier(token_list, i)
+  if token_list[i].type == 'COLON':
+    i = i + 1
+    typ, i = parse_type(token_list, i)
+  else:
+    typ = None
+  if token_list[i].type != 'EQUAL':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected `=` after name in `define`')
+  i = i + 1
+  body, i = parse_term(token_list, i)  
+  return (Define(meta_from_tokens(token_list[start], token_list[i-1]),
+                 name, typ, body), i)
+    
 def parse_statement(token_list, i):
   token = token_list[i]
   if token.type == 'THEOREM':
-    name, i = parse_identifier(token_list, i + 1)
-    if token_list[i].type != 'COLON':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected a colon after theorem name, not\n\t' \
-            + token_list[i].value)
+    return parse_theorem(token_list, i)
+  elif token.type == 'UNION':
+    return parse_union(token_list, i)
+  elif token.type == 'IMPORT':
     i = i + 1
-    what, i = parse_term(token_list, i)
-    if token_list[i].type != 'PROOF':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `proof` after formula of theorem, not\n\t' \
-            + token_list[i].value)
+    name, i = parse_identifier(token_list, i)
+    return Import(meta_from_tokens(token, token_list[i-1]), name), i
+  elif token.type == 'FUNCTION':
+    return parse_function(token_list, i)
+  elif token.type == 'DEFINE':
+    return parse_define(token_list, i)
+  elif token.type == 'ASSERT':
     i = i + 1
-    proof, i = parse_proof(token_list, i)
-    if token_list[i].type != 'END':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `end` after proof of theorem, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return Theorem(meta_from_tokens(token, token_list[i-1]),
-                   name, what, proof, False), i
+    body, i = parse_term(token_list, i)
+    return (Assert(meta_from_tokens(token, token_list[i-1]), body), i)
   else:
     error(meta_from_tokens(token, token),
           'expected a statement, not\n\t' + token_list[i].value)
 
+def parse_type(token_list, i):
+  token = token_list[i]
+  if token.type == 'BOOL':
+    return BoolType(meta_from_tokens(token,token)), i + 1
+  elif token.type == 'FN':
+    # TODO: handle type parameters
+    i = i + 1
+    param_types, i = parse_type_list(token_list, i)
+    if token_list[i].value != '->':
+        error(meta_from_tokens(token_list[i], token_list[i]),
+              'expected `->` after parameter types in this function type')
+    i = i + 1
+    return_type, i = parse_type(token_list, i)
+    return (FunctionType(meta_from_tokens(token, token_list[i-1]),
+                         [], param_types, return_type), i)
+  else:
+    name, i = parse_identifier(token_list, i)
+    var = Var(meta_from_tokens(token,token), None, name)
+    inst = False
+    
+    if token_list[i].type == 'LESSTHAN':
+      inst = True
+      start = i
+      i = i + 1
+      arg_types, i = parse_type_list(token_list, i)
+      if token_list[i].type != 'MORETHAN':
+          error(meta_from_tokens(token_list[start], token_list[i-1]),
+                'expected a closing `>`')
+      i = i + 1
+    if inst:
+        return TypeInst(meta_from_tokens(token, token_list[i-1]),
+                        var, arg_types), i
+    else:
+        return var, i
+    
+def parse_type_list(token_list, i):
+  typ, i = parse_type(token_list, i)
+  type_list = [typ]
+  while token_list[i].type == 'COMMA':
+    i = i + 1
+    typ, i = parse_type(token_list, i)
+    type_list.append(typ)
+  return type_list, i
+
+def parse_term_list(token_list, i):
+  trm, i = parse_term(token_list, i)
+  trm_list = [trm]
+  while token_list[i].type == 'COMMA':
+    i = i + 1
+    trm, i = parse_term(token_list, i)
+    trm_list.append(trm)
+  return trm_list, i
+    
+def parse_constructor(token_list, i):
+  token = token_list[i]
+  name, i = parse_identifier(token_list, i)
+
+  if token_list[i].type == 'LPAR':
+    i = i + 1
+    param_types, i = parse_type_list(token_list, i)
+    if token_list[i].type != 'RPAR':
+      error(meta_from_tokens(token, token_list[i-1]),
+            'missing closing parenthesis')
+    i = i + 1
+  else:
+    param_types = []
+  meta = meta_from_tokens(token, token_list[i-1])
+  return Constructor(meta, name, param_types), i
+
+def parse_pattern(token_list, i):
+  if token_list[i].value == '0':
+    i = i + 1
+    meta = meta_from_tokens(token_list[i], token_list[i])
+    return PatternCons(meta, Var(meta, None, 'zero'), []), i
+  else:
+    begin = i
+    constr_name, i = parse_identifier(token_list, i)
+    ident_list = []
+    if token_list[i].type == 'LPAR':
+      start = i
+      i = i + 1
+      ident, i = parse_identifier(token_list, i)
+      ident_list.append(ident)
+      while token_list[i].type == 'COMMA':
+        i = i + 1
+        ident, i = parse_identifier(token_list, i)
+        ident_list.append(ident)
+      if token_list[i].type != 'RPAR':
+        error(meta_from_tokens(token_list[start], token_list[i-1]),
+              'expected a closing parenthesis')
+      i = i + 1
+    return PatternCons(meta_from_tokens(token_list[begin], token_list[i-1]),
+                       Var(meta_from_tokens(token_list[begin],token_list[begin]),
+                           None, constr_name),
+                       ident_list), i
+
+def parse_pattern_list(token_list, i):
+  pat, i = parse_pattern(token_list, i)
+  if token_list[i].type == 'COMMA':
+    i = i + 1
+    ident_list, i = parse_ident_list(token_list, i)
+    return ([pat] + ident_list), i
+  else:
+    return [pat], i
+      
+def parse_ident_list(token_list, i):
+  ident, i = parse_identifier(token_list, i)
+  ident_list = [ident]
+  while token_list[i].type == 'COMMA':
+    i = i + 1
+    ident, i = parse_identifier(token_list, i)
+    ident_list.append(ident)
+  return ident_list, i
+  
+def parse_fun_case(token_list, i):
+  begin = i
+  name, i = parse_identifier(token_list, i)
+  
+  if token_list[i].type == 'LPAR':
+    start = i
+    i = i + 1
+    pat_list, i = parse_pattern_list(token_list, i)
+    if token_list[i].type != 'RPAR':
+      error(meta_from_tokens(token_list[start], token_list[i-1]),
+            'expected closing parenthesis')
+    i = i + 1
+  if token_list[i].type != 'EQUAL':
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected `=` and then a term, not\n\t' + token_list[i])
+  i = i + 1
+  body, i = parse_term(token_list, i)
+  return FunCase(meta_from_tokens(token_list[begin], token_list[i-1]),
+                 pat_list[0], pat_list[1:], body), i
+
+def parse_switch_case(token_list, i):
+    start = i
+    i = i + 1
+    pattern, i = parse_pattern(token_list, i)
+    if token_list[i].type != 'LBRACE':
+      error(meta_from_tokens(token_list[start],token_list[i]),
+            'expected a `{` after pattern of case, not\n\t' + token_list[i].value)
+    i = i + 1
+    body, i = parse_term(token_list, i)
+    if token_list[i].type != 'RBRACE':
+      error(meta_from_tokens(token_list[start],token_list[i]),
+            'expected a `}` after body of case, not\n\t' + token_list[i].value)
+    i = i + 1
+    return SwitchCase(meta_from_tokens(token_list[start], token_list[i-1]),
+                      pattern, body), i
