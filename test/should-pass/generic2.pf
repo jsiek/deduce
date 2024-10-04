@@ -1,4 +1,4 @@
-define some_equal : < T > fn T -> bool
+define some_equal : fn<T> T -> bool
          = generic T { λ y { some x:T. x = y } }
 
 theorem T: @some_equal<bool>(true)

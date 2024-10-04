@@ -150,7 +150,7 @@ function drop<T>(Nat, List<T>) -> List<T> {
     }
 }
 
-define flip : < T,U,V > fn (fn T,U->V) ->(fn U,T->V)
+define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
   = generic T,U,V { λf{ λx,y{ f(y,x) }}}
 
 function rev_app<T>(List<T>, List<T>) -> List<T> {

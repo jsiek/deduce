@@ -19,19 +19,19 @@ function rep<T>(Set<T>) -> fn(T)->bool {
   rep(char_fun(f)) = f
 }
 
-define single : < T > fn T -> Set<T>
+define single : fn<T>  T -> Set<T>
          = generic T { λx { char_fun(λy{x = y}) } }
 
-define operator ∪ : < T > fn Set<T>, Set<T> -> Set<T>
+define operator ∪ : fn<T>  Set<T>, Set<T> -> Set<T>
          = generic T { λP,Q{ char_fun(λx{ rep(P)(x) or rep(Q)(x) }) } }
 
-define operator ∩ : < T > fn Set<T>, Set<T> -> Set<T>
+define operator ∩ : fn<T>  Set<T>, Set<T> -> Set<T>
          = generic T { λP,Q{ char_fun(λx{ rep(P)(x) and rep(Q)(x) }) } }
 
-define operator ∈ : < T > fn T, Set<T> -> bool
+define operator ∈ : fn<T> T, Set<T> -> bool
          = generic T { λx,S{ rep(S)(x) } }
 
-define operator ⊆ : < T > fn Set<T>, Set<T> -> bool
+define operator ⊆ : fn<T> Set<T>, Set<T> -> bool
          = generic T { λP,Q{all x:T. if x ∈ P then x ∈ Q} }
 
 theorem single_member: all T:type. all x:T.  x ∈ single(x)

@@ -2,10 +2,10 @@
 import Set
 import Option
 
-define operator ∘ : < T,U,V > fn (fn U->V), (fn T->U) -> (fn T->V)
+define operator ∘ : fn<T,U,V>  (fn U->V), (fn T->U) -> (fn T->V)
                   = generic T,U,V { λ g,f { λ x { g(f(x)) } } }
 
-define update : < T, U > fn (fn (T) -> U), T, U -> (fn (T) -> U)
+define update : fn<T, U> (fn (T) -> U), T, U -> (fn (T) -> U)
               = generic T, U { λf,x,v{ λy{ if y = x then v else f(y) } } }
 
 theorem update_eq :
@@ -85,17 +85,17 @@ end
 
 /* Partial Maps */
 
-define empty_map : < T, U > fn T -> Option<U>
+define empty_map : fn<T, U>  T -> Option<U>
        = generic T, U { λk { @none<U> } }
 
-define domain : < T,U > fn (fn(T)->Option<U>) -> Set<T>
+define domain : fn<T,U>  (fn(T)->Option<U>) -> Set<T>
               = generic T, U { λf{char_fun(λx{
                   switch f(x) {
 	            case none { false }
 		    case just(y) { true }
 		}})}}
 
-define restrict : < T,U > fn (fn(T)->Option<U>), (Set<T>) -> (fn(T)->Option<U>)
+define restrict : fn<T,U> (fn(T)->Option<U>), (Set<T>) -> (fn(T)->Option<U>)
                 = generic T, U { λf,P { λx { if x ∈ P then f(x) else none }}}
 		
 theorem restrict_domain:
