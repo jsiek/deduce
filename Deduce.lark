@@ -87,6 +87,7 @@ ident: IDENT              -> ident
     | "some" var_list "." term                     -> some_formula
     | "define" IDENT "=" term term                 -> define_term
     | "?"                                          -> hole_term
+    | "─"                                          -> omitted_term
     | "(" term ")"                                 -> paren
     | "{" term "}"                                 -> mark
     | "%" type

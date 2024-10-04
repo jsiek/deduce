@@ -213,6 +213,8 @@ def parse_tree_to_ast(e, parent):
         return intToNat(e.meta, int(e.children[0]))
     elif e.data == 'hole_term':
         return Hole(e.meta, None)
+    elif e.data == 'omitted_term':
+        return Omitted(e.meta, None)
     elif e.data == 'ident':
         return str(e.children[0].value)
     elif e.data == 'ident_div':

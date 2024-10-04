@@ -247,6 +247,10 @@ def rewrite_aux(loc, formula, equation):
   
     case Hole(loc2, tyof):
       return formula
+
+    case Omitted(loc2, tyof):
+      return formula
+  
     case _:
       error(loc, 'in rewrite function, unhandled ' + str(formula))
 
@@ -992,6 +996,8 @@ def check_proof_of(proof, formula, env):
           new_formula = new_formula.reduce(env)
 
         match red_claim:
+          case Omitted(loc2, tyof):
+            check_proof_of(rest, new_formula, env)
           case Hole(loc2, tyof):
             warning(loc, '\nsuffices to prove:\n\t' + str(new_formula))
             check_proof_of(rest, new_formula, env)
@@ -1684,7 +1690,10 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_subject = type_check_term(subject, typ, env, recfun, subterms)
       return Mark(loc, new_subject.typeof, new_subject)
     case Hole(loc, tyof):
-      return Hole(loc, BoolType(loc))
+      #return Hole(loc, BoolType(loc))
+      return Hole(loc, typ)
+    case Omitted(loc, tyof):
+      return Omitted(loc, typ)
     case Generic(loc, _, type_params, body):
       match typ:
         case FunctionType(loc2, type_params2, param_types2, return_type2):

@@ -1058,6 +1058,24 @@ class Hole(Term):
     return self
 
 @dataclass
+class Omitted(Term):
+  
+  def __str__(self):
+      return '--'
+    
+  def uniquify(self, env):
+    pass
+
+  def reduce(self, env):
+    return self
+
+  def copy(self):
+    return Omitted(self.location, self.typeof)
+
+  def substitute(self, sub):
+    return self
+  
+@dataclass
 class Mark(Term):
   subject: Term
 
