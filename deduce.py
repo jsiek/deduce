@@ -1,6 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent
+from abstract_syntax import add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules
 import sys
 import os
 import parser
@@ -8,28 +8,39 @@ import rec_desc_parser
 #from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
 #from rec_desc_parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
 import traceback
+from pathlib import Path
 
 def deduce_file(filename, error_expected):
-    file = open(filename, 'r', encoding="utf-8")
-    program_text = file.read()
-    parser.set_filename(filename)
-    rec_desc_parser.set_filename(filename)
+    if get_verbose():
+        print("Deducing file:", filename)
+    module_name = Path(filename).stem
+
     try:
-        if get_verbose():
-            print("Deducing file:", filename)
-            print("about to parse")
-        if get_recursive_descent():
-            ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
-                                        error_expected=error_expected)
+    
+        if module_name in get_uniquified_modules().keys():
+            ast = get_uniquified_modules()[module_name]
         else:
-            ast = parser.parse(program_text, trace=get_verbose(),
-                               error_expected=error_expected)
-        if get_verbose():
-            print("abstract syntax tree:\n"+'\n'.join([str(s) for s in ast])+"\n\n")
-            print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
-        uniquify_deduce(ast)
-        if get_verbose():
-            print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
+            file = open(filename, 'r', encoding="utf-8")
+            program_text = file.read()
+            parser.set_filename(filename)
+            rec_desc_parser.set_filename(filename)
+
+            if get_verbose():
+                print("about to parse")
+            if get_recursive_descent():
+                ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
+                                            error_expected=error_expected)
+            else:
+                ast = parser.parse(program_text, trace=get_verbose(),
+                                   error_expected=error_expected)
+            if get_verbose():
+                print("abstract syntax tree:\n"+'\n'.join([str(s) for s in ast])+"\n\n")
+                print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
+            uniquify_deduce(ast)
+            
+            if get_verbose():
+                print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
+                
         check_deduce(ast)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
@@ -83,7 +94,7 @@ if __name__ == "__main__":
         print("Couldn't find a file to deduce!")
         exit(1)
 
-    if len(filenames) > 1:
+    if False and len(filenames) > 1:
         print("TODO: support deducing multiple files")
         exit(1)
     

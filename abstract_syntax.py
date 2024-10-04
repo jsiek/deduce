@@ -2132,6 +2132,10 @@ class Define(Statement):
     pass
 
 uniquified_modules = {}
+
+def get_uniquified_modules():
+  global uniquified_modules
+  return uniquified_modules
   
 @dataclass
 class Assert(Statement):

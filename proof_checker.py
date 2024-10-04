@@ -2168,6 +2168,7 @@ def uniquify_deduce(ast):
 def check_deduce(ast):
   env = Env()
   ast2 = []
+  imported_modules.clear()
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:
