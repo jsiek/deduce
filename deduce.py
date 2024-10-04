@@ -94,10 +94,6 @@ if __name__ == "__main__":
         print("Couldn't find a file to deduce!")
         exit(1)
 
-    if False and len(filenames) > 1:
-        print("TODO: support deducing multiple files")
-        exit(1)
-    
     # Start deducing
     sys.setrecursionlimit(5000) # We can probably use a loop for some tail recursive functions
 
