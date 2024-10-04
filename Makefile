@@ -9,7 +9,7 @@ check_docs: check_README check_fun check_intro
 
 tests-should-pass:
 	for test in $(TEST_PASS_DIR); do \
-	  $(PYTHON) ./deduce.py $$test || break; \
+	  $(PYTHON) ./deduce.py --recursive-descent $$test || break; \
 	done
 
 tests-should-error:
