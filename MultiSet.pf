@@ -24,7 +24,7 @@ theorem m_one_cnt: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
   arbitrary T:type
   arbitrary x:T
-  _definition {m_one, cnt}.
+  definition {m_one, cnt}
 end
 
 theorem m_empty_zero: all T:type. all x:T.
@@ -32,7 +32,7 @@ theorem m_empty_zero: all T:type. all x:T.
 proof
   arbitrary T:type
   arbitrary x:T
-  _definition {cnt}.
+  definition {cnt}
 end
 
 theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -45,17 +45,16 @@ end
 
 // Testing alternate asci notation 
 theorem m_sum_empty: all T:type. all A:MultiSet<T>.
-  A [+] m_fun(λy{0}: fn T->Nat) = A
+  A .+. m_fun(λy{0}: fn T->Nat) = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
-  _definition {operator [+], cnt}
-  switch A {
+  switch A for operator .+., cnt {
     case m_fun(f) {
       have eq: (λx{(f(x) + 0)} : fn T->Nat) = f
         by extensionality arbitrary x:T
-           _rewrite add_zero[f(x)].
-      _rewrite eq.
+           rewrite add_zero[f(x)]
+      rewrite eq
     }
   }
 end
@@ -65,14 +64,12 @@ theorem empty_m_sum: all T:type. all A:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
-  _definition {operator ⨄, m_fun}
-  switch A {
+  switch A for operator ⨄, m_fun {
     case m_fun(f) {
       have eq: (λx{0 + f(x)} : fn T->Nat) = f
         by extensionality arbitrary x:T
-	   _definition {operator +}.
-      _definition cnt
-      _rewrite eq.
+	   definition {operator +}
+      definition cnt and rewrite eq
     }
   }
 end
@@ -83,16 +80,17 @@ theorem m_sum_commutes: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>
-  _definition {operator ⨄}
-  switch A {
+  switch A for operator ⨄ {
     case m_fun(f) {
       switch B {
         case m_fun(g) {
-	  _definition cnt
+	  suffices m_fun(λx{f(x) + g(x)} : fn T -> Nat)
+                 = m_fun(λx{g(x) + f(x)})
+              by definition cnt
 	  have eq: (λx{(f(x) + g(x))} : fn T->Nat) = λx{(g(x) + f(x))}
 	    by extensionality arbitrary x:T
-	       _rewrite add_commute[f(x)][g(x)].
-	  _rewrite eq.
+	       rewrite add_commute[f(x)][g(x)]
+	  rewrite eq
 	}
       }
     }
@@ -104,19 +102,20 @@ theorem m_sum_assoc: all T:type. all A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>
-  _definition {operator ⨄}
-  switch A {
+  switch A for operator ⨄ {
     case m_fun(f) {
       switch B {
 	case m_fun(g) {
 	  switch C {
 	    case m_fun(h) {
-	      _definition cnt
+	      suffices m_fun(λx{(f(x) + g(x)) + h(x)} : fn T->Nat)
+                     = m_fun(λx{f(x) + (g(x) + h(x))})
+                by definition cnt
 	      have fgh_eq: (λx{(f(x) + g(x)) + h(x)} : fn T->Nat)
 	                 = λx{f(x) + (g(x) + h(x))}
 	        by extensionality arbitrary x:T
-		   _rewrite add_assoc[f(x)][g(x),h(x)].
-              _rewrite fgh_eq.
+		   rewrite add_assoc[f(x)][g(x),h(x)]
+              rewrite fgh_eq
 	    }
 	  }
 	}
@@ -133,17 +132,15 @@ theorem som_one_single: all T:type. all x:T.
 proof
   arbitrary T:type
   arbitrary z:T
-  _definition {m_one, single, set_of_mset}
   have eq: (λx{(if cnt(m_fun(λy{(if z = y then 1 else 0)}: fn T->Nat))(x) = 0
                then false else true)} : fn T->bool)
            = λy{z = y}
     by extensionality
        arbitrary y:T
-       _definition {cnt}
-       switch y = z {
+       switch y = z for cnt {
          case true suppose yz_true {
 	   have z_y: z = y
-	     by symmetric _rewrite yz_true.
+	     by symmetric rewrite yz_true
 	   rewrite z_y
 	 }
 	 case false suppose yz_false {
@@ -153,7 +150,8 @@ proof
 	   rewrite (apply eq_false to not_zy)
 	 }
        }
-  rewrite eq
+  definition {m_one, single, set_of_mset}
+  and rewrite eq
 end
 
 theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
@@ -161,20 +159,22 @@ theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>
-  _definition {set_of_mset, operator ∪, operator ⨄, cnt, rep}
   have eq: (λx{(if cnt(A)(x) + cnt(B)(x) = 0 then false else true)}: fn T->bool)
     = λx{((if cnt(A)(x) = 0 then false else true)
          or (if cnt(B)(x) = 0 then false else true))}
     by extensionality  arbitrary x:T
        switch cnt(A)(x) {
          case 0 suppose Ax_z {
-	   _rewrite Ax_z
+	   suffices (if 0 + cnt(B)(x) = 0 then false else true)
+                  = (if cnt(B)(x) = 0 then false else true) by rewrite Ax_z
 	   definition operator +
 	 }
 	 case suc(Ax) suppose Ax_s {
-	   _rewrite Ax_s
+	   suffices (if suc(Ax) + cnt(B)(x) = 0 then false else true) = true
+               by rewrite Ax_s
 	   definition operator +
 	 }
        }
-  rewrite eq
+  definition {set_of_mset, operator ∪, operator ⨄, cnt, rep}
+  and rewrite eq
 end

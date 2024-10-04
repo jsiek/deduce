@@ -36,6 +36,17 @@ def add_import_directory(dir):
   global import_directories
   import_directories.append(dir)
 
+
+recursive_descent = True
+
+def get_recursive_descent():
+  global recursive_descent
+  return recursive_descent
+
+def set_recursive_descent(b):
+  global recursive_descent
+  recursive_descent = b
+
 @dataclass
 class AST:
     location: Meta
@@ -512,7 +523,7 @@ class Var(Term):
         
   def uniquify(self, env):
     if self.name not in env.keys():
-      error(self.location, "undefined variable " + self.name + "\t(uniquify)")
+      error(self.location, "undefined variable `" + self.name + "`\t(uniquify)")
     self.name = env[self.name]
     
 @dataclass
@@ -969,7 +980,7 @@ class TermInst(Term):
                     self.inferred)
   
   def __str__(self):
-    if False and self.inferred:
+    if self.inferred:
       return str(self.subject)
     else:
       return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
@@ -2155,7 +2166,10 @@ class Import(Statement):
       file = open(filename, 'r', encoding="utf-8")
       src = file.read()
       file.close()
-      from parser import get_filename, set_filename, parse
+      if get_recursive_descent():
+        from rec_desc_parser import get_filename, set_filename, parse
+      else:
+        from parser import get_filename, set_filename, parse
       old_filename = get_filename()
       set_filename(filename)
       self.ast = parse(src, trace=False)

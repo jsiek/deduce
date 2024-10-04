@@ -37,7 +37,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med "∩" term_add                        -> intersect
     | term_med "&" term_add                        -> intersect
     | term_med "⨄" term_add                        -> multiset_sum
-    | term_med "[+]" term_add                      -> multiset_sum
+    | term_med ".+." term_add                      -> multiset_sum
     | term_med "++" term_add                       -> append
     | term_add "-" term_med                        -> sub
     | term_med
@@ -46,7 +46,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med "%" term_hi                         -> mod
     | term_hi "*" term_med                         -> mul
     | term_med "∘" term_hi                         -> circ
-    | term_med "[o]" term_hi                        -> circ
+    | term_med ".o." term_hi                        -> circ
     | term_hi
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
@@ -61,8 +61,8 @@ ident: IDENT              -> ident
     | "operator" "|"      -> ident_union
     | "operator" "&"      -> ident_interesect
     | "operator" "in"      -> ident_member
-    | "operator" "[+]"      -> ident_multiset_sum
-    | "operator" "[o]"      -> ident_circ
+    | "operator" ".+."      -> ident_multiset_sum
+    | "operator" ".o."      -> ident_circ
     | "operator" "(="      -> ident_subset_equal
     | "operator" "<="      -> ident_less_equal
     | "operator" ">="      -> ident_greater_equal
@@ -72,7 +72,7 @@ ident: IDENT              -> ident
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
     | "∅"                                          -> emptyset_literal
-    | "[0]"                                        -> emptyset_literal
+    | ".0."                                        -> emptyset_literal
     | "-" term_hi                                  -> neg
     | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var

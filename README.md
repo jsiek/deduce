@@ -105,10 +105,10 @@ you can use instead.
 | ∈       | in   |
 | ∪       | \|   |
 | ∩       | &    |
-| ⨄       | [+]  |
-| ∘       | [o]  |
-| ∅       | [0]  |
-| λ       | fun |
+| ⨄       | .+.  |
+| ∘       | .o.  |
+| ∅       | .0.  |
+| λ       | fun  |
 
 
 <!--  LocalWords:  aka fn ys xs IH pf py NatList builtin suc bool nat

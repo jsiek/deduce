@@ -9,33 +9,33 @@ check_docs: check_README check_fun check_intro
 
 tests-should-pass:
 	for test in $(TEST_PASS_DIR); do \
-	  $(PYTHON) ./deduce.py $$test; \
+	  $(PYTHON) ./deduce.py --recursive-descent $$test || break; \
 	done
 
 tests-should-error:
 	for test in $(TEST_ERROR_DIR); do \
-	  $(PYTHON) ./deduce.py $$test --error; \
+	  $(PYTHON) ./deduce.py --recursive-descent $$test --error || break; \
 	done
 
 
 tests-lib: 
 	for test in ./*.pf; do \
-	  $(PYTHON) ./deduce.py $$test; \
+	  $(PYTHON) ./deduce.py --recursive-descent $$test || break; \
 	done
 
 tests: tests-should-pass tests-should-error
 
 check_README:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py README.pf
+	$(PYTHON) ./deduce.py --recursive-descent README.pf
 
 check_fun:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py FunctionalProgramming.pf
+	$(PYTHON) ./deduce.py --recursive-descent FunctionalProgramming.pf
 
 check_intro:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py ProofIntro.pf
+	$(PYTHON) ./deduce.py --recursive-descent ProofIntro.pf
 
 clean:
 	rm -f README.pf FunctionalProgramming.pf ProofIntro.pf

@@ -1,6 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory, print_theorems
+from abstract_syntax import add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent
 import sys
 import os
 import parser
@@ -9,10 +9,7 @@ import rec_desc_parser
 #from rec_desc_parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
 import traceback
 
-recursive_descent = False
-
 def deduce_file(filename, error_expected):
-    global recursive_descent
     file = open(filename, 'r', encoding="utf-8")
     program_text = file.read()
     parser.set_filename(filename)
@@ -21,7 +18,7 @@ def deduce_file(filename, error_expected):
         if get_verbose():
             print("Deducing file:", filename)
             print("about to parse")
-        if recursive_descent:
+        if get_recursive_descent():
             ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
                                         error_expected=error_expected)
         else:
@@ -48,7 +45,7 @@ def deduce_file(filename, error_expected):
         else:
             print(str(e))
             # Use the following when debugging internal exceptions -Jeremy
-            print(traceback.format_exc())
+            #print(traceback.format_exc())
             # for production, exit
             exit(1)
             # during development, reraise
@@ -76,7 +73,9 @@ if __name__ == "__main__":
             add_import_directory(sys.argv[i+1])
             already_processed_next = True
         elif argument == '--recursive-descent':
-            recursive_descent = True
+            set_recursive_descent(True)
+        elif argument == '--lalr':
+            set_recursive_descent(False)
         else:
             filenames.append(argument)
     

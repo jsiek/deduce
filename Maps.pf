@@ -25,10 +25,9 @@ proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U, y:T
   suppose not_eq
-  _definition update
-  switch y = x {
+  switch y = x for update {
     case true suppose yx_true {
-      have yx: y = x by (_rewrite yx_true.)
+      have yx: y = x by rewrite yx_true
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -43,10 +42,9 @@ theorem update_shadow : all T:type, U:type. all f:fn(T)->U, x:T, v:U, w:U.
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->U, x:T, v:U, w:U
-  _definition update
   extensionality
   arbitrary y:T
-  switch y = x {
+  switch y = x for update {
     case true { . }
     case false { . }
   }
@@ -60,15 +58,14 @@ proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->U, x:T, v:U, w:U, y:T
   suppose x_neq_y
-  _definition update
   extensionality
   arbitrary z:T
-  switch z = y {
+  switch z = y for update {
     case true suppose zy_true {
-      have zy: z = y by (_rewrite zy_true.)
+      have zy: z = y by rewrite zy_true
       switch z = x {
         case true suppose zx_true {
-	  have zx: z = x by (_rewrite zx_true.)
+	  have zx: z = x by rewrite zx_true
 	  have xy: x = y by transitive (symmetric zx) zy
 	  conclude false by apply x_neq_y to xy
 	}
@@ -104,7 +101,10 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, P:Set<T>
-  _definition {restrict, domain, operator ⊆}
+  suffices (all x:T. (if x ∈ char_fun(λx{switch (if x ∈ P then f(x)
+                                                 else @none<U>)
+            { case none{false} case just(y){true} }}) then x ∈ P))
+      by definition {restrict, domain, operator ⊆}
   arbitrary x:T
   suppose prem
   switch x ∈ P {

@@ -5,7 +5,7 @@ Represent sets as predicates, that is, functions to bool.
 import Base
 
 union Set<T> {
-  char_fun(fn(T) -> bool)
+  char_fun(fn (T) -> bool)
 }
 
 /*
@@ -34,7 +34,7 @@ define operator ∈ : fn<T> T, Set<T> -> bool
 define operator ⊆ : fn<T> Set<T>, Set<T> -> bool
          = generic T { λP,Q{all x:T. if x ∈ P then x ∈ Q} }
 
-theorem single_member: all T:type. all x:T.  x ∈ single(x)
+theorem single_member: <T> all x:T.  x ∈ single(x)
 proof
   arbitrary T:type
   arbitrary x:T
@@ -93,7 +93,7 @@ end
 
 // testing alternate syntax for ∅
 theorem union_empty: all T:type. all A:Set<T>.
-  A ∪ [0] = A
+  A ∪ .0. = A
 proof
   arbitrary T:type
   arbitrary A:Set<T>

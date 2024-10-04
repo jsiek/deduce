@@ -206,7 +206,7 @@ end
 lemma add_suc: all m:Nat. all n:Nat.
   m + suc(n) = suc(m + n)
 proof
-  enable operator +
+  enable {operator +}
   induction Nat
   case 0 {
     arbitrary n : Nat
@@ -223,7 +223,7 @@ end
 
 theorem add_commute: all n:Nat. all m:Nat.  n + m = m + n
 proof
-  enable operator +
+  enable {operator +}
   induction Nat
   case 0 {
     arbitrary m : Nat
@@ -255,7 +255,7 @@ end
 theorem add_assoc: all m:Nat. all n:Nat, o:Nat.
   (m + n) + o = m + (n + o)
 proof
-  enable operator +
+  enable {operator +}
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat
@@ -273,7 +273,7 @@ end
 theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y = x + z then y = z
 proof
-  enable operator +
+  enable {operator +}
   induction Nat
   case 0 {
     arbitrary y:Nat, z:Nat
@@ -657,7 +657,7 @@ end
 
 theorem less_equal_refl: all n:Nat. n ≤ n
 proof
-  enable operator ≤
+  enable {operator ≤}
   induction Nat
   case 0 { conclude 0 ≤ 0  by . }
   case suc(n') suppose IH { conclude suc(n') ≤ suc(n')  by IH }
@@ -698,7 +698,7 @@ proof
         conclude false by definition operator ≤ in sx_z
       }
       case suc(y') suppose y_suc {
-        enable operator ≤
+        enable {operator ≤}
         have x_le_y: x' ≤ y' by rewrite y_suc in sxy_ysx
         have y_le_x: y' ≤ x' by rewrite y_suc in sxy_ysx
         have x_y: x' = y' by (apply IH[y'] to x_le_y, y_le_x)
@@ -711,7 +711,7 @@ end
 theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
   if m ≤ n and n ≤ o then m ≤ o
 proof
-  enable operator ≤
+  enable {operator ≤}
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat
@@ -1747,7 +1747,7 @@ proof
             have fsi_gtsi: f(s + suc(i)) = g(t + suc(i))
               by apply f_g[suc(i)] to
                  enable {operator <, operator ≤, operator ≤} i_k
-            enable operator + rewrite add_suc[s][i] | add_suc[t][i] in fsi_gtsi
+            enable {operator +}rewrite add_suc[s][i] | add_suc[t][i] in fsi_gtsi
     rewrite f_g_s | IH'
   }
 end
@@ -2072,8 +2072,7 @@ proof
     arbitrary q:Nat, n:Nat, m:Pos
     suppose prem
     have n_sn: n ≤ suc(n)   by less_equal_suc[n]
-    _definition find_quotient
-    switch suc(q) * pos2nat(m) ≤ n {
+    switch suc(q) * pos2nat(m) ≤ n for find_quotient {
       case true suppose sqm_le_n {
         have sqm_le_n: suc(q) * pos2nat(m) ≤ n  by rewrite sqm_le_n
         switch n < u' * pos2nat(m) {
@@ -2253,11 +2252,15 @@ proof
   define a = (n / m) * pos2nat(m)
   obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
     from division[n, m]
-  have ar_n: a + r = n   by _definition a R
+  have ar_n: a + r = n   by suffices (n / m) * pos2nat(m) + r = n
+                               by definition a
+                            R
   have a_le_a_r: a ≤ a + r  by less_equal_add[a][r]
   have n_eq_a_r: n = a + r
-    by _definition a symmetric conjunct 0 of R
-  have a_le_n: a ≤ n   by _rewrite n_eq_a_r a_le_a_r
+    by suffices n = (n / m) * pos2nat(m) + r by definition a
+       symmetric conjunct 0 of R
+  have a_le_n: a ≤ n   by suffices a ≤ a + r by rewrite n_eq_a_r
+                          a_le_a_r
   conclude a + (n - a) = n
     by apply sub_add_identity to a_le_n
 end
@@ -2271,9 +2274,12 @@ proof
   define a = (n / m) * pos2nat(m)
   obtain r where R: (n / m) * pos2nat(m) + r = n and r < pos2nat(m)
     from division[n, m]
-  have ar_n: a + r = n   by _definition a R
+  have ar_n: a + r = n
+       by suffices (n / m) * pos2nat(m) + r = n by definition a
+          R
   have ar_a_a: (a + r) - a = r  by add_sub_identity[a][r]
-  have r_na: r = n - a  by _rewrite symmetric ar_n symmetric ar_a_a
+  have r_na: r = n - a  by suffices r = (a + r) - a by rewrite symmetric ar_n
+                           symmetric ar_a_a
   suffices r < pos2nat(m)   by rewrite symmetric r_na
   conjunct 1 of R
 end
