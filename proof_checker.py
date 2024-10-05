@@ -490,6 +490,7 @@ def check_proof(proof, env):
           ret = conc
         case And(loc2, tyof, args):
           vars, imps = collect_all_if_then(loc, ifthen)
+          arg_frm = check_proof(arg, env)
           rets = []
           for prem, conc in imps:
             try:
@@ -499,6 +500,10 @@ def check_proof(proof, env):
               pass
           if len(rets) == 1: ret = rets[0]
           elif len(rets) > 1: ret = And(loc2, tyof, rets)
+          else:
+            error(loc, "in 'apply' could not prove that " +str(arg_frm) +
+                  " implies at least one of\n\t"\
+                  + "\n\t".join([str(p) for p, _ in imps]))
         case All(loc2, tyof, vars, body):
           (vars, imps) = collect_all_if_then(loc, ifthen)
           rets = []
