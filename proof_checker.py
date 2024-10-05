@@ -696,15 +696,22 @@ def proof_advice(formula, env):
             + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
-        
-        inductive_var = vars[0] # we can only induct on the first argument at the moment so
+
+        # We can only induct on an  all with one variable
+        if len(vars) > 1:
+          return arb_advice
 
         # NOTE: Maybe we shouldn't give induction advice for non recursively defined unions
         # However right now we will because I haven't added that check yet
         # Maybe even suggest a switch instead
-
-        if str(inductive_var[1]) == 'type': 
-          return arb_advice # don't give induction adivce for type variables
+        
+        inductive_var = vars[0]
+        match inductive_var[1]:
+          # NOTE: These are the types that are handled in get_type_name, and get_def_of_type_var
+          case TypeInst() | Var():
+            pass
+          case _:
+            return arb_advice # don't give induction adivce for type variables
 
         match env.get_def_of_type_var(get_type_name(inductive_var[1])):
           case Union(loc2, name, typarams, alts):
