@@ -36,6 +36,17 @@ def add_import_directory(dir):
   global import_directories
   import_directories.append(dir)
 
+
+recursive_descent = True
+
+def get_recursive_descent():
+  global recursive_descent
+  return recursive_descent
+
+def set_recursive_descent(b):
+  global recursive_descent
+  recursive_descent = b
+
 @dataclass
 class AST:
     location: Meta
@@ -512,7 +523,7 @@ class Var(Term):
         
   def uniquify(self, env):
     if self.name not in env.keys():
-      error(self.location, "undefined variable " + self.name + "\t(uniquify)")
+      error(self.location, "undefined variable `" + self.name + "`\t(uniquify)")
     self.name = env[self.name]
     
 @dataclass
@@ -1047,6 +1058,24 @@ class Hole(Term):
     return self
 
 @dataclass
+class Omitted(Term):
+  
+  def __str__(self):
+      return '--'
+    
+  def uniquify(self, env):
+    pass
+
+  def reduce(self, env):
+    return self
+
+  def copy(self):
+    return Omitted(self.location, self.typeof)
+
+  def substitute(self, sub):
+    return self
+  
+@dataclass
 class Mark(Term):
   subject: Term
 
@@ -1062,7 +1091,7 @@ class Mark(Term):
     #             self.subject.copy())
   
   def __str__(self):
-    return '[|' + str(self.subject) + '|]'
+    return '{' + str(self.subject) + '}'
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
@@ -1476,33 +1505,13 @@ class PAnnot(Proof):
     self.reason.uniquify(env)
 
 @dataclass
-class SufficesDefRewrite(Proof):
-  claim: Formula
-  definitions: List[Term]
-  equations: List[Proof]
-  body: Proof
-
-  def __str__(self):
-    return 'suffices ' + str(self.claim) + '\n' \
-      + '\twith definition {' + ', '.join([str(d) for d in self.definitions]) + '}\n' \
-      + '\trewrite ' + '|'.join([str(eqn) for eqn in self.equations])
-  
-  def uniquify(self, env):
-    self.claim.uniquify(env)
-    for d in self.definitions:
-      d.uniquify(env)
-    for eqn in self.equations:
-      eqn.uniquify(env)
-    self.body.uniquify(env)
-
-@dataclass
 class Suffices(Proof):
   claim: Formula
   reason: Proof
   body: Proof
 
   def __str__(self):
-    return 'suffices ' + str(self.claim) + '   by ' + str(self.reason) + '\n' + str(self.body)
+    return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + str(self.body)
 
   def uniquify(self, env):
     self.claim.uniquify(env)
@@ -1984,6 +1993,7 @@ class Constructor(AST):
       return base_name(self.name) + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
     else:
       return base_name(self.name)
+  
       
 @dataclass
 class Union(Statement):
@@ -2019,10 +2029,10 @@ class Union(Statement):
     return self
       
   def __str__(self):
-    return base_name(self.name)
+    #return base_name(self.name)
   
-    # return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
-    #   + ' '.join([str(c) for c in self.alternatives]) + '}'
+    return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
+       + ' '.join([str(c) for c in self.alternatives]) + '}'
   
 @dataclass
 class FunCase(AST):
@@ -2142,6 +2152,10 @@ class Define(Statement):
     pass
 
 uniquified_modules = {}
+
+def get_uniquified_modules():
+  global uniquified_modules
+  return uniquified_modules
   
 @dataclass
 class Assert(Statement):
@@ -2194,7 +2208,10 @@ class Import(Statement):
       file = open(filename, 'r', encoding="utf-8")
       src = file.read()
       file.close()
-      from parser import get_filename, set_filename, parse
+      if get_recursive_descent():
+        from rec_desc_parser import get_filename, set_filename, parse
+      else:
+        from parser import get_filename, set_filename, parse
       old_filename = get_filename()
       set_filename(filename)
       self.ast = parse(src, trace=False)
@@ -2489,7 +2506,7 @@ def print_theorems(filename, ast):
 
 ############# Marks for controlling rewriting and definitions #########################
 
-default_mark_LHS = False
+default_mark_LHS = True
 
 def set_default_mark_LHS(b):
   global default_mark_LHS
@@ -2506,7 +2523,7 @@ class MarkException(BaseException):
 def count_marks(formula):
   match formula:
     case Mark(loc2, tyof, subject):
-      return 1
+      return 1 + count_marks(subject)
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return count_marks(subject)
     case Var(loc2, tyof, name):
@@ -2660,4 +2677,18 @@ def remove_mark(formula):
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
       
+def extract_and(frm):
+    match frm:
+      case And(loc, tyof, args):
+        return args
+      case _:
+       return [frm]
+
+def extract_or(frm):
+    match frm:
+      case Or(loc, tyof, args):
+        return args
+      case _:
+       return [frm]
+
 

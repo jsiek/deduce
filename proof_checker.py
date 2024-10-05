@@ -247,6 +247,10 @@ def rewrite_aux(loc, formula, equation):
   
     case Hole(loc2, tyof):
       return formula
+
+    case Omitted(loc2, tyof):
+      return formula
+  
     case _:
       error(loc, 'in rewrite function, unhandled ' + str(formula))
 
@@ -687,11 +691,75 @@ def proof_advice(formula, env):
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
       case All(loc, tyof, vars, body):
-        return prefix \
+        arb_advice = prefix \
             + '\tYou can complete the proof with:\n' \
             + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
+        
+        inductive_var = vars[0] # we can only induct on the first argument at the moment so
+
+        # NOTE: Maybe we shouldn't give induction advice for non recursively defined unions
+        # However right now we will because I haven't added that check yet
+        # Maybe even suggest a switch instead
+
+        if str(inductive_var[1]) == 'type': 
+          return arb_advice # don't give induction adivce for type variables
+
+        match env.get_def_of_type_var(get_type_name(inductive_var[1])):
+          case Union(loc2, name, typarams, alts):
+            if len(alts) < 2:
+              return arb_advice # You can't do induction if there's only one case!!!!
+                
+            ind_advice = '\n\n\tIf that fails, you can try induction with:\n' \
+              +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
+                
+            # setting up names
+            potential_names = ['q', 'p', 'r', 'z', 'y', 'x']
+            names_in_use = [base_name(x[0]) for x in vars]
+
+            #base case
+            base_constr = alts[0]
+            for name in names_in_use:
+              while name in potential_names: # may god help your soul if this runs more than 2 times
+                potential_names.remove(base_name(name))
+                potential_names.insert(0, name + "\'") # insert the name backwards so we get names like y' before x'''''''''
+
+            ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
+
+            # all inductive steps
+            inductive_var_type = inductive_var[1]
+            for i in range(1, len(alts)):
+              case_names = []
+              induction_hypothesis = str(body)
+
+              this_case_name = potential_names.pop()
+              for x in alts[i].parameters:
+                this_param_name = this_case_name + "\'"
+                while this_param_name in names_in_use:
+                  this_param_name += '\'' # me when y'''''''''''''
+                
+                if str(x) == str(inductive_var_type):
+                    induction_hypothesis = induction_hypothesis.replace(base_name(inductive_var[0]), this_param_name)
+                
+                
+                case_names.append(this_param_name)
+                names_in_use.append(this_param_name)
+                this_case_name += 's' # setup the next case name
+
+              # print the case name
+              name = base_name(alts[i].name) + '(' + ', '.join(case_names) + ')'
+              ind_advice += '\t\tcase ' + name + ' suppose IH: ' \
+                  + induction_hypothesis \
+                  + ' {\n\t\t  ?\n\t\t}'
+              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(case_names) + '\n\tWith your own name(s)'
+            
+            return arb_advice + ind_advice
+
+          case _:
+            return arb_advice
+
+
       case Some(loc, tyof, vars, body):
         letters = []
         new_vars = {}
@@ -874,7 +942,9 @@ def check_proof_of(proof, formula, env):
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
       equation = mkEqual(loc, new_rhs, Var(loc, None, var)).reduce(env)
       frm = rewrite(loc, formula.reduce(env), equation)
-      new_body_env = Env({k: ProofBinding(b.location, rewrite(loc, b.formula, equation), b.local) \
+      new_body_env = Env({k: ProofBinding(b.location, \
+                                          rewrite(loc, b.formula, equation), \
+                                          b.local) \
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})
       ret = check_proof_of(rest, frm, new_body_env)
@@ -894,7 +964,7 @@ def check_proof_of(proof, formula, env):
       new_claim = check_formula(claim, env)
       claim_red = new_claim.reduce(env)
       formula_red = formula.reduce(env)
-      check_implies(loc, claim_red, formula_red)
+      check_implies(loc, claim_red, remove_mark(formula_red))
       check_proof_of(reason, claim_red, env)
 
     case ApplyDefs(loc, definitions):
@@ -923,36 +993,56 @@ def check_proof_of(proof, formula, env):
           error(loc, 'remains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
-      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-      claim_red = new_claim.reduce(env)
-      imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
-      check_proof_of(reason, imp, env)
-      check_proof_of(rest, claim_red, env)
-
-    case SufficesDefRewrite(loc, claim, definitions, equation_proofs, rest):
-      new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-      defs = [d.reduce(env) for d in definitions]
-      equations = [check_proof(proof, env) for proof in equation_proofs]
-      red_claim = new_claim.reduce(env)
+      def_or_rewrite = False
       
-      new_formula = apply_definitions(loc, formula, defs, env)
-      new_formula = new_formula.reduce(env)
-        
-      eqns = [equation.reduce(env) for equation in equations]
-      for eq in eqns:
-        if not is_equation(eq):
-          error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-        new_formula = rewrite(loc, new_formula, eq)
+      match reason:
+        case ApplyDefs(loc2, defs):
+           def_or_rewrite = True
+           definitions = defs
+           equation_proofs = [] 
+        case ApplyDefsGoal(loc2, defs, Rewrite(loc3, eqns)):
+           def_or_rewrite = True
+           definitions = defs
+           equation_proofs = eqns 
+        case Rewrite(loc2, eqns):
+           def_or_rewrite = True
+           definitions = []
+           equation_proofs = eqns 
+        case _:
+           def_or_rewrite = False
+
+      if def_or_rewrite:
+        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+        defs = [d.reduce(env) for d in definitions]
+        equations = [check_proof(proof, env) for proof in equation_proofs]
+        red_claim = new_claim.reduce(env)
+
+        new_formula = apply_definitions(loc, formula, defs, env)
         new_formula = new_formula.reduce(env)
 
-      match red_claim:
-        case Hole(loc2, tyof):
-          warning(loc, '\nsuffices to prove:\n\t' + str(new_formula))
-          check_proof_of(rest, new_formula, env)
-        case _:
-          check_implies(loc, red_claim, new_formula)
-          check_proof_of(rest, red_claim, env)
-      
+        eqns = [equation.reduce(env) for equation in equations]
+        for eq in eqns:
+          if not is_equation(eq):
+            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+          new_formula = rewrite(loc, new_formula, eq)
+          new_formula = new_formula.reduce(env)
+
+        match red_claim:
+          case Omitted(loc2, tyof):
+            check_proof_of(rest, new_formula, env)
+          case Hole(loc2, tyof):
+            warning(loc, '\nsuffices to prove:\n\t' + str(new_formula))
+            check_proof_of(rest, new_formula, env)
+          case _:
+            check_implies(loc, red_claim, new_formula)
+            check_proof_of(rest, red_claim, env)
+      else:
+        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+        claim_red = new_claim.reduce(env)
+        imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
+        check_proof_of(reason, imp, env)
+        check_proof_of(rest, claim_red, env)
+
     # Want something like the following to help with interactive proof development, but
     # it need to be smarter than the following. -Jeremy
     # case PTuple(loc, pfs):
@@ -971,9 +1061,8 @@ def check_proof_of(proof, formula, env):
           for (frm, (label,frm2,case)) in zip(frms, cases):
             if frm2:
                 new_frm2 = check_formula(frm2, env)
-                red_frm2 = new_frm2.reduce(env)
-            if frm2 and frm != red_frm2:
-              error(loc, 'case ' + str(red_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
+            if frm2 and (frm != new_frm2): # was frm != red_frm2
+              error(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
             body_env = env.declare_local_proof_var(loc, label, frm)
             check_proof_of(case, formula, body_env)
         case _:
@@ -1629,8 +1718,14 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('type_check_term: ' + str(term) + ' : ' + str(typ) + '?')
   match term:
+    case Mark(loc, tyof, subject):
+      new_subject = type_check_term(subject, typ, env, recfun, subterms)
+      return Mark(loc, new_subject.typeof, new_subject)
     case Hole(loc, tyof):
-      return Hole(loc, BoolType(loc))
+      #return Hole(loc, BoolType(loc))
+      return Hole(loc, typ)
+    case Omitted(loc, tyof):
+      return Omitted(loc, typ)
     case Generic(loc, _, type_params, body):
       match typ:
         case FunctionType(loc2, type_params2, param_types2, return_type2):
@@ -2105,6 +2200,7 @@ def uniquify_deduce(ast):
 def check_deduce(ast):
   env = Env()
   ast2 = []
+  imported_modules.clear()
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:
