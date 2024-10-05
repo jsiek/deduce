@@ -31,6 +31,7 @@ mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++' }
 compare_operators = {'<', '>', '≤', '<=', '>', '>=', '⊆', '(=', '∈', 'in'}
 equal_operators = {'=', '≠', '!='}
+iff_operators = {'iff', "<=>", "⇔"}
 
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '>=': '≥',
               '(=': '⊆', 'in': '∈', '.0.': '∅', '<=>': '⇔', 'iff': '⇔'}
@@ -359,7 +360,7 @@ def parse_term_equal(token_list, i):
 def parse_term(token_list, i):
   token = token_list[i]
   term, i = parse_term_log(token_list, i)
-  if i < len(token_list) and (token_list[i].type == 'IFF'):
+  if i < len(token_list) and (token_list[i].value in iff_operators):
     i = i + 1
     right, i = parse_term_log(token_list, i)
     loc = meta_from_tokens(token, token_list[i-1])

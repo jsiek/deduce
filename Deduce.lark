@@ -8,9 +8,10 @@ NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
-IFF: "⇔" | "<=>" | "iff"
 
-?term: term IFF term_log                            -> iff_formula
+?term: term "iff" term_log                            -> iff_formula
+    | term "<=>" term_log                            -> iff_formula
+    | term "⇔" term_log                            -> iff_formula
     | term_log
 
 ?term_log: term_log "and" term_compare                    -> and_formula
