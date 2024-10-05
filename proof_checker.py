@@ -314,7 +314,10 @@ def collect_all_if_then(loc, frm):
       case And(loc2, tyof, args):
         mps1 = []
         for arg in args:
-          (rest_vars, mps) = collect_all_if_then(loc, arg)
+          try:
+            (rest_vars, mps) = collect_all_if_then(loc, arg)
+          except:
+            continue
           # Making the executive decision that we can't apply for alls nested within ands
           if len(rest_vars) > 0: continue
           mps1 += mps
@@ -501,9 +504,11 @@ def check_proof(proof, env):
           if len(rets) == 1: ret = rets[0]
           elif len(rets) > 1: ret = And(loc2, tyof, rets)
           else:
-            error(loc, "in 'apply' could not prove that " +str(arg_frm) +
+            error(loc, "could not prove that " +str(arg_frm) +
                   " implies at least one of\n\t"\
-                  + "\n\t".join([str(p) for p, _ in imps]))
+                  + "\n\t".join([str(p) for p, _ in imps])
+                  + "\nfor application of \n\t"+str(ifthen)
+                  + "\nto \n\t" + str(arg))
         case All(loc2, tyof, vars, body):
           (vars, imps) = collect_all_if_then(loc, ifthen)
           rets = []
