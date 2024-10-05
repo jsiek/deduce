@@ -304,12 +304,26 @@ def isolate_difference(term1, term2):
         return (term1, term2)
 
 def collect_all_if_then(loc, frm):
+    """Returns a list of all variables that need be instantiated, and anythings that need applied"""
     match frm:
       case All(loc2, tyof, vars, frm):
-        (rest_vars, prem, conc) = collect_all_if_then(loc, frm)
-        return ([Var(loc2, None, x) for (x,t) in vars] + rest_vars, prem, conc)
+        (rest_vars, mps) = collect_all_if_then(loc, frm)
+        return ([Var(loc2, None, x) for (x,t) in vars] + rest_vars, mps)
       case IfThen(loc2, tyof, prem, conc):
-        return ([], prem, conc)
+        return ([], [(prem, conc)])
+      case And(loc2, tyof, args):
+        mps1 = []
+        for arg in args:
+          try:
+            (rest_vars, mps) = collect_all_if_then(loc, arg)
+          except:
+            continue
+          # Making the executive decision that we can't apply for alls nested within ands
+          if len(rest_vars) > 0: continue
+          mps1 += mps
+        if len(mps1) == 0:
+          error(loc, "in 'apply', expected at least one if-then formula as a conjunct of " + str(frm))
+        return ([], mps1)
       case _:
         error(loc, "in 'apply', expected an if-then formula, not " + str(frm))
 
@@ -469,29 +483,57 @@ def check_proof(proof, env):
           pass
         case All(loc2, tyof, vars, body):
           pass
+        case And(loc2, tyof, args):
+          pass
         case _:
           ifthen = ifthen.reduce(env)
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
           check_proof_of(arg, prem, env)
           ret = conc
-        case All(loc2, tyof, vars, body):
-          (vars, prem, conc) = collect_all_if_then(loc, ifthen)
+        case And(loc2, tyof, args):
+          vars, imps = collect_all_if_then(loc, ifthen)
           arg_frm = check_proof(arg, env)
-          matching = {}
-          try:
-            formula_match(loc, vars, prem, arg_frm, matching, env)
-          except Exception as e:
-            msg = str(e) + '\nwhile trying to deduce instantiation of\n\t' + str(ifthen) + '\n'\
-                + 'to apply to\n\t' + str(arg_frm)
-            raise Exception(msg)
-          for x in vars:
-              if x.name not in matching.keys():
+          rets = []
+          for prem, conc in imps:
+            try:
+              check_proof_of(arg, prem, env)
+              rets.append(conc)
+            except Exception as e:
+              pass
+          if len(rets) == 1: ret = rets[0]
+          elif len(rets) > 1: ret = And(loc2, tyof, rets)
+          else:
+            error(loc, "could not prove that " +str(arg_frm) +
+                  " implies at least one of\n\t"\
+                  + "\n\t".join([str(p) for p, _ in imps])
+                  + "\nfor application of \n\t"+str(ifthen)
+                  + "\nto \n\t" + str(arg))
+        case All(loc2, tyof, vars, body):
+          (vars, imps) = collect_all_if_then(loc, ifthen)
+          rets = []
+          arg_frm = check_proof(arg, env)
+          for prem, conc in imps: 
+            try:
+              matching = {}
+              formula_match(loc, vars, prem, arg_frm, matching, env)
+              for x in vars:
+                if x.name not in matching.keys():
                   error(loc, "could not deduce an instantiation for variable "\
                         + str(x) + '\n' \
                         + 'for application of\n\t' + str(ifthen) + '\n'\
                         + 'to\n\t' + str(arg))
-          ret = conc.substitute(matching)
+              rets.append(conc.substitute(matching))
+            except Exception as e:
+              msg = str(e) + '\nwhile trying to deduce instantiation of\n\t' + str(ifthen) + '\n'\
+                  + 'to apply to\n\t' + str(arg_frm)
+              # raise Exception(msg)
+          if len(rets) == 1: ret = rets[0]
+          elif len(rets) > 1: ret = And(loc2, tyof, rets)
+          else:
+            error(loc, "could not deduce an instantiation for any of the variables "\
+                  + "for application of \n\t" + str(ifthen) + '\n'\
+                  + 'to\n\t' + str(arg))
         case _:
           error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
           
@@ -664,15 +706,22 @@ def proof_advice(formula, env):
             + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
-        
-        inductive_var = vars[0] # we can only induct on the first argument at the moment so
+
+        # We can only induct on an  all with one variable
+        if len(vars) > 1:
+          return arb_advice
 
         # NOTE: Maybe we shouldn't give induction advice for non recursively defined unions
         # However right now we will because I haven't added that check yet
         # Maybe even suggest a switch instead
-
-        if str(inductive_var[1]) == 'type': 
-          return arb_advice # don't give induction adivce for type variables
+        
+        inductive_var = vars[0]
+        match inductive_var[1]:
+          # NOTE: These are the types that are handled in get_type_name, and get_def_of_type_var
+          case TypeInst() | Var():
+            pass
+          case _:
+            return arb_advice # don't give induction adivce for type variables
 
         match env.get_def_of_type_var(get_type_name(inductive_var[1])):
           case Union(loc2, name, typarams, alts):
@@ -1325,9 +1374,9 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         matching[name] = arg_ty
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
         if len(tv1) == len(tv2) and len(pts1) == len(pts2):
-        for (pt1, pt2) in zip(pts1, pts2):
-          type_match(loc, tyvars, pt1, pt2, matching)
-        type_match(loc, tyvars, rt1, rt2, matching)
+      for (pt1, pt2) in zip(pts1, pts2):
+        type_match(loc, tyvars, pt1, pt2, matching)
+      type_match(loc, tyvars, rt1, rt2, matching)
     case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
         error(loc, "argument type: " + str(arg_ty) + "\n" \

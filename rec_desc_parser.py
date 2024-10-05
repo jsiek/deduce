@@ -31,9 +31,10 @@ mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++' }
 compare_operators = {'<', '>', '≤', '<=', '>', '>=', '⊆', '(=', '∈', 'in'}
 equal_operators = {'=', '≠', '!='}
+iff_operators = {'iff', "<=>", "⇔"}
 
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '>=': '≥',
-              '(=': '⊆', 'in': '∈', '.0.': '∅'}
+              '(=': '⊆', 'in': '∈', '.0.': '∅', '<=>': '⇔', 'iff': '⇔'}
 
 lark_parser = None
 
@@ -116,7 +117,7 @@ def parse_term_hi(token_list, i):
     i = i + 1
     name, i = parse_identifier(token_list, i)
     if token_list[i].type != 'EQUAL':
-        error(meta_from_tokes(token_list[i],token_list[i]),
+        error(meta_from_tokens(token_list[i],token_list[i]),
               'expected `=` after name in `define`, not\n\t' + token_list[i].value)
     i = i + 1
     rhs, i = parse_term(token_list, i)
@@ -358,12 +359,30 @@ def parse_term_equal(token_list, i):
     
 def parse_term(token_list, i):
   token = token_list[i]
+  term, i = parse_term_log(token_list, i)
+  if i < len(token_list) and (token_list[i].value in iff_operators):
+    i = i + 1
+    right, i = parse_term_log(token_list, i)
+    loc = meta_from_tokens(token, token_list[i-1])
+    term = And(loc, None, extract_and(IfThen(loc, None, term.copy(), right.copy())) 
+                               + extract_and(IfThen(loc, None, right.copy(), term.copy())))
+  
+  if i < len(token_list) and token_list[i].type == 'COLON':
+    i = i + 1
+    typ, i = parse_type(token_list, i)
+    term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
+                   term, typ)
+      
+  return term, i
+
+def parse_term_log(token_list, i):
+  token = token_list[i]
   term, i = parse_term_equal(token_list, i)
   while i < len(token_list) and (token_list[i].type == 'AND'
                                  or token_list[i].type == 'OR'):
     opr = token_list[i].type
     i = i + 1
-    right, i = parse_term(token_list, i)
+    right, i = parse_term_log(token_list, i)
     if opr == 'AND':
       term = And(meta_from_tokens(token, token_list[i-1]), None,
                  extract_and(term) + extract_and(right))
@@ -501,7 +520,7 @@ def parse_proof_hi(token_list, i):
     i = i + 1
     name, i = parse_identifier(token_list, i)
     if token_list[i].type != 'EQUAL':
-        error(meta_from_tokes(token_list[i],token_list[i]),
+        error(meta_from_tokens(token_list[i],token_list[i]),
               'expected `=` after name in `define`, not\n\t' + token_list[i].value)
     i = i + 1
     rhs, i = parse_term(token_list, i)

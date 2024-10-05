@@ -1,0 +1,9 @@
+theorem iff: true <=> true
+proof 
+    .
+end
+
+theorem iff: false <=> false
+proof 
+    .
+end

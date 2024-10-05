@@ -1148,7 +1148,27 @@ class And(Formula):
     return And(self.location, self.typeof, [arg.copy() for arg in self.args])
   
   def __str__(self):
-    return '(' + ' and '.join([str(arg) for arg in self.args]) + ')'
+    ret_args = []
+    skip = False
+    for i in range(len(self.args) - 1):
+      if skip: 
+        skip = False
+        continue
+      match self.args[i]:
+        case IfThen(loc, tyof, prem, conc):
+          if (self.args[i + 1]) == IfThen(loc, tyof, conc, prem):
+            ret_args.append('(' + str(prem) + ' ⇔ ' + str(conc) + ')')
+            skip = True
+            continue
+      ret_args.append(self.args[i])
+    
+    if not skip:
+      ret_args.append(self.args[-1])
+
+    if len(ret_args) == 1:
+      return str(ret_args[0])
+
+    return '(' + ' and '.join([str(arg) for arg in ret_args]) + ')'
 
   def __eq__(self, other):
     if not isinstance(other, And):
@@ -1527,7 +1547,7 @@ class ModusPonens(Proof):
   arg: Proof
 
   def __str__(self):
-      return 'apply ' + str(self.implication) + ' with ' + str(self.arg)
+      return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
 
   def uniquify(self, env):
     self.implication.uniquify(env)
@@ -2436,7 +2456,7 @@ class Env:
         else:
           return False
       case _:
-        raise Exceptiona('expected a term variable, not ' + str(tvar))
+        raise Exception('expected a term variable, not ' + str(tvar))
         
   def proof_var_is_defined(self, pvar):
     match pvar:
@@ -2652,6 +2672,7 @@ def remove_mark(formula):
   else:
         try:
             find_mark(formula)
+            loc = formula.location if hasattr(formula, 'location') else None
             error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
             return replace_mark(formula, ex.subject)

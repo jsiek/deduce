@@ -70,7 +70,7 @@ proof
 end
 
 theorem iff_equal: all P:bool, Q:bool.
-  if (if P then Q) and (if Q then P)  
+  if (P ⇔ Q)  
   then P = Q
 proof
   arbitrary P:bool, Q:bool
