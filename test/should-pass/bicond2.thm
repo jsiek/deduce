@@ -4,5 +4,5 @@ This file summarizes the theorems proved in the file:
 
 empty_iff_0: (all E:type. (all l:List<E>. (length(l) = 0 ⇔ l = empty)))
 
-len_rev_empty_zero: (all E:type. length(reverse(@empty<E>)) = 0)
+len_rev_empty_zero: (all E:type. length(reverse(empty)) = 0)
 

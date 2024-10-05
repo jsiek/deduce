@@ -8,7 +8,7 @@ proof
   arbitrary l : List<E>
   have s1 : if l = empty then length(l) = 0
     by suppose prem
-      _rewrite prem
+      suffices length(@empty<E>) = 0 by rewrite prem
       definition length
   have s2 : if length(l) = 0 then l = empty
     by switch l {
@@ -27,9 +27,9 @@ end
 theorem len_rev_empty_zero: all E:type.
     length(reverse(@empty<E>)) = 0
 proof
-    _definition reverse
+    suffices (all E:type. length(@empty<E>) = 0) by definition reverse
     arbitrary E : type
-    have app: length(@empty<E>) = 0 <=> @empty<E> = @empty<E> by empty_iff_0<E>[@empty<E>]
+    have step: length(@empty<E>) = 0 <=> @empty<E> = @empty<E> by empty_iff_0<E>[@empty<E>]
     have ee: @empty<E> = @empty<E> by .
-    apply app to ee
+    apply step to ee
 end
