@@ -585,7 +585,7 @@ def get_type_name(ty):
     case TypeInst(l1, ty, type_args):
       return get_type_name(ty)
     case _:
-      raise Exception('unhandled case in get_type_name')
+      raise Exception('unhandled case in get_type_name: ' + repr(ty))
 
 def get_type_args(ty):
   match ty:
@@ -674,7 +674,22 @@ def proof_use_advice(proof, formula, env):
             + '\t\trewrite ' + str(proof) + '\n'
       case _:
         return 'Sorry, I have no advice for this kind of formula.'
-            
+
+def make_unique(name, env):
+    if name in env:
+        return make_unique(name + "'", env)
+    else:
+        return name
+
+def is_recursive(name, typ):
+    match typ:
+      case Var(l1, tyof, n):
+        return name == n
+      case TypeInst(l1, ty, type_args):
+        return is_resursive(name, ty)
+      case _:
+        return False
+    
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
     match formula:
@@ -726,53 +741,29 @@ def proof_advice(formula, env):
         match env.get_def_of_type_var(get_type_name(inductive_var[1])):
           case Union(loc2, name, typarams, alts):
             if len(alts) < 2:
-              return arb_advice # You can't do induction if there's only one case!!!!
+              return arb_advice # You can't do induction if there's only one case
                 
-            ind_advice = '\n\n\tIf that fails, you can try induction with:\n' \
+            ind_advice = '\n\n\tAlternatively, you can try induction with:\n' \
               +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
                 
-            # setting up names
-            potential_names = ['q', 'p', 'r', 'z', 'y', 'x']
-            names_in_use = [base_name(x[0]) for x in vars]
+            for alt in alts:
+                match alt:
+                  case Constructor(loc3, constr_name, param_types):
+                    params = [make_unique(type_first_letter(ty) + str(i+1), env) for i,ty in enumerate(param_types)]
+                    ind_advice += '\t\tcase ' + base_name(constr_name)
+                    if len(param_types) > 0:
+                      ind_advice += '(' + ', '.join(params) + ')'
+                    num_recursive = sum([1 if is_recursive(name, ty) else 0 for ty in param_types])
+                    if num_recursive > 0:
+                      rec_params = [(p,ty) for (p,ty) in zip(params, param_types) if is_recursive(name, ty)]
+                      ind_advice += ' suppose '
+                      ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' + str(body.substitute({inductive_var[0]: Var(loc3, param_ty, param)})) \
+                                                      for i, (param,param_ty) in enumerate(rec_params)])
 
-            #base case
-            base_constr = alts[0]
-            for name in names_in_use:
-              while name in potential_names: # may god help your soul if this runs more than 2 times
-                potential_names.remove(base_name(name))
-                potential_names.insert(0, name + "\'") # insert the name backwards so we get names like y' before x'''''''''
-
-            ind_advice += '\t\tcase ' + str(base_constr) + ' {\n\t\t  ?\n\t\t}\n'
-
-            # all inductive steps
-            inductive_var_type = inductive_var[1]
-            for i in range(1, len(alts)):
-              case_names = []
-              induction_hypothesis = str(body)
-
-              this_case_name = potential_names.pop()
-              for x in alts[i].parameters:
-                this_param_name = this_case_name + "\'"
-                while this_param_name in names_in_use:
-                  this_param_name += '\'' # me when y'''''''''''''
-                
-                if str(x) == str(inductive_var_type):
-                    induction_hypothesis = induction_hypothesis.replace(base_name(inductive_var[0]), this_param_name)
-                
-                
-                case_names.append(this_param_name)
-                names_in_use.append(this_param_name)
-                this_case_name += 's' # setup the next case name
-
-              # print the case name
-              name = base_name(alts[i].name) + '(' + ', '.join(case_names) + ')'
-              ind_advice += '\t\tcase ' + name + ' suppose IH: ' \
-                  + induction_hypothesis \
-                  + ' {\n\t\t  ?\n\t\t}'
-              ind_advice += "\n\tWhere you replace\n\t\t" + ', '.join(case_names) + '\n\tWith your own name(s)'
-            
+                    ind_advice += ' {\n\t\t  ?\n\t\t}\n'
+                    
             return arb_advice + ind_advice
-
+        
           case _:
             return arb_advice
 
@@ -1114,7 +1105,7 @@ def check_proof_of(proof, formula, env):
                                     for (param, ty) in 
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)
-                                    if get_type_name(ty) == get_type_name(typ)]
+                                    if is_recursive(name, ty)]
             body_env = env
               
             if len(typarams) > 0:
@@ -1547,7 +1538,27 @@ def check_type(typ, env):
     case _:
       print('error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
       exit(-1)
-        
+
+def type_first_letter(typ):
+  match typ:
+    case Var(loc, tyof, name):
+      return name[0]
+    case IntType(loc):
+      return 'i'
+    case BoolType(loc):
+      return 'b'
+    case TypeType(loc):
+      return 't'
+    case FunctionType(loc, typarams, param_types, return_type):
+      return 'f'
+    case TypeInst(loc, typ, arg_types):
+      return type_first_letter(typ)
+    case GenericUnknownInst(loc, typ):
+      return type_first_letter(typ)
+    case _:
+      print('error in type_first_letter: unhandled type ' + repr(typ))
+      exit(-1)
+      
 def type_synth_term(term, env, recfun, subterms):
   if get_verbose():
     print('type_synth_term: ' + str(term))

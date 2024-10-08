@@ -2347,6 +2347,9 @@ class Env:
     return ',\n'.join(['\t' + k + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
+  def __contains__(self, item):
+    return item in self.dict.keys()
+    
   def proofs_str(self):
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
