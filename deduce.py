@@ -78,7 +78,6 @@ if __name__ == "__main__":
     deducables = []
     error_expected = False
     recursive_directories = False
-    continue_on_error = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -101,8 +100,6 @@ if __name__ == "__main__":
             set_recursive_descent(False)
         elif argument == '--recursive-directories' or argument == '-r':
             recursive_directories = True
-        elif argument == '--continue-on-error':
-            continue_on_error = True
         else:
             deducables.append(argument)
     
@@ -125,5 +122,4 @@ if __name__ == "__main__":
             deduce_directory(deducable, recursive_directories)
         else:
             print(deducable, "was not found!")
-            if not continue_on_error:
-                exit(1)
+            exit(1)
