@@ -16,6 +16,7 @@ from abstract_syntax import *
 from error import error, warning, get_verbose, set_verbose
 
 imported_modules = set()
+checked_modules = set()
 
 name_id = 0
 
@@ -2045,8 +2046,11 @@ def process_declaration(stmt, env):
 
           for s in ast3:
             env = collect_env(s, env)
-          for s in ast3:
-            check_proofs(s, env)
+            
+          if name not in checked_modules:
+            for s in ast3:
+              check_proofs(s, env)
+            checked_modules.add(name)  
 
           return Import(loc, name, ast3), env
   
@@ -2225,7 +2229,7 @@ def uniquify_deduce(ast):
   for s in ast:
     s.uniquify_body(env)
 
-def check_deduce(ast):
+def check_deduce(ast, module_name):
   env = Env()
   ast2 = []
   imported_modules.clear()
@@ -2254,6 +2258,8 @@ def check_deduce(ast):
       print('--------- Proof Checking ------------------------')
   for s in ast3:
     env = collect_env(s, env)
-  for s in ast3:
-    check_proofs(s, env)
-  
+    
+  if module_name not in checked_modules:
+    for s in ast3:
+      check_proofs(s, env)
+    checked_modules.add(module_name)  
