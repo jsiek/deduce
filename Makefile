@@ -1,4 +1,4 @@
-PYTHON = $(shell command -v python3)
+PYTHON = $(shell command -v python3.11)
 
 TEST_PASS_DIR = ./test/should-pass/*.pf
 TEST_ERROR_DIR = ./test/should-error/*.pf
@@ -11,7 +11,7 @@ tests-should-pass:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR)
 
 tests-should-error:
-	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) -error
+	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) --error
 
 
 tests-lib: 
