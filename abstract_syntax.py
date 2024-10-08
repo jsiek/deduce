@@ -495,6 +495,8 @@ class Var(Term):
   def __str__(self):
       if base_name(self.name) == 'zero':
         return '0'
+      elif base_name(self.name) == 'empty':
+          return '[]'
       elif get_verbose():
         return self.name
       else:
@@ -729,6 +731,8 @@ class Call(Term):
         + " " + op_arg_str(self, self.args[1])
     elif isNat(self):
       return str(natToInt(self))
+    elif isNodeList(self):
+      return '[' + nodeListToList(self)[:-2] + ']'
     else:
       return str(self.rator) + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
 
@@ -2308,6 +2312,34 @@ def constructor_conflict(term1, term2, env):
     case (Bool(_, tyof1, False), Bool(_, tyof2, True)):
       return True
   return False
+
+def isNodeList(t):
+  match t:
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True) if base_name(name) == 'empty':
+        return True
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True), [arg, ls], infix) if base_name(name) == 'node':
+        return isNodeList(ls)
+    case _:
+      return False
+    
+def nodeListToList(t):
+  match t:
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True) if base_name(name) == 'empty':
+      return ''
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True), [arg, ls], infix) if base_name(name) == 'node':
+      return str(arg) + ', ' + nodeListToList(ls)
+
+def mkEmpty(loc):
+  return Var(loc, None, 'empty')
+
+def mkNode(loc, arg, ls):
+  return Call(loc, None, Var(loc, None, 'node'), [arg, ls], False)
+
+def listToNodeList(loc, lst):
+  if lst == []:
+    return mkEmpty(loc)
+  else:
+    return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))
     
 @dataclass
 class Binding(AST):
