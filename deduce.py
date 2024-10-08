@@ -1,6 +1,6 @@
 from error import set_verbose, get_verbose
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules
+from abstract_syntax import add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module
 import sys
 import os
 import parser
@@ -37,9 +37,9 @@ def deduce_file(filename, error_expected):
                 print("abstract syntax tree:\n"+'\n'.join([str(s) for s in ast])+"\n\n")
                 print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
             uniquify_deduce(ast)
-            
             if get_verbose():
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
+            add_uniquified_module(module_name, ast)
                 
         check_deduce(ast)
         if error_expected:
@@ -56,7 +56,7 @@ def deduce_file(filename, error_expected):
         else:
             print(str(e))
             # Use the following when debugging internal exceptions -Jeremy
-            #print(traceback.format_exc())
+            # print(traceback.format_exc())
             # for production, exit
             exit(1)
             # during development, reraise

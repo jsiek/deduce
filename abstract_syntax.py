@@ -1980,6 +1980,9 @@ class Theorem(Statement):
     env[self.name] = new_name
     self.name = new_name
 
+  def collect_uniquified_name(self, env):
+    env[base_name(self.name)] = self.name
+    
   def uniquify_body(self, env):
     pass
   
@@ -2026,6 +2029,11 @@ class Union(Statement):
         new_con_name = env[con.name]
       con.name = new_con_name
 
+  def collect_uniquified_name(self, env):
+    env[base_name(self.name)] = self.name
+    for con in self.alternatives:
+        env[base_name(con.name)] = con.name
+      
   def uniquify_body(self, env):
     pass
   
@@ -2095,6 +2103,9 @@ class RecFun(Statement):
       ty.uniquify(body_env)
     self.returns.uniquify(body_env)
 
+  def collect_uniquified_name(self, env):
+    env[base_name(self.name)] = self.name
+    
   def uniquify_body(self, env):
     body_env = copy_dict(env)
     for (old,new) in zip(self.old_type_params, self.type_params):
@@ -2151,7 +2162,10 @@ class Define(Statement):
     else:
       new_name = env[self.name]
     self.name = new_name
-  
+
+  def collect_uniquified_name(self, env):
+    env[base_name(self.name)] = self.name
+    
   def uniquify_body(self, env):
     pass
 
@@ -2160,7 +2174,12 @@ uniquified_modules = {}
 def get_uniquified_modules():
   global uniquified_modules
   return uniquified_modules
-  
+
+def add_uniquified_module(module_name, ast):
+  global uniquified_modules
+  uniquified_modules[module_name] = ast
+
+
 @dataclass
 class Assert(Statement):
   formula : Term
@@ -2206,6 +2225,8 @@ class Import(Statement):
     global uniquified_modules
     if self.name in uniquified_modules.keys():
       self.ast = uniquified_modules[self.name]
+      for s in self.ast:
+        s.collect_uniquified_name(env)
       return env
     else:
       filename = find_file(self.location, self.name)
@@ -2226,7 +2247,12 @@ class Import(Statement):
       for s in self.ast:
         s.uniquify_body(env)
       return env
-  
+
+  def collect_uniquified_name(self, env):
+    if self.ast:
+      for s in self.ast:
+        s.collect_uniquified_name(env)
+    
   def uniquify_body(self, env):
     pass
   
@@ -2379,6 +2405,9 @@ class Env:
     return ',\n'.join(['\t' + k + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
+  def __contains__(self, item):
+    return item in self.dict.keys()
+    
   def proofs_str(self):
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \

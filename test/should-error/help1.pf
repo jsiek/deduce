@@ -1,0 +1,9 @@
+theorem T: false
+proof
+  have x: all P:bool. if P then P by {
+    arbitrary P:bool
+    assume p
+    p
+  }
+  help x
+end
