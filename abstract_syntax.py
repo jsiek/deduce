@@ -2152,9 +2152,6 @@ class Define(Statement):
     pass
 
 uniquified_modules = {}
-module_envs = {}
-need_to_reuniquify = []
-
 
 def get_uniquified_modules():
   global uniquified_modules
@@ -2197,39 +2194,33 @@ def find_file(loc, name):
 class Import(Statement):
   name: str
   ast: AST = None
+
   def __str__(self):
     return 'import ' + self.name
   
   def uniquify(self, env):
     global uniquified_modules
-
     if self.name in uniquified_modules.keys():
-      if self.name in need_to_reuniquify:
-        # print("Importing", module_envs[self.name])
-        env.update(module_envs[self.name])
-        need_to_reuniquify.remove(self.name)
       self.ast = uniquified_modules[self.name]
-
       return env
     else:
       filename = find_file(self.location, self.name)
       file = open(filename, 'r', encoding="utf-8")
       src = file.read()
       file.close()
-      from parser import get_filename, set_filename, parse
+      if get_recursive_descent():
+        from rec_desc_parser import get_filename, set_filename, parse
+      else:
+        from parser import get_filename, set_filename, parse
       old_filename = get_filename()
       set_filename(filename)
       self.ast = parse(src, trace=False)
       uniquified_modules[self.name] = self.ast
       set_filename(old_filename)
-
       for s in self.ast:
         s.uniquify(env)
       for s in self.ast:
         s.uniquify_body(env)
-      
-      module_envs[self.name] = env
-      env.update(env)
       return env
   
   def uniquify_body(self, env):
