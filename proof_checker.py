@@ -2217,6 +2217,9 @@ def check_proofs(stmt, env):
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
       
 def uniquify_deduce(ast):
+  for x in uniquified_modules.keys():
+    need_to_reuniquify.append(x)
+    
   env = {}
   env['≠'] = '≠'
   env['='] = '='
