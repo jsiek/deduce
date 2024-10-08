@@ -686,7 +686,7 @@ def is_recursive(name, typ):
       case Var(l1, tyof, n):
         return name == n
       case TypeInst(l1, ty, type_args):
-        return is_resursive(name, ty)
+        return is_recursive(name, ty)
       case _:
         return False
     
