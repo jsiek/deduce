@@ -1,9 +1,9 @@
-theorem ifftt: true <=> true
+theorem iff1: true <=> true
 proof 
     .
 end
 
-theorem iffff: false <=> false
+theorem iff2: false <=> false
 proof 
     .
 end
