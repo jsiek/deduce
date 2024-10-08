@@ -662,6 +662,17 @@ def parse_proof_hi(token_list, i):
     meta = meta_from_tokens(token, token)
     return (PHole(meta), i)
 
+  elif token.type == 'SORRY':
+    i = i + 1
+    meta = meta_from_tokens(token,token)
+    return (PSorry(meta), i)
+
+  elif token.type == 'HELP':
+    i = i + 1
+    subject, i = parse_proof(token_list, i)
+    meta = meta_from_tokens(token,token_list[i-1])
+    return (PHelpUse(meta, subject), i)
+
   elif token.type == 'REFLEXIVE':
     i = i + 1
     meta = meta_from_tokens(token, token)
