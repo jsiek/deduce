@@ -278,6 +278,8 @@ def parse_term_hi(token_list, i):
 
   elif token.type == 'LSQB':
     i = i + 1
+    if token_list[i].type == 'RSQB':
+        return (listToNodeList(meta_from_tokens(token,token), []), i + 1)
     lst_terms = []
     term, i = parse_term(token_list, i)
     lst_terms.append(term)
@@ -1171,6 +1173,10 @@ def parse_pattern(token_list, i):
     i = i + 1
     meta = meta_from_tokens(token_list[i], token_list[i])
     return PatternCons(meta, Var(meta, None, 'zero'), []), i
+  if token_list[i].type == 'LSQB' and token_list[i+1].type == 'RSQB':
+    i = i + 2
+    meta = meta_from_tokens(token_list[i], token_list[i])
+    return PatternCons(meta, Var(meta, None, 'empty'), []), i
   elif token_list[i].type == 'TRUE':
     i = i + 1
     meta = meta_from_tokens(token_list[i], token_list[i])
