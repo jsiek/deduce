@@ -5,7 +5,7 @@ Represent sets as predicates, that is, functions to bool.
 import Base
 
 union Set<T> {
-  char_fun(fn(T) -> bool)
+  char_fun(fn (T) -> bool)
 }
 
 /*
@@ -19,22 +19,22 @@ function rep<T>(Set<T>) -> fn(T)->bool {
   rep(char_fun(f)) = f
 }
 
-define single : < T > fn T -> Set<T>
+define single : fn<T>  T -> Set<T>
          = generic T { λx { char_fun(λy{x = y}) } }
 
-define operator ∪ : < T > fn Set<T>, Set<T> -> Set<T>
+define operator ∪ : fn<T>  Set<T>, Set<T> -> Set<T>
          = generic T { λP,Q{ char_fun(λx{ rep(P)(x) or rep(Q)(x) }) } }
 
-define operator ∩ : < T > fn Set<T>, Set<T> -> Set<T>
+define operator ∩ : fn<T>  Set<T>, Set<T> -> Set<T>
          = generic T { λP,Q{ char_fun(λx{ rep(P)(x) and rep(Q)(x) }) } }
 
-define operator ∈ : < T > fn T, Set<T> -> bool
+define operator ∈ : fn<T> T, Set<T> -> bool
          = generic T { λx,S{ rep(S)(x) } }
 
-define operator ⊆ : < T > fn Set<T>, Set<T> -> bool
+define operator ⊆ : fn<T> Set<T>, Set<T> -> bool
          = generic T { λP,Q{all x:T. if x ∈ P then x ∈ Q} }
 
-theorem single_member: all T:type. all x:T.  x ∈ single(x)
+theorem single_member: <T> all x:T.  x ∈ single(x)
 proof
   arbitrary T:type
   arbitrary x:T
@@ -93,16 +93,16 @@ end
 
 // testing alternate syntax for ∅
 theorem union_empty: all T:type. all A:Set<T>.
-  A ∪ [0] = A
+  A ∪ .0. = A
 proof
   arbitrary T:type
   arbitrary A:Set<T>
   suffices A ∪ @char_fun<T>(λ_{false}) = A   by .
-  suffices @char_fun<T>(λx{rep(A)(x)}) = A   with definition {operator ∪, rep}
+  suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep}
   switch A {
     case char_fun(f) {
       have eq: (λx{f(x)} : fn T->bool) = f   by extensionality arbitrary x:T.
-      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   with definition rep
+      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   by definition rep
       rewrite eq
     }
   }

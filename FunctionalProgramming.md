@@ -297,7 +297,7 @@ Generic functions that are not recursive can be defined using a
 combination of `define`, `generic`, and λ.
 
 ```{.deduce #head}
-define head : < T > fn List<T> -> Option<T> =
+define head : fn<T> List<T> -> Option<T> =
   generic T { λ ls { 
 	  switch ls {
 		case empty { none }

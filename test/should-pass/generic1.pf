@@ -1,0 +1,8 @@
+define some_equal : fn<T> T -> bool
+         = generic T { λ y { some x:T. x = y } }
+
+theorem T: some_equal(true)
+proof
+  suffices some x:bool. x = true  by definition some_equal
+  choose true.
+end

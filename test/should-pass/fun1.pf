@@ -1,0 +1,8 @@
+import Nat
+
+define f = (λm{m} : fn Nat->Nat)
+
+theorem T: f(0) = 0
+proof
+  definition f
+end

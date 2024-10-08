@@ -44,7 +44,7 @@ assert interval(3, 3) = node(3, node(4, node(5, empty)))
 assert (node(1, empty) ++ node(2, empty)) ++ node(3, empty)
      = node(1, empty) ++ (node(2, empty) ++ node(3, empty))
 
-assert (id_nat [o] id_nat)(zero) = zero
+assert (id_nat .o. id_nat)(zero) = zero
 
 assert length(@empty<Nat>) = 0
 assert length(node(42, empty)) = 1

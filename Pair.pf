@@ -10,6 +10,6 @@ function second<T,U>(Pair<T,U>) -> U {
   second(pair(x,y)) = y
 }
 
-define pairfun : < T1,T2,U1,U2 > fn (fn T1->T2), (fn U1->U2)
+define pairfun : fn<T1,T2,U1,U2>  (fn T1->T2), (fn U1->U2)
    -> (fn Pair<T1,U1> -> Pair<T2,U2>)
    = generic T1,T2,U1,U2 { λf,g{ λp{ pair(f(first(p)), g(second(p))) } } }

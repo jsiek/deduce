@@ -1,7 +1,7 @@
 from abstract_syntax import *
 import dataclasses
 from dataclasses import dataclass
-from lark import Lark, Token, Tree, logger
+from lark import Lark, Token, Tree, logger, exceptions
 from error import *
 
 from lark import logger
@@ -84,20 +84,6 @@ def parse_tree_to_list(e, parent):
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
-def extract_and(frm):
-    match frm:
-      case And(loc, tyof, args):
-        return args
-      case _:
-       return [frm]
-
-def extract_or(frm):
-    match frm:
-      case Or(loc, tyof, args):
-        return args
-      case _:
-       return [frm]
-
 def parse_tree_to_case(e):
     tag = str(e.children[0].value)
     body = parse_tree_to_ast(e.children[1], e)
@@ -159,6 +145,11 @@ def parse_tree_to_ast(e, parent):
        return IfThen(e.meta, None,
                      parse_tree_to_ast(e.children[0], e),
                      parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'iff_formula':
+        left = parse_tree_to_ast(e.children[0], e)
+        right = parse_tree_to_ast(e.children[1], e)
+        return And(e.meta, None, extract_and(IfThen(e.meta, None, left.copy(), right.copy())) 
+                               + extract_and(IfThen(e.meta, None, right.copy(), left.copy())))
     elif e.data == 'and_formula':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
@@ -227,6 +218,8 @@ def parse_tree_to_ast(e, parent):
         return intToNat(e.meta, int(e.children[0]))
     elif e.data == 'hole_term':
         return Hole(e.meta, None)
+    elif e.data == 'omitted_term':
+        return Omitted(e.meta, None)
     elif e.data == 'ident':
         return str(e.children[0].value)
     elif e.data == 'ident_div':
@@ -260,10 +253,10 @@ def parse_tree_to_ast(e, parent):
                     Var(e.meta, None, 'char_fun'),
                     [Lambda(e.meta, None, ['_'], Bool(e.meta, None, False))],
                     False)
-    elif e.data == 'field_access':
-        subject = parse_tree_to_ast(e.children[0], e)
-        field_name = str(e.children[1].value)
-        return FieldAccess(e.meta, None, subject, field_name)
+    # elif e.data == 'field_access':
+        # subject = parse_tree_to_ast(e.children[0], e)
+        # field_name = str(e.children[1].value)
+        # return FieldAccess(e.meta, None, subject, field_name)
     elif e.data == 'call':
         rator = parse_tree_to_ast(e.children[0], e)
         rands = parse_tree_to_list(e.children[1], e)
@@ -356,37 +349,6 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         parse_tree_to_ast(e.children[2], e))
-    elif e.data == 'suffices_def_rewrite':
-        claim = parse_tree_to_ast(e.children[0], e)
-        defs = parse_tree_to_list(e.children[1], e)
-        definitions = [Var(e.meta, None, x) for x in defs]
-        eqns = parse_tree_to_list(e.children[2], e)
-        rest = parse_tree_to_ast(e.children[3], e)
-        return SufficesDefRewrite(e.meta, claim, definitions, eqns, rest)
-    elif e.data == 'suffices_def_one_rewrite':
-        claim = parse_tree_to_ast(e.children[0], e)
-        definitions = [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))]
-        eqns = parse_tree_to_list(e.children[2], e)
-        rest = parse_tree_to_ast(e.children[3], e)
-        return SufficesDefRewrite(e.meta, claim, definitions, eqns, rest)
-    elif e.data == 'suffices_def':
-        claim = parse_tree_to_ast(e.children[0], e)
-        defs = parse_tree_to_list(e.children[1], e)
-        definitions = [Var(e.meta, None, x) for x in defs]
-        rest = parse_tree_to_ast(e.children[2], e)
-        return SufficesDefRewrite(e.meta, claim, definitions, [], rest)
-    elif e.data == 'suffices_def_one':
-        return SufficesDefRewrite(e.meta,
-                                  parse_tree_to_ast(e.children[0], e),
-                                  [Var(e.meta, None, parse_tree_to_ast(e.children[1], e))],
-                                  [],
-                                  parse_tree_to_ast(e.children[2], e))
-    elif e.data == 'suffices_rewrite':
-        return SufficesDefRewrite(e.meta,
-                                  parse_tree_to_ast(e.children[0], e),
-                                  [],
-                                  parse_tree_to_list(e.children[1], e),
-                                  parse_tree_to_ast(e.children[2], e))
     elif e.data == 'term_proof':
         return PTerm(e.meta,
                      parse_tree_to_ast(e.children[0], e),
@@ -567,8 +529,7 @@ def parse_tree_to_ast(e, parent):
             eqs.append((lhs, rhs, reason))
         result = None
         for (lhs, rhs, reason) in reversed(eqs):
-            
-            num_marks = count_marks(rhs)
+            num_marks = count_marks(lhs) + count_marks(rhs)
             if num_marks == 0 and get_default_mark_LHS():
                 new_lhs = Mark(e.meta, None, lhs)
             else:
@@ -580,6 +541,8 @@ def parse_tree_to_ast(e, parent):
             else:
                 result = PTransitive(e.meta, eq_proof, result)
         return result
+    elif e.data == 'ident_proof_error':
+        error(e.meta, "parsing error: " + repr(e))
     
     # constructor declaration
     elif e.data == 'constr_id':
@@ -621,7 +584,9 @@ def parse_tree_to_ast(e, parent):
         return PatternBool(e.meta, False)
     elif e.data == 'pattern_apply':
         params = parse_tree_to_list(e.children[1], e)
-        return PatternCons(e.meta, Var(e.meta, None, str(e.children[0].value)), params)
+        return PatternCons(e.meta,
+                           Var(e.meta, None, str(e.children[0].value)),
+                           params)
     
     # case of a recursive function
     elif e.data == 'fun_case':
@@ -665,14 +630,22 @@ def parse_tree_to_ast(e, parent):
     else:
         raise Exception('unhandled parse tree', e)
 
-def parse(s, trace = False):
-    lexed = lark_parser.lex(s)
+def token_str(token, program_text):
+    return program_text[token.start_pos:token.end_pos]
+
+def parse(program_text, trace = False, error_expected = False):
+  try:    
+    # if trace:
+    #     print('lexing!')
+    # lexed = lark_parser.lex(program_text)
+    # if trace:
+    #     print('tokens: ')
+    #     for word in lexed:
+    #         print(repr(word))
+    #     print('')
     if trace:
-        print('tokens: ')
-        for word in lexed:
-            print(repr(word))
-        print('')
-    parse_tree = lark_parser.parse(s)
+        print('parsing!')
+    parse_tree = lark_parser.parse(program_text)
     if trace:
         print('parse tree: ')
         print(parse_tree)
@@ -683,3 +656,15 @@ def parse(s, trace = False):
         print(ast)
         print('')
     return ast
+
+  except exceptions.UnexpectedToken as t:
+      if error_expected:
+          raise Exception()
+      else:
+          print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
+                + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
+                + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n' \
+                + "(The error may be immediately before this token.)")
+
+          exit(1)
+        

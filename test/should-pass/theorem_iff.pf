@@ -1,0 +1,13 @@
+theorem iff_trans : all x : bool, y : bool, z : bool.
+  if (x <=> y) and (y <=> z) then (x <=> z)
+proof
+  arbitrary x:bool, y:bool, z:bool
+  suppose label
+  have xtz : if x then z
+    by suppose px
+      apply label to (apply label to px)
+  have ztx : if z then x
+    by suppose pz
+        apply label to (apply label to pz)
+  ztx, xtz
+end

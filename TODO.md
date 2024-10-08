@@ -28,6 +28,8 @@
 	[ ] error (halt with message)
 	[ ] loops?
 
+[ ] Display overview of test results after running
+
 [ ] create student exercises
 
 [ ] specify number of unfoldings in definition

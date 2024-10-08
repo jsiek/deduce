@@ -1,0 +1,14 @@
+
+theorem T: all P:bool, Q:bool.
+  if Q = P and P
+  then Q and Q
+proof
+  arbitrary P:bool, Q:bool
+  suppose prem: (Q = P and P)
+  have q_p: Q = P
+    by prem
+  conclude Q and {Q} by
+  suffices {Q} and P    by rewrite q_p
+  suffices P and P      by rewrite q_p
+  prem
+end

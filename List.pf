@@ -31,7 +31,7 @@ function set_of<T>(List<T>) -> Set<T> {
 }
 
 function mset_of<T>(List<T>) -> MultiSet<T> {
-  mset_of(empty) = m_fun(λ{0})
+  mset_of(empty) = m_fun(λx{0})
   mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
 }
 
@@ -58,9 +58,9 @@ function down_from(Nat) -> List<Nat> {
 define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
 
 function range_aux(Nat, Nat, Nat) -> List<Nat> {
-  range_aux(0, end, k) = map(up_to(end), (λ x { x + k }) : fn Nat->Nat)
-  range_aux(suc(begin'), end, k) =
-    switch end {
+  range_aux(0, nd, k) = map(up_to(nd), (λ x { x + k }) : fn Nat->Nat)
+  range_aux(suc(begin'), nd, k) =
+    switch nd {
       case zero { empty } /* shouldn't happen */
       case suc(end') { range_aux(begin', end', suc(k)) }
     }
@@ -150,9 +150,10 @@ function drop<T>(Nat, List<T>) -> List<T> {
     }
 }
 
-define flip : < T,U,V > fn (fn T,U->V) ->(fn U,T->V)
+define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
   = generic T,U,V { λf{ λx,y{ f(y,x) }}}
 
+// aka. itrev
 function rev_app<T>(List<T>, List<T>) -> List<T> {
   rev_app(empty, ys) = ys
   rev_app(node(x, xs), ys) = rev_app(xs, node(x, ys))
@@ -228,7 +229,7 @@ theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
   (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
 proof
   arbitrary U :type
-  enable operator++
+  enable {operator++}
   induction List<U>
   case empty {
     arbitrary ys :List<U>, zs :List<U>
@@ -358,7 +359,7 @@ proof
       map(map(node(x,ls),f),g)
 	  = node(g(f(x)), map(map(ls, f), g))  by .
       ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite IH
-      ... = map(node(x,ls), g [o] f)           by .
+      ... = map(node(x,ls), g .o. f)           by .
   }
 end
 
@@ -416,10 +417,8 @@ proof
   case node(x, xs') suppose IH: if all_elements(xs',P) then filter(xs',P) = xs' {
     suppose Pxs: all_elements(node(x,xs'),P)
     have Px: P(x) by definition all_elements in Pxs
-    suffices (if P(x) then node(x,filter(xs',P)) else filter(xs',P)) = node(x,xs')
-        by definition filter
     suffices node(x,filter(xs',P)) = node(x,xs')
-        by rewrite (apply eq_true to Px)
+        by definition filter and rewrite (apply eq_true to Px)
     have Pxs': all_elements(xs',P) by definition all_elements in Pxs
     have IH': filter(xs',P) = xs' by apply IH to Pxs'
     rewrite IH'
@@ -505,7 +504,8 @@ proof
   suppose prem: all_elements(xs,P) and all z:T. (if P(z) then Q(z))
   have Pxs: (all x:T. if x ∈ set_of(xs) then P(x))
     by rewrite all_elements_eq_member<T>[xs,P] in (conjunct 0 of prem)
-  _rewrite all_elements_eq_member<T>[xs,Q]
+  suffices all x:T. (if x ∈ set_of(xs) then Q(x))
+      by rewrite all_elements_eq_member<T>[xs,Q]
   arbitrary y:T
   suppose y_xs
   have Py: P(y) by apply Pxs[y] to y_xs
@@ -567,7 +567,7 @@ proof
   arbitrary T:type
   induction List<T>
   case empty {
-    suffices char_fun(λx{(if cnt(m_fun(λ{0}:fn T->Nat))(x) = 0
+    suffices char_fun(λx{(if cnt(m_fun(λx{0}:fn T->Nat))(x) = 0
                           then false else true)} : fn T->bool)
            = char_fun(λ_{false})
         by definition {mset_of, set_of, set_of_mset}
@@ -651,8 +651,8 @@ proof
   arbitrary T:type
   arbitrary xs:List<T>, ys:List<T>, P:fn T -> bool
   suppose xs_ys
-  _rewrite all_elements_eq_member<T>[xs,P] | all_elements_eq_member<T>[ys,P]
-  _rewrite xs_ys.
+  rewrite all_elements_eq_member<T>[xs,P] | all_elements_eq_member<T>[ys,P]
+  | xs_ys
 end
 
 theorem set_of_append: all T:type. all xs:List<T>.
@@ -669,9 +669,9 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>
-    _definition {operator++, set_of}
-    _rewrite IH[ys]
-    _rewrite union_assoc<T>[single(x), set_of(xs'), set_of(ys)].
+    definition {operator++, set_of}
+    and rewrite IH[ys]
+    | union_assoc<T>[single(x), set_of(xs'), set_of(ys)]
   }
 end
 
@@ -683,8 +683,9 @@ proof
   arbitrary T:type arbitrary xs:List<T>
   arbitrary ys:List<T>, P:fn T -> bool
   suppose prem
-  _rewrite all_elements_eq_member<T>[xs ++ ys, P]
-  _rewrite set_of_append<T>[xs][ys]
+  suffices all x:T. (if x ∈ set_of(xs) ∪ set_of(ys) then P(x))
+      by rewrite all_elements_eq_member<T>[xs ++ ys, P]
+         | set_of_append<T>[xs][ys]
   arbitrary x:T
   suppose x_xs_ys
   have x_xs_or_x_ys: x ∈ set_of(xs) or x ∈ set_of(ys)
@@ -707,13 +708,13 @@ proof
   induction List<E>
   case empty {
     arbitrary ys:List<E>
-    _definition {length, operator++, take}.
+    definition {length, operator++, take}
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
-    _definition {length, operator++, operator+, take}
-    _rewrite zero_add[length(xs')]
-    _rewrite IH[ys].
+    definition {length, operator++, operator+, take}
+    and rewrite zero_add[length(xs')]
+    | IH[ys]
   }
 end
 
@@ -724,22 +725,23 @@ proof
   induction Nat
   case zero {
     arbitrary xs:List<T>, i:Nat, d:T
-    _definition {drop, operator+}.
+    definition {drop, operator+}
   }
   case suc(n') suppose IH {
     arbitrary xs:List<T>, i:Nat, d:T
-    _definition drop
-    switch xs {
+    switch xs for drop {
       case empty {
-        _definition nth.
+        definition nth
       }
       case node(x, xs') {
-	_definition nth
 	have nsz: not (suc(n') + i = 0) by
 	  suppose sz conclude false by definition operator + in sz
-	_rewrite (apply eq_false to nsz)
-	_definition {operator +, pred}
-	conclude nth(drop(n',xs'),d)(i) = nth(xs',d)(n' + i) by IH[xs',i,d]
+	suffices nth(drop(n', xs'), d)(i) = nth(xs', d)(pred(suc(n') + i))
+           by definition nth
+	      and rewrite (apply eq_false to nsz)
+	suffices nth(drop(n', xs'), d)(i) = nth(xs', d)(n' + i)
+           by definition {operator +, pred}
+	IH[xs',i,d]
       }
     }
   }
@@ -759,13 +761,13 @@ proof
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
     suppose i_xxs: i < length(node(x,xs))
-    _definition operator++
     switch i {
       case zero {
-        definition nth
+        definition {operator++,nth}
       }
       case suc(i') suppose i_si {
-        _definition {nth, pred}
+        suffices nth(xs ++ ys, d)(i') = nth(xs, d)(i')
+           by definition {operator++, nth, pred}
 	have i_xs: i' < length(xs) by
 	    enable {operator <, operator ≤}
 	    conclude i' < length(xs)
@@ -784,15 +786,17 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat, d:T
-    _definition {operator++, length, operator +}.
+    definition {operator++, length, operator +}
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
-    _definition {operator++,length, nth}
     have X: not ((1 + length(xs)) + i = 0)
-      by suppose eq_z enable operator + conclude false by eq_z
-    _rewrite (apply eq_false to X)
-    _definition {operator +, pred, operator+}
+      by suppose eq_z enable {operator +} conclude false by eq_z
+    suffices nth(xs ++ ys, d)(pred((1 + length(xs)) + i)) = nth(ys, d)(i)
+       by definition {operator++,length, nth}
+          and rewrite (apply eq_false to X)
+    suffices nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i)
+       by definition {operator +, pred, operator+}
     IH[ys, i, d]
   }
 end
@@ -808,12 +812,13 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>
-    _definition {rev_app, reverse}
+    suffices rev_app(xs', node(x, ys)) = (reverse(xs') ++ node(x, empty)) ++ ys
+       by definition {rev_app, reverse}
     equations
       rev_app(xs', node(x,ys))
           = reverse(xs') ++ node(x,ys) by IH[node(x,ys)]
       ... = reverse(xs') ++ { (node(x,empty) ++ ys) }
-            by _definition {operator++,operator++}.
+            by definition {operator++,operator++}
       ... = (reverse(xs') ++ node(x,empty)) ++ ys
             by symmetric append_assoc<T>[reverse(xs')][node(x,empty),ys]
   }
@@ -827,13 +832,14 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, b:T, f:fn T,T->T
-    _definition {rev_app,foldl}.
+    definition {rev_app,foldl}
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>, b:T, f:fn T,T->T
-    _definition {rev_app}
-    _rewrite IH[node(x,ys),b,f]
-    _definition {foldl,flip,foldr}.
+    suffices foldl(xs', foldr(node(x, ys), b, f), flip(f))
+           = foldl(xs', flip(f)(foldr(ys, b, f), x), flip(f))
+       by definition {rev_app,foldl} and rewrite IH[node(x,ys),b,f]
+    definition {foldr,flip}
   }
 end
 
@@ -844,7 +850,7 @@ proof
   arbitrary f:fn T,T->T
   extensionality
   arbitrary x:T, y:T
-  _definition flip.
+  definition flip
 end
 
 theorem foldl_foldr:
@@ -856,13 +862,13 @@ proof
   equations
     foldl(xs, b, f)
         ={ foldl(xs,foldr(@empty<T>, b, flip(f)), flip(flip(f))) }
-              by _definition foldr _rewrite flip_flip<T>[f].
+              by definition foldr and rewrite flip_flip<T>[f]
     ... = foldr(rev_app(xs,empty),b,flip(f))
               by symmetric foldr_rev_app_foldl<T>[xs][empty,b,flip(f)]
     ... = foldr(reverse(xs) ++ empty, b, flip(f))
-              by _rewrite rev_app_reverse_append<T>[xs][empty].
+              by rewrite rev_app_reverse_append<T>[xs][empty]
     ... = foldr(reverse(xs), b, flip(f)) 
-             by _rewrite append_empty<T>[reverse(xs)].
+             by rewrite append_empty<T>[reverse(xs)]
 end
 
 theorem mset_equal_implies_set_equal: all T:type. all xs:List<T>, ys:List<T>.
@@ -876,7 +882,7 @@ proof
     set_of(xs) = set_of_mset(mset_of(xs))
                by symmetric som_mset_eq_set<T>[xs]
            ... = set_of_mset(mset_of(ys))
-               by _rewrite xs_ys.
+               by rewrite xs_ys
 	   ... = set_of(ys)
                by som_mset_eq_set<T>[ys]
 end
@@ -952,11 +958,10 @@ proof
   arbitrary z:ListZipper<T>
   switch z {
     case mkZip(ctx, ls) {
-      _definition zip_left
       switch ctx {
-        case empty { . }
+        case empty { definition zip_left }
 	case node(x,ctx') {
-	  _definition {zip2list, rev_app}.
+	  definition {zip2list, rev_app, zip_left}
 	}
       }
     }
@@ -970,11 +975,10 @@ proof
   arbitrary z:ListZipper<T>
   switch z {
     case mkZip(ctx, ls) {
-      _definition zip_right
       switch ls {
-        case empty { . }
+        case empty { definition zip_right }
 	case node(x,ls') {
-	  _definition {zip2list, rev_app}.
+	  definition {zip_right, zip2list, rev_app}
 	}
       }
     }

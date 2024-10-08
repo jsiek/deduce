@@ -9,11 +9,16 @@ WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
-?term: term "and" term_compare                    -> and_formula
-    | term "or" term_compare                      -> or_formula
-    | term ":" type                           -> annote_type
-    | "if" term "then" term "else" term       -> conditional
-    | "if" term "then" term                  -> if_then_formula
+?term: term "iff" term_log                            -> iff_formula
+    | term "<=>" term_log                            -> iff_formula
+    | term "⇔" term_log                            -> iff_formula
+    | term_log
+
+?term_log: term_log "and" term_compare                    -> and_formula
+    | term_log "or" term_compare                      -> or_formula
+    | term_log ":" type                           -> annote_type
+    | "if" term_log "then" term_log "else" term_log       -> conditional
+    | "if" term_log "then" term_log                  -> if_then_formula
     | term_compare
 
 ?term_compare: term_compare "=" term_add             -> equal
@@ -37,7 +42,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med "∩" term_add                        -> intersect
     | term_med "&" term_add                        -> intersect
     | term_med "⨄" term_add                        -> multiset_sum
-    | term_med "[+]" term_add                      -> multiset_sum
+    | term_med ".+." term_add                      -> multiset_sum
     | term_med "++" term_add                       -> append
     | term_add "-" term_med                        -> sub
     | term_med
@@ -46,7 +51,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med "%" term_hi                         -> mod
     | term_hi "*" term_med                         -> mul
     | term_med "∘" term_hi                         -> circ
-    | term_med "[o]" term_hi                        -> circ
+    | term_med ".o." term_hi                        -> circ
     | term_hi
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
@@ -61,8 +66,8 @@ ident: IDENT              -> ident
     | "operator" "|"      -> ident_union
     | "operator" "&"      -> ident_interesect
     | "operator" "in"      -> ident_member
-    | "operator" "[+]"      -> ident_multiset_sum
-    | "operator" "[o]"      -> ident_circ
+    | "operator" ".+."      -> ident_multiset_sum
+    | "operator" ".o."      -> ident_circ
     | "operator" "(="      -> ident_subset_equal
     | "operator" "<="      -> ident_less_equal
     | "operator" ">="      -> ident_greater_equal
@@ -72,7 +77,7 @@ ident: IDENT              -> ident
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal
     | "∅"                                          -> emptyset_literal
-    | "[0]"                                        -> emptyset_literal
+    | ".0."                                        -> emptyset_literal
     | "-" term_hi                                  -> neg
     | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var
@@ -87,6 +92,7 @@ ident: IDENT              -> ident
     | "some" var_list "." term                     -> some_formula
     | "define" IDENT "=" term term                 -> define_term
     | "?"                                          -> hole_term
+    | "─"                                          -> omitted_term
     | "(" term ")"                                 -> paren
     | "{" term "}"                                 -> mark
     | "%" type
@@ -111,6 +117,7 @@ ident: IDENT              -> ident
 
 ?ind_case: "case" pattern "{" proof "}"            -> ind_case
     | "case" pattern "suppose" assumption_list "{" proof "}" -> ind_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}" -> ind_case_assume
 
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push
@@ -132,20 +139,15 @@ ident: IDENT              -> ident
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
 
-?proof: "conclude" term "by" proof                         -> annot
+?proof: "conclude" term "by" proof                       -> annot
     | "suffices" term "by" proof proof                   -> suffices
-    | "suffices" term "with" "definition" "{" ident_list "}" proof -> suffices_def
-    | "suffices" term "with" "definition" ident proof    -> suffices_def_one
-    | "suffices" term "with" "rewrite" proof_list proof  -> suffices_rewrite
-    | "suffices" term "with" "definition" "{" ident_list "}" "and" "rewrite" proof_list proof -> suffices_def_rewrite
-    | "suffices" term "with" "definition" ident "and" "rewrite" proof_list proof -> suffices_def_one_rewrite    
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
     | "suppose" IDENT proof                              -> imp_intro
     | "suppose" IDENT ":" term proof                     -> imp_intro_explicit
-    | "assume" IDENT proof                              -> imp_intro
-    | "assume" IDENT ":" term proof                     -> imp_intro_explicit
+    | "assume" IDENT proof                               -> imp_intro
+    | "assume" IDENT ":" term proof                      -> imp_intro_explicit
     | "arbitrary"  var_list proof                        -> all_intro
     | "choose" term_list proof                           -> some_intro
     | "obtain" ident_list "where" IDENT "from" proof proof -> some_elim
@@ -198,8 +200,8 @@ ident: IDENT              -> ident
 ?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
  | "lemma" IDENT ":" term "proof" proof "end"          -> lemma
 
-?type: type_params_opt "fn" type_list "->" type        -> function_type
- | IDENT "<" type_list ">"                                -> type_inst
+?type: "fn" type_params_opt type_list "->" type        -> function_type
+ | IDENT "<" type_list ">"                             -> type_inst
  | type_hi
 
 ?type_hi: IDENT   -> type_name

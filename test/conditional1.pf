@@ -1,6 +1,0 @@
-import Nat
-
-theorem T1: if 0 ≤ 1 then true else false
-proof
-  _definition operator ≤.
-end

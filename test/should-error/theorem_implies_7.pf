@@ -1,0 +1,19 @@
+theorem T: all P:bool, Q:bool, R:bool.
+  if (P and Q and R) then ((if P then Q) and (if Q then R))
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  suppose prem
+  have ptq : if P then Q by suppose P prem
+  have qtr : if Q then R by suppose Q prem
+  ptq, qtr
+end
+
+
+theorem t2: all P:bool, Q:bool, R:bool.
+  if (P and Q and R) then P and R
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  suppose prem : P and Q and R
+  have step : (if P then Q) and (if Q then R) by apply T[P, Q, R] to prem
+  apply step to prem
+end

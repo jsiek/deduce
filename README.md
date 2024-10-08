@@ -1,3 +1,6 @@
+# Deduce 
+
+![Deduce logo: blue and purple hippo](logos/Main-Logo.svg)
 Deduce is an automated proof checker meant for use in education. The
 intended audience is students with (roughly) the following background
 knowledge and skills:
@@ -17,13 +20,15 @@ programs, so it serves as a better starting place educationally, and
 understood, so it's straightforward to build and maintain the Deduce
 proof checker.
 
+## Proof Example
+
 As a taster for what it looks like to write proofs in Deduce, the
 following is a proof that appending two lists and then applying the
 `map` function is the same as first applying `map` to the two lists
 and then appending them.
 
 ``` {.deduce #map_append}
-theorem map_append: all T : type. all f : fn T->T, ys : List<T>. all xs : List<T>.
+theorem map_append: <T> all f : fn T->T, ys : List<T>. all xs : List<T>.
   map(xs ++ ys, f) = map(xs,f) ++ map(ys,f)
 proof
   arbitrary T : type
@@ -39,16 +44,33 @@ proof
   case node(x, xs')
     suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
   {
-    enable {map, operator++}
     equations
       map(node(x,xs') ++ ys, f)
-          = node(f(x), map(xs' ++ ys, f))         by .
-      ... = node(f(x), map(xs',f) ++ map(ys,f))   by rewrite IH
-      ... = map(node(x,xs'),f) ++ map(ys,f)       by .
+          = map(node(x,xs' ++ ys), f)               by definition operator++
+      ... = node(f(x), map(xs' ++ ys, f))           by definition map
+      ... = node(f(x), map(xs',f) ++ map(ys,f))     by rewrite IH
+      ... ={ node(f(x), map(xs', f)) ++ map(ys,f) } by definition operator++
+      ... ={ map(node(x,xs'),f) ++ map(ys,f) }      by definition map
   }
 end
 ```
+## Installation
 
+You will need [Python](https://www.python.org/) version 3.10 or later.
+Here are some
+[instructions](https://wiki.python.org/moin/BeginnersGuide/Download)
+and links to the download for various systems.
+
+You also need to install the
+[Lark](https://github.com/lark-parser/lark) Parsing library, which you
+can do by running the following command in the same directory as
+`deduce.py`.
+
+```bash
+python -m pip install lark
+```
+
+## Getting Started
 This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
@@ -61,14 +83,16 @@ introduction. Create a file named `examples.pf` in the top `deduce`
 directory and add the examples one at a time. To check the file, run
 the `deduce.py` script on the file from the `deduce` directory.
 
-    python ./deduce.py ./examples.pf
+```bash
+python ./deduce.py ./examples.pf
+```
 
-You will need Python version 3.10 or later.
-You also need to install the Lark Parsing library which
-you can obtain from the following location.
+You can also download one of these extensions for programming in Deduce in some common text editors. 
+- VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode))
+- Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
+- Vim (not now, not ever)
 
-    https://github.com/lark-parser/lark
-
+## Deduce Unicode
 Deduce uses some Unicode characters, but in case it is difficult
 for you to use Unicode, there are regular ASCI equivalents that
 you can use instead.
@@ -82,10 +106,10 @@ you can use instead.
 | ∈       | in   |
 | ∪       | \|   |
 | ∩       | &    |
-| ⨄       | [+]  |
-| ∘       | [o]  |
-| ∅       | [0]  |
-| λ       | fun |
+| ⨄       | .+.  |
+| ∘       | .o.  |
+| ∅       | .0.  |
+| λ       | fun  |
 
 
 <!--  LocalWords:  aka fn ys xs IH pf py NatList builtin suc bool nat
