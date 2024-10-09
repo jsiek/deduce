@@ -116,6 +116,7 @@ We can then construct values of type `NatList` using the constructors
 define NL12 = Node(1, Node(2, Empty))
 ```
 
+### Generic Unions
 Unions may be recursive: a constructor may include a parameter type
 that is the union type, e.g., the `NatList` parameter of
 `Node`. Unions may be generic: one can parameterize a union
@@ -199,6 +200,17 @@ operations on natural numbers and theorems about them.  The numerals
 `0`, `1`, `2`, etc. are shorthand for the natural numbers `zero`,
 `suc(zero)`, `suc(suc(zero))`, etc.
 
+## Lists
+
+Similarly to natural numbers, lists are also defined as a `union` type just like the `List<T>` union type defined [above](###generic-unions).
+
+The file `List.pf` includes that definition as well as operations on lists and theorems about them. Deduce also provides shorthand notation for lists where:
+
+- `[]` is shorthand for `empty`
+- `[1]` is shorthand for `node(1, empty)`
+- `[1, 2]` is shorthand for `node(1, node(2, empty))`
+- etc.
+
 ## Booleans, Conditional Expressions, and Assert
 
 Deduce includes the values `true` and `false` of type
@@ -271,10 +283,10 @@ parameter `ys`, which is accomplished with a `switch` statement.
 
 ```{.deduce #zip_example}
 function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
-  zip(empty, ys) = empty
+  zip(empty, ys) = []
   zip(node(x, xs'), ys) =
     switch ys {
-      case empty { empty }
+      case empty { [] }
       case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
     }
 }
@@ -316,7 +328,7 @@ generic `length` function on an argument of type `List<Nat>`
 and Deduce figures out that the type parameter `E` must be `Nat`.
 
 ```{.deduce #apply_length}
-assert length(node(42, empty)) = 1
+assert length([42]) = 1
 ```
 
 However, there are times when there is not enough information for
@@ -326,14 +338,14 @@ Deduce cannot figure out what type of list is being constructed in the
 following.
 
 ```{.deduce}
-assert length(empty) = 0
+assert length([]) = 0
 ```
 
 Deduce responds with the error:
 
 ```
 Cannot infer type arguments for
-	empty
+	[]
 Please make them explicit.
 ```
 
@@ -343,7 +355,7 @@ with the type arguments surrounded by `<` and `>`. Here's the
 example again with the explicit instantiation.
 
 ```{.deduce #apply_length_empty}
-assert length(@empty<Nat>) = 0
+assert length(@[]<Nat>) = 0
 ```
 
 
@@ -381,7 +393,7 @@ operations on pairs, such as `first` and `second`.
 Define a function named `sum` that adds up all the elements of a `List<Nat>`.
 
 ```{.deduce #test_sum}
-define L13 = node(1, node(2, node(3, empty)))
+define L13 = [1, 2, 3]
 assert sum(L13) = 6
 ```
 
@@ -390,7 +402,7 @@ assert sum(L13) = 6
 Define a function named `dot` that computes the inner product of two `List<Nat>`.
 
 ```{.deduce #test_dot}
-define L46 = node(4, node(5, node(6, empty)))
+define L46 = [4, 5, 6]
 assert dot(L13,L46) = 32
 ```
 
@@ -412,7 +424,7 @@ parameters: (1) a `List<E>` and (2) a function whose parameter is `E`
 and whose return type is `bool`.
 
 ```{.deduce #test_remove_if}
-assert remove_if(L13, λx {x ≤ 1}) = node(2, node(3, empty))
+assert remove_if(L13, λx {x ≤ 1}) = [2, 3]
 ```
 
 ### Non-empty Lists and Average
