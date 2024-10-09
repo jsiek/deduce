@@ -83,8 +83,8 @@ ident: IDENT              -> ident
     | IDENT                                        -> term_var
     | "@" term_hi "<" type_list ">"                -> term_inst
     | term_hi "(" term_list ")"                    -> call
-    | "λ" ident_list "{" term "}"                  -> lambda
-    | "fun" ident_list "{" term "}"                 -> lambda
+    | "λ" var_list "{" term "}"                    -> lambda
+    | "fun" var_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" var_list "." term                      -> all_formula
@@ -108,6 +108,7 @@ ident: IDENT              -> ident
 ?var_list:                                         -> empty_binding
     | ident ":" type                               -> single_binding
     | ident ":" type "," var_list                  -> push_binding
+    | ident "," var_list                           -> push_var
 
 ?assumption_list:                                  -> empty_binding
     | ident ":" term                               -> single_binding

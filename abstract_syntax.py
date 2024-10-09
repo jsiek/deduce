@@ -553,23 +553,24 @@ class Int(Term):
 
 @dataclass
 class Lambda(Term):
-  vars: List[str]
+  vars: List[Tuple[str,Type]]
   body: Term
 
   def copy(self):
     return Lambda(self.location, self.typeof,
-                 [v for v in self.vars],
+                 self.vars,
                  self.body.copy())
   
   def __str__(self):
-    return "λ" + ",".join([base_name(x) for x in self.vars]) \
+    return "λ" + ",".join([base_name(x) + ':' + str(t) if t else base_name(x)\
+                           for (x,t) in self.vars]) \
       + "{" + str(self.body) + "}"
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
           return False
-      ren = {x: Var(self.location, None, y) \
-             for (x,y) in zip(self.vars, other.vars) }
+      ren = {x: Var(self.location, t2, y) \
+             for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
@@ -583,8 +584,11 @@ class Lambda(Term):
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
-    new_vars = [generate_name(x) for x in self.vars]
-    for (old,new) in zip(self.vars, new_vars):
+    for (x,t) in self.vars:
+      if t:
+        t.uniquify(env)
+    new_vars = [(generate_name(x),t) for (x,t) in self.vars]
+    for ((old,t1),(new,t2)) in zip(self.vars, new_vars):
       body_env[old] = new
     self.vars = new_vars
     self.body.uniquify(body_env)
@@ -758,11 +762,11 @@ class Call(Term):
         else:
           ret = Call(self.location, self.typeof, fun, args, self.infix)
       case Lambda(loc, ty, vars, body):
-        subst = {k: v for (k,v) in zip(vars, args)}
+        subst = {k: v for ((k,t),v) in zip(vars, args)}
         body_env = env
         new_body = body.substitute(subst)
         old_defs = get_reduce_only()
-        set_reduce_only(old_defs + [Var(loc, None, x) for x in vars])
+        set_reduce_only(old_defs + [Var(loc, t, x) for (x,t) in vars])
         ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
       case TermInst(loc, tyof, RecFun(loc2, name, typarams, params, returns, cases), type_args):

@@ -155,12 +155,13 @@ def parse_term_hi(token_list, i):
     meta = meta_from_tokens(token, token)
     return (Call(meta, None,
                 Var(meta, None, 'char_fun'),
-                [Lambda(meta, None, ['_'], Bool(meta, None, False))],
+                [Lambda(meta, None, [('_',None)], Bool(meta, None, False))],
                  False), i)
 
   elif token.type == 'FUN' or token.type == 'Λ':
+    start = i
     i = i + 1
-    params, i = parse_ident_list(token_list, i)
+    params, i = parse_var_list(token_list, i)
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
             'expected a `{` after parameters of fun, not\n\t' + token_list[i].value)
@@ -1204,21 +1205,21 @@ def parse_ident_list(token_list, i):
 
 def parse_var_list(token_list, i):
   ident, i = parse_identifier(token_list, i)
-  if token_list[i].type != 'COLON':
-    error(meta_from_tokens(token_list[i],token_list[i]),
-          'expected `:` after variable name')
-  i = i + 1
-  ty, i = parse_type(token_list, i)
+  if token_list[i].type == 'COLON':
+    i = i + 1
+    ty, i = parse_type(token_list, i)
+  else:
+    ty = None
   var_list = [(ident,ty)]
   
   while token_list[i].type == 'COMMA':
     i = i + 1
     ident, i = parse_identifier(token_list, i)
-    if token_list[i].type != 'COLON':
-      error(meta_from_tokens(token_list[i],token_list[i]),
-            'expected `:` after variable name')
-    i = i + 1
-    ty, i = parse_type(token_list, i)
+    if token_list[i].type == 'COLON':
+      i = i + 1
+      ty, i = parse_type(token_list, i)
+    else:
+      ty = None
     var_list.append((ident, ty))
   return var_list, i
   

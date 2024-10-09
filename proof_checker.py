@@ -277,7 +277,7 @@ def isolate_difference(term1, term2):
   else:
     match (term1, term2):
       case (Lambda(l1, tyof1, vs1, body1), Lambda(l2, tyof2, vs2, body2)):
-        ren = {x: Var(l1, None, y) for (x,y) in zip(vs1, vs2)}
+        ren = {x: Var(l1, t2, y) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
         return isolate_difference(body1.substitute(ren), body2)
       case (Call(l1, tyof1, fun1, args1, infix1), Call(l2, tyof2, fun2, args2, infix2)):
         if fun1 == fun2:
@@ -1582,8 +1582,21 @@ def type_synth_term(term, env, recfun, subterms):
     case Generic(loc, _, type_params, body):
       body_env = env.declare_type_vars(loc, type_params)
       new_body = type_synth_term(body, body_env, recfun, subterms)
-      ty = GenericType(loc, type_params, new_body.typeof)
-      ret = Generic(loc, ty, type_params, new_body)
+      match new_body.typeof:
+        case FunctionType(loc2, [], param_types, return_type):
+          ty = FunctionType(loc, type_params, param_types, return_type)
+          ret = Generic(loc, ty, type_params, new_body)
+        case _:
+          error(loc, 'body of generic must be a function, not ' \
+                + str(new_body.typeof))
+
+    case Lambda(loc, _, params, body):
+      vars = [p for (p,t) in params]
+      param_types = [t for (p,t) in params]
+      body_env = env.declare_term_vars(loc, params)
+      new_body = type_synth_term(body, body_env, recfun, subterms)
+      typ = FunctionType(loc, [], param_types, new_body.typeof)
+      return Lambda(loc, typ, params, new_body)
       
     case TLet(loc, _, var, rhs, body):
       new_rhs = type_synth_term(rhs, env, recfun, subterms)
@@ -1799,14 +1812,14 @@ def type_check_term(term, typ, env, recfun, subterms):
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
   
-    case Lambda(loc, _, vars, body):
+    case Lambda(loc, _, params, body):
       match typ:
         case FunctionType(loc, [], param_types, return_type):
-          #body_env = env.declare_type_vars(loc, typarams)
+          vars = [n for (n,t) in params]
           body_env = env.declare_term_vars(loc, zip(vars, param_types))
           new_body = type_check_term(body, return_type, body_env,
                                      recfun, subterms)
-          return Lambda(loc, typ, vars, new_body)
+          return Lambda(loc, typ, params, new_body)
         case _:
           error(loc, 'expected a term of type ' + str(typ) + '\n'\
                 + 'but instead got a lambda')
