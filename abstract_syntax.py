@@ -1502,13 +1502,14 @@ class PTerm(Proof):
     
 @dataclass
 class PFrom(Proof):
-  fact: Formula
+  facts: List[Formula]
   
   def __str__(self):
-      return 'from ' + str(self.fact)
+      return 'from ' + ', '.join([str(f) for f in self.facts])
 
   def uniquify(self, env):
-    self.fact.uniquify(env)
+    for fact in self.facts:
+      fact.uniquify(env)
 
   
 @dataclass

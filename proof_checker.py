@@ -68,6 +68,18 @@ def check_implies(loc, frm1, frm2):
           check_implies(loc, arg1, frm2)
           return
         except Exception as e:
+          # implicit modus ponens
+          match arg1:
+            case IfThen(loc3, tyof3, prem, conc):
+              try:
+                  check_implies(loc, conc, frm2)
+                  rest = And(loc2, tyof2, [arg for arg in args1 if arg != arg1])
+                  check_implies(loc, rest, prem)
+                  return
+              except Exception as e2:
+                  pass
+            case _:
+              pass
           continue
       error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
             + 'implies\n\t' + str(frm2) + '\n' \
@@ -347,12 +359,21 @@ def check_proof(proof, env):
     print('\t' + str(proof))
   ret = None
   match proof:
-    case PFrom(loc, fact):
-      if fact in env.proofs():
-          ret = fact
+    case PFrom(loc, facts):
+      results = []
+      for fact in facts:
+        if fact in env.proofs():
+            results.append(fact)
+        else:
+            error(loc, 'Could not find a proof of\n\t' + str(fact) \
+                  + '\nin the current scope')
+      if len(results) > 1:
+          ret = And(loc, BoolType(loc), results)
+      elif len(results) == 1:
+          ret = results[0]
       else:
-          error(loc, 'Could not find a proof of\n\t' + str(fact) \
-                + '\nin the current scope') 
+          error(loc, 'expected some facts after `from`')
+  
     case ApplyDefsFact(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]
       formula = check_proof(subject, env)

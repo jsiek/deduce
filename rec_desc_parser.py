@@ -394,8 +394,9 @@ def parse_term(token_list, i):
     i = i + 1
     right, i = parse_term_log(token_list, i)
     loc = meta_from_tokens(token, token_list[i-1])
-    term = And(loc, None, extract_and(IfThen(loc, None, term.copy(), right.copy())) 
-                               + extract_and(IfThen(loc, None, right.copy(), term.copy())))
+    left_right = IfThen(loc, None, term.copy(), right.copy())
+    right_left = IfThen(loc, None, right.copy(), term.copy())
+    term = And(loc, None, [left_right, right_left])
   
   if i < len(token_list) and token_list[i].type == 'COLON':
     i = i + 1
@@ -488,8 +489,9 @@ def parse_definition_proof(token_list, i):
 def parse_from(token_list, i):
   start = i
   i = i + 1
-  fact,i = parse_term(token_list, i)
-  return (PFrom(meta_from_tokens(token_list[start], token_list[i-1]), fact), i)
+  facts,i = parse_term_list(token_list, i)
+  meta = meta_from_tokens(token_list[start], token_list[i-1])
+  return (PFrom(meta, facts), i)
   
 def parse_proof_hi(token_list, i):
   token = token_list[i]
