@@ -1454,8 +1454,8 @@ class PLet(Proof):
   body: Proof
 
   def __str__(self):
-      return self.label + ': ' + str(self.proved) + ' by ' \
-        + str(self.because) + '; ' + str(self.body)
+      return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
+        + ' by ' + str(self.because) + '; ' + str(self.body)
 
   def uniquify(self, env):
     self.proved.uniquify(env)
@@ -1473,7 +1473,7 @@ class PTLetNew(Proof):
   body: Proof
 
   def __str__(self):
-      return 'define_ ' + self.var + ' = ' + str(self.rhs) + '\n' \
+      return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
   def uniquify(self, env):
@@ -1500,6 +1500,17 @@ class PTerm(Proof):
     self.body.uniquify(env)
     
     
+@dataclass
+class PFrom(Proof):
+  fact: Formula
+  
+  def __str__(self):
+      return 'from ' + str(self.fact)
+
+  def uniquify(self, env):
+    self.fact.uniquify(env)
+
+  
 @dataclass
 class PAnnot(Proof):
   claim: Formula
@@ -2557,6 +2568,10 @@ class Env:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
 
+  def proofs(self):
+    return [b.formula for (name, b) in self.dict.items() \
+            if isinstance(b, ProofBinding)]
+      
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')

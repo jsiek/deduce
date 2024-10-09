@@ -347,6 +347,12 @@ def check_proof(proof, env):
     print('\t' + str(proof))
   ret = None
   match proof:
+    case PFrom(loc, fact):
+      if fact in env.proofs():
+          ret = fact
+      else:
+          error(loc, 'Could not find a proof of\n\t' + str(fact) \
+                + '\nin the current scope') 
     case ApplyDefsFact(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]
       formula = check_proof(subject, env)

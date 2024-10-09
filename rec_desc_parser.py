@@ -419,7 +419,10 @@ def parse_term_log(token_list, i):
   return term, i
 
 def parse_assumption(token_list, i):
-  label,i = parse_identifier(token_list, i)
+  if token_list[i].type == 'COLON':
+    label = '_'
+  else:
+    label,i = parse_identifier(token_list, i)
   if token_list[i].type == 'COLON':
     i = i + 1
     premise, i = parse_term(token_list, i)
@@ -603,9 +606,18 @@ def parse_proof_hi(token_list, i):
     meta = meta_from_tokens(token, token_list[i-1])
     return (PExtensionality(meta, body), i)
 
+  elif token.type == 'FROM':
+    i = i + 1
+    fact,i = parse_term(token_list, i)
+    return (PFrom(meta_from_tokens(token, token_list[i-1]),
+                  fact), i)
+    
   elif token.type == 'HAVE':
     i = i + 1
-    label,i = parse_identifier(token_list, i)
+    if token_list[i].type != 'COLON':
+      label,i = parse_identifier(token_list, i)
+    else:
+      label = '_'
     if token_list[i].type != 'COLON':
       error(meta_from_tokens(token_list[i], token_list[i]),
             'expected a colon after label of `have`, not\n\t' \
