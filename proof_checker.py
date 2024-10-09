@@ -8,7 +8,12 @@
 # 2. type_check_stmt:
 #    Type check the bodies of functions using the type environment.
 #
-# 3. check_proofs:
+# 3. collect_env:
+#    Collects the proofs (mapping proof labels to their formulas)
+#    and the values (mapping names to their values, for defines a functions)
+#    into an environment.
+#
+# 4. check_proofs:
 #    Check that the proofs follow the rules of logic
 #    and run the print and assert statements.
 
