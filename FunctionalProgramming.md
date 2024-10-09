@@ -202,7 +202,7 @@ operations on natural numbers and theorems about them.  The numerals
 
 ## Lists
 
-Similarly to natural numbers, lists are also defined as a `union` type just like the `List<T>` union type defined [above](###generic-unions).
+Similarly to natural numbers, lists are also defined as a `union` type just like the `List<T>` union type defined [above](#generic-unions).
 
 The file `List.pf` includes that definition as well as operations on lists and theorems about them. Deduce also provides shorthand notation for lists where:
 
