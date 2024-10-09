@@ -1,7 +1,7 @@
 PYTHON = $(shell command -v python3.11)
 
-TEST_PASS_DIR = ./test/should-pass/*.pf
-TEST_ERROR_DIR = ./test/should-error/*.pf
+TEST_PASS_DIR = ./test/should-pass
+TEST_ERROR_DIR = ./test/should-error
 
 default: tests check_docs tests-lib
 
