@@ -68,6 +68,18 @@ def check_implies(loc, frm1, frm2):
           check_implies(loc, arg1, frm2)
           return
         except Exception as e:
+          # implicit modus ponens
+          match arg1:
+            case IfThen(loc3, tyof3, prem, conc):
+              try:
+                  check_implies(loc, conc, frm2)
+                  rest = And(loc2, tyof2, [arg for arg in args1 if arg != arg1])
+                  check_implies(loc, rest, prem)
+                  return
+              except Exception as e2:
+                  pass
+            case _:
+              pass
           continue
       error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
             + 'implies\n\t' + str(frm2) + '\n' \

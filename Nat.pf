@@ -595,7 +595,7 @@ proof
         have: x' ≤ y'
           by definition operator≤ in rewrite y_sy in sx_le_y
         have: x' < y' or x' = y'
-          by apply IH[y'] to (from x' ≤ y')
+          by IH[y'], from x' ≤ y'
         cases (from x' < y' or x' = y')
         case x_l_y {
           have sx_l_sy: suc(x') < suc(y')
@@ -639,7 +639,7 @@ proof
                definition operator ≤ in ssx_sy
         suffices suc(x') ≤ suc(y')   by .
         suffices x' ≤ y'   by definition operator ≤          
-        apply IH[y'] to from x' < y'
+        IH[y'], from x' < y'
       }
     }
   }
@@ -691,7 +691,7 @@ proof
         enable {operator ≤}
         have: x' ≤ y' by rewrite y_suc in sxy_ysx
         have: y' ≤ x' by rewrite y_suc in sxy_ysx
-        have: x' = y' by apply IH[y'] to (from x' ≤ y', y' ≤ x')
+        have: x' = y' by IH[y'], (from x' ≤ y', y' ≤ x')
         conclude suc(x') = suc(y') by rewrite (from x' = y')
       }
     }
@@ -731,8 +731,7 @@ proof
           case suc(o') suppose os {
             have: suc(n') ≤ suc(o')  by rewrite os in (from suc(n') ≤ o)
             have: n' ≤ o'  from suc(n') ≤ suc(o')
-            conclude m' ≤ o'  by apply IH[n',o']
-                                 to (from m' ≤ n', n' ≤ o')
+            conclude m' ≤ o'  by IH[n',o'], from m' ≤ n', n' ≤ o'
           }
         }
       }
@@ -798,21 +797,23 @@ theorem less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose x_l_y: x < y
-  suppose x_y: x = y
-  have y_l_y: y < y by rewrite x_y in x_l_y
-  conclude false by apply less_irreflexive[y] to y_l_y
+  suppose: x < y
+  suppose: x = y
+  have: y < y by rewrite (from x = y) in from x < y
+  have: not (y < y) by less_irreflexive
+  conclude false from y < y, not (y < y)
 end
 
 theorem greater_not_equal: all x:Nat, y:Nat.
   if x > y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose x_g_y: x > y
-  suppose x_y: x = y
-  have y_g_y: y > y  by rewrite x_y in x_g_y
-  have y_l_y: y < y  by definition operator> in y_g_y
-  conclude false by apply less_irreflexive[y] to y_l_y
+  suppose: x > y
+  suppose: x = y
+  have: y > y  by rewrite (from x = y) in (from x > y)
+  have: y < y  by definition operator> in from y > y
+  have: not (y < y) by less_irreflexive
+  conclude false from y < y, not (y < y)
 end
 
 theorem trichotomy:
@@ -825,8 +826,7 @@ proof
     switch y {
       case zero { conclude 0 = 0 by . }
       case suc(y') {
-        enable {operator <, operator ≤, operator ≤}
-        conclude 0 < suc(y') by .
+        conclude 0 < suc(y') by definition {operator <, operator ≤, operator ≤}
       }
     }
   }
