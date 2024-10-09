@@ -716,20 +716,21 @@ proof
     switch n {
       case 0 suppose nz {
         have: suc(m') ≤ 0  by rewrite nz in (from suc(m') ≤ n)
-        conclude false  by (from suc(m') ≤ 0)
+        conclude false  from suc(m') ≤ 0
       }
-      case suc(n') suppose ns {
-        have sm_sn: suc(m') ≤ suc(n')  by rewrite ns in (from suc(m') ≤ n)
+      case suc(n') suppose: n = suc(n') {
+        have sm_sn: suc(m') ≤ suc(n')
+            by rewrite (from n = suc(n')) in (from suc(m') ≤ n)
         have: m' ≤ n'  by sm_sn
-        have: suc(n') ≤ o  by rewrite ns in (from n ≤ o)
+        have: suc(n') ≤ o  by rewrite (from n = suc(n')) in (from n ≤ o)
         switch o {
-          case 0 suppose oz {
-            have: suc(n') ≤ 0  by rewrite oz in (from suc(n') ≤ o)
-            conclude false  by (from suc(n') ≤ 0)
+          case 0 suppose: o = 0 {
+            have: suc(n') ≤ 0  by rewrite (from o = 0) in (from suc(n') ≤ o)
+            conclude false  from suc(n') ≤ 0
           }
           case suc(o') suppose os {
             have: suc(n') ≤ suc(o')  by rewrite os in (from suc(n') ≤ o)
-            have: n' ≤ o'  by from suc(n') ≤ suc(o')
+            have: n' ≤ o'  from suc(n') ≤ suc(o')
             conclude m' ≤ o'  by apply IH[n',o']
                                  to (from m' ≤ n'), (from n' ≤ o')
           }

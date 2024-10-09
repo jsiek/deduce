@@ -119,7 +119,8 @@ def parse_term_hi(token_list, i):
     name, i = parse_identifier(token_list, i)
     if token_list[i].type != 'EQUAL':
         error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected `=` after name in `define`, not\n\t' + token_list[i].value)
+              'expected `=` after name in `define`, not\n\t' \
+              + token_list[i].value)
     i = i + 1
     rhs, i = parse_term(token_list, i)
     meta = meta_from_tokens(token, token_list[i-1])
@@ -149,7 +150,8 @@ def parse_term_hi(token_list, i):
       return (Conditional(meta_from_tokens(token, token_list[i-1]), None,
                           prem, conc, els), i)
     else:
-      return (IfThen(meta_from_tokens(token, token_list[i-1]), None, prem, conc), i)
+      return (IfThen(meta_from_tokens(token, token_list[i-1]),
+                     None, prem, conc), i)
 
   elif token.value == '∅' or token.value == '.0.':
     i = i + 1
@@ -165,14 +167,16 @@ def parse_term_hi(token_list, i):
     params, i = parse_var_list(token_list, i)
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `{` after parameters of fun, not\n\t' + token_list[i].value)
+            'expected a `{` after parameters of fun, not\n\t' \
+            + token_list[i].value)
     i = i + 1
     body, i = parse_term(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token, token_list[i-1]),
             'expected a `}` after body of fun, not\n\t' + token_list[i].value)
     i = i + 1
-    return (Lambda(meta_from_tokens(token, token_list[i-1]), None, params, body), i)
+    return (Lambda(meta_from_tokens(token, token_list[i-1]),
+                   None, params, body), i)
 
   elif token.type == 'GENERIC':
     i = i + 1
@@ -185,7 +189,8 @@ def parse_term_hi(token_list, i):
     body, i = parse_term(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token, token_list[i]),
-            'expected a `}` after body of `generic`, not\n\t' + token_list[i].value)
+            'expected a `}` after body of `generic`, not\n\t' \
+            + token_list[i].value)
     i = i + 1
     meta = meta_from_tokens(token, token_list[i-1])
     return (Generic(meta, None, params, body), i)
@@ -299,14 +304,14 @@ def parse_term_hi(token_list, i):
     try:
       start = i
       name, i = parse_identifier(token_list, i)
-      var = Var(meta_from_tokens(token_list[start], token_list[i-1]), None, name)
+      meta = meta_from_tokens(token_list[start], token_list[i-1])
+      var = Var(meta, None, name)
       return (var, i)
     except Exception as e:  
       error(meta_from_tokens(token_list[i],token_list[i]),
             'expected a term or formula, not\n\t' + token_list[i].value)
 
-
-def parse_term_mult(token_list, i):
+def parse_call(token_list, i):
   term, i = parse_term_hi(token_list, i)
 
   while i < len(token_list) and token_list[i].type == 'LPAR':
@@ -320,6 +325,11 @@ def parse_term_mult(token_list, i):
     term = Call(meta_from_tokens(token_list[start], token_list[i-1]), None,
                 term, args, False)
 
+  return (term, i)
+    
+def parse_term_mult(token_list, i):
+  term, i = parse_call(token_list, i)
+
   while i < len(token_list) and token_list[i].value in mult_operators:
     start = i
     rator = Var(meta_from_tokens(token_list[i], token_list[i]),
@@ -329,7 +339,7 @@ def parse_term_mult(token_list, i):
     term = Call(meta_from_tokens(token_list[start], token_list[i-1]), None,
                 rator, [term,right], True)
     
-  return term, i
+  return (term, i)
 
 def parse_term_add(token_list, i):
   token = token_list[i]
@@ -343,7 +353,7 @@ def parse_term_add(token_list, i):
     term = Call(meta_from_tokens(token, token_list[i-1]), None,
                 rator, [term,right], True)
     
-  return term, i
+  return (term, i)
 
 def parse_term_compare(token_list, i):
   token = token_list[i]
@@ -475,6 +485,11 @@ def parse_definition_proof(token_list, i):
       meta = meta_from_tokens(token, token_list[i-1])
       return (ApplyDefs(meta, [Var(meta, None, n) for n in defs]), i)
 
+def parse_from(token_list, i):
+  start = i
+  i = i + 1
+  fact,i = parse_term(token_list, i)
+  return (PFrom(meta_from_tokens(token_list[start], token_list[i-1]), fact), i)
   
 def parse_proof_hi(token_list, i):
   token = token_list[i]
@@ -515,12 +530,15 @@ def parse_proof_hi(token_list, i):
   elif token.type == 'CONCLUDE':
     i = i + 1
     claim, i = parse_term(token_list, i)
-    if token_list[i].type != 'BY':
+    if token_list[i].type == 'BY':
+      i = i + 1
+      reason, i = parse_proof(token_list, i)
+    elif token_list[i].type == 'FROM':
+      reason, i = parse_from(token_list, i)
+    else:
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` after formula of `conclude`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    reason, i = parse_proof(token_list, i)
+            'expected the keyword `by` or `from` after formula of `conclude`, '\
+            + 'not\n\t' + token_list[i].value)
     return (PAnnot(meta_from_tokens(token, token_list[i-1]),
                    claim, reason), i)
 
@@ -607,10 +625,7 @@ def parse_proof_hi(token_list, i):
     return (PExtensionality(meta, body), i)
 
   elif token.type == 'FROM':
-    i = i + 1
-    fact,i = parse_term(token_list, i)
-    return (PFrom(meta_from_tokens(token, token_list[i-1]),
-                  fact), i)
+    return parse_from(token_list, i)
     
   elif token.type == 'HAVE':
     i = i + 1
@@ -624,12 +639,15 @@ def parse_proof_hi(token_list, i):
             + token_list[i].value)
     i = i + 1
     proved,i = parse_term(token_list, i)
-    if token_list[i].type != 'BY':
+    if token_list[i].type == 'BY':
+      i = i + 1
+      because,i = parse_proof(token_list, i)
+    elif token_list[i].type == 'FROM':
+      because, i = parse_from(token_list, i)
+    else:        
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` after formula of `have`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    because,i = parse_proof(token_list, i)
+            'expected the keyword `by` or `from` after formula of `have`, ' \
+            + 'not\n\t' + token_list[i].value)
     body,i = parse_proof(token_list, i)
     return PLet(meta_from_tokens(token, token_list[i-1]),
                 label, proved, because, body), i
