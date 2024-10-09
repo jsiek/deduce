@@ -84,6 +84,7 @@ def meta_from_tokens(start_token, end_token):
 
 def parse_term_hi(token_list, i):
   token = token_list[i]
+
   if token.type == 'ALL':
     i = i + 1
     vars, i = parse_var_list(token_list, i)
@@ -276,6 +277,24 @@ def parse_term_hi(token_list, i):
     return (Bool(meta_from_tokens(token_list[i],token_list[i]),
                  None, True), i + 1)
 
+  elif token.type == 'LSQB':
+    i = i + 1
+    if token_list[i].type == 'RSQB':
+        return (listToNodeList(meta_from_tokens(token,token), []), i + 1)
+    lst_terms = []
+    term, i = parse_term(token_list, i)
+    lst_terms.append(term)
+    token = token_list[i]
+    while token.type == 'COMMA':
+      i = i + 1
+      term, i = parse_term(token_list, i)
+      lst_terms.append(term)
+      token = token_list[i]
+    if token.type != 'RSQB':
+      error(meta_from_tokens(token_list[i],token_list[i]),
+            'expected a closing brace \']\', not\n\t' + token_list[i].value)
+    return (listToNodeList(meta_from_tokens(token,token), lst_terms), i + 1)
+    
   else:
     try:
       start = i
@@ -1155,6 +1174,10 @@ def parse_pattern(token_list, i):
     i = i + 1
     meta = meta_from_tokens(token_list[i], token_list[i])
     return PatternCons(meta, Var(meta, None, 'zero'), []), i
+  if token_list[i].type == 'LSQB' and token_list[i+1].type == 'RSQB':
+    i = i + 2
+    meta = meta_from_tokens(token_list[i], token_list[i])
+    return PatternCons(meta, Var(meta, None, 'empty'), []), i
   elif token_list[i].type == 'TRUE':
     i = i + 1
     meta = meta_from_tokens(token_list[i], token_list[i])
