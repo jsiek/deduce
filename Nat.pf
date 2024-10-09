@@ -691,7 +691,7 @@ proof
         enable {operator ≤}
         have: x' ≤ y' by rewrite y_suc in sxy_ysx
         have: y' ≤ x' by rewrite y_suc in sxy_ysx
-        have: x' = y' by (apply IH[y'] to (from x' ≤ y'), (from y' ≤ x'))
+        have: x' = y' by apply IH[y'] to (from x' ≤ y', y' ≤ x')
         conclude suc(x') = suc(y') by rewrite (from x' = y')
       }
     }
@@ -732,7 +732,7 @@ proof
             have: suc(n') ≤ suc(o')  by rewrite os in (from suc(n') ≤ o)
             have: n' ≤ o'  from suc(n') ≤ suc(o')
             conclude m' ≤ o'  by apply IH[n',o']
-                                 to (from m' ≤ n'), (from n' ≤ o')
+                                 to (from m' ≤ n', n' ≤ o')
           }
         }
       }

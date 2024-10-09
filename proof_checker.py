@@ -347,12 +347,21 @@ def check_proof(proof, env):
     print('\t' + str(proof))
   ret = None
   match proof:
-    case PFrom(loc, fact):
-      if fact in env.proofs():
-          ret = fact
+    case PFrom(loc, facts):
+      results = []
+      for fact in facts:
+        if fact in env.proofs():
+            results.append(fact)
+        else:
+            error(loc, 'Could not find a proof of\n\t' + str(fact) \
+                  + '\nin the current scope')
+      if len(results) > 1:
+          ret = And(loc, BoolType(loc), results)
+      elif len(results) == 1:
+          ret = results[0]
       else:
-          error(loc, 'Could not find a proof of\n\t' + str(fact) \
-                + '\nin the current scope') 
+          error(loc, 'expected some facts after `from`')
+  
     case ApplyDefsFact(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]
       formula = check_proof(subject, env)
