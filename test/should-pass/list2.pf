@@ -1,0 +1,49 @@
+import List
+
+theorem length_node42: length([42]) = 1
+proof
+  suffices 1 + 0 = 1
+      by definition {length, length}
+  add_zero[1]
+end
+
+theorem length_one_nat: all x:Nat. length([x]) = 1
+proof
+  arbitrary x:Nat
+  suffices 1 + 0 = 1
+      by definition {length, length}
+  add_zero[1]
+end
+
+theorem append_xy:
+  all T:type. all x:T, y:T. [x] ++ [y] = [x, y]
+proof
+    arbitrary T:type
+    arbitrary x:T, y:T
+    definition {operator ++, operator ++}
+end
+
+theorem length_one_equal: all U:type. all x:U, y:U.
+  length([x]) = length([y])
+proof
+  arbitrary U:type
+  arbitrary x:U, y:U
+  rewrite length_one<U>[x] | length_one<U>[y]
+end
+
+
+theorem append_empty: all U :type. all xs :List<U>.
+  xs ++ [] = xs
+proof
+  arbitrary U:type
+  induction List<U>
+  case [] {
+    conclude @[]<U> ++ [] = []  by definition operator++
+  }
+  case node(n, xs') suppose IH: xs' ++ empty = xs' {
+    equations
+      node(n,xs') ++ empty
+          = node(n, xs' ++ empty)   by definition operator++
+      ... = node(n,xs')             by rewrite IH
+  }
+end
