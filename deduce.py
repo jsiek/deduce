@@ -52,7 +52,7 @@ def deduce_file(filename, error_expected):
     except Exception as e:
         if error_expected:
             print(filename + ' caught an error as expected')
-            exit(0)
+            # exit(0)
         else:
             print(str(e))
             # Use the following when debugging internal exceptions -Jeremy
@@ -62,11 +62,22 @@ def deduce_file(filename, error_expected):
             # during development, reraise
             # raise e
 
+def deduce_directory(directory, recursive_directories):
+    if directory[-1] != '/' or directory[-1] != '\\': # Windows moment
+        directory += '/'
+    for file in os.listdir(directory):
+        if os.path.isfile(directory + file):
+            if file[-3:] == '.pf':
+                deduce_file(directory + file, error_expected)
+        elif recursive_directories and os.path.isdir(directory + file):
+            deduce_directory(directory + file)
+
 
 if __name__ == "__main__":
     # Check command line arguments
-    filenames = []
+    deducables = []
     error_expected = False
+    recursive_directories = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -87,10 +98,12 @@ if __name__ == "__main__":
             set_recursive_descent(True)
         elif argument == '--lalr':
             set_recursive_descent(False)
+        elif argument == '--recursive-directories' or argument == '-r':
+            recursive_directories = True
         else:
-            filenames.append(argument)
+            deducables.append(argument)
     
-    if len(filenames) == 0:
+    if len(deducables) == 0:
         print("Couldn't find a file to deduce!")
         exit(1)
 
@@ -102,5 +115,11 @@ if __name__ == "__main__":
     parser.init_parser()
     rec_desc_parser.init_parser()
 
-    for filename in filenames:
-        deduce_file(filename, error_expected)
+    for deducable in deducables:
+        if os.path.isfile(deducable):
+            deduce_file(deducable, error_expected)
+        elif os.path.isdir(deducable):
+            deduce_directory(deducable, recursive_directories)
+        else:
+            print(deducable, "was not found!")
+            exit(1)

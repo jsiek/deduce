@@ -8,20 +8,14 @@ default: tests check_docs tests-lib
 check_docs: check_README check_fun check_intro 
 
 tests-should-pass:
-	for test in $(TEST_PASS_DIR); do \
-	  $(PYTHON) ./deduce.py --recursive-descent $$test || break; \
-	done
+	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR)
 
 tests-should-error:
-	for test in $(TEST_ERROR_DIR); do \
-	  $(PYTHON) ./deduce.py --recursive-descent $$test --error || break; \
-	done
+	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) --error
 
 
 tests-lib: 
-	for test in ./*.pf; do \
-	  $(PYTHON) ./deduce.py --recursive-descent $$test || break; \
-	done
+	$(PYTHON) ./deduce.py --recursive-descent .
 
 tests: tests-should-pass tests-should-error
 
