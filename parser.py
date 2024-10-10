@@ -71,6 +71,9 @@ def parse_tree_to_list(e, parent):
         ident = parse_tree_to_ast(e.children[0], parent)
         typ = parse_tree_to_ast(e.children[1], parent)
         return tuple([(ident,typ)])
+    elif e.data == 'single_anon_binding':
+        typ = parse_tree_to_ast(e.children[0], parent)
+        return tuple([('_',typ)])
     elif e.data == 'single_var':
         ident = parse_tree_to_ast(e.children[0], parent)
         return tuple([(ident,None)])
@@ -78,6 +81,9 @@ def parse_tree_to_list(e, parent):
         ident = parse_tree_to_ast(e.children[0], parent)
         typ = parse_tree_to_ast(e.children[1], parent)
         return tuple([(ident,typ)]) + parse_tree_to_list(e.children[2], parent)
+    elif e.data == 'push_anon_binding':
+        typ = parse_tree_to_ast(e.children[0], parent)
+        return tuple([('_',typ)]) + parse_tree_to_list(e.children[1], parent)
     elif e.data == 'push_var':
         ident = parse_tree_to_ast(e.children[0], parent)
         return tuple([(ident,None)]) + parse_tree_to_list(e.children[1], parent)
@@ -336,6 +342,12 @@ def parse_tree_to_ast(e, parent):
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e),
                     parse_tree_to_ast(e.children[3], e))
+    elif e.data == 'let_anon':
+        return PLet(e.meta,
+                    '_',
+                    parse_tree_to_ast(e.children[0], e),
+                    parse_tree_to_ast(e.children[1], e),
+                    parse_tree_to_ast(e.children[2], e))
     elif e.data == 'define_term_proof':
         return PTLetNew(e.meta,
                         str(e.children[0].value),
@@ -345,6 +357,10 @@ def parse_tree_to_ast(e, parent):
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'conclude_from':
+        return PAnnot(e.meta,
+                      parse_tree_to_ast(e.children[0], e),
+                      PFrom(e.meta, parse_tree_to_list(e.children[1], e)))
     elif e.data == 'suffices':
         return Suffices(e.meta,
                         parse_tree_to_ast(e.children[0], e),
@@ -366,6 +382,15 @@ def parse_tree_to_ast(e, parent):
         label = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1], e)
         return ImpIntro(e.meta, label, None, body)
+    elif e.data == 'imp_intro_explicit':
+        label = str(e.children[0].value)
+        premise = parse_tree_to_ast(e.children[1], e)
+        body = parse_tree_to_ast(e.children[2], e)
+        return ImpIntro(e.meta, label, premise, body)
+    elif e.data == 'imp_intro_anon':
+        premise = parse_tree_to_ast(e.children[0], e)
+        body = parse_tree_to_ast(e.children[1], e)
+        return ImpIntro(e.meta, '_', premise, body)
     elif e.data == 'all_intro':
         vars = parse_tree_to_list(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
@@ -395,11 +420,6 @@ def parse_tree_to_ast(e, parent):
         some = parse_tree_to_ast(e.children[3], e)
         body = parse_tree_to_ast(e.children[4], e)
         return SomeElim(e.meta, witnesses, label, prop, some, body)
-    elif e.data == 'imp_intro_explicit':
-        label = str(e.children[0].value)
-        premise = parse_tree_to_ast(e.children[1], e)
-        body = parse_tree_to_ast(e.children[2], e)
-        return ImpIntro(e.meta, label, premise, body)
     elif e.data == 'case':
         tag = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1], e)
@@ -542,6 +562,9 @@ def parse_tree_to_ast(e, parent):
             else:
                 result = PTransitive(e.meta, eq_proof, result)
         return result
+    elif e.data == 'from_proof':
+        args = parse_tree_to_list(e.children[0], e)
+        return PFrom(e.meta, args)
     elif e.data == 'ident_proof_error':
         error(e.meta, "parsing error: " + repr(e))
     

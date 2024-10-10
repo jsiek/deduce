@@ -180,6 +180,22 @@ proof
   definition operator+
 end
 
+theorem suc_one_add: all n:Nat.
+  suc(n) = 1 + n
+proof
+  arbitrary n:Nat
+  equations
+    suc(n) ={ suc(0 + n) }      by definition operator+
+       ... = suc(0) + n         by symmetric suc_add[0, n]
+end
+
+theorem one_add_suc: all n:Nat.
+  1 + n = suc(n)
+proof
+  arbitrary n:Nat
+  symmetric suc_one_add[n]
+end
+
 lemma not_one_add_zero: all n:Nat.
   not (1 + n = 0)
 proof

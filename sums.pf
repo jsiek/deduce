@@ -67,19 +67,19 @@ proof
     }
     case suc(n') suppose IH {
         suffices ?
-            with rewrite symmetric one_add[n'] | add_commute[1][n']
+            by rewrite symmetric one_add[n'] | add_commute[1][n']
         have step1: (all i:Nat. (if i < 1 then n' + i = 0 + (n' + i)))
             by arbitrary i:Nat
                 suppose prem : i < 1
                 symmetric zero_add[n'+i]
         suffices ?
-            with rewrite apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
+            by rewrite apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
         suffices ?
-            with rewrite dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
+            by rewrite dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
         suffices ?
-            with rewrite IH
+            by rewrite IH
         suffices n' * (n' - 1) + 2 * (n' + 0) = (n' + 1) * ((n' + 1) - 1)
-            with definition {summation, summation}
+            by definition {summation, summation}
         _rewrite add_one[n'] | add_zero[n']
         _definition {operator-}
         _rewrite sub_zero[n'] | blah[n'] | two_mult[n']
@@ -102,14 +102,14 @@ proof
     }
     case suc(n') suppose IH {
         suffices ?
-            with rewrite symmetric one_add[n'] | add_commute[1][n']
+            by rewrite symmetric one_add[n'] | add_commute[1][n']
         have step1: (all i:Nat. (if i < 1 then suc(n') + i = 0 + (suc(n') + i)))
             by arbitrary i:Nat
                 suppose prem : i < 1
                 symmetric zero_add[suc(n')+i]
         _rewrite symmetric add_one[n' + 1] | add_one[n']
         suffices ?
-            with rewrite apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
+            by rewrite apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
         _rewrite dist_mult_add[2][summation(suc(n'), 0, λn{n}), summation(1, suc(n'), λn{n})]
         _rewrite IH
         _definition {summation, summation }

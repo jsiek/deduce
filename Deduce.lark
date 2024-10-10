@@ -109,11 +109,14 @@ ident: IDENT              -> ident
     | ident ":" type                               -> single_binding
     | ident ":" type "," var_list                  -> push_binding
     | ident "," var_list                           -> push_var
+    | ident                                        -> single_var
 
 ?assumption_list:                                  -> empty_binding
     | ident ":" term                               -> single_binding
+    | ":" term                                     -> single_anon_binding
     | ident                                        -> single_var
     | ident ":" term "," assumption_list           -> push_binding
+    | ":" term "," assumption_list                 -> push_anon_binding
     | ident "," assumption_list                    -> push_var
 
 ?ind_case: "case" pattern "{" proof "}"            -> ind_case
@@ -141,12 +144,14 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: "conclude" term "by" proof                       -> annot
+    | "conclude" term "from" term_list                   -> conclude_from     
     | "suffices" term "by" proof proof                   -> suffices
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
     | "conjunct" INT "of" proof                          -> conjunct
     | "suppose" IDENT proof                              -> imp_intro
     | "suppose" IDENT ":" term proof                     -> imp_intro_explicit
+    | "suppose" ":" term proof                           -> imp_intro_anon
     | "assume" IDENT proof                               -> imp_intro
     | "assume" IDENT ":" term proof                      -> imp_intro_explicit
     | "arbitrary"  var_list proof                        -> all_intro
@@ -172,10 +177,15 @@ ident: IDENT              -> ident
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation equation_list                 -> equations_proof
     | "stop" "?" proof                                   -> hole_in_middle_proof
+    | "from" term_list                                   -> from_proof
     | proof_hi
+
+?reason: "from" term_list                                -> from_proof
+    | "by" proof
 
 ?proof_hi: IDENT                                         -> proof_var
     | "have" IDENT ":" term "by" proof proof             -> let
+    | "have" ":" term reason proof                       -> let_anon
     | "define" IDENT "=" term proof                      -> define_term_proof
     | "term" term "by" proof proof                       -> term_proof
     | "."                                                -> true_proof

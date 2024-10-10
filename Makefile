@@ -8,7 +8,8 @@ default: tests check_docs tests-lib
 check_docs: check_README check_fun check_intro 
 
 tests-should-pass:
-	$(PYTHON) ./deduce.py $(TEST_PASS_DIR)
+	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR)
+	$(PYTHON) ./deduce.py --lalr $(TEST_PASS_DIR)
 
 tests-should-error:
 	$(PYTHON) ./deduce.py $(TEST_ERROR_DIR) --error
