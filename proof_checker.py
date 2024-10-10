@@ -8,7 +8,12 @@
 # 2. type_check_stmt:
 #    Type check the bodies of functions using the type environment.
 #
-# 3. check_proofs:
+# 3. collect_env:
+#    Collects the proofs (mapping proof labels to their formulas)
+#    and the values (mapping names to their values, for defines a functions)
+#    into an environment.
+#
+# 4. check_proofs:
 #    Check that the proofs follow the rules of logic
 #    and run the print and assert statements.
 
@@ -16,6 +21,7 @@ from abstract_syntax import *
 from error import error, warning, get_verbose, set_verbose
 
 imported_modules = set()
+checked_modules = set()
 
 name_id = 0
 
@@ -62,6 +68,18 @@ def check_implies(loc, frm1, frm2):
           check_implies(loc, arg1, frm2)
           return
         except Exception as e:
+          # implicit modus ponens
+          match arg1:
+            case IfThen(loc3, tyof3, prem, conc):
+              try:
+                  check_implies(loc, conc, frm2)
+                  rest = And(loc2, tyof2, [arg for arg in args1 if arg != arg1])
+                  check_implies(loc, rest, prem)
+                  return
+              except Exception as e2:
+                  pass
+            case _:
+              pass
           continue
       error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
             + 'implies\n\t' + str(frm2) + '\n' \
@@ -276,7 +294,7 @@ def isolate_difference(term1, term2):
   else:
     match (term1, term2):
       case (Lambda(l1, tyof1, vs1, body1), Lambda(l2, tyof2, vs2, body2)):
-        ren = {x: Var(l1, None, y) for (x,y) in zip(vs1, vs2)}
+        ren = {x: Var(l1, t2, y) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
         return isolate_difference(body1.substitute(ren), body2)
       case (Call(l1, tyof1, fun1, args1, infix1), Call(l2, tyof2, fun2, args2, infix2)):
         if fun1 == fun2:
@@ -341,6 +359,21 @@ def check_proof(proof, env):
     print('\t' + str(proof))
   ret = None
   match proof:
+    case PFrom(loc, facts):
+      results = []
+      for fact in facts:
+        if fact in env.proofs():
+            results.append(fact)
+        else:
+            error(loc, 'Could not find a proof of\n\t' + str(fact) \
+                  + '\nin the current scope')
+      if len(results) > 1:
+          ret = And(loc, BoolType(loc), results)
+      elif len(results) == 1:
+          ret = results[0]
+      else:
+          error(loc, 'expected some facts after `from`')
+  
     case ApplyDefsFact(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]
       formula = check_proof(subject, env)
@@ -1584,8 +1617,21 @@ def type_synth_term(term, env, recfun, subterms):
     case Generic(loc, _, type_params, body):
       body_env = env.declare_type_vars(loc, type_params)
       new_body = type_synth_term(body, body_env, recfun, subterms)
-      ty = GenericType(loc, type_params, new_body.typeof)
-      ret = Generic(loc, ty, type_params, new_body)
+      match new_body.typeof:
+        case FunctionType(loc2, [], param_types, return_type):
+          ty = FunctionType(loc, type_params, param_types, return_type)
+          ret = Generic(loc, ty, type_params, new_body)
+        case _:
+          error(loc, 'body of generic must be a function, not ' \
+                + str(new_body.typeof))
+
+    case Lambda(loc, _, params, body):
+      vars = [p for (p,t) in params]
+      param_types = [t for (p,t) in params]
+      body_env = env.declare_term_vars(loc, params)
+      new_body = type_synth_term(body, body_env, recfun, subterms)
+      typ = FunctionType(loc, [], param_types, new_body.typeof)
+      return Lambda(loc, typ, params, new_body)
       
     case TLet(loc, _, var, rhs, body):
       new_rhs = type_synth_term(rhs, env, recfun, subterms)
@@ -1801,14 +1847,14 @@ def type_check_term(term, typ, env, recfun, subterms):
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
   
-    case Lambda(loc, _, vars, body):
+    case Lambda(loc, _, params, body):
       match typ:
         case FunctionType(loc, [], param_types, return_type):
-          #body_env = env.declare_type_vars(loc, typarams)
+          vars = [n for (n,t) in params]
           body_env = env.declare_term_vars(loc, zip(vars, param_types))
           new_body = type_check_term(body, return_type, body_env,
                                      recfun, subterms)
-          return Lambda(loc, typ, vars, new_body)
+          return Lambda(loc, typ, params, new_body)
         case _:
           error(loc, 'expected a term of type ' + str(typ) + '\n'\
                 + 'but instead got a lambda')
@@ -2048,8 +2094,11 @@ def process_declaration(stmt, env):
 
           for s in ast3:
             env = collect_env(s, env)
-          for s in ast3:
-            check_proofs(s, env)
+            
+          if name not in checked_modules:
+            for s in ast3:
+              check_proofs(s, env)
+            checked_modules.add(name)  
 
           return Import(loc, name, ast3), env
   
@@ -2228,7 +2277,7 @@ def uniquify_deduce(ast):
   for s in ast:
     s.uniquify_body(env)
 
-def check_deduce(ast):
+def check_deduce(ast, module_name):
   env = Env()
   ast2 = []
   imported_modules.clear()
@@ -2257,6 +2306,8 @@ def check_deduce(ast):
       print('--------- Proof Checking ------------------------')
   for s in ast3:
     env = collect_env(s, env)
-  for s in ast3:
-    check_proofs(s, env)
-  
+    
+  if module_name not in checked_modules:
+    for s in ast3:
+      check_proofs(s, env)
+    checked_modules.add(module_name)  

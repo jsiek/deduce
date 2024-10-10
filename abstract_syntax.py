@@ -495,6 +495,8 @@ class Var(Term):
   def __str__(self):
       if base_name(self.name) == 'zero':
         return '0'
+      elif base_name(self.name) == 'empty':
+          return '[]'
       elif get_verbose():
         return self.name
       else:
@@ -553,23 +555,24 @@ class Int(Term):
 
 @dataclass
 class Lambda(Term):
-  vars: List[str]
+  vars: List[Tuple[str,Type]]
   body: Term
 
   def copy(self):
     return Lambda(self.location, self.typeof,
-                 [v for v in self.vars],
+                 self.vars,
                  self.body.copy())
   
   def __str__(self):
-    return "λ" + ",".join([base_name(x) for x in self.vars]) \
+    return "λ" + ",".join([base_name(x) + ':' + str(t) if t else base_name(x)\
+                           for (x,t) in self.vars]) \
       + "{" + str(self.body) + "}"
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
           return False
-      ren = {x: Var(self.location, None, y) \
-             for (x,y) in zip(self.vars, other.vars) }
+      ren = {x: Var(self.location, t2, y) \
+             for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
       return new_body == other.body
 
@@ -583,8 +586,11 @@ class Lambda(Term):
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
-    new_vars = [generate_name(x) for x in self.vars]
-    for (old,new) in zip(self.vars, new_vars):
+    for (x,t) in self.vars:
+      if t:
+        t.uniquify(env)
+    new_vars = [(generate_name(x),t) for (x,t) in self.vars]
+    for ((old,t1),(new,t2)) in zip(self.vars, new_vars):
       body_env[old] = new
     self.vars = new_vars
     self.body.uniquify(body_env)
@@ -729,6 +735,8 @@ class Call(Term):
         + " " + op_arg_str(self, self.args[1])
     elif isNat(self):
       return str(natToInt(self))
+    elif isNodeList(self):
+      return '[' + nodeListToList(self)[:-2] + ']'
     else:
       return str(self.rator) + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
 
@@ -758,11 +766,11 @@ class Call(Term):
         else:
           ret = Call(self.location, self.typeof, fun, args, self.infix)
       case Lambda(loc, ty, vars, body):
-        subst = {k: v for (k,v) in zip(vars, args)}
+        subst = {k: v for ((k,t),v) in zip(vars, args)}
         body_env = env
         new_body = body.substitute(subst)
         old_defs = get_reduce_only()
-        set_reduce_only(old_defs + [Var(loc, None, x) for x in vars])
+        set_reduce_only(old_defs + [Var(loc, t, x) for (x,t) in vars])
         ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
       case TermInst(loc, tyof, RecFun(loc2, name, typarams, params, returns, cases), type_args):
@@ -1446,8 +1454,8 @@ class PLet(Proof):
   body: Proof
 
   def __str__(self):
-      return self.label + ': ' + str(self.proved) + ' by ' \
-        + str(self.because) + '; ' + str(self.body)
+      return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
+        + ' by ' + str(self.because) + '; ' + str(self.body)
 
   def uniquify(self, env):
     self.proved.uniquify(env)
@@ -1465,7 +1473,7 @@ class PTLetNew(Proof):
   body: Proof
 
   def __str__(self):
-      return 'define_ ' + self.var + ' = ' + str(self.rhs) + '\n' \
+      return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
 
   def uniquify(self, env):
@@ -1492,6 +1500,18 @@ class PTerm(Proof):
     self.body.uniquify(env)
     
     
+@dataclass
+class PFrom(Proof):
+  facts: List[Formula]
+  
+  def __str__(self):
+      return 'from ' + ', '.join([str(f) for f in self.facts])
+
+  def uniquify(self, env):
+    for fact in self.facts:
+      fact.uniquify(env)
+
+  
 @dataclass
 class PAnnot(Proof):
   claim: Formula
@@ -2334,6 +2354,34 @@ def constructor_conflict(term1, term2, env):
     case (Bool(_, tyof1, False), Bool(_, tyof2, True)):
       return True
   return False
+
+def isNodeList(t):
+  match t:
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True) if base_name(name) == 'empty':
+        return True
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True), [arg, ls], infix) if base_name(name) == 'node':
+        return isNodeList(ls)
+    case _:
+      return False
+    
+def nodeListToList(t):
+  match t:
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True) if base_name(name) == 'empty':
+      return ''
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name), tyargs, True), [arg, ls], infix) if base_name(name) == 'node':
+      return str(arg) + ', ' + nodeListToList(ls)
+
+def mkEmpty(loc):
+  return Var(loc, None, 'empty')
+
+def mkNode(loc, arg, ls):
+  return Call(loc, None, Var(loc, None, 'node'), [arg, ls], False)
+
+def listToNodeList(loc, lst):
+  if lst == []:
+    return mkEmpty(loc)
+  else:
+    return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))
     
 @dataclass
 class Binding(AST):
@@ -2521,6 +2569,10 @@ class Env:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
 
+  def proofs(self):
+    return [b.formula for (name, b) in self.dict.items() \
+            if isinstance(b, ProofBinding)]
+      
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
