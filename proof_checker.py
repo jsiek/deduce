@@ -1210,6 +1210,9 @@ def check_proof_of(proof, formula, env):
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
             new_frm = frm.reduce(env)
             check_proof_of(scase.body, new_frm, body_env)
+        case TypeType(_):
+          # As far as I know, it is not possible to switch on a type
+          error(loc, "In 'switch' expected a variable, got " + str(new_subject))
         case _:
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
