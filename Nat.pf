@@ -357,6 +357,35 @@ proof
   }
 end
 
+theorem sub_sub_eq_sub_add : all x : Nat. all y:Nat. all z:Nat.
+  (x - y) - z = x - (y + z)
+proof
+  induction Nat
+  case zero { definition operator- }
+  case suc(x') suppose IH{
+    arbitrary y :Nat
+    switch y {
+      case zero {
+        arbitrary z : Nat
+        rewrite sub_zero[suc(x')] | zero_add[z]
+      }
+      case suc(y')  {
+        arbitrary x : Nat
+        switch x {
+          case zero {
+            rewrite sub_zero[suc(x') - suc(y')] | add_zero[suc(y')]
+          }
+          case suc(z')  {
+            suffices  (x' - y') - suc(z') = x' - (y' + suc(z'))
+              by definition { operator+, operator- }
+            IH[y'][suc(z')]
+          }
+        }
+      }
+    }
+  }
+end
+
 /*
  Properties of Multiplication
 */
@@ -958,9 +987,9 @@ proof
     case y_l_x { y_l_x }
   have g_nle : if y < x then not (x ≤ y) 
     by suppose ylx
-      have y_le_x : y <= x by apply less_implies_less_equal to ylx
-      suppose label : x <= y
-      have xy_a_yx : x <= y and y <= x by y_le_x, label
+      have y_le_x : y ≤ x by apply less_implies_less_equal to ylx
+      suppose label : x ≤ y
+      have xy_a_yx : x ≤ y and y ≤ x by y_le_x, label
       have y_e_x:  y=x by symmetric (apply less_equal_antisymmetric to xy_a_yx)
       have x_ne_y: not (y = x) by apply less_not_equal to ylx
       rewrite y_e_x in x_ne_y
@@ -997,12 +1026,6 @@ proof
     }
   }
 end
-// TODO: Try to fix less_implies_not_greater
-// theorem less_not_greater: all x:Nat. all y:Nat.
-//   if x < y then not (y < x)
-// proof
-//   ?
-// end
 
 theorem not_less_equal_less_equal:
   all x:Nat, y:Nat.
@@ -1122,36 +1145,55 @@ proof
 end
 
 theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
-  if x + y ≤ x + z then y ≤ z
+  x + y ≤ x + z ⇔ y ≤ z
 proof
   induction Nat
   case 0 {
-    arbitrary y:Nat, z:Nat
-    suppose y_le_z: 0 + y ≤ 0 + z
-    conclude y ≤ z
-        by definition {operator+} in y_le_z
+    definition operator+
   }
   case suc(x') suppose IH {
-    arbitrary y:Nat, z:Nat
-    suppose sx_y_le_sx_z: suc(x') + y ≤ suc(x') + z
-    have x_y_le_x_z: x' + y ≤ x' + z
-      by definition {operator +, operator ≤} in sx_y_le_sx_z
-    conclude y ≤ z
-      by apply IH[y,z] to x_y_le_x_z
+    suffices (all y:Nat, z:Nat. (x' + y ≤ x' + z ⇔ y ≤ z))
+      by definition {operator+, operator≤}
+    IH
   }
 end
 
 theorem less_left_cancel: all x:Nat, y:Nat, z:Nat.
-  if x + y < x + z then y < z
+  x + y < x + z ⇔ y < z
 proof
   arbitrary x:Nat, y:Nat, z:Nat
-  suffices if suc(x + y) ≤ x + z then suc(y) ≤ z   by definition operator <
-  suppose sxy_xz: suc(x + y) ≤ x + z
-  have x_sy_le_xz: x + suc(y) ≤ x + z
-    by suffices suc(x + y) ≤ x + z  by rewrite add_suc[x][y]
-       sxy_xz
-  conclude suc(y) ≤ z
-    by apply less_equal_left_cancel[x][suc(y), z] to x_sy_le_xz
+  suffices suc(x + y) ≤ x + z ⇔ suc(y) ≤ z by definition operator<
+  suffices (x + suc(y) ≤ x + z ⇔ suc(y) ≤ z) 
+    by rewrite add_commute[x][y]
+             | symmetric (definition operator+ in add_commute[x][suc(y)])
+  less_equal_left_cancel[x][suc(y), z]
+end
+
+// TODO: I stole this name from agda,
+// but it isn't very good
+// maybe mult_less_equal_left_cancel?
+theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
+  if x ≤ y then n * x ≤ n * y
+proof
+  induction Nat
+  case zero {
+    definition {operator*, operator≤}
+  }
+  case suc(n') suppose IH {
+    arbitrary x:Nat, y:Nat
+    suppose prem : x ≤ y
+    suffices x + n' * x ≤ y + n' * y by definition operator*
+    have nx_le_ny : n' * x ≤ n' * y by apply IH to prem
+    have nyx_le_nyy : n' * y + x ≤ n' * y + y 
+      by apply less_equal_left_cancel[n'*y][x, y] to prem
+    have xny_le_yny : x + n' * y ≤ y + n' * y
+      by rewrite add_commute[n'*y][x]
+               | add_commute[n'*y][y]
+               in nyx_le_nyy
+    have xnx_le_xny : x + n' * x ≤ x + n' * y
+      by apply less_equal_left_cancel[x][n'*x, n'*y] to nx_le_ny
+    apply less_equal_trans to xnx_le_xny, xny_le_yny
+  }
 end
 
 /*
@@ -1257,6 +1299,74 @@ proof
         conclude m' - n' ≤ o  by apply IH[n',o] to n_m, m_no
       }
     }
+  }
+end
+
+theorem sub_less_zero : all x : Nat. all y : Nat.
+  if x ≤ y then x - y = 0
+proof
+  induction Nat 
+  case zero {
+    definition operator-
+  }
+  case suc(x') suppose IH {
+    arbitrary y : Nat
+    switch y {
+      case zero {
+        suppose sx_l_z : suc(x') ≤ 0
+        apply zero_le_zero[suc(x')] to sx_l_z
+      }
+      case suc(y') {
+        suffices (if x' ≤ y' then x' - y' = 0) 
+            by definition { operator-, operator≤}
+        IH
+      }
+    }
+  }
+end
+
+// NOTE: This has to be after dichotomy, so it can't be with the other mult theorems
+theorem dist_mult_sub : all x : Nat. all y : Nat, z : Nat.
+  x * (y - z) = x * y - x * z
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat, z:Nat
+    suffices 0 = 0 - 0 
+      by rewrite zero_mult[y-z] | zero_mult[y] | zero_mult[z]
+    definition operator-
+  }
+  case suc(n') suppose IH {
+    arbitrary y:Nat, z:Nat
+    suffices (n' * y - n' * z) + (y - z) = (y + n' * y) - (z + n' * z) 
+      by definition operator*
+         and rewrite IH[y, z]
+                   | add_commute[(y - z)][(n' * y - n' * z)]
+    cases dichotomy[z, y]
+    case z_le_y: z ≤ y {
+      have nz_le_ny : n'*z ≤n' * y
+        by apply mult_mono_le[n'][z, y] to z_le_y
+      rewrite apply sub_add_assoc[y][(n' * y - n' * z) ,z] to z_le_y
+            | add_commute[(n' * y - n' * z)][y]
+            | apply sub_add_assoc[n'*y][y, n'*z] to nz_le_ny
+            | sub_sub_eq_sub_add[(y + n' * y)][n' * z][z]
+            | add_commute[n' * z][z]
+    }
+    case ylz: y < z {
+      have y_le_z: y ≤ z by apply less_implies_less_equal[y][z] to ylz
+      have ny_le_nz: n' * y ≤ n' * z by apply mult_mono_le[n'][y, z] to y_le_z
+      have zny_le_znz : z + n' * y ≤ z + n' * z by apply less_equal_left_cancel[z][n'*y, n'*z] to ny_le_nz
+      have nyy_le_nyz: n' * y + y ≤ n' * y + z by apply less_equal_left_cancel[n' *y][y, z] to y_le_z
+      have yny_le_zny : y + n' * y ≤ z + n' * y 
+        by rewrite add_commute[n'*y][y] | add_commute[n'*y][z] in nyy_le_nyz
+      have yny_le_znz: y + n'*y ≤ z + n'*z
+        by apply less_equal_trans[y + n' * y][z + n' * y,z + n' * z] to yny_le_zny, zny_le_znz
+      suffices 0+0=0 
+        by rewrite apply sub_less_zero[y][z] to y_le_z
+                 | apply sub_less_zero[n'*y][n'*z] to ny_le_nz
+                 | apply sub_less_zero[y+n'*y][z+n'*z] to yny_le_znz
+      add_zero[0]
+    } 
   }
 end
 
@@ -1792,27 +1902,34 @@ proof
   }
 end
 
-theorem equal_complete: all m:Nat. all n:Nat.
-  if (m = n) then equal(m, n)
+theorem equal_complete_sound : all m:Nat. all n:Nat.
+  m = n ⇔ equal(m, n)
 proof
   induction Nat
   case 0 {
     arbitrary n:Nat
     switch n {
       case 0 { definition equal }
-      case suc(n') { . }
+      case suc(n') { definition equal }
     }
   }
-  case suc(m') {
-    arbitrary n:Nat
+  case suc(m') suppose IH {
+    arbitrary n:Nat 
     switch n {
-      case 0 { . }
+      case 0 { definition equal }
       case suc(n') {
-        suppose sm_sn: suc(m') = suc(n')
-        suffices equal(m', n')  by definition equal
-        have m_n: m' = n' by injective suc sm_sn
-        suffices equal(n', n')  by rewrite m_n
-        equal_refl[n']
+        have right : (if suc(m') = suc(n') then equal(suc(m'), suc(n')))
+          by suppose sm_sn: suc(m') = suc(n')
+             suffices equal(m', n')  by definition equal
+             have m_n: m' = n' by injective suc sm_sn
+             suffices equal(n', n')  by rewrite m_n
+             equal_refl[n']
+        have left : (if equal(suc(m'), suc(n')) then suc(m') = suc(n'))
+          by suppose sm_sn : equal(suc(m'), suc(n'))
+             have e_m_n : equal(m', n') by definition equal in sm_sn
+             have m_n : m' = n' by apply IH to e_m_n
+             rewrite m_n
+        right, left
       }
     }
   }
@@ -1827,39 +1944,6 @@ proof
   have eq_m_n: equal(m, n) by suffices equal(n,n)  by rewrite m_n
                               equal_refl[n]
   apply not_m_n to eq_m_n
-end
-
-theorem equal_sound: all m:Nat. all n:Nat.
-  if equal(m, n) then (m = n)
-proof
-  induction Nat
-  case 0 {
-    arbitrary n:Nat
-    suppose eq
-    switch n {
-      case 0 { . }
-      case suc(n') suppose n_sn {
-        conclude false by definition equal in (rewrite n_sn in eq)
-      }
-    }
-  }
-  case suc(m') suppose IH {
-    arbitrary n:Nat
-    suppose eq: equal(suc(m'),n)
-    switch n {
-      case 0 suppose n_0 {
-        conclude false by definition equal in rewrite n_0 in eq
-      }
-      case suc(n') suppose n_sn {
-        have eq_mn: equal(m', n')
-            by definition equal in rewrite n_sn in eq
-        have m_n: m' = n'
-            by apply IH[n'] to eq_mn
-        conclude suc(m') = suc(n')
-            by rewrite m_n
-      }
-    }
-  }
 end
 
 /*
