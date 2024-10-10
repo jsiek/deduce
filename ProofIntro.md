@@ -32,7 +32,7 @@ theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
 write `?` to say that we're not done yet.
 
-    theorem length_nat_empty: length(@empty<Nat>) = 0
+    theorem length_nat_empty: length(@[]<Nat>) = 0
     proof
       ?
     end
@@ -41,21 +41,21 @@ Run Deduce on the file. Deduce will respond with the following message
 to remind us of what is left to prove.
 
     incomplete proof:
-        length(empty) = 0
+        length([]) = 0
 
 To tell Deduce to apply the definition of `length`, we can use
 the `definition` statement.
 
 ```{.deduce #length_nat_empty}
-theorem length_nat_empty: length(@empty<Nat>) = 0
+theorem length_nat_empty: length(@[]<Nat>) = 0
 proof
   definition length
 end
 ```
 
 Deduce expanded the definition of `length` in the goal, changing
-`length(empty) = 0` to `0 = 0`. In particular, Deduce noticed that
-`length(empty)` matches the first clause in the definition of `length`
+`length([]) = 0` to `0 = 0`. In particular, Deduce noticed that
+`length([])` matches the first clause in the definition of `length`
 and then replaced it with the right-hand side of the first
 clause. Deduce then simplified `0 = 0` to `true` and therefore
 accepted the `definition` statement. In general, whenever Deduce sees
@@ -68,7 +68,7 @@ Let's try a slightly more complex theorem, that the length of a list
 with just a single node is indeed `1`. Based on what we learned above,
 we might try using the definition of `length`.
 
-    theorem length_node42: length(node(42, empty)) = 1
+    theorem length_node42: length([42]) = 1
     proof
       definition length
     end
@@ -76,11 +76,11 @@ we might try using the definition of `length`.
 Deduce responds with
 
     failed to prove:
-        length(node(42, empty)) = 1
+        length([42]) = 1
     by
         definition {length}
     remains to prove:
-        1 + length(empty) = 1
+        1 + length([]) = 1
 
 It is quite common to apply a definition and then need to prove the
 remaining goal. Deduce provides the `suffices` statement for this
@@ -89,7 +89,7 @@ then the keyword `with`, followed by a definition statement. However,
 it's easiest to let Deduce figure out the new goal formula, so to
 start you can use `?` as the goal formula.
 
-    theorem length_node42: length(node(42, empty)) = 1
+    theorem length_node42: length([42]) = 1
     proof
       suffices ? 
           by definition length
@@ -99,13 +99,13 @@ start you can use `?` as the goal formula.
 Deduce responds with
 
     suffices to prove:
-        1 + length(empty) = 1
+        1 + length([]) = 1
 
 We need to apply the definition of `length` again to simplify
 `length(empty)`, so we add another `length` to the definition
 statement.
 
-    theorem length_node42: length(node(42, empty)) = 1
+    theorem length_node42: length([42]) = 1
     proof
       suffices ? 
           by definition {length, length}
@@ -120,7 +120,7 @@ Deduce responds this time with
 Which is a nice formula to use for the `suffices`. So we cut and
 paste that to replace the `?`.
 
-    theorem length_node42: length(node(42, empty)) = 1
+    theorem length_node42: length([42]) = 1
     proof
       suffices 1 + 0 = 1 
           by definition {length, length}
@@ -132,7 +132,7 @@ Finally we need to prove, `1 + 0 = 1`. That can be proved using the
 section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
 
 ```{.deduce #length_node42}
-theorem length_node42: length(node(42, empty)) = 1
+theorem length_node42: length([42]) = 1
 proof
   suffices 1 + 0 = 1
       by definition {length, length}
@@ -143,12 +143,12 @@ end
 
 ### Exercise
 
-Prove that `node(1,empty) ++ node(2, empty) = node(1, node(2, empty))`
+Prove that `[1] ++ [2] = [1, 2]`
 by filling in the `?` below.
 
 ```{.deduce #append_node_1_node_2}
 theorem append_node_1_node_2:
-  node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
+  [1] ++ [2] = [1, 2]
 proof
   ?
 end
@@ -163,7 +163,7 @@ formula must be true for all natural numbers and the variable `x` will
 be used to refer to the natural number.  We then replace the `42` in
 the formula with `x` to obtain the following theorem statement.
 
-    theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+    theorem length_one_nat: all x:Nat. length([x]) = 1
     proof
       ?
     end
@@ -171,7 +171,7 @@ the formula with `x` to obtain the following theorem statement.
 Deduce responds with
 
     incomplete proof:
-        all x:Nat. length(node(x,empty)) = 1
+        all x:Nat. length([x]) = 1
 
 The most straightforward way to prove an `all` formula in Deduce is
 with an `arbitrary` statement. When you use `arbitrary` you are
@@ -180,7 +180,7 @@ stand in for all entities of the specified type. The `arbitrary`
 statement asks you to name the hypothetical entity. Here we choose `x`
 but we could have chosen a different name.
 
-    theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+    theorem length_one_nat: all x:Nat. length([x]) = 1
     proof
       arbitrary x:Nat
       ?
@@ -189,7 +189,7 @@ but we could have chosen a different name.
 Deduce responds with
 
     incomplete proof:
-        length(node(x,empty)) = 1
+        length([x]) = 1
 
 We don't know anything about this hypothetical `x` other than it being
 a natural number. But as we previously observed, we don't need any
@@ -197,7 +197,7 @@ more information about `x` in this example.  We complete the proof as
 before, using the definitions of `length` and the `add_zero` theorem.
 
 ```{.deduce #length_one_nat}
-theorem length_one_nat: all x:Nat. length(node(x, empty)) = 1
+theorem length_one_nat: all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
   suffices 1 + 0 = 1
@@ -212,7 +212,7 @@ the following we prove the `length_node42` theorem again, but this
 time the proof makes use of `length_one_nat`.
 
 ```{.deduce #length_node42_again}
-theorem length_node42_again: length(node(42, empty)) = 1
+theorem length_node42_again: length([42]) = 1
 proof
   length_one_nat[42]
 end
@@ -225,7 +225,7 @@ types. In the following, we add `all U:type` to the formula and
 another `arbitrary` statement.
 
 ```{.deduce #length_one}
-theorem length_one: all U:type. all x:U. length(node(x, empty)) = 1
+theorem length_one: all U:type. all x:U. length([x]) = 1
 proof
   arbitrary U:type
   arbitrary x:U
@@ -249,7 +249,7 @@ To summarize this section:
 Complete the following proof.
 ```{.deduce #append_node_x_node_y}
 theorem append_xy:
-  all T:type. all x:T, y:T. node(x,empty) ++ node(y, empty) = node(x, node(y, empty))
+  all T:type. all x:T, y:T. [x] ++ [y] = [x, y]
 proof
   ?
 end
@@ -257,7 +257,7 @@ end
 
 Prove again that 
 ```
-node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
+[1] ++ [2] = [1, 2]
 ```
 but this time use the previous theorem.
 
@@ -274,7 +274,7 @@ with the above `length_one` theorem.
 
 ```
 theorem length_one_equal: all U:type. all x:U, y:U.
-  length(node(x,empty)) = length(node(y,empty))
+  length([x]) = length([y])
 proof
   arbitrary U:type
   arbitrary x:U, y:U
@@ -282,7 +282,7 @@ proof
 end
 ```
 
-To replace `length(node(x,empty))` with `1`, we rewrite
+To replace `length([x])` with `1`, we rewrite
 using the `length_one` theorem instantiated at `U` and `x`.
 
 ```
@@ -293,7 +293,7 @@ Deduce tells us that the current goal has become
 
 ```
 remains to prove:
-	1 = length(node(y,empty))
+	1 = length([y])
 ```
 
 We rewrite again, separated by a vertical bar, using `length_one`,
@@ -310,7 +310,7 @@ Here is the completed proof of `length_one_equal`.
 
 ```{.deduce #length_one_equal}
 theorem length_one_equal: all U:type. all x:U, y:U.
-  length(node(x,empty)) = length(node(y,empty))
+  length([x]) = length([y])
 proof
   arbitrary U:type
   arbitrary x:U, y:U
@@ -521,7 +521,7 @@ an empty list. Suppose we try to use `arbitrary` for both the
 `all U` and the `all xs`.
 
     theorem append_empty: all U :type. all xs :List<U>.
-      xs ++ empty = xs
+      xs ++ [] = xs
     proof
       arbitrary U:type
       arbitrary xs:List<U>
@@ -531,7 +531,7 @@ an empty list. Suppose we try to use `arbitrary` for both the
 Deduce replies that we need to prove
 
     incomplete proof:
-        xs ++ empty = xs
+        xs ++ [] = xs
 
 But now we're stuck because the definition of append pattern matches
 on its first argument, but we don't know whether `xs` is an `empty`
@@ -541,14 +541,14 @@ So instead of using `arbitrary xs:List<U>` to prove the `all xs`, we
 proceed by induction as follows.
 
     theorem append_empty: all U :type. all xs :List<U>.
-      xs ++ empty = xs
+      xs ++ [] = xs
     proof
       arbitrary U:type
       induction List<U>
       case empty {
         ?
       }
-      case node(n, xs') suppose IH: xs' ++ empty = xs' {
+      case node(n, xs') suppose IH: xs' ++ [] = xs' {
         ?
       }
     end
@@ -567,7 +567,7 @@ Let us first focus on the case for `empty`. Deduce tells us that we
 need to prove the following.
 
     incomplete proof:
-        empty ++ empty = empty
+        [] ++ [] = []
 
 This follows directly from the definition of append.
 
@@ -579,7 +579,7 @@ However, to make the proof more readable by other humans, I recommend
 restating the goal using the `conclude` statement.
 
     case empty {
-      conclude @empty<U> ++ empty = empty  by definition operator++
+      conclude @[]<U> ++ [] = []  by definition operator++
     }
 
 Next let us focus on the case for `node`. Deduce tells us that we need
@@ -587,10 +587,10 @@ to prove the following and that `IH` has been added to the available
 facts.
 
     incomplete proof:
-        node(n,xs') ++ empty = node(n,xs')
+        node(n,xs') ++ [] = node(n,xs')
 
     available facts:
-        IH: xs' ++ empty = xs',
+        IH: xs' ++ [] = xs',
         ...
 
 Looking at the goal, we notice that we can expand the definition of
@@ -599,9 +599,9 @@ Perhaps we forget the exact definition of `++`, so we can let
 Deduce tell us the expansion by putting `?` on the right-hand side of
 the equation.
 
-    case node(n, xs') suppose IH: xs' ++ empty = xs' {
+    case node(n, xs') suppose IH: xs' ++ [] = xs' {
       equations
-        node(n,xs') ++ empty
+        node(n,xs') ++ []
             = ?                       by definition operator++
         ... = node(n,xs')             by ?
     }
@@ -609,27 +609,27 @@ the equation.
 Deduce responds with
 
     remains to prove:
-        node(n, xs' ++ empty) = ?
+        node(n, xs' ++ []) = ?
 
 It has transformed the left-hand side of the equation by expanding the
 definition of `++`.  We copy and paste the `node(n, xs' ++ empty)` to
 replace the `?`.
 
-    case node(n, xs') suppose IH: xs' ++ empty = xs' {
+    case node(n, xs') suppose IH: xs' ++ [] = xs' {
       equations
-        node(n,xs') ++ empty
-            = node(n, xs' ++ empty)   by definition operator++
+        node(n,xs') ++ []
+            = node(n, xs' ++ [])   by definition operator++
         ... = node(n,xs')             by ?
     }
 
-Next, we see that the subterm `xs' ++ empty` matches the
+Next, we see that the subterm `xs' ++ []` matches the
 right-hand side of the induction hypothesis `IH`. We use the
 `rewrite` statement to apply the `IH` equation to this subterm.
 
-    case node(n, xs') suppose IH: xs' ++ empty = xs' {
+    case node(n, xs') suppose IH: xs' ++ [] = xs' {
       equations
-        node(n,xs') ++ empty
-            = node(n, xs' ++ empty)   by definition operator++
+        node(n,xs') ++ []
+            = node(n, xs' ++ [])   by definition operator++
         ... = node(n,xs')             by rewrite IH
     }
 
@@ -637,17 +637,17 @@ Here is the completed proof of `append_empty`.
 
 ```{.deduce #append_empty}
 theorem append_empty: all U :type. all xs :List<U>.
-  xs ++ empty = xs
+  xs ++ [] = xs
 proof
   arbitrary U:type
   induction List<U>
   case empty {
-    conclude @empty<U> ++ empty = empty  by definition operator++
+    conclude @[]<U> ++ [] = []  by definition operator++
   }
-  case node(n, xs') suppose IH: xs' ++ empty = xs' {
+  case node(n, xs') suppose IH: xs' ++ [] = xs' {
     equations
-      node(n,xs') ++ empty
-          = node(n, xs' ++ empty)   by definition operator++
+      node(n,xs') ++ []
+          = node(n, xs' ++ [])   by definition operator++
       ... = node(n,xs')             by rewrite IH
   }
 end
@@ -942,7 +942,7 @@ to apply a definition to an already-known fact.
 
 ```
 theorem length_zero_empty: all T:type. all xs:List<T>.
-  if length(xs) = 0 then xs = empty
+  if length(xs) = 0 then xs = []
 proof
   arbitrary T:type
   arbitrary xs:List<T>
@@ -955,7 +955,7 @@ Deduce tells us:
 ```
 incomplete proof
 Goal:
-	(if length(xs) = 0 then xs = empty)
+	(if length(xs) = 0 then xs = [])
 ```
 
 To prove an `if`-`then` formula, we `suppose` the condition and then
@@ -970,13 +970,13 @@ Deduce adds `len_z` to the givens (similar to `have`).
 ```
 incomplete proof
 Goal:
-	xs = empty
+	xs = []
 Givens:
 	len_z: length(xs) = 0
 ```
 
 Next we `switch` on the list `xs`. In the case when `xs` is `empty` it
-will be trivial to prove `xs = empty`. In the other case, we will
+will be trivial to prove `xs = []`. In the other case, we will
 obtain a contradiction.
 
 ```
@@ -1010,7 +1010,7 @@ Here is the complete proof of `length_zero_empty`.
 
 ```{.deduce #length_zero_empty}
 theorem length_zero_empty: all T:type. all xs:List<T>.
-  if length(xs) = 0 then xs = empty
+  if length(xs) = 0 then xs = []
 proof
   arbitrary T:type
   arbitrary xs:List<T>
@@ -1036,7 +1036,7 @@ supplying a proof of the condition.  We demonstrate several uses of
 ```
 theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
   if length(xs ++ ys) = 0
-  then xs = empty and ys = empty
+  then xs = [] and ys = []
 proof
   arbitrary T:type
   arbitrary xs:List<T>, ys:List<T>
@@ -1090,7 +1090,7 @@ Here is the complete proof of `length_append_zero_empty`.
 ```{.deduce #length_append_zero_empty}
 theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
   if length(xs ++ ys) = 0
-  then xs = empty and ys = empty
+  then xs = [] and ys = []
 proof
   arbitrary T:type
   arbitrary xs:List<T>, ys:List<T>
@@ -1099,7 +1099,7 @@ proof
     by transitive (symmetric length_append<T>[xs][ys]) len_xs_ys
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
   have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
-  conclude xs = empty and ys = empty
+  conclude xs = [] and ys = []
   by (apply length_zero_empty<T>[xs] to len_xs),
      (apply length_zero_empty<T>[ys] to len_ys)
 end
