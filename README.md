@@ -20,7 +20,7 @@ programs, so it serves as a better starting place educationally, and
 understood, so it's straightforward to build and maintain the Deduce
 proof checker.
 
-## Proof Example
+## Example
 
 As a taster for what it looks like to write programs and proofs in
 Deduce, the following is an implementation of the linear `search`
