@@ -458,12 +458,48 @@ define S = single(1) ∪ single(2) ∪ single(3)
 assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ```
 
-
 ## Induction
 
 ```
 proof ::= "induction" type ind_case*
 ```
+
+### Meaning
+
+A proof of the form
+```
+induction T
+case c1(e11,...,e1k) assume IH1, ... { X1 }
+...
+case cn(en1,...,enj) assume IH1, ... { Xn }
+```
+is a proof of the formula `all x:T. P`
+if each `Xi` is a proof of `P` where `x` is replaced
+by `ci(ei1,...,eij)`. The type `T` must be a union type.
+Each proof `Xi` may use its induction
+hypotheses `IH1, ...`. For each term `ein` whose type is `T`
+(so it is recursive), the induction hypothesis is
+the formula `P` with `x` replaced by `ein`.
+
+### Example
+
+```{.deduce #induction_example}
+theorem induction_example: all n:Nat.
+  n + 0 = n
+proof
+  induction Nat
+  case 0 {
+    conclude 0 + 0 = 0   by definition operator+
+  }
+  case suc(n') suppose IH: n' + 0 = n' {
+    equations
+      suc(n') + 0 = suc(n' + 0)  by definition operator+
+              ... = suc(n')      by rewrite IH
+  }
+end
+```
+
+
 
 ## Intersection
 
@@ -617,5 +653,6 @@ import List
 <<conjunct_example>>
 <<if_then_else_example>>
 <<membership_example>>
+<<induction_example>>
 ```
 -->
