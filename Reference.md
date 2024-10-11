@@ -73,16 +73,33 @@ proof
 end
 ```
 
-
-
-
-
 ## Arbitrary (Forall Introduction)
 
 ```
 proof ::= "arbitrary" var_decl_list  proof
 ```
 
+### Meaning
+
+A proof of the form
+```
+arbitrary x1:T1, ..., xn:Tn
+X
+```
+is a proof of the formula `all x1:T1, ..., xn:Tn. P` if `X` is a proof of `P`.
+The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
+
+### Example
+
+```{.deduce #arbitrary_example}
+theorem arbitrary_example: all x:Nat,y:Nat. if x = y then y = x
+proof
+  arbitrary x:Nat,y:Nat
+  conclude if x = y then y = x by
+    assume: x = y
+    symmetric (recall x = y)
+end
+```
 
 
 ## Assume (aka. Suppose)
@@ -92,15 +109,41 @@ proof ::= "suppose" assumption proof
 proof ::= "assume" assumption proof
 ```
 
+### Meaning
+
+A proof of the form
+```
+assume label: P
+X
+```
+is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
+
+### Example
+
+```{.deduce #assume_example}
+theorem assume_example: all P:bool,Q:bool. if (P and Q) then (Q and P)
+proof
+  arbitrary P:bool,Q:bool
+  assume prem: P and Q
+  have: P by prem
+  have: Q by prem
+  conclude Q and P by recall Q, P
+end
+```
+
 ## Assumption and Assumption List
 
 ```
 assumption ::= identifier
 assumption ::= identifier ":" formula
+assumption ::= ":" formula
 
 assumption_list ::= assumption
 assumption_list ::= assumption "," assumption_list
 ```
+
+See the entry for Assume to see how assumptions are used.
+
 
 ## Choose (Exists Elimination)
 
@@ -365,7 +408,10 @@ term ::= term "|" term
 
 <!--
 ```{.deduce file=Reference.pf}
-<<apply_to_example>>
+import Nat
 
+<<apply_to_example>>
+<<arbitrary_example>>
+<<assume_example>>
 ```
 -->

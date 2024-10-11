@@ -486,7 +486,7 @@ def parse_definition_proof(token_list, i):
       meta = meta_from_tokens(token, token_list[i-1])
       return (ApplyDefs(meta, [Var(meta, None, n) for n in defs]), i)
 
-def parse_from(token_list, i):
+def parse_recall(token_list, i):
   start = i
   i = i + 1
   facts,i = parse_term_list(token_list, i)
@@ -625,7 +625,7 @@ def parse_proof_hi(token_list, i):
     return (PExtensionality(meta, body), i)
 
   elif token.type == 'RECALL':
-    return parse_from(token_list, i)
+    return parse_recall(token_list, i)
     
   elif token.type == 'HAVE':
     i = i + 1
@@ -752,8 +752,15 @@ def parse_proof_hi(token_list, i):
     return (Suffices(meta, formula, proof, body), i)
     
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
+    start = i
     i = i + 1
-    label,premise,i = parse_assumption(token_list, i)
+    try:
+      label,premise,i = parse_assumption(token_list, i)
+    except Exception as e:
+      error(meta_from_tokens(token, token_list[i]),
+            'expected an assumption:\n\t"assume" label ":" formula\n' \
+            + str(e))
+      
     meta = meta_from_tokens(token,token_list[i-1])
     body,i = parse_proof(token_list, i)
     return ImpIntro(meta, label, premise, body), i
@@ -804,8 +811,12 @@ def parse_proof_hi(token_list, i):
             error(meta_from_tokens(token, token),
                   'did you mean `' + kw \
                   + '` instead of `' + token_list[i].value + '`?')
-      
-    name, i = parse_identifier(token_list, i)
+
+    try:
+      name, i = parse_identifier(token_list, i)
+    except Exception as e:
+      error(meta_from_tokens(token, token_list[i]),
+            'expected a proof but got:\n\t' + token_list[i])
     return (PVar(meta_from_tokens(token, token), name), i)
 
 def parse_proof_list(token_list, i):

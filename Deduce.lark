@@ -154,6 +154,7 @@ ident: IDENT              -> ident
     | "suppose" ":" term proof                           -> imp_intro_anon
     | "assume" IDENT proof                               -> imp_intro
     | "assume" IDENT ":" term proof                      -> imp_intro_explicit
+    | "assume" ":" term proof                            -> imp_intro_anon
     | "arbitrary"  var_list proof                        -> all_intro
     | "choose" term_list proof                           -> some_intro
     | "obtain" ident_list "where" IDENT "from" proof proof -> some_elim
