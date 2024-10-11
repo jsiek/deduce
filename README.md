@@ -23,9 +23,9 @@ proof checker.
 ## Example
 
 As a taster for what it looks like to write programs and proofs in
-Deduce, the following is an implementation of the linear `search`
+Deduce, the following is an implementation of the Linear Search
 algorithm and a proof that item `y` does not occur in the list `xs` at
-a position before the index returned by `search`.
+a position before the index returned by `search(xs, y)`.
 
 ``` {.deduce #search_take}
 function search(List<Nat>, Nat) -> Nat {
