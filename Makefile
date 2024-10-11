@@ -40,6 +40,11 @@ check_intro:
 # List parsing needs to be updated in Deduce.lark
 #	$(PYTHON) ./deduce.py --lalr ProofIntro.pf
 
+check_ref:
+	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
+	$(PYTHON) ./deduce.py --recursive-descent Reference.pf
+	$(PYTHON) ./deduce.py --lalr Reference.pf
+
 clean:
 	rm -f README.pf FunctionalProgramming.pf ProofIntro.pf
 	rm -rf .entangled

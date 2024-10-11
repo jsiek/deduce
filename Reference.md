@@ -12,6 +12,16 @@ repetitions of the grammar item that it follows.
 term ::= term "+" term
 ```
 
+The addition function for natural numbers is defined in `Nat.pf`
+as follows.
+
+```
+function operator +(Nat,Nat) -> Nat {
+  operator +(0, m) = m
+  operator +(suc(n), m) = suc(n + m)
+}
+```
+
 ## Add (Multiset)
 
 ```
@@ -19,7 +29,7 @@ term ::= term "⨄" term
 term ::= term "[+]" term
 ```
 
-## And
+## And (logical conjunction)
 
 ```
 term ::= term "and" term
@@ -31,11 +41,41 @@ term ::= term "and" term
 term ::= term "++" term
 ```
 
-## Apply-To (Modus Ponens)
+## Apply-To Proof (Modus Ponens)
 
 ```
 proof ::= "apply" proof "to" proof
 ```
+
+### Meaning
+
+A proof of the form
+```
+apply X to Y
+```
+is a proof of formula `Q` if `X` is a proof of `(if P then Q)`
+and `Y` is a proof of `P`.
+
+### Example
+
+```{.deduce #apply_to_example}
+theorem apply_to_example: all P:bool, Q:bool, R:bool.
+  if (if P then Q) and (if Q then R) and P
+  then R
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  suppose prem: (if P then Q) and (if Q then R) and P
+  have pq: if P then Q by prem
+  have p: P by prem
+  have q: Q by apply pq to p
+  have qr: if Q then R by prem
+  conclude R by apply qr to q
+end
+```
+
+
+
+
 
 ## Arbitrary (Forall Introduction)
 
@@ -321,3 +361,11 @@ term_list ::= term "," term_list
 term ::= term "∪" term
 term ::= term "|" term
 ```
+
+
+<!--
+```{.deduce file=Reference.pf}
+<<apply_to_example>>
+
+```
+-->

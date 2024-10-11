@@ -976,7 +976,12 @@ def parse_equation_list(token_list, i):
 def parse_theorem(token_list, i):
   start = i
   i = i + 1
-  name, i = parse_identifier(token_list, i)
+  try:
+    name, i = parse_identifier(token_list, i)
+  except Exception as e:
+    error(meta_from_tokens(token_list[i], token_list[i]),
+          'expected name of theorem, not:\n\t' + token_list[i].value)
+        
   if token_list[i].type != 'COLON':
     error(meta_from_tokens(token_list[i], token_list[i]),
           'expected a colon after theorem name, not\n\t' \
