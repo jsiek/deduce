@@ -1,0 +1,6 @@
+theorem T: all P:bool. if P then P
+proof
+  arbitrary P:bool
+  assume: P
+  P
+end
