@@ -28,7 +28,7 @@ proof
 end
 
 theorem m_empty_zero: all T:type. all x:T.
-  cnt(m_fun(λy{0}: fn T->Nat))(x) = 0
+  cnt(m_fun(λy:T{0}))(x) = 0
 proof
   arbitrary T:type
   arbitrary x:T
@@ -45,7 +45,7 @@ end
 
 // Testing alternate asci notation 
 theorem m_sum_empty: all T:type. all A:MultiSet<T>.
-  A .+. m_fun(λy{0}: fn T->Nat) = A
+  A .+. m_fun(λy:T{0}) = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
@@ -60,13 +60,13 @@ proof
 end
 
 theorem empty_m_sum: all T:type. all A:MultiSet<T>.
-  m_fun(λx{0} : fn T->Nat) ⨄ A = A
+  m_fun(λx:T{0}) ⨄ A = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
   switch A for operator ⨄, m_fun {
     case m_fun(f) {
-      have eq: (λx{0 + f(x)} : fn T->Nat) = f
+      have eq: (λx:T{0 + f(x)}) = f
         by extensionality arbitrary x:T
 	   definition {operator +}
       definition cnt and rewrite eq
@@ -84,10 +84,10 @@ proof
     case m_fun(f) {
       switch B {
         case m_fun(g) {
-	  suffices m_fun(λx{f(x) + g(x)} : fn T -> Nat)
-                 = m_fun(λx{g(x) + f(x)})
+	  suffices m_fun(λx:T{f(x) + g(x)})
+                 = m_fun(λx:T{g(x) + f(x)})
               by definition cnt
-	  have eq: (λx{(f(x) + g(x))} : fn T->Nat) = λx{(g(x) + f(x))}
+	  have eq: (λx:T{(f(x) + g(x))}) = λx:T{(g(x) + f(x))}
 	    by extensionality arbitrary x:T
 	       rewrite add_commute[f(x)][g(x)]
 	  rewrite eq
@@ -108,11 +108,11 @@ proof
 	case m_fun(g) {
 	  switch C {
 	    case m_fun(h) {
-	      suffices m_fun(λx{(f(x) + g(x)) + h(x)} : fn T->Nat)
-                     = m_fun(λx{f(x) + (g(x) + h(x))})
+	      suffices m_fun(λx:T{(f(x) + g(x)) + h(x)})
+                     = m_fun(λx:T{f(x) + (g(x) + h(x))})
                 by definition cnt
-	      have fgh_eq: (λx{(f(x) + g(x)) + h(x)} : fn T->Nat)
-	                 = λx{f(x) + (g(x) + h(x))}
+	      have fgh_eq: (λx:T{(f(x) + g(x)) + h(x)})
+ 	                  = λx:T{f(x) + (g(x) + h(x))}
 	        by extensionality arbitrary x:T
 		   rewrite add_assoc[f(x)][g(x),h(x)]
               rewrite fgh_eq
@@ -132,8 +132,8 @@ theorem som_one_single: all T:type. all x:T.
 proof
   arbitrary T:type
   arbitrary z:T
-  have eq: (λx{(if cnt(m_fun(λy{(if z = y then 1 else 0)}: fn T->Nat))(x) = 0
-               then false else true)} : fn T->bool)
+  have eq: λx:T{(if cnt(m_fun(λy:T{(if z = y then 1 else 0)}))(x) = 0
+               then false else true)}
            = λy{z = y}
     by extensionality
        arbitrary y:T
@@ -159,9 +159,9 @@ theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>
-  have eq: (λx{(if cnt(A)(x) + cnt(B)(x) = 0 then false else true)}: fn T->bool)
-    = λx{((if cnt(A)(x) = 0 then false else true)
-         or (if cnt(B)(x) = 0 then false else true))}
+  have eq: λx:T{(if cnt(A)(x) + cnt(B)(x) = 0 then false else true)}
+         = λx:T{((if cnt(A)(x) = 0 then false else true)
+                or (if cnt(B)(x) = 0 then false else true))}
     by extensionality  arbitrary x:T
        switch cnt(A)(x) {
          case 0 suppose Ax_z {

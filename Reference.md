@@ -35,6 +35,25 @@ term ::= term "⨄" term
 term ::= term "[+]" term
 ```
 
+Addition on multisets is defined in `MultiSet.pf`.  The main theorem
+about multiset addition is `cnt_sum`, which says that the count for
+each item in `A ⨄ B` is the sum of the counts for that item in `A` and
+the count for that item in `B`.
+
+```
+cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
+  cnt(A ⨄ B)(x) = cnt(A)(x) + cnt(B)(x)
+```
+
+### Example
+
+```{.deduce #add_multiset_example}
+define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
+assert cnt(A)(3) = 1
+assert cnt(A)(5) = 2
+assert cnt(A)(7) = 0
+```
+
 ## And (logical conjunction)
 
 ```
@@ -232,13 +251,6 @@ proof
 end
 ```
 
-
-## Colon (Type Annnotation)
-
-```
-term ::= term ":" type
-```
-
 ## Comma (Conjunction/And Introduction)
 
 ```
@@ -254,10 +266,41 @@ term ::= term "∘" term
 term ::= term "[o]" term
 ```
 
+The composition of two functions `g ∘ f` is defined in `Maps.pf`
+so that `(g ∘ f)(x) = g(f(x))`.
+
+### Example
+
+Applying the successor function `suc` (add 1) to `3` yields `5`.
+
+```{.deduce #compose_example}
+assert (suc ∘ suc)(3) = 5
+```
+
 ## Conclude
 
 ```
 proof ::= "conclude" formula "by" proof
+```
+
+This proof statement is useful when you wish to emphasize the end of a
+proof by stating the formula that is being proved.
+
+### Meaning
+
+A proof of the form
+```
+conclude P by X
+```
+is a proof of formula `P` if `X` is a proof of `P`.
+
+### Example
+
+```{.deduce #conclude_example}
+theorem conclude_example: 1 + 1 = 2
+proof
+  conclude 1 + 1 = 2 by definition {operator+,operator+}
+end
 ```
 
 ## Conjunct
@@ -265,6 +308,29 @@ proof ::= "conclude" formula "by" proof
 ```
 proof ::= "conjunct" number "of" proof 
 ```
+
+### Meaning
+
+A proof of the form
+```
+conjunct n of X
+```
+is a proof of `Pn` if `X` is a proof of `P1 and ... and Pk`
+and 1 ≤ n ≤ k.
+
+### Example
+
+```{.deduce #conjunct_example}
+theorem conjunct_example: all P:bool, Q:bool. if P and Q then Q and P
+proof
+  arbitrary P:bool, Q:bool
+  assume prem: P and Q
+  have p: P         by conjunct 0 of prem
+  have q: Q         by conjunct 1 of prem
+  conclude Q and P  by p, q
+end
+```
+
 
 ## Divide
 
@@ -341,9 +407,40 @@ identifier_list ::= identifier
 identifier_list ::= identifier "," identifier_list
 ```
 
-## If (Formula)
+## If-Then (Conditional Formula)
 
-## If-Then (Program Term)
+A formula `if P then Q` is true when both `P` and `Q` are true and it
+is true when `P` is false.
+
+To prove a conditional formula, use `assume`. (See the entry for Assume.)
+
+To use a given that is a conditional formula, use `apply`-`to`.
+(See the entry for Apply-To.)
+
+## If-Then-Else (Program Term)
+
+A term of the form
+```
+if a then b else c
+```
+is equal to `b` when `a` is true and equal to `c` when `a` is false.
+
+### Example
+
+```{.deduce #if_then_else_example}
+assert (if true then 1 else 2) = 1
+assert (if false then 1 else 2) = 2
+
+theorem if_then_else_example: all P:bool.
+  (if P then 1 else 2) = (if not P then 2 else 1)
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+```
 
 ## In (Membership)
 
@@ -351,6 +448,16 @@ identifier_list ::= identifier "," identifier_list
 term ::= term "∈" term
 term ::= term "in" term
 ```
+
+The formula `x ∈ S` is true when element `x` is contained in the set `S`.
+
+### Example
+
+```{.deduce #membership_example}
+define S = single(1) ∪ single(2) ∪ single(3)
+assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
+```
+
 
 ## Induction
 
@@ -496,6 +603,7 @@ import Nat
 import List
 
 <<add_example>>
+<<add_multiset_example>>
 <<and_example>>
 <<and_example_intro>>
 <<and_example_elim>>
@@ -504,5 +612,10 @@ import List
 <<arbitrary_example>>
 <<assume_example>>
 <<choose_example>>
+<<compose_example>>
+<<conclude_example>>
+<<conjunct_example>>
+<<if_then_else_example>>
+<<membership_example>>
 ```
 -->

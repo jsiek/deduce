@@ -1253,7 +1253,7 @@ class Or(Formula):
         case _:
           newer_args.append(arg)
     if len(newer_args) == 0:
-      return Bool(self.location, False)
+      return Bool(self.location, BoolType(self.location), False)
     elif len(newer_args) == 1:
       return newer_args[0]
     else:
