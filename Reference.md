@@ -22,6 +22,12 @@ function operator +(Nat,Nat) -> Nat {
 }
 ```
 
+### Example
+
+```{.deduce add_example}
+assert 2 + 3 = 5
+```
+
 ## Add (Multiset)
 
 ```
@@ -39,6 +45,14 @@ term ::= term "and" term
 
 ```
 term ::= term "++" term
+```
+
+The append function, i.e., `operator ++`, is defined in `List.pf`.
+
+### Example
+
+```{.deduce append_example}
+assert [1,2] ++ [3,4] = [1,2,3,4]
 ```
 
 ## Apply-To Proof (Modus Ponens)
@@ -410,6 +424,8 @@ term ::= term "|" term
 ```{.deduce file=Reference.pf}
 import Nat
 
+<<add_example>>
+<<append_example>>
 <<apply_to_example>>
 <<arbitrary_example>>
 <<assume_example>>
