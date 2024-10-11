@@ -308,8 +308,8 @@ def parse_term_hi(token_list, i):
       var = Var(meta, None, name)
       return (var, i)
     except Exception as e:  
-      error(meta_from_tokens(token_list[i],token_list[i]),
-            'expected a term or formula, not\n\t' + token_list[i].value)
+      error(meta_from_tokens(token,token_list[i]),
+            'expected a term or formula\n' + str(e))
 
 def parse_call(token_list, i):
   term, i = parse_term_hi(token_list, i)
@@ -387,25 +387,6 @@ def parse_term_equal(token_list, i):
                     Bool(meta, None, False))
   return term, i
     
-def parse_term(token_list, i):
-  token = token_list[i]
-  term, i = parse_term_log(token_list, i)
-  if i < len(token_list) and (token_list[i].value in iff_operators):
-    i = i + 1
-    right, i = parse_term_log(token_list, i)
-    loc = meta_from_tokens(token, token_list[i-1])
-    left_right = IfThen(loc, None, term.copy(), right.copy())
-    right_left = IfThen(loc, None, right.copy(), term.copy())
-    term = And(loc, None, [left_right, right_left])
-  
-  if i < len(token_list) and token_list[i].type == 'COLON':
-    i = i + 1
-    typ, i = parse_type(token_list, i)
-    term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
-                   term, typ)
-      
-  return term, i
-
 def parse_term_log(token_list, i):
   token = token_list[i]
   term, i = parse_term_equal(token_list, i)
@@ -421,6 +402,25 @@ def parse_term_log(token_list, i):
       term = Or(meta_from_tokens(token, token_list[i-1]), None,
                  extract_or(term) + extract_or(right))        
 
+  if i < len(token_list) and token_list[i].type == 'COLON':
+    i = i + 1
+    typ, i = parse_type(token_list, i)
+    term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
+                   term, typ)
+      
+  return term, i
+
+def parse_term(token_list, i):
+  token = token_list[i]
+  term, i = parse_term_log(token_list, i)
+  if i < len(token_list) and (token_list[i].value in iff_operators):
+    i = i + 1
+    right, i = parse_term_log(token_list, i)
+    loc = meta_from_tokens(token, token_list[i-1])
+    left_right = IfThen(loc, None, term.copy(), right.copy())
+    right_left = IfThen(loc, None, right.copy(), term.copy())
+    term = And(loc, None, [left_right, right_left])
+  
   if i < len(token_list) and token_list[i].type == 'COLON':
     i = i + 1
     typ, i = parse_type(token_list, i)
@@ -816,7 +816,7 @@ def parse_proof_hi(token_list, i):
       name, i = parse_identifier(token_list, i)
     except Exception as e:
       error(meta_from_tokens(token, token_list[i]),
-            'expected a proof but got:\n\t' + token_list[i])
+            'expected a proof\n' + str(e))
     return (PVar(meta_from_tokens(token, token), name), i)
 
 def parse_proof_list(token_list, i):
@@ -1115,10 +1115,10 @@ def parse_statement(token_list, i):
         if edit_distance(token.value, kw) <= 2:
             error(meta_from_tokens(token, token),
                   'did you mean `' + kw \
-                  + '` instead of `' + token_list[i].value + '`?')
+                  + '` instead of `' + token.value + '`?')
       
     error(meta_from_tokens(token, token),
-          'expected a statement, not\n\t' + token_list[i].value)
+          'expected a statement, not\n\t' + token.value)
 
 def parse_type_parameters(token_list, i):
   if token_list[i].type == 'LESSTHAN':
@@ -1160,7 +1160,11 @@ def parse_type(token_list, i):
     i = i + 1
     return typ, i
   else:
-    name, i = parse_identifier(token_list, i)
+    try:
+      name, i = parse_identifier(token_list, i)
+    except Exception as e:
+      error(meta_from_tokens(token, token_list[i]),
+            'expected a type\n' + str(e))
     var = Var(meta_from_tokens(token,token), None, name)
     inst = False
     
