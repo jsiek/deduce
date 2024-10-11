@@ -41,6 +41,47 @@ term ::= term "[+]" term
 term ::= term "and" term
 ```
 
+A formula `P and Q` is true when both `P` and `Q` are true.
+
+### Example
+
+```{.deduce #and_example}
+assert true and true
+assert not (true and false)
+assert not (false and true)
+assert not (false and false)
+```
+
+### Prove `P and Q`
+
+Use comma to combine a proof of `P` and a proof of `Q` into a proof of
+`P and Q`.
+
+```{.deduce #and_example_intro}
+theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
+proof
+  have eq1: 1 = 0 + 1 by definition operator+
+  have eq2: 0 = 0 + 0 by definition operator+
+  conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
+end
+```
+
+### Use `P and Q`
+
+A proof of `P and Q` can be used implicitly to prove `P` and to prove `Q`.
+
+```{.deduce #and_example_elim}
+theorem and_example_elim: all P:bool, Q:bool. if P and Q then Q and P
+proof
+  arbitrary P:bool, Q:bool
+  assume prem: P and Q
+  have p: P         by prem
+  have q: Q         by prem
+  conclude Q and P  by p, q
+end
+```
+
+
 ## Append
 
 ```
@@ -142,13 +183,11 @@ is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
 ### Example
 
 ```{.deduce #assume_example}
-theorem assume_example: all P:bool,Q:bool. if (P and Q) then (Q and P)
+theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
-  arbitrary P:bool,Q:bool
-  assume prem: P and Q
-  have: P by prem
-  have: Q by prem
-  conclude Q and P by recall Q, P
+  arbitrary x:Nat,y:Nat
+  assume prem: x = y
+  conclude 1 + x = 1 + y  by rewrite prem
 end
 ```
 
@@ -455,6 +494,9 @@ import Nat
 import List
 
 <<add_example>>
+<<and_example>>
+<<and_example_intro>>
+<<and_example_elim>>
 <<append_example>>
 <<apply_to_example>>
 <<arbitrary_example>>
