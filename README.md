@@ -23,37 +23,46 @@ proof checker.
 ## Proof Example
 
 As a taster for what it looks like to write proofs in Deduce, the
-following is a proof that appending two lists and then applying the
-`map` function is the same as first applying `map` to the two lists
-and then appending them.
+following is a proof that item `y` does not occur in the list `xs` at
+a position before the index returned by the linear `search` algorithm.
 
-``` {.deduce #map_append}
-theorem map_append: <T> all f : fn T->T, ys : List<T>. all xs : List<T>.
-  map(xs ++ ys, f) = map(xs,f) ++ map(ys,f)
+``` {.deduce #search_take}
+theorem search_take: all xs: List<Nat>. all y:Nat.
+    not (y ∈ set_of(take(search(xs, y), xs)))
 proof
-  arbitrary T : type
-  arbitrary f : fn T->T, ys : List<T>
-  induction List<T>
+  induction List<Nat>
   case empty {
-    equations
-      map(@empty<T> ++ ys, f)
-          = map(ys, f)                            by definition operator++
-      ... ={ @empty<T> ++ map(ys, f) }            by definition operator++
-      ... ={ map(@empty<T>, f) } ++ map(ys, f)    by definition map
+    arbitrary y:Nat
+    suffices not (y ∈ ∅) by definition {search, take, set_of}
+    empty_no_members<Nat>
   }
-  case node(x, xs')
-    suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
+  case node(x, xs') suppose
+    IH: (all y:Nat. not (y ∈ set_of(take(search(xs', y), xs'))))
   {
-    equations
-      map(node(x,xs') ++ ys, f)
-          = map(node(x,xs' ++ ys), f)               by definition operator++
-      ... = node(f(x), map(xs' ++ ys, f))           by definition map
-      ... = node(f(x), map(xs',f) ++ map(ys,f))     by rewrite IH
-      ... ={ node(f(x), map(xs', f)) ++ map(ys,f) } by definition operator++
-      ... ={ map(node(x,xs'),f) ++ map(ys,f) }      by definition map
+    arbitrary y:Nat
+    switch x = y for search {
+      case true {
+        suffices not (y ∈ ∅) by definition {take, set_of}
+        empty_no_members<Nat>
+      }
+      case false assume xy_false: (x = y) = false {
+        suffices not (y ∈ single(x) ∪ set_of(take(search(xs', y), xs')))
+            by definition {take, set_of}
+        suppose c: y ∈ single(x) ∪ set_of(take(search(xs', y), xs'))
+        cases (apply member_union<Nat> to c)
+        case y_in_x: y ∈ single(x) {
+          have: x = y by apply single_equal<Nat> to y_in_x
+          conclude false by rewrite xy_false in (recall x = y)
+        }
+        case y_in_rest: y ∈ set_of(take(search(xs', y), xs')) {
+          conclude false by apply IH to y_in_rest
+        }
+      }
+    }
   }
 end
 ```
+
 ## Installation
 
 You will need [Python](https://www.python.org/) version 3.10 or later.
@@ -124,7 +133,17 @@ you can use instead.
 <!--
 ``` {.deduce file=README.pf}
 import List
+import Set
 
-<<map_append>>
+function search(List<Nat>, Nat) -> Nat {
+  search(empty, y) = 0
+  search(node(x, xs), y) =
+    if x = y then
+      0
+    else
+      suc(search(xs, y))
+}
+
+<<search_take>>
 ```
 -->

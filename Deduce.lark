@@ -128,6 +128,7 @@ ident: IDENT              -> ident
 
 ?switch_pf_case: "case" pattern "{" proof "}"      -> switch_pf_case
     | "case" pattern "suppose" assumption_list "{" proof "}"      -> switch_pf_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}"      -> switch_pf_case_assume    
 
 ?switch_pf_case_list: switch_pf_case               -> single
     | switch_pf_case switch_pf_case_list           -> push
