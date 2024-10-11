@@ -10,13 +10,13 @@ proof
     case zero {
         arbitrary y:Nat, z:Nat
         suppose prem
-        _definition operator+
+        suffices y ≤ z  by definition operator+
         prem
     }
     case suc(n') suppose IH{
         arbitrary y:Nat, z:Nat
         suppose prem
-        _definition {operator+, operator≤}
+        suffices n' + y ≤ n' + z by definition {operator+, operator≤}
         apply IH[y, z] to prem
     }
 end
@@ -28,9 +28,10 @@ proof
         definition {operator*, operator <=}
     }
     case suc(n') suppose IH {
-        _definition operator *
-        _rewrite symmetric add_zero[suc(n')]
-        _rewrite add_assoc[suc(n')][0, n'* (suc(n') + 0)]
+        suffices suc(n') + 0 ≤ suc(n') + (0 + n' * (suc(n') + 0))
+            by definition operator *
+            and rewrite symmetric add_zero[suc(n')]
+                | add_assoc[suc(n')][0, n'* (suc(n') + 0)]
         have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
             by definition operator <=
         apply cleh[suc(n')][0, (0 + n' * (suc(n') + 0))]
@@ -46,13 +47,13 @@ proof
         definition {operator-, operator*}
     }
     case suc(n') suppose IH {
-        _definition {operator*, operator-}
+        suffices n' + n' * n' = suc(n') * n'  by definition {operator*, operator-}
+        and 
         // Question: Why do I need proof?
-        _rewrite sub_zero[n']
-        _rewrite add_sub_identity[suc(n')][n' * suc(n')]
-        _rewrite mult_commute[n'][suc(n')]
-        _definition operator*
-        .
+        rewrite sub_zero[n']
+           | add_sub_identity[suc(n')][n' * suc(n')]
+           | mult_commute[n'][suc(n')]
+        definition operator*
     }
 end
 
@@ -66,28 +67,28 @@ proof
         definition {summation, operator*, operator+,operator*, operator*,operator+}
     }
     case suc(n') suppose IH {
-        suffices ?
-            by rewrite symmetric one_add[n'] | add_commute[1][n']
         have step1: (all i:Nat. (if i < 1 then n' + i = 0 + (n' + i)))
             by arbitrary i:Nat
                 suppose prem : i < 1
                 symmetric zero_add[n'+i]
-        suffices ?
-            by rewrite apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
-        suffices ?
-            by rewrite dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
-        suffices ?
-            by rewrite IH
+        suffices n' * (n' - 1) + 2 * summation(1, n', λn{n}) = (n' + 1) * ((n' + 1) - 1)
+            by rewrite symmetric one_add[n'] | add_commute[1][n']
+            | apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
+            | dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
+            | IH
         suffices n' * (n' - 1) + 2 * (n' + 0) = (n' + 1) * ((n' + 1) - 1)
             by definition {summation, summation}
-        _rewrite add_one[n'] | add_zero[n']
-        _definition {operator-}
-        _rewrite sub_zero[n'] | blah[n'] | two_mult[n']
-        _definition operator*
-        _rewrite symmetric add_assoc[n' * n' - n'][n', n'] 
+        suffices n' * (n' - 1) + 2 * n' = suc(n') * (suc(n') - 1)
+              by rewrite add_one[n'] | add_zero[n']
+        suffices (n' * n' - n') + (n' + n') = suc(n') * n'
+              by definition {operator-}
+              and rewrite sub_zero[n'] | blah[n'] | two_mult[n']
+        suffices ((n' * n' - n') + n') + n' = n' + n' * n' by definition operator*
+            and rewrite symmetric add_assoc[n' * n' - n'][n', n'] 
         have n_le_nn : n' <= n' * n' by bleh[n']
-        _rewrite add_commute[(n' * n' - n')][n']
-        _rewrite apply sub_add_identity[n'*n'][n'] to n_le_nn
+        suffices n' * n' + n' = n' + n' * n' by 
+            rewrite add_commute[(n' * n' - n')][n']
+            | apply sub_add_identity[n'*n'][n'] to n_le_nn
         add_commute[n' * n'][n']
     }
 end
@@ -97,24 +98,25 @@ theorem sum_n' : all n : Nat.
 proof
     induction Nat
     case zero {
-        _definition {summation, summation, operator+}
-        rewrite mult_zero[2] | zero_mult[1]
+        definition {summation, summation, operator+}
+        and rewrite mult_zero[2] | zero_mult[1]
     }
     case suc(n') suppose IH {
-        suffices ?
-            by rewrite symmetric one_add[n'] | add_commute[1][n']
         have step1: (all i:Nat. (if i < 1 then suc(n') + i = 0 + (suc(n') + i)))
             by arbitrary i:Nat
                 suppose prem : i < 1
                 symmetric zero_add[suc(n')+i]
-        _rewrite symmetric add_one[n' + 1] | add_one[n']
-        suffices ?
-            by rewrite apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
-        _rewrite dist_mult_add[2][summation(suc(n'), 0, λn{n}), summation(1, suc(n'), λn{n})]
-        _rewrite IH
-        _definition {summation, summation }
-        _rewrite add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n']
-        _rewrite dist_mult_add[n' + 1][n' + 1, 1]  
+        suffices n' * (n' + 1) + 2 * summation(1, suc(n'), λn{n}) = suc(n') * (suc(n') + 1)
+            by rewrite symmetric one_add[n'] | add_commute[1][n']
+               | symmetric add_one[n' + 1] | add_one[n']
+               |  apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
+               | dist_mult_add[2][summation(suc(n'), 0, λn{n}), summation(1, suc(n'), λn{n})]
+               | IH
+        suffices n' * (n' + 1) + ((n' + 1) + (n' + 1)) = (n' + 1) * ((n' + 1) + 1)
+            by definition {summation, summation }
+            and rewrite add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n']
+        suffices (n' * n' + n') + ((n' + 1) + (n' + 1)) = ((n' * n' + n') + (n' + 1)) + (n' + 1) by 
+         rewrite dist_mult_add[n' + 1][n' + 1, 1]  
                | dist_mult_add[n'][n', 1]
                | dist_mult_add[n' + 1][n', 1]
                | dist_mult_add_right[n', 1, n']

@@ -12,25 +12,33 @@ tests-should-pass:
 	$(PYTHON) ./deduce.py --lalr $(TEST_PASS_DIR)
 
 tests-should-error:
-	$(PYTHON) ./deduce.py $(TEST_ERROR_DIR) --error
+	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) --error
+	$(PYTHON) ./deduce.py --lalr $(TEST_ERROR_DIR) --error
 
 
 tests-lib: 
-	$(PYTHON) ./deduce.py .
+	$(PYTHON) ./deduce.py . --recursive-descent
+# List parsing needs to be updated in Deduce.lark
+#	$(PYTHON) ./deduce.py . --lalr
 
 tests: tests-should-pass tests-should-error
 
 check_README:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py README.pf
+	$(PYTHON) ./deduce.py --recursive-descent README.pf
+	$(PYTHON) ./deduce.py --lalr README.pf
 
 check_fun:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py FunctionalProgramming.pf
+	$(PYTHON) ./deduce.py --recursive-descent FunctionalProgramming.pf
+# List parsing needs to be updated in Deduce.lark
+#	$(PYTHON) ./deduce.py --lalr FunctionalProgramming.pf
 
 check_intro:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py ProofIntro.pf
+	$(PYTHON) ./deduce.py --recursive-descent ProofIntro.pf
+# List parsing needs to be updated in Deduce.lark
+#	$(PYTHON) ./deduce.py --lalr ProofIntro.pf
 
 clean:
 	rm -f README.pf FunctionalProgramming.pf ProofIntro.pf
