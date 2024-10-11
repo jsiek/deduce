@@ -75,8 +75,8 @@ theorem and_example_elim: all P:bool, Q:bool. if P and Q then Q and P
 proof
   arbitrary P:bool, Q:bool
   assume prem: P and Q
-  have p: P         by prem
-  have q: Q         by prem
+  have p: P         by prem   // P and Q  used to prove  P
+  have q: Q         by prem   // P and Q  used to prove  Q
   conclude Q and P  by p, q
 end
 ```
@@ -244,6 +244,8 @@ term ::= term ":" type
 ```
 term ::= term "," term
 ```
+
+See the entry for And (logical conjunction).
 
 ## Compose (Functions)
 
