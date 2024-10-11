@@ -1,5 +1,5 @@
 theorem T: if false then false
 proof
   suppose: false
-  from false
+  recall false
 end

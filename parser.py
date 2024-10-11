@@ -562,7 +562,7 @@ def parse_tree_to_ast(e, parent):
             else:
                 result = PTransitive(e.meta, eq_proof, result)
         return result
-    elif e.data == 'from_proof':
+    elif e.data == 'recall_proof':
         args = parse_tree_to_list(e.children[0], e)
         return PFrom(e.meta, args)
     elif e.data == 'ident_proof_error':

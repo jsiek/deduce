@@ -303,7 +303,7 @@ proof
     suppose zmz
     have: m = 0
       by definition operator + in zmz
-    rewrite (from m = 0)
+    rewrite (recall m = 0)
   }
   case suc(n') suppose IH {
     arbitrary m:Nat
@@ -624,8 +624,8 @@ proof
         have: x' ≤ y'
           by definition operator≤ in rewrite y_sy in sx_le_y
         have: x' < y' or x' = y'
-          by IH[y'], from x' ≤ y'
-        cases (from x' < y' or x' = y')
+          by IH[y'], recall x' ≤ y'
+        cases (recall x' < y' or x' = y')
         case x_l_y {
           have sx_l_sy: suc(x') < suc(y')
             by apply less_suc_iff_suc_less to x_l_y
@@ -668,7 +668,7 @@ proof
                definition operator ≤ in ssx_sy
         suffices suc(x') ≤ suc(y')   by .
         suffices x' ≤ y'   by definition operator ≤          
-        IH[y'], from x' < y'
+        IH[y'], recall x' < y'
       }
     }
   }
@@ -714,14 +714,14 @@ proof
     switch y {
       case zero suppose y_z {
         have: suc(x') ≤ 0 by rewrite y_z in sxy_ysx
-        conclude false by definition operator ≤ in (from suc(x') ≤ 0)
+        conclude false by definition operator ≤ in (recall suc(x') ≤ 0)
       }
       case suc(y') suppose y_suc {
         enable {operator ≤}
         have: x' ≤ y' by rewrite y_suc in sxy_ysx
         have: y' ≤ x' by rewrite y_suc in sxy_ysx
-        have: x' = y' by IH[y'], (from x' ≤ y', y' ≤ x')
-        conclude suc(x') = suc(y') by rewrite (from x' = y')
+        have: x' = y' by IH[y'], (recall x' ≤ y', y' ≤ x')
+        conclude suc(x') = suc(y') by rewrite (recall x' = y')
       }
     }
   }
@@ -744,23 +744,23 @@ proof
     have: n ≤ o  by Prem
     switch n {
       case 0 suppose nz {
-        have: suc(m') ≤ 0  by rewrite nz in (from suc(m') ≤ n)
-        conclude false  from suc(m') ≤ 0
+        have: suc(m') ≤ 0  by rewrite nz in (recall suc(m') ≤ n)
+        conclude false  by recall suc(m') ≤ 0
       }
       case suc(n') suppose: n = suc(n') {
         have sm_sn: suc(m') ≤ suc(n')
-            by rewrite (from n = suc(n')) in (from suc(m') ≤ n)
+            by rewrite (recall n = suc(n')) in (recall suc(m') ≤ n)
         have: m' ≤ n'  by sm_sn
-        have: suc(n') ≤ o  by rewrite (from n = suc(n')) in (from n ≤ o)
+        have: suc(n') ≤ o  by rewrite (recall n = suc(n')) in (recall n ≤ o)
         switch o {
           case 0 suppose: o = 0 {
-            have: suc(n') ≤ 0  by rewrite (from o = 0) in (from suc(n') ≤ o)
-            conclude false  from suc(n') ≤ 0
+            have: suc(n') ≤ 0  by rewrite (recall o = 0) in (recall suc(n') ≤ o)
+            conclude false  by recall suc(n') ≤ 0
           }
           case suc(o') suppose os {
-            have: suc(n') ≤ suc(o')  by rewrite os in (from suc(n') ≤ o)
-            have: n' ≤ o'  from suc(n') ≤ suc(o')
-            conclude m' ≤ o'  by IH[n',o'], from m' ≤ n', n' ≤ o'
+            have: suc(n') ≤ suc(o')  by rewrite os in (recall suc(n') ≤ o)
+            have: n' ≤ o'  by recall suc(n') ≤ suc(o')
+            conclude m' ≤ o'  by IH[n',o'], recall m' ≤ n', n' ≤ o'
           }
         }
       }
@@ -828,9 +828,9 @@ proof
   arbitrary x:Nat, y:Nat
   suppose: x < y
   suppose: x = y
-  have: y < y by rewrite (from x = y) in from x < y
+  have: y < y by rewrite (recall x = y) in recall x < y
   have: not (y < y) by less_irreflexive
-  conclude false from y < y, not (y < y)
+  conclude false by recall y < y, not (y < y)
 end
 
 theorem greater_not_equal: all x:Nat, y:Nat.
@@ -839,10 +839,10 @@ proof
   arbitrary x:Nat, y:Nat
   suppose: x > y
   suppose: x = y
-  have: y > y  by rewrite (from x = y) in (from x > y)
-  have: y < y  by definition operator> in from y > y
+  have: y > y  by rewrite (recall x = y) in (recall x > y)
+  have: y < y  by definition operator> in recall y > y
   have: not (y < y) by less_irreflexive
-  conclude false from y < y, not (y < y)
+  conclude false by recall y < y, not (y < y)
 end
 
 theorem trichotomy:

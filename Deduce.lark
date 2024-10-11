@@ -144,7 +144,6 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: "conclude" term "by" proof                       -> annot
-    | "conclude" term "from" term_list                   -> conclude_from     
     | "suffices" term "by" proof proof                   -> suffices
     | "apply" proof "to" proof                           -> modus_ponens
     | proof "," proof                                    -> tuple
@@ -177,15 +176,12 @@ ident: IDENT              -> ident
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation equation_list                 -> equations_proof
     | "stop" "?" proof                                   -> hole_in_middle_proof
-    | "from" term_list                                   -> from_proof
+    | "recall" term_list                                 -> recall_proof
     | proof_hi
-
-?reason: "from" term_list                                -> from_proof
-    | "by" proof
 
 ?proof_hi: IDENT                                         -> proof_var
     | "have" IDENT ":" term "by" proof proof             -> let
-    | "have" ":" term reason proof                       -> let_anon
+    | "have" ":" term "by" proof proof                   -> let_anon
     | "define" IDENT "=" term proof                      -> define_term_proof
     | "term" term "by" proof proof                       -> term_proof
     | "."                                                -> true_proof

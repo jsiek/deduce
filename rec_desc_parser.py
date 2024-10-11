@@ -535,11 +535,9 @@ def parse_proof_hi(token_list, i):
     if token_list[i].type == 'BY':
       i = i + 1
       reason, i = parse_proof(token_list, i)
-    elif token_list[i].type == 'FROM':
-      reason, i = parse_from(token_list, i)
     else:
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` or `from` after formula of `conclude`, '\
+            'expected the keyword `by` after formula of `conclude`, '\
             + 'not\n\t' + token_list[i].value)
     return (PAnnot(meta_from_tokens(token, token_list[i-1]),
                    claim, reason), i)
@@ -626,7 +624,7 @@ def parse_proof_hi(token_list, i):
     meta = meta_from_tokens(token, token_list[i-1])
     return (PExtensionality(meta, body), i)
 
-  elif token.type == 'FROM':
+  elif token.type == 'RECALL':
     return parse_from(token_list, i)
     
   elif token.type == 'HAVE':
@@ -644,11 +642,9 @@ def parse_proof_hi(token_list, i):
     if token_list[i].type == 'BY':
       i = i + 1
       because,i = parse_proof(token_list, i)
-    elif token_list[i].type == 'FROM':
-      because, i = parse_from(token_list, i)
     else:        
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` or `from` after formula of `have`, ' \
+            'expected the keyword `by` after formula of `have`, ' \
             + 'not\n\t' + token_list[i].value)
     body,i = parse_proof(token_list, i)
     return PLet(meta_from_tokens(token, token_list[i-1]),
