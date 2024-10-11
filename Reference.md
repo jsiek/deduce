@@ -24,7 +24,7 @@ function operator +(Nat,Nat) -> Nat {
 
 ### Example
 
-```{.deduce add_example}
+```{.deduce #add_example}
 assert 2 + 3 = 5
 ```
 
@@ -47,11 +47,18 @@ term ::= term "and" term
 term ::= term "++" term
 ```
 
-The append function, i.e., `operator ++`, is defined in `List.pf`.
+The append function, i.e., `operator ++`, is defined in `List.pf` as follows.
+
+```
+function operator ++ <E>(List<E>, List<E>) -> List<E> {
+  operator ++(empty, ys) = ys
+  operator ++(node(n, xs), ys) = node(n, xs ++ ys)
+}
+```
 
 ### Example
 
-```{.deduce append_example}
+```{.deduce #append_example}
 assert [1,2] ++ [3,4] = [1,2,3,4]
 ```
 
@@ -164,6 +171,28 @@ See the entry for Assume to see how assumptions are used.
 ```
 proof ::= "choose" term_list  proof
 ```
+
+### Meaning
+
+A proof of the form
+```
+choose e1,...,en
+X
+```
+is a proof of the formula `some x1,...xn. P`
+if `X` is a proof of formula `P` where the `x`'s replaced by the `e`'s.
+
+### Example
+
+```{.deduce #choose_example}
+theorem choose_example: some x:Nat. 6 = 2 * x
+proof
+  choose 3
+  enable {operator*, operator+, operator+, operator+}
+  conclude 6 = 2 * 3   by .
+end
+```
+
 
 ## Colon (Type Annnotation)
 
@@ -423,11 +452,13 @@ term ::= term "|" term
 <!--
 ```{.deduce file=Reference.pf}
 import Nat
+import List
 
 <<add_example>>
 <<append_example>>
 <<apply_to_example>>
 <<arbitrary_example>>
 <<assume_example>>
+<<choose_example>>
 ```
 -->

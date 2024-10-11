@@ -2380,7 +2380,7 @@ def mkNode(loc, arg, ls):
   return Call(loc, None, Var(loc, None, 'node'), [arg, ls], False)
 
 def listToNodeList(loc, lst):
-  if lst == []:
+  if len(lst) == 0:
     return mkEmpty(loc)
   else:
     return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))

@@ -213,6 +213,8 @@ def parse_tree_to_ast(e, parent):
                         False)
     elif e.data == 'mark':
         return Mark(e.meta, None, parse_tree_to_ast(e.children[0], e))
+    elif e.data == 'list_literal':
+        return listToNodeList(e.meta, parse_tree_to_list(e.children[0], e))
     elif e.data == 'term_var':
         return Var(e.meta, None, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'conditional':
@@ -606,6 +608,8 @@ def parse_tree_to_ast(e, parent):
         return PatternBool(e.meta, True)
     elif e.data == 'pattern_false':
         return PatternBool(e.meta, False)
+    elif e.data == 'pattern_empty_list':
+        return PatternCons(e.meta, Var(e.meta, None, 'empty'), [])
     elif e.data == 'pattern_apply':
         params = parse_tree_to_list(e.children[1], e)
         return PatternCons(e.meta,

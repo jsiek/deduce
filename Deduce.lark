@@ -94,6 +94,7 @@ ident: IDENT              -> ident
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
     | "(" term ")"                                 -> paren
+    | "[" term_list "]"                            -> list_literal
     | "{" term "}"                                 -> mark
     | "%" type
     
@@ -238,6 +239,7 @@ ident: IDENT              -> ident
     | "0"                                        -> pattern_zero
     | "true"                                     -> pattern_true
     | "false"                                    -> pattern_false
+    | "[" "]"                                    -> pattern_empty_list
     | IDENT "(" ident_list ")"                   -> pattern_apply
 
 ?pattern_list:                                      -> empty
