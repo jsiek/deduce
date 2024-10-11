@@ -65,11 +65,11 @@ theorem apply_to_example: all P:bool, Q:bool, R:bool.
 proof
   arbitrary P:bool, Q:bool, R:bool
   suppose prem: (if P then Q) and (if Q then R) and P
-  have pq: if P then Q by prem
-  have p: P by prem
-  have q: Q by apply pq to p
-  have qr: if Q then R by prem
-  conclude R by apply qr to q
+  have pq: if P then Q  by prem
+  have p: P             by prem
+  have q: Q             by apply pq to p
+  have qr: if Q then R  by prem
+  conclude R            by apply qr to q
 end
 ```
 
