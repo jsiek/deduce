@@ -22,11 +22,21 @@ proof checker.
 
 ## Proof Example
 
-As a taster for what it looks like to write proofs in Deduce, the
-following is a proof that item `y` does not occur in the list `xs` at
-a position before the index returned by the linear `search` algorithm.
+As a taster for what it looks like to write programs and proofs in
+Deduce, the following is an implementation of the linear `search`
+algorithm and a proof that item `y` does not occur in the list `xs` at
+a position before the index returned by `search`.
 
 ``` {.deduce #search_take}
+function search(List<Nat>, Nat) -> Nat {
+  search(empty, y) = 0
+  search(node(x, xs), y) =
+    if x = y then
+      0
+    else
+      suc(search(xs, y))
+}
+
 theorem search_take: all xs: List<Nat>. all y:Nat.
     not (y ∈ set_of(take(search(xs, y), xs)))
 proof
@@ -139,15 +149,6 @@ you can use instead.
 ``` {.deduce file=README.pf}
 import List
 import Set
-
-function search(List<Nat>, Nat) -> Nat {
-  search(empty, y) = 0
-  search(node(x, xs), y) =
-    if x = y then
-      0
-    else
-      suc(search(xs, y))
-}
 
 <<search_take>>
 ```

@@ -737,6 +737,8 @@ class Call(Term):
       return str(natToInt(self))
     elif isNodeList(self):
       return '[' + nodeListToList(self)[:-2] + ']'
+    elif isEmptySet(self):
+      return '∅'
     else:
       return str(self.rator) + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
 
@@ -2382,6 +2384,15 @@ def listToNodeList(loc, lst):
     return mkEmpty(loc)
   else:
     return mkNode(loc, lst[0], listToNodeList(loc, lst[1:]))
+
+def isEmptySet(t):
+  match t:
+    case Call(loc2, tyof2, TermInst(loc1, tyof1, Var(loc5, tyof5, name), tyargs, implicit),
+              [Lambda(loc3, tyof3, vars, Bool(loc4, tyof4, False))], infix) \
+              if base_name(name) == 'char_fun':
+      return True
+    case _:
+      return False
     
 @dataclass
 class Binding(AST):
