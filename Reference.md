@@ -67,7 +67,7 @@ when `P` is true for all possible choices of `x1`...`xn`.
 
 ### Prove `all x1:T1,...,xn:Tn. P`
 
-To prove an `all` formula, use `arbitrary` (see entry for [Arbitrary](#Arbitrary Forall Introduction)) or
+To prove an `all` formula, use `arbitrary` (see entry for [Arbitrary](#Arbitrary-Forall-Introduction)) or
 `induction` (see entry for [Induction](#Induction)). Induction is only allowed
 when the `all` has a single variable, as in `all x:T. P`, and the type
 `T` must be a union type.
