@@ -72,15 +72,6 @@ To prove an `all` formula, use `arbitrary` (see entry for [Arbitrary](#Arbitrary
 when the `all` has a single variable, as in `all x:T. P`, and the type
 `T` must be a union type.
 
-### Use `all x1:T1,...,xn:Tn. P`
-
-A proof of `all x1:T1,...,xn:Tn. P` can be used to prove the
-formula `P` where the `x1,...,xn` have been replaced by 
-terms of your choice. Use square brackets to enclose your
-comma-delimited sequence of choices.
-
-### Examples
-
 ```{.deduce #all_example_bool}
 theorem all_example_bool: all P:bool. P = true or P = false
 proof
@@ -102,6 +93,13 @@ proof
           ... = z + y + x by add_commute[y+x][z]
 end
 ```
+
+### Use `all x1:T1,...,xn:Tn. P`
+
+A proof of `all x1:T1,...,xn:Tn. P` can be used to prove the
+formula `P` where the `x1,...,xn` have been replaced by 
+terms of your choice. Use square brackets to enclose your
+comma-delimited sequence of choices.
 
 ```{.deduce #all_example_elim}
 theorem all_example_elim: 1 + 2 + 3 = 3 + 2 + 1
