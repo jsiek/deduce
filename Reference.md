@@ -54,13 +54,17 @@ assert cnt(A)(5) = 2
 assert cnt(A)(7) = 0
 ```
 
+## All (Universal Quantifier)
+
+UNDER CONSTRUCTION
+
 ## And (logical conjunction)
 
 ```
 term ::= term "and" term
 ```
 
-A formula `P and Q` is true when both `P` and `Q` are true.
+The formula `P and Q` is true when both `P` and `Q` are true.
 
 ### Example
 
@@ -198,6 +202,8 @@ assume label: P
 X
 ```
 is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
+The proof `X` may use the `label` as a proof of `P`
+and it may also refer to the proof of `P` by writing `recall P`.
 
 ### Example
 
@@ -222,6 +228,10 @@ assumption_list ::= assumption "," assumption_list
 ```
 
 See the entry for Assume to see how assumptions are used.
+
+## Biconditional (aka. if-and-only-if)
+
+UNDER CONSTRUCTION
 
 
 ## Choose (Exists Elimination)
@@ -383,6 +393,12 @@ term ::= term "≥" term
 term ::= term ">=" term
 ```
 
+## Have (Forward Proof)
+
+```
+proof ::= "have"
+```
+
 ## Identifier 
 
 Identifiers are used in Deduce to give names functions and values and
@@ -406,6 +422,10 @@ A comma-separated sequence of identifiers.
 identifier_list ::= identifier
 identifier_list ::= identifier "," identifier_list
 ```
+
+## If-and-only-if (iff)
+
+See the entry for Biconditional.
 
 ## If-Then (Conditional Formula)
 
@@ -639,18 +659,71 @@ proof ::= "obtain" identifier_list "where" assumption "from" proof  proof
 
 ### Meaning
 
+A proof of the form
 ```
-obtain x where label: P from X
+obtain x1,...,xn where label: P from X
 Y
 ```
+is a proof of formula `Q` if `Y` is a proof of `Q`.
+The `X` must be a proof of the form `some x1:T1,...,xn:Tn. P`.
+The proof `Y` may use the `label` as a proof of `P`
+and it may also refer to the proof of `P` by writing `recall P`.
 
 ### Example
 
+```{.deduce #obtain_example}
+theorem obtain_example: all n:Nat. 
+  if (some x:Nat. n = 4 * x) then (some x:Nat. n = 2 * x)
+proof
+  arbitrary n:Nat
+  assume prem: (some x:Nat. n = 4 * x)
+  obtain x where m4: n = 4 * x from prem
+  choose 2 * x
+  equations
+     n = 4 * x          by m4
+   ... = {2 * 2} * x    by definition {operator*,operator*,operator*,
+                                       operator+,operator+,operator+}
+   ... = 2 * (2 * x)    by mult_assoc
+end
+```
 
-## Or
+## Or  (logical disjunction)
 
 ```
 term ::= term "or" term
+```
+
+The formula `P or Q` is true when either `P` is true or `Q` is true.
+
+### Example
+
+```{.deduce #or_example}
+assert true or true
+assert true or false
+assert false or true
+assert not (false or false)
+```
+
+### Prove `P or Q`
+
+To prove `P or Q` it is enough to just prove `P` or to just prove `Q`.
+
+```{.deduce #or_example_intro1}
+theorem or_example_intro1: all P:bool, Q:bool. if P then P or Q
+proof
+  arbitrary P:bool, Q:bool
+  assume: P
+  conclude P or Q by recall P
+end
+```
+
+```{.deduce #or_example_intro2}
+theorem or_example_intro1: all P:bool, Q:bool. if Q then P or Q
+proof
+  arbitrary P:bool, Q:bool
+  assume: Q
+  conclude P or Q by recall Q
+end
 ```
 
 ## Variable Declaration and Variable Declaration List
@@ -675,6 +748,13 @@ pattern ::= identifier "(" identifier_list ")"
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
 
+## Recall (Proof)
+
+UNDER CONSTRUCTION
+
+## Some (Existential Quantifier)
+
+UNDER CONSTRUCTION
 
 ## Switch (Program Term)
 
@@ -764,5 +844,9 @@ import List
 <<less_than_example>>
 <<less_equal_example>>
 <<mod_example>>
+<<obtain_example>>
+<<or_example>>
+<<or_example_intro1>>
+<<or_example_intro2>>
 ```
 -->
