@@ -79,7 +79,18 @@ formula `P` where the `x1,...,xn` have been replaced by
 terms of your choice. Use square brackets to enclose your
 comma-delimited sequence of choices.
 
-### Example
+### Examples
+
+```{.deduce #all_example_bool}
+theorem all_example_bool: all P:bool. P = true or P = false
+proof
+  arbitrary P:bool
+  switch P {
+    case true { . }
+    case false { . }
+  }
+end
+```
 
 ```{.deduce #all_example_intro}
 theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
@@ -901,6 +912,7 @@ import List
 <<or_example>>
 <<or_example_intro1>>
 <<or_example_intro2>>
+<<all_example_bool>>
 <<all_example_intro>>
 <<all_example_elim>>
 ```
