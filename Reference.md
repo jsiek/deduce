@@ -56,7 +56,48 @@ assert cnt(A)(7) = 0
 
 ## All (Universal Quantifier)
 
-UNDER CONSTRUCTION
+```
+term ::= "all" var_list "." term
+```
+
+### Meaning
+
+A formula of the form `all x1:T1,...,xn:Tn. P` is true
+when `P` is true for all possible choices of `x1`...`xn`.
+
+### Prove `all x1:T1,...,xn:Tn. P`
+
+To prove an `all` formula, use `arbitrary` (see entry of Arbitrary) or
+`induction` (see entry for Induction). Induction is only allowed
+when the `all` has a single variable, as in `all x:T. P`, and the type
+`T` must be a union type.
+
+### Use `all x1:T1,...,xn:Tn. P`
+
+A proof of `all x1:T1,...,xn:Tn. P` can be used to prove the
+formula `P` where the `x1,...,xn` have been replaced by 
+terms of your choice. Use square brackets to enclose your
+comma-delimited sequence of choices.
+
+### Example
+
+```{.deduce #all_example_intro}
+theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  equations
+    x + y + z = (x + y) + z by symmetric add_assoc[x][y, z]
+          ... = (y + x) + z by rewrite add_commute[x][y]
+          ... = z + y + x by add_commute[y+x][z]
+end
+```
+
+```{.deduce #all_example_elim}
+theorem all_example_elim: 1 + 2 + 3 = 3 + 2 + 1
+proof
+  all_example_intro[1, 2, 3]
+end
+```
 
 ## And (logical conjunction)
 
@@ -802,6 +843,11 @@ suffices_proof ::= definition_clause "and" rewrite_clause
 
 See the entry for Assume.
 
+
+## Theorem
+
+
+
 ## Term List
 
 A term list is a comma-separated sequence of terms.
@@ -811,7 +857,14 @@ term_list ::= term
 term_list ::= term "," term_list
 ```
 
-## Union
+## Union (Type)
+
+```
+statement ::= "union" identifier type_params_opt "{" constructor_list "}"
+```
+
+
+## Union (Set)
 
 ```
 term ::= term "∪" term
@@ -848,5 +901,7 @@ import List
 <<or_example>>
 <<or_example_intro1>>
 <<or_example_intro2>>
+<<all_example_intro>>
+<<all_example_elim>>
 ```
 -->

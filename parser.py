@@ -571,9 +571,9 @@ def parse_tree_to_ast(e, parent):
         error(e.meta, "parsing error: " + repr(e))
     
     # constructor declaration
-    elif e.data == 'constr_id':
+    elif e.data == 'constructor_id':
         return Constructor(e.meta, str(e.children[0].value), [])
-    elif e.data == 'constr_apply':
+    elif e.data == 'constructor_apply':
         param_types = parse_tree_to_list(e.children[1], e)
         return Constructor(e.meta, str(e.children[0].value), param_types)
     

@@ -227,13 +227,13 @@ ident: IDENT              -> ident
 ?type_params_opt:                                -> empty
    | "<" ident_list ">"
 
-?constr: IDENT                                   -> constr_id
-    | IDENT "(" type_list ")"                    -> constr_apply
+?constructor: IDENT                                   -> constructor_id
+    | IDENT "(" type_list ")"                    -> constructor_apply
 
-?constr_list: constr                             -> single
-    | constr constr_list                         -> push
+?constructor_list: constructor                             -> single
+    | constructor constructor_list                         -> push
     
-?union: "union" IDENT type_params_opt "{" constr_list "}" -> union
+?union: "union" IDENT type_params_opt "{" constructor_list "}" -> union
 
 ?pattern: ident                                  -> pattern_id
     | "0"                                        -> pattern_zero
