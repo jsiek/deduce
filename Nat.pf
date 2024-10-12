@@ -79,10 +79,7 @@ function operator /(Nat,Pos) -> Nat {
     find_quotient(suc(suc(n')) * pos2nat(m), suc(n'), m, 0)
 }
 
-function operator%(Nat,Pos) -> Nat {
-  operator %(0, m) = 0
-  operator %(suc(n'), m) = suc(n') - (suc(n') / m) * pos2nat(m)
-}
+define operator % = λ n:Nat,m:Pos { n - (n / m) * pos2nat(m) }
 
 function operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
@@ -2173,15 +2170,7 @@ end
 theorem mod_def: all n:Nat, m:Pos.
   n % m = n - (n / m) * pos2nat(m)
 proof
-  arbitrary n:Nat, m:Pos
-  switch n {
-    case 0 {
-      definition {operator-,operator%}
-    }
-    case suc(n') {
-      definition {operator%}
-    }
-  }
+  definition {operator%}
 end
 
 theorem division: all n:Nat, m:Pos.

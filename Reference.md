@@ -479,7 +479,7 @@ by `ci(ei1,...,eij)`. The type `T` must be a union type.
 Each proof `Xi` may use its induction
 hypotheses `IH1, ...`. For each term `ein` whose type is `T`
 (so it is recursive), the induction hypothesis is
-the formula `P` with `x` replaced by `ein`.
+the formula `P` with `x` replaced by the constructor argument `ein`.
 
 ### Example
 
@@ -499,8 +499,6 @@ proof
 end
 ```
 
-
-
 ## Intersection
 
 ```
@@ -508,10 +506,41 @@ term ::= term "∩" term
 term ::= term "&" term
 ```
 
+Set intersection is defined in `Set.pf`.
+The intersection of sets `A` and `B`, written `A ∩ B`,
+contains the items that occur both sets.
+
+### Example
+
+```{.deduce #intersect_example}
+define C = single(1) ∪ single(2)
+define D = single(2) ∪ single(3)
+assert 2 ∈ C ∩ D
+assert not (1 ∈ C ∩ D)
+assert not (3 ∈ C ∩ D)
+```
+
 ## Less-Than
 
 ```
 term ::= term "<" term
+```
+
+The less-than operator on natural numbers is defined in `Nat.pf`
+as follows.
+```
+x < y = suc(x) ≤ y
+```
+
+To find theorems about the less-than operator in `Nat.thm`, search for
+theorems with `less` in the name.
+
+### Example
+
+```{.deduce #less_than_example}
+assert 1 < 2
+assert not (1 < 1)
+assert not (2 < 1)
 ```
 
 ## Less-Than or Equal
@@ -521,16 +550,76 @@ term ::= term "≤" term
 term ::= term "<=" term
 ```
 
+The less-than-or-equal operator on natural numbers is defined in `Nat.pf`
+as follows.
+
+```
+function operator ≤(Nat,Nat) -> bool {
+  operator ≤(0, m) = true
+  operator ≤(suc(n'), m) =
+    switch m {
+      case 0 { false }
+      case suc(m') { n' ≤ m' }
+    }
+}
+```
+
+To find theorems about the less-than operator in `Nat.thm`, search for
+theorems with `less_equal` in the name.
+
+### Example
+
+```{.deduce #less_equal_example}
+assert 1 ≤ 1
+assert 1 ≤ 2
+assert not (2 ≤ 1)
+```
+
 ## Modulo
 
 ```
 term ::= term "%" term
 ```
 
+The modulo operator is defined in `Nat.pf` as follows.  The first
+argument is a natural number (of type `Nat`) and the second argument
+is a positive number (of type `Pos`).
+
+```
+n % m = n - (n / m) * pos2nat(m)
+```
+
+### Example
+
+```{.deduce #mod_example}
+define two = succ(one)
+assert 1 % two = 1
+assert 2 % two = 0
+assert 3 % two = 1
+assert 4 % two = 0
+```
+
 ## Multiply
 
 ```
 term ::= term "*" term
+```
+
+Multiplication on natural numbers is defined in `Nat.pf` as follows.
+
+```
+function operator *(Nat,Nat) -> Nat {
+  operator *(0, m) = 0
+  operator *(suc(n), m) = m + (n * m)
+}
+```
+
+To find theorems about multiplication, search for `mult` in `Nat.thm`.
+
+### Example
+
+```{.deduce #multiply_example}
+assert 2 * 3 = 6
 ```
 
 ## Not Equal
@@ -540,11 +629,23 @@ term ::= term "≠" term
 term ::= term "/=" term
 ```
 
+Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
+
 ## Obtain
 
 ```
 proof ::= "obtain" identifier_list "where" assumption "from" proof  proof
 ```
+
+### Meaning
+
+```
+obtain x where label: P from X
+Y
+```
+
+### Example
+
 
 ## Or
 
@@ -569,6 +670,11 @@ pattern ::= "true"
 pattern ::= "false"
 pattern ::= identifier "(" identifier_list ")"
 ```
+
+## Pos (Positive Integers)
+
+The type of positive integers `Pos` is defined in `Nat.pf`.
+
 
 ## Switch (Program Term)
 
@@ -654,5 +760,9 @@ import List
 <<if_then_else_example>>
 <<membership_example>>
 <<induction_example>>
+<<intersect_example>>
+<<less_than_example>>
+<<less_equal_example>>
+<<mod_example>>
 ```
 -->
