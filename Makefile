@@ -5,7 +5,7 @@ TEST_ERROR_DIR = ./test/should-error
 
 default: tests check_docs tests-lib
 
-check_docs: check_README check_fun check_intro 
+check_docs: check_README check_fun check_intro check_ref
 
 tests-should-pass:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR)

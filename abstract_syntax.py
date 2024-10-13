@@ -598,6 +598,15 @@ class Lambda(Term):
 def is_match(pattern, arg, subst):
     ret = False
     match pattern:
+      case PatternBool(loc1, value):
+        match arg:
+          case Bool(loc2, tyof, arg_value):
+            ret = arg_value == value
+          case Var(loc2, ty2, name):
+            ret = False
+          case _:
+            error(loc1, 'Boolean pattern expected boolean argument, not\n\t' \
+                  + str(arg))
       case PatternCons(loc1, constr, []):
         match arg:
           case Var(loc2, ty2, name):
@@ -881,9 +890,6 @@ class SwitchCase(AST):
   def __str__(self):
       return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
-  # def __repr__(self):
-  #     return str(self)
-
   def reduce(self, env):
       n = len(self.pattern.parameters)
       return SwitchCase(self.location,
@@ -893,7 +899,6 @@ class SwitchCase(AST):
                         self.body.reduce(env))
     
   def substitute(self, sub):
-      n = len(self.pattern.parameters)
       new_sub = {k: v for (k,v) in sub.items()}
       return SwitchCase(self.location,
                         self.pattern,
@@ -902,10 +907,14 @@ class SwitchCase(AST):
   def uniquify(self, env):
     self.pattern.uniquify(env)
     body_env = {x:y for (x,y) in env.items()}
-    new_params = [generate_name(x) for x in self.pattern.parameters]
-    for (old,new) in zip(self.pattern.parameters, new_params):
-      body_env[old] = new
-    self.pattern.parameters = new_params
+    match self.pattern:
+      case PatternBool(loc, value):
+        pass
+      case PatternCons(loc, constr, params):
+        new_params = [generate_name(x) for x in params]
+        for (old,new) in zip(params, new_params):
+          body_env[old] = new
+        self.pattern.parameters = new_params
     self.body.uniquify(body_env)
     
   def __eq__(self, other):
@@ -929,9 +938,6 @@ class Switch(Term):
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
 
-  # def __repr__(self):
-  #     return str(self)
-  
   def reduce(self, env):
       new_subject = self.subject.reduce(env)
       for c in self.cases:

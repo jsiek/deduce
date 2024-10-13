@@ -2,8 +2,10 @@
 This is a comprehensive reference for Deduce. It describes each
 feature in alphabetical order by keyword. It gives the grammar rule
 (syntax) and describes its meaning and/or how it is used in a proof.
+
 In the grammar rules, an unquoted astericks means zero-or more
 repetitions of the grammar item that it follows.
+The symbol ε means the empty string.
 
 
 ## Add
@@ -37,8 +39,8 @@ term ::= term "[+]" term
 
 Addition on multisets is defined in `MultiSet.pf`.  The main theorem
 about multiset addition is `cnt_sum`, which says that the count for
-each item in `A ⨄ B` is the sum of the counts for that item in `A` and
-the count for that item in `B`.
+each item in `A ⨄ B` is the sum of (1) the count for that item in `A` and
+(2) the count for that item in `B`.
 
 ```
 cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -67,10 +69,11 @@ when `P` is true for all possible choices of `x1`...`xn`.
 
 ### Prove `all x1:T1,...,xn:Tn. P`
 
-To prove an `all` formula, use `arbitrary` (see entry for [Arbitrary](#Arbitrary-Forall-Introduction)) or
-`induction` (see entry for [Induction](#Induction)). Induction is only allowed
-when the `all` has a single variable, as in `all x:T. P`, and the type
-`T` must be a union type.
+To prove an `all` formula, use `arbitrary` (see entry for
+[Arbitrary](#Arbitrary-Forall-Introduction)) or `induction` (see entry
+for [Induction](#Induction)). Induction is only allowed when the `all`
+has a single variable, as in `all x:T. P`, and the type `T` must be a
+union type.
 
 ```{.deduce #all_example_bool}
 theorem all_example_bool: all P:bool. P = true or P = false
@@ -99,7 +102,7 @@ end
 A proof of `all x1:T1,...,xn:Tn. P` can be used to prove the
 formula `P` where the `x1,...,xn` have been replaced by 
 terms of your choice. Use square brackets to enclose your
-comma-delimited sequence of choices.
+comma-delimited choices.
 
 ```{.deduce #all_example_elim}
 theorem all_example_elim: 1 + 2 + 3 = 3 + 2 + 1
@@ -669,6 +672,10 @@ assert 3 % two = 1
 assert 4 % two = 0
 ```
 
+## Modus Ponens
+
+See the entry for [Apply-To](#Apply-To-Proof-Modus-Ponens).
+
 ## Multiply
 
 ```
@@ -800,11 +807,37 @@ The type of positive integers `Pos` is defined in `Nat.pf`.
 
 ## Recall (Proof)
 
-UNDER CONSTRUCTION
+```
+proof ::= "recall" term_list
+```
+
+### Meaning
+
+A proof of the form
+```
+recall P1, ..., Pn
+```
+is a proof of the formula `P1 and ... and Pn`. The formulas
+`P1`,...,`Pn` must among the list of givens at the current point in the proof.
+
 
 ## Some (Existential Quantifier)
 
-UNDER CONSTRUCTION
+```
+term ::= "some" var_list "." term
+```
+
+The formula `some x1:T1,...,xn:Tn. P` is true when there exists
+a choice for `x1`,...,`xn` such that `P` is true.
+
+### Prove `some x1:T1,...,xn:Tn. P`
+
+See the entry for [Choose](#Choose-Exists-Elimination).
+
+### Use `some x1:T1,...,xn:Tn. P`
+
+See the entry for [Obtain](#Obtain)
+
 
 ## Switch (Program Term)
 
@@ -814,6 +847,23 @@ switch_case ::= "case" pattern "{" term "}"
 ```
 
 (See the entry for Pattern for the syntax of `pattern`.)
+
+The subject of the `switch` must be of union type or `bool` (e.g., not
+a function). The body of the `switch` must have one `case` for every
+constructor in the `union`, or for `bool`, the cases are `true` and `false`.
+
+```{.deduce #switch_example}
+define flip = fun x:bool {
+  switch x {
+    case true { false }
+    case false { true }
+  }
+}
+assert flip(false)
+assert not flip(true)
+```
+
+
 
 ## Switch (Proof)
 
@@ -880,6 +930,14 @@ term ::= term "∪" term
 term ::= term "|" term
 ```
 
+## Variable List
+
+```
+var_list: ε | ident | ident ":" type | ident ":" type "," var_list | ident "," var_list
+```
+
+A comma-separated list of variable declarations. Each variable may
+optionally be annotated with its type.
 
 <!--
 ```{.deduce file=Reference.pf}
@@ -913,5 +971,6 @@ import List
 <<all_example_bool>>
 <<all_example_intro>>
 <<all_example_elim>>
+<<switch_example>>
 ```
 -->

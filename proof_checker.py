@@ -1715,10 +1715,10 @@ def type_synth_term(term, env, recfun, subterms):
     case Switch(loc, _, subject, cases):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
-      dfn = lookup_union(loc, ty, env)
+
       cases_present = {}
       result_type = [None] # boxed to allow mutable update in process_case
-      
+
       def process_case(c, result_type, cases_present):
         new_env = check_pattern(c.pattern, ty, env, cases_present)
         new_body = type_synth_term(c.body, new_env, recfun, subterms)
@@ -1730,17 +1730,38 @@ def type_synth_term(term, env, recfun, subterms):
                 + str(case_type) + ' ≠ ' + str(result_type[0]))
         return SwitchCase(c.location, c.pattern, new_body)
 
-      new_cases = [process_case(c, result_type, cases_present) for c in cases]
+      new_cases = [process_case(c, result_type, cases_present) \
+                   for c in cases]
       ret = Switch(loc, result_type[0], new_subject, new_cases)
       
-      # Check case coverage
-      match dfn:
-        case Union(loc2, name, typarams, alts):
-          for alt in alts:
-              if alt.name not in cases_present.keys():
-                  error(loc, 'this switch is missing a case for: ' + str(alt))
+      # check exhaustiveness
+      match ty:
+        case BoolType(loc2):
+          has_true_case = False
+          has_false_case = False
+          for scase in cases:
+            match scase.pattern:
+              case PatternBool(l1, True):
+                has_true_case = True
+              case PatternBool(l1, False):
+                has_false_case = True
+              case _:
+                raise Exception('not an appropraite case for bool\n\t' \
+                                + str(scase))
+          if not has_true_case:
+            error(loc, 'missing case for true')
+          if not has_false_case:
+            error(loc, 'missing case for false')
         case _:
-          error(loc, 'expected a union type, not ' + str(ty))
+          dfn = lookup_union(loc, ty, env)
+          match dfn:
+            case Union(loc2, name, typarams, alts):
+              for alt in alts:
+                  if alt.name not in cases_present.keys():
+                      error(loc, 'this switch is missing a case for: ' \
+                            + str(alt))
+            case _:
+              error(loc, 'expected a union type, not ' + str(ty))
 
     case TermInst(loc, _, Var(loc2, tyof, name), tyargs, inferred):
       ty = env.get_type_of_term_var(Var(loc2, tyof, name))
@@ -1886,7 +1907,6 @@ def type_check_term(term, typ, env, recfun, subterms):
     case Switch(loc, _, subject, cases):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ty = new_subject.typeof
-      dfn = lookup_union(loc, ty, env)
       cases_present = {}
       result_type = [None] # boxed to allow mutable update in process_case
       
@@ -1904,13 +1924,22 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_cases = [process_case(c, result_type, cases_present) for c in cases]
 
       # Check case coverage
-      match dfn:
-        case Union(loc2, name, typarams, alts):
-          for alt in alts:
-              if alt.name not in cases_present.keys():
-                  error(loc, 'this switch is missing a case for: ' + str(alt))
+      match ty:
+        case BoolType(loc2):
+          if 'True' not in cases_present.keys():
+            error(loc, 'missing case for true')
+          if 'False' not in cases_present.keys():
+            error(loc, 'missing case for false')
         case _:
-          error(loc, 'expected a union type, not ' + str(ty))
+          dfn = lookup_union(loc, ty, env)
+          match dfn:
+            case Union(loc2, name, typarams, alts):
+              for alt in alts:
+                  if alt.name not in cases_present.keys():
+                      error(loc, 'missing a case for:\n\t' \
+                            + str(alt))
+            case _:
+              error(loc, 'expected a union type, not ' + str(ty))
       
       return Switch(loc, result_type[0], new_subject, new_cases)
       
@@ -1937,7 +1966,7 @@ def lookup_union(loc, typ, env):
     case TypeInst(loc2, inst_typ, tyargs):
       tyname = inst_typ
     case _:
-      error(loc, str(type) + ' is not a union type')
+      error(loc, str(typ) + ' is not a union type')
   return env.get_def_of_type_var(tyname)
 
 def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
@@ -1978,10 +2007,20 @@ def check_pattern(pattern, typ, env, cases_present):
     #print('in env: ' + str(env))
 #  pattern.typeof = typ
   match pattern:
+    case PatternBool(loc, value):
+      match typ:
+        case BoolType(loc2):
+          cases_present[str(value)] = True
+          return env
+        case _:
+          error(pattern.location, 'expected a pattern of type\n\t' \
+                + str(typ) + '\nbut got\n\t' + str(pattern))
     case PatternCons(loc, constr, params):
-      return check_constructor_pattern(loc, constr, params, typ, env, cases_present)
+      return check_constructor_pattern(loc, constr, params, typ, env,
+                                       cases_present)
     case _:
-      error(pattern.location, 'expected a constructor pattern, not ' + str(pattern))
+      error(pattern.location, 'expected a pattern, not\n\t' \
+            + str(pattern))
 
 def check_formula(frm, env):
   return type_check_term(frm, BoolType(frm.location), env, None, [])

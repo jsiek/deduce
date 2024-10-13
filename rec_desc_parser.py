@@ -90,7 +90,7 @@ def parse_term_hi(token_list, i):
     vars, i = parse_var_list(token_list, i)
     if token_list[i].type != 'DOT':
       error(meta_from_tokens(token, token_list[i]),
-            'expected a `.` after parameters of `all`, not\n\t' \
+            'expected `.` after parameters of `all`, not\n\t' \
             + token_list[i].value)
     i = i + 1
     body, i = parse_term(token_list, i)
@@ -167,13 +167,13 @@ def parse_term_hi(token_list, i):
     params, i = parse_var_list(token_list, i)
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `{` after parameters of fun, not\n\t' \
+            'expected `{` after parameters of fun, not\n\t' \
             + token_list[i].value)
     i = i + 1
     body, i = parse_term(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token, token_list[i-1]),
-            'expected a `}` after body of fun, not\n\t' + token_list[i].value)
+            'expected `}` after body of `fun`, not\n\t' + token_list[i].value)
     i = i + 1
     return (Lambda(meta_from_tokens(token, token_list[i-1]),
                    None, params, body), i)
@@ -183,13 +183,13 @@ def parse_term_hi(token_list, i):
     params, i = parse_ident_list(token_list, i)
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `{` after parameters of `generic`, not\n\t' \
+            'expected `{` after parameters of `generic`, not\n\t' \
             + token_list[i].value)
     i = i + 1
     body, i = parse_term(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token, token_list[i]),
-            'expected a `}` after body of `generic`, not\n\t' \
+            'expected `}` after body of `generic`, not\n\t' \
             + token_list[i].value)
     i = i + 1
     meta = meta_from_tokens(token, token_list[i-1])
@@ -213,7 +213,7 @@ def parse_term_hi(token_list, i):
     term, i = parse_term(token_list, i)
     if token_list[i].type != 'RPAR':
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected a closing parentheses, not\n\t' \
+            'expected closing parentheses, not\n\t' \
             + token_list[i].value)
     i = i + 1
     return (term, i)
@@ -223,7 +223,7 @@ def parse_term_hi(token_list, i):
     term, i = parse_term(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected a closing parentheses, not\n\t' \
+            'expected closing parentheses, not\n\t' \
             + token_list[i].value)
     i = i + 1
     meta = meta_from_tokens(token, token_list[i-1])
@@ -250,7 +250,7 @@ def parse_term_hi(token_list, i):
     vars, i = parse_var_list(token_list, i)
     if token_list[i].type != 'DOT':
       error(meta_from_tokens(token, token_list[i]),
-            'expected a `.` after parameters of `some`, not\n\t' \
+            'expected `.` after parameters of `some`, not\n\t' \
             + token_list[i].value)
     i = i + 1
     body, i = parse_term(token_list, i)
@@ -272,7 +272,7 @@ def parse_term_hi(token_list, i):
       cases.append(switch_case)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `}` after last case of switch, not\n\t' \
+            'expected `}` after last case of switch, not\n\t' \
             + token_list[i].value)
     i = i + 1
     return (Switch(meta_from_tokens(token, token_list[i-1]), None,
@@ -297,7 +297,7 @@ def parse_term_hi(token_list, i):
       token = token_list[i]
     if token.type != 'RSQB':
       error(meta_from_tokens(token_list[i],token_list[i]),
-            'expected a closing brace \']\', not\n\t' + token_list[i].value)
+            'expected closing bracket \']\', not\n\t' + token_list[i].value)
     return (listToNodeList(meta_from_tokens(token,token), lst_terms), i + 1)
     
   else:
@@ -309,7 +309,7 @@ def parse_term_hi(token_list, i):
       return (var, i)
     except Exception as e:  
       error(meta_from_tokens(token,token_list[i]),
-            'expected a term or formula\n' + str(e))
+            'expected a term\n' + str(e))
 
 def parse_call(token_list, i):
   term, i = parse_term_hi(token_list, i)
@@ -320,7 +320,7 @@ def parse_call(token_list, i):
     args, i = parse_term_list(token_list, i)
     if token_list[i].type != 'RPAR':
       error(meta_from_tokens(token_list[start], token_list[i-1]),
-            'expected a closing parenthesis')
+            'expected closing parenthesis `)`')
     i = i + 1
     term = Call(meta_from_tokens(token_list[start], token_list[i-1]), None,
                 term, args, False)
@@ -841,7 +841,7 @@ def parse_case(token_list, i):
     body, i = parse_proof(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `}` after body of case, not\n\t' + token_list[i].value)
+            'expected a `}` after body of `case`, not\n\t' + token_list[i].value)
     i = i + 1
     return ((label,premise,body), i)
 
