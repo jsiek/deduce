@@ -239,6 +239,9 @@ proof
 end
 ```
 
+## Assert
+
+UNDER CONSTRUCTION
 
 ## Assume (aka. Suppose)
 
@@ -390,23 +393,32 @@ end
 ```
 
 
+## Define
+
+```
+statement ::= "define" ident ":" type "=" term
+            | "define" ident "=" term
+```
+
+UNDER CONSTRUCTION
+
 ## Divide
 
 ```
 term ::= term "/" term
 ```
 
-## Enough
+UNDER CONSTRUCTION
 
-```
-proof ::= "enough" formula "by" proof  proof
-```
 
 ## Equal
 
 ```
 term ::= term "=" term
 ```
+
+UNDER CONSTRUCTION
+
 
 ## Equations
 
@@ -427,12 +439,23 @@ A formula is any term of type `bool`.
 formula ::= term
 ```
 
+## Function
+
+```
+statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
+fun_case_list ::= fun_case | fun_case fun_case_list
+fun_case ::= identifier "(" pattern_list ")" "=" term
+```
+
+UNDER CONSTRUCTION
+
 ## Greater-Than
 
 ```
 term ::= term ">" term
 ```
 
+UNDER CONSTRUCTION
 
 ## Greater-Than or Equal
 
@@ -441,11 +464,16 @@ term ::= term "≥" term
 term ::= term ">=" term
 ```
 
+UNDER CONSTRUCTION
+
 ## Have (Forward Proof)
 
 ```
-proof ::= "have"
+proof ::= "have" identifier ":" term "by" proof proof
+        | "have" ":" term "by" proof proof
 ```
+
+UNDER CONSTRUCTION
 
 ## Identifier 
 
@@ -509,6 +537,14 @@ proof
   }
 end
 ```
+
+## Import
+
+```
+statement ::= "import" identifier
+```
+
+UNDER CONSTRUCTION
 
 ## In (Membership)
 
@@ -799,6 +835,11 @@ pattern ::= identifier "(" identifier_list ")"
 ## Pos (Positive Integers)
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
+
+## Print
+
+UNDER CONSTRUCTION
+
 
 ## Recall (Proof)
 

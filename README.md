@@ -121,6 +121,41 @@ alphabetical list of all the features in Deduce.
 
 * [Reference Manual](./Reference.md)
 
+## Syntax/Grammar Overview
+
+The Deduce language includes four kinds of phrases:
+
+1. statements
+2. proofs
+3. terms
+4. types
+
+A Deduce file contains a list of **statements**. Each statement can be one of
+1. [Theorem](./Reference.md#Theorem)
+2. [Function](./Reference.md#Function)
+3. [Define](./Reference.md#Define)
+4. [Import](./Reference.md#Import)
+5. [Assert](./Reference.md#Assert)
+6. [Print](./Reference.md#Print)
+
+In Deduce, one must give a reason for why a theorem is true, and
+the reason given by the grammar of **proof**.
+
+Both logical formulas and program expressions are represented in
+Deduce by **terms**. For example, `if P then Q` is a logical formula
+and `x + 5` is a program expression, and to Deduce they are both terms.
+
+Each term has a **type** that classifies the kinds of values that are
+produced by the term. 
+
+1. The type `bool` classifies `true` and `false`.
+2. The function type `fn T1,...,Tn -> Tr` classifies a function
+   whose n parameters are of type `T1`,...,`Tn` and whose return type is `Tr`.
+3. The generic function type `fn <X1,...,Xn> T1,...,Tn -> Tr` classifies a generic
+   function with type parameters `X1`,...,`Xn`.
+4. A [union](./Reference.md#Union-Type) type given by its name.
+5. An instance of a generic union given by its name followed
+   by `<`, a comma-separated list of type arguments, followed by `>`.
 
 ## Deduce Unicode
 Deduce uses some Unicode characters, but in case it is difficult
