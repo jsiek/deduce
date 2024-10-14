@@ -226,7 +226,7 @@ proof
 end
 ```
 
-## Assert
+## Assert (Statement)
 
 ```
 statement ::= "assert" term
@@ -515,7 +515,6 @@ print area(3, 4)
 The output is `12`.
 
 
-
 ## Function (Statement)
 
 ```
@@ -597,7 +596,19 @@ term ::= term "≥" term
 term ::= term ">=" term
 ```
 
-UNDER CONSTRUCTION
+The greater-than-or-equal operator on natural numbers is defined in `Nat.pf`
+and is defined in terms of less-than-or-equal as follows
+```
+x ≥ y = y ≤ x
+```
+
+
+Example:
+```{.deduce #greater_equal_example}
+assert 2 ≥ 1
+assert 1 ≥ 1
+assert not (0 ≥ 1)
+```
 
 ## Have (Forward Proof)
 
@@ -606,7 +617,17 @@ proof ::= "have" identifier ":" term "by" proof proof
         | "have" ":" term "by" proof proof
 ```
 
-UNDER CONSTRUCTION
+Use `have` to prove a formula that may help you later to prove the
+goal.
+
+A proof of the form
+```
+have label: P by X
+Y
+```
+is a proof of `Q` as long as `Y` is a proof of `Q` and `X` is a proof of `P`.
+The formula `P` becomes a given and can be used inside the proof `Y`.
+
 
 ## Identifier 
 
@@ -671,13 +692,15 @@ proof
 end
 ```
 
-## Import
+## Import (Statement)
 
 ```
 statement ::= "import" identifier
 ```
 
-UNDER CONSTRUCTION
+Import all of the definitions and theorems from the specified file
+(without the file extension).
+
 
 ## In (Membership)
 
@@ -967,7 +990,7 @@ pattern ::= identifier "(" identifier_list ")"
 The type of positive integers `Pos` is defined in `Nat.pf`.
 
 
-## Print
+## Print (Statement)
 
 ```
 statement ::= "print" term
@@ -1215,7 +1238,7 @@ If `X` is a proof of `a = b`, then `symmetric X` is a proof of `b = a`
 for any terms `a` and `b`.
 
 
-## Theorem
+## Theorem (Statement)
 
 ```
 statement ::= "theorem" IDENT ":" term "proof" proof "end"
@@ -1344,6 +1367,7 @@ import List
 <<division_example>>
 <<equations_example>>
 <<greater_example>>
+<<greater_equal_example>>
 <<if_then_else_example>>
 <<membership_example>>
 <<induction_example>>

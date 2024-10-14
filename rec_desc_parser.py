@@ -29,7 +29,7 @@ def get_deduce_directory():
 
 mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++' }
-compare_operators = {'<', '>', '≤', '<=', '>', '>=', '⊆', '(=', '∈', 'in'}
+compare_operators = {'<', '>', '≤', '<=', '>', '≥', '>=', '⊆', '(=', '∈', 'in'}
 equal_operators = {'=', '≠', '!='}
 iff_operators = {'iff', "<=>", "⇔"}
 
