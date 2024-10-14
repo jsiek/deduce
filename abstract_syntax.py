@@ -1004,7 +1004,7 @@ class TermInst(Term):
                     self.inferred)
   
   def __str__(self):
-    if False and self.inferred:
+    if self.inferred:
       return str(self.subject)
     else:
       return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
