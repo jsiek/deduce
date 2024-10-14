@@ -491,7 +491,7 @@ def parse_recall(token_list, i):
   i = i + 1
   facts,i = parse_term_list(token_list, i)
   meta = meta_from_tokens(token_list[start], token_list[i-1])
-  return (PFrom(meta, facts), i)
+  return (PRecall(meta, facts), i)
   
 def parse_proof_hi(token_list, i):
   token = token_list[i]

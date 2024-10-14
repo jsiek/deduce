@@ -359,20 +359,22 @@ def check_proof(proof, env):
     print('\t' + str(proof))
   ret = None
   match proof:
-    case PFrom(loc, facts):
+    case PRecall(loc, facts):
       results = []
       for fact in facts:
-        if fact in env.proofs():
-            results.append(fact)
+        new_fact = type_check_term(fact, BoolType(loc), env, None, [])
+        if new_fact in env.proofs():
+            results.append(new_fact)
         else:
-            error(loc, 'Could not find a proof of\n\t' + str(fact) \
-                  + '\nin the current scope')
+            error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
+                  + '\nin the current scope\n' \
+                  + 'Givens:\n' + env.proofs_str())
       if len(results) > 1:
           ret = And(loc, BoolType(loc), results)
       elif len(results) == 1:
           ret = results[0]
       else:
-          error(loc, 'expected some facts after `from`')
+          error(loc, 'expected some facts after `recall`')
   
     case ApplyDefsFact(loc, definitions, subject):
       defs = [d.reduce(env) for d in definitions]

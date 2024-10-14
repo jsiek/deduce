@@ -564,9 +564,13 @@ class Lambda(Term):
                  self.body.copy())
   
   def __str__(self):
-    return "λ" + ",".join([base_name(x) + ':' + str(t) if t else base_name(x)\
-                           for (x,t) in self.vars]) \
-      + "{" + str(self.body) + "}"
+    if get_verbose():
+      params = self.vars
+    else:
+      params = [(base_name(x), t)for (x,t) in self.vars]
+    return "λ" + ",".join([x + ':' + str(t) if t else x\
+                           for (x,t) in params]) \
+           + "{" + str(self.body) + "}"
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
@@ -749,7 +753,9 @@ class Call(Term):
     elif isEmptySet(self):
       return '∅'
     else:
-      return str(self.rator) + "(" + ", ".join([str(arg) for arg in self.args]) + ")"
+      return str(self.rator) + "(" \
+        + ", ".join([str(arg) for arg in self.args])\
+        + ")"
 
   def __eq__(self, other):
       if not isinstance(other, Call):
@@ -854,13 +860,15 @@ class Call(Term):
         ret = Call(self.location, self.typeof, fun, args, self.infix)
 
       case Generic(loc2, tyof, typarams, body):
-        error(self.location, 'in reduction, call to generic ' + str(self))
+        error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
         if get_verbose():
           print('not reducing call because neutral function: ' + str(fun))
         ret = Call(self.location, self.typeof, fun, args, self.infix)
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
+    if get_verbose():
+      print('\tcall ' + str(self) + ' returns ' + str(ret))
     return ret
 
   def substitute(self, sub):
@@ -996,7 +1004,7 @@ class TermInst(Term):
                     self.inferred)
   
   def __str__(self):
-    if self.inferred:
+    if False and self.inferred:
       return str(self.subject)
     else:
       return '@' + str(self.subject) + '<' + ','.join([str(ty) for ty in self.type_args]) + '>'
@@ -1008,7 +1016,8 @@ class TermInst(Term):
         sub = {x:t for (x,t) in zip(typarams, self.type_args)}
         return body.substitute(sub)
       case _:
-        return TermInst(self.location, self.typeof, subject_red, self.type_args, self.inferred)
+        return TermInst(self.location, self.typeof, subject_red,
+                        self.type_args, self.inferred)
     
   def substitute(self, sub):
     return TermInst(self.location, self.typeof,
@@ -1189,6 +1198,8 @@ class And(Formula):
   def __eq__(self, other):
     if not isinstance(other, And):
       return False
+    if len(self.args) != len(other.args):
+      return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
   def reduce(self, env):
@@ -1244,6 +1255,8 @@ class Or(Formula):
   def __eq__(self, other):
     if not isinstance(other, Or):
       return False
+    if len(self.args) != len(other.args):
+      return False
     return all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
   
   def reduce(self, env):
@@ -1287,7 +1300,8 @@ class IfThen(Formula):
   conclusion : Formula
   
   def copy(self):
-    return IfThen(self.location, self.typeof, self.premise.copy(), self.conclusion.copy())
+    return IfThen(self.location, self.typeof, self.premise.copy(),
+                  self.conclusion.copy())
   
   def __str__(self):
     match self.conclusion:
@@ -1306,19 +1320,31 @@ class IfThen(Formula):
     prem = self.premise.reduce(env)
     conc = self.conclusion.reduce(env)
     if prem == conc:
-      return Bool(self.location, BoolType(self.location), True)
-    match prem:
-      case Bool(loc, tyof, True):
-        return self.conclusion
-      case Bool(loc, tyof, False):
-        return Bool(loc, tyof, True)
-      case _:
-        match conc:
-          case Bool(loc, tyof, True):
-            return Bool(self.location, tyof, True)
-          case _:
-            return IfThen(self.location, self.typeof, prem, conc)
-
+      if get_verbose():
+         print('reduce if, prem == conc')
+      ret = Bool(self.location, BoolType(self.location), True)
+    else:
+      match prem:
+        case Bool(loc, tyof, True):
+          if get_verbose():
+            print('reduce if, prem == True')
+          ret = self.conclusion
+        case Bool(loc, tyof, False):
+          if get_verbose():
+            print('reduce if, prem == False')
+          ret = Bool(loc, tyof, True)
+        case _:
+          match conc:
+            case Bool(loc, tyof, True):
+              if get_verbose():
+                print('reduce if, conc == True')
+              ret = Bool(self.location, tyof, True)
+            case _:
+              ret = IfThen(self.location, self.typeof, prem, conc)
+    if get_verbose():
+      print('reduce ' + str(self) + '\n\t==> ' + str(ret))
+    return ret
+  
   def substitute(self, sub):
     return IfThen(self.location,
                   self.typeof,
@@ -1340,14 +1366,21 @@ class All(Formula):
                self.body.copy())
   
   def __str__(self):
-    return '(all ' + ", ".join([base_name(v) + ":" + str(t) for (v,t) in self.vars]) \
+    if get_verbose():
+      params = self.vars
+    else:
+      params = [(base_name(x), t)for (x,t) in self.vars]
+    return '(all ' + ", ".join([v + ":" + str(t) \
+                                for (v,t) in params]) \
         + '. ' + str(self.body) + ')'
 
   def reduce(self, env):
     n = len(self.vars)
     new_body = self.body.reduce(env)
     match new_body:
-      case Bool(_, b):
+      case Bool(loc, tyof, b):
+        if get_verbose():
+          print('reduce ' + str(self) + '\n\t==> ' + str(new_body))
         return new_body
       case _:
         return All(self.location,
@@ -1509,11 +1542,11 @@ class PTerm(Proof):
     
     
 @dataclass
-class PFrom(Proof):
+class PRecall(Proof):
   facts: List[Formula]
   
   def __str__(self):
-      return 'from ' + ', '.join([str(f) for f in self.facts])
+      return 'recall ' + ', '.join([str(f) for f in self.facts])
 
   def uniquify(self, env):
     for fact in self.facts:
@@ -2593,7 +2626,7 @@ class Env:
 
   def proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
-            if isinstance(b, ProofBinding)]
+            if isinstance(b, ProofBinding) and b.local]
       
 def print_theorems(filename, ast):
   fullpath = Path(filename)

@@ -850,7 +850,11 @@ switch_case ::= "case" pattern "{" term "}"
 
 The subject of the `switch` must be of union type or `bool` (e.g., not
 a function). The body of the `switch` must have one `case` for every
-constructor in the `union`, or for `bool`, the cases are `true` and `false`.
+constructor in the `union`, or for `bool`, the cases are `true` and
+`false`.  The body of each `case` is a term and they all must have the
+same type.  The `switch` evaluates the subject and compares it to each
+case, then evaluates the body of the case that matched.
+
 
 ```{.deduce #switch_example}
 define flip = fun x:bool {
@@ -863,18 +867,53 @@ assert flip(false)
 assert not flip(true)
 ```
 
-
-
 ## Switch (Proof)
 
 ```
 proof ::= "switch" term "{" switch_proof_case* "}"
 switch_proof_case ::= "case" pattern "{" proof "}"
-switch_proof_case ::= "case" pattern "suppose" assumption_list "{" proof "}"
+switch_proof_case ::= "case" pattern assumptions "{" proof "}"
+assumptions ::= "suppose" assumption_list | "assume" assumption_list
 ```
 
 (See entry for Assumption List for the syntax of `assumption_list`.)
 
+### Meaning
+
+A proof of the form
+```
+switch t {
+  case p1 assume eq1: t = p1 {
+    X1
+  }
+  ...
+  case pn assume eqn: t = pn {
+    Xn
+  }
+}
+```
+is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
+The fact `t = p1` is a given that can be used in `X1`
+and similarly for the other cases.
+
+### Example
+
+```{.deduce #switch_proof_example}
+theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
+proof
+  arbitrary x:Nat
+  switch x {
+    case zero {
+      conclude true or 0 < 0 by .
+    }
+    case suc(x') {
+      have z_l_sx: 0 < suc(x')
+          by definition {operator <, operator ≤, operator ≤}
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
+  }
+end
+```
 
 ## Subset or Equal
 
@@ -882,6 +921,31 @@ switch_proof_case ::= "case" pattern "suppose" assumption_list "{" proof "}"
 term ::= term "⊆" term
 term ::= term "(=" term
 ```
+
+The formula `A ⊆ B` is true when every element of set `A` is
+contained in set `B`. That is, given `A` and `B` of type `Set<T>`,
+the definition of `A ⊆ B` is as follows.
+```
+A ⊆ B = (all x:T. if x ∈ A then x ∈ B)
+```
+
+### Example
+
+```{.deduce #subset_example}
+define E = single(1)
+define F = single(1) ∪ single(2)
+
+theorem subset_example: E ⊆ F
+proof
+  suffices all x:Nat. if x ∈ E then x ∈ F  by definition operator ⊆
+  arbitrary x:Nat
+  assume: x ∈ E
+  have: 1 = x       by definition {E, operator∈, single, rep} in recall (x ∈ E)
+  suffices 1 ∈ F    by rewrite symmetric (recall 1 = x)
+  definition {F, operator∈, single, operator ∪, rep}
+end
+```
+
 
 ## Subtract
 
@@ -972,5 +1036,7 @@ import List
 <<all_example_intro>>
 <<all_example_elim>>
 <<switch_example>>
+<<switch_proof_example>>
+<<subset_example>>
 ```
 -->
