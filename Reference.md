@@ -6,6 +6,7 @@ feature in alphabetical order by keyword. It gives the grammar rule
 In the grammar rules, an unquoted astericks means zero-or more
 repetitions of the grammar item that it follows.
 The symbol ε means the empty string.
+A vertical bar separates alternatives right-hand sides in a grammar rule.
 
 
 ## Add
@@ -24,7 +25,7 @@ function operator +(Nat,Nat) -> Nat {
 }
 ```
 
-### Example
+Example:
 
 ```{.deduce #add_example}
 assert 2 + 3 = 5
@@ -47,7 +48,7 @@ cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
   cnt(A ⨄ B)(x) = cnt(A)(x) + cnt(B)(x)
 ```
 
-### Example
+Example:
 
 ```{.deduce #add_multiset_example}
 define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
@@ -62,12 +63,8 @@ assert cnt(A)(7) = 0
 term ::= "all" var_list "." term
 ```
 
-### Meaning
-
 A formula of the form `all x1:T1,...,xn:Tn. P` is true
 when `P` is true for all possible choices of `x1`...`xn`.
-
-### Prove `all x1:T1,...,xn:Tn. P`
 
 To prove an `all` formula, use `arbitrary` (see entry for
 [Arbitrary](#Arbitrary-Forall-Introduction)) or `induction` (see entry
@@ -97,8 +94,6 @@ proof
 end
 ```
 
-### Use `all x1:T1,...,xn:Tn. P`
-
 A proof of `all x1:T1,...,xn:Tn. P` can be used to prove the
 formula `P` where the `x1,...,xn` have been replaced by 
 terms of your choice. Use square brackets to enclose your
@@ -119,7 +114,7 @@ term ::= term "and" term
 
 The formula `P and Q` is true when both `P` and `Q` are true.
 
-### Example
+Example:
 
 ```{.deduce #and_example}
 assert true and true
@@ -127,8 +122,6 @@ assert not (true and false)
 assert not (false and true)
 assert not (false and false)
 ```
-
-### Prove `P and Q`
 
 Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 `P and Q`.
@@ -141,8 +134,6 @@ proof
   conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
 end
 ```
-
-### Use `P and Q`
 
 A proof of `P and Q` can be used implicitly to prove `P` and to prove `Q`.
 
@@ -173,7 +164,7 @@ function operator ++ <E>(List<E>, List<E>) -> List<E> {
 }
 ```
 
-### Example
+Example:
 
 ```{.deduce #append_example}
 assert [1,2] ++ [3,4] = [1,2,3,4]
@@ -185,8 +176,6 @@ assert [1,2] ++ [3,4] = [1,2,3,4]
 proof ::= "apply" proof "to" proof
 ```
 
-### Meaning
-
 A proof of the form
 ```
 apply X to Y
@@ -194,7 +183,7 @@ apply X to Y
 is a proof of formula `Q` if `X` is a proof of `(if P then Q)`
 and `Y` is a proof of `P`.
 
-### Example
+Example:
 
 ```{.deduce #apply_to_example}
 theorem apply_to_example: all P:bool, Q:bool, R:bool.
@@ -217,8 +206,6 @@ end
 proof ::= "arbitrary" var_decl_list  proof
 ```
 
-### Meaning
-
 A proof of the form
 ```
 arbitrary x1:T1, ..., xn:Tn
@@ -227,7 +214,7 @@ X
 is a proof of the formula `all x1:T1, ..., xn:Tn. P` if `X` is a proof of `P`.
 The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
 
-### Example
+Example:
 
 ```{.deduce #arbitrary_example}
 theorem arbitrary_example: all x:Nat,y:Nat. if x = y then y = x
@@ -241,16 +228,25 @@ end
 
 ## Assert
 
-UNDER CONSTRUCTION
+```
+statement ::= "assert" term
+```
+
+The `assert` statement evaluates a term and reports an error if the
+result is `false`. For example, the following `assert` does nothing
+because the term evaluates to `true`.
+
+```{.deduce #assert_example}
+assert (if true then 7 else 5+6) = 7
+```
+
 
 ## Assume (aka. Suppose)
 
 ```
-proof ::= "suppose" assumption proof
 proof ::= "assume" assumption proof
+        | "suppose" assumption proof
 ```
-
-### Meaning
 
 A proof of the form
 ```
@@ -260,8 +256,6 @@ X
 is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
 The proof `X` may use the `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
-
-### Example
 
 ```{.deduce #assume_example}
 theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
@@ -285,13 +279,21 @@ assumption_list ::= assumption "," assumption_list
 
 See the entry for Assume to see how assumptions are used.
 
+## Bool (Type)
+
+```
+type ::= "bool"
+```
+
+The type `bool` classifies the values `true` annd `false`.
+A formula is a term of type `bool`.
+
+
 ## Choose (Exists Elimination)
 
 ```
 proof ::= "choose" term_list  proof
 ```
-
-### Meaning
 
 A proof of the form
 ```
@@ -301,7 +303,7 @@ X
 is a proof of the formula `some x1,...xn. P`
 if `X` is a proof of formula `P` where the `x`'s replaced by the `e`'s.
 
-### Example
+Example:
 
 ```{.deduce #choose_example}
 theorem choose_example: some x:Nat. 6 = 2 * x
@@ -330,7 +332,7 @@ term ::= term "[o]" term
 The composition of two functions `g ∘ f` is defined in `Maps.pf`
 so that `(g ∘ f)(x) = g(f(x))`.
 
-### Example
+Example:
 
 Applying the successor function `suc` (add 1) to `3` yields `5`.
 
@@ -347,15 +349,13 @@ proof ::= "conclude" formula "by" proof
 This proof statement is useful when you wish to emphasize the end of a
 proof by stating the formula that is being proved.
 
-### Meaning
-
 A proof of the form
 ```
 conclude P by X
 ```
 is a proof of formula `P` if `X` is a proof of `P`.
 
-### Example
+Example:
 
 ```{.deduce #conclude_example}
 theorem conclude_example: 1 + 1 = 2
@@ -370,8 +370,6 @@ end
 proof ::= "conjunct" number "of" proof 
 ```
 
-### Meaning
-
 A proof of the form
 ```
 conjunct n of X
@@ -379,7 +377,7 @@ conjunct n of X
 is a proof of `Pn` if `X` is a proof of `P1 and ... and Pk`
 and 1 ≤ n ≤ k.
 
-### Example
+Example:
 
 ```{.deduce #conjunct_example}
 theorem conjunct_example: all P:bool, Q:bool. if P and Q then Q and P
@@ -400,7 +398,18 @@ statement ::= "define" ident ":" type "=" term
             | "define" ident "=" term
 ```
 
-UNDER CONSTRUCTION
+The `define` feature of Deduce associates a name with a value.  For
+example, the following definitions associate the name `five` with the
+natural number `5`, and the name `six` with the natural number `6`.
+
+```{.deduce #define_example}
+define five = 2 + 3
+define six : Nat = 1 + five
+```
+
+Optionally, the type can be specified after the name, following a
+colon.  In the above, `six` holds a natural number, so its type is
+`Nat`.
 
 ## Divide
 
@@ -408,7 +417,21 @@ UNDER CONSTRUCTION
 term ::= term "/" term
 ```
 
-UNDER CONSTRUCTION
+The division function for `Nat` and `Pos` is defined in `Nat.pf`.
+The main theorem is `division_remainder` which states that
+
+```
+(n / m) * pos2nat(m) + (n % m) = n
+```
+
+Example:
+```{.deduce #division_example}
+define three = succ(succ(one))
+assert 6 / three = 2
+assert 7 / three = 2
+assert 8 / three = 2
+assert 9 / three = 3
+```
 
 
 ## Equal
@@ -417,8 +440,11 @@ UNDER CONSTRUCTION
 term ::= term "=" term
 ```
 
-UNDER CONSTRUCTION
+The formula `a = b` is true when the left-hand side and right-hand are
+the same. 
 
+(In Deduce, there is no distinction between identity and deep equality
+because there is no notion of identity.)
 
 ## Equations
 
@@ -431,6 +457,27 @@ equation_list ::= half_equation equation_list
 equation_list ::= "|" equation equation_list
 ```
 
+Combining a sequence of equations using `transitive` is quite common,
+so Deduce provides the `equations` statement to streamline this
+process.  After the first equation, the left-hand side of each
+equation is written as `...` because it is just a repetition of the
+right-hand side of the previous equation. Here's another proof of the
+theorem about `x + y + z`, this time using an `equations` statement.
+
+```{.deduce #equations_example}
+theorem equations_example: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  equations
+    x + y + z = x + z + y      by rewrite add_commute[y][z]
+          ... = (x + z) + y    by rewrite symmetric add_assoc[x][z,y]
+          ... = (z + x) + y    by rewrite symmetric add_commute[z][x]
+          ... = z + x + y      by rewrite add_assoc[z][x,y]
+          ... = z + y + x      by rewrite add_commute[x][y]
+end
+```
+
 ## Formula
 
 A formula is any term of type `bool`.
@@ -439,7 +486,37 @@ A formula is any term of type `bool`.
 formula ::= term
 ```
 
-## Function
+## Function (Term)
+
+```
+term ::= "fun" var_list "{" term "}"
+         | "λ" var_list "{" term "}"
+```
+
+Functions are created with a λ expression.  Their syntax starts with
+λ, followed by parameter names, then the body of the function enclosed
+in braces.  For example, the following defines a function for
+computing the area of a rectangle.
+
+```{.deduce #function_term_example}
+define area = λ h:Nat, w:Nat { h * w }
+```
+
+The type of a function starts with `fn`, followed by the
+parameter types, then `->`, and finally the return type.
+
+To call a function, apply it to the appropriate number and type of
+arguments.
+
+```{.deduce #print_area}
+print area(3, 4)
+```
+
+The output is `12`.
+
+
+
+## Function (Statement)
 
 ```
 statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
@@ -447,7 +524,51 @@ fun_case_list ::= fun_case | fun_case fun_case_list
 fun_case ::= identifier "(" pattern_list ")" "=" term
 ```
 
-UNDER CONSTRUCTION
+The `function` statement is for defining recursive functions that
+operate on `union` types. Recursive functions in Deduce are somewhat
+special to make sure they always terminate.
+
+* The first parameter of the function must be a union.
+* The function definition must include a clause for every
+  constructor in the union.
+* The first argument of every recursive call must be a sub-part of the
+  current constructor of the union.
+
+A recursive function begins with the `function` keyword, followed by
+the name of the function, then the parameters types and the return
+type. The body of the function includes one equation for every
+constructor in the union of its first parameter. For example, here's
+the definition of a `len` function for lists of natural numbers.
+
+```{.deduce #lenNatList}
+function len(NatList) -> Nat {
+  len(Empty) = 0
+  len(Node(n, next)) = 1 + len(next)
+}
+```
+
+There are two clauses in the body of `len` because the `NatList` union
+has two constructors. The clause for `Empty` says that its length is
+`0`.  The clause for `Node` says that its length is one more than the
+length of the rest of the linked list.  Deduce approves of the
+recursive call `len(next)` because `next` is part of `Node(n, next)`.
+
+Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. 
+If you need to pattern match on a parameter that is not the first, you
+can use a `switch` statement. 
+
+## Function Type
+
+```
+type ::= "fn" type_params_opt type_list "->" type
+```
+
+A function type classifies a function. This includes both recursive
+functions (`function`) and anonymous functions (`fun` or `λ`).  If the
+function is generic, its function type includes type parameters
+enclosed in `<` and `>`.
+
 
 ## Greater-Than
 
@@ -455,7 +576,19 @@ UNDER CONSTRUCTION
 term ::= term ">" term
 ```
 
-UNDER CONSTRUCTION
+The greater-than operator on natural numbers is defined in `Nat.pf`
+and is defined in terms of less-than as follows
+```
+x > y = y < x
+```
+
+
+Example:
+```{.deduce #greater_example}
+assert 2 > 1
+assert not (1 > 1)
+assert not (0 > 1)
+```
 
 ## Greater-Than or Equal
 
@@ -521,7 +654,7 @@ if a then b else c
 ```
 is equal to `b` when `a` is true and equal to `c` when `a` is false.
 
-### Example
+Example:
 
 ```{.deduce #if_then_else_example}
 assert (if true then 1 else 2) = 1
@@ -555,7 +688,7 @@ term ::= term "in" term
 
 The formula `x ∈ S` is true when element `x` is contained in the set `S`.
 
-### Example
+Example:
 
 ```{.deduce #membership_example}
 define S = single(1) ∪ single(2) ∪ single(3)
@@ -567,8 +700,6 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ```
 proof ::= "induction" type ind_case*
 ```
-
-### Meaning
 
 A proof of the form
 ```
@@ -585,7 +716,7 @@ hypotheses `IH1, ...`. For each term `ein` whose type is `T`
 (so it is recursive), the induction hypothesis is
 the formula `P` with `x` replaced by the constructor argument `ein`.
 
-### Example
+Example:
 
 ```{.deduce #induction_example}
 theorem induction_example: all n:Nat.
@@ -614,7 +745,7 @@ Set intersection is defined in `Set.pf`.
 The intersection of sets `A` and `B`, written `A ∩ B`,
 contains the items that occur both sets.
 
-### Example
+Example:
 
 ```{.deduce #intersect_example}
 define C = single(1) ∪ single(2)
@@ -639,7 +770,7 @@ x < y = suc(x) ≤ y
 To find theorems about the less-than operator in `Nat.thm`, search for
 theorems with `less` in the name.
 
-### Example
+Example:
 
 ```{.deduce #less_than_example}
 assert 1 < 2
@@ -671,7 +802,7 @@ function operator ≤(Nat,Nat) -> bool {
 To find theorems about the less-than operator in `Nat.thm`, search for
 theorems with `less_equal` in the name.
 
-### Example
+Example:
 
 ```{.deduce #less_equal_example}
 assert 1 ≤ 1
@@ -693,7 +824,7 @@ is a positive number (of type `Pos`).
 n % m = n - (n / m) * pos2nat(m)
 ```
 
-### Example
+Example:
 
 ```{.deduce #mod_example}
 define two = succ(one)
@@ -724,7 +855,7 @@ function operator *(Nat,Nat) -> Nat {
 
 To find theorems about multiplication, search for `mult` in `Nat.thm`.
 
-### Example
+Example:
 
 ```{.deduce #multiply_example}
 assert 2 * 3 = 6
@@ -745,7 +876,6 @@ Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
 proof ::= "obtain" identifier_list "where" assumption "from" proof  proof
 ```
 
-### Meaning
 
 A proof of the form
 ```
@@ -757,7 +887,7 @@ The `X` must be a proof of the form `some x1:T1,...,xn:Tn. P`.
 The proof `Y` may use the `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
 
-### Example
+Example:
 
 ```{.deduce #obtain_example}
 theorem obtain_example: all n:Nat. 
@@ -783,7 +913,7 @@ term ::= term "or" term
 
 The formula `P or Q` is true when either `P` is true or `Q` is true.
 
-### Example
+Example:
 
 ```{.deduce #or_example}
 assert true or true
@@ -836,9 +966,21 @@ pattern ::= identifier "(" identifier_list ")"
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
 
+
 ## Print
 
-UNDER CONSTRUCTION
+```
+statement ::= "print" term
+```
+
+You can ask Deduce to print a value to standard output using the
+`print` statement.
+
+```{.deduce #print_example}
+print five
+```
+
+The output is `5`.
 
 
 ## Recall (Proof)
@@ -847,7 +989,6 @@ UNDER CONSTRUCTION
 proof ::= "recall" term_list
 ```
 
-### Meaning
 
 A proof of the form
 ```
@@ -855,6 +996,15 @@ recall P1, ..., Pn
 ```
 is a proof of the formula `P1 and ... and Pn`. The formulas
 `P1`,...,`Pn` must be in the of givens at the current point in the proof.
+
+
+## Reflexive (proof)
+
+```
+proof ::= reflexive
+```
+
+The proof `reflexive` proves that `a = a` for any term `a`.
 
 
 ## Some (Existential Quantifier)
@@ -866,13 +1016,10 @@ term ::= "some" var_list "." term
 The formula `some x1:T1,...,xn:Tn. P` is true when there exists
 a choice for `x1`,...,`xn` such that `P` is true.
 
-### Prove `some x1:T1,...,xn:Tn. P`
+To prove a `some` formula, see the entry for
+[Choose](#Choose-Exists-Elimination).
 
-See the entry for [Choose](#Choose-Exists-Elimination).
-
-### Use `some x1:T1,...,xn:Tn. P`
-
-See the entry for [Obtain](#Obtain)
+To use a `some` formula, see the entry for [Obtain](#Obtain)
 
 
 ## Switch (Program Term)
@@ -914,8 +1061,6 @@ assumptions ::= "suppose" assumption_list | "assume" assumption_list
 
 (See entry for Assumption List for the syntax of `assumption_list`.)
 
-### Meaning
-
 A proof of the form
 ```
 switch t {
@@ -932,7 +1077,7 @@ is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
 The fact `t = p1` is a given that can be used in `X1`
 and similarly for the other cases.
 
-### Example
+Example:
 
 ```{.deduce #switch_proof_example}
 theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
@@ -965,7 +1110,7 @@ the definition of `A ⊆ B` is as follows.
 A ⊆ B = (all x:T. if x ∈ A then x ∈ B)
 ```
 
-### Example
+Example:
 
 ```{.deduce #subset_example}
 define E = single(1)
@@ -1031,7 +1176,7 @@ and `Y` is a proof of `Q`.
 Use `suffices` to transform the goal formula into a simpler formula.
 Thus, the `suffices` feature enables reasoning backwards from the goal.
 
-### Example
+Example:
 
 One often wants to transform the goal by using a definition or equation.
 For example, in the following theorem we change the goal
@@ -1059,6 +1204,15 @@ end
 ## Suppose
 
 See the entry for Assume.
+
+## Symmetric (Proof)
+
+```
+proof ::= "symmetric" proof
+```
+
+If `X` is a proof of `a = b`, then `symmetric X` is a proof of `b = a`
+for any terms `a` and `b`.
 
 
 ## Theorem
@@ -1090,6 +1244,17 @@ A term list is a comma-separated sequence of zero or more terms.
 term_list ::= ε | term | term "," term_list
 ```
 
+## Transitive (Proof)
+
+```
+proof ::= "transitive" proof proof
+```
+
+If `X` is a proof of `a = b` and `Y` is a proof of `b = c`,
+then `transitive X Y` is a proof of `a = c`, for any
+terms `a`, `b`, and `c`.
+
+
 ## Union (Type)
 
 ```
@@ -1099,7 +1264,7 @@ statement ::= "union" identifier type_params_opt "{" constructor_list "}"
 The `union` statement defines a new type whose values are created by
 invoking one of the constructors declared inside the union.
 
-### Example
+Example:
 
 The following union statement defines a `Tree` type that has two kinds
 of nodes, `Leaf` nodes with zero children and `Internal` nodes with
@@ -1133,7 +1298,7 @@ Set union is defined in `Set.pf`.
 The union of sets `A` and `B`, written `A ∪ B`,
 contains the items that occur in either set.
 
-### Example
+Example:
 
 ```{.deduce #union_example}
 define C = single(1) ∪ single(2)
@@ -1160,17 +1325,25 @@ import List
 
 <<add_example>>
 <<add_multiset_example>>
+<<all_example_bool>>
+<<all_example_intro>>
+<<all_example_elim>>
 <<and_example>>
 <<and_example_intro>>
 <<and_example_elim>>
 <<append_example>>
 <<apply_to_example>>
 <<arbitrary_example>>
+<<assert_example>>
 <<assume_example>>
 <<choose_example>>
 <<compose_example>>
 <<conclude_example>>
 <<conjunct_example>>
+<<define_example>>
+<<division_example>>
+<<equations_example>>
+<<greater_example>>
 <<if_then_else_example>>
 <<membership_example>>
 <<induction_example>>
@@ -1182,9 +1355,7 @@ import List
 <<or_example>>
 <<or_example_intro1>>
 <<or_example_intro2>>
-<<all_example_bool>>
-<<all_example_intro>>
-<<all_example_elim>>
+<<print_example>>
 <<switch_example>>
 <<switch_proof_example>>
 <<subset_example>>

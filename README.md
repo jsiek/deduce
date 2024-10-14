@@ -132,14 +132,16 @@ The Deduce language includes four kinds of phrases:
 
 A Deduce file contains a list of **statements**. Each statement can be one of
 1. [Theorem](./Reference.md#Theorem)
-2. [Function](./Reference.md#Function)
-3. [Define](./Reference.md#Define)
+2. [Function](./Reference.md#Function-Statement)
+3. [Define](./Reference.md#Define-Statement)
 4. [Import](./Reference.md#Import)
 5. [Assert](./Reference.md#Assert)
 6. [Print](./Reference.md#Print)
 
-In Deduce, one must give a reason for why a theorem is true, and
-the reason given by the grammar of **proof**.
+In Deduce, one must give a reason for why a theorem is true, and the
+reason is given by a **proof**. Proofs are typically formed of smaller
+proofs that are put together using the many ways that Deduce provides
+for combining proofs.
 
 Both logical formulas and program expressions are represented in
 Deduce by **terms**. For example, `if P then Q` is a logical formula
@@ -151,10 +153,10 @@ produced by the term.
 1. The type `bool` classifies `true` and `false`.
 2. The function type `fn T1,...,Tn -> Tr` classifies a function
    whose n parameters are of type `T1`,...,`Tn` and whose return type is `Tr`.
-3. The generic function type `fn <X1,...,Xn> T1,...,Tn -> Tr` classifies a generic
-   function with type parameters `X1`,...,`Xn`.
+3. The generic function type `fn <X1,...,Xk> T1,...,Tn -> Tr` classifies a generic
+   function with type parameters `X1`,...,`Xk`.
 4. A [union](./Reference.md#Union-Type) type given by its name.
-5. An instance of a generic union given by its name followed
+5. An instance of a generic union is given by its name followed
    by `<`, a comma-separated list of type arguments, followed by `>`.
 
 ## Deduce Unicode
