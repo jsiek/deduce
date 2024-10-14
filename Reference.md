@@ -946,21 +946,79 @@ proof
 end
 ```
 
-
 ## Subtract
 
 ```
 term ::= term "-" term
 ```
 
+Subtraction for natural numbers is defined in `Nat.pf` as follows
+
+```
+function operator -(Nat,Nat) -> Nat {
+  operator -(0, m) = 0
+  operator -(suc(n), m) =
+    switch m {
+      case 0 { suc(n) }
+      case suc(m') { n - m' }
+    }
+}
+```
+
+Note that subtraction on natural numbers is different from subtraction
+on integers, as they are no negative natural numbers. If you subtract
+a larger natural number from a smaller natural number, the result is `0`.
+
+```{.deduce subtract_example}
+assert 3 - 2 = 1
+assert 3 - 3 = 0
+assert 2 - 3 = 0
+```
+
+To search for theorems about subtraction in `Nat.thy`, search for
+theorems with `sub` in the name.
+
 ## Suffices
 
 ```
-proof ::= "suffices" formula "by" suffices_proof  proof
-suffices_proof ::= definition_clause 
-suffices_proof ::= rewrite_clause 
-suffices_proof ::= definition_clause "and" rewrite_clause 
+proof ::= "suffices" formula "by" proof  proof
 ```
+
+A proof of the form
+```
+suffices P by X
+Y
+```
+is a proof of the formula `Q` if `X` is a proof that `P` imples `Q`
+and `Y` is a proof of `Q`.
+
+Use `suffices` to transform the goal formula into a simpler formula.
+Thus, the `suffices` feature enable reasoning backwards from the goal.
+
+### Example
+
+One often wants to transform the goal by using a definition or equation.
+For example, in the following theorem we change the goal
+from
+```
+length(node(3, empty)) = 1
+```
+into
+```
+1 + 0 = 1
+```
+by two uses of the definition of `length`.
+We then prove the new goal with theorem `add_zero` from `Nat.thm`.
+
+```{.deduce #suffices_example}
+theorem suffices_example:
+  length(node(3, empty)) = 1
+proof
+  suffices 1 + 0 = 1  by definition {length, length}
+  add_zero
+end
+```
+
 
 ## Suppose
 
@@ -1038,5 +1096,6 @@ import List
 <<switch_example>>
 <<switch_proof_example>>
 <<subset_example>>
+<<suffices_example>>
 ```
 -->
