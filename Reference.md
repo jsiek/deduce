@@ -203,7 +203,7 @@ end
 ## Arbitrary (Forall Introduction)
 
 ```
-proof ::= "arbitrary" var_decl_list  proof
+proof ::= "arbitrary" var_list  proof
 ```
 
 A proof of the form
@@ -241,7 +241,7 @@ assert (if true then 7 else 5+6) = 7
 ```
 
 
-## Assume (aka. Suppose)
+## Assume
 
 ```
 proof ::= "assume" assumption proof
@@ -277,7 +277,22 @@ assumption_list ::= assumption
 assumption_list ::= assumption "," assumption_list
 ```
 
-See the entry for Assume to see how assumptions are used.
+See the entry for [Assume](#Assume) to see how assumptions are used.
+
+## At Symbol `@`
+
+See the entry for [Instantiation](#Instantiation-Term).
+
+## Biconditional (if-and-only-if)
+
+```
+term ::= term "⇔" term
+       | term "<=>" term
+       | term "iff" term
+```
+
+The formula `P ⇔ Q` is syntactic sugar for
+`(if P then Q) and (if Q then P)`.
 
 ## Bool (Type)
 
@@ -287,6 +302,19 @@ type ::= "bool"
 
 The type `bool` classifies the values `true` annd `false`.
 A formula is a term of type `bool`.
+
+## Call (Term)
+
+```
+term ::= term "(" term_list ")"
+```
+
+A term of the form `t0(t1, ..., tn)` calls the function indicated by
+term `t0` on the arguments `t1`,...,`tn`.
+
+```{.deduce #call_example}
+assert length(list_example) = 3
+```
 
 
 ## Choose (Exists Elimination)
@@ -325,8 +353,7 @@ See the entry for And (logical conjunction).
 ## Compose (Functions)
 
 ```
-term ::= term "∘" term
-term ::= term "[o]" term
+term ::= term "∘" term | term "[o]" term
 ```
 
 The composition of two functions `g ∘ f` is defined in `Maps.pf`
@@ -433,6 +460,14 @@ assert 8 / three = 2
 assert 9 / three = 3
 ```
 
+## Empty Set
+
+```
+term ::= "∅"
+```
+
+The empty set `∅` does not contain any elements and is defined in
+`Set.pf`.
 
 ## Equal
 
@@ -477,6 +512,19 @@ proof
           ... = z + y + x      by rewrite add_commute[x][y]
 end
 ```
+
+## False
+
+```
+term :: = "false"
+```
+
+One can prove `false` when there are assumptions that contradict
+eachother, such as `x = 0` and `x = 1`, or `not P` and `P`.
+
+A proof of `false` can be used to prove anything else!
+(This is known as the Principle of Explosion.)
+
 
 ## Formula
 
@@ -537,20 +585,20 @@ A recursive function begins with the `function` keyword, followed by
 the name of the function, then the parameters types and the return
 type. The body of the function includes one equation for every
 constructor in the union of its first parameter. For example, here's
-the definition of a `len` function for lists of natural numbers.
+the definition of a `length` function for lists of natural numbers.
 
-```{.deduce #lenNatList}
-function len(NatList) -> Nat {
-  len(Empty) = 0
-  len(Node(n, next)) = 1 + len(next)
+```{.deduce #function_example}
+function length(NatList) -> Nat {
+  length(Empty) = 0
+  length(Node(n, next)) = 1 + length(next)
 }
 ```
 
-There are two clauses in the body of `len` because the `NatList` union
+There are two clauses in the body of `length` because the `NatList` union
 has two constructors. The clause for `Empty` says that its length is
 `0`.  The clause for `Node` says that its length is one more than the
 length of the rest of the linked list.  Deduce approves of the
-recursive call `len(next)` because `next` is part of `Node(n, next)`.
+recursive call `length(next)` because `next` is part of `Node(n, next)`.
 
 Recursive functions may have more than one parameter but pattern
 matching is only supported for the first parameter. 
@@ -567,6 +615,31 @@ A function type classifies a function. This includes both recursive
 functions (`function`) and anonymous functions (`fun` or `λ`).  If the
 function is generic, its function type includes type parameters
 enclosed in `<` and `>`.
+
+## Generic (Term)
+
+```
+term ::= "generic" identifier_list "{" term "}"
+```
+
+A term of the form
+```
+generic T1, ..., Tn { X }
+```
+produces a generic function with type parameters 
+`T1`, ..., `Tn`, if term `X` produces a function
+(e.g., using `fun`).
+
+An example use of `generic` is in `Maps.pf`, in the
+definition of function composition.
+
+```{.deduce #generic_example}
+define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
+                        λ x:T { g(f(x)) } } }
+```
+
+Generic functions can also be defined using the `function` statement
+(see [Function](#Function-Statement)).
 
 
 ## Greater-Than
@@ -655,7 +728,7 @@ identifier_list ::= identifier "," identifier_list
 
 ## If-and-only-if (iff)
 
-See the entry for Biconditional.
+See the entry for [Biconditional](#Biconditional-if-and-only-if).
 
 ## If-Then (Conditional Formula)
 
@@ -702,7 +775,7 @@ Import all of the definitions and theorems from the specified file
 (without the file extension).
 
 
-## In (Membership)
+## In (Set Membership)
 
 ```
 term ::= term "∈" term
@@ -756,6 +829,20 @@ proof
   }
 end
 ```
+
+## Instantiation (Term)
+
+```
+term ::= @ term '<' type_list '>'
+```
+
+Instantiates a generic function or constructor, replaces its type
+parameters with the given type arguments.
+
+```{.deduce #instantiate_example}
+define empty_nat_list : List<Nat> = @empty<Nat>
+```
+
 
 ## Intersection
 
@@ -833,6 +920,25 @@ assert 1 ≤ 2
 assert not (2 ≤ 1)
 ```
 
+## List (Type)
+
+The `List` type represents a singly-linked list of items and is
+defined in `List.pf` as follows.
+
+```
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+```
+
+The sequence `3,8,4` can be represented as a `List` by creating three
+nodes that are composed in the following way.
+
+```{.deduce #list_example}
+define list_example = node(3, node(8, node(4, empty)))
+```
+
 ## Modulo
 
 ```
@@ -883,6 +989,16 @@ Example:
 ```{.deduce #multiply_example}
 assert 2 * 3 = 6
 ```
+
+## Not
+
+```
+term ::= "not" term
+```
+
+The formula `not P` is true when `P` is false.
+Deduce treats `not P` as syntactic sugar for `(if P then false)`.
+
 
 ## Not Equal
 
@@ -965,14 +1081,6 @@ proof
   assume: Q
   conclude P or Q by recall Q
 end
-```
-
-## Variable Declaration and Variable Declaration List
-
-```
-var_decl ::= identifier ":" type
-var_decl_list ::= var_decl
-var_decl_list ::= var_decl "," var_decl_list
 ```
 
 ## Pattern
@@ -1226,7 +1334,7 @@ end
 
 ## Suppose
 
-See the entry for Assume.
+See the entry for [Assume](#Assume).
 
 ## Symmetric (Proof)
 
@@ -1276,6 +1384,23 @@ proof ::= "transitive" proof proof
 If `X` is a proof of `a = b` and `Y` is a proof of `b = c`,
 then `transitive X Y` is a proof of `a = c`, for any
 terms `a`, `b`, and `c`.
+
+## True (Formula)
+
+```
+term ::= "true"
+```
+
+There's not much to say about `true`. It's true!
+Proving `true` is easy. Just use a period.
+
+```{.deduce #true_example}
+theorem true_example: true
+proof
+  .
+end
+```
+
 
 
 ## Union (Type)
@@ -1335,7 +1460,9 @@ assert not (4 ∈ C ∪ D)
 ## Variable List
 
 ```
-var_list: ε | ident | ident ":" type | ident ":" type "," var_list | ident "," var_list
+var_list ::= ε | ident | ident ":" type
+       | ident ":" type "," var_list
+       | ident "," var_list
 ```
 
 A comma-separated list of variable declarations. Each variable may
@@ -1359,6 +1486,7 @@ import List
 <<arbitrary_example>>
 <<assert_example>>
 <<assume_example>>
+<<call_example>>
 <<choose_example>>
 <<compose_example>>
 <<conclude_example>>
@@ -1371,9 +1499,11 @@ import List
 <<if_then_else_example>>
 <<membership_example>>
 <<induction_example>>
+<<instantiate_example>>
 <<intersect_example>>
 <<less_than_example>>
 <<less_equal_example>>
+<<list_example>>
 <<mod_example>>
 <<obtain_example>>
 <<or_example>>
@@ -1384,6 +1514,7 @@ import List
 <<switch_proof_example>>
 <<subset_example>>
 <<suffices_example>>
+<<true_example>>
 <<union_example>>
 ```
 -->
