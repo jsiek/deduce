@@ -282,11 +282,6 @@ assumption_list ::= assumption "," assumption_list
 
 See the entry for Assume to see how assumptions are used.
 
-## Biconditional (aka. if-and-only-if)
-
-UNDER CONSTRUCTION
-
-
 ## Choose (Exists Elimination)
 
 ```
@@ -818,7 +813,7 @@ A proof of the form
 recall P1, ..., Pn
 ```
 is a proof of the formula `P1 and ... and Pn`. The formulas
-`P1`,...,`Pn` must among the list of givens at the current point in the proof.
+`P1`,...,`Pn` must be in the of givens at the current point in the proof.
 
 
 ## Some (Existential Quantifier)
@@ -993,7 +988,7 @@ is a proof of the formula `Q` if `X` is a proof that `P` imples `Q`
 and `Y` is a proof of `Q`.
 
 Use `suffices` to transform the goal formula into a simpler formula.
-Thus, the `suffices` feature enable reasoning backwards from the goal.
+Thus, the `suffices` feature enables reasoning backwards from the goal.
 
 ### Example
 
@@ -1027,15 +1022,31 @@ See the entry for Assume.
 
 ## Theorem
 
+```
+statement ::= "theorem" IDENT ":" term "proof" proof "end"
+            |   "lemma" IDENT ":" term "proof" proof "end"
+```
+
+A theorem (or lemma) proves that a formula is true. The theorem's name
+can then be used later when one needs to prove the formula again.
+
+A theorem has the form
+```
+theorem label: P
+proof
+  X
+end
+```
+The proof `X` must prove the formula `P`. After the theorem, the `label` can be used
+as a proof of `P`.
 
 
 ## Term List
 
-A term list is a comma-separated sequence of terms.
+A term list is a comma-separated sequence of zero or more terms.
 
 ```
-term_list ::= term
-term_list ::= term "," term_list
+term_list ::= ε | term | term "," term_list
 ```
 
 ## Union (Type)
@@ -1044,12 +1055,52 @@ term_list ::= term "," term_list
 statement ::= "union" identifier type_params_opt "{" constructor_list "}"
 ```
 
+The `union` statement defines a new type whose values are created by
+invoking one of the constructors declared inside the union.
 
-## Union (Set)
+### Example
+
+The following union statement defines a `Tree` type that has two kinds
+of nodes, `Leaf` nodes with zero children and `Internal` nodes with
+two children. We create a three-node tree `T3` by using the
+constructors `Leaf` and `Internal` to create the nodes.
+
+```{.deduce #union_example}
+union Tree {
+  Leaf(Nat)
+  Internal(Tree, Nat, Tree)
+}
+
+/*
+            5
+           / \
+          4   7
+*/
+define T1 : Tree = Leaf(4)
+define T2 : Tree = Leaf(7)
+define T3 : Tree = Internal(T1, 5, T2)
+```
+
+## Union (Operator on Sets)
 
 ```
 term ::= term "∪" term
 term ::= term "|" term
+```
+
+Set union is defined in `Set.pf`.
+The union of sets `A` and `B`, written `A ∪ B`,
+contains the items that occur in either set.
+
+### Example
+
+```{.deduce #union_example}
+define C = single(1) ∪ single(2)
+define D = single(2) ∪ single(3)
+assert 1 ∈ C ∪ D
+assert 2 ∈ C ∪ D
+assert 3 ∈ C ∪ D
+assert not (4 ∈ C ∪ D)
 ```
 
 ## Variable List
@@ -1097,5 +1148,6 @@ import List
 <<switch_proof_example>>
 <<subset_example>>
 <<suffices_example>>
+<<union_example>>
 ```
 -->

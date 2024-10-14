@@ -116,6 +116,12 @@ You can also download one of these extensions for programming in Deduce in some 
 - Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
 - Vim (not now, not ever)
 
+The Deduce Reference manual is linked to below. It provides an
+alphabetical list of all the features in Deduce.
+
+* [Reference Manual](./Reference.md)
+
+
 ## Deduce Unicode
 Deduce uses some Unicode characters, but in case it is difficult
 for you to use Unicode, there are regular ASCI equivalents that
