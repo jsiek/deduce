@@ -20,7 +20,7 @@ language and provide examples of their use.
 * [Reasoning about `false`](#reasoning-about-false)
 * [Reasoning about `not`](#reasoning-about-not)
 * [Rewriting Facts with Equations](#rewriting-facts-with-equations)
-* [Reasoning about `some` (Exists)](#reasoning-about-some-exists)
+* [Reasoning about `some` (Exists) and asking for `help`](#reasoning-about-some-exists-and-asking-for-help)
 
 ## Applying Definitions to the Goal
 
@@ -1090,7 +1090,8 @@ add_to_zero: all n:Nat. all m:Nat. if n + m = 0 then n = 0 and m = 0
 ```
 
 Here is our first use of `apply`-`to` to obtain `length(xs) = 0` and
-the same for `ys`.
+the same for `ys`. (Deduce can infer the arguments for the `all n` and `all m`
+in `add_to_zero`.)
 
 ```
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
@@ -1381,7 +1382,7 @@ proof
 end
 ```
 
-## Reasoning about `some` (Exists)
+## Reasoning about `some` (Exists) and asking for `help`
 
 In Deduce, you can express that there is at least one entity that
 satisfies a given property using the `some` formula.  For example, one
@@ -1406,7 +1407,22 @@ numbers is an even number. Here's the beginning of the proof.
     end
 
 The next step in the proof is to make use of the facts `even_x` and `even_y`.
-We can make use of a `some` formula using the `obtain` statement of Deduce.
+We can ask Deduce for help in how to use a given with the `help` feature.
+
+    help even_x
+    
+Deduce responds with
+    
+    Advice about using fact:
+	some m:Nat. x = 2 * m
+
+	Proceed with:
+		obtain A where label: x = 2 * A from even_x
+	where A is a new name of your choice
+
+So we go ahead and write two `obtain` statements, one for `even_x` and
+another for `even_y`, making different choices to replace the variable
+`A` in the above advice.
 
     obtain a where x_2a: x = 2*a from even_x
     obtain b where y_2b: y = 2*b from even_y
