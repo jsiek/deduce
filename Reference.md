@@ -27,7 +27,8 @@ function operator +(Nat,Nat) -> Nat {
 
 Example:
 
-```<!--{.deduce #add_example}-->
+```
+<!-- {.deduce #add_example} -->
 assert 2 + 3 = 5
 ```
 
