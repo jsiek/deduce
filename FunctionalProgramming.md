@@ -23,7 +23,8 @@ The `import` declaration makes available the contents of another
 Deduce file in the current file. For example, you can import the
 contents of `Nat.pf` as follows
 
-```{.deduce #ImportNat}
+<!-- {.deduce #ImportNat} -->
+```
 import Nat
 ```
 
@@ -34,7 +35,8 @@ The following definitions associate the name `five` with the
 natural number `5`, and the name `six` with the natural
 number `6`.
 
-```{.deduce #five_six}
+<!-- {.deduce #five_six} -->
+```
 define five = 2 + 3
 define six : Nat = 1 + five
 ```
@@ -48,7 +50,8 @@ colon.  In the above, `six` holds a natural number, so its type is
 You can ask Deduce to print a value to standard output using the
 `print` statement.
 
-```{.deduce #print_five}
+<!-- {.deduce #print_five} -->
+```
 print five
 ```
 
@@ -62,7 +65,8 @@ Functions are created with a λ expression.  Their syntax starts with
 in braces.  For example, the following defines a function for
 computing the area of a rectangle.
 
-```{.deduce #area}
+<!-- {.deduce #area} -->
+```
 define area : fn Nat,Nat -> Nat = λ h, w { h * w }
 ```
 
@@ -72,7 +76,8 @@ parameter types, then `->`, and finally the return type.
 To call a function, apply it to the appropriate number and type of
 arguments.
 
-```{.deduce #print_area}
+<!-- {.deduce #print_area} -->
+```
 print area(3, 4)
 ```
 
@@ -82,7 +87,8 @@ A λ expression may only appear in a context where Deduce knows what
 it's type should be. The following produces an error because the
 following `define` does not include a type annotation.
 
-```{.deduce #bad_area}
+<!-- {.deduce #bad_area} -->
+```
 define area = λ h, w { h * w }
 ```
 
@@ -101,7 +107,8 @@ the union type and its body specifies the name of each constructor and
 its parameter types. For example, we define the following union to
 represent a linked-list of natural numbers.
 
-```{.deduce #NatList}
+<!-- {.deduce #NatList} -->
+```
 union NatList {
   Empty
   Node(Nat, NatList)
@@ -112,7 +119,8 @@ We can then construct values of type `NatList` using the constructors
 `Empty` and `Node`.  To create a linked-list whose elements are
 `1` and `2`, write:
 
-```{.deduce #NL12}
+<!-- {.deduce #NL12} -->
+```
 define NL12 = Node(1, Node(2, Empty))
 ```
 
@@ -123,7 +131,8 @@ that is the union type, e.g., the `NatList` parameter of
 with one or more type parameters. For example, we generalize linked
 lists to any element types as follows.
 
-```{.deduce #List}
+<!-- {.deduce #List} -->
+```
 union List<T> {
   empty
   node(T, List<T>)
@@ -134,7 +143,8 @@ Constructing values of a generic union looks the same as for a regular
 union. Deduce figures out the type for `T` from the types of
 the constructor arguments.
 
-```{.deduce #L12}
+<!-- {.deduce #L12} -->
+```
 define L12 = node(1, node(2, empty))
 ```
 
@@ -142,7 +152,8 @@ You can branch on a value of union type using `switch`. For
 example, the following function returns the first element of a
 `NatList`.
 
-```{.deduce #front}
+<!-- {.deduce #front} -->
+```
     import Option
 
     define front : fn NatList -> Option<Nat> =
@@ -156,7 +167,8 @@ example, the following function returns the first element of a
 
 The output of 
 
-```{.deduce #print_front}
+<!-- {.deduce #print_front} -->
+```
 print front(NL12)
 ```
 
@@ -171,7 +183,8 @@ discriminated value and then evaluates the branch associated with the
 If you forget a `case` in a `switch`, Deduce will tell
 you. For example, if you try the following:
 
-```{.deduce #broken_front}
+<!-- {.deduce #broken_front} -->
+```
 define broken_front : fn NatList -> Option<Nat> =
   λ ls { switch ls { case Empty { none } } }
 ```
@@ -188,7 +201,8 @@ this switch is missing a case for: Node(Nat,NatList)
 Natural numbers are not a builtin type in Deduce but instead they
 are defined as a `union` type:
 
-```{.deduce #Nat}
+<!-- {.deduce #Nat} -->
+```
 union Nat {
   zero
   suc(Nat)
@@ -219,7 +233,8 @@ Deduce includes the values `true` and `false` of type
 expression that branches on the value of a boolean. For example, the
 following if-then-else expression is evaluates to `7`.
 
-```{.deduce #print7}
+<!-- {.deduce #print7} -->
+```
 print (if true then 7 else 5+6)
 ```
 
@@ -228,7 +243,8 @@ error if the result is `false`. For example, the following
 `assert` does nothing because the expression evaluates to
 `true`.
 
-```{.deduce #assert_if_true}
+<!-- {.deduce #assert_if_true} -->
+```
 assert (if true then 7 else 5+6) = 7
 ```
 
@@ -249,7 +265,8 @@ the name of the function, then the parameters types and the return
 type. For example, here's the definition of a `len` function for
 lists of natural numbers.
 
-```{.deduce #lenNatList}
+<!-- {.deduce #lenNatList} -->
+```
 function len(NatList) -> Nat {
   len(Empty) = 0
   len(Node(n, next)) = 1 + len(next)
@@ -266,7 +283,8 @@ Recursive functions may have more than one parameter but pattern
 matching is only supported for the first parameter. For example, here
 is the `app` function that combines two linked lists.
 
-```{.deduce #app}
+<!-- {.deduce #app} -->
+```
 function app(NatList, NatList) -> NatList {
   app(Empty, ys) = ys
   app(Node(n, xs), ys) = Node(n, app(xs, ys))
@@ -281,7 +299,8 @@ the first parameter. However, `zip` also needs to match on the second
 parameter `ys`, which is accomplished with a `switch` statement.
 
 
-```{.deduce #zip_example}
+<!-- {.deduce #zip_example} -->
+```
 function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = []
   zip(node(x, xs'), ys) =
@@ -298,7 +317,8 @@ function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
 Deduce supports generic functions, so we can generalize `length` to
 work on lists with any element type as follows.
 
-```{.deduce #length}
+<!-- {.deduce #length} -->
+```
 function length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = 1 + length(next)
@@ -308,7 +328,8 @@ function length<E>(List<E>) -> Nat {
 Generic functions that are not recursive can be defined using a
 combination of `define`, `generic`, and λ.
 
-```{.deduce #head}
+<!-- {.deduce #head} -->
+```
 define head : fn<T> List<T> -> Option<T> =
   generic T { λ ls { 
 	  switch ls {
@@ -327,7 +348,8 @@ most of the time. For example, the following invokes the
 generic `length` function on an argument of type `List<Nat>`
 and Deduce figures out that the type parameter `E` must be `Nat`.
 
-```{.deduce #apply_length}
+<!-- {.deduce #apply_length} -->
+```
 assert length([42]) = 1
 ```
 
@@ -337,7 +359,8 @@ both the `length` function and the `empty` constructor are generic, so
 Deduce cannot figure out what type of list is being constructed in the
 following.
 
-```{.deduce}
+<!-- {.deduce} -->
+```
 assert length([]) = 0
 ```
 
@@ -354,7 +377,8 @@ The syntax starts with `@`, followed by the generic entity, and finishes
 with the type arguments surrounded by `<` and `>`. Here's the 
 example again with the explicit instantiation.
 
-```{.deduce #apply_length_empty}
+<!-- {.deduce #apply_length_empty} -->
+```
 assert length(@[]<Nat>) = 0
 ```
 
@@ -365,7 +389,8 @@ Functions may be passed as parameters to a function and they may be
 returned from a function. For example, the following function checks
 whether every element of a list satisfies a predicate.
 
-```{.deduce #all_elements}
+<!-- {.deduce #all_elements} -->
+```
 function all_elements<T>(List<T>, fn T->bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
@@ -376,7 +401,8 @@ function all_elements<T>(List<T>, fn T->bool) -> bool {
 
 Pairs are defined as a `union` type:
 
-```{.deduce #Pair}
+<!-- {.deduce #Pair} -->
+```
 union Pair<T,U> {
   pair(T,U)
 }
@@ -392,7 +418,8 @@ operations on pairs, such as `first` and `second`.
 
 Define a function named `sum` that adds up all the elements of a `List<Nat>`.
 
-```{.deduce #test_sum}
+<!-- {.deduce #test_sum} -->
+```
 define L13 = [1, 2, 3]
 assert sum(L13) = 6
 ```
@@ -401,7 +428,8 @@ assert sum(L13) = 6
 
 Define a function named `dot` that computes the inner product of two `List<Nat>`.
 
-```{.deduce #test_dot}
+<!-- {.deduce #test_dot} -->
+```
 define L46 = [4, 5, 6]
 assert dot(L13,L46) = 32
 ```
@@ -412,7 +440,8 @@ Define a generic function named `last` that returns the last element
 of a `List<E>`, if there is one. The return type should be `Option<E>`.
 (`Option` is defined in the file `Option.pf`.)
 
-```{.deduce #test_last}
+<!-- {.deduce #test_last} -->
+```
 assert last(L13) = just(3)
 ```
 
@@ -423,7 +452,8 @@ from a list if they satisfy a predicate. So `remove_if` should have two
 parameters: (1) a `List<E>` and (2) a function whose parameter is `E` 
 and whose return type is `bool`.
 
-```{.deduce #test_remove_if}
+<!-- {.deduce #test_remove_if} -->
+```
 assert remove_if(L13, λx {x ≤ 1}) = [2, 3]
 ```
 
@@ -438,8 +468,9 @@ non-empty list and check that it works on a few inputs.
 Note that the second parameter of the division operator `/` 
 is of type `Pos`, which is defined in `Nat.pf`.
 
-<!--
-```{.deduce file=FunctionalProgramming.pf}
+<!-- {.deduce file=FunctionalProgramming.pf} -->
+<!-- 
+```
 <<ImportNat>>
 <<five_six>>
 <<print_five>>

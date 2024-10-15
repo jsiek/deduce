@@ -133,13 +133,13 @@ The Deduce language includes four kinds of phrases:
 4. types
 
 A Deduce file contains a list of **statements**. Each statement can be one of
-1. [Theorem](./Reference.md#Theorem-Statement)
-2. [Union](./Reference.md#Union-Statement)
-2. [Function](./Reference.md#Function-Statement)
-3. [Define](./Reference.md#Define-Statement)
-4. [Import](./Reference.md#Import-Statement)
-5. [Assert](./Reference.md#Assert-Statement)
-6. [Print](./Reference.md#Print-Statement)
+1. [Theorem](./Reference.md#theorem-statement)
+2. [Union](./Reference.md#union-statement)
+2. [Function](./Reference.md#function-statement)
+3. [Define](./Reference.md#define-statement)
+4. [Import](./Reference.md#import-statement)
+5. [Assert](./Reference.md#assert-statement)
+6. [Print](./Reference.md#print-statement)
 
 In Deduce, one must give a reason for why a theorem is true, and the
 reason is given by a **proof**. Proofs are constructed using the rules

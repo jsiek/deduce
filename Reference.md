@@ -69,8 +69,8 @@ A formula of the form `all x1:T1,...,xn:Tn. P` is true
 when `P` is true for all possible choices of `x1`...`xn`.
 
 To prove an `all` formula, use `arbitrary` (see entry for
-[Arbitrary](#Arbitrary-Forall-Introduction)) or `induction` (see entry
-for [Induction](#Induction)). Induction is only allowed when the `all`
+[Arbitrary](#arbitrary-forall-introduction)) or `induction` (see entry
+for [Induction](#induction)). Induction is only allowed when the `all`
 has a single variable, as in `all x:T. P`, and the type `T` must be a
 union type.
 
@@ -294,7 +294,7 @@ See the entry for [Assume](#assume) to see how assumptions are used.
 
 ## At Symbol `@`
 
-See the entry for [Instantiation](#Instantiation-Term).
+See the entry for [Instantiation](#instantiation-term).
 
 ## Biconditional (if and only if)
 
@@ -705,7 +705,7 @@ define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
 ```
 
 Generic functions can also be defined using the `function` statement
-(see [Function](#Function-Statement)).
+(see [Function](#function-statement)).
 
 
 ## Greater-Than
@@ -806,7 +806,7 @@ identifier_list ::= identifier "," identifier_list
 
 ## If and only if (iff)
 
-See the entry for [Biconditional](#Biconditional-if-and-only-if).
+See the entry for [Biconditional](#biconditional-if-and-only-if).
 
 ## If Then (Conditional Formula)
 
@@ -1095,7 +1095,7 @@ assert 4 % two = 0
 
 ## Modus Ponens
 
-See the entry for [Apply-To](#Apply-To-Proof-Modus-Ponens).
+See the entry for [Apply-To](#apply-to-proof-modus-ponens).
 
 ## Multiply
 
@@ -1296,9 +1296,9 @@ The formula `some x1:T1,...,xn:Tn. P` is true when there exists
 a choice for `x1`,...,`xn` such that `P` is true.
 
 To prove a `some` formula, see the entry for
-[Choose](#Choose-Exists-Elimination).
+[Choose](#choose-exists-elimination).
 
-To use a `some` formula, see the entry for [Obtain](#Obtain)
+To use a `some` formula, see the entry for [Obtain](#obtain)
 
 ## Sorry (Proof)
 
@@ -1496,7 +1496,7 @@ end
 
 ## Suppose
 
-See the entry for [Assume](#Assume).
+See the entry for [Assume](#assume).
 
 ## Symmetric (Proof)
 
