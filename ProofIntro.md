@@ -910,8 +910,7 @@ to the goal. Consider the following definition of `max'`.
 
 <!-- {.deduce #alt_max} -->
 ```
-define max' : fn Nat, Nat -> Nat
-            = λx,y{ if x ≤ y then y else x }
+define max' = λx:Nat, y:Nat { if x ≤ y then y else x }
 ```
 
 To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
@@ -1389,7 +1388,7 @@ satisfies a given property using the `some` formula.  For example, one
 way to define an even number is to say that it is a number that is 2
 times some other number. We express this in Deduce as follows.
 
-    define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
+    define Even = λ n:Nat { some m:Nat. n = 2 * m }
 
 As an example of how to reason about `some` formulas, let us prove a
 classic property of the even numbers, that the addition of two even

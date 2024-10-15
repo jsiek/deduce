@@ -8,7 +8,7 @@ Deduce supports the following language features:
 * [Unions and Switch](#unions-and-switch)
 * [Natural Numbers](#natural-numbers)
 * [Lists](#lists)
-* [Booleans, Conditional Expressions, and Assert](#booleans-conditional-expressions-and-assert)
+* [Booleans, Conditionals, and Assert](#booleans-conditionals-and-assert)
 * [Recursive Functions](#recursive-functions)
 * [Generic Functions](#generic-functions)
 * [Higher-order Functions](#higher-order-functions)
@@ -149,8 +149,9 @@ the constructor arguments.
 define L12 = node(1, node(2, empty))
 ```
 
+### Switch
 You can branch on a value of union type using `switch`. For example,
-the following function returns the first element of a `NatList`. Here
+the following `front` function returns the first element of a `NatList`. Here
 we give an explicit type annotation for the `front` function. The type
 of a function starts with `fn`, followed by the parameter types, then
 `->`, and finally the return type.
@@ -229,22 +230,22 @@ The file `List.pf` includes that definition as well as operations on lists and t
 - `[1, 2]` is shorthand for `node(1, node(2, empty))`
 - etc.
 
-## Booleans, Conditional Expressions, and Assert
+## Booleans, Conditionals, and Assert
 
 Deduce includes the values `true` and `false` of type
 `bool` and the usual boolean operations such as `and`,
 `or`, and `not`.  Deduce also provides an if-then-else
-expression that branches on the value of a boolean. For example, the
-following if-then-else expression is evaluates to `7`.
+term that branches on the value of a boolean. For example, the
+following if-then-else term is evaluates to `7`.
 
 <!-- {.deduce #print7} -->
 ```
 print (if true then 7 else 5+6)
 ```
 
-The `assert` statement evaluates an expression and reports an
+The `assert` statement evaluates a term and reports an
 error if the result is `false`. For example, the following
-`assert` does nothing because the expression evaluates to
+`assert` does nothing because the term evaluates to
 `true`.
 
 <!-- {.deduce #assert_if_true} -->
