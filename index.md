@@ -141,9 +141,9 @@ A Deduce file contains a list of **statements**. Each statement can be one of
 6. [Print](./Reference.md#Print-Statement)
 
 In Deduce, one must give a reason for why a theorem is true, and the
-reason is given by a **proof**. Proofs are typically formed of smaller
-proofs that are put together using the many ways that Deduce provides
-for combining proofs.
+reason is given by a **proof**. Proofs are constructed using the rules
+of logic together with ways to organize proofs by working backwards
+from the goal, or forwards from the assumptions.
 
 Both logical formulas and program expressions are represented in
 Deduce by **terms**. For example, `if P then Q` is a logical formula
