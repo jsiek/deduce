@@ -30,10 +30,8 @@ a position before the index returned by `search(xs, y)`.
 function search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0
   search(node(x, xs), y) =
-    if x = y then
-      0
-    else
-      suc(search(xs, y))
+    if x = y then 0
+    else suc(search(xs, y))
 }
 
 theorem search_take: all xs: List<Nat>. all y:Nat.
@@ -94,6 +92,11 @@ python -m pip install lark
 -->
 
 ## Getting Started
+
+The source code for Deduce can be obtained from the following github repository.
+
+[https://github.com/jsiek/deduce](https://github.com/jsiek/deduce)
+
 This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
