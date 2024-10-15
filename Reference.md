@@ -1514,8 +1514,7 @@ end
 ```
 
 
-
-## Union (Type)
+## Union (Statement)
 
 ```
 statement ::= "union" identifier type_params_opt "{" constructor_list "}"

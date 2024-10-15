@@ -134,6 +134,7 @@ The Deduce language includes four kinds of phrases:
 
 A Deduce file contains a list of **statements**. Each statement can be one of
 1. [Theorem](./Reference.md#Theorem-Statement)
+2. [Union](./Reference.md#Union-Statement)
 2. [Function](./Reference.md#Function-Statement)
 3. [Define](./Reference.md#Define-Statement)
 4. [Import](./Reference.md#Import-Statement)
@@ -157,7 +158,7 @@ produced by the term.
    whose n parameters are of type `T1`,...,`Tn` and whose return type is `Tr`.
 3. The generic function type `fn <X1,...,Xk> T1,...,Tn -> Tr` classifies a generic
    function with type parameters `X1`,...,`Xk`.
-4. A [union](./Reference.md#Union-Type) type given by its name.
+4. A union type given by its name.
 5. An instance of a generic union is given by its name followed
    by `<`, a comma-separated list of type arguments, followed by `>`.
 
