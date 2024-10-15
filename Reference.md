@@ -290,7 +290,7 @@ assumption_list ::= assumption
 assumption_list ::= assumption "," assumption_list
 ```
 
-See the entry for [Assume](#Assume) to see how assumptions are used.
+See the entry for [Assume](#assume) to see how assumptions are used.
 
 ## At Symbol `@`
 
