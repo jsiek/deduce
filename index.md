@@ -189,12 +189,3 @@ you can use instead.
  -->
 <!--  LocalWords:  contra foo sx xy dist mult
  -->
-
-<!--
-``` {.deduce file=README.pf}
-import List
-import Set
-
-<<search_take>>
-```
--->

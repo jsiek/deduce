@@ -215,7 +215,6 @@ ident: IDENT              -> ident
  | type_hi
 
 ?type_hi: IDENT   -> type_name
- | "int"          -> int_type
  | "bool"         -> bool_type
  | "type"         -> type_type
  | "(" type ")"   -> paren

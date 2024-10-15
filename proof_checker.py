@@ -18,7 +18,7 @@
 #    and run the print and assert statements.
 
 from abstract_syntax import *
-from error import error, warning, get_verbose, set_verbose
+from error import error, warning, error_header, get_verbose, set_verbose
 
 imported_modules = set()
 checked_modules = set()
@@ -1515,8 +1515,8 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
                 + '\n\t'.join([str(ty) for (x,ty) in overloads]))
       elif num_matches > 1:
           error(loc, 'in call to ' + str(new_rator) + '\n'\
-                + 'ambiguous overloads:\n\t' \
-                + '\n\t'.join([str(ty) for (x,ty) in overloads]))
+                + 'ambiguous overloads:\n' \
+                + '\n'.join([error_header(ty.location) + str(ty) for (x,ty) in overloads]))
       else:
           return new_call
     case FunctionType(loc2, typarams, param_types, return_type):
