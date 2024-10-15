@@ -124,10 +124,11 @@ We can then construct values of type `NatList` using the constructors
 define NL12 = Node(1, Node(2, Empty))
 ```
 
-### Generic Unions
 Unions may be recursive: a constructor may include a parameter type
-that is the union type, e.g., the `NatList` parameter of
-`Node`. Unions may be generic: one can parameterize a union
+that is the union type, e.g., the `NatList` parameter of `Node`. 
+
+### Generic Unions
+Unions may be generic: one can parameterize a union
 with one or more type parameters. For example, we generalize linked
 lists to any element types as follows.
 
