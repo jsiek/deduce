@@ -500,7 +500,8 @@ equation is written as `...` because it is just a repetition of the
 right-hand side of the previous equation. Here's another proof of the
 theorem about `x + y + z`, this time using an `equations` statement.
 
-```{.deduce #xyz_zyx_eqn}
+<!-- {.deduce #xyz_zyx_eqn} -->
+```
 theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
   x + y + z = z + y + x
 proof
