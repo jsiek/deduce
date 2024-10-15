@@ -1,13 +1,14 @@
 # Functional Programming in Deduce
 
 Deduce supports the following language features:
-* [Import](#imports)
+* [Import](#import)
 * [Definitions](#definitions)
 * [Printing Values](#printing-values)
-* [Functions (anonymous)](#functions-anonymous)
-* [Unions and Switch](#unions)
+* [Functions (anonymous)](#function-term)
+* [Unions and Switch](#unions-and-switch)
 * [Natural Numbers](#natural-numbers)
-* [Booleans, Conditional Expressions, and Assert](#booleans-and-conditional-expressions)
+* [Lists](#lists)
+* [Booleans, Conditional Expressions, and Assert](#booleans-conditional-expressions-and-assert)
 * [Recursive Functions](#recursive-functions)
 * [Generic Functions](#generic-functions)
 * [Higher-order Functions](#higher-order-functions)
