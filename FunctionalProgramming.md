@@ -4,7 +4,7 @@ Deduce supports the following language features:
 * [Import](#imports)
 * [Definitions](#definitions)
 * [Printing Values](#printing-values)
-* [Functions (λ)](#functions)
+* [Functions (anonymous)](#functions-anonymous)
 * [Unions and Switch](#unions)
 * [Natural Numbers](#natural-numbers)
 * [Booleans, Conditional Expressions, and Assert](#booleans-and-conditional-expressions)
@@ -58,20 +58,17 @@ print five
 The output is `5`.
 
 
-## Functions (λ)
+## Function (Term)
 
-Functions are created with a λ expression.  Their syntax starts with
-λ, followed by parameter names, then the body of the function enclosed
-in braces.  For example, the following defines a function for
-computing the area of a rectangle.
+A function term starts with `λ` or `fun`, followed by parameter names
+and their types, then the body of the function enclosed in braces.
+For example, the following defines a function for computing the area
+of a rectangle.
 
 <!-- {.deduce #area} -->
 ```
-define area : fn Nat,Nat -> Nat = λ h, w { h * w }
+define area = λ h:Nat, w:Nat { h * w }
 ```
-
-The type of a function starts with `fn`, followed by the
-parameter types, then `->`, and finally the return type.
 
 To call a function, apply it to the appropriate number and type of
 arguments.
@@ -148,9 +145,12 @@ the constructor arguments.
 define L12 = node(1, node(2, empty))
 ```
 
-You can branch on a value of union type using `switch`. For
-example, the following function returns the first element of a
-`NatList`.
+You can branch on a value of union type using `switch`. For example,
+the following function returns the first element of a `NatList`. Here
+we give an explicit type annotation for the `front` function. The type
+of a function starts with `fn`, followed by the parameter types, then
+`->`, and finally the return type.
+
 
 <!-- {.deduce #front} -->
 ```
