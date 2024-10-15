@@ -27,8 +27,8 @@ function operator +(Nat,Nat) -> Nat {
 
 Example:
 
-```
 <!-- {.deduce #add_example} -->
+```
 assert 2 + 3 = 5
 ```
 
@@ -51,7 +51,8 @@ cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
 
 Example:
 
-```{.deduce #add_multiset_example}
+<!-- {.deduce #add_multiset_example} -->
+```
 define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
 assert cnt(A)(3) = 1
 assert cnt(A)(5) = 2
@@ -73,7 +74,8 @@ for [Induction](#Induction)). Induction is only allowed when the `all`
 has a single variable, as in `all x:T. P`, and the type `T` must be a
 union type.
 
-```{.deduce #all_example_bool}
+<!-- {.deduce #all_example_bool} -->
+```
 theorem all_example_bool: all P:bool. P = true or P = false
 proof
   arbitrary P:bool
@@ -84,7 +86,8 @@ proof
 end
 ```
 
-```{.deduce #all_example_intro}
+<!-- {.deduce #all_example_intro} -->
+```
 theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
 proof
   arbitrary x:Nat, y:Nat, z:Nat
@@ -100,7 +103,8 @@ formula `P` where the `x1,...,xn` have been replaced by
 terms of your choice. Use square brackets to enclose your
 comma-delimited choices.
 
-```{.deduce #all_example_elim}
+<!-- {.deduce #all_example_elim} -->
+```
 theorem all_example_elim: 1 + 2 + 3 = 3 + 2 + 1
 proof
   all_example_intro[1, 2, 3]
@@ -117,7 +121,8 @@ The formula `P and Q` is true when both `P` and `Q` are true.
 
 Example:
 
-```{.deduce #and_example}
+<!-- {.deduce #and_example} --> 
+```
 assert true and true
 assert not (true and false)
 assert not (false and true)
@@ -127,7 +132,8 @@ assert not (false and false)
 Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 `P and Q`.
 
-```{.deduce #and_example_intro}
+<!-- {.deduce #and_example_intro} -->
+```
 theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
 proof
   have eq1: 1 = 0 + 1 by definition operator+
@@ -138,7 +144,8 @@ end
 
 A proof of `P and Q` can be used implicitly to prove `P` and to prove `Q`.
 
-```{.deduce #and_example_elim}
+<!-- {.deduce #and_example_elim} -->
+```
 theorem and_example_elim: all P:bool, Q:bool. if P and Q then Q and P
 proof
   arbitrary P:bool, Q:bool
@@ -167,7 +174,8 @@ function operator ++ <E>(List<E>, List<E>) -> List<E> {
 
 Example:
 
-```{.deduce #append_example}
+<!-- {.deduce #append_example} -->
+```
 assert [1,2] ++ [3,4] = [1,2,3,4]
 ```
 
@@ -186,7 +194,8 @@ and `Y` is a proof of `P`.
 
 Example:
 
-```{.deduce #apply_to_example}
+<!-- {.deduce #apply_to_example} -->
+```
 theorem apply_to_example: all P:bool, Q:bool, R:bool.
   if (if P then Q) and (if Q then R) and P
   then R
@@ -217,7 +226,8 @@ The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
 
 Example:
 
-```{.deduce #arbitrary_example}
+<!-- {.deduce #arbitrary_example} -->
+```
 theorem arbitrary_example: all x:Nat,y:Nat. if x = y then y = x
 proof
   arbitrary x:Nat,y:Nat
@@ -237,7 +247,8 @@ The `assert` statement evaluates a term and reports an error if the
 result is `false`. For example, the following `assert` does nothing
 because the term evaluates to `true`.
 
-```{.deduce #assert_example}
+<!-- {.deduce #assert_example} -->
+```
 assert (if true then 7 else 5+6) = 7
 ```
 
@@ -258,7 +269,8 @@ is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
 The proof `X` may use the `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
 
-```{.deduce #assume_example}
+<!-- {.deduce #assume_example} -->
+```
 theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
@@ -313,7 +325,8 @@ term ::= term "(" term_list ")"
 A term of the form `t0(t1, ..., tn)` calls the function indicated by
 term `t0` on the arguments `t1`,...,`tn`.
 
-```{.deduce #call_example}
+<!-- {.deduce #call_example} -->
+```
 assert length(list_example) = 3
 ```
 
@@ -334,7 +347,8 @@ if `X` is a proof of formula `P` where the `x`'s replaced by the `e`'s.
 
 Example:
 
-```{.deduce #choose_example}
+<!-- {.deduce #choose_example} -->
+```
 theorem choose_example: some x:Nat. 6 = 2 * x
 proof
   choose 3
@@ -364,7 +378,8 @@ Example:
 
 Applying the successor function `suc` (add 1) to `3` yields `5`.
 
-```{.deduce #compose_example}
+<!-- {.deduce #compose_example} -->
+```
 assert (suc ∘ suc)(3) = 5
 ```
 
@@ -385,7 +400,8 @@ is a proof of formula `P` if `X` is a proof of `P`.
 
 Example:
 
-```{.deduce #conclude_example}
+<!-- {.deduce #conclude_example} -->
+```
 theorem conclude_example: 1 + 1 = 2
 proof
   conclude 1 + 1 = 2 by definition {operator+,operator+}
@@ -407,7 +423,8 @@ and 1 ≤ n ≤ k.
 
 Example:
 
-```{.deduce #conjunct_example}
+<!-- {.deduce #conjunct_example} -->
+```
 theorem conjunct_example: all P:bool, Q:bool. if P and Q then Q and P
 proof
   arbitrary P:bool, Q:bool
@@ -430,7 +447,8 @@ The `define` feature of Deduce associates a name with a value.  For
 example, the following definitions associate the name `five` with the
 natural number `5`, and the name `six` with the natural number `6`.
 
-```{.deduce #define_example}
+<!-- {.deduce #define_example} -->
+```
 define five = 2 + 3
 define six : Nat = 1 + five
 ```
@@ -447,7 +465,8 @@ term ::= "define" identifier "=" term term
 
 This associates a name with a term for use in the subsequent term.
 
-```{.deduce #define_term_example}
+<!-- {.deduce #define_term_example} -->
+```
 assert 5 = (define x = 3
             2 + x)
 ```
@@ -468,7 +487,8 @@ The main theorem is `division_remainder` which states that
 ```
 
 Example:
-```{.deduce #division_example}
+<!-- {.deduce #division_example} -->
+```
 define three = succ(succ(one))
 assert 6 / three = 2
 assert 7 / three = 2
@@ -515,7 +535,8 @@ equation is written as `...` because it is just a repetition of the
 right-hand side of the previous equation. Here's another proof of the
 theorem about `x + y + z`, this time using an `equations` statement.
 
-```{.deduce #equations_example}
+<!-- {.deduce #equations_example} -->
+```
 theorem equations_example: all x:Nat, y:Nat, z:Nat.
   x + y + z = z + y + x
 proof
@@ -571,7 +592,8 @@ Functions are created with a λ expression.  Their syntax starts with
 in braces.  For example, the following defines a function for
 computing the area of a rectangle.
 
-```{.deduce #function_term_example}
+<!-- {.deduce #function_term_example} -->
+```
 define area = λ h:Nat, w:Nat { h * w }
 ```
 
@@ -581,7 +603,8 @@ parameter types, then `->`, and finally the return type.
 To call a function, apply it to the appropriate number and type of
 arguments.
 
-```{.deduce #print_area}
+<!-- {.deduce #print_area} -->
+```
 print area(3, 4)
 ```
 
@@ -612,7 +635,8 @@ type. The body of the function includes one equation for every
 constructor in the union of its first parameter. For example, here's
 the definition of a `length` function for lists of natural numbers.
 
-```{.deduce #function_example}
+<!-- {.deduce #function_example} -->
+```
 function length(NatList) -> Nat {
   length(Empty) = 0
   length(Node(n, next)) = 1 + length(next)
@@ -674,7 +698,8 @@ produces a generic function with type parameters
 An example use of `generic` is in `Maps.pf`, in the
 definition of function composition.
 
-```{.deduce #generic_example}
+<!-- {.deduce #generic_example} -->
+```
 define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
                         λ x:T { g(f(x)) } } }
 ```
@@ -697,7 +722,8 @@ x > y = y < x
 
 
 Example:
-```{.deduce #greater_example}
+<!-- {.deduce #greater_example} -->
+```
 assert 2 > 1
 assert not (1 > 1)
 assert not (0 > 1)
@@ -718,7 +744,9 @@ x ≥ y = y ≤ x
 
 
 Example:
-```{.deduce #greater_equal_example}
+
+<!-- {.deduce #greater_equal_example} -->
+```
 assert 2 ≥ 1
 assert 1 ≥ 1
 assert not (0 ≥ 1)
@@ -800,7 +828,8 @@ is equal to `b` when `a` is true and equal to `c` when `a` is false.
 
 Example:
 
-```{.deduce #if_then_else_example}
+<!-- {.deduce #if_then_else_example} -->
+```
 assert (if true then 1 else 2) = 1
 assert (if false then 1 else 2) = 2
 
@@ -836,7 +865,8 @@ The formula `x ∈ S` is true when element `x` is contained in the set `S`.
 
 Example:
 
-```{.deduce #membership_example}
+<!-- {.deduce #membership_example} -->
+```
 define S = single(1) ∪ single(2) ∪ single(3)
 assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ```
@@ -864,7 +894,8 @@ the formula `P` with `x` replaced by the constructor argument `ein`.
 
 Example:
 
-```{.deduce #induction_example}
+<!-- {.deduce #induction_example} -->
+```
 theorem induction_example: all n:Nat.
   n + 0 = n
 proof
@@ -898,7 +929,8 @@ term ::= @ term '<' type_list '>'
 Instantiates a generic function or constructor, replaces its type
 parameters with the given type arguments.
 
-```{.deduce #instantiate_example}
+<!-- {.deduce #instantiate_example} -->
+```
 define empty_nat_list : List<Nat> = @empty<Nat>
 ```
 
@@ -916,7 +948,8 @@ contains the items that occur both sets.
 
 Example:
 
-```{.deduce #intersect_example}
+<!-- {.deduce #intersect_example} -->
+```
 define C = single(1) ∪ single(2)
 define D = single(2) ∪ single(3)
 assert 2 ∈ C ∩ D
@@ -941,7 +974,8 @@ theorems with `less` in the name.
 
 Example:
 
-```{.deduce #less_than_example}
+<!-- {.deduce #less_than_example} -->
+```
 assert 1 < 2
 assert not (1 < 1)
 assert not (2 < 1)
@@ -973,7 +1007,8 @@ theorems with `less_equal` in the name.
 
 Example:
 
-```{.deduce #less_equal_example}
+<!-- {.deduce #less_equal_example} -->
+```
 assert 1 ≤ 1
 assert 1 ≤ 2
 assert not (2 ≤ 1)
@@ -1004,7 +1039,8 @@ union List<T> {
 The sequence `3,8,4` can be represented as a `List` by creating three
 nodes that are composed in the following way.
 
-```{.deduce #list_example}
+<!-- {.deduce #list_example} -->
+```
 define list_example = node(3, node(8, node(4, empty)))
 ```
 
@@ -1017,7 +1053,8 @@ term ::= "{" term "}"
 Marking a subterm with curly-braces restricts a `rewrite` or `definition`
 proof to only apply to that subterm.
 
-```{.deduce #mark_example}
+<!-- {.deduce #mark_example} -->
+```
 theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
 proof
   arbitrary x:Nat
@@ -1047,7 +1084,8 @@ n % m = n - (n / m) * pos2nat(m)
 
 Example:
 
-```{.deduce #mod_example}
+<!-- {.deduce #mod_example} -->
+```
 define two = succ(one)
 assert 1 % two = 1
 assert 2 % two = 0
@@ -1078,7 +1116,8 @@ To find theorems about multiplication, search for `mult` in `Nat.thm`.
 
 Example:
 
-```{.deduce #multiply_example}
+<!-- {.deduce #multiply_example} -->
+```
 assert 2 * 3 = 6
 ```
 
@@ -1120,7 +1159,8 @@ and it may also refer to the proof of `P` by writing `recall P`.
 
 Example:
 
-```{.deduce #obtain_example}
+<!-- {.deduce #obtain_example} -->
+```
 theorem obtain_example: all n:Nat. 
   if (some x:Nat. n = 4 * x) then (some x:Nat. n = 2 * x)
 proof
@@ -1146,7 +1186,8 @@ The formula `P or Q` is true when either `P` is true or `Q` is true.
 
 Example:
 
-```{.deduce #or_example}
+<!-- {.deduce #or_example} -->
+```
 assert true or true
 assert true or false
 assert false or true
@@ -1157,7 +1198,8 @@ assert not (false or false)
 
 To prove `P or Q` it is enough to just prove `P` or to just prove `Q`.
 
-```{.deduce #or_example_intro1}
+<!-- {.deduce #or_example_intro1} -->
+```
 theorem or_example_intro1: all P:bool, Q:bool. if P then P or Q
 proof
   arbitrary P:bool, Q:bool
@@ -1166,7 +1208,8 @@ proof
 end
 ```
 
-```{.deduce #or_example_intro2}
+<!-- {.deduce #or_example_intro2} -->
+```
 theorem or_example_intro1: all P:bool, Q:bool. if Q then P or Q
 proof
   arbitrary P:bool, Q:bool
@@ -1199,7 +1242,8 @@ statement ::= "print" term
 You can ask Deduce to print a value to standard output using the
 `print` statement.
 
-```{.deduce #print_example}
+<!-- {.deduce #print_example} -->
+```
 print five
 ```
 
@@ -1283,7 +1327,8 @@ same type.  The `switch` evaluates the subject and compares it to each
 case, then evaluates the body of the case that matched.
 
 
-```{.deduce #switch_example}
+<!-- {.deduce #switch_example} -->
+```
 define flip = fun x:bool {
   switch x {
     case true { false }
@@ -1323,7 +1368,8 @@ and similarly for the other cases.
 
 Example:
 
-```{.deduce #switch_proof_example}
+<!-- {.deduce #switch_proof_example} -->
+```
 theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
 proof
   arbitrary x:Nat
@@ -1356,7 +1402,8 @@ A ⊆ B = (all x:T. if x ∈ A then x ∈ B)
 
 Example:
 
-```{.deduce #subset_example}
+<!-- {.deduce #subset_example} -->
+```
 define E = single(1)
 define F = single(1) ∪ single(2)
 
@@ -1394,7 +1441,8 @@ Note that subtraction on natural numbers is different from subtraction
 on integers, as they are no negative natural numbers. If you subtract
 a larger natural number from a smaller natural number, the result is `0`.
 
-```{.deduce subtract_example}
+<!-- {.deduce subtract_example} -->
+```
 assert 3 - 2 = 1
 assert 3 - 3 = 0
 assert 2 - 3 = 0
@@ -1435,7 +1483,8 @@ into
 by two uses of the definition of `length`.
 We then prove the new goal with theorem `add_zero` from `Nat.thm`.
 
-```{.deduce #suffices_example}
+<!-- {.deduce #suffices_example} -->
+```
 theorem suffices_example:
   length(node(3, empty)) = 1
 proof
@@ -1507,7 +1556,8 @@ term ::= "true"
 There's not much to say about `true`. It's true!
 Proving `true` is easy. Just use a period.
 
-```{.deduce #true_example}
+<!-- {.deduce #true_example} -->
+```
 theorem true_example: true
 proof
   .
@@ -1531,7 +1581,8 @@ of nodes, `Leaf` nodes with zero children and `Internal` nodes with
 two children. We create a three-node tree `T3` by using the
 constructors `Leaf` and `Internal` to create the nodes.
 
-```{.deduce #union_example}
+<!-- {.deduce #union_example} -->
+```
 union Tree {
   Leaf(Nat)
   Internal(Tree, Nat, Tree)
@@ -1560,7 +1611,8 @@ contains the items that occur in either set.
 
 Example:
 
-```{.deduce #union_example}
+<!-- {.deduce #union_example} -->
+```
 define C = single(1) ∪ single(2)
 define D = single(2) ∪ single(3)
 assert 1 ∈ C ∪ D
@@ -1580,8 +1632,9 @@ var_list ::= ε | ident | ident ":" type
 A comma-separated list of variable declarations. Each variable may
 optionally be annotated with its type.
 
-<!--
-```{.deduce file=Reference.pf}
+<!-
+<!-- {.deduce file=Reference.pf} -->-
+```
 import Nat
 import List
 
