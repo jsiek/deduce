@@ -140,7 +140,7 @@ ident: IDENT              -> ident
 
 ?equation_list: half_equation                      -> single
     | half_equation equation_list                  -> push
-    | "|" equation equation_list                   -> push
+    | "$" equation equation_list                   -> push
  
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push

@@ -188,7 +188,7 @@ proof
                        ... = 1      by add_zero[1]
 end
 
-theorem length_zero_empty: all T:type. all xs:List<T>.
+theorem length_zero_empty: <T> all xs:List<T>.
   if length(xs) = 0
   then xs = empty
 proof

@@ -953,11 +953,7 @@ def parse_equation(token_list, i):
   return (lhs, rhs, reason), i
 
 def parse_half_equation(token_list, i):
-  if token_list[i].value == '|':
-    i = i + 1
-    eqn, i = parse_equation(token_list, i)
-    return eqn, i
-  elif token_list[i].value == '...':
+  if token_list[i].value == '...':
     i = i + 1
     if token_list[i].type != 'EQUAL':
       error(meta_from_tokens(token_list[i], token_list[i]),
@@ -972,14 +968,18 @@ def parse_half_equation(token_list, i):
     i = i + 1
     reason, i = parse_proof(token_list, i)
     return (None, rhs, reason), i
+  elif token_list[i].value == '$':
+    i = i + 1
+    eqn, i = parse_equation(token_list, i)
+    return eqn, i
   else:
     error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected `... = rhs` or `| lhs = rhs` in `equations`, not\n\t' \
+          'expected `... = rhs` or `$ lhs = rhs` in `equations`, not\n\t' \
           + token_list[i].value)
 
 def parse_equation_list(token_list, i):
   eqn_list = []
-  while token_list[i].value == '|' or token_list[i].value == '...':
+  while token_list[i].value == '$' or token_list[i].value == '...':
     eqn, i = parse_half_equation(token_list, i)
     eqn_list.append(eqn)
   return eqn_list, i

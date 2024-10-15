@@ -283,7 +283,7 @@ See the entry for [Assume](#Assume) to see how assumptions are used.
 
 See the entry for [Instantiation](#Instantiation-Term).
 
-## Biconditional (if-and-only-if)
+## Biconditional (if and only if)
 
 ```
 term ::= term "⇔" term
@@ -291,7 +291,7 @@ term ::= term "⇔" term
        | term "iff" term
 ```
 
-The formula `P ⇔ Q` is syntactic sugar for
+The biconditional formula `P ⇔ Q` is syntactic sugar for
 `(if P then Q) and (if Q then P)`.
 
 ## Bool (Type)
@@ -418,7 +418,7 @@ end
 ```
 
 
-## Define
+## Define (Statement)
 
 ```
 statement ::= "define" ident ":" type "=" term
@@ -437,6 +437,21 @@ define six : Nat = 1 + five
 Optionally, the type can be specified after the name, following a
 colon.  In the above, `six` holds a natural number, so its type is
 `Nat`.
+
+## Define (Term)
+
+```
+term ::= "define" identifier "=" term term
+```
+
+This associates a name with a term for use in the subsequent term.
+
+```{.deduce #define_term_example}
+assert 5 = (define x = 3
+            2 + x)
+```
+
+
 
 ## Divide
 
@@ -512,6 +527,15 @@ proof
           ... = z + y + x      by rewrite add_commute[x][y]
 end
 ```
+
+## Extensionality
+
+```
+term ::= "extensionality" proof
+```
+
+UNDER CONSTRUCTION
+
 
 ## False
 
@@ -616,6 +640,22 @@ functions (`function`) and anonymous functions (`fun` or `λ`).  If the
 function is generic, its function type includes type parameters
 enclosed in `<` and `>`.
 
+## Generic (Formula)
+
+```
+term ::= "<" identifier_list ">" term
+```
+
+This parameterizes a formula by a list of type paremeters.  For
+example, the following formula states that if the length of a list is
+0, then the list must be empty. The type parameter `<T>` means that
+this formula applies to lists with any element type.
+
+```
+<T> all xs:List<T>. if length(xs) = 0 then xs = empty
+```
+
+
 ## Generic (Term)
 
 ```
@@ -701,6 +741,16 @@ Y
 is a proof of `Q` as long as `Y` is a proof of `Q` and `X` is a proof of `P`.
 The formula `P` becomes a given and can be used inside the proof `Y`.
 
+## Help (Proof)
+
+```
+proof ::= "help" proof
+```
+
+This halts Deduce and prints advice regarding how to use the formula
+of the supplied proof. Typically the supplied proof is the label for a
+given.
+
 
 ## Identifier 
 
@@ -716,7 +766,6 @@ can also be an operator, which starts with the keyword
 `++`, `∩`, `&`, `∈`, `in`, `∪`, `|`, `⨄`, `[+]`, `⊆`, `(=`, `∘`, `[o]`.
 
 
-
 ## Identifier List
 
 A comma-separated sequence of identifiers.
@@ -726,11 +775,11 @@ identifier_list ::= identifier
 identifier_list ::= identifier "," identifier_list
 ```
 
-## If-and-only-if (iff)
+## If and only if (iff)
 
 See the entry for [Biconditional](#Biconditional-if-and-only-if).
 
-## If-Then (Conditional Formula)
+## If Then (Conditional Formula)
 
 A formula `if P then Q` is true when both `P` and `Q` are true and it
 is true when `P` is false.
@@ -740,7 +789,7 @@ To prove a conditional formula, use `assume`. (See the entry for Assume.)
 To use a given that is a conditional formula, use `apply`-`to`.
 (See the entry for Apply-To.)
 
-## If-Then-Else (Program Term)
+## If Then Else (Program Term)
 
 A term of the form
 ```
@@ -829,6 +878,15 @@ proof
   }
 end
 ```
+
+## Injective (Proof)
+
+```
+proof ::= "injective" term proof
+```
+
+UNDER CONSTRUCTION
+
 
 ## Instantiation (Term)
 
@@ -920,6 +978,16 @@ assert 1 ≤ 2
 assert not (2 ≤ 1)
 ```
 
+## List (Term)
+
+```
+term ::= "[" term_list "]"
+```
+
+Deduce treats `[t1,t2,...,tn]` as syntactic sugar for
+`node(t1, node(t2, ... node(tn, empty)))`.
+
+
 ## List (Type)
 
 The `List` type represents a singly-linked list of items and is
@@ -938,6 +1006,29 @@ nodes that are composed in the following way.
 ```{.deduce #list_example}
 define list_example = node(3, node(8, node(4, empty)))
 ```
+
+## Mark 
+
+```
+term ::= "{" term "}"
+```
+
+Marking a subterm with curly-braces restricts a `rewrite` or `definition`
+proof to only apply to that subterm.
+
+```{.deduce #mark_example}
+theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
+proof
+  arbitrary x:Nat
+  suppose: x = 1
+  equations
+    {x} + x + x = 1 + x + x   by rewrite recall x = 1
+  $ 1 + {x} + x = 1 + 1 + x   by rewrite recall x = 1
+  $ 1 + 1 + {x} = 1 + 1 + 1   by rewrite recall x = 1
+            ... = 3           by definition {operator+,operator+}
+end
+```
+
 
 ## Modulo
 
@@ -1114,6 +1205,18 @@ print five
 The output is `5`.
 
 
+## Question Mark `?` (Proof)
+
+```
+proof ::= "?"
+```
+
+A proof can be left incomplete by placing a `?` in the part that you
+don't know. Deduce halts at the `?` and prints an error message with
+the location of the `?` and the formula that needs to be proved, as
+well as some advice about how to prove it.
+
+
 ## Recall (Proof)
 
 ```
@@ -1151,6 +1254,15 @@ To prove a `some` formula, see the entry for
 [Choose](#Choose-Exists-Elimination).
 
 To use a `some` formula, see the entry for [Obtain](#Obtain)
+
+## Sorry (Proof)
+
+```
+proof ::= "sorry"
+```
+
+`sorry` is the get-out-of-jail free card. It can prove anything.
+However, it prints a warning message with the location of the `sorry`.
 
 
 ## Switch (Program Term)
@@ -1492,6 +1604,7 @@ import List
 <<conclude_example>>
 <<conjunct_example>>
 <<define_example>>
+<<define_term_example>>
 <<division_example>>
 <<equations_example>>
 <<greater_example>>
@@ -1504,6 +1617,7 @@ import List
 <<less_than_example>>
 <<less_equal_example>>
 <<list_example>>
+<<mark_example>>
 <<mod_example>>
 <<obtain_example>>
 <<or_example>>
