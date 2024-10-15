@@ -1630,6 +1630,9 @@ def type_synth_term(term, env, recfun, subterms):
     case Lambda(loc, _, params, body):
       vars = [p for (p,t) in params]
       param_types = [t for (p,t) in params]
+      if any([t == None for t in param_types]):
+          error(term.location, 'Cannot synthesize a type for ' + str(term) + '.\n'\
+                + 'Add type annotations to the parameters.')
       body_env = env.declare_term_vars(loc, params)
       new_body = type_synth_term(body, body_env, recfun, subterms)
       typ = FunctionType(loc, [], param_types, new_body.typeof)

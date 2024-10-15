@@ -81,9 +81,10 @@ print area(3, 4)
 
 The output is `12`.
 
-A λ expression may only appear in a context where Deduce knows what
-it's type should be. The following produces an error because the
-following `define` does not include a type annotation.
+A function term may omit the type annotations for the parameters, but
+only in a context where Deduce knows what the function's type should
+be. The following produces an error because the following `define`
+does not include a type annotation and neither does the function term.
 
 <!-- {.deduce #bad_area} -->
 ```
@@ -93,7 +94,8 @@ define area = λ h, w { h * w }
 Deduce prints the following error message.
 
 ```
-cannot synthesize a type for λh,w{h * w}
+Cannot synthesize a type for λh,w{h * w}.
+Add type annotations to the parameters.
 ```
 
 
