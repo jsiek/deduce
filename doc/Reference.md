@@ -556,7 +556,20 @@ end
 term ::= "extensionality" proof
 ```
 
-UNDER CONSTRUCTION
+To prove that two functions are equal, it is sufficient to prove that
+they always produce equal outputs given equal inputs.
+
+<!-- {.deduce #extensionality_example} -->
+```
+define inc : fn Nat -> Nat = fun x:Nat { pred(suc(suc(x))) }
+
+theorem extensionality_example: inc = suc
+proof
+  extensionality
+  arbitrary x:Nat
+  conclude inc(x) = suc(x) by definition {inc, pred}
+end
+```
 
 
 ## False
@@ -917,7 +930,24 @@ end
 proof ::= "injective" term proof
 ```
 
-UNDER CONSTRUCTION
+The `injective` proof rule allows you to conclude that the inputs to a
+constructor are equal if the outputs are equal. For example,
+if `suc(x) = suc(y)` then `x = y`.
+
+Example:
+
+<!-- {.deduce #injective_example} -->
+```
+theorem injective_example: all x:Nat, y:Nat, z:Nat.
+  if suc(x) = suc(y) and suc(y) = suc(z) then x = z
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  suppose prem: suc(x) = suc(y) and suc(y) = suc(z)
+  have: x = y by injective suc prem
+  have: y = z by injective suc prem
+  transitive (recall x = y) (recall y = z)
+end
+```
 
 
 ## Instantiation (Proof)
