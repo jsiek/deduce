@@ -101,8 +101,8 @@ This introduction to Deduce has two parts. The first part gives a
 tutorial on how to write functional programs in Deduce.  The second
 part shows how to write proofs in Deduce.
 
-* [Functional Programming in Deduce](./FunctionalProgramming.md)
-* [Writing Proofs in Deduce](./ProofIntro.md)
+* [Functional Programming in Deduce](./doc/FunctionalProgramming.md)
+* [Writing Proofs in Deduce](./doc/ProofIntro.md)
 
 I recommend that you work through the examples in this
 introduction. Create a file named `examples.pf` in the top `deduce`
@@ -121,7 +121,7 @@ You can also download one of these extensions for programming in Deduce in some 
 The Deduce Reference manual is linked to below. It provides an
 alphabetical list of all the features in Deduce.
 
-* [Reference Manual](./Reference.md)
+* [Reference Manual](./doc/Reference.md)
 
 ## Syntax/Grammar Overview
 
