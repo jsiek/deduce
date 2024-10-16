@@ -515,7 +515,8 @@ The formula `a = b` is true when the left-hand side and right-hand are
 the same. 
 
 (In Deduce, there is no distinction between identity and deep equality
-because there is no notion of identity.)
+as there is in Java because there is no concept of identity in
+Deduce.)
 
 ## Equations
 
@@ -525,15 +526,16 @@ equation ::= term "=" term "by" proof
 half_equation ::= "..." "=" term "by" proof
 equation_list ::= half_equation
 equation_list ::= half_equation equation_list
-equation_list ::= "|" equation equation_list
+equation_list ::= "$" equation equation_list
 ```
 
 Combining a sequence of equations using `transitive` is quite common,
-so Deduce provides the `equations` statement to streamline this
-process.  After the first equation, the left-hand side of each
-equation is written as `...` because it is just a repetition of the
-right-hand side of the previous equation. Here's another proof of the
-theorem about `x + y + z`, this time using an `equations` statement.
+so Deduce provides `equations` to streamline this process.  After the
+first equation, the left-hand side of each equation is written as
+`...` because it is just a repetition of the right-hand side of the
+previous equation.
+
+Example:
 
 <!-- {.deduce #equations_example} -->
 ```
@@ -561,7 +563,7 @@ they always produce equal outputs given equal inputs.
 
 <!-- {.deduce #extensionality_example} -->
 ```
-define inc : fn Nat -> Nat = fun x:Nat { pred(suc(suc(x))) }
+define inc = fun x:Nat { pred(suc(suc(x))) }
 
 theorem extensionality_example: inc = suc
 proof
@@ -601,17 +603,14 @@ term ::= "fun" var_list "{" term "}"
 ```
 
 Functions are created with a λ expression.  Their syntax starts with
-λ, followed by parameter names, then the body of the function enclosed
-in braces.  For example, the following defines a function for
-computing the area of a rectangle.
+λ, followed by parameter names and their types, then the body of the
+function enclosed in braces.  For example, the following defines a
+function for computing the area of a rectangle.
 
 <!-- {.deduce #function_term_example} -->
 ```
 define area = λ h:Nat, w:Nat { h * w }
 ```
-
-The type of a function starts with `fn`, followed by the
-parameter types, then `->`, and finally the return type.
 
 To call a function, apply it to the appropriate number and type of
 arguments.
