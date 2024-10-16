@@ -753,7 +753,8 @@ def proof_advice(formula, env):
       case All(loc, tyof, vars, body):
         arb_advice = prefix \
             + '\tYou can complete the proof with:\n' \
-            + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) for (x,ty) in vars) + '\n' \
+            + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) \
+                                           for (x,ty) in vars) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
 
@@ -761,13 +762,14 @@ def proof_advice(formula, env):
         if len(vars) > 1:
           return arb_advice
 
-        # NOTE: Maybe we shouldn't give induction advice for non recursively defined unions
-        # However right now we will because I haven't added that check yet
-        # Maybe even suggest a switch instead
+        # NOTE: Maybe we shouldn't give induction advice for non recursively
+        # defined unions. However right now we will because I haven't added
+        # that check yet. Maybe even suggest a switch instead.
         
         inductive_var = vars[0]
         match inductive_var[1]:
-          # NOTE: These are the types that are handled in get_type_name, and get_def_of_type_var
+          # NOTE: These are the types that are handled in get_type_name, and
+          # get_def_of_type_var
           case TypeInst() | Var():
             pass
           case _:
@@ -776,7 +778,7 @@ def proof_advice(formula, env):
         match env.get_def_of_type_var(get_type_name(inductive_var[1])):
           case Union(loc2, name, typarams, alts):
             if len(alts) < 2:
-              return arb_advice # You can't do induction if there's only one case
+              return arb_advice # Can't do induction if there's only one case
                 
             ind_advice = '\n\n\tAlternatively, you can try induction with:\n' \
               +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
@@ -784,13 +786,16 @@ def proof_advice(formula, env):
             for alt in alts:
                 match alt:
                   case Constructor(loc3, constr_name, param_types):
-                    params = [make_unique(type_first_letter(ty) + str(i+1), env) for i,ty in enumerate(param_types)]
+                    params = [make_unique(type_first_letter(ty)+str(i+1), env)\
+                              for i,ty in enumerate(param_types)]
                     ind_advice += '\t\tcase ' + base_name(constr_name)
                     if len(param_types) > 0:
                       ind_advice += '(' + ', '.join(params) + ')'
-                    num_recursive = sum([1 if is_recursive(name, ty) else 0 for ty in param_types])
+                    num_recursive = sum([1 if is_recursive(name, ty) else 0 \
+                                         for ty in param_types])
                     if num_recursive > 0:
-                      rec_params = [(p,ty) for (p,ty) in zip(params, param_types) if is_recursive(name, ty)]
+                      rec_params =[(p,ty) for (p,ty) in zip(params,param_types)\
+                                   if is_recursive(name, ty)]
                       ind_advice += ' suppose '
                       ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' + str(body.substitute({inductive_var[0]: Var(loc3, param_ty, param)})) \
                                                       for i, (param,param_ty) in enumerate(rec_params)])
@@ -825,7 +830,17 @@ def proof_advice(formula, env):
             + '\t\trewrite, or\n' \
             + '\t\tequations\n' 
       case _:
-        return '\n\tConsider using one of the following givens.\n'
+        for (name, b) in env.dict.items():
+            if isinstance(b, ProofBinding) and b.local and b.formula == formula:
+                msg = '\nYou can conclude the proof with:\n'
+                if base_name(name) == '_':
+                    msg += '\trecall ' + str(formula)
+                else:
+                    msg += '\tconclude ' + str(formula) \
+                        + ' by ' + base_name(name)                
+                return msg
+
+        return '\nConsider using one of the following givens.\n'
   
 def check_proof_of(proof, formula, env):
   if get_verbose():
