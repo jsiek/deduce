@@ -585,7 +585,8 @@ class Lambda(Term):
 
   def substitute(self, sub):
       n = len(self.vars)
-      return Lambda(self.location, self.typeof, self.vars,
+      new_vars = [(x, t.substitute(sub) if t else None) for (x,t) in self.vars]
+      return Lambda(self.location, self.typeof, new_vars,
                     self.body.substitute(sub))
 
   def uniquify(self, env):

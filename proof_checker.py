@@ -488,8 +488,10 @@ def check_proof(proof, env):
           for ((var,ty), arg) in zip(vars, args):
             new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
             if isinstance(ty, TypeType):
-                error(loc, 'unexpected type parameter ' + base_name(var) \
-                      + ' in term instantiation')
+                error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
+                      +'\nwith type arguments, instead write:\n\t' \
+                      +str(univ) + '<' \
+                      + ', '.join([str(arg) for arg in args]) + '>\n')
             new_args.append(new_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
@@ -675,17 +677,27 @@ def proof_use_advice(proof, formula, env):
         letters = []
         new_vars = {}
         i = 65
+        type_param = False
         for (x,ty) in vars:
+            if isinstance(ty, TypeType):
+                type_param = True
             letters.append(chr(i))
             new_vars[x] = Var(loc,ty, chr(i))
             i = i + 1
         plural = 's' if len(vars) > 1 else ''
         pronoun = 'them' if len(vars) > 1 else 'it'
+        
+        if type_param:
+            how = ' between `<` and `>` like so:\n' \
+                + '\t\t ' + str(proof) + '<' + ', '.join(letters) + '>' + '\n'
+        else:
+            how = ' in square-brackets like so:\n' \
+                + '\t\t ' + str(proof) + '[' + ', '.join(letters) + ']' + '\n'
+        
         return prefix \
-            + '\tInstantiate this all formula with your choice' + plural + ' for ' \
-            + ', '.join([base_name(x) for (x,ty) in vars]) + '\n' \
-            + '\tby writing ' + pronoun + ' in square-brackets like so:\n' \
-            + '\t\t ' + str(proof) + '[' + ', '.join(letters) + ']' + '\n' \
+            + '\tInstantiate this all formula with your choice' + plural \
+            + ' for ' + ', '.join([base_name(x) for (x,ty) in vars]) + '\n' \
+            + '\tby writing ' + pronoun + how \
             + '\tto obtain a proof of:\n' \
             + '\t\t' + str(body.substitute(new_vars))
       case Some(loc, tyof, vars, body):

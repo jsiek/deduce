@@ -881,8 +881,10 @@ def parse_proof_med(token_list, i):
       i = i + 1
       type_list, i = parse_type_list(token_list, i)
       if token_list[i].type != 'MORETHAN':
-        error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected a closing `>`, not\n\t' + token_list[i].value)
+        error(meta_from_tokens(token_list[start],token_list[i]),
+              'expected a closing `>`, not\n\t' + token_list[i].value + '\n'\
+              + 'while trying to parse type arguments for instantiation:\n\t'\
+              + 'proof ::= proof "<" type_list ">"')
       i = i + 1
       proof = AllElimTypes(meta_from_tokens(token_list[start], token_list[i-1]),
                            proof, type_list)
