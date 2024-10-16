@@ -7,3 +7,4 @@ The directory structure:
 * `/doc` Documentation for Deduce
 * `/test` Deduce files used for testing Deduce.
 * `/lark` Copy of the Lark parser generator.
+* `/logos` The Hippopotamus logo and other images.
