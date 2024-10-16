@@ -1047,10 +1047,10 @@ define list_example = node(3, node(8, node(4, empty)))
 ## Mark 
 
 ```
-term ::= "{" term "}"
+term ::= "#" term "#"
 ```
 
-Marking a subterm with curly-braces restricts a `rewrite` or `definition`
+Marking a subterm with hash symbols restricts a `rewrite` or `definition`
 proof to only apply to that subterm.
 
 <!-- {.deduce #mark_example} -->
@@ -1060,9 +1060,9 @@ proof
   arbitrary x:Nat
   suppose: x = 1
   equations
-    {x} + x + x = 1 + x + x   by rewrite recall x = 1
-  $ 1 + {x} + x = 1 + 1 + x   by rewrite recall x = 1
-  $ 1 + 1 + {x} = 1 + 1 + 1   by rewrite recall x = 1
+    #x# + x + x = 1 + x + x   by rewrite recall x = 1
+  $ 1 + #x# + x = 1 + 1 + x   by rewrite recall x = 1
+  $ 1 + 1 + #x# = 1 + 1 + 1   by rewrite recall x = 1
             ... = 3           by definition {operator+,operator+}
 end
 ```
@@ -1120,6 +1120,13 @@ Example:
 ```
 assert 2 * 3 = 6
 ```
+
+## MultiSet (Type)
+
+The `MultiSet<T>` type represents the standard mathematical notion of
+a multiset, which is a set that may contain duplicates of an
+element. The `MultiSet<T>` type is defined in `MultiSet.pf`.
+
 
 ## Not
 
@@ -1284,6 +1291,16 @@ proof ::= reflexive
 ```
 
 The proof `reflexive` proves that `a = a` for any term `a`.
+
+
+## Set (Type)
+
+The `Set<T>` type defined in `Set.pf` represents the standard
+mathematical notion of a set. The empty set is written `∅` and the
+usual set operations such as union `∪`, intersection `∩`, membership
+`∈`, and subset-or-equal `⊆` are all defined in `Set.pf`.  The
+`Set.thm` file provides a summary of the many theorems about sets that
+are proved in `Set.pf`.
 
 
 ## Some (Existential Quantifier)

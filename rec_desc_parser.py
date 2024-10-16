@@ -218,10 +218,10 @@ def parse_term_hi(token_list, i):
     i = i + 1
     return (term, i)
 
-  elif token.type == 'LBRACE':
+  elif token.type == 'HASH':
     i = i + 1
     term, i = parse_term(token_list, i)
-    if token_list[i].type != 'RBRACE':
+    if token_list[i].type != 'HASH':
       error(meta_from_tokens(token_list[i], token_list[i]),
             'expected closing parentheses, not\n\t' \
             + token_list[i].value)

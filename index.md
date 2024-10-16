@@ -191,7 +191,7 @@ you can use instead.
 <!--  LocalWords:  contra foo sx xy dist mult
  -->
 
-<!-- {.deduce file=README.pf} -->
+<!-- {.deduce file=index.pf} -->
 <!--
 ```
 import List

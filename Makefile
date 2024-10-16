@@ -3,9 +3,14 @@ PYTHON = $(shell command -v python3.11)
 TEST_PASS_DIR = ./test/should-pass
 TEST_ERROR_DIR = ./test/should-error
 
-default: tests check_docs tests-lib
+default: tests tests-lib # check_docs 
 
-check_docs: check_README check_fun check_intro check_ref
+# Problem regarding the docs: github pages markdown is not compatible
+# with using entangled, so the entangled syntax is currently commented
+# out. We need a way to automatically put the entangled syntax back in
+# and then run deduce on these files. -Jeremy
+
+check_docs: check_index check_fun check_intro check_ref
 
 tests-should-pass:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR)
@@ -23,10 +28,10 @@ tests-lib:
 
 tests: tests-should-pass tests-should-error
 
-check_README:
+check_index:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) ./deduce.py --recursive-descent README.pf
-	$(PYTHON) ./deduce.py --lalr README.pf
+	$(PYTHON) ./deduce.py --recursive-descent index.pf
+	$(PYTHON) ./deduce.py --lalr index.pf
 
 check_fun:
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
@@ -46,5 +51,5 @@ check_ref:
 	$(PYTHON) ./deduce.py --lalr Reference.pf
 
 clean:
-	rm -f README.pf FunctionalProgramming.pf ProofIntro.pf
+	rm -f index.pf FunctionalProgramming.pf ProofIntro.pf
 	rm -rf .entangled

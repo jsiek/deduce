@@ -17,6 +17,6 @@ function g(U) -> bool {
 theorem T: (h(foo) and g(foo)) = (f(foo) and h(foo))
 proof
   // removing the mark causes this to fail, as intended. -Jeremy
-  conclude { h(foo) and g(foo) } = (f(foo) and h(foo))
+  conclude # h(foo) and g(foo) # = (f(foo) and h(foo))
     by definition {h,g}
 end
