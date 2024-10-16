@@ -291,6 +291,8 @@ end
 
 To replace `length([x])` with `1`, we rewrite
 using the `length_one` theorem instantiated at `U` and `x`.
+Note that we use `<` and `>` when instantiating a type parameter
+and we use `[` and `]` when instantiating a term parameter.
 
 ```
 rewrite length_one<U>[x]
