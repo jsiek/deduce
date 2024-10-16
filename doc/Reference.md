@@ -804,7 +804,7 @@ digits, or the special characters `!`, `?`, and `'`.  An identifier
 can also be an operator, which starts with the keyword
 `operator` and is then followed by one of the following operators:
 `+`, `-`, `*`, `/`, `%`, `=`, `≠`, `/=`, `<`, `≤`, `<=`, `≥`, `>=`
-`++`, `∩`, `&`, `∈`, `in`, `∪`, `|`, `⨄`, `[+]`, `⊆`, `(=`, `∘`, `[o]`.
+`++`, `∩`, `&`, `∈`, `in`, `∪`, `|`, `⨄`, `.+.`, `⊆`, `(=`, `∘`, `.o.`.
 
 
 ## Identifier List
@@ -830,7 +830,7 @@ To prove a conditional formula, use `assume`. (See the entry for Assume.)
 To use a given that is a conditional formula, use `apply`-`to`.
 (See the entry for Apply-To.)
 
-## If Then Else (Program Term)
+## If Then Else (Term)
 
 A term of the form
 ```
@@ -1233,7 +1233,7 @@ proof
   choose 2 * x
   equations
      n = 4 * x          by m4
-   ... = {2 * 2} * x    by definition {operator*,operator*,operator*,
+   ... = #2 * 2# * x    by definition {operator*,operator*,operator*,
                                        operator+,operator+,operator+}
    ... = 2 * (2 * x)    by mult_assoc
 end
@@ -1383,7 +1383,7 @@ proof ::= "sorry"
 However, it prints a warning message with the location of the `sorry`.
 
 
-## Switch (Program Term)
+## Switch (Term)
 
 ```
 term ::= "switch" term "{" switch_case* "}"
