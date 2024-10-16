@@ -920,6 +920,33 @@ proof ::= "injective" term proof
 UNDER CONSTRUCTION
 
 
+## Instantiation (Proof)
+
+```
+proof ::= proof '<' type_list '>'
+proof ::= proof '[' term_list ']'
+```
+
+Use square brackets `[` and `]` to instantiate an `all` formula with 
+terms and use angle brackets `<` and `>` to instantiate an `all`
+formula with types.
+
+Example:
+
+<!-- {.deduce #instantiate_proof_example} -->
+```
+theorem instantiate_proof_example: length(node(42, empty)) = 1
+proof
+  have X: all T:type. all x:T. length(node(x, empty)) = 1 by {
+    arbitrary T:type arbitrary x:T
+    definition {length, length, operator+, operator+}
+  }
+  conclude length(node(42, empty)) = 1
+    by X<Nat>[42]
+end
+```
+
+
 ## Instantiation (Term)
 
 ```
