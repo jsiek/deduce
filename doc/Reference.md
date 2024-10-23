@@ -331,7 +331,7 @@ assert length(list_example) = 3
 ```
 
 
-## Choose (Exists Elimination)
+## Choose (Exists Introduction)
 
 ```
 proof ::= "choose" term_list  proof
@@ -1232,7 +1232,7 @@ term ::= term "/=" term
 
 Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
 
-## Obtain
+## Obtain (Exists Elimination)
 
 ```
 proof ::= "obtain" identifier_list "where" assumption "from" proof  proof
@@ -1398,9 +1398,9 @@ The formula `some x1:T1,...,xn:Tn. P` is true when there exists
 a choice for `x1`,...,`xn` such that `P` is true.
 
 To prove a `some` formula, see the entry for
-[Choose](#choose-exists-elimination).
+[Choose](#choose-exists-introduction).
 
-To use a `some` formula, see the entry for [Obtain](#obtain)
+To use a `some` formula, see the entry for [Obtain](#obtain-exists-elimination)
 
 ## Sorry (Proof)
 
