@@ -435,6 +435,35 @@ proof
 end
 ```
 
+## Contradiction
+
+During a proof, one sometimes encounters assumptions that contradict
+each other. In these situations, you can prove `false` and from that,
+anything else (the Principle of Explosion). Here are two ways to prove
+`false` from contradictions.
+
+(1) If you have a proof `X` of an equality with different constructors
+on the left and right-hand side, such as
+
+```
+have X: empty = Node(3, empty) by ...
+```
+
+then you can implicitly use `X` to prove `false`:
+
+```
+conclude false by X
+```
+
+(2) If you have a proof `X` of `P` and a proof `Y` of `not P`,
+then you can prove `false` using `apply`-`to`. (Because
+`not P` is shorthand for `if P then false`.)
+
+```
+have X: P by ...
+have Y: not P by ...
+conclude false by apply Y to X
+``
 
 ## Define (Statement)
 
