@@ -15,7 +15,7 @@ make use of the table below.
   use next.
 
 2. To work backwards from the goal using a
-  [`suffices`](./Reference.md#suffices) statement, used one or both of
+  [`suffices`](./Reference.md#suffices) statement, use one or both of
   [`definition`](./Reference.md#definition) and
   [`rewrite`](./Reference.md#rewrite) to transform the goal formula.
 
