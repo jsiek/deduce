@@ -330,6 +330,41 @@ term `t0` on the arguments `t1`,...,`tn`.
 assert length(list_example) = 3
 ```
 
+## Cases (Disjunction Elimination)
+
+```
+proof ::= "cases" proof case_list
+case_list ::= case | case case_list
+case ::= "case" identifier "{" proof "}"
+       | "case" identifier ":" term "{" proof "}"
+```
+
+In Deduce, you can use an `or` fact by doing case analysis with the
+`cases` statement. There is one `case` for each subformula of the
+`or`. 
+
+In the following example, we prove that `x ≤ y or y < x`
+from the trichotomy law: `x < y or x = y or y < x`.
+
+```
+have tri: x < y or x = y or y < x by trichotomy[x][y]
+cases tri
+case x_l_y: x < y {
+  have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+  conclude x ≤ y or y < x by x_le_y
+}
+case x_eq_y: x = y {
+  have x_le_y: x ≤ y by
+      suffices y ≤ y  by rewrite x_eq_y
+      less_equal_refl[y]
+  conclude x ≤ y or y < x by x_le_y
+}
+case y_l_x: y < x {
+  conclude x ≤ y or y < x by y_l_x
+}
+```
+
+
 
 ## Choose (Exists Introduction)
 
