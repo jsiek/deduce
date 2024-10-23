@@ -463,7 +463,7 @@ then you can prove `false` using `apply`-`to`. (Because
 have X: P by ...
 have Y: not P by ...
 conclude false by apply Y to X
-``
+```
 
 ## Define (Statement)
 
