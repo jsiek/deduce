@@ -535,7 +535,13 @@ assert 5 = (define x = 3
             2 + x)
 ```
 
+## Definition (Proof)
 
+UNDER CONSTRUCTION
+
+## Definition-In (Proof)
+
+UNDER CONSTRUCTION
 
 ## Divide
 
@@ -1404,7 +1410,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 `P1`,...,`Pn` must be in the of givens at the current point in the proof.
 
 
-## Reflexive (proof)
+## Reflexive (Proof)
 
 ```
 proof ::= reflexive
@@ -1412,6 +1418,13 @@ proof ::= reflexive
 
 The proof `reflexive` proves that `a = a` for any term `a`.
 
+## Rewrite (Proof)
+
+UNDER CONSTRUCTION
+
+## Rewrite-In (Proof)
+
+UNDER CONSTRUCTION
 
 ## Set (Type)
 
