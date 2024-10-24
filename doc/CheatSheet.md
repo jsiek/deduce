@@ -28,7 +28,7 @@ and 4 make use of the table below.
 | -------------- | ------------- | -------- |
 | `true`         | `.`           | No uses  |
 | `false`        | [Contradiction](./Reference.md#contradiction) | implicitly proves anything |
-| `P and Q`      |  `,` [Comma](./Reference.md#comma-conjunction-and-introduction) | (1) implicit as `P`, (2) implicit as `Q` |
+| `P and Q`      |  `,` [Comma](./Reference.md#comma-conjunction-and-introduction) | (1) implicitly proves `P`, (2) implicitly proves `Q` |
 | `P or Q`      | (1) implicit from `P`, (2) implicit from `Q` | [`cases`](./Reference.md#cases-disjunction-elimination) |
 | `if P then Q` | [`assume`](./Reference.md#assume) | [`apply`-`to`](./Reference.md#apply-to-proof-modus-ponens) |
 | `all x:T. P`  | [`arbitrary`](./Reference.md#arbitrary-forall-introduction), [`induction`](./Reference.md#induction) | [brackets](./Reference.md#instantiation-proof) |
