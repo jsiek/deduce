@@ -4,7 +4,7 @@ and 4 make use of the table below.
 1. Prove the goal by decomposing it into sub-goals. In the table
   below, look at the entry in the row for the current goal formula and
   the `Prove` column. The entry suggests the proof statement to use
-  next.
+  next. (This is the advice that Deduce outputs when you write [`?`](./Reference.md#question-mark--proof).)
 
 2. Work backwards from the goal using a
   [`suffices`](./Reference.md#suffices) statement. After the `by`
@@ -17,7 +17,9 @@ and 4 make use of the table below.
   [`have`](./Reference.md#have-proof) statement. Look at the entry in
   the row for the given formula and the `Use` column. The table entry
   suggests what to write for the reason after the `by` keyword of your
-  `have` statement.
+  `have` statement. (This is the advice that Deduce outputs when you
+  write [`help L`](./Reference.md#help-proof) where `L` is the label
+  for the given.)
 
 4. [`conclude`](./Reference.md#conclude) the proof of the goal
    formula. For the reason after the `by` keyword, one can use a given
