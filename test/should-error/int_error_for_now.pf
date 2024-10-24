@@ -1,0 +1,54 @@
+import Int
+
+// Negation
+assert neg(pos(5)) = negsuc(4)
+assert neg(negsuc(4)) = pos(5)
+assert neg(pos(0)) = pos(0)
+assert neg(negsuc(0)) = pos(1)
+// negation nats
+assert neg(5) = negsuc(4)
+assert neg(0) = pos(0)
+
+// Addition
+assert pos(1) + pos(2) = pos(3)          // 1 + 2 
+assert negsuc(5) + negsuc(3) = negsuc(9) // -6 + -4 
+assert negsuc(2) + pos(2) = negsuc(0)    // -3 + 2 
+assert negsuc(2) + pos(4) = pos(1)       // -3 + 4 
+assert pos(3) + negsuc(2) = pos(0)       // 3 + -3 
+assert pos(3) + negsuc(9) = negsuc(6)    // 3 + -10 
+// addition ints and nats
+assert 1 + pos(2) = pos(3)          // 1 + 2 
+assert negsuc(5) + negsuc(3) = negsuc(9) // -6 + -4 
+assert negsuc(2) + 2 = negsuc(0)    // -3 + 2 
+assert negsuc(2) + 4 = pos(1)       // -3 + 4 
+assert 3 + negsuc(2) = pos(0)       // 3 + -3 
+assert 3 + negsuc(9) = negsuc(6)    // 3 + -10 
+
+// Subtraction
+assert pos(1) - pos(1) = pos(0)         // 1 - 1
+assert pos(1) - pos(2) = negsuc(0)      // 1 - 2
+assert pos(2) - pos(1) = pos(1)         // 2 - 1
+assert negsuc(0) - pos(1) = negsuc(1)   // -1 - 1
+assert negsuc(0) - pos(2) = negsuc(2)   // -1 - 2
+assert negsuc(1) - pos(1) = negsuc(2)   // -2 - 1
+assert pos(1) - negsuc(0) = pos(2)      // 1 - -1
+assert pos(1) - negsuc(1) = pos(3)      // 1 - -2
+assert pos(2) - negsuc(0) = pos(3)      // 2 - -1
+// Subtraction ints and nats
+assert 1 - pos(1) = pos(0)         // 1 - 1
+assert 1 - pos(2) = negsuc(0)      // 1 - 2
+assert 2 - pos(1) = pos(1)         // 2 - 1
+assert negsuc(0) - 1 = negsuc(1)   // -1 - 1
+assert negsuc(0) - 2 = negsuc(2)   // -1 - 2
+assert negsuc(1) - 1 = negsuc(2)   // -2 - 1
+assert 1 - negsuc(0) = pos(2)      // 1 - -1
+assert 1 - negsuc(1) = pos(3)      // 1 - -2
+assert 2 - negsuc(0) = pos(3)      // 2 - -1
+
+// Multiplication
+assert pos(1) * pos(1) = pos(1)         // 1 * 1
+assert pos(2) * pos(4) = pos(8)         // 2 * 4
+assert negsuc(1) * pos(3) = negsuc(5)   // -2 * 3
+assert negsuc(2) * pos(4) = negsuc(11)  // -3 * 4
+assert negsuc(2) * negsuc(3) = pos(12)  // -3 * -4
+assert pos(2) * negsuc(9) = negsuc(19)  // 2 * -10
