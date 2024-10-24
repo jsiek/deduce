@@ -834,7 +834,7 @@ assert 1 ≥ 1
 assert not (0 ≥ 1)
 ```
 
-## Have (Forward Proof)
+## Have (Proof)
 
 ```
 proof ::= "have" identifier ":" term "by" proof proof
