@@ -7,7 +7,7 @@ and 4 make use of the table below.
   next.
 
 2. Work backwards from the goal using a
-  [`suffices`](./Reference.md#suffices) statement to. After the `by`
+  [`suffices`](./Reference.md#suffices) statement. After the `by`
   keyword, write the reason, often
   [`definition`](./Reference.md#definition) and/or
   [`rewrite`](./Reference.md#rewrite), which transform the goal
@@ -19,9 +19,10 @@ and 4 make use of the table below.
   suggests what to write for the reason after the `by` keyword of your
   `have` statement.
 
-4. [`conclude`](./Reference.md#conclude) the proof. For the reason
-   after the `by` keyword, one can use a given according to the `Use`
-   column in the table below.
+4. [`conclude`](./Reference.md#conclude) the proof of the goal
+   formula. For the reason after the `by` keyword, one can use a given
+   according to the `Use` column in the table below, or one can prove
+   the goal formula according to the `Prove` column.
 
 
 | Formula        |  Prove        | Use      |
