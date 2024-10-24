@@ -2,11 +2,12 @@ Here is some advice about what to do next in a proof. Options 1, 3,
 and 4 make use of the table below.
 
 1. Prove the goal by decomposing it into sub-goals. In the table
-  below, look in the `Prove` column for the current goal. The table
-  entry suggests the proof statement to use next.
+  below, look at the entry in the row for the current goal formula and
+  the `Prove` column. The entry suggests the proof statement to use
+  next.
 
 2. Work backwards from the goal using a
-  [`suffices`](./Reference.md#suffices) statement. After the `by`
+  [`suffices`](./Reference.md#suffices) statement to. After the `by`
   keyword, write the reason, often
   [`definition`](./Reference.md#definition) and/or
   [`rewrite`](./Reference.md#rewrite), which transform the goal
