@@ -14,13 +14,14 @@ and 4 make use of the table below.
   formula.
 
 3. Work forwards from a [given](./Reference.md#given) with a
-  [`have`](./Reference.md#have-proof) statement. Look at the formula
-  of the given and cross reference the `Use` column in the table
-  below. The table entry suggests what to write for the reason after
-  the `by` keyword of your `have` statement.
+  [`have`](./Reference.md#have-proof) statement. Look at the entry in
+  the row for the given formula and the `Use` column. The table entry
+  suggests what to write for the reason after the `by` keyword of your
+  `have` statement.
 
-4. For `conclude`, write the reason after the `by` keyword, typically
-   using a given according to the `Use` column in the table below.
+4. [`conclude`](./Reference.md#conclude) the proof. For the reason
+   after the `by` keyword, one can use a given according to the `Use`
+   column in the table below.
 
 
 | Formula        |  Prove        | Use      |

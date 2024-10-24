@@ -119,9 +119,12 @@ You can also download one of these extensions for programming in Deduce in some 
 - Vim (not now, not ever)
 
 The Deduce Reference manual is linked to below. It provides an
-alphabetical list of all the features in Deduce.
+alphabetical list of all the features in Deduce. The Cheat Sheet gives
+some advice regarding proof strategy and which Deduce keyword to use
+next in a proof.
 
 * [Reference Manual](./doc/Reference.md)
+* [Cheat Sheet](./doc/CheatSheet.md)
 
 ## Syntax/Grammar Overview
 
