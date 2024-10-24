@@ -1,0 +1,70 @@
+import Nat
+
+union Int{
+    pos(Nat)    // +10 = pos(10)
+    negsuc(Nat) // -10 = negsuc(9)
+}
+
+// -------------------------------
+//  Arithmetic
+// -------------------------------
+function neg(Int) -> Int{
+    neg(pos(n)) = 
+        switch n {
+            case zero { pos(zero) }
+            case suc(n') { negsuc(n') }
+        }
+    neg(negsuc(n)) = pos(suc(n))
+}
+define neg = λ n:Nat { neg(pos(n)) }
+
+function natSub(Nat,Nat) -> Int{
+    natSub(zero, m) = neg(m)
+    natSub(suc(n), m) = if suc(n) < m
+                        then neg(m - suc(n))
+                        else pos(suc(n) - m)
+}
+
+// Addition
+function intAdd(Int,Int) -> Int {
+    intAdd(pos(n), m) =
+        switch m {
+            case pos(n') { pos(n + n') }
+            case negsuc(n') { natSub(n, suc(n')) } 
+        }
+    intAdd(negsuc(n), m) = 
+        switch m {
+            case pos(n') { natSub(n', suc(n)) }
+            case negsuc(n') { negsuc(suc(n + n')) }
+        }
+}
+define operator + = λ n:Int,m:Int { intAdd(n, m) }
+define operator + = λ n:Nat,m:Int { intAdd(pos(n), m) }
+define operator + = λ n:Int,m:Nat { intAdd(n, pos(m)) }
+
+// Subtraction
+function intSub(Int,Int) -> Int{
+    intSub(pos(n), m) = pos(n) + neg(m)
+    intSub(negsuc(n), m) = negsuc(n) + neg(m)
+}
+define operator - = λ n:Int,m:Int { intSub(n, m) }
+define operator - = λ n:Nat,m:Int { intSub(pos(n), m) }
+define operator - = λ n:Int,m:Nat { intSub(n, pos(m)) }
+
+
+// Multiplication
+function intMult(Int,Int) -> Int {
+    intMult(pos(n), m) =
+        switch m {
+            case pos(n') { pos(n * n') }
+            case negsuc(n') { neg (n * suc(n')) }
+        }
+    intMult(negsuc(n), m) = 
+        switch m {
+            case pos(n') { neg(suc(n) * n') }
+            case negsuc(n') { pos(suc(n) * suc(n')) }
+        }
+}
+define operator * = λ n:Int,m:Int { intMult(n, m) }
+define operator * = λ n:Nat,m:Int { intMult(pos(n), m) }
+define operator * = λ n:Int,m:Nat { intMult(n, pos(m)) }
