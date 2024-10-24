@@ -1,21 +1,22 @@
 Here is some advice about what to do next in a proof. Options 1, 3,
 and 4 make use of the table below.
 
-1. Prove the goal by decomposing it into sub-goals: cross reference
-  the goal formula with the `Prove` column of the table below. The
-  table entry suggests the proof statement to use next.
+1. Prove the goal by decomposing it into sub-goals. In the table
+  below, look in the `Prove` column for the current goal. The table
+  entry suggests the proof statement to use next.
 
 2. Work backwards from the goal using a
   [`suffices`](./Reference.md#suffices) statement. After the `by`
-  keyword, write the reason, which is often
+  keyword, write the reason, often
   [`definition`](./Reference.md#definition) and/or
-  [`rewrite`](./Reference.md#rewrite) to transform the goal formula.
+  [`rewrite`](./Reference.md#rewrite), which transform the goal
+  formula.
 
-3. Work forwards from a given (an assumption or a fact you've already
-  proved) with a [`have`](./Reference.md#have-proof) statement. Look
-  at the formula of the given and cross reference the `Use` column in
-  the table below. The table entry suggests what to write for the
-  reason after the `by` keyword of your `have` statement.
+3. Work forwards from a [given](./Reference.md#given) with a
+  [`have`](./Reference.md#have-proof) statement. Look at the formula
+  of the given and cross reference the `Use` column in the table
+  below. The table entry suggests what to write for the reason after
+  the `by` keyword of your `have` statement.
 
 4. For `conclude`, write the reason after the `by` keyword, typically
    using a given according to the `Use` column in the table below.

@@ -789,6 +789,9 @@ define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
 Generic functions can also be defined using the `function` statement
 (see [Function](#function-statement)).
 
+## Given
+
+An assumption or fact that is already proved.
 
 ## Greater-Than
 
