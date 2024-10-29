@@ -1,3 +1,4 @@
+import Nat
 import List
 
 theorem length_node42: length([42]) = 1
@@ -7,7 +8,7 @@ proof
   add_zero[1]
 end
 
-theorem length_one_nat: all x:Nat. length([x]) = 1
+theorem length_one_nat_again: all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
   suffices 1 + 0 = 1
@@ -32,7 +33,7 @@ proof
 end
 
 
-theorem append_empty: all U :type. all xs :List<U>.
+theorem append_empty_again: all U :type. all xs :List<U>.
   xs ++ [] = xs
 proof
   arbitrary U:type

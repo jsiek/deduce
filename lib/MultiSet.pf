@@ -64,7 +64,7 @@ theorem empty_m_sum: all T:type. all A:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
-  switch A for operator ⨄, m_fun {
+  switch A for operator ⨄ {
     case m_fun(f) {
       have eq: (λx:T{0 + f(x)}) = f
         by extensionality arbitrary x:T

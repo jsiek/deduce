@@ -193,14 +193,14 @@ proof
   symmetric suc_one_add[n]
 end
 
-lemma not_one_add_zero: all n:Nat.
+theorem not_one_add_zero: all n:Nat.
   not (1 + n = 0)
 proof
   arbitrary n:Nat
   definition operator+
 end
 
-lemma add_suc: all m:Nat. all n:Nat.
+theorem add_suc: all m:Nat. all n:Nat.
   m + suc(n) = suc(m + n)
 proof
   enable {operator +}
@@ -914,34 +914,6 @@ end
 theorem positive_2: 0 ≤ 2
 proof
   conclude 0 ≤ 2 by positive_1_and_2
-end
-
-theorem less_implies_less_equal:
-  all x:Nat. all y:Nat.
-  if x < y  then  x ≤ y
-proof
-  //enable {operator ≤, operator <}
-  induction Nat
-  case zero {
-    arbitrary y:Nat
-    suppose z_y: 0 < y
-    conclude 0 ≤ y by definition operator ≤
-  }
-  case suc(x') suppose IH {
-    arbitrary y:Nat
-    switch y {
-      case zero {
-        definition {operator <, operator ≤}
-      }
-      case suc(y') {
-        suppose sx_sy: suc(x') < suc(y')
-        enable {operator ≤, operator ≤, operator <}
-        have x_y: x' < y' by sx_sy
-        have x_le_y: x' ≤ y' by (apply IH[y'] to x_y)
-        conclude suc(x') ≤ suc(y') by x_le_y
-      }
-    }
-  }
 end
 
 theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x

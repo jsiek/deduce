@@ -280,7 +280,7 @@ proof
   }
 end
 
-theorem length_iter_dub: all n:Nat.
+theorem length_iter_dub_bin: all n:Nat.
   length(iter_dub(n, to_binary(1))) = suc(n)
 proof
   arbitrary n:Nat

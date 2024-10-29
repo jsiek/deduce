@@ -1,3 +1,4 @@
+import Nat
 import List
 
 function length2<E>(List<E>) -> Nat {
@@ -20,4 +21,4 @@ assert reverse([1, 2, 3]) = node(3, node(2, node(1, empty)))
 
 assert set_of([1, 2, 3]) = set_of(node(1, node(2, node(3, empty))))
 
-assert map([1, 2, 3], fun x { suc(x) } : fn Nat -> Nat) = [2, 3, 4]
+assert map([1, 2, 3], (fun x { suc(x) } : fn Nat -> Nat)) = [2, 3, 4]

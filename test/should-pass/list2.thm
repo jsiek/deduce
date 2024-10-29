@@ -4,11 +4,11 @@ This file summarizes the theorems proved in the file:
 
 length_node42: length(node(42, [])) = 1
 
-length_one_nat: (all x:Nat. length(node(x, [])) = 1)
+length_one_nat_again: (all x:Nat. length(node(x, [])) = 1)
 
 append_xy: (all T:type. (all x:T, y:T. node(x, []) ++ node(y, []) = node(x, node(y, []))))
 
 length_one_equal: (all U:type. (all x:U, y:U. length(node(x, [])) = length(node(y, []))))
 
-append_empty: (all U:type. (all xs:List<U>. xs ++ [] = xs))
+append_empty_again: (all U:type. (all xs:List<U>. xs ++ [] = xs))
 
