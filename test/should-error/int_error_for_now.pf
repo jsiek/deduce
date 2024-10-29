@@ -1,3 +1,4 @@
+import Nat
 import Int
 
 // Negation
