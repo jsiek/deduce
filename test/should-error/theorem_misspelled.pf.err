@@ -1,0 +1,2 @@
+./test/should-error/theorem_misspelled.pf:1.1-1.7: error in parsing, unexpected token: therem
+(The error may be immediately before this token.)

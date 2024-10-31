@@ -1,0 +1,8 @@
+./test/should-error/help1.pf:8.3-8.9: Advice about using fact:
+	(all P:bool. (if P then P))
+
+	Instantiate this all formula with your choice for P
+	by writing it in square-brackets like so:
+		 x[A]
+	to obtain a proof of:
+		(if A then A)

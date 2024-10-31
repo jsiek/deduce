@@ -1,0 +1,2 @@
+./test/should-error/suffices_misspell.pf:5.11-5.12: error in parsing, unexpected token: Q
+(The error may be immediately before this token.)

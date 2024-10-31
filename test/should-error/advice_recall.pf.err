@@ -1,0 +1,8 @@
+./test/should-error/advice_recall.pf:5.3-5.4: incomplete proof
+Goal:
+	P
+
+You can conclude the proof with:
+	recall P
+Givens:
+	_: P
