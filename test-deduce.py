@@ -99,13 +99,13 @@ if __name__ == "__main__":
             exit(1)
     
     
-    python_path = None
+    python_path = ""
     for i in range(11, 13):
         python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
-        if python_path is not None:
+        if python_path != "":
             break
     
-    if python_path is None:
+    if python_path == "":
         print("Could not find a python version at or above 3.11")
         exit(1)
     
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         for generable in regenerables:
             print('Generating error for:', generable)
             generate_deduce_errors(deduce_call, generable)
-        generate_errors = True # So we don't run ALL tests
+            generate_errors = True # So we don't run ALL tests
 
     if test_lib:
         test_deduce(deduce_call, lib_dir)
