@@ -1,5 +1,6 @@
 import Nat
 import List
+import Maps
 
 define L1 = node(1, node(2, empty))
 define L2 = node(3, node(4, node(5, empty)))

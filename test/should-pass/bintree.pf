@@ -39,7 +39,7 @@ function sum(Tree) -> Nat {
      
 */
 
-define t1 = node(3, empty, empty)
+define t1 = node(suc(suc(suc(zero))), empty, empty)
 define t2 = node(7, empty, empty)
 define t3 = node(4, t1, t2)
 

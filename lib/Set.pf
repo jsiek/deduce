@@ -101,7 +101,7 @@ proof
   suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep}
   switch A {
     case char_fun(f) {
-      have eq: (λx{f(x)} : fn T->bool) = f   by extensionality arbitrary x:T.
+      have eq: (λy{f(y)} : fn T->bool) = f   by extensionality arbitrary x:T.
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   by definition rep
       rewrite eq
     }
@@ -113,7 +113,7 @@ theorem empty_union: all T:type. all A:Set<T>.
 proof
   arbitrary T:type
   arbitrary A:Set<T>
-  suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep, char_fun}
+  suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep}
   switch A {
     case char_fun(f) {
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by definition rep

@@ -1,3 +1,4 @@
+import Nat
 import List
 
 theorem thm: if (<T> all xs:List<T>. map(xs, fun x:T { x }) = xs)

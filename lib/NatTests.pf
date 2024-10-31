@@ -1,4 +1,5 @@
 import Nat
+import Option
 
 assert nat2pos(0) = none
 assert nat2pos(1) = just(one)
