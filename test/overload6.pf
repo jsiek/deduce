@@ -22,8 +22,8 @@ define f : fn D -> bool = λ x { false }
 define g : fn C -> bool = λ x { true }
 
 define v = a
-define v = b
-assert not f(v)
+define v = b 
+assert not f(v) // this should be the error because v is overloaded but not a function
 
 define w = c 
 define w = c

@@ -1,0 +1,8 @@
+./test/should-error/advice_conclude_given.pf:5.3-5.4: incomplete proof
+Goal:
+	P
+
+You can conclude the proof with:
+	conclude P by p
+Givens:
+	p: P

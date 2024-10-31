@@ -1,0 +1,1 @@
+./test/should-error/inst-type-square-bracket.pf:4.17-4.18: undefined variable `suc`	(uniquify)

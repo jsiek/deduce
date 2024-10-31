@@ -1,0 +1,8 @@
+./test/should-error/theorem_or4.pf:5.3-5.7: 
+Could not prove that
+	P
+implies
+	(Q or R)
+because we could not prove at least one of
+	P   implies   Q
+	P   implies   R

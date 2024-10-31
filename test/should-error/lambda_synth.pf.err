@@ -1,0 +1,2 @@
+./test/should-error/lambda_synth.pf:3.15-3.31: Cannot synthesize a type for λh,w{h * w}.
+Add type annotations to the parameters.

@@ -1,0 +1,5 @@
+./test/should-error/theorem_true_error.pf:4.3-4.4: 
+Could not prove that
+	true
+implies
+	false

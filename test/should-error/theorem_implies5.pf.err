@@ -1,0 +1,10 @@
+./test/should-error/theorem_implies5.pf:5.3-5.7: 
+Could not prove that
+	Q
+implies
+	R
+
+While trying to prove that
+	(if P then Q)
+implies
+	(if P then R)

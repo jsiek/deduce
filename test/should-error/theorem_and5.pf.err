@@ -1,0 +1,8 @@
+./test/should-error/theorem_and5.pf:5.3-5.7: 
+Could not prove that
+	(P and Q)
+implies
+	R
+because we could not prove at least one of
+	P   implies   R
+	Q   implies   R
