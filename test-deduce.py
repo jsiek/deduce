@@ -97,7 +97,17 @@ if __name__ == "__main__":
             print('Unrecognized argument:', argument)
             exit(1)
     
-    python_path = os.popen("command -v python3").read()[0: -1] # strip the newline character with the splicing
+    
+    python_path = None
+    for i in range(11, 13):
+        python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
+        if python_path is not None:
+            break
+    
+    if python_path is None:
+        print("Could not find a python version at or above 3.11")
+        exit(1)
+    
     deduce_call = python_path + " ./deduce.py " + " --dir " + lib_dir + " ".join(extra_arguments)
 
     # Yes there is a chance to optimize this by doing testing the lib directory one time, then adding it to uniquifed modules
