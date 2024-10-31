@@ -166,7 +166,7 @@ def parse_term_hi(token_list, i):
     i = i + 1
     meta = meta_from_tokens(token, token)
     return (Call(meta, None,
-                Var(meta, None, 'char_fun', []),
+                Var(meta, None, 'char_fun'),
                 [Lambda(meta, None, [('_',None)], Bool(meta, None, False))],
                  False), i)
 
@@ -314,7 +314,7 @@ def parse_term_hi(token_list, i):
       start = i
       name, i = parse_identifier(token_list, i)
       meta = meta_from_tokens(token_list[start], token_list[i-1])
-      var = Var(meta, None, name, [])
+      var = Var(meta, None, name)
       return (var, i)
     except Exception as e:  
       error(meta_from_tokens(token,token_list[i]),
@@ -342,7 +342,7 @@ def parse_term_mult(token_list, i):
   while i < len(token_list) and token_list[i].value in mult_operators:
     start = i
     rator = Var(meta_from_tokens(token_list[i], token_list[i]),
-                None, to_unicode.get(token_list[i].value,token_list[i].value), [])
+                None, to_unicode.get(token_list[i].value,token_list[i].value))
     i = i + 1
     right, i = parse_term_mult(token_list, i)
     term = Call(meta_from_tokens(token_list[start], token_list[i-1]), None,
@@ -356,7 +356,7 @@ def parse_term_add(token_list, i):
 
   while i < len(token_list) and token_list[i].value in add_operators:
     rator = Var(meta_from_tokens(token_list[i], token_list[i]),
-                None, to_unicode.get(token_list[i].value, token_list[i].value), [])
+                None, to_unicode.get(token_list[i].value, token_list[i].value))
     i = i + 1
     right, i = parse_term_add(token_list, i)
     term = Call(meta_from_tokens(token, token_list[i-1]), None,
@@ -370,7 +370,7 @@ def parse_term_compare(token_list, i):
 
   while i < len(token_list) and token_list[i].value in compare_operators:
     rator = Var(meta_from_tokens(token_list[i], token_list[i]),
-                None, to_unicode.get(token_list[i].value, token_list[i].value), [])
+                None, to_unicode.get(token_list[i].value, token_list[i].value))
     i = i + 1
     right, i = parse_term_compare(token_list, i)
     term = Call(meta_from_tokens(token, token_list[i-1]), None,
@@ -384,7 +384,7 @@ def parse_term_equal(token_list, i):
   while i < len(token_list) and token_list[i].value in equal_operators:
     meta = meta_from_tokens(token_list[i], token_list[i])
     opr = token_list[i].value
-    eq = Var(meta, None, '=', [])
+    eq = Var(meta, None, '=')
     i = i + 1
     right, i = parse_term_equal(token_list, i)
     if opr == '=':
@@ -483,17 +483,17 @@ def parse_definition_proof(token_list, i):
       eqns, i = parse_proof_list(token_list, i)
       meta = meta_from_tokens(token, token_list[i-1])
       return (ApplyDefsGoal(meta,
-                            [Var(meta, None, t, []) for t in defs],
+                            [Var(meta, None, t) for t in defs],
                             Rewrite(meta, eqns)), i)
   elif token_list[i].type == 'IN':
       i = i + 1
       subject, i = parse_proof(token_list, i)
       meta = meta_from_tokens(token, token_list[i-1])
-      return (ApplyDefsFact(meta, [Var(meta, None, t, []) for t in defs],
+      return (ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
                             subject), i)
   else:
       meta = meta_from_tokens(token, token_list[i-1])
-      return (ApplyDefs(meta, [Var(meta, None, n, []) for n in defs]), i)
+      return (ApplyDefs(meta, [Var(meta, None, n) for n in defs]), i)
 
 def parse_recall(token_list, i):
   start = i
@@ -599,7 +599,7 @@ def parse_proof_hi(token_list, i):
     body, i = parse_proof(token_list, i)
     meta = meta_from_tokens(token, token_list[i-1])
     return (EnableDefs(meta,
-                       [Var(meta, None, x, []) for x in defs],
+                       [Var(meta, None, x) for x in defs],
                        body), i)
       
   elif token.type == 'EQUATIONS':
@@ -798,7 +798,7 @@ def parse_proof_hi(token_list, i):
     if len(defs) == 0:
         return (SwitchProof(meta, subject, cases), i)
     else:
-        return (ApplyDefsGoal(meta, [Var(meta, None, t, []) for t in defs],
+        return (ApplyDefsGoal(meta, [Var(meta, None, t) for t in defs],
                               SwitchProof(meta, subject, cases)), i)
     
   elif token.type == 'SYMMETRIC':
@@ -1176,7 +1176,7 @@ def parse_type(token_list, i):
     except Exception as e:
       error(meta_from_tokens(token, token_list[i]),
             'expected a type\n' + str(e))
-    var = Var(meta_from_tokens(token,token), None, name, [])
+    var = Var(meta_from_tokens(token,token), None, name)
     inst = False
     
     if token_list[i].type == 'LESSTHAN':

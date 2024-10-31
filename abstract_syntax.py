@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Any, Tuple, List
 from error import error, set_verbose, get_verbose
@@ -477,8 +477,12 @@ class TAnnote(Term):
   
 @dataclass
 class Var(Term):
+  # name is established upon creation in the parser, 
+  # then updated during type checking
   name: str
-  resolved_names: list[str]  # filled in during uniquify, list because of overloading
+
+  # filled in during uniquify, list because of overloading
+  resolved_names: list[str] = field(default_factory=list)
 
   def free_vars(self):
     return set([self.name])
@@ -584,7 +588,7 @@ class Lambda(Term):
   def __eq__(self, other):
       if not isinstance(other, Lambda):
           return False
-      ren = {x: Var(self.location, t2, y, []) \
+      ren = {x: Var(self.location, t2, y) \
              for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
       return new_body == other.body
