@@ -2384,10 +2384,10 @@ def natToInt(t):
       return 1 + natToInt(arg)
 
 def mkPos(loc, arg):
-  return Call(loc, None, Var(loc, None, 'pos'), [arg], False)
+  return Call(loc, None, Var(loc, None, 'pos', []), [arg], False)
 
 def mkNeg(loc, arg):
-  return Call(loc, None, Var(loc, None, 'negsuc'), [arg], False)
+  return Call(loc, None, Var(loc, None, 'negsuc', []), [arg], False)
 
 def intToDeduceInt(loc, n, sign):
   if sign == 'PLUS':
