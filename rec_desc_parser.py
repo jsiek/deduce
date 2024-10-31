@@ -134,6 +134,15 @@ def parse_term_hi(token_list, i):
   elif token.type == 'INT' or token.value == '0':
     return (intToNat(meta_from_tokens(token,token), int(token.value)), i + 1)
 
+  elif token.type == 'PLUS' or token.type == 'MINUS':
+    i = i + 1
+    intToken = token_list[i]
+    if intToken.type == 'INT' or intToken.value == '0':
+      return (intToDeduceInt(meta_from_tokens(intToken,intToken), int(intToken.value), token.type), i + 1)
+    else: 
+      error(meta_from_tokens(token_list[i],token_list[i]),
+            'expected an integer not\n\t' + token_list[i].value)
+
   elif token.type == 'IF':
     i = i + 1
     prem, i = parse_term(token_list, i)

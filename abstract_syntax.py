@@ -762,7 +762,9 @@ class Call(Term):
         + " " + op_arg_str(self, self.args[1])
     elif isNat(self) and not get_verbose():
       return str(natToInt(self))
-    elif isNodeList(self) and not get_verbose():
+    elif isDeduceInt(self):
+      return deduceIntToInt(self)
+    elif isNodeList(self):
       return '[' + nodeListToList(self)[:-2] + ']'
     elif isEmptySet(self) and not get_verbose():
       return '∅'
@@ -2384,6 +2386,35 @@ def natToInt(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg], infix) \
       if base_name(name) == 'suc':
       return 1 + natToInt(arg)
+
+def mkPos(loc, arg):
+  return Call(loc, None, Var(loc, None, 'pos', []), [arg], False)
+
+def mkNeg(loc, arg):
+  return Call(loc, None, Var(loc, None, 'negsuc', []), [arg], False)
+
+def intToDeduceInt(loc, n, sign):
+  if sign == 'PLUS':
+    return mkPos(loc, intToNat(loc, n))
+  else:
+    return mkNeg(loc, intToNat(loc, n - 1))
+
+def isDeduceInt(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name), [arg], infix) if base_name(name) == 'pos':
+      return isNat(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name), [arg], infix) if base_name(name) == 'negsuc':
+      return isNat(arg)
+    case _:
+      return False
+  
+
+def deduceIntToInt(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name), [arg], infix) if base_name(name) == 'pos':
+      return '+' + str(natToInt(arg))
+    case Call(loc, tyof1, Var(loc2, tyof2, name), [arg], infix) if base_name(name) == 'negsuc':
+      return '-' + str(1 + natToInt(arg))
 
 def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():

@@ -6,6 +6,10 @@ assert neg(pos(5)) = negsuc(4)
 assert neg(negsuc(4)) = pos(5)
 assert neg(pos(0)) = pos(0)
 assert neg(negsuc(0)) = pos(1)
+assert neg(+5) = -5
+assert neg(-5) = +5
+assert neg(+0) = +0
+assert neg(-1) = +1
 // negation nats
 assert neg(5) = negsuc(4)
 assert neg(0) = pos(0)
@@ -23,7 +27,13 @@ assert negsuc(5) + negsuc(3) = negsuc(9) // -6 + -4
 assert negsuc(2) + 2 = negsuc(0)    // -3 + 2 
 assert negsuc(2) + 4 = pos(1)       // -3 + 4 
 assert 3 + negsuc(2) = pos(0)       // 3 + -3 
-assert 3 + negsuc(9) = negsuc(6)    // 3 + -10 
+assert 3 + negsuc(9) = negsuc(6)    // 3 + -10
+assert +1 + +2 = +3       
+assert -6 + -4 = -10 
+assert -3 + +2 = -1
+assert -3 + +4 = +1   
+assert +3 + -3 = +0   
+assert +3 + -10 = -7  
 
 // Subtraction
 assert pos(1) - pos(1) = pos(0)         // 1 - 1
@@ -35,6 +45,15 @@ assert negsuc(1) - pos(1) = negsuc(2)   // -2 - 1
 assert pos(1) - negsuc(0) = pos(2)      // 1 - -1
 assert pos(1) - negsuc(1) = pos(3)      // 1 - -2
 assert pos(2) - negsuc(0) = pos(3)      // 2 - -1
+assert +1 - +1 = +0   
+assert +1 - +2 = -1   
+assert +2 - +1 = +1   
+assert -1 - +1 = -2   
+assert -1 - +2 = -3   
+assert -2 - +1 = -3   
+assert +1 - -1 = +2   
+assert +1 - -2 = +3    
+assert +2 - -1 = +3  
 // Subtraction ints and nats
 assert 1 - pos(1) = pos(0)         // 1 - 1
 assert 1 - pos(2) = negsuc(0)      // 1 - 2
