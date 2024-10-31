@@ -23,7 +23,8 @@ def generate_deduce_errors(deduce_call, path):
     # So we manually do it here
 
     if os.path.isfile(path):
-        test_deduce(deduce_call, path, 1, '> ' + path + '.err')
+        # TODO: Make sure both paresers produce the same error
+        test_deduce(deduce_call, path, 1, '> ' + path + '.err') # this will test both parsers, which should both error
     elif os.path.isdir(path):
         if path[-1] != '/' or path[-1] != '\\': # Windows moment
             path += '/'
