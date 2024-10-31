@@ -27,7 +27,7 @@ def generate_deduce_errors(deduce_call, path):
     elif os.path.isdir(path):
         if path[-1] != '/' or path[-1] != '\\': # Windows moment
             path += '/'
-        for file in os.listdir(path):
+        for file in os.listdir(path): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     generate_deduce_errors(deduce_call, path + file)
@@ -67,7 +67,13 @@ def test_deduce_errors(deduce_call, path):
 if __name__ == "__main__":
     # Check command line arguments
     extra_arguments = []
+
+    regenerables = []
     generate_errors = False
+
+    test_lib = False
+    test_passable = False
+    test_errors = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -78,8 +84,18 @@ if __name__ == "__main__":
         argument = sys.argv[i]
         if argument == '--regenerate-errors':
             generate_errors = True
-
-        extra_arguments.append(argument)
+        elif argument == '--generate-error':
+            regenerables.append(sys.argv[i + 1])
+            already_processed_next = True
+        elif argument == '--lib':
+            test_lib = True
+        elif argument == '--passable':
+            test_passable = True
+        elif argument == '--errors':
+            test_errors = True
+        else:
+            print('Unrecognized argument:', argument)
+            exit(1)
     
     python_path = os.popen("command -v python3").read()[0: -1] # strip the newline character with the splicing
     deduce_call = python_path + " ./deduce.py " + " --dir " + lib_dir + " ".join(extra_arguments)
@@ -87,9 +103,24 @@ if __name__ == "__main__":
     # Yes there is a chance to optimize this by doing testing the lib directory one time, then adding it to uniquifed modules
     # HOWEVER, I want to make sure the testing suite runs deduce as it normally would
     # So we don't "fix" something in the suite then have it run into errors in actual usage and be like aww shucks
-    if generate_errors:
-        generate_deduce_errors(deduce_call, error_dir)
 
-    test_deduce(deduce_call, lib_dir)
-    test_deduce(deduce_call, pass_dir)
-    test_deduce_errors(deduce_call, error_dir)
+    if generate_errors:
+        print('Regenerating ALL errors')
+        generate_deduce_errors(deduce_call, error_dir)
+    else:
+        for generable in regenerables:
+            print('Generating error for:', generable)
+            generate_deduce_errors(deduce_call, generable)
+        generate_errors = True # So we don't run ALL tests
+
+    if test_lib:
+        test_deduce(deduce_call, lib_dir)
+    if test_passable:
+        test_deduce(deduce_call, pass_dir)
+    if test_errors:
+        test_deduce_errors(deduce_call, error_dir)
+
+    if not (test_lib or test_passable or test_errors or generate_errors):
+        test_deduce(deduce_call, lib_dir)
+        test_deduce(deduce_call, pass_dir)
+        test_deduce_errors(deduce_call, error_dir)
