@@ -526,7 +526,7 @@ proof
     case node(x, xs') {
       suppose prem
       have x_xxs: x ∈ (single(x) ∪ set_of(xs'))
-        by apply in_left_union<T>[set_of(xs'), x, single(x)]
+        by apply in_left_union<T>[set_of(xs')]
 	   to single_member<T>[x]
       conclude false
         by apply empty_no_members<T>[x]
