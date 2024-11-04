@@ -1,0 +1,18 @@
+union A { a }
+union B { b }
+
+define f : fn A -> bool = λ x { true }
+define f : fn B -> bool = λ x { false }
+
+assert f(a)
+assert not f(b)
+
+theorem f_true : f(a)
+proof
+  definition f
+end
+
+theorem f_false : not f(b)
+proof
+  definition f
+end

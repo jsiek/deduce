@@ -1357,18 +1357,23 @@ def apply_definitions(loc, formula, defs, env):
       error(loc, 'in definition, formula contains more than one mark:\n\t' + str(formula))
 
   for var in defs:
-      rhs = env.get_value_of_term_var(var)
-      if rhs == None:
-          error(loc, 'could not find definition of ' + str(var))
-      else:
-          reset_reduced_defs()
-          if get_verbose():
-              print('definition subst ' + var.name + ' => ' + str(rhs))
-          new_formula = new_formula.substitute({var.name: rhs})
-          new_formula = new_formula.reduce(env)
-          if var.name not in get_reduced_defs():
-              error(loc, 'could not find a place to apply definition of ' + base_name(var.name) \
-                    + ' in:\n' + '\t' + str(new_formula))
+      reduced_one = False
+      for var_name in var.resolved_names:
+          rvar = Var(var.location, var.typeof, var_name, [var_name])
+          rhs = env.get_value_of_term_var(rvar)
+          if rhs == None:
+              error(loc, 'could not find definition of ' + str(rvar))
+          else:
+              reset_reduced_defs()
+              if get_verbose():
+                  print('definition subst ' + rvar.name + ' => ' + str(rhs))
+              new_formula = new_formula.substitute({rvar.name: rhs})
+              new_formula = new_formula.reduce(env)
+              if rvar.name in get_reduced_defs():
+                  reduced_one = True
+      if not reduced_one:
+          error(loc, 'could not find a place to apply definition of ' + base_name(var.name) \
+                        + ' in:\n' + '\t' + str(new_formula))
   if num_marks == 0:          
       return new_formula
   else:
