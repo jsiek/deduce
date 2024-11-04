@@ -491,10 +491,21 @@ def check_proof(proof, env):
       allfrm = check_proof(univ, env)
       match allfrm:
         case All(loc2, tyof, vars, frm):
+          # TODO: Temporary - will change when we sugar
+          if len(vars) != len(args):
+            error(loc, f"Instantiation of\n\t{univ} : {allfrm}\n" \
+                  + f"expected {len(vars)} arguments, but got {len(args)}")
           sub = {}
           new_args = []
           for ((var,ty), arg) in zip(vars, args):
-            new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
+            try:
+              new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
+            except Exception as e:
+              if isinstance(ty, TypeType):
+                error(loc, f"In instantiation of\n\t{str(univ)} : {str(allfrm)}\n" \
+                      + f"expected a type argument, but was given '{arg}'")
+              else:
+                raise e
             if isinstance(ty, TypeType):
                 error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
                       +'\nwith type arguments, instead write:\n\t' \
