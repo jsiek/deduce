@@ -1379,6 +1379,7 @@ class IfThen(Formula):
 class All(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
+  # TODO
 
   def copy(self):
     return All(self.location,
@@ -1682,6 +1683,7 @@ class AllIntro(Proof):
 class AllElimTypes(Proof):
   univ: Proof
   args: List[Type]
+  # TODO: This is cursed
 
   def __str__(self):
     return str(self.univ) + '<' + ','.join([str(arg) for arg in self.args]) + '>'
@@ -1695,6 +1697,7 @@ class AllElimTypes(Proof):
 class AllElim(Proof):
   univ: Proof
   args: List[Term]
+  # TODO
 
   def __str__(self):
     return str(self.univ) + '[' + ','.join([str(arg) for arg in self.args]) + ']'

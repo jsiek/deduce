@@ -1,4 +1,4 @@
-PYTHON = $(shell command -v python3.11)
+PYTHON = $(shell command -v python3.12)
 
 LIB_DIR = ./lib
 TEST_PASS_DIR = ./test/should-pass
