@@ -2120,16 +2120,6 @@ def check_formula(frm, env):
 
 modules = set()
 
-# def add_overload(loc, old_var_ty, new_ty, name):
-#     match old_var_ty:
-#       case OverloadType(loc2, old_overloads):
-#         overloads = old_overloads
-#       case _:
-#         overloads = [(name, old_var_ty)]
-#     new_name = generate_name(name)
-#     ovld_ty = OverloadType(loc, [(new_name, new_ty)] + overloads)
-#     return ovld_ty, new_name
-
 def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
@@ -2143,6 +2133,20 @@ def process_declaration(stmt, env):
         new_body = body
         new_ty = ty
 
+      # Only allow overloading of functions
+      unique_name = {base_name(n): n for n in env.dict.keys()}
+      orig_name = base_name(name)
+      if orig_name in unique_name.keys():
+          match new_ty:
+            case FunctionType(loc2, ty_params, params, ret_ty):
+              pass
+            case _:
+              binding = env.dict[unique_name[orig_name]]
+              error(loc, 'the name ' + orig_name + ' is already defined:\n' \
+                    + error_header(binding.location) \
+                    + ' ' + orig_name + ' : ' + str(binding) + '\n' \
+                    + 'Only functions may have multiple definitions with the same name.')
+        
       return Define(loc, name, new_ty, new_body), \
               env.declare_term_var(loc, name, new_ty)
           

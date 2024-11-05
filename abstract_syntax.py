@@ -2511,7 +2511,7 @@ class TermBinding(Binding):
   defn : Term = None
   
   def __str__(self):
-    return str(self.typ) + ' = ' + str(self.defn)
+    return str(self.typ) + (' = ' + str(self.defn) if self.defn else '')
 
 @dataclass
 class ProofBinding(Binding):
