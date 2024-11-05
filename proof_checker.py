@@ -111,10 +111,9 @@ def check_implies(loc, frm1, frm2):
             + '\t' + str(frm2)
         raise Exception(msg)
       
-    case (All(loc1, tyof1, vars1, body1), All(loc2, tyof2, vars2, body2)):
+    case (All(loc1, tyof1, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
       try:
-          sub = {var2[0]: Var(loc2, var1[1], var1[0], [])\
-                 for (var1, var2) in zip(vars1, vars2)}
+          sub = { var2[0]: Var(loc2, var1[1], var1[0], []) }
           body2a = body2.substitute(sub)
           check_implies(loc, body1, body2a)
       except Exception as e:
@@ -123,7 +122,7 @@ def check_implies(loc, frm1, frm2):
             + '\t' + str(frm2)
         raise Exception(msg)
 
-    case (All(loc1, tyof1, vars1, body1), _):
+    case (All(loc1, tyof1, vars1, _, body1), _):
        matching = {}
        try:
          #print('*** trying to instantiate\n\t' + str(frm1) + '\nto\n\t' + str(frm2))
@@ -150,13 +149,13 @@ def check_implies(loc, frm1, frm2):
 
 def instantiate(loc, allfrm, args):
   match allfrm:
-    case All(loc2, tyof, vars, frm):
-      if len(args) == len(vars):
-        sub = {var[0]: arg for (var,arg) in zip(vars,args)}
+    case All(loc2, tyof, var, pos, frm):
+      if len(args) == 1:
+        sub = { var[0] : args[0] }
         ret = frm.substitute(sub)
         return ret
       else:
-        error(loc, 'expected ' + str(len(vars)) + ' arguments, not ' \
+        error(loc, 'expected 1 argument, not ' \
               + str(len(args)) + ', ' \
               + 'to instantiate:\n\t' + str(allfrm))
     case _:
@@ -228,8 +227,8 @@ def rewrite_aux(loc, formula, equation):
     case IfThen(loc2, tyof, prem, conc):
       return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation),
                     rewrite_aux(loc, conc, equation))
-    case All(loc2, tyof, vars, frm2):
-      return All(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
+    case All(loc2, tyof, var, pos, frm2):
+      return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation))
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
     case Call(loc2, tyof, rator, args, infix):
@@ -314,20 +313,18 @@ def isolate_difference(term1, term2):
           return (s1, s2)
       case(And(l1, tyof1, args1), And(l2, tyof2, args2)):
         return isolate_difference_list(args1, args2)
-      case (All(l1, tyof1, vars1, body1), All(l2, tyof2, vars2, body2)):
-        if len(vars1) != len(vars2):
-          return (term1, term2)
-        ren = {x: Var(l1,None,y,[]) for ((x,t1),(y,t2)) in zip(vars1, vars2) }
-        return isolate_difference(body1.substitute(ren), body2)
+      case (All(l1, tyof1, var1, _, body1), All(l2, tyof2, var2, _, body2)):
+        return (term1, term2)
       case _:
         return (term1, term2)
 
 def collect_all_if_then(loc, frm):
     """Returns a list of all variables that need be instantiated, and anythings that need applied"""
     match frm:
-      case All(loc2, tyof, vars, frm):
+      case All(loc2, tyof, var, _, frm):
         (rest_vars, mps) = collect_all_if_then(loc, frm)
-        return ([Var(loc2, None, x, []) for (x,t) in vars] + rest_vars, mps)
+        x, t = var
+        return ([Var(loc2, None, x, [])] + rest_vars, mps)
       case IfThen(loc2, tyof, prem, conc):
         return ([], [(prem, conc)])
       case And(loc2, tyof, args):
@@ -348,9 +345,10 @@ def collect_all_if_then(loc, frm):
 
 def collect_all(frm):
     match frm:
-      case All(loc2, tyof, vars, frm):
+      case All(loc2, tyof, var, _, frm):
         (rest_vars, body) = collect_all(frm)
-        return ([Var(loc2, None, x, []) for (x,t) in vars] + rest_vars, body)
+        x, t = var
+        return ([Var(loc2, None, x, [])] + rest_vars, body)
       case _:
         return ([], frm)
         
@@ -476,59 +474,55 @@ def check_proof(proof, env):
       conc = check_proof(body, body_env)
       ret = IfThen(loc, BoolType(loc), new_prem, conc)
       
-    case AllIntro(loc, vars, body):
+    case AllIntro(loc, var, pos, body):
       body_env = env
-      for (x,ty) in vars:
-        check_type(ty, env)
-        if isinstance(ty, TypeType):
-          body_env = body_env.declare_type(loc, x)
-        else:
-          body_env = body_env.declare_term_var(loc, x, ty)
+      x, ty = var
+      check_type(ty, env)
+      if isinstance(ty, TypeType):
+        body_env = body_env.declare_type(loc, x)
+      else:
+        body_env = body_env.declare_term_var(loc, x, ty)
       formula = check_proof(body, body_env)
-      ret = All(loc, BoolType(loc), vars, formula)
+      ret = All(loc, BoolType(loc), var, pos, formula)
       
-    case AllElim(loc, univ, args):
+    case AllElim(loc, univ, arg, _):
       allfrm = check_proof(univ, env)
       match allfrm:
-        case All(loc2, tyof, vars, frm):
-          # TODO: Temporary - will change when we sugar
-          if len(vars) != len(args):
-            error(loc, f"Instantiation of\n\t{univ} : {allfrm}\n" \
-                  + f"expected {len(vars)} arguments, but got {len(args)}")
+        case All(loc2, tyof, var, _, frm):
           sub = {}
+          v, ty = var
           new_args = []
-          for ((var,ty), arg) in zip(vars, args):
-            try:
-              new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
-            except Exception as e:
-              if isinstance(ty, TypeType):
-                error(loc, f"In instantiation of\n\t{str(univ)} : {str(allfrm)}\n" \
-                      + f"expected a type argument, but was given '{arg}'")
-              else:
-                raise e
+          try:
+            new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
+          except Exception as e:
             if isinstance(ty, TypeType):
-                error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
-                      +'\nwith type arguments, instead write:\n\t' \
-                      +str(univ) + '<' \
-                      + ', '.join([str(arg) for arg in args]) + '>\n')
-            new_args.append(new_arg)
+              error(loc, f"In instantiation of\n\t{str(univ)} : {str(allfrm)}\n" \
+                    + f"expected a type argument, but was given '{arg}'")
+            else:
+              raise e
+          if isinstance(ty, TypeType):
+              error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
+                    +'\nwith type arguments, instead write:\n\t' \
+                    +str(univ) + '<' \
+                    + ', '.join([str(arg) for arg in args]) + '>\n')
+          new_args.append(new_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
                 + '\nGivens:\n' + env.proofs_str())
       return instantiate(loc, allfrm, new_args)
 
-    case AllElimTypes(loc, univ, type_args):
+    case AllElimTypes(loc, univ, type_arg, _):
       allfrm = check_proof(univ, env)
       match allfrm:
-        case All(loc2, tyof, vars, frm):
+        case All(loc2, tyof, vars, _, frm):
           sub = {}
           new_args = []
-          for ((var,ty), type_arg) in zip(vars, type_args):
-            check_type(type_arg, env)
-            if not isinstance(ty, TypeType):
-                error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
-            sub[var] = type_arg
-            new_args.append(type_arg)
+          var, ty = vars
+          check_type(type_arg, env)
+          if not isinstance(ty, TypeType):
+              error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
+          sub[var] = type_arg
+          new_args.append(type_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
       return instantiate(loc, allfrm, new_args)
@@ -538,7 +532,7 @@ def check_proof(proof, env):
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
           pass
-        case All(loc2, tyof, vars, body):
+        case All(loc2, tyof, var, _, body):
           pass
         case And(loc2, tyof, args):
           pass
@@ -566,7 +560,7 @@ def check_proof(proof, env):
                   + "\n\t".join([str(p) for p, _ in imps])
                   + "\nfor application of \n\t"+str(ifthen)
                   + "\nto \n\t" + str(arg))
-        case All(loc2, tyof, vars, body):
+        case All(loc2, tyof, _, _, body):
           (vars, imps) = collect_all_if_then(loc, ifthen)
           rets = []
           arg_frm = check_proof(arg, env)
@@ -694,7 +688,9 @@ def proof_use_advice(proof, formula, env):
             + '\t\t' + str(conc) + '\n' \
             + '\tby using an apply-to statement:\n' \
             + '\t\tapply ' + str(proof) + ' to ?'
-      case All(loc, tyof, vars, body):
+      case All(loc, tyof, var, pos, body):
+        # TODO: This is hacky and not sugared
+        vars = [var]
         letters = []
         new_vars = {}
         i = 65
@@ -783,24 +779,20 @@ def proof_advice(formula, env):
             + '\t\tsuppose label: ' + str(prem) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
-      case All(loc, tyof, vars, body):
+      case All(loc, tyof, var, _, body):
+        x, ty = var
         arb_advice = prefix \
             + '\tYou can complete the proof with:\n' \
-            + '\t\tarbitrary ' + ', '.join(base_name(x) + ':' + str(ty) \
-                                           for (x,ty) in vars) + '\n' \
+            + '\t\tarbitrary ' + base_name(x) + ':' + str(ty) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
-
-        # We can only induct on an  all with one variable
-        if len(vars) > 1:
-          return arb_advice
 
         # NOTE: Maybe we shouldn't give induction advice for non recursively
         # defined unions. However right now we will because I haven't added
         # that check yet. Maybe even suggest a switch instead.
         
-        inductive_var = vars[0]
-        match inductive_var[1]:
+        var_x, var_ty = var
+        match var_ty:
           # NOTE: These are the types that are handled in get_type_name, and
           # get_def_of_type_var
           case TypeInst() | Var():
@@ -808,13 +800,22 @@ def proof_advice(formula, env):
           case _:
             return arb_advice # don't give induction adivce for type variables
 
-        match env.get_def_of_type_var(get_type_name(inductive_var[1])):
+        # When foralls are generated, the def of type var is not in the environment?
+        # Seems to be a problem with extensionality
+        # I'm ok for now with just failing the match if this happens
+        ty = None
+        try:
+          ty = env.get_def_of_type_var(get_type_name(var_ty))
+        except:
+          pass
+
+        match ty:
           case Union(loc2, name, typarams, alts):
             if len(alts) < 2:
               return arb_advice # Can't do induction if there's only one case
                 
             ind_advice = '\n\n\tAlternatively, you can try induction with:\n' \
-              +  '\t\tinduction ' + str(inductive_var[1]) + '\n'
+              +  '\t\tinduction ' + str(var_ty) + '\n'
                 
             for alt in alts:
                 match alt:
@@ -831,7 +832,7 @@ def proof_advice(formula, env):
                                    if is_recursive(name, ty)]
                       ind_advice += ' suppose '
                       ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' \
-                            + str(body.substitute({inductive_var[0]: Var(loc3, param_ty, param, [])})) \
+                            + str(body.substitute({var_x: Var(loc3, param_ty, param, [])})) \
                             for i, (param,param_ty) in enumerate(rec_params)])
 
                     ind_advice += ' {\n\t\t  ?\n\t\t}\n'
@@ -951,33 +952,27 @@ def check_proof_of(proof, formula, env):
           args = [Var(loc, None, x, []) for x in names]
           call_lhs = Call(loc, None, lhs, args, False)
           call_rhs = Call(loc, None, rhs, args, False)
-          formula = All(loc, None, list(zip(names,typs)),
-                        mkEqual(loc, call_lhs, call_rhs))
+          formula = mkEqual(loc, call_lhs, call_rhs)
+          for i, v in enumerate(reversed(list(zip(names, typs)))):
+            formula = All(loc, None, v, (i, len(names)), formula)
           check_proof_of(proof, formula, env)
         case FunctionType(loc2, ty_params, params, ret_ty):
           error(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params)))
         case _:
           error(loc, 'extensionality expects a function, not ' + str(lhs.typ))
       
-    case AllIntro(loc, vars, body):
-      for (x,ty) in vars:
-          check_type(ty, env)
+    case AllIntro(loc, var, _, body):
+      x, ty = var
+      check_type(ty, env)
       match formula:
-        case All(loc2, tyof, vars2, formula2):
-          if len(vars) != len(vars2):
-            error(proof.location, 'mismatch in number of variables for the goal: ' \
-                  + str(len(vars2)) + '\n' \
-                  + '\t' + str(formula) + '\n' \
-                  + 'and the number in the arbitrary statement: ' + str(len(vars)) + '\n' \
-                  + '\t' + ', '.join([base_name(x) + ':' + str(ty) for (x,ty) in vars]))
+        case All(loc2, tyof, var2, _, formula2):
           sub = {}
-          for (var,var2) in reversed(list(zip(vars,vars2))):
-            if isinstance(var[1], TypeType):
-              sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
-            else:
-              sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
+          if isinstance(var[1], TypeType):
+            sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
+          else:
+            sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
           frm2 = formula2.substitute(sub)
-          body_env = env.declare_term_vars(loc, vars)
+          body_env = env.declare_term_vars(loc, [var])
           check_proof_of(body, frm2, body_env)
         case _:
           error(loc, 'arbitrary is proof of an all formula, not\n' \
@@ -1166,7 +1161,7 @@ def check_proof_of(proof, formula, env):
     case Induction(loc, typ, cases):
       check_type(typ, env)
       match formula:
-        case All(loc2, tyof, [(var,ty)], frm):
+        case All(loc2, tyof, (var,ty), _, frm):
           if typ != ty:
             error(loc, "type of induction: " + str(typ) \
                   + "\ndoes not match the all-formula's type: " + str(ty))
@@ -1759,24 +1754,24 @@ def type_synth_term(term, env, recfun, subterms):
       ty = BoolType(loc)
       ret = IfThen(loc, ty, new_prem, new_conc)
       
-    case All(loc, _, vars, body):
+    case All(loc, _, var, pos, body):
       all_types = None
-      for (x,ty) in vars:
-          check_type(ty, env)
-          if isinstance(ty, TypeType):
-              if all_types == None or all_types == True:
-                all_types = True
-              else:
-                  error(loc, 'cannot mix type and term variables in an all formula')
-          else:
-              if all_types == None or all_types == False:
-                  all_types = False
-              else:
-                  error(loc, 'cannot mix type and term variables in an all formula')
-      body_env = env.declare_term_vars(loc, vars)
+      x, ty = var
+      check_type(ty, env)
+      if isinstance(ty, TypeType):
+        if all_types == None or all_types == True:
+          all_types = True
+        else:
+          error(loc, 'cannot mix type and term variables in an all formula')
+      else:
+        if all_types == None or all_types == False:
+          all_types = False
+        else:
+          error(loc, 'cannot mix type and term variables in an all formula')
+      body_env = env.declare_term_vars(loc, [var])
       new_body = check_formula(body, body_env)      
       ty = BoolType(loc)
-      ret = All(loc, ty, vars, new_body)
+      ret = All(loc, ty, var, pos, new_body)
   
     case Some(loc, _, vars, body):
       for (x,ty) in vars:
