@@ -899,7 +899,7 @@ def parse_proof_med(token_list, i):
       if token_list[i].type != 'MORETHAN':
         error(meta_from_tokens(token_list[start],token_list[i]),
               'expected a closing `>`, not\n\t' + token_list[i].value + '\n'\
-              + 'while trying to parse type arguments for instantiation:\n\t'\
+              + 'while trying to parse type arguments for instantiation of an `all` formula:\n\t'\
               + 'proof ::= proof "<" type_list ">"')
       i = i + 1
       meta = meta_from_tokens(token_list[start], token_list[i-1])
