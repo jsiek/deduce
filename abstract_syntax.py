@@ -1395,7 +1395,7 @@ class All(Formula):
     result = ''
     if s + 1 == e:
       result += "(all "
-    result += f"{v} : {str(t)}"
+    result += f"{v}:{str(t)}"
     if s == 0:
       result += ". "
     else:
@@ -1705,6 +1705,7 @@ class AllElimTypes(Proof):
   pos: Tuple[int, int]
 
   def __str__(self):
+    print(self.pos)
     s, e = self.pos
     res = str(self.univ)
     if s == 0:

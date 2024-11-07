@@ -485,7 +485,7 @@ def check_proof(proof, env):
       formula = check_proof(body, body_env)
       ret = All(loc, BoolType(loc), var, pos, formula)
       
-    case AllElim(loc, univ, arg, _):
+    case AllElim(loc, univ, arg, pos):
       allfrm = check_proof(univ, env)
       match allfrm:
         case All(loc2, tyof, var, _, frm):
@@ -503,8 +503,7 @@ def check_proof(proof, env):
           if isinstance(ty, TypeType):
               error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
                     +'\nwith type arguments, instead write:\n\t' \
-                    +str(univ) + '<' \
-                    + ', '.join([str(arg) for arg in args]) + '>\n')
+                    +str(univ) + '<' + str(arg) + '>\n')
           new_args.append(new_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
