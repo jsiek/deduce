@@ -1,0 +1,13 @@
+# required: the minimum version of Entangled
+version = "2.0"            
+
+# default watch_list is ["**/*.md"]
+watch_list = ["**/*.en"]
+
+# default ignore_list is ["**/README.md"]
+ignore_list = []
+
+[[languages]]
+name = "Deduce"
+identifiers = ["deduce"]
+comment = { open = "/*", close = "*/" }
