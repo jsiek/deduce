@@ -13,6 +13,7 @@ default: check_docs
 check_docs: check_index check_fun check_intro check_ref
 
 check_index:
+	cat ../index.md | sed 's/\^/ /' > index.en
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) $(DEDUCE) --recursive-descent index.pf --dir $(LIB_DIR)
 	$(PYTHON) $(DEDUCE) --lalr index.pf --dir $(LIB_DIR)

@@ -1249,13 +1249,17 @@ def check_proof_of(proof, formula, env):
             equation = mkEqual(scase.location, new_subject, subject_case)
 
             body_env = env
-            if len(scase.assumptions) == 1:
-              if scase.assumptions[0][1] != None and scase.assumptions[0][1] != equation:
-                error(scase.location, 'expected assumption\n' + str(assumption) \
-                      + '\nnot\n' + str(scase.assumptions[0][1]))
-              body_env = body_env.declare_local_proof_var(loc, scase.assumptions[0][0], equation)
+            assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
+            if len(assumptions) == 1:
+              if assumptions[0][1] != None and assumptions[0][1] != equation:
+                (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], equation)
+                msg = 'expected assumption\n' + str(equation) \
+                    + '\nnot\n' + str(assumptions[0][1]) \
+                    + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
+                error(scase.location, msg)
+              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], equation)
 
-            if len(scase.assumptions) > 1:
+            if len(assumptions) > 1:
               error(scase.location, 'only one assumption is allowed in a switch case')
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
             new_frm = frm.reduce(env)
@@ -1289,17 +1293,18 @@ def check_proof_of(proof, formula, env):
                                                                constr_params))
                 
                 new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
-                
-                if len(scase.assumptions) == 1:
+
+                assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
+                if len(assumptions) == 1:
                   assumption = mkEqual(scase.location, new_subject, subject_case)
                   new_assumption = type_synth_term(assumption, body_env, None, [])
-                  if scase.assumptions[0][1] != None:
-                      case_assumption = type_synth_term(scase.assumptions[0][1], body_env, None, [])
+                  if assumptions[0][1] != None:
+                      case_assumption = type_synth_term(assumptions[0][1], body_env, None, [])
                       if case_assumption != new_assumption:
                           error(scase.location, 'in case, expected suppose of\n' + str(new_assumption) \
                                 + '\nnot\n' + str(case_assumption))
-                  body_env = body_env.declare_local_proof_var(loc, scase.assumptions[0][0], new_assumption)
-                if len(scase.assumptions) > 1:
+                  body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], new_assumption)
+                if len(assumptions) > 1:
                   error(scase.location, 'only one assumption is allowed in a switch case')
                   
                 if isinstance(new_subject, Var):

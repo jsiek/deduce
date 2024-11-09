@@ -10,6 +10,8 @@ import rec_desc_parser
 import traceback
 from pathlib import Path
 
+traceback_flag = False
+
 def deduce_file(filename, error_expected):
     if get_verbose():
         print("Deducing file:", filename)
@@ -56,7 +58,8 @@ def deduce_file(filename, error_expected):
         else:
             print(str(e))
             # Use the following when debugging internal exceptions -Jeremy
-            # print(traceback.format_exc())
+            if traceback_flag:
+                print(traceback.format_exc())
             # for production, exit
             exit(1)
             # during development, reraise
@@ -98,6 +101,8 @@ if __name__ == "__main__":
             set_recursive_descent(True)
         elif argument == '--lalr':
             set_recursive_descent(False)
+        elif argument == '--traceback':
+            traceback_flag = True
         elif argument == '--recursive-directories' or argument == '-r':
             recursive_directories = True
         else:
