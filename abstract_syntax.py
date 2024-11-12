@@ -1401,7 +1401,11 @@ class All(Formula):
     else:
       result += ", "
 
-    result += f"{str(self.body)})"
+    result += f"{str(self.body)}"
+
+    if s + 1 == e: 
+      result += ")"
+
     return result
 
   def reduce(self, env):

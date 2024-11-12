@@ -1,0 +1,3 @@
+./test/should-error/overload6.pf:25.1-25.13: the name v is already defined:
+./test/should-error/overload6.pf:24.1-24.13:  v : A
+Only functions may have multiple definitions with the same name.
