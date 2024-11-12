@@ -91,7 +91,7 @@ ident: IDENT              -> ident
     | "all" var_list "." term                      -> all_formula
     | "<" ident_list ">" term                       -> alltype_formula
     | "some" var_list "." term                     -> some_formula
-    | "define" IDENT "=" term term                 -> define_term
+    | "define" IDENT "=" term ";" term             -> define_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
     | "(" term ")"                                 -> paren
@@ -204,6 +204,7 @@ ident: IDENT              -> ident
 
 ?case: "case" IDENT "{" proof "}"                        -> case
     | "case" IDENT ":" term "{" proof "}"                -> case_annot
+    | "case" ":" term "{" proof "}"                      -> case_annot_nolabel
 
 ?case_list: case                                        -> single
     | case case_list                                    -> push

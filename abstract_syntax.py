@@ -1058,7 +1058,7 @@ class TLet(Term):
   body: Term
 
   def __str__(self):
-    return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) \
+    return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
       + '\n\t' + str(self.body)
   # def __repr__(self):
   #   return str(self)
@@ -1393,7 +1393,7 @@ class All(Formula):
     (s, e) = self.pos
 
     result = ''
-    if s + 1 == e:
+    if True or s + 1 == e:
       result += "(all "
     result += f"{v}:{str(t)}"
     if s == 0:
@@ -2319,6 +2319,9 @@ class Assert(Statement):
   def uniquify_body(self, env):
     self.formula.uniquify(env)
 
+  def collect_exports(self, export_env):
+    pass
+    
 @dataclass
 class Print(Statement):
   term : Term
@@ -2332,6 +2335,10 @@ class Print(Statement):
   def uniquify_body(self, env):
     self.term.uniquify(env)
 
+  def collect_exports(self, export_env):
+    pass
+
+  
 def find_file(loc, name):
   for dir in get_import_directories():
     filename = dir + "/" + name + ".pf"

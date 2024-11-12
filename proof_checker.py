@@ -444,8 +444,13 @@ def check_proof(proof, env):
       
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
-      check_proof_of(reason, new_claim, env)
-      ret = remove_mark(new_claim)
+      match new_claim:
+        case Hole(loc2, tyof):
+          proved_formula = check_proof(reason, env)
+          error(loc, '\nconclude ' + str(proved_formula))
+        case _:
+          check_proof_of(reason, new_claim, env)
+          ret = remove_mark(new_claim)
       
     case PTerm(loc, term, because, rest):
       new_term = type_synth_term(term, env, None, [])
@@ -862,7 +867,9 @@ def proof_advice(formula, env):
             + '\tTo prove this equality, there are several kinds of statements that might help:\n' \
             + '\t\tdefinition,\n' \
             + '\t\trewrite, or\n' \
-            + '\t\tequations\n' 
+            + '\t\tequations\n'
+      case TLet(loc2, _, var, rhs, body):
+        return proof_advice(body, env)
       case _:
         for (name, b) in env.dict.items():
             if isinstance(b, ProofBinding) and b.local and b.formula == formula:
@@ -1056,10 +1063,15 @@ def check_proof_of(proof, formula, env):
 
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
-      claim_red = new_claim.reduce(env)
-      formula_red = formula.reduce(env)
-      check_implies(loc, claim_red, remove_mark(formula_red))
-      check_proof_of(reason, claim_red, env)
+      match new_claim:
+        case Hole(loc2, tyof):
+          check_proof_of(reason, formula, env)
+          error(loc, '\nconclude ' + str(formula))
+        case _:
+          claim_red = new_claim.reduce(env)
+          formula_red = formula.reduce(env)
+          check_implies(loc, claim_red, remove_mark(formula_red))
+          check_proof_of(reason, claim_red, env)
 
     case ApplyDefs(loc, definitions):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
@@ -1184,7 +1196,7 @@ def check_proof_of(proof, formula, env):
                     + " arguments to " + base_name(constr.name) \
                     + " not " + str(len(indcase.pattern.parameters)))
             induction_hypotheses = [instantiate(loc, formula,
-                                                [Var(loc,None,param,[])])
+                                                [Var(loc,None,param,[])]).reduce(env)
                                     for (param, ty) in 
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)

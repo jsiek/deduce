@@ -84,7 +84,7 @@ def meta_from_tokens(start_token, end_token):
 
 def parse_term_hi(token_list, i):
   token = token_list[i]
-
+  
   if token.type == 'ALL':
     i = i + 1
     vars, i = parse_var_list(token_list, i)
@@ -125,6 +125,11 @@ def parse_term_hi(token_list, i):
               + token_list[i].value)
     i = i + 1
     rhs, i = parse_term(token_list, i)
+    if token_list[i].type != 'SEMICOLON':
+        error(meta_from_tokens(token_list[i],token_list[i]),
+              'expected `;` after term of `define`, not\n\t' \
+              + token_list[i].value)
+    i = i + 1
     meta = meta_from_tokens(token, token_list[i-1])
     body, i = parse_term(token_list, i)
     return (TLet(meta, None, name, rhs, body), i)
@@ -399,14 +404,14 @@ def parse_term_equal(token_list, i):
                     Bool(meta, None, False))
   return term, i
     
-def parse_term_log(token_list, i):
+def parse_term_logic(token_list, i):
   token = token_list[i]
   term, i = parse_term_equal(token_list, i)
   while i < len(token_list) and (token_list[i].type == 'AND'
                                  or token_list[i].type == 'OR'):
     opr = token_list[i].type
     i = i + 1
-    right, i = parse_term_log(token_list, i)
+    right, i = parse_term_logic(token_list, i)
     if opr == 'AND':
       term = And(meta_from_tokens(token, token_list[i-1]), None,
                  extract_and(term) + extract_and(right))
@@ -424,10 +429,10 @@ def parse_term_log(token_list, i):
 
 def parse_term(token_list, i):
   token = token_list[i]
-  term, i = parse_term_log(token_list, i)
+  term, i = parse_term_logic(token_list, i)
   if i < len(token_list) and (token_list[i].value in iff_operators):
     i = i + 1
-    right, i = parse_term_log(token_list, i)
+    right, i = parse_term_logic(token_list, i)
     loc = meta_from_tokens(token, token_list[i-1])
     left_right = IfThen(loc, None, term.copy(), right.copy())
     right_left = IfThen(loc, None, right.copy(), term.copy())
@@ -852,7 +857,9 @@ def parse_case(token_list, i):
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
             'expected a `{` after assumption of `case`, not\n\t' \
-            + token_list[i].value)
+            + token_list[i].value \
+            + '\nwhile parsing\n'
+            + '\tcase ::= "case" identifier ":" formula "{" proof "}"')
     i = i + 1
     body, i = parse_proof(token_list, i)
     if token_list[i].type != 'RBRACE':
@@ -879,7 +886,10 @@ def parse_proof_switch_case(token_list, i):
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
             'expected a `{` after assumption of `case`, not\n\t' \
-            + token_list[i].value)
+            + token_list[i].value \
+            + '\nwhile parsing one of the following\n' \
+            + '\tswitch_proof_case ::= "case" pattern "{" proof "}"\n' \
+            + '\tswitch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"')
     i = i + 1
     body, i = parse_proof(token_list, i)
     if token_list[i].type != 'RBRACE':

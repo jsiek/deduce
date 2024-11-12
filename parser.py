@@ -449,6 +449,10 @@ def parse_tree_to_ast(e, parent):
         frm = parse_tree_to_ast(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
         return (tag, frm, body)
+    elif e.data == 'case_annot_nolabel':
+        frm = parse_tree_to_ast(e.children[0], e)
+        body = parse_tree_to_ast(e.children[1], e)
+        return ('_', frm, body)
     elif e.data == 'cases':
         return Cases(e.meta,
                      parse_tree_to_ast(e.children[0], e),
