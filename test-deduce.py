@@ -47,7 +47,7 @@ def test_deduce_errors(deduce_call, path):
 
         temp_file  = './actual_error.tmp'
         test_deduce(['--recursive-descent'], deduce_call, path + ' > ' + temp_file, 1)
-        ret_code = os.system('diff -E' + path + '.err ' + temp_file)
+        ret_code = os.system('diff --ignore-space-change ' + path + '.err ' + temp_file)
 
         if ret_code == 0:
             os.remove(temp_file)
