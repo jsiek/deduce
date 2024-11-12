@@ -146,7 +146,8 @@ def check_implies(loc, frm1, frm2):
         else:
             error(loc, '\nCould not prove that\n\t' + str(frm1) \
                   + '\nimplies\n\t' + str(frm2))
-
+# TODO: This might have to handle pos updates!
+# TODO: Args should always have 1, so just make it not a list
 def instantiate(loc, allfrm, args):
   match allfrm:
     case All(loc2, tyof, var, pos, frm):
@@ -964,13 +965,28 @@ def check_proof_of(proof, formula, env):
       x, ty = var
       check_type(ty, env)
       match formula:
-        case All(loc2, tyof, var2, _, formula2):
+        case All(loc2, tyof, var2, (s, e), formula2):
           sub = {}
+          # TODO: These are redundant
           if isinstance(var[1], TypeType):
             sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
           else:
             sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
           frm2 = formula2.substitute(sub)
+
+          # TODO: Factor out recursive overhead
+          def rec_help(r):
+            match r:
+              case All(loc2, tyof, var, (s, e), frm):
+                if s == 0:
+                  return All(loc2, tyof, var, (s, e-1), frm)
+                else:
+                  return All(loc2, tyof, var, (s-1, e-1), rec_help(frm))
+              case _: # THIS SHOULD NEVER HAPPEN
+                error(loc, "check_proof_of internal error")
+
+          if s != 0: frm2 = rec_help(frm2)
+
           body_env = env.declare_term_vars(loc, [var])
           check_proof_of(body, frm2, body_env)
         case _:
