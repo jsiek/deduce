@@ -1,27 +1,8 @@
 // Proofs of summation formulae
 // I don't know if this is something fun to add as an example somewhere?
-
 import Nat
 
-lemma cleh : all x : Nat. all y : Nat, z : Nat.
-    if y <= z then x + y <= x + z
-proof
-    induction Nat
-    case zero {
-        arbitrary y:Nat, z:Nat
-        suppose prem
-        suffices y ≤ z  by definition operator+
-        prem
-    }
-    case suc(n') suppose IH{
-        arbitrary y:Nat, z:Nat
-        suppose prem
-        suffices n' + y ≤ n' + z by definition {operator+, operator≤}
-        apply IH[y, z] to prem
-    }
-end
-
-lemma bleh : all n : Nat. n <= n * n
+lemma n_le_nn : all n : Nat. n <= n * n
 proof
     induction Nat
     case zero {
@@ -34,7 +15,7 @@ proof
                 | add_assoc[suc(n')][0, n'* (suc(n') + 0)]
         have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
             by definition operator <=
-        apply cleh[suc(n')][0, (0 + n' * (suc(n') + 0))]
+        apply less_equal_left_cancel[suc(n')][0, (0 + n' * (suc(n') + 0))]
             to zero_le_any
     }
 end
@@ -48,11 +29,9 @@ proof
     }
     case suc(n') suppose IH {
         suffices n' + n' * n' = suc(n') * n'  by definition {operator*, operator-}
-        and 
-        // Question: Why do I need proof?
-        rewrite sub_zero[n']
-           | add_sub_identity[suc(n')][n' * suc(n')]
-           | mult_commute[n'][suc(n')]
+        and rewrite sub_zero[n']
+                  | add_sub_identity[suc(n')][n' * suc(n')]
+                  | mult_commute[n'][suc(n')]
         definition operator*
     }
 end
@@ -85,10 +64,9 @@ proof
               and rewrite sub_zero[n'] | blah[n'] | two_mult[n']
         suffices ((n' * n' - n') + n') + n' = n' + n' * n' by definition operator*
             and rewrite symmetric add_assoc[n' * n' - n'][n', n'] 
-        have n_le_nn : n' <= n' * n' by bleh[n']
         suffices n' * n' + n' = n' + n' * n' by 
             rewrite add_commute[(n' * n' - n')][n']
-            | apply sub_add_identity[n'*n'][n'] to n_le_nn
+            | apply sub_add_identity[n'*n'][n'] to n_le_nn[n']
         add_commute[n' * n'][n']
     }
 end
