@@ -753,6 +753,16 @@ def is_recursive(name, typ):
         return is_recursive(name, ty)
       case _:
         return False
+
+def update_all_head(r):
+    match r:
+      case All(loc2, tyof, var, (s, e), frm):
+        if s == 0:
+          return All(loc2, tyof, var, (s, e-1), frm)
+        else:
+          return All(loc2, tyof, var, (s, e-1), update_all_head(frm))
+      case _: # THIS SHOULD NEVER HAPPEN
+        error(loc2, "update_all_head internal error")
     
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
@@ -779,8 +789,11 @@ def proof_advice(formula, env):
             + '\t\tsuppose label: ' + str(prem) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
-      case All(loc, tyof, var, _, body):
+      case All(loc, tyof, var, (s, e), body):
         x, ty = var
+        
+        if s != 0:
+          body = update_all_head(body)
         arb_advice = prefix \
             + '\tYou can complete the proof with:\n' \
             + '\t\tarbitrary ' + base_name(x) + ':' + str(ty) + '\n' \
@@ -967,25 +980,12 @@ def check_proof_of(proof, formula, env):
       match formula:
         case All(loc2, tyof, var2, (s, e), formula2):
           sub = {}
-          # TODO: These are redundant
-          if isinstance(var[1], TypeType):
-            sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
-          else:
-            sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
+          sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
+          
           frm2 = formula2.substitute(sub)
 
-          # TODO: Factor out recursive overhead
-          def rec_help(r):
-            match r:
-              case All(loc2, tyof, var, (s, e), frm):
-                if s == 0:
-                  return All(loc2, tyof, var, (s, e-1), frm)
-                else:
-                  return All(loc2, tyof, var, (s-1, e-1), rec_help(frm))
-              case _: # THIS SHOULD NEVER HAPPEN
-                error(loc, "check_proof_of internal error")
-
-          if s != 0: frm2 = rec_help(frm2)
+          if s != 0: 
+            frm2 = update_all_head(frm2)
 
           body_env = env.declare_term_vars(loc, [var])
           check_proof_of(body, frm2, body_env)
