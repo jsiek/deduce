@@ -116,24 +116,6 @@ def parse_term_hi(token_list, i):
     meta = meta_from_tokens(token, token_list[i-1])
     return (TermInst(meta, None, subject, type_args), i)
 
-  elif token.type == 'DEFINE':
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    if token_list[i].type != 'EQUAL':
-        error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected `=` after name in `define`, not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    rhs, i = parse_term(token_list, i)
-    if token_list[i].type != 'SEMICOLON':
-        error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected `;` after term of `define`, not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    body, i = parse_term(token_list, i)
-    return (TLet(meta, None, name, rhs, body), i)
-
   elif token.type == 'FALSE':
     return (Bool(meta_from_tokens(token_list[i],token_list[i]),
                  None, False), i + 1)
@@ -429,22 +411,43 @@ def parse_term_logic(token_list, i):
 
 def parse_term(token_list, i):
   token = token_list[i]
-  term, i = parse_term_logic(token_list, i)
-  if i < len(token_list) and (token_list[i].value in iff_operators):
+
+  if token.type == 'DEFINE':
     i = i + 1
-    right, i = parse_term_logic(token_list, i)
-    loc = meta_from_tokens(token, token_list[i-1])
-    left_right = IfThen(loc, None, term.copy(), right.copy())
-    right_left = IfThen(loc, None, right.copy(), term.copy())
-    term = And(loc, None, [left_right, right_left])
+    name, i = parse_identifier(token_list, i)
+    if token_list[i].type != 'EQUAL':
+        error(meta_from_tokens(token_list[i],token_list[i]),
+              'expected `=` after name in `define`, not\n\t' \
+              + token_list[i].value)
+    i = i + 1
+    rhs, i = parse_term_logic(token_list, i)
+    if token_list[i].type != 'SEMICOLON':
+        error(meta_from_tokens(token_list[i],token_list[i]),
+              'expected `;` after term of `define`, not\n\t' \
+              + token_list[i].value)
+    i = i + 1
+    meta = meta_from_tokens(token, token_list[i-1])
+    body, i = parse_term(token_list, i)
+    return (TLet(meta, None, name, rhs, body), i)
+
+  else:
   
-  if i < len(token_list) and token_list[i].type == 'COLON':
-    i = i + 1
-    typ, i = parse_type(token_list, i)
-    term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
-                   term, typ)
-      
-  return term, i
+    term, i = parse_term_logic(token_list, i)
+    if i < len(token_list) and (token_list[i].value in iff_operators):
+      i = i + 1
+      right, i = parse_term_logic(token_list, i)
+      loc = meta_from_tokens(token, token_list[i-1])
+      left_right = IfThen(loc, None, term.copy(), right.copy())
+      right_left = IfThen(loc, None, right.copy(), term.copy())
+      term = And(loc, None, [left_right, right_left])
+
+    if i < len(token_list) and token_list[i].type == 'COLON':
+      i = i + 1
+      typ, i = parse_type(token_list, i)
+      term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
+                     term, typ)
+
+    return term, i
 
 def parse_assumption(token_list, i):
   if token_list[i].type == 'COLON':

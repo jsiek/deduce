@@ -1393,7 +1393,7 @@ class All(Formula):
     (s, e) = self.pos
 
     result = ''
-    if True or s + 1 == e:
+    if s + 1 == e:
       result += "(all "
     result += f"{v}:{str(t)}"
     if s == 0:

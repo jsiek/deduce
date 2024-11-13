@@ -505,19 +505,54 @@ colon.  In the above, `six` holds a natural number, so its type is
 ## Define (Term)
 
 ```
-term ::= "define" identifier "=" term term
+term ::= "define" identifier "=" term ";" term
 ```
 
-This associates a name with a term for use in the subsequent term.
+This associates a name with a term for use in the term after the semicolon.
 
 ```{.deduce^#define_term_example}
-assert 5 = (define x = 3
-            2 + x)
+assert 5 = (define x = 3; 2 + x)
+```
+
+## Define (Proof)
+
+```
+proof ::= "define" identifier "=" term  proof
+```
+
+This associates a name with a term for use in the following proof.
+(Note: there is no semicolon after the term when using `define` in a proof.)
+
+```{.deduce^#define_proof_example}
+theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x + x)
+proof
+  arbitrary x:Nat
+  define y = x + x + x
+  suffices y + (y + 0) = y + y
+    by definition {operator*,operator*,operator*}
+  rewrite add_zero[y]
+end
 ```
 
 ## Definition (Proof)
 
-UNDER CONSTRUCTION
+```
+proof ::= "definition" identifier
+proof ::= "definition" "{" identifier_list "}"
+```
+
+In the current goal formula, replace the occurences of the specified
+names with their definitions. If a definition is recursive, only one
+expansion is performed per time the definition's name is mentioned in
+the list. If one of the specified names does not appear in the goal
+formula, Deduce signals an error.
+
+```{.deduce^#definition_example}
+theorem length_list2: length([0,1]) = 2
+proof
+  definition {length, length, length, operator+, operator+}
+end
+```
 
 ## Definition-In (Proof)
 
@@ -1757,6 +1792,8 @@ import Maps
 <<conjunct_example>>
 <<define_example>>
 <<define_term_example>>
+<<define_proof_example>>
+<<definition_example>>
 <<division_example>>
 <<equations_example>>
 <<greater_example>>
