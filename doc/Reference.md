@@ -1399,6 +1399,21 @@ pattern ::= "false"
 pattern ::= identifier "(" identifier_list ")"
 ```
 
+This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
+and [Function (Statement)](#function-statement) via [Pattern List](#pattern-list).
+
+
+## Pattern List
+
+```
+pattern_list ::=
+pattern_list ::= pattern
+pattern_list ::= pattern "," ident_list
+```
+
+A pattern list is a comma-separated sequence of zero or more patterns.
+
+
 ## Pos (Positive Integers)
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
@@ -1555,7 +1570,7 @@ term ::= "switch" term "{" switch_case* "}"
 switch_case ::= "case" pattern "{" term "}"
 ```
 
-(See the entry for Pattern for the syntax of `pattern`.)
+(See the entry for [Pattern](#pattern) for the syntax of `pattern`.)
 
 The subject of the `switch` must be of union type or `bool` (e.g., not
 a function). The body of the `switch` must have one `case` for every
