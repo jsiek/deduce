@@ -1,0 +1,4 @@
+./test/should-error/theorem_implies8.pf:2.1-2.6: expected keyword `then` after premise of `if` formula, not
+	proof
+while parsing
+	formula ::= "if" formula "then" formula

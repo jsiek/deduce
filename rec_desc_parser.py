@@ -89,9 +89,11 @@ def parse_term_hi(token_list, i):
     i = i + 1
     vars, i = parse_var_list(token_list, i)
     if token_list[i].type != 'DOT':
-      error(meta_from_tokens(token, token_list[i]),
+      error(meta_from_tokens(token_list[i], token_list[i]),
             'expected `.` after parameters of `all`, not\n\t' \
-            + token_list[i].value)
+            + token_list[i].value \
+            + '\nwhile parsing\n' \
+            + '\tterm ::= "all" var_list "." term')
     i = i + 1
     body, i = parse_term(token_list, i)
     meta = meta_from_tokens(token, token_list[i-1])
@@ -105,13 +107,17 @@ def parse_term_hi(token_list, i):
     if token_list[i].type != 'LESSTHAN':
       error(meta_from_tokens(token_list[i],token_list[i]),
             'expected `<` after subject of instantiation (`@`), not\n\t' \
-            + token_list[i].value)
+            + token_list[i].value \
+            + '\nwhile parsing\n' \
+            + '\tterm ::= "@" term "<" type_list ">"')
     i = i + 1
     type_args, i = parse_type_list(token_list, i)
     if token_list[i].type != 'MORETHAN':
       error(meta_from_tokens(token_list[i],token_list[i]),
             'expected closing `>` after type arguments of instantiation (`@`)' \
-            + ' , not\n\t' + token_list[i].value)
+            + ' , not\n\t' + token_list[i].value \
+            + '\nwhile parsing\n' \
+            + '\tterm ::= "@" term "<" type_list ">"')
     i = i + 1
     meta = meta_from_tokens(token, token_list[i-1])
     return (TermInst(meta, None, subject, type_args), i)
@@ -127,7 +133,9 @@ def parse_term_hi(token_list, i):
     i = i + 1
     intToken = token_list[i]
     if intToken.type == 'INT' or intToken.value == '0':
-      return (intToDeduceInt(meta_from_tokens(intToken,intToken), int(intToken.value), token.type), i + 1)
+      return (intToDeduceInt(meta_from_tokens(intToken,intToken),
+                             int(intToken.value), token.type),
+              i + 1)
     else: 
       error(meta_from_tokens(token_list[i],token_list[i]),
             'expected an integer not\n\t' + token_list[i].value)
@@ -138,7 +146,9 @@ def parse_term_hi(token_list, i):
     if token_list[i].type != 'THEN':
       error(meta_from_tokens(token_list[i],token_list[i]),
             'expected keyword `then` after premise of `if` formula, not\n\t' \
-            + token_list[i].value)
+            + token_list[i].value \
+            + '\nwhile parsing\n' \
+            + '\tformula ::= "if" formula "then" formula')
     i = i + 1
     conc, i = parse_term(token_list, i)
 
@@ -861,7 +871,7 @@ def parse_case(token_list, i):
       error(meta_from_tokens(token_list[start],token_list[i]),
             'expected a `{` after assumption of `case`, not\n\t' \
             + token_list[i].value \
-            + '\nwhile parsing\n'
+            + '\nwhile parsing\n' \
             + '\tcase ::= "case" identifier ":" formula "{" proof "}"')
     i = i + 1
     body, i = parse_proof(token_list, i)
