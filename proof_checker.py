@@ -791,7 +791,7 @@ def proof_advice(formula, env):
       case IfThen(loc, tyof, prem, conc):
         return prefix \
             + '\tYou can complete the proof with:\n' \
-            + '\t\tsuppose label: ' + str(prem) + '\n' \
+            + '\t\tassume label: ' + str(prem) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
       case All(loc, tyof, var, (s, e), body):
@@ -878,9 +878,9 @@ def proof_advice(formula, env):
             + '\t\t' + str(body.substitute(new_vars))
       case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs], _):
         return prefix \
-            + '\tTo prove this equality, there are several kinds of statements that might help:\n' \
-            + '\t\tdefinition,\n' \
-            + '\t\trewrite, or\n' \
+            + '\tTo prove this equality, one of these statements might help:\n' \
+            + '\t\tdefinition\n' \
+            + '\t\trewrite\n' \
             + '\t\tequations\n'
       case TLet(loc2, _, var, rhs, body):
         return proof_advice(body, env)
@@ -1046,8 +1046,8 @@ def check_proof_of(proof, formula, env):
           prem2_red = prem2.reduce(env)
           if prem1_red != prem2_red:
             (small1, small2) = isolate_difference(prem1_red, prem2_red)
-            msg = str(small1) + ' ≠ ' + str(small2) + '\n' \
-                + 'therefore\n' + str(prem1_red) + ' ≠ ' + str(prem2_red)
+            msg = str(prem1_red) + ' ≠ ' + str(prem2_red) + '\n' \
+                + 'because\n' + str(small1) + ' ≠ ' + str(small2)
             error(loc, 'mismatch in premise:\n' + msg)
           body_env = env.declare_local_proof_var(loc, label, prem1_red)
           check_proof_of(body, conc, body_env)

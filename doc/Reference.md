@@ -542,21 +542,65 @@ proof ::= "definition" "{" identifier_list "}"
 ```
 
 In the current goal formula, replace the occurences of the specified
-names with their definitions. If a definition is recursive, only one
-expansion is performed per time the definition's name is mentioned in
-the list. If one of the specified names does not appear in the goal
+names with their definitions and then check whether the formula has
+simplified to `true`. If a definition is recursive, only one expansion
+is performed per time the definition's name is mentioned in the
+list. If one of the specified names does not appear in the goal
 formula, Deduce signals an error.
 
 ```{.deduce^#definition_example}
 theorem length_list2: length([0,1]) = 2
 proof
-  definition {length, length, length, operator+, operator+}
+  suffices 1 + length([1]) = 2
+      by definition length
+  suffices 1 + (1 + 0) = 2
+      by definition {length, length}
+  definition {operator+, operator+}
 end
 ```
 
+## Definition and Rewrite (Proof)
+
+```
+proof ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
+```
+
+Apply the specified definitions to the current goal (see [Definition (Proof)](#Definition-Proof), 
+then the specified rewrites (see [Rewrite (Proof)](#Rewrite-Proof)).
+If this simplifies that formula to `true`, then this statement proves
+the goal.  Otherwise, Deduce signals an error.
+
 ## Definition-In (Proof)
 
-UNDER CONSTRUCTION
+```
+proof ::= "definition" identifier "in" proof
+proof ::= "definition" "{" identifier_list "}" "in" proof
+```
+
+In the formula of the given proof, replace the occurences of the
+specified names with their definitions resulting in the formula that
+is proved by this `definition`-`in` statement.  If a definition is
+recursive, only one expansion is performed per time the definition's
+name is mentioned in the list. If one of the specified names does not
+appear in the formula, Deduce signals an error.
+
+```{.deduce^#definition_in_example}
+theorem definition_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
+proof
+  arbitrary ls:List<Nat>
+  switch ls {
+    case [] {
+      .
+    }
+    case node(x, ls') {
+      assume A: length(node(x, ls')) = 0
+      have B: 1 + length(ls') = 0  by definition length in A
+      have C: suc(length(ls')) = 0 by definition operator+ in B
+      conclude false by C
+    }
+  }
+end
+```
 
 ## Divide
 
@@ -1794,6 +1838,7 @@ import Maps
 <<define_term_example>>
 <<define_proof_example>>
 <<definition_example>>
+<<definition_in_example>>
 <<division_example>>
 <<equations_example>>
 <<greater_example>>
