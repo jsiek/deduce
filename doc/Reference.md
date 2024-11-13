@@ -565,7 +565,7 @@ end
 proof ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
 ```
 
-Apply the specified definitions to the current goal (see [Definition (Proof)](#definition-proof), 
+Apply the specified definitions to the current goal (see [Definition (Proof)](#definition-proof)), 
 then the specified rewrites (see [Rewrite (Proof)](#rewrite-proof)).
 If this simplifies that formula to `true`, then this statement proves
 the goal.  Otherwise, Deduce signals an error.
