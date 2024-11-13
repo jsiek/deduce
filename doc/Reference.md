@@ -578,7 +578,7 @@ proof ::= "definition" "{" identifier_list "}" "in" proof
 ```
 
 In the formula of the given proof, replace the occurences of the
-specified names with their definitions resulting in the formula that
+specified names with their definitions, resulting in the formula that
 is proved by this `definition`-`in` statement.  If a definition is
 recursive, only one expansion is performed per time the definition's
 name is mentioned in the list. If one of the specified names does not
@@ -1491,7 +1491,28 @@ end
 
 ## Rewrite-In (Proof)
 
-UNDER CONSTRUCTION
+```
+proof ::= "rewrite" proof_list "in" proof
+```
+
+In the formula of the given proof, rewrite according to the equalities
+proved by the specified [Proof List](#proof-list), resulting in the
+formula that is proved by this `rewrite`-`in` statement. In
+particular, for each equality, any term in the formula that is equal
+to the left-hand side of the equality is replaced by the right-hand
+side of the equality.
+
+```{.deduce^#rewrite_in_example}
+theorem rewrite_in_example: all x:Nat, y:Nat.
+  if x < y then not (x = y)
+proof
+  arbitrary x:Nat, y:Nat
+  assume: x < y
+  assume: x = y
+  have: y < y by rewrite (recall x = y) in (recall x < y)
+  conclude false by apply less_irreflexive[y] to (recall y < y)
+end
+```
 
 ## Set (Type)
 
@@ -1891,6 +1912,7 @@ import Maps
 <<or_example_intro2>>
 <<print_example>>
 <<rewrite_example>>
+<<rewrite_in_example>>
 <<switch_example>>
 <<switch_proof_example>>
 <<subset_example>>
