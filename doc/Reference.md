@@ -1365,8 +1365,6 @@ assert false or true
 assert not (false or false)
 ```
 
-### Prove `P or Q`
-
 To prove `P or Q` it is enough to just prove `P` or to just prove `Q`.
 
 ```{.deduce^#or_example_intro1}
@@ -1387,6 +1385,10 @@ proof
 end
 ```
 
+To use a given of the form `P or Q`, use
+[Cases (Disjunction Elimination)](#cases-disjunction-elimination).
+
+
 ## Pattern
 
 ```
@@ -1400,6 +1402,17 @@ pattern ::= identifier "(" identifier_list ")"
 ## Pos (Positive Integers)
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
+
+
+## Proof List
+
+```
+proof_list :: proof 
+proof_list ::= proof "|" proof_list
+```
+
+A list of proofs separated by vertical bars. This syntax is used
+in [Rewrite (Proof)](#rewrite-proof).
 
 
 ## Print (Statement)
@@ -1455,7 +1468,26 @@ The proof `reflexive` proves that `a = a` for any term `a`.
 
 ## Rewrite (Proof)
 
-UNDER CONSTRUCTION
+```
+proof ::= "rewrite" proof_list
+```
+
+Rewrite the current goal formula according to the equalities proved by
+the specified [Proof List](#proof-list). For each equality, any term
+in the goal formula that is equal to its left-hand side is replaced by
+its right-hand side. If all the rewriting simplifies the goal formula
+to `true`, then this statement proves the goal.  Otherwise, Deduce
+signals an error.
+
+```{.deduce^#rewrite_example}
+theorem rewrite_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
+proof
+  arbitrary x:Nat,y:Nat
+  assume prem: x = y
+  suffices 1 + y = 1 + y by rewrite prem
+  .
+end
+```
 
 ## Rewrite-In (Proof)
 
@@ -1858,6 +1890,7 @@ import Maps
 <<or_example_intro1>>
 <<or_example_intro2>>
 <<print_example>>
+<<rewrite_example>>
 <<switch_example>>
 <<switch_proof_example>>
 <<subset_example>>
