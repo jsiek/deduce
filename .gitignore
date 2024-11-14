@@ -5,3 +5,4 @@ personal
 test/**/*.thm
 lib/*.thm
 actual_error.tmp
+.vscode

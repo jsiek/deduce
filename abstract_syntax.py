@@ -1058,7 +1058,7 @@ class TLet(Term):
   body: Term
 
   def __str__(self):
-    return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) \
+    return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
       + '\n\t' + str(self.body)
   # def __repr__(self):
   #   return str(self)
@@ -1377,25 +1377,38 @@ class IfThen(Formula):
 
 @dataclass
 class All(Formula):
-  vars: list[Tuple[str,Type]]
+  var: Tuple[str,Type]
+  pos: Tuple[int, int]
   body: Formula
 
   def copy(self):
-    return All(self.location,
-               [(x, t.copy()) for (x,t) in self.vars],
-               self.body.copy())
+    x, t = self.var
+    return All(self.location, (x, t.copy()), self.pos, self.body.copy())
   
   def __str__(self):
-    if get_verbose():
-      params = self.vars
+    v, t = self.var
+    if not get_verbose():
+      v = base_name(v)
+
+    (s, e) = self.pos
+
+    result = ''
+    if s + 1 == e:
+      result += "(all "
+    result += f"{v}:{str(t)}"
+    if s == 0:
+      result += ". "
     else:
-      params = [(base_name(x), t)for (x,t) in self.vars]
-    return '(all ' + ", ".join([v + ":" + str(t) \
-                                for (v,t) in params]) \
-        + '. ' + str(self.body) + ')'
+      result += ", "
+
+    result += f"{str(self.body)}"
+
+    if s + 1 == e: 
+      result += ")"
+
+    return result
 
   def reduce(self, env):
-    n = len(self.vars)
     new_body = self.body.reduce(env)
     match new_body:
       case Bool(loc, tyof, b):
@@ -1403,35 +1416,37 @@ class All(Formula):
           print('reduce ' + str(self) + '\n\t==> ' + str(new_body))
         return new_body
       case _:
+        x, ty = self.var
         return All(self.location,
                    self.typeof,
-                   [(x, ty.reduce(env)) for (x,ty) in self.vars],
+                   (x, ty.reduce(env)),
+                   self.pos,
                    new_body)
 
   def substitute(self, sub):
-    n = len(self.vars)
+    x, ty = self.var
     return All(self.location,
                self.typeof,
-               [(x, ty.substitute(sub)) for (x,ty) in self.vars],
+               (x, ty.substitute(sub)),
+               self.pos,
                self.body.substitute(sub))
   
   def __eq__(self, other):
     if not isinstance(other, All):
       return False
-    sub = {y: Var(self.location, None, x, [x]) \
-           for ((x,tx),(y,ty)) in zip(self.vars, other.vars)}
+    x, tx = self.var
+    y, ty = other.var
+    sub = { y: Var(self.location, None, x, [x]) }
     return self.body == other.body.substitute(sub)
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
-    new_vars = []
-    for (x,ty) in self.vars:
-      t = ty.copy()
-      t.uniquify(body_env)
-      new_x = generate_name(x)
-      new_vars.append( (new_x,t) )
-      body_env[x] = [new_x]
-    self.vars = new_vars
+    (x,ty) = self.var
+    t = ty.copy()
+    t.uniquify(body_env)
+    new_x = generate_name(x)
+    body_env[x] = [new_x]
+    self.var = (new_x,t)
     self.body.uniquify(body_env)
     
 @dataclass
@@ -1659,50 +1674,80 @@ class ImpIntro(Proof):
     
 @dataclass
 class AllIntro(Proof):
-  vars: List[Tuple[str,Type]]
+  var: Tuple[str,Type]
+  pos: Tuple[int, int]
   body: Proof
 
   def __str__(self):
-    return 'arbitrary ' + ",".join([x + ":" + str(t) for (x,t) in self.vars]) \
-        + '; ' + str(self.body)
+    s, e = self.pos
+    x, t = self.var
+    res = ''
+    if s + 1 == e:
+      res += 'arbitrary'
+    res += f"{x} : {str(t)}"
+    if s == 0:
+      res += ";"
+    else:
+      res += ","
+    
+    return res + str(self.body)
 
   def uniquify(self, env):
     body_env = copy_dict(env)
-    new_vars = []
-    for (x,ty) in self.vars:
-      t = ty.copy()
-      t.uniquify(body_env)
-      new_x = generate_name(x)
-      new_vars.append( (new_x,t) )
-      body_env[x] = [new_x]
-    self.vars = new_vars
+    x, ty = self.var
+    new_t = ty.copy()
+    new_t.uniquify(body_env)
+    new_x = generate_name(x)
+    body_env[x] = [new_x]
+    self.var = (new_x, new_t)
     self.body.uniquify(body_env)
     
 @dataclass
 class AllElimTypes(Proof):
   univ: Proof
-  args: List[Type]
+  arg: Type
+  pos: Tuple[int, int]
 
   def __str__(self):
-    return str(self.univ) + '<' + ','.join([str(arg) for arg in self.args]) + '>'
+    print(self.pos)
+    s, e = self.pos
+    res = str(self.univ)
+    if s == 0:
+      res += f"<{self.arg}"
+    else:
+      res += f", {self.arg}"
+
+    if s + 1 == e:
+      res += ">"
+
+    return res
 
   def uniquify(self, env):
     self.univ.uniquify(env)
-    for arg in self.args:
-      arg.uniquify(env)
+    self.arg.uniquify(env)
       
 @dataclass
 class AllElim(Proof):
   univ: Proof
-  args: List[Term]
+  arg: Term
+  pos: Tuple[int, int]
 
   def __str__(self):
-    return str(self.univ) + '[' + ','.join([str(arg) for arg in self.args]) + ']'
+    s, e = self.pos
+    res = str(self.univ)
+    if s == 0:
+      res += f"[{self.arg}"
+    else:
+      res += f", {self.arg}"
+
+    if s + 1 == e:
+      res += "]"
+
+    return res
 
   def uniquify(self, env):
     self.univ.uniquify(env)
-    for arg in self.args:
-      arg.uniquify(env)
+    self.arg.uniquify(env)
       
 @dataclass
 class SomeIntro(Proof):
@@ -2278,6 +2323,9 @@ class Assert(Statement):
   def uniquify_body(self, env):
     self.formula.uniquify(env)
 
+  def collect_exports(self, export_env):
+    pass
+    
 @dataclass
 class Print(Statement):
   term : Term
@@ -2291,6 +2339,10 @@ class Print(Statement):
   def uniquify_body(self, env):
     self.term.uniquify(env)
 
+  def collect_exports(self, export_env):
+    pass
+
+  
 def find_file(loc, name):
   for dir in get_import_directories():
     filename = dir + "/" + name + ".pf"
@@ -2511,7 +2563,7 @@ class TermBinding(Binding):
   defn : Term = None
   
   def __str__(self):
-    return str(self.typ) + ' = ' + str(self.defn)
+    return str(self.typ) + (' = ' + str(self.defn) if self.defn else '')
 
 @dataclass
 class ProofBinding(Binding):
@@ -2747,7 +2799,7 @@ def count_marks(formula):
       return sum([count_marks(arg) for arg in args])
     case IfThen(loc2, tyof, prem, conc):
       return count_marks(prem) + count_marks(conc)
-    case All(loc2, tyof, vars, frm2):
+    case All(loc2, tyof, var, _, frm2):
       return count_marks(frm2)
     case Some(loc2, tyof, vars, frm2):
       return count_marks(frm2)
@@ -2793,7 +2845,7 @@ def find_mark(formula):
     case IfThen(loc2, tyof, prem, conc):
       find_mark(prem)
       find_mark(conc)
-    case All(loc2, tyof, vars, frm2):
+    case All(loc2, tyof, var, pos, frm2):
       find_mark(frm2)
     case Some(loc2, tyof, vars, frm2):
       find_mark(frm2)
@@ -2844,8 +2896,8 @@ def replace_mark(formula, replacement):
     case IfThen(loc2, tyof, prem, conc):
       return IfThen(loc2, tyof, replace_mark(prem, replacement),
                     replace_mark(conc, replacement))
-    case All(loc2, tyof, vars, frm2):
-      return All(loc2, tyof, vars, replace_mark(frm2, replacement))
+    case All(loc2, tyof, var, pos, frm2):
+      return All(loc2, tyof, var, pos, replace_mark(frm2, replacement))
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, replace_mark(frm2, replacement))
     case Call(loc2, tyof, rator, args, infix):

@@ -448,7 +448,7 @@ proof
         by definition {operator*, operator+}
     equations   suc(n + m' * suc(n))
               = suc(n + (m' + m' * n))       by rewrite IH[n]
-          ... = suc( #(n + m') + m' * n# )   by rewrite add_assoc[n][m', m' * n]
+          ... = suc( #(n + m') + m' * n# )   by rewrite add_assoc[n][m'][m' * n]
           ... = suc((m' + n) + m' * n)       by rewrite add_commute[n][m']
           ... = suc(m' + (n + m' * n))       by rewrite add_assoc[m'][n, m' * n]
   }

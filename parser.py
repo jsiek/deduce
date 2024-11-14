@@ -168,14 +168,19 @@ def parse_tree_to_ast(e, parent):
        subject = parse_tree_to_ast(e.children[0], e)
        return IfThen(e.meta, None, subject, Bool(e.meta, None, False))
     elif e.data == 'all_formula':
-        return All(e.meta, None,
-                   parse_tree_to_list(e.children[0], e),
-                   parse_tree_to_ast(e.children[1], e))
+        vars = parse_tree_to_list(e.children[0], e)
+        body = parse_tree_to_ast(e.children[1], e)
+        result = body
+        for i, var in enumerate(reversed(vars)):
+            result = All(e.meta, None, var, (i, len(vars)), result)
+        return result
     elif e.data == 'alltype_formula':
         vars = parse_tree_to_list(e.children[0], e)
-        return All(e.meta, None,
-                   [(v, TypeType(e.meta)) for v in vars],
-                   parse_tree_to_ast(e.children[1], e))
+        body = parse_tree_to_ast(e.children[1], e)
+        result = body
+        for i, ty in enumerate(reversed(vars)):
+            result = All(e.meta, None, (ty, TypeType(e.meta)), (i, len(vars)), result)
+        return result
     elif e.data == 'some_formula':
         return Some(e.meta, None,
                     parse_tree_to_list(e.children[0], e),
@@ -400,15 +405,24 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'all_intro':
         vars = parse_tree_to_list(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
-        return AllIntro(e.meta, vars, body)
+        result = body
+        for i, var in enumerate(reversed(vars)):
+            result = AllIntro(e.meta, var, (i, len(vars)), result)
+        return result
     elif e.data == 'all_elim':
         univ = parse_tree_to_ast(e.children[0], e)
         args = parse_tree_to_list(e.children[1], e)
-        return AllElim(e.meta, univ, args)
+        result = univ
+        for i,var in enumerate(args):
+            result = AllElim(e.meta, result, var, (i, len(args)))
+        return result
     elif e.data == 'all_elim_types':
         univ = parse_tree_to_ast(e.children[0], e)
         type_args = parse_tree_to_list(e.children[1], e)
-        return AllElimTypes(e.meta, univ, type_args)
+        result = univ
+        for i, ty in enumerate(type_args):
+            result = AllElimTypes(e.meta, result, ty, (e ,len(type_args)))
+        return result
     elif e.data == 'some_intro':
         witnesses = parse_tree_to_list(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
@@ -435,6 +449,10 @@ def parse_tree_to_ast(e, parent):
         frm = parse_tree_to_ast(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
         return (tag, frm, body)
+    elif e.data == 'case_annot_nolabel':
+        frm = parse_tree_to_ast(e.children[0], e)
+        body = parse_tree_to_ast(e.children[1], e)
+        return ('_', frm, body)
     elif e.data == 'cases':
         return Cases(e.meta,
                      parse_tree_to_ast(e.children[0], e),

@@ -23,6 +23,11 @@ proof
   }
 end
 
+theorem excluded_middle: all b:bool. b or not b
+proof
+  ex_mid
+end
+
 theorem or_sym: all P:bool, Q:bool.  (P or Q) = (Q or P)
 proof
   arbitrary P:bool, Q:bool

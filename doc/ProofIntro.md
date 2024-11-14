@@ -46,8 +46,7 @@ to remind us of what is left to prove.
 To tell Deduce to apply the definition of `length`, we can use
 the `definition` statement.
 
-<!-- {.deduce #length_nat_empty} -->
-```
+```{.deduce^#length_nat_empty}
 theorem length_nat_empty: length(@[]<Nat>) = 0
 proof
   definition length
@@ -132,8 +131,8 @@ Finally we need to prove, `1 + 0 = 1`. That can be proved using the
 `add_zero` theorem from the file `Nat.pf`, which we explain in the upcoming
 section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
 
-<!-- {.deduce #length_node42} -->
-```
+
+```{.deduce^#length_node42}
 theorem length_node42: length([42]) = 1
 proof
   suffices 1 + 0 = 1
@@ -148,8 +147,8 @@ end
 Prove that `[1] ++ [2] = [1, 2]`
 by filling in the `?` below.
 
-<!-- {.deduce #append_node_1_node_2} -->
-```
+
+```{.deduce^#append_node_1_node_2}
 theorem append_node_1_node_2:
   [1] ++ [2] = [1, 2]
 proof
@@ -166,7 +165,7 @@ formula must be true for all natural numbers and the variable `x` will
 be used to refer to the natural number.  We then replace the `42` in
 the formula with `x` to obtain the following theorem statement.
 
-    theorem length_one_nat: all x:Nat. length([x]) = 1
+    theorem length_nat_one: all x:Nat. length([x]) = 1
     proof
       ?
     end
@@ -183,7 +182,7 @@ stand in for all entities of the specified type. The `arbitrary`
 statement asks you to name the hypothetical entity. Here we choose `x`
 but we could have chosen a different name.
 
-    theorem length_one_nat: all x:Nat. length([x]) = 1
+    theorem length_nat_one: all x:Nat. length([x]) = 1
     proof
       arbitrary x:Nat
       ?
@@ -199,9 +198,9 @@ a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
 before, using the definitions of `length` and the `add_zero` theorem.
 
-<!-- {.deduce #length_one_nat} -->
-```
-theorem length_one_nat: all x:Nat. length([x]) = 1
+
+```{.deduce^#length_nat_one}
+theorem length_nat_one: all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
   suffices 1 + 0 = 1
@@ -213,13 +212,13 @@ end
 Once we have proved that an `all` formula is true, we can use it by
 supplying an entity of the appropriate type inside square brackets. In
 the following we prove the `length_node42` theorem again, but this
-time the proof makes use of `length_one_nat`.
+time the proof makes use of `length_nat_one`.
 
-<!-- {.deduce #length_node42_again} -->
-```
+
+```{.deduce^#length_node42_again}
 theorem length_node42_again: length([42]) = 1
 proof
-  length_one_nat[42]
+  length_nat_one[42]
 end
 ```
 
@@ -229,9 +228,9 @@ any type. In Deduce we can also use the `all` statement to generalize
 types. In the following, we add `all U:type` to the formula and 
 another `arbitrary` statement.
 
-<!-- {.deduce #length_one} -->
-```
-theorem length_one: all U:type. all x:U. length([x]) = 1
+
+```{.deduce^#list_length_one}
+theorem list_length_one: all U:type. all x:U. length([x]) = 1
 proof
   arbitrary U:type
   arbitrary x:U
@@ -253,8 +252,8 @@ To summarize this section:
 ### Exercise
 
 Complete the following proof.
-<!-- {.deduce #append_node_x_node_y} -->
-```
+
+```{.deduce^#append_node_x_node_y}
 theorem append_xy:
   all T:type. all x:T, y:T. [x] ++ [y] = [x, y]
 proof
@@ -277,10 +276,10 @@ left-hand side of an equation with the right-hand side of the
 equation.
 
 For example, let us prove the following theorem using `rewrite`
-with the above `length_one` theorem.
+with the above `list_length_one` theorem.
 
 ```
-theorem length_one_equal: all U:type. all x:U, y:U.
+theorem list_length_one_equal: all U:type. all x:U, y:U.
   length([x]) = length([y])
 proof
   arbitrary U:type
@@ -290,12 +289,12 @@ end
 ```
 
 To replace `length([x])` with `1`, we rewrite
-using the `length_one` theorem instantiated at `U` and `x`.
+using the `list_length_one` theorem instantiated at `U` and `x`.
 Note that we use `<` and `>` when instantiating a type parameter
 and we use `[` and `]` when instantiating a term parameter.
 
 ```
-rewrite length_one<U>[x]
+rewrite list_length_one<U>[x]
 ```
 
 Deduce tells us that the current goal has become
@@ -305,26 +304,26 @@ remains to prove:
 	1 = length([y])
 ```
 
-We rewrite again, separated by a vertical bar, using `length_one`,
+We rewrite again, separated by a vertical bar, using `list_length_one`,
 this time instantiated with `y`.
 
 ```
-rewrite length_one<U>[x] | length_one<U>[y]
+rewrite list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
 Deduce changes the goal to `1 = 1`, which simplies to just `true`,
 so Deduce accepts the `rewrite` statement.
 
-Here is the completed proof of `length_one_equal`.
+Here is the completed proof of `list_length_one_equal`.
 
-<!-- {.deduce #length_one_equal} -->
-```
-theorem length_one_equal: all U:type. all x:U, y:U.
+
+```{.deduce^#list_length_one_equal}
+theorem list_length_one_equal: all U:type. all x:U, y:U.
   length([x]) = length([y])
 proof
   arbitrary U:type
   arbitrary x:U, y:U
-  rewrite length_one<U>[x] | length_one<U>[y]
+  rewrite list_length_one<U>[x] | list_length_one<U>[y]
 end
 ```
 
@@ -340,8 +339,8 @@ Here we discuss how to reason about addition. Reasoning
 about the other operations follows a similar pattern.
 
 Here is the definition of natural numbers from `Nat.pf`:
-<!-- {.deduce} -->
-```
+
+```{.deduce}
 union Nat {
   zero
   suc(Nat)
@@ -353,8 +352,7 @@ The parser for Deduce translates `0` into `zero`,
 
 Here is the definition of addition from `Nat.pf`:
 
-<!-- {.deduce} -->
-```
+```{.deduce}
 function operator +(Nat,Nat) -> Nat {
   operator +(0, m) = m
   operator +(suc(n), m) = suc(n + m)
@@ -398,8 +396,8 @@ We have not yet discussed how to use the `if`-`then` formula in
 Prove the following theorem using the `add_zero` and `mult_one`
 theorems from `Nat.pf`.
 
-<!-- {.deduce #x_0_x_eq_2_x} -->
-```
+
+```{.deduce^#x_0_x_eq_2_x}
 theorem x_0_x_eq_2_x: 
   all x:Nat. (x + 0) + x = (x + x) * 1
 proof
@@ -472,8 +470,8 @@ use its label.
 
 Here is the complete proof of the `xyz_zyx` theorem.
 
-<!-- {.deduce #xyz_zyx} -->
-```
+
+```{.deduce^#xyz_zyx}
 theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
   x + y + z = z + y + x
 proof
@@ -502,8 +500,8 @@ equation is written as `...` because it is just a repetition of the
 right-hand side of the previous equation. Here's another proof of the
 theorem about `x + y + z`, this time using an `equations` statement.
 
-<!-- {.deduce #xyz_zyx_eqn} -->
-```
+
+```{.deduce^#xyz_zyx_eqn}
 theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
   x + y + z = z + y + x
 proof
@@ -536,7 +534,7 @@ For example, consider the following theorem about appending a list to
 an empty list. Suppose we try to use `arbitrary` for both the
 `all U` and the `all xs`.
 
-    theorem append_empty: all U :type. all xs :List<U>.
+    theorem list_append_empty: all U :type. all xs :List<U>.
       xs ++ [] = xs
     proof
       arbitrary U:type
@@ -556,7 +554,7 @@ list or a `node`.
 So instead of using `arbitrary xs:List<U>` to prove the `all xs`, we
 proceed by induction as follows.
 
-    theorem append_empty: all U :type. all xs :List<U>.
+    theorem list_append_empty: all U :type. all xs :List<U>.
       xs ++ [] = xs
     proof
       arbitrary U:type
@@ -649,11 +647,11 @@ right-hand side of the induction hypothesis `IH`. We use the
         ... = node(n,xs')             by rewrite IH
     }
 
-Here is the completed proof of `append_empty`.
+Here is the completed proof of `list_append_empty`.
 
-<!-- {.deduce #append_empty} -->
-```
-theorem append_empty: all U :type. all xs :List<U>.
+
+```{.deduce^#list_append_empty}
+theorem list_append_empty: all U :type. all xs :List<U>.
   xs ++ [] = xs
 proof
   arbitrary U:type
@@ -678,8 +676,8 @@ To summarize this section:
 
 Fill in the proof of the following theorem about `length` and `++`.
 
-<!-- {.deduce #length_append} -->
-```
+
+```{.deduce^#length_append}
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
 proof
@@ -695,9 +693,9 @@ example proves that `0 ≤ 1 and 0 ≤ 2`.  This is accomplished by
 separately proving that `0 ≤ 1` is true and that `0 ≤ 2` is true, then
 using the comma operator to combine those proofs: `one_pos, two_pos`.
 
-<!-- {.deduce #positive_1_and_2} -->
-```
-theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
+
+```{.deduce^#pos_1_and_2}
+theorem pos_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
   have one_pos: 0 ≤ 1 by definition operator ≤
   have two_pos: 0 ≤ 2 by definition operator ≤
@@ -709,11 +707,11 @@ On the other hand, in Deduce you can use a conjunction as if it were
 one of its subformulas, implicitly. In the following we use the
 fact that `0 ≤ 1 and 0 ≤ 2` to prove `0 ≤ 2`.
 
-<!-- {.deduce #positive_2} -->
-```
-theorem positive_2: 0 ≤ 2
+
+```{.deduce^#pos_2}
+theorem pos_2: 0 ≤ 2
 proof
-  conclude 0 ≤ 2 by positive_1_and_2
+  conclude 0 ≤ 2 by pos_1_and_2
 end
 ```
 
@@ -731,7 +729,7 @@ For example, consider the following variation on the trichotomy law
 for numbers, which states that for any two natural numbers `x` and `y`, 
 either `x ≤ y` or `y < x`.
 
-    theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+    theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
     proof
       ?
     end
@@ -739,7 +737,7 @@ either `x ≤ y` or `y < x`.
 We can prove this using the `trichotomy` theorem from `Nat.pf`,
 which tells us that `x < y` or `x = y` or `y < x`.
 
-    theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+    theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
     proof
       arbitrary x:Nat, y:Nat
       have tri: x < y or x = y or y < x by trichotomy[x][y]
@@ -797,11 +795,11 @@ So we can immediately conclude that `x ≤ y or y < x`.
       conclude x ≤ y or y < x by y_l_x
     }
 
-Here is the completed proof of the `dichotomy` theorem.
+Here is the completed proof of the `intro_dichotomy` theorem.
 
-<!-- {.deduce #dichotomy} -->
-```
-theorem dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+
+```{.deduce^#intro_dichotomy}
+theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
 proof
   arbitrary x:Nat, y:Nat
   have tri: x < y or x = y or y < x by trichotomy[x][y]
@@ -834,7 +832,7 @@ Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
 consider how to prove the following theorem.
 
-    theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+    theorem intro_zero_or_positive: all x:Nat. x = 0 or 0 < x
     proof
       ?
     end
@@ -883,9 +881,9 @@ Thankfully that follows from the definitions of `<` and `≤`.
 Here is the completed proof that every natural number is either zero
 or positive.
 
-<!-- {.deduce #zero_or_positive} -->
-```
-theorem zero_or_positive: all x:Nat. x = 0 or 0 < x
+
+```{.deduce^#intro_zero_or_positive}
+theorem intro_zero_or_positive: all x:Nat. x = 0 or 0 < x
 proof
   arbitrary x:Nat
   switch x {
@@ -910,8 +908,8 @@ Sometimes one needs to apply a set of definitions and rewrites
 to the goal. Consider the following definition of `max'`.
 (There is a different definition of `max` in `Nat.pf`.)
 
-<!-- {.deduce #alt_max} -->
-```
+
+```{.deduce^#alt_max}
 define max' = λx:Nat, y:Nat { if x ≤ y then y else x }
 ```
 
@@ -936,8 +934,8 @@ This resolves the `if`-`then`-`else` inside of `max'` to just `x`. So
 we are left to prove `x ≤ x`, which of course is true.
 Here is the complete proof that `x ≤ max'(x,y)`.
 
-<!-- {.deduce #less_alt_max} -->
-```
+
+```{.deduce^#less_alt_max}
 theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
 proof
   arbitrary x:Nat, y:Nat
@@ -964,7 +962,7 @@ then it must be the `empty` list. Along the way we will also learn how
 to apply a definition to an already-known fact.
 
 ```
-theorem length_zero_empty: all T:type. all xs:List<T>.
+theorem list_length_zero_empty: all T:type. all xs:List<T>.
   if length(xs) = 0 then xs = []
 proof
   arbitrary T:type
@@ -1029,11 +1027,11 @@ definition of `length` to this fact. We do so using Deduce's
 We discuss contradictions and `false` in more detail in the upcoming section
 [Reasoning about `false`](#reasoning-about-false).
 
-Here is the complete proof of `length_zero_empty`.
+Here is the complete proof of `list_length_zero_empty`.
 
-<!-- {.deduce #length_zero_empty} -->
-```
-theorem length_zero_empty: all T:type. all xs:List<T>.
+
+```{.deduce^#list_length_zero_empty}
+theorem list_length_zero_empty: all T:type. all xs:List<T>.
   if length(xs) = 0 then xs = []
 proof
   arbitrary T:type
@@ -1055,7 +1053,7 @@ already proven.  We use Deduce's `apply`-`to` statement (aka. modus
 ponens) to obtain the conclusion of an `if`-`then` formula by
 supplying a proof of the condition.  We demonstrate several uses of
 `apply`-`to` in the proof of the following theorem, which builds on
-`length_zero_empty`.
+`list_length_zero_empty`.
 
 ```
 theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
@@ -1102,18 +1100,18 @@ in `add_to_zero`.)
 
 We conclude that `xs = empty and ys = empty` with our second use of
 `apply`-`to`, where we make use of the previous theorem
-`length_zero_empty`.
+`list_length_zero_empty`.
 
 ```
   conclude xs = empty and ys = empty
-  by (apply length_zero_empty<T>[xs] to len_xs),
-     (apply length_zero_empty<T>[ys] to len_ys)
+  by (apply list_length_zero_empty<T>[xs] to len_xs),
+     (apply list_length_zero_empty<T>[ys] to len_ys)
 ```
 
 Here is the complete proof of `length_append_zero_empty`.
 
-<!-- {.deduce #length_append_zero_empty} -->
-```
+
+```{.deduce^#length_append_zero_empty}
 theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
   if length(xs ++ ys) = 0
   then xs = [] and ys = []
@@ -1126,8 +1124,8 @@ proof
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
   have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
   conclude xs = [] and ys = []
-  by (apply length_zero_empty<T>[xs] to len_xs),
-     (apply length_zero_empty<T>[ys] to len_ys)
+  by (apply list_length_zero_empty<T>[xs] to len_xs),
+     (apply list_length_zero_empty<T>[ys] to len_ys)
 end
 ```
 
@@ -1148,8 +1146,8 @@ Prove that `all x:Nat. if x ≤ 0 then x = 0`.
 There's not much to say about `true`. It's true!  And as we've already
 seen, proving `true` is easy. Just use a period.
 
-<!-- {.deduce #really_trivial} -->
-```
+
+```{.deduce^#really_trivial}
 theorem really_trivial: true
 proof
   .
@@ -1166,8 +1164,8 @@ However, it can arise in contradictory situations. For example,
 in the following we have a situation in which `true = false`.
 That can't be, so Deduce simplifies `true = false` to just `false`.
 
-<!-- {.deduce #contra_false} -->
-```
+
+```{.deduce^#contra_false}
 theorem contra_false: all a:bool, b:bool.
   if a = b and a = true and b = false then false
 proof
@@ -1205,8 +1203,8 @@ implies anything. For example, normally we don't know whether or not
 two arbitrary Booleans `x` and `y` are the same or different.  But if
 we have a premise that is `false`, it doesn't matter.
 
-<!-- {.deduce #false_any} -->
-```
+
+```{.deduce^#false_any}
 theorem false_any: all x:bool, y:bool. if false then x = y
 proof
   arbitrary x:bool, y:bool
@@ -1224,7 +1222,7 @@ To summarize this section:
 To express that a formula is false, precede it with `not`.  For
 example, for any natural number `x`, it is not the case that `x < x`.
 
-    theorem less_irreflexive:  all x:Nat. not (x < x)
+    theorem intro_less_irreflexive:  all x:Nat. not (x < x)
     proof
       ?
     end
@@ -1265,9 +1263,9 @@ We conclude this case by applying the induction hypothesis to `x' < x'`.
 
 Here is the completed proof that less-than is irreflexive.
 
-<!-- {.deduce #less_irreflexive} -->
-```
-theorem less_irreflexive:  all x:Nat. not (x < x)
+
+```{.deduce^#intro_less_irreflexive}
+theorem intro_less_irreflexive:  all x:Nat. not (x < x)
 proof
   induction Nat
   case zero {
@@ -1297,10 +1295,10 @@ In the section
 we learned that the `rewrite` statement of Deduce applies an equation
 to the current goal.  There is a second variant of `rewrite` that
 applies an equation to a fact. As an example, we'll prove the
-following theorem that is a straightforward use of `less_irreflexive`.
+following theorem that is a straightforward use of `intro_less_irreflexive`.
 
 ```
-theorem less_not_equal: all x:Nat, y:Nat.
+theorem intro_less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
@@ -1328,7 +1326,7 @@ condition `x = y`.
 ```
 
 Now we need to prove false, and we have the hint to use the
-`less_irreflexive` theorem.
+`intro_less_irreflexive` theorem.
 
 ```
 incomplete proof
@@ -1347,25 +1345,25 @@ Note the extra keyword `in` that is used in this version of `rewrite`.
   have y_l_y: y < y   by rewrite x_y in x_l_y
 ```
 
-We arrive at the contradition by applying `less_irreflexive` 
+We arrive at the contradition by applying `intro_less_irreflexive` 
 to `y < y`.
 
 ```
-  conclude false by apply less_irreflexive[y] to y_l_y
+  conclude false by apply intro_less_irreflexive[y] to y_l_y
 ```
 
-Here is the complete proof of `less_not_equal`.
+Here is the complete proof of `intro_less_not_equal`.
 
-<!-- {.deduce #less_not_equal} -->
-```
-theorem less_not_equal: all x:Nat, y:Nat.
+
+```{.deduce^#intro_less_not_equal}
+theorem intro_less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
   suppose x_l_y: x < y
   suppose x_y: x = y
   have y_l_y: y < y by rewrite x_y in x_l_y
-  conclude false by apply less_irreflexive[y] to y_l_y
+  conclude false by apply intro_less_irreflexive[y] to y_l_y
 end
 ```
 
@@ -1375,8 +1373,8 @@ Using the `rewrite`-`in` statement, prove the following variation on
 the transitivity theorem for `≤`. Prove that if `x = y` and `y ≤ z`,
 then `x ≤ z`.
 
-<!-- {.deduce #equal_less_trans} -->
-```
+
+```{.deduce^#equal_less_trans}
 theorem equal_less_trans: all x:Nat, y:Nat, z:Nat.
   if x = y and y ≤ z then x ≤ z
 proof
@@ -1397,7 +1395,7 @@ As an example of how to reason about `some` formulas, let us prove a
 classic property of the even numbers, that the addition of two even
 numbers is an even number. Here's the beginning of the proof.
 
-    theorem addition_of_evens:
+    theorem intro_addition_of_evens:
       all x:Nat, y:Nat.
       if Even(x) and Even(y) then Even(x + y)
     proof
@@ -1461,9 +1459,9 @@ property of multiplication over addition (from `Nat.pf`).
 
 Here is the complete proof.
 
-<!-- {.deduce #addition_of_evens} -->
-```
-theorem addition_of_evens:
+
+```{.deduce^#intro_addition_of_evens}
+theorem intro_addition_of_evens:
   all x:Nat, y:Nat.
   if Even(x) and Even(y) then Even(x + y)
 proof
@@ -1485,9 +1483,10 @@ To summarize this section:
 * Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.
 
-<!-- {.deduce file=ProofIntro.pf} -->
+
 <!--
-```
+```{.deduce^file=ProofIntro.pf}
+import Nat
 import List
 
 <<length_nat_empty>>
@@ -1500,32 +1499,32 @@ proof
   definition {operator++, operator++}
 end
 
-<<length_one_nat>>
+<<length_nat_one>>
 <<length_node42_again>>
-<<length_one>>
-<<length_one_equal>>
+<<list_length_one>>
+<<list_length_one_equal>>
 
 <<alt_max>>
 <<less_alt_max>>
 
-<<append_empty>>
+<<list_append_empty>>
 
 <<xyz_zyx>>
 <<xyz_zyx_eqn>>
 
 
-<<positive_1_and_2>>
-<<positive_2>>
-<<dichotomy>>
-<<length_zero_empty>>
+<<pos_1_and_2>>
+<<pos_2>>
+<<intro_dichotomy>>
+<<list_length_zero_empty>>
 <<length_append_zero_empty>>
 <<really_trivial>>
 <<contra_false>>
 <<false_any>>
-<<less_irreflexive>>
-<<less_not_equal>>
+<<intro_less_irreflexive>>
+<<intro_less_not_equal>>
 
-<<zero_or_positive>>
-<<addition_of_evens>>
+<<intro_zero_or_positive>>
+<<intro_addition_of_evens>>
 ```
 -->

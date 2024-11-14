@@ -26,7 +26,7 @@ Deduce, the following is an implementation of the Linear Search
 algorithm and a proof that item `y` does not occur in the list `xs` at
 a position before the index returned by `search(xs, y)`.
 
-```
+```{.deduce^#search_take}
 function search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0
   search(node(x, xs), y) =
@@ -194,9 +194,10 @@ you can use instead.
 <!--  LocalWords:  contra foo sx xy dist mult
  -->
 
-<!-- {.deduce file=index.pf} -->
+
 <!--
-```
+```{.deduce^file=index.pf}
+import Nat
 import List
 import Set
 

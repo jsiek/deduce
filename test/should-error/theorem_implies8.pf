@@ -1,0 +1,5 @@
+theorem T1: if true
+proof
+  suppose _
+  .
+end

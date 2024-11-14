@@ -1,0 +1,5 @@
+theorem T: all x : bool x = x 
+proof
+  arbitrary x:bool
+  conclude x = x by .
+end
