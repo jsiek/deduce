@@ -1384,6 +1384,7 @@ def apply_definitions(loc, formula, defs, env):
       error(loc, 'in definition, formula contains more than one mark:\n\t' + str(formula))
 
   for var in defs:
+    if isinstance(var, Var): # it's a bit strange that RecDef's can find there way into defs -Jeremy
       reduced_one = False
       for var_name in var.resolved_names:
           rvar = Var(var.location, var.typeof, var_name, [var_name])

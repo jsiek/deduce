@@ -434,7 +434,9 @@ def parse_term(token_list, i):
     if token_list[i].type != 'SEMICOLON':
         error(meta_from_tokens(token_list[i],token_list[i]),
               'expected `;` after term of `define`, not\n\t' \
-              + token_list[i].value)
+              + token_list[i].value \
+              + '\nwhile parsing\n' \
+              + '\tterm ::= "define" IDENT "=" term ";" term')
     i = i + 1
     meta = meta_from_tokens(token, token_list[i-1])
     body, i = parse_term(token_list, i)
