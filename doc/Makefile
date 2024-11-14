@@ -13,25 +13,25 @@ default: check_docs
 check_docs: check_index check_fun check_intro check_ref
 
 check_index:
-	cat ../index.md | sed 's/\^/ /' > index.en
+	cat ../index.md | sed 's/deduce\^/deduce /' > index.en
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) $(DEDUCE) --recursive-descent index.pf --dir $(LIB_DIR)
 	$(PYTHON) $(DEDUCE) --lalr index.pf --dir $(LIB_DIR)
 
 check_fun:
-	cat FunctionalProgramming.md | sed 's/\^/ /' > FunctionalProgramming.en
+	cat FunctionalProgramming.md | sed 's/deduce\^/deduce /' > FunctionalProgramming.en
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) $(DEDUCE) --recursive-descent FunctionalProgramming.pf --dir $(LIB_DIR)
 	$(PYTHON) $(DEDUCE) --lalr FunctionalProgramming.pf --dir $(LIB_DIR)
 
 check_intro:
-	cat ProofIntro.md | sed 's/\^/ /' > ProofIntro.en
+	cat ProofIntro.md | sed 's/deduce\^/deduce /' > ProofIntro.en
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) $(DEDUCE) --recursive-descent ProofIntro.pf --dir $(LIB_DIR)
 	$(PYTHON) $(DEDUCE) --lalr ProofIntro.pf --dir $(LIB_DIR)
 
 check_ref:
-	cat Reference.md | sed 's/\^/ /' > Reference.en
+	cat Reference.md | sed 's/deduce\^/deduce /' > Reference.en
 	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
 	$(PYTHON) $(DEDUCE) --recursive-descent Reference.pf --dir $(LIB_DIR)
 	$(PYTHON) $(DEDUCE) --lalr Reference.pf --dir $(LIB_DIR)
