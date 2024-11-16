@@ -591,6 +591,12 @@ proof
   ls, sl
 end
 
+theorem not_less_zero:
+  all x:Nat. not (x < 0)
+proof
+  definition {operator<, operator≤}
+end       
+
 theorem less_equal_implies_less_or_equal:
   all x:Nat. all y:Nat.
   if x ≤ y then x < y or x = y

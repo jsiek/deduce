@@ -713,6 +713,23 @@ proof
   }
 end
 
+theorem drop_append: all E:type. all xs:List<E>. all ys:List<E>.
+  drop(length(xs), xs ++ ys) = ys
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary ys:List<E>
+    definition {length, operator++, drop}
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<E>
+    definition {length, operator++, operator+, drop}
+    and rewrite zero_add[length(xs')]
+    | IH[ys]
+  }
+end
+
 theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
   nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
 proof

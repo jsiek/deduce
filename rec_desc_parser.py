@@ -682,7 +682,12 @@ def parse_proof_hi(token_list, i):
       error(meta_from_tokens(token_list[i], token_list[i]),
             'expected the keyword `by` after formula of `have`, ' \
             + 'not\n\t' + token_list[i].value)
-    body,i = parse_proof(token_list, i)
+    try:
+      body,i = parse_proof(token_list, i)
+    except Exception as e:
+      raise Exception(str(e) + '\nwhile parsing: ' \
+                      + '"have" label ":" formula "by" proof proof\n' \
+                      + '                                                   ^^^^^')
     return PLet(meta_from_tokens(token, token_list[i-1]),
                 label, proved, because, body), i
   
@@ -691,8 +696,13 @@ def parse_proof_hi(token_list, i):
     typ, i = parse_type(token_list, i)
     cases = []
     while token_list[i].type == 'CASE':
+      try:
         c, i = parse_induction_case(token_list, i)
-        cases.append(c)
+      except Exception as e:
+        raise Exception(str(e) + '\nwhile parsing: ' \
+                        + '\t"case" pattern "{" proof "}"\n'\
+                        + '\t                           ^^^^^')
+      cases.append(c)
     return (Induction(meta_from_tokens(token, token_list[i-1]), typ, cases), i)
         
   elif token.type == 'INJECTIVE':
@@ -784,7 +794,12 @@ def parse_proof_hi(token_list, i):
     i = i + 1
     proof, i = parse_proof(token_list, i)
     meta = meta_from_tokens(token, token_list[i-1])
-    body, i = parse_proof(token_list, i)
+    try:
+      body, i = parse_proof(token_list, i)
+    except Exception as e:
+      raise Exception(str(e) + '\nwhile parsing: ' \
+                      + '"suffices" formula "by" proof proof\n' \
+                      + '                                             ^^^^^')
     return (Suffices(meta, formula, proof, body), i)
     
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
@@ -852,7 +867,7 @@ def parse_proof_hi(token_list, i):
       name, i = parse_identifier(token_list, i)
     except Exception as e:
       error(meta_from_tokens(token, token_list[i]),
-            'expected a proof\n' + str(e))
+            'expected a proof, not `' + token_list[i].value + '`')
     return (PVar(meta_from_tokens(token, token), name), i)
 
 def parse_proof_list(token_list, i):
@@ -873,8 +888,7 @@ def parse_case(token_list, i):
       error(meta_from_tokens(token_list[start],token_list[i]),
             'expected a `{` after assumption of `case`, not\n\t' \
             + token_list[i].value \
-            + '\nwhile parsing\n' \
-            + '\tcase ::= "case" identifier ":" formula "{" proof "}"')
+            + '\nwhile parsing:\n\t"case" label ":" formula "{" proof "}"')
     i = i + 1
     body, i = parse_proof(token_list, i)
     if token_list[i].type != 'RBRACE':

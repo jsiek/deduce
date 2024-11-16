@@ -77,10 +77,6 @@ Here are some
 [instructions](https://wiki.python.org/moin/BeginnersGuide/Download)
 and links to the download for various systems.
 
-<!--
-
-[A copy of Lark is now included in Deduce. -Jeremy]
-
 You also need to install the
 [Lark](https://github.com/lark-parser/lark) Parsing library, which you
 can do by running the following command in the same directory as
@@ -89,7 +85,6 @@ can do by running the following command in the same directory as
 ```bash
 python -m pip install lark
 ```
--->
 
 ## Getting Started
 
