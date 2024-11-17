@@ -13,7 +13,7 @@ def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments
         call = deduce_call + ' ' + parser + ' ' + extra_arguments
         print('Testing:', call)
         return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
-        if False and return_code != expected_return:
+        if return_code != expected_return:
             print(call, 'expected return code', expected_return, 'but got', return_code)
             exit(1)
 
