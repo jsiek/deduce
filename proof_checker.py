@@ -436,7 +436,7 @@ def check_proof(proof, env):
           error(loc, "\nhave " + label + ':\n\t' + str(proved_formula))
         case _:
           check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, new_frm)
+          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
           ret = check_proof(rest, body_env)
       
     case PAnnot(loc, claim, reason):
@@ -1070,7 +1070,7 @@ def check_proof_of(proof, formula, env):
           error(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
         case _:
           check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, new_frm)
+          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
           check_proof_of(rest, formula, body_env)
 
     case PAnnot(loc, claim, reason):
