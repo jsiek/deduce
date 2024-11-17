@@ -146,19 +146,15 @@ def check_implies(loc, frm1, frm2):
         else:
             error(loc, '\nCould not prove that\n\t' + str(frm1) \
                   + '\nimplies\n\t' + str(frm2))
-# TODO: This might have to handle pos updates!
-# TODO: Args should always have 1, so just make it not a list
-def instantiate(loc, allfrm, args):
+
+def instantiate(loc, allfrm, arg):
   match allfrm:
-    case All(loc2, tyof, var, pos, frm):
-      if len(args) == 1:
-        sub = { var[0] : args[0] }
-        ret = frm.substitute(sub)
-        return ret
-      else:
-        error(loc, 'expected 1 argument, not ' \
-              + str(len(args)) + ', ' \
-              + 'to instantiate:\n\t' + str(allfrm))
+    case All(loc2, tyof, (var, ty), (s, e), frm):
+      sub = { var : arg }
+      ret = frm.substitute(sub)
+      if s != 0:
+        ret = update_all_head(ret)
+      return ret
     case _:
       error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   
@@ -497,7 +493,6 @@ def check_proof(proof, env):
         case All(loc2, tyof, var, _, frm):
           sub = {}
           v, ty = var
-          new_args = []
           try:
             new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
           except Exception as e:
@@ -510,27 +505,24 @@ def check_proof(proof, env):
               error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
                     +'\nwith type arguments, instead write:\n\t' \
                     +str(univ) + '<' + str(arg) + '>\n')
-          new_args.append(new_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
                 + '\nGivens:\n' + env.proofs_str())
-      return instantiate(loc, allfrm, new_args)
+      return instantiate(loc, allfrm, new_arg)
 
     case AllElimTypes(loc, univ, type_arg, _):
       allfrm = check_proof(univ, env)
       match allfrm:
         case All(loc2, tyof, vars, _, frm):
           sub = {}
-          new_args = []
           var, ty = vars
           check_type(type_arg, env)
           if not isinstance(ty, TypeType):
               error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
           sub[var] = type_arg
-          new_args.append(type_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
-      return instantiate(loc, allfrm, new_args)
+      return instantiate(loc, allfrm, type_arg)
   
     case ModusPonens(loc, imp, arg):
       ifthen = check_proof(imp, env)
@@ -693,19 +685,23 @@ def proof_use_advice(proof, formula, env):
             + '\t\t' + str(conc) + '\n' \
             + '\tby using an apply-to statement:\n' \
             + '\t\tapply ' + str(proof) + ' to ?'
-      case All(loc, tyof, var, pos, body):
-        # TODO: This is hacky and not sugared
+      case All(loc, tyof, var, (s, e), body):
         vars = [var]
+        while s != 0:
+          match body:
+            case All(loc2, tyof2, var2, (s, e2), body):
+              vars.append(var2)
+
         letters = []
         new_vars = {}
         i = 65
         type_param = False
         for (x,ty) in vars:
-            if isinstance(ty, TypeType):
-                type_param = True
-            letters.append(chr(i))
-            new_vars[x] = Var(loc,ty, chr(i), [])
-            i = i + 1
+          if isinstance(ty, TypeType):
+              type_param = True
+          letters.append(chr(i))
+          new_vars[x] = Var(loc,ty, chr(i), [])
+          i = i + 1
         plural = 's' if len(vars) > 1 else ''
         pronoun = 'them' if len(vars) > 1 else 'it'
         
@@ -1212,7 +1208,7 @@ def check_proof_of(proof, formula, env):
                     + " arguments to " + base_name(constr.name) \
                     + " not " + str(len(indcase.pattern.parameters)))
             induction_hypotheses = [instantiate(loc, formula,
-                                                [Var(loc,None,param,[])]).reduce(env)
+                                                Var(loc,None,param,[])).reduce(env)
                                     for (param, ty) in 
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)
@@ -1229,7 +1225,7 @@ def check_proof_of(proof, formula, env):
             
             trm = pattern_to_term(indcase.pattern)
             new_trm = type_check_term(trm, typ, body_env, None, [])
-            goal = instantiate(loc, formula, [new_trm])
+            goal = instantiate(loc, formula, new_trm)
             
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
               if frm1 != None:
