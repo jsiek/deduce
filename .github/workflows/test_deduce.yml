@@ -22,8 +22,6 @@ jobs:
             python -m pip install --upgrade pip
             pip install flake8 pytest
             if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-            ref: # branch
-            my_other_branch
       - name: execute py script # run file
         run: |
           python test-deduce.py
