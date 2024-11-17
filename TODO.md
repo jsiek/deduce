@@ -1,8 +1,6 @@
 [ ] generalize precedence to everything, e.g. to fix printing of
     parentheses in 'all'.
 
-[ ] don't import lemmas
-
 [ ] equations for ≤, etc. (anything with transitivity)
 
 [ ] hide the suc-oriented arithmetic
@@ -20,8 +18,4 @@
 [ ] specify number of unfoldings in definition
 
 [ ] remove parent param from parser, not needed anymore
-
-
-
-
 
