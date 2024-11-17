@@ -14,7 +14,10 @@ def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments
         print('Testing:', call)
         return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
         if return_code != expected_return:
-            print(call, 'expected return code', expected_return, 'but got', return_code)
+            if expected_return == 0:
+                print('\nTest failed!')
+            else:
+                print('\nDeduce failed to catch an error!')
             exit(1)
 
 def generate_deduce_errors(deduce_call, path):
