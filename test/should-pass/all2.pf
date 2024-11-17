@@ -1,6 +1,6 @@
 theorem T: all p : bool. if p then p
 proof
   arbitrary p : bool
-  // suppose P: p //Oh no, I messed up
+  // suppose P: p //Oh no, I messed up!
   P
 end
