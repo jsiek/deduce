@@ -1136,7 +1136,7 @@ class Mark(Term):
     #             self.subject.copy())
   
   def __str__(self):
-    return '{' + str(self.subject) + '}'
+    return '#' + str(self.subject) + '#'
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
