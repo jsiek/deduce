@@ -856,6 +856,16 @@ def parse_proof_hi(token_list, i):
     meta = meta_from_tokens(token, token)
     return (PTransitive(meta, eq1, eq2), i)
 
+  elif token.type == 'EVALUATE':
+    i = i + 1
+    if token_list[i].type == 'IN':
+        i = i + 1
+        subject, i = parse_proof(token_list, i)
+        return (EvaluateFact(meta_from_tokens(token, token_list[i-1]),
+                             subject), i)
+    else:
+        return (EvaluateGoal(meta_from_tokens(token, token_list[i-1])), i)
+    
   else:
     for kw in proof_keywords:
         if edit_distance(token.value, kw) <= 2:

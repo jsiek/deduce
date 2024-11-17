@@ -1992,6 +1992,25 @@ class SwitchProof(Proof):
       c.uniquify(env)
       
 @dataclass
+class EvaluateGoal(Proof):
+
+  def __str__(self):
+    return 'evaluate'
+
+  def uniquify(self, env):
+    pass
+
+@dataclass
+class EvaluateFact(Proof):
+  subject: Proof
+
+  def __str__(self):
+    return 'evaluate ' + str(self.subject)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+  
+@dataclass
 class ApplyDefs(Proof):
   definitions: List[Term]
 

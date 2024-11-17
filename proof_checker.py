@@ -371,13 +371,21 @@ def check_proof(proof, env):
           ret = results[0]
       else:
           error(loc, 'expected some facts after `recall`')
-  
+
+    case EvaluateFact(loc, subject):
+      formula = check_proof(subject, env)
+      set_reduce_all(True)
+      red_formula = formula.reduce(env)
+      set_reduce_all(False)
+      ret = red_formula
+          
     case ApplyDefsFact(loc, definitions, subject):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
       formula = check_proof(subject, env)
       new_formula = apply_definitions(loc, formula, defs, env)
       ret = new_formula
+      
     case EnableDefs(loc, definitions, subject):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
@@ -385,6 +393,7 @@ def check_proof(proof, env):
       set_reduce_only(defs + old_defs)
       ret = check_proof(subject, env)
       set_reduce_only(old_defs)
+      
     case RewriteFact(loc, subject, equation_proofs):
       formula = check_proof(subject, env)
       eqns = [check_proof(proof, env) for proof in equation_proofs]
@@ -1085,13 +1094,19 @@ def check_proof_of(proof, formula, env):
           check_implies(loc, claim_red, remove_mark(formula_red))
           check_proof_of(reason, claim_red, env)
 
+    case EvaluateGoal(loc):
+      set_reduce_all(True)
+      red_formula = formula.reduce(env)
+      set_reduce_all(False)
+      if red_formula != Bool(loc, None, True):
+          error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' + str(red_formula))
+      return red_formula
+  
     case ApplyDefs(loc, definitions):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
       new_formula = apply_definitions(loc, formula, defs, env)
       if new_formula != Bool(loc, None, True):
-          # error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
-          #       + '\nremains to prove:\n\t' + str(new_formula))
           error(loc, 'remains to prove:\n\t' + str(new_formula))
 
     case Rewrite(loc, equation_proofs):

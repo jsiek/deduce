@@ -176,6 +176,8 @@ ident: IDENT              -> ident
     | "enable" ident proof                               -> enable_def
     | "_rewrite" proof_list proof                         -> rewrite_goal
     | "rewrite" proof_list "in" proof                    -> rewrite_fact
+    | "evaluate"                                         -> eval_goal
+    | "evaluate" "in" proof                              -> eval_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation equation_list                 -> equations_proof

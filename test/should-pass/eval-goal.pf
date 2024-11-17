@@ -1,0 +1,6 @@
+import Nat
+
+theorem T: 1 + 2 + 3 = 2 + 2 + 2
+proof
+  evaluate
+end

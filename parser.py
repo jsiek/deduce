@@ -494,6 +494,11 @@ def parse_tree_to_ast(e, parent):
         body = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
                              body)
+    elif e.data == 'eval_goal':
+        return EvaluateGoal(e.meta)
+    elif e.data == 'eval_fact':
+        subject = parse_tree_to_ast(e.children[0], e)
+        return EvaluateFact(e.meta, subject)
     elif e.data == 'apply_defs_goal_one':
         definition = parse_tree_to_ast(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
