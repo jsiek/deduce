@@ -1536,7 +1536,7 @@ class PLet(Proof):
 
   def __str__(self):
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
-        + ' by ' + str(self.because) + '; ' + str(self.body)
+        + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
   def uniquify(self, env):
     self.proved.uniquify(env)

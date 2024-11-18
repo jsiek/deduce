@@ -538,16 +538,6 @@ def parse_proof_hi(token_list, i):
     arg,i = parse_proof(token_list, i)
     return ModusPonens(meta_from_tokens(token, token_list[i-1]), imp, arg), i
 
-  elif token.type == 'ARBITRARY':
-    i = i + 1
-    vars, i = parse_var_list(token_list, i)
-    body, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    result = body
-    for j, var in enumerate(reversed(vars)):
-        result = AllIntro(meta, var, (j, len(vars)), result)
-    return (result, i)
-    
   elif token.type == 'CASES':
     i = i + 1
     subject, i = parse_proof(token_list, i)
@@ -557,13 +547,6 @@ def parse_proof_hi(token_list, i):
         cases.append(c)
     meta = meta_from_tokens(token, token_list[i-1])
     return (Cases(meta, subject, cases), i)
-    
-  elif token.type == 'CHOOSE':
-    i = i + 1
-    witnesses, i = parse_term_list(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    body, i = parse_proof(token_list, i)
-    return (SomeIntro(meta, witnesses, body), i)
     
   elif token.type == 'CONCLUDE':
     i = i + 1
@@ -593,18 +576,6 @@ def parse_proof_hi(token_list, i):
     meta = meta_from_tokens(token,token_list[i-1])
     return (PAndElim(meta, index, subject), i)
       
-  elif token.type == 'DEFINE':
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    if token_list[i].type != 'EQUAL':
-        error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected `=` after name in `define`, not\n\t' + token_list[i].value)
-    i = i + 1
-    rhs, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    body, i = parse_proof(token_list, i)
-    return (PTLetNew(meta, name, rhs, body), i)
-      
   elif token.type == 'DEFINITION':
     return parse_definition_proof(token_list, i)
 
@@ -612,23 +583,6 @@ def parse_proof_hi(token_list, i):
     i = i + 1
     return PTrue(meta_from_tokens(token, token)), i
   
-  elif token.type == 'ENABLE':
-    i = i + 1
-    if token_list[i].type != 'LBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
-              'expected `{` after `enable`')
-    i = i + 1
-    defs, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'RBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
-              'expected closing `}` in `enable`')
-    i = i + 1
-    body, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (EnableDefs(meta,
-                       [Var(meta, None, x) for x in defs],
-                       body), i)
-      
   elif token.type == 'EQUATIONS':
     i = i + 1
     first, i = parse_equation(token_list, i)
@@ -654,43 +608,9 @@ def parse_proof_hi(token_list, i):
             result = PTransitive(meta, eq_proof, result)
     return result, i    
     
-  elif token.type == 'EXTENSIONALITY':
-    i = i + 1
-    body, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (PExtensionality(meta, body), i)
-
   elif token.type == 'RECALL':
     return parse_recall(token_list, i)
     
-  elif token.type == 'HAVE':
-    i = i + 1
-    if token_list[i].type != 'COLON':
-      label,i = parse_identifier(token_list, i)
-    else:
-      label = '_'
-    if token_list[i].type != 'COLON':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected a colon after label of `have`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    proved,i = parse_term(token_list, i)
-    if token_list[i].type == 'BY':
-      i = i + 1
-      because,i = parse_proof(token_list, i)
-    else:        
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` after formula of `have`, ' \
-            + 'not\n\t' + token_list[i].value)
-    try:
-      body,i = parse_proof(token_list, i)
-    except Exception as e:
-      raise Exception(str(e) + '\nwhile parsing: ' \
-                      + '"have" label ":" formula "by" proof proof\n' \
-                      + '                                                   ^^^^^')
-    return PLet(meta_from_tokens(token, token_list[i-1]),
-                label, proved, because, body), i
-  
   elif token.type == 'INDUCTION':
     i = i + 1
     typ, i = parse_type(token_list, i)
@@ -705,13 +625,6 @@ def parse_proof_hi(token_list, i):
       cases.append(c)
     return (Induction(meta_from_tokens(token, token_list[i-1]), typ, cases), i)
         
-  elif token.type == 'INJECTIVE':
-    i = i + 1
-    constr, i = parse_term(token_list, i)
-    body, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (PInjective(meta, constr, body), i)
-
   elif token.type == 'LPAR':
     i = i + 1
     proof, i = parse_proof(token_list, i)
@@ -732,25 +645,6 @@ def parse_proof_hi(token_list, i):
     i = i + 1
     return proof, i
 
-  elif token.type == 'OBTAIN':
-    i = i + 1
-    witnesses, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'WHERE':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected `where` after variables of `obtain`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    label, premise, i = parse_assumption(token_list, i)
-    if token_list[i].type != 'FROM':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected `from` after `where` part of `obtain`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    some, i = parse_proof(token_list, i)
-    body, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (SomeElim(meta, witnesses, label, premise, some, body), i)
-    
   elif token.type == 'QMARK':
     i = i + 1
     meta = meta_from_tokens(token, token)
@@ -784,37 +678,6 @@ def parse_proof_hi(token_list, i):
       meta = meta_from_tokens(token, token_list[i-1])
       return (Rewrite(meta, proofs), i)
     
-  elif token.type == 'SUFFICES':
-    i = i + 1
-    formula, i = parse_term(token_list, i)
-    if token_list[i].type != 'BY':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` after formula of `suffices`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    proof, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    try:
-      body, i = parse_proof(token_list, i)
-    except Exception as e:
-      raise Exception(str(e) + '\nwhile parsing: ' \
-                      + '"suffices" formula "by" proof proof\n' \
-                      + '                                             ^^^^^')
-    return (Suffices(meta, formula, proof, body), i)
-    
-  elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
-    start = i
-    i = i + 1
-    try:
-      label,premise,i = parse_assumption(token_list, i)
-    except Exception as e:
-      error(meta_from_tokens(token, token_list[i]),
-            'expected an assumption:\n\t"assume" label ":" formula\n' \
-            + str(e))
-      
-    meta = meta_from_tokens(token,token_list[i-1])
-    body,i = parse_proof(token_list, i)
-    return ImpIntro(meta, label, premise, body), i
 
   elif token.type == 'SWITCH':
     i = i + 1
@@ -876,8 +739,8 @@ def parse_proof_hi(token_list, i):
     try:
       name, i = parse_identifier(token_list, i)
     except Exception as e:
-      error(meta_from_tokens(token, token_list[i]),
-            'expected a proof, not `' + token_list[i].value + '`')
+      missing_error(meta_from_tokens(token, token_list[i]),
+                    'expected a proof, not `' + token_list[i].value + '`')
     return (PVar(meta_from_tokens(token, token), name), i)
 
 def parse_proof_list(token_list, i):
@@ -967,8 +830,155 @@ def parse_proof_med(token_list, i):
         proof = AllElim(meta, proof, term, (j, len(term_list)))
 
     return (proof, i)
+
+def parse_proof_statement(token_list, i):
+  token = token_list[i]
     
+  if token.type == 'SUFFICES':
+    i = i + 1
+    formula, i = parse_term(token_list, i)
+    if token_list[i].type != 'BY':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected the keyword `by` after formula of `suffices`, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    proof, i = parse_proof(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (Suffices(meta, formula, proof, None), i)
+    
+  elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
+    start = i
+    i = i + 1
+    try:
+      label,premise,i = parse_assumption(token_list, i)
+    except Exception as e:
+      error(meta_from_tokens(token, token_list[i]),
+            'expected an assumption:\n\t"assume" label ":" formula\n' \
+            + str(e))
+      
+    meta = meta_from_tokens(token,token_list[i-1])
+    return ImpIntro(meta, label, premise, None), i
+
+  elif token.type == 'ARBITRARY':
+    i = i + 1
+    vars, i = parse_var_list(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    result = None
+    for j, var in enumerate(reversed(vars)):
+        result = AllIntro(meta, var, (j, len(vars)), result)
+    return (result, i)
+    
+  elif token.type == 'CHOOSE':
+    i = i + 1
+    witnesses, i = parse_term_list(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (SomeIntro(meta, witnesses, None), i)
+    
+  elif token.type == 'OBTAIN':
+    i = i + 1
+    witnesses, i = parse_ident_list(token_list, i)
+    if token_list[i].type != 'WHERE':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected `where` after variables of `obtain`, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    label, premise, i = parse_assumption(token_list, i)
+    if token_list[i].type != 'FROM':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected `from` after `where` part of `obtain`, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    some, i = parse_proof(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (SomeElim(meta, witnesses, label, premise, some, None), i)
+    
+  elif token.type == 'ENABLE':
+    i = i + 1
+    if token_list[i].type != 'LBRACE':
+        error(meta_from_tokens(token_list[i], token_list[i]),
+              'expected `{` after `enable`')
+    i = i + 1
+    defs, i = parse_ident_list(token_list, i)
+    if token_list[i].type != 'RBRACE':
+        error(meta_from_tokens(token_list[i], token_list[i]),
+              'expected closing `}` in `enable`')
+    i = i + 1
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (EnableDefs(meta,
+                       [Var(meta, None, x) for x in defs],
+                       None), i)
+      
+  elif token.type == 'HAVE':
+    i = i + 1
+    if token_list[i].type != 'COLON':
+      label,i = parse_identifier(token_list, i)
+    else:
+      label = '_'
+    if token_list[i].type != 'COLON':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected a colon after label of `have`, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    proved,i = parse_term(token_list, i)
+    if token_list[i].type == 'BY':
+      i = i + 1
+      because,i = parse_proof(token_list, i)
+    else:        
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected the keyword `by` after formula of `have`, ' \
+            + 'not\n\t' + token_list[i].value)
+    return PLet(meta_from_tokens(token, token_list[i-1]),
+                label, proved, because, None), i
+  
+  elif token.type == 'DEFINE':
+    i = i + 1
+    name, i = parse_identifier(token_list, i)
+    if token_list[i].type != 'EQUAL':
+        error(meta_from_tokens(token_list[i],token_list[i]),
+              'expected `=` after name in `define`, not\n\t' \
+              + token_list[i].value)
+    i = i + 1
+    rhs, i = parse_term(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (PTLetNew(meta, name, rhs, None), i)
+      
+  elif token.type == 'INJECTIVE':
+    i = i + 1
+    constr, i = parse_term(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (PInjective(meta, constr, None), i)
+
+  elif token.type == 'EXTENSIONALITY':
+    i = i + 1
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (PExtensionality(meta, None), i)
+
+  else:
+    return (None, i)
+
 def parse_proof(token_list, i):
+    (proof_stmt, i) = parse_proof_statement(token_list, i)
+    if proof_stmt:
+        #(body, i) = parse_proof(token_list, i)
+        
+        try:
+          (body, i) = parse_proof(token_list, i)
+        except Exception as ex:
+          if hasattr(ex, 'last') or not hasattr(ex, 'missing'):
+              raise ex
+          else:
+              last_error(meta_from_tokens(token_list[i], token_list[i]),
+                         'missing conclusion after\n\t' + str(proof_stmt))
+              
+        if isinstance(proof_stmt, AllIntro):
+            proof_stmt.set_body(body)
+        else:
+            proof_stmt.body = body
+        return (proof_stmt, i)
+    else:
+        return parse_finishing_proof(token_list, i)
+
+def parse_finishing_proof(token_list, i):
     start = i
     proof, i = parse_proof_med(token_list, i)
     while token_list[i].type == 'COMMA':

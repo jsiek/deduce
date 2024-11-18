@@ -10,7 +10,7 @@ error_dir = './test/should-error'
 def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
     deduce_call += ' ' + path
     for parser in parsers:
-        call = deduce_call + ' ' + parser + ' ' + extra_arguments
+        call = deduce_call + ' ' + parser + ' ' + extra_arguments #+ ' --traceback'
         print('Testing:', call)
         return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
         if return_code != expected_return:

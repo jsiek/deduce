@@ -173,7 +173,7 @@ assert [1,2] ++ [3,4] = [1,2,3,4]
 ## Apply-To Proof (Modus Ponens)
 
 ```
-proof ::= "apply" proof "to" proof
+conclusion ::= "apply" proof "to" proof
 ```
 
 A proof of the form
@@ -203,7 +203,7 @@ end
 ## Arbitrary (Forall Introduction)
 
 ```
-proof ::= "arbitrary" var_list  proof
+proof_stmt ::= "arbitrary" var_list
 ```
 
 A proof of the form
@@ -244,8 +244,8 @@ assert (if true then 7 else 5+6) = 7
 ## Assume
 
 ```
-proof ::= "assume" assumption proof
-        | "suppose" assumption proof
+proof_stmt ::= "assume" assumption
+             | "suppose" assumption
 ```
 
 A proof of the form
@@ -303,6 +303,14 @@ type ::= "bool"
 The type `bool` classifies the values `true` annd `false`.
 A formula is a term of type `bool`.
 
+## Braces (Proof)
+
+```
+proof ::= "{" proof "}"
+```
+
+A proof may be surrounded in curly braces.
+
 ## Call (Term)
 
 ```
@@ -319,7 +327,7 @@ assert length(list_example) = 3
 ## Cases (Disjunction Elimination)
 
 ```
-proof ::= "cases" proof case_list
+conclusion ::= "cases" proof case_list
 case_list ::= case | case case_list
 case ::= "case" identifier "{" proof "}"
        | "case" identifier ":" term "{" proof "}"
@@ -355,7 +363,7 @@ case y_l_x: y < x {
 ## Choose (Exists Introduction)
 
 ```
-proof ::= "choose" term_list  proof
+proof_stmt ::= "choose" term_list
 ```
 
 A proof of the form
@@ -377,7 +385,7 @@ proof
 end
 ```
 
-## Comma (Conjunction/And Introduction)
+## Comma (Logical And Introduction)
 
 ```
 term ::= term "," term
@@ -402,10 +410,10 @@ Applying the successor function `suc` (add 1) to `3` yields `5`.
 assert (suc ∘ suc)(3) = 5
 ```
 
-## Conclude
+## Conclude (Proof)
 
 ```
-proof ::= "conclude" formula "by" proof
+conclusion ::= "conclude" formula "by" proof
 ```
 
 This proof statement is useful when you wish to emphasize the end of a
@@ -426,10 +434,38 @@ proof
 end
 ```
 
+## Conclusion (Proof)
+
+The last statement in a proof (the `conclusion` symbol in the grammar)
+may by any one of the following:
+
+* [Cases](#cases-disjunction-elimination)
+* [Comma (Logical-And Introduction)](#comma-logical-and-introduction)
+* [Conclude](#conclude-proof)
+* [Conjunct](#conjunct)
+* [Definition](#definition-proof)
+* [Definition-In](#definition-in-proof)
+* [Definition and Rewrite](#definition-and-rewrite-proof)
+* [Equations](#equations)
+* [Evaluate](#evaluate-proof)
+* [Evaluate-In](#evaluate-in-proof)
+* [Help](#help-proof)
+* [Identifier](#identifier)
+* [Induction](#induction)
+* [Instantiation](#instantiation-proof)
+* [Period](#period-proof-of-true)
+* [Question Mark](#question-mark--proof)
+* [Recall](#recall-proof)
+* [Rewrite](#rewrite-proof)
+* [Sorry](#sorry-proof)
+* [Switch](#switch-proof)
+* [Symmetric](#symmetric-proof)
+* [Transitive](#transitive-proof)
+
 ## Conjunct
 
 ```
-proof ::= "conjunct" number "of" proof 
+conclusion ::= "conjunct" number "of" proof 
 ```
 
 A proof of the form
@@ -517,7 +553,7 @@ assert 5 = (define x = 3; 2 + x)
 ## Define (Proof)
 
 ```
-proof ::= "define" identifier "=" term  proof
+proof_stmt ::= "define" identifier "=" term  proof
 ```
 
 This associates a name with a term for use in the following proof.
@@ -537,8 +573,8 @@ end
 ## Definition (Proof)
 
 ```
-proof ::= "definition" identifier
-proof ::= "definition" "{" identifier_list "}"
+conclusion ::= "definition" identifier
+             | "definition" "{" identifier_list "}"
 ```
 
 In the current goal formula, replace the occurences of the specified
@@ -562,7 +598,7 @@ end
 ## Definition and Rewrite (Proof)
 
 ```
-proof ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
+conclusion ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
 ```
 
 Apply the specified definitions to the current goal (see [Definition (Proof)](#definition-proof)), 
@@ -650,7 +686,7 @@ Deduce.)
 ## Equations
 
 ```
-proof ::= "equations" equation equation_list
+conclusion ::= "equations" equation equation_list
 equation ::= term "=" term "by" proof
 half_equation ::= "..." "=" term "by" proof
 equation_list ::= half_equation
@@ -680,10 +716,26 @@ proof
 end
 ```
 
+## Evaluate (Proof)
+
+```
+conclusion ::= "evaluate"
+```
+
+UNDER CONSTRUCTION
+
+## Evaluate-In (Proof)
+
+```
+conclusion ::= "evaluate" "in" proof
+```
+
+UNDER CONSTRUCTION
+
 ## Extensionality
 
 ```
-term ::= "extensionality" proof
+proof_stmt ::= "extensionality"
 ```
 
 To prove that two functions are equal, it is sufficient to prove that
@@ -888,11 +940,11 @@ assert 1 ≥ 1
 assert not (0 ≥ 1)
 ```
 
-## Have (Proof)
+## Have (Proof Statement)
 
 ```
-proof ::= "have" identifier ":" term "by" proof proof
-        | "have" ":" term "by" proof proof
+proof_stmt ::= "have" identifier ":" term "by" proof 
+             | "have" ":" term "by" proof 
 ```
 
 Use `have` to prove a formula that may help you later to prove the
@@ -909,7 +961,7 @@ The formula `P` becomes a given and can be used inside the proof `Y`.
 ## Help (Proof)
 
 ```
-proof ::= "help" proof
+conclusion ::= "help" proof
 ```
 
 This halts Deduce and prints advice regarding how to use the formula
@@ -918,6 +970,11 @@ given.
 
 
 ## Identifier 
+
+```
+term ::= identifier
+conclusion ::= identifier
+```
 
 Identifiers are used in Deduce to give names functions and values and
 to label theorems and facts.
@@ -1047,7 +1104,7 @@ end
 ## Injective (Proof)
 
 ```
-proof ::= "injective" term proof
+proof_stmt ::= "injective" term proof
 ```
 
 The `injective` proof rule allows you to conclude that the inputs to a
@@ -1072,8 +1129,8 @@ end
 ## Instantiation (Proof)
 
 ```
-proof ::= proof '<' type_list '>'
-proof ::= proof '[' term_list ']'
+conclusion ::= proof '<' type_list '>'
+             | proof '[' term_list ']'
 ```
 
 Use square brackets `[` and `]` to instantiate an `all` formula with 
@@ -1316,7 +1373,7 @@ Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
 ## Obtain (Exists Elimination)
 
 ```
-proof ::= "obtain" identifier_list "where" assumption "from" proof  proof
+proof_stmt ::= "obtain" identifier_list "where" assumption "from" proof
 ```
 
 
@@ -1389,6 +1446,15 @@ To use a given of the form `P or Q`, use
 [Cases (Disjunction Elimination)](#cases-disjunction-elimination).
 
 
+## Parentheses
+
+```
+term ::= "(" term ")"
+proof ::= "(" proof ")"
+```
+
+A term or a proof may be surrounded in parentheses.
+
 ## Pattern
 
 ```
@@ -1413,11 +1479,29 @@ pattern_list ::= pattern "," ident_list
 
 A pattern list is a comma-separated sequence of zero or more patterns.
 
+## Period (Proof of True)
+
+```
+conclusion ::= "."
+```
+
+A period is a proof of the formula `true` in Deduce.
+
 
 ## Pos (Positive Integers)
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
 
+
+## Proof
+
+```
+proof ::= proof_stmt proof
+        | conclusion
+```
+
+A proof is a sequence of zero or more proof statements (`proof_stmt`) 
+that finishes with a `conclusion`.
 
 ## Proof List
 
@@ -1429,6 +1513,22 @@ proof_list ::= proof "|" proof_list
 A list of proofs separated by vertical bars. This syntax is used
 in [Rewrite (Proof)](#rewrite-proof).
 
+## Proof Statement
+
+The following are proof statements (`proof_stmt` symbol in the grammar).
+A proof may begin with zero or more proof statements, but it must end
+with a [Conclusion](#conclusion-proof) (not a proof statement).
+
+* [Arbitrary](#arbitrary-forall-introduction)
+* [Assume](#assume)
+* [Choose](#choose-exists-introduction)
+* [Define](#define-proof)
+* [Extensionality](#extensionality)
+* [Have](#have-proof-statement)
+* [Injective](#injective-proof)
+* [Obtain](#obtain-exists-elimination)
+* [Suffices](#Suffices (Proof Statment))
+* [Suppose](#suppose)
 
 ## Print (Statement)
 
@@ -1484,7 +1584,7 @@ The proof `reflexive` proves that `a = a` for any term `a`.
 ## Rewrite (Proof)
 
 ```
-proof ::= "rewrite" proof_list
+conclusion ::= "rewrite" proof_list
 ```
 
 Rewrite the current goal formula according to the equalities proved by
@@ -1556,7 +1656,7 @@ To use a `some` formula, see the entry for [Obtain](#obtain-exists-elimination)
 ## Sorry (Proof)
 
 ```
-proof ::= "sorry"
+conclusion ::= "sorry"
 ```
 
 `sorry` is the get-out-of-jail free card. It can prove anything.
@@ -1593,7 +1693,7 @@ assert not flip(true)
 ## Switch (Proof)
 
 ```
-proof ::= "switch" term "{" switch_proof_case* "}"
+conclusion ::= "switch" term "{" switch_proof_case* "}"
 switch_proof_case ::= "case" pattern "{" proof "}"
 switch_proof_case ::= "case" pattern assumptions "{" proof "}"
 assumptions ::= "suppose" assumption_list | "assume" assumption_list
@@ -1699,10 +1799,10 @@ assert 2 - 3 = 0
 To search for theorems about subtraction in `Nat.thy`, search for
 theorems with `sub` in the name.
 
-## Suffices
+## Suffices (Proof Statement)
 
 ```
-proof ::= "suffices" formula "by" proof  proof
+proof_stmt ::= "suffices" formula "by" proof
 ```
 
 A proof of the form
@@ -1748,7 +1848,7 @@ See the entry for [Assume](#assume).
 ## Symmetric (Proof)
 
 ```
-proof ::= "symmetric" proof
+conclusion ::= "symmetric" proof
 ```
 
 If `X` is a proof of `a = b`, then `symmetric X` is a proof of `b = a`
@@ -1787,7 +1887,7 @@ term_list ::= ε | term | term "," term_list
 ## Transitive (Proof)
 
 ```
-proof ::= "transitive" proof proof
+conclusion ::= "transitive" proof proof
 ```
 
 If `X` is a proof of `a = b` and `Y` is a proof of `b = c`,

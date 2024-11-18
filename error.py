@@ -49,6 +49,16 @@ def warning(location, msg):
 def error(location, msg):
   raise Exception(error_header(location) + msg)
 
+def last_error(location, msg):
+  e = Exception(error_header(location) + msg)
+  e.last = True
+  raise e
+
+def missing_error(location, msg):
+  e = Exception(error_header(location) + msg)
+  e.missing = True
+  raise e
+
 def warning(location, msg):
   print(error_header(location) + msg)
 

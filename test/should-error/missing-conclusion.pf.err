@@ -1,0 +1,2 @@
+./test/should-error/missing-conclusion.pf:5.1-5.4: missing conclusion after
+	have Y: true by .

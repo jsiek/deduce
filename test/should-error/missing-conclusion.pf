@@ -1,0 +1,5 @@
+theorem T: true
+proof
+  have X: true by .
+  have Y: true by .
+end
