@@ -60,7 +60,7 @@ assert cnt(A)(7) = 0
 ## All (Universal Quantifier)
 
 ```
-term ::= "all" var_list "." term
+formula ::= "all" var_list "." formula
 ```
 
 A formula of the form `all x1:T1,...,xn:Tn. P` is true
@@ -109,7 +109,7 @@ end
 ## And (logical conjunction)
 
 ```
-term ::= term "and" term
+formula ::= formula "and" formula
 ```
 
 The formula `P and Q` is true when both `P` and `Q` are true.
@@ -286,9 +286,9 @@ See the entry for [Instantiation](#instantiation-term).
 ## Biconditional (if and only if)
 
 ```
-term ::= term "⇔" term
-       | term "<=>" term
-       | term "iff" term
+formula ::= formula "⇔" formula
+          | formula "<=>" formula
+          | formula "iff" formula
 ```
 
 The biconditional formula `P ⇔ Q` is syntactic sugar for
@@ -388,7 +388,7 @@ end
 ## Comma (Logical And Introduction)
 
 ```
-term ::= term "," term
+conclusion ::= proof "," proof
 ```
 
 See the entry for And (logical conjunction).
@@ -673,7 +673,7 @@ The empty set `∅` does not contain any elements and is defined in
 ## Equal
 
 ```
-term ::= term "=" term
+formula ::= term "=" term
 ```
 
 The formula `a = b` is true when the left-hand side and right-hand are
@@ -756,7 +756,7 @@ end
 ## False
 
 ```
-term :: = "false"
+formula ::= "false"
 ```
 
 One can prove `false` when there are assumptions that contradict
@@ -856,7 +856,7 @@ enclosed in `<` and `>`.
 ## Generic (Formula)
 
 ```
-term ::= "<" identifier_list ">" term
+formula ::= "<" identifier_list ">" formula
 ```
 
 This parameterizes a formula by a list of type paremeters.  For
@@ -901,7 +901,7 @@ An assumption or fact that is already proved.
 ## Greater-Than
 
 ```
-term ::= term ">" term
+formula ::= term ">" term
 ```
 
 The greater-than operator on natural numbers is defined in `Nat.pf`
@@ -922,8 +922,8 @@ assert not (0 > 1)
 ## Greater-Than or Equal
 
 ```
-term ::= term "≥" term
-term ::= term ">=" term
+formula ::= term "≥" term
+formula ::= term ">=" term
 ```
 
 The greater-than-or-equal operator on natural numbers is defined in `Nat.pf`
@@ -973,10 +973,11 @@ given.
 
 ```
 term ::= identifier
+formula ::= identifier
 conclusion ::= identifier
 ```
 
-Identifiers are used in Deduce to give names functions and values and
+Identifiers are used in Deduce to give names to functions and values and
 to label theorems and facts.
 
 An identifier is a sequence of characters that starts with an upper or
@@ -1049,8 +1050,8 @@ Import all of the definitions and theorems from the specified file
 ## In (Set Membership)
 
 ```
-term ::= term "∈" term
-term ::= term "in" term
+formula ::= term "∈" term
+formula ::= term "in" term
 ```
 
 The formula `x ∈ S` is true when element `x` is contained in the set `S`.
@@ -1189,7 +1190,7 @@ assert not (3 ∈ C ∩ D)
 ## Less-Than
 
 ```
-term ::= term "<" term
+formula ::= term "<" term
 ```
 
 The less-than operator on natural numbers is defined in `Nat.pf`
@@ -1212,8 +1213,8 @@ assert not (2 < 1)
 ## Less-Than or Equal
 
 ```
-term ::= term "≤" term
-term ::= term "<=" term
+formula ::= term "≤" term
+          | term "<=" term
 ```
 
 The less-than-or-equal operator on natural numbers is defined in `Nat.pf`
@@ -1354,7 +1355,7 @@ element. The `MultiSet<T>` type is defined in `MultiSet.pf`.
 ## Not
 
 ```
-term ::= "not" term
+formula ::= "not" formula
 ```
 
 The formula `not P` is true when `P` is false.
@@ -1364,8 +1365,8 @@ Deduce treats `not P` as syntactic sugar for `(if P then false)`.
 ## Not Equal
 
 ```
-term ::= term "≠" term
-term ::= term "/=" term
+formula ::= term "≠" term
+formula ::= term "/=" term
 ```
 
 Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
@@ -1408,7 +1409,7 @@ end
 ## Or  (logical disjunction)
 
 ```
-term ::= term "or" term
+formula ::= formula "or" formula
 ```
 
 The formula `P or Q` is true when either `P` is true or `Q` is true.
@@ -1450,10 +1451,11 @@ To use a given of the form `P or Q`, use
 
 ```
 term ::= "(" term ")"
+formula ::= "(" formula ")"
 proof ::= "(" proof ")"
 ```
 
-A term or a proof may be surrounded in parentheses.
+A term, formula, or a proof may be surrounded in parentheses.
 
 ## Pattern
 
@@ -1642,7 +1644,7 @@ are proved in `Set.pf`.
 ## Some (Existential Quantifier)
 
 ```
-term ::= "some" var_list "." term
+formula ::= "some" var_list "." formula
 ```
 
 The formula `some x1:T1,...,xn:Tn. P` is true when there exists
@@ -1739,8 +1741,8 @@ end
 ## Subset or Equal
 
 ```
-term ::= term "⊆" term
-term ::= term "(=" term
+formula ::= term "⊆" term
+formula ::= term "(=" term
 ```
 
 The formula `A ⊆ B` is true when every element of set `A` is
@@ -1897,7 +1899,7 @@ terms `a`, `b`, and `c`.
 ## True (Formula)
 
 ```
-term ::= "true"
+formula ::= "true"
 ```
 
 There's not much to say about `true`. It's true!
