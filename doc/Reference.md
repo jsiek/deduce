@@ -1527,7 +1527,7 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Have](#have-proof-statement)
 * [Injective](#injective-proof)
 * [Obtain](#obtain-exists-elimination)
-* [Suffices](#Suffices (Proof Statment))
+* [Suffices](#suffices-proof-statment)
 * [Suppose](#suppose)
 
 ## Print (Statement)
