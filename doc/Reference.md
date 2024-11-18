@@ -1549,7 +1549,7 @@ The output is `5`.
 ## Question Mark `?` (Proof)
 
 ```
-proof ::= "?"
+conclusion ::= "?"
 ```
 
 A proof can be left incomplete by placing a `?` in the part that you
@@ -1561,7 +1561,7 @@ well as some advice about how to prove it.
 ## Recall (Proof)
 
 ```
-proof ::= "recall" term_list
+conclusion ::= "recall" term_list
 ```
 
 
@@ -1576,7 +1576,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 ## Reflexive (Proof)
 
 ```
-proof ::= reflexive
+conclusion ::= reflexive
 ```
 
 The proof `reflexive` proves that `a = a` for any term `a`.
@@ -1607,7 +1607,7 @@ end
 ## Rewrite-In (Proof)
 
 ```
-proof ::= "rewrite" proof_list "in" proof
+conclusion ::= "rewrite" proof_list "in" proof
 ```
 
 In the formula of the given proof, rewrite according to the equalities
