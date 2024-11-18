@@ -437,7 +437,7 @@ end
 ## Conclusion (Proof)
 
 The last statement in a proof (the `conclusion` symbol in the grammar)
-may by any one of the following:
+must be one of the following:
 
 * [Cases](#cases-disjunction-elimination)
 * [Comma (Logical-And Introduction)](#comma-logical-and-introduction)
@@ -609,8 +609,8 @@ the goal.  Otherwise, Deduce signals an error.
 ## Definition-In (Proof)
 
 ```
-proof ::= "definition" identifier "in" proof
-proof ::= "definition" "{" identifier_list "}" "in" proof
+conclusion ::= "definition" identifier "in" proof
+conclusion ::= "definition" "{" identifier_list "}" "in" proof
 ```
 
 In the formula of the given proof, replace the occurences of the
@@ -1065,7 +1065,7 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ## Induction
 
 ```
-proof ::= "induction" type ind_case*
+conclusion ::= "induction" type ind_case*
 ```
 
 A proof of the form
@@ -1500,8 +1500,8 @@ proof ::= proof_stmt proof
         | conclusion
 ```
 
-A proof is a sequence of zero or more proof statements (`proof_stmt`) 
-that finishes with a `conclusion`.
+A proof is a sequence of zero or more [proof statements](#proof-statement)
+that finishes with a [conclusion](#conclusion-proof).
 
 ## Proof List
 
@@ -1570,7 +1570,7 @@ A proof of the form
 recall P1, ..., Pn
 ```
 is a proof of the formula `P1 and ... and Pn`. The formulas
-`P1`,...,`Pn` must be in the of givens at the current point in the proof.
+`P1`,...,`Pn` must be in the givens at the current point in the proof.
 
 
 ## Reflexive (Proof)
