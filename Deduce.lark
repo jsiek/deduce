@@ -146,21 +146,13 @@ ident: IDENT              -> ident
 ?proof_list: proof                                 -> single
     | proof "|" proof_list                         -> push
 
-?proof: "conclude" term "by" proof                       -> annot
-    | "suffices" term "by" proof proof                   -> suffices
-    | "apply" proof "to" proof                           -> modus_ponens
+?proof: tail_proof                                 -> single_proof
+    | proof_stmt proof                             -> push_proof
+
+?tail_proof: "conclude" term "by" proof                  -> annot
     | proof "," proof                                    -> tuple
+    | "apply" proof "to" proof                           -> modus_ponens
     | "conjunct" INT "of" proof                          -> conjunct
-    | "suppose" IDENT proof                              -> imp_intro
-    | "suppose" IDENT ":" term proof                     -> imp_intro_explicit
-    | "suppose" ":" term proof                           -> imp_intro_anon
-    | "assume" IDENT proof                               -> imp_intro
-    | "assume" IDENT ":" term proof                      -> imp_intro_explicit
-    | "assume" ":" term proof                            -> imp_intro_anon
-    | "arbitrary" var_list proof                         -> all_intro
-    | "choose" term_list proof                           -> some_intro
-    | "obtain" ident_list "where" IDENT "from" proof proof -> some_elim
-    | "obtain" ident_list "where" IDENT ":" term "from" proof proof -> some_elim_explicit
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
     | "definition" "{" ident_list "}"                   -> reason_definition
@@ -168,41 +160,54 @@ ident: IDENT              -> ident
     | "rewrite" proof_list                              -> reason_rewrite
     | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
     | "definition" ident "and" "rewrite" proof_list       -> reason_def_one_rewrite
-    | "_definition" "{" ident_list "}" proof              -> apply_defs_goal
-    | "_definition" ident proof                           -> apply_defs_goal_one
     | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
     | "definition" ident "in" proof                      -> apply_defs_fact_one
-    | "enable" "{" ident_list "}" proof                  -> enable_defs
-    | "enable" ident proof                               -> enable_def
-    | "_rewrite" proof_list proof                         -> rewrite_goal
     | "rewrite" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation equation_list                 -> equations_proof
-    | "stop" "?" proof                                   -> hole_in_middle_proof
     | "recall" term_list                                 -> recall_proof
-    | proof_hi
-
-?proof_hi: IDENT                                         -> proof_var
-    | "have" IDENT ":" term "by" proof proof             -> let
-    | "have" ":" term "by" proof proof                   -> let_anon
-    | "define" IDENT "=" term proof                      -> define_term_proof
-    | "term" term "by" proof proof                       -> term_proof
-    | "."                                                -> true_proof
     | "reflexive"                                        -> refl_proof
     | "symmetric" proof                                  -> sym_proof
     | "transitive" proof proof                           -> trans_proof
-    | "injective" term proof                             -> injective_proof
-    | "extensionality" proof                             -> extensionality_proof
+    | "help" proof                                       -> help_use_proof
+    | proof_hi
+
+?proof_hi: IDENT                                              -> proof_var
+    | "."                                                -> true_proof
+    | "?"                                                -> hole_proof
     | "(" proof ")"                                      -> paren
     | proof_hi "[" term_list "]"                         -> all_elim
     | proof_hi "<" type_list ">"                         -> all_elim_types
-    | "?"                                                -> hole_proof
     | "sorry"                                            -> sorry_proof
-    | "help" proof                                       -> help_use_proof
     | "{" proof "}"
+    
+?proof_stmt: 
+    | "suffices" term "by" proof                    -> suffices
+    | "suppose" IDENT                               -> imp_intro
+    | "suppose" IDENT ":" term                      -> imp_intro_explicit
+    | "suppose" ":" term                            -> imp_intro_anon
+    | "assume" IDENT                                -> imp_intro
+    | "assume" IDENT ":" term                       -> imp_intro_explicit
+    | "assume" ":" term                             -> imp_intro_anon
+    | "arbitrary" var_list                          -> all_intro
+    | "choose" term_list                            -> some_intro
+    | "obtain" ident_list "where" IDENT "from" proof          -> some_elim
+    | "obtain" ident_list "where" IDENT ":" term "from" proof -> some_elim_explicit
+    | "_definition" "{" ident_list "}"               -> apply_defs_goal
+    | "_definition" ident                            -> apply_defs_goal_one
+    | "enable" "{" ident_list "}"                    -> enable_defs
+    | "enable" ident                                 -> enable_def
+    | "_rewrite" proof_list                          -> rewrite_goal
+    | "stop" "?"                                     -> hole_in_middle_proof
+    | "have" IDENT ":" term "by" proof              -> let
+    | "have" ":" term "by" proof                    -> let_anon
+    | "define" IDENT "=" term                       -> define_term_proof
+    | "term" term "by" proof                        -> term_proof
+    | "injective" term                              -> injective_proof
+    | "extensionality"                              -> extensionality_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
     | "case" IDENT ":" term "{" proof "}"                -> case_annot

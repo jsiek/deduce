@@ -1701,6 +1701,12 @@ class AllIntro(Proof):
     body_env[x] = [new_x]
     self.var = (new_x, new_t)
     self.body.uniquify(body_env)
+
+  def set_body(self, new_body):
+    if self.body:
+      self.body.set_body(new_body)
+    else:
+      self.body = new_body
     
 @dataclass
 class AllElimTypes(Proof):
@@ -2052,16 +2058,16 @@ class ApplyDefsFact(Proof):
 @dataclass
 class EnableDefs(Proof):
   definitions: List[Term]
-  subject: Proof
+  body: Proof
 
   def __str__(self):
       return 'enable ' + ', '.join([str(d) for d in self.definitions]) \
-        + ';\n' + str(self.subject)
+        + ';\n' + str(self.body)
 
   def uniquify(self, env):
     for d in self.definitions:
       d.uniquify(env)
-    self.subject.uniquify(env)
+    self.body.uniquify(env)
     
 @dataclass
 class Rewrite(Proof):

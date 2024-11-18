@@ -386,12 +386,12 @@ def check_proof(proof, env):
       new_formula = apply_definitions(loc, formula, defs, env)
       ret = new_formula
       
-    case EnableDefs(loc, definitions, subject):
+    case EnableDefs(loc, definitions, body):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
       old_defs = get_reduce_only()
       set_reduce_only(defs + old_defs)
-      ret = check_proof(subject, env)
+      ret = check_proof(body, env)
       set_reduce_only(old_defs)
       
     case RewriteFact(loc, subject, equation_proofs):
