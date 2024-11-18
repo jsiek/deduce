@@ -581,8 +581,8 @@ class Lambda(Term):
       params = self.vars
     else:
       params = [(base_name(x), t)for (x,t) in self.vars]
-    return "λ" + ",".join([x + ':' + str(t) if t else x\
-                           for (x,t) in params]) \
+    return "fun " + ",".join([x + ':' + str(t) if t else x\
+                              for (x,t) in params]) \
            + "{" + str(self.body) + "}"
 
   def __eq__(self, other):
