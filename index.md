@@ -93,10 +93,10 @@ The source code for Deduce can be obtained from the following github repository.
 [https://github.com/jsiek/deduce](https://github.com/jsiek/deduce)
 
 This introduction to Deduce has two parts. The first part gives a
-tutorial on how to write functional programs in Deduce.  The second
+tutorial on how to write programs in Deduce.  The second
 part shows how to write proofs in Deduce.
 
-* [Functional Programming in Deduce](./doc/FunctionalProgramming.md)
+* [Programming in Deduce](./doc/FunctionalProgramming.md)
 * [Writing Proofs in Deduce](./doc/ProofIntro.md)
 
 I recommend that you work through the examples in this

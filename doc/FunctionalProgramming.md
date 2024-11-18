@@ -1,4 +1,4 @@
-# Functional Programming in Deduce
+# Programming in Deduce
 
 Deduce supports the following language features:
 * [Import](#import)
