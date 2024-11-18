@@ -1163,7 +1163,7 @@ Instantiates a generic function or constructor, replaces its type
 parameters with the given type arguments.
 
 ```{.deduce^#instantiate_example}
-define empty_nat_list : List<Nat> = @empty<Nat>
+define empty_nat_list = @empty<Nat>
 ```
 
 ## Intersection
