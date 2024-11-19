@@ -1359,7 +1359,8 @@ def check_proof_of(proof, formula, env):
                   frm = formula.substitute({new_subject.name: new_subject_case})
                 else:
                   frm = formula
-                check_proof_of(scase.body, frm.reduce(body_env), body_env)
+                red_frm = frm.reduce(body_env)
+                check_proof_of(scase.body, red_frm, body_env)
             case _:
               error(loc, "switch expected union type or bool, not " + str(ty))
           
@@ -1397,11 +1398,13 @@ def apply_definitions(loc, formula, defs, env):
   elif num_marks == 1:
       try:
           find_mark(formula)
-          error(loc, 'in apply_definitions, find_mark failed on formula:\n\t' + str(formula))
+          error(loc, 'in apply_definitions, find_mark failed on formula:\n\t' \
+                + str(formula))
       except MarkException as ex:
           new_formula = ex.subject
   else:
-      error(loc, 'in definition, formula contains more than one mark:\n\t' + str(formula))
+      error(loc, 'in definition, formula contains more than one mark:\n\t' \
+            + str(formula))
 
   for var in defs:
     if isinstance(var, Var): # it's a bit strange that RecDef's can find there way into defs -Jeremy
@@ -1420,8 +1423,10 @@ def apply_definitions(loc, formula, defs, env):
               if rvar.name in get_reduced_defs():
                   reduced_one = True
       if not reduced_one:
-          error(loc, 'could not find a place to apply definition of ' + base_name(var.name) \
-                        + ' in:\n' + '\t' + str(new_formula))
+          error(loc, 'could not find a place to apply definition of ' \
+                + base_name(var.name) \
+                + ' in:\n' + '\t' + str(new_formula))
+
   if num_marks == 0:          
       return new_formula
   else:

@@ -703,6 +703,7 @@ def parse_proof_hi(token_list, i):
     if len(defs) == 0:
         return (SwitchProof(meta, subject, cases), i)
     else:
+        # return (make_switch_for(meta, defs, subject, cases), i)
         return (ApplyDefsGoal(meta, [Var(meta, None, t) for t in defs],
                               SwitchProof(meta, subject, cases)), i)
     

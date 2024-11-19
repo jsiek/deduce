@@ -526,8 +526,7 @@ class Var(Term):
   def substitute(self, sub):
       if self.name in sub:
           trm = sub[self.name]
-          if not isinstance(trm, RecFun):
-            add_reduced_def(self.name)
+          add_reduced_def(self.name)
           return trm
       else:
           return self
@@ -819,12 +818,7 @@ class Call(Term):
                   subst[x] = ty
                 for (k,v) in zip(fun_case.parameters, rest_args):
                   subst[k] = v
-                # print('calling ' + name)
-                # print('call site ' + str(self))
-                # print('fun_case.body = ' + str(fun_case.body))
-                # print('subst = ' + ', '.join([k + ': ' + str(v) for (k,v) in subst.items()]))
                 new_fun_case_body = fun_case.body.substitute(subst)
-                #print('new_fun_case_body = ' + str(new_fun_case_body))
                 old_defs = get_reduce_only()
                 reduce_defs = [x for x in old_defs]
                 if Var(loc, None, name, []) in reduce_defs:
@@ -1986,7 +1980,7 @@ class SwitchProofCase(AST):
 @dataclass
 class SwitchProof(Proof):
   subject: Term
-  cases: List[IndCase]
+  cases: List[SwitchProofCase]
 
   def __str__(self):
       return 'switch ' + str(self.subject) \
@@ -2989,3 +2983,9 @@ def uniquify_deduce(ast):
     stmt.uniquify_body(env)
 
 
+def make_switch_for(meta, defs, subject, cases):
+  new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,
+                               ApplyDefsGoal(meta, [Var(meta, None, t, []) for t in defs],
+                                             c.body)) \
+               for c in cases]
+  return SwitchProof(meta, subject, new_cases)
