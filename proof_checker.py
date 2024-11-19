@@ -19,7 +19,7 @@
 #    and run the print and assert statements.
 
 from abstract_syntax import *
-from error import error, warning, error_header, get_verbose, set_verbose
+from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, IncompleteProof
 
 imported_modules = set()
 checked_modules = set()
@@ -410,7 +410,7 @@ def check_proof(proof, env):
       ret = new_formula
       
     case PHole(loc):
-      error(loc, 'unfinished proof')
+      incomplete_error(loc, 'unfinished proof')
       
     case PSorry(loc):
       error(loc, "can't use sorry in context with unkown goal")
@@ -908,9 +908,9 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) + '\n'\
-            + proof_advice(formula, env) + '\n' \
-            + 'Givens:\n' + env.proofs_str())
+      incomplete_error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) + '\n'\
+                       + proof_advice(formula, env) + '\n' \
+                       + 'Givens:\n' + env.proofs_str())
 
     case PSorry(loc):
       warning(loc, 'unfinished proof')
@@ -1171,17 +1171,26 @@ def check_proof_of(proof, formula, env):
         check_proof_of(reason, imp, env)
         check_proof_of(rest, claim_red, env)
 
-    # Want something like the following to help with interactive proof development, but
-    # it need to be smarter than the following. -Jeremy
-    # case PTuple(loc, pfs):
-    #   match formula:
-    #     case And(loc, frms):
-    #       for (frm,pf) in zip(frms, pfs):
-    #         print('PTuple\n\tfrm: ' + str(frm) + '\n\t' + str(pf))
-    #         check_proof_of(pf, frm, env)
-    #     case _:
-    #       error(loc, 'the comma proof operator is for logical and, not ' + str(formula))
-      
+    case PTuple(loc, pfs):
+      try:
+        match formula:
+          case And(loc2, tyof2, frms):
+            if len(frms) == len(pfs):
+              for (frm,pf) in zip(frms, pfs):
+                check_proof_of(pf, frm, env)
+            else:
+              error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
+                    + str(len(pfs)))
+          case _:
+            error(loc, 'comma proves logical-and, not ' + str(formula))
+      except IncompleteProof as ex:
+        raise ex
+      except Exception as ex:
+        form = check_proof(proof, env)
+        form_red = form.reduce(env)
+        formula_red = formula.reduce(env)
+        check_implies(proof.location, form_red, remove_mark(formula_red))
+        
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
       match sub_frm:
