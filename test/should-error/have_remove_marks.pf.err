@@ -8,4 +8,4 @@ Advice:
 		equations
 
 Givens:
-	step: length([]) + length([]) = length([]) + 0
+	step: length(@[]<Nat>) + length(@[]<Nat>) = length(@[]<Nat>) + 0

@@ -1156,8 +1156,9 @@ def check_proof_of(proof, formula, env):
           case Omitted(loc2, tyof):
             check_proof_of(rest, new_formula, env)
           case Hole(loc2, tyof):
-            warning(loc, '\nsuffices to prove:\n\t' + str(new_formula))
-            check_proof_of(rest, new_formula, env)
+            newer_formula = check_formula(new_formula, env)
+            warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
+            check_proof_of(rest, newer_formula, env)
           case _:
             try:
               check_implies(loc, red_claim, new_formula)
@@ -1920,6 +1921,7 @@ def type_synth_term(term, env, recfun, subterms):
           retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
         case GenericUnknownInst(loc3, union_type):
           retty = TypeInst(loc3, union_type, tyargs)
+          inferred = False
         case _:
           error(loc, 'cannot instantiate a term of type ' + str(ty))
       ret = TermInst(loc, retty, Var(loc2, tyof, rs[0], [rs[0]]), tyargs, inferred)
@@ -1939,6 +1941,7 @@ def type_synth_term(term, env, recfun, subterms):
           retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
         case GenericUnknownInst(loc2, union_type):
           retty = TypeInst(loc2, union_type, tyargs)
+          inferred = False
         case _:
           error(loc, 'expected a type name, not ' + str(ty))
       ret = TermInst(loc, retty, new_subject, tyargs, inferred)
@@ -2104,6 +2107,53 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_thn = type_check_term(thn, typ, env, recfun, subterms)
       new_els = type_check_term(els, typ, env, recfun, subterms)
       return Conditional(loc, typ, new_cond, new_thn, new_els)
+
+    # This is nearly identical to the case for TermInst(... Var(...) ...)
+    # in type_synth_term. The only difference is the treatment of
+    # the inferred flag in the case for GenericUnknownInst. -Jeremy
+    case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
+      for ty in tyargs:
+          check_type(ty, env)
+      ty = env.get_type_of_term_var(Var(loc2, tyof, name, rs))
+      match ty:
+        case Var(loc3, ty2, name, rs2):
+          retty = TypeInst(loc, name, tyargs)
+        case FunctionType(loc3, typarams, param_types, return_type):
+          sub = {x: t for (x,t) in zip(typarams, tyargs)}
+          inst_param_types = [t.substitute(sub) for t in param_types]
+          inst_return_type = return_type.substitute(sub)
+          retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
+        case GenericUnknownInst(loc3, union_type):
+          retty = TypeInst(loc3, union_type, tyargs)
+        case _:
+          error(loc, 'cannot instantiate a term of type ' + str(ty))
+      if retty != typ:
+          error(loc, 'expected a term of type ' + str(typ) + ' but got ' + str(retty))
+      return TermInst(loc, retty, Var(loc2, tyof, rs[0], [rs[0]]), tyargs, inferred)
+      
+    # This is nearly identical to the case for TermInst
+    # in type_synth_term. The only difference is the treatment of
+    # the inferred flag in the case for GenericUnknownInst. -Jeremy
+    case TermInst(loc, _, subject, tyargs, inferred):
+      for ty in tyargs:
+          check_type(ty, env)
+      new_subject = type_synth_term(subject, env, recfun, subterms)
+      ty = new_subject.typeof
+      match ty:
+        case Var(loc2, ty2, name, rs):
+          retty = TypeInst(loc, name, tyargs)
+        case FunctionType(loc2, typarams, param_types, return_type):
+          sub = {x: t for (x,t) in zip(typarams, tyargs)}
+          inst_param_types = [t.substitute(sub) for t in param_types]
+          inst_return_type = return_type.substitute(sub)
+          retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
+        case GenericUnknownInst(loc2, union_type):
+          retty = TypeInst(loc2, union_type, tyargs)
+        case _:
+          error(loc, 'expected a type name, not ' + str(ty))
+      if retty != typ:
+          error(loc, 'expected a term of type ' + str(typ) + ' but got ' + str(retty))
+      return TermInst(loc, retty, new_subject, tyargs, inferred)
   
     case _:
       if get_verbose():
