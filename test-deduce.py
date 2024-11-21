@@ -134,3 +134,6 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, lib_dir)
         test_deduce(parsers, deduce_call, pass_dir)
         test_deduce_errors(deduce_call, error_dir)
+    
+    os.system("rm -f ./lib/*.thm")
+    os.system("rm -f ./test/should-pass/*.thm")

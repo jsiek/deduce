@@ -20,3 +20,6 @@ tests-lib:
 
 tests: tests-should-pass tests-should-error
 
+clean:
+	rm -f ./lib/*.thm
+	rm -f ./test/should-pass/*.thm
