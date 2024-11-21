@@ -19,7 +19,7 @@
 #    and run the print and assert statements.
 
 from abstract_syntax import *
-from error import error, warning, error_header, get_verbose, set_verbose
+from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, IncompleteProof
 
 imported_modules = set()
 checked_modules = set()
@@ -146,19 +146,15 @@ def check_implies(loc, frm1, frm2):
         else:
             error(loc, '\nCould not prove that\n\t' + str(frm1) \
                   + '\nimplies\n\t' + str(frm2))
-# TODO: This might have to handle pos updates!
-# TODO: Args should always have 1, so just make it not a list
-def instantiate(loc, allfrm, args):
+
+def instantiate(loc, allfrm, arg):
   match allfrm:
-    case All(loc2, tyof, var, pos, frm):
-      if len(args) == 1:
-        sub = { var[0] : args[0] }
-        ret = frm.substitute(sub)
-        return ret
-      else:
-        error(loc, 'expected 1 argument, not ' \
-              + str(len(args)) + ', ' \
-              + 'to instantiate:\n\t' + str(allfrm))
+    case All(loc2, tyof, (var, ty), (s, e), frm):
+      sub = { var : arg }
+      ret = frm.substitute(sub)
+      if s != 0:
+        ret = update_all_head(ret)
+      return ret
     case _:
       error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
   
@@ -375,20 +371,29 @@ def check_proof(proof, env):
           ret = results[0]
       else:
           error(loc, 'expected some facts after `recall`')
-  
+
+    case EvaluateFact(loc, subject):
+      formula = check_proof(subject, env)
+      set_reduce_all(True)
+      red_formula = formula.reduce(env)
+      set_reduce_all(False)
+      ret = red_formula
+          
     case ApplyDefsFact(loc, definitions, subject):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
       formula = check_proof(subject, env)
       new_formula = apply_definitions(loc, formula, defs, env)
       ret = new_formula
-    case EnableDefs(loc, definitions, subject):
+      
+    case EnableDefs(loc, definitions, body):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
       old_defs = get_reduce_only()
       set_reduce_only(defs + old_defs)
-      ret = check_proof(subject, env)
+      ret = check_proof(body, env)
       set_reduce_only(old_defs)
+      
     case RewriteFact(loc, subject, equation_proofs):
       formula = check_proof(subject, env)
       eqns = [check_proof(proof, env) for proof in equation_proofs]
@@ -405,7 +410,7 @@ def check_proof(proof, env):
       ret = new_formula
       
     case PHole(loc):
-      error(loc, 'unfinished proof')
+      incomplete_error(loc, 'unfinished proof')
       
     case PSorry(loc):
       error(loc, "can't use sorry in context with unkown goal")
@@ -440,7 +445,7 @@ def check_proof(proof, env):
           error(loc, "\nhave " + label + ':\n\t' + str(proved_formula))
         case _:
           check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, new_frm)
+          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
           ret = check_proof(rest, body_env)
       
     case PAnnot(loc, claim, reason):
@@ -497,7 +502,6 @@ def check_proof(proof, env):
         case All(loc2, tyof, var, _, frm):
           sub = {}
           v, ty = var
-          new_args = []
           try:
             new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
           except Exception as e:
@@ -510,27 +514,24 @@ def check_proof(proof, env):
               error(loc, 'to instantiate:\n\t' + str(univ)+' : '+str(allfrm) \
                     +'\nwith type arguments, instead write:\n\t' \
                     +str(univ) + '<' + str(arg) + '>\n')
-          new_args.append(new_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
                 + '\nGivens:\n' + env.proofs_str())
-      return instantiate(loc, allfrm, new_args)
+      return instantiate(loc, allfrm, new_arg)
 
     case AllElimTypes(loc, univ, type_arg, _):
       allfrm = check_proof(univ, env)
       match allfrm:
         case All(loc2, tyof, vars, _, frm):
           sub = {}
-          new_args = []
           var, ty = vars
           check_type(type_arg, env)
           if not isinstance(ty, TypeType):
               error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
           sub[var] = type_arg
-          new_args.append(type_arg)
         case _:
           error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
-      return instantiate(loc, allfrm, new_args)
+      return instantiate(loc, allfrm, type_arg)
   
     case ModusPonens(loc, imp, arg):
       ifthen = check_proof(imp, env)
@@ -693,19 +694,23 @@ def proof_use_advice(proof, formula, env):
             + '\t\t' + str(conc) + '\n' \
             + '\tby using an apply-to statement:\n' \
             + '\t\tapply ' + str(proof) + ' to ?'
-      case All(loc, tyof, var, pos, body):
-        # TODO: This is hacky and not sugared
+      case All(loc, tyof, var, (s, e), body):
         vars = [var]
+        while s != 0:
+          match body:
+            case All(loc2, tyof2, var2, (s, e2), body):
+              vars.append(var2)
+
         letters = []
         new_vars = {}
         i = 65
         type_param = False
         for (x,ty) in vars:
-            if isinstance(ty, TypeType):
-                type_param = True
-            letters.append(chr(i))
-            new_vars[x] = Var(loc,ty, chr(i), [])
-            i = i + 1
+          if isinstance(ty, TypeType):
+              type_param = True
+          letters.append(chr(i))
+          new_vars[x] = Var(loc,ty, chr(i), [])
+          i = i + 1
         plural = 's' if len(vars) > 1 else ''
         pronoun = 'them' if len(vars) > 1 else 'it'
         
@@ -903,9 +908,9 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) + '\n'\
-            + proof_advice(formula, env) + '\n' \
-            + 'Givens:\n' + env.proofs_str())
+      incomplete_error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) + '\n'\
+                       + proof_advice(formula, env) + '\n' \
+                       + 'Givens:\n' + env.proofs_str())
 
     case PSorry(loc):
       warning(loc, 'unfinished proof')
@@ -1074,7 +1079,7 @@ def check_proof_of(proof, formula, env):
           error(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
         case _:
           check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, new_frm)
+          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
           check_proof_of(rest, formula, body_env)
 
     case PAnnot(loc, claim, reason):
@@ -1089,13 +1094,19 @@ def check_proof_of(proof, formula, env):
           check_implies(loc, claim_red, remove_mark(formula_red))
           check_proof_of(reason, claim_red, env)
 
+    case EvaluateGoal(loc):
+      set_reduce_all(True)
+      red_formula = formula.reduce(env)
+      set_reduce_all(False)
+      if red_formula != Bool(loc, None, True):
+          error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' + str(red_formula))
+      return red_formula
+  
     case ApplyDefs(loc, definitions):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
       defs = [d.reduce(env) for d in defs]
       new_formula = apply_definitions(loc, formula, defs, env)
       if new_formula != Bool(loc, None, True):
-          # error(loc, 'failed to prove:\n\t' + str(formula) + '\nby\n\t' + str(proof) \
-          #       + '\nremains to prove:\n\t' + str(new_formula))
           error(loc, 'remains to prove:\n\t' + str(new_formula))
 
     case Rewrite(loc, equation_proofs):
@@ -1160,17 +1171,26 @@ def check_proof_of(proof, formula, env):
         check_proof_of(reason, imp, env)
         check_proof_of(rest, claim_red, env)
 
-    # Want something like the following to help with interactive proof development, but
-    # it need to be smarter than the following. -Jeremy
-    # case PTuple(loc, pfs):
-    #   match formula:
-    #     case And(loc, frms):
-    #       for (frm,pf) in zip(frms, pfs):
-    #         print('PTuple\n\tfrm: ' + str(frm) + '\n\t' + str(pf))
-    #         check_proof_of(pf, frm, env)
-    #     case _:
-    #       error(loc, 'the comma proof operator is for logical and, not ' + str(formula))
-      
+    case PTuple(loc, pfs):
+      try:
+        match formula:
+          case And(loc2, tyof2, frms):
+            if len(frms) == len(pfs):
+              for (frm,pf) in zip(frms, pfs):
+                check_proof_of(pf, frm, env)
+            else:
+              error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
+                    + str(len(pfs)))
+          case _:
+            error(loc, 'comma proves logical-and, not ' + str(formula))
+      except IncompleteProof as ex:
+        raise ex
+      except Exception as ex:
+        form = check_proof(proof, env)
+        form_red = form.reduce(env)
+        formula_red = formula.reduce(env)
+        check_implies(proof.location, form_red, remove_mark(formula_red))
+        
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
       match sub_frm:
@@ -1212,7 +1232,7 @@ def check_proof_of(proof, formula, env):
                     + " arguments to " + base_name(constr.name) \
                     + " not " + str(len(indcase.pattern.parameters)))
             induction_hypotheses = [instantiate(loc, formula,
-                                                [Var(loc,None,param,[])]).reduce(env)
+                                                Var(loc,None,param,[])).reduce(env)
                                     for (param, ty) in 
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)
@@ -1229,7 +1249,7 @@ def check_proof_of(proof, formula, env):
             
             trm = pattern_to_term(indcase.pattern)
             new_trm = type_check_term(trm, typ, body_env, None, [])
-            goal = instantiate(loc, formula, [new_trm])
+            goal = instantiate(loc, formula, new_trm)
             
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
               if frm1 != None:
@@ -1339,7 +1359,8 @@ def check_proof_of(proof, formula, env):
                   frm = formula.substitute({new_subject.name: new_subject_case})
                 else:
                   frm = formula
-                check_proof_of(scase.body, frm.reduce(body_env), body_env)
+                red_frm = frm.reduce(body_env)
+                check_proof_of(scase.body, red_frm, body_env)
             case _:
               error(loc, "switch expected union type or bool, not " + str(ty))
           
@@ -1377,13 +1398,16 @@ def apply_definitions(loc, formula, defs, env):
   elif num_marks == 1:
       try:
           find_mark(formula)
-          error(loc, 'in apply_definitions, find_mark failed on formula:\n\t' + str(formula))
+          error(loc, 'in apply_definitions, find_mark failed on formula:\n\t' \
+                + str(formula))
       except MarkException as ex:
           new_formula = ex.subject
   else:
-      error(loc, 'in definition, formula contains more than one mark:\n\t' + str(formula))
+      error(loc, 'in definition, formula contains more than one mark:\n\t' \
+            + str(formula))
 
   for var in defs:
+    if isinstance(var, Var): # it's a bit strange that RecDef's can find there way into defs -Jeremy
       reduced_one = False
       for var_name in var.resolved_names:
           rvar = Var(var.location, var.typeof, var_name, [var_name])
@@ -1399,8 +1423,10 @@ def apply_definitions(loc, formula, defs, env):
               if rvar.name in get_reduced_defs():
                   reduced_one = True
       if not reduced_one:
-          error(loc, 'could not find a place to apply definition of ' + base_name(var.name) \
-                        + ' in:\n' + '\t' + str(new_formula))
+          error(loc, 'could not find a place to apply definition of ' \
+                + base_name(var.name) \
+                + ' in:\n' + '\t' + str(new_formula))
+
   if num_marks == 0:          
       return new_formula
   else:

@@ -24,7 +24,7 @@ language and provide examples of their use.
 
 ## Applying Definitions to the Goal
 
-We begin with an simple example, proving that the length of an empty
+We begin with a simple example, proving that the length of an empty
 list is `0`. Of course, this is a direct consequence of the definition
 of `length`, so this first example is about how to use definitions.
 To get started, we write down the theorem we would like to prove.  A

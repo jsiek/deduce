@@ -1,0 +1,20 @@
+./test/should-error/induction_advice_partial.pf:21.5-21.6: incomplete proof
+Goal:
+	(all n:Nat. suc(length(null)) = length(cons(n, null)))
+Advice:
+	You can complete the proof with:
+		arbitrary n:Nat
+	followed by a proof of:
+		suc(length(null)) = length(cons(n, null))
+
+	Alternatively, you can try induction with:
+		induction Nat
+		case zero {
+		  ?
+		}
+		case suc(N1) suppose IH1: suc(length(null)) = length(cons(N1, null)) {
+		  ?
+		}
+
+Givens:
+

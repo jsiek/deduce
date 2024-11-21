@@ -123,14 +123,13 @@ function nth<T>(List<T>, T) -> (fn Nat -> T) {
   }
 }
 
-function get<T>(List<T>) -> (fn Nat -> Option<T>) {
-  get(empty) = λi{none}
-  get(node(x, xs)) = λi{
+function get<T>(List<T>, Nat) -> Option<T> {
+  get(empty, i) = none
+  get(node(x, xs), i) =
     if i = 0 then
        just(x)
     else
-       get(xs)(pred(i))
-  }
+       get(xs, pred(i))
 }
 
 function take<T>(Nat, List<T>) -> List<T> {
@@ -153,12 +152,6 @@ function drop<T>(Nat, List<T>) -> List<T> {
 
 define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
   = generic T,U,V { λf{ λx,y{ f(y,x) }}}
-
-// aka. itrev
-function rev_app<T>(List<T>, List<T>) -> List<T> {
-  rev_app(empty, ys) = ys
-  rev_app(node(x, xs), ys) = rev_app(xs, node(x, ys))
-}
 
 function head<T>(List<T>) -> Option<T> {
   head(empty) = none
@@ -719,6 +712,23 @@ proof
   }
 end
 
+theorem drop_append: all E:type. all xs:List<E>. all ys:List<E>.
+  drop(length(xs), xs ++ ys) = ys
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary ys:List<E>
+    definition {length, operator++, drop}
+  }
+  case node(x, xs') suppose IH {
+    arbitrary ys:List<E>
+    definition {length, operator++, operator+, drop}
+    and rewrite zero_add[length(xs')]
+    | IH[ys]
+  }
+end
+
 theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
   nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
 proof
@@ -802,48 +812,6 @@ proof
   }
 end
 
-lemma rev_app_reverse_append: all T:type. all xs:List<T>. all ys:List<T>.
-  rev_app(xs, ys) = reverse(xs) ++ ys
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>
-    definition {rev_app,reverse,operator++}
-  }
-  case node(x, xs') suppose IH {
-    arbitrary ys:List<T>
-    suffices rev_app(xs', node(x, ys)) = (reverse(xs') ++ node(x, empty)) ++ ys
-       by definition {rev_app, reverse}
-    equations
-      rev_app(xs', node(x,ys))
-          = reverse(xs') ++ node(x,ys) by IH[node(x,ys)]
-      ... = reverse(xs') ++ # (node(x,empty) ++ ys) #
-            by definition {operator++,operator++}
-      ... = (reverse(xs') ++ node(x,empty)) ++ ys
-            by symmetric append_assoc<T>[reverse(xs')][node(x,empty),ys]
-  }
-end
-
-lemma foldr_rev_app_foldl:
-  all T:type. all xs:List<T>. all ys:List<T>, b:T, f:fn T,T->T.
-  foldr(rev_app(xs,ys), b, f) = foldl(xs, foldr(ys,b,f), flip(f))
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>, b:T, f:fn T,T->T
-    definition {rev_app,foldl}
-  }
-  case node(x, xs') suppose IH {
-    arbitrary ys:List<T>, b:T, f:fn T,T->T
-    suffices foldl(xs', foldr(node(x, ys), b, f), flip(f))
-           = foldl(xs', flip(f)(foldr(ys, b, f), x), flip(f))
-       by definition {rev_app,foldl} and rewrite IH[node(x,ys),b,f]
-    definition {foldr,flip}
-  }
-end
-
 theorem flip_flip:
   all T:type. all f:fn T,T->T. flip(flip(f)) = f
 proof
@@ -852,24 +820,6 @@ proof
   extensionality
   arbitrary x:T, y:T
   definition flip
-end
-
-theorem foldl_foldr:
-  all T:type. all xs:List<T>, b:T, f:fn T,T->T.
-  foldl(xs, b, f) = foldr(reverse(xs), b, flip(f))
-proof
-  arbitrary T:type
-  arbitrary xs:List<T>, b:T, f:fn T,T->T
-  equations
-    foldl(xs, b, f)
-        =# foldl(xs,foldr(@empty<T>, b, flip(f)), flip(flip(f))) #
-              by definition foldr and rewrite flip_flip<T>[f]
-    ... = foldr(rev_app(xs,empty),b,flip(f))
-              by symmetric foldr_rev_app_foldl<T>[xs][empty,b,flip(f)]
-    ... = foldr(reverse(xs) ++ empty, b, flip(f))
-              by rewrite rev_app_reverse_append<T>[xs][empty]
-    ... = foldr(reverse(xs), b, flip(f)) 
-             by rewrite append_empty<T>[reverse(xs)]
 end
 
 theorem mset_equal_implies_set_equal: all T:type. all xs:List<T>, ys:List<T>.
@@ -928,60 +878,3 @@ proof
   }
 end
 
-union ListZipper<T> {
-  mkZip(List<T>, List<T>)
-}
-
-function zip2list<T>(ListZipper<T>) -> List<T> {
-  zip2list(mkZip(ctx, ls)) = rev_app(ctx, ls)
-}
-
-function zip_left<T>(ListZipper<T>) -> ListZipper<T> {
-  zip_left(mkZip(ctx, ls)) =
-	switch ctx {
-	  case empty { mkZip(empty, ls) }
-	  case node(x, ctx') { mkZip(ctx', node(x, ls)) }
-	}
-}
-
-function zip_right<T>(ListZipper<T>) -> ListZipper<T> {
-  zip_right(mkZip(ctx, ls)) =
-	switch ls {
-	  case empty {  mkZip(ctx, empty) }
-	  case node(x, ls') { mkZip(node(x,ctx), ls') }
-	}
-}
-
-theorem left_2list_identity: all T:type. all z:ListZipper<T>.
-  zip2list(z) = zip2list(zip_left(z))
-proof
-  arbitrary T:type
-  arbitrary z:ListZipper<T>
-  switch z {
-    case mkZip(ctx, ls) {
-      switch ctx {
-        case empty { definition zip_left }
-	case node(x,ctx') {
-	  definition {zip2list, rev_app, zip_left}
-	}
-      }
-    }
-  }
-end
-
-theorem right_2list_identity: all T:type. all z:ListZipper<T>.
-  zip2list(z) = zip2list(zip_right(z))
-proof
-  arbitrary T:type
-  arbitrary z:ListZipper<T>
-  switch z {
-    case mkZip(ctx, ls) {
-      switch ls {
-        case empty { definition zip_right }
-	case node(x,ls') {
-	  definition {zip_right, zip2list, rev_app}
-	}
-      }
-    }
-  }
-end

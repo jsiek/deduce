@@ -1,4 +1,4 @@
-# Functional Programming in Deduce
+# Programming in Deduce
 
 Deduce supports the following language features:
 * [Import](#import)
@@ -59,14 +59,14 @@ The output is `5`.
 
 ## Function (Term)
 
-A function term starts with `λ` or `fun`, followed by parameter names
+A function term starts `fun`, followed by parameter names
 and their types, then the body of the function enclosed in braces.
 For example, the following defines a function for computing the area
 of a rectangle.
 
 
 ```{.deduce^#area}
-define area = λ h:Nat, w:Nat { h * w }
+define area = fun h:Nat, w:Nat { h * w }
 ```
 
 To call a function, apply it to the appropriate number and type of
@@ -86,13 +86,13 @@ does not include a type annotation and neither does the function term.
 
 
 ```{.deduce^#bad_area}
-define area = λ h, w { h * w }
+define area = fun h, w { h * w }
 ```
 
 Deduce prints the following error message.
 
 ```
-Cannot synthesize a type for λh,w{h * w}.
+Cannot synthesize a type for fun h,w{h * w}.
 Add type annotations to the parameters.
 ```
 
@@ -154,7 +154,7 @@ of a function starts with `fn`, followed by the parameter types, then
     import Option
 
     define front : fn NatList -> Option<Nat> =
-      λ ls { 
+      fun ls { 
         switch ls {
           case Empty { none }
           case Node(x, ls') { just(x) }
@@ -181,7 +181,7 @@ you. For example, if you try the following:
 
 ```{.deduce^#broken_front}
 define broken_front : fn NatList -> Option<Nat> =
-  λ ls { switch ls { case Empty { none } } }
+  fun ls { switch ls { case Empty { none } } }
 ```
 
 Deduce responds with
@@ -313,11 +313,11 @@ function length<E>(List<E>) -> Nat {
 ```
 
 Generic functions that are not recursive can be defined using a
-combination of `define`, `generic`, and λ.
+combination of `define`, `generic`, and `fun`.
 
 ```{.deduce^#head}
 define head : fn<T> List<T> -> Option<T> =
-  generic T { λ ls { 
+  generic T { fun ls { 
 	  switch ls {
 		case empty { none }
 		case node(x, ls') { just(x) }
@@ -432,7 +432,7 @@ parameters: (1) a `List<E>` and (2) a function whose parameter is `E`
 and whose return type is `bool`.
 
 ```{.deduce^#test_remove_if}
-assert remove_if(L13, λx {x ≤ 1}) = [2, 3]
+assert remove_if(L13, fun x {x ≤ 1}) = [2, 3]
 ```
 
 ### Non-empty Lists and Average

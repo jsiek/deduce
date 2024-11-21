@@ -526,8 +526,7 @@ class Var(Term):
   def substitute(self, sub):
       if self.name in sub:
           trm = sub[self.name]
-          if not isinstance(trm, RecFun):
-            add_reduced_def(self.name)
+          add_reduced_def(self.name)
           return trm
       else:
           return self
@@ -581,8 +580,8 @@ class Lambda(Term):
       params = self.vars
     else:
       params = [(base_name(x), t)for (x,t) in self.vars]
-    return "λ" + ",".join([x + ':' + str(t) if t else x\
-                           for (x,t) in params]) \
+    return "fun " + ",".join([x + ':' + str(t) if t else x\
+                              for (x,t) in params]) \
            + "{" + str(self.body) + "}"
 
   def __eq__(self, other):
@@ -819,12 +818,7 @@ class Call(Term):
                   subst[x] = ty
                 for (k,v) in zip(fun_case.parameters, rest_args):
                   subst[k] = v
-                # print('calling ' + name)
-                # print('call site ' + str(self))
-                # print('fun_case.body = ' + str(fun_case.body))
-                # print('subst = ' + ', '.join([k + ': ' + str(v) for (k,v) in subst.items()]))
                 new_fun_case_body = fun_case.body.substitute(subst)
-                #print('new_fun_case_body = ' + str(new_fun_case_body))
                 old_defs = get_reduce_only()
                 reduce_defs = [x for x in old_defs]
                 if Var(loc, None, name, []) in reduce_defs:
@@ -1136,7 +1130,7 @@ class Mark(Term):
     #             self.subject.copy())
   
   def __str__(self):
-    return '{' + str(self.subject) + '}'
+    return '#' + str(self.subject) + '#'
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
@@ -1536,7 +1530,7 @@ class PLet(Proof):
 
   def __str__(self):
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
-        + ' by ' + str(self.because) + '; ' + str(self.body)
+        + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
   def uniquify(self, env):
     self.proved.uniquify(env)
@@ -1701,6 +1695,12 @@ class AllIntro(Proof):
     body_env[x] = [new_x]
     self.var = (new_x, new_t)
     self.body.uniquify(body_env)
+
+  def set_body(self, new_body):
+    if self.body:
+      self.body.set_body(new_body)
+    else:
+      self.body = new_body
     
 @dataclass
 class AllElimTypes(Proof):
@@ -1980,7 +1980,7 @@ class SwitchProofCase(AST):
 @dataclass
 class SwitchProof(Proof):
   subject: Term
-  cases: List[IndCase]
+  cases: List[SwitchProofCase]
 
   def __str__(self):
       return 'switch ' + str(self.subject) \
@@ -1991,6 +1991,25 @@ class SwitchProof(Proof):
     for c in self.cases:
       c.uniquify(env)
       
+@dataclass
+class EvaluateGoal(Proof):
+
+  def __str__(self):
+    return 'evaluate'
+
+  def uniquify(self, env):
+    pass
+
+@dataclass
+class EvaluateFact(Proof):
+  subject: Proof
+
+  def __str__(self):
+    return 'evaluate ' + str(self.subject)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+  
 @dataclass
 class ApplyDefs(Proof):
   definitions: List[Term]
@@ -2033,16 +2052,16 @@ class ApplyDefsFact(Proof):
 @dataclass
 class EnableDefs(Proof):
   definitions: List[Term]
-  subject: Proof
+  body: Proof
 
   def __str__(self):
       return 'enable ' + ', '.join([str(d) for d in self.definitions]) \
-        + ';\n' + str(self.subject)
+        + ';\n' + str(self.body)
 
   def uniquify(self, env):
     for d in self.definitions:
       d.uniquify(env)
-    self.subject.uniquify(env)
+    self.body.uniquify(env)
     
 @dataclass
 class Rewrite(Proof):
@@ -2964,3 +2983,9 @@ def uniquify_deduce(ast):
     stmt.uniquify_body(env)
 
 
+def make_switch_for(meta, defs, subject, cases):
+  new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,
+                               ApplyDefsGoal(meta, [Var(meta, None, t, []) for t in defs],
+                                             c.body)) \
+               for c in cases]
+  return SwitchProof(meta, subject, new_cases)

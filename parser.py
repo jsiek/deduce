@@ -313,6 +313,16 @@ def parse_tree_to_ast(e, parent):
     # proofs
     if e.data == 'proof_var':
         return PVar(e.meta, str(e.children[0].value))
+    elif e.data == 'single_proof':
+        return parse_tree_to_ast(e.children[0], e)
+    elif e.data == 'push_proof':
+        proof_stmt = parse_tree_to_ast(e.children[0], e)
+        body = parse_tree_to_ast(e.children[1], e)
+        if isinstance(proof_stmt, AllIntro):
+            proof_stmt.set_body(body)
+        else:
+            proof_stmt.body = body
+        return proof_stmt
     elif e.data == 'modus_ponens':
         e1, e2 = e.children
         return ModusPonens(e.meta, parse_tree_to_ast(e1, e),
@@ -337,14 +347,10 @@ def parse_tree_to_ast(e, parent):
         eq2 = parse_tree_to_ast(e2, e)
         return PTransitive(e.meta, eq1, eq2)
     elif e.data == 'injective_proof':
-        e1, e2 = e.children
-        constr = parse_tree_to_ast(e1, e)
-        eq = parse_tree_to_ast(e2, e)
-        return PInjective(e.meta, constr, eq)
+        constr = parse_tree_to_ast(e.children[0], e)
+        return PInjective(e.meta, constr, None)
     elif e.data == 'extensionality_proof':
-        e1 = e.children[0]
-        eq1 = parse_tree_to_ast(e1, e)
-        return PExtensionality(e.meta, eq1)
+        return PExtensionality(e.meta, None)
     elif e.data == 'paren':
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'let':
@@ -352,18 +358,18 @@ def parse_tree_to_ast(e, parent):
                     str(e.children[0].value),
                     parse_tree_to_ast(e.children[1], e),
                     parse_tree_to_ast(e.children[2], e),
-                    parse_tree_to_ast(e.children[3], e))
+                    None)
     elif e.data == 'let_anon':
         return PLet(e.meta,
                     '_',
                     parse_tree_to_ast(e.children[0], e),
                     parse_tree_to_ast(e.children[1], e),
-                    parse_tree_to_ast(e.children[2], e))
+                    None)
     elif e.data == 'define_term_proof':
         return PTLetNew(e.meta,
                         str(e.children[0].value),
                         parse_tree_to_ast(e.children[1], e),
-                        parse_tree_to_ast(e.children[2], e))
+                        None)
     elif e.data == 'annot':
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
@@ -376,7 +382,7 @@ def parse_tree_to_ast(e, parent):
         return Suffices(e.meta,
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
-                        parse_tree_to_ast(e.children[2], e))
+                        None)
     elif e.data == 'term_proof':
         return PTerm(e.meta,
                      parse_tree_to_ast(e.children[0], e),
@@ -391,21 +397,17 @@ def parse_tree_to_ast(e, parent):
        return PAndElim(e.meta, int(e.children[0].value), subject)
     elif e.data == 'imp_intro':
         label = str(e.children[0].value)
-        body = parse_tree_to_ast(e.children[1], e)
-        return ImpIntro(e.meta, label, None, body)
+        return ImpIntro(e.meta, label, None, None)
     elif e.data == 'imp_intro_explicit':
         label = str(e.children[0].value)
         premise = parse_tree_to_ast(e.children[1], e)
-        body = parse_tree_to_ast(e.children[2], e)
-        return ImpIntro(e.meta, label, premise, body)
+        return ImpIntro(e.meta, label, premise, None)
     elif e.data == 'imp_intro_anon':
         premise = parse_tree_to_ast(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
-        return ImpIntro(e.meta, '_', premise, body)
+        return ImpIntro(e.meta, '_', premise, None)
     elif e.data == 'all_intro':
         vars = parse_tree_to_list(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
-        result = body
+        result = None
         for i, var in enumerate(reversed(vars)):
             result = AllIntro(e.meta, var, (i, len(vars)), result)
         return result
@@ -425,21 +427,18 @@ def parse_tree_to_ast(e, parent):
         return result
     elif e.data == 'some_intro':
         witnesses = parse_tree_to_list(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
-        return SomeIntro(e.meta, witnesses, body)
+        return SomeIntro(e.meta, witnesses, None)
     elif e.data == 'some_elim':
         witnesses = parse_tree_to_list(e.children[0], e)
         label = parse_tree_to_ast(e.children[1], e)
         some = parse_tree_to_ast(e.children[2], e)
-        body = parse_tree_to_ast(e.children[3], e)
-        return SomeElim(e.meta, witnesses, label, None, some, body)
+        return SomeElim(e.meta, witnesses, label, None, some, None)
     elif e.data == 'some_elim_explicit':
         witnesses = parse_tree_to_list(e.children[0], e)
         label = parse_tree_to_ast(e.children[1], e)
         prop = parse_tree_to_ast(e.children[2], e)
         some = parse_tree_to_ast(e.children[3], e)
-        body = parse_tree_to_ast(e.children[4], e)
-        return SomeElim(e.meta, witnesses, label, prop, some, body)
+        return SomeElim(e.meta, witnesses, label, prop, some, None)
     elif e.data == 'case':
         tag = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1], e)
@@ -478,7 +477,8 @@ def parse_tree_to_ast(e, parent):
         subject = parse_tree_to_ast(e.children[0], e)
         definitions = parse_tree_to_list(e.children[1], e)
         cases = parse_tree_to_list(e.children[2], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) \
+                                      for t in definitions],
                              SwitchProof(e.meta, subject, cases))
     elif e.data == 'ind_case':
         pat = parse_tree_to_ast(e.children[0], e)
@@ -494,10 +494,14 @@ def parse_tree_to_ast(e, parent):
         body = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
                              body)
+    elif e.data == 'eval_goal':
+        return EvaluateGoal(e.meta)
+    elif e.data == 'eval_fact':
+        subject = parse_tree_to_ast(e.children[0], e)
+        return EvaluateFact(e.meta, subject)
     elif e.data == 'apply_defs_goal_one':
         definition = parse_tree_to_ast(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, None, definition, [])], body)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, definition, [])], None)
     elif e.data == 'apply_defs_fact':
         definitions = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
@@ -512,10 +516,9 @@ def parse_tree_to_ast(e, parent):
                              subject)
     elif e.data == 'enable_defs':
         definitions = parse_tree_to_list(e.children[0], e)
-        subject = parse_tree_to_ast(e.children[1], e)
         return EnableDefs(e.meta,
                           [Var(e.meta, None, x, []) for x in definitions],
-                          subject)
+                          None)
     elif e.data == 'reason_definition':
         definitions = parse_tree_to_list(e.children[0], e)
         return ApplyDefs(e.meta, [Var(e.meta, None, t, []) for t in definitions])
@@ -544,8 +547,7 @@ def parse_tree_to_ast(e, parent):
                           subject)
     elif e.data == 'rewrite_goal':
         eqns = parse_tree_to_list(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
-        return RewriteGoal(e.meta, eqns, body)
+        return RewriteGoal(e.meta, eqns, None)
     elif e.data == 'rewrite_fact':
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
