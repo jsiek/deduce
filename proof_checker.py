@@ -908,8 +908,9 @@ def check_proof_of(proof, formula, env):
     print('\t' + str(proof))
   match proof:
     case PHole(loc):
-      incomplete_error(loc, 'incomplete proof\nGoal:\n\t' + str(formula) + '\n'\
-                       + proof_advice(formula, env) + '\n' \
+      new_formula = check_formula(formula, env)
+      incomplete_error(loc, 'incomplete proof\nGoal:\n\t' + str(new_formula) + '\n'\
+                       + proof_advice(new_formula, env) + '\n' \
                        + 'Givens:\n' + env.proofs_str())
 
     case PSorry(loc):
