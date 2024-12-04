@@ -420,6 +420,10 @@ def parse_term_logic(token_list, i):
   return term, i
 
 def parse_term(token_list, i):
+  if i >= len(token_list):
+      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+            'expected a term, not end of file')
+      
   token = token_list[i]
 
   if token.type == 'DEFINE':
@@ -1148,22 +1152,31 @@ def parse_function(token_list, i):
                 type_params, param_types, return_type, cases), i
     
 def parse_define(token_list, i):
-  start = i
-  i = i + 1
-  name, i = parse_identifier(token_list, i)
-  if token_list[i].type == 'COLON':
+  while_parsing = 'while parsing\n' \
+      + '\t"define" identifier "=" term\n'
+  try:
+    start = i
     i = i + 1
-    typ, i = parse_type(token_list, i)
-  else:
-    typ = None
-  if token_list[i].type != 'EQUAL':
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected `=` after name in `define`')
-  i = i + 1
-  body, i = parse_term(token_list, i)  
-  return (Define(meta_from_tokens(token_list[start], token_list[i-1]),
-                 name, typ, body), i)
+    name, i = parse_identifier(token_list, i)
+    if token_list[i].type == 'COLON':
+      i = i + 1
+      while_parsing = 'while parsing\n' \
+          + '\t"define" identifier ":" type "=" term\n'
+      typ, i = parse_type(token_list, i)
+    else:
+      typ = None
+    if token_list[i].type != 'EQUAL':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected `=` after name in `define`')
+    i = i + 1
+    body, i = parse_term(token_list, i)
+    return (Define(meta_from_tokens(token_list[start], token_list[i-1]),
+                   name, typ, body), i)
+  except Exception as e:
+      meta = meta_from_tokens(token_list[start], token_list[i-1])
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
+  
 statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
                       'union'}
     
@@ -1244,7 +1257,7 @@ def parse_type(token_list, i):
       name, i = parse_identifier(token_list, i)
     except Exception as e:
       error(meta_from_tokens(token, token_list[i]),
-            'expected a type\n' + str(e))
+            'expected a type, not\n\t' + quote(token_list[i].value))
     var = Var(meta_from_tokens(token,token), None, name)
     inst = False
     

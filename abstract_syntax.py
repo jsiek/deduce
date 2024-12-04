@@ -534,10 +534,10 @@ class Var(Term):
   def uniquify(self, env):
     if self.name not in env.keys():
       if get_verbose():
-        keys = '\nenvironment: ' + ', '.join(env.keys())
+        env_str = '\nenvironment: ' + ', '.join(env.keys())
       else:
-        keys = ''
-      error(self.location, "undefined variable `" + self.name + "`\t(uniquify)" + keys)
+        env_str = ''
+      error(self.location, 'undefined variable: ' + self.name + '' + env_str)
     self.resolved_names = env[self.name]
     
 @dataclass
