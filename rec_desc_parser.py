@@ -61,6 +61,9 @@ def parse(program_text, trace = False, error_expected = False):
   return stmts
 
 def parse_identifier(token_list, i):
+  if i >= len(token_list):
+      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+            'expected an identifier, not end of file')
   token = token_list[i]
   if token.type == 'IDENT':
     return (token.value, i + 1)
@@ -837,6 +840,10 @@ def parse_proof_med(token_list, i):
     return (proof, i)
 
 def parse_proof_statement(token_list, i):
+  if i >= len(token_list):
+      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+            'expected a proof, not end of file')
+      
   token = token_list[i]
     
   if token.type == 'SUFFICES':
@@ -1181,6 +1188,9 @@ statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theore
                       'union'}
     
 def parse_statement(token_list, i):
+  if i >= len(token_list):
+      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+            'expected a statement, not end of file')
   token = token_list[i]
   if token.type == 'ASSERT':
     i = i + 1
@@ -1227,6 +1237,10 @@ def parse_type_parameters(token_list, i):
       return [], i
     
 def parse_type(token_list, i):
+  if i >= len(token_list):
+      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+            'expected a type, not end of file')
+      
   token = token_list[i]
   if token.type == 'BOOL':
     return BoolType(meta_from_tokens(token,token)), i + 1
