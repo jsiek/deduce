@@ -69,7 +69,7 @@ def parse_identifier(token_list, i):
     return (to_unicode.get(token_list[i].value, token_list[i].value), i + 1)
   else:
     error(meta_from_tokens(token, token),
-          'expected an identifier, not ' + token.value)
+          'expected an identifier, not\n\t' + quote(token.value))
 
 def meta_from_tokens(start_token, end_token):
     meta = Meta()
@@ -318,7 +318,7 @@ def parse_term_hi(token_list, i):
       return (var, i)
     except Exception as e:  
       error(meta_from_tokens(token,token_list[i]),
-            'expected a term\n' + str(e))
+            'expected a term, not\n\t' + quote(token_list[i].value))
 
 def parse_call(token_list, i):
   term, i = parse_term_hi(token_list, i)
@@ -1297,6 +1297,30 @@ def parse_constructor(token_list, i):
   meta = meta_from_tokens(token, token_list[i-1])
   return Constructor(meta, name, param_types), i
 
+def parse_constructor_pattern(token_list, i):
+  begin = i
+  constr_name, i = parse_identifier(token_list, i)
+  ident_list = []
+  if token_list[i].type == 'LPAR':
+    start = i
+    i = i + 1
+    ident, i = parse_identifier(token_list, i)
+    ident_list.append(ident)
+    while token_list[i].type == 'COMMA':
+      i = i + 1
+      ident, i = parse_identifier(token_list, i)
+      ident_list.append(ident)
+    if token_list[i].type != 'RPAR':
+      error(meta_from_tokens(token_list[start], token_list[i-1]),
+            'expected a closing parenthesis')
+    i = i + 1
+  return PatternCons(meta_from_tokens(token_list[begin], token_list[i-1]),
+                     Var(meta_from_tokens(token_list[begin],
+                                          token_list[begin]),
+                         None, constr_name, []),
+                     ident_list), i
+    
+
 def parse_pattern(token_list, i):
   if token_list[i].value == '0':
     i = i + 1
@@ -1316,25 +1340,11 @@ def parse_pattern(token_list, i):
     return (PatternBool(meta, False), i)
   else:
     begin = i
-    constr_name, i = parse_identifier(token_list, i)
-    ident_list = []
-    if token_list[i].type == 'LPAR':
-      start = i
-      i = i + 1
-      ident, i = parse_identifier(token_list, i)
-      ident_list.append(ident)
-      while token_list[i].type == 'COMMA':
-        i = i + 1
-        ident, i = parse_identifier(token_list, i)
-        ident_list.append(ident)
-      if token_list[i].type != 'RPAR':
-        error(meta_from_tokens(token_list[start], token_list[i-1]),
-              'expected a closing parenthesis')
-      i = i + 1
-    return PatternCons(meta_from_tokens(token_list[begin], token_list[i-1]),
-                       Var(meta_from_tokens(token_list[begin],token_list[begin]),
-                           None, constr_name, []),
-                       ident_list), i
+    try:
+        return parse_constructor_pattern(token_list, i)
+    except Exception as e:
+        error(meta_from_tokens(token_list[begin], token_list[i]),
+              'expected a pattern, not\n\t' + quote(token_list[i].value))
 
 def parse_pattern_list(token_list, i):
   pat, i = parse_pattern(token_list, i)
@@ -1394,18 +1404,32 @@ def parse_fun_case(token_list, i):
   return FunCase(meta_from_tokens(token_list[begin], token_list[i-1]),
                  pat_list[0], pat_list[1:], body), i
 
+def quote(str):
+    return '"' + str + '"'
+
 def parse_switch_case(token_list, i):
+    while_parsing = '\nwhile parsing\n' \
+        + '\tswitch_case ::= "case" pattern "{" term "}"'
     start = i
     i = i + 1
-    pattern, i = parse_pattern(token_list, i)
+    try:
+        pattern, i = parse_pattern(token_list, i)
+    except Exception as e:
+        raise Exception(str(e) + while_parsing)
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `{` after pattern of case, not\n\t' + token_list[i].value)
+            'expected a "{" after pattern of case, not\n\t' \
+            + quote(token_list[i].value) + while_parsing)
     i = i + 1
-    body, i = parse_term(token_list, i)
+    try:
+      body, i = parse_term(token_list, i)
+    except Exception as e:
+      raise Exception(str(e) + while_parsing)
+            
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `}` after body of case, not\n\t' + token_list[i].value)
+            'expected a "}" after body of case, not\n\t' \
+            + quote(token_list[i].value) + while_parsing)
     i = i + 1
     return SwitchCase(meta_from_tokens(token_list[start], token_list[i-1]),
                       pattern, body), i

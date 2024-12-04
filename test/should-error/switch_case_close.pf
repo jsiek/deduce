@@ -1,0 +1,11 @@
+union Bit {
+  zero
+  one
+}
+
+define b = zero
+
+assert switch b {
+         case zero { true
+         case one { true }
+       }
