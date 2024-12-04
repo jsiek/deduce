@@ -2,5 +2,5 @@
 	proof
 while parsing
 	formula ::= "if" formula "then" formula
-./test/should-error/theorem_implies8.pf:1.1-1.12: while parsing
+./test/should-error/theorem_implies8.pf:1.1-1.20: while parsing
 	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"

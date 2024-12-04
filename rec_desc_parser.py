@@ -45,31 +45,60 @@ def init_parser():
                      start='program', parser='lalr',
                      debug=True, propagate_positions=True)
 
+# The current_position needs to be a global so that the changes to the
+# current_position don't get discarded when an exception is
+# thrown. -Jeremy
+
+current_position = 0
+token_list = []
+
+def current_token():
+    return token_list[current_position]
+
+def next_token():
+    return token_list[current_position + 1]
+
+def previous_token():
+    return token_list[current_position - 1]
+
+def advance():
+    global current_position
+    current_position = current_position + 1
+    
+def end_of_file():
+    return current_position >= len(token_list)
+
+
 def parse(program_text, trace = False, error_expected = False):
+  global token_list, current_position
   lexed = lark_parser.lex(program_text)
   token_list = []
+  current_position = 0
   for token in lexed:
     if trace:
       print(repr(token))
     token_list.append(token)
 
   stmts = []
-  i = 0
-  while i < len(token_list):
-    stmt, i = parse_statement(token_list, i)
+  while not end_of_file():
+    stmt = parse_statement()
     stmts.append(stmt)
   return stmts
 
-def parse_identifier(token_list, i):
-  if i >= len(token_list):
-      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+
+def parse_identifier():
+  if end_of_file():
+      error(meta_from_tokens(previous_token(), previous_token()),
             'expected an identifier, not end of file')
-  token = token_list[i]
+  token = current_token()      
   if token.type == 'IDENT':
-    return (token.value, i + 1)
-  elif token.value == 'operator':
-    i = i + 1
-    return (to_unicode.get(token_list[i].value, token_list[i].value), i + 1)
+    advance()
+    return token.value
+  elif current_token().value == 'operator':
+    advance()
+    rator = current_token().value
+    advance()
+    return to_unicode.get(rator, rator)
   else:
     error(meta_from_tokens(token, token),
           'expected an identifier, not\n\t' + quote(token.value))
@@ -85,400 +114,400 @@ def meta_from_tokens(start_token, end_token):
     meta.end_pos = end_token.end_pos
     return meta
 
-def parse_term_hi(token_list, i):
-  token = token_list[i]
+def parse_term_hi():
+  token = current_token()
   
   if token.type == 'ALL':
-    i = i + 1
-    vars, i = parse_var_list(token_list, i)
-    if token_list[i].type != 'DOT':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    vars = parse_var_list()
+    if current_token().type != 'DOT':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `.` after parameters of `all`, not\n\t' \
-            + token_list[i].value \
+            + current_token().value \
             + '\nwhile parsing\n' \
             + '\tterm ::= "all" var_list "." term')
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
+    advance()
+    body = parse_term()
+    meta = meta_from_tokens(token, previous_token())
     result = body
     for j, var in enumerate(reversed(vars)):
       result = All(meta, None, var, (j, len(vars)), result)
-    return (result, i)
+    return result
   elif token.type == 'AT':
-    i = i + 1
-    subject, i = parse_term_hi(token_list, i)
-    if token_list[i].type != 'LESSTHAN':
-      error(meta_from_tokens(token_list[i],token_list[i]),
+    advance()
+    subject = parse_term_hi()
+    if current_token().type != 'LESSTHAN':
+      error(meta_from_tokens(current_token(),current_token()),
             'expected `<` after subject of instantiation (`@`), not\n\t' \
-            + token_list[i].value \
+            + current_token().value \
             + '\nwhile parsing\n' \
             + '\tterm ::= "@" term "<" type_list ">"')
-    i = i + 1
-    type_args, i = parse_type_list(token_list, i)
-    if token_list[i].type != 'MORETHAN':
-      error(meta_from_tokens(token_list[i],token_list[i]),
+    advance()
+    type_args = parse_type_list()
+    if current_token().type != 'MORETHAN':
+      error(meta_from_tokens(current_token(),current_token()),
             'expected closing `>` after type arguments of instantiation (`@`)' \
-            + ' , not\n\t' + token_list[i].value \
+            + ' , not\n\t' + current_token().value \
             + '\nwhile parsing\n' \
             + '\tterm ::= "@" term "<" type_list ">"')
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (TermInst(meta, None, subject, type_args), i)
+    advance()
+    meta = meta_from_tokens(token, previous_token())
+    return TermInst(meta, None, subject, type_args)
 
   elif token.type == 'FALSE':
-    return (Bool(meta_from_tokens(token_list[i],token_list[i]),
-                 None, False), i + 1)
+    advance()
+    return Bool(meta_from_tokens(token,token), None, False)
 
   elif token.type == 'INT' or token.value == '0':
-    return (intToNat(meta_from_tokens(token,token), int(token.value)), i + 1)
+    advance()
+    return intToNat(meta_from_tokens(token,token), int(token.value))
 
   elif token.type == 'PLUS' or token.type == 'MINUS':
-    i = i + 1
-    intToken = token_list[i]
+    advance()
+    intToken = current_token()
     if intToken.type == 'INT' or intToken.value == '0':
-      return (intToDeduceInt(meta_from_tokens(intToken,intToken),
-                             int(intToken.value), token.type),
-              i + 1)
+      advance()
+      return intToDeduceInt(meta_from_tokens(intToken,intToken),
+                             int(intToken.value), token.type)
     else: 
-      error(meta_from_tokens(token_list[i],token_list[i]),
-            'expected an integer not\n\t' + token_list[i].value)
+      error(meta_from_tokens(current_token(),current_token()),
+            'expected an integer not\n\t' + current_token().value)
 
   elif token.type == 'IF':
-    i = i + 1
-    prem, i = parse_term(token_list, i)
-    if token_list[i].type != 'THEN':
-      error(meta_from_tokens(token_list[i],token_list[i]),
+    advance()
+    prem = parse_term()
+    if current_token().type != 'THEN':
+      error(meta_from_tokens(current_token(),current_token()),
             'expected keyword `then` after premise of `if` formula, not\n\t' \
-            + token_list[i].value \
+            + current_token().value \
             + '\nwhile parsing\n' \
             + '\tformula ::= "if" formula "then" formula')
-    i = i + 1
-    conc, i = parse_term(token_list, i)
+    advance()
+    conc = parse_term()
 
-    if token_list[i].type == 'ELSE':
-      i = i + 1
-      els, i = parse_term(token_list, i)
-      return (Conditional(meta_from_tokens(token, token_list[i-1]), None,
-                          prem, conc, els), i)
+    if current_token().type == 'ELSE':
+      advance()
+      els = parse_term()
+      return Conditional(meta_from_tokens(token, previous_token()), None,
+                         prem, conc, els)
     else:
-      return (IfThen(meta_from_tokens(token, token_list[i-1]),
-                     None, prem, conc), i)
+      return IfThen(meta_from_tokens(token, previous_token()),
+                    None, prem, conc)
 
   elif token.value == '∅' or token.value == '.0.':
-    i = i + 1
+    advance()
     meta = meta_from_tokens(token, token)
-    return (Call(meta, None,
+    return Call(meta, None,
                 Var(meta, None, 'char_fun'),
                 [Lambda(meta, None, [('_',None)], Bool(meta, None, False))],
-                 False), i)
+                 False)
 
   elif token.type == 'FUN' or token.type == 'Λ':
-    start = i
-    i = i + 1
-    params, i = parse_var_list(token_list, i)
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+    advance()
+    params = parse_var_list()
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(token, current_token()),
             'expected `{` after parameters of fun, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token, token_list[i-1]),
-            'expected `}` after body of `fun`, not\n\t' + token_list[i].value)
-    i = i + 1
-    return (Lambda(meta_from_tokens(token, token_list[i-1]),
-                   None, params, body), i)
+            + current_token().value)
+    advance()
+    body = parse_term()
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(token, previous_token()),
+            'expected `}` after body of `fun`, not\n\t' + current_token().value)
+    advance()
+    return Lambda(meta_from_tokens(token, previous_token()),
+                   None, params, body)
 
   elif token.type == 'GENERIC':
-    i = i + 1
-    params, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+    advance()
+    params = parse_ident_list()
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(token, current_token()),
             'expected `{` after parameters of `generic`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token, token_list[i]),
+            + current_token().value)
+    advance()
+    body = parse_term()
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(token, current_token()),
             'expected `}` after body of `generic`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (Generic(meta, None, params, body), i)
+            + current_token().value)
+    advance()
+    meta = meta_from_tokens(token, previous_token())
+    return Generic(meta, None, params, body)
     
   elif token.type == 'LESSTHAN':
-    i = i + 1
-    type_params, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'MORETHAN':
-        error(meta_from_tokens(token, token_list[i-1]),
+    advance()
+    type_params = parse_ident_list()
+    if current_token().type != 'MORETHAN':
+        error(meta_from_tokens(token, previous_token()),
               'expected closing `>` after type parameters')
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
+    advance()
+    body = parse_term()
+    meta = meta_from_tokens(token, previous_token())
     result = body
     for j, ty in enumerate(reversed(type_params)):
       result = All(meta, None, (ty, TypeType(meta)), (j, len(type_params)), result)
-    return (result, i)
+    return result
     
   elif token.type == 'LPAR':
-    i = i + 1
-    term, i = parse_term(token_list, i)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    term = parse_term()
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected closing parentheses, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return (term, i)
+            + current_token().value)
+    advance()
+    return term
 
   elif token.type == 'HASH':
-    i = i + 1
-    term, i = parse_term(token_list, i)
-    if token_list[i].type != 'HASH':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    term = parse_term()
+    if current_token().type != 'HASH':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected closing parentheses, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (Mark(meta, None, term), i)
+            + current_token().value)
+    advance()
+    meta = meta_from_tokens(token, previous_token())
+    return Mark(meta, None, term)
 
   elif token.value == '─':
-    i = i + 1
+    advance()
     meta = meta_from_tokens(token,token)
-    return (Omitted(meta, None), i)
+    return Omitted(meta, None)
     
   elif token.type == 'NOT':
-    i = i + 1
-    subject, i = parse_term_equal(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (IfThen(meta, None, subject, Bool(meta, None, False)), i)
+    advance()
+    subject = parse_term_equal()
+    meta = meta_from_tokens(token, previous_token())
+    return IfThen(meta, None, subject, Bool(meta, None, False))
     
   elif token.type == 'QMARK':
-    i = i + 1
+    advance()
     meta = meta_from_tokens(token,token)
-    return (Hole(meta, None), i)
+    return Hole(meta, None)
 
   elif token.type == 'SOME':
-    i = i + 1
-    vars, i = parse_var_list(token_list, i)
-    if token_list[i].type != 'DOT':
-      error(meta_from_tokens(token, token_list[i]),
+    advance()
+    vars = parse_var_list()
+    if current_token().type != 'DOT':
+      error(meta_from_tokens(token, current_token()),
             'expected `.` after parameters of `some`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    return (Some(meta_from_tokens(token, token_list[i-1]),
-                None, vars, body), i)
+            + current_token().value)
+    advance()
+    body = parse_term()
+    return Some(meta_from_tokens(token, previous_token()),
+                None, vars, body)
 
   elif token.type == 'SWITCH':
-    start = i
-    i = i + 1
-    subject, i = parse_term(token_list, i)
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    subject = parse_term()
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `{` after subject of switch, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
+            + current_token().value)
+    advance()
     cases = []
-    while token_list[i].type == 'CASE':
-      switch_case, i = parse_switch_case(token_list, i)
+    while current_token().type == 'CASE':
+      switch_case = parse_switch_case()
       cases.append(switch_case)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(token,current_token()),
             'expected `}` after last case of switch, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return (Switch(meta_from_tokens(token, token_list[i-1]), None,
-                   subject, cases), i)
+            + current_token().value)
+    advance()
+    return Switch(meta_from_tokens(token, previous_token()), None,
+                   subject, cases)
 
   elif token.type == 'TRUE':
-    return (Bool(meta_from_tokens(token_list[i],token_list[i]),
-                 None, True), i + 1)
+    advance()
+    return Bool(meta_from_tokens(token,token), None, True)
 
   elif token.type == 'LSQB':
-    i = i + 1
-    if token_list[i].type == 'RSQB':
-        return (listToNodeList(meta_from_tokens(token,token), []), i + 1)
+    advance()
+    if current_token().type == 'RSQB':
+        advance()
+        return listToNodeList(meta_from_tokens(token,token), [])
     lst_terms = []
-    term, i = parse_term(token_list, i)
+    term = parse_term()
     lst_terms.append(term)
-    token = token_list[i]
+    token = current_token()
     while token.type == 'COMMA':
-      i = i + 1
-      term, i = parse_term(token_list, i)
+      advance()
+      term = parse_term()
       lst_terms.append(term)
-      token = token_list[i]
+      token = current_token()
     if token.type != 'RSQB':
-      error(meta_from_tokens(token_list[i],token_list[i]),
-            'expected closing bracket \']\', not\n\t' + token_list[i].value)
-    return (listToNodeList(meta_from_tokens(token,token), lst_terms), i + 1)
+      error(meta_from_tokens(current_token(),current_token()),
+            'expected closing bracket \']\', not\n\t' + current_token().value)
+    advance()
+    return listToNodeList(meta_from_tokens(token,token), lst_terms)
     
   else:
     try:
-      start = i
-      name, i = parse_identifier(token_list, i)
-      meta = meta_from_tokens(token_list[start], token_list[i-1])
+      name = parse_identifier()
+      meta = meta_from_tokens(token, token)
       var = Var(meta, None, name)
-      return (var, i)
+      return var
     except Exception as e:  
-      error(meta_from_tokens(token,token_list[i]),
-            'expected a term, not\n\t' + quote(token_list[i].value))
+      error(meta_from_tokens(token, current_token()),
+            'expected a term, not\n\t' + quote(current_token().value))
 
-def parse_call(token_list, i):
-  term, i = parse_term_hi(token_list, i)
+def parse_call():
+  term = parse_term_hi()
 
-  while i < len(token_list) and token_list[i].type == 'LPAR':
-    start = i
-    i = i + 1
-    args, i = parse_term_list(token_list, i)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token_list[start], token_list[i-1]),
+  while (not end_of_file()) and current_token().type == 'LPAR':
+    start_token = current_token()
+    advance()
+    args = parse_term_list()
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(start_token, previous_token()),
             'expected closing parenthesis `)`')
-    i = i + 1
-    term = Call(meta_from_tokens(token_list[start], token_list[i-1]), None,
+    advance()
+    term = Call(meta_from_tokens(start_token, previous_token()), None,
                 term, args, False)
 
-  return (term, i)
+  return term
     
-def parse_term_mult(token_list, i):
-  term, i = parse_call(token_list, i)
+def parse_term_mult():
+  term = parse_call()
 
-  while i < len(token_list) and token_list[i].value in mult_operators:
-    start = i
-    rator = Var(meta_from_tokens(token_list[i], token_list[i]),
-                None, to_unicode.get(token_list[i].value,token_list[i].value))
-    i = i + 1
-    right, i = parse_term_mult(token_list, i)
-    term = Call(meta_from_tokens(token_list[start], token_list[i-1]), None,
+  while (not end_of_file()) and current_token().value in mult_operators:
+    start_token = current_token()
+    rator = Var(meta_from_tokens(current_token(), current_token()),
+                None, to_unicode.get(current_token().value, current_token().value))
+    advance()
+    right = parse_term_mult()
+    term = Call(meta_from_tokens(start_token, previous_token()), None,
                 rator, [term,right], True)
     
-  return (term, i)
+  return term
 
-def parse_term_add(token_list, i):
-  token = token_list[i]
-  term, i = parse_term_mult(token_list, i)
+def parse_term_add():
+  token = current_token()
+  term = parse_term_mult()
 
-  while i < len(token_list) and token_list[i].value in add_operators:
-    rator = Var(meta_from_tokens(token_list[i], token_list[i]),
-                None, to_unicode.get(token_list[i].value, token_list[i].value))
-    i = i + 1
-    right, i = parse_term_add(token_list, i)
-    term = Call(meta_from_tokens(token, token_list[i-1]), None,
+  while (not end_of_file()) and current_token().value in add_operators:
+    rator = Var(meta_from_tokens(current_token(), current_token()),
+                None, to_unicode.get(current_token().value, current_token().value))
+    advance()
+    right = parse_term_add()
+    term = Call(meta_from_tokens(token, previous_token()), None,
                 rator, [term,right], True)
     
-  return (term, i)
+  return term
 
-def parse_term_compare(token_list, i):
-  token = token_list[i]
-  term, i = parse_term_add(token_list, i)
+def parse_term_compare():
+  token = current_token()
+  term = parse_term_add()
 
-  while i < len(token_list) and token_list[i].value in compare_operators:
-    rator = Var(meta_from_tokens(token_list[i], token_list[i]),
-                None, to_unicode.get(token_list[i].value, token_list[i].value))
-    i = i + 1
-    right, i = parse_term_compare(token_list, i)
-    term = Call(meta_from_tokens(token, token_list[i-1]), None,
+  while (not end_of_file()) and current_token().value in compare_operators:
+    rator = Var(meta_from_tokens(current_token(), current_token()),
+                None, to_unicode.get(current_token().value, current_token().value))
+    advance()
+    right = parse_term_compare()
+    term = Call(meta_from_tokens(token, previous_token()), None,
                 rator, [term,right], True)
     
-  return term, i
+  return term
 
-def parse_term_equal(token_list, i):
-  token = token_list[i]
-  term, i = parse_term_compare(token_list, i)
-  while i < len(token_list) and token_list[i].value in equal_operators:
-    meta = meta_from_tokens(token_list[i], token_list[i])
-    opr = token_list[i].value
+def parse_term_equal():
+  token = current_token()
+  term = parse_term_compare()
+  while (not end_of_file()) and current_token().value in equal_operators:
+    meta = meta_from_tokens(current_token(), current_token())
+    opr = current_token().value
     eq = Var(meta, None, '=')
-    i = i + 1
-    right, i = parse_term_equal(token_list, i)
+    advance()
+    right = parse_term_equal()
     if opr == '=':
-      term = Call(meta_from_tokens(token, token_list[i-1]), None,
+      term = Call(meta_from_tokens(token, previous_token()), None,
                   eq, [term,right], True)
     elif opr == '≠' or opr == '!=':
       term = IfThen(meta, None, 
                     Call(meta, None, eq, [term,right], True),
                     Bool(meta, None, False))
-  return term, i
+  return term
     
-def parse_term_logic(token_list, i):
-  token = token_list[i]
-  term, i = parse_term_equal(token_list, i)
-  while i < len(token_list) and (token_list[i].type == 'AND'
-                                 or token_list[i].type == 'OR'):
-    opr = token_list[i].type
-    i = i + 1
-    right, i = parse_term_logic(token_list, i)
+def parse_term_logic():
+  token = current_token()
+  term = parse_term_equal()
+  while (not end_of_file()) and (current_token().type == 'AND'
+                                 or current_token().type == 'OR'):
+    opr = current_token().type
+    advance()
+    right = parse_term_logic()
     if opr == 'AND':
-      term = And(meta_from_tokens(token, token_list[i-1]), None,
+      term = And(meta_from_tokens(token, previous_token()), None,
                  extract_and(term) + extract_and(right))
     elif opr == 'OR':
-      term = Or(meta_from_tokens(token, token_list[i-1]), None,
+      term = Or(meta_from_tokens(token, previous_token()), None,
                  extract_or(term) + extract_or(right))        
 
-  if i < len(token_list) and token_list[i].type == 'COLON':
-    i = i + 1
-    typ, i = parse_type(token_list, i)
-    term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
+  if (not end_of_file()) and current_token().type == 'COLON':
+    advance()
+    typ = parse_type()
+    term = TAnnote(meta_from_tokens(token, previous_token()), None,
                    term, typ)
       
-  return term, i
+  return term
 
-def parse_term(token_list, i):
-  if i >= len(token_list):
-      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+def parse_term():
+  if end_of_file():
+      error(meta_from_tokens(previous_token(),previous_token()),
             'expected a term, not end of file')
       
-  token = token_list[i]
+  token = current_token()
 
   if token.type == 'DEFINE':
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    if token_list[i].type != 'EQUAL':
-        error(meta_from_tokens(token_list[i],token_list[i]),
+    advance()
+    name = parse_identifier()
+    if current_token().type != 'EQUAL':
+        error(meta_from_tokens(current_token(),current_token()),
               'expected `=` after name in `define`, not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    rhs, i = parse_term_logic(token_list, i)
-    if token_list[i].type != 'SEMICOLON':
-        error(meta_from_tokens(token_list[i],token_list[i]),
+              + current_token().value)
+    advance()
+    rhs = parse_term_logic()
+    if current_token().type != 'SEMICOLON':
+        error(meta_from_tokens(current_token(),current_token()),
               'expected `;` after term of `define`, not\n\t' \
-              + token_list[i].value \
+              + current_token().value \
               + '\nwhile parsing\n' \
               + '\tterm ::= "define" IDENT "=" term ";" term')
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    body, i = parse_term(token_list, i)
-    return (TLet(meta, None, name, rhs, body), i)
+    advance()
+    meta = meta_from_tokens(token, previous_token())
+    body = parse_term()
+    return TLet(meta, None, name, rhs, body)
 
   else:
   
-    term, i = parse_term_logic(token_list, i)
-    if i < len(token_list) and (token_list[i].value in iff_operators):
-      i = i + 1
-      right, i = parse_term_logic(token_list, i)
-      loc = meta_from_tokens(token, token_list[i-1])
+    term = parse_term_logic()
+    if (not end_of_file()) and (current_token().value in iff_operators):
+      advance()
+      right = parse_term_logic()
+      loc = meta_from_tokens(token, previous_token())
       left_right = IfThen(loc, None, term.copy(), right.copy())
       right_left = IfThen(loc, None, right.copy(), term.copy())
       term = And(loc, None, [left_right, right_left])
 
-    if i < len(token_list) and token_list[i].type == 'COLON':
-      i = i + 1
-      typ, i = parse_type(token_list, i)
-      term = TAnnote(meta_from_tokens(token, token_list[i-1]), None,
+    if (not end_of_file()) and current_token().type == 'COLON':
+      advance()
+      typ = parse_type()
+      term = TAnnote(meta_from_tokens(token, previous_token()), None,
                      term, typ)
 
-    return term, i
+    return term
 
-def parse_assumption(token_list, i):
-  if token_list[i].type == 'COLON':
+def parse_assumption():
+  if current_token().type == 'COLON':
     label = '_'
   else:
-    label,i = parse_identifier(token_list, i)
-  if token_list[i].type == 'COLON':
-    i = i + 1
-    premise, i = parse_term(token_list, i)
-    return label,premise,i
+    label = parse_identifier()
+  if current_token().type == 'COLON':
+    advance()
+    premise = parse_term()
+    return label,premise
   else:
-    return label,None,i
+    return label,None
 
 proof_keywords = {'apply', 'arbitrary',
                   'choose', 'conclude', 'conjunct',
@@ -489,111 +518,111 @@ proof_keywords = {'apply', 'arbitrary',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
 
-def parse_definition_proof(token_list, i):
-  token = token_list[i]
-  i = i + 1
-  if token_list[i].type == 'LBRACE':
-    i = i + 1
-    defs, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'RBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
-              'expected closing `}`, not\n\t' + token_list[i].value)
-    i = i + 1
+def parse_definition_proof():
+  token = current_token()
+  advance()
+  if current_token().type == 'LBRACE':
+    advance()
+    defs = parse_ident_list()
+    if current_token().type != 'RBRACE':
+        error(meta_from_tokens(current_token(), current_token()),
+              'expected closing `}`, not\n\t' + current_token().value)
+    advance()
   else:
-    defn, i = parse_identifier(token_list, i)
+    defn = parse_identifier()
     defs = [defn]
 
-  if token_list[i].type == 'AND':
-      i = i + 1
-      if token_list[i].type != 'REWRITE':
-          error(meta_from_tokens(token_list[i],token_list[i]),
+  if current_token().type == 'AND':
+      advance()
+      if current_token().type != 'REWRITE':
+          error(meta_from_tokens(current_token(),current_token()),
                 'expected `rewrite` after `and` and `definition`, not\n\t' \
-                + token_list[i].value)
-      i = i + 1
-      eqns, i = parse_proof_list(token_list, i)
-      meta = meta_from_tokens(token, token_list[i-1])
-      return (ApplyDefsGoal(meta,
+                + current_token().value)
+      advance()
+      eqns = parse_proof_list()
+      meta = meta_from_tokens(token, previous_token())
+      return ApplyDefsGoal(meta,
                             [Var(meta, None, t) for t in defs],
-                            Rewrite(meta, eqns)), i)
-  elif token_list[i].type == 'IN':
-      i = i + 1
-      subject, i = parse_proof(token_list, i)
-      meta = meta_from_tokens(token, token_list[i-1])
-      return (ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
-                            subject), i)
+                            Rewrite(meta, eqns))
+  elif current_token().type == 'IN':
+      advance()
+      subject = parse_proof()
+      meta = meta_from_tokens(token, previous_token())
+      return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
+                            subject)
   else:
-      meta = meta_from_tokens(token, token_list[i-1])
-      return (ApplyDefs(meta, [Var(meta, None, n) for n in defs]), i)
+      meta = meta_from_tokens(token, previous_token())
+      return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
 
-def parse_recall(token_list, i):
-  start = i
-  i = i + 1
-  facts,i = parse_term_list(token_list, i)
-  meta = meta_from_tokens(token_list[start], token_list[i-1])
-  return (PRecall(meta, facts), i)
+def parse_recall():
+  start_token = current_token()
+  advance()
+  facts = parse_term_list()
+  meta = meta_from_tokens(start_token, previous_token())
+  return PRecall(meta, facts)
   
-def parse_proof_hi(token_list, i):
-  token = token_list[i]
+def parse_proof_hi():
+  token = current_token()
   if token.type == 'APPLY':
-    i = i + 1
-    imp,i = parse_proof(token_list, i)
-    if token_list[i].type != 'TO':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    imp = parse_proof()
+    if current_token().type != 'TO':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `to` after implication part of `apply`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    arg,i = parse_proof(token_list, i)
-    return ModusPonens(meta_from_tokens(token, token_list[i-1]), imp, arg), i
+            + current_token().value)
+    advance()
+    arg = parse_proof()
+    return ModusPonens(meta_from_tokens(token, previous_token()), imp, arg)
 
   elif token.type == 'CASES':
-    i = i + 1
-    subject, i = parse_proof(token_list, i)
+    advance()
+    subject = parse_proof()
     cases = []
-    while i < len(token_list) and token_list[i].type == 'CASE':
-        c, i = parse_case(token_list, i)
+    while (not end_of_file()) and current_token().type == 'CASE':
+        c = parse_case()
         cases.append(c)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (Cases(meta, subject, cases), i)
+    meta = meta_from_tokens(token, previous_token())
+    return Cases(meta, subject, cases)
     
   elif token.type == 'CONCLUDE':
-    i = i + 1
-    claim, i = parse_term(token_list, i)
-    if token_list[i].type == 'BY':
-      i = i + 1
-      reason, i = parse_proof(token_list, i)
+    advance()
+    claim = parse_term()
+    if current_token().type == 'BY':
+      advance()
+      reason = parse_proof()
     else:
-      error(meta_from_tokens(token_list[i], token_list[i]),
+      error(meta_from_tokens(current_token(), current_token()),
             'expected the keyword `by` after formula of `conclude`, '\
-            + 'not\n\t' + token_list[i].value)
-    return (PAnnot(meta_from_tokens(token, token_list[i-1]),
-                   claim, reason), i)
+            + 'not\n\t' + current_token().value)
+    return PAnnot(meta_from_tokens(token, previous_token()),
+                  claim, reason)
 
   elif token.type == 'CONJUNCT':
-    i = i + 1
-    meta = meta_from_tokens(token_list[i],token_list[i])
-    index = int(token_list[i].value)
-    i = i + 1
-    if token_list[i].type != 'OF':
-      error(meta_from_tokens(token_list[i],token_list[i]),
+    advance()
+    meta = meta_from_tokens(current_token(),current_token())
+    index = int(current_token().value)
+    advance()
+    if current_token().type != 'OF':
+      error(meta_from_tokens(current_token(),current_token()),
             'expected keyword `of` after index of `conjunct`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
+            + current_token().value)
+    advance()
     
-    subject, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token,token_list[i-1])
-    return (PAndElim(meta, index, subject), i)
+    subject = parse_proof()
+    meta = meta_from_tokens(token,previous_token())
+    return PAndElim(meta, index, subject)
       
   elif token.type == 'DEFINITION':
-    return parse_definition_proof(token_list, i)
+    return parse_definition_proof()
 
   elif token.type == 'DOT':
-    i = i + 1
-    return PTrue(meta_from_tokens(token, token)), i
+    advance()
+    return PTrue(meta_from_tokens(token, token))
   
   elif token.type == 'EQUATIONS':
-    i = i + 1
-    first, i = parse_equation(token_list, i)
-    rest, i = parse_equation_list(token_list, i)
+    advance()
+    first = parse_equation()
+    rest = parse_equation_list()
     eqs = [first]
     for (lhs, rhs, reason) in rest:
         if lhs == None:
@@ -613,651 +642,649 @@ def parse_proof_hi(token_list, i):
             result = eq_proof
         else:
             result = PTransitive(meta, eq_proof, result)
-    return result, i    
+    return result
     
   elif token.type == 'RECALL':
-    return parse_recall(token_list, i)
+    return parse_recall()
     
   elif token.type == 'INDUCTION':
-    return parse_induction(token_list, i)
+    return parse_induction()
 
   elif token.type == 'LPAR':
-    i = i + 1
-    proof, i = parse_proof(token_list, i)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    proof = parse_proof()
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected a closing parentheses, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return proof, i
+            + current_token().value)
+    advance()
+    return proof
 
   elif token.type == 'LBRACE':
-    i = i + 1
-    proof, i = parse_proof(token_list, i)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    proof = parse_proof()
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected a closing `}`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return proof, i
+            + current_token().value)
+    advance()
+    return proof
 
   elif token.type == 'QMARK':
-    i = i + 1
+    advance()
     meta = meta_from_tokens(token, token)
-    return (PHole(meta), i)
+    return PHole(meta)
 
   elif token.type == 'SORRY':
-    i = i + 1
+    advance()
     meta = meta_from_tokens(token,token)
-    return (PSorry(meta), i)
+    return PSorry(meta)
 
   elif token.type == 'HELP':
-    i = i + 1
-    subject, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token,token_list[i-1])
-    return (PHelpUse(meta, subject), i)
+    advance()
+    subject = parse_proof()
+    meta = meta_from_tokens(token,previous_token())
+    return PHelpUse(meta, subject)
 
   elif token.type == 'REFLEXIVE':
-    i = i + 1
+    advance()
     meta = meta_from_tokens(token, token)
-    return (PReflexive(meta), i)
+    return PReflexive(meta)
 
   elif token.type == 'REWRITE':
-    i = i + 1
-    proofs, i = parse_proof_list(token_list, i)
-    if token_list[i].type == 'IN':
-      i = i + 1
-      subject, i = parse_proof(token_list, i)
-      meta = meta_from_tokens(token, token_list[i-1])
-      return (RewriteFact(meta, subject, proofs), i)
+    advance()
+    proofs = parse_proof_list()
+    if current_token().type == 'IN':
+      advance()
+      subject = parse_proof()
+      meta = meta_from_tokens(token, previous_token())
+      return RewriteFact(meta, subject, proofs)
     else:
-      meta = meta_from_tokens(token, token_list[i-1])
-      return (Rewrite(meta, proofs), i)
+      meta = meta_from_tokens(token, previous_token())
+      return Rewrite(meta, proofs)
     
 
   elif token.type == 'SWITCH':
-    i = i + 1
-    subject, i = parse_term(token_list, i)
-    if token_list[i].type == 'FOR':
-        i = i + 1
-        defs, i = parse_ident_list(token_list, i)
+    advance()
+    subject = parse_term()
+    if current_token().type == 'FOR':
+        advance()
+        defs = parse_ident_list()
     else:
         defs = []
-    if token_list[i].type != 'LBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+    if current_token().type != 'LBRACE':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected `{` after subject of `switch`')
-    i = i + 1
+    advance()
     cases = []
-    while token_list[i].type == 'CASE':
-        c, i = parse_proof_switch_case(token_list, i)
+    while current_token().type == 'CASE':
+        c = parse_proof_switch_case()
         cases.append(c)
-    if token_list[i].type != 'RBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+    if current_token().type != 'RBRACE':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected closing `}` after cases of `switch`')
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
+    advance()
+    meta = meta_from_tokens(token, previous_token())
     if len(defs) == 0:
-        return (SwitchProof(meta, subject, cases), i)
+        return SwitchProof(meta, subject, cases)
     else:
-        return (ApplyDefsGoal(meta, [Var(meta, None, t) for t in defs],
-                              SwitchProof(meta, subject, cases)), i)
+        return ApplyDefsGoal(meta, [Var(meta, None, t) for t in defs],
+                              SwitchProof(meta, subject, cases))
     
   elif token.type == 'SYMMETRIC':
-    i = i + 1
-    eq, i = parse_proof(token_list, i)
+    advance()
+    eq = parse_proof()
     meta = meta_from_tokens(token, token)
-    return (PSymmetric(meta, eq), i)
+    return PSymmetric(meta, eq)
 
   elif token.type == 'TRANSITIVE':
-    i = i + 1
-    eq1, i = parse_proof(token_list, i)
-    eq2, i = parse_proof(token_list, i)
+    advance()
+    eq1 = parse_proof()
+    eq2 = parse_proof()
     meta = meta_from_tokens(token, token)
-    return (PTransitive(meta, eq1, eq2), i)
+    return PTransitive(meta, eq1, eq2)
 
   elif token.type == 'EVALUATE':
-    i = i + 1
-    if token_list[i].type == 'IN':
-        i = i + 1
-        subject, i = parse_proof(token_list, i)
-        return (EvaluateFact(meta_from_tokens(token, token_list[i-1]),
-                             subject), i)
+    advance()
+    if current_token().type == 'IN':
+        advance()
+        subject = parse_proof()
+        return EvaluateFact(meta_from_tokens(token, previous_token()),
+                             subject)
     else:
-        return (EvaluateGoal(meta_from_tokens(token, token_list[i-1])), i)
+        return EvaluateGoal(meta_from_tokens(token, previous_token()))
     
   else:
     for kw in proof_keywords:
         if edit_distance(token.value, kw) <= 2:
             error(meta_from_tokens(token, token),
                   'did you mean `' + kw \
-                  + '` instead of `' + token_list[i].value + '`?')
+                  + '` instead of `' + current_token().value + '`?')
 
     try:
-      name, i = parse_identifier(token_list, i)
+      name = parse_identifier()
     except Exception as e:
-      missing_error(meta_from_tokens(token, token_list[i]),
-                    'expected a proof, not\n\t' + quote(token_list[i].value))
-    return (PVar(meta_from_tokens(token, token), name), i)
+      missing_error(meta_from_tokens(token, current_token()),
+                    'expected a proof, not\n\t' + quote(current_token().value))
+    return PVar(meta_from_tokens(token, token), name)
 
-def parse_proof_list(token_list, i):
+def parse_proof_list():
   proof_list = []
-  proof, i = parse_proof(token_list, i)
+  proof = parse_proof()
   proof_list.append(proof)
-  while i < len(token_list) and token_list[i].value == '|':
-    i = i + 1
-    proof, i = parse_proof(token_list, i)
+  while (not end_of_file()) and current_token().value == '|':
+    advance()
+    proof = parse_proof()
     proof_list.append(proof)
-  return (proof_list, i)      
+  return proof_list
 
-def parse_case(token_list, i):
-    start = i
-    i = i + 1
-    label,premise, i = parse_assumption(token_list, i)
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+def parse_case():
+    start_token = current_token()
+    advance()
+    label,premise = parse_assumption()
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(start_token,current_token()),
             'expected a `{` after assumption of `case`, not\n\t' \
-            + token_list[i].value \
+            + current_token().value \
             + '\nwhile parsing:\n\t"case" label ":" formula "{" proof "}"')
-    i = i + 1
-    body, i = parse_proof(token_list, i)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `}` after body of `case`, not\n\t' + token_list[i].value)
-    i = i + 1
-    return ((label,premise,body), i)
+    advance()
+    body = parse_proof()
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(start_token,current_token()),
+            'expected a `}` after body of `case`, not\n\t' + current_token().value)
+    advance()
+    return (label,premise,body)
 
-def parse_proof_switch_case(token_list, i):
-    start = i
-    i = i + 1
-    pat, i = parse_pattern(token_list, i)
-    if token_list[i].type == 'SUPPOSE' or token_list[i].type == 'ASSUME':
-        i = i + 1
+def parse_proof_switch_case():
+    start_token = current_token()
+    advance()
+    pat = parse_pattern()
+    if current_token().type == 'SUPPOSE' or current_token().type == 'ASSUME':
+        advance()
         assumptions = []
-        label,asm, i = parse_assumption(token_list, i)
+        label,asm = parse_assumption()
         assumptions.append((label,asm))
-        while token_list[i].type == 'COMMA':
-            i = i + 1
-            label,asm, i = parse_assumption(token_list, i)
+        while current_token().type == 'COMMA':
+            advance()
+            label,asm = parse_assumption()
             assumptions.append((label,asm))
     else:
         assumptions = []
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(start_token,current_token()),
             'expected a `{` after assumption of `case`, not\n\t' \
-            + token_list[i].value \
+            + current_token().value \
             + '\nwhile parsing one of the following\n' \
             + '\tswitch_proof_case ::= "case" pattern "{" proof "}"\n' \
             + '\tswitch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"')
-    i = i + 1
-    body, i = parse_proof(token_list, i)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
-            'expected a `}` after body of case, not\n\t' + token_list[i].value)
-    i = i + 1
-    meta = meta_from_tokens(token_list[start],token_list[i-1])
-    return (SwitchProofCase(meta, pat, assumptions, body), i)    
+    advance()
+    body = parse_proof()
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(start_token,current_token()),
+            'expected a `}` after body of case, not\n\t' + current_token().value)
+    advance()
+    meta = meta_from_tokens(start_token,previous_token())
+    return SwitchProofCase(meta, pat, assumptions, body)
     
-def parse_proof_med(token_list, i):
-    start = i
-    proof, i = parse_proof_hi(token_list, i)
+def parse_proof_med():
+    start_token = current_token()
+    proof = parse_proof_hi()
     
-    while i < len(token_list) and token_list[i].type == 'LESSTHAN':
-      i = i + 1
-      type_list, i = parse_type_list(token_list, i)
-      if token_list[i].type != 'MORETHAN':
-        error(meta_from_tokens(token_list[start],token_list[i]),
-              'expected a closing `>`, not\n\t' + token_list[i].value + '\n'\
+    while (not end_of_file()) and current_token().type == 'LESSTHAN':
+      advance()
+      type_list = parse_type_list()
+      if current_token().type != 'MORETHAN':
+        error(meta_from_tokens(start_token,current_token()),
+              'expected a closing `>`, not\n\t' + current_token().value + '\n'\
               + 'while trying to parse type arguments for instantiation of an `all` formula:\n\t'\
               + 'proof ::= proof "<" type_list ">"')
-      i = i + 1
-      meta = meta_from_tokens(token_list[start], token_list[i-1])
+      advance()
+      meta = meta_from_tokens(start_token, previous_token())
       for j, ty in enumerate(type_list):
         proof = AllElimTypes(meta, proof, ty, (j, len(type_list)))
       
-    while i < len(token_list) and token_list[i].type == 'LSQB':
-      i = i + 1
-      term_list, i = parse_term_list(token_list, i)
-      if token_list[i].type != 'RSQB':
-        error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected a closing `]`, not\n\t' + token_list[i].value)
-      i = i + 1
-      meta = meta_from_tokens(token_list[start], token_list[i-1])
+    while (not end_of_file()) and current_token().type == 'LSQB':
+      advance()
+      term_list = parse_term_list()
+      if current_token().type != 'RSQB':
+        error(meta_from_tokens(current_token(),current_token()),
+              'expected a closing `]`, not\n\t' + current_token().value)
+      advance()
+      meta = meta_from_tokens(start_token, previous_token())
       for j, term in enumerate(term_list):
         proof = AllElim(meta, proof, term, (j, len(term_list)))
 
-    return (proof, i)
+    return proof
 
-def parse_proof_statement(token_list, i):
-  if i >= len(token_list):
-      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+def parse_proof_statement():
+  if end_of_file():
+      error(meta_from_tokens(previous_token(),previous_token()),
             'expected a proof, not end of file')
       
-  token = token_list[i]
+  token = current_token()
     
   if token.type == 'SUFFICES':
-    i = i + 1
-    formula, i = parse_term(token_list, i)
-    if token_list[i].type != 'BY':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    formula = parse_term()
+    if current_token().type != 'BY':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected the keyword `by` after formula of `suffices`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    proof, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (Suffices(meta, formula, proof, None), i)
+            + current_token().value)
+    advance()
+    proof = parse_proof()
+    meta = meta_from_tokens(token, previous_token())
+    return Suffices(meta, formula, proof, None)
     
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
-    start = i
-    i = i + 1
+    start_token = current_token()
+    advance()
     try:
-      label,premise,i = parse_assumption(token_list, i)
+      label,premise = parse_assumption()
     except Exception as e:
-      error(meta_from_tokens(token, token_list[i]),
+      error(meta_from_tokens(token, current_token()),
             'expected an assumption:\n\t"assume" label ":" formula\n' \
             + str(e))
       
-    meta = meta_from_tokens(token,token_list[i-1])
-    return ImpIntro(meta, label, premise, None), i
+    meta = meta_from_tokens(token,previous_token())
+    return ImpIntro(meta, label, premise, None)
 
   elif token.type == 'ARBITRARY':
-    i = i + 1
-    vars, i = parse_var_list(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
+    advance()
+    vars = parse_var_list()
+    meta = meta_from_tokens(token, previous_token())
     result = None
     for j, var in enumerate(reversed(vars)):
         result = AllIntro(meta, var, (j, len(vars)), result)
-    return (result, i)
+    return result
     
   elif token.type == 'CHOOSE':
-    i = i + 1
-    witnesses, i = parse_term_list(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (SomeIntro(meta, witnesses, None), i)
+    advance()
+    witnesses = parse_term_list()
+    meta = meta_from_tokens(token, previous_token())
+    return SomeIntro(meta, witnesses, None)
     
   elif token.type == 'OBTAIN':
-    i = i + 1
-    witnesses, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'WHERE':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    witnesses = parse_ident_list()
+    if current_token().type != 'WHERE':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `where` after variables of `obtain`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    label, premise, i = parse_assumption(token_list, i)
-    if token_list[i].type != 'FROM':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+            + current_token().value)
+    advance()
+    label, premise = parse_assumption()
+    if current_token().type != 'FROM':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `from` after `where` part of `obtain`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    some, i = parse_proof(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (SomeElim(meta, witnesses, label, premise, some, None), i)
+            + current_token().value)
+    advance()
+    some = parse_proof()
+    meta = meta_from_tokens(token, previous_token())
+    return SomeElim(meta, witnesses, label, premise, some, None)
     
   elif token.type == 'ENABLE':
-    i = i + 1
-    if token_list[i].type != 'LBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    if current_token().type != 'LBRACE':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected `{` after `enable`')
-    i = i + 1
-    defs, i = parse_ident_list(token_list, i)
-    if token_list[i].type != 'RBRACE':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    defs = parse_ident_list()
+    if current_token().type != 'RBRACE':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected closing `}` in `enable`')
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (EnableDefs(meta,
-                       [Var(meta, None, x) for x in defs],
-                       None), i)
+    advance()
+    meta = meta_from_tokens(token, previous_token())
+    return EnableDefs(meta, [Var(meta, None, x) for x in defs], None)
       
   elif token.type == 'HAVE':
-    return parse_have(token_list, i)
+    return parse_have()
 
   elif token.type == 'DEFINE':
-    return parse_define_proof_stmt(token_list, i)
+    return parse_define_proof_stmt()
       
   elif token.type == 'INJECTIVE':
-    i = i + 1
-    constr, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (PInjective(meta, constr, None), i)
+    advance()
+    constr = parse_term()
+    meta = meta_from_tokens(token, previous_token())
+    return PInjective(meta, constr, None)
 
   elif token.type == 'EXTENSIONALITY':
-    i = i + 1
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (PExtensionality(meta, None), i)
+    advance()
+    meta = meta_from_tokens(token, previous_token())
+    return PExtensionality(meta, None)
 
   else:
-    return (None, i)
+    return None
 
-def parse_define_proof_stmt(token_list, i):
+def parse_define_proof_stmt():
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "define" identifier "=" term\n'
   try:
-    start = i
-    token = token_list[i]
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    if token_list[i].type != 'EQUAL':
-        error(meta_from_tokens(token_list[i],token_list[i]),
+    start_token = current_token()
+    token = current_token()
+    advance()
+    name = parse_identifier()
+    if current_token().type != 'EQUAL':
+        error(meta_from_tokens(current_token(),current_token()),
               'expected "=" after name in "define", not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    rhs, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (PTLetNew(meta, name, rhs, None), i)
+              + current_token().value)
+    advance()
+    rhs = parse_term()
+    meta = meta_from_tokens(token, previous_token())
+    return PTLetNew(meta, name, rhs, None)
   except Exception as e:
-    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    meta = meta_from_tokens(start_token, previous_token())
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
     
 
-def parse_have(token_list, i):
+def parse_have():
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "have" identifier ":" formula "by" proof\n' \
       + '\tproof_stmt ::= "have" ":" formula "by" proof\n'
   try:  
-    start = i
-    token = token_list[start]
-    i = i + 1
-    if token_list[i].type != 'COLON':
+    start_token = current_token()
+    token = start_token
+    advance()
+    if current_token().type != 'COLON':
       try:
-        label,i = parse_identifier(token_list, i)
+        label = parse_identifier()
       except Exception as e:
-        error(meta_from_tokens(token_list[i], token_list[i]),
+        error(meta_from_tokens(current_token(), current_token()),
             'expected an identifier or colon after "have", not\n\t' \
-            + token_list[i].value)
+            + current_token().value)
     else:
       label = '_'
-    if token_list[i].type != 'COLON':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    if current_token().type != 'COLON':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected a colon after label of "have", not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    proved,i = parse_term(token_list, i)
-    if token_list[i].type == 'BY':
-      i = i + 1
-      because,i = parse_proof(token_list, i)
+            + current_token().value)
+    advance()
+    proved = parse_term()
+    if current_token().type == 'BY':
+      advance()
+      because = parse_proof()
     else:        
-      error(meta_from_tokens(token_list[i], token_list[i]),
+      error(meta_from_tokens(current_token(), current_token()),
             'expected the keyword `by` after formula of `have`, ' \
-            + 'not\n\t' + token_list[i].value)
-    return PLet(meta_from_tokens(token, token_list[i-1]),
-                label, proved, because, None), i
+            + 'not\n\t' + current_token().value)
+    return PLet(meta_from_tokens(token, previous_token()),
+                label, proved, because, None)
   except Exception as e:
-    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    meta = meta_from_tokens(start_token, previous_token())
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
-def parse_proof(token_list, i):
-    (proof_stmt, i) = parse_proof_statement(token_list, i)
+def parse_proof():
+    proof_stmt = parse_proof_statement()
     if proof_stmt:
         try:
-          (body, i) = parse_proof(token_list, i)
+          body = parse_proof()
         except Exception as ex:
           if hasattr(ex, 'last') or not hasattr(ex, 'missing'):
               raise ex
           else:
-              last_error(meta_from_tokens(token_list[i], token_list[i]),
+              last_error(meta_from_tokens(current_token(), current_token()),
                          'missing conclusion after\n\t' + str(proof_stmt))
               
         if isinstance(proof_stmt, AllIntro):
             proof_stmt.set_body(body)
         else:
             proof_stmt.body = body
-        return (proof_stmt, i)
+        return proof_stmt
     else:
-        return parse_finishing_proof(token_list, i)
+        return parse_finishing_proof()
 
-def parse_finishing_proof(token_list, i):
-    start = i
-    proof, i = parse_proof_med(token_list, i)
-    while token_list[i].type == 'COMMA':
-      i = i + 1
-      right, i = parse_proof(token_list, i)
-      proof = PTuple(meta_from_tokens(token_list[start], token_list[i-1]), 
+def parse_finishing_proof():
+    start_token = current_token()
+    proof = parse_proof_med()
+    while current_token().type == 'COMMA':
+      advance()
+      right = parse_proof()
+      proof = PTuple(meta_from_tokens(start_token, previous_token()), 
                     [proof, right])
-    return proof, i
+    return proof
 
-def parse_induction(token_list, i):
+def parse_induction():
   while_parsing = 'while parsing\n' \
       + '\tconclusion ::= "induction" type ind_case*\n'
   try:    
-    start = i
-    token = token_list[start]
-    i = i + 1
-    typ, i = parse_type(token_list, i)
+    start_token = current_token()
+    token = start_token
+    advance()
+    typ = parse_type()
     cases = []
-    while token_list[i].type == 'CASE':
-      c, i = parse_induction_case(token_list, i)
+    while current_token().type == 'CASE':
+      c = parse_induction_case()
       cases.append(c)
-    return (Induction(meta_from_tokens(token, token_list[i-1]), typ, cases), i)
+    return Induction(meta_from_tokens(token, previous_token()), typ, cases)
   except Exception as e:
-    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    meta = meta_from_tokens(start_token, previous_token())
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
-def parse_induction_case(token_list, i):
+def parse_induction_case():
   while_parsing = 'while parsing\n' \
       + '\tind_case ::= "case" pattern "{" proof "}"\n'
   try:
-    start = i
-    i = i + 1
-    pat, i = parse_pattern(token_list, i)
+    start_token = current_token()
+    advance()
+    pat = parse_pattern()
     ind_hyps = []
-    if token_list[i].type == 'SUPPOSE' or token_list[i].type == 'ASSUME':
-      i = i + 1
-      label,ih, i = parse_assumption(token_list, i)
+    if current_token().type == 'SUPPOSE' or current_token().type == 'ASSUME':
+      advance()
+      label,ih = parse_assumption()
       ind_hyps.append((label,ih))
-      while token_list[i].type == 'COMMA':
-          i = i + 1
-          label,ih, i = parse_assumption(token_list, i)
+      while current_token().type == 'COMMA':
+          advance()
+          label,ih = parse_assumption()
           ind_hyps.append((label,ih))
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected "{" after pattern of "case", not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    body, i = parse_proof(token_list, i)
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+            + current_token().value)
+    advance()
+    body = parse_proof()
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected "}" after body of induction case, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return (IndCase(meta_from_tokens(token_list[start], token_list[i-1]),
-                    pat, ind_hyps, body), i)
+            + current_token().value)
+    advance()
+    return IndCase(meta_from_tokens(start_token, previous_token()),
+                    pat, ind_hyps, body)
   except Exception as e:
-    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    meta = meta_from_tokens(start_token, previous_token())
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
-def parse_equation(token_list, i):
-  lhs, i = parse_term_compare(token_list, i)
-  if token_list[i].type != 'EQUAL':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+def parse_equation():
+  lhs = parse_term_compare()
+  if current_token().type != 'EQUAL':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `=` after left-hand side of equation, not\n\t' \
-            + token_list[i].value)
-  i = i + 1
-  rhs, i = parse_term_compare(token_list, i)
-  if token_list[i].type != 'BY':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+            + current_token().value)
+  advance()
+  rhs = parse_term_compare()
+  if current_token().type != 'BY':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `by` after equation, not\n\t' \
-            + token_list[i].value)
-  i = i + 1
-  reason, i = parse_proof(token_list, i)
-  return (lhs, rhs, reason), i
+            + current_token().value)
+  advance()
+  reason = parse_proof()
+  return (lhs, rhs, reason)
 
-def parse_half_equation(token_list, i):
-  if token_list[i].value == '...':
-    i = i + 1
-    if token_list[i].type != 'EQUAL':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+def parse_half_equation():
+  if current_token().value == '...':
+    advance()
+    if current_token().type != 'EQUAL':
+      error(meta_from_tokens(current_token(), current_token()),
               'expected `=` after `...`, not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    rhs, i = parse_term_compare(token_list, i)
-    if token_list[i].type != 'BY':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+              + current_token().value)
+    advance()
+    rhs = parse_term_compare()
+    if current_token().type != 'BY':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected `by` after equation, not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    reason, i = parse_proof(token_list, i)
-    return (None, rhs, reason), i
-  elif token_list[i].value == '$':
-    i = i + 1
-    eqn, i = parse_equation(token_list, i)
-    return eqn, i
+              + current_token().value)
+    advance()
+    reason = parse_proof()
+    return (None, rhs, reason)
+  elif current_token().value == '$':
+    advance()
+    return parse_equation()
   else:
-    error(meta_from_tokens(token_list[i], token_list[i]),
+    error(meta_from_tokens(current_token(), current_token()),
           'expected `... = rhs` or `$ lhs = rhs` in `equations`, not\n\t' \
-          + token_list[i].value)
+          + current_token().value)
 
-def parse_equation_list(token_list, i):
+def parse_equation_list():
   eqn_list = []
-  while token_list[i].value == '$' or token_list[i].value == '...':
-    eqn, i = parse_half_equation(token_list, i)
+  while current_token().value == '$' or current_token().value == '...':
+    eqn = parse_half_equation()
     eqn_list.append(eqn)
-  return eqn_list, i
+  return eqn_list
 
-def parse_theorem(token_list, i):
+def parse_theorem():
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"'
   try:    
-    start = i
-    i = i + 1
+    start_token = current_token()
+    advance()
     try:
-      name, i = parse_identifier(token_list, i)
+      name = parse_identifier()
     except Exception as e:
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected name of theorem, not:\n\t' + token_list[i].value)
+      error(meta_from_tokens(current_token(), current_token()),
+            'expected name of theorem, not:\n\t' + current_token().value)
 
-    if token_list[i].type != 'COLON':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    if current_token().type != 'COLON':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected a colon after theorem name, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    what, i = parse_term(token_list, i)
-    if token_list[i].type != 'PROOF':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+            + current_token().value)
+    advance()
+    what = parse_term()
+    if current_token().type != 'PROOF':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected the keyword "proof" after formula of theorem, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    proof, i = parse_proof(token_list, i)
-    if token_list[i].type != 'END':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+            + current_token().value)
+    advance()
+    proof = parse_proof()
+    if current_token().type != 'END':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected the keyword "end" after proof of theorem, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    return Theorem(meta_from_tokens(token_list[start], token_list[i-1]),
-                   name, what, proof, False), i
+            + current_token().value)
+    advance()
+    return Theorem(meta_from_tokens(start_token, previous_token()),
+                   name, what, proof, False)
   except Exception as e:
-    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    meta = meta_from_tokens(start_token, previous_token())
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
 
-def parse_union(token_list, i):
-  start = i
-  i = i + 1
-  name, i = parse_identifier(token_list, i)
-  type_params, i = parse_type_parameters(token_list, i)
+def parse_union():
+  start_token = current_token()
+  advance()
+  name = parse_identifier()
+  type_params = parse_type_parameters()
 
-  if token_list[i].type != 'LBRACE':
-    error(meta_from_tokens(token_list[i], token_list[i]),
+  if current_token().type != 'LBRACE':
+    error(meta_from_tokens(current_token(), current_token()),
           'expected `{` after name of union, not\n\t' \
-          + token_list[i].value)
-  i = i + 1
+          + current_token().value)
+  advance()
   constr_list = []
-  while token_list[i].type != 'RBRACE':
-    constr, i = parse_constructor(token_list, i)
+  while current_token().type != 'RBRACE':
+    constr = parse_constructor()
     constr_list.append(constr)
-  i = i + 1
+  advance()
 
-  meta = meta_from_tokens(token_list[start], token_list[i-1])
-  return Union(meta, name, type_params, constr_list), i
+  meta = meta_from_tokens(start_token, previous_token())
+  return Union(meta, name, type_params, constr_list)
 
-def parse_function(token_list, i):
-  begin = i
-  i = i + 1
-  name, i = parse_identifier(token_list, i)
-  type_params, i = parse_type_parameters(token_list, i)
+def parse_function():
+  start_token = current_token()
+  advance()
+  name = parse_identifier()
+  type_params = parse_type_parameters()
 
-  if token_list[i].type == 'LPAR':
-    start = i
-    i = i + 1
-    param_types, i = parse_type_list(token_list, i)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token_list[start], token_list[i-1]),
+  if current_token().type == 'LPAR':
+    start_token = current_token()
+    advance()
+    param_types = parse_type_list()
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(start_token, previous_token()),
             'expected a closing parenthesis')
-    i = i + 1
+    advance()
 
-  if token_list[i].value != '->':
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected `->` between function parameter types and return type')
-  i = i + 1
-  return_type, i = parse_type(token_list, i)
+  if current_token().value != '->':
+    error(meta_from_tokens(current_token(), current_token()),
+          'expected `->` between function parameter types and return type, not\n\t' \
+          + quote(current_token().value))
+  advance()
+  return_type = parse_type()
 
-  if token_list[i].type != 'LBRACE':
-    error(meta_from_tokens(token_list[i], token_list[i]),
+  if current_token().type != 'LBRACE':
+    error(meta_from_tokens(current_token(), current_token()),
           'expected open brace `{` after the return type of the function')
-  i = i + 1
+  advance()
 
   cases = []
-  while token_list[i].type != 'RBRACE':
-    fun_case, i = parse_fun_case(token_list, i)
+  while current_token().type != 'RBRACE':
+    fun_case = parse_fun_case()
     cases.append(fun_case)
-  i = i + 1
-  return RecFun(meta_from_tokens(token_list[begin], token_list[i-1]), name,
-                type_params, param_types, return_type, cases), i
+  advance()
+  return RecFun(meta_from_tokens(start_token, previous_token()), name,
+                type_params, param_types, return_type, cases)
     
-def parse_define(token_list, i):
+def parse_define():
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "define" identifier "=" term\n'
   try:
-    start = i
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    if token_list[i].type == 'COLON':
-      i = i + 1
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    if current_token().type == 'COLON':
+      advance()
       while_parsing = 'while parsing\n' \
           + '\tproof_stmt ::= "define" identifier ":" type "=" term\n'
-      typ, i = parse_type(token_list, i)
+      typ = parse_type()
     else:
       typ = None
-    if token_list[i].type != 'EQUAL':
-      error(meta_from_tokens(token_list[i], token_list[i]),
+    if current_token().type != 'EQUAL':
+      error(meta_from_tokens(current_token(), current_token()),
             'expected `=` after name in `define`')
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    return (Define(meta_from_tokens(token_list[start], token_list[i-1]),
-                   name, typ, body), i)
+    advance()
+    body = parse_term()
+    return Define(meta_from_tokens(start_token, previous_token()),
+                   name, typ, body)
   except Exception as e:
-      meta = meta_from_tokens(token_list[start], token_list[i-1])
+      meta = meta_from_tokens(start_token, previous_token())
       raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
   
 statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
                       'union'}
     
-def parse_statement(token_list, i):
-  if i >= len(token_list):
-      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+def parse_statement():
+  if end_of_file():
+      error(meta_from_tokens(previous_token(),previous_token()),
             'expected a statement, not end of file')
-  token = token_list[i]
+  token = current_token()
   if token.type == 'ASSERT':
-    i = i + 1
-    body, i = parse_term(token_list, i)
-    return (Assert(meta_from_tokens(token, token_list[i-1]), body), i)
+    advance()
+    body = parse_term()
+    return Assert(meta_from_tokens(token, previous_token()), body)
   elif token.type == 'DEFINE':
-    return parse_define(token_list, i)
+    return parse_define()
   elif token.type == 'FUNCTION':
-    return parse_function(token_list, i)
+    return parse_function()
   elif token.type == 'IMPORT':
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    return (Import(meta_from_tokens(token, token_list[i-1]), name), i)
+    advance()
+    name = parse_identifier()
+    return Import(meta_from_tokens(token, previous_token()), name)
   elif token.type == 'PRINT':
-    i = i + 1
-    subject, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (Print(meta, subject), i)
+    advance()
+    subject = parse_term()
+    meta = meta_from_tokens(token, previous_token())
+    return Print(meta, subject)
   elif token.type == 'THEOREM' or token.type == 'LEMMA':
-    return parse_theorem(token_list, i)
+    return parse_theorem()
   elif token.type == 'UNION':
-    return parse_union(token_list, i)
+    return parse_union()
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:
@@ -1268,240 +1295,243 @@ def parse_statement(token_list, i):
     error(meta_from_tokens(token, token),
           'expected a statement, not\n\t' + token.value)
 
-def parse_type_parameters(token_list, i):
-  if token_list[i].type == 'LESSTHAN':
-      i = i + 1
-      ident_list, i = parse_ident_list(token_list, i)
-      if token_list[i].type != 'MORETHAN':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+def parse_type_parameters():
+  if current_token().type == 'LESSTHAN':
+      advance()
+      ident_list = parse_ident_list()
+      if current_token().type != 'MORETHAN':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected closing `>` after type parameters of `fn`, not\n\t' \
-              + token_list[i].value)
-      i = i + 1
-      return ident_list, i
+              + current_token().value)
+      advance()
+      return ident_list
   else:
-      return [], i
+      return []
     
-def parse_type(token_list, i):
-  if i >= len(token_list):
-      error(meta_from_tokens(token_list[i-1],token_list[i-1]),
+def parse_type():
+  if end_of_file():
+      error(meta_from_tokens(previous_token(),previous_token()),
             'expected a type, not end of file')
       
-  token = token_list[i]
+  token = current_token()
   if token.type == 'BOOL':
-    return BoolType(meta_from_tokens(token,token)), i + 1
+    advance()
+    return BoolType(meta_from_tokens(token,token))
   if token.type == 'TYPE':
-    return TypeType(meta_from_tokens(token,token)), i + 1
+    advance()
+    return TypeType(meta_from_tokens(token,token))
   elif token.type == 'FN':
-    i = i + 1
-    type_params, i = parse_type_parameters(token_list, i)
-    param_types, i = parse_type_list(token_list, i)
-    if token_list[i].value != '->':
-        error(meta_from_tokens(token_list[i], token_list[i]),
+    advance()
+    type_params = parse_type_parameters()
+    param_types = parse_type_list()
+    if current_token().value != '->':
+        error(meta_from_tokens(current_token(), current_token()),
               'expected `->` after parameter types in this function type')
-    i = i + 1
-    return_type, i = parse_type(token_list, i)
-    return (FunctionType(meta_from_tokens(token, token_list[i-1]),
-                         type_params, param_types, return_type), i)
+    advance()
+    return_type = parse_type()
+    return FunctionType(meta_from_tokens(token, previous_token()),
+                        type_params, param_types, return_type)
   elif token.type == 'LPAR':
-    start = i
-    i = i + 1
-    typ, i = parse_type(token_list, i)
-    if token_list[i].type != 'RPAR':
-        error(meta_from_tokens(token_list[start], token_list[i]),
-              'expected closing `)`, not\n\t' + token_list[i].value)
-    i = i + 1
-    return typ, i
+    start_token = current_token()
+    advance()
+    typ = parse_type()
+    if current_token().type != 'RPAR':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing `)`, not\n\t' + current_token().value)
+    advance()
+    return typ
   else:
     try:
-      name, i = parse_identifier(token_list, i)
+      name = parse_identifier()
     except Exception as e:
-      error(meta_from_tokens(token, token_list[i]),
-            'expected a type, not\n\t' + quote(token_list[i].value))
+      error(meta_from_tokens(token, current_token()),
+            'expected a type, not\n\t' + quote(current_token().value))
     var = Var(meta_from_tokens(token,token), None, name)
     inst = False
     
-    if token_list[i].type == 'LESSTHAN':
+    if current_token().type == 'LESSTHAN':
       inst = True
-      start = i
-      i = i + 1
-      arg_types, i = parse_type_list(token_list, i)
-      if token_list[i].type != 'MORETHAN':
-          error(meta_from_tokens(token_list[start], token_list[i-1]),
+      start_token = current_token()
+      advance()
+      arg_types = parse_type_list()
+      if current_token().type != 'MORETHAN':
+          error(meta_from_tokens(start_token, previous_token()),
                 'expected a closing `>`')
-      i = i + 1
+      advance()
     if inst:
-        return TypeInst(meta_from_tokens(token, token_list[i-1]),
-                        var, arg_types), i
+        return TypeInst(meta_from_tokens(token, previous_token()),
+                        var, arg_types)
     else:
-        return var, i
+        return var
     
-def parse_type_list(token_list, i):
-  typ, i = parse_type(token_list, i)
+def parse_type_list():
+  typ = parse_type()
   type_list = [typ]
-  while token_list[i].type == 'COMMA':
-    i = i + 1
-    typ, i = parse_type(token_list, i)
+  while current_token().type == 'COMMA':
+    advance()
+    typ = parse_type()
     type_list.append(typ)
-  return type_list, i
+  return type_list
 
-def parse_term_list(token_list, i):
-  trm, i = parse_term(token_list, i)
+def parse_term_list():
+  trm = parse_term()
   trm_list = [trm]
-  while token_list[i].type == 'COMMA':
-    i = i + 1
-    trm, i = parse_term(token_list, i)
+  while current_token().type == 'COMMA':
+    advance()
+    trm = parse_term()
     trm_list.append(trm)
-  return trm_list, i
+  return trm_list
     
-def parse_constructor(token_list, i):
-  token = token_list[i]
-  name, i = parse_identifier(token_list, i)
+def parse_constructor():
+  token = current_token()
+  name = parse_identifier()
 
-  if token_list[i].type == 'LPAR':
-    i = i + 1
-    param_types, i = parse_type_list(token_list, i)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token, token_list[i-1]),
+  if current_token().type == 'LPAR':
+    advance()
+    param_types = parse_type_list()
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(token, previous_token()),
             'missing closing parenthesis')
-    i = i + 1
+    advance()
   else:
     param_types = []
-  meta = meta_from_tokens(token, token_list[i-1])
-  return Constructor(meta, name, param_types), i
+  meta = meta_from_tokens(token, previous_token())
+  return Constructor(meta, name, param_types)
 
-def parse_constructor_pattern(token_list, i):
-  begin = i
-  constr_name, i = parse_identifier(token_list, i)
+def parse_constructor_pattern():
+  start_token = current_token()
+  constr_name = parse_identifier()
   ident_list = []
-  if token_list[i].type == 'LPAR':
-    start = i
-    i = i + 1
-    ident, i = parse_identifier(token_list, i)
+  if current_token().type == 'LPAR':
+    start_token = current_token()
+    advance()
+    ident = parse_identifier()
     ident_list.append(ident)
-    while token_list[i].type == 'COMMA':
-      i = i + 1
-      ident, i = parse_identifier(token_list, i)
+    while current_token().type == 'COMMA':
+      advance()
+      ident = parse_identifier()
       ident_list.append(ident)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token_list[start], token_list[i-1]),
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(start_token, previous_token()),
             'expected a closing parenthesis')
-    i = i + 1
-  return PatternCons(meta_from_tokens(token_list[begin], token_list[i-1]),
-                     Var(meta_from_tokens(token_list[begin],
-                                          token_list[begin]),
+    advance()
+  return PatternCons(meta_from_tokens(start_token, previous_token()),
+                     Var(meta_from_tokens(start_token,
+                                          start_token),
                          None, constr_name, []),
-                     ident_list), i
+                     ident_list)
     
 
-def parse_pattern(token_list, i):
-  if token_list[i].value == '0':
-    i = i + 1
-    meta = meta_from_tokens(token_list[i], token_list[i])
-    return PatternCons(meta, Var(meta, None, 'zero', []), []), i
-  if token_list[i].type == 'LSQB' and token_list[i+1].type == 'RSQB':
-    i = i + 2
-    meta = meta_from_tokens(token_list[i], token_list[i])
-    return PatternCons(meta, Var(meta, None, 'empty', []), []), i
-  elif token_list[i].type == 'TRUE':
-    i = i + 1
-    meta = meta_from_tokens(token_list[i], token_list[i])
-    return (PatternBool(meta, True), i)
-  elif token_list[i].type == 'FALSE':
-    i = i + 1
-    meta = meta_from_tokens(token_list[i], token_list[i])
-    return (PatternBool(meta, False), i)
+def parse_pattern():
+  if current_token().value == '0':
+    advance()
+    meta = meta_from_tokens(current_token(), current_token())
+    return PatternCons(meta, Var(meta, None, 'zero', []), [])
+  if current_token().type == 'LSQB' and next_token().type == 'RSQB':
+    advance()
+    advance()
+    meta = meta_from_tokens(current_token(), current_token())
+    return PatternCons(meta, Var(meta, None, 'empty', []), [])
+  elif current_token().type == 'TRUE':
+    advance()
+    meta = meta_from_tokens(current_token(), current_token())
+    return PatternBool(meta, True)
+  elif current_token().type == 'FALSE':
+    advance()
+    meta = meta_from_tokens(current_token(), current_token())
+    return PatternBool(meta, False)
   else:
-    begin = i
+    start_token = current_token()
     try:
-        return parse_constructor_pattern(token_list, i)
+      return parse_constructor_pattern()
     except Exception as e:
-        error(meta_from_tokens(token_list[begin], token_list[i]),
-              'expected a pattern, not\n\t' + quote(token_list[i].value))
+      error(meta_from_tokens(start_token, current_token()),
+            'expected a pattern, not\n\t' + quote(current_token().value))
 
-def parse_pattern_list(token_list, i):
-  pat, i = parse_pattern(token_list, i)
-  if token_list[i].type == 'COMMA':
-    i = i + 1
-    ident_list, i = parse_ident_list(token_list, i)
-    return ([pat] + ident_list), i
+def parse_pattern_list():
+  pat = parse_pattern()
+  if current_token().type == 'COMMA':
+    advance()
+    ident_list = parse_ident_list()
+    return [pat] + ident_list
   else:
-    return [pat], i
+    return [pat]
       
-def parse_ident_list(token_list, i):
-  ident, i = parse_identifier(token_list, i)
+def parse_ident_list():
+  ident = parse_identifier()
   ident_list = [ident]
-  while token_list[i].type == 'COMMA':
-    i = i + 1
-    ident, i = parse_identifier(token_list, i)
+  while current_token().type == 'COMMA':
+    advance()
+    ident = parse_identifier()
     ident_list.append(ident)
-  return ident_list, i
+  return ident_list
 
-def parse_var_list(token_list, i):
-  ident, i = parse_identifier(token_list, i)
-  if token_list[i].type == 'COLON':
-    i = i + 1
-    ty, i = parse_type(token_list, i)
+def parse_var_list():
+  ident = parse_identifier()
+  if current_token().type == 'COLON':
+    advance()
+    ty = parse_type()
   else:
     ty = None
   var_list = [(ident,ty)]
   
-  while token_list[i].type == 'COMMA':
-    i = i + 1
-    ident, i = parse_identifier(token_list, i)
-    if token_list[i].type == 'COLON':
-      i = i + 1
-      ty, i = parse_type(token_list, i)
+  while current_token().type == 'COMMA':
+    advance()
+    ident = parse_identifier()
+    if current_token().type == 'COLON':
+      advance()
+      ty = parse_type()
     else:
       ty = None
     var_list.append((ident, ty))
-  return var_list, i
+  return var_list
   
-def parse_fun_case(token_list, i):
-  begin = i
-  name, i = parse_identifier(token_list, i)
+def parse_fun_case():
+  start_token = current_token()
+  name = parse_identifier()
   
-  if token_list[i].type == 'LPAR':
-    start = i
-    i = i + 1
-    pat_list, i = parse_pattern_list(token_list, i)
-    if token_list[i].type != 'RPAR':
-      error(meta_from_tokens(token_list[start], token_list[i-1]),
+  if current_token().type == 'LPAR':
+    start_token = current_token()
+    advance()
+    pat_list = parse_pattern_list()
+    if current_token().type != 'RPAR':
+      error(meta_from_tokens(start_token, previous_token()),
             'expected closing parenthesis')
-    i = i + 1
-  if token_list[i].type != 'EQUAL':
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected `=` and then a term, not\n\t' + token_list[i])
-  i = i + 1
-  body, i = parse_term(token_list, i)
-  return FunCase(meta_from_tokens(token_list[begin], token_list[i-1]),
-                 pat_list[0], pat_list[1:], body), i
+    advance()
+  if current_token().type != 'EQUAL':
+    error(meta_from_tokens(current_token(), current_token()),
+          'expected `=` and then a term, not\n\t' + current_token())
+  advance()
+  body = parse_term()
+  return FunCase(meta_from_tokens(start_token, previous_token()),
+                 pat_list[0], pat_list[1:], body)
 
 def quote(str):
     return '"' + str + '"'
 
-def parse_switch_case(token_list, i):
+def parse_switch_case():
     while_parsing = '\nwhile parsing\n' \
         + '\tswitch_case ::= "case" pattern "{" term "}"'
-    start = i
-    i = i + 1
+    start_token = current_token()
+    advance()
     try:
-        pattern, i = parse_pattern(token_list, i)
+        pattern = parse_pattern()
     except Exception as e:
         raise Exception(str(e) + while_parsing)
-    if token_list[i].type != 'LBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(start_token,current_token()),
             'expected a "{" after pattern of case, not\n\t' \
-            + quote(token_list[i].value) + while_parsing)
-    i = i + 1
+            + quote(current_token().value) + while_parsing)
+    advance()
     try:
-      body, i = parse_term(token_list, i)
+      body = parse_term()
     except Exception as e:
       raise Exception(str(e) + while_parsing)
             
-    if token_list[i].type != 'RBRACE':
-      error(meta_from_tokens(token_list[start],token_list[i]),
+    if current_token().type != 'RBRACE':
+      error(meta_from_tokens(start_token,current_token()),
             'expected a "}" after body of case, not\n\t' \
-            + quote(token_list[i].value) + while_parsing)
-    i = i + 1
-    return SwitchCase(meta_from_tokens(token_list[start], token_list[i-1]),
-                      pattern, body), i
+            + quote(current_token().value) + while_parsing)
+    advance()
+    return SwitchCase(meta_from_tokens(start_token, previous_token()),
+                      pattern, body)
