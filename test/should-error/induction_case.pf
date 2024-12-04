@@ -1,0 +1,22 @@
+union Nat {
+  zero
+  suc(Nat)
+}
+
+union NatList {
+  null
+  cons(Nat, NatList)
+}
+
+function length(NatList) -> Nat {
+  length(null) = zero
+  length(cons(a, d)) = suc(length(d))
+}
+
+theorem add_one_length : all ls : NatList, n : Nat.
+  suc(length(ls)) = length(cons(n, ls))
+proof
+  induction NatList 
+  case null { }
+  case cons(a, d) suppose IH { ? }
+end

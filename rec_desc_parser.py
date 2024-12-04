@@ -619,19 +619,8 @@ def parse_proof_hi(token_list, i):
     return parse_recall(token_list, i)
     
   elif token.type == 'INDUCTION':
-    i = i + 1
-    typ, i = parse_type(token_list, i)
-    cases = []
-    while token_list[i].type == 'CASE':
-      try:
-        c, i = parse_induction_case(token_list, i)
-      except Exception as e:
-        raise Exception(str(e) + '\nwhile parsing: ' \
-                        + '\t"case" pattern "{" proof "}"\n'\
-                        + '\t                           ^^^^^')
-      cases.append(c)
-    return (Induction(meta_from_tokens(token, token_list[i-1]), typ, cases), i)
-        
+    return parse_induction(token_list, i)
+
   elif token.type == 'LPAR':
     i = i + 1
     proof, i = parse_proof(token_list, i)
@@ -710,7 +699,6 @@ def parse_proof_hi(token_list, i):
     if len(defs) == 0:
         return (SwitchProof(meta, subject, cases), i)
     else:
-        # return (make_switch_for(meta, defs, subject, cases), i)
         return (ApplyDefsGoal(meta, [Var(meta, None, t) for t in defs],
                               SwitchProof(meta, subject, cases)), i)
     
@@ -748,7 +736,7 @@ def parse_proof_hi(token_list, i):
       name, i = parse_identifier(token_list, i)
     except Exception as e:
       missing_error(meta_from_tokens(token, token_list[i]),
-                    'expected a proof, not `' + token_list[i].value + '`')
+                    'expected a proof, not\n\t' + quote(token_list[i].value))
     return (PVar(meta_from_tokens(token, token), name), i)
 
 def parse_proof_list(token_list, i):
@@ -971,8 +959,6 @@ def parse_proof_statement(token_list, i):
 def parse_proof(token_list, i):
     (proof_stmt, i) = parse_proof_statement(token_list, i)
     if proof_stmt:
-        #(body, i) = parse_proof(token_list, i)
-        
         try:
           (body, i) = parse_proof(token_list, i)
         except Exception as ex:
@@ -1000,7 +986,27 @@ def parse_finishing_proof(token_list, i):
                     [proof, right])
     return proof, i
 
+def parse_induction(token_list, i):
+  while_parsing = 'while parsing\n' \
+      + '\tconclusion ::= "induction" type ind_case*\n'
+  try:    
+    start = i
+    token = token_list[start-1]
+    i = i + 1
+    typ, i = parse_type(token_list, i)
+    cases = []
+    while token_list[i].type == 'CASE':
+      c, i = parse_induction_case(token_list, i)
+      cases.append(c)
+    return (Induction(meta_from_tokens(token, token_list[i-1]), typ, cases), i)
+  except Exception as e:
+    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+
 def parse_induction_case(token_list, i):
+  while_parsing = 'while parsing\n' \
+      + '\tind_case ::= "case" pattern "{" proof "}"\n'
+  try:
     start = i
     i = i + 1
     pat, i = parse_pattern(token_list, i)
@@ -1015,17 +1021,20 @@ def parse_induction_case(token_list, i):
           ind_hyps.append((label,ih))
     if token_list[i].type != 'LBRACE':
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected `{` after pattern of `case`, not\n\t' \
+            'expected "{" after pattern of "case", not\n\t' \
             + token_list[i].value)
     i = i + 1
     body, i = parse_proof(token_list, i)
     if token_list[i].type != 'RBRACE':
       error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected `}` after body of induction case, not\n\t' \
+            'expected "}" after body of induction case, not\n\t' \
             + token_list[i].value)
     i = i + 1
     return (IndCase(meta_from_tokens(token_list[start], token_list[i-1]),
                     pat, ind_hyps, body), i)
+  except Exception as e:
+    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
 def parse_equation(token_list, i):
   lhs, i = parse_term_compare(token_list, i)
@@ -1160,7 +1169,7 @@ def parse_function(token_list, i):
     
 def parse_define(token_list, i):
   while_parsing = 'while parsing\n' \
-      + '\t"define" identifier "=" term\n'
+      + '\tproof_stmt ::= "define" identifier "=" term\n'
   try:
     start = i
     i = i + 1
@@ -1168,7 +1177,7 @@ def parse_define(token_list, i):
     if token_list[i].type == 'COLON':
       i = i + 1
       while_parsing = 'while parsing\n' \
-          + '\t"define" identifier ":" type "=" term\n'
+          + '\tproof_stmt ::= "define" identifier ":" type "=" term\n'
       typ, i = parse_type(token_list, i)
     else:
       typ = None

@@ -1067,6 +1067,8 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 
 ```
 conclusion ::= "induction" type ind_case*
+ind_case ::= "case" pattern "{" proof "}"
+           | "case" pattern "assume" assumption_list "{" proof "}"
 ```
 
 A proof of the form
