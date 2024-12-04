@@ -1,0 +1,7 @@
+./test/should-error/define_proof_missing_term.pf:4.3-4.4: expected a term, not
+	"."
+./test/should-error/define_proof_missing_term.pf:3.3-3.13: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+./test/should-error/define_proof_missing_term.pf:1.1-2.6: while parsing
+	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"

@@ -98,9 +98,7 @@ if __name__ == "__main__":
         elif argument == '--errors':
             test_errors = True
         else:
-            print('Unrecognized argument:', argument)
-            exit(1)
-    
+            extra_arguments.append(argument)
     
     python_path = ""
     for i in range(11, 13):
@@ -112,7 +110,7 @@ if __name__ == "__main__":
         print("Could not find a python version at or above 3.11")
         exit(1)
     
-    deduce_call = python_path + " ./deduce.py " + " --dir " + lib_dir + " ".join(extra_arguments)
+    deduce_call = python_path + " ./deduce.py " + " --dir " + lib_dir + " " + " ".join(extra_arguments)
 
     if generate_errors:
         print('Regenerating ALL errors')

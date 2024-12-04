@@ -2,3 +2,5 @@
 	(
 while trying to parse type arguments for instantiation of an `all` formula:
 	proof ::= proof "<" type_list ">"
+./test/should-error/inst-term-angle-bracket.pf:4.1-6.6: while parsing
+	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"

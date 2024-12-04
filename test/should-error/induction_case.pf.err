@@ -6,3 +6,5 @@
 ./test/should-error/induction_case.pf:19.3-19.20: while parsing
 	conclusion ::= "induction" type ind_case*
 
+./test/should-error/induction_case.pf:16.1-18.6: while parsing
+	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"

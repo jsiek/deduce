@@ -909,38 +909,10 @@ def parse_proof_statement(token_list, i):
                        None), i)
       
   elif token.type == 'HAVE':
-    i = i + 1
-    if token_list[i].type != 'COLON':
-      label,i = parse_identifier(token_list, i)
-    else:
-      label = '_'
-    if token_list[i].type != 'COLON':
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected a colon after label of `have`, not\n\t' \
-            + token_list[i].value)
-    i = i + 1
-    proved,i = parse_term(token_list, i)
-    if token_list[i].type == 'BY':
-      i = i + 1
-      because,i = parse_proof(token_list, i)
-    else:        
-      error(meta_from_tokens(token_list[i], token_list[i]),
-            'expected the keyword `by` after formula of `have`, ' \
-            + 'not\n\t' + token_list[i].value)
-    return PLet(meta_from_tokens(token, token_list[i-1]),
-                label, proved, because, None), i
-  
+    return parse_have(token_list, i)
+
   elif token.type == 'DEFINE':
-    i = i + 1
-    name, i = parse_identifier(token_list, i)
-    if token_list[i].type != 'EQUAL':
-        error(meta_from_tokens(token_list[i],token_list[i]),
-              'expected `=` after name in `define`, not\n\t' \
-              + token_list[i].value)
-    i = i + 1
-    rhs, i = parse_term(token_list, i)
-    meta = meta_from_tokens(token, token_list[i-1])
-    return (PTLetNew(meta, name, rhs, None), i)
+    return parse_define_proof_stmt(token_list, i)
       
   elif token.type == 'INJECTIVE':
     i = i + 1
@@ -955,6 +927,63 @@ def parse_proof_statement(token_list, i):
 
   else:
     return (None, i)
+
+def parse_define_proof_stmt(token_list, i):
+  while_parsing = 'while parsing\n' \
+      + '\tproof_stmt ::= "define" identifier "=" term\n'
+  try:
+    start = i
+    token = token_list[i]
+    i = i + 1
+    name, i = parse_identifier(token_list, i)
+    if token_list[i].type != 'EQUAL':
+        error(meta_from_tokens(token_list[i],token_list[i]),
+              'expected "=" after name in "define", not\n\t' \
+              + token_list[i].value)
+    i = i + 1
+    rhs, i = parse_term(token_list, i)
+    meta = meta_from_tokens(token, token_list[i-1])
+    return (PTLetNew(meta, name, rhs, None), i)
+  except Exception as e:
+    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+    
+
+def parse_have(token_list, i):
+  while_parsing = 'while parsing\n' \
+      + '\tproof_stmt ::= "have" identifier ":" formula "by" proof\n' \
+      + '\tproof_stmt ::= "have" ":" formula "by" proof\n'
+  try:  
+    start = i
+    token = token_list[start]
+    i = i + 1
+    if token_list[i].type != 'COLON':
+      try:
+        label,i = parse_identifier(token_list, i)
+      except Exception as e:
+        error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected an identifier or colon after "have", not\n\t' \
+            + token_list[i].value)
+    else:
+      label = '_'
+    if token_list[i].type != 'COLON':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected a colon after label of "have", not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    proved,i = parse_term(token_list, i)
+    if token_list[i].type == 'BY':
+      i = i + 1
+      because,i = parse_proof(token_list, i)
+    else:        
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected the keyword `by` after formula of `have`, ' \
+            + 'not\n\t' + token_list[i].value)
+    return PLet(meta_from_tokens(token, token_list[i-1]),
+                label, proved, because, None), i
+  except Exception as e:
+    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
 def parse_proof(token_list, i):
     (proof_stmt, i) = parse_proof_statement(token_list, i)
@@ -991,7 +1020,7 @@ def parse_induction(token_list, i):
       + '\tconclusion ::= "induction" type ind_case*\n'
   try:    
     start = i
-    token = token_list[start-1]
+    token = token_list[start]
     i = i + 1
     typ, i = parse_type(token_list, i)
     cases = []
@@ -1085,33 +1114,40 @@ def parse_equation_list(token_list, i):
   return eqn_list, i
 
 def parse_theorem(token_list, i):
-  start = i
-  i = i + 1
-  try:
-    name, i = parse_identifier(token_list, i)
+  while_parsing = 'while parsing\n' \
+      + '\tproof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"'
+  try:    
+    start = i
+    i = i + 1
+    try:
+      name, i = parse_identifier(token_list, i)
+    except Exception as e:
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected name of theorem, not:\n\t' + token_list[i].value)
+
+    if token_list[i].type != 'COLON':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected a colon after theorem name, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    what, i = parse_term(token_list, i)
+    if token_list[i].type != 'PROOF':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected the keyword "proof" after formula of theorem, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    proof, i = parse_proof(token_list, i)
+    if token_list[i].type != 'END':
+      error(meta_from_tokens(token_list[i], token_list[i]),
+            'expected the keyword "end" after proof of theorem, not\n\t' \
+            + token_list[i].value)
+    i = i + 1
+    return Theorem(meta_from_tokens(token_list[start], token_list[i-1]),
+                   name, what, proof, False), i
   except Exception as e:
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected name of theorem, not:\n\t' + token_list[i].value)
-        
-  if token_list[i].type != 'COLON':
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected a colon after theorem name, not\n\t' \
-          + token_list[i].value)
-  i = i + 1
-  what, i = parse_term(token_list, i)
-  if token_list[i].type != 'PROOF':
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected the keyword `proof` after formula of theorem, not\n\t' \
-          + token_list[i].value)
-  i = i + 1
-  proof, i = parse_proof(token_list, i)
-  if token_list[i].type != 'END':
-    error(meta_from_tokens(token_list[i], token_list[i]),
-          'expected the keyword `end` after proof of theorem, not\n\t' \
-          + token_list[i].value)
-  i = i + 1
-  return Theorem(meta_from_tokens(token_list[start], token_list[i-1]),
-                 name, what, proof, False), i
+    meta = meta_from_tokens(token_list[start], token_list[i-1])
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+
 
 def parse_union(token_list, i):
   start = i
