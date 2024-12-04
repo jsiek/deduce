@@ -1,0 +1,4 @@
+test/should-error/switch_case_pattern.pf:10.15-10.16: expected a pattern, not
+	"{"
+while parsing
+	switch_case ::= "case" pattern "{" term "}"

@@ -1,0 +1,4 @@
+test/should-error/switch_case_open.pf:9.10-9.24: expected a "{" after pattern of case, not
+	"true"
+while parsing
+	switch_case ::= "case" pattern "{" term "}"
