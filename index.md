@@ -109,7 +109,7 @@ python ./deduce.py ./examples.pf
 ```
 
 You can also download one of these extensions for programming in Deduce in some common text editors. 
-- VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode))
+- VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode)). Install it from the extensions tab in VSCode.
 - Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
 - Vim (not now, not ever)
 
