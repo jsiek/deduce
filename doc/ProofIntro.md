@@ -301,7 +301,7 @@ Deduce tells us that the current goal has become
 
 ```
 remains to prove:
-	1 = length([y])
+    1 = length([y])
 ```
 
 We rewrite again, separated by a vertical bar, using `list_length_one`,
@@ -437,9 +437,9 @@ that we aleady know are true, which now includes `step1`.
 ```
 incomplete proof
 Goal:
-	x + (y + z) = z + (y + x)
+    x + (y + z) = z + (y + x)
 Givens:
-	step1: x + (y + z) = x + (z + y)
+    step1: x + (y + z) = x + (z + y)
 ```
 
 We proceed four more times, using `have` to create each intermediate
@@ -497,9 +497,58 @@ Combining a sequence of equations using `transitive` is quite common,
 so Deduce provides the `equations` statement to streamline this
 process.  After the first equation, the left-hand side of each
 equation is written as `...` because it is just a repetition of the
-right-hand side of the previous equation. Here's another proof of the
-theorem about `x + y + z`, this time using an `equations` statement.
+right-hand side of the previous equation. Let's write another proof of
+the theorem about `x + y + z`, this time using an `equations`
+statement. We can start by just restating the goal inside `equations`
+and use `?` for the reason.
 
+```
+theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  equations
+    x + y + z = z + y + x      by ?
+end
+```
+
+The first step is to commute `y + z` to `z + y`. If we're feeling
+extra lazy, we can use `?` for the new right-hand side and the
+error from Deduce will tell us what it needs to be.
+
+```
+  equations
+    x + y + z = ?              by rewrite add_commute[y][z]
+          ... = z + y + x      by ?
+```
+
+Deduce responds with:
+
+```
+remains to prove:
+    x + (z + y) = ?
+```
+
+So we replace the `?` on the right-hand side with `x + (z + y)`
+and proceed to the next step, which is to apply associativity.
+
+```
+  equations
+    x + y + z = x + (z + y)    by rewrite add_commute[y][z]
+          ... = ?              by rewrite symmetric add_assoc[x][z,y]
+          ... = z + y + x      by ?
+```
+
+Deduce responds with:
+
+```
+remains to prove:
+    (x + z) + y = ?
+```
+
+We replace the `?` on the right-hand side with `(x + z) + y`.
+Continuing in this way for several more steps, we incrementally arrive
+at the following proof that `x + y + z = z + y + x` using `equations`.
 
 ```{.deduce^#xyz_zyx_eqn}
 theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
@@ -507,13 +556,20 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by rewrite add_commute[y][z]
+    x + y + z = x + (z + y)    by rewrite add_commute[y][z]
           ... = (x + z) + y    by rewrite symmetric add_assoc[x][z,y]
           ... = (z + x) + y    by rewrite symmetric add_commute[z][x]
           ... = z + x + y      by rewrite add_assoc[z][x,y]
           ... = z + y + x      by rewrite add_commute[x][y]
 end
 ```
+
+If you want to skip the proof of one of the earlier steps, you can use
+[`sorry`](./Reference.md#sorry-proof) for the reason.
+
+If you want to work backwards by transforming the right-hand side of
+an equation into the left-hand side using a rewrite or definition,
+then [mark](./Reference.md#mark) the right-hand side.
 
 The `equations` feature is implemented in Deduce by translating them
 into a bunch of `transitive` statements.
@@ -976,7 +1032,7 @@ Deduce tells us:
 ```
 incomplete proof
 Goal:
-	(if length(xs) = 0 then xs = [])
+    (if length(xs) = 0 then xs = [])
 ```
 
 To prove an `if`-`then` formula, we `suppose` the condition and then
@@ -991,9 +1047,9 @@ Deduce adds `len_z` to the givens (similar to `have`).
 ```
 incomplete proof
 Goal:
-	xs = []
+    xs = []
 Givens:
-	len_z: length(xs) = 0
+    len_z: length(xs) = 0
 ```
 
 Next we `switch` on the list `xs`. In the case when `xs` is `empty` it
@@ -1013,7 +1069,7 @@ We can put the facts `len_z` and `xs_xxs` together
 to obtain the dubious looking `length(node(x,xs')) = 0`.
 
 ```
-	have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+    have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
 ```
 
 The contradiction becomes apparent to Deduce once we apply the
@@ -1040,7 +1096,7 @@ proof
   switch xs {
     case empty { . }
     case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
-	  have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+      have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
       conclude false  by apply not_one_add_zero[length(xs')]
                          to definition length in len_z2
     }
@@ -1313,9 +1369,9 @@ expanding into `if x = y then false`.
 ```
 incomplete proof
 Goal:
-	(if x = y then false)
+    (if x = y then false)
 Givens:
-	x_l_y: x < y
+    x_l_y: x < y
 ```
 
 So following the usual recipte to prove an `if`-`then`, we `suppose` the
@@ -1331,10 +1387,10 @@ Now we need to prove false, and we have the hint to use the
 ```
 incomplete proof
 Goal:
-	false
+    false
 Givens:
-	x_y: x = y,
-	x_l_y: x < y
+    x_y: x = y,
+    x_l_y: x < y
 ```
 
 Here is where the second variant of `rewrite` comes in.  We can use it
@@ -1414,11 +1470,11 @@ We can ask Deduce for help in how to use a given with the `help` feature.
 Deduce responds with
     
     Advice about using fact:
-	some m:Nat. x = 2 * m
+    some m:Nat. x = 2 * m
 
-	Proceed with:
-		obtain A where label: x = 2 * A from even_x
-	where A is a new name of your choice
+    Proceed with:
+        obtain A where label: x = 2 * A from even_x
+    where A is a new name of your choice
 
 So we go ahead and write two `obtain` statements, one for `even_x` and
 another for `even_y`, making different choices to replace the variable
