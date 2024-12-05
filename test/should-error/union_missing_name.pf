@@ -1,0 +1,4 @@
+union {
+  empty(bool)
+  node(Tree, Nat,Tree)
+}

@@ -722,7 +722,8 @@ end
 conclusion ::= "evaluate"
 ```
 
-UNDER CONSTRUCTION
+The `evaluate` proof method simplies the goal formula by applying all
+definitions. It succeeds if the formula is simplified to `true`.
 
 ## Evaluate-In (Proof)
 
@@ -730,7 +731,9 @@ UNDER CONSTRUCTION
 conclusion ::= "evaluate" "in" proof
 ```
 
-UNDER CONSTRUCTION
+The `evaluate`-`in` proof method simplies the formula of the given
+proof by applying all definitions, producing a proof of the simplified
+formula.
 
 ## Extensionality
 
@@ -1462,11 +1465,7 @@ A term, formula, or a proof may be surrounded in parentheses.
 ## Pattern
 
 ```
-pattern ::= identifier
-pattern ::= "0"
-pattern ::= "true"
-pattern ::= "false"
-pattern ::= identifier "(" identifier_list ")"
+pattern ::= identifier | "0" | "true" | "false" | identifier "(" identifier_list ")"
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
@@ -1476,9 +1475,7 @@ and [Function (Statement)](#function-statement) via [Pattern List](#pattern-list
 ## Pattern List
 
 ```
-pattern_list ::=
-pattern_list ::= pattern
-pattern_list ::= pattern "," ident_list
+pattern_list ::= ε | pattern | pattern "," ident_list
 ```
 
 A pattern list is a comma-separated sequence of zero or more patterns.
@@ -1914,11 +1911,39 @@ proof
 end
 ```
 
+## Type
+
+```
+type ::= "bool"                                        // type of a Boolean
+       | identifier                                    // type of a union
+       | identifier "<" type_list ">"                  // type of a generic union
+       | "fn" type_params_opt type_list "->" type      // type of a function 
+       | "(" type ")"
+```
+
+## Type List
+
+```
+type_list ::= ε | type | type "," type_list
+```
+
+A type list is a comma-separated list of zero or more types.
+
+
+## Type Parameters
+
+```
+type_params_opt ::= ε | "<" identifier_list ">"
+```
+
+Specifies the type parameters of a generic union or generic function.
+
 
 ## Union (Statement)
 
 ```
-statement ::= "union" identifier type_params_opt "{" constructor_list "}"
+statement ::= "union" identifier type_params_opt "{" constructor* "}"
+constructor ::= identifier | identifier "(" type_list ")"
 ```
 
 The `union` statement defines a new type whose values are created by

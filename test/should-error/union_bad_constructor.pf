@@ -1,0 +1,4 @@
+union Tree {
+  empty(bool)
+  node(Tree Tree)
+}

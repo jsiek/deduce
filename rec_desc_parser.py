@@ -1176,24 +1176,29 @@ def parse_theorem():
 
 
 def parse_union():
-  start_token = current_token()
-  advance()
-  name = parse_identifier()
-  type_params = parse_type_parameters()
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "union" identifier type_params_opt "{" constructor* "}"\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    type_params = parse_type_parameters()
 
-  if current_token().type != 'LBRACE':
-    error(meta_from_tokens(current_token(), current_token()),
-          'expected `{` after name of union, not\n\t' \
-          + current_token().value)
-  advance()
-  constr_list = []
-  while current_token().type != 'RBRACE':
-    constr = parse_constructor()
-    constr_list.append(constr)
-  advance()
-
-  meta = meta_from_tokens(start_token, previous_token())
-  return Union(meta, name, type_params, constr_list)
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(current_token(), current_token()),
+            'expected `{` after name of union, not\n\t' \
+            + current_token().value)
+    advance()
+    constr_list = []
+    while current_token().type != 'RBRACE':
+      constr = parse_constructor()
+      constr_list.append(constr)
+    meta = meta_from_tokens(start_token, current_token())
+    advance()
+    return Union(meta, name, type_params, constr_list)
+  except Exception as e:
+    meta = meta_from_tokens(start_token, current_token())
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
 def parse_function():
   start_token = current_token()
@@ -1383,20 +1388,27 @@ def parse_term_list():
   return trm_list
     
 def parse_constructor():
-  token = current_token()
-  name = parse_identifier()
+  while_parsing = 'while parsing\n' \
+      + '\tconstructor ::= identifier | identifier "(" type_list ")"'
+  try:  
+    start_token = current_token()
+    name = parse_identifier()
 
-  if current_token().type == 'LPAR':
-    advance()
-    param_types = parse_type_list()
-    if current_token().type != 'RPAR':
-      error(meta_from_tokens(token, previous_token()),
-            'missing closing parenthesis')
-    advance()
-  else:
-    param_types = []
-  meta = meta_from_tokens(token, previous_token())
-  return Constructor(meta, name, param_types)
+    if current_token().type == 'LPAR':
+      advance()
+      param_types = parse_type_list()
+      if current_token().type != 'RPAR':
+        error(meta_from_tokens(start_token, previous_token()),
+              'missing closing parenthesis')
+      advance()
+    else:
+      param_types = []
+    meta = meta_from_tokens(start_token, previous_token())
+    return Constructor(meta, name, param_types)
+  except Exception as e:
+    meta = meta_from_tokens(start_token, current_token())
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+    
 
 def parse_constructor_pattern():
   start_token = current_token()
