@@ -4,4 +4,4 @@
 	proof_stmt ::= "define" identifier "=" term
 
 ./test/should-error/define_proof_missing_term.pf:1.1-3.13: while parsing
-	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

@@ -1,4 +1,4 @@
 ./test/should-error/missing-conclusion.pf:5.1-5.4: missing conclusion after
 	have Y: true by .
 ./test/should-error/missing-conclusion.pf:1.1-4.20: while parsing
-	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

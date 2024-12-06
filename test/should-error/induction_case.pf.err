@@ -7,4 +7,4 @@
 	conclusion ::= "induction" type ind_case*
 
 ./test/should-error/induction_case.pf:16.1-20.14: while parsing
-	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
