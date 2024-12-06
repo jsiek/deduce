@@ -1214,39 +1214,46 @@ def parse_union():
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
 def parse_function():
-  start_token = current_token()
-  advance()
-  name = parse_identifier()
-  type_params = parse_type_parameters()
-
-  if current_token().type == 'LPAR':
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "function" identifier type_params_opt "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
+  try:
     start_token = current_token()
     advance()
-    param_types = parse_type_list()
-    if current_token().type != 'RPAR':
-      error(meta_from_tokens(start_token, previous_token()),
-            'expected a closing parenthesis')
+    name = parse_identifier()
+    type_params = parse_type_parameters()
+
+    if current_token().type == 'LPAR':
+      start_token = current_token()
+      advance()
+      param_types = parse_type_list()
+      if current_token().type != 'RPAR':
+        error(meta_from_tokens(start_token, previous_token()),
+              'expected a closing parenthesis, not\n\t' \
+              + quote(current_token().value))
+      advance()
+
+    if current_token().value != '->':
+      error(meta_from_tokens(current_token(), current_token()),
+            'expected "->" between parameter types and return type, not\n\t' \
+            + quote(current_token().value))
+    advance()
+    return_type = parse_type()
+
+    if current_token().type != 'LBRACE':
+      error(meta_from_tokens(current_token(), current_token()),
+            'expected open brace "{" after the return type of the function')
     advance()
 
-  if current_token().value != '->':
-    error(meta_from_tokens(current_token(), current_token()),
-          'expected "->" between function parameter types and return type, not\n\t' \
-          + quote(current_token().value))
-  advance()
-  return_type = parse_type()
-
-  if current_token().type != 'LBRACE':
-    error(meta_from_tokens(current_token(), current_token()),
-          'expected open brace "{" after the return type of the function')
-  advance()
-
-  cases = []
-  while current_token().type != 'RBRACE':
-    fun_case = parse_fun_case()
-    cases.append(fun_case)
-  advance()
-  return RecFun(meta_from_tokens(start_token, previous_token()), name,
-                type_params, param_types, return_type, cases)
+    cases = []
+    while current_token().type != 'RBRACE':
+      fun_case = parse_fun_case()
+      cases.append(fun_case)
+    advance()
+    return RecFun(meta_from_tokens(start_token, previous_token()), name,
+                  type_params, param_types, return_type, cases)
+  except Exception as e:
+    meta = meta_from_tokens(start_token, current_token())
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
     
 def parse_define():
   while_parsing = 'while parsing\n' \

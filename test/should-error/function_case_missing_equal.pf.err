@@ -3,3 +3,7 @@
 ./test/should-error/function_case_missing_equal.pf:8.3-8.14: while parsing
 	fun_case ::= identifier "(" param_list ")" "=" term
 
+./test/should-error/function_case_missing_equal.pf:6.11-8.14: while parsing
+	statement ::= "function" identifier type_params_opt "(" type_list ")"
+			 "->" type "{" fun_case* "}"
+

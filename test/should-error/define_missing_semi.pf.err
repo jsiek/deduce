@@ -6,3 +6,7 @@
 ./test/should-error/define_missing_semi.pf:8.3-9.13: while parsing
 	fun_case ::= identifier "(" param_list ")" "=" term
 
+./test/should-error/define_missing_semi.pf:6.11-9.13: while parsing
+	statement ::= "function" identifier type_params_opt "(" type_list ")"
+			 "->" type "{" fun_case* "}"
+
