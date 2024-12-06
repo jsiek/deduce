@@ -88,9 +88,9 @@ ident: IDENT              -> ident
     | "fun" var_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
-    | "all" var_list "." term                      -> all_formula
-    | "<" ident_list ">" term                       -> alltype_formula
-    | "some" var_list "." term                     -> some_formula
+    | "all" type_annot_list "." term               -> all_formula
+    | "<" ident_list ">" term                      -> alltype_formula
+    | "some" type_annot_list "." term              -> some_formula
     | "define" IDENT "=" term ";" term             -> define_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
@@ -106,6 +106,10 @@ ident: IDENT              -> ident
 ?ident_list:                                       -> empty
     | ident                                        -> single
     | ident "," ident_list                         -> push
+
+?type_annot_list:                                  -> empty_binding
+    | ident ":" type                               -> single_binding
+    | ident ":" type "," type_annot_list           -> push_binding
 
 ?var_list:                                         -> empty_binding
     | ident ":" type                               -> single_binding
@@ -184,7 +188,7 @@ ident: IDENT              -> ident
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"
     
-?proof_stmt: "arbitrary" var_list                   -> all_intro
+?proof_stmt: "arbitrary" type_annot_list                   -> all_intro
     | "assume" IDENT                                -> imp_intro
     | "assume" IDENT ":" term                       -> imp_intro_explicit
     | "assume" ":" term                             -> imp_intro_anon

@@ -119,7 +119,7 @@ def parse_term_hi():
   
   if token.type == 'ALL':
     advance()
-    vars = parse_var_list()
+    vars = parse_type_annot_list()
     if current_token().type != 'DOT':
       error(meta_from_tokens(current_token(), current_token()),
             'expected "." after parameters of "all", not\n\t' \
@@ -288,7 +288,7 @@ def parse_term_hi():
 
   elif token.type == 'SOME':
     advance()
-    vars = parse_var_list()
+    vars = parse_type_annot_list()
     if current_token().type != 'DOT':
       error(meta_from_tokens(token, current_token()),
             'expected "." after parameters of "some", not\n\t' \
@@ -903,7 +903,7 @@ def parse_proof_statement():
 
   elif token.type == 'ARBITRARY':
     advance()
-    vars = parse_var_list()
+    vars = parse_type_annot_list()
     meta = meta_from_tokens(token, previous_token())
     result = None
     for j, var in enumerate(reversed(vars)):
@@ -1154,7 +1154,7 @@ def parse_equation_list():
 
 def parse_theorem():
   while_parsing = 'while parsing\n' \
-      + '\tproof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"'
+      + '\tproof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"'
   try:    
     start_token = current_token()
     advance()
@@ -1490,6 +1490,33 @@ def parse_ident_list():
     ident = parse_identifier()
     ident_list.append(ident)
   return ident_list
+
+def parse_type_annot_list():
+  start_tok = current_token()
+  ident = parse_identifier()
+  if current_token().type == 'COLON':
+    advance()
+    ty = parse_type()
+  else:
+    error(meta_from_tokens(current_token(), current_token()), "Missing type annotation. Expected ':' followed by a type.\n" \
+          + error_header(meta_from_tokens(start_tok, current_token())) \
+          + 'while parsing\n\ttype_annot_list ::= identifier ":" type' \
+          + '\n\ttype_annot_list ::= identifier ":" type "," type_annot_list')
+  type_annot_list = [(ident,ty)]
+  
+  while current_token().type == 'COMMA':
+    advance()
+    ident = parse_identifier()
+    if current_token().type == 'COLON':
+      advance()
+      ty = parse_type()
+    else:
+      error(meta_from_tokens(current_token(), current_token()), "Missing type annotation. Expected ':' followed by a type.\n" \
+          + error_header(meta_from_tokens(start_tok, current_token())) \
+          + 'while parsing\n\ttype_annot_list ::= identifier ":" type' \
+          + '\n\ttype_annot_list ::= identifier ":" type "," type_annot_list')
+    type_annot_list.append((ident, ty))
+  return type_annot_list
 
 def parse_var_list():
   ident = parse_identifier()
