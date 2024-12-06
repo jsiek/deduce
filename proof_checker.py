@@ -2150,7 +2150,7 @@ def lookup_union(loc, typ, env):
     case TypeInst(loc2, inst_typ, tyargs):
       tyname = inst_typ
     case _:
-      error(loc, str(typ) + ' is not a union type')
+      error(loc, 'expected a union type but instead got ' + str(typ))
   return env.get_def_of_type_var(tyname)
 
 def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
@@ -2322,8 +2322,12 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
             + 'expected ' + str(len(params)))
     body_env = body_env.declare_term_vars(fun_case.location,
                                           zip(fun_case.parameters, params[1:]))
-    new_body = type_check_term(fun_case.body, returns, body_env,
-                               name, fun_case.pattern.parameters)
+    match fun_case.pattern:
+      case PatternCons(loc, cons, parameters):
+        pat_params = parameters
+      case PatternBool(loc, val):
+        pat_params = []
+    new_body = type_check_term(fun_case.body, returns, body_env, name, pat_params)
     return FunCase(fun_case.location, fun_case.pattern, fun_case.parameters, new_body)
 
 def type_check_stmt(stmt, env):
@@ -2360,7 +2364,7 @@ def type_check_stmt(stmt, env):
                    for c in cases]
         
       # check for completeness of cases
-      uniondef = lookup_union(loc, params[0], env)
+      uniondef = lookup_union(params[0].location, params[0], env)
       for c in uniondef.alternatives:
         if not c.name in cases_present.keys():
           error(loc, 'missing function case for ' + base_name(c.name))

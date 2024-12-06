@@ -353,18 +353,25 @@ def parse_term_hi():
             'expected a term, not\n\t' + quote(current_token().value))
 
 def parse_call():
+  while_parsing = 'while parsing function call\n' \
+      + '\tterm ::= term "(" term_list ")"\n'
   term = parse_term_hi()
 
   while (not end_of_file()) and current_token().type == 'LPAR':
-    start_token = current_token()
-    advance()
-    args = parse_term_list()
-    if current_token().type != 'RPAR':
-      error(meta_from_tokens(start_token, previous_token()),
-            'expected closing parenthesis `)`')
-    advance()
-    term = Call(meta_from_tokens(start_token, previous_token()), None,
-                term, args, False)
+    try:
+      start_token = current_token()
+      advance()
+      args = parse_term_list()
+      if current_token().type != 'RPAR':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing parenthesis ")", not\n\t' \
+              + current_token().value)
+      term = Call(meta_from_tokens(start_token, current_token()), None,
+                  term, args, False)
+      advance()
+    except Exception as e:
+      meta = meta_from_tokens(start_token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
   return term
     
@@ -459,27 +466,8 @@ def parse_term():
   token = current_token()
 
   if token.type == 'DEFINE':
-    advance()
-    name = parse_identifier()
-    if current_token().type != 'EQUAL':
-        error(meta_from_tokens(current_token(),current_token()),
-              'expected `=` after name in `define`, not\n\t' \
-              + current_token().value)
-    advance()
-    rhs = parse_term_logic()
-    if current_token().type != 'SEMICOLON':
-        error(meta_from_tokens(current_token(),current_token()),
-              'expected `;` after term of `define`, not\n\t' \
-              + current_token().value \
-              + '\nwhile parsing\n' \
-              + '\tterm ::= "define" IDENT "=" term ";" term')
-    advance()
-    meta = meta_from_tokens(token, previous_token())
-    body = parse_term()
-    return TLet(meta, None, name, rhs, body)
-
+    return parse_define_term()
   else:
-  
     term = parse_term_logic()
     if (not end_of_file()) and (current_token().value in iff_operators):
       advance()
@@ -497,6 +485,31 @@ def parse_term():
 
     return term
 
+def parse_define_term():
+  while_parsing = 'while parsing\n' \
+      + '\tterm ::= "define" identifier "=" term ";" term\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    if current_token().type != 'EQUAL':
+        error(meta_from_tokens(current_token(),current_token()),
+              'expected "=" after name in "define", not\n\t' \
+              + quote(current_token().value))
+    advance()
+    rhs = parse_term_logic()
+    if current_token().type != 'SEMICOLON':
+        error(meta_from_tokens(current_token(),current_token()),
+              'expected ";" after right-hand side of "define", not\n\t' \
+              + quote(current_token().value))
+    advance()
+    meta = meta_from_tokens(start_token, previous_token())
+    body = parse_term()
+    return TLet(meta, None, name, rhs, body)
+  except Exception as e:
+    meta = meta_from_tokens(start_token, previous_token())
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+      
 def parse_assumption():
   if current_token().type == 'COLON':
     label = '_'

@@ -2217,11 +2217,15 @@ class FunCase(AST):
   def uniquify(self, env):
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
-    
-    new_pat_params = [generate_name(x) for x in self.pattern.parameters]
-    for (old,new) in zip(self.pattern.parameters, new_pat_params):
-      body_env[old] = [new]
-    self.pattern.parameters = new_pat_params
+
+    match self.pattern:
+      case PatternCons(loc, cons, parameters):
+        new_pat_params = [generate_name(x) for x in parameters]
+        for (old,new) in zip(parameters, new_pat_params):
+          body_env[old] = [new]
+        self.pattern.parameters = new_pat_params
+      case PatternBool(loc, b):
+        pass
 
     new_params = [generate_name(x) for x in self.parameters]
     for (old,new) in zip(self.parameters, new_params):

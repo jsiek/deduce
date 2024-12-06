@@ -1,0 +1,1 @@
+./test/should-error/function_not_union.pf:1.12-1.16: expected a union type but instead got bool

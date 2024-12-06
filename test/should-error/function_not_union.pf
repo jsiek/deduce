@@ -1,0 +1,4 @@
+function f(bool) -> bool {
+  f(true) = false
+  f(false) = true
+}
