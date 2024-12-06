@@ -1,0 +1,9 @@
+union Bit {
+  zero
+  one
+}
+
+function f(Bit) -> Bit {
+  f(zero) = one
+  f(one) zero
+}

@@ -249,11 +249,11 @@ ident: IDENT              -> ident
     | "[" "]"                                    -> pattern_empty_list
     | IDENT "(" ident_list ")"                   -> pattern_apply
 
-?pattern_list:                                      -> empty
+?param_list:                                      -> empty
     | pattern                                       -> single
     | pattern "," ident_list                        -> push
     
-?fun_case: ident "(" pattern_list ")" "=" term      -> fun_case
+?fun_case: ident "(" param_list ")" "=" term      -> fun_case
 
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push

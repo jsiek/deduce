@@ -985,7 +985,7 @@ def parse_define_proof_stmt():
     meta = meta_from_tokens(token, previous_token())
     return PTLetNew(meta, name, rhs, None)
   except Exception as e:
-    meta = meta_from_tokens(start_token, previous_token())
+    meta = meta_from_tokens(start_token, current_token())
     raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
     
 
@@ -1339,16 +1339,7 @@ def parse_type():
     advance()
     return TypeType(meta_from_tokens(token,token))
   elif token.type == 'FN':
-    advance()
-    type_params = parse_type_parameters()
-    param_types = parse_type_list()
-    if current_token().value != '->':
-        error(meta_from_tokens(current_token(), current_token()),
-              'expected "->" after parameter types in this function type')
-    advance()
-    return_type = parse_type()
-    return FunctionType(meta_from_tokens(token, previous_token()),
-                        type_params, param_types, return_type)
+    return parse_function_type()
   elif token.type == 'LPAR':
     start_token = current_token()
     advance()
@@ -1381,6 +1372,27 @@ def parse_type():
                         var, arg_types)
     else:
         return var
+
+def parse_function_type():
+  while_parsing = 'while parsing\n' \
+      + '\ttype ::= "fn" type_params_opt type_list "->" type\n'
+  try:
+    start_token = current_token()
+    advance()
+    type_params = parse_type_parameters()
+    param_types = parse_type_list()
+    if current_token().value != '->':
+        error(meta_from_tokens(current_token(), current_token()),
+              'expected "->" after parameter types, not\n\t' \
+              + quote(current_token().value))
+    advance()
+    return_type = parse_type()
+    return FunctionType(meta_from_tokens(start_token, previous_token()),
+                        type_params, param_types, return_type)
+  except Exception as e:
+    meta = meta_from_tokens(start_token, current_token())
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+    
     
 def parse_type_list():
   typ = parse_type()
@@ -1512,24 +1524,30 @@ def parse_var_list():
   return var_list
   
 def parse_fun_case():
-  start_token = current_token()
-  name = parse_identifier()
-  
-  if current_token().type == 'LPAR':
+  while_parsing = 'while parsing\n' \
+      + '\tfun_case ::= identifier "(" param_list ")" "=" term\n'
+  try:    
     start_token = current_token()
+    name = parse_identifier()
+
+    if current_token().type == 'LPAR':
+      lpar_token = current_token()
+      advance()
+      pat_list = parse_pattern_list()
+      if current_token().type != 'RPAR':
+        error(meta_from_tokens(lpar_token, previous_token()),
+              'expected closing parenthesis')
+      advance()
+    if current_token().type != 'EQUAL':
+      error(meta_from_tokens(current_token(), current_token()),
+            'expected "=" and then a term, not\n\t' + current_token())
     advance()
-    pat_list = parse_pattern_list()
-    if current_token().type != 'RPAR':
-      error(meta_from_tokens(start_token, previous_token()),
-            'expected closing parenthesis')
-    advance()
-  if current_token().type != 'EQUAL':
-    error(meta_from_tokens(current_token(), current_token()),
-          'expected "=" and then a term, not\n\t' + current_token())
-  advance()
-  body = parse_term()
-  return FunCase(meta_from_tokens(start_token, previous_token()),
-                 pat_list[0], pat_list[1:], body)
+    body = parse_term()
+    return FunCase(meta_from_tokens(start_token, previous_token()),
+                   pat_list[0], pat_list[1:], body)
+  except Exception as e:
+    meta = meta_from_tokens(start_token, current_token())
+    raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
 def quote(str):
     return '"' + str + '"'

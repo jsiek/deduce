@@ -806,8 +806,7 @@ The output is `12`.
 ## Function (Statement)
 
 ```
-statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}"
-fun_case_list ::= fun_case | fun_case fun_case_list
+statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 ```
 
@@ -1472,13 +1471,15 @@ This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-p
 and [Function (Statement)](#function-statement) via [Pattern List](#pattern-list).
 
 
-## Pattern List
+## Parameter List
 
 ```
-pattern_list ::= ε | pattern | pattern "," ident_list
+param_list ::= ε | pattern | pattern "," identifier_list
 ```
 
-A pattern list is a comma-separated sequence of zero or more patterns.
+A parameter list begins with a pattern (for the first function
+parameter) and then continues with a comma-separated sequence of zero
+or more identifiers (for the rest of the function parameters).
 
 ## Period (Proof of True)
 

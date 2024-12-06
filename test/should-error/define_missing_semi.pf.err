@@ -3,3 +3,6 @@
 ./test/should-error/define_missing_semi.pf:8.12-8.27: while parsing
 	term ::= "define" identifier "=" term ";" term
 
+./test/should-error/define_missing_semi.pf:8.3-9.13: while parsing
+	fun_case ::= identifier "(" param_list ")" "=" term
+
