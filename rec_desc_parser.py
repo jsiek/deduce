@@ -122,7 +122,7 @@ def parse_term_hi():
     vars = parse_var_list()
     if current_token().type != 'DOT':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `.` after parameters of `all`, not\n\t' \
+            'expected "." after parameters of "all", not\n\t' \
             + current_token().value \
             + '\nwhile parsing\n' \
             + '\tterm ::= "all" var_list "." term')
@@ -138,7 +138,7 @@ def parse_term_hi():
     subject = parse_term_hi()
     if current_token().type != 'LESSTHAN':
       error(meta_from_tokens(current_token(),current_token()),
-            'expected `<` after subject of instantiation (`@`), not\n\t' \
+            'expected "<" after subject of instantiation ("@"), not\n\t' \
             + current_token().value \
             + '\nwhile parsing\n' \
             + '\tterm ::= "@" term "<" type_list ">"')
@@ -146,7 +146,7 @@ def parse_term_hi():
     type_args = parse_type_list()
     if current_token().type != 'MORETHAN':
       error(meta_from_tokens(current_token(),current_token()),
-            'expected closing `>` after type arguments of instantiation (`@`)' \
+            'expected closing ">" after type arguments of instantiation ("@")' \
             + ' , not\n\t' + current_token().value \
             + '\nwhile parsing\n' \
             + '\tterm ::= "@" term "<" type_list ">"')
@@ -178,7 +178,7 @@ def parse_term_hi():
     prem = parse_term()
     if current_token().type != 'THEN':
       error(meta_from_tokens(current_token(),current_token()),
-            'expected keyword `then` after premise of `if` formula, not\n\t' \
+            'expected keyword "then" after premise of "if" formula, not\n\t' \
             + current_token().value \
             + '\nwhile parsing\n' \
             + '\tformula ::= "if" formula "then" formula')
@@ -207,13 +207,13 @@ def parse_term_hi():
     params = parse_var_list()
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(token, current_token()),
-            'expected `{` after parameters of fun, not\n\t' \
+            'expected "{" after parameters of fun, not\n\t' \
             + current_token().value)
     advance()
     body = parse_term()
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(token, previous_token()),
-            'expected `}` after body of `fun`, not\n\t' + current_token().value)
+            'expected "}" after body of "fun", not\n\t' + current_token().value)
     advance()
     return Lambda(meta_from_tokens(token, previous_token()),
                    None, params, body)
@@ -223,13 +223,13 @@ def parse_term_hi():
     params = parse_ident_list()
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(token, current_token()),
-            'expected `{` after parameters of `generic`, not\n\t' \
+            'expected "{" after parameters of "generic", not\n\t' \
             + current_token().value)
     advance()
     body = parse_term()
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(token, current_token()),
-            'expected `}` after body of `generic`, not\n\t' \
+            'expected "}" after body of "generic", not\n\t' \
             + current_token().value)
     advance()
     meta = meta_from_tokens(token, previous_token())
@@ -240,7 +240,7 @@ def parse_term_hi():
     type_params = parse_ident_list()
     if current_token().type != 'MORETHAN':
         error(meta_from_tokens(token, previous_token()),
-              'expected closing `>` after type parameters')
+              'expected closing ">" after type parameters')
     advance()
     body = parse_term()
     meta = meta_from_tokens(token, previous_token())
@@ -291,7 +291,7 @@ def parse_term_hi():
     vars = parse_var_list()
     if current_token().type != 'DOT':
       error(meta_from_tokens(token, current_token()),
-            'expected `.` after parameters of `some`, not\n\t' \
+            'expected "." after parameters of "some", not\n\t' \
             + current_token().value)
     advance()
     body = parse_term()
@@ -303,7 +303,7 @@ def parse_term_hi():
     subject = parse_term()
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `{` after subject of switch, not\n\t' \
+            'expected "{" after subject of switch, not\n\t' \
             + current_token().value)
     advance()
     cases = []
@@ -312,7 +312,7 @@ def parse_term_hi():
       cases.append(switch_case)
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(token,current_token()),
-            'expected `}` after last case of switch, not\n\t' \
+            'expected "}" after last case of switch, not\n\t' \
             + current_token().value)
     advance()
     return Switch(meta_from_tokens(token, previous_token()), None,
@@ -539,7 +539,7 @@ def parse_definition_proof():
     defs = parse_ident_list()
     if current_token().type != 'RBRACE':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected closing `}`, not\n\t' + current_token().value)
+              'expected closing "}", not\n\t' + current_token().value)
     advance()
   else:
     defn = parse_identifier()
@@ -549,7 +549,7 @@ def parse_definition_proof():
       advance()
       if current_token().type != 'REWRITE':
           error(meta_from_tokens(current_token(),current_token()),
-                'expected `rewrite` after `and` and `definition`, not\n\t' \
+                'expected "rewrite" after "and" and "definition", not\n\t' \
                 + current_token().value)
       advance()
       eqns = parse_proof_list()
@@ -581,7 +581,7 @@ def parse_proof_hi():
     imp = parse_proof()
     if current_token().type != 'TO':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `to` after implication part of `apply`, not\n\t' \
+            'expected "to" after implication part of "apply", not\n\t' \
             + current_token().value)
     advance()
     arg = parse_proof()
@@ -605,7 +605,7 @@ def parse_proof_hi():
       reason = parse_proof()
     else:
       error(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword `by` after formula of `conclude`, '\
+            'expected the keyword "by" after formula of "conclude", '\
             + 'not\n\t' + current_token().value)
     return PAnnot(meta_from_tokens(token, previous_token()),
                   claim, reason)
@@ -617,7 +617,7 @@ def parse_proof_hi():
     advance()
     if current_token().type != 'OF':
       error(meta_from_tokens(current_token(),current_token()),
-            'expected keyword `of` after index of `conjunct`, not\n\t' \
+            'expected keyword "of" after index of "conjunct", not\n\t' \
             + current_token().value)
     advance()
     
@@ -678,7 +678,7 @@ def parse_proof_hi():
     proof = parse_proof()
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected a closing `}`, not\n\t' \
+            'expected a closing "}", not\n\t' \
             + current_token().value)
     advance()
     return proof
@@ -727,7 +727,7 @@ def parse_proof_hi():
         defs = []
     if current_token().type != 'LBRACE':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected `{` after subject of `switch`')
+              'expected "{" after subject of "switch"')
     advance()
     cases = []
     while current_token().type == 'CASE':
@@ -735,7 +735,7 @@ def parse_proof_hi():
         cases.append(c)
     if current_token().type != 'RBRACE':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected closing `}` after cases of `switch`')
+              'expected closing "}" after cases of "switch"')
     advance()
     meta = meta_from_tokens(token, previous_token())
     if len(defs) == 0:
@@ -771,8 +771,8 @@ def parse_proof_hi():
     for kw in proof_keywords:
         if edit_distance(token.value, kw) <= 2:
             error(meta_from_tokens(token, token),
-                  'did you mean `' + kw \
-                  + '` instead of `' + current_token().value + '`?')
+                  'did you mean "' + kw \
+                  + '" instead of "' + current_token().value + '"?')
 
     try:
       name = parse_identifier()
@@ -797,14 +797,14 @@ def parse_case():
     label,premise = parse_assumption()
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(start_token,current_token()),
-            'expected a `{` after assumption of `case`, not\n\t' \
+            'expected a "{" after assumption of "case", not\n\t' \
             + current_token().value \
             + '\nwhile parsing:\n\t"case" label ":" formula "{" proof "}"')
     advance()
     body = parse_proof()
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(start_token,current_token()),
-            'expected a `}` after body of `case`, not\n\t' + current_token().value)
+            'expected a "}" after body of "case", not\n\t' + current_token().value)
     advance()
     return (label,premise,body)
 
@@ -825,7 +825,7 @@ def parse_proof_switch_case():
         assumptions = []
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(start_token,current_token()),
-            'expected a `{` after assumption of `case`, not\n\t' \
+            'expected a "{" after assumption of "case", not\n\t' \
             + current_token().value \
             + '\nwhile parsing one of the following\n' \
             + '\tswitch_proof_case ::= "case" pattern "{" proof "}"\n' \
@@ -834,7 +834,7 @@ def parse_proof_switch_case():
     body = parse_proof()
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(start_token,current_token()),
-            'expected a `}` after body of case, not\n\t' + current_token().value)
+            'expected a "}" after body of case, not\n\t' + current_token().value)
     advance()
     meta = meta_from_tokens(start_token,previous_token())
     return SwitchProofCase(meta, pat, assumptions, body)
@@ -848,8 +848,8 @@ def parse_proof_med():
       type_list = parse_type_list()
       if current_token().type != 'MORETHAN':
         error(meta_from_tokens(start_token,current_token()),
-              'expected a closing `>`, not\n\t' + current_token().value + '\n'\
-              + 'while trying to parse type arguments for instantiation of an `all` formula:\n\t'\
+              'expected a closing ">", not\n\t' + current_token().value + '\n'\
+              + 'while trying to parse type arguments for instantiation of an "all" formula:\n\t'\
               + 'proof ::= proof "<" type_list ">"')
       advance()
       meta = meta_from_tokens(start_token, previous_token())
@@ -861,7 +861,7 @@ def parse_proof_med():
       term_list = parse_term_list()
       if current_token().type != 'RSQB':
         error(meta_from_tokens(current_token(),current_token()),
-              'expected a closing `]`, not\n\t' + current_token().value)
+              'expected a closing "]", not\n\t' + current_token().value)
       advance()
       meta = meta_from_tokens(start_token, previous_token())
       for j, term in enumerate(term_list):
@@ -881,7 +881,7 @@ def parse_proof_statement():
     formula = parse_term()
     if current_token().type != 'BY':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword `by` after formula of `suffices`, not\n\t' \
+            'expected the keyword "by" after formula of "suffices", not\n\t' \
             + current_token().value)
     advance()
     proof = parse_proof()
@@ -921,13 +921,13 @@ def parse_proof_statement():
     witnesses = parse_ident_list()
     if current_token().type != 'WHERE':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `where` after variables of `obtain`, not\n\t' \
+            'expected "where" after variables of "obtain", not\n\t' \
             + current_token().value)
     advance()
     label, premise = parse_assumption()
     if current_token().type != 'FROM':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `from` after `where` part of `obtain`, not\n\t' \
+            'expected "from" after "where" part of "obtain", not\n\t' \
             + current_token().value)
     advance()
     some = parse_proof()
@@ -938,12 +938,12 @@ def parse_proof_statement():
     advance()
     if current_token().type != 'LBRACE':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected `{` after `enable`')
+              'expected "{" after "enable"')
     advance()
     defs = parse_ident_list()
     if current_token().type != 'RBRACE':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected closing `}` in `enable`')
+              'expected closing "}" in "enable"')
     advance()
     meta = meta_from_tokens(token, previous_token())
     return EnableDefs(meta, [Var(meta, None, x) for x in defs], None)
@@ -1017,7 +1017,7 @@ def parse_have():
       because = parse_proof()
     else:        
       error(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword `by` after formula of `have`, ' \
+            'expected the keyword "by" after formula of "have", ' \
             + 'not\n\t' + current_token().value)
     return PLet(meta_from_tokens(token, previous_token()),
                 label, proved, because, None)
@@ -1109,13 +1109,13 @@ def parse_equation():
   lhs = parse_term_compare()
   if current_token().type != 'EQUAL':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `=` after left-hand side of equation, not\n\t' \
+            'expected "=" after left-hand side of equation, not\n\t' \
             + current_token().value)
   advance()
   rhs = parse_term_compare()
   if current_token().type != 'BY':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `by` after equation, not\n\t' \
+            'expected "by" after equation, not\n\t' \
             + current_token().value)
   advance()
   reason = parse_proof()
@@ -1126,13 +1126,13 @@ def parse_half_equation():
     advance()
     if current_token().type != 'EQUAL':
       error(meta_from_tokens(current_token(), current_token()),
-              'expected `=` after `...`, not\n\t' \
+              'expected "=" after "...", not\n\t' \
               + current_token().value)
     advance()
     rhs = parse_term_compare()
     if current_token().type != 'BY':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected `by` after equation, not\n\t' \
+              'expected "by" after equation, not\n\t' \
               + current_token().value)
     advance()
     reason = parse_proof()
@@ -1142,7 +1142,7 @@ def parse_half_equation():
     return parse_equation()
   else:
     error(meta_from_tokens(current_token(), current_token()),
-          'expected `... = rhs` or `$ lhs = rhs` in `equations`, not\n\t' \
+          'expected "... = rhs" or "$ lhs = rhs" in "equations", not\n\t' \
           + current_token().value)
 
 def parse_equation_list():
@@ -1199,7 +1199,7 @@ def parse_union():
 
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `{` after name of union, not\n\t' \
+            'expected "{" after name of union, not\n\t' \
             + current_token().value)
     advance()
     constr_list = []
@@ -1230,14 +1230,14 @@ def parse_function():
 
   if current_token().value != '->':
     error(meta_from_tokens(current_token(), current_token()),
-          'expected `->` between function parameter types and return type, not\n\t' \
+          'expected "->" between function parameter types and return type, not\n\t' \
           + quote(current_token().value))
   advance()
   return_type = parse_type()
 
   if current_token().type != 'LBRACE':
     error(meta_from_tokens(current_token(), current_token()),
-          'expected open brace `{` after the return type of the function')
+          'expected open brace "{" after the return type of the function')
   advance()
 
   cases = []
@@ -1264,7 +1264,7 @@ def parse_define():
       typ = None
     if current_token().type != 'EQUAL':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected `=` after name in `define`')
+            'expected "=" after name in "define"')
     advance()
     body = parse_term()
     return Define(meta_from_tokens(start_token, previous_token()),
@@ -1307,8 +1307,8 @@ def parse_statement():
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:
             error(meta_from_tokens(token, token),
-                  'did you mean `' + kw \
-                  + '` instead of `' + token.value + '`?')
+                  'did you mean "' + kw \
+                  + '" instead of "' + token.value + '"?')
       
     error(meta_from_tokens(token, token),
           'expected a statement, not\n\t' + token.value)
@@ -1319,7 +1319,7 @@ def parse_type_parameters():
       ident_list = parse_ident_list()
       if current_token().type != 'MORETHAN':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected closing `>` after type parameters of `fn`, not\n\t' \
+              'expected closing ">" after type parameters of "fn", not\n\t' \
               + current_token().value)
       advance()
       return ident_list
@@ -1344,7 +1344,7 @@ def parse_type():
     param_types = parse_type_list()
     if current_token().value != '->':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected `->` after parameter types in this function type')
+              'expected "->" after parameter types in this function type')
     advance()
     return_type = parse_type()
     return FunctionType(meta_from_tokens(token, previous_token()),
@@ -1355,7 +1355,7 @@ def parse_type():
     typ = parse_type()
     if current_token().type != 'RPAR':
         error(meta_from_tokens(start_token, current_token()),
-              'expected closing `)`, not\n\t' + current_token().value)
+              'expected closing ")", not\n\t' + current_token().value)
     advance()
     return typ
   else:
@@ -1374,7 +1374,7 @@ def parse_type():
       arg_types = parse_type_list()
       if current_token().type != 'MORETHAN':
           error(meta_from_tokens(start_token, previous_token()),
-                'expected a closing `>`')
+                'expected a closing ">"')
       advance()
     if inst:
         return TypeInst(meta_from_tokens(token, previous_token()),
@@ -1525,7 +1525,7 @@ def parse_fun_case():
     advance()
   if current_token().type != 'EQUAL':
     error(meta_from_tokens(current_token(), current_token()),
-          'expected `=` and then a term, not\n\t' + current_token())
+          'expected "=" and then a term, not\n\t' + current_token())
   advance()
   body = parse_term()
   return FunCase(meta_from_tokens(start_token, previous_token()),
