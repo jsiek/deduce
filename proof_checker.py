@@ -1251,7 +1251,12 @@ def check_proof_of(proof, formula, env):
             
             trm = pattern_to_term(indcase.pattern)
             new_trm = type_check_term(trm, typ, body_env, None, [])
-            pre_goal = instantiate(loc, formula, new_trm)
+            # The following type synthesis step is because the term may get
+            # inserted into a synthesis context, and if its
+            # a TermInst, it needs to be marked as not-inferred so that it
+            # gets printed. -Jeremy
+            newer_trm = type_synth_term(new_trm, body_env, None, [])
+            pre_goal = instantiate(loc, formula, newer_trm)
             goal = check_formula(pre_goal, body_env)
             
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
@@ -1739,8 +1744,6 @@ def type_check_term_inst(loc, subject, tyargs, inferred, synth):
       inst_param_types = [t.substitute(sub) for t in param_types]
       inst_return_type = return_type.substitute(sub)
       retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
-      if synth and len(typarams) > 0:
-          inferred = False
     case GenericUnknownInst(loc2, union_type):
       retty = TypeInst(loc2, union_type, tyargs)
       if synth:
@@ -1763,8 +1766,6 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env, synth):
           inst_param_types = [t.substitute(sub) for t in param_types]
           inst_return_type = return_type.substitute(sub)
           retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
-          if synth and len(typarams) > 0:
-              inferred = False
         case GenericUnknownInst(loc3, union_type):
           retty = TypeInst(loc3, union_type, tyargs)
           if synth:
