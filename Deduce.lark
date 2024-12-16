@@ -74,7 +74,7 @@ ident: IDENT              -> ident
     | "operator" "/="      -> ident_not_equal
 
 ?term_hi: INT                                      -> int
-    | "+" term_hi                                  -> pos_int
+    | "+" INT                                      -> pos_int
     | "-" term_hi                                  -> neg_int
     | "true"                                       -> true_literal
     | "false"                                      -> false_literal

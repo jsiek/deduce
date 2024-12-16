@@ -8,20 +8,21 @@ union Int{
 // -------------------------------
 //  Arithmetic
 // -------------------------------
-function neg(Int) -> Int{
-    neg(pos(n)) = 
+function operator-(Int) -> Int{
+    operator -(pos(n)) = 
         switch n {
             case zero { pos(zero) }
             case suc(n') { negsuc(n') }
         }
-    neg(negsuc(n)) = pos(suc(n))
+    operator -(negsuc(n)) = pos(suc(n))
 }
-define neg = λ n:Nat { neg(pos(n)) }
 
-function natSub(Nat,Nat) -> Int{
-    natSub(zero, m) = neg(m)
+define operator - = λ n:Nat { - pos(n) }
+
+function natSub(Nat,Nat) -> Int {
+    natSub(zero, m) = -m
     natSub(suc(n), m) = if suc(n) < m
-                        then neg(m - suc(n))
+                        then -(m - suc(n))
                         else pos(suc(n) - m)
 }
 
@@ -44,8 +45,8 @@ define operator + = λ n:Int,m:Nat { intAdd(n, pos(m)) }
 
 // Subtraction
 function intSub(Int,Int) -> Int{
-    intSub(pos(n), m) = pos(n) + neg(m)
-    intSub(negsuc(n), m) = negsuc(n) + neg(m)
+    intSub(pos(n), m) = pos(n) + -m
+    intSub(negsuc(n), m) = negsuc(n) + -m
 }
 define operator - = λ n:Int,m:Int { intSub(n, m) }
 define operator - = λ n:Nat,m:Int { intSub(pos(n), m) }
@@ -57,11 +58,11 @@ function intMult(Int,Int) -> Int {
     intMult(pos(n), m) =
         switch m {
             case pos(n') { pos(n * n') }
-            case negsuc(n') { neg (n * suc(n')) }
+            case negsuc(n') { -(n * suc(n')) }
         }
     intMult(negsuc(n), m) = 
         switch m {
-            case pos(n') { neg(suc(n) * n') }
+            case pos(n') { -(suc(n) * n') }
             case negsuc(n') { pos(suc(n) * suc(n')) }
         }
 }

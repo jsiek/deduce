@@ -162,7 +162,7 @@ def parse_term_hi():
     advance()
     return intToNat(meta_from_tokens(token,token), int(token.value))
 
-  elif token.type == 'PLUS' or token.type == 'MINUS':
+  elif token.type == 'PLUS':
     advance()
     intToken = current_token()
     if intToken.type == 'INT' or intToken.value == '0':
@@ -275,6 +275,12 @@ def parse_term_hi():
     meta = meta_from_tokens(token,token)
     return Omitted(meta, None)
     
+  elif token.type == 'MINUS':
+    advance()
+    subject = parse_call()
+    meta = meta_from_tokens(token, previous_token())
+    return Call(meta, None, Var(meta, None, '-', []), [subject], False)
+
   elif token.type == 'NOT':
     advance()
     subject = parse_term_equal()

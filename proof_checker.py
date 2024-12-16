@@ -1631,8 +1631,8 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
               except Exception as e:
                 pass
       if num_matches == 0:
-          error(loc, 'could not find a match for call to function ' \
-                + str(new_rator) + '\n'\
+          error(loc, 'could not find a match for function call ' \
+                + str(call) + '\n'\
                 + 'overloads:\n\t' \
                 + '\n\t'.join([str(ty) for (x,ty) in overloads]))
       elif num_matches > 1:

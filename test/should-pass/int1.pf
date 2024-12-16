@@ -2,17 +2,17 @@ import Nat
 import Int
 
 // Negation
-assert neg(pos(5)) = negsuc(4)
-assert neg(negsuc(4)) = pos(5)
-assert neg(pos(0)) = pos(0)
-assert neg(negsuc(0)) = pos(1)
-assert neg(+5) = -5
-assert neg(-5) = +5
-assert neg(+0) = +0
-assert neg(-1) = +1
+assert -pos(5) = negsuc(4)
+assert -negsuc(4) = pos(5)
+assert -pos(0) = pos(0)
+assert -negsuc(0) = pos(1)
+assert -+5 = -5
+assert --5 = +5
+assert -+0 = +0
+assert --1 = +1
 // negation nats
-assert neg(5) = negsuc(4)
-assert neg(0) = pos(0)
+assert -5 = negsuc(4)
+assert -0 = pos(0)
 
 // Addition
 assert pos(1) + pos(2) = pos(3)          // 1 + 2 

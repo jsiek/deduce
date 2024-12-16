@@ -230,9 +230,10 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'int':
         return intToNat(e.meta, int(e.children[0]))
     elif e.data == 'pos_int':
-        return intToDeduceInt(e.meta, int(e.children[0].children[0]), 'PLUS')
+        return intToDeduceInt(e.meta, int(e.children[0].value), 'PLUS')
     elif e.data == 'neg_int':
-        return intToDeduceInt(e.meta, int(e.children[0].children[0]), 'MINUS')
+        arg = parse_tree_to_ast(e.children[0], e)
+        return Call(e.meta, None, Var(e.meta, None, '-'), [arg], False)
     elif e.data == 'hole_term':
         return Hole(e.meta, None)
     elif e.data == 'omitted_term':
