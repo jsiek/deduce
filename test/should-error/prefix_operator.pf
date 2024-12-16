@@ -1,0 +1,5 @@
+
+theorem not_false: not false
+proof
+  ?
+end
