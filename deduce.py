@@ -36,7 +36,8 @@ def deduce_file(filename, error_expected):
                 ast = parser.parse(program_text, trace=get_verbose(),
                                    error_expected=error_expected)
             if get_verbose():
-                print("abstract syntax tree:\n"+'\n'.join([str(s) for s in ast])+"\n\n")
+                print("abstract syntax tree:\n" \
+                      +'\n'.join([str(s) for s in ast])+"\n\n")
                 print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
             uniquify_deduce(ast)
             if get_verbose():

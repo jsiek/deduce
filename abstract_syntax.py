@@ -499,7 +499,8 @@ class Var(Term):
   
   def __str__(self):
       if isinstance(self.resolved_names, str):
-        error(self.location, 'resolved_names is a string but should be a list: ' \
+        error(self.location,
+              'resolved_names is a string but should be a list: ' \
               + self.resolved_names)
       
       if base_name(self.name) == 'zero' and not get_verbose():
@@ -509,8 +510,14 @@ class Var(Term):
       elif get_verbose():
         return self.name + '{' + ','.join(self.resolved_names) + '}'
       else:
-        return base_name(self.name)
+        if is_operator(self):
+          return 'operator ' + base_name(self.name)
+        else:
+          return base_name(self.name)
 
+  def operator_str(self):
+    return base_name(self.name)
+        
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
         res = env.get_value_of_term_var(self)
@@ -757,8 +764,10 @@ class Call(Term):
   
   def __str__(self):
     if self.infix:
-      return op_arg_str(self, self.args[0]) + " " + str(self.rator) \
+      return op_arg_str(self, self.args[0]) + " " + operator_name(self.rator) \
         + " " + op_arg_str(self, self.args[1])
+    elif is_operator(self.rator): # prefix operator
+      return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isNat(self) and not get_verbose():
       return str(natToInt(self))
     elif isDeduceInt(self):
@@ -1320,7 +1329,9 @@ class IfThen(Formula):
   def __str__(self):
     match self.conclusion:
       case Bool(loc, tyof, False):
-        return 'not (' + str(self.premise) + ')'
+        return str(Call(self.location, self.typeof,
+                        Var(self.location, None, 'not'),
+                        [self.premise], False))
       case _:
         return '(if ' + str(self.premise) \
           + ' then ' + str(self.conclusion) + ')'

@@ -1,0 +1,10 @@
+./test/should-error/prefix_operator.pf:4.3-4.4: incomplete proof
+Goal:
+	not false
+Advice:
+	You can complete the proof with:
+		assume label: false
+	followed by a proof of:
+		false
+Givens:
+

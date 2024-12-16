@@ -1,0 +1,14 @@
+./test/should-error/sum_foldr.pf:14.5-14.33: 
+suffices to prove:
+	0 = foldr([], 0, operator +)
+./test/should-error/sum_foldr.pf:15.5-15.6: incomplete proof
+Goal:
+	0 = foldr([], 0, operator +)
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+
+Givens:
+

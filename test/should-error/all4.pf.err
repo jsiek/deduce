@@ -2,9 +2,9 @@
 Could not prove that
 	P
 implies
-	not (P)
+	not P
 
 While trying to prove that
 	(all P:bool. P)
 implies
-	(all Q:bool. not (Q))
+	(all Q:bool. not Q)
