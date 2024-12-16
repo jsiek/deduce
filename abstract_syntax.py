@@ -2541,10 +2541,10 @@ def constructor_conflict(term1, term2, env):
 
 def isNodeList(t):
   match t:
-    case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs1), tyargs, True) \
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs1), tyargs, inferred) \
       if base_name(name) == 'empty':
         return True
-    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs3), tyargs, True),
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs3), tyargs, inferred),
               [arg, ls], infix) if base_name(name) == 'node':
         return isNodeList(ls)
     case _:
@@ -2552,10 +2552,10 @@ def isNodeList(t):
     
 def nodeListToList(t):
   match t:
-    case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, True) \
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred) \
       if base_name(name) == 'empty':
       return ''
-    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, True),
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred),
               [arg, ls], infix) if base_name(name) == 'node':
       return str(arg) + ', ' + nodeListToList(ls)
 

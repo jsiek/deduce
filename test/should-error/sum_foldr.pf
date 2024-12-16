@@ -11,8 +11,9 @@ theorem foldr_eq_sum : all ls : List<Nat>. sum(ls) = foldr(ls, 0, operator+)
 proof
   induction List<Nat>
   case empty {
-    suffices ? by definition sum
     ?
+    //have X: sum([]) = foldr([], 0, operator +) by sorry
+    //suffices ? by definition sum
   }
   case node(a, d) {
     ?

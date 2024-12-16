@@ -152,7 +152,7 @@ def parse_term_hi():
             + '\tterm ::= "@" term "<" type_list ">"')
     advance()
     meta = meta_from_tokens(token, previous_token())
-    return TermInst(meta, None, subject, type_args)
+    return TermInst(meta, None, subject, type_args, False)
 
   elif token.type == 'FALSE':
     advance()

@@ -1,6 +1,6 @@
 ./test/should-error/have_remove_marks.pf:11.3-11.4: incomplete proof
 Goal:
-	length([x]) = 1
+	@length<Nat>([x]) = 1
 Advice:
 	To prove this equality, one of these statements might help:
 		definition
