@@ -1,0 +1,22 @@
+import List
+import Nat
+
+function sum(List<Nat>) -> Nat {
+  sum(empty) = 0
+  sum(node(n, ns)) = n + sum(ns)
+}
+
+
+theorem foldr_eq_sum : all ls : List<Nat>. sum(ls) = foldr(ls, 0, operator+)
+proof
+  arbitrary ls : List<Nat>
+  switch ls {
+    case empty {
+      suffices ? by definition sum
+      ?
+    }
+    case node(a, d) {
+      ?
+    }
+  }
+end

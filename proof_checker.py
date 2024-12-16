@@ -1349,6 +1349,7 @@ def check_proof_of(proof, formula, env):
                                                                constr_params))
                 
                 new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
+                new_subject_case = type_synth_term(new_subject_case, body_env, None, [])
 
                 assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
                 if len(assumptions) == 1:
