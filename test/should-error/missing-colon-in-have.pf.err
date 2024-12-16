@@ -5,4 +5,4 @@
 	proof_stmt ::= "have" ":" formula "by" proof
 
 ./test/should-error/missing-colon-in-have.pf:1.1-3.7: while parsing
-	proof_stmt ::= "theorem" identfier ":" formula "proof" proof "end"
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
