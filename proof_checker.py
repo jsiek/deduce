@@ -1959,9 +1959,6 @@ def type_synth_term(term, env, recfun, subterms):
             case _:
               error(loc, 'expected a union type, not ' + str(ty))
 
-    # case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, True): # inferred, ignore it
-    #  ret = type_synth_term(Var(loc2, tyof, name, rs), env, recfun, subterms)
-    
     case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
       ret = type_check_term_inst_var(loc, Var(loc2, tyof, name, rs), tyargs,
                                      inferred, env, True)
@@ -2132,9 +2129,6 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_thn = type_check_term(thn, typ, env, recfun, subterms)
       new_els = type_check_term(els, typ, env, recfun, subterms)
       return Conditional(loc, typ, new_cond, new_thn, new_els)
-  
-    # case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, True): # inferred, ignore it
-    #   return type_check_term(Var(loc2, tyof, name, rs), typ, env, recfun, subterms)
   
     case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
       return type_check_term_inst_var(loc, Var(loc2, tyof, name, rs), tyargs,
