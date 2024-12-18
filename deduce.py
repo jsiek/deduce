@@ -113,9 +113,15 @@ if __name__ == "__main__":
         print("Couldn't find a file to deduce!")
         exit(1)
 
-    # Start deducing
-    sys.setrecursionlimit(5000) # We can probably use a loop for some tail recursive functions
+    sys.setrecursionlimit(10000)
+    # We can probably use a loop for some tail recursive functions
+    # And even the non-tail recursive functions can be turned into a
+    # loop by using an explicit stack.  But these alternatives would
+    # hurt the readability of the code and increase the maintenance
+    # burden. So when you hit the recursion limit, just bump the number
+    # higher.
 
+    # Start deducing
     parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
     rec_desc_parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
     parser.init_parser()

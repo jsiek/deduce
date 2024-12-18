@@ -648,6 +648,8 @@ def is_match(pattern, arg, subst):
                 if constr == Var(loc3, ty3, name, rs) and len(params) == len(args):
                     for (k,v) in zip(params, args):
                         subst[k] = v
+                        if isinstance(v, TermInst):
+                          v.inferred = False
                     ret = True
                 else:
                     ret = False
@@ -655,6 +657,8 @@ def is_match(pattern, arg, subst):
                 if constr == Var(loc3, ty3, name, rs) and len(params) == len(args):
                     for (k,v) in zip(params, args):
                         subst[k] = v
+                        if isinstance(v, TermInst):
+                          v.inferred = False
                     ret = True
                 else:
                     ret = False
@@ -808,6 +812,9 @@ class Call(Term):
           ret = Call(self.location, self.typeof, fun, args, self.infix)
       case Lambda(loc, ty, vars, body):
         subst = {k: v for ((k,t),v) in zip(vars, args)}
+        for (k,v) in subst.items():
+          if isinstance(v, TermInst):
+            v.inferred = False
         body_env = env
         new_body = body.substitute(subst)
         old_defs = get_reduce_only()
@@ -827,6 +834,9 @@ class Call(Term):
                   subst[x] = ty
                 for (k,v) in zip(fun_case.parameters, rest_args):
                   subst[k] = v
+                for (k,v) in subst.items():
+                  if isinstance(v, TermInst):
+                    v.inferred = False
                 new_fun_case_body = fun_case.body.substitute(subst)
                 old_defs = get_reduce_only()
                 reduce_defs = [x for x in old_defs]
@@ -858,6 +868,9 @@ class Call(Term):
                 body_env = env
                 for (k,v) in zip(fun_case.parameters, rest_args):
                   subst[k] = v
+                for (k,v) in subst.items():
+                  if isinstance(v, TermInst):
+                    v.inferred = False
                 new_fun_case_body = fun_case.body.substitute(subst)
                 old_defs = get_reduce_only()
                 reduce_defs = [x for x in old_defs]

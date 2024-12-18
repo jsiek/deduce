@@ -504,6 +504,8 @@ def check_proof(proof, env):
           v, ty = var
           try:
             new_arg = type_check_term(arg, ty.substitute(sub), env, None, [])
+            if isinstance(new_arg, TermInst):
+                new_arg.inferred = False
           except Exception as e:
             if isinstance(ty, TypeType):
               error(loc, f"In instantiation of\n\t{str(univ)} : {str(allfrm)}\n" \
@@ -1251,12 +1253,9 @@ def check_proof_of(proof, formula, env):
             
             trm = pattern_to_term(indcase.pattern)
             new_trm = type_check_term(trm, typ, body_env, None, [])
-            # The following type synthesis step is because the term may get
-            # inserted into a synthesis context, and if its
-            # a TermInst, it needs to be marked as not-inferred so that it
-            # gets printed. -Jeremy
-            newer_trm = type_synth_term(new_trm, body_env, None, [])
-            pre_goal = instantiate(loc, formula, newer_trm)
+            if isinstance(new_trm, TermInst):
+                new_trm.inferred = False
+            pre_goal = instantiate(loc, formula, new_trm)
             goal = check_formula(pre_goal, body_env)
             
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
@@ -1349,7 +1348,8 @@ def check_proof_of(proof, formula, env):
                                                                constr_params))
                 
                 new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
-                new_subject_case = type_synth_term(new_subject_case, body_env, None, [])
+                if isinstance(new_subject_case, TermInst):
+                    new_subject_case.inferred = False
 
                 assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
                 if len(assumptions) == 1:
@@ -1732,7 +1732,7 @@ def type_first_letter(typ):
       print('error in type_first_letter: unhandled type ' + repr(typ))
       exit(-1)
 
-def type_check_term_inst(loc, subject, tyargs, inferred, synth):
+def type_check_term_inst(loc, subject, tyargs, inferred):
   for ty in tyargs:
       check_type(ty, env)
   new_subject = type_synth_term(subject, env, recfun, subterms)
@@ -1747,13 +1747,11 @@ def type_check_term_inst(loc, subject, tyargs, inferred, synth):
       retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
     case GenericUnknownInst(loc2, union_type):
       retty = TypeInst(loc2, union_type, tyargs)
-      if synth:
-          inferred = False
     case _:
       error(loc, 'expected a type name, not ' + str(ty))
   return TermInst(loc, retty, new_subject, tyargs, inferred)
 
-def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env, synth):
+def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
   match subject_var:
     case Var(loc2, tyof, name, rs):
       for ty in tyargs:
@@ -1769,8 +1767,6 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env, synth):
           retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
         case GenericUnknownInst(loc3, union_type):
           retty = TypeInst(loc3, union_type, tyargs)
-          if synth:
-              inferred = False
         case _:
           error(loc, 'cannot instantiate a term of type ' + str(ty))
       return TermInst(loc, retty, Var(loc2, tyof, rs[0], [rs[0]]), tyargs, inferred)
@@ -1963,10 +1959,10 @@ def type_synth_term(term, env, recfun, subterms):
 
     case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
       ret = type_check_term_inst_var(loc, Var(loc2, tyof, name, rs), tyargs,
-                                     inferred, env, True)
+                                     inferred, env)
       
     case TermInst(loc, _, subject, tyargs, inferred):
-      ret = type_check_term_inst(loc, subject, tyargs, inferred, True)
+      ret = type_check_term_inst(loc, subject, tyargs, inferred)
           
     case TAnnote(loc, tyof, subject, typ):
       check_type(typ, env)
@@ -2134,10 +2130,10 @@ def type_check_term(term, typ, env, recfun, subterms):
   
     case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
       return type_check_term_inst_var(loc, Var(loc2, tyof, name, rs), tyargs,
-                                      inferred, env, False)
+                                      inferred, env)
       
     case TermInst(loc, _, subject, tyargs, inferred):
-      return type_check_term_inst(loc, subject, tyargs, inferred, False)
+      return type_check_term_inst(loc, subject, tyargs, inferred)
   
     case _:
       if get_verbose():
