@@ -893,22 +893,17 @@ class Call(Term):
   def substitute(self, sub):
     # TODO: factor out this internal helper function
     def annot_terminsts(l):
-      match l:
-        case TermInst(loc, tyof, idk, type_args, inferred):
-          return TermInst(loc, tyof, idk, type_args, False)
-        case _:
-          return l
+      if isinstance(l, TermInst):
+        l.inferred = False
+      return l
         
     fun = self.rator.substitute(sub)
-    match fun:
-      case TermInst():
-        # We only want to annotate args when they're the direct descendant
-        # of a rator that is a generic. - Calvin
-        ret = Call(self.location, self.typeof, fun,
+    if isinstance(fun, TermInst):
+      ret = Call(self.location, self.typeof, fun,
                     [annot_terminsts(arg.substitute(sub)) for arg in self.args],
                     self.infix)
-      case _:
-        ret = Call(self.location, self.typeof, fun,
+    else:
+      ret = Call(self.location, self.typeof, fun,
                     [arg.substitute(sub) for arg in self.args],
                     self.infix)
     if hasattr(self, 'type_args'):

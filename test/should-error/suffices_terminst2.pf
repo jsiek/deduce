@@ -1,0 +1,8 @@
+import List
+import Nat
+
+theorem l1 : length(node(1, node(2, empty))) = 2
+proof
+  suffices ? by definition length 
+  ?
+end

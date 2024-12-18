@@ -1,0 +1,14 @@
+./test/should-error/suffices_terminst2.pf:6.3-6.34: 
+suffices to prove:
+	1 + length([2]) = 2
+./test/should-error/suffices_terminst2.pf:7.3-7.4: incomplete proof
+Goal:
+	1 + length([2]) = 2
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+
+Givens:
+
