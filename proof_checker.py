@@ -1251,12 +1251,7 @@ def check_proof_of(proof, formula, env):
             
             trm = pattern_to_term(indcase.pattern)
             new_trm = type_check_term(trm, typ, body_env, None, [])
-            # The following type synthesis step is because the term may get
-            # inserted into a synthesis context, and if its
-            # a TermInst, it needs to be marked as not-inferred so that it
-            # gets printed. -Jeremy
-            newer_trm = type_synth_term(new_trm, body_env, None, [])
-            pre_goal = instantiate(loc, formula, newer_trm)
+            pre_goal = instantiate(loc, formula, new_trm)
             goal = check_formula(pre_goal, body_env)
             
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
@@ -1349,7 +1344,7 @@ def check_proof_of(proof, formula, env):
                                                                constr_params))
                 
                 new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
-                new_subject_case = type_synth_term(new_subject_case, body_env, None, [])
+                # new_subject_case = type_synth_term(new_subject_case, body_env, None, [])
 
                 assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
                 if len(assumptions) == 1:
