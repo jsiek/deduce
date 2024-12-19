@@ -902,7 +902,7 @@ def proof_advice(formula, env):
                         + ' by ' + base_name(name)                
                 return msg
 
-        return '\nConsider using one of the following givens.\n'
+        return '\n'
   
 def check_proof_of(proof, formula, env):
   if get_verbose():
@@ -911,9 +911,13 @@ def check_proof_of(proof, formula, env):
   match proof:
     case PHole(loc):
       new_formula = check_formula(formula, env)
+      env_str = env.proofs_str()
+      if len(env_str) > 0:
+          givens = '\nGivens:\n' + env_str
+      else:
+          givens = ''
       incomplete_error(loc, 'incomplete proof\nGoal:\n\t' + str(new_formula) + '\n'\
-                       + proof_advice(new_formula, env) + '\n' \
-                       + 'Givens:\n' + env.proofs_str())
+                       + proof_advice(new_formula, env) + givens)
 
     case PSorry(loc):
       warning(loc, 'unfinished proof')
@@ -1189,12 +1193,19 @@ def check_proof_of(proof, formula, env):
             error(loc, 'comma proves logical-and, not ' + str(formula))
       except IncompleteProof as ex:
         raise ex
-      except Exception as ex:
-        form = check_proof(proof, env)
-        form_red = form.reduce(env)
-        formula_red = formula.reduce(env)
-        check_implies(proof.location, form_red, remove_mark(formula_red))
-        
+      except Exception as ex1:
+        try:
+          form = check_proof(proof, env)
+          form_red = form.reduce(env)
+          formula_red = formula.reduce(env)
+          check_implies(proof.location, form_red, remove_mark(formula_red))
+        except Exception as ex2:
+          error(loc, 'failed to prove: ' + str(formula) + '\n' \
+                + '\tfirst tried each subproof in goal-directed mode, but:\n' \
+                + str(ex1) + '\n' \
+                + '\tthen tried synthesis mode, but:\n'\
+                + str(ex2))
+            
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
       match sub_frm:
@@ -1561,8 +1572,9 @@ def type_names(loc, names):
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
                           call, typarams, param_types, return_type):
   if len(args) != len(param_types):
-    error(loc, 'incorrect number of arguments, expected ' + str(len(param_types)) \
-          + ', not ' + str(len(args)))
+    error(loc, 'incorrect number of arguments in call:\n\t' + str(call) \
+          + '\n\texpected ' + str(len(param_types)) \
+          + ' argument, not ' + str(len(args)))
   if len(typarams) == 0:
     #print('type check call to regular: ' + str(call))
     new_args = []

@@ -6,5 +6,3 @@ Advice:
 		arbitrary y:bool
 	followed by a proof of:
 		(all z:bool, w:bool. (all n:bool. (x or y or y or not x)))
-Givens:
-
