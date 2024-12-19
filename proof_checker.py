@@ -10,7 +10,8 @@
 #    Perform overload resolution using the types.
 #
 # 3. collect_env:
-#    Collects the proofs (mapping proof labels to their formulas)
+#    Collects the proofs (mapping proof labels to their formulas
+#              and runtime environment mapping variables to values)
 #    and the values (mapping names to their values, for defines a functions)
 #    into an environment.
 #
@@ -1013,6 +1014,7 @@ def check_proof_of(proof, formula, env):
                 + str(formula))
                 
     case SomeIntro(loc, witnesses, body):
+      # room for improvement, if var has type annotation, could type_check the witness
       witnesses = [type_synth_term(trm, env, None, []) for trm in witnesses]
       match formula:
         case Some(loc2, tyof, vars, formula2):
@@ -1065,7 +1067,8 @@ def check_proof_of(proof, formula, env):
           check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
-      
+
+    # define x = t
     case PTLetNew(loc, var, rhs, rest):
       new_rhs = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
@@ -1077,17 +1080,19 @@ def check_proof_of(proof, formula, env):
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})
       ret = check_proof_of(rest, frm, new_body_env)
-      
+
+    # have X: P by frm
     case PLet(loc, label, frm, reason, rest):
       new_frm = check_formula(frm, env)
       match new_frm:
         case Hole(loc2, tyof):
           proved_formula = check_proof(reason, env)
-          error(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
+          warning(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
+          body_env = env.declare_local_proof_var(loc, label, proved_formula)
         case _:
           check_proof_of(reason, new_frm, env)
           body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
-          check_proof_of(rest, formula, body_env)
+      check_proof_of(rest, formula, body_env)
 
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
