@@ -1,0 +1,14 @@
+./test/should-error/foldr_sum.pf:17.5-17.37: 
+suffices to prove:
+	sum(node(a, d)) = a + foldr(d, 0, operator +)
+./test/should-error/foldr_sum.pf:18.5-18.6: incomplete proof
+Goal:
+	sum(node(a, d)) = a + foldr(d, 0, operator +)
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+
+Givens:
+	IH: sum(d) = foldr(d, 0, operator +)

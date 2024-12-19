@@ -199,8 +199,7 @@ def parse_term_hi():
     meta = meta_from_tokens(token, token)
     return Call(meta, None,
                 Var(meta, None, 'char_fun'),
-                [Lambda(meta, None, [('_',None)], Bool(meta, None, False))],
-                 False)
+                [Lambda(meta, None, [('_',None)], Bool(meta, None, False))])
 
   elif token.type == 'FUN' or token.type == 'Λ':
     advance()
@@ -279,7 +278,7 @@ def parse_term_hi():
     advance()
     subject = parse_call()
     meta = meta_from_tokens(token, previous_token())
-    return Call(meta, None, Var(meta, None, '-', []), [subject], False)
+    return Call(meta, None, Var(meta, None, '-', []), [subject])
 
   elif token.type == 'NOT':
     advance()
@@ -373,7 +372,7 @@ def parse_call():
               'expected closing parenthesis ")", not\n\t' \
               + current_token().value)
       term = Call(meta_from_tokens(start_token, current_token()), None,
-                  term, args, False)
+                  term, args)
       advance()
     except Exception as e:
       meta = meta_from_tokens(start_token, previous_token())
@@ -391,7 +390,7 @@ def parse_term_mult():
     advance()
     right = parse_term_mult()
     term = Call(meta_from_tokens(start_token, previous_token()), None,
-                rator, [term,right], True)
+                rator, [term,right])
     
   return term
 
@@ -405,7 +404,7 @@ def parse_term_add():
     advance()
     right = parse_term_add()
     term = Call(meta_from_tokens(token, previous_token()), None,
-                rator, [term,right], True)
+                rator, [term,right])
     
   return term
 
@@ -419,7 +418,7 @@ def parse_term_compare():
     advance()
     right = parse_term_compare()
     term = Call(meta_from_tokens(token, previous_token()), None,
-                rator, [term,right], True)
+                rator, [term,right])
     
   return term
 
@@ -434,10 +433,10 @@ def parse_term_equal():
     right = parse_term_equal()
     if opr == '=':
       term = Call(meta_from_tokens(token, previous_token()), None,
-                  eq, [term,right], True)
+                  eq, [term,right])
     elif opr == '≠' or opr == '!=':
       term = IfThen(meta, None, 
-                    Call(meta, None, eq, [term,right], True),
+                    Call(meta, None, eq, [term,right]),
                     Bool(meta, None, False))
   return term
     

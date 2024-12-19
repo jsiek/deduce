@@ -233,7 +233,7 @@ def parse_tree_to_ast(e, parent):
         return intToDeduceInt(e.meta, int(e.children[0].value), 'PLUS')
     elif e.data == 'neg_int':
         arg = parse_tree_to_ast(e.children[0], e)
-        return Call(e.meta, None, Var(e.meta, None, '-'), [arg], False)
+        return Call(e.meta, None, Var(e.meta, None, '-'), [arg])
     elif e.data == 'hole_term':
         return Hole(e.meta, None)
     elif e.data == 'omitted_term':
@@ -270,8 +270,7 @@ def parse_tree_to_ast(e, parent):
         return Call(e.meta, None,
                     Var(e.meta, None, 'char_fun', []),
                     [Lambda(e.meta, None, [('_',None)],
-                            Bool(e.meta, None, False))],
-                    False)
+                            Bool(e.meta, None, False))])
     # elif e.data == 'field_access':
         # subject = parse_tree_to_ast(e.children[0], e)
         # field_name = str(e.children[1].value)
@@ -279,7 +278,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'call':
         rator = parse_tree_to_ast(e.children[0], e)
         rands = parse_tree_to_list(e.children[1], e)
-        return Call(e.meta, None, rator, rands, False)
+        return Call(e.meta, None, rator, rands)
     elif e.data == 'lambda':
         return Lambda(e.meta, None,
                       parse_tree_to_list(e.children[0], e),
@@ -292,16 +291,14 @@ def parse_tree_to_ast(e, parent):
         kids = [parse_tree_to_ast(c, e) for c in e.children]
         return IfThen(e.meta, None, 
                       Call(e.meta, None, Var(e.meta, None, '=', []),
-                           kids, True),
+                           kids),
                       Bool(e.meta, None, False))
     elif e.data in infix_ops:
         return Call(e.meta, None, Var(e.meta, None, operator_symbol[e.data], []),
-                    [parse_tree_to_ast(c, e) for c in e.children],
-                    True)
+                    [parse_tree_to_ast(c, e) for c in e.children])
     elif e.data in prefix_ops:
         return Call(e.meta, None, Var(e.meta, None, operator_symbol[e.data], []),
-                    [parse_tree_to_ast(c, e) for c in e.children],
-                    False)
+                    [parse_tree_to_ast(c, e) for c in e.children])
     elif e.data == 'switch_case':
         e1 , e2 = e.children
         return SwitchCase(e.meta, parse_tree_to_ast(e1, e),

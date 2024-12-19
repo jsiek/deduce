@@ -167,8 +167,7 @@ def pattern_to_term(pat):
     case PatternCons(loc, constr, params):
       if len(params) > 0:
         ret = Call(loc, None, constr,
-                   [Var(loc, None, param, [param]) for param in params],
-                   False)
+                   [Var(loc, None, param, [param]) for param in params])
         return ret
       else:
         return constr
@@ -229,11 +228,10 @@ def rewrite_aux(loc, formula, equation):
       return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation))
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
-    case Call(loc2, tyof, rator, args, infix):
+    case Call(loc2, tyof, rator, args):
       call = Call(loc2, tyof,
                   rewrite_aux(loc, rator, equation),
-                  [rewrite_aux(loc, arg, equation) for arg in args],
-                  infix)
+                  [rewrite_aux(loc, arg, equation) for arg in args])
       if hasattr(formula, 'type_args'):
           call.type_args = formula.type_args
       return call
@@ -294,7 +292,7 @@ def isolate_difference(term1, term2):
       case (Lambda(l1, tyof1, vs1, body1), Lambda(l2, tyof2, vs2, body2)):
         ren = {x: Var(l1, t2, y, []) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
         return isolate_difference(body1.substitute(ren), body2)
-      case (Call(l1, tyof1, fun1, args1, infix1), Call(l2, tyof2, fun2, args2, infix2)):
+      case (Call(l1, tyof1, fun1, args1), Call(l2, tyof2, fun2, args2)):
         if fun1 == fun2:
           return isolate_difference_list(args1, args2)
         else:
@@ -602,8 +600,8 @@ def check_proof(proof, env):
       formula = check_proof(eq_pf, env)
       (a,b) = split_equation(loc, formula)
       match (a,b):
-        case (Call(loc2, tyof2, Var(loc3,t1,f1,rs1), [arg1], infix1),
-              Call(loc4, tyof4, Var(loc5,t2,f2,rs2), [arg2], infix2)):
+        case (Call(loc2, tyof2, Var(loc3,t1,f1,rs1), [arg1]),
+              Call(loc4, tyof4, Var(loc5,t2,f2,rs2), [arg2])):
           if f1 != f2:
             error(loc, 'in injective, ' + str(f1) + ' ≠ ' + str(f2))
           if constr != f1:
@@ -745,7 +743,7 @@ def proof_use_advice(proof, formula, env):
             + '\twhere ' + ', '.join(letters) + (' are new names of your choice' if len(vars) > 1 \
                                                  else ' is a new name of your choice' )
 
-      case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs], _):
+      case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
         return prefix \
             + '\tYou can use this equality in a rewrite statement:\n' \
             + '\t\trewrite ' + str(proof) + '\n'
@@ -884,7 +882,7 @@ def proof_advice(formula, env):
             + ' with your choice(s),\n' \
             + '\tthen prove:\n' \
             + '\t\t' + str(body.substitute(new_vars))
-      case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs], _):
+      case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n' \
             + '\t\tdefinition\n' \
@@ -933,7 +931,7 @@ def check_proof_of(proof, formula, env):
       
     case PReflexive(loc):
       match formula:
-        case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs], _):
+        case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
           lhsNF = lhs.reduce(env)
           rhsNF = rhs.reduce(env)
           if lhsNF != rhsNF:
@@ -972,8 +970,8 @@ def check_proof_of(proof, formula, env):
       if not is_constructor(constr.name, env):
         error(loc, 'in injective, ' + constr.name + ' not a constructor')
       (a,b) = split_equation(loc, formula)
-      lhs = Call(loc, None, constr, [a], False)
-      rhs = Call(loc, None, constr, [b], False)
+      lhs = Call(loc, None, constr, [a])
+      rhs = Call(loc, None, constr, [b])
       flip_formula = mkEqual(loc, lhs, rhs)
       check_proof_of(eq_pf, flip_formula, env)
 
@@ -983,8 +981,8 @@ def check_proof_of(proof, formula, env):
         case FunctionType(loc2, [], typs, ret_ty):
           names = [generate_name('x') for ty in typs]
           args = [Var(loc, None, x, []) for x in names]
-          call_lhs = Call(loc, None, lhs, args, False)
-          call_rhs = Call(loc, None, rhs, args, False)
+          call_lhs = Call(loc, None, lhs, args)
+          call_rhs = Call(loc, None, rhs, args)
           formula = mkEqual(loc, call_lhs, call_rhs)
           for i, v in enumerate(reversed(list(zip(names, typs)))):
             formula = All(loc, None, v, (i, len(names)), formula)
@@ -1501,8 +1499,8 @@ def formula_match(loc, vars, goal_frm, frm, matching, env):
         if get_verbose():
             print("formula_match, " + base_name(name) + ' := ' + str(frm))
         matching[name] = frm
-    case (Call(loc2, tyof2, goal_rator, goal_rands, goal_infix),
-          Call(loc3, tyof3, rator, rands, infix)):
+    case (Call(loc2, tyof2, goal_rator, goal_rands),
+          Call(loc3, tyof3, rator, rands)):
       formula_match(loc, vars, goal_rator, rator, matching, env)
       for (goal_rand, rand) in zip(goal_rands, rands):
           new_goal_rand = goal_rand.substitute(matching)
@@ -1587,7 +1585,7 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
     if ret_ty != None and ret_ty != return_type:
       error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
-    return Call(loc, return_type, new_rator, new_args, call.infix)
+    return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
     matching = {}
@@ -1635,7 +1633,7 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     inst_return_type = return_type.substitute(matching)
     inst_funty = FunctionType(loc, [], inst_params, inst_return_type)
     inst_rator = TermInst(loc, inst_funty, new_rator, type_args, True)
-    return Call(loc, inst_return_type, inst_rator, new_args, call.infix)
+    return Call(loc, inst_return_type, inst_rator, new_args)
 
 def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, call):
   if get_verbose():
@@ -1907,19 +1905,19 @@ def type_synth_term(term, env, recfun, subterms):
       ty = BoolType(loc)
       ret = Some(loc, ty, vars, new_body)
       
-    case Call(loc, _, Var(loc2, ty2, name, rs), args, infix) \
+    case Call(loc, _, Var(loc2, ty2, name, rs), args) \
         if name == '=' or name == '≠':
       lhs = type_synth_term(args[0], env, recfun, subterms)
       rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
       ty = BoolType(loc)
-      ret = Call(loc, ty, Var(loc2, ty2, name, rs), [lhs, rhs], infix)
+      ret = Call(loc, ty, Var(loc2, ty2, name, rs), [lhs, rhs])
         
-    case Call(loc, _, Var(loc2, ty2, name, rs), args, infix) if name == recfun:
+    case Call(loc, _, Var(loc2, ty2, name, rs), args) if name == recfun:
       # recursive call
       ret = type_check_rec_call(loc, Var(loc2, ty2, name, rs), args, env,
                                 recfun, subterms, None, term)
       
-    case Call(loc, _, rator, args, infix):
+    case Call(loc, _, rator, args):
       # non-recursive call
       ret = type_check_call(loc, rator, args, env, recfun, subterms, None, term)
       
@@ -2082,7 +2080,7 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_body = type_check_term(body, typ, body_env, recfun, subterms)
       return TLet(loc, typ, var, new_rhs, new_body)
       
-    case Call(loc, _, Var(loc2, vt, name, rs), args, infix) \
+    case Call(loc, _, Var(loc2, vt, name, rs), args) \
         if name == '=' or name == '≠':
       new_term = type_synth_term(term, env, recfun, subterms)
       ty = new_term.typeof
@@ -2091,12 +2089,12 @@ def type_check_term(term, typ, env, recfun, subterms):
               + ' but got ' + str(ty))
       return new_term
       
-    case Call(loc, _, Var(loc2, vty, name, rs), args, infix) if name == recfun:
+    case Call(loc, _, Var(loc2, vty, name, rs), args) if name == recfun:
       # recursive call
       return type_check_rec_call(loc, Var(loc2, vty, name, rs), args, env,
                                  recfun, subterms, typ, term)
   
-    case Call(loc, _, rator, args, infix):
+    case Call(loc, _, rator, args):
       # non-recursive call
       return type_check_call(loc, rator, args, env, recfun, subterms, typ, term)
 
@@ -2470,7 +2468,7 @@ def check_proofs(stmt, env):
       
     case Assert(loc, frm):
       match frm:
-        case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs3), [lhs, rhs], _):
+        case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs3), [lhs, rhs]):
           set_reduce_all(True)
           L = lhs.reduce(env)
           R = rhs.reduce(env)
