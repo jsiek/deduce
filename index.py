@@ -30,7 +30,7 @@ def deduce_file(filename, error_expected):
             add_uniquified_module(module_name, ast)
                 
         check_deduce(ast, module_name)
-        print('Proof is valid')
+        print(filename + ' is valid')
 
     except Exception as e:
         print(str(e))
