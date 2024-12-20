@@ -61,7 +61,7 @@ def deduce_req():
     except Exception as e:
         deduce_output = str(e)
 
-    deduce_output = deduce_output.replace(f"/tmp/{unique}", "input")
+    deduce_output = deduce_output.replace(f"/tmp/{unique_id}", "input")
     print(f"Output: {deduce_output}")
     
     # Cleanup temporary files
