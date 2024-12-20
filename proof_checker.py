@@ -2416,12 +2416,7 @@ def collect_env(stmt, env):
       return env.declare_proof_var(loc, name, frm)
   
     case RecFun(loc, name, typarams, params, returns, cases):
-      # alpha rename the type parameters in the function's type
-      new_typarams = [generate_name(t) for t in typarams]
-      sub = {x: Var(loc, None, y, [y]) for (x,y) in zip(typarams, new_typarams)}
-      new_params = [p.substitute(sub) for p in params]
-      new_returns = returns.substitute(sub)
-      fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
+      fun_type = FunctionType(loc, typarams, params, returns)
       return env.define_term_var(loc, name, fun_type, stmt)
           
     case Union(loc, name, typarams, alts):
