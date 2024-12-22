@@ -250,11 +250,14 @@ def parse_term_hi():
     
   elif token.type == 'LPAR':
     advance()
+    while_parsing = 'while parsing parenthesized term\n' \
+        + '\tterm ::= "(" term ")"\n'
+
     term = parse_term()
     if current_token().type != 'RPAR':
       error(meta_from_tokens(current_token(), current_token()),
             'expected closing parentheses, not\n\t' \
-            + current_token().value)
+            + current_token().value + '\n' + while_parsing)
     advance()
     return term
 
@@ -1307,10 +1310,17 @@ def parse_statement():
     name = parse_identifier()
     return Import(meta_from_tokens(token, previous_token()), name)
   elif token.type == 'PRINT':
+    while_parsing = 'while parsing\n' \
+        + '\tstatement ::= "print" term\n'
     advance()
-    subject = parse_term()
-    meta = meta_from_tokens(token, previous_token())
-    return Print(meta, subject)
+    try:
+        subject = parse_term()
+        meta = meta_from_tokens(token, previous_token())
+        return Print(meta, subject)
+    except Exception as e:
+        meta = meta_from_tokens(token, previous_token())
+        raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+        
   elif token.type == 'THEOREM' or token.type == 'LEMMA':
     return parse_theorem()
   elif token.type == 'UNION':
