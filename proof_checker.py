@@ -20,7 +20,7 @@
 #    and run the print and assert statements.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, IncompleteProof
+from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, IncompleteProof, VerboseLevel
 
 imported_modules = set()
 checked_modules = set()
@@ -2300,7 +2300,12 @@ def process_declaration(stmt, env):
       return Union(loc, name, typarams, new_alts), env
   
     case Import(loc, name, ast):
+      old_verbose = get_verbose()
+      if get_verbose() == VerboseLevel.CURR_ONLY:
+        set_verbose(VerboseLevel.NONE)
+
       if name in imported_modules:
+          set_verbose(old_verbose)
           return stmt, env
       else:
           imported_modules.add(name)
@@ -2322,6 +2327,7 @@ def process_declaration(stmt, env):
               check_proofs(s, env)
             checked_modules.add(name)  
 
+          set_verbose(old_verbose)
           return Import(loc, name, ast3), env
   
     case Assert(loc, frm):
@@ -2499,23 +2505,23 @@ def check_deduce(ast, module_name):
     new_s, env = process_declaration(s, env)
     ast2.append(new_s)
   if get_verbose():
-      for s in ast2:
-          print(s)
+    for s in ast2:
+      print(s)
 
   if get_verbose():
-      print('env:\n' + str(env))          
-      print('--------- Type Checking ------------------------')
+    print('env:\n' + str(env))          
+    print('--------- Type Checking ------------------------')
   ast3 = []
   for s in ast2:
     new_s = type_check_stmt(s, env)
     ast3.append(new_s)
   if get_verbose():
-      for s in ast3:
-        print(s)
+    for s in ast3:
+      print(s)
       
   if get_verbose():
-      print('env:\n' + str(env))          
-      print('--------- Proof Checking ------------------------')
+    print('env:\n' + str(env))  
+    print('--------- Proof Checking ------------------------')
   for s in ast3:
     env = collect_env(s, env)
     

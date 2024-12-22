@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Any, Tuple, List
-from error import error, set_verbose, get_verbose
+from error import error, set_verbose, get_verbose, get_unique_names, VerboseLevel
 from pathlib import Path
 import os
 
@@ -503,12 +503,14 @@ class Var(Term):
               'resolved_names is a string but should be a list: ' \
               + self.resolved_names)
       
-      if base_name(self.name) == 'zero' and not get_verbose():
+      if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
         return '0'
-      elif base_name(self.name) == 'empty' and not get_verbose():
+      elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
       elif get_verbose():
         return self.name + '{' + ','.join(self.resolved_names) + '}'
+      elif get_unique_names():
+        return self.name
       else:
         if is_operator(self):
           return 'operator ' + base_name(self.name)
@@ -2411,6 +2413,10 @@ class Import(Statement):
   def uniquify(self, env):
     if get_verbose():
       print('uniquify import ' + self.name)
+    old_verbose = get_verbose()
+    if get_verbose() == VerboseLevel.CURR_ONLY:
+      set_verbose(VerboseLevel.NONE)
+
     global uniquified_modules
     if self.name in uniquified_modules.keys():
       self.ast = uniquified_modules[self.name]
@@ -2434,6 +2440,7 @@ class Import(Statement):
       stmt.collect_exports(env)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
+    set_verbose(old_verbose)
 
   def collect_exports(self, export_env):
     pass
@@ -2611,6 +2618,7 @@ class TypeBinding(Binding):
 class TermBinding(Binding):
   typ : Type
   defn : Term = None
+  local : bool = False
   
   def __str__(self):
     return str(self.typ) + (' = ' + str(self.defn) if self.defn else '')
@@ -2640,7 +2648,7 @@ class Env:
   def proofs_str(self):
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
-                       if isinstance(v,ProofBinding) and (v.local or get_verbose())])
+                       if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
   
   def declare_type(self, loc, name):
     new_env = Env(self.dict)
