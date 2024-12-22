@@ -1223,7 +1223,8 @@ def parse_union():
 
 def parse_function():
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "function" identifier type_params_opt "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
+      + '\tstatement ::= "function" identifier type_params_opt' \
+      + ' "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
   try:
     start_token = current_token()
     advance()
@@ -1298,17 +1299,33 @@ def parse_statement():
             'expected a statement, not end of file')
   token = current_token()
   if token.type == 'ASSERT':
+    while_parsing = 'while parsing assert\n' \
+        + '\tstatement ::= "assert" formula\n'
     advance()
-    body = parse_term()
-    return Assert(meta_from_tokens(token, previous_token()), body)
+    try:
+        body = parse_term()
+        return Assert(meta_from_tokens(token, previous_token()), body)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+  
   elif token.type == 'DEFINE':
     return parse_define()
+
   elif token.type == 'FUNCTION':
     return parse_function()
+
   elif token.type == 'IMPORT':
+    while_parsing = 'while parsing import\n' \
+        + '\tstatement ::= "import" identifier\n'
     advance()
-    name = parse_identifier()
-    return Import(meta_from_tokens(token, previous_token()), name)
+    try:
+        name = parse_identifier()
+        return Import(meta_from_tokens(token, previous_token()), name)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+
   elif token.type == 'PRINT':
     while_parsing = 'while parsing\n' \
         + '\tstatement ::= "print" term\n'
@@ -1323,8 +1340,10 @@ def parse_statement():
         
   elif token.type == 'THEOREM' or token.type == 'LEMMA':
     return parse_theorem()
+
   elif token.type == 'UNION':
     return parse_union()
+
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:
