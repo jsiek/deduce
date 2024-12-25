@@ -1,4 +1,5 @@
-./test/should-error/cases_error.pf:5.5-5.9: did you mean "cases" instead of "case"?
+./test/should-error/cases_error.pf:5.5-5.9: expected a proof.
+Did you mean "have" instead of "case"?
 ./test/should-error/cases_error.pf:4.5-4.10: while parsing cases (use a logical or)
 	conclusion ::= "cases" proof case_list
 	case_list ::= case | case case_list

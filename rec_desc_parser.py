@@ -793,7 +793,7 @@ def parse_proof_hi():
     for kw in proof_keywords:
         if edit_distance(token.value, kw) <= 2:
             error(meta_from_tokens(token, token),
-                  'did you mean "' + kw \
+                  'expected a proof.\nDid you mean "' + kw \
                   + '" instead of "' + current_token().value + '"?')
 
     try:
