@@ -537,7 +537,7 @@ proof_keywords = {'apply', 'arbitrary',
                   'have', 'induction', 'obtain',
                   'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
-                  'transitive'}
+                  'transitive', 'cases'}
 
 def parse_definition_proof():
   token = current_token()
@@ -585,25 +585,39 @@ def parse_recall():
 def parse_proof_hi():
   token = current_token()
   if token.type == 'APPLY':
+    while_parsing = 'while parsing apply-to (use a logical implication)\n' \
+        + '\tconclusion ::= "apply" proof "to" proof\n'
     advance()
-    imp = parse_proof()
-    if current_token().type != 'TO':
-      error(meta_from_tokens(current_token(), current_token()),
-            'expected "to" after implication part of "apply", not\n\t' \
-            + current_token().value)
-    advance()
-    arg = parse_proof()
-    return ModusPonens(meta_from_tokens(token, previous_token()), imp, arg)
-
+    try:
+      imp = parse_proof()
+      if current_token().type != 'TO':
+        error(meta_from_tokens(current_token(), current_token()),
+              'expected "to" after implication part of "apply", not\n\t' \
+              + current_token().value)
+      advance()
+      arg = parse_proof()
+      return ModusPonens(meta_from_tokens(token, previous_token()), imp, arg)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+    
   elif token.type == 'CASES':
+    while_parsing = 'while parsing cases (use a logical or)\n' \
+        + '\tconclusion ::= "cases" proof case_list\n' \
+        + '\tcase_list ::= case | case case_list\n' \
+        + '\tcase ::= "case" IDENT ":" term "{" proof "}"\n'
     advance()
-    subject = parse_proof()
-    cases = []
-    while (not end_of_file()) and current_token().type == 'CASE':
-        c = parse_case()
-        cases.append(c)
-    meta = meta_from_tokens(token, previous_token())
-    return Cases(meta, subject, cases)
+    try:
+      subject = parse_proof()
+      cases = []
+      while (not end_of_file()) and current_token().type == 'CASE':
+          c = parse_case()
+          cases.append(c)
+      meta = meta_from_tokens(token, previous_token())
+      return Cases(meta, subject, cases)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
     
   elif token.type == 'CONCLUDE':
     advance()

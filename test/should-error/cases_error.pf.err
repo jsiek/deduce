@@ -1,0 +1,8 @@
+./test/should-error/cases_error.pf:5.5-5.9: did you mean "cases" instead of "case"?
+./test/should-error/cases_error.pf:4.5-4.10: while parsing cases (use a logical or)
+	conclusion ::= "cases" proof case_list
+	case_list ::= case | case case_list
+	case ::= "case" IDENT ":" term "{" proof "}"
+
+./test/should-error/cases_error.pf:1.1-4.10: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
