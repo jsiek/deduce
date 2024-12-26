@@ -4,7 +4,7 @@
 from abstract_syntax import *
 from lark import Lark, Token, logger, exceptions, tree
 from error import *
-from edit_distance import edit_distance
+from edit_distance import closest_keyword, edit_distance
 
 filename = '???'
 
@@ -531,13 +531,13 @@ def parse_assumption():
     return label,None
 
 proof_keywords = {'apply', 'arbitrary',
-                  'choose', 'conclude', 'conjunct',
+                  'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
                   'enable', 'equations', 'extensionality',
                   'have', 'induction', 'obtain',
                   'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
-                  'transitive', 'cases'}
+                  'transitive'}
 
 def parse_definition_proof():
   while_parsing = 'while parsing definition:\n' \
@@ -609,9 +609,8 @@ def parse_proof_hi():
     
   elif token.type == 'CASES':
     while_parsing = 'while parsing cases (use a logical or)\n' \
-        + '\tconclusion ::= "cases" proof case_list\n' \
-        + '\tcase_list ::= case | case case_list\n' \
-        + '\tcase ::= "case" IDENT ":" term "{" proof "}"\n'
+        + '\tconclusion ::= "cases" proof case_clause*\n' \
+        + '\tcase_clause ::= "case" identifier ":" term "{" proof "}"\n'
     advance()
     try:
       subject = parse_proof()
@@ -796,12 +795,11 @@ def parse_proof_hi():
         return EvaluateGoal(meta_from_tokens(token, previous_token()))
     
   else:
-    for kw in proof_keywords:
-        if edit_distance(token.value, kw) <= 2:
-            error(meta_from_tokens(token, token),
-                  'expected a proof.\nDid you mean "' + kw \
-                  + '" instead of "' + current_token().value + '"?')
-
+    close_keyword = closest_keyword(token.value, proof_keywords)
+    if close_keyword:
+        error(meta_from_tokens(token, token),
+              'expected a proof.\nDid you mean "' + close_keyword \
+              + '" instead of "' + token.value + '"?')
     try:
       name = parse_identifier()
     except Exception as e:
