@@ -540,41 +540,47 @@ proof_keywords = {'apply', 'arbitrary',
                   'transitive', 'cases'}
 
 def parse_definition_proof():
+  while_parsing = 'while parsing definition:\n' \
+      + '\tconclusion ::= "definition" identifier\n'
   token = current_token()
   advance()
-  if current_token().type == 'LBRACE':
-    advance()
-    defs = parse_ident_list()
-    if current_token().type != 'RBRACE':
-        error(meta_from_tokens(current_token(), current_token()),
-              'expected closing "}", not\n\t' + current_token().value)
-    advance()
-  else:
-    defn = parse_identifier()
-    defs = [defn]
+  try:
+    if current_token().type == 'LBRACE':
+      advance()
+      defs = parse_ident_list()
+      if current_token().type != 'RBRACE':
+          error(meta_from_tokens(current_token(), current_token()),
+                'expected closing "}", not\n\t' + current_token().value)
+      advance()
+    else:
+      defn = parse_identifier()
+      defs = [defn]
 
-  if current_token().type == 'AND':
-      advance()
-      if current_token().type != 'REWRITE':
-          error(meta_from_tokens(current_token(),current_token()),
-                'expected "rewrite" after "and" and "definition", not\n\t' \
-                + current_token().value)
-      advance()
-      eqns = parse_proof_list()
+    if current_token().type == 'AND':
+        advance()
+        if current_token().type != 'REWRITE':
+            error(meta_from_tokens(current_token(),current_token()),
+                  'expected "rewrite" after "and" and "definition", not\n\t' \
+                  + current_token().value)
+        advance()
+        eqns = parse_proof_list()
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefsGoal(meta,
+                              [Var(meta, None, t) for t in defs],
+                              Rewrite(meta, eqns))
+    elif current_token().type == 'IN':
+        advance()
+        subject = parse_proof()
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
+                              subject)
+    else:
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
+  except Exception as e:
       meta = meta_from_tokens(token, previous_token())
-      return ApplyDefsGoal(meta,
-                            [Var(meta, None, t) for t in defs],
-                            Rewrite(meta, eqns))
-  elif current_token().type == 'IN':
-      advance()
-      subject = parse_proof()
-      meta = meta_from_tokens(token, previous_token())
-      return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
-                            subject)
-  else:
-      meta = meta_from_tokens(token, previous_token())
-      return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
-
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+      
 def parse_recall():
   start_token = current_token()
   advance()

@@ -1166,7 +1166,10 @@ def check_proof_of(proof, formula, env):
           case Omitted(loc2, tyof):
             check_proof_of(rest, new_formula, env)
           case Hole(loc2, tyof):
-            newer_formula = check_formula(new_formula, env)
+            try:
+              newer_formula = check_formula(new_formula, env)
+            except Exception as e:
+              error(loc2, 'blah: ' + str(new_formula) + '\n' + str(e))
             warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
             check_proof_of(rest, newer_formula, env)
           case _:
@@ -1832,7 +1835,7 @@ def type_synth_term(term, env, recfun, subterms):
       vars = [p for (p,t) in params]
       param_types = [t for (p,t) in params]
       if any([t == None for t in param_types]):
-          error(term.location, 'Cannot synthesize a type for ' + str(term) + '.\n'\
+          error(loc, 'Cannot synthesize a type for ' + str(term) + '.\n'\
                 + 'Add type annotations to the parameters.')
       body_env = env.declare_term_vars(loc, params)
       new_body = type_synth_term(body, body_env, recfun, subterms)
@@ -1982,6 +1985,11 @@ def type_synth_term(term, env, recfun, subterms):
     case TAnnote(loc, tyof, subject, typ):
       check_type(typ, env)
       ret = type_check_term(subject, typ, env, recfun, subterms)
+
+    case RecFun(loc, name, typarams, params, returns, cases):
+      fun_type = FunctionType(loc, typarams, params, returns)
+      ret = term
+      term.typeof = fun_type
       
     case _:
       if isinstance(term, Type):
