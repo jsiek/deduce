@@ -1553,19 +1553,16 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       type_match(loc, tyvars, rt1, rt2, matching)
     case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
-        error(loc, "argument type: " + str(arg_ty) + "\n" \
-              + "does not match parameter type: " + str(param_ty))
+        error(loc, str(arg_ty) + " does not match " + str(param_ty))
       for (arg1, arg2) in zip(args1, args2):
         type_match(loc, tyvars, arg1, arg2, matching)
     # How to handle GenericUnknownInst?
     case (TypeInst(l1, n1, args1), GenericUnknownInst(l2, n2)):
       if n1 != n2:
-        error(loc, "argument type: " + str(arg_ty) + "\n" \
-              + "does not match parameter type: " + str(param_ty))
+        error(loc, str(arg_ty) + " does not match " + str(param_ty))
     case _:
       if param_ty != arg_ty:
-        error(loc, "argument type: " + str(arg_ty) + "\n" \
-              + "does not match parameter type: " + str(param_ty))
+        error(loc, str(arg_ty) + " does not match " + str(param_ty))
 
 def type_names(loc, names):
   index = 0
@@ -1595,7 +1592,17 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     # If there is an expected return type, match that first.
     type_params = type_names(loc, typarams)
     if ret_ty:
-      type_match(loc, type_params, return_type, ret_ty, matching)
+      try:
+          type_match(loc, type_params, return_type, ret_ty, matching)
+      except Exception as e:
+        new_msg = 'expected type ' + str(ret_ty) + '\n' \
+            + '\tbut the call ' + str(call) + '\n' \
+            + '\thas return type ' + str(return_type) + '\n\n' \
+            + '\tinferred type arguments: ' \
+            + ', '.join([base_name(x) + ' := ' + str(ty) \
+                         for (x,ty) in matching.items()])
+        error(call.location, new_msg)
+          
     # If we have already deduced the type parameters in the parameter type,
     # then we can check the term. Otherwise, we synthesize the term's type
     # and match it against the parameter type.
