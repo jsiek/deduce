@@ -1,0 +1,4 @@
+theorem T: false
+proof
+  conclude false by
+end

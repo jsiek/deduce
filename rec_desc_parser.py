@@ -625,18 +625,24 @@ def parse_proof_hi():
       raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
     
   elif token.type == 'CONCLUDE':
+    while_parsing = 'while parsing\n' \
+        + '\tconclusion ::= "conclude" formula "by" proof\n'
     advance()
-    claim = parse_term()
-    if current_token().type == 'BY':
-      advance()
-      reason = parse_proof()
-    else:
-      error(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword "by" after formula of "conclude", '\
-            + 'not\n\t' + current_token().value)
-    return PAnnot(meta_from_tokens(token, previous_token()),
-                  claim, reason)
-
+    try:
+      claim = parse_term()
+      if current_token().type == 'BY':
+        advance()
+        reason = parse_proof()
+      else:
+        error(meta_from_tokens(current_token(), current_token()),
+              'expected the keyword "by" after formula of "conclude", '\
+              + 'not\n\t' + current_token().value)
+      return PAnnot(meta_from_tokens(token, previous_token()),
+                    claim, reason)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+        
   elif token.type == 'CONJUNCT':
     advance()
     meta = meta_from_tokens(current_token(),current_token())
