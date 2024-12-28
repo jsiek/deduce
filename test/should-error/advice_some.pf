@@ -1,0 +1,4 @@
+theorem test: some x : bool. x = x
+proof
+  ?
+end

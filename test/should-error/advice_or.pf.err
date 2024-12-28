@@ -1,0 +1,7 @@
+./test/should-error/advice_or.pf:3.3-3.4: incomplete proof
+Goal:
+	(true or false)
+Advice:
+	Prove this logical-or formula by proving one of its parts:
+		true
+		false

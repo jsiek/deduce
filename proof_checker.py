@@ -671,22 +671,21 @@ def proof_use_advice(proof, formula, env):
         + '\t' + str(formula) + '\n\n'
     match formula:
       case Bool(loc, tyof, True):
-        return prefix + '\tThis fact is useless.\n'
+        return prefix + '\tThe "true" fact is useless.\n'
       case Bool(loc, tyof, False):
         return prefix \
-            + '\tThis fact can implicitly prove anything!\n'
+            + '\tUse this "false" fact to implicitly prove anything!\n'
       case And(loc, tyof, args):
         return prefix \
-            + '\tThis fact can implicitly prove any of ' \
-            + 'the following formulas.\n' \
+            + '\tUse this logical-and to implicitly prove any of its parts:\n' \
             + '\n'.join('\t\t' + str(arg) for arg in args)
       case Or(loc, tyof, args):
         reset_label()
         return prefix \
-            + '\tProceed with a cases statement:\n' \
+            + '\tUse this logical-or by proceeding with a "cases" statement:\n'\
             + '\t\tcases ' + str(proof) + '\n' \
-            + '\n'.join(['\t\tcase ' + generate_label() + ' : ' + str(arg) + ' { ? }' \
-                         for arg in args])
+            + '\n'.join(['\t\tcase ' + generate_label() + ' : ' + str(arg) \
+                         + ' { ? }' for arg in args])
       case IfThen(loc, tyof, prem, conc):
         return prefix \
             + '\tApply this if-then formula to a proof of its premise:\n' \
@@ -738,10 +737,13 @@ def proof_use_advice(proof, formula, env):
             i = i + 1
         new_body = body.substitute(new_vars)
         return prefix \
-            + '\tProceed with:\n' \
-            + '\t\tobtain ' + ', '.join(letters) + ' where label: ' + str(new_body) + ' from ' + str(proof) +'\n' \
-            + '\twhere ' + ', '.join(letters) + (' are new names of your choice' if len(vars) > 1 \
-                                                 else ' is a new name of your choice' )
+            + 'To use this "some" formula, proceed with:\n' \
+            + '\tobtain ' + ', '.join(letters) + \
+            ' where label: ' + str(new_body) + ' from ' + str(proof) +'\n' \
+            + 'where ' + ', '.join(letters) \
+            + (' are new names of your choice' if len(vars) > 1 \
+               else ' is a new name of your choice' ) + ',\n' \
+            + 'followed by a proof of the goal.'
 
       case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
         return prefix \
@@ -779,24 +781,24 @@ def proof_advice(formula, env):
     prefix = 'Advice:\n'
     match formula:
       case Bool(loc, tyof, True):
-        return prefix + '\tYou can complete the proof with a period.\n'
+        return prefix + '\tYou can prove "true" with a period.\n'
       case Bool(loc, tyof, False):
         return prefix \
-            + '\tYou can complete the proof by finding a contradiction:\n' \
-            + '\tif `np` proves `not P` and `p` proves `P`, \n' \
-            + '\tthen `apply np to p` proves false.\n'
+            + '\tProve "false" by proving a contradiction:\n' \
+            + '\tif you prove both "P" and "not P", \n' \
+            + '\tthen "apply (recall not P) to (recall P)" proves "false".\n'
       case And(loc, tyof, args):
         return prefix \
-            + '\tYou can complete the proof by separately proving each of ' \
-            + 'the following\n\tformulas then combine the proofs with commas.\n' \
+            + '\tProve this logical-and formula by proving each of its'\
+            + ' parts,\n\tshown below, then combine the proofs with commas.\n' \
             + '\n'.join('\t\t' + str(arg) for arg in args)
       case Or(loc, tyof, args):
         return prefix \
-            + '\tYou can complete the proof by proving any one of the following formulas:\n' \
+            + '\tProve this logical-or formula by proving one of its parts:\n' \
             + '\n'.join('\t\t' + str(arg) for arg in args)
       case IfThen(loc, tyof, prem, conc):
         return prefix \
-            + '\tYou can complete the proof with:\n' \
+            + '\tProve this if-then formula with:\n' \
             + '\t\tassume label: ' + str(prem) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
@@ -806,7 +808,7 @@ def proof_advice(formula, env):
         if s != 0:
           body = update_all_head(body)
         arb_advice = prefix \
-            + '\tYou can complete the proof with:\n' \
+            + '\tProve this "all" formula with:\n' \
             + '\t\tarbitrary ' + base_name(x) + ':' + str(ty) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(body)
@@ -876,7 +878,7 @@ def proof_advice(formula, env):
             new_vars[x] = Var(loc,ty, chr(i), [])
             i = i + 1
         return prefix \
-            + '\tYou can complete the proof with:\n' \
+            + '\tProve this "some" formula with:\n' \
             + '\t\tchoose ' + ', '.join(letters) + '\n' \
             + '\twhere you replace ' + ', '.join(letters) \
             + ' with your choice(s),\n' \
@@ -884,7 +886,7 @@ def proof_advice(formula, env):
             + '\t\t' + str(body.substitute(new_vars))
       case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
         return prefix \
-            + '\tTo prove this equality, one of these statements might help:\n' \
+            + '\tTo prove this equality, one of these statements might help:\n'\
             + '\t\tdefinition\n' \
             + '\t\trewrite\n' \
             + '\t\tequations\n'
