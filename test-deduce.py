@@ -101,7 +101,7 @@ if __name__ == "__main__":
             extra_arguments.append(argument)
     
     python_path = ""
-    for i in range(11, 13):
+    for i in range(13, 10, -1):
         python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
         if python_path != "":
             break

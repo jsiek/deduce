@@ -26,15 +26,25 @@ def base_name(name):
     ls = name.split('.')
     return ls[0]
 
-import_directories = ["."]
+import_directories = set()
+
+def init_import_directories():
+  import_directories.add(".")
+  lib_config_path = Path(os.path.expanduser("~/.config/deduce/libraries"))
+  if lib_config_path.exists() and lib_config_path.is_file():
+    with open(lib_config_path, 'r') as lib_config_file:
+      for line in lib_config_file:
+        import_directories.add(line.strip())
   
 def get_import_directories():
   global import_directories
+  if(get_verbose()):
+    print("import directories: ", import_directories)
   return import_directories
 
 def add_import_directory(dir):
   global import_directories
-  import_directories.append(dir)
+  import_directories.add(dir)
 
 
 recursive_descent = True
