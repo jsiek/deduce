@@ -1375,6 +1375,9 @@ def parse_statement():
                   'did you mean "' + kw \
                   + '" instead of "' + token.value + '"?')
       
+    if token.value == '/' and current_position + 1 < len(token_list) and next_token().value == '*':
+      error(meta_from_tokens(token, token),
+        "expected a statement, not '/*', did you forget to close a comment?")
     error(meta_from_tokens(token, token),
           'expected a statement, not\n\t' + token.value)
 
