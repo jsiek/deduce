@@ -2,3 +2,6 @@
 	"{"
 while parsing
 	switch_case ::= "case" pattern "{" term "}"
+./test/should-error/switch_case_pattern.pf:8.1-10.14: while parsing assert
+	statement ::= "assert" formula
+

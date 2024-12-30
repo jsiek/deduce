@@ -1,0 +1,7 @@
+./test/should-error/help3.pf:5.3-5.10: Advice about using fact:
+	some x:bool. x = true
+
+To use this "some" formula, proceed with:
+	obtain A where label: A = true from s1
+where A is a new name of your choice,
+followed by a proof of the goal.

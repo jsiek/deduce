@@ -26,3 +26,15 @@ def edit_distance(s1, s2):
             insert = F[(i, j-1)] + space_penalty
             F[(i, j)] = min(match, delete, insert)
     return F[(m, n)]
+
+def closest_keyword(word, keywords):
+    best_yet = None
+    for kw in keywords:
+        d = edit_distance(word, kw)
+        if d <= 2:
+            if best_yet == None or d < best_yet[1]:
+                best_yet = (kw, d)
+    if best_yet:
+        return best_yet[0]
+    else:
+        return None

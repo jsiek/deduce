@@ -1,0 +1,9 @@
+import Nat
+import List
+
+function sum(List<Nat>) -> Nat {
+  sum([]) = 0
+  sum(node(x, xs)) = x + sum(xs)
+}
+
+print(sum, [1,2,3])

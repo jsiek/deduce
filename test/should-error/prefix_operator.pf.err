@@ -2,7 +2,7 @@
 Goal:
 	not false
 Advice:
-	You can complete the proof with:
+	Prove this if-then formula with:
 		assume label: false
 	followed by a proof of:
 		false
