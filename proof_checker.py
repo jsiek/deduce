@@ -1760,7 +1760,7 @@ def type_first_letter(typ):
       print('error in type_first_letter: unhandled type ' + repr(typ))
       exit(-1)
 
-def type_check_term_inst(loc, subject, tyargs, inferred):
+def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
   for ty in tyargs:
       check_type(ty, env)
   new_subject = type_synth_term(subject, env, recfun, subterms)
@@ -1990,7 +1990,7 @@ def type_synth_term(term, env, recfun, subterms):
                                      inferred, env)
       
     case TermInst(loc, _, subject, tyargs, inferred):
-      ret = type_check_term_inst(loc, subject, tyargs, inferred)
+      ret = type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
           
     case TAnnote(loc, tyof, subject, typ):
       check_type(typ, env)
@@ -2166,7 +2166,7 @@ def type_check_term(term, typ, env, recfun, subterms):
                                       inferred, env)
       
     case TermInst(loc, _, subject, tyargs, inferred):
-      return type_check_term_inst(loc, subject, tyargs, inferred)
+      return type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
   
     case _:
       if get_verbose():
