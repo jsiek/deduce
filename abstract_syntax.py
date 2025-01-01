@@ -546,7 +546,15 @@ class Var(Term):
         env_str = '\nenvironment: ' + ', '.join(env.keys())
       else:
         env_str = ''
-      error(self.location, 'undefined variable: ' + self.name + '' + env_str)
+
+      import_advice = ''
+
+      if self.name == "suc" or self.name == "zero":
+        import_advice = "\n\tAdd `import Nat` to supply a definition."
+      elif self.name == "empty" or self.name == "node":
+        import_advice = "\n\tAdd `import List` to supply a definition."
+
+      error(self.location, 'undefined variable: ' + self.name + import_advice + '' + env_str)
     self.resolved_names = env[self.name]
     
 @dataclass
