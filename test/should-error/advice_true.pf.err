@@ -1,0 +1,6 @@
+./test/should-error/advice_true.pf:3.3-3.4: incomplete proof
+Goal:
+	true
+Advice:
+	You can prove "true" with a period.
+

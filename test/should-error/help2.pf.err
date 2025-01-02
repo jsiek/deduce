@@ -1,0 +1,7 @@
+./test/should-error/help2.pf:8.3-8.10: Advice about using fact:
+	(X or Y)
+
+	Use this logical-or by proceeding with a "cases" statement:
+		cases x2
+		case label_0 : X { ? }
+		case label_1 : Y { ? }

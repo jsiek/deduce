@@ -1,0 +1,42 @@
+import Nat
+import List
+
+function sum(List<Nat>) -> Nat {
+  sum([]) = 0
+  sum(node(x,ls)) = x + sum(ls)
+}
+
+assert sum([1,2,3]) = sum(reverse([1,2,3]))
+
+/*
+  sum([1,2,3] ++ [4,5,6])
+  = sum([1,2,3,4,5,6])
+  = sum([1,2,3]) + sum([4,5,6])
+*/
+  
+
+theorem sum_append: all ls1 : List<Nat>, ls2 : List<Nat>.
+  sum(ls1 ++ ls2) = sum(ls1) + sum(ls2)
+proof
+  induction List<Nat>
+  case [] {
+    arbitrary ls2:List<Nat>
+    conclude sum(@[]<Nat> ++ ls2) = sum(@[]<Nat>) + sum(ls2)
+      by definition {operator++, sum, operator+}
+  }
+  case node(x, ls1) suppose IH {
+    arbitrary ls2:List<Nat>
+    equations
+          sum(node(x, ls1) ++ ls2)
+        = sum(node(x, ls1 ++ ls2))
+          by definition operator++
+    ... = x + sum(ls1 ++ ls2)
+          by definition sum
+    ... = x + (sum(ls1) ++ sum(ls2))
+          by rewrite IH[ls2]
+    ... = (x + sum(ls1)) + sum(ls2)
+          by symmetric add_assoc[x,sum(ls1),sum(ls2)]
+    ... = #sum(node(x, ls1))# + sum(ls2)
+          by definition sum
+  }
+end

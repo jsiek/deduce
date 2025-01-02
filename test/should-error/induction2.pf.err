@@ -2,7 +2,7 @@
 Goal:
 	(all T:Tree. size(T) = size(T))
 Advice:
-	You can complete the proof with:
+	Prove this "all" formula with:
 		arbitrary T:Tree
 	followed by a proof of:
 		size(T) = size(T)

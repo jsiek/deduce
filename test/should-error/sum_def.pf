@@ -1,0 +1,20 @@
+import Nat
+import List
+
+function sum(List<Nat>) -> Nat {
+  sum([]) = 0
+  sum(node(x,ls)) = x + sum(ls)
+}
+
+theorem sum_reverse:
+all ls : List<Nat>. sum(ls) = sum(reverse(ls))
+proof
+  induction List<Nat>
+  case [] {
+    suffices ? by definition sum
+    ?
+  }
+  case node(x, ls) suppose IH {
+    ?
+  }
+end

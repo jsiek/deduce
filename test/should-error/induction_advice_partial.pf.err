@@ -2,7 +2,7 @@
 Goal:
 	(all n:Nat. suc(length(null)) = length(cons(n, null)))
 Advice:
-	You can complete the proof with:
+	Prove this "all" formula with:
 		arbitrary n:Nat
 	followed by a proof of:
 		suc(length(null)) = length(cons(n, null))

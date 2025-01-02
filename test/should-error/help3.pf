@@ -1,0 +1,6 @@
+theorem T: true
+proof
+  have s1: some x : bool. x = true
+    by choose true reflexive
+  help s1
+end
