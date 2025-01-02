@@ -1,0 +1,1 @@
+./test/should-error/unclosed_comment.pf:1.1-1.2: expected a statement, not '/*', did you forget to close a comment?
