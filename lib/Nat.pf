@@ -411,6 +411,16 @@ proof
   }
 end
 
+theorem sub_order : all x : Nat, y : Nat, z : Nat.
+  (x - y) - z = (x - z) - y
+proof
+  arbitrary x : Nat, y : Nat, z : Nat
+  equations 
+    (x - y) - z = x - (y + z) by sub_sub_eq_sub_add
+            ... = x - (z + y) by rewrite add_commute[y, z]
+            ... = (x - z) - y by rewrite symmetric sub_sub_eq_sub_add[x, z, y]
+end
+
 /*
  Properties of Multiplication
 */
