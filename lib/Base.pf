@@ -90,3 +90,13 @@ proof
     }
   }
 end
+
+theorem contrapositive : all P : bool, Q : bool.
+  if (if P then Q) and not Q then not P
+proof
+  arbitrary P : bool, Q : bool
+  switch Q {
+    case true { . }
+    case false { . }
+  }
+end
