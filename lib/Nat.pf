@@ -311,15 +311,6 @@ proof
 end
 
 /*
- Properties of pred
- */
- 
-theorem pred_one: pred(suc(0)) = 0
-proof
-  definition pred
-end
-
-/*
  Properties of Subtraction
  */
  
@@ -346,6 +337,27 @@ proof
   case suc(n') suppose IH {
     conclude suc(n') - 0 = suc(n')  by definition operator-
   }
+end
+
+/*
+ Properties of pred
+*/
+
+theorem pred_one: pred(suc(0)) = 0
+proof
+ definition pred
+end
+
+theorem sub_one_pred : all x : Nat. x - 1 = pred(x)
+proof
+ induction Nat
+ case zero {
+   definition {pred, operator-}
+ }
+ case suc(x') {
+   definition { pred, operator- }
+   and rewrite sub_zero[x']
+ }
 end
 
 /*
