@@ -1,0 +1,1 @@
+define id_gen : fn<E> E -> E = fun x { x } 

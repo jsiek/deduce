@@ -1,0 +1,2 @@
+./test/should-error/missing_generic.pf:1.32-1.43: Expected type parameter E, but got a lambda.
+	Add generic E { ... } around the function body.
