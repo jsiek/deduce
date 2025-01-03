@@ -311,15 +311,6 @@ proof
 end
 
 /*
- Properties of pred
- */
- 
-theorem pred_one: pred(suc(0)) = 0
-proof
-  definition pred
-end
-
-/*
  Properties of Subtraction
  */
  
@@ -346,6 +337,27 @@ proof
   case suc(n') suppose IH {
     conclude suc(n') - 0 = suc(n')  by definition operator-
   }
+end
+
+/*
+ Properties of pred
+*/
+
+theorem pred_one: pred(suc(0)) = 0
+proof
+ definition pred
+end
+
+theorem sub_one_pred : all x : Nat. x - 1 = pred(x)
+proof
+ induction Nat
+ case zero {
+   definition {pred, operator-}
+ }
+ case suc(x') {
+   definition { pred, operator- }
+   and rewrite sub_zero[x']
+ }
 end
 
 /*
@@ -397,6 +409,16 @@ proof
       }
     }
   }
+end
+
+theorem sub_order : all x : Nat, y : Nat, z : Nat.
+  (x - y) - z = (x - z) - y
+proof
+  arbitrary x : Nat, y : Nat, z : Nat
+  equations 
+    (x - y) - z = x - (y + z) by sub_sub_eq_sub_add
+            ... = x - (z + y) by rewrite add_commute[y, z]
+            ... = (x - z) - y by rewrite symmetric sub_sub_eq_sub_add[x, z, y]
 end
 
 /*
@@ -1296,24 +1318,25 @@ proof
   }
 end
 
-theorem sub_less_zero : all x : Nat. all y : Nat.
-  if x ≤ y then x - y = 0
+theorem sub_zero_iff_less_eq : all x : Nat, y : Nat. x ≤ y ⇔ x - y = 0
 proof
   induction Nat 
-  case zero {
-    definition operator-
+  case 0 {
+    conclude all y : Nat. 0 ≤ y ⇔ 0 - y = 0
+      by definition {operator≤, operator-}
   }
   case suc(x') suppose IH {
     arbitrary y : Nat
     switch y {
-      case zero {
-        suppose sx_l_z : suc(x') ≤ 0
-        apply zero_le_zero[suc(x')] to sx_l_z
+      case 0 {
+        suffices not (suc(x') ≤ 0) by definition operator-
+        assume sx_le_z
+        apply zero_le_zero[suc(x')] to sx_le_z
       }
       case suc(y') {
-        suffices (if x' ≤ y' then x' - y' = 0) 
-            by definition { operator-, operator≤}
-        IH
+        suffices x' ≤ y' ⇔ x' - y' = 0
+          by definition  {operator≤, operator-}
+        IH[y']
       }
     }
   }
@@ -1356,9 +1379,9 @@ proof
       have yny_le_znz: y + n'*y ≤ z + n'*z
         by apply less_equal_trans[y + n' * y][z + n' * y,z + n' * z] to yny_le_zny, zny_le_znz
       suffices 0+0=0 
-        by rewrite apply sub_less_zero[y][z] to y_le_z
-                 | apply sub_less_zero[n'*y][n'*z] to ny_le_nz
-                 | apply sub_less_zero[y+n'*y][z+n'*z] to yny_le_znz
+        by rewrite apply sub_zero_iff_less_eq[y][z] to y_le_z
+                 | apply sub_zero_iff_less_eq[n'*y][n'*z] to ny_le_nz
+                 | apply sub_zero_iff_less_eq[y+n'*y][z+n'*z] to yny_le_znz
       add_zero[0]
     } 
   }

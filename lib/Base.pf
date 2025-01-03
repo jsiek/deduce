@@ -23,11 +23,6 @@ proof
   }
 end
 
-theorem excluded_middle: all b:bool. b or not b
-proof
-  ex_mid
-end
-
 theorem or_sym: all P:bool, Q:bool.  (P or Q) = (Q or P)
 proof
   arbitrary P:bool, Q:bool
@@ -46,31 +41,21 @@ proof
   }
 end
 
-theorem eq_true: all P:bool. if P then P = true
+theorem eq_true: all P:bool. P ⇔ (P = true)
 proof
   arbitrary P:bool
-  assume p
   switch P {
-    case true {
-      .
-    }
-    case false suppose P_false {
-      rewrite P_false in p
-    }
+    case true { . }
+    case false { . }
   }
 end
 
-theorem eq_false: all P:bool. if not P then P = false
+theorem eq_false: all P:bool. not P ⇔ P = false
 proof
   arbitrary P:bool
-  assume not_p
   switch P {
-    case true suppose P_true {
-      rewrite P_true in not_p
-    }
-    case false suppose P_false {
-      .
-    }
+    case true { . }
+    case false { . }
   }
 end
 
@@ -88,5 +73,15 @@ proof
       suppose not_q
       rewrite (apply eq_false to not_q)
     }
+  }
+end
+
+theorem contrapositive : all P : bool, Q : bool.
+  if (if P then Q) and not Q then not P
+proof
+  arbitrary P : bool, Q : bool
+  switch Q {
+    case true { . }
+    case false { . }
   }
 end
