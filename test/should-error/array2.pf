@@ -1,0 +1,7 @@
+import Nat
+import List
+
+define L = [1,2,3]
+define A = array(L)
+assert A[3] = 1     // out of bounds
+

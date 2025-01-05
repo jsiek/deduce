@@ -83,7 +83,9 @@ ident: IDENT              -> ident
     | "not" term_hi                                -> logical_not
     | IDENT                                        -> term_var
     | "@" term_hi "<" type_list ">"                -> term_inst
+    | "array" "(" term ")"                         -> make_array
     | term_hi "(" term_list ")"                    -> call
+    | term_hi "[" INT "]"                          -> array_get
     | "λ" var_list "{" term "}"                    -> lambda
     | "fun" var_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
@@ -230,6 +232,7 @@ ident: IDENT              -> ident
  | "bool"         -> bool_type
  | "type"         -> type_type
  | "(" type ")"   -> paren
+ | "[" type "]"   -> array_type
 
 ?type_list:                                      -> empty
     | type                                       -> single

@@ -193,6 +193,9 @@ def parse_tree_to_ast(e, parent):
       return IntType(e.meta)
     elif e.data == 'bool_type':
       return BoolType(e.meta)
+    elif e.data == 'array_type':
+      elt_type = parse_tree_to_ast(e.children[0])
+      return ArrayType(e.meta, elt_type)
     elif e.data == 'type_type':
       return TypeType(e.meta)
     elif e.data == 'function_type':
@@ -216,6 +219,13 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_list(e.children[1], e),
                         False)
+    elif e.data == 'array_get':
+        return ArrayGet(e.meta, None,
+                        parse_tree_to_ast(e.children[0], e),
+                        intToNat(e.meta, int(e.children[1])))
+    elif e.data == 'make_array':
+        return MakeArray(e.meta, None,
+                         parse_tree_to_ast(e.children[0], e))
     elif e.data == 'mark':
         return Mark(e.meta, None, parse_tree_to_ast(e.children[0], e))
     elif e.data == 'list_literal':

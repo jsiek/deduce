@@ -247,6 +247,35 @@ class FunctionType(Type):
                         self.return_type.reduce(env))
     
 @dataclass
+class ArrayType(Type):
+  elt_type: Type
+  
+  def copy(self):
+    return ArrayType(self.location, self.elt_type.copy())
+
+  def __str__(self):
+    return '[' + (self.elt_type) + ']'
+
+  def __eq__(self, other):
+    match other:
+      case ArrayType(loc, elt_type):
+        return self.elt_type == elt_type
+      case _:
+        return False
+
+  def free_vars(self):
+    return self.elt_type.free_vars()
+
+  def substitute(self, sub):
+    return ArrayType(self.location, self.elt_type.substitute(sub))
+
+  def uniquify(self, env):
+    self.elt_type.uniquify(env)
+
+  def reduce(self, env):
+    return ArrayType(self.location, self.elt_type.reduce(env))
+      
+@dataclass
 class TypeInst(Type):
   typ: Type
   arg_types: List[Type]
@@ -801,7 +830,7 @@ class Call(Term):
     elif isDeduceInt(self):
       return deduceIntToInt(self)
     elif isNodeList(self):
-      return '[' + nodeListToList(self)[:-2] + ']'
+      return '[' + nodeListToString(self)[:-2] + ']'
     elif isEmptySet(self) and not get_verbose():
       return '∅'
     else:
@@ -1089,7 +1118,109 @@ class TermInst(Term):
     for ty in self.type_args:
       ty.uniquify(env)
       
+@dataclass
+class Array(Term):
+  elements: List[Term]
   
+  def __eq__(self, other):
+    if isinstance(other, Array):
+      return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
+                                                               other.elements)])
+    else:
+      return False
+  
+  def copy(self):
+    return Array(self.location, [elt.copy() for elt in self.elements])
+  
+  def __str__(self):
+    return 'array(' + ', '.join([str(elt) for elt in self.elements]) + ')'
+
+  def reduce(self, env):
+    return Array(self.location, self.typeof,
+                 [elt.reduce(env) for elt in self.elements])
+    
+  def substitute(self, sub):
+    return Array(self.location, self.typeof,
+                 [elt.substitute(sub) for elt in self.elements])
+                    
+  def uniquify(self, env):
+    for elt in self.elements:
+      elt.uniquify(env)
+  
+@dataclass
+class MakeArray(Term):
+  subject: Term
+
+  def __eq__(self, other):
+    if isinstance(other, MakeArray):
+      return self.subject == other.subject
+    else:
+      return False
+  
+  def copy(self):
+    return MakeArray(self.location, self.typeof,
+                     self.subject.copy())
+  
+  def __str__(self):
+    return 'array(' + str(self.subject) + ')'
+
+  def reduce(self, env):
+    subject_red = self.subject.reduce(env)
+    if isNodeList(subject_red):
+      elements = nodeListToList(subject_red)
+      return Array(self.location, self.typeof, elements)
+    else:
+      return MakeArray(self.location, self.typeof, self.subject.reduce(env))
+    
+  def substitute(self, sub):
+    return MakeArray(self.location, self.typeof,
+                    self.subject.substitute(sub))
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+
+@dataclass
+class ArrayGet(Term):
+  subject: Term
+  index: int
+
+  def __eq__(self, other):
+    if isinstance(other, ArrayGet):
+      return self.subject == other.subject \
+        and self.index == other.index
+    else:
+      return False
+  
+  def copy(self):
+    return ArrayGet(self.location, self.typeof,
+                    self.subject.copy(), self.index)
+  
+  def __str__(self):
+    return str(self.subject) + '[' + str(self.index) + ']'
+
+  def reduce(self, env):
+    subject_red = self.subject.reduce(env)
+    index_red = self.index.reduce(env)
+    match subject_red:
+      case Array(loc2, _, elements):
+        if isNat(index_red):
+          index = natToInt(index_red)
+          if 0 <= index and index < len(elements):
+            return elements[index].reduce(env)
+          else:
+            error(self.location, 'array index out of bounds\n' \
+                  + 'index: ' + str(index) + '\n' \
+                  + 'array length: ' + str(len(elements)))
+    return ArrayGet(self.location, self.typeof, subject_red, index_red)
+    
+  def substitute(self, sub):
+    return ArrayGet(self.location, self.typeof,
+                    self.subject.substitute(sub),
+                    self.index)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+      
 @dataclass
 class TLet(Term):
   var: str
@@ -2595,10 +2726,21 @@ def nodeListToList(t):
   match t:
     case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred) \
       if base_name(name) == 'empty':
-      return ''
-    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred),
+        return []
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs),
+                                   tyargs, inferred),
               [arg, ls]) if base_name(name) == 'node':
-      return str(arg) + ', ' + nodeListToList(ls)
+      return [arg] + nodeListToList(ls)
+    
+def nodeListToString(t):
+  match t:
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred) \
+      if base_name(name) == 'empty':
+        return ''
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs),
+                                   tyargs, inferred),
+              [arg, ls]) if base_name(name) == 'node':
+      return str(arg) + ', ' + nodeListToString(ls)
 
 def mkEmpty(loc):
   return Var(loc, None, 'empty', [])

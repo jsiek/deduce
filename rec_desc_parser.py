@@ -360,10 +360,35 @@ def parse_term_hi():
       error(meta_from_tokens(token, current_token()),
             'expected a term, not\n\t' + quote(current_token().value))
 
+def parse_array_get():
+  while_parsing = 'while parsing array access\n' \
+      + '\tterm ::= term "[" integer "]"\n'
+  term = parse_term_hi()
+
+  while (not end_of_file()) and current_token().type == 'LSQB':
+    try:
+      start_token = current_token()
+      advance()
+      index = intToNat(meta_from_tokens(current_token(),current_token()),
+                       int(current_token().value))
+      advance()
+      if current_token().type != 'RSQB':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing "]", not\n\t' \
+              + current_token().value)
+      term = ArrayGet(meta_from_tokens(start_token, current_token()), None,
+                      term, index)
+      advance()
+    except Exception as e:
+      meta = meta_from_tokens(start_token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+
+  return term
+    
 def parse_call():
   while_parsing = 'while parsing function call\n' \
       + '\tterm ::= term "(" term_list ")"\n'
-  term = parse_term_hi()
+  term = parse_array_get()
 
   while (not end_of_file()) and current_token().type == 'LPAR':
     try:
@@ -382,14 +407,41 @@ def parse_call():
       raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
   return term
+
+def parse_make_array():
+  if current_token().value == 'array':
+    while_parsing = 'while parsing array creation\n' \
+        + '\tterm ::= "array" "(" term ")"\n'
+    start_token = current_token()
+    advance()
+    try:
+      if current_token().type != 'LPAR':
+        error(meta_from_tokens(start_token, current_token()),
+                'expected open parenthesis "(", not\n\t' \
+                + current_token().value)
+      advance()
+      arg = parse_term()
+      if current_token().type != 'RPAR':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing parenthesis ")", not\n\t' \
+              + current_token().value)
+      term = MakeArray(meta_from_tokens(start_token, current_token()),None,arg)
+      advance()
+    except Exception as e:
+      meta = meta_from_tokens(start_token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+  else:
+    term = parse_call()
+  return term
     
 def parse_term_mult():
-  term = parse_call()
+  term = parse_make_array()
 
   while (not end_of_file()) and current_token().value in mult_operators:
     start_token = current_token()
     rator = Var(meta_from_tokens(current_token(), current_token()),
-                None, to_unicode.get(current_token().value, current_token().value))
+                None, to_unicode.get(current_token().value,
+                                     current_token().value))
     advance()
     right = parse_term_mult()
     term = Call(meta_from_tokens(start_token, previous_token()), None,
@@ -1408,6 +1460,14 @@ def parse_type():
     return TypeType(meta_from_tokens(token,token))
   elif token.type == 'FN':
     return parse_function_type()
+  elif token.type == 'LSQB':
+    advance()
+    elt_type = parse_type()
+    if current_token().type != 'RSQB':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing "]", not\n\t' + current_token().value)
+    advance()
+    return ArrayType(meta_from_tokens(token, previous_token()))
   elif token.type == 'LPAR':
     start_token = current_token()
     advance()

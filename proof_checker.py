@@ -1918,6 +1918,26 @@ def type_synth_term(term, env, recfun, subterms):
       ty = BoolType(loc)
       ret = Some(loc, ty, vars, new_body)
       
+    case MakeArray(loc, _, arg):
+      lst = type_synth_term(arg, env, recfun, subterms)
+      match lst.typeof:
+        case TypeInst(loc2, lst_ty, [elt_type]):
+          union_def = lookup_union(loc, lst_ty, env)
+          if base_name(union_def.name) == 'List':
+            ret = MakeArray(loc, ArrayType(loc, elt_type), lst)
+          else:
+            error(loc, 'expected List, not union ' + union_def.name)
+        case _:
+          error(loc, 'expected List, not ' + str(lst.typeof))
+
+    case ArrayGet(loc, _, array, index):
+      new_array = type_synth_term(array, env, recfun, subterms)
+      match new_array.typeof:
+        case ArrayType(loc2, elt_type):
+          ret = ArrayGet(loc, elt_type, new_array, index)
+        case _:
+          error(loc, 'expected an array, not ' + str(new_array.typeof))
+          
     case Call(loc, _, Var(loc2, ty2, name, rs), args) \
         if name == '=' or name == '≠':
       lhs = type_synth_term(args[0], env, recfun, subterms)
