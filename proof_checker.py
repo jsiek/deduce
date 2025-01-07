@@ -1736,6 +1736,8 @@ def check_type(typ, env):
         check_type(ty, env)
     case GenericUnknownInst(loc, typ):
       check_type(typ, env)
+    case ArrayType(loc, elt_type):
+      check_type(elt_type, env)
     case _:
       print('error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
       exit(-1)
@@ -1932,9 +1934,10 @@ def type_synth_term(term, env, recfun, subterms):
 
     case ArrayGet(loc, _, array, index):
       new_array = type_synth_term(array, env, recfun, subterms)
+      new_index = type_synth_term(index, env, recfun, subterms)
       match new_array.typeof:
         case ArrayType(loc2, elt_type):
-          ret = ArrayGet(loc, elt_type, new_array, index)
+          ret = ArrayGet(loc, elt_type, new_array, new_index)
         case _:
           error(loc, 'expected an array, not ' + str(new_array.typeof))
           
@@ -2558,11 +2561,12 @@ def check_deduce(ast, module_name):
       print(s)
       
   if get_verbose():
-    print('env:\n' + str(env))  
     print('--------- Proof Checking ------------------------')
   for s in ast3:
     env = collect_env(s, env)
-    
+  if get_verbose():
+    print('env:\n' + str(env))  
+
   if module_name not in checked_modules:
     for s in ast3:
       check_proofs(s, env)

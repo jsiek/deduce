@@ -85,7 +85,7 @@ ident: IDENT              -> ident
     | "@" term_hi "<" type_list ">"                -> term_inst
     | "array" "(" term ")"                         -> make_array
     | term_hi "(" term_list ")"                    -> call
-    | term_hi "[" INT "]"                          -> array_get
+    | term_hi "[" term "]"                         -> array_get
     | "λ" var_list "{" term "}"                    -> lambda
     | "fun" var_list "{" term "}"                  -> lambda
     | "generic" ident_list "{" term "}"            -> generic

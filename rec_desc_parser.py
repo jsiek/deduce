@@ -362,16 +362,14 @@ def parse_term_hi():
 
 def parse_array_get():
   while_parsing = 'while parsing array access\n' \
-      + '\tterm ::= term "[" integer "]"\n'
+      + '\tterm ::= term "[" term "]"\n'
   term = parse_term_hi()
 
   while (not end_of_file()) and current_token().type == 'LSQB':
     try:
       start_token = current_token()
       advance()
-      index = intToNat(meta_from_tokens(current_token(),current_token()),
-                       int(current_token().value))
-      advance()
+      index = parse_term()
       if current_token().type != 'RSQB':
         error(meta_from_tokens(start_token, current_token()),
               'expected closing "]", not\n\t' \

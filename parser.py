@@ -222,7 +222,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'array_get':
         return ArrayGet(e.meta, None,
                         parse_tree_to_ast(e.children[0], e),
-                        intToNat(e.meta, int(e.children[1])))
+                        parse_tree_to_ast(e.children[1], e))
     elif e.data == 'make_array':
         return MakeArray(e.meta, None,
                          parse_tree_to_ast(e.children[0], e))

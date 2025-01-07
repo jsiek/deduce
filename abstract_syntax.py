@@ -254,7 +254,7 @@ class ArrayType(Type):
     return ArrayType(self.location, self.elt_type.copy())
 
   def __str__(self):
-    return '[' + (self.elt_type) + ']'
+    return '[' + str(self.elt_type) + ']'
 
   def __eq__(self, other):
     match other:
@@ -567,7 +567,7 @@ class Var(Term):
             print('\t var ' + self.name + ' ===> ' + str(res))
           return res.reduce(env)
         else:
-            return self
+          return self
       else:
         return self
   
@@ -1182,44 +1182,45 @@ class MakeArray(Term):
 @dataclass
 class ArrayGet(Term):
   subject: Term
-  index: int
+  position: Term
 
   def __eq__(self, other):
     if isinstance(other, ArrayGet):
       return self.subject == other.subject \
-        and self.index == other.index
+        and self.position == other.position
     else:
       return False
   
   def copy(self):
     return ArrayGet(self.location, self.typeof,
-                    self.subject.copy(), self.index)
+                    self.subject.copy(), self.position.copy())
   
   def __str__(self):
-    return str(self.subject) + '[' + str(self.index) + ']'
+    return str(self.subject) + '[' + str(self.position) + ']'
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
-    index_red = self.index.reduce(env)
+    position_red = self.position.reduce(env)
     match subject_red:
       case Array(loc2, _, elements):
-        if isNat(index_red):
-          index = natToInt(index_red)
+        if isNat(position_red):
+          index = natToInt(position_red)
           if 0 <= index and index < len(elements):
             return elements[index].reduce(env)
           else:
             error(self.location, 'array index out of bounds\n' \
                   + 'index: ' + str(index) + '\n' \
                   + 'array length: ' + str(len(elements)))
-    return ArrayGet(self.location, self.typeof, subject_red, index_red)
+    return ArrayGet(self.location, self.typeof, subject_red, position_red)
     
   def substitute(self, sub):
     return ArrayGet(self.location, self.typeof,
                     self.subject.substitute(sub),
-                    self.index)
+                    self.position.substitute(sub))
 
   def uniquify(self, env):
     self.subject.uniquify(env)
+    self.position.uniquify(env)
       
 @dataclass
 class TLet(Term):
