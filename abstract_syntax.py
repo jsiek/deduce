@@ -1207,10 +1207,7 @@ class ArrayGet(Term):
           index = natToInt(position_red)
           if 0 <= index and index < len(elements):
             return elements[index].reduce(env)
-          else:
-            error(self.location, 'array index out of bounds\n' \
-                  + 'index: ' + str(index) + '\n' \
-                  + 'array length: ' + str(len(elements)))
+          # Don't signal an error for out-of-bounds! -Jeremy
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
     
   def substitute(self, sub):
