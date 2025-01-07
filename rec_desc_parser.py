@@ -1467,7 +1467,8 @@ def parse_type():
         error(meta_from_tokens(start_token, current_token()),
               'expected closing "]", not\n\t' + current_token().value)
     advance()
-    return ArrayType(meta_from_tokens(token, previous_token()))
+    return ArrayType(meta_from_tokens(token, previous_token()),
+                     elt_type)
   elif token.type == 'LPAR':
     start_token = current_token()
     advance()
