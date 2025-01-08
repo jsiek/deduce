@@ -1,4 +1,5 @@
 import Option
+import Base
 
 union Nat {
   zero
@@ -1342,6 +1343,39 @@ proof
   }
 end
 
+theorem sub_pos_iff_less: all x: Nat, y:Nat. y < x ⇔ 0 < x - y
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    have fwd: if y < 0 then 0 < 0 - y by
+        definition {operator<, operator≤}
+    have bkwd: if 0 < 0 - y then y < 0 by
+        definition {operator-, operator<, operator≤}
+    fwd, bkwd
+  }
+  case suc(x') assume IH {
+    arbitrary y:Nat
+    switch y {
+      case 0 {
+        have fwd: if 0 < suc(x') then 0 < suc(x') - 0
+            by assume _ definition {operator-,operator<, operator≤,operator≤}
+        have bkwd: if 0 < suc(x') - 0 then 0 < suc(x')
+            by assume _ definition {operator<, operator≤, operator≤}
+        fwd, bkwd
+      }
+      case suc(y') {
+        have IH': y' < x' ⇔ 0 < x' - y' by IH[y']
+        suffices suc(y') < suc(x') ⇔ 0 < x' - y' by definition operator-
+        have syx_yx: suc(y') < suc(x') ⇔ y' < x'
+            by apply iff_symm[y' < x',suc(y') < suc(x')] to less_suc_iff_suc_less[y',x']
+        apply iff_trans[suc(y') < suc(x'), y' < x', 0 < x' - y']
+        to syx_yx, IH'
+      }
+    }
+  }
+end
+
 // NOTE: This has to be after dichotomy, so it can't be with the other mult theorems
 theorem dist_mult_sub : all x : Nat. all y : Nat, z : Nat.
   x * (y - z) = x * y - x * z
@@ -2018,6 +2052,46 @@ proof
   suffices div2(suc(n + (n + 0))) = n  by definition {operator*,operator*,operator*}
   suffices div2(suc(n + n)) = n        by rewrite add_zero[n]
   div2_suc_double[n]
+end
+
+lemma div2_aux_pos_less: all n:Nat. if 0 < n then div2(n) < n and div2_aux(n) ≤ n
+proof
+  induction Nat
+  case 0 {
+    assume: 0 < 0
+    conclude false by apply less_irreflexive to recall 0 < 0
+  }
+  case suc(n') assume IH {
+    assume: 0 < suc(n')
+    switch n' {
+      case 0 {
+        definition {div2, div2_aux, operator<, operator≤, operator≤, div2}
+      }
+      case suc(n'') assume np_eq {
+        have: 0 < n' by {
+            suffices 0 < suc(n'') by rewrite np_eq
+            definition {operator<, operator≤, operator≤}
+        }
+        have IH': div2(n') < n' and div2_aux(n') ≤ n' by apply IH to (recall 0 < n')
+        suffices div2_aux(n') < suc(n') and div2_aux(suc(n')) ≤ suc(n')
+            by definition {div2} and rewrite (symmetric np_eq)
+        have _1: div2_aux(n') < suc(n') by {
+            suffices div2_aux(n') ≤ n' by definition {operator<, operator≤}
+            conjunct 1 of IH'
+        }
+        have _2: div2_aux(suc(n')) ≤ suc(n') by {
+           suffices div2(n') ≤ n' by definition {div2_aux, operator≤}
+           apply less_implies_less_equal to conjunct 0 of IH'
+        }
+        _1, _2
+      }
+    }
+  }
+end
+
+theorem div2_pos_less: all n:Nat. if 0 < n then div2(n) < n
+proof
+  div2_aux_pos_less
 end
 
 /*

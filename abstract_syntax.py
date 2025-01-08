@@ -3039,8 +3039,10 @@ def count_marks(formula):
       return count_marks(rhs) + count_marks(body)
     case Hole(loc2, tyof):
       return 0
+    case ArrayGet(loc, tyof, arr, ind):
+      return count_marks(arr) + count_marks(ind)
     case _:
-      error(loc, 'in count_marks function, unhandled ' + str(formula))
+      error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
 def find_mark(formula):
   match formula:
@@ -3092,6 +3094,9 @@ def find_mark(formula):
       find_mark(body)
     case Hole(loc2, tyof):
       pass
+    case ArrayGet(loc2, tyof, arr, ind):
+      find_mark(arr)
+      find_mark(ind)
     case _:
       error(loc, 'in find_mark function, unhandled ' + str(formula))
 
@@ -3141,6 +3146,8 @@ def replace_mark(formula, replacement):
                   replace_mark(body, replacement))
     case Hole(loc2, tyof):
       return formula
+    case ArrayGet(loc2, tyof, arr, ind):
+      return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
     case _:
       error(loc, 'in replace_mark function, unhandled ' + str(formula))
 

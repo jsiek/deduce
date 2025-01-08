@@ -254,6 +254,10 @@ def rewrite_aux(loc, formula, equation):
   
     case TAnnote(loc2, tyof, subject, typ):
       return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation), typ)
+
+    case ArrayGet(loc2, tyof, arr, ind):
+      return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation),
+                      rewrite_aux(loc, ind, equation))
   
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation),
@@ -2098,7 +2102,10 @@ def type_check_term(term, typ, env, recfun, subterms):
             except Exception as e:
               pass
       if var_typ == typ:
-        return Var(loc, typ, rs[0], [ rs[0] ])
+        if len(rs) > 0:
+            return Var(loc, typ, rs[0], [ rs[0] ])
+        else:
+            return Var(loc, typ, name, [name])
       else:
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
