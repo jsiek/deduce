@@ -87,7 +87,7 @@ proof
 end
 
 theorem iff_trans: all P:bool, Q:bool, R:bool.
-  if (P ⇔ Q) and (Q ⇔ R) then P ⇔ R
+  if (P ⇔ Q) and (Q ⇔ R) then (P ⇔ R)
 proof
   arbitrary P:bool, Q:bool, R:bool
   assume prem: (P ⇔ Q) and (Q ⇔ R)
