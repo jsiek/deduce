@@ -902,10 +902,10 @@ switch on, as in `switch x` below.
 
     arbitrary x:Nat
     switch x {
-      case zero {
+      case 0 assume xz: x = 0 {
         ?
       }
-      case suc(x') {
+      case suc(x') assume xs: x = suc(x') {
         ?
       }
     }
