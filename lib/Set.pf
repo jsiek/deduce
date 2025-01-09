@@ -51,6 +51,14 @@ proof
   y_in_x
 end
 
+theorem single_equal_equal: all T:type. all x:T, y:T.
+    (y ∈ single(x)) = (x = y)
+proof
+  arbitrary T:type
+  arbitrary x:T, y:T
+  definition {operator ∈, single, rep}
+end
+
 theorem empty_no_members: all T:type. all x:T.
   not (x ∈ ∅)
 proof
@@ -89,6 +97,14 @@ proof
   suppose x_AB: x in (A | B)
   enable {operator in, operator |, rep}
   x_AB
+end
+
+theorem member_union_equal: all T:type. all x:T, A:Set<T>, B:Set<T>.
+  x ∈ (A ∪ B) = (x ∈ A or x ∈ B)
+proof
+  arbitrary T:type
+  arbitrary x:T, A:Set<T>, B:Set<T>
+  definition {operator∈, operator∪,rep}  
 end
 
 // testing alternate syntax for ∅

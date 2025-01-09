@@ -669,6 +669,18 @@ proof
   }
 end
 
+theorem less_equal_not_equal_implies_less:
+  all x:Nat, y:Nat.
+  if x ≤ y and not (x = y) then x < y
+proof
+  arbitrary x:Nat, y:Nat
+  assume prem: x ≤ y and not (x = y)
+  have LE: x < y or x = y by apply less_equal_implies_less_or_equal[x,y] to prem
+  cases LE
+  case less { less }
+  case eq { conclude false by apply prem to eq }
+end
+
 theorem less_implies_less_equal:
   all x:Nat. all y:Nat.
   if x < y then x ≤ y
@@ -1253,6 +1265,19 @@ proof
   }
 end
 
+theorem sub_suc_identity: all n:Nat.
+   if 0 < n then suc(n - 1) = n
+proof
+   arbitrary n:Nat
+   assume: 0 < n
+   have X: 1 + (n - 1) = (1 + n) - 1 by apply sub_add_assoc[n,1,1] to definition operator< in recall 0 < n
+   have Y: (1 + n) - 1 = n by add_sub_identity
+   equations
+     suc(n - 1) = #1 + (n - 1)# by definition {operator+, operator+}
+            ... = (1 + n) - 1   by apply sub_add_assoc[n,1,1] to definition operator< in recall 0 < n
+            ... = n             by add_sub_identity
+end
+
 theorem sub_add_identity: all n:Nat. all m:Nat.
   if m ≤ n
   then m + (n - m) = n
@@ -1725,6 +1750,28 @@ function is_odd(Nat) -> bool {
 define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
 define Odd : fn Nat -> bool = λ n { some m:Nat. n = suc (2 * m) }
 
+theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
+proof
+  induction Nat
+  case 0 {
+    conclude is_even(0) by definition is_even
+  }
+  case suc(n') assume IH {
+    cases IH
+    case even {
+      conclude is_odd(suc(n')) by
+        suffices is_even(n') by definition is_odd
+        even
+    }
+    case odd {
+      conclude is_even(suc(n')) by
+        suffices is_odd(n') by definition is_even
+        odd
+    }
+  }
+end
+
+
 theorem addition_of_evens:
   all x:Nat, y:Nat.
   if Even(x) and Even(y) then Even(x + y)
@@ -1780,6 +1827,18 @@ proof
        choose m
        rewrite n_2m)
     part1, part2
+  }
+end
+
+theorem Even_or_Odd: all n:Nat. Even(n) or Odd(n)
+proof
+  arbitrary n:Nat
+  cases even_or_odd[n]
+  case even {
+    conclude Even(n) by apply is_even_odd to even
+  }
+  case odd {
+    conclude Odd(n) by apply is_even_odd to odd
   }
 end
 
@@ -2054,6 +2113,60 @@ proof
   div2_suc_double[n]
 end
 
+theorem sub_div2: all n:Nat. n - div2(n) ≤ suc(div2(n))
+proof
+  arbitrary n:Nat
+  cases Even_or_Odd[n]
+  case even {
+    obtain k where n_2k: n = 2 * k from definition Even in even
+    suffices k ≤ suc(k) by rewrite n_2k | div2_times2[k] | two_mult[k] | add_sub_identity[k,k]
+    less_equal_suc
+  }
+  case odd {
+    obtain k where n_s2k: n = suc(2 * k) from definition Odd in odd
+    suffices suc(k + k) - k ≤ suc(k) by rewrite n_s2k | div2_suc_times2[k] | two_mult[k]
+    have eq_1: suc(k + k) = 1 + (k + k) by definition {operator+, operator+}
+    suffices (1 + (k + k)) - k ≤ suc(k) by rewrite eq_1
+    have k_kk: k ≤ k + k by less_equal_add
+    have eq_2: (1 + (k + k)) - k = 1 + ((k + k) - k) by symmetric apply sub_add_assoc[k + k, 1, k] to k_kk
+    suffices 1 + ((k + k) - k) ≤ suc(k) by rewrite eq_2
+    suffices ((k + k) - k) ≤ k by definition {operator+, operator+, operator≤}
+    suffices k ≤ k by rewrite add_sub_identity[k,k]
+    less_equal_refl
+  }
+end
+
+theorem sub_div2_pos: all n:Nat. if 0 < n then 0 < n - div2(n)
+proof
+  arbitrary n:Nat
+  cases Even_or_Odd[n]
+  case even {
+    obtain k where n_2k: n = 2 * k from definition Even in even
+    suffices if 0 < k + k then 0 < k by rewrite n_2k | div2_times2[k] | two_mult[k] | add_sub_identity[k,k]
+    switch k {
+      case 0 {
+        conclude if 0 < 0 + 0 then 0 < 0
+           by definition {operator +}
+      }
+      case suc(k') {
+        assume _
+        definition {operator<, operator≤, operator≤}
+      }
+    }
+  }
+  case odd {
+    obtain k where n_s2k: n = suc(2 * k) from definition Odd in odd
+    suffices if 0 < suc(k + k) then 0 < suc(k + k) - k by rewrite n_s2k | div2_suc_times2[k] | two_mult[k]
+    assume _
+    have eq_1: suc(k + k) = 1 + (k + k) by definition {operator+, operator+}
+    suffices 0 < (1 + (k + k)) - k by rewrite eq_1
+    have k_kk: k ≤ k + k by less_equal_add
+    have eq_2: (1 + (k + k)) - k = 1 + ((k + k) - k) by symmetric apply sub_add_assoc[k + k, 1, k] to k_kk
+    suffices 0 < 1 + ((k + k) - k) by rewrite eq_2
+    definition {operator+, operator<, operator≤, operator≤}
+  }
+end
+
 lemma div2_aux_pos_less: all n:Nat. if 0 < n then div2(n) < n and div2_aux(n) ≤ n
 proof
   induction Nat
@@ -2092,6 +2205,39 @@ end
 theorem div2_pos_less: all n:Nat. if 0 < n then div2(n) < n
 proof
   div2_aux_pos_less
+end
+
+theorem div2_aux_mono: all x:Nat, y:Nat.
+  if x ≤ y then div2(x) ≤ div2(y) and div2_aux(x) ≤ div2_aux(y)
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat
+    assume _
+    conclude div2(0) ≤ div2(y) and div2_aux(0) ≤ div2_aux(y)
+        by definition {div2, div2_aux, operator≤}
+  }
+  case suc(x') assume IH {
+    arbitrary y:Nat
+    assume sx_y
+    switch y {
+      case 0 assume y_eq {
+        conclude false by definition operator≤ in rewrite y_eq in sx_y
+      }
+      case suc(y') assume y_eq {
+        suffices div2_aux(x') ≤ div2_aux(y') and div2(x') ≤ div2(y')
+            by definition {div2, div2_aux, operator≤}
+        have xy: x' ≤ y' by apply suc_less_equal_iff_less_equal_suc to rewrite y_eq in sx_y
+        conclude div2(x') ≤ div2(y') and div2_aux(x') ≤ div2_aux(y') by apply IH[y'] to xy
+      }
+    }
+  }
+end
+
+theorem div2_mono: all x:Nat, y:Nat.
+  if x ≤ y then div2(x) ≤ div2(y)
+proof
+  div2_aux_mono
 end
 
 /*
