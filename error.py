@@ -1,3 +1,24 @@
+from enum import Enum
+
+class VerboseLevel(Enum):
+  NONE = 0
+  CURR_ONLY = 1
+  FULL = 2
+
+# flag for displaying uniquified names
+
+unique_names = False
+
+def set_unique_names(b):
+  global unique_names
+  unique_names = b
+
+def get_unique_names():
+  global unique_names
+  return unique_names
+
+# flag for verbose trace
+
 verbose = False
 
 def set_verbose(b):
@@ -6,6 +27,8 @@ def set_verbose(b):
 
 def get_verbose():
   global verbose
+  if verbose == VerboseLevel.NONE:
+    return False
   return verbose
 
 # flag for expect fail

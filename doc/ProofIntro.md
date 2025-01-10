@@ -902,10 +902,10 @@ switch on, as in `switch x` below.
 
     arbitrary x:Nat
     switch x {
-      case zero {
+      case 0 assume xz: x = 0 {
         ?
       }
-      case suc(x') {
+      case suc(x') assume xs: x = suc(x') {
         ?
       }
     }
@@ -917,7 +917,7 @@ Deduce responds that in the first case we need to prove the following.
 
 So we just need to prove `true`, which is what the period is for.
 
-    case zero {
+    case 0 assume xz: x = 0 {
       conclude true or 0 < 0 by .
     }
 
@@ -929,7 +929,7 @@ In the second case, for `x = suc(x')`, we need to prove the following.
 There's no hope of proving `false`, so we better prove `0 < suc(x')`.
 Thankfully that follows from the definitions of `<` and `≤`.
 
-    case suc(x') {
+    case suc(x') assume xs: x = suc(x') {
       have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
@@ -943,10 +943,10 @@ theorem intro_zero_or_positive: all x:Nat. x = 0 or 0 < x
 proof
   arbitrary x:Nat
   switch x {
-    case zero {
+    case 0 assume xz: x = 0 {
       conclude true or 0 < 0 by .
     }
-    case suc(x') {
+    case suc(x') assume xs: x = suc(x') {
       have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤, operator ≤}
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }

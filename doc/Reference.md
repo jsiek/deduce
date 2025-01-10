@@ -1726,10 +1726,10 @@ theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
 proof
   arbitrary x:Nat
   switch x {
-    case zero {
+    case 0 assume xz: x = 0 {
       conclude true or 0 < 0 by .
     }
-    case suc(x') {
+    case suc(x') assume xs: x = suc(x') {
       have z_l_sx: 0 < suc(x')
           by definition {operator <, operator ≤, operator ≤}
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx

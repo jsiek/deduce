@@ -1,6 +1,6 @@
-from error import set_verbose, get_verbose
+from error import set_verbose, get_verbose, set_unique_names, get_unique_names
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module
+from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
 import sys
 import os
 import parser
@@ -82,8 +82,9 @@ if __name__ == "__main__":
     deducables = []
     error_expected = False
     recursive_directories = False
-
     already_processed_next = False
+    init_import_directories()
+
     for i in range(1, len(sys.argv)):
         if already_processed_next:
             already_processed_next = False
@@ -93,8 +94,14 @@ if __name__ == "__main__":
 
         if argument == '--error':
             error_expected = True
+        elif argument == '--unique-names':
+            set_unique_names(True)
         elif argument == '--verbose':
-            set_verbose(True)
+            if i + 1 < len(sys.argv) and sys.argv[i+1] == 'full':
+              set_verbose(VerboseLevel.FULL)
+              set_unique_names(True)
+            else:
+              set_verbose(VerboseLevel.CURR_ONLY)
         elif argument == '--dir':
             add_import_directory(sys.argv[i+1])
             already_processed_next = True

@@ -1,0 +1,8 @@
+import Nat
+import List
+
+define L = [1,2,3]
+define A = array(L)
+assert A[0] = 1
+assert A[1] = 2
+assert A[2] = 3

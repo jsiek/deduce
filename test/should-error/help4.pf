@@ -1,0 +1,9 @@
+theorem T: true
+proof
+  have a1: all x : bool. if x = true then true = x by
+    arbitrary x:bool
+    assume: x = true
+    symmetric (recall x = true)
+
+  help a1[true]
+end

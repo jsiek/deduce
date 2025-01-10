@@ -23,11 +23,6 @@ proof
   }
 end
 
-theorem excluded_middle: all b:bool. b or not b
-proof
-  ex_mid
-end
-
 theorem or_sym: all P:bool, Q:bool.  (P or Q) = (Q or P)
 proof
   arbitrary P:bool, Q:bool
@@ -46,31 +41,21 @@ proof
   }
 end
 
-theorem eq_true: all P:bool. if P then P = true
+theorem eq_true: all P:bool. P ⇔ (P = true)
 proof
   arbitrary P:bool
-  assume p
   switch P {
-    case true {
-      .
-    }
-    case false suppose P_false {
-      rewrite P_false in p
-    }
+    case true { . }
+    case false { . }
   }
 end
 
-theorem eq_false: all P:bool. if not P then P = false
+theorem eq_false: all P:bool. not P ⇔ P = false
 proof
   arbitrary P:bool
-  assume not_p
   switch P {
-    case true suppose P_true {
-      rewrite P_true in not_p
-    }
-    case false suppose P_false {
-      .
-    }
+    case true { . }
+    case false { . }
   }
 end
 
@@ -88,5 +73,43 @@ proof
       suppose not_q
       rewrite (apply eq_false to not_q)
     }
+  }
+end
+
+theorem iff_symm: all P:bool, Q:bool.
+  if (P ⇔ Q) then (Q ⇔ P)
+proof
+  arbitrary P:bool, Q:bool
+  assume: P ⇔ Q
+  have fwd: if Q then P by assume: Q apply (recall P ⇔ Q) to (recall Q)
+  have bkwd: if P then Q by assume: P apply (recall P ⇔ Q) to (recall P)
+  fwd, bkwd
+end
+
+theorem iff_trans: all P:bool, Q:bool, R:bool.
+  if (P ⇔ Q) and (Q ⇔ R) then (P ⇔ R)
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume prem: (P ⇔ Q) and (Q ⇔ R)
+  have fwd: if P then R by {
+    assume: P
+    have: Q by apply prem to recall P
+    conclude R by apply prem to recall Q
+  }
+  have bkwd: if R then P by {
+    assume: R
+    have: Q by apply prem to recall R
+    conclude P by apply prem to recall Q
+  }
+  fwd, bkwd
+end
+
+theorem contrapositive : all P : bool, Q : bool.
+  if (if P then Q) and not Q then not P
+proof
+  arbitrary P : bool, Q : bool
+  switch Q {
+    case true { . }
+    case false { . }
   }
 end

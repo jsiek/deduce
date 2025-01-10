@@ -1,0 +1,6 @@
+define P = true
+
+theorem T: false
+proof
+  ?
+end

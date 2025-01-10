@@ -4,7 +4,7 @@
 from abstract_syntax import *
 from lark import Lark, Token, logger, exceptions, tree
 from error import *
-from edit_distance import edit_distance
+from edit_distance import closest_keyword, edit_distance
 
 filename = '???'
 
@@ -250,11 +250,14 @@ def parse_term_hi():
     
   elif token.type == 'LPAR':
     advance()
+    while_parsing = 'while parsing parenthesized term\n' \
+        + '\tterm ::= "(" term ")"\n'
+
     term = parse_term()
     if current_token().type != 'RPAR':
       error(meta_from_tokens(current_token(), current_token()),
             'expected closing parentheses, not\n\t' \
-            + current_token().value)
+            + current_token().value + '\n' + while_parsing)
     advance()
     return term
 
@@ -357,10 +360,33 @@ def parse_term_hi():
       error(meta_from_tokens(token, current_token()),
             'expected a term, not\n\t' + quote(current_token().value))
 
+def parse_array_get():
+  while_parsing = 'while parsing array access\n' \
+      + '\tterm ::= term "[" term "]"\n'
+  term = parse_term_hi()
+
+  while (not end_of_file()) and current_token().type == 'LSQB':
+    try:
+      start_token = current_token()
+      advance()
+      index = parse_term()
+      if current_token().type != 'RSQB':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing "]", not\n\t' \
+              + current_token().value)
+      term = ArrayGet(meta_from_tokens(start_token, current_token()), None,
+                      term, index)
+      advance()
+    except Exception as e:
+      meta = meta_from_tokens(start_token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+
+  return term
+    
 def parse_call():
   while_parsing = 'while parsing function call\n' \
       + '\tterm ::= term "(" term_list ")"\n'
-  term = parse_term_hi()
+  term = parse_array_get()
 
   while (not end_of_file()) and current_token().type == 'LPAR':
     try:
@@ -379,14 +405,41 @@ def parse_call():
       raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
 
   return term
+
+def parse_make_array():
+  if current_token().value == 'array':
+    while_parsing = 'while parsing array creation\n' \
+        + '\tterm ::= "array" "(" term ")"\n'
+    start_token = current_token()
+    advance()
+    try:
+      if current_token().type != 'LPAR':
+        error(meta_from_tokens(start_token, current_token()),
+                'expected open parenthesis "(", not\n\t' \
+                + current_token().value)
+      advance()
+      arg = parse_term()
+      if current_token().type != 'RPAR':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing parenthesis ")", not\n\t' \
+              + current_token().value)
+      term = MakeArray(meta_from_tokens(start_token, current_token()),None,arg)
+      advance()
+    except Exception as e:
+      meta = meta_from_tokens(start_token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+  else:
+    term = parse_call()
+  return term
     
 def parse_term_mult():
-  term = parse_call()
+  term = parse_make_array()
 
   while (not end_of_file()) and current_token().value in mult_operators:
     start_token = current_token()
     rator = Var(meta_from_tokens(current_token(), current_token()),
-                None, to_unicode.get(current_token().value, current_token().value))
+                None, to_unicode.get(current_token().value,
+                                     current_token().value))
     advance()
     right = parse_term_mult()
     term = Call(meta_from_tokens(start_token, previous_token()), None,
@@ -528,7 +581,7 @@ def parse_assumption():
     return label,None
 
 proof_keywords = {'apply', 'arbitrary',
-                  'choose', 'conclude', 'conjunct',
+                  'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
                   'enable', 'equations', 'extensionality',
                   'have', 'induction', 'obtain',
@@ -537,41 +590,47 @@ proof_keywords = {'apply', 'arbitrary',
                   'transitive'}
 
 def parse_definition_proof():
+  while_parsing = 'while parsing definition:\n' \
+      + '\tconclusion ::= "definition" identifier\n'
   token = current_token()
   advance()
-  if current_token().type == 'LBRACE':
-    advance()
-    defs = parse_ident_list()
-    if current_token().type != 'RBRACE':
-        error(meta_from_tokens(current_token(), current_token()),
-              'expected closing "}", not\n\t' + current_token().value)
-    advance()
-  else:
-    defn = parse_identifier()
-    defs = [defn]
+  try:
+    if current_token().type == 'LBRACE':
+      advance()
+      defs = parse_ident_list()
+      if current_token().type != 'RBRACE':
+          error(meta_from_tokens(current_token(), current_token()),
+                'expected closing "}", not\n\t' + current_token().value)
+      advance()
+    else:
+      defn = parse_identifier()
+      defs = [defn]
 
-  if current_token().type == 'AND':
-      advance()
-      if current_token().type != 'REWRITE':
-          error(meta_from_tokens(current_token(),current_token()),
-                'expected "rewrite" after "and" and "definition", not\n\t' \
-                + current_token().value)
-      advance()
-      eqns = parse_proof_list()
+    if current_token().type == 'AND':
+        advance()
+        if current_token().type != 'REWRITE':
+            error(meta_from_tokens(current_token(),current_token()),
+                  'expected "rewrite" after "and" and "definition", not\n\t' \
+                  + current_token().value)
+        advance()
+        eqns = parse_proof_list()
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefsGoal(meta,
+                              [Var(meta, None, t) for t in defs],
+                              Rewrite(meta, eqns))
+    elif current_token().type == 'IN':
+        advance()
+        subject = parse_proof()
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
+                              subject)
+    else:
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
+  except Exception as e:
       meta = meta_from_tokens(token, previous_token())
-      return ApplyDefsGoal(meta,
-                            [Var(meta, None, t) for t in defs],
-                            Rewrite(meta, eqns))
-  elif current_token().type == 'IN':
-      advance()
-      subject = parse_proof()
-      meta = meta_from_tokens(token, previous_token())
-      return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
-                            subject)
-  else:
-      meta = meta_from_tokens(token, previous_token())
-      return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
-
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+      
 def parse_recall():
   start_token = current_token()
   advance()
@@ -582,39 +641,58 @@ def parse_recall():
 def parse_proof_hi():
   token = current_token()
   if token.type == 'APPLY':
+    while_parsing = 'while parsing apply-to (use a logical implication)\n' \
+        + '\tconclusion ::= "apply" proof "to" proof\n'
     advance()
-    imp = parse_proof()
-    if current_token().type != 'TO':
-      error(meta_from_tokens(current_token(), current_token()),
-            'expected "to" after implication part of "apply", not\n\t' \
-            + current_token().value)
-    advance()
-    arg = parse_proof()
-    return ModusPonens(meta_from_tokens(token, previous_token()), imp, arg)
-
+    try:
+      imp = parse_proof()
+      if current_token().type != 'TO':
+        error(meta_from_tokens(current_token(), current_token()),
+              'expected "to" after implication part of "apply", not\n\t' \
+              + current_token().value)
+      advance()
+      arg = parse_proof()
+      return ModusPonens(meta_from_tokens(token, previous_token()), imp, arg)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+    
   elif token.type == 'CASES':
+    while_parsing = 'while parsing cases (use a logical or)\n' \
+        + '\tconclusion ::= "cases" proof case_clause*\n' \
+        + '\tcase_clause ::= "case" identifier ":" term "{" proof "}"\n'
     advance()
-    subject = parse_proof()
-    cases = []
-    while (not end_of_file()) and current_token().type == 'CASE':
-        c = parse_case()
-        cases.append(c)
-    meta = meta_from_tokens(token, previous_token())
-    return Cases(meta, subject, cases)
+    try:
+      subject = parse_proof()
+      cases = []
+      while (not end_of_file()) and current_token().type == 'CASE':
+          c = parse_case()
+          cases.append(c)
+      meta = meta_from_tokens(token, previous_token())
+      return Cases(meta, subject, cases)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
     
   elif token.type == 'CONCLUDE':
+    while_parsing = 'while parsing\n' \
+        + '\tconclusion ::= "conclude" formula "by" proof\n'
     advance()
-    claim = parse_term()
-    if current_token().type == 'BY':
-      advance()
-      reason = parse_proof()
-    else:
-      error(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword "by" after formula of "conclude", '\
-            + 'not\n\t' + current_token().value)
-    return PAnnot(meta_from_tokens(token, previous_token()),
-                  claim, reason)
-
+    try:
+      claim = parse_term()
+      if current_token().type == 'BY':
+        advance()
+        reason = parse_proof()
+      else:
+        error(meta_from_tokens(current_token(), current_token()),
+              'expected the keyword "by" after formula of "conclude", '\
+              + 'not\n\t' + current_token().value)
+      return PAnnot(meta_from_tokens(token, previous_token()),
+                    claim, reason)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+        
   elif token.type == 'CONJUNCT':
     advance()
     meta = meta_from_tokens(current_token(),current_token())
@@ -773,12 +851,11 @@ def parse_proof_hi():
         return EvaluateGoal(meta_from_tokens(token, previous_token()))
     
   else:
-    for kw in proof_keywords:
-        if edit_distance(token.value, kw) <= 2:
-            error(meta_from_tokens(token, token),
-                  'did you mean "' + kw \
-                  + '" instead of "' + current_token().value + '"?')
-
+    close_keyword = closest_keyword(token.value, proof_keywords)
+    if close_keyword:
+        error(meta_from_tokens(token, token),
+              'expected a proof.\nDid you mean "' + close_keyword \
+              + '" instead of "' + token.value + '"?')
     try:
       name = parse_identifier()
     except Exception as e:
@@ -1220,7 +1297,8 @@ def parse_union():
 
 def parse_function():
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "function" identifier type_params_opt "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
+      + '\tstatement ::= "function" identifier type_params_opt' \
+      + ' "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
   try:
     start_token = current_token()
     advance()
@@ -1295,26 +1373,51 @@ def parse_statement():
             'expected a statement, not end of file')
   token = current_token()
   if token.type == 'ASSERT':
+    while_parsing = 'while parsing assert\n' \
+        + '\tstatement ::= "assert" formula\n'
     advance()
-    body = parse_term()
-    return Assert(meta_from_tokens(token, previous_token()), body)
+    try:
+        body = parse_term()
+        return Assert(meta_from_tokens(token, previous_token()), body)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+  
   elif token.type == 'DEFINE':
     return parse_define()
+
   elif token.type == 'FUNCTION':
     return parse_function()
+
   elif token.type == 'IMPORT':
+    while_parsing = 'while parsing import\n' \
+        + '\tstatement ::= "import" identifier\n'
     advance()
-    name = parse_identifier()
-    return Import(meta_from_tokens(token, previous_token()), name)
+    try:
+        name = parse_identifier()
+        return Import(meta_from_tokens(token, previous_token()), name)
+    except Exception as e:
+      meta = meta_from_tokens(token, previous_token())
+      raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+
   elif token.type == 'PRINT':
+    while_parsing = 'while parsing\n' \
+        + '\tstatement ::= "print" term\n'
     advance()
-    subject = parse_term()
-    meta = meta_from_tokens(token, previous_token())
-    return Print(meta, subject)
+    try:
+        subject = parse_term()
+        meta = meta_from_tokens(token, previous_token())
+        return Print(meta, subject)
+    except Exception as e:
+        meta = meta_from_tokens(token, previous_token())
+        raise Exception(str(e) + '\n' + error_header(meta) + while_parsing)
+        
   elif token.type == 'THEOREM' or token.type == 'LEMMA':
     return parse_theorem()
+
   elif token.type == 'UNION':
     return parse_union()
+
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:
@@ -1322,6 +1425,9 @@ def parse_statement():
                   'did you mean "' + kw \
                   + '" instead of "' + token.value + '"?')
       
+    if token.value == '/' and current_position + 1 < len(token_list) and next_token().value == '*':
+      error(meta_from_tokens(token, token),
+        "expected a statement, not '/*', did you forget to close a comment?")
     error(meta_from_tokens(token, token),
           'expected a statement, not\n\t' + token.value)
 
@@ -1352,6 +1458,15 @@ def parse_type():
     return TypeType(meta_from_tokens(token,token))
   elif token.type == 'FN':
     return parse_function_type()
+  elif token.type == 'LSQB':
+    advance()
+    elt_type = parse_type()
+    if current_token().type != 'RSQB':
+        error(meta_from_tokens(start_token, current_token()),
+              'expected closing "]", not\n\t' + current_token().value)
+    advance()
+    return ArrayType(meta_from_tokens(token, previous_token()),
+                     elt_type)
   elif token.type == 'LPAR':
     start_token = current_token()
     advance()

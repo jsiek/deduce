@@ -1,0 +1,8 @@
+./test/should-error/advice_false.pf:5.3-5.4: incomplete proof
+Goal:
+	false
+Advice:
+	Prove "false" by proving a contradiction:
+	if you prove both "P" and "not P", 
+	then "apply (recall not P) to (recall P)" proves "false".
+

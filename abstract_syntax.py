@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Any, Tuple, List
-from error import error, set_verbose, get_verbose
+from error import error, set_verbose, get_verbose, get_unique_names, VerboseLevel
 from pathlib import Path
 import os
 
 infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
-                    '++': 6, '⨄': 6}
+                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6}
 prefix_precedence = {'-': 5, 'not': 4}
 
 def copy_dict(d):
@@ -26,15 +26,25 @@ def base_name(name):
     ls = name.split('.')
     return ls[0]
 
-import_directories = ["."]
+import_directories = set()
+
+def init_import_directories():
+  import_directories.add(".")
+  lib_config_path = Path(os.path.expanduser("~/.config/deduce/libraries"))
+  if lib_config_path.exists() and lib_config_path.is_file():
+    with open(lib_config_path, 'r') as lib_config_file:
+      for line in lib_config_file:
+        import_directories.add(line.strip())
   
 def get_import_directories():
   global import_directories
+  if(get_verbose()):
+    print("import directories: ", import_directories)
   return import_directories
 
 def add_import_directory(dir):
   global import_directories
-  import_directories.append(dir)
+  import_directories.add(dir)
 
 
 recursive_descent = True
@@ -236,6 +246,35 @@ class FunctionType(Type):
                         [ty.reduce(env) for ty in self.param_types],
                         self.return_type.reduce(env))
     
+@dataclass
+class ArrayType(Type):
+  elt_type: Type
+  
+  def copy(self):
+    return ArrayType(self.location, self.elt_type.copy())
+
+  def __str__(self):
+    return '[' + str(self.elt_type) + ']'
+
+  def __eq__(self, other):
+    match other:
+      case ArrayType(loc, elt_type):
+        return self.elt_type == elt_type
+      case _:
+        return False
+
+  def free_vars(self):
+    return self.elt_type.free_vars()
+
+  def substitute(self, sub):
+    return ArrayType(self.location, self.elt_type.substitute(sub))
+
+  def uniquify(self, env):
+    self.elt_type.uniquify(env)
+
+  def reduce(self, env):
+    return ArrayType(self.location, self.elt_type.reduce(env))
+      
 @dataclass
 class TypeInst(Type):
   typ: Type
@@ -503,12 +542,14 @@ class Var(Term):
               'resolved_names is a string but should be a list: ' \
               + self.resolved_names)
       
-      if base_name(self.name) == 'zero' and not get_verbose():
+      if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
         return '0'
-      elif base_name(self.name) == 'empty' and not get_verbose():
+      elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
       elif get_verbose():
         return self.name + '{' + ','.join(self.resolved_names) + '}'
+      elif get_unique_names():
+        return self.name
       else:
         if is_operator(self):
           return 'operator ' + base_name(self.name)
@@ -526,7 +567,7 @@ class Var(Term):
             print('\t var ' + self.name + ' ===> ' + str(res))
           return res.reduce(env)
         else:
-            return self
+          return self
       else:
         return self
   
@@ -544,7 +585,15 @@ class Var(Term):
         env_str = '\nenvironment: ' + ', '.join(env.keys())
       else:
         env_str = ''
-      error(self.location, 'undefined variable: ' + self.name + '' + env_str)
+
+      import_advice = ''
+
+      if self.name == "suc" or self.name == "zero":
+        import_advice = "\n\tAdd `import Nat` to supply a definition."
+      elif self.name == "empty" or self.name == "node":
+        import_advice = "\n\tAdd `import List` to supply a definition."
+
+      error(self.location, 'undefined variable: ' + self.name + import_advice + '' + env_str)
     self.resolved_names = env[self.name]
     
 @dataclass
@@ -781,7 +830,7 @@ class Call(Term):
     elif isDeduceInt(self):
       return deduceIntToInt(self)
     elif isNodeList(self):
-      return '[' + nodeListToList(self)[:-2] + ']'
+      return '[' + nodeListToString(self)[:-2] + ']'
     elif isEmptySet(self) and not get_verbose():
       return '∅'
     else:
@@ -1069,7 +1118,107 @@ class TermInst(Term):
     for ty in self.type_args:
       ty.uniquify(env)
       
+@dataclass
+class Array(Term):
+  elements: List[Term]
   
+  def __eq__(self, other):
+    if isinstance(other, Array):
+      return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
+                                                               other.elements)])
+    else:
+      return False
+  
+  def copy(self):
+    return Array(self.location, [elt.copy() for elt in self.elements])
+  
+  def __str__(self):
+    return 'array(' + ', '.join([str(elt) for elt in self.elements]) + ')'
+
+  def reduce(self, env):
+    return Array(self.location, self.typeof,
+                 [elt.reduce(env) for elt in self.elements])
+    
+  def substitute(self, sub):
+    return Array(self.location, self.typeof,
+                 [elt.substitute(sub) for elt in self.elements])
+                    
+  def uniquify(self, env):
+    for elt in self.elements:
+      elt.uniquify(env)
+  
+@dataclass
+class MakeArray(Term):
+  subject: Term
+
+  def __eq__(self, other):
+    if isinstance(other, MakeArray):
+      return self.subject == other.subject
+    else:
+      return False
+  
+  def copy(self):
+    return MakeArray(self.location, self.typeof,
+                     self.subject.copy())
+  
+  def __str__(self):
+    return 'array(' + str(self.subject) + ')'
+
+  def reduce(self, env):
+    subject_red = self.subject.reduce(env)
+    if isNodeList(subject_red):
+      elements = nodeListToList(subject_red)
+      return Array(self.location, self.typeof, elements)
+    else:
+      return MakeArray(self.location, self.typeof, self.subject.reduce(env))
+    
+  def substitute(self, sub):
+    return MakeArray(self.location, self.typeof,
+                    self.subject.substitute(sub))
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+
+@dataclass
+class ArrayGet(Term):
+  subject: Term
+  position: Term
+
+  def __eq__(self, other):
+    if isinstance(other, ArrayGet):
+      return self.subject == other.subject \
+        and self.position == other.position
+    else:
+      return False
+  
+  def copy(self):
+    return ArrayGet(self.location, self.typeof,
+                    self.subject.copy(), self.position.copy())
+  
+  def __str__(self):
+    return str(self.subject) + '[' + str(self.position) + ']'
+
+  def reduce(self, env):
+    subject_red = self.subject.reduce(env)
+    position_red = self.position.reduce(env)
+    match subject_red:
+      case Array(loc2, _, elements):
+        if isNat(position_red):
+          index = natToInt(position_red)
+          if 0 <= index and index < len(elements):
+            return elements[index].reduce(env)
+          # Don't signal an error for out-of-bounds! -Jeremy
+    return ArrayGet(self.location, self.typeof, subject_red, position_red)
+    
+  def substitute(self, sub):
+    return ArrayGet(self.location, self.typeof,
+                    self.subject.substitute(sub),
+                    self.position.substitute(sub))
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    self.position.uniquify(env)
+      
 @dataclass
 class TLet(Term):
   var: str
@@ -2411,6 +2560,10 @@ class Import(Statement):
   def uniquify(self, env):
     if get_verbose():
       print('uniquify import ' + self.name)
+    old_verbose = get_verbose()
+    if get_verbose() == VerboseLevel.CURR_ONLY:
+      set_verbose(VerboseLevel.NONE)
+
     global uniquified_modules
     if self.name in uniquified_modules.keys():
       self.ast = uniquified_modules[self.name]
@@ -2434,6 +2587,7 @@ class Import(Statement):
       stmt.collect_exports(env)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
+    set_verbose(old_verbose)
 
   def collect_exports(self, export_env):
     pass
@@ -2570,10 +2724,21 @@ def nodeListToList(t):
   match t:
     case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred) \
       if base_name(name) == 'empty':
-      return ''
-    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred),
+        return []
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs),
+                                   tyargs, inferred),
               [arg, ls]) if base_name(name) == 'node':
-      return str(arg) + ', ' + nodeListToList(ls)
+      return [arg] + nodeListToList(ls)
+    
+def nodeListToString(t):
+  match t:
+    case TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs), tyargs, inferred) \
+      if base_name(name) == 'empty':
+        return ''
+    case Call(loc, tyof1, TermInst(loc2, tyof2, Var(loc3, tyof3, name, rs),
+                                   tyargs, inferred),
+              [arg, ls]) if base_name(name) == 'node':
+      return str(arg) + ', ' + nodeListToString(ls)
 
 def mkEmpty(loc):
   return Var(loc, None, 'empty', [])
@@ -2611,6 +2776,7 @@ class TypeBinding(Binding):
 class TermBinding(Binding):
   typ : Type
   defn : Term = None
+  local : bool = False
   
   def __str__(self):
     return str(self.typ) + (' = ' + str(self.defn) if self.defn else '')
@@ -2640,7 +2806,7 @@ class Env:
   def proofs_str(self):
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
-                       if isinstance(v,ProofBinding) and (v.local or get_verbose())])
+                       if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
   
   def declare_type(self, loc, name):
     new_env = Env(self.dict)
@@ -2873,8 +3039,10 @@ def count_marks(formula):
       return count_marks(rhs) + count_marks(body)
     case Hole(loc2, tyof):
       return 0
+    case ArrayGet(loc, tyof, arr, ind):
+      return count_marks(arr) + count_marks(ind)
     case _:
-      error(loc, 'in count_marks function, unhandled ' + str(formula))
+      error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
 def find_mark(formula):
   match formula:
@@ -2926,6 +3094,9 @@ def find_mark(formula):
       find_mark(body)
     case Hole(loc2, tyof):
       pass
+    case ArrayGet(loc2, tyof, arr, ind):
+      find_mark(arr)
+      find_mark(ind)
     case _:
       error(loc, 'in find_mark function, unhandled ' + str(formula))
 
@@ -2975,6 +3146,8 @@ def replace_mark(formula, replacement):
                   replace_mark(body, replacement))
     case Hole(loc2, tyof):
       return formula
+    case ArrayGet(loc2, tyof, arr, ind):
+      return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
     case _:
       error(loc, 'in replace_mark function, unhandled ' + str(formula))
 

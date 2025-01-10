@@ -2,7 +2,7 @@
 Goal:
 	(all y:bool, z:bool, w:bool. (all n:bool. (x or y or y or not x)))
 Advice:
-	You can complete the proof with:
+	Prove this "all" formula with:
 		arbitrary y:bool
 	followed by a proof of:
 		(all z:bool, w:bool. (all n:bool. (x or y or y or not x)))

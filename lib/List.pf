@@ -758,6 +758,89 @@ proof
   }
 end
 
+theorem get_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat.
+  if i < length(xs)
+  then get(xs ++ ys, i) = get(xs, i)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, i:Nat
+    suppose i_z: i < length(@empty<T>)
+    conclude false by definition {length, operator <, operator ≤} in i_z
+  }
+  case node(x, xs) suppose IH {
+    arbitrary ys:List<T>, i:Nat
+    suppose i_xxs: i < length(node(x,xs))
+    switch i {
+      case zero {
+        definition {operator++,get}
+      }
+      case suc(i') suppose i_si {
+        suffices get(xs ++ ys, i') = get(xs, i')
+           by definition {operator++, get, pred}
+	have i_xs: i' < length(xs) by
+	    enable {operator <, operator ≤}
+	    conclude i' < length(xs)
+              by rewrite i_si in
+                 definition {length, operator+,operator+} in i_xxs
+	apply IH[ys, i'] to i_xs
+      }
+    }
+  }
+end
+
+theorem get_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat.
+  get(xs ++ ys, length(xs) + i) = get(ys, i)
+proof
+  arbitrary T:type
+  induction List<T>
+  case empty {
+    arbitrary ys:List<T>, i:Nat
+    definition {operator++, length, operator +}
+  }
+  case node(x, xs) suppose IH {
+    arbitrary ys:List<T>, i:Nat
+    have X: not ((1 + length(xs)) + i = 0)
+      by suppose eq_z enable {operator +} conclude false by eq_z
+    suffices get(xs ++ ys, pred((1 + length(xs)) + i)) = get(ys, i)
+       by definition {operator++,length, get}
+          and rewrite (apply eq_false to X)
+    suffices get(xs ++ ys, length(xs) + i) = get(ys, i)
+       by definition {operator +, pred, operator+}
+    IH[ys, i]
+  }
+end
+
+theorem get_none: all T:type. all xs:List<T>, i:Nat.
+  if length(xs) <= i
+  then get(xs, i) = none
+proof
+  arbitrary T:type
+  induction List<T>
+  case [] {
+    arbitrary i:Nat
+    assume xs_i
+    conclude get(@[]<T>, i) = none by definition get
+  }
+  case node(x, xs) assume IH {
+    arbitrary i:Nat
+    assume xxs_i
+    have i_pos: 1 + length(xs) ≤ i
+      by definition length in xxs_i
+    switch i {
+      case 0 assume iz {
+        conclude false by definition {operator+,operator+,operator≤} in rewrite iz in i_pos
+      }
+      case suc(i') assume isi {
+        suffices get(xs, i') = none by definition {get,pred}
+        have xs_i: length(xs) ≤ i' by definition {operator+,operator+,operator≤} in rewrite isi in i_pos
+        conclude get(xs, i') = none by apply IH to xs_i
+      }
+    }
+  }
+end
+
 theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
   if i < length(xs)
   then nth(xs ++ ys, d)(i) = nth(xs, d)(i)
