@@ -7,7 +7,7 @@ import os
 
 infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
-                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6}
+                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1}
 prefix_precedence = {'-': 5, 'not': 4}
 
 def copy_dict(d):
@@ -2684,24 +2684,41 @@ def is_constructor(constr_name, env):
           continue
   return False
 
+def is_constr_term(term, env):
+  match term:
+    case Var(loc, ty, n, rs):
+      return is_constructor(n, env)
+    case TermInst(loc, ty, body):
+      return is_constr_term(body, env)
+    case _:
+      return False
+
+def constr_name(term):
+  match term:
+    case Var(loc, ty, n, rs):
+      return n
+    case TermInst(loc, ty, body):
+      return constr_name(body)
+    case _:
+      raise Exception('constr_name unhandled ' + str(term))
+    
 def constructor_conflict(term1, term2, env):
   match (term1, term2):
-    case (Call(loc1, tyof1, Var(_, tyof2, n1, rs1), rands1),
-          Call(loc2, tyof3, Var(_, tyof4, n2, rs2), rands2)):
-      if is_constructor(n1, env) and is_constructor(n2, env):
-        if n1 != n2:
-          return True
-        else:
-          return any([constructor_conflict(rand1, rand2, env) \
-                      for (rand1, rand2) in zip(rands1, rands2)])
-    case (Call(loc1, tyof1, Var(_, tyof2, n1, rs1), rands1), Var(_, tyof3, n2, rs2)):
-      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
+    case (Call(loc1, tyof1, rator1, rands1),
+          Call(loc2, tyof3, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
+     if constr_name(rator1) != constr_name(rator2):
+       return True
+     else:
+       return any([constructor_conflict(rand1, rand2, env) \
+                   for (rand1, rand2) in zip(rands1, rands2)])
+    case (Call(loc1, tyof1, rator1, rands1), term2) if is_constr_term(rator1, env) and is_constr_term(term2, env):
+      if constr_name(rator1) != constr_name(term2):
         return True
-    case (Var(_, tyof1, n1, rs1), Var(_, tyof2, n2, rs2)):
-      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
+    case (term1, term2) if is_constr_term(term1, env) and is_constr_term(term2, env):
+      if constr_name(term1) != constr_name(term2):
         return True
-    case (Var(_, tyof1, n1, rs1), Call(loc2, tyof2, Var(_, tyof3, n2, rs2), rands2)):
-      if is_constructor(n1, env) and is_constructor(n2, env) and n1 != n2:
+    case (term1, Call(loc2, tyof2, rator2, rands2)) if is_constr_term(term1, env) and is_constr_term(rator2, env):
+      if constr_name(term1) != constr_name(rator2):
         return True
     case (Bool(_, tyof1, True), Bool(_, tyof2, False)):
       return True

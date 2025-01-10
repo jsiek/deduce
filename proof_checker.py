@@ -997,7 +997,7 @@ def check_proof_of(proof, formula, env):
         case FunctionType(loc2, ty_params, params, ret_ty):
           error(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params)))
         case _:
-          error(loc, 'extensionality expects a function, not ' + str(lhs.typ))
+          error(loc, 'extensionality expects a function, not ' + str(lhs.typeof))
       
     case AllIntro(loc, var, _, body):
       x, ty = var

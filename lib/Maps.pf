@@ -93,7 +93,40 @@ define domain : fn<T,U>  (fn(T)->Option<U>) -> Set<T>
 
 define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
                       if x ∈ P then f(x) else @none<U> }}}
-		
+
+define combine = generic T, U { fun f:fn(T)->Option<U>, g:fn(T)->Option<U> { fun x:T {
+                     if f(x) = none then g(x) else f(x) }}}
+
+theorem combine_left: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+  if g(x) = none
+  then combine(f, g)(x) = f(x)
+proof
+  arbitrary T:type, U:type
+  arbitrary f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T
+  assume: g(x) = none
+  switch f(x) {
+    case none assume: f(x) = none {
+      conclude combine(f, g)(x) = f(x)
+          by definition combine and rewrite (recall f(x) = none) | (recall g(x) = none)
+    }
+    case just(v) assume: f(x) = just(v) {
+      conclude combine(f, g)(x) = f(x)
+          by definition combine and rewrite (recall f(x) = just(v))
+    }
+  }
+end
+
+theorem combine_right: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+  if f(x) = none
+  then combine(f, g)(x) = g(x)
+proof
+  arbitrary T:type, U:type
+  arbitrary f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T
+  assume: f(x) = none
+  conclude combine(f, g)(x) = g(x)
+      by definition combine and rewrite recall f(x) = none
+end
+
 theorem restrict_domain:
   < T, U > all f:fn(T)->Option<U>, P:Set<T>.
   domain(restrict(f, P)) ⊆ P
