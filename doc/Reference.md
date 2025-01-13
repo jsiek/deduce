@@ -1986,7 +1986,7 @@ contains the items that occur in either set.
 
 Example:
 
-```{.deduce^#union_example}
+```{.deduce^#set_union_example}
 define C' = single(1) ∪ single(2)
 define D' = single(2) ∪ single(3)
 assert 1 ∈ C' ∪ D'
@@ -2064,5 +2064,6 @@ import Maps
 <<suffices_example>>
 <<true_example>>
 <<union_example>>
+<<set_union_example>>
 ```
 -->
