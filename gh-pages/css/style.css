@@ -77,7 +77,7 @@
 */
 
 * {
-    /* scroll-behavior: smooth; */
+    scroll-behavior: smooth;
     scroll-margin: 30px;
 }
 
