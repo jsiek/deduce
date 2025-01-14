@@ -52,7 +52,6 @@
 }
 
 @keyframes dots {
-
     0%,
     20% {
         content: '.';
@@ -344,6 +343,8 @@ header {
     background-color: var(--cb-bg);
 
     padding: 20px 15px;
+    padding-right: 45px;
+
     border-radius: 8px;
 
     code {
@@ -1195,6 +1196,49 @@ table {
         p {
             margin-bottom: 30px;
             line-height: 1.3em;
+        }
+    }
+
+    footer{
+        flex-direction: column;
+        gap: 30px;
+
+        padding-left: 11px;
+
+        .footer-links{
+            /* flex-direction: column; */
+            gap: 40px;
+
+            /* margin-left: 10px; */
+
+            font-size: .8rem;
+        }
+
+    }
+
+    .md {
+        h1 {
+            font-size: 2rem;
+        }
+        
+        h2 {
+            font-size: 1.25rem;
+        }
+        
+        h3 {
+            font-size: 1rem;
+        }
+        
+        h4{
+            font-size: .9rem;
+        }
+
+        p, li, td, th { 
+            font-size: .9rem;
+        }
+
+        li{
+            line-height: 1.15rem;
         }
     }
 }
