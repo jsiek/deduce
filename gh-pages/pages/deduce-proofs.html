@@ -72,23 +72,23 @@
 following subsections we introduce the features of the Deduce proof
 language and provide examples of their use. </p>
 <ul>
-<li><a href="#applying-definitions-to-the-goal" target="_blank">Applying Definitions to the Goal</a></li>
-<li><a href="#generalizing-with-all-formulas" target="_blank">Generalizing with <code class="inline">all</code> formulas</a></li>
-<li><a href="#rewriting-the-goal-with-equations" target="_blank">Rewriting the Goal with Equations</a></li>
-<li><a href="#reasoning-about-natural-numbers" target="_blank">Reasoning about Natural Numbers</a></li>
-<li><a href="#proving-intermediate-facts-with-have" target="_blank">Proving Intermediate Facts with <code class="inline">have</code></a></li>
-<li><a href="#chaining-equations-with-equations" target="_blank">Chaining Equations with <code class="inline">equations</code></a></li>
-<li><a href="#proving-all-formulas-with-induction" target="_blank">Proving <code class="inline">all</code> Formulas with Induction</a></li>
-<li><a href="#reasoning-about-and-conjunction" target="_blank">Reasoning about <code class="inline">and</code> (Conjunction)</a></li>
-<li><a href="#reasoning-about-or-disjunction" target="_blank">Reasoning about <code class="inline">or</code> (Disjunction)</a></li>
-<li><a href="#the-switch-proof-statement" target="_blank">The <code class="inline">switch</code> Proof Statement</a></li>
-<li><a href="#applying-definitions-and-rewrites-to-the-goal" target="_blank">Applying Definitions and Rewrites to the Goal</a></li>
-<li><a href="#conditional-formulas-implication-and-applying-definitions-to-facts" target="_blank">Conditional Formulas (Implication) and Applying Definitions to Facts</a></li>
-<li><a href="#reasoning-about-true" target="_blank">Reasoning about <code class="inline">true</code></a></li>
-<li><a href="#reasoning-about-false" target="_blank">Reasoning about <code class="inline">false</code></a></li>
-<li><a href="#reasoning-about-not" target="_blank">Reasoning about <code class="inline">not</code></a></li>
-<li><a href="#rewriting-facts-with-equations" target="_blank">Rewriting Facts with Equations</a></li>
-<li><a href="#reasoning-about-some-exists-and-asking-for-help" target="_blank">Reasoning about <code class="inline">some</code> (Exists) and asking for <code class="inline">help</code></a></li>
+<li><a href="#applying-definitions-to-the-goal" target="_self">Applying Definitions to the Goal</a></li>
+<li><a href="#generalizing-with-all-formulas" target="_self">Generalizing with <code class="inline">all</code> formulas</a></li>
+<li><a href="#rewriting-the-goal-with-equations" target="_self">Rewriting the Goal with Equations</a></li>
+<li><a href="#reasoning-about-natural-numbers" target="_self">Reasoning about Natural Numbers</a></li>
+<li><a href="#proving-intermediate-facts-with-have" target="_self">Proving Intermediate Facts with <code class="inline">have</code></a></li>
+<li><a href="#chaining-equations-with-equations" target="_self">Chaining Equations with <code class="inline">equations</code></a></li>
+<li><a href="#proving-all-formulas-with-induction" target="_self">Proving <code class="inline">all</code> Formulas with Induction</a></li>
+<li><a href="#reasoning-about-and-conjunction" target="_self">Reasoning about <code class="inline">and</code> (Conjunction)</a></li>
+<li><a href="#reasoning-about-or-disjunction" target="_self">Reasoning about <code class="inline">or</code> (Disjunction)</a></li>
+<li><a href="#the-switch-proof-statement" target="_self">The <code class="inline">switch</code> Proof Statement</a></li>
+<li><a href="#applying-definitions-and-rewrites-to-the-goal" target="_self">Applying Definitions and Rewrites to the Goal</a></li>
+<li><a href="#conditional-formulas-implication-and-applying-definitions-to-facts" target="_self">Conditional Formulas (Implication) and Applying Definitions to Facts</a></li>
+<li><a href="#reasoning-about-true" target="_self">Reasoning about <code class="inline">true</code></a></li>
+<li><a href="#reasoning-about-false" target="_self">Reasoning about <code class="inline">false</code></a></li>
+<li><a href="#reasoning-about-not" target="_self">Reasoning about <code class="inline">not</code></a></li>
+<li><a href="#rewriting-facts-with-equations" target="_self">Rewriting Facts with Equations</a></li>
+<li><a href="#reasoning-about-some-exists-and-asking-for-help" target="_self">Reasoning about <code class="inline">some</code> (Exists) and asking for <code class="inline">help</code></a></li>
 </ul>
 <h2 id="applying-definitions-to-the-goal">Applying Definitions to the Goal</h2>
 <p>We begin with a simple example, proving that the length of an empty
@@ -178,7 +178,7 @@ end<br>
 </code></div>
 <p>Finally we need to prove, <code class="inline">1 + 0 = 1</code>. That can be proved using the
 <code class="inline">add_zero</code> theorem from the file <code class="inline">Nat.pf</code>, which we explain in the upcoming
-section on <a href="#reasoning-about-natural-numbers" target="_blank">Reasoning about Natural Numbers</a>.</p>
+section on <a href="#reasoning-about-natural-numbers" target="_self">Reasoning about Natural Numbers</a>.</p>
 <div class="code-wrapper"><code id="proof_length_node42"><!-- Generated by codeUtils.js --></code></div>
 <h3 id="exercise">Exercise</h3>
 <p>Prove that <code class="inline">[1] ++ [2] = [1, 2]</code>
@@ -238,7 +238,7 @@ another <code class="inline">arbitrary</code> statement.</p>
   use Deduce's <code class="inline">all</code> formula.</li>
 <li>To prove that an <code class="inline">all</code> formula is true, use Deduce's <code class="inline">arbitrary</code> statement.
   (We'll see a second method in the section
-  <a href="#proving-all-formulas-with-induction" target="_blank">Proving <code class="inline">all</code> Formulas with Induction</a>.)</li>
+  <a href="#proving-all-formulas-with-induction" target="_self">Proving <code class="inline">all</code> Formulas with Induction</a>.)</li>
 <li>To use a fact that is an <code class="inline">all</code> formula, instantiate the fact
   by following it with square brackets around the specific entity.</li>
 </ul>
@@ -318,7 +318,7 @@ mult_assoc:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat,&nbsp;o:Nat.&nbsp;(m&nbsp;&
 entities. For example, <code class="inline">add_zero[2]</code> is a proof of <code class="inline">2 + 0 = 2</code>.
 We have not yet discussed how to use the <code class="inline">if</code>-<code class="inline">then</code> formula in
 <code class="inline">left_cancel</code>, but we will get to that in the section below on
-<a href="#conditional-formulas-implication-and-applying-definitions-to-facts" target="_blank">Conditional Formulas (Implication)</a>.</p>
+<a href="#conditional-formulas-implication-and-applying-definitions-to-facts" target="_self">Conditional Formulas (Implication)</a>.</p>
 <h3 id="exercise_2">Exercise</h3>
 <p>Prove the following theorem using the <code class="inline">add_zero</code> and <code class="inline">mult_one</code>
 theorems from <code class="inline">Nat.pf</code>.</p>
@@ -739,7 +739,7 @@ definition of <code class="inline">length</code> to this fact. We do so using De
 <code class="inline">definition</code>-<code class="inline">in</code> statement as follows. </p>
 <div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;&nbsp;&nbsp;conclude&nbsp;false&nbsp;&nbsp;by&nbsp;definition&nbsp;length&nbsp;in&nbsp;len_z2</code></div>
 <p>We discuss contradictions and <code class="inline">false</code> in more detail in the upcoming section
-<a href="#reasoning-about-false" target="_blank">Reasoning about <code class="inline">false</code></a>.</p>
+<a href="#reasoning-about-false" target="_self">Reasoning about <code class="inline">false</code></a>.</p>
 <p>Here is the complete proof of <code class="inline">list_length_zero_empty</code>.</p>
 <div class="code-wrapper"><code id="proof_list_length_zero_empty"><!-- Generated by codeUtils.js --></code></div>
 <p>The next topic to discuss is how to use an <code class="inline">if</code>-<code class="inline">then</code> fact that is
@@ -881,7 +881,7 @@ have&nbsp;x_l_x:&nbsp;x'&nbsp;&lt;&nbsp;x'&nbsp;by&nbsp;sx_l_sx<br>
 </ul>
 <h2 id="rewriting-facts-with-equations">Rewriting Facts with Equations</h2>
 <p>In the section
-<a href="#rewriting-the-goal-with-equations" target="_blank">Rewriting the Goal with Equations</a> 
+<a href="#rewriting-the-goal-with-equations" target="_self">Rewriting the Goal with Equations</a> 
 we learned that the <code class="inline">rewrite</code> statement of Deduce applies an equation
 to the current goal.  There is a second variant of <code class="inline">rewrite</code> that
 applies an equation to a fact. As an example, we'll prove the

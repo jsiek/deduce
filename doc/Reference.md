@@ -1,4 +1,4 @@
-# Reference Manual (TEST)
+# Reference Manual
 
 This is a comprehensive reference for Deduce. It describes each
 feature in alphabetical order by keyword. It gives the grammar rule

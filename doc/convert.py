@@ -12,6 +12,31 @@ from os import listdir
 from os.path import isfile, join
 
 
+mdToHtmlName = {
+    'CheatSheet' : 'cheat-sheet',
+    'FunctionalProgramming' : 'deduce-programming',
+    'ProofIntro' : 'deduce-proofs',
+    'Reference' : 'reference',
+    'SyntaxGrammar' : 'syntax',
+    'GettingStarted' : 'getting-started'
+}
+
+mdToTitle = {
+    'CheatSheet' : 'Cheat Sheet',
+    'FunctionalProgramming' : 'Programming',
+    'ProofIntro' : 'Proofs',
+    'Reference' : 'Reference Manual',
+    'SyntaxGrammar' : 'Syntax Overview',
+    'GettingStarted' : 'Getting Started',
+}
+
+mdToDeduceCode = {
+    'FunctionalProgramming' : 'programming',
+    'ProofIntro' : 'proof',
+    'Reference' : 'reference',
+}
+
+
 def safeHTMLify(s):
     return s.replace("<", "&lt;")\
             .replace(">", "&gt;")\
@@ -71,8 +96,8 @@ class BetterAnchorPostprocessor(Postprocessor):
     def replace_anchors(self, m):
         file = m.group(1)
         link = file
-        is_local_md = file.startswith('./') and file.endswith('.md')
-        if is_local_md:
+        is_local_md = (file.startswith('./') and file.endswith('.md')) or len(file) == 0
+        if is_local_md and len(file) > 0:
             file = file[2:-3]
             link = './' + mdToHtmlName[file] + '.html'
         return f'<a href="{link}#{'' if m.group(3) is None else m.group(3)}" target="{'_self' if is_local_md else '_blank'}">'
@@ -155,30 +180,6 @@ class CodeExtension(Extension):
         md.parser.blockprocessors.register(CodeBlockProcessor(md.parser, self.fname), 'code-block', 10000)
         md.treeprocessors.register(CodeBlockTreeProcessor(), 'code-block-tree', 10000)
         md.postprocessors.register(BetterAnchorPostprocessor(), 'anchor', 10000)
-
-mdToHtmlName = {
-    'CheatSheet' : 'cheat-sheet',
-    'FunctionalProgramming' : 'deduce-programming',
-    'ProofIntro' : 'deduce-proofs',
-    'Reference' : 'reference',
-    'SyntaxGrammar' : 'syntax',
-    'GettingStarted' : 'getting-started'
-}
-
-mdToTitle = {
-    'CheatSheet' : 'Cheat Sheet',
-    'FunctionalProgramming' : 'Programming',
-    'ProofIntro' : 'Proofs',
-    'Reference' : 'Reference Manual',
-    'SyntaxGrammar' : 'Syntax Overview',
-    'GettingStarted' : 'Getting Started',
-}
-
-mdToDeduceCode = {
-    'FunctionalProgramming' : 'programming',
-    'ProofIntro' : 'proof',
-    'Reference' : 'reference',
-}
 
 prelude = lambda fname : f'''
 <!DOCTYPE html>
