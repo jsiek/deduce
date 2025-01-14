@@ -241,6 +241,7 @@ end
 ```
 
 To summarize this section:
+
 * To state that a formula is true for all entities of a given type,
   use Deduce's `all` formula.
 * To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
@@ -262,9 +263,11 @@ end
 ```
 
 Prove again that 
+
 ```
 [1] ++ [2] = [1, 2]
 ```
+
 but this time use the previous theorem.
 
 
@@ -346,6 +349,7 @@ union Nat {
   suc(Nat)
 }
 ```
+
 The parser for Deduce translates `0` into `zero`,
 `1` into `suc(zero)`, `2` into `suc(suc(zero))`, and so on.
 
@@ -389,7 +393,7 @@ You can use these theorems by instantiating them with particular
 entities. For example, `add_zero[2]` is a proof of `2 + 0 = 2`.
 We have not yet discussed how to use the `if`-`then` formula in
 `left_cancel`, but we will get to that in the section below on
-[Conditional Formulas (Implication)](#conditional-formulas-implication).
+[Conditional Formulas (Implication)](#conditional-formulas-implication-and-applying-definitions-to-facts).
 
 ### Exercise
 
@@ -725,6 +729,7 @@ end
 ```
 
 To summarize this section:
+
 * To prove an `all` formula that concerns entities of a `union` type,
   use Deduce's `induction` statement.
 
@@ -772,6 +777,7 @@ end
 ```
 
 To summarize this section:
+
 * Use `and` in Deduce to express the truth of two formulas.
 * To prove an `and` formula, prove its parts and then combine them using comma.
 * You can implicitly use an `and` formula as one of its parts. 
@@ -877,6 +883,7 @@ end
 ```
 
 To summarize this section:
+
 * Use `or` in Deduce to express that at least one of two or more
   formulas is true.
 * To prove an `or` formula, prove either one of the formulas.
@@ -955,6 +962,7 @@ end
 ```
 
 To summarize this section:
+
 * Use `switch` on an entity of union type to split the proof into
   cases, with one case for each alternative of the union.
 
@@ -1186,6 +1194,7 @@ end
 ```
 
 To summarize this section:
+
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
 * To prove an `if`-`then` formula, `suppose` the condition
   and prove the conclusion.
@@ -1270,6 +1279,7 @@ end
 ```
 
 To summarize this section:
+
 * Deduce simplifies any obviously contradictory equation to `false`.
 * `false` implies anything.
 
@@ -1338,6 +1348,7 @@ end
 ```
 
 To summarize this section:
+
 * To expression that a formula is false, use `not`.
 * Deduce treats the formula `not P` just like `if P then false`.
 * Therefore, to prove a `not` formula, suppose `P` then prove `false`.
@@ -1374,7 +1385,7 @@ Givens:
     x_l_y: x < y
 ```
 
-So following the usual recipte to prove an `if`-`then`, we `suppose` the
+So following the usual recipe to prove an `if`-`then`, we `suppose` the
 condition `x = y`.
 
 ```
@@ -1535,6 +1546,7 @@ end
 ```
 
 To summarize this section:
+
 * The `some` formula expresses that a property is true for at least one entity.
 * Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.

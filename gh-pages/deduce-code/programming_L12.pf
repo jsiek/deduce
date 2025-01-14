@@ -1,0 +1,7 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define L12 = node(1, node(2, empty))

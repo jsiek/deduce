@@ -1,0 +1,8 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define five = 2 + 3
+define six : Nat = 1 + five

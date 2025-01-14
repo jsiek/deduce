@@ -1,0 +1,9 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+assert 1 < 2
+assert not (1 < 1)
+assert not (2 < 1)

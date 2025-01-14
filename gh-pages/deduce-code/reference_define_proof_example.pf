@@ -1,0 +1,14 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x + x)
+proof
+  arbitrary x:Nat
+  define y = x + x + x
+  suffices y + (y + 0) = y + y
+    by definition {operator*,operator*,operator*}
+  rewrite add_zero[y]
+end

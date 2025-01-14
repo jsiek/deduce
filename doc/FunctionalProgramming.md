@@ -1,6 +1,7 @@
 # Programming in Deduce
 
 Deduce supports the following language features:
+
 * [Import](#import)
 * [Definitions](#definitions)
 * [Printing Values](#printing-values)
@@ -151,15 +152,15 @@ of a function starts with `fn`, followed by the parameter types, then
 `->`, and finally the return type.
 
 ```{.deduce^#front}
-    import Option
-
-    define front : fn NatList -> Option<Nat> =
-      fun ls { 
-        switch ls {
-          case Empty { none }
-          case Node(x, ls') { just(x) }
-        }
-      }
+import Option
+ 
+define front : fn NatList -> Option<Nat> =
+  fun ls { 
+    switch ls {
+      case Empty { none }
+      case Node(x, ls') { just(x) }
+    }
+  }
 ```
 
 The output of 

@@ -1,0 +1,15 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem rewrite_in_example: all x:Nat, y:Nat.
+  if x < y then not (x = y)
+proof
+  arbitrary x:Nat, y:Nat
+  assume: x < y
+  assume: x = y
+  have: y < y by rewrite (recall x = y) in (recall x < y)
+  conclude false by apply less_irreflexive[y] to (recall y < y)
+end

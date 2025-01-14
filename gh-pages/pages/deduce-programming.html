@@ -1,0 +1,381 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deduce | Programming</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="../images/logo.svg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Josefin+Slab:ital,wght@0,100..700;1,100..700&display=swap"
+        rel="stylesheet">
+
+    <!-- Font awesome -->
+    <script src="https://kit.fontawesome.com/7005573326.js" crossorigin="anonymous"></script>
+
+    <!-- My stylesheets -->
+    <link rel="stylesheet" href="../css/normalize.css">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+
+    <div class="container md deduce-programming">
+        <nav>
+            <a class="nav-logo" href="../index.html">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
+                    <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
+                        transform="rotate(14.995 52.954 86.34)" />
+                    <path class="blue" fill="#5DAAF1" d="m64.373 41.777 35.74 9.573-23.804 88.867-35.74-9.573z" />
+                    <rect class="blue" width="89" height="109" x="79.397" y="28.202" fill="#5DAAF1" rx="26"
+                        transform="rotate(14.995 79.397 28.202)" />
+                    <rect class="blue" width="88" height="109" x="104.511" y="34.929" fill="#5DAAF1" rx="41"
+                        transform="rotate(14.995 104.511 34.929)" />
+                    <circle cx="102.759" cy="57.343" r="7.5" fill="#fff" transform="rotate(14.995 102.759 57.343)" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M138.713 51.92c-.708-2.633-.535-9.472 5.812-15.768 7.934-7.87 13.773-2.974 9.545 5.889-3.382 7.09-7.816 15.009-9.61 18.082l-5.747-8.203Z" />
+                    <rect class="blue" width="277" height="144.529" x="159.042" y="50.663" fill="#5DAAF1" rx="58"
+                        transform="rotate(13 159.042 50.663)" />
+                    <path class="blue" fill="#5DAAF1" d="m164.305 126 248.242 57.311-16.646 72.104-248.242-57.312z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M377 159h40v92h-40zM70 102.825 141.012 45l77.642 95.347-71.012 57.826z" />
+                    <path class="blue" fill="#5DAAF1" d="m151.638 49.079 112.866 26.057-15.971 69.18-112.866-26.057z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="m147.622 46.516 28.984 9.675-22.482 67.347-28.984-9.675zm236.164 192.862h33.319v67.92h-33.319zm0 67.92v-75.609L362 224l21.786 83.298Zm-245.189-29.614 35.092-92.309-23.029-19.498-12.063 111.807ZM174 283.5l12.562-106.137 29.393-6.821L174 283.5Z" />
+                    <path class="blue" fill="#5DAAF1" d="M200.701 113.82 174 283.5l-35.229-6.32 61.93-163.36Z" />
+                    <path class="purple" fill="#A770EA"
+                        d="m103.459 155.41-48.84 70.804 15.787 23.485 63.822-54.251-30.769-40.038Zm199.156 108.147h28.844v36.191h-28.844z" />
+                    <path class="purple" fill="#A770EA" d="m302.615 299.748 28.407-52.007L293 239l9.615 60.748Z" />
+                    <path class="purple" fill="#A770EA" d="m331.459 299.748 20.541-47.2-40.207-9.178 19.666 56.378Z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M590.18 307H523.3v-30.4h17.86V71.02H523.3V41h79.8c18.24 0 35.467 3.167 51.68 9.5 16.213 6.08 30.4 14.947 42.56 26.6 12.16 11.653 21.787 25.713 28.88 42.18 7.093 16.213 10.64 34.58 10.64 55.1 0 14.947-2.66 30.273-7.98 45.98-5.067 15.707-13.427 29.893-25.08 42.56-11.653 12.92-26.853 23.56-45.6 31.92-18.493 8.107-41.167 12.16-68.02 12.16ZM572.7 71.02V276.6h26.6c14.947 0 28.88-2.407 41.8-7.22 12.92-4.813 24.193-11.78 33.82-20.9 9.373-8.867 16.72-19.507 22.04-31.92 5.573-12.667 8.36-26.853 8.36-42.56s-2.787-29.893-8.36-42.56c-5.32-12.667-12.667-23.56-22.04-32.68-9.627-8.867-20.9-15.707-33.82-20.52-12.92-4.813-26.853-7.22-41.8-7.22h-26.6Zm266.698 120.84c-7.094 0-13.554 1.267-19.38 3.8-5.574 2.28-10.387 5.573-14.44 9.88-3.04 3.547-5.574 7.6-7.6 12.16-1.774 4.56-2.787 9.5-3.04 14.82a5454.18 5454.18 0 0 0 35.34-12.92 2039.524 2039.524 0 0 1 35.72-13.3c-3.547-4.307-7.6-7.727-12.16-10.26-4.307-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.334 6.333-13.554 11.273-21.66 14.82-8.107 3.547-16.974 5.32-26.6 5.32-10.64 0-20.647-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.287-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.053-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.373-4.053 19.38-6.08 30.02-6.08 7.853 0 15.326 1.647 22.42 4.94 7.346 3.04 13.933 7.347 19.76 12.92 5.573 5.573 10.513 12.287 14.82 20.14 4.306 7.6 7.6 15.96 9.88 25.08l-51.68 19a11397.596 11397.596 0 0 1-51.3 19c3.8 5.32 8.74 9.627 14.82 12.92 6.333 3.04 13.426 4.56 21.28 4.56 5.826 0 11.146-1.013 15.96-3.04 4.813-2.027 9.12-5.067 12.92-9.12l19.38 22.8ZM1115.73 307h-56.62v-15.2c-.25.76-1.52 2.153-3.8 4.18-2.28 2.027-5.44 4.053-9.5 6.08-4.3 2.28-9.37 4.18-15.2 5.7-5.82 1.773-12.41 2.66-19.76 2.66-10.64 0-20.645-1.9-30.018-5.7-9.373-4.053-17.48-9.5-24.32-16.34s-12.287-14.82-16.34-23.94c-3.8-9.12-5.7-18.747-5.7-28.88s1.9-19.633 5.7-28.5c4.053-9.12 9.5-17.1 16.34-23.94s14.947-12.16 24.32-15.96c9.373-4.053 19.378-6.08 30.018-6.08 6.34 0 12.29.887 17.86 2.66 5.83 1.773 10.9 3.8 15.2 6.08 4.31 2.28 7.35 4.18 9.12 5.7 1.78 1.267 2.92 2.28 3.42 3.04-.5-2.027-.88-4.56-1.14-7.6V52.02h-25.08V22h56.62v254.98h28.88V307Zm-104.88-115.14c-6.58 0-12.665 1.14-18.238 3.42-5.573 2.28-10.387 5.32-14.44 9.12-3.547 4.053-6.46 8.74-8.74 14.06-2.027 5.067-3.04 10.767-3.04 17.1 0 6.587 1.267 12.793 3.8 18.62 2.533 5.827 5.953 10.64 10.26 14.44 3.8 3.547 8.233 6.333 13.3 8.36 5.32 1.773 11.018 2.66 17.098 2.66 6.08 0 11.66-.887 16.72-2.66 5.07-2.027 9.63-4.813 13.68-8.36 4.31-3.8 7.73-8.613 10.26-14.44 2.54-5.827 3.8-12.033 3.8-18.62 0-7.093-1.39-13.553-4.18-19.38-2.53-5.827-6.08-10.64-10.64-14.44-3.8-3.04-8.23-5.447-13.3-7.22-5.06-1.773-10.51-2.66-16.34-2.66Zm267.47 78.66c-5.06 12.16-13.3 21.913-24.7 29.26-11.14 7.093-23.56 10.64-37.24 10.64-14.94 0-26.72-3.927-35.34-11.78-8.61-7.853-13.17-18.113-13.68-30.78v-73.34h-25.08V164.5h56.62v88.92c.51 6.84 2.92 12.793 7.22 17.86 4.56 4.813 11.66 7.473 21.28 7.98 6.59 0 12.8-1.14 18.62-3.42 6.08-2.28 11.4-5.447 15.96-9.5 4.56-4.053 8.24-8.867 11.02-14.44 2.79-5.573 4.18-11.653 4.18-18.24v-39.14h-25.08V164.5h56.62v115.9h23.56V307h-55.1v-19.38l1.14-17.1Zm204.18 23.56c-6.58 5.067-13.93 9.12-22.04 12.16-7.85 2.787-16.34 4.18-25.46 4.18-10.64 0-20.64-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.28-14.693-16.34-23.56c-3.8-8.867-5.7-18.62-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.06-9.12 9.5-16.973 16.34-23.56 6.84-6.84 14.82-12.16 23.94-15.96 9.38-4.053 19.38-6.08 30.02-6.08 9.38 0 18.12 1.52 26.22 4.56 8.11 2.787 15.46 6.713 22.04 11.78v44.08h-28.12v-25.46c-3.04-1.52-6.33-2.533-9.88-3.04-3.29-.76-6.71-1.14-10.26-1.14-6.08 0-11.78 1.013-17.1 3.04-5.06 1.773-9.5 4.307-13.3 7.6-4.56 4.053-8.1 8.867-10.64 14.44-2.28 5.573-3.42 11.78-3.42 18.62 0 6.333 1.14 12.287 3.42 17.86 2.28 5.573 5.45 10.387 9.5 14.44 4.06 3.547 8.74 6.46 14.06 8.74 5.32 2.027 11.15 3.04 17.48 3.04 5.58 0 10.64-.76 15.2-2.28 4.82-1.52 9.25-3.927 13.3-7.22l19 23.94Zm103.54-102.22c-7.1 0-13.56 1.267-19.38 3.8-5.58 2.28-10.39 5.573-14.44 9.88-3.04 3.547-5.58 7.6-7.6 12.16-1.78 4.56-2.79 9.5-3.04 14.82a5726.9 5726.9 0 0 0 35.34-12.92c11.9-4.56 23.81-8.993 35.72-13.3-3.55-4.307-7.6-7.727-12.16-10.26-4.31-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.34 6.333-13.56 11.273-21.66 14.82-8.11 3.547-16.98 5.32-26.6 5.32-10.64 0-20.65-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.29-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.05-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.37-4.053 19.38-6.08 30.02-6.08 7.85 0 15.32 1.647 22.42 4.94 7.34 3.04 13.93 7.347 19.76 12.92 5.57 5.573 10.51 12.287 14.82 20.14 4.3 7.6 7.6 15.96 9.88 25.08-17.23 6.333-34.46 12.667-51.68 19-16.98 6.333-34.08 12.667-51.3 19 3.8 5.32 8.74 9.627 14.82 12.92 6.33 3.04 13.42 4.56 21.28 4.56 5.82 0 11.14-1.013 15.96-3.04 4.81-2.027 9.12-5.067 12.92-9.12l19.38 22.8Z" />
+                </svg>
+            </a>
+            <div class="nav-links">
+                <a class="mobile link-btn" id="nav-toggle"><i class="fa-solid fa-bars"></i></a>
+                <div id="link-list" class="hide">
+                    <a class="link-btn" href="./getting-started.html">Get Started</a>
+                    <a class="link-btn" href="./reference.html">Reference</a>
+                    <a class="link-btn" href="./sandbox.html">Live Code</a>
+                </div>
+            </div>
+        </nav>
+<h1 id="programming-in-deduce">Programming in Deduce</h1>
+<p>Deduce supports the following language features:</p>
+<ul>
+<li><a href="#import" target="_blank">Import</a></li>
+<li><a href="#definitions" target="_blank">Definitions</a></li>
+<li><a href="#printing-values" target="_blank">Printing Values</a></li>
+<li><a href="#function-term" target="_blank">Functions (anonymous)</a></li>
+<li><a href="#unions-and-switch" target="_blank">Unions and Switch</a></li>
+<li><a href="#natural-numbers" target="_blank">Natural Numbers</a></li>
+<li><a href="#lists" target="_blank">Lists</a></li>
+<li><a href="#booleans-conditionals-and-assert" target="_blank">Booleans, Conditionals, and Assert</a></li>
+<li><a href="#recursive-functions" target="_blank">Recursive Functions</a></li>
+<li><a href="#generic-functions" target="_blank">Generic Functions</a></li>
+<li><a href="#higher-order-functions" target="_blank">Higher-order Functions</a></li>
+<li><a href="#pairs" target="_blank">Pairs</a></li>
+</ul>
+<p>The following subsections describe each of these features.
+There are several <a href="#exercises" target="_blank">exercises</a> at the end 
+that you can use to check your understanding.</p>
+<h2 id="import">Import</h2>
+<p>The <code class="inline">import</code> declaration makes available the contents of another
+Deduce file in the current file. For example, you can import the
+contents of <code class="inline">Nat.pf</code> as follows</p>
+<div class="code-wrapper"><code id="programming_ImportNat"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="definitions">Definitions</h2>
+<p>The <code class="inline">define</code> feature of Deduce associates a name with a value.
+The following definitions associate the name <code class="inline">five</code> with the
+natural number <code class="inline">5</code>, and the name <code class="inline">six</code> with the natural
+number <code class="inline">6</code>.</p>
+<div class="code-wrapper"><code id="programming_five_six"><!-- Generated by codeUtils.js --></code></div>
+<p>Optionally, the type can be specified after the name, following a
+colon.  In the above, <code class="inline">six</code> holds a natural number, so its type is
+<code class="inline">Nat</code>.</p>
+<h2 id="printing-values">Printing Values</h2>
+<p>You can ask Deduce to print a value to standard output using the
+<code class="inline">print</code> statement.</p>
+<div class="code-wrapper"><code id="programming_print_five"><!-- Generated by codeUtils.js --></code></div>
+<p>The output is <code class="inline">5</code>.</p>
+<h2 id="function-term">Function (Term)</h2>
+<p>A function term starts <code class="inline">fun</code>, followed by parameter names
+and their types, then the body of the function enclosed in braces.
+For example, the following defines a function for computing the area
+of a rectangle.</p>
+<div class="code-wrapper"><code id="programming_area"><!-- Generated by codeUtils.js --></code></div>
+<p>To call a function, apply it to the appropriate number and type of
+arguments.</p>
+<div class="code-wrapper"><code id="programming_print_area"><!-- Generated by codeUtils.js --></code></div>
+<p>The output is <code class="inline">12</code>.</p>
+<p>A function term may omit the type annotations for the parameters, but
+only in a context where Deduce knows what the function's type should
+be. The following produces an error because the following <code class="inline">define</code>
+does not include a type annotation and neither does the function term.</p>
+<div class="code-wrapper"><code id="programming_bad_area"><!-- Generated by codeUtils.js --></code></div>
+<p>Deduce prints the following error message.</p>
+<div class="code-wrapper non-deduce"><code>Cannot&nbsp;synthesize&nbsp;a&nbsp;type&nbsp;for&nbsp;fun&nbsp;h,w{h&nbsp;&ast;&nbsp;w}.<br>
+Add&nbsp;type&nbsp;annotations&nbsp;to&nbsp;the&nbsp;parameters.</code></div>
+<h2 id="unions-and-switch">Unions and Switch</h2>
+<p>The <code class="inline">union</code> feature of Deduce defines a type whose values are created
+by one or more constructors.  A union definition specifies a name for
+the union type and its body specifies the name of each constructor and
+its parameter types. For example, we define the following union to
+represent a linked-list of natural numbers.</p>
+<div class="code-wrapper"><code id="programming_NatList"><!-- Generated by codeUtils.js --></code></div>
+<p>We can then construct values of type <code class="inline">NatList</code> using the constructors
+<code class="inline">Empty</code> and <code class="inline">Node</code>.  To create a linked-list whose elements are
+<code class="inline">1</code> and <code class="inline">2</code>, write:</p>
+<div class="code-wrapper"><code id="programming_NL12"><!-- Generated by codeUtils.js --></code></div>
+<p>Unions may be recursive: a constructor may include a parameter type
+that is the union type, e.g., the <code class="inline">NatList</code> parameter of <code class="inline">Node</code>. </p>
+<h3 id="generic-unions">Generic Unions</h3>
+<p>Unions may be generic: one can parameterize a union
+with one or more type parameters. For example, we generalize linked
+lists to any element types as follows.</p>
+<div class="code-wrapper"><code id="programming_List"><!-- Generated by codeUtils.js --></code></div>
+<p>Constructing values of a generic union looks the same as for a regular
+union. Deduce figures out the type for <code class="inline">T</code> from the types of
+the constructor arguments.</p>
+<div class="code-wrapper"><code id="programming_L12"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="switch">Switch</h3>
+<p>You can branch on a value of union type using <code class="inline">switch</code>. For example,
+the following <code class="inline">front</code> function returns the first element of a <code class="inline">NatList</code>. Here
+we give an explicit type annotation for the <code class="inline">front</code> function. The type
+of a function starts with <code class="inline">fn</code>, followed by the parameter types, then
+<code class="inline">-&gt;</code>, and finally the return type.</p>
+<div class="code-wrapper"><code id="programming_front"><!-- Generated by codeUtils.js --></code></div>
+<p>The output of </p>
+<div class="code-wrapper"><code id="programming_print_front"><!-- Generated by codeUtils.js --></code></div>
+<p>is <code class="inline">just(1)</code>.</p>
+<p>The <code class="inline">switch</code> compares the discriminated value with the
+constructor pattern of each <code class="inline">case</code> and when it finds a match,
+it initializes the pattern variables from the parts of the
+discriminated value and then evaluates the branch associated with the
+<code class="inline">case</code>.</p>
+<p>If you forget a <code class="inline">case</code> in a <code class="inline">switch</code>, Deduce will tell
+you. For example, if you try the following:</p>
+<div class="code-wrapper"><code id="programming_broken_front"><!-- Generated by codeUtils.js --></code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>this&nbsp;switch&nbsp;is&nbsp;missing&nbsp;a&nbsp;case&nbsp;for:&nbsp;Node(Nat,NatList)</code></div>
+<h2 id="natural-numbers">Natural Numbers</h2>
+<p>Natural numbers are not a builtin type in Deduce but instead they
+are defined as a <code class="inline">union</code> type:</p>
+<div class="code-wrapper"><code id="programming_Nat"><!-- Generated by codeUtils.js --></code></div>
+<p>The file <code class="inline">Nat.pf</code> includes the above definition together with some
+operations on natural numbers and theorems about them.  The numerals
+<code class="inline">0</code>, <code class="inline">1</code>, <code class="inline">2</code>, etc. are shorthand for the natural numbers <code class="inline">zero</code>,
+<code class="inline">suc(zero)</code>, <code class="inline">suc(suc(zero))</code>, etc.</p>
+<h2 id="lists">Lists</h2>
+<p>Similarly to natural numbers, lists are also defined as the <code class="inline">List&lt;T&gt;</code> union type we defined <a href="#generic-unions" target="_blank">above</a>.</p>
+<p>The file <code class="inline">List.pf</code> includes that definition as well as operations on lists and theorems about them. Deduce also provides shorthand notation for lists where:</p>
+<ul>
+<li><code class="inline">[]</code> is shorthand for <code class="inline">empty</code></li>
+<li><code class="inline">[1]</code> is shorthand for <code class="inline">node(1, empty)</code></li>
+<li><code class="inline">[1, 2]</code> is shorthand for <code class="inline">node(1, node(2, empty))</code></li>
+<li>etc.</li>
+</ul>
+<h2 id="booleans-conditionals-and-assert">Booleans, Conditionals, and Assert</h2>
+<p>Deduce includes the values <code class="inline">true</code> and <code class="inline">false</code> of type
+<code class="inline">bool</code> and the usual boolean operations such as <code class="inline">and</code>,
+<code class="inline">or</code>, and <code class="inline">not</code>.  Deduce also provides an if-then-else
+term that branches on the value of a boolean. For example, the
+following if-then-else term is evaluates to <code class="inline">7</code>.</p>
+<div class="code-wrapper"><code id="programming_print7"><!-- Generated by codeUtils.js --></code></div>
+<p>The <code class="inline">assert</code> statement evaluates a term and reports an
+error if the result is <code class="inline">false</code>. For example, the following
+<code class="inline">assert</code> does nothing because the term evaluates to
+<code class="inline">true</code>.</p>
+<div class="code-wrapper"><code id="programming_assert_if_true"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="recursive-functions">Recursive Functions</h2>
+<p>Recursive functions in Deduce are somewhat special to make sure they
+always terminate.</p>
+<ul>
+<li>The first parameter of the function must be a union.</li>
+<li>The function definition must include a clause for every
+  constructor in the union.</li>
+<li>The first argument of every recursive call must be a sub-part of the
+  current constructor of the union.</li>
+</ul>
+<p>A recursive function begins with the <code class="inline">function</code> keyword, followed by
+the name of the function, then the parameters types and the return
+type. For example, here's the definition of a <code class="inline">len</code> function for
+lists of natural numbers.</p>
+<div class="code-wrapper"><code id="programming_lenNatList"><!-- Generated by codeUtils.js --></code></div>
+<p>There are two clauses in the body. The clause for <code class="inline">Empty</code> says
+that its length is <code class="inline">0</code>.  The clause for <code class="inline">Node</code> says that
+its length is one more than the length of the rest of the linked list.
+Deduce approves of the recursive call <code class="inline">len(next)</code> because
+<code class="inline">next</code> is part of <code class="inline">Node(n, next)</code>.</p>
+<p>Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. For example, here
+is the <code class="inline">app</code> function that combines two linked lists.</p>
+<div class="code-wrapper"><code id="programming_app"><!-- Generated by codeUtils.js --></code></div>
+<p>If you need to pattern match on a parameter that is not the first, you
+can use a <code class="inline">switch</code> statement. For example, the following <code class="inline">zip</code>
+function (defined in <code class="inline">List.pf</code>) combines two lists into a single list
+of pairs. The function is defined by two clauses that pattern match on
+the first parameter. However, <code class="inline">zip</code> also needs to match on the second
+parameter <code class="inline">ys</code>, which is accomplished with a <code class="inline">switch</code> statement.</p>
+<div class="code-wrapper"><code id="programming_zip_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="generic-functions">Generic Functions</h2>
+<p>Deduce supports generic functions, so we can generalize <code class="inline">length</code> to
+work on lists with any element type as follows.</p>
+<div class="code-wrapper"><code id="programming_length"><!-- Generated by codeUtils.js --></code></div>
+<p>Generic functions that are not recursive can be defined using a
+combination of <code class="inline">define</code>, <code class="inline">generic</code>, and <code class="inline">fun</code>.</p>
+<div class="code-wrapper"><code id="programming_head"><!-- Generated by codeUtils.js --></code></div>
+<p>The type of a generic function, such as <code class="inline">head</code>, starts with its
+type parameters surrounded by <code class="inline">&lt;</code> and <code class="inline">&gt;</code>.</p>
+<p>Calling a generic function is just like calling a normal funtion,
+most of the time. For example, the following invokes the
+generic <code class="inline">length</code> function on an argument of type <code class="inline">List&lt;Nat&gt;</code>
+and Deduce figures out that the type parameter <code class="inline">E</code> must be <code class="inline">Nat</code>.</p>
+<div class="code-wrapper"><code id="programming_apply_length"><!-- Generated by codeUtils.js --></code></div>
+<p>However, there are times when there is not enough information for
+Deduce to determine the type parameters of a generic. For example,
+both the <code class="inline">length</code> function and the <code class="inline">empty</code> constructor are generic, so
+Deduce cannot figure out what type of list is being constructed in the
+following.</p>
+<div class="code-wrapper non-deduce"><code>assert&nbsp;length([])&nbsp;=&nbsp;0</code></div>
+<p>Deduce responds with the error:</p>
+<div class="code-wrapper non-deduce"><code>Cannot&nbsp;infer&nbsp;type&nbsp;arguments&nbsp;for<br>
+&nbsp;&nbsp;&nbsp;&nbsp;[]<br>
+Please&nbsp;make&nbsp;them&nbsp;explicit.</code></div>
+<p>The solution is to explicitly instantiate either <code class="inline">empty</code> or <code class="inline">length</code>.
+The syntax starts with <code class="inline">@</code>, followed by the generic entity, and finishes
+with the type arguments surrounded by <code class="inline">&lt;</code> and <code class="inline">&gt;</code>. Here's the 
+example again with the explicit instantiation.</p>
+<div class="code-wrapper"><code id="programming_apply_length_empty"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="higher-order-functions">Higher-order Functions</h2>
+<p>Functions may be passed as parameters to a function and they may be
+returned from a function. For example, the following function checks
+whether every element of a list satisfies a predicate.</p>
+<div class="code-wrapper"><code id="programming_all_elements"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="pairs">Pairs</h2>
+<p>Pairs are defined as a <code class="inline">union</code> type:</p>
+<div class="code-wrapper"><code id="programming_Pair"><!-- Generated by codeUtils.js --></code></div>
+<p>The file <code class="inline">Pair.pf</code> includes the above definition and several
+operations on pairs, such as <code class="inline">first</code> and <code class="inline">second</code>.</p>
+<h2 id="exercises">Exercises</h2>
+<h3 id="sum-the-elements-in-a-list">Sum the Elements in a List</h3>
+<p>Define a function named <code class="inline">sum</code> that adds up all the elements of a <code class="inline">List&lt;Nat&gt;</code>.</p>
+<div class="code-wrapper"><code id="programming_test_sum"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="inner-product">Inner Product</h3>
+<p>Define a function named <code class="inline">dot</code> that computes the inner product of two <code class="inline">List&lt;Nat&gt;</code>.</p>
+<div class="code-wrapper"><code id="programming_test_dot"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="last-element-in-a-list">Last Element in a List</h3>
+<p>Define a generic function named <code class="inline">last</code> that returns the last element
+of a <code class="inline">List&lt;E&gt;</code>, if there is one. The return type should be <code class="inline">Option&lt;E&gt;</code>.
+(<code class="inline">Option</code> is defined in the file <code class="inline">Option.pf</code>.)</p>
+<div class="code-wrapper"><code id="programming_test_last"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="remove-elements-from-a-list">Remove Elements from a List</h3>
+<p>Define a generic function named <code class="inline">remove_if</code> that removes elements
+from a list if they satisfy a predicate. So <code class="inline">remove_if</code> should have two
+parameters: (1) a <code class="inline">List&lt;E&gt;</code> and (2) a function whose parameter is <code class="inline">E</code> 
+and whose return type is <code class="inline">bool</code>.</p>
+<div class="code-wrapper"><code id="programming_test_remove_if"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="non-empty-lists-and-average">Non-empty Lists and Average</h3>
+<p>Define a <code class="inline">union</code> type named <code class="inline">NEList</code> for non-empty list.  Design the
+alternatives in the <code class="inline">union</code> carefuly to make it impossible to create
+an empty list.</p>
+<p>Define a function named <code class="inline">average</code> that computes the mean of a
+non-empty list and check that it works on a few inputs.
+Note that the second parameter of the division operator <code class="inline">/</code> 
+is of type <code class="inline">Pos</code>, which is defined in <code class="inline">Nat.pf</code>.</p>
+<!--
+!!!{.deduce^file=FunctionalProgramming.pf}
+&lt;&lt;ImportNat&gt;&gt;
+&lt;&lt;five_six&gt;&gt;
+&lt;&lt;print_five&gt;&gt;
+&lt;&lt;area&gt;&gt;
+&lt;&lt;print_area&gt;&gt;
+&lt;&lt;NatList&gt;&gt;
+&lt;&lt;NL12&gt;&gt;
+&lt;&lt;List&gt;&gt;
+&lt;&lt;L12&gt;&gt;
+&lt;&lt;front&gt;&gt;
+&lt;&lt;print_front&gt;&gt;
+&lt;&lt;print7&gt;&gt;
+&lt;&lt;assert_if_true&gt;&gt;
+&lt;&lt;lenNatList&gt;&gt;
+&lt;&lt;app&gt;&gt;
+&lt;&lt;length&gt;&gt;
+&lt;&lt;apply_length&gt;&gt;
+&lt;&lt;apply_length_empty&gt;&gt;
+&lt;&lt;head&gt;&gt;
+&lt;&lt;all_elements&gt;&gt;
+&lt;&lt;Pair&gt;&gt;
+!!!
+-->
+        <footer>
+            <a class="nav-logo" href="../index.html">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
+                    <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
+                        transform="rotate(14.995 52.954 86.34)" />
+                    <path class="blue" fill="#5DAAF1" d="m64.373 41.777 35.74 9.573-23.804 88.867-35.74-9.573z" />
+                    <rect class="blue" width="89" height="109" x="79.397" y="28.202" fill="#5DAAF1" rx="26"
+                        transform="rotate(14.995 79.397 28.202)" />
+                    <rect class="blue" width="88" height="109" x="104.511" y="34.929" fill="#5DAAF1" rx="41"
+                        transform="rotate(14.995 104.511 34.929)" />
+                    <circle cx="102.759" cy="57.343" r="7.5" fill="#fff" transform="rotate(14.995 102.759 57.343)" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M138.713 51.92c-.708-2.633-.535-9.472 5.812-15.768 7.934-7.87 13.773-2.974 9.545 5.889-3.382 7.09-7.816 15.009-9.61 18.082l-5.747-8.203Z" />
+                    <rect class="blue" width="277" height="144.529" x="159.042" y="50.663" fill="#5DAAF1" rx="58"
+                        transform="rotate(13 159.042 50.663)" />
+                    <path class="blue" fill="#5DAAF1" d="m164.305 126 248.242 57.311-16.646 72.104-248.242-57.312z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M377 159h40v92h-40zM70 102.825 141.012 45l77.642 95.347-71.012 57.826z" />
+                    <path class="blue" fill="#5DAAF1" d="m151.638 49.079 112.866 26.057-15.971 69.18-112.866-26.057z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="m147.622 46.516 28.984 9.675-22.482 67.347-28.984-9.675zm236.164 192.862h33.319v67.92h-33.319zm0 67.92v-75.609L362 224l21.786 83.298Zm-245.189-29.614 35.092-92.309-23.029-19.498-12.063 111.807ZM174 283.5l12.562-106.137 29.393-6.821L174 283.5Z" />
+                    <path class="blue" fill="#5DAAF1" d="M200.701 113.82 174 283.5l-35.229-6.32 61.93-163.36Z" />
+                    <path class="purple" fill="#A770EA"
+                        d="m103.459 155.41-48.84 70.804 15.787 23.485 63.822-54.251-30.769-40.038Zm199.156 108.147h28.844v36.191h-28.844z" />
+                    <path class="purple" fill="#A770EA" d="m302.615 299.748 28.407-52.007L293 239l9.615 60.748Z" />
+                    <path class="purple" fill="#A770EA" d="m331.459 299.748 20.541-47.2-40.207-9.178 19.666 56.378Z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M590.18 307H523.3v-30.4h17.86V71.02H523.3V41h79.8c18.24 0 35.467 3.167 51.68 9.5 16.213 6.08 30.4 14.947 42.56 26.6 12.16 11.653 21.787 25.713 28.88 42.18 7.093 16.213 10.64 34.58 10.64 55.1 0 14.947-2.66 30.273-7.98 45.98-5.067 15.707-13.427 29.893-25.08 42.56-11.653 12.92-26.853 23.56-45.6 31.92-18.493 8.107-41.167 12.16-68.02 12.16ZM572.7 71.02V276.6h26.6c14.947 0 28.88-2.407 41.8-7.22 12.92-4.813 24.193-11.78 33.82-20.9 9.373-8.867 16.72-19.507 22.04-31.92 5.573-12.667 8.36-26.853 8.36-42.56s-2.787-29.893-8.36-42.56c-5.32-12.667-12.667-23.56-22.04-32.68-9.627-8.867-20.9-15.707-33.82-20.52-12.92-4.813-26.853-7.22-41.8-7.22h-26.6Zm266.698 120.84c-7.094 0-13.554 1.267-19.38 3.8-5.574 2.28-10.387 5.573-14.44 9.88-3.04 3.547-5.574 7.6-7.6 12.16-1.774 4.56-2.787 9.5-3.04 14.82a5454.18 5454.18 0 0 0 35.34-12.92 2039.524 2039.524 0 0 1 35.72-13.3c-3.547-4.307-7.6-7.727-12.16-10.26-4.307-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.334 6.333-13.554 11.273-21.66 14.82-8.107 3.547-16.974 5.32-26.6 5.32-10.64 0-20.647-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.287-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.053-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.373-4.053 19.38-6.08 30.02-6.08 7.853 0 15.326 1.647 22.42 4.94 7.346 3.04 13.933 7.347 19.76 12.92 5.573 5.573 10.513 12.287 14.82 20.14 4.306 7.6 7.6 15.96 9.88 25.08l-51.68 19a11397.596 11397.596 0 0 1-51.3 19c3.8 5.32 8.74 9.627 14.82 12.92 6.333 3.04 13.426 4.56 21.28 4.56 5.826 0 11.146-1.013 15.96-3.04 4.813-2.027 9.12-5.067 12.92-9.12l19.38 22.8ZM1115.73 307h-56.62v-15.2c-.25.76-1.52 2.153-3.8 4.18-2.28 2.027-5.44 4.053-9.5 6.08-4.3 2.28-9.37 4.18-15.2 5.7-5.82 1.773-12.41 2.66-19.76 2.66-10.64 0-20.645-1.9-30.018-5.7-9.373-4.053-17.48-9.5-24.32-16.34s-12.287-14.82-16.34-23.94c-3.8-9.12-5.7-18.747-5.7-28.88s1.9-19.633 5.7-28.5c4.053-9.12 9.5-17.1 16.34-23.94s14.947-12.16 24.32-15.96c9.373-4.053 19.378-6.08 30.018-6.08 6.34 0 12.29.887 17.86 2.66 5.83 1.773 10.9 3.8 15.2 6.08 4.31 2.28 7.35 4.18 9.12 5.7 1.78 1.267 2.92 2.28 3.42 3.04-.5-2.027-.88-4.56-1.14-7.6V52.02h-25.08V22h56.62v254.98h28.88V307Zm-104.88-115.14c-6.58 0-12.665 1.14-18.238 3.42-5.573 2.28-10.387 5.32-14.44 9.12-3.547 4.053-6.46 8.74-8.74 14.06-2.027 5.067-3.04 10.767-3.04 17.1 0 6.587 1.267 12.793 3.8 18.62 2.533 5.827 5.953 10.64 10.26 14.44 3.8 3.547 8.233 6.333 13.3 8.36 5.32 1.773 11.018 2.66 17.098 2.66 6.08 0 11.66-.887 16.72-2.66 5.07-2.027 9.63-4.813 13.68-8.36 4.31-3.8 7.73-8.613 10.26-14.44 2.54-5.827 3.8-12.033 3.8-18.62 0-7.093-1.39-13.553-4.18-19.38-2.53-5.827-6.08-10.64-10.64-14.44-3.8-3.04-8.23-5.447-13.3-7.22-5.06-1.773-10.51-2.66-16.34-2.66Zm267.47 78.66c-5.06 12.16-13.3 21.913-24.7 29.26-11.14 7.093-23.56 10.64-37.24 10.64-14.94 0-26.72-3.927-35.34-11.78-8.61-7.853-13.17-18.113-13.68-30.78v-73.34h-25.08V164.5h56.62v88.92c.51 6.84 2.92 12.793 7.22 17.86 4.56 4.813 11.66 7.473 21.28 7.98 6.59 0 12.8-1.14 18.62-3.42 6.08-2.28 11.4-5.447 15.96-9.5 4.56-4.053 8.24-8.867 11.02-14.44 2.79-5.573 4.18-11.653 4.18-18.24v-39.14h-25.08V164.5h56.62v115.9h23.56V307h-55.1v-19.38l1.14-17.1Zm204.18 23.56c-6.58 5.067-13.93 9.12-22.04 12.16-7.85 2.787-16.34 4.18-25.46 4.18-10.64 0-20.64-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.28-14.693-16.34-23.56c-3.8-8.867-5.7-18.62-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.06-9.12 9.5-16.973 16.34-23.56 6.84-6.84 14.82-12.16 23.94-15.96 9.38-4.053 19.38-6.08 30.02-6.08 9.38 0 18.12 1.52 26.22 4.56 8.11 2.787 15.46 6.713 22.04 11.78v44.08h-28.12v-25.46c-3.04-1.52-6.33-2.533-9.88-3.04-3.29-.76-6.71-1.14-10.26-1.14-6.08 0-11.78 1.013-17.1 3.04-5.06 1.773-9.5 4.307-13.3 7.6-4.56 4.053-8.1 8.867-10.64 14.44-2.28 5.573-3.42 11.78-3.42 18.62 0 6.333 1.14 12.287 3.42 17.86 2.28 5.573 5.45 10.387 9.5 14.44 4.06 3.547 8.74 6.46 14.06 8.74 5.32 2.027 11.15 3.04 17.48 3.04 5.58 0 10.64-.76 15.2-2.28 4.82-1.52 9.25-3.927 13.3-7.22l19 23.94Zm103.54-102.22c-7.1 0-13.56 1.267-19.38 3.8-5.58 2.28-10.39 5.573-14.44 9.88-3.04 3.547-5.58 7.6-7.6 12.16-1.78 4.56-2.79 9.5-3.04 14.82a5726.9 5726.9 0 0 0 35.34-12.92c11.9-4.56 23.81-8.993 35.72-13.3-3.55-4.307-7.6-7.727-12.16-10.26-4.31-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.34 6.333-13.56 11.273-21.66 14.82-8.11 3.547-16.98 5.32-26.6 5.32-10.64 0-20.65-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.29-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.05-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.37-4.053 19.38-6.08 30.02-6.08 7.85 0 15.32 1.647 22.42 4.94 7.34 3.04 13.93 7.347 19.76 12.92 5.57 5.573 10.51 12.287 14.82 20.14 4.3 7.6 7.6 15.96 9.88 25.08-17.23 6.333-34.46 12.667-51.68 19-16.98 6.333-34.08 12.667-51.3 19 3.8 5.32 8.74 9.627 14.82 12.92 6.33 3.04 13.42 4.56 21.28 4.56 5.82 0 11.14-1.013 15.96-3.04 4.81-2.027 9.12-5.067 12.92-9.12l19.38 22.8Z" />
+                </svg>
+            </a>
+            <div class="footer-links">
+                <div class="footer-col">
+                    <a href="./getting-started.html">Get Started</a>
+                    <a href="./sandbox.html">Live Code</a>
+                    <a href="https://github.com/jsiek/deduce" target="_blank">Source Code</a>
+                    <a href="https://github.com/HalflingHelper/deduce-mode" target="_blank">VS-Code deduce-mode</a>
+                    <a href="https://github.com/mateidragony/deduce-mode" target="_blank">Emacs deduce-mode</a>
+                </div>
+                <div class="footer-col">
+                    <a href="./reference.html">Reference</a>
+                    <a href="./cheat-sheet.html">Cheat sheet</a>
+                    <a href="./deduce-programming.html">Programming in deduce</a>
+                    <a href="./deduce-proofs.html">Proofs in deduce</a>
+                </div>
+                <div class="footer-col">
+                    <a href="./syntax.html">Syntax/Grammar</a>
+                    <a href="./syntax.html#statements">Statements</a>
+                    <a href="./syntax.html#proofs">Proofs</a>
+                    <a href="./syntax.html#terms">Terms</a>
+                    <a href="./syntax.html#types">Types</a>
+                    <a href="./syntax.html#unicode">Deduce unicode</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+
+    <script src="../js/cache.js"></script>
+    <script src="../js/script.js"></script>
+    <script src="../js/code.js"></script>
+    <script src="../js/codeUtils.js"></script>
+</body>
+
+</html>

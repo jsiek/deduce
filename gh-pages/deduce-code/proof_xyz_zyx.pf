@@ -1,0 +1,23 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
+  x + y + z = z + y + x
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  have step1: x + y + z = x + z + y
+    by rewrite add_commute[y][z]
+  have step2: x + z + y = (x + z) + y
+    by rewrite add_assoc[x][z,y]
+  have step3: (x + z) + y = (z + x) + y
+    by rewrite add_commute[z][x]
+  have step4: (z + x) + y = z + (x + y)
+    by rewrite add_assoc[z][x,y]
+  have step5: z + (x + y) = z + y + x
+    by rewrite add_commute[x][y]
+  transitive step1 (transitive step2 (transitive step3
+    (transitive step4 step5)))
+end

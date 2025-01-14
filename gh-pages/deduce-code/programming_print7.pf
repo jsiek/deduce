@@ -1,0 +1,7 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+print (if true then 7 else 5+6)

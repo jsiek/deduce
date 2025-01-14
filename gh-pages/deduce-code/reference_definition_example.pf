@@ -1,0 +1,14 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem length_list2: length([0,1]) = 2
+proof
+  suffices 1 + length([1]) = 2
+      by definition length
+  suffices 1 + (1 + 0) = 2
+      by definition {length, length}
+  definition {operator+, operator+}
+end

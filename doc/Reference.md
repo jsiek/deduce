@@ -1,3 +1,4 @@
+# Reference Manual
 
 This is a comprehensive reference for Deduce. It describes each
 feature in alphabetical order by keyword. It gives the grammar rule
@@ -177,9 +178,11 @@ conclusion ::= "apply" proof "to" proof
 ```
 
 A proof of the form
+
 ```
 apply X to Y
 ```
+
 is a proof of formula `Q` if `X` is a proof of `(if P then Q)`
 and `Y` is a proof of `P`.
 
@@ -207,10 +210,12 @@ proof_stmt ::= "arbitrary" var_list
 ```
 
 A proof of the form
+
 ```
 arbitrary x1:T1, ..., xn:Tn
 X
 ```
+
 is a proof of the formula `all x1:T1, ..., xn:Tn. P` if `X` is a proof of `P`.
 The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
 
@@ -249,10 +254,12 @@ proof_stmt ::= "assume" assumption
 ```
 
 A proof of the form
+
 ```
 assume label: P
 X
 ```
+
 is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
 The proof `X` may use the `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
@@ -367,10 +374,12 @@ proof_stmt ::= "choose" term_list
 ```
 
 A proof of the form
+
 ```
 choose e1,...,en
 X
 ```
+
 is a proof of the formula `some x1,...xn. P`
 if `X` is a proof of formula `P` where the `x`'s replaced by the `e`'s.
 
@@ -420,9 +429,11 @@ This proof statement is useful when you wish to emphasize the end of a
 proof by stating the formula that is being proved.
 
 A proof of the form
+
 ```
 conclude P by X
 ```
+
 is a proof of formula `P` if `X` is a proof of `P`.
 
 Example:
@@ -454,7 +465,7 @@ must be one of the following:
 * [Induction](#induction)
 * [Instantiation](#instantiation-proof)
 * [Period](#period-proof-of-true)
-* [Question Mark](#question-mark--proof)
+* [Question Mark](#question-mark-proof)
 * [Recall](#recall-proof)
 * [Rewrite](#rewrite-proof)
 * [Sorry](#sorry-proof)
@@ -469,9 +480,11 @@ conclusion ::= "conjunct" number "of" proof
 ```
 
 A proof of the form
+
 ```
 conjunct n of X
 ```
+
 is a proof of `Pn` if `X` is a proof of `P1 and ... and Pk`
 and 1 ≤ n ≤ k.
 
@@ -878,9 +891,11 @@ term ::= "generic" identifier_list "{" term "}"
 ```
 
 A term of the form
+
 ```
 generic T1, ..., Tn { X }
 ```
+
 produces a generic function with type parameters 
 `T1`, ..., `Tn`, if term `X` produces a function
 (e.g., using `fun`).
@@ -908,6 +923,7 @@ formula ::= term ">" term
 
 The greater-than operator on natural numbers is defined in `Nat.pf`
 and is defined in terms of less-than as follows
+
 ```
 x > y = y < x
 ```
@@ -930,6 +946,7 @@ formula ::= term ">=" term
 
 The greater-than-or-equal operator on natural numbers is defined in `Nat.pf`
 and is defined in terms of less-than-or-equal as follows
+
 ```
 x ≥ y = y ≤ x
 ```
@@ -953,10 +970,12 @@ Use `have` to prove a formula that may help you later to prove the
 goal.
 
 A proof of the form
+
 ```
 have label: P by X
 Y
 ```
+
 is a proof of `Q` as long as `Y` is a proof of `Q` and `X` is a proof of `P`.
 The formula `P` becomes a given and can be used inside the proof `Y`.
 
@@ -1017,9 +1036,11 @@ To use a given that is a conditional formula, use `apply`-`to`.
 ## If Then Else (Term)
 
 A term of the form
+
 ```
 if a then b else c
 ```
+
 is equal to `b` when `a` is true and equal to `c` when `a` is false.
 
 Example:
@@ -1074,12 +1095,14 @@ ind_case ::= "case" pattern "{" proof "}"
 ```
 
 A proof of the form
+
 ```
 induction T
 case c1(e11,...,e1k) assume IH1, ... { X1 }
 ...
 case cn(en1,...,enj) assume IH1, ... { Xn }
 ```
+
 is a proof of the formula `all x:T. P`
 if each `Xi` is a proof of `P` where `x` is replaced
 by `ci(ei1,...,eij)`. The type `T` must be a union type.
@@ -1199,6 +1222,7 @@ formula ::= term "<" term
 
 The less-than operator on natural numbers is defined in `Nat.pf`
 as follows.
+
 ```
 x < y = suc(x) ≤ y
 ```
@@ -1383,10 +1407,12 @@ proof_stmt ::= "obtain" identifier_list "where" assumption "from" proof
 
 
 A proof of the form
+
 ```
 obtain x1,...,xn where label: P from X
 Y
 ```
+
 is a proof of formula `Q` if `Y` is a proof of `Q`.
 The `X` must be a proof of the form `some x1:T1,...,xn:Tn. P`.
 The proof `Y` may use the `label` as a proof of `P`
@@ -1468,7 +1494,7 @@ pattern ::= identifier | "0" | "true" | "false" | identifier "(" identifier_list
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
-and [Function (Statement)](#function-statement) via [Pattern List](#pattern-list).
+and [Function (Statement)](#function-statement) via a Pattern List.
 
 
 ## Parameter List
@@ -1529,7 +1555,7 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Have](#have-proof-statement)
 * [Injective](#injective-proof)
 * [Obtain](#obtain-exists-elimination)
-* [Suffices](#suffices-proof-statment)
+* [Suffices](#suffices-proof-statement)
 * [Suppose](#suppose)
 
 ## Print (Statement)
@@ -1704,6 +1730,7 @@ assumptions ::= "suppose" assumption_list | "assume" assumption_list
 (See entry for Assumption List for the syntax of `assumption_list`.)
 
 A proof of the form
+
 ```
 switch t {
   case p1 assume eq1: t = p1 {
@@ -1715,6 +1742,7 @@ switch t {
   }
 }
 ```
+
 is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
 The fact `t = p1` is a given that can be used in `X1`
 and similarly for the other cases.
@@ -1808,10 +1836,12 @@ proof_stmt ::= "suffices" formula "by" proof
 ```
 
 A proof of the form
+
 ```
 suffices P by X
 Y
 ```
+
 is a proof of the formula `Q` if `X` is a proof that `P` imples `Q`
 and `Y` is a proof of `Q`.
 
@@ -1823,13 +1853,17 @@ Example:
 One often wants to transform the goal by using a definition or equation.
 For example, in the following theorem we change the goal
 from
+
 ```
 length(node(3, empty)) = 1
 ```
+
 into
+
 ```
 1 + 0 = 1
 ```
+
 by two uses of the definition of `length`.
 We then prove the new goal with theorem `add_zero` from `Nat.thm`.
 
@@ -1868,12 +1902,14 @@ A theorem (or lemma) proves that a formula is true. The theorem's name
 can then be used later when one needs to prove the formula again.
 
 A theorem has the form
+
 ```
 theorem label: P
 proof
   X
 end
 ```
+
 The proof `X` must prove the formula `P`. After the theorem, the `label` can be used
 as a proof of `P`.
 
@@ -2064,6 +2100,5 @@ import Maps
 <<suffices_example>>
 <<true_example>>
 <<union_example>>
-<<set_union_example>>
 ```
 -->

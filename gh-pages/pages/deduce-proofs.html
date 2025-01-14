@@ -1,0 +1,1107 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deduce | Proofs</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="../images/logo.svg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Josefin+Slab:ital,wght@0,100..700;1,100..700&display=swap"
+        rel="stylesheet">
+
+    <!-- Font awesome -->
+    <script src="https://kit.fontawesome.com/7005573326.js" crossorigin="anonymous"></script>
+
+    <!-- My stylesheets -->
+    <link rel="stylesheet" href="../css/normalize.css">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+
+    <div class="container md deduce-proofs">
+        <nav>
+            <a class="nav-logo" href="../index.html">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
+                    <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
+                        transform="rotate(14.995 52.954 86.34)" />
+                    <path class="blue" fill="#5DAAF1" d="m64.373 41.777 35.74 9.573-23.804 88.867-35.74-9.573z" />
+                    <rect class="blue" width="89" height="109" x="79.397" y="28.202" fill="#5DAAF1" rx="26"
+                        transform="rotate(14.995 79.397 28.202)" />
+                    <rect class="blue" width="88" height="109" x="104.511" y="34.929" fill="#5DAAF1" rx="41"
+                        transform="rotate(14.995 104.511 34.929)" />
+                    <circle cx="102.759" cy="57.343" r="7.5" fill="#fff" transform="rotate(14.995 102.759 57.343)" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M138.713 51.92c-.708-2.633-.535-9.472 5.812-15.768 7.934-7.87 13.773-2.974 9.545 5.889-3.382 7.09-7.816 15.009-9.61 18.082l-5.747-8.203Z" />
+                    <rect class="blue" width="277" height="144.529" x="159.042" y="50.663" fill="#5DAAF1" rx="58"
+                        transform="rotate(13 159.042 50.663)" />
+                    <path class="blue" fill="#5DAAF1" d="m164.305 126 248.242 57.311-16.646 72.104-248.242-57.312z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M377 159h40v92h-40zM70 102.825 141.012 45l77.642 95.347-71.012 57.826z" />
+                    <path class="blue" fill="#5DAAF1" d="m151.638 49.079 112.866 26.057-15.971 69.18-112.866-26.057z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="m147.622 46.516 28.984 9.675-22.482 67.347-28.984-9.675zm236.164 192.862h33.319v67.92h-33.319zm0 67.92v-75.609L362 224l21.786 83.298Zm-245.189-29.614 35.092-92.309-23.029-19.498-12.063 111.807ZM174 283.5l12.562-106.137 29.393-6.821L174 283.5Z" />
+                    <path class="blue" fill="#5DAAF1" d="M200.701 113.82 174 283.5l-35.229-6.32 61.93-163.36Z" />
+                    <path class="purple" fill="#A770EA"
+                        d="m103.459 155.41-48.84 70.804 15.787 23.485 63.822-54.251-30.769-40.038Zm199.156 108.147h28.844v36.191h-28.844z" />
+                    <path class="purple" fill="#A770EA" d="m302.615 299.748 28.407-52.007L293 239l9.615 60.748Z" />
+                    <path class="purple" fill="#A770EA" d="m331.459 299.748 20.541-47.2-40.207-9.178 19.666 56.378Z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M590.18 307H523.3v-30.4h17.86V71.02H523.3V41h79.8c18.24 0 35.467 3.167 51.68 9.5 16.213 6.08 30.4 14.947 42.56 26.6 12.16 11.653 21.787 25.713 28.88 42.18 7.093 16.213 10.64 34.58 10.64 55.1 0 14.947-2.66 30.273-7.98 45.98-5.067 15.707-13.427 29.893-25.08 42.56-11.653 12.92-26.853 23.56-45.6 31.92-18.493 8.107-41.167 12.16-68.02 12.16ZM572.7 71.02V276.6h26.6c14.947 0 28.88-2.407 41.8-7.22 12.92-4.813 24.193-11.78 33.82-20.9 9.373-8.867 16.72-19.507 22.04-31.92 5.573-12.667 8.36-26.853 8.36-42.56s-2.787-29.893-8.36-42.56c-5.32-12.667-12.667-23.56-22.04-32.68-9.627-8.867-20.9-15.707-33.82-20.52-12.92-4.813-26.853-7.22-41.8-7.22h-26.6Zm266.698 120.84c-7.094 0-13.554 1.267-19.38 3.8-5.574 2.28-10.387 5.573-14.44 9.88-3.04 3.547-5.574 7.6-7.6 12.16-1.774 4.56-2.787 9.5-3.04 14.82a5454.18 5454.18 0 0 0 35.34-12.92 2039.524 2039.524 0 0 1 35.72-13.3c-3.547-4.307-7.6-7.727-12.16-10.26-4.307-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.334 6.333-13.554 11.273-21.66 14.82-8.107 3.547-16.974 5.32-26.6 5.32-10.64 0-20.647-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.287-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.053-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.373-4.053 19.38-6.08 30.02-6.08 7.853 0 15.326 1.647 22.42 4.94 7.346 3.04 13.933 7.347 19.76 12.92 5.573 5.573 10.513 12.287 14.82 20.14 4.306 7.6 7.6 15.96 9.88 25.08l-51.68 19a11397.596 11397.596 0 0 1-51.3 19c3.8 5.32 8.74 9.627 14.82 12.92 6.333 3.04 13.426 4.56 21.28 4.56 5.826 0 11.146-1.013 15.96-3.04 4.813-2.027 9.12-5.067 12.92-9.12l19.38 22.8ZM1115.73 307h-56.62v-15.2c-.25.76-1.52 2.153-3.8 4.18-2.28 2.027-5.44 4.053-9.5 6.08-4.3 2.28-9.37 4.18-15.2 5.7-5.82 1.773-12.41 2.66-19.76 2.66-10.64 0-20.645-1.9-30.018-5.7-9.373-4.053-17.48-9.5-24.32-16.34s-12.287-14.82-16.34-23.94c-3.8-9.12-5.7-18.747-5.7-28.88s1.9-19.633 5.7-28.5c4.053-9.12 9.5-17.1 16.34-23.94s14.947-12.16 24.32-15.96c9.373-4.053 19.378-6.08 30.018-6.08 6.34 0 12.29.887 17.86 2.66 5.83 1.773 10.9 3.8 15.2 6.08 4.31 2.28 7.35 4.18 9.12 5.7 1.78 1.267 2.92 2.28 3.42 3.04-.5-2.027-.88-4.56-1.14-7.6V52.02h-25.08V22h56.62v254.98h28.88V307Zm-104.88-115.14c-6.58 0-12.665 1.14-18.238 3.42-5.573 2.28-10.387 5.32-14.44 9.12-3.547 4.053-6.46 8.74-8.74 14.06-2.027 5.067-3.04 10.767-3.04 17.1 0 6.587 1.267 12.793 3.8 18.62 2.533 5.827 5.953 10.64 10.26 14.44 3.8 3.547 8.233 6.333 13.3 8.36 5.32 1.773 11.018 2.66 17.098 2.66 6.08 0 11.66-.887 16.72-2.66 5.07-2.027 9.63-4.813 13.68-8.36 4.31-3.8 7.73-8.613 10.26-14.44 2.54-5.827 3.8-12.033 3.8-18.62 0-7.093-1.39-13.553-4.18-19.38-2.53-5.827-6.08-10.64-10.64-14.44-3.8-3.04-8.23-5.447-13.3-7.22-5.06-1.773-10.51-2.66-16.34-2.66Zm267.47 78.66c-5.06 12.16-13.3 21.913-24.7 29.26-11.14 7.093-23.56 10.64-37.24 10.64-14.94 0-26.72-3.927-35.34-11.78-8.61-7.853-13.17-18.113-13.68-30.78v-73.34h-25.08V164.5h56.62v88.92c.51 6.84 2.92 12.793 7.22 17.86 4.56 4.813 11.66 7.473 21.28 7.98 6.59 0 12.8-1.14 18.62-3.42 6.08-2.28 11.4-5.447 15.96-9.5 4.56-4.053 8.24-8.867 11.02-14.44 2.79-5.573 4.18-11.653 4.18-18.24v-39.14h-25.08V164.5h56.62v115.9h23.56V307h-55.1v-19.38l1.14-17.1Zm204.18 23.56c-6.58 5.067-13.93 9.12-22.04 12.16-7.85 2.787-16.34 4.18-25.46 4.18-10.64 0-20.64-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.28-14.693-16.34-23.56c-3.8-8.867-5.7-18.62-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.06-9.12 9.5-16.973 16.34-23.56 6.84-6.84 14.82-12.16 23.94-15.96 9.38-4.053 19.38-6.08 30.02-6.08 9.38 0 18.12 1.52 26.22 4.56 8.11 2.787 15.46 6.713 22.04 11.78v44.08h-28.12v-25.46c-3.04-1.52-6.33-2.533-9.88-3.04-3.29-.76-6.71-1.14-10.26-1.14-6.08 0-11.78 1.013-17.1 3.04-5.06 1.773-9.5 4.307-13.3 7.6-4.56 4.053-8.1 8.867-10.64 14.44-2.28 5.573-3.42 11.78-3.42 18.62 0 6.333 1.14 12.287 3.42 17.86 2.28 5.573 5.45 10.387 9.5 14.44 4.06 3.547 8.74 6.46 14.06 8.74 5.32 2.027 11.15 3.04 17.48 3.04 5.58 0 10.64-.76 15.2-2.28 4.82-1.52 9.25-3.927 13.3-7.22l19 23.94Zm103.54-102.22c-7.1 0-13.56 1.267-19.38 3.8-5.58 2.28-10.39 5.573-14.44 9.88-3.04 3.547-5.58 7.6-7.6 12.16-1.78 4.56-2.79 9.5-3.04 14.82a5726.9 5726.9 0 0 0 35.34-12.92c11.9-4.56 23.81-8.993 35.72-13.3-3.55-4.307-7.6-7.727-12.16-10.26-4.31-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.34 6.333-13.56 11.273-21.66 14.82-8.11 3.547-16.98 5.32-26.6 5.32-10.64 0-20.65-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.29-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.05-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.37-4.053 19.38-6.08 30.02-6.08 7.85 0 15.32 1.647 22.42 4.94 7.34 3.04 13.93 7.347 19.76 12.92 5.57 5.573 10.51 12.287 14.82 20.14 4.3 7.6 7.6 15.96 9.88 25.08-17.23 6.333-34.46 12.667-51.68 19-16.98 6.333-34.08 12.667-51.3 19 3.8 5.32 8.74 9.627 14.82 12.92 6.33 3.04 13.42 4.56 21.28 4.56 5.82 0 11.14-1.013 15.96-3.04 4.81-2.027 9.12-5.067 12.92-9.12l19.38 22.8Z" />
+                </svg>
+            </a>
+            <div class="nav-links">
+                <a class="mobile link-btn" id="nav-toggle"><i class="fa-solid fa-bars"></i></a>
+                <div id="link-list" class="hide">
+                    <a class="link-btn" href="./getting-started.html">Get Started</a>
+                    <a class="link-btn" href="./reference.html">Reference</a>
+                    <a class="link-btn" href="./sandbox.html">Live Code</a>
+                </div>
+            </div>
+        </nav>
+<h1 id="writing-proofs-in-deduce">Writing Proofs in Deduce</h1>
+<p>This section provides a tutorial on writing proofs in Deduce.  In the
+following subsections we introduce the features of the Deduce proof
+language and provide examples of their use. </p>
+<ul>
+<li><a href="#applying-definitions-to-the-goal" target="_blank">Applying Definitions to the Goal</a></li>
+<li><a href="#generalizing-with-all-formulas" target="_blank">Generalizing with <code class="inline">all</code> formulas</a></li>
+<li><a href="#rewriting-the-goal-with-equations" target="_blank">Rewriting the Goal with Equations</a></li>
+<li><a href="#reasoning-about-natural-numbers" target="_blank">Reasoning about Natural Numbers</a></li>
+<li><a href="#proving-intermediate-facts-with-have" target="_blank">Proving Intermediate Facts with <code class="inline">have</code></a></li>
+<li><a href="#chaining-equations-with-equations" target="_blank">Chaining Equations with <code class="inline">equations</code></a></li>
+<li><a href="#proving-all-formulas-with-induction" target="_blank">Proving <code class="inline">all</code> Formulas with Induction</a></li>
+<li><a href="#reasoning-about-and-conjunction" target="_blank">Reasoning about <code class="inline">and</code> (Conjunction)</a></li>
+<li><a href="#reasoning-about-or-disjunction" target="_blank">Reasoning about <code class="inline">or</code> (Disjunction)</a></li>
+<li><a href="#the-switch-proof-statement" target="_blank">The <code class="inline">switch</code> Proof Statement</a></li>
+<li><a href="#applying-definitions-and-rewrites-to-the-goal" target="_blank">Applying Definitions and Rewrites to the Goal</a></li>
+<li><a href="#conditional-formulas-implication-and-applying-definitions-to-facts" target="_blank">Conditional Formulas (Implication) and Applying Definitions to Facts</a></li>
+<li><a href="#reasoning-about-true" target="_blank">Reasoning about <code class="inline">true</code></a></li>
+<li><a href="#reasoning-about-false" target="_blank">Reasoning about <code class="inline">false</code></a></li>
+<li><a href="#reasoning-about-not" target="_blank">Reasoning about <code class="inline">not</code></a></li>
+<li><a href="#rewriting-facts-with-equations" target="_blank">Rewriting Facts with Equations</a></li>
+<li><a href="#reasoning-about-some-exists-and-asking-for-help" target="_blank">Reasoning about <code class="inline">some</code> (Exists) and asking for <code class="inline">help</code></a></li>
+</ul>
+<h2 id="applying-definitions-to-the-goal">Applying Definitions to the Goal</h2>
+<p>We begin with a simple example, proving that the length of an empty
+list is <code class="inline">0</code>. Of course, this is a direct consequence of the definition
+of <code class="inline">length</code>, so this first example is about how to use definitions.
+To get started, we write down the theorem we would like to prove.  A
+theorem starts with a label, followed by a colon, then the formula
+followed by the proof. But instead of writing the proof, we'll simply
+write <code class="inline">?</code> to say that we're not done yet.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_nat_empty:&nbsp;length(@[]&lt;Nat&gt;)&nbsp;=&nbsp;0<br>
+proof<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Run Deduce on the file. Deduce will respond with the following message
+to remind us of what is left to prove.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;length([])&nbsp;=&nbsp;0<br>
+</code></div>
+<p>To tell Deduce to apply the definition of <code class="inline">length</code>, we can use
+the <code class="inline">definition</code> statement.</p>
+<div class="code-wrapper"><code id="proof_length_nat_empty"><!-- Generated by codeUtils.js --></code></div>
+<p>Deduce expanded the definition of <code class="inline">length</code> in the goal, changing
+<code class="inline">length([]) = 0</code> to <code class="inline">0 = 0</code>. In particular, Deduce noticed that
+<code class="inline">length([])</code> matches the first clause in the definition of <code class="inline">length</code>
+and then replaced it with the right-hand side of the first
+clause. Deduce then simplified <code class="inline">0 = 0</code> to <code class="inline">true</code> and therefore
+accepted the <code class="inline">definition</code> statement. In general, whenever Deduce sees
+an equality with the same left and right-hand side, it automatically
+simplifies it to <code class="inline">true</code>.</p>
+<p>Run Deduce on the file to see it respond that the file is valid.</p>
+<p>Let's try a slightly more complex theorem, that the length of a list
+with just a single node is indeed <code class="inline">1</code>. Based on what we learned above,
+we might try using the definition of <code class="inline">length</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_node42:&nbsp;length([42])&nbsp;=&nbsp;1<br>
+proof<br>
+&nbsp;&nbsp;definition&nbsp;length<br>
+end<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>failed&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;length([42])&nbsp;=&nbsp;1<br>
+by<br>
+&nbsp;&nbsp;&nbsp;&nbsp;definition&nbsp;{length}<br>
+remains&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1&nbsp;+&nbsp;length([])&nbsp;=&nbsp;1<br>
+</code></div>
+<p>It is quite common to apply a definition and then need to prove the
+remaining goal. Deduce provides the <code class="inline">suffices</code> statement for this
+purpose. The <code class="inline">suffices</code> keyword is followed by the new goal formula,
+then the keyword <code class="inline">with</code>, followed by a definition statement. However,
+it's easiest to let Deduce figure out the new goal formula, so to
+start you can use <code class="inline">?</code> as the goal formula.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_node42:&nbsp;length([42])&nbsp;=&nbsp;1<br>
+proof<br>
+&nbsp;&nbsp;suffices&nbsp;?&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;definition&nbsp;length<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>suffices&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1&nbsp;+&nbsp;length([])&nbsp;=&nbsp;1<br>
+</code></div>
+<p>We need to apply the definition of <code class="inline">length</code> again to simplify
+<code class="inline">length(empty)</code>, so we add another <code class="inline">length</code> to the definition
+statement.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_node42:&nbsp;length([42])&nbsp;=&nbsp;1<br>
+proof<br>
+&nbsp;&nbsp;suffices&nbsp;?&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;definition&nbsp;{length,&nbsp;length}<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Deduce responds this time with</p>
+<div class="code-wrapper non-deduce"><code>suffices&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1&nbsp;+&nbsp;0&nbsp;=&nbsp;1<br>
+</code></div>
+<p>Which is a nice formula to use for the <code class="inline">suffices</code>. So we cut and
+paste that to replace the <code class="inline">?</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_node42:&nbsp;length([42])&nbsp;=&nbsp;1<br>
+proof<br>
+&nbsp;&nbsp;suffices&nbsp;1&nbsp;+&nbsp;0&nbsp;=&nbsp;1&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;definition&nbsp;{length,&nbsp;length}<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Finally we need to prove, <code class="inline">1 + 0 = 1</code>. That can be proved using the
+<code class="inline">add_zero</code> theorem from the file <code class="inline">Nat.pf</code>, which we explain in the upcoming
+section on <a href="#reasoning-about-natural-numbers" target="_blank">Reasoning about Natural Numbers</a>.</p>
+<div class="code-wrapper"><code id="proof_length_node42"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="exercise">Exercise</h3>
+<p>Prove that <code class="inline">[1] ++ [2] = [1, 2]</code>
+by filling in the <code class="inline">?</code> below.</p>
+<div class="code-wrapper"><code id="proof_append_node_1_node_2"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="generalizing-with-all-formulas">Generalizing with <code class="inline">all</code> formulas</h2>
+<p>In the proof of <code class="inline">length_node42</code> it did not matter that the element in
+the node was <code class="inline">42</code>. We can generalize this theorem by using an <code class="inline">all</code>
+formula. We begin the formula with <code class="inline">all x:Nat.</code> to say that the
+formula must be true for all natural numbers and the variable <code class="inline">x</code> will
+be used to refer to the natural number.  We then replace the <code class="inline">42</code> in
+the formula with <code class="inline">x</code> to obtain the following theorem statement.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_nat_one:&nbsp;all&nbsp;x:Nat.&nbsp;length([x])&nbsp;=&nbsp;1<br>
+proof<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;all&nbsp;x:Nat.&nbsp;length([x])&nbsp;=&nbsp;1<br>
+</code></div>
+<p>The most straightforward way to prove an <code class="inline">all</code> formula in Deduce is
+with an <code class="inline">arbitrary</code> statement. When you use <code class="inline">arbitrary</code> you are
+promising to prove the formula for a hypothetical entity that can
+stand in for all entities of the specified type. The <code class="inline">arbitrary</code>
+statement asks you to name the hypothetical entity. Here we choose <code class="inline">x</code>
+but we could have chosen a different name.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_nat_one:&nbsp;all&nbsp;x:Nat.&nbsp;length([x])&nbsp;=&nbsp;1<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:Nat<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;length([x])&nbsp;=&nbsp;1<br>
+</code></div>
+<p>We don't know anything about this hypothetical <code class="inline">x</code> other than it being
+a natural number. But as we previously observed, we don't need any
+more information about <code class="inline">x</code> in this example.  We complete the proof as
+before, using the definitions of <code class="inline">length</code> and the <code class="inline">add_zero</code> theorem.</p>
+<div class="code-wrapper"><code id="proof_length_nat_one"><!-- Generated by codeUtils.js --></code></div>
+<p>Once we have proved that an <code class="inline">all</code> formula is true, we can use it by
+supplying an entity of the appropriate type inside square brackets. In
+the following we prove the <code class="inline">length_node42</code> theorem again, but this
+time the proof makes use of <code class="inline">length_nat_one</code>.</p>
+<div class="code-wrapper"><code id="proof_length_node42_again"><!-- Generated by codeUtils.js --></code></div>
+<p>We can generalize the theorem yet again by noticing that it does not
+matter whether the element is a natural number. It could be a value of
+any type. In Deduce we can also use the <code class="inline">all</code> statement to generalize
+types. In the following, we add <code class="inline">all U:type</code> to the formula and 
+another <code class="inline">arbitrary</code> statement.</p>
+<div class="code-wrapper"><code id="proof_list_length_one"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>To state that a formula is true for all entities of a given type,
+  use Deduce's <code class="inline">all</code> formula.</li>
+<li>To prove that an <code class="inline">all</code> formula is true, use Deduce's <code class="inline">arbitrary</code> statement.
+  (We'll see a second method in the section
+  <a href="#proving-all-formulas-with-induction" target="_blank">Proving <code class="inline">all</code> Formulas with Induction</a>.)</li>
+<li>To use a fact that is an <code class="inline">all</code> formula, instantiate the fact
+  by following it with square brackets around the specific entity.</li>
+</ul>
+<h3 id="exercise_1">Exercise</h3>
+<p>Complete the following proof.</p>
+<div class="code-wrapper"><code id="proof_append_node_x_node_y"><!-- Generated by codeUtils.js --></code></div>
+<p>Prove again that </p>
+<div class="code-wrapper non-deduce"><code>[1]&nbsp;++&nbsp;[2]&nbsp;=&nbsp;[1,&nbsp;2]</code></div>
+<p>but this time use the previous theorem.</p>
+<h2 id="rewriting-the-goal-with-equations">Rewriting the Goal with Equations</h2>
+<p>Deduce provides the <code class="inline">rewrite</code> statement to apply an equation to the
+current goal. In particular, <code class="inline">rewrite</code> replaces each occurence of the
+left-hand side of an equation with the right-hand side of the
+equation.</p>
+<p>For example, let us prove the following theorem using <code class="inline">rewrite</code>
+with the above <code class="inline">list_length_one</code> theorem.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;list_length_one_equal:&nbsp;all&nbsp;U:type.&nbsp;all&nbsp;x:U,&nbsp;y:U.<br>
+&nbsp;&nbsp;length([x])&nbsp;=&nbsp;length([y])<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;U:type<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:U,&nbsp;y:U<br>
+&nbsp;&nbsp;?<br>
+end</code></div>
+<p>To replace <code class="inline">length([x])</code> with <code class="inline">1</code>, we rewrite
+using the <code class="inline">list_length_one</code> theorem instantiated at <code class="inline">U</code> and <code class="inline">x</code>.
+Note that we use <code class="inline">&lt;</code> and <code class="inline">&gt;</code> when instantiating a type parameter
+and we use <code class="inline">[</code> and <code class="inline">]</code> when instantiating a term parameter.</p>
+<div class="code-wrapper non-deduce"><code>rewrite&nbsp;list_length_one&lt;U&gt;[x]</code></div>
+<p>Deduce tells us that the current goal has become</p>
+<div class="code-wrapper non-deduce"><code>remains&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;1&nbsp;=&nbsp;length([y])</code></div>
+<p>We rewrite again, separated by a vertical bar, using <code class="inline">list_length_one</code>,
+this time instantiated with <code class="inline">y</code>.</p>
+<div class="code-wrapper non-deduce"><code>rewrite&nbsp;list_length_one&lt;U&gt;[x]&nbsp;|&nbsp;list_length_one&lt;U&gt;[y]</code></div>
+<p>Deduce changes the goal to <code class="inline">1 = 1</code>, which simplies to just <code class="inline">true</code>,
+so Deduce accepts the <code class="inline">rewrite</code> statement.</p>
+<p>Here is the completed proof of <code class="inline">list_length_one_equal</code>.</p>
+<div class="code-wrapper"><code id="proof_list_length_one_equal"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="reasoning-about-natural-numbers">Reasoning about Natural Numbers</h2>
+<p>The <code class="inline">Nat.pf</code> file includes the definition of natural numbers,
+operations on them (e.g. addition), and proofs about those
+operations. Also, Deduce automatically generates a summary of the
+theorems and puts them in the file <code class="inline">Nat.thm</code>.</p>
+<p>Here we discuss how to reason about addition. Reasoning
+about the other operations follows a similar pattern.</p>
+<p>Here is the definition of natural numbers from <code class="inline">Nat.pf</code>:</p>
+<div class="code-wrapper non-deduce"><code>union&nbsp;Nat&nbsp;{<br>
+&nbsp;&nbsp;zero<br>
+&nbsp;&nbsp;suc(Nat)<br>
+}</code></div>
+<p>The parser for Deduce translates <code class="inline">0</code> into <code class="inline">zero</code>,
+<code class="inline">1</code> into <code class="inline">suc(zero)</code>, <code class="inline">2</code> into <code class="inline">suc(suc(zero))</code>, and so on.</p>
+<p>Here is the definition of addition from <code class="inline">Nat.pf</code>:</p>
+<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;+(Nat,Nat)&nbsp;-&gt;&nbsp;Nat&nbsp;{<br>
+&nbsp;&nbsp;operator&nbsp;+(0,&nbsp;m)&nbsp;=&nbsp;m<br>
+&nbsp;&nbsp;operator&nbsp;+(suc(n),&nbsp;m)&nbsp;=&nbsp;suc(n&nbsp;+&nbsp;m)<br>
+}</code></div>
+<p>Recall that we can use Deduce's <code class="inline">definition</code> statement whenever we
+want to rewrite the goal according to the equations for addition. Here
+are the two defining equations, but written with infix notation:</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;0&nbsp;+&nbsp;m&nbsp;=&nbsp;m<br>
+&nbsp;&nbsp;suc(n)&nbsp;+&nbsp;m&nbsp;=&nbsp;suc(n&nbsp;+&nbsp;m)</code></div>
+<p>The <code class="inline">Nat.pf</code> file also includes proofs of many equations.
+Here we list the names of the theorems and the formula. (To add more
+theorems, pull requests on the github repository are most welcome!)</p>
+<div class="code-wrapper non-deduce"><code>add_zero:&nbsp;all&nbsp;n:Nat.&nbsp;&nbsp;n&nbsp;+&nbsp;0&nbsp;=&nbsp;n<br>
+add_commute:&nbsp;all&nbsp;n:Nat.&nbsp;all&nbsp;m:Nat.&nbsp;&nbsp;n&nbsp;+&nbsp;m&nbsp;=&nbsp;m&nbsp;+&nbsp;n<br>
+add_assoc:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat,&nbsp;o:Nat.&nbsp;&nbsp;(m&nbsp;+&nbsp;n)&nbsp;+&nbsp;o&nbsp;=&nbsp;m&nbsp;+&nbsp;(n&nbsp;+&nbsp;o)<br>
+left_cancel:&nbsp;all&nbsp;x:Nat.&nbsp;all&nbsp;y:Nat,&nbsp;z:Nat.&nbsp;&nbsp;if&nbsp;x&nbsp;+&nbsp;y&nbsp;=&nbsp;x&nbsp;+&nbsp;z&nbsp;then&nbsp;y&nbsp;=&nbsp;z<br>
+add_to_zero:&nbsp;all&nbsp;n:Nat.&nbsp;all&nbsp;m:Nat.&nbsp;if&nbsp;n&nbsp;+&nbsp;m&nbsp;=&nbsp;0&nbsp;then&nbsp;n&nbsp;=&nbsp;0&nbsp;and&nbsp;m&nbsp;=&nbsp;0<br>
+dist_mult_add:&nbsp;all&nbsp;a:Nat.&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat.&nbsp;a&nbsp;&ast;&nbsp;(x&nbsp;+&nbsp;y)&nbsp;=&nbsp;a&nbsp;&ast;&nbsp;x&nbsp;+&nbsp;a&nbsp;&ast;&nbsp;y<br>
+mult_zero:&nbsp;all&nbsp;n:Nat.&nbsp;n&nbsp;&ast;&nbsp;0&nbsp;=&nbsp;0<br>
+mult_one:&nbsp;all&nbsp;n:Nat.&nbsp;n&nbsp;&ast;&nbsp;1&nbsp;=&nbsp;n<br>
+mult_commute:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat.&nbsp;m&nbsp;&ast;&nbsp;n&nbsp;=&nbsp;n&nbsp;&ast;&nbsp;m<br>
+mult_assoc:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat,&nbsp;o:Nat.&nbsp;(m&nbsp;&ast;&nbsp;n)&nbsp;&ast;&nbsp;o&nbsp;=&nbsp;m&nbsp;&ast;&nbsp;(n&nbsp;&ast;&nbsp;o)</code></div>
+<p>You can use these theorems by instantiating them with particular
+entities. For example, <code class="inline">add_zero[2]</code> is a proof of <code class="inline">2 + 0 = 2</code>.
+We have not yet discussed how to use the <code class="inline">if</code>-<code class="inline">then</code> formula in
+<code class="inline">left_cancel</code>, but we will get to that in the section below on
+<a href="#conditional-formulas-implication-and-applying-definitions-to-facts" target="_blank">Conditional Formulas (Implication)</a>.</p>
+<h3 id="exercise_2">Exercise</h3>
+<p>Prove the following theorem using the <code class="inline">add_zero</code> and <code class="inline">mult_one</code>
+theorems from <code class="inline">Nat.pf</code>.</p>
+<div class="code-wrapper"><code id="proof_x_0_x_eq_2_x"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="proving-intermediate-facts-with-have">Proving Intermediate Facts with <code class="inline">have</code></h2>
+<p>One often needs to prove some intermediate facts on the way to proving
+the final goal of a theorem. The <code class="inline">have</code> statement of Deduce provides a
+way to state and prove a fact and give it a label so that it can be
+used later in the proof. For example, consider the proof of</p>
+<div class="code-wrapper non-deduce"><code>x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x</code></div>
+<p>It takes several uses of <code class="inline">add_commute</code> and <code class="inline">add_assoc</code> to prove this.
+To get started, we use <code class="inline">have</code> to give the label <code class="inline">step1</code> to a proof of
+<code class="inline">x + y + z = x + z + y</code> (flipping the <code class="inline">y</code> and <code class="inline">z</code>).</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;xyz_zyx:&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat,&nbsp;z:Nat.<br>
+&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:Nat,&nbsp;y:Nat,&nbsp;z:Nat<br>
+&nbsp;&nbsp;have&nbsp;step1:&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_commute[y][z]<br>
+&nbsp;&nbsp;?<br>
+end</code></div>
+<p>Deduce prints the current goal and the <strong>givens</strong>, that is, the formulas
+that we aleady know are true, which now includes <code class="inline">step1</code>.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof<br>
+Goal:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;(y&nbsp;+&nbsp;z)&nbsp;=&nbsp;z&nbsp;+&nbsp;(y&nbsp;+&nbsp;x)<br>
+Givens:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;step1:&nbsp;x&nbsp;+&nbsp;(y&nbsp;+&nbsp;z)&nbsp;=&nbsp;x&nbsp;+&nbsp;(z&nbsp;+&nbsp;y)</code></div>
+<p>We proceed four more times, using <code class="inline">have</code> to create each intermediate
+step in the reasoning.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;have&nbsp;step2:&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y&nbsp;=&nbsp;(x&nbsp;+&nbsp;z)&nbsp;+&nbsp;y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_assoc[x][z,y]<br>
+&nbsp;&nbsp;have&nbsp;step3:&nbsp;(x&nbsp;+&nbsp;z)&nbsp;+&nbsp;y&nbsp;=&nbsp;(z&nbsp;+&nbsp;x)&nbsp;+&nbsp;y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_commute[z][x]<br>
+&nbsp;&nbsp;have&nbsp;step4:&nbsp;(z&nbsp;+&nbsp;x)&nbsp;+&nbsp;y&nbsp;=&nbsp;z&nbsp;+&nbsp;(x&nbsp;+&nbsp;y)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_assoc[z][x,y]<br>
+&nbsp;&nbsp;have&nbsp;step5:&nbsp;z&nbsp;+&nbsp;(x&nbsp;+&nbsp;y)&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_commute[x][y]</code></div>
+<p>We finish the proof by connecting them all together using Deduce's
+<code class="inline">transitive</code> statement. The <code class="inline">transitive</code> statement takes two proofs of
+equations <code class="inline">a = b</code> and <code class="inline">b = c</code>, and proves <code class="inline">a = c</code>. Here we use the
+intermediate facts <code class="inline">step1</code>, <code class="inline">step2</code>, etc. by referencing their
+label. In general, to use one of the given facts, one just needs to
+use its label.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;transitive&nbsp;step1&nbsp;(transitive&nbsp;step2&nbsp;(transitive&nbsp;step3<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(transitive&nbsp;step4&nbsp;step5)))</code></div>
+<p>Here is the complete proof of the <code class="inline">xyz_zyx</code> theorem.</p>
+<div class="code-wrapper"><code id="proof_xyz_zyx"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="chaining-equations-with-equations">Chaining Equations with <code class="inline">equations</code></h2>
+<p>Combining a sequence of equations using <code class="inline">transitive</code> is quite common,
+so Deduce provides the <code class="inline">equations</code> statement to streamline this
+process.  After the first equation, the left-hand side of each
+equation is written as <code class="inline">...</code> because it is just a repetition of the
+right-hand side of the previous equation. Let's write another proof of
+the theorem about <code class="inline">x + y + z</code>, this time using an <code class="inline">equations</code>
+statement. We can start by just restating the goal inside <code class="inline">equations</code>
+and use <code class="inline">?</code> for the reason.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;xyz_zyx_eqn:&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat,&nbsp;z:Nat.<br>
+&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:Nat,&nbsp;y:Nat,&nbsp;z:Nat<br>
+&nbsp;&nbsp;equations<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?<br>
+end</code></div>
+<p>The first step is to commute <code class="inline">y + z</code> to <code class="inline">z + y</code>. If we're feeling
+extra lazy, we can use <code class="inline">?</code> for the new right-hand side and the
+error from Deduce will tell us what it needs to be.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;equations<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;?&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_commute[y][z]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?</code></div>
+<p>Deduce responds with:</p>
+<div class="code-wrapper non-deduce"><code>remains&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;(z&nbsp;+&nbsp;y)&nbsp;=&nbsp;?</code></div>
+<p>So we replace the <code class="inline">?</code> on the right-hand side with <code class="inline">x + (z + y)</code>
+and proceed to the next step, which is to apply associativity.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;equations<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;x&nbsp;+&nbsp;(z&nbsp;+&nbsp;y)&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;add_commute[y][z]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;?&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;symmetric&nbsp;add_assoc[x][z,y]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?</code></div>
+<p>Deduce responds with:</p>
+<div class="code-wrapper non-deduce"><code>remains&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(x&nbsp;+&nbsp;z)&nbsp;+&nbsp;y&nbsp;=&nbsp;?</code></div>
+<p>We replace the <code class="inline">?</code> on the right-hand side with <code class="inline">(x + z) + y</code>.
+Continuing in this way for several more steps, we incrementally arrive
+at the following proof that <code class="inline">x + y + z = z + y + x</code> using <code class="inline">equations</code>.</p>
+<div class="code-wrapper"><code id="proof_xyz_zyx_eqn"><!-- Generated by codeUtils.js --></code></div>
+<p>If you want to skip the proof of one of the earlier steps, you can use
+<a href="./reference.html#sorry-proof" target="_self"><code class="inline">sorry</code></a> for the reason.</p>
+<p>If you want to work backwards by transforming the right-hand side of
+an equation into the left-hand side using a rewrite or definition,
+then <a href="./reference.html#mark" target="_self">mark</a> the right-hand side.</p>
+<p>The <code class="inline">equations</code> feature is implemented in Deduce by translating them
+into a bunch of <code class="inline">transitive</code> statements.</p>
+<h3 id="exercise_3">Exercise</h3>
+<p>Prove that <code class="inline">x + y + z = z + y + x</code> but using fewer than 5 steps.</p>
+<h2 id="proving-all-formulas-with-induction">Proving <code class="inline">all</code> Formulas with Induction</h2>
+<p>Sometimes the <code class="inline">arbitrary</code> statement does not give us enough
+information to prove an <code class="inline">all</code> formula. In those situations, so long as
+the type of the <code class="inline">all</code> variable is a <code class="inline">union</code> type, we can use the more
+powerful <code class="inline">induction</code> statement.</p>
+<p>For example, consider the following theorem about appending a list to
+an empty list. Suppose we try to use <code class="inline">arbitrary</code> for both the
+<code class="inline">all U</code> and the <code class="inline">all xs</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;list_append_empty:&nbsp;all&nbsp;U&nbsp;:type.&nbsp;all&nbsp;xs&nbsp;:List&lt;U&gt;.<br>
+&nbsp;&nbsp;xs&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;U:type<br>
+&nbsp;&nbsp;arbitrary&nbsp;xs:List&lt;U&gt;<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>Deduce replies that we need to prove</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;xs&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs<br>
+</code></div>
+<p>But now we're stuck because the definition of append pattern matches
+on its first argument, but we don't know whether <code class="inline">xs</code> is an <code class="inline">empty</code>
+list or a <code class="inline">node</code>.</p>
+<p>So instead of using <code class="inline">arbitrary xs:List&lt;U&gt;</code> to prove the <code class="inline">all xs</code>, we
+proceed by induction as follows.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;list_append_empty:&nbsp;all&nbsp;U&nbsp;:type.&nbsp;all&nbsp;xs&nbsp;:List&lt;U&gt;.<br>
+&nbsp;&nbsp;xs&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;U:type<br>
+&nbsp;&nbsp;induction&nbsp;List&lt;U&gt;<br>
+&nbsp;&nbsp;case&nbsp;empty&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;?<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;case&nbsp;node(n,&nbsp;xs')&nbsp;suppose&nbsp;IH:&nbsp;xs'&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs'&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;?<br>
+&nbsp;&nbsp;}<br>
+end<br>
+</code></div>
+<p>When doing a proof by induction, there is one <code class="inline">case</code> for every
+alternative in the <code class="inline">union</code> type. Here the union type is <code class="inline">List&lt;U&gt;</code>, so
+we have a case for the <code class="inline">empty</code> and <code class="inline">node</code> alternatives. 
+Furthermore, because <code class="inline">node</code> includes a recursive argument, that is,
+and argument of type <code class="inline">List&lt;U&gt;</code>, in the case for <code class="inline">node</code> we get to
+assume that the formula we are trying to prove is already true for
+the argument. This is commonly known at the <strong>induction hypothesis</strong>.
+We must give a label for the induction hypothesis so here we choose
+<code class="inline">IH</code> for short.</p>
+<p>Let us first focus on the case for <code class="inline">empty</code>. Deduce tells us that we
+need to prove the following.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;[]&nbsp;++&nbsp;[]&nbsp;=&nbsp;[]<br>
+</code></div>
+<p>This follows directly from the definition of append.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;empty&nbsp;{<br>
+&nbsp;&nbsp;definition&nbsp;operator++<br>
+}<br>
+</code></div>
+<p>However, to make the proof more readable by other humans, I recommend
+restating the goal using the <code class="inline">conclude</code> statement.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;empty&nbsp;{<br>
+&nbsp;&nbsp;conclude&nbsp;@[]&lt;U&gt;&nbsp;++&nbsp;[]&nbsp;=&nbsp;[]&nbsp;&nbsp;by&nbsp;definition&nbsp;operator++<br>
+}<br>
+</code></div>
+<p>Next let us focus on the case for <code class="inline">node</code>. Deduce tells us that we need
+to prove the following and that <code class="inline">IH</code> has been added to the available
+facts.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;node(n,xs')&nbsp;++&nbsp;[]&nbsp;=&nbsp;node(n,xs')<br>
+<br>
+available&nbsp;facts:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;IH:&nbsp;xs'&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs',<br>
+&nbsp;&nbsp;&nbsp;&nbsp;...<br>
+</code></div>
+<p>Looking at the goal, we notice that we can expand the definition of
+<code class="inline">++</code> on the right-hand side, because it is applied to a <code class="inline">node</code>.
+Perhaps we forget the exact definition of <code class="inline">++</code>, so we can let
+Deduce tell us the expansion by putting <code class="inline">?</code> on the right-hand side of
+the equation.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;node(n,&nbsp;xs')&nbsp;suppose&nbsp;IH:&nbsp;xs'&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs'&nbsp;{<br>
+&nbsp;&nbsp;equations<br>
+&nbsp;&nbsp;&nbsp;&nbsp;node(n,xs')&nbsp;++&nbsp;[]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;?&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;definition&nbsp;operator++<br>
+&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;node(n,xs')&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?<br>
+}<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>remains&nbsp;to&nbsp;prove:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;node(n,&nbsp;xs'&nbsp;++&nbsp;[])&nbsp;=&nbsp;?<br>
+</code></div>
+<p>It has transformed the left-hand side of the equation by expanding the
+definition of <code class="inline">++</code>.  We copy and paste the <code class="inline">node(n, xs' ++ empty)</code> to
+replace the <code class="inline">?</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;node(n,&nbsp;xs')&nbsp;suppose&nbsp;IH:&nbsp;xs'&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs'&nbsp;{<br>
+&nbsp;&nbsp;equations<br>
+&nbsp;&nbsp;&nbsp;&nbsp;node(n,xs')&nbsp;++&nbsp;[]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;node(n,&nbsp;xs'&nbsp;++&nbsp;[])&nbsp;&nbsp;&nbsp;by&nbsp;definition&nbsp;operator++<br>
+&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;node(n,xs')&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?<br>
+}<br>
+</code></div>
+<p>Next, we see that the subterm <code class="inline">xs' ++ []</code> matches the
+right-hand side of the induction hypothesis <code class="inline">IH</code>. We use the
+<code class="inline">rewrite</code> statement to apply the <code class="inline">IH</code> equation to this subterm.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;node(n,&nbsp;xs')&nbsp;suppose&nbsp;IH:&nbsp;xs'&nbsp;++&nbsp;[]&nbsp;=&nbsp;xs'&nbsp;{<br>
+&nbsp;&nbsp;equations<br>
+&nbsp;&nbsp;&nbsp;&nbsp;node(n,xs')&nbsp;++&nbsp;[]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;node(n,&nbsp;xs'&nbsp;++&nbsp;[])&nbsp;&nbsp;&nbsp;by&nbsp;definition&nbsp;operator++<br>
+&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;node(n,xs')&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;IH<br>
+}<br>
+</code></div>
+<p>Here is the completed proof of <code class="inline">list_append_empty</code>.</p>
+<div class="code-wrapper"><code id="proof_list_append_empty"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>To prove an <code class="inline">all</code> formula that concerns entities of a <code class="inline">union</code> type,
+  use Deduce's <code class="inline">induction</code> statement.</li>
+</ul>
+<h3 id="exercise_4">Exercise</h3>
+<p>Fill in the proof of the following theorem about <code class="inline">length</code> and <code class="inline">++</code>.</p>
+<div class="code-wrapper"><code id="proof_length_append"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="reasoning-about-and-conjunction">Reasoning about <code class="inline">and</code> (Conjunction)</h2>
+<p>To create a single formula that expresses that two formulas are true,
+combine the two formulas with <code class="inline">and</code> (i.e. conjunction). The following
+example proves that <code class="inline">0 ≤ 1 and 0 ≤ 2</code>.  This is accomplished by
+separately proving that <code class="inline">0 ≤ 1</code> is true and that <code class="inline">0 ≤ 2</code> is true, then
+using the comma operator to combine those proofs: <code class="inline">one_pos, two_pos</code>.</p>
+<div class="code-wrapper"><code id="proof_pos_1_and_2"><!-- Generated by codeUtils.js --></code></div>
+<p>On the other hand, in Deduce you can use a conjunction as if it were
+one of its subformulas, implicitly. In the following we use the
+fact that <code class="inline">0 ≤ 1 and 0 ≤ 2</code> to prove <code class="inline">0 ≤ 2</code>.</p>
+<div class="code-wrapper"><code id="proof_pos_2"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>Use <code class="inline">and</code> in Deduce to express the truth of two formulas.</li>
+<li>To prove an <code class="inline">and</code> formula, prove its parts and then combine them using comma.</li>
+<li>You can implicitly use an <code class="inline">and</code> formula as one of its parts. </li>
+</ul>
+<h2 id="reasoning-about-or-disjunction">Reasoning about <code class="inline">or</code> (Disjunction)</h2>
+<p>Two create a formula that expresses that at least one of two formulas
+is true (i.e. disjunction), use <code class="inline">or</code> to combine the formulas.</p>
+<p>For example, consider the following variation on the trichotomy law
+for numbers, which states that for any two natural numbers <code class="inline">x</code> and <code class="inline">y</code>, 
+either <code class="inline">x ≤ y</code> or <code class="inline">y &lt; x</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;intro_dichotomy:&nbsp;&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat.&nbsp;&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;&nbsp;or&nbsp;&nbsp;y&nbsp;&lt;&nbsp;x<br>
+proof<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>We can prove this using the <code class="inline">trichotomy</code> theorem from <code class="inline">Nat.pf</code>,
+which tells us that <code class="inline">x &lt; y</code> or <code class="inline">x = y</code> or <code class="inline">y &lt; x</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;intro_dichotomy:&nbsp;&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat.&nbsp;&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;&nbsp;or&nbsp;&nbsp;y&nbsp;&lt;&nbsp;x<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:Nat,&nbsp;y:Nat<br>
+&nbsp;&nbsp;have&nbsp;tri:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;or&nbsp;x&nbsp;=&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;trichotomy[x][y]<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>In Deduce, you can use an <code class="inline">or</code> fact by doing case analysis with the
+<code class="inline">cases</code> statement. There is one <code class="inline">case</code> for each subformula of the
+<code class="inline">or</code>.</p>
+<div class="code-wrapper non-deduce"><code>have&nbsp;tri:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;or&nbsp;x&nbsp;=&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;trichotomy[x][y]<br>
+cases&nbsp;tri<br>
+case&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;?<br>
+}<br>
+case&nbsp;x_eq_y:&nbsp;x&nbsp;=&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;?<br>
+}<br>
+case&nbsp;y_l_x:&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;{<br>
+&nbsp;&nbsp;?<br>
+}<br>
+</code></div>
+<p>In the first case, we consider the situation where <code class="inline">x &lt; y</code> and still need to
+prove that <code class="inline">x ≤ y or y &lt; x</code>. Thankfully, the theorem 
+<code class="inline">less_implies_less_equal</code> in <code class="inline">Nat.pf</code> tells us that <code class="inline">x ≤ y</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;have&nbsp;x_le_y:&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;by&nbsp;apply&nbsp;less_implies_less_equal[x][y]&nbsp;to&nbsp;x_l_y<br>
+&nbsp;&nbsp;?<br>
+}<br>
+</code></div>
+<p>In Deduce, an <code class="inline">or</code> formula can be proved using a proof of either
+subformula, so here we prove <code class="inline">x ≤ y or y &lt; x</code> with <code class="inline">x ≤ y</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;have&nbsp;x_le_y:&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;by&nbsp;apply&nbsp;less_implies_less_equal[x][y]&nbsp;to&nbsp;x_l_y<br>
+&nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;x_le_y<br>
+}<br>
+</code></div>
+<p>In the second case, we consider the situation where <code class="inline">x = y</code>. Here we
+can prove that <code class="inline">x ≤ y</code> by rewriting the <code class="inline">x</code> to <code class="inline">y</code> and then using the
+reflexive property of the less-equal relation to prove that <code class="inline">y ≤ y</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;x_eq_y:&nbsp;x&nbsp;=&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;have&nbsp;x_le_y:&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;by<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;suffices&nbsp;y&nbsp;&#x2264;&nbsp;y&nbsp;&nbsp;by&nbsp;rewrite&nbsp;x_eq_y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;less_equal_refl[y]<br>
+&nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;x_le_y<br>
+}<br>
+</code></div>
+<p>In the third case, we consider the situation where <code class="inline">y &lt; x</code>.
+So we can immediately conclude that <code class="inline">x ≤ y or y &lt; x</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;y_l_x:&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;{<br>
+&nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;y_l_x<br>
+}<br>
+</code></div>
+<p>Here is the completed proof of the <code class="inline">intro_dichotomy</code> theorem.</p>
+<div class="code-wrapper"><code id="proof_intro_dichotomy"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>Use <code class="inline">or</code> in Deduce to express that at least one of two or more
+  formulas is true.</li>
+<li>To prove an <code class="inline">or</code> formula, prove either one of the formulas.</li>
+<li>To use a fact that is an <code class="inline">or</code> formula, use the <code class="inline">cases</code> statement.</li>
+</ul>
+<h2 id="the-switch-proof-statement">The <code class="inline">switch</code> Proof Statement</h2>
+<p>Similar to Deduce's <code class="inline">switch</code> statement for writing functions, there is
+also a <code class="inline">switch</code> statement for writing proofs. As an example, let us
+consider how to prove the following theorem.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;intro_zero_or_positive:&nbsp;all&nbsp;x:Nat.&nbsp;x&nbsp;=&nbsp;0&nbsp;or&nbsp;0&nbsp;&lt;&nbsp;x<br>
+proof<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>We could proceed by induction, but it turns out we don't need the
+induction hypothesis. In such situations, we can instead use <code class="inline">switch</code>.
+Like induction, <code class="inline">switch</code> works on unions and there is one case for
+each alternative of the union. Unlike induction, the goal formula does
+not need to be an <code class="inline">all</code> formula. Instead, you indicate which entity to
+switch on, as in <code class="inline">switch x</code> below.</p>
+<div class="code-wrapper non-deduce"><code>arbitrary&nbsp;x:Nat<br>
+switch&nbsp;x&nbsp;{<br>
+&nbsp;&nbsp;case&nbsp;0&nbsp;assume&nbsp;xz:&nbsp;x&nbsp;=&nbsp;0&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;?<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;case&nbsp;suc(x')&nbsp;assume&nbsp;xs:&nbsp;x&nbsp;=&nbsp;suc(x')&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;?<br>
+&nbsp;&nbsp;}<br>
+}<br>
+</code></div>
+<p>Deduce responds that in the first case we need to prove the following.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;true&nbsp;or&nbsp;0&nbsp;&lt;&nbsp;0<br>
+</code></div>
+<p>So we just need to prove <code class="inline">true</code>, which is what the period is for.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;0&nbsp;assume&nbsp;xz:&nbsp;x&nbsp;=&nbsp;0&nbsp;{<br>
+&nbsp;&nbsp;conclude&nbsp;true&nbsp;or&nbsp;0&nbsp;&lt;&nbsp;0&nbsp;by&nbsp;.<br>
+}<br>
+</code></div>
+<p>In the second case, for <code class="inline">x = suc(x')</code>, we need to prove the following.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;false&nbsp;or&nbsp;0&nbsp;&lt;&nbsp;suc(x')<br>
+</code></div>
+<p>There's no hope of proving <code class="inline">false</code>, so we better prove <code class="inline">0 &lt; suc(x')</code>.
+Thankfully that follows from the definitions of <code class="inline">&lt;</code> and <code class="inline">≤</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;suc(x')&nbsp;assume&nbsp;xs:&nbsp;x&nbsp;=&nbsp;suc(x')&nbsp;{<br>
+&nbsp;&nbsp;have&nbsp;z_l_sx:&nbsp;0&nbsp;&lt;&nbsp;suc(x')&nbsp;by&nbsp;definition&nbsp;{operator&nbsp;&lt;,&nbsp;operator&nbsp;&#x2264;}<br>
+&nbsp;&nbsp;conclude&nbsp;suc(x')&nbsp;=&nbsp;0&nbsp;or&nbsp;0&nbsp;&lt;&nbsp;suc(x')&nbsp;by&nbsp;z_l_sx<br>
+}<br>
+</code></div>
+<p>Here is the completed proof that every natural number is either zero
+or positive.</p>
+<div class="code-wrapper"><code id="proof_intro_zero_or_positive"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>Use <code class="inline">switch</code> on an entity of union type to split the proof into
+  cases, with one case for each alternative of the union.</li>
+</ul>
+<h2 id="applying-definitions-and-rewrites-to-the-goal">Applying Definitions and Rewrites to the Goal</h2>
+<p>Sometimes one needs to apply a set of definitions and rewrites
+to the goal. Consider the following definition of <code class="inline">max'</code>.
+(There is a different definition of <code class="inline">max</code> in <code class="inline">Nat.pf</code>.)</p>
+<div class="code-wrapper"><code id="proof_alt_max"><!-- Generated by codeUtils.js --></code></div>
+<p>To prove that <code class="inline">x ≤ max'(x,y)</code> we consider two cases, whether <code class="inline">x ≤ y</code>
+or not. If <code class="inline">x ≤ y</code> is true, we apply the definition of <code class="inline">max'</code> <strong>and</strong>
+we rewrite with the fact that <code class="inline">x ≤ y</code> is true, which resolves the
+<code class="inline">if</code>-<code class="inline">then</code>-<code class="inline">else</code> inside of <code class="inline">max'</code> to just <code class="inline">y</code>. </p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;&nbsp;&nbsp;suffices&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;&nbsp;by&nbsp;definition&nbsp;max'&nbsp;and&nbsp;rewrite&nbsp;x_le_y_true</code></div>
+<p>So we are left to prove that <code class="inline">x ≤ y</code>, which we already know.
+Similarly, if <code class="inline">x ≤ y</code> is false, we apply the definition of <code class="inline">max'</code> and
+rewrite with the fact that <code class="inline">x ≤ y</code> is false. </p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;&nbsp;&nbsp;suffices&nbsp;x&nbsp;&#x2264;&nbsp;x&nbsp;&nbsp;by&nbsp;definition&nbsp;max'&nbsp;and&nbsp;rewrite&nbsp;x_le_y_false</code></div>
+<p>This resolves the <code class="inline">if</code>-<code class="inline">then</code>-<code class="inline">else</code> inside of <code class="inline">max'</code> to just <code class="inline">x</code>. So
+we are left to prove <code class="inline">x ≤ x</code>, which of course is true.
+Here is the complete proof that <code class="inline">x ≤ max'(x,y)</code>.</p>
+<div class="code-wrapper"><code id="proof_less_alt_max"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="conditional-formulas-implication-and-applying-definitions-to-facts">Conditional Formulas (Implication) and Applying Definitions to Facts</h2>
+<p>Some logical statements are true only under certain conditions, so
+Deduce provides an <code class="inline">if</code>-<code class="inline">then</code> formula.  To demonstrate how to work
+with <code class="inline">if</code>-<code class="inline">then</code> formulas, we prove that if a list has length zero,
+then it must be the <code class="inline">empty</code> list. Along the way we will also learn how
+to apply a definition to an already-known fact.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;list_length_zero_empty:&nbsp;all&nbsp;T:type.&nbsp;all&nbsp;xs:List&lt;T&gt;.<br>
+&nbsp;&nbsp;if&nbsp;length(xs)&nbsp;=&nbsp;0&nbsp;then&nbsp;xs&nbsp;=&nbsp;[]<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;T:type<br>
+&nbsp;&nbsp;arbitrary&nbsp;xs:List&lt;T&gt;<br>
+&nbsp;&nbsp;?<br>
+end</code></div>
+<p>Deduce tells us:</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof<br>
+Goal:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(if&nbsp;length(xs)&nbsp;=&nbsp;0&nbsp;then&nbsp;xs&nbsp;=&nbsp;[])</code></div>
+<p>To prove an <code class="inline">if</code>-<code class="inline">then</code> formula, we <code class="inline">suppose</code> the condition and then
+prove the conclusion.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;suppose&nbsp;len_z:&nbsp;length(xs)&nbsp;=&nbsp;0</code></div>
+<p>Deduce adds <code class="inline">len_z</code> to the givens (similar to <code class="inline">have</code>).</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof<br>
+Goal:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;xs&nbsp;=&nbsp;[]<br>
+Givens:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;len_z:&nbsp;length(xs)&nbsp;=&nbsp;0</code></div>
+<p>Next we <code class="inline">switch</code> on the list <code class="inline">xs</code>. In the case when <code class="inline">xs</code> is <code class="inline">empty</code> it
+will be trivial to prove <code class="inline">xs = []</code>. In the other case, we will
+obtain a contradiction.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;switch&nbsp;xs&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;empty&nbsp;{&nbsp;.&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;node(x,&nbsp;xs')&nbsp;suppose&nbsp;xs_xxs:&nbsp;xs&nbsp;=&nbsp;node(x,xs')&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;?<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;}</code></div>
+<p>We can put the facts <code class="inline">len_z</code> and <code class="inline">xs_xxs</code> together
+to obtain the dubious looking <code class="inline">length(node(x,xs')) = 0</code>.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;&nbsp;&nbsp;have&nbsp;len_z2:&nbsp;length(node(x,xs'))&nbsp;=&nbsp;0&nbsp;&nbsp;by&nbsp;rewrite&nbsp;xs_xxs&nbsp;in&nbsp;len_z</code></div>
+<p>The contradiction becomes apparent to Deduce once we apply the
+definition of <code class="inline">length</code> to this fact. We do so using Deduce's
+<code class="inline">definition</code>-<code class="inline">in</code> statement as follows. </p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;&nbsp;&nbsp;conclude&nbsp;false&nbsp;&nbsp;by&nbsp;definition&nbsp;length&nbsp;in&nbsp;len_z2</code></div>
+<p>We discuss contradictions and <code class="inline">false</code> in more detail in the upcoming section
+<a href="#reasoning-about-false" target="_blank">Reasoning about <code class="inline">false</code></a>.</p>
+<p>Here is the complete proof of <code class="inline">list_length_zero_empty</code>.</p>
+<div class="code-wrapper"><code id="proof_list_length_zero_empty"><!-- Generated by codeUtils.js --></code></div>
+<p>The next topic to discuss is how to use an <code class="inline">if</code>-<code class="inline">then</code> fact that is
+already proven.  We use Deduce's <code class="inline">apply</code>-<code class="inline">to</code> statement (aka. modus
+ponens) to obtain the conclusion of an <code class="inline">if</code>-<code class="inline">then</code> formula by
+supplying a proof of the condition.  We demonstrate several uses of
+<code class="inline">apply</code>-<code class="inline">to</code> in the proof of the following theorem, which builds on
+<code class="inline">list_length_zero_empty</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;length_append_zero_empty:&nbsp;all&nbsp;T:type.&nbsp;all&nbsp;xs:List&lt;T&gt;,&nbsp;ys:List&lt;T&gt;.<br>
+&nbsp;&nbsp;if&nbsp;length(xs&nbsp;++&nbsp;ys)&nbsp;=&nbsp;0<br>
+&nbsp;&nbsp;then&nbsp;xs&nbsp;=&nbsp;[]&nbsp;and&nbsp;ys&nbsp;=&nbsp;[]<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;T:type<br>
+&nbsp;&nbsp;arbitrary&nbsp;xs:List&lt;T&gt;,&nbsp;ys:List&lt;T&gt;<br>
+&nbsp;&nbsp;suppose&nbsp;len_xs_ys:&nbsp;length(xs&nbsp;++&nbsp;ys)&nbsp;=&nbsp;0<br>
+&nbsp;&nbsp;?<br>
+end</code></div>
+<p>Recall that in a previous exercise, you proved that</p>
+<div class="code-wrapper non-deduce"><code>length(xs&nbsp;++&nbsp;ys)&nbsp;=&nbsp;length(xs)&nbsp;+&nbsp;length(ys)</code></div>
+<p>so we can prove that <code class="inline">length(xs) + length(ys) = 0</code> as follows.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;have&nbsp;len_xs_len_ys:&nbsp;length(xs)&nbsp;+&nbsp;length(ys)&nbsp;=&nbsp;0<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;transitive&nbsp;(symmetric&nbsp;length_append&lt;T&gt;[xs][ys])&nbsp;len_xs_ys</code></div>
+<p>Note that Deduce's the <code class="inline">symmetric</code> statement takes a proof
+of some equality like <code class="inline">a = b</code> and flips it around to <code class="inline">b = a</code>.</p>
+<p>Now from <code class="inline">Nat.pf</code> we have the following <code class="inline">if</code>-<code class="inline">then</code> fact.</p>
+<div class="code-wrapper non-deduce"><code>add_to_zero:&nbsp;all&nbsp;n:Nat.&nbsp;all&nbsp;m:Nat.&nbsp;if&nbsp;n&nbsp;+&nbsp;m&nbsp;=&nbsp;0&nbsp;then&nbsp;n&nbsp;=&nbsp;0&nbsp;and&nbsp;m&nbsp;=&nbsp;0</code></div>
+<p>Here is our first use of <code class="inline">apply</code>-<code class="inline">to</code> to obtain <code class="inline">length(xs) = 0</code> and
+the same for <code class="inline">ys</code>. (Deduce can infer the arguments for the <code class="inline">all n</code> and <code class="inline">all m</code>
+in <code class="inline">add_to_zero</code>.)</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;have&nbsp;len_xs:&nbsp;length(xs)&nbsp;=&nbsp;0&nbsp;&nbsp;by&nbsp;apply&nbsp;add_to_zero&nbsp;to&nbsp;len_xs_len_ys<br>
+&nbsp;&nbsp;have&nbsp;len_ys:&nbsp;length(ys)&nbsp;=&nbsp;0&nbsp;&nbsp;by&nbsp;apply&nbsp;add_to_zero&nbsp;to&nbsp;len_xs_len_ys</code></div>
+<p>We conclude that <code class="inline">xs = empty and ys = empty</code> with our second use of
+<code class="inline">apply</code>-<code class="inline">to</code>, where we make use of the previous theorem
+<code class="inline">list_length_zero_empty</code>.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;conclude&nbsp;xs&nbsp;=&nbsp;empty&nbsp;and&nbsp;ys&nbsp;=&nbsp;empty<br>
+&nbsp;&nbsp;by&nbsp;(apply&nbsp;list_length_zero_empty&lt;T&gt;[xs]&nbsp;to&nbsp;len_xs),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(apply&nbsp;list_length_zero_empty&lt;T&gt;[ys]&nbsp;to&nbsp;len_ys)</code></div>
+<p>Here is the complete proof of <code class="inline">length_append_zero_empty</code>.</p>
+<div class="code-wrapper"><code id="proof_length_append_zero_empty"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>A conditional formula is stated in Deduce using the <code class="inline">if</code>-<code class="inline">then</code> syntax.</li>
+<li>To prove an <code class="inline">if</code>-<code class="inline">then</code> formula, <code class="inline">suppose</code> the condition
+  and prove the conclusion.</li>
+<li>To use a fact that is an <code class="inline">if</code>-<code class="inline">then</code> formula, <code class="inline">apply</code> it <code class="inline">to</code> a proof of the
+  condition.</li>
+<li>To apply a definition to a fact, use <code class="inline">definition</code>-<code class="inline">in</code>.</li>
+</ul>
+<h3 id="exercise_5">Exercise</h3>
+<p>Prove that <code class="inline">all x:Nat. if x ≤ 0 then x = 0</code>.</p>
+<h2 id="reasoning-about-true">Reasoning about <code class="inline">true</code></h2>
+<p>There's not much to say about <code class="inline">true</code>. It's true!  And as we've already
+seen, proving <code class="inline">true</code> is easy. Just use a period.</p>
+<div class="code-wrapper"><code id="proof_really_trivial"><!-- Generated by codeUtils.js --></code></div>
+<p>One almost never sees <code class="inline">true</code> written explicitly in a formula. However,
+it is common for a formula to simplify to <code class="inline">true</code> after some rewriting.</p>
+<h2 id="reasoning-about-false">Reasoning about <code class="inline">false</code></h2>
+<p>The formula <code class="inline">false</code> is also rarely written explicitly in a formula.
+However, it can arise in contradictory situations. For example,
+in the following we have a situation in which <code class="inline">true = false</code>.
+That can't be, so Deduce simplifies <code class="inline">true = false</code> to just <code class="inline">false</code>.</p>
+<div class="code-wrapper"><code id="proof_contra_false"><!-- Generated by codeUtils.js --></code></div>
+<p>More generally, Deduce knows that the different constructors of a
+union are in fact different. So in the next example, because <code class="inline">foo</code> and
+<code class="inline">bar</code> are different constructors, Deduce simplifies <code class="inline">foo = bar</code> to
+<code class="inline">false</code>.</p>
+<div class="code-wrapper non-deduce"><code>union&nbsp;U&nbsp;{<br>
+&nbsp;&nbsp;foo<br>
+&nbsp;&nbsp;bar<br>
+}<br>
+<br>
+theorem&nbsp;foo_bar_false:&nbsp;if&nbsp;foo&nbsp;=&nbsp;bar&nbsp;then&nbsp;false<br>
+proof<br>
+&nbsp;&nbsp;.<br>
+end<br>
+</code></div>
+<p>The above proof is just a period because Deduce simplifies any formula
+of the form <code class="inline">if false then ...</code> to <code class="inline">true</code>, which is related to our
+next point.</p>
+<p>So far we've discussed how a proof of <code class="inline">false</code> can arise.  Next let's
+talk about how you can use <code class="inline">false</code> once you've got it.  The answer is
+anything! The Principle of Explosion from logic tells us that <code class="inline">false</code>
+implies anything. For example, normally we don't know whether or not
+two arbitrary Booleans <code class="inline">x</code> and <code class="inline">y</code> are the same or different.  But if
+we have a premise that is <code class="inline">false</code>, it doesn't matter.</p>
+<div class="code-wrapper"><code id="proof_false_any"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>Deduce simplifies any obviously contradictory equation to <code class="inline">false</code>.</li>
+<li><code class="inline">false</code> implies anything.</li>
+</ul>
+<h2 id="reasoning-about-not">Reasoning about <code class="inline">not</code></h2>
+<p>To express that a formula is false, precede it with <code class="inline">not</code>.  For
+example, for any natural number <code class="inline">x</code>, it is not the case that <code class="inline">x &lt; x</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;intro_less_irreflexive:&nbsp;&nbsp;all&nbsp;x:Nat.&nbsp;not&nbsp;(x&nbsp;&lt;&nbsp;x)<br>
+proof<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>We proceed by induction.</p>
+<div class="code-wrapper non-deduce"><code>induction&nbsp;Nat<br>
+case&nbsp;zero&nbsp;{<br>
+&nbsp;&nbsp;?<br>
+}<br>
+case&nbsp;suc(x')&nbsp;suppose&nbsp;IH:&nbsp;not&nbsp;(x'&nbsp;&lt;&nbsp;x')&nbsp;{<br>
+&nbsp;&nbsp;?<br>
+}<br>
+</code></div>
+<p>Deduce treats <code class="inline">not</code> as syntactic sugar for a conditional formal with a
+<code class="inline">false</code> conclusion. So in the first case, we must prove 
+that <code class="inline">0 &lt; 0</code> implies <code class="inline">false</code>.
+So we <code class="inline">suppose</code> the premise <code class="inline">0 &lt; 0</code> and then conclude <code class="inline">false</code> by the
+definitions of <code class="inline">&lt;</code> and <code class="inline">≤</code>.</p>
+<div class="code-wrapper non-deduce"><code>case&nbsp;zero&nbsp;{<br>
+&nbsp;&nbsp;suppose&nbsp;z_l_z:&nbsp;0&nbsp;&lt;&nbsp;0<br>
+&nbsp;&nbsp;conclude&nbsp;false&nbsp;by&nbsp;definition&nbsp;{operator&nbsp;&lt;,&nbsp;operator&nbsp;&#x2264;}&nbsp;in&nbsp;z_l_z<br>
+}<br>
+</code></div>
+<p>In the case where <code class="inline">x = suc(x')</code>, we must prove 
+that <code class="inline">suc(x') &lt; suc(x')</code> implies <code class="inline">false</code>.
+So we assume the premise <code class="inline">suc(x') &lt; suc(x')</code> from which we
+can prove that <code class="inline">x' &lt; x'</code> using the definitions of <code class="inline">&lt;</code> and <code class="inline">≤</code>.</p>
+<div class="code-wrapper non-deduce"><code>suppose&nbsp;sx_l_sx:&nbsp;suc(x')&nbsp;&lt;&nbsp;suc(x')<br>
+enable&nbsp;{operator&nbsp;&lt;,&nbsp;operator&nbsp;&#x2264;}<br>
+have&nbsp;x_l_x:&nbsp;x'&nbsp;&lt;&nbsp;x'&nbsp;by&nbsp;sx_l_sx<br>
+</code></div>
+<p>We conclude this case by applying the induction hypothesis to <code class="inline">x' &lt; x'</code>.</p>
+<div class="code-wrapper non-deduce"><code>conclude&nbsp;false&nbsp;by&nbsp;apply&nbsp;IH&nbsp;to&nbsp;x_l_x<br>
+</code></div>
+<p>Here is the completed proof that less-than is irreflexive.</p>
+<div class="code-wrapper"><code id="proof_intro_less_irreflexive"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>To expression that a formula is false, use <code class="inline">not</code>.</li>
+<li>Deduce treats the formula <code class="inline">not P</code> just like <code class="inline">if P then false</code>.</li>
+<li>Therefore, to prove a <code class="inline">not</code> formula, suppose <code class="inline">P</code> then prove <code class="inline">false</code>.</li>
+<li>To use a formula like <code class="inline">not P</code>, apply it to a proof of <code class="inline">P</code> to
+  obtain a proof of <code class="inline">false</code>.</li>
+</ul>
+<h2 id="rewriting-facts-with-equations">Rewriting Facts with Equations</h2>
+<p>In the section
+<a href="#rewriting-the-goal-with-equations" target="_blank">Rewriting the Goal with Equations</a> 
+we learned that the <code class="inline">rewrite</code> statement of Deduce applies an equation
+to the current goal.  There is a second variant of <code class="inline">rewrite</code> that
+applies an equation to a fact. As an example, we'll prove the
+following theorem that is a straightforward use of <code class="inline">intro_less_irreflexive</code>.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;intro_less_not_equal:&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat.<br>
+&nbsp;&nbsp;if&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;then&nbsp;not&nbsp;(x&nbsp;=&nbsp;y)<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:Nat,&nbsp;y:Nat<br>
+&nbsp;&nbsp;suppose&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y<br>
+&nbsp;&nbsp;?<br>
+end</code></div>
+<p>Deduce responds with the current goal, in which <code class="inline">not (x = y)</code> is
+expanding into <code class="inline">if x = y then false</code>.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof<br>
+Goal:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;(if&nbsp;x&nbsp;=&nbsp;y&nbsp;then&nbsp;false)<br>
+Givens:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y</code></div>
+<p>So following the usual recipe to prove an <code class="inline">if</code>-<code class="inline">then</code>, we <code class="inline">suppose</code> the
+condition <code class="inline">x = y</code>.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;suppose&nbsp;x_y:&nbsp;x&nbsp;=&nbsp;y</code></div>
+<p>Now we need to prove false, and we have the hint to use the
+<code class="inline">intro_less_irreflexive</code> theorem.</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof<br>
+Goal:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;false<br>
+Givens:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x_y:&nbsp;x&nbsp;=&nbsp;y,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y</code></div>
+<p>Here is where the second variant of <code class="inline">rewrite</code> comes in.  We can use it
+to apply the equation <code class="inline">x = y</code> to the fact <code class="inline">x &lt; y</code> to get <code class="inline">y &lt; y</code>.
+Note the extra keyword <code class="inline">in</code> that is used in this version of <code class="inline">rewrite</code>.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;have&nbsp;y_l_y:&nbsp;y&nbsp;&lt;&nbsp;y&nbsp;&nbsp;&nbsp;by&nbsp;rewrite&nbsp;x_y&nbsp;in&nbsp;x_l_y</code></div>
+<p>We arrive at the contradition by applying <code class="inline">intro_less_irreflexive</code> 
+to <code class="inline">y &lt; y</code>.</p>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;conclude&nbsp;false&nbsp;by&nbsp;apply&nbsp;intro_less_irreflexive[y]&nbsp;to&nbsp;y_l_y</code></div>
+<p>Here is the complete proof of <code class="inline">intro_less_not_equal</code>.</p>
+<div class="code-wrapper"><code id="proof_intro_less_not_equal"><!-- Generated by codeUtils.js --></code></div>
+<h3 id="exercise_6">Exercise</h3>
+<p>Using the <code class="inline">rewrite</code>-<code class="inline">in</code> statement, prove the following variation on
+the transitivity theorem for <code class="inline">≤</code>. Prove that if <code class="inline">x = y</code> and <code class="inline">y ≤ z</code>,
+then <code class="inline">x ≤ z</code>.</p>
+<div class="code-wrapper"><code id="proof_equal_less_trans"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="reasoning-about-some-exists-and-asking-for-help">Reasoning about <code class="inline">some</code> (Exists) and asking for <code class="inline">help</code></h2>
+<p>In Deduce, you can express that there is at least one entity that
+satisfies a given property using the <code class="inline">some</code> formula.  For example, one
+way to define an even number is to say that it is a number that is 2
+times some other number. We express this in Deduce as follows.</p>
+<div class="code-wrapper non-deduce"><code>define&nbsp;Even&nbsp;=&nbsp;&#x03BB;&nbsp;n:Nat&nbsp;{&nbsp;some&nbsp;m:Nat.&nbsp;n&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;m&nbsp;}<br>
+</code></div>
+<p>As an example of how to reason about <code class="inline">some</code> formulas, let us prove a
+classic property of the even numbers, that the addition of two even
+numbers is an even number. Here's the beginning of the proof.</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;intro_addition_of_evens:<br>
+&nbsp;&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat.<br>
+&nbsp;&nbsp;if&nbsp;Even(x)&nbsp;and&nbsp;Even(y)&nbsp;then&nbsp;Even(x&nbsp;+&nbsp;y)<br>
+proof<br>
+&nbsp;&nbsp;arbitrary&nbsp;x:Nat,&nbsp;y:Nat<br>
+&nbsp;&nbsp;suppose&nbsp;even_xy:&nbsp;Even(x)&nbsp;and&nbsp;Even(y)<br>
+&nbsp;&nbsp;have&nbsp;even_x:&nbsp;some&nbsp;m:Nat.&nbsp;x&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;m&nbsp;by&nbsp;definition&nbsp;Even&nbsp;in&nbsp;even_xy<br>
+&nbsp;&nbsp;have&nbsp;even_y:&nbsp;some&nbsp;m:Nat.&nbsp;y&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;m&nbsp;by&nbsp;definition&nbsp;Even&nbsp;in&nbsp;even_xy<br>
+&nbsp;&nbsp;?<br>
+end<br>
+</code></div>
+<p>The next step in the proof is to make use of the facts <code class="inline">even_x</code> and <code class="inline">even_y</code>.
+We can ask Deduce for help in how to use a given with the <code class="inline">help</code> feature.</p>
+<div class="code-wrapper non-deduce"><code>help&nbsp;even_x<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>Advice&nbsp;about&nbsp;using&nbsp;fact:<br>
+some&nbsp;m:Nat.&nbsp;x&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;m<br>
+<br>
+Proceed&nbsp;with:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;obtain&nbsp;A&nbsp;where&nbsp;label:&nbsp;x&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;A&nbsp;from&nbsp;even_x<br>
+where&nbsp;A&nbsp;is&nbsp;a&nbsp;new&nbsp;name&nbsp;of&nbsp;your&nbsp;choice<br>
+</code></div>
+<p>So we go ahead and write two <code class="inline">obtain</code> statements, one for <code class="inline">even_x</code> and
+another for <code class="inline">even_y</code>, making different choices to replace the variable
+<code class="inline">A</code> in the above advice.</p>
+<div class="code-wrapper non-deduce"><code>obtain&nbsp;a&nbsp;where&nbsp;x_2a:&nbsp;x&nbsp;=&nbsp;2&ast;a&nbsp;from&nbsp;even_x<br>
+obtain&nbsp;b&nbsp;where&nbsp;y_2b:&nbsp;y&nbsp;=&nbsp;2&ast;b&nbsp;from&nbsp;even_y<br>
+</code></div>
+<p>Deduce responds with</p>
+<div class="code-wrapper non-deduce"><code>available&nbsp;facts:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;y_2b:&nbsp;y&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;b,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x_2a:&nbsp;x&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;a,<br>
+</code></div>
+<p>The <code class="inline">a</code> and <code class="inline">b</code> are new variables and the two facts <code class="inline">y_2b</code> and <code class="inline">x_2a</code>
+are the subformulas of the <code class="inline">some</code>, but with <code class="inline">a</code> and <code class="inline">b</code> replacing <code class="inline">m</code>.</p>
+<p>We still need to prove the following:</p>
+<div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Even(x&nbsp;+&nbsp;y)<br>
+</code></div>
+<p>So we use the definition of <code class="inline">Even</code> in a <code class="inline">suffices</code> statement</p>
+<div class="code-wrapper non-deduce"><code>suffices&nbsp;some&nbsp;m:Nat.&nbsp;x&nbsp;+&nbsp;y&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;m&nbsp;&nbsp;by&nbsp;definition&nbsp;Even<br>
+?<br>
+</code></div>
+<p>To prove a <code class="inline">some</code> formula, we use Deduce's <code class="inline">choose</code> statement.  This
+requires some thinking on our part.  What number can we plug in for
+<code class="inline">m</code> such that doubling it is equal to <code class="inline">x + y</code>? Given what we know
+about <code class="inline">a</code> and <code class="inline">b</code>, the answer is <code class="inline">a + b</code>. We conclude the proof
+by using the equations for <code class="inline">x</code> and <code class="inline">y</code> and the distributivity
+property of multiplication over addition (from <code class="inline">Nat.pf</code>).</p>
+<div class="code-wrapper non-deduce"><code>choose&nbsp;a&nbsp;+&nbsp;b<br>
+suffices&nbsp;2&nbsp;&ast;&nbsp;a&nbsp;+&nbsp;2&nbsp;&ast;&nbsp;b&nbsp;=&nbsp;2&nbsp;&ast;&nbsp;(a&nbsp;+&nbsp;b)&nbsp;&nbsp;by&nbsp;rewrite&nbsp;x_2a&nbsp;|&nbsp;y_2b<br>
+symmetric&nbsp;dist_mult_add[2][a,b]<br>
+</code></div>
+<p>Here is the complete proof.</p>
+<div class="code-wrapper"><code id="proof_intro_addition_of_evens"><!-- Generated by codeUtils.js --></code></div>
+<p>To summarize this section:</p>
+<ul>
+<li>The <code class="inline">some</code> formula expresses that a property is true for at least one entity.</li>
+<li>Deduce's <code class="inline">obtain</code> statement lets you make use of a fact that is a <code class="inline">some</code> formula.</li>
+<li>To prove a <code class="inline">some</code> formula, use Deduce's <code class="inline">choose</code> statement.</li>
+</ul>
+<!--
+!!!{.deduce^file=ProofIntro.pf}
+import Nat
+import List
+
+&lt;&lt;length_nat_empty&gt;&gt;
+&lt;&lt;length_node42&gt;&gt;
+
+
+theorem append_12: 
+  node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
+proof
+  definition {operator++, operator++}
+end
+
+&lt;&lt;length_nat_one&gt;&gt;
+&lt;&lt;length_node42_again&gt;&gt;
+&lt;&lt;list_length_one&gt;&gt;
+&lt;&lt;list_length_one_equal&gt;&gt;
+
+&lt;&lt;alt_max&gt;&gt;
+&lt;&lt;less_alt_max&gt;&gt;
+
+&lt;&lt;list_append_empty&gt;&gt;
+
+&lt;&lt;xyz_zyx&gt;&gt;
+&lt;&lt;xyz_zyx_eqn&gt;&gt;
+
+
+&lt;&lt;pos_1_and_2&gt;&gt;
+&lt;&lt;pos_2&gt;&gt;
+&lt;&lt;intro_dichotomy&gt;&gt;
+&lt;&lt;list_length_zero_empty&gt;&gt;
+&lt;&lt;length_append_zero_empty&gt;&gt;
+&lt;&lt;really_trivial&gt;&gt;
+&lt;&lt;contra_false&gt;&gt;
+&lt;&lt;false_any&gt;&gt;
+&lt;&lt;intro_less_irreflexive&gt;&gt;
+&lt;&lt;intro_less_not_equal&gt;&gt;
+
+&lt;&lt;intro_zero_or_positive&gt;&gt;
+&lt;&lt;intro_addition_of_evens&gt;&gt;
+!!!
+-->
+        <footer>
+            <a class="nav-logo" href="../index.html">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
+                    <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
+                        transform="rotate(14.995 52.954 86.34)" />
+                    <path class="blue" fill="#5DAAF1" d="m64.373 41.777 35.74 9.573-23.804 88.867-35.74-9.573z" />
+                    <rect class="blue" width="89" height="109" x="79.397" y="28.202" fill="#5DAAF1" rx="26"
+                        transform="rotate(14.995 79.397 28.202)" />
+                    <rect class="blue" width="88" height="109" x="104.511" y="34.929" fill="#5DAAF1" rx="41"
+                        transform="rotate(14.995 104.511 34.929)" />
+                    <circle cx="102.759" cy="57.343" r="7.5" fill="#fff" transform="rotate(14.995 102.759 57.343)" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M138.713 51.92c-.708-2.633-.535-9.472 5.812-15.768 7.934-7.87 13.773-2.974 9.545 5.889-3.382 7.09-7.816 15.009-9.61 18.082l-5.747-8.203Z" />
+                    <rect class="blue" width="277" height="144.529" x="159.042" y="50.663" fill="#5DAAF1" rx="58"
+                        transform="rotate(13 159.042 50.663)" />
+                    <path class="blue" fill="#5DAAF1" d="m164.305 126 248.242 57.311-16.646 72.104-248.242-57.312z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M377 159h40v92h-40zM70 102.825 141.012 45l77.642 95.347-71.012 57.826z" />
+                    <path class="blue" fill="#5DAAF1" d="m151.638 49.079 112.866 26.057-15.971 69.18-112.866-26.057z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="m147.622 46.516 28.984 9.675-22.482 67.347-28.984-9.675zm236.164 192.862h33.319v67.92h-33.319zm0 67.92v-75.609L362 224l21.786 83.298Zm-245.189-29.614 35.092-92.309-23.029-19.498-12.063 111.807ZM174 283.5l12.562-106.137 29.393-6.821L174 283.5Z" />
+                    <path class="blue" fill="#5DAAF1" d="M200.701 113.82 174 283.5l-35.229-6.32 61.93-163.36Z" />
+                    <path class="purple" fill="#A770EA"
+                        d="m103.459 155.41-48.84 70.804 15.787 23.485 63.822-54.251-30.769-40.038Zm199.156 108.147h28.844v36.191h-28.844z" />
+                    <path class="purple" fill="#A770EA" d="m302.615 299.748 28.407-52.007L293 239l9.615 60.748Z" />
+                    <path class="purple" fill="#A770EA" d="m331.459 299.748 20.541-47.2-40.207-9.178 19.666 56.378Z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M590.18 307H523.3v-30.4h17.86V71.02H523.3V41h79.8c18.24 0 35.467 3.167 51.68 9.5 16.213 6.08 30.4 14.947 42.56 26.6 12.16 11.653 21.787 25.713 28.88 42.18 7.093 16.213 10.64 34.58 10.64 55.1 0 14.947-2.66 30.273-7.98 45.98-5.067 15.707-13.427 29.893-25.08 42.56-11.653 12.92-26.853 23.56-45.6 31.92-18.493 8.107-41.167 12.16-68.02 12.16ZM572.7 71.02V276.6h26.6c14.947 0 28.88-2.407 41.8-7.22 12.92-4.813 24.193-11.78 33.82-20.9 9.373-8.867 16.72-19.507 22.04-31.92 5.573-12.667 8.36-26.853 8.36-42.56s-2.787-29.893-8.36-42.56c-5.32-12.667-12.667-23.56-22.04-32.68-9.627-8.867-20.9-15.707-33.82-20.52-12.92-4.813-26.853-7.22-41.8-7.22h-26.6Zm266.698 120.84c-7.094 0-13.554 1.267-19.38 3.8-5.574 2.28-10.387 5.573-14.44 9.88-3.04 3.547-5.574 7.6-7.6 12.16-1.774 4.56-2.787 9.5-3.04 14.82a5454.18 5454.18 0 0 0 35.34-12.92 2039.524 2039.524 0 0 1 35.72-13.3c-3.547-4.307-7.6-7.727-12.16-10.26-4.307-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.334 6.333-13.554 11.273-21.66 14.82-8.107 3.547-16.974 5.32-26.6 5.32-10.64 0-20.647-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.287-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.053-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.373-4.053 19.38-6.08 30.02-6.08 7.853 0 15.326 1.647 22.42 4.94 7.346 3.04 13.933 7.347 19.76 12.92 5.573 5.573 10.513 12.287 14.82 20.14 4.306 7.6 7.6 15.96 9.88 25.08l-51.68 19a11397.596 11397.596 0 0 1-51.3 19c3.8 5.32 8.74 9.627 14.82 12.92 6.333 3.04 13.426 4.56 21.28 4.56 5.826 0 11.146-1.013 15.96-3.04 4.813-2.027 9.12-5.067 12.92-9.12l19.38 22.8ZM1115.73 307h-56.62v-15.2c-.25.76-1.52 2.153-3.8 4.18-2.28 2.027-5.44 4.053-9.5 6.08-4.3 2.28-9.37 4.18-15.2 5.7-5.82 1.773-12.41 2.66-19.76 2.66-10.64 0-20.645-1.9-30.018-5.7-9.373-4.053-17.48-9.5-24.32-16.34s-12.287-14.82-16.34-23.94c-3.8-9.12-5.7-18.747-5.7-28.88s1.9-19.633 5.7-28.5c4.053-9.12 9.5-17.1 16.34-23.94s14.947-12.16 24.32-15.96c9.373-4.053 19.378-6.08 30.018-6.08 6.34 0 12.29.887 17.86 2.66 5.83 1.773 10.9 3.8 15.2 6.08 4.31 2.28 7.35 4.18 9.12 5.7 1.78 1.267 2.92 2.28 3.42 3.04-.5-2.027-.88-4.56-1.14-7.6V52.02h-25.08V22h56.62v254.98h28.88V307Zm-104.88-115.14c-6.58 0-12.665 1.14-18.238 3.42-5.573 2.28-10.387 5.32-14.44 9.12-3.547 4.053-6.46 8.74-8.74 14.06-2.027 5.067-3.04 10.767-3.04 17.1 0 6.587 1.267 12.793 3.8 18.62 2.533 5.827 5.953 10.64 10.26 14.44 3.8 3.547 8.233 6.333 13.3 8.36 5.32 1.773 11.018 2.66 17.098 2.66 6.08 0 11.66-.887 16.72-2.66 5.07-2.027 9.63-4.813 13.68-8.36 4.31-3.8 7.73-8.613 10.26-14.44 2.54-5.827 3.8-12.033 3.8-18.62 0-7.093-1.39-13.553-4.18-19.38-2.53-5.827-6.08-10.64-10.64-14.44-3.8-3.04-8.23-5.447-13.3-7.22-5.06-1.773-10.51-2.66-16.34-2.66Zm267.47 78.66c-5.06 12.16-13.3 21.913-24.7 29.26-11.14 7.093-23.56 10.64-37.24 10.64-14.94 0-26.72-3.927-35.34-11.78-8.61-7.853-13.17-18.113-13.68-30.78v-73.34h-25.08V164.5h56.62v88.92c.51 6.84 2.92 12.793 7.22 17.86 4.56 4.813 11.66 7.473 21.28 7.98 6.59 0 12.8-1.14 18.62-3.42 6.08-2.28 11.4-5.447 15.96-9.5 4.56-4.053 8.24-8.867 11.02-14.44 2.79-5.573 4.18-11.653 4.18-18.24v-39.14h-25.08V164.5h56.62v115.9h23.56V307h-55.1v-19.38l1.14-17.1Zm204.18 23.56c-6.58 5.067-13.93 9.12-22.04 12.16-7.85 2.787-16.34 4.18-25.46 4.18-10.64 0-20.64-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.28-14.693-16.34-23.56c-3.8-8.867-5.7-18.62-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.06-9.12 9.5-16.973 16.34-23.56 6.84-6.84 14.82-12.16 23.94-15.96 9.38-4.053 19.38-6.08 30.02-6.08 9.38 0 18.12 1.52 26.22 4.56 8.11 2.787 15.46 6.713 22.04 11.78v44.08h-28.12v-25.46c-3.04-1.52-6.33-2.533-9.88-3.04-3.29-.76-6.71-1.14-10.26-1.14-6.08 0-11.78 1.013-17.1 3.04-5.06 1.773-9.5 4.307-13.3 7.6-4.56 4.053-8.1 8.867-10.64 14.44-2.28 5.573-3.42 11.78-3.42 18.62 0 6.333 1.14 12.287 3.42 17.86 2.28 5.573 5.45 10.387 9.5 14.44 4.06 3.547 8.74 6.46 14.06 8.74 5.32 2.027 11.15 3.04 17.48 3.04 5.58 0 10.64-.76 15.2-2.28 4.82-1.52 9.25-3.927 13.3-7.22l19 23.94Zm103.54-102.22c-7.1 0-13.56 1.267-19.38 3.8-5.58 2.28-10.39 5.573-14.44 9.88-3.04 3.547-5.58 7.6-7.6 12.16-1.78 4.56-2.79 9.5-3.04 14.82a5726.9 5726.9 0 0 0 35.34-12.92c11.9-4.56 23.81-8.993 35.72-13.3-3.55-4.307-7.6-7.727-12.16-10.26-4.31-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.34 6.333-13.56 11.273-21.66 14.82-8.11 3.547-16.98 5.32-26.6 5.32-10.64 0-20.65-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.29-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.05-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.37-4.053 19.38-6.08 30.02-6.08 7.85 0 15.32 1.647 22.42 4.94 7.34 3.04 13.93 7.347 19.76 12.92 5.57 5.573 10.51 12.287 14.82 20.14 4.3 7.6 7.6 15.96 9.88 25.08-17.23 6.333-34.46 12.667-51.68 19-16.98 6.333-34.08 12.667-51.3 19 3.8 5.32 8.74 9.627 14.82 12.92 6.33 3.04 13.42 4.56 21.28 4.56 5.82 0 11.14-1.013 15.96-3.04 4.81-2.027 9.12-5.067 12.92-9.12l19.38 22.8Z" />
+                </svg>
+            </a>
+            <div class="footer-links">
+                <div class="footer-col">
+                    <a href="./getting-started.html">Get Started</a>
+                    <a href="./sandbox.html">Live Code</a>
+                    <a href="https://github.com/jsiek/deduce" target="_blank">Source Code</a>
+                    <a href="https://github.com/HalflingHelper/deduce-mode" target="_blank">VS-Code deduce-mode</a>
+                    <a href="https://github.com/mateidragony/deduce-mode" target="_blank">Emacs deduce-mode</a>
+                </div>
+                <div class="footer-col">
+                    <a href="./reference.html">Reference</a>
+                    <a href="./cheat-sheet.html">Cheat sheet</a>
+                    <a href="./deduce-programming.html">Programming in deduce</a>
+                    <a href="./deduce-proofs.html">Proofs in deduce</a>
+                </div>
+                <div class="footer-col">
+                    <a href="./syntax.html">Syntax/Grammar</a>
+                    <a href="./syntax.html#statements">Statements</a>
+                    <a href="./syntax.html#proofs">Proofs</a>
+                    <a href="./syntax.html#terms">Terms</a>
+                    <a href="./syntax.html#types">Types</a>
+                    <a href="./syntax.html#unicode">Deduce unicode</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+
+    <script src="../js/cache.js"></script>
+    <script src="../js/script.js"></script>
+    <script src="../js/code.js"></script>
+    <script src="../js/codeUtils.js"></script>
+</body>
+
+</html>

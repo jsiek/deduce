@@ -1,0 +1,14 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+  zip(empty, ys) = []
+  zip(node(x, xs'), ys) =
+    switch ys {
+      case empty { [] }
+      case node(y, ys') { node(pair(x,y), zip(xs', ys')) }
+    }
+}
