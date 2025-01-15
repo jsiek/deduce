@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/define_proof_missing_term.pf:4.3-4.4: expected a term, not
 	"."
 ./test/should-error/define_proof_missing_term.pf:3.3-4.4: while parsing

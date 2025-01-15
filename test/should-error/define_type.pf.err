@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/define_type.pf:1.12-1.13: expected a type, not
 	"="
 ./test/should-error/define_type.pf:1.1-1.11: while parsing

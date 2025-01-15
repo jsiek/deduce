@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/theorem_implies_7.pf:18.3-18.21: 
 Could not prove that
 	(Q and R)

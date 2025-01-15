@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/switch_case_close.pf:9.10-10.14: expected a "}" after body of case, not
 	"case"
 while parsing

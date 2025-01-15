@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/sum_foldr.pf:14.5-14.33: 
 suffices to prove:
 	0 = foldr(@[]<Nat>, 0, operator +)

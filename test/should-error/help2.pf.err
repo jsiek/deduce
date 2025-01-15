@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/help2.pf:8.3-8.10: Advice about using fact:
 	(X or Y)
 

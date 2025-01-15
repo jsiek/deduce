@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/sum_append.pf:35.16-35.36: expected type Nat
 	but the call sum(ls1) ++ sum(ls2)
 	has return type List<E>

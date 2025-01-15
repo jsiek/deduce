@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/union_missing_name.pf:1.7-1.8: expected an identifier, not
 	"{"
 ./test/should-error/union_missing_name.pf:1.1-1.8: while parsing

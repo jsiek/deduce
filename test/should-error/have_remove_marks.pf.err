@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/have_remove_marks.pf:11.3-11.4: incomplete proof
 Goal:
 	length([x]) = 1

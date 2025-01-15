@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/advice_false.pf:5.3-5.4: incomplete proof
 Goal:
 	false

@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/paren_term.pf:9.10-9.11: expected closing parentheses, not
 	,
 while parsing parenthesized term

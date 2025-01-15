@@ -1,3 +1,2 @@
-./lib/
 ./test/should-error/noimport1.pf:1.7-1.9: undefined variable: suc
 	Add `import Nat` to supply a definition.

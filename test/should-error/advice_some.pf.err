@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/advice_some.pf:3.3-3.4: incomplete proof
 Goal:
 	some x:bool. x = x

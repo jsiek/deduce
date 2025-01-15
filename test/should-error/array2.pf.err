@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/array2.pf:6.1-6.16: assertion failed:
 	array(1, 2, 3)[3] ≠ 1
 

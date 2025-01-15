@@ -81,7 +81,6 @@ if __name__ == "__main__":
     # Check command line arguments
 
     stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib/')
-    print(stdlib_dir)
     add_stdlib = True
     deducables = []
     error_expected = False

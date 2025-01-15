@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/cases_error.pf:5.5-5.9: expected a proof.
 Did you mean "cases" instead of "case"?
 ./test/should-error/cases_error.pf:4.5-4.10: while parsing cases (use a logical or)

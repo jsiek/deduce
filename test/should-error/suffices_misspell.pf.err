@@ -1,4 +1,3 @@
-./lib/
 ./test/should-error/suffices_misspell.pf:5.3-5.10: expected a proof.
 Did you mean "suffices" instead of "sufices"?
 ./test/should-error/suffices_misspell.pf:1.1-4.15: while parsing
