@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/help3.pf:5.3-5.10: Advice about using fact:
 	some x:bool. x = true
 

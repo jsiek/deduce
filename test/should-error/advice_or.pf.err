@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/advice_or.pf:3.3-3.4: incomplete proof
 Goal:
 	(true or false)

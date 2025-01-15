@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/induction2.pf:15.3-15.4: incomplete proof
 Goal:
 	(all T:Tree. size(T) = size(T))

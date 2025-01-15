@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/switch_case_empty.pf:9.22-9.23: expected a term, not
 	"}"
 while parsing

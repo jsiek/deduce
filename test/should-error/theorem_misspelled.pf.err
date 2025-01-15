@@ -1,1 +1,2 @@
+./lib/
 ./test/should-error/theorem_misspelled.pf:1.1-1.7: did you mean "theorem" instead of "therem"?

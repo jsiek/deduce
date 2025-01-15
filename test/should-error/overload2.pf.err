@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/overload2.pf:16.27-16.30: could not find a match for function call f(c)
 overloads:
 	(fn A -> bool)

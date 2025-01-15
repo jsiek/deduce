@@ -1,2 +1,3 @@
+./lib/
 ./test/should-error/switch_term_error.pf:8.8-10.9: missing a case for:
 	one

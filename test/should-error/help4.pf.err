@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/help4.pf:8.3-8.16: Advice about using fact:
 	(if true = true then true = true)
 

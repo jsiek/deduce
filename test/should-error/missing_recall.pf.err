@@ -1,2 +1,3 @@
+./lib/
 ./test/should-error/missing_recall.pf:5.3-5.4: expected a proof but instead got term `P`.
 Perhaps you meant `recall P`?

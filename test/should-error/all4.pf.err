@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/all4.pf:4.3-4.7: 
 Could not prove that
 	P

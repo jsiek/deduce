@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/foldr_sum.pf:17.5-17.37: 
 suffices to prove:
 	sum(node(a, d)) = a + foldr(d, 0, operator +)

@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/conclude.pf:4.1-4.4: expected a proof, not
 	"end"
 ./test/should-error/conclude.pf:3.3-3.20: while parsing

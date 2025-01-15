@@ -1,3 +1,4 @@
+./lib/
 ./test/should-error/help1.pf:8.3-8.9: Advice about using fact:
 	(all P:bool. (if P then P))
 
