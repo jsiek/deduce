@@ -2095,7 +2095,6 @@ def type_check_term(term, typ, env, recfun, subterms):
           error(loc, f'Expected type parameter{plural} {pretty_params}, but got a lambda.\n\t' + \
                 f'Add generic {pretty_params} {"{ ... }"} around the function body.')
         case _:
-          print(type(typ))
           error(loc, 'expected a term of type ' + str(typ) + '\n'\
                 + 'but instead got a lambda')
           
