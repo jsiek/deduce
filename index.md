@@ -121,6 +121,47 @@ next in a proof.
 * [Reference Manual](./doc/Reference.md)
 * [Cheat Sheet](./doc/CheatSheet.md)
 
+## Command line arguments
+
+The `deduce.py` script supports certain command line arguments which are documented below. If an argument isn't recognized, then it is automatically treated as a directory/file to be interpreted by Deduce.
+
+`--dir library-directory`
+
+Tells Deduce to link `library-directory` when interpreting a file. For example, if `test.pf` imports `Church.pf`, and `Church.pf` resides in a folder named `libraries`, then `--dir libraries` will allow `test.pf` to import `Church.pf`. Note that `--dir` expects a directory, not an individual file.
+
+`--error`
+
+Deduce will now expect all files that it interprets to contain an error, and will exit gracefully if the file contains an error. However if no error is caught, it will exit with a return code of 255.
+
+`--no-stdlib`
+
+Deduce, by default, will locate and link the standard library (in `/lib` of the Deduce repository). However if this argument is supplied, it won't do so.
+
+`--lalr`
+
+Deduce normally uses a custom recursive descent parser to parse any input files, however this argument will make Deduce instead use lark's LALR parser. This argument exists solely for checking that `Deduce.lark` maintains parity with the recursive descent parser.
+
+`--recursive-descent`
+
+Tells Deduce to use the recursive descent (default) parser. If `--lalr` is also supplied, then only the recursive descent parser will be used.
+
+`--recursive-directories` or `-r`
+
+Instead of only interpreter files in a top level directory, Deduce will now descend into any subdirectories.
+
+`--traceback`
+
+Prints out an exception if an interpreted file throws one.
+
+`--unique-names`
+
+Prints out all variables and types with an unique name. For example, if a program defines an overloaded function `fun`, `fun` might instead be printed out as `fun.1` everytime one overload appears but everytime another overload is referenced it would be printed out as `fun.2` instead.
+
+`--verbose`
+
+Makes Deduce print out ALL debug logs. It is generally recommended to use `--traceback` instead, as this argument can make Deduce print out hundreds of thousands of lines.
+
+
 ## Syntax/Grammar Overview
 
 The Deduce language includes four kinds of phrases:
