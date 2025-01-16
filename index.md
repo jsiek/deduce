@@ -121,7 +121,7 @@ next in a proof.
 * [Reference Manual](./doc/Reference.md)
 * [Cheat Sheet](./doc/CheatSheet.md)
 
-## Command line arguments
+## Command Line Arguments
 
 The `deduce.py` script supports certain command line arguments which are documented below. If an argument isn't recognized, then it is automatically treated as a directory/file to be interpreted by Deduce.
 
