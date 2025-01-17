@@ -1012,7 +1012,7 @@ is true when `P` is false.
 To prove a conditional formula, use `assume`. (See the entry for Assume.)
 
 To use a given that is a conditional formula, use `apply`-`to`.
-(See the entry for Apply-To.)
+(See the entry for [Apply-To](#apply-to-proof-modus-ponens).)
 
 ## If Then Else (Term)
 
