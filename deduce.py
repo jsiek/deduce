@@ -74,7 +74,7 @@ def deduce_directory(directory, recursive_directories):
             if file[-3:] == '.pf':
                 deduce_file(directory + file, error_expected)
         elif recursive_directories and os.path.isdir(directory + file):
-            deduce_directory(directory + file)
+            deduce_directory(directory + file, recursive_directories)
 
 
 if __name__ == "__main__":
