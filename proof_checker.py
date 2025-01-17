@@ -1068,7 +1068,7 @@ def check_proof_of(proof, formula, env):
             msg = str(prem1_red) + ' ≠ ' + str(prem2_red) + '\n' \
                 + 'because\n' + str(small1) + ' ≠ ' + str(small2)
             error(loc, 'mismatch in premise:\n' + msg)
-          body_env = env.declare_local_proof_var(loc, label, prem1_red)
+          body_env = env.declare_local_proof_var(loc, label, new_prem1)
           check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
