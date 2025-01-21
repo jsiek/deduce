@@ -1498,7 +1498,7 @@ proof
   }
 end
 
-theorem max_greater_right: all y:Nat. all x:Nat. 
+theorem max_greater_right: all y:Nat, x:Nat. 
   y ≤ max(x, y)
 proof
   induction Nat
@@ -1522,7 +1522,7 @@ proof
   }
 end
 
-theorem max_greater_left: all x:Nat. all y:Nat. 
+theorem max_greater_left: all x:Nat, y:Nat. 
   x ≤ max(x, y)
 proof
   induction Nat
@@ -1545,7 +1545,7 @@ proof
   }
 end
 
-theorem max_is_left_or_right: all x:Nat. all y:Nat.
+theorem max_is_left_or_right: all x:Nat, y:Nat.
   max(x, y) = x or max(x, y) = y
 proof
   induction Nat
@@ -1592,7 +1592,7 @@ proof
   }
 end
 
-theorem max_symmetric:  all x:Nat. all y:Nat.
+theorem max_symmetric:  all x:Nat, y:Nat.
   max(x,y) = max(y,x)
 proof
   induction Nat
@@ -1617,7 +1617,7 @@ proof
   }
 end
 
-theorem max_assoc: all x:Nat. all y:Nat,z:Nat.
+theorem max_assoc: all x:Nat, y:Nat,z:Nat.
   max(max(x, y), z) = max(x, max(y, z))
 proof
   induction Nat
@@ -1650,7 +1650,7 @@ proof
   }
 end
 
-theorem max_equal_greater_right: all x:Nat. all y:Nat.
+theorem max_equal_greater_right: all x:Nat, y:Nat.
   if x ≤ y
   then max(x, y) = y
 proof
@@ -1678,7 +1678,7 @@ proof
   }
 end
 
-theorem max_equal_greater_left: all x:Nat. all y:Nat.
+theorem max_equal_greater_left: all x:Nat, y:Nat.
   if y ≤ x
   then max(x, y) = x
 proof
@@ -1690,7 +1690,7 @@ proof
   apply max_equal_greater_right to prem
 end
 
-theorem max_less_equal: all x:Nat. all y:Nat, z:Nat.
+theorem max_less_equal: all x:Nat, y:Nat, z:Nat.
   if x ≤ z
   and y ≤ z
   then max(x, y) ≤ z

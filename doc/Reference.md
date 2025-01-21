@@ -1009,10 +1009,10 @@ See the entry for [Biconditional](#biconditional-if-and-only-if).
 A formula `if P then Q` is true when both `P` and `Q` are true and it
 is true when `P` is false.
 
-To prove a conditional formula, use `assume`. (See the entry for Assume.)
+To prove a conditional formula, use `assume`. (See the entry for [Assume](#assume).)
 
 To use a given that is a conditional formula, use `apply`-`to`.
-(See the entry for Apply-To.)
+(See the entry for [Apply-To](#apply-to-proof-modus-ponens).)
 
 ## If Then Else (Term)
 
@@ -1529,7 +1529,7 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Have](#have-proof-statement)
 * [Injective](#injective-proof)
 * [Obtain](#obtain-exists-elimination)
-* [Suffices](#suffices-proof-statment)
+* [Suffices](#suffices-proof-statement)
 * [Suppose](#suppose)
 
 ## Print (Statement)

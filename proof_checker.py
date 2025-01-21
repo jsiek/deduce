@@ -1068,7 +1068,7 @@ def check_proof_of(proof, formula, env):
             msg = str(prem1_red) + ' ≠ ' + str(prem2_red) + '\n' \
                 + 'because\n' + str(small1) + ' ≠ ' + str(small2)
             error(loc, 'mismatch in premise:\n' + msg)
-          body_env = env.declare_local_proof_var(loc, label, prem1_red)
+          body_env = env.declare_local_proof_var(loc, label, new_prem1)
           check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
@@ -2118,6 +2118,12 @@ def type_check_term(term, typ, env, recfun, subterms):
           new_body = type_check_term(body, return_type, body_env,
                                      recfun, subterms)
           return Lambda(loc, typ, params, new_body)
+        case FunctionType(loc2, ty_params, _, _):
+          pretty_params = ", ".join([base_name(x) for x in ty_params])
+          plural = 's' if len(ty_params) > 1 else ''
+
+          error(loc, f'Expected type parameter{plural} {pretty_params}, but got a lambda.\n\t' + \
+                f'Add generic {pretty_params} {"{ ... }"} around the function body.')
         case _:
           error(loc, 'expected a term of type ' + str(typ) + '\n'\
                 + 'but instead got a lambda')
