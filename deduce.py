@@ -74,11 +74,14 @@ def deduce_directory(directory, recursive_directories):
             if file[-3:] == '.pf':
                 deduce_file(directory + file, error_expected)
         elif recursive_directories and os.path.isdir(directory + file):
-            deduce_directory(directory + file)
+            deduce_directory(directory + file, recursive_directories)
 
 
 if __name__ == "__main__":
     # Check command line arguments
+
+    stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib/')
+    add_stdlib = True
     deducables = []
     error_expected = False
     recursive_directories = False
@@ -103,6 +106,8 @@ if __name__ == "__main__":
             else:
               set_verbose(VerboseLevel.CURR_ONLY)
         elif argument == '--dir':
+            if sys.argv[i + 1] == stdlib_dir:
+                add_stdlib = False
             add_import_directory(sys.argv[i+1])
             already_processed_next = True
         elif argument == '--recursive-descent':
@@ -113,8 +118,13 @@ if __name__ == "__main__":
             traceback_flag = True
         elif argument == '--recursive-directories' or argument == '-r':
             recursive_directories = True
+        elif argument == '--no-stdlib':
+            add_stdlib = False
         else:
             deducables.append(argument)
+    
+    if add_stdlib:
+        add_import_directory(stdlib_dir)
     
     if len(deducables) == 0:
         print("Couldn't find a file to deduce!")
