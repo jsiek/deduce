@@ -20,6 +20,11 @@ tests-lib:
 
 tests: tests-should-pass tests-should-error
 
+package:
+	zip "deduce-release" lib abstract_syntax.py alist.py Deduce.lark deduce.py \
+						edit_distance.py error.py parser.py proof_checker.py README.md rec_desc_parser.py 
+
 clean:
 	rm -f ./lib/*.thm
 	rm -f ./test/should-pass/*.thm
+	rm -f deduce-release.zip
