@@ -358,10 +358,6 @@ conclusion = '''
 
 def convertFile(fname):
 
-    # start the test file
-    with open(f'./test/should-pass/doc_{mdToDeduceCode[fname]}.pf', 'w') as f:
-        f.write("import Nat\nimport List\nimport Set\nimport MultiSet\nimport Maps\n\n")
-        
     # read the md file
     with open(f'./doc/{fname}.md', 'r') as f:
         text = f.read()
