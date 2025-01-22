@@ -1,0 +1,8 @@
+./test/should-error/deep_error.pf:1.28-1.34: expected closing parenthesis ")", not
+	2
+./test/should-error/deep_error.pf:1.28-1.34: while parsing function call
+	term ::= term "(" term_list ")"
+
+./test/should-error/deep_error.pf:1.24-1.34: while parsing function call
+	term ::= term "(" term_list ")"
+

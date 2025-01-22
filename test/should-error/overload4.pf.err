@@ -1,4 +1,4 @@
-./test/should-error/overload4.pf:8.9-8.12: in call to f
+./test/should-error/overload4.pf:8.8-8.12: in call to f
 ambiguous overloads:
 ./test/should-error/overload4.pf:5.12-5.24: (fn A -> bool)
 ./test/should-error/overload4.pf:6.12-6.24: (fn A -> bool)
