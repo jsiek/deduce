@@ -1831,7 +1831,7 @@ class ImpIntro(Proof):
   body: Proof
 
   def __str__(self):
-    return 'suppose ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
+    return 'assume ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
 
   def uniquify(self, env):
     if self.premise:

@@ -194,7 +194,7 @@ theorem apply_to_example: all P:bool, Q:bool, R:bool.
   then R
 proof
   arbitrary P:bool, Q:bool, R:bool
-  suppose prem: (if P then Q) and (if Q then R) and P
+  assume prem: (if P then Q) and (if Q then R) and P
   have pq: if P then Q  by prem
   have p: P             by prem
   have q: Q             by apply pq to p
@@ -1121,7 +1121,7 @@ proof
   case 0 {
     conclude 0 + 0 = 0   by definition operator+
   }
-  case suc(n') suppose IH: n' + 0 = n' {
+  case suc(n') assume IH: n' + 0 = n' {
     equations
       suc(n') + 0 = suc(n' + 0)  by definition operator+
               ... = suc(n')      by rewrite IH
@@ -1146,7 +1146,7 @@ theorem injective_example: all x:Nat, y:Nat, z:Nat.
   if suc(x) = suc(y) and suc(y) = suc(z) then x = z
 proof
   arbitrary x:Nat, y:Nat, z:Nat
-  suppose prem: suc(x) = suc(y) and suc(y) = suc(z)
+  assume prem: suc(x) = suc(y) and suc(y) = suc(z)
   have: x = y by injective suc prem
   have: y = z by injective suc prem
   transitive (recall x = y) (recall y = z)
@@ -1312,7 +1312,7 @@ proof to only apply to that subterm.
 theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
 proof
   arbitrary x:Nat
-  suppose: x = 1
+  assume: x = 1
   equations
     #x# + x + x = 1 + x + x   by rewrite recall x = 1
   $ 1 + #x# + x = 1 + 1 + x   by rewrite recall x = 1
