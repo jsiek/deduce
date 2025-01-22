@@ -207,7 +207,15 @@ def rewrite_aux(loc, formula, equation):
   if get_verbose():
     print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
           + '\n\t' + str(formula) + ' =? ' + str(lhs) + '\t' + str(formula == lhs))
-  if formula == lhs:
+  found_match = False
+  try:
+    matching = {}
+    formula_match(loc, equation_vars(equation), lhs, formula, matching, Env())
+    found_match = True
+    rhs = rhs.substitute(matching)
+  except Exception as e:
+    pass
+  if found_match:
     inc_rewrites()
     return rhs
   match formula:
