@@ -1,7 +1,3 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 define max' = λx:Nat, y:Nat { if x ≤ y then y else x }

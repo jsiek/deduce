@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 assert (if true then 1 else 2) = 1
 assert (if false then 1 else 2) = 2

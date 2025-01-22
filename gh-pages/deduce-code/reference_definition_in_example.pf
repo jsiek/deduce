@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem definition_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
 proof

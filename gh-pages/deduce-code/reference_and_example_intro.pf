@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
 proof

@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem induction_example: all n:Nat.
   n + 0 = n

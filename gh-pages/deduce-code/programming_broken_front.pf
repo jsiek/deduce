@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 define broken_front : fn NatList -> Option<Nat> =
   fun ls { switch ls { case Empty { none } } }

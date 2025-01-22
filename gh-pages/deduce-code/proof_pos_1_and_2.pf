@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem pos_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof

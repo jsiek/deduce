@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
 proof

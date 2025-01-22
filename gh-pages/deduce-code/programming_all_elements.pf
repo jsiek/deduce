@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 function all_elements<T>(List<T>, fn T->bool) -> bool {
   all_elements(empty, P) = true

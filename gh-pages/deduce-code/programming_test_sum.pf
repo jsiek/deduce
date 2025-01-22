@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 define L13 = [1, 2, 3]
 assert sum(L13) = 6

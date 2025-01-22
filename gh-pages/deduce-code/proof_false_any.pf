@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem false_any: all x:bool, y:bool. if false then x = y
 proof

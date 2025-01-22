@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem or_example_intro2: all P:bool, Q:bool. if Q then P or Q
 proof
