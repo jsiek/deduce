@@ -9,7 +9,7 @@ theorem apply_to_example: all P:bool, Q:bool, R:bool.
   then R
 proof
   arbitrary P:bool, Q:bool, R:bool
-  suppose prem: (if P then Q) and (if Q then R) and P
+  assume prem: (if P then Q) and (if Q then R) and P
   have pq: if P then Q  by prem
   have p: P             by prem
   have q: Q             by apply pq to p

@@ -207,7 +207,15 @@ def rewrite_aux(loc, formula, equation):
   if get_verbose():
     print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
           + '\n\t' + str(formula) + ' =? ' + str(lhs) + '\t' + str(formula == lhs))
-  if formula == lhs:
+  found_match = False
+  try:
+    matching = {}
+    formula_match(loc, equation_vars(equation), lhs, formula, matching, Env())
+    found_match = True
+    rhs = rhs.substitute(matching)
+  except Exception as e:
+    pass
+  if found_match:
     inc_rewrites()
     return rhs
   match formula:
@@ -416,7 +424,7 @@ def check_proof(proof, env):
       incomplete_error(loc, 'unfinished proof')
       
     case PSorry(loc):
-      error(loc, "can't use sorry in context with unkown goal")
+      error(loc, "can't use sorry in context with unknown goal")
 
     case PHelpUse(loc, proof):
       formula = check_proof(proof, env)
@@ -828,7 +836,7 @@ def proof_advice(formula, env):
           case TypeInst() | Var():
             pass
           case _:
-            return arb_advice # don't give induction adivce for type variables
+            return arb_advice # don't give induction advice for type variables
 
         # When foralls are generated, the def of type var is not in the environment?
         # Seems to be a problem with extensionality
@@ -860,7 +868,7 @@ def proof_advice(formula, env):
                     if num_recursive > 0:
                       rec_params =[(p,ty) for (p,ty) in zip(params,param_types)\
                                    if is_recursive(name, ty)]
-                      ind_advice += ' suppose '
+                      ind_advice += ' assume '
                       ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' \
                             + str(body.substitute({var_x: Var(loc3, param_ty, param, [])})) \
                             for i, (param,param_ty) in enumerate(rec_params)])
@@ -1382,7 +1390,7 @@ def check_proof_of(proof, formula, env):
                   if assumptions[0][1] != None:
                       case_assumption = type_synth_term(assumptions[0][1], body_env, None, [])
                       if case_assumption != new_assumption:
-                          error(scase.location, 'in case, expected suppose of\n' + str(new_assumption) \
+                          error(scase.location, 'in case, expected assume of\n' + str(new_assumption) \
                                 + '\nnot\n' + str(case_assumption))
                   body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], new_assumption)
                 if len(assumptions) > 1:
@@ -1995,7 +2003,7 @@ def type_synth_term(term, env, recfun, subterms):
               case PatternBool(l1, False):
                 has_false_case = True
               case _:
-                raise Exception('not an appropraite case for bool\n\t' \
+                raise Exception('not an appropriate case for bool\n\t' \
                                 + str(scase))
           if not has_true_case:
             error(loc, 'missing case for true')

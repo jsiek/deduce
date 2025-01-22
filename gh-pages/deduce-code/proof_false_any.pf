@@ -7,6 +7,6 @@ import Maps
 theorem false_any: all x:bool, y:bool. if false then x = y
 proof
   arbitrary x:bool, y:bool
-  suppose f: false
+  assume f: false
   conclude x = y by f
 end

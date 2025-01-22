@@ -274,7 +274,7 @@ but this time use the previous theorem.
 ## Rewriting the Goal with Equations
 
 Deduce provides the `rewrite` statement to apply an equation to the
-current goal. In particular, `rewrite` replaces each occurence of the
+current goal. In particular, `rewrite` replaces each occurrence of the
 left-hand side of an equation with the right-hand side of the
 equation.
 
@@ -314,7 +314,7 @@ this time instantiated with `y`.
 rewrite list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplies to just `true`,
+Deduce changes the goal to `1 = 1`, which simplifies to just `true`,
 so Deduce accepts the `rewrite` statement.
 
 Here is the completed proof of `list_length_one_equal`.
@@ -436,7 +436,7 @@ end
 ```
 
 Deduce prints the current goal and the **givens**, that is, the formulas
-that we aleady know are true, which now includes `step1`.
+that we already know are true, which now includes `step1`.
 
 ```
 incomplete proof
@@ -622,7 +622,7 @@ proceed by induction as follows.
       case empty {
         ?
       }
-      case node(n, xs') suppose IH: xs' ++ [] = xs' {
+      case node(n, xs') assume IH: xs' ++ [] = xs' {
         ?
       }
     end
@@ -673,7 +673,7 @@ Perhaps we forget the exact definition of `++`, so we can let
 Deduce tell us the expansion by putting `?` on the right-hand side of
 the equation.
 
-    case node(n, xs') suppose IH: xs' ++ [] = xs' {
+    case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
             = ?                       by definition operator++
@@ -689,7 +689,7 @@ It has transformed the left-hand side of the equation by expanding the
 definition of `++`.  We copy and paste the `node(n, xs' ++ empty)` to
 replace the `?`.
 
-    case node(n, xs') suppose IH: xs' ++ [] = xs' {
+    case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
             = node(n, xs' ++ [])   by definition operator++
@@ -700,7 +700,7 @@ Next, we see that the subterm `xs' ++ []` matches the
 right-hand side of the induction hypothesis `IH`. We use the
 `rewrite` statement to apply the `IH` equation to this subterm.
 
-    case node(n, xs') suppose IH: xs' ++ [] = xs' {
+    case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
             = node(n, xs' ++ [])   by definition operator++
@@ -719,7 +719,7 @@ proof
   case empty {
     conclude @[]<U> ++ [] = []  by definition operator++
   }
-  case node(n, xs') suppose IH: xs' ++ [] = xs' {
+  case node(n, xs') assume IH: xs' ++ [] = xs' {
     equations
       node(n,xs') ++ []
           = node(n, xs' ++ [])   by definition operator++
@@ -1004,11 +1004,11 @@ theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
 proof
   arbitrary x:Nat, y:Nat
   switch x ≤ y {
-    case true suppose x_le_y_true {
+    case true assume x_le_y_true {
       suffices x ≤ y  by definition max' and rewrite x_le_y_true
       rewrite x_le_y_true
     }
-    case false suppose x_le_y_false {
+    case false assume x_le_y_false {
       suffices x ≤ x  by definition max' and rewrite x_le_y_false
       less_equal_refl[x]
     }
@@ -1043,11 +1043,11 @@ Goal:
     (if length(xs) = 0 then xs = [])
 ```
 
-To prove an `if`-`then` formula, we `suppose` the condition and then
+To prove an `if`-`then` formula, we `assume` the condition and then
 prove the conclusion.
 
 ```
-  suppose len_z: length(xs) = 0
+  assume len_z: length(xs) = 0
 ```
 
 Deduce adds `len_z` to the givens (similar to `have`).
@@ -1067,7 +1067,7 @@ obtain a contradiction.
 ```
   switch xs {
     case empty { . }
-    case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
+    case node(x, xs') assume xs_xxs: xs = node(x,xs') {
       ?
     }
   }
@@ -1100,10 +1100,10 @@ theorem list_length_zero_empty: all T:type. all xs:List<T>.
 proof
   arbitrary T:type
   arbitrary xs:List<T>
-  suppose len_z: length(xs) = 0
+  assume len_z: length(xs) = 0
   switch xs {
     case empty { . }
-    case node(x, xs') suppose xs_xxs: xs = node(x,xs') {
+    case node(x, xs') assume xs_xxs: xs = node(x,xs') {
       have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
       conclude false  by apply not_one_add_zero[length(xs')]
                          to definition length in len_z2
@@ -1126,7 +1126,7 @@ theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
 proof
   arbitrary T:type
   arbitrary xs:List<T>, ys:List<T>
-  suppose len_xs_ys: length(xs ++ ys) = 0
+  assume len_xs_ys: length(xs ++ ys) = 0
   ?
 end
 ```
@@ -1182,7 +1182,7 @@ theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
 proof
   arbitrary T:type
   arbitrary xs:List<T>, ys:List<T>
-  suppose len_xs_ys: length(xs ++ ys) = 0
+  assume len_xs_ys: length(xs ++ ys) = 0
   have len_xs_len_ys: length(xs) + length(ys) = 0
     by transitive (symmetric length_append<T>[xs][ys]) len_xs_ys
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
@@ -1196,7 +1196,7 @@ end
 To summarize this section:
 
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
-* To prove an `if`-`then` formula, `suppose` the condition
+* To prove an `if`-`then` formula, `assume` the condition
   and prove the conclusion.
 * To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the
   condition.
@@ -1235,7 +1235,7 @@ theorem contra_false: all a:bool, b:bool.
   if a = b and a = true and b = false then false
 proof
   arbitrary a:bool, b:bool
-  suppose prem: a = b and a = true and b = false
+  assume prem: a = b and a = true and b = false
   have a_true: a = true by prem
   have b_true: b = false by prem
   conclude false by rewrite a_true | b_true in prem
@@ -1273,7 +1273,7 @@ we have a premise that is `false`, it doesn't matter.
 theorem false_any: all x:bool, y:bool. if false then x = y
 proof
   arbitrary x:bool, y:bool
-  suppose f: false
+  assume f: false
   conclude x = y by f
 end
 ```
@@ -1299,18 +1299,18 @@ We proceed by induction.
     case zero {
       ?
     }
-    case suc(x') suppose IH: not (x' < x') {
+    case suc(x') assume IH: not (x' < x') {
       ?
     }
 
 Deduce treats `not` as syntactic sugar for a conditional formal with a
 `false` conclusion. So in the first case, we must prove 
 that `0 < 0` implies `false`.
-So we `suppose` the premise `0 < 0` and then conclude `false` by the
+So we `assume` the premise `0 < 0` and then conclude `false` by the
 definitions of `<` and `≤`.
 
     case zero {
-      suppose z_l_z: 0 < 0
+      assume z_l_z: 0 < 0
       conclude false by definition {operator <, operator ≤} in z_l_z
     }
 
@@ -1319,7 +1319,7 @@ that `suc(x') < suc(x')` implies `false`.
 So we assume the premise `suc(x') < suc(x')` from which we
 can prove that `x' < x'` using the definitions of `<` and `≤`.
 
-    suppose sx_l_sx: suc(x') < suc(x')
+    assume sx_l_sx: suc(x') < suc(x')
     enable {operator <, operator ≤}
     have x_l_x: x' < x' by sx_l_sx
 
@@ -1335,11 +1335,11 @@ theorem intro_less_irreflexive:  all x:Nat. not (x < x)
 proof
   induction Nat
   case zero {
-    suppose z_l_z: 0 < 0
+    assume z_l_z: 0 < 0
     conclude false by definition {operator <, operator ≤} in z_l_z
   }
-  case suc(x') suppose IH: not (x' < x') {
-    suppose sx_l_sx: suc(x') < suc(x')
+  case suc(x') assume IH: not (x' < x') {
+    assume sx_l_sx: suc(x') < suc(x')
     enable {operator <, operator ≤}
     have x_l_x: x' < x' by sx_l_sx
     conclude false by apply IH to x_l_x
@@ -1351,7 +1351,7 @@ To summarize this section:
 
 * To expression that a formula is false, use `not`.
 * Deduce treats the formula `not P` just like `if P then false`.
-* Therefore, to prove a `not` formula, suppose `P` then prove `false`.
+* Therefore, to prove a `not` formula, assume `P` then prove `false`.
 * To use a formula like `not P`, apply it to a proof of `P` to
   obtain a proof of `false`.
 
@@ -1369,7 +1369,7 @@ theorem intro_less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose x_l_y: x < y
+  assume x_l_y: x < y
   ?
 end
 ```
@@ -1385,11 +1385,11 @@ Givens:
     x_l_y: x < y
 ```
 
-So following the usual recipe to prove an `if`-`then`, we `suppose` the
+So following the usual recipe to prove an `if`-`then`, we `assume` the
 condition `x = y`.
 
 ```
-  suppose x_y: x = y
+  assume x_y: x = y
 ```
 
 Now we need to prove false, and we have the hint to use the
@@ -1412,7 +1412,7 @@ Note the extra keyword `in` that is used in this version of `rewrite`.
   have y_l_y: y < y   by rewrite x_y in x_l_y
 ```
 
-We arrive at the contradition by applying `intro_less_irreflexive` 
+We arrive at the contradiction by applying `intro_less_irreflexive` 
 to `y < y`.
 
 ```
@@ -1427,8 +1427,8 @@ theorem intro_less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose x_l_y: x < y
-  suppose x_y: x = y
+  assume x_l_y: x < y
+  assume x_y: x = y
   have y_l_y: y < y by rewrite x_y in x_l_y
   conclude false by apply intro_less_irreflexive[y] to y_l_y
 end
@@ -1467,7 +1467,7 @@ numbers is an even number. Here's the beginning of the proof.
       if Even(x) and Even(y) then Even(x + y)
     proof
       arbitrary x:Nat, y:Nat
-      suppose even_xy: Even(x) and Even(y)
+      assume even_xy: Even(x) and Even(y)
       have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
       have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
       ?
@@ -1533,7 +1533,7 @@ theorem intro_addition_of_evens:
   if Even(x) and Even(y) then Even(x + y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose even_xy: Even(x) and Even(y)
+  assume even_xy: Even(x) and Even(y)
   have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x

@@ -43,7 +43,7 @@ proof
     suffices not (y ∈ ∅) by definition {search, take, set_of}
     empty_no_members<Nat>
   }
-  case node(x, xs') suppose
+  case node(x, xs') assume
     IH: (all y:Nat. not (y ∈ set_of(take(search(xs', y), xs'))))
   {
     arbitrary y:Nat
@@ -55,7 +55,7 @@ proof
       case false assume xy_false: (x = y) = false {
         suffices not (y ∈ single(x) ∪ set_of(take(search(xs', y), xs')))
             by definition {take, set_of}
-        suppose c: y ∈ single(x) ∪ set_of(take(search(xs', y), xs'))
+        assume c: y ∈ single(x) ∪ set_of(take(search(xs', y), xs'))
         cases (apply member_union<Nat> to c)
         case y_in_x: y ∈ single(x) {
           have: x = y by apply single_equal<Nat> to y_in_x
@@ -124,7 +124,7 @@ next in a proof.
 ## Command Line Arguments
 
 The `deduce.py` script supports certain command line arguments which
-are documented below. If an argument is not preceeded by one of the
+are documented below. If an argument is not preceded by one of the
 keywords listed below, then it is treated as the name of a file or
 directory and will be processed by Deduce.
 

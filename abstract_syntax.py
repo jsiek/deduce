@@ -1831,7 +1831,7 @@ class ImpIntro(Proof):
   body: Proof
 
   def __str__(self):
-    return 'suppose ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
+    return 'assume ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
 
   def uniquify(self, env):
     if self.premise:
@@ -2603,13 +2603,29 @@ def split_equation(loc, equation):
   match equation:
     case Call(loc1, tyof, Var(loc2, tyof2, '=', rs2), [L, R]):
       return (L, R)
+    case All(loc1, tyof, var, pos, body):
+      return split_equation(loc, body)
     case _:
       error(loc, 'expected an equality, not ' + str(equation))
 
+def equation_vars(formula):
+  match formula:
+    case Call(loc1, tyof, Var(loc2, tyof2, '=', rs2), [L, R]):
+      return []
+    case All(loc1, tyof, var, pos, body):
+      x, t = var
+      v = Var(loc1, None, x, [])
+      v.typeof = t
+      return [v] + equation_vars(body)
+    case _:
+      raise Exception('equation_vars unhandled ' + str(formula))
+      
 def is_equation(formula):
   match formula:
     case Call(loc1, tyof, Var(loc2, tyof2, '=', rs2), [L, R]):
       return True
+    case All(loc1, tyof, var, pos, body):
+      return is_equation(body)
     case _:
       return False
 

@@ -70,13 +70,17 @@ def warning(location, msg):
     print(header + 'warning: ' + msg)
 
 def error(location, msg):
-  raise Exception(error_header(location) + msg)
+  exc = Exception(error_header(location) + msg)
+  exc.depth = 0
+  raise exc
 
 class IncompleteProof(Exception):
   pass
 
 def incomplete_error(location, msg):
-  raise IncompleteProof(error_header(location) + msg)
+  exc = IncompleteProof(error_header(location) + msg)
+  exc.depth = 0
+  raise exc
 
 def last_error(location, msg):
   e = Exception(error_header(location) + msg)
@@ -86,6 +90,7 @@ def last_error(location, msg):
 def missing_error(location, msg):
   e = Exception(error_header(location) + msg)
   e.missing = True
+  e.depth = 0
   raise e
 
 def warning(location, msg):

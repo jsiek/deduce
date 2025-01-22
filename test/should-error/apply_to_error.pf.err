@@ -7,5 +7,3 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
-./test/should-error/apply_to_error.pf:12.1-17.66: while parsing
-	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
