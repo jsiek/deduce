@@ -10,7 +10,7 @@ theorem length_append_zero_empty: all T:type. all xs:List<T>, ys:List<T>.
 proof
   arbitrary T:type
   arbitrary xs:List<T>, ys:List<T>
-  suppose len_xs_ys: length(xs ++ ys) = 0
+  assume len_xs_ys: length(xs ++ ys) = 0
   have len_xs_len_ys: length(xs) + length(ys) = 0
     by transitive (symmetric length_append<T>[xs][ys]) len_xs_ys
   have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
