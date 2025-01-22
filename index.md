@@ -124,7 +124,7 @@ next in a proof.
 ## Command Line Arguments
 
 The `deduce.py` script supports certain command line arguments which
-are documented below. If an argument is not preceeded by one of the
+are documented below. If an argument is not preceded by one of the
 keywords listed below, then it is treated as the name of a file or
 directory and will be processed by Deduce.
 
