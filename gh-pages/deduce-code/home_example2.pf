@@ -4,9 +4,14 @@ import Set
 import MultiSet
 import Maps
 
-theorem zero_add: all n:Nat.
-  0 + n = n
+theorem less_implies_not_equal:
+  all x:Nat, y:Nat.
+  if x < y then not (x = y)
 proof
-  arbitrary n:Nat
-  conclude 0 + n = n by definition operator+
+  arbitrary x:Nat, y:Nat
+  assume: x < y
+  assume xy: x = y
+  have: y < y by rewrite xy in recall x < y
+  conclude false by apply less_irreflexive
+                    to recall y < y
 end
