@@ -4,7 +4,8 @@ import Set
 import MultiSet
 import Maps
 
-theorem less_implies_not_equal: all x:Nat, y:Nat.
+theorem less_implies_not_equal:
+  all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
