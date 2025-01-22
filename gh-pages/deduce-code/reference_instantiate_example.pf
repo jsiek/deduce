@@ -1,0 +1,7 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define empty_nat_list = @empty<Nat>

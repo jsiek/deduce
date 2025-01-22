@@ -1,0 +1,20 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
+proof
+  arbitrary x:Nat, y:Nat
+  switch x ≤ y {
+    case true suppose x_le_y_true {
+      suffices x ≤ y  by definition max' and rewrite x_le_y_true
+      rewrite x_le_y_true
+    }
+    case false suppose x_le_y_false {
+      suffices x ≤ x  by definition max' and rewrite x_le_y_false
+      less_equal_refl[x]
+    }
+  }
+end

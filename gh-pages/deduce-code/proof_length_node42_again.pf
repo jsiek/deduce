@@ -1,0 +1,10 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem length_node42_again: length([42]) = 1
+proof
+  length_nat_one[42]
+end

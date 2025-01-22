@@ -1,0 +1,10 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+function len(NatList) -> Nat {
+  len(Empty) = 0
+  len(Node(n, next)) = 1 + len(next)
+}

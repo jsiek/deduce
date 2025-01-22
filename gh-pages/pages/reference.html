@@ -1,0 +1,1059 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deduce | Reference Manual</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="../images/logo.svg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Josefin+Slab:ital,wght@0,100..700;1,100..700&display=swap"
+        rel="stylesheet">
+
+    <!-- Font awesome -->
+    <script src="https://kit.fontawesome.com/7005573326.js" crossorigin="anonymous"></script>
+
+    <!-- My stylesheets -->
+    <link rel="stylesheet" href="../css/normalize.css">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+
+    <div class="container md reference">
+        <nav>
+            <a class="nav-logo" href="../index.html">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
+                    <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
+                        transform="rotate(14.995 52.954 86.34)" />
+                    <path class="blue" fill="#5DAAF1" d="m64.373 41.777 35.74 9.573-23.804 88.867-35.74-9.573z" />
+                    <rect class="blue" width="89" height="109" x="79.397" y="28.202" fill="#5DAAF1" rx="26"
+                        transform="rotate(14.995 79.397 28.202)" />
+                    <rect class="blue" width="88" height="109" x="104.511" y="34.929" fill="#5DAAF1" rx="41"
+                        transform="rotate(14.995 104.511 34.929)" />
+                    <circle cx="102.759" cy="57.343" r="7.5" fill="#fff" transform="rotate(14.995 102.759 57.343)" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M138.713 51.92c-.708-2.633-.535-9.472 5.812-15.768 7.934-7.87 13.773-2.974 9.545 5.889-3.382 7.09-7.816 15.009-9.61 18.082l-5.747-8.203Z" />
+                    <rect class="blue" width="277" height="144.529" x="159.042" y="50.663" fill="#5DAAF1" rx="58"
+                        transform="rotate(13 159.042 50.663)" />
+                    <path class="blue" fill="#5DAAF1" d="m164.305 126 248.242 57.311-16.646 72.104-248.242-57.312z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M377 159h40v92h-40zM70 102.825 141.012 45l77.642 95.347-71.012 57.826z" />
+                    <path class="blue" fill="#5DAAF1" d="m151.638 49.079 112.866 26.057-15.971 69.18-112.866-26.057z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="m147.622 46.516 28.984 9.675-22.482 67.347-28.984-9.675zm236.164 192.862h33.319v67.92h-33.319zm0 67.92v-75.609L362 224l21.786 83.298Zm-245.189-29.614 35.092-92.309-23.029-19.498-12.063 111.807ZM174 283.5l12.562-106.137 29.393-6.821L174 283.5Z" />
+                    <path class="blue" fill="#5DAAF1" d="M200.701 113.82 174 283.5l-35.229-6.32 61.93-163.36Z" />
+                    <path class="purple" fill="#A770EA"
+                        d="m103.459 155.41-48.84 70.804 15.787 23.485 63.822-54.251-30.769-40.038Zm199.156 108.147h28.844v36.191h-28.844z" />
+                    <path class="purple" fill="#A770EA" d="m302.615 299.748 28.407-52.007L293 239l9.615 60.748Z" />
+                    <path class="purple" fill="#A770EA" d="m331.459 299.748 20.541-47.2-40.207-9.178 19.666 56.378Z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M590.18 307H523.3v-30.4h17.86V71.02H523.3V41h79.8c18.24 0 35.467 3.167 51.68 9.5 16.213 6.08 30.4 14.947 42.56 26.6 12.16 11.653 21.787 25.713 28.88 42.18 7.093 16.213 10.64 34.58 10.64 55.1 0 14.947-2.66 30.273-7.98 45.98-5.067 15.707-13.427 29.893-25.08 42.56-11.653 12.92-26.853 23.56-45.6 31.92-18.493 8.107-41.167 12.16-68.02 12.16ZM572.7 71.02V276.6h26.6c14.947 0 28.88-2.407 41.8-7.22 12.92-4.813 24.193-11.78 33.82-20.9 9.373-8.867 16.72-19.507 22.04-31.92 5.573-12.667 8.36-26.853 8.36-42.56s-2.787-29.893-8.36-42.56c-5.32-12.667-12.667-23.56-22.04-32.68-9.627-8.867-20.9-15.707-33.82-20.52-12.92-4.813-26.853-7.22-41.8-7.22h-26.6Zm266.698 120.84c-7.094 0-13.554 1.267-19.38 3.8-5.574 2.28-10.387 5.573-14.44 9.88-3.04 3.547-5.574 7.6-7.6 12.16-1.774 4.56-2.787 9.5-3.04 14.82a5454.18 5454.18 0 0 0 35.34-12.92 2039.524 2039.524 0 0 1 35.72-13.3c-3.547-4.307-7.6-7.727-12.16-10.26-4.307-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.334 6.333-13.554 11.273-21.66 14.82-8.107 3.547-16.974 5.32-26.6 5.32-10.64 0-20.647-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.287-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.053-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.373-4.053 19.38-6.08 30.02-6.08 7.853 0 15.326 1.647 22.42 4.94 7.346 3.04 13.933 7.347 19.76 12.92 5.573 5.573 10.513 12.287 14.82 20.14 4.306 7.6 7.6 15.96 9.88 25.08l-51.68 19a11397.596 11397.596 0 0 1-51.3 19c3.8 5.32 8.74 9.627 14.82 12.92 6.333 3.04 13.426 4.56 21.28 4.56 5.826 0 11.146-1.013 15.96-3.04 4.813-2.027 9.12-5.067 12.92-9.12l19.38 22.8ZM1115.73 307h-56.62v-15.2c-.25.76-1.52 2.153-3.8 4.18-2.28 2.027-5.44 4.053-9.5 6.08-4.3 2.28-9.37 4.18-15.2 5.7-5.82 1.773-12.41 2.66-19.76 2.66-10.64 0-20.645-1.9-30.018-5.7-9.373-4.053-17.48-9.5-24.32-16.34s-12.287-14.82-16.34-23.94c-3.8-9.12-5.7-18.747-5.7-28.88s1.9-19.633 5.7-28.5c4.053-9.12 9.5-17.1 16.34-23.94s14.947-12.16 24.32-15.96c9.373-4.053 19.378-6.08 30.018-6.08 6.34 0 12.29.887 17.86 2.66 5.83 1.773 10.9 3.8 15.2 6.08 4.31 2.28 7.35 4.18 9.12 5.7 1.78 1.267 2.92 2.28 3.42 3.04-.5-2.027-.88-4.56-1.14-7.6V52.02h-25.08V22h56.62v254.98h28.88V307Zm-104.88-115.14c-6.58 0-12.665 1.14-18.238 3.42-5.573 2.28-10.387 5.32-14.44 9.12-3.547 4.053-6.46 8.74-8.74 14.06-2.027 5.067-3.04 10.767-3.04 17.1 0 6.587 1.267 12.793 3.8 18.62 2.533 5.827 5.953 10.64 10.26 14.44 3.8 3.547 8.233 6.333 13.3 8.36 5.32 1.773 11.018 2.66 17.098 2.66 6.08 0 11.66-.887 16.72-2.66 5.07-2.027 9.63-4.813 13.68-8.36 4.31-3.8 7.73-8.613 10.26-14.44 2.54-5.827 3.8-12.033 3.8-18.62 0-7.093-1.39-13.553-4.18-19.38-2.53-5.827-6.08-10.64-10.64-14.44-3.8-3.04-8.23-5.447-13.3-7.22-5.06-1.773-10.51-2.66-16.34-2.66Zm267.47 78.66c-5.06 12.16-13.3 21.913-24.7 29.26-11.14 7.093-23.56 10.64-37.24 10.64-14.94 0-26.72-3.927-35.34-11.78-8.61-7.853-13.17-18.113-13.68-30.78v-73.34h-25.08V164.5h56.62v88.92c.51 6.84 2.92 12.793 7.22 17.86 4.56 4.813 11.66 7.473 21.28 7.98 6.59 0 12.8-1.14 18.62-3.42 6.08-2.28 11.4-5.447 15.96-9.5 4.56-4.053 8.24-8.867 11.02-14.44 2.79-5.573 4.18-11.653 4.18-18.24v-39.14h-25.08V164.5h56.62v115.9h23.56V307h-55.1v-19.38l1.14-17.1Zm204.18 23.56c-6.58 5.067-13.93 9.12-22.04 12.16-7.85 2.787-16.34 4.18-25.46 4.18-10.64 0-20.64-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.28-14.693-16.34-23.56c-3.8-8.867-5.7-18.62-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.06-9.12 9.5-16.973 16.34-23.56 6.84-6.84 14.82-12.16 23.94-15.96 9.38-4.053 19.38-6.08 30.02-6.08 9.38 0 18.12 1.52 26.22 4.56 8.11 2.787 15.46 6.713 22.04 11.78v44.08h-28.12v-25.46c-3.04-1.52-6.33-2.533-9.88-3.04-3.29-.76-6.71-1.14-10.26-1.14-6.08 0-11.78 1.013-17.1 3.04-5.06 1.773-9.5 4.307-13.3 7.6-4.56 4.053-8.1 8.867-10.64 14.44-2.28 5.573-3.42 11.78-3.42 18.62 0 6.333 1.14 12.287 3.42 17.86 2.28 5.573 5.45 10.387 9.5 14.44 4.06 3.547 8.74 6.46 14.06 8.74 5.32 2.027 11.15 3.04 17.48 3.04 5.58 0 10.64-.76 15.2-2.28 4.82-1.52 9.25-3.927 13.3-7.22l19 23.94Zm103.54-102.22c-7.1 0-13.56 1.267-19.38 3.8-5.58 2.28-10.39 5.573-14.44 9.88-3.04 3.547-5.58 7.6-7.6 12.16-1.78 4.56-2.79 9.5-3.04 14.82a5726.9 5726.9 0 0 0 35.34-12.92c11.9-4.56 23.81-8.993 35.72-13.3-3.55-4.307-7.6-7.727-12.16-10.26-4.31-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.34 6.333-13.56 11.273-21.66 14.82-8.11 3.547-16.98 5.32-26.6 5.32-10.64 0-20.65-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.29-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.05-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.37-4.053 19.38-6.08 30.02-6.08 7.85 0 15.32 1.647 22.42 4.94 7.34 3.04 13.93 7.347 19.76 12.92 5.57 5.573 10.51 12.287 14.82 20.14 4.3 7.6 7.6 15.96 9.88 25.08-17.23 6.333-34.46 12.667-51.68 19-16.98 6.333-34.08 12.667-51.3 19 3.8 5.32 8.74 9.627 14.82 12.92 6.33 3.04 13.42 4.56 21.28 4.56 5.82 0 11.14-1.013 15.96-3.04 4.81-2.027 9.12-5.067 12.92-9.12l19.38 22.8Z" />
+                </svg>
+            </a>
+            <div class="nav-links">
+                <a class="mobile link-btn" id="nav-toggle"><i class="fa-solid fa-bars"></i></a>
+                <div id="link-list" class="hide">
+                    <a class="link-btn" href="./getting-started.html">Get Started</a>
+                    <a class="link-btn" href="./reference.html">Reference</a>
+                    <a class="link-btn" href="./sandbox.html">Live Code</a>
+                </div>
+            </div>
+        </nav>
+<h1 id="reference-manual">Reference Manual</h1>
+<p>This is a comprehensive reference for Deduce. It describes each
+feature in alphabetical order by keyword. It gives the grammar rule
+(syntax) and describes its meaning and/or how it is used in a proof.</p>
+<p>In the grammar rules, an unquoted astericks means zero-or more
+repetitions of the grammar item that it follows.
+The symbol ε means the empty string.
+A vertical bar separates alternatives right-hand sides in a grammar rule.</p>
+<h2 id="add">Add</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"+"&nbsp;term</code></div>
+<p>The addition function for natural numbers is defined in <code class="inline">Nat.pf</code>
+as follows.</p>
+<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;+(Nat,Nat)&nbsp;-&gt;&nbsp;Nat&nbsp;{<br>
+&nbsp;&nbsp;operator&nbsp;+(0,&nbsp;m)&nbsp;=&nbsp;m<br>
+&nbsp;&nbsp;operator&nbsp;+(suc(n),&nbsp;m)&nbsp;=&nbsp;suc(n&nbsp;+&nbsp;m)<br>
+}</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_add_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="add-multiset">Add (Multiset)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"&#x2A04;"&nbsp;term<br>
+term&nbsp;::=&nbsp;term&nbsp;"[+]"&nbsp;term</code></div>
+<p>Addition on multisets is defined in <code class="inline">MultiSet.pf</code>.  The main theorem
+about multiset addition is <code class="inline">cnt_sum</code>, which says that the count for
+each item in <code class="inline">A ⨄ B</code> is the sum of (1) the count for that item in <code class="inline">A</code> and
+(2) the count for that item in <code class="inline">B</code>.</p>
+<div class="code-wrapper non-deduce"><code>cnt_sum:&nbsp;all&nbsp;T:type.&nbsp;all&nbsp;A:MultiSet&lt;T&gt;,&nbsp;B:MultiSet&lt;T&gt;,&nbsp;x:T.<br>
+&nbsp;&nbsp;cnt(A&nbsp;&#x2A04;&nbsp;B)(x)&nbsp;=&nbsp;cnt(A)(x)&nbsp;+&nbsp;cnt(B)(x)</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_add_multiset_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="all-universal-quantifier">All (Universal Quantifier)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"all"&nbsp;var_list&nbsp;"."&nbsp;formula</code></div>
+<p>A formula of the form <code class="inline">all x1:T1,...,xn:Tn. P</code> is true
+when <code class="inline">P</code> is true for all possible choices of <code class="inline">x1</code>...<code class="inline">xn</code>.</p>
+<p>To prove an <code class="inline">all</code> formula, use <code class="inline">arbitrary</code> (see entry for
+<a href="#arbitrary-forall-introduction" target="_self">Arbitrary</a>) or <code class="inline">induction</code> (see entry
+for <a href="#induction" target="_self">Induction</a>). Induction is only allowed when the <code class="inline">all</code>
+has a single variable, as in <code class="inline">all x:T. P</code>, and the type <code class="inline">T</code> must be a
+union type.</p>
+<div class="code-wrapper"><code id="reference_all_example_bool"><!-- Generated by codeUtils.js --></code></div>
+<div class="code-wrapper"><code id="reference_all_example_intro"><!-- Generated by codeUtils.js --></code></div>
+<p>A proof of <code class="inline">all x1:T1,...,xn:Tn. P</code> can be used to prove the
+formula <code class="inline">P</code> where the <code class="inline">x1,...,xn</code> have been replaced by 
+terms of your choice. Use square brackets to enclose your
+comma-delimited choices.</p>
+<div class="code-wrapper"><code id="reference_all_example_elim"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="and-logical-conjunction">And (logical conjunction)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;formula&nbsp;"and"&nbsp;formula</code></div>
+<p>The formula <code class="inline">P and Q</code> is true when both <code class="inline">P</code> and <code class="inline">Q</code> are true.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_and_example"><!-- Generated by codeUtils.js --></code></div>
+<p>Use comma to combine a proof of <code class="inline">P</code> and a proof of <code class="inline">Q</code> into a proof of
+<code class="inline">P and Q</code>.</p>
+<div class="code-wrapper"><code id="reference_and_example_intro"><!-- Generated by codeUtils.js --></code></div>
+<p>A proof of <code class="inline">P and Q</code> can be used implicitly to prove <code class="inline">P</code> and to prove <code class="inline">Q</code>.</p>
+<div class="code-wrapper"><code id="reference_and_example_elim"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="append">Append</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"++"&nbsp;term</code></div>
+<p>The append function, i.e., <code class="inline">operator ++</code>, is defined in <code class="inline">List.pf</code> as follows.</p>
+<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;++&nbsp;&lt;E&gt;(List&lt;E&gt;,&nbsp;List&lt;E&gt;)&nbsp;-&gt;&nbsp;List&lt;E&gt;&nbsp;{<br>
+&nbsp;&nbsp;operator&nbsp;++(empty,&nbsp;ys)&nbsp;=&nbsp;ys<br>
+&nbsp;&nbsp;operator&nbsp;++(node(n,&nbsp;xs),&nbsp;ys)&nbsp;=&nbsp;node(n,&nbsp;xs&nbsp;++&nbsp;ys)<br>
+}</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_append_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="apply-to-proof-modus-ponens">Apply-To Proof (Modus Ponens)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"apply"&nbsp;proof&nbsp;"to"&nbsp;proof</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>apply&nbsp;X&nbsp;to&nbsp;Y</code></div>
+<p>is a proof of formula <code class="inline">Q</code> if <code class="inline">X</code> is a proof of <code class="inline">(if P then Q)</code>
+and <code class="inline">Y</code> is a proof of <code class="inline">P</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_apply_to_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="arbitrary-forall-introduction">Arbitrary (Forall Introduction)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"arbitrary"&nbsp;var_list</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>arbitrary&nbsp;x1:T1,&nbsp;...,&nbsp;xn:Tn<br>
+X</code></div>
+<p>is a proof of the formula <code class="inline">all x1:T1, ..., xn:Tn. P</code> if <code class="inline">X</code> is a proof of <code class="inline">P</code>.
+The variables <code class="inline">x1</code>, ..., <code class="inline">xn</code> may appear in the formula <code class="inline">P</code> and the proof <code class="inline">X</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_arbitrary_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="assert-statement">Assert (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"assert"&nbsp;term</code></div>
+<p>The <code class="inline">assert</code> statement evaluates a term and reports an error if the
+result is <code class="inline">false</code>. For example, the following <code class="inline">assert</code> does nothing
+because the term evaluates to <code class="inline">true</code>.</p>
+<div class="code-wrapper"><code id="reference_assert_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="assume">Assume</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"assume"&nbsp;assumption<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"suppose"&nbsp;assumption</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>assume&nbsp;label:&nbsp;P<br>
+X</code></div>
+<p>is a proof of the formula <code class="inline">if P then Q</code> if <code class="inline">X</code> is a proof of <code class="inline">Q</code>.
+The proof <code class="inline">X</code> may use the <code class="inline">label</code> as a proof of <code class="inline">P</code>
+and it may also refer to the proof of <code class="inline">P</code> by writing <code class="inline">recall P</code>.</p>
+<div class="code-wrapper"><code id="reference_assume_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="assumption-and-assumption-list">Assumption and Assumption List</h2>
+<div class="code-wrapper non-deduce"><code>assumption&nbsp;::=&nbsp;identifier<br>
+assumption&nbsp;::=&nbsp;identifier&nbsp;":"&nbsp;formula<br>
+assumption&nbsp;::=&nbsp;":"&nbsp;formula<br>
+<br>
+<br>
+<br>
+assumption_list&nbsp;::=&nbsp;assumption<br>
+assumption_list&nbsp;::=&nbsp;assumption&nbsp;","&nbsp;assumption_list</code></div>
+<p>See the entry for <a href="#assume" target="_self">Assume</a> to see how assumptions are used.</p>
+<h2 id="at-symbol">At Symbol <code class="inline">@</code></h2>
+<p>See the entry for <a href="#instantiation-term" target="_self">Instantiation</a>.</p>
+<h2 id="biconditional-if-and-only-if">Biconditional (if and only if)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;formula&nbsp;"⇔"&nbsp;formula<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;formula&nbsp;"&lt;=&gt;"&nbsp;formula<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;formula&nbsp;"iff"&nbsp;formula</code></div>
+<p>The biconditional formula <code class="inline">P ⇔ Q</code> is syntactic sugar for
+<code class="inline">(if P then Q) and (if Q then P)</code>.</p>
+<h2 id="bool-type">Bool (Type)</h2>
+<div class="code-wrapper non-deduce"><code>type&nbsp;::=&nbsp;"bool"</code></div>
+<p>The type <code class="inline">bool</code> classifies the values <code class="inline">true</code> annd <code class="inline">false</code>.
+A formula is a term of type <code class="inline">bool</code>.</p>
+<h2 id="braces-proof">Braces (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>proof&nbsp;::=&nbsp;"{"&nbsp;proof&nbsp;"}"</code></div>
+<p>A proof may be surrounded in curly braces.</p>
+<h2 id="call-term">Call (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"("&nbsp;term_list&nbsp;")"</code></div>
+<p>A term of the form <code class="inline">t0(t1, ..., tn)</code> calls the function indicated by
+term <code class="inline">t0</code> on the arguments <code class="inline">t1</code>,...,<code class="inline">tn</code>.</p>
+<div class="code-wrapper"><code id="reference_call_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="cases-disjunction-elimination">Cases (Disjunction Elimination)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"cases"&nbsp;proof&nbsp;case_list<br>
+case_list&nbsp;::=&nbsp;case&nbsp;|&nbsp;case&nbsp;case_list<br>
+case&nbsp;::=&nbsp;"case"&nbsp;identifier&nbsp;"{"&nbsp;proof&nbsp;"}"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"case"&nbsp;identifier&nbsp;":"&nbsp;term&nbsp;"{"&nbsp;proof&nbsp;"}"</code></div>
+<p>In Deduce, you can use an <code class="inline">or</code> fact by doing case analysis with the
+<code class="inline">cases</code> statement. There is one <code class="inline">case</code> for each subformula of the
+<code class="inline">or</code>. </p>
+<p>In the following example, we prove that <code class="inline">x ≤ y or y &lt; x</code>
+from the trichotomy law: <code class="inline">x &lt; y or x = y or y &lt; x</code>.</p>
+<div class="code-wrapper non-deduce"><code>have&nbsp;tri:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;or&nbsp;x&nbsp;=&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;trichotomy[x][y]<br>
+cases&nbsp;tri<br>
+case&nbsp;x_l_y:&nbsp;x&nbsp;&lt;&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;have&nbsp;x_le_y:&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;by&nbsp;apply&nbsp;less_implies_less_equal[x][y]&nbsp;to&nbsp;x_l_y<br>
+&nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;x_le_y<br>
+}<br>
+case&nbsp;x_eq_y:&nbsp;x&nbsp;=&nbsp;y&nbsp;{<br>
+&nbsp;&nbsp;have&nbsp;x_le_y:&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;by<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;suffices&nbsp;y&nbsp;&#x2264;&nbsp;y&nbsp;&nbsp;by&nbsp;rewrite&nbsp;x_eq_y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;less_equal_refl[y]<br>
+&nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;x_le_y<br>
+}<br>
+case&nbsp;y_l_x:&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;{<br>
+&nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;y_l_x<br>
+}</code></div>
+<h2 id="choose-exists-introduction">Choose (Exists Introduction)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"choose"&nbsp;term_list</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>choose&nbsp;e1,...,en<br>
+X</code></div>
+<p>is a proof of the formula <code class="inline">some x1,...xn. P</code>
+if <code class="inline">X</code> is a proof of formula <code class="inline">P</code> where the <code class="inline">x</code>'s replaced by the <code class="inline">e</code>'s.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_choose_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="comma-logical-and-introduction">Comma (Logical And Introduction)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;proof&nbsp;","&nbsp;proof</code></div>
+<p>See the entry for And (logical conjunction).</p>
+<h2 id="compose-functions">Compose (Functions)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"&#x2218;"&nbsp;term&nbsp;|&nbsp;term&nbsp;"[o]"&nbsp;term</code></div>
+<p>The composition of two functions <code class="inline">g ∘ f</code> is defined in <code class="inline">Maps.pf</code>
+so that <code class="inline">(g ∘ f)(x) = g(f(x))</code>.</p>
+<p>Example:</p>
+<p>Applying the successor function <code class="inline">suc</code> (add 1) to <code class="inline">3</code> yields <code class="inline">5</code>.</p>
+<div class="code-wrapper"><code id="reference_compose_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="conclude-proof">Conclude (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"conclude"&nbsp;formula&nbsp;"by"&nbsp;proof</code></div>
+<p>This proof statement is useful when you wish to emphasize the end of a
+proof by stating the formula that is being proved.</p>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>conclude&nbsp;P&nbsp;by&nbsp;X</code></div>
+<p>is a proof of formula <code class="inline">P</code> if <code class="inline">X</code> is a proof of <code class="inline">P</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_conclude_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="conclusion-proof">Conclusion (Proof)</h2>
+<p>The last statement in a proof (the <code class="inline">conclusion</code> symbol in the grammar)
+must be one of the following:</p>
+<ul>
+<li><a href="#cases-disjunction-elimination" target="_self">Cases</a></li>
+<li><a href="#comma-logical-and-introduction" target="_self">Comma (Logical-And Introduction)</a></li>
+<li><a href="#conclude-proof" target="_self">Conclude</a></li>
+<li><a href="#conjunct" target="_self">Conjunct</a></li>
+<li><a href="#definition-proof" target="_self">Definition</a></li>
+<li><a href="#definition-in-proof" target="_self">Definition-In</a></li>
+<li><a href="#definition-and-rewrite-proof" target="_self">Definition and Rewrite</a></li>
+<li><a href="#equations" target="_self">Equations</a></li>
+<li><a href="#evaluate-proof" target="_self">Evaluate</a></li>
+<li><a href="#evaluate-in-proof" target="_self">Evaluate-In</a></li>
+<li><a href="#help-proof" target="_self">Help</a></li>
+<li><a href="#identifier" target="_self">Identifier</a></li>
+<li><a href="#induction" target="_self">Induction</a></li>
+<li><a href="#instantiation-proof" target="_self">Instantiation</a></li>
+<li><a href="#period-proof-of-true" target="_self">Period</a></li>
+<li><a href="#question-mark-proof" target="_self">Question Mark</a></li>
+<li><a href="#recall-proof" target="_self">Recall</a></li>
+<li><a href="#rewrite-proof" target="_self">Rewrite</a></li>
+<li><a href="#sorry-proof" target="_self">Sorry</a></li>
+<li><a href="#switch-proof" target="_self">Switch</a></li>
+<li><a href="#symmetric-proof" target="_self">Symmetric</a></li>
+<li><a href="#transitive-proof" target="_self">Transitive</a></li>
+</ul>
+<h2 id="conjunct">Conjunct</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"conjunct"&nbsp;number&nbsp;"of"&nbsp;proof&nbsp;</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>conjunct&nbsp;n&nbsp;of&nbsp;X</code></div>
+<p>is a proof of <code class="inline">Pn</code> if <code class="inline">X</code> is a proof of <code class="inline">P1 and ... and Pk</code>
+and 1 ≤ n ≤ k.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_conjunct_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="contradiction">Contradiction</h2>
+<p>During a proof, one sometimes encounters assumptions that contradict
+each other. In these situations, you can prove <code class="inline">false</code> and from that,
+anything else (the Principle of Explosion). Here are two ways to prove
+<code class="inline">false</code> from contradictions.</p>
+<p>(1) If you have a proof <code class="inline">X</code> of an equality with different constructors
+on the left and right-hand side, such as</p>
+<div class="code-wrapper non-deduce"><code>have&nbsp;X:&nbsp;empty&nbsp;=&nbsp;Node(3,&nbsp;empty)&nbsp;by&nbsp;...</code></div>
+<p>then you can implicitly use <code class="inline">X</code> to prove <code class="inline">false</code>:</p>
+<div class="code-wrapper non-deduce"><code>conclude&nbsp;false&nbsp;by&nbsp;X</code></div>
+<p>(2) If you have a proof <code class="inline">X</code> of <code class="inline">P</code> and a proof <code class="inline">Y</code> of <code class="inline">not P</code>,
+then you can prove <code class="inline">false</code> using <code class="inline">apply</code>-<code class="inline">to</code>. (Because
+<code class="inline">not P</code> is shorthand for <code class="inline">if P then false</code>.)</p>
+<div class="code-wrapper non-deduce"><code>have&nbsp;X:&nbsp;P&nbsp;by&nbsp;...<br>
+have&nbsp;Y:&nbsp;not&nbsp;P&nbsp;by&nbsp;...<br>
+conclude&nbsp;false&nbsp;by&nbsp;apply&nbsp;Y&nbsp;to&nbsp;X</code></div>
+<h2 id="define-statement">Define (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"define"&nbsp;ident&nbsp;":"&nbsp;type&nbsp;"="&nbsp;term<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"define"&nbsp;ident&nbsp;"="&nbsp;term</code></div>
+<p>The <code class="inline">define</code> feature of Deduce associates a name with a value.  For
+example, the following definitions associate the name <code class="inline">five</code> with the
+natural number <code class="inline">5</code>, and the name <code class="inline">six</code> with the natural number <code class="inline">6</code>.</p>
+<div class="code-wrapper"><code id="reference_define_example"><!-- Generated by codeUtils.js --></code></div>
+<p>Optionally, the type can be specified after the name, following a
+colon.  In the above, <code class="inline">six</code> holds a natural number, so its type is
+<code class="inline">Nat</code>.</p>
+<h2 id="define-term">Define (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"define"&nbsp;identifier&nbsp;"="&nbsp;term&nbsp;";"&nbsp;term</code></div>
+<p>This associates a name with a term for use in the term after the semicolon.</p>
+<div class="code-wrapper"><code id="reference_define_term_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="define-proof">Define (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"define"&nbsp;identifier&nbsp;"="&nbsp;term&nbsp;&nbsp;proof</code></div>
+<p>This associates a name with a term for use in the following proof.
+(Note: there is no semicolon after the term when using <code class="inline">define</code> in a proof.)</p>
+<div class="code-wrapper"><code id="reference_define_proof_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="definition-proof">Definition (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"definition"&nbsp;identifier<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"definition"&nbsp;"{"&nbsp;identifier_list&nbsp;"}"</code></div>
+<p>In the current goal formula, replace the occurences of the specified
+names with their definitions and then check whether the formula has
+simplified to <code class="inline">true</code>. If a definition is recursive, only one expansion
+is performed per time the definition's name is mentioned in the
+list. If one of the specified names does not appear in the goal
+formula, Deduce signals an error.</p>
+<div class="code-wrapper"><code id="reference_definition_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="definition-and-rewrite-proof">Definition and Rewrite (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"definition"&nbsp;"{"&nbsp;identifier_list&nbsp;"}"&nbsp;"and"&nbsp;"rewrite"&nbsp;proof_list</code></div>
+<p>Apply the specified definitions to the current goal (see <a href="#definition-proof" target="_self">Definition (Proof)</a>), 
+then the specified rewrites (see <a href="#rewrite-proof" target="_self">Rewrite (Proof)</a>).
+If this simplifies that formula to <code class="inline">true</code>, then this statement proves
+the goal.  Otherwise, Deduce signals an error.</p>
+<h2 id="definition-in-proof">Definition-In (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"definition"&nbsp;identifier&nbsp;"in"&nbsp;proof<br>
+conclusion&nbsp;::=&nbsp;"definition"&nbsp;"{"&nbsp;identifier_list&nbsp;"}"&nbsp;"in"&nbsp;proof</code></div>
+<p>In the formula of the given proof, replace the occurences of the
+specified names with their definitions, resulting in the formula that
+is proved by this <code class="inline">definition</code>-<code class="inline">in</code> statement.  If a definition is
+recursive, only one expansion is performed per time the definition's
+name is mentioned in the list. If one of the specified names does not
+appear in the formula, Deduce signals an error.</p>
+<div class="code-wrapper"><code id="reference_definition_in_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="divide">Divide</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"/"&nbsp;term</code></div>
+<p>The division function for <code class="inline">Nat</code> and <code class="inline">Pos</code> is defined in <code class="inline">Nat.pf</code>.
+The main theorem is <code class="inline">division_remainder</code> which states that</p>
+<div class="code-wrapper non-deduce"><code>(n&nbsp;/&nbsp;m)&nbsp;&ast;&nbsp;pos2nat(m)&nbsp;+&nbsp;(n&nbsp;%&nbsp;m)&nbsp;=&nbsp;n</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_division_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="empty-set">Empty Set</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"&#x2205;"</code></div>
+<p>The empty set <code class="inline">∅</code> does not contain any elements and is defined in
+<code class="inline">Set.pf</code>.</p>
+<h2 id="equal">Equal</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"="&nbsp;term</code></div>
+<p>The formula <code class="inline">a = b</code> is true when the left-hand side and right-hand are
+the same. </p>
+<p>(In Deduce, there is no distinction between identity and deep equality
+as there is in Java because there is no concept of identity in
+Deduce.)</p>
+<h2 id="equations">Equations</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"equations"&nbsp;equation&nbsp;equation_list<br>
+equation&nbsp;::=&nbsp;term&nbsp;"="&nbsp;term&nbsp;"by"&nbsp;proof<br>
+half_equation&nbsp;::=&nbsp;"..."&nbsp;"="&nbsp;term&nbsp;"by"&nbsp;proof<br>
+equation_list&nbsp;::=&nbsp;half_equation<br>
+equation_list&nbsp;::=&nbsp;half_equation&nbsp;equation_list<br>
+equation_list&nbsp;::=&nbsp;"$"&nbsp;equation&nbsp;equation_list</code></div>
+<p>Combining a sequence of equations using <code class="inline">transitive</code> is quite common,
+so Deduce provides <code class="inline">equations</code> to streamline this process.  After the
+first equation, the left-hand side of each equation is written as
+<code class="inline">...</code> because it is just a repetition of the right-hand side of the
+previous equation.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_equations_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="evaluate-proof">Evaluate (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"evaluate"</code></div>
+<p>The <code class="inline">evaluate</code> proof method simplies the goal formula by applying all
+definitions. It succeeds if the formula is simplified to <code class="inline">true</code>.</p>
+<h2 id="evaluate-in-proof">Evaluate-In (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"evaluate"&nbsp;"in"&nbsp;proof</code></div>
+<p>The <code class="inline">evaluate</code>-<code class="inline">in</code> proof method simplies the formula of the given
+proof by applying all definitions, producing a proof of the simplified
+formula.</p>
+<h2 id="extensionality">Extensionality</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"extensionality"</code></div>
+<p>To prove that two functions are equal, it is sufficient to prove that
+they always produce equal outputs given equal inputs.</p>
+<div class="code-wrapper"><code id="reference_extensionality_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="false">False</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"false"</code></div>
+<p>One can prove <code class="inline">false</code> when there are assumptions that contradict
+eachother, such as <code class="inline">x = 0</code> and <code class="inline">x = 1</code>, or <code class="inline">not P</code> and <code class="inline">P</code>.</p>
+<p>A proof of <code class="inline">false</code> can be used to prove anything else!
+(This is known as the Principle of Explosion.)</p>
+<h2 id="formula">Formula</h2>
+<p>A formula is any term of type <code class="inline">bool</code>.</p>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term</code></div>
+<h2 id="function-term">Function (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"fun"&nbsp;var_list&nbsp;"{"&nbsp;term&nbsp;"}"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"&#x03BB;"&nbsp;var_list&nbsp;"{"&nbsp;term&nbsp;"}"</code></div>
+<p>Functions are created with a λ expression.  Their syntax starts with
+λ, followed by parameter names and their types, then the body of the
+function enclosed in braces.  For example, the following defines a
+function for computing the area of a rectangle.</p>
+<div class="code-wrapper"><code id="reference_function_term_example"><!-- Generated by codeUtils.js --></code></div>
+<p>To call a function, apply it to the appropriate number and type of
+arguments.</p>
+<div class="code-wrapper"><code id="reference_print_area"><!-- Generated by codeUtils.js --></code></div>
+<p>The output is <code class="inline">12</code>.</p>
+<h2 id="function-statement">Function (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"function"&nbsp;identifier&nbsp;type_params_opt&nbsp;"("&nbsp;type_list&nbsp;")"&nbsp;"-&gt;"&nbsp;type&nbsp;"{"&nbsp;fun_case&ast;&nbsp;"}"<br>
+fun_case&nbsp;::=&nbsp;identifier&nbsp;"("&nbsp;pattern_list&nbsp;")"&nbsp;"="&nbsp;term</code></div>
+<p>The <code class="inline">function</code> statement is for defining recursive functions that
+operate on <code class="inline">union</code> types. Recursive functions in Deduce are somewhat
+special to make sure they always terminate.</p>
+<ul>
+<li>The first parameter of the function must be a union.</li>
+<li>The function definition must include a clause for every
+  constructor in the union.</li>
+<li>The first argument of every recursive call must be a sub-part of the
+  current constructor of the union.</li>
+</ul>
+<p>A recursive function begins with the <code class="inline">function</code> keyword, followed by
+the name of the function, then the parameters types and the return
+type. The body of the function includes one equation for every
+constructor in the union of its first parameter. For example, here's
+the definition of a <code class="inline">length</code> function for lists of natural numbers.</p>
+<div class="code-wrapper"><code id="reference_function_example"><!-- Generated by codeUtils.js --></code></div>
+<p>There are two clauses in the body of <code class="inline">length</code> because the <code class="inline">NatList</code> union
+has two constructors. The clause for <code class="inline">Empty</code> says that its length is
+<code class="inline">0</code>.  The clause for <code class="inline">Node</code> says that its length is one more than the
+length of the rest of the linked list.  Deduce approves of the
+recursive call <code class="inline">length(next)</code> because <code class="inline">next</code> is part of <code class="inline">Node(n, next)</code>.</p>
+<p>Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. 
+If you need to pattern match on a parameter that is not the first, you
+can use a <code class="inline">switch</code> statement. </p>
+<h2 id="function-type">Function Type</h2>
+<div class="code-wrapper non-deduce"><code>type&nbsp;::=&nbsp;"fn"&nbsp;type_params_opt&nbsp;type_list&nbsp;"-&gt;"&nbsp;type</code></div>
+<p>A function type classifies a function. This includes both recursive
+functions (<code class="inline">function</code>) and anonymous functions (<code class="inline">fun</code> or <code class="inline">λ</code>).  If the
+function is generic, its function type includes type parameters
+enclosed in <code class="inline">&lt;</code> and <code class="inline">&gt;</code>.</p>
+<h2 id="generic-formula">Generic (Formula)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"&lt;"&nbsp;identifier_list&nbsp;"&gt;"&nbsp;formula</code></div>
+<p>This parameterizes a formula by a list of type paremeters.  For
+example, the following formula states that if the length of a list is
+0, then the list must be empty. The type parameter <code class="inline">&lt;T&gt;</code> means that
+this formula applies to lists with any element type.</p>
+<div class="code-wrapper non-deduce"><code>&lt;T&gt;&nbsp;all&nbsp;xs:List&lt;T&gt;.&nbsp;if&nbsp;length(xs)&nbsp;=&nbsp;0&nbsp;then&nbsp;xs&nbsp;=&nbsp;empty</code></div>
+<h2 id="generic-term">Generic (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"generic"&nbsp;identifier_list&nbsp;"{"&nbsp;term&nbsp;"}"</code></div>
+<p>A term of the form</p>
+<div class="code-wrapper non-deduce"><code>generic&nbsp;T1,&nbsp;...,&nbsp;Tn&nbsp;{&nbsp;X&nbsp;}</code></div>
+<p>produces a generic function with type parameters 
+<code class="inline">T1</code>, ..., <code class="inline">Tn</code>, if term <code class="inline">X</code> produces a function
+(e.g., using <code class="inline">fun</code>).</p>
+<p>An example use of <code class="inline">generic</code> is in <code class="inline">Maps.pf</code>, in the
+definition of function composition.</p>
+<div class="code-wrapper"><code id="reference_generic_example"><!-- Generated by codeUtils.js --></code></div>
+<p>Generic functions can also be defined using the <code class="inline">function</code> statement
+(see <a href="#function-statement" target="_self">Function</a>).</p>
+<h2 id="given">Given</h2>
+<p>An assumption or fact that is already proved.</p>
+<h2 id="greater-than">Greater-Than</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&gt;"&nbsp;term</code></div>
+<p>The greater-than operator on natural numbers is defined in <code class="inline">Nat.pf</code>
+and is defined in terms of less-than as follows</p>
+<div class="code-wrapper non-deduce"><code>x&nbsp;&gt;&nbsp;y&nbsp;=&nbsp;y&nbsp;&lt;&nbsp;x</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_greater_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="greater-than-or-equal">Greater-Than or Equal</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&#x2265;"&nbsp;term<br>
+formula&nbsp;::=&nbsp;term&nbsp;"&gt;="&nbsp;term</code></div>
+<p>The greater-than-or-equal operator on natural numbers is defined in <code class="inline">Nat.pf</code>
+and is defined in terms of less-than-or-equal as follows</p>
+<div class="code-wrapper non-deduce"><code>x&nbsp;&#x2265;&nbsp;y&nbsp;=&nbsp;y&nbsp;&#x2264;&nbsp;x</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_greater_equal_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="have-proof-statement">Have (Proof Statement)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"have"&nbsp;identifier&nbsp;":"&nbsp;term&nbsp;"by"&nbsp;proof&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"have"&nbsp;":"&nbsp;term&nbsp;"by"&nbsp;proof&nbsp;</code></div>
+<p>Use <code class="inline">have</code> to prove a formula that may help you later to prove the
+goal.</p>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>have&nbsp;label:&nbsp;P&nbsp;by&nbsp;X<br>
+Y</code></div>
+<p>is a proof of <code class="inline">Q</code> as long as <code class="inline">Y</code> is a proof of <code class="inline">Q</code> and <code class="inline">X</code> is a proof of <code class="inline">P</code>.
+The formula <code class="inline">P</code> becomes a given and can be used inside the proof <code class="inline">Y</code>.</p>
+<h2 id="help-proof">Help (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"help"&nbsp;proof</code></div>
+<p>This halts Deduce and prints advice regarding how to use the formula
+of the supplied proof. Typically the supplied proof is the label for a
+given.</p>
+<h2 id="identifier">Identifier</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;identifier<br>
+formula&nbsp;::=&nbsp;identifier<br>
+conclusion&nbsp;::=&nbsp;identifier</code></div>
+<p>Identifiers are used in Deduce to give names to functions and values and
+to label theorems and facts.</p>
+<p>An identifier is a sequence of characters that starts with an upper or
+lower-case letter or an underscore, and is followed by letters,
+digits, or the special characters <code class="inline">!</code>, <code class="inline">?</code>, and <code class="inline">'</code>.  An identifier
+can also be an operator, which starts with the keyword
+<code class="inline">operator</code> and is then followed by one of the following operators:
+<code class="inline">+</code>, <code class="inline">-</code>, <code class="inline">*</code>, <code class="inline">/</code>, <code class="inline">%</code>, <code class="inline">=</code>, <code class="inline">≠</code>, <code class="inline">/=</code>, <code class="inline">&lt;</code>, <code class="inline">≤</code>, <code class="inline">&lt;=</code>, <code class="inline">≥</code>, <code class="inline">&gt;=</code>
+<code class="inline">++</code>, <code class="inline">∩</code>, <code class="inline">&</code>, <code class="inline">∈</code>, <code class="inline">in</code>, <code class="inline">∪</code>, <code class="inline">|</code>, <code class="inline">⨄</code>, <code class="inline">.+.</code>, <code class="inline">⊆</code>, <code class="inline">(=</code>, <code class="inline">∘</code>, <code class="inline">.o.</code>.</p>
+<h2 id="identifier-list">Identifier List</h2>
+<p>A comma-separated sequence of identifiers.</p>
+<div class="code-wrapper non-deduce"><code>identifier_list&nbsp;::=&nbsp;identifier<br>
+identifier_list&nbsp;::=&nbsp;identifier&nbsp;","&nbsp;identifier_list</code></div>
+<h2 id="if-and-only-if-iff">If and only if (iff)</h2>
+<p>See the entry for <a href="#biconditional-if-and-only-if" target="_self">Biconditional</a>.</p>
+<h2 id="if-then-conditional-formula">If Then (Conditional Formula)</h2>
+<p>A formula <code class="inline">if P then Q</code> is true when both <code class="inline">P</code> and <code class="inline">Q</code> are true and it
+is true when <code class="inline">P</code> is false.</p>
+<p>To prove a conditional formula, use <code class="inline">assume</code>. (See the entry for <a href="#assume" target="_self">Assume</a>.)</p>
+<p>To use a given that is a conditional formula, use <code class="inline">apply</code>-<code class="inline">to</code>.
+(See the entry for <a href="#apply-to-proof-modus-ponens" target="_self">Apply-To</a>.)</p>
+<h2 id="if-then-else-term">If Then Else (Term)</h2>
+<p>A term of the form</p>
+<div class="code-wrapper non-deduce"><code>if&nbsp;a&nbsp;then&nbsp;b&nbsp;else&nbsp;c</code></div>
+<p>is equal to <code class="inline">b</code> when <code class="inline">a</code> is true and equal to <code class="inline">c</code> when <code class="inline">a</code> is false.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_if_then_else_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="import-statement">Import (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"import"&nbsp;identifier</code></div>
+<p>Import all of the definitions and theorems from the specified file
+(without the file extension).</p>
+<h2 id="in-set-membership">In (Set Membership)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&#x2208;"&nbsp;term<br>
+formula&nbsp;::=&nbsp;term&nbsp;"in"&nbsp;term</code></div>
+<p>The formula <code class="inline">x ∈ S</code> is true when element <code class="inline">x</code> is contained in the set <code class="inline">S</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_membership_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="induction">Induction</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"induction"&nbsp;type&nbsp;ind_case&ast;<br>
+ind_case&nbsp;::=&nbsp;"case"&nbsp;pattern&nbsp;"{"&nbsp;proof&nbsp;"}"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"case"&nbsp;pattern&nbsp;"assume"&nbsp;assumption_list&nbsp;"{"&nbsp;proof&nbsp;"}"</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>induction&nbsp;T<br>
+case&nbsp;c1(e11,...,e1k)&nbsp;assume&nbsp;IH1,&nbsp;...&nbsp;{&nbsp;X1&nbsp;}<br>
+...<br>
+case&nbsp;cn(en1,...,enj)&nbsp;assume&nbsp;IH1,&nbsp;...&nbsp;{&nbsp;Xn&nbsp;}</code></div>
+<p>is a proof of the formula <code class="inline">all x:T. P</code>
+if each <code class="inline">Xi</code> is a proof of <code class="inline">P</code> where <code class="inline">x</code> is replaced
+by <code class="inline">ci(ei1,...,eij)</code>. The type <code class="inline">T</code> must be a union type.
+Each proof <code class="inline">Xi</code> may use its induction
+hypotheses <code class="inline">IH1, ...</code>. For each term <code class="inline">ein</code> whose type is <code class="inline">T</code>
+(so it is recursive), the induction hypothesis is
+the formula <code class="inline">P</code> with <code class="inline">x</code> replaced by the constructor argument <code class="inline">ein</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_induction_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="injective-proof">Injective (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"injective"&nbsp;term&nbsp;proof</code></div>
+<p>The <code class="inline">injective</code> proof rule allows you to conclude that the inputs to a
+constructor are equal if the outputs are equal. For example,
+if <code class="inline">suc(x) = suc(y)</code> then <code class="inline">x = y</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_injective_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="instantiation-proof">Instantiation (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;proof&nbsp;'&lt;'&nbsp;type_list&nbsp;'&gt;'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;proof&nbsp;'['&nbsp;term_list&nbsp;']'</code></div>
+<p>Use square brackets <code class="inline">[</code> and <code class="inline">]</code> to instantiate an <code class="inline">all</code> formula with 
+terms and use angle brackets <code class="inline">&lt;</code> and <code class="inline">&gt;</code> to instantiate an <code class="inline">all</code>
+formula with types.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_instantiate_proof_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="instantiation-term">Instantiation (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;@&nbsp;term&nbsp;'&lt;'&nbsp;type_list&nbsp;'&gt;'</code></div>
+<p>Instantiates a generic function or constructor, replaces its type
+parameters with the given type arguments.</p>
+<div class="code-wrapper"><code id="reference_instantiate_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="intersection">Intersection</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"&#x2229;"&nbsp;term<br>
+term&nbsp;::=&nbsp;term&nbsp;"&"&nbsp;term</code></div>
+<p>Set intersection is defined in <code class="inline">Set.pf</code>.
+The intersection of sets <code class="inline">A</code> and <code class="inline">B</code>, written <code class="inline">A ∩ B</code>,
+contains the items that occur both sets.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_intersect_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="less-than">Less-Than</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&lt;"&nbsp;term</code></div>
+<p>The less-than operator on natural numbers is defined in <code class="inline">Nat.pf</code>
+as follows.</p>
+<div class="code-wrapper non-deduce"><code>x&nbsp;&lt;&nbsp;y&nbsp;=&nbsp;suc(x)&nbsp;&#x2264;&nbsp;y</code></div>
+<p>To find theorems about the less-than operator in <code class="inline">Nat.thm</code>, search for
+theorems with <code class="inline">less</code> in the name.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_less_than_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="less-than-or-equal">Less-Than or Equal</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&#x2264;"&nbsp;term<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;term&nbsp;"&lt;="&nbsp;term</code></div>
+<p>The less-than-or-equal operator on natural numbers is defined in <code class="inline">Nat.pf</code>
+as follows.</p>
+<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;&#x2264;(Nat,Nat)&nbsp;-&gt;&nbsp;bool&nbsp;{<br>
+&nbsp;&nbsp;operator&nbsp;&#x2264;(0,&nbsp;m)&nbsp;=&nbsp;true<br>
+&nbsp;&nbsp;operator&nbsp;&#x2264;(suc(n'),&nbsp;m)&nbsp;=<br>
+&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;m&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;0&nbsp;{&nbsp;false&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;suc(m')&nbsp;{&nbsp;n'&nbsp;&#x2264;&nbsp;m'&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+}</code></div>
+<p>To find theorems about the less-than operator in <code class="inline">Nat.thm</code>, search for
+theorems with <code class="inline">less_equal</code> in the name.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_less_equal_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="list-term">List (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"["&nbsp;term_list&nbsp;"]"</code></div>
+<p>Deduce treats <code class="inline">[t1,t2,...,tn]</code> as syntactic sugar for
+<code class="inline">node(t1, node(t2, ... node(tn, empty)))</code>.</p>
+<h2 id="list-type">List (Type)</h2>
+<p>The <code class="inline">List</code> type represents a singly-linked list of items and is
+defined in <code class="inline">List.pf</code> as follows.</p>
+<div class="code-wrapper non-deduce"><code>union&nbsp;List&lt;T&gt;&nbsp;{<br>
+&nbsp;&nbsp;empty<br>
+&nbsp;&nbsp;node(T,&nbsp;List&lt;T&gt;)<br>
+}</code></div>
+<p>The sequence <code class="inline">3,8,4</code> can be represented as a <code class="inline">List</code> by creating three
+nodes that are composed in the following way.</p>
+<div class="code-wrapper"><code id="reference_list_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="mark">Mark</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"#"&nbsp;term&nbsp;"#"</code></div>
+<p>Marking a subterm with hash symbols restricts a <code class="inline">rewrite</code> or <code class="inline">definition</code>
+proof to only apply to that subterm.</p>
+<div class="code-wrapper"><code id="reference_mark_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="modulo">Modulo</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"%"&nbsp;term</code></div>
+<p>The modulo operator is defined in <code class="inline">Nat.pf</code> as follows.  The first
+argument is a natural number (of type <code class="inline">Nat</code>) and the second argument
+is a positive number (of type <code class="inline">Pos</code>).</p>
+<div class="code-wrapper non-deduce"><code>n&nbsp;%&nbsp;m&nbsp;=&nbsp;n&nbsp;-&nbsp;(n&nbsp;/&nbsp;m)&nbsp;&ast;&nbsp;pos2nat(m)</code></div>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_mod_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="modus-ponens">Modus Ponens</h2>
+<p>See the entry for <a href="#apply-to-proof-modus-ponens" target="_self">Apply-To</a>.</p>
+<h2 id="multiply">Multiply</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"&ast;"&nbsp;term</code></div>
+<p>Multiplication on natural numbers is defined in <code class="inline">Nat.pf</code> as follows.</p>
+<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;&ast;(Nat,Nat)&nbsp;-&gt;&nbsp;Nat&nbsp;{<br>
+&nbsp;&nbsp;operator&nbsp;&ast;(0,&nbsp;m)&nbsp;=&nbsp;0<br>
+&nbsp;&nbsp;operator&nbsp;&ast;(suc(n),&nbsp;m)&nbsp;=&nbsp;m&nbsp;+&nbsp;(n&nbsp;&ast;&nbsp;m)<br>
+}</code></div>
+<p>To find theorems about multiplication, search for <code class="inline">mult</code> in <code class="inline">Nat.thm</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_multiply_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="multiset-type">MultiSet (Type)</h2>
+<p>The <code class="inline">MultiSet&lt;T&gt;</code> type represents the standard mathematical notion of
+a multiset, which is a set that may contain duplicates of an
+element. The <code class="inline">MultiSet&lt;T&gt;</code> type is defined in <code class="inline">MultiSet.pf</code>.</p>
+<h2 id="not">Not</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"not"&nbsp;formula</code></div>
+<p>The formula <code class="inline">not P</code> is true when <code class="inline">P</code> is false.
+Deduce treats <code class="inline">not P</code> as syntactic sugar for <code class="inline">(if P then false)</code>.</p>
+<h2 id="not-equal">Not Equal</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&#x2260;"&nbsp;term<br>
+formula&nbsp;::=&nbsp;term&nbsp;"/="&nbsp;term</code></div>
+<p>Deduce treats <code class="inline">x ≠ y</code> as syntactic sugar for <code class="inline">not (x = y)</code>.</p>
+<h2 id="obtain-exists-elimination">Obtain (Exists Elimination)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"obtain"&nbsp;identifier_list&nbsp;"where"&nbsp;assumption&nbsp;"from"&nbsp;proof</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>obtain&nbsp;x1,...,xn&nbsp;where&nbsp;label:&nbsp;P&nbsp;from&nbsp;X<br>
+Y</code></div>
+<p>is a proof of formula <code class="inline">Q</code> if <code class="inline">Y</code> is a proof of <code class="inline">Q</code>.
+The <code class="inline">X</code> must be a proof of the form <code class="inline">some x1:T1,...,xn:Tn. P</code>.
+The proof <code class="inline">Y</code> may use the <code class="inline">label</code> as a proof of <code class="inline">P</code>
+and it may also refer to the proof of <code class="inline">P</code> by writing <code class="inline">recall P</code>.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_obtain_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="or-logical-disjunction">Or  (logical disjunction)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;formula&nbsp;"or"&nbsp;formula</code></div>
+<p>The formula <code class="inline">P or Q</code> is true when either <code class="inline">P</code> is true or <code class="inline">Q</code> is true.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_or_example"><!-- Generated by codeUtils.js --></code></div>
+<p>To prove <code class="inline">P or Q</code> it is enough to just prove <code class="inline">P</code> or to just prove <code class="inline">Q</code>.</p>
+<div class="code-wrapper"><code id="reference_or_example_intro1"><!-- Generated by codeUtils.js --></code></div>
+<div class="code-wrapper"><code id="reference_or_example_intro2"><!-- Generated by codeUtils.js --></code></div>
+<p>To use a given of the form <code class="inline">P or Q</code>, use
+<a href="#cases-disjunction-elimination" target="_self">Cases (Disjunction Elimination)</a>.</p>
+<h2 id="parentheses">Parentheses</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"("&nbsp;term&nbsp;")"<br>
+formula&nbsp;::=&nbsp;"("&nbsp;formula&nbsp;")"<br>
+proof&nbsp;::=&nbsp;"("&nbsp;proof&nbsp;")"</code></div>
+<p>A term, formula, or a proof may be surrounded in parentheses.</p>
+<h2 id="pattern">Pattern</h2>
+<div class="code-wrapper non-deduce"><code>pattern&nbsp;::=&nbsp;identifier&nbsp;|&nbsp;"0"&nbsp;|&nbsp;"true"&nbsp;|&nbsp;"false"&nbsp;|&nbsp;identifier&nbsp;"("&nbsp;identifier_list&nbsp;")"</code></div>
+<p>This syntax is used in <a href="#switch-term" target="_self">Switch (Term)</a>, <a href="#switch-proof" target="_self">Switch (Proof)</a>,
+and <a href="#function-statement" target="_self">Function (Statement)</a> via a Pattern List.</p>
+<h2 id="parameter-list">Parameter List</h2>
+<div class="code-wrapper non-deduce"><code>param_list&nbsp;::=&nbsp;ε&nbsp;|&nbsp;pattern&nbsp;|&nbsp;pattern&nbsp;","&nbsp;identifier_list</code></div>
+<p>A parameter list begins with a pattern (for the first function
+parameter) and then continues with a comma-separated sequence of zero
+or more identifiers (for the rest of the function parameters).</p>
+<h2 id="period-proof-of-true">Period (Proof of True)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"."</code></div>
+<p>A period is a proof of the formula <code class="inline">true</code> in Deduce.</p>
+<h2 id="pos-positive-integers">Pos (Positive Integers)</h2>
+<p>The type of positive integers <code class="inline">Pos</code> is defined in <code class="inline">Nat.pf</code>.</p>
+<h2 id="proof">Proof</h2>
+<div class="code-wrapper non-deduce"><code>proof&nbsp;::=&nbsp;proof_stmt&nbsp;proof<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;conclusion</code></div>
+<p>A proof is a sequence of zero or more <a href="#proof-statement" target="_self">proof statements</a>
+that finishes with a <a href="#conclusion-proof" target="_self">conclusion</a>.</p>
+<h2 id="proof-list">Proof List</h2>
+<div class="code-wrapper non-deduce"><code>proof_list&nbsp;::&nbsp;proof&nbsp;<br>
+proof_list&nbsp;::=&nbsp;proof&nbsp;"|"&nbsp;proof_list</code></div>
+<p>A list of proofs separated by vertical bars. This syntax is used
+in <a href="#rewrite-proof" target="_self">Rewrite (Proof)</a>.</p>
+<h2 id="proof-statement">Proof Statement</h2>
+<p>The following are proof statements (<code class="inline">proof_stmt</code> symbol in the grammar).
+A proof may begin with zero or more proof statements, but it must end
+with a <a href="#conclusion-proof" target="_self">Conclusion</a> (not a proof statement).</p>
+<ul>
+<li><a href="#arbitrary-forall-introduction" target="_self">Arbitrary</a></li>
+<li><a href="#assume" target="_self">Assume</a></li>
+<li><a href="#choose-exists-introduction" target="_self">Choose</a></li>
+<li><a href="#define-proof" target="_self">Define</a></li>
+<li><a href="#extensionality" target="_self">Extensionality</a></li>
+<li><a href="#have-proof-statement" target="_self">Have</a></li>
+<li><a href="#injective-proof" target="_self">Injective</a></li>
+<li><a href="#obtain-exists-elimination" target="_self">Obtain</a></li>
+<li><a href="#suffices-proof-statement" target="_self">Suffices</a></li>
+<li><a href="#suppose" target="_self">Suppose</a></li>
+</ul>
+<h2 id="print-statement">Print (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"print"&nbsp;term</code></div>
+<p>You can ask Deduce to print a value to standard output using the
+<code class="inline">print</code> statement.</p>
+<div class="code-wrapper"><code id="reference_print_example"><!-- Generated by codeUtils.js --></code></div>
+<p>The output is <code class="inline">5</code>.</p>
+<h2 id="question-mark-proof">Question Mark <code class="inline">?</code> (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"?"</code></div>
+<p>A proof can be left incomplete by placing a <code class="inline">?</code> in the part that you
+don't know. Deduce halts at the <code class="inline">?</code> and prints an error message with
+the location of the <code class="inline">?</code> and the formula that needs to be proved, as
+well as some advice about how to prove it.</p>
+<h2 id="recall-proof">Recall (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"recall"&nbsp;term_list</code></div>
+<p>A proof of the form
+!!!
+recall P1, ..., Pn
+!!!
+is a proof of the formula <code class="inline">P1 and ... and Pn</code>. The formulas
+<code class="inline">P1</code>,...,<code class="inline">Pn</code> must be in the givens at the current point in the proof.</p>
+<h2 id="reflexive-proof">Reflexive (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;reflexive</code></div>
+<p>The proof <code class="inline">reflexive</code> proves that <code class="inline">a = a</code> for any term <code class="inline">a</code>.</p>
+<h2 id="rewrite-proof">Rewrite (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"rewrite"&nbsp;proof_list</code></div>
+<p>Rewrite the current goal formula according to the equalities proved by
+the specified <a href="#proof-list" target="_self">Proof List</a>. For each equality, any term
+in the goal formula that is equal to its left-hand side is replaced by
+its right-hand side. If all the rewriting simplifies the goal formula
+to <code class="inline">true</code>, then this statement proves the goal.  Otherwise, Deduce
+signals an error.</p>
+<div class="code-wrapper"><code id="reference_rewrite_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="rewrite-in-proof">Rewrite-In (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"rewrite"&nbsp;proof_list&nbsp;"in"&nbsp;proof</code></div>
+<p>In the formula of the given proof, rewrite according to the equalities
+proved by the specified <a href="#proof-list" target="_self">Proof List</a>, resulting in the
+formula that is proved by this <code class="inline">rewrite</code>-<code class="inline">in</code> statement. In
+particular, for each equality, any term in the formula that is equal
+to the left-hand side of the equality is replaced by the right-hand
+side of the equality.</p>
+<div class="code-wrapper"><code id="reference_rewrite_in_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="set-type">Set (Type)</h2>
+<p>The <code class="inline">Set&lt;T&gt;</code> type defined in <code class="inline">Set.pf</code> represents the standard
+mathematical notion of a set. The empty set is written <code class="inline">∅</code> and the
+usual set operations such as union <code class="inline">∪</code>, intersection <code class="inline">∩</code>, membership
+<code class="inline">∈</code>, and subset-or-equal <code class="inline">⊆</code> are all defined in <code class="inline">Set.pf</code>.  The
+<code class="inline">Set.thm</code> file provides a summary of the many theorems about sets that
+are proved in <code class="inline">Set.pf</code>.</p>
+<h2 id="some-existential-quantifier">Some (Existential Quantifier)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"some"&nbsp;var_list&nbsp;"."&nbsp;formula</code></div>
+<p>The formula <code class="inline">some x1:T1,...,xn:Tn. P</code> is true when there exists
+a choice for <code class="inline">x1</code>,...,<code class="inline">xn</code> such that <code class="inline">P</code> is true.</p>
+<p>To prove a <code class="inline">some</code> formula, see the entry for
+<a href="#choose-exists-introduction" target="_self">Choose</a>.</p>
+<p>To use a <code class="inline">some</code> formula, see the entry for <a href="#obtain-exists-elimination" target="_self">Obtain</a></p>
+<h2 id="sorry-proof">Sorry (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"sorry"</code></div>
+<p><code class="inline">sorry</code> is the get-out-of-jail free card. It can prove anything.
+However, it prints a warning message with the location of the <code class="inline">sorry</code>.</p>
+<h2 id="switch-term">Switch (Term)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;"switch"&nbsp;term&nbsp;"{"&nbsp;switch_case&ast;&nbsp;"}"<br>
+switch_case&nbsp;::=&nbsp;"case"&nbsp;pattern&nbsp;"{"&nbsp;term&nbsp;"}"</code></div>
+<p>(See the entry for <a href="#pattern" target="_self">Pattern</a> for the syntax of <code class="inline">pattern</code>.)</p>
+<p>The subject of the <code class="inline">switch</code> must be of union type or <code class="inline">bool</code> (e.g., not
+a function). The body of the <code class="inline">switch</code> must have one <code class="inline">case</code> for every
+constructor in the <code class="inline">union</code>, or for <code class="inline">bool</code>, the cases are <code class="inline">true</code> and
+<code class="inline">false</code>.  The body of each <code class="inline">case</code> is a term and they all must have the
+same type.  The <code class="inline">switch</code> evaluates the subject and compares it to each
+case, then evaluates the body of the case that matched.</p>
+<div class="code-wrapper"><code id="reference_switch_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="switch-proof">Switch (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"switch"&nbsp;term&nbsp;"{"&nbsp;switch_proof_case&ast;&nbsp;"}"<br>
+switch_proof_case&nbsp;::=&nbsp;"case"&nbsp;pattern&nbsp;"{"&nbsp;proof&nbsp;"}"<br>
+switch_proof_case&nbsp;::=&nbsp;"case"&nbsp;pattern&nbsp;assumptions&nbsp;"{"&nbsp;proof&nbsp;"}"<br>
+assumptions&nbsp;::=&nbsp;"suppose"&nbsp;assumption_list&nbsp;|&nbsp;"assume"&nbsp;assumption_list</code></div>
+<p>(See entry for Assumption List for the syntax of <code class="inline">assumption_list</code>.)</p>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>switch&nbsp;t&nbsp;{<br>
+&nbsp;&nbsp;case&nbsp;p1&nbsp;assume&nbsp;eq1:&nbsp;t&nbsp;=&nbsp;p1&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;X1<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;...<br>
+&nbsp;&nbsp;case&nbsp;pn&nbsp;assume&nbsp;eqn:&nbsp;t&nbsp;=&nbsp;pn&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Xn<br>
+&nbsp;&nbsp;}<br>
+}</code></div>
+<p>is a proof of formula <code class="inline">R</code> if <code class="inline">X1</code>,...,<code class="inline">Xn</code> are all proofs of <code class="inline">R</code>.
+The fact <code class="inline">t = p1</code> is a given that can be used in <code class="inline">X1</code>
+and similarly for the other cases.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_switch_proof_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="subset-or-equal">Subset or Equal</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&#x2286;"&nbsp;term<br>
+formula&nbsp;::=&nbsp;term&nbsp;"(="&nbsp;term</code></div>
+<p>The formula <code class="inline">A ⊆ B</code> is true when every element of set <code class="inline">A</code> is
+contained in set <code class="inline">B</code>. That is, given <code class="inline">A</code> and <code class="inline">B</code> of type <code class="inline">Set&lt;T&gt;</code>,
+the definition of <code class="inline">A ⊆ B</code> is as follows.
+!!!
+A ⊆ B = (all x:T. if x ∈ A then x ∈ B)
+!!!</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_subset_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="subtract">Subtract</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"-"&nbsp;term</code></div>
+<p>Subtraction for natural numbers is defined in <code class="inline">Nat.pf</code> as follows</p>
+<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;-(Nat,Nat)&nbsp;-&gt;&nbsp;Nat&nbsp;{<br>
+&nbsp;&nbsp;operator&nbsp;-(0,&nbsp;m)&nbsp;=&nbsp;0<br>
+&nbsp;&nbsp;operator&nbsp;-(suc(n),&nbsp;m)&nbsp;=<br>
+&nbsp;&nbsp;&nbsp;&nbsp;switch&nbsp;m&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;0&nbsp;{&nbsp;suc(n)&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case&nbsp;suc(m')&nbsp;{&nbsp;n&nbsp;-&nbsp;m'&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+}</code></div>
+<p>Note that subtraction on natural numbers is different from subtraction
+on integers, as they are no negative natural numbers. If you subtract
+a larger natural number from a smaller natural number, the result is <code class="inline">0</code>.</p>
+<div class="code-wrapper non-deduce"><code>assert&nbsp;3&nbsp;-&nbsp;2&nbsp;=&nbsp;1<br>
+assert&nbsp;3&nbsp;-&nbsp;3&nbsp;=&nbsp;0<br>
+assert&nbsp;2&nbsp;-&nbsp;3&nbsp;=&nbsp;0</code></div>
+<p>To search for theorems about subtraction in <code class="inline">Nat.thy</code>, search for
+theorems with <code class="inline">sub</code> in the name.</p>
+<h2 id="suffices-proof-statement">Suffices (Proof Statement)</h2>
+<div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"suffices"&nbsp;formula&nbsp;"by"&nbsp;proof</code></div>
+<p>A proof of the form</p>
+<div class="code-wrapper non-deduce"><code>suffices&nbsp;P&nbsp;by&nbsp;X<br>
+Y</code></div>
+<p>is a proof of the formula <code class="inline">Q</code> if <code class="inline">X</code> is a proof that <code class="inline">P</code> imples <code class="inline">Q</code>
+and <code class="inline">Y</code> is a proof of <code class="inline">Q</code>.</p>
+<p>Use <code class="inline">suffices</code> to transform the goal formula into a simpler formula.
+Thus, the <code class="inline">suffices</code> feature enables reasoning backwards from the goal.</p>
+<p>Example:</p>
+<p>One often wants to transform the goal by using a definition or equation.
+For example, in the following theorem we change the goal
+from</p>
+<div class="code-wrapper non-deduce"><code>length(node(3,&nbsp;empty))&nbsp;=&nbsp;1</code></div>
+<p>into</p>
+<div class="code-wrapper non-deduce"><code>1&nbsp;+&nbsp;0&nbsp;=&nbsp;1</code></div>
+<p>by two uses of the definition of <code class="inline">length</code>.
+We then prove the new goal with theorem <code class="inline">add_zero</code> from <code class="inline">Nat.thm</code>.</p>
+<div class="code-wrapper"><code id="reference_suffices_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="suppose">Suppose</h2>
+<p>See the entry for <a href="#assume" target="_self">Assume</a>.</p>
+<h2 id="symmetric-proof">Symmetric (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"symmetric"&nbsp;proof</code></div>
+<p>If <code class="inline">X</code> is a proof of <code class="inline">a = b</code>, then <code class="inline">symmetric X</code> is a proof of <code class="inline">b = a</code>
+for any terms <code class="inline">a</code> and <code class="inline">b</code>.</p>
+<h2 id="theorem-statement">Theorem (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"theorem"&nbsp;IDENT&nbsp;":"&nbsp;term&nbsp;"proof"&nbsp;proof&nbsp;"end"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;"lemma"&nbsp;IDENT&nbsp;":"&nbsp;term&nbsp;"proof"&nbsp;proof&nbsp;"end"</code></div>
+<p>A theorem (or lemma) proves that a formula is true. The theorem's name
+can then be used later when one needs to prove the formula again.</p>
+<p>A theorem has the form</p>
+<div class="code-wrapper non-deduce"><code>theorem&nbsp;label:&nbsp;P<br>
+proof<br>
+&nbsp;&nbsp;X<br>
+end</code></div>
+<p>The proof <code class="inline">X</code> must prove the formula <code class="inline">P</code>. After the theorem, the <code class="inline">label</code> can be used
+as a proof of <code class="inline">P</code>.</p>
+<h2 id="term-list">Term List</h2>
+<p>A term list is a comma-separated sequence of zero or more terms.</p>
+<div class="code-wrapper non-deduce"><code>term_list&nbsp;::=&nbsp;ε&nbsp;|&nbsp;term&nbsp;|&nbsp;term&nbsp;","&nbsp;term_list</code></div>
+<h2 id="transitive-proof">Transitive (Proof)</h2>
+<div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"transitive"&nbsp;proof&nbsp;proof</code></div>
+<p>If <code class="inline">X</code> is a proof of <code class="inline">a = b</code> and <code class="inline">Y</code> is a proof of <code class="inline">b = c</code>,
+then <code class="inline">transitive X Y</code> is a proof of <code class="inline">a = c</code>, for any
+terms <code class="inline">a</code>, <code class="inline">b</code>, and <code class="inline">c</code>.</p>
+<h2 id="true-formula">True (Formula)</h2>
+<div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"true"</code></div>
+<p>There's not much to say about <code class="inline">true</code>. It's true!
+Proving <code class="inline">true</code> is easy. Just use a period.</p>
+<div class="code-wrapper"><code id="reference_true_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="type">Type</h2>
+<div class="code-wrapper non-deduce"><code>type&nbsp;::=&nbsp;"bool"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//&nbsp;type&nbsp;of&nbsp;a&nbsp;Boolean<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;identifier&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//&nbsp;type&nbsp;of&nbsp;a&nbsp;union<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;identifier&nbsp;"&lt;"&nbsp;type_list&nbsp;"&gt;"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//&nbsp;type&nbsp;of&nbsp;a&nbsp;generic&nbsp;union<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"fn"&nbsp;type_params_opt&nbsp;type_list&nbsp;"-&gt;"&nbsp;type&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//&nbsp;type&nbsp;of&nbsp;a&nbsp;function&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;"("&nbsp;type&nbsp;")"</code></div>
+<h2 id="type-list">Type List</h2>
+<div class="code-wrapper non-deduce"><code>type_list&nbsp;::=&nbsp;ε&nbsp;|&nbsp;type&nbsp;|&nbsp;type&nbsp;","&nbsp;type_list</code></div>
+<p>A type list is a comma-separated list of zero or more types.</p>
+<h2 id="type-parameters">Type Parameters</h2>
+<div class="code-wrapper non-deduce"><code>type_params_opt&nbsp;::=&nbsp;ε&nbsp;|&nbsp;"&lt;"&nbsp;identifier_list&nbsp;"&gt;"</code></div>
+<p>Specifies the type parameters of a generic union or generic function.</p>
+<h2 id="union-statement">Union (Statement)</h2>
+<div class="code-wrapper non-deduce"><code>statement&nbsp;::=&nbsp;"union"&nbsp;identifier&nbsp;type_params_opt&nbsp;"{"&nbsp;constructor&ast;&nbsp;"}"<br>
+constructor&nbsp;::=&nbsp;identifier&nbsp;|&nbsp;identifier&nbsp;"("&nbsp;type_list&nbsp;")"</code></div>
+<p>The <code class="inline">union</code> statement defines a new type whose values are created by
+invoking one of the constructors declared inside the union.</p>
+<p>Example:</p>
+<p>The following union statement defines a <code class="inline">Tree</code> type that has two kinds
+of nodes, <code class="inline">Leaf</code> nodes with zero children and <code class="inline">Internal</code> nodes with
+two children. We create a three-node tree <code class="inline">T3</code> by using the
+constructors <code class="inline">Leaf</code> and <code class="inline">Internal</code> to create the nodes.</p>
+<div class="code-wrapper"><code id="reference_union_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="union-operator-on-sets">Union (Operator on Sets)</h2>
+<div class="code-wrapper non-deduce"><code>term&nbsp;::=&nbsp;term&nbsp;"&#x222A;"&nbsp;term<br>
+term&nbsp;::=&nbsp;term&nbsp;"|"&nbsp;term</code></div>
+<p>Set union is defined in <code class="inline">Set.pf</code>.
+The union of sets <code class="inline">A</code> and <code class="inline">B</code>, written <code class="inline">A ∪ B</code>,
+contains the items that occur in either set.</p>
+<p>Example:</p>
+<div class="code-wrapper"><code id="reference_set_union_example"><!-- Generated by codeUtils.js --></code></div>
+<h2 id="variable-list">Variable List</h2>
+<div class="code-wrapper non-deduce"><code>var_list&nbsp;::=&nbsp;ε&nbsp;|&nbsp;ident&nbsp;|&nbsp;ident&nbsp;":"&nbsp;type<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;ident&nbsp;":"&nbsp;type&nbsp;","&nbsp;var_list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;ident&nbsp;","&nbsp;var_list</code></div>
+<p>A comma-separated list of variable declarations. Each variable may
+optionally be annotated with its type.</p>
+<!--
+!!!{.deduce^file=Reference.pf} 
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+&lt;&lt;add_example&gt;&gt;
+&lt;&lt;add_multiset_example&gt;&gt;
+&lt;&lt;all_example_bool&gt;&gt;
+&lt;&lt;all_example_intro&gt;&gt;
+&lt;&lt;all_example_elim&gt;&gt;
+&lt;&lt;and_example&gt;&gt;
+&lt;&lt;and_example_intro&gt;&gt;
+&lt;&lt;and_example_elim&gt;&gt;
+&lt;&lt;append_example&gt;&gt;
+&lt;&lt;apply_to_example&gt;&gt;
+&lt;&lt;arbitrary_example&gt;&gt;
+&lt;&lt;assert_example&gt;&gt;
+&lt;&lt;assume_example&gt;&gt;
+&lt;&lt;call_example&gt;&gt;
+&lt;&lt;choose_example&gt;&gt;
+&lt;&lt;compose_example&gt;&gt;
+&lt;&lt;conclude_example&gt;&gt;
+&lt;&lt;conjunct_example&gt;&gt;
+&lt;&lt;define_example&gt;&gt;
+&lt;&lt;define_term_example&gt;&gt;
+&lt;&lt;define_proof_example&gt;&gt;
+&lt;&lt;definition_example&gt;&gt;
+&lt;&lt;definition_in_example&gt;&gt;
+&lt;&lt;division_example&gt;&gt;
+&lt;&lt;equations_example&gt;&gt;
+&lt;&lt;greater_example&gt;&gt;
+&lt;&lt;greater_equal_example&gt;&gt;
+&lt;&lt;if_then_else_example&gt;&gt;
+&lt;&lt;membership_example&gt;&gt;
+&lt;&lt;induction_example&gt;&gt;
+&lt;&lt;instantiate_example&gt;&gt;
+&lt;&lt;intersect_example&gt;&gt;
+&lt;&lt;less_than_example&gt;&gt;
+&lt;&lt;less_equal_example&gt;&gt;
+&lt;&lt;list_example&gt;&gt;
+&lt;&lt;mark_example&gt;&gt;
+&lt;&lt;mod_example&gt;&gt;
+&lt;&lt;obtain_example&gt;&gt;
+&lt;&lt;or_example&gt;&gt;
+&lt;&lt;or_example_intro1&gt;&gt;
+&lt;&lt;or_example_intro2&gt;&gt;
+&lt;&lt;print_example&gt;&gt;
+&lt;&lt;rewrite_example&gt;&gt;
+&lt;&lt;rewrite_in_example&gt;&gt;
+&lt;&lt;switch_example&gt;&gt;
+&lt;&lt;switch_proof_example&gt;&gt;
+&lt;&lt;subset_example&gt;&gt;
+&lt;&lt;suffices_example&gt;&gt;
+&lt;&lt;true_example&gt;&gt;
+&lt;&lt;union_example&gt;&gt;
+!!!
+-->
+        <footer>
+            <a class="nav-logo" href="../index.html">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
+                    <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
+                        transform="rotate(14.995 52.954 86.34)" />
+                    <path class="blue" fill="#5DAAF1" d="m64.373 41.777 35.74 9.573-23.804 88.867-35.74-9.573z" />
+                    <rect class="blue" width="89" height="109" x="79.397" y="28.202" fill="#5DAAF1" rx="26"
+                        transform="rotate(14.995 79.397 28.202)" />
+                    <rect class="blue" width="88" height="109" x="104.511" y="34.929" fill="#5DAAF1" rx="41"
+                        transform="rotate(14.995 104.511 34.929)" />
+                    <circle cx="102.759" cy="57.343" r="7.5" fill="#fff" transform="rotate(14.995 102.759 57.343)" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M138.713 51.92c-.708-2.633-.535-9.472 5.812-15.768 7.934-7.87 13.773-2.974 9.545 5.889-3.382 7.09-7.816 15.009-9.61 18.082l-5.747-8.203Z" />
+                    <rect class="blue" width="277" height="144.529" x="159.042" y="50.663" fill="#5DAAF1" rx="58"
+                        transform="rotate(13 159.042 50.663)" />
+                    <path class="blue" fill="#5DAAF1" d="m164.305 126 248.242 57.311-16.646 72.104-248.242-57.312z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M377 159h40v92h-40zM70 102.825 141.012 45l77.642 95.347-71.012 57.826z" />
+                    <path class="blue" fill="#5DAAF1" d="m151.638 49.079 112.866 26.057-15.971 69.18-112.866-26.057z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="m147.622 46.516 28.984 9.675-22.482 67.347-28.984-9.675zm236.164 192.862h33.319v67.92h-33.319zm0 67.92v-75.609L362 224l21.786 83.298Zm-245.189-29.614 35.092-92.309-23.029-19.498-12.063 111.807ZM174 283.5l12.562-106.137 29.393-6.821L174 283.5Z" />
+                    <path class="blue" fill="#5DAAF1" d="M200.701 113.82 174 283.5l-35.229-6.32 61.93-163.36Z" />
+                    <path class="purple" fill="#A770EA"
+                        d="m103.459 155.41-48.84 70.804 15.787 23.485 63.822-54.251-30.769-40.038Zm199.156 108.147h28.844v36.191h-28.844z" />
+                    <path class="purple" fill="#A770EA" d="m302.615 299.748 28.407-52.007L293 239l9.615 60.748Z" />
+                    <path class="purple" fill="#A770EA" d="m331.459 299.748 20.541-47.2-40.207-9.178 19.666 56.378Z" />
+                    <path class="blue" fill="#5DAAF1"
+                        d="M590.18 307H523.3v-30.4h17.86V71.02H523.3V41h79.8c18.24 0 35.467 3.167 51.68 9.5 16.213 6.08 30.4 14.947 42.56 26.6 12.16 11.653 21.787 25.713 28.88 42.18 7.093 16.213 10.64 34.58 10.64 55.1 0 14.947-2.66 30.273-7.98 45.98-5.067 15.707-13.427 29.893-25.08 42.56-11.653 12.92-26.853 23.56-45.6 31.92-18.493 8.107-41.167 12.16-68.02 12.16ZM572.7 71.02V276.6h26.6c14.947 0 28.88-2.407 41.8-7.22 12.92-4.813 24.193-11.78 33.82-20.9 9.373-8.867 16.72-19.507 22.04-31.92 5.573-12.667 8.36-26.853 8.36-42.56s-2.787-29.893-8.36-42.56c-5.32-12.667-12.667-23.56-22.04-32.68-9.627-8.867-20.9-15.707-33.82-20.52-12.92-4.813-26.853-7.22-41.8-7.22h-26.6Zm266.698 120.84c-7.094 0-13.554 1.267-19.38 3.8-5.574 2.28-10.387 5.573-14.44 9.88-3.04 3.547-5.574 7.6-7.6 12.16-1.774 4.56-2.787 9.5-3.04 14.82a5454.18 5454.18 0 0 0 35.34-12.92 2039.524 2039.524 0 0 1 35.72-13.3c-3.547-4.307-7.6-7.727-12.16-10.26-4.307-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.334 6.333-13.554 11.273-21.66 14.82-8.107 3.547-16.974 5.32-26.6 5.32-10.64 0-20.647-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.287-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.053-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.373-4.053 19.38-6.08 30.02-6.08 7.853 0 15.326 1.647 22.42 4.94 7.346 3.04 13.933 7.347 19.76 12.92 5.573 5.573 10.513 12.287 14.82 20.14 4.306 7.6 7.6 15.96 9.88 25.08l-51.68 19a11397.596 11397.596 0 0 1-51.3 19c3.8 5.32 8.74 9.627 14.82 12.92 6.333 3.04 13.426 4.56 21.28 4.56 5.826 0 11.146-1.013 15.96-3.04 4.813-2.027 9.12-5.067 12.92-9.12l19.38 22.8ZM1115.73 307h-56.62v-15.2c-.25.76-1.52 2.153-3.8 4.18-2.28 2.027-5.44 4.053-9.5 6.08-4.3 2.28-9.37 4.18-15.2 5.7-5.82 1.773-12.41 2.66-19.76 2.66-10.64 0-20.645-1.9-30.018-5.7-9.373-4.053-17.48-9.5-24.32-16.34s-12.287-14.82-16.34-23.94c-3.8-9.12-5.7-18.747-5.7-28.88s1.9-19.633 5.7-28.5c4.053-9.12 9.5-17.1 16.34-23.94s14.947-12.16 24.32-15.96c9.373-4.053 19.378-6.08 30.018-6.08 6.34 0 12.29.887 17.86 2.66 5.83 1.773 10.9 3.8 15.2 6.08 4.31 2.28 7.35 4.18 9.12 5.7 1.78 1.267 2.92 2.28 3.42 3.04-.5-2.027-.88-4.56-1.14-7.6V52.02h-25.08V22h56.62v254.98h28.88V307Zm-104.88-115.14c-6.58 0-12.665 1.14-18.238 3.42-5.573 2.28-10.387 5.32-14.44 9.12-3.547 4.053-6.46 8.74-8.74 14.06-2.027 5.067-3.04 10.767-3.04 17.1 0 6.587 1.267 12.793 3.8 18.62 2.533 5.827 5.953 10.64 10.26 14.44 3.8 3.547 8.233 6.333 13.3 8.36 5.32 1.773 11.018 2.66 17.098 2.66 6.08 0 11.66-.887 16.72-2.66 5.07-2.027 9.63-4.813 13.68-8.36 4.31-3.8 7.73-8.613 10.26-14.44 2.54-5.827 3.8-12.033 3.8-18.62 0-7.093-1.39-13.553-4.18-19.38-2.53-5.827-6.08-10.64-10.64-14.44-3.8-3.04-8.23-5.447-13.3-7.22-5.06-1.773-10.51-2.66-16.34-2.66Zm267.47 78.66c-5.06 12.16-13.3 21.913-24.7 29.26-11.14 7.093-23.56 10.64-37.24 10.64-14.94 0-26.72-3.927-35.34-11.78-8.61-7.853-13.17-18.113-13.68-30.78v-73.34h-25.08V164.5h56.62v88.92c.51 6.84 2.92 12.793 7.22 17.86 4.56 4.813 11.66 7.473 21.28 7.98 6.59 0 12.8-1.14 18.62-3.42 6.08-2.28 11.4-5.447 15.96-9.5 4.56-4.053 8.24-8.867 11.02-14.44 2.79-5.573 4.18-11.653 4.18-18.24v-39.14h-25.08V164.5h56.62v115.9h23.56V307h-55.1v-19.38l1.14-17.1Zm204.18 23.56c-6.58 5.067-13.93 9.12-22.04 12.16-7.85 2.787-16.34 4.18-25.46 4.18-10.64 0-20.64-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.28-14.693-16.34-23.56c-3.8-8.867-5.7-18.62-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.06-9.12 9.5-16.973 16.34-23.56 6.84-6.84 14.82-12.16 23.94-15.96 9.38-4.053 19.38-6.08 30.02-6.08 9.38 0 18.12 1.52 26.22 4.56 8.11 2.787 15.46 6.713 22.04 11.78v44.08h-28.12v-25.46c-3.04-1.52-6.33-2.533-9.88-3.04-3.29-.76-6.71-1.14-10.26-1.14-6.08 0-11.78 1.013-17.1 3.04-5.06 1.773-9.5 4.307-13.3 7.6-4.56 4.053-8.1 8.867-10.64 14.44-2.28 5.573-3.42 11.78-3.42 18.62 0 6.333 1.14 12.287 3.42 17.86 2.28 5.573 5.45 10.387 9.5 14.44 4.06 3.547 8.74 6.46 14.06 8.74 5.32 2.027 11.15 3.04 17.48 3.04 5.58 0 10.64-.76 15.2-2.28 4.82-1.52 9.25-3.927 13.3-7.22l19 23.94Zm103.54-102.22c-7.1 0-13.56 1.267-19.38 3.8-5.58 2.28-10.39 5.573-14.44 9.88-3.04 3.547-5.58 7.6-7.6 12.16-1.78 4.56-2.79 9.5-3.04 14.82a5726.9 5726.9 0 0 0 35.34-12.92c11.9-4.56 23.81-8.993 35.72-13.3-3.55-4.307-7.6-7.727-12.16-10.26-4.31-2.787-9.12-4.18-14.44-4.18Zm48.26 98.42c-6.34 6.333-13.56 11.273-21.66 14.82-8.11 3.547-16.98 5.32-26.6 5.32-10.64 0-20.65-1.9-30.02-5.7-9.12-4.053-17.1-9.5-23.94-16.34s-12.29-14.693-16.34-23.56c-3.8-9.12-5.7-18.873-5.7-29.26 0-10.133 1.9-19.76 5.7-28.88 4.05-9.12 9.5-17.1 16.34-23.94 6.84-6.587 14.82-11.78 23.94-15.58 9.37-4.053 19.38-6.08 30.02-6.08 7.85 0 15.32 1.647 22.42 4.94 7.34 3.04 13.93 7.347 19.76 12.92 5.57 5.573 10.51 12.287 14.82 20.14 4.3 7.6 7.6 15.96 9.88 25.08-17.23 6.333-34.46 12.667-51.68 19-16.98 6.333-34.08 12.667-51.3 19 3.8 5.32 8.74 9.627 14.82 12.92 6.33 3.04 13.42 4.56 21.28 4.56 5.82 0 11.14-1.013 15.96-3.04 4.81-2.027 9.12-5.067 12.92-9.12l19.38 22.8Z" />
+                </svg>
+            </a>
+            <div class="footer-links">
+                <div class="footer-col">
+                    <a href="./getting-started.html">Get Started</a>
+                    <a href="./sandbox.html">Live Code</a>
+                    <a href="https://github.com/jsiek/deduce" target="_blank">Source Code</a>
+                    <a href="https://github.com/HalflingHelper/deduce-mode" target="_blank">VS-Code deduce-mode</a>
+                    <a href="https://github.com/mateidragony/deduce-mode" target="_blank">Emacs deduce-mode</a>
+                </div>
+                <div class="footer-col">
+                    <a href="./reference.html">Reference</a>
+                    <a href="./cheat-sheet.html">Cheat sheet</a>
+                    <a href="./deduce-programming.html">Programming in deduce</a>
+                    <a href="./deduce-proofs.html">Proofs in deduce</a>
+                </div>
+                <div class="footer-col">
+                    <a href="./syntax.html">Syntax/Grammar</a>
+                    <a href="./syntax.html#statements">Statements</a>
+                    <a href="./syntax.html#proofs">Proofs</a>
+                    <a href="./syntax.html#terms">Terms</a>
+                    <a href="./syntax.html#types">Types</a>
+                    <a href="./syntax.html#unicode">Deduce unicode</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+
+    <script src="../js/cache.js"></script>
+    <script src="../js/script.js"></script>
+    <script src="../js/code.js"></script>
+    <script src="../js/codeUtils.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define two = succ(one)
+assert 1 % two = 1
+assert 2 % two = 0
+assert 3 % two = 1
+assert 4 % two = 0
