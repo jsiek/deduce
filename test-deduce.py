@@ -6,6 +6,7 @@ parsers = ['--recursive-descent', '--lalr']
 lib_dir = './lib'
 pass_dir = './test/should-pass'
 error_dir = './test/should-error'
+site_dir = './gh-pages/deduce-code'
 
 def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
     deduce_call += ' ' + path
@@ -78,6 +79,7 @@ if __name__ == "__main__":
     test_lib = False
     test_passable = False
     test_errors = False
+    test_site = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -97,6 +99,8 @@ if __name__ == "__main__":
             test_passable = True
         elif argument == '--errors':
             test_errors = True
+        elif argument == '--site':
+            test_site = True
         else:
             extra_arguments.append(argument)
     
@@ -127,11 +131,16 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, pass_dir)
     if test_errors:
         test_deduce_errors(deduce_call, error_dir)
+    if test_site:
+        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
 
-    if not (test_lib or test_passable or test_errors or generate_errors):
+    if len(sys.argv) == 1: # run everything
         test_deduce(parsers, deduce_call, lib_dir)
         test_deduce(parsers, deduce_call, pass_dir)
         test_deduce_errors(deduce_call, error_dir)
     
     os.system("rm -f ./lib/*.thm")
     os.system("rm -f ./test/should-pass/*.thm")
+    os.system("rm -f ./gh-pages/deduce-code/*.thm")
