@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 
 parsers = ['--recursive-descent', '--lalr']
 
@@ -28,12 +29,13 @@ def generate_deduce_errors(deduce_call, path):
     if os.path.isfile(path):
         test_deduce(['--recursive-descent'], deduce_call, path, 1, '> ' + path + '.err')
     elif os.path.isdir(path):
-        if path[-1] != '/' or path[-1] != '\\': # Windows moment
+        if path[-1] != '/' or path[-1] != '\\':
             path += '/'
         for file in os.listdir(path): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
-                    generate_deduce_errors(deduce_call, path + file)
+                    # TODO: MAKE THIS PRETTIER
+                    threading.Thread(target=generate_deduce_errors, args=(deduce_call, path + file)).start()
             elif os.path.isdir(path + file):
                 # TODO: recursive directories
                 pass
@@ -60,13 +62,21 @@ def test_deduce_errors(deduce_call, path):
     else:
         if path[-1] != '/' or path[-1] != '\\': # Windows moment
             path += '/'
+
+        threads = []
         for file in os.listdir(path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     test_deduce_errors(deduce_call, path + file)
+                    # new_thread = threading.Thread(target=test_deduce_errors, args=(deduce_call, path + file))
+                    # threads.append(new_thread)
+                    # new_thread.start()
+                    
             elif os.path.isdir(path + file):
                 # TODO: recursive directories?
                 pass
+        # for thread in threads:
+            # thread.join()
 
 if __name__ == "__main__":
     # Check command line arguments
