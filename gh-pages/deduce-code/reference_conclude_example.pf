@@ -1,0 +1,10 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem conclude_example: 1 + 1 = 2
+proof
+  conclude 1 + 1 = 2 by definition {operator+,operator+}
+end

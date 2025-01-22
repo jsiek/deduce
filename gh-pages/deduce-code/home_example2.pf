@@ -1,0 +1,12 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem zero_add: all n:Nat.
+  0 + n = n
+proof
+  arbitrary n:Nat
+  conclude 0 + n = n by definition operator+
+end

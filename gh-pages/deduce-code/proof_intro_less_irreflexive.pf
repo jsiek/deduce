@@ -1,0 +1,20 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem intro_less_irreflexive:  all x:Nat. not (x < x)
+proof
+  induction Nat
+  case zero {
+    suppose z_l_z: 0 < 0
+    conclude false by definition {operator <, operator ≤} in z_l_z
+  }
+  case suc(x') suppose IH: not (x' < x') {
+    suppose sx_l_sx: suc(x') < suc(x')
+    enable {operator <, operator ≤}
+    have x_l_x: x' < x' by sx_l_sx
+    conclude false by apply IH to x_l_x
+  }
+end

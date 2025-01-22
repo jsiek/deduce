@@ -1,0 +1,15 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+import Option
+
+define front : fn NatList -> Option<Nat> =
+  fun ls { 
+    switch ls {
+      case Empty { none }
+      case Node(x, ls') { just(x) }
+    }
+  }

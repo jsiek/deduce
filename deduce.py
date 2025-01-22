@@ -105,7 +105,7 @@ if __name__ == "__main__":
               set_unique_names(True)
             else:
               set_verbose(VerboseLevel.CURR_ONLY)
-        elif argument == '--dir':
+        elif argument == '--dir' and i + 1 < len(sys.argv):
             if sys.argv[i + 1] == stdlib_dir:
                 add_stdlib = False
             add_import_directory(sys.argv[i+1])

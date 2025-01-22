@@ -1,0 +1,7 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+assert [1,2] ++ [3,4] = [1,2,3,4]

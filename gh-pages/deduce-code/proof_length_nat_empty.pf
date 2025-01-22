@@ -1,0 +1,10 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem length_nat_empty: length(@[]<Nat>) = 0
+proof
+  definition length
+end

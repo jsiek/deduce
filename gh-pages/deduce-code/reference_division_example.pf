@@ -1,0 +1,11 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define three = succ(succ(one))
+assert 6 / three = 2
+assert 7 / three = 2
+assert 8 / three = 2
+assert 9 / three = 3

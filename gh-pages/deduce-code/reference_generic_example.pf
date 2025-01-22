@@ -1,0 +1,8 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
+                        λ x:T { g(f(x)) } } }

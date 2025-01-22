@@ -1,0 +1,14 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define inc = fun x:Nat { pred(suc(suc(x))) }
+
+theorem extensionality_example: inc = suc
+proof
+  extensionality
+  arbitrary x:Nat
+  conclude inc(x) = suc(x) by definition {inc, pred}
+end

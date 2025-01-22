@@ -1,0 +1,7 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+define area = fun h:Nat, w:Nat { h * w }

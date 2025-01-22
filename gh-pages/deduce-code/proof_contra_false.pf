@@ -1,0 +1,15 @@
+import Nat
+import List
+import Set
+import MultiSet
+import Maps
+
+theorem contra_false: all a:bool, b:bool.
+  if a = b and a = true and b = false then false
+proof
+  arbitrary a:bool, b:bool
+  suppose prem: a = b and a = true and b = false
+  have a_true: a = true by prem
+  have b_true: b = false by prem
+  conclude false by rewrite a_true | b_true in prem
+end
