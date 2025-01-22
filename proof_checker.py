@@ -860,7 +860,7 @@ def proof_advice(formula, env):
                     if num_recursive > 0:
                       rec_params =[(p,ty) for (p,ty) in zip(params,param_types)\
                                    if is_recursive(name, ty)]
-                      ind_advice += ' suppose '
+                      ind_advice += ' assume '
                       ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' \
                             + str(body.substitute({var_x: Var(loc3, param_ty, param, [])})) \
                             for i, (param,param_ty) in enumerate(rec_params)])
@@ -1382,7 +1382,7 @@ def check_proof_of(proof, formula, env):
                   if assumptions[0][1] != None:
                       case_assumption = type_synth_term(assumptions[0][1], body_env, None, [])
                       if case_assumption != new_assumption:
-                          error(scase.location, 'in case, expected suppose of\n' + str(new_assumption) \
+                          error(scase.location, 'in case, expected assume of\n' + str(new_assumption) \
                                 + '\nnot\n' + str(case_assumption))
                   body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], new_assumption)
                 if len(assumptions) > 1:
