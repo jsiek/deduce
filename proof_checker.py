@@ -424,7 +424,7 @@ def check_proof(proof, env):
       incomplete_error(loc, 'unfinished proof')
       
     case PSorry(loc):
-      error(loc, "can't use sorry in context with unkown goal")
+      error(loc, "can't use sorry in context with unknown goal")
 
     case PHelpUse(loc, proof):
       formula = check_proof(proof, env)
@@ -836,7 +836,7 @@ def proof_advice(formula, env):
           case TypeInst() | Var():
             pass
           case _:
-            return arb_advice # don't give induction adivce for type variables
+            return arb_advice # don't give induction advice for type variables
 
         # When foralls are generated, the def of type var is not in the environment?
         # Seems to be a problem with extensionality
@@ -2003,7 +2003,7 @@ def type_synth_term(term, env, recfun, subterms):
               case PatternBool(l1, False):
                 has_false_case = True
               case _:
-                raise Exception('not an appropraite case for bool\n\t' \
+                raise Exception('not an appropriate case for bool\n\t' \
                                 + str(scase))
           if not has_true_case:
             error(loc, 'missing case for true')

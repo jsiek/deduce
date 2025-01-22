@@ -4,7 +4,7 @@ This is a comprehensive reference for Deduce. It describes each
 feature in alphabetical order by keyword. It gives the grammar rule
 (syntax) and describes its meaning and/or how it is used in a proof.
 
-In the grammar rules, an unquoted astericks means zero-or more
+In the grammar rules, an unquoted asterisk means zero-or more
 repetitions of the grammar item that it follows.
 The symbol ε means the empty string.
 A vertical bar separates alternatives right-hand sides in a grammar rule.
@@ -307,7 +307,7 @@ The biconditional formula `P ⇔ Q` is syntactic sugar for
 type ::= "bool"
 ```
 
-The type `bool` classifies the values `true` annd `false`.
+The type `bool` classifies the values `true` and `false`.
 A formula is a term of type `bool`.
 
 ## Braces (Proof)
@@ -590,7 +590,7 @@ conclusion ::= "definition" identifier
              | "definition" "{" identifier_list "}"
 ```
 
-In the current goal formula, replace the occurences of the specified
+In the current goal formula, replace the occurrences of the specified
 names with their definitions and then check whether the formula has
 simplified to `true`. If a definition is recursive, only one expansion
 is performed per time the definition's name is mentioned in the
@@ -626,7 +626,7 @@ conclusion ::= "definition" identifier "in" proof
 conclusion ::= "definition" "{" identifier_list "}" "in" proof
 ```
 
-In the formula of the given proof, replace the occurences of the
+In the formula of the given proof, replace the occurrences of the
 specified names with their definitions, resulting in the formula that
 is proved by this `definition`-`in` statement.  If a definition is
 recursive, only one expansion is performed per time the definition's
@@ -735,7 +735,7 @@ end
 conclusion ::= "evaluate"
 ```
 
-The `evaluate` proof method simplies the goal formula by applying all
+The `evaluate` proof method simplifies the goal formula by applying all
 definitions. It succeeds if the formula is simplified to `true`.
 
 ## Evaluate-In (Proof)
@@ -744,7 +744,7 @@ definitions. It succeeds if the formula is simplified to `true`.
 conclusion ::= "evaluate" "in" proof
 ```
 
-The `evaluate`-`in` proof method simplies the formula of the given
+The `evaluate`-`in` proof method simplifies the formula of the given
 proof by applying all definitions, producing a proof of the simplified
 formula.
 
@@ -776,7 +776,7 @@ formula ::= "false"
 ```
 
 One can prove `false` when there are assumptions that contradict
-eachother, such as `x = 0` and `x = 1`, or `not P` and `P`.
+each other, such as `x = 0` and `x = 1`, or `not P` and `P`.
 
 A proof of `false` can be used to prove anything else!
 (This is known as the Principle of Explosion.)
@@ -874,7 +874,7 @@ enclosed in `<` and `>`.
 formula ::= "<" identifier_list ">" formula
 ```
 
-This parameterizes a formula by a list of type paremeters.  For
+This parametrizes a formula by a list of type parameters.  For
 example, the following formula states that if the length of a list is
 0, then the list must be empty. The type parameter `<T>` means that
 this formula applies to lists with any element type.
@@ -1842,7 +1842,7 @@ suffices P by X
 Y
 ```
 
-is a proof of the formula `Q` if `X` is a proof that `P` imples `Q`
+is a proof of the formula `Q` if `X` is a proof that `P` implies `Q`
 and `Y` is a proof of `Q`.
 
 Use `suffices` to transform the goal formula into a simpler formula.

@@ -270,7 +270,7 @@ def parse_term_hi():
     term = parse_term()
     if current_token().type != 'RPAR':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected closing parentheses, not\n\t' \
+            'expected closing parenthesis ")", not\n\t' \
             + current_token().value + '\n' + while_parsing)
     advance()
     return term
@@ -280,7 +280,7 @@ def parse_term_hi():
     term = parse_term()
     if current_token().type != 'HASH':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected closing parentheses, not\n\t' \
+            'expected closing hash "#", not\n\t' \
             + current_token().value)
     advance()
     meta = meta_from_tokens(token, previous_token())
@@ -407,9 +407,10 @@ def parse_call():
       advance()
       args = parse_term_list()
       if current_token().type != 'RPAR':
-        error(meta_from_tokens(start_token, previous_token()),
-              'expected closing parenthesis ")", not\n\t' \
-              + current_token().value)
+        msg = f'expected closing parenthesis ")", not\n\t{current_token().value}'
+        if current_token().type == 'IDENT':
+          msg += '\nPerhaps you forgot a comma?'
+        error(meta_from_tokens(start_token, previous_token()), msg)
       term = Call(meta_from_tokens(start_token, current_token()), None,
                   term, args)
       advance()
@@ -757,7 +758,7 @@ def parse_proof_hi():
     proof = parse_proof()
     if current_token().type != 'RPAR':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected a closing parentheses, not\n\t' \
+            'expected closing parenthesis ")", not\n\t' \
             + current_token().value)
     advance()
     return proof

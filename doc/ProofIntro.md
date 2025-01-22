@@ -274,7 +274,7 @@ but this time use the previous theorem.
 ## Rewriting the Goal with Equations
 
 Deduce provides the `rewrite` statement to apply an equation to the
-current goal. In particular, `rewrite` replaces each occurence of the
+current goal. In particular, `rewrite` replaces each occurrence of the
 left-hand side of an equation with the right-hand side of the
 equation.
 
@@ -314,7 +314,7 @@ this time instantiated with `y`.
 rewrite list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplies to just `true`,
+Deduce changes the goal to `1 = 1`, which simplifies to just `true`,
 so Deduce accepts the `rewrite` statement.
 
 Here is the completed proof of `list_length_one_equal`.
@@ -436,7 +436,7 @@ end
 ```
 
 Deduce prints the current goal and the **givens**, that is, the formulas
-that we aleady know are true, which now includes `step1`.
+that we already know are true, which now includes `step1`.
 
 ```
 incomplete proof
@@ -1412,7 +1412,7 @@ Note the extra keyword `in` that is used in this version of `rewrite`.
   have y_l_y: y < y   by rewrite x_y in x_l_y
 ```
 
-We arrive at the contradition by applying `intro_less_irreflexive` 
+We arrive at the contradiction by applying `intro_less_irreflexive` 
 to `y < y`.
 
 ```
