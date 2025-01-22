@@ -9,10 +9,8 @@ theorem less_implies_not_equal: all x:Nat, y:Nat.
 proof
   arbitrary x:Nat, y:Nat
   assume: x < y
-  assume: x = y
-  have: y < y by rewrite (recall x = y)
-                 in recall x < y
-  have: not (y < y) by less_irreflexive
-  conclude false by apply (recall not (y < y))
+  assume xy: x = y
+  have: y < y by rewrite xy in recall x < y
+  conclude false by apply less_irreflexive
                     to recall y < y
 end
