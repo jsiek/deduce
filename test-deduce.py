@@ -171,6 +171,8 @@ if __name__ == "__main__":
         elif argument == '--max-threads':
             max_threads = int(sys.argv[i + 1])
             already_processed_next = True
+        elif argument == '--destroy-my-cpu':
+            max_threads = 9999
         elif argument == '--lib':
             test_lib = True
         elif argument == '--passable':
