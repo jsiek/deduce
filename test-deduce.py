@@ -31,16 +31,29 @@ def generate_deduce_errors(deduce_call, path):
     if os.path.isfile(path):
         test_deduce(['--recursive-descent'], deduce_call, path, 1, '> ' + path + '.err')
     elif os.path.isdir(path):
+        running_threads = []
+
         if path[-1] != '/' or path[-1] != '\\':
             path += '/'
         for file in os.listdir(path): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     # TODO: MAKE THIS PRETTIER
-                    Thread(target=generate_deduce_errors, args=(deduce_call, path + file)).start()
+                    thread = Thread(target=generate_deduce_errors, args=(deduce_call, path + file))
+                    thread.start()
+                    running_threads.append(thread)
+
+                    while len(running_threads) > max_threads:
+                        t = running_threads[0]
+                        t.join()
+                        running_threads.remove(t)
+
             elif os.path.isdir(path + file):
                 # TODO: recursive directories
                 pass
+        for t in running_threads:
+            t.join()
+            running_threads.remove(t)
     else:
         print(path, 'was not found!')
         exit(1)
@@ -69,9 +82,7 @@ def join_error_threads(threads : list[ErrorThread], join_count : int):
         if join_count < 0 and thread.thread.is_alive:
             return
         
-        if thread.thread.is_alive:
-            thread.thread.join()
-
+        thread.thread.join()
         if thread.text == None:
             print("Got an exception when checking:", thread.path)
             exit(-1)
