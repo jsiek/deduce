@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
 proof

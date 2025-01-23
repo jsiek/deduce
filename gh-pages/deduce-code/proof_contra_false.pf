@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem contra_false: all a:bool, b:bool.
   if a = b and a = true and b = false then false

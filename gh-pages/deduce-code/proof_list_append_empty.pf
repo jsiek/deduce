@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem list_append_empty: all U :type. all xs :List<U>.
   xs ++ [] = xs

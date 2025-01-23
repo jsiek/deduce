@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 define head : fn<T> List<T> -> Option<T> =
   generic T { fun ls { 

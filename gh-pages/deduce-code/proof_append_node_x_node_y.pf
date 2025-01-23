@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem append_xy:
   all T:type. all x:T, y:T. [x] ++ [y] = [x, y]

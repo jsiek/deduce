@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
   x + y + z = z + y + x

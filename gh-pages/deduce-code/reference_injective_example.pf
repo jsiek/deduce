@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem injective_example: all x:Nat, y:Nat, z:Nat.
   if suc(x) = suc(y) and suc(y) = suc(z) then x = z

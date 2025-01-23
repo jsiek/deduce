@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
 proof

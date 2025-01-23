@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
 proof

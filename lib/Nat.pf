@@ -253,18 +253,17 @@ end
 theorem add_assoc: all m:Nat. all n:Nat, o:Nat.
   (m + n) + o = m + (n + o)
 proof
-  enable {operator +}
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat
-    conclude (0 + n) + o = 0 + (n + o)   by .
+    conclude (0 + n) + o = 0 + (n + o)   by evaluate
   }
   case suc(m') suppose IH {
     arbitrary n:Nat, o:Nat
     equations
-      (suc(m') + n) + o = suc((m' + n) + o)  by .
+      (suc(m') + n) + o = suc((m' + n) + o)  by evaluate
                     ... = suc(m' + (n + o))  by rewrite IH
-                    ... = suc(m') + (n + o)  by .
+                    ... = suc(m') + (n + o)  by evaluate
   }
 end
 
@@ -321,7 +320,7 @@ proof
   case 0 {
     conclude 0 - 0 = 0   by definition operator-
   }
-  case suc(n') suppose IH: n' - n' = 0 {
+  case suc(n') assume IH: n' - n' = 0 {
     equations
       suc(n') - suc(n') = n' - n'    by definition operator-
                     ... = 0          by IH

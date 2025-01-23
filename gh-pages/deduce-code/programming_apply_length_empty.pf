@@ -1,7 +1,3 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 assert length(@[]<Nat>) = 0

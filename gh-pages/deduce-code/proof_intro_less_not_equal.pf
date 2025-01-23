@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem intro_less_not_equal: all x:Nat, y:Nat.
   if x < y then not (x = y)
