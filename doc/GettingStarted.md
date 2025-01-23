@@ -29,6 +29,7 @@ You can also download one of these extensions for programming in Deduce in some 
 
 * VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode)). You can also install it from the extensions tab in VSCode
 * Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
+* Vim (not now, not ever)
 
 The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.
 
