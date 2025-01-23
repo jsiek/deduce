@@ -2050,8 +2050,6 @@ import Set
 import MultiSet
 import Maps
 
-assert false = true
-
 <<add_example>>
 <<add_multiset_example>>
 <<all_example_bool>>
