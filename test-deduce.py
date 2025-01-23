@@ -38,7 +38,6 @@ def generate_deduce_errors(deduce_call, path):
         for file in os.listdir(path): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
-                    # TODO: MAKE THIS PRETTIER
                     thread = Thread(target=generate_deduce_errors, args=(deduce_call, path + file))
                     thread.start()
                     running_threads.append(thread)
@@ -103,8 +102,8 @@ def join_error_threads(threads : list[ErrorThread], join_count : int):
 
 def test_deduce_errors(deduce_call, path):
     if os.path.isfile(path):
-        pass
-        # test_deduce_errors_thread()
+        thread = ErrorThread(path)
+        join_error_threads([thread], 1)
     else:
         if path[-1] != '/' or path[-1] != '\\': # Windows moment
             path += '/'
@@ -122,7 +121,12 @@ def test_deduce_errors(deduce_call, path):
                     threads.append(thread)
                     thread.start(deduce_call)
                     if len(threads) == max_threads:
-                        join_error_threads(threads, max_threads)
+                        # I think passing 1 is for the best
+                        # As this function will remove any already finished threads
+                        # And also if we don't pass one, we'll repeatedly get into a situation like
+                        # 5 threads running 0 threads running 5 threads running 0 threads running
+                        # However, we want to maximize the amount of threads running so we're doing more
+                        join_error_threads(threads, 1)
                     
             elif os.path.isdir(path + file):
                 # TODO: recursive directories?
