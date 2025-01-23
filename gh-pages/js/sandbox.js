@@ -223,9 +223,7 @@ function send_deduce(code) {
             throw new Error('')
         })
         .then(data => output.innerHTML = prepare_output(data))
-        .catch(err => output.innerHTML = prepare_output('Something went wrong internally.\nIf this error persists please reach us at <a href="mailto:jsiek@iu.edu">jsiek@iu.edu</a>.',
-            is_err = true,
-            re_sp = false))
+        .catch(err => output.innerHTML = '<span class="error">Something went wrong internally.<br>If this error persists please reach us at <a href="mailto:jsiek@iu.edu">jsiek@iu.edu</a>.</span>')
 }
 
 function themeUpdate(create = true) {
