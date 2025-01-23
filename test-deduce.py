@@ -4,6 +4,8 @@ from signal import signal, SIGINT
 import sys
 from threading import Thread
 
+from doc.convert import convert_dir
+
 parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
@@ -205,18 +207,28 @@ if __name__ == "__main__":
             generate_deduce_errors(deduce_call, generable)
             generate_errors = True # So we don't run ALL tests
 
+    if test_site:
+        # test the home examples
+        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
+        # generate test files for doc code without generating html
+        convert_dir("./doc/", False)
     if test_lib:
         test_deduce(parsers, deduce_call, lib_dir)
     if test_passable:
         test_deduce(parsers, deduce_call, pass_dir)
     if test_errors:
         test_deduce_errors(deduce_call, error_dir)
-    if test_site:
+
+    if len(sys.argv) == 1: # run everything
+        # test the home examples
         test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
-
-    if len(sys.argv) == 1: # run everything
+        # generate test files for doc code without generating html
+        convert_dir("./doc/", False)
+        # test
         test_deduce(parsers, deduce_call, lib_dir)
         test_deduce(parsers, deduce_call, pass_dir)
         test_deduce_errors(deduce_call, error_dir)

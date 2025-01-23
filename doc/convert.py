@@ -356,28 +356,31 @@ conclusion = '''
 '''
 
 
-def convertFile(fname):
+def convert_file(fname, generate_html):
 
     # read the md file
     with open(f'./doc/{fname}.md', 'r') as f:
         text = f.read()
         html = markdown.markdown(text, extensions=['tables', 'fenced_code', 'toc', CodeExtension(fname)])
-        # Post postprocessing
-        html = html.replace("&amp;", "&")
+        html = html.replace("&amp;", "&") # Post postprocessing
 
     # write to html file
-    with open(f'./gh-pages/pages/{mdToHtmlName[fname]}.html', 'w') as f:
-        f.write(prelude(fname))
-        f.write(html)
-        f.write(conclusion)
+    if generate_html:
+        print("\tWriting html to " + f'./gh-pages/pages/{mdToHtmlName[fname]}.html')
+        with open(f'./gh-pages/pages/{mdToHtmlName[fname]}.html', 'w') as f:
+            f.write(prelude(fname))
+            f.write(html)
+            f.write(conclusion)
+
+def convert_dir(dir, generate_html=True):
+    for f in [f for f in listdir(dir) if isfile(join(dir, f))]:
+        m = re.search(r'(.*).md', f)
+        if m: 
+            print(f'Converting {m.group(1)}.md')
+            convert_file(m.group(1), generate_html)
+
 
 
 if __name__ == "__main__":
     # convert all md files in the doc directory
-
-    doc_dir = "./doc/"
-    for f in [f for f in listdir(doc_dir) if isfile(join(doc_dir, f))]:
-        m = re.search(r'(.*).md', f)
-        if m: 
-            print(f'Converting {m.group(1)}.md...')
-            convertFile(m.group(1))
+    convert_dir("./doc/")
