@@ -1,6 +1,7 @@
 from error import set_verbose, get_verbose, set_unique_names, get_unique_names
 from proof_checker import check_deduce, uniquify_deduce
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
+from signal import signal, SIGINT
 import sys
 import os
 import parser
@@ -11,6 +12,10 @@ import traceback
 from pathlib import Path
 
 traceback_flag = False
+
+def handle_sigint(signal, stack_frame):
+    print('SIGINT caught, exiting...')
+    exit(137)
 
 def deduce_file(filename, error_expected):
     if get_verbose():
@@ -76,9 +81,12 @@ def deduce_directory(directory, recursive_directories):
         elif recursive_directories and os.path.isdir(directory + file):
             deduce_directory(directory + file, recursive_directories)
 
-
 if __name__ == "__main__":
     # Check command line arguments
+    signal(SIGINT, handle_sigint)
+
+    if (sys.argv[0] == 'deduce.py'):
+        sys.argv[0] = os.path.join(os.getcwd(), sys.argv[0])
 
     stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib/')
     add_stdlib = True
