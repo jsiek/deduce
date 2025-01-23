@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem list_length_zero_empty: all T:type. all xs:List<T>.
   if length(xs) = 0 then xs = []

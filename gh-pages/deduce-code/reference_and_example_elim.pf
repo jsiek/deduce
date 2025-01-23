@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem and_example_elim: all P:bool, Q:bool. if P and Q then Q and P
 proof

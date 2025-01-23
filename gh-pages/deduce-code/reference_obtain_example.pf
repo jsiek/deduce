@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem obtain_example: all n:Nat. 
   if (some x:Nat. n = 4 * x) then (some x:Nat. n = 2 * x)

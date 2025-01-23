@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof

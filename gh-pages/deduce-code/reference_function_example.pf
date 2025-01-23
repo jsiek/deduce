@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 function length(NatList) -> Nat {
   length(Empty) = 0

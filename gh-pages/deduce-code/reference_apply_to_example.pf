@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem apply_to_example: all P:bool, Q:bool, R:bool.
   if (if P then Q) and (if Q then R) and P

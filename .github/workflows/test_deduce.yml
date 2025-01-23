@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_run:
+    workflows: ["Deploy static content to Pages and convert Markdown to HTML"]
+    types:
+      - completed
 
 jobs:
   build:
