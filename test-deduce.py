@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+from signal import signal, SIGINT
 import sys
 from threading import Thread, Lock
 
@@ -10,6 +11,10 @@ pass_dir = './test/should-pass'
 error_dir = './test/should-error'
 max_threads = 5
 
+def handle_sigint(signal, stack_frame):
+    print('SIGINT caught, exiting...')
+    exit(137)
+
 def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
     deduce_call += ' ' + path
     for parser in parsers:
@@ -17,7 +22,9 @@ def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments
         print('Testing:', call)
         return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
         if return_code != expected_return:
-            if expected_return == 0:
+            if return_code == SIGINT:
+                exit(137)
+            elif expected_return == 0:
                 print('\nTest failed!')
             else:
                 print('\nDeduce failed to catch an error!')
@@ -98,8 +105,6 @@ def join_error_threads(threads : list[ErrorThread], join_count : int):
             print("The error message for", thread.path, "has changed! See actual_error.tmp")
             exit(1)
 
-        
-
 def test_deduce_errors(deduce_call, path):
     if os.path.isfile(path):
         thread = ErrorThread(path)
@@ -137,6 +142,7 @@ def test_deduce_errors(deduce_call, path):
 
 
 if __name__ == "__main__":
+    signal(SIGINT, handle_sigint)
     # Check command line arguments
     extra_arguments = []
 
