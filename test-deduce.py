@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import os
 from signal import signal, SIGINT
 import sys
-from threading import Thread, Lock
+from threading import Thread
 
 parsers = ['--recursive-descent', '--lalr']
 
@@ -10,7 +10,7 @@ lib_dir = './lib'
 pass_dir = './test/should-pass'
 error_dir = './test/should-error'
 site_dir = './gh-pages/deduce-code'
-max_threads = 5
+max_threads = 10
 
 def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
@@ -86,10 +86,13 @@ class ErrorThread:
 def join_error_threads(threads : list[ErrorThread], join_count : int):
     temp_file  = './actual_error.tmp'
     for thread in threads:
-        if join_count < 0 and thread.thread.is_alive:
-            return
-        
+        if join_count < 0 :
+            if not thread.thread.is_alive:
+                threads.remove(thread)
+            continue
+
         thread.thread.join()
+        threads.remove(thread)
         if thread.text == None:
             print("Got an exception when checking:", thread.path)
             exit(-1)
