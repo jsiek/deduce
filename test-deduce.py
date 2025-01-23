@@ -139,8 +139,6 @@ def test_deduce_errors(deduce_call, path):
 
         join_error_threads(threads, len(threads))
 
-
-
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
     # Check command line arguments

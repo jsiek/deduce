@@ -81,10 +81,12 @@ def deduce_directory(directory, recursive_directories):
         elif recursive_directories and os.path.isdir(directory + file):
             deduce_directory(directory + file, recursive_directories)
 
-
 if __name__ == "__main__":
     # Check command line arguments
     signal(SIGINT, handle_sigint)
+
+    if (sys.argv[0] == 'deduce.py'):
+        sys.argv[0] = os.path.join(os.getcwd(), sys.argv[0])
 
     stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib/')
     add_stdlib = True
