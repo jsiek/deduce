@@ -1,12 +1,14 @@
+from dataclasses import dataclass
 import os
 import sys
-import threading
+from threading import Thread, Lock
 
 parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
 pass_dir = './test/should-pass'
 error_dir = './test/should-error'
+max_threads = 5
 
 def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
     deduce_call += ' ' + path
@@ -35,7 +37,7 @@ def generate_deduce_errors(deduce_call, path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     # TODO: MAKE THIS PRETTIER
-                    threading.Thread(target=generate_deduce_errors, args=(deduce_call, path + file)).start()
+                    Thread(target=generate_deduce_errors, args=(deduce_call, path + file)).start()
             elif os.path.isdir(path + file):
                 # TODO: recursive directories
                 pass
@@ -43,22 +45,55 @@ def generate_deduce_errors(deduce_call, path):
         print(path, 'was not found!')
         exit(1)
 
-def test_deduce_errors(deduce_call, path):
-    if os.path.isfile(path):
-        if not os.path.isfile(path + '.err'):
-            print("Couldn't find an expected error for", path)
-            print("Did you mean to generate it? If so, use generate_deduce_errors")
-            exit(1)
+@dataclass
+class ErrorThread:
+    path : str
+    text : str
+    thread : Thread
 
-        temp_file  = './actual_error.tmp'
-        test_deduce(['--recursive-descent'], deduce_call, path + ' > ' + temp_file, 1)
-        ret_code = os.system('diff --ignore-space-change ' + path + '.err ' + temp_file)
+    def __init__(self, path):
+        self.path = path
+        self.text = None
 
+    def start(self, deduce_call):
+        self.thread = Thread(target=self.test_deduce_errors_thread, args=(deduce_call,))
+        self.thread.start()
+
+    def test_deduce_errors_thread(self, deduce_call):
+        text = os.popen(deduce_call + ' ' + self.path).read()
+        self.text = text
+
+def join_error_threads(threads : list[ErrorThread], join_count : int):
+    temp_file  = './actual_error.tmp'
+    for thread in threads:
+        if join_count < 0 and thread.thread.is_alive:
+            return
+        
+        if thread.thread.is_alive:
+            thread.thread.join()
+
+        if thread.text == None:
+            print("Got an exception when checking:", thread.path)
+            exit(-1)
+        
+        with open(temp_file, 'w') as fd:
+            fd.write(thread.text)
+
+        diff_call = 'diff --ignore-space-change ' + thread.path + '.err ' + temp_file
+        ret_code = os.system(diff_call)
         if ret_code == 0:
             os.remove(temp_file)
+            print(thread.path, 'has not changed')
         else:
-            print("The error message for", path, "has changed! See actual_error.tmp")
+            print("The error message for", thread.path, "has changed! See actual_error.tmp")
             exit(1)
+
+        
+
+def test_deduce_errors(deduce_call, path):
+    if os.path.isfile(path):
+        pass
+        # test_deduce_errors_thread()
     else:
         if path[-1] != '/' or path[-1] != '\\': # Windows moment
             path += '/'
@@ -67,16 +102,24 @@ def test_deduce_errors(deduce_call, path):
         for file in os.listdir(path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
-                    test_deduce_errors(deduce_call, path + file)
-                    # new_thread = threading.Thread(target=test_deduce_errors, args=(deduce_call, path + file))
-                    # threads.append(new_thread)
-                    # new_thread.start()
+                    if not os.path.isfile(path + file + '.err'):
+                        print("Couldn't find an expected error for", path)
+                        print("Did you mean to generate it? If so, use generate_deduce_errors")
+                        exit(1)
+                    
+                    thread = ErrorThread(path + file)
+                    threads.append(thread)
+                    thread.start(deduce_call)
+                    if len(threads) == max_threads:
+                        join_error_threads(threads, max_threads)
                     
             elif os.path.isdir(path + file):
                 # TODO: recursive directories?
                 pass
-        # for thread in threads:
-            # thread.join()
+
+        join_error_threads(threads, len(threads))
+
+
 
 if __name__ == "__main__":
     # Check command line arguments
@@ -100,6 +143,9 @@ if __name__ == "__main__":
             generate_errors = True
         elif argument == '--generate-error':
             regenerables.append(sys.argv[i + 1])
+            already_processed_next = True
+        elif argument == '--max-threads':
+            max_threads = int(sys.argv[i + 1])
             already_processed_next = True
         elif argument == '--lib':
             test_lib = True
