@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem all_example_bool: all P:bool. P = true or P = false
 proof

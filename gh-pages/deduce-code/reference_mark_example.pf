@@ -1,13 +1,9 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
 proof
   arbitrary x:Nat
-  suppose: x = 1
+  assume: x = 1
   equations
     #x# + x + x = 1 + x + x   by rewrite recall x = 1
   $ 1 + #x# + x = 1 + 1 + x   by rewrite recall x = 1

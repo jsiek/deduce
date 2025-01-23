@@ -12,7 +12,7 @@ Advice:
 		case empty(b1) {
 		  ?
 		}
-		case node(T1, N2, T3) suppose IH1: size(T1) = size(T1),
+		case node(T1, N2, T3) assume IH1: size(T1) = size(T1),
 			IH2: size(T3) = size(T3) {
 		  ?
 		}

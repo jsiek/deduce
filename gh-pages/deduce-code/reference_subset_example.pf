@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 define E = single(1)
 define F = single(1) ∪ single(2)

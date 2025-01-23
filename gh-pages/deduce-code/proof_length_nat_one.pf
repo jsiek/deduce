@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem length_nat_one: all x:Nat. length([x]) = 1
 proof

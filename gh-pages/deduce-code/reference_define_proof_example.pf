@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x + x)
 proof

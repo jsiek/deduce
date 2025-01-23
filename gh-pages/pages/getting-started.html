@@ -86,6 +86,7 @@
 <ul>
 <li>VSCode (<a href="https://github.com/HalflingHelper/deduce-mode#" target="_blank">deduce-mode</a>). You can also install it from the extensions tab in VSCode</li>
 <li>Emacs (<a href="https://github.com/mateidragony/deduce-mode#" target="_blank">deduce-mode</a>)</li>
+<li>Vim (not now, not ever)</li>
 </ul>
 <p>The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.</p>
 <ul>
@@ -93,6 +94,48 @@
 <li><a href="./cheat-sheet.html#" target="_self">Cheat Sheet</a></li>
 <li><a href="./syntax.html#" target="_self">Syntax Overview</a></li>
 </ul>
+<h2 id="command-line-arguments">Command Line Arguments</h2>
+<p>The <code class="inline">deduce.py</code> script supports certain command line arguments which
+are documented below. If an argument is not preceded by one of the
+keywords listed below, then it is treated as the name of a file or
+directory and will be processed by Deduce.</p>
+<p><code class="inline">--dir directory-name</code></p>
+<p>Tells Deduce to include the given <code class="inline">directory-name</code> in the list of
+directories to search when importing a file. For example, if <code class="inline">test.pf</code>
+imports <code class="inline">Curry</code>, and <code class="inline">Curry.pf</code> resides in a folder named <code class="inline">howard</code>,
+then <code class="inline">--dir howard</code> will allow <code class="inline">test.pf</code> to import <code class="inline">Church</code>. Note that
+<code class="inline">--dir</code> expects a directory name, not an individual file.</p>
+<p><code class="inline">--no-stdlib</code></p>
+<p>Deduce, by default, will locate and link the standard library (in
+<code class="inline">/lib</code> of the Deduce repository). However if this argument is
+supplied, it will not do so.</p>
+<p><code class="inline">--lalr</code></p>
+<p>Deduce normally uses a custom recursive descent parser to parse any
+input files, however this argument will make Deduce instead use lark's
+LALR parser. This argument exists solely for checking that
+<code class="inline">Deduce.lark</code> maintains parity with the recursive descent parser.</p>
+<p><code class="inline">--recursive-descent</code></p>
+<p>Tells Deduce to use the recursive descent (default) parser. If
+<code class="inline">--lalr</code> is also supplied, then only the recursive descent parser will
+be used.</p>
+<p><code class="inline">--recursive-directories</code> or <code class="inline">-r</code></p>
+<p>Instead of only processing files in the specified directories, Deduce
+will also descend into any subdirectories.</p>
+<p><code class="inline">--traceback</code></p>
+<p>Prints out the exception if processing a file triggers an error.</p>
+<p><code class="inline">--unique-names</code></p>
+<p>Prints out all variables and types with an unique name. For example,
+if a program defines a variable <code class="inline">x</code> in several different scopes, <code class="inline">x</code>
+would instead be printed out as <code class="inline">x.1</code> in one scope and printed as
+<code class="inline">x.2</code> in a different scope.</p>
+<p><code class="inline">--verbose</code></p>
+<p>Makes Deduce print out the debug logs. It is generally recommended to
+use <code class="inline">--traceback</code> instead, as this argument can make Deduce print out
+thousands of lines.</p>
+<p><code class="inline">--error</code></p>
+<p>Deduce will expect all files that it processes to contain an error. If
+there is a file that does not contain an error, Deduce will exit with
+a return code of 255.</p>
         <footer>
             <a class="nav-logo" href="../index.html">
                 <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">

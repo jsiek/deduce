@@ -64,7 +64,7 @@ ident: IDENT              -> ident
     | "operator" "++"     -> ident_append
     | "operator" "/"      -> ident_div
     | "operator" "|"      -> ident_union
-    | "operator" "&"      -> ident_interesect
+    | "operator" "&"      -> ident_intersect
     | "operator" "in"      -> ident_member
     | "operator" ".+."      -> ident_multiset_sum
     | "operator" ".o."      -> ident_circ

@@ -15,27 +15,26 @@ theorem search_take: all xs: List<Nat>. all y:Nat.
     not (y ∈ set_of(take(search(xs, y), xs)))
 proof
   induction List<Nat>
-  case empty {
+  case [] {
     arbitrary y:Nat
-    suffices not (y ∈ ∅) by definition {search, take, set_of}
+    suffices not (y ∈ ∅) by evaluate
     empty_no_members<Nat>
   }
-  case node(x, xs') suppose
-    IH: (all y:Nat. not (y ∈ set_of(take(search(xs', y), xs'))))
+  case node(x, xs')
+    assume IH: all y:Nat. not (y ∈ set_of(take(search(xs', y), xs')))
   {
     arbitrary y:Nat
     switch x = y for search {
       case true {
-        suffices not (y ∈ ∅) by definition {take, set_of}
+        suffices not (y ∈ ∅) by evaluate
         empty_no_members<Nat>
       }
       case false assume xy_false: (x = y) = false {
-        suffices not (y ∈ single(x) ∪ set_of(take(search(xs', y), xs')))
-            by definition {take, set_of}
-        suppose c: y ∈ single(x) ∪ set_of(take(search(xs', y), xs'))
-        cases (apply member_union<Nat> to c)
-        case y_in_x: y ∈ single(x) {
-          have: x = y by apply single_equal<Nat> to y_in_x
+        suffices not (x = y or y ∈ set_of(take(search(xs', y), xs')))
+            by evaluate
+        assume prem: x = y or y ∈ set_of(take(search(xs', y), xs'))
+        cases prem
+        case: x = y {
           conclude false by rewrite xy_false in (recall x = y)
         }
         case y_in_rest: y ∈ set_of(take(search(xs', y), xs')) {

@@ -1,15 +1,11 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem intro_addition_of_evens:
   all x:Nat, y:Nat.
   if Even(x) and Even(y) then Even(x + y)
 proof
   arbitrary x:Nat, y:Nat
-  suppose even_xy: Even(x) and Even(y)
+  assume even_xy: Even(x) and Even(y)
   have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x

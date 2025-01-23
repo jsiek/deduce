@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 theorem equations_example: all x:Nat, y:Nat, z:Nat.
   x + y + z = z + y + x

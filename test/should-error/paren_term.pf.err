@@ -1,4 +1,4 @@
-./test/should-error/paren_term.pf:9.10-9.11: expected closing parentheses, not
+./test/should-error/paren_term.pf:9.10-9.11: expected closing parenthesis ")", not
 	,
 while parsing parenthesized term
 	term ::= "(" term ")"

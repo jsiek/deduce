@@ -1,11 +1,22 @@
+from dataclasses import dataclass
 import os
+from signal import signal, SIGINT
 import sys
+from threading import Thread
+
+from doc.convert import convert_dir
 
 parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
 pass_dir = './test/should-pass'
 error_dir = './test/should-error'
+site_dir = './gh-pages/deduce-code'
+max_threads = 10
+
+def handle_sigint(signal, stack_frame):
+    print('SIGINT caught, exiting...')
+    exit(137)
 
 def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
     deduce_call += ' ' + path
@@ -14,7 +25,9 @@ def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments
         print('Testing:', call)
         return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
         if return_code != expected_return:
-            if expected_return == 0:
+            if return_code == SIGINT:
+                exit(137)
+            elif expected_return == 0:
                 print('\nTest failed!')
             else:
                 print('\nDeduce failed to catch an error!')
@@ -28,47 +41,112 @@ def generate_deduce_errors(deduce_call, path):
     if os.path.isfile(path):
         test_deduce(['--recursive-descent'], deduce_call, path, 1, '> ' + path + '.err')
     elif os.path.isdir(path):
-        if path[-1] != '/' or path[-1] != '\\': # Windows moment
+        running_threads = []
+
+        if path[-1] != '/' or path[-1] != '\\':
             path += '/'
         for file in os.listdir(path): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
-                    generate_deduce_errors(deduce_call, path + file)
+                    thread = Thread(target=generate_deduce_errors, args=(deduce_call, path + file))
+                    thread.start()
+                    running_threads.append(thread)
+
+                    while len(running_threads) > max_threads:
+                        t = running_threads[0]
+                        t.join()
+                        running_threads.remove(t)
+
             elif os.path.isdir(path + file):
                 # TODO: recursive directories
                 pass
+        for t in running_threads:
+            t.join()
+            running_threads.remove(t)
     else:
         print(path, 'was not found!')
         exit(1)
 
-def test_deduce_errors(deduce_call, path):
-    if os.path.isfile(path):
-        if not os.path.isfile(path + '.err'):
-            print("Couldn't find an expected error for", path)
-            print("Did you mean to generate it? If so, use generate_deduce_errors")
-            exit(1)
+@dataclass
+class ErrorThread:
+    path : str
+    text : str
+    thread : Thread
 
-        temp_file  = './actual_error.tmp'
-        test_deduce(['--recursive-descent'], deduce_call, path + ' > ' + temp_file, 1)
-        ret_code = os.system('diff --ignore-space-change ' + path + '.err ' + temp_file)
+    def __init__(self, path):
+        self.path = path
+        self.text = None
 
+    def start(self, deduce_call):
+        self.thread = Thread(target=self.test_deduce_errors_thread, args=(deduce_call,))
+        self.thread.start()
+
+    def test_deduce_errors_thread(self, deduce_call):
+        text = os.popen(deduce_call + ' ' + self.path).read()
+        self.text = text
+
+def join_error_threads(threads : list[ErrorThread], join_count : int):
+    temp_file  = './actual_error.tmp'
+    for thread in threads:
+        if join_count < 0 :
+            if not thread.thread.is_alive:
+                threads.remove(thread)
+            continue
+
+        thread.thread.join()
+        threads.remove(thread)
+        if thread.text == None:
+            print("Got an exception when checking:", thread.path)
+            exit(-1)
+        
+        with open(temp_file, 'w') as fd:
+            fd.write(thread.text)
+
+        diff_call = 'diff --ignore-space-change ' + thread.path + '.err ' + temp_file
+        ret_code = os.system(diff_call)
         if ret_code == 0:
             os.remove(temp_file)
+            print(thread.path, 'has not changed')
         else:
-            print("The error message for", path, "has changed! See actual_error.tmp")
+            print("The error message for", thread.path, "has changed! See actual_error.tmp")
             exit(1)
+
+def test_deduce_errors(deduce_call, path):
+    if os.path.isfile(path):
+        thread = ErrorThread(path)
+        join_error_threads([thread], 1)
     else:
         if path[-1] != '/' or path[-1] != '\\': # Windows moment
             path += '/'
+
+        threads = []
         for file in os.listdir(path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
-                    test_deduce_errors(deduce_call, path + file)
+                    if not os.path.isfile(path + file + '.err'):
+                        print("Couldn't find an expected error for", path)
+                        print("Did you mean to generate it? If so, use generate_deduce_errors")
+                        exit(1)
+                    
+                    thread = ErrorThread(path + file)
+                    threads.append(thread)
+                    thread.start(deduce_call)
+                    if len(threads) == max_threads:
+                        # I think passing 1 is for the best
+                        # As this function will remove any already finished threads
+                        # And also if we don't pass one, we'll repeatedly get into a situation like
+                        # 5 threads running 0 threads running 5 threads running 0 threads running
+                        # However, we want to maximize the amount of threads running so we're doing more
+                        join_error_threads(threads, 1)
+                    
             elif os.path.isdir(path + file):
                 # TODO: recursive directories?
                 pass
 
+        join_error_threads(threads, len(threads))
+
 if __name__ == "__main__":
+    signal(SIGINT, handle_sigint)
     # Check command line arguments
     extra_arguments = []
 
@@ -78,6 +156,7 @@ if __name__ == "__main__":
     test_lib = False
     test_passable = False
     test_errors = False
+    test_site = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -91,12 +170,17 @@ if __name__ == "__main__":
         elif argument == '--generate-error':
             regenerables.append(sys.argv[i + 1])
             already_processed_next = True
+        elif argument == '--max-threads':
+            max_threads = int(sys.argv[i + 1])
+            already_processed_next = True
         elif argument == '--lib':
             test_lib = True
         elif argument == '--passable':
             test_passable = True
         elif argument == '--errors':
             test_errors = True
+        elif argument == '--site':
+            test_site = True
         else:
             extra_arguments.append(argument)
     
@@ -121,6 +205,13 @@ if __name__ == "__main__":
             generate_deduce_errors(deduce_call, generable)
             generate_errors = True # So we don't run ALL tests
 
+    if test_site:
+        # test the home examples
+        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
+        # generate test files for doc code without generating html
+        convert_dir("./doc/", False)
     if test_lib:
         test_deduce(parsers, deduce_call, lib_dir)
     if test_passable:
@@ -128,10 +219,18 @@ if __name__ == "__main__":
     if test_errors:
         test_deduce_errors(deduce_call, error_dir)
 
-    if not (test_lib or test_passable or test_errors or generate_errors):
+    if len(sys.argv) == 1: # run everything
+        # test the home examples
+        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
+        # generate test files for doc code without generating html
+        convert_dir("./doc/", False)
+        # test
         test_deduce(parsers, deduce_call, lib_dir)
         test_deduce(parsers, deduce_call, pass_dir)
         test_deduce_errors(deduce_call, error_dir)
     
     os.system("rm -f ./lib/*.thm")
     os.system("rm -f ./test/should-pass/*.thm")
+    os.system("rm -f ./gh-pages/deduce-code/*.thm")
