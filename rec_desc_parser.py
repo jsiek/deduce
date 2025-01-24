@@ -499,7 +499,7 @@ def parse_term_equal():
     if opr == '=':
       term = Call(meta_from_tokens(token, previous_token()), None,
                   eq, [term,right])
-    elif opr == '≠' or opr == '!=':
+    elif opr == '≠' or opr == '/=':
       term = IfThen(meta, None, 
                     Call(meta, None, eq, [term,right]),
                     Bool(meta, None, False))
