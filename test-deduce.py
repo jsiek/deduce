@@ -104,9 +104,9 @@ def join_error_threads(threads : list[ErrorThread], join_count : int):
         ret_code = os.system(diff_call)
         if ret_code == 0:
             os.remove(temp_file)
-            print(thread.path, 'has not changed')
+            print(thread.path, "produces the expected error.")
         else:
-            print("The error message for", thread.path, "has changed! See actual_error.tmp")
+            print("*** The error message for", thread.path, "has changed! See actual_error.tmp")
             exit(1)
 
 def test_deduce_errors(deduce_call, path):
