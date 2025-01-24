@@ -1553,7 +1553,7 @@ class All(Formula):
 
   def copy(self):
     x, t = self.var
-    return All(self.location, (x, t.copy()), self.pos, self.body.copy())
+    return All(self.location, self.typeof, (x, t.copy()), self.pos, self.body.copy())
   
   def __str__(self):
     v, t = self.var

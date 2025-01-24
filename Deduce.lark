@@ -9,22 +9,24 @@ WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
 
-?term: term "iff" term_log                            -> iff_formula
-    | term "<=>" term_log                            -> iff_formula
-    | term "⇔" term_log                            -> iff_formula
+?term:  term_iff
+
+?term_iff: term_iff "iff" term_log                     -> iff_formula
+    | term_iff "<=>" term_log                          -> iff_formula
+    | term_iff "⇔" term_log                            -> iff_formula
     | term_log
 
-?term_log: term_log "and" term_compare                    -> and_formula
-    | term_log "or" term_compare                      -> or_formula
+?term_log: term_log "and" term_equal                    -> and_formula
+    | term_log "or" term_equal                      -> or_formula
     | term_log ":" type                           -> annote_type
-    | "if" term_log "then" term_log "else" term_log       -> conditional
-    | "if" term_log "then" term_log                  -> if_then_formula
+    | term_equal
+
+?term_equal: term_equal "=" term_compare  -> equal
+    | term_equal "≠" term_compare                       -> not_equal
+    | term_equal "/=" term_compare                       -> not_equal
     | term_compare
 
-?term_compare: term_compare "=" term_add             -> equal
-    | term_compare "≠" term_add                       -> not_equal
-    | term_compare "/=" term_add                       -> not_equal
-    | term_compare "<" term_add                        -> less
+?term_compare: term_compare "<" term_add                        -> less
     | term_compare ">" term_add                        -> greater
     | term_compare "≤" term_add                       -> less_equal
     | term_compare "<=" term_add                       -> less_equal
@@ -99,6 +101,8 @@ ident: IDENT              -> ident
     | "(" term ")"                                 -> paren
     | "[" term_list "]"                            -> list_literal
     | "#" term "#"                                 -> mark
+    | "if" term "then" term "else" term            -> conditional
+    | "if" term "then" term                        -> if_then_formula
     | "%" type
     
 ?term_list:                                        -> empty
