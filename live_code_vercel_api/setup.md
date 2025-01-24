@@ -7,7 +7,7 @@ Here's a step by step list of instructions on how to setup the deduce vercel api
 For this vercel api to work, you will need the following files in your repository:
 
 - `vercel.json` : This file includes the build configuration for vercel. It basically tells vercel how to build the api, and where the flask api file is and how to direct requests.
-- `api`
+- `live_code_vercel_api/`
     - `api.py` : This is the actual code for the flask api. 
     - `requirements.txt`: These are the necessary pip packages for vercel. This one is separate from the root `requirements.txt` because vercel needs to install `flask` as well as `lark`.
 
