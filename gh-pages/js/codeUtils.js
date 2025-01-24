@@ -136,6 +136,7 @@ for (let cb of codeBlocks) {
 
         // If code is cached just return that
         let code = cacheJS.get({'codeID': cb, 'type': 'html'})
+
         if(code){
             let codeText = cacheJS.get({'codeID': cb, 'type': 'text'})
             htmlCode.innerHTML = code
@@ -143,18 +144,18 @@ for (let cb of codeBlocks) {
         } 
         // else make fetch and cache result
         else {
-            fetch(`${dir.includes("pages") ? "../" : "./" }deduce-code/${cb}.pf`)
-
-            .then(res => res.text())
+            const url = `${dir.includes("/pages") ? "../" : "./" }deduce-code/${cb}.pf`
+            fetch(url)
+            .then(res => {if (res.ok) return res.text(); else throw new Error()})
             .then(codeText => {
                 codeText = removeImports(codeText)
                 code = codeToHTML(codeText)
                 cacheJS.set({'codeID': cb, 'type': 'html'}, code)
                 cacheJS.set({'codeID': cb, 'type': 'text'}, codeText)
                 htmlCode.innerHTML = code
-
                 make_button(htmlCode, codeText)
-            });
+            })
+            .catch(err => htmlCode.innerHTML = "Error loading code block...")
         }
     } catch (error) {
         console.error(error);
