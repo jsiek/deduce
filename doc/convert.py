@@ -384,3 +384,9 @@ def convert_dir(dir, generate_html=True):
 if __name__ == "__main__":
     # convert all md files in the doc directory
     convert_dir("./doc/")
+    # update code.js to reflect any new/removed code blocks
+    with open ('./gh-pages/js/code.js', 'w') as f:
+        f.write('const codeBlocks = [\n')
+        for c in listdir('./gh-pages/deduce-code/'):
+            f.write(f'\t"{c[:-3]}",\n') # remove ".pf"
+        f.write(']')
