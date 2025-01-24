@@ -369,7 +369,10 @@ def parse_term_hi():
             'expected closing bracket \']\', not\n\t' + current_token().value)
     advance()
     return listToNodeList(meta_from_tokens(token,token), lst_terms)
-    
+  
+  elif token.type == 'DEFINE':
+    return parse_define_term()
+  
   else:
     try:
       name = parse_identifier()
@@ -534,32 +537,40 @@ def parse_term_logic():
       
   return term
 
+def parse_term_iff():
+  token = current_token()
+  term = parse_term_logic()
+  while (not end_of_file()) and (current_token().value in iff_operators):
+    opr = current_token().type
+    advance()
+    right = parse_term_logic()
+    loc = meta_from_tokens(token, previous_token())
+    left_right = IfThen(loc, None, term.copy(), right.copy())
+    right_left = IfThen(loc, None, right.copy(), term.copy())
+    term = And(loc, None, [left_right, right_left])  
+
+  if (not end_of_file()) and current_token().type == 'COLON':
+    advance()
+    typ = parse_type()
+    term = TAnnote(meta_from_tokens(token, previous_token()), None,
+                   term, typ)
+      
+  return term
+
 def parse_term():
   if end_of_file():
       error(meta_from_tokens(previous_token(),previous_token()),
             'expected a term, not end of file')
       
   token = current_token()
+  term = parse_term_iff()
 
-  if token.type == 'DEFINE':
-    return parse_define_term()
-  else:
-    term = parse_term_logic()
-    if (not end_of_file()) and (current_token().value in iff_operators):
-      advance()
-      right = parse_term_logic()
-      loc = meta_from_tokens(token, previous_token())
-      left_right = IfThen(loc, None, term.copy(), right.copy())
-      right_left = IfThen(loc, None, right.copy(), term.copy())
-      term = And(loc, None, [left_right, right_left])
-
-    if (not end_of_file()) and current_token().type == 'COLON':
-      advance()
-      typ = parse_type()
-      term = TAnnote(meta_from_tokens(token, previous_token()), None,
-                     term, typ)
-
-    return term
+  if not end_of_file() and current_token().type == 'COLON':
+    advance()
+    typ = parse_type()
+    term = TAnnote(meta_from_tokens(token, previous_token()), None,
+                   term, typ)
+  return term
 
 def parse_define_term():
   while_parsing = 'while parsing\n' \
