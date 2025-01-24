@@ -591,12 +591,12 @@ def parse_assumption():
   else:
     return label,None
 
-proof_keywords = {'apply', 'arbitrary',
+proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
-                  'enable', 'equations', 'extensionality',
-                  'have', 'induction', 'obtain',
-                  'reflexive', 'rewrite',
+                  'enable', 'equations', 'evaluate', 'extensionality',
+                  'have', 'help', 'induction', 'injective', 'obtain',
+                  'recall', 'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
 
