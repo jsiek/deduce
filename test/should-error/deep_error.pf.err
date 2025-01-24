@@ -1,5 +1,6 @@
 ./test/should-error/deep_error.pf:1.28-1.34: expected closing parenthesis ")", not
 	2
+Perhaps you forgot a comma?
 ./test/should-error/deep_error.pf:1.28-1.34: while parsing function call
 	term ::= term "(" term_list ")"
 

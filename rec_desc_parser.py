@@ -366,7 +366,7 @@ def parse_term_hi():
       token = current_token()
     if token.type != 'RSQB':
       error(meta_from_tokens(current_token(),current_token()),
-            'expected closing bracket \']\', not\n\t' + current_token().value)
+            'expected closing bracket "]" at end of list literal, not\n\t' + current_token().value)
     advance()
     return listToNodeList(meta_from_tokens(token,token), lst_terms)
   
@@ -416,9 +416,9 @@ def parse_call():
       advance()
       args = parse_term_list()
       if current_token().type != 'RPAR':
-        msg = f'expected closing parenthesis ")", not\n\t{current_token().value}'
-        if current_token().type == 'IDENT':
-          msg += '\nPerhaps you forgot a comma?'
+        msg = 'expected closing parenthesis ")", not\n\t' \
+          + current_token().value \
+          + '\nPerhaps you forgot a comma?'
         error(meta_from_tokens(start_token, previous_token()), msg)
       term = Call(meta_from_tokens(start_token, current_token()), None,
                   term, args)
