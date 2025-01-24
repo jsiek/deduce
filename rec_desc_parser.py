@@ -53,10 +53,16 @@ current_position = 0
 token_list = []
 
 def current_token():
-    return token_list[current_position]
+  if end_of_file():
+    error(meta_from_tokens(token_list[-1], token_list[-1]),
+          'Expected a token, got end of file')
+  return token_list[current_position]
 
 def next_token():
-    return token_list[current_position + 1]
+  if current_position + 1 >= len(token_list):
+    error(meta_from_tokens(token_list[-1], token_list[-1]),
+          'Expected a token, got end of file')
+  return token_list[current_position + 1]
 
 def previous_token():
     return token_list[current_position - 1]
@@ -595,7 +601,7 @@ proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
                   'enable', 'equations', 'evaluate', 'extensionality',
-                  'have', 'help', 'induction', 'injective', 'obtain',
+                  'have', 'induction', 'injective', 'obtain',
                   'recall', 'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
@@ -1085,6 +1091,11 @@ def parse_have():
     start_token = current_token()
     token = start_token
     advance()
+
+    if end_of_file():
+      error(meta_from_tokens(start_token, start_token),
+            'expected an identifier or colon after "have", not end of file')
+
     if current_token().type != 'COLON':
       try:
         label = parse_identifier()
@@ -1094,13 +1105,20 @@ def parse_have():
             + current_token().value)
     else:
       label = '_'
-    if current_token().type != 'COLON':
+
+    if end_of_file():
+      error(meta_from_tokens(start_token, start_token),
+            'expected a colon after label of "have", not end of file')
+    elif current_token().type != 'COLON':
       error(meta_from_tokens(current_token(), current_token()),
             'expected a colon after label of "have", not\n\t' \
             + current_token().value)
     advance()
     proved = parse_term()
-    if current_token().type == 'BY':
+    if end_of_file():
+      error(meta_from_tokens(start_token, start_token),
+            'expected the keyword "by" after formula of "have", not end of file')
+    elif current_token().type == 'BY':
       advance()
       because = parse_proof()
     else:        
@@ -1246,8 +1264,12 @@ def parse_theorem():
     try:
       name = parse_identifier()
     except Exception as e:
-      error(meta_from_tokens(current_token(), current_token()),
-            'expected name of theorem, not:\n\t' + current_token().value)
+      if end_of_file():
+        error(meta_from_tokens(start_token, start_token),
+          'expected name of theorem, not end of file')
+      else:
+        error(meta_from_tokens(current_token(), current_token()),
+          'expected name of theorem, not:\n\t' + current_token().value)
 
     if current_token().type != 'COLON':
       error(meta_from_tokens(current_token(), current_token()),
