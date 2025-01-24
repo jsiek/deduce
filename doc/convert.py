@@ -126,7 +126,9 @@ class BetterAnchorPostprocessor(Postprocessor):
         if is_local_md and len(file) > 0:
             file = file[2:-3]
             link = './' + mdToHtmlName[file] + '.html'
-        return f'<a href="{link}#{'' if m.group(3) is None else m.group(3)}" target="{'_self' if is_local_md else '_blank'}">'
+        link_id = '' if m.group(3) is None else m.group(3)
+        link_target = '_self' if is_local_md else '_blank'
+        return f'<a href="{link}#{link_id}" target="{link_target}">'
 
     def run(self, text):
         PATTERN = r'<a +href="([^"#]*)(#([^"]*))?">'
