@@ -126,7 +126,9 @@ class BetterAnchorPostprocessor(Postprocessor):
         if is_local_md and len(file) > 0:
             file = file[2:-3]
             link = './' + mdToHtmlName[file] + '.html'
-        return f'<a href="{link}#{'' if m.group(3) is None else m.group(3)}" target="{'_self' if is_local_md else '_blank'}">'
+        link_id = '' if m.group(3) is None else m.group(3)
+        link_target = '_self' if is_local_md else '_blank'
+        return f'<a href="{link}#{link_id}" target="{link_target}">'
 
     def run(self, text):
         PATTERN = r'<a +href="([^"#]*)(#([^"]*))?">'
@@ -374,10 +376,9 @@ def convert_file(fname, generate_html):
 
 def convert_dir(dir, generate_html=True):
     for f in [f for f in listdir(dir) if isfile(join(dir, f))]:
-        m = re.search(r'(.*).md', f)
-        if m: 
-            print(f'Converting {m.group(1)}.md')
-            convert_file(m.group(1), generate_html)
+        if f.endswith('.md'): 
+            print(f'Converting {f}')
+            convert_file(f[:-3], generate_html)
 
 
 
