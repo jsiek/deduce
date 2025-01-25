@@ -4,6 +4,8 @@ from signal import signal, SIGINT
 import sys
 from threading import Thread
 
+from doc.convert import convert_dir
+
 parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
@@ -30,6 +32,7 @@ def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments
             else:
                 print('\nDeduce failed to catch an error!')
             exit(1)
+    
 
 def generate_deduce_errors(deduce_call, path):
     # We don't pass in the --error flag so we can generate error messages
@@ -209,8 +212,12 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
         # generate test files for doc code without generating html
-        from doc.convert import convert_dir
         convert_dir("./doc/", False)
+        # test generated files
+        for f in os.listdir(pass_dir):
+            if f.startswith('doc_'):
+                test_deduce(parsers, deduce_call, pass_dir + '/' + f)
+
     if test_lib:
         test_deduce(parsers, deduce_call, lib_dir)
     if test_passable:
@@ -224,8 +231,7 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
         # generate test files for doc code without generating html
-        # THIS IS NOT WORKING -Jeremy
-        # convert_dir("./doc/", False)
+        convert_dir("./doc/", False)
         
         # test
         test_deduce(parsers, deduce_call, lib_dir)
