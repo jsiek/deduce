@@ -1,0 +1,7 @@
+// Same as define_proof_missing_term.pf
+
+theorem T: true
+proof
+  define x =
+  .
+end

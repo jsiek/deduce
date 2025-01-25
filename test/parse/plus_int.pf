@@ -1,0 +1,13 @@
+union Nat {
+  zero
+  suc(Nat)
+}
+
+function operator +(Nat,Nat) -> Nat {
+  operator +(0, m) = m
+  operator +(suc(n), m) = suc(n + m)
+}
+
+define a : Nat = 4
+
+print + a

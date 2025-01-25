@@ -1,0 +1,14 @@
+union Nat {
+  zero
+  suc(Nat)
+}
+
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+define L = [true, false, true]
+define A = array L
+
+assert A[2] = true

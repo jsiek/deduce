@@ -1,0 +1,7 @@
+theorem demo : all b : bool, c : bool.
+  if b and c then b
+proof
+  arbitrary b : bool, c : bool
+  suppose prem
+  conjunct 0  prem
+end

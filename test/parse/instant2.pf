@@ -1,0 +1,9 @@
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+union A { a }
+
+
+assert @[]<A> = (@<A)

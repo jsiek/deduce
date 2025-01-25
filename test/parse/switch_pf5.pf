@@ -1,0 +1,9 @@
+theorem blah : all x : bool. true
+proof
+  arbitrary x : bool
+  switch x {
+    case true assume prop_t  . }
+    case false assume prop_f { . }
+  }
+end
+  

@@ -1,0 +1,15 @@
+union Grade {
+  A
+  B
+  C
+}
+
+
+define is_good : fn Grade -> bool
+  = fun g {
+    switch g 
+      case A { true }
+      case B { true }
+      case C { false }
+    
+  }

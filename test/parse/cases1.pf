@@ -1,0 +1,9 @@
+theorem blah : all x : bool. true
+proof
+  arbitrary x : bool
+  have q : false or true by .
+  cases q
+  case a    . }
+  case b : false { . }
+end
+  

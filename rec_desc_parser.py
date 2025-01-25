@@ -331,7 +331,7 @@ def parse_term_hi():
     subject = parse_term()
     if current_token().type != 'LBRACE':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected "{" after subject of switch, not\n\t' \
+            'expected "{" after subject of "switch", not\n\t' \
             + current_token().value)
     advance()
     cases = []
@@ -340,7 +340,7 @@ def parse_term_hi():
       cases.append(switch_case)
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(token,current_token()),
-            'expected "}" after last case of switch, not\n\t' \
+            'expected "}" after last case of "switch", not\n\t' \
             + current_token().value)
     advance()
     return Switch(meta_from_tokens(token, previous_token()), None,
@@ -628,13 +628,16 @@ def parse_definition_proof():
       defs = parse_ident_list()
       if current_token().type != 'RBRACE':
           error(meta_from_tokens(current_token(), current_token()),
-                'expected closing "}", not\n\t' + current_token().value)
+                'expected closing "}", not\n\t' + current_token().value \
+                  + '\nPerhaps you forgot a comma?')
       advance()
     else:
       defn = parse_identifier()
       defs = [defn]
 
     if current_token().type == 'AND':
+        while_parsing = 'while parsing definition:\n' \
+            + '\tconclusion ::= "definition" identifier "and" "rewrite" proof_list\n'
         advance()
         if current_token().type != 'REWRITE':
             error(meta_from_tokens(current_token(),current_token()),
@@ -647,6 +650,8 @@ def parse_definition_proof():
                               [Var(meta, None, t) for t in defs],
                               Rewrite(meta, eqns))
     elif current_token().type == 'IN':
+        while_parsing = 'while parsing definition:\n' \
+            + '\tconclusion ::= "definition" identifier "in" proof\n'
         advance()
         subject = parse_proof()
         meta = meta_from_tokens(token, previous_token())
@@ -720,6 +725,11 @@ def parse_proof_hi():
   elif token.type == 'CONJUNCT':
     advance()
     meta = meta_from_tokens(current_token(),current_token())
+
+    if current_token().type != 'INT' and current_token().value != '0':
+      error(meta, 'expected an int literal after "conjunct", not\n\t' \
+            + current_token().value)
+      
     index = int(current_token().value)
     advance()
     if current_token().type != 'OF':
@@ -775,7 +785,7 @@ def parse_proof_hi():
     proof = parse_proof()
     if current_token().type != 'RPAR':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected closing parenthesis ")", not\n\t' \
+            'expected closing parenthesis ")" around proof, not\n\t' \
             + current_token().value)
     advance()
     return proof
@@ -785,7 +795,7 @@ def parse_proof_hi():
     proof = parse_proof()
     if current_token().type != 'RBRACE':
       error(meta_from_tokens(current_token(), current_token()),
-            'expected a closing "}", not\n\t' \
+            'expected a closing "}" around proof, not\n\t' \
             + current_token().value)
     advance()
     return proof
@@ -834,15 +844,17 @@ def parse_proof_hi():
         defs = []
     if current_token().type != 'LBRACE':
         error(meta_from_tokens(current_token(), current_token()),
-              'expected "{" after subject of "switch"')
+            'expected "{" after subject of "switch", not\n\t' \
+            + current_token().value)
     advance()
     cases = []
     while current_token().type == 'CASE':
         c = parse_proof_switch_case()
         cases.append(c)
     if current_token().type != 'RBRACE':
-        error(meta_from_tokens(current_token(), current_token()),
-              'expected closing "}" after cases of "switch"')
+        error(meta_from_tokens(token,current_token()),
+            'expected "}" after last case of "switch", not\n\t' \
+            + current_token().value)
     advance()
     meta = meta_from_tokens(token, previous_token())
     if len(defs) == 0:

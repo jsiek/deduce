@@ -1,0 +1,24 @@
+theorem demo : all b : bool, c : bool.
+  if b = true then b or c
+proof
+  arbitrary b : bool, c : bool
+  assume prem
+  rewrite prem
+end
+
+theorem use_demo : all b : bool, c : bool.
+  if b then b or c
+proof
+  arbitrary b : bool, c : bool
+  suppose prem
+  have b_t : b = true
+    by {switch b {
+      case true assume prop_t {
+        prop_t
+      }
+      case false assume prop_f {
+        rewrite prop_f in prem
+      }
+    }
+  apply demo[b, c]  to  b_t
+end

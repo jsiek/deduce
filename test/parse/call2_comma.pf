@@ -1,0 +1,7 @@
+define f : fn bool, bool -> bool
+  = fun b, c { not b }
+
+define c = true
+
+print f(true false)
+print f(false, true)

@@ -1,0 +1,20 @@
+// TODO: What is going on here?
+define a : fn bool -> bool
+  = fun x {
+    if x then false
+  }
+
+print a(true)
+print a(false)
+
+/// AAHSDLKFJSD:LKFJSDF:LKSDJFD
+theorem blah : all b : bool.
+  if b then true else false
+proof
+  arbitrary b : bool
+  switch b {
+    case true assume prop_t { . }
+    case false assume prop_f { ? }
+  }
+end
+

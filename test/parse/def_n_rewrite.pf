@@ -1,0 +1,16 @@
+define const_t1 : fn <E> E -> bool = generic E { fun x { true } }
+define const_t2 : fn <E> E -> bool = generic E { fun x { true } }
+
+theorem blah : all T : type, x : T. const_t1(const_t2(x)) = true
+proof 
+  definition { const_t2,  const_t1 }
+end
+
+
+define f : fn bool -> bool = fun x { not x }
+
+theorem blah1 : const_t1(const_t2(false)) = f(false)
+proof
+  definition f
+  and  blah<bool>
+end
