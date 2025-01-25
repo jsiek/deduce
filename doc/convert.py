@@ -376,10 +376,9 @@ def convert_file(fname, generate_html):
 
 def convert_dir(dir, generate_html=True):
     for f in [f for f in listdir(dir) if isfile(join(dir, f))]:
-        m = re.search(r'(.*).md', f)
-        if m: 
-            print(f'Converting {m.group(1)}.md')
-            convert_file(m.group(1), generate_html)
+        if f.endswith('.md'): 
+            print(f'Converting {f}')
+            convert_file(f[:-3], generate_html)
 
 
 
