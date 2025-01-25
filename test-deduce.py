@@ -4,7 +4,6 @@ from signal import signal, SIGINT
 import sys
 from threading import Thread
 
-from doc.convert import convert_dir
 
 parsers = ['--recursive-descent', '--lalr']
 
@@ -212,10 +211,11 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
         # generate test files for doc code without generating html
+        from doc.convert import convert_dir
         convert_dir("./doc/", False)
         # test generated files
         for f in os.listdir(pass_dir):
-            if f.startswith('doc_'):
+            if f.startswith('doc_') and f.endswith('.pf'):
                 test_deduce(parsers, deduce_call, pass_dir + '/' + f)
 
     if test_lib:
@@ -231,7 +231,7 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
         # generate test files for doc code without generating html
-        convert_dir("./doc/", False)
+        # convert_dir("./doc/", False) # Requires markdown to be installed
         
         # test
         test_deduce(parsers, deduce_call, lib_dir)
