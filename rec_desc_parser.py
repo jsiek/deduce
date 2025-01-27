@@ -29,8 +29,8 @@ def get_deduce_directory():
 
 mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++' }
-compare_operators = {'<', '>', '≤', '<=', '>', '≥', '>=', '⊆', '(=', '∈', 'in'}
-equal_operators = {'=', '≠', '!='}
+compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in'}
+equal_operators = {'=', '≠', '/='}
 iff_operators = {'iff', "<=>", "⇔"}
 
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '>=': '≥',
@@ -53,10 +53,16 @@ current_position = 0
 token_list = []
 
 def current_token():
-    return token_list[current_position]
+  if end_of_file():
+    error(meta_from_tokens(token_list[-1], token_list[-1]),
+          'Expected a token, got end of file')
+  return token_list[current_position]
 
 def next_token():
-    return token_list[current_position + 1]
+  if current_position + 1 >= len(token_list):
+    error(meta_from_tokens(token_list[-1], token_list[-1]),
+          'Expected a token, got end of file')
+  return token_list[current_position + 1]
 
 def previous_token():
     return token_list[current_position - 1]
@@ -360,10 +366,13 @@ def parse_term_hi():
       token = current_token()
     if token.type != 'RSQB':
       error(meta_from_tokens(current_token(),current_token()),
-            'expected closing bracket \']\', not\n\t' + current_token().value)
+            'expected closing bracket "]" at end of list literal, not\n\t' + current_token().value)
     advance()
     return listToNodeList(meta_from_tokens(token,token), lst_terms)
-    
+  
+  elif token.type == 'DEFINE':
+    return parse_define_term()
+  
   else:
     try:
       name = parse_identifier()
@@ -407,9 +416,9 @@ def parse_call():
       advance()
       args = parse_term_list()
       if current_token().type != 'RPAR':
-        msg = f'expected closing parenthesis ")", not\n\t{current_token().value}'
-        if current_token().type == 'IDENT':
-          msg += '\nPerhaps you forgot a comma?'
+        msg = 'expected closing parenthesis ")", not\n\t' \
+          + current_token().value \
+          + '\nPerhaps you forgot a comma?'
         error(meta_from_tokens(start_token, previous_token()), msg)
       term = Call(meta_from_tokens(start_token, current_token()), None,
                   term, args)
@@ -499,7 +508,7 @@ def parse_term_equal():
     if opr == '=':
       term = Call(meta_from_tokens(token, previous_token()), None,
                   eq, [term,right])
-    elif opr == '≠' or opr == '!=':
+    elif opr == '≠' or opr == '/=':
       term = IfThen(meta, None, 
                     Call(meta, None, eq, [term,right]),
                     Bool(meta, None, False))
@@ -528,32 +537,40 @@ def parse_term_logic():
       
   return term
 
+def parse_term_iff():
+  token = current_token()
+  term = parse_term_logic()
+  while (not end_of_file()) and (current_token().value in iff_operators):
+    opr = current_token().type
+    advance()
+    right = parse_term_logic()
+    loc = meta_from_tokens(token, previous_token())
+    left_right = IfThen(loc, None, term.copy(), right.copy())
+    right_left = IfThen(loc, None, right.copy(), term.copy())
+    term = And(loc, None, [left_right, right_left])  
+
+  if (not end_of_file()) and current_token().type == 'COLON':
+    advance()
+    typ = parse_type()
+    term = TAnnote(meta_from_tokens(token, previous_token()), None,
+                   term, typ)
+      
+  return term
+
 def parse_term():
   if end_of_file():
       error(meta_from_tokens(previous_token(),previous_token()),
             'expected a term, not end of file')
       
   token = current_token()
+  term = parse_term_iff()
 
-  if token.type == 'DEFINE':
-    return parse_define_term()
-  else:
-    term = parse_term_logic()
-    if (not end_of_file()) and (current_token().value in iff_operators):
-      advance()
-      right = parse_term_logic()
-      loc = meta_from_tokens(token, previous_token())
-      left_right = IfThen(loc, None, term.copy(), right.copy())
-      right_left = IfThen(loc, None, right.copy(), term.copy())
-      term = And(loc, None, [left_right, right_left])
-
-    if (not end_of_file()) and current_token().type == 'COLON':
-      advance()
-      typ = parse_type()
-      term = TAnnote(meta_from_tokens(token, previous_token()), None,
-                     term, typ)
-
-    return term
+  if not end_of_file() and current_token().type == 'COLON':
+    advance()
+    typ = parse_type()
+    term = TAnnote(meta_from_tokens(token, previous_token()), None,
+                   term, typ)
+  return term
 
 def parse_define_term():
   while_parsing = 'while parsing\n' \
@@ -591,12 +608,12 @@ def parse_assumption():
   else:
     return label,None
 
-proof_keywords = {'apply', 'arbitrary',
+proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
-                  'enable', 'equations', 'extensionality',
-                  'have', 'induction', 'obtain',
-                  'reflexive', 'rewrite',
+                  'enable', 'equations', 'evaluate', 'extensionality',
+                  'have', 'induction', 'injective', 'obtain',
+                  'recall', 'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
 
@@ -1085,6 +1102,11 @@ def parse_have():
     start_token = current_token()
     token = start_token
     advance()
+
+    if end_of_file():
+      error(meta_from_tokens(start_token, start_token),
+            'expected an identifier or colon after "have", not end of file')
+
     if current_token().type != 'COLON':
       try:
         label = parse_identifier()
@@ -1094,13 +1116,20 @@ def parse_have():
             + current_token().value)
     else:
       label = '_'
-    if current_token().type != 'COLON':
+
+    if end_of_file():
+      error(meta_from_tokens(start_token, start_token),
+            'expected a colon after label of "have", not end of file')
+    elif current_token().type != 'COLON':
       error(meta_from_tokens(current_token(), current_token()),
             'expected a colon after label of "have", not\n\t' \
             + current_token().value)
     advance()
     proved = parse_term()
-    if current_token().type == 'BY':
+    if end_of_file():
+      error(meta_from_tokens(start_token, start_token),
+            'expected the keyword "by" after formula of "have", not end of file')
+    elif current_token().type == 'BY':
       advance()
       because = parse_proof()
     else:        
@@ -1246,8 +1275,12 @@ def parse_theorem():
     try:
       name = parse_identifier()
     except Exception as e:
-      error(meta_from_tokens(current_token(), current_token()),
-            'expected name of theorem, not:\n\t' + current_token().value)
+      if end_of_file():
+        error(meta_from_tokens(start_token, start_token),
+          'expected name of theorem, not end of file')
+      else:
+        error(meta_from_tokens(current_token(), current_token()),
+          'expected name of theorem, not:\n\t' + current_token().value)
 
     if current_token().type != 'COLON':
       error(meta_from_tokens(current_token(), current_token()),

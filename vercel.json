@@ -1,0 +1,16 @@
+{
+    "version": 2,
+    "installCommand": "pip install -r live_code_vercel_api/requirements.txt",
+    "builds": [
+        {
+            "src": "live_code_vercel_api/api.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "live_code_vercel_api/api.py"
+        }
+    ]
+}

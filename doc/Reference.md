@@ -614,10 +614,11 @@ end
 conclusion ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
 ```
 
-Apply the specified definitions to the current goal (see [Definition (Proof)](#definition-proof)), 
-then the specified rewrites (see [Rewrite (Proof)](#rewrite-proof)).
-If this simplifies that formula to `true`, then this statement proves
-the goal.  Otherwise, Deduce signals an error.
+Apply the specified definitions to the current goal
+(see [Definition (Proof)](#definition-proof)), then the specified rewrites
+(see [Rewrite (Proof)](#rewrite-proof)).  If this simplifies that formula
+to `true`, then this statement proves the goal.  Otherwise, Deduce
+signals an error.
 
 ## Definition-In (Proof)
 
@@ -1616,11 +1617,21 @@ conclusion ::= "rewrite" proof_list
 ```
 
 Rewrite the current goal formula according to the equalities proved by
-the specified [Proof List](#proof-list). For each equality, any term
-in the goal formula that is equal to its left-hand side is replaced by
-its right-hand side. If all the rewriting simplifies the goal formula
-to `true`, then this statement proves the goal.  Otherwise, Deduce
-signals an error.
+the specified [Proof List](#proof-list). Each equality may be a
+literal equality (has the form `LHS = RHS`) or it can be a generalized
+equality (has the form `all x1:T1,...,xn:Tn. LHS = RHS`).
+
+For each equality going left-to-right in the proof list, any subterm
+in the goal formula that matches the left-hand side of the equality
+(`LHS`) is replaced by the right-hand side of the equality
+(`RHS`). Once a subterm is rewritten by an equality, the resulting
+subterm is not rewritten further by the same equality. On the other
+hand, rewriting with an equality may apply to multiple disjoint
+locations in a formula.
+
+If the rewriting done by all of the equalities simplifies the goal
+formula to `true`, then this statement proves the goal.  Otherwise,
+Deduce signals an error.
 
 ```{.deduce^#rewrite_example}
 theorem rewrite_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
@@ -1640,10 +1651,9 @@ conclusion ::= "rewrite" proof_list "in" proof
 
 In the formula of the given proof, rewrite according to the equalities
 proved by the specified [Proof List](#proof-list), resulting in the
-formula that is proved by this `rewrite`-`in` statement. In
-particular, for each equality, any term in the formula that is equal
-to the left-hand side of the equality is replaced by the right-hand
-side of the equality.
+formula that is proved by this `rewrite`-`in` statement. 
+The algorithm for rewriting described in the entry for
+[Rewrite (Proof)](#rewrite-proof).
 
 ```{.deduce^#rewrite_in_example}
 theorem rewrite_in_example: all x:Nat, y:Nat.

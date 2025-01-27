@@ -1,0 +1,9 @@
+theorem bicond_commute : all P : bool, Q : bool.
+  if P <=> Q then Q <=> P
+proof 
+  arbitrary P : bool, Q : bool
+  switch P {
+    case true assume prop_t { . }
+    case false assume prop_f { . }
+  }
+end
