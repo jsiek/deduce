@@ -30,6 +30,15 @@ mdToTitle = {
     'GettingStarted' : 'Getting Started',
 }
 
+mdToDescription = {
+    'CheatSheet' : 'Cheat sheet for advice on deduce proofs.',
+    'FunctionalProgramming' : 'A guide on deduce programming with exercises.',
+    'ProofIntro' : 'A guide on writing proofs in deduce with exercises.',
+    'Reference' : 'Full reference manual for the deduce language.',
+    'SyntaxGrammar' : 'Syntax and grammar overview for the deduce language.',
+    'GettingStarted' : 'Getting started with deduce.',
+}
+
 mdToDeduceCode = {
     'CheatSheet' : 'cheat-sheet',
     'FunctionalProgramming' : 'programming',
@@ -225,8 +234,23 @@ prelude = lambda fname : f'''
 
 <head>
     <meta charset="UTF-8">
+    <meta name="description" content="{mdToDescription[fname]}">
+    <meta name="keywords" content="Deduce, Proof, Programming">
+    <meta name="author" content="Jeremy Siek">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deduce | {mdToTitle[fname]}</title>
+
+    <!-- Social cards -->
+    <meta property="og:url" content="https://jsiek.github.io/deduce/pages/{mdToHtmlName[fname]}.html" />
+    <meta property="og:type" content="website"/>
+    <meta property="og:title" content="Deduce | {mdToTitle[fname]}" />
+    <meta property="og:description" content="{mdtoDescription[fname]}" />
+    <meta property="og:site_name" content="Deduce">
+    <meta property="og:image" content="https://jsiek.github.io/deduce/images/logo.svg" />
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Deduce | {mdToTitle[fname]}">
+    <meta name="twitter:description" content="{mdtoDescription[fname]}">
+    <meta name="twitter:image" content="https://jsiek.github.io/deduce/images/logo.svg">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../images/logo.svg">
