@@ -55,11 +55,13 @@ defines a variable `world`, and prints it out.
 
 To run it, type the following command, or use the run functionality
 provided by your deduce editor.
+
 ```
 python deduce.py hello.pf
 ```
 
 You should see the output
+
 ```
 hello
 hello.pf is valid
