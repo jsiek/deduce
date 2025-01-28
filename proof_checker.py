@@ -1599,7 +1599,8 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     for (param_type, arg) in zip(param_types, args):
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
     if ret_ty != None and ret_ty != return_type:
-      error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
+      error(loc, 'expected ' + str(ret_ty) \
+            + ' but the call returns ' + str(return_type))
     return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
@@ -1706,11 +1707,15 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty, call):
       print('tc_rec_call(' + str(call) + ')')
   match args[0]:
     case Var(loc3, tyof, arg_name, rs):
-        if not (arg_name in subterms):
+        if len(rs) > 0:
+            name = rs[0]
+        else:
+            name = arg_name
+        if not (name in subterms):
           error(loc, "ill-formed recursive call\n" \
                 + "expected first argument to be " \
                 + " or ".join([base_name(x) for x in subterms]) \
-                + ", not " + base_name(arg_name))
+                + ", not " + base_name(name))
     case _:
       error(loc, "ill-formed recursive call\n" \
             + "expected first argument to be " \
@@ -1815,6 +1820,20 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
     case _:
       error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
+def is_call_to(trm, recfun):
+    match trm:
+      case Var(loc2, ty2, name, rs):
+        if len(rs) > 0:
+            return rs[0] == recfun
+        else:
+            return name == recfun
+      case RecFun(loc, name, typarams, params, returns, cases):
+        return name == recfun
+      case TermInst(loc, _, subject, tyargs, inferred):
+        return is_call_to(subject, recfun)
+      case _:
+        return False
+      
 def type_synth_term(term, env, recfun, subterms):
   if get_verbose():
     print('type_synth_term: ' + str(term))
@@ -1963,9 +1982,9 @@ def type_synth_term(term, env, recfun, subterms):
                 + '\t' + str(lhs.typeof) + ' ≠ ' + str(rhs.typeof))
       ret = Call(loc, ty, Var(loc2, ty2, name, rs), [lhs, rhs])
         
-    case Call(loc, _, Var(loc2, ty2, name, rs), args) if name == recfun:
+    case Call(loc, _, rator, args) if is_call_to(rator, recfun):
       # recursive call
-      ret = type_check_rec_call(loc, Var(loc2, ty2, name, rs), args, env,
+      ret = type_check_rec_call(loc, rator, args, env,
                                 recfun, subterms, None, term)
       
     case Call(loc, _, rator, args):
@@ -2154,9 +2173,9 @@ def type_check_term(term, typ, env, recfun, subterms):
               + ' but got ' + str(ty))
       return new_term
       
-    case Call(loc, _, Var(loc2, vty, name, rs), args) if name == recfun:
+    case Call(loc, _, rator, args) if is_call_to(rator, recfun):
       # recursive call
-      return type_check_rec_call(loc, Var(loc2, vty, name, rs), args, env,
+      return type_check_rec_call(loc, rator, args, env,
                                  recfun, subterms, typ, term)
   
     case Call(loc, _, rator, args):
