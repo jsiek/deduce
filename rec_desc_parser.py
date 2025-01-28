@@ -720,6 +720,11 @@ def parse_proof_hi():
   elif token.type == 'CONJUNCT':
     advance()
     meta = meta_from_tokens(current_token(),current_token())
+
+    if current_token().type != 'INT' and current_token().value != '0':
+      error(meta, 'expected an int literal after "conjunct", not\n\t' \
+            + current_token().value)
+      
     index = int(current_token().value)
     advance()
     if current_token().type != 'OF':
