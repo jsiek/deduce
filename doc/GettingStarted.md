@@ -26,11 +26,11 @@ python -m pip install lark
 ### Install and Configure a Text Editor
 You can write Deduce in any text editor you want, and run it through the terminal.
 
-For some common editors, there are extensions that improve the experience of writing Deduce code.
+For the following editors, we have developed extensions that improve
+the experience of writing Deduce code.
 
 * VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode))
 * Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
-* Vim (not now, not ever)
 
 
 ## Running Deduce Programs
