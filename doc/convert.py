@@ -244,12 +244,12 @@ prelude = lambda fname : f'''
     <meta property="og:url" content="https://jsiek.github.io/deduce/pages/{mdToHtmlName[fname]}.html" />
     <meta property="og:type" content="website"/>
     <meta property="og:title" content="Deduce | {mdToTitle[fname]}" />
-    <meta property="og:description" content="{mdtoDescription[fname]}" />
+    <meta property="og:description" content="{mdToDescription[fname]}" />
     <meta property="og:site_name" content="Deduce">
     <meta property="og:image" content="https://jsiek.github.io/deduce/images/logo.svg" />
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Deduce | {mdToTitle[fname]}">
-    <meta name="twitter:description" content="{mdtoDescription[fname]}">
+    <meta name="twitter:description" content="{mdToDescription[fname]}">
     <meta name="twitter:image" content="https://jsiek.github.io/deduce/images/logo.svg">
 
     <!-- Favicon -->
