@@ -124,7 +124,7 @@ def test_deduce_errors(deduce_call, path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     if not os.path.isfile(path + file + '.err'):
-                        print("Couldn't find an expected error for", path)
+                        print("Couldn't find an expected error for", path + file)
                         print("Did you mean to generate it? If so, use generate_deduce_errors")
                         exit(1)
                     

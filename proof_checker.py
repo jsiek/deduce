@@ -1958,6 +1958,9 @@ def type_synth_term(term, env, recfun, subterms):
       lhs = type_synth_term(args[0], env, recfun, subterms)
       rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
       ty = BoolType(loc)
+      if lhs.typeof != rhs.typeof:
+          error(loc, 'expected arguments of equality to have the same type, but\n' \
+                + '\t' + str(lhs.typeof) + ' ≠ ' + str(rhs.typeof))
       ret = Call(loc, ty, Var(loc2, ty2, name, rs), [lhs, rhs])
         
     case Call(loc, _, Var(loc2, ty2, name, rs), args) if name == recfun:
