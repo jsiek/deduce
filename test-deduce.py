@@ -124,7 +124,7 @@ def test_deduce_errors(deduce_call, path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     if not os.path.isfile(path + file + '.err'):
-                        print("Couldn't find an expected error for", path)
+                        print("Couldn't find an expected error for", path + file)
                         print("Did you mean to generate it? If so, use generate_deduce_errors")
                         exit(1)
                     
@@ -173,8 +173,6 @@ if __name__ == "__main__":
         elif argument == '--max-threads':
             max_threads = int(sys.argv[i + 1])
             already_processed_next = True
-        elif argument == '--destroy-my-cpu':
-            max_threads = 9999
         elif argument == '--lib':
             test_lib = True
         elif argument == '--passable':

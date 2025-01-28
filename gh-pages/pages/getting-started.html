@@ -4,8 +4,23 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="description" content="Getting started with deduce.">
+    <meta name="keywords" content="Deduce, Proof, Programming">
+    <meta name="author" content="Jeremy Siek">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deduce | Getting Started</title>
+
+    <!-- Social cards -->
+    <meta property="og:url" content="https://jsiek.github.io/deduce/pages/getting-started.html" />
+    <meta property="og:type" content="website"/>
+    <meta property="og:title" content="Deduce | Getting Started" />
+    <meta property="og:description" content="Getting started with deduce." />
+    <meta property="og:site_name" content="Deduce">
+    <meta property="og:image" content="https://jsiek.github.io/deduce/images/logo.svg" />
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Deduce | Getting Started">
+    <meta name="twitter:description" content="Getting started with deduce.">
+    <meta name="twitter:image" content="https://jsiek.github.io/deduce/images/logo.svg">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../images/logo.svg">
@@ -68,33 +83,42 @@
             </div>
         </nav>
 <h1 id="getting-started">Getting Started</h1>
+<ul>
+<li><a href="#installation" target="_self">Installing Deduce</a></li>
+<li><a href="#running-deduce-programs" target="_self">Running Programs</a></li>
+<li><a href="#deduce-introduction" target="_self">Learning Deduce</a></li>
+</ul>
 <h2 id="installation">Installation</h2>
+<p>To get started with Deduce, follow these steps:
+1. <a href="#install-deduce" target="_self">Install Deduce</a>
+2. <a href="#install-and-configure-a-text-editor" target="_self">Choose a Text Editor</a></p>
+<h3 id="install-deduce">Install Deduce</h3>
+<p>You can find the releases of Deduce on <a href="https://github.com/jsiek/deduce/releases#" target="_blank">github</a>.
+The most recent patches can be obtained by directly downloading the <a href="https://github.com/jsiek/deduce#" target="_blank">source code</a>.</p>
 <p>You will need <a href="https://www.python.org/#" target="_blank">Python</a> version 3.10 or later. Here are some <a href="https://wiki.python.org/moin/BeginnersGuide/Download#" target="_blank">instructions</a> and links to the download for various systems.</p>
 <p>You will also need to install the <a href="https://github.com/lark-parser/lark#" target="_blank">Lark</a> parsing library, which you can do by running the following command in the same directory as <code class="inline">deduce.py</code></p>
 <div class="code-wrapper non-deduce"><code>python&nbsp;-m&nbsp;pip&nbsp;install&nbsp;lark</code></div>
-<h2 id="source-code">Source Code</h2>
-<p>The source code for Deduce can be obtained from the following GitHub repository.</p>
-<p><a href="https://github.com/jsiek/deduce#" target="_blank">https://github.com/jsiek/deduce</a></p>
-<h2 id="deduce-introduction">Deduce Introduction</h2>
-<p>This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.</p>
+<h3 id="install-and-configure-a-text-editor">Install and Configure a Text Editor</h3>
+<p>You can write Deduce in any text editor you want, and run it through the terminal.</p>
+<p>For the following editors, we have developed extensions that improve
+the experience of writing Deduce code.</p>
 <ul>
-<li><a href="./deduce-programming.html#" target="_self">Programming in Deduce</a></li>
-<li><a href="./deduce-proofs.html#" target="_self">Writing Proofs in Deduce</a></li>
-</ul>
-<p>I recommend that you work through the examples in this introduction. Create a file named <code class="inline">examples.pf</code> in the top <code class="inline">deduce</code> directory and add the examples one at a time. To check the file, run the <code class="inline">deduce.py</code> script on the file from the <code class="inline">deduce</code> directory.</p>
-<p>You can also download one of these extensions for programming in Deduce in some common text editors.</p>
-<ul>
-<li>VSCode (<a href="https://github.com/HalflingHelper/deduce-mode#" target="_blank">deduce-mode</a>). You can also install it from the extensions tab in VSCode</li>
+<li>VSCode (<a href="https://github.com/HalflingHelper/deduce-mode#" target="_blank">deduce-mode</a>)</li>
 <li>Emacs (<a href="https://github.com/mateidragony/deduce-mode#" target="_blank">deduce-mode</a>)</li>
-<li>Vim (not now, not ever)</li>
 </ul>
-<p>The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.</p>
-<ul>
-<li><a href="./reference.html#" target="_self">Reference Manual</a></li>
-<li><a href="./cheat-sheet.html#" target="_self">Cheat Sheet</a></li>
-<li><a href="./syntax.html#" target="_self">Syntax Overview</a></li>
-</ul>
-<h2 id="command-line-arguments">Command Line Arguments</h2>
+<h2 id="running-deduce-programs">Running Deduce Programs</h2>
+<p>Deduce is run by providing the <code class="inline">deduce.py</code> script with a <code class="inline">*.pf</code> file.</p>
+<p>Suppose you have the following program. (defined in a file <code class="inline">hello.pf</code>)</p>
+<div class="code-wrapper"><code id="getting-started_hello_starting_example"><!-- Generated by codeUtils.js --></code></div>
+<p>This program defines a new union type called <code class="inline">Greeting</code>,
+defines a variable <code class="inline">world</code>, and prints it out.</p>
+<p>To run it, type the following command, or use the run functionality
+provided by your deduce editor.</p>
+<div class="code-wrapper non-deduce"><code>python&nbsp;deduce.py&nbsp;hello.pf</code></div>
+<p>You should see the output</p>
+<div class="code-wrapper non-deduce"><code>hello<br>
+hello.pf&nbsp;is&nbsp;valid</code></div>
+<h3 id="command-line-arguments">Command Line Arguments</h3>
 <p>The <code class="inline">deduce.py</code> script supports certain command line arguments which
 are documented below. If an argument is not preceded by one of the
 keywords listed below, then it is treated as the name of a file or
@@ -136,6 +160,19 @@ thousands of lines.</p>
 <p>Deduce will expect all files that it processes to contain an error. If
 there is a file that does not contain an error, Deduce will exit with
 a return code of 255.</p>
+<h2 id="deduce-introduction">Deduce Introduction</h2>
+<p>This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.</p>
+<ul>
+<li><a href="./deduce-programming.html#" target="_self">Programming in Deduce</a></li>
+<li><a href="./deduce-proofs.html#" target="_self">Writing Proofs in Deduce</a></li>
+</ul>
+<p>I recommend that you work through the examples in this introduction. Create a file named <code class="inline">examples.pf</code> in the top <code class="inline">deduce</code> directory and add the examples one at a time. To check the file, run the <code class="inline">deduce.py</code> script on the file from the <code class="inline">deduce</code> directory.</p>
+<p>The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.</p>
+<ul>
+<li><a href="./reference.html#" target="_self">Reference Manual</a></li>
+<li><a href="./cheat-sheet.html#" target="_self">Cheat Sheet</a></li>
+<li><a href="./syntax.html#" target="_self">Syntax Overview</a></li>
+</ul>
         <footer>
             <a class="nav-logo" href="../index.html">
                 <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">

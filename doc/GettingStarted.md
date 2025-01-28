@@ -1,6 +1,19 @@
 # Getting Started
 
+* [Installing Deduce](#installation)
+* [Running Programs](#running-deduce-programs)
+* [Learning Deduce](#deduce-introduction)
+
 ## Installation
+
+To get started with Deduce, follow these steps:
+1. [Install Deduce](#install-deduce)
+2. [Choose a Text Editor](#install-and-configure-a-text-editor)
+
+
+### Install Deduce
+You can find the releases of Deduce on [github](https://github.com/jsiek/deduce/releases).
+The most recent patches can be obtained by directly downloading the [source code](https://github.com/jsiek/deduce).
 
 You will need [Python](https://www.python.org/) version 3.10 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to the download for various systems.
 
@@ -10,34 +23,53 @@ You will also need to install the [Lark](https://github.com/lark-parser/lark) pa
 python -m pip install lark
 ```
 
-## Source Code
+### Install and Configure a Text Editor
+You can write Deduce in any text editor you want, and run it through the terminal.
 
-The source code for Deduce can be obtained from the following GitHub repository.
+For the following editors, we have developed extensions that improve
+the experience of writing Deduce code.
 
-[https://github.com/jsiek/deduce](https://github.com/jsiek/deduce)
-
-## Deduce Introduction
-
-This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.
-
-* [Programming in Deduce](./FunctionalProgramming.md)
-* [Writing Proofs in Deduce](./ProofIntro.md)
-
-I recommend that you work through the examples in this introduction. Create a file named `examples.pf` in the top `deduce` directory and add the examples one at a time. To check the file, run the `deduce.py` script on the file from the `deduce` directory.
-
-You can also download one of these extensions for programming in Deduce in some common text editors.
-
-* VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode)). You can also install it from the extensions tab in VSCode
+* VSCode ([deduce-mode](https://github.com/HalflingHelper/deduce-mode))
 * Emacs ([deduce-mode](https://github.com/mateidragony/deduce-mode))
-* Vim (not now, not ever)
 
-The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.
 
-* [Reference Manual](./Reference.md)
-* [Cheat Sheet](./CheatSheet.md)
-* [Syntax Overview](./SyntaxGrammar.md)
+## Running Deduce Programs
 
-## Command Line Arguments
+Deduce is run by providing the `deduce.py` script with a `*.pf` file.
+
+Suppose you have the following program. (defined in a file `hello.pf`)
+
+```{.deduce^#hello_starting_example}
+// hello.pf
+union Greeting {
+  hello
+}
+
+define world : Greeting = hello
+
+print world
+```
+
+This program defines a new union type called `Greeting`,
+defines a variable `world`, and prints it out.
+
+To run it, type the following command, or use the run functionality
+provided by your deduce editor.
+
+```
+python deduce.py hello.pf
+```
+
+You should see the output
+
+```
+hello
+hello.pf is valid
+```
+
+
+
+### Command Line Arguments
 
 The `deduce.py` script supports certain command line arguments which
 are documented below. If an argument is not preceded by one of the
@@ -98,3 +130,18 @@ thousands of lines.
 Deduce will expect all files that it processes to contain an error. If
 there is a file that does not contain an error, Deduce will exit with
 a return code of 255.
+
+## Deduce Introduction
+
+This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.
+
+* [Programming in Deduce](./FunctionalProgramming.md)
+* [Writing Proofs in Deduce](./ProofIntro.md)
+
+I recommend that you work through the examples in this introduction. Create a file named `examples.pf` in the top `deduce` directory and add the examples one at a time. To check the file, run the `deduce.py` script on the file from the `deduce` directory.
+
+The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.
+
+* [Reference Manual](./Reference.md)
+* [Cheat Sheet](./CheatSheet.md)
+* [Syntax Overview](./SyntaxGrammar.md)
