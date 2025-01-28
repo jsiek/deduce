@@ -117,6 +117,7 @@ const codeBlocks = [
 	"reference_print_example",
 	"programming_assert_if_true",
 	"proof_intro_less_irreflexive",
+	"getting-started_hello_starting_example",
 	"reference_arbitrary_example",
 	"programming_print7",
 	"programming_front",
