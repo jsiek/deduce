@@ -21,8 +21,20 @@ tests-lib:
 tests: tests-should-pass tests-should-error
 
 package:
-	zip "deduce-release" lib abstract_syntax.py alist.py Deduce.lark deduce.py \
-						edit_distance.py error.py parser.py proof_checker.py README.md rec_desc_parser.py 
+	mkdir deduce
+	cp -r lib deduce
+	cp abstract_syntax.py deduce
+	cp alist.py deduce
+	cp Deduce.lark deduce
+	cp deduce.py deduce
+	cp edit_distance.py deduce
+	cp error.py deduce
+	cp parser.py deduce
+	cp proof_checker.py deduce
+	cp README.md deduce
+	cp rec_desc_parser.py deduce
+	zip "deduce-release" -r deduce
+	rm -rf deduce
 
 clean:
 	rm -f ./lib/*.thm
