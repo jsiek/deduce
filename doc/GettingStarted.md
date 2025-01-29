@@ -107,9 +107,10 @@ authors of Deduce. Users of Deduce can ignore them.
 
 `--no-stdlib`
 
-Deduce, by default, will locate and link the standard library (in
-`/lib` of the Deduce repository). However if this argument is
-supplied, it will not do so.
+Deduce, by default, will include the directory of the standard library
+(in `/lib` of the Deduce repository) in the list of directories to
+search when importing a file. However if this argument is supplied, it
+will not do so.
 
 `--lalr`
 
