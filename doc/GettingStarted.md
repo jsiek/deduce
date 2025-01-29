@@ -108,6 +108,10 @@ be used.
 Instead of only processing files in the specified directories, Deduce
 will also descend into any subdirectories.
 
+`--suppress-theorems`
+
+When a file contains one or more proof declarations inside of it, Deduce will create a `.thm` file. However, this argument makes it such that Deduce never creates such files.
+
 `--traceback`
 
 Prints out the exception if processing a file triggers an error.
