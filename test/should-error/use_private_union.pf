@@ -1,0 +1,3 @@
+import ImportTests
+
+assert High = High
