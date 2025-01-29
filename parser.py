@@ -613,7 +613,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'union':
         return Union(e.meta, str(e.children[0].value),
                      parse_tree_to_list(e.children[1], e),
-                     parse_tree_to_list(e.children[2], e))
+                     parse_tree_to_list(e.children[2], e), False)
     
     # theorem definitions
     elif e.data == 'theorem':
@@ -659,17 +659,17 @@ def parse_tree_to_ast(e, parent):
                       parse_tree_to_list(e.children[1], e),
                       parse_tree_to_list(e.children[2], e),
                       parse_tree_to_ast(e.children[3], e),
-                      parse_tree_to_list(e.children[4], e))
+                      parse_tree_to_list(e.children[4], e), False)
 
     # term definition
     elif e.data == 'define':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       None,
-                      parse_tree_to_ast(e.children[1], e))
+                      parse_tree_to_ast(e.children[1], e), False)
     elif e.data == 'define_annot':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e))
+                      parse_tree_to_ast(e.children[2], e), False)
 
     # import module/file
     elif e.data == 'import':

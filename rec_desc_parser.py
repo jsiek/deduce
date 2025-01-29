@@ -1330,7 +1330,7 @@ def parse_union():
       constr_list.append(constr)
     meta = meta_from_tokens(start_token, current_token())
     advance()
-    return Union(meta, name, type_params, constr_list)
+    return Union(meta, name, type_params, constr_list, False)
   except Exception as e:
     raise extend_error(e, start_token, while_parsing)
 
@@ -1372,7 +1372,7 @@ def parse_function():
       cases.append(fun_case)
     advance()
     return RecFun(meta_from_tokens(start_token, previous_token()), name,
-                  type_params, param_types, return_type, cases)
+                  type_params, param_types, return_type, cases, False)
   except Exception as e:
     raise extend_error(e, start_token, while_parsing)
     
@@ -1396,9 +1396,32 @@ def parse_define():
     advance()
     body = parse_term()
     return Define(meta_from_tokens(start_token, previous_token()),
-                   name, typ, body)
+                   name, typ, body, False)
   except Exception as e:
     raise extend_error(e, start_token, while_parsing)
+  
+def parse_private():
+  while_parsing = 'while parsing\n' \
+    + '\nstatement ::= "private" statement'
+  try: 
+    my_token = current_token() 
+    advance()
+    statement = parse_statement()
+    match statement:
+      case RecFun(meta, name, type_params, param_types, return_type, cases, isPrivate):
+        statement.isPrivate = True
+        return statement
+      case Define(meta, name, typ, body, isPrivate):
+        statement.isPrivate = True
+        return statement
+      case Union(meta, name, type_params, constr_list, isPrivate):
+        statement.isPrivate = True
+        return statement
+      case _:
+        error(meta_from_tokens(my_token, my_token), 'expected either function, define, or union after private')
+
+  except Exception as e:
+    raise extend_error(e, my_token, while_parsing)
 
 
 statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
@@ -1451,6 +1474,9 @@ def parse_statement():
 
   elif token.type == 'UNION':
     return parse_union()
+  
+  elif token.type == 'PRIVATE':
+    return parse_private()
 
   else:
     for kw in statement_keywords:
