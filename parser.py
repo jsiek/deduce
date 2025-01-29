@@ -683,6 +683,11 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'print':
         return Print(e.meta, parse_tree_to_ast(e.children[0], e))
 
+    elif e.data == 'private':
+        statement = parse_tree_to_ast(e.children[0], e)
+        statement.isPrivate = True
+        return statement
+
     # whole program
     elif e.data == 'program':
         return parse_tree_to_list(e.children[0], None)
