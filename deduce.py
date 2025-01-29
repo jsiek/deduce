@@ -82,8 +82,8 @@ def deduce_directory(directory, recursive_directories):
             deduce_directory(directory + file, recursive_directories)
 
 if __name__ == "__main__":
-    # Check command line arguments
     signal(SIGINT, handle_sigint)
+    # Check command line arguments
 
     if (sys.argv[0] == 'deduce.py'):
         sys.argv[0] = os.path.join(os.getcwd(), sys.argv[0])
@@ -96,13 +96,14 @@ if __name__ == "__main__":
     already_processed_next = False
     init_import_directories()
 
+    # TODO: Cleanup 
+    # Adding parameters is easy and all but this looks REALLY ugly
     for i in range(1, len(sys.argv)):
         if already_processed_next:
             already_processed_next = False
             continue
     
         argument = sys.argv[i]
-
         if argument == '--error':
             error_expected = True
         elif argument == '--unique-names':
@@ -128,6 +129,9 @@ if __name__ == "__main__":
             recursive_directories = True
         elif argument == '--no-stdlib':
             add_stdlib = False
+        elif argument == '--version' or argument == '-v':
+            print("Deduce: version 1.0.0")
+            exit(0)
         else:
             deducables.append(argument)
     

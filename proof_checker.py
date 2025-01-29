@@ -248,7 +248,7 @@ def rewrite_aux(loc, formula, equation):
                     [rewrite_aux(loc, c, equation) for c in cases])
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation))
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
       return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation),
@@ -848,7 +848,7 @@ def proof_advice(formula, env):
           pass
 
         match ty:
-          case Union(loc2, name, typarams, alts):
+          case Union(loc2, name, typarams, alts, isPrivate):
             if len(alts) < 2:
               return arb_advice # Can't do induction if there's only one case
                 
@@ -1251,7 +1251,7 @@ def check_proof_of(proof, formula, env):
         case _:
           error(loc, 'induction expected an all-formula, not ' + str(formula))
       match env.get_def_of_type_var(get_type_name(typ)):
-        case Union(loc2, name, typarams, alts):
+        case Union(loc2, name, typarams, alts, isPrivate):
           if len(cases) != len(alts):
             error(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
                   + ', but only have ' + str(len(cases)))
@@ -1357,7 +1357,7 @@ def check_proof_of(proof, formula, env):
         case _:
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
-            case Union(loc2, name, typarams, alts):
+            case Union(loc2, name, typarams, alts, isPrivate):
               if len(cases) != len(alts):
                 error(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases)))
               cases_present = {}
@@ -1599,7 +1599,8 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     for (param_type, arg) in zip(param_types, args):
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
     if ret_ty != None and ret_ty != return_type:
-      error(loc, 'expected ' + str(ret_ty) + ' but the call returns ' + str(return_type))
+      error(loc, 'expected ' + str(ret_ty) \
+            + ' but the call returns ' + str(return_type))
     return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
@@ -1706,11 +1707,15 @@ def type_check_rec_call(loc, tvar, args, env, recfun, subterms, ret_ty, call):
       print('tc_rec_call(' + str(call) + ')')
   match args[0]:
     case Var(loc3, tyof, arg_name, rs):
-        if not (arg_name in subterms):
+        if len(rs) > 0:
+            name = rs[0]
+        else:
+            name = arg_name
+        if not (name in subterms):
           error(loc, "ill-formed recursive call\n" \
                 + "expected first argument to be " \
                 + " or ".join([base_name(x) for x in subterms]) \
-                + ", not " + base_name(arg_name))
+                + ", not " + base_name(name))
     case _:
       error(loc, "ill-formed recursive call\n" \
             + "expected first argument to be " \
@@ -1815,6 +1820,20 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
     case _:
       error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
+def is_call_to(trm, recfun):
+    match trm:
+      case Var(loc2, ty2, name, rs):
+        if len(rs) > 0:
+            return rs[0] == recfun
+        else:
+            return name == recfun
+      case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
+        return name == recfun
+      case TermInst(loc, _, subject, tyargs, inferred):
+        return is_call_to(subject, recfun)
+      case _:
+        return False
+      
 def type_synth_term(term, env, recfun, subterms):
   if get_verbose():
     print('type_synth_term: ' + str(term))
@@ -1958,11 +1977,14 @@ def type_synth_term(term, env, recfun, subterms):
       lhs = type_synth_term(args[0], env, recfun, subterms)
       rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
       ty = BoolType(loc)
+      if lhs.typeof != rhs.typeof:
+          error(loc, 'expected arguments of equality to have the same type, but\n' \
+                + '\t' + str(lhs.typeof) + ' ≠ ' + str(rhs.typeof))
       ret = Call(loc, ty, Var(loc2, ty2, name, rs), [lhs, rhs])
         
-    case Call(loc, _, Var(loc2, ty2, name, rs), args) if name == recfun:
+    case Call(loc, _, rator, args) if is_call_to(rator, recfun):
       # recursive call
-      ret = type_check_rec_call(loc, Var(loc2, ty2, name, rs), args, env,
+      ret = type_check_rec_call(loc, rator, args, env,
                                 recfun, subterms, None, term)
       
     case Call(loc, _, rator, args):
@@ -2012,7 +2034,7 @@ def type_synth_term(term, env, recfun, subterms):
         case _:
           dfn = lookup_union(loc, ty, env)
           match dfn:
-            case Union(loc2, name, typarams, alts):
+            case Union(loc2, name, typarams, alts, isPrivate):
               for alt in alts:
                   if alt.name not in cases_present.keys():
                       error(loc, 'this switch is missing a case for: ' \
@@ -2031,7 +2053,7 @@ def type_synth_term(term, env, recfun, subterms):
       check_type(typ, env)
       ret = type_check_term(subject, typ, env, recfun, subterms)
 
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       fun_type = FunctionType(loc, typarams, params, returns)
       ret = term
       term.typeof = fun_type
@@ -2151,9 +2173,9 @@ def type_check_term(term, typ, env, recfun, subterms):
               + ' but got ' + str(ty))
       return new_term
       
-    case Call(loc, _, Var(loc2, vty, name, rs), args) if name == recfun:
+    case Call(loc, _, rator, args) if is_call_to(rator, recfun):
       # recursive call
-      return type_check_rec_call(loc, Var(loc2, vty, name, rs), args, env,
+      return type_check_rec_call(loc, rator, args, env,
                                  recfun, subterms, typ, term)
   
     case Call(loc, _, rator, args):
@@ -2189,7 +2211,7 @@ def type_check_term(term, typ, env, recfun, subterms):
         case _:
           dfn = lookup_union(loc, ty, env)
           match dfn:
-            case Union(loc2, name, typarams, alts):
+            case Union(loc2, name, typarams, alts, isPrivate):
               for alt in alts:
                   if alt.name not in cases_present.keys():
                       error(loc, 'missing a case for:\n\t' \
@@ -2240,7 +2262,7 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
   if get_verbose():
     print('for union: ' + str(defn))
   match defn:
-    case Union(loc2, name, typarams, alts):
+    case Union(loc2, name, typarams, alts, isPrivate):
       # example:
       # typ is List<E>
       # union List<T> { empty; node(T, List<T>); }
@@ -2296,7 +2318,7 @@ def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
   match stmt:
-    case Define(loc, name, ty, body):
+    case Define(loc, name, ty, body, isPrivate):
       if ty == None:
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
@@ -2319,13 +2341,13 @@ def process_declaration(stmt, env):
                     + ' ' + orig_name + ' : ' + str(binding) + '\n' \
                     + 'Only functions may have multiple definitions with the same name.')
         
-      return Define(loc, name, new_ty, new_body), \
+      return Define(loc, name, new_ty, new_body, isPrivate), \
               env.declare_term_var(loc, name, new_ty)
           
     case Theorem(loc, name, frm, pf, isLemma):
       return stmt, env
   
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       body_env = env.declare_type_vars(loc, typarams)
       check_type(returns, body_env)
       for t in params:
@@ -2333,7 +2355,7 @@ def process_declaration(stmt, env):
       fun_type = FunctionType(loc, typarams, params, returns)
       return stmt, env.declare_term_var(loc, name, fun_type)
       
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, alts, isPrivate):
       env = env.define_type(loc, name, stmt)
       union_type = Var(loc, None, name, [name])
       body_env = env.declare_type_vars(loc, typarams)
@@ -2359,7 +2381,7 @@ def process_declaration(stmt, env):
         env = env.declare_term_var(loc, constr.name, constr_type)
         new_alts.append(new_constr)
         
-      return Union(loc, name, typarams, new_alts), env
+      return Union(loc, name, typarams, new_alts, isPrivate), env
   
     case Import(loc, name, ast):
       old_verbose = get_verbose()
@@ -2421,20 +2443,20 @@ def type_check_stmt(stmt, env):
     print('type_check_stmt(' + str(stmt) + ')')
     #print('env: ' + str(env))
   match stmt:
-    case Define(loc, name, ty, body):
+    case Define(loc, name, ty, body, isPrivate):
       if ty == None:
         new_body = body # already type checked in process_declaration
         new_ty = body.typeof
       else:
         new_body = type_check_term(body, ty, env, None, [])
         new_ty = ty
-      return Define(loc, name, new_ty, new_body)
+      return Define(loc, name, new_ty, new_body, isPrivate)
         
     case Theorem(loc, name, frm, pf, isLemma):
       new_frm = check_formula(frm, env)
       return Theorem(loc, name, new_frm, pf, isLemma)
   
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       # alpha rename the type parameters in the function's type
       new_typarams = [generate_name(t) for t in typarams]
       sub = {x: Var(loc, None, y, [y]) for (x,y) in zip(typarams, new_typarams)}
@@ -2455,10 +2477,10 @@ def type_check_stmt(stmt, env):
         if not c.name in cases_present.keys():
           error(loc, 'missing function case for ' + base_name(c.name))
 
-      new_recfun = RecFun(loc, name, typarams, params, returns, new_cases)
+      new_recfun = RecFun(loc, name, typarams, params, returns, new_cases, isPrivate)
       return new_recfun
           
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, alts, isPrivate):
       return stmt
   
     case Import(loc, name, ast):
@@ -2477,17 +2499,17 @@ def type_check_stmt(stmt, env):
 
 def collect_env(stmt, env):
   match stmt:
-    case Define(loc, name, ty, body):
+    case Define(loc, name, ty, body, isPrivate):
       return env.define_term_var(loc, name, ty, body)
         
     case Theorem(loc, name, frm, pf, isLemma):
       return env.declare_proof_var(loc, name, frm)
   
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       fun_type = FunctionType(loc, typarams, params, returns)
       return env.define_term_var(loc, name, fun_type, stmt)
           
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, alts, isPrivate):
       return env
   
     case Import(loc, name, ast):
@@ -2507,17 +2529,17 @@ def check_proofs(stmt, env):
     print('check_proofs(' + str(stmt) + ')')
     #print('env: ' + str(env))
   match stmt:
-    case Define(loc, name, ty, body):
+    case Define(loc, name, ty, body, isPrivate):
       pass
     case Theorem(loc, name, frm, pf, isLemma):
       if get_verbose():
         print('checking proof of theorem ' + base_name(name))
       check_proof_of(pf, frm, env)
       
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       pass
   
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, alts, isPrivate):
       pass
   
     case Import(loc, name, ast):

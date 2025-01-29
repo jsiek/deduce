@@ -104,7 +104,7 @@ def parse_tree_to_case_list(e):
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
     
-infix_ops = {'add', 'sub', 'mul', 'div', 'mod', 'circ',
+infix_ops = {'add', 'sub', 'nat_sub', 'mul', 'div', 'mod', 'circ',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
              'subset_equal', 'union_op', 'intersect', 'membership',
@@ -113,7 +113,7 @@ infix_ops = {'add', 'sub', 'mul', 'div', 'mod', 'circ',
 
 prefix_ops = {'neg', 'not'}
 
-operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘',
+operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘', 'nat_sub': '⊝',
                    'mod': '%', 'neg':'-', 
                    'and': 'and', 'or':'or', 'not': 'not',
                    'equal': '=', 'not_equal': '≠',
@@ -613,7 +613,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'union':
         return Union(e.meta, str(e.children[0].value),
                      parse_tree_to_list(e.children[1], e),
-                     parse_tree_to_list(e.children[2], e))
+                     parse_tree_to_list(e.children[2], e), False)
     
     # theorem definitions
     elif e.data == 'theorem':
@@ -659,17 +659,17 @@ def parse_tree_to_ast(e, parent):
                       parse_tree_to_list(e.children[1], e),
                       parse_tree_to_list(e.children[2], e),
                       parse_tree_to_ast(e.children[3], e),
-                      parse_tree_to_list(e.children[4], e))
+                      parse_tree_to_list(e.children[4], e), False)
 
     # term definition
     elif e.data == 'define':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       None,
-                      parse_tree_to_ast(e.children[1], e))
+                      parse_tree_to_ast(e.children[1], e), False)
     elif e.data == 'define_annot':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e))
+                      parse_tree_to_ast(e.children[2], e), False)
 
     # import module/file
     elif e.data == 'import':
@@ -682,6 +682,11 @@ def parse_tree_to_ast(e, parent):
     # print term
     elif e.data == 'print':
         return Print(e.meta, parse_tree_to_ast(e.children[0], e))
+
+    elif e.data == 'private':
+        statement = parse_tree_to_ast(e.children[0], e)
+        statement.isPrivate = True
+        return statement
 
     # whole program
     elif e.data == 'program':

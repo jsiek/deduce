@@ -30,6 +30,15 @@ mdToTitle = {
     'GettingStarted' : 'Getting Started',
 }
 
+mdToDescription = {
+    'CheatSheet' : 'Cheat sheet for advice on deduce proofs.',
+    'FunctionalProgramming' : 'A guide on deduce programming with exercises.',
+    'ProofIntro' : 'A guide on writing proofs in deduce with exercises.',
+    'Reference' : 'Full reference manual for the deduce language.',
+    'SyntaxGrammar' : 'Syntax and grammar overview for the deduce language.',
+    'GettingStarted' : 'Getting started with deduce.',
+}
+
 mdToDeduceCode = {
     'CheatSheet' : 'cheat-sheet',
     'FunctionalProgramming' : 'programming',
@@ -126,7 +135,9 @@ class BetterAnchorPostprocessor(Postprocessor):
         if is_local_md and len(file) > 0:
             file = file[2:-3]
             link = './' + mdToHtmlName[file] + '.html'
-        return f'<a href="{link}#{'' if m.group(3) is None else m.group(3)}" target="{'_self' if is_local_md else '_blank'}">'
+        link_id = '' if m.group(3) is None else m.group(3)
+        link_target = '_self' if is_local_md else '_blank'
+        return f'<a href="{link}#{link_id}" target="{link_target}">'
 
     def run(self, text):
         PATTERN = r'<a +href="([^"#]*)(#([^"]*))?">'
@@ -223,8 +234,23 @@ prelude = lambda fname : f'''
 
 <head>
     <meta charset="UTF-8">
+    <meta name="description" content="{mdToDescription[fname]}">
+    <meta name="keywords" content="Deduce, Proof, Programming">
+    <meta name="author" content="Jeremy Siek">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deduce | {mdToTitle[fname]}</title>
+
+    <!-- Social cards -->
+    <meta property="og:url" content="https://jsiek.github.io/deduce/pages/{mdToHtmlName[fname]}.html" />
+    <meta property="og:type" content="website"/>
+    <meta property="og:title" content="Deduce | {mdToTitle[fname]}" />
+    <meta property="og:description" content="{mdToDescription[fname]}" />
+    <meta property="og:site_name" content="Deduce">
+    <meta property="og:image" content="https://jsiek.github.io/deduce/images/logo.svg" />
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Deduce | {mdToTitle[fname]}">
+    <meta name="twitter:description" content="{mdToDescription[fname]}">
+    <meta name="twitter:image" content="https://jsiek.github.io/deduce/images/logo.svg">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../images/logo.svg">
@@ -374,13 +400,18 @@ def convert_file(fname, generate_html):
 
 def convert_dir(dir, generate_html=True):
     for f in [f for f in listdir(dir) if isfile(join(dir, f))]:
-        m = re.search(r'(.*).md', f)
-        if m: 
-            print(f'Converting {m.group(1)}.md')
-            convert_file(m.group(1), generate_html)
+        if f.endswith('.md'): 
+            print(f'Converting {f}')
+            convert_file(f[:-3], generate_html)
 
 
 
 if __name__ == "__main__":
     # convert all md files in the doc directory
     convert_dir("./doc/")
+    # update code.js to reflect any new/removed code blocks
+    with open ('./gh-pages/js/code.js', 'w') as f:
+        f.write('const codeBlocks = [\n')
+        for c in listdir('./gh-pages/deduce-code/'):
+            f.write(f'\t"{c[:-3]}",\n') # remove ".pf"
+        f.write(']')

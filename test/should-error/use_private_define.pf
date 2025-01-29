@@ -1,0 +1,3 @@
+import ListTests
+
+assert L1 = L1

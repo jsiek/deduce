@@ -58,21 +58,18 @@ function down_from(Nat) -> List<Nat> {
 
 define up_to : fn Nat -> List<Nat> = λ n { reverse(down_from(n)) }
 
-function range_aux(Nat, Nat, Nat) -> List<Nat> {
-  range_aux(0, nd, k) = map(up_to(nd), (λ x { x + k }) : fn Nat->Nat)
-  range_aux(suc(begin'), nd, k) =
-    switch nd {
-      case zero { empty } /* shouldn't happen */
-      case suc(end') { range_aux(begin', end', suc(k)) }
-    }
-}
-
-define range : fn Nat,Nat -> List<Nat> = λ b, e { range_aux(b, e, 0) }
-
+/* interval(num, begin) returns the list of numbers in the half-open
+   interval: [begin, begin+num).
+*/
 function interval(Nat, Nat) -> List<Nat> {
-  interval(zero, n) = empty
-  interval(suc(k), n) = node(n, interval(k, suc(n)))
+  interval(zero, begin) = empty
+  interval(suc(num), begin) = node(begin, interval(num, suc(begin)))
 }
+
+/* range(begin, end) returns the list of numbers in the half-open
+   interval: [begin, end).
+*/
+define range : fn Nat,Nat -> List<Nat> = λ b, e { interval(e - b, b) }
 
 function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = empty

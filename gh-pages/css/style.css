@@ -332,6 +332,10 @@ header {
     img {
         width: 430px;
     }
+
+    img.upside-down {
+        rotate: 180deg;
+    }
 }
 
 

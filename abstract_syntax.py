@@ -3,9 +3,10 @@ from lark.tree import Meta
 from typing import Any, Tuple, List
 from error import error, set_verbose, get_verbose, get_unique_names, VerboseLevel
 from pathlib import Path
+from edit_distance import edit_distance
 import os
 
-infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
+infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1}
 prefix_precedence = {'-': 5, 'not': 4}
@@ -593,7 +594,16 @@ class Var(Term):
       elif self.name == "empty" or self.name == "node":
         import_advice = "\n\tAdd `import List` to supply a definition."
 
-      error(self.location, 'undefined variable: ' + self.name + import_advice + '' + env_str)
+      close_matches = []
+      for var in env.keys():
+        if edit_distance(self.name, var) <= 2:
+          close_matches.append(var)
+      if len(close_matches) > 0:
+        mispell_advice = '\n\tdid you intend: ' + ', '.join(close_matches) + '\n'
+      else:
+        mispell_advice = ''
+      error(self.location, 'undefined variable: ' + self.name \
+            + mispell_advice + import_advice + '' + env_str)
     self.resolved_names = env[self.name]
     
 @dataclass
@@ -2343,6 +2353,7 @@ class Union(Statement):
   name: str
   type_params: List[str]
   alternatives: List[Constructor]
+  isPrivate: bool
 
   def reduce(self, env):
     return self
@@ -2367,6 +2378,8 @@ class Union(Statement):
     pass
   
   def collect_exports(self, export_env):
+    if self.isPrivate:
+      return
     export_env[base_name(self.name)] = [self.name]
     for con in self.alternatives:
       extend(export_env, base_name(con.name), con.name)
@@ -2418,6 +2431,7 @@ class RecFun(Statement):
   params: List[Type]
   returns: Type
   cases: List[FunCase]
+  isPrivate: bool
 
   def uniquify(self, env):
     new_name = generate_name(self.name)
@@ -2444,6 +2458,8 @@ class RecFun(Statement):
       c.uniquify(body_env)
 
   def collect_exports(self, export_env):
+    if self.isPrivate:
+      return
     extend(export_env, base_name(self.name), self.name)
     
   def __str__(self):
@@ -2477,6 +2493,7 @@ class Define(Statement):
   name: str
   typ: Type
   body: Term
+  isPrivate: bool
 
   def __str__(self):
     return 'define ' + self.name \
@@ -2496,6 +2513,8 @@ class Define(Statement):
     pass
 
   def collect_exports(self, export_env):
+    if self.isPrivate:
+      return
     extend(export_env, base_name(self.name), self.name)
     
 uniquified_modules = {}
@@ -2692,7 +2711,7 @@ def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):
       match binding.defn:
-        case Union(loc2, name, typarams, alts):
+        case Union(loc2, name, typarams, alts, isPrivate):
           for constr in alts:
             if constr.name == constr_name:
               return True
@@ -2793,7 +2812,7 @@ def isEmptySet(t):
       return True
     case _:
       return False
-    
+
 @dataclass
 class Binding(AST):
   pass

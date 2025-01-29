@@ -1,4 +1,5 @@
 import Nat
+import Base
 
 union Int{
     pos(Nat)    // +10 = pos(10)
@@ -19,23 +20,23 @@ function operator-(Int) -> Int{
 
 define operator - = λ n:Nat { - pos(n) }
 
-function natSub(Nat,Nat) -> Int {
-    natSub(zero, m) = -m
-    natSub(suc(n), m) = if suc(n) < m
-                        then -(m - suc(n))
-                        else pos(suc(n) - m)
-}
+define operator ⊝ = λ x:Nat, y:Nat {
+    if x < y then
+      -(y - x)
+    else
+      pos(x - y)
+  }
 
 // Addition
 function intAdd(Int,Int) -> Int {
     intAdd(pos(n), m) =
         switch m {
             case pos(n') { pos(n + n') }
-            case negsuc(n') { natSub(n, suc(n')) } 
+            case negsuc(n') { n ⊝ suc(n') } 
         }
     intAdd(negsuc(n), m) = 
         switch m {
-            case pos(n') { natSub(n', suc(n)) }
+            case pos(n') { n' ⊝ suc(n) }
             case negsuc(n') { negsuc(suc(n + n')) }
         }
 }
@@ -69,3 +70,148 @@ function intMult(Int,Int) -> Int {
 define operator * = λ n:Int,m:Int { intMult(n, m) }
 define operator * = λ n:Nat,m:Int { intMult(pos(n), m) }
 define operator * = λ n:Int,m:Nat { intMult(n, pos(m)) }
+
+/*
+  Properties of Subtraction (fn Nat,Nat -> Int )
+*/
+
+theorem suc_nat_sub: all x:Nat, y:Nat. suc(x) ⊝ suc(y) = x ⊝ y
+proof
+  arbitrary x:Nat, y:Nat
+  switch x < y for operator ⊝{
+    case true assume xy_true {
+      have: x < y by rewrite xy_true
+      have: suc(x) < suc(y) by apply less_suc_iff_suc_less to recall (x < y)
+      definition {operator-} and rewrite apply eq_true to recall suc(x) < suc(y)
+    }
+    case false assume xy_false {
+      have: not (suc(x) < suc(y)) by {
+        assume: suc(x) < suc(y)
+        have: x < y by apply less_suc_iff_suc_less to recall suc(x) < suc(y)
+        rewrite xy_false in recall x < y
+      }
+      definition operator - and rewrite apply eq_false to recall (not (suc(x) < suc(y)))
+    }
+  }
+end
+
+/*
+ Properties of Addition
+*/
+
+theorem int_zero_add: all n:Int.
+  0 + n = n
+proof
+  arbitrary n:Int
+  switch n {
+     case pos(n') {
+       evaluate
+     }
+     case negsuc(n') {
+       evaluate
+     }
+  }
+end
+
+theorem neg_suc: all n:Nat.
+	- suc(n) = negsuc(n)
+proof
+  arbitrary n : Nat
+  switch n {
+    case 0 {
+      definition {operator-, operator-}
+    }
+    case suc(n') {
+      definition {operator-, operator-}
+    }
+  }
+end
+
+theorem int_add_zero: all n:Int.
+  n + 0 = n
+proof
+  arbitrary n:Int
+  switch n {
+     case pos(n') {
+       suffices pos(n' + 0) = pos(n') by definition {operator+, intAdd}
+       rewrite add_zero
+     }
+     case negsuc(n') {
+       suffices - suc(n') = negsuc(n')  
+           by evaluate
+       neg_suc
+     }
+  }
+end
+
+theorem int_add_commute: all x:Int, y:Int. x + y = y + x
+proof
+  arbitrary x:Int, y:Int
+  suffices intAdd(x, y) = intAdd(y, x) by definition {operator+, intAdd}
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          suffices pos(x' + y') = pos(y' + x') by definition {intAdd}
+          rewrite add_commute[x',y']
+        }
+        case negsuc(y') {
+          definition intAdd
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          definition intAdd
+        }
+        case negsuc(y') {
+          suffices negsuc(suc(x' + y')) = negsuc(suc(y' + x'))
+              by definition intAdd
+          rewrite add_commute[x', y']
+        }
+      }
+    }
+  }
+end
+
+/*
+UNDER CONSTRUCTION -Jeremy
+
+theorem int_add_assoc: all x:Int, y:Int, z:Int. (x + y) + z = x + (y + z)
+proof
+  arbitrary x:Int, y:Int, z:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          switch z {
+            case pos(z') {
+              suffices pos((x' + y') + z') = pos(x' + (y' + z'))
+                  by definition {operator+, intAdd}
+              rewrite add_assoc
+            }
+            case negsuc(z') {
+              ?
+            }
+          }
+        }
+        case negsuc(y') {
+          ?
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          ?
+        }
+        case negsuc(y') {
+          ?
+        }
+      }
+    }
+  }
+end
+
+*/

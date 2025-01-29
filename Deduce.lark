@@ -2,7 +2,7 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -47,6 +47,7 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_med ".+." term_add                      -> multiset_sum
     | term_med "++" term_add                       -> append
     | term_add "-" term_med                        -> sub
+    | term_add "⊝" term_med                        -> nat_sub
     | term_med
 
 ?term_med: term_med "/" term_hi                    -> div
@@ -268,7 +269,9 @@ ident: IDENT              -> ident
 
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
-    
+
+?private: "private" statement -> private
+
 ?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
 ?definition: "define" ident "=" term      -> define
@@ -287,6 +290,7 @@ ident: IDENT              -> ident
  | import
  | assert
  | print
+ | private
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

@@ -1,0 +1,14 @@
+union Nat {
+  zero
+  suc(Nat)
+}
+
+define num = 0
+
+theorem blah: all a : bool, b : bool.
+  if a and b then a
+proof
+  arbitrary a : bool, b : bool
+  suppose prem
+  conjunct num of prem
+end
