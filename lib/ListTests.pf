@@ -27,7 +27,7 @@ assert up_to(2) = node(0, node(1, empty))
 assert up_to(3) = node(0, node(1, node(2, empty)))
 
 assert range(0, 0) = empty
-assert range(0, 1) = node(0, empty)
+assert range(0, 1) = [0]
 assert range(0, 2) = node(0, node(1, empty))
 assert range(1, 3) = node(1, node(2, empty))
 assert range(2, 5) = node(2, node(3, node(4, empty)))
