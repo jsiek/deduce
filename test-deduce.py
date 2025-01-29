@@ -17,8 +17,11 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
-    deduce_call += ' ' + path
+def test_deduce(parsers, deduce_call, paths, expected_return = 0, extra_arguments=""):
+    if isinstance(paths, list):
+        deduce_call += ' ' + ' '.join(paths)
+    else:
+        deduce_call += paths
     for parser in parsers:
         call = deduce_call + ' ' + parser + ' ' + extra_arguments #+ ' --traceback'
         print('Testing:', call)
@@ -225,17 +228,11 @@ if __name__ == "__main__":
     if test_errors:
         test_deduce_errors(deduce_call, error_dir)
 
-    if len(sys.argv) == 1: # run everything
-        # test the home examples
-        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
-        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
-        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
-        # generate test files for doc code without generating html
-        # convert_dir("./doc/", False) # Requires markdown to be installed
-        
+    if not (test_lib or test_passable or test_errors or test_site) == 1: # run everything
         # test
-        test_deduce(parsers, deduce_call, lib_dir)
-        test_deduce(parsers, deduce_call, pass_dir)
+        test_deduce(parsers, deduce_call, [lib_dir, pass_dir, site_dir + '/home_example1.pf',
+                                                              site_dir + '/home_example2.pf',
+                                                              site_dir + '/home_example3.pf'])
         test_deduce_errors(deduce_call, error_dir)
     
     os.system("rm -f ./lib/*.thm")
