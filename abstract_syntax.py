@@ -6,7 +6,7 @@ from pathlib import Path
 from edit_distance import edit_distance
 import os
 
-infix_precedence = {'+': 6, '-': 6, '*': 7, '/': 7, '%': 7,
+infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1}
 prefix_precedence = {'-': 5, 'not': 4}
