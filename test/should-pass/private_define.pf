@@ -1,0 +1,5 @@
+import Nat
+
+private define f : fn Nat -> Nat = fun x{ x + x }
+
+assert f(1) = 2

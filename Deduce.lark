@@ -268,7 +268,9 @@ ident: IDENT              -> ident
 
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
-    
+
+?private: "private" statement -> private
+
 ?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
 ?definition: "define" ident "=" term      -> define
@@ -287,6 +289,7 @@ ident: IDENT              -> ident
  | import
  | assert
  | print
+ | private
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
