@@ -1,6 +1,13 @@
 import Nat
 import Base
 
+/*
+
+ This mechanization of integer arithmetic is adapted from the Integer
+ module in the Agda standard library.
+
+*/
+
 union Int{
     pos(Nat)    // +10 = pos(10)
     negsuc(Nat) // -10 = negsuc(9)
@@ -28,21 +35,20 @@ define operator ⊝ = λ x:Nat, y:Nat {
   }
 
 // Addition
-function intAdd(Int,Int) -> Int {
-    intAdd(pos(n), m) =
+function operator +(Int,Int) -> Int {
+    operator +(pos(n), m) =
         switch m {
             case pos(n') { pos(n + n') }
             case negsuc(n') { n ⊝ suc(n') } 
         }
-    intAdd(negsuc(n), m) = 
+    operator +(negsuc(n), m) = 
         switch m {
             case pos(n') { n' ⊝ suc(n) }
             case negsuc(n') { negsuc(suc(n + n')) }
         }
 }
-define operator + = λ n:Int,m:Int { intAdd(n, m) }
-define operator + = λ n:Nat,m:Int { intAdd(pos(n), m) }
-define operator + = λ n:Int,m:Nat { intAdd(n, pos(m)) }
+define operator + = λ n:Nat,m:Int { pos(n) + m }
+define operator + = λ n:Int,m:Nat { n + pos(m) }
 
 // Subtraction
 function intSub(Int,Int) -> Int{
@@ -72,31 +78,7 @@ define operator * = λ n:Nat,m:Int { intMult(pos(n), m) }
 define operator * = λ n:Int,m:Nat { intMult(n, pos(m)) }
 
 /*
-  Properties of Subtraction (fn Nat,Nat -> Int )
-*/
-
-theorem suc_nat_sub: all x:Nat, y:Nat. suc(x) ⊝ suc(y) = x ⊝ y
-proof
-  arbitrary x:Nat, y:Nat
-  switch x < y for operator ⊝{
-    case true assume xy_true {
-      have: x < y by rewrite xy_true
-      have: suc(x) < suc(y) by apply less_suc_iff_suc_less to recall (x < y)
-      definition {operator-} and rewrite apply eq_true to recall suc(x) < suc(y)
-    }
-    case false assume xy_false {
-      have: not (suc(x) < suc(y)) by {
-        assume: suc(x) < suc(y)
-        have: x < y by apply less_suc_iff_suc_less to recall suc(x) < suc(y)
-        rewrite xy_false in recall x < y
-      }
-      definition operator - and rewrite apply eq_false to recall (not (suc(x) < suc(y)))
-    }
-  }
-end
-
-/*
- Properties of Addition
+  Theorems about integer arithmetic
 */
 
 theorem int_zero_add: all n:Int.
@@ -133,7 +115,7 @@ proof
   arbitrary n:Int
   switch n {
      case pos(n') {
-       suffices pos(n' + 0) = pos(n') by definition {operator+, intAdd}
+       suffices pos(n' + 0) = pos(n') by definition {operator+, operator+}
        rewrite add_zero
      }
      case negsuc(n') {
@@ -147,32 +129,190 @@ end
 theorem int_add_commute: all x:Int, y:Int. x + y = y + x
 proof
   arbitrary x:Int, y:Int
-  suffices intAdd(x, y) = intAdd(y, x) by definition {operator+, intAdd}
+  suffices x + y = y + x by definition {operator+}
   switch x {
     case pos(x') {
       switch y {
         case pos(y') {
-          suffices pos(x' + y') = pos(y' + x') by definition {intAdd}
+          suffices pos(x' + y') = pos(y' + x') by definition {operator+}
           rewrite add_commute[x',y']
         }
         case negsuc(y') {
-          definition intAdd
+          definition operator+
         }
       }
     }
     case negsuc(x') {
       switch y {
         case pos(y') {
-          definition intAdd
+          definition operator+
         }
         case negsuc(y') {
           suffices negsuc(suc(x' + y')) = negsuc(suc(y' + x'))
-              by definition intAdd
+              by definition operator+
           rewrite add_commute[x', y']
         }
       }
     }
   }
+end
+
+theorem zero_sub_neg: all n:Nat. 0 ⊝ suc(n) = negsuc(n)
+proof
+  arbitrary n:Nat
+  definition {operator⊝, operator<, operator≤, operator≤, operator-, operator-}
+end
+
+theorem int_sub_zero: all n:Nat. n ⊝ 0 = pos(n)
+proof
+  arbitrary n:Nat
+  switch n < 0 for operator⊝ {
+    case true assume n_neg {
+      conclude false by definition {operator<, operator≤} in n_neg
+    }
+    case false assume n_pos {
+      rewrite sub_zero
+    }
+  }
+end
+
+
+theorem int_sub_cancel: all n:Nat. n ⊝ n = +0
+proof
+  arbitrary n:Nat
+  switch n < n {
+    case true assume nn_true {
+      conclude false by apply less_irreflexive[n] to rewrite nn_true
+    }
+    case false assume nn_false {
+      suffices pos(n - n) = +0   by definition {operator ⊝} and rewrite nn_false
+      rewrite sub_cancel
+    }
+  }
+end
+
+theorem suc_nat_sub: all x:Nat, y:Nat. suc(x) ⊝ suc(y) = x ⊝ y
+proof
+  arbitrary x:Nat, y:Nat
+  switch x < y for operator ⊝{
+    case true assume xy_true {
+      have: x < y by rewrite xy_true
+      have: suc(x) < suc(y) by apply less_suc_iff_suc_less to recall (x < y)
+      definition {operator-} and rewrite apply eq_true to recall suc(x) < suc(y)
+    }
+    case false assume xy_false {
+      have: not (suc(x) < suc(y)) by {
+        assume: suc(x) < suc(y)
+        have: x < y by apply less_suc_iff_suc_less to recall suc(x) < suc(y)
+        rewrite xy_false in recall x < y
+      }
+      definition operator - and rewrite apply eq_false to recall (not (suc(x) < suc(y)))
+    }
+  }
+end
+
+theorem distrib_left_sub_add: all m:Nat, n:Nat, o:Nat.
+  (n ⊝ o) + pos(m) = (n + m) ⊝ o
+proof
+  arbitrary m:Nat
+  induction Nat
+  case 0 {
+    arbitrary o:Nat
+    switch o {
+      case 0 {       // n = 0, o = 0
+        suffices pos(m) = pos(m - 0) by evaluate
+        rewrite sub_zero
+      }
+      case suc(o') { // n = 0, o = suc(o')
+        suffices negsuc(o') + pos(m) = m ⊝ suc(o')  by rewrite zero_sub_neg | zero_add
+        definition {operator+}
+      }
+    }
+  }
+  case suc(n') assume IH {
+    arbitrary o:Nat
+    switch o {
+      case 0 {       // n = suc(n'), o = 0
+        suffices pos(suc(n') + m) = pos(suc(n' + m))
+            by definition {operator+} and rewrite int_sub_zero
+        definition operator+ 
+      }
+      case suc(o') { // n = suc(n'), o = suc(o')
+        suffices (n' ⊝ o') + pos(m) = (n' + m) ⊝ o'
+           by rewrite suc_add | suc_nat_sub 
+        IH
+      }
+    }
+  }
+end
+
+theorem distrib_left_sub_add_neg: all m:Nat, n:Nat, o:Nat.
+  (n ⊝ o) + negsuc(m) = n ⊝ (suc(o) + m)
+proof
+  arbitrary m:Nat
+  induction Nat
+  case 0 {
+    arbitrary o:Nat
+    switch o {
+      case 0 {       // n = 0, o = 0
+        evaluate
+      }
+      case suc(o') { // n = 0, o = suc(o')
+        suffices negsuc(o') + negsuc(m) = negsuc(suc(o' + m))
+            by rewrite suc_add | zero_sub_neg | suc_add
+        definition {operator+}
+      }
+    }
+  }
+  case suc(n') assume IH {
+    arbitrary o:Nat
+    switch o {
+      case 0 {       // n = suc(n'), o = 0
+        definition {operator+} and rewrite int_sub_zero | zero_add
+      }
+      case suc(o') { // n = suc(n'), o = suc(o')
+        suffices (n' ⊝ o') + negsuc(m) = n' ⊝ (suc(o') + m)
+             by rewrite suc_nat_sub | suc_add | suc_nat_sub
+        IH
+      }
+    }
+  }
+end
+
+theorem add_commute_nat_int: all x:Nat, y:Int.
+  x + y = y + x
+proof
+  arbitrary x:Nat, y:Int
+  switch y {
+    case pos(y') {
+      definition {operator+, operator+} and rewrite add_commute[x,y']
+    }
+    case negsuc(y') {
+      definition {operator+, operator+}
+    }
+  }
+end
+
+theorem distrib_right_sub_add: all m:Nat, n:Nat, o:Nat.
+  pos(m) + (n ⊝ o) = (m + n) ⊝ o
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  equations
+        pos(m) + (n ⊝ o) 
+      = (n ⊝ o) + pos(m)   by int_add_commute
+  ... = (n + m) ⊝ o        by distrib_left_sub_add
+  ... = (m + n) ⊝ o        by rewrite add_commute
+end
+
+theorem distrib_right_sub_add_neg: all m:Nat, n:Nat, o:Nat.
+  negsuc(m) + (n ⊝ o) = n ⊝ suc(m + o)
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  equations
+        negsuc(m) + (n ⊝ o) 
+      = (n ⊝ o) + negsuc(m)         by int_add_commute
+  ... = n ⊝ (suc(o) + m)            by distrib_left_sub_add_neg[m,n,o]
+  ... = n ⊝ suc(m + o)              by rewrite suc_add | add_commute[o,m]
 end
 
 /*

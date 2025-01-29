@@ -171,7 +171,7 @@ proof
   }
 end
 
-lemma suc_add: all m:Nat, n:Nat.
+theorem suc_add: all m:Nat, n:Nat.
   suc(m) + n = suc(m + n)
 proof
   arbitrary m:Nat, n:Nat
