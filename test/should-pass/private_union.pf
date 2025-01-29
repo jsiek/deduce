@@ -1,0 +1,9 @@
+private union Bit {
+    High
+    Low
+}
+
+assert High = High 
+assert Low = Low 
+assert Low /= High 
+assert High /= Low 
