@@ -1,5 +1,7 @@
 # Getting Started
 
+Here are some resources to help you get started with Deduce.
+
 * [Installing Deduce](#installation)
 * [Running Programs](#running-deduce-programs)
 * [Learning Deduce](#deduce-introduction)
@@ -7,6 +9,7 @@
 ## Installation
 
 To get started with Deduce, follow these steps:
+
 1. [Install Deduce](#install-deduce)
 2. [Choose a Text Editor](#install-and-configure-a-text-editor)
 
