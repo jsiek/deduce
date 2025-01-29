@@ -148,9 +148,10 @@ then <code class="inline">--dir howard</code> will allow <code class="inline">te
 <p>The rest of the command line arguments are useful primarily for the
 authors of Deduce. Users of Deduce can ignore them.</p>
 <p><code class="inline">--no-stdlib</code></p>
-<p>Deduce, by default, will locate and link the standard library (in
-<code class="inline">/lib</code> of the Deduce repository). However if this argument is
-supplied, it will not do so.</p>
+<p>Deduce, by default, will include the directory of the standard library
+(in <code class="inline">/lib</code> of the Deduce repository) in the list of directories to
+search when importing a file. However if this argument is supplied, it
+will not do so.</p>
 <p><code class="inline">--lalr</code></p>
 <p>Deduce normally uses a custom recursive descent parser to parse any
 input files, however this argument will make Deduce instead use lark's
