@@ -72,10 +72,25 @@ hello.pf is valid
 
 
 
+## Deduce Introduction
+
+This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.
+
+* [Programming in Deduce](./FunctionalProgramming.md)
+* [Writing Proofs in Deduce](./ProofIntro.md)
+
+I recommend that you work through the examples in this introduction. Create a file named `examples.pf` in the top `deduce` directory and add the examples one at a time. To check the file, run the `deduce.py` script on the file from the `deduce` directory.
+
+The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.
+
+* [Reference Manual](./Reference.md)
+* [Cheat Sheet](./CheatSheet.md)
+* [Syntax Overview](./SyntaxGrammar.md)
+
 ### Command Line Arguments
 
-The `deduce.py` script supports certain command line arguments which
-are documented below. If an argument is not preceded by one of the
+The `deduce.py` script supports command line arguments which are
+documented below. If an argument is not preceded by one of the
 keywords listed below, then it is treated as the name of a file or
 directory and will be processed by Deduce.
 
@@ -86,6 +101,9 @@ directories to search when importing a file. For example, if `test.pf`
 imports `Curry`, and `Curry.pf` resides in a folder named `howard`,
 then `--dir howard` will allow `test.pf` to import `Church`. Note that
 `--dir` expects a directory name, not an individual file.
+
+The rest of the command line arguments are useful primarily for the
+authors of Deduce and users of Deduce can ignore them.
 
 `--no-stdlib`
 
@@ -134,17 +152,3 @@ Deduce will expect all files that it processes to contain an error. If
 there is a file that does not contain an error, Deduce will exit with
 a return code of 255.
 
-## Deduce Introduction
-
-This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.
-
-* [Programming in Deduce](./FunctionalProgramming.md)
-* [Writing Proofs in Deduce](./ProofIntro.md)
-
-I recommend that you work through the examples in this introduction. Create a file named `examples.pf` in the top `deduce` directory and add the examples one at a time. To check the file, run the `deduce.py` script on the file from the `deduce` directory.
-
-The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.
-
-* [Reference Manual](./Reference.md)
-* [Cheat Sheet](./CheatSheet.md)
-* [Syntax Overview](./SyntaxGrammar.md)
