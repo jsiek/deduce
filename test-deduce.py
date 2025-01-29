@@ -225,7 +225,7 @@ if __name__ == "__main__":
     if test_errors:
         test_deduce_errors(deduce_call, error_dir)
 
-    if len(sys.argv) == 1: # run everything
+    if not (test_lib or test_passable or test_errors or test_site) == 1: # run everything
         # test the home examples
         test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
