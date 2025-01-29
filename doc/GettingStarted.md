@@ -103,7 +103,7 @@ then `--dir howard` will allow `test.pf` to import `Church`. Note that
 `--dir` expects a directory name, not an individual file.
 
 The rest of the command line arguments are useful primarily for the
-authors of Deduce and users of Deduce can ignore them.
+authors of Deduce. Users of Deduce can ignore them.
 
 `--no-stdlib`
 
