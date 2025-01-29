@@ -227,9 +227,9 @@ if __name__ == "__main__":
 
     if not (test_lib or test_passable or test_errors or test_site) == 1: # run everything
         # test the home examples
-        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
-        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
-        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
+        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf',
+                                                   + site_dir + '/home_example2.pf', \
+                                                   + site_dir + '/home_example3.pf')
         # generate test files for doc code without generating html
         # convert_dir("./doc/", False) # Requires markdown to be installed
         
