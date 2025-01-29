@@ -18,7 +18,10 @@ def handle_sigint(signal, stack_frame):
     exit(137)
 
 def test_deduce(parsers, deduce_call, paths, expected_return = 0, extra_arguments=""):
-    deduce_call += ' ' + ' '.join(paths)
+    if isinstance(paths, list):
+        deduce_call += ' ' + ' '.join(paths)
+    else:
+        deduce_call += paths
     for parser in parsers:
         call = deduce_call + ' ' + parser + ' ' + extra_arguments #+ ' --traceback'
         print('Testing:', call)
