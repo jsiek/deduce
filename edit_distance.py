@@ -1,3 +1,5 @@
+from math import ceil
+
 space_penalty = 1
 space_char = '_'
 
@@ -31,7 +33,7 @@ def closest_keyword(word, keywords):
     best_yet = None
     for kw in keywords:
         d = edit_distance(word, kw)
-        if d <= 2:
+        if d <= ceil(len(word) / 5):
             if best_yet == None or d < best_yet[1]:
                 best_yet = (kw, d)
     if best_yet:

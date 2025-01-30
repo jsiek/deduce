@@ -4,6 +4,7 @@ from typing import Any, Tuple, List
 from error import error, set_verbose, get_verbose, get_unique_names, VerboseLevel
 from pathlib import Path
 from edit_distance import edit_distance
+from math import ceil
 import os
 
 infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
@@ -596,7 +597,7 @@ class Var(Term):
 
       close_matches = []
       for var in env.keys():
-        if edit_distance(self.name, var) <= 2:
+        if edit_distance(self.name, var) <= ceil(len(self.name) / 5):
           close_matches.append(var)
       if len(close_matches) > 0:
         mispell_advice = '\n\tdid you intend: ' + ', '.join(close_matches) + '\n'
