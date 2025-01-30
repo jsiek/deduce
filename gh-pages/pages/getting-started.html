@@ -121,9 +121,22 @@ provided by your deduce editor.</p>
 <p>You should see the output</p>
 <div class="code-wrapper non-deduce"><code>hello<br>
 hello.pf&nbsp;is&nbsp;valid</code></div>
+<h2 id="deduce-introduction">Deduce Introduction</h2>
+<p>This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.</p>
+<ul>
+<li><a href="./deduce-programming.html#" target="_self">Programming in Deduce</a></li>
+<li><a href="./deduce-proofs.html#" target="_self">Writing Proofs in Deduce</a></li>
+</ul>
+<p>I recommend that you work through the examples in this introduction. Create a file named <code class="inline">examples.pf</code> in the top <code class="inline">deduce</code> directory and add the examples one at a time. To check the file, run the <code class="inline">deduce.py</code> script on the file from the <code class="inline">deduce</code> directory.</p>
+<p>The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.</p>
+<ul>
+<li><a href="./reference.html#" target="_self">Reference Manual</a></li>
+<li><a href="./cheat-sheet.html#" target="_self">Cheat Sheet</a></li>
+<li><a href="./syntax.html#" target="_self">Syntax Overview</a></li>
+</ul>
 <h3 id="command-line-arguments">Command Line Arguments</h3>
-<p>The <code class="inline">deduce.py</code> script supports certain command line arguments which
-are documented below. If an argument is not preceded by one of the
+<p>The <code class="inline">deduce.py</code> script supports command line arguments which are
+documented below. If an argument is not preceded by one of the
 keywords listed below, then it is treated as the name of a file or
 directory and will be processed by Deduce.</p>
 <p><code class="inline">--dir directory-name</code></p>
@@ -132,10 +145,13 @@ directories to search when importing a file. For example, if <code class="inline
 imports <code class="inline">Curry</code>, and <code class="inline">Curry.pf</code> resides in a folder named <code class="inline">howard</code>,
 then <code class="inline">--dir howard</code> will allow <code class="inline">test.pf</code> to import <code class="inline">Church</code>. Note that
 <code class="inline">--dir</code> expects a directory name, not an individual file.</p>
+<p>The rest of the command line arguments are useful primarily for the
+authors of Deduce. Users of Deduce can ignore them.</p>
 <p><code class="inline">--no-stdlib</code></p>
-<p>Deduce, by default, will locate and link the standard library (in
-<code class="inline">/lib</code> of the Deduce repository). However if this argument is
-supplied, it will not do so.</p>
+<p>Deduce, by default, will include the directory of the standard library
+(in <code class="inline">/lib</code> of the Deduce repository) in the list of directories to
+search when importing a file. However if this argument is supplied, it
+will not do so.</p>
 <p><code class="inline">--lalr</code></p>
 <p>Deduce normally uses a custom recursive descent parser to parse any
 input files, however this argument will make Deduce instead use lark's
@@ -163,19 +179,6 @@ thousands of lines.</p>
 <p>Deduce will expect all files that it processes to contain an error. If
 there is a file that does not contain an error, Deduce will exit with
 a return code of 255.</p>
-<h2 id="deduce-introduction">Deduce Introduction</h2>
-<p>This introduction to Deduce has two parts. The first part gives a tutorial on how to write programs in Deduce. The second part shows how to write proofs in Deduce.</p>
-<ul>
-<li><a href="./deduce-programming.html#" target="_self">Programming in Deduce</a></li>
-<li><a href="./deduce-proofs.html#" target="_self">Writing Proofs in Deduce</a></li>
-</ul>
-<p>I recommend that you work through the examples in this introduction. Create a file named <code class="inline">examples.pf</code> in the top <code class="inline">deduce</code> directory and add the examples one at a time. To check the file, run the <code class="inline">deduce.py</code> script on the file from the <code class="inline">deduce</code> directory.</p>
-<p>The Deduce Reference manual is linked below. It provides an alphabetical list of all the features in Deduce. The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof. The Syntax Overview page provides a brief overview of the syntax structure of deduce.</p>
-<ul>
-<li><a href="./reference.html#" target="_self">Reference Manual</a></li>
-<li><a href="./cheat-sheet.html#" target="_self">Cheat Sheet</a></li>
-<li><a href="./syntax.html#" target="_self">Syntax Overview</a></li>
-</ul>
         <footer>
             <a class="nav-logo" href="../index.html">
                 <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">

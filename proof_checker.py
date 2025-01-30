@@ -132,7 +132,7 @@ def check_implies(loc, frm1, frm2):
        except Exception as e:
          error(loc, '\nCould not prove that\n\t' + str(frm1) \
                   + '\ninstantiates to\n\t' + str(frm2) \
-               + '\nbecause ' + str(e))
+               + '\nbecause\n' + str(e))
        
     case _:
       if frm1 != frm2:
