@@ -20,7 +20,7 @@ def handle_sigint(signal, stack_frame):
 def test_deduce(parsers, deduce_call, path, expected_return = 0, extra_arguments=""):
     deduce_call += ' ' + path
     for parser in parsers:
-        call = deduce_call + ' ' + parser + ' ' + extra_arguments #+ ' --traceback'
+        call = deduce_call + ' ' + parser + ' ' + extra_arguments + ' --suppress-theorems' #+ ' --traceback'
         print('Testing:', call)
         return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
         if return_code != expected_return:
@@ -238,6 +238,3 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, pass_dir)
         test_deduce_errors(deduce_call, error_dir)
     
-    os.system("rm -f ./lib/*.thm")
-    os.system("rm -f ./test/should-pass/*.thm")
-    os.system("rm -f ./gh-pages/deduce-code/*.thm")

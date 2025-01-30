@@ -12,6 +12,7 @@ import traceback
 from pathlib import Path
 
 traceback_flag = False
+suppress_theorems = False
 
 def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
@@ -54,7 +55,8 @@ def deduce_file(filename, error_expected):
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
         else:
-            print_theorems(filename, ast)
+            if not suppress_theorems:
+                print_theorems(filename, ast)
             print(filename + ' is valid')
 
     except Exception as e:
@@ -129,6 +131,8 @@ if __name__ == "__main__":
             recursive_directories = True
         elif argument == '--no-stdlib':
             add_stdlib = False
+        elif argument == '--suppress-theorems':
+            suppress_theorems = True
         elif argument == '--version' or argument == '-v':
             print("Deduce: version 1.0.0")
             exit(0)
