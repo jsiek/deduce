@@ -316,7 +316,7 @@ proof
 end
 
 /*
-UNDER CONSTRUCTION -Jeremy
+  ALMOST DONE!
 
 theorem int_add_assoc: all x:Int, y:Int, z:Int. (x + y) + z = x + (y + z)
 proof
@@ -326,28 +326,84 @@ proof
       switch y {
         case pos(y') {
           switch z {
-            case pos(z') {
+            case pos(z') {     // x=pos(x'), y=pos(y'), z=pos(z')
               suffices pos((x' + y') + z') = pos(x' + (y' + z'))
-                  by definition {operator+, intAdd}
+                  by definition {operator+}
               rewrite add_assoc
             }
-            case negsuc(z') {
-              ?
+            case negsuc(z') { // x=pos(x'), y=pos(y'), z=negsuc(z')
+              equations
+                    (pos(x') + pos(y')) + negsuc(z') 
+                  = (x' + y') ⊝ suc(z')                   by definition operator+
+              ... = pos(x') + (y' ⊝ suc(z'))              by symmetric distrib_right_sub_add
+              ... = pos(x') + #pos(y') + negsuc(z')#      by definition operator+
             }
           }
         }
         case negsuc(y') {
-          ?
+          switch z {
+            case pos(z') {     // x=pos(x'), y=negsuc(y'), z=pos(z')
+              equations
+                    (pos(x') + negsuc(y')) + pos(z') 
+                  = (x' ⊝ suc(y')) + pos(z')            by definition operator+
+              ... = (x' + z') ⊝ suc(y')                 by distrib_left_sub_add 
+              ... = pos(x') + (z' ⊝ suc(y'))            by symmetric distrib_right_sub_add
+              ... = pos(x') + #(negsuc(y') + pos(z'))#  by definition operator+
+            }
+            case negsuc(z') { // x=pos(x'), y=negsuc(y'), z=negsuc(z')
+              equations
+                    (pos(x') + negsuc(y')) + negsuc(z') 
+                  = (x' ⊝ suc(y')) + negsuc(z')           by definition operator+
+              ... = negsuc(z') + (x' ⊝ suc(y'))           by int_add_commute
+              ... = x' ⊝ suc(z' + suc(y'))                by distrib_right_sub_add_neg
+              ... = x' ⊝ suc(suc(y' + z'))                by rewrite add_suc | add_commute[z',y']
+              ... = #pos(x') + (negsuc(y') + negsuc(z'))# by definition operator+
+            }
+          }
         }
       }
     }
     case negsuc(x') {
       switch y {
         case pos(y') {
-          ?
+          switch z {
+            case pos(z') {     // x=negsuc(x'), y=pos(y'), z=pos(z')
+              equations
+                    (negsuc(x') + pos(y')) + pos(z') 
+                  = (y' ⊝ suc(x')) + pos(z')              by definition operator+
+              ... = (y' + z') ⊝ suc(x')                   by distrib_left_sub_add
+              ... = #negsuc(x') + (pos(y') + pos(z'))#    by definition operator+
+            }
+            case negsuc(z') { // x=negsuc(x'), y=pos(y'), z=negsuc(z')
+              equations
+                    (negsuc(x') + pos(y')) + negsuc(z') 
+                  = (y' ⊝ suc(x')) + negsuc(z')           by definition operator+
+              ... = y' ⊝ (suc(suc(x')) + z')              by distrib_left_sub_add_neg
+              ... = y' ⊝ suc(suc(x' + z'))                by definition {operator+, operator+}
+              ... = y' ⊝ suc(suc(z' + x'))                by rewrite add_commute
+              ... = y' ⊝ #suc(suc(z')) + x'#              by definition {operator+, operator+}
+              ... = (y' ⊝ suc(z')) + negsuc(x')           by symmetric distrib_left_sub_add_neg
+              ... = negsuc(x') + (y' ⊝ suc(z'))           by int_add_commute
+              ... = negsuc(x') + #pos(y') + negsuc(z')#   by definition operator+
+            }
+          }
         }
         case negsuc(y') {
-          ?
+          switch z {
+            case pos(z') {     // x=negsuc(x'), y=negsuc(y'), z=pos(z')
+              equations
+                    (negsuc(x') + negsuc(y')) + pos(z') 
+                  = z' ⊝ suc(suc(x' + y'))                 by definition operator+
+              ... = z' ⊝ suc(suc(y' + x'))                 by rewrite add_commute
+              ... = z' ⊝ #suc(suc(y')) + x'#               by definition {operator+, operator+}
+              ... = (z' ⊝ suc(y')) + negsuc(x')            by symmetric distrib_left_sub_add_neg
+              ... = negsuc(x') + (z' ⊝ suc(y'))            by int_add_commute
+              ... = negsuc(x') + #negsuc(y') + pos(z')#    by definition operator+
+            }
+            case negsuc(z') { // x=negsuc(x'), y=negsuc(y'), z=negsuc(z')
+              ?
+            }
+          }
         }
       }
     }
