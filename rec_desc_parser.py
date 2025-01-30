@@ -119,20 +119,6 @@ def meta_from_tokens(start_token, end_token):
     meta.end_column = end_token.end_column
     meta.end_pos = end_token.end_pos
     return meta
-
-def extend_error(exc, start_token, while_parsing):
-  if hasattr(exc, 'depth') and exc.depth < 2:
-    meta = meta_from_tokens(start_token, previous_token())
-    new_exc = Exception(str(exc) + '\n' + error_header(meta) + while_parsing)
-    new_exc.depth = exc.depth + 1
-    return new_exc
-  elif not hasattr(exc, 'depth'):
-    meta = meta_from_tokens(start_token, previous_token())
-    new_exc = Exception(str(exc) + '\n' + error_header(meta) + while_parsing)
-    new_exc.depth = 1
-    return new_exc
-  else:
-    return exc
       
 def parse_term_hi():
   token = current_token()

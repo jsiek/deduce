@@ -83,6 +83,7 @@ class StaticError(Exception):
 def static_error(location, msg):
   raise StaticError(error_header(location) + msg)
 
+MAX_ERR_DEPTH = 2
 
 # Parse Errors need to carry around some extra data
 class ParseError(Exception):
@@ -103,4 +104,4 @@ class ParseError(Exception):
     if self.trace:
       base += "\n"
     
-    return  base+"\n".join([str(x) for x in self.trace[:2]])
+    return  base+"\n".join([str(x) for x in self.trace[:MAX_ERR_DEPTH]])
