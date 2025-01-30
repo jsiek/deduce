@@ -1,0 +1,8 @@
+./test/parse/definition.pf:6.26-6.34: expected closing "}", not
+	const_t1
+Perhaps you forgot a comma?
+./test/parse/definition.pf:6.3-6.24: while parsing definition:
+	conclusion ::= "definition" identifier
+
+./test/parse/definition.pf:4.1-6.24: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

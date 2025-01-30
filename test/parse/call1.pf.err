@@ -1,0 +1,9 @@
+./test/parse/call1.pf:4.7-4.13: expected closing parenthesis ")", not
+	print
+Perhaps you forgot a comma?
+./test/parse/call1.pf:4.7-4.13: while parsing function call
+	term ::= term "(" term_list ")"
+
+./test/parse/call1.pf:4.1-4.13: while parsing
+	statement ::= "print" term
+

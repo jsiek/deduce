@@ -1,0 +1,4 @@
+./test/parse/define_1.pf:1.10-1.11: expected "=" after name in "define"
+./test/parse/define_1.pf:1.1-1.9: while parsing
+	proof_stmt ::= "define" identifier "=" term
+

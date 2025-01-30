@@ -1,0 +1,5 @@
+./test/parse/generic_2.pf:2.5-4.6: expected "}" after body of "generic", not
+	print
+./test/parse/generic_2.pf:1.1-2.51: while parsing
+	proof_stmt ::= "define" identifier ":" type "=" term
+

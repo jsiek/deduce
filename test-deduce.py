@@ -11,6 +11,7 @@ lib_dir = './lib'
 pass_dir = './test/should-pass'
 error_dir = './test/should-error'
 site_dir = './gh-pages/deduce-code'
+parse_dir = './test/parse'
 max_threads = 10
 
 def handle_sigint(signal, stack_frame):
@@ -157,6 +158,8 @@ if __name__ == "__main__":
     test_passable = False
     test_errors = False
     test_site = False
+    test_parse = False
+    gen_parse = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -179,6 +182,10 @@ if __name__ == "__main__":
             test_passable = True
         elif argument == '--errors':
             test_errors = True
+        elif argument == '--parser':
+            test_parse = True
+        elif argument == '--gen-parse':
+            gen_parse = True
         elif argument == '--site':
             test_site = True
         else:
@@ -205,6 +212,10 @@ if __name__ == "__main__":
             generate_deduce_errors(deduce_call, generable)
             generate_errors = True # So we don't run ALL tests
 
+    if gen_parse:
+        print('Regenerating ALL parser errors')
+        generate_deduce_errors(deduce_call, parse_dir)
+
     if test_site:
         # test the home examples
         test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
@@ -224,8 +235,10 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, pass_dir)
     if test_errors:
         test_deduce_errors(deduce_call, error_dir)
+    if test_parse:
+        test_deduce_errors(deduce_call, parse_dir)
 
-    if len(sys.argv) == 1: # run everything
+    if len(sys.argv) == 1: # run everything (except the parse errors?)
         # test the home examples
         test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')

@@ -1,0 +1,7 @@
+./test/parse/instant1.pf:9.21-9.22: expected "<" after subject of instantiation ("@"), not
+	)
+while parsing
+	term ::= "@" term "<" type_list ">"
+./test/parse/instant1.pf:9.1-9.21: while parsing assert
+	statement ::= "assert" formula
+

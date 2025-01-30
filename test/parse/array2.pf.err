@@ -1,0 +1,8 @@
+./test/parse/array2.pf:12.12-12.19: expected open parenthesis "(", not
+	L
+./test/parse/array2.pf:12.12-12.17: while parsing array creation
+	term ::= "array" "(" term ")"
+
+./test/parse/array2.pf:12.1-12.17: while parsing
+	proof_stmt ::= "define" identifier "=" term
+

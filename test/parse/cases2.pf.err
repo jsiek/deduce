@@ -1,0 +1,8 @@
+./test/parse/cases2.pf:6.3-7.7: expected a "}" after body of "case", not
+	case
+./test/parse/cases2.pf:5.3-6.16: while parsing cases (use a logical or)
+	conclusion ::= "cases" proof case_clause*
+	case_clause ::= "case" identifier ":" term "{" proof "}"
+
+./test/parse/cases2.pf:1.1-6.16: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

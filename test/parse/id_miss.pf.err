@@ -1,0 +1,4 @@
+./test/parse/id_miss.pf:1.9-1.11: expected name of theorem, not:
+	42
+./test/parse/id_miss.pf:1.1-1.8: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

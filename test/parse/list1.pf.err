@@ -1,0 +1,5 @@
+./test/parse/list1.pf:8.1-8.6: expected closing bracket "]" at end of list literal, not
+	print
+./test/parse/list1.pf:6.1-6.19: while parsing
+	statement ::= "print" term
+

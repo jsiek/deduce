@@ -1,0 +1,4 @@
+./test/parse/eof_def.pf:1.1-1.7: expected an identifier, not end of file
+./test/parse/eof_def.pf:1.1-1.7: while parsing
+	proof_stmt ::= "define" identifier "=" term
+

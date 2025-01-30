@@ -1,0 +1,7 @@
+./test/parse/no_term.pf:6.3-6.4: expected a term, not
+	"."
+./test/parse/no_term.pf:5.3-5.13: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+./test/parse/no_term.pf:3.1-5.13: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

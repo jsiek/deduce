@@ -1,0 +1,7 @@
+./test/parse/def_n_rewrite.pf:15.8-15.12: expected "rewrite" after "and" and "definition", not
+	blah
+./test/parse/def_n_rewrite.pf:14.3-15.6: while parsing definition:
+	conclusion ::= "definition" identifier "and" "rewrite" proof_list
+
+./test/parse/def_n_rewrite.pf:12.1-15.6: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

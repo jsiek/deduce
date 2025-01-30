@@ -1,0 +1,5 @@
+./test/parse/switch2.pf:10.5-14.6: expected "}" after last case of "switch", not
+	]
+./test/parse/switch2.pf:8.1-13.23: while parsing
+	proof_stmt ::= "define" identifier ":" type "=" term
+
