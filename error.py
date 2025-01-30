@@ -61,14 +61,6 @@ def error_header(location):
                 line1=location.line, column1=location.column,
                 line2=location.end_line, column2=location.end_column)
             
-def warning(location, msg):
-  if not expect_fail():
-    header = '{file}:{line1}.{column1}-{line2}.{column2}: ' \
-        .format(file=location.filename,
-                line1=location.line, column1=location.column,
-                line2=location.end_line, column2=location.end_column)
-    print(header + 'warning: ' + msg)
-
 def error(location, msg):
   exc = Exception(error_header(location) + msg)
   exc.depth = 0
@@ -82,17 +74,6 @@ def incomplete_error(location, msg):
   exc.depth = 0
   raise exc
 
-def last_error(location, msg):
-  e = Exception(error_header(location) + msg)
-  e.last = True
-  raise e
-
-def missing_error(location, msg):
-  e = Exception(error_header(location) + msg)
-  e.missing = True
-  e.depth = 0
-  raise e
-
 def warning(location, msg):
   print(error_header(location) + msg)
 
@@ -102,3 +83,24 @@ class StaticError(Exception):
 def static_error(location, msg):
   raise StaticError(error_header(location) + msg)
 
+
+# Parse Errors need to carry around some extra data
+class ParseError(Exception):
+  def __init__(self, loc, msg, depth=0, missing=False, last=False):
+    super().__init__(msg)
+    self.loc = loc
+    self.depth = depth
+    self.missing = missing
+    self.last = last
+    self.trace = []
+
+  def extend(self, loc, msg):
+    self.trace += [ParseError(loc, msg)]
+    return self
+
+  def __str__(self):
+    base = error_header(self.loc) + super().__str__()
+    if self.trace:
+      base += "\n"
+    
+    return  base+"\n".join([str(x) for x in self.trace[:2]])

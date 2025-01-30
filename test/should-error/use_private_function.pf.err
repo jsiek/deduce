@@ -1,1 +1,1 @@
-./test/should-error/use_private_function.pf:1.1-1.7: did you mean "import" instead of "Import"?
+./test/should-error/use_private_function.pf:3.8-3.19: undefined variable: add_one_all
