@@ -21,7 +21,7 @@ function abs(Int) -> Nat {
 // -------------------------------
 //  Arithmetic
 // -------------------------------
-function operator-(Int) -> Int{
+function operator -(Int) -> Int{
     operator -(pos(n)) = 
         switch n {
             case zero { pos(zero) }
@@ -90,9 +90,7 @@ function operator ≤(Int, Int) -> bool {
 }
 
 
-/************************************
-  Theorems about integer arithmetic
-*************************************/
+// Properties of absolute value and subtraction
 
 theorem abs_neg: all n:Int. abs(- n) = abs(n)
 proof
@@ -123,19 +121,7 @@ proof
   }
 end
 
-theorem int_zero_add: all n:Int.
-  0 + n = n
-proof
-  arbitrary n:Int
-  switch n {
-     case pos(n') {
-       evaluate
-     }
-     case negsuc(n') {
-       evaluate
-     }
-  }
-end
+// Properties of negation
 
 theorem neg_suc: all n:Nat.
 	- suc(n) = negsuc(n)
@@ -148,6 +134,36 @@ proof
     case suc(n') {
       definition {operator-, operator-}
     }
+  }
+end
+
+theorem neg_involutive: all n:Int. - - n = n
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(n') {
+      switch n' {
+        case 0 { definition operator- }
+        case suc(n'') { definition operator- }
+      }
+    }
+    case negsuc(n') { definition operator- }
+  }
+end
+
+// Properties of addition
+
+theorem int_zero_add: all n:Int.
+  0 + n = n
+proof
+  arbitrary n:Int
+  switch n {
+     case pos(n') {
+       evaluate
+     }
+     case negsuc(n') {
+       evaluate
+     }
   }
 end
 
@@ -199,13 +215,13 @@ proof
   }
 end
 
-theorem zero_sub_neg: all n:Nat. 0 ⊝ suc(n) = negsuc(n)
+lemma zero_subo_neg: all n:Nat. 0 ⊝ suc(n) = negsuc(n)
 proof
   arbitrary n:Nat
   definition {operator⊝, operator<, operator≤, operator≤, operator-, operator-}
 end
 
-theorem int_sub_zero: all n:Nat. n ⊝ 0 = pos(n)
+lemma int_subo_zero: all n:Nat. n ⊝ 0 = pos(n)
 proof
   arbitrary n:Nat
   switch n < 0 for operator⊝ {
@@ -219,7 +235,7 @@ proof
 end
 
 
-theorem int_sub_cancel: all n:Nat. n ⊝ n = +0
+lemma int_subo_cancel: all n:Nat. n ⊝ n = +0
 proof
   arbitrary n:Nat
   switch n < n {
@@ -233,7 +249,7 @@ proof
   }
 end
 
-theorem suc_nat_sub: all x:Nat, y:Nat. suc(x) ⊝ suc(y) = x ⊝ y
+lemma suc_nat_subo: all x:Nat, y:Nat. suc(x) ⊝ suc(y) = x ⊝ y
 proof
   arbitrary x:Nat, y:Nat
   switch x < y for operator ⊝{
@@ -266,7 +282,7 @@ proof
         rewrite sub_zero
       }
       case suc(o') { // n = 0, o = suc(o')
-        suffices negsuc(o') + pos(m) = m ⊝ suc(o')  by rewrite zero_sub_neg | zero_add
+        suffices negsuc(o') + pos(m) = m ⊝ suc(o')  by rewrite zero_subo_neg | zero_add
         definition {operator+}
       }
     }
@@ -276,12 +292,12 @@ proof
     switch o {
       case 0 {       // n = suc(n'), o = 0
         suffices pos(suc(n') + m) = pos(suc(n' + m))
-            by definition {operator+} and rewrite int_sub_zero
+            by definition {operator+} and rewrite int_subo_zero
         definition operator+ 
       }
       case suc(o') { // n = suc(n'), o = suc(o')
         suffices (n' ⊝ o') + pos(m) = (n' + m) ⊝ o'
-           by rewrite suc_add | suc_nat_sub 
+           by rewrite suc_add | suc_nat_subo 
         IH
       }
     }
@@ -301,7 +317,7 @@ proof
       }
       case suc(o') { // n = 0, o = suc(o')
         suffices negsuc(o') + negsuc(m) = negsuc(suc(o' + m))
-            by rewrite suc_add | zero_sub_neg | suc_add
+            by rewrite suc_add | zero_subo_neg | suc_add
         definition {operator+}
       }
     }
@@ -310,11 +326,11 @@ proof
     arbitrary o:Nat
     switch o {
       case 0 {       // n = suc(n'), o = 0
-        definition {operator+} and rewrite int_sub_zero | zero_add
+        definition {operator+} and rewrite int_subo_zero | zero_add
       }
       case suc(o') { // n = suc(n'), o = suc(o')
         suffices (n' ⊝ o') + negsuc(m) = n' ⊝ (suc(o') + m)
-             by rewrite suc_nat_sub | suc_add | suc_nat_sub
+             by rewrite suc_nat_subo | suc_add | suc_nat_subo
         IH
       }
     }
@@ -455,6 +471,90 @@ proof
   }
 end
 
+// Properties of Addition and Negation
+
+theorem int_add_inverse: all x:Int. x + -x = +0
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(x') {
+      switch x' {
+        case 0 {
+          definition {operator-, operator+, operator+}
+        }
+        case suc(x'') {
+          suffices suc(x'') ⊝ suc(x'') = +0  by definition {operator-, operator+}
+          int_subo_cancel
+        }
+      }
+    }
+    case negsuc(x') {
+      suffices suc(x') ⊝ suc(x') = +0  by definition {operator-, operator+}
+      int_subo_cancel
+    }
+  }
+end
+
+// Properties of Subtraction
+
+theorem int_sub_cancel: all x:Int. x - x = +0
+proof
+  arbitrary x:Int
+  suffices x + (- x) = +0 by definition operator-
+  int_add_inverse
+end
+
+// Properties of Multiplication
+
+theorem int_one_mult: all x:Int. +1 * x = x
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(x') { 
+      suffices pos(1 * x') = pos(x')  by definition operator*
+      rewrite one_mult
+    }
+    case negsuc(x') {
+      suffices - (1 * suc(x')) = negsuc(x')  by definition operator*
+      suffices - suc(x') = negsuc(x')  by rewrite one_mult
+      neg_suc
+    }
+  }
+end
+
+theorem int_mult_commute: all x:Int, y:Int. x * y = y * x
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          suffices pos(x' * y') = pos(y' * x')  by definition operator*
+          rewrite mult_commute[x',y']
+        }
+        case negsuc(y') {
+          suffices - (x' * suc(y')) = - (suc(y') * x')  by definition operator*
+          rewrite mult_commute[x',suc(y')]
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          suffices - (suc(x') * y') = - (y' * suc(x'))  by definition operator*
+          rewrite mult_commute[suc(x'), y']
+        }
+        case negsuc(y') {
+          suffices pos(suc(x') * suc(y')) = pos(suc(y') * suc(x')) by definition operator*
+          rewrite mult_commute[suc(x'), suc(y')]
+        }
+      }
+    }
+  }
+end
+
+// Properties of Less-Than or Equal
+
 theorem int_less_equal_refl: all n:Int. n ≤ n
 proof
   arbitrary n:Int
@@ -466,6 +566,48 @@ proof
     case negsuc(n') {
       suffices n' ≤ n' by definition operator≤
       less_equal_refl
+    }
+  }
+end
+
+theorem int_less_equal_trans: all m:Int, n:Int, o:Int.
+  if m ≤ n and n ≤ o then m ≤ o
+proof
+  arbitrary m:Int, n:Int, o:Int
+  switch m {
+    case pos(m') {
+      switch n {
+        case pos(n') {
+          switch o {
+            case pos(o') {
+              suffices (if (m' ≤ n' and n' ≤ o') then m' ≤ o') by definition operator≤
+              less_equal_trans
+            }
+            case negsuc(o') { definition operator≤ }
+          }
+        }
+        case negsuc(n') { definition operator≤ }
+      }
+    }
+    case negsuc(m') {
+      switch n {
+        case pos(n') {
+          switch o {
+            case pos(o') { definition operator≤ }
+            case negsuc(o') { definition operator≤ }
+          }
+        }
+        case negsuc(n') {
+          switch o {
+            case pos(o') { definition operator≤ }
+            case negsuc(o') {
+              suffices (if (n' ≤ m' and o' ≤ n') then o' ≤ m')  by definition operator≤
+              assume nm_n_on
+              apply less_equal_trans[o',n',m'] to nm_n_on
+            }
+          }
+        }
+      }
     }
   }
 end
