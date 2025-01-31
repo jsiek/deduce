@@ -154,7 +154,7 @@ end
 // Properties of addition
 
 theorem int_zero_add: all n:Int.
-  0 + n = n
+  +0 + n = n
 proof
   arbitrary n:Int
   switch n {
@@ -245,6 +245,34 @@ proof
     case false assume nn_false {
       suffices pos(n - n) = +0   by definition {operator ⊝} and rewrite nn_false
       rewrite sub_cancel
+    }
+  }
+end
+
+lemma subo_sub: all x:Nat, y:Nat. x ⊝ y = pos(x) - pos(y)
+proof
+  arbitrary x:Nat, y:Nat
+  switch x {
+    case 0 {
+      switch y {
+        case 0 {
+          evaluate
+        }
+        case suc(y') {
+          evaluate
+        }
+      }
+    }
+    case suc(x') {
+      switch y {
+        case 0 {
+          suffices pos(suc(x')) = pos(suc(x' + 0)) by evaluate
+          rewrite add_zero
+        }
+        case suc(y') {
+          evaluate
+        }
+      }
     }
   }
 end
@@ -495,6 +523,90 @@ proof
   }
 end
 
+lemma neg_subo: all x:Nat, y:Nat. - (x ⊝ y) = y ⊝ x
+proof
+  arbitrary x:Nat, y:Nat
+  cases trichotomy[x,y]
+  case: x < y {
+    have: not (y < x) by apply less_implies_not_greater to (recall x < y)
+    suffices - (- (y - x)) = pos(y - x)
+       by definition {operator ⊝} 
+          and rewrite (apply eq_false to recall not (y < x)) | 
+                      (apply eq_true to recall x < y)
+    definition operator- and rewrite neg_involutive
+  }
+  case: x = y {
+    suffices - (y ⊝ y) = y ⊝ y    by rewrite recall x = y
+    suffices - +0 = +0 by rewrite int_subo_cancel
+    definition operator-
+  }
+  case: y < x {
+    have: not (x < y) by apply less_implies_not_greater to recall y < x
+    suffices - pos(x - y) = - (x - y)
+        by definition operator⊝ and rewrite (apply eq_true to recall y < x)
+                      | (apply eq_false to recall not (x < y))
+    definition {operator-, operator-}
+  }
+end
+
+theorem neg_distr_add: all x:Int, y:Int. -(x + y) = (- x) + (- y)
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch x' {
+        case 0 {
+          equations
+                -(+0 + y) 
+              = -y              by rewrite int_zero_add
+          ... = +0 + -y         by symmetric int_zero_add
+          ... = #- +0# + -y     by definition operator-
+        }
+        case suc(x'') {
+          switch y {
+            case pos(y') {
+              switch y' {
+                case 0 {
+                  definition {operator+, operator-} and rewrite add_zero | zero_subo_neg
+                }
+                case suc(y'') {
+                  suffices negsuc(x'' + suc(y'')) = negsuc(suc(x'' + y''))
+                      by definition {operator-, operator+, operator+}
+                  rewrite add_suc
+                }
+              }
+            }
+            case negsuc(y') {
+              suffices - (suc(x'') ⊝ suc(y')) = suc(y') ⊝ suc(x'')
+                  by definition {operator-, operator+}
+              suffices - (x'' ⊝ y') = y' ⊝ x''  by rewrite suc_nat_subo
+              neg_subo
+            }
+          }
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          suffices - (y' ⊝ suc(x')) = - negsuc(x') + - pos(y')  by definition {operator+}
+          equations
+                - (y' ⊝ suc(x')) 
+              = suc(x') ⊝ y'                by neg_subo
+          ... = pos(suc(x'))  - pos(y')     by subo_sub
+          ... = pos(suc(x'))  + - pos(y')   by definition operator-
+          ... = #- negsuc(x')# + - pos(y')  by definition operator-
+        }
+        case negsuc(y') {
+          suffices pos(suc(suc(x' + y'))) = pos(suc(x') + suc(y'))
+              by definition {operator+, operator-}
+          definition operator + and rewrite add_suc
+        }
+      }
+    }
+  }
+end
+
 // Properties of Subtraction
 
 theorem int_sub_cancel: all x:Int. x - x = +0
@@ -518,6 +630,22 @@ proof
       suffices - (1 * suc(x')) = negsuc(x')  by definition operator*
       suffices - suc(x') = negsuc(x')  by rewrite one_mult
       neg_suc
+    }
+  }
+end
+
+theorem int_zero_mult: all x:Int. +0 * x = +0
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(x') { 
+      suffices pos(0 * x') = +0  by definition operator*
+      rewrite zero_mult
+    }
+    case negsuc(x') {
+      suffices - (0 * suc(x')) = +0  by definition operator*
+      suffices - 0 = +0  by rewrite zero_mult
+      definition {operator-, operator-}
     }
   }
 end
@@ -552,6 +680,27 @@ proof
     }
   }
 end
+
+theorem int_mult_one: all x:Int. x * +1 = x
+proof
+  arbitrary x:Int
+  equations
+        x * +1 
+      = +1 * x    by int_mult_commute
+  ... = x         by int_one_mult
+end
+
+theorem int_mult_zero: all x:Int. x * +0 = +0
+proof
+  arbitrary x:Int
+  equations
+        x * +0
+      = +0 * x    by int_mult_commute
+  ... = +0        by int_zero_mult
+end
+
+
+  
 
 // Properties of Less-Than or Equal
 
