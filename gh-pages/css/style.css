@@ -479,6 +479,28 @@ header {
     content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='10' cy='8' r='5' fill='%23fe5e55'/%3E%3Ccircle cx='29' cy='8' r='5' fill='%23ffbd2e'/%3E%3Ccircle cx='48' cy='8' r='5' fill='%2327c93f'/%3E%3C/svg%3E ");
 }
 
+.code-wrapper ::-webkit-scrollbar {
+    background: var(--cb-bg);
+    border-radius: 100px;
+    height: 8px;
+}
+
+.code-wrapper ::-webkit-scrollbar-thumb {
+    background-color: var(--cb-alt-bg1);
+    border-radius: 100px;
+}
+
+.code-wrapper.non-deduce ::-webkit-scrollbar {
+    background: var(--very-light-gray);
+    border-radius: 100px;
+    height: 8px;
+}
+
+.code-wrapper.non-deduce ::-webkit-scrollbar-thumb {
+    background-color: var(--gray);
+    border-radius: 100px;
+}
+
 /* non-deduce code blocks */
 .code-wrapper.non-deduce {
     background-color: var(--very-light-gray);
