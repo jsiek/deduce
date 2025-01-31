@@ -13,6 +13,11 @@ union Int{
     negsuc(Nat) // -10 = negsuc(9)
 }
 
+function abs(Int) -> Nat {
+  abs(pos(n)) = n
+  abs(negsuc(n)) = suc(n)
+}
+
 // -------------------------------
 //  Arithmetic
 // -------------------------------
@@ -51,13 +56,9 @@ define operator + = λ n:Nat,m:Int { pos(n) + m }
 define operator + = λ n:Int,m:Nat { n + pos(m) }
 
 // Subtraction
-function intSub(Int,Int) -> Int{
-    intSub(pos(n), m) = pos(n) + -m
-    intSub(negsuc(n), m) = negsuc(n) + -m
-}
-define operator - = λ n:Int,m:Int { intSub(n, m) }
-define operator - = λ n:Nat,m:Int { intSub(pos(n), m) }
-define operator - = λ n:Int,m:Nat { intSub(n, pos(m)) }
+define operator - = λ n:Int,m:Int { n + (- m) }
+define operator - = λ n:Nat,m:Int { pos(n) - m }
+define operator - = λ n:Int,m:Nat { n - pos(m) }
 
 
 // Multiplication
@@ -77,9 +78,38 @@ define operator * = λ n:Int,m:Int { intMult(n, m) }
 define operator * = λ n:Nat,m:Int { intMult(pos(n), m) }
 define operator * = λ n:Int,m:Nat { intMult(n, pos(m)) }
 
-/*
+/************************************
   Theorems about integer arithmetic
-*/
+*************************************/
+
+theorem abs_neg: all n:Int. abs(- n) = abs(n)
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(n') {
+      switch n' {
+        case 0 {
+          equations
+                abs(- pos(0)) 
+              = 0              by definition {operator-, abs}
+          ... = #abs(pos(0))#  by definition abs
+       }
+       case suc(n'') {
+          equations
+                abs(- pos(suc(n''))) 
+              = suc(n'')              by definition {operator-, abs}
+          ... = #abs(pos(suc(n'')))#  by definition abs
+       }
+     }
+    }
+    case negsuc(n') {
+      equations
+            abs(- negsuc(n'))  
+          = suc(n')             by definition {operator-, abs}
+      ... = #abs(negsuc(n'))#   by definition abs
+    }
+  }
+end
 
 theorem int_zero_add: all n:Int.
   0 + n = n
