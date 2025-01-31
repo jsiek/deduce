@@ -76,6 +76,20 @@ function operator *(Int,Int) -> Int {
 define operator * = λ n:Nat,m:Int { pos(n) * m }
 define operator * = λ n:Int,m:Nat { n * pos(m) }
 
+function operator ≤(Int, Int) -> bool {
+  operator ≤(pos(x), y) = 
+    switch y {
+      case pos(y') {     x ≤ y' }
+      case negsuc(y') {  false  }
+    }
+  operator ≤(negsuc(x), y) = 
+    switch y {
+      case pos(y') {     true   }
+      case negsuc(y') {  y' ≤ x }
+    }
+}
+
+
 /************************************
   Theorems about integer arithmetic
 *************************************/
@@ -441,3 +455,52 @@ proof
   }
 end
 
+theorem int_less_equal_refl: all n:Int. n ≤ n
+proof
+  arbitrary n:Int
+  switch n {
+    case pos(n') {
+      suffices n' ≤ n' by definition operator≤
+      less_equal_refl
+    }
+    case negsuc(n') {
+      suffices n' ≤ n' by definition operator≤
+      less_equal_refl
+    }
+  }
+end
+
+theorem int_less_equal_antisymmetric:
+  all x:Int, y:Int. 
+  if x ≤ y and y ≤ x
+  then x = y
+proof
+  arbitrary x:Int, y:Int
+  assume xy_n_yx
+  switch x {
+    case pos(x') assume x_pos {
+      switch y {
+        case pos(y') assume y_pos {
+          have: x' ≤ y' and y' ≤ x' by definition operator≤ in rewrite x_pos | y_pos in xy_n_yx
+          have: x' = y' by apply less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
+          conclude pos(x') = pos(y')  by rewrite (recall x' = y')
+        }
+        case negsuc(y') assume y_neg {
+          conclude false by definition operator≤ in rewrite x_pos | y_neg in xy_n_yx
+        }
+      }
+    }
+    case negsuc(x') assume x_neg {
+      switch y {
+        case pos(y') assume y_pos {
+          conclude false by definition operator≤ in rewrite x_neg | y_pos in xy_n_yx
+        }
+        case negsuc(y') assume y_neg {
+          have: x' ≤ y' and y' ≤ x' by definition operator≤ in rewrite x_neg | y_neg in xy_n_yx
+          have: x' = y' by apply less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
+          conclude negsuc(x') = negsuc(y')  by rewrite (recall x' = y')
+        }
+      }
+    }
+  }
+end
