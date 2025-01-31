@@ -60,23 +60,21 @@ define operator - = λ n:Int,m:Int { n + (- m) }
 define operator - = λ n:Nat,m:Int { pos(n) - m }
 define operator - = λ n:Int,m:Nat { n - pos(m) }
 
-
 // Multiplication
-function intMult(Int,Int) -> Int {
-    intMult(pos(n), m) =
+function operator *(Int,Int) -> Int {
+    operator *(pos(n), m) =
         switch m {
             case pos(n') { pos(n * n') }
             case negsuc(n') { -(n * suc(n')) }
         }
-    intMult(negsuc(n), m) = 
+    operator *(negsuc(n), m) = 
         switch m {
             case pos(n') { -(suc(n) * n') }
             case negsuc(n') { pos(suc(n) * suc(n')) }
         }
 }
-define operator * = λ n:Int,m:Int { intMult(n, m) }
-define operator * = λ n:Nat,m:Int { intMult(pos(n), m) }
-define operator * = λ n:Int,m:Nat { intMult(n, pos(m)) }
+define operator * = λ n:Nat,m:Int { pos(n) * m }
+define operator * = λ n:Int,m:Nat { n * pos(m) }
 
 /************************************
   Theorems about integer arithmetic
