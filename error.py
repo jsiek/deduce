@@ -99,6 +99,9 @@ class ParseError(Exception):
     self.trace += [ParseError(loc, msg)]
     return self
 
+  def base_message(self):
+    return super().__str__()
+
   def __str__(self):
     base = error_header(self.loc) + super().__str__()
     if self.trace:
