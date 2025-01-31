@@ -490,6 +490,17 @@ header {
     border-radius: 100px;
 }
 
+.code-wrapper.non-deduce ::-webkit-scrollbar {
+    background: var(--very-light-gray);
+    border-radius: 100px;
+    height: 8px;
+}
+
+.code-wrapper.non-deduce ::-webkit-scrollbar-thumb {
+    background-color: var(--gray);
+    border-radius: 100px;
+}
+
 /* non-deduce code blocks */
 .code-wrapper.non-deduce {
     background-color: var(--very-light-gray);
