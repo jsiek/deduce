@@ -315,9 +315,6 @@ proof
   ... = n ⊝ suc(m + o)              by rewrite suc_add | add_commute[o,m]
 end
 
-/*
-  ALMOST DONE!
-
 theorem int_add_assoc: all x:Int, y:Int, z:Int. (x + y) + z = x + (y + z)
 proof
   arbitrary x:Int, y:Int, z:Int
@@ -401,7 +398,13 @@ proof
               ... = negsuc(x') + #negsuc(y') + pos(z')#    by definition operator+
             }
             case negsuc(z') { // x=negsuc(x'), y=negsuc(y'), z=negsuc(z')
-              ?
+              equations
+                    (negsuc(x') + negsuc(y')) + negsuc(z') 
+                  = negsuc(suc(suc(x' + y') + z'))             by definition operator+
+              ... = negsuc(suc(suc((x' + y') + z')))           by definition operator+
+              ... = negsuc(suc(suc(x' + (y' + z'))))           by rewrite add_assoc
+              ... = negsuc(suc(x' + suc(y' + z')))             by rewrite symmetric add_suc[x',y'+z']
+              ... = #negsuc(x') + (negsuc(y') + negsuc(z'))#   by definition operator+
             }
           }
         }
@@ -410,4 +413,3 @@ proof
   }
 end
 
-*/
