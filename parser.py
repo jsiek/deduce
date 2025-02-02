@@ -290,9 +290,13 @@ def parse_tree_to_ast(e, parent):
         rands = parse_tree_to_list(e.children[1], e)
         return Call(e.meta, None, rator, rands)
     elif e.data == 'lambda':
-        return Lambda(e.meta, None,
-                      parse_tree_to_list(e.children[0], e),
-                      parse_tree_to_ast(e.children[1], e))
+        typarams = parse_tree_to_list(e.children[0], e)
+        params = parse_tree_to_list(e.children[1], e)
+        body = parse_tree_to_ast(e.children[2], e)
+        if len(typarams) > 0:
+            return Generic(e.meta, None, typarams, Lambda(e.meta, None, params, body))
+        else:
+            return Lambda(e.meta, None, params, body)
     elif e.data == 'generic':
         return Generic(e.meta, None,
                        parse_tree_to_list(e.children[0], e),

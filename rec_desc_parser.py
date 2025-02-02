@@ -209,6 +209,7 @@ def parse_term_hi():
 
   elif token.type == 'FUN' or token.type == 'Λ':
     advance()
+    type_params = parse_type_parameters()
     params = parse_var_list()
     if current_token().type != 'LBRACE':
       raise ParseError(meta_from_tokens(token, current_token()),
@@ -220,8 +221,11 @@ def parse_term_hi():
       raise ParseError(meta_from_tokens(token, previous_token()),
             'expected "}" after body of "fun", not\n\t' + current_token().value)
     advance()
-    return Lambda(meta_from_tokens(token, previous_token()),
-                   None, params, body)
+    meta = meta_from_tokens(token, previous_token())
+    if len(type_params) > 0:
+      return Generic(meta, None, type_params, Lambda(meta, None, params, body))
+    else:
+      return Lambda(meta, None, params, body)
 
   elif token.type == 'GENERIC':
     advance()

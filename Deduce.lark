@@ -89,8 +89,8 @@ ident: IDENT              -> ident
     | "array" "(" term ")"                         -> make_array
     | term_hi "(" term_list ")"                    -> call
     | term_hi "[" term "]"                         -> array_get
-    | "λ" var_list "{" term "}"                    -> lambda
-    | "fun" var_list "{" term "}"                  -> lambda
+    | "λ" type_params_opt var_list "{" term "}"    -> lambda
+    | "fun" type_params_opt var_list "{" term "}"  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" type_annot_list "." term               -> all_formula

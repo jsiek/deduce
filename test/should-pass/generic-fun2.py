@@ -1,0 +1,7 @@
+import Nat
+import Pair
+
+define swap = fun<T, U> p:Pair<T,U> { pair(second(p), first(p)) }
+
+assert first(swap(pair(1,2))) = 2
+assert second(swap(pair(1,2))) = 1
