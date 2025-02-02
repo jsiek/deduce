@@ -7,6 +7,7 @@ const codeBlocks = [
 	"reference_define_example",
 	"reference_rewrite_in_example",
 	"reference_less_than_example",
+	"reference_generic_fun_example",
 	"proof_list_length_zero_empty",
 	"programming_NatList",
 	"reference_definition_example",

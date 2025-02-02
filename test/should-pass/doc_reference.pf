@@ -7,6 +7,7 @@ import List
 import Set
 import MultiSet
 import Maps
+import Pair
 
 assert 2 + 3 = 5
 define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
@@ -312,3 +313,16 @@ union Tree {
 define T1 : Tree = Leaf(4)
 define T2 : Tree = Leaf(7)
 define T3 : Tree = Internal(T1, 5, T2)
+union NatList {
+  Empty
+  Node(Nat, NatList)
+}
+
+function length(NatList) -> Nat {
+  length(Empty) = 0
+  length(Node(n, next)) = 1 + length(next)
+}
+define swap = fun<T, U> p:Pair<T,U> { pair(second(p), first(p)) }
+
+assert first(swap(pair(1,2))) = 2
+assert second(swap(pair(1,2))) = 1
