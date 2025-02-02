@@ -798,13 +798,13 @@ term ::= "fun" var_list "{" term "}"
          | "λ" var_list "{" term "}"
 ```
 
-Functions are created with a λ expression.  Their syntax starts with
-λ, followed by parameter names and their types, then the body of the
+Functions are created with a `fun` expression.  Their syntax starts with
+`fun`, followed by parameter names and their types, then the body of the
 function enclosed in braces.  For example, the following defines a
 function for computing the area of a rectangle.
 
 ```{.deduce^#function_term_example}
-define area = λ h:Nat, w:Nat { h * w }
+define area = fun h:Nat, w:Nat { h * w }
 ```
 
 To call a function, apply it to the appropriate number and type of
@@ -815,6 +815,9 @@ print area(3, 4)
 ```
 
 The output is `12`.
+
+To add type parameters to a function (to make it generic), see
+[Generic Function](#generic-function-term).
 
 
 ## Function (Statement)
@@ -841,6 +844,11 @@ constructor in the union of its first parameter. For example, here's
 the definition of a `length` function for lists of natural numbers.
 
 ```{.deduce^#function_example}
+union NatList {
+  Empty
+  Node(Nat, NatList)
+}
+
 function length(NatList) -> Nat {
   length(Empty) = 0
   length(Node(n, next)) = 1 + length(next)
@@ -905,12 +913,30 @@ An example use of `generic` is in `Maps.pf`, in the
 definition of function composition.
 
 ```{.deduce^#generic_example}
-define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
-                        λ x:T { g(f(x)) } } }
+define operator ∘ = generic T,U,V { fun g:fn U->V, f:fn T->U {
+                        fun x:T { g(f(x)) } } }
 ```
 
-Generic functions can also be defined using the `function` statement
-(see [Function](#function-statement)).
+Generic recursive functions can be defined using the `function`
+statement (see [Function](#function-statement)).
+
+## Generic Function (Term)
+
+```
+term ::= "fun" type_params_opt var_list "{" term "}"
+         | "λ" type_params_opt var_list "{" term "}"
+```
+
+To make a [Function](#function-term) generic, add type parameters surrounded
+by `<` and `>`. For example, the following function declares two
+type parameters with the syntax `<T, U>`.
+
+```{.deduce^#generic_fun_example}
+define swap = fun<T, U> p:Pair<T,U> { pair(second(p), first(p)) }
+
+assert first(swap(pair(1,2))) = 2
+assert second(swap(pair(1,2))) = 1
+```
 
 ## Given
 
@@ -2059,6 +2085,7 @@ import List
 import Set
 import MultiSet
 import Maps
+import Pair
 
 <<add_example>>
 <<add_multiset_example>>
@@ -2110,5 +2137,7 @@ import Maps
 <<suffices_example>>
 <<true_example>>
 <<union_example>>
+<<function_example>>
+<<generic_fun_example>>
 ```
 -->

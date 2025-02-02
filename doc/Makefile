@@ -10,13 +10,7 @@ default: check_docs
 # code block language names. So I'm currently using `^` instead of
 # spaces and then replacing `^` with a space using sed. -Jeremy
 
-check_docs: check_index check_fun check_intro check_ref
-
-check_index:
-	cat ../index.md | sed 's/deduce\^/deduce /' > index.en
-	/Users/jsiek/Library/Python/3.11/bin/entangled tangle 
-	$(PYTHON) $(DEDUCE) --recursive-descent index.pf --dir $(LIB_DIR)
-	$(PYTHON) $(DEDUCE) --lalr index.pf --dir $(LIB_DIR)
+check_docs: check_fun check_intro check_ref
 
 check_fun:
 	cat FunctionalProgramming.md | sed 's/deduce\^/deduce /' > FunctionalProgramming.en
