@@ -922,6 +922,8 @@ statement (see [Function](#function-statement)).
 
 ## Generic Function (Term)
 
+(This feature was added in Deduce version 1.1.)
+
 ```
 term ::= "fun" type_params_opt var_list "{" term "}"
          | "λ" type_params_opt var_list "{" term "}"
