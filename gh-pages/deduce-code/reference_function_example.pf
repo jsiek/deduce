@@ -1,5 +1,10 @@
 
 
+union NatList {
+  Empty
+  Node(Nat, NatList)
+}
+
 function length(NatList) -> Nat {
   length(Empty) = 0
   length(Node(n, next)) = 1 + length(next)
