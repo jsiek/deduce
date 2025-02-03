@@ -694,7 +694,10 @@ def parse_tree_to_ast(e, parent):
 
     # whole program
     elif e.data == 'program':
-        return parse_tree_to_list(e.children[0], None)
+        if e.children == []: # Allowing for empty programs
+            return []
+        else:
+            return parse_tree_to_list(e.children[0], None)
     
     else:
         raise Exception('unhandled parse tree', e)
