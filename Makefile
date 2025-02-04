@@ -1,4 +1,4 @@
-PYTHON = $(shell command -v python3.12)
+PYTHON = $(shell command -v python3)
 
 LIB_DIR = ./lib
 TEST_PASS_DIR = ./test/should-pass
@@ -21,6 +21,7 @@ tests-lib:
 tests: tests-should-pass tests-should-error
 
 package:
+	$(PYTHON) ./deduce.py ./lib
 	mkdir deduce
 	cp -r lib deduce
 	cp abstract_syntax.py deduce
@@ -35,6 +36,7 @@ package:
 	cp rec_desc_parser.py deduce
 	zip "deduce-release" -r deduce
 	rm -rf deduce
+	rm -f ./lib/*.thm
 
 clean:
 	rm -f ./lib/*.thm
