@@ -1,7 +1,7 @@
 
 
 define inc = fun x:Nat { pred(suc(suc(x))) }
-
+ 
 theorem extensionality_example: inc = suc
 proof
   extensionality
