@@ -19,8 +19,6 @@ mdToHtmlName = {
     'Reference' : 'reference',
     'SyntaxGrammar' : 'syntax',
     'GettingStarted' : 'getting-started',
-
-    'test' : 'test'
 }
 
 mdToTitle = {
@@ -30,8 +28,6 @@ mdToTitle = {
     'Reference' : 'Reference Manual',
     'SyntaxGrammar' : 'Syntax Overview',
     'GettingStarted' : 'Getting Started',
-
-    'test' : 'test'
 }
 
 mdToDescription = {
@@ -41,8 +37,6 @@ mdToDescription = {
     'Reference' : 'Full reference manual for the deduce language.',
     'SyntaxGrammar' : 'Syntax and grammar overview for the deduce language.',
     'GettingStarted' : 'Getting started with deduce.',
-    
-    'test' : 'test'
 }
 
 mdToDeduceCode = {
@@ -52,8 +46,6 @@ mdToDeduceCode = {
     'Reference' : 'reference',
     'SyntaxGrammar' : 'syntax-grammar',
     'GettingStarted' : 'getting-started',
-
-    'test' : 'test'
 }
 
 def safeHTMLify(s):
