@@ -7,7 +7,7 @@ IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
-COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
+COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 
 ?term:  term_iff
 
@@ -295,7 +295,7 @@ ident: IDENT              -> ident
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
 
-program: statement_list
+program: statement_list |
 
 %ignore COMMENT
 %ignore LINECOMMENT
