@@ -1,7 +1,7 @@
 
 
 import Option
-
+ 
 define front : fn NatList -> Option<Nat> =
   fun ls { 
     switch ls {

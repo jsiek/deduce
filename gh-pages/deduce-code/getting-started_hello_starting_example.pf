@@ -4,7 +4,7 @@
 union Greeting {
   hello
 }
-
+ 
 define world : Greeting = hello
-
+ 
 print world
