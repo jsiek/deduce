@@ -1399,6 +1399,50 @@ def parse_union():
 
 def parse_function():
   while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    typarams = parse_type_parameters()
+    
+    if current_token().type == 'LPAR':
+      advance()
+      params = parse_var_list()
+      if current_token().type != 'RPAR':
+        raise ParseError(meta_from_tokens(start_token, previous_token()),
+              'expected a closing parenthesis, not\n\t' \
+              + quote(current_token().value))
+      advance()
+
+    if current_token().type != 'LBRACE':
+      raise ParseError(meta_from_tokens(start_token, current_token()),
+            'expected "{" after parameters of function, not\n\t' \
+            + current_token().value)
+    advance()
+    body = parse_term()
+    if current_token().type != 'RBRACE':
+      raise ParseError(meta_from_tokens(start_token, previous_token()),
+            'expected "}" after body of function, not\n\t' + current_token().value)
+    advance()
+    meta = meta_from_tokens(start_token, previous_token())
+    lam = Lambda(meta, None, params, body)
+    if len(typarams) > 0:
+      fun = Generic(meta, None, typarams, lam)
+    else:
+      fun = lam
+    return Define(meta, name, None, fun, False)
+    
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
+      + str(e))
+      
+  
+    
+def parse_recursive_function():
+  while_parsing = 'while parsing\n' \
       + '\tstatement ::= "function" identifier type_params_opt' \
       + ' "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
   try:
@@ -1520,8 +1564,14 @@ def parse_statement():
   elif token.type == 'DEFINE':
     return parse_define()
 
-  elif token.type == 'FUNCTION':
+  elif token.type == 'FUN':
     return parse_function()
+
+  elif token.type == 'FUNCTION':
+    return parse_recursive_function()
+
+  elif token.type == 'RECURSIVE':
+    return parse_recursive_function()
 
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \

@@ -1,0 +1,11 @@
+import Nat
+import Pair
+
+fun swap(p : Pair<Nat,Nat>) {
+  pair(second(p), first(p))
+}
+
+assert swap(pair(1,2)) = pair(2,1)
+
+
+  

@@ -274,6 +274,8 @@ ident: IDENT              -> ident
 
 ?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
+?function: "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
+
 ?definition: "define" ident "=" term      -> define
  | "define" ident ":" type "=" term       -> define_annot
 
@@ -286,6 +288,7 @@ ident: IDENT              -> ident
 ?statement: theorem
  | union
  | rec_function
+ | function
  | definition
  | import
  | assert

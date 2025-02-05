@@ -657,6 +657,19 @@ def parse_tree_to_ast(e, parent):
         pp = parse_tree_to_list(e.children[1], e)
         return FunCase(e.meta, pp[0], pp[1:],
                        parse_tree_to_ast(e.children[2], e))
+    # functions
+    elif e.data == 'fun':
+        name = parse_tree_to_ast(e.children[0], e)
+        typarams = parse_tree_to_list(e.children[1], e)
+        params = parse_tree_to_list(e.children[2], e)
+        body = parse_tree_to_ast(e.children[3], e)
+        lam = Lambda(e.meta, None, params, body)
+        if len(typarams) > 0:
+            fun = Generic(e.meta, None, typarams, lam)
+        else:
+            fun = lam
+        return Define(e.meta, name, None, fun, False)
+    
     # recursive functions
     elif e.data == 'rec_fun':
         return RecFun(e.meta, parse_tree_to_ast(e.children[0], e),
