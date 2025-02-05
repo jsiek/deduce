@@ -6,7 +6,7 @@ language and provide examples of their use.
 
 * [Applying Definitions to the Goal](#applying-definitions-to-the-goal)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
-* [Rewriting the Goal with Equations](#rewriting-the-goal-with-equations)
+* [Replace equals for equals in goal](#replace-equals-for-equals-in-goal)
 * [Reasoning about Natural Numbers](#reasoning-about-natural-numbers)
 * [Proving Intermediate Facts with `have`](#proving-intermediate-facts-with-have)
 * [Chaining Equations with `equations`](#chaining-equations-with-equations)
@@ -14,12 +14,12 @@ language and provide examples of their use.
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
 * [The `switch` Proof Statement](#the-switch-proof-statement)
-* [Applying Definitions and Rewrites to the Goal](#applying-definitions-and-rewrites-to-the-goal)
+* [Applying Definitions and Replacements to the Goal](#applying-definitions-and-replacements-to-the-goal)
 * [Conditional Formulas (Implication) and Applying Definitions to Facts](#conditional-formulas-implication-and-applying-definitions-to-facts)
 * [Reasoning about `true`](#reasoning-about-true)
 * [Reasoning about `false`](#reasoning-about-false)
 * [Reasoning about `not`](#reasoning-about-not)
-* [Rewriting Facts with Equations](#rewriting-facts-with-equations)
+* [Replacing equals for equals in facts](#replacing-equals-for-equals-in-facts)
 * [Reasoning about `some` (Exists) and asking for `help`](#reasoning-about-some-exists-and-asking-for-help)
 
 ## Applying Definitions to the Goal
@@ -271,14 +271,14 @@ Prove again that
 but this time use the previous theorem.
 
 
-## Rewriting the Goal with Equations
+## Replace equals for equals in goal
 
-Deduce provides the `rewrite` statement to apply an equation to the
-current goal. In particular, `rewrite` replaces each occurrence of the
+Deduce provides the `replace` statement to apply an equation to the
+current goal. In particular, `replace` replaces each occurrence of the
 left-hand side of an equation with the right-hand side of the
 equation.
 
-For example, let us prove the following theorem using `rewrite`
+For example, let us prove the following theorem using `replace`
 with the above `list_length_one` theorem.
 
 ```
@@ -291,13 +291,13 @@ proof
 end
 ```
 
-To replace `length([x])` with `1`, we rewrite
+To replace `length([x])` with `1`, we `replace`
 using the `list_length_one` theorem instantiated at `U` and `x`.
 Note that we use `<` and `>` when instantiating a type parameter
 and we use `[` and `]` when instantiating a term parameter.
 
 ```
-rewrite list_length_one<U>[x]
+replace list_length_one<U>[x]
 ```
 
 Deduce tells us that the current goal has become
@@ -307,15 +307,15 @@ remains to prove:
     1 = length([y])
 ```
 
-We rewrite again, separated by a vertical bar, using `list_length_one`,
+We `replace` again, separated by a vertical bar, using `list_length_one`,
 this time instantiated with `y`.
 
 ```
-rewrite list_length_one<U>[x] | list_length_one<U>[y]
+replace list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
 Deduce changes the goal to `1 = 1`, which simplifies to just `true`,
-so Deduce accepts the `rewrite` statement.
+so Deduce accepts the `replace` statement.
 
 Here is the completed proof of `list_length_one_equal`.
 
@@ -326,7 +326,7 @@ theorem list_length_one_equal: all U:type. all x:U, y:U.
 proof
   arbitrary U:type
   arbitrary x:U, y:U
-  rewrite list_length_one<U>[x] | list_length_one<U>[y]
+  replace list_length_one<U>[x] | list_length_one<U>[y]
 end
 ```
 
@@ -364,7 +364,7 @@ recursive operator +(Nat,Nat) -> Nat {
 ```
 
 Recall that we can use Deduce's `definition` statement whenever we
-want to rewrite the goal according to the equations for addition. Here
+want to change the goal according to the equations for addition. Here
 are the two defining equations, but written with infix notation:
 
 ```
@@ -430,7 +430,7 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by rewrite add_commute[y][z]
+    by replace add_commute[y][z]
   ?
 end
 ```
@@ -451,13 +451,13 @@ step in the reasoning.
 
 ```
   have step2: x + z + y = (x + z) + y
-    by rewrite add_assoc[x][z,y]
+    by replace add_assoc[x][z,y]
   have step3: (x + z) + y = (z + x) + y
-    by rewrite add_commute[z][x]
+    by replace add_commute[z][x]
   have step4: (z + x) + y = z + (x + y)
-    by rewrite add_assoc[z][x,y]
+    by replace add_assoc[z][x,y]
   have step5: z + (x + y) = z + y + x
-    by rewrite add_commute[x][y]
+    by replace add_commute[x][y]
 ```
 
 We finish the proof by connecting them all together using Deduce's
@@ -481,15 +481,15 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by rewrite add_commute[y][z]
+    by replace add_commute[y][z]
   have step2: x + z + y = (x + z) + y
-    by rewrite add_assoc[x][z,y]
+    by replace add_assoc[x][z,y]
   have step3: (x + z) + y = (z + x) + y
-    by rewrite add_commute[z][x]
+    by replace add_commute[z][x]
   have step4: (z + x) + y = z + (x + y)
-    by rewrite add_assoc[z][x,y]
+    by replace add_assoc[z][x,y]
   have step5: z + (x + y) = z + y + x
-    by rewrite add_commute[x][y]
+    by replace add_commute[x][y]
   transitive step1 (transitive step2 (transitive step3
     (transitive step4 step5)))
 end
@@ -522,7 +522,7 @@ error from Deduce will tell us what it needs to be.
 
 ```
   equations
-    x + y + z = ?              by rewrite add_commute[y][z]
+    x + y + z = ?              by replace add_commute[y][z]
           ... = z + y + x      by ?
 ```
 
@@ -538,8 +538,8 @@ and proceed to the next step, which is to apply associativity.
 
 ```
   equations
-    x + y + z = x + (z + y)    by rewrite add_commute[y][z]
-          ... = ?              by rewrite symmetric add_assoc[x][z,y]
+    x + y + z = x + (z + y)    by replace add_commute[y][z]
+          ... = ?              by replace symmetric add_assoc[x][z,y]
           ... = z + y + x      by ?
 ```
 
@@ -560,11 +560,11 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + (z + y)    by rewrite add_commute[y][z]
-          ... = (x + z) + y    by rewrite symmetric add_assoc[x][z,y]
-          ... = (z + x) + y    by rewrite symmetric add_commute[z][x]
-          ... = z + x + y      by rewrite add_assoc[z][x,y]
-          ... = z + y + x      by rewrite add_commute[x][y]
+    x + y + z = x + (z + y)    by replace add_commute[y][z]
+          ... = (x + z) + y    by replace symmetric add_assoc[x][z,y]
+          ... = (z + x) + y    by replace symmetric add_commute[z][x]
+          ... = z + x + y      by replace add_assoc[z][x,y]
+          ... = z + y + x      by replace add_commute[x][y]
 end
 ```
 
@@ -572,7 +572,7 @@ If you want to skip the proof of one of the earlier steps, you can use
 [`sorry`](./Reference.md#sorry-proof) for the reason.
 
 If you want to work backwards by transforming the right-hand side of
-an equation into the left-hand side using a rewrite or definition,
+an equation into the left-hand side using `replace` or `definition`,
 then [mark](./Reference.md#mark) the right-hand side.
 
 The `equations` feature is implemented in Deduce by translating them
@@ -698,13 +698,13 @@ replace the `?`.
 
 Next, we see that the subterm `xs' ++ []` matches the
 right-hand side of the induction hypothesis `IH`. We use the
-`rewrite` statement to apply the `IH` equation to this subterm.
+`replace` statement to apply the `IH` equation to this subterm.
 
     case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
             = node(n, xs' ++ [])   by definition operator++
-        ... = node(n,xs')             by rewrite IH
+        ... = node(n,xs')             by replace IH
     }
 
 Here is the completed proof of `list_append_empty`.
@@ -723,7 +723,7 @@ proof
     equations
       node(n,xs') ++ []
           = node(n, xs' ++ [])   by definition operator++
-      ... = node(n,xs')             by rewrite IH
+      ... = node(n,xs')             by replace IH
   }
 end
 ```
@@ -840,12 +840,12 @@ subformula, so here we prove `x ≤ y or y < x` with `x ≤ y`.
     }
 
 In the second case, we consider the situation where `x = y`. Here we
-can prove that `x ≤ y` by rewriting the `x` to `y` and then using the
+can prove that `x ≤ y` by replacing the `x` with `y` and then using the
 reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
       have x_le_y: x ≤ y by
-          suffices y ≤ y  by rewrite x_eq_y
+          suffices y ≤ y  by replace x_eq_y
           less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
@@ -872,7 +872,7 @@ proof
   }
   case x_eq_y: x = y {
     have x_le_y: x ≤ y by
-        suffices y ≤ y  by rewrite x_eq_y
+        suffices y ≤ y  by replace x_eq_y
         less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
@@ -966,9 +966,9 @@ To summarize this section:
 * Use `switch` on an entity of union type to split the proof into
   cases, with one case for each alternative of the union.
 
-## Applying Definitions and Rewrites to the Goal
+## Applying Definitions and Replacements to the Goal
 
-Sometimes one needs to apply a set of definitions and rewrites
+Sometimes one needs to apply a set of definitions and replacements
 to the goal. Consider the following definition of `max'`.
 (There is a different definition of `max` in `Nat.pf`.)
 
@@ -979,19 +979,19 @@ define max' = λx:Nat, y:Nat { if x ≤ y then y else x }
 
 To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
 or not. If `x ≤ y` is true, we apply the definition of `max'` **and**
-we rewrite with the fact that `x ≤ y` is true, which resolves the
+we replace `x ≤ y` with `true`, which resolves the
 `if`-`then`-`else` inside of `max'` to just `y`. 
 
 ```
-    suffices x ≤ y  by definition max' and rewrite x_le_y_true
+    suffices x ≤ y  by definition max' and replace x_le_y_true
 ```
 
 So we are left to prove that `x ≤ y`, which we already know.
 Similarly, if `x ≤ y` is false, we apply the definition of `max'` and
-rewrite with the fact that `x ≤ y` is false. 
+replace `x ≤ y` with `false`. 
 
 ```
-    suffices x ≤ x  by definition max' and rewrite x_le_y_false
+    suffices x ≤ x  by definition max' and replace x_le_y_false
 ```
 
 This resolves the `if`-`then`-`else` inside of `max'` to just `x`. So
@@ -1005,11 +1005,11 @@ proof
   arbitrary x:Nat, y:Nat
   switch x ≤ y {
     case true assume x_le_y_true {
-      suffices x ≤ y  by definition max' and rewrite x_le_y_true
-      rewrite x_le_y_true
+      suffices x ≤ y  by definition max' and replace x_le_y_true
+      replace x_le_y_true
     }
     case false assume x_le_y_false {
-      suffices x ≤ x  by definition max' and rewrite x_le_y_false
+      suffices x ≤ x  by definition max' and replace x_le_y_false
       less_equal_refl[x]
     }
   }
@@ -1077,7 +1077,7 @@ We can put the facts `len_z` and `xs_xxs` together
 to obtain the dubious looking `length(node(x,xs')) = 0`.
 
 ```
-    have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+    have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
 ```
 
 The contradiction becomes apparent to Deduce once we apply the
@@ -1104,7 +1104,7 @@ proof
   switch xs {
     case empty { . }
     case node(x, xs') assume xs_xxs: xs = node(x,xs') {
-      have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+      have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
       conclude false  by apply not_one_add_zero[length(xs')]
                          to definition length in len_z2
     }
@@ -1220,7 +1220,7 @@ end
 ```
 
 One almost never sees `true` written explicitly in a formula. However,
-it is common for a formula to simplify to `true` after some rewriting.
+it is common for a complex formula to simplify to `true`.
 
 ## Reasoning about `false`
 
@@ -1238,7 +1238,7 @@ proof
   assume prem: a = b and a = true and b = false
   have a_true: a = true by prem
   have b_true: b = false by prem
-  conclude false by rewrite a_true | b_true in prem
+  conclude false by replace a_true | b_true in prem
 end
 ```
 
@@ -1355,12 +1355,12 @@ To summarize this section:
 * To use a formula like `not P`, apply it to a proof of `P` to
   obtain a proof of `false`.
 
-## Rewriting Facts with Equations
+## Replacing equals for equals in facts
 
 In the section
-[Rewriting the Goal with Equations](#rewriting-the-goal-with-equations) 
-we learned that the `rewrite` statement of Deduce applies an equation
-to the current goal.  There is a second variant of `rewrite` that
+[Replace equals for equals in goal](#replace-equals-for-equals-in-goal) 
+we learned that the `replace` statement of Deduce applies an equation
+to the current goal.  There is a second variant of `replace` that
 applies an equation to a fact. As an example, we'll prove the
 following theorem that is a straightforward use of `intro_less_irreflexive`.
 
@@ -1404,12 +1404,12 @@ Givens:
     x_l_y: x < y
 ```
 
-Here is where the second variant of `rewrite` comes in.  We can use it
+Here is where the second variant of `replace` comes in.  We can use it
 to apply the equation `x = y` to the fact `x < y` to get `y < y`.
-Note the extra keyword `in` that is used in this version of `rewrite`.
+Note the extra keyword `in` that is used in this version of `replace`.
 
 ```
-  have y_l_y: y < y   by rewrite x_y in x_l_y
+  have y_l_y: y < y   by replace x_y in x_l_y
 ```
 
 We arrive at the contradiction by applying `intro_less_irreflexive` 
@@ -1429,14 +1429,14 @@ proof
   arbitrary x:Nat, y:Nat
   assume x_l_y: x < y
   assume x_y: x = y
-  have y_l_y: y < y by rewrite x_y in x_l_y
+  have y_l_y: y < y by replace x_y in x_l_y
   conclude false by apply intro_less_irreflexive[y] to y_l_y
 end
 ```
 
 ### Exercise
 
-Using the `rewrite`-`in` statement, prove the following variation on
+Using the `replace`-`in` statement, prove the following variation on
 the transitivity theorem for `≤`. Prove that if `x = y` and `y ≤ z`,
 then `x ≤ z`.
 
@@ -1521,7 +1521,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    suffices 2 * a + 2 * b = 2 * (a + b)  by rewrite x_2a | y_2b
+    suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b
     symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1540,7 +1540,7 @@ proof
   obtain b where y_2b: y = 2*b from even_y
   suffices some m:Nat. x + y = 2 * m  by definition Even
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)  by rewrite x_2a | y_2b
+  suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b
   symmetric dist_mult_add[2][a,b]
 end
 ```
