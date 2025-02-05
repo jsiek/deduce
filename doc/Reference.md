@@ -456,6 +456,7 @@ must be one of the following:
 * [Conjunct](#conjunct)
 * [Definition](#definition-proof)
 * [Definition-In](#definition-in-proof)
+* [Definition and Replace](#definition-and-replace-proof)
 * [Definition and Rewrite](#definition-and-rewrite-proof)
 * [Equations](#equations)
 * [Evaluate](#evaluate-proof)
@@ -467,6 +468,7 @@ must be one of the following:
 * [Period](#period-proof-of-true)
 * [Question Mark](#question-mark-proof)
 * [Recall](#recall-proof)
+* [Replace](#replace-proof)
 * [Rewrite](#rewrite-proof)
 * [Sorry](#sorry-proof)
 * [Switch](#switch-proof)
@@ -607,6 +609,17 @@ proof
   definition {operator+, operator+}
 end
 ```
+
+## Definition and Replace (Proof)
+
+(This feature was added in Deduce version 1.1.)
+
+```
+conclusion ::= "definition" "{" identifier_list "}" "and" "replace" proof_list
+```
+
+An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof).
+
 
 ## Definition and Rewrite (Proof)
 
@@ -1713,6 +1726,16 @@ conclusion ::= reflexive
 
 The proof `reflexive` proves that `a = a` for any term `a`.
 
+## Replace (Proof)
+
+(This feature was added in Deduce version 1.1.)
+
+```
+conclusion ::= "replace" proof_list
+```
+
+An alternative syntax for [Rewrite](#rewrite-proof).
+
 ## Rewrite (Proof)
 
 ```
@@ -1745,6 +1768,17 @@ proof
   .
 end
 ```
+
+## Replace-In (Proof)
+
+(This feature was added in Deduce version 1.1.)
+
+```
+conclusion ::= "replace" proof_list "in" proof
+```
+An alternative syntax for [Rewrite-In](#rewrite-in-proof).
+
+
 
 ## Rewrite-In (Proof)
 

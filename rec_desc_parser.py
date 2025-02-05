@@ -645,9 +645,9 @@ def parse_definition_proof():
         while_parsing = 'while parsing definition:\n' \
             + '\tconclusion ::= "definition" identifier "and" "rewrite" proof_list\n'
         advance()
-        if current_token().type != 'REWRITE':
+        if (current_token().type != 'REPLACE') and (current_token().type != 'REWRITE'):
             raise ParseError(meta_from_tokens(current_token(),current_token()),
-                  'expected "rewrite" after "and" and "definition", not\n\t' \
+                  'expected "replace" after "and" and "definition", not\n\t' \
                   + current_token().value)
         advance()
         eqns = parse_proof_list()
@@ -839,7 +839,7 @@ def parse_proof_hi():
     meta = meta_from_tokens(token, token)
     return PReflexive(meta)
 
-  elif token.type == 'REWRITE':
+  elif (token.type == 'REWRITE') or (token.type == 'REPLACE'):
     advance()
     proofs = parse_proof_list()
     if current_token().type == 'IN':

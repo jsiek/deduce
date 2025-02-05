@@ -169,11 +169,15 @@ ident: IDENT              -> ident
     | "definition" "{" ident_list "}"                   -> reason_definition
     | "definition" ident                                -> reason_definition_one
     | "rewrite" proof_list                              -> reason_rewrite
+    | "replace" proof_list                              -> reason_rewrite
     | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
+    | "definition" "{" ident_list "}" "and" "replace" proof_list -> reason_def_rewrite
     | "definition" ident "and" "rewrite" proof_list       -> reason_def_one_rewrite
+    | "definition" ident "and" "replace" proof_list       -> reason_def_one_rewrite
     | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
     | "definition" ident "in" proof                      -> apply_defs_fact_one
     | "rewrite" proof_list "in" proof                    -> rewrite_fact
+    | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
