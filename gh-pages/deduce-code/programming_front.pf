@@ -2,10 +2,9 @@
 
 import Option
  
-define front : fn NatList -> Option<Nat> =
-  fun ls { 
-    switch ls {
-      case Empty { none }
-      case Node(x, ls') { just(x) }
-    }
+fun front(ls : NatList) {
+  switch ls {
+    case Empty { @none<Nat> }
+    case Node(x, ls') { just(x) }
   }
+}

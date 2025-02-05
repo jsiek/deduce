@@ -1,6 +1,6 @@
 
 
-function app(NatList, NatList) -> NatList {
+recursive app(NatList, NatList) -> NatList {
   app(Empty, ys) = ys
   app(Node(n, xs), ys) = Node(n, app(xs, ys))
 }

@@ -1,3 +1,5 @@
 
 
-define area = fun h:Nat, w:Nat { h * w }
+fun area(h:Nat, w:Nat) {
+  h * w
+}

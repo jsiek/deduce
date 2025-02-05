@@ -1,6 +1,6 @@
 
 
-function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = []
   zip(node(x, xs'), ys) =
     switch ys {

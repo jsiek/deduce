@@ -311,7 +311,7 @@ about the other operations follows a similar pattern.</p>
 <p>The parser for Deduce translates <code class="inline">0</code> into <code class="inline">zero</code>,
 <code class="inline">1</code> into <code class="inline">suc(zero)</code>, <code class="inline">2</code> into <code class="inline">suc(suc(zero))</code>, and so on.</p>
 <p>Here is the definition of addition from <code class="inline">Nat.pf</code>:</p>
-<div class="code-wrapper non-deduce"><code>function&nbsp;operator&nbsp;+(Nat,Nat)&nbsp;-&gt;&nbsp;Nat&nbsp;{<br>
+<div class="code-wrapper non-deduce"><code>recursive&nbsp;operator&nbsp;+(Nat,Nat)&nbsp;-&gt;&nbsp;Nat&nbsp;{<br>
 &nbsp;&nbsp;operator&nbsp;+(0,&nbsp;m)&nbsp;=&nbsp;m<br>
 &nbsp;&nbsp;operator&nbsp;+(suc(n),&nbsp;m)&nbsp;=&nbsp;suc(n&nbsp;+&nbsp;m)<br>
 }</code></div>

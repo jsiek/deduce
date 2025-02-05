@@ -1,6 +1,6 @@
 
 
-function length<E>(List<E>) -> Nat {
+recursive length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = 1 + length(next)
 }

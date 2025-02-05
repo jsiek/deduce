@@ -1,10 +1,8 @@
 
 
-define head : fn<T> List<T> -> Option<T> =
-  generic T { fun ls { 
-      switch ls {
-        case empty { none }
-        case node(x, ls') { just(x) }
-      }
-    }
+fun head<T>(ls: List<T>) {
+  switch ls {
+    case empty { @none<T> }
+    case node(x, ls') { just(x) }
   }
+}
