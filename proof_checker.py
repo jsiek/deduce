@@ -1268,7 +1268,7 @@ def check_proof_of(proof, formula, env):
                     + " arguments to " + base_name(constr.name) \
                     + " not " + str(len(indcase.pattern.parameters)))
             induction_hypotheses = [instantiate(loc, formula,
-                                                Var(loc,None,param,[])).reduce(env)
+                                                Var(loc,None,param,[]))
                                     for (param, ty) in 
                                     zip(indcase.pattern.parameters,
                                         constr.parameters)
@@ -1298,7 +1298,7 @@ def check_proof_of(proof, formula, env):
                   msg = 'incorrect induction hypothesis, expected\n' \
                       + str(frm2) + '\nbut got\n' + str(new_frm1) \
                       + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
-                  error(loc, msg)
+                  error(frm1.location, msg)
               body_env = body_env.declare_local_proof_var(loc, x, frm2)
             
             check_proof_of(indcase.body, goal, body_env)

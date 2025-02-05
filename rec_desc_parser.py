@@ -507,13 +507,14 @@ def parse_term_equal():
     eq = Var(meta, None, '=')
     advance()
     right = parse_term_equal()
+    call_meta = meta_from_tokens(token, previous_token())
     if opr == '=':
-      term = Call(meta_from_tokens(token, previous_token()), None,
+      term = Call(call_meta, None,
                   eq, [term,right])
     elif opr == '≠' or opr == '/=':
-      term = IfThen(meta, None, 
-                    Call(meta, None, eq, [term,right]),
-                    Bool(meta, None, False))
+      term = IfThen(call_meta, None, 
+                    Call(call_meta, None, eq, [term,right]),
+                    Bool(call_meta, None, False))
   return term
     
 def parse_term_logic():
