@@ -1132,7 +1132,7 @@ def check_proof_of(proof, formula, env):
       defs = [d.reduce(env) for d in defs]
       new_formula = apply_definitions(loc, formula, defs, env)
       if new_formula != Bool(loc, None, True):
-          error(loc, 'remains to prove:\n\t' + str(new_formula))
+          error(loc, 'error, remains to prove:\n\t' + str(new_formula))
 
     case Rewrite(loc, equation_proofs):
       equations = [check_proof(proof, env) for proof in equation_proofs]
@@ -1140,7 +1140,7 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       if new_formula != Bool(loc, None, True):
-          error(loc, 'remains to prove:\n\t' + str(new_formula))
+          error(loc, 'error, remains to prove:\n\t' + str(new_formula))
     
     case Suffices(loc, claim, reason, rest):
       def_or_rewrite = False

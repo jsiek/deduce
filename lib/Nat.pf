@@ -39,6 +39,19 @@ function operator -(Nat,Nat) -> Nat {
     }
 }
 
+function operator ≤(Nat,Nat) -> bool {
+  operator ≤(0, m) = true
+  operator ≤(suc(n'), m) =
+    switch m {
+      case 0 { false }
+      case suc(m') { n' ≤ m' }
+    }
+}
+
+define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
+define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
+define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
+
 union Pos {
   one
   succ(Pos)
@@ -82,19 +95,6 @@ function operator /(Nat,Pos) -> Nat {
 
 define operator % = λ n:Nat,m:Pos { n - (n / m) * pos2nat(m) }
 
-function operator ≤(Nat,Nat) -> bool {
-  operator ≤(0, m) = true
-  operator ≤(suc(n'), m) =
-    switch m {
-      case 0 { false }
-      case suc(m') { n' ≤ m' }
-    }
-}
-
-define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
-define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
-define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
-
 function summation(Nat, Nat, fn Nat->Nat) -> Nat {
   summation(0, begin, f) = 0
   summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
@@ -110,14 +110,19 @@ function pow2(Nat) -> Nat {
   pow2(suc(n')) = 2 * pow2(n')
 }
 
-function div2(Nat) -> Nat {
-  div2(0) = 0
-  div2(suc(n')) = div2_aux(n')
+function div2_helper(Nat, bool) -> Nat {
+  div2_helper(0, b) = 0
+  div2_helper(suc(n'), b) =
+    if b then div2_helper(n', not b)
+    else suc(div2_helper(n', not b))
 }
 
-function div2_aux(Nat) -> Nat {
-  div2_aux(0) = 0
-  div2_aux(suc(n')) = suc(div2(n'))
+fun div2(n : Nat) {
+  div2_helper(n, true)
+}
+
+fun div2_aux(n : Nat) {
+  div2_helper(n, false)
 }
 
 function equal(Nat, Nat) -> bool {
@@ -1731,15 +1736,19 @@ end
  Odd and Even Numbers
  */
 
-function is_even(Nat) -> bool {
-  is_even(0) = true
-  is_even(suc(n)) = is_odd(n)
+recursive parity(Nat, bool) -> bool {
+  parity(0, b) = b
+  parity(suc(n'), b) = parity(n', not b)
 }
 
-function is_odd(Nat) -> bool {
-  is_odd(0) = false
-  is_odd(suc(n)) = is_even(n)
+fun is_even(n : Nat) {
+  parity(n, true)
 }
+
+fun is_odd(n : Nat) {
+  parity(n, false)
+}
+
 
 define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
 define Odd : fn Nat -> bool = λ n { some m:Nat. n = suc (2 * m) }
@@ -1748,19 +1757,19 @@ theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
 proof
   induction Nat
   case 0 {
-    conclude is_even(0) by definition is_even
+    conclude is_even(0) by definition {is_even, parity}
   }
   case suc(n') assume IH {
     cases IH
     case even {
       conclude is_odd(suc(n')) by
-        suffices is_even(n') by definition is_odd
-        even
+        suffices parity(n', true) by definition {is_odd, parity}
+        definition is_even in even
     }
     case odd {
       conclude is_even(suc(n')) by
-        suffices is_odd(n') by definition is_even
-        odd
+        suffices parity(n', false) by definition {is_even, parity}
+        definition is_odd in odd
     }
   }
 end
@@ -1797,29 +1806,35 @@ proof
             definition {operator *, operator *, operator *, operator +}
    have part2: if is_odd(0) then Odd(0)
      by suppose zero_odd
-        conclude false by definition is_odd in zero_odd
+        conclude false by definition {is_odd, parity} in zero_odd
     part1, part2
   }
   case suc(n') suppose IH {
     have part1: (if is_even(suc(n')) then Even(suc(n'))) by
       (suppose suc_even: is_even(suc(n'))
-       have odd_n: is_odd(n') by definition is_even in suc_even
-       have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
-       obtain m where n_2m from definition Odd in Odd_n
-       suffices some m:Nat. suc(n') = 2 * m  by definition Even
-       choose suc(m)
-       suffices suc(suc(2 * m)) = 2 * suc(m)  by rewrite n_2m
-       suffices suc(suc(m + (m + 0))) = suc(m + suc(m + 0))
-           by definition {operator *, operator *, operator *, operator+}
-       rewrite add_zero | add_suc)
+      have odd_n: is_odd(n') by {
+        suffices parity(n', false) by definition {is_odd}
+        definition {is_even, parity} in suc_even
+      }
+      have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
+      obtain m where n_2m from definition Odd in Odd_n
+      suffices some m:Nat. suc(n') = 2 * m  by definition Even
+      choose suc(m)
+      suffices suc(suc(2 * m)) = 2 * suc(m)  by rewrite n_2m
+      suffices suc(suc(m + (m + 0))) = suc(m + suc(m + 0))
+          by definition {operator *, operator *, operator *, operator+}
+      rewrite add_zero | add_suc)
     have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
       (suppose suc_odd: is_odd(suc(n'))
-       have even_n: is_even(n') by definition is_odd in suc_odd
-       have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
-       obtain m where n_2m from definition Even in Even_n
-       suffices some m:Nat. suc(n') = suc(2 * m)  by definition Odd
-       choose m
-       rewrite n_2m)
+        have even_n: is_even(n') by {
+          suffices parity(n', true) by definition is_even
+          definition {is_odd, parity} in suc_odd
+        }
+        have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
+        obtain m where n_2m from definition Even in Even_n
+        suffices some m:Nat. suc(n') = suc(2 * m)  by definition Odd
+        choose m
+        rewrite n_2m)
     part1, part2
   }
 end
@@ -2056,7 +2071,7 @@ end
 theorem div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
 proof
   arbitrary n:Nat
-  definition {div2, div2_aux}
+  definition {div2, div2_helper, div2_helper}
 end
 
 theorem div2_double: all n:Nat.
@@ -2064,7 +2079,7 @@ theorem div2_double: all n:Nat.
 proof
   induction Nat
   case 0 {
-    definition {operator+, div2}
+    definition {operator+, div2, div2_helper}
   }
   case suc(n') suppose IH {
     suffices div2(suc(n' + suc(n'))) = suc(n')  by definition operator+
@@ -2088,12 +2103,14 @@ lemma div2_suc_double: all n:Nat.
 proof
   induction Nat
   case 0 {
-    definition {operator+, div2, div2_aux}
+    definition {operator+, div2, div2_helper, div2_helper}
   }
   case suc(n') suppose IH {
-    suffices suc(div2(n' + suc(n'))) = suc(n')  by definition {operator+, div2, div2_aux}
-    suffices suc(div2(suc(n' + n'))) = suc(n')  by rewrite add_suc
-    rewrite IH
+    suffices suc(div2_helper(suc(n' + n'), true)) = suc(n')
+      by definition {div2, div2_helper, operator+, div2_helper} and rewrite add_suc
+    suffices suc(div2_helper(n' + n', false)) = suc(n')
+      by definition div2_helper
+    rewrite (definition {div2, div2_helper} in IH)
   }
 end
 
@@ -2171,7 +2188,7 @@ proof
     assume: 0 < suc(n')
     switch n' {
       case 0 {
-        definition {div2, div2_aux, operator<, operator≤, operator≤, div2}
+        definition {div2, div2_aux, operator<, operator≤, operator≤, div2_helper, div2_helper, operator≤}
       }
       case suc(n'') assume np_eq {
         have: 0 < n' by {
@@ -2179,15 +2196,21 @@ proof
             definition {operator<, operator≤, operator≤}
         }
         have IH': div2(n') < n' and div2_aux(n') ≤ n' by apply IH to (recall 0 < n')
-        suffices div2_aux(n') < suc(n') and div2_aux(suc(n')) ≤ suc(n')
-            by definition {div2} and rewrite (symmetric np_eq)
-        have _1: div2_aux(n') < suc(n') by {
-            suffices div2_aux(n') ≤ n' by definition {operator<, operator≤}
-            conjunct 1 of IH'
+        suffices (div2_helper(n'', true) ≤ n'' and div2_helper(n'', false) ≤ suc(n''))
+          by definition {div2, div2_aux, div2_helper, div2_helper, operator<, operator≤, operator≤}
+        have _1: div2_helper(n'', true) ≤ n'' by {
+          definition {div2_aux, div2_helper, operator≤} in
+          rewrite np_eq in
+          conjunct 1 of IH'
         }
-        have _2: div2_aux(suc(n')) ≤ suc(n') by {
-           suffices div2(n') ≤ n' by definition {div2_aux, operator≤}
-           apply less_implies_less_equal to conjunct 0 of IH'
+        have _2: div2_helper(n'', false) ≤ suc(n'') by {
+          have lt1: div2_helper(n'', false) ≤ n'' by {
+            definition {div2, div2_helper, operator<, operator≤} in
+            rewrite np_eq in
+            conjunct 0 of IH'
+          }
+          have lt2: n'' ≤ suc(n'') by less_equal_suc
+          apply less_equal_trans to lt1, lt2
         }
         _1, _2
       }
@@ -2208,7 +2231,7 @@ proof
     arbitrary y:Nat
     assume _
     conclude div2(0) ≤ div2(y) and div2_aux(0) ≤ div2_aux(y)
-        by definition {div2, div2_aux, operator≤}
+        by definition {div2, div2_aux, operator≤, div2_helper}
   }
   case suc(x') assume IH {
     arbitrary y:Nat
@@ -2218,10 +2241,10 @@ proof
         conclude false by definition operator≤ in rewrite y_eq in sx_y
       }
       case suc(y') assume y_eq {
-        suffices div2_aux(x') ≤ div2_aux(y') and div2(x') ≤ div2(y')
-            by definition {div2, div2_aux, operator≤}
+        suffices div2_helper(x', false) ≤ div2_helper(y', false) and div2_helper(x', true) ≤ div2_helper(y', true)
+            by definition {div2, div2_aux, operator≤, div2_helper}
         have xy: x' ≤ y' by apply suc_less_equal_iff_less_equal_suc to rewrite y_eq in sx_y
-        conclude div2(x') ≤ div2(y') and div2_aux(x') ≤ div2_aux(y') by apply IH[y'] to xy
+        definition {div2, div2_aux} in apply IH[y'] to xy
       }
     }
   }

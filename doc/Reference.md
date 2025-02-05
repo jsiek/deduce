@@ -2177,6 +2177,7 @@ import Pair
 <<arbitrary_example>>
 <<assert_example>>
 <<assume_example>>
+<<list_example>>
 <<call_example>>
 <<choose_example>>
 <<compose_example>>
@@ -2198,7 +2199,6 @@ import Pair
 <<intersect_example>>
 <<less_than_example>>
 <<less_equal_example>>
-<<list_example>>
 <<mark_example>>
 <<mod_example>>
 <<obtain_example>>

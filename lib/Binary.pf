@@ -374,7 +374,7 @@ theorem from_dv2: all bs:List<bool>.
 proof
   induction List<bool>
   case empty {
-    definition {from_binary, dv2, div2}
+    definition {from_binary, dv2, div2, div2_helper}
   }
   case node(b, bs') suppose IH {
     switch b for dv2, from_binary {

@@ -2322,9 +2322,6 @@ class Theorem(Statement):
     if not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
     
-  def uniquify_body(self, env):
-    pass
-  
 @dataclass
 class Constructor(AST):
   name: str
@@ -2375,9 +2372,6 @@ class Union(Statement):
     for con in self.alternatives:
       con.uniquify(env, body_env)
 
-  def uniquify_body(self, env):
-    pass
-  
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
@@ -2450,14 +2444,9 @@ class RecFun(Statement):
       ty.uniquify(body_env)
     self.returns.uniquify(body_env)
 
-  def uniquify_body(self, env):
-    body_env = copy_dict(env)
-    for (old,new) in zip(self.old_type_params, self.type_params):
-      body_env[old] = [new]
-    
     for c in self.cases:
       c.uniquify(body_env)
-
+    
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
@@ -2510,9 +2499,6 @@ class Define(Statement):
     extend(env, self.name, new_name)
     self.name = new_name
 
-  def uniquify_body(self, env):
-    pass
-
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
@@ -2537,11 +2523,8 @@ class Assert(Statement):
     return 'assert ' + str(self.formula)
 
   def uniquify(self, env):
-    pass
-  
-  def uniquify_body(self, env):
     self.formula.uniquify(env)
-
+  
   def collect_exports(self, export_env):
     pass
     
@@ -2553,11 +2536,8 @@ class Print(Statement):
     return 'print ' + str(self.term)
 
   def uniquify(self, env):
-    pass
-  
-  def uniquify_body(self, env):
     self.term.uniquify(env)
-
+  
   def collect_exports(self, export_env):
     pass
 
@@ -2612,8 +2592,6 @@ class Import(Statement):
   def collect_exports(self, export_env):
     pass
     
-  def uniquify_body(self, env):
-    pass
   
 def mkEqual(loc, arg1, arg2):
   ret = Call(loc, None, Var(loc, None, '=', []), [arg1, arg2])
@@ -3242,9 +3220,6 @@ def uniquify_deduce(ast):
   env['='] = ['=']
   for stmt in ast:
     stmt.uniquify(env)
-  for stmt in ast:
-    stmt.uniquify_body(env)
-
 
 def make_switch_for(meta, defs, subject, cases):
   new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,
