@@ -357,7 +357,7 @@ The parser for Deduce translates `0` into `zero`,
 Here is the definition of addition from `Nat.pf`:
 
 ```{.deduce}
-function operator +(Nat,Nat) -> Nat {
+recursive operator +(Nat,Nat) -> Nat {
   operator +(0, m) = m
   operator +(suc(n), m) = suc(n + m)
 }

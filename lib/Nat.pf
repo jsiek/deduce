@@ -6,17 +6,17 @@ union Nat {
   suc(Nat)
 }
 
-function operator +(Nat,Nat) -> Nat {
+recursive operator +(Nat,Nat) -> Nat {
   operator +(0, m) = m
   operator +(suc(n), m) = suc(n + m)
 }
 
-function operator *(Nat,Nat) -> Nat {
+recursive operator *(Nat,Nat) -> Nat {
   operator *(0, m) = 0
   operator *(suc(n), m) = m + (n * m)
 }
 
-function max(Nat,Nat) -> Nat {
+recursive max(Nat,Nat) -> Nat {
   max(zero, n) = n
   max(suc(m'), n) =
     switch n {
@@ -25,12 +25,12 @@ function max(Nat,Nat) -> Nat {
     }
 }
 
-function pred(Nat) -> Nat {
+recursive pred(Nat) -> Nat {
   pred(0) = 0
   pred(suc(n)) = n
 }
 
-function operator -(Nat,Nat) -> Nat {
+recursive operator -(Nat,Nat) -> Nat {
   operator -(0, m) = 0
   operator -(suc(n), m) =
     switch m {
@@ -39,7 +39,7 @@ function operator -(Nat,Nat) -> Nat {
     }
 }
 
-function operator ≤(Nat,Nat) -> bool {
+recursive operator ≤(Nat,Nat) -> bool {
   operator ≤(0, m) = true
   operator ≤(suc(n'), m) =
     switch m {
@@ -57,7 +57,7 @@ union Pos {
   succ(Pos)
 }
 
-function nat2pos(Nat) -> Option<Pos> {
+recursive nat2pos(Nat) -> Option<Pos> {
   nat2pos(0) = none
   nat2pos(suc(n')) =
     switch nat2pos(n') {
@@ -70,12 +70,12 @@ function nat2pos(Nat) -> Option<Pos> {
     }
 }
 
-function pos2nat(Pos) -> Nat {
+recursive pos2nat(Pos) -> Nat {
   pos2nat(one) = 1
   pos2nat(succ(p)) = suc(pos2nat(p))
 }
 
-function find_quotient(Nat,Nat,Pos,Nat) -> Nat {
+recursive find_quotient(Nat,Nat,Pos,Nat) -> Nat {
   find_quotient(0, n, m, q) = q
   find_quotient(suc(u), n, m, q) =
     if suc(q) * pos2nat(m) ≤ n then
@@ -87,7 +87,7 @@ function find_quotient(Nat,Nat,Pos,Nat) -> Nat {
       q
 }
 
-function operator /(Nat,Pos) -> Nat {
+recursive operator /(Nat,Pos) -> Nat {
   operator /(0, m) = 0
   operator /(suc(n'), m) =
     find_quotient(suc(suc(n')) * pos2nat(m), suc(n'), m, 0)
@@ -95,22 +95,22 @@ function operator /(Nat,Pos) -> Nat {
 
 define operator % = λ n:Nat,m:Pos { n - (n / m) * pos2nat(m) }
 
-function summation(Nat, Nat, fn Nat->Nat) -> Nat {
+recursive summation(Nat, Nat, fn Nat->Nat) -> Nat {
   summation(0, begin, f) = 0
   summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
 }
 
-function iterate<T>(Nat, T, fn T -> T) -> T {
+recursive iterate<T>(Nat, T, fn T -> T) -> T {
   iterate(0, init, f) = init
   iterate(suc(n), init, f) = f(iterate(n, init, f))
 }
 
-function pow2(Nat) -> Nat {
+recursive pow2(Nat) -> Nat {
   pow2(0) = 1
   pow2(suc(n')) = 2 * pow2(n')
 }
 
-function div2_helper(Nat, bool) -> Nat {
+recursive div2_helper(Nat, bool) -> Nat {
   div2_helper(0, b) = 0
   div2_helper(suc(n'), b) =
     if b then div2_helper(n', not b)
@@ -125,7 +125,7 @@ fun div2_aux(n : Nat) {
   div2_helper(n, false)
 }
 
-function equal(Nat, Nat) -> bool {
+recursive equal(Nat, Nat) -> bool {
   equal(0, n) =
     switch n {
       case 0 { true }
@@ -138,7 +138,7 @@ function equal(Nat, Nat) -> bool {
     }
 }
 
-function dist(Nat, Nat) -> Nat {
+recursive dist(Nat, Nat) -> Nat {
   dist(0, n) = n
   dist(suc(m), n) =
     switch n {

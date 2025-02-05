@@ -5,7 +5,7 @@ Deduce supports the following language features:
 * [Import](#import)
 * [Definitions](#definitions)
 * [Printing Values](#printing-values)
-* [Functions (anonymous)](#function-term)
+* [Functions](#function-statement)
 * [Unions and Switch](#unions-and-switch)
 * [Natural Numbers](#natural-numbers)
 * [Lists](#lists)
@@ -58,16 +58,18 @@ print five
 The output is `5`.
 
 
-## Function (Term)
+## Function (Statement)
 
-A function term starts `fun`, followed by parameter names
+A function statement starts `fun`, followed by parameter names
 and their types, then the body of the function enclosed in braces.
-For example, the following defines a function for computing the area
+For example, the following creates a function for computing the area
 of a rectangle.
 
 
 ```{.deduce^#area}
-define area = fun h:Nat, w:Nat { h * w }
+fun area(h:Nat, w:Nat) {
+  h * w
+}
 ```
 
 To call a function, apply it to the appropriate number and type of
@@ -79,23 +81,6 @@ print area(3, 4)
 ```
 
 The output is `12`.
-
-A function term may omit the type annotations for the parameters, but
-only in a context where Deduce knows what the function's type should
-be. The following produces an error because the following `define`
-does not include a type annotation and neither does the function term.
-
-
-```{.deduce^#bad_area}
-define area = fun h, w { h * w }
-```
-
-Deduce prints the following error message.
-
-```
-Cannot synthesize a type for fun h,w{h * w}.
-Add type annotations to the parameters.
-```
 
 
 ## Unions and Switch
@@ -125,6 +110,7 @@ Unions may be recursive: a constructor may include a parameter type
 that is the union type, e.g., the `NatList` parameter of `Node`. 
 
 ### Generic Unions
+
 Unions may be generic: one can parameterize a union
 with one or more type parameters. For example, we generalize linked
 lists to any element types as follows.
@@ -145,6 +131,7 @@ define L12 = node(1, node(2, empty))
 ```
 
 ### Switch
+
 You can branch on a value of union type using `switch`. For example,
 the following `front` function returns the first element of a `NatList`. Here
 we give an explicit type annotation for the `front` function. The type
@@ -154,13 +141,12 @@ of a function starts with `fn`, followed by the parameter types, then
 ```{.deduce^#front}
 import Option
  
-define front : fn NatList -> Option<Nat> =
-  fun ls { 
-    switch ls {
-      case Empty { none }
-      case Node(x, ls') { just(x) }
-    }
+fun front(ls : NatList) {
+  switch ls {
+    case Empty { @none<Nat> }
+    case Node(x, ls') { just(x) }
   }
+}
 ```
 
 The output of 
@@ -181,8 +167,11 @@ If you forget a `case` in a `switch`, Deduce will tell
 you. For example, if you try the following:
 
 ```{.deduce^#broken_front}
-define broken_front : fn NatList -> Option<Nat> =
-  fun ls { switch ls { case Empty { none } } }
+fun broken_front(ls : NatList) {
+  switch ls { 
+    case Empty { @none<Nat> } 
+  }
+}
 ```
 
 Deduce responds with
@@ -211,9 +200,12 @@ operations on natural numbers and theorems about them.  The numerals
 
 ## Lists
 
-Similarly to natural numbers, lists are also defined as the `List<T>` union type we defined [above](#generic-unions).
+Similarly to natural numbers, lists are also defined as the `List<T>`
+union type we defined [above](#generic-unions).
 
-The file `List.pf` includes that definition as well as operations on lists and theorems about them. Deduce also provides shorthand notation for lists where:
+The file `List.pf` includes that definition as well as operations on
+lists and theorems about them. Deduce also provides shorthand notation
+for lists where:
 
 - `[]` is shorthand for `empty`
 - `[1]` is shorthand for `node(1, empty)`
@@ -259,7 +251,7 @@ type. For example, here's the definition of a `len` function for
 lists of natural numbers.
 
 ```{.deduce^#lenNatList}
-function len(NatList) -> Nat {
+recursive len(NatList) -> Nat {
   len(Empty) = 0
   len(Node(n, next)) = 1 + len(next)
 }
@@ -276,7 +268,7 @@ matching is only supported for the first parameter. For example, here
 is the `app` function that combines two linked lists.
 
 ```{.deduce^#app}
-function app(NatList, NatList) -> NatList {
+recursive app(NatList, NatList) -> NatList {
   app(Empty, ys) = ys
   app(Node(n, xs), ys) = Node(n, app(xs, ys))
 }
@@ -290,7 +282,7 @@ the first parameter. However, `zip` also needs to match on the second
 parameter `ys`, which is accomplished with a `switch` statement.
 
 ```{.deduce^#zip_example}
-function zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
+recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = []
   zip(node(x, xs'), ys) =
     switch ys {
@@ -307,7 +299,7 @@ Deduce supports generic functions, so we can generalize `length` to
 work on lists with any element type as follows.
 
 ```{.deduce^#length}
-function length<E>(List<E>) -> Nat {
+recursive length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = 1 + length(next)
 }
@@ -317,14 +309,12 @@ Generic functions that are not recursive can be defined using a
 combination of `define`, `generic`, and `fun`.
 
 ```{.deduce^#head}
-define head : fn<T> List<T> -> Option<T> =
-  generic T { fun ls { 
-	  switch ls {
-		case empty { none }
-		case node(x, ls') { just(x) }
-	  }
-	}
+fun head<T>(ls: List<T>) {
+  switch ls {
+    case empty { @none<T> }
+    case node(x, ls') { just(x) }
   }
+}
 ```
 
 The type of a generic function, such as `head`, starts with its
@@ -375,7 +365,7 @@ returned from a function. For example, the following function checks
 whether every element of a list satisfies a predicate.
 
 ```{.deduce^#all_elements}
-function all_elements<T>(List<T>, fn T->bool) -> bool {
+recursive all_elements<T>(List<T>, fn T->bool) -> bool {
   all_elements(empty, P) = true
   all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
 }
