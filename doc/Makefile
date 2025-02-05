@@ -32,4 +32,4 @@ check_ref:
 
 clean:
 	rm -f index.pf FunctionalProgramming.pf ProofIntro.pf
-	rm -rf .entangled
+	rm -rf .entangled *.en

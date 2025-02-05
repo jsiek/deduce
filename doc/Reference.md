@@ -819,6 +819,27 @@ The output is `12`.
 To add type parameters to a function (to make it generic), see
 [Generic Function](#generic-function-term).
 
+## Fun (Statement)
+
+(This feature was added in Deduce version 1.1.)
+
+```
+statement ::= "fun" ident type_params_opt "(" var_list ")" "{" term "}"
+```
+
+The `fun` statement is for defining a function (non-recursive).
+The function begins with the `fun` keyword, followed by 
+the type parameters enclosed in `<` and `>` (if generic),
+then the parameter list enclosed in `(` and `)`, and finally
+the body of the function enclosed in `{` and `}`.
+
+```{.deduce^#fun_exchange_example}
+fun exchange(p : Pair<Nat,Nat>) {
+  pair(second(p), first(p))
+}
+
+assert exchange(pair(1,2)) = pair(2,1)
+```
 
 ## Function (Statement)
 
@@ -827,7 +848,12 @@ statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type 
 fun_case ::= identifier "(" pattern_list ")" "=" term
 ```
 
-The `function` statement is for defining recursive functions that
+Alternate syntax in version 1.1 starts with `recursive` keyword:
+```
+statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
+```
+
+The `recursive` statement is for defining recursive functions that
 operate on `union` types. Recursive functions in Deduce are somewhat
 special to make sure they always terminate.
 
@@ -837,8 +863,8 @@ special to make sure they always terminate.
 * The first argument of every recursive call must be a sub-part of the
   current constructor of the union.
 
-A recursive function begins with the `function` keyword, followed by
-the name of the function, then the parameters types and the return
+A recursive function begins with the `recursive` keyword (or `function` in version 1.0),
+followed by the name of the function, then the parameters types and the return
 type. The body of the function includes one equation for every
 constructor in the union of its first parameter. For example, here's
 the definition of a `length` function for lists of natural numbers.
@@ -849,7 +875,7 @@ union NatList {
   Node(Nat, NatList)
 }
 
-function length(NatList) -> Nat {
+recursive length(NatList) -> Nat {
   length(Empty) = 0
   length(Node(n, next)) = 1 + length(next)
 }
@@ -1630,6 +1656,55 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 `P1`,...,`Pn` must be in the givens at the current point in the proof.
 
 
+## Recursive Function (Statement)
+
+(This feature was added in Deduce version 1.1.)
+
+```
+statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
+fun_case ::= identifier "(" pattern_list ")" "=" term
+```
+
+The `recursive` statement is for defining recursive functions that
+operate on `union` types. Recursive functions in Deduce are somewhat
+special to make sure they always terminate.
+
+* The first parameter of the function must be a union.
+* The function definition must include a clause for every
+  constructor in the union.
+* The first argument of every recursive call must be a sub-part of the
+  current constructor of the union.
+
+A recursive function begins with the `recursive` keyword (or `function` in version 1.0),
+followed by the name of the function, then the parameters types and the return
+type. The body of the function includes one equation for every
+constructor in the union of its first parameter. For example, here's
+the definition of a `length` function for lists of natural numbers.
+
+```{.deduce^#function_length_example}
+union NatList {
+  Empty
+  Node(Nat, NatList)
+}
+
+recursive length(NatList) -> Nat {
+  length(Empty) = 0
+  length(Node(n, next)) = 1 + length(next)
+}
+```
+
+There are two clauses in the body of `length` because the `NatList` union
+has two constructors. The clause for `Empty` says that its length is
+`0`.  The clause for `Node` says that its length is one more than the
+length of the rest of the linked list.  Deduce approves of the
+recursive call `length(next)` because `next` is part of `Node(n, next)`.
+
+Recursive functions may have more than one parameter but pattern
+matching is only supported for the first parameter. 
+If you need to pattern match on a parameter that is not the first, you
+can use a `switch` statement. 
+
+
 ## Reflexive (Proof)
 
 ```
@@ -2139,7 +2214,8 @@ import Pair
 <<suffices_example>>
 <<true_example>>
 <<union_example>>
-<<function_example>>
+<<fun_exchange_example>>
+<<function_length_example>>
 <<generic_fun_example>>
 ```
 -->
