@@ -4,7 +4,6 @@ from signal import signal, SIGINT
 import sys
 from threading import Thread
 
-
 parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
@@ -156,11 +155,24 @@ def test_deduce_errors(deduce_call, path):
 
         join_error_threads(threads, len(threads))
 
+def get_site_test_cases():
+        test_cases = []
+        test_cases.append(site_dir + '/home_example1.pf')
+        test_cases.append(site_dir + '/home_example2.pf')
+        test_cases.append(site_dir + '/home_example3.pf')
+        # generate test files for doc code without generating html
+        from doc.convert import convert_dir
+        convert_dir("./doc/", False)
+        # test generated files
+        for f in os.listdir(pass_dir):
+            if f.startswith('doc_') and f.endswith('.pf'):
+                test_cases.append(pass_dir + '/' + f)
+        return test_cases
+
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
     # Check command line arguments
     extra_arguments = []
-
     valid_test_cases = []
     error_test_cases = []
     regenerables = []
@@ -188,12 +200,16 @@ if __name__ == "__main__":
         elif argument == '--errors':
             error_test_cases.append(error_dir)
         elif argument == '--site':
-            valid_test_cases.append(site_dir + '/home_example1.pf')
-            valid_test_cases.append(site_dir + '/home_example2.pf')
-            valid_test_cases.append(site_dir + '/home_example3.pf')
+            valid_test_cases += get_site_test_cases()
         else:
             extra_arguments.append(argument)
     
+    if len(valid_test_cases) + len(error_test_cases) + len(regenerables) == 0:
+        valid_test_cases.append(lib_dir)
+        valid_test_cases.append(pass_dir)
+        valid_test_cases += get_site_test_cases()
+        error_test_cases.append(error_dir)
+
     python_path = ""
     for i in range(14, 10, -1):
         python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
@@ -203,6 +219,7 @@ if __name__ == "__main__":
     if python_path == "":
         print("Could not find a python version at or above 3.11 with lark installed")
         exit(1)
+
     
     deduce_call = python_path + " ./deduce.py " + " ".join(extra_arguments)
 
@@ -213,4 +230,4 @@ if __name__ == "__main__":
         generate_deduce_errors(deduce_call, generable)
 
     for error_test in error_test_cases:
-        test_deduce_errors(deduce_call, error_test_cases)
+        test_deduce_errors(deduce_call, error_test)
