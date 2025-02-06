@@ -232,7 +232,7 @@ case&nbsp;x_eq_y:&nbsp;x&nbsp;=&nbsp;y&nbsp;{<br>
 case&nbsp;y_l_x:&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;{<br>
 &nbsp;&nbsp;conclude&nbsp;x&nbsp;&#x2264;&nbsp;y&nbsp;or&nbsp;y&nbsp;&lt;&nbsp;x&nbsp;by&nbsp;y_l_x<br>
 }</code></div>
-<h2 id="choose-exists-introduction">Choose (Exists Introduction)</h2>
+<h2 id="choose-proof">Choose (Proof)</h2>
 <div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"choose"&nbsp;term_list</code></div>
 <p>A proof of the form</p>
 <div class="code-wrapper non-deduce"><code>choose&nbsp;e1,...,en<br>
@@ -702,7 +702,7 @@ Deduce treats <code class="inline">not P</code> as syntactic sugar for <code cla
 <div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;term&nbsp;"&#x2260;"&nbsp;term<br>
 formula&nbsp;::=&nbsp;term&nbsp;"/="&nbsp;term</code></div>
 <p>Deduce treats <code class="inline">x ≠ y</code> as syntactic sugar for <code class="inline">not (x = y)</code>.</p>
-<h2 id="obtain-exists-elimination">Obtain (Exists Elimination)</h2>
+<h2 id="obtain-proof">Obtain (Proof)</h2>
 <div class="code-wrapper non-deduce"><code>proof_stmt&nbsp;::=&nbsp;"obtain"&nbsp;identifier_list&nbsp;"where"&nbsp;assumption&nbsp;"from"&nbsp;proof</code></div>
 <p>A proof of the form</p>
 <div class="code-wrapper non-deduce"><code>obtain&nbsp;x1,...,xn&nbsp;where&nbsp;label:&nbsp;P&nbsp;from&nbsp;X<br>
@@ -759,7 +759,7 @@ with a <a href="#conclusion-proof" target="_self">Conclusion</a> (not a proof st
 <ul>
 <li><a href="#arbitrary-forall-introduction" target="_self">Arbitrary</a></li>
 <li><a href="#assume" target="_self">Assume</a></li>
-<li><a href="#choose-exists-introduction" target="_self">Choose</a></li>
+<li><a href="#choose-proof" target="_self">Choose</a></li>
 <li><a href="#define-proof" target="_self">Define</a></li>
 <li><a href="#extensionality" target="_self">Extensionality</a></li>
 <li><a href="#have-proof-statement" target="_self">Have</a></li>
@@ -860,12 +860,12 @@ usual set operations such as union <code class="inline">∪</code>, intersection
 <code class="inline">∈</code>, and subset-or-equal <code class="inline">⊆</code> are all defined in <code class="inline">Set.pf</code>.  The
 <code class="inline">Set.thm</code> file provides a summary of the many theorems about sets that
 are proved in <code class="inline">Set.pf</code>.</p>
-<h2 id="some-existential-quantifier">Some (Existential Quantifier)</h2>
+<h2 id="some-formula">Some (Formula)</h2>
 <div class="code-wrapper non-deduce"><code>formula&nbsp;::=&nbsp;"some"&nbsp;var_list&nbsp;"."&nbsp;formula</code></div>
 <p>The formula <code class="inline">some x1:T1,...,xn:Tn. P</code> is true when there exists
 a choice for <code class="inline">x1</code>,...,<code class="inline">xn</code> such that <code class="inline">P</code> is true.</p>
 <p>To prove a <code class="inline">some</code> formula, see the entry for
-<a href="#choose-exists-introduction" target="_self">Choose</a>.</p>
+<a href="#choose-proof" target="_self">Choose</a>.</p>
 <p>To use a <code class="inline">some</code> formula, see the entry for <a href="#obtain-exists-elimination" target="_self">Obtain</a></p>
 <h2 id="sorry-proof">Sorry (Proof)</h2>
 <div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"sorry"</code></div>
