@@ -82,7 +82,7 @@ proof
   arbitrary x:T, A:Set<T>, B:Set<T>
   suppose prem: x ∈ A or x ∈ B
   suffices rep(A)(x) or rep(B)(x)
-      by definition {operator∪, operator∈, rep}
+    by definition {operator∪, operator∈, rep}
   cases prem
   case xA: x ∈ A {
     conclude rep(A)(x) by definition operator∈ in xA
