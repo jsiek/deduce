@@ -305,6 +305,8 @@ anything else (the Principle of Explosion). Here are two ways to prove
 <p>(1) If you have a proof <code class="inline">X</code> of an equality with different constructors
 on the left and right-hand side, such as</p>
 <div class="code-wrapper non-deduce"><code>have&nbsp;X:&nbsp;empty&nbsp;=&nbsp;node(3,&nbsp;empty)&nbsp;by&nbsp;...</code></div>
+<p>or</p>
+<div class="code-wrapper non-deduce"><code>have&nbsp;X:&nbsp;0&nbsp;=&nbsp;1&nbsp;by&nbsp;...</code></div>
 <p>then you can implicitly use <code class="inline">X</code> to prove <code class="inline">false</code>:</p>
 <div class="code-wrapper non-deduce"><code>conclude&nbsp;false&nbsp;by&nbsp;X</code></div>
 <p>(2) If you have a proof <code class="inline">X</code> of <code class="inline">P</code> and a proof <code class="inline">Y</code> of <code class="inline">not P</code>,
