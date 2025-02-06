@@ -1211,9 +1211,6 @@ def check_proof_of(proof, formula, env):
         red_formula = formula.reduce(env)
         match red_formula:
           case And(loc2, tyof2, frms):
-            # if True:
-            #     print('PTuple, proving:\n\t' + '\n\t'.join([str(f) for f in frms]))
-            #     print('with proofs:\n\t' + '\n\t'.join([str(p) for p in pfs]))
             for (frm,pf) in zip(frms, pfs):
               check_proof_of(pf, frm, env)
             if len(pfs) < len(frms):
