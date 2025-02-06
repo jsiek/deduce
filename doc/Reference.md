@@ -514,7 +514,7 @@ anything else (the Principle of Explosion). Here are two ways to prove
 on the left and right-hand side, such as
 
 ```
-have X: empty = Node(3, empty) by ...
+have X: empty = node(3, empty) by ...
 ```
 
 then you can implicitly use `X` to prove `false`:
