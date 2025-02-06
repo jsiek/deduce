@@ -162,6 +162,7 @@ if __name__ == "__main__":
     test_site = False
 
     already_processed_next = False
+    generate_some_errors = False
     for i in range(1, len(sys.argv)):
         if already_processed_next:
             already_processed_next = False
@@ -173,6 +174,7 @@ if __name__ == "__main__":
         elif argument == '--generate-error':
             regenerables.append(sys.argv[i + 1])
             already_processed_next = True
+            generate_some_errors = True
         elif argument == '--max-threads':
             max_threads = int(sys.argv[i + 1])
             already_processed_next = True
@@ -186,7 +188,11 @@ if __name__ == "__main__":
             test_site = True
         else:
             extra_arguments.append(argument)
-    
+
+    if generate_errors + generate_some_errors + test_lib + test_passable + test_errors + test_site > 1:
+        print("Error: you specified too many flags, some are mutually exclusive")
+        exit(-1)
+            
     python_path = ""
     for i in range(14, 10, -1):
         python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
@@ -202,13 +208,12 @@ if __name__ == "__main__":
     if generate_errors:
         print('Regenerating ALL errors')
         generate_deduce_errors(deduce_call, error_dir)
-    else:
+    elif generate_some_errors:
         for generable in regenerables:
             print('Generating error for:', generable)
             generate_deduce_errors(deduce_call, generable)
             generate_errors = True # So we don't run ALL tests
-
-    if test_site:
+    elif test_site:
         # test the home examples
         test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
@@ -220,16 +225,13 @@ if __name__ == "__main__":
         for f in os.listdir(pass_dir):
             if f.startswith('doc_') and f.endswith('.pf'):
                 test_deduce(parsers, deduce_call, pass_dir + '/' + f)
-
-    if test_lib:
+    elif test_lib:
         test_deduce(parsers, deduce_call, lib_dir)
-    if test_passable:
+    elif test_passable:
         test_deduce(parsers, deduce_call, pass_dir)
-    if test_errors:
+    elif test_errors:
         test_deduce_errors(deduce_call, error_dir)
-
-    if not (test_lib or test_passable or test_errors or test_site): # run everything
-        # test
+    else:
         test_deduce(parsers, deduce_call, [lib_dir, pass_dir, site_dir + '/home_example1.pf',
                                                               site_dir + '/home_example2.pf',
                                                               site_dir + '/home_example3.pf'])
