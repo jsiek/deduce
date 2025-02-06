@@ -367,7 +367,7 @@ case y_l_x: y < x {
 
 
 
-## Choose (Exists Introduction)
+## Choose (Proof)
 
 ```
 proof_stmt ::= "choose" term_list
@@ -1467,7 +1467,7 @@ formula ::= term "/=" term
 
 Deduce treats `x ≠ y` as syntactic sugar for `not (x = y)`.
 
-## Obtain (Exists Elimination)
+## Obtain (Proof)
 
 ```
 proof_stmt ::= "obtain" identifier_list "where" assumption "from" proof
@@ -1617,7 +1617,7 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 
 * [Arbitrary](#arbitrary-forall-introduction)
 * [Assume](#assume)
-* [Choose](#choose-exists-introduction)
+* [Choose](#choose-proof)
 * [Define](#define-proof)
 * [Extensionality](#extensionality)
 * [Have](#have-proof-statement)
@@ -1814,7 +1814,7 @@ usual set operations such as union `∪`, intersection `∩`, membership
 are proved in `Set.pf`.
 
 
-## Some (Existential Quantifier)
+## Some (Formula)
 
 ```
 formula ::= "some" var_list "." formula
@@ -1824,7 +1824,7 @@ The formula `some x1:T1,...,xn:Tn. P` is true when there exists
 a choice for `x1`,...,`xn` such that `P` is true.
 
 To prove a `some` formula, see the entry for
-[Choose](#choose-exists-introduction).
+[Choose](#choose-proof).
 
 To use a `some` formula, see the entry for [Obtain](#obtain-exists-elimination)
 

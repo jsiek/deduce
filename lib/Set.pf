@@ -19,20 +19,25 @@ function rep<T>(Set<T>) -> fn(T)->bool {
   rep(char_fun(f)) = f
 }
 
-define single : fn<T>  T -> Set<T>
-         = generic T { λx { char_fun(λy{x = y}) } }
+fun single<T>(x : T) {
+  char_fun(fun y:T {x = y})
+}
 
-define operator ∪ : fn<T>  Set<T>, Set<T> -> Set<T>
-         = generic T { λP,Q{ char_fun(λx{ rep(P)(x) or rep(Q)(x) }) } }
+fun operator ∪ <T>(P: Set<T>, Q: Set<T>) {
+  char_fun(fun x:T { rep(P)(x) or rep(Q)(x) })
+}
 
-define operator ∩ : fn<T>  Set<T>, Set<T> -> Set<T>
-         = generic T { λP,Q{ char_fun(λx{ rep(P)(x) and rep(Q)(x) }) } }
+fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
+  char_fun(fun x:T { rep(P)(x) and rep(Q)(x) })
+}
 
-define operator ∈ : fn<T> T, Set<T> -> bool
-         = generic T { λx,S{ rep(S)(x) } }
+fun operator ∈ <T>(x : T, S : Set<T>) {
+  rep(S)(x)
+}
 
-define operator ⊆ : fn<T> Set<T>, Set<T> -> bool
-         = generic T { λP,Q{all x:T. if x ∈ P then x ∈ Q} }
+fun operator ⊆ <T>(P : Set<T>, Q : Set<T>) {
+  all x:T. if x ∈ P then x ∈ Q
+}
 
 theorem single_member: <T> all x:T.  x ∈ single(x)
 proof
