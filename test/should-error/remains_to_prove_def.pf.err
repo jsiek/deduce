@@ -1,0 +1,7 @@
+./test/should-error/remains_to_prove_def.pf:6.3-6.23: error, remains to prove:
+	x + 0 = x
+Replace this proof statement with:
+	suffices x + 0 = x
+		by definition {operator +}
+followed by a proof of:
+	x + 0 = x
