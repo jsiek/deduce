@@ -7,5 +7,5 @@ proof
   assume prem: a = b and a = true and b = false
   have a_true: a = true by prem
   have b_true: b = false by prem
-  conclude false by rewrite a_true | b_true in prem
+  conclude false by replace a_true | b_true in prem
 end

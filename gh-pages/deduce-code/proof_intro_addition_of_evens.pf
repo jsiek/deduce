@@ -12,6 +12,6 @@ proof
   obtain b where y_2b: y = 2*b from even_y
   suffices some m:Nat. x + y = 2 * m  by definition Even
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)  by rewrite x_2a | y_2b
+  suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b
   symmetric dist_mult_add[2][a,b]
 end

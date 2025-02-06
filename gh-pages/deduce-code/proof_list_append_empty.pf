@@ -12,6 +12,6 @@ proof
     equations
       node(n,xs') ++ []
           = node(n, xs' ++ [])   by definition operator++
-      ... = node(n,xs')             by rewrite IH
+      ... = node(n,xs')             by replace IH
   }
 end

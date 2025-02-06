@@ -9,7 +9,7 @@ proof
   switch xs {
     case empty { . }
     case node(x, xs') assume xs_xxs: xs = node(x,xs') {
-      have len_z2: length(node(x,xs')) = 0  by rewrite xs_xxs in len_z
+      have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
       conclude false  by apply not_one_add_zero[length(xs')]
                          to definition length in len_z2
     }
