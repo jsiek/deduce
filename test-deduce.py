@@ -13,6 +13,14 @@ error_dir = './test/should-error'
 site_dir = './gh-pages/deduce-code'
 max_threads = 10
 
+# os.listdir returns files inside of said dir in a random order
+# In order to avoid undefined behavior (e.g. tests work on one computer but not another)
+# Use this function (or a similar one) instead 
+def list_dir_sorted(dir):
+    ret = os.listdir(dir)
+    ret.sort()
+    return ret
+
 def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
@@ -48,7 +56,7 @@ def generate_deduce_errors(deduce_call, path):
 
         if path[-1] != '/' or path[-1] != '\\':
             path += '/'
-        for file in os.listdir(path): 
+        for file in list_dir_sorted(path): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     thread = Thread(target=generate_deduce_errors, args=(deduce_call, path + file))
@@ -60,7 +68,7 @@ def generate_deduce_errors(deduce_call, path):
                         t.join()
                         running_threads.remove(t)
 
-            elif os.path.isdir(path + file):
+            elif list_dir_sorted(path + file):
                 # TODO: recursive directories
                 pass
         for t in running_threads:
@@ -123,7 +131,7 @@ def test_deduce_errors(deduce_call, path):
             path += '/'
 
         threads = []
-        for file in os.listdir(path):
+        for file in list_dir_sorted(path):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     if not os.path.isfile(path + file + '.err'):

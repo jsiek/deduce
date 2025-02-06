@@ -14,6 +14,14 @@ from pathlib import Path
 traceback_flag = False
 suppress_theorems = False
 
+# os.listdir returns files inside of said dir in a random order
+# In order to avoid undefined behavior (e.g. deduce works on one computer but not another)
+# Use this function (or a similar one) instead 
+def list_dir_sorted(dir):
+    ret = os.listdir(dir)
+    ret.sort()
+    return ret
+
 def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
@@ -76,7 +84,7 @@ def deduce_file(filename, error_expected):
 def deduce_directory(directory, recursive_directories):
     if directory[-1] != '/' or directory[-1] != '\\': # Windows moment
         directory += '/'
-    for file in os.listdir(directory):
+    for file in list_dir_sorted(directory):
         if os.path.isfile(directory + file):
             if file[-3:] == '.pf':
                 deduce_file(directory + file, error_expected)
