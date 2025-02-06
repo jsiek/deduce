@@ -24,4 +24,5 @@ jobs:
             if [ -f ./gh-pages/requirements.txt ]; then pip install -r ./gh-pages/requirements.txt; fi
       - name: execute py script # run file
         run: |
-          python test-deduce.py --site --lib --passable --errors
+          python test-deduce.py --site
+          python test-deduce.py
