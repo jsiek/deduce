@@ -517,6 +517,12 @@ on the left and right-hand side, such as
 have X: empty = node(3, empty) by ...
 ```
 
+or
+
+```
+have X: 0 = 1 by ...
+```
+
 then you can implicitly use `X` to prove `false`:
 
 ```
