@@ -153,13 +153,9 @@ if __name__ == "__main__":
     # Check command line arguments
     extra_arguments = []
 
+    valid_test_cases = []
+    error_test_cases = []
     regenerables = []
-    generate_errors = False
-
-    test_lib = False
-    test_passable = False
-    test_errors = False
-    test_site = False
 
     already_processed_next = False
     for i in range(1, len(sys.argv)):
@@ -169,21 +165,24 @@ if __name__ == "__main__":
     
         argument = sys.argv[i]
         if argument == '--regenerate-errors':
-            generate_errors = True
+            regenerables.append(error_dir)
         elif argument == '--generate-error':
-            regenerables.append(sys.argv[i + 1])
+            case = sys.argv[i + 1]
+            regenerables.append(case)
             already_processed_next = True
         elif argument == '--max-threads':
             max_threads = int(sys.argv[i + 1])
             already_processed_next = True
         elif argument == '--lib':
-            test_lib = True
+            valid_test_cases.append(lib_dir)
         elif argument == '--passable':
-            test_passable = True
+            valid_test_cases.append(pass_dir)
         elif argument == '--errors':
-            test_errors = True
+            error_test_cases.append(error_dir)
         elif argument == '--site':
-            test_site = True
+            valid_test_cases.append(site_dir + '/home_example1.pf')
+            valid_test_cases.append(site_dir + '/home_example2.pf')
+            valid_test_cases.append(site_dir + '/home_example3.pf')
         else:
             extra_arguments.append(argument)
     
@@ -199,39 +198,11 @@ if __name__ == "__main__":
     
     deduce_call = python_path + " ./deduce.py " + " ".join(extra_arguments)
 
-    if generate_errors:
-        print('Regenerating ALL errors')
-        generate_deduce_errors(deduce_call, error_dir)
-    else:
-        for generable in regenerables:
-            print('Generating error for:', generable)
-            generate_deduce_errors(deduce_call, generable)
-            generate_errors = True # So we don't run ALL tests
+    if len(valid_test_cases) != 0:
+        test_deduce(parsers, deduce_call, valid_test_cases)
 
-    if test_site:
-        # test the home examples
-        test_deduce(parsers, deduce_call, site_dir + '/home_example1.pf')
-        test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
-        test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
-        # generate test files for doc code without generating html
-        from doc.convert import convert_dir
-        convert_dir("./doc/", False)
-        # test generated files
-        for f in os.listdir(pass_dir):
-            if f.startswith('doc_') and f.endswith('.pf'):
-                test_deduce(parsers, deduce_call, pass_dir + '/' + f)
+    for generable in regenerables:
+        generate_deduce_errors(deduce_call, generable)
 
-    if test_lib:
-        test_deduce(parsers, deduce_call, lib_dir)
-    if test_passable:
-        test_deduce(parsers, deduce_call, pass_dir)
-    if test_errors:
-        test_deduce_errors(deduce_call, error_dir)
-
-    if not (test_lib or test_passable or test_errors or test_site): # run everything
-        # test
-        test_deduce(parsers, deduce_call, [lib_dir, pass_dir, site_dir + '/home_example1.pf',
-                                                              site_dir + '/home_example2.pf',
-                                                              site_dir + '/home_example3.pf'])
-        test_deduce_errors(deduce_call, error_dir)
-    
+    for error_test in error_test_cases:
+        test_deduce_errors(deduce_call, error_test_cases)
