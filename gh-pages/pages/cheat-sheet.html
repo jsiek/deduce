@@ -86,34 +86,19 @@
 <p>Here is some advice about what to do next in a proof. Options 1, 3,
 and 4 make use of the table below.</p>
 <ol>
-<li>Prove the goal by decomposing it into sub-goals. In the table</li>
+<li>
+<p>Prove the goal by decomposing it into sub-goals. In the table below, look at the entry in the row for the current goal formula and the <code class="inline">Prove</code> column. The entry suggests the proof statement to use next. (This is the advice that Deduce outputs when you write <a href="./reference.html#question-mark-proof" target="_self"><code class="inline">?</code></a>.)</p>
+</li>
+<li>
+<p>Work backwards from the goal using a <a href="./reference.html#suffices-proof-statement" target="_self"><code class="inline">suffices</code></a> statement. After the <code class="inline">by</code> keyword, write the reason, often <a href="./reference.html#definition-proof" target="_self"><code class="inline">definition</code></a> and/or <a href="./reference.html#rewrite-proof" target="_self"><code class="inline">rewrite</code></a>, which transform the goal formula.</p>
+</li>
+<li>
+<p>Work forwards from a <a href="./reference.html#given" target="_self">given</a> with a <a href="./reference.html#have-proof-statement" target="_self"><code class="inline">have</code></a> statement. Look at the entry in the row for the given formula and the <code class="inline">Use</code> column. The table entry suggests what to write for the reason after the <code class="inline">by</code> keyword of your <code class="inline">have</code> statement. (This is the advice that Deduce outputs when you write <a href="./reference.html#help-proof" target="_self"><code class="inline">help L</code></a> where <code class="inline">L</code> is the label for the given.)</p>
+</li>
+<li>
+<p><a href="./reference.html#conclude-proof" target="_self"><code class="inline">conclude</code></a> the proof of the goal formula. For the reason after the <code class="inline">by</code> keyword, one can use a given according to the <code class="inline">Use</code> column in the table below, or one can prove the goal formula according to the <code class="inline">Prove</code> column.</p>
+</li>
 </ol>
-<p>below, look at the entry in the row for the current goal formula and
-  the <code class="inline">Prove</code> column. The entry suggests the proof statement to use
-  next. (This is the advice that Deduce outputs when you write <a href="./reference.html#question-mark-proof" target="_self"><code class="inline">?</code></a>.)</p>
-<ol>
-<li>Work backwards from the goal using a</li>
-</ol>
-<p><a href="./reference.html#suffices-proof-statement" target="_self"><code class="inline">suffices</code></a> statement. After the <code class="inline">by</code>
-  keyword, write the reason, often
-  <a href="./reference.html#definition-proof" target="_self"><code class="inline">definition</code></a> and/or
-  <a href="./reference.html#rewrite-proof" target="_self"><code class="inline">rewrite</code></a>, which transform the goal
-  formula.</p>
-<ol>
-<li>Work forwards from a <a href="./reference.html#given" target="_self">given</a> with a</li>
-</ol>
-<p><a href="./reference.html#have-proof-statement" target="_self"><code class="inline">have</code></a> statement. Look at the entry in
-  the row for the given formula and the <code class="inline">Use</code> column. The table entry
-  suggests what to write for the reason after the <code class="inline">by</code> keyword of your
-  <code class="inline">have</code> statement. (This is the advice that Deduce outputs when you
-  write <a href="./reference.html#help-proof" target="_self"><code class="inline">help L</code></a> where <code class="inline">L</code> is the label
-  for the given.)</p>
-<ol>
-<li><a href="./reference.html#conclude-proof" target="_self"><code class="inline">conclude</code></a> the proof of the goal</li>
-</ol>
-<p>formula. For the reason after the <code class="inline">by</code> keyword, one can use a given
-   according to the <code class="inline">Use</code> column in the table below, or one can prove
-   the goal formula according to the <code class="inline">Prove</code> column.</p>
 <table>
 <thead>
 <tr>
