@@ -129,13 +129,6 @@ def next_impl_num():
     impl_num += 1
     return ret
     
-def extract_tuple(pf):
-    match pf:
-      case PTuple(loc, pfs):
-        return pfs
-      case _:
-       return [pf]
-   
 def parse_tree_to_ast(e, parent):
     if isinstance(e, Token):
         return e

@@ -1992,6 +1992,13 @@ class PTuple(Proof):
     for arg in self.args:
       arg.uniquify(env)
 
+def extract_tuple(pf):
+    match pf:
+      case PTuple(loc, pfs):
+        return pfs
+      case _:
+       return [pf]
+   
 @dataclass
 class PAndElim(Proof):
   which: int

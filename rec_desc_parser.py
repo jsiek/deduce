@@ -1219,7 +1219,7 @@ def parse_finishing_proof():
       advance()
       right = parse_proof()
       proof = PTuple(meta_from_tokens(start_token, previous_token()), 
-                    [proof, right])
+                     extract_tuple(proof) + extract_tuple(right))
     return proof
 
 def parse_induction():

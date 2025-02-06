@@ -1,0 +1,7 @@
+./test/should-error/comma_question.pf:5.7-5.8: incomplete proof
+Goal:
+	Q
+
+
+Givens:
+	p: P
