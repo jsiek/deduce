@@ -784,40 +784,21 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
       suc(z + (y + x * suc(y)) * suc(z))
-    = suc(z + (y + x * (1 + y)) * (1 + z))   by replace suc_one_add[y] | suc_one_add[z]
-... = suc(z + (y + (x + x * y)) * (1 + z))  by replace dist_mult_add[x,1,y] | mult_one
-... = suc(z + ((y + (x + x * y)) + (y + (x + x * y)) * z))
-       by replace dist_mult_add | mult_one
-... = suc(z + ((y + (x + x * y)) + z * (y + (x + x * y))))
-       by replace mult_commute[(y + (x + x * y)), z]
-... = suc(z + ((y + (x + x * y)) + (z * y + (z * x + z * (x * y)))))
-       by replace dist_mult_add[z] | dist_mult_add[z]
-... = suc(z + y + x + (x*y + z*y) + z*x + z*x*y)
-        by replace add_assoc | add_assoc | symmetric add_assoc[x*y,z*y,z*x + z*x*y]
-... = suc(z + y + x + (z*y + x*y) + z*x + z*x*y)
-        by replace add_commute[x*y,z*y]
-... = suc(z + y + (x + z*y) + x*y + z*x + z*x*y)
-        by replace add_assoc | symmetric add_assoc[x,z*y][x*y + z*x + z*x*y]
-... = suc(z + y + (z*y + x) + x*y + z*x + z*x*y)
-        by replace add_commute[x,z*y]
-... = suc(z + y + y*z + x + x*y + z*x + z*x*y)
-        by replace add_assoc | mult_commute[z,y]
-... = suc(z + y + y*z + x + (x*y + z*x) + z*x*y)
-        by replace symmetric add_assoc[x*y,z*x,z*x*y]
-... = suc(z + y + y*z + x + (z*x + x*y) + z*x*y)
-        by replace add_commute[x*y,z*x]
-... = suc(z + y + y*z + x + x*z + x*y + (x*y)*z)
-        by replace add_assoc | mult_commute[z,x] | mult_commute[z,x*y]
-... = suc(z + y + y*z + x + x*z + x*y + x*y*z)  by replace mult_assoc
-... = #suc((z + (y + y * z)) + (x + (x * z + (x * y + x * y * z))))#
-      by replace add_assoc | add_assoc
-... = suc((z + (y + y * z)) + (x + #x * (z + (y + y * z))#))
-       by replace dist_mult_add | dist_mult_add
-... = #suc((z + (y + y * z)) + x * suc(z + (y + y * z)))#
-       by replace suc_one_add[z + (y + y * z)] | dist_mult_add[x,1] | mult_one
-... = #suc((z + y * (1 + z)) + x * suc(z + y * (1 + z)))#
-      by replace dist_mult_add[y,1,z] | mult_one
-... = #suc((z + y * suc(z)) + x * suc(z + y * suc(z)))# by replace suc_one_add[z]
+    = suc(z + y + x + x*y + y*z + x*z + x*y*z)
+      by replace  suc_one_add[y] | suc_one_add[z]
+         | dist_mult_add | dist_mult_add | mult_one | mult_one
+         | dist_mult_add_right | dist_mult_add_right
+         | add_assoc | add_assoc | mult_assoc
+... = suc(z + y + x + y*z + x*y + x*z + x*y*z)
+      by replace assoc_add[x*y] | add_commute[x*y] | add_assoc
+... = suc(z + y + x + y*z + x*z + x*y + x*y*z)
+      by replace assoc_add[x*y] | add_commute[x*y] | add_assoc
+... = suc(z + y + y*z + x + x*z + x*y + x*y*z)
+      by replace assoc_add[x] | add_commute[x] | add_assoc
+... = #suc((z + y * suc(z)) + x * suc(z + y * suc(z)))#
+  by replace suc_one_add[(z + y * suc(z))] | suc_one_add[z]
+     | dist_mult_add | dist_mult_add | dist_mult_add
+     | mult_one | add_assoc | add_assoc | dist_mult_add
 end
 
 /*

@@ -272,6 +272,14 @@ proof
   }
 end
 
+theorem assoc_add: all m:Nat, n:Nat, o:Nat.
+  m + (n + o) = (m + n) + o
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  symmetric add_assoc
+end
+
+
 theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y = x + z then y = z
 proof
