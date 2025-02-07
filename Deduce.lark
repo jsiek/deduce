@@ -99,6 +99,7 @@ ident: IDENT              -> ident
     | "define" IDENT "=" term ";" term             -> define_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
+    | "__"                                         -> omitted_term
     | "(" term ")"                                 -> paren
     | "[" term_list "]"                            -> list_literal
     | "#" term "#"                                 -> mark
