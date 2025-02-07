@@ -1454,7 +1454,7 @@ def apply_definitions(loc, formula, defs, env):
             + str(formula))
 
   for var in defs:
-    if isinstance(var, Var): # it's a bit strange that RecDef's can find there way into defs -Jeremy
+    if isinstance(var, Var): # it's a bit strange that RecDef's can find their way into defs -Jeremy
       reduced_one = False
       for var_name in var.resolved_names:
           rvar = Var(var.location, var.typeof, var_name, [var_name])
@@ -2324,7 +2324,7 @@ def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
   match stmt:
-    case Define(loc, name, ty, body, isPrivate):
+    case Define(loc, name, ty, body, isPrivate, isOpaque):
       if ty == None:
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
@@ -2449,14 +2449,14 @@ def type_check_stmt(stmt, env):
     print('type_check_stmt(' + str(stmt) + ')')
     #print('env: ' + str(env))
   match stmt:
-    case Define(loc, name, ty, body, isPrivate):
+    case Define(loc, name, ty, body, isPrivate, isOpaque):
       if ty == None:
         new_body = body # already type checked in process_declaration
         new_ty = body.typeof
       else:
         new_body = type_check_term(body, ty, env, None, [])
         new_ty = ty
-      return Define(loc, name, new_ty, new_body, isPrivate)
+      return Define(loc, name, new_ty, new_body, isPrivate, isOpaque)
         
     case Theorem(loc, name, frm, pf, isLemma):
       new_frm = check_formula(frm, env)
@@ -2505,7 +2505,7 @@ def type_check_stmt(stmt, env):
 
 def collect_env(stmt, env):
   match stmt:
-    case Define(loc, name, ty, body, isPrivate):
+    case Define(loc, name, ty, body, isPrivate, isOpaque):
       return env.define_term_var(loc, name, ty, body)
         
     case Theorem(loc, name, frm, pf, isLemma):
@@ -2535,7 +2535,7 @@ def check_proofs(stmt, env):
     print('check_proofs(' + str(stmt) + ')')
     #print('env: ' + str(env))
   match stmt:
-    case Define(loc, name, ty, body, isPrivate):
+    case Define(loc, name, ty, body, isPrivate, isOpaque):
       pass
     case Theorem(loc, name, frm, pf, isLemma):
       if get_verbose():

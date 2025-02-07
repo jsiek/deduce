@@ -2491,6 +2491,7 @@ class Define(Statement):
   typ: Type
   body: Term
   isPrivate: bool
+  isOpaque: bool
 
   def __str__(self):
     return 'define ' + self.name \
