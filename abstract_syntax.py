@@ -812,9 +812,18 @@ def precedence(trm):
     case _:
       return None
 
+def left_child(parent, child):
+  match parent:
+    case Call(loc1, tyof, rator, [left, right]):
+      return child is left
+    case _:
+      return False
+    
 def op_arg_str(trm, arg):
   if precedence(trm) != None and precedence(arg) != None:
-    if precedence(arg) <= precedence(trm):
+    if precedence(arg) < precedence(trm):
+      return "(" + str(arg) + ")"
+    elif precedence(arg) == precedence(trm) and left_child(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
     
