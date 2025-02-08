@@ -273,7 +273,6 @@ end
 theorem int_add_commute: all x:Int, y:Int. x + y = y + x
 proof
   arbitrary x:Int, y:Int
-  suffices x + y = y + x by definition {operator+}
   switch x {
     case pos(x') {
       switch y {

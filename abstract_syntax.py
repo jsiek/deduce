@@ -576,7 +576,8 @@ class Var(Term):
   def substitute(self, sub):
       if self.name in sub:
           trm = sub[self.name]
-          add_reduced_def(self.name)
+          if not isinstance(trm, RecFun):
+            add_reduced_def(self.name)
           return trm
       else:
           return self

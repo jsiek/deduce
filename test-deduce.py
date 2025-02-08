@@ -132,7 +132,7 @@ def test_deduce_errors(deduce_call, path):
                 if file[-3:] == '.pf':
                     if not os.path.isfile(path + file + '.err'):
                         print("Couldn't find an expected error for", path + file)
-                        print("Did you mean to generate it? If so, use generate_deduce_errors")
+                        print("Did you mean to generate it? If so, use --generate-error <filename>")
                         exit(1)
                     
                     thread = ErrorThread(path + file)

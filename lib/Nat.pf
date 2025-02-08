@@ -2196,7 +2196,7 @@ proof
     assume: 0 < suc(n')
     switch n' {
       case 0 {
-        definition {div2, div2_aux, operator<, operator≤, operator≤, div2_helper, div2_helper, operator≤}
+        definition {div2, div2_aux, operator<, operator≤, div2_helper, div2_helper, operator≤}
       }
       case suc(n'') assume np_eq {
         have: 0 < n' by {
@@ -2239,7 +2239,7 @@ proof
     arbitrary y:Nat
     assume _
     conclude div2(0) ≤ div2(y) and div2_aux(0) ≤ div2_aux(y)
-        by definition {div2, div2_aux, operator≤, div2_helper}
+        by definition {div2, div2_aux, div2_helper, operator≤}
   }
   case suc(x') assume IH {
     arbitrary y:Nat
@@ -2250,7 +2250,7 @@ proof
       }
       case suc(y') assume y_eq {
         suffices div2_helper(x', false) ≤ div2_helper(y', false) and div2_helper(x', true) ≤ div2_helper(y', true)
-            by definition {div2, div2_aux, operator≤, div2_helper}
+            by definition {div2, div2_aux, div2_helper, operator≤}
         have xy: x' ≤ y' by apply suc_less_equal_iff_less_equal_suc to replace y_eq in sx_y
         definition {div2, div2_aux} in apply IH[y'] to xy
       }
