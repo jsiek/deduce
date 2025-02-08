@@ -460,14 +460,14 @@ proof
   }
 end
 
-lemma suc_mult: all m:Nat, n:Nat.
+theorem suc_mult: all m:Nat, n:Nat.
   suc(m) * n = n + m * n
 proof
   arbitrary m:Nat, n:Nat
   definition operator*
 end
 
-lemma mult_suc: all m:Nat. all n:Nat.
+theorem mult_suc: all m:Nat. all n:Nat.
   m * suc(n) = m + m * n
 proof
   induction Nat

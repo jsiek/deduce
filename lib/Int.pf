@@ -157,6 +157,16 @@ proof
   definition operator*
 end
 
+theorem mult_neg_pos: negative * positive = negative
+proof
+  definition {operator*, flip}
+end
+
+theorem mult_neg_neg: negative * negative = positive
+proof
+  definition {operator*, flip}
+end
+
 theorem mult_pos_nat: all n:Nat. positive * n = pos(n)
 proof
   arbitrary n:Nat
@@ -169,7 +179,6 @@ proof
   evaluate
 end
 
-
 // Properties of absolute value and subtraction
 
 theorem abs_pos: all n:Nat. abs(pos(n)) = n
@@ -177,7 +186,13 @@ proof
   arbitrary n:Nat
   definition abs
 end
-  
+
+theorem abs_negsuc: all n:Nat. abs(negsuc(n)) = suc(n)
+proof
+  arbitrary n:Nat
+  definition abs
+end
+
 theorem abs_neg: all n:Int. abs(- n) = abs(n)
 proof
   arbitrary n:Int
@@ -209,6 +224,14 @@ end
 
 // Properties of negation
 
+theorem neg_pos: all n:Nat.
+	- pos(suc(n)) = negsuc(n)
+proof
+  arbitrary n : Nat
+  definition operator-
+end
+
+  
 theorem neg_suc: all n:Nat.
 	- suc(n) = negsuc(n)
 proof
@@ -777,31 +800,28 @@ proof
 end
 
 lemma mult_assoc_helper: all x:Nat, y:Nat, z:Nat.
-  suc(z + (y + x * suc(y)) * suc(z))
-  = suc((z + y * suc(z)) + x * suc(z + y * suc(z)))
+  z + (y + x * suc(y)) * suc(z)
+  = (z + y * suc(z)) + x * suc(z + y * suc(z))
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-      suc(z + (y + x * suc(y)) * suc(z))
-    = suc(z + y + x + x*y + y*z + x*z + x*y*z)
+      z + (y + x * suc(y)) * suc(z)
+    = z + y + x + x*y + y*z + x*z + x*y*z
       by replace  suc_one_add[y] | suc_one_add[z]
          | dist_mult_add | dist_mult_add | mult_one | mult_one
          | dist_mult_add_right | dist_mult_add_right
          | add_assoc | add_assoc | mult_assoc
-... = suc(z + y + x + y*z + x*y + x*z + x*y*z)
+... = z + y + x + y*z + x*y + x*z + x*y*z
       by replace assoc_add[x*y] | add_commute[x*y] | add_assoc
-... = suc(z + y + x + y*z + x*z + x*y + x*y*z)
+... = z + y + x + y*z + x*z + x*y + x*y*z
       by replace assoc_add[x*y] | add_commute[x*y] | add_assoc
-... = suc(z + y + y*z + x + x*z + x*y + x*y*z)
+... = z + y + y*z + x + x*z + x*y + x*y*z
       by replace assoc_add[x] | add_commute[x] | add_assoc
-... = #suc((z + y * suc(z)) + x * suc(z + y * suc(z)))#
+... = #(z + y * suc(z)) + x * suc(z + y * suc(z))#
   by replace suc_one_add[(z + y * suc(z))] | suc_one_add[z]
      | dist_mult_add | dist_mult_add | dist_mult_add
      | mult_one | add_assoc | add_assoc | dist_mult_add
 end
-
-/*
-UNDER CONSTRUCTION
 
 theorem int_mult_assoc: all x:Int, y:Int, z:Int. (x * y) * z = x * (y * z)
 proof
@@ -829,26 +849,97 @@ proof
                         }
                       }
                     }
-                    case negsuc(z') {
-                      ?
+                    case negsuc(z'') {
+                      suffices negsuc(z'' + (y'' + x'' * suc(y'')) * suc(z''))
+                      = negsuc((z'' + y'' * suc(z'')) + x''*suc(z'' + y''*suc(z'')))
+                        by evaluate
+                      replace mult_assoc_helper[x'',y'',z'']
                     }
                   }
                 }
               }
             }
             case negsuc(y') {
-              ?
+              switch z {
+                case pos(z') {
+                  switch z' {
+                    case 0 { replace int_mult_zero | int_mult_zero }
+                    case suc(z'') {
+                      suffices ─ by definition {operator*} and
+                      replace sign_pos | sign_negsuc | mult_pos_neg
+                      | abs_pos | abs_negsuc | mult_neg_nat | mult_pos_any
+                      | suc_mult | suc_add | neg_pos | sign_negsuc
+                      | mult_neg_nat | mult_neg_pos | abs_negsuc | mult_neg_nat
+                      | neg_pos | sign_negsuc | mult_neg_nat | abs_neg
+                      | suc_mult | abs_pos | suc_add | suc_add
+                      replace mult_assoc_helper[x'',y',z'']
+                    }
+                  }
+                }
+                case negsuc(z'') {
+                  suffices ─ by definition operator* and
+                  replace sign_pos | sign_negsuc | abs_pos | abs_negsuc
+                  | mult_pos_neg | mult_neg_nat | suc_mult | suc_add
+                  | neg_pos | sign_negsuc | abs_negsuc | mult_neg_neg
+                  | mult_pos_nat | sign_pos | abs_pos | mult_pos_any
+                  | mult_pos_nat | suc_add | suc_add | suc_mult | suc_add | suc_add
+                  replace mult_assoc_helper[x'',y',z'']
+                }
+              }
             }
           }
         }
       }
     }
     case negsuc(x') {
-      ?
+      switch y {
+            case pos(y') {
+              switch y' {
+                case 0 { replace int_mult_zero | int_zero_mult | int_mult_zero }
+                case suc(y'') {
+                  switch z {
+                    case pos(z') {
+                      switch z' {
+                        case 0 { replace int_mult_zero | int_mult_zero }
+                        case suc(z'') {
+                          suffices negsuc(z'' + (y'' + x' * suc(y'')) * suc(z'')) = negsuc((z'' + y'' * suc(z'')) + x' * suc(z'' + y'' * suc(z'')))
+                            by evaluate
+                          replace mult_assoc_helper[x',y'',z'']
+                        }
+                      }
+                    }
+                    case negsuc(z'') {
+                      suffices pos(suc(z'' + (y'' + x' * suc(y'')) * suc(z''))) = pos(suc((z'' + y'' * suc(z'')) + x' * suc(z'' + y'' * suc(z''))))
+                        by evaluate
+                      replace mult_assoc_helper[x',y'',z'']
+                    }
+                  }
+                }
+              }
+            }
+            case negsuc(y') {
+              switch z {
+                case pos(z') {
+                  switch z' {
+                    case 0 { replace int_mult_zero | int_mult_zero }
+                    case suc(z'') {
+                      suffices pos(suc(z'' + (y' + x' * suc(y')) * suc(z''))) = pos(suc((z'' + y' * suc(z'')) + x' * suc(z'' + y' * suc(z'')))) by evaluate
+                      replace mult_assoc_helper[x',y',z'']
+                    }
+                  }
+                }
+                case negsuc(z'') {
+                  suffices negsuc(z'' + (y' + x' * suc(y')) * suc(z'')) = negsuc((z'' + y' * suc(z'')) + x' * suc(z'' + y' * suc(z'')))
+                    by evaluate
+                  replace mult_assoc_helper[x',y',z'']
+                }
+              }
+            }
+          }      
     }
   }
 end
-*/
+
 
 // Properties of Less-Than or Equal
 
