@@ -114,8 +114,8 @@ proof
   suffices 1 + length([1]) = 2
       by definition length
   suffices 1 + (1 + 0) = 2
-      by definition {length, length}
-  definition {operator+, operator+}
+      by definition 2*length
+  definition 2*operator+
 end
 theorem definition_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
 proof
