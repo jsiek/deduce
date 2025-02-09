@@ -10,6 +10,6 @@ proof
   case suc(n') assume IH: n' + 0 = n' {
     equations
       suc(n') + 0 = suc(n' + 0)  by definition operator+
-              ... = suc(n')      by rewrite IH
+              ... = suc(n')      by replace IH
   }
 end
