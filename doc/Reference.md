@@ -733,6 +733,12 @@ first equation, the left-hand side of each equation is written as
 `...` because it is just a repetition of the right-hand side of the
 previous equation.
 
+When using `replace` for one of the reasoning steps in `equations`,
+the replacement is, by default, applied to the left-hand side of the
+equation (and not the right-hand side). However, if you would like to
+apply a replacement to the right-hand side, use hash marks (`#`)
+around the region of the right-hand side that you want to change.
+
 Example:
 
 ```{.deduce^#equations_example}
@@ -741,13 +747,17 @@ theorem equations_example: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by rewrite add_commute[y][z]
-          ... = (x + z) + y    by rewrite symmetric add_assoc[x][z,y]
-          ... = (z + x) + y    by rewrite symmetric add_commute[z][x]
-          ... = z + x + y      by rewrite add_assoc[z][x,y]
-          ... = z + y + x      by rewrite add_commute[x][y]
+    x + y + z = x + z + y      by replace add_commute[y]
+          ... = #(x + z) + y#  by replace add_assoc
+          ... = #z + x# + y    by replace add_commute
+          ... = z + x + y      by replace add_assoc
+          ... = z + y + x      by replace add_commute[x]
 end
 ```
+
+
+
+
 
 ## Evaluate (Proof)
 
@@ -1198,7 +1208,7 @@ proof
   case suc(n') assume IH: n' + 0 = n' {
     equations
       suc(n') + 0 = suc(n' + 0)  by definition operator+
-              ... = suc(n')      by rewrite IH
+              ... = suc(n')      by replace IH
   }
 end
 ```
@@ -1379,8 +1389,12 @@ define list_example = node(3, node(8, node(4, empty)))
 term ::= "#" term "#"
 ```
 
-Marking a subterm with hash symbols restricts a `rewrite` or `definition`
+Marking a subterm with hash symbols restricts a `replace` or `definition`
 proof to only apply to that subterm.
+
+The [`equations`](#equations) feature, by default, places marks around the entire
+left-hand side of each equation. However, you can override this
+default by placing explicit marks.
 
 ```{.deduce^#mark_example}
 theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
@@ -1388,13 +1402,14 @@ proof
   arbitrary x:Nat
   assume: x = 1
   equations
-    #x# + x + x = 1 + x + x   by rewrite recall x = 1
-  $ 1 + #x# + x = 1 + 1 + x   by rewrite recall x = 1
-  $ 1 + 1 + #x# = 1 + 1 + 1   by rewrite recall x = 1
+    #x# + x + x = 1 + x + x   by replace recall x = 1
+  $ 1 + #x# + x = 1 + 1 + x   by replace recall x = 1
+  $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
+            ... = 1 + #x# + 1 by replace recall x = 1
+            ... = 1 + 1 + 1   by replace recall x = 1
             ... = 3           by definition {operator+,operator+}
 end
 ```
-
 
 ## Modulo
 
