@@ -32,6 +32,40 @@ Example:
 assert 2 + 3 = 5
 ```
 
+Note that addition is a binary operator. When you
+type in a sequence of additions, such as
+```
+x + y + z
+```
+Deduce parses the sequence in a right-associative manner,
+as follows.
+```
+x + (y + z)
+```
+The grouping matters when you want to apply the laws of algebra, such
+as the associative and commutate laws. If you want to commute
+the `y` and `z`, that works fine and the result is
+```
+x + (z + y)
+```
+But you can't commute the `x` and `y` in
+```
+x + (y + z)
+```
+Instead, first use the law of associativity to regroup
+```
+(x + y) + z
+```
+then commute the `x` and `y`
+```
+(y + x) + z
+```
+and, if desired, use associativity again
+```
+y + x + z
+```
+
+
 ## Add (Multiset)
 
 ```
@@ -41,8 +75,8 @@ term ::= term "[+]" term
 
 Addition on multisets is defined in `MultiSet.pf`.  The main theorem
 about multiset addition is `cnt_sum`, which says that the count for
-each item in `A ⨄ B` is the sum of (1) the count for that item in `A` and
-(2) the count for that item in `B`.
+each item in `A ⨄ B` is the sum of (1) the count for that item in `A`
+and (2) the count for that item in `B`.
 
 ```
 cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
