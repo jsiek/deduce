@@ -594,7 +594,7 @@ end
 ## Definition (Proof)
 
 ```
-conclusion ::= "definition" identifier_list_bar
+conclusion ::= "definition" identifier_list_bar       // added in version 1.2
              | "definition" "{" identifier_list "}"
 ```
 
@@ -622,7 +622,7 @@ end
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "replace" proof_list
-conclusion ::= "definition" identifier_list_bar "and" "replace" proof_list
+conclusion ::= "definition" identifier_list_bar "and" "replace" proof_list       // added in version 1.2
 ```
 
 An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof).
@@ -632,7 +632,7 @@ An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
-conclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list
+conclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list       // added in version 1.2
 ```
 
 Apply the specified definitions to the current goal
@@ -645,7 +645,7 @@ signals an error.
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "in" proof
-conclusion ::= "definition" identifier_list_bar "in" proof
+conclusion ::= "definition" identifier_list_bar "in" proof       // added in version 1.2
 ```
 
 In the formula of the given proof, replace the occurrences of the
@@ -1102,6 +1102,8 @@ identifier_list ::= identifier "," identifier_list
 ```
 
 ## Identifier List Bar
+
+(This feature was added in Deduce version 1.2.)
 
 A bar-separated sequence of identifiers. If an identifier is preceded
 by a number and the multiplication sign, then the identifier is
