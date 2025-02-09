@@ -594,7 +594,7 @@ end
 ## Definition (Proof)
 
 ```
-conclusion ::= "definition" identifier
+conclusion ::= "definition" identifier_list_bar
              | "definition" "{" identifier_list "}"
 ```
 
@@ -611,8 +611,8 @@ proof
   suffices 1 + length([1]) = 2
       by definition length
   suffices 1 + (1 + 0) = 2
-      by definition {length, length}
-  definition {operator+, operator+}
+      by definition 2*length
+  definition 2*operator+
 end
 ```
 
@@ -622,6 +622,7 @@ end
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "replace" proof_list
+conclusion ::= "definition" identifier_list_bar "and" "replace" proof_list
 ```
 
 An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof).
@@ -631,6 +632,7 @@ An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
+conclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list
 ```
 
 Apply the specified definitions to the current goal
@@ -642,8 +644,8 @@ signals an error.
 ## Definition-In (Proof)
 
 ```
-conclusion ::= "definition" identifier "in" proof
 conclusion ::= "definition" "{" identifier_list "}" "in" proof
+conclusion ::= "definition" identifier_list_bar "in" proof
 ```
 
 In the formula of the given proof, replace the occurrences of the
@@ -754,10 +756,6 @@ proof
           ... = z + y + x      by replace add_commute[x]
 end
 ```
-
-
-
-
 
 ## Evaluate (Proof)
 
@@ -1101,6 +1099,20 @@ A comma-separated sequence of identifiers.
 ```
 identifier_list ::= identifier
 identifier_list ::= identifier "," identifier_list
+```
+
+## Identifier List Bar
+
+A bar-separated sequence of identifiers. If an identifier is preceded
+by a number and the multiplication sign, then the identifier is
+repeated. (e.g. to make a definition expand recursively more than
+once.)
+
+```
+identifier_list_bar ::= identifier
+identifier_list_bar ::= natural_number "*" identifier
+identifier_list_bar ::= identifier "|" identifier_list_bar
+identifier_list_bar ::= natural_number "*" identifier "|" identifier_list_bar
 ```
 
 ## If and only if (iff)
@@ -1467,6 +1479,16 @@ assert 2 * 3 = 6
 The `MultiSet<T>` type represents the standard mathematical notion of
 a multiset, which is a set that may contain duplicates of an
 element. The `MultiSet<T>` type is defined in `MultiSet.pf`.
+
+
+## Natural Number
+
+```
+natural_number ::= [0-9]+
+term ::= natural_number
+```
+
+A natural number literal is a sequence of one or more digits.
 
 
 ## Not
