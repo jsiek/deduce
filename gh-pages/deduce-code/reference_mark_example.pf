@@ -5,8 +5,10 @@ proof
   arbitrary x:Nat
   assume: x = 1
   equations
-    #x# + x + x = 1 + x + x   by rewrite recall x = 1
-  $ 1 + #x# + x = 1 + 1 + x   by rewrite recall x = 1
-  $ 1 + 1 + #x# = 1 + 1 + 1   by rewrite recall x = 1
+    #x# + x + x = 1 + x + x   by replace recall x = 1
+  $ 1 + #x# + x = 1 + 1 + x   by replace recall x = 1
+  $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
+            ... = 1 + #x# + 1 by replace recall x = 1
+            ... = 1 + 1 + 1   by replace recall x = 1
             ... = 3           by definition {operator+,operator+}
 end
