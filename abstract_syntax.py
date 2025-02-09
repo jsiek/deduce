@@ -1874,7 +1874,7 @@ class AllIntro(Proof):
     x, t = self.var
     res = ''
     if s + 1 == e:
-      res += 'arbitrary'
+      res += 'arbitrary '
     res += f"{x} : {str(t)}"
     if s == 0:
       res += ";"
@@ -2324,7 +2324,7 @@ class Theorem(Statement):
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
-      + '\nbegin\n' + str(self.proof) + '\nend\n'
+      + '\nproof\n' + str(self.proof) + '\nend\n'
 
   def uniquify(self, env):
     if self.name in env.keys():
