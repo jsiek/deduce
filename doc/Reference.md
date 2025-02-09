@@ -1519,9 +1519,8 @@ proof
   choose 2 * x
   equations
      n = 4 * x          by m4
-   ... = #2 * 2# * x    by definition {operator*,operator*,operator*,
-                                       operator+,operator+,operator+}
-   ... = 2 * (2 * x)    by mult_assoc
+   ... = (2 * 2) * x    by evaluate
+   ... = 2 * 2 * x      by mult_assoc
 end
 ```
 
