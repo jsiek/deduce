@@ -115,6 +115,12 @@ ident: IDENT              -> ident
     | ident                                        -> single
     | ident "," ident_list                         -> push
 
+?ident_list_bar:                                   -> empty
+    | ident                                        -> single
+    | INT "*" ident                                -> repeat
+    | ident "|" ident_list_bar                     -> push
+    | INT "*" ident "|" ident_list_bar             -> push_repeat
+
 ?type_annot_list:                                  -> empty_binding
     | ident ":" type                               -> single_binding
     | ident ":" type "," type_annot_list           -> push_binding
@@ -168,15 +174,15 @@ ident: IDENT              -> ident
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
     | "definition" "{" ident_list "}"                   -> reason_definition
-    | "definition" ident                                -> reason_definition_one
+    | "definition" ident_list_bar                       -> reason_definition
     | "rewrite" proof_list                              -> reason_rewrite
     | "replace" proof_list                              -> reason_rewrite
     | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
     | "definition" "{" ident_list "}" "and" "replace" proof_list -> reason_def_rewrite
-    | "definition" ident "and" "rewrite" proof_list       -> reason_def_one_rewrite
-    | "definition" ident "and" "replace" proof_list       -> reason_def_one_rewrite
+    | "definition" ident_list_bar "and" "rewrite" proof_list -> reason_def_rewrite
+    | "definition" ident_list_bar "and" "replace" proof_list -> reason_def_rewrite
     | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
-    | "definition" ident "in" proof                      -> apply_defs_fact_one
+    | "definition" ident_list_bar "in" proof             -> apply_defs_fact
     | "rewrite" proof_list "in" proof                    -> rewrite_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal

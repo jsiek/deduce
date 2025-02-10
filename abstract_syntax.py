@@ -576,7 +576,8 @@ class Var(Term):
   def substitute(self, sub):
       if self.name in sub:
           trm = sub[self.name]
-          add_reduced_def(self.name)
+          if not isinstance(trm, RecFun):
+            add_reduced_def(self.name)
           return trm
       else:
           return self
@@ -811,9 +812,18 @@ def precedence(trm):
     case _:
       return None
 
+def left_child(parent, child):
+  match parent:
+    case Call(loc1, tyof, rator, [left, right]):
+      return child is left
+    case _:
+      return False
+    
 def op_arg_str(trm, arg):
   if precedence(trm) != None and precedence(arg) != None:
-    if precedence(arg) <= precedence(trm):
+    if precedence(arg) < precedence(trm):
+      return "(" + str(arg) + ")"
+    elif precedence(arg) == precedence(trm) and left_child(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
     
@@ -1864,7 +1874,7 @@ class AllIntro(Proof):
     x, t = self.var
     res = ''
     if s + 1 == e:
-      res += 'arbitrary'
+      res += 'arbitrary '
     res += f"{x} : {str(t)}"
     if s == 0:
       res += ";"
@@ -2314,7 +2324,7 @@ class Theorem(Statement):
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
-      + '\nbegin\n' + str(self.proof) + '\nend\n'
+      + '\nproof\n' + str(self.proof) + '\nend\n'
 
   def uniquify(self, env):
     if self.name in env.keys():

@@ -32,6 +32,40 @@ Example:
 assert 2 + 3 = 5
 ```
 
+Note that addition is a binary operator. When you
+type in a sequence of additions, such as
+```
+x + y + z
+```
+Deduce parses the sequence in a right-associative manner,
+as follows.
+```
+x + (y + z)
+```
+The grouping matters when you want to apply the laws of algebra, such
+as the associative and commutate laws. If you want to commute
+the `y` and `z`, that works fine and the result is
+```
+x + (z + y)
+```
+But you can't commute the `x` and `y` in
+```
+x + (y + z)
+```
+Instead, first use the law of associativity to regroup
+```
+(x + y) + z
+```
+then commute the `x` and `y`
+```
+(y + x) + z
+```
+and, if desired, use associativity again
+```
+y + x + z
+```
+
+
 ## Add (Multiset)
 
 ```
@@ -41,8 +75,8 @@ term ::= term "[+]" term
 
 Addition on multisets is defined in `MultiSet.pf`.  The main theorem
 about multiset addition is `cnt_sum`, which says that the count for
-each item in `A ⨄ B` is the sum of (1) the count for that item in `A` and
-(2) the count for that item in `B`.
+each item in `A ⨄ B` is the sum of (1) the count for that item in `A`
+and (2) the count for that item in `B`.
 
 ```
 cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -594,7 +628,7 @@ end
 ## Definition (Proof)
 
 ```
-conclusion ::= "definition" identifier
+conclusion ::= "definition" identifier_list_bar       // added in version 1.2
              | "definition" "{" identifier_list "}"
 ```
 
@@ -611,8 +645,8 @@ proof
   suffices 1 + length([1]) = 2
       by definition length
   suffices 1 + (1 + 0) = 2
-      by definition {length, length}
-  definition {operator+, operator+}
+      by definition 2*length
+  definition 2*operator+
 end
 ```
 
@@ -622,6 +656,7 @@ end
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "replace" proof_list
+conclusion ::= "definition" identifier_list_bar "and" "replace" proof_list       // added in version 1.2
 ```
 
 An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof).
@@ -631,6 +666,7 @@ An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof
 
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
+conclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list       // added in version 1.2
 ```
 
 Apply the specified definitions to the current goal
@@ -642,8 +678,8 @@ signals an error.
 ## Definition-In (Proof)
 
 ```
-conclusion ::= "definition" identifier "in" proof
 conclusion ::= "definition" "{" identifier_list "}" "in" proof
+conclusion ::= "definition" identifier_list_bar "in" proof       // added in version 1.2
 ```
 
 In the formula of the given proof, replace the occurrences of the
@@ -733,6 +769,12 @@ first equation, the left-hand side of each equation is written as
 `...` because it is just a repetition of the right-hand side of the
 previous equation.
 
+When using `replace` for one of the reasoning steps in `equations`,
+the replacement is, by default, applied to the left-hand side of the
+equation (and not the right-hand side). However, if you would like to
+apply a replacement to the right-hand side, use hash marks (`#`)
+around the region of the right-hand side that you want to change.
+
 Example:
 
 ```{.deduce^#equations_example}
@@ -741,11 +783,11 @@ theorem equations_example: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by rewrite add_commute[y][z]
-          ... = (x + z) + y    by rewrite symmetric add_assoc[x][z,y]
-          ... = (z + x) + y    by rewrite symmetric add_commute[z][x]
-          ... = z + x + y      by rewrite add_assoc[z][x,y]
-          ... = z + y + x      by rewrite add_commute[x][y]
+    x + y + z = x + z + y      by replace add_commute[y]
+          ... = #(x + z) + y#  by replace add_assoc
+          ... = #z + x# + y    by replace add_commute
+          ... = z + x + y      by replace add_assoc
+          ... = z + y + x      by replace add_commute[x]
 end
 ```
 
@@ -1093,6 +1135,22 @@ identifier_list ::= identifier
 identifier_list ::= identifier "," identifier_list
 ```
 
+## Identifier List Bar
+
+(This feature was added in Deduce version 1.2.)
+
+A bar-separated sequence of identifiers. If an identifier is preceded
+by a number and the multiplication sign, then the identifier is
+repeated. (e.g. to make a definition expand recursively more than
+once.)
+
+```
+identifier_list_bar ::= identifier
+identifier_list_bar ::= natural_number "*" identifier
+identifier_list_bar ::= identifier "|" identifier_list_bar
+identifier_list_bar ::= natural_number "*" identifier "|" identifier_list_bar
+```
+
 ## If and only if (iff)
 
 See the entry for [Biconditional](#biconditional-if-and-only-if).
@@ -1198,7 +1256,7 @@ proof
   case suc(n') assume IH: n' + 0 = n' {
     equations
       suc(n') + 0 = suc(n' + 0)  by definition operator+
-              ... = suc(n')      by rewrite IH
+              ... = suc(n')      by replace IH
   }
 end
 ```
@@ -1379,8 +1437,12 @@ define list_example = node(3, node(8, node(4, empty)))
 term ::= "#" term "#"
 ```
 
-Marking a subterm with hash symbols restricts a `rewrite` or `definition`
+Marking a subterm with hash symbols restricts a `replace` or `definition`
 proof to only apply to that subterm.
+
+The [`equations`](#equations) feature, by default, places marks around the entire
+left-hand side of each equation. However, you can override this
+default by placing explicit marks.
 
 ```{.deduce^#mark_example}
 theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
@@ -1388,13 +1450,14 @@ proof
   arbitrary x:Nat
   assume: x = 1
   equations
-    #x# + x + x = 1 + x + x   by rewrite recall x = 1
-  $ 1 + #x# + x = 1 + 1 + x   by rewrite recall x = 1
-  $ 1 + 1 + #x# = 1 + 1 + 1   by rewrite recall x = 1
+    #x# + x + x = 1 + x + x   by replace recall x = 1
+  $ 1 + #x# + x = 1 + 1 + x   by replace recall x = 1
+  $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
+            ... = 1 + #x# + 1 by replace recall x = 1
+            ... = 1 + 1 + 1   by replace recall x = 1
             ... = 3           by definition {operator+,operator+}
 end
 ```
-
 
 ## Modulo
 
@@ -1454,6 +1517,16 @@ a multiset, which is a set that may contain duplicates of an
 element. The `MultiSet<T>` type is defined in `MultiSet.pf`.
 
 
+## Natural Number
+
+```
+natural_number ::= [0-9]+
+term ::= natural_number
+```
+
+A natural number literal is a sequence of one or more digits.
+
+
 ## Not
 
 ```
@@ -1504,9 +1577,8 @@ proof
   choose 2 * x
   equations
      n = 4 * x          by m4
-   ... = #2 * 2# * x    by definition {operator*,operator*,operator*,
-                                       operator+,operator+,operator+}
-   ... = 2 * (2 * x)    by mult_assoc
+   ... = (2 * 2) * x    by evaluate
+   ... = 2 * 2 * x      by mult_assoc
 end
 ```
 
