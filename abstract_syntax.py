@@ -61,6 +61,10 @@ def set_recursive_descent(b):
 
 enable_associative = {}
 
+def init_associative():
+  global enable_associative
+  enable_associative = {}
+  
 def add_associative(op, typ):
   global enable_associative
   #print('adding associative operator ' + op + ' ' + str(typ))

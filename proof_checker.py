@@ -250,12 +250,13 @@ def rewrite_aux(loc, formula, equation):
       new_rator = rewrite_aux(loc, rator, equation)
       new_args = [rewrite_aux(loc, arg, equation) for arg in args]
 
-      if False and len(new_args) > 2:
+      if len(new_args) > 2:
           match new_rator:
             case Var(_, ty, n, rs) if len(rs) > 0 and is_associative(rs[0], ty):
+              # try to rewrite each pair of adjacent terms
               i = 0
               output_terms = []
-              while i + 1 != len(new_args):
+              while i + 1 < len(new_args):
                   left = new_args[i]
                   right = new_args[i+1]
                   tmp = Call(loc2, tyof, new_rator, [left, right])
@@ -268,11 +269,10 @@ def rewrite_aux(loc, formula, equation):
                   else:
                       output_terms.append(new_tmp)
                       i = i + 2
-              if i != len(new_args):
+              if i < len(new_args):
                   output_terms.append(new_args[i])
                   i = i + 1
-              call = unflatten(loc2, new_rator, output_terms, tyof)
-              return call
+              return Call(loc2, tyof, new_rator, output_terms)
             case _:
               pass
 
@@ -2645,6 +2645,7 @@ def check_deduce(ast, module_name):
   env = Env()
   ast2 = []
   imported_modules.clear()
+  init_associative()
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:
