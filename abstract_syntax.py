@@ -15,6 +15,9 @@ prefix_precedence = {'-': 8, 'not': 4}
 def copy_dict(d):
   return {k:v for k,v in d.items()}
 
+def maybe_str(o, default=''):
+  return str(o) if o != None else default
+
 name_id = 0
 
 def generate_name(name):
@@ -1902,7 +1905,7 @@ class Suffices(Proof):
   body: Proof
 
   def __str__(self):
-    return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + str(self.body)
+    return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + maybe_str(self.body)
 
   def uniquify(self, env):
     self.claim.uniquify(env)
@@ -1951,7 +1954,9 @@ class ImpIntro(Proof):
   body: Proof
 
   def __str__(self):
-    return 'assume ' + str(self.label) + ': ' + str(self.premise) + '{' + str(self.body) + '}'
+    return 'assume ' + str(self.label) + \
+      (': ' + str(self.premise) if self.premise else '') + \
+      ('{' + str(self.body) + '}' if self.body else '')
 
   def uniquify(self, env):
     if self.premise:
@@ -1980,7 +1985,7 @@ class AllIntro(Proof):
     else:
       res += ","
     
-    return res + str(self.body)
+    return res + maybe_str(self.body)
 
   def uniquify(self, env):
     body_env = copy_dict(env)
@@ -2052,7 +2057,7 @@ class SomeIntro(Proof):
 
   def __str__(self):
     return 'choose ' + ",".join([str(t) for t in self.witnesses]) \
-        + '; ' + str(self.body)
+        + '; ' + maybe_str(self.body)
   
   def uniquify(self, env):
     for t in self.witnesses:
@@ -2072,7 +2077,7 @@ class SomeElim(Proof):
       + ' where ' + self.label \
       + (' : ' + str(self.prop) if self.prop else '') \
       + ' from ' + str(self.some) \
-      + '; ' + str(self.body)
+      + '; ' + maybe_str(self.body)
   
   def uniquify(self, env):
     self.some.uniquify(env)
@@ -2192,7 +2197,7 @@ class PInjective(Proof):
   body: Proof
   
   def __str__(self):
-    return 'injective ' + str(self.constr) + ' ' + str(self.body)
+    return 'injective ' + str(self.constr) + '; ' + maybe_str(self.body)
 
   def uniquify(self, env):
     self.constr.uniquify(env)
@@ -2203,7 +2208,7 @@ class PExtensionality(Proof):
   body: Proof
   
   def __str__(self):
-    return 'extensionality;\n' + str(self.body)
+    return 'extensionality;\n' + maybe_str(self.body)
 
   def uniquify(self, env):
     self.body.uniquify(env)
@@ -2318,7 +2323,7 @@ class ApplyDefs(Proof):
   definitions: List[Term]
 
   def __str__(self):
-      return 'definition {' + ', '.join([str(d) for d in self.definitions]) + '}'
+      return 'definition { ' + ', '.join([str(d) for d in self.definitions]) + ' }'
 
   def uniquify(self, env):
     for d in self.definitions:
@@ -2358,8 +2363,8 @@ class EnableDefs(Proof):
   body: Proof
 
   def __str__(self):
-      return 'enable ' + ', '.join([str(d) for d in self.definitions]) \
-        + ';\n' + str(self.body)
+      return 'enable { ' + ', '.join([str(d) for d in self.definitions]) \
+        + ' };' + maybe_str(self.body)
 
   def uniquify(self, env):
     for d in self.definitions:
@@ -2604,7 +2609,7 @@ class Define(Statement):
   def __str__(self):
     return 'define ' + self.name \
       + (' : ' + str(self.typ) if self.typ else '') \
-      + ' = ' + str(self.body)
+      + ' = ' + maybe_str(self.body)
   
   def uniquify(self, env):
     if self.typ:
