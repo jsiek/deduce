@@ -66,7 +66,7 @@ end
 ```
 ````
 
-The label is important and should be unique as it will be used to generate a `/test/should-pass/doc_*.pf` test file. `convert.py` generates one test file per markdown file in the `/doc` directory where the content of that test file is specified by a comment at the bottom on the markdown file. An example is shown below:
+The label is important and should be unique as it will be used to generate a `/test/should-validate/doc_*.pf` test file. `convert.py` generates one test file per markdown file in the `/doc` directory where the content of that test file is specified by a comment at the bottom on the markdown file. An example is shown below:
 
 ````
 <!--
