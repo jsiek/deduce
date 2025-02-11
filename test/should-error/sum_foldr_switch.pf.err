@@ -10,3 +10,5 @@ Advice:
 		rewrite
 		equations
 
+Givens:
+	_: ls = []

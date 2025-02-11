@@ -1337,6 +1337,10 @@ def check_proof_of(proof, formula, env):
             pre_goal = instantiate(loc, formula, new_trm)
             goal = check_formula(pre_goal, body_env)
             
+            # fill the rest of the given induction_hypotheses with _ labels
+            for i in range(len(indcase.induction_hypotheses), len(induction_hypotheses)):
+              indcase.induction_hypotheses.append((generate_name('_'), None))
+
             for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
               if frm1 != None:
                 new_frm1 = check_formula(frm1, body_env)
@@ -1430,6 +1434,9 @@ def check_proof_of(proof, formula, env):
                 if isinstance(new_subject_case, TermInst):
                     new_subject_case.inferred = False
 
+                if len(scase.assumptions) == 0:
+                  scase.assumptions.append((generate_name('_'), None))
+                  
                 assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
                 if len(assumptions) == 1:
                   assumption = mkEqual(scase.location, new_subject, subject_case)
