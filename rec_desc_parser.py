@@ -625,7 +625,7 @@ proof_keywords = {'apply', 'arbitrary', 'assume',
 
 def parse_definition_proof():
   while_parsing = 'while parsing definition:\n' \
-      + '\tconclusion ::= "definition" identifier\n'
+      + '\tconclusion ::= "definition" identifier_list_bar\n'
   token = current_token()
   advance()
   try:
@@ -638,12 +638,11 @@ def parse_definition_proof():
                   + '\nPerhaps you forgot a comma?')
       advance()
     else:
-      defn = parse_identifier()
-      defs = [defn]
+      defs = parse_ident_list_bar()
 
     if current_token().type == 'AND':
         while_parsing = 'while parsing definition:\n' \
-            + '\tconclusion ::= "definition" identifier "and" "rewrite" proof_list\n'
+            + '\tconclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list\n'
         advance()
         if (current_token().type != 'REPLACE') and (current_token().type != 'REWRITE'):
             raise ParseError(meta_from_tokens(current_token(),current_token()),
@@ -657,7 +656,7 @@ def parse_definition_proof():
                               Rewrite(meta, eqns))
     elif current_token().type == 'IN':
         while_parsing = 'while parsing definition:\n' \
-            + '\tconclusion ::= "definition" identifier "in" proof\n'
+            + '\tconclusion ::= "definition" identifier_list_bar "in" proof\n'
         advance()
         subject = parse_proof()
         meta = meta_from_tokens(token, previous_token())
@@ -1452,11 +1451,11 @@ def parse_recursive_function():
     type_params = parse_type_parameters()
 
     if current_token().type == 'LPAR':
-      start_token = current_token()
+      paren_start_token = current_token()
       advance()
       param_types = parse_type_list()
       if current_token().type != 'RPAR':
-        raise ParseError(meta_from_tokens(start_token, previous_token()),
+        raise ParseError(meta_from_tokens(paren_start_token, previous_token()),
               'expected a closing parenthesis, not\n\t' \
               + quote(current_token().value))
       advance()
@@ -1631,6 +1630,14 @@ def parse_statement():
   elif token.type == 'OPAQUE':
     return parse_opaque()
   
+  elif token.type == 'ASSOCIATIVE':
+    advance()
+    name = parse_identifier()
+    advance()
+    typ = parse_type()
+    meta = meta_from_tokens(token, previous_token())
+    return Associative(meta, Var(meta, None, name, []), typ)
+
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:
@@ -1852,6 +1859,25 @@ def parse_ident_list():
     advance()
     ident = parse_identifier()
     ident_list.append(ident)
+  return ident_list
+
+def parse_single_or_repeat():
+  if current_token().type == 'INT':
+      num = int(current_token().value)
+      advance()
+      advance()
+      ident = parse_identifier()
+      ident_list = num * [ident]
+  else:
+      ident = parse_identifier()
+      ident_list = [ident]
+  return ident_list
+      
+def parse_ident_list_bar():
+  ident_list = parse_single_or_repeat()
+  while current_token().value == '|':
+    advance()
+    ident_list += parse_single_or_repeat()
   return ident_list
 
 def parse_type_annot_list():

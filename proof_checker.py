@@ -202,6 +202,15 @@ def rewrite(loc, formula, equation):
     else:
         error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
 
+def unflatten(loc2, rator, args, call_ty):
+    if len(args) == 1:
+        return args[0]
+    elif len(args) == 2:
+        return Call(loc2, call_ty, rator, args)
+    else:
+        rest = unflatten(rators, args[1:])
+        return Call(loc2, call_ty, new_rator, [args[0], rest])
+    
 def rewrite_aux(loc, formula, equation):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
@@ -220,7 +229,8 @@ def rewrite_aux(loc, formula, equation):
     return rhs
   match formula:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
-      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation), tyargs, inferred)
+      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation),
+                      tyargs, inferred)
     case Var(loc2, tyof, name, resolved_names):
       return formula
     case Bool(loc2, tyof, val):
@@ -237,12 +247,43 @@ def rewrite_aux(loc, formula, equation):
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
     case Call(loc2, tyof, rator, args):
-      call = Call(loc2, tyof,
-                  rewrite_aux(loc, rator, equation),
-                  [rewrite_aux(loc, arg, equation) for arg in args])
+      new_rator = rewrite_aux(loc, rator, equation)
+      new_args = [rewrite_aux(loc, arg, equation) for arg in args]
+
+      if len(new_args) > 2:
+          match new_rator:
+            case Var(_, ty, n, rs) if len(rs) > 0 \
+                and is_associative(rs[0], ty.return_type):
+              # try to rewrite each pair of adjacent terms
+              i = 0
+              output_terms = []
+              while i + 1 < len(new_args):
+                  left = new_args[i]
+                  right = new_args[i+1]
+                  tmp = Call(loc2, tyof, new_rator, [left, right])
+                  old_num_rewrites = get_num_rewrites()
+                  new_tmp = rewrite_aux(loc, tmp, equation)
+                  new_num_rewrites = get_num_rewrites()
+                  if new_num_rewrites == old_num_rewrites:
+                      output_terms.append(left)
+                      i = i + 1
+                  else:
+                      output_terms.append(new_tmp)
+                      i = i + 2
+              if i < len(new_args):
+                  output_terms.append(new_args[i])
+              if len(output_terms) > 1:
+                  return Call(loc2, tyof, new_rator, output_terms)
+              else:
+                  return output_terms[0]
+            case _:
+              pass
+
+      call = Call(loc2, tyof, new_rator, new_args)
       if hasattr(formula, 'type_args'):
-          call.type_args = formula.type_args
+        call.type_args = formula.type_args
       return call
+  
     case Switch(loc2, tyof, subject, cases):
       return Switch(loc2, tyof, rewrite_aux(loc, subject, equation),
                     [rewrite_aux(loc, c, equation) for c in cases])
@@ -1526,9 +1567,14 @@ def formula_match(loc, vars, goal_frm, frm, matching, env):
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
       formula_match(loc, vars, goal_rator, rator, matching, env)
-      for (goal_rand, rand) in zip(goal_rands, rands):
+      if len(rands) == len(goal_rands):
+        for (goal_rand, rand) in zip(goal_rands, rands):
           new_goal_rand = goal_rand.substitute(matching)
           formula_match(loc, vars, new_goal_rand, rand, matching, env)
+      else:
+        error(loc, "formula: " + str(frm) + "\n" \
+              + "does not match expected formula: " + str(goal_frm))
+        
     case (And(loc2, tyof2, goal_args),
           And(loc3, tyof3, args)):
       for (goal_arg, arg) in zip(goal_args, args):
@@ -2429,6 +2475,10 @@ def process_declaration(stmt, env):
   
     case Print(loc, trm):
       return stmt, env
+
+    case Associative(loc, op, typeof):
+      check_type(typeof, env)
+      return stmt, env
   
     case _:
       error(stmt.location, "unrecognized statement:\n" + str(stmt))
@@ -2503,6 +2553,9 @@ def type_check_stmt(stmt, env):
     case Print(loc, trm):
       new_trm = type_synth_term(trm, env, None, [])
       return Print(loc, new_trm)
+
+    case Associative(loc, op, typ):
+      return Associative(loc, op, typ)
   
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
@@ -2529,6 +2582,9 @@ def collect_env(stmt, env):
       return env
   
     case Print(loc, trm):
+      return env
+
+    case Associative(loc, op, typ):
       return env
   
     case _:
@@ -2585,14 +2641,19 @@ def check_proofs(stmt, env):
             case result:
               error(loc, 'assertion expected Boolean result, not ' \
                     + str(result))
-          
+
+    case Associative(loc, Var(_, _, _, rs), typ):
+      #add_associative(rs[0], FunctionType(loc, [], [typ,typ], typ))
+      add_associative(rs[0], typ)
+  
     case _:
-      error(stmt.location, "unrecognized statement:\n" + str(stmt))
+      error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
 def check_deduce(ast, module_name):
   env = Env()
   ast2 = []
   imported_modules.clear()
+  init_associative()
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:

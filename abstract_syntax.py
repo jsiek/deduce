@@ -59,6 +59,59 @@ def set_recursive_descent(b):
   global recursive_descent
   recursive_descent = b
 
+enable_associative = {}
+
+def init_associative():
+  global enable_associative
+  enable_associative = {}
+  
+def add_associative(op, typ):
+  global enable_associative
+  #print('adding associative operator ' + op + ' ' + str(typ))
+  if op in enable_associative.keys():
+    enable_associative[op].append(typ)
+  else:
+    enable_associative[op] = [typ]
+
+def is_associative(op, typ):
+  if op in enable_associative.keys():
+    #print('is_assoc, types: ' + ', '.join([str(ty) for ty in enable_associative[op]]))
+    return typ in enable_associative[op]
+  else:
+    return False
+
+def rator_name(rator):
+  match rator:
+    case Var(l, t, n, rs):
+      if len(rs) > 0:
+        return rs[0]
+      else:
+        return n
+    case RecFun(loc, name, typarams, params, returns, cases):
+      return name
+    case Lambda(loc, ty, vars, body):
+      return None
+    case TermInst(loc3, tyof, arg2, tyargs):
+      #return rator_name(arg2)
+      return None
+    case Generic(loc2, tyof, typarams, body):
+      #return rator_name(body)
+      return None
+    case _:
+      #raise Exception('rator_name: unhandled ' + repr(rator))
+      return None
+
+  
+def flatten_assoc(op, trm):
+    match trm:
+      case Call(loc2, tyof, rator, args) if rator_name(rator) == op:
+        new_args = sum([flatten_assoc(op, arg) for arg in args], [])
+        return new_args
+      case _:
+        return [trm]
+
+############ AST Base Classes ###########
+  
 @dataclass
 class AST:
     location: Meta
@@ -576,7 +629,8 @@ class Var(Term):
   def substitute(self, sub):
       if self.name in sub:
           trm = sub[self.name]
-          add_reduced_def(self.name)
+          if not isinstance(trm, RecFun):
+            add_reduced_def(self.name)
           return trm
       else:
           return self
@@ -811,12 +865,45 @@ def precedence(trm):
     case _:
       return None
 
+def left_child(parent, child):
+  match parent:
+    case Call(loc1, tyof, rator, [left, right]):
+      return child is left
+    case _:
+      return False
+    
 def op_arg_str(trm, arg):
   if precedence(trm) != None and precedence(arg) != None:
-    if precedence(arg) <= precedence(trm):
+    if precedence(arg) < precedence(trm):
+      return "(" + str(arg) + ")"
+    elif precedence(arg) == precedence(trm) and left_child(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
-    
+
+def do_function_call(loc, name, params, args, body, subst, env):
+  body_env = env
+  assert len(params) == len(args)
+  for (k,v) in zip(params, args):
+    subst[k] = v
+  for (k,v) in subst.items():
+    if isinstance(v, TermInst):
+      v.inferred = False
+  new_fun_case_body = body.substitute(subst)
+  old_defs = get_reduce_only()
+  reduce_defs = [x for x in old_defs]
+  if Var(loc, None, name, []) in reduce_defs:
+    reduce_defs.remove(Var(loc, None, name, []))
+  else:
+    pass
+  reduce_defs += [Var(loc, None, x, []) \
+                  for x in params \
+                  + params]
+  set_reduce_only(reduce_defs)
+  ret = new_fun_case_body.reduce(body_env)
+  set_reduce_only(old_defs)
+  add_reduced_def(name)
+  return ret
+
 @dataclass
 class Call(Term):
   rator: Term
@@ -831,9 +918,9 @@ class Call(Term):
     return ret
 
   def __str__(self):
-    if is_infix_operator(self.rator) and len(self.args) == 2:
-      return op_arg_str(self, self.args[0]) + " " + operator_name(self.rator) \
-        + " " + op_arg_str(self, self.args[1])
+    if is_infix_operator(self.rator) and len(self.args) >= 2:
+      op_str = ' ' + operator_name(self.rator) + ' '
+      return op_str.join([op_arg_str(self, arg) for arg in self.args])
     elif is_prefix_operator(self.rator) and len(self.args) == 1:
       return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isNat(self) and not get_verbose():
@@ -857,8 +944,14 @@ class Call(Term):
       return eq_rators and eq_rands
 
   def reduce(self, env):
+    fun_name = rator_name(self.rator)
+    is_assoc = is_associative(fun_name, self.args[0].typeof)
+    if len(self.args) > 0 and is_assoc:
+      flat_args = sum([flatten_assoc(fun_name, arg) for arg in self.args], [])
+    else:
+      flat_args = self.args
     fun = self.rator.reduce(env)
-    args = [arg.reduce(env) for arg in self.args]
+    args = [arg.reduce(env) for arg in flat_args]
     if get_verbose():
       print('reduce call ' + str(self))
     if get_verbose():
@@ -874,7 +967,13 @@ class Call(Term):
           ret = Bool(loc, BoolType(loc), False)
         else:
           ret = Call(self.location, self.typeof, fun, args)
+      case Var(loc, ty, name, rs) if len(rs) > 0 and is_associative(rs[0], ty):
+        #new_args = sum([flatten_assoc(rs[0], arg) for arg in args], [])
+        ret = Call(self.location, self.typeof, fun, args)
+        if hasattr(self, 'type_args'):
+          ret.type_args = self.type_args
       case Lambda(loc, ty, vars, body):
+        assert len(vars) == len(args)
         subst = {k: v for ((k,t),v) in zip(vars, args)}
         for (k,v) in subst.items():
           if isinstance(v, TermInst):
@@ -885,7 +984,8 @@ class Call(Term):
         set_reduce_only(old_defs + [Var(loc, t, x, []) for (x,t) in vars])
         ret = new_body.reduce(body_env)
         set_reduce_only(old_defs)
-      case TermInst(loc, tyof, RecFun(loc2, name, typarams, params, returns, cases), type_args):
+      case TermInst(loc, tyof, RecFun(loc2, name, typarams, params, returns, cases),
+                    type_args):
         if get_verbose():
           print('call to instantiated generic recursive function')
         first_arg = args[0]
@@ -923,36 +1023,45 @@ class Call(Term):
       
       case RecFun(loc, name, [], params, returns, cases):
         if get_verbose():
-          print('call to recursive function')
-        first_arg = args[0]
-        rest_args = args[1:]
-        for fun_case in cases:
-            subst = {}
-            if is_match(fun_case.pattern, first_arg, subst):
-                body_env = env
-                for (k,v) in zip(fun_case.parameters, rest_args):
-                  subst[k] = v
-                for (k,v) in subst.items():
-                  if isinstance(v, TermInst):
-                    v.inferred = False
-                new_fun_case_body = fun_case.body.substitute(subst)
-                old_defs = get_reduce_only()
-                reduce_defs = [x for x in old_defs]
-                if Var(loc, None, name, []) in reduce_defs:
-                  reduce_defs.remove(Var(loc, None, name, []))
-                else:
-                  pass
-                reduce_defs += [Var(loc, None, x, []) \
-                                for x in fun_case.pattern.parameters \
-                                + fun_case.parameters]
-                set_reduce_only(reduce_defs)
-                ret = new_fun_case_body.reduce(body_env)
-                set_reduce_only(old_defs)
-                add_reduced_def(name)
-                result = ret
-                return result
-            else:
-              pass
+          print('call to recursive function: ' + str(fun))
+          print('\targs: ' + ', '.join([str(a) for a in args]))
+
+        if is_assoc:
+          i = 0
+          output_args = []
+          while i + len(params) <= len(args):
+            first_arg = args[i]
+            rest_args = args[i+1 : i + len(params)]
+            did_call = False
+            for fun_case in cases:
+                subst = {}
+                if is_match(fun_case.pattern, first_arg, subst):
+                  result = do_function_call(loc, name, fun_case.parameters, rest_args,
+                                            fun_case.body, subst, env)
+                  output_args.append(result)
+                  i = i + len(params)
+                  did_call = True
+                  break
+            if not did_call:
+              output_args.append(first_arg)
+              i = i + 1
+          if i < len(args):
+            output_args += args[i:]
+          if len(output_args) > 1:
+            return Call(self.location, self.typeof, fun, output_args)
+          else:
+            return output_args[0]
+
+        if len(args) == len(params):
+          first_arg = args[0]
+          rest_args = args[1:]
+          for fun_case in cases:
+              subst = {}
+              if is_match(fun_case.pattern, first_arg, subst):
+                  return do_function_call(loc, name, fun_case.parameters, rest_args,
+                                          fun_case.body, subst, env)
+              else:
+                pass
         ret = Call(self.location, self.typeof, fun, args)
 
       case Generic(loc2, tyof, typarams, body):
@@ -1864,7 +1973,7 @@ class AllIntro(Proof):
     x, t = self.var
     res = ''
     if s + 1 == e:
-      res += 'arbitrary'
+      res += 'arbitrary '
     res += f"{x} : {str(t)}"
     if s == 0:
       res += ";"
@@ -2314,7 +2423,7 @@ class Theorem(Statement):
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
-      + '\nbegin\n' + str(self.proof) + '\nend\n'
+      + '\nproof\n' + str(self.proof) + '\nend\n'
 
   def uniquify(self, env):
     if self.name in env.keys():
@@ -2601,7 +2710,21 @@ class Import(Statement):
 
   def collect_exports(self, export_env):
     pass
-    
+
+@dataclass
+class Associative(Statement):
+  op: Term
+  typeof: Type
+
+  def __str__(self):
+    return 'associative ' + str(self.op) + ' ' + str(self.typeof)
+
+  def uniquify(self, env):
+    self.op.uniquify(env)
+    self.typeof.uniquify(env)
+
+# ---------------------
+# Auxiliary Functions
   
 def mkEqual(loc, arg1, arg2):
   ret = Call(loc, None, Var(loc, None, '=', []), [arg1, arg2])

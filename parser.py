@@ -62,9 +62,18 @@ def parse_tree_to_list(e, parent):
         return tuple([])
     elif e.data == 'single':
         return tuple([parse_tree_to_ast(e.children[0], parent)])
+    elif e.data == 'repeat':
+        num = int(e.children[0])
+        item = parse_tree_to_ast(e.children[1], parent)
+        return tuple(num * [item])
     elif e.data == 'push':
         return tuple([parse_tree_to_ast(e.children[0], parent)]) \
             + parse_tree_to_list(e.children[1], parent)
+    elif e.data == 'push_repeat':
+        num = int(e.children[0])
+        item = parse_tree_to_ast(e.children[1], parent)
+        rest = parse_tree_to_list(e.children[2], parent)
+        return tuple(num * [item]) + rest
     elif e.data == 'empty_binding':
         return tuple([])
     elif e.data == 'single_binding':
@@ -513,12 +522,6 @@ def parse_tree_to_ast(e, parent):
         return ApplyDefsFact(e.meta,
                              [Var(e.meta, None, t, []) for t in definitions],
                              subject)
-    elif e.data == 'apply_defs_fact_one':
-        definition = parse_tree_to_ast(e.children[0], e)
-        subject = parse_tree_to_ast(e.children[1], e)
-        return ApplyDefsFact(e.meta,
-                             [Var(e.meta, None, definition, [])],
-                             subject)
     elif e.data == 'enable_defs':
         definitions = parse_tree_to_list(e.children[0], e)
         return EnableDefs(e.meta,
@@ -534,16 +537,6 @@ def parse_tree_to_ast(e, parent):
         return ApplyDefsGoal(e.meta,
                              [Var(e.meta, None, t, []) for t in definitions],
                              Rewrite(e.meta, eqns))
-    elif e.data == 'reason_def_one_rewrite':
-        dfn = parse_tree_to_ast(e.children[0], e)
-        definitions = [Var(e.meta, None, dfn, [])]
-        eqns = parse_tree_to_list(e.children[1], e)
-        return ApplyDefsGoal(e.meta,
-                             definitions,
-                             Rewrite(e.meta, eqns))
-    elif e.data == 'reason_definition_one':
-        dfn = parse_tree_to_ast(e.children[0], e)
-        return ApplyDefs(e.meta, [Var(e.meta, None, dfn, [])])
     elif e.data == 'enable_def':
         definition = parse_tree_to_ast(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
@@ -625,6 +618,10 @@ def parse_tree_to_ast(e, parent):
                        parse_tree_to_ast(e.children[1], e),
                        parse_tree_to_ast(e.children[2], e),
                        isLemma = True)
+    elif e.data == 'assoc_decl':
+        return Associative(e.meta,
+                           Var(e.meta, None, parse_tree_to_ast(e.children[0], e), []),
+                           parse_tree_to_ast(e.children[1], e))
 
     # patterns in function definitions
     elif e.data == 'pattern_id':
