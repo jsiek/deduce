@@ -1,0 +1,13 @@
+import Nat
+
+associative operator+ in Nat
+
+theorem T: all x:Nat,y:Nat,z:Nat.
+  x + suc(y) + z = suc(x + y + z)
+proof
+  arbitrary x:Nat,y:Nat,z:Nat
+  equations
+      x + suc(y) + z
+      = suc(x + y) + z     by replace add_suc
+  ... = suc(x + y + z)     by replace suc_add
+end

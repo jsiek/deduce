@@ -618,6 +618,10 @@ def parse_tree_to_ast(e, parent):
                        parse_tree_to_ast(e.children[1], e),
                        parse_tree_to_ast(e.children[2], e),
                        isLemma = True)
+    elif e.data == 'assoc_decl':
+        return Associative(e.meta,
+                           Var(e.meta, None, parse_tree_to_ast(e.children[0], e), []),
+                           parse_tree_to_ast(e.children[1], e))
 
     # patterns in function definitions
     elif e.data == 'pattern_id':

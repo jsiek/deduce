@@ -17,13 +17,13 @@ function length<E>(List<E>) -> Nat {
 }
 
 function operator ++ <E>(List<E>, List<E>) -> List<E> {
-  operator ++(empty, ys) = ys
+  operator ++([], ys) = ys
   operator ++(node(n, xs), ys) = node(n, xs ++ ys)
 }
 
 function reverse<E>(List<E>) -> List<E> {
-  reverse(empty) = empty
-  reverse(node(n, next)) = reverse(next) ++ node(n, empty)
+  reverse([]) = []
+  reverse(node(n, next)) = reverse(next) ++ [n]
 }
 
 function set_of<T>(List<T>) -> Set<T> {

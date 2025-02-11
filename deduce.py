@@ -49,7 +49,7 @@ def deduce_file(filename, error_expected):
             if get_verbose():
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
             add_uniquified_module(module_name, ast)
-                
+
         check_deduce(ast, module_name)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
