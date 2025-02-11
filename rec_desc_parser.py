@@ -1451,11 +1451,11 @@ def parse_recursive_function():
     type_params = parse_type_parameters()
 
     if current_token().type == 'LPAR':
-      start_token = current_token()
+      paren_start_token = current_token()
       advance()
       param_types = parse_type_list()
       if current_token().type != 'RPAR':
-        raise ParseError(meta_from_tokens(start_token, previous_token()),
+        raise ParseError(meta_from_tokens(paren_start_token, previous_token()),
               'expected a closing parenthesis, not\n\t' \
               + quote(current_token().value))
       advance()
