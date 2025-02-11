@@ -252,7 +252,8 @@ def rewrite_aux(loc, formula, equation):
 
       if len(new_args) > 2:
           match new_rator:
-            case Var(_, ty, n, rs) if len(rs) > 0 and is_associative(rs[0], ty):
+            case Var(_, ty, n, rs) if len(rs) > 0 \
+                and is_associative(rs[0], ty.return_type):
               # try to rewrite each pair of adjacent terms
               i = 0
               output_terms = []
@@ -271,8 +272,10 @@ def rewrite_aux(loc, formula, equation):
                       i = i + 2
               if i < len(new_args):
                   output_terms.append(new_args[i])
-                  i = i + 1
-              return Call(loc2, tyof, new_rator, output_terms)
+              if len(output_terms) > 1:
+                  return Call(loc2, tyof, new_rator, output_terms)
+              else:
+                  return output_terms[0]
             case _:
               pass
 
@@ -2636,7 +2639,8 @@ def check_proofs(stmt, env):
                     + str(result))
 
     case Associative(loc, Var(_, _, _, rs), typ):
-      add_associative(rs[0], FunctionType(loc, [], [typ,typ], typ))
+      #add_associative(rs[0], FunctionType(loc, [], [typ,typ], typ))
+      add_associative(rs[0], typ)
   
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
