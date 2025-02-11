@@ -2324,7 +2324,11 @@ def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
   match stmt:
-    case Define(loc, name, ty, body, isPrivate):
+    case Define(loc, name, ty, body, isPrivate, isOpaque):
+      if isOpaque:
+          error(loc, 'definition ' + base_name(name) + ' cannot be used inside of a proof')
+                   
+
       if ty == None:
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
