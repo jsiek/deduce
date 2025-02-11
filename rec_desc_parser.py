@@ -1608,6 +1608,14 @@ def parse_statement():
   elif token.type == 'PRIVATE':
     return parse_private()
 
+  elif token.type == 'ASSOCIATIVE':
+    advance()
+    name = parse_identifier()
+    advance()
+    typ = parse_type()
+    meta = meta_from_tokens(token, previous_token())
+    return Associative(meta, Var(meta, None, name, []), typ)
+
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:

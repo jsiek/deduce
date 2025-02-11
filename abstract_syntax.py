@@ -59,6 +59,34 @@ def set_recursive_descent(b):
   global recursive_descent
   recursive_descent = b
 
+enable_associative = {}
+
+def add_associative(op, typ):
+  global enable_associative
+  #print('adding associative operator ' + op + ' ' + str(typ))
+  if op in enable_associative.keys():
+    enable_associative[op].append(typ)
+  else:
+    enable_associative[op] = [typ]
+
+def is_associative(op, typ):
+  if op in enable_associative.keys():
+    #print('is_assoc, types: ' + ', '.join([str(ty) for ty in enable_associative[op]]))
+    return typ in enable_associative[op]
+  else:
+    return False
+
+def flatten_assoc(op, trm):
+    match trm:
+      case Call(loc2, tyof, Var(l, t, n, rs), args) \
+          if len(rs) > 0 and rs[0] == op:
+        new_args = sum([flatten_assoc(op, arg) for arg in args], [])
+        return new_args
+      case _:
+        return [trm]
+
+############ AST Base Classes ###########
+  
 @dataclass
 class AST:
     location: Meta
@@ -841,9 +869,9 @@ class Call(Term):
     return ret
 
   def __str__(self):
-    if is_infix_operator(self.rator) and len(self.args) == 2:
-      return op_arg_str(self, self.args[0]) + " " + operator_name(self.rator) \
-        + " " + op_arg_str(self, self.args[1])
+    if is_infix_operator(self.rator) and len(self.args) >= 2:
+      op_str = ' ' + operator_name(self.rator) + ' '
+      return op_str.join([op_arg_str(self, arg) for arg in self.args])
     elif is_prefix_operator(self.rator) and len(self.args) == 1:
       return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isNat(self) and not get_verbose():
@@ -884,6 +912,11 @@ class Call(Term):
           ret = Bool(loc, BoolType(loc), False)
         else:
           ret = Call(self.location, self.typeof, fun, args)
+      case Var(loc, ty, name, rs) if len(rs) > 0 and is_associative(rs[0], ty):
+        new_args = sum([flatten_assoc(rs[0], arg) for arg in args], [])
+        ret = Call(self.location, self.typeof, fun, new_args)
+        if hasattr(self, 'type_args'):
+          ret.type_args = self.type_args
       case Lambda(loc, ty, vars, body):
         subst = {k: v for ((k,t),v) in zip(vars, args)}
         for (k,v) in subst.items():
@@ -2608,7 +2641,21 @@ class Import(Statement):
 
   def collect_exports(self, export_env):
     pass
-    
+
+@dataclass
+class Associative(Statement):
+  op: Term
+  typeof: Type
+
+  def __str__(self):
+    return 'associative ' + str(self.op) + ' ' + str(self.typeof)
+
+  def uniquify(self, env):
+    self.op.uniquify(env)
+    self.typeof.uniquify(env)
+
+# ---------------------
+# Auxiliary Functions
   
 def mkEqual(loc, arg1, arg2):
   ret = Call(loc, None, Var(loc, None, '=', []), [arg1, arg2])

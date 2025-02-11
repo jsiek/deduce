@@ -279,7 +279,6 @@ proof
   symmetric add_assoc
 end
 
-
 theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y = x + z then y = z
 proof
@@ -388,10 +387,10 @@ proof
   }
   case suc(m') suppose IH {
     arbitrary n:Nat
-    equations   (suc(m') + n) - suc(m')
-              = suc(m' + n) - suc(m')      by replace suc_add
-          ... = (m' + n) - m'              by definition operator-
-          ... = n                          by IH[n]
+    equations  (suc(m') + n) - suc(m')
+             = suc(m' + n) - suc(m')      by replace suc_add
+         ... = (m' + n) - m'              by definition operator-
+         ... = n                          by IH[n]
   }
 end
 
@@ -428,10 +427,9 @@ theorem sub_order : all x : Nat, y : Nat, z : Nat.
   (x - y) - z = (x - z) - y
 proof
   arbitrary x : Nat, y : Nat, z : Nat
-  equations 
-    (x - y) - z = x - (y + z) by sub_sub_eq_sub_add
-            ... = x - (z + y) by replace add_commute
-            ... = (x - z) - y by replace symmetric sub_sub_eq_sub_add[x, z, y]
+  equations  (x - y) - z = x - (y + z)   by sub_sub_eq_sub_add
+                     ... = x - (z + y)   by replace add_commute
+                     ... = #(x - z) - y# by replace sub_sub_eq_sub_add
 end
 
 /*
@@ -453,10 +451,9 @@ proof
     conclude 0 * 0 = 0   by definition operator*
   }
   case suc(n') suppose IH {
-    equations     suc(n') * 0
-                = 0 + n' * 0      by definition operator*
-            ... = n' * 0          by zero_add[n'*0]
-            ... = 0               by IH
+    equations  suc(n') * 0 = 0 + n' * 0      by definition operator*
+                       ... = n' * 0          by zero_add[n'*0]
+                       ... = 0               by IH
   }
 end
 
@@ -473,9 +470,9 @@ proof
   induction Nat
   case 0 {
     arbitrary n:Nat
-    equations    0 * suc(n) = 0            by zero_mult[suc(n)]
-                        ... = 0 * n        by symmetric zero_mult[n]
-                        ... = 0 + 0 * n    by symmetric zero_add[0*n]
+    equations   0 * suc(n) = 0            by zero_mult[suc(n)]
+                       ... = 0 * n        by symmetric zero_mult[n]
+                       ... = 0 + 0 * n    by symmetric zero_add[0*n]
   }
   case suc(m') suppose IH {
     arbitrary n:Nat

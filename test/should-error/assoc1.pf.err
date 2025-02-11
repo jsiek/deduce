@@ -1,0 +1,4 @@
+./test/should-error/assoc1.pf:15.31-15.46: no matches found for rewrite with
+	(all m:Nat. (all n:Nat. m + suc(n) = suc(m + n)))
+in
+	x + suc(y) + z

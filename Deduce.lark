@@ -296,6 +296,8 @@ ident: IDENT              -> ident
 
 ?print: "print" term                               -> print
 
+?assoc_decl: "associative" ident "in" type         -> assoc_decl
+
 ?statement: theorem
  | union
  | rec_function
@@ -305,6 +307,7 @@ ident: IDENT              -> ident
  | assert
  | print
  | private
+ | assoc_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
