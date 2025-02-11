@@ -284,6 +284,8 @@ ident: IDENT              -> ident
 ?definition: "define" ident "=" term      -> define
  | "define" ident ":" type "=" term       -> define_annot
 
+?opaque: "opaque" definition           -> opaque
+
 ?import: "import" IDENT                            -> import
 
 ?assert: "assert" term                             -> assert
@@ -299,6 +301,7 @@ ident: IDENT              -> ident
  | assert
  | print
  | private
+ | opaque
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

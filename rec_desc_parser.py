@@ -1538,7 +1538,26 @@ def parse_private():
   except Exception as e:
     raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
+  
+def parse_opaque():
+  while_parsing = 'while parsing\n' \
+    + '\nstatement ::= "opaque" statement'
+  try: 
+    my_token = current_token() 
+    advance()
+    statement = parse_statement()
+    match statement:
+      case Define(meta, name, typ, body, isPrivate):
+        statement.makeOpaque = True
+        return statement
+      case _:
+        raise ParseError(meta_from_tokens(my_token, my_token), 'expected a define after opaque')
 
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(my_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
+      + str(e))
 
 statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
                       'union'}
@@ -1608,7 +1627,10 @@ def parse_statement():
   
   elif token.type == 'PRIVATE':
     return parse_private()
-
+  
+  elif token.type == 'OPAQUE':
+    return parse_opaque()
+  
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:

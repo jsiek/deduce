@@ -2491,7 +2491,8 @@ class Define(Statement):
   typ: Type
   body: Term
   isPrivate: bool
-  isOpaque: bool
+  isOpaque: bool = False
+  makeOpaque: bool = False
 
   def __str__(self):
     return 'define ' + self.name \
@@ -2510,6 +2511,7 @@ class Define(Statement):
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
+    self.isOpaque = self.makeOpaque
     extend(export_env, base_name(self.name), self.name)
     
 uniquified_modules = {}

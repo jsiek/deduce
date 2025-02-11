@@ -697,6 +697,12 @@ def parse_tree_to_ast(e, parent):
         statement = parse_tree_to_ast(e.children[0], e)
         statement.isPrivate = True
         return statement
+    
+    elif e.data == 'opaque':
+        statement = parse_tree_to_ast(e.children[0], e)
+        statement.makeOpaque = True
+        return statement
+        
 
     # whole program
     elif e.data == 'program':
