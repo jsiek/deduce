@@ -188,16 +188,16 @@ def get_num_rewrites():
     global num_rewrites
     return num_rewrites
 
-def rewrite(loc, formula, equation):
+def rewrite(loc, formula, equation, env):
     num_marks = count_marks(formula)
     if num_marks == 0:
-        return rewrite_aux(loc, formula, equation)
+        return rewrite_aux(loc, formula, equation, env)
     elif num_marks == 1:
         try:
             find_mark(formula)
             error(loc, 'in rewrite, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
-            new_subject = rewrite_aux(loc, ex.subject, equation)
+            new_subject = rewrite_aux(loc, ex.subject, equation, env)
             return replace_mark(formula, new_subject)
     else:
         error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
@@ -211,7 +211,7 @@ def unflatten(loc2, rator, args, call_ty):
         rest = unflatten(rators, args[1:])
         return Call(loc2, call_ty, new_rator, [args[0], rest])
     
-def rewrite_aux(loc, formula, equation):
+def rewrite_aux(loc, formula, equation, env):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
     print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
@@ -229,31 +229,31 @@ def rewrite_aux(loc, formula, equation):
     return rhs
   match formula:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
-      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation),
+      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation, env),
                       tyargs, inferred)
     case Var(loc2, tyof, name, resolved_names):
       return formula
     case Bool(loc2, tyof, val):
       return formula
     case And(loc2, tyof, args):
-      return And(loc2, tyof, [rewrite_aux(loc, arg, equation) for arg in args])
+      return And(loc2, tyof, [rewrite_aux(loc, arg, equation, env) for arg in args])
     case Or(loc2, tyof, args):
-      return Or(loc2, tyof, [rewrite_aux(loc, arg, equation) for arg in args])
+      return Or(loc2, tyof, [rewrite_aux(loc, arg, equation, env) for arg in args])
     case IfThen(loc2, tyof, prem, conc):
-      return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation),
-                    rewrite_aux(loc, conc, equation))
+      return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation, env),
+                    rewrite_aux(loc, conc, equation, env))
     case All(loc2, tyof, var, pos, frm2):
-      return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation))
+      return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation, env))
     case Some(loc2, tyof, vars, frm2):
-      return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation))
+      return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env))
     case Call(loc2, tyof, rator, args):
-      new_rator = rewrite_aux(loc, rator, equation)
-      new_args = [rewrite_aux(loc, arg, equation) for arg in args]
+      new_rator = rewrite_aux(loc, rator, equation, env)
+      new_args = [rewrite_aux(loc, arg, equation, env) for arg in args]
 
       if len(new_args) > 2:
           match new_rator:
             case Var(_, ty, n, rs) if len(rs) > 0 \
-                and is_associative(rs[0], ty.return_type):
+                and is_associative(rs[0], ty.return_type, env):
               # try to rewrite each pair of adjacent terms
               i = 0
               output_terms = []
@@ -262,7 +262,7 @@ def rewrite_aux(loc, formula, equation):
                   right = new_args[i+1]
                   tmp = Call(loc2, tyof, new_rator, [left, right])
                   old_num_rewrites = get_num_rewrites()
-                  new_tmp = rewrite_aux(loc, tmp, equation)
+                  new_tmp = rewrite_aux(loc, tmp, equation, env)
                   new_num_rewrites = get_num_rewrites()
                   if new_num_rewrites == old_num_rewrites:
                       output_terms.append(left)
@@ -285,32 +285,32 @@ def rewrite_aux(loc, formula, equation):
       return call
   
     case Switch(loc2, tyof, subject, cases):
-      return Switch(loc2, tyof, rewrite_aux(loc, subject, equation),
-                    [rewrite_aux(loc, c, equation) for c in cases])
+      return Switch(loc2, tyof, rewrite_aux(loc, subject, equation, env),
+                    [rewrite_aux(loc, c, equation, env) for c in cases])
     case SwitchCase(loc2, pat, body):
-      return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation))
+      return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation, env))
     case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
-      return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation),
-                         rewrite_aux(loc, thn, equation),
-                         rewrite_aux(loc, els, equation))
+      return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation, env),
+                         rewrite_aux(loc, thn, equation, env),
+                         rewrite_aux(loc, els, equation, env))
     case Lambda(loc2, tyof, vars, body):
-      return Lambda(loc2, tyof, vars, rewrite_aux(loc, body, equation))
+      return Lambda(loc2, tyof, vars, rewrite_aux(loc, body, equation, env))
   
     case Generic(loc2, tyof, typarams, body):
-      return Generic(loc2, tyof, typarams, rewrite_aux(loc, body, equation))
+      return Generic(loc2, tyof, typarams, rewrite_aux(loc, body, equation, env))
   
     case TAnnote(loc2, tyof, subject, typ):
-      return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation), typ)
+      return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation, env), typ)
 
     case ArrayGet(loc2, tyof, arr, ind):
-      return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation),
-                      rewrite_aux(loc, ind, equation))
+      return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env),
+                      rewrite_aux(loc, ind, equation, env))
   
     case TLet(loc2, tyof, var, rhs, body):
-      return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation),
-                  rewrite_aux(loc, body, equation))
+      return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env),
+                  rewrite_aux(loc, body, equation, env))
   
     case Hole(loc2, tyof):
       return formula
@@ -454,7 +454,7 @@ def check_proof(proof, env):
         if not is_equation(eq):
             error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
         reset_num_rewrites()
-        new_formula = rewrite(loc, new_formula, eq)
+        new_formula = rewrite(loc, new_formula, eq, env)
         if get_num_rewrites() == 0:
             error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
                   + '\nin\n\t' + str(new_formula))
@@ -1127,9 +1127,9 @@ def check_proof_of(proof, formula, env):
       new_rhs = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
       equation = mkEqual(loc, new_rhs, Var(loc, None, var, [])).reduce(env)
-      frm = rewrite(loc, formula.reduce(env), equation)
+      frm = rewrite(loc, formula.reduce(env), equation, env)
       new_body_env = Env({k: ProofBinding(b.location, \
-                                          rewrite(loc, b.formula, equation), \
+                                          rewrite(loc, b.formula, equation, env), \
                                           b.local) \
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})
@@ -1222,7 +1222,7 @@ def check_proof_of(proof, formula, env):
         for eq in eqns:
           if not is_equation(eq):
             error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-          new_formula = rewrite(loc, new_formula, eq)
+          new_formula = rewrite(loc, new_formula, eq, env)
           new_formula = new_formula.reduce(env)
 
         match red_claim:
@@ -1401,7 +1401,7 @@ def check_proof_of(proof, formula, env):
 
             if len(assumptions) > 1:
               error(scase.location, 'only one assumption is allowed in a switch case')
-            frm = rewrite(loc, formula.reduce(env), equation.reduce(env))
+            frm = rewrite(loc, formula.reduce(env), equation.reduce(env), env)
             new_frm = frm.reduce(env)
             check_proof_of(scase.body, new_frm, body_env)
         case TypeType(_):
@@ -1469,7 +1469,7 @@ def check_proof_of(proof, formula, env):
         if not is_equation(eq):
           error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
         reset_num_rewrites()
-        new_formula = rewrite(loc, new_formula, eq)
+        new_formula = rewrite(loc, new_formula, eq, env)
         if get_num_rewrites() == 0:
             error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
                   + '\nin\n\t' + str(new_formula))
@@ -1546,7 +1546,7 @@ def apply_rewrites(loc, formula, eqns, env):
     if not is_equation(eq):
         error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
     reset_num_rewrites()
-    new_formula = rewrite_aux(loc, new_formula, eq)
+    new_formula = rewrite_aux(loc, new_formula, eq, env)
     if get_num_rewrites() == 0:
         error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
               + '\nin\n\t' + str(new_formula))
@@ -2590,7 +2590,7 @@ def collect_env(stmt, env):
       return env
 
     case Associative(loc, op, typ):
-      return env
+      return env.declare_assoc(loc, op.resolved_names[0], typ)
   
     case _:
       error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
@@ -2648,8 +2648,7 @@ def check_proofs(stmt, env):
                     + str(result))
 
     case Associative(loc, Var(_, _, _, rs), typ):
-      #add_associative(rs[0], FunctionType(loc, [], [typ,typ], typ))
-      add_associative(rs[0], typ)
+      pass
   
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
@@ -2658,7 +2657,6 @@ def check_deduce(ast, module_name):
   env = Env()
   ast2 = []
   imported_modules.clear()
-  init_associative()
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:

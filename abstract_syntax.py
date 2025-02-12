@@ -62,26 +62,8 @@ def set_recursive_descent(b):
   global recursive_descent
   recursive_descent = b
 
-enable_associative = {}
-
-def init_associative():
-  global enable_associative
-  enable_associative = {}
-  
-def add_associative(op, typ):
-  global enable_associative
-  #print('adding associative operator ' + op + ' ' + str(typ))
-  if op in enable_associative.keys():
-    enable_associative[op].append(typ)
-  else:
-    enable_associative[op] = [typ]
-
-def is_associative(op, typ):
-  if op in enable_associative.keys():
-    #print('is_assoc, types: ' + ', '.join([str(ty) for ty in enable_associative[op]]))
-    return typ in enable_associative[op]
-  else:
-    return False
+def is_associative(opname, typ, env):
+  return typ in env.get_assoc_types(opname)
 
 def rator_name(rator):
   match rator:
@@ -93,16 +75,16 @@ def rator_name(rator):
     case RecFun(loc, name, typarams, params, returns, cases):
       return name
     case Lambda(loc, ty, vars, body):
-      return None
+      return 'no_name'
     case TermInst(loc3, tyof, arg2, tyargs):
       #return rator_name(arg2)
-      return None
+      return 'no_name'
     case Generic(loc2, tyof, typarams, body):
       #return rator_name(body)
-      return None
+      return 'no_name'
     case _:
       #raise Exception('rator_name: unhandled ' + repr(rator))
-      return None
+      return 'no_name'
 
   
 def flatten_assoc(op, trm):
@@ -948,7 +930,7 @@ class Call(Term):
 
   def reduce(self, env):
     fun_name = rator_name(self.rator)
-    is_assoc = is_associative(fun_name, self.args[0].typeof)
+    is_assoc = is_associative(fun_name, self.args[0].typeof, env)
     if len(self.args) > 0 and is_assoc:
       flat_args = sum([flatten_assoc(fun_name, arg) for arg in self.args], [])
     else:
@@ -970,7 +952,8 @@ class Call(Term):
           ret = Bool(loc, BoolType(loc), False)
         else:
           ret = Call(self.location, self.typeof, fun, args)
-      case Var(loc, ty, name, rs) if len(rs) > 0 and is_associative(rs[0], ty):
+      case Var(loc, ty, name, rs) if len(rs) > 0 \
+        and is_associative(rs[0], ty, env):
         #new_args = sum([flatten_assoc(rs[0], arg) for arg in args], [])
         ret = Call(self.location, self.typeof, fun, args)
         if hasattr(self, 'type_args'):
@@ -2956,12 +2939,12 @@ class ProofBinding(Binding):
     return str(self.formula)
 
 @dataclass
-class AssociativityBinding(Binding):
-  op: Term
-  typeof: Type
+class AssociativeBinding(Binding):
+  opname: str
+  types: List[Type]
 
   def __str__(self):
-    return 'associative ' + str(self.op) + ' ' + str(self.typeof)
+    return 'associative ' + self.opname + ' ' + ', '.join(str(t) for t in self.types)
   
   
 class Env:
@@ -3008,6 +2991,16 @@ class Env:
     new_env.dict[name] = TermBinding(loc, typ)
     return new_env
 
+  def declare_assoc(self, loc, opname, typ):
+    new_env = Env(self.dict)
+    full_name = '__associative_' + opname
+    if full_name in new_env:
+      old = new_env.dict[full_name]
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [typ] + old.types)
+    else:
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [typ])
+    return new_env
+  
   def declare_term_vars(self, loc, xty_pairs):
     new_env = self
     for (x,ty) in xty_pairs:
@@ -3106,7 +3099,14 @@ class Env:
           return False
       case _:
         raise Exception('expected proof var, not ' + str(pvar))
-    
+
+  def get_assoc_types(self, opname):
+    full_name = '__associative_' + opname
+    if full_name in self.dict.keys():
+      return self.dict['__associative_' + opname].types
+    else:
+      return []
+      
   def get_def_of_type_var(self, var):
     match var:
       case Var(loc, tyof, name):
