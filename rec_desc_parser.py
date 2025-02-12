@@ -282,7 +282,7 @@ def parse_term_hi():
     meta = meta_from_tokens(token, previous_token())
     return Mark(meta, None, term)
 
-  elif token.value == '─':
+  elif token.value == '─' or token.value == '__':
     advance()
     meta = meta_from_tokens(token,token)
     return Omitted(meta, None)
