@@ -42,7 +42,7 @@ def init_parser():
   global lark_parser
   lark_file = get_deduce_directory() + "/Deduce.lark"
   lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
-                     start='program', parser='lalr',
+                     start='program',
                      debug=True, propagate_positions=True)
 
 # The current_position needs to be a global so that the changes to the

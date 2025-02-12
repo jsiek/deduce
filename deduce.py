@@ -30,15 +30,19 @@ def deduce_file(filename, error_expected):
         else:
             file = open(filename, 'r', encoding="utf-8")
             program_text = file.read()
-            parser.set_filename(filename)
-            rec_desc_parser.set_filename(filename)
 
             if get_verbose():
                 print("about to parse")
             if get_recursive_descent():
+                rec_desc_parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
+                rec_desc_parser.set_filename(filename)
+                rec_desc_parser.init_parser()
                 ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
                                             error_expected=error_expected)
             else:
+                parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
+                parser.set_filename(filename)
+                parser.init_parser()
                 ast = parser.parse(program_text, trace=get_verbose(),
                                    error_expected=error_expected)
             if get_verbose():
@@ -155,10 +159,6 @@ if __name__ == "__main__":
     # higher.
 
     # Start deducing
-    parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
-    rec_desc_parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
-    parser.init_parser()
-    rec_desc_parser.init_parser()
 
     for deducable in deducables:
         if os.path.isfile(deducable):
