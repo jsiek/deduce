@@ -1389,6 +1389,10 @@ def check_proof_of(proof, formula, env):
             equation = mkEqual(scase.location, new_subject, subject_case)
 
             body_env = env
+
+            if len(scase.assumptions) == 0:
+                  scase.assumptions.append((generate_name('_'), None))
+
             assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
             if len(assumptions) == 1:
               if assumptions[0][1] != None and assumptions[0][1] != equation:
