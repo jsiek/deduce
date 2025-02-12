@@ -1191,7 +1191,8 @@ def check_proof_of(proof, formula, env):
     
     case Suffices(loc, claim, reason, rest):
       def_or_rewrite = False
-      
+
+      # should evaluate be handled up here? -Jeremy
       match reason:
         case ApplyDefs(loc2, defs):
            def_or_rewrite = True
@@ -1243,6 +1244,7 @@ def check_proof_of(proof, formula, env):
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         claim_red = new_claim.reduce(env)
+        # Need special handling for when claim_red is Hole or Oitted -Jeremy
         imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
         check_proof_of(reason, imp, env)
         check_proof_of(rest, claim_red, env)

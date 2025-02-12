@@ -236,7 +236,7 @@ proof
 end
 
 theorem append_empty: all U :type. all xs :List<U>.
-  xs ++ empty = xs
+  xs ++ [] = xs
 proof
   arbitrary U:type
   induction List<U>

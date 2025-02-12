@@ -2949,6 +2949,15 @@ class ProofBinding(Binding):
   
   def __str__(self):
     return str(self.formula)
+
+@dataclass
+class AssociativityBinding(Binding):
+  op: Term
+  typeof: Type
+
+  def __str__(self):
+    return 'associative ' + str(self.op) + ' ' + str(self.typeof)
+  
   
 class Env:
   def __init__(self, env = None):
