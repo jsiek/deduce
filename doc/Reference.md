@@ -1915,82 +1915,6 @@ conclusion ::= "sorry"
 `sorry` is the get-out-of-jail free card. It can prove anything.
 However, it prints a warning message with the location of the `sorry`.
 
-
-## Switch (Term)
-
-```
-term ::= "switch" term "{" switch_case* "}"
-switch_case ::= "case" pattern "{" term "}"
-```
-
-(See the entry for [Pattern](#pattern) for the syntax of `pattern`.)
-
-The subject of the `switch` must be of union type or `bool` (e.g., not
-a function). The body of the `switch` must have one `case` for every
-constructor in the `union`, or for `bool`, the cases are `true` and
-`false`.  The body of each `case` is a term and they all must have the
-same type.  The `switch` evaluates the subject and compares it to each
-case, then evaluates the body of the case that matched.
-
-```{.deduce^#switch_example}
-define flip = fun x:bool {
-  switch x {
-    case true { false }
-    case false { true }
-  }
-}
-assert flip(false)
-assert not flip(true)
-```
-
-## Switch (Proof)
-
-```
-conclusion ::= "switch" term "{" switch_proof_case* "}"
-switch_proof_case ::= "case" pattern "{" proof "}"
-switch_proof_case ::= "case" pattern assumptions "{" proof "}"
-assumptions ::= "suppose" assumption_list | "assume" assumption_list
-```
-
-(See entry for Assumption List for the syntax of `assumption_list`.)
-
-A proof of the form
-
-```
-switch t {
-  case p1 assume eq1: t = p1 {
-    X1
-  }
-  ...
-  case pn assume eqn: t = pn {
-    Xn
-  }
-}
-```
-
-is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
-The fact `t = p1` is a given that can be used in `X1`
-and similarly for the other cases.
-
-Example:
-
-```{.deduce^#switch_proof_example}
-theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
-proof
-  arbitrary x:Nat
-  switch x {
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
-    }
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x')
-          by definition {operator <, operator ≤, operator ≤}
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
-    }
-  }
-end
-```
-
 ## Subset or Equal
 
 ```
@@ -2101,10 +2025,103 @@ proof
 end
 ```
 
+## Suffices Omitted Term
+
+Use suffices without explicitly stating the new goal. 
+Instead, you can use `─` or `__` to fill in what the new goal should be. 
+
+Example:
+
+```{.deduce^#suffices_omitted_example}
+theorem length__nat_one': all x:Nat. length([x]) = 1
+proof
+  arbitrary x:Nat
+  suffices __
+      by definition {length, length}
+  add_zero[1]
+end
+```
+
+This acts similarly to [`?`](#question-mark--proof), except that deduce will fill in the omitted term internally and accept the proof as complete.
 
 ## Suppose
 
 See the entry for [Assume](#assume).
+
+## Switch (Term)
+
+```
+term ::= "switch" term "{" switch_case* "}"
+switch_case ::= "case" pattern "{" term "}"
+```
+
+(See the entry for [Pattern](#pattern) for the syntax of `pattern`.)
+
+The subject of the `switch` must be of union type or `bool` (e.g., not
+a function). The body of the `switch` must have one `case` for every
+constructor in the `union`, or for `bool`, the cases are `true` and
+`false`.  The body of each `case` is a term and they all must have the
+same type.  The `switch` evaluates the subject and compares it to each
+case, then evaluates the body of the case that matched.
+
+```{.deduce^#switch_example}
+define flip = fun x:bool {
+  switch x {
+    case true { false }
+    case false { true }
+  }
+}
+assert flip(false)
+assert not flip(true)
+```
+
+## Switch (Proof)
+
+```
+conclusion ::= "switch" term "{" switch_proof_case* "}"
+switch_proof_case ::= "case" pattern "{" proof "}"
+switch_proof_case ::= "case" pattern assumptions "{" proof "}"
+assumptions ::= "suppose" assumption_list | "assume" assumption_list
+```
+
+(See entry for Assumption List for the syntax of `assumption_list`.)
+
+A proof of the form
+
+```
+switch t {
+  case p1 assume eq1: t = p1 {
+    X1
+  }
+  ...
+  case pn assume eqn: t = pn {
+    Xn
+  }
+}
+```
+
+is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
+The fact `t = p1` is a given that can be used in `X1`
+and similarly for the other cases.
+
+Example:
+
+```{.deduce^#switch_proof_example}
+theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
+proof
+  arbitrary x:Nat
+  switch x {
+    case 0 assume xz: x = 0 {
+      conclude true or 0 < 0 by .
+    }
+    case suc(x') assume xs: x = suc(x') {
+      have z_l_sx: 0 < suc(x')
+          by definition {operator <, operator ≤, operator ≤}
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
+  }
+end
+```
 
 ## Symmetric (Proof)
 
