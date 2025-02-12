@@ -120,15 +120,15 @@ theorem eq_sym : all T:type. all x:T, y:T.
 proof
 	arbitrary T:type, x:T, y:T
 	switch (x = y) {
-		case true {
-			have: x = y by apply eq_true to recall (x = y) = true
+		case true assume xyt {
+			have: x = y by apply eq_true to xyt
 			replace recall x = y
 		}
-		case false {
-			have: not (x = y) by apply eq_false to recall (x = y) = false
+		case false assume xyf {
+			have: not (x = y) by apply eq_false to xyf
 			switch (y = x) {
-				case true {
-					have: y = x by apply eq_true to recall (y = x) = true
+				case true assume yxt {
+					have: y = x by apply eq_true to yxt
 					have: not (y = x)  by replace (recall y = x) in recall not (x = y)
 					apply recall not (y = x) to recall y = x
 				}
