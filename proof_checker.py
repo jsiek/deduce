@@ -2557,6 +2557,10 @@ def process_declaration(stmt, env):
 
 def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present):
     body_env = check_pattern(fun_case.pattern, params[0], body_env, cases_present)
+    fun_case.rator = type_synth_term(fun_case.rator, body_env, None, [])
+    if base_name(fun_case.rator.name) != base_name(name):
+        error(fun_case.rator.location, 'expected function name "' + base_name(name) + \
+              '", not "' + str(base_name(fun_case.rator.name)) + '"')
     if len(fun_case.parameters) != len(params[1:]):
       error(fun_case.location, 'incorrect number of parameters, '\
             + 'expected ' + str(len(params)))
@@ -2568,12 +2572,12 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
       case PatternBool(loc, val):
         pat_params = []
     new_body = type_check_term(fun_case.body, returns, body_env, name, pat_params)
-    return FunCase(fun_case.location, fun_case.pattern, fun_case.parameters, new_body)
+    return FunCase(fun_case.location, fun_case.rator,
+                   fun_case.pattern, fun_case.parameters, new_body)
 
 def type_check_stmt(stmt, env):
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
-    #print('env: ' + str(env))
   match stmt:
     case Define(loc, name, ty, body, isPrivate):
       if ty == None:
@@ -2734,7 +2738,6 @@ def check_deduce(ast, module_name):
       print(s)
 
   if get_verbose():
-    print('env:\n' + str(env))          
     print('--------- Type Checking ------------------------')
   ast3 = []
   for s in ast2:

@@ -2550,15 +2550,17 @@ class Union(Statement):
   
 @dataclass
 class FunCase(AST):
+  rator: Term
   pattern: Pattern
   parameters: List[str]
   body: Term
 
   def __str__(self):
-      return '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
+      return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
   def uniquify(self, env):
+    self.rator.uniquify(env)
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
 

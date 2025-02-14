@@ -1910,8 +1910,9 @@ def parse_fun_case():
       + '\tfun_case ::= identifier "(" param_list ")" "=" term\n'
   try:    
     start_token = current_token()
-    name = parse_identifier()
-
+    rator = parse_identifier()
+    rator_meta = meta_from_tokens(start_token, previous_token())
+    
     if current_token().type == 'LPAR':
       lpar_token = current_token()
       advance()
@@ -1925,7 +1926,8 @@ def parse_fun_case():
             'expected "=" and then a term, not\n\t' + current_token())
     advance()
     body = parse_term()
-    return FunCase(meta_from_tokens(start_token, previous_token()),
+    meta = meta_from_tokens(start_token, previous_token())
+    return FunCase(meta, Var(rator_meta, None, rator, []),
                    pat_list[0], pat_list[1:], body)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
