@@ -798,13 +798,15 @@ proof
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat
-    have X: not ((1 + length(xs)) + i = 0)
-      by suppose eq_z enable {operator +} conclude false by eq_z
+    have X: not ((1 + length(xs)) + i = 0) by {
+      suppose eq_z
+      conclude false by evaluate in eq_z
+    }
     suffices get(xs ++ ys, pred((1 + length(xs)) + i)) = get(ys, i)
        by definition {operator++,length, get}
           and rewrite (apply eq_false to X)
     suffices get(xs ++ ys, length(xs) + i) = get(ys, i)
-       by definition {operator +, pred, operator+}
+       by definition 2*operator + | pred
     IH[ys, i]
   }
 end
@@ -881,13 +883,15 @@ proof
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
-    have X: not ((1 + length(xs)) + i = 0)
-      by suppose eq_z enable {operator +} conclude false by eq_z
+    have X: not ((1 + length(xs)) + i = 0) by {
+      suppose eq_z
+      conclude false by evaluate in eq_z
+    }
     suffices nth(xs ++ ys, d)(pred((1 + length(xs)) + i)) = nth(ys, d)(i)
        by definition {operator++,length, nth}
           and rewrite (apply eq_false to X)
     suffices nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i)
-       by definition {operator +, pred, operator+}
+       by definition 2*operator + | pred
     IH[ys, i, d]
   }
 end

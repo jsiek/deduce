@@ -210,19 +210,30 @@ def unflatten(loc2, rator, args, call_ty):
     else:
         rest = unflatten(rators, args[1:])
         return Call(loc2, call_ty, new_rator, [args[0], rest])
+
+def call_arity(call):
+    match call:
+      case Call(loc2, tyof, rator, args):
+        return len(args)
+      case _:
+        return 1 #raise Exception('call_arity: not a call ' + str(call))
+
     
 def rewrite_aux(loc, formula, equation, env):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
-    print('rewrite? ' + str(formula) + ' with equation ' + str(equation) \
-          + '\n\t' + str(formula) + ' =? ' + str(lhs) + '\t' + str(formula == lhs))
+    print('rewrite? ' + str(formula) + ' with equation ' + str(equation))
   found_match = False
   try:
     matching = {}
     formula_match(loc, equation_vars(equation), lhs, formula, matching, Env())
     found_match = True
     rhs = rhs.substitute(matching)
+    if get_verbose():
+      print('\tmatch, result: ' + str(rhs))
   except Exception as e:
+    if get_verbose():
+      print('\tno match')
     pass
   if found_match:
     inc_rewrites()
@@ -247,42 +258,53 @@ def rewrite_aux(loc, formula, equation, env):
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env))
     case Call(loc2, tyof, rator, args):
+      is_assoc = is_associative(rator_name(rator), formula.typeof, env)
+      if get_verbose():
+          print('is_assoc? ' + str(is_assoc))
+      if is_assoc:
+          args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
       new_rator = rewrite_aux(loc, rator, equation, env)
       new_args = [rewrite_aux(loc, arg, equation, env) for arg in args]
-
-      if len(new_args) > 2:
-          match new_rator:
-            case Var(_, ty, n, rs) if len(rs) > 0 \
-                and is_associative(rs[0], ty.return_type, env):
-              # try to rewrite each pair of adjacent terms
-              i = 0
-              output_terms = []
-              while i + 1 < len(new_args):
-                  left = new_args[i]
-                  right = new_args[i+1]
-                  tmp = Call(loc2, tyof, new_rator, [left, right])
-                  old_num_rewrites = get_num_rewrites()
-                  new_tmp = rewrite_aux(loc, tmp, equation, env)
-                  new_num_rewrites = get_num_rewrites()
-                  if new_num_rewrites == old_num_rewrites:
-                      output_terms.append(left)
-                      i = i + 1
-                  else:
-                      output_terms.append(new_tmp)
-                      i = i + 2
-              if i < len(new_args):
-                  output_terms.append(new_args[i])
-              if len(output_terms) > 1:
-                  return Call(loc2, tyof, new_rator, output_terms)
-              else:
-                  return output_terms[0]
-            case _:
-              pass
-
-      call = Call(loc2, tyof, new_rator, new_args)
-      if hasattr(formula, 'type_args'):
-        call.type_args = formula.type_args
-      return call
+      if get_verbose():
+          print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
+      (lhs,rhs) = split_equation(loc2, equation)
+      arity = call_arity(lhs)
+      if get_verbose():
+          print('lhs = ' + str(lhs) + '\n\tarity: ' + str(arity)) 
+      if is_assoc and len(new_args) > arity and arity > 1:
+        # try to rewrite each pair of adjacent terms
+        i = 0
+        output_terms = []
+        while i + arity <= len(new_args):
+            call_args = new_args[i : i + arity]
+            tmp = Call(loc2, tyof, new_rator, call_args)
+            old_num_rewrites = get_num_rewrites()
+            new_tmp = rewrite_aux(loc, tmp, equation, env)
+            new_num_rewrites = get_num_rewrites()
+            if new_num_rewrites == old_num_rewrites:
+                if get_verbose():
+                    print('rewrite using: ' + str(equation) \
+                          + '\n\tdid not match: ' + str(tmp))
+                output_terms.append(new_args[i])
+                i = i + 1
+            else:
+                flat_tmp = flatten_assoc(rator_name(rator), new_tmp)
+                if get_verbose():
+                    print('rewrote: ' + str(tmp) + '\n\tinto: ' \
+                          + ', '.join([str(a) for a in flat_tmp]))
+                output_terms += flat_tmp
+                i = i + arity
+        if i < len(new_args):
+            output_terms.append(new_args[i])
+        if len(output_terms) > 1:
+            return Call(loc2, tyof, new_rator, output_terms)
+        else:
+            return output_terms[0]
+      else: # not an associative rator
+        call = Call(loc2, tyof, new_rator, new_args)
+        if hasattr(formula, 'type_args'):
+          call.type_args = formula.type_args
+        return call
   
     case Switch(loc2, tyof, subject, cases):
       return Switch(loc2, tyof, rewrite_aux(loc, subject, equation, env),
@@ -449,17 +471,18 @@ def check_proof(proof, env):
     case RewriteFact(loc, subject, equation_proofs):
       formula = check_proof(subject, env)
       eqns = [check_proof(proof, env) for proof in equation_proofs]
-      new_formula = formula.reduce(env)
+      red_formula = formula.reduce(env)
+      current_formula = red_formula
       for eq in eqns:
         if not is_equation(eq):
             error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
         reset_num_rewrites()
-        new_formula = rewrite(loc, new_formula, eq, env)
+        new_formula = rewrite(loc, current_formula, eq, env)
         if get_num_rewrites() == 0:
             error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
-                  + '\nin\n\t' + str(new_formula))
-        new_formula = new_formula.reduce(env)
-      ret = new_formula
+                  + '\nin\n\t' + str(current_formula))
+        current_formula = new_formula.reduce(env)
+      ret = current_formula
       
     case PHole(loc):
       incomplete_error(loc, 'unfinished proof')
@@ -1127,7 +1150,11 @@ def check_proof_of(proof, formula, env):
       new_rhs = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
       equation = mkEqual(loc, new_rhs, Var(loc, None, var, [])).reduce(env)
-      frm = rewrite(loc, formula.reduce(env), equation, env)
+      red_formula = formula.reduce(env)
+      if get_verbose():
+          print('define ' + str(var) + '\n\trewrite with ' + str(equation) + '\n\tin ' \
+                + str(red_formula))
+      frm = rewrite(loc, red_formula, equation, env)
       new_body_env = Env({k: ProofBinding(b.location, \
                                           rewrite(loc, b.formula, equation, env), \
                                           b.local) \
@@ -1502,11 +1529,15 @@ def apply_definitions(loc, formula, defs, env):
   else:
       error(loc, 'in definition, formula contains more than one mark:\n\t' \
             + str(formula))
-
+  if get_verbose():
+      print('apply definitions to formula: ' + str(new_formula))
   for var in defs:
-    if isinstance(var, Var): # it's a bit strange that RecDef's can find there way into defs -Jeremy
+    # it's a bit strange that RecDef's can find there way into defs -Jeremy
+    if isinstance(var, Var):
       reduced_one = False
       for var_name in var.resolved_names:
+          if get_verbose():
+              print('expanding definition ' + var_name)
           rvar = Var(var.location, var.typeof, var_name, [var_name])
           rhs = env.get_value_of_term_var(rvar)
           if rhs == None:
@@ -1519,6 +1550,10 @@ def apply_definitions(loc, formula, defs, env):
               new_formula = new_formula.reduce(env)
               if rvar.name in get_reduced_defs():
                   reduced_one = True
+                  if get_verbose():
+                      print('applied definition ' + var_name)
+      if get_verbose():
+          print('new_formula = ' + str(new_formula))
       if not reduced_one:
           error(loc, 'could not find a place to apply definition of ' \
                 + base_name(var.name) \
@@ -1558,15 +1593,15 @@ def apply_rewrites(loc, formula, eqns, env):
       return replace_mark(formula, new_formula).reduce(env)
 
   
-def formula_match(loc, vars, goal_frm, frm, matching, env):
+def formula_match(loc, vars, pattern_frm, frm, matching, env):
   if get_verbose():
-    print("formula_match(" + str(goal_frm) + "," + str(frm) + ")")
+    print("formula_match(" + str(pattern_frm) + "," + str(frm) + ")")
     print("\tin  " + ','.join([str(x) for x in vars]))
     print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
-  match (goal_frm, frm):
+  match (pattern_frm, frm):
     case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
       pass
-    case (Var(l1, t1, name, rs1), _) if goal_frm in vars:
+    case (Var(l1, t1, name, rs1), _) if pattern_frm in vars:
       if name in matching.keys():
         formula_match(loc, vars, matching[name], frm, matching, env)
       else:
@@ -1576,13 +1611,23 @@ def formula_match(loc, vars, goal_frm, frm, matching, env):
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
       formula_match(loc, vars, goal_rator, rator, matching, env)
-      if len(rands) == len(goal_rands):
-        for (goal_rand, rand) in zip(goal_rands, rands):
+      if len(rands) >= len(goal_rands):
+        while len(rands) > 0:
+          if len(goal_rands) == 1 and len(rands) > 1:
+              rand = Call(loc3, tyof3, rator, rands)
+              rands = []
+          else:
+              rand = rands[0]
+              rands = rands[1:]
+          goal_rand = goal_rands[0]
+          goal_rands = goal_rands[1:]
+            
           new_goal_rand = goal_rand.substitute(matching)
           formula_match(loc, vars, new_goal_rand, rand, matching, env)
+          
       else:
         error(loc, "formula: " + str(frm) + "\n" \
-              + "does not match expected formula: " + str(goal_frm))
+              + "does not match expected formula: " + str(pattern_frm))
         
     case (And(loc2, tyof2, goal_args),
           And(loc3, tyof3, args)):
@@ -1601,11 +1646,11 @@ def formula_match(loc, vars, goal_frm, frm, matching, env):
       formula_match(loc, vars, new_goal_conc, conc, matching, env)
     # UNDER CONSTRUCTION
     case _:
-      red_goal = goal_frm.reduce(env)
+      red_pattern = pattern_frm.reduce(env)
       red_frm = frm.reduce(env)
-      if red_goal != red_frm:
+      if red_pattern != red_frm:
           error(loc, "formula: " + str(red_frm) + "\n" \
-                + "does not match expected formula: " + str(red_goal))
+                + "does not match expected formula: " + str(red_pattern))
     
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
@@ -1650,19 +1695,33 @@ def type_names(loc, names):
 
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
                           call, typarams, param_types, return_type):
-  if len(args) != len(param_types):
+  is_assoc = is_associative(rator_name(new_rator), return_type, env)
+  if get_verbose():
+      print('is_assoc? ' + rator_name(new_rator) + ' : ' + str(return_type) + ' = ' + str(is_assoc))
+  if (is_assoc and len(args) < len(param_types)) \
+      or ((not is_assoc) and len(args) != len(param_types)):
     error(loc, 'incorrect number of arguments in call:\n\t' + str(call) \
           + '\n\texpected ' + str(len(param_types)) \
-          + ' argument, not ' + str(len(args)))
+          + ' arguments, not ' + str(len(args)))
   if len(typarams) == 0:
     #print('type check call to regular: ' + str(call))
-    new_args = []
-    for (param_type, arg) in zip(param_types, args):
-      new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
-    if ret_ty != None and ret_ty != return_type:
-      error(loc, 'expected ' + str(ret_ty) \
-            + ' but the call returns ' + str(return_type))
-    return Call(loc, return_type, new_rator, new_args)
+    if is_assoc:
+      new_args = []
+      param_type = param_types[0]
+      for arg in args:
+        new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
+      if ret_ty != None and ret_ty != return_type:
+        error(loc, 'expected ' + str(ret_ty) \
+              + ' but the call returns ' + str(return_type))
+      return Call(loc, return_type, new_rator, new_args)
+    else:
+      new_args = []
+      for (param_type, arg) in zip(param_types, args):
+        new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
+      if ret_ty != None and ret_ty != return_type:
+        error(loc, 'expected ' + str(ret_ty) \
+              + ' but the call returns ' + str(return_type))
+      return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
     matching = {}
@@ -2035,6 +2094,7 @@ def type_synth_term(term, env, recfun, subterms):
           
     case Call(loc, _, Var(loc2, ty2, name, rs), args) \
         if name == '=' or name == '≠':
+      assert len(args) == 2
       lhs = type_synth_term(args[0], env, recfun, subterms)
       rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
       ty = BoolType(loc)
@@ -2126,7 +2186,7 @@ def type_synth_term(term, env, recfun, subterms):
       else:
         error(term.location, 'cannot synthesize a type for ' + str(term))
   if get_verbose():
-    print('\t' + str(term) + '\n\t=> ' + str(ret) + ' : ' + str(ret.typeof))
+    print('\ttype synth: ' + str(term) + '\n\t=> ' + str(ret) + ' : ' + str(ret.typeof))
   return ret
 
 def type_check_formula(term, env):
@@ -2466,10 +2526,13 @@ def process_declaration(stmt, env):
 
           for s in ast3:
             env = collect_env(s, env)
+
+            if name not in checked_modules:
+              check_proofs(s, env)
             
           if name not in checked_modules:
-            for s in ast3:
-              check_proofs(s, env)
+            # for s in ast3:
+            #   check_proofs(s, env)
             checked_modules.add(name)  
 
           set_verbose(old_verbose)
@@ -2679,12 +2742,12 @@ def check_deduce(ast, module_name):
       
   if get_verbose():
     print('--------- Proof Checking ------------------------')
-  for s in ast3:
-    env = collect_env(s, env)
-  if get_verbose():
-    print('env:\n' + str(env))  
-
   if module_name not in checked_modules:
     for s in ast3:
+      env = collect_env(s, env)
+    #for s in ast3:
       check_proofs(s, env)
     checked_modules.add(module_name)  
+
+
+    

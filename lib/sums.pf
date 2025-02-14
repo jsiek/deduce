@@ -12,7 +12,6 @@ proof
         suffices suc(n') + 0 ≤ suc(n') + (0 + n' * (suc(n') + 0))
             by definition operator *
             and rewrite symmetric add_zero[suc(n')]
-                | add_assoc[suc(n')][0, n'* (suc(n') + 0)]
         have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
             by definition operator <=
         apply less_equal_left_cancel[suc(n')][0, (0 + n' * (suc(n') + 0))]
@@ -63,7 +62,6 @@ proof
               by definition {operator-}
               and rewrite sub_zero[n'] | blah[n'] | two_mult[n']
         suffices ((n' * n' - n') + n') + n' = n' + n' * n' by definition operator*
-            and rewrite symmetric add_assoc[n' * n' - n'][n', n'] 
         suffices n' * n' + n' = n' + n' * n' by 
             rewrite add_commute[(n' * n' - n')][n']
             | apply sub_add_identity[n'*n'][n'] to n_le_nn[n']
@@ -100,6 +98,6 @@ proof
                | dist_mult_add_right[n', 1, n']
                | mult_one[n'+1]
                | mult_one[n'] | one_mult[n']
-        symmetric add_assoc[n' * n' + n'][n' + 1, n' + 1]
+        .
     }
 end

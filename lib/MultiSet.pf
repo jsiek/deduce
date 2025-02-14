@@ -105,20 +105,16 @@ proof
   switch A for operator ⨄ {
     case m_fun(f) {
       switch B {
-	case m_fun(g) {
-	  switch C {
-	    case m_fun(h) {
-	      suffices m_fun(λx:T{(f(x) + g(x)) + h(x)})
+	      case m_fun(g) {
+	        switch C {
+	          case m_fun(h) {
+	            suffices m_fun(λx:T{(f(x) + g(x)) + h(x)})
                      = m_fun(λx:T{f(x) + (g(x) + h(x))})
-                by definition cnt
-	      have fgh_eq: (λx:T{(f(x) + g(x)) + h(x)})
- 	                  = λx:T{f(x) + (g(x) + h(x))}
-	        by extensionality arbitrary x:T
-		   rewrite add_assoc[f(x)][g(x),h(x)]
-              rewrite fgh_eq
-	    }
-	  }
-	}
+                  by definition cnt
+              .
+	          }
+	        }
+	      }
       }
     }
   }
