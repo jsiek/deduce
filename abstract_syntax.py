@@ -2310,7 +2310,6 @@ class SwitchProofCase(AST):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
   def uniquify(self, env):
-    # print(f"SDF: {self.pattern}\n")
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
     
