@@ -870,15 +870,20 @@ def proof_advice(formula, env):
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
       case All(loc, tyof, var, (s, e), body):
-        x, ty = var
-        
-        if s != 0:
-          body = update_all_head(body)
+        pf = "arbitrary "
+        cur = formula
+        prev_s = s + 1 # This variable stops spillover into other alls
+
+        while isinstance(cur, All) and cur.pos[0] >= 0 and cur.pos[0] < prev_s:
+          pf += f"{base_name(cur.var[0])}:{cur.var[1]}{', ' if cur.pos[0] > 0 else ''}"
+          prev_s = cur.pos[0]
+          cur = cur.body
+
         arb_advice = prefix \
             + '\tProve this "all" formula with:\n' \
-            + '\t\tarbitrary ' + base_name(x) + ':' + str(ty) + '\n' \
+            + '\t\t' + pf + '\n' \
             + '\tfollowed by a proof of:\n' \
-            + '\t\t' + str(body)
+            + '\t\t' + str(cur)
 
         # NOTE: Maybe we shouldn't give induction advice for non recursively
         # defined unions. However right now we will because I haven't added
