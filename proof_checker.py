@@ -1262,7 +1262,7 @@ def check_proof_of(proof, formula, env):
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         claim_red = new_claim.reduce(env)
-        # Need special handling for when claim_red is Hole or Oitted -Jeremy
+        # Need special handling for when claim_red is Hole or Omitted -Jeremy
         imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
         check_proof_of(reason, imp, env)
         check_proof_of(rest, claim_red, env)
