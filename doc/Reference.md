@@ -86,10 +86,10 @@ cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
 Example:
 
 ```{.deduce^#add_multiset_example}
-define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
-assert cnt(A)(3) = 1
-assert cnt(A)(5) = 2
-assert cnt(A)(7) = 0
+define X = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
+assert cnt(X)(3) = 1
+assert cnt(X)(5) = 2
+assert cnt(X)(7) = 0
 ```
 
 ## All (Universal Quantifier)

@@ -2409,7 +2409,11 @@ class RewriteFact(Proof):
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
-def extend(env, name, new_name):
+def extend(env, name, new_name, loc):
+  if name in env['no overload']:
+    ty = env['no overload'][name]
+    error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
+
   if name in env.keys():
     env[name].append(new_name)
   else:
@@ -2417,8 +2421,12 @@ def extend(env, name, new_name):
 
 ## Overwrites a value in the environment, with a warning
 def overwrite(env, name, new_name, loc):
+  if name in env['no overload']:
+    ty = env['no overload'][name]
+    error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
+
   if base_name(name) != "_" and name in env.keys():
-    warning(loc, f"WARNING: {name} already in use")
+    warning(loc, f"WARNING: {name} is already defined")
   env[name] = [new_name]
       
 @dataclass
@@ -2440,6 +2448,7 @@ class Theorem(Statement):
     self.proof.uniquify(env)
     new_name = generate_name(self.name)
     overwrite(env, self.name, new_name, self.location)
+    env['no overload'][self.name] = 'theorem'
     self.name = new_name
     
   def collect_exports(self, export_env):
@@ -2456,7 +2465,7 @@ class Constructor(AST):
       ty.uniquify(body_env)
 
     new_name = generate_name(self.name)
-    extend(env, self.name, new_name)
+    extend(env, self.name, new_name, self.location)
     self.name = new_name
       
   def __str__(self):
@@ -2485,12 +2494,13 @@ class Union(Statement):
       error(self.location, "union names may not be overloaded")
     new_name = generate_name(self.name)
     env[self.name] = [new_name]
+    env['no overload'][self.name] = 'union'
     self.name = new_name
     
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new)
+      extend(body_env, old, new, self.location)
     self.type_params = new_type_params
     
     for con in self.alternatives:
@@ -2501,7 +2511,7 @@ class Union(Statement):
       return
     export_env[base_name(self.name)] = [self.name]
     for con in self.alternatives:
-      extend(export_env, base_name(con.name), con.name)
+      extend(export_env, base_name(con.name), con.name, self.location)
     
   def substitute(self, sub):
     return self
@@ -2554,13 +2564,13 @@ class RecFun(Statement):
 
   def uniquify(self, env):
     new_name = generate_name(self.name)
-    extend(env, self.name, new_name)
+    extend(env, self.name, new_name, self.location)
     self.name = new_name
     
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
-      extend(body_env, old, new)
+      extend(body_env, old, new, self.location)
     self.old_type_params = self.type_params
     self.type_params = new_type_params
     
@@ -2574,7 +2584,7 @@ class RecFun(Statement):
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
-    extend(export_env, base_name(self.name), self.name)
+    extend(export_env, base_name(self.name), self.name, self.location)
     
   def __str__(self):
     return self.name if get_verbose() else base_name(self.name)
@@ -2620,13 +2630,13 @@ class Define(Statement):
     self.body.uniquify(env)
 
     new_name = generate_name(self.name)
-    extend(env, self.name, new_name)
+    extend(env, self.name, new_name, self.location)
     self.name = new_name
 
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
-    extend(export_env, base_name(self.name), self.name)
+    extend(export_env, base_name(self.name), self.name, self.location)
     
 uniquified_modules = {}
 
@@ -3356,6 +3366,8 @@ def uniquify_deduce(ast):
   env = {}
   env['≠'] = ['≠']
   env['='] = ['=']
+  # Using a space in the name to not collide with deduce identifiers
+  env['no overload'] = {}
   for stmt in ast:
     stmt.uniquify(env)
 

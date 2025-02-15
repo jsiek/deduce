@@ -5,7 +5,7 @@ proof
   switch P {
     case true assume prop_t { 
       switch Q {
-        case true assume prop_t {
+        case true assume prop_t' {
           .
         }
         case false assume prop_f {
@@ -18,7 +18,7 @@ proof
         case true assume prop_t {
           .
         }
-        case false assume prop_f {
+        case false assume prop_f' {
           .
         }
       }
