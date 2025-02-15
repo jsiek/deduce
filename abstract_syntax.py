@@ -1901,21 +1901,6 @@ class PTLetNew(Proof):
     self.var = new_var
     self.body.uniquify(body_env)
     
-@dataclass
-class PTerm(Proof):
-  term: Term
-  because: Proof
-  body: Proof
-
-  def __str__(self):
-      return 'term ' + str(self.term) + ' by ' \
-        + str(self.because) + '; ' + str(self.body)
-
-  def uniquify(self, env):
-    self.term.uniquify(env)
-    self.because.uniquify(env)
-    self.body.uniquify(env)
-    
     
 @dataclass
 class PRecall(Proof):

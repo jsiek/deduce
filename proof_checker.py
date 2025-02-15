@@ -524,11 +524,6 @@ def check_proof(proof, env):
           check_proof_of(reason, new_claim, env)
           ret = remove_mark(new_claim)
       
-    case PTerm(loc, term, because, rest):
-      new_term = type_synth_term(term, env, None, [])
-      frm = check_proof_of(because, new_term, env)
-      ret = check_proof(rest, env)
-      
     case PTuple(loc, pfs):
       frms = [check_proof(pf, env) for pf in pfs]
       ret = And(loc, BoolType(loc), frms)
