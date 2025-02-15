@@ -78,14 +78,13 @@ def deduce_file(filename, error_expected):
             # raise e
 
 def deduce_directory(directory, recursive_directories):
-    if directory[-1] != '/' or directory[-1] != '\\': # Windows moment
-        directory += '/'
     for file in os.listdir(directory):
-        if os.path.isfile(directory + file):
+        fpath = os.path.join(directory, file)
+        if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                deduce_file(directory + file, error_expected)
-        elif recursive_directories and os.path.isdir(directory + file):
-            deduce_directory(directory + file, recursive_directories)
+                deduce_file(fpath, error_expected)
+        elif recursive_directories and os.path.isdir(fpath):
+            deduce_directory(fpath, recursive_directories)
 
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
