@@ -3,9 +3,7 @@
 Here is some advice about what to do next in a proof. Options 1, 4,
 and 5 make use of the table below.
 
-1. Prove the goal by decomposing it into sub-goals. In the table below, look at the entry in the row for the current goal formula and the `Prove` column. The entry suggests the proof statement to use next. (This is the advice that Deduce outputs when you write [`?`](./Reference.md#question-mark-proof).) When the goal is an `all` formula on a `union` type, you need to choose between
-`arbitrary` or `induction`. If the `all` variable in your goal appears in the formula as the first argument of a recursive function,
-then `induction` is a good choice. Otherwise choose `arbitrary`.
+1. Prove the goal by decomposing it into sub-goals. In the table below, look at the entry in the row for the current goal formula and the `Prove` column. The entry suggests the proof statement to use next. (This is the advice that Deduce outputs when you write [`?`](./Reference.md#question-mark-proof).) When the goal is an `all` formula on a `union` type, you need to choose between `arbitrary` or `induction`. If the `all` variable in your goal appears in the formula as the first argument of a recursive function, then `induction` is a good choice. Otherwise choose `arbitrary`.
 
 2. If the goal formula involves a function that is defined using a [`switch`](./Reference.md#switch-term), then it is a good
 idea to use the [`switch`](./Reference.md#switch-proof) proof statement.
