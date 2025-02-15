@@ -514,8 +514,10 @@ goal.</p>
 <p>A proof of the form</p>
 <div class="code-wrapper non-deduce"><code>have&nbsp;label:&nbsp;P&nbsp;by&nbsp;X<br>
 Y</code></div>
-<p>is a proof of <code class="inline">Q</code> as long as <code class="inline">Y</code> is a proof of <code class="inline">Q</code> and <code class="inline">X</code> is a proof of <code class="inline">P</code>.
-The formula <code class="inline">P</code> becomes a given and can be used inside the proof <code class="inline">Y</code>.</p>
+<p>is a proof of <code class="inline">Q</code> as long as <code class="inline">Y</code> is a proof of <code class="inline">Q</code> and <code class="inline">X</code> is a proof of <code class="inline">P</code>.</p>
+<p>Inside the proof <code class="inline">X</code> the goal changes to <code class="inline">P</code>.</p>
+<p>After the <code class="inline">have</code> statement, the formula <code class="inline">P</code> becomes a given and can be
+used inside the proof <code class="inline">Y</code>.</p>
 <h2 id="help-proof">Help (Proof)</h2>
 <div class="code-wrapper non-deduce"><code>conclusion&nbsp;::=&nbsp;"help"&nbsp;proof</code></div>
 <p>This halts Deduce and prints advice regarding how to use the formula

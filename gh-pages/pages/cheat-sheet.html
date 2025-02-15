@@ -90,11 +90,8 @@ and 5 make use of the table below.</p>
 <p>Prove the goal by decomposing it into sub-goals. In the table below, look at the entry in the row for the current goal formula and the <code class="inline">Prove</code> column. The entry suggests the proof statement to use next. (This is the advice that Deduce outputs when you write <a href="./reference.html#question-mark-proof" target="_self"><code class="inline">?</code></a>.) When the goal is an <code class="inline">all</code> formula on a <code class="inline">union</code> type, you need to choose between <code class="inline">arbitrary</code> or <code class="inline">induction</code>. If the <code class="inline">all</code> variable in your goal appears in the formula as the first argument of a recursive function, then <code class="inline">induction</code> is a good choice. Otherwise choose <code class="inline">arbitrary</code>.</p>
 </li>
 <li>
-<p>If the goal formula involves a function that is defined using a <a href="./reference.html#switch-term" target="_self"><code class="inline">switch</code></a>, then it is a good</p>
+<p>If the goal formula involves a function that is defined using a <a href="./reference.html#switch-term" target="_self"><code class="inline">switch</code></a>, then it is a good idea to use the <a href="./reference.html#switch-proof" target="_self"><code class="inline">switch</code></a> proof statement.</p>
 </li>
-</ol>
-<p>idea to use the <a href="./reference.html#switch-proof" target="_self"><code class="inline">switch</code></a> proof statement.</p>
-<ol>
 <li>
 <p>Work backwards from the goal using a <a href="./reference.html#suffices-proof-statement" target="_self"><code class="inline">suffices</code></a> statement. After the <code class="inline">by</code> keyword, write the reason, often <a href="./reference.html#definition-proof" target="_self"><code class="inline">definition</code></a> and/or <a href="./reference.html#rewrite-proof" target="_self"><code class="inline">rewrite</code></a>, which transform the goal formula.</p>
 </li>
