@@ -202,15 +202,6 @@ def rewrite(loc, formula, equation, env):
     else:
         error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
 
-def unflatten(loc2, rator, args, call_ty):
-    if len(args) == 1:
-        return args[0]
-    elif len(args) == 2:
-        return Call(loc2, call_ty, rator, args)
-    else:
-        rest = unflatten(rators, args[1:])
-        return Call(loc2, call_ty, new_rator, [args[0], rest])
-
 def call_arity(call):
     match call:
       case Call(loc2, tyof, rator, args):
