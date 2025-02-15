@@ -397,11 +397,6 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         None)
-    elif e.data == 'term_proof':
-        return PTerm(e.meta,
-                     parse_tree_to_ast(e.children[0], e),
-                     parse_tree_to_ast(e.children[1], e),
-                     parse_tree_to_ast(e.children[2], e))
     elif e.data == 'tuple':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
