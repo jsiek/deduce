@@ -111,6 +111,7 @@ def parse_identifier():
 
 def meta_from_tokens(start_token, end_token):
     meta = Meta()
+    meta.empty = False
     meta.filename = get_filename()
     meta.line = start_token.line
     meta.column = start_token.column
@@ -1188,17 +1189,16 @@ def parse_have():
       + str(e))
 
 def parse_proof():
+    start_token = previous_token()
     proof_stmt = parse_proof_statement()
     if proof_stmt:
         try:
           body = parse_proof()
         except ParseError as ex:
-          if ex.last or not ex.missing:
+          if not ex.missing:
               raise ex
           else:
-              raise ParseError(meta_from_tokens(current_token(), current_token()),
-                         'missing conclusion after\n\t' + str(proof_stmt),
-                         last=True)
+              body = PHole(meta_from_tokens(start_token, previous_token()))
         except Exception as e:
             raise ParseError(meta_from_tokens(current_token(), previous_token()), "Unexpected error while parsing:\n\t" \
               + str(e))

@@ -165,7 +165,7 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: conclusion                                 -> single_proof
-    | proof_stmt proof                             -> push_proof
+    | proof_stmt proof?                            -> push_proof
 
 ?conclusion: "conclude" term "by" proof                  -> annot
     | proof "," proof                                    -> tuple

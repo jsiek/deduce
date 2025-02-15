@@ -331,7 +331,17 @@ def parse_tree_to_ast(e, parent):
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'push_proof':
         proof_stmt = parse_tree_to_ast(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
+        if len(e.children) == 1:
+            meta = Meta() # Put the location of the 'Hole' at the start of the next line
+            meta.empty = False
+            meta.filename = e.meta.filename
+            meta.line = e.meta.end_line+1
+            meta.column = 0
+            meta.end_line = e.meta.end_line+1
+            meta.end_column = 0
+            body = PHole(meta)
+        else:
+            body = parse_tree_to_ast(e.children[1], e)
         if isinstance(proof_stmt, AllIntro):
             proof_stmt.set_body(body)
         else:
