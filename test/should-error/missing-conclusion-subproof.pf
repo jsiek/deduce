@@ -1,0 +1,5 @@
+theorem t : true
+proof
+  have blah : all b : bool. true
+    by arbitrary b : bool 
+end

@@ -1,0 +1,15 @@
+union Blah {
+  B(bool)
+  C(Blah)
+  D(Blah, Blah)
+}
+
+// Function binding
+define C =
+  fun x:bool {
+    fun x:bool {
+      x
+    }
+  }
+
+assert C(true)(false)

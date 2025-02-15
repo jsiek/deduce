@@ -1,0 +1,2 @@
+./test/should-error/shadow_warn1.pf:10.5-12.6: WARNING: x is already defined
+./test/should-error/shadow_warn1.pf:15.1-15.22: assertion failed: C(true)(false)

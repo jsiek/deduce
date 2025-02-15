@@ -133,7 +133,7 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, P:Set<T>
-  suffices (all x:T. (if x ∈ char_fun(λx{switch (if x ∈ P then f(x)
+  suffices (all x:T. (if x ∈ char_fun(λx'{switch (if x' ∈ P then f(x')
                                                  else @none<U>)
             { case none{false} case just(y){true} }}) then x ∈ P))
       by definition {restrict, domain, operator ⊆}

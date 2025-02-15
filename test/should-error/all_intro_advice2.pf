@@ -1,0 +1,6 @@
+theorem test : all x : bool. all y : bool. all z : bool. all w : bool. 
+  all n : bool.
+  x or y or y or not(x)
+proof
+  ?
+end

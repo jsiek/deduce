@@ -202,15 +202,6 @@ def rewrite(loc, formula, equation, env):
     else:
         error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
 
-def unflatten(loc2, rator, args, call_ty):
-    if len(args) == 1:
-        return args[0]
-    elif len(args) == 2:
-        return Call(loc2, call_ty, rator, args)
-    else:
-        rest = unflatten(rators, args[1:])
-        return Call(loc2, call_ty, new_rator, [args[0], rest])
-
 def call_arity(call):
     match call:
       case Call(loc2, tyof, rator, args):
@@ -532,11 +523,6 @@ def check_proof(proof, env):
         case _:
           check_proof_of(reason, new_claim, env)
           ret = remove_mark(new_claim)
-      
-    case PTerm(loc, term, because, rest):
-      new_term = type_synth_term(term, env, None, [])
-      frm = check_proof_of(because, new_term, env)
-      ret = check_proof(rest, env)
       
     case PTuple(loc, pfs):
       frms = [check_proof(pf, env) for pf in pfs]
@@ -879,15 +865,20 @@ def proof_advice(formula, env):
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
       case All(loc, tyof, var, (s, e), body):
-        x, ty = var
-        
-        if s != 0:
-          body = update_all_head(body)
+        pf = "arbitrary "
+        cur = formula
+        prev_s = s + 1 # This variable stops spillover into other alls
+
+        while isinstance(cur, All) and cur.pos[0] >= 0 and cur.pos[0] < prev_s:
+          pf += f"{base_name(cur.var[0])}:{cur.var[1]}{', ' if cur.pos[0] > 0 else ''}"
+          prev_s = cur.pos[0]
+          cur = cur.body
+
         arb_advice = prefix \
             + '\tProve this "all" formula with:\n' \
-            + '\t\tarbitrary ' + base_name(x) + ':' + str(ty) + '\n' \
+            + '\t\t' + pf + '\n' \
             + '\tfollowed by a proof of:\n' \
-            + '\t\t' + str(body)
+            + '\t\t' + str(cur)
 
         # NOTE: Maybe we shouldn't give induction advice for non recursively
         # defined unions. However right now we will because I haven't added
@@ -1271,7 +1262,7 @@ def check_proof_of(proof, formula, env):
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         claim_red = new_claim.reduce(env)
-        # Need special handling for when claim_red is Hole or Oitted -Jeremy
+        # Need special handling for when claim_red is Hole or Omitted -Jeremy
         imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
         check_proof_of(reason, imp, env)
         check_proof_of(rest, claim_red, env)

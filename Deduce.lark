@@ -165,7 +165,7 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: conclusion                                 -> single_proof
-    | proof_stmt proof                             -> push_proof
+    | proof_stmt proof?                            -> push_proof
 
 ?conclusion: "conclude" term "by" proof                  -> annot
     | proof "," proof                                    -> tuple
@@ -228,7 +228,6 @@ ident: IDENT              -> ident
     | "suppose" IDENT                               -> imp_intro
     | "suppose" IDENT ":" term                      -> imp_intro_explicit
     | "suppose" ":" term                            -> imp_intro_anon
-    | "term" term "by" proof                        -> term_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
     | "case" IDENT ":" term "{" proof "}"                -> case_annot

@@ -1,0 +1,4 @@
+./test/should-error/shadow_warn4.pf:16.9-16.36: WARNING: b1 is already defined
+./test/should-error/shadow_warn4.pf:16.9-16.36: WARNING: b2 is already defined
+./test/should-error/shadow_warn4.pf:16.26-16.34: ill-formed recursive call
+expected first argument to be b1 or b2, not b2
