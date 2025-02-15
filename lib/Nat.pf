@@ -145,8 +145,8 @@ recursive dist(Nat, Nat) -> Nat {
       case 0 {
         suc(m)
       }
-      case suc(n) {
-        dist(m, n)
+      case suc(n') {
+        dist(m, n')
       }
     }
 }
@@ -918,7 +918,7 @@ proof
                suffices suc(x') ≤ y'            by definition operator ≤ 
                definition operator < in less
         }
-        case equal { conclude suc(x') = suc(y')  by replace equal }
+        case x_eq_y { conclude suc(x') = suc(y')  by replace x_eq_y }
         case greater {
           conclude suc(y') < suc(x')
               by suffices suc(suc(y')) ≤ suc(x')   by definition operator <
@@ -942,9 +942,9 @@ proof
     have not_less: not (x < y)  by prem
     conclude false  by apply not_less to less
   }
-  case equal: x = y {
+  case x_eq_y: x = y {
     have not_equal: not (x = y)  by prem
-    conclude false  by apply not_equal to equal
+    conclude false  by apply not_equal to x_eq_y
   }
   case greater: y < x {
     conclude y <  x by greater
@@ -1823,7 +1823,7 @@ proof
       }
       have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
       obtain m where n_2m from definition Odd in Odd_n
-      suffices some m:Nat. suc(n') = 2 * m  by definition Even
+      suffices some m':Nat. suc(n') = 2 * m'  by definition Even
       choose suc(m)
       suffices suc(suc(2 * m)) = 2 * suc(m)  by replace n_2m
       suffices suc(suc(m + (m + 0))) = suc(m + suc(m + 0))
@@ -1837,7 +1837,7 @@ proof
         }
         have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
         obtain m where n_2m from definition Even in Even_n
-        suffices some m:Nat. suc(n') = suc(2 * m)  by definition Odd
+        suffices some m':Nat. suc(n') = suc(2 * m')  by definition Odd
         choose m
         replace n_2m)
     part1, part2
@@ -2322,8 +2322,8 @@ proof
     suppose prem
     have n_sn: n ≤ suc(n)   by less_equal_suc[n]
     switch suc(q) * pos2nat(m) ≤ n for find_quotient {
-      case true suppose sqm_le_n {
-        have sqm_le_n: suc(q) * pos2nat(m) ≤ n  by replace sqm_le_n
+      case true suppose sqm_le_n_t {
+        have sqm_le_n: suc(q) * pos2nat(m) ≤ n  by replace sqm_le_n_t
         switch n < u' * pos2nat(m) {
           case true suppose n_l_um_true {
             have n_l_um: n < u' * pos2nat(m)    by replace n_l_um_true

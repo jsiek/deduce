@@ -1,0 +1,2 @@
+./test/should-error/overload_fail.pf:10.5-12.6: WARNING: x is already defined
+./test/should-error/overload_fail.pf:8.1-13.4: Cannot overload union names. Blah is already defined as a union

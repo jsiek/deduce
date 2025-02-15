@@ -1,0 +1,4 @@
+./test/should-error/shadow_warn3.pf:2.29-2.42: WARNING: T is already defined
+./test/should-error/shadow_warn3.pf:5.9-9.10: WARNING: T is already defined
+./test/should-error/shadow_warn3.pf:7.13-7.14: expected a term of type T
+but got term x of type T

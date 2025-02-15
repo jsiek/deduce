@@ -37,7 +37,7 @@ end
 
 
 theorem sum_n : all n : Nat. 
-    2 * summation(n, 0, λ n {n}) = n * (n - 1)
+    2 * summation(n, 0, λ x {x}) = n * (n - 1)
 proof
     induction Nat
     case zero {
@@ -70,7 +70,7 @@ proof
 end
 
 theorem sum_n' : all n : Nat. 
-    2 * summation(suc(n), 0, λ n {n}) = n * (n + 1)
+    2 * summation(suc(n), 0, λ x {x}) = n * (n + 1)
 proof
     induction Nat
     case zero {
