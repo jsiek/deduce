@@ -3,16 +3,16 @@ Goal:
 	(all x:Nat, y:Nat, z:Nat. x + ((y + z) + 0) = x + (y + z))
 Advice:
 	Prove this "all" formula with:
-		arbitrary x:Nat
+		arbitrary x:Nat, y:Nat, z:Nat
 	followed by a proof of:
-		(all y:Nat, z:Nat. x + ((y + z) + 0) = x + (y + z))
+		x + ((y + z) + 0) = x + (y + z)
 
 	Alternatively, you can try induction with:
 		induction Nat
 		case zero {
 		  ?
 		}
-		case suc(N1) assume IH1: (all y:Nat, z:Nat. N1 + ((y + z) + 0) = N1 + (y + z)) {
+		case suc(N1) assume IH1: y:Nat, z:Nat. N1 + ((y + z) + 0) = N1 + (y + z) {
 		  ?
 		}
 

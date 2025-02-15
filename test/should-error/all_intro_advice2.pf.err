@@ -1,0 +1,8 @@
+./test/should-error/all_intro_advice2.pf:5.3-5.4: incomplete proof
+Goal:
+	(all x:bool. (all y:bool. (all z:bool. (all w:bool. (all n:bool. (x or y or y or not x))))))
+Advice:
+	Prove this "all" formula with:
+		arbitrary x:bool
+	followed by a proof of:
+		(all y:bool. (all z:bool. (all w:bool. (all n:bool. (x or y or y or not x)))))
