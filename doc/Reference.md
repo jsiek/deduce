@@ -1019,7 +1019,11 @@ Y
 ```
 
 is a proof of `Q` as long as `Y` is a proof of `Q` and `X` is a proof of `P`.
-The formula `P` becomes a given and can be used inside the proof `Y`.
+
+Inside the proof `X` the goal changes to `P`.
+
+After the `have` statement, the formula `P` becomes a given and can be
+used inside the proof `Y`.
 
 ## Help (Proof)
 
