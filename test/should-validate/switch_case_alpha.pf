@@ -1,0 +1,22 @@
+union Wrapper {
+  b(bool)
+}
+
+define eval = fun x : Wrapper {
+  switch x {
+    case b(y) { true or y }
+  }
+}
+
+theorem blah : all b1 : Wrapper.
+  eval(b1)
+proof
+  arbitrary b1 : Wrapper
+  suffices switch b1 { case b(y){true or y} }
+    by definition eval
+  switch b1 {
+    case b(b2) {
+      .
+    }
+  }
+end

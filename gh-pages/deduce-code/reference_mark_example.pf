@@ -10,5 +10,5 @@ proof
   $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
             ... = 1 + #x# + 1 by replace recall x = 1
             ... = 1 + 1 + 1   by replace recall x = 1
-            ... = 3           by definition {operator+,operator+}
+            ... = 3           by evaluate
 end

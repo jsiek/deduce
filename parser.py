@@ -644,8 +644,9 @@ def parse_tree_to_ast(e, parent):
     
     # case of a recursive function
     elif e.data == 'fun_case':
+        rator = parse_tree_to_ast(e.children[0], e)
         pp = parse_tree_to_list(e.children[1], e)
-        return FunCase(e.meta, pp[0], pp[1:],
+        return FunCase(e.meta, Var(e.meta, None, rator, []), pp[0], pp[1:],
                        parse_tree_to_ast(e.children[2], e))
     # functions
     elif e.data == 'fun':

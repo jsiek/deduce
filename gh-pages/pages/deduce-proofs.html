@@ -325,14 +325,12 @@ Here we list the names of the theorems and the formula. (To add more
 theorems, pull requests on the github repository are most welcome!)</p>
 <div class="code-wrapper non-deduce"><code>add_zero:&nbsp;all&nbsp;n:Nat.&nbsp;&nbsp;n&nbsp;+&nbsp;0&nbsp;=&nbsp;n<br>
 add_commute:&nbsp;all&nbsp;n:Nat.&nbsp;all&nbsp;m:Nat.&nbsp;&nbsp;n&nbsp;+&nbsp;m&nbsp;=&nbsp;m&nbsp;+&nbsp;n<br>
-add_assoc:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat,&nbsp;o:Nat.&nbsp;&nbsp;(m&nbsp;+&nbsp;n)&nbsp;+&nbsp;o&nbsp;=&nbsp;m&nbsp;+&nbsp;(n&nbsp;+&nbsp;o)<br>
 left_cancel:&nbsp;all&nbsp;x:Nat.&nbsp;all&nbsp;y:Nat,&nbsp;z:Nat.&nbsp;&nbsp;if&nbsp;x&nbsp;+&nbsp;y&nbsp;=&nbsp;x&nbsp;+&nbsp;z&nbsp;then&nbsp;y&nbsp;=&nbsp;z<br>
 add_to_zero:&nbsp;all&nbsp;n:Nat.&nbsp;all&nbsp;m:Nat.&nbsp;if&nbsp;n&nbsp;+&nbsp;m&nbsp;=&nbsp;0&nbsp;then&nbsp;n&nbsp;=&nbsp;0&nbsp;and&nbsp;m&nbsp;=&nbsp;0<br>
 dist_mult_add:&nbsp;all&nbsp;a:Nat.&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat.&nbsp;a&nbsp;&ast;&nbsp;(x&nbsp;+&nbsp;y)&nbsp;=&nbsp;a&nbsp;&ast;&nbsp;x&nbsp;+&nbsp;a&nbsp;&ast;&nbsp;y<br>
 mult_zero:&nbsp;all&nbsp;n:Nat.&nbsp;n&nbsp;&ast;&nbsp;0&nbsp;=&nbsp;0<br>
 mult_one:&nbsp;all&nbsp;n:Nat.&nbsp;n&nbsp;&ast;&nbsp;1&nbsp;=&nbsp;n<br>
-mult_commute:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat.&nbsp;m&nbsp;&ast;&nbsp;n&nbsp;=&nbsp;n&nbsp;&ast;&nbsp;m<br>
-mult_assoc:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat,&nbsp;o:Nat.&nbsp;(m&nbsp;&ast;&nbsp;n)&nbsp;&ast;&nbsp;o&nbsp;=&nbsp;m&nbsp;&ast;&nbsp;(n&nbsp;&ast;&nbsp;o)</code></div>
+mult_commute:&nbsp;all&nbsp;m:Nat.&nbsp;all&nbsp;n:Nat.&nbsp;m&nbsp;&ast;&nbsp;n&nbsp;=&nbsp;n&nbsp;&ast;&nbsp;m</code></div>
 <p>You can use these theorems by instantiating them with particular
 entities. For example, <code class="inline">add_zero[2]</code> is a proof of <code class="inline">2 + 0 = 2</code>.
 We have not yet discussed how to use the <code class="inline">if</code>-<code class="inline">then</code> formula in
@@ -348,7 +346,7 @@ the final goal of a theorem. The <code class="inline">have</code> statement of D
 way to state and prove a fact and give it a label so that it can be
 used later in the proof. For example, consider the proof of</p>
 <div class="code-wrapper non-deduce"><code>x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x</code></div>
-<p>It takes several uses of <code class="inline">add_commute</code> and <code class="inline">add_assoc</code> to prove this.
+<p>It takes several uses of <code class="inline">add_commute</code> to prove this.
 To get started, we use <code class="inline">have</code> to give the label <code class="inline">step1</code> to a proof of
 <code class="inline">x + y + z = x + z + y</code> (flipping the <code class="inline">y</code> and <code class="inline">z</code>).</p>
 <div class="code-wrapper non-deduce"><code>theorem&nbsp;xyz_zyx:&nbsp;all&nbsp;x:Nat,&nbsp;y:Nat,&nbsp;z:Nat.<br>
@@ -356,34 +354,29 @@ To get started, we use <code class="inline">have</code> to give the label <code 
 proof<br>
 &nbsp;&nbsp;arbitrary&nbsp;x:Nat,&nbsp;y:Nat,&nbsp;z:Nat<br>
 &nbsp;&nbsp;have&nbsp;step1:&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y<br>
-&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[y][z]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[y,z]<br>
 &nbsp;&nbsp;?<br>
 end</code></div>
 <p>Deduce prints the current goal and the <strong>givens</strong>, that is, the formulas
 that we already know are true, which now includes <code class="inline">step1</code>.</p>
 <div class="code-wrapper non-deduce"><code>incomplete&nbsp;proof<br>
 Goal:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;(y&nbsp;+&nbsp;z)&nbsp;=&nbsp;z&nbsp;+&nbsp;(y&nbsp;+&nbsp;x)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x<br>
 Givens:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;step1:&nbsp;x&nbsp;+&nbsp;(y&nbsp;+&nbsp;z)&nbsp;=&nbsp;x&nbsp;+&nbsp;(z&nbsp;+&nbsp;y)</code></div>
+&nbsp;&nbsp;&nbsp;&nbsp;step1:&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y</code></div>
 <p>We proceed four more times, using <code class="inline">have</code> to create each intermediate
 step in the reasoning.</p>
-<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;have&nbsp;step2:&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y&nbsp;=&nbsp;(x&nbsp;+&nbsp;z)&nbsp;+&nbsp;y<br>
-&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_assoc[x][z,y]<br>
-&nbsp;&nbsp;have&nbsp;step3:&nbsp;(x&nbsp;+&nbsp;z)&nbsp;+&nbsp;y&nbsp;=&nbsp;(z&nbsp;+&nbsp;x)&nbsp;+&nbsp;y<br>
-&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[z][x]<br>
-&nbsp;&nbsp;have&nbsp;step4:&nbsp;(z&nbsp;+&nbsp;x)&nbsp;+&nbsp;y&nbsp;=&nbsp;z&nbsp;+&nbsp;(x&nbsp;+&nbsp;y)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_assoc[z][x,y]<br>
-&nbsp;&nbsp;have&nbsp;step5:&nbsp;z&nbsp;+&nbsp;(x&nbsp;+&nbsp;y)&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x<br>
-&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[x][y]</code></div>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;have&nbsp;step2:&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y&nbsp;=&nbsp;z&nbsp;+&nbsp;x&nbsp;+&nbsp;y<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[z,x]<br>
+&nbsp;&nbsp;have&nbsp;step3:&nbsp;z&nbsp;+&nbsp;x&nbsp;+&nbsp;y&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x<br>
+&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[x,y]</code></div>
 <p>We finish the proof by connecting them all together using Deduce's
 <code class="inline">transitive</code> statement. The <code class="inline">transitive</code> statement takes two proofs of
 equations <code class="inline">a = b</code> and <code class="inline">b = c</code>, and proves <code class="inline">a = c</code>. Here we use the
 intermediate facts <code class="inline">step1</code>, <code class="inline">step2</code>, etc. by referencing their
 label. In general, to use one of the given facts, one just needs to
 use its label.</p>
-<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;transitive&nbsp;step1&nbsp;(transitive&nbsp;step2&nbsp;(transitive&nbsp;step3<br>
-&nbsp;&nbsp;&nbsp;&nbsp;(transitive&nbsp;step4&nbsp;step5)))</code></div>
+<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;transitive&nbsp;step1&nbsp;(transitive&nbsp;step2&nbsp;step3)</code></div>
 <p>Here is the complete proof of the <code class="inline">xyz_zyx</code> theorem.</p>
 <div class="code-wrapper"><code id="proof_xyz_zyx"><!-- Generated by codeUtils.js --></code></div>
 <h2 id="chaining-equations-with-equations">Chaining Equations with <code class="inline">equations</code></h2>
@@ -406,21 +399,12 @@ end</code></div>
 extra lazy, we can use <code class="inline">?</code> for the new right-hand side and the
 error from Deduce will tell us what it needs to be.</p>
 <div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;equations<br>
-&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;?&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[y][z]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;?&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[y,z]<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?</code></div>
 <p>Deduce responds with:</p>
 <div class="code-wrapper non-deduce"><code>remains&nbsp;to&nbsp;prove:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;(z&nbsp;+&nbsp;y)&nbsp;=&nbsp;?</code></div>
-<p>So we replace the <code class="inline">?</code> on the right-hand side with <code class="inline">x + (z + y)</code>
-and proceed to the next step, which is to apply associativity.</p>
-<div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;equations<br>
-&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;y&nbsp;+&nbsp;z&nbsp;=&nbsp;x&nbsp;+&nbsp;(z&nbsp;+&nbsp;y)&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;add_commute[y][z]<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;?&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;replace&nbsp;symmetric&nbsp;add_assoc[x][z,y]<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...&nbsp;=&nbsp;z&nbsp;+&nbsp;y&nbsp;+&nbsp;x&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;by&nbsp;?</code></div>
-<p>Deduce responds with:</p>
-<div class="code-wrapper non-deduce"><code>remains&nbsp;to&nbsp;prove:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;(x&nbsp;+&nbsp;z)&nbsp;+&nbsp;y&nbsp;=&nbsp;?</code></div>
-<p>We replace the <code class="inline">?</code> on the right-hand side with <code class="inline">(x + z) + y</code>.
+&nbsp;&nbsp;&nbsp;&nbsp;x&nbsp;+&nbsp;z&nbsp;+&nbsp;y&nbsp;=&nbsp;?</code></div>
+<p>So we replace the <code class="inline">?</code> on the right-hand side with <code class="inline">x + z + y</code>.
 Continuing in this way for several more steps, we incrementally arrive
 at the following proof that <code class="inline">x + y + z = z + y + x</code> using <code class="inline">equations</code>.</p>
 <div class="code-wrapper"><code id="proof_xyz_zyx_eqn"><!-- Generated by codeUtils.js --></code></div>
@@ -431,8 +415,6 @@ an equation into the left-hand side using <code class="inline">replace</code> or
 then <a href="./reference.html#mark" target="_self">mark</a> the right-hand side.</p>
 <p>The <code class="inline">equations</code> feature is implemented in Deduce by translating them
 into a bunch of <code class="inline">transitive</code> statements.</p>
-<h3 id="exercise_3">Exercise</h3>
-<p>Prove that <code class="inline">x + y + z = z + y + x</code> but using fewer than 5 steps.</p>
 <h2 id="proving-all-formulas-with-induction">Proving <code class="inline">all</code> Formulas with Induction</h2>
 <p>Sometimes the <code class="inline">arbitrary</code> statement does not give us enough
 information to prove an <code class="inline">all</code> formula. In those situations, so long as
@@ -549,7 +531,7 @@ right-hand side of the induction hypothesis <code class="inline">IH</code>. We u
 <li>To prove an <code class="inline">all</code> formula that concerns entities of a <code class="inline">union</code> type,</li>
 </ul>
 <p>use Deduce's <code class="inline">induction</code> statement.</p>
-<h3 id="exercise_4">Exercise</h3>
+<h3 id="exercise_3">Exercise</h3>
 <p>Fill in the proof of the following theorem about <code class="inline">length</code> and <code class="inline">++</code>.</p>
 <div class="code-wrapper"><code id="proof_length_append"><!-- Generated by codeUtils.js --></code></div>
 <h2 id="reasoning-about-and-conjunction">Reasoning about <code class="inline">and</code> (Conjunction)</h2>
@@ -813,7 +795,7 @@ in <code class="inline">add_to_zero</code>.)</p>
 <ul>
 <li>To apply a definition to a fact, use <code class="inline">definition</code>-<code class="inline">in</code>.</li>
 </ul>
-<h3 id="exercise_5">Exercise</h3>
+<h3 id="exercise_4">Exercise</h3>
 <p>Prove that <code class="inline">all x:Nat. if x ≤ 0 then x = 0</code>.</p>
 <h2 id="reasoning-about-true">Reasoning about <code class="inline">true</code></h2>
 <p>There's not much to say about <code class="inline">true</code>. It's true!  And as we've already
@@ -945,7 +927,7 @@ to <code class="inline">y &lt; y</code>.</p>
 <div class="code-wrapper non-deduce"><code>&nbsp;&nbsp;conclude&nbsp;false&nbsp;by&nbsp;apply&nbsp;intro_less_irreflexive[y]&nbsp;to&nbsp;y_l_y</code></div>
 <p>Here is the complete proof of <code class="inline">intro_less_not_equal</code>.</p>
 <div class="code-wrapper"><code id="proof_intro_less_not_equal"><!-- Generated by codeUtils.js --></code></div>
-<h3 id="exercise_6">Exercise</h3>
+<h3 id="exercise_5">Exercise</h3>
 <p>Using the <code class="inline">replace</code>-<code class="inline">in</code> statement, prove the following variation on
 the transitivity theorem for <code class="inline">≤</code>. Prove that if <code class="inline">x = y</code> and <code class="inline">y ≤ z</code>,
 then <code class="inline">x ≤ z</code>.</p>

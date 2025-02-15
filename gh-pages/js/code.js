@@ -119,6 +119,7 @@ const codeBlocks = [
 	"reference_subset_example",
 	"reference_subtract_example",
 	"reference_suffices_example",
+	"reference_suffices_omitted_example",
 	"reference_switch_example",
 	"reference_switch_proof_example",
 	"reference_trichotomy_example",

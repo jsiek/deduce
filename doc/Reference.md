@@ -32,40 +32,6 @@ Example:
 assert 2 + 3 = 5
 ```
 
-Note that addition is a binary operator. When you
-type in a sequence of additions, such as
-```
-x + y + z
-```
-Deduce parses the sequence in a right-associative manner,
-as follows.
-```
-x + (y + z)
-```
-The grouping matters when you want to apply the laws of algebra, such
-as the associative and commutate laws. If you want to commute
-the `y` and `z`, that works fine and the result is
-```
-x + (z + y)
-```
-But you can't commute the `x` and `y` in
-```
-x + (y + z)
-```
-Instead, first use the law of associativity to regroup
-```
-(x + y) + z
-```
-then commute the `x` and `y`
-```
-(y + x) + z
-```
-and, if desired, use associativity again
-```
-y + x + z
-```
-
-
 ## Add (Multiset)
 
 ```
@@ -123,9 +89,8 @@ theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = (x + y) + z by symmetric add_assoc[x][y, z]
-          ... = (y + x) + z by rewrite add_commute[x][y]
-          ... = z + y + x by add_commute[y+x][z]
+    x + y + z = y + x + z by rewrite add_commute[x,y]
+          ... = z + y + x by add_commute[y+x,z]
 end
 ```
 
@@ -619,8 +584,8 @@ theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x 
 proof
   arbitrary x:Nat
   define y = x + x + x
-  suffices y + (y + 0) = y + y
-    by definition {operator*,operator*,operator*}
+  suffices y + y + 0 = y + y
+    by definition 3* operator*
   rewrite add_zero[y]
 end
 ```
@@ -646,7 +611,7 @@ proof
       by definition length
   suffices 1 + (1 + 0) = 2
       by definition 2*length
-  definition 2*operator+
+  evaluate
 end
 ```
 
@@ -784,9 +749,7 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
     x + y + z = x + z + y      by replace add_commute[y]
-          ... = #(x + z) + y#  by replace add_assoc
           ... = #z + x# + y    by replace add_commute
-          ... = z + x + y      by replace add_assoc
           ... = z + y + x      by replace add_commute[x]
 end
 ```
@@ -914,44 +877,7 @@ Alternate syntax in version 1.1 starts with `recursive` keyword:
 statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
 ```
 
-The `recursive` statement is for defining recursive functions that
-operate on `union` types. Recursive functions in Deduce are somewhat
-special to make sure they always terminate.
-
-* The first parameter of the function must be a union.
-* The function definition must include a clause for every
-  constructor in the union.
-* The first argument of every recursive call must be a sub-part of the
-  current constructor of the union.
-
-A recursive function begins with the `recursive` keyword (or `function` in version 1.0),
-followed by the name of the function, then the parameters types and the return
-type. The body of the function includes one equation for every
-constructor in the union of its first parameter. For example, here's
-the definition of a `length` function for lists of natural numbers.
-
-```{.deduce^#function_example}
-union NatList {
-  Empty
-  Node(Nat, NatList)
-}
-
-recursive length(NatList) -> Nat {
-  length(Empty) = 0
-  length(Node(n, next)) = 1 + length(next)
-}
-```
-
-There are two clauses in the body of `length` because the `NatList` union
-has two constructors. The clause for `Empty` says that its length is
-`0`.  The clause for `Node` says that its length is one more than the
-length of the rest of the linked list.  Deduce approves of the
-recursive call `length(next)` because `next` is part of `Node(n, next)`.
-
-Recursive functions may have more than one parameter but pattern
-matching is only supported for the first parameter. 
-If you need to pattern match on a parameter that is not the first, you
-can use a `switch` statement. 
+See [Recursive Function (Statement)](#recursive-function-statement)
 
 ## Function Type
 
@@ -1455,7 +1381,7 @@ proof
   $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
             ... = 1 + #x# + 1 by replace recall x = 1
             ... = 1 + 1 + 1   by replace recall x = 1
-            ... = 3           by definition {operator+,operator+}
+            ... = 3           by evaluate
 end
 ```
 
@@ -1749,7 +1675,8 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ## Recursive Function (Statement)
 
-(This feature was added in Deduce version 1.1.)
+(The `recursive` keyword was added in Deduce version 1.1
+as a replacement for `function`.)
 
 ```
 statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
@@ -1915,82 +1842,6 @@ conclusion ::= "sorry"
 `sorry` is the get-out-of-jail free card. It can prove anything.
 However, it prints a warning message with the location of the `sorry`.
 
-
-## Switch (Term)
-
-```
-term ::= "switch" term "{" switch_case* "}"
-switch_case ::= "case" pattern "{" term "}"
-```
-
-(See the entry for [Pattern](#pattern) for the syntax of `pattern`.)
-
-The subject of the `switch` must be of union type or `bool` (e.g., not
-a function). The body of the `switch` must have one `case` for every
-constructor in the `union`, or for `bool`, the cases are `true` and
-`false`.  The body of each `case` is a term and they all must have the
-same type.  The `switch` evaluates the subject and compares it to each
-case, then evaluates the body of the case that matched.
-
-```{.deduce^#switch_example}
-define flip = fun x:bool {
-  switch x {
-    case true { false }
-    case false { true }
-  }
-}
-assert flip(false)
-assert not flip(true)
-```
-
-## Switch (Proof)
-
-```
-conclusion ::= "switch" term "{" switch_proof_case* "}"
-switch_proof_case ::= "case" pattern "{" proof "}"
-switch_proof_case ::= "case" pattern assumptions "{" proof "}"
-assumptions ::= "suppose" assumption_list | "assume" assumption_list
-```
-
-(See entry for Assumption List for the syntax of `assumption_list`.)
-
-A proof of the form
-
-```
-switch t {
-  case p1 assume eq1: t = p1 {
-    X1
-  }
-  ...
-  case pn assume eqn: t = pn {
-    Xn
-  }
-}
-```
-
-is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
-The fact `t = p1` is a given that can be used in `X1`
-and similarly for the other cases.
-
-Example:
-
-```{.deduce^#switch_proof_example}
-theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
-proof
-  arbitrary x:Nat
-  switch x {
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
-    }
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x')
-          by definition {operator <, operator ≤, operator ≤}
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
-    }
-  }
-end
-```
-
 ## Subset or Equal
 
 ```
@@ -2101,10 +1952,103 @@ proof
 end
 ```
 
+## Suffices Omitted Term
+
+Use suffices without explicitly stating the new goal. 
+Instead, you can use `─` or `__` to fill in what the new goal should be. 
+
+Example:
+
+```{.deduce^#suffices_omitted_example}
+theorem length__nat_one': all x:Nat. length([x]) = 1
+proof
+  arbitrary x:Nat
+  suffices __
+      by definition {length, length}
+  add_zero[1]
+end
+```
+
+This acts similarly to [`?`](#question-mark--proof), except that deduce will fill in the omitted term internally and accept the proof as complete.
 
 ## Suppose
 
 See the entry for [Assume](#assume).
+
+## Switch (Term)
+
+```
+term ::= "switch" term "{" switch_case* "}"
+switch_case ::= "case" pattern "{" term "}"
+```
+
+(See the entry for [Pattern](#pattern) for the syntax of `pattern`.)
+
+The subject of the `switch` must be of union type or `bool` (e.g., not
+a function). The body of the `switch` must have one `case` for every
+constructor in the `union`, or for `bool`, the cases are `true` and
+`false`.  The body of each `case` is a term and they all must have the
+same type.  The `switch` evaluates the subject and compares it to each
+case, then evaluates the body of the case that matched.
+
+```{.deduce^#switch_example}
+define flip = fun x:bool {
+  switch x {
+    case true { false }
+    case false { true }
+  }
+}
+assert flip(false)
+assert not flip(true)
+```
+
+## Switch (Proof)
+
+```
+conclusion ::= "switch" term "{" switch_proof_case* "}"
+switch_proof_case ::= "case" pattern "{" proof "}"
+switch_proof_case ::= "case" pattern assumptions "{" proof "}"
+assumptions ::= "suppose" assumption_list | "assume" assumption_list
+```
+
+(See entry for Assumption List for the syntax of `assumption_list`.)
+
+A proof of the form
+
+```
+switch t {
+  case p1 assume eq1: t = p1 {
+    X1
+  }
+  ...
+  case pn assume eqn: t = pn {
+    Xn
+  }
+}
+```
+
+is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
+The fact `t = p1` is a given that can be used in `X1`
+and similarly for the other cases.
+
+Example:
+
+```{.deduce^#switch_proof_example}
+theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
+proof
+  arbitrary x:Nat
+  switch x {
+    case 0 assume xz: x = 0 {
+      conclude true or 0 < 0 by .
+    }
+    case suc(x') assume xs: x = suc(x') {
+      have z_l_sx: 0 < suc(x')
+          by definition {operator <, operator ≤, operator ≤}
+      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    }
+  }
+end
+```
 
 ## Symmetric (Proof)
 
@@ -2276,6 +2220,7 @@ import MultiSet
 import Maps
 import Pair
 
+<<function_length_example>>
 <<add_example>>
 <<add_multiset_example>>
 <<all_example_bool>>
@@ -2327,7 +2272,6 @@ import Pair
 <<true_example>>
 <<union_example>>
 <<fun_exchange_example>>
-<<function_length_example>>
 <<generic_fun_example>>
 ```
 -->

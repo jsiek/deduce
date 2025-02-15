@@ -274,9 +274,7 @@ proof
     arbitrary bs:List<bool>
     suffices 1 + length(iter_dub(n', bs)) = suc(n') + length(bs)
         by definition {iter_dub, dub, length}
-    suffices 1 + (n' + length(bs)) = (1 + n') + length(bs)
-        by rewrite IH[bs] | suc_one_add[n']
-    rewrite add_assoc[1][n', length(bs)]
+    rewrite IH[bs] | suc_one_add[n']
   }
 end
 
