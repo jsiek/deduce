@@ -574,10 +574,12 @@ class Var(Term):
   
   def __eq__(self, other):
       if isinstance(other, RecFun):
-        return self.name == other.name
-      if not isinstance(other, Var):
-        return False
-      return self.name == other.name 
+        result = self.name == other.name
+      elif not isinstance(other, Var):
+        result = False
+      else:
+        result = self.name == other.name
+      return result
   
   def __str__(self):
       if isinstance(self.resolved_names, str):
@@ -590,7 +592,7 @@ class Var(Term):
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
       elif get_verbose():
-        return base_name(self.name) # + '{' + ','.join(self.resolved_names) + '}'
+        return self.name + '{' + ','.join(self.resolved_names) + '}'
       elif get_unique_names():
         return self.name
       else:
@@ -934,7 +936,8 @@ class Call(Term):
         return False
       eq_rators = self.rator == other.rator
       eq_rands = all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
-      return eq_rators and eq_rands
+      result = eq_rators and eq_rands
+      return result
 
   def reduce(self, env):
     if get_verbose():
@@ -1773,7 +1776,8 @@ class All(Formula):
     x, tx = self.var
     y, ty = other.var
     sub = { y: Var(self.location, None, x, [x]) }
-    return self.body == other.body.substitute(sub)
+    result = self.body == other.body.substitute(sub)
+    return result
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
@@ -3213,10 +3217,14 @@ class Env:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
 
-  def proofs(self):
+  def local_proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding) and b.local]
-      
+
+  def proofs(self):
+    return [b.formula for (name, b) in self.dict.items() \
+            if isinstance(b, ProofBinding)]
+  
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')

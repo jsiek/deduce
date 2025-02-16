@@ -424,7 +424,7 @@ def check_proof(proof, env):
       results = []
       for fact in facts:
         new_fact = type_check_term(fact, BoolType(loc), env, None, [])
-        if new_fact in env.proofs():
+        if new_fact in env.local_proofs():
             results.append(new_fact)
         else:
             error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
@@ -2622,12 +2622,15 @@ def type_check_stmt(stmt, env):
       return Print(loc, new_trm)
 
     case Associative(loc, op, typ):
-      return Associative(loc, op, typ)
+      new_op = type_synth_term(op, env, None, [])
+      return Associative(loc, new_op, typ)
   
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
 
 def collect_env(stmt, env):
+  if get_verbose():
+    print('collect_env(' + str(stmt) + ')')
   match stmt:
     case Define(loc, name, ty, body, isPrivate):
       return env.define_term_var(loc, name, ty, body)
@@ -2652,7 +2655,26 @@ def collect_env(stmt, env):
       return env
 
     case Associative(loc, op, typ):
-      return env.declare_assoc(loc, op.resolved_names[0], typ)
+      # Example proof of associativity:
+      # all m:Nat, n:Nat, o:Nat. (m + n) + o = m + (n + o)
+      m_name = generate_name("m")
+      m_var = Var(loc, typ, m_name, [m_name])
+      n_name = generate_name("n")
+      n_var = Var(loc, typ, n_name, [n_name])
+      o_name = generate_name("o")
+      o_var = Var(loc, typ, o_name, [o_name])
+      def makeOp(left, right):
+          return Call(loc, typ, op, [left,right])
+      assoc_formula = mkEqual(loc, makeOp(makeOp(m_var, n_var), o_var),
+                              makeOp(m_var, makeOp(n_var, o_var)))
+      vars = [(m_name, typ), (n_name, typ), (o_name, typ)]
+      for i, var in enumerate(reversed(vars)):
+          assoc_formula = All(loc, None, var, (i,len(vars)), assoc_formula)
+
+      if assoc_formula in env.proofs():
+          return env.declare_assoc(loc, op.resolved_names[0], typ)
+      else:
+          error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
     case _:
       error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
