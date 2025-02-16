@@ -1792,6 +1792,7 @@ class Some(Formula):
 
   def copy(self):
     return Some(self.location,
+                self.typeof,
                [(x,ty.copy()) for (x,ty) in self.vars],
                self.body.copy())
   
