@@ -586,6 +586,49 @@ end
 
 associative operator* in Nat
 
+theorem mult_right_cancel : all m : Nat, n : Nat, o : Nat.
+  if m * suc(o) = n * suc(o) then m = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat
+    switch n {
+      case 0 { . }
+      case suc(n') {
+        assume contra: 0 * suc(o) = suc(n') * suc(o)
+        conclude false by evaluate in contra
+      }
+    }
+  }
+  case suc(m') assume IH {
+    arbitrary n:Nat, o:Nat
+    switch n {
+      case 0 {
+        assume contra: suc(m') * suc(o) = 0 * suc(o)
+        conclude false by evaluate in contra
+      }
+      case suc(n') {
+        assume prem: suc(m') * suc(o) = suc(n') * suc(o)
+        have prem2: suc(o) + m' * suc(o) = suc(o) + n' * suc(o)
+          by definition operator* in prem
+        have prem3: m' * suc(o) = n' * suc(o)
+          by apply left_cancel to prem2
+        have: m' = n' by apply IH to prem3
+        conclude suc(m') = suc(n') by replace recall m' = n'
+      }
+    }
+  }
+end
+
+theorem mult_left_cancel : all m : Nat, a : Nat, b : Nat.
+  if suc(m) * a = suc(m) * b then a = b
+proof
+  arbitrary m:Nat, a:Nat, b:Nat
+  assume prem: suc(m) * a = suc(m) * b
+  have prem2: a * suc(m) = b * suc(m)  by rewrite mult_commute in prem
+  conclude a = b by apply mult_right_cancel to prem2
+end
+
 /*
  Properties of Less-Than, Greater-Than, etc.
 */
@@ -2536,4 +2579,3 @@ proof
   }
 end
 */
-
