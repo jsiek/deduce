@@ -1,0 +1,8 @@
+import Nat
+import List
+
+theorem T: ([1,2] ++ [3,4]) ++ [5,6] = [1,2] ++ ([3,4] ++ [5,6])
+proof
+  .
+end
+

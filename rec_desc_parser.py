@@ -1611,10 +1611,12 @@ def parse_statement():
   elif token.type == 'ASSOCIATIVE':
     advance()
     name = parse_identifier()
+    typarams = parse_type_parameters()
     advance()
+    
     typ = parse_type()
     meta = meta_from_tokens(token, previous_token())
-    return Associative(meta, Var(meta, None, name, []), typ)
+    return Associative(meta, typarams, Var(meta, None, name, []), typ)
 
   else:
     for kw in statement_keywords:

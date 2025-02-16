@@ -216,7 +216,7 @@ proof
   }
 end
 
-theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
+theorem append_assoc: all U :type. all xs :List<U>, ys :List<U>, zs:List<U>.
   (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
 proof
   arbitrary U :type
@@ -234,6 +234,8 @@ proof
       ... = node(n,xs') ++ (ys ++ zs)  by rewrite IH[ys,zs]
   }
 end
+
+associative operator++ <T> in List<T>
 
 theorem append_empty: all U :type. all xs :List<U>.
   xs ++ [] = xs

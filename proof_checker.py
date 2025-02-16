@@ -249,7 +249,7 @@ def rewrite_aux(loc, formula, equation, env):
     case Some(loc2, tyof, vars, frm2):
       return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env))
     case Call(loc2, tyof, rator, args):
-      is_assoc = is_associative(rator_name(rator), formula.typeof, env)
+      is_assoc = is_associative(loc2, rator_name(rator), formula.typeof, env)
       if get_verbose():
           print('is_assoc? ' + str(is_assoc))
       if is_assoc:
@@ -1647,50 +1647,9 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
           error(loc, "formula: " + str(red_frm) + "\n" \
                 + "does not match expected formula: " + str(red_pattern))
     
-def type_match(loc, tyvars, param_ty, arg_ty, matching):
-  if get_verbose():
-    print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")
-    print("\tin  " + ', '.join([str(x) for x in tyvars]))
-    print("\twith " + str(matching))
-  match (param_ty, arg_ty):
-    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
-      pass
-    case (Var(l1, t1, name, rs1), _) if param_ty in tyvars:
-      if name in matching.keys():
-        type_match(loc, tyvars, matching[name], arg_ty, matching)
-      else:
-        if get_verbose():
-            print('matching ' + name + ' := ' + str(arg_ty))
-        matching[name] = arg_ty
-    case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
-        if len(tv1) == len(tv2) and len(pts1) == len(pts2):
-      for (pt1, pt2) in zip(pts1, pts2):
-        type_match(loc, tyvars, pt1, pt2, matching)
-      type_match(loc, tyvars, rt1, rt2, matching)
-    case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
-      if n1 != n2 or len(args1) != len(args2):
-        error(loc, str(arg_ty) + " does not match " + str(param_ty))
-      for (arg1, arg2) in zip(args1, args2):
-        type_match(loc, tyvars, arg1, arg2, matching)
-    # How to handle GenericUnknownInst?
-    case (TypeInst(l1, n1, args1), GenericUnknownInst(l2, n2)):
-      if n1 != n2:
-        error(loc, str(arg_ty) + " does not match " + str(param_ty))
-    case _:
-      if param_ty != arg_ty:
-        error(loc, str(arg_ty) + " does not match " + str(param_ty))
-
-def type_names(loc, names):
-  index = 0
-  result = []
-  for n in reversed(names):
-    result.insert(0, Var(loc, None, n, []))
-    index += 1
-  return result
-
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
                           call, typarams, param_types, return_type):
-  is_assoc = is_associative(rator_name(new_rator), return_type, env)
+  is_assoc = is_associative(loc, rator_name(new_rator), return_type, env)
   if get_verbose():
       print('is_assoc? ' + rator_name(new_rator) + ' : ' + str(return_type) + ' = ' + str(is_assoc))
   if (is_assoc and len(args) < len(param_types)) \
@@ -2218,7 +2177,7 @@ def type_check_term(term, typ, env, recfun, subterms):
       if get_verbose():
           print('var_typ = ' + str(var_typ))
       if var_typ == None:
-        error(loc, 'undefined variable ' + str(term) \
+        error(loc, 'variable ' + str(term) + ' is not defined' \
               + '\nin scope:\n' + str(env))
       match (var_typ, typ):
         case (OverloadType(loc2, overloads), _):
@@ -2539,8 +2498,9 @@ def process_declaration(stmt, env):
     case Print(loc, trm):
       return stmt, env
 
-    case Associative(loc, op, typeof):
-      check_type(typeof, env)
+    case Associative(loc, typarams, op, typeof):
+      body_env = env.declare_type_vars(loc, typarams)
+      check_type(typeof, body_env)
       return stmt, env
   
     case _:
@@ -2621,9 +2581,9 @@ def type_check_stmt(stmt, env):
       new_trm = type_synth_term(trm, env, None, [])
       return Print(loc, new_trm)
 
-    case Associative(loc, op, typ):
+    case Associative(loc, typarams, op, typ):
       new_op = type_synth_term(op, env, None, [])
-      return Associative(loc, new_op, typ)
+      return Associative(loc, typarams, new_op, typ)
   
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
@@ -2654,9 +2614,9 @@ def collect_env(stmt, env):
     case Print(loc, trm):
       return env
 
-    case Associative(loc, op, typ):
+    case Associative(loc, typarams, op, typ):
       # Example proof of associativity:
-      # all m:Nat, n:Nat, o:Nat. (m + n) + o = m + (n + o)
+      # all U :type. all xs :List<U>, ys :List<U>, zs:List<U>. (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
       m_name = generate_name("m")
       m_var = Var(loc, typ, m_name, [m_name])
       n_name = generate_name("n")
@@ -2669,10 +2629,22 @@ def collect_env(stmt, env):
                               makeOp(m_var, makeOp(n_var, o_var)))
       vars = [(m_name, typ), (n_name, typ), (o_name, typ)]
       for i, var in enumerate(reversed(vars)):
-          assoc_formula = All(loc, None, var, (i,len(vars)), assoc_formula)
+        assoc_formula = All(loc, None, var, (i,len(vars)), assoc_formula)
+      
+      for i, ty in enumerate(reversed(typarams)):
+        assoc_formula = All(loc, None, (ty, TypeType(loc)), (i, len(typarams)), assoc_formula)
 
+      assoc_formula = type_check_formula(assoc_formula, env)
+        
+      # for (n, b) in env.dict.items():
+      #     if base_name(n) == 'append_assoc':
+      #         print('assoc_formula: ' + str(assoc_formula))
+      #         print('append_assoc: ' + str(b.formula))
+      #         result = assoc_formula == b.formula
+      #         print('assoc_formula =? append_assoc: ' + str(result))
+        
       if assoc_formula in env.proofs():
-          return env.declare_assoc(loc, op.resolved_names[0], typ)
+          return env.declare_assoc(loc, op.resolved_names[0], typarams, typ)
       else:
           error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
@@ -2731,7 +2703,7 @@ def check_proofs(stmt, env):
               error(loc, 'assertion expected Boolean result, not ' \
                     + str(result))
 
-    case Associative(loc, Var(_, _, _, rs), typ):
+    case Associative(loc, typarams, op, typ):
       pass
   
     case _:
