@@ -111,12 +111,12 @@ function remove_all<T>(List<T>, T) -> List<T> {
 }
 
 function nth<T>(List<T>, T) -> (fn Nat -> T) {
-  nth(empty, default) = λi{default}
-  nth(node(x, xs), default) = λi{
+  nth(empty, def) = λi{def}
+  nth(node(x, xs), def) = λi{
     if i = 0 then
       x
     else
-       nth(xs, default)(pred(i))
+       nth(xs, def)(pred(i))
   }
 }
 
@@ -216,7 +216,7 @@ proof
   }
 end
 
-theorem append_assoc: all U :type. all xs :List<U>. all ys :List<U>, zs:List<U>.
+theorem append_assoc: all U :type. all xs :List<U>, ys :List<U>, zs:List<U>.
   (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
 proof
   arbitrary U :type
@@ -235,8 +235,10 @@ proof
   }
 end
 
+associative operator++ <T> in List<T>
+
 theorem append_empty: all U :type. all xs :List<U>.
-  xs ++ empty = xs
+  xs ++ [] = xs
 proof
   arbitrary U:type
   induction List<U>
@@ -467,7 +469,7 @@ proof
     have Px: P(x)  by prem[x]
     have Pxs: all_elements(xs',P)
         by apply IH[P] to
-           suffices all x:T. (if x ∈ set_of(xs') then P(x))  by .
+           suffices all x':T. (if x' ∈ set_of(xs') then P(x'))  by .
            arbitrary z:T suppose z_xs
 	   apply prem[z] to z_xs
     Px, Pxs
@@ -537,9 +539,9 @@ proof
     }
     case node(x, xs') {
       suppose prem
-      have cnt_x_z: cnt(m_fun(λx{0} : fn T->Nat))(x) = 0
+      have cnt_x_z: cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0
         by definition cnt
-      have cnt_x_pos: 1 ≤ cnt(m_fun(λx{0} : fn T->Nat))(x)
+      have cnt_x_pos: 1 ≤ cnt(m_fun(λx'{0} : fn T->Nat))(x)
         by suffices 1 ≤ cnt(mset_of(node(x,xs')))(x)
                by rewrite symmetric prem
            suffices 1 ≤ 1 + cnt(mset_of(xs'))(x)
@@ -558,11 +560,11 @@ proof
   arbitrary T:type
   induction List<T>
   case empty {
-    suffices char_fun(λx{(if cnt(m_fun(λx{0}:fn T->Nat))(x) = 0
+    suffices char_fun(λx{(if cnt(m_fun(λx'{0}:fn T->Nat))(x) = 0
                           then false else true)} : fn T->bool)
            = char_fun(λ_{false})
         by definition {mset_of, set_of, set_of_mset}
-    have eq:(λx{if cnt(m_fun(λx{0} : fn T->Nat))(x) = 0 then false else true}
+    have eq:(λx{if cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0 then false else true}
              : fn T->bool)
             = λ_{false}
         by extensionality  arbitrary x:T  definition cnt
@@ -798,13 +800,15 @@ proof
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat
-    have X: not ((1 + length(xs)) + i = 0)
-      by suppose eq_z enable {operator +} conclude false by eq_z
+    have X: not ((1 + length(xs)) + i = 0) by {
+      suppose eq_z
+      conclude false by evaluate in eq_z
+    }
     suffices get(xs ++ ys, pred((1 + length(xs)) + i)) = get(ys, i)
        by definition {operator++,length, get}
           and rewrite (apply eq_false to X)
     suffices get(xs ++ ys, length(xs) + i) = get(ys, i)
-       by definition {operator +, pred, operator+}
+       by definition 2*operator + | pred
     IH[ys, i]
   }
 end
@@ -881,13 +885,15 @@ proof
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat, d:T
-    have X: not ((1 + length(xs)) + i = 0)
-      by suppose eq_z enable {operator +} conclude false by eq_z
+    have X: not ((1 + length(xs)) + i = 0) by {
+      suppose eq_z
+      conclude false by evaluate in eq_z
+    }
     suffices nth(xs ++ ys, d)(pred((1 + length(xs)) + i)) = nth(ys, d)(i)
        by definition {operator++,length, nth}
           and rewrite (apply eq_false to X)
     suffices nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i)
-       by definition {operator +, pred, operator+}
+       by definition 2*operator + | pred
     IH[ys, i, d]
   }
 end

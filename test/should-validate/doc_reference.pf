@@ -7,11 +7,20 @@ import MultiSet
 import Maps
 import Pair
 
+union NatList {
+  Empty
+  Node(Nat, NatList)
+}
+ 
+recursive length(NatList) -> Nat {
+  length(Empty) = 0
+  length(Node(n, next)) = 1 + length(next)
+}
 assert 2 + 3 = 5
-define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
-assert cnt(A)(3) = 1
-assert cnt(A)(5) = 2
-assert cnt(A)(7) = 0
+define X = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
+assert cnt(X)(3) = 1
+assert cnt(X)(5) = 2
+assert cnt(X)(7) = 0
 theorem all_example_bool: all P:bool. P = true or P = false
 proof
   arbitrary P:bool
@@ -24,9 +33,8 @@ theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = (x + y) + z by symmetric add_assoc[x][y, z]
-          ... = (y + x) + z by rewrite add_commute[x][y]
-          ... = z + y + x by add_commute[y+x][z]
+    x + y + z = y + x + z by rewrite add_commute[x,y]
+          ... = z + y + x by add_commute[y+x,z]
 end
 theorem all_example_elim: 1 + 2 + 3 = 3 + 2 + 1
 proof
@@ -105,8 +113,8 @@ theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x 
 proof
   arbitrary x:Nat
   define y = x + x + x
-  suffices y + (y + 0) = y + y
-    by definition {operator*,operator*,operator*}
+  suffices y + y + 0 = y + y
+    by definition 3* operator*
   rewrite add_zero[y]
 end
 theorem length_list2: length([0,1]) = 2
@@ -115,7 +123,7 @@ proof
       by definition length
   suffices 1 + (1 + 0) = 2
       by definition 2*length
-  definition 2*operator+
+  evaluate
 end
 theorem definition_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
 proof
@@ -143,9 +151,7 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
     x + y + z = x + z + y      by replace add_commute[y]
-          ... = #(x + z) + y#  by replace add_assoc
           ... = #z + x# + y    by replace add_commute
-          ... = z + x + y      by replace add_assoc
           ... = z + y + x      by replace add_commute[x]
 end
 assert 2 > 1
@@ -203,7 +209,7 @@ proof
   $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
             ... = 1 + #x# + 1 by replace recall x = 1
             ... = 1 + 1 + 1   by replace recall x = 1
-            ... = 3           by definition {operator+,operator+}
+            ... = 3           by evaluate
 end
 define two = succ(one)
 assert 1 % two = 1
@@ -319,15 +325,6 @@ fun exchange(p : Pair<Nat,Nat>) {
 }
  
 assert exchange(pair(1,2)) = pair(2,1)
-union NatList {
-  Empty
-  Node(Nat, NatList)
-}
- 
-recursive length(NatList) -> Nat {
-  length(Empty) = 0
-  length(Node(n, next)) = 1 + length(next)
-}
 define swap = fun<T, U> p:Pair<T,U> { pair(second(p), first(p)) }
  
 assert first(swap(pair(1,2))) = 2

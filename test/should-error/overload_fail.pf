@@ -1,0 +1,13 @@
+union Blah {
+  B(bool)
+  C(Blah)
+  D(Blah, Blah)
+}
+
+// Can't overload a union type 
+define Blah =
+  fun x:bool {
+    fun x:bool {
+      x
+    }
+  }

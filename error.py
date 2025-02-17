@@ -54,12 +54,13 @@ def set_expect_static_fail(b):
   expect_static_fail_flag = b
   
 def error_header(location):
-  # seeing a strange error where some Meta objects don't have a line member.
-  if hasattr(location, 'line'):
+  if not location.empty:
     return '{file}:{line1}.{column1}-{line2}.{column2}: ' \
         .format(file=location.filename,
                 line1=location.line, column1=location.column,
                 line2=location.end_line, column2=location.end_column)
+  else:
+    return '' # Don't want to risk returning None ever leading to issues
             
 def error(location, msg):
   exc = Exception(error_header(location) + msg)

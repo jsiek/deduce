@@ -145,8 +145,8 @@ recursive dist(Nat, Nat) -> Nat {
       case 0 {
         suc(m)
       }
-      case suc(n) {
-        dist(m, n)
+      case suc(n') {
+        dist(m, n')
       }
     }
 }
@@ -255,7 +255,7 @@ proof
       ... = suc(m)      by one_add[m]
 end
 
-theorem add_assoc: all m:Nat. all n:Nat, o:Nat.
+theorem add_assoc: all m:Nat, n:Nat, o:Nat.
   (m + n) + o = m + (n + o)
 proof
   induction Nat
@@ -271,6 +271,8 @@ proof
                     ... = suc(m') + (n + o)  by evaluate
   }
 end
+
+associative operator+ in Nat
 
 theorem assoc_add: all m:Nat, n:Nat, o:Nat.
   m + (n + o) = (m + n) + o
@@ -474,15 +476,13 @@ proof
                        ... = 0 * n        by symmetric zero_mult[n]
                        ... = 0 + 0 * n    by symmetric zero_add[0*n]
   }
-  case suc(m') suppose IH {
+  case suc(m') suppose IH: all n:Nat. m' * suc(n) = m' + m' * n {
     arbitrary n:Nat
     suffices suc(n + m' * suc(n)) = suc(m' + (n + m' * n))
-        by definition {operator*, operator+}
+        by definition operator* | 2*operator+
     equations   suc(n + m' * suc(n))
-              = suc(n + (m' + m' * n))       by replace IH
-          ... = suc( #(n + m') + m' * n# )   by replace add_assoc
-          ... = suc((m' + n) + m' * n)       by replace add_commute[n][m']
-          ... = suc(m' + (n + m' * n))       by replace add_assoc
+              = suc(n + m' + m' * n)       by replace IH
+          ... = suc(m' + n + m' * n)       by replace add_commute[n][m']
   }
 end
 
@@ -547,12 +547,8 @@ proof
         by definition operator *
     equations
             (x + y) + a' * (x + y)
-          = (x + y) + (a' * x + a' * y)       by replace IH
-      ... = ((x + y) + a' * x) + a' * y       by symmetric add_assoc[x+y][a'*x,a'*y]
-      ... = (x + (y + a' * x)) + a' * y       by replace add_assoc[x][y,a'*x]
-      ... = (x + (a' * x + y)) + a' * y       by replace add_commute[y][a'*x]
-      ... = ((x + a' * x) + y) + a' * y       by replace symmetric add_assoc[x][a'*x,y]
-      ... = (x + a' * x) + (y + a' * y)       by add_assoc[x+a'*x][y,a'*y]
+          = x + y + a'*x + a'*y           by replace IH
+      ... = x + a'*x + y + a'*y           by replace add_commute[y, a'*x]
   }
 end
 
@@ -586,6 +582,51 @@ proof
     ... = n * o + m' * (n * o)      by replace IH
     ... =# suc(m') * (n * o) #      by definition operator*
   }
+end
+
+associative operator* in Nat
+
+theorem mult_right_cancel : all m : Nat, n : Nat, o : Nat.
+  if m * suc(o) = n * suc(o) then m = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary n:Nat, o:Nat
+    switch n {
+      case 0 { . }
+      case suc(n') {
+        assume contra: 0 * suc(o) = suc(n') * suc(o)
+        conclude false by evaluate in contra
+      }
+    }
+  }
+  case suc(m') assume IH {
+    arbitrary n:Nat, o:Nat
+    switch n {
+      case 0 {
+        assume contra: suc(m') * suc(o) = 0 * suc(o)
+        conclude false by evaluate in contra
+      }
+      case suc(n') {
+        assume prem: suc(m') * suc(o) = suc(n') * suc(o)
+        have prem2: suc(o) + m' * suc(o) = suc(o) + n' * suc(o)
+          by definition operator* in prem
+        have prem3: m' * suc(o) = n' * suc(o)
+          by apply left_cancel to prem2
+        have: m' = n' by apply IH to prem3
+        conclude suc(m') = suc(n') by replace recall m' = n'
+      }
+    }
+  }
+end
+
+theorem mult_left_cancel : all m : Nat, a : Nat, b : Nat.
+  if suc(m) * a = suc(m) * b then a = b
+proof
+  arbitrary m:Nat, a:Nat, b:Nat
+  assume prem: suc(m) * a = suc(m) * b
+  have prem2: a * suc(m) = b * suc(m)  by rewrite mult_commute in prem
+  conclude a = b by apply mult_right_cancel to prem2
 end
 
 /*
@@ -920,7 +961,7 @@ proof
                suffices suc(x') ≤ y'            by definition operator ≤ 
                definition operator < in less
         }
-        case equal { conclude suc(x') = suc(y')  by replace equal }
+        case x_eq_y { conclude suc(x') = suc(y')  by replace x_eq_y }
         case greater {
           conclude suc(y') < suc(x')
               by suffices suc(suc(y')) ≤ suc(x')   by definition operator <
@@ -944,9 +985,9 @@ proof
     have not_less: not (x < y)  by prem
     conclude false  by apply not_less to less
   }
-  case equal: x = y {
+  case x_eq_y: x = y {
     have not_equal: not (x = y)  by prem
-    conclude false  by apply not_equal to equal
+    conclude false  by apply not_equal to x_eq_y
   }
   case greater: y < x {
     conclude y <  x by greater
@@ -1810,7 +1851,7 @@ proof
          conclude Even(0)
          by suffices some m:Nat. 0 = 2 * m  by definition Even
             choose 0
-            definition 3 * operator * | operator +
+            evaluate
    have part2: if is_odd(0) then Odd(0)
      by suppose zero_odd
         conclude false by definition {is_odd, parity} in zero_odd
@@ -1825,11 +1866,11 @@ proof
       }
       have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
       obtain m where n_2m from definition Odd in Odd_n
-      suffices some m:Nat. suc(n') = 2 * m  by definition Even
+      suffices some m':Nat. suc(n') = 2 * m'  by definition Even
       choose suc(m)
       suffices suc(suc(2 * m)) = 2 * suc(m)  by replace n_2m
       suffices suc(suc(m + (m + 0))) = suc(m + suc(m + 0))
-          by definition 3 * operator * | operator+
+          by definition 3 * operator* | 3 * operator+
       replace add_zero | add_suc)
     have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
       (suppose suc_odd: is_odd(suc(n'))
@@ -1839,7 +1880,7 @@ proof
         }
         have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
         obtain m where n_2m from definition Even in Even_n
-        suffices some m:Nat. suc(n') = suc(2 * m)  by definition Odd
+        suffices some m':Nat. suc(n') = suc(2 * m')  by definition Odd
         choose m
         replace n_2m)
     part1, part2
@@ -2005,10 +2046,12 @@ proof
               (apply (conjunct 0 of g_f_and_h_f)[suc(i)] to enable {operator <, operator ≤} i_a)
          have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + (a' + i)))
            by arbitrary i:Nat suppose i_b: i < b
-              enable {operator +} replace add_suc in
+              suffices __ by definition 2*operator+
+              definition operator+ in
+              replace add_suc in
               apply (conjunct 1 of g_f_and_h_f)[i] to i_b
          apply IH[b,suc(s),t,f,g,h] to p1, p2
-    replace fs_gs | IH' | add_assoc[g(s)][summation(a',suc(s),g), summation(b,t,h)]
+    replace fs_gs | IH' 
   }
 end
 
@@ -2322,8 +2365,8 @@ proof
     suppose prem
     have n_sn: n ≤ suc(n)   by less_equal_suc[n]
     switch suc(q) * pos2nat(m) ≤ n for find_quotient {
-      case true suppose sqm_le_n {
-        have sqm_le_n: suc(q) * pos2nat(m) ≤ n  by replace sqm_le_n
+      case true suppose sqm_le_n_t {
+        have sqm_le_n: suc(q) * pos2nat(m) ≤ n  by replace sqm_le_n_t
         switch n < u' * pos2nat(m) {
           case true suppose n_l_um_true {
             have n_l_um: n < u' * pos2nat(m)    by replace n_l_um_true
@@ -2452,18 +2495,13 @@ proof
                  by equations M + (M + n * suc(M)) * suc(M)
                            = (M + n * suc(M)) * suc(M) + M    by add_commute[M][(M + n * suc(M)) * suc(M)]
                        ... = (M + suc(M) * n) * suc(M) + M    by replace mult_commute[n][suc(M)]
-                       ... = (M + (n + M * n)) * suc(M) + M   by replace suc_mult[M,n]
-                       ... =  ((n + M * n) + M) * suc(M) + M  by replace add_commute[M][n + M*n]
-                       ... = suc(M) * ((n + M * n) + M) + M
+                       ... = (M + n + M * n) * suc(M) + M   by replace suc_mult[M,n]
+                       ... =  (n + M * n + M) * suc(M) + M  by replace add_commute[M][n + M*n]
+                       ... = suc(M) * (n + M * n + M) + M
                                       by replace mult_commute[((n + M * n) + M)][suc(M)]
-                       ... = (((n + M * n) + M) + M * ((n + M * n) + M)) + M  by definition operator*
-                       ... = (#n + M * n + M# + M * ((n + M * n) + M)) + M
-                                 by replace symmetric add_assoc[n][M*n,M]
-                       ... = (n + (M * n + M)) + (M * ((n + M * n) + M) + M)
-                                      by replace add_assoc[(n + M * n + M)][M * ((n + M * n) + M),M]
-                       ... = n + ((M * n + M) + (M * ((n + M * n) + M) + M))
-                                      by replace add_assoc[n][(M * n + M), (M * ((n + M * n) + M) + M)]
-               suffices n ≤ n + ((M * n + M) + (M * ((n + M * n) + M) + M))
+                       ... = n + M * n + M + M * (n + M * n + M) + M
+                                      by definition operator*
+               suffices n ≤ n + M * n + M + M * (n + M * n + M) + M
                  by replace eq
                less_equal_add[n][((M * n + M) + (M * ((n + M * n) + M) + M))]
 	     }
@@ -2541,4 +2579,3 @@ proof
   }
 end
 */
-

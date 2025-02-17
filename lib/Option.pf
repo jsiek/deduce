@@ -9,6 +9,6 @@ function after<T,U>(Option<T>, fn (T) -> U) -> Option<U> {
 }
 
 function default<T>(Option<T>, T) -> T {
-  after(none, y) = y
-  after(just(x), y) = x
+  default(none, y) = y
+  default(just(x), y) = x
 }

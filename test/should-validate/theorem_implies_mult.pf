@@ -3,8 +3,8 @@ theorem T: all P:bool, Q:bool, R:bool.
 proof
   arbitrary P:bool, Q:bool, R:bool
   suppose prem
-  have ptq : if P then Q by suppose P prem
-  have qtr : if Q then R by suppose Q prem
+  have ptq : if P then Q by suppose P' prem
+  have qtr : if Q then R by suppose Q' prem
   ptq, qtr
 end
 

@@ -1,0 +1,6 @@
+./test/should-error/missing-conclusion-subproof.pf:4.5-4.26: incomplete proof
+Goal:
+	true
+Advice:
+	You can prove "true" with a period.
+

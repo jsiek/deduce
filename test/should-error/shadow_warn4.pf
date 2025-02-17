@@ -1,0 +1,18 @@
+union Blah {
+  B(bool)
+  C(Blah)
+  D(Blah, Blah)
+}
+
+ 
+ // Switch case in functions
+  recursive dist(Blah) -> bool {
+    dist(B(b)) = b
+    dist(C(b)) = dist(b)
+    dist(D(b1, b2)) =
+      switch b1 {
+        case B(b) { if b then b else dist(b2) }
+        case C(b) { dist(b1) }
+        case D(b1, b2) { dist(b2) }
+      }
+  }

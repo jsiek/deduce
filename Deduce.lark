@@ -99,6 +99,7 @@ ident: IDENT              -> ident
     | "define" IDENT "=" term ";" term             -> define_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
+    | "__"                                         -> omitted_term
     | "(" term ")"                                 -> paren
     | "[" term_list "]"                            -> list_literal
     | "#" term "#"                                 -> mark
@@ -164,7 +165,7 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: conclusion                                 -> single_proof
-    | proof_stmt proof                             -> push_proof
+    | proof_stmt proof?                            -> push_proof
 
 ?conclusion: "conclude" term "by" proof                  -> annot
     | proof "," proof                                    -> tuple
@@ -227,7 +228,6 @@ ident: IDENT              -> ident
     | "suppose" IDENT                               -> imp_intro
     | "suppose" IDENT ":" term                      -> imp_intro_explicit
     | "suppose" ":" term                            -> imp_intro_anon
-    | "term" term "by" proof                        -> term_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
     | "case" IDENT ":" term "{" proof "}"                -> case_annot
@@ -298,7 +298,7 @@ ident: IDENT              -> ident
 
 ?print: "print" term                               -> print
 
-?assoc_decl: "associative" ident "in" type         -> assoc_decl
+?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
 
 ?statement: theorem
  | union

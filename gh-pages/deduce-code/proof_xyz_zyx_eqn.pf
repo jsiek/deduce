@@ -5,9 +5,7 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + (z + y)    by replace add_commute[y][z]
-          ... = (x + z) + y    by replace symmetric add_assoc[x][z,y]
-          ... = (z + x) + y    by replace symmetric add_commute[z][x]
-          ... = z + x + y      by replace add_assoc[z][x,y]
-          ... = z + y + x      by replace add_commute[x][y]
+    x + y + z = x + z + y    by replace add_commute[y,z]
+          ... = z + x + y    by replace symmetric add_commute[z,x]
+          ... = z + y + x    by replace add_commute[x,y]
 end

@@ -331,7 +331,17 @@ def parse_tree_to_ast(e, parent):
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'push_proof':
         proof_stmt = parse_tree_to_ast(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
+        if len(e.children) == 1:
+            meta = Meta() # Put the location of the 'Hole' at the start of the next line
+            meta.empty = False
+            meta.filename = e.meta.filename
+            meta.line = e.meta.end_line+1
+            meta.column = 0
+            meta.end_line = e.meta.end_line+1
+            meta.end_column = 0
+            body = PHole(meta)
+        else:
+            body = parse_tree_to_ast(e.children[1], e)
         if isinstance(proof_stmt, AllIntro):
             proof_stmt.set_body(body)
         else:
@@ -397,11 +407,6 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         None)
-    elif e.data == 'term_proof':
-        return PTerm(e.meta,
-                     parse_tree_to_ast(e.children[0], e),
-                     parse_tree_to_ast(e.children[1], e),
-                     parse_tree_to_ast(e.children[2], e))
     elif e.data == 'tuple':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
@@ -619,9 +624,10 @@ def parse_tree_to_ast(e, parent):
                        parse_tree_to_ast(e.children[2], e),
                        isLemma = True)
     elif e.data == 'assoc_decl':
-        return Associative(e.meta,
-                           Var(e.meta, None, parse_tree_to_ast(e.children[0], e), []),
-                           parse_tree_to_ast(e.children[1], e))
+        op_var = parse_tree_to_ast(e.children[0], e)
+        typarams = parse_tree_to_list(e.children[1], e)
+        typ = parse_tree_to_ast(e.children[2], e)
+        return Associative(e.meta, typarams, Var(e.meta, None, op_var, []), typ)
 
     # patterns in function definitions
     elif e.data == 'pattern_id':
@@ -644,8 +650,9 @@ def parse_tree_to_ast(e, parent):
     
     # case of a recursive function
     elif e.data == 'fun_case':
+        rator = parse_tree_to_ast(e.children[0], e)
         pp = parse_tree_to_list(e.children[1], e)
-        return FunCase(e.meta, pp[0], pp[1:],
+        return FunCase(e.meta, Var(e.meta, None, rator, []), pp[0], pp[1:],
                        parse_tree_to_ast(e.children[2], e))
     # functions
     elif e.data == 'fun':

@@ -2,6 +2,6 @@
 	x + 0 = x
 Replace this proof statement with:
 	suffices x + 0 = x
-		by definition {operator +}
+		by definition { operator + }
 followed by a proof of:
 	x + 0 = x

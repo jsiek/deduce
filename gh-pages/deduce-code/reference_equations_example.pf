@@ -6,8 +6,6 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
     x + y + z = x + z + y      by replace add_commute[y]
-          ... = #(x + z) + y#  by replace add_assoc
           ... = #z + x# + y    by replace add_commute
-          ... = z + x + y      by replace add_assoc
           ... = z + y + x      by replace add_commute[x]
 end

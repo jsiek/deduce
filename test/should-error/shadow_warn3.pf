@@ -1,0 +1,11 @@
+// type bindings warning
+define  blah : fn <T> T -> (fn <T> T -> T)
+  = generic T {
+      fun x : T {
+        generic T {
+          fun y : T {
+            x
+          }
+        }
+      }
+    }

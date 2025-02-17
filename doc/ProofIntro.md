@@ -379,14 +379,12 @@ theorems, pull requests on the github repository are most welcome!)
 ```
 add_zero: all n:Nat.  n + 0 = n
 add_commute: all n:Nat. all m:Nat.  n + m = m + n
-add_assoc: all m:Nat. all n:Nat, o:Nat.  (m + n) + o = m + (n + o)
 left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
 add_to_zero: all n:Nat. all m:Nat. if n + m = 0 then n = 0 and m = 0
 dist_mult_add: all a:Nat. all x:Nat, y:Nat. a * (x + y) = a * x + a * y
 mult_zero: all n:Nat. n * 0 = 0
 mult_one: all n:Nat. n * 1 = n
 mult_commute: all m:Nat. all n:Nat. m * n = n * m
-mult_assoc: all m:Nat. all n:Nat, o:Nat. (m * n) * o = m * (n * o)
 ```
 
 You can use these theorems by instantiating them with particular
@@ -420,7 +418,7 @@ used later in the proof. For example, consider the proof of
 x + y + z = z + y + x
 ```
 
-It takes several uses of `add_commute` and `add_assoc` to prove this.
+It takes several uses of `add_commute` to prove this.
 To get started, we use `have` to give the label `step1` to a proof of
 `x + y + z = x + z + y` (flipping the `y` and `z`).
 
@@ -430,7 +428,7 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by replace add_commute[y][z]
+    by replace add_commute[y,z]
   ?
 end
 ```
@@ -441,23 +439,19 @@ that we already know are true, which now includes `step1`.
 ```
 incomplete proof
 Goal:
-    x + (y + z) = z + (y + x)
+    x + y + z = z + y + x
 Givens:
-    step1: x + (y + z) = x + (z + y)
+    step1: x + y + z = x + z + y
 ```
 
 We proceed four more times, using `have` to create each intermediate
 step in the reasoning.
 
 ```
-  have step2: x + z + y = (x + z) + y
-    by replace add_assoc[x][z,y]
-  have step3: (x + z) + y = (z + x) + y
-    by replace add_commute[z][x]
-  have step4: (z + x) + y = z + (x + y)
-    by replace add_assoc[z][x,y]
-  have step5: z + (x + y) = z + y + x
-    by replace add_commute[x][y]
+  have step2: x + z + y = z + x + y
+    by replace add_commute[z,x]
+  have step3: z + x + y = z + y + x
+    by replace add_commute[x,y]
 ```
 
 We finish the proof by connecting them all together using Deduce's
@@ -468,8 +462,7 @@ label. In general, to use one of the given facts, one just needs to
 use its label.
 
 ```
-  transitive step1 (transitive step2 (transitive step3
-    (transitive step4 step5)))
+  transitive step1 (transitive step2 step3)
 ```
 
 Here is the complete proof of the `xyz_zyx` theorem.
@@ -481,17 +474,12 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by replace add_commute[y][z]
-  have step2: x + z + y = (x + z) + y
-    by replace add_assoc[x][z,y]
-  have step3: (x + z) + y = (z + x) + y
-    by replace add_commute[z][x]
-  have step4: (z + x) + y = z + (x + y)
-    by replace add_assoc[z][x,y]
-  have step5: z + (x + y) = z + y + x
-    by replace add_commute[x][y]
-  transitive step1 (transitive step2 (transitive step3
-    (transitive step4 step5)))
+    by replace add_commute[y,z]
+  have step2: x + z + y = z + x + y
+    by replace add_commute[z,x]
+  have step3: z + x + y = z + y + x
+    by replace add_commute[x,y]
+  transitive step1 (transitive step2 step3)
 end
 ```
 
@@ -522,7 +510,7 @@ error from Deduce will tell us what it needs to be.
 
 ```
   equations
-    x + y + z = ?              by replace add_commute[y][z]
+    x + y + z = ?              by replace add_commute[y,z]
           ... = z + y + x      by ?
 ```
 
@@ -530,27 +518,10 @@ Deduce responds with:
 
 ```
 remains to prove:
-    x + (z + y) = ?
+    x + z + y = ?
 ```
 
-So we replace the `?` on the right-hand side with `x + (z + y)`
-and proceed to the next step, which is to apply associativity.
-
-```
-  equations
-    x + y + z = x + (z + y)    by replace add_commute[y][z]
-          ... = ?              by replace symmetric add_assoc[x][z,y]
-          ... = z + y + x      by ?
-```
-
-Deduce responds with:
-
-```
-remains to prove:
-    (x + z) + y = ?
-```
-
-We replace the `?` on the right-hand side with `(x + z) + y`.
+So we replace the `?` on the right-hand side with `x + z + y`.
 Continuing in this way for several more steps, we incrementally arrive
 at the following proof that `x + y + z = z + y + x` using `equations`.
 
@@ -560,11 +531,9 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + (z + y)    by replace add_commute[y][z]
-          ... = (x + z) + y    by replace symmetric add_assoc[x][z,y]
-          ... = (z + x) + y    by replace symmetric add_commute[z][x]
-          ... = z + x + y      by replace add_assoc[z][x,y]
-          ... = z + y + x      by replace add_commute[x][y]
+    x + y + z = x + z + y    by replace add_commute[y,z]
+          ... = z + x + y    by replace symmetric add_commute[z,x]
+          ... = z + y + x    by replace add_commute[x,y]
 end
 ```
 
@@ -577,11 +546,6 @@ then [mark](./Reference.md#mark) the right-hand side.
 
 The `equations` feature is implemented in Deduce by translating them
 into a bunch of `transitive` statements.
-
-### Exercise
-
-Prove that `x + y + z = z + y + x` but using fewer than 5 steps.
-
 
 ## Proving `all` Formulas with Induction
 

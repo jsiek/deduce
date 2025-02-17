@@ -8,7 +8,7 @@ from threading import Thread
 parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
-pass_dir = './test/should-pass'
+pass_dir = './test/should-validate'
 error_dir = './test/should-error'
 site_dir = './gh-pages/deduce-code'
 max_threads = 10

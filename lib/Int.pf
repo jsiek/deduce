@@ -520,7 +520,7 @@ proof
             case pos(z') {     // x=pos(x'), y=pos(y'), z=pos(z')
               suffices pos((x' + y') + z') = pos(x' + (y' + z'))
                   by definition {operator+}
-              rewrite add_assoc
+              .
             }
             case negsuc(z') { // x=pos(x'), y=pos(y'), z=negsuc(z')
               equations
@@ -596,7 +596,6 @@ proof
                     (negsuc(x') + negsuc(y')) + negsuc(z') 
                   = negsuc(suc(suc(x' + y') + z'))             by definition operator+
               ... = negsuc(suc(suc((x' + y') + z')))           by definition operator+
-              ... = negsuc(suc(suc(x' + (y' + z'))))           by rewrite add_assoc
               ... = negsuc(suc(x' + suc(y' + z')))             by rewrite symmetric add_suc[x',y'+z']
               ... = #negsuc(x') + (negsuc(y') + negsuc(z'))#   by definition operator+
             }
@@ -806,21 +805,27 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
       z + (y + x * suc(y)) * suc(z)
-    = z + y + x + x*y + y*z + x*z + x*y*z
-      by replace  suc_one_add[y] | suc_one_add[z]
-         | dist_mult_add | dist_mult_add | mult_one | mult_one
-         | dist_mult_add_right | dist_mult_add_right
-         | add_assoc | add_assoc | mult_assoc
+    = z + (y + x * (1 + y)) * (1 + z)
+      by replace suc_one_add[y] | suc_one_add[z]
+... = z + (y + x * 1 + x * y) * (1 + z)
+      by replace dist_mult_add[x]
+... = z + (y + x + x * y) * (1 + z)
+      by replace mult_one
+... = z + (y + x + x * y) * 1 + (y + x + x * y) * z
+      by replace dist_mult_add
+... = z + y + x + x * y + (y + x + x * y) * z
+      by replace mult_one
+... = z + y + x + x * y + y*z + x*z + x*y*z
+      by replace dist_mult_add_right
 ... = z + y + x + y*z + x*y + x*z + x*y*z
-      by replace assoc_add[x*y] | add_commute[x*y] | add_assoc
+      by replace add_commute[x*y, y*z]
 ... = z + y + x + y*z + x*z + x*y + x*y*z
-      by replace assoc_add[x*y] | add_commute[x*y] | add_assoc
+      by replace add_commute[x*y]
 ... = z + y + y*z + x + x*z + x*y + x*y*z
-      by replace assoc_add[x] | add_commute[x] | add_assoc
+      by replace add_commute[x]
 ... = #(z + y * suc(z)) + x * suc(z + y * suc(z))#
   by replace suc_one_add[(z + y * suc(z))] | suc_one_add[z]
-     | dist_mult_add | dist_mult_add | dist_mult_add
-     | mult_one | add_assoc | add_assoc | dist_mult_add
+     | dist_mult_add | mult_one
 end
 
 theorem int_mult_assoc: all x:Int, y:Int, z:Int. (x * y) * z = x * (y * z)

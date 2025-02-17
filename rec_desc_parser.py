@@ -42,7 +42,7 @@ def init_parser():
   global lark_parser
   lark_file = get_deduce_directory() + "/Deduce.lark"
   lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
-                     start='program', parser='lalr',
+                     start='program',
                      debug=True, propagate_positions=True)
 
 # The current_position needs to be a global so that the changes to the
@@ -111,6 +111,7 @@ def parse_identifier():
 
 def meta_from_tokens(start_token, end_token):
     meta = Meta()
+    meta.empty = False
     meta.filename = get_filename()
     meta.line = start_token.line
     meta.column = start_token.column
@@ -282,7 +283,7 @@ def parse_term_hi():
     meta = meta_from_tokens(token, previous_token())
     return Mark(meta, None, term)
 
-  elif token.value == '─':
+  elif token.value == '─' or token.value == '__':
     advance()
     meta = meta_from_tokens(token,token)
     return Omitted(meta, None)
@@ -1188,17 +1189,16 @@ def parse_have():
       + str(e))
 
 def parse_proof():
+    start_token = previous_token()
     proof_stmt = parse_proof_statement()
     if proof_stmt:
         try:
           body = parse_proof()
         except ParseError as ex:
-          if ex.last or not ex.missing:
+          if not ex.missing:
               raise ex
           else:
-              raise ParseError(meta_from_tokens(current_token(), current_token()),
-                         'missing conclusion after\n\t' + str(proof_stmt),
-                         last=True)
+              body = PHole(meta_from_tokens(start_token, previous_token()))
         except Exception as e:
             raise ParseError(meta_from_tokens(current_token(), previous_token()), "Unexpected error while parsing:\n\t" \
               + str(e))
@@ -1634,10 +1634,12 @@ def parse_statement():
   elif token.type == 'ASSOCIATIVE':
     advance()
     name = parse_identifier()
+    typarams = parse_type_parameters()
     advance()
+    
     typ = parse_type()
     meta = meta_from_tokens(token, previous_token())
-    return Associative(meta, Var(meta, None, name, []), typ)
+    return Associative(meta, typarams, Var(meta, None, name, []), typ)
 
   else:
     for kw in statement_keywords:
@@ -1933,8 +1935,9 @@ def parse_fun_case():
       + '\tfun_case ::= identifier "(" param_list ")" "=" term\n'
   try:    
     start_token = current_token()
-    name = parse_identifier()
-
+    rator = parse_identifier()
+    rator_meta = meta_from_tokens(start_token, previous_token())
+    
     if current_token().type == 'LPAR':
       lpar_token = current_token()
       advance()
@@ -1948,7 +1951,8 @@ def parse_fun_case():
             'expected "=" and then a term, not\n\t' + current_token())
     advance()
     body = parse_term()
-    return FunCase(meta_from_tokens(start_token, previous_token()),
+    meta = meta_from_tokens(start_token, previous_token())
+    return FunCase(meta, Var(rator_meta, None, rator, []),
                    pat_list[0], pat_list[1:], body)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
