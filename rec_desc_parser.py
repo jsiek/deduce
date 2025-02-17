@@ -1548,6 +1548,7 @@ def parse_opaque():
     match statement:
       case Define(meta, name, typ, body, isPrivate):
         statement.makeOpaque = True
+        statement.file_defined = get_filename()
         return statement
       case _:
         raise ParseError(meta_from_tokens(my_token, my_token), 'expected a define after opaque')

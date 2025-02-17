@@ -1,0 +1,15 @@
+union Bit {
+    one
+    zero
+}
+
+opaque define f : fn Bit -> Bit = fun b { b }
+
+assert f(one) = one
+assert f(zero) = zero
+
+theorem f_id : all b:Bit. f(b) = b
+proof 
+    arbitrary b:Bit
+    definition f
+end

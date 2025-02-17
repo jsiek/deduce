@@ -2370,8 +2370,8 @@ def process_declaration(stmt, env):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
   match stmt:
-    case Define(loc, name, ty, body, isPrivate, isOpaque):
-      if isOpaque:
+    case Define(loc, name, ty, body, isPrivate):
+      if stmt.is_opaque():
           error(loc, 'definition ' + base_name(name) + ' cannot be used inside of a proof')
                    
 

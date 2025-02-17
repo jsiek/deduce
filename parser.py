@@ -698,6 +698,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'opaque':
         statement = parse_tree_to_ast(e.children[0], e)
         statement.makeOpaque = True
+        statement.file_defined = get_filename()
         return statement
         
 

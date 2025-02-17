@@ -2600,8 +2600,8 @@ class Define(Statement):
   typ: Type
   body: Term
   isPrivate: bool
-  isOpaque: bool = False
   makeOpaque: bool = False
+  file_defined : str = ''
 
   def __str__(self):
     return 'define ' + self.name \
@@ -2617,10 +2617,16 @@ class Define(Statement):
     extend(env, self.name, new_name)
     self.name = new_name
 
+  def is_opaque(self):
+    if get_recursive_descent():
+      from rec_desc_parser import get_filename
+    else:
+      from parser import get_filename
+    return self.makeOpaque and not (get_filename() == self.file_defined)
+
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
-    self.isOpaque = self.makeOpaque
     extend(export_env, base_name(self.name), self.name)
     
 uniquified_modules = {}
