@@ -63,8 +63,60 @@ def set_recursive_descent(b):
   global recursive_descent
   recursive_descent = b
 
-def is_associative(opname, typ, env):
-  return typ in env.get_assoc_types(opname)
+def type_names(loc, names):
+  index = 0
+  result = []
+  for n in reversed(names):
+    result.insert(0, Var(loc, None, n, []))
+    index += 1
+  return result
+
+def type_match(loc, tyvars, param_ty, arg_ty, matching):
+  if get_verbose():
+    print("type_match(" + str(param_ty) + "," + str(arg_ty) + ")")
+    print("\tin  " + ', '.join([str(x) for x in tyvars]))
+    print("\twith " + str(matching))
+  match (param_ty, arg_ty):
+    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
+      pass
+    case (Var(l1, t1, name, rs1), _) if param_ty in tyvars:
+      if name in matching.keys():
+        type_match(loc, tyvars, matching[name], arg_ty, matching)
+      else:
+        if get_verbose():
+            print('matching ' + name + ' := ' + str(arg_ty))
+        matching[name] = arg_ty
+    case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
+        if len(tv1) == len(tv2) and len(pts1) == len(pts2):
+      for (pt1, pt2) in zip(pts1, pts2):
+        type_match(loc, tyvars, pt1, pt2, matching)
+      type_match(loc, tyvars, rt1, rt2, matching)
+    case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
+      if n1 != n2 or len(args1) != len(args2):
+        error(loc, str(arg_ty) + " does not match " + str(param_ty))
+      for (arg1, arg2) in zip(args1, args2):
+        type_match(loc, tyvars, arg1, arg2, matching)
+    # How to handle GenericUnknownInst?
+    case (TypeInst(l1, n1, args1), GenericUnknownInst(l2, n2)):
+      if n1 != n2:
+        error(loc, str(arg_ty) + " does not match " + str(param_ty))
+    case _:
+      if param_ty != arg_ty:
+        error(loc, str(arg_ty) + " does not match " + str(param_ty))
+
+def is_associative(loc, opname, typ, env):
+  #print('is_associative? ' + str(opname) + ' for ' + str(typ))
+  for (typarams, ty) in env.get_assoc_types(opname):
+    type_params = type_names(loc, typarams)
+    matching = {}
+    try:
+      type_match(loc, type_params, ty, typ, matching)
+      #print('\tyes')
+      return True
+    except Exception as e:
+      pass
+  #print('\tno')
+  return False 
 
 def rator_name(rator):
   match rator:
@@ -78,8 +130,7 @@ def rator_name(rator):
     case Lambda(loc, ty, vars, body):
       return 'no_name'
     case TermInst(loc3, tyof, arg2, tyargs):
-      #return rator_name(arg2)
-      return 'no_name'
+      return rator_name(arg2)
     case Generic(loc2, tyof, typarams, body):
       #return rator_name(body)
       return 'no_name'
@@ -574,10 +625,15 @@ class Var(Term):
   
   def __eq__(self, other):
       if isinstance(other, RecFun):
-        return self.name == other.name
-      if not isinstance(other, Var):
-        return False
-      return self.name == other.name 
+        result = self.name == other.name
+        #print(self.name + ' =? ' + other.name)
+      elif not isinstance(other, Var):
+        result = False
+      else:
+        result = self.name == other.name
+        #print(self.name + ' =? ' + other.name)
+      #print(' = ' + str(result))
+      return result
   
   def __str__(self):
       if isinstance(self.resolved_names, str):
@@ -590,7 +646,7 @@ class Var(Term):
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
       elif get_verbose():
-        return base_name(self.name) # + '{' + ','.join(self.resolved_names) + '}'
+        return self.name + '{' + ','.join(self.resolved_names) + '}'
       elif get_unique_names():
         return self.name
       else:
@@ -826,7 +882,10 @@ def is_operator(trm):
 def operator_name(trm):
   match trm:
     case Var(loc, tyof, name):
-      return base_name(name)
+      if get_unique_names():
+        return name
+      else:
+        return base_name(name)
     case RecFun(loc, name, typarams, params, returns, cases):
       return base_name(name)
     case TermInst(loc, tyof, subject, tyargs):
@@ -934,14 +993,16 @@ class Call(Term):
         return False
       eq_rators = self.rator == other.rator
       eq_rands = all([arg1 == arg2 for arg1,arg2 in zip(self.args, other.args)])
-      return eq_rators and eq_rands
+      result = eq_rators and eq_rands
+      #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
+      return result
 
   def reduce(self, env):
     if get_verbose():
       print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
       print('reduce call ' + str(self))
     fun = self.rator.reduce(env)
-    is_assoc = is_associative(rator_name(self.rator),
+    is_assoc = is_associative(self.location, rator_name(self.rator),
                               self.typeof, env)
     if is_assoc:
       flat_args = flatten_assoc_list(rator_name(self.rator), self.args)
@@ -1773,7 +1834,8 @@ class All(Formula):
     x, tx = self.var
     y, ty = other.var
     sub = { y: Var(self.location, None, x, [x]) }
-    return self.body == other.body.substitute(sub)
+    result = self.body == other.body.substitute(sub)
+    return result
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
@@ -2633,11 +2695,15 @@ class RecFun(Statement):
 
   def __eq__(self, other):
     if isinstance(other, Var):
-      return self.name == other.name
+      result = self.name == other.name
+      #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
+      return result
     elif isinstance(other, TermInst):
       return self == other.subject
     elif isinstance(other, RecFun):
-      return self.name == other.name
+      result = self.name == other.name
+      #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
+      return result
     else:
       return False
   
@@ -2763,15 +2829,23 @@ class Import(Statement):
 
 @dataclass
 class Associative(Statement):
+  type_params: List[str]
   op: Term
   typeof: Type
 
   def __str__(self):
-    return 'associative ' + str(self.op) + ' ' + str(self.typeof)
+    return 'associative ' + str(self.op) \
+      + ('<' + ','.join(self.type_params) + '>' if len(self.type_params) > 0 else '') \
+      + ' ' + str(self.typeof)
 
   def uniquify(self, env):
     self.op.uniquify(env)
-    self.typeof.uniquify(env)
+    body_env = {x:y for (x,y) in env.items()}
+    new_type_params = [generate_name(x) for x in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      overwrite(body_env, old, new, self.location)
+    self.type_params = new_type_params
+    self.typeof.uniquify(body_env)
 
   def collect_exports(self, export_env):
     opname = self.op.resolved_names[0]
@@ -3010,15 +3084,22 @@ class ProofBinding(Binding):
   def __str__(self):
     return str(self.formula)
 
+def type_params_str(type_params):
+  if len(type_params) > 0:
+    return '<' + ','.join(type_params) + '>'
+  else:
+    return ''
+  
 @dataclass
 class AssociativeBinding(Binding):
   opname: str
-  types: List[Type]
+  types: List[Tuple[List[str], Type]]
 
   def __str__(self):
-    return 'associative ' + self.opname + ' ' + ', '.join(str(t) for t in self.types)
-  
-  
+    return 'associative ' + self.opname \
+      + ' ' + ', '.join(type_params_str(type_params) + str(t) \
+                        for (type_params, t) in self.types)
+        
 class Env:
   def __init__(self, env = None):
     if env:
@@ -3063,14 +3144,14 @@ class Env:
     new_env.dict[name] = TermBinding(loc, typ)
     return new_env
 
-  def declare_assoc(self, loc, opname, typ):
+  def declare_assoc(self, loc, opname, typarams, typ):
     new_env = Env(self.dict)
     full_name = '__associative_' + opname
     if full_name in new_env:
       old = new_env.dict[full_name]
-      new_env.dict[full_name] = AssociativeBinding(loc, opname, [typ] + old.types)
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)] + old.types)
     else:
-      new_env.dict[full_name] = AssociativeBinding(loc, opname, [typ])
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)])
     return new_env
   
   def declare_term_vars(self, loc, xty_pairs):
@@ -3214,10 +3295,14 @@ class Env:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
 
-  def proofs(self):
+  def local_proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding) and b.local]
-      
+
+  def proofs(self):
+    return [b.formula for (name, b) in self.dict.items() \
+            if isinstance(b, ProofBinding)]
+  
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')

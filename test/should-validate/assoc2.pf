@@ -1,7 +1,5 @@
 import Nat
 
-associative operator+ in Nat
-
 theorem T: all x:Nat,y:Nat,z:Nat.
   x + y + suc(z) = suc(x + y + z)
 proof
