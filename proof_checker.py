@@ -464,15 +464,7 @@ def check_proof(proof, env):
       eqns = [check_proof(proof, env) for proof in equation_proofs]
       red_formula = formula.reduce(env)
       current_formula = red_formula
-      for eq in eqns:
-        if not is_equation(eq):
-            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-        reset_num_rewrites()
-        new_formula = rewrite(loc, current_formula, eq, env)
-        if get_num_rewrites() == 0:
-            error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
-                  + '\nin\n\t' + str(current_formula))
-        current_formula = new_formula.reduce(env)
+      current_formula = apply_rewrites(loc, current_formula, eqns, env)
       ret = current_formula
       
     case PHole(loc):
@@ -1487,16 +1479,8 @@ def check_proof_of(proof, formula, env):
       equations = [check_proof(proof, env) for proof in equation_proofs]
       eqns = [equation.reduce(env) for equation in equations]
       new_formula = formula.reduce(env)
-      for eq in eqns:
-        if not is_equation(eq):
-          error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-        reset_num_rewrites()
-        new_formula = rewrite(loc, new_formula, eq, env)
-        if get_num_rewrites() == 0:
-            error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
-                  + '\nin\n\t' + str(new_formula))
-        new_formula = new_formula.reduce(env)
-      check_proof_of(body, new_formula.reduce(env), env)
+      new_formula = apply_rewrites(loc, new_formula, eqns, env)
+      check_proof_of(body, new_formula, env)
       #warning(loc, 'old-style rewrite will be deprecated')
     case ApplyDefsGoal(loc, definitions, body):
       defs = [type_synth_term(d, env, None, []) for d in definitions]
@@ -1578,8 +1562,10 @@ def apply_rewrites(loc, formula, eqns, env):
     reset_num_rewrites()
     new_formula = rewrite_aux(loc, new_formula, eq, env)
     if get_num_rewrites() == 0:
-        error(loc, 'no matches found for rewrite with\n\t' + str(eq) \
-              + '\nin\n\t' + str(new_formula))
+        (lhs, rhs) = split_equation(loc, eq)
+        error(loc, '\ncould not find any matches for\n\t' + str(lhs) \
+              + '\nin\n\t' + str(new_formula) \
+              + '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq))
     new_formula = new_formula.reduce(env)
       
   if num_marks == 0:          
