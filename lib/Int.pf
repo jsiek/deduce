@@ -606,6 +606,8 @@ proof
   }
 end
 
+associative operator+ in Int
+
 // Properties of Addition and Negation
 
 theorem int_add_inverse: all x:Int. x + -x = +0
@@ -945,6 +947,7 @@ proof
   }
 end
 
+associative operator* in Int
 
 // Properties of Less-Than or Equal
 
