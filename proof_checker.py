@@ -1201,6 +1201,7 @@ def check_proof_of(proof, formula, env):
     
     case Suffices(loc, claim, reason, rest):
       def_or_rewrite = False
+      evaluate = False
 
       # should evaluate be handled up here? -Jeremy
       match reason:
@@ -1215,25 +1216,34 @@ def check_proof_of(proof, formula, env):
         case Rewrite(loc2, eqns):
            def_or_rewrite = True
            definitions = []
-           equation_proofs = eqns 
+           equation_proofs = eqns
+        case EvaluateGoal(loc2):
+           evaluate = True
         case _:
            def_or_rewrite = False
 
-      if def_or_rewrite:
+      if def_or_rewrite or evaluate:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-        defs = [d.reduce(env) for d in definitions]
-        equations = [check_proof(proof, env) for proof in equation_proofs]
-        red_claim = new_claim.reduce(env)
 
-        new_formula = apply_definitions(loc, formula, defs, env)
-        new_formula = new_formula.reduce(env)
+        if evaluate:
+          set_reduce_all(True)
+          new_formula = formula.reduce(env)
+          red_claim = new_claim.reduce(env)
+          set_reduce_all(False)
 
-        eqns = [equation.reduce(env) for equation in equations]
-        for eq in eqns:
-          if not is_equation(eq):
-            error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
-          new_formula = rewrite(loc, new_formula, eq, env)
+        else:
+          red_claim = new_claim.reduce(env)
+          defs = [d.reduce(env) for d in definitions]
+          equations = [check_proof(proof, env) for proof in equation_proofs]
+          new_formula = apply_definitions(loc, formula, defs, env)
           new_formula = new_formula.reduce(env)
+
+          eqns = [equation.reduce(env) for equation in equations]
+          for eq in eqns:
+            if not is_equation(eq):
+              error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+            new_formula = rewrite(loc, new_formula, eq, env)
+            new_formula = new_formula.reduce(env)
 
         match red_claim:
           case Omitted(loc2, tyof):
@@ -1250,7 +1260,7 @@ def check_proof_of(proof, formula, env):
               check_implies(loc, red_claim, new_formula)
             except Exception as e:
               error(loc, str(e) + '\nGivens:\n' + env.proofs_str())
-            check_proof_of(rest, red_claim, env)
+            check_proof_of(rest, new_claim, env)
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         claim_red = new_claim.reduce(env)

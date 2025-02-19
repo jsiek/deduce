@@ -1,0 +1,12 @@
+./test/should-error/suffices_evaluate.pf:6.3-6.25: 
+suffices to prove:
+	suc(suc(suc(x + 0))) = suc(suc(suc(x - 3)))
+./test/should-error/suffices_evaluate.pf:7.3-7.4: incomplete proof
+Goal:
+	suc(suc(suc(x + 0))) = suc(suc(suc(x - 3)))
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+
