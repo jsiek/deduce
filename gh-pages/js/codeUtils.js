@@ -147,8 +147,8 @@ for (let cb of codeBlocks) {
             .then(codeText => {
                 codeText = removeImports(codeText)
                 code = codeToHTML(codeText)
-                cacheJS.set({'codeID': cb, 'type': 'html'}, code)
-                cacheJS.set({'codeID': cb, 'type': 'text'}, codeText)
+                cacheJS.set({'codeID': cb, 'type': 'html'}, code, 3600)
+                cacheJS.set({'codeID': cb, 'type': 'text'}, codeText, 3600)
                 htmlCode.innerHTML = code
                 make_button(htmlCode, codeText)
             })
