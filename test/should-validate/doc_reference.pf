@@ -154,6 +154,14 @@ proof
           ... = #z + x# + y    by replace add_commute
           ... = z + y + x      by replace add_commute[x]
 end
+theorem equations_def_example: all x:Nat, y:Nat, xs:List<Nat>.
+  length(node(x, xs)) = length(node(y, xs))
+proof
+  arbitrary x:Nat, y:Nat, xs:List<Nat>
+  equations
+    length(node(x,xs)) = 1 + length(xs)         by definition length
+                   ... = # length(node(y,xs)) # by definition length
+end
 assert 2 > 1
 assert not (1 > 1)
 assert not (0 > 1)

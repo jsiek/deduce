@@ -754,6 +754,23 @@ proof
 end
 ```
 
+The hash marks can also be used to control where Deduce applies a
+`definition`. In the following example, the hash marks tell Deduce to
+unfold the definition of `length` in the right-hand side of the second
+equation.
+
+```{.deduce^#equations_def_example}
+theorem equations_def_example: all x:Nat, y:Nat, xs:List<Nat>.
+  length(node(x, xs)) = length(node(y, xs))
+proof
+  arbitrary x:Nat, y:Nat, xs:List<Nat>
+  equations
+    length(node(x,xs)) = 1 + length(xs)         by definition length
+                   ... = # length(node(y,xs)) # by definition length
+end
+```
+
+
 ## Evaluate (Proof)
 
 ```
@@ -2251,6 +2268,7 @@ import Pair
 <<definition_in_example>>
 <<division_example>>
 <<equations_example>>
+<<equations_def_example>>
 <<greater_example>>
 <<greater_equal_example>>
 <<if_then_else_example>>

@@ -125,9 +125,6 @@ function make_button(htmlCode, codeText){
     htmlCode.appendChild(copyTooltip)
 }
 
-
-const loc = window.location.pathname;
-const dir = loc.substring(0, loc.lastIndexOf('/'));
 // set codeblocks
 for (let cb of codeBlocks) {
     try {
@@ -144,7 +141,7 @@ for (let cb of codeBlocks) {
         } 
         // else make fetch and cache result
         else {
-            const url = `${dir.includes("/pages") ? "../" : "./" }deduce-code/${cb}.pf`
+            const url = `${loc.includes("/pages") ? "../" : "./" }deduce-code/${cb}.pf`
             fetch(url)
             .then(res => {if (res.ok) return res.text(); else throw new Error()})
             .then(codeText => {
