@@ -2611,10 +2611,12 @@ class Union(Statement):
     return self
       
   def __str__(self):
-    #return base_name(self.name)
+    if get_verbose():
+      return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
+        + ' '.join([str(c) for c in self.alternatives]) + '}'
+    else:
+      return base_name(self.name)
   
-    return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
-       + ' '.join([str(c) for c in self.alternatives]) + '}'
   
 @dataclass
 class FunCase(AST):
