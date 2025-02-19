@@ -293,14 +293,15 @@ proof
               ... = 0 + z      by prem
               ... = z          by .
   }
-  case suc(x') suppose IH {
+  case suc(x') suppose IH: all y:Nat, z:Nat. if x' + y = x' + z then y = z {
     arbitrary y:Nat, z:Nat
     suppose prem: suc(x') + y = suc(x') + z
     suffices y = z by .
-    apply IH[y,z] to
-    suffices x' + y = x' + z by .
-    injective suc
-    conclude suc(x' + y) = suc(x' + z)  by prem
+    apply IH[y,z] to {
+      suffices x' + y = x' + z by .
+      injective suc
+      conclude suc(x' + y) = suc(x' + z)  by prem
+    }
   }
 end
 
