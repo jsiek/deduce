@@ -1,0 +1,8 @@
+theorem T: all P:bool, Q:bool. if P and (if P then Q) then Q
+proof
+  arbitrary P:bool, Q:bool
+  assume prem: (P and (if P then Q))
+  have pq: if P then Q by prem
+  suffices __ by pq
+  conclude P by prem
+end

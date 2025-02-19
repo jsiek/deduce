@@ -1252,7 +1252,7 @@ def check_proof_of(proof, formula, env):
             try:
               newer_formula = check_formula(new_formula, env)
             except Exception as e:
-              error(loc2, 'blah: ' + str(new_formula) + '\n' + str(e))
+              error(loc2, 'internal error in suffices: ' + str(new_formula) + '\n' + str(e))
             warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
             check_proof_of(rest, newer_formula, env)
           case _:
@@ -1264,10 +1264,29 @@ def check_proof_of(proof, formula, env):
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         claim_red = new_claim.reduce(env)
-        # Need special handling for when claim_red is Hole or Omitted -Jeremy
-        imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
-        check_proof_of(reason, imp, env)
-        check_proof_of(rest, claim_red, env)
+
+        match claim_red:
+          case Hole(loc2, tyof):
+            proved_formula = check_proof(reason, env)
+            match proved_formula:
+              case IfThen(loc3, _, prem, conc):
+                check_implies(loc, conc, formula)
+                warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
+                check_proof_of(rest, prem, env)
+              case _:
+                error(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula))
+          case Omitted(loc2, tyof):
+            proved_formula = check_proof(reason, env)
+            match proved_formula:
+              case IfThen(loc3, _, prem, conc):
+                check_implies(loc, conc, formula)
+                check_proof_of(rest, prem, env)
+              case _:
+                error(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula))
+          case _:
+            imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
+            check_proof_of(reason, imp, env)
+            check_proof_of(rest, claim_red, env)
 
     case PTuple(loc, pfs):
       try:

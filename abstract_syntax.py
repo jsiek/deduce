@@ -3378,6 +3378,8 @@ def count_marks(formula):
       return count_marks(rhs) + count_marks(body)
     case Hole(loc2, tyof):
       return 0
+    case Omitted(loc2, tyof):
+      return 0
     case ArrayGet(loc, tyof, arr, ind):
       return count_marks(arr) + count_marks(ind)
     case _:
