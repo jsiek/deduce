@@ -175,6 +175,20 @@ class Proof(AST):
 class Statement(AST):
     pass
 
+@dataclass
+class Declaration(AST):
+  isPrivate: bool
+  makeOpaque: bool = False
+  file_defined : str = ''
+
+  def is_opaque(self):
+    if get_recursive_descent():
+      from rec_desc_parser import get_filename
+    else:
+      from parser import get_filename
+    return self.makeOpaque and not (get_filename() == self.file_defined)
+
+
 ################ Types ######################################
 
 @dataclass
@@ -2524,7 +2538,7 @@ def overwrite(env, name, new_name, loc):
   env[name] = [new_name]
       
 @dataclass
-class Theorem(Statement):
+class Theorem(Declaration):
   name: str
   what: Formula
   proof: Proof
@@ -2574,7 +2588,7 @@ class Constructor(AST):
   
       
 @dataclass
-class Union(Statement):
+class Union(Declaration):
   name: str
   type_params: List[str]
   alternatives: List[Constructor]
@@ -2650,7 +2664,7 @@ class FunCase(AST):
     
     
 @dataclass
-class RecFun(Statement):
+class RecFun(Declaration):
   name: str
   type_params: List[str]
   params: List[Type]
@@ -2713,13 +2727,10 @@ class RecFun(Statement):
     return self
   
 @dataclass
-class Define(Statement):
+class Define(Declaration):
   name: str
   typ: Type
   body: Term
-  isPrivate: bool
-  makeOpaque: bool = False
-  file_defined : str = ''
 
   def __str__(self):
     return 'define ' + self.name \
@@ -2734,13 +2745,6 @@ class Define(Statement):
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
     self.name = new_name
-
-  def is_opaque(self):
-    if get_recursive_descent():
-      from rec_desc_parser import get_filename
-    else:
-      from parser import get_filename
-    return self.makeOpaque and not (get_filename() == self.file_defined)
 
   def collect_exports(self, export_env):
     if self.isPrivate:

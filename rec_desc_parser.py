@@ -1514,11 +1514,14 @@ def parse_define():
   
 def parse_private():
   while_parsing = 'while parsing\n' \
-    + '\nstatement ::= "private" statement'
+    + '\tstatement ::= "private" statement'
   try: 
     my_token = current_token() 
     advance()
+    access_token = current_token()
     statement = parse_statement()
+    if statement.isPrivate or statement.makeOpaque:
+      raise ParseError(meta_from_tokens(my_token, access_token), "Got more than one accesibility modifier")
     match statement:
       case RecFun(meta, name, type_params, param_types, return_type, cases, isPrivate):
         statement.isPrivate = True
@@ -1526,7 +1529,7 @@ def parse_private():
       case Define(meta, name, typ, body, isPrivate):
         statement.isPrivate = True
         return statement
-      case Union(meta, name, type_params, constr_list, isPrivate):
+      case Union(meta, name, type_params, constr_list, isPrivate, makeOpaque):
         statement.isPrivate = True
         return statement
       case _:
@@ -1540,7 +1543,7 @@ def parse_private():
   
 def parse_opaque():
   while_parsing = 'while parsing\n' \
-    + '\nstatement ::= "opaque" statement'
+    + '\tstatement ::= "opaque" statement'
   try: 
     my_token = current_token() 
     advance()
@@ -1558,6 +1561,19 @@ def parse_opaque():
   except Exception as e:
     raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
+
+def parse_accessibility():
+  while_parsing = 'while parsing\n' \
+    + '\nstatement ::= accessibility declaration'
+  try: 
+    my_token = current_token() 
+    advance()
+    
+
+  except Exception as e:
+    raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
+      + str(e))
+
 
 statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
                       'union'}

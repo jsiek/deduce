@@ -300,17 +300,21 @@ ident: IDENT              -> ident
 
 ?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
 
-?statement: theorem
- | union
+?declaration: union
  | rec_function
  | function
  | definition
+
+?accesibility: "private"
+    | "opaque"
+
+?statement: declaration
+ | accesibility declaration
+ | assoc_decl
  | import
  | assert
  | print
- | private
- | opaque
- | assoc_decl
+ | theorem
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
