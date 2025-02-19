@@ -137,7 +137,7 @@ if __name__ == "__main__":
         elif argument == '--suppress-theorems':
             suppress_theorems = True
         elif argument == '--version' or argument == '-v':
-            print("Deduce: version 1.0.0")
+            print("Deduce: version 1.2")
             exit(0)
         else:
             deducables.append(argument)

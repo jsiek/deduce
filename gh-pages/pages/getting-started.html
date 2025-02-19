@@ -141,6 +141,9 @@ would instead be printed out as <code class="inline">x.1</code> in one scope and
 <p>Makes Deduce print out the debug logs. It is generally recommended to
 use <code class="inline">--traceback</code> instead, as this argument can make Deduce print out
 thousands of lines.</p>
+<p>By default, <code class="inline">--verbose</code> only prints debug logs for the current file.
+If ran as <code class="inline">--verbose full</code> it also prints debug logs for all imported
+files as well.</p>
 <p><code class="inline">--error</code></p>
 <p>Deduce will expect all files that it processes to contain an error. If
 there is a file that does not contain an error, Deduce will exit with
