@@ -148,7 +148,6 @@ def flatten_assoc(op_name, trm):
 def flatten_assoc_list(op_name, args):
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
   
-
 ############ AST Base Classes ###########
   
 @dataclass
@@ -606,6 +605,9 @@ class TAnnote(Term):
   def uniquify(self, env):
     self.subject.uniquify(env)
     self.typ.uniquify(env)
+
+  def __eq__(self, other):
+    return self.subject == other
     
   
 @dataclass
@@ -645,8 +647,8 @@ class Var(Term):
         return '0'
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
-      elif get_verbose():
-        return self.name + '{' + ','.join(self.resolved_names) + '}'
+      # elif get_verbose():
+      #   return self.name + '{' + ','.join(self.resolved_names) + '}'
       elif get_unique_names():
         return self.name
       else:
@@ -927,7 +929,7 @@ def op_arg_str(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
 
-def do_function_call(loc, name, params, args, body, subst, env):
+def do_function_call(loc, name, params, args, body, subst, env, return_type):
   body_env = env
   assert len(params) == len(args)
   for (k,v) in zip(params, args):
@@ -952,7 +954,7 @@ def do_function_call(loc, name, params, args, body, subst, env):
   add_reduced_def(name)
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
-  return ret
+  return explicit_term_inst(ret)
 
 @dataclass
 class Call(Term):
@@ -1079,7 +1081,7 @@ class Call(Term):
                 result = ret
                 if get_verbose():
                   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
-                return result
+                return explicit_term_inst(result)
             else:
               pass
         ret = Call(self.location, self.typeof, fun, args)
@@ -1113,7 +1115,7 @@ class Call(Term):
                     rest_args = worklist[:len(fun_case.parameters)]
                     result = do_function_call(loc, name, fun_case.parameters,
                                               rest_args,
-                                              fun_case.body, subst, env)
+                                              fun_case.body, subst, env, returns)
                     if get_verbose():
                       print('call result: ' + str(result))
                     worklist = [result] + worklist[len(fun_case.parameters):]
@@ -1140,7 +1142,7 @@ class Call(Term):
           if get_verbose():
             print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
           if len(flat_results) == 1:
-            return flat_results[0]
+            return explicit_term_inst(flat_results[0])
           else:
             return Call(self.location, self.typeof,
                         Var(loc, FunctionType(loc, [], params, returns), name, [name]),
@@ -1155,7 +1157,7 @@ class Call(Term):
               if is_match(fun_case.pattern, first_arg, subst):
                   return do_function_call(loc, name, fun_case.parameters,
                                           rest_args,
-                                          fun_case.body, subst, env)
+                                          fun_case.body, subst, env, returns)
         if is_assoc:
           if get_verbose():
             print('not reducing recursive call to associative ' + str(fun))
@@ -3533,3 +3535,28 @@ def make_switch_for(meta, defs, subject, cases):
                                              c.body)) \
                for c in cases]
   return SwitchProof(meta, subject, new_cases)
+
+def explicit_term_inst(term):
+  match term:
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      return TermInst(loc2, tyof, subject, tyargs, False)
+    case Switch(loc2, tyof, subject, cases):
+      return Switch(loc2, tyof, explicit_term_inst(subject),
+                    [explicit_term_inst(c) for c in cases])
+    case SwitchCase(loc2, pat, body):
+      return SwitchCase(loc2, pat, explicit_term_inst(body))
+    case Lambda(loc2, tyof, vars, body):
+      return Lambda(loc2, tyof, vars, explicit_term_inst(body))
+    case Mark(loc2, tyof, subject):
+      return Mark(loc2, tyof, explicit_term_inst(subject))
+    case Conditional(loc2, tyof, cond, thn, els):
+      return Conditional(loc2, tyof, explicit_term_inst(cond),
+                         explicit_term_inst(thn),
+                         explicit_term_inst(els))
+    case Generic(loc2, tyof, typarams, body):
+      return Generic(loc2, tyof, typarams, explicit_term_inst(body))
+    case TLet(loc2, tyof, var, rhs, body):
+      return TLet(loc2, tyof, var, rhs,
+                  explicit_term_inst(body))
+    case _:
+      return term
