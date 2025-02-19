@@ -2404,7 +2404,7 @@ def check_formula(frm, env):
 
 modules = set()
 
-def process_declaration(stmt, env):
+def process_declaration(stmt, env, module_chain):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
   match stmt:
@@ -2478,14 +2478,19 @@ def process_declaration(stmt, env):
       if get_verbose() == VerboseLevel.CURR_ONLY:
         set_verbose(VerboseLevel.NONE)
 
-      if name in imported_modules:
+      if name in module_chain:
+          error(loc, 'error, recusive import:\n\t' + name\
+                + '\nwhile processing modules:\n\t' \
+                + ', '.join(module_chain))
+      elif name in imported_modules:
           set_verbose(old_verbose)
           return stmt, env
       else:
           imported_modules.add(name)
+          module_chain = [name] + module_chain
           ast2 = []
           for s in ast:
-            new_s, env = process_declaration(s, env)
+            new_s, env = process_declaration(s, env, module_chain)
             ast2.append(new_s)
 
           ast3 = []
@@ -2731,7 +2736,7 @@ def check_deduce(ast, module_name):
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:
-    new_s, env = process_declaration(s, env)
+    new_s, env = process_declaration(s, env, [module_name])
     ast2.append(new_s)
   if get_verbose():
     for s in ast2:
