@@ -763,7 +763,6 @@ proof
         }
         case negsuc(y') {
           suffices - (x' * suc(y')) = - (suc(y') * x')  by evaluate
-          //suffices ? by definition operator* | sign | abs and replace mult_pos_neg | mult_neg_pos | mult_neg_nat
           rewrite mult_commute[x',suc(y')]
         }
       }
