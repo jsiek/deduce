@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <link rel="stylesheet" href="stdlib.css">
+</head>
+<body>
+    <pre><code>
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#or_not196"><span id="or_not196" style="color: #086c3c">or_not</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>
+  <span style="color: #d85311">if</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #d85311">or</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">and</span> <span style="color: #d85311">not</span> <span style="color: black">P</span>
+  <span style="color: #d85311">then</span> <span style="color: black">Q</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">suppose</span> <span style="color: black">prem</span>
+  <span style="color: #d85311">cases</span> <span style="color: #d85311">conjunct</span> <span style="color: #9329ab">0</span> <span style="color: #d85311">of</span> <span style="color: black">prem</span>
+  <span style="color: #d85311">case</span> <span style="color: black">p</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">conclude</span> <span style="color: #9329ab">false</span>  <span style="color: #d85311">by</span> <span style="color: #d85311">apply</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">conjunct</span> <span style="color: #9329ab">1</span> <span style="color: #d85311">of</span> <span style="color: black">prem</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">to</span> <span style="color: black">p</span>
+  <span style="color: #2e2d31">}</span>
+  <span style="color: #d85311">case</span> <span style="color: black">q</span> <span style="color: #2e2d31">{</span>
+    <span style="color: black">q</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#ex_mid197"><span id="ex_mid197" style="color: #086c3c">ex_mid</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">b</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span> <span style="color: black">b</span> <span style="color: #d85311">or</span> <span style="color: #d85311">not</span> <span style="color: black">b</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">b</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">b</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#or_sym198"><span id="or_sym198" style="color: #086c3c">or_sym</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>  <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #d85311">or</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #2e2d31">=</span> <span style="color: #2e2d31">(</span><span style="color: black">Q</span> <span style="color: #d85311">or</span> <span style="color: black">P</span><span style="color: #2e2d31">)</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">P</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#and_sym199"><span id="and_sym199" style="color: #086c3c">and_sym</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>  <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #d85311">and</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #2e2d31">=</span> <span style="color: #2e2d31">(</span><span style="color: black">Q</span> <span style="color: #d85311">and</span> <span style="color: black">P</span><span style="color: #2e2d31">)</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">P</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#eq_true200"><span id="eq_true200" style="color: #086c3c">eq_true</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span> <span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #2e2d31">=</span> <span style="color: #9329ab">true</span><span style="color: #2e2d31">)</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">P</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#eq_false201"><span id="eq_false201" style="color: #086c3c">eq_false</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span> <span style="color: #d85311">not</span> <span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">P</span> <span style="color: #2e2d31">=</span> <span style="color: #9329ab">false</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">P</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#iff_equal202"><span id="iff_equal202" style="color: #086c3c">iff_equal</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>
+  <span style="color: #d85311">if</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span>  
+  <span style="color: #d85311">then</span> <span style="color: black">P</span> <span style="color: #2e2d31">=</span> <span style="color: black">Q</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">P</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span>
+      <span style="color: #d85311">suppose</span> <span style="color: black">q</span>
+      <span style="color: #d85311">rewrite</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">apply</span> <a href="Base.pf.html#eq_true200"><span style="color: #086c3c">eq_true</span></a> <span style="color: #d85311">to</span> <span style="color: black">q</span><span style="color: #2e2d31">)</span>
+    <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span>
+      <span style="color: #d85311">suppose</span> <span style="color: black">not_q</span>
+      <span style="color: #d85311">rewrite</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">apply</span> <a href="Base.pf.html#eq_false201"><span style="color: #086c3c">eq_false</span></a> <span style="color: #d85311">to</span> <span style="color: black">not_q</span><span style="color: #2e2d31">)</span>
+    <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#iff_symm203"><span id="iff_symm203" style="color: #086c3c">iff_symm</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>
+  <span style="color: #d85311">if</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">then</span> <span style="color: #2e2d31">(</span><span style="color: black">Q</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">P</span><span style="color: #2e2d31">)</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">assume</span><span style="color: #2e2d31">:</span> <span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span>
+  <span style="color: #d85311">have</span> <span style="color: black">fwd</span><span style="color: #2e2d31">:</span> <span style="color: #d85311">if</span> <span style="color: black">Q</span> <span style="color: #d85311">then</span> <span style="color: black">P</span> <span style="color: #d85311">by</span> <span style="color: #d85311">assume</span><span style="color: #2e2d31">:</span> <span style="color: black">Q</span> <span style="color: #d85311">apply</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">recall</span> <span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">to</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">recall</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span>
+  <span style="color: #d85311">have</span> <span style="color: black">bkwd</span><span style="color: #2e2d31">:</span> <span style="color: #d85311">if</span> <span style="color: black">P</span> <span style="color: #d85311">then</span> <span style="color: black">Q</span> <span style="color: #d85311">by</span> <span style="color: #d85311">assume</span><span style="color: #2e2d31">:</span> <span style="color: black">P</span> <span style="color: #d85311">apply</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">recall</span> <span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">to</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">recall</span> <span style="color: black">P</span><span style="color: #2e2d31">)</span>
+  <span style="color: black">fwd</span><span style="color: #2e2d31">,</span> <span style="color: black">bkwd</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#iff_trans204"><span id="iff_trans204" style="color: #086c3c">iff_trans</span></a><span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">R</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>
+  <span style="color: #d85311">if</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">and</span> <span style="color: #2e2d31">(</span><span style="color: black">Q</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">R</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">then</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">R</span><span style="color: #2e2d31">)</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">R</span><span style="color: #2e2d31">:</span><span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">assume</span> <span style="color: black">prem</span><span style="color: #2e2d31">:</span> <span style="color: #2e2d31">(</span><span style="color: black">P</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">and</span> <span style="color: #2e2d31">(</span><span style="color: black">Q</span> <span style="color: #2e2d31">⇔</span> <span style="color: black">R</span><span style="color: #2e2d31">)</span>
+  <span style="color: #d85311">have</span> <span style="color: black">fwd</span><span style="color: #2e2d31">:</span> <span style="color: #d85311">if</span> <span style="color: black">P</span> <span style="color: #d85311">then</span> <span style="color: black">R</span> <span style="color: #d85311">by</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">assume</span><span style="color: #2e2d31">:</span> <span style="color: black">P</span>
+    <span style="color: #d85311">have</span><span style="color: #2e2d31">:</span> <span style="color: black">Q</span> <span style="color: #d85311">by</span> <span style="color: #d85311">apply</span> <span style="color: black">prem</span> <span style="color: #d85311">to</span> <span style="color: #d85311">recall</span> <span style="color: black">P</span>
+    <span style="color: #d85311">conclude</span> <span style="color: black">R</span> <span style="color: #d85311">by</span> <span style="color: #d85311">apply</span> <span style="color: black">prem</span> <span style="color: #d85311">to</span> <span style="color: #d85311">recall</span> <span style="color: black">Q</span>
+  <span style="color: #2e2d31">}</span>
+  <span style="color: #d85311">have</span> <span style="color: black">bkwd</span><span style="color: #2e2d31">:</span> <span style="color: #d85311">if</span> <span style="color: black">R</span> <span style="color: #d85311">then</span> <span style="color: black">P</span> <span style="color: #d85311">by</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">assume</span><span style="color: #2e2d31">:</span> <span style="color: black">R</span>
+    <span style="color: #d85311">have</span><span style="color: #2e2d31">:</span> <span style="color: black">Q</span> <span style="color: #d85311">by</span> <span style="color: #d85311">apply</span> <span style="color: black">prem</span> <span style="color: #d85311">to</span> <span style="color: #d85311">recall</span> <span style="color: black">R</span>
+    <span style="color: #d85311">conclude</span> <span style="color: black">P</span> <span style="color: #d85311">by</span> <span style="color: #d85311">apply</span> <span style="color: black">prem</span> <span style="color: #d85311">to</span> <span style="color: #d85311">recall</span> <span style="color: black">Q</span>
+  <span style="color: #2e2d31">}</span>
+  <span style="color: black">fwd</span><span style="color: #2e2d31">,</span> <span style="color: black">bkwd</span>
+<span style="color: #d85311">end</span>
+
+<span style="color: #d85311">theorem</span> <a href="Base.pf.html#contrapositive205"><span id="contrapositive205" style="color: #086c3c">contrapositive</span></a> <span style="color: #2e2d31">:</span> <span style="color: #d85311">all</span> <span style="color: black">P</span> <span style="color: #2e2d31">:</span> <span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span> <span style="color: #2e2d31">:</span> <span style="color: #0f95af">bool</span><span style="color: #2e2d31">.</span>
+  <span style="color: #d85311">if</span> <span style="color: #2e2d31">(</span><span style="color: #d85311">if</span> <span style="color: black">P</span> <span style="color: #d85311">then</span> <span style="color: black">Q</span><span style="color: #2e2d31">)</span> <span style="color: #d85311">and</span> <span style="color: #d85311">not</span> <span style="color: black">Q</span> <span style="color: #d85311">then</span> <span style="color: #d85311">not</span> <span style="color: black">P</span>
+<span style="color: #d85311">proof</span>
+  <span style="color: #d85311">arbitrary</span> <span style="color: black">P</span> <span style="color: #2e2d31">:</span> <span style="color: #0f95af">bool</span><span style="color: #2e2d31">,</span> <span style="color: black">Q</span> <span style="color: #2e2d31">:</span> <span style="color: #0f95af">bool</span>
+  <span style="color: #d85311">switch</span> <span style="color: black">Q</span> <span style="color: #2e2d31">{</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">true</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+    <span style="color: #d85311">case</span> <span style="color: #9329ab">false</span> <span style="color: #2e2d31">{</span> <span style="color: #2e2d31">.</span> <span style="color: #2e2d31">}</span>
+  <span style="color: #2e2d31">}</span>
+<span style="color: #d85311">end</span>
+
+    </code></pre>
+</body>
+</html>

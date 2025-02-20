@@ -1,0 +1,14 @@
+* {
+    scroll-behavior: smooth;
+}
+
+a,
+a:link,
+a:visited {
+    text-decoration: none;
+}
+
+a:hover,
+a:active {
+    background-color: pink;
+}

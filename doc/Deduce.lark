@@ -1,0 +1,317 @@
+DIGIT: /[0-9]/
+INT: DIGIT+
+UPPER: /[A-Z]/
+LOWER: /[a-z]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝]/
+IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
+NEWLINE: (/\r/? /\n/)+
+WS: /[ \t\f\r\n]/+
+LINECOMMENT: "//" /[^\n]*/ 
+COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
+
+?term:  term_iff
+
+?term_iff: term_iff "iff" term_log                     -> iff_formula
+    | term_iff "<=>" term_log                          -> iff_formula
+    | term_iff "⇔" term_log                            -> iff_formula
+    | term_log
+
+?term_log: term_log "and" term_equal                    -> and_formula
+    | term_log "or" term_equal                      -> or_formula
+    | term_log ":" type                           -> annote_type
+    | term_equal
+
+?term_equal: term_equal "=" term_compare  -> equal
+    | term_equal "≠" term_compare                       -> not_equal
+    | term_equal "/=" term_compare                       -> not_equal
+    | term_compare
+
+?term_compare: term_compare "<" term_add                        -> less
+    | term_compare ">" term_add                        -> greater
+    | term_compare "≤" term_add                       -> less_equal
+    | term_compare "<=" term_add                       -> less_equal
+    | term_compare "≥" term_add                       -> greater_equal
+    | term_compare ">=" term_add                       -> greater_equal
+    | term_compare "⊆" term_add                       -> subset_equal
+    | term_compare "(=" term_add                       -> subset_equal
+    | term_compare "∈" term_add                       -> membership
+    | term_compare "in" term_add                       -> membership
+    | term_add
+
+?term_add: term_med "+" term_add                   -> add
+    | term_med "∪" term_add                        -> union_op
+    | term_med "|" term_add                        -> union_op
+    | term_med "∩" term_add                        -> intersect
+    | term_med "&" term_add                        -> intersect
+    | term_med "⨄" term_add                        -> multiset_sum
+    | term_med ".+." term_add                      -> multiset_sum
+    | term_med "++" term_add                       -> append
+    | term_add "-" term_med                        -> sub
+    | term_add "⊝" term_med                        -> nat_sub
+    | term_med
+
+?term_med: term_med "/" term_hi                    -> div
+    | term_med "%" term_hi                         -> mod
+    | term_hi "*" term_med                         -> mul
+    | term_med "∘" term_hi                         -> circ
+    | term_med ".o." term_hi                        -> circ
+    | term_hi
+
+?switch_case: "case" pattern "{" term "}"           -> switch_case
+
+?switch_list: switch_case                           -> single
+    | switch_case switch_list                       -> push
+
+ident: IDENT              -> ident
+    | "operator" OPERATOR -> ident
+    | "operator" "++"     -> ident_append
+    | "operator" "/"      -> ident_div
+    | "operator" "|"      -> ident_union
+    | "operator" "&"      -> ident_intersect
+    | "operator" "in"      -> ident_member
+    | "operator" ".+."      -> ident_multiset_sum
+    | "operator" ".o."      -> ident_circ
+    | "operator" "(="      -> ident_subset_equal
+    | "operator" "<="      -> ident_less_equal
+    | "operator" ">="      -> ident_greater_equal
+    | "operator" "/="      -> ident_not_equal
+
+?term_hi: INT                                      -> int
+    | "+" INT                                      -> pos_int
+    | "-" term_hi                                  -> neg_int
+    | "true"                                       -> true_literal
+    | "false"                                      -> false_literal
+    | "∅"                                         -> emptyset_literal
+    | ".0."                                        -> emptyset_literal
+    | "not" term_hi                                -> logical_not
+    | IDENT                                        -> term_var
+    | "@" term_hi "<" type_list ">"                -> term_inst
+    | "array" "(" term ")"                         -> make_array
+    | term_hi "(" term_list ")"                    -> call
+    | term_hi "[" term "]"                         -> array_get
+    | "λ" type_params_opt var_list "{" term "}"    -> lambda
+    | "fun" type_params_opt var_list "{" term "}"  -> lambda
+    | "generic" ident_list "{" term "}"            -> generic
+    | "switch" term "{" switch_list "}"            -> switch
+    | "all" type_annot_list "." term               -> all_formula
+    | "<" ident_list ">" term                      -> alltype_formula
+    | "some" type_annot_list "." term              -> some_formula
+    | "define" IDENT "=" term ";" term             -> define_term
+    | "?"                                          -> hole_term
+    | "─"                                          -> omitted_term
+    | "__"                                         -> omitted_term
+    | "(" term ")"                                 -> paren
+    | "[" term_list "]"                            -> list_literal
+    | "#" term "#"                                 -> mark
+    | "if" term "then" term "else" term            -> conditional
+    | "if" term "then" term                        -> if_then_formula
+    | "%" type
+    
+?term_list:                                        -> empty
+    | term                                         -> single
+    | term "," term_list                           -> push
+    
+?ident_list:                                       -> empty
+    | ident                                        -> single
+    | ident "," ident_list                         -> push
+
+?ident_list_bar:                                   -> empty
+    | ident                                        -> single
+    | INT "*" ident                                -> repeat
+    | ident "|" ident_list_bar                     -> push
+    | INT "*" ident "|" ident_list_bar             -> push_repeat
+
+?type_annot_list:                                  -> empty_binding
+    | ident ":" type                               -> single_binding
+    | ident ":" type "," type_annot_list           -> push_binding
+
+?var_list:                                         -> empty_binding
+    | ident ":" type                               -> single_binding
+    | ident ":" type "," var_list                  -> push_binding
+    | ident "," var_list                           -> push_var
+    | ident                                        -> single_var
+
+?assumption_list:                                  -> empty_binding
+    | ident ":" term                               -> single_binding
+    | ":" term                                     -> single_anon_binding
+    | ident                                        -> single_var
+    | ident ":" term "," assumption_list           -> push_binding
+    | ":" term "," assumption_list                 -> push_anon_binding
+    | ident "," assumption_list                    -> push_var
+
+?ind_case: "case" pattern "{" proof "}"            -> ind_case
+    | "case" pattern "suppose" assumption_list "{" proof "}" -> ind_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}" -> ind_case_assume
+
+?ind_case_list: ind_case                           -> single
+    | ind_case ind_case_list                       -> push
+
+?switch_pf_case: "case" pattern "{" proof "}"      -> switch_pf_case
+    | "case" pattern "suppose" assumption_list "{" proof "}"      -> switch_pf_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}"      -> switch_pf_case_assume    
+
+?switch_pf_case_list: switch_pf_case               -> single
+    | switch_pf_case switch_pf_case_list           -> push
+
+?equation: term_compare "=" term_add "by" proof    -> equation
+
+?half_equation:  "..." "=" term_add "by" proof     -> half_equation
+
+?equation_list: half_equation                      -> single
+    | half_equation equation_list                  -> push
+    | "$" equation equation_list                   -> push
+ 
+?proof_list: proof                                 -> single
+    | proof "|" proof_list                         -> push
+
+?proof: conclusion                                 -> single_proof
+    | proof_stmt proof?                            -> push_proof
+
+?conclusion: "conclude" term "by" proof                  -> annot
+    | proof "," proof                                    -> tuple
+    | "apply" proof "to" proof                           -> modus_ponens
+    | "conjunct" INT "of" proof                          -> conjunct
+    | "cases" proof case_list                            -> cases
+    | "induction" type ind_case_list                     -> induction
+    | "definition" "{" ident_list "}"                   -> reason_definition
+    | "definition" ident_list_bar                       -> reason_definition
+    | "rewrite" proof_list                              -> reason_rewrite
+    | "replace" proof_list                              -> reason_rewrite
+    | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
+    | "definition" "{" ident_list "}" "and" "replace" proof_list -> reason_def_rewrite
+    | "definition" ident_list_bar "and" "rewrite" proof_list -> reason_def_rewrite
+    | "definition" ident_list_bar "and" "replace" proof_list -> reason_def_rewrite
+    | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
+    | "definition" ident_list_bar "in" proof             -> apply_defs_fact
+    | "rewrite" proof_list "in" proof                    -> rewrite_fact
+    | "replace" proof_list "in" proof                    -> rewrite_fact
+    | "evaluate"                                         -> eval_goal
+    | "evaluate" "in" proof                              -> eval_fact
+    | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
+    | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
+    | "equations" equation equation_list                 -> equations_proof
+    | "recall" term_list                                 -> recall_proof
+    | "reflexive"                                        -> refl_proof
+    | "symmetric" proof                                  -> sym_proof
+    | "transitive" proof proof                           -> trans_proof
+    | "help" proof                                       -> help_use_proof
+    | proof_hi
+
+?proof_hi: IDENT                                              -> proof_var
+    | "."                                                -> true_proof
+    | "?"                                                -> hole_proof
+    | "(" proof ")"                                      -> paren
+    | proof_hi "[" term_list "]"                         -> all_elim
+    | proof_hi "<" type_list ">"                         -> all_elim_types
+    | "sorry"                                            -> sorry_proof
+    | "{" proof "}"
+    
+?proof_stmt: "arbitrary" type_annot_list                   -> all_intro
+    | "assume" IDENT                                -> imp_intro
+    | "assume" IDENT ":" term                       -> imp_intro_explicit
+    | "assume" ":" term                             -> imp_intro_anon
+    | "choose" term_list                            -> some_intro
+    | "define" IDENT "=" term                       -> define_term_proof
+    | "_definition" "{" ident_list "}"              -> apply_defs_goal
+    | "_definition" ident                           -> apply_defs_goal_one
+    | "enable" "{" ident_list "}"                   -> enable_defs
+    | "enable" ident                                -> enable_def
+    | "extensionality"                              -> extensionality_proof
+    | "have" IDENT ":" term "by" proof              -> let
+    | "have" ":" term "by" proof                    -> let_anon
+    | "injective" term                              -> injective_proof
+    | "obtain" ident_list "where" IDENT "from" proof          -> some_elim
+    | "obtain" ident_list "where" IDENT ":" term "from" proof -> some_elim_explicit
+    | "_rewrite" proof_list                          -> rewrite_goal
+    | "stop" "?"                                     -> hole_in_middle_proof
+    | "suffices" term "by" proof                    -> suffices
+    | "suppose" IDENT                               -> imp_intro
+    | "suppose" IDENT ":" term                      -> imp_intro_explicit
+    | "suppose" ":" term                            -> imp_intro_anon
+
+?case: "case" IDENT "{" proof "}"                        -> case
+    | "case" IDENT ":" term "{" proof "}"                -> case_annot
+    | "case" ":" term "{" proof "}"                      -> case_annot_nolabel
+
+?case_list: case                                        -> single
+    | case case_list                                    -> push
+
+?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
+ | "lemma" IDENT ":" term "proof" proof "end"          -> lemma
+
+?type: "fn" type_params_opt type_list "->" type        -> function_type
+ | IDENT "<" type_list ">"                             -> type_inst
+ | type_hi
+
+?type_hi: IDENT   -> type_name
+ | "bool"         -> bool_type
+ | "type"         -> type_type
+ | "(" type ")"   -> paren
+ | "[" type "]"   -> array_type
+
+?type_list:                                      -> empty
+    | type                                       -> single
+    | type "," type_list                         -> push
+
+?type_params_opt:                                -> empty
+   | "<" ident_list ">"
+
+?constructor: IDENT                                   -> constructor_id
+    | IDENT "(" type_list ")"                    -> constructor_apply
+
+?constructor_list: constructor                             -> single
+    | constructor constructor_list                         -> push
+    
+?union: "union" IDENT type_params_opt "{" constructor_list "}" -> union
+
+?pattern: ident                                  -> pattern_id
+    | "0"                                        -> pattern_zero
+    | "true"                                     -> pattern_true
+    | "false"                                    -> pattern_false
+    | "[" "]"                                    -> pattern_empty_list
+    | IDENT "(" ident_list ")"                   -> pattern_apply
+
+?param_list:                                      -> empty
+    | pattern                                       -> single
+    | pattern "," ident_list                        -> push
+    
+?fun_case: ident "(" param_list ")" "=" term      -> fun_case
+
+?fun_case_list: fun_case                               -> single
+    | fun_case fun_case_list                           -> push
+
+?private: "private" statement -> private
+
+?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+ | "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+
+?function: "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
+
+?definition: "define" ident "=" term      -> define
+ | "define" ident ":" type "=" term       -> define_annot
+
+?import: "import" IDENT                            -> import
+
+?assert: "assert" term                             -> assert
+
+?print: "print" term                               -> print
+
+?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
+
+?statement: theorem
+ | union
+ | rec_function
+ | function
+ | definition
+ | import
+ | assert
+ | print
+ | private
+ | assoc_decl
+
+?statement_list: statement                               -> single
+    | statement statement_list                           -> push
+
+program: statement_list |
+
+%ignore WS
