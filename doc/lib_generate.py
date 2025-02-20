@@ -1,6 +1,9 @@
 from lark import Lark
 import os
 
+lib_deduce_dir = '../lib'
+lib_html_dir = '../gh-pages/pages/stdlib'
+
 prelude = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -9,7 +12,8 @@ prelude = '''
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
 
-    <link rel="stylesheet" href="stdlib.css">
+    <link rel="stylesheet" href="../../css/normalize.css">
+    <link rel="stylesheet" href="../../css/stdlib.css">
 </head>
 <body>
     <pre><code>'''
@@ -19,14 +23,12 @@ conclusion = '''
 </body>
 </html>'''
 
-colors = {
-    'keyword' : '#d85311',
-    'operator' : '#2e2d31',
-    'type' : '#0f95af',
-    'prim' : '#9329ab',
-    'ident' : 'black',
-}
 
+## Token types:
+##      keyword (recursive, definition, ...)
+##      operator (+, -, /, ...)
+##      type (fn, bool, type)
+##      prim (false, INT, true, ∅, .0., 0)
 known_tokens = {
     'ALL' : 'keyword', 
     'AMPERSAND': 'operator', 
@@ -163,7 +165,7 @@ def generate_name(name):
     return str(name + str(name_id))
 
 def get_basename(f):
-    return f[len(lib_dir)+1:-3]
+    return f[len(lib_deduce_dir)+1:-3]
 
 def safeHTMLify(s):
     return s.replace("<", "&lt;")\
@@ -201,15 +203,20 @@ def lex_file(filename, lark_parser):
 def is_toks_function(tokens, i):
     return tokens[i] == 'recursive' or\
            tokens[i] == 'function' or\
-           (tokens[i] == 'fun' and tokens[i+2] != ':')
+           (i-2 < len(tokens) and tokens[i] == 'fun' and tokens[i+2] != ':') or\
+           (i-3 < len(tokens) and tokens[i] == 'define' and tokens[i+2] == ':' and tokens[i+3] == 'fn') or \
+           (i-4 < len(tokens) and tokens[i] == 'define' and tokens[i+1] == 'operator' and tokens[i+3] == ':' and tokens[i+4] == 'fn')
 
 def get_names_and_imports(tokens, filename):
-    unions, functions, theorems = {}, {}, {}
+    unions, functions, theorems, constructors = {}, {}, {}, {}
     imports = []
     i = 0
     while i < len(tokens):
         if tokens[i] == 'union': 
-            unions[tokens[i+1]] = {'id': generate_name(tokens[i+1]), 'file': filename}
+            union_id = generate_name(tokens[i+1])
+            unions[tokens[i+1]] = {'id': union_id, 'file': filename}
+            for constr_tok in get_constructors(i, tokens):
+                constructors[constr_tok] = {'id': union_id, 'file': filename}
         elif is_toks_function(tokens, i) and not tokens[i+1] == 'operator': 
             functions[tokens[i+1]] = {'id': generate_name(tokens[i+1]), 'file': filename}
         elif is_toks_function(tokens, i): # operators
@@ -219,9 +226,29 @@ def get_names_and_imports(tokens, filename):
         elif tokens[i] == 'import':
             imports.append(tokens[i+1])    
         i+=1
-    return unions, functions, theorems, imports
+    return unions, functions, theorems, constructors, imports
 
-def generate_html(html_file, program_text, tokens, unions, functions, theorems):
+def get_constructors(cur_tok, tokens):
+    # cur_tok points to 'union', so go until lbrace
+    while tokens[cur_tok].type != 'LBRACE': 
+        cur_tok+=1
+    cur_tok+=1
+    constr_list = []
+    while tokens[cur_tok].type != 'RBRACE':
+        constr_list.append(tokens[cur_tok])
+        cur_tok+=1
+        if tokens[cur_tok].type == 'LPAR':
+            par_depth = 1
+            cur_tok += 1
+            while par_depth != 0: 
+                if tokens[cur_tok].type == 'LPAR': par_depth += 1
+                if tokens[cur_tok].type == 'RPAR': par_depth -= 1
+                cur_tok += 1
+    return constr_list
+
+def generate_html(html_file, program_text, tokens, unions, functions, theorems, constructors):
+    operators = {fun[len('operator'):] : functions[fun] for fun in functions if fun.startswith('operator')}
+
     # add syntax highlighting and anchors
     with open(html_file, 'w') as htmlf:
         cur_tok = 0
@@ -235,7 +262,7 @@ def generate_html(html_file, program_text, tokens, unions, functions, theorems):
                 i += 1
             # block comment
             elif c == '/' and program_text[i+1] == '*':
-                highlighted.append('<span style="color: gray">')
+                highlighted.append('<span class="stdlib-comment">')
                 j = i
                 while not (program_text[j] == '*' and program_text[j+1] == '/'):
                     highlighted.append(program_text[j])
@@ -244,7 +271,7 @@ def generate_html(html_file, program_text, tokens, unions, functions, theorems):
                 i = j + 2
             # line comment
             elif c == '/' and program_text[i+1] == '/':
-                highlighted.append('<span style="color: gray">')
+                highlighted.append('<span class="stdlib-comment">')
                 j = i
                 while not (program_text[j] == '\n'):
                     highlighted.append(program_text[j])
@@ -256,46 +283,53 @@ def generate_html(html_file, program_text, tokens, unions, functions, theorems):
                 tok = tokens[cur_tok]
 
                 if tokens[cur_tok - 1] == 'import':
-                    pre = f'<a href="{str(tok)}.pf.html"><span style="color: {colors['type']}">'
+                    pre = f'<a href="{str(tok)}.pf.html"><span class="stdlib-import"">'
                     post = '</span></a>'
                 # unions
                 elif tokens[cur_tok - 1] == 'union':
-                    pre = f'<a href="{unions[tok]['file']}.pf.html#{unions[tok]['id']}"><span id="{unions[tok]['id']}" style="color: {colors['type']}">'
+                    pre = f'<a href="{unions[tok]['file']}.pf.html#{unions[tok]['id']}"><span id="{unions[tok]['id']}" class="stdlib-union">'
                     post = '</span></a>'
                 elif tok in unions: 
-                    pre = f'<a href="{unions[tok]['file']}.pf.html#{unions[tok]['id']}"><span style="color: {colors['type']}">'
+                    pre = f'<a href="{unions[tok]['file']}.pf.html#{unions[tok]['id']}"><span class="stdlib-union">'
                     post = '</span></a>'
                 # functions
                 elif is_toks_function(tokens, cur_tok-1) and not tok == 'operator':
-                    pre = f'<a href="{functions[tok]['file']}.pf.html#{functions[tok]['id']}"><span id="{functions[tok]['id']}" style="color: #086c3c">'
+                    pre = f'<a href="{functions[tok]['file']}.pf.html#{functions[tok]['id']}"><span id="{functions[tok]['id']}" class="stdlib-function">'
                     post = '</span></a>'
                 elif is_toks_function(tokens, cur_tok-1): # operator
                     op_name = get_operator_name(i, cur_tok, program_text, tokens)
                     op_id = functions[tok+tokens[cur_tok+1]]
-                    pre = f'<a href="{op_id['file']}.pf.html#{op_id['id']}"><span id="{op_id['id']}" style="color: #086c3c">'
+                    pre = f'<a href="{op_id['file']}.pf.html#{op_id['id']}"><span id="{op_id['id']}" class="stdlib-function">'
                     post = f'{op_name[len("operator"):]}</span></a>'
                     cur_tok += 1
                     i += len(op_name) - len(str(tok))
                 elif tok in functions: 
-                    pre = f'<a href="{functions[tok]['file']}.pf.html#{functions[tok]['id']}"><span style="color: #086c3c">'
+                    pre = f'<a href="{functions[tok]['file']}.pf.html#{functions[tok]['id']}"><span class="stdlib-function">'
                     post = '</span></a>'
                 elif cur_tok+1 != len(tokens) and tok+tokens[cur_tok+1] in functions:
                     op_name = get_operator_name(i, cur_tok, program_text, tokens)
                     op_id = functions[tok+tokens[cur_tok+1]]
-                    pre = f'<a href="{op_id['file']}.pf.html#{op_id['id']}"><span style="color: #086c3c">'
+                    pre = f'<a href="{op_id['file']}.pf.html#{op_id['id']}"><span class="stdlib-function">'
                     post = f'{op_name[len("operator"):]}</span></a>'
                     cur_tok += 1
                     i += len(op_name) - len(str(tok))
+                elif tok in operators and tokens[cur_tok-1] != 'operator':
+                    pre = f'<a href="{operators[tok]['file']}.pf.html#{operators[tok]['id']}"><span class="stdlib-operator">'
+                    post = '</span></a>'
                 # theorems
                 elif tokens[cur_tok-1] == 'theorem' or tokens[cur_tok-1] == 'lemma' :
-                    pre = f'<a href="{theorems[tok]['file']}.pf.html#{theorems[tok]['id']}"><span id="{theorems[tok]['id']}" style="color: #086c3c">'
+                    pre = f'<a href="{theorems[tok]['file']}.pf.html#{theorems[tok]['id']}"><span id="{theorems[tok]['id']}" class="stdlib-theorem">'
                     post = '</span></a>'
                 elif tok in theorems: 
-                    pre = f'<a href="{theorems[tok]['file']}.pf.html#{theorems[tok]['id']}"><span style="color: #086c3c">'
+                    pre = f'<a href="{theorems[tok]['file']}.pf.html#{theorems[tok]['id']}"><span class="stdlib-theorem">'
+                    post = '</span></a>'
+                # constructors
+                elif tok in constructors:
+                    pre = f'<a href="{constructors[tok]['file']}.pf.html#{constructors[tok]['id']}"><span class="stdlib-constructor">'
                     post = '</span></a>'
                 # other tokens
                 else:
-                    pre = f'<span style="color: {colors[known_tokens[tok.type]]}">'
+                    pre = f'<span class="stdlib-{known_tokens[tok.type]}">'
                     post = '</span>'
 
                 highlighted.append(pre)
@@ -333,11 +367,10 @@ if __name__ == '__main__':
         exit(255)
 
     # get lib files
-    lib_dir = '../lib'
     lib_files = []
-    for f in [f for f in os.listdir(lib_dir) if os.path.isfile(os.path.join(lib_dir, f))]:
+    for f in [f for f in sorted(os.listdir(lib_deduce_dir)) if os.path.isfile(os.path.join(lib_deduce_dir, f))]:
         if f.endswith('.pf'): 
-            lib_files.append(lib_dir + '/' + f)
+            lib_files.append(os.path.join(lib_deduce_dir, f))
 
     # get text and token list
     texts_tokens = {}
@@ -347,22 +380,29 @@ if __name__ == '__main__':
 
 
     # first pass to collect imports and union, function and theorem names
-    unions, functions, theorems, imports = {}, {}, {}, {}
+    unions, functions, theorems, constructors, imports = {}, {}, {}, {}, {}
     for f in lib_files:
-        us, fs, ts, imps = get_names_and_imports(texts_tokens[f]['tokens'], get_basename(f))
+        us, fs, ts, cs, imps = get_names_and_imports(texts_tokens[f]['tokens'], get_basename(f))
         name = get_basename(f)
         unions[name] = us
         functions[name] = fs
         theorems[name] = ts
+        constructors[name] = cs
         imports[name] = imps
 
+    # clear old html files
+    for f in os.listdir(lib_html_dir):
+        file_path = os.path.join(lib_html_dir, f)
+        if os.path.isfile(file_path): os.remove(file_path)
+            
     # add syntax highlighting and anchors
     for f in lib_files:
         name = get_basename(f)
 
-        generate_html('stdlib/' + name + '.pf.html', 
+        generate_html(os.path.join(lib_html_dir, name + '.pf.html'), 
                       program_text=texts_tokens[f]['program_text'], 
                       tokens=texts_tokens[f]['tokens'], 
                       unions=select_definees(unions, imports, name), 
                       functions=select_definees(functions, imports, name), 
-                      theorems=select_definees(theorems, imports, name))
+                      theorems=select_definees(theorems, imports, name),
+                      constructors=select_definees(constructors, imports, name),)
