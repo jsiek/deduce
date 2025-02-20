@@ -21,7 +21,7 @@ const keywords = [
     "conjunct", "induction", "where", "suppose", "with", "definition", "apply", "to", "cases",
     "obtain", "enable", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
     "assume", "for", "recall", "in", "and", "or", "print", "not", "some", "all", "theorem",
-    "lemma", "proof", "end"
+    "lemma", "proof", "end", "replace", "recursive"
 ]
 
 
@@ -44,11 +44,13 @@ function replaceLeadingTabs(str) {
 function codeToHTML(code) {
     // scan to get user defined functions and variables
     const fncRe = new RegExp("(?<=\\bfunction\\s)\\w+(?=\\s*[\\(|<])", "g")
+    const recRe = new RegExp("(?<=\\brecursive\\s)\\w+(?=\\s*[\\(|<])", "g")
     const thmRe = new RegExp("(?<=\\btheorem\\s)\\w+(?=\\s*:)", "g")
     const uniRe = new RegExp("(?<=\\bunion\\s)\\w+(?=\\s*<)?", "g")
     const defRe = new RegExp("(?<=\\bdefine\\s)\\w+(?=\\s*:)?", "g")
     let userDefs = []
         .concat(Array.from(code.matchAll(fncRe)).flat())
+        .concat(Array.from(code.matchAll(recRe)).flat())
         .concat(Array.from(code.matchAll(thmRe)).flat())
         .concat(Array.from(code.matchAll(uniRe)).flat())
         .concat(Array.from(code.matchAll(defRe)).flat())
