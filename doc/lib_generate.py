@@ -1,8 +1,8 @@
 from lark import Lark
 import os
 
-lib_deduce_dir = '../lib'
-lib_html_dir = '../gh-pages/pages/stdlib'
+lib_deduce_dir = './lib'
+lib_html_dir = './gh-pages/pages/stdlib'
 
 prelude = '''
 <!DOCTYPE html>
@@ -352,7 +352,7 @@ def select_definees(definees, imports, name):
 
 if __name__ == '__main__':
     # Initialize lexer
-    lark_parser = Lark(open("../Deduce.lark", encoding="utf-8").read(),
+    lark_parser = Lark(open("./Deduce.lark", encoding="utf-8").read(),
                     start='program',
                     debug=True, propagate_positions=True)
 
@@ -373,12 +373,13 @@ if __name__ == '__main__':
             lib_files.append(os.path.join(lib_deduce_dir, f))
 
     # get text and token list
+    print("Lexing files")
     texts_tokens = {}
     for f in lib_files: 
         program_text, tokens = lex_file(f, lark_parser)
         texts_tokens[f] = {'program_text' : program_text, 'tokens' : tokens}
 
-
+    print("Collecting defined names")
     # first pass to collect imports and union, function and theorem names
     unions, functions, theorems, constructors, imports = {}, {}, {}, {}, {}
     for f in lib_files:
@@ -390,11 +391,13 @@ if __name__ == '__main__':
         constructors[name] = cs
         imports[name] = imps
 
+    print("Clearing old html files")
     # clear old html files
     for f in os.listdir(lib_html_dir):
         file_path = os.path.join(lib_html_dir, f)
-        if os.path.isfile(file_path): os.remove(file_path)
+        if os.path.isfile(file_path) and file_path.endswith('.html'): os.remove(file_path)
             
+    print("Generating html")
     # add syntax highlighting and anchors
     for f in lib_files:
         name = get_basename(f)
