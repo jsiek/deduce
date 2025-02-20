@@ -81,7 +81,7 @@ class DeduceNav extends HTMLElement {
                         </div>
                     </div>
                     <div class="dropdown">
-                        <a class="link-btn" href="${urlPrefix}/pages/sandbox.html">Live Code</a>
+                        <a class="link-btn" href="${urlPrefix}/sandbox.html">Live Code</a>
                     </div>
                 </div>
             </div>
@@ -147,7 +147,7 @@ class DeduceFooter extends HTMLElement {
             <div class="footer-links">
                 <div class="footer-col">
                     <a href="${urlPrefix}/pages/getting-started.html">Get Started</a>
-                    <a href="${urlPrefix}/pages/sandbox.html">Live Code</a>
+                    <a href="${urlPrefix}/sandbox.html">Live Code</a>
                     <a href="https://github.com/jsiek/deduce" target="_blank">Source Code</a>
                     <a href="https://github.com/HalflingHelper/deduce-mode" target="_blank">VS-Code deduce-mode</a>
                     <a href="https://github.com/mateidragony/deduce-mode" target="_blank">Emacs deduce-mode</a>
