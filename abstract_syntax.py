@@ -628,13 +628,10 @@ class Var(Term):
   def __eq__(self, other):
       if isinstance(other, RecFun):
         result = self.name == other.name
-        #print(self.name + ' =? ' + other.name)
       elif not isinstance(other, Var):
         result = False
       else:
         result = self.name == other.name
-        #print(self.name + ' =? ' + other.name)
-      #print(' = ' + str(result))
       return result
   
   def __str__(self):
@@ -1312,7 +1309,7 @@ class TermInst(Term):
       return self.subject == other.subject \
         and all([t1 == t2 for (t1,t2) in zip(self.type_args, other.type_args)])
     else:
-      return False
+      return self.subject == other
   
   def copy(self):
     return TermInst(self.location, self.typeof,
