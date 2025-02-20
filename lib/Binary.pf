@@ -1,6 +1,16 @@
 import Nat
 import List
 
+private union Bit {
+  High
+  Low
+}
+
+private function bit_to_nat(Bit) -> Nat {
+  bit_to_nat(High) = 1
+  bit_to_nat(Low)  = 0
+}
+
 // order: least-significant first
 
 function inc(List<bool>) -> List<bool> {
