@@ -1,0 +1,68 @@
+:root {
+    --hover-bg : pink;
+
+    --keyword: rgb(95, 6, 6);
+    --operator: black;
+    --type: green;
+    --prim: orange;
+    --comment: gray;
+    --import: purple;
+    --union: var(--type);
+    --function: rgb(8, 105, 138);
+    --theorem: var(--function);
+    --constructor: brown;
+
+}
+
+
+* {
+    scroll-behavior: smooth;
+}
+
+a,
+a:link,
+a:visited {
+    text-decoration: none;
+}
+
+a:hover,
+a:active {
+    background-color: var(--hover-bg);
+}
+
+pre {
+    code {
+        font-size: 0.75rem;
+
+        .stdlib-keyword {
+            color: var(--keyword);
+        }
+        .stdlib-operator {
+            color: var(--operator);
+        }
+        .stdlib-type {
+            color: var(--type);
+        }
+        .stdlib-prim {
+            color: var(--prim);
+        }
+        .stdlib-comment {
+            color: var(--comment);
+        }
+        .stdlib-import {
+            color: var(--import);
+        }
+        .stdlib-union {
+            color: var(--union);
+        }
+        .stdlib-function {
+            color: var(--function);
+        }
+        .stdlib-theorem {
+            color: var(--theorem);
+        }
+        .stdlib-constructor {
+            color: var(--constructor);
+        }
+    }
+}

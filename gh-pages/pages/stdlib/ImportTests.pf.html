@@ -1,0 +1,28 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <link rel="stylesheet" href="../../css/normalize.css">
+    <link rel="stylesheet" href="../../css/stdlib.css">
+</head>
+<body>
+    <pre><code><span class="stdlib-keyword">import</span> <a href="List.pf.html"><span class="stdlib-import"">List</span></a>
+<span class="stdlib-keyword">import</span> <a href="Nat.pf.html"><span class="stdlib-import"">Nat</span></a>
+
+<span class="stdlib-keyword">private</span> <span class="stdlib-keyword">union</span> <a href="ImportTests.pf.html#Bit42"><span id="Bit42" class="stdlib-union">Bit</span></a> <span class="stdlib-operator">{</span>
+    <a href="ImportTests.pf.html#Bit42"><span class="stdlib-constructor">High</span></a>
+    <a href="ImportTests.pf.html#Bit42"><span class="stdlib-constructor">Low</span></a>
+<span class="stdlib-operator">}</span>
+
+
+<span class="stdlib-keyword">private</span> <span class="stdlib-keyword">function</span> <a href="ImportTests.pf.html#add_one_all43"><span id="add_one_all43" class="stdlib-function">add_one_all</span></a><span class="stdlib-operator">(</span><a href="List.pf.html#List102"><span class="stdlib-union">List</span></a><a href="Nat.pf.html#operator<199"><span class="stdlib-operator">&lt;</span></a><a href="Nat.pf.html#Nat192"><span class="stdlib-union">Nat</span></a><a href="Nat.pf.html#operator>200"><span class="stdlib-operator">&gt;</span></a><span class="stdlib-operator">)</span> <span class="stdlib-operator">-&gt;</span> <a href="List.pf.html#List102"><span class="stdlib-union">List</span></a><a href="Nat.pf.html#operator<199"><span class="stdlib-operator">&lt;</span></a><a href="Nat.pf.html#Nat192"><span class="stdlib-union">Nat</span></a><a href="Nat.pf.html#operator>200"><span class="stdlib-operator">&gt;</span></a> <span class="stdlib-operator">{</span>
+    <a href="ImportTests.pf.html#add_one_all43"><span class="stdlib-function">add_one_all</span></a><span class="stdlib-operator">(</span><span class="stdlib-operator">[</span><span class="stdlib-operator">]</span><span class="stdlib-operator">)</span> <span class="stdlib-operator">=</span> <span class="stdlib-operator">[</span><span class="stdlib-operator">]</span>
+    <a href="ImportTests.pf.html#add_one_all43"><span class="stdlib-function">add_one_all</span></a><span class="stdlib-operator">(</span><a href="List.pf.html#List102"><span class="stdlib-constructor">node</span></a><span class="stdlib-operator">(</span><span class="stdlib-ident">x</span><span class="stdlib-operator">,</span> <span class="stdlib-ident">xs</span><span class="stdlib-operator">)</span><span class="stdlib-operator">)</span> <span class="stdlib-operator">=</span> <a href="List.pf.html#List102"><span class="stdlib-constructor">node</span></a><span class="stdlib-operator">(</span><a href="Nat.pf.html#Nat192"><span class="stdlib-constructor">suc</span></a><span class="stdlib-operator">(</span><span class="stdlib-ident">x</span><span class="stdlib-operator">)</span><span class="stdlib-operator">,</span> <a href="ImportTests.pf.html#add_one_all43"><span class="stdlib-function">add_one_all</span></a><span class="stdlib-operator">(</span><span class="stdlib-ident">xs</span><span class="stdlib-operator">)</span><span class="stdlib-operator">)</span>
+<span class="stdlib-operator">}</span>
+    </code></pre>
+</body>
+</html>
