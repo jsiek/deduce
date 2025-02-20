@@ -12,6 +12,7 @@
     --theorem: var(--function);
     --constructor: brown;
 
+    --sidebar-w: 225px;
 }
 
 
@@ -30,7 +31,28 @@ a:active {
     background-color: var(--hover-bg);
 }
 
+body{
+    padding: 0;
+}
+
+.sidebar{
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    width: var(--sidebar-w);
+    height: 100vh;
+
+    background-color: red;
+
+
+}
+
 pre {
+    padding: 20px;
+    margin-top: 0;
+    margin-left: var(--sidebar-w);
+
     code {
         font-size: 0.75rem;
 

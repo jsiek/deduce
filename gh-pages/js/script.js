@@ -78,6 +78,7 @@ class DeduceNav extends HTMLElement {
                             <a href="${urlPrefix}/pages/reference.html">Reference manual</a>
                             <a href="${urlPrefix}/pages/cheat-sheet.html">Cheat sheet</a>
                             <a href="${urlPrefix}/pages/syntax.html">Syntax and grammar</a>
+                            <a href="${urlPrefix}/pages/stdlib.html">Standard library</a>
                         </div>
                     </div>
                     <div class="dropdown">
@@ -157,6 +158,7 @@ class DeduceFooter extends HTMLElement {
                     <a href="${urlPrefix}/pages/cheat-sheet.html">Cheat sheet</a>
                     <a href="${urlPrefix}/pages/deduce-programming.html">Programming in deduce</a>
                     <a href="${urlPrefix}/pages/deduce-proofs.html">Proofs in deduce</a>
+                    <a href="${urlPrefix}/pages/stdlib.html">Standard library</a>
                 </div>
                 <div class="footer-col">
                     <a href="${urlPrefix}/pages/syntax.html">Syntax/Grammar</a>

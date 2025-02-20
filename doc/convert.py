@@ -19,6 +19,7 @@ mdToHtmlName = {
     'Reference' : 'reference',
     'SyntaxGrammar' : 'syntax',
     'GettingStarted' : 'getting-started',
+    'StandardLib' : 'stdlib',
 }
 
 mdToTitle = {
@@ -28,6 +29,7 @@ mdToTitle = {
     'Reference' : 'Reference Manual',
     'SyntaxGrammar' : 'Syntax Overview',
     'GettingStarted' : 'Getting Started',
+    'StandardLib' : 'Standard Library',
 }
 
 mdToDescription = {
@@ -37,6 +39,7 @@ mdToDescription = {
     'Reference' : 'Full reference manual for the deduce language.',
     'SyntaxGrammar' : 'Syntax and grammar overview for the deduce language.',
     'GettingStarted' : 'Getting started with deduce.',
+    'StandardLib' : 'Documentation for the deduce standard library.',
 }
 
 mdToDeduceCode = {
@@ -46,6 +49,7 @@ mdToDeduceCode = {
     'Reference' : 'reference',
     'SyntaxGrammar' : 'syntax-grammar',
     'GettingStarted' : 'getting-started',
+    'StandardLib' : 'stdlib',
 }
 
 def safeHTMLify(s):
@@ -171,11 +175,15 @@ class BetterAnchorPostprocessor(Postprocessor):
         file = m.group(1)
         link = file
         is_local_md = (file.startswith('./') and file.endswith('.md')) or len(file) == 0
+        is_local_lib = (file.startswith('../lib/') and file.endswith('.pf')) or len(file) == 0
         if is_local_md and len(file) > 0:
-            file = file[2:-3]
+            file = file[len('./'):-3]
             link = './' + mdToHtmlName[file] + '.html'
+        if is_local_lib and len(file) > 0:
+            file = file[len('../lib/'):]
+            link = './stdlib/' + file + '.html'
         link_id = '' if m.group(3) is None else m.group(3)
-        link_target = '_self' if is_local_md else '_blank'
+        link_target = '_self' if is_local_md or is_local_lib else '_blank'
         return f'<a href="{link}#{link_id}" target="{link_target}">'
 
     def run(self, text):
