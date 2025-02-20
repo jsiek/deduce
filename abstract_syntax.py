@@ -926,9 +926,16 @@ def op_arg_str(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
 
-def do_function_call(loc, name, params, args, body, subst, env, return_type):
+def do_function_call(loc, name, type_params, type_args,
+                     params, args, body, subst, env, return_type):
   body_env = env
-  assert len(params) == len(args)
+  if False and len(params) != len(args):
+    error(loc, 'in function call ' + base_name(name) \
+          + '(' + ', '.join([str(a) for a in args]) + ')\n' \
+          + '\tnumber of parameters: ' + str(len(params)) + '\n' \
+          + '\tdoes not match number of arguments')
+  for (x,ty) in zip(type_params, type_args):
+    subst[x] = ty
   for (k,v) in zip(params, args):
     subst[k] = v
   for (k,v) in subst.items():
@@ -942,6 +949,10 @@ def do_function_call(loc, name, params, args, body, subst, env, return_type):
   else:
     pass
   reduce_defs += [Var(loc, None, x, [x]) for x in params]
+  # Revisit the following -Jeremy  
+  # reduce_defs += [Var(loc, None, x, []) \
+  #                 for x in fun_case.pattern.parameters \
+  #                 + fun_case.parameters]
   set_reduce_only(reduce_defs)
 
   # Reduce the body of the function
@@ -952,6 +963,7 @@ def do_function_call(loc, name, params, args, body, subst, env, return_type):
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
   return explicit_term_inst(ret)
+
 
 @dataclass
 class Call(Term):
@@ -1046,125 +1058,12 @@ class Call(Term):
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
                     type_args):
-        if get_verbose():
-          print('call to instantiated generic recursive function')
-        first_arg = args[0]
-        rest_args = args[1:]
-        for fun_case in cases:
-            subst = {}
-            if is_match(fun_case.pattern, first_arg, subst):
-                body_env = env
-                for (x,ty) in zip(typarams, type_args):
-                  subst[x] = ty
-                for (k,v) in zip(fun_case.parameters, rest_args):
-                  subst[k] = v
-                for (k,v) in subst.items():
-                  if isinstance(v, TermInst):
-                    v.inferred = False
-                new_fun_case_body = fun_case.body.substitute(subst)
-                old_defs = get_reduce_only()
-                reduce_defs = [x for x in old_defs]
-                if Var(loc, None, name, []) in reduce_defs:
-                  reduce_defs.remove(Var(loc, None, name, []))
-                else:
-                  pass
-                reduce_defs += [Var(loc, None, x, []) \
-                                for x in fun_case.pattern.parameters \
-                                + fun_case.parameters]
-                set_reduce_only(reduce_defs)
-                ret = new_fun_case_body.reduce(body_env)
-                set_reduce_only(old_defs)
-                add_reduced_def(name)
-                result = ret
-                if get_verbose():
-                  print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
-                return explicit_term_inst(result)
-            else:
-              pass
-        ret = Call(self.location, self.typeof, fun, args)
-      
+        return self.do_recursive_call(loc, name, fun, typarams, type_args,
+                                      params, args, returns, cases, is_assoc,
+                                      env) 
       case RecFun(loc, name, [], params, returns, cases):
-        if get_verbose():
-          print('call to recursive function: ' + str(fun))
-          print('\targs: ' + ', '.join([str(a) for a in args]))
-
-        if is_assoc and len(args) > len(params):
-          if get_verbose():
-            print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-            print('begin associative operator ' + str(fun))
-            print('\targs: ' + ', '.join([str(a) for a in args]))
-            print('\tparams: ' + ', '.join([str(p) for p in params]))
-
-          old_reduce_only = get_reduce_only()
-          reduce_only = [x for x in old_reduce_only]
-          new_args = []
-          worklist = args
-          while len(worklist) > 1:
-            if get_verbose():
-              print('worklist: ' + ', '.join([str(a) for a in worklist]))
-              print('new_args: ' + ', '.join([str(a) for a in new_args]))
-            first_arg = worklist[0]; worklist = worklist[1:]
-            #print('first_arg: ' + str(first_arg))
-            did_call = False
-            for fun_case in cases:
-                subst = {}
-                if is_match(fun_case.pattern, first_arg, subst):
-                    rest_args = worklist[:len(fun_case.parameters)]
-                    result = do_function_call(loc, name, fun_case.parameters,
-                                              rest_args,
-                                              fun_case.body, subst, env, returns)
-                    if get_verbose():
-                      print('call result: ' + str(result))
-                    worklist = [result] + worklist[len(fun_case.parameters):]
-                    did_call = True
-                    rator_var = Var(loc, None, name, [])
-                    if rator_var in reduce_only:
-                      reduce_only.remove(rator_var)
-                    set_reduce_only(reduce_only)
-                    break
-            if not did_call:
-              new_args.append(first_arg)
-            if did_call and not get_reduce_all():
-              break
-            if get_verbose():
-              print('-----------------------------')
-          set_reduce_only(old_reduce_only)
-          if get_verbose():
-            print('end associative operator ' + str(fun))
-            print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-
-          
-          new_args += worklist
-          flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
-          if get_verbose():
-            print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
-          if len(flat_results) == 1:
-            return explicit_term_inst(flat_results[0])
-          else:
-            return Call(self.location, self.typeof,
-                        Var(loc, FunctionType(loc, [], params, returns), name, [name]),
-                        #fun,
-                        flat_results)
-
-        if len(args) == len(params):
-          first_arg = args[0]
-          rest_args = args[1:]
-          for fun_case in cases:
-              subst = {}
-              if is_match(fun_case.pattern, first_arg, subst):
-                  return do_function_call(loc, name, fun_case.parameters,
-                                          rest_args,
-                                          fun_case.body, subst, env, returns)
-        if is_assoc:
-          if get_verbose():
-            print('not reducing recursive call to associative ' + str(fun))
-          ret = Call(self.location, self.typeof, fun,
-                     flatten_assoc_list(rator_name(fun), args))
-        else:
-          if get_verbose():
-            print('not reducing recursive call to ' + str(fun))
-          ret = Call(self.location, self.typeof, fun, args)
-
+        return self.do_recursive_call(loc, name, fun, [], [], params, args,
+                                      returns, cases, is_assoc, env)
       case Generic(loc2, tyof, typarams, body):
         error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
@@ -1178,6 +1077,94 @@ class Call(Term):
       print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     return ret
 
+  def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
+                        returns, cases, is_assoc, env):
+    if get_verbose():
+      print('call to recursive function: ' + str(fun))
+      print('\targs: ' + ', '.join([str(a) for a in args]))
+
+    if is_assoc and len(args) > len(params):
+      return self.reduce_associative(loc, name, fun, [], [],
+                                     params, args, cases, env, returns)
+
+    if len(args) == len(params):
+      first_arg = args[0]
+      rest_args = args[1:]
+      for fun_case in cases:
+          subst = {}
+          if is_match(fun_case.pattern, first_arg, subst):
+              return do_function_call(loc, name, type_params, type_args,
+                                      fun_case.parameters, rest_args,
+                                      fun_case.body, subst, env, returns)
+    if is_assoc:
+      if get_verbose():
+        print('not reducing recursive call to associative ' + str(fun))
+      return Call(self.location, self.typeof, fun,
+                 flatten_assoc_list(rator_name(fun), args))
+    else:
+      if get_verbose():
+        print('not reducing recursive call to ' + str(fun))
+      return Call(self.location, self.typeof, fun, args)
+  
+  def reduce_associative(self, loc, name, fun, type_params, type_args,
+                         params, args, cases, env, returns):
+    if get_verbose():
+      print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+      print('begin associative operator ' + str(fun))
+      print('\targs: ' + ', '.join([str(a) for a in args]))
+      print('\tparams: ' + ', '.join([str(p) for p in params]))
+
+    old_reduce_only = get_reduce_only()
+    reduce_only = [x for x in old_reduce_only]
+    new_args = []
+    worklist = args
+    while len(worklist) > 1:
+      if get_verbose():
+        print('worklist: ' + ', '.join([str(a) for a in worklist]))
+        print('new_args: ' + ', '.join([str(a) for a in new_args]))
+      first_arg = worklist[0]; worklist = worklist[1:]
+      #print('first_arg: ' + str(first_arg))
+      did_call = False
+      for fun_case in cases:
+          subst = {}
+          if is_match(fun_case.pattern, first_arg, subst):
+              rest_args = worklist[:len(fun_case.parameters)]
+              result = do_function_call(loc, name, type_params, type_args,
+                                        fun_case.parameters, rest_args,
+                                        fun_case.body, subst, env, returns)
+              if get_verbose():
+                print('call result: ' + str(result))
+              worklist = [result] + worklist[len(fun_case.parameters):]
+              did_call = True
+              rator_var = Var(loc, None, name, [])
+              if rator_var in reduce_only:
+                reduce_only.remove(rator_var)
+              set_reduce_only(reduce_only)
+              break
+      if not did_call:
+        new_args.append(first_arg)
+      if did_call and not get_reduce_all():
+        break
+      if get_verbose():
+        print('-----------------------------')
+    set_reduce_only(old_reduce_only)
+    if get_verbose():
+      print('end associative operator ' + str(fun))
+      print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+
+
+    new_args += worklist
+    flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
+    if get_verbose():
+      print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    if len(flat_results) == 1:
+      return explicit_term_inst(flat_results[0])
+    else:
+      return Call(self.location, self.typeof,
+                  Var(loc, FunctionType(loc, [], params, returns),
+                      name, [name]),
+                  flat_results)
+  
   def substitute(self, sub):
     ret = Call(self.location, self.typeof, self.rator.substitute(sub),
                 [arg.substitute(sub) for arg in self.args])

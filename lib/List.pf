@@ -274,6 +274,30 @@ proof
   }
 end
 
+lemma reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
+  reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)
+proof
+  arbitrary U :type
+  induction List<U>
+  case [] {
+    arbitrary ys :List<U>
+    equations
+          reverse(@[]<U> ++ ys)
+        = reverse(ys)                     by definition operator++
+    ... = # reverse(ys) ++ [] #           by rewrite append_empty<U>[reverse(ys)]
+    ... = # reverse(ys) ++ reverse([]) #  by definition reverse
+  }
+  case node(n, xs') suppose IH {
+    arbitrary ys :List<U>
+    equations
+          reverse(node(n,xs') ++ ys)
+        = reverse(node(n, xs' ++ ys))                by definition operator++
+    ... = reverse(xs' ++ ys) ++ [n]                  by definition reverse
+    ... = (reverse(ys) ++ reverse(xs')) ++ [n]       by rewrite IH[ys]
+    ... = reverse(ys) ++ (reverse(xs') ++ [n])       by append_assoc<U>[reverse(ys)][reverse(xs'), [n]]
+    ... = # reverse(ys) ++ reverse(node(n,xs')) #    by definition reverse
+  }
+end
 
 theorem length_map: all T:type. all f:fn T->T. all xs:List<T>.
   length(map(xs, f)) = length(xs)
