@@ -36,9 +36,11 @@ function div_helper(Nat,Nat,Pos,Pos) -> Nat {
     }
 }
 
-function operator /(Nat,Pos) -> Nat {
-  operator /(0, m) = 0
-  operator /(suc(n'), m) = div_helper(suc(n'), 0, m, m)
+fun operator /(n : Nat, m : Pos) {
+  switch n {
+    case 0 { 0 }
+    case suc(n') { div_helper(suc(n'), 0, m, m) }
+  }
 }
 
 define three_div : fn Pos -> Nat = λd{ 3 / d }

@@ -150,14 +150,18 @@ function drop<T>(Nat, List<T>) -> List<T> {
 define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
   = generic T,U,V { λf{ λx,y{ f(y,x) }}}
 
-function head<T>(List<T>) -> Option<T> {
-  head(empty) = none
-  head(node(x, xs)) = just(x)
+fun head<T>(ls : List<T>) {
+  switch ls {
+    case empty { @none<T> }
+    case node(x, xs) { just(x) }
+  }
 }
 
-function tail<T>(List<T>) -> List<T> {
-  tail(empty) = empty
-  tail(node(x, xs)) = xs
+fun tail<T>(ls : List<T>) {
+  switch ls {
+    case empty { @empty<T> }
+    case node(x, xs) { xs }
+  }
 }
 
 /********************** Theorems *********************************/
@@ -395,27 +399,25 @@ theorem zip_map: all T1:type, T2:type, U1:type, U2:type.
 proof
   arbitrary T1:type, T2:type, U1:type, U2:type
   arbitrary f:fn T1 -> T2, g:fn U1 -> U2
-  enable {map, zip}
+  //enable {map, zip}
   induction List<T1>
   case empty {
     arbitrary ys:List<U1>
     conclude zip(map(@empty<T1>, f), map(ys,g)) = map(zip(@empty<T1>,ys), pairfun(f,g))
-        by .
+        by definition map | zip
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<U1>
     switch ys {
-      case empty suppose EQ { . }
+      case empty suppose EQ { evaluate }
       case node(y, ys') {
-	equations
-	  zip(map(node(x,xs'),f),map(node(y,ys'),g))
-	    = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))      by .
-	... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))
-		by rewrite IH[ys']
-        ... = node(pair(f(x), g(y)), map(zip(xs', ys'), λp{pair(f(first(p)), g(second(p)))}))
-               by definition pairfun
-	... =# map(zip(node(x,xs'),node(y,ys')), pairfun(f,g)) #
-		by definition {pairfun, first, second}
+	      equations
+	          zip(map(node(x,xs'),f),map(node(y,ys'),g))
+	            = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))       by definition map | zip
+	        ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))	  by rewrite IH[ys']
+          ... = node(pair(f(x), g(y)), map(zip(xs', ys'), λp{pair(f(first(p)), g(second(p)))}))
+                      by definition pairfun
+	        ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))   by evaluate
       }
     }
   }
@@ -565,15 +567,17 @@ proof
       suppose prem
       have cnt_x_z: cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0
         by definition cnt
-      have cnt_x_pos: 1 ≤ cnt(m_fun(λx'{0} : fn T->Nat))(x)
-        by suffices 1 ≤ cnt(mset_of(node(x,xs')))(x)
-               by rewrite symmetric prem
-           suffices 1 ≤ 1 + cnt(mset_of(xs'))(x)
-               by definition {mset_of, operator ⨄, cnt, m_one}
-	   less_equal_add[1][cnt(mset_of(xs'))(x)]
-      conclude false
-          by definition {cnt, operator ≤} in
-	     cnt_x_pos
+      have cnt_x_pos: 1 ≤ cnt(m_fun(λx'{0} : fn T->Nat))(x) by {
+        suffices 1 ≤ cnt(mset_of(node(x,xs')))(x)
+          by rewrite symmetric prem
+        suffices 1 ≤ 1 + cnt(mset_of(xs'))(x)
+          by evaluate
+	      less_equal_add[1][cnt(mset_of(xs'))(x)]
+      }
+      conclude false by {
+        definition cnt | operator ≤ in
+	      cnt_x_pos
+      }
     }
   }
 end

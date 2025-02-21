@@ -142,9 +142,11 @@ proof
   switch x ∈ P {
     case true { . }
     case false suppose Px_false {
-      conclude false by
-        rewrite (definition operator∈ in Px_false) in
-        definition {operator∈, rep} in prem
+      have eq: rep(P)(x) = false by definition operator∈ in Px_false
+      conclude false by {
+        rewrite rep_char_fun<T> | eq in
+        definition operator∈ in prem
+      }
     }
   }
 end
