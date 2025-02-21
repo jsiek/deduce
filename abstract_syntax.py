@@ -3045,9 +3045,9 @@ def listToNodeList(loc, lst):
 
 def isEmptySet(t):
   match t:
-    case Call(loc2, tyof2, TermInst(loc1, tyof1, Var(loc5, tyof5, name, rs), tyargs, implicit),
+    case Call(loc2, tyof2, fun,
               [Lambda(loc3, tyof3, vars, Bool(loc4, tyof4, False))]) \
-              if base_name(name) == 'char_fun':
+              if base_name(rator_name(fun)) == 'char_fun':
       return True
     case _:
       return False
