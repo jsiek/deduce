@@ -1,0 +1,5 @@
+import recursive_import_two
+
+fun f(x : bool) {
+  g(x)
+}

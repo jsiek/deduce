@@ -2,8 +2,10 @@ union C {
   c
 }
 
-function f(C) -> bool {
-  f(c) = true
+fun f(x : C) {
+  switch x {
+    case c { true }
+  }
 }
 
 theorem T: (f(c) and f(c)) = (f(c) and f(c))

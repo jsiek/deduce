@@ -1,0 +1,12 @@
+./test/should-error/term_inst_length_node.pf:6.3-6.34: 
+suffices to prove:
+	1 + length(@[]<Nat>) = 1
+./test/should-error/term_inst_length_node.pf:7.3-7.4: incomplete proof
+Goal:
+	1 + length(@[]<Nat>) = 1
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+

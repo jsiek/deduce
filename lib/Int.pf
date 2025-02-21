@@ -15,9 +15,11 @@ union Int{
 
 // Absolute value
 
-function abs(Int) -> Nat {
-  abs(pos(n)) = n
-  abs(negsuc(n)) = suc(n)
+fun abs(x : Int) {
+  switch x {
+    case pos(n) { n }
+    case negsuc(n) { suc(n) }
+  }
 }
 
 // Signs and operations on them
@@ -50,16 +52,21 @@ fun operator*(s1 : Sign, s2 : Sign) {
 
 // Negation
 
-function operator -(Int) -> Int{
-    operator -(pos(n)) = 
-        switch n {
-            case zero { pos(zero) }
-            case suc(n') { negsuc(n') }
-        }
-    operator -(negsuc(n)) = pos(suc(n))
+fun operator -(x : Int) {
+  switch x {
+    case pos(n) { 
+      switch n {
+        case zero { pos(zero) }
+        case suc(n') { negsuc(n') }
+      }
+    }
+    case negsuc(n){ pos(suc(n)) }
+  }
 }
 
-define operator - = λ n:Nat { - pos(n) }
+fun operator -(n:Nat) {
+  - pos(n)
+}
 
 fun operator*(s : Sign, n : Int) {
   switch s {
@@ -82,26 +89,30 @@ fun operator ⊝(x:Nat, y:Nat) {
 
 // Addition
   
-function operator +(Int,Int) -> Int {
-    operator +(pos(n), m) =
-        switch m {
-            case pos(n') { pos(n + n') }
-            case negsuc(n') { n ⊝ suc(n') } 
-        }
-    operator +(negsuc(n), m) = 
-        switch m {
-            case pos(n') { n' ⊝ suc(n) }
-            case negsuc(n') { negsuc(suc(n + n')) }
-        }
+fun operator +(x : Int, m :Int) {
+  switch x {
+    case pos(n) {
+      switch m {
+        case pos(n') { pos(n + n') }
+        case negsuc(n') { n ⊝ suc(n') } 
+      }
+    }
+    case negsuc(n) { 
+      switch m {
+        case pos(n') { n' ⊝ suc(n) }
+        case negsuc(n') { negsuc(suc(n + n')) }
+      }
+    }
+  }
 }
-define operator + = λ n:Nat,m:Int { pos(n) + m }
-define operator + = λ n:Int,m:Nat { n + pos(m) }
+fun operator + (n:Nat, m:Int) { pos(n) + m }
+fun operator + (n:Int, m:Nat) { n + pos(m) }
 
 // Subtraction
 
-define operator - = λ n:Int,m:Int { n + (- m) }
-define operator - = λ n:Nat,m:Int { pos(n) - m }
-define operator - = λ n:Int,m:Nat { n - pos(m) }
+fun operator - (n:Int, m:Int) { n + (- m) }
+fun operator - (n:Nat, m:Int) { pos(n) - m }
+fun operator - (n:Int, m:Nat) { n - pos(m) }
 
 // Multiplication
 
@@ -113,17 +124,21 @@ fun operator * (n:Nat, m:Int) { pos(n) * m }
 
 fun operator * (n:Int, m:Nat) { n * pos(m) }
 
-function operator ≤(Int, Int) -> bool {
-  operator ≤(pos(x), y) = 
-    switch y {
-      case pos(y') {     x ≤ y' }
-      case negsuc(y') {  false  }
+fun operator ≤(a : Int, y : Int) {
+  switch a {
+    case pos(x) {
+      switch y {
+        case pos(y') {     x ≤ y' }
+        case negsuc(y') {  false  }
+      }
     }
-  operator ≤(negsuc(x), y) = 
-    switch y {
-      case pos(y') {     true   }
-      case negsuc(y') {  y' ≤ x }
+    case negsuc(x) {
+      switch y {
+        case pos(y') {     true   }
+        case negsuc(y') {  y' ≤ x }
+      }
     }
+  }
 }
 
 // Properties of signs
@@ -536,7 +551,7 @@ proof
             case pos(z') {     // x=pos(x'), y=negsuc(y'), z=pos(z')
               equations
                     (pos(x') + negsuc(y')) + pos(z') 
-                  = (x' ⊝ suc(y')) + pos(z')            by definition operator+
+                  = (x' ⊝ suc(y')) + pos(z')            by evaluate
               ... = (x' + z') ⊝ suc(y')                 by distrib_left_sub_add 
               ... = pos(x') + (z' ⊝ suc(y'))            by symmetric distrib_right_sub_add
               ... = pos(x') + #(negsuc(y') + pos(z'))#  by definition operator+
@@ -544,7 +559,7 @@ proof
             case negsuc(z') { // x=pos(x'), y=negsuc(y'), z=negsuc(z')
               equations
                     (pos(x') + negsuc(y')) + negsuc(z') 
-                  = (x' ⊝ suc(y')) + negsuc(z')           by definition operator+
+                  = (x' ⊝ suc(y')) + negsuc(z')           by evaluate
               ... = negsuc(z') + (x' ⊝ suc(y'))           by int_add_commute
               ... = x' ⊝ suc(z' + suc(y'))                by distrib_right_sub_add_neg
               ... = x' ⊝ suc(suc(y' + z'))                by rewrite add_suc | add_commute[z',y']
@@ -561,14 +576,14 @@ proof
             case pos(z') {     // x=negsuc(x'), y=pos(y'), z=pos(z')
               equations
                     (negsuc(x') + pos(y')) + pos(z') 
-                  = (y' ⊝ suc(x')) + pos(z')              by definition operator+
+                  = (y' ⊝ suc(x')) + pos(z')              by evaluate
               ... = (y' + z') ⊝ suc(x')                   by distrib_left_sub_add
               ... = #negsuc(x') + (pos(y') + pos(z'))#    by definition operator+
             }
             case negsuc(z') { // x=negsuc(x'), y=pos(y'), z=negsuc(z')
               equations
                     (negsuc(x') + pos(y')) + negsuc(z') 
-                  = (y' ⊝ suc(x')) + negsuc(z')           by definition operator+
+                  = (y' ⊝ suc(x')) + negsuc(z')           by evaluate
               ... = y' ⊝ (suc(suc(x')) + z')              by distrib_left_sub_add_neg
               ... = y' ⊝ suc(suc(x' + z'))                by definition {operator+, operator+}
               ... = y' ⊝ suc(suc(z' + x'))                by rewrite add_commute
@@ -632,6 +647,12 @@ proof
   }
 end
 
+lemma neg_nat: all x:Nat. -x = -pos(x)
+proof
+  arbitrary x:Nat
+  evaluate
+end
+
 lemma neg_subo: all x:Nat, y:Nat. - (x ⊝ y) = y ⊝ x
 proof
   arbitrary x:Nat, y:Nat
@@ -642,7 +663,7 @@ proof
        by definition {operator ⊝} 
           and rewrite (apply eq_false to recall not (y < x)) | 
                       (apply eq_true to recall x < y)
-    definition operator- and rewrite neg_involutive
+    replace neg_nat | neg_involutive
   }
   case: x = y {
     suffices - (y ⊝ y) = y ⊝ y    by rewrite recall x = y
@@ -687,7 +708,7 @@ proof
             }
             case negsuc(y') {
               suffices - (suc(x'') ⊝ suc(y')) = suc(y') ⊝ suc(x'')
-                  by definition {operator-, operator+}
+                  by evaluate
               suffices - (x'' ⊝ y') = y' ⊝ x''  by rewrite suc_nat_subo
               neg_subo
             }
@@ -698,7 +719,7 @@ proof
     case negsuc(x') {
       switch y {
         case pos(y') {
-          suffices - (y' ⊝ suc(x')) = - negsuc(x') + - pos(y')  by definition {operator+}
+          suffices - (y' ⊝ suc(x')) = - negsuc(x') + - pos(y')  by evaluate
           equations
                 - (y' ⊝ suc(x')) 
               = suc(x') ⊝ y'                by neg_subo

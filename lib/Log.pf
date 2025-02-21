@@ -65,13 +65,19 @@ proof
 end
 
 define log : fn Nat -> Nat = λn{ find_log(n, 0, 0) }
+private define log_one = log(1)
+private define log_two = log(2)
+private define log_three = log(3)
+private define log_four = log(4)
+private define log_five = log(5)
+private define log_eight = log(8)
 
-assert log(1) = 0
-assert log(2) = 1
-assert log(3) = 2
-assert log(4) = 2
-assert log(5) = 3
-assert log(8) = 3
+assert log_one = 0
+assert log_two = 1
+assert log_three = 2
+assert log_four = 2
+assert log_five = 3
+assert log_eight = 3
 
 theorem less_equal_pow_log: all n:Nat.
   n ≤ pow2(log(n))

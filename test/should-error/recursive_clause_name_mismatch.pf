@@ -1,14 +1,6 @@
-union Option<T> {
-  none
-  just(T)
-}
+import Nat
 
-function after<T,U>(Option<T>, fn (T) -> U) -> Option<U> {
-  after(none, f) = none
-  after(just(x), f) = just(f(x))
-}
-
-function default<T>(Option<T>, T) -> T {
-  after(none, y) = y
-  after(just(x), y) = x
+recursive f(Nat) -> Nat {
+  g(0) = 0
+  g(suc(n)) = f(n)
 }

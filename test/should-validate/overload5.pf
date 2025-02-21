@@ -14,20 +14,28 @@ union D {
   d
 }
 
-function f(A) -> bool {
-  f(a) = true
+fun f(x : A) {
+  switch x {
+    case a { true }
+  }
 }
 
-function f(B) -> bool {
-  f(b) = false
+fun f(x : B) {
+  switch x {
+    case b { false }
+  }
 }
 
-function f(C) -> bool {
-  f(c) = true
+fun f(x : C) {
+  switch x {
+    case c { true }
+  }
 }
 
-function f(D) -> bool {
-  f(d) = false
+fun f(x : D) {
+  switch x {
+    case d { false }
+  }
 }
 
 assert f(a)
