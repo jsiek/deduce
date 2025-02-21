@@ -619,6 +619,12 @@ class Var(Term):
   # filled in during uniquify, list because of overloading
   resolved_names: list[str] = field(default_factory=list)
 
+  def get_name(self):
+    if len(self.resolved_names) > 0:
+      return self.resolved_names[0]
+    else:
+      return self.name
+  
   def free_vars(self):
     return set([self.name])
   
@@ -2671,10 +2677,13 @@ class RecFun(Statement):
     extend(export_env, base_name(self.name), self.name, self.location)
     
   def __str__(self):
-    return self.name if get_verbose() else base_name(self.name)
+    if get_verbose():
+      return self.to_string()
+    else:
+      return self.name if get_unique_names() else base_name(self.name)
     
   def to_string(self):
-    return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
+    return 'recursive ' + self.name + '<' + ','.join(self.type_params) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns) + '{\n' \
       + '\n'.join([str(c) for c in self.cases]) \

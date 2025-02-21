@@ -1,1 +1,3 @@
-./test/should-error/recursive_clause_name_mismatch.pf:12.3-12.8: expected function name "default", not "after"
+./test/should-error/recursive_clause_name_mismatch.pf:4.3-4.4: undefined variable: g
+	did you intend: ≠, =, +, *, -, ≤, <, >, ≥, /, %, f
+

@@ -1,3 +1,8 @@
-import ImportTests
+import Binary
 
-assert add_one_all([1, 2, 3, 4]) = [2,3,4,5]
+private union Bit {
+    High
+    Low
+}
+
+assert bit_to_nat(High) = 1

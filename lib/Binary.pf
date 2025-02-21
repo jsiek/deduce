@@ -1,6 +1,18 @@
 import Nat
 import List
 
+private union Bit {
+  High
+  Low
+}
+
+private fun bit_to_nat(b : Bit) {
+  switch b {
+    case High { 1 }
+    case Low { 0 }
+  }
+}
+
 // order: least-significant first
 
 function inc(List<bool>) -> List<bool> {
@@ -72,12 +84,15 @@ function iter_times2(Nat, Nat) -> Nat {
   iter_times2(suc(n'), m) = 2 * iter_times2(n', m)
 }
 
-define dub : fn List<bool> -> List<bool>
-   = λbs{ node(false, bs) }
+fun dub(bs : List<bool>) {
+  node(false, bs)
+}
 
-function dv2(List<bool>) -> List<bool> {
-  dv2(empty) = empty
-  dv2(node(b, bs)) = bs
+fun dv2(bs : List<bool>) {
+  switch bs {
+    case empty { @empty<bool> }
+    case node(b, bs') { bs' }
+  }
 }
 
 function iter_dub(Nat, List<bool>) -> List<bool> {

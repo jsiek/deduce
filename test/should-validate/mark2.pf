@@ -2,16 +2,22 @@ union U {
   foo
 }
 
-function f(U) -> bool {
-  f(foo) = true
+fun f(u : U) {
+  switch u {
+    case foo { true }
+  }
 }
 
-function h(U) -> bool {
-  h(foo) = f(foo)
+fun h(u : U) {
+  switch u {
+    case foo { f(foo) }
+  }
 }
 
-function g(U) -> bool {
-  g(foo) = h(foo)
+fun g(u : U) {
+  switch u {
+    case foo { h(foo) }
+  }
 }
 
 theorem T: (h(foo) and g(foo)) = (f(foo) and h(foo))
