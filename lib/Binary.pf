@@ -6,9 +6,11 @@ private union Bit {
   Low
 }
 
-private function bit_to_nat(Bit) -> Nat {
-  bit_to_nat(High) = 1
-  bit_to_nat(Low)  = 0
+private fun bit_to_nat(b : Bit) {
+  switch b {
+    case High { 1 }
+    case Low { 0 }
+  }
 }
 
 // order: least-significant first
