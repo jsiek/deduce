@@ -21,12 +21,12 @@ fun rep<T>(S : Set<T>) {
   }
 }
 
-fun single<T>(x : T) {
-  char_fun(fun y:T {x = y})
+fun single<V>(x : V) {
+  char_fun(fun y:V {x = y})
 }
 
-fun operator ∪ <T>(P: Set<T>, Q: Set<T>) {
-  char_fun(fun x:T { rep(P)(x) or rep(Q)(x) })
+fun operator ∪ <E>(P: Set<E>, Q: Set<E>) {
+  char_fun(fun x:E { rep(P)(x) or rep(Q)(x) })
 }
 
 fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
