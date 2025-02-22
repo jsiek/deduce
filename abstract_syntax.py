@@ -1231,12 +1231,17 @@ class SwitchCase(AST):
   def __eq__(self, other):
     if not isinstance(other, SwitchCase):
       return False
-    alpha_rename = {x: Var(self.location, None, y) \
-                    for (x,y) in zip(self.pattern.parameters,
-                                     other.pattern.parameters) }
-    new_body = self.body.substitute(alpha_rename)
-    return self.pattern.constructor == other.pattern.constructor \
-      and new_body == other.body
+    match self.pattern, other.pattern:
+      case PatternBool(loc1, value1), PatternBool(loc2, value2):
+        return value1 == value2 and self.body == other.body
+      case PatternCons(loc1, constr1, params1), PatternCons(loc2, constr2, params2):
+        alpha_rename = {x: Var(self.location, None, y) \
+                        for (x,y) in zip(params1, params2) }
+        new_body = self.body.substitute(alpha_rename)
+        return constr1 == constr2 \
+          and new_body == other.body
+      case _:
+        return False
     
 @dataclass
 class Switch(Term):
