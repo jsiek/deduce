@@ -524,7 +524,7 @@ if __name__ == '__main__':
 
     # call deduce on lib to generate thm files
     print("Generating lib thm files")
-    # call_deduce_lib()
+    call_deduce_lib()
 
     # get lib files
     lib_pf_files = []
