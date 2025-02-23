@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Any, Tuple, List
-from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel
+from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel, EnvLookupException
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
@@ -3201,7 +3201,7 @@ class Env:
       elif isinstance(binding, TypeBinding):
         return TypeType(None)
       else:
-        raise Exception('expected a term or type variable, not ' + base_name(name))
+        raise EnvLookupException('expected a term or type variable, not ' + base_name(name))
     else:
       return None
 
@@ -3213,15 +3213,19 @@ class Env:
   
   def _formula_of_proof_var(self, curr, name):
     if name in curr.keys():
-      if isinstance(curr[name], ProofBinding):
-        return curr[name].formula
-      elif isinstance(curr[name], TermBinding):
-        raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+      match curr[name]:
+        case ProofBinding(loc, formula):
+          return formula
+        case TermBinding(loc, FunctionType()):
+          raise EnvLookupException('expected a proof but instead got term `' + base_name(name) + '`.'\
+                        + '\nPerhaps you meant `definition ' + base_name(name) + '`?')
+        case TermBinding():
+          raise EnvLookupException('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `recall ' + base_name(name) + '`?')
-      elif isinstance(curr[name], TypeBinding):
-        raise Exception('expected a proof but instead got type ' + base_name(name))
-      else:
-        raise Exception('expected a proof but instead got ' + base_name(name))
+        case TypeBinding():
+          raise EnvLookupException('expected a proof but instead got type ' + base_name(name))
+        case _:
+          raise EnvLookupException('expected a proof but instead got ' + base_name(name))
     else:
       return None
     
@@ -3233,7 +3237,7 @@ class Env:
         else:
           return name in self.dict.keys()
       case _:
-        raise Exception('expected a type name, not ' + str(tyname))
+        raise EnvLookupException('expected a type name, not ' + str(tyname))
 
   def term_var_is_defined(self, tvar):
     match tvar:
@@ -3243,7 +3247,7 @@ class Env:
         else:
           return False
       case _:
-        raise Exception('expected a term variable, not ' + str(tvar))
+        raise EnvLookupException('expected a term variable, not ' + str(tvar))
         
   def proof_var_is_defined(self, pvar):
     match pvar:
@@ -3253,7 +3257,7 @@ class Env:
         else:
           return False
       case _:
-        raise Exception('expected proof var, not ' + str(pvar))
+        raise EnvLookupException('expected proof var, not ' + str(pvar))
 
   def get_assoc_types(self, opname):
     full_name = '__associative_' + opname
@@ -3267,14 +3271,14 @@ class Env:
       case Var(loc, tyof, name):
         return self._def_of_type_var(self.dict, name)
       case _:
-        raise Exception('get_def_of_type_var: unexpected ' + str(var))
+        raise EnvLookupException('get_def_of_type_var: unexpected ' + str(var))
       
   def get_formula_of_proof_var(self, pvar):
     match pvar:
       case PVar(loc, name):
         return self._formula_of_proof_var(self.dict, name)
       case _:
-        raise Exception('get_formula_of_proof_var: expected PVar, not ' + str(pvar))
+        raise EnvLookupException('get_formula_of_proof_var: expected PVar, not ' + str(pvar))
           
   def get_type_of_term_var(self, tvar):
     match tvar:

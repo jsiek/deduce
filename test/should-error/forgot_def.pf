@@ -1,0 +1,8 @@
+define xor : fn bool, bool -> bool
+  = fun P, Q { if P then (not Q) else Q }
+
+theorem neq_xor : all P : bool, Q : bool.
+  if P /= Q then xor(P, Q)
+proof
+  suffices ? by xor
+end

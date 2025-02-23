@@ -67,6 +67,9 @@ def error(location, msg):
   exc.depth = 0
   raise exc
 
+class EnvLookupException(Exception):
+  pass
+
 class IncompleteProof(Exception):
   pass
 

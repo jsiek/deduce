@@ -1,0 +1,2 @@
+./test/should-error/forgot_def.pf:7.17-7.20: expected a proof but instead got term `xor`.
+Perhaps you meant `definition xor`?
