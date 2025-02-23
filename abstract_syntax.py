@@ -1,11 +1,10 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
-from typing import Any, Tuple, List
+from typing import Tuple, List, Optional, Set, Self
 from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
-from functools import reduce
 import os
 
 infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
@@ -13,26 +12,92 @@ infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1}
 prefix_precedence = {'-': 8, 'not': 4}
 
-def copy_dict(d):
-  return {k:v for k,v in d.items()}
+############ AST Base Classes ###########
 
-def maybe_str(o, default=''):
-  return str(o) if o != None else default
+@dataclass
+class AST:
+    location: Meta
+
+
+@dataclass
+class Type(AST):
+
+  def copy(self) -> Self:
+    error(self.location, 'copy not implemented')
+    return self
+
+  def free_vars(self) -> Set[str]:
+    error(self.location, 'free_vars not implemented')
+    return set()
+
+  def substitute(self, sub) -> Self:
+    error(self.location, 'substitute not implemented')
+
+  def uniquify(self, env) -> None:
+    error(self.location, 'uniquify not implemented')
+
+  def reduce(self, env) -> Self:
+    error(self.location, 'reduce not implemented')
+
+
+@dataclass
+class Term(AST):
+  typeof: Optional[Type]
+
+  def copy(self) -> Self:
+    error(self.location, 'copy not implemented')
+    return self
+
+  def uniquify(self, env) -> None:
+    error(self.location, 'uniquify not implemented')
+
+  def substitute(self, sub) -> Self:
+    error(self.location, 'substitute not implemented')
+
+  def reduce(self, env) -> Self:
+    error(self.location, 'reduce not implemented')
+
+
+@dataclass
+class Formula(Term):
+  pass
+
+@dataclass
+class Proof(AST):
+  pass
+
+@dataclass
+class Statement(AST):
+    pass
+
+################ Miscellaneous Functions #####################
+
+def copy_dict(d):
+  return {k: v for k, v in d.items()}
+
+
+def maybe_str(o: Optional[str], default='') -> str:
+  return str(o) if o is not None else default
+
 
 name_id = 0
 
-def generate_name(name):
-    global name_id
-    ls = name.split('.')
-    new_id = name_id
-    name_id += 1
-    return ls[0] + '.' + str(new_id)
 
-def base_name(name):
-    ls = name.split('.')
-    return ls[0]
+def generate_name(name: str) -> str:
+  global name_id
+  ls = name.split('.')
+  new_id = name_id
+  name_id += 1
+  return ls[0] + '.' + str(new_id)
+
+
+def base_name(name: str) -> str:
+  ls = name.split('.')
+  return ls[0]
+
 
 import_directories = set()
+
 
 def init_import_directories():
   import_directories.add(".")
@@ -41,12 +106,14 @@ def init_import_directories():
     with open(lib_config_path, 'r') as lib_config_file:
       for line in lib_config_file:
         import_directories.add(line.strip())
-  
+
+
 def get_import_directories():
   global import_directories
-  if(get_verbose()):
+  if (get_verbose()):
     print("import directories: ", import_directories)
   return import_directories
+
 
 def add_import_directory(dir):
   global import_directories
@@ -55,21 +122,25 @@ def add_import_directory(dir):
 
 recursive_descent = True
 
+
 def get_recursive_descent():
   global recursive_descent
   return recursive_descent
+
 
 def set_recursive_descent(b):
   global recursive_descent
   recursive_descent = b
 
-def type_names(loc, names):
+
+def type_names(loc, names: List[str]):
   index = 0
   result = []
   for n in reversed(names):
     result.insert(0, Var(loc, None, n, []))
     index += 1
   return result
+
 
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
@@ -84,10 +155,10 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         type_match(loc, tyvars, matching[name], arg_ty, matching)
       else:
         if get_verbose():
-            print('matching ' + name + ' := ' + str(arg_ty))
+          print('matching ' + name + ' := ' + str(arg_ty))
         matching[name] = arg_ty
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
-        if len(tv1) == len(tv2) and len(pts1) == len(pts2):
+      if len(tv1) == len(tv2) and len(pts1) == len(pts2):
       for (pt1, pt2) in zip(pts1, pts2):
         type_match(loc, tyvars, pt1, pt2, matching)
       type_match(loc, tyvars, rt1, rt2, matching)
@@ -104,19 +175,21 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       if param_ty != arg_ty:
         error(loc, str(arg_ty) + " does not match " + str(param_ty))
 
+
 def is_associative(loc, opname, typ, env):
-  #print('is_associative? ' + str(opname) + ' for ' + str(typ))
+  # print('is_associative? ' + str(opname) + ' for ' + str(typ))
   for (typarams, ty) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
     matching = {}
     try:
       type_match(loc, type_params, ty, typ, matching)
-      #print('\tyes')
+      # print('\tyes')
       return True
     except Exception as e:
       pass
-  #print('\tno')
-  return False 
+  # print('\tno')
+  return False
+
 
 def rator_name(rator):
   match rator:
@@ -132,47 +205,24 @@ def rator_name(rator):
     case TermInst(loc3, tyof, arg2, tyargs):
       return rator_name(arg2)
     case Generic(loc2, tyof, typarams, body):
-      #return rator_name(body)
+      # return rator_name(body)
       return 'no_name'
     case _:
-      #raise Exception('rator_name: unhandled ' + repr(rator))
+      # raise Exception('rator_name: unhandled ' + repr(rator))
       return 'no_name'
 
+
 def flatten_assoc(op_name, trm):
-    match trm:
-      case Call(loc2, tyof, rator, args) if rator_name(rator) == op_name:
-        return sum([flatten_assoc(op_name, arg) for arg in args], [])
-      case _:
-        return [trm]
+  match trm:
+    case Call(loc2, tyof, rator, args) if rator_name(rator) == op_name:
+      return sum([flatten_assoc(op_name, arg) for arg in args], [])
+    case _:
+      return [trm]
+
 
 def flatten_assoc_list(op_name, args):
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
-  
-############ AST Base Classes ###########
-  
-@dataclass
-class AST:
-    location: Meta
 
-@dataclass
-class Type(AST):
-  pass
-
-@dataclass
-class Term(AST):
-  typeof: Type
-
-@dataclass
-class Formula(Term):
-  pass
-
-@dataclass
-class Proof(AST):
-  pass
-
-@dataclass
-class Statement(AST):
-    pass
 
 ################ Types ######################################
 
@@ -191,10 +241,10 @@ class IntType(Type):
   def __eq__(self, other):
     return isinstance(other, IntType)
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return set()
 
-  def substitute(self, sub):
+  def substitute(self, sub) -> Type:
     return self
 
   def uniquify(self, env):
@@ -626,7 +676,7 @@ class Var(Term):
       return self.name
   
   def free_vars(self):
-    return set([self.name])
+    return {self.name}
   
   def copy(self):
     return Var(self.location, self.typeof, self.name, self.resolved_names)
@@ -3453,7 +3503,7 @@ def find_mark(formula):
       find_mark(arr)
       find_mark(ind)
     case _:
-      error(loc, 'in find_mark function, unhandled ' + str(formula))
+      error(formula.location, 'in find_mark function, unhandled ' + str(formula))
 
 def replace_mark(formula, replacement):
   match formula:
@@ -3504,7 +3554,7 @@ def replace_mark(formula, replacement):
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
     case _:
-      error(loc, 'in replace_mark function, unhandled ' + str(formula))
+      error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
 def remove_mark(formula):
   num_marks = count_marks(formula)
