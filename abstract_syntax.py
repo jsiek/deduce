@@ -653,7 +653,10 @@ class Var(Term):
       # elif get_verbose():
       #   return self.name + '{' + ','.join(self.resolved_names) + '}'
       elif get_unique_names():
-        return self.name
+        if self.typeof == None:
+          return self.name
+        else:
+          return self.name
       else:
         if is_operator(self):
           return 'operator ' + base_name(self.name)
@@ -3120,6 +3123,11 @@ class Env:
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
+
+  def term_vars_str(self):
+    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v.typ) \
+                       for (k,v) in reversed(self.dict.items()) \
+                       if isinstance(v,TermBinding) and v.local])
   
   def declare_type(self, loc, name):
     new_env = Env(self.dict)
@@ -3139,11 +3147,12 @@ class Env:
     new_env.dict[name] = TypeBinding(loc, defn)
     return new_env
   
-  def declare_term_var(self, loc, name, typ):
+  def declare_term_var(self, loc, name, typ, local = False):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
     new_env.dict[name] = TermBinding(loc, typ)
+    new_env.dict[name].local = local
     return new_env
 
   def declare_assoc(self, loc, opname, typarams, typ):
@@ -3156,10 +3165,10 @@ class Env:
       new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)])
     return new_env
   
-  def declare_term_vars(self, loc, xty_pairs):
+  def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
     for (x,ty) in xty_pairs:
-      new_env = new_env.declare_term_var(loc, x, ty)
+      new_env = new_env.declare_term_var(loc, x, ty, local)
     return new_env
   
   def define_term_var(self, loc, name, typ, val):
