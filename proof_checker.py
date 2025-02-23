@@ -483,8 +483,6 @@ def check_proof(proof, env):
             return ret
         else:
             error(loc, 'could not find given: ' + name)
-      except EnvLookupException as e:
-        raise(EnvLookupException(error_header(loc) + str(e)))
       except Exception as e:
         error(loc, str(e))
       
@@ -1556,8 +1554,6 @@ def check_proof_of(proof, formula, env):
         formula_red = formula.reduce(env)
         check_implies(proof.location, form_red, remove_mark(formula_red))
       except IncompleteProof as e:
-        raise e
-      except EnvLookupException as e:
         raise e
       except Exception as e:
         msg = str(e)
