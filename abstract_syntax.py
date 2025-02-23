@@ -3222,15 +3222,19 @@ class Env:
   
   def _formula_of_proof_var(self, curr, name):
     if name in curr.keys():
-      if isinstance(curr[name], ProofBinding):
-        return curr[name].formula
-      elif isinstance(curr[name], TermBinding):
-        raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+      match curr[name]:
+        case ProofBinding(loc, formula):
+          return formula
+        case TermBinding(loc, FunctionType()):
+          raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+                        + '\nPerhaps you meant `definition ' + base_name(name) + '`?')
+        case TermBinding():
+          raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `recall ' + base_name(name) + '`?')
-      elif isinstance(curr[name], TypeBinding):
-        raise Exception('expected a proof but instead got type ' + base_name(name))
-      else:
-        raise Exception('expected a proof but instead got ' + base_name(name))
+        case TypeBinding():
+          raise Exception('expected a proof but instead got type ' + base_name(name))
+        case _:
+          raise Exception('expected a proof but instead got ' + base_name(name))
     else:
       return None
     
