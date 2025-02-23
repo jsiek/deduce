@@ -175,7 +175,7 @@ class BetterAnchorPostprocessor(Postprocessor):
         file = m.group(1)
         link = file
         is_local_md = (file.startswith('./') and file.endswith('.md')) or len(file) == 0
-        is_local_lib = (file.startswith('../lib/') and file.endswith('.pf')) or len(file) == 0
+        is_local_lib = (file.startswith('../lib/') and (file.endswith('.pf') or file.endswith('.thm'))) or len(file) == 0
         if is_local_md and len(file) > 0:
             file = file[len('./'):-3]
             link = './' + mdToHtmlName[file] + '.html'
@@ -353,7 +353,7 @@ def convert_file(fname, generate_html):
 
     # write to html file
     if generate_html:
-        print("\tWriting html to " + f'./gh-pages/pages/{mdToHtmlName[fname]}.html')
+        print("Writing html to " + f'./gh-pages/pages/{mdToHtmlName[fname]}.html')
         with open(f'./gh-pages/pages/{mdToHtmlName[fname]}.html', 'w') as f:
             f.write(prelude(fname))
             f.write(html)

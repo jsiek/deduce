@@ -1,5 +1,4 @@
 // Proofs of summation formulae
-// I don't know if this is something fun to add as an example somewhere?
 import Nat
 
 lemma n_le_nn : all n : Nat. n <= n * n

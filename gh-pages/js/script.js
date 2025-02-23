@@ -13,7 +13,7 @@ class DeduceNav extends HTMLElement {
 
     connectedCallback() {
         this.innerHTML = `
-        <a class="nav-logo" href="${urlPrefix}/index.html">
+            <a class="nav-logo" href="${urlPrefix}/index.html">
                 <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
                     <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
                         transform="rotate(14.995 52.954 86.34)" />
