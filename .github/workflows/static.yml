@@ -58,21 +58,9 @@ jobs:
       - name: Run lib generate script
         run: python ./doc/lib_generate.py
 
-      # Step 6: Commit and push changes
-      # - name: Commit and push changes
-      #   run: |
-      #     git config --global user.name "github-actions[bot]"
-      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-      #     if [ -n "$(git status --porcelain)" ]; then
-      #       git add .
-      #       git commit -m "Automated update by GitHub Action"
-      #       git push
-      #     else
-      #       echo "No changes to commit."
-      #     fi
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Step 6: Convert scss to css
+      - name: Convert scss to css
+        run: pysassc ./gh-pages/css/style-dev.css ./gh-pages/css/style.css && pysassc ./gh-pages/css/stdlib-dev.css ./gh-pages/css/stdlib.css
 
       # Step 7: Setup Pages
       - name: Setup Pages
