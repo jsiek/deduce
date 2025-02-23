@@ -343,6 +343,11 @@ def get_names_and_imports(tokens, filename):
         if tokens[i] == 'union': 
             union_id = generate_name(tokens[i+1])
             unions[tokens[i+1]] = {'id': union_id, 'file': filename}
+            if tokens[i+1] == 'Set':
+                constructors['∅'] = {'id' : union_id, 'file': filename}
+            if tokens[i+1] == 'Nat':
+                constructors['INT'] = {'id': union_id, 'file': filename}
+                constructors['0'] = {'id' : union_id, 'file': filename}
             for constr_tok in get_constructors(i, tokens):
                 constructors[constr_tok] = {'id': union_id, 'file': filename}
         elif is_toks_function(tokens, i) and not tokens[i+1] == 'operator': 
@@ -409,7 +414,6 @@ def generate_html(html_file, lib_pf_files, lib_thm_files, program_text, tokens, 
             # normal token
             else:
                 tok = tokens[cur_tok]
-
                 if tokens[cur_tok - 1] == 'import':
                     pre = f'<a href="{str(tok)}.pf.html"><span class="stdlib-import"">'
                     post = '</span></a>'
@@ -441,7 +445,7 @@ def generate_html(html_file, lib_pf_files, lib_thm_files, program_text, tokens, 
                     post = f'{op_name[len("operator"):]}</span></a>'
                     cur_tok += 1
                     i += len(op_name) - len(str(tok))
-                elif tok in operators and tokens[cur_tok-1] != 'operator':
+                elif tok in operators and tokens[cur_tok-1] != 'operator' and tok != '<' and tok != '>':
                     pre = f'<a href="{operators[tok]['file']}.pf.html#{operators[tok]['id']}"><span class="stdlib-operator">'
                     post = '</span></a>'
                 # theorems
@@ -452,6 +456,12 @@ def generate_html(html_file, lib_pf_files, lib_thm_files, program_text, tokens, 
                     pre = f'<a href="{theorems[tok]['file']}.pf.html#{theorems[tok]['id']}"><span class="stdlib-theorem">'
                     post = '</span></a>'
                 # constructors
+                elif tok.type in constructors and tok.type == 'INT':
+                    pre = f'<a href="{constructors[tok.type]['file']}.pf.html#{constructors[tok.type]['id']}"><span class="stdlib-prim">'
+                    post = '</span></a>'
+                elif tok in constructors and tok == '0':
+                    pre = f'<a href="{constructors[tok]['file']}.pf.html#{constructors[tok]['id']}"><span class="stdlib-prim">'
+                    post = '</span></a>'
                 elif tok in constructors:
                     pre = f'<a href="{constructors[tok]['file']}.pf.html#{constructors[tok]['id']}"><span class="stdlib-constructor">'
                     post = '</span></a>'
