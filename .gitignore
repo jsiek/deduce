@@ -6,4 +6,4 @@ test/**/*.thm
 lib/*.thm
 .vscode
 deduce-release.zip
-gh-pages/pages/**/*.html
+gh-pages/pages

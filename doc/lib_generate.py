@@ -524,7 +524,7 @@ if __name__ == '__main__':
 
     # call deduce on lib to generate thm files
     print("Generating lib thm files")
-    call_deduce_lib()
+    # call_deduce_lib()
 
     # get lib files
     lib_pf_files = []
@@ -542,8 +542,8 @@ if __name__ == '__main__':
         program_text, tokens = lex_file(f, lark_parser)
         texts_tokens[f] = {'program_text' : program_text, 'tokens' : tokens}
 
-    print("Collecting defined names")
     # first pass to collect imports and union, function and theorem names
+    print("Collecting defined names")
     unions, functions, theorems, constructors, imports = {}, {}, {}, {}, {}
     for f in lib_pf_files:
         us, fs, ts, cs, imps = get_names_and_imports(texts_tokens[f]['tokens'], get_basename(f))
@@ -554,8 +554,12 @@ if __name__ == '__main__':
         constructors[name] = cs
         imports[name] = imps
 
-    print("Clearing old html files")
+    print("Creating stdlib folder")
+    if not os.path.exists(lib_html_dir):
+        os.makedirs(lib_html_dir)
+
     # clear old html files
+    print("Clearing old html files")
     for f in os.listdir(lib_html_dir):
         file_path = os.path.join(lib_html_dir, f)
         if os.path.isfile(file_path) and file_path.endswith('.html'): os.remove(file_path)

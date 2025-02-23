@@ -8,9 +8,9 @@ from markdown.extensions import Extension
 
 import xml.etree.ElementTree as etree
 import re
-from os import listdir
-from os.path import isfile, join
+import os
 
+html_dir = './gh-pages/pages'
 
 mdToHtmlName = {
     'CheatSheet' : 'cheat-sheet',
@@ -353,14 +353,17 @@ def convert_file(fname, generate_html):
 
     # write to html file
     if generate_html:
-        print("Writing html to " + f'./gh-pages/pages/{mdToHtmlName[fname]}.html')
-        with open(f'./gh-pages/pages/{mdToHtmlName[fname]}.html', 'w') as f:
+        print("Writing html to " + f'{mdToHtmlName[fname]}.html')
+        with open(os.path.join(html_dir, mdToHtmlName[fname] + '.html'), 'w') as f:
             f.write(prelude(fname))
             f.write(html)
             f.write(conclusion)
 
 def convert_dir(dir, generate_html=True):
-    for f in [f for f in listdir(dir) if isfile(join(dir, f))]:
+    if not os.path.exists(html_dir):
+        os.makedirs(html_dir)
+
+    for f in [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]:
         if f.endswith('.md'): 
             print(f'Converting {f}')
             convert_file(f[:-3], generate_html)
@@ -372,6 +375,6 @@ if __name__ == "__main__":
     # update code.js to reflect any new/removed code blocks
     with open ('./gh-pages/js/code.js', 'w') as f:
         f.write('const codeBlocks = [\n')
-        for c in sorted(listdir('./gh-pages/deduce-code/')):
+        for c in sorted(os.listdir('./gh-pages/deduce-code/')):
             f.write(f'\t"{c[:-3]}",\n') # remove ".pf"
         f.write(']')
