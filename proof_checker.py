@@ -1548,10 +1548,23 @@ def check_proof_of(proof, formula, env):
       check_proof_of(body, new_formula, env)
       #warning(loc, 'old-style definition will be deprecated')
     case _:
-      form = check_proof(proof, env)
-      form_red = form.reduce(env)
-      formula_red = formula.reduce(env)
-      check_implies(proof.location, form_red, remove_mark(formula_red))
+      try:
+        form = check_proof(proof, env)
+        form_red = form.reduce(env)
+        formula_red = formula.reduce(env)
+        check_implies(proof.location, form_red, remove_mark(formula_red))
+      except IncompleteProof as e:
+        raise e
+      except Exception as e:
+        msg = str(e)
+        # It could be that form is never reduced, such as in a PHelpUse
+        # In that case, we don't give 'replace' advice
+        try: 
+          if is_equation(form_red): 
+            msg += '\nDid you mean `replace ' + str(proof) + '`?'
+        finally:
+          raise(Exception(msg))
+
 
 def apply_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)

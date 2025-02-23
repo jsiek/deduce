@@ -1,0 +1,7 @@
+theorem blah : all A : bool, B : bool.
+  if A = B then B = A
+proof
+  arbitrary A : bool, B : bool
+  assume prem
+  recall A = B
+end

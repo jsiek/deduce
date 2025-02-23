@@ -1,0 +1,2 @@
+./test/should-error/forgot_def_pvar.pf:15.3-15.7: expected a proof but instead got term `even`.
+Perhaps you meant `definition even`?

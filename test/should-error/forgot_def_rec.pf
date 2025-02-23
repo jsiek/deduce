@@ -1,0 +1,17 @@
+// Definitely not Nat
+union Blah {
+  A
+  B(Blah)
+}
+
+recursive even(Blah) -> bool {
+  even(A) = true
+  even(B(b)) = not(even(b))
+}
+
+theorem not_B_even : all n : Blah.
+  if even(n) then not (even(B(n)))
+proof
+  arbitrary n : Blah
+  suffices if even(n) then not not even(n) by even
+end
