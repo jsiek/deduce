@@ -12,6 +12,6 @@ The directory structure:
 * `/gh-pages` Source code for the [Deduce website](https://jsiek.github.io/deduce/)
 * `/lectures` Example code used in Data Structures lectures
 * `/lib` Deduce library files. This includes Nat, List, etc.
-* `/live_code_vercel_api` Source code for [Deduce live code](https://jsiek.github.io/deduce/pages/sandbox.html)
+* `/live_code_vercel_api` Source code for [Deduce live code](https://jsiek.github.io/deduce/sandbox.html)
 * `/logos` The Hippopotamus logo and other images.
 * `/test` Deduce files used for testing Deduce.

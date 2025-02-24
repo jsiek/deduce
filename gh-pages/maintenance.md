@@ -16,7 +16,7 @@ The only three pages that are not automatically generated from the markdown file
 
 - `index.html` : The home page for the site
 - `404.html` : The page that GitHub pages serves on a 404 error
-- `pages/sandbox.html` : The live code page
+- `sandbox.html` : The live code page
 
 If you want to edit the content for one of these pages, you will have to go in and directly change the html yourself. 
 

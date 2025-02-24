@@ -8,9 +8,9 @@ from markdown.extensions import Extension
 
 import xml.etree.ElementTree as etree
 import re
-from os import listdir
-from os.path import isfile, join
+import os
 
+html_dir = './gh-pages/pages'
 
 mdToHtmlName = {
     'CheatSheet' : 'cheat-sheet',
@@ -19,6 +19,7 @@ mdToHtmlName = {
     'Reference' : 'reference',
     'SyntaxGrammar' : 'syntax',
     'GettingStarted' : 'getting-started',
+    'StandardLib' : 'stdlib',
 }
 
 mdToTitle = {
@@ -28,6 +29,7 @@ mdToTitle = {
     'Reference' : 'Reference Manual',
     'SyntaxGrammar' : 'Syntax Overview',
     'GettingStarted' : 'Getting Started',
+    'StandardLib' : 'Standard Library',
 }
 
 mdToDescription = {
@@ -37,6 +39,7 @@ mdToDescription = {
     'Reference' : 'Full reference manual for the deduce language.',
     'SyntaxGrammar' : 'Syntax and grammar overview for the deduce language.',
     'GettingStarted' : 'Getting started with deduce.',
+    'StandardLib' : 'Documentation for the deduce standard library.',
 }
 
 mdToDeduceCode = {
@@ -46,6 +49,7 @@ mdToDeduceCode = {
     'Reference' : 'reference',
     'SyntaxGrammar' : 'syntax-grammar',
     'GettingStarted' : 'getting-started',
+    'StandardLib' : 'stdlib',
 }
 
 def safeHTMLify(s):
@@ -171,11 +175,15 @@ class BetterAnchorPostprocessor(Postprocessor):
         file = m.group(1)
         link = file
         is_local_md = (file.startswith('./') and file.endswith('.md')) or len(file) == 0
+        is_local_lib = (file.startswith('../lib/') and (file.endswith('.pf') or file.endswith('.thm'))) or len(file) == 0
         if is_local_md and len(file) > 0:
-            file = file[2:-3]
+            file = file[len('./'):-3]
             link = './' + mdToHtmlName[file] + '.html'
+        if is_local_lib and len(file) > 0:
+            file = file[len('../lib/'):]
+            link = './stdlib/' + file + '.html'
         link_id = '' if m.group(3) is None else m.group(3)
-        link_target = '_self' if is_local_md else '_blank'
+        link_target = '_self' if is_local_md or is_local_lib else '_blank'
         return f'<a href="{link}#{link_id}" target="{link_target}">'
 
     def run(self, text):
@@ -345,14 +353,17 @@ def convert_file(fname, generate_html):
 
     # write to html file
     if generate_html:
-        print("\tWriting html to " + f'./gh-pages/pages/{mdToHtmlName[fname]}.html')
-        with open(f'./gh-pages/pages/{mdToHtmlName[fname]}.html', 'w') as f:
+        print("Writing html to " + f'{mdToHtmlName[fname]}.html')
+        with open(os.path.join(html_dir, mdToHtmlName[fname] + '.html'), 'w') as f:
             f.write(prelude(fname))
             f.write(html)
             f.write(conclusion)
 
 def convert_dir(dir, generate_html=True):
-    for f in [f for f in listdir(dir) if isfile(join(dir, f))]:
+    if not os.path.exists(html_dir):
+        os.makedirs(html_dir)
+
+    for f in [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]:
         if f.endswith('.md'): 
             print(f'Converting {f}')
             convert_file(f[:-3], generate_html)
@@ -364,6 +375,6 @@ if __name__ == "__main__":
     # update code.js to reflect any new/removed code blocks
     with open ('./gh-pages/js/code.js', 'w') as f:
         f.write('const codeBlocks = [\n')
-        for c in sorted(listdir('./gh-pages/deduce-code/')):
+        for c in sorted(os.listdir('./gh-pages/deduce-code/')):
             f.write(f'\t"{c[:-3]}",\n') # remove ".pf"
         f.write(']')

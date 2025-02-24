@@ -13,7 +13,7 @@ class DeduceNav extends HTMLElement {
 
     connectedCallback() {
         this.innerHTML = `
-        <a class="nav-logo" href="${urlPrefix}/index.html">
+            <a class="nav-logo" href="${urlPrefix}/index.html">
                 <svg xmlns="http://www.w3.org/2000/svg" width="1668" height="402" fill="none" viewBox="0 0 1668 402">
                     <ellipse class="blue" cx="52.954" cy="86.34" fill="#5DAAF1" rx="42.5" ry="46"
                         transform="rotate(14.995 52.954 86.34)" />
@@ -78,10 +78,11 @@ class DeduceNav extends HTMLElement {
                             <a href="${urlPrefix}/pages/reference.html">Reference manual</a>
                             <a href="${urlPrefix}/pages/cheat-sheet.html">Cheat sheet</a>
                             <a href="${urlPrefix}/pages/syntax.html">Syntax and grammar</a>
+                            <a href="${urlPrefix}/pages/stdlib.html">Standard library</a>
                         </div>
                     </div>
                     <div class="dropdown">
-                        <a class="link-btn" href="${urlPrefix}/pages/sandbox.html">Live Code</a>
+                        <a class="link-btn" href="${urlPrefix}/sandbox.html">Live Code</a>
                     </div>
                 </div>
             </div>
@@ -147,7 +148,7 @@ class DeduceFooter extends HTMLElement {
             <div class="footer-links">
                 <div class="footer-col">
                     <a href="${urlPrefix}/pages/getting-started.html">Get Started</a>
-                    <a href="${urlPrefix}/pages/sandbox.html">Live Code</a>
+                    <a href="${urlPrefix}/sandbox.html">Live Code</a>
                     <a href="https://github.com/jsiek/deduce" target="_blank">Source Code</a>
                     <a href="https://github.com/HalflingHelper/deduce-mode" target="_blank">VS-Code deduce-mode</a>
                     <a href="https://github.com/mateidragony/deduce-mode" target="_blank">Emacs deduce-mode</a>
@@ -157,6 +158,7 @@ class DeduceFooter extends HTMLElement {
                     <a href="${urlPrefix}/pages/cheat-sheet.html">Cheat sheet</a>
                     <a href="${urlPrefix}/pages/deduce-programming.html">Programming in deduce</a>
                     <a href="${urlPrefix}/pages/deduce-proofs.html">Proofs in deduce</a>
+                    <a href="${urlPrefix}/pages/stdlib.html">Standard library</a>
                 </div>
                 <div class="footer-col">
                     <a href="${urlPrefix}/pages/syntax.html">Syntax/Grammar</a>

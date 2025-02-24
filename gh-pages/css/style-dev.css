@@ -123,6 +123,7 @@ a:visited {
 
 a:hover,
 a:active {
+    /* color: var(--purple); */
     text-decoration: underline;
 }
 
@@ -772,7 +773,8 @@ footer, deduce-footer {
 
             a:hover,
             a:active {
-                color: var(--purple);
+                text-decoration: underline;
+                /* color: var(--purple); */
             }
         }
     }

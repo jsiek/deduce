@@ -1,5 +1,5 @@
 # Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages and convert Markdown to HTML
+name: Deploy to GitHub Pages
 
 on:
   # Runs on pushes targeting the default branch
@@ -50,38 +50,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r ./gh-pages/requirements.txt
 
-      # Step 4: Run the Python script
-      - name: Run script
+      # Step 4: Run the Python convert script
+      - name: Run convert script
         run: python ./doc/convert.py
+      
+      # Step 5: Run the Python lib generate script
+      - name: Run lib generate script
+        run: python ./doc/lib_generate.py
 
-      # Step 5: Commit and push changes
-      - name: Commit and push changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          if [ -n "$(git status --porcelain)" ]; then
-            git add .
-            git commit -m "Automated update by GitHub Action"
-            git push
-          else
-            echo "No changes to commit."
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Step 6: Convert scss to css
+      - name: Convert scss to css
+        run: pysassc ./gh-pages/css/style-dev.css ./gh-pages/css/style.css && pysassc ./gh-pages/css/stdlib-dev.css ./gh-pages/css/stdlib.css
 
-      # Step 6: Setup Pages
+      # Step 7: Setup Pages
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Step 7: Upload artifact
+      # Step 8: Upload artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
           path: './gh-pages'
 
-      # Step 8: Deploy to ghp
+      # Step 9: Deploy to ghp
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
