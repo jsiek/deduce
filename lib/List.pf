@@ -340,8 +340,8 @@ proof
   }
 end
 
-theorem map_compose: all T:type, U:type, V:type, f:fn T->U, g:fn U->V.
-  all ls :List<T>. map(map(ls, f), g) = map(ls, g ∘ f)
+theorem map_compose: all T:type, U:type, V:type, f:fn T->U, g:fn U->V, ls :List<T>.
+  map(map(ls, f), g) = map(ls, g ∘ f)
 proof
   arbitrary T:type, U:type, V:type
   arbitrary f:fn T->U, g:fn U->V
