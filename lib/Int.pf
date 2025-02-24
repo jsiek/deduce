@@ -29,21 +29,21 @@ private union Sign {
   negative
 }
 
-fun sign(n : Int) {
+private fun sign(n : Int) {
   switch n {
     case pos(n') { positive }
     case negsuc(n') { negative }
   }
 }
 
-fun flip(s : Sign) {
+private fun flip(s : Sign) {
   switch s {
     case positive { negative }
     case negative { positive }
   }
 }
 
-fun operator*(s1 : Sign, s2 : Sign) {
+private fun operator*(s1 : Sign, s2 : Sign) {
   switch s1 {
     case positive { s2 }
     case negative { flip(s2) }
@@ -68,14 +68,14 @@ fun operator -(n:Nat) {
   - pos(n)
 }
 
-fun operator*(s : Sign, n : Int) {
+private fun operator*(s : Sign, n : Int) {
   switch s {
     case positive { n }
     case negative { -n }
   }
 }
 
-fun operator*(s : Sign, n : Nat) { s * pos(n) }
+private fun operator*(s : Sign, n : Nat) { s * pos(n) }
 
 
 // Subtraction of natural numbers
@@ -143,52 +143,52 @@ fun operator ≤(a : Int, y : Int) {
 
 // Properties of signs
 
-theorem sign_pos: all n:Nat. sign(pos(n)) = positive
+lemma sign_pos: all n:Nat. sign(pos(n)) = positive
 proof
   arbitrary n:Nat
   definition sign
 end
 
-theorem sign_negsuc: all n:Nat. sign(negsuc(n)) = negative
+lemma sign_negsuc: all n:Nat. sign(negsuc(n)) = negative
 proof
   arbitrary n:Nat
   definition sign
 end
 
-theorem sign_neg_pos: all n:Nat. sign(-pos(suc(n))) = negative
+lemma sign_neg_pos: all n:Nat. sign(-pos(suc(n))) = negative
 proof
   arbitrary n:Nat
   definition {operator-, sign}
 end
 
-theorem mult_pos_any: all s:Sign. positive * s = s
+lemma mult_pos_any: all s:Sign. positive * s = s
 proof
   arbitrary s:Sign
   definition operator*
 end
 
-theorem mult_pos_neg: positive * negative = negative
+lemma mult_pos_neg: positive * negative = negative
 proof
   definition operator*
 end
 
-theorem mult_neg_pos: negative * positive = negative
+lemma mult_neg_pos: negative * positive = negative
 proof
   definition {operator*, flip}
 end
 
-theorem mult_neg_neg: negative * negative = positive
+lemma mult_neg_neg: negative * negative = positive
 proof
   definition {operator*, flip}
 end
 
-theorem mult_pos_nat: all n:Nat. positive * n = pos(n)
+lemma mult_pos_nat: all n:Nat. positive * n = pos(n)
 proof
   arbitrary n:Nat
   evaluate
 end
 
-theorem mult_neg_nat: all n:Nat. negative * n = - pos(n)
+lemma mult_neg_nat: all n:Nat. negative * n = - pos(n)
 proof
   arbitrary n:Nat
   evaluate
@@ -196,13 +196,13 @@ end
 
 // Properties of absolute value and subtraction
 
-theorem abs_pos: all n:Nat. abs(pos(n)) = n
+lemma abs_pos: all n:Nat. abs(pos(n)) = n
 proof
   arbitrary n:Nat
   definition abs
 end
 
-theorem abs_negsuc: all n:Nat. abs(negsuc(n)) = suc(n)
+lemma abs_negsuc: all n:Nat. abs(negsuc(n)) = suc(n)
 proof
   arbitrary n:Nat
   definition abs
@@ -239,7 +239,7 @@ end
 
 // Properties of negation
 
-theorem neg_pos: all n:Nat.
+lemma neg_pos: all n:Nat.
 	- pos(suc(n)) = negsuc(n)
 proof
   arbitrary n : Nat
@@ -247,7 +247,7 @@ proof
 end
 
   
-theorem neg_suc: all n:Nat.
+lemma neg_suc: all n:Nat.
 	- suc(n) = negsuc(n)
 proof
   arbitrary n : Nat
@@ -420,7 +420,7 @@ proof
   }
 end
 
-theorem distrib_left_sub_add: all m:Nat, n:Nat, o:Nat.
+lemma distrib_left_sub_add: all m:Nat, n:Nat, o:Nat.
   (n ⊝ o) + pos(m) = (n + m) ⊝ o
 proof
   arbitrary m:Nat
@@ -455,7 +455,7 @@ proof
   }
 end
 
-theorem distrib_left_sub_add_neg: all m:Nat, n:Nat, o:Nat.
+lemma distrib_left_sub_add_neg: all m:Nat, n:Nat, o:Nat.
   (n ⊝ o) + negsuc(m) = n ⊝ (suc(o) + m)
 proof
   arbitrary m:Nat
@@ -502,7 +502,7 @@ proof
   }
 end
 
-theorem distrib_right_sub_add: all m:Nat, n:Nat, o:Nat.
+lemma distrib_right_sub_add: all m:Nat, n:Nat, o:Nat.
   pos(m) + (n ⊝ o) = (m + n) ⊝ o
 proof
   arbitrary m:Nat, n:Nat, o:Nat
@@ -513,7 +513,7 @@ proof
   ... = (m + n) ⊝ o        by rewrite add_commute
 end
 
-theorem distrib_right_sub_add_neg: all m:Nat, n:Nat, o:Nat.
+lemma distrib_right_sub_add_neg: all m:Nat, n:Nat, o:Nat.
   negsuc(m) + (n ⊝ o) = n ⊝ suc(m + o)
 proof
   arbitrary m:Nat, n:Nat, o:Nat
