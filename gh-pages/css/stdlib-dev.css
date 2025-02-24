@@ -125,7 +125,7 @@ body{
 
         h2 {
             margin: 0px 0 20px;
-            font-size: 1.4rem;
+            font-size: 22px;
         }
 
         a.current{
@@ -135,7 +135,7 @@ body{
     
         details {
             summary {
-                font-size: 1rem;
+                font-size: 16px;
                 font-weight: bold;
                 margin-bottom: 5px;
             }
@@ -154,6 +154,7 @@ body{
     
                 li:last-child{
                     margin-bottom: 10px;
+                    font-size: 16px;
                 }
             }
         }
@@ -196,7 +197,7 @@ pre {
 
 
     code {
-        font-size: 0.9rem;
+        font-size: 14px;
         font-family: 'JetBrains Mono', monospace;
         background-color: var(--background);
         color: var(--foreground);
@@ -267,12 +268,12 @@ pre {
     
             h2 {
                 margin-top: 10px;
-                font-size: 1.1rem;
+                font-size: 18px;
             }
 
             details {
                 summary {
-                    font-size: 0.9rem;
+                    font-size: 14px;
                 }
             
                 ul {
@@ -280,7 +281,7 @@ pre {
                     margin-bottom: 0;
         
                     li {
-                        font-size: 0.9rem;
+                        font-size: 14px;
                     }
 
                     li:last-child{
@@ -295,7 +296,7 @@ pre {
         }
 
         section.controls {
-            font-size: 0.9rem;
+            font-size: 14px;
         }
     }
 }
@@ -321,7 +322,7 @@ pre {
             border: none;
             background: none;
 
-            font-size: 1.15rem;
+            font-size: 16px;
             color: var(--operator);
         }
 
@@ -337,7 +338,7 @@ pre {
 
     pre {
         code {
-            font-size: .7rem;
+            font-size: 10px;
         }
     }
 }
