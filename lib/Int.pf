@@ -24,7 +24,7 @@ fun abs(x : Int) {
 
 // Signs and operations on them
 
-union Sign {
+private union Sign {
   positive
   negative
 }

@@ -1,1 +1,1 @@
-./test/should-error/use_private_function.pf:8.8-8.18: undefined variable: bit_to_nat
+./test/should-error/use_private_function.pf:3.8-3.16: undefined variable: div2_aux

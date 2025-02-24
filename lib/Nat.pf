@@ -115,7 +115,7 @@ recursive pow2(Nat) -> Nat {
   pow2(suc(n')) = 2 * pow2(n')
 }
 
-recursive div2_helper(Nat, bool) -> Nat {
+private recursive div2_helper(Nat, bool) -> Nat {
   div2_helper(0, b) = 0
   div2_helper(suc(n'), b) =
     if b then div2_helper(n', not b)
@@ -126,7 +126,7 @@ fun div2(n : Nat) {
   div2_helper(n, true)
 }
 
-fun div2_aux(n : Nat) {
+private fun div2_aux(n : Nat) {
   div2_helper(n, false)
 }
 
