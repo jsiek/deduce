@@ -1327,6 +1327,7 @@ def parse_theorem():
       + '\tproof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"'
   try:    
     start_token = current_token()
+    is_lemma = start_token.type == 'LEMMA'
     advance()
     try:
       name = parse_identifier()
@@ -1360,7 +1361,7 @@ def parse_theorem():
             + current_token().value)
     advance()
     return Theorem(meta_from_tokens(start_token, previous_token()),
-                   name, what, proof, False)
+                   name, what, proof, is_lemma)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
                    while_parsing)
