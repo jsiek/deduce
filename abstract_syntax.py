@@ -9,7 +9,7 @@ import os
 
 infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
-                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1}
+                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2}
 prefix_precedence = {'-': 8, 'not': 4}
 
 ############ AST Base Classes ###########
@@ -978,7 +978,7 @@ def left_child(parent, child):
       return False
     
 def op_arg_str(trm, arg):
-  if precedence(trm) != None and precedence(arg) != None:
+  if precedence(trm) is not None and precedence(arg) is not None:
     if precedence(arg) < precedence(trm):
       return "(" + str(arg) + ")"
     elif precedence(arg) == precedence(trm): # and left_child(trm, arg):
@@ -1647,7 +1647,10 @@ class And(Formula):
       match self.args[i]:
         case IfThen(loc, tyof, prem, conc):
           if (self.args[i + 1]) == IfThen(loc, tyof, conc, prem):
-            ret_args.append('(' + str(prem) + ' ⇔ ' + str(conc) + ')')
+            iff = Call(self.location, None, Var(self.location, None, '⇔', ['⇔']),
+                       [prem,conc])
+            iff_str = '(' + op_arg_str(iff, prem) + ' ⇔ ' + op_arg_str(iff, conc) +')'
+            ret_args.append(iff_str)
             skip = True
             continue
       ret_args.append(self.args[i])
