@@ -158,7 +158,7 @@ fun tail<T>(ls : List<T>) {
 
 /********************** Theorems *********************************/
 
-theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
+theorem length_append: all U :type, xs :List<U>, ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
 proof
   arbitrary U :type
@@ -178,7 +178,7 @@ proof
   }
 end
 
-theorem length_zero_empty: <T> all xs:List<T>.
+theorem length_zero_empty: all T:type, xs:List<T>.
   if length(xs) = 0
   then xs = empty
 proof
@@ -195,7 +195,7 @@ proof
   }
 end
 
-theorem append_assoc: all U :type. all xs :List<U>, ys :List<U>, zs:List<U>.
+theorem append_assoc: all U :type, xs :List<U>, ys :List<U>, zs:List<U>.
   (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
 proof
   arbitrary U :type
@@ -216,7 +216,7 @@ end
 
 associative operator++ <T> in List<T>
 
-theorem append_empty: all U :type. all xs :List<U>.
+theorem append_empty: all U :type, xs :List<U>.
   xs ++ [] = xs
 proof
   arbitrary U:type
@@ -232,7 +232,7 @@ proof
   }
 end
 
-theorem length_reverse: all U :type. all xs :List<U>.
+theorem length_reverse: all U :type, xs :List<U>.
   length(reverse(xs)) = length(xs)
 proof
   arbitrary U : type
@@ -253,7 +253,7 @@ proof
   }
 end
 
-lemma reverse_append: all U :type. all xs :List<U>. all ys :List<U>.
+lemma reverse_append: all U :type, xs :List<U>, ys :List<U>.
   reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)
 proof
   arbitrary U :type
@@ -278,7 +278,7 @@ proof
   }
 end
 
-theorem length_map: all T:type. all f:fn T->T. all xs:List<T>.
+theorem length_map: all T:type, f:fn T->T, xs:List<T>.
   length(map(xs, f)) = length(xs)
 proof
   arbitrary T:type
@@ -296,7 +296,7 @@ proof
   }
 end
 
-theorem map_id: all T:type. all f:fn T->T. if (all x:T. f(x) = x) then
+theorem map_id: all T:type, f:fn T->T. if (all x:T. f(x) = x) then
    all xs:List<T>. map(xs, f) = xs
 proof
   arbitrary T:type
@@ -315,7 +315,7 @@ proof
   }
 end
 
-theorem map_append: all T:type. all f: fn T->T, ys:List<T>. all xs:List<T>.
+theorem map_append: all T:type, f: fn T->T, ys:List<T>, xs:List<T>.
   map(xs ++ ys, f) = map(xs,f) ++ map(ys, f)
 proof
   arbitrary T:type
@@ -340,7 +340,7 @@ proof
   }
 end
 
-theorem map_compose: all T:type, U:type, V:type. all f:fn T->U, g:fn U->V.
+theorem map_compose: all T:type, U:type, V:type, f:fn T->U, g:fn U->V.
   all ls :List<T>. map(map(ls, f), g) = map(ls, g ∘ f)
 proof
   arbitrary T:type, U:type, V:type
@@ -357,7 +357,7 @@ proof
   }
 end
 
-theorem zip_empty_right: all T:type, U:type. all xs:List<T>.
+theorem zip_empty_right: all T:type, U:type, xs:List<T>.
     zip(xs, empty : List<U>) = empty
 proof
   arbitrary T:type, U:type
@@ -366,14 +366,12 @@ proof
   case node(x, xs') { definition zip }
 end
 
-theorem zip_map: all T1:type, T2:type, U1:type, U2:type.
-  all f : fn T1 -> T2, g : fn U1 -> U2.
-  all xs:List<T1>. all ys:List<U1>.
+theorem zip_map: all T1:type, T2:type, U1:type, U2:type,
+  f : fn T1 -> T2, g : fn U1 -> U2, xs:List<T1>, ys:List<U1>.
   zip(map(xs, f), map(ys, g)) = map(zip(xs,ys), pairfun(f,g))
 proof
   arbitrary T1:type, T2:type, U1:type, U2:type
   arbitrary f:fn T1 -> T2, g:fn U1 -> U2
-  //enable {map, zip}
   induction List<T1>
   case empty {
     arbitrary ys:List<U1>
@@ -420,7 +418,7 @@ proof
 end
 */
 
-theorem set_of_empty: all T:type. all xs:List<T>.
+theorem set_of_empty: all T:type, xs:List<T>.
   if set_of(xs) = ∅
   then xs = empty
 proof
@@ -442,8 +440,7 @@ proof
   }
 end
 
-theorem set_of_append: all T:type. all xs:List<T>.
-  all ys:List<T>.
+theorem set_of_append: all T:type, xs:List<T>, ys:List<T>.
   set_of(xs ++ ys) = set_of(xs) ∪ set_of(ys)
 proof
   arbitrary T:type
@@ -462,7 +459,7 @@ proof
   }
 end
 
-theorem mset_of_empty: all T:type. all xs:List<T>.
+theorem mset_of_empty: all T:type, xs:List<T>.
   if mset_of(xs) = m_fun(λx{0})
   then xs = empty
 proof
@@ -491,7 +488,7 @@ proof
   }
 end
 
-theorem som_mset_eq_set: all T:type. all xs:List<T>.
+theorem som_mset_eq_set: all T:type, xs:List<T>.
   set_of_mset(mset_of(xs)) = set_of(xs)
 proof
   arbitrary T:type
@@ -517,7 +514,7 @@ proof
   }
 end
 
-theorem not_set_of_remove_all: all W:type. all xs:List<W>. all y:W.
+theorem not_set_of_remove_all: all W:type, xs:List<W>, y:W.
   not (y ∈ set_of(remove_all(xs, y)))
 proof
   arbitrary U:type
@@ -561,7 +558,7 @@ proof
   }
 end
 
-theorem take_append: all E:type. all xs:List<E>. all ys:List<E>.
+theorem take_append: all E:type, xs:List<E>, ys:List<E>.
   take(length(xs), xs ++ ys) = xs
 proof
   arbitrary E:type
@@ -578,7 +575,7 @@ proof
   }
 end
 
-theorem drop_append: all E:type. all xs:List<E>. all ys:List<E>.
+theorem drop_append: all E:type, xs:List<E>, ys:List<E>.
   drop(length(xs), xs ++ ys) = ys
 proof
   arbitrary E:type
@@ -595,7 +592,7 @@ proof
   }
 end
 
-theorem nth_drop: all T:type. all n:Nat. all xs:List<T>, i:Nat, d:T.
+theorem nth_drop: all T:type, n:Nat, xs:List<T>, i:Nat, d:T.
   nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
 proof
   arbitrary T:type
@@ -624,7 +621,7 @@ proof
   }
 end
 
-theorem get_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat.
+theorem get_append_front: all T:type, xs:List<T>, ys:List<T>, i:Nat.
   if i < length(xs)
   then get(xs ++ ys, i) = get(xs, i)
 proof
@@ -656,7 +653,7 @@ proof
   }
 end
 
-theorem get_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat.
+theorem get_append_back: all T:type, xs:List<T>, ys:List<T>, i:Nat.
   get(xs ++ ys, length(xs) + i) = get(ys, i)
 proof
   arbitrary T:type
@@ -680,7 +677,7 @@ proof
   }
 end
 
-theorem get_none: all T:type. all xs:List<T>, i:Nat.
+theorem get_none: all T:type, xs:List<T>, i:Nat.
   if length(xs) <= i
   then get(xs, i) = none
 proof
@@ -709,7 +706,7 @@ proof
   }
 end
 
-theorem nth_append_front: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+theorem nth_append_front: all T:type, xs:List<T>, ys:List<T>, i:Nat, d:T.
   if i < length(xs)
   then nth(xs ++ ys, d)(i) = nth(xs, d)(i)
 proof
@@ -741,7 +738,7 @@ proof
   }
 end
 
-theorem nth_append_back: all T:type. all xs:List<T>. all ys:List<T>, i:Nat, d:T.
+theorem nth_append_back: all T:type, xs:List<T>, ys:List<T>, i:Nat, d:T.
   nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i)
 proof
   arbitrary T:type
@@ -765,7 +762,7 @@ proof
   }
 end
 
-theorem mset_equal_implies_set_equal: all T:type. all xs:List<T>, ys:List<T>.
+theorem mset_equal_implies_set_equal: all T:type, xs:List<T>, ys:List<T>.
   if mset_of(xs) = mset_of(ys)
   then set_of(xs) = set_of(ys)
 proof
@@ -781,7 +778,7 @@ proof
                by som_mset_eq_set<T>[ys]
 end
 
-theorem head_append: all E:type. all L:List<E>. all R:List<E>.
+theorem head_append: all E:type, L:List<E>, R:List<E>.
   if 0 < length(L) 
   then head(L ++ R) = head(L)
 proof
@@ -802,7 +799,7 @@ proof
   }
 end
 
-theorem tail_append: all E:type. all L:List<E>. all R:List<E>.
+theorem tail_append: all E:type, L:List<E>, R:List<E>.
   if 0 < length(L) 
   then tail(L ++ R) = tail(L) ++ R
 proof
