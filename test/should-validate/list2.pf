@@ -29,7 +29,7 @@ theorem length_one_equal: all U:type. all x:U, y:U.
 proof
   arbitrary U:type
   arbitrary x:U, y:U
-  rewrite length_one<U>[x] | length_one<U>[y]
+  evaluate
 end
 
 

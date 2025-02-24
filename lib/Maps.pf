@@ -64,13 +64,13 @@ proof
       have zy: z = y by rewrite zy_true
       switch z = x {
         case true suppose zx_true {
-	  have zx: z = x by rewrite zx_true
-	  have xy: x = y by transitive (symmetric zx) zy
-	  conclude false by apply x_neq_y to xy
-	}
-	case false {
-	  .
-	}
+	        have zx: z = x by rewrite zx_true
+	        have xy: x = y by transitive (symmetric zx) zy
+	        conclude false by apply x_neq_y to xy
+	      }
+	      case false {
+	        .
+	      }
       }
     }
     case false {
@@ -96,7 +96,7 @@ define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
 define combine = generic T, U { fun f:fn(T)->Option<U>, g:fn(T)->Option<U> { fun x:T {
                      if f(x) = none then g(x) else f(x) }}}
 
-theorem combine_left: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+theorem combine_left: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if g(x) = none
   then combine(f, g)(x) = f(x)
 proof
@@ -115,7 +115,7 @@ proof
   }
 end
 
-theorem combine_right: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+theorem combine_right: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if f(x) = none
   then combine(f, g)(x) = g(x)
 proof
@@ -149,3 +149,17 @@ proof
     }
   }
 end
+
+define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
+  = generic T,U,V { λf{ λx,y{ f(y,x) }}}
+
+theorem flip_flip:
+  all T:type. all f:fn T,T->T. flip(flip(f)) = f
+proof
+  arbitrary T:type
+  arbitrary f:fn T,T->T
+  extensionality
+  arbitrary x:T, y:T
+  definition flip
+end
+

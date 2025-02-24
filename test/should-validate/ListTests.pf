@@ -45,10 +45,12 @@ assert interval(3, 3) = node(3, node(4, node(5, empty)))
 assert (node(1, empty) ++ node(2, empty)) ++ node(3, empty)
      = node(1, empty) ++ (node(2, empty) ++ node(3, empty))
 
+define id_nat : fn Nat -> Nat = λx{x}
+
 assert (id_nat .o. id_nat)(zero) = zero
 
 assert length(@empty<Nat>) = 0
 assert length(node(42, empty)) = 1
 
-private define L1_positive = all_elements(L1, λx{ 0 < x })
+
 
