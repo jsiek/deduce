@@ -1203,7 +1203,8 @@ def check_proof_of(proof, formula, env):
       red_formula = formula.reduce(env)
       set_reduce_all(False)
       if red_formula != Bool(loc, None, True):
-          error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' + str(red_formula))
+          error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
+                + str(red_formula))
       return red_formula
   
     case ApplyDefs(loc, definitions):
@@ -1884,8 +1885,8 @@ def check_type(typ, env):
   match typ:
     case Var(loc, tyof, name, rs):
       if not env.type_var_is_defined(typ):
-        error(loc, 'undefined type variable ' + str(typ) + \
-              '\nin environment:\n' + str(env))
+        error(loc, 'undefined type variable ' + str(typ))
+        #       '\nin environment:\n' + str(env))
       if len(rs) == 1:
           typ.name = rs[0]
       elif len(rs) == 0:

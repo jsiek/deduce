@@ -1149,7 +1149,7 @@ class Call(Term):
       print('\targs: ' + ', '.join([str(a) for a in args]))
 
     if is_assoc and len(args) > len(params):
-      return self.reduce_associative(loc, name, fun, [], [],
+      return self.reduce_associative(loc, name, fun, type_params, type_args,
                                      params, args, cases, env, returns)
 
     if len(args) == len(params):
