@@ -59,6 +59,21 @@ union Pos {
   succ(Pos)
 }
 
+// I'd like to name this operator+ but that causes problems with enable. -Jeremy
+recursive add_pos(Nat,Pos) -> Pos {
+  add_pos(0, m) = m
+  add_pos(suc(n), m) = succ(add_pos(n, m))
+}
+
+recursive operator -(Pos,Nat) -> Pos {
+  operator -(one, m) = one
+  operator -(succ(n), m) =
+    switch m {
+      case 0 { succ(n) }
+      case suc(m') { n - m' }
+    }
+}
+
 recursive nat2pos(Nat) -> Option<Pos> {
   nat2pos(0) = none
   nat2pos(suc(n')) =
@@ -77,6 +92,19 @@ recursive pos2nat(Pos) -> Nat {
   pos2nat(succ(p)) = suc(pos2nat(p))
 }
 
+/*
+ The find_quotient searches for n/m by starting at q (initially 0)
+ and incrementing by 1 until q * m = n (if n is evenly divisible by m).
+ Of course, n may not be evenly divisible by m, so we really stop
+ when another increment would overshoot n, that is, (1+q)*m > n.
+
+ The u parameter serves as gasoline. Choose u to satisfy n < u*m to
+ ensure that find_quotient does not run out of gas before finding the
+ quotient. For example, u = (1+n)*m is a convenient choice.
+
+ Precondition: q * m ≤ n and n < u * m
+ Postcondition: q * m + r = n and r < m    for some r
+ */
 recursive find_quotient(Nat,Nat,Pos,Nat) -> Nat {
   find_quotient(0, n, m, q) = q
   find_quotient(suc(u), n, m, q) =
@@ -1017,14 +1045,14 @@ proof
   }
 end
 
-theorem positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
+lemma positive_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
   have one_pos: 0 ≤ 1 by definition operator ≤
   have two_pos: 0 ≤ 2 by definition operator ≤
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 
-theorem positive_2: 0 ≤ 2
+lemma positive_2: 0 ≤ 2
 proof
   conclude 0 ≤ 2 by positive_1_and_2
 end
@@ -2495,7 +2523,7 @@ proof
     }
     case suc(n') suppose n_sn {
       have qm_le_n: 0 * pos2nat(m) ≤ n
-	by definition {operator*,operator≤}
+	      by definition {operator*,operator≤}
       define u = suc(n) * pos2nat(m)
       have n_l_um: n < u * pos2nat(m)
         by suffices suc(n) ≤ (pos2nat(m) + n * pos2nat(m)) * pos2nat(m)
@@ -2814,6 +2842,20 @@ proof
   }
 end
 
+// theorem zero_mod: 0 % x = 0
+
+theorem mod_one_pos: all n:Nat. n % one = 0
+proof
+  arbitrary n:Nat
+  have n1_1:  n % one < pos2nat(one) by remainder_less_divisor[n,one] 
+  switch n % one {
+    case 0 assume n1z { n1z }
+    case suc(n') assume n1_sn {
+      conclude false by evaluate in replace n1_sn in n1_1
+    }
+  }
+end
+
 theorem mod_one: all n:Nat. n % 1 = 0
 proof
   arbitrary n:Nat
@@ -2827,6 +2869,16 @@ proof
   }
 end
 
+lemma div_one_pos: all n:Nat. n / one = n
+proof
+  arbitrary n:Nat
+  have eq1: (n / one) * pos2nat(one) + (n % one) = n by division_remainder[n,one]
+  have eq2: (n / one) * 1 + (n % one) = n by definition pos2nat in eq1
+  have eq: (n / one) + (n % one) = n by replace mult_one in eq2
+  replace mod_one_pos | add_zero in eq
+end
+  
+  
 theorem div_one: all n:Nat. n / 1 = n
 proof
   arbitrary n:Nat
@@ -2835,3 +2887,4 @@ proof
   have eq2: (n / 1) + (n % 1) = n by replace mult_one in eq1
   replace mod_one | add_zero in eq2
 end
+
