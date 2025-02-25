@@ -1,8 +1,15 @@
 theorem T: if false or false then false
 proof
   suppose ForF {
+    ForF
+    /* The following doesn't work because
+       we reduce a formula before doing cases
+       to handle things like define getting in the
+       way. See define_cases.pf.
+
     cases ForF
     case F { F }
     case F { F }
+    */
   }
 end

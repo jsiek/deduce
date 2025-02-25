@@ -19,3 +19,20 @@ fun pairfun<T1,T2,U1,U2>(f : fn T1->T2, g : fn U1->U2) {
     pair(f(first(p)), g(second(p)))
   }
 }
+
+theorem first_pair: all T:type,U:type, x:T, y:U. first(pair(x,y)) = x
+proof
+  arbitrary T:type,U:type, x:T, y:U
+  definition first
+end
+  
+theorem second_pair: all T:type,U:type, x:T, y:U. second(pair(x,y)) = y
+proof
+  arbitrary T:type,U:type, x:T, y:U
+  definition second
+end
+  
+  
+ 
+  
+ 

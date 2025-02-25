@@ -1345,7 +1345,8 @@ def check_proof_of(proof, formula, env):
             
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
-      match sub_frm:
+      sub_red = sub_frm.reduce(env)
+      match sub_red:
         case Or(loc1, tyof, frms):
           for (frm, (label,frm2,case)) in zip(frms, cases):
             if frm2:
@@ -1355,7 +1356,7 @@ def check_proof_of(proof, formula, env):
             body_env = env.declare_local_proof_var(loc, label, frm)
             check_proof_of(case, formula, body_env)
         case _:
-          error(proof.location, "expected 'or', not " + str(sub_frm))
+          error(proof.location, "expected 'or', not " + str(sub_red))
           
     case Induction(loc, typ, cases):
       check_type(typ, env)

@@ -684,6 +684,8 @@ class Var(Term):
   def __eq__(self, other):
       if isinstance(other, RecFun):
         result = self.name == other.name
+      elif isinstance(other, TermInst):
+        result = self == other.subject
       elif not isinstance(other, Var):
         result = False
       else:
@@ -771,7 +773,9 @@ class Int(Term):
     return Int(self.location, self.typeof, self.value)
   
   def __eq__(self, other):
-      if not isinstance(other, Int):
+      if isinstance(other, TermInst):
+        return self == other.subject
+      elif not isinstance(other, Int):
           return False
       return self.value == other.value
   
@@ -1057,6 +1061,8 @@ class Call(Term):
         + ")"
 
   def __eq__(self, other):
+      if isinstance(other, TermInst):
+        return self == other.subject
       if not isinstance(other, Call):
         return False
       if len(self.args) != len(other.args):

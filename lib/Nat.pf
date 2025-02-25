@@ -98,7 +98,24 @@ fun operator /(n : Nat, m : Pos) {
   }
 }
 
-define operator % = λ n:Nat,m:Pos { n - (n / m) * pos2nat(m) }
+fun operator /(n : Nat, m : Nat) {
+  switch nat2pos(m) {
+    case none { 0 } // this result is bogus!
+    case just(p) { n / p }
+  }
+}
+
+fun operator % (n:Nat, m:Pos) {
+  n - (n / m) * pos2nat(m)
+}
+
+fun operator % (n:Nat, m:Nat) {
+  switch nat2pos(m) {
+    case none { 0 } // this result is bogus!
+    case just(p) { n % p }
+  }
+}
+
 
 recursive summation(Nat, Nat, fn Nat->Nat) -> Nat {
   summation(0, begin, f) = 0
@@ -2460,13 +2477,13 @@ proof
   }
 end
 
-theorem mod_def: all n:Nat, m:Pos.
+lemma mod_def: all n:Nat, m:Pos.
   n % m = n - (n / m) * pos2nat(m)
 proof
   definition {operator%}
 end
 
-theorem division: all n:Nat, m:Pos.
+lemma division: all n:Nat, m:Pos.
   some r : Nat. (n / m) * pos2nat(m) + r = n  and  r < pos2nat(m)
 proof
   arbitrary n:Nat, m:Pos
@@ -2528,7 +2545,7 @@ proof
   }
 end
 
-theorem division_remainder: all n:Nat, m:Pos.
+lemma division_remainder: all n:Nat, m:Pos.
   (n / m) * pos2nat(m) + (n % m) = n
 proof
   arbitrary n:Nat, m:Pos
@@ -2550,7 +2567,7 @@ proof
     by apply sub_add_identity to a_le_n
 end
 
-theorem remainder_less_divisor: all n:Nat, m:Pos.
+lemma remainder_less_divisor: all n:Nat, m:Pos.
   n % m < pos2nat(m)
 proof
   arbitrary n:Nat, m:Pos
@@ -2585,3 +2602,236 @@ proof
   }
 end
 */
+
+lemma mult_div_mod_inverse: all y:Pos.
+  pos2nat(y) / y = 1 and pos2nat(y) % y = 0
+proof
+  arbitrary y:Pos
+  have div_rem: (pos2nat(y) / y) * pos2nat(y) + pos2nat(y)%y = pos2nat(y)
+    by division_remainder
+  have rem_less: pos2nat(y) % y < pos2nat(y)
+    by remainder_less_divisor
+  switch pos2nat(y) / y {
+    case 0 assume yyz {
+      have eq1: 0 * pos2nat(y) + (pos2nat(y) % y) = pos2nat(y)
+        by replace yyz in div_rem
+      have eq2: 0 + (pos2nat(y) % y) = pos2nat(y)
+        by replace zero_mult in eq1
+      have rem_equal: pos2nat(y) % y = pos2nat(y)
+        by replace zero_add in eq2
+      conclude false by apply (apply less_not_equal to rem_less) to rem_equal
+    }
+    case suc(y') assume ysy {
+      have eq1: suc(y') * pos2nat(y) + pos2nat(y) % y = pos2nat(y)
+        by replace ysy in div_rem
+      have eq2: pos2nat(y) + y' * pos2nat(y) + pos2nat(y) % y = pos2nat(y)
+        by definition operator* in eq1
+      have eq3: pos2nat(y) + y' * pos2nat(y) + pos2nat(y) % y = pos2nat(y) + 0 by {
+        suffices __ by replace add_zero
+        eq2
+      }
+      have eq4: y' * pos2nat(y) + pos2nat(y) % y = 0
+        by apply left_cancel to eq3
+      have rem_zero: pos2nat(y) % y = 0 by apply add_to_zero to eq4
+      suffices __ by replace rem_zero
+      suffices suc(y') = 1 by replace ysy
+      have yz: y' = 0 by {
+        have yyz: y' * pos2nat(y) = 0 by apply add_to_zero to eq4
+        have ypos: 0 < pos2nat(y) by pos_positive
+        obtain y'' where ysy2: pos2nat(y) = suc(y'') from apply positive_suc to ypos
+        have eq5: suc(y'') * y' = 0 by replace ysy2 | mult_commute in yyz
+        have eq6: y' + y'' * y' = 0 by definition operator* in eq5
+        conclude y' = 0 by apply add_to_zero to eq6
+      }
+      conclude suc(y') = 1 by replace yz
+    }
+  }
+end
+
+lemma pos_mult_div_inverse: all y:Pos. pos2nat(y) / y = 1
+proof
+  mult_div_mod_inverse
+end
+  
+lemma pos_mod_self_zero: all y:Pos. pos2nat(y) % y = 0
+proof
+  mult_div_mod_inverse
+end
+  
+lemma pos2nat_nat2pos: all p:Pos. nat2pos(pos2nat(p)) = just(p)
+proof
+  induction Pos
+  case one {
+    evaluate
+  }
+  case succ(p') assume IH {
+    definition pos2nat | nat2pos and rewrite IH
+  }
+end
+
+lemma nat2pos_pos2nat: all x:Nat. if 0 < x then
+    some p:Pos. nat2pos(x) = just(p) and pos2nat(p) = x
+proof
+  induction Nat
+  case 0 {
+    assume: 0 < 0
+    conclude false by apply less_irreflexive to recall 0 < 0
+  }
+  case suc(x') assume IH {
+    assume prem: 0 < suc(x')
+    switch x' {
+      case 0 {
+        choose one
+        conclude nat2pos(1) = just(one) and pos2nat(one) = 1  by evaluate
+      }
+      case suc(x'') assume xsx {
+        have: 0 < x' by {
+          suffices __ by replace xsx
+          conclude 0 < suc(x'') by evaluate
+        }
+        obtain p where p_def: nat2pos(x') = just(p) and pos2nat(p) = x'
+          from apply IH to recall 0 < x'
+        have xp: nat2pos(x') = just(p) by p_def
+        have px: pos2nat(p) = x' by p_def
+        choose succ(p)
+        suffices __ by replace symmetric xsx
+        suffices pos2nat(succ(p)) = suc(x') by definition nat2pos and rewrite xp
+        definition pos2nat and rewrite px
+      }
+    }
+  }
+end
+
+lemma nat2pos_implies_pos2nat: all x:Nat, p:Pos. 
+  if nat2pos(x) = just(p) then pos2nat(p) = x
+proof
+  arbitrary x:Nat, p:Pos
+  switch x {
+    case 0 {
+      definition nat2pos
+    }
+    case suc(x') assume xsx {
+      assume prem
+      have: 0 < x by {
+        suffices __ by replace xsx
+        evaluate
+      }
+      obtain q where q_def: nat2pos(x) = just(q) and pos2nat(q) = x
+        from apply nat2pos_pos2nat to recall 0 < x
+      have xp: nat2pos(x) = just(p) by replace symmetric xsx in prem
+      suffices pos2nat(p) = x by replace symmetric xsx
+      have pq: p = q by {
+        injective just
+        transitive (symmetric xp) (conjunct 0 of q_def)
+      }
+      suffices __ by replace pq
+      q_def
+    }
+  }
+end
+
+theorem mult_div_inverse: all y:Nat. if 0 < y then y / y = 1
+proof
+  arbitrary y:Nat
+  assume ypos: 0 < y
+  obtain p where p_def: nat2pos(y) = just(p) and pos2nat(p) = y
+    from apply nat2pos_pos2nat to ypos
+  suffices y / p = 1   by definition operator / and rewrite conjunct 0 of p_def
+  suffices pos2nat(p) / p = 1 by rewrite symmetric (conjunct 1 of p_def)
+  pos_mult_div_inverse
+end
+  
+theorem mod_self_zero: all y:Nat. y % y = 0
+proof
+  arbitrary y:Nat
+  switch nat2pos(y) {
+    case none assume yn {
+      definition operator % and replace yn
+    }
+    case just(y') assume yy {
+      suffices y % y' = 0 by definition operator % and replace yy
+      have pyy: pos2nat(y') = y by apply nat2pos_implies_pos2nat to yy
+      suffices pos2nat(y') % y' = 0 by replace symmetric pyy
+      pos_mod_self_zero
+    }
+  }
+end
+
+theorem div_mod: all n:Nat, m:Nat. if 0 < m then (n / m) * m + (n % m) = n
+proof
+  arbitrary n:Nat, m:Nat
+  assume mpos: 0 < m
+  obtain p where p_def: nat2pos(m) = just(p) and pos2nat(p) = m
+    from apply nat2pos_pos2nat to mpos
+  have mp: nat2pos(m) = just(p)  by p_def
+  have pm: pos2nat(p) = m  by p_def
+  have dr: (n / p) * pos2nat(p) + n % p = n by division_remainder[n, p]
+  suffices (n / p) * pos2nat(p) + n % p = n
+    by definition operator / | operator % and replace mp | symmetric pm
+  division_remainder[n,p]
+end
+
+theorem mod_less_divisor: all n:Nat, m:Nat. if 0 < m then n % m < m
+proof
+  arbitrary n:Nat, m:Nat
+  assume mpos: 0 < m
+  obtain p where p_def: nat2pos(m) = just(p) and pos2nat(p) = m
+    from apply nat2pos_pos2nat to mpos
+  suffices n % p < pos2nat(p) by definition operator%
+    and replace conjunct 0 of p_def | symmetric (conjunct 1 of p_def)
+  remainder_less_divisor
+end
+
+theorem mod_sub_div: all n:Nat, m:Nat. if 0 < m then
+  n % m = n - (n / m) * m
+proof
+  arbitrary n:Nat, m:Nat
+  assume mpos: 0 < m
+  obtain p where p_def: nat2pos(m) = just(p) and pos2nat(p) = m
+    from apply nat2pos_pos2nat to mpos
+  have mp: nat2pos(m) = just(p)  by p_def
+  have pm: pos2nat(p) = m  by p_def
+  suffices n % p = n - (n / p) * pos2nat(p)
+    by definition operator% | operator/ and rewrite mp | symmetric pm
+  mod_def
+end
+
+theorem zero_div: all x:Nat. if 0 < x then 0 / x = 0
+proof
+  arbitrary x:Nat
+  assume xpos
+  have eq1: (0 / x) * x + (0 % x) = 0 by apply div_mod[0,x] to xpos
+  have eq2: (0/x)*x = 0  by apply add_to_zero to eq1
+  switch x {
+    case 0 assume xz {
+      conclude false by apply (apply less_not_equal to xpos) to rewrite xz
+    }
+    case suc(x') assume xsx {
+      have eq3: 0 / suc(x') + x' * (0 / suc(x')) = 0
+        by definition operator* in rewrite xsx | mult_commute in eq2
+      conclude 0 / suc(x') = 0 by apply add_to_zero to eq3
+    }
+  }
+end
+
+theorem mod_one: all n:Nat. n % 1 = 0
+proof
+  arbitrary n:Nat
+  have one_pos: 0 < 1 by evaluate
+  have n1_1:  n % 1 < 1 by apply mod_less_divisor[n,1] to one_pos
+  switch n % 1 {
+    case 0 assume n1z { n1z }
+    case suc(n') assume n1_sn {
+      conclude false by evaluate in replace n1_sn in n1_1
+    }
+  }
+end
+
+theorem div_one: all n:Nat. n / 1 = n
+proof
+  arbitrary n:Nat
+  have one_pos: 0 < 1 by evaluate
+  have eq1: (n / 1) * 1 + (n % 1) = n by apply div_mod[n,1] to one_pos
+  have eq2: (n / 1) + (n % 1) = n by replace mult_one in eq1
+  replace mod_one | add_zero in eq2
+end
