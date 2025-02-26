@@ -1232,22 +1232,35 @@ proof
   less_equal_add[n][1]
 end
 
-theorem less_trans: all m:Nat, n:Nat, o:Nat.
-  if m < n and n < o then m < o
+theorem add_mono: all a:Nat, b:Nat, c:Nat, d:Nat.
+  if a ≤ c and b ≤ d
+  then a + b ≤ c + d
 proof
-  arbitrary m:Nat, n:Nat, o:Nat
-  suppose prem
-  suffices suc(m) ≤ o   by definition operator <
-  have _5: suc(m) ≤ suc(suc(m))
-     by less_equal_suc[suc(m)]
-  have _3: suc(suc(m)) ≤ suc(n) by
-     suffices suc(m) ≤ n by definition operator≤
-     definition operator < in prem
-  have _2: suc(n) ≤ o   by definition operator < in prem
-  have _4: suc(suc(m)) ≤ o
-     by apply less_equal_trans to (_3, _2)
-  conclude suc(m) ≤ o
-     by apply less_equal_trans to (_5, _4)
+  induction Nat
+  case 0 {
+    arbitrary b:Nat, c:Nat, d:Nat
+    assume prem
+    suffices __ by replace zero_add
+    have bd: b ≤ d by prem
+    have d_dc: d ≤ d + c by less_equal_add
+    have d_cd: d ≤ c + d by replace add_commute in d_dc
+    conclude b ≤ c + d by apply less_equal_trans to bd, d_cd
+  }
+  case suc(a') assume IH {
+    arbitrary b:Nat, c:Nat, d:Nat
+    assume prem
+    have b_d: b ≤ d by prem
+    switch c {
+      case 0 assume cz {
+        conclude false by evaluate in replace cz in prem
+      }
+      case suc(c') assume cs {
+        have a_c: a' ≤ c'  by evaluate in replace cs in prem
+        suffices __ by definition operator+ | operator≤
+        conclude a' + b ≤ c' + d by apply IH to a_c, b_d
+      }
+    }
+  }
 end
 
 theorem less_one_add: all n:Nat.
@@ -1257,20 +1270,6 @@ proof
   definition {operator<, operator≤, operator+, operator≤}
 end
 
-theorem greater_any_zero: all x:Nat, y:Nat.
-  if x < y
-  then 0 < y
-proof
-  arbitrary x:Nat, y:Nat
-  suppose x_l_y
-  suffices 1 ≤ y  by definition operator<
-  have sx_le_y: 1 + x ≤ y  by
-    suffices suc(x) ≤ y  by definition 2*operator+
-    definition operator< in x_l_y
-  have one_le_sx: 1 ≤ 1 + x
-    by less_equal_add[1][x]
-  apply less_equal_trans to (one_le_sx, sx_le_y)
-end
 
 theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
   x + y ≤ x + z ⇔ y ≤ z
@@ -1492,13 +1491,54 @@ proof
         have IH': y' < x' ⇔ 0 < x' - y' by IH[y']
         suffices suc(y') < suc(x') ⇔ 0 < x' - y' by definition operator-
         have syx_yx: suc(y') < suc(x') ⇔ y' < x'
-            by apply iff_symm[y' < x',suc(y') < suc(x')] to less_suc_iff_suc_less[y',x']
+            by apply iff_symm to less_suc_iff_suc_less[y',x']
         apply iff_trans[suc(y') < suc(x'), y' < x', 0 < x' - y']
         to syx_yx, IH'
       }
     }
   }
 end
+
+/*
+ More Properties of Less
+ */
+
+theorem less_trans: all m:Nat, n:Nat, o:Nat.
+  if m < n and n < o then m < o
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  suppose prem
+  suffices suc(m) ≤ o   by definition operator <
+  have _5: suc(m) ≤ suc(suc(m))
+     by less_equal_suc[suc(m)]
+  have _3: suc(suc(m)) ≤ suc(n) by
+     suffices suc(m) ≤ n by definition operator≤
+     definition operator < in prem
+  have _2: suc(n) ≤ o   by definition operator < in prem
+  have _4: suc(suc(m)) ≤ o
+     by apply less_equal_trans to (_3, _2)
+  conclude suc(m) ≤ o
+     by apply less_equal_trans to (_5, _4)
+end
+
+theorem greater_any_zero: all x:Nat, y:Nat.
+  if x < y
+  then 0 < y
+proof
+  arbitrary x:Nat, y:Nat
+  suppose x_l_y
+  suffices 1 ≤ y  by definition operator<
+  have sx_le_y: 1 + x ≤ y  by
+    suffices suc(x) ≤ y  by definition 2*operator+
+    definition operator< in x_l_y
+  have one_le_sx: 1 ≤ 1 + x
+    by less_equal_add[1][x]
+  apply less_equal_trans to (one_le_sx, sx_le_y)
+end
+
+/*
+ Properties of Multiplication and Subtraction
+ */
 
 // NOTE: This has to be after dichotomy, so it can't be with the other mult theorems
 theorem dist_mult_sub : all x : Nat. all y : Nat, z : Nat.
@@ -1518,26 +1558,28 @@ proof
     cases dichotomy[z, y]
     case z_le_y: z ≤ y {
       have nz_le_ny : n'*z ≤n' * y
-        by apply mult_mono_le[n'][z, y] to z_le_y
-      replace apply sub_add_assoc[y][(n' * y - n' * z) ,z] to z_le_y
-            | add_commute[(n' * y - n' * z)][y]
-            | apply sub_add_assoc[n'*y][y, n'*z] to nz_le_ny
-            | sub_sub_eq_sub_add[(y + n' * y)][n' * z][z]
-            | add_commute[n' * z][z]
+        by apply mult_mono_le[n', z, y] to z_le_y
+      replace apply sub_add_assoc[y, (n' * y - n' * z) ,z] to z_le_y
+            | add_commute[(n' * y - n' * z), y]
+            | apply sub_add_assoc[n'*y, y, n'*z] to nz_le_ny
+            | sub_sub_eq_sub_add[(y + n' * y), n' * z, z]
+            | add_commute[n' * z, z]
     }
     case ylz: y < z {
-      have y_le_z: y ≤ z by apply less_implies_less_equal[y][z] to ylz
-      have ny_le_nz: n' * y ≤ n' * z by apply mult_mono_le[n'][y, z] to y_le_z
-      have zny_le_znz : z + n' * y ≤ z + n' * z by apply less_equal_left_cancel[z][n'*y, n'*z] to ny_le_nz
-      have nyy_le_nyz: n' * y + y ≤ n' * y + z by apply less_equal_left_cancel[n' *y][y, z] to y_le_z
+      have y_le_z: y ≤ z by apply less_implies_less_equal[y, z] to ylz
+      have ny_le_nz: n' * y ≤ n' * z by apply mult_mono_le[n', y, z] to y_le_z
+      have zny_le_znz : z + n' * y ≤ z + n' * z
+        by apply less_equal_left_cancel[z, n'*y, n'*z] to ny_le_nz
+      have nyy_le_nyz: n' * y + y ≤ n' * y + z
+        by apply less_equal_left_cancel[n'*y, y, z] to y_le_z
       have yny_le_zny : y + n' * y ≤ z + n' * y 
         by replace add_commute in nyy_le_nyz
       have yny_le_znz: y + n'*y ≤ z + n'*z
-        by apply less_equal_trans[y + n' * y][z + n' * y,z + n' * z] to yny_le_zny, zny_le_znz
+        by apply less_equal_trans to yny_le_zny, zny_le_znz
       suffices 0+0=0 
-        by replace apply sub_zero_iff_less_eq[y][z] to y_le_z
-                 | apply sub_zero_iff_less_eq[n'*y][n'*z] to ny_le_nz
-                 | apply sub_zero_iff_less_eq[y+n'*y][z+n'*z] to yny_le_znz
+        by replace apply sub_zero_iff_less_eq to y_le_z
+                 | apply sub_zero_iff_less_eq to ny_le_nz
+                 | apply sub_zero_iff_less_eq to yny_le_znz
       add_zero[0]
     } 
   }
