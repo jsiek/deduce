@@ -3,7 +3,6 @@
 This section provides links to the theorems defined in the Deduce standard library along with the source files for the Deduce standard library.
 
 - ([`Base.thm`](../lib/Base.thm), [`Base.pf`](../lib/Base.pf)): Base proofs about propositional and predicate logic
-- ([`Binary.thm`](../lib/Binary.thm), [`Binary.pf`](../lib/Binary.pf)): Binary numbers
 - ([`Int.thm`](../lib/Int.thm), [`Int.pf`](../lib/Int.pf)): Integers
 - ([`List.thm`](../lib/List.thm), [`List.pf`](../lib/List.pf)): Lists
 - ([`Log.thm`](../lib/Log.thm), [`Log.pf`](../lib/Log.pf)): Logarithms on natural numbers
