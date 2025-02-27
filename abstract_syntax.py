@@ -2977,7 +2977,15 @@ class RecFun(Statement):
 
   def substitute(self, sub):
     return self
-  
+
+def pretty_print_function(name, type_params, params, body):
+    return 'fun ' + complete_name(name) \
+        + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
+           if len(type_params) > 0 else '') \
+        + '(' + ', '.join([x + ':' + str(t) if t else x \
+                           for (x,t) in params]) + ')' \
+        + " {\n" + body.pretty_print(2, True) + "\n}\n"
+
 @dataclass
 class Define(Statement):
   name: str
@@ -2988,9 +2996,13 @@ class Define(Statement):
   def __str__(self):
     if isinstance(self.body, Lambda):
         params = [(base_name(x), t) for (x,t) in self.body.vars]
-        return 'fun ' + complete_name(self.name) \
-            + '(' + ', '.join([x + ':' + str(t) if t else x for (x,t) in params]) + ')' \
-            + " {\n" + self.body.body.pretty_print(2, True) + "\n}\n"
+        return pretty_print_function(self.name,[],params, self.body.body)
+    elif isinstance(self.body, Generic) \
+         and isinstance(self.body.body, Lambda):
+        typarams = self.body.type_params
+        params = [(base_name(x), t) for (x,t) in self.body.body.vars]
+        return pretty_print_function(self.name, typarams, params,
+                                     self.body.body.body)
     else:
         return 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') \
