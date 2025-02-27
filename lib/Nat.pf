@@ -50,9 +50,17 @@ recursive operator ≤(Nat,Nat) -> bool {
     }
 }
 
-define operator < : fn Nat,Nat -> bool = λ x, y { suc(x) ≤ y }
-define operator > : fn Nat,Nat -> bool = λ x, y { y < x }
-define operator ≥ : fn Nat,Nat -> bool = λ x, y { y ≤ x }
+fun operator < (x:Nat, y:Nat) {
+  suc(x) ≤ y
+}
+
+fun operator > (x:Nat, y:Nat) {
+  y < x
+}
+
+fun operator ≥ (x:Nat, y:Nat) {
+  y ≤ x
+}
 
 union Pos {
   one

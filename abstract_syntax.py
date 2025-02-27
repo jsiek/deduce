@@ -956,6 +956,14 @@ def add_reduced_def(df):
   global reduced_defs
   reduced_defs.add(df)
 
+def complete_name(name):
+    if base_name(name) in infix_precedence.keys() \
+       or base_name(name) in prefix_precedence.keys():
+        return 'operator ' + base_name(name)
+    else:
+        return base_name(name)
+    
+  
 def is_operator(trm):
   match trm:
     case Var(loc, tyof, name):
@@ -2843,7 +2851,9 @@ class Union(Statement):
     return self
       
   def pretty_print(self, indent):
-      return indent*' ' + 'union ' + base_name(self.name) + '<' + ','.join([base_name(t) for t in self.type_params]) + '> {\n' \
+      return indent*' ' + 'union ' + base_name(self.name) \
+          + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
+             else '') + ' {\n' \
         + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
         + indent*' ' + '}\n'
   
@@ -2940,7 +2950,9 @@ class RecFun(Statement):
       + '\n}'
 
   def pretty_print(self, indent):
-    return indent*' ' + 'recursive ' + base_name(self.name) + '<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
+    return indent*' ' + 'recursive ' + complete_name(self.name) \
+        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
+           else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns) + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
@@ -2974,7 +2986,7 @@ class Define(Statement):
   isPrivate: bool
 
   def __str__(self):
-    return 'define ' + base_name(self.name) \
+    return 'define ' + complete_name(self.name) \
       + (' : ' + str(self.typ) if self.typ else '') \
       + ' = ' + self.body.pretty_print(4, False) + '\n'
   
