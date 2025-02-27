@@ -778,12 +778,9 @@ proof
   arbitrary xs:List<T>, ys:List<T>
   suppose xs_ys
   equations
-    set_of(xs) = set_of_mset(mset_of(xs))
-               by symmetric som_mset_eq_set<T>[xs]
-           ... = set_of_mset(mset_of(ys))
-               by rewrite xs_ys
-	   ... = set_of(ys)
-               by som_mset_eq_set<T>[ys]
+    set_of(xs) = #set_of_mset(mset_of(xs))#   by replace som_mset_eq_set<T>[xs]
+           ... = set_of_mset(mset_of(ys))     by replace xs_ys
+	         ... = set_of(ys)                   by som_mset_eq_set<T>[ys]
 end
 
 theorem head_append: all E:type, L:List<E>, R:List<E>.
@@ -802,7 +799,7 @@ proof
     suppose pos_len
     equations
           head(node(x,xs) ++ R)
-        = just(x)                           by definition {operator++,head}
+        = just(x)                        by definition {operator++,head}
     ... =# head(node(x,xs)) #            by definition head
   }
 end
