@@ -1,9 +1,9 @@
 ./test/should-error/length_drop.pf:17.5-17.34: 
 suffices to prove:
-	length(switch xs { case [] { @[]<T> } case node(x,xs') { drop(n', xs') } }) = length(xs) - suc(n')
+	length(switch xs { case [] { @[]<T> } case node(x, xs') { drop(n', xs') } }) = length(xs) - suc(n')
 ./test/should-error/length_drop.pf:18.5-18.6: incomplete proof
 Goal:
-	length(switch xs { case [] { @[]<T> } case node(x,xs') { drop(n', xs') } }) = length(xs) - suc(n')
+	length(switch xs { case [] { @[]<T> } case node(x, xs') { drop(n', xs') } }) = length(xs) - suc(n')
 Advice:
 	To prove this equality, one of these statements might help:
 		definition

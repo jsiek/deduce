@@ -545,12 +545,9 @@ class PatternCons(Pattern):
   def __str__(self):
       if len(self.parameters) > 0:
         return str(self.constructor) \
-          + '(' + ",".join([base_name(p) for p in self.parameters]) + ')'
+          + '(' + ', '.join([base_name(p) for p in self.parameters]) + ')'
       else:
         return str(self.constructor)
-
-  # def __repr__(self):
-  #     return str(self)
 
   def uniquify(self, env):
     self.constructor.uniquify(env)
@@ -574,8 +571,8 @@ class Generic(Term):
 
   def pretty_print(self, indent, afterNewline=False):    
     return (indent*' ' if afterNewline else '') \
-        + "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
-      + " {\n" + self.body.pretty_print(indent+2, True) + '\n' \
+        + 'generic ' + ', '.join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
+      + ' {\n' + self.body.pretty_print(indent+2, True) + '\n' \
       + indent*' ' + '}'
 
   def __eq__(self, other):
@@ -834,7 +831,7 @@ class Lambda(Term):
   def pretty_print(self, indent, afterNewline=False):
     params = [(base_name(x), t)for (x,t) in self.vars]
     return (indent*' ' if afterNewline else '') \
-        + "fun " + ",".join([x + ':' + str(t) if t else x\
+        + "fun " + ', '.join([x + ':' + str(t) if t else x\
                             for (x,t) in params]) \
         + " {\n" + self.body.pretty_print(indent+2, True) + '\n'\
         + indent*' ' + '}'
@@ -2808,7 +2805,7 @@ class Constructor(AST):
     else:
       name = base_name(self.name)
     if len(self.parameters) > 0:
-      return name + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
+      return name + '(' + ', '.join([str(ty) for ty in self.parameters]) + ')'
     else:
       return name
   
@@ -2874,7 +2871,7 @@ class FunCase(AST):
 
   def pretty_print(self, indent):
       return indent*' ' + str(self.rator) + '(' + str(self.pattern) \
-          + (',' + ",".join([base_name(p) for p in self.parameters]) if len(self.parameters) > 0 else '') \
+          + (', ' + ', '.join([base_name(p) for p in self.parameters]) if len(self.parameters) > 0 else '') \
           + ') = ' + self.body.pretty_print(indent+2)
   
   def __str__(self):
