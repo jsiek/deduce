@@ -906,7 +906,8 @@ proof
   }
 end
 
-theorem not_less_less_equal:
+// was not_less_less_equal
+theorem not_less_implies_less_equal:
   all x: Nat. all y: Nat.
   if not (x < y) then y ≤ x
 proof
@@ -2480,7 +2481,7 @@ proof
 	      by have not_n_l_um: not (n < u' * M)
 	           by suffices not (n < u' * pos2nat(m))  by definition M
                       suppose p replace (definition M in n_l_um_false) in p
-		 apply not_less_less_equal to not_n_l_um
+		 apply not_less_implies_less_equal to not_n_l_um
 	    have um_r_eq_n: u' * M + R = n
 	      by suffices u' * M + (n - u' * M) = n  by definition R
 	         apply sub_add_identity[n][u' * M] to um_le_n

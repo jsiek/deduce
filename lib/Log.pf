@@ -52,7 +52,7 @@ proof
 	  by suppose pl_l_sn
              conclude false by rewrite pl_l_sn_false in pl_l_sn
         have sn_le_pl: suc(n) ≤ pow2(l)
-	  by apply not_less_less_equal[pow2(l)][suc(n)] to not_pl_l_sn
+	  by apply not_less_implies_less_equal[pow2(l)][suc(n)] to not_pl_l_sn
         have IH': m' + suc(n) ≤ pow2(find_log(m',suc(n),l))
 	  by apply IH[suc(n), l] to sn_le_pl
         conclude suc(m') + n ≤ pow2(find_log(m',suc(n),l))

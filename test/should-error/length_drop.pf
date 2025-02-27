@@ -1,7 +1,7 @@
 import List 
 import Nat
 
-theorem length_drop : <T> all n : Nat, xs : List<T>.
+theorem length_drop2 : <T> all n : Nat, xs : List<T>.
   length(drop(n, xs)) = length(xs) - n
 proof
   arbitrary T:type

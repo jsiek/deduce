@@ -57,6 +57,11 @@ class Term(AST):
   def reduce(self, env) -> Self:
     error(self.location, 'reduce not implemented')
 
+  def pretty_print(self, indent: int, afterNewline=False) -> str:
+      if afterNewline:
+          return indent*' ' + str(self)
+      else:
+          return str(self)
 
 @dataclass
 class Formula(Term):
@@ -64,11 +69,15 @@ class Formula(Term):
 
 @dataclass
 class Proof(AST):
-  pass
+    
+  def pretty_print(self, indent: int) -> str:
+      return str(self)
 
 @dataclass
 class Statement(AST):
-    pass
+    
+  def pretty_print(self, indent: int) -> str:
+      return str(self)
 
 ################ Miscellaneous Functions #####################
 
@@ -79,6 +88,8 @@ def copy_dict(d):
 def maybe_str(o: Optional[str], default='') -> str:
   return str(o) if o is not None else default
 
+def maybe_pretty_print(o: Optional[str], indent, default='') -> str:
+  return o.pretty_print(indent) if o is not None else default
 
 name_id = 0
 
@@ -559,10 +570,13 @@ class Generic(Term):
   
   def __str__(self):
     return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
-      + "{" + str(self.body) + "}"
+      + " { " + str(self.body) + " }"
 
-  # def __repr__(self):
-  #   return str(self)
+  def pretty_print(self, indent, afterNewline=False):    
+    return (indent*' ' if afterNewline else '') \
+        + "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
+      + " {\n" + self.body.pretty_print(indent+2, True) + '\n' \
+      + indent*' ' + '}'
 
   def __eq__(self, other):
       if not isinstance(other, Generic):
@@ -605,7 +619,13 @@ class Conditional(Term):
       return '(if ' + str(self.cond) \
         + ' then ' + str(self.thn) \
         + ' else ' + str(self.els) + ')'
-    
+
+  def pretty_print(self, indent, afterNewline=False):
+      return ('' if afterNewline else '\n') + indent*' ' + 'if ' + str(self.cond) + ' then\n' \
+          + self.thn.pretty_print(indent+2, True) + '\n'\
+          + indent*' ' + 'else\n' \
+          + self.els.pretty_print(indent+2, True)
+  
   def __eq__(self, other):
     if not isinstance(other, Conditional):
       return False
@@ -809,7 +829,15 @@ class Lambda(Term):
       params = [(base_name(x), t)for (x,t) in self.vars]
     return "fun " + ",".join([x + ':' + str(t) if t else x\
                               for (x,t) in params]) \
-           + "{" + str(self.body) + "}"
+           + " { " + str(self.body) + " }"
+
+  def pretty_print(self, indent, afterNewline=False):
+    params = [(base_name(x), t)for (x,t) in self.vars]
+    return (indent*' ' if afterNewline else '') \
+        + "fun " + ",".join([x + ':' + str(t) if t else x\
+                            for (x,t) in params]) \
+        + " {\n" + self.body.pretty_print(indent+2, True) + '\n'\
+        + indent*' ' + '}'
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
@@ -1258,8 +1286,13 @@ class SwitchCase(AST):
                       self.body.copy())
   
   def __str__(self):
-      return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
+      return 'case ' + str(self.pattern) + ' { ' + str(self.body) + ' }'
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'case ' + str(self.pattern) + ' {\n' \
+          + (indent+2)*' ' + str(self.body) + '\n'\
+          + indent*' ' + '}'
+  
   def reduce(self, env):
       n = len(self.pattern.parameters)
       return SwitchCase(self.location,
@@ -1317,6 +1350,11 @@ class Switch(Term):
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
 
+  def pretty_print(self, indent, afterNewline=False):
+      return ('' if afterNewline else '\n') + indent*' '+ 'switch ' + str(self.subject) + ' {\n' \
+          + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'\
+          + indent*' ' + '}'
+  
   def reduce(self, env):
       new_subject = self.subject.reduce(env)
       for c in self.cases:
@@ -1972,6 +2010,9 @@ class PVar(Proof):
     if not isinstance(other, PVar):
       return False
     return self.name == other.name
+
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
       return base_name(self.name)
@@ -1992,6 +2033,12 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
+          + self.because.pretty_print(indent+2) + '\n' \
+          + indent*' ' + '}\n' \
+          + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
@@ -2011,6 +2058,10 @@ class PTLetNew(Proof):
   rhs : Term
   body: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
+          + self.body.pretty_print(indent)
+  
   def __str__(self):
       return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
@@ -2028,6 +2079,9 @@ class PTLetNew(Proof):
 class PRecall(Proof):
   facts: List[Formula]
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return 'recall ' + ', '.join([str(f) for f in self.facts])
 
@@ -2041,6 +2095,11 @@ class PAnnot(Proof):
   claim: Formula
   reason: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
+          + self.reason.pretty_print(indent+2) + '\n' \
+          + indent*' ' + '}\n'
+  
   def __str__(self):
       return 'conclude ' + str(self.claim) + ' by ' + str(self.reason)
 
@@ -2054,6 +2113,11 @@ class Suffices(Proof):
   reason: Proof
   body: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'suffices ' + str(self.claim) + '  by {\n' \
+          + self.reason.pretty_print(indent+2) + '\n' \
+          + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + maybe_str(self.body)
 
@@ -2067,6 +2131,14 @@ class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Formula,Proof]]
 
+  def pretty_print(self, indent):
+      cases_str = ''
+      for (label, frm, body) in cases:
+          cases_str += indent*' ' + 'case ' + base_name(label) + ' : ' + str(frm) + '{\n' \
+              + body.pretty_print(indent+2) + '\n' \
+              + indent*' ' + '}'
+      return '\n'.join(cases_str) + '\n'
+      
   def uniquify(self, env):
     self.subject.uniquify(env)
     i = 0
@@ -2090,6 +2162,9 @@ class ModusPonens(Proof):
   implication: Proof
   arg: Proof
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
 
@@ -2103,6 +2178,11 @@ class ImpIntro(Proof):
   premise: Formula
   body: Proof
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'assume ' + str(self.label) + \
+      (': ' + str(self.premise) if self.premise else '') + '\n'\
+      + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'assume ' + str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + \
@@ -2123,7 +2203,7 @@ class AllIntro(Proof):
   pos: Tuple[int, int]
   body: Proof
 
-  def __str__(self):
+  def arbitrary_str(self):
     s, e = self.pos
     x, t = self.var
     res = ''
@@ -2134,8 +2214,14 @@ class AllIntro(Proof):
       res += ";"
     else:
       res += ","
-    
-    return res + maybe_str(self.body)
+    return res
+
+  def pretty_print(self, indent):
+      return indent*' ' + self.arbitrary_str() + '\n' \
+          + maybe_pretty_print(self.body, indent)
+  
+  def __str__(self):
+    return self.arbitrary_str() + maybe_str(self.body)
 
   def uniquify(self, env):
     body_env = copy_dict(env)
@@ -2159,6 +2245,9 @@ class AllElimTypes(Proof):
   arg: Type
   pos: Tuple[int, int]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     print(self.pos)
     s, e = self.pos
@@ -2183,6 +2272,9 @@ class AllElim(Proof):
   arg: Term
   pos: Tuple[int, int]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     s, e = self.pos
     res = str(self.univ)
@@ -2205,6 +2297,10 @@ class SomeIntro(Proof):
   witnesses: List[Term]
   body: Proof
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
+        + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'choose ' + ",".join([str(t) for t in self.witnesses]) \
         + '; ' + maybe_str(self.body)
@@ -2221,6 +2317,13 @@ class SomeElim(Proof):
   prop: Formula
   some: Proof
   body: Proof
+  
+  def pretty_print(self, indent):
+    return indent*' ' + 'obtain ' + ",".join(self.witnesses) \
+      + ' where ' + self.label \
+      + (' : ' + str(self.prop) if self.prop else '') \
+      + ' from ' + str(self.some)  + '\n'\
+      + maybe_pretty_print(self.body, indent)
 
   def __str__(self):
     return 'obtain ' + ",".join(self.witnesses) \
@@ -2249,6 +2352,9 @@ class SomeElim(Proof):
 class PTuple(Proof):
   args: List[Proof]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return ', '.join([str(arg) for arg in self.args])
 
@@ -2268,6 +2374,9 @@ class PAndElim(Proof):
   which: int
   subject: Proof
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
 
@@ -2276,6 +2385,9 @@ class PAndElim(Proof):
       
 @dataclass
 class PTrue(Proof):
+  
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
     return '.'
@@ -2286,6 +2398,9 @@ class PTrue(Proof):
 @dataclass
 class PReflexive(Proof):
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'reflexive'
   
@@ -2295,6 +2410,9 @@ class PReflexive(Proof):
 @dataclass
 class PHole(Proof):
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return '?'
     
@@ -2303,6 +2421,9 @@ class PHole(Proof):
 
 @dataclass
 class PSorry(Proof):
+  
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
       return 'sorry'
@@ -2314,6 +2435,9 @@ class PSorry(Proof):
 class PHelpUse(Proof):
   proof : Proof
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return 'help ' + str(self.proof)
     
@@ -2323,6 +2447,9 @@ class PHelpUse(Proof):
 @dataclass
 class PSymmetric(Proof):
   body: Proof
+  
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
     return 'symmetric ' + str(self.body)
@@ -2334,6 +2461,10 @@ class PSymmetric(Proof):
 class PTransitive(Proof):
   first: Proof
   second: Proof
+  
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
 
@@ -2346,6 +2477,10 @@ class PInjective(Proof):
   constr: Type
   body: Proof
   
+  def pretty_print(self, indent):
+    return indent*' ' + 'injective ' + str(self.constr) + '\n' \
+        + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'injective ' + str(self.constr) + '; ' + maybe_str(self.body)
 
@@ -2357,8 +2492,12 @@ class PInjective(Proof):
 class PExtensionality(Proof):
   body: Proof
   
+  def pretty_print(self, indent):
+    return indent*' ' + 'extensionality\n' \
+        + maybe_pretty_print(self.body, indent)
+
   def __str__(self):
-    return 'extensionality;\n' + maybe_str(self.body)
+    return 'extensionality\n' + maybe_str(self.body)
 
   def uniquify(self, env):
     self.body.uniquify(env)
@@ -2369,6 +2508,13 @@ class IndCase(AST):
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'case ' + str(self.pattern) \
+      + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
+      + '{\n' \
+      + self.body.pretty_print(indent+2) \
+      + indent*' ' + '}\n'
+      
   def __str__(self):
     return 'case ' + str(self.pattern) \
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
@@ -2398,6 +2544,10 @@ class Induction(Proof):
   typ: Type
   cases: List[IndCase]
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'induction ' + str(self.typ) + '\n' \
+      + '\n'.join([c.pretty_print(indent) for c in self.cases])
+
   def __str__(self):
     return 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([str(c) for c in self.cases])
@@ -2412,6 +2562,11 @@ class SwitchProofCase(AST):
   pattern: Pattern
   assumptions: list[Tuple[str,Formula]]
   body: Proof
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'case ' + str(self.pattern) + '{\n' \
+        + self.body.pretty_print(indent+2) \
+        + indent*' ' + '}\n'
 
   def __str__(self):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
@@ -2440,6 +2595,11 @@ class SwitchProof(Proof):
   subject: Term
   cases: List[SwitchProofCase]
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'switch ' + str(self.subject) + '{\n' \
+          + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) \
+          + indent*' ' + '}\n'
+      
   def __str__(self):
       return 'switch ' + str(self.subject) \
         + '{' + '\n'.join([str(c) for c in self.cases]) + '}'
@@ -2452,6 +2612,9 @@ class SwitchProof(Proof):
 @dataclass
 class EvaluateGoal(Proof):
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'evaluate'
 
@@ -2462,6 +2625,9 @@ class EvaluateGoal(Proof):
 class EvaluateFact(Proof):
   subject: Proof
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'evaluate ' + str(self.subject)
 
@@ -2472,8 +2638,11 @@ class EvaluateFact(Proof):
 class ApplyDefs(Proof):
   definitions: List[Term]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
-      return 'definition { ' + ', '.join([str(d) for d in self.definitions]) + ' }'
+      return 'definition ' + ' | '.join([str(d) for d in self.definitions])
 
   def uniquify(self, env):
     for d in self.definitions:
@@ -2499,7 +2668,7 @@ class ApplyDefsFact(Proof):
   subject: Proof
 
   def __str__(self):
-      return 'definition ' + ', '.join([str(d) for d in self.definitions]) \
+      return 'definition ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
@@ -2593,7 +2762,7 @@ class Theorem(Statement):
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
-      + '\nproof\n' + str(self.proof) + '\nend\n'
+      + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
 
   def uniquify(self, env):
     if self.name in env.keys():
@@ -2614,6 +2783,9 @@ class Constructor(AST):
   name: str
   parameters: List[Type]
 
+  def pretty_print(self, indent):
+      return indent*' ' + str(self)
+  
   def uniquify(self, env, body_env):
     for ty in self.parameters:
       ty.uniquify(body_env)
@@ -2670,6 +2842,11 @@ class Union(Statement):
   def substitute(self, sub):
     return self
       
+  def pretty_print(self, indent):
+      return indent*' ' + 'union ' + base_name(self.name) + '<' + ','.join([base_name(t) for t in self.type_params]) + '> {\n' \
+        + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
+        + indent*' ' + '}\n'
+  
   def __str__(self):
     if get_verbose():
       return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
@@ -2685,6 +2862,11 @@ class FunCase(AST):
   parameters: List[str]
   body: Term
 
+  def pretty_print(self, indent):
+      return indent*' ' + str(self.rator) + '(' + str(self.pattern) \
+          + (',' + ",".join([base_name(p) for p in self.parameters]) if len(self.parameters) > 0 else '') \
+          + ') = ' + self.body.pretty_print(indent+2)
+  
   def __str__(self):
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
@@ -2743,7 +2925,7 @@ class RecFun(Statement):
     if self.isPrivate:
       return
     extend(export_env, base_name(self.name), self.name, self.location)
-    
+
   def __str__(self):
     if get_verbose():
       return self.to_string()
@@ -2756,6 +2938,13 @@ class RecFun(Statement):
       + ' -> ' + str(self.returns) + '{\n' \
       + '\n'.join([str(c) for c in self.cases]) \
       + '\n}'
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'recursive ' + base_name(self.name) + '<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
+      + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
+      + ' -> ' + str(self.returns) + '{\n' \
+      + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
+      + '}\n'
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -2785,9 +2974,9 @@ class Define(Statement):
   isPrivate: bool
 
   def __str__(self):
-    return 'define ' + self.name \
+    return 'define ' + base_name(self.name) \
       + (' : ' + str(self.typ) if self.typ else '') \
-      + ' = ' + maybe_str(self.body)
+      + ' = ' + self.body.pretty_print(4, False) + '\n'
   
   def uniquify(self, env):
     if self.typ:
@@ -3384,6 +3573,8 @@ def print_theorems(filename, ast):
   for s in ast:
     if isinstance(s, Theorem) and not s.isLemma:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+    elif hasattr(s, 'isPrivate') and not s.isPrivate:
+      to_print.append(s.pretty_print(0))
   
   if len(to_print) == 0:
     return
