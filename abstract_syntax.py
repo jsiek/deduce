@@ -2986,9 +2986,15 @@ class Define(Statement):
   isPrivate: bool
 
   def __str__(self):
-    return 'define ' + complete_name(self.name) \
-      + (' : ' + str(self.typ) if self.typ else '') \
-      + ' = ' + self.body.pretty_print(4, False) + '\n'
+    if isinstance(self.body, Lambda):
+        params = [(base_name(x), t) for (x,t) in self.body.vars]
+        return 'fun ' + complete_name(self.name) \
+            + '(' + ', '.join([x + ':' + str(t) if t else x for (x,t) in params]) + ')' \
+            + " {\n" + self.body.body.pretty_print(2, True) + "\n}\n"
+    else:
+        return 'define ' + complete_name(self.name) \
+            + (' : ' + str(self.typ) if self.typ else '') \
+            + ' = ' + self.body.pretty_print(4, False) + '\n'
   
   def uniquify(self, env):
     if self.typ:
