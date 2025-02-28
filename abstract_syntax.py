@@ -1834,6 +1834,9 @@ class IfThen(Formula):
 @dataclass
 class All(Formula):
   var: Tuple[str,Type]
+  # Position (s, e), where 
+  #  e : The number of vars in the block
+  #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Formula
 
@@ -2120,6 +2123,9 @@ class ImpIntro(Proof):
 @dataclass
 class AllIntro(Proof):
   var: Tuple[str,Type]
+  # Position (s, e), where 
+  #  e : The number of vars in the all intro list
+  #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Proof
 
@@ -2157,6 +2163,9 @@ class AllIntro(Proof):
 class AllElimTypes(Proof):
   univ: Proof
   arg: Type
+  # Position (s, e), where 
+  #  e : The number of vars in the block
+  #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
   def __str__(self):
@@ -2181,6 +2190,9 @@ class AllElimTypes(Proof):
 class AllElim(Proof):
   univ: Proof
   arg: Term
+  # Position (s, e), where 
+  #  e : The number of vars in the list
+  #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
   def __str__(self):
