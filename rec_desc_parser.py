@@ -1198,7 +1198,7 @@ def parse_proof():
           if not ex.missing:
               raise ex
           else:
-              body = PHole(meta_from_tokens(start_token, previous_token()))
+              body = PHole(meta_from_tokens(current_token(), current_token()))
         except Exception as e:
             raise ParseError(meta_from_tokens(current_token(), previous_token()), "Unexpected error while parsing:\n\t" \
               + str(e))
