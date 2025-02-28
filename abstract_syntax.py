@@ -1877,6 +1877,9 @@ class IfThen(Formula):
 @dataclass
 class All(Formula):
   var: Tuple[str,Type]
+  # Position (s, e), where 
+  #  e : The number of vars in the block
+  #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Formula
 
@@ -2205,6 +2208,9 @@ class ImpIntro(Proof):
 @dataclass
 class AllIntro(Proof):
   var: Tuple[str,Type]
+  # Position (s, e), where 
+  #  e : The number of vars in the all intro list
+  #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Proof
 
@@ -2248,6 +2254,9 @@ class AllIntro(Proof):
 class AllElimTypes(Proof):
   univ: Proof
   arg: Type
+  # Position (s, e), where 
+  #  e : The number of vars in the block
+  #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
   def pretty_print(self, indent):
@@ -2275,6 +2284,9 @@ class AllElimTypes(Proof):
 class AllElim(Proof):
   univ: Proof
   arg: Term
+  # Position (s, e), where 
+  #  e : The number of vars in the list
+  #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
   def pretty_print(self, indent):
@@ -3059,7 +3071,7 @@ class Print(Statement):
   
 def find_file(loc, name):
   for dir in get_import_directories():
-    filename = dir + "/" + name + ".pf"
+    filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename
   error(loc, 'could not find a file for import: ' + name)
