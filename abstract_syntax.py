@@ -2855,7 +2855,7 @@ class Print(Statement):
   
 def find_file(loc, name):
   for dir in get_import_directories():
-    filename = dir + "/" + name + ".pf"
+    filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename
   error(loc, 'could not find a file for import: ' + name)

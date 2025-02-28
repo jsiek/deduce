@@ -854,8 +854,8 @@ def update_all_head(r):
           return All(loc2, tyof, var, (s, e-1), frm)
         else:
           return All(loc2, tyof, var, (s, e-1), update_all_head(frm))
-      case _: # THIS SHOULD NEVER HAPPEN
-        error(loc2, "update_all_head internal error")
+      case _:
+        return r
     
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
@@ -943,7 +943,7 @@ def proof_advice(formula, env):
                                    if is_recursive(name, ty)]
                       ind_advice += ' assume '
                       ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' \
-                            + str(body.substitute({var_x: Var(loc3, param_ty, param, [])})) \
+                            + str(update_all_head(body.substitute({var_x: Var(loc3, param_ty, param, [])}))) \
                             for i, (param,param_ty) in enumerate(rec_params)])
 
                     ind_advice += ' {\n\t\t  ?\n\t\t}\n'

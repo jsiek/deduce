@@ -12,7 +12,7 @@ Advice:
 		case zero {
 		  ?
 		}
-		case suc(N1) assume IH1: y:Nat, z:Nat. N1 + ((y + z) + 0) = N1 + (y + z) {
+		case suc(N1) assume IH1: (all y:Nat, z:Nat. N1 + ((y + z) + 0) = N1 + (y + z)) {
 		  ?
 		}
 
