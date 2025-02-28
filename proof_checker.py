@@ -532,7 +532,10 @@ def check_proof(proof, env):
           error(loc, 'expected a conjunction, not ' + str(formula))
           
     case ImpIntro(loc, label, prem, body):
-      new_prem = check_formula(prem, env)
+      if prem is not None:
+          new_prem = check_formula(prem, env)
+      else:
+          new_prem = None
       body_env = env.declare_local_proof_var(loc, label, new_prem)
       conc = check_proof(body, body_env)
       ret = IfThen(loc, BoolType(loc), new_prem, conc)

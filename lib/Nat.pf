@@ -267,35 +267,33 @@ end
 theorem add_suc: all m:Nat. all n:Nat.
   m + suc(n) = suc(m + n)
 proof
-  enable {operator +}
   induction Nat
   case 0 {
     arbitrary n : Nat
-    conclude 0 + suc(n) = suc(0 + n)  by .
+    conclude 0 + suc(n) = suc(0 + n)  by evaluate
   }
   case suc(n') suppose IH {
     arbitrary n : Nat
     equations
-      suc(n') + suc(n) = suc(n' + suc(n))  by .
+      suc(n') + suc(n) = suc(n' + suc(n))  by evaluate
                    ... = suc(suc(n' + n))  by replace IH
-                   ... = suc(suc(n') + n)  by .
+                   ... = suc(suc(n') + n)  by evaluate
   }
 end
 
 theorem add_commute: all n:Nat. all m:Nat.  n + m = m + n
 proof
-  enable {operator +}
   induction Nat
   case 0 {
     arbitrary m : Nat
-    equations  0 + m = m      by .
+    equations  0 + m = m      by evaluate
                  ... = m + 0  by symmetric add_zero[m]
   }
   case suc(n') suppose IH {
     arbitrary m : Nat
-    equations suc(n') + m = suc(n' + m)  by .
-                      ... = suc(m + n')  by replace IH
-                      ... = m + suc(n')  by symmetric add_suc[m][n']
+    equations suc(n') + m = suc(n' + m)     by evaluate
+                      ... = suc(m + n')     by replace IH
+                      ... = # m + suc(n') # by replace add_suc
   }
 end
 
@@ -342,14 +340,13 @@ end
 theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y = x + z then y = z
 proof
-  enable {operator +}
   induction Nat
   case 0 {
     arbitrary y:Nat, z:Nat
     suppose prem: 0 + y = 0 + z
-    equations   y = 0 + y      by .
+    equations   y = 0 + y      by evaluate
               ... = 0 + z      by prem
-              ... = z          by .
+              ... = z          by evaluate
   }
   case suc(x') suppose IH: all y:Nat, z:Nat. if x' + y = x' + z then y = z {
     arbitrary y:Nat, z:Nat
@@ -358,7 +355,7 @@ proof
     apply IH[y,z] to {
       suffices x' + y = x' + z by .
       injective suc
-      conclude suc(x' + y) = suc(x' + z)  by prem
+      conclude suc(x' + y) = suc(x' + z)  by evaluate in prem
     }
   }
 end
@@ -822,10 +819,12 @@ end
 
 theorem less_equal_refl: all n:Nat. n ≤ n
 proof
-  enable {operator ≤}
   induction Nat
-  case 0 { conclude 0 ≤ 0  by . }
-  case suc(n') suppose IH { conclude suc(n') ≤ suc(n')  by IH }
+  case 0 { conclude 0 ≤ 0  by evaluate }
+  case suc(n') suppose IH {
+    suffices n' ≤ n' by evaluate
+    IH
+  }
 end
 
 theorem equal_implies_less_equal: all x:Nat, y:Nat.
@@ -863,9 +862,8 @@ proof
         conclude false by definition operator ≤ in (recall suc(x') ≤ 0)
       }
       case suc(y') suppose y_suc {
-        enable {operator ≤}
-        have: x' ≤ y' by replace y_suc in sxy_ysx
-        have: y' ≤ x' by replace y_suc in sxy_ysx
+        have: x' ≤ y' by evaluate in replace y_suc in sxy_ysx
+        have: y' ≤ x' by evaluate in replace y_suc in sxy_ysx
         have: x' = y' by IH[y'], (recall x' ≤ y', y' ≤ x')
         conclude suc(x') = suc(y') by replace (recall x' = y')
       }
@@ -876,12 +874,11 @@ end
 theorem less_equal_trans: all m:Nat. all n:Nat, o:Nat.
   if m ≤ n and n ≤ o then m ≤ o
 proof
-  enable {operator ≤}
   induction Nat
   case 0 {
     arbitrary n:Nat, o:Nat
     suppose _
-    conclude 0 ≤ o  by .
+    conclude 0 ≤ o  by evaluate
   }
   case suc(m') suppose IH {
     arbitrary n:Nat, o:Nat
@@ -891,22 +888,23 @@ proof
     switch n {
       case 0 suppose nz {
         have: suc(m') ≤ 0  by replace nz in (recall suc(m') ≤ n)
-        conclude false  by recall suc(m') ≤ 0
+        conclude false  by evaluate in recall suc(m') ≤ 0
       }
       case suc(n') suppose: n = suc(n') {
         have sm_sn: suc(m') ≤ suc(n')
             by replace (recall n = suc(n')) in (recall suc(m') ≤ n)
-        have: m' ≤ n'  by sm_sn
+        have: m' ≤ n'  by evaluate in sm_sn
         have: suc(n') ≤ o  by replace (recall n = suc(n')) in (recall n ≤ o)
         switch o {
           case 0 suppose: o = 0 {
             have: suc(n') ≤ 0  by replace (recall o = 0) in (recall suc(n') ≤ o)
-            conclude false  by recall suc(n') ≤ 0
+            conclude false  by evaluate in recall suc(n') ≤ 0
           }
           case suc(o') suppose os {
             have: suc(n') ≤ suc(o')  by replace os in (recall suc(n') ≤ o)
-            have: n' ≤ o'  by recall suc(n') ≤ suc(o')
-            conclude m' ≤ o'  by IH[n',o'], recall m' ≤ n', n' ≤ o'
+            have: n' ≤ o'  by evaluate in recall suc(n') ≤ suc(o')
+            suffices m' ≤ o' by evaluate
+            IH[n',o'], recall m' ≤ n', n' ≤ o'
           }
         }
       }
@@ -959,8 +957,7 @@ proof
   induction Nat
   case zero {
     suppose z_l_z: 0 < 0
-    enable {operator <, operator ≤}
-    conclude false by z_l_z
+    conclude false by evaluate in z_l_z
   }
   case suc(x') suppose IH: not (x' < x') {
     suppose sx_l_sx: suc(x') < suc(x')
@@ -1148,17 +1145,22 @@ proof
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
-    suppose sx_less_y
-    suppose y_less_sx
+    suppose sx_less_y: suc(x') < y
+    suppose y_less_sx: y < suc(x')
     switch y {
       case zero suppose y_eq_zero {
         conclude false by (definition {operator <, operator ≤} in
                        (replace y_eq_zero in sx_less_y))
       }
       case suc(y') suppose ys {
-        enable {operator<,operator≤}
-        have x_less_y: x' < y'  by replace ys in sx_less_y
-        have y_less_x: y' < x'  by replace ys in y_less_sx
+        have x_less_y: x' < y'  by {
+          suffices __ by evaluate
+          evaluate in replace ys in sx_less_y
+        }
+        have y_less_x: y' < x'  by {
+          suffices __ by evaluate
+          evaluate in replace ys in y_less_sx
+        }
         conclude false by apply (apply IH[y'] to x_less_y) to y_less_x
       }
     }
@@ -2051,23 +2053,38 @@ proof
     suppose f_g: all i:Nat. if s ≤ i and i < s + suc(k') then f(i) = g(i)
     suffices f(s) + summation(k',suc(s),f) = g(s) + summation(k',suc(s),g)
         by definition summation
-    have f_g_s: f(s) = g(s) by
-        (have s_s: s ≤ s by less_equal_refl[s]
-         have s_sk: s < s + suc(k') by (enable {operator <,operator ≤}
-                                        suffices s ≤ s + k'    by replace add_suc
-                                        less_equal_add[s][k'])
-         apply f_g[s] to s_s, s_sk)
-    have IH': summation(k',suc(s),f) = summation(k',suc(s),g)
-                  by apply IH[f,g,suc(s)] to (arbitrary i:Nat suppose ss_i_and_i_ss_k
-                                              have s_i: s ≤ i by
-                                                 apply less_implies_less_equal[s][i]
-                                                 to suffices suc(s) ≤ i  by definition operator <
-                                                    ss_i_and_i_ss_k
-                                              have i_s_k: i < s + suc(k') by
-                                                 enable {operator <, operator +}
-                                                 suffices suc(i) ≤ suc(s + k')  by replace add_suc
-                                                 (conjunct 1 of ss_i_and_i_ss_k)
-                                              conclude f(i) = g(i) by apply f_g[i] to s_i, i_s_k)
+    have f_g_s: f(s) = g(s) by {
+      have s_s: s ≤ s by less_equal_refl[s]
+      have s_sk: s < s + suc(k') by {
+        enable {operator <,operator ≤}
+        suffices s ≤ s + k'    by replace add_suc
+        less_equal_add[s][k']
+      }
+      apply f_g[s] to s_s, s_sk
+    }
+    have IH': summation(k',suc(s),f) = summation(k',suc(s),g) by {
+      have IH_prem: all i:Nat. if (suc(s) ≤ i and i < suc(s) + k')
+                               then f(i) = g(i) by
+      {
+        arbitrary i:Nat
+        suppose ss_i_and_i_ss_k
+        have s_i: s ≤ i by {
+          apply less_implies_less_equal[s][i]
+          to suffices suc(s) ≤ i  by definition operator <
+          ss_i_and_i_ss_k
+        } 
+        have i_s_k: i < s + suc(k') by {
+          suffices suc(i) ≤ suc(s + k')  by {
+            suffices __ by evaluate
+            replace add_suc
+          }
+          suffices i ≤ s + k' by evaluate
+          evaluate in (conjunct 1 of ss_i_and_i_ss_k)
+        }
+        conclude f(i) = g(i) by apply f_g[i] to s_i, i_s_k
+      }
+      apply IH[f,g,suc(s)] to IH_prem
+    }
     replace f_g_s | IH'
   }
 end
