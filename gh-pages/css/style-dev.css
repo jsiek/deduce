@@ -713,6 +713,17 @@ section.example {
     }
 }
 
+section.credits {
+    margin-top: 40px;
+
+    h2 {
+        margin-top: 0;
+        margin-bottom: 10px;
+
+        font-size: 2rem;
+    }
+}
+
 footer, deduce-footer {
     display: flex;
     justify-content: space-between;
