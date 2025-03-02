@@ -1889,6 +1889,9 @@ def parse_type_annot_list():
   return type_annot_list
 
 def parse_var_list():
+  if current_token().type == 'RPAR':
+      return []
+      
   ident = parse_identifier()
   if current_token().type == 'COLON':
     advance()
