@@ -78,9 +78,9 @@ fun operator ≥ (x:Nat, y:Nat) {
  */
 private recursive quotient(Nat,Nat,Nat,Nat) -> Nat {
   quotient(0, n, m, q) = q
-  quotient(suc(k), n, m, q) =
+  quotient(suc(u), n, m, q) =
     if suc(q) * m ≤ n then
-      quotient(k, n, m, suc(q))
+      quotient(u, n, m, suc(q))
     else
       q
 }
@@ -1365,6 +1365,19 @@ proof
   }
 end
 
+theorem sub_right_cancel: all x:Nat, y:Nat, a:Nat.
+  if x - a = y - a and a ≤ x and a ≤ y
+  then x = y
+proof
+  arbitrary x:Nat, y:Nat, a:Nat
+  assume prem
+  have eq1: x - a = y - a by prem
+  have eq2: (x - a) + a = (y - a) + a  by replace eq1
+  have eq3: a + (x - a) = a + (y - a)  by replace add_commute in eq2
+  conclude x = y by replace (apply sub_add_identity[x,a] to prem)
+    | (apply sub_add_identity[y,a] to prem) in eq3
+end
+  
 theorem less_equal_add_sub: all m:Nat. all n:Nat, o:Nat.
   if n ≤ m and m ≤ n + o
   then m - n ≤ o
@@ -2701,31 +2714,3 @@ proof
   replace mod_one | add_zero in eq2
 end
 
-/* UNDER CONSTRUCTION
-theorem add_mult_div: all n:Nat, m:Nat, k:Nat.
-  if 0 < m
-  then (n + k*m) / m = k + n/m
-proof
-  arbitrary n:Nat, m:Nat, k:Nat
-  assume m_pos
-  have p1: 0 * m ≤ n by evaluate
-  have p2: n < (1 + (0 + (n + k * m))) * m by {
-    obtain m' where m_sm: m = suc(m') from apply positive_suc to m_pos
-    suffices __ by replace m_sm | zero_add | dist_mult_add_right[1,n] | mult_commute[n]
-      | suc_one_add[m'] | dist_mult_add_right[1,m',n] | one_mult | dist_mult_add | mult_one
-      | add_commute[m',n] | add_commute[1,n]
-    suffices __ by definition operator< and replace suc_one_add[n] | add_commute[n,1]
-    less_equal_add[1+n]
-  }
-  suffices quotient(n + k * m, n + k * m, m, 0) = k + quotient(n, n, m, 0)
-    by definition operator/
-  have eq1: quotient(n + k * m, n + k * m, m, k) = k + quotient(n + k * m, n, m, 0) by {
-    replace add_commute[k*m,n] | add_zero in
-    apply quotient_add[n+k*m, k, n, m, 0] to p1, p2
-  }
-  // need lemmas to adjust the first and last parameters!
-  have eq2: quotient(n + k * m, n + k * m, m, 0) = quotient(n + k * m, n + k * m, m, k) by sorry
-  have eq3: k + quotient(n + k * m, n, m, 0) = k + quotient(n, n, m, 0) by sorry
-  transitive eq2 (transitive eq1 eq3)
-end
-*/
