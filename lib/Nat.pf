@@ -70,7 +70,7 @@ fun operator ≥ (x:Nat, y:Nat) {
  when another increment would overshoot n, that is, (1+q)*m > n.
 
  The u parameter serves as gasoline. Choose u to satisfy n < (1 + q + u)*m 
- to ensure that find_quotient does not run out of gas before finding the
+ to ensure that quotient does not run out of gas before finding the
  quotient. For example, u = n is a convenient choice for the initial q=0.
 
  Precondition: q * m ≤ n and n < (1 + q + u) * m
