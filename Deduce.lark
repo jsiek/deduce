@@ -280,8 +280,6 @@ ident: IDENT              -> ident
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?private: "private" statement -> private
-
 ?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
  | "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
@@ -289,8 +287,6 @@ ident: IDENT              -> ident
 
 ?definition: "define" ident "=" term      -> define
  | "define" ident ":" type "=" term       -> define_annot
-
-?opaque: "opaque" definition                       -> opaque
 
 ?import: "import" IDENT                            -> import
 
@@ -305,11 +301,11 @@ ident: IDENT              -> ident
  | function
  | definition
 
-?accesibility: "private"
-    | "opaque"
+?access_decl: "private" declaration    -> private_decl
+    | "opaque" declaration             -> opaque_decl
 
 ?statement: declaration
- | accesibility declaration
+ | access_decl -> add_access
  | assoc_decl
  | import
  | assert

@@ -696,17 +696,21 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'print':
         return Print(e.meta, parse_tree_to_ast(e.children[0], e))
 
-    elif e.data == 'private':
+    # accessibility
+    elif (e.data == 'add_access'):
+        return parse_tree_to_ast(e.children[0], e)
+
+    elif e.data == 'private_decl':
         statement = parse_tree_to_ast(e.children[0], e)
         statement.isPrivate = True
         return statement
     
-    elif e.data == 'opaque':
+    elif e.data == 'opaque_decl':
         statement = parse_tree_to_ast(e.children[0], e)
         statement.makeOpaque = True
         statement.file_defined = get_filename()
         return statement
-
+    
     # whole program
     elif e.data == 'program':
         if e.children == []: # Allowing for empty programs
