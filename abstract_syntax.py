@@ -175,11 +175,11 @@ class Proof(AST):
 class Statement(AST):
     pass
 
-@dataclass
+@dataclass(kw_only=True)
 class Declaration(AST):
-  isPrivate: bool
+  isPrivate: bool = False
   makeOpaque: bool = False
-  file_defined : str = ''
+  file_defined: str = ''
 
   def is_opaque(self):
     if get_recursive_descent():
@@ -2542,10 +2542,9 @@ class Theorem(Declaration):
   name: str
   what: Formula
   proof: Proof
-  isLemma: bool
 
   def __str__(self):
-    return ('lemma ' if self.isLemma else 'theorem ') \
+    return ('lemma ' if self.isPrivate else 'theorem ') \
       + self.name + ': ' + str(self.what) \
       + '\nproof\n' + str(self.proof) + '\nend\n'
 
@@ -2560,7 +2559,7 @@ class Theorem(Declaration):
     self.name = new_name
     
   def collect_exports(self, export_env):
-    if not self.isLemma:
+    if not self.isPrivate:
       export_env[base_name(self.name)] = [self.name]
     
 @dataclass
@@ -2592,7 +2591,6 @@ class Union(Declaration):
   name: str
   type_params: List[str]
   alternatives: List[Constructor]
-  isPrivate: bool
 
   def reduce(self, env):
     return self
@@ -2670,7 +2668,6 @@ class RecFun(Declaration):
   params: List[Type]
   returns: Type
   cases: List[FunCase]
-  isPrivate: bool
 
   def uniquify(self, env):
     new_name = generate_name(self.name)
@@ -2966,7 +2963,7 @@ def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):
       match binding.defn:
-        case Union(loc2, name, typarams, alts, isPrivate):
+        case Union(loc2, name, typarams, alts):
           for constr in alts:
             if constr.name == constr_name:
               return True
@@ -3320,7 +3317,7 @@ def print_theorems(filename, ast):
   theorem_filename = fullpath.with_suffix('.thm')
   to_print = []
   for s in ast:
-    if isinstance(s, Theorem) and not s.isLemma:
+    if isinstance(s, Theorem) and not s.isPrivate:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
   
   if len(to_print) == 0:

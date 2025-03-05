@@ -36,6 +36,10 @@ iff_operators = {'iff', "<=>", "⇔"}
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '>=': '≥',
               '(=': '⊆', 'in': '∈', '.0.': '∅', '<=>': '⇔', 'iff': '⇔'}
 
+
+accessiblity_keywords = {'OPAQUE', 'PRIVATE'}
+declaration_keywords = {'DEFINE', 'FUN', 'FUNCTION', 'LEMMA', 'RECURSIVE', 'THEOREM', 'UNION'}
+
 lark_parser = None
 
 def init_parser():
@@ -1360,7 +1364,7 @@ def parse_theorem():
             + current_token().value)
     advance()
     return Theorem(meta_from_tokens(start_token, previous_token()),
-                   name, what, proof, False)
+                   name, what, proof)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
                    while_parsing)
@@ -1389,7 +1393,7 @@ def parse_union():
       constr_list.append(constr)
     meta = meta_from_tokens(start_token, current_token())
     advance()
-    return Union(meta, name, type_params, constr_list, False)
+    return Union(meta, name, type_params, constr_list)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
@@ -1430,7 +1434,7 @@ def parse_function():
       fun = Generic(meta, None, typarams, lam)
     else:
       fun = lam
-    return Define(meta, name, None, fun, False)
+    return Define(meta, name, None, fun)
     
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
@@ -1478,7 +1482,7 @@ def parse_recursive_function():
       cases.append(fun_case)
     advance()
     return RecFun(meta_from_tokens(start_token, previous_token()), name,
-                  type_params, param_types, return_type, cases, False)
+                  type_params, param_types, return_type, cases)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
@@ -1505,85 +1509,88 @@ def parse_define():
     advance()
     body = parse_term()
     return Define(meta_from_tokens(start_token, previous_token()),
-                   name, typ, body, False)
+                   name, typ, body)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
-  
-def parse_private():
-  while_parsing = 'while parsing\n' \
-    + '\tstatement ::= "private" statement'
-  try: 
-    my_token = current_token() 
-    advance()
-    access_token = current_token()
-    statement = parse_statement()
-    if statement.isPrivate or statement.makeOpaque:
-      raise ParseError(meta_from_tokens(my_token, access_token), "Got more than one accesibility modifier")
-    match statement:
-      case RecFun(meta, name, type_params, param_types, return_type, cases, isPrivate):
-        statement.isPrivate = True
-        return statement
-      case Define(meta, name, typ, body, isPrivate):
-        statement.isPrivate = True
-        return statement
-      case Union(meta, name, type_params, constr_list, isPrivate, makeOpaque):
-        statement.isPrivate = True
-        return statement
-      case _:
-        raise ParseError(meta_from_tokens(my_token, my_token), 'expected either function, define, or union after private')
-
-  except ParseError as e:
-    raise e.extend(meta_from_tokens(my_token, previous_token()), while_parsing)
-  except Exception as e:
-    raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
-      + str(e))
-  
-def parse_opaque():
-  while_parsing = 'while parsing\n' \
-    + '\tstatement ::= "opaque" statement'
-  try: 
-    my_token = current_token() 
-    advance()
-    statement = parse_statement()
-    match statement:
-      case Define(meta, name, typ, body, isPrivate):
-        statement.makeOpaque = True
-        statement.file_defined = get_filename()
-        return statement
-      case _:
-        raise ParseError(meta_from_tokens(my_token, my_token), 'expected a define after opaque')
-
-  except ParseError as e:
-    raise e.extend(meta_from_tokens(my_token, previous_token()), while_parsing)
-  except Exception as e:
-    raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
-      + str(e))
 
 def parse_accessibility():
   while_parsing = 'while parsing\n' \
-    + '\nstatement ::= accessibility declaration'
+    + '\tstatement ::= accessibility declaration\n'
   try: 
     my_token = current_token() 
     advance()
+
+    declaration = parse_declaration()
+
+    match my_token.type:
+      case 'PRIVATE':
+        declaration.isPrivate = True
+      case 'OPAQUE':
+        declaration.makeOpaque = True
+        declaration.file_defined = get_filename()
+      case _:
+        raise Exception("Expected a declaration after an accesibility modifier, not \"" + declaration.value)
+    
+    return declaration
     
 
   except Exception as e:
-    raise ParseError(meta_from_tokens(my_token, previous_token()), "Unexpected error while parsing:\n\t" \
+    raise ParseError(meta_from_tokens(my_token, previous_token()), while_parsing + str(e))
+
+def parse_declaration():
+  while_parsing = 'while parsing\n' \
+    + '\tdeclaration ::= union | rec_function | function | definition\n'
+  try: 
+    token = current_token()
+
+    if token.type == 'DEFINE':
+      return parse_define()
+
+    elif token.type == 'FUN':
+      return parse_function()
+
+    elif token.type == 'FUNCTION':
+      return parse_recursive_function()
+
+    elif token.type == 'RECURSIVE':
+      return parse_recursive_function()
+        
+    elif token.type == 'THEOREM':
+      return parse_theorem()
+    
+    elif token.type == 'LEMMA':
+      lemma = parse_theorem()
+      lemma.isPrivate = True
+      return lemma
+
+    elif token.type == 'UNION':
+      return parse_union()
+
+    else:
+      raise Exception('Expected a declaration not \"' + token.value + '\"')
+    
+
+  except Exception as e:
+    raise ParseError(meta_from_tokens(token, previous_token()), while_parsing \
       + str(e))
 
-
 statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
-                      'union'}
-    
+                      'union', 'private', 'opaque', 'recursive'}
+
 def parse_statement():
   if end_of_file():
       raise ParseError(meta_from_tokens(previous_token(),previous_token()),
             'expected a statement, not end of file')
   token = current_token()
-  if token.type == 'ASSERT':
+
+  if token.type in accessiblity_keywords:
+    return parse_accessibility()
+  elif token.type in declaration_keywords:
+    return parse_declaration()
+  elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \
         + '\tstatement ::= "assert" formula\n'
     advance()
@@ -1595,18 +1602,6 @@ def parse_statement():
     except Exception as e:
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
-  
-  elif token.type == 'DEFINE':
-    return parse_define()
-
-  elif token.type == 'FUN':
-    return parse_function()
-
-  elif token.type == 'FUNCTION':
-    return parse_recursive_function()
-
-  elif token.type == 'RECURSIVE':
-    return parse_recursive_function()
 
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
@@ -1634,18 +1629,6 @@ def parse_statement():
     except Exception as e:
         raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
           + str(e))
-        
-  elif token.type == 'THEOREM' or token.type == 'LEMMA':
-    return parse_theorem()
-
-  elif token.type == 'UNION':
-    return parse_union()
-  
-  elif token.type == 'PRIVATE':
-    return parse_private()
-  
-  elif token.type == 'OPAQUE':
-    return parse_opaque()
   
   elif token.type == 'ASSOCIATIVE':
     advance()
