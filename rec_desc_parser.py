@@ -1331,6 +1331,7 @@ def parse_theorem():
       + '\tproof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"'
   try:    
     start_token = current_token()
+    is_lemma = start_token.type == 'LEMMA'
     advance()
     try:
       name = parse_identifier()
@@ -1910,6 +1911,9 @@ def parse_type_annot_list():
   return type_annot_list
 
 def parse_var_list():
+  if current_token().type == 'RPAR':
+      return []
+      
   ident = parse_identifier()
   if current_token().type == 'COLON':
     advance()

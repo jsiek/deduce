@@ -1,0 +1,16 @@
+import Nat
+import Log
+
+define log_one = log(1)
+define log_two = log(2)
+define log_three = log(3)
+define log_four = log(4)
+define log_five = log(5)
+define log_eight = log(8)
+
+assert log_one = 0
+assert log_two = 1
+assert log_three = 2
+assert log_four = 2
+assert log_five = 3
+assert log_eight = 3

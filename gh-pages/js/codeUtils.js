@@ -21,7 +21,7 @@ const keywords = [
     "conjunct", "induction", "where", "suppose", "with", "definition", "apply", "to", "cases",
     "obtain", "enable", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
     "assume", "for", "recall", "in", "and", "or", "print", "not", "some", "all", "theorem",
-    "lemma", "proof", "end"
+    "lemma", "proof", "end", "replace", "recursive"
 ]
 
 
@@ -44,11 +44,13 @@ function replaceLeadingTabs(str) {
 function codeToHTML(code) {
     // scan to get user defined functions and variables
     const fncRe = new RegExp("(?<=\\bfunction\\s)\\w+(?=\\s*[\\(|<])", "g")
+    const recRe = new RegExp("(?<=\\brecursive\\s)\\w+(?=\\s*[\\(|<])", "g")
     const thmRe = new RegExp("(?<=\\btheorem\\s)\\w+(?=\\s*:)", "g")
     const uniRe = new RegExp("(?<=\\bunion\\s)\\w+(?=\\s*<)?", "g")
     const defRe = new RegExp("(?<=\\bdefine\\s)\\w+(?=\\s*:)?", "g")
     let userDefs = []
         .concat(Array.from(code.matchAll(fncRe)).flat())
+        .concat(Array.from(code.matchAll(recRe)).flat())
         .concat(Array.from(code.matchAll(thmRe)).flat())
         .concat(Array.from(code.matchAll(uniRe)).flat())
         .concat(Array.from(code.matchAll(defRe)).flat())
@@ -125,9 +127,6 @@ function make_button(htmlCode, codeText){
     htmlCode.appendChild(copyTooltip)
 }
 
-
-const loc = window.location.pathname;
-const dir = loc.substring(0, loc.lastIndexOf('/'));
 // set codeblocks
 for (let cb of codeBlocks) {
     try {
@@ -144,14 +143,14 @@ for (let cb of codeBlocks) {
         } 
         // else make fetch and cache result
         else {
-            const url = `${dir.includes("/pages") ? "../" : "./" }deduce-code/${cb}.pf`
+            const url = `${loc.includes("/pages") ? "../" : "./" }deduce-code/${cb}.pf`
             fetch(url)
             .then(res => {if (res.ok) return res.text(); else throw new Error()})
             .then(codeText => {
                 codeText = removeImports(codeText)
                 code = codeToHTML(codeText)
-                cacheJS.set({'codeID': cb, 'type': 'html'}, code)
-                cacheJS.set({'codeID': cb, 'type': 'text'}, codeText)
+                cacheJS.set({'codeID': cb, 'type': 'html'}, code, 3600)
+                cacheJS.set({'codeID': cb, 'type': 'text'}, codeText, 3600)
                 htmlCode.innerHTML = code
                 make_button(htmlCode, codeText)
             })

@@ -3,12 +3,16 @@ union Option<T> {
   just(T)
 }
 
-function after<T,U>(Option<T>, fn (T) -> U) -> Option<U> {
-  after(none, f) = none
-  after(just(x), f) = just(f(x))
+fun after<T,U>(o : Option<T>, f : fn (T) -> U) {
+  switch o {
+    case none { @none<U> }
+    case just(x) { just(f(x)) }
+  }
 }
 
-function default<T>(Option<T>, T) -> T {
-  default(none, y) = y
-  default(just(x), y) = x
+fun default<T>(o : Option<T>, y : T) {
+  switch o {
+    case none { y }
+    case just(x) { x }
+  }
 }

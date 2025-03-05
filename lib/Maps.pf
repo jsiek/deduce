@@ -1,12 +1,13 @@
-
 import Set
 import Option
 
-define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
-                        λ x:T { g(f(x)) } } }
+fun operator ∘ <T,U,V>(g:fn U->V, f:fn T->U) {
+  fun x:T { g(f(x)) }
+}
 
-define update = generic T, U { λf:fn T->U, x:T, v:U{ λy:T {
-                   if y = x then v else f(y) } } }
+fun update<T, U>(f:fn T->U, x:T, v:U) {
+  fun y:T { if y = x then v else f(y) }
+}
 
 theorem update_eq :
   < T, U > all f: fn (T) -> U, x:T, v:U.
@@ -65,13 +66,13 @@ proof
       have zy: z = y by rewrite zy_true
       switch z = x {
         case true suppose zx_true {
-	  have zx: z = x by rewrite zx_true
-	  have xy: x = y by transitive (symmetric zx) zy
-	  conclude false by apply x_neq_y to xy
-	}
-	case false {
-	  .
-	}
+	        have zx: z = x by rewrite zx_true
+	        have xy: x = y by transitive (symmetric zx) zy
+	        conclude false by apply x_neq_y to xy
+	      }
+	      case false {
+	        .
+	      }
       }
     }
     case false {
@@ -97,7 +98,7 @@ define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
 define combine = generic T, U { fun f:fn(T)->Option<U>, g:fn(T)->Option<U> { fun x:T {
                      if f(x) = none then g(x) else f(x) }}}
 
-theorem combine_left: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+theorem combine_left: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if g(x) = none
   then combine(f, g)(x) = f(x)
 proof
@@ -116,7 +117,7 @@ proof
   }
 end
 
-theorem combine_right: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+theorem combine_right: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if f(x) = none
   then combine(f, g)(x) = g(x)
 proof
@@ -142,9 +143,25 @@ proof
   switch x ∈ P {
     case true { . }
     case false suppose Px_false {
-      conclude false by
-        rewrite (definition operator∈ in Px_false) in
-        definition {operator∈, rep} in prem
+      have eq: rep(P)(x) = false by definition operator∈ in Px_false
+      conclude false by {
+        rewrite rep_char_fun<T> | eq in
+        definition operator∈ in prem
+      }
     }
   }
 end
+
+define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
+  = generic T,U,V { λf{ λx,y{ f(y,x) }}}
+
+theorem flip_flip:
+  all T:type. all f:fn T,T->T. flip(flip(f)) = f
+proof
+  arbitrary T:type
+  arbitrary f:fn T,T->T
+  extensionality
+  arbitrary x:T, y:T
+  definition flip
+end
+

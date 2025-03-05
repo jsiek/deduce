@@ -1,38 +1,114 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
-from typing import Any, Tuple, List
+from typing import Tuple, List, Optional, Set, Self
 from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
-from functools import reduce
 import os
 
 infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
-                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1}
+                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2, '∘': 7}
 prefix_precedence = {'-': 8, 'not': 4}
 
-def copy_dict(d):
-  return {k:v for k,v in d.items()}
+############ AST Base Classes ###########
 
-def maybe_str(o, default=''):
-  return str(o) if o != None else default
+@dataclass
+class AST:
+    location: Meta
+
+
+@dataclass
+class Type(AST):
+
+  def copy(self) -> Self:
+    error(self.location, 'copy not implemented')
+    return self
+
+  def free_vars(self) -> Set[str]:
+    error(self.location, 'free_vars not implemented')
+    return set()
+
+  def substitute(self, sub) -> Self:
+    error(self.location, 'substitute not implemented')
+
+  def uniquify(self, env) -> None:
+    error(self.location, 'uniquify not implemented')
+
+  def reduce(self, env) -> Self:
+    error(self.location, 'reduce not implemented')
+
+
+@dataclass
+class Term(AST):
+  typeof: Optional[Type]
+
+  def copy(self) -> Self:
+    error(self.location, 'copy not implemented')
+    return self
+
+  def uniquify(self, env) -> None:
+    error(self.location, 'uniquify not implemented')
+
+  def substitute(self, sub) -> Self:
+    error(self.location, 'substitute not implemented')
+
+  def reduce(self, env) -> Self:
+    error(self.location, 'reduce not implemented')
+
+  def pretty_print(self, indent: int, afterNewline=False) -> str:
+      if afterNewline:
+          return indent*' ' + str(self)
+      else:
+          return str(self)
+
+@dataclass
+class Formula(Term):
+  pass
+
+@dataclass
+class Proof(AST):
+    
+  def pretty_print(self, indent: int) -> str:
+      return str(self)
+
+@dataclass
+class Statement(AST):
+    
+  def pretty_print(self, indent: int) -> str:
+      return str(self)
+
+################ Miscellaneous Functions #####################
+
+def copy_dict(d):
+  return {k: v for k, v in d.items()}
+
+
+def maybe_str(o: Optional[str], default='') -> str:
+  return str(o) if o is not None else default
+
+def maybe_pretty_print(o: Optional[str], indent, default='') -> str:
+  return o.pretty_print(indent) if o is not None else default
 
 name_id = 0
 
-def generate_name(name):
-    global name_id
-    ls = name.split('.')
-    new_id = name_id
-    name_id += 1
-    return ls[0] + '.' + str(new_id)
 
-def base_name(name):
-    ls = name.split('.')
-    return ls[0]
+def generate_name(name: str) -> str:
+  global name_id
+  ls = name.split('.')
+  new_id = name_id
+  name_id += 1
+  return ls[0] + '.' + str(new_id)
+
+
+def base_name(name: str) -> str:
+  ls = name.split('.')
+  return ls[0]
+
 
 import_directories = set()
+
 
 def init_import_directories():
   import_directories.add(".")
@@ -41,12 +117,14 @@ def init_import_directories():
     with open(lib_config_path, 'r') as lib_config_file:
       for line in lib_config_file:
         import_directories.add(line.strip())
-  
+
+
 def get_import_directories():
   global import_directories
-  if(get_verbose()):
+  if (get_verbose()):
     print("import directories: ", import_directories)
   return import_directories
+
 
 def add_import_directory(dir):
   global import_directories
@@ -55,21 +133,25 @@ def add_import_directory(dir):
 
 recursive_descent = True
 
+
 def get_recursive_descent():
   global recursive_descent
   return recursive_descent
+
 
 def set_recursive_descent(b):
   global recursive_descent
   recursive_descent = b
 
-def type_names(loc, names):
+
+def type_names(loc, names: List[str]):
   index = 0
   result = []
   for n in reversed(names):
     result.insert(0, Var(loc, None, n, []))
     index += 1
   return result
+
 
 def type_match(loc, tyvars, param_ty, arg_ty, matching):
   if get_verbose():
@@ -84,10 +166,10 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
         type_match(loc, tyvars, matching[name], arg_ty, matching)
       else:
         if get_verbose():
-            print('matching ' + name + ' := ' + str(arg_ty))
+          print('matching ' + name + ' := ' + str(arg_ty))
         matching[name] = arg_ty
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
-        if len(tv1) == len(tv2) and len(pts1) == len(pts2):
+      if len(tv1) == len(tv2) and len(pts1) == len(pts2):
       for (pt1, pt2) in zip(pts1, pts2):
         type_match(loc, tyvars, pt1, pt2, matching)
       type_match(loc, tyvars, rt1, rt2, matching)
@@ -104,19 +186,21 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       if param_ty != arg_ty:
         error(loc, str(arg_ty) + " does not match " + str(param_ty))
 
+
 def is_associative(loc, opname, typ, env):
-  #print('is_associative? ' + str(opname) + ' for ' + str(typ))
+  # print('is_associative? ' + str(opname) + ' for ' + str(typ))
   for (typarams, ty) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
     matching = {}
     try:
       type_match(loc, type_params, ty, typ, matching)
-      #print('\tyes')
+      # print('\tyes')
       return True
     except Exception as e:
       pass
-  #print('\tno')
-  return False 
+  # print('\tno')
+  return False
+
 
 def rator_name(rator):
   match rator:
@@ -132,48 +216,24 @@ def rator_name(rator):
     case TermInst(loc3, tyof, arg2, tyargs):
       return rator_name(arg2)
     case Generic(loc2, tyof, typarams, body):
-      #return rator_name(body)
+      # return rator_name(body)
       return 'no_name'
     case _:
-      #raise Exception('rator_name: unhandled ' + repr(rator))
+      # raise Exception('rator_name: unhandled ' + repr(rator))
       return 'no_name'
 
+
 def flatten_assoc(op_name, trm):
-    match trm:
-      case Call(loc2, tyof, rator, args) if rator_name(rator) == op_name:
-        return sum([flatten_assoc(op_name, arg) for arg in args], [])
-      case _:
-        return [trm]
+  match trm:
+    case Call(loc2, tyof, rator, args) if rator_name(rator) == op_name:
+      return sum([flatten_assoc(op_name, arg) for arg in args], [])
+    case _:
+      return [trm]
+
 
 def flatten_assoc_list(op_name, args):
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
-  
 
-############ AST Base Classes ###########
-  
-@dataclass
-class AST:
-    location: Meta
-
-@dataclass
-class Type(AST):
-  pass
-
-@dataclass
-class Term(AST):
-  typeof: Type
-
-@dataclass
-class Formula(Term):
-  pass
-
-@dataclass
-class Proof(AST):
-  pass
-
-@dataclass
-class Statement(AST):
-    pass
 
 @dataclass(kw_only=True)
 class Declaration(AST):
@@ -206,10 +266,10 @@ class IntType(Type):
   def __eq__(self, other):
     return isinstance(other, IntType)
 
-  def free_vars(self):
+  def free_vars(self) -> Set[str]:
     return set()
 
-  def substitute(self, sub):
+  def substitute(self, sub) -> Type:
     return self
 
   def uniquify(self, env):
@@ -499,12 +559,9 @@ class PatternCons(Pattern):
   def __str__(self):
       if len(self.parameters) > 0:
         return str(self.constructor) \
-          + '(' + ",".join([base_name(p) for p in self.parameters]) + ')'
+          + '(' + ', '.join([base_name(p) for p in self.parameters]) + ')'
       else:
         return str(self.constructor)
-
-  # def __repr__(self):
-  #     return str(self)
 
   def uniquify(self, env):
     self.constructor.uniquify(env)
@@ -524,10 +581,13 @@ class Generic(Term):
   
   def __str__(self):
     return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
-      + "{" + str(self.body) + "}"
+      + " { " + str(self.body) + " }"
 
-  # def __repr__(self):
-  #   return str(self)
+  def pretty_print(self, indent, afterNewline=False):    
+    return (indent*' ' if afterNewline else '') \
+        + 'generic ' + ', '.join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
+      + ' {\n' + self.body.pretty_print(indent+2, True) + '\n' \
+      + indent*' ' + '}'
 
   def __eq__(self, other):
       if not isinstance(other, Generic):
@@ -570,7 +630,13 @@ class Conditional(Term):
       return '(if ' + str(self.cond) \
         + ' then ' + str(self.thn) \
         + ' else ' + str(self.els) + ')'
-    
+
+  def pretty_print(self, indent, afterNewline=False):
+      return ('' if afterNewline else '\n') + indent*' ' + 'if ' + str(self.cond) + ' then\n' \
+          + self.thn.pretty_print(indent+2, True) + '\n'\
+          + indent*' ' + 'else\n' \
+          + self.els.pretty_print(indent+2, True)
+  
   def __eq__(self, other):
     if not isinstance(other, Conditional):
       return False
@@ -620,6 +686,9 @@ class TAnnote(Term):
   def uniquify(self, env):
     self.subject.uniquify(env)
     self.typ.uniquify(env)
+
+  def __eq__(self, other):
+    return self.subject == other
     
   
 @dataclass
@@ -631,8 +700,14 @@ class Var(Term):
   # filled in during uniquify, list because of overloading
   resolved_names: list[str] = field(default_factory=list)
 
+  def get_name(self):
+    if len(self.resolved_names) > 0:
+      return self.resolved_names[0]
+    else:
+      return self.name
+  
   def free_vars(self):
-    return set([self.name])
+    return {self.name}
   
   def copy(self):
     return Var(self.location, self.typeof, self.name, self.resolved_names)
@@ -640,13 +715,12 @@ class Var(Term):
   def __eq__(self, other):
       if isinstance(other, RecFun):
         result = self.name == other.name
-        #print(self.name + ' =? ' + other.name)
+      elif isinstance(other, TermInst):
+        result = self == other.subject
       elif not isinstance(other, Var):
         result = False
       else:
         result = self.name == other.name
-        #print(self.name + ' =? ' + other.name)
-      #print(' = ' + str(result))
       return result
   
   def __str__(self):
@@ -659,10 +733,13 @@ class Var(Term):
         return '0'
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
-      elif get_verbose():
-        return self.name + '{' + ','.join(self.resolved_names) + '}'
+      # elif get_verbose():
+      #   return self.name + '{' + ','.join(self.resolved_names) + '}'
       elif get_unique_names():
-        return self.name
+        if self.typeof == None:
+          return self.name
+        else:
+          return self.name
       else:
         if is_operator(self):
           return 'operator ' + base_name(self.name)
@@ -727,7 +804,9 @@ class Int(Term):
     return Int(self.location, self.typeof, self.value)
   
   def __eq__(self, other):
-      if not isinstance(other, Int):
+      if isinstance(other, TermInst):
+        return self == other.subject
+      elif not isinstance(other, Int):
           return False
       return self.value == other.value
   
@@ -761,7 +840,15 @@ class Lambda(Term):
       params = [(base_name(x), t)for (x,t) in self.vars]
     return "fun " + ",".join([x + ':' + str(t) if t else x\
                               for (x,t) in params]) \
-           + "{" + str(self.body) + "}"
+           + " { " + str(self.body) + " }"
+
+  def pretty_print(self, indent, afterNewline=False):
+    params = [(base_name(x), t)for (x,t) in self.vars]
+    return (indent*' ' if afterNewline else '') \
+        + "fun " + ', '.join([x + ':' + str(t) if t else x\
+                            for (x,t) in params]) \
+        + " {\n" + self.body.pretty_print(indent+2, True) + '\n'\
+        + indent*' ' + '}'
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
@@ -880,6 +967,14 @@ def add_reduced_def(df):
   global reduced_defs
   reduced_defs.add(df)
 
+def complete_name(name):
+    if base_name(name) in infix_precedence.keys() \
+       or base_name(name) in prefix_precedence.keys():
+        return 'operator ' + base_name(name)
+    else:
+        return base_name(name)
+    
+  
 def is_operator(trm):
   match trm:
     case Var(loc, tyof, name):
@@ -934,16 +1029,23 @@ def left_child(parent, child):
       return False
     
 def op_arg_str(trm, arg):
-  if precedence(trm) != None and precedence(arg) != None:
+  if precedence(trm) is not None and precedence(arg) is not None:
     if precedence(arg) < precedence(trm):
       return "(" + str(arg) + ")"
     elif precedence(arg) == precedence(trm): # and left_child(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
 
-def do_function_call(loc, name, params, args, body, subst, env):
+def do_function_call(loc, name, type_params, type_args,
+                     params, args, body, subst, env, return_type):
   body_env = env
-  assert len(params) == len(args)
+  if False and len(params) != len(args):
+    error(loc, 'in function call ' + base_name(name) \
+          + '(' + ', '.join([str(a) for a in args]) + ')\n' \
+          + '\tnumber of parameters: ' + str(len(params)) + '\n' \
+          + '\tdoes not match number of arguments')
+  for (x,ty) in zip(type_params, type_args):
+    subst[x] = ty
   for (k,v) in zip(params, args):
     subst[k] = v
   for (k,v) in subst.items():
@@ -957,6 +1059,10 @@ def do_function_call(loc, name, params, args, body, subst, env):
   else:
     pass
   reduce_defs += [Var(loc, None, x, [x]) for x in params]
+  # Revisit the following -Jeremy  
+  # reduce_defs += [Var(loc, None, x, []) \
+  #                 for x in fun_case.pattern.parameters \
+  #                 + fun_case.parameters]
   set_reduce_only(reduce_defs)
 
   # Reduce the body of the function
@@ -966,7 +1072,8 @@ def do_function_call(loc, name, params, args, body, subst, env):
   add_reduced_def(name)
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
-  return ret
+  return explicit_term_inst(ret)
+
 
 @dataclass
 class Call(Term):
@@ -1001,6 +1108,8 @@ class Call(Term):
         + ")"
 
   def __eq__(self, other):
+      if isinstance(other, TermInst):
+        return self == other.subject
       if not isinstance(other, Call):
         return False
       if len(self.args) != len(other.args):
@@ -1061,125 +1170,12 @@ class Call(Term):
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
                     type_args):
-        if get_verbose():
-          print('call to instantiated generic recursive function')
-        first_arg = args[0]
-        rest_args = args[1:]
-        for fun_case in cases:
-            subst = {}
-            if is_match(fun_case.pattern, first_arg, subst):
-                body_env = env
-                for (x,ty) in zip(typarams, type_args):
-                  subst[x] = ty
-                for (k,v) in zip(fun_case.parameters, rest_args):
-                  subst[k] = v
-                for (k,v) in subst.items():
-                  if isinstance(v, TermInst):
-                    v.inferred = False
-                new_fun_case_body = fun_case.body.substitute(subst)
-                old_defs = get_reduce_only()
-                reduce_defs = [x for x in old_defs]
-                if Var(loc, None, name, []) in reduce_defs:
-                  reduce_defs.remove(Var(loc, None, name, []))
-                else:
-                  pass
-                reduce_defs += [Var(loc, None, x, []) \
-                                for x in fun_case.pattern.parameters \
-                                + fun_case.parameters]
-                set_reduce_only(reduce_defs)
-                ret = new_fun_case_body.reduce(body_env)
-                set_reduce_only(old_defs)
-                add_reduced_def(name)
-                result = ret
-                if get_verbose():
-                  print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
-                return result
-            else:
-              pass
-        ret = Call(self.location, self.typeof, fun, args)
-      
+        return self.do_recursive_call(loc, name, fun, typarams, type_args,
+                                      params, args, returns, cases, is_assoc,
+                                      env) 
       case RecFun(loc, name, [], params, returns, cases):
-        if get_verbose():
-          print('call to recursive function: ' + str(fun))
-          print('\targs: ' + ', '.join([str(a) for a in args]))
-
-        if is_assoc and len(args) > len(params):
-          if get_verbose():
-            print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-            print('begin associative operator ' + str(fun))
-            print('\targs: ' + ', '.join([str(a) for a in args]))
-            print('\tparams: ' + ', '.join([str(p) for p in params]))
-
-          old_reduce_only = get_reduce_only()
-          reduce_only = [x for x in old_reduce_only]
-          new_args = []
-          worklist = args
-          while len(worklist) > 1:
-            if get_verbose():
-              print('worklist: ' + ', '.join([str(a) for a in worklist]))
-              print('new_args: ' + ', '.join([str(a) for a in new_args]))
-            first_arg = worklist[0]; worklist = worklist[1:]
-            #print('first_arg: ' + str(first_arg))
-            did_call = False
-            for fun_case in cases:
-                subst = {}
-                if is_match(fun_case.pattern, first_arg, subst):
-                    rest_args = worklist[:len(fun_case.parameters)]
-                    result = do_function_call(loc, name, fun_case.parameters,
-                                              rest_args,
-                                              fun_case.body, subst, env)
-                    if get_verbose():
-                      print('call result: ' + str(result))
-                    worklist = [result] + worklist[len(fun_case.parameters):]
-                    did_call = True
-                    rator_var = Var(loc, None, name, [])
-                    if rator_var in reduce_only:
-                      reduce_only.remove(rator_var)
-                    set_reduce_only(reduce_only)
-                    break
-            if not did_call:
-              new_args.append(first_arg)
-            if did_call and not get_reduce_all():
-              break
-            if get_verbose():
-              print('-----------------------------')
-          set_reduce_only(old_reduce_only)
-          if get_verbose():
-            print('end associative operator ' + str(fun))
-            print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-
-          
-          new_args += worklist
-          flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
-          if get_verbose():
-            print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
-          if len(flat_results) == 1:
-            return flat_results[0]
-          else:
-            return Call(self.location, self.typeof,
-                        Var(loc, FunctionType(loc, [], params, returns), name, [name]),
-                        #fun,
-                        flat_results)
-
-        if len(args) == len(params):
-          first_arg = args[0]
-          rest_args = args[1:]
-          for fun_case in cases:
-              subst = {}
-              if is_match(fun_case.pattern, first_arg, subst):
-                  return do_function_call(loc, name, fun_case.parameters,
-                                          rest_args,
-                                          fun_case.body, subst, env)
-        if is_assoc:
-          if get_verbose():
-            print('not reducing recursive call to associative ' + str(fun))
-          ret = Call(self.location, self.typeof, fun,
-                     flatten_assoc_list(rator_name(fun), args))
-        else:
-          if get_verbose():
-            print('not reducing recursive call to ' + str(fun))
-          ret = Call(self.location, self.typeof, fun, args)
-
+        return self.do_recursive_call(loc, name, fun, [], [], params, args,
+                                      returns, cases, is_assoc, env)
       case Generic(loc2, tyof, typarams, body):
         error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
@@ -1193,6 +1189,94 @@ class Call(Term):
       print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     return ret
 
+  def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
+                        returns, cases, is_assoc, env):
+    if get_verbose():
+      print('call to recursive function: ' + str(fun))
+      print('\targs: ' + ', '.join([str(a) for a in args]))
+
+    if is_assoc and len(args) > len(params):
+      return self.reduce_associative(loc, name, fun, type_params, type_args,
+                                     params, args, cases, env, returns)
+
+    if len(args) == len(params):
+      first_arg = args[0]
+      rest_args = args[1:]
+      for fun_case in cases:
+          subst = {}
+          if is_match(fun_case.pattern, first_arg, subst):
+              return do_function_call(loc, name, type_params, type_args,
+                                      fun_case.parameters, rest_args,
+                                      fun_case.body, subst, env, returns)
+    if is_assoc:
+      if get_verbose():
+        print('not reducing recursive call to associative ' + str(fun))
+      return Call(self.location, self.typeof, fun,
+                 flatten_assoc_list(rator_name(fun), args))
+    else:
+      if get_verbose():
+        print('not reducing recursive call to ' + str(fun))
+      return Call(self.location, self.typeof, fun, args)
+  
+  def reduce_associative(self, loc, name, fun, type_params, type_args,
+                         params, args, cases, env, returns):
+    if get_verbose():
+      print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+      print('begin associative operator ' + str(fun))
+      print('\targs: ' + ', '.join([str(a) for a in args]))
+      print('\tparams: ' + ', '.join([str(p) for p in params]))
+
+    old_reduce_only = get_reduce_only()
+    reduce_only = [x for x in old_reduce_only]
+    new_args = []
+    worklist = args
+    while len(worklist) > 1:
+      if get_verbose():
+        print('worklist: ' + ', '.join([str(a) for a in worklist]))
+        print('new_args: ' + ', '.join([str(a) for a in new_args]))
+      first_arg = worklist[0]; worklist = worklist[1:]
+      #print('first_arg: ' + str(first_arg))
+      did_call = False
+      for fun_case in cases:
+          subst = {}
+          if is_match(fun_case.pattern, first_arg, subst):
+              rest_args = worklist[:len(fun_case.parameters)]
+              result = do_function_call(loc, name, type_params, type_args,
+                                        fun_case.parameters, rest_args,
+                                        fun_case.body, subst, env, returns)
+              if get_verbose():
+                print('call result: ' + str(result))
+              worklist = [result] + worklist[len(fun_case.parameters):]
+              did_call = True
+              rator_var = Var(loc, None, name, [])
+              if rator_var in reduce_only:
+                reduce_only.remove(rator_var)
+              set_reduce_only(reduce_only)
+              break
+      if not did_call:
+        new_args.append(first_arg)
+      if did_call and not get_reduce_all():
+        break
+      if get_verbose():
+        print('-----------------------------')
+    set_reduce_only(old_reduce_only)
+    if get_verbose():
+      print('end associative operator ' + str(fun))
+      print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+
+
+    new_args += worklist
+    flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
+    if get_verbose():
+      print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    if len(flat_results) == 1:
+      return explicit_term_inst(flat_results[0])
+    else:
+      return Call(self.location, self.typeof,
+                  Var(loc, FunctionType(loc, [], params, returns),
+                      name, [name]),
+                  flat_results)
+  
   def substitute(self, sub):
     ret = Call(self.location, self.typeof, self.rator.substitute(sub),
                 [arg.substitute(sub) for arg in self.args])
@@ -1221,8 +1305,13 @@ class SwitchCase(AST):
                       self.body.copy())
   
   def __str__(self):
-      return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
+      return 'case ' + str(self.pattern) + ' { ' + str(self.body) + ' }'
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'case ' + str(self.pattern) + ' {\n' \
+          + (indent+2)*' ' + str(self.body) + '\n'\
+          + indent*' ' + '}'
+  
   def reduce(self, env):
       n = len(self.pattern.parameters)
       return SwitchCase(self.location,
@@ -1253,12 +1342,17 @@ class SwitchCase(AST):
   def __eq__(self, other):
     if not isinstance(other, SwitchCase):
       return False
-    alpha_rename = {x: Var(self.location, None, y) \
-                    for (x,y) in zip(self.pattern.parameters,
-                                     other.pattern.parameters) }
-    new_body = self.body.substitute(alpha_rename)
-    return self.pattern.constructor == other.pattern.constructor \
-      and new_body == other.body
+    match self.pattern, other.pattern:
+      case PatternBool(loc1, value1), PatternBool(loc2, value2):
+        return value1 == value2 and self.body == other.body
+      case PatternCons(loc1, constr1, params1), PatternCons(loc2, constr2, params2):
+        alpha_rename = {x: Var(self.location, None, y) \
+                        for (x,y) in zip(params1, params2) }
+        new_body = self.body.substitute(alpha_rename)
+        return constr1 == constr2 \
+          and new_body == other.body
+      case _:
+        return False
     
 @dataclass
 class Switch(Term):
@@ -1275,6 +1369,11 @@ class Switch(Term):
           + ' '.join([str(c) for c in self.cases]) \
           + ' }'
 
+  def pretty_print(self, indent, afterNewline=False):
+      return ('' if afterNewline else '\n') + indent*' '+ 'switch ' + str(self.subject) + ' {\n' \
+          + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'\
+          + indent*' ' + '}'
+  
   def reduce(self, env):
       new_subject = self.subject.reduce(env)
       for c in self.cases:
@@ -1324,7 +1423,7 @@ class TermInst(Term):
       return self.subject == other.subject \
         and all([t1 == t2 for (t1,t2) in zip(self.type_args, other.type_args)])
     else:
-      return False
+      return self.subject == other
   
   def copy(self):
     return TermInst(self.location, self.typeof,
@@ -1611,7 +1710,10 @@ class And(Formula):
       match self.args[i]:
         case IfThen(loc, tyof, prem, conc):
           if (self.args[i + 1]) == IfThen(loc, tyof, conc, prem):
-            ret_args.append('(' + str(prem) + ' ⇔ ' + str(conc) + ')')
+            iff = Call(self.location, None, Var(self.location, None, '⇔', ['⇔']),
+                       [prem,conc])
+            iff_str = '(' + op_arg_str(iff, prem) + ' ⇔ ' + op_arg_str(iff, conc) +')'
+            ret_args.append(iff_str)
             skip = True
             continue
       ret_args.append(self.args[i])
@@ -1789,6 +1891,9 @@ class IfThen(Formula):
 @dataclass
 class All(Formula):
   var: Tuple[str,Type]
+  # Position (s, e), where 
+  #  e : The number of vars in the block
+  #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Formula
 
@@ -1868,6 +1973,7 @@ class Some(Formula):
 
   def copy(self):
     return Some(self.location,
+                self.typeof,
                [(x,ty.copy()) for (x,ty) in self.vars],
                self.body.copy())
   
@@ -1926,6 +2032,9 @@ class PVar(Proof):
     if not isinstance(other, PVar):
       return False
     return self.name == other.name
+
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
       return base_name(self.name)
@@ -1946,6 +2055,12 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
+          + self.because.pretty_print(indent+2) + '\n' \
+          + indent*' ' + '}\n' \
+          + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
       return 'have ' + base_name(self.label) + ': ' + str(self.proved) \
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
@@ -1965,6 +2080,10 @@ class PTLetNew(Proof):
   rhs : Term
   body: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
+          + self.body.pretty_print(indent)
+  
   def __str__(self):
       return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
          + str(self.body)
@@ -1982,6 +2101,9 @@ class PTLetNew(Proof):
 class PRecall(Proof):
   facts: List[Formula]
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return 'recall ' + ', '.join([str(f) for f in self.facts])
 
@@ -1995,6 +2117,11 @@ class PAnnot(Proof):
   claim: Formula
   reason: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
+          + self.reason.pretty_print(indent+2) + '\n' \
+          + indent*' ' + '}\n'
+  
   def __str__(self):
       return 'conclude ' + str(self.claim) + ' by ' + str(self.reason)
 
@@ -2008,6 +2135,11 @@ class Suffices(Proof):
   reason: Proof
   body: Proof
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'suffices ' + str(self.claim) + '  by {\n' \
+          + self.reason.pretty_print(indent+2) + '\n' \
+          + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + maybe_str(self.body)
 
@@ -2021,6 +2153,14 @@ class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Formula,Proof]]
 
+  def pretty_print(self, indent):
+      cases_str = ''
+      for (label, frm, body) in cases:
+          cases_str += indent*' ' + 'case ' + base_name(label) + ' : ' + str(frm) + '{\n' \
+              + body.pretty_print(indent+2) + '\n' \
+              + indent*' ' + '}'
+      return '\n'.join(cases_str) + '\n'
+      
   def uniquify(self, env):
     self.subject.uniquify(env)
     i = 0
@@ -2044,6 +2184,9 @@ class ModusPonens(Proof):
   implication: Proof
   arg: Proof
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
 
@@ -2057,6 +2200,11 @@ class ImpIntro(Proof):
   premise: Formula
   body: Proof
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'assume ' + str(self.label) + \
+      (': ' + str(self.premise) if self.premise else '') + '\n'\
+      + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'assume ' + str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + \
@@ -2074,10 +2222,13 @@ class ImpIntro(Proof):
 @dataclass
 class AllIntro(Proof):
   var: Tuple[str,Type]
+  # Position (s, e), where 
+  #  e : The number of vars in the all intro list
+  #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Proof
 
-  def __str__(self):
+  def arbitrary_str(self):
     s, e = self.pos
     x, t = self.var
     res = ''
@@ -2088,8 +2239,14 @@ class AllIntro(Proof):
       res += ";"
     else:
       res += ","
-    
-    return res + maybe_str(self.body)
+    return res
+
+  def pretty_print(self, indent):
+      return indent*' ' + self.arbitrary_str() + '\n' \
+          + maybe_pretty_print(self.body, indent)
+  
+  def __str__(self):
+    return self.arbitrary_str() + maybe_str(self.body)
 
   def uniquify(self, env):
     body_env = copy_dict(env)
@@ -2111,8 +2268,14 @@ class AllIntro(Proof):
 class AllElimTypes(Proof):
   univ: Proof
   arg: Type
+  # Position (s, e), where 
+  #  e : The number of vars in the block
+  #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     print(self.pos)
     s, e = self.pos
@@ -2135,8 +2298,14 @@ class AllElimTypes(Proof):
 class AllElim(Proof):
   univ: Proof
   arg: Term
+  # Position (s, e), where 
+  #  e : The number of vars in the list
+  #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     s, e = self.pos
     res = str(self.univ)
@@ -2159,6 +2328,10 @@ class SomeIntro(Proof):
   witnesses: List[Term]
   body: Proof
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
+        + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'choose ' + ",".join([str(t) for t in self.witnesses]) \
         + '; ' + maybe_str(self.body)
@@ -2175,6 +2348,13 @@ class SomeElim(Proof):
   prop: Formula
   some: Proof
   body: Proof
+  
+  def pretty_print(self, indent):
+    return indent*' ' + 'obtain ' + ",".join(self.witnesses) \
+      + ' where ' + self.label \
+      + (' : ' + str(self.prop) if self.prop else '') \
+      + ' from ' + str(self.some)  + '\n'\
+      + maybe_pretty_print(self.body, indent)
 
   def __str__(self):
     return 'obtain ' + ",".join(self.witnesses) \
@@ -2203,6 +2383,9 @@ class SomeElim(Proof):
 class PTuple(Proof):
   args: List[Proof]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return ', '.join([str(arg) for arg in self.args])
 
@@ -2222,6 +2405,9 @@ class PAndElim(Proof):
   which: int
   subject: Proof
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
 
@@ -2230,6 +2416,9 @@ class PAndElim(Proof):
       
 @dataclass
 class PTrue(Proof):
+  
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
     return '.'
@@ -2240,6 +2429,9 @@ class PTrue(Proof):
 @dataclass
 class PReflexive(Proof):
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'reflexive'
   
@@ -2249,6 +2441,9 @@ class PReflexive(Proof):
 @dataclass
 class PHole(Proof):
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return '?'
     
@@ -2257,6 +2452,9 @@ class PHole(Proof):
 
 @dataclass
 class PSorry(Proof):
+  
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
       return 'sorry'
@@ -2268,6 +2466,9 @@ class PSorry(Proof):
 class PHelpUse(Proof):
   proof : Proof
   
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
       return 'help ' + str(self.proof)
     
@@ -2277,6 +2478,9 @@ class PHelpUse(Proof):
 @dataclass
 class PSymmetric(Proof):
   body: Proof
+  
+  def pretty_print(self, indent):
+      return str(self)
   
   def __str__(self):
     return 'symmetric ' + str(self.body)
@@ -2288,6 +2492,10 @@ class PSymmetric(Proof):
 class PTransitive(Proof):
   first: Proof
   second: Proof
+  
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
 
@@ -2300,6 +2508,10 @@ class PInjective(Proof):
   constr: Type
   body: Proof
   
+  def pretty_print(self, indent):
+    return indent*' ' + 'injective ' + str(self.constr) + '\n' \
+        + maybe_pretty_print(self.body, indent)
+  
   def __str__(self):
     return 'injective ' + str(self.constr) + '; ' + maybe_str(self.body)
 
@@ -2311,8 +2523,12 @@ class PInjective(Proof):
 class PExtensionality(Proof):
   body: Proof
   
+  def pretty_print(self, indent):
+    return indent*' ' + 'extensionality\n' \
+        + maybe_pretty_print(self.body, indent)
+
   def __str__(self):
-    return 'extensionality;\n' + maybe_str(self.body)
+    return 'extensionality\n' + maybe_str(self.body)
 
   def uniquify(self, env):
     self.body.uniquify(env)
@@ -2323,6 +2539,13 @@ class IndCase(AST):
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'case ' + str(self.pattern) \
+      + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
+      + '{\n' \
+      + self.body.pretty_print(indent+2) \
+      + indent*' ' + '}\n'
+      
   def __str__(self):
     return 'case ' + str(self.pattern) \
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
@@ -2352,6 +2575,10 @@ class Induction(Proof):
   typ: Type
   cases: List[IndCase]
 
+  def pretty_print(self, indent):
+    return indent*' ' + 'induction ' + str(self.typ) + '\n' \
+      + '\n'.join([c.pretty_print(indent) for c in self.cases])
+
   def __str__(self):
     return 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([str(c) for c in self.cases])
@@ -2366,6 +2593,11 @@ class SwitchProofCase(AST):
   pattern: Pattern
   assumptions: list[Tuple[str,Formula]]
   body: Proof
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'case ' + str(self.pattern) + '{\n' \
+        + self.body.pretty_print(indent+2) \
+        + indent*' ' + '}\n'
 
   def __str__(self):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
@@ -2394,6 +2626,11 @@ class SwitchProof(Proof):
   subject: Term
   cases: List[SwitchProofCase]
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'switch ' + str(self.subject) + '{\n' \
+          + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) \
+          + indent*' ' + '}\n'
+      
   def __str__(self):
       return 'switch ' + str(self.subject) \
         + '{' + '\n'.join([str(c) for c in self.cases]) + '}'
@@ -2406,6 +2643,9 @@ class SwitchProof(Proof):
 @dataclass
 class EvaluateGoal(Proof):
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'evaluate'
 
@@ -2416,6 +2656,9 @@ class EvaluateGoal(Proof):
 class EvaluateFact(Proof):
   subject: Proof
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
     return 'evaluate ' + str(self.subject)
 
@@ -2426,8 +2669,11 @@ class EvaluateFact(Proof):
 class ApplyDefs(Proof):
   definitions: List[Term]
 
+  def pretty_print(self, indent):
+      return str(self)
+  
   def __str__(self):
-      return 'definition { ' + ', '.join([str(d) for d in self.definitions]) + ' }'
+      return 'definition ' + ' | '.join([str(d) for d in self.definitions])
 
   def uniquify(self, env):
     for d in self.definitions:
@@ -2453,7 +2699,7 @@ class ApplyDefsFact(Proof):
   subject: Proof
 
   def __str__(self):
-      return 'definition ' + ', '.join([str(d) for d in self.definitions]) \
+      return 'definition ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
@@ -2546,7 +2792,7 @@ class Theorem(Declaration):
   def __str__(self):
     return ('lemma ' if self.isPrivate else 'theorem ') \
       + self.name + ': ' + str(self.what) \
-      + '\nproof\n' + str(self.proof) + '\nend\n'
+      + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
 
   def uniquify(self, env):
     if self.name in env.keys():
@@ -2567,6 +2813,9 @@ class Constructor(AST):
   name: str
   parameters: List[Type]
 
+  def pretty_print(self, indent):
+      return indent*' ' + str(self)
+  
   def uniquify(self, env, body_env):
     for ty in self.parameters:
       ty.uniquify(body_env)
@@ -2581,7 +2830,7 @@ class Constructor(AST):
     else:
       name = base_name(self.name)
     if len(self.parameters) > 0:
-      return name + '(' + ','.join([str(ty) for ty in self.parameters]) + ')'
+      return name + '(' + ', '.join([str(ty) for ty in self.parameters]) + ')'
     else:
       return name
   
@@ -2622,11 +2871,20 @@ class Union(Declaration):
   def substitute(self, sub):
     return self
       
-  def __str__(self):
-    #return base_name(self.name)
+  def pretty_print(self, indent):
+      return indent*' ' + 'union ' + base_name(self.name) \
+          + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
+             else '') + ' {\n' \
+        + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
+        + indent*' ' + '}\n'
   
-    return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
-       + ' '.join([str(c) for c in self.alternatives]) + '}'
+  def __str__(self):
+    if get_verbose():
+      return 'union ' + self.name + '<' + ','.join(self.type_params) + '> {' \
+        + ' '.join([str(c) for c in self.alternatives]) + '}'
+    else:
+      return base_name(self.name)
+  
   
 @dataclass
 class FunCase(AST):
@@ -2635,6 +2893,11 @@ class FunCase(AST):
   parameters: List[str]
   body: Term
 
+  def pretty_print(self, indent):
+      return indent*' ' + str(self.rator) + '(' + str(self.pattern) \
+          + (', ' + ', '.join([base_name(p) for p in self.parameters]) if len(self.parameters) > 0 else '') \
+          + ') = ' + self.body.pretty_print(indent+2)
+  
   def __str__(self):
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
@@ -2692,16 +2955,28 @@ class RecFun(Declaration):
     if self.isPrivate:
       return
     extend(export_env, base_name(self.name), self.name, self.location)
-    
+
   def __str__(self):
-    return self.name if get_verbose() else base_name(self.name)
+    if get_verbose():
+      return self.to_string()
+    else:
+      return self.name if get_unique_names() else base_name(self.name)
     
   def to_string(self):
-    return 'function ' + self.name + '<' + ','.join(self.type_params) + '>' \
+    return 'recursive ' + self.name + '<' + ','.join(self.type_params) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns) + '{\n' \
       + '\n'.join([str(c) for c in self.cases]) \
       + '\n}'
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'recursive ' + complete_name(self.name) \
+        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
+           else '') \
+      + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
+      + ' -> ' + str(self.returns) + '{\n' \
+      + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
+      + '}\n'
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -2722,7 +2997,15 @@ class RecFun(Declaration):
 
   def substitute(self, sub):
     return self
-  
+
+def pretty_print_function(name, type_params, params, body):
+    return 'fun ' + complete_name(name) \
+        + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
+           if len(type_params) > 0 else '') \
+        + '(' + ', '.join([x + ':' + str(t) if t else x \
+                           for (x,t) in params]) + ')' \
+        + " {\n" + body.pretty_print(2, True) + "\n}\n"
+
 @dataclass
 class Define(Declaration):
   name: str
@@ -2730,9 +3013,19 @@ class Define(Declaration):
   body: Term
 
   def __str__(self):
-    return 'define ' + self.name \
-      + (' : ' + str(self.typ) if self.typ else '') \
-      + ' = ' + maybe_str(self.body)
+    if isinstance(self.body, Lambda):
+        params = [(base_name(x), t) for (x,t) in self.body.vars]
+        return pretty_print_function(self.name,[],params, self.body.body)
+    elif isinstance(self.body, Generic) \
+         and isinstance(self.body.body, Lambda):
+        typarams = self.body.type_params
+        params = [(base_name(x), t) for (x,t) in self.body.body.vars]
+        return pretty_print_function(self.name, typarams, params,
+                                     self.body.body.body)
+    else:
+        return 'define ' + complete_name(self.name) \
+            + (' : ' + str(self.typ) if self.typ else '') \
+            + ' = ' + self.body.pretty_print(4, False) + '\n'
   
   def uniquify(self, env):
     if self.typ:
@@ -2788,7 +3081,7 @@ class Print(Statement):
   
 def find_file(loc, name):
   for dir in get_import_directories():
-    filename = dir + "/" + name + ".pf"
+    filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename
   error(loc, 'could not find a file for import: ' + name)
@@ -3058,9 +3351,9 @@ def listToNodeList(loc, lst):
 
 def isEmptySet(t):
   match t:
-    case Call(loc2, tyof2, TermInst(loc1, tyof1, Var(loc5, tyof5, name, rs), tyargs, implicit),
+    case Call(loc2, tyof2, fun,
               [Lambda(loc3, tyof3, vars, Bool(loc4, tyof4, False))]) \
-              if base_name(name) == 'char_fun':
+              if base_name(rator_name(fun)) == 'char_fun':
       return True
     case _:
       return False
@@ -3127,6 +3420,11 @@ class Env:
     return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
+
+  def term_vars_str(self):
+    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v.typ) \
+                       for (k,v) in reversed(self.dict.items()) \
+                       if isinstance(v,TermBinding) and v.local])
   
   def declare_type(self, loc, name):
     new_env = Env(self.dict)
@@ -3146,11 +3444,12 @@ class Env:
     new_env.dict[name] = TypeBinding(loc, defn)
     return new_env
   
-  def declare_term_var(self, loc, name, typ):
+  def declare_term_var(self, loc, name, typ, local = False):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
     new_env.dict[name] = TermBinding(loc, typ)
+    new_env.dict[name].local = local
     return new_env
 
   def declare_assoc(self, loc, opname, typarams, typ):
@@ -3163,10 +3462,10 @@ class Env:
       new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)])
     return new_env
   
-  def declare_term_vars(self, loc, xty_pairs):
+  def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
     for (x,ty) in xty_pairs:
-      new_env = new_env.declare_term_var(loc, x, ty)
+      new_env = new_env.declare_term_var(loc, x, ty, local)
     return new_env
   
   def define_term_var(self, loc, name, typ, val):
@@ -3220,15 +3519,19 @@ class Env:
   
   def _formula_of_proof_var(self, curr, name):
     if name in curr.keys():
-      if isinstance(curr[name], ProofBinding):
-        return curr[name].formula
-      elif isinstance(curr[name], TermBinding):
-        raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+      match curr[name]:
+        case ProofBinding(loc, formula):
+          return formula
+        case TermBinding(loc, FunctionType()):
+          raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+                        + '\nPerhaps you meant `definition ' + base_name(name) + '`?')
+        case TermBinding():
+          raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `recall ' + base_name(name) + '`?')
-      elif isinstance(curr[name], TypeBinding):
-        raise Exception('expected a proof but instead got type ' + base_name(name))
-      else:
-        raise Exception('expected a proof but instead got ' + base_name(name))
+        case TypeBinding():
+          raise Exception('expected a proof but instead got type ' + base_name(name))
+        case _:
+          raise Exception('expected a proof but instead got ' + base_name(name))
     else:
       return None
     
@@ -3319,6 +3622,8 @@ def print_theorems(filename, ast):
   for s in ast:
     if isinstance(s, Theorem) and not s.isPrivate:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+    elif hasattr(s, 'isPrivate') and not s.isPrivate:
+      to_print.append(s.pretty_print(0))
   
   if len(to_print) == 0:
     return
@@ -3386,6 +3691,8 @@ def count_marks(formula):
       return count_marks(rhs) + count_marks(body)
     case Hole(loc2, tyof):
       return 0
+    case Omitted(loc2, tyof):
+      return 0
     case ArrayGet(loc, tyof, arr, ind):
       return count_marks(arr) + count_marks(ind)
     case _:
@@ -3445,7 +3752,7 @@ def find_mark(formula):
       find_mark(arr)
       find_mark(ind)
     case _:
-      error(loc, 'in find_mark function, unhandled ' + str(formula))
+      error(formula.location, 'in find_mark function, unhandled ' + str(formula))
 
 def replace_mark(formula, replacement):
   match formula:
@@ -3496,7 +3803,7 @@ def replace_mark(formula, replacement):
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
     case _:
-      error(loc, 'in replace_mark function, unhandled ' + str(formula))
+      error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
 def remove_mark(formula):
   num_marks = count_marks(formula)
@@ -3539,3 +3846,28 @@ def make_switch_for(meta, defs, subject, cases):
                                              c.body)) \
                for c in cases]
   return SwitchProof(meta, subject, new_cases)
+
+def explicit_term_inst(term):
+  match term:
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      return TermInst(loc2, tyof, subject, tyargs, False)
+    case Switch(loc2, tyof, subject, cases):
+      return Switch(loc2, tyof, explicit_term_inst(subject),
+                    [explicit_term_inst(c) for c in cases])
+    case SwitchCase(loc2, pat, body):
+      return SwitchCase(loc2, pat, explicit_term_inst(body))
+    case Lambda(loc2, tyof, vars, body):
+      return Lambda(loc2, tyof, vars, explicit_term_inst(body))
+    case Mark(loc2, tyof, subject):
+      return Mark(loc2, tyof, explicit_term_inst(subject))
+    case Conditional(loc2, tyof, cond, thn, els):
+      return Conditional(loc2, tyof, explicit_term_inst(cond),
+                         explicit_term_inst(thn),
+                         explicit_term_inst(els))
+    case Generic(loc2, tyof, typarams, body):
+      return Generic(loc2, tyof, typarams, explicit_term_inst(body))
+    case TLet(loc2, tyof, var, rhs, body):
+      return TLet(loc2, tyof, var, rhs,
+                  explicit_term_inst(body))
+    case _:
+      return term

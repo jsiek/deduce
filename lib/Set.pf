@@ -15,16 +15,18 @@ union Set<T> {
   char_fun(λx{false})
 */
 
-function rep<T>(Set<T>) -> fn(T)->bool {
-  rep(char_fun(f)) = f
+fun rep<T>(S : Set<T>) {
+  switch S {
+    case char_fun(f) { f }
+  }
 }
 
-fun single<T>(x : T) {
-  char_fun(fun y:T {x = y})
+fun single<V>(x : V) {
+  char_fun(fun y:V {x = y})
 }
 
-fun operator ∪ <T>(P: Set<T>, Q: Set<T>) {
-  char_fun(fun x:T { rep(P)(x) or rep(Q)(x) })
+fun operator ∪ <E>(P: Set<E>, Q: Set<E>) {
+  char_fun(fun x:E { rep(P)(x) or rep(Q)(x) })
 }
 
 fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
@@ -74,6 +76,12 @@ proof
   x_in_empty
 end
 
+theorem rep_char_fun: all T:type, f: fn T -> bool. rep(char_fun(f)) = f
+proof
+  arbitrary T:type, f:(fn T -> bool)
+  definition rep
+end
+
 theorem union_member: all T:type. all x:T, A:Set<T>, B:Set<T>.
   if x ∈ A or x ∈ B
   then x ∈ (A ∪ B)
@@ -82,7 +90,7 @@ proof
   arbitrary x:T, A:Set<T>, B:Set<T>
   suppose prem: x ∈ A or x ∈ B
   suffices rep(A)(x) or rep(B)(x)
-    by definition {operator∪, operator∈, rep}
+    by definition {operator∪, operator∈} and replace rep_char_fun<T>
   cases prem
   case xA: x ∈ A {
     conclude rep(A)(x) by definition operator∈ in xA
@@ -119,7 +127,7 @@ proof
   arbitrary T:type
   arbitrary A:Set<T>
   suffices A ∪ @char_fun<T>(λ_{false}) = A   by .
-  suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep}
+  suffices char_fun(fun x:T{(rep(A)(x) or rep(∅ : Set<T>)(x))}) = A  by definition operator ∪
   switch A {
     case char_fun(f) {
       have eq: (λy{f(y)} : fn T->bool) = f   by extensionality arbitrary x:T.
@@ -134,7 +142,7 @@ theorem empty_union: all T:type. all A:Set<T>.
 proof
   arbitrary T:type
   arbitrary A:Set<T>
-  suffices @char_fun<T>(λx{rep(A)(x)}) = A   by definition {operator ∪, rep}
+  suffices char_fun(fun x:T{(rep(∅ : Set<T>)(x) or rep(A)(x))}) = A   by definition operator ∪
   switch A {
     case char_fun(f) {
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by definition rep
@@ -184,8 +192,8 @@ proof
   arbitrary B:Set<T>
   arbitrary x:T, A: Set<T>
   suppose x_A: x ∈ A
-  suffices (rep(A)(x) or rep(B)(x))
-      by definition {operator ∈, operator ∪, rep}
+  suffices rep(A)(x) or rep(B)(x)
+    by definition {operator ∈, operator ∪} and replace rep_char_fun<T>
   definition operator ∈ in x_A
 end
 

@@ -1,0 +1,31 @@
+import Nat
+import Option
+
+assert div2(0) = 0
+assert div2(1) = 0
+assert div2(2) = 1
+assert div2(3) = 1
+assert div2(4) = 2
+assert div2(5) = 2
+assert div2(6) = 3
+assert div2(7) = 3
+assert div2(8) = 4
+assert div2(9) = 4
+assert div2(10) = 5
+
+assert pow2(0) = 1
+assert pow2(1) = 2
+assert pow2(2) = 4
+assert pow2(3) = 8
+assert pow2(4) = 16
+
+assert 5 / 3 = 1
+assert 6 / 3 = 2
+
+assert 2 / 1 = 2
+assert 4 / 2 = 2
+assert 5 / 2 = 2
+assert 6 / 2 = 3
+assert 3 / 3 = 1
+assert 9 / 3 = 3
+assert 10 / 3 = 3

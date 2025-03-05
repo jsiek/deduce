@@ -151,6 +151,10 @@ Makes Deduce print out the debug logs. It is generally recommended to
 use `--traceback` instead, as this argument can make Deduce print out
 thousands of lines.
 
+By default, `--verbose` only prints debug logs for the current file.
+If ran as `--verbose full` it also prints debug logs for all imported
+files as well.
+
 `--error`
 
 Deduce will expect all files that it processes to contain an error. If

@@ -1,0 +1,19 @@
+// This is here because it was previously an error
+
+theorem idek : all A : bool, B : bool.
+  if (switch A { case true { false } case false {false}}) then B
+
+proof
+  arbitrary A:bool, B:bool
+  suppose prem
+  switch A {
+    case true assume prop_t {
+      have prem' : switch A { case true{false} case false{false} }
+        by prem
+      rewrite prop_t in prem'
+    }
+    case false assume prop_f {
+      rewrite prop_f in prem
+    }
+  }
+end

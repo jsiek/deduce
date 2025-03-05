@@ -1,0 +1,12 @@
+theorem T: all P:bool, Q:bool. if (define x = P; (x or Q)) and (not P) then Q
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  cases conjunct 0 of prem
+  case p {
+    conclude false by apply (conjunct 1 of prem) to p
+  }
+  case q {
+    q
+  }
+end

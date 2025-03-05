@@ -1,0 +1,9 @@
+import Nat
+import List
+
+theorem thm: if (<T> all xs:List<T>. map(xs, fun x:T { x }) = xs)
+  then map(node(1, empty), fun x:Nat { x }) = node(1, empty)
+proof
+  suppose prem: (<T> all xs:List<T>. map(xs, fun x:T { x }) = xs)
+  prem
+end

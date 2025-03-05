@@ -688,11 +688,10 @@ The main theorem is `division_remainder` which states that
 Example:
 
 ```{.deduce^#division_example}
-define three = succ(succ(one))
-assert 6 / three = 2
-assert 7 / three = 2
-assert 8 / three = 2
-assert 9 / three = 3
+assert 6 / 3 = 2
+assert 7 / 3 = 2
+assert 8 / 3 = 2
+assert 9 / 3 = 3
 ```
 
 ## Empty Set
@@ -753,6 +752,23 @@ proof
           ... = z + y + x      by replace add_commute[x]
 end
 ```
+
+The hash marks can also be used to control where Deduce applies a
+`definition`. In the following example, the hash marks tell Deduce to
+unfold the definition of `length` in the right-hand side of the second
+equation.
+
+```{.deduce^#equations_def_example}
+theorem equations_def_example: all x:Nat, y:Nat, xs:List<Nat>.
+  length(node(x, xs)) = length(node(y, xs))
+proof
+  arbitrary x:Nat, y:Nat, xs:List<Nat>
+  equations
+    length(node(x,xs)) = 1 + length(xs)         by definition length
+                   ... = # length(node(y,xs)) # by definition length
+end
+```
+
 
 ## Evaluate (Proof)
 
@@ -1406,11 +1422,10 @@ n % m = n - (n / m) * pos2nat(m)
 Example:
 
 ```{.deduce^#mod_example}
-define two = succ(one)
-assert 1 % two = 1
-assert 2 % two = 0
-assert 3 % two = 1
-assert 4 % two = 0
+assert 1 % 2 = 1
+assert 2 % 2 = 0
+assert 3 % 2 = 1
+assert 4 % 2 = 0
 ```
 
 ## Modus Ponens
@@ -2251,6 +2266,7 @@ import Pair
 <<definition_in_example>>
 <<division_example>>
 <<equations_example>>
+<<equations_def_example>>
 <<greater_example>>
 <<greater_equal_example>>
 <<if_then_else_example>>
