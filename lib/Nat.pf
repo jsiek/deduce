@@ -115,7 +115,7 @@ private recursive div2_helper(Nat, bool) -> Nat {
     else suc(div2_helper(n', not b))
 }
 
-fun div2(n : Nat) {
+private fun div2(n : Nat) {
   div2_helper(n, true)
 }
 
@@ -2194,14 +2194,19 @@ end
 /*
  Properties of div2
  */
+
+lemma div2_zero: div2(0) = 0
+proof
+  evaluate
+end
  
-theorem div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
+lemma div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
 proof
   arbitrary n:Nat
   definition {div2, div2_helper, div2_helper}
 end
 
-theorem div2_double: all n:Nat.
+lemma div2_double: all n:Nat.
   div2(n + n) = n
 proof
   induction Nat
@@ -2216,7 +2221,7 @@ proof
   }
 end
 
-theorem div2_times2: all n:Nat.
+lemma div2_times2: all n:Nat.
   div2(2 * n) = n
 proof
   arbitrary n:Nat
@@ -2241,7 +2246,7 @@ proof
   }
 end
 
-theorem div2_suc_times2: all n:Nat.
+lemma div2_suc_times2: all n:Nat.
   div2(suc(2 * n)) = n
 proof
   arbitrary n:Nat
@@ -2250,7 +2255,7 @@ proof
   div2_suc_double[n]
 end
 
-theorem sub_div2: all n:Nat. n - div2(n) ≤ suc(div2(n))
+lemma sub_div2: all n:Nat. n - div2(n) ≤ suc(div2(n))
 proof
   arbitrary n:Nat
   cases Even_or_Odd[n]
@@ -2273,7 +2278,7 @@ proof
   }
 end
 
-theorem sub_div2_pos: all n:Nat. if 0 < n then 0 < n - div2(n)
+lemma sub_div2_pos: all n:Nat. if 0 < n then 0 < n - div2(n)
 proof
   arbitrary n:Nat
   cases Even_or_Odd[n]
@@ -2345,12 +2350,12 @@ proof
   }
 end
 
-theorem div2_pos_less: all n:Nat. if 0 < n then div2(n) < n
+lemma div2_pos_less: all n:Nat. if 0 < n then div2(n) < n
 proof
   div2_aux_pos_less
 end
 
-theorem div2_aux_mono: all x:Nat, y:Nat.
+lemma div2_aux_mono: all x:Nat, y:Nat.
   if x ≤ y then div2(x) ≤ div2(y) and div2_aux(x) ≤ div2_aux(y)
 proof
   induction Nat
@@ -2378,7 +2383,7 @@ proof
   }
 end
 
-theorem div2_mono: all x:Nat, y:Nat.
+lemma div2_mono: all x:Nat, y:Nat.
   if x ≤ y then div2(x) ≤ div2(y)
 proof
   div2_aux_mono
