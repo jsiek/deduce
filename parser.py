@@ -684,8 +684,7 @@ def parse_tree_to_ast(e, parent):
                          parse_tree_to_ast(e.children[4], e),
                          Var(e.meta, None, 'Nat', []),
                          parse_tree_to_ast(e.children[5], e),
-                         parse_tree_to_ast(e.children[6], e),
-                         False)
+                         parse_tree_to_ast(e.children[6], e))
     # term definition
     elif e.data == 'define':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 

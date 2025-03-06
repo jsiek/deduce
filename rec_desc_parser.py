@@ -1495,7 +1495,7 @@ def parse_gen_rec_function():
     
     meta = meta_from_tokens(start_token, previous_token())
     return GenRecFun(meta, name, typarams, params, return_type, measure,
-                     Var(meta, None, 'Nat', []), body, terminates, False)
+                     Var(meta, None, 'Nat', []), body, terminates)
     
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),

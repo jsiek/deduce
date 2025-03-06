@@ -2519,7 +2519,7 @@ def process_declaration(stmt, env, module_chain):
       fun_type = FunctionType(loc, typarams, param_types, returns)
       check_type(measure_ty, env)
       return (GenRecFun(loc, name, typarams, params, returns,
-                        measure, measure_ty, body, terminates, isPrivate=stmt.iPrivate, makeOpaque=stmt.makeOpaque, file_defined=stmt.file_defined),
+                        measure, measure_ty, body, terminates, isPrivate=stmt.isPrivate, makeOpaque=stmt.makeOpaque, file_defined=stmt.file_defined),
               env.declare_term_var(loc, name, fun_type))
   
     case Union(loc, name, typarams, alts):
@@ -2820,7 +2820,7 @@ def find_rec_calls(name, term):
       return sum([find_rec_calls(name, c) for c in cases], [])
     case SwitchCase(loc2, pat, body):
       return find_rec_calls(name, body)
-    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
+    case RecFun(loc, name, typarams, params, returns, cases):
       return []
     case Conditional(loc2, tyof, cond, thn, els):
       thn_calls = find_rec_calls(name, thn)
@@ -2864,7 +2864,7 @@ def check_proofs(stmt, env):
       pass
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                   body, terminates, isPrivate):
+                   body, terminates):
       # find recursive calls in the body
       calls = find_rec_calls(name, body)
       formulas = []
