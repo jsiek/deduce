@@ -1,5 +1,3 @@
-./test/should-error/conjunct.pf:8.1-13.11: while parsing
-	declaration ::= union | rec_function | function | definition
 ./test/should-error/conjunct.pf:13.12-13.15: expected an int literal after "conjunct", not
 	num
 ./test/should-error/conjunct.pf:8.1-13.11: while parsing

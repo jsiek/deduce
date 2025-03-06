@@ -1,5 +1,3 @@
-./test/should-error/apply_to_error.pf:12.1-17.66: while parsing
-	declaration ::= union | rec_function | function | definition
 ./test/should-error/apply_to_error.pf:17.67-17.71: expected "to" after implication part of "apply", not
 	prem
 ./test/should-error/apply_to_error.pf:17.50-17.66: while parsing apply-to (use a logical implication)

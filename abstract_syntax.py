@@ -2784,13 +2784,14 @@ def overwrite(env, name, new_name, loc):
   env[name] = [new_name]
       
 @dataclass
-class Theorem(Declaration):
+class Theorem(Statement):
   name: str
   what: Formula
   proof: Proof
+  isLemma: bool = False
 
   def __str__(self):
-    return ('lemma ' if self.isPrivate else 'theorem ') \
+    return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
       + '\nproof\n' + self.proof.pretty_print(2) + '\nend\n'
 
@@ -2805,7 +2806,7 @@ class Theorem(Declaration):
     self.name = new_name
     
   def collect_exports(self, export_env):
-    if not self.isPrivate:
+    if not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
     
 @dataclass

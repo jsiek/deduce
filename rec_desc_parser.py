@@ -38,7 +38,7 @@ to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '
 
 
 accessiblity_keywords = {'OPAQUE', 'PRIVATE'}
-declaration_keywords = {'DEFINE', 'FUN', 'FUNCTION', 'LEMMA', 'RECURSIVE', 'THEOREM', 'UNION'}
+declaration_keywords = {'DEFINE', 'FUN', 'FUNCTION', 'RECURSIVE', 'UNION'}
 
 lark_parser = None
 
@@ -1558,14 +1558,6 @@ def parse_declaration():
 
     elif token.type == 'RECURSIVE':
       return parse_recursive_function()
-        
-    elif token.type == 'THEOREM':
-      return parse_theorem()
-    
-    elif token.type == 'LEMMA':
-      lemma = parse_theorem()
-      lemma.isPrivate = True
-      return lemma
 
     elif token.type == 'UNION':
       return parse_union()
@@ -1604,6 +1596,14 @@ def parse_statement():
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
 
+        
+  elif token.type == 'THEOREM':
+    return parse_theorem()
+  
+  elif token.type == 'LEMMA':
+    return parse_theorem()
+    
+  
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
         + '\tstatement ::= "import" identifier\n'
