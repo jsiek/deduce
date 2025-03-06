@@ -1,0 +1,42 @@
+import Nat
+
+recfun fib(n : Nat) -> Nat
+  measure n
+{
+  if n < 2 then n
+  else fib(n - 1) + fib(n - 2)
+}
+terminates {
+  arbitrary n:Nat
+  have A: if not (n < 2) then n - 1 < n by {
+    assume prem: not (n < 2)
+    have n1: 1 ≤ n by {
+      have n2: 2 ≤ n by apply not_less_implies_less_equal to prem
+      have lt_12: 1 ≤ 2 by evaluate
+      apply less_equal_trans to lt_12, n2
+    }
+    suffices 1 + (n - 1) < 1 + n  by add_both_sides_of_less[1,n-1,n]
+    suffices n < 1 + n by replace (apply sub_add_identity[n, 1] to n1)
+    suffices n ≤ n by evaluate
+    less_equal_refl
+  }
+  have B: if not (n < 2) then n - 2 < n by {
+    assume prem: not (n < 2)
+    suffices suc(n - 2) ≤ n by definition operator<
+    have n2: 2 ≤ n by apply not_less_implies_less_equal to prem
+    have n_eq: n = 2 + (n - 2) by symmetric apply sub_add_identity[n, 2] to n2
+    define a = n - 2
+    suffices suc(a) ≤ 2 + a by replace  n_eq
+    suffices n - 2 ≤ suc(n - 2) by evaluate
+    less_equal_suc
+  }
+  A, B
+}
+
+assert fib(0) = 0
+assert fib(1) = 1
+assert fib(2) = 1
+assert fib(3) = 2
+assert fib(4) = 3
+assert fib(5) = 5
+assert fib(6) = 8

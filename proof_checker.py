@@ -1990,10 +1990,13 @@ def type_synth_term(term, env, recfun, subterms):
       ret = Mark(loc, new_subject.typeof, new_subject)
   
     case Var(loc, _, name, rs):
-      ty = env.get_type_of_term_var(term)
-      if ty == None:
-        error(loc, 'while type checking, undefined variable ' + str(term) \
-              + '\nin scope:\n' + str(env))
+      try:
+        ty = env.get_type_of_term_var(term)
+        if ty == None:
+          error(loc, 'while type checking, undefined variable ' + str(term) \
+                + '\nin scope:\n' + str(env))
+      except Exception as e:
+        error(loc, str(e))
       match ty:
         case GenericUnknownInst(loc2, union_type):
           error(loc, 'Cannot infer type arguments for\n' \
@@ -2494,7 +2497,25 @@ def process_declaration(stmt, env, module_chain):
           check_type(t, body_env)
       fun_type = FunctionType(loc, typarams, params, returns)
       return stmt, env.declare_term_var(loc, name, fun_type)
-      
+
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates, isPrivate):
+      body_env = env.declare_type_vars(loc, typarams)
+      check_type(returns, body_env)
+      for (p,t) in params:
+          if t:
+              check_type(t, env)
+      vars = [p for (p,t) in params]
+      param_types = [t for (p,t) in params]
+      if any([t == None for t in param_types]):
+          error(loc, 'Add type annotations to the parameters.')
+
+      fun_type = FunctionType(loc, typarams, param_types, returns)
+      check_type(measure_ty, env)
+      return (GenRecFun(loc, name, typarams, params, returns,
+                        measure, measure_ty, body, terminates, isPrivate),
+              env.declare_term_var(loc, name, fun_type))
+  
     case Union(loc, name, typarams, alts, isPrivate):
       env = env.define_type(loc, name, stmt)
       union_type = Var(loc, None, name, [name])
@@ -2640,7 +2661,30 @@ def type_check_stmt(stmt, env):
 
       new_recfun = RecFun(loc, name, typarams, params, returns, new_cases, isPrivate)
       return new_recfun
-          
+
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates, isPrivate):
+      # alpha rename the type parameters in the function's type
+      new_typarams = [generate_name(t) for t in typarams]
+      sub = {x: Var(loc, None, y, [y]) for (x,y) in zip(typarams, new_typarams)}
+      new_params = [(x,p.substitute(sub)) for (x,p) in params]
+      new_returns = returns.substitute(sub)
+      fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_params],
+                              new_returns)
+      
+      env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
+
+      body_env = env.declare_type_vars(loc, new_typarams)
+      body_env = body_env.declare_term_vars(loc, new_params)
+      new_measure = type_check_term(measure, measure_ty, body_env, None, [])
+      
+      #body_env.declare_term_var(loc, name, fun_type)
+      new_body = type_check_term(body, new_returns, body_env, None, [])
+
+      return GenRecFun(loc, name, new_typarams, new_params, new_returns,
+                       new_measure, measure_ty, new_body, terminates, isPrivate)
+
+  
     case Union(loc, name, typarams, alts, isPrivate):
       return stmt
   
@@ -2675,7 +2719,12 @@ def collect_env(stmt, env):
     case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       fun_type = FunctionType(loc, typarams, params, returns)
       return env.define_term_var(loc, name, fun_type, stmt)
-          
+
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates, isPrivate):
+      fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
+      return env.define_term_var(loc, name, fun_type, stmt)
+  
     case Union(loc, name, typarams, alts, isPrivate):
       return env
   
@@ -2724,7 +2773,74 @@ def collect_env(stmt, env):
   
     case _:
       error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
-      
+
+
+@dataclass
+class RecCall:
+  conditions: List[Term]
+  args: List[Term]    
+
+def add_condition(cond, call):
+    return RecCall([cond] + call.conditions, call.args)
+  
+def find_rec_calls(name, term):
+  match term:
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      return find_rec_calls(name, subject)
+    case Var(loc2, tyof, name, resolved_names):
+      return []
+    case Bool(loc2, tyof, val):
+      return []
+    case And(loc2, tyof, args):
+      return sum([find_rec_calls(name, arg) for arg in args], [])
+    case Or(loc2, tyof, args):
+      return sum([find_rec_calls(name, arg) for arg in args], [])
+    case IfThen(loc2, tyof, prem, conc):
+      return find_rec_calls(name, prem) + find_rec_calls(name, conc)
+    case All(loc2, tyof, var, pos, frm2):
+      return find_rec_calls(name, frm2)
+    case Some(loc2, tyof, vars, frm2):
+      return find_rec_calls(name, frm2)
+    case Call(loc2, tyof, rator, args):
+      calls = find_rec_calls(name, rator) + \
+          sum([find_rec_calls(name, arg) for arg in args], [])
+      if rator_name(rator) == name:
+          return [RecCall([], args)] + calls
+      else:
+          return calls
+    case Switch(loc2, tyof, subject, cases):
+      return sum([find_rec_calls(name, c) for c in cases], [])
+    case SwitchCase(loc2, pat, body):
+      return find_rec_calls(name, body)
+    case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
+      return []
+    case Conditional(loc2, tyof, cond, thn, els):
+      thn_calls = find_rec_calls(name, thn)
+      els_calls = find_rec_calls(name, els)
+      new_thn_calls = [add_condition(cond, call) for call in thn_calls]
+      not_cond = IfThen(loc2, None, cond, Bool(loc2, None, False))
+      new_els_calls = [add_condition(not_cond, call) for call in els_calls]
+      return find_rec_calls(name, cond) + new_thn_calls + new_els_calls
+    case Lambda(loc2, tyof, vars, body):
+      return find_rec_calls(name, body)
+    case Generic(loc2, tyof, typarams, body):
+      return find_rec_calls(name, body)
+    case TAnnote(loc2, tyof, subject, typ):
+      return find_rec_calls(name, subject)
+    case ArrayGet(loc2, tyof, arr, ind):
+      return find_rec_calls(name, arr) \
+          + find_rec_calls(name, ind)
+    case TLet(loc2, tyof, var, rhs, body):
+      return find_rec_calls(name, rhs) \
+          + find_rec_calls(name, body)
+    case Hole(loc2, tyof):
+      return []
+    case Omitted(loc2, tyof):
+      return []
+    case _:
+      error(loc, 'in find_rec_calls, unhandled ' + str(term))
+    
+
 def check_proofs(stmt, env):
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
@@ -2738,6 +2854,35 @@ def check_proofs(stmt, env):
       
     case RecFun(loc, name, typarams, params, returns, cases, isPrivate):
       pass
+
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates, isPrivate):
+      # find recursive calls in the body
+      calls = find_rec_calls(name, body)
+      formulas = []
+      
+      # create a formula Fi for each
+      for call in calls:
+        lhs = measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)})
+        rhs = measure.copy()
+        less = env.base_to_unique('<')
+        less_frm = Call(loc, None, Var(loc, None, less, [less]),
+                             [lhs,rhs])
+        condition = And(loc, None, call.conditions) \
+            if len(call.conditions) > 0 else None
+        if condition is not None:
+            frm = IfThen(loc, None, condition, less_frm)
+        else:
+            frm = less_frm
+        formulas.append(frm)
+        
+      # combine into formula: all params. F1 and ... and Fn
+      formula = And(loc, None, formulas)
+      for (x,t) in reversed(params):
+          formula = All(loc, None, (x,t), (0,1), formula)
+
+      # check that the terminates proof proves the above formula
+      check_proof_of(terminates, formula, env)
   
     case Union(loc, name, typarams, alts, isPrivate):
       pass

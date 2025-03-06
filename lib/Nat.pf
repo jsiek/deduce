@@ -1226,8 +1226,8 @@ proof
   definition {operator<, operator≤, operator+, operator≤}
 end
 
-
-theorem less_equal_left_cancel: all x:Nat. all y:Nat, z:Nat.
+// less_equal_left_cancel
+theorem add_both_sides_of_less_equal: all x:Nat. all y:Nat, z:Nat.
   x + y ≤ x + z ⇔ y ≤ z
 proof
   induction Nat
@@ -1241,7 +1241,8 @@ proof
   }
 end
 
-theorem less_left_cancel: all x:Nat, y:Nat, z:Nat.
+// was: less_left_cancel
+theorem add_both_sides_of_less: all x:Nat, y:Nat, z:Nat.
   x + y < x + z ⇔ y < z
 proof
   arbitrary x:Nat, y:Nat, z:Nat
@@ -1249,12 +1250,12 @@ proof
   suffices (x + suc(y) ≤ x + z ⇔ suc(y) ≤ z) 
     by replace add_commute[x][y]
              | symmetric (definition operator+ in add_commute[x][suc(y)])
-  less_equal_left_cancel[x][suc(y), z]
+  add_both_sides_of_less_equal[x][suc(y), z]
 end
 
 // TODO: I stole this name from agda,
 // but it isn't very good
-// maybe mult_less_equal_left_cancel?
+// maybe mult_add_both_sides_of_less_equal?
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then n * x ≤ n * y
 proof
@@ -1268,13 +1269,13 @@ proof
     suffices x + n' * x ≤ y + n' * y by definition operator*
     have nx_le_ny : n' * x ≤ n' * y by apply IH to prem
     have nyx_le_nyy : n' * y + x ≤ n' * y + y 
-      by apply less_equal_left_cancel[n'*y][x, y] to prem
+      by apply add_both_sides_of_less_equal[n'*y][x, y] to prem
     have xny_le_yny : x + n' * y ≤ y + n' * y
       by replace add_commute[n'*y][x]
                | add_commute[n'*y][y]
                in nyx_le_nyy
     have xnx_le_xny : x + n' * x ≤ x + n' * y
-      by apply less_equal_left_cancel[x][n'*x, n'*y] to nx_le_ny
+      by apply add_both_sides_of_less_equal[x][n'*x, n'*y] to nx_le_ny
     apply less_equal_trans to xnx_le_xny, xny_le_yny
   }
 end
@@ -1538,9 +1539,9 @@ proof
       have y_le_z: y ≤ z by apply less_implies_less_equal[y, z] to ylz
       have ny_le_nz: n' * y ≤ n' * z by apply mult_mono_le[n', y, z] to y_le_z
       have zny_le_znz : z + n' * y ≤ z + n' * z
-        by apply less_equal_left_cancel[z, n'*y, n'*z] to ny_le_nz
+        by apply add_both_sides_of_less_equal[z, n'*y, n'*z] to ny_le_nz
       have nyy_le_nyz: n' * y + y ≤ n' * y + z
-        by apply less_equal_left_cancel[n'*y, y, z] to y_le_z
+        by apply add_both_sides_of_less_equal[n'*y, y, z] to y_le_z
       have yny_le_zny : y + n' * y ≤ z + n' * y 
         by replace add_commute in nyy_le_nyz
       have yny_le_znz: y + n'*y ≤ z + n'*z
@@ -2505,7 +2506,7 @@ proof
             by definition operator* and replace dist_mult_add_right
           suffices k*m + m + q*m ≤ k*m + n
             by replace add_commute[m, k*m]
-          suffices m + q*m ≤ n by less_equal_left_cancel[k*m, m + q*m, n]
+          suffices m + q*m ≤ n by add_both_sides_of_less_equal[k*m, m + q*m, n]
           m_qm_n
         }
         suffices quotient(i, k * m + n, m, suc(k + q)) = k + quotient(i, n, m, suc(q))
@@ -2522,10 +2523,13 @@ proof
         have not_sqm_n: not (suc(q) * m ≤ n) by replace sqm_n_false
         have not_skqm_kmn: not (suc(k + q) * m ≤ k * m + n) by {
           assume skqm_kmn: suc(k + q) * m ≤ k * m + n
-          have lt1: m + (k + q) * m ≤ k * m + n by definition operator* in skqm_kmn
-          have lt2: m + k*m + q*m ≤ k*m + n by replace dist_mult_add_right in lt1
+          have lt1: m + (k + q) * m ≤ k * m + n
+            by definition operator* in skqm_kmn
+          have lt2: m + k*m + q*m ≤ k*m + n
+            by replace dist_mult_add_right in lt1
           have lt3: k*m + m + q*m ≤ k*m + n by replace add_commute[m,k*m] in lt2
-          have lt4: m + q*m ≤ n by apply less_equal_left_cancel[k*m,m+q*m,n] to lt3
+          have lt4: m + q*m ≤ n
+            by apply add_both_sides_of_less_equal[k*m,m+q*m,n] to lt3
           have sqm_n: suc(q) * m ≤ n by {
             suffices __ by definition operator*
             lt4
@@ -2719,3 +2723,55 @@ proof
   replace mod_one | add_zero in eq2
 end
 
+lemma strong_ind: all P: fn Nat -> bool.
+  if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
+  then (all j:Nat, k:Nat. if k < j then P(k))
+proof
+  arbitrary P: fn Nat -> bool
+  assume H
+  induction Nat
+  case 0 {
+    arbitrary k:Nat
+    assume neg_k
+    conclude false by apply not_less_zero to neg_k
+  }
+  case suc(j') assume IH {
+    arbitrary k:Nat
+    assume: k < suc(j')
+    have: k ≤ j' by evaluate in recall k < suc(j')
+    cases (apply less_equal_implies_less_or_equal to recall k ≤ j')
+    case: k < j' {
+      conclude P(k) by apply IH to recall k < j'
+    }
+    case: k = j' {
+      have A: all m:Nat. if m < j' then P(m) by {
+        arbitrary m:Nat
+        assume: m < j'
+        have B: all k':Nat. (if k' < m then P(k')) by {
+          arbitrary k':Nat
+          assume: k' < m
+          have: k' < j' by apply less_trans to (recall k' < m), (recall m < j')
+          conclude P(k') by apply IH to recall k' < j'
+        }
+        conclude P(m) by apply H[m] to B
+      }
+      have: P(j') by apply H[j'] to A
+      conclude P(k) by replace symmetric (recall k = j') in recall P(j')
+    }
+  }
+end
+  
+theorem strong_induction: all P: fn Nat -> bool, n:Nat.
+  if (all j:Nat. if (all i:Nat. if i < j then P(i)) then P(j))
+  then P(n)
+proof
+  arbitrary P: fn Nat -> bool, n:Nat
+  assume prem
+  have X: all j:Nat, k:Nat. if k < j then P(k)
+    by apply strong_ind[P] to prem
+  have: n < suc(n) by {
+    suffices n ≤ n  by evaluate
+    less_equal_refl
+  }
+  conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
+end

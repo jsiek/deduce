@@ -1439,7 +1439,66 @@ def parse_function():
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
       
-  
+def parse_gen_rec_function():
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "{" term "}" "terminates" proof\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    typarams = parse_type_parameters()
+    
+    if current_token().type == 'LPAR':
+      advance()
+      params = parse_var_list()
+      if current_token().type != 'RPAR':
+        raise ParseError(meta_from_tokens(start_token, previous_token()),
+              'expected a closing parenthesis, not\n\t' \
+              + quote(current_token().value))
+      advance()
+
+    if current_token().value != '->':
+      raise ParseError(meta_from_tokens(current_token(), current_token()),
+            'expected "->" between parameter types and return type, not\n\t' \
+            + quote(current_token().value))
+    advance()
+    return_type = parse_type()
+
+    if current_token().type != 'MEASURE':
+      raise ParseError(meta_from_tokens(start_token, current_token()),
+            'expected "measure" after return type of recfun, not\n\t' \
+            + current_token().value)
+    advance()
+    measure = parse_term()
+    
+    if current_token().type != 'LBRACE':
+      raise ParseError(meta_from_tokens(start_token, current_token()),
+            'expected "{" after parameters of function, not\n\t' \
+            + current_token().value)
+    advance()
+    body = parse_term()
+    if current_token().type != 'RBRACE':
+      raise ParseError(meta_from_tokens(start_token, previous_token()),
+            'expected "}" after body of function, not\n\t' + current_token().value)
+    advance()
+
+    if current_token().type != 'TERMINATES':
+      raise ParseError(meta_from_tokens(start_token, previous_token()),
+            'expected "terminates" after "}" in "recfun", not\n\t' \
+                       + current_token().value)
+    advance()
+    terminates = parse_proof()
+    
+    meta = meta_from_tokens(start_token, previous_token())
+    return GenRecFun(meta, name, typarams, params, return_type, measure,
+                     Var(meta, None, 'Nat', []), body, terminates, False)
+    
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
     
 def parse_recursive_function():
   while_parsing = 'while parsing\n' \
@@ -1572,6 +1631,9 @@ def parse_statement():
 
   elif token.type == 'RECURSIVE':
     return parse_recursive_function()
+
+  elif token.type == 'RECFUN':
+    return parse_gen_rec_function()
 
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
