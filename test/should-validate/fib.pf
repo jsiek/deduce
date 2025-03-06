@@ -106,12 +106,8 @@ proof
     have A: 3 + n' = 2 + (1 + n') by evaluate
     have B: 4 + n' = 2 + (2 + n') by evaluate
     have C: 1 + 1 = 2 by evaluate
-    suffices __ by replace A | B
-    suffices __ by replace fib_2_n[1+n'] | fib_2_n[2+n'] | add_commute[1,2]
-    suffices ((fib(1 + n') + fib(n') + fib(1 + n')) - 1)
-               + fib(1 + n') + fib(n')
-           = (fib(1 + n') + fib(n') + fib(1 + n') + fib(1 + n') + fib(n')) - 1
-       by replace fib_2_n[1+n'] | C | fib_2_n[n']
+    suffices __ by replace A | B | fib_2_n[1+n'] | fib_2_n[2+n']
+                   | add_commute[1,2] | fib_2_n[1+n'] | C | fib_2_n[n']
     define X = fib(n')
     define Y = fib(1 + n')
     have one_YXY: 1 ≤ Y + X + Y by {
