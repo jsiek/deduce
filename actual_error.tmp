@@ -1,6 +1,0 @@
-./test/should-error/all5.pf:1.25-1.26: expected "." after parameters of "all", not
-	x
-while parsing
-	term ::= "all" var_list "." term
-./test/should-error/all5.pf:1.1-1.24: while parsing
-	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
