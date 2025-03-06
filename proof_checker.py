@@ -1198,7 +1198,8 @@ def check_proof_of(proof, formula, env):
         case _:
           claim_red = new_claim.reduce(env)
           formula_red = formula.reduce(env)
-          check_implies(loc, claim_red, remove_mark(formula_red))
+          check_implies(loc, remove_mark(claim_red).reduce(env),
+                        remove_mark(formula_red).reduce(env))
           check_proof_of(reason, claim_red, env)
 
     case EvaluateGoal(loc):

@@ -2133,6 +2133,23 @@ proof
   }
 end
 
+theorem summation_next: all n:Nat, s:Nat, f:fn Nat->Nat.
+  summation(1 + n, s, f) = summation(n, s, f) + f(s + n)
+proof
+  arbitrary n:Nat, s:Nat, f:fn Nat->Nat
+  have A: (all i:Nat. (if i < n then f(s + i) = f(s + i))) by {
+    arbitrary i:Nat assume: i < n .
+  }
+  have B: (all i:Nat. (if i < 1 then f((s + n) + i) = f(s + (n + i)))) by {
+    arbitrary i:Nat assume: i < 1 .
+  }
+  have C: summation(n + 1, s, f) = summation(n, s, f) + summation(1, s+n, f)
+    by apply summation_add[n,1,s,s+n,f,f,f] to A,B
+  have D: summation(1, s + n, f) = f(s + n)
+    by definition 2*summation and replace add_zero
+  replace add_commute[1,n] | C | D
+end
+
 /*
  Properties of equal
 */
