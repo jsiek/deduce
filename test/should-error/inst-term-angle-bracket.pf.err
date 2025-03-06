@@ -1,3 +1,5 @@
+./test/should-error/inst-term-angle-bracket.pf:4.1-8.17: while parsing
+	declaration ::= union | rec_function | function | definition
 ./test/should-error/inst-term-angle-bracket.pf:8.3-8.18: expected a closing ">", not
 	(
 while trying to parse type arguments for instantiation of an "all" formula:

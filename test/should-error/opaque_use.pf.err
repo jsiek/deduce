@@ -1,1 +1,1 @@
-./lib//ImportTests.pf:25.8-25.61: definition id_one_two cannot be used inside of a proof
+./test/should-error/opaque_use.pf:1.1-1.19: could not find a file for import: ImportTests

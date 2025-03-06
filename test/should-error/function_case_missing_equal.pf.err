@@ -1,3 +1,5 @@
+./test/should-error/function_case_missing_equal.pf:6.1-8.9: while parsing
+	declaration ::= union | rec_function | function | definition
 ./test/should-error/function_case_missing_equal.pf:8.10-8.14: expected "=" and then a term, not
 	zero
 ./test/should-error/function_case_missing_equal.pf:8.3-8.9: while parsing

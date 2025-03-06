@@ -1519,7 +1519,7 @@ def parse_define():
 
 def parse_accessibility():
   while_parsing = 'while parsing\n' \
-    + '\tstatement ::= accessibility declaration\n'
+    + '\taccess_decl ::= accessibility declaration\n'
   try: 
     my_token = current_token() 
     advance()
