@@ -285,6 +285,8 @@ ident: IDENT              -> ident
 
 ?function: "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
 
+?gen_rec_fun: "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "{" term "}" "terminates" proof -> gen_rec_fun
+
 ?definition: "define" ident "=" term      -> define
  | "define" ident ":" type "=" term       -> define_annot
 
@@ -299,6 +301,7 @@ ident: IDENT              -> ident
 ?declaration: union
  | rec_function
  | function
+ | gen_rec_fun
  | definition
 
 ?access_decl: "private" declaration    -> private_decl

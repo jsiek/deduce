@@ -644,15 +644,24 @@ class Conditional(Term):
     
   def reduce(self, env):
      cond = self.cond.reduce(env)
-     thn = self.thn.reduce(env)
-     els = self.els.reduce(env)
-     match cond:
-       case Bool(l1, tyof, True):
-         return thn
-       case Bool(l1, tyof, False):
-         return els
-       case _:
-         return Conditional(self.location, self.typeof, cond, thn, els)
+     if get_reduce_all():   # Does this work? Need to test!
+         match cond:
+           case Bool(l1, tyof, True):
+             return self.thn.reduce(env)
+           case Bool(l1, tyof, False):
+             return self.els.reduce(env)
+           case _:
+             return Conditional(self.location, self.typeof, cond, self.thn, self.els)
+     else:
+         thn = self.thn.reduce(env)
+         els = self.els.reduce(env)
+         match cond:
+           case Bool(l1, tyof, True):
+             return thn
+           case Bool(l1, tyof, False):
+             return els
+           case _:
+             return Conditional(self.location, self.typeof, cond, thn, els)
   
   def substitute(self, sub):
     return Conditional(self.location, self.typeof, self.cond.substitute(sub),
@@ -1154,19 +1163,10 @@ class Call(Term):
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
       case Lambda(loc, ty, vars, body):
-        if get_verbose():
-          print('rator is Lambda')
-        assert len(vars) == len(args)
-        subst = {k: v for ((k,t),v) in zip(vars, args)}
-        for (k,v) in subst.items():
-          if isinstance(v, TermInst):
-            v.inferred = False
-        body_env = env
-        new_body = body.substitute(subst)
-        old_defs = get_reduce_only()
-        set_reduce_only(old_defs + [Var(loc, t, x, []) for (x,t) in vars])
-        ret = new_body.reduce(body_env)
-        set_reduce_only(old_defs)
+        return self.do_call(loc, vars, body, args, env)
+      case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates):
+        return self.do_call(loc, params, body, args, env)
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
                     type_args):
@@ -1188,6 +1188,20 @@ class Call(Term):
       print('call ' + str(self) + '\n\treturns ' + str(ret))
       print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     return ret
+
+  def do_call(self, loc, vars, body, args, env):
+    assert len(vars) == len(args)
+    subst = {k: v for ((k,t),v) in zip(vars, args)}
+    for (k,v) in subst.items():
+      if isinstance(v, TermInst):
+        v.inferred = False
+    body_env = env
+    new_body = body.substitute(subst)
+    old_defs = get_reduce_only()
+    set_reduce_only(old_defs + [Var(loc, t, x, []) for (x,t) in vars])
+    ret = new_body.reduce(body_env)
+    set_reduce_only(old_defs)
+    return ret      
 
   def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
                         returns, cases, is_assoc, env):
@@ -3008,6 +3022,93 @@ def pretty_print_function(name, type_params, params, body):
         + " {\n" + body.pretty_print(2, True) + "\n}\n"
 
 @dataclass
+class GenRecFun(Declaration):
+  name: str
+  type_params: List[str]
+  vars: List[Tuple[str,Type]]
+  returns: Type
+  measure: Term
+  measure_ty: Type
+  body: Term
+  terminates: Proof
+
+  def uniquify(self, env):
+    old_name = self.name
+    new_name = generate_name(self.name)
+    extend(env, self.name, new_name, self.location)
+    self.name = new_name
+    
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old,new) in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+    self.old_type_params = self.type_params
+    self.type_params = new_type_params
+    
+    self.returns.uniquify(body_env)
+    
+    for (x,t) in self.vars:
+      if t:
+        t.uniquify(env)
+    new_vars = [(generate_name(x),t) for (x,t) in self.vars]
+    for ((old,t1),(new,t2)) in zip(self.vars, new_vars):
+      overwrite(body_env, old, new, self.location)
+    self.vars = new_vars
+
+    self.measure.uniquify(body_env)
+    self.measure_ty.uniquify(env)
+    self.terminates.uniquify(env)
+    
+    #extend(body_env, old_name, new_name, self.location)
+    self.body.uniquify(body_env)
+    
+  def collect_exports(self, export_env):
+    if self.isPrivate:
+      return
+    extend(export_env, base_name(self.name), self.name, self.location)
+
+  def __str__(self):
+    if get_verbose():
+      return self.to_string()
+    else:
+      return self.name if get_unique_names() else base_name(self.name)
+    
+  def to_string(self):
+    return 'recfun ' + self.name + '<' + ','.join(self.type_params) + '>' \
+        + '(' + ', '.join([x + ':' + str(t) if t else x\
+                           for (x,t) in params]) + ') -> ' + str(self.returns)\
+        + '\n\tmeasure ' + str(self.measure) \
+        + ' {\n' + str(self.body) + '\n}\n' \
+        + 'terminates {\n' + str(self.terminates) + '\n}\n'
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'recfun ' + complete_name(self.name) \
+        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
+           if len(self.type_params) > 0 else '') \
+      + '(' + ', '.join([x + ':' + str(t) if t else x for (x,t) in self.vars])\
+      + ') -> ' + str(self.returns)\
+      + '\n\tmeasure ' + str(self.measure) \
+      + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
+
+  def __eq__(self, other):
+    if isinstance(other, Var):
+      result = self.name == other.name
+      return result
+    elif isinstance(other, TermInst):
+      return self == other.subject
+    elif isinstance(other, GenRecFun):
+      result = self.name == other.name
+      return result
+    else:
+      return False
+  
+  def reduce(self, env):
+    return self
+
+  def substitute(self, sub):
+    return self
+
+@dataclass
 class Define(Declaration):
   name: str
   typ: Type
@@ -3410,6 +3511,13 @@ class Env:
     else:
       self.dict = {}
 
+  # This is a hack. Not reliable. Added for GenRecFun.
+  def base_to_unique(self, name):
+    for k in self.dict.keys():
+      if base_name(k) == name:
+        return k
+    return None
+      
   def __str__(self):
     return ',\n'.join(['\t' + k + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])

@@ -24,12 +24,12 @@ fun abs(x : Int) {
 
 // Signs and operations on them
 
-private union Sign {
+union Sign {
   positive
   negative
 }
 
-private fun sign(n : Int) {
+fun sign(n : Int) {
   switch n {
     case pos(n') { positive }
     case negsuc(n') { negative }
@@ -75,7 +75,7 @@ private fun operator*(s : Sign, n : Int) {
   }
 }
 
-private fun operator*(s : Sign, n : Nat) { s * pos(n) }
+fun operator*(s : Sign, n : Nat) { s * pos(n) }
 
 
 // Subtraction of natural numbers
@@ -123,6 +123,19 @@ fun operator *(x : Int, y : Int) {
 fun operator * (n:Nat, m:Int) { pos(n) * m }
 
 fun operator * (n:Int, m:Nat) { n * pos(m) }
+
+// Division
+
+fun operator / (n:Int, m:Int) {
+  (sign(n) * sign(m)) * (abs(n) / abs(m))
+}
+
+fun operator / (n:Int, m:Nat) {
+  sign(n) * (abs(n) / m)
+}
+
+
+// Less Than
 
 fun operator ≤(a : Int, y : Int) {
   switch a {
