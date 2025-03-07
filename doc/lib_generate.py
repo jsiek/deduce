@@ -209,6 +209,7 @@ known_tokens = {
     'LINECOMMENT': 'comment',
     'LPAR': 'operator',
     'LSQB': 'operator',
+    'MEASURE': 'keyword',
     'MINUS': 'operator',
     'MORETHAN': 'operator',
     'NOT': 'keyword',
@@ -241,6 +242,7 @@ known_tokens = {
     'SUPPOSE': 'keyword',
     'SWITCH': 'keyword',
     'SYMMETRIC': 'keyword',
+    'TERMINATES': 'keyword',
     'THEN': 'keyword',
     'THEOREM': 'keyword',
     'TO': 'keyword',
@@ -522,15 +524,11 @@ if __name__ == '__main__':
     for tok in token_types:
         if tok not in known_tokens.keys():
             print("ERROR: " + tok + " from the Lark file is missing from the known_tokens in the the lib_generator.py script.")
-        exit(255)
+            exit(255)
     for tok in known_tokens.keys():
         if tok not in token_types:
             print("ERROR: " + tok + " from the known_tokens in the the lib_generator.py script is not a keyword in the Lark file .")
-        exit(255)
-    # The following should no longer be needed, but want to test first.
-    if sorted(token_types) != list(known_tokens.keys()):
-        print("ERROR: Lark file has changes that are not reflected in this script. Please update the list of known tokens accordingly.")
-        exit(255)
+            exit(255)
 
     # call deduce on lib to generate thm files
     print("Generating lib thm files")
