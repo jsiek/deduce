@@ -1,0 +1,32 @@
+opaque union Byte {
+    Z
+    one(Byte)
+    zero(Byte)
+}
+
+function f(Byte) -> Byte {
+    f(Z) = Z
+    f(zero(b)) = f(b)
+    f(one(b)) = f(b)
+}
+
+assert f(one(Z)) = Z
+assert f(zero(Z)) = Z
+
+theorem f_Z: all b:Byte. f(b) = Z
+proof
+    induction Byte
+    case Z {
+        evaluate
+    }
+    case one(b) suppose IH {
+        suffices __ by definition f
+        suffices __ by replace IH
+        evaluate
+    }
+    case zero(b) suppose IH {
+        suffices __ by definition f
+        suffices __ by replace IH
+        evaluate
+    }
+end

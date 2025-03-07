@@ -1,0 +1,5 @@
+./test/should-error/private_opaque.pf:1.1-1.8: while parsing
+	access_decl ::= accessibility declaration
+./test/should-error/private_opaque.pf:1.9-1.8: while parsing
+	declaration ::= union | rec_function | function | definition
+Expected a declaration not "opaque"

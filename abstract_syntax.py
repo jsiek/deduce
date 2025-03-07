@@ -235,6 +235,20 @@ def flatten_assoc_list(op_name, args):
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
 
 
+@dataclass(kw_only=True)
+class Declaration(AST):
+  isPrivate: bool = False
+  makeOpaque: bool = False
+  file_defined: str = ''
+
+  def is_opaque(self):
+    if get_recursive_descent():
+      from rec_desc_parser import get_filename
+    else:
+      from parser import get_filename
+    return self.makeOpaque and not (get_filename() == self.file_defined)
+
+
 ################ Types ######################################
 
 @dataclass
@@ -1151,7 +1165,7 @@ class Call(Term):
       case Lambda(loc, ty, vars, body):
         return self.do_call(loc, vars, body, args, env)
       case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                   body, terminates, isPrivate):
+                   body, terminates):
         return self.do_call(loc, params, body, args, env)
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
@@ -2787,7 +2801,7 @@ class Theorem(Statement):
   name: str
   what: Formula
   proof: Proof
-  isLemma: bool
+  isLemma: bool = False
 
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
@@ -2836,11 +2850,10 @@ class Constructor(AST):
   
       
 @dataclass
-class Union(Statement):
+class Union(Declaration):
   name: str
   type_params: List[str]
   alternatives: List[Constructor]
-  isPrivate: bool
 
   def reduce(self, env):
     return self
@@ -2926,13 +2939,12 @@ class FunCase(AST):
     
     
 @dataclass
-class RecFun(Statement):
+class RecFun(Declaration):
   name: str
   type_params: List[str]
   params: List[Type]
   returns: Type
   cases: List[FunCase]
-  isPrivate: bool
 
   def uniquify(self, env):
     new_name = generate_name(self.name)
@@ -3009,7 +3021,7 @@ def pretty_print_function(name, type_params, params, body):
         + " {\n" + body.pretty_print(2, True) + "\n}\n"
 
 @dataclass
-class GenRecFun(Statement):
+class GenRecFun(Declaration):
   name: str
   type_params: List[str]
   vars: List[Tuple[str,Type]]
@@ -3018,7 +3030,6 @@ class GenRecFun(Statement):
   measure_ty: Type
   body: Term
   terminates: Proof
-  isPrivate: bool
 
   def uniquify(self, env):
     old_name = self.name
@@ -3098,11 +3109,10 @@ class GenRecFun(Statement):
     return self
 
 @dataclass
-class Define(Statement):
+class Define(Declaration):
   name: str
   typ: Type
   body: Term
-  isPrivate: bool
 
   def __str__(self):
     if isinstance(self.body, Lambda):
@@ -3348,7 +3358,7 @@ def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):
       match binding.defn:
-        case Union(loc2, name, typarams, alts, isPrivate):
+        case Union(loc2, name, typarams, alts):
           for constr in alts:
             if constr.name == constr_name:
               return True
@@ -3719,9 +3729,9 @@ def print_theorems(filename, ast):
   theorem_filename = fullpath.with_suffix('.thm')
   to_print = []
   for s in ast:
-    if isinstance(s, Theorem) and not s.isLemma:
+    if isinstance(s, Theorem) and not s.isPrivate:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
-    elif hasattr(s, 'isPrivate') and not s.isPrivate:
+    elif isinstance(s, Declaration) and not s.isPrivate and hasattr(s, 'pretty_print'):
       to_print.append(s.pretty_print(0))
   
   if len(to_print) == 0:
