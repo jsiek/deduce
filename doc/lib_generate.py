@@ -225,6 +225,7 @@ known_tokens = {
     'RBRACE': 'operator',
     'RECALL': 'keyword',
     'RECURSIVE': 'keyword',
+    'RECFUN': 'keyword',
     'REFLEXIVE': 'keyword',
     'REPLACE': 'keyword',
     'REWRITE': 'keyword',
