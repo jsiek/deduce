@@ -1116,9 +1116,9 @@ class Call(Term):
       return result
 
   def reduce(self, env):
-    if get_verbose():
-      print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
-      print('reduce call ' + str(self))
+    # if get_verbose():
+    #   print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
+    #   print('reduce call ' + str(self))
     fun = self.rator.reduce(env)
     is_assoc = is_associative(self.location, rator_name(self.rator),
                               self.typeof, env)
@@ -1127,11 +1127,11 @@ class Call(Term):
     else:
       flat_args = self.args
     args = [arg.reduce(env) for arg in flat_args]
-    if get_verbose():
-      print('rator => ' + str(fun))
-      print('is_associative? ' + str(is_assoc))
-    if get_verbose():
-      print('args => ' + ', '.join([str(arg) for arg in args]))
+    # if get_verbose():
+    #   print('rator => ' + str(fun))
+    #   print('is_associative? ' + str(is_assoc))
+    # if get_verbose():
+    #   print('args => ' + ', '.join([str(arg) for arg in args]))
     ret = None
     match fun:
       case Var(loc, ty, '='):
@@ -1142,8 +1142,8 @@ class Call(Term):
         else:
           ret = Call(self.location, self.typeof, fun, args)
       case Var(loc, ty, name, rs) if is_assoc:
-        if get_verbose():
-          print('rator is associative Var')
+        # if get_verbose():
+        #   print('rator is associative Var')
         ret = Call(self.location, self.typeof, fun,
                    flatten_assoc_list(rator_name(self.rator), args))
         if hasattr(self, 'type_args'):
@@ -1165,14 +1165,14 @@ class Call(Term):
       case Generic(loc2, tyof, typarams, body):
         error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
-        if get_verbose():
-          print('not reducing call because neutral function: ' + str(fun))
+        # if get_verbose():
+        #   print('not reducing call because neutral function: ' + str(fun))
         ret = Call(self.location, self.typeof, fun, args)
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
-    if get_verbose():
-      print('call ' + str(self) + '\n\treturns ' + str(ret))
-      print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    # if get_verbose():
+    #   print('call ' + str(self) + '\n\treturns ' + str(ret))
+    #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     return ret
 
   def do_call(self, loc, vars, body, args, env):
@@ -1231,11 +1231,10 @@ class Call(Term):
     new_args = []
     worklist = args
     while len(worklist) > 1:
-      if get_verbose():
-        print('worklist: ' + ', '.join([str(a) for a in worklist]))
-        print('new_args: ' + ', '.join([str(a) for a in new_args]))
+      # if get_verbose():
+      #   print('worklist: ' + ', '.join([str(a) for a in worklist]))
+      #   print('new_args: ' + ', '.join([str(a) for a in new_args]))
       first_arg = worklist[0]; worklist = worklist[1:]
-      #print('first_arg: ' + str(first_arg))
       did_call = False
       for fun_case in cases:
           subst = {}
@@ -1244,8 +1243,8 @@ class Call(Term):
               result = do_function_call(loc, name, type_params, type_args,
                                         fun_case.parameters, rest_args,
                                         fun_case.body, subst, env, returns)
-              if get_verbose():
-                print('call result: ' + str(result))
+              # if get_verbose():
+              #   print('call result: ' + str(result))
               worklist = [result] + worklist[len(fun_case.parameters):]
               did_call = True
               rator_var = Var(loc, None, name, [])
@@ -1257,18 +1256,18 @@ class Call(Term):
         new_args.append(first_arg)
       if did_call and not get_reduce_all():
         break
-      if get_verbose():
-        print('-----------------------------')
+      # if get_verbose():
+      #   print('-----------------------------')
     set_reduce_only(old_reduce_only)
-    if get_verbose():
-      print('end associative operator ' + str(fun))
-      print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+    # if get_verbose():
+    #   print('end associative operator ' + str(fun))
+    #   print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
 
 
     new_args += worklist
     flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
-    if get_verbose():
-      print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    # if get_verbose():
+    #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     if len(flat_results) == 1:
       return explicit_term_inst(flat_results[0])
     else:
@@ -3065,8 +3064,9 @@ class GenRecFun(Statement):
   def to_string(self):
     return 'recfun ' + self.name + '<' + ','.join(self.type_params) + '>' \
         + '(' + ', '.join([x + ':' + str(t) if t else x\
-                           for (x,t) in params]) + ') -> ' + str(self.returns)\
-        + '\n\tmeasure ' + str(self.measure) \
+                           for (x,t) in self.vars]) + ')' \
+        + ' -> ' + str(self.returns) + '\n' \
+        + '\tmeasure ' + str(self.measure) \
         + ' {\n' + str(self.body) + '\n}\n' \
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 

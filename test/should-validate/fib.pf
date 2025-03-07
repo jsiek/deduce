@@ -82,7 +82,8 @@ proof
   }
   case suc(n') assume IH: 0 < fib(1 + n') {
     have A: (1 + suc(n') < 2) = false by evaluate
-    suffices __ by definition fib and replace A | add_sub_identity[1] | add_suc_left | add_sub_identity[2] | suc_one_add
+    suffices __ by definition fib and replace A | add_sub_identity[1]
+      | add_suc_left | add_sub_identity[2] | suc_one_add
     suffices 1 ≤ fib(1 + n') + fib(n')
       by definition operator<
     have B: 1 ≤ fib(1 + n')  by definition operator< in IH
@@ -117,14 +118,12 @@ proof
       suffices __ by replace eq
       evaluate
     }
-    suffices __ by replace add_commute[((Y + X + Y) - 1)]
-        // bug! drops an X!
-        //| apply sub_add_assoc[Y+X+Y, Y+X, 1] to one_YXY
     equations
-        Y + X + ((Y + X + Y) - 1)
-              = (Y + X + Y + X + Y) - 1
-                  by apply sub_add_assoc[Y+X+Y, Y+X, 1] to one_YXY
-          ... = (Y + X + Y + #Y + X#) - 1  by replace add_commute
+            ((Y + X + Y) - 1) + Y + X
+          = Y + X + ((Y + X + Y) - 1)  by replace add_commute[((Y + X + Y) - 1)]
+      ... = (Y + X + Y + X + Y) - 1
+                                by apply sub_add_assoc[Y+X+Y, Y+X, 1] to one_YXY
+      ... = (Y + X + Y + #Y + X#) - 1  by replace add_commute
   }
 end
   

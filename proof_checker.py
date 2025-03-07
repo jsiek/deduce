@@ -20,7 +20,7 @@
 #    and run the print and assert statements.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, IncompleteProof, VerboseLevel
+from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, print_verbose, IncompleteProof, VerboseLevel
 
 imported_modules = set()
 checked_modules = set()
@@ -188,9 +188,14 @@ def get_num_rewrites():
     return num_rewrites
 
 def rewrite(loc, formula, equation, env):
+    if get_verbose():
+        print('rewriting ' + str(formula) + '\n\twith ' + str(equation))
     num_marks = count_marks(formula)
     if num_marks == 0:
-        return rewrite_aux(loc, formula, equation, env)
+        ret = rewrite_aux(loc, formula, equation, env)
+        print_verbose(lambda: '\trewrote ' + str(formula) + '\n\t    ==> ' + str(ret) \
+                      + '\n\tusing ' + str(equation))
+        return ret
     elif num_marks == 1:
         try:
             find_mark(formula)
@@ -212,7 +217,7 @@ def call_arity(call):
 def rewrite_aux(loc, formula, equation, env):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
-    print('rewrite? ' + str(formula) + ' with equation ' + str(equation))
+    print('rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
   found_match = False
   try:
     matching = {}
@@ -220,7 +225,7 @@ def rewrite_aux(loc, formula, equation, env):
     found_match = True
     rhs = rhs.substitute(matching)
     if get_verbose():
-      print('\tmatch, result: ' + str(rhs))
+      print('\tmatched LHS, rewriting to the RHS: ' + str(rhs))
   except Exception as e:
     if get_verbose():
       print('\tno match')
@@ -256,6 +261,7 @@ def rewrite_aux(loc, formula, equation, env):
       new_rator = rewrite_aux(loc, rator, equation, env)
       new_args = [rewrite_aux(loc, arg, equation, env) for arg in args]
       if get_verbose():
+          print('while tyring to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
       (lhs,rhs) = split_equation(loc2, equation)
       arity = call_arity(lhs)
@@ -285,7 +291,7 @@ def rewrite_aux(loc, formula, equation, env):
                 output_terms += flat_tmp
                 i = i + arity
         if i < len(new_args):
-            output_terms.append(new_args[i])
+            output_terms += new_args[i:]
         if len(output_terms) > 1:
             return Call(loc2, tyof, new_rator, output_terms)
         else:
@@ -1653,10 +1659,10 @@ def apply_rewrites(loc, formula, eqns, env):
 
   
 def formula_match(loc, vars, pattern_frm, frm, matching, env):
-  if get_verbose():
-    print("formula_match(" + str(pattern_frm) + "," + str(frm) + ")")
-    print("\tin  " + ','.join([str(x) for x in vars]))
-    print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
+  # if get_verbose():
+  #   print("formula_match(" + str(pattern_frm) + "," + str(frm) + ")")
+  #   print("\tin  " + ','.join([str(x) for x in vars]))
+  #   print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
   match (pattern_frm, frm):
     case (TermInst(loc2, tyof, subject, tyargs, inferred), _):
       return formula_match(loc, vars, subject, frm, matching, env)
