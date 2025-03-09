@@ -1891,8 +1891,8 @@ class IfThen(Formula):
 class All(Formula):
   var: Tuple[str,Type]
   # Position (s, e), where 
-  #  e : The number of vars in the block
   #  s : The variable's index in the list, starting from the last var
+  #  e : The number of vars in the block
   pos: Tuple[int, int]
   body: Formula
 
@@ -3509,7 +3509,7 @@ class Env:
     return None
       
   def __str__(self):
-    return ',\n'.join(['\t' + k + ': ' + str(v) \
+    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
   def __contains__(self, item):

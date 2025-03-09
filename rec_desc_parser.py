@@ -1214,7 +1214,7 @@ def parse_proof():
 def parse_finishing_proof():
     start_token = current_token()
     proof = parse_proof_med()
-    while current_token().type == 'COMMA':
+    while not end_of_file() and current_token().type == 'COMMA':
       advance()
       right = parse_proof()
       proof = PTuple(meta_from_tokens(start_token, previous_token()), 
