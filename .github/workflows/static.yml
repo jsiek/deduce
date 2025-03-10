@@ -48,19 +48,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r ./gh-pages/requirements.txt
+          pip install -r ./gh_pages/requirements.txt
 
       # Step 4: Run the Python convert script
       - name: Run convert script
-        run: python ./doc/convert.py
+        run: python ./gh_pages/doc/convert.py
       
       # Step 5: Run the Python lib generate script
       - name: Run lib generate script
-        run: python ./doc/lib_generate.py
+        run: python ./gh_pages/doc/lib_generate.py
 
       # Step 6: Convert scss to css
       - name: Convert scss to css
-        run: pysassc ./gh-pages/css/style-dev.css ./gh-pages/css/style.css && pysassc ./gh-pages/css/stdlib-dev.css ./gh-pages/css/stdlib.css
+        run: pysassc ./gh_pages/css/style-dev.css ./gh_pages/css/style.css && pysassc ./gh_pages/css/stdlib-dev.css ./gh_pages/css/stdlib.css
 
       # Step 7: Setup Pages
       - name: Setup Pages
@@ -71,7 +71,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
-          path: './gh-pages'
+          path: './gh_pages'
 
       # Step 9: Deploy to ghp
       - name: Deploy to GitHub Pages

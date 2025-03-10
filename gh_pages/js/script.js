@@ -3,8 +3,8 @@ const linkList = document.getElementById("link-list");
 const stylesheet = document.getElementById("stylesheet")
 
 const loc = window.location.pathname;
-const dev = loc.includes('gh-pages')
-const urlPrefix = dev ? "/gh-pages" : "/deduce"
+const dev = loc.includes('gh_pages')
+const urlPrefix = dev ? "/gh_pages" : "/deduce"
 
 class DeduceNav extends HTMLElement {
     constructor () {

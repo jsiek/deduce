@@ -3,7 +3,7 @@ import subprocess
 import os
 
 lib_deduce_dir = './lib'
-lib_html_dir = './gh-pages/pages/stdlib'
+lib_html_dir = './gh_pages/pages/stdlib'
 
 prelude = lambda pf_files, thm_files, cur_file : f'''
 <!DOCTYPE html>
