@@ -19,11 +19,11 @@ This project and everyone participating in it is governed by the [Deduce Code of
 
 ## I have a question
 
-Before you ask a question, it is best to search for existing [issues](/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
+Before you ask a question, it is best to search for existing [issues](https://github.com/jsiek/deduce/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
 
 If you then still feel the need to ask a question and need clarification, we recommend the following:
 
-- Open an [issue](/issues/new).
+- Open an [issue](https://github.com/jsiek/deduce/issues/new).
 - Provide as much context as you can about what you're running into.
 
 We will then take care of the issue as soon as possible.
