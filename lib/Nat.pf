@@ -63,34 +63,6 @@ fun operator ≥ (x:Nat, y:Nat) {
 }
 
 
-/*
- The quotient function searches for n/m by starting at q (initially 0)
- and incrementing by 1 until q * m = n (if n is evenly divisible by m).
- Of course, n may not be evenly divisible by m, so we really stop
- when another increment would overshoot n, that is, (1+q)*m > n.
-
- The u parameter serves as gasoline. Choose u to satisfy n < (1 + q + u)*m 
- to ensure that quotient does not run out of gas before finding the
- quotient. For example, u = n is a convenient choice for the initial q=0.
-
- Precondition: q * m ≤ n and n < (1 + q + u) * m
- Postcondition: q * m + r = n and r < m    for some r
- */
-private recursive quotient(Nat,Nat,Nat,Nat) -> Nat {
-  quotient(0, n, m, q) = q
-  quotient(suc(u), n, m, q) =
-    if suc(q) * m ≤ n then
-      quotient(u, n, m, suc(q))
-    else
-      q
-}
-
-/*
-fun operator /(n : Nat, m : Nat) {
-  quotient(n, n, m, 0)
-}
-*/
-
 recursive summation(Nat, Nat, fn Nat->Nat) -> Nat {
   summation(0, begin, f) = 0
   summation(suc(k), begin, f) = f(begin) + summation(k, suc(begin), f)
@@ -2561,6 +2533,7 @@ proof
   }
 end
 
+// Division by iterated subtraction.
 recfun operator /(n : Nat, m : Nat) -> Nat
   measure n
 {
