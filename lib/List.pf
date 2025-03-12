@@ -152,19 +152,18 @@ theorem length_append: all U :type, xs :List<U>, ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
 proof
   arbitrary U :type
-  enable {length, operator++, operator +, operator +}
   induction List<U>
-  case empty {
+  case [] {
     arbitrary ys:List<U>
-    conclude length(@empty<U> ++ ys) = length(@empty<U>) + length(ys)  by .
+    conclude length(@[]<U> ++ ys) = length(@[]<U>) + length(ys)  by evaluate
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
     equations
       length(node(n,xs') ++ ys)
-          = 1 + length(xs' ++ ys)              by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys]
-      ... = length(node(n,xs')) + length(ys)   by .
+          = 1 + length(xs' ++ ys)              by evaluate
+      ... = 1 + (length(xs') + length(ys))     by replace IH[ys]
+      ... = length(node(n,xs')) + length(ys)   by evaluate
   }
 end
 

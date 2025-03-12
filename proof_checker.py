@@ -1161,7 +1161,7 @@ def check_proof_of(proof, formula, env):
           body_env = env.declare_local_proof_var(loc, label, new_prem1)
           check_proof_of(body, conc, body_env)
         case _:
-          error(proof.location, 'the assume statement is for if-then formula, not ' + str(formula))
+          error(proof.location, 'the assume statement is for if-then formula, not ' + repr(formula))
 
     # define x = t
     case PTLetNew(loc, var, rhs, rest):
@@ -2906,7 +2906,12 @@ def check_proofs(stmt, env):
         formulas.append(frm)
         
       # combine into formula: all params. F1 and ... and Fn
-      formula = And(loc, None, formulas)
+      if len(formulas) > 1:
+          formula = And(loc, None, formulas)
+      elif len(formulas) == 1:
+          formula = formulas[0]
+      else:
+          error(loc, 'There were no recursive calls in the body of this recfun')
       for (x,t) in reversed(params):
           formula = All(loc, None, (x,t), (0,1), formula)
 

@@ -84,14 +84,12 @@ private recursive quotient(Nat,Nat,Nat,Nat) -> Nat {
     else
       q
 }
-    
+
+/*
 fun operator /(n : Nat, m : Nat) {
   quotient(n, n, m, 0)
 }
-
-fun operator % (n:Nat, m:Nat) {
-  n - (n / m) * m
-}
+*/
 
 recursive summation(Nat, Nat, fn Nat->Nat) -> Nat {
   summation(0, begin, f) = 0
@@ -1858,9 +1856,13 @@ fun is_odd(n : Nat) {
   parity(n, false)
 }
 
+fun Even(n : Nat) {
+  some m:Nat. n = 2 * m
+}
 
-define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
-define Odd : fn Nat -> bool = λ n { some m:Nat. n = suc (2 * m) }
+fun Odd(n : Nat) {
+  some m:Nat. n = suc (2 * m)
+}
 
 theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
 proof
@@ -2559,26 +2561,146 @@ proof
   }
 end
 
+recfun operator /(n : Nat, m : Nat) -> Nat
+  measure n
+{
+  if n < m then 0
+  else if m = 0 then 0
+  else 1 + (n - m) / m
+}
+terminates {
+	arbitrary n:Nat, m:Nat
+  assume cond: not (n < m) and not (m = 0)
+  suffices m + (n - m) < m + n by add_both_sides_of_less[m,n-m,n]
+  suffices n < m + n by {
+    have m_n: m ≤ n by apply not_less_implies_less_equal to conjunct 0 of cond
+    replace apply sub_add_identity[n,m] to m_n
+  }
+  obtain m' where m_sm: m = suc(m') from apply not_zero_suc to conjunct 1 of cond
+  suffices n < suc(m') + n by replace m_sm
+  suffices n ≤ m' + n by definition operator+ | operator< | operator≤
+  suffices n ≤ n + m' by replace add_commute
+  less_equal_add
+}
+
+fun operator % (n:Nat, m:Nat) {
+  n - (n / m) * m
+}
+
+lemma strong_induction_aux: all P: fn Nat -> bool.
+  if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
+  then (all j:Nat, k:Nat. if k < j then P(k))
+proof
+  arbitrary P: fn Nat -> bool
+  assume H
+  induction Nat
+  case 0 {
+    arbitrary k:Nat
+    assume neg_k
+    conclude false by apply not_less_zero to neg_k
+  }
+  case suc(j') assume IH {
+    arbitrary k:Nat
+    assume: k < suc(j')
+    have: k ≤ j' by evaluate in recall k < suc(j')
+    cases (apply less_equal_implies_less_or_equal to recall k ≤ j')
+    case: k < j' {
+      conclude P(k) by apply IH to recall k < j'
+    }
+    case: k = j' {
+      have A: all m:Nat. if m < j' then P(m) by {
+        arbitrary m:Nat
+        assume: m < j'
+        have B: all k':Nat. (if k' < m then P(k')) by {
+          arbitrary k':Nat
+          assume: k' < m
+          have: k' < j' by apply less_trans to (recall k' < m), (recall m < j')
+          conclude P(k') by apply IH to recall k' < j'
+        }
+        conclude P(m) by apply H[m] to B
+      }
+      have: P(j') by apply H[j'] to A
+      conclude P(k) by replace symmetric (recall k = j') in recall P(j')
+    }
+  }
+end
+  
+theorem strong_induction: all P: fn Nat -> bool, n:Nat.
+  if (all j:Nat. if (all i:Nat. if i < j then P(i)) then P(j))
+  then P(n)
+proof
+  arbitrary P: fn Nat -> bool, n:Nat
+  assume prem
+  have X: all j:Nat, k:Nat. if k < j then P(k)
+    by apply strong_induction_aux[P] to prem
+  have: n < suc(n) by {
+    suffices n ≤ n  by evaluate
+    less_equal_refl
+  }
+  conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
+end
+
+private fun DivPred(n:Nat) {
+	all m:Nat. if 0 < m then some r:Nat. (n / m) * m + r = n and r < m
+}
+
 lemma division: all n:Nat, m:Nat.
   if 0 < m
   then some r:Nat. (n/m)*m + r = n and r < m
 proof
-  arbitrary n:Nat, m:Nat
-  assume m_pos: 0 < m
-  have p1: 0 * m ≤ n by evaluate
-  have p2: n < (1 + 0 + n) * m by {
-    obtain m' where m_sm: m = suc(m') from apply positive_suc to m_pos
-    suffices __ by replace m_sm | mult_commute
-    suffices n < 1 + n + m' * (1 + n)
-      by definition operator* and replace add_zero 
-    suffices 1 + n ≤ 1 + n + m' * (1 + n)
-      by definition operator< and replace suc_one_add[n]
-    less_equal_add[1+n]
+  arbitrary n:Nat
+  have SI: all j:Nat. if (all i:Nat. if i < j then DivPred(i)) then DivPred(j) by {
+    arbitrary j:Nat
+    assume prem: all i:Nat. if i < j then DivPred(i)
+    suffices all m:Nat. if 0 < m then some r:Nat. ((j / m) * m + r = j and r < m)
+      by definition DivPred
+    arbitrary m:Nat
+    assume m_pos
+    switch j < m {
+      case true assume j_m_true {
+        suffices some r:Nat. r = j and r < m
+          by definition operator / and replace j_m_true | zero_mult | zero_add
+        choose j
+        conclude j = j and j < m
+          by replace j_m_true
+      }
+      case false assume j_m_false {
+        switch m = 0 {
+          case true assume m_z_true {
+            have: m = 0 by replace m_z_true
+            conclude false by apply less_irreflexive to replace (recall m = 0) in m_pos
+          }
+          case false assume m_z_false {
+            have not_m_z: not (m = 0) by replace m_z_false
+            have not_j_m: not (j < m) by replace j_m_false
+            have m_j: m ≤ j by apply not_less_implies_less_equal to not_j_m
+            obtain m' where m_sm: m = suc(m') from apply not_zero_suc to not_m_z
+            suffices some r:Nat. ((1 + (j - m) / m) * m + r = j and r < m)
+              by definition operator / and replace j_m_false | m_z_false
+            suffices some r:Nat. (m + ((j - m) / m) * m + r = j and r < m)
+              by replace dist_mult_add_right | one_mult
+            have jm_j: j - m < j by {
+              suffices m + (j - m) < m + j by add_both_sides_of_less[m,j-m,j]
+              suffices j < m + j by replace apply sub_add_identity[j,m] to m_j
+              suffices __ by replace m_sm
+              suffices j ≤ m' + j by definition operator+ | operator< | operator≤
+              suffices __ by replace add_commute
+              less_equal_add
+            }
+            have div_mp: DivPred(j - m) by apply prem[j - m] to jm_j
+            obtain r where div_jm: ((j - m) / m) * m + r = j - m and r < m
+              from apply (definition DivPred in div_mp)[m] to m_pos
+            choose r
+            suffices (m + (j - m) = j and r < m) by replace conjunct 0 of div_jm
+            have mjm_j: m + (j - m) = j by apply sub_add_identity[j, m] to m_j
+            mjm_j, conjunct 1 of div_jm
+          }
+        }
+      }
+    }
   }
-  have ex: some r:Nat. quotient(n, n, m, 0) * m + r = n and r < m
-    by apply quotient_correct[n,0,n,m] to p1, p2
-  suffices __ by definition operator/
-  ex
+  have: DivPred(n) by apply strong_induction[DivPred, n] to SI
+  definition DivPred in recall DivPred(n)
 end
 
 theorem div_mod: all n:Nat, m:Nat.
@@ -2738,57 +2860,4 @@ proof
   have eq1: (n / 1) * 1 + (n % 1) = n by apply div_mod[n,1] to one_pos
   have eq2: (n / 1) + (n % 1) = n by replace mult_one in eq1
   replace mod_one | add_zero in eq2
-end
-
-lemma strong_ind: all P: fn Nat -> bool.
-  if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
-  then (all j:Nat, k:Nat. if k < j then P(k))
-proof
-  arbitrary P: fn Nat -> bool
-  assume H
-  induction Nat
-  case 0 {
-    arbitrary k:Nat
-    assume neg_k
-    conclude false by apply not_less_zero to neg_k
-  }
-  case suc(j') assume IH {
-    arbitrary k:Nat
-    assume: k < suc(j')
-    have: k ≤ j' by evaluate in recall k < suc(j')
-    cases (apply less_equal_implies_less_or_equal to recall k ≤ j')
-    case: k < j' {
-      conclude P(k) by apply IH to recall k < j'
-    }
-    case: k = j' {
-      have A: all m:Nat. if m < j' then P(m) by {
-        arbitrary m:Nat
-        assume: m < j'
-        have B: all k':Nat. (if k' < m then P(k')) by {
-          arbitrary k':Nat
-          assume: k' < m
-          have: k' < j' by apply less_trans to (recall k' < m), (recall m < j')
-          conclude P(k') by apply IH to recall k' < j'
-        }
-        conclude P(m) by apply H[m] to B
-      }
-      have: P(j') by apply H[j'] to A
-      conclude P(k) by replace symmetric (recall k = j') in recall P(j')
-    }
-  }
-end
-  
-theorem strong_induction: all P: fn Nat -> bool, n:Nat.
-  if (all j:Nat. if (all i:Nat. if i < j then P(i)) then P(j))
-  then P(n)
-proof
-  arbitrary P: fn Nat -> bool, n:Nat
-  assume prem
-  have X: all j:Nat, k:Nat. if k < j then P(k)
-    by apply strong_ind[P] to prem
-  have: n < suc(n) by {
-    suffices n ≤ n  by evaluate
-    less_equal_refl
-  }
-  conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
 end
