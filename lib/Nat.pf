@@ -2408,131 +2408,6 @@ end
  Properties of Division and Modulo
  */
 
-lemma quotient_correct: all u:Nat, q:Nat, n:Nat, m:Nat.
-  if q * m ≤ n and n < (1 + q + u) * m
-  then some r : Nat. quotient(u, n, m, q) * m + r = n and r < m
-proof
-  induction Nat
-  case 0 {
-    arbitrary q:Nat, n:Nat, m:Nat
-    suffices __ by definition quotient and rewrite add_zero | dist_mult_add_right | one_mult
-    assume prem: (q * m ≤ n and n < m + q * m)
-    choose n - q*m
-    have A: q * m + (n - q * m) = n by apply sub_add_identity[n, q*m] to prem
-    have B: n - q * m < m by {
-      suffices suc(n - q*m) ≤ m by definition operator<
-      suffices 1 + (n - q*m) ≤ m by replace suc_one_add
-      suffices (1 + n) - q*m ≤ m by replace apply sub_add_assoc[n, 1, q*m] to prem
-      have qm_n: q*m ≤ n by prem
-      have n_n1: n ≤ 1 + n   by less_equal_add_left
-      have qm_1n: q * m ≤ 1 + n by apply less_equal_trans to qm_n, n_n1
-      have n_qmm: 1 + n ≤ q * m + m by {
-        replace suc_one_add | add_commute[m, q*m] in
-        definition operator < in
-        conjunct 1 of prem
-      }
-      apply less_equal_add_sub[1+n, q*m, m] to qm_1n, n_qmm
-    }
-    A, B
-  }
-  case suc(u') assume IH {
-    arbitrary q:Nat, n:Nat, m:Nat
-    assume prem
-    switch suc(q) * m ≤ n for quotient {
-      case true assume qm_n_true {
-        have qm_n: suc(q) * m ≤ n by replace qm_n_true
-        have n_qum: n < (1 + (suc(q) + u')) * m by {
-          suffices __ by replace suc_add[q]
-          replace add_suc in conjunct 1 of prem
-        }
-        conclude some r:Nat. (quotient(u', n, m, suc(q)) * m + r = n and r < m)
-          by apply IH[suc(q), n, m] to qm_n, n_qum
-      }
-      case false assume sqm_n_false {
-        choose n - q*m
-        have A: q * m + (n - q * m) = n by apply sub_add_identity[n, q*m] to prem
-        have B: n - q * m < m by {
-          suffices 1 + (n - q*m) ≤ m by definition operator< and replace suc_one_add
-          suffices (1 + n) - q*m ≤ m by replace apply sub_add_assoc[n, 1, q*m] to prem
-          have qm_n: q*m ≤ n by prem
-          have n_n1: n ≤ 1 + n   by less_equal_add_left
-          have qm_1n: q * m ≤ 1 + n by apply less_equal_trans to qm_n, n_n1
-          have n_qmm: 1 + n ≤ q * m + m by {
-            have not_sqm_n: not (suc(q) * m ≤ n) by replace sqm_n_false
-            have n_sqm: n < suc(q) * m by apply not_less_equal_iff_greater to not_sqm_n
-            have n_mqm: n < m + q * m by definition operator* in n_sqm
-            suffices suc(n) ≤ q * m + m by definition 2*operator+
-            replace add_commute in definition operator< in n_mqm
-          }
-          apply less_equal_add_sub[1+n, q*m, m] to qm_1n, n_qmm
-        }
-        A, B
-      }
-    }
-  }
-end
-
-lemma quotient_add: all u:Nat, k:Nat, n:Nat, m:Nat, q:Nat.
-  if q * m ≤ n and n < (1 + q + u) * m
-  then quotient(u, k*m + n, m, k + q) = k + quotient(u, n, m, q)
-proof
-  induction Nat
-  case 0 {
-    arbitrary k:Nat, n:Nat, m:Nat, q:Nat
-    assume prem
-    conclude quotient(0, k * m + n, m, k + q) = k + quotient(0, n, m, q)
-      by definition quotient
-  }
-  case suc(i) assume IH {
-    arbitrary k:Nat, n:Nat, m:Nat, q:Nat
-    assume prem
-    have qm_n: q*m ≤ n by prem
-    have n_qim: n < (1 + (q + suc(i))) * m by prem
-    switch suc(q) * m ≤ n for quotient {
-      case true assume sqm_n_true {
-        have sqm_n: suc(q) * m ≤ n  by replace sqm_n_true
-        have m_qm_n: m + q*m ≤ n by definition operator* in sqm_n
-        have lt: suc(k + q) * m ≤ k * m + n by {
-          suffices m + k*m + q*m ≤ k*m + n
-            by definition operator* and replace dist_mult_add_right
-          suffices k*m + m + q*m ≤ k*m + n
-            by replace add_commute[m, k*m]
-          suffices m + q*m ≤ n by add_both_sides_of_less_equal[k*m, m + q*m, n]
-          m_qm_n
-        }
-        suffices quotient(i, k * m + n, m, suc(k + q)) = k + quotient(i, n, m, suc(q))
-          by replace (apply eq_true to lt)
-        have B: n < (1 + (suc(q) + i)) * m by {
-          suffices __ by definition 3*operator+
-          definition 2* operator+ in
-          replace add_suc | add_suc in n_qim
-        }
-        replace add_suc in
-        apply IH[k, n, m, suc(q)] to sqm_n, B
-      }
-      case false assume sqm_n_false {
-        have not_sqm_n: not (suc(q) * m ≤ n) by replace sqm_n_false
-        have not_skqm_kmn: not (suc(k + q) * m ≤ k * m + n) by {
-          assume skqm_kmn: suc(k + q) * m ≤ k * m + n
-          have lt1: m + (k + q) * m ≤ k * m + n
-            by definition operator* in skqm_kmn
-          have lt2: m + k*m + q*m ≤ k*m + n
-            by replace dist_mult_add_right in lt1
-          have lt3: k*m + m + q*m ≤ k*m + n by replace add_commute[m,k*m] in lt2
-          have lt4: m + q*m ≤ n
-            by apply add_both_sides_of_less_equal[k*m,m+q*m,n] to lt3
-          have sqm_n: suc(q) * m ≤ n by {
-            suffices __ by definition operator*
-            lt4
-          }
-          apply not_sqm_n to sqm_n
-        }
-        replace (apply eq_false to not_skqm_kmn)
-      }
-    }
-  }
-end
-
 // Division by iterated subtraction.
 recfun operator /(n : Nat, m : Nat) -> Nat
   measure n
@@ -2833,4 +2708,50 @@ proof
   have eq1: (n / 1) * 1 + (n % 1) = n by apply div_mod[n,1] to one_pos
   have eq2: (n / 1) + (n % 1) = n by replace mult_one in eq1
   replace mod_one | add_zero in eq2
+end
+
+theorem add_div_one: all n:Nat, m:Nat.
+  if 0 < m
+  then (n + m) / m = 1 + n / m
+proof
+  arbitrary n:Nat, m:Nat
+  assume m_pos
+  have not_nm_m: not (n + m < m) by {
+    assume nm_m: n + m < m
+    have not_m_nm: not (m ≤ n + m) by apply not_less_equal_iff_greater to nm_m
+    have: m ≤ m + n by less_equal_add
+    have m_nm: m ≤ n + m by replace add_commute in recall m ≤ m + n
+    conclude false by apply not_m_nm to m_nm
+  }
+  have m_nz: not (m = 0) by {
+    assume: m = 0
+    conclude false by definition operator< | operator≤ in replace (recall m = 0) in m_pos
+  }
+    
+  equations
+      (n + m) / m = 1 + ((n + m) - m) / m  by definition operator/
+                                             and replace (apply eq_false to not_nm_m)
+                                                       | (apply eq_false to m_nz)
+              ... = 1 + n / m              by replace add_commute[n,m] | add_sub_identity
+end
+  
+theorem mult_div_inverse: all n:Nat, m:Nat.
+  if 0 < m then (n * m) / m = n
+proof
+  induction Nat
+  case 0 {
+    arbitrary m:Nat
+    assume prem
+    suffices 0 / m = 0 by replace zero_mult
+    apply zero_div to prem
+  }
+  case suc(n') assume IH {
+    arbitrary m:Nat
+    assume prem
+    suffices (n' * m + m) / m = suc(n')   by definition operator* and replace add_commute
+    equations
+        (n' * m + m) / m = 1 + (n' * m) / m  by apply add_div_one[n'*m, m] to prem
+                     ... = 1 + n'            by replace apply IH to prem
+                     ... = suc(n')           by evaluate
+  }
 end
