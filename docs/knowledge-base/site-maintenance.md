@@ -10,7 +10,7 @@ For your convenience, we've split up this doc into different sections to make it
 
 ## Updating site content
 
-Most of the pages on the site are generated into html from the markdown files found in the `/doc` directory. If you want to update the content for those pages, just update the markdown file and `/doc/convert.py` will do the rest for you.
+Most of the pages on the site are generated into html from the markdown files found in the `/gh_pages/doc` directory. If you want to update the content for those pages, just update the markdown file and `/gh_pages/doc/convert.py` will do the rest for you.
 
 The only three pages that are not automatically generated from the markdown files are
 
@@ -26,7 +26,7 @@ Currently, the site displays two kinds of code blocks which we will denote as `d
 - `deduce` codeblocks are the ones that actually get colored on the site. `convert.py` also generates deduce files for these codeblocks for testing purposes.
 - `non-deduce` code blocks are not colored on the site. They are the ones that show up with black text on a light gray background. These code blocks are primarily used for non-deduce code, code output, or intermediary deduce code. 
 
-Code blocks in `index.html` can be edited from on of the `/gh-pages/deduce-code/home_example#` files where `#` is the number of the code block that you want to edit. There are three codeblocks on the home page `1, 2, 3` which are listed in the order that they show up on the site from top to bottom. Code blocks in `index.html` are `deduce` codeblocks, and they appear with three mac-like dots in the top-left corner for style. If you want to remove the three dots in the corner of the code blocks, you just need to remove the `windowed` class from the class list of the codeblock.
+Code blocks in `index.html` can be edited from on of the `/gh_pages/deduce-code/home_example#` files where `#` is the number of the code block that you want to edit. There are three codeblocks on the home page `1, 2, 3` which are listed in the order that they show up on the site from top to bottom. Code blocks in `index.html` are `deduce` codeblocks, and they appear with three mac-like dots in the top-left corner for style. If you want to remove the three dots in the corner of the code blocks, you just need to remove the `windowed` class from the class list of the codeblock.
 
 ```html
 <div class="code-wrapper windowed">
@@ -66,7 +66,7 @@ end
 ```
 ````
 
-The label is important and should be unique as it will be used to generate a `/test/should-validate/doc_*.pf` test file. `convert.py` generates one test file per markdown file in the `/doc` directory where the content of that test file is specified by a comment at the bottom on the markdown file. An example is shown below:
+The label is important and should be unique as it will be used to generate a `/test/should-validate/doc_*.pf` test file. `convert.py` generates one test file per markdown file in the `/gh_pages/doc` directory where the content of that test file is specified by a comment at the bottom on the markdown file. An example is shown below:
 
 ````
 <!--
@@ -97,7 +97,7 @@ The name of the file `ProofIntro.pf` is ignored, as it is a remnant of entangled
 
 Are you tired of the general colorscheme of the site? Do you want to change the code blocks to a light theme (or even sepia)? Fret not, changing the colors is as easy as can be!
 
-All of the colors used on the site are listed at the top of the `/gh-pages/css/stye.css` page. You can easily change the values of those colors by changing their respective hex code. 
+All of the colors used on the site are listed at the top of the `/gh_pages/css/stye.css` page. You can easily change the values of those colors by changing their respective hex code. 
 
 ```css
 --blue: #5DAAF1; -> --blue: #0000FF;

@@ -105,16 +105,6 @@ function remove_all<T>(List<T>, T) -> List<T> {
       node(x, remove_all(xs', y))
 }
 
-function nth<T>(List<T>, T) -> (fn Nat -> T) {
-  nth(empty, def) = λi{def}
-  nth(node(x, xs), def) = λi{
-    if i = 0 then
-      x
-    else
-       nth(xs, def)(pred(i))
-  }
-}
-
 function get<T>(List<T>, Nat) -> Option<T> {
   get(empty, i) = none
   get(node(x, xs), i) =
@@ -162,19 +152,18 @@ theorem length_append: all U :type, xs :List<U>, ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
 proof
   arbitrary U :type
-  enable {length, operator++, operator +, operator +}
   induction List<U>
-  case empty {
+  case [] {
     arbitrary ys:List<U>
-    conclude length(@empty<U> ++ ys) = length(@empty<U>) + length(ys)  by .
+    conclude length(@[]<U> ++ ys) = length(@[]<U>) + length(ys)  by evaluate
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
     equations
       length(node(n,xs') ++ ys)
-          = 1 + length(xs' ++ ys)              by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys]
-      ... = length(node(n,xs')) + length(ys)   by .
+          = 1 + length(xs' ++ ys)              by evaluate
+      ... = 1 + (length(xs') + length(ys))     by replace IH[ys]
+      ... = length(node(n,xs')) + length(ys)   by evaluate
   }
 end
 
@@ -575,6 +564,81 @@ proof
   }
 end
 
+theorem length_drop: all E:type, xs:List<E>, n:Nat.
+  if n ≤ length(xs)
+  then length(drop(n, xs)) + n = length(xs)
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary n:Nat
+    assume prem
+    have: n = 0 by apply zero_le_zero to evaluate in prem
+    suffices length(drop(0, @[]<E>)) + 0 = length(@[]<E>)
+      by replace recall n = 0
+    evaluate
+  }
+  case node(x, xs') assume IH: all n:Nat. (if n ≤ length(xs') then length(drop(n, xs')) + n = length(xs')) {
+    arbitrary n:Nat
+    assume prem
+    switch n {
+      case 0 {
+        suffices suc(length(xs') + 0) = suc(length(xs')) by evaluate
+        replace add_zero
+      }
+      case suc(n') assume n_sn {
+        suffices length(drop(n', xs')) + 1 + n' = 1 + length(xs')
+          by definition length | drop and replace suc_one_add | zero_add
+        have n_xs: n' ≤ length(xs') by evaluate in replace n_sn in prem
+        have eq: length(drop(n', xs')) + n' = length(xs') by apply IH[n'] to n_xs
+        conclude length(drop(n', xs')) + 1 + n' = 1 + length(xs')
+          by replace (symmetric eq) | add_commute[1, length(drop(n',xs'))]
+      }
+    }
+  }
+end
+
+theorem length_drop_zero: all E:type, xs:List<E>, n:Nat.
+  if length(xs) < n
+  then length(drop(n, xs)) = 0
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+    arbitrary n:Nat
+    assume prem
+    switch n {
+      case 0 {
+        conclude length(drop(0, @[]<E>)) = 0
+          by evaluate
+      }
+      case suc(n') {
+        conclude length(drop(suc(n'), @[]<E>)) = 0
+          by evaluate
+      }
+    }
+  }
+  case node(x, xs') assume IH: all n:Nat. (if length(xs') < n then length(drop(n, xs')) = 0) {
+    arbitrary n:Nat
+    assume prem
+    switch n {
+      case 0 assume nz {
+        conclude false 
+          by evaluate in replace nz in prem
+      }
+      case suc(n') assume n_sn {
+        suffices length(drop(n', xs')) = 0 by evaluate
+        have xs_n: length(xs') < n' by {
+          suffices suc(length(xs')) ≤ n' by definition operator<
+          definition operator< | length | 2*operator+ | operator≤ in
+          replace n_sn in prem
+        }
+        conclude length(drop(n', xs')) = 0 by apply IH[n'] to xs_n
+      }
+    }
+  }
+end
+  
 theorem drop_append: all E:type, xs:List<E>, ys:List<E>.
   drop(length(xs), xs ++ ys) = ys
 proof
@@ -592,8 +656,8 @@ proof
   }
 end
 
-theorem nth_drop: all T:type, n:Nat, xs:List<T>, i:Nat, d:T.
-  nth(drop(n, xs), d)(i) = nth(xs, d)(n + i)
+theorem get_drop: all T:type, n:Nat, xs:List<T>, i:Nat, d:T.
+  get(drop(n, xs), i) = get(xs, n + i)
 proof
   arbitrary T:type
   induction Nat
@@ -605,17 +669,16 @@ proof
     arbitrary xs:List<T>, i:Nat, d:T
     switch xs for drop {
       case empty {
-        definition nth
+        definition get
       }
       case node(x, xs') {
-	have nsz: not (suc(n') + i = 0) by
-	  suppose sz conclude false by definition operator + in sz
-	suffices nth(drop(n', xs'), d)(i) = nth(xs', d)(pred(suc(n') + i))
-           by definition nth
-	      and rewrite (apply eq_false to nsz)
-	suffices nth(drop(n', xs'), d)(i) = nth(xs', d)(n' + i)
-           by definition {operator +, pred}
-	IH[xs',i,d]
+	      have nsz: not (suc(n') + i = 0) by
+	      suppose sz conclude false by definition operator + in sz
+	      suffices get(drop(n', xs'), i) = get(xs', pred(suc(n') + i))
+          by definition get and rewrite (apply eq_false to nsz)
+	      suffices get(drop(n', xs'), i) = get(xs', n' + i)
+          by definition {operator +, pred}
+	      IH[xs',i,d]
       }
     }
   }
@@ -706,62 +769,6 @@ proof
   }
 end
 
-theorem nth_append_front: all T:type, xs:List<T>, ys:List<T>, i:Nat, d:T.
-  if i < length(xs)
-  then nth(xs ++ ys, d)(i) = nth(xs, d)(i)
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>, i:Nat, d:T
-    suppose i_z: i < length(@empty<T>)
-    conclude false by definition {length, operator <, operator ≤} in i_z
-  }
-  case node(x, xs) suppose IH {
-    arbitrary ys:List<T>, i:Nat, d:T
-    suppose i_xxs: i < length(node(x,xs))
-    switch i {
-      case zero {
-        definition {operator++,nth}
-      }
-      case suc(i') suppose i_si {
-        suffices nth(xs ++ ys, d)(i') = nth(xs, d)(i')
-           by definition {operator++, nth, pred}
-	have i_xs: i' < length(xs) by
-	    enable {operator <, operator ≤}
-	    conclude i' < length(xs)
-              by rewrite i_si in
-                 definition {length, operator+,operator+} in i_xxs
-	apply IH[ys, i', d] to i_xs
-      }
-    }
-  }
-end
-
-theorem nth_append_back: all T:type, xs:List<T>, ys:List<T>, i:Nat, d:T.
-  nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i)
-proof
-  arbitrary T:type
-  induction List<T>
-  case empty {
-    arbitrary ys:List<T>, i:Nat, d:T
-    definition {operator++, length, operator +}
-  }
-  case node(x, xs) suppose IH {
-    arbitrary ys:List<T>, i:Nat, d:T
-    have X: not ((1 + length(xs)) + i = 0) by {
-      suppose eq_z
-      conclude false by evaluate in eq_z
-    }
-    suffices nth(xs ++ ys, d)(pred((1 + length(xs)) + i)) = nth(ys, d)(i)
-       by definition {operator++,length, nth}
-          and rewrite (apply eq_false to X)
-    suffices nth(xs ++ ys, d)(length(xs) + i) = nth(ys, d)(i)
-       by definition 2*operator + | pred
-    IH[ys, i, d]
-  }
-end
-
 theorem mset_equal_implies_set_equal: all T:type, xs:List<T>, ys:List<T>.
   if mset_of(xs) = mset_of(ys)
   then set_of(xs) = set_of(ys)
@@ -770,12 +777,9 @@ proof
   arbitrary xs:List<T>, ys:List<T>
   suppose xs_ys
   equations
-    set_of(xs) = set_of_mset(mset_of(xs))
-               by symmetric som_mset_eq_set<T>[xs]
-           ... = set_of_mset(mset_of(ys))
-               by rewrite xs_ys
-	   ... = set_of(ys)
-               by som_mset_eq_set<T>[ys]
+    set_of(xs) = #set_of_mset(mset_of(xs))#   by replace som_mset_eq_set<T>[xs]
+           ... = set_of_mset(mset_of(ys))     by replace xs_ys
+	         ... = set_of(ys)                   by som_mset_eq_set<T>[ys]
 end
 
 theorem head_append: all E:type, L:List<E>, R:List<E>.
@@ -794,7 +798,7 @@ proof
     suppose pos_len
     equations
           head(node(x,xs) ++ R)
-        = just(x)                           by definition {operator++,head}
+        = just(x)                        by definition {operator++,head}
     ... =# head(node(x,xs)) #            by definition head
   }
 end

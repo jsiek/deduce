@@ -688,11 +688,10 @@ The main theorem is `division_remainder` which states that
 Example:
 
 ```{.deduce^#division_example}
-define three = succ(succ(one))
-assert 6 / three = 2
-assert 7 / three = 2
-assert 8 / three = 2
-assert 9 / three = 3
+assert 6 / 3 = 2
+assert 7 / 3 = 2
+assert 8 / 3 = 2
+assert 9 / 3 = 3
 ```
 
 ## Empty Set
@@ -1423,11 +1422,10 @@ n % m = n - (n / m) * pos2nat(m)
 Example:
 
 ```{.deduce^#mod_example}
-define two = succ(one)
-assert 1 % two = 1
-assert 2 % two = 0
-assert 3 % two = 1
-assert 4 % two = 0
+assert 1 % 2 = 1
+assert 2 % 2 = 0
+assert 3 % 2 = 1
+assert 4 % 2 = 0
 ```
 
 ## Modus Ponens

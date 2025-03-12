@@ -667,14 +667,25 @@ def parse_tree_to_ast(e, parent):
             fun = lam
         return Define(e.meta, name, None, fun, False)
     
-    # recursive functions
+    # structurally recursive functions
     elif e.data == 'rec_fun':
         return RecFun(e.meta, parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_list(e.children[1], e),
                       parse_tree_to_list(e.children[2], e),
                       parse_tree_to_ast(e.children[3], e),
                       parse_tree_to_list(e.children[4], e), False)
-
+    # general recursion
+    elif e.data == 'gen_rec_fun':
+        return GenRecFun(e.meta,
+                         parse_tree_to_ast(e.children[0], e),
+                         parse_tree_to_list(e.children[1], e),
+                         parse_tree_to_list(e.children[2], e),
+                         parse_tree_to_ast(e.children[3], e),
+                         parse_tree_to_ast(e.children[4], e),
+                         Var(e.meta, None, 'Nat', []),
+                         parse_tree_to_ast(e.children[5], e),
+                         parse_tree_to_ast(e.children[6], e),
+                         False)
     # term definition
     elif e.data == 'define':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 

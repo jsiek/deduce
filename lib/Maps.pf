@@ -1,11 +1,13 @@
 import Set
 import Option
 
-define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
-                        λ x:T { g(f(x)) } } }
+fun operator ∘ <T,U,V>(g:fn U->V, f:fn T->U) {
+  fun x:T { g(f(x)) }
+}
 
-define update = generic T, U { λf:fn T->U, x:T, v:U{ λy:T {
-                   if y = x then v else f(y) } } }
+fun update<T, U>(f:fn T->U, x:T, v:U) {
+  fun y:T { if y = x then v else f(y) }
+}
 
 theorem update_eq :
   < T, U > all f: fn (T) -> U, x:T, v:U.

@@ -10,7 +10,7 @@ parsers = ['--recursive-descent', '--lalr']
 lib_dir = './lib'
 pass_dir = './test/should-validate'
 error_dir = './test/should-error'
-site_dir = './gh-pages/deduce-code'
+site_dir = './gh_pages/deduce-code'
 max_threads = 10
 
 def handle_sigint(signal, stack_frame):
@@ -223,8 +223,8 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, site_dir + '/home_example2.pf')
         test_deduce(parsers, deduce_call, site_dir + '/home_example3.pf')
         # generate test files for doc code without generating html
-        from doc.convert import convert_dir
-        convert_dir("./doc/", False)
+        from gh_pages.doc.convert import convert_dir
+        convert_dir("./gh_pages/doc/", False)
         # test generated files
         for f in list_dir_sorted(pass_dir):
             if f.startswith('doc_') and f.endswith('.pf'):

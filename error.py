@@ -31,6 +31,10 @@ def get_verbose():
     return False
   return verbose
 
+def print_verbose(msg_thunk):
+  if get_verbose():
+    print(msg_thunk())
+
 # flag for expect fail
 
 expect_fail_flag = False

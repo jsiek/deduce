@@ -42,7 +42,7 @@ Now that the api is deployed on vercel, you just need to update the site to star
 
 ![alt text](image-3.png)
 
-- Now go to the deduce repository and navigate to the `gh-pages/js/sandbox.js` file
+- Now go to the deduce repository and navigate to the `gh_pages/js/sandbox.js` file
 - Find the line that says `const deduceServerURL = ".../deduce"` and replace the `...` with the domain that you copied from `vercel`
 
 > ⚠️ You need to make sure that you append `/deduce` to the url that you paste in otherwise the api will not work. A correct example of a url would be `"https://deduce.vercel.app/deduce"` where `https://deduce.vercel.app` is what you copied from vercel.

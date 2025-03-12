@@ -13,7 +13,7 @@ proof
             and rewrite symmetric add_zero[suc(n')]
         have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
             by definition operator <=
-        apply less_equal_left_cancel[suc(n')][0, (0 + n' * (suc(n') + 0))]
+        apply add_both_sides_of_less_equal[suc(n')][0, (0 + n' * (suc(n') + 0))]
             to zero_le_any
     }
 end
