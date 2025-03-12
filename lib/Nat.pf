@@ -2725,7 +2725,7 @@ proof
   }
   have m_nz: not (m = 0) by {
     assume: m = 0
-    conclude false by definition operator< | operator≤ in replace (recall m = 0) in m_pos
+    conclude false by evaluate in replace (recall m = 0) in m_pos
   }
     
   equations
