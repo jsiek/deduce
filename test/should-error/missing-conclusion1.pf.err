@@ -1,0 +1,6 @@
+./test/should-error/missing-conclusion1.pf:3.1-3.4: incomplete proof
+Goal:
+	true
+Advice:
+	You can prove "true" with a period.
+
