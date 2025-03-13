@@ -1,8 +1,18 @@
-./test/should-error/induction_case.pf:20.15-20.16: expected a proof, not
-	"}"
-./test/should-error/induction_case.pf:20.3-20.14: while parsing
-	ind_case ::= "case" pattern "{" proof "}"
+./test/should-error/induction_case.pf:20.15-20.16: incomplete proof
+Goal:
+	(all n:Nat. suc(length(null)) = length(cons(n, null)))
+Advice:
+	Prove this "all" formula with:
+		arbitrary n:Nat
+	followed by a proof of:
+		suc(length(null)) = length(cons(n, null))
 
-./test/should-error/induction_case.pf:19.3-20.14: while parsing
-	conclusion ::= "induction" type ind_case*
+	Alternatively, you can try induction with:
+		induction Nat
+		case zero {
+		  ?
+		}
+		case suc(N1) assume IH1: suc(length(null)) = length(cons(N1, null)) {
+		  ?
+		}
 
