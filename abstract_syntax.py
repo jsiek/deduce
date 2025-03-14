@@ -1983,10 +1983,17 @@ class Some(Formula):
   
   def reduce(self, env):
     n = len(self.vars)
-    return Some(self.location,
-                self.typeof,
-                [(x, ty.reduce(env)) for (x,ty) in self.vars],
-                self.body.reduce(env))
+    new_body = self.body.reduce(env)
+    match new_body:
+      case Bool(loc2, tyof, True):
+        return new_body
+      case Bool(loc2, tyof, False):
+        return new_body
+      case _:
+        return Some(self.location,
+                    self.typeof,
+                    [(x, ty.reduce(env)) for (x,ty) in self.vars],
+                    new_body)
   
   def substitute(self, sub):
     n = len(self.vars)
