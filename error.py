@@ -101,15 +101,15 @@ class ParseError(Exception):
     self.trace = []
 
   def extend(self, loc, msg):
-    self.trace += [ParseError(loc, msg)]
+    self.trace.append(ParseError(loc, msg))
     return self
 
   def base_message(self):
     return super().__str__()
 
   def __str__(self):
-    base = error_header(self.loc) + super().__str__()
+    base =  error_header(self.loc) + super().__str__()
     if self.trace:
-      base += "\n"
-    
-    return  base+"\n".join([str(x) for x in self.trace[:MAX_ERR_DEPTH]])
+      base = "\n" + base
+
+    return  "\n".join([str(x) for x in reversed(self.trace[:MAX_ERR_DEPTH])]) + base

@@ -1,8 +1,8 @@
+./test/should-error/paren_term.pf:9.1-9.10: while parsing
+	statement ::= "print" term
+
 ./test/should-error/paren_term.pf:9.10-9.11: expected closing parenthesis ")", not
 	,
 while parsing parenthesized term
 	term ::= "(" term ")"
-
-./test/should-error/paren_term.pf:9.1-9.10: while parsing
-	statement ::= "print" term
 
