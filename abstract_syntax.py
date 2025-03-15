@@ -2161,7 +2161,7 @@ class Cases(Proof):
 
   def pretty_print(self, indent):
       cases_str = ''
-      for (label, frm, body) in cases:
+      for (label, frm, body) in self.cases:
           cases_str += indent*' ' + 'case ' + base_name(label) + ' : ' + str(frm) + '{\n' \
               + body.pretty_print(indent+2) + '\n' \
               + indent*' ' + '}'
@@ -2712,20 +2712,6 @@ class ApplyDefsFact(Proof):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
-
-@dataclass
-class EnableDefs(Proof):
-  definitions: List[Term]
-  body: Proof
-
-  def __str__(self):
-      return 'enable { ' + ', '.join([str(d) for d in self.definitions]) \
-        + ' };' + maybe_str(self.body)
-
-  def uniquify(self, env):
-    for d in self.definitions:
-      d.uniquify(env)
-    self.body.uniquify(env)
     
 @dataclass
 class Rewrite(Proof):

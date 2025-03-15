@@ -618,7 +618,7 @@ def parse_assumption():
 proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
-                  'enable', 'equations', 'evaluate', 'extensionality',
+                  'equations', 'evaluate', 'extensionality',
                   'have', 'induction', 'injective', 'obtain',
                   'recall', 'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
@@ -1078,20 +1078,6 @@ def parse_proof_statement():
     meta = meta_from_tokens(token, previous_token())
     return SomeElim(meta, witnesses, label, premise, some, None)
     
-  elif token.type == 'ENABLE':
-    advance()
-    if current_token().type != 'LBRACE':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected "{" after "enable"')
-    advance()
-    defs = parse_ident_list()
-    if current_token().type != 'RBRACE':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected closing "}" in "enable"')
-    advance()
-    meta = meta_from_tokens(token, previous_token())
-    return EnableDefs(meta, [Var(meta, None, x) for x in defs], None)
-      
   elif token.type == 'HAVE':
     return parse_have()
 

@@ -388,8 +388,7 @@ Example:
 theorem choose_example: some x:Nat. 6 = 2 * x
 proof
   choose 3
-  enable {operator*, operator+, operator+, operator+}
-  conclude 6 = 2 * 3   by .
+  conclude 6 = 2 * 3   by evaluate
 end
 ```
 

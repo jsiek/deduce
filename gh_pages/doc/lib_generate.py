@@ -179,7 +179,6 @@ known_tokens = {
     'DOLLAR': 'operator',
     'DOT': 'operator',
     'ELSE': 'keyword',
-    'ENABLE': 'keyword',
     'END': 'keyword',
     'EQUAL': 'operator',
     'EQUATIONS': 'keyword',
