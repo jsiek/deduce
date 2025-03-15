@@ -1284,8 +1284,7 @@ So we assume the premise `suc(x') < suc(x')` from which we
 can prove that `x' < x'` using the definitions of `<` and `≤`.
 
     assume sx_l_sx: suc(x') < suc(x')
-    enable {operator <, operator ≤}
-    have x_l_x: x' < x' by sx_l_sx
+    have x_l_x: x' < x' by apply less_suc_iff_suc_less to sx_l_sx
 
 We conclude this case by applying the induction hypothesis to `x' < x'`.
 
@@ -1304,8 +1303,7 @@ proof
   }
   case suc(x') assume IH: not (x' < x') {
     assume sx_l_sx: suc(x') < suc(x')
-    enable {operator <, operator ≤}
-    have x_l_x: x' < x' by sx_l_sx
+    have x_l_x: x' < x' by apply less_suc_iff_suc_less to sx_l_sx
     conclude false by apply IH to x_l_x
   }
 end

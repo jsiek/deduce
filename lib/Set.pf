@@ -54,8 +54,7 @@ proof
   arbitrary T:type
   arbitrary x:T, y:T
   suppose y_in_x: y ∈ single(x)
-  enable {operator ∈, single, rep}
-  y_in_x
+  evaluate in y_in_x
 end
 
 theorem single_equal_equal: all T:type. all x:T, y:T.
@@ -72,8 +71,7 @@ proof
   arbitrary T:type
   arbitrary x:T
   suppose x_in_empty: x ∈ ∅
-  enable {operator ∈, rep}
-  x_in_empty
+  evaluate in x_in_empty
 end
 
 theorem rep_char_fun: all T:type, f: fn T -> bool. rep(char_fun(f)) = f
@@ -108,8 +106,8 @@ proof
   arbitrary T:type
   arbitrary x:T, A:Set<T>, B:Set<T>
   suppose x_AB: x in (A | B)
-  enable {operator in, operator |, rep}
-  x_AB
+  suffices __ by evaluate
+  evaluate in x_AB
 end
 
 theorem member_union_equal: all T:type. all x:T, A:Set<T>, B:Set<T>.

@@ -214,8 +214,6 @@ ident: IDENT              -> ident
     | "define" IDENT "=" term                       -> define_term_proof
     | "_definition" "{" ident_list "}"              -> apply_defs_goal
     | "_definition" ident                           -> apply_defs_goal_one
-    | "enable" "{" ident_list "}"                   -> enable_defs
-    | "enable" ident                                -> enable_def
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term "by" proof              -> let
     | "have" ":" term "by" proof                    -> let_anon
