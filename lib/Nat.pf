@@ -2079,11 +2079,11 @@ proof
     have IH': summation(k',suc(s),f) = summation(k',suc(t),g)
       by apply IH[f,g,suc(s),suc(t)] 
          to arbitrary i:Nat suppose i_k: i < k'
-            suffices f(suc(s) + i) = g(suc(t) + i)  by .
+            suffices f(suc(s + i)) = g(suc(t + i))  by evaluate
             have fsi_gtsi: f(s + suc(i)) = g(t + suc(i))
-              by apply f_g[suc(i)] to
-                 enable {operator <, operator ≤, operator ≤} i_k
-            enable {operator +} replace add_suc in fsi_gtsi
+              by suffices suc(i) < suc(k') by f_g[suc(i)] 
+                 apply less_suc_iff_suc_less to i_k
+            replace add_suc  in fsi_gtsi
     replace f_g_s | IH'
   }
 end
@@ -2106,8 +2106,7 @@ proof
     have f_g_s: f(s) = g(s) by {
       have s_s: s ≤ s by less_equal_refl[s]
       have s_sk: s < s + suc(k') by {
-        enable {operator <,operator ≤}
-        suffices s ≤ s + k'    by replace add_suc
+        suffices s ≤ s + k' by definition operator < | operator ≤ and replace add_suc
         less_equal_add[s][k']
       }
       apply f_g[s] to s_s, s_sk
@@ -2190,13 +2189,12 @@ proof
   case zero {
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
     suppose g_f_and_h_f
-    enable {operator +}
-    suffices summation(b,s,f) = summation(b,t,h)  by definition summation
+    suffices summation(b,s,f) = summation(b,t,h)  by definition { operator+, summation }
     apply summation_cong[b][f,h,s,t]
     to arbitrary i:Nat
        suppose i_b: i < b
        conclude f(s + i) = h(t + i)
-       by symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
+       by definition operator+ in symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
   }
   case suc(a') suppose IH {
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
@@ -2211,8 +2209,10 @@ proof
             = summation(a',suc(s),g) + summation(b,t,h)
       by have p1: all i:Nat. (if i < a' then g(suc(s) + i) = f(suc(s) + i))
            by arbitrary i:Nat suppose i_a: i < a'
-              enable {operator +, operator ≤}  replace add_suc in
-              (apply (conjunct 0 of g_f_and_h_f)[suc(i)] to enable {operator <, operator ≤} i_a)
+              have i_sa : suc(i) < suc(a') by 
+                apply less_suc_iff_suc_less to i_a
+              replace add_suc | symmetric suc_add[s, i]
+                in apply (conjunct 0 of g_f_and_h_f)[suc(i)] to i_sa
          have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + (a' + i)))
            by arbitrary i:Nat suppose i_b: i < b
               suffices __ by definition 2*operator+
