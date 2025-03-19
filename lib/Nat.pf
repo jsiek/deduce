@@ -523,6 +523,59 @@ proof
                  ... = n        by one_mult[n]
 end
 
+
+// TODO: Move this up
+theorem mult_to_zero : all n :Nat, m : Nat.
+  if m * n = 0 then m = 0 or n = 0
+proof
+  arbitrary n : Nat, m :Nat
+  switch n {
+    case 0 { . }
+    case suc(n') assume eq_sn_t {
+      switch m {
+        case 0 { . }
+        case suc(m') assume eq_sm_t {
+          evaluate
+        }
+      }
+    }
+  }
+end
+
+theorem one_mult_one : all x : Nat, y : Nat.
+  if x * y = 1 then x = 1 and y = 1
+proof
+  arbitrary x : Nat, y : Nat
+  switch x {  
+    case 0 {
+    definition operator*
+  }
+  case suc(x') suppose IH {
+    switch y {
+    case 0 {
+      rewrite mult_zero[suc(x')]
+    }
+    case suc(y') {
+      suffices (if suc(y' + x' * suc(y')) = 1 then (suc(x') = 1 and suc(y') = 1)) 
+        by definition { operator*, operator+ }
+      suppose prem
+      have blah : y' + x' * suc(y') = 0 
+        by injective suc
+           prem
+      have y'_zero : y' = 0 by apply add_to_zero to blah
+      have x'sy'_zero : x' * suc(y') = 0 by apply add_to_zero to blah
+      have x'_zero : x' = 0
+        by switch x' {case 0 {
+          .
+        }
+        case suc(n') suppose x_sn' {
+          definition { operator*, operator+ } in rewrite x_sn' in x'sy'_zero
+        }}
+        rewrite x'_zero | y'_zero
+    }}
+  }}
+end
+
 theorem two_mult: all n:Nat.
   2 * n = n + n
 proof
@@ -1254,9 +1307,6 @@ proof
   add_both_sides_of_less_equal[x][suc(y), z]
 end
 
-// TODO: I stole this name from agda,
-// but it isn't very good
-// maybe mult_add_both_sides_of_less_equal?
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then n * x ≤ n * y
 proof
@@ -2883,3 +2933,128 @@ proof
   }
 end
 
+
+/* 
+  Properties of exponentiation
+  */
+
+theorem expt_one : all n : Nat.
+  n ^ 1 = n
+proof
+  arbitrary n : Nat
+  suffices n * 1 = n by evaluate
+  mult_one
+end
+
+theorem one_expt : all n : Nat.
+  1 ^ n = 1
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    have IH' : expt(n', 1) = 1 by definition operator^ in IH
+    suffices 1 * expt(n', 1) = 1 by definition operator^ | expt
+    rewrite IH' | one_mult
+  }
+end
+
+theorem pow_add_r : all n : Nat, m : Nat, o : Nat.
+  m ^ (n + o) = m ^ n * m ^ o
+proof
+  induction Nat
+  case zero {
+    arbitrary m : Nat, o : Nat
+    suffices expt(o, m) = expt(o, m) + 0 by evaluate
+    replace add_zero
+  }
+  case suc(n') assume IH {
+    arbitrary m : Nat, o : Nat
+    have IH' : (all m':Nat, o':Nat. expt(n' + o', m') = expt(n', m') * expt(o', m')) 
+      by definition operator^ in IH
+    suffices  m * expt(n' + o, m) = m * expt(n', m) * expt(o, m) 
+      by definition operator^ | operator+ | expt
+    replace IH'
+  }
+end
+
+theorem pow_mul_l : all o : Nat, m : Nat, n : Nat.
+  (m * n) ^ o = m ^ o * n ^ o
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(o') assume IH {
+    arbitrary m : Nat, n : Nat
+    have IH' : (all m':Nat, n':Nat. expt(o', m' * n') = expt(o', m') * expt(o', n')) 
+      by evaluate in IH
+    suffices  m * n * expt(o', m * n) = m * expt(o', m) * n * expt(o', n) by evaluate
+    rewrite IH' | mult_commute[n, expt(o', m)]
+  }
+end
+
+theorem pow_mul_r : all o : Nat, m : Nat, n : Nat.
+  (m ^ n) ^ o = m ^ (n * o)
+proof
+  induction Nat
+  case 0 {
+    arbitrary m : Nat, n : Nat
+    suffices (m ^ n) ^ 0 = m ^ 0 by replace mult_zero
+    evaluate
+  }
+  case suc(o') assume IH {
+    arbitrary m : Nat, n : Nat
+    have IH' :  (all m':Nat, n':Nat. expt(o', expt(n', m')) = expt(n' * o', m')) 
+      by definition operator^ in IH
+    suffices expt(n, m) * expt(n * o', m) = expt(n + n * o', m)
+      by definition operator^ | expt
+      and rewrite mult_suc[n, o'] | IH'
+    symmetric definition operator^ in pow_add_r[n, m, n * o']
+  }
+end
+
+
+// TODO: This is iff
+theorem pow_eq_0 : all n : Nat, m : Nat.
+  if m ^ n = 0 then m = 0
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    arbitrary m : Nat
+    switch m {
+      case 0 assume eq_z_t {
+        evaluate
+      }
+      case suc(m') assume eq_sn_t {
+        assume contra
+        have contra' : suc(m') * expt(n', suc(m')) = 0 
+          by definition operator^ | expt in contra
+        have e_n_sm_z : expt(n', suc(m')) = 0 by apply mult_to_zero to contra'
+        have IH' : all m'':Nat. if expt(n', m'') = 0 then m'' = 0 
+          by definition operator^ in IH
+        conclude false by apply IH'[suc(m')] to e_n_sm_z
+      }
+    }
+  }
+end
+
+theorem exp_one_implies_zero_or_one : all m : Nat, n : Nat.
+  if m ^ n = 1 then n = 0 or m = 1
+proof 
+  arbitrary m : Nat, n : Nat
+  switch n {
+    case 0  {
+      .
+    }
+    case suc(n') {
+      suffices  (if m * expt(n', m) = 1 then m = 1) by evaluate
+      assume prem
+      apply one_mult_one to prem
+    }
+  }
+end
