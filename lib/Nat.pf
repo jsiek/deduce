@@ -16,6 +16,15 @@ recursive operator *(Nat,Nat) -> Nat {
   operator *(suc(n), m) = m + (n * m)
 }
 
+recursive expt(Nat, Nat) -> Nat {
+  expt(0, n) = 1
+  expt(suc(p), n) = n * expt(p, n)
+}
+
+fun operator ^(a : Nat, b : Nat)  {
+  expt(b, a)
+}
+
 recursive max(Nat,Nat) -> Nat {
   max(zero, n) = n
   max(suc(m'), n) =
@@ -1998,7 +2007,7 @@ proof
       conclude false by evaluate in replace kz in nk
     }
     case suc(k') assume ksk {
-      have eq1: 1 + n = 1 + 1 + k' * 2 by {
+      have eq1: 1 + n = 1 + (1 + k' * 2) by {
         suffices __ by evaluate
         evaluate in definition operator* in replace ksk | mult_commute in nk
       }
@@ -2733,7 +2742,7 @@ proof
       conclude false by apply (apply less_not_equal to rem_less) to rem_eq
     }
     case suc(y') assume ysy {
-      have eq1: y + y' * y + y % y = y + 0 by {
+      have eq1: y + (y' * y + y % y) = y + 0 by {
         suffices __ by replace add_zero
         definition operator* in replace ysy in div_rem
       }
