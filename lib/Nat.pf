@@ -524,7 +524,6 @@ proof
 end
 
 
-// TODO: Move this up
 theorem mult_to_zero : all n :Nat, m : Nat.
   if m * n = 0 then m = 0 or n = 0
 proof
@@ -1331,6 +1330,14 @@ proof
   }
 end
 
+
+theorem mult_mono_le_r : all n : Nat. all x : Nat, y : Nat.
+  if x ≤ y then x * n ≤ y * n
+proof
+  arbitrary n : Nat, x : Nat, y : Nat
+  rewrite mult_commute[n, x] | mult_commute[n, y] in mult_mono_le[n, x, y]
+end
+
 /*
  Properties of Less-Than, Addition, and Subtraction
  */
@@ -1605,6 +1612,40 @@ proof
     } 
   }
 end
+
+
+theorem mult_lt_mono_l : all c : Nat, a : Nat, b : Nat.
+  if c > 0 then (if a < b then a * c < b * c)
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(c') assume IH {
+    arbitrary a : Nat, b : Nat
+    suppose sc_g_z
+    suppose alb
+    suffices  a + a * c' < b + b * c' by rewrite mult_suc | mult_suc
+    switch c' > 0 {
+      case true assume prop_t {
+        have ac_l_bc : a * c' < b * c' by apply (rewrite prop_t in IH) to alb
+        have step1 : a + a * c' < a + b * c' by apply add_both_sides_of_less[a, a*c'] to ac_l_bc
+        have step2 : a + b * c' < b + b * c' by 
+          suffices b * c' + a < b * c' + b 
+            by rewrite add_commute[a, b * c'] | add_commute[b, b * c']
+          apply add_both_sides_of_less[b * c'] to alb
+        apply less_trans to step1, step2
+      }
+      case false assume prop_f {
+        have cz : c' = 0 by rewrite (definition operator > in prop_f) in zero_or_positive[c']
+        suffices a<b by rewrite cz | mult_zero | add_zero
+        alb
+      }
+    }
+  }
+end
+
+
 
 /*
   Properties of max
@@ -2936,6 +2977,7 @@ end
 
 /* 
   Properties of exponentiation
+  https://rocq-prover.org/doc/v8.9/stdlib/Coq.Numbers.NatInt.NZPow.html
   */
 
 theorem expt_one : all n : Nat.
@@ -3058,3 +3100,92 @@ proof
     }
   }
 end
+
+/*
+ Exponents with ordering
+ */
+
+theorem pow_lt_mono_l : all  c : Nat, a : Nat, b : Nat.
+  if a < b then if c > 0 then a ^ c < b ^ c
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    arbitrary a : Nat, b : Nat
+    assume alb
+    assume sn_g_z
+    switch n' > 0 {
+      case true assume prop_t {
+        suffices a * expt(n', a) < b * expt(n', b) 
+          by definition operator^ | expt
+        have ena_l_enb : expt(n', a) < expt(n', b) 
+          by definition operator^ in rewrite prop_t in (apply IH to alb)
+        have enb_nz :  expt(n', b) > 0
+          by suffices __ by definition operator >
+         apply greater_any_zero to ena_l_enb
+        have bnz : 0 < b 
+          by apply greater_any_zero to alb
+        have step1 : a * expt(n', a) <= a * expt(n', b)
+          by apply mult_mono_le[a, expt(n', a), expt(n', b)] to 
+            (apply less_implies_less_equal to ena_l_enb)
+        have step2 : a * (expt(n',b)) < b * expt(n', b) 
+          by apply (apply mult_lt_mono_l[expt(n', b), a, b] to enb_nz) to alb
+
+        cases (apply less_equal_implies_less_or_equal to step1) 
+        case step1':  a * expt(n', a) < a * expt(n', b) {
+          apply less_trans[a * expt(n', a), a * expt(n', b)] to step1', step2
+        }
+        case step1'':  a * expt(n', a) = a * expt(n', b) {
+          replace symmetric step1'' in step2
+        }
+      }
+      case false assume prop_f {
+        have nz : n' = 0 by rewrite (definition operator > in prop_f) in zero_or_positive[n']
+        suffices a < b by rewrite nz | expt_one
+        alb
+      }
+    }
+  }
+end
+
+
+theorem pow_le_mono_l : all c : Nat, a : Nat, b : Nat.
+  if a <= b then a ^ c <= b ^ c
+proof 
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    arbitrary a : Nat, b : Nat
+    assume a_le_b
+    suffices  a * expt(n', a) ≤ b * expt(n', b) 
+      by definition operator^ | expt
+    have step : expt(n', a) <= expt(n', b)
+      by definition operator^ in (apply IH to a_le_b)
+    have step1 : a * expt(n', a) <= a * expt(n', b)
+      by apply mult_mono_le[a, expt(n', a), expt(n', b)] to step
+    have step2 : a * expt(n', b) <= b * expt(n', b)
+      by apply mult_mono_le_r[expt(n', b), a, b] to a_le_b
+    apply less_equal_trans[a * expt(n', a), a * expt(n', b)] to step1, step2
+  }
+end
+
+// TODO: More Monotonicity
+//Lemma pow_lt_mono_r : forall a b c, 1<a -> 0<=c -> b<c -> a^b < a^c.
+
+// NB: since 0^0 > 0^1, the following result isn't valid with a=0
+// Lemma pow_le_mono_r : forall a b c, 0<a -> b<=c -> a^b <= a^c.
+
+// I'm too lazy for monotonicity with iff
+
+// TODO: Injectivity
+// Lemma pow_inj_l : forall a b c, 0<=a -> 0<=b -> 0<c ->
+//  a^c == b^c -> a == b.
+
+// Lemma pow_inj_r : forall a b c, 1<a -> 0<=b -> 0<=c ->
+//  a^b == a^c -> b == c.
+
+// TODO: Binomial theorem?
