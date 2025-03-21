@@ -1272,6 +1272,23 @@ proof
   }
 end
 
+theorem add_pos_nonneg : all a : Nat, b : Nat.
+  if 0 < a then 0 < a + b
+proof
+  arbitrary a : Nat, b : Nat
+  assume prem
+  switch b {
+    case 0 assume eq_z_t {
+      suffices 0 < a by rewrite add_zero
+      prem
+    }
+    case suc(b') assume eq_sn_t {
+      suffices 0 < suc(a + b') by rewrite add_suc
+      evaluate
+    }
+  }
+end
+
 theorem less_one_add: all n:Nat.
   0 < 1 + n
 proof
@@ -1527,6 +1544,15 @@ proof
   }
 end
 
+theorem le_exists_sub : all n : Nat, m : Nat.
+  if n <= m then some x : Nat. m = n + x
+proof
+  arbitrary n : Nat, m :Nat
+  assume prem
+  choose m - n
+  symmetric apply sub_add_identity[m, n] to prem
+end
+
 /*
  More Properties of Less
  */
@@ -1614,6 +1640,23 @@ proof
 end
 
 
+theorem mult_pos_nonneg : all a : Nat, b : Nat.
+  if 0 < a and 0 < b then 0 < a * b
+proof
+  arbitrary a : Nat, b : Nat
+  switch a {
+    case 0 {
+      evaluate
+    }
+    case suc(a') {
+      assume prem
+      suffices 0 < b + a' * b by definition operator*
+      apply add_pos_nonneg[b, a'*b] to conjunct 1 of prem
+    }
+  }
+end
+
+
 theorem mult_lt_mono_l : all c : Nat, a : Nat, b : Nat.
   if c > 0 then (if a < b then a * c < b * c)
 proof
@@ -1645,6 +1688,28 @@ proof
   }
 end
 
+theorem mult_lt_mono_r :  all c : Nat, a : Nat, b : Nat.
+  if 0 < c then (if a * c < b * c then a < b)
+proof
+  arbitrary c : Nat, a : Nat, b : Nat
+  assume zlc
+  assume ac_l_bc
+  have cgz : c > 0 by 
+    suffices __ by definition operator>
+    zlc
+  cases trichotomy[a, b]
+  case : a < b {
+    recall a < b
+  }
+  case aeb : a = b {
+    apply less_irreflexive to rewrite aeb in ac_l_bc
+  }
+  case : b < a {
+    have contra : b * c < a * c by 
+      apply (apply mult_lt_mono_l[c, b, a] to cgz) to (recall b < a)
+    apply (apply less_implies_not_greater[b*c, a*c] to contra) to ac_l_bc
+  }
+end
 
 
 /*
@@ -2978,6 +3043,8 @@ end
 /* 
   Properties of exponentiation
   https://rocq-prover.org/doc/v8.9/stdlib/Coq.Numbers.NatInt.NZPow.html
+  and
+  https://coq.kwarc.info/Coq.Numbers.NatInt.NZPow.html
   */
 
 theorem expt_one : all n : Nat.
@@ -3057,8 +3124,37 @@ proof
   }
 end
 
+theorem pow_pos_nonneg : all b : Nat, a : Nat.
+  if 0<a then 0<a^b
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(b') assume IH {
+    arbitrary a : Nat
+    assume prem
+    suffices 0 < a * expt(b', a) by definition operator^ | expt
+    have exp_nz : 0 < expt(b', a) by definition operator^ in apply IH to prem
+    apply mult_pos_nonneg to prem, exp_nz
+  }
+end
 
-// TODO: This is iff
+
+theorem pow_0_l : all a : Nat. if 0<a then 0^a = 0
+proof
+  arbitrary a : Nat
+  switch a {
+    case 0 {
+      evaluate
+    }
+    case suc(n') {
+      evaluate
+    }
+  }
+end
+
+
 theorem pow_eq_0 : all n : Nat, m : Nat.
   if m ^ n = 0 then m = 0
 proof
@@ -3101,12 +3197,8 @@ proof
   }
 end
 
-/*
- Exponents with ordering
- */
-
 theorem pow_lt_mono_l : all  c : Nat, a : Nat, b : Nat.
-  if a < b then if c > 0 then a ^ c < b ^ c
+  if 0 < c then if a < b then a ^ c < b ^ c
 proof
   induction Nat
   case 0 {
@@ -3114,14 +3206,14 @@ proof
   }
   case suc(n') assume IH {
     arbitrary a : Nat, b : Nat
+    assume z_l_sc
     assume alb
-    assume sn_g_z
-    switch n' > 0 {
+    switch 0 < n' {
       case true assume prop_t {
         suffices a * expt(n', a) < b * expt(n', b) 
           by definition operator^ | expt
         have ena_l_enb : expt(n', a) < expt(n', b) 
-          by definition operator^ in rewrite prop_t in (apply IH to alb)
+          by definition operator^ in apply (rewrite prop_t in IH) to alb
         have enb_nz :  expt(n', b) > 0
           by suffices __ by definition operator >
          apply greater_any_zero to ena_l_enb
@@ -3142,7 +3234,7 @@ proof
         }
       }
       case false assume prop_f {
-        have nz : n' = 0 by rewrite (definition operator > in prop_f) in zero_or_positive[n']
+        have nz : n' = 0 by rewrite prop_f in zero_or_positive[n']
         suffices a < b by rewrite nz | expt_one
         alb
       }
@@ -3150,6 +3242,25 @@ proof
   }
 end
 
+theorem pow_gt_1 : all n : Nat, m : Nat.
+  if 1 < n then (0 < m <=> 1 < n ^ m)
+proof
+  arbitrary n : Nat, m : Nat
+  assume prem
+  have l : if 0 < m then 1 < n ^ m
+    by assume zlm
+       suffices 1^m < n^m by rewrite symmetric one_expt[m]
+       suffices 1 < n by apply pow_lt_mono_l[m, 1, n] to zlm
+       prem
+  have r : if 1 < n ^ m then 0 < m
+    by assume nm_g1
+       cases zero_or_positive[m]
+       case zm : m = 0 {
+        evaluate in rewrite zm in nm_g1 
+       }
+       case : 0 < m { recall 0 < m }
+  r, l
+end
 
 theorem pow_le_mono_l : all c : Nat, a : Nat, b : Nat.
   if a <= b then a ^ c <= b ^ c
@@ -3173,19 +3284,70 @@ proof
   }
 end
 
-// TODO: More Monotonicity
-//Lemma pow_lt_mono_r : forall a b c, 1<a -> 0<=c -> b<c -> a^b < a^c.
+theorem pow_lt_mono_r : all c : Nat, a : Nat, b : Nat.
+  if 1 < a then if b < c then a^b < a^c
+proof
+  arbitrary c : Nat, a : Nat, b : Nat
+  assume prem
+  assume blc
+  have blec : b <= c by apply less_implies_less_equal to blc
+  obtain x where step from apply le_exists_sub to blec
+  suffices a ^ b < a ^ b * a ^ x 
+    by rewrite step | pow_add_r
+  suffices 1 * a ^ b < a ^ x * 1 * a ^ b
+    by rewrite mult_commute[a^b, a^x] | symmetric one_mult[a^b]
+  have zla : 0 < a by 
+    have zl1 : 0 < 1 by evaluate
+    apply less_trans[0, 1, a] to zl1, prem
+  have : a ^ b > 0 by
+    suffices __ by definition operator>
+    apply pow_pos_nonneg[b, a] to  zla
+  suffices 1 < a^x * 1
+    by (apply mult_lt_mono_l[a^b, 1, a^x * 1] to recall a^b > 0)
+  have zlx : 0 < x 
+    by cases zero_or_positive[x]
+    case xz : x = 0 {
+      have cb : c = b by rewrite xz | add_zero in step
+      apply less_irreflexive to rewrite cb in blc 
+    }
+    case : 0 < x { recall 0 < x }
+  rewrite symmetric mult_one[a^x] in apply (apply pow_gt_1[a, x] to prem) to zlx
+end
 
-// NB: since 0^0 > 0^1, the following result isn't valid with a=0
-// Lemma pow_le_mono_r : forall a b c, 0<a -> b<=c -> a^b <= a^c.
+theorem pow_inj_l : all a : Nat, b : Nat, c : Nat.
+  if 0 < c then (if a^c = b^c then a = b)
+proof
+  arbitrary a : Nat, b : Nat, c : Nat
+  assume zlc
+  assume ac_eq_bc
+  cases trichotomy[a, b]
+  case : a < b {
+    have contra : a^c < b^c by apply (apply pow_lt_mono_l[c, a, b] to zlc) to (recall a < b)
+    apply less_irreflexive to rewrite ac_eq_bc in contra
+  }
+  case : a = b { recall a = b }
+  case : b < a {
+    have contra : b^c < a^c by apply (apply pow_lt_mono_l[c, b, a] to zlc) to (recall b < a)
+    apply less_irreflexive to rewrite ac_eq_bc in contra
+  }
+end
 
-// I'm too lazy for monotonicity with iff
-
-// TODO: Injectivity
-// Lemma pow_inj_l : forall a b c, 0<=a -> 0<=b -> 0<c ->
-//  a^c == b^c -> a == b.
-
-// Lemma pow_inj_r : forall a b c, 1<a -> 0<=b -> 0<=c ->
-//  a^b == a^c -> b == c.
-
-// TODO: Binomial theorem?
+theorem pow_inj_r : all a : Nat, b : Nat, c : Nat.
+  if 1 < a then if a^b = a ^ c then b = c
+proof
+  arbitrary a : Nat, b : Nat, c : Nat
+  assume ola
+  assume ab_eq_ac
+  cases trichotomy[b, c]
+  case : b < c {
+    apply less_irreflexive to
+      rewrite ab_eq_ac in
+      apply apply pow_lt_mono_r[c,a,b] to ola to recall b < c
+  }
+  case : b = c { recall b = c }
+  case : c < b {
+    apply less_irreflexive to
+      rewrite ab_eq_ac in
+      apply apply pow_lt_mono_r[b,a,c] to ola to recall c < b
+  }
+end
