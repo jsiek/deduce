@@ -1575,11 +1575,7 @@ def apply_definitions(loc, formula, defs, env):
   for var in defs:
     name = var
     try:
-      # TODO: We might not need the type_synth
-      # And just env.get_type_of_term var might cut it,
-      # Then we get the error messages we want, when trying to
-      # do stuff with GenericUnknownInst and union constructors and whatnot
-      var = type_synth_term(var, env, None, [])
+      env.term_var_is_defined(var)
       var = var.reduce(env)
     except Exception as e:
       error(loc, f"Expected a term or a type variable when attempting to use the definition of {name}." +\
