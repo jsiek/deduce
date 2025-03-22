@@ -19,7 +19,7 @@ const keywords = [
     "generic", "assert", "have", "transitive", "symmetric", "extensionality", "reflexive",
     "injective", "sorry", "help", "conclude", "suffices", "enough", "by", "rewrite",
     "conjunct", "induction", "where", "suppose", "with", "definition", "apply", "to", "cases",
-    "obtain", "enable", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
+    "obtain", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
     "assume", "for", "recall", "in", "and", "or", "print", "not", "some", "all", "theorem",
     "lemma", "proof", "end", "replace", "recursive"
 ]

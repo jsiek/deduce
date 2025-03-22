@@ -2,7 +2,7 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -50,11 +50,14 @@ COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
     | term_add "⊝" term_med                        -> nat_sub
     | term_med
 
-?term_med: term_med "/" term_hi                    -> div
-    | term_med "%" term_hi                         -> mod
-    | term_hi "*" term_med                         -> mul
-    | term_med "∘" term_hi                         -> circ
-    | term_med ".o." term_hi                        -> circ
+?term_med: term_med "/" term_exp                    -> div
+    | term_med "%" term_exp                         -> mod
+    | term_exp "*" term_med                         -> mul
+    | term_med "∘" term_exp                         -> circ
+    | term_med ".o." term_exp                       -> circ
+    | term_exp
+
+?term_exp : term_exp "^" term_hi                    -> pow
     | term_hi
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
@@ -214,8 +217,6 @@ ident: IDENT              -> ident
     | "define" IDENT "=" term                       -> define_term_proof
     | "_definition" "{" ident_list "}"              -> apply_defs_goal
     | "_definition" ident                           -> apply_defs_goal_one
-    | "enable" "{" ident_list "}"                   -> enable_defs
-    | "enable" ident                                -> enable_def
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term "by" proof              -> let
     | "have" ":" term "by" proof                    -> let_anon

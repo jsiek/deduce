@@ -450,19 +450,9 @@ def check_proof(proof, env):
       ret = red_formula
           
     case ApplyDefsFact(loc, definitions, subject):
-      defs = [type_synth_term(d, env, None, []) for d in definitions]
-      defs = [d.reduce(env) for d in defs]
       formula = check_proof(subject, env)
-      new_formula = apply_definitions(loc, formula, defs, env)
+      new_formula = apply_definitions(loc, formula, definitions, env)
       ret = new_formula
-      
-    case EnableDefs(loc, definitions, body):
-      defs = [type_synth_term(d, env, None, []) for d in definitions]
-      defs = [d.reduce(env) for d in defs]
-      old_defs = get_reduce_only()
-      set_reduce_only(defs + old_defs)
-      ret = check_proof(body, env)
-      set_reduce_only(old_defs)
       
     case RewriteFact(loc, subject, equation_proofs):
       formula = check_proof(subject, env)
@@ -1018,14 +1008,6 @@ def check_proof_of(proof, formula, env):
     case PSorry(loc):
       warning(loc, 'unfinished proof')
       
-    case EnableDefs(loc, definitions, subject):
-      defs = [type_synth_term(d, env, None, []) for d in definitions]
-      defs = [d.reduce(env) for d in defs]
-      old_defs = get_reduce_only()
-      set_reduce_only(defs + old_defs)
-      check_proof_of(subject, formula, env)
-      set_reduce_only(old_defs)
-      
     case PReflexive(loc):
       match formula:
         case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
@@ -1218,9 +1200,7 @@ def check_proof_of(proof, formula, env):
       return red_formula
   
     case ApplyDefs(loc, definitions):
-      defs = [type_synth_term(d, env, None, []) for d in definitions]
-      defs = [d.reduce(env) for d in defs]
-      new_formula = apply_definitions(loc, formula, defs, env)
+      new_formula = apply_definitions(loc, formula, definitions, env)
       if new_formula != Bool(loc, None, True):
           error(loc, 'error, remains to prove:\n\t' + str(new_formula) + '\n'\
                 + 'Replace this proof statement with:\n' \
@@ -1242,15 +1222,16 @@ def check_proof_of(proof, formula, env):
       def_or_rewrite = False
       evaluate = False
 
+      definitions = []
       # should evaluate be handled up here? -Jeremy
       match reason:
         case ApplyDefs(loc2, defs):
            def_or_rewrite = True
-           definitions = [type_synth_term(d, env, None, []) for d in defs]
+           definitions = defs
            equation_proofs = [] 
         case ApplyDefsGoal(loc2, defs, Rewrite(loc3, eqns)):
            def_or_rewrite = True
-           definitions = [type_synth_term(d, env, None, []) for d in defs]
+           definitions = defs
            equation_proofs = eqns 
         case Rewrite(loc2, eqns):
            def_or_rewrite = True
@@ -1272,9 +1253,8 @@ def check_proof_of(proof, formula, env):
 
         else:
           red_claim = new_claim.reduce(env)
-          defs = [d.reduce(env) for d in definitions]
           equations = [check_proof(proof, env) for proof in equation_proofs]
-          new_formula = apply_definitions(loc, formula, defs, env)
+          new_formula = apply_definitions(loc, formula, definitions, env)
           new_formula = new_formula.reduce(env)
 
           eqns = [equation.reduce(env) for equation in equations]
@@ -1298,7 +1278,7 @@ def check_proof_of(proof, formula, env):
             try:
               check_implies(loc, red_claim, new_formula)
             except Exception as e:
-              error(loc, str(e) + '\nGivens:\n' + env.proofs_str())
+              raise Exception(str(e) + '\nGivens:\n' + env.proofs_str())
             check_proof_of(rest, new_claim, env)
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
@@ -1553,9 +1533,7 @@ def check_proof_of(proof, formula, env):
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
       #warning(loc, 'old-style rewrite will be deprecated')
-    case ApplyDefsGoal(loc, definitions, body):
-      defs = [type_synth_term(d, env, None, []) for d in definitions]
-      defs = [d.reduce(env) for d in defs]
+    case ApplyDefsGoal(loc, defs, body):
       new_formula = apply_definitions(loc, formula, defs, env)
       check_proof_of(body, new_formula, env)
       #warning(loc, 'old-style definition will be deprecated')
@@ -1595,6 +1573,10 @@ def apply_definitions(loc, formula, defs, env):
   if get_verbose():
       print('apply definitions to formula: ' + str(new_formula))
   for var in defs:
+    if not env.term_var_is_defined(var):
+      error(loc, f"Expected a term or a type variable when attempting to use the definition of {var}." +\
+               f"\n\tIf {var} is a theorem or a lemma, you might want to use 'replace'")
+    var = var.reduce(env)
     # it's a bit strange that RecDef's can find there way into defs -Jeremy
     if isinstance(var, Var):
       reduced_one = False
@@ -2000,7 +1982,7 @@ def type_synth_term(term, env, recfun, subterms):
       try:
         ty = env.get_type_of_term_var(term)
         if ty == None:
-          error(loc, 'while type checking, undefined variable ' + str(term) \
+          raise Exception('while type checking, undefined variable ' + str(term) \
                 + '\nin scope:\n' + str(env))
       except Exception as e:
         error(loc, str(e))

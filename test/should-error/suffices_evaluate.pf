@@ -1,6 +1,6 @@
 import Nat
 
-theorem test : all x : Nat. 1 + 2 + x + 1 - 2 = 2 + 1 + x - 2 + 1
+theorem test : all x : Nat. 2 + x + 1 + 1 + 2 + x + 1 - 2 - 2 = 3 + x + 2 + 1 + x - 2 + 1
 proof
   arbitrary x : Nat
   suffices ? by evaluate

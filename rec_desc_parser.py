@@ -27,6 +27,7 @@ def get_deduce_directory():
     global deduce_directory
     return deduce_directory
 
+expt_operators = { '^' }
 mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++', '⊝' }
 compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in'}
@@ -455,9 +456,25 @@ def parse_make_array():
   else:
     term = parse_call()
   return term
+
+
+def parse_term_expt():
+  term = parse_make_array()
+
+  while (not end_of_file()) and current_token().value in expt_operators:
+    start_token = current_token()
+    rator = Var(meta_from_tokens(current_token(), current_token()),
+                None, to_unicode.get(current_token().value,
+                                     current_token().value))
+    advance()
+    right = parse_make_array()
+    term = Call(meta_from_tokens(start_token, previous_token()), None,
+                rator, [term,right])
+    
+  return term
     
 def parse_term_mult():
-  term = parse_make_array()
+  term = parse_term_expt()
 
   while (not end_of_file()) and current_token().value in mult_operators:
     start_token = current_token()
@@ -465,7 +482,7 @@ def parse_term_mult():
                 None, to_unicode.get(current_token().value,
                                      current_token().value))
     advance()
-    right = parse_term_mult()
+    right = parse_term_expt()
     term = Call(meta_from_tokens(start_token, previous_token()), None,
                 rator, [term,right])
     
@@ -479,7 +496,7 @@ def parse_term_add():
     rator = Var(meta_from_tokens(current_token(), current_token()),
                 None, to_unicode.get(current_token().value, current_token().value))
     advance()
-    right = parse_term_add()
+    right = parse_term_mult()
     term = Call(meta_from_tokens(token, previous_token()), None,
                 rator, [term,right])
     
@@ -618,7 +635,7 @@ def parse_assumption():
 proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
                   'definition',
-                  'enable', 'equations', 'evaluate', 'extensionality',
+                  'equations', 'evaluate', 'extensionality',
                   'have', 'induction', 'injective', 'obtain',
                   'recall', 'reflexive', 'rewrite',
                   'suffices', 'suppose', 'switch', 'symmetric',
@@ -1078,20 +1095,6 @@ def parse_proof_statement():
     meta = meta_from_tokens(token, previous_token())
     return SomeElim(meta, witnesses, label, premise, some, None)
     
-  elif token.type == 'ENABLE':
-    advance()
-    if current_token().type != 'LBRACE':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected "{" after "enable"')
-    advance()
-    defs = parse_ident_list()
-    if current_token().type != 'RBRACE':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected closing "}" in "enable"')
-    advance()
-    meta = meta_from_tokens(token, previous_token())
-    return EnableDefs(meta, [Var(meta, None, x) for x in defs], None)
-      
   elif token.type == 'HAVE':
     return parse_have()
 
