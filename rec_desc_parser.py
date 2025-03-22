@@ -27,6 +27,7 @@ def get_deduce_directory():
     global deduce_directory
     return deduce_directory
 
+expt_operators = { '^' }
 mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++', '⊝' }
 compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in'}
@@ -455,9 +456,25 @@ def parse_make_array():
   else:
     term = parse_call()
   return term
+
+
+def parse_term_expt():
+  term = parse_make_array()
+
+  while (not end_of_file()) and current_token().value in expt_operators:
+    start_token = current_token()
+    rator = Var(meta_from_tokens(current_token(), current_token()),
+                None, to_unicode.get(current_token().value,
+                                     current_token().value))
+    advance()
+    right = parse_make_array()
+    term = Call(meta_from_tokens(start_token, previous_token()), None,
+                rator, [term,right])
+    
+  return term
     
 def parse_term_mult():
-  term = parse_make_array()
+  term = parse_term_expt()
 
   while (not end_of_file()) and current_token().value in mult_operators:
     start_token = current_token()
@@ -465,7 +482,7 @@ def parse_term_mult():
                 None, to_unicode.get(current_token().value,
                                      current_token().value))
     advance()
-    right = parse_term_mult()
+    right = parse_term_expt()
     term = Call(meta_from_tokens(start_token, previous_token()), None,
                 rator, [term,right])
     
@@ -479,7 +496,7 @@ def parse_term_add():
     rator = Var(meta_from_tokens(current_token(), current_token()),
                 None, to_unicode.get(current_token().value, current_token().value))
     advance()
-    right = parse_term_add()
+    right = parse_term_mult()
     term = Call(meta_from_tokens(token, previous_token()), None,
                 rator, [term,right])
     
