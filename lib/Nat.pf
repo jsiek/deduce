@@ -25,6 +25,15 @@ recursive max(Nat,Nat) -> Nat {
     }
 }
 
+recursive min(Nat,Nat) -> Nat {
+  min(zero, n) = zero
+  min(suc(m'), n) =
+    switch n {
+      case zero { zero }
+      case suc(n') { suc(min(m',n')) }
+    }
+}
+
 fun pred(n : Nat) {
   switch n {
     case 0 { 0 }
