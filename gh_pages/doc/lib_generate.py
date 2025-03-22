@@ -169,6 +169,7 @@ known_tokens = {
     'CASE': 'keyword',
     'CASES': 'keyword',
     'CHOOSE': 'keyword',
+    'CIRCUMFLEX': 'operator',
     'COLON': 'operator',
     'COMMA': 'operator',
     'COMMENT': 'comment',
