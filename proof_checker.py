@@ -1573,13 +1573,10 @@ def apply_definitions(loc, formula, defs, env):
   if get_verbose():
       print('apply definitions to formula: ' + str(new_formula))
   for var in defs:
-    name = var
-    try:
-      env.term_var_is_defined(var)
-      var = var.reduce(env)
-    except Exception as e:
-      error(loc, f"Expected a term or a type variable when attempting to use the definition of {name}." +\
-               f"\n\tIf {name} is a theorem or a lemma, you might want to use 'replace'")
+    if not env.term_var_is_defined(var):
+      error(loc, f"Expected a term or a type variable when attempting to use the definition of {var}." +\
+               f"\n\tIf {var} is a theorem or a lemma, you might want to use 'replace'")
+    var = var.reduce(env)
     # it's a bit strange that RecDef's can find there way into defs -Jeremy
     if isinstance(var, Var):
       reduced_one = False
