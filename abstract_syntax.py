@@ -3603,6 +3603,13 @@ class Env:
     else:
       return None
 
+  def _term_var_defined(self, curr, name):
+    if name in curr.keys():
+      binding = curr[name]
+      if isinstance(binding, TermBinding) or isinstance(binding, TypeBinding):
+        return True
+    return False
+
   def _value_of_term_var(self, curr, name):
     if name in curr.keys():
       return curr[name].defn
@@ -3639,13 +3646,13 @@ class Env:
 
   def term_var_is_defined(self, tvar):
     match tvar:
-      case Var(loc, tyof, name):
-        if self._type_of_term_var(self.dict, name):
-          return True
+      case Var(loc, tyof, name, resolved_names):
+        if isinstance(resolved_names, str):
+          error(loc, 'resolved_names is a string but should be a list: ' + str(tvar))
+        if len(resolved_names) > 0:
+          return any([self._term_var_defined(self.dict, x) for x in resolved_names])
         else:
-          return False
-      case _:
-        raise Exception('expected a term variable, not ' + str(tvar))
+          return self._term_var_defined(self.dict, name)
         
   def proof_var_is_defined(self, pvar):
     match pvar:
