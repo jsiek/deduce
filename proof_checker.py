@@ -1905,8 +1905,7 @@ def check_type(typ, env):
     case ArrayType(loc, elt_type):
       check_type(elt_type, env)
     case _:
-      print('error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
-      exit(-1)
+      error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
 def type_first_letter(typ):
   match typ:
