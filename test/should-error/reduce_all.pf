@@ -1,0 +1,12 @@
+union A { a b }
+
+fun blah(n : A) {
+  if n = a then b else a
+}
+
+theorem asdf : all x : A.
+  blah(blah(x)) = x
+proof
+  suffices ? by evaluate
+  ?
+end

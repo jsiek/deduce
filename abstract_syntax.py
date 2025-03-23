@@ -750,6 +750,8 @@ class Var(Term):
         if res:
           if get_verbose():
             print('\t var ' + self.name + ' ===> ' + str(res))
+          if isinstance(res, Union): 
+            return self
           return res.reduce(env)
         else:
           return self
