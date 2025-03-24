@@ -40,6 +40,7 @@ const codeBlocks = [
 	"proof_false_any",
 	"proof_intro_addition_of_evens",
 	"proof_intro_dichotomy",
+	"proof_intro_import",
 	"proof_intro_less_irreflexive",
 	"proof_intro_less_not_equal",
 	"proof_intro_zero_or_positive",

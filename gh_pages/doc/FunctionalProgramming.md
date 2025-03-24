@@ -130,6 +130,17 @@ the constructor arguments.
 define L12 = node(1, node(2, empty))
 ```
 
+## Lists
+
+The file `List.pf` includes the union type we defined
+[above](#generic-unions) as well as operations on lists and theorems
+about them. Deduce provides shorthand notation for lists where:
+
+- `[]` is shorthand for `empty`
+- `[1]` is shorthand for `node(1, empty)`
+- `[1, 2]` is shorthand for `node(1, node(2, empty))`
+- etc.
+
 ### Switch
 
 You can branch on a value of union type using `switch`. For example,
@@ -197,20 +208,6 @@ The file `Nat.pf` includes the above definition together with some
 operations on natural numbers and theorems about them.  The numerals
 `0`, `1`, `2`, etc. are shorthand for the natural numbers `zero`,
 `suc(zero)`, `suc(suc(zero))`, etc.
-
-## Lists
-
-Similarly to natural numbers, lists are also defined as the `List<T>`
-union type we defined [above](#generic-unions).
-
-The file `List.pf` includes that definition as well as operations on
-lists and theorems about them. Deduce also provides shorthand notation
-for lists where:
-
-- `[]` is shorthand for `empty`
-- `[1]` is shorthand for `node(1, empty)`
-- `[1, 2]` is shorthand for `node(1, node(2, empty))`
-- etc.
 
 ## Booleans, Conditionals, and Assert
 
