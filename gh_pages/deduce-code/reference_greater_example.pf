@@ -1,5 +1,0 @@
-
-
-assert 2 > 1
-assert not (1 > 1)
-assert not (0 > 1)

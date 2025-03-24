@@ -1,4 +1,0 @@
-
-
-define L46 = [4, 5, 6]
-assert dot(L13,L46) = 32

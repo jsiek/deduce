@@ -8,3 +8,4 @@ lib/*.thm
 .vscode
 deduce-release.zip
 gh_pages/pages
+gh_pages/deduce-code

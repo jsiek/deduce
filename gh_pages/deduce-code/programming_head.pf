@@ -1,8 +1,0 @@
-
-
-fun head<T>(ls: List<T>) {
-  switch ls {
-    case empty { @none<T> }
-    case node(x, ls') { just(x) }
-  }
-}

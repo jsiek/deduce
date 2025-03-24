@@ -1,3 +1,0 @@
-
-
-define area = fun h, w { h * w }
