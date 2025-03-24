@@ -1,8 +1,11 @@
 # Writing Proofs in Deduce
 
-This section provides a tutorial on writing proofs in Deduce.  In the
-following subsections we introduce the features of the Deduce proof
-language and provide examples of their use. 
+This section provides a tutorial on writing proofs in Deduce.  This
+section relies on concepts that were introduced in the section on
+[Programming in Deduce](./FunctionalProgramming.md), so if you have
+not yet read that, please do. In the following subsections we
+introduce the features of the Deduce proof language and provide
+examples of their use.
 
 * [Applying Definitions to the Goal](#applying-definitions-to-the-goal)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
@@ -27,6 +30,14 @@ language and provide examples of their use.
 We begin with a simple example, proving that the length of an empty
 list is `0`. Of course, this is a direct consequence of the definition
 of `length`, so this first example is about how to use definitions.
+We will be using features from the Deduce `Nat` and `List` libraries,
+so first we import them.
+
+```{.deduce^#proof_intro_import}
+import Nat
+import List
+```
+
 To get started, we write down the theorem we would like to prove.  A
 theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
@@ -1516,8 +1527,7 @@ To summarize this section:
 
 <!--
 ```{.deduce^file=ProofIntro.pf}
-import Nat
-import List
+<<proof_intro_import>>
 
 <<length_nat_empty>>
 <<length_node42>>

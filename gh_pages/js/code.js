@@ -56,6 +56,7 @@ const codeBlocks = [
 	"proof_list_length_zero_empty",
 	"proof_pos_1_and_2",
 	"proof_pos_2",
+	"proof_proof_intro_import",
 	"proof_really_trivial",
 	"proof_x_0_x_eq_2_x",
 	"proof_xyz_zyx",
