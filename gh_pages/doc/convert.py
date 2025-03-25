@@ -383,6 +383,10 @@ def convert_dir(dir, generate_html=True):
     if not os.path.exists(html_dir):
         os.makedirs(html_dir)
 
+    if not os.path.exists('gh_pages/deduce-code'):
+        print("Creating deduce-code folder")
+        os.makedirs('gh_pages/deduce-code')
+
     for f in [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]:
         if f.endswith('.md'): 
             print(f'Converting {f}')
@@ -396,9 +400,6 @@ def update_code_js():
         f.write(']')
 
 if __name__ == "__main__":
-    if not os.path.exists('gh_pages/deduce-code'):
-        print("Creating deduce-code folder")
-        os.makedirs('gh_pages/deduce-code')
     # convert all md files in the doc directory
     convert_dir("./gh_pages/doc/")
     # update code.js to reflect any new/removed code blocks
