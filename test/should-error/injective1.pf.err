@@ -1,0 +1,2 @@
+./test/should-error/injective1.pf:7.3-7.16: in injective, expected a constructor, not
+	one
