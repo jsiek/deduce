@@ -1,4 +1,59 @@
+<!-- 
+How index generation works:
+  For the most part this is just a regular  markdown file
+  However, there's extra "comments" to specify the structure
+  of the html content. 
+  
+  Any links to images or pages should be relative to the gh_pages 
+  directory, not the gh_pages/doc  directory. Do not link to 
+  '../pages/blah'. Instead  link to './pages/blah'
 
+There are four kinds of html "comments":
+  - section : to separate large sections of the page
+  - block   : next level separation within sections
+  - figure  : next level separation within block
+  - buttons : to create inline button groups
+
+The syntax for the html "comments" is as follows:
+  Start a type of divider with the name of the divider along with
+  a potential class name. example:
+
+    type
+      or
+    type: blah
+  
+  Then end that divider with end followed by the name of the type
+  example:
+
+    end type
+
+There are four main sections whose structure should NOT change:
+
+Header:
+  Header contains a block with two bold headers and a button 
+  group. You can add as many links to the button group as you 
+  want! The header also contains an extra side image (the logo)
+
+About:
+  About contains two blocks which each contain a figure and a
+  code block. This section appears with a gray background
+
+Blocks:
+  Blocks is the 4 information blocks that appear in a grid on
+  the site. Each block in blocks contains a header, some text
+  and a button group (again this group can have as many buttons
+  as you want (just make sure they fit in the page))
+
+Example:
+  Example contains a bold header, some text, and a large code
+  block. This section also appears with a gray background.
+
+You can add as many additional sections as you want. For example,
+the credits section, but I wouldn't recommend adding blocks or
+figures within them since no css rules are written for that.
+Feel free to add as many paragraphs and lists as you want!
+
+-->
 
 <!-- section: header -->
 <!-- block -->
