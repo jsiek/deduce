@@ -184,7 +184,6 @@ import Set
 import MultiSet
 import Maps
 
-<<home_example1>>
 <<home_example2>>
 <<home_example3>>
 ```

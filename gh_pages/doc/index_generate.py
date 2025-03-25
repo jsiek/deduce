@@ -3,6 +3,7 @@ from markdown.preprocessors import Preprocessor
 from markdown.treeprocessors import Treeprocessor
 
 import re
+import os
 
 from convert import CodeExtension
 from convert import prelude
@@ -72,6 +73,9 @@ class IndexCodeExtension(CodeExtension):
         md.treeprocessors.register(IndexTreeProcessor(), 'index-tree', 10000)
 
 if __name__ == '__main__':
+    if not os.path.exists('gh_pages/deduce-code'):
+        print("Creating deduce-code folder")
+        os.makedirs('gh_pages/deduce-code')
     fname = 'Index'
     # read the md file
     with open(f'./gh_pages/doc/{fname}.md', 'r') as f:
