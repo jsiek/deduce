@@ -1,0 +1,21 @@
+./test/should-error/reduce_all.pf:10.3-10.25: 
+suffices to prove:
+	(all x:A. (if (if x = a then b else a) = a then b else a) = x)
+./test/should-error/reduce_all.pf:11.3-11.4: incomplete proof
+Goal:
+	(all x:A. (if (if x = a then b else a) = a then b else a) = x)
+Advice:
+	Prove this "all" formula with:
+		arbitrary x:A
+	followed by a proof of:
+		(if (if x = a then b else a) = a then b else a) = x
+
+	Alternatively, you can try induction with:
+		induction A
+		case a {
+		  ?
+		}
+		case b {
+		  ?
+		}
+

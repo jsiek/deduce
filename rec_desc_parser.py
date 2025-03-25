@@ -412,7 +412,7 @@ def parse_call():
   while (not end_of_file()) and current_token().type == 'LPAR':
     try:
       advance()
-      args = parse_term_list()
+      args = parse_term_list('RPAR')
       if current_token().type != 'RPAR':
         msg = 'expected closing parenthesis ")", not\n\t' \
           + current_token().value \
@@ -692,7 +692,7 @@ def parse_definition_proof():
 def parse_recall():
   start_token = current_token()
   advance()
-  facts = parse_term_list()
+  facts = parse_nonempty_term_list()
   meta = meta_from_tokens(start_token, previous_token())
   return PRecall(meta, facts)
   
@@ -1016,7 +1016,7 @@ def parse_proof_med():
       
     while (not end_of_file()) and current_token().type == 'LSQB':
       advance()
-      term_list = parse_term_list()
+      term_list = parse_nonempty_term_list()
       if current_token().type != 'RSQB':
         raise ParseError(meta_from_tokens(current_token(),current_token()),
               'expected a closing "]", not\n\t' + current_token().value)
@@ -1073,7 +1073,7 @@ def parse_proof_statement():
     
   elif token.type == 'CHOOSE':
     advance()
-    witnesses = parse_term_list()
+    witnesses = parse_nonempty_term_list()
     meta = meta_from_tokens(token, previous_token())
     return SomeIntro(meta, witnesses, None)
     
@@ -1813,7 +1813,19 @@ def parse_type_list():
     type_list.append(typ)
   return type_list
 
-def parse_term_list():
+def parse_term_list(end):
+  if current_token().type == end:
+      return []
+  else:
+      trm = parse_term()
+      trm_list = [trm]
+  while current_token().type == 'COMMA':
+    advance()
+    trm = parse_term()
+    trm_list.append(trm)
+  return trm_list
+
+def parse_nonempty_term_list():
   trm = parse_term()
   trm_list = [trm]
   while current_token().type == 'COMMA':

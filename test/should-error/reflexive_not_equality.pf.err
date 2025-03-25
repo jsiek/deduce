@@ -1,0 +1,4 @@
+./test/should-error/reflexive_not_equality.pf:4.3-4.12: reflexive proves an equality, not
+	true
+Givens:
+	_: true = true

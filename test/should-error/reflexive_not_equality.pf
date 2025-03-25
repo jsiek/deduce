@@ -1,0 +1,5 @@
+theorem T: true
+proof
+  have: true = true by reflexive
+  reflexive
+end
