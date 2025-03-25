@@ -2,7 +2,7 @@
 
 define E = single(1)
 define F = single(1) ∪ single(2)
- 
+
 theorem subset_example: E ⊆ F
 proof
   suffices all x:Nat. if x ∈ E then x ∈ F  by definition operator ⊆

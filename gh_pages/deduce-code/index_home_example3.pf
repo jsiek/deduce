@@ -1,8 +1,4 @@
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
+
 
 function search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0

@@ -1,24 +1,30 @@
 
 
 <!-- section: header -->
+<!-- block -->
 # A proof checker meant for education
 
-Teaching correctness proofs of functional programs to students.
+## Teaching correctness proofs of functional programs to students.
 
-- [Get Started](../pages/getting-started.html)
-- [Live Code](../sandbox.html)
+<!-- buttons -->
+[Get Started](./pages/getting-started.html)
+[Live Code](./sandbox.html)
+<!-- end buttons -->
+<!-- end block -->
 
-![Deduce hippopotamus logo](../images/logo.svg)
+![Deduce hippopotamus logo](./images/logo.svg)
 <!-- end section -->
 
 <!-- section: about -->
 <!-- block -->
+<!-- figure -->
 ## What is Deduce?
 
 Deduce is an automated proof checker meant for use in education to help students:
 - Ease their way into proving the correctness of programs.
 - Deepening their understanding of logic.
 - Improve their ability to write mathematical proofs.
+<!-- end figure -->
 
 ```{.deduce^#home_example1}
 function search(List<Nat>, Nat) -> Nat {
@@ -31,12 +37,6 @@ function search(List<Nat>, Nat) -> Nat {
 <!-- end block -->
 
 <!-- block -->
-## Who can use Deduce?
-
-The intended audience is students with (roughly) the following background knowledge and skills:
-
-- Basic programming skills in a mainstream language such as Java, Python, or C++
-- Some exposure to logic, as one would learn in a course on Discrete Mathematics
 
 ```{.deduce^#home_example2}
 theorem less_implies_not_equal:
@@ -51,6 +51,15 @@ proof
                     to recall y < y
 end
 ```
+
+<!-- figure -->
+## Who can use Deduce?
+
+The intended audience is students with (roughly) the following background knowledge and skills:
+
+- Basic programming skills in a mainstream language such as Java, Python, or C++
+- Some exposure to logic, as one would learn in a course on Discrete Mathematics
+<!-- end figure -->
 <!-- end block -->
 <!-- end section -->
 
@@ -62,7 +71,9 @@ Get started by installing the necessary prerequisites and downloading the Deduce
 
 You can also find handy information on setting up your Deduce workspace.
 
-- [Get Started](../pages/getting-started.html)
+<!-- buttons -->
+[Get Started](./pages/getting-started.html)
+<!-- end buttons -->
 <!-- end block -->
 
 <!-- block -->
@@ -72,7 +83,9 @@ Go through a series of examples to familiarize yourself with Deduce functional p
 
 Check your understanding with exercises to test your knowledge of the language.
 
-- [Start Programming](../pages/deduce-programming.html)
+<!-- buttons -->
+[Start Programming](./pages/deduce-programming.html)
+<!-- end buttons -->
 <!-- end block -->
 
 <!-- block -->
@@ -82,7 +95,9 @@ Follow a detailed tutorial to learn how to write logical proofs using Deduce eff
 
 Explore all of the features of the Deduce proof language in this comprehensive guide.
 
-- [Start Proving](../pages/deduce-proofs.html)
+<!-- buttons -->
+[Start Proving](./pages/deduce-proofs.html)
+<!-- end buttons -->
 <!-- end block -->
 
 <!-- block -->
@@ -92,8 +107,10 @@ The Deduce Reference manual provides an alphabetical list of all the features in
 
 The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof.
 
-- [Reference Manual](../pages/reference.html)
-- [Cheat Sheet](../pages/cheat-sheet.html)
+<!-- buttons -->
+[Reference Manual](./pages/reference.html)
+[Cheat Sheet](./pages/cheat-sheet.html)
+<!-- end buttons -->
 <!-- end block -->
 <!-- end section -->
 
@@ -160,7 +177,7 @@ This open-source software is brought to you by the volunteer work of the followi
 
 
 <!--
-```{.deduce^file=Reference.pf} 
+```{.deduce^file=Index.pf} 
 import Nat
 import List
 import Set

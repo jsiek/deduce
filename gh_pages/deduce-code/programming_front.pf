@@ -1,7 +1,7 @@
 
 
 import Option
- 
+
 fun front(ls : NatList) {
   switch ls {
     case Empty { @none<Nat> }

@@ -4,7 +4,7 @@ union Tree {
   Leaf(Nat)
   Internal(Tree, Nat, Tree)
 }
- 
+
 /*
             5
            / \
