@@ -1,8 +1,0 @@
-
-
-function search(List<Nat>, Nat) -> Nat {
-  search(empty, y) = 0
-  search(node(x, xs), y) =
-    if x = y then 0
-    else suc(search(xs, y))
-}

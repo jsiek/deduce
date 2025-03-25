@@ -1,9 +1,0 @@
-
-
-theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
-proof
-  arbitrary x:Nat, y:Nat, z:Nat
-  equations
-    x + y + z = y + x + z by rewrite add_commute[x,y]
-          ... = z + y + x by add_commute[y+x,z]
-end

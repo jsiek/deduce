@@ -1,7 +1,0 @@
-
-
-theorem choose_example: some x:Nat. 6 = 2 * x
-proof
-  choose 3
-  conclude 6 = 2 * 3   by evaluate
-end

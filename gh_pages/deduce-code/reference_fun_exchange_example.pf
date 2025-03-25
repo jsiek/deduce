@@ -1,7 +1,0 @@
-
-
-fun exchange(p : Pair<Nat,Nat>) {
-  pair(second(p), first(p))
-}
-
-assert exchange(pair(1,2)) = pair(2,1)
