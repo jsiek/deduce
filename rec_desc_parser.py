@@ -1766,7 +1766,7 @@ def parse_type():
     var = Var(meta_from_tokens(token,token), None, name)
     inst = False
     
-    if current_token().type == 'LESSTHAN':
+    if not end_of_file() and current_token().type == 'LESSTHAN':
       inst = True
       start_token = current_token()
       advance()
