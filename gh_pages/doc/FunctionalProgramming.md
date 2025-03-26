@@ -109,7 +109,7 @@ define NL12 = Node(1, Node(2, Empty))
 Unions may be recursive: a constructor may include a parameter type
 that is the union type, e.g., the `NatList` parameter of `Node`. 
 
-### Generic Unions
+## Generic Unions
 
 Unions may be generic: one can parameterize a union
 with one or more type parameters. For example, we generalize linked
@@ -141,7 +141,7 @@ about them. Deduce provides shorthand notation for lists where:
 - `[1, 2]` is shorthand for `node(1, node(2, empty))`
 - etc.
 
-### Switch
+## Switch
 
 You can branch on a value of union type using `switch`. For example,
 the following `front` function returns the first element of a `NatList`. Here
