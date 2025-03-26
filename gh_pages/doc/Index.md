@@ -101,7 +101,7 @@ proof
   arbitrary x:Nat, y:Nat
   assume: x < y
   assume xy: x = y
-  have: y < y by rewrite xy in recall x < y
+  have: y < y by replace xy in recall x < y
   conclude false by apply less_irreflexive
                     to recall y < y
 end
@@ -211,7 +211,7 @@ proof
         assume prem: x = y or y ∈ set_of(take(search(xs', y), xs'))
         cases prem
         case: x = y {
-          conclude false by rewrite xy_false in (recall x = y)
+          conclude false by replace xy_false in (recall x = y)
         }
         case y_in_rest: y ∈ set_of(take(search(xs', y), xs')) {
           conclude false by apply IH to y_in_rest
