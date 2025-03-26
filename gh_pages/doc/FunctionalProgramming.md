@@ -242,7 +242,7 @@ always terminate.
 * The first argument of every recursive call must be a sub-part of the
   current constructor of the union.
 
-A recursive function begins with the `function` keyword, followed by
+A recursive function begins with the `recursive` keyword, followed by
 the name of the function, then the parameters types and the return
 type. For example, here's the definition of a `len` function for
 lists of natural numbers.
