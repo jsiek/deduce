@@ -54,26 +54,30 @@ jobs:
       - name: Run convert script
         run: python ./gh_pages/doc/convert.py
       
-      # Step 5: Run the Python lib generate script
+      # Step 5: Run the Python index generate script
+      - name: Run index generate script
+        run: python ./gh_pages/doc/index_generate.py
+
+      # Step 6: Run the Python lib generate script
       - name: Run lib generate script
         run: python ./gh_pages/doc/lib_generate.py
 
-      # Step 6: Convert scss to css
+      # Step 7: Convert scss to css
       - name: Convert scss to css
         run: pysassc ./gh_pages/css/style-dev.css ./gh_pages/css/style.css && pysassc ./gh_pages/css/stdlib-dev.css ./gh_pages/css/stdlib.css
 
-      # Step 7: Setup Pages
+      # Step 8: Setup Pages
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Step 8: Upload artifact
+      # Step 9: Upload artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
           path: './gh_pages'
 
-      # Step 9: Deploy to ghp
+      # Step 10: Deploy to gh pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

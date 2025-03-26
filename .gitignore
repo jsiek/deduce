@@ -1,10 +1,22 @@
+# pycache
 __pycache__
 lark/__pycache__
 lark/parsers/__pycache__
+
+# personal files
 personal
+
+# test theorems and generated proofs
 test/**/*.thm
 test/**/doc_*.pf
 lib/*.thm
+
+# vscode files
 .vscode
+
+# release
 deduce-release.zip
+
+# Generated content for site
 gh_pages/pages
+gh_pages/deduce-code

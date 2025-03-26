@@ -1,7 +1,0 @@
-
-
-theorem append_xy:
-  all T:type. all x:T, y:T. [x] ++ [y] = [x, y]
-proof
-  ?
-end

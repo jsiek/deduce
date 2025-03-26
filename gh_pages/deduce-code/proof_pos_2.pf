@@ -1,6 +1,0 @@
-
-
-theorem pos_2: 0 ≤ 2
-proof
-  conclude 0 ≤ 2 by pos_1_and_2
-end
