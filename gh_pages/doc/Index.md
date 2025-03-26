@@ -82,7 +82,7 @@ Deduce is an automated proof checker meant for use in education to help students
 <!-- end figure -->
 
 ```{.deduce^#home_example1}
-function search(List<Nat>, Nat) -> Nat {
+recursive search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0
   search(node(x, xs), y) =
     if x = y then 0
@@ -180,7 +180,7 @@ import Nat
 import List
 import Set
 
-function search(List<Nat>, Nat) -> Nat {
+recursive search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0
   search(node(x, xs), y) =
     if x = y then 0
@@ -194,7 +194,7 @@ proof
   case [] {
     arbitrary y:Nat
     suffices not (y ∈ ∅) by evaluate
-    empty_no_members<Nat>
+    empty_no_members
   }
   case node(x, xs')
     assume IH: all y:Nat. not (y ∈ set_of(take(search(xs', y), xs')))
@@ -203,7 +203,7 @@ proof
     switch x = y for search {
       case true {
         suffices not (y ∈ ∅) by evaluate
-        empty_no_members<Nat>
+        empty_no_members
       }
       case false assume xy_false: (x = y) = false {
         suffices not (x = y or y ∈ set_of(take(search(xs', y), xs')))
