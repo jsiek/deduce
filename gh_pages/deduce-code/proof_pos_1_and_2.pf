@@ -1,8 +1,0 @@
-
-
-theorem pos_1_and_2: 0 ≤ 1 and 0 ≤ 2
-proof
-  have one_pos: 0 ≤ 1 by definition operator ≤
-  have two_pos: 0 ≤ 2 by definition operator ≤
-  conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
-end

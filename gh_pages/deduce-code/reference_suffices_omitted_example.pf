@@ -1,9 +1,0 @@
-
-
-theorem length__nat_one': all x:Nat. length([x]) = 1
-proof
-  arbitrary x:Nat
-  suffices __
-      by definition {length, length}
-  add_zero[1]
-end

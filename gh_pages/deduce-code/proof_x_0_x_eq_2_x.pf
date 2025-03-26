@@ -1,7 +1,0 @@
-
-
-theorem x_0_x_eq_2_x: 
-  all x:Nat. (x + 0) + x = (x + x) * 1
-proof
-  ?
-end

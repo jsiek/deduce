@@ -39,6 +39,7 @@ package:
 	rm -f ./lib/*.thm
 
 clean:
+	rm -f *~ ./lib/*~ ./test/should-validate/*~ ./test/should-error/*~
 	rm -f ./lib/*.thm
 	rm -f ./test/should-validate/*.thm
 	rm -f deduce-release.zip

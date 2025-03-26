@@ -1,0 +1,9 @@
+import Nat
+
+define one = 1
+
+theorem T: 1 = one
+proof
+  have: one = one by .
+  conclude 1 = one by (transitive (recall one = one) (recall one = one))
+end

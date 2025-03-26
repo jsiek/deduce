@@ -1,0 +1,7 @@
+import Nat
+
+fun five() {
+  5
+}
+
+assert five() = 5

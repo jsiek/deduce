@@ -988,7 +988,15 @@ def proof_advice(formula, env):
                 return msg
 
         return '\n'
-  
+
+def givens_str(env):
+    env_str = env.proofs_str()
+    if len(env_str) > 0:
+        givens = '\nGivens:\n' + env_str
+    else:
+        givens = ''
+    return givens
+    
 def check_proof_of(proof, formula, env):
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
@@ -996,14 +1004,10 @@ def check_proof_of(proof, formula, env):
   match proof:
     case PHole(loc):
       new_formula = check_formula(remove_mark(formula), env)
-      env_str = env.proofs_str()
-      if len(env_str) > 0:
-          givens = '\nGivens:\n' + env_str
-      else:
-          givens = ''
       incomplete_error(loc, 'incomplete proof\n' \
                        + 'Goal:\n\t' + str(new_formula) + '\n'\
-                       + proof_advice(new_formula, env) + givens)
+                       + proof_advice(new_formula, env) \
+                       + givens_str(env))
 
     case PSorry(loc):
       warning(loc, 'unfinished proof')
@@ -1021,10 +1025,11 @@ def check_proof_of(proof, formula, env):
             else:
               msg = msg + str(small_lhs) + ' ≠ ' + str(small_rhs) + '\n' \
                 + 'therefore\n' + str(lhsNF) + ' ≠ ' + str(rhsNF)
-            error(proof.location, msg + '\n\nGivens:\n\t' + env.proofs_str())
+            error(proof.location, msg + '\n' + givens_str(env))
         case _:
-          error(proof.location, 'reflexive proves an equality, not ' \
-                + str(formula))
+          error(proof.location, 'reflexive proves an equality, not\n\t' \
+                + str(formula) \
+                + givens_str(env))
           
     case PSymmetric(loc, eq_pf):
       (a,b) = split_equation(loc, formula)
@@ -1042,12 +1047,19 @@ def check_proof_of(proof, formula, env):
       a1r = a1.reduce(env)
       a2r = a2.reduce(env)
       if remove_mark(a1r) != remove_mark(a2r):
-        error(loc, 'for transitive,\n\t' + str(a1r) + '\n≠\n\t' + str(a2r))
+        error(loc, 'for transitive, from proofs of\n'
+              + '\t' + str(eq1) + '\n'
+              + 'and\n' 
+              + '\t' + str(b) + ' = ' + str(c) + '\n'
+              + 'the transitive rule concludes\n\t' + str(a2) + ' = ' + str(c) + '\n'
+              + 'but that does not match the goal\n\t' + str(formula) + '\n' 
+              + givens_str(env))
 
     case PInjective(loc, constr, eq_pf):
       check_type(constr, env)
       if not is_constructor(constr.name, env):
-        error(loc, 'in injective, ' + constr.name + ' not a constructor')
+        error(loc, 'in injective, expected a constructor, not\n\t' + base_name(constr.name) 
+              + givens_str(env))
       (a,b) = split_equation(loc, formula)
       lhs = Call(loc, None, constr, [a])
       rhs = Call(loc, None, constr, [b])
@@ -1067,9 +1079,11 @@ def check_proof_of(proof, formula, env):
             formula = All(loc, None, v, (i, len(names)), formula)
           check_proof_of(proof, formula, env)
         case FunctionType(loc2, ty_params, params, ret_ty):
-          error(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params)))
+          error(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params))
+                + givens_str(env))
         case _:
-          error(loc, 'extensionality expects a function, not ' + str(lhs.typeof))
+          error(loc, 'extensionality expects a function, not ' + str(lhs.typeof)
+                + givens_str(env))
       
     case AllIntro(loc, var, _, body):
       x, ty = var

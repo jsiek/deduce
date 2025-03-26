@@ -1,7 +1,0 @@
-
-
-define C = single(1) ∪ single(2)
-define D = single(2) ∪ single(3)
-assert 2 ∈ C ∩ D
-assert not (1 ∈ C ∩ D)
-assert not (3 ∈ C ∩ D)

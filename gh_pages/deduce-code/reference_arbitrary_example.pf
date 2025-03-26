@@ -1,9 +1,0 @@
-
-
-theorem arbitrary_example: all x:Nat,y:Nat. if x = y then y = x
-proof
-  arbitrary x:Nat,y:Nat
-  conclude if x = y then y = x by
-    assume: x = y
-    symmetric (recall x = y)
-end

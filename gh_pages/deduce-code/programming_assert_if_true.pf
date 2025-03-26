@@ -1,3 +1,0 @@
-
-
-assert (if true then 7 else 5+6) = 7

@@ -1,6 +1,0 @@
-
-
-recursive len(NatList) -> Nat {
-  len(Empty) = 0
-  len(Node(n, next)) = 1 + len(next)
-}

@@ -1,3 +1,0 @@
-
-
-define NL12 = Node(1, Node(2, Empty))

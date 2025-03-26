@@ -1,4 +1,0 @@
-
-
-define S = single(1) ∪ single(2) ∪ single(3)
-assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
