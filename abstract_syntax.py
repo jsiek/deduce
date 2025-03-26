@@ -3069,7 +3069,7 @@ class GenRecFun(Statement):
     return indent*' ' + 'recfun ' + complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
-      + '(' + ', '.join([x + ':' + str(t) if t else x for (x,t) in self.vars])\
+      + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)\
       + '\n\tmeasure ' + str(self.measure) \
       + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
