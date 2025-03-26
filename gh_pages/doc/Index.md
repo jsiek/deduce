@@ -176,6 +176,10 @@ The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyw
 As a taster for what it looks like to write programs and proofs in Deduce, the following is an implementation of the **Linear Search** algorithm and a proof that item `y` does not occur in the list `xs` at a position before the index returned by `search(xs, y)`
 
 ```{.deduce^#home_example3}
+import Nat
+import List
+import Set
+
 function search(List<Nat>, Nat) -> Nat {
   search(empty, y) = 0
   search(node(x, xs), y) =
@@ -233,13 +237,7 @@ This open-source software is brought to you by the volunteer work of the followi
 
 <!--
 ```{.deduce^file=Index.pf} 
-import Nat
-import List
-import Set
-import MultiSet
-import Maps
-
-<<home_example2>>
 <<home_example3>>
+<<home_example2>>
 ```
 -->
