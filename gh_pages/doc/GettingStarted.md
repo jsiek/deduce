@@ -13,18 +13,67 @@ To get started with Deduce, follow these steps:
 1. [Install Deduce](#install-deduce)
 2. [Choose a Text Editor](#install-and-configure-a-text-editor)
 
+### Install Prerequisites
 
-### Install Deduce
-You can find the releases of Deduce on [github](https://github.com/jsiek/deduce/releases).
-The most recent patches can be obtained by directly downloading the [source code](https://github.com/jsiek/deduce).
+You will need [Python](https://www.python.org/) version 3.10 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to download Python for many computer systems.
 
-You will need [Python](https://www.python.org/) version 3.10 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to the download for various systems.
-
-You will also need to install the [Lark](https://github.com/lark-parser/lark) parsing library, which you can do by running the following command in the same directory as `deduce.py`
+You will also need the [Lark](https://github.com/lark-parser/lark) parsing library, which you can install by running the following command in the same directory as `deduce.py`
 
 ```
 python -m pip install lark
 ```
+
+### Install Deduce
+
+You can find the stable releases of Deduce on
+[github](https://github.com/jsiek/deduce/releases). Download the zip
+file, unpack it, go into the top `deduce` directory, and run `python`
+with the `deduce.py` script and the provided example file.  (There is
+no executable for Deduce.)
+
+```
+python ./deduce.py example.pf
+```
+
+You should see the following response from Deduce.
+
+```
+example.pf is valid
+```
+
+This response means that all the proofs in `example.pf` are complete and flawless!
+Most of the time you will be working on incomplete or flawed proofs and
+Deduce will try to give you helpful feedback. For example, if you replace
+the proof in `example.pf` with a `?` as follows
+
+```
+theorem one_x: 1 = x
+proof
+  ?
+end
+```
+
+and run Deduce again, you will see the following response.
+
+```
+example.pf:8.3-8.4: incomplete proof
+Goal:
+	1 = x
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+```
+
+The latest development branch of Deduce (not stable) is available on
+github. It includes the source code for Deduce and for the Deduce web
+site.
+
+```
+https://github.com/jsiek/deduce
+```
+
 
 ### Install and Configure a Text Editor
 You can write Deduce in any text editor you want, and run it through the terminal.
