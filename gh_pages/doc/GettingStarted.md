@@ -67,17 +67,15 @@ Advice:
 		equations
 ```
 
-The latest development branch of Deduce (not stable) is available on
-github. It includes the source code for Deduce and for the Deduce web
-site.
-
-```
-https://github.com/jsiek/deduce
-```
+The latest development branch of Deduce (not stable) is available
+[here](https://github.com/jsiek/deduce) on github. It includes the
+source code for Deduce and for the Deduce web site.
 
 
 ### Install and Configure a Text Editor
-You can write Deduce in any text editor you want, and run it through the terminal.
+
+You can write Deduce in any text editor you want, and run Deduce through
+the terminal.
 
 For the following editors, we have developed extensions that improve
 the experience of writing Deduce code.
@@ -91,7 +89,7 @@ the experience of writing Deduce code.
 As mentioned above, Deduce is run by providing the `deduce.py` script
 with a `*.pf` file.
 
-Suppose you have the following program. (defined in a file `hello.pf`)
+Suppose you have written thew following program in a file named `hello.pf`.
 
 ```{.deduce^#hello_starting_example}
 // hello.pf
