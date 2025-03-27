@@ -10,8 +10,9 @@ Here are some resources to help you get started with Deduce.
 
 To get started with Deduce, follow these steps:
 
-1. [Install Deduce](#install-deduce)
-2. [Choose a Text Editor](#install-and-configure-a-text-editor)
+1. [Install Prerequisites](#install-prerequisites)
+2. [Install Deduce](#install-deduce)
+3. [Choose a Text Editor](#install-and-configure-a-text-editor)
 
 ### Install Prerequisites
 
@@ -27,12 +28,12 @@ python -m pip install lark
 
 You can find the stable releases of Deduce on
 [github](https://github.com/jsiek/deduce/releases). Download the zip
-file, unpack it, go into the top `deduce` directory, and run `python`
-with the `deduce.py` script and the provided example file.  (There is
-no executable for Deduce.)
+file and unpack it. To check that Deduce is working, go into the top
+`deduce` directory, and run `python` on the `deduce.py` script and the
+provided example file.  (There is no executable for Deduce.)
 
 ```
-python ./deduce.py example.pf
+python ./deduce.py ./example.pf
 ```
 
 You should see the following response from Deduce.
@@ -87,7 +88,8 @@ the experience of writing Deduce code.
 
 ## Running Deduce Programs
 
-Deduce is run by providing the `deduce.py` script with a `*.pf` file.
+As mentioned above, Deduce is run by providing the `deduce.py` script
+with a `*.pf` file.
 
 Suppose you have the following program. (defined in a file `hello.pf`)
 
@@ -102,11 +104,12 @@ define world : Greeting = hello
 print world
 ```
 
-This program defines a new union type called `Greeting`,
-defines a variable `world`, and prints it out.
+This program defines a new union type called `Greeting`, defines a
+variable `world`, and prints it out.
 
-To run it, type the following command, or use the run functionality
-provided by your deduce editor.
+To run it, type the following command from within the `deduce`
+directory, or use the run functionality provided by your deduce
+editor.
 
 ```
 python deduce.py hello.pf
