@@ -2898,7 +2898,10 @@ class FunCase(AST):
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
-  def uniquify(self, env):
+  def uniquify(self, env, fun_name):
+    if self.rator.name != fun_name:
+        error(self.rator.location, 'expected function name "' + fun_name + \
+              '", not "' + str(self.rator.name) + '"')
     self.rator.uniquify(env)
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
@@ -2930,6 +2933,7 @@ class RecFun(Statement):
   isPrivate: bool
 
   def uniquify(self, env):
+    old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
     self.name = new_name
@@ -2946,7 +2950,7 @@ class RecFun(Statement):
     self.returns.uniquify(body_env)
 
     for c in self.cases:
-      c.uniquify(body_env)
+      c.uniquify(body_env, old_name)
     
   def collect_exports(self, export_env):
     if self.isPrivate:

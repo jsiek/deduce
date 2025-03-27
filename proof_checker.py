@@ -2604,9 +2604,6 @@ def process_declaration(stmt, env, module_chain):
 def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present):
     body_env = check_pattern(fun_case.pattern, params[0], body_env, cases_present)
     fun_case.rator = type_synth_term(fun_case.rator, body_env, None, [])
-    if base_name(fun_case.rator.name) != base_name(name):
-        error(fun_case.rator.location, 'expected function name "' + base_name(name) + \
-              '", not "' + str(base_name(fun_case.rator.name)) + '"')
     if len(fun_case.parameters) != len(params[1:]):
       error(fun_case.location, 'incorrect number of parameters, '\
             + 'expected ' + str(len(params)))
