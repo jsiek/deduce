@@ -3737,7 +3737,7 @@ def print_theorems(filename, ast):
   for s in ast:
     if isinstance(s, Theorem) and not s.isLemma:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
-    elif isinstance(s, Declaration) and not s.isPrivate and hasattr(s, 'pretty_print'):
+    elif isinstance(s, Declaration) and not s.isPrivate:
       to_print.append(s.pretty_print(0))
   
   if len(to_print) == 0:
