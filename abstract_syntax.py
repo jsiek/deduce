@@ -241,13 +241,6 @@ class Declaration(AST):
   makeOpaque: bool = False
   file_defined: str = ''
 
-  def is_opaque(self):
-    if get_recursive_descent():
-      from rec_desc_parser import get_filename
-    else:
-      from parser import get_filename
-    return self.makeOpaque and not (get_filename() == self.file_defined)
-
 
 ################ Types ######################################
 
@@ -2169,7 +2162,7 @@ class Cases(Proof):
 
   def pretty_print(self, indent):
       cases_str = ''
-      for (label, frm, body) in cases:
+      for (label, frm, body) in self.cases:
           cases_str += indent*' ' + 'case ' + base_name(label) + ' : ' + str(frm) + '{\n' \
               + body.pretty_print(indent+2) + '\n' \
               + indent*' ' + '}'
@@ -2880,6 +2873,7 @@ class Union(Declaration):
     if self.isPrivate:
       return
     export_env[base_name(self.name)] = [self.name]
+
     for con in self.alternatives:
       extend(export_env, base_name(con.name), con.name, self.location)
     
@@ -3142,7 +3136,7 @@ class Define(Declaration):
     if self.isPrivate:
       return
     extend(export_env, base_name(self.name), self.name, self.location)
-    
+
 uniquified_modules = {}
 
 def get_uniquified_modules():
@@ -3553,12 +3547,16 @@ class Env:
     new_env.dict[name] = TypeBinding(loc, defn)
     return new_env
   
-  def declare_term_var(self, loc, name, typ, local = False):
+  def declare_term_var(self, loc, name, typ, local = False, opaque = False):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
     new_env.dict[name] = TermBinding(loc, typ)
     new_env.dict[name].local = local
+
+    if opaque:
+      new_env.dict['opaque'].append(name)
+    
     return new_env
 
   def declare_assoc(self, loc, opname, typarams, typ):
@@ -3601,6 +3599,7 @@ class Env:
     new_env = Env(self.dict)
     new_env.dict[name] = ProofBinding(loc, frm, True)
     return new_env
+
   
   def _def_of_type_var(self, curr, name):
     if name in curr.keys():
@@ -3723,13 +3722,14 @@ class Env:
   def proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
-  
+
+
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
   to_print = []
   for s in ast:
-    if isinstance(s, Theorem) and not s.isPrivate:
+    if isinstance(s, Theorem) and not s.isLemma:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
     elif isinstance(s, Declaration) and not s.isPrivate and hasattr(s, 'pretty_print'):
       to_print.append(s.pretty_print(0))

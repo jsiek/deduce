@@ -1574,6 +1574,7 @@ def check_proof_of(proof, formula, env):
 
 def apply_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)
+  # print("My environment is:", str(env))
   if num_marks == 0:
       new_formula = formula
   elif num_marks == 1:
@@ -1590,9 +1591,13 @@ def apply_definitions(loc, formula, defs, env):
       print('apply definitions to formula: ' + str(new_formula))
   for var in defs:
     # it's a bit strange that RecDef's can find there way into defs -Jeremy
+
     if isinstance(var, Var):
       reduced_one = False
       for var_name in var.resolved_names:
+          if var_name in env.dict['opaque']:
+            error(loc, 'FOUND OPAUQ!!!!')
+
           if get_verbose():
               print('expanding definition ' + var_name)
           rvar = Var(var.location, var.typeof, var_name, [var_name])
@@ -2458,15 +2463,11 @@ def check_formula(frm, env, recfun=None, subterms=[]):
 
 modules = set()
 
-def process_declaration(stmt, env, module_chain):
-  if get_verbose():
-    print('process_declaration(' + str(stmt) + ')')
-  match stmt:
+# TODO: CHANGE THIS NAME
+# I CAN'T THINK OF A GOOD NAME SO IT'S THIS FOR NOW
+def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
+  match decl:
     case Define(loc, name, ty, body):
-      if stmt.is_opaque():
-          error(loc, 'definition ' + base_name(name) + ' cannot be used inside of a proof')
-                   
-
       if ty == None:
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
@@ -2490,10 +2491,7 @@ def process_declaration(stmt, env, module_chain):
                     + 'Only functions may have multiple definitions with the same name.')
         
       return Define(loc, name, new_ty, new_body), \
-              env.declare_term_var(loc, name, new_ty)
-          
-    case Theorem(loc, name, frm, pf):
-      return stmt, env
+              env.declare_term_var(loc, name, new_ty, opaque=opaque)
   
     case RecFun(loc, name, typarams, params, returns, cases):
       body_env = env.declare_type_vars(loc, typarams)
@@ -2501,7 +2499,7 @@ def process_declaration(stmt, env, module_chain):
       for t in params:
           check_type(t, body_env)
       fun_type = FunctionType(loc, typarams, params, returns)
-      return stmt, env.declare_term_var(loc, name, fun_type)
+      return decl, env.declare_term_var(loc, name, fun_type, opaque=opaque)
       
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
@@ -2519,11 +2517,11 @@ def process_declaration(stmt, env, module_chain):
       fun_type = FunctionType(loc, typarams, param_types, returns)
       check_type(measure_ty, env)
       return (GenRecFun(loc, name, typarams, params, returns,
-                        measure, measure_ty, body, terminates, isPrivate=stmt.isPrivate, makeOpaque=stmt.makeOpaque, file_defined=stmt.file_defined),
-              env.declare_term_var(loc, name, fun_type))
+                        measure, measure_ty, body, terminates),
+              env.declare_term_var(loc, name, fun_type, opaque=opaque))
   
     case Union(loc, name, typarams, alts):
-      env = env.define_type(loc, name, stmt)
+      env = env.define_type(loc, name, decl)
       union_type = Var(loc, None, name, [name])
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
@@ -2545,10 +2543,31 @@ def process_declaration(stmt, env, module_chain):
           constr_type = union_type
 
         new_constr = constr
-        env = env.declare_term_var(loc, constr.name, constr_type)
+        env = env.declare_term_var(loc, constr.name, constr_type, opaque=opaque)
         new_alts.append(new_constr)
-        
       return Union(loc, name, typarams, new_alts), env
+
+    case _:
+      error(decl.location, "unrecognized declaration:\n" + str(decl))
+
+
+def process_declaration(stmt, env : Env, module_chain):
+  if get_verbose():
+    print('process_declaration(' + str(stmt) + ')')
+    
+  match stmt:
+    case Declaration():
+      # TODO: This looks bad, but maybe we can make it look better?
+      if get_recursive_descent():
+        from rec_desc_parser import get_filename
+      else:
+          from parser import get_filename
+
+      is_opaque = stmt.makeOpaque and stmt.file_defined != get_filename()
+      return process_real_declaration(stmt, env, is_opaque)
+          
+    case Theorem(loc, name, frm, pf):
+      return stmt, env
   
     case Import(loc, name, ast):
       old_verbose = get_verbose()
@@ -2712,29 +2731,29 @@ def type_check_stmt(stmt, env):
   
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
+  
 
-def collect_env(stmt, env):
+def collect_env(stmt, env : Env):
   if get_verbose():
     print('collect_env(' + str(stmt) + ')')
   match stmt:
     case Define(loc, name, ty, body):
       return env.define_term_var(loc, name, ty, body)
-        
-    case Theorem(loc, name, frm, pf):
-      return env.declare_proof_var(loc, name, frm)
-  
+      
     case RecFun(loc, name, typarams, params, returns, cases):
       fun_type = FunctionType(loc, typarams, params, returns)
       return env.define_term_var(loc, name, fun_type, stmt)
-          
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                   body, terminates):
+                  body, terminates):
       fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
       return env.define_term_var(loc, name, fun_type, stmt)
-  
+      
     case Union(loc, name, typarams, alts):
       return env
+          
+    case Theorem(loc, name, frm, pf):
+      return env.declare_proof_var(loc, name, frm)
   
     case Import(loc, name, ast):
       return env
@@ -2936,7 +2955,7 @@ def check_proofs(stmt, env):
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
 def check_deduce(ast, module_name):
-  env = Env()
+  env = Env({'opaque': []})
   ast2 = []
   imported_modules.clear()
   if get_verbose():
