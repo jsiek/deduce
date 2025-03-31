@@ -1572,7 +1572,6 @@ def check_proof_of(proof, formula, env):
 
 def apply_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)
-  # print("My environment is:", str(env))
   if num_marks == 0:
       new_formula = formula
   elif num_marks == 1:
