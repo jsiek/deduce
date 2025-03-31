@@ -1,8 +1,0 @@
-
-
-theorem length_node42: length([42]) = 1
-proof
-  suffices 1 + 0 = 1
-      by definition {length, length}
-  add_zero[1]
-end

@@ -1,4 +1,4 @@
-./test/should-error/missing-conclusion-subproof.pf:4.5-4.26: incomplete proof
+./test/should-error/missing-conclusion-subproof.pf:5.1-5.4: incomplete proof
 Goal:
 	true
 Advice:

@@ -152,19 +152,18 @@ theorem length_append: all U :type, xs :List<U>, ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
 proof
   arbitrary U :type
-  enable {length, operator++, operator +, operator +}
   induction List<U>
-  case empty {
+  case [] {
     arbitrary ys:List<U>
-    conclude length(@empty<U> ++ ys) = length(@empty<U>) + length(ys)  by .
+    conclude length(@[]<U> ++ ys) = length(@[]<U>) + length(ys)  by evaluate
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
     equations
       length(node(n,xs') ++ ys)
-          = 1 + length(xs' ++ ys)              by .
-      ... = 1 + (length(xs') + length(ys))     by rewrite IH[ys]
-      ... = length(node(n,xs')) + length(ys)   by .
+          = 1 + length(xs' ++ ys)              by evaluate
+      ... = 1 + (length(xs') + length(ys))     by replace IH[ys]
+      ... = length(node(n,xs')) + length(ys)   by evaluate
   }
 end
 
@@ -189,18 +188,17 @@ theorem append_assoc: all U :type, xs :List<U>, ys :List<U>, zs:List<U>.
   (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
 proof
   arbitrary U :type
-  enable {operator++}
   induction List<U>
   case empty {
-    arbitrary ys :List<U>, zs :List<U>
-    conclude (@empty<U> ++ ys) ++ zs = empty ++ (ys ++ zs)  by .
+    evaluate
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>, zs :List<U>
     equations
       (node(n,xs') ++ ys) ++ zs
-          = node(n, (xs' ++ ys) ++ zs)  by .
-      ... = node(n,xs') ++ (ys ++ zs)  by rewrite IH[ys,zs]
+          = node(n, (xs' ++ ys) ++ zs)  by definition operator++
+      ... = node(n, xs' ++ (ys ++ zs)) by rewrite IH[ys, zs]
+      ... = # node(n,xs') ++ (ys ++ zs) #  by definition operator++
   }
 end
 
@@ -232,14 +230,15 @@ proof
         by definition reverse
   }
   case node(n, xs') suppose IH {
-    enable {length, reverse, operator +}
     equations
       length(reverse(node(n,xs')))
-          = length(reverse(xs') ++ node(n,empty)) by .
+          = length(reverse(xs') ++ node(n,empty)) by definition reverse
       ... = length(reverse(xs')) + length(node(n,empty))
                     by rewrite length_append<U>[reverse(xs')][node(n,empty)]
-      ... = length(xs') + 1        by rewrite IH
-      ... = length(node(n,xs'))    by rewrite add_one[length(xs')]
+      ... = length(xs') + length(node(n,empty))   by rewrite IH
+      ... = length(xs') + 1                       by evaluate
+      ... = 1 + length(xs')                       by rewrite add_commute
+      ... = # length(node(n,xs')) #               by definition length
   }
 end
 
@@ -321,12 +320,11 @@ proof
   case node(x, xs')
     suppose IH: map(xs' ++ ys, f) = map(xs',f) ++ map(ys, f)
   {
-    enable {map, operator++}
     equations
       map((node(x,xs') ++ ys), f)
-          = node(f(x), map(xs' ++ ys, f))         by .
+          = node(f(x), map(xs' ++ ys, f))         by definition operator++ | map
       ... = node(f(x), map(xs',f) ++ map(ys,f))   by rewrite IH
-      ... = map(node(x,xs'),f) ++ map(ys,f)       by .
+      ... = # map(node(x,xs'),f) ++ map(ys,f) #   by definition map | operator++
   }
 end
 
@@ -338,12 +336,11 @@ proof
   induction List<T>
   case empty { definition map }
   case node(x, ls) suppose IH {
-    enable {map, operator ∘}
     equations
       map(map(node(x,ls),f),g)
-	  = node(g(f(x)), map(map(ls, f), g))  by .
+	  = node(g(f(x)), map(map(ls, f), g))        by evaluate
       ... = node(g(f(x)), map(ls, g ∘ f))      by rewrite IH
-      ... = map(node(x,ls), g .o. f)           by .
+      ... = map(node(x,ls), g .o. f)           by evaluate
   }
 end
 
@@ -707,10 +704,9 @@ proof
         suffices get(xs ++ ys, i') = get(xs, i')
            by definition {operator++, get, pred}
 	have i_xs: i' < length(xs) by
-	    enable {operator <, operator ≤}
-	    conclude i' < length(xs)
-              by rewrite i_si in
-                 definition {length, operator+,operator+} in i_xxs
+      apply less_suc_iff_suc_less to
+        definition {length, operator+, operator+} 
+        in rewrite i_si in i_xxs
 	apply IH[ys, i'] to i_xs
       }
     }

@@ -32,6 +32,7 @@ package:
 	cp error.py deduce
 	cp parser.py deduce
 	cp proof_checker.py deduce
+	cp example.pf deduce
 	cp README.md deduce
 	cp rec_desc_parser.py deduce
 	zip "deduce-release" -r deduce
@@ -39,6 +40,7 @@ package:
 	rm -f ./lib/*.thm
 
 clean:
+	rm -f *~ ./lib/*~ ./test/should-validate/*~ ./test/should-error/*~
 	rm -f ./lib/*.thm
 	rm -f ./test/should-validate/*.thm
 	rm -f deduce-release.zip

@@ -1,3 +1,0 @@
-
-
-define list_example = node(3, node(8, node(4, empty)))

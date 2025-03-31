@@ -1,8 +1,0 @@
-
-
-theorem or_example_intro2: all P:bool, Q:bool. if Q then P or Q
-proof
-  arbitrary P:bool, Q:bool
-  assume: Q
-  conclude P or Q by recall Q
-end

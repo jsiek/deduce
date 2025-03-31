@@ -1,3 +1,0 @@
-
-
-assert remove_if(L13, fun x {x ≤ 1}) = [2, 3]

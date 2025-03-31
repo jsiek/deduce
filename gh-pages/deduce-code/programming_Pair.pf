@@ -1,5 +1,0 @@
-
-
-union Pair<T,U> {
-  pair(T,U)
-}

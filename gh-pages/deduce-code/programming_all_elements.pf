@@ -1,6 +1,0 @@
-
-
-recursive all_elements<T>(List<T>, fn T->bool) -> bool {
-  all_elements(empty, P) = true
-  all_elements(node(x, xs'), P) = P(x) and all_elements(xs', P)
-}

@@ -9,8 +9,8 @@ import os
 
 infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
-                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2, '∘': 7}
-prefix_precedence = {'-': 8, 'not': 4}
+                    '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2, '∘': 7, '^' : 8}
+prefix_precedence = {'-': 9, 'not': 4}
 
 ############ AST Base Classes ###########
 
@@ -757,6 +757,8 @@ class Var(Term):
         if res:
           if get_verbose():
             print('\t var ' + self.name + ' ===> ' + str(res))
+          if isinstance(res, Union): 
+            return self
           return res.reduce(env)
         else:
           return self
@@ -1123,9 +1125,9 @@ class Call(Term):
       return result
 
   def reduce(self, env):
-    if get_verbose():
-      print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
-      print('reduce call ' + str(self))
+    # if get_verbose():
+    #   print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
+    #   print('reduce call ' + str(self))
     fun = self.rator.reduce(env)
     is_assoc = is_associative(self.location, rator_name(self.rator),
                               self.typeof, env)
@@ -1134,11 +1136,11 @@ class Call(Term):
     else:
       flat_args = self.args
     args = [arg.reduce(env) for arg in flat_args]
-    if get_verbose():
-      print('rator => ' + str(fun))
-      print('is_associative? ' + str(is_assoc))
-    if get_verbose():
-      print('args => ' + ', '.join([str(arg) for arg in args]))
+    # if get_verbose():
+    #   print('rator => ' + str(fun))
+    #   print('is_associative? ' + str(is_assoc))
+    # if get_verbose():
+    #   print('args => ' + ', '.join([str(arg) for arg in args]))
     ret = None
     match fun:
       case Var(loc, ty, '='):
@@ -1149,8 +1151,8 @@ class Call(Term):
         else:
           ret = Call(self.location, self.typeof, fun, args)
       case Var(loc, ty, name, rs) if is_assoc:
-        if get_verbose():
-          print('rator is associative Var')
+        # if get_verbose():
+        #   print('rator is associative Var')
         ret = Call(self.location, self.typeof, fun,
                    flatten_assoc_list(rator_name(self.rator), args))
         if hasattr(self, 'type_args'):
@@ -1172,14 +1174,14 @@ class Call(Term):
       case Generic(loc2, tyof, typarams, body):
         error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
-        if get_verbose():
-          print('not reducing call because neutral function: ' + str(fun))
+        # if get_verbose():
+        #   print('not reducing call because neutral function: ' + str(fun))
         ret = Call(self.location, self.typeof, fun, args)
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
-    if get_verbose():
-      print('call ' + str(self) + '\n\treturns ' + str(ret))
-      print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    # if get_verbose():
+    #   print('call ' + str(self) + '\n\treturns ' + str(ret))
+    #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     return ret
 
   def do_call(self, loc, vars, body, args, env):
@@ -1238,11 +1240,10 @@ class Call(Term):
     new_args = []
     worklist = args
     while len(worklist) > 1:
-      if get_verbose():
-        print('worklist: ' + ', '.join([str(a) for a in worklist]))
-        print('new_args: ' + ', '.join([str(a) for a in new_args]))
+      # if get_verbose():
+      #   print('worklist: ' + ', '.join([str(a) for a in worklist]))
+      #   print('new_args: ' + ', '.join([str(a) for a in new_args]))
       first_arg = worklist[0]; worklist = worklist[1:]
-      #print('first_arg: ' + str(first_arg))
       did_call = False
       for fun_case in cases:
           subst = {}
@@ -1251,8 +1252,8 @@ class Call(Term):
               result = do_function_call(loc, name, type_params, type_args,
                                         fun_case.parameters, rest_args,
                                         fun_case.body, subst, env, returns)
-              if get_verbose():
-                print('call result: ' + str(result))
+              # if get_verbose():
+              #   print('call result: ' + str(result))
               worklist = [result] + worklist[len(fun_case.parameters):]
               did_call = True
               rator_var = Var(loc, None, name, [])
@@ -1264,18 +1265,18 @@ class Call(Term):
         new_args.append(first_arg)
       if did_call and not get_reduce_all():
         break
-      if get_verbose():
-        print('-----------------------------')
+      # if get_verbose():
+      #   print('-----------------------------')
     set_reduce_only(old_reduce_only)
-    if get_verbose():
-      print('end associative operator ' + str(fun))
-      print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+    # if get_verbose():
+    #   print('end associative operator ' + str(fun))
+    #   print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
 
 
     new_args += worklist
     flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
-    if get_verbose():
-      print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    # if get_verbose():
+    #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     if len(flat_results) == 1:
       return explicit_term_inst(flat_results[0])
     else:
@@ -1899,8 +1900,8 @@ class IfThen(Formula):
 class All(Formula):
   var: Tuple[str,Type]
   # Position (s, e), where 
-  #  e : The number of vars in the block
   #  s : The variable's index in the list, starting from the last var
+  #  e : The number of vars in the block
   pos: Tuple[int, int]
   body: Formula
 
@@ -1991,10 +1992,17 @@ class Some(Formula):
   
   def reduce(self, env):
     n = len(self.vars)
-    return Some(self.location,
-                self.typeof,
-                [(x, ty.reduce(env)) for (x,ty) in self.vars],
-                self.body.reduce(env))
+    new_body = self.body.reduce(env)
+    match new_body:
+      case Bool(loc2, tyof, True):
+        return new_body
+      case Bool(loc2, tyof, False):
+        return new_body
+      case _:
+        return Some(self.location,
+                    self.typeof,
+                    [(x, ty.reduce(env)) for (x,ty) in self.vars],
+                    new_body)
   
   def substitute(self, sub):
     n = len(self.vars)
@@ -2713,20 +2721,6 @@ class ApplyDefsFact(Proof):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
-
-@dataclass
-class EnableDefs(Proof):
-  definitions: List[Term]
-  body: Proof
-
-  def __str__(self):
-      return 'enable { ' + ', '.join([str(d) for d in self.definitions]) \
-        + ' };' + maybe_str(self.body)
-
-  def uniquify(self, env):
-    for d in self.definitions:
-      d.uniquify(env)
-    self.body.uniquify(env)
     
 @dataclass
 class Rewrite(Proof):
@@ -2911,7 +2905,10 @@ class FunCase(AST):
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
-  def uniquify(self, env):
+  def uniquify(self, env, fun_name):
+    if self.rator.name != fun_name:
+        error(self.rator.location, 'expected function name "' + fun_name + \
+              '", not "' + str(self.rator.name) + '"')
     self.rator.uniquify(env)
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
@@ -2942,6 +2939,7 @@ class RecFun(Declaration):
   cases: List[FunCase]
 
   def uniquify(self, env):
+    old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
     self.name = new_name
@@ -2958,7 +2956,7 @@ class RecFun(Declaration):
     self.returns.uniquify(body_env)
 
     for c in self.cases:
-      c.uniquify(body_env)
+      c.uniquify(body_env, old_name)
     
   def collect_exports(self, export_env):
     if self.isPrivate:
@@ -3070,8 +3068,9 @@ class GenRecFun(Declaration):
   def to_string(self):
     return 'recfun ' + self.name + '<' + ','.join(self.type_params) + '>' \
         + '(' + ', '.join([x + ':' + str(t) if t else x\
-                           for (x,t) in params]) + ') -> ' + str(self.returns)\
-        + '\n\tmeasure ' + str(self.measure) \
+                           for (x,t) in self.vars]) + ')' \
+        + ' -> ' + str(self.returns) + '\n' \
+        + '\tmeasure ' + str(self.measure) \
         + ' {\n' + str(self.body) + '\n}\n' \
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
@@ -3079,7 +3078,7 @@ class GenRecFun(Declaration):
     return indent*' ' + 'recfun ' + complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
-      + '(' + ', '.join([x + ':' + str(t) if t else x for (x,t) in self.vars])\
+      + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)\
       + '\n\tmeasure ' + str(self.measure) \
       + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
@@ -3513,7 +3512,7 @@ class Env:
     return None
       
   def __str__(self):
-    return ',\n'.join(['\t' + k + ': ' + str(v) \
+    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
   def __contains__(self, item):
@@ -3619,6 +3618,13 @@ class Env:
     else:
       return None
 
+  def _term_var_defined(self, curr, name):
+    if name in curr.keys():
+      binding = curr[name]
+      if isinstance(binding, TermBinding) or isinstance(binding, TypeBinding):
+        return True
+    return False
+
   def _value_of_term_var(self, curr, name):
     if name in curr.keys():
       return curr[name].defn
@@ -3655,13 +3661,13 @@ class Env:
 
   def term_var_is_defined(self, tvar):
     match tvar:
-      case Var(loc, tyof, name):
-        if self._type_of_term_var(self.dict, name):
-          return True
+      case Var(loc, tyof, name, resolved_names):
+        if isinstance(resolved_names, str):
+          error(loc, 'resolved_names is a string but should be a list: ' + str(tvar))
+        if len(resolved_names) > 0:
+          return any([self._term_var_defined(self.dict, x) for x in resolved_names])
         else:
-          return False
-      case _:
-        raise Exception('expected a term variable, not ' + str(tvar))
+          return self._term_var_defined(self.dict, name)
         
   def proof_var_is_defined(self, pvar):
     match pvar:

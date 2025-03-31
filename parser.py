@@ -113,7 +113,7 @@ def parse_tree_to_case_list(e):
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
     
-infix_ops = {'add', 'sub', 'nat_sub', 'mul', 'div', 'mod', 'circ',
+infix_ops = {'add', 'sub', 'nat_sub', 'mul', 'div', 'mod', 'circ', 'pow',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
              'subset_equal', 'union_op', 'intersect', 'membership',
@@ -124,6 +124,7 @@ prefix_ops = {'neg', 'not'}
 
 operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘', 'nat_sub': '⊝',
                    'mod': '%', 'neg':'-', 
+                   'pow': '^',
                    'and': 'and', 'or':'or', 'not': 'not',
                    'equal': '=', 'not_equal': '≠',
                    'less': '<', 'greater': '>',
@@ -527,11 +528,6 @@ def parse_tree_to_ast(e, parent):
         return ApplyDefsFact(e.meta,
                              [Var(e.meta, None, t, []) for t in definitions],
                              subject)
-    elif e.data == 'enable_defs':
-        definitions = parse_tree_to_list(e.children[0], e)
-        return EnableDefs(e.meta,
-                          [Var(e.meta, None, x, []) for x in definitions],
-                          None)
     elif e.data == 'reason_definition':
         definitions = parse_tree_to_list(e.children[0], e)
         return ApplyDefs(e.meta, [Var(e.meta, None, t, []) for t in definitions])
@@ -542,12 +538,6 @@ def parse_tree_to_ast(e, parent):
         return ApplyDefsGoal(e.meta,
                              [Var(e.meta, None, t, []) for t in definitions],
                              Rewrite(e.meta, eqns))
-    elif e.data == 'enable_def':
-        definition = parse_tree_to_ast(e.children[0], e)
-        subject = parse_tree_to_ast(e.children[1], e)
-        return EnableDefs(e.meta,
-                          [Var(e.meta, None, definition, [])],
-                          subject)
     elif e.data == 'rewrite_goal':
         eqns = parse_tree_to_list(e.children[0], e)
         return RewriteGoal(e.meta, eqns, None)

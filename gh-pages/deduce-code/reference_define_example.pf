@@ -1,4 +1,0 @@
-
-
-define five = 2 + 3
-define six : Nat = 1 + five

@@ -1,7 +1,0 @@
-
-
-theorem append_node_1_node_2:
-  [1] ++ [2] = [1, 2]
-proof
-  ?
-end

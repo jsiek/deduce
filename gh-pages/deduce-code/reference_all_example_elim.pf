@@ -1,6 +1,0 @@
-
-
-theorem all_example_elim: 1 + 2 + 3 = 3 + 2 + 1
-proof
-  all_example_intro[1, 2, 3]
-end

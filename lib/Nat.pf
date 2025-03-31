@@ -16,12 +16,30 @@ recursive operator *(Nat,Nat) -> Nat {
   operator *(suc(n), m) = m + (n * m)
 }
 
+recursive expt(Nat, Nat) -> Nat {
+  expt(0, n) = 1
+  expt(suc(p), n) = n * expt(p, n)
+}
+
+fun operator ^(a : Nat, b : Nat)  {
+  expt(b, a)
+}
+
 recursive max(Nat,Nat) -> Nat {
   max(zero, n) = n
   max(suc(m'), n) =
     switch n {
       case zero { suc(m') }
       case suc(n') { suc(max(m',n')) }
+    }
+}
+
+recursive min(Nat,Nat) -> Nat {
+  min(zero, n) = zero
+  min(suc(m'), n) =
+    switch n {
+      case zero { zero }
+      case suc(n') { suc(min(m',n')) }
     }
 }
 
@@ -62,36 +80,6 @@ fun operator ≥ (x:Nat, y:Nat) {
   y ≤ x
 }
 
-
-/*
- The quotient function searches for n/m by starting at q (initially 0)
- and incrementing by 1 until q * m = n (if n is evenly divisible by m).
- Of course, n may not be evenly divisible by m, so we really stop
- when another increment would overshoot n, that is, (1+q)*m > n.
-
- The u parameter serves as gasoline. Choose u to satisfy n < (1 + q + u)*m 
- to ensure that quotient does not run out of gas before finding the
- quotient. For example, u = n is a convenient choice for the initial q=0.
-
- Precondition: q * m ≤ n and n < (1 + q + u) * m
- Postcondition: q * m + r = n and r < m    for some r
- */
-private recursive quotient(Nat,Nat,Nat,Nat) -> Nat {
-  quotient(0, n, m, q) = q
-  quotient(suc(u), n, m, q) =
-    if suc(q) * m ≤ n then
-      quotient(u, n, m, suc(q))
-    else
-      q
-}
-    
-fun operator /(n : Nat, m : Nat) {
-  quotient(n, n, m, 0)
-}
-
-fun operator % (n:Nat, m:Nat) {
-  n - (n / m) * m
-}
 
 recursive summation(Nat, Nat, fn Nat->Nat) -> Nat {
   summation(0, begin, f) = 0
@@ -277,6 +265,28 @@ proof
   symmetric add_assoc
 end
 
+theorem add_both_sides_of_equal: all x:Nat. all y:Nat, z:Nat.
+  x + y = x + z ⇔ y = z
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat, z:Nat
+    evaluate
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat, z:Nat
+    suffices __ by definition operator+
+    have A: suc(x' + y) = suc(x' + z) ⇔ (x' + y = x' + z)
+      by { assume seq injective suc seq } , { assume eq replace eq }
+    have B: ((x' + y = x' + z) ⇔ (y = z)) by IH[y,z]
+    conclude ((suc(x' + y) = suc(x' + z)) ⇔ (y = z))
+      by apply iff_trans[suc(x' + y) = suc(x' + z), x' + y = x' + z, y = z]
+         to A, B
+  }
+end
+
+// left_cancel is obsolete, remove soon.
+// Use add_both_sides_of_equal instead.
 theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
   if x + y = x + z then y = z
 proof
@@ -520,6 +530,58 @@ proof
   arbitrary n:Nat
   equations    n * 1 = 1 * n    by mult_commute[n][1]
                  ... = n        by one_mult[n]
+end
+
+
+theorem mult_to_zero : all n :Nat, m : Nat.
+  if m * n = 0 then m = 0 or n = 0
+proof
+  arbitrary n : Nat, m :Nat
+  switch n {
+    case 0 { . }
+    case suc(n') assume eq_sn_t {
+      switch m {
+        case 0 { . }
+        case suc(m') assume eq_sm_t {
+          evaluate
+        }
+      }
+    }
+  }
+end
+
+theorem one_mult_one : all x : Nat, y : Nat.
+  if x * y = 1 then x = 1 and y = 1
+proof
+  arbitrary x : Nat, y : Nat
+  switch x {  
+    case 0 {
+    definition operator*
+  }
+  case suc(x') suppose IH {
+    switch y {
+    case 0 {
+      rewrite mult_zero[suc(x')]
+    }
+    case suc(y') {
+      suffices (if suc(y' + x' * suc(y')) = 1 then (suc(x') = 1 and suc(y') = 1)) 
+        by definition { operator*, operator+ }
+      suppose prem
+      have blah : y' + x' * suc(y') = 0 
+        by injective suc
+           prem
+      have y'_zero : y' = 0 by apply add_to_zero to blah
+      have x'sy'_zero : x' * suc(y') = 0 by apply add_to_zero to blah
+      have x'_zero : x' = 0
+        by switch x' {case 0 {
+          .
+        }
+        case suc(n') suppose x_sn' {
+          definition { operator*, operator+ } in rewrite x_sn' in x'sy'_zero
+        }}
+        rewrite x'_zero | y'_zero
+    }}
+  }}
 end
 
 theorem two_mult: all n:Nat.
@@ -1219,6 +1281,23 @@ proof
   }
 end
 
+theorem add_pos_nonneg : all a : Nat, b : Nat.
+  if 0 < a then 0 < a + b
+proof
+  arbitrary a : Nat, b : Nat
+  assume prem
+  switch b {
+    case 0 assume eq_z_t {
+      suffices 0 < a by rewrite add_zero
+      prem
+    }
+    case suc(b') assume eq_sn_t {
+      suffices 0 < suc(a + b') by rewrite add_suc
+      evaluate
+    }
+  }
+end
+
 theorem less_one_add: all n:Nat.
   0 < 1 + n
 proof
@@ -1253,9 +1332,6 @@ proof
   add_both_sides_of_less_equal[x][suc(y), z]
 end
 
-// TODO: I stole this name from agda,
-// but it isn't very good
-// maybe mult_add_both_sides_of_less_equal?
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then n * x ≤ n * y
 proof
@@ -1278,6 +1354,14 @@ proof
       by apply add_both_sides_of_less_equal[x][n'*x, n'*y] to nx_le_ny
     apply less_equal_trans to xnx_le_xny, xny_le_yny
   }
+end
+
+
+theorem mult_mono_le_r : all n : Nat. all x : Nat, y : Nat.
+  if x ≤ y then x * n ≤ y * n
+proof
+  arbitrary n : Nat, x : Nat, y : Nat
+  rewrite mult_commute[n, x] | mult_commute[n, y] in mult_mono_le[n, x, y]
 end
 
 /*
@@ -1469,6 +1553,15 @@ proof
   }
 end
 
+theorem le_exists_sub : all n : Nat, m : Nat.
+  if n <= m then some x : Nat. m = n + x
+proof
+  arbitrary n : Nat, m :Nat
+  assume prem
+  choose m - n
+  symmetric apply sub_add_identity[m, n] to prem
+end
+
 /*
  More Properties of Less
  */
@@ -1554,6 +1647,79 @@ proof
     } 
   }
 end
+
+
+theorem mult_pos_nonneg : all a : Nat, b : Nat.
+  if 0 < a and 0 < b then 0 < a * b
+proof
+  arbitrary a : Nat, b : Nat
+  switch a {
+    case 0 {
+      evaluate
+    }
+    case suc(a') {
+      assume prem
+      suffices 0 < b + a' * b by definition operator*
+      apply add_pos_nonneg[b, a'*b] to conjunct 1 of prem
+    }
+  }
+end
+
+
+theorem mult_lt_mono_l : all c : Nat, a : Nat, b : Nat.
+  if c > 0 then (if a < b then a * c < b * c)
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(c') assume IH {
+    arbitrary a : Nat, b : Nat
+    suppose sc_g_z
+    suppose alb
+    suffices  a + a * c' < b + b * c' by rewrite mult_suc | mult_suc
+    switch c' > 0 {
+      case true assume prop_t {
+        have ac_l_bc : a * c' < b * c' by apply (rewrite prop_t in IH) to alb
+        have step1 : a + a * c' < a + b * c' by apply add_both_sides_of_less[a, a*c'] to ac_l_bc
+        have step2 : a + b * c' < b + b * c' by 
+          suffices b * c' + a < b * c' + b 
+            by rewrite add_commute[a, b * c'] | add_commute[b, b * c']
+          apply add_both_sides_of_less[b * c'] to alb
+        apply less_trans to step1, step2
+      }
+      case false assume prop_f {
+        have cz : c' = 0 by rewrite (definition operator > in prop_f) in zero_or_positive[c']
+        suffices a<b by rewrite cz | mult_zero | add_zero
+        alb
+      }
+    }
+  }
+end
+
+theorem mult_lt_mono_r :  all c : Nat, a : Nat, b : Nat.
+  if 0 < c then (if a * c < b * c then a < b)
+proof
+  arbitrary c : Nat, a : Nat, b : Nat
+  assume zlc
+  assume ac_l_bc
+  have cgz : c > 0 by 
+    suffices __ by definition operator>
+    zlc
+  cases trichotomy[a, b]
+  case : a < b {
+    recall a < b
+  }
+  case aeb : a = b {
+    apply less_irreflexive to rewrite aeb in ac_l_bc
+  }
+  case : b < a {
+    have contra : b * c < a * c by 
+      apply (apply mult_lt_mono_l[c, b, a] to cgz) to (recall b < a)
+    apply (apply less_implies_not_greater[b*c, a*c] to contra) to ac_l_bc
+  }
+end
+
 
 /*
   Properties of max
@@ -1858,9 +2024,30 @@ fun is_odd(n : Nat) {
   parity(n, false)
 }
 
+fun Even(n : Nat) {
+  some m:Nat. n = 2 * m
+}
 
-define Even : fn Nat -> bool = λ n { some m:Nat. n = 2 * m }
-define Odd : fn Nat -> bool = λ n { some m:Nat. n = suc (2 * m) }
+fun Odd(n : Nat) {
+  some m:Nat. n = suc (2 * m)
+}
+
+theorem two_even: all n:Nat. Even(2*n)
+proof
+  arbitrary n:Nat
+  suffices __ by definition Even
+  choose n
+  .
+end
+
+theorem one_two_odd: all n:Nat. Odd(1 + 2*n)
+proof
+  arbitrary n:Nat
+  suffices __ by definition Odd
+  choose n
+  evaluate
+end
+
 
 theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
 proof
@@ -1962,6 +2149,84 @@ proof
   }
 end
 
+theorem odd_one_even: all n:Nat. if Odd(1 + n) then Even(n)
+proof
+  arbitrary n:Nat
+  assume n1_odd
+  obtain k where nk: 1 + n = suc(2 * k) from definition Odd in n1_odd
+  have n2k: n = 2*k
+    by apply add_both_sides_of_equal[1, n, 2*k] to (replace suc_one_add | add_zero in nk)
+  suffices __ by definition Even
+  choose k
+  n2k
+end
+
+theorem even_one_odd: all n:Nat. if Even(1 + n) then Odd(n)
+proof
+  arbitrary n:Nat
+  assume n1_even
+  obtain k where nk: 1 + n = 2 * k from definition Even in n1_even
+  suffices __ by definition Odd
+  switch k {
+    case 0 assume kz {
+      conclude false by evaluate in replace kz in nk
+    }
+    case suc(k') assume ksk {
+      have eq1: 1 + n = 1 + (1 + k' * 2) by {
+        suffices __ by evaluate
+        evaluate in definition operator* in replace ksk | mult_commute in nk
+      }
+      have n_eq: n = 1 + k' * 2 by apply add_both_sides_of_equal to eq1
+      suffices __ by replace n_eq | suc_one_add | dist_mult_add | mult_one | add_zero
+      choose k'
+      replace two_mult
+    }
+  }
+end
+
+theorem Even_not_Odd: all n:Nat. Even(n) ⇔ not Odd(n)
+proof
+  induction Nat
+  case 0 {
+    suffices some m:Nat. 0 = 2 * m by definition Even | Odd
+    choose 0
+    conclude 0 = 2 * 0 by evaluate
+  }
+  case suc(n') assume IH {
+		have fwd: if Even(suc(n')) then not Odd(suc(n')) by {
+      assume prem: Even(suc(n'))
+      assume contra: Odd(suc(n'))
+      have en: Even(n') by apply odd_one_even to (replace suc_one_add in contra)
+      have not_on: not Odd(n') by apply IH to en
+      have on: Odd(n') by apply even_one_odd to (replace suc_one_add in prem)
+      conclude false by apply not_on to on
+    }
+		have bkwd: if not Odd(suc(n')) then Even(suc(n')) by {
+      assume prem: not Odd(suc(n'))
+      have nen: not Even(n') by {
+        assume en: Even(n')
+        obtain k where n2k: n' = 2*k from definition Even in en
+        have sn2k: suc(n') = suc(2*k) by replace n2k
+        have osn: Odd(suc(n')) by {
+          suffices __ by definition Odd
+          choose k
+          sn2k
+        }
+        conclude false by apply prem to osn
+      }
+      have nnon: not (not Odd(n'))
+        by apply contrapositive[not Odd(n'), Even(n')] to IH, nen
+      have on: Odd(n') by replace double_neg in nnon
+      obtain k where ns2k: n' = suc (2 * k) from definition Odd in on
+      suffices __ by definition Even and replace ns2k
+      choose 1+k
+      suffices __ by replace dist_mult_add | mult_one
+      evaluate
+    }
+    fwd, bkwd
+  }
+end
+
 /*
  Properties of Summation
  */
@@ -1988,11 +2253,11 @@ proof
     have IH': summation(k',suc(s),f) = summation(k',suc(t),g)
       by apply IH[f,g,suc(s),suc(t)] 
          to arbitrary i:Nat suppose i_k: i < k'
-            suffices f(suc(s) + i) = g(suc(t) + i)  by .
+            suffices f(suc(s + i)) = g(suc(t + i))  by evaluate
             have fsi_gtsi: f(s + suc(i)) = g(t + suc(i))
-              by apply f_g[suc(i)] to
-                 enable {operator <, operator ≤, operator ≤} i_k
-            enable {operator +} replace add_suc in fsi_gtsi
+              by suffices suc(i) < suc(k') by f_g[suc(i)] 
+                 apply less_suc_iff_suc_less to i_k
+            replace add_suc  in fsi_gtsi
     replace f_g_s | IH'
   }
 end
@@ -2015,8 +2280,7 @@ proof
     have f_g_s: f(s) = g(s) by {
       have s_s: s ≤ s by less_equal_refl[s]
       have s_sk: s < s + suc(k') by {
-        enable {operator <,operator ≤}
-        suffices s ≤ s + k'    by replace add_suc
+        suffices s ≤ s + k' by definition operator < | operator ≤ and replace add_suc
         less_equal_add[s][k']
       }
       apply f_g[s] to s_s, s_sk
@@ -2099,13 +2363,12 @@ proof
   case zero {
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
     suppose g_f_and_h_f
-    enable {operator +}
-    suffices summation(b,s,f) = summation(b,t,h)  by definition summation
+    suffices summation(b,s,f) = summation(b,t,h)  by definition { operator+, summation }
     apply summation_cong[b][f,h,s,t]
     to arbitrary i:Nat
        suppose i_b: i < b
        conclude f(s + i) = h(t + i)
-       by symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
+       by definition operator+ in symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
   }
   case suc(a') suppose IH {
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
@@ -2120,8 +2383,10 @@ proof
             = summation(a',suc(s),g) + summation(b,t,h)
       by have p1: all i:Nat. (if i < a' then g(suc(s) + i) = f(suc(s) + i))
            by arbitrary i:Nat suppose i_a: i < a'
-              enable {operator +, operator ≤}  replace add_suc in
-              (apply (conjunct 0 of g_f_and_h_f)[suc(i)] to enable {operator <, operator ≤} i_a)
+              have i_sa : suc(i) < suc(a') by 
+                apply less_suc_iff_suc_less to i_a
+              replace add_suc | symmetric suc_add[s, i]
+                in apply (conjunct 0 of g_f_and_h_f)[suc(i)] to i_sa
          have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + (a' + i)))
            by arbitrary i:Nat suppose i_b: i < b
               suffices __ by definition 2*operator+
@@ -2434,151 +2699,147 @@ end
  Properties of Division and Modulo
  */
 
-lemma quotient_correct: all u:Nat, q:Nat, n:Nat, m:Nat.
-  if q * m ≤ n and n < (1 + q + u) * m
-  then some r : Nat. quotient(u, n, m, q) * m + r = n and r < m
+// Division by iterated subtraction.
+recfun operator /(n : Nat, m : Nat) -> Nat
+  measure n
+{
+  if n < m then 0
+  else if m = 0 then 0
+  else 1 + (n - m) / m
+}
+terminates {
+	arbitrary n:Nat, m:Nat
+  assume cond: not (n < m) and not (m = 0)
+  suffices m + (n - m) < m + n by add_both_sides_of_less[m,n-m,n]
+  suffices n < m + n by {
+    have m_n: m ≤ n by apply not_less_implies_less_equal to conjunct 0 of cond
+    replace apply sub_add_identity[n,m] to m_n
+  }
+  obtain m' where m_sm: m = suc(m') from apply not_zero_suc to conjunct 1 of cond
+  suffices n < suc(m') + n by replace m_sm
+  suffices n ≤ m' + n by definition operator+ | operator< | operator≤
+  suffices n ≤ n + m' by replace add_commute
+  less_equal_add
+}
+
+fun operator % (n:Nat, m:Nat) {
+  n - (n / m) * m
+}
+
+lemma strong_induction_aux: all P: fn Nat -> bool.
+  if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
+  then (all j:Nat, k:Nat. if k < j then P(k))
 proof
+  arbitrary P: fn Nat -> bool
+  assume H
   induction Nat
   case 0 {
-    arbitrary q:Nat, n:Nat, m:Nat
-    suffices __ by definition quotient and rewrite add_zero | dist_mult_add_right | one_mult
-    assume prem: (q * m ≤ n and n < m + q * m)
-    choose n - q*m
-    have A: q * m + (n - q * m) = n by apply sub_add_identity[n, q*m] to prem
-    have B: n - q * m < m by {
-      suffices suc(n - q*m) ≤ m by definition operator<
-      suffices 1 + (n - q*m) ≤ m by replace suc_one_add
-      suffices (1 + n) - q*m ≤ m by replace apply sub_add_assoc[n, 1, q*m] to prem
-      have qm_n: q*m ≤ n by prem
-      have n_n1: n ≤ 1 + n   by less_equal_add_left
-      have qm_1n: q * m ≤ 1 + n by apply less_equal_trans to qm_n, n_n1
-      have n_qmm: 1 + n ≤ q * m + m by {
-        replace suc_one_add | add_commute[m, q*m] in
-        definition operator < in
-        conjunct 1 of prem
-      }
-      apply less_equal_add_sub[1+n, q*m, m] to qm_1n, n_qmm
-    }
-    A, B
+    arbitrary k:Nat
+    assume neg_k
+    conclude false by apply not_less_zero to neg_k
   }
-  case suc(u') assume IH {
-    arbitrary q:Nat, n:Nat, m:Nat
-    assume prem
-    switch suc(q) * m ≤ n for quotient {
-      case true assume qm_n_true {
-        have qm_n: suc(q) * m ≤ n by replace qm_n_true
-        have n_qum: n < (1 + (suc(q) + u')) * m by {
-          suffices __ by replace suc_add[q]
-          replace add_suc in conjunct 1 of prem
+  case suc(j') assume IH {
+    arbitrary k:Nat
+    assume: k < suc(j')
+    have: k ≤ j' by evaluate in recall k < suc(j')
+    cases (apply less_equal_implies_less_or_equal to recall k ≤ j')
+    case: k < j' {
+      conclude P(k) by apply IH to recall k < j'
+    }
+    case: k = j' {
+      have A: all m:Nat. if m < j' then P(m) by {
+        arbitrary m:Nat
+        assume: m < j'
+        have B: all k':Nat. (if k' < m then P(k')) by {
+          arbitrary k':Nat
+          assume: k' < m
+          have: k' < j' by apply less_trans to (recall k' < m), (recall m < j')
+          conclude P(k') by apply IH to recall k' < j'
         }
-        conclude some r:Nat. (quotient(u', n, m, suc(q)) * m + r = n and r < m)
-          by apply IH[suc(q), n, m] to qm_n, n_qum
+        conclude P(m) by apply H[m] to B
       }
-      case false assume sqm_n_false {
-        choose n - q*m
-        have A: q * m + (n - q * m) = n by apply sub_add_identity[n, q*m] to prem
-        have B: n - q * m < m by {
-          suffices 1 + (n - q*m) ≤ m by definition operator< and replace suc_one_add
-          suffices (1 + n) - q*m ≤ m by replace apply sub_add_assoc[n, 1, q*m] to prem
-          have qm_n: q*m ≤ n by prem
-          have n_n1: n ≤ 1 + n   by less_equal_add_left
-          have qm_1n: q * m ≤ 1 + n by apply less_equal_trans to qm_n, n_n1
-          have n_qmm: 1 + n ≤ q * m + m by {
-            have not_sqm_n: not (suc(q) * m ≤ n) by replace sqm_n_false
-            have n_sqm: n < suc(q) * m by apply not_less_equal_iff_greater to not_sqm_n
-            have n_mqm: n < m + q * m by definition operator* in n_sqm
-            suffices suc(n) ≤ q * m + m by definition 2*operator+
-            replace add_commute in definition operator< in n_mqm
-          }
-          apply less_equal_add_sub[1+n, q*m, m] to qm_1n, n_qmm
-        }
-        A, B
-      }
+      have: P(j') by apply H[j'] to A
+      conclude P(k) by replace symmetric (recall k = j') in recall P(j')
     }
   }
+end
+  
+theorem strong_induction: all P: fn Nat -> bool, n:Nat.
+  if (all j:Nat. if (all i:Nat. if i < j then P(i)) then P(j))
+  then P(n)
+proof
+  arbitrary P: fn Nat -> bool, n:Nat
+  assume prem
+  have X: all j:Nat, k:Nat. if k < j then P(k)
+    by apply strong_induction_aux[P] to prem
+  have: n < suc(n) by {
+    suffices n ≤ n  by evaluate
+    less_equal_refl
+  }
+  conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
 end
 
-lemma quotient_add: all u:Nat, k:Nat, n:Nat, m:Nat, q:Nat.
-  if q * m ≤ n and n < (1 + q + u) * m
-  then quotient(u, k*m + n, m, k + q) = k + quotient(u, n, m, q)
-proof
-  induction Nat
-  case 0 {
-    arbitrary k:Nat, n:Nat, m:Nat, q:Nat
-    assume prem
-    conclude quotient(0, k * m + n, m, k + q) = k + quotient(0, n, m, q)
-      by definition quotient
-  }
-  case suc(i) assume IH {
-    arbitrary k:Nat, n:Nat, m:Nat, q:Nat
-    assume prem
-    have qm_n: q*m ≤ n by prem
-    have n_qim: n < (1 + (q + suc(i))) * m by prem
-    switch suc(q) * m ≤ n for quotient {
-      case true assume sqm_n_true {
-        have sqm_n: suc(q) * m ≤ n  by replace sqm_n_true
-        have m_qm_n: m + q*m ≤ n by definition operator* in sqm_n
-        have lt: suc(k + q) * m ≤ k * m + n by {
-          suffices m + k*m + q*m ≤ k*m + n
-            by definition operator* and replace dist_mult_add_right
-          suffices k*m + m + q*m ≤ k*m + n
-            by replace add_commute[m, k*m]
-          suffices m + q*m ≤ n by add_both_sides_of_less_equal[k*m, m + q*m, n]
-          m_qm_n
-        }
-        suffices quotient(i, k * m + n, m, suc(k + q)) = k + quotient(i, n, m, suc(q))
-          by replace (apply eq_true to lt)
-        have B: n < (1 + (suc(q) + i)) * m by {
-          suffices __ by definition 3*operator+
-          definition 2* operator+ in
-          replace add_suc | add_suc in n_qim
-        }
-        replace add_suc in
-        apply IH[k, n, m, suc(q)] to sqm_n, B
-      }
-      case false assume sqm_n_false {
-        have not_sqm_n: not (suc(q) * m ≤ n) by replace sqm_n_false
-        have not_skqm_kmn: not (suc(k + q) * m ≤ k * m + n) by {
-          assume skqm_kmn: suc(k + q) * m ≤ k * m + n
-          have lt1: m + (k + q) * m ≤ k * m + n
-            by definition operator* in skqm_kmn
-          have lt2: m + k*m + q*m ≤ k*m + n
-            by replace dist_mult_add_right in lt1
-          have lt3: k*m + m + q*m ≤ k*m + n by replace add_commute[m,k*m] in lt2
-          have lt4: m + q*m ≤ n
-            by apply add_both_sides_of_less_equal[k*m,m+q*m,n] to lt3
-          have sqm_n: suc(q) * m ≤ n by {
-            suffices __ by definition operator*
-            lt4
-          }
-          apply not_sqm_n to sqm_n
-        }
-        replace (apply eq_false to not_skqm_kmn)
-      }
-    }
-  }
-end
+private fun DivPred(n:Nat) {
+	all m:Nat. if 0 < m then some r:Nat. (n / m) * m + r = n and r < m
+}
 
 lemma division: all n:Nat, m:Nat.
   if 0 < m
   then some r:Nat. (n/m)*m + r = n and r < m
 proof
-  arbitrary n:Nat, m:Nat
-  assume m_pos: 0 < m
-  have p1: 0 * m ≤ n by evaluate
-  have p2: n < (1 + 0 + n) * m by {
-    obtain m' where m_sm: m = suc(m') from apply positive_suc to m_pos
-    suffices __ by replace m_sm | mult_commute
-    suffices n < 1 + n + m' * (1 + n)
-      by definition operator* and replace add_zero 
-    suffices 1 + n ≤ 1 + n + m' * (1 + n)
-      by definition operator< and replace suc_one_add[n]
-    less_equal_add[1+n]
+  arbitrary n:Nat
+  have SI: all j:Nat. if (all i:Nat. if i < j then DivPred(i)) then DivPred(j) by {
+    arbitrary j:Nat
+    assume prem: all i:Nat. if i < j then DivPred(i)
+    suffices all m:Nat. if 0 < m then some r:Nat. ((j / m) * m + r = j and r < m)
+      by definition DivPred
+    arbitrary m:Nat
+    assume m_pos
+    switch j < m {
+      case true assume j_m_true {
+        suffices some r:Nat. r = j and r < m
+          by definition operator / and replace j_m_true | zero_mult | zero_add
+        choose j
+        conclude j = j and j < m
+          by replace j_m_true
+      }
+      case false assume j_m_false {
+        switch m = 0 {
+          case true assume m_z_true {
+            have: m = 0 by replace m_z_true
+            conclude false by apply less_irreflexive to replace (recall m = 0) in m_pos
+          }
+          case false assume m_z_false {
+            have not_m_z: not (m = 0) by replace m_z_false
+            have not_j_m: not (j < m) by replace j_m_false
+            have m_j: m ≤ j by apply not_less_implies_less_equal to not_j_m
+            obtain m' where m_sm: m = suc(m') from apply not_zero_suc to not_m_z
+            suffices some r:Nat. ((1 + (j - m) / m) * m + r = j and r < m)
+              by definition operator / and replace j_m_false | m_z_false
+            suffices some r:Nat. (m + ((j - m) / m) * m + r = j and r < m)
+              by replace dist_mult_add_right | one_mult
+            have jm_j: j - m < j by {
+              suffices m + (j - m) < m + j by add_both_sides_of_less[m,j-m,j]
+              suffices j < m + j by replace apply sub_add_identity[j,m] to m_j
+              suffices __ by replace m_sm
+              suffices j ≤ m' + j by definition operator+ | operator< | operator≤
+              suffices __ by replace add_commute
+              less_equal_add
+            }
+            have div_mp: DivPred(j - m) by apply prem[j - m] to jm_j
+            obtain r where div_jm: ((j - m) / m) * m + r = j - m and r < m
+              from apply (definition DivPred in div_mp)[m] to m_pos
+            choose r
+            suffices (m + (j - m) = j and r < m) by replace conjunct 0 of div_jm
+            have mjm_j: m + (j - m) = j by apply sub_add_identity[j, m] to m_j
+            mjm_j, conjunct 1 of div_jm
+          }
+        }
+      }
+    }
   }
-  have ex: some r:Nat. quotient(n, n, m, 0) * m + r = n and r < m
-    by apply quotient_correct[n,0,n,m] to p1, p2
-  suffices __ by definition operator/
-  ex
+  have: DivPred(n) by apply strong_induction[DivPred, n] to SI
+  definition DivPred in recall DivPred(n)
 end
 
 theorem div_mod: all n:Nat, m:Nat.
@@ -2646,7 +2907,7 @@ proof
       conclude false by apply (apply less_not_equal to rem_less) to rem_eq
     }
     case suc(y') assume ysy {
-      have eq1: y + y' * y + y % y = y + 0 by {
+      have eq1: y + (y' * y + y % y) = y + 0 by {
         suffices __ by replace add_zero
         definition operator* in replace ysy in div_rem
       }
@@ -2740,55 +3001,362 @@ proof
   replace mod_one | add_zero in eq2
 end
 
-lemma strong_ind: all P: fn Nat -> bool.
-  if (all n:Nat. if (all k:Nat. if k < n then P(k)) then P(n))
-  then (all j:Nat, k:Nat. if k < j then P(k))
+theorem add_div_one: all n:Nat, m:Nat.
+  if 0 < m
+  then (n + m) / m = 1 + n / m
 proof
-  arbitrary P: fn Nat -> bool
-  assume H
+  arbitrary n:Nat, m:Nat
+  assume m_pos
+  have not_nm_m: not (n + m < m) by {
+    assume nm_m: n + m < m
+    have not_m_nm: not (m ≤ n + m) by apply not_less_equal_iff_greater to nm_m
+    have: m ≤ m + n by less_equal_add
+    have m_nm: m ≤ n + m by replace add_commute in recall m ≤ m + n
+    conclude false by apply not_m_nm to m_nm
+  }
+  have m_nz: not (m = 0) by {
+    assume: m = 0
+    conclude false by evaluate in replace (recall m = 0) in m_pos
+  }
+    
+  equations
+      (n + m) / m = 1 + ((n + m) - m) / m  by definition operator/
+                                             and replace (apply eq_false to not_nm_m)
+                                                       | (apply eq_false to m_nz)
+              ... = 1 + n / m              by replace add_commute[n,m]
+                                                    | add_sub_identity
+end
+  
+theorem mult_div_inverse: all n:Nat, m:Nat.
+  if 0 < m then (n * m) / m = n
+proof
   induction Nat
   case 0 {
-    arbitrary k:Nat
-    assume neg_k
-    conclude false by apply not_less_zero to neg_k
+    arbitrary m:Nat
+    assume prem
+    suffices 0 / m = 0 by replace zero_mult
+    apply zero_div to prem
   }
-  case suc(j') assume IH {
-    arbitrary k:Nat
-    assume: k < suc(j')
-    have: k ≤ j' by evaluate in recall k < suc(j')
-    cases (apply less_equal_implies_less_or_equal to recall k ≤ j')
-    case: k < j' {
-      conclude P(k) by apply IH to recall k < j'
+  case suc(n') assume IH {
+    arbitrary m:Nat
+    assume prem
+    suffices (n' * m + m) / m = suc(n')   by definition operator* and replace add_commute
+    equations
+        (n' * m + m) / m = 1 + (n' * m) / m  by apply add_div_one[n'*m, m] to prem
+                     ... = 1 + n'            by replace apply IH to prem
+                     ... = suc(n')           by evaluate
+  }
+end
+
+
+/* 
+  Properties of exponentiation
+  https://rocq-prover.org/doc/v8.9/stdlib/Coq.Numbers.NatInt.NZPow.html
+  and
+  https://coq.kwarc.info/Coq.Numbers.NatInt.NZPow.html
+  */
+
+theorem expt_one : all n : Nat.
+  n ^ 1 = n
+proof
+  arbitrary n : Nat
+  suffices n * 1 = n by evaluate
+  mult_one
+end
+
+theorem one_expt : all n : Nat.
+  1 ^ n = 1
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    have IH' : expt(n', 1) = 1 by definition operator^ in IH
+    suffices 1 * expt(n', 1) = 1 by definition operator^ | expt
+    rewrite IH' | one_mult
+  }
+end
+
+theorem pow_add_r : all n : Nat, m : Nat, o : Nat.
+  m ^ (n + o) = m ^ n * m ^ o
+proof
+  induction Nat
+  case zero {
+    arbitrary m : Nat, o : Nat
+    suffices expt(o, m) = expt(o, m) + 0 by evaluate
+    replace add_zero
+  }
+  case suc(n') assume IH {
+    arbitrary m : Nat, o : Nat
+    have IH' : (all m':Nat, o':Nat. expt(n' + o', m') = expt(n', m') * expt(o', m')) 
+      by definition operator^ in IH
+    suffices  m * expt(n' + o, m) = m * expt(n', m) * expt(o, m) 
+      by definition operator^ | operator+ | expt
+    replace IH'
+  }
+end
+
+theorem pow_mul_l : all o : Nat, m : Nat, n : Nat.
+  (m * n) ^ o = m ^ o * n ^ o
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(o') assume IH {
+    arbitrary m : Nat, n : Nat
+    have IH' : (all m':Nat, n':Nat. expt(o', m' * n') = expt(o', m') * expt(o', n')) 
+      by evaluate in IH
+    suffices  m * n * expt(o', m * n) = m * expt(o', m) * n * expt(o', n) by evaluate
+    rewrite IH' | mult_commute[n, expt(o', m)]
+  }
+end
+
+theorem pow_mul_r : all o : Nat, m : Nat, n : Nat.
+  (m ^ n) ^ o = m ^ (n * o)
+proof
+  induction Nat
+  case 0 {
+    arbitrary m : Nat, n : Nat
+    suffices (m ^ n) ^ 0 = m ^ 0 by replace mult_zero
+    evaluate
+  }
+  case suc(o') assume IH {
+    arbitrary m : Nat, n : Nat
+    have IH' :  (all m':Nat, n':Nat. expt(o', expt(n', m')) = expt(n' * o', m')) 
+      by definition operator^ in IH
+    suffices expt(n, m) * expt(n * o', m) = expt(n + n * o', m)
+      by definition operator^ | expt
+      and rewrite mult_suc[n, o'] | IH'
+    symmetric definition operator^ in pow_add_r[n, m, n * o']
+  }
+end
+
+theorem pow_pos_nonneg : all b : Nat, a : Nat.
+  if 0<a then 0<a^b
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(b') assume IH {
+    arbitrary a : Nat
+    assume prem
+    suffices 0 < a * expt(b', a) by definition operator^ | expt
+    have exp_nz : 0 < expt(b', a) by definition operator^ in apply IH to prem
+    apply mult_pos_nonneg to prem, exp_nz
+  }
+end
+
+
+theorem pow_0_l : all a : Nat. if 0<a then 0^a = 0
+proof
+  arbitrary a : Nat
+  switch a {
+    case 0 {
+      evaluate
     }
-    case: k = j' {
-      have A: all m:Nat. if m < j' then P(m) by {
-        arbitrary m:Nat
-        assume: m < j'
-        have B: all k':Nat. (if k' < m then P(k')) by {
-          arbitrary k':Nat
-          assume: k' < m
-          have: k' < j' by apply less_trans to (recall k' < m), (recall m < j')
-          conclude P(k') by apply IH to recall k' < j'
-        }
-        conclude P(m) by apply H[m] to B
-      }
-      have: P(j') by apply H[j'] to A
-      conclude P(k) by replace symmetric (recall k = j') in recall P(j')
+    case suc(n') {
+      evaluate
     }
   }
 end
-  
-theorem strong_induction: all P: fn Nat -> bool, n:Nat.
-  if (all j:Nat. if (all i:Nat. if i < j then P(i)) then P(j))
-  then P(n)
+
+
+theorem pow_eq_0 : all n : Nat, m : Nat.
+  if m ^ n = 0 then m = 0
 proof
-  arbitrary P: fn Nat -> bool, n:Nat
-  assume prem
-  have X: all j:Nat, k:Nat. if k < j then P(k)
-    by apply strong_ind[P] to prem
-  have: n < suc(n) by {
-    suffices n ≤ n  by evaluate
-    less_equal_refl
+  induction Nat
+  case 0 {
+    evaluate
   }
-  conclude P(n) by apply X[suc(n),n] to recall n < suc(n)
+  case suc(n') assume IH {
+    arbitrary m : Nat
+    switch m {
+      case 0 assume eq_z_t {
+        evaluate
+      }
+      case suc(m') assume eq_sn_t {
+        assume contra
+        have contra' : suc(m') * expt(n', suc(m')) = 0 
+          by definition operator^ | expt in contra
+        have e_n_sm_z : expt(n', suc(m')) = 0 by apply mult_to_zero to contra'
+        have IH' : all m'':Nat. if expt(n', m'') = 0 then m'' = 0 
+          by definition operator^ in IH
+        conclude false by apply IH'[suc(m')] to e_n_sm_z
+      }
+    }
+  }
+end
+
+theorem exp_one_implies_zero_or_one : all m : Nat, n : Nat.
+  if m ^ n = 1 then n = 0 or m = 1
+proof 
+  arbitrary m : Nat, n : Nat
+  switch n {
+    case 0  {
+      .
+    }
+    case suc(n') {
+      suffices  (if m * expt(n', m) = 1 then m = 1) by evaluate
+      assume prem
+      apply one_mult_one to prem
+    }
+  }
+end
+
+theorem pow_lt_mono_l : all  c : Nat, a : Nat, b : Nat.
+  if 0 < c then if a < b then a ^ c < b ^ c
+proof
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    arbitrary a : Nat, b : Nat
+    assume z_l_sc
+    assume alb
+    switch 0 < n' {
+      case true assume prop_t {
+        suffices a * expt(n', a) < b * expt(n', b) 
+          by definition operator^ | expt
+        have ena_l_enb : expt(n', a) < expt(n', b) 
+          by definition operator^ in apply (rewrite prop_t in IH) to alb
+        have enb_nz :  expt(n', b) > 0
+          by suffices __ by definition operator >
+         apply greater_any_zero to ena_l_enb
+        have bnz : 0 < b 
+          by apply greater_any_zero to alb
+        have step1 : a * expt(n', a) <= a * expt(n', b)
+          by apply mult_mono_le[a, expt(n', a), expt(n', b)] to 
+            (apply less_implies_less_equal to ena_l_enb)
+        have step2 : a * (expt(n',b)) < b * expt(n', b) 
+          by apply (apply mult_lt_mono_l[expt(n', b), a, b] to enb_nz) to alb
+
+        cases (apply less_equal_implies_less_or_equal to step1) 
+        case step1':  a * expt(n', a) < a * expt(n', b) {
+          apply less_trans[a * expt(n', a), a * expt(n', b)] to step1', step2
+        }
+        case step1'':  a * expt(n', a) = a * expt(n', b) {
+          replace symmetric step1'' in step2
+        }
+      }
+      case false assume prop_f {
+        have nz : n' = 0 by rewrite prop_f in zero_or_positive[n']
+        suffices a < b by rewrite nz | expt_one
+        alb
+      }
+    }
+  }
+end
+
+theorem pow_gt_1 : all n : Nat, m : Nat.
+  if 1 < n then (0 < m <=> 1 < n ^ m)
+proof
+  arbitrary n : Nat, m : Nat
+  assume prem
+  have l : if 0 < m then 1 < n ^ m
+    by assume zlm
+       suffices 1^m < n^m by rewrite symmetric one_expt[m]
+       suffices 1 < n by apply pow_lt_mono_l[m, 1, n] to zlm
+       prem
+  have r : if 1 < n ^ m then 0 < m
+    by assume nm_g1
+       cases zero_or_positive[m]
+       case zm : m = 0 {
+        evaluate in rewrite zm in nm_g1 
+       }
+       case : 0 < m { recall 0 < m }
+  r, l
+end
+
+theorem pow_le_mono_l : all c : Nat, a : Nat, b : Nat.
+  if a <= b then a ^ c <= b ^ c
+proof 
+  induction Nat
+  case 0 {
+    evaluate
+  }
+  case suc(n') assume IH {
+    arbitrary a : Nat, b : Nat
+    assume a_le_b
+    suffices  a * expt(n', a) ≤ b * expt(n', b) 
+      by definition operator^ | expt
+    have step : expt(n', a) <= expt(n', b)
+      by definition operator^ in (apply IH to a_le_b)
+    have step1 : a * expt(n', a) <= a * expt(n', b)
+      by apply mult_mono_le[a, expt(n', a), expt(n', b)] to step
+    have step2 : a * expt(n', b) <= b * expt(n', b)
+      by apply mult_mono_le_r[expt(n', b), a, b] to a_le_b
+    apply less_equal_trans[a * expt(n', a), a * expt(n', b)] to step1, step2
+  }
+end
+
+theorem pow_lt_mono_r : all c : Nat, a : Nat, b : Nat.
+  if 1 < a then if b < c then a^b < a^c
+proof
+  arbitrary c : Nat, a : Nat, b : Nat
+  assume prem
+  assume blc
+  have blec : b <= c by apply less_implies_less_equal to blc
+  obtain x where step from apply le_exists_sub to blec
+  suffices a ^ b < a ^ b * a ^ x 
+    by rewrite step | pow_add_r
+  suffices 1 * a ^ b < a ^ x * 1 * a ^ b
+    by rewrite mult_commute[a^b, a^x] | symmetric one_mult[a^b]
+  have zla : 0 < a by 
+    have zl1 : 0 < 1 by evaluate
+    apply less_trans[0, 1, a] to zl1, prem
+  have : a ^ b > 0 by
+    suffices __ by definition operator>
+    apply pow_pos_nonneg[b, a] to  zla
+  suffices 1 < a^x * 1
+    by (apply mult_lt_mono_l[a^b, 1, a^x * 1] to recall a^b > 0)
+  have zlx : 0 < x 
+    by cases zero_or_positive[x]
+    case xz : x = 0 {
+      have cb : c = b by rewrite xz | add_zero in step
+      apply less_irreflexive to rewrite cb in blc 
+    }
+    case : 0 < x { recall 0 < x }
+  rewrite symmetric mult_one[a^x] in apply (apply pow_gt_1[a, x] to prem) to zlx
+end
+
+theorem pow_inj_l : all a : Nat, b : Nat, c : Nat.
+  if 0 < c then (if a^c = b^c then a = b)
+proof
+  arbitrary a : Nat, b : Nat, c : Nat
+  assume zlc
+  assume ac_eq_bc
+  cases trichotomy[a, b]
+  case : a < b {
+    have contra : a^c < b^c by apply (apply pow_lt_mono_l[c, a, b] to zlc) to (recall a < b)
+    apply less_irreflexive to rewrite ac_eq_bc in contra
+  }
+  case : a = b { recall a = b }
+  case : b < a {
+    have contra : b^c < a^c by apply (apply pow_lt_mono_l[c, b, a] to zlc) to (recall b < a)
+    apply less_irreflexive to rewrite ac_eq_bc in contra
+  }
+end
+
+theorem pow_inj_r : all a : Nat, b : Nat, c : Nat.
+  if 1 < a then if a^b = a ^ c then b = c
+proof
+  arbitrary a : Nat, b : Nat, c : Nat
+  assume ola
+  assume ab_eq_ac
+  cases trichotomy[b, c]
+  case : b < c {
+    apply less_irreflexive to
+      rewrite ab_eq_ac in
+      apply apply pow_lt_mono_r[c,a,b] to ola to recall b < c
+  }
+  case : b = c { recall b = c }
+  case : c < b {
+    apply less_irreflexive to
+      rewrite ab_eq_ac in
+      apply apply pow_lt_mono_r[b,a,c] to ola to recall c < b
+  }
 end

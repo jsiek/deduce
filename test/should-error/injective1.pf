@@ -1,0 +1,9 @@
+import Nat
+
+define one = 1
+
+theorem T: one = 1
+proof
+  injective one
+  ?
+end

@@ -1,8 +1,0 @@
-
-
-theorem false_any: all x:bool, y:bool. if false then x = y
-proof
-  arbitrary x:bool, y:bool
-  assume f: false
-  conclude x = y by f
-end

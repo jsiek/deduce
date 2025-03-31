@@ -1,9 +1,0 @@
-
-
-theorem rewrite_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
-proof
-  arbitrary x:Nat,y:Nat
-  assume prem: x = y
-  suffices 1 + y = 1 + y by rewrite prem
-  .
-end

@@ -1,7 +1,7 @@
-./test/should-error/switch_case_empty.pf:9.22-9.23: expected a term, not
-	"}"
-./test/should-error/switch_case_empty.pf:9.10-9.23: while parsing
-	switch_case ::= "case" pattern "{" term "}"
 ./test/should-error/switch_case_empty.pf:8.1-9.21: while parsing assert
 	statement ::= "assert" formula
 
+./test/should-error/switch_case_empty.pf:9.10-9.23: while parsing
+	switch_case ::= "case" pattern "{" term "}"
+./test/should-error/switch_case_empty.pf:9.22-9.23: expected a term, not
+	"}"
