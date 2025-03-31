@@ -2706,7 +2706,7 @@ def type_check_stmt(stmt, env):
       new_body = type_check_term(body, new_returns, body_env, None, [])
 
       return GenRecFun(loc, name, new_typarams, new_params, new_returns,
-                       new_measure, measure_ty, new_body, terminates, isPrivate=stmt.isPrivate, makeOpaque=stmt.makeOpaque, file_defined=stmt.file_defined)
+                       new_measure, measure_ty, new_body, terminates)
 
   
     case Union(loc, name, typarams, alts):
