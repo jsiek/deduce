@@ -373,6 +373,11 @@ proof
  definition pred
 end
 
+theorem pred_suc_n: all n:Nat. pred(suc(n)) = n
+proof
+  evaluate
+end
+
 theorem sub_one_pred : all x : Nat. x - 1 = pred(x)
 proof
  induction Nat
