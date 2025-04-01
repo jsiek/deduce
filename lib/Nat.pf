@@ -375,7 +375,6 @@ end
 
 theorem pred_suc_n: all n:Nat. pred(suc(n)) = n
 proof
-  arbitrary n:Nat
   evaluate
 end
 
