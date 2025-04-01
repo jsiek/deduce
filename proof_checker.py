@@ -2553,19 +2553,14 @@ def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
       error(decl.location, "unrecognized declaration:\n" + str(decl))
 
 
-def process_declaration(stmt, env : Env, module_chain):
+def process_declaration(stmt : Statement, env : Env, module_chain):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
     
   match stmt:
     case Declaration():
-      # TODO: This looks bad, but maybe we can make it look better?
-      if get_recursive_descent():
-        from rec_desc_parser import get_filename
-      else:
-          from parser import get_filename
 
-      is_opaque = stmt.makeOpaque and stmt.file_defined != get_filename()
+      is_opaque = stmt.makeOpaque and stmt.file_defined != stmt.location.filename
       return process_real_declaration(stmt, env, is_opaque)
           
     case Theorem(loc, name, frm, pf):
