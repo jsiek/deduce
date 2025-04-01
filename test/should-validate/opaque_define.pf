@@ -1,15 +1,4 @@
-union Bit {
-    one
-    zero
-}
+import OpaqueTests
 
-opaque define f : fn Bit -> Bit = fun b { b }
-
-assert f(one) = one
-assert f(zero) = zero
-
-theorem f_id : all b:Bit. f(b) = b
-proof 
-    arbitrary b:Bit
-    definition f
-end
+assert f(one(Z)) = one(Z)
+assert f(zero(Z)) = zero(Z)

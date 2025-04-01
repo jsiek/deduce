@@ -1,0 +1,4 @@
+import Nat
+import OpaqueTests
+
+assert fact(5) = 120

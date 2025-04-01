@@ -1,32 +1,11 @@
-opaque union Byte {
-    Z
-    one(Byte)
-    zero(Byte)
+import OpaqueTests
+
+assert next(cero) = next(cero)
+assert cero = cero
+
+recursive add(Nat_Hat, Nat_Hat) -> Nat_Hat {
+    add(cero, y) = y
+    add(next(x), y) = next(add(x, y)) 
 }
 
-function f(Byte) -> Byte {
-    f(Z) = Z
-    f(zero(b)) = f(b)
-    f(one(b)) = f(b)
-}
-
-assert f(one(Z)) = Z
-assert f(zero(Z)) = Z
-
-theorem f_Z: all b:Byte. f(b) = Z
-proof
-    induction Byte
-    case Z {
-        evaluate
-    }
-    case one(b) suppose IH {
-        suffices __ by definition f
-        suffices __ by replace IH
-        evaluate
-    }
-    case zero(b) suppose IH {
-        suffices __ by definition f
-        suffices __ by replace IH
-        evaluate
-    }
-end
+assert add(next(cero), next(next(next(cero)))) = next(next(next(next(cero))))
