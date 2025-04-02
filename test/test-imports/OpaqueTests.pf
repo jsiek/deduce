@@ -1,5 +1,7 @@
 import Nat
 
+opaque define another_five = 5
+
 // Testing defines
 union Byte {
     Z

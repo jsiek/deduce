@@ -2880,14 +2880,17 @@ class Union(Declaration):
     return self
       
   def pretty_print(self, indent):
-      if self.makeOpaque:
-        return indent *' ' + 'opaque union ' + base_name(self.name)
-      
-      return indent*' ' + 'union ' + base_name(self.name) \
+      header = 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
-             else '') + ' {\n' \
-        + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
-        + indent*' ' + '}\n'
+             else '')
+      if self.makeOpaque:
+        ret = 'opaque ' + header + '\n'
+      else:
+        ret = header + ' {\n' \
+                     + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
+                     + indent*' ' + '}\n'
+      
+      return indent*' ' + ret
   
   def __str__(self):
     if get_verbose():
@@ -2991,7 +2994,7 @@ class RecFun(Declaration):
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
     if self.makeOpaque:
-      ret = 'opaque ' + header
+      ret = 'opaque ' + header + '\n'
     else:
       ret = header + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
@@ -3097,11 +3100,11 @@ class GenRecFun(Declaration):
       + '\n\tmeasure ' + str(self.measure)
     
     if self.makeOpaque:
-      ret = 'opaque ' + header
+      ret = 'opaque ' + header + '\n'
     else:
       ret = header + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
 
-    return indent*' ' + ret 
+    return indent*' ' + ret
       
 
   def __eq__(self, other):
@@ -3128,6 +3131,7 @@ class Define(Declaration):
   typ: Type
   body: Term
 
+  # TODO: Define pretty print
   def pretty_print(self, indent):
     return ''
 
