@@ -89,6 +89,15 @@ opaque union Nat_Hat {
     cero
     next(Nat_Hat)
 }
+
+// POV: isorecursive types
+recursive natToNatHat(Nat) -> Nat_Hat {
+    natToNatHat(0) = cero
+    natToNatHat(suc(x)) = next(natToNatHat(x))
+}
+
+assert natToNatHat(1) = next(cero)
+
 recursive natHats(Nat_Hat, Nat_Hat) -> Nat_Hat {
     natHats(cero, y) = y
     natHats(next(x), y) = next(natHats(x, y))

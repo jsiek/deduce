@@ -1,11 +1,4 @@
+import Nat
 import OpaqueTests
 
-assert next(cero) = next(cero)
-assert cero = cero
-
-recursive add(Nat_Hat, Nat_Hat) -> Nat_Hat {
-    add(cero, y) = y
-    add(next(x), y) = next(add(x, y)) 
-}
-
-assert add(next(cero), next(next(next(cero)))) = next(next(next(next(cero))))
+print natToNatHat(5)
