@@ -3546,7 +3546,7 @@ class Env:
     new_env.dict[name] = TypeBinding(loc, defn)
     return new_env
   
-  def declare_term_var(self, loc, name, typ, local = False, opaque = False):
+  def declare_term_var(self, loc, name, typ, local = False, opaque = False, filename=''):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
@@ -3554,7 +3554,8 @@ class Env:
     new_env.dict[name].local = local
 
     if opaque:
-      new_env.dict['opaque'].append(name)
+      new_env.dict['opaque'].append((name, filename))
+
     
     return new_env
 
