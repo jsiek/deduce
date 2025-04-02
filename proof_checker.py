@@ -1206,8 +1206,10 @@ def check_proof_of(proof, formula, env):
 
     case EvaluateGoal(loc):
       set_reduce_all(True)
+      set_reduce_opaque_errors(True)
       red_formula = formula.reduce(env)
       set_reduce_all(False)
+      set_reduce_opaque_errors(False)
       if red_formula != Bool(loc, None, True):
           error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
                 + str(red_formula))
@@ -1261,9 +1263,11 @@ def check_proof_of(proof, formula, env):
 
         if evaluate:
           set_reduce_all(True)
+          set_reduce_opaque_errors(True)
           new_formula = formula.reduce(env)
           red_claim = new_claim.reduce(env)
           set_reduce_all(False)
+          set_reduce_opaque_errors(False)
 
         else:
           red_claim = new_claim.reduce(env)

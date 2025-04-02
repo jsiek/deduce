@@ -1,3 +1,3 @@
-test/should-error/opaque_evaluate.pf:3.19-3.23: Tried to evaluate 
+./test/should-error/opaque_evaluate.pf:3.19-3.23: Tried to evaluate 
 	opaque f_id
 Try using replace with a theorem OR a definition instead

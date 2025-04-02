@@ -753,9 +753,11 @@ class Var(Term):
         
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
-        for name, filename in env.dict['opaque']:
-          if self.name == name and filename != self.location.filename:
-              error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+
+        if get_reduce_opaque_errors():
+          for name, filename in env.dict['opaque']:
+            if self.name == name and filename != self.location.filename:
+                error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
 
         res = env.get_value_of_term_var(self)
         if res:
@@ -959,6 +961,16 @@ def get_reduce_all():
 def set_reduce_all(b):
   global reduce_all
   reduce_all = b
+
+reduce_opaque_errors = False
+
+def get_reduce_opaque_errors():
+  global reduce_opaque_errors
+  return reduce_opaque_errors
+
+def set_reduce_opaque_errors(b):
+  global reduce_opaque_errors
+  reduce_opaque_errors = b
 
 # Definitions that were reduced.
 reduced_defs = set()
