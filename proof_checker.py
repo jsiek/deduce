@@ -925,8 +925,6 @@ def proof_advice(formula, env):
               for othername, filedefined in env.dict['opaque']:
                 if name == othername and filedefined != formula.location.filename:
                   return arb_advice
-                else:
-                  print(name, othername)
 
             if len(alts) < 2:
               return arb_advice # Can't do induction if there's only one case
