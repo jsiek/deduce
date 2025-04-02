@@ -1,1 +1,3 @@
-./test/should-error/opaque_recursive_use_in_theorem.pf:3.31-3.34: FOUND OPAUQ!!!!
+./test/should-error/opaque_recursive_use_in_theorem.pf:5.5-5.19: Tried to apply: 
+	definition f_z
+However this particular definition cannot be unrolled

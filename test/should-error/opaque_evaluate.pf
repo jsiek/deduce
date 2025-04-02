@@ -2,5 +2,5 @@ import OpaqueTests
 
 theorem aTheorem: f_id(Z) = Z
 proof
-    definition f_id
+    evaluate
 end

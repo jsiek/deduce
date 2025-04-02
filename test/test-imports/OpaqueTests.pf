@@ -87,3 +87,9 @@ opaque union Nat_Hat {
     cero
     next(Nat_Hat)
 }
+recursive natHats(Nat_Hat, Nat_Hat) -> Nat_Hat {
+    natHats(cero, y) = y
+    natHats(next(x), y) = next(natHats(x, y))
+}
+
+assert natHats(cero, cero) = cero

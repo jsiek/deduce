@@ -1596,9 +1596,12 @@ def apply_definitions(loc, formula, defs, env):
     if isinstance(var, Var):
       reduced_one = False
       for var_name in var.resolved_names:
+          # TODO: Use a hashmap in the hashmap!!!!!!!
+          #       Or something that allows better than O(n) lookups
           for name, filename in env.dict['opaque']:
             if var_name == name and filename != loc.filename:
-                error(loc, 'FOUND OPAUQ!!!!')
+                bn = base_name(name)
+                error(loc, 'Tried to apply: \n\tdefinition ' + bn + '\nHowever this particular definition cannot be unrolled')
 
           if get_verbose():
               print('expanding definition ' + var_name)
@@ -1628,7 +1631,7 @@ def apply_definitions(loc, formula, defs, env):
   else:
       return check_formula(replace_mark(formula, new_formula).reduce(env), env)
 
-def apply_rewrites(loc, formula, eqns, env):
+def apply_rewrites(loc, formula, eqns, env):#
   num_marks = count_marks(formula)
   if num_marks == 0:
       new_formula = formula
