@@ -3117,7 +3117,10 @@ class Define(Statement):
         return 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') \
             + ' = ' + self.body.pretty_print(4, False) + '\n'
-  
+    
+  def pretty_print(self, indent):
+      return str(self)
+    
   def uniquify(self, env):
     if self.typ:
       self.typ.uniquify(env)

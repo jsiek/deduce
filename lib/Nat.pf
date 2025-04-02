@@ -1337,6 +1337,35 @@ proof
   add_both_sides_of_less_equal[x][suc(y), z]
 end
 
+theorem mult_mono_le_nonzero : all x : Nat, y : Nat, n : Nat.
+  if x * suc(n) ≤ y * suc(n) then x ≤ y
+proof
+  induction Nat
+  case 0 {
+    arbitrary y:Nat, n:Nat
+    evaluate
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat, n:Nat
+    suffices __ by definition operator*
+    assume prem
+    switch y {
+      case 0 assume yz {
+        conclude false by definition operator+ | operator≤ in replace yz in prem
+      }
+      case suc(y') assume y_sy {
+        suffices x' ≤ y' by definition operator≤
+        have X: x' * suc(n) ≤ y' * suc(n) by {
+          have prem2: suc(n) + x' * suc(n) ≤ suc(n) + y' * suc(n)
+            by replace y_sy in prem
+          apply add_both_sides_of_less_equal to prem2
+        }
+        apply IH[y',n] to X
+      }
+    }
+  }
+end
+
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then n * x ≤ n * y
 proof
