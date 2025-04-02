@@ -753,6 +753,11 @@ class Var(Term):
         
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
+        
+
+        for name, filename in env.dict['opaque']:
+          if self.name == name and filename != self.location.filename:
+              error(self.location, 'FOUND OPAUQ!!!!')
         res = env.get_value_of_term_var(self)
         if res:
           if get_verbose():
@@ -2868,8 +2873,9 @@ class Union(Declaration):
       return
     export_env[base_name(self.name)] = [self.name]
 
-    for con in self.alternatives:
-      extend(export_env, base_name(con.name), con.name, self.location)
+    if not self.makeOpaque:
+      for con in self.alternatives:
+        extend(export_env, base_name(con.name), con.name, self.location)
     
   def substitute(self, sub):
     return self
