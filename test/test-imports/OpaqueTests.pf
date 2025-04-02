@@ -96,6 +96,11 @@ recursive natToNatHat(Nat) -> Nat_Hat {
     natToNatHat(suc(x)) = next(natToNatHat(x))
 }
 
+recursive NatHatToNat(Nat_Hat) -> Nat {
+    NatHatToNat(cero) = 0
+    NatHatToNat(next(x)) = suc(NatHatToNat(x))
+}
+
 assert natToNatHat(1) = next(cero)
 
 recursive natHats(Nat_Hat, Nat_Hat) -> Nat_Hat {

@@ -921,6 +921,13 @@ def proof_advice(formula, env):
 
         match ty:
           case Union(loc2, name, typarams, alts):
+            if ty.makeOpaque:
+              for othername, filedefined in env.dict['opaque']:
+                if name == othername and filedefined != formula.location.filename:
+                  return arb_advice
+                else:
+                  print(name, othername)
+
             if len(alts) < 2:
               return arb_advice # Can't do induction if there's only one case
                 
@@ -2473,9 +2480,7 @@ def check_formula(frm, env, recfun=None, subterms=[]):
 
 modules = set()
 
-# TODO: CHANGE THIS NAME
-# I CAN'T THINK OF A GOOD NAME SO IT'S THIS FOR NOW
-def process_real_declaration(decl : Declaration, env: Env):
+def process_declaration_var(decl : Declaration, env: Env):
   opaque = decl.makeOpaque
   filename = decl.file_defined
 
@@ -2535,6 +2540,7 @@ def process_real_declaration(decl : Declaration, env: Env):
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl)
+      env.dict['opaque'].append((name, decl.file_defined))
       union_type = Var(loc, None, name, [name])
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
@@ -2570,7 +2576,7 @@ def process_declaration(stmt : Statement, env : Env, module_chain):
     
   match stmt:
     case Declaration():
-      return process_real_declaration(stmt, env)
+      return process_declaration_var(stmt, env)
           
     case Theorem(loc, name, frm, pf):
       return stmt, env
