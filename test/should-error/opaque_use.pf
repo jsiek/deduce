@@ -1,8 +1,0 @@
-import ImportTests
-
-theorem id_one_two_works_again: all b:OneTwo. id_one_two(b) = b
-proof 
-    arbitrary b:OneTwo
-    definition id_one_two
-
-end

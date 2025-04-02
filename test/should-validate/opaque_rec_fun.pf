@@ -1,4 +1,4 @@
 import OpaqueTests
 
-assert f(one(Z)) = Z
-assert f(zero(Z)) = Z
+assert f_z(one(Z)) = Z
+assert f_z(zero(Z)) = Z

@@ -1596,8 +1596,9 @@ def apply_definitions(loc, formula, defs, env):
     if isinstance(var, Var):
       reduced_one = False
       for var_name in var.resolved_names:
-          if var_name in env.dict['opaque']:
-            error(loc, 'FOUND OPAUQ!!!!')
+          for name, filename in env.dict['opaque']:
+            if var_name == name and filename != loc.filename:
+                error(loc, 'FOUND OPAUQ!!!!')
 
           if get_verbose():
               print('expanding definition ' + var_name)
@@ -2467,7 +2468,10 @@ modules = set()
 
 # TODO: CHANGE THIS NAME
 # I CAN'T THINK OF A GOOD NAME SO IT'S THIS FOR NOW
-def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
+def process_real_declaration(decl : Declaration, env: Env):
+  opaque = decl.makeOpaque
+  filename = decl.file_defined
+
   match decl:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -2493,7 +2497,7 @@ def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
                     + 'Only functions may have multiple definitions with the same name.')
         
       return Define(loc, name, new_ty, new_body), \
-              env.declare_term_var(loc, name, new_ty, opaque=opaque)
+              env.declare_term_var(loc, name, new_ty, opaque=opaque, filename=filename)
   
     case RecFun(loc, name, typarams, params, returns, cases):
       body_env = env.declare_type_vars(loc, typarams)
@@ -2501,7 +2505,7 @@ def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
       for t in params:
           check_type(t, body_env)
       fun_type = FunctionType(loc, typarams, params, returns)
-      return decl, env.declare_term_var(loc, name, fun_type, opaque=opaque)
+      return decl, env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename)
       
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
@@ -2520,7 +2524,7 @@ def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
       check_type(measure_ty, env)
       return (GenRecFun(loc, name, typarams, params, returns,
                         measure, measure_ty, body, terminates),
-              env.declare_term_var(loc, name, fun_type, opaque=opaque))
+              env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename))
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl)
@@ -2545,7 +2549,7 @@ def process_real_declaration(decl : Declaration, env: Env, opaque : bool):
           constr_type = union_type
 
         new_constr = constr
-        env = env.declare_term_var(loc, constr.name, constr_type, opaque=opaque)
+        env = env.declare_term_var(loc, constr.name, constr_type, opaque=opaque, filename=filename)
         new_alts.append(new_constr)
       return Union(loc, name, typarams, new_alts), env
 
@@ -2559,9 +2563,7 @@ def process_declaration(stmt : Statement, env : Env, module_chain):
     
   match stmt:
     case Declaration():
-
-      is_opaque = stmt.makeOpaque and stmt.file_defined != stmt.location.filename
-      return process_real_declaration(stmt, env, is_opaque)
+      return process_real_declaration(stmt, env)
           
     case Theorem(loc, name, frm, pf):
       return stmt, env
