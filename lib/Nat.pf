@@ -375,13 +375,7 @@ end
 
 theorem pred_suc_n: all n:Nat. pred(suc(n)) = n
 proof
-  induction Nat
-  case 0 {
-    definition pred
-  }
-  case suc(n') assume IH {
-    definition pred
-  }
+  evaluate
 end
 
 theorem sub_one_pred : all x : Nat. x - 1 = pred(x)
