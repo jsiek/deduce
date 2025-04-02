@@ -2538,7 +2538,9 @@ def process_declaration_var(decl : Declaration, env: Env):
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl)
-      env.dict['opaque'].append((name, decl.file_defined))
+
+      if decl.makeOpaque:
+        env.dict['opaque'].append((name, decl.file_defined))
       union_type = Var(loc, None, name, [name])
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type

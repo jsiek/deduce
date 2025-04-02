@@ -753,7 +753,6 @@ class Var(Term):
         
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
-
         if get_reduce_opaque_errors():
           for name, filename in env.dict['opaque']:
             if self.name == name and filename != self.location.filename:
