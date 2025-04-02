@@ -755,7 +755,7 @@ class Var(Term):
       if get_reduce_all() or (self in get_reduce_only()):
         for name, filename in env.dict['opaque']:
           if self.name == name and filename != self.location.filename:
-              error(self.location, 'Tried to evaluate \n\topaque' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+              error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
 
         res = env.get_value_of_term_var(self)
         if res:
@@ -2880,6 +2880,9 @@ class Union(Declaration):
     return self
       
   def pretty_print(self, indent):
+      if self.makeOpaque:
+        return indent *' ' + 'opaque union ' + base_name(self.name)
+      
       return indent*' ' + 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
              else '') + ' {\n' \
@@ -2982,13 +2985,19 @@ class RecFun(Declaration):
       + '\n}'
 
   def pretty_print(self, indent):
-    return indent*' ' + 'recursive ' + complete_name(self.name) \
+    header = 'recursive ' + complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
            else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
-      + ' -> ' + str(self.returns) + '{\n' \
+      + ' -> ' + str(self.returns)
+    if self.makeOpaque:
+      ret = 'opaque ' + header
+    else:
+      ret = header + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
       + '}\n'
+
+    return indent*' ' + ret 
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -3080,13 +3089,20 @@ class GenRecFun(Declaration):
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
   def pretty_print(self, indent):
-    return indent*' ' + 'recfun ' + complete_name(self.name) \
+    header = 'recfun ' + complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)\
-      + '\n\tmeasure ' + str(self.measure) \
-      + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
+      + '\n\tmeasure ' + str(self.measure)
+    
+    if self.makeOpaque:
+      ret = 'opaque ' + header
+    else:
+      ret = header + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
+
+    return indent*' ' + ret 
+      
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -3111,6 +3127,9 @@ class Define(Declaration):
   name: str
   typ: Type
   body: Term
+
+  def pretty_print(self, indent):
+    return ''
 
   def __str__(self):
     if isinstance(self.body, Lambda):
