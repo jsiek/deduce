@@ -1,0 +1,6 @@
+import OpaqueTests
+
+recursive addAgain(Nat_Hat, Nat_Hat) -> Nat_Hat {
+    addAgain(cero, y) = y
+    addAgain(next(x), y) = next(addAgain(x, y))
+}

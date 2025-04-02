@@ -1,0 +1,6 @@
+import OpaqueTests
+
+theorem always_Z: all b:Byte. f_z(b) = Z
+proof
+    evaluate
+end
