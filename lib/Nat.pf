@@ -1366,6 +1366,14 @@ proof
   }
 end
 
+theorem mult_nonzero_mono_le : all n : Nat, x : Nat, y : Nat.
+  if suc(n) * x ≤ suc(n) * y then x ≤ y
+proof
+  arbitrary n:Nat, x:Nat, y:Nat
+  suffices __ by replace mult_commute
+  mult_mono_le_nonzero
+end
+  
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then n * x ≤ n * y
 proof
