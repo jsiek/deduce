@@ -1,0 +1,8 @@
+./test/should-error/opaque_induction.pf:6.5-6.6: incomplete proof
+Goal:
+	(all x:Nat_Hat. natToNatHat(NatHatToNat(x)) = x)
+Advice:
+	Prove this "all" formula with:
+		arbitrary x:Nat_Hat
+	followed by a proof of:
+		natToNatHat(NatHatToNat(x)) = x

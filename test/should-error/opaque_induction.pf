@@ -1,0 +1,7 @@
+import Nat
+import OpaqueTests
+
+theorem isomorphic: all x:Nat_Hat. natToNatHat(NatHatToNat(x)) = x
+proof
+    ?
+end

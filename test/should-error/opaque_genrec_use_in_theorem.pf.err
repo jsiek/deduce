@@ -1,0 +1,3 @@
+./test/should-error/opaque_genrec_use_in_theorem.pf:6.5-6.20: Tried to apply: 
+	definition fact
+However this particular definition cannot be unrolled

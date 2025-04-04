@@ -1,4 +1,6 @@
 ./test/should-error/fn_missing_arrow.pf:1.1-1.19: while parsing
+	declaration ::= union | rec_function | function | definition
+./test/should-error/fn_missing_arrow.pf:1.1-1.19: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
 ./test/should-error/fn_missing_arrow.pf:1.12-1.19: while parsing

@@ -281,8 +281,6 @@ ident: IDENT              -> ident
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?private: "private" statement -> private
-
 ?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
  | "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
@@ -301,17 +299,22 @@ ident: IDENT              -> ident
 
 ?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
 
-?statement: theorem
- | union
+?declaration: union
  | rec_function
  | function
  | gen_rec_fun
  | definition
+
+?access_decl: "private" declaration    -> private_decl
+    | "opaque" declaration             -> opaque_decl
+
+?statement: declaration
+ | access_decl -> add_access
+ | assoc_decl
  | import
  | assert
  | print
- | private
- | assoc_decl
+ | theorem
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

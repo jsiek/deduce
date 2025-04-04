@@ -1,3 +1,5 @@
+./test/should-error/define_missing_semi.pf:6.1-8.27: while parsing
+	declaration ::= union | rec_function | function | definition
 ./test/should-error/define_missing_semi.pf:8.3-8.27: while parsing
 	fun_case ::= identifier "(" param_list ")" "=" term
 
