@@ -215,6 +215,7 @@ known_tokens = {
     'NOT': 'keyword',
     'OBTAIN': 'keyword',
     'OF': 'keyword',
+    'OPAQUE': 'keyword',
     'OPERATOR': 'keyword',
     'OR': 'keyword',
     'PERCENT': 'operator',
