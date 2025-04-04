@@ -14,8 +14,8 @@ proof
 		by definition test2
 	switch x = a {
 		case true{
-			suffices x=a by rewrite symmetric recall (x = a) = true
-			rewrite recall (x = a) = true
+			suffices x=a by replace symmetric recall (x = a) = true
+			replace recall (x = a) = true
 		}
 		case false assume G {
 			.

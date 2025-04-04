@@ -641,7 +641,7 @@ proof_keywords = {'apply', 'arbitrary', 'assume',
                   'definition',
                   'equations', 'evaluate', 'extensionality',
                   'have', 'induction', 'injective', 'obtain',
-                  'recall', 'reflexive', 'rewrite',
+                  'recall', 'reflexive', 'replace',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
 
@@ -651,22 +651,13 @@ def parse_definition_proof():
   token = current_token()
   advance()
   try:
-    if current_token().type == 'LBRACE':
-      advance()
-      defs = parse_ident_list()
-      if current_token().type != 'RBRACE':
-          raise ParseError(meta_from_tokens(current_token(), current_token()),
-                'expected closing "}", not\n\t' + current_token().value \
-                  + '\nPerhaps you forgot a comma?')
-      advance()
-    else:
-      defs = parse_ident_list_bar()
+    defs = parse_ident_list_bar()
 
     if current_token().type == 'AND':
         while_parsing = 'while parsing definition:\n' \
-            + '\tconclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list\n'
+            + '\tconclusion ::= "definition" identifier_list_bar "and" "replace" proof_list\n'
         advance()
-        if (current_token().type != 'REPLACE') and (current_token().type != 'REWRITE'):
+        if (current_token().type != 'REPLACE'):
             raise ParseError(meta_from_tokens(current_token(),current_token()),
                   'expected "replace" after "and" and "definition", not\n\t' \
                   + current_token().value)
@@ -860,7 +851,7 @@ def parse_proof_hi():
     meta = meta_from_tokens(token, token)
     return PReflexive(meta)
 
-  elif (token.type == 'REWRITE') or (token.type == 'REPLACE'):
+  elif (token.type == 'REPLACE'):
     advance()
     proofs = parse_proof_list()
     if current_token().type == 'IN':

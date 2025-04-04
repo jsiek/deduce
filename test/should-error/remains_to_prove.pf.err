@@ -2,6 +2,6 @@
 	0 + x = x
 Replace this proof statement with:
 	suffices 0 + x = x
-		by rewrite zero_add
+		by replace zero_add
 followed by a proof of:
 	0 + x = x

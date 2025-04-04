@@ -171,7 +171,7 @@ end
 lemma sign_neg_pos: all n:Nat. sign(-pos(suc(n))) = negative
 proof
   arbitrary n:Nat
-  definition {operator-, sign}
+  definition operator- | sign
 end
 
 lemma mult_pos_any: all s:Sign. positive * s = s
@@ -187,12 +187,12 @@ end
 
 lemma mult_neg_pos: negative * positive = negative
 proof
-  definition {operator*, flip}
+  definition operator* | flip
 end
 
 lemma mult_neg_neg: negative * negative = positive
 proof
-  definition {operator*, flip}
+  definition operator* | flip
 end
 
 lemma mult_pos_nat: all n:Nat. positive * n = pos(n)
@@ -230,13 +230,13 @@ proof
         case 0 {
           equations
                 abs(- pos(0)) 
-              = 0              by definition {operator-, abs}
+              = 0              by definition operator- | abs
           ... = #abs(pos(0))#  by definition abs
        }
        case suc(n'') {
           equations
                 abs(- pos(suc(n''))) 
-              = suc(n'')              by definition {operator-, abs}
+              = suc(n'')              by definition operator- | abs
           ... = #abs(pos(suc(n'')))#  by definition abs
        }
      }
@@ -244,7 +244,7 @@ proof
     case negsuc(n') {
       equations
             abs(- negsuc(n'))  
-          = suc(n')             by definition {operator-, abs}
+          = suc(n')             by definition operator- | abs
       ... = #abs(negsuc(n'))#   by definition abs
     }
   }
@@ -266,10 +266,10 @@ proof
   arbitrary n : Nat
   switch n {
     case 0 {
-      definition {operator-, operator-}
+      definition 2* operator-
     }
     case suc(n') {
-      definition {operator-, operator-}
+      definition 2* operator-
     }
   }
 end
@@ -327,7 +327,7 @@ proof
     case pos(x') {
       switch y {
         case pos(y') {
-          suffices pos(x' + y') = pos(y' + x') by definition {operator+}
+          suffices pos(x' + y') = pos(y' + x') by definition operator+
           replace add_commute[x',y']
         }
         case negsuc(y') {
@@ -353,7 +353,7 @@ end
 lemma zero_subo_neg: all n:Nat. 0 ⊝ suc(n) = negsuc(n)
 proof
   arbitrary n:Nat
-  definition {operator⊝, operator<, operator≤, operator≤, operator-, operator-}
+  definition operator⊝ | operator< | 2* operator≤ | 2* operator-
 end
 
 lemma int_subo_zero: all n:Nat. n ⊝ 0 = pos(n)
@@ -361,7 +361,7 @@ proof
   arbitrary n:Nat
   switch n < 0 for operator⊝ {
     case true assume n_neg {
-      conclude false by definition {operator<, operator≤} in n_neg
+      conclude false by definition operator< | operator≤ in n_neg
     }
     case false assume n_pos {
       replace sub_zero
@@ -378,7 +378,7 @@ proof
       conclude false by apply less_irreflexive[n] to replace nn_true
     }
     case false assume nn_false {
-      suffices pos(n - n) = +0   by definition {operator ⊝} and replace nn_false
+      suffices pos(n - n) = +0   by definition operator ⊝ and replace nn_false
       replace sub_cancel
     }
   }
@@ -419,7 +419,7 @@ proof
     case true assume xy_true {
       have: x < y by replace xy_true
       have: suc(x) < suc(y) by apply less_suc_iff_suc_less to recall (x < y)
-      definition {operator-} and replace apply eq_true to recall suc(x) < suc(y)
+      definition operator- and replace apply eq_true to recall suc(x) < suc(y)
     }
     case false assume xy_false {
       have: not (suc(x) < suc(y)) by {
@@ -446,7 +446,7 @@ proof
       }
       case suc(o') { // n = 0, o = suc(o')
         suffices negsuc(o') + pos(m) = m ⊝ suc(o')  by replace zero_subo_neg | zero_add
-        definition {operator+}
+        definition operator+
       }
     }
   }
@@ -455,7 +455,7 @@ proof
     switch o {
       case 0 {       // n = suc(n'), o = 0
         suffices pos(suc(n') + m) = pos(suc(n' + m))
-            by definition {operator+} and replace int_subo_zero
+            by definition operator+ and replace int_subo_zero
         definition operator+ 
       }
       case suc(o') { // n = suc(n'), o = suc(o')
@@ -481,7 +481,7 @@ proof
       case suc(o') { // n = 0, o = suc(o')
         suffices negsuc(o') + negsuc(m) = negsuc(suc(o' + m))
             by replace suc_add | zero_subo_neg | suc_add
-        definition {operator+}
+        definition operator+
       }
     }
   }
@@ -489,7 +489,7 @@ proof
     arbitrary o:Nat
     switch o {
       case 0 {       // n = suc(n'), o = 0
-        definition {operator+} and replace int_subo_zero | zero_add
+        definition operator+ and replace int_subo_zero | zero_add
       }
       case suc(o') { // n = suc(n'), o = suc(o')
         suffices (n' ⊝ o') + negsuc(m) = n' ⊝ (suc(o') + m)
@@ -506,10 +506,10 @@ proof
   arbitrary x:Nat, y:Int
   switch y {
     case pos(y') {
-      definition {operator+, operator+} and replace add_commute[x,y']
+      definition 2* operator+ and replace add_commute[x,y']
     }
     case negsuc(y') {
-      definition {operator+, operator+}
+      definition 2* operator+
     }
   }
 end
@@ -546,7 +546,7 @@ proof
           switch z {
             case pos(z') {     // x=pos(x'), y=pos(y'), z=pos(z')
               suffices pos((x' + y') + z') = pos(x' + (y' + z'))
-                  by definition {operator+}
+                  by definition operator+
               .
             }
             case negsuc(z') { // x=pos(x'), y=pos(y'), z=negsuc(z')
@@ -597,9 +597,9 @@ proof
                     (negsuc(x') + pos(y')) + negsuc(z') 
                   = (y' ⊝ suc(x')) + negsuc(z')           by evaluate
               ... = y' ⊝ (suc(suc(x')) + z')              by distrib_left_sub_add_neg
-              ... = y' ⊝ suc(suc(x' + z'))                by definition {operator+, operator+}
+              ... = y' ⊝ suc(suc(x' + z'))                by definition 2*  operator+
               ... = y' ⊝ suc(suc(z' + x'))                by replace add_commute
-              ... = y' ⊝ #suc(suc(z')) + x'#              by definition {operator+, operator+}
+              ... = y' ⊝ #suc(suc(z')) + x'#              by definition 2* operator+
               ... = (y' ⊝ suc(z')) + negsuc(x')           by symmetric distrib_left_sub_add_neg
               ... = negsuc(x') + (y' ⊝ suc(z'))           by int_add_commute
               ... = negsuc(x') + #pos(y') + negsuc(z')#   by definition operator+
@@ -613,7 +613,7 @@ proof
                     (negsuc(x') + negsuc(y')) + pos(z') 
                   = z' ⊝ suc(suc(x' + y'))                 by definition operator+
               ... = z' ⊝ suc(suc(y' + x'))                 by replace add_commute
-              ... = z' ⊝ #suc(suc(y')) + x'#               by definition {operator+, operator+}
+              ... = z' ⊝ #suc(suc(y')) + x'#               by definition 2* operator+
               ... = (z' ⊝ suc(y')) + negsuc(x')            by symmetric distrib_left_sub_add_neg
               ... = negsuc(x') + (z' ⊝ suc(y'))            by int_add_commute
               ... = negsuc(x') + #negsuc(y') + pos(z')#    by definition operator+
@@ -644,16 +644,16 @@ proof
     case pos(x') {
       switch x' {
         case 0 {
-          definition {operator-, operator+, operator+}
+          definition operator- | 2* operator+
         }
         case suc(x'') {
-          suffices suc(x'') ⊝ suc(x'') = +0  by definition {operator-, operator+}
+          suffices suc(x'') ⊝ suc(x'') = +0  by definition operator- | operator+
           int_subo_cancel
         }
       }
     }
     case negsuc(x') {
-      suffices suc(x') ⊝ suc(x') = +0  by definition {operator-, operator+}
+      suffices suc(x') ⊝ suc(x') = +0  by definition operator- | operator+
       int_subo_cancel
     }
   }
@@ -672,7 +672,7 @@ proof
   case: x < y {
     have: not (y < x) by apply less_implies_not_greater to (recall x < y)
     suffices - (- (y - x)) = pos(y - x)
-       by definition {operator ⊝} 
+       by definition operator ⊝
           and replace (apply eq_false to recall not (y < x)) | 
                       (apply eq_true to recall x < y)
     replace neg_nat | neg_involutive
@@ -687,7 +687,7 @@ proof
     suffices - pos(x - y) = - (x - y)
         by definition operator⊝ and replace (apply eq_true to recall y < x)
                       | (apply eq_false to recall not (x < y))
-    definition {operator-, operator-}
+    definition 2* operator-
   }
 end
 
@@ -709,11 +709,11 @@ proof
             case pos(y') {
               switch y' {
                 case 0 {
-                  definition {operator+, operator-} and replace add_zero | zero_subo_neg
+                  definition operator+ | operator- and replace add_zero | zero_subo_neg
                 }
                 case suc(y'') {
                   suffices negsuc(x'' + suc(y'')) = negsuc(suc(x'' + y''))
-                      by definition {operator-, operator+, operator+}
+                      by definition operator- | 2* operator+
                   replace add_suc
                 }
               }
@@ -741,7 +741,7 @@ proof
         }
         case negsuc(y') {
           suffices pos(suc(suc(x' + y'))) = pos(suc(x') + suc(y'))
-              by definition {operator+, operator-}
+              by definition operator+ | operator-
           definition operator + and replace add_suc
         }
       }
@@ -905,7 +905,7 @@ proof
                   switch z' {
                     case 0 { replace int_mult_zero | int_mult_zero }
                     case suc(z'') {
-                      suffices ─ by definition {operator*} and
+                      suffices ─ by definition operator* and
                       replace sign_pos | sign_negsuc | mult_pos_neg
                       | abs_pos | abs_negsuc | mult_neg_nat | mult_pos_any
                       | suc_mult | suc_add | neg_pos | sign_negsuc

@@ -176,17 +176,10 @@ ident: IDENT              -> ident
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "definition" "{" ident_list "}"                   -> reason_definition
     | "definition" ident_list_bar                       -> reason_definition
-    | "rewrite" proof_list                              -> reason_rewrite
     | "replace" proof_list                              -> reason_rewrite
-    | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
-    | "definition" "{" ident_list "}" "and" "replace" proof_list -> reason_def_rewrite
-    | "definition" ident_list_bar "and" "rewrite" proof_list -> reason_def_rewrite
     | "definition" ident_list_bar "and" "replace" proof_list -> reason_def_rewrite
-    | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
     | "definition" ident_list_bar "in" proof             -> apply_defs_fact
-    | "rewrite" proof_list "in" proof                    -> rewrite_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact

@@ -5,12 +5,12 @@ lemma n_le_nn : all n : Nat. n <= n * n
 proof
     induction Nat
     case zero {
-        definition {operator*, operator <=}
+        definition operator* | operator <=
     }
     case suc(n') suppose IH {
         suffices suc(n') + 0 ≤ suc(n') + (0 + n' * (suc(n') + 0))
             by definition operator *
-            and rewrite symmetric add_zero[suc(n')]
+            and replace symmetric add_zero[suc(n')]
         have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
             by definition operator <=
         apply add_both_sides_of_less_equal[suc(n')][0, (0 + n' * (suc(n') + 0))]
@@ -23,11 +23,11 @@ lemma blah : all n : Nat.
 proof
     induction Nat
     case zero {
-        definition {operator-, operator*}
+        definition operator- | operator*
     }
     case suc(n') suppose IH {
-        suffices n' + n' * n' = suc(n') * n'  by definition {operator*, operator-}
-        and rewrite sub_zero[n']
+        suffices n' + n' * n' = suc(n') * n' by definition operator* | operator-
+        and replace sub_zero[n']
                   | add_sub_identity[suc(n')][n' * suc(n')]
                   | mult_commute[n'][suc(n')]
         definition operator*
@@ -41,7 +41,7 @@ proof
     induction Nat
     case zero {
         // TODO: This is lame, use real thms.
-        definition {summation, operator*, operator+,operator*, operator*,operator+}
+        definition summation | operator* | operator+ | operator* | operator* | operator+
     }
     case suc(n') suppose IH {
         have step1: (all i:Nat. (if i < 1 then n' + i = 0 + (n' + i)))
@@ -49,20 +49,20 @@ proof
                 suppose prem : i < 1
                 symmetric zero_add[n'+i]
         suffices n' * (n' - 1) + 2 * summation(1, n', λn{n}) = (n' + 1) * ((n' + 1) - 1)
-            by rewrite symmetric one_add[n'] | add_commute[1][n']
+            by replace symmetric one_add[n'] | add_commute[1][n']
             | apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
             | dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
             | IH
         suffices n' * (n' - 1) + 2 * (n' + 0) = (n' + 1) * ((n' + 1) - 1)
-            by definition {summation, summation}
+            by definition 2*summation
         suffices n' * (n' - 1) + 2 * n' = suc(n') * (suc(n') - 1)
-              by rewrite add_one[n'] | add_zero[n']
+              by replace add_one[n'] | add_zero[n']
         suffices (n' * n' - n') + (n' + n') = suc(n') * n'
-              by definition {operator-}
-              and rewrite sub_zero[n'] | blah[n'] | two_mult[n']
+              by definition operator-
+              and replace sub_zero[n'] | blah[n'] | two_mult[n']
         suffices ((n' * n' - n') + n') + n' = n' + n' * n' by definition operator*
         suffices n' * n' + n' = n' + n' * n' by 
-            rewrite add_commute[(n' * n' - n')][n']
+            replace add_commute[(n' * n' - n')][n']
             | apply sub_add_identity[n'*n'][n'] to n_le_nn[n']
         add_commute[n' * n'][n']
     }
@@ -73,8 +73,8 @@ theorem sum_n' : all n : Nat.
 proof
     induction Nat
     case zero {
-        definition {summation, summation, operator+}
-        and rewrite mult_zero[2] | zero_mult[1]
+        definition 2* summation | operator+
+        and replace mult_zero[2] | zero_mult[1]
     }
     case suc(n') suppose IH {
         have step1: (all i:Nat. (if i < 1 then suc(n') + i = 0 + (suc(n') + i)))
@@ -82,16 +82,16 @@ proof
                 suppose prem : i < 1
                 symmetric zero_add[suc(n')+i]
         suffices n' * (n' + 1) + 2 * summation(1, suc(n'), λn{n}) = suc(n') * (suc(n') + 1)
-            by rewrite symmetric one_add[n'] | add_commute[1][n']
+            by replace symmetric one_add[n'] | add_commute[1][n']
                | symmetric add_one[n' + 1] | add_one[n']
                |  apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
                | dist_mult_add[2][summation(suc(n'), 0, λn{n}), summation(1, suc(n'), λn{n})]
                | IH
         suffices n' * (n' + 1) + ((n' + 1) + (n' + 1)) = (n' + 1) * ((n' + 1) + 1)
-            by definition {summation, summation }
-            and rewrite add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n']
+            by definition 2* summation
+            and replace add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n']
         suffices (n' * n' + n') + ((n' + 1) + (n' + 1)) = ((n' * n' + n') + (n' + 1)) + (n' + 1) by 
-         rewrite dist_mult_add[n' + 1][n' + 1, 1]  
+         replace dist_mult_add[n' + 1][n' + 1, 1]  
                | dist_mult_add[n'][n', 1]
                | dist_mult_add[n' + 1][n', 1]
                | dist_mult_add_right[n', 1, n']

@@ -22,7 +22,7 @@ proof
   case [] {
     arbitrary ls2:List<Nat>
     conclude sum(@[]<Nat> ++ ls2) = sum(@[]<Nat>) + sum(ls2)
-      by definition {operator++, sum, operator+}
+      by definition operator++ | sum | operator+
   }
   case node(x, ls1) suppose IH {
     arbitrary ls2:List<Nat>
@@ -33,7 +33,7 @@ proof
     ... = x + sum(ls1 ++ ls2)
           by definition sum
     ... = x + (sum(ls1) ++ sum(ls2))
-          by rewrite IH[ls2]
+          by replace IH[ls2]
     ... = (x + sum(ls1)) + sum(ls2)
           by symmetric add_assoc[x,sum(ls1),sum(ls2)]
     ... = #sum(node(x, ls1))# + sum(ls2)

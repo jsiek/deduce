@@ -135,18 +135,23 @@ def check_implies(loc, frm1, frm2):
        
     case _:
       if frm1 != frm2:
-        (small_frm1, small_frm2) = isolate_difference(frm1, frm2)
-        if small_frm1 != frm1:
-            msg = 'error, the proved formula:\n' \
-                + '\t' + str(frm1) + '\n' \
-            + 'does not match the goal:\n' \
-            + '\t' + str(frm2) + '\n' \
-            + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' 
-            error(loc, msg)
+        diff = isolate_difference(frm1, frm2)
+        if diff:
+          (small_frm1, small_frm2) = diff
+          if small_frm1 != frm1:
+              msg = 'error, the proved formula:\n' \
+                  + '\t' + str(frm1) + '\n' \
+              + 'does not match the goal:\n' \
+              + '\t' + str(frm2) + '\n' \
+              + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' 
+              error(loc, msg)
+          else:
+              error(loc, '\nCould not prove that\n\t' + str(frm1) \
+                    + '\nimplies\n\t' + str(frm2))
         else:
-            error(loc, '\nCould not prove that\n\t' + str(frm1) \
-                  + '\nimplies\n\t' + str(frm2))
-
+            error(loc, 'internal error, could not isolate difference for\n\t' \
+                  + str(frm1) + '\nand\n\t' + str(frm2))
+                    
 def instantiate(loc, allfrm, arg):
   match allfrm:
     case All(loc2, tyof, (var, ty), (s, e), frm):
@@ -199,12 +204,12 @@ def rewrite(loc, formula, equation, env):
     elif num_marks == 1:
         try:
             find_mark(formula)
-            error(loc, 'in rewrite, find_mark failed on formula:\n\t' + str(formula))
+            error(loc, 'in replace, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
             new_subject = rewrite_aux(loc, ex.subject, equation, env)
             return replace_mark(formula, new_subject)
     else:
-        error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
+        error(loc, 'in replace, formula contains more than one mark:\n\t' + str(formula))
 
 def call_arity(call):
     match call:
@@ -337,7 +342,7 @@ def rewrite_aux(loc, formula, equation, env):
       return formula
   
     case _:
-      error(loc, 'in rewrite function, unhandled ' + str(formula))
+      error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
 
 def facts_to_str(env):
   result = ''
@@ -365,7 +370,10 @@ def isolate_difference(term1, term2):
         return isolate_difference(body1.substitute(ren), body2)
       case (Call(l1, tyof1, fun1, args1), Call(l2, tyof2, fun2, args2)):
         if fun1 == fun2:
-          return isolate_difference_list(args1, args2)
+          if len(args1) == len(args2):
+              return isolate_difference_list(args1, args2)
+          else:
+              return (term1, term2)
         else:
           return isolate_difference(fun1, fun2)
       case (SwitchCase(l1, p1, body1), SwitchCase(l2, p2, body2)):

@@ -11,10 +11,10 @@ theorem foldr_eq_sum : all ls : List<Nat>. sum(ls) = foldr(ls, 0, operator +)
 proof
   induction List<Nat>
   case empty {
-    definition { foldr, sum }
+    definition foldr | sum
   }
   case node(a, d) suppose IH {
-    suffices ? by definition {foldr} 
+    suffices ? by definition foldr
     ?
   }
 end
