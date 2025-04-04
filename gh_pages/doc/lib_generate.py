@@ -230,7 +230,6 @@ known_tokens = {
     'RECFUN': 'keyword',
     'REFLEXIVE': 'keyword',
     'REPLACE': 'keyword',
-    'REWRITE': 'keyword',
     'RPAR': 'operator',
     'RSQB': 'operator',
     'SEMICOLON': 'operator',
