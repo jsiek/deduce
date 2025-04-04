@@ -7,7 +7,7 @@ union NatList {
 
 define L = Node(7, Node(4, Node (5, Empty)))
 
-function len(NatList) -> Nat {
+recursive len(NatList) -> Nat {
   len(Empty) = 0
   len(Node(n, ls)) = 1 + len(L)
 }

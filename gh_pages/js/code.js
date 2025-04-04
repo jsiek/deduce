@@ -114,6 +114,8 @@ const codeBlocks = [
 	"reference_or_example_intro2",
 	"reference_print_area",
 	"reference_print_example",
+	"reference_replace_example",
+	"reference_replace_in_example",
 	"reference_rewrite_example",
 	"reference_rewrite_in_example",
 	"reference_set_union_example",

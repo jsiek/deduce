@@ -1,6 +1,6 @@
 import Nat
 
-private function find_log(Nat, Nat, Nat) -> Nat {
+private recursive find_log(Nat, Nat, Nat) -> Nat {
   find_log(0, n, l) = l
   find_log(suc(m'), n, l) =
     if pow2(l) < suc(n) then

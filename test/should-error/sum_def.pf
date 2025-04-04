@@ -1,7 +1,7 @@
 import Nat
 import List
 
-function sum(List<Nat>) -> Nat {
+recursive sum(List<Nat>) -> Nat {
   sum([]) = 0
   sum(node(x,ls)) = x + sum(ls)
 }

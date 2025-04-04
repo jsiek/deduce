@@ -190,7 +190,6 @@ known_tokens = {
     'FOR': 'keyword',
     'FROM': 'keyword',
     'FUN': 'keyword',
-    'FUNCTION': 'keyword',
     'GENERIC': 'keyword',
     'HASH': 'operator',
     'HAVE': 'keyword',

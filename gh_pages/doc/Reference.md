@@ -846,8 +846,6 @@ To add type parameters to a function (to make it generic), see
 
 ## Fun (Statement)
 
-(This feature was added in Deduce version 1.1.)
-
 ```
 statement ::= "fun" ident type_params_opt "(" var_list ")" "{" term "}"
 ```
@@ -865,20 +863,6 @@ fun exchange(p : Pair<Nat,Nat>) {
 
 assert exchange(pair(1,2)) = pair(2,1)
 ```
-
-## Function (Statement)
-
-```
-statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
-fun_case ::= identifier "(" pattern_list ")" "=" term
-```
-
-Alternate syntax in version 1.1 starts with `recursive` keyword:
-```
-statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
-```
-
-See [Recursive Function (Statement)](#recursive-function-statement)
 
 ## Function Type
 
@@ -1678,9 +1662,6 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 
 ## Recursive Function (Statement)
-
-(The `recursive` keyword was added in Deduce version 1.1
-as a replacement for `function`.)
 
 ```
 statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"

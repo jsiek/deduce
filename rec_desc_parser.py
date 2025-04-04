@@ -39,7 +39,7 @@ to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '
 
 
 accessiblity_keywords = {'OPAQUE', 'PRIVATE'}
-declaration_keywords = {'DEFINE', 'FUN', 'FUNCTION', 'RECURSIVE', 'RECFUN', 'UNION'}
+declaration_keywords = {'DEFINE', 'FUN', 'RECURSIVE', 'RECFUN', 'UNION'}
 
 lark_parser = None
 
@@ -1616,9 +1616,6 @@ def parse_declaration():
 
     elif token.type == 'FUN':
       return parse_function()
-
-    elif token.type == 'FUNCTION':
-      return parse_recursive_function()
 
     elif token.type == 'RECURSIVE':
       return parse_recursive_function()
