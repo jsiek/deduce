@@ -1373,7 +1373,7 @@ proof
   suffices __ by replace mult_commute
   mult_mono_le_nonzero
 end
-  
+
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then n * x ≤ n * y
 proof
@@ -1405,6 +1405,72 @@ proof
   arbitrary n : Nat, x : Nat, y : Nat
   replace mult_commute[n, x] | mult_commute[n, y] in mult_mono_le[n, x, y]
 end
+
+theorem mult_cancel_right_less: all x:Nat, y:Nat, z:Nat.
+  if y * x < z * x then y < z
+proof
+  arbitrary x:Nat
+  induction Nat
+  case 0 {
+    arbitrary z:Nat
+    assume prem
+    switch x {
+      case 0 assume xz {
+        conclude false by {
+          definition operator< | operator≤ in
+          replace xz | mult_zero in prem
+        }
+        
+      }
+      case suc(x') assume xsx {
+
+        switch z {
+          case 0 assume zz {
+            conclude false by {
+              definition operator< | operator≤ in
+              replace zz | zero_mult in prem
+            }
+          }
+          case suc(z') assume zsz {
+            evaluate
+          }
+        }
+      }
+    }
+  }
+  case suc(y') assume IH {
+    arbitrary z:Nat
+    assume prem
+    switch x {
+      case 0 assume xz {
+        definition operator< | operator≤ in
+        replace xz | mult_zero in prem
+      }
+      case suc(x') assume xsx {
+        switch z {
+          case 0 assume zz {
+            conclude false by {
+              definition operator< | operator≤ in
+              replace xsx | zz | zero_mult in prem
+            }
+          }
+          case suc(z') assume zsz {
+            suffices suc(y') ≤ z' by definition operator< | operator≤
+            have prem2: suc(y') * suc(x') < suc(z') * suc(x')
+              by replace xsx | zsz in prem
+            have prem3: suc(x') + y' * suc(x') < suc(x') + z' * suc(x')
+              by definition operator* in prem2
+            have prem4: y' * suc(x') < z' * suc(x')
+              by apply add_both_sides_of_less to prem3
+            have IH1: y' < z' by apply (replace xsx in IH[z']) to prem4
+            conclude suc(y') ≤ z' by definition operator< in IH1
+          }
+        }
+      }
+    }
+  }
+end
+
 
 /*
  Properties of Less-Than, Addition, and Subtraction
