@@ -292,8 +292,9 @@ recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
 
 ## Generic Functions
 
-Deduce supports generic functions, so we can generalize `length` to
-work on lists with any element type as follows.
+Deduce supports generic functions, both recursive and non-recursive.
+For example, we can generalize the recursive `length` to work on lists
+with any element type as follows.
 
 ```{.deduce^#length}
 recursive length<E>(List<E>) -> Nat {
@@ -302,8 +303,8 @@ recursive length<E>(List<E>) -> Nat {
 }
 ```
 
-Generic functions that are not recursive can be defined using a
-combination of `define`, `generic`, and `fun`.
+The following `head` function is an example of a generic non-recursive
+function.
 
 ```{.deduce^#head}
 fun head<T>(ls: List<T>) {
@@ -313,9 +314,6 @@ fun head<T>(ls: List<T>) {
   }
 }
 ```
-
-The type of a generic function, such as `head`, starts with its
-type parameters surrounded by `<` and `>`.
 
 Calling a generic function is just like calling a normal funtion,
 most of the time. For example, the following invokes the
