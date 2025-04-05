@@ -1291,7 +1291,7 @@ def check_proof_of(proof, formula, env):
           eqns = [equation.reduce(env) for equation in equations]
           for eq in eqns:
             if not is_equation(eq):
-              error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+              error(loc, 'in replace, expected an equation, not:\n\t' + str(eq))
             new_formula = rewrite(loc, new_formula, eq, env)
             new_formula = new_formula.reduce(env)
 
