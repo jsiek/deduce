@@ -1,6 +1,6 @@
 # [Deduce](https://jsiek.github.io/deduce/)
 
-![blue hippo next to the word deduce](/logos/Main-Logo.svg)
+![Blue Hippo next to the word Deduce.](/logos/Main-Logo.svg)
 
 The web page for Deduce is at the following link:
 
@@ -13,3 +13,4 @@ The directory structure:
 * `/live_code_vercel_api` Source code for [Deduce live code](https://jsiek.github.io/deduce/sandbox.html)
 * `/logos` The Hippopotamus logo and other images.
 * `/test` Deduce files used for testing Deduce.
+
