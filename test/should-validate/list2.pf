@@ -4,7 +4,7 @@ import List
 theorem length_node42: length([42]) = 1
 proof
   suffices 1 + 0 = 1
-      by definition {length, length}
+      by definition 2*length
   add_zero[1]
 end
 
@@ -12,7 +12,7 @@ theorem length_one_nat_again: all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
   suffices 1 + 0 = 1
-      by definition {length, length}
+      by definition 2*length
   add_zero[1]
 end
 
@@ -21,7 +21,7 @@ theorem append_xy:
 proof
     arbitrary T:type
     arbitrary x:T, y:T
-    definition {operator ++, operator ++}
+    definition 2*operator ++
 end
 
 theorem length_one_equal: all U:type. all x:U, y:U.
@@ -45,6 +45,6 @@ proof
     equations
       node(n,xs') ++ empty
           = node(n, xs' ++ empty)   by definition operator++
-      ... = node(n,xs')             by rewrite IH
+      ... = node(n,xs')             by replace IH
   }
 end

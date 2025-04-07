@@ -10,7 +10,7 @@ union Pos {
   succ(Pos)
 }
 
-function nat2pos(Nat) -> Option<Pos> {
+recursive nat2pos(Nat) -> Option<Pos> {
   nat2pos(0) = none
   nat2pos(suc(n')) =
     switch nat2pos(n') {
@@ -23,7 +23,7 @@ function nat2pos(Nat) -> Option<Pos> {
     }
 }
 
-function div_helper(Nat,Nat,Pos,Pos) -> Nat {
+recursive div_helper(Nat,Nat,Pos,Pos) -> Nat {
   div_helper(0, k, m, j) = k
   div_helper(suc(n'), k, m, j) =
     switch j {

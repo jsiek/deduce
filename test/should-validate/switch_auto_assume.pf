@@ -16,13 +16,13 @@ proof
     arbitrary x:A
     switch x {
         case a assume G {
-            suffices test(x) = true by rewrite symmetric G
-            suffices test(a) = true by rewrite G
+            suffices test(x) = true by replace symmetric G
+            suffices test(a) = true by replace G
             evaluate
         }
         case b {
-            suffices test(x) = false by rewrite symmetric recall x = b
-            suffices test(b) = false by rewrite recall x = b
+            suffices test(x) = false by replace symmetric recall x = b
+            suffices test(b) = false by replace recall x = b
             evaluate
         }
     }

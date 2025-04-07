@@ -2742,7 +2742,7 @@ class Rewrite(Proof):
   equations: List[Proof]
 
   def __str__(self):
-      return 'rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
+      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations])
 
   def uniquify(self, env):
     for eqn in self.equations:
@@ -2754,7 +2754,7 @@ class RewriteGoal(Proof):
   body: Proof
 
   def __str__(self):
-      return 'rewrite ' + '|'.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \
         + '\n' + str(self.body)
 
   def uniquify(self, env):
@@ -2768,7 +2768,7 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def __str__(self):
-      return 'rewrite ' + ','.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):

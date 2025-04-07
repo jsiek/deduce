@@ -7,11 +7,11 @@ proof
   have b_true: b = false by prem
 
   have X: (true = b) and (true = true) and (b = false)
-    by rewrite a_true in prem  
+    by replace a_true in prem  
   have Y: (true = true) and (true = true) and (true = false)
-    by rewrite b_true in X
+    by replace b_true in X
   have Z: false
     by Y
 
-  conclude false by rewrite a_true | b_true in prem
+  conclude false by replace a_true | b_true in prem
 end

@@ -8,7 +8,7 @@ proof
   have q_p: Q = P
     by prem
   conclude Q and #Q# by
-    suffices #Q# and P    by rewrite q_p
-    suffices P and P      by rewrite q_p
+    suffices #Q# and P    by replace q_p
+    suffices P and P      by replace q_p
     prem
 end

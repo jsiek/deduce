@@ -89,7 +89,7 @@ Deduce responds with
     failed to prove:
         length([42]) = 1
     by
-        definition {length}
+        definition length
     remains to prove:
         1 + length([]) = 1
 
@@ -119,7 +119,7 @@ statement.
     theorem length_node42: length([42]) = 1
     proof
       suffices ? 
-          by definition {length, length}
+          by definition length | length
       ?
     end
 
@@ -134,7 +134,7 @@ paste that to replace the `?`.
     theorem length_node42: length([42]) = 1
     proof
       suffices 1 + 0 = 1 
-          by definition {length, length}
+          by definition length | length
       ?
     end
 
@@ -147,7 +147,7 @@ section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
 theorem length_node42: length([42]) = 1
 proof
   suffices 1 + 0 = 1
-      by definition {length, length}
+      by definition length | length
   add_zero[1]
 end
 ```
@@ -215,7 +215,7 @@ theorem length_nat_one: all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
   suffices 1 + 0 = 1
-      by definition {length, length}
+      by definition length | length
   add_zero[1]
 end
 ```
@@ -246,7 +246,7 @@ proof
   arbitrary U:type
   arbitrary x:U
   suffices 1 + 0 = 1
-      by definition {length, length}
+      by definition length | length
   add_zero[1]
 end
 ```
@@ -912,7 +912,7 @@ There's no hope of proving `false`, so we better prove `0 < suc(x')`.
 Thankfully that follows from the definitions of `<` and `≤`.
 
     case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤}
+      have z_l_sx: 0 < suc(x') by definition operator < | operator ≤
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
 
@@ -929,7 +929,7 @@ proof
       conclude true or 0 < 0 by .
     }
     case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by definition {operator <, operator ≤, operator ≤}
+      have z_l_sx: 0 < suc(x') by definition operator < | 2* operator ≤
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }
@@ -1286,7 +1286,7 @@ definitions of `<` and `≤`.
 
     case zero {
       assume z_l_z: 0 < 0
-      conclude false by definition {operator <, operator ≤} in z_l_z
+      conclude false by definition operator < | operator ≤ in z_l_z
     }
 
 In the case where `x = suc(x')`, we must prove 
@@ -1310,7 +1310,7 @@ proof
   induction Nat
   case zero {
     assume z_l_z: 0 < 0
-    conclude false by definition {operator <, operator ≤} in z_l_z
+    conclude false by definition operator < | operator ≤ in z_l_z
   }
   case suc(x') assume IH: not (x' < x') {
     assume sx_l_sx: suc(x') < suc(x')
@@ -1536,7 +1536,7 @@ To summarize this section:
 theorem append_12: 
   node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 proof
-  definition {operator++, operator++}
+  definition 2* operator++
 end
 
 <<length_nat_one>>

@@ -10,10 +10,10 @@ proof
     case true assume prop_t {
       have prem' : switch A { case true{false} case false{false} }
         by prem
-      rewrite prop_t in prem'
+      replace prop_t in prem'
     }
     case false assume prop_f {
-      rewrite prop_f in prem
+      replace prop_f in prem
     }
   }
 end

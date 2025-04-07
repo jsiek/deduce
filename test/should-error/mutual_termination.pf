@@ -3,12 +3,12 @@ union Fruit {
   orange
 }
 
-function f(Fruit) -> Fruit {
+recursive f(Fruit) -> Fruit {
   f(apple) = g(orange)
   f(orange) = g(apple)
 }
 
-function g(Fruit) -> Fruit {
+recursive g(Fruit) -> Fruit {
   g(apple) = f(orange)
   g(orange) = f(apple)
 }

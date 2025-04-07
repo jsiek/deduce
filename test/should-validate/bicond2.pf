@@ -8,7 +8,7 @@ proof
   arbitrary l : List<E>
   have s1 : if l = empty then length(l) = 0
     by suppose prem
-      suffices length(@empty<E>) = 0 by rewrite prem
+      suffices length(@empty<E>) = 0 by replace prem
       definition length
   have s2 : if length(l) = 0 then l = empty
     by switch l {

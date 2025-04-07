@@ -1,6 +1,6 @@
 import Nat
 
-private function find_log(Nat, Nat, Nat) -> Nat {
+private recursive find_log(Nat, Nat, Nat) -> Nat {
   find_log(0, n, l) = l
   find_log(suc(m'), n, l) =
     if pow2(l) < suc(n) then
@@ -18,7 +18,7 @@ proof
     arbitrary n:Nat, l:Nat
     suppose n_le_pl: n ≤ pow2(l)
     suffices n ≤ pow2(l)
-        by definition {find_log, operator+}
+        by definition find_log | operator+
     n_le_pl
   }
   case suc(m') suppose IH {
@@ -34,12 +34,12 @@ proof
           (apply positive_suc[pow2(l)] to pow_positive[l])
         have sn_le_psl: suc(n) ≤ pow2(suc(l)) by {
           suffices suc(n) ≤ suc(p) + suc(p) by {
-            definition {pow2, operator*,operator*,operator*}
-            and rewrite add_zero[pow2(l)] | pl_sp
+            definition pow2 | 3* operator*
+            and replace add_zero[pow2(l)] | pl_sp
           }
           suffices n ≤ pow2(l) + p by {
-            definition {operator+, operator≤}
-            and rewrite symmetric pl_sp | add_commute[p][pow2(l)]
+            definition operator+ | operator≤
+            and replace symmetric pl_sp | add_commute[p][pow2(l)]
           }
           apply less_equal_trans[n][pow2(l), pow2(l) + p] 
           to prem, less_equal_add[pow2(l)][p]
@@ -49,13 +49,13 @@ proof
         conclude suc(m') + n ≤ pow2(find_log(m',suc(n),suc(l))) by {
           suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), suc(l)))
             by definition operator+
-          rewrite add_suc[m'][n] in IH'
+          replace add_suc[m'][n] in IH'
         }
       }
       case false suppose pl_l_sn_false {
         have not_pl_l_sn: not (pow2(l) < suc(n)) by {
           suppose pl_l_sn
-          conclude false by rewrite pl_l_sn_false in pl_l_sn
+          conclude false by replace pl_l_sn_false in pl_l_sn
         }
         have sn_le_pl: suc(n) ≤ pow2(l)
           by apply not_less_implies_less_equal[pow2(l)][suc(n)] to not_pl_l_sn
@@ -64,7 +64,7 @@ proof
         conclude suc(m') + n ≤ pow2(find_log(m',suc(n),l)) by {
           suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), l))
             by definition operator +
-          rewrite add_suc[m'][n] in IH'
+          replace add_suc[m'][n] in IH'
         }
       }
     }
@@ -82,5 +82,5 @@ proof
     by apply add_less_equal_pow_find_log[n][0,0] to
        apply less_implies_less_equal[ 0 ][pow2(0)] to pow_positive[ 0 ]
   conclude n ≤ pow2(find_log(n,0,0))
-    by rewrite add_zero[n] in f1
+    by replace add_zero[n] in f1
 end
