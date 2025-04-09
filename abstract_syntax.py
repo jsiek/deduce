@@ -853,7 +853,7 @@ class Lambda(Term):
       ren = {x: Var(self.location, t2, y) \
              for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
-      return new_body == other.body and self.env == other.env
+      return new_body == other.body # and self.env == other.env
 
   def reduce(self, env):
     if get_eval_all():
