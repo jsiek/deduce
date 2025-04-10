@@ -208,6 +208,7 @@ ident: IDENT              -> ident
     | "assume" ":" term                             -> imp_intro_anon
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
+    | "expand" ident_list_bar                       -> expand
     | "_definition" "{" ident_list "}"              -> apply_defs_goal
     | "_definition" ident                           -> apply_defs_goal_one
     | "extensionality"                              -> extensionality_proof

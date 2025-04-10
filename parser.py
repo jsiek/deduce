@@ -341,6 +341,7 @@ def parse_tree_to_ast(e, parent):
             meta.end_line = e.meta.end_line+1
             meta.end_column = 0
             body = PHole(meta)
+            #body = PTrue(meta)
         else:
             body = parse_tree_to_ast(e.children[1], e)
         if isinstance(proof_stmt, AllIntro):
@@ -514,6 +515,10 @@ def parse_tree_to_ast(e, parent):
         body = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
                              body)
+    elif e.data == 'expand':
+        definitions = parse_tree_to_list(e.children[0], e)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
+                             None)
     elif e.data == 'eval_goal':
         return EvaluateGoal(e.meta)
     elif e.data == 'eval_fact':

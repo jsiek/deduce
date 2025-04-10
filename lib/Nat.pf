@@ -145,7 +145,7 @@ theorem zero_add: all n:Nat.
   0 + n = n
 proof
   arbitrary n:Nat
-  conclude 0 + n = n by definition operator+
+  conclude 0 + n = n by expand operator+.
 end
 
 theorem add_zero: all n:Nat.
@@ -153,11 +153,11 @@ theorem add_zero: all n:Nat.
 proof
   induction Nat
   case 0 {
-    conclude 0 + 0 = 0   by definition operator+
+    conclude 0 + 0 = 0   by expand operator+.
   }
   case suc(n') suppose IH: n' + 0 = n' {
     equations
-      suc(n') + 0 = suc(n' + 0)  by definition operator+
+      suc(n') + 0 = suc(n' + 0)  by expand operator+.
               ... = suc(n')      by replace IH
   }
 end
@@ -166,7 +166,7 @@ theorem suc_add: all m:Nat, n:Nat.
   suc(m) + n = suc(m + n)
 proof
   arbitrary m:Nat, n:Nat
-  definition operator+
+  expand operator+.
 end
 
 theorem suc_one_add: all n:Nat.
@@ -174,7 +174,7 @@ theorem suc_one_add: all n:Nat.
 proof
   arbitrary n:Nat
   equations
-    suc(n) =# suc(0 + n) #      by definition operator+
+    suc(n) =# suc(0 + n) #      by expand operator+.
        ... = suc(0) + n         by symmetric suc_add[0, n]
 end
 
@@ -189,7 +189,7 @@ theorem not_one_add_zero: all n:Nat.
   not (1 + n = 0)
 proof
   arbitrary n:Nat
-  definition operator+
+  expand operator+.
 end
 
 theorem add_suc: all m:Nat. all n:Nat.
@@ -228,7 +228,7 @@ end
 theorem one_add: all m:Nat.  1 + m = suc(m)
 proof
   arbitrary m:Nat
-  definition 2 * operator+
+  expand 2 * operator+.
 end
 
 theorem add_one: all m:Nat.  m + 1 = suc(m)
@@ -275,7 +275,7 @@ proof
   }
   case suc(x') suppose IH {
     arbitrary y:Nat, z:Nat
-    suffices __ by definition operator+
+    expand operator+
     have A: suc(x' + y) = suc(x' + z) ⇔ (x' + y = x' + z)
       by { assume seq injective suc seq } , { assume eq replace eq }
     have B: ((x' + y = x' + z) ⇔ (y = z)) by IH[y,z]
@@ -1279,7 +1279,7 @@ proof
       }
       case suc(c') assume cs {
         have a_c: a' ≤ c'  by evaluate in replace cs in prem
-        suffices __ by definition operator+ | operator≤
+        expand operator+ | operator≤
         conclude a' + b ≤ c' + d by apply IH to a_c, b_d
       }
     }
@@ -1307,7 +1307,7 @@ theorem less_one_add: all n:Nat.
   0 < 1 + n
 proof
   arbitrary n:Nat
-  definition operator< | operator≤ | operator+ | operator≤
+  expand operator< | operator≤ | operator+ | operator≤.
 end
 
 // less_equal_left_cancel
@@ -1316,11 +1316,11 @@ theorem add_both_sides_of_less_equal: all x:Nat. all y:Nat, z:Nat.
 proof
   induction Nat
   case 0 {
-    definition operator+
+    expand operator+.
   }
   case suc(x') suppose IH {
     suffices (all y:Nat, z:Nat. (x' + y ≤ x' + z ⇔ y ≤ z))
-      by definition operator+ | operator≤
+      by expand operator+ | operator≤.
     IH
   }
 end
@@ -1330,7 +1330,7 @@ theorem add_both_sides_of_less: all x:Nat, y:Nat, z:Nat.
   x + y < x + z ⇔ y < z
 proof
   arbitrary x:Nat, y:Nat, z:Nat
-  suffices suc(x + y) ≤ x + z ⇔ suc(y) ≤ z by definition operator<
+  suffices suc(x + y) ≤ x + z ⇔ suc(y) ≤ z by expand operator<.
   suffices (x + suc(y) ≤ x + z ⇔ suc(y) ≤ z) 
     by replace add_commute[x][y]
              | symmetric (definition operator+ in add_commute[x][suc(y)])
@@ -1347,14 +1347,14 @@ proof
   }
   case suc(x') suppose IH {
     arbitrary y:Nat, n:Nat
-    suffices __ by definition operator*
+    expand operator*
     assume prem
     switch y {
       case 0 assume yz {
         conclude false by definition operator+ | operator≤ in replace yz in prem
       }
       case suc(y') assume y_sy {
-        suffices x' ≤ y' by definition operator≤
+        suffices x' ≤ y' by expand operator≤.
         have X: x' * suc(n) ≤ y' * suc(n) by {
           have prem2: suc(n) + x' * suc(n) ≤ suc(n) + y' * suc(n)
             by replace y_sy in prem
@@ -1379,12 +1379,12 @@ theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
 proof
   induction Nat
   case zero {
-    definition operator* | operator≤
+    expand operator* | operator≤.
   }
   case suc(n') suppose IH {
     arbitrary x:Nat, y:Nat
     suppose prem : x ≤ y
-    suffices x + n' * x ≤ y + n' * y by definition operator*
+    suffices x + n' * x ≤ y + n' * y by expand operator*.
     have nx_le_ny : n' * x ≤ n' * y by apply IH to prem
     have nyx_le_nyy : n' * y + x ≤ n' * y + y 
       by apply add_both_sides_of_less_equal[n'*y][x, y] to prem
@@ -1455,7 +1455,8 @@ proof
             }
           }
           case suc(z') assume zsz {
-            suffices suc(y') ≤ z' by definition operator< | operator≤
+            expand operator< | operator≤
+            suffices suc(y') ≤ z' by .
             have prem2: suc(y') * suc(x') < suc(z') * suc(x')
               by replace xsx | zsz in prem
             have prem3: suc(x') + y' * suc(x') < suc(x') + z' * suc(x')
@@ -1484,7 +1485,7 @@ proof
   case 0 {
     arbitrary l:Nat, m:Nat
     suppose m_le_z: m ≤ 0
-    suffices l + 0 = (l + 0) - m    by definition operator-
+    suffices l + 0 = (l + 0) - m    by expand operator-.
     suffices l = l - m              by replace add_zero
     have m_z: m = 0 by apply zero_le_zero to m_le_z
     replace m_z | sub_zero[l]
@@ -1494,16 +1495,16 @@ proof
     suppose m_le_sn
     switch m {
       case 0 {
-        suffices l + suc(n') = (l + suc(n')) - 0  by definition operator-
+        suffices l + suc(n') = (l + suc(n')) - 0  by expand operator-.
         replace sub_zero
       }
       case suc(m') suppose m_sm {
         suffices l + (n' - m') = (l + suc(n')) - suc(m')
-             by definition operator-
+             by expand operator-.
         suffices l + (n' - m') = suc(l + n') - suc(m')
              by replace add_suc
         suffices l + (n' - m') = (l + n') - m'
-             by definition operator-
+             by expand operator-.
         have m_n: m' ≤ n'
           by definition operator ≤ in replace m_sm in m_le_sn
         apply IH[l, m'] to m_n
@@ -1520,7 +1521,7 @@ proof
    have X: 1 + (n - 1) = (1 + n) - 1 by apply sub_add_assoc[n,1,1] to definition operator< in recall 0 < n
    have Y: (1 + n) - 1 = n by add_sub_identity
    equations
-     suc(n - 1) = #1 + (n - 1)# by definition 2*operator+
+     suc(n - 1) = #1 + (n - 1)# by expand 2*operator+.
             ... = (1 + n) - 1   by apply sub_add_assoc[n,1,1] to definition operator< in recall 0 < n
             ... = n             by add_sub_identity
 end
@@ -1536,7 +1537,7 @@ proof
     suffices m + (0 - m) = 0  by .
     have m_z: m = 0 by apply zero_le_zero to m_le_z
     suffices 0 + (0 - 0) = 0   by replace m_z
-    definition operator- | operator+
+    expand operator- | operator+.
   }
   case suc(n') suppose IH {
     arbitrary m:Nat
@@ -1544,12 +1545,12 @@ proof
     suffices m + (suc(n') - m) = suc(n')  by .
     switch m {
       case 0 {
-        conclude 0 + (suc(n') - 0) = suc(n') by definition operator- | operator+
+        conclude 0 + (suc(n') - 0) = suc(n') by expand operator- | operator+.
       }
       case suc(m') suppose m_sm {
         suffices suc(m') + (suc(n') - suc(m')) = suc(n')  by .
         suffices suc(m' + (n' - m')) = suc(n')
-          by definition operator- | operator+
+          by expand operator- | operator+.
         have m_n: m' ≤ n'  by definition operator≤ in replace m_sm in m_le_sn
         have IH_m: m' + (n' - m') = n' by apply IH[m'] to m_n
         replace IH_m
@@ -1579,19 +1580,19 @@ proof
   case 0 {
     arbitrary n:Nat, o:Nat
     suppose prem
-    definition operator - | operator ≤
+    expand operator - | operator ≤.
   }
   case suc(m') suppose IH {
     arbitrary n:Nat, o:Nat
     suppose prem
     switch n {
       case 0 suppose n_z {
-        suffices suc(m') ≤ o  by definition operator -
+        suffices suc(m') ≤ o  by expand operator -.
         conclude suc(m') ≤ o
           by definition operator+ in replace n_z in prem
       }
       case suc(n') suppose n_sn {
-        suffices m' - n' ≤ o  by definition operator-
+        suffices m' - n' ≤ o  by expand operator-.
         have n_m: n' ≤ m'
           by definition operator ≤ in replace n_sn
              in conjunct 0 of prem
@@ -1609,19 +1610,19 @@ proof
   induction Nat 
   case 0 {
     conclude all y : Nat. 0 ≤ y ⇔ 0 - y = 0
-      by definition operator≤ | operator-
+      by expand operator≤ | operator-.
   }
   case suc(x') suppose IH {
     arbitrary y : Nat
     switch y {
       case 0 {
-        suffices not (suc(x') ≤ 0) by definition operator-
+        suffices not (suc(x') ≤ 0) by expand operator-.
         assume sx_le_z
         apply zero_le_zero[suc(x')] to sx_le_z
       }
       case suc(y') {
         suffices x' ≤ y' ⇔ x' - y' = 0
-          by definition  operator≤ | operator-
+          by expand  operator≤ | operator-.
         IH[y']
       }
     }
@@ -1633,10 +1634,10 @@ proof
   induction Nat
   case 0 {
     arbitrary y:Nat
-    have fwd: if y < 0 then 0 < 0 - y by
-        definition operator< | operator≤
-    have bkwd: if 0 < 0 - y then y < 0 by
-        definition operator- | operator< | operator≤
+    have fwd: if y < 0 then 0 < 0 - y
+      by expand operator< | operator≤.
+    have bkwd: if 0 < 0 - y then y < 0
+      by expand operator- | operator< | operator≤.
     fwd, bkwd
   }
   case suc(x') assume IH {
@@ -1644,14 +1645,14 @@ proof
     switch y {
       case 0 {
         have fwd: if 0 < suc(x') then 0 < suc(x') - 0
-            by assume _ definition operator- | operator< | 2* operator≤
+            by assume _ expand operator- | operator< | 2* operator≤.
         have bkwd: if 0 < suc(x') - 0 then 0 < suc(x')
-            by assume _ definition operator< | 2*operator≤
+            by assume _ expand operator< | 2*operator≤.
         fwd, bkwd
       }
       case suc(y') {
         have IH': y' < x' ⇔ 0 < x' - y' by IH[y']
-        suffices suc(y') < suc(x') ⇔ 0 < x' - y' by definition operator-
+        suffices suc(y') < suc(x') ⇔ 0 < x' - y' by expand operator-.
         have syx_yx: suc(y') < suc(x') ⇔ y' < x'
             by apply iff_symm to less_suc_iff_suc_less[y',x']
         apply iff_trans[suc(y') < suc(x'), y' < x', 0 < x' - y']
@@ -1679,12 +1680,11 @@ theorem less_trans: all m:Nat, n:Nat, o:Nat.
 proof
   arbitrary m:Nat, n:Nat, o:Nat
   suppose prem
-  suffices suc(m) ≤ o   by definition operator <
+  suffices suc(m) ≤ o   by expand operator <.
   have _5: suc(m) ≤ suc(suc(m))
      by less_equal_suc[suc(m)]
   have _3: suc(suc(m)) ≤ suc(n) by
-     suffices suc(m) ≤ n by definition operator≤
-     definition operator < in prem
+     expand operator≤ definition operator < in prem
   have _2: suc(n) ≤ o   by definition operator < in prem
   have _4: suc(suc(m)) ≤ o
      by apply less_equal_trans to (_3, _2)
@@ -1698,9 +1698,9 @@ theorem greater_any_zero: all x:Nat, y:Nat.
 proof
   arbitrary x:Nat, y:Nat
   suppose x_l_y
-  suffices 1 ≤ y  by definition operator<
+  suffices 1 ≤ y  by expand operator<.
   have sx_le_y: 1 + x ≤ y  by
-    suffices suc(x) ≤ y  by definition 2*operator+
+    suffices suc(x) ≤ y  by expand 2*operator+.
     definition operator< in x_l_y
   have one_le_sx: 1 ≤ 1 + x
     by less_equal_add[1][x]
@@ -1719,7 +1719,7 @@ proof
   case zero {
     arbitrary y:Nat, z:Nat
     suffices 0 = 0 - 0   by replace zero_mult
-    definition operator-
+    expand operator-.
   }
   case suc(n') suppose IH {
     arbitrary y:Nat, z:Nat
@@ -1767,7 +1767,7 @@ proof
     }
     case suc(a') {
       assume prem
-      suffices 0 < b + a' * b by definition operator*
+      suffices 0 < b + a' * b by expand operator*.
       apply add_pos_nonneg[b, a'*b] to conjunct 1 of prem
     }
   }
@@ -1811,9 +1811,10 @@ proof
   arbitrary c : Nat, a : Nat, b : Nat
   assume zlc
   assume ac_l_bc
-  have cgz : c > 0 by 
-    suffices __ by definition operator>
+  have cgz : c > 0 by {
+    expand operator >
     zlc
+  }
   cases trichotomy[a, b]
   case : a < b {
     recall a < b
@@ -1837,12 +1838,11 @@ lemma max_same: all x:Nat. max(x,x) = x
 proof
   induction Nat
   case 0 {
-    conclude max(0, 0) = 0  by definition max
+    conclude max(0, 0) = 0  by expand max.
   }
   case suc(x') suppose IH {
-    suffices suc(max(x', x')) = suc(x')
-      by definition max
-    conclude suc(max(x', x')) = suc(x') by replace IH
+    suffices suc(max(x', x')) = suc(x')  by expand max.
+    conclude suc(max(x', x')) = suc(x')  by replace IH
   }
 end
 
@@ -1850,14 +1850,14 @@ lemma max_suc: all x:Nat. max(suc(x), x) = suc(max(x,x))
 proof
   induction Nat
   case zero {
-    conclude max(suc(0), 0) = suc(max(0,0))  by definition max
+    conclude max(suc(0), 0) = suc(max(0,0))  by expand max.
   }
   case suc(x') suppose IH {
     equations
     # max(suc(suc(x')),suc(x')) #= suc(max(suc(x'),x'))
-                                          by definition max
+                                          by expand max.
     ... = suc(suc(max(x',x')))            by replace IH
-    ... =# suc(max(suc(x'),suc(x'))) #    by definition max
+    ... =# suc(max(suc(x'),suc(x'))) #    by expand max.
   }
 end
 
@@ -1866,16 +1866,12 @@ proof
   arbitrary x:Nat, y:Nat
   switch x {
     case 0 {
-      conclude max(1,suc(y)) = suc(max(0,y))   by definition 2*max
+      conclude max(1,suc(y)) = suc(max(0,y))   by expand 2*max.
     }
     case suc(x') {
       switch y {
-        case 0 {
-          definition 2*max
-        }
-        case suc(y') {
-          definition 2*max
-        }
+        case 0 { expand 2*max. }
+        case suc(y') { expand 2*max. }
       }
     }
   }
@@ -1887,18 +1883,18 @@ proof
   induction Nat
   case 0 {
     arbitrary x:Nat
-    definition operator ≤
+    expand operator ≤.
   }
   case suc(y') suppose IH {
     arbitrary x:Nat
     switch x {
       case 0 {
-        suffices suc(y') ≤ suc(y')  by definition max
+        suffices suc(y') ≤ suc(y')  by expand max.
         less_equal_refl[suc(y')]
       }
       case suc(x') {
         suffices suc(y') ≤ suc(max(x',y'))  by replace max_suc2
-        suffices y' ≤ max(x',y')  by definition operator ≤
+        suffices y' ≤ max(x',y')  by expand operator ≤.
         IH[x']
       }
     }
@@ -1911,17 +1907,17 @@ proof
   induction Nat
   case 0 {
     arbitrary y:Nat
-    definition operator ≤
+    expand operator ≤.
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
     switch y {
       case 0 {
-        suffices suc(x') ≤ suc(x')  by definition max
+        suffices suc(x') ≤ suc(x')  by expand max.
         conclude suc(x') ≤ suc(x')  by less_equal_refl[suc(x')]
       }
       case suc(y') {
-        suffices x' ≤ max(x',y')  by definition max | operator ≤
+        suffices x' ≤ max(x',y')  by expand max | operator ≤.
         IH[y']
       }
     }
@@ -1934,22 +1930,22 @@ proof
   induction Nat
   case 0 {
     arbitrary y:Nat
-    definition max
+    expand max.
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
     switch y {
       case 0 {
-        definition max
+        expand max.
       }
       case suc(y') {
         cases IH[y']
         case m_x: max(x',y') = x' {
-          suffices suc(max(x',y')) = suc(x')   by definition max
+          suffices suc(max(x',y')) = suc(x')   by evaluate
           replace m_x
         }
         case m_y: max(x',y') = y' {
-          suffices suc(max(x',y')) = suc(y')   by definition max
+          suffices suc(max(x',y')) = suc(y')   by evaluate
           replace m_y
         }
       }
@@ -1960,7 +1956,7 @@ end
 theorem zero_max: all x:Nat.
   max(0, x) = x
 proof
-  definition max
+  expand max.
 end
 
 theorem max_zero: all x:Nat.
@@ -1968,10 +1964,10 @@ theorem max_zero: all x:Nat.
 proof
   induction Nat
   case 0 {
-    conclude max(0, 0) = 0  by definition max
+    conclude max(0, 0) = 0  by expand max.
   }
   case suc(x') suppose IH {
-    conclude max(suc(x'), 0) = suc(x')  by definition max
+    conclude max(suc(x'), 0) = suc(x')  by expand max.
   }
 end
 
@@ -1981,7 +1977,7 @@ proof
   induction Nat
   case 0 {
     arbitrary y:Nat
-    suffices y = max(y, 0)  by definition max
+    suffices y = max(y, 0)  by expand max.
     replace max_zero
   }
   case suc(x') suppose IH {
@@ -1989,7 +1985,7 @@ proof
     switch y {
       case 0 {
         conclude max(suc(x'), 0) = max(0, suc(x'))
-          by definition max
+          by expand max.
       }
       case suc(y') suppose y_suc {
         suffices suc(max(x', y')) = suc(max(y', x'))
@@ -2007,24 +2003,24 @@ proof
   case 0 {
     arbitrary y:Nat,z:Nat
     conclude max(max(0, y), z) = max(0, max(y, z))
-        by definition max
+        by expand max.
   }
   case suc(x') suppose IH {
     arbitrary y:Nat,z:Nat
     switch y {
       case 0 {
         conclude max(max(suc(x'), 0), z) = max(suc(x'), max(0, z))
-          by definition max
+          by expand max.
       }
       case suc(y') suppose y_suc {
         switch z {
           case 0 {
             conclude max(max(suc(x'), suc(y')), 0) = max(suc(x'), max(suc(y'), 0))
-                by definition max
+                by expand max.
           }
           case suc(z') suppose z_suc {
             suffices suc(max(max(x', y'), z')) = suc(max(x', max(y', z')))
-               by definition max
+               by expand max.
             replace IH
           }
         }
@@ -2041,7 +2037,7 @@ proof
   case 0 {
     arbitrary y:Nat
     suppose _
-    conclude max(0, y) = y   by definition max
+    conclude max(0, y) = y   by expand max.
   }
   case suc(x') suppose IH {
     arbitrary y:Nat
@@ -2081,7 +2077,7 @@ proof
   case 0 {
     arbitrary y:Nat, z:Nat
     suppose prem
-    suffices y ≤ z  by definition max
+    suffices y ≤ z  by expand max.
     prem
   }
   case suc(x') suppose IH {
@@ -2100,7 +2096,7 @@ proof
                    replace z_zero in prem
           }
           case suc(z') suppose z_suc {
-            suffices max(x', y') ≤ z'  by definition operator≤
+            suffices max(x', y') ≤ z'  by expand operator≤.
             have x_le_z: x' ≤ z' by
                 definition operator≤ in replace z_suc in prem
             have y_le_z: y' ≤ z' by
@@ -2143,15 +2139,14 @@ fun Odd(n : Nat) {
 theorem two_even: all n:Nat. Even(2*n)
 proof
   arbitrary n:Nat
-  suffices __ by definition Even
-  choose n
-  .
+  expand Even
+  choose n.
 end
 
 theorem one_two_odd: all n:Nat. Odd(1 + 2*n)
 proof
   arbitrary n:Nat
-  suffices __ by definition Odd
+  expand Odd
   choose n
   evaluate
 end
@@ -2161,18 +2156,18 @@ theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
 proof
   induction Nat
   case 0 {
-    conclude is_even(0) by definition is_even | parity
+    conclude is_even(0) by expand is_even | parity.
   }
   case suc(n') assume IH {
     cases IH
     case even {
       conclude is_odd(suc(n')) by
-        suffices parity(n', true) by definition is_odd | parity
+        suffices parity(n', true) by expand is_odd | parity.
         definition is_even in even
     }
     case odd {
       conclude is_even(suc(n')) by
-        suffices parity(n', false) by definition is_even | parity
+        suffices parity(n', false) by expand is_even | parity.
         definition is_odd in odd
     }
   }
@@ -2189,7 +2184,7 @@ proof
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  suffices some m:Nat. x + y = 2 * m  by definition Even
+  suffices some m:Nat. x + y = 2 * m  by expand Even.
   choose a + b
   equations
         x + y
@@ -2207,7 +2202,7 @@ proof
     have part1: if is_even(0) then Even(0)
       by suppose _
          conclude Even(0)
-         by suffices some m:Nat. 0 = 2 * m  by definition Even
+         by suffices some m:Nat. 0 = 2 * m  by expand Even.
             choose 0
             evaluate
    have part2: if is_odd(0) then Odd(0)
@@ -2219,26 +2214,26 @@ proof
     have part1: (if is_even(suc(n')) then Even(suc(n'))) by
       (suppose suc_even: is_even(suc(n'))
       have odd_n: is_odd(n') by {
-        suffices parity(n', false) by definition is_odd
+        suffices parity(n', false) by expand is_odd.
         definition is_even | parity in suc_even
       }
       have Odd_n: Odd(n') by apply (conjunct 1 of IH) to odd_n
       obtain m where n_2m from definition Odd in Odd_n
-      suffices some m':Nat. suc(n') = 2 * m'  by definition Even
+      suffices some m':Nat. suc(n') = 2 * m'  by expand Even.
       choose suc(m)
       suffices suc(suc(2 * m)) = 2 * suc(m)  by replace n_2m
       suffices suc(suc(m + (m + 0))) = suc(m + suc(m + 0))
-          by definition 3 * operator* | 3 * operator+
+          by expand 3 * operator* | 3 * operator+.
       replace add_zero | add_suc)
     have part2: (if is_odd(suc(n')) then Odd(suc(n'))) by
       (suppose suc_odd: is_odd(suc(n'))
         have even_n: is_even(n') by {
-          suffices parity(n', true) by definition is_even
+          suffices parity(n', true) by expand is_even.
           definition is_odd | parity in suc_odd
         }
         have Even_n: Even(n') by apply (conjunct 0 of IH) to even_n
         obtain m where n_2m from definition Even in Even_n
-        suffices some m':Nat. suc(n') = suc(2 * m')  by definition Odd
+        suffices some m':Nat. suc(n') = suc(2 * m')  by expand Odd.
         choose m
         replace n_2m)
     part1, part2
@@ -2264,7 +2259,7 @@ proof
   obtain k where nk: 1 + n = suc(2 * k) from definition Odd in n1_odd
   have n2k: n = 2*k
     by apply add_both_sides_of_equal[1, n, 2*k] to (replace suc_one_add | add_zero in nk)
-  suffices __ by definition Even
+  expand Even
   choose k
   n2k
 end
@@ -2274,7 +2269,7 @@ proof
   arbitrary n:Nat
   assume n1_even
   obtain k where nk: 1 + n = 2 * k from definition Even in n1_even
-  suffices __ by definition Odd
+  expand Odd
   switch k {
     case 0 assume kz {
       conclude false by evaluate in replace kz in nk
@@ -2296,7 +2291,7 @@ theorem Even_not_Odd: all n:Nat. Even(n) ⇔ not Odd(n)
 proof
   induction Nat
   case 0 {
-    suffices some m:Nat. 0 = 2 * m by definition Even | Odd
+    suffices some m:Nat. 0 = 2 * m by expand Even | Odd.
     choose 0
     conclude 0 = 2 * 0 by evaluate
   }
@@ -2316,7 +2311,7 @@ proof
         obtain k where n2k: n' = 2*k from definition Even in en
         have sn2k: suc(n') = suc(2*k) by replace n2k
         have osn: Odd(suc(n')) by {
-          suffices __ by definition Odd
+          expand Odd
           choose k
           sn2k
         }
@@ -2347,17 +2342,17 @@ proof
   case zero {
     arbitrary f:fn(Nat) -> Nat,g:fn(Nat) -> Nat,s:Nat,t:Nat
     suppose f_g
-    definition summation
+    expand summation.
   }
   case suc(k') suppose IH {
     arbitrary f:fn(Nat) -> Nat,g:fn(Nat) -> Nat,s:Nat,t:Nat
     suppose f_g
     suffices summation(suc(k'),s,f) = summation(suc(k'),t,g)  by .
     suffices f(s) + summation(k',suc(s),f) = g(t) + summation(k',suc(t),g)
-      by definition summation
+      by expand summation.
     have f_g_s: f(s) = g(t) by
        replace add_zero in
-       (apply f_g[0] to definition operator < | 2* operator ≤)
+       (apply f_g[0] to expand operator < | 2* operator ≤.)
     have IH': summation(k',suc(s),f) = summation(k',suc(t),g)
       by apply IH[f,g,suc(s),suc(t)] 
          to arbitrary i:Nat suppose i_k: i < k'
@@ -2378,13 +2373,13 @@ proof
   case zero {
     arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
     suppose _
-    definition summation
+    expand summation.
   }
   case suc(k') suppose IH {
     arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
     suppose f_g: all i:Nat. if s ≤ i and i < s + suc(k') then f(i) = g(i)
     suffices f(s) + summation(k',suc(s),f) = g(s) + summation(k',suc(s),g)
-        by definition summation
+        by expand summation.
     have f_g_s: f(s) = g(s) by {
       have s_s: s ≤ s by less_equal_refl[s]
       have s_sk: s < s + suc(k') by {
@@ -2401,7 +2396,7 @@ proof
         suppose ss_i_and_i_ss_k
         have s_i: s ≤ i by {
           apply less_implies_less_equal[s][i]
-          to suffices suc(s) ≤ i  by definition operator <
+          to suffices suc(s) ≤ i  by expand operator <.
           ss_i_and_i_ss_k
         } 
         have i_s_k: i < s + suc(k') by {
@@ -2430,7 +2425,7 @@ proof
   have sum_prem: (all i:Nat. (if i < k then f(s + i) = g(suc(s) + i))) by
       arbitrary i:Nat
       suppose i_less_k
-      suffices f(s+i) = g(suc(s+i))  by definition operator+
+      suffices f(s+i) = g(suc(s+i))  by expand operator+.
       prem[s+i]
   apply summation_cong[k][f, g, s, suc(s)] to sum_prem
 end
@@ -2443,17 +2438,19 @@ proof
   case zero {
     arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat
     suppose _
-    definition summation
+    expand summation.
   }
   case suc(k') suppose IH {
     arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat
     suppose f_g: all i:Nat. f(s + i) = g(t + i)
-    suffices f(s) + summation(k',suc(s),f) = g(t) + summation(k',suc(t),g)  by definition summation
+    suffices f(s) + summation(k',suc(s),f) = g(t) + summation(k',suc(t),g)
+      by expand summation.
     have fs_gt: f(s) = g(t)   by replace add_zero in f_g[0]
-    have all_f_g: all i:Nat. f(suc(s) + i) = g(suc(t) + i)
-      by arbitrary i:Nat
-         suffices f(suc(s + i)) = g(suc(t + i))  by definition operator +
-         replace add_suc in f_g[suc(i)]
+    have all_f_g: all i:Nat. f(suc(s) + i) = g(suc(t) + i) by {
+      arbitrary i:Nat
+      suffices f(suc(s + i)) = g(suc(t + i))  by expand operator +.
+      replace add_suc in f_g[suc(i)]
+    }
     equations
           f(s) + summation(k',suc(s),f)
         = g(t) + summation(k',suc(s),f)   by replace fs_gt
@@ -2472,7 +2469,7 @@ proof
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
     suppose g_f_and_h_f
     suffices summation(b,s,f) = summation(b,t,h)
-      by definition operator+ | summation
+      by expand operator+ | summation.
     apply summation_cong[b][f,h,s,t]
     to arbitrary i:Nat
        suppose i_b: i < b
@@ -2483,11 +2480,11 @@ proof
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
     suppose g_f_and_h_f
     suffices f(s) + summation(a' + b,suc(s),f) = (g(s) + summation(a',suc(s),g)) + summation(b,t,h)
-        by definition operator + | summation
+        by expand operator + | summation.
     have fs_gs: f(s) = g(s) by symmetric
         replace add_zero
         in apply (conjunct 0 of g_f_and_h_f)[0]
-           to definition operator < | 2* operator ≤
+           to expand operator < | 2* operator ≤.
     have IH': summation(a' + b,suc(s),f)
             = summation(a',suc(s),g) + summation(b,t,h)
       by have p1: all i:Nat. (if i < a' then g(suc(s) + i) = f(suc(s) + i))
@@ -2498,7 +2495,7 @@ proof
                 in apply (conjunct 0 of g_f_and_h_f)[suc(i)] to i_sa
          have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + (a' + i)))
            by arbitrary i:Nat suppose i_b: i < b
-              suffices __ by definition 2*operator+
+              expand 2*operator+
               definition operator+ in
               replace add_suc in
               apply (conjunct 1 of g_f_and_h_f)[i] to i_b
@@ -2531,10 +2528,10 @@ theorem equal_refl: all n:Nat. equal(n,n)
 proof
   induction Nat
   case 0 {
-    definition equal
+    expand equal.
   }
   case suc(n') suppose IH {
-    suffices equal(n',n')  by definition equal
+    suffices equal(n',n')  by expand equal.
     IH
   }
 end
@@ -2546,18 +2543,18 @@ proof
   case 0 {
     arbitrary n:Nat
     switch n {
-      case 0 { definition equal }
-      case suc(n') { definition equal }
+      case 0 { expand equal. }
+      case suc(n') { expand equal. }
     }
   }
   case suc(m') suppose IH {
     arbitrary n:Nat 
     switch n {
-      case 0 { definition equal }
+      case 0 { expand equal. }
       case suc(n') {
         have right : (if suc(m') = suc(n') then equal(suc(m'), suc(n')))
           by suppose sm_sn: suc(m') = suc(n')
-             suffices equal(m', n')  by definition equal
+             suffices equal(m', n')  by expand equal.
              have m_n: m' = n' by injective suc sm_sn
              suffices equal(n', n')  by replace m_n
              equal_refl[n']
@@ -2595,7 +2592,7 @@ end
 lemma div2_add_2: all n:Nat.  div2(suc(suc(n))) = suc(div2(n))
 proof
   arbitrary n:Nat
-  definition div2 | div2_helper | div2_helper
+  expand div2 | div2_helper | div2_helper.
 end
 
 lemma div2_double: all n:Nat.
@@ -2603,10 +2600,10 @@ lemma div2_double: all n:Nat.
 proof
   induction Nat
   case 0 {
-    definition operator+ | div2 | div2_helper
+    expand operator+ | div2 | div2_helper.
   }
   case suc(n') suppose IH {
-    suffices div2(suc(n' + suc(n'))) = suc(n')  by definition operator+
+    suffices div2(suc(n' + suc(n'))) = suc(n')  by expand operator+.
     suffices div2(suc(suc(n' + n'))) = suc(n')  by replace add_suc
     suffices suc(div2(n' + n')) = suc(n')       by replace div2_add_2
     replace IH
@@ -2617,7 +2614,7 @@ lemma div2_times2: all n:Nat.
   div2(2 * n) = n
 proof
   arbitrary n:Nat
-  suffices div2(n + (n + 0)) = n  by definition 3* operator*
+  suffices div2(n + (n + 0)) = n  by expand 3* operator*.
   suffices div2(n + n) = n        by replace add_zero
   div2_double[n]
 end
@@ -2627,14 +2624,14 @@ lemma div2_suc_double: all n:Nat.
 proof
   induction Nat
   case 0 {
-    definition operator+ | div2 | div2_helper | div2_helper
+    expand operator+ | div2 | div2_helper | div2_helper.
   }
   case suc(n') suppose IH {
     suffices suc(div2_helper(suc(n' + n'), true)) = suc(n')
       by definition div2 | div2_helper | operator+ | div2_helper
          and replace add_suc
     suffices suc(div2_helper(n' + n', false)) = suc(n')
-      by definition div2_helper
+      by expand div2_helper.
     replace (definition div2 | div2_helper in IH)
   }
 end
@@ -2643,7 +2640,7 @@ lemma div2_suc_times2: all n:Nat.
   div2(suc(2 * n)) = n
 proof
   arbitrary n:Nat
-  suffices div2(suc(n + (n + 0))) = n  by definition 3* operator*
+  suffices div2(suc(n + (n + 0))) = n  by expand 3* operator*.
   suffices div2(suc(n + n)) = n        by replace add_zero
   div2_suc_double[n]
 end
@@ -2660,12 +2657,12 @@ proof
   case odd {
     obtain k where n_s2k: n = suc(2 * k) from definition Odd in odd
     suffices suc(k + k) - k ≤ suc(k) by replace n_s2k | div2_suc_times2[k] | two_mult[k]
-    have eq_1: suc(k + k) = 1 + (k + k) by definition 2* operator+
+    have eq_1: suc(k + k) = 1 + (k + k) by expand 2* operator+.
     suffices (1 + (k + k)) - k ≤ suc(k) by replace eq_1
     have k_kk: k ≤ k + k by less_equal_add
     have eq_2: (1 + (k + k)) - k = 1 + ((k + k) - k) by symmetric apply sub_add_assoc[k + k, 1, k] to k_kk
     suffices 1 + ((k + k) - k) ≤ suc(k) by replace eq_2
-    suffices ((k + k) - k) ≤ k by definition 2* operator+ | operator≤
+    suffices ((k + k) - k) ≤ k by expand 2* operator+ | operator≤.
     suffices k ≤ k by replace add_sub_identity[k,k]
     less_equal_refl
   }
@@ -2681,11 +2678,11 @@ proof
     switch k {
       case 0 {
         conclude if 0 < 0 + 0 then 0 < 0
-           by definition operator +
+           by expand operator +.
       }
       case suc(k') {
         assume _
-        definition operator< | 2*operator≤
+        expand operator< | 2*operator≤.
       }
     }
   }
@@ -2693,12 +2690,12 @@ proof
     obtain k where n_s2k: n = suc(2 * k) from definition Odd in odd
     suffices if 0 < suc(k + k) then 0 < suc(k + k) - k by replace n_s2k | div2_suc_times2[k] | two_mult[k]
     assume _
-    have eq_1: suc(k + k) = 1 + (k + k) by definition 2* operator+
+    have eq_1: suc(k + k) = 1 + (k + k) by expand 2* operator+.
     suffices 0 < (1 + (k + k)) - k by replace eq_1
     have k_kk: k ≤ k + k by less_equal_add
     have eq_2: (1 + (k + k)) - k = 1 + ((k + k) - k) by symmetric apply sub_add_assoc[k + k, 1, k] to k_kk
     suffices 0 < 1 + ((k + k) - k) by replace eq_2
-    definition operator+ | operator< | 2* operator≤
+    expand operator+ | operator< | 2* operator≤.
   }
 end
 
@@ -2713,16 +2710,18 @@ proof
     assume: 0 < suc(n')
     switch n' {
       case 0 {
-        definition div2 | div2_aux | operator< | operator≤ | div2_helper | div2_helper | operator≤
+        evaluate
       }
       case suc(n'') assume np_eq {
         have: 0 < n' by {
             suffices 0 < suc(n'') by replace np_eq
-            definition operator< | 2* operator≤
+            expand operator< | 2* operator≤.
         }
-        have IH': div2(n') < n' and div2_aux(n') ≤ n' by apply IH to (recall 0 < n')
-        suffices (div2_helper(n'', true) ≤ n'' and div2_helper(n'', false) ≤ suc(n''))
-          by definition div2 | div2_aux | 2* div2_helper | operator< | 2* operator≤
+        have IH': div2(n') < n' and div2_aux(n') ≤ n'
+          by apply IH to (recall 0 < n')
+        suffices (div2_helper(n'', true) ≤ n''
+                 and div2_helper(n'', false) ≤ suc(n''))
+          by evaluate
         have _1: div2_helper(n'', true) ≤ n'' by {
           definition div2_aux | div2_helper | operator≤ in
           replace np_eq in
@@ -2756,7 +2755,7 @@ proof
     arbitrary y:Nat
     assume _
     conclude div2(0) ≤ div2(y) and div2_aux(0) ≤ div2_aux(y)
-        by definition div2 | div2_aux | div2_helper| operator≤
+        by evaluate
   }
   case suc(x') assume IH {
     arbitrary y:Nat
@@ -2768,7 +2767,7 @@ proof
       case suc(y') assume y_eq {
         suffices div2_helper(x', false) ≤ div2_helper(y', false)
              and div2_helper(x', true) ≤ div2_helper(y', true)
-            by definition div2 | div2_aux | div2_helper | operator≤
+            by evaluate
         have xy: x' ≤ y' by {
           apply suc_less_equal_iff_less_equal_suc to
           replace y_eq in sx_y
@@ -2794,18 +2793,18 @@ theorem pow_positive: all n:Nat. 0 < pow2(n)
 proof
   induction Nat
   case 0 {
-    definition pow2 | operator< | 2* operator≤
+    evaluate
   }
   case suc(n') suppose IH {
     suffices 0 < 2 * pow2(n')  by definition pow2
     obtain pn' where pn_s: pow2(n') = suc(pn')
         from apply positive_suc[pow2(n')] to IH
     suffices 0 < 2 * suc(pn')  by replace pn_s
-    suffices 0 < suc(pn') + (suc(pn') + 0)  by definition 3* operator*
+    suffices 0 < suc(pn') + (suc(pn') + 0)  by expand 3* operator*.
     suffices 0 < suc(pn') + suc(pn')  by replace add_zero[suc(pn')]
-    suffices 0 < suc(pn' + suc(pn'))  by definition operator+
+    suffices 0 < suc(pn' + suc(pn'))  by expand operator+.
     suffices 0 < suc(suc(pn' + pn'))  by replace add_suc[pn'][pn']
-    definition operator< | 2* operator≤
+    evaluate
   }
 end
 

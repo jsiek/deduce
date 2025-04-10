@@ -1040,7 +1040,16 @@ def parse_proof_statement():
     proof = parse_proof()
     meta = meta_from_tokens(token, previous_token())
     return Suffices(meta, formula, proof, None)
-    
+
+  elif token.type == 'EXPAND':
+    token = current_token()
+    advance()
+    defs = parse_ident_list_bar()
+    meta = meta_from_tokens(token, previous_token())
+    return ApplyDefsGoal(meta,
+                         [Var(meta, None, t) for t in defs],
+                         None)
+      
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
     start_token = current_token()
     advance()
@@ -1198,7 +1207,8 @@ def parse_proof():
           else:
               body = PHole(meta_from_tokens(current_token(), current_token()))
         except Exception as e:
-            raise ParseError(meta_from_tokens(current_token(), previous_token()), "Unexpected error while parsing:\n\t" \
+            raise ParseError(meta_from_tokens(current_token(), previous_token()),
+                             "Unexpected error while parsing:\n\t" \
               + str(e))
               
         if isinstance(proof_stmt, AllIntro):
