@@ -284,7 +284,7 @@ def rewrite_aux(loc, formula, equation, env):
             new_num_rewrites = get_num_rewrites()
             if new_num_rewrites == old_num_rewrites:
                 if get_verbose():
-                    print('rewrite using: ' + str(equation) \
+                    print('replace using: ' + str(equation) \
                           + '\n\tdid not match: ' + str(tmp))
                 output_terms.append(new_args[i])
                 i = i + 1
@@ -834,8 +834,8 @@ def proof_use_advice(proof, formula, env):
 
       case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
         return prefix \
-            + '\tYou can use this equality in a rewrite statement:\n' \
-            + '\t\trewrite ' + str(proof) + '\n'
+            + '\tYou can use this equality in a replace statement:\n' \
+            + '\t\treplace ' + str(proof) + '\n'
       case _:
         return 'Sorry, I have no advice for this kind of formula.'
 
@@ -985,7 +985,7 @@ def proof_advice(formula, env):
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n'\
             + '\t\tdefinition\n' \
-            + '\t\trewrite\n' \
+            + '\t\treplace\n' \
             + '\t\tequations\n'
       case TLet(loc2, _, var, rhs, body):
         return proof_advice(body, env)

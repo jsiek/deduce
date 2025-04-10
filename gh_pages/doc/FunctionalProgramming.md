@@ -315,7 +315,7 @@ fun head<T>(ls: List<T>) {
 }
 ```
 
-Calling a generic function is just like calling a normal funtion,
+Calling a generic function is just like calling a normal function,
 most of the time. For example, the following invokes the
 generic `length` function on an argument of type `List<Nat>`
 and Deduce figures out that the type parameter `E` must be `Nat`.
@@ -424,7 +424,7 @@ assert remove_if(L13, fun x {x ≤ 1}) = [2, 3]
 ### Non-empty Lists and Average
 
 Define a `union` type named `NEList` for non-empty list.  Design the
-alternatives in the `union` carefuly to make it impossible to create
+alternatives in the `union` carefully to make it impossible to create
 an empty list.
 
 Define a function named `average` that computes the mean of a

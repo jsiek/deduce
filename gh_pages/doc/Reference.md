@@ -2028,8 +2028,8 @@ for any terms `a` and `b`.
 ## Theorem (Statement)
 
 ```
-statement ::= "theorem" IDENT ":" term "proof" proof "end"
-            |   "lemma" IDENT ":" term "proof" proof "end"
+statement ::= "theorem" IDENT ":" formula "proof" proof "end"
+            | "lemma" IDENT ":" formula "proof" proof "end"
 ```
 
 A theorem (or lemma) proves that a formula is true. The theorem's name
