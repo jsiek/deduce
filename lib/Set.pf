@@ -45,7 +45,7 @@ theorem single_member: <T> all x:T.  x ∈ single(x)
 proof
   arbitrary T:type
   arbitrary x:T
-  definition single | operator ∈ | rep
+  expand single | operator ∈ | rep.
 end
 
 theorem single_equal: all T:type. all x:T, y:T.
@@ -62,7 +62,7 @@ theorem single_equal_equal: all T:type. all x:T, y:T.
 proof
   arbitrary T:type
   arbitrary x:T, y:T
-  definition operator ∈ | single | rep
+  expand operator ∈ | single | rep.
 end
 
 theorem empty_no_members: all T:type. all x:T.
@@ -77,7 +77,7 @@ end
 theorem rep_char_fun: all T:type, f: fn T -> bool. rep(char_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> bool)
-  definition rep
+  expand rep.
 end
 
 theorem union_member: all T:type. all x:T, A:Set<T>, B:Set<T>.
@@ -87,8 +87,10 @@ proof
   arbitrary T:type
   arbitrary x:T, A:Set<T>, B:Set<T>
   suppose prem: x ∈ A or x ∈ B
-  suffices rep(A)(x) or rep(B)(x)
-    by definition operator∪ | operator∈ and replace rep_char_fun<T>
+  suffices rep(A)(x) or rep(B)(x) by {
+    expand operator∪ | operator∈
+    replace rep_char_fun<T>
+  }
   cases prem
   case xA: x ∈ A {
     conclude rep(A)(x) by definition operator∈ in xA
@@ -115,7 +117,7 @@ theorem member_union_equal: all T:type. all x:T, A:Set<T>, B:Set<T>.
 proof
   arbitrary T:type
   arbitrary x:T, A:Set<T>, B:Set<T>
-  definition operator∈ | operator∪ | rep
+  expand operator∈ | operator∪ | rep.
 end
 
 // testing alternate syntax for ∅
@@ -125,11 +127,12 @@ proof
   arbitrary T:type
   arbitrary A:Set<T>
   suffices A ∪ @char_fun<T>(λ_{false}) = A   by .
-  suffices char_fun(fun x:T{(rep(A)(x) or rep(∅ : Set<T>)(x))}) = A  by definition operator ∪
+  suffices char_fun(fun x:T{(rep(A)(x) or rep(∅ : Set<T>)(x))}) = A
+    by expand operator ∪.
   switch A {
     case char_fun(f) {
       have eq: (λy{f(y)} : fn T->bool) = f   by extensionality arbitrary x:T.
-      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   by definition rep
+      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   by expand rep.
       replace eq
     }
   }
@@ -140,10 +143,11 @@ theorem empty_union: all T:type. all A:Set<T>.
 proof
   arbitrary T:type
   arbitrary A:Set<T>
-  suffices char_fun(fun x:T{(rep(∅ : Set<T>)(x) or rep(A)(x))}) = A   by definition operator ∪
+  suffices char_fun(fun x:T{(rep(∅ : Set<T>)(x) or rep(A)(x))}) = A
+    by expand operator ∪.
   switch A {
     case char_fun(f) {
-      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by definition rep
+      suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by expand rep.
       have eq: (λx{f(x)} : fn T->bool) = f  by extensionality arbitrary x:T.
       replace eq
     }
@@ -157,18 +161,18 @@ proof
   arbitrary A:Set<T>, B:Set<T>
   suffices @char_fun<T>(λx{(rep(A)(x) or rep(B)(x))})
              = char_fun(λx{(rep(B)(x) or rep(A)(x))})
-      by definition operator ∪
+    by expand operator ∪.
   switch A {
     case char_fun(f) {
       switch B {
-	case char_fun(g) {
-	  suffices @char_fun<T>(λx{(f(x) or g(x))}) = char_fun(λx{(g(x) or f(x))})
-              by definition rep
-	  have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
-	    by extensionality arbitrary x:T 
-	       replace or_sym[f(x),g(x)]
-	  replace fg_gf
-	}
+        case char_fun(g) {
+          suffices @char_fun<T>(λx{(f(x) or g(x))}) = char_fun(λx{(g(x) or f(x))})
+            by expand rep.
+          have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
+            by extensionality arbitrary x:T 
+          replace or_sym[f(x),g(x)]
+          replace fg_gf
+        }
       }
     }
   }
@@ -179,7 +183,7 @@ theorem union_assoc: all T:type. all A:Set<T>, B:Set<T>, C:Set<T>.
 proof
   arbitrary T:type
   arbitrary A:Set<T>, B:Set<T>, C:Set<T>
-  definition operator ∪ | rep
+  expand operator ∪ | rep.
 end
 
 theorem in_left_union:
@@ -190,8 +194,10 @@ proof
   arbitrary B:Set<T>
   arbitrary x:T, A: Set<T>
   suppose x_A: x ∈ A
-  suffices rep(A)(x) or rep(B)(x)
-    by definition operator ∈ | operator ∪ and replace rep_char_fun<T>
+  suffices rep(A)(x) or rep(B)(x) by {
+    expand operator ∈ | operator ∪
+    replace rep_char_fun<T>
+  }
   definition operator ∈ in x_A
 end
 
@@ -214,7 +220,7 @@ proof
   suffices all T:type. all A:Set<T>, B:Set<T>.
     if (all x:T. (if x ∈ A then x ∈ B)) and (all x:T. (if x ∈ B then x ∈ A))
     then A = B
-        by definition operator⊆
+        by expand operator⊆.
   arbitrary U:type
   arbitrary A:Set<U>, B:Set<U>
   suppose prem
@@ -222,21 +228,24 @@ proof
     case char_fun(f) suppose A_f {
       switch B {
         case char_fun(g) suppose B_g {
-          have f_g: f = g
-	    by extensionality
-	       arbitrary x:U
-               have fx_to_gx: if f(x) then g(x)
-                  by definition operator ∈ | rep in
-                     replace A_f | B_g in
-                     (conjunct 0 of prem)[x]
-               have gx_to_fx: if g(x) then f(x)
-                  by definition operator ∈ | rep in
-                     replace A_f | B_g in
-                     (conjunct 1 of prem)[x]
-               apply iff_equal[f(x),g(x)]
-               to fx_to_gx, gx_to_fx
+          have f_g: f = g by {
+            extensionality
+            arbitrary x:U
+            have fx_to_gx: if f(x) then g(x) by {
+              definition operator ∈ | rep in
+              replace A_f | B_g in
+              (conjunct 0 of prem)[x]
+            }
+            have gx_to_fx: if g(x) then f(x) by {
+              definition operator ∈ | rep in
+              replace A_f | B_g in
+              (conjunct 1 of prem)[x]
+            }
+            apply iff_equal[f(x),g(x)]
+            to fx_to_gx, gx_to_fx
+          }
           replace f_g
-	      }
+        }
       }
     }
   }
