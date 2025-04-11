@@ -209,9 +209,6 @@ def parse_term_hi():
   elif token.value == '∅' or token.value == '.0.':
     advance()
     meta = meta_from_tokens(token, token)
-    # return Call(meta, None,
-    #             Var(meta, None, 'char_fun'),
-    #             [Lambda(meta, None, [('_',None)], Bool(meta, None, False))])
     return Call(meta, None, Var(meta, None, 'empty_set'), [])
 
   elif token.type == 'FUN' or token.type == 'Λ':
