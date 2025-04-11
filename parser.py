@@ -280,10 +280,6 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'false_literal':
         return Bool(e.meta, None, False)
     elif e.data == 'emptyset_literal':
-        # return Call(e.meta, None,
-        #             Var(e.meta, None, 'char_fun', []),
-        #             [Lambda(e.meta, None, [('_',None)],
-        #                     Bool(e.meta, None, False))])
         return Call(e.meta, None, Var(e.meta, None, 'empty_set', []), [])
     # elif e.data == 'field_access':
         # subject = parse_tree_to_ast(e.children[0], e)
@@ -401,6 +397,10 @@ def parse_tree_to_ast(e, parent):
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'annot_stmt':
+        return PAnnot(e.meta,
+                      parse_tree_to_ast(e.children[0], e),
+                      None)
     elif e.data == 'conclude_from':
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),

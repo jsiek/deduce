@@ -28,7 +28,7 @@ proof
   suppose not_eq
   switch y = x for update {
     case true suppose yx_true {
-      have yx: y = x by replace yx_true
+      have yx: y = x by exchange yx_true.
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -63,10 +63,10 @@ proof
   arbitrary z:T
   switch z = y for update {
     case true suppose zy_true {
-      have zy: z = y by replace zy_true
+      have zy: z = y by exchange zy_true.
       switch z = x {
         case true suppose zx_true {
-	        have zx: z = x by replace zx_true
+	        have zx: z = x by exchange zx_true.
 	        have xy: x = y by transitive (symmetric zx) zy
 	        conclude false by apply x_neq_y to xy
 	      }
@@ -107,12 +107,14 @@ proof
   assume: g(x) = none
   switch f(x) {
     case none assume: f(x) = none {
-      conclude combine(f, g)(x) = f(x)
-          by definition combine and replace (recall f(x) = none) | (recall g(x) = none)
+      show combine(f, g)(x) = f(x)
+      expand combine
+      exchange (recall f(x) = none) | (recall g(x) = none).
     }
     case just(v) assume: f(x) = just(v) {
-      conclude combine(f, g)(x) = f(x)
-          by definition combine and replace (recall f(x) = just(v))
+      show combine(f, g)(x) = f(x)
+      expand combine
+      exchange recall f(x) = just(v).
     }
   }
 end
@@ -124,8 +126,9 @@ proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T
   assume: f(x) = none
-  conclude combine(f, g)(x) = g(x)
-      by definition combine and replace recall f(x) = none
+  show combine(f, g)(x) = g(x)
+  expand combine
+  exchange recall f(x) = none.
 end
 
 theorem restrict_domain:
@@ -137,7 +140,7 @@ proof
   suffices (all x:T. (if x ∈ char_fun(λx'{switch (if x' ∈ P then f(x')
                                                  else @none<U>)
             { case none{false} case just(y){true} }}) then x ∈ P))
-      by definition restrict | domain | operator ⊆
+      by expand restrict | domain | operator ⊆.
   arbitrary x:T
   suppose prem
   switch x ∈ P {
@@ -162,6 +165,6 @@ proof
   arbitrary f:fn T,T->T
   extensionality
   arbitrary x:T, y:T
-  definition flip
+  expand flip.
 end
 

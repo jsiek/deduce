@@ -856,12 +856,12 @@ the type parameters enclosed in `<` and `>` (if generic),
 then the parameter list enclosed in `(` and `)`, and finally
 the body of the function enclosed in `{` and `}`.
 
-```{.deduce^#fun_exchange_example}
-fun exchange(p : Pair<Nat,Nat>) {
+```{.deduce^#fun_interchange_example}
+fun interchange(p : Pair<Nat,Nat>) {
   pair(second(p), first(p))
 }
 
-assert exchange(pair(1,2)) = pair(2,1)
+assert interchange(pair(1,2)) = pair(2,1)
 ```
 
 ## Function Type
@@ -2237,7 +2237,7 @@ import Pair
 <<suffices_example>>
 <<true_example>>
 <<union_example>>
-<<fun_exchange_example>>
+<<fun_interchange_example>>
 <<generic_fun_example>>
 ```
 -->

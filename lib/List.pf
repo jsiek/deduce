@@ -162,7 +162,7 @@ proof
     equations
       length(node(n,xs') ++ ys)
           = 1 + length(xs' ++ ys)              by evaluate
-      ... = 1 + (length(xs') + length(ys))     by replace IH[ys]
+      ... = 1 + (length(xs') + length(ys))     by exchange IH[ys].
       ... = length(node(n,xs')) + length(ys)   by evaluate
   }
 end
@@ -197,7 +197,7 @@ proof
     equations
       (node(n,xs') ++ ys) ++ zs
           = node(n, (xs' ++ ys) ++ zs)     by expand operator++.
-      ... = node(n, xs' ++ (ys ++ zs))     by replace IH[ys, zs]
+      ... = node(n, xs' ++ (ys ++ zs))     by exchange IH[ys, zs].
       ... = # node(n,xs') ++ (ys ++ zs) #  by expand operator++.
   }
 end
@@ -216,7 +216,7 @@ proof
     equations
       node(n,xs') ++ empty
           = node(n, xs' ++ empty)    by expand operator++.
-      ... = node(n,xs')              by replace IH
+      ... = node(n,xs')              by exchange IH.
   }
 end
 
@@ -234,10 +234,10 @@ proof
       length(reverse(node(n,xs')))
           = length(reverse(xs') ++ node(n,empty)) by expand reverse.
       ... = length(reverse(xs')) + length(node(n,empty))
-                    by replace length_append<U>[reverse(xs')][node(n,empty)]
-      ... = length(xs') + length(node(n,empty))   by replace IH
+                    by exchange length_append<U>[reverse(xs')][node(n,empty)].
+      ... = length(xs') + length(node(n,empty))   by exchange IH.
       ... = length(xs') + 1                       by evaluate
-      ... = 1 + length(xs')                       by replace add_commute
+      ... = 1 + length(xs')                       by exchange add_commute.
       ... = # length(node(n,xs')) #               by expand length.
   }
 end
@@ -252,7 +252,7 @@ proof
     equations
           reverse(@[]<U> ++ ys)
         = reverse(ys)                     by expand operator++.
-    ... = # reverse(ys) ++ [] #           by replace append_empty<U>[reverse(ys)]
+    ... = # reverse(ys) ++ [] #           by exchange append_empty<U>[reverse(ys)].
     ... = # reverse(ys) ++ reverse([]) #  by expand reverse.
   }
   case node(n, xs') suppose IH {
@@ -261,7 +261,7 @@ proof
           reverse(node(n,xs') ++ ys)
         = reverse(node(n, xs' ++ ys))                by expand operator++.
     ... = reverse(xs' ++ ys) ++ [n]                  by expand reverse.
-    ... = (reverse(ys) ++ reverse(xs')) ++ [n]       by replace IH[ys]
+    ... = (reverse(ys) ++ reverse(xs')) ++ [n]       by exchange IH[ys].
     ... = reverse(ys) ++ (reverse(xs') ++ [n])       by append_assoc<U>[reverse(ys)][reverse(xs'), [n]]
     ... = # reverse(ys) ++ reverse(node(n,xs')) #    by expand reverse.
   }
@@ -280,7 +280,7 @@ proof
     equations
       length(map(node(x,ls'),f))
           = 1 + length(map(ls',f))  by expand map | length.
-      ... = 1 + length(ls')         by replace IH
+      ... = 1 + length(ls')         by exchange IH.
       ... =# length(node(x,ls')) #  by expand length.
   }
 end
@@ -299,8 +299,8 @@ proof
     equations
       map(node(x,ls),f)
           = node(f(x), map(ls, f)) by expand map.
-      ... = node(x, map(ls, f))    by replace fxx[x]
-      ... = node(x,ls)             by replace IH
+      ... = node(x, map(ls, f))    by exchange fxx[x].
+      ... = node(x,ls)             by exchange IH.
   }
 end
 
@@ -323,7 +323,7 @@ proof
     equations
       map((node(x,xs') ++ ys), f)
           = node(f(x), map(xs' ++ ys, f))         by expand operator++ | map.
-      ... = node(f(x), map(xs',f) ++ map(ys,f))   by replace IH
+      ... = node(f(x), map(xs',f) ++ map(ys,f))   by exchange IH.
       ... = # map(node(x,xs'),f) ++ map(ys,f) #   by expand map | operator++.
   }
 end
@@ -339,7 +339,7 @@ proof
     equations
       map(map(node(x,ls),f),g)
     = node(g(f(x)), map(map(ls, f), g))        by evaluate
-      ... = node(g(f(x)), map(ls, g ∘ f))      by replace IH
+      ... = node(g(f(x)), map(ls, g ∘ f))      by exchange IH.
       ... = map(node(x,ls), g .o. f)           by evaluate
   }
 end
@@ -374,7 +374,7 @@ proof
         equations
             zip(map(node(x,xs'),f),map(node(y,ys'),g))
               = node(pair(f(x), g(y)), zip(map(xs',f), map(ys',g)))       by expand map | zip.
-          ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))   by replace IH[ys']
+          ... = node(pair(f(x), g(y)), map(zip(xs',ys'), pairfun(f,g)))   by exchange IH[ys'].
           ... = node(pair(f(x), g(y)), map(zip(xs', ys'), λp{pair(f(first(p)), g(second(p)))}))
                       by expand pairfun.
           ... = map(zip(node(x,xs'),node(y,ys')), pairfun(f,g))   by evaluate
@@ -437,13 +437,12 @@ proof
     arbitrary ys:List<T>
     suffices set_of(ys) = ∅ ∪ set_of(ys)
         by expand operator++ | set_of .
-    replace empty_union<T>[set_of(ys)]
+    exchange empty_union<T>[set_of(ys)].
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>
     expand operator++ | set_of
-    replace IH[ys]
-    | union_assoc<T>[single(x), set_of(xs'), set_of(ys)]
+    exchange IH[ys] | union_assoc<T>[single(x), set_of(xs'), set_of(ys)].
   }
 end
 
@@ -462,8 +461,8 @@ proof
       have cnt_x_z: cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0
         by expand cnt.
       have cnt_x_pos: 1 ≤ cnt(m_fun(λx'{0} : fn T->Nat))(x) by {
-        suffices 1 ≤ cnt(mset_of(node(x,xs')))(x)
-          by replace symmetric prem
+        exchange symmetric prem
+        show 1 ≤ cnt(mset_of(node(x,xs')))(x)
         suffices 1 ≤ 1 + cnt(mset_of(xs'))(x)
           by evaluate
         less_equal_add[1][cnt(mset_of(xs'))(x)]
@@ -490,15 +489,15 @@ proof
              : fn T->bool)
             = λ_{false}
         by extensionality  arbitrary x:T  expand cnt.
-    replace eq
+    exchange eq.
   }
   case node(x, xs') suppose IH {
     suffices set_of_mset(m_one(x) ⨄ mset_of(xs')) = single(x) ∪ set_of(xs')
         by expand mset_of | set_of.
     suffices single(x) ∪ set_of_mset(mset_of(xs')) = single(x) ∪ set_of(xs')
-        by replace som_union<T>[m_one(x), mset_of(xs')]
-                 | som_one_single<T>[x]
-    replace IH
+        by exchange som_union<T>[m_one(x), mset_of(xs')]
+                 | som_one_single<T>[x].
+    exchange IH.
   }
 end
 
@@ -518,9 +517,9 @@ proof
     arbitrary y:U
     switch x = y {
       case true suppose xy_true {
-        have x_eq_y: x = y by replace xy_true
+        have x_eq_y: x = y by exchange xy_true.
         suffices not (y ∈ set_of(remove_all(node(y,xs'),y)))
-            by replace x_eq_y
+            by exchange x_eq_y.
         suffices not (y ∈ set_of(remove_all(xs',y)))
             by expand remove_all.
         IH[y]
@@ -558,7 +557,7 @@ proof
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
     expand length | operator++ | operator+ | take
-    replace zero_add[length(xs')] | IH[ys]
+    exchange zero_add[length(xs')] | IH[ys].
   }
 end
 
@@ -573,7 +572,7 @@ proof
     assume prem
     have: n = 0 by apply zero_le_zero to evaluate in prem
     suffices length(drop(0, @[]<E>)) + 0 = length(@[]<E>)
-      by replace recall n = 0
+      by exchange recall n = 0.
     evaluate
   }
   case node(x, xs') assume IH: all n:Nat. (if n ≤ length(xs') then length(drop(n, xs')) + n = length(xs')) {
@@ -582,15 +581,16 @@ proof
     switch n {
       case 0 {
         suffices suc(length(xs') + 0) = suc(length(xs')) by evaluate
-        replace add_zero
+        exchange add_zero.
       }
       case suc(n') assume n_sn {
         suffices length(drop(n', xs')) + 1 + n' = 1 + length(xs')
-          by expand length | drop replace suc_one_add | zero_add
+          by expand length | drop exchange suc_one_add | zero_add.
         have n_xs: n' ≤ length(xs') by evaluate in replace n_sn in prem
-        have eq: length(drop(n', xs')) + n' = length(xs') by apply IH[n'] to n_xs
+        have eq: length(drop(n', xs')) + n' = length(xs')
+          by apply IH[n'] to n_xs
         conclude length(drop(n', xs')) + 1 + n' = 1 + length(xs')
-          by replace (symmetric eq) | add_commute[1, length(drop(n',xs'))]
+          by exchange (symmetric eq) | add_commute[1, length(drop(n',xs'))].
       }
     }
   }
@@ -649,7 +649,7 @@ proof
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
     expand length | operator++ | operator+ | drop
-    replace zero_add[length(xs')] | IH[ys]
+    exchange zero_add[length(xs')] | IH[ys].
   }
 end
 
@@ -672,7 +672,7 @@ proof
         have nsz: not (suc(n') + i = 0) by
         suppose sz conclude false by definition operator + in sz
         suffices get(drop(n', xs'), i) = get(xs', pred(suc(n') + i))
-          by expand get replace (apply eq_false to nsz)
+          by expand get exchange (apply eq_false to nsz).
         suffices get(drop(n', xs'), i) = get(xs', n' + i)
           by expand operator + | pred.
         IH[xs',i,d]
@@ -730,7 +730,7 @@ proof
     }
     suffices get(xs ++ ys, pred((1 + length(xs)) + i)) = get(ys, i)
        by expand operator++ | length | get
-          replace (apply eq_false to X)
+          exchange (apply eq_false to X).
     suffices get(xs ++ ys, length(xs) + i) = get(ys, i)
        by expand 2*operator + | pred.
     IH[ys, i]
@@ -777,8 +777,8 @@ proof
   arbitrary xs:List<T>, ys:List<T>
   suppose xs_ys
   equations
-    set_of(xs) = #set_of_mset(mset_of(xs))#   by replace som_mset_eq_set<T>[xs]
-           ... = set_of_mset(mset_of(ys))     by replace xs_ys
+    set_of(xs) = #set_of_mset(mset_of(xs))#   by exchange som_mset_eq_set<T>[xs].
+           ... = set_of_mset(mset_of(ys))     by exchange xs_ys.
            ... = set_of(ys)                   by som_mset_eq_set<T>[ys]
 end
 

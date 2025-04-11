@@ -209,6 +209,8 @@ ident: IDENT              -> ident
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
     | "expand" ident_list_bar                       -> expand
+    | "exchange" proof_list                         -> rewrite_goal
+    | "show" term                                   -> annot_stmt
     | "_definition" "{" ident_list "}"              -> apply_defs_goal
     | "_definition" ident                           -> apply_defs_goal_one
     | "extensionality"                              -> extensionality_proof

@@ -88,6 +88,7 @@ const codeBlocks = [
 	"reference_equations_example",
 	"reference_extensionality_example",
 	"reference_fun_exchange_example",
+	"reference_fun_interchange_example",
 	"reference_function_length_example",
 	"reference_function_term_example",
 	"reference_generic_example",

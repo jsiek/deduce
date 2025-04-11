@@ -1047,7 +1047,14 @@ def parse_proof_statement():
     return ApplyDefsGoal(meta,
                          [Var(meta, None, t) for t in defs],
                          None)
-      
+
+  elif token.type == 'EXCHANGE':
+    token = current_token()
+    advance()
+    eqns = parse_proof_list()
+    meta = meta_from_tokens(token, previous_token())
+    return RewriteGoal(meta, eqns, None)
+
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
     start_token = current_token()
     advance()
@@ -1113,6 +1120,14 @@ def parse_proof_statement():
     advance()
     meta = meta_from_tokens(token, previous_token())
     return PExtensionality(meta, None)
+
+  elif token.type == 'SHOW':
+    while_parsing = 'while parsing\n' \
+        + '\tproof_stmt ::= "show" formula\n'
+    advance()
+    claim = parse_term()
+    return PAnnot(meta_from_tokens(token, previous_token()),
+                  claim, None)
 
   else:
     return None

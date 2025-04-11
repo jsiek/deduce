@@ -2145,19 +2145,19 @@ class PRecall(Proof):
 @dataclass
 class PAnnot(Proof):
   claim: Formula
-  reason: Proof
+  body: Proof
 
   def pretty_print(self, indent):
       return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
-          + self.reason.pretty_print(indent+2) + '\n' \
+          + self.body.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n'
   
   def __str__(self):
-      return 'conclude ' + str(self.claim) + ' by ' + str(self.reason)
+      return 'conclude ' + str(self.claim) + ' by ' + str(self.body)
 
   def uniquify(self, env):
     self.claim.uniquify(env)
-    self.reason.uniquify(env)
+    self.body.uniquify(env)
 
 @dataclass
 class Suffices(Proof):
