@@ -485,7 +485,7 @@ proof
     suffices char_fun(λx{(if cnt(m_fun(λx'{0}:fn T->Nat))(x) = 0
                           then false else true)} : fn T->bool)
            = char_fun(λ_{false})
-        by expand mset_of | set_of | set_of_mset.
+        by evaluate
     have eq:(λx{if cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0 then false else true}
              : fn T->bool)
             = λ_{false}
