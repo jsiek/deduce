@@ -5,5 +5,5 @@ end
 
 lemma L2: true
 proof
-  definition L1
+  expand L1.
 end

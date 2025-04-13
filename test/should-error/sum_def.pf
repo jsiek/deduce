@@ -1,7 +1,7 @@
 import Nat
 import List
 
-function sum(List<Nat>) -> Nat {
+recursive sum(List<Nat>) -> Nat {
   sum([]) = 0
   sum(node(x,ls)) = x + sum(ls)
 }
@@ -11,7 +11,7 @@ all ls : List<Nat>. sum(ls) = sum(reverse(ls))
 proof
   induction List<Nat>
   case [] {
-    suffices ? by definition sum
+    expand sum
     ?
   }
   case node(x, ls) suppose IH {

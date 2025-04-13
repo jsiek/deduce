@@ -5,5 +5,5 @@ proof
   suppose prem
   obtain y where yeqz from prem
   choose suc(y)
-  rewrite yeqz
+  exchange yeqz.
 end

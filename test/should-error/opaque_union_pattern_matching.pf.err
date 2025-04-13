@@ -1,0 +1,3 @@
+./test/should-error/opaque_union_pattern_matching.pf:4.14-4.18: undefined variable: cero
+	did you intend: zero
+

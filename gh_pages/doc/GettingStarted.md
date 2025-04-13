@@ -10,24 +10,72 @@ Here are some resources to help you get started with Deduce.
 
 To get started with Deduce, follow these steps:
 
-1. [Install Deduce](#install-deduce)
-2. [Choose a Text Editor](#install-and-configure-a-text-editor)
+1. [Install Prerequisites](#install-prerequisites)
+2. [Install Deduce](#install-deduce)
+3. [Choose a Text Editor](#install-and-configure-a-text-editor)
 
+### Install Prerequisites
 
-### Install Deduce
-You can find the releases of Deduce on [github](https://github.com/jsiek/deduce/releases).
-The most recent patches can be obtained by directly downloading the [source code](https://github.com/jsiek/deduce).
+You will need [Python](https://www.python.org/) version 3.10 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to download Python for many computer systems.
 
-You will need [Python](https://www.python.org/) version 3.10 or later. Here are some [instructions](https://wiki.python.org/moin/BeginnersGuide/Download) and links to the download for various systems.
-
-You will also need to install the [Lark](https://github.com/lark-parser/lark) parsing library, which you can do by running the following command in the same directory as `deduce.py`
+You will also need the [Lark](https://github.com/lark-parser/lark) parsing library, which you can install by running the following command in the same directory as `deduce.py`
 
 ```
 python -m pip install lark
 ```
 
+### Install Deduce
+
+You can find the stable releases of Deduce on
+[github](https://github.com/jsiek/deduce/releases). Download the zip
+file and unpack it. To check that Deduce is working, go into the top
+`deduce` directory, and run `python` on the `deduce.py` script and the
+provided example file.  (There is no executable for Deduce.)
+
+```
+python ./deduce.py ./example.pf
+```
+
+You should see the following response from Deduce.
+
+```
+example.pf is valid
+```
+
+This response means that all the proofs in `example.pf` are complete and flawless!
+Most of the time you will be working on incomplete or flawed proofs and
+Deduce will try to give you helpful feedback. For example, if you replace
+the proof in `example.pf` with a `?` as follows
+
+```
+theorem one_x: 1 = x
+proof
+  ?
+end
+```
+
+and run Deduce again, you will see the following response.
+
+```
+example.pf:8.3-8.4: incomplete proof
+Goal:
+	1 = x
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		rewrite
+		equations
+```
+
+The latest development branch of Deduce (not stable) is available
+[here](https://github.com/jsiek/deduce) on github. It includes the
+source code for Deduce and for the Deduce web site.
+
+
 ### Install and Configure a Text Editor
-You can write Deduce in any text editor you want, and run it through the terminal.
+
+You can write Deduce in any text editor you want, and run Deduce through
+the terminal.
 
 For the following editors, we have developed extensions that improve
 the experience of writing Deduce code.
@@ -38,9 +86,10 @@ the experience of writing Deduce code.
 
 ## Running Deduce Programs
 
-Deduce is run by providing the `deduce.py` script with a `*.pf` file.
+As mentioned above, Deduce is run by providing the `deduce.py` script
+with a `*.pf` file.
 
-Suppose you have the following program. (defined in a file `hello.pf`)
+Suppose you have written thew following program in a file named `hello.pf`.
 
 ```{.deduce^#hello_starting_example}
 // hello.pf
@@ -53,11 +102,12 @@ define world : Greeting = hello
 print world
 ```
 
-This program defines a new union type called `Greeting`,
-defines a variable `world`, and prints it out.
+This program defines a new union type called `Greeting`, defines a
+variable `world`, and prints it out.
 
-To run it, type the following command, or use the run functionality
-provided by your deduce editor.
+To run it, type the following command from within the `deduce`
+directory, or use the run functionality provided by your deduce
+editor.
 
 ```
 python deduce.py hello.pf

@@ -280,10 +280,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'false_literal':
         return Bool(e.meta, None, False)
     elif e.data == 'emptyset_literal':
-        return Call(e.meta, None,
-                    Var(e.meta, None, 'char_fun', []),
-                    [Lambda(e.meta, None, [('_',None)],
-                            Bool(e.meta, None, False))])
+        return Call(e.meta, None, Var(e.meta, None, 'empty_set', []), [])
     # elif e.data == 'field_access':
         # subject = parse_tree_to_ast(e.children[0], e)
         # field_name = str(e.children[1].value)
@@ -341,6 +338,7 @@ def parse_tree_to_ast(e, parent):
             meta.end_line = e.meta.end_line+1
             meta.end_column = 0
             body = PHole(meta)
+            #body = PTrue(meta)
         else:
             body = parse_tree_to_ast(e.children[1], e)
         if isinstance(proof_stmt, AllIntro):
@@ -399,6 +397,10 @@ def parse_tree_to_ast(e, parent):
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'annot_stmt':
+        return PAnnot(e.meta,
+                      parse_tree_to_ast(e.children[0], e),
+                      None)
     elif e.data == 'conclude_from':
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
@@ -514,6 +516,10 @@ def parse_tree_to_ast(e, parent):
         body = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
                              body)
+    elif e.data == 'expand':
+        definitions = parse_tree_to_list(e.children[0], e)
+        return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
+                             None)
     elif e.data == 'eval_goal':
         return EvaluateGoal(e.meta)
     elif e.data == 'eval_fact':
@@ -598,21 +604,20 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'union':
         return Union(e.meta, str(e.children[0].value),
                      parse_tree_to_list(e.children[1], e),
-                     parse_tree_to_list(e.children[2], e), False)
+                     parse_tree_to_list(e.children[2], e))
     
     # theorem definitions
     elif e.data == 'theorem':
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
-                       parse_tree_to_ast(e.children[2], e),
-                       isLemma = False)
+                       parse_tree_to_ast(e.children[2], e))
     elif e.data == 'lemma':
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
                        parse_tree_to_ast(e.children[2], e),
-                       isLemma = True)
+                       isLemma=True)
     elif e.data == 'assoc_decl':
         op_var = parse_tree_to_ast(e.children[0], e)
         typarams = parse_tree_to_list(e.children[1], e)
@@ -655,7 +660,7 @@ def parse_tree_to_ast(e, parent):
             fun = Generic(e.meta, None, typarams, lam)
         else:
             fun = lam
-        return Define(e.meta, name, None, fun, False)
+        return Define(e.meta, name, None, fun)
     
     # structurally recursive functions
     elif e.data == 'rec_fun':
@@ -663,7 +668,8 @@ def parse_tree_to_ast(e, parent):
                       parse_tree_to_list(e.children[1], e),
                       parse_tree_to_list(e.children[2], e),
                       parse_tree_to_ast(e.children[3], e),
-                      parse_tree_to_list(e.children[4], e), False)
+                      parse_tree_to_list(e.children[4], e))
+
     # general recursion
     elif e.data == 'gen_rec_fun':
         return GenRecFun(e.meta,
@@ -674,17 +680,16 @@ def parse_tree_to_ast(e, parent):
                          parse_tree_to_ast(e.children[4], e),
                          Var(e.meta, None, 'Nat', []),
                          parse_tree_to_ast(e.children[5], e),
-                         parse_tree_to_ast(e.children[6], e),
-                         False)
+                         parse_tree_to_ast(e.children[6], e))
     # term definition
     elif e.data == 'define':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       None,
-                      parse_tree_to_ast(e.children[1], e), False)
+                      parse_tree_to_ast(e.children[1], e))
     elif e.data == 'define_annot':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e), False)
+                      parse_tree_to_ast(e.children[2], e))
 
     # import module/file
     elif e.data == 'import':
@@ -698,11 +703,21 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'print':
         return Print(e.meta, parse_tree_to_ast(e.children[0], e))
 
-    elif e.data == 'private':
+    # accessibility
+    elif (e.data == 'add_access'):
+        return parse_tree_to_ast(e.children[0], e)
+
+    elif e.data == 'private_decl':
         statement = parse_tree_to_ast(e.children[0], e)
         statement.isPrivate = True
         return statement
-
+    
+    elif e.data == 'opaque_decl':
+        statement = parse_tree_to_ast(e.children[0], e)
+        statement.makeOpaque = True
+        statement.file_defined = get_filename()
+        return statement
+    
     # whole program
     elif e.data == 'program':
         if e.children == []: # Allowing for empty programs

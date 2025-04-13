@@ -5,7 +5,7 @@ union Tree {
   node(Tree, Nat,Tree)
 }
 
-function size(Tree) -> Nat {
+recursive size(Tree) -> Nat {
   size(empty) = 0
   size(node(L, n, R)) = 1 + size(L) + size(R)
 }

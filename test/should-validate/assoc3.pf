@@ -6,7 +6,7 @@ proof
   arbitrary a:Nat, x:Nat, y:Nat, z:Nat
   equations
         a + suc(x) + y + z
-      = a + suc(x + y) + z     by definition operator+
-  ... = a + suc(x + y + z)     by definition operator+
-  ... = suc(a + x + y + z)     by rewrite add_suc
+      = a + suc(x + y) + z     by expand operator+.
+  ... = a + suc(x + y + z)     by expand operator+.
+  ... = suc(a + x + y + z)     by exchange add_suc.
 end

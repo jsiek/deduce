@@ -1,7 +1,7 @@
 import Nat
 import List
 
-function sum(List<Nat>) -> Nat {
+recursive sum(List<Nat>) -> Nat {
   sum([]) = 0
   sum(node(x,ls)) = x + sum(ls)
 }
@@ -22,21 +22,21 @@ proof
   case [] {
     arbitrary ls2:List<Nat>
     conclude sum(@[]<Nat> ++ ls2) = sum(@[]<Nat>) + sum(ls2)
-      by definition {operator++, sum, operator+}
+      by expand operator++ | sum | operator+.
   }
   case node(x, ls1) suppose IH {
     arbitrary ls2:List<Nat>
     equations
           sum(node(x, ls1) ++ ls2)
         = sum(node(x, ls1 ++ ls2))
-          by definition operator++
+          by expand operator++.
     ... = x + sum(ls1 ++ ls2)
-          by definition sum
+          by expand sum.
     ... = x + (sum(ls1) ++ sum(ls2))
-          by rewrite IH[ls2]
+          by exchange IH[ls2].
     ... = (x + sum(ls1)) + sum(ls2)
           by symmetric add_assoc[x,sum(ls1),sum(ls2)]
     ... = #sum(node(x, ls1))# + sum(ls2)
-          by definition sum
+          by expand sum.
   }
 end

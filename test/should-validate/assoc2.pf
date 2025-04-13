@@ -6,6 +6,6 @@ proof
   arbitrary x:Nat,y:Nat,z:Nat
   equations
       x + y + suc(z)
-      = x + suc(y + z)     by replace add_suc
-  ... = suc(x + y + z)     by replace add_suc
+      = x + suc(y + z)     by exchange add_suc.
+  ... = suc(x + y + z)     by exchange add_suc.
 end

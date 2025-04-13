@@ -1,7 +1,7 @@
 import Nat
 import List
 
-private function add_one_all(List<Nat>) -> List<Nat> {
+private recursive add_one_all(List<Nat>) -> List<Nat> {
     add_one_all([]) = []
     add_one_all(node(x, xs)) = node(suc(x), add_one_all(xs))
 }

@@ -1,0 +1,3 @@
+./test/should-error/opaque_define_use_in_theorem.pf:5.5-5.16: Tried to apply: 
+	definition f_id
+However this particular definition cannot be unrolled

@@ -7,7 +7,7 @@ and 5 make use of the table below.
 
 2. If the goal formula involves a function that is defined using a [`switch`](./Reference.md#switch-term), then it is a good idea to use the [`switch`](./Reference.md#switch-proof) proof statement.
 
-3. Work backwards from the goal using a [`suffices`](./Reference.md#suffices-proof-statement) statement. After the `by` keyword, write the reason, often [`definition`](./Reference.md#definition-proof) and/or [`rewrite`](./Reference.md#rewrite-proof), which transform the goal formula.
+3. Work backwards from the goal using a [`suffices`](./Reference.md#suffices-proof-statement) statement. After the `by` keyword, write the reason, often [`definition`](./Reference.md#definition-proof) and/or [`replace`](./Reference.md#replace-proof), which transform the goal formula.
 
 4. Work forwards from a [given](./Reference.md#given) with a [`have`](./Reference.md#have-proof-statement) statement. Look at the entry in the row for the given formula and the `Use` column. The table entry suggests what to write for the reason after the `by` keyword of your `have` statement. (This is the advice that Deduce outputs when you write [`help L`](./Reference.md#help-proof) where `L` is the label for the given.)
 
@@ -24,6 +24,6 @@ and 5 make use of the table below.
 | `if P then Q` | [`assume`](./Reference.md#assume) | [`apply`-`to`](./Reference.md#apply-to-proof-modus-ponens) |
 | `all x:T. P`  | [`arbitrary`](./Reference.md#arbitrary-forall-introduction), [`induction`](./Reference.md#induction) | [brackets](./Reference.md#instantiation-proof) |
 | `some x:T. P` | [`choose`](./Reference.md#choose-exists-introduction) | [`obtain`](./Reference.md#obtain-exists-elimination) |
-| `x = y`    | [`symmetric`](./Reference.md#symmetric-proof), [`transitive`](./Reference.md#transitive-proof), [`equations`](./Reference.md#equations), [`definition`](./Reference.md#definition-proof), [`rewrite`](./Reference.md#rewrite-proof) | [`symmetric`](./Reference.md#symmetric-proof), [`transitive`](./Reference.md#transitive-proof), [`rewrite`](./Reference.md#rewrite-proof), [`rewrite`-`in`](./Reference.md#rewrite-in-proof) |
+| `x = y`    | [`symmetric`](./Reference.md#symmetric-proof), [`transitive`](./Reference.md#transitive-proof), [`equations`](./Reference.md#equations), [`definition`](./Reference.md#definition-proof), [`replace`](./Reference.md#replace-proof) | [`symmetric`](./Reference.md#symmetric-proof), [`transitive`](./Reference.md#transitive-proof), [`replace`](./Reference.md#replace-proof), [`replace`-`in`](./Reference.md#replace-in-proof) |
 
 

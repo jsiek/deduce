@@ -3,7 +3,7 @@ union Nat {
   suc(Nat)
 }
 
-function add(Nat,Nat) -> Nat {
+recursive add(Nat,Nat) -> Nat {
   add(zero, m) = m
   add(suc(n), m) = suc(add(n, m))
 }

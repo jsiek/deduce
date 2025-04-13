@@ -13,7 +13,7 @@ theorem blah : all b1 : Wrapper.
 proof
   arbitrary b1 : Wrapper
   suffices switch b1 { case b(y){true or y} }
-    by definition eval
+    by expand eval.
   switch b1 {
     case b(b2) {
       .

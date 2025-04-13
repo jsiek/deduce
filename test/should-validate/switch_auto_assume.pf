@@ -15,15 +15,19 @@ theorem test_thm: all x:A. test(x) = true or test(x) = false
 proof
     arbitrary x:A
     switch x {
-        case a assume G {
-            suffices test(x) = true by rewrite symmetric G
-            suffices test(a) = true by rewrite G
-            evaluate
-        }
-        case b {
-            suffices test(x) = false by rewrite symmetric recall x = b
-            suffices test(b) = false by rewrite recall x = b
-            evaluate
-        }
+      case a assume G {
+          exchange symmetric G
+          show test(x) = true
+          exchange G
+          show test(a) = true
+          evaluate
+      }
+      case b {
+        exchange symmetric recall x = b
+        show test(x) = false
+        exchange recall x = b
+        show test(b) = false
+        evaluate
+      }
     }
 end

@@ -4,7 +4,7 @@ Goal:
 Advice:
 	To prove this equality, one of these statements might help:
 		definition
-		rewrite
+		replace
 		equations
 
 Givens:

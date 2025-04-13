@@ -1,7 +1,7 @@
 import List
 import Nat
 
-function sum(List<Nat>) -> Nat {
+recursive sum(List<Nat>) -> Nat {
   sum(empty) = 0
   sum(node(n, ns)) = n + sum(ns)
 }
@@ -11,7 +11,7 @@ theorem foldr_eq_sum : all ls : List<Nat>. sum(ls) = foldr(ls, 0, operator+)
 proof
   induction List<Nat>
   case empty {
-    suffices ? by definition sum
+    expand sum
     ?
   }
   case node(a, d) {

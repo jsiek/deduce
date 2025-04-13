@@ -176,17 +176,8 @@ ident: IDENT              -> ident
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "definition" "{" ident_list "}"                   -> reason_definition
-    | "definition" ident_list_bar                       -> reason_definition
-    | "rewrite" proof_list                              -> reason_rewrite
-    | "replace" proof_list                              -> reason_rewrite
-    | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
-    | "definition" "{" ident_list "}" "and" "replace" proof_list -> reason_def_rewrite
-    | "definition" ident_list_bar "and" "rewrite" proof_list -> reason_def_rewrite
     | "definition" ident_list_bar "and" "replace" proof_list -> reason_def_rewrite
-    | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
     | "definition" ident_list_bar "in" proof             -> apply_defs_fact
-    | "rewrite" proof_list "in" proof                    -> rewrite_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
@@ -215,6 +206,9 @@ ident: IDENT              -> ident
     | "assume" ":" term                             -> imp_intro_anon
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
+    | "expand" ident_list_bar                       -> expand
+    | "exchange" proof_list                         -> rewrite_goal
+    | "show" term                                   -> annot_stmt
     | "_definition" "{" ident_list "}"              -> apply_defs_goal
     | "_definition" ident                           -> apply_defs_goal_one
     | "extensionality"                              -> extensionality_proof
@@ -281,10 +275,7 @@ ident: IDENT              -> ident
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?private: "private" statement -> private
-
-?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
- | "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+?rec_function: "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
 ?function: "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
 
@@ -301,17 +292,22 @@ ident: IDENT              -> ident
 
 ?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
 
-?statement: theorem
- | union
+?declaration: union
  | rec_function
  | function
  | gen_rec_fun
  | definition
+
+?access_decl: "private" declaration    -> private_decl
+    | "opaque" declaration             -> opaque_decl
+
+?statement: declaration
+ | access_decl -> add_access
+ | assoc_decl
  | import
  | assert
  | print
- | private
- | assoc_decl
+ | theorem
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

@@ -235,6 +235,13 @@ def flatten_assoc_list(op_name, args):
   return sum([flatten_assoc(op_name, arg) for arg in args], [])
 
 
+@dataclass(kw_only=True)
+class Declaration(AST):
+  isPrivate: bool = False
+  makeOpaque: bool = False
+  file_defined: str = ''
+
+
 ################ Types ######################################
 
 @dataclass
@@ -746,6 +753,11 @@ class Var(Term):
         
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
+        if get_reduce_opaque_errors():
+          for name, filename in env.dict['opaque']:
+            if self.name == name and filename != self.location.filename:
+                error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+
         res = env.get_value_of_term_var(self)
         if res:
           if get_verbose():
@@ -953,6 +965,16 @@ def get_reduce_all():
 def set_reduce_all(b):
   global reduce_all
   reduce_all = b
+
+reduce_opaque_errors = False
+
+def get_reduce_opaque_errors():
+  global reduce_opaque_errors
+  return reduce_opaque_errors
+
+def set_reduce_opaque_errors(b):
+  global reduce_opaque_errors
+  reduce_opaque_errors = b
 
 eval_all = False
 
@@ -1190,7 +1212,7 @@ class Call(Term):
           return self.do_call(loc, vars, body, args, fun.env)
         return self.do_call(loc, vars, body, args, env)
       case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                   body, terminates, isPrivate):
+                   body, terminates):
         return self.do_call(loc, params, body, args, env)
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
@@ -2172,19 +2194,19 @@ class PRecall(Proof):
 @dataclass
 class PAnnot(Proof):
   claim: Formula
-  reason: Proof
+  body: Proof
 
   def pretty_print(self, indent):
       return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
-          + self.reason.pretty_print(indent+2) + '\n' \
+          + self.body.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n'
   
   def __str__(self):
-      return 'conclude ' + str(self.claim) + ' by ' + str(self.reason)
+      return 'conclude ' + str(self.claim) + ' by ' + str(self.body)
 
   def uniquify(self, env):
     self.claim.uniquify(env)
-    self.reason.uniquify(env)
+    self.body.uniquify(env)
 
 @dataclass
 class Suffices(Proof):
@@ -2769,7 +2791,7 @@ class Rewrite(Proof):
   equations: List[Proof]
 
   def __str__(self):
-      return 'rewrite ' + '|'.join([str(eqn) for eqn in self.equations])
+      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations])
 
   def uniquify(self, env):
     for eqn in self.equations:
@@ -2781,7 +2803,7 @@ class RewriteGoal(Proof):
   body: Proof
 
   def __str__(self):
-      return 'rewrite ' + '|'.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \
         + '\n' + str(self.body)
 
   def uniquify(self, env):
@@ -2795,7 +2817,7 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def __str__(self):
-      return 'rewrite ' + ','.join([str(eqn) for eqn in self.equations]) \
+      return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
@@ -2831,7 +2853,7 @@ class Theorem(Statement):
   name: str
   what: Formula
   proof: Proof
-  isLemma: bool
+  isLemma: bool = False
 
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
@@ -2880,11 +2902,10 @@ class Constructor(AST):
   
       
 @dataclass
-class Union(Statement):
+class Union(Declaration):
   name: str
   type_params: List[str]
   alternatives: List[Constructor]
-  isPrivate: bool
 
   def reduce(self, env):
     return self
@@ -2910,18 +2931,26 @@ class Union(Statement):
     if self.isPrivate:
       return
     export_env[base_name(self.name)] = [self.name]
-    for con in self.alternatives:
-      extend(export_env, base_name(con.name), con.name, self.location)
+
+    if not self.makeOpaque:
+      for con in self.alternatives:
+        extend(export_env, base_name(con.name), con.name, self.location)
     
   def substitute(self, sub):
     return self
       
   def pretty_print(self, indent):
-      return indent*' ' + 'union ' + base_name(self.name) \
+      header = 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
-             else '') + ' {\n' \
-        + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
-        + indent*' ' + '}\n'
+             else '')
+      if self.makeOpaque:
+        ret = 'opaque ' + header + '\n'
+      else:
+        ret = header + ' {\n' \
+                     + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
+                     + indent*' ' + '}\n'
+      
+      return indent*' ' + ret
   
   def __str__(self):
     if get_verbose():
@@ -2947,7 +2976,10 @@ class FunCase(AST):
       return str(self.rator) + '(' + str(self.pattern) + ',' + ",".join(self.parameters) \
           + ') = ' + str(self.body)
 
-  def uniquify(self, env):
+  def uniquify(self, env, fun_name):
+    if self.rator.name != fun_name:
+        error(self.rator.location, 'expected function name "' + fun_name + \
+              '", not "' + str(self.rator.name) + '"')
     self.rator.uniquify(env)
     self.pattern.uniquify(env)
     body_env = copy_dict(env)
@@ -2970,15 +3002,15 @@ class FunCase(AST):
     
     
 @dataclass
-class RecFun(Statement):
+class RecFun(Declaration):
   name: str
   type_params: List[str]
   params: List[Type]
   returns: Type
   cases: List[FunCase]
-  isPrivate: bool
 
   def uniquify(self, env):
+    old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
     self.name = new_name
@@ -2995,7 +3027,7 @@ class RecFun(Statement):
     self.returns.uniquify(body_env)
 
     for c in self.cases:
-      c.uniquify(body_env)
+      c.uniquify(body_env, old_name)
     
   def collect_exports(self, export_env):
     if self.isPrivate:
@@ -3016,13 +3048,19 @@ class RecFun(Statement):
       + '\n}'
 
   def pretty_print(self, indent):
-    return indent*' ' + 'recursive ' + complete_name(self.name) \
+    header = 'recursive ' + complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
            else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
-      + ' -> ' + str(self.returns) + '{\n' \
+      + ' -> ' + str(self.returns)
+    if self.makeOpaque:
+      ret = 'opaque ' + header + '\n'
+    else:
+      ret = header + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
       + '}\n'
+
+    return indent*' ' + ret 
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -3053,7 +3091,7 @@ def pretty_print_function(name, type_params, params, body):
         + " {\n" + body.pretty_print(2, True) + "\n}\n"
 
 @dataclass
-class GenRecFun(Statement):
+class GenRecFun(Declaration):
   name: str
   type_params: List[str]
   vars: List[Tuple[str,Type]]
@@ -3062,7 +3100,6 @@ class GenRecFun(Statement):
   measure_ty: Type
   body: Term
   terminates: Proof
-  isPrivate: bool
 
   def uniquify(self, env):
     old_name = self.name
@@ -3115,13 +3152,20 @@ class GenRecFun(Statement):
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
   def pretty_print(self, indent):
-    return indent*' ' + 'recfun ' + complete_name(self.name) \
+    header = 'recfun ' + complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)\
-      + '\n\tmeasure ' + str(self.measure) \
-      + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
+      + '\n\tmeasure ' + str(self.measure)
+    
+    if self.makeOpaque:
+      ret = 'opaque ' + header + '\n'
+    else:
+      ret = header + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
+
+    return indent*' ' + ret
+      
 
   def __eq__(self, other):
     if isinstance(other, Var):
@@ -3142,11 +3186,14 @@ class GenRecFun(Statement):
     return self
 
 @dataclass
-class Define(Statement):
+class Define(Declaration):
   name: str
   typ: Type
   body: Term
-  isPrivate: bool
+
+  # TODO: Define pretty print
+  def pretty_print(self, indent):
+    return ''
 
   def __str__(self):
     if isinstance(self.body, Lambda):
@@ -3162,7 +3209,10 @@ class Define(Statement):
         return 'define ' + complete_name(self.name) \
             + (' : ' + str(self.typ) if self.typ else '') \
             + ' = ' + self.body.pretty_print(4, False) + '\n'
-  
+    
+  def pretty_print(self, indent):
+      return str(self)
+    
   def uniquify(self, env):
     if self.typ:
       self.typ.uniquify(env)
@@ -3176,7 +3226,7 @@ class Define(Statement):
     if self.isPrivate:
       return
     extend(export_env, base_name(self.name), self.name, self.location)
-    
+
 uniquified_modules = {}
 
 def get_uniquified_modules():
@@ -3392,7 +3442,7 @@ def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):
       match binding.defn:
-        case Union(loc2, name, typarams, alts, isPrivate):
+        case Union(loc2, name, typarams, alts):
           for constr in alts:
             if constr.name == constr_name:
               return True
@@ -3587,12 +3637,17 @@ class Env:
     new_env.dict[name] = TypeBinding(loc, defn)
     return new_env
   
-  def declare_term_var(self, loc, name, typ, local = False):
+  def declare_term_var(self, loc, name, typ, local = False, opaque = False, filename=''):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
     new_env.dict[name] = TermBinding(loc, typ)
     new_env.dict[name].local = local
+
+    if opaque:
+      new_env.dict['opaque'].append((name, filename))
+
+    
     return new_env
 
   def declare_assoc(self, loc, opname, typarams, typ):
@@ -3635,6 +3690,7 @@ class Env:
     new_env = Env(self.dict)
     new_env.dict[name] = ProofBinding(loc, frm, True)
     return new_env
+
   
   def _def_of_type_var(self, curr, name):
     if name in curr.keys():
@@ -3764,7 +3820,8 @@ class Env:
   def proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
-  
+
+
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
@@ -3772,7 +3829,7 @@ def print_theorems(filename, ast):
   for s in ast:
     if isinstance(s, Theorem) and not s.isLemma:
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
-    elif hasattr(s, 'isPrivate') and not s.isPrivate:
+    elif isinstance(s, Declaration) and not s.isPrivate:
       to_print.append(s.pretty_print(0))
   
   if len(to_print) == 0:

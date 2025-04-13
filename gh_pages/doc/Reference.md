@@ -89,7 +89,7 @@ theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = y + x + z by rewrite add_commute[x,y]
+    x + y + z = y + x + z by exchange add_commute[x,y].
           ... = z + y + x by add_commute[y+x,z]
 end
 ```
@@ -129,8 +129,8 @@ Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 ```{.deduce^#and_example_intro}
 theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
 proof
-  have eq1: 1 = 0 + 1 by definition operator+
-  have eq2: 0 = 0 + 0 by definition operator+
+  have eq1: 1 = 0 + 1 by expand operator+.
+  have eq2: 0 = 0 + 0 by expand operator+.
   conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
 end
 ```
@@ -268,7 +268,7 @@ theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
   assume prem: x = y
-  conclude 1 + x = 1 + y  by rewrite prem
+  conclude 1 + x = 1 + y  by exchange prem.
 end
 ```
 
@@ -355,7 +355,7 @@ case x_l_y: x < y {
 }
 case x_eq_y: x = y {
   have x_le_y: x ≤ y by
-      suffices y ≤ y  by rewrite x_eq_y
+      suffices y ≤ y  by exchange x_eq_y.
       less_equal_refl[y]
   conclude x ≤ y or y < x by x_le_y
 }
@@ -439,7 +439,7 @@ Example:
 ```{.deduce^#conclude_example}
 theorem conclude_example: 1 + 1 = 2
 proof
-  conclude 1 + 1 = 2 by definition {operator+,operator+}
+  conclude 1 + 1 = 2 by expand 2* operator+.
 end
 ```
 
@@ -455,7 +455,6 @@ must be one of the following:
 * [Definition](#definition-proof)
 * [Definition-In](#definition-in-proof)
 * [Definition and Replace](#definition-and-replace-proof)
-* [Definition and Rewrite](#definition-and-rewrite-proof)
 * [Equations](#equations)
 * [Evaluate](#evaluate-proof)
 * [Evaluate-In](#evaluate-in-proof)
@@ -467,7 +466,6 @@ must be one of the following:
 * [Question Mark](#question-mark-proof)
 * [Recall](#recall-proof)
 * [Replace](#replace-proof)
-* [Rewrite](#rewrite-proof)
 * [Sorry](#sorry-proof)
 * [Switch](#switch-proof)
 * [Symmetric](#symmetric-proof)
@@ -583,9 +581,8 @@ theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x 
 proof
   arbitrary x:Nat
   define y = x + x + x
-  suffices y + y + 0 = y + y
-    by definition 3* operator*
-  rewrite add_zero[y]
+  suffices y + y + 0 = y + y  by expand 3* operator*.
+  exchange add_zero[y].
 end
 ```
 
@@ -606,36 +603,24 @@ formula, Deduce signals an error.
 ```{.deduce^#definition_example}
 theorem length_list2: length([0,1]) = 2
 proof
-  suffices 1 + length([1]) = 2
-      by definition length
-  suffices 1 + (1 + 0) = 2
-      by definition 2*length
+  expand length
+  show 1 + length([1]) = 2
+  expand 2*length
+  show 1 + (1 + 0) = 2
   evaluate
 end
 ```
 
 ## Definition and Replace (Proof)
 
-(This feature was added in Deduce version 1.1.)
-
 ```
 conclusion ::= "definition" "{" identifier_list "}" "and" "replace" proof_list
 conclusion ::= "definition" identifier_list_bar "and" "replace" proof_list       // added in version 1.2
 ```
 
-An alternative syntax for [Definition and Rewrite](#definition-and-rewrite-proof).
-
-
-## Definition and Rewrite (Proof)
-
-```
-conclusion ::= "definition" "{" identifier_list "}" "and" "rewrite" proof_list
-conclusion ::= "definition" identifier_list_bar "and" "rewrite" proof_list       // added in version 1.2
-```
-
 Apply the specified definitions to the current goal
-(see [Definition (Proof)](#definition-proof)), then the specified rewrites
-(see [Rewrite (Proof)](#rewrite-proof)).  If this simplifies that formula
+(see [Definition (Proof)](#definition-proof)), then the specified replacements
+(see [Replace (Proof)](#replace-proof)).  If this simplifies that formula
 to `true`, then this statement proves the goal.  Otherwise, Deduce
 signals an error.
 
@@ -746,9 +731,9 @@ theorem equations_example: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by replace add_commute[y]
-          ... = #z + x# + y    by replace add_commute
-          ... = z + y + x      by replace add_commute[x]
+    x + y + z = x + z + y      by exchange add_commute[y].
+          ... = #z + x# + y    by exchange add_commute.
+          ... = z + y + x      by exchange add_commute[x].
 end
 ```
 
@@ -763,8 +748,8 @@ theorem equations_def_example: all x:Nat, y:Nat, xs:List<Nat>.
 proof
   arbitrary x:Nat, y:Nat, xs:List<Nat>
   equations
-    length(node(x,xs)) = 1 + length(xs)         by definition length
-                   ... = # length(node(y,xs)) # by definition length
+    length(node(x,xs)) = 1 + length(xs)         by expand length.
+                   ... = # length(node(y,xs)) # by expand length.
 end
 ```
 
@@ -804,7 +789,7 @@ theorem extensionality_example: inc = suc
 proof
   extensionality
   arbitrary x:Nat
-  conclude inc(x) = suc(x) by definition {inc, pred}
+  conclude inc(x) = suc(x) by expand inc | pred.
 end
 ```
 
@@ -860,8 +845,6 @@ To add type parameters to a function (to make it generic), see
 
 ## Fun (Statement)
 
-(This feature was added in Deduce version 1.1.)
-
 ```
 statement ::= "fun" ident type_params_opt "(" var_list ")" "{" term "}"
 ```
@@ -872,27 +855,13 @@ the type parameters enclosed in `<` and `>` (if generic),
 then the parameter list enclosed in `(` and `)`, and finally
 the body of the function enclosed in `{` and `}`.
 
-```{.deduce^#fun_exchange_example}
-fun exchange(p : Pair<Nat,Nat>) {
+```{.deduce^#fun_interchange_example}
+fun interchange(p : Pair<Nat,Nat>) {
   pair(second(p), first(p))
 }
 
-assert exchange(pair(1,2)) = pair(2,1)
+assert interchange(pair(1,2)) = pair(2,1)
 ```
-
-## Function (Statement)
-
-```
-statement ::= "function" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
-fun_case ::= identifier "(" pattern_list ")" "=" term
-```
-
-Alternate syntax in version 1.1 starts with `recursive` keyword:
-```
-statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
-```
-
-See [Recursive Function (Statement)](#recursive-function-statement)
 
 ## Function Type
 
@@ -1196,12 +1165,12 @@ theorem induction_example: all n:Nat.
 proof
   induction Nat
   case 0 {
-    conclude 0 + 0 = 0   by definition operator+
+    conclude 0 + 0 = 0   by expand operator+.
   }
   case suc(n') assume IH: n' + 0 = n' {
     equations
-      suc(n') + 0 = suc(n' + 0)  by definition operator+
-              ... = suc(n')      by replace IH
+      suc(n') + 0 = suc(n' + 0)  by expand operator+.
+              ... = suc(n')      by exchange IH.
   }
 end
 ```
@@ -1249,7 +1218,7 @@ theorem instantiate_proof_example: length(node(42, empty)) = 1
 proof
   have X: all T:type. all x:T. length(node(x, empty)) = 1 by {
     arbitrary T:type arbitrary x:T
-    definition {length, length, operator+, operator+}
+    expand 2* length | 2* operator+.
   }
   conclude length(node(42, empty)) = 1
     by X<Nat>[42]
@@ -1395,11 +1364,11 @@ proof
   arbitrary x:Nat
   assume: x = 1
   equations
-    #x# + x + x = 1 + x + x   by replace recall x = 1
-  $ 1 + #x# + x = 1 + 1 + x   by replace recall x = 1
-  $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
-            ... = 1 + #x# + 1 by replace recall x = 1
-            ... = 1 + 1 + 1   by replace recall x = 1
+    #x# + x + x = 1 + x + x   by exchange recall x = 1.
+  $ 1 + #x# + x = 1 + 1 + x   by exchange recall x = 1.
+  $ 1 + 1 + #x# = 1 + 1 + 1   by exchange recall x = 1.
+            ... = 1 + #x# + 1 by exchange recall x = 1.
+            ... = 1 + 1 + 1   by exchange recall x = 1.
             ... = 3           by evaluate
 end
 ```
@@ -1629,7 +1598,7 @@ proof_list ::= proof "|" proof_list
 ```
 
 A list of proofs separated by vertical bars. This syntax is used
-in [Rewrite (Proof)](#rewrite-proof).
+in [Replace (Proof)](#replace-proof).
 
 ## Proof Statement
 
@@ -1693,9 +1662,6 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 
 ## Recursive Function (Statement)
 
-(The `recursive` keyword was added in Deduce version 1.1
-as a replacement for `function`.)
-
 ```
 statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
@@ -1757,15 +1723,7 @@ The proof `reflexive` proves that `a = a` for any term `a`.
 conclusion ::= "replace" proof_list
 ```
 
-An alternative syntax for [Rewrite](#rewrite-proof).
-
-## Rewrite (Proof)
-
-```
-conclusion ::= "rewrite" proof_list
-```
-
-Rewrite the current goal formula according to the equalities proved by
+Change the current goal formula according to the equalities proved by
 the specified [Proof List](#proof-list). Each equality may be a
 literal equality (has the form `LHS = RHS`) or it can be a generalized
 equality (has the form `all x1:T1,...,xn:Tn. LHS = RHS`).
@@ -1778,51 +1736,39 @@ subterm is not rewritten further by the same equality. On the other
 hand, rewriting with an equality may apply to multiple disjoint
 locations in a formula.
 
-If the rewriting done by all of the equalities simplifies the goal
-formula to `true`, then this statement proves the goal.  Otherwise,
-Deduce signals an error.
+If these changes simplify the goal formula to `true`, then this statement
+proves the goal.  Otherwise, Deduce signals an error.
 
-```{.deduce^#rewrite_example}
-theorem rewrite_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
+```{.deduce^#replace_example}
+theorem replace_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
   assume prem: x = y
-  suffices 1 + y = 1 + y by rewrite prem
+  suffices 1 + y = 1 + y by exchange prem.
   .
 end
 ```
 
 ## Replace-In (Proof)
 
-(This feature was added in Deduce version 1.1.)
-
 ```
 conclusion ::= "replace" proof_list "in" proof
 ```
-An alternative syntax for [Rewrite-In](#rewrite-in-proof).
 
-
-
-## Rewrite-In (Proof)
-
-```
-conclusion ::= "rewrite" proof_list "in" proof
-```
-
-In the formula of the given proof, rewrite according to the equalities
+In the formula of the given proof, replace according to the equalities
 proved by the specified [Proof List](#proof-list), resulting in the
-formula that is proved by this `rewrite`-`in` statement. 
+formula that is proved by this `replace`-`in` statement. 
 The algorithm for rewriting described in the entry for
-[Rewrite (Proof)](#rewrite-proof).
+[Replace (Proof)](#replace-proof).
 
-```{.deduce^#rewrite_in_example}
-theorem rewrite_in_example: all x:Nat, y:Nat.
+```{.deduce^#replace_in_example}
+theorem replace_in_example: all x:Nat, y:Nat.
   if x < y then not (x = y)
 proof
   arbitrary x:Nat, y:Nat
   assume: x < y
   assume: x = y
-  have: y < y by rewrite (recall x = y) in (recall x < y)
+  have: y < y by replace (recall x = y) in (recall x < y)
   conclude false by apply less_irreflexive[y] to (recall y < y)
 end
 ```
@@ -1882,12 +1828,12 @@ define F = single(1) ∪ single(2)
 
 theorem subset_example: E ⊆ F
 proof
-  suffices all x:Nat. if x ∈ E then x ∈ F  by definition operator ⊆
+  suffices all x:Nat. if x ∈ E then x ∈ F  by expand operator ⊆.
   arbitrary x:Nat
   assume: x ∈ E
-  have: 1 = x       by definition {E, operator∈, single, rep} in recall (x ∈ E)
-  suffices 1 ∈ F    by rewrite symmetric (recall 1 = x)
-  definition {F, operator∈, single, operator ∪, rep}
+  have: 1 = x       by definition E | operator∈ | single | rep in recall (x ∈ E)
+  suffices 1 ∈ F    by exchange symmetric (recall 1 = x).
+  expand F | operator∈ | single | operator ∪ | rep.
 end
 ```
 
@@ -1965,7 +1911,7 @@ We then prove the new goal with theorem `add_zero` from `Nat.thm`.
 theorem suffices_example:
   length(node(3, empty)) = 1
 proof
-  suffices 1 + 0 = 1  by definition {length, length}
+  suffices 1 + 0 = 1  by expand 2*length.
   add_zero
 end
 ```
@@ -1981,8 +1927,7 @@ Example:
 theorem length__nat_one': all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
-  suffices __
-      by definition {length, length}
+  expand 2*length
   add_zero[1]
 end
 ```
@@ -2061,7 +2006,7 @@ proof
     }
     case suc(x') assume xs: x = suc(x') {
       have z_l_sx: 0 < suc(x')
-          by definition {operator <, operator ≤, operator ≤}
+          by expand operator < | 2* operator ≤.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }
@@ -2081,8 +2026,8 @@ for any terms `a` and `b`.
 ## Theorem (Statement)
 
 ```
-statement ::= "theorem" IDENT ":" term "proof" proof "end"
-            |   "lemma" IDENT ":" term "proof" proof "end"
+statement ::= "theorem" IDENT ":" formula "proof" proof "end"
+            | "lemma" IDENT ":" formula "proof" proof "end"
 ```
 
 A theorem (or lemma) proves that a formula is true. The theorem's name
@@ -2282,15 +2227,15 @@ import Pair
 <<or_example_intro1>>
 <<or_example_intro2>>
 <<print_example>>
-<<rewrite_example>>
-<<rewrite_in_example>>
+<<replace_example>>
+<<replace_in_example>>
 <<switch_example>>
 <<switch_proof_example>>
 <<subset_example>>
 <<suffices_example>>
 <<true_example>>
 <<union_example>>
-<<fun_exchange_example>>
+<<fun_interchange_example>>
 <<generic_fun_example>>
 ```
 -->

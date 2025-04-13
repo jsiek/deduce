@@ -6,10 +6,11 @@ theorem empty_iff_0: all E:type. all l:List<E>.
 proof
   arbitrary E:type
   arbitrary l : List<E>
-  have s1 : if l = empty then length(l) = 0
-    by suppose prem
-      suffices length(@empty<E>) = 0 by rewrite prem
-      definition length
+  have s1 : if l = empty then length(l) = 0 by {
+    suppose prem
+    suffices length(@empty<E>) = 0 by exchange prem.
+    expand length.
+  }
   have s2 : if length(l) = 0 then l = empty
     by switch l {
       case empty { . }
@@ -27,9 +28,10 @@ end
 theorem len_rev_empty_zero: all E:type.
     length(reverse(@empty<E>)) = 0
 proof
-    suffices (all E:type. length(@empty<E>) = 0) by definition reverse
+    suffices (all E:type. length(@empty<E>) = 0) by expand reverse.
     arbitrary E : type
-    have step: length(@empty<E>) = 0 <=> @empty<E> = @empty<E> by empty_iff_0<E>[@empty<E>]
+    have step: length(@empty<E>) = 0 <=> @empty<E> = @empty<E>
+      by empty_iff_0<E>[@empty<E>]
     have ee: @empty<E> = @empty<E> by .
     apply step to ee
 end

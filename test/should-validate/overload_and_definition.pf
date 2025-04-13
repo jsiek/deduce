@@ -9,10 +9,10 @@ assert not f(b)
 
 theorem f_true : f(a)
 proof
-  definition f
+  expand f.
 end
 
 theorem f_false : not f(b)
 proof
-  definition f
+  expand f.
 end

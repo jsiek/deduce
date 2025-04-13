@@ -1,0 +1,3 @@
+./test/should-error/opaque_union_use_in_theorem.pf:3.14-3.18: undefined variable: cero
+	did you intend: zero
+

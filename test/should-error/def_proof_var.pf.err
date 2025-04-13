@@ -1,2 +1,2 @@
-./test/should-error/def_proof_var.pf:8.3-8.16: Expected a term or a type variable when attempting to use the definition of L1.
+./test/should-error/def_proof_var.pf:8.3-8.12: Expected a term or a type variable when attempting to use the definition of L1.
 	If L1 is a theorem or a lemma, you might want to use 'replace'

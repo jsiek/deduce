@@ -1,7 +1,7 @@
 import Nat
 import List
 
-function length2<E>(List<E>) -> Nat {
+recursive length2<E>(List<E>) -> Nat {
   length2([]) = 0
   length2(node(n, next)) = 1 + length2(next)
 }

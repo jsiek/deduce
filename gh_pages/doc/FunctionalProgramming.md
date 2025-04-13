@@ -109,7 +109,7 @@ define NL12 = Node(1, Node(2, Empty))
 Unions may be recursive: a constructor may include a parameter type
 that is the union type, e.g., the `NatList` parameter of `Node`. 
 
-### Generic Unions
+## Generic Unions
 
 Unions may be generic: one can parameterize a union
 with one or more type parameters. For example, we generalize linked
@@ -141,7 +141,7 @@ about them. Deduce provides shorthand notation for lists where:
 - `[1, 2]` is shorthand for `node(1, node(2, empty))`
 - etc.
 
-### Switch
+## Switch
 
 You can branch on a value of union type using `switch`. For example,
 the following `front` function returns the first element of a `NatList`. Here
@@ -292,8 +292,9 @@ recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
 
 ## Generic Functions
 
-Deduce supports generic functions, so we can generalize `length` to
-work on lists with any element type as follows.
+Deduce supports generic functions, both recursive and non-recursive.
+For example, we can generalize the recursive `length` to work on lists
+with any element type as follows.
 
 ```{.deduce^#length}
 recursive length<E>(List<E>) -> Nat {
@@ -302,8 +303,8 @@ recursive length<E>(List<E>) -> Nat {
 }
 ```
 
-Generic functions that are not recursive can be defined using a
-combination of `define`, `generic`, and `fun`.
+The following `head` function is an example of a generic non-recursive
+function.
 
 ```{.deduce^#head}
 fun head<T>(ls: List<T>) {
@@ -314,10 +315,7 @@ fun head<T>(ls: List<T>) {
 }
 ```
 
-The type of a generic function, such as `head`, starts with its
-type parameters surrounded by `<` and `>`.
-
-Calling a generic function is just like calling a normal funtion,
+Calling a generic function is just like calling a normal function,
 most of the time. For example, the following invokes the
 generic `length` function on an argument of type `List<Nat>`
 and Deduce figures out that the type parameter `E` must be `Nat`.
@@ -426,7 +424,7 @@ assert remove_if(L13, fun x {x ≤ 1}) = [2, 3]
 ### Non-empty Lists and Average
 
 Define a `union` type named `NEList` for non-empty list.  Design the
-alternatives in the `union` carefuly to make it impossible to create
+alternatives in the `union` carefully to make it impossible to create
 an empty list.
 
 Define a function named `average` that computes the mean of a
