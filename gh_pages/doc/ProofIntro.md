@@ -27,6 +27,8 @@ examples of their use.
 
 ## Applying Definitions to the Goal
 
+[UPDATE THIS SECTION, REPLACING DEFINITION WITH EXPAND]
+
 We begin with a simple example, proving that the length of an empty
 list is `0`. Of course, this is a direct consequence of the definition
 of `length`, so this first example is about how to use definitions.
@@ -54,13 +56,13 @@ to remind us of what is left to prove.
     incomplete proof:
         length([]) = 0
 
-To tell Deduce to apply the definition of `length`, we can use
-the `definition` statement.
+To tell Deduce to expand the definition of `length`, we can use
+the `expand` statement.
 
 ```{.deduce^#length_nat_empty}
 theorem length_nat_empty: length(@[]<Nat>) = 0
 proof
-  definition length
+  expand length.
 end
 ```
 
@@ -69,7 +71,7 @@ Deduce expanded the definition of `length` in the goal, changing
 `length([])` matches the first clause in the definition of `length`
 and then replaced it with the right-hand side of the first
 clause. Deduce then simplified `0 = 0` to `true` and therefore
-accepted the `definition` statement. In general, whenever Deduce sees
+accepted the `expand` statement. In general, whenever Deduce sees
 an equality with the same left and right-hand side, it automatically
 simplifies it to `true`.
 
@@ -81,7 +83,7 @@ we might try using the definition of `length`.
 
     theorem length_node42: length([42]) = 1
     proof
-      definition length
+      expand length.
     end
 
 Deduce responds with
@@ -146,8 +148,8 @@ section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
 ```{.deduce^#length_node42}
 theorem length_node42: length([42]) = 1
 proof
-  suffices 1 + 0 = 1
-      by definition length | length
+  expand length | length
+  show 1 + 0 = 1
   add_zero[1]
 end
 ```
@@ -214,8 +216,8 @@ before, using the definitions of `length` and the `add_zero` theorem.
 theorem length_nat_one: all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
-  suffices 1 + 0 = 1
-      by definition length | length
+  expand 2* length
+  show 1 + 0 = 1
   add_zero[1]
 end
 ```
@@ -245,8 +247,8 @@ theorem list_length_one: all U:type. all x:U. length([x]) = 1
 proof
   arbitrary U:type
   arbitrary x:U
-  suffices 1 + 0 = 1
-      by definition length | length
+  expand 2* length
+  show 1 + 0 = 1
   add_zero[1]
 end
 ```
@@ -308,7 +310,7 @@ Note that we use `<` and `>` when instantiating a type parameter
 and we use `[` and `]` when instantiating a term parameter.
 
 ```
-replace list_length_one<U>[x]
+exchange list_length_one<U>[x]
 ```
 
 Deduce tells us that the current goal has become
@@ -322,7 +324,7 @@ We `replace` again, separated by a vertical bar, using `list_length_one`,
 this time instantiated with `y`.
 
 ```
-replace list_length_one<U>[x] | list_length_one<U>[y]
+exchange list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
 Deduce changes the goal to `1 = 1`, which simplifies to just `true`,
@@ -337,7 +339,7 @@ theorem list_length_one_equal: all U:type. all x:U, y:U.
 proof
   arbitrary U:type
   arbitrary x:U, y:U
-  replace list_length_one<U>[x] | list_length_one<U>[y]
+  exchange list_length_one<U>[x] | list_length_one<U>[y].
 end
 ```
 
@@ -374,7 +376,7 @@ recursive operator +(Nat,Nat) -> Nat {
 }
 ```
 
-Recall that we can use Deduce's `definition` statement whenever we
+Recall that we can use Deduce's `expand` statement whenever we
 want to change the goal according to the equations for addition. Here
 are the two defining equations, but written with infix notation:
 
@@ -439,7 +441,7 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by replace add_commute[y,z]
+    by exchange add_commute[y,z].
   ?
 end
 ```
@@ -460,9 +462,9 @@ step in the reasoning.
 
 ```
   have step2: x + z + y = z + x + y
-    by replace add_commute[z,x]
+    by exchange add_commute[z,x].
   have step3: z + x + y = z + y + x
-    by replace add_commute[x,y]
+    by exchange add_commute[x,y].
 ```
 
 We finish the proof by connecting them all together using Deduce's
@@ -485,11 +487,11 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by replace add_commute[y,z]
+    by exchange add_commute[y,z].
   have step2: x + z + y = z + x + y
-    by replace add_commute[z,x]
+    by exchange add_commute[z,x].
   have step3: z + x + y = z + y + x
-    by replace add_commute[x,y]
+    by exchange add_commute[x,y].
   transitive step1 (transitive step2 step3)
 end
 ```
@@ -521,7 +523,7 @@ error from Deduce will tell us what it needs to be.
 
 ```
   equations
-    x + y + z = ?              by replace add_commute[y,z]
+    x + y + z = ?              by exchange add_commute[y,z].
           ... = z + y + x      by ?
 ```
 
@@ -542,9 +544,9 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y    by replace add_commute[y,z]
-          ... = z + x + y    by replace symmetric add_commute[z,x]
-          ... = z + y + x    by replace add_commute[x,y]
+    x + y + z = x + z + y    by exchange add_commute[y,z].
+          ... = z + x + y    by exchange symmetric add_commute[z,x].
+          ... = z + y + x    by exchange add_commute[x,y].
 end
 ```
 
@@ -621,14 +623,14 @@ need to prove the following.
 This follows directly from the definition of append.
 
     case empty {
-      definition operator++
+      expand operator++.
     }
 
 However, to make the proof more readable by other humans, I recommend
 restating the goal using the `conclude` statement.
 
     case empty {
-      conclude @[]<U> ++ [] = []  by definition operator++
+      conclude @[]<U> ++ [] = []  by expand operator++.
     }
 
 Next let us focus on the case for `node`. Deduce tells us that we need
@@ -651,7 +653,7 @@ the equation.
     case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
-            = ?                       by definition operator++
+            = ?                       by expand operator++.
         ... = node(n,xs')             by ?
     }
 
@@ -667,8 +669,8 @@ replace the `?`.
     case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
-            = node(n, xs' ++ [])   by definition operator++
-        ... = node(n,xs')             by ?
+            = node(n, xs' ++ [])   by expand operator++.
+        ... = node(n,xs')          by ?
     }
 
 Next, we see that the subterm `xs' ++ []` matches the
@@ -678,8 +680,8 @@ right-hand side of the induction hypothesis `IH`. We use the
     case node(n, xs') assume IH: xs' ++ [] = xs' {
       equations
         node(n,xs') ++ []
-            = node(n, xs' ++ [])   by definition operator++
-        ... = node(n,xs')             by replace IH
+            = node(n, xs' ++ [])   by expand operator++.
+        ... = node(n,xs')          by exchange IH.
     }
 
 Here is the completed proof of `list_append_empty`.
@@ -692,13 +694,13 @@ proof
   arbitrary U:type
   induction List<U>
   case empty {
-    conclude @[]<U> ++ [] = []  by definition operator++
+    conclude @[]<U> ++ [] = []  by expand operator++.
   }
   case node(n, xs') assume IH: xs' ++ [] = xs' {
     equations
       node(n,xs') ++ []
-          = node(n, xs' ++ [])   by definition operator++
-      ... = node(n,xs')             by replace IH
+          = node(n, xs' ++ [])     by expand operator++.
+      ... = node(n,xs')            by exchange IH.
   }
 end
 ```
@@ -733,8 +735,8 @@ using the comma operator to combine those proofs: `one_pos, two_pos`.
 ```{.deduce^#pos_1_and_2}
 theorem pos_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
-  have one_pos: 0 ≤ 1 by definition operator ≤
-  have two_pos: 0 ≤ 2 by definition operator ≤
+  have one_pos: 0 ≤ 1 by expand operator ≤.
+  have two_pos: 0 ≤ 2 by expand operator ≤.
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 ```
@@ -820,7 +822,7 @@ reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
       have x_le_y: x ≤ y by
-          suffices y ≤ y  by replace x_eq_y
+          suffices y ≤ y  by exchange x_eq_y.
           less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
@@ -847,7 +849,7 @@ proof
   }
   case x_eq_y: x = y {
     have x_le_y: x ≤ y by
-        suffices y ≤ y  by replace x_eq_y
+        suffices y ≤ y  by exchange x_eq_y.
         less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
@@ -912,7 +914,7 @@ There's no hope of proving `false`, so we better prove `0 < suc(x')`.
 Thankfully that follows from the definitions of `<` and `≤`.
 
     case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by definition operator < | operator ≤
+      have z_l_sx: 0 < suc(x') by expand operator < | operator ≤.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
 
@@ -929,7 +931,7 @@ proof
       conclude true or 0 < 0 by .
     }
     case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by definition operator < | 2* operator ≤
+      have z_l_sx: 0 < suc(x') by expand operator < | 2* operator ≤.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }
@@ -981,7 +983,7 @@ proof
   switch x ≤ y {
     case true assume x_le_y_true {
       suffices x ≤ y  by definition max' and replace x_le_y_true
-      replace x_le_y_true
+      exchange x_le_y_true.
     }
     case false assume x_le_y_false {
       suffices x ≤ x  by definition max' and replace x_le_y_false
@@ -1483,7 +1485,7 @@ We still need to prove the following:
 
 So we use the definition of `Even` in a `suffices` statement
 
-    suffices some m:Nat. x + y = 2 * m  by definition Even
+    suffices some m:Nat. x + y = 2 * m  by expand Even.
     ?
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
@@ -1494,7 +1496,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b
+    suffices 2 * a + 2 * b = 2 * (a + b)  by exchange x_2a | y_2b.
     symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1511,9 +1513,9 @@ proof
   have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  suffices some m:Nat. x + y = 2 * m  by definition Even
+  suffices some m:Nat. x + y = 2 * m  by expand Even.
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b
+  suffices 2 * a + 2 * b = 2 * (a + b)  by exchange x_2a | y_2b.
   symmetric dist_mult_add[2][a,b]
 end
 ```
@@ -1536,7 +1538,7 @@ To summarize this section:
 theorem append_12: 
   node(1,empty) ++ node(2, empty) = node(1, node(2, empty))
 proof
-  definition 2* operator++
+  expand 2* operator++.
 end
 
 <<length_nat_one>>

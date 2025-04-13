@@ -27,11 +27,11 @@ proof
       choose true
       switch B {
         case true assume prop_t {
-          definition True
+          expand True.
         }
         case false assume prop_f {
           have prop_t : true by .
-          suffices __ by definition True
+          expand True
           prop_t
         }
       }

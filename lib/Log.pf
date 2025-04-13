@@ -18,7 +18,7 @@ proof
     arbitrary n:Nat, l:Nat
     suppose n_le_pl: n ≤ pow2(l)
     suffices n ≤ pow2(l)
-        by definition find_log | operator+
+        by expand find_log | operator+.
     n_le_pl
   }
   case suc(m') suppose IH {
@@ -27,7 +27,7 @@ proof
     switch pow2(l) < suc(n) for find_log {
       case true {
         have sn_le_spl: suc(n) ≤ suc(pow2(l)) by {
-          suffices n ≤ pow2(l) by definition operator ≤
+          suffices n ≤ pow2(l) by expand operator ≤.
           prem
         }
         obtain p where pl_sp: pow2(l) = suc(p) from
@@ -48,7 +48,7 @@ proof
           by apply IH[suc(n),suc(l)] to sn_le_psl
         conclude suc(m') + n ≤ pow2(find_log(m',suc(n),suc(l))) by {
           suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), suc(l)))
-            by definition operator+
+            by expand operator+.
           replace add_suc[m'][n] in IH'
         }
       }
@@ -63,7 +63,7 @@ proof
           by apply IH[suc(n), l] to sn_le_pl
         conclude suc(m') + n ≤ pow2(find_log(m',suc(n),l)) by {
           suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), l))
-            by definition operator +
+            by expand operator +.
           replace add_suc[m'][n] in IH'
         }
       }
@@ -77,7 +77,7 @@ theorem less_equal_pow_log: all n:Nat.
   n ≤ pow2(log(n))
 proof
   arbitrary n:Nat
-  suffices n ≤ pow2(find_log(n, 0, 0)) by definition log
+  suffices n ≤ pow2(find_log(n, 0, 0)) by expand log.
   have f1: n + 0 ≤ pow2(find_log(n, 0, 0))
     by apply add_less_equal_pow_find_log[n][0,0] to
        apply less_implies_less_equal[ 0 ][pow2(0)] to pow_positive[ 0 ]

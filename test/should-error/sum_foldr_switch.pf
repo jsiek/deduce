@@ -12,7 +12,7 @@ proof
   arbitrary ls : List<Nat>
   switch ls {
     case empty {
-      suffices ? by definition sum
+      expand sum
       ?
     }
     case node(a, d) {

@@ -16,7 +16,7 @@ assert f_id(zero(Z)) = zero(Z)
 
 theorem f_id_correct : all b:Byte. f_id(b) = b
 proof 
-    definition f_id
+    expand f_id.
 end
 
 // Testing recursive functions
@@ -37,13 +37,13 @@ proof
         evaluate
     }
     case one(b) suppose IH {
-        suffices __ by definition f_z
-        suffices __ by replace IH
+        expand f_z
+        exchange IH
         evaluate
     }
     case zero(b) suppose IH {
-        suffices __ by definition f_z
-        suffices __ by replace IH
+        expand f_z
+        exchange IH
         evaluate
     }
 end
@@ -63,7 +63,7 @@ terminates {
     }
     case suc(n') assume IH {
         assume prem: suc(n') /= 0
-        suffices __ by replace pred_suc_n
+        exchange pred_suc_n
         suffices __ by evaluate
         less_equal_refl
     }

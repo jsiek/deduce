@@ -6,7 +6,7 @@ define bigO : fn (fn Nat -> Nat), (fn Nat -> Nat) -> bool =
 theorem n_big_o_n2 : bigO(fun x { x }, fun x { x * x })
 proof
   suffices (all x:Nat. some k:Nat,c:Nat. (if x ≥ k then x ≤ c * (x * x)))
-    by definition bigO
+    by expand bigO.
   arbitrary x : Nat
   choose 1, 1
   suffices if x ≥ 1 then x ≤ x * x 

@@ -8,13 +8,13 @@ proof
   induction Nat
   case 0 {
     arbitrary xs : List<T>
-    suffices length(xs) = length(xs) - 0  by definition drop
-    replace sub_zero[length(xs)]
+    suffices length(xs) = length(xs) - 0  by expand drop.
+    exchange sub_zero[length(xs)].
   }
   case suc(n') assume IH {
     arbitrary xs : List<T>
     // Make sure TermInst is explicit around the empty list.
-    suffices ? by definition drop
+    expand drop
     ?
   }
 end

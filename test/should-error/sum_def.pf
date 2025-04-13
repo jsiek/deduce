@@ -11,7 +11,7 @@ all ls : List<Nat>. sum(ls) = sum(reverse(ls))
 proof
   induction List<Nat>
   case [] {
-    suffices ? by definition sum
+    expand sum
     ?
   }
   case node(x, ls) suppose IH {

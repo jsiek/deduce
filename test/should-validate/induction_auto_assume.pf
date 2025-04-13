@@ -6,6 +6,6 @@ proof
     case 0 { evaluate }
     case suc(n') {
         suffices suc(n' + 0) = suc(n') by evaluate
-        replace recall n' + 0 = n'
+        exchange recall n' + 0 = n'.
     }
 end

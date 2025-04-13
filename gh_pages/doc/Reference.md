@@ -89,7 +89,7 @@ theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = y + x + z by replace add_commute[x,y]
+    x + y + z = y + x + z by exchange add_commute[x,y].
           ... = z + y + x by add_commute[y+x,z]
 end
 ```
@@ -129,8 +129,8 @@ Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 ```{.deduce^#and_example_intro}
 theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
 proof
-  have eq1: 1 = 0 + 1 by definition operator+
-  have eq2: 0 = 0 + 0 by definition operator+
+  have eq1: 1 = 0 + 1 by expand operator+.
+  have eq2: 0 = 0 + 0 by expand operator+.
   conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
 end
 ```
@@ -268,7 +268,7 @@ theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
   assume prem: x = y
-  conclude 1 + x = 1 + y  by replace prem
+  conclude 1 + x = 1 + y  by exchange prem.
 end
 ```
 
@@ -355,7 +355,7 @@ case x_l_y: x < y {
 }
 case x_eq_y: x = y {
   have x_le_y: x ≤ y by
-      suffices y ≤ y  by replace x_eq_y
+      suffices y ≤ y  by exchange x_eq_y.
       less_equal_refl[y]
   conclude x ≤ y or y < x by x_le_y
 }
@@ -439,7 +439,7 @@ Example:
 ```{.deduce^#conclude_example}
 theorem conclude_example: 1 + 1 = 2
 proof
-  conclude 1 + 1 = 2 by definition 2* operator+
+  conclude 1 + 1 = 2 by expand 2* operator+.
 end
 ```
 
@@ -581,9 +581,8 @@ theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x 
 proof
   arbitrary x:Nat
   define y = x + x + x
-  suffices y + y + 0 = y + y
-    by definition 3* operator*
-  replace add_zero[y]
+  suffices y + y + 0 = y + y  by expand 3* operator*.
+  exchange add_zero[y].
 end
 ```
 
@@ -604,10 +603,10 @@ formula, Deduce signals an error.
 ```{.deduce^#definition_example}
 theorem length_list2: length([0,1]) = 2
 proof
-  suffices 1 + length([1]) = 2
-      by definition length
-  suffices 1 + (1 + 0) = 2
-      by definition 2*length
+  expand length
+  show 1 + length([1]) = 2
+  expand 2*length
+  show 1 + (1 + 0) = 2
   evaluate
 end
 ```
@@ -732,9 +731,9 @@ theorem equations_example: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by replace add_commute[y]
-          ... = #z + x# + y    by replace add_commute
-          ... = z + y + x      by replace add_commute[x]
+    x + y + z = x + z + y      by exchange add_commute[y].
+          ... = #z + x# + y    by exchange add_commute.
+          ... = z + y + x      by exchange add_commute[x].
 end
 ```
 
@@ -749,8 +748,8 @@ theorem equations_def_example: all x:Nat, y:Nat, xs:List<Nat>.
 proof
   arbitrary x:Nat, y:Nat, xs:List<Nat>
   equations
-    length(node(x,xs)) = 1 + length(xs)         by definition length
-                   ... = # length(node(y,xs)) # by definition length
+    length(node(x,xs)) = 1 + length(xs)         by expand length.
+                   ... = # length(node(y,xs)) # by expand length.
 end
 ```
 
@@ -790,7 +789,7 @@ theorem extensionality_example: inc = suc
 proof
   extensionality
   arbitrary x:Nat
-  conclude inc(x) = suc(x) by definition inc | pred
+  conclude inc(x) = suc(x) by expand inc | pred.
 end
 ```
 
@@ -1166,12 +1165,12 @@ theorem induction_example: all n:Nat.
 proof
   induction Nat
   case 0 {
-    conclude 0 + 0 = 0   by definition operator+
+    conclude 0 + 0 = 0   by expand operator+.
   }
   case suc(n') assume IH: n' + 0 = n' {
     equations
-      suc(n') + 0 = suc(n' + 0)  by definition operator+
-              ... = suc(n')      by replace IH
+      suc(n') + 0 = suc(n' + 0)  by expand operator+.
+              ... = suc(n')      by exchange IH.
   }
 end
 ```
@@ -1219,7 +1218,7 @@ theorem instantiate_proof_example: length(node(42, empty)) = 1
 proof
   have X: all T:type. all x:T. length(node(x, empty)) = 1 by {
     arbitrary T:type arbitrary x:T
-    definition 2* length | 2* operator+
+    expand 2* length | 2* operator+.
   }
   conclude length(node(42, empty)) = 1
     by X<Nat>[42]
@@ -1365,11 +1364,11 @@ proof
   arbitrary x:Nat
   assume: x = 1
   equations
-    #x# + x + x = 1 + x + x   by replace recall x = 1
-  $ 1 + #x# + x = 1 + 1 + x   by replace recall x = 1
-  $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1
-            ... = 1 + #x# + 1 by replace recall x = 1
-            ... = 1 + 1 + 1   by replace recall x = 1
+    #x# + x + x = 1 + x + x   by exchange recall x = 1.
+  $ 1 + #x# + x = 1 + 1 + x   by exchange recall x = 1.
+  $ 1 + 1 + #x# = 1 + 1 + 1   by exchange recall x = 1.
+            ... = 1 + #x# + 1 by exchange recall x = 1.
+            ... = 1 + 1 + 1   by exchange recall x = 1.
             ... = 3           by evaluate
 end
 ```
@@ -1745,7 +1744,7 @@ theorem replace_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
   assume prem: x = y
-  suffices 1 + y = 1 + y by replace prem
+  suffices 1 + y = 1 + y by exchange prem.
   .
 end
 ```
@@ -1829,12 +1828,12 @@ define F = single(1) ∪ single(2)
 
 theorem subset_example: E ⊆ F
 proof
-  suffices all x:Nat. if x ∈ E then x ∈ F  by definition operator ⊆
+  suffices all x:Nat. if x ∈ E then x ∈ F  by expand operator ⊆.
   arbitrary x:Nat
   assume: x ∈ E
   have: 1 = x       by definition E | operator∈ | single | rep in recall (x ∈ E)
-  suffices 1 ∈ F    by replace symmetric (recall 1 = x)
-  definition F | operator∈ | single | operator ∪ | rep
+  suffices 1 ∈ F    by exchange symmetric (recall 1 = x).
+  expand F | operator∈ | single | operator ∪ | rep.
 end
 ```
 
@@ -1912,7 +1911,7 @@ We then prove the new goal with theorem `add_zero` from `Nat.thm`.
 theorem suffices_example:
   length(node(3, empty)) = 1
 proof
-  suffices 1 + 0 = 1  by definition 2*length
+  suffices 1 + 0 = 1  by expand 2*length.
   add_zero
 end
 ```
@@ -1928,8 +1927,7 @@ Example:
 theorem length__nat_one': all x:Nat. length([x]) = 1
 proof
   arbitrary x:Nat
-  suffices __
-      by definition 2*length
+  expand 2*length
   add_zero[1]
 end
 ```
@@ -2008,7 +2006,7 @@ proof
     }
     case suc(x') assume xs: x = suc(x') {
       have z_l_sx: 0 < suc(x')
-          by definition operator < | 2* operator ≤
+          by expand operator < | 2* operator ≤.
       conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
     }
   }

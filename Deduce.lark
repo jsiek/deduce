@@ -176,8 +176,6 @@ ident: IDENT              -> ident
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "definition" ident_list_bar                       -> reason_definition
-    | "replace" proof_list                              -> reason_rewrite
     | "definition" ident_list_bar "and" "replace" proof_list -> reason_def_rewrite
     | "definition" ident_list_bar "in" proof             -> apply_defs_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact

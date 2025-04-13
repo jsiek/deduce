@@ -3,5 +3,5 @@ import OpaqueTests
 
 theorem some_theorem_again: fact(0) = 1
 proof
-    definition fact
+    expand fact.
 end

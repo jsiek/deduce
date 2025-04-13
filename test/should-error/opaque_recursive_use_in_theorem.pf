@@ -2,5 +2,5 @@ import OpaqueTests
 
 theorem always_Z: all b:Byte. f_z(b) = Z
 proof
-    definition f_z
+    expand f_z.
 end

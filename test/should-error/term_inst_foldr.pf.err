@@ -1,6 +1,3 @@
-./test/should-error/term_inst_foldr.pf:14.5-14.33: 
-suffices to prove:
-	0 = foldr(@[]<Nat>, 0, operator +)
 ./test/should-error/term_inst_foldr.pf:15.5-15.6: incomplete proof
 Goal:
 	0 = foldr(@[]<Nat>, 0, operator +)

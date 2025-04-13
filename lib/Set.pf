@@ -93,7 +93,7 @@ proof
   suppose prem: x ∈ A or x ∈ B
   suffices rep(A)(x) or rep(B)(x) by {
     expand operator∪ | operator∈
-    replace rep_char_fun<T>
+    exchange rep_char_fun<T>.
   }
   cases prem
   case xA: x ∈ A {
@@ -137,7 +137,7 @@ proof
     case char_fun(f) {
       have eq: (λy{f(y)} : fn T->bool) = f   by extensionality arbitrary x:T.
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   by evaluate
-      replace eq
+      exchange eq.
     }
   }
 end
@@ -153,7 +153,7 @@ proof
     case char_fun(f) {
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by evaluate
       have eq: (λx{f(x)} : fn T->bool) = f  by extensionality arbitrary x:T.
-      replace eq
+      exchange eq.
     }
   }
 end
@@ -174,8 +174,8 @@ proof
             by expand rep.
           have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
             by extensionality arbitrary x:T 
-          replace or_sym[f(x),g(x)]
-          replace fg_gf
+          exchange or_sym[f(x),g(x)].
+          exchange fg_gf.
         }
       }
     }
@@ -200,7 +200,7 @@ proof
   suppose x_A: x ∈ A
   suffices rep(A)(x) or rep(B)(x) by {
     expand operator ∈ | operator ∪
-    replace rep_char_fun<T>
+    exchange rep_char_fun<T>.
   }
   definition operator ∈ in x_A
 end
@@ -248,7 +248,7 @@ proof
             apply iff_equal[f(x),g(x)]
             to fx_to_gx, gx_to_fx
           }
-          replace f_g
+          exchange f_g.
         }
       }
     }

@@ -2,5 +2,5 @@ import Nat
 
 theorem T: all n:Nat. 1 + (0 + n) = 1 + n
 proof
-  replace zero_add
+  exchange zero_add.
 end

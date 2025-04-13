@@ -7,6 +7,6 @@ proof
   arbitrary x : Nat
   have step : length(@empty<Nat>) + #length(@empty<Nat>)#
     = length(@empty<Nat>) + 0
-    by definition length
+    by expand length.
   ?
 end

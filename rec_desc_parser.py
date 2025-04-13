@@ -675,6 +675,7 @@ def parse_definition_proof():
                               subject)
     else:
         meta = meta_from_tokens(token, previous_token())
+        raise ParseError(meta, "definition is deprecated, use expand instead")
         return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
   except ParseError as e:
       raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
@@ -859,6 +860,7 @@ def parse_proof_hi():
       return RewriteFact(meta, subject, proofs)
     else:
       meta = meta_from_tokens(token, previous_token())
+      raise ParseError(meta, "replace is deprecated, use exchange")
       return Rewrite(meta, proofs)
     
 

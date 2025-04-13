@@ -15,7 +15,7 @@ theorem update_eq :
 proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U
-  definition update
+  expand update.
 end
 
 theorem update_not_eq :

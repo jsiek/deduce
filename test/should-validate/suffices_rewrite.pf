@@ -3,6 +3,6 @@ theorem T: all a:bool, b:bool. if b = a and a then b
 proof
   arbitrary a:bool, b:bool
   suppose prem
-  suffices a  by replace conjunct 0 of prem
+  suffices a  by exchange conjunct 0 of prem.
   conjunct 1 of prem
 end

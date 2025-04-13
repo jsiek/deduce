@@ -9,5 +9,5 @@ end
 
 lemma L2: true
 proof
-  definition a
+  expand a.
 end

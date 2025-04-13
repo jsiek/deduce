@@ -3,7 +3,7 @@ define Y = false
 
 theorem T: X
 proof
-  have x1: X by definition X
+  have x1: X by expand X.
   have x2: X or Y by x1
   help x2
 end

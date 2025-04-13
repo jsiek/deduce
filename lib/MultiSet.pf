@@ -27,14 +27,14 @@ fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
 theorem cnt_m_fun: all T:type, f: fn T -> Nat. cnt(m_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> Nat)
-  definition cnt
+  expand cnt.
 end
          
 theorem m_one_cnt: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
   arbitrary T:type
   arbitrary x:T
-  definition m_one | cnt
+  expand m_one | cnt.
 end
 
 theorem m_empty_zero: all T:type. all x:T.
@@ -42,7 +42,7 @@ theorem m_empty_zero: all T:type. all x:T.
 proof
   arbitrary T:type
   arbitrary x:T
-  definition cnt
+  expand cnt.
 end
 
 theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -50,7 +50,7 @@ theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>, x:T
-  definition operator ⨄ | cnt
+  expand operator ⨄ | cnt.
 end
 
 // Testing alternate asci notation 
@@ -63,8 +63,8 @@ proof
     case m_fun(f) {
       have eq: (λx{(f(x) + 0)} : fn T->Nat) = f
         by extensionality arbitrary x:T
-           replace add_zero[f(x)]
-      replace eq
+           exchange add_zero[f(x)].
+      exchange eq.
     }
   }
 end
@@ -78,7 +78,7 @@ proof
     case m_fun(f) {
       have eq: (λx:T{0 + f(x)}) = f by {
         extensionality arbitrary x:T
- 	      definition operator +
+ 	      expand operator +.
       }
       definition cnt and replace eq
     }
@@ -95,20 +95,21 @@ proof
     case m_fun(f) {
       switch B {
         case m_fun(g) {
-	  suffices m_fun(λx:T{f(x) + g(x)})
+	        suffices m_fun(λx:T{f(x) + g(x)})
                  = m_fun(λx:T{g(x) + f(x)})
-              by definition cnt
-	  have eq: (λx:T{(f(x) + g(x))}) = λx:T{(g(x) + f(x))}
-	    by extensionality arbitrary x:T
-	       replace add_commute[f(x)][g(x)]
-	  replace eq
-	}
+              by expand cnt.
+	        have eq: (λx:T{(f(x) + g(x))}) = λx:T{(g(x) + f(x))}
+	          by extensionality arbitrary x:T
+	             exchange add_commute[f(x)][g(x)].
+	        exchange eq.
+	      }
       }
     }
   }
 end
 
-theorem m_sum_assoc: all T:type. all A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>.
+theorem m_sum_assoc:
+  all T:type. all A:MultiSet<T>, B:MultiSet<T>, C:MultiSet<T>.
   (A ⨄ B) ⨄ C = A ⨄ (B ⨄ C)
 proof
   arbitrary T:type
@@ -121,7 +122,7 @@ proof
 	          case m_fun(h) {
 	            suffices m_fun(λx:T{(f(x) + g(x)) + h(x)})
                      = m_fun(λx:T{f(x) + (g(x) + h(x))})
-                  by definition cnt
+                  by expand cnt.
               .
 	          }
 	        }
@@ -147,14 +148,14 @@ proof
        switch y = z for cnt {
          case true suppose yz_true {
 	   have z_y: z = y
-	     by symmetric replace yz_true
-	   replace z_y
+	     by symmetric exchange yz_true.
+	   exchange z_y.
 	 }
 	 case false suppose yz_false {
 	   have not_zy: not (z = y)
 	     by suppose zy
 	        replace yz_false in symmetric zy
-	   replace (apply eq_false to not_zy)
+	   exchange (apply eq_false to not_zy).
 	 }
        }
   definition m_one | single | set_of_mset
@@ -178,15 +179,15 @@ proof
     switch cnt(A)(x) {
       case 0 suppose Ax_z {
 	      suffices (if 0 + cnt(B)(x) = 0 then false else true)
-          = (if cnt(B)(x) = 0 then false else true) by replace Ax_z
-        definition operator +
+          = (if cnt(B)(x) = 0 then false else true) by exchange Ax_z.
+        expand operator +.
       }
 	    case suc(Ax) suppose Ax_s {
 	      suffices (if suc(Ax) + cnt(B)(x) = 0 then false else true) = true
-          by replace Ax_s
-	      definition operator +
+          by exchange Ax_s.
+	      expand operator +.
 	    }
     }
   }
-  replace eq
+  exchange eq.
 end

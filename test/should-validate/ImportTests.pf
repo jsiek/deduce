@@ -27,5 +27,5 @@ opaque define id_one_two : fn OneTwo -> OneTwo = fun b { b }
 theorem id_one_two_works: all b:OneTwo. id_one_two(b) = b
 proof 
     arbitrary b:OneTwo
-    definition id_one_two
+    expand id_one_two.
 end
