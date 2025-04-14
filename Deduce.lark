@@ -176,8 +176,7 @@ ident: IDENT              -> ident
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "definition" ident_list_bar "and" "replace" proof_list -> reason_def_rewrite
-    | "definition" ident_list_bar "in" proof             -> apply_defs_fact
+    | "expand" ident_list_bar "in" proof                 -> apply_defs_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
@@ -207,17 +206,14 @@ ident: IDENT              -> ident
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
     | "expand" ident_list_bar                       -> expand
-    | "exchange" proof_list                         -> rewrite_goal
+    | "replace" proof_list                          -> rewrite_goal
     | "show" term                                   -> annot_stmt
-    | "_definition" "{" ident_list "}"              -> apply_defs_goal
-    | "_definition" ident                           -> apply_defs_goal_one
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term "by" proof              -> let
     | "have" ":" term "by" proof                    -> let_anon
     | "injective" term                              -> injective_proof
     | "obtain" ident_list "where" IDENT "from" proof          -> some_elim
     | "obtain" ident_list "where" IDENT ":" term "from" proof -> some_elim_explicit
-    | "_rewrite" proof_list                          -> rewrite_goal
     | "stop" "?"                                     -> hole_in_middle_proof
     | "suffices" term "by" proof                    -> suffices
     | "suppose" IDENT                               -> imp_intro

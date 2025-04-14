@@ -66,11 +66,11 @@ proof
   switch P {
     case true {
       suppose q
-      exchange (apply eq_true to q).
+      replace (apply eq_true to q).
     }
     case false {
       suppose not_q
-      exchange (apply eq_false to not_q).
+      replace (apply eq_false to not_q).
     }
   }
 end

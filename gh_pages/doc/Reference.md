@@ -89,7 +89,7 @@ theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = y + x + z by exchange add_commute[x,y].
+    x + y + z = y + x + z by replace add_commute[x,y].
           ... = z + y + x by add_commute[y+x,z]
 end
 ```
@@ -268,7 +268,7 @@ theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
   assume prem: x = y
-  conclude 1 + x = 1 + y  by exchange prem.
+  conclude 1 + x = 1 + y  by replace prem.
 end
 ```
 
@@ -355,7 +355,7 @@ case x_l_y: x < y {
 }
 case x_eq_y: x = y {
   have x_le_y: x ≤ y by
-      suffices y ≤ y  by exchange x_eq_y.
+      suffices y ≤ y  by replace x_eq_y.
       less_equal_refl[y]
   conclude x ≤ y or y < x by x_le_y
 }
@@ -452,9 +452,8 @@ must be one of the following:
 * [Comma (Logical-And Introduction)](#comma-logical-and-introduction)
 * [Conclude](#conclude-proof)
 * [Conjunct](#conjunct)
-* [Definition](#definition-proof)
-* [Definition-In](#definition-in-proof)
-* [Definition and Replace](#definition-and-replace-proof)
+* [Expand](#expand-proof)
+* [Expand-In](#expand-in-proof)
 * [Equations](#equations)
 * [Evaluate](#evaluate-proof)
 * [Evaluate-In](#evaluate-in-proof)
@@ -582,25 +581,24 @@ proof
   arbitrary x:Nat
   define y = x + x + x
   suffices y + y + 0 = y + y  by expand 3* operator*.
-  exchange add_zero[y].
+  replace add_zero[y].
 end
 ```
 
-## Definition (Proof)
+## Expand (Proof)
 
 ```
-conclusion ::= "definition" identifier_list_bar       // added in version 1.2
-             | "definition" "{" identifier_list "}"
+conclusion ::= "expand" identifier_list_bar
 ```
 
-In the current goal formula, replace the occurrences of the specified
+In the current goal formula, expand the occurrences of the specified
 names with their definitions and then check whether the formula has
 simplified to `true`. If a definition is recursive, only one expansion
 is performed per time the definition's name is mentioned in the
 list. If one of the specified names does not appear in the goal
 formula, Deduce signals an error.
 
-```{.deduce^#definition_example}
+```{.deduce^#expand_example}
 theorem length_list2: length([0,1]) = 2
 proof
   expand length
@@ -611,35 +609,21 @@ proof
 end
 ```
 
-## Definition and Replace (Proof)
+## Expand-In (Proof)
 
 ```
-conclusion ::= "definition" "{" identifier_list "}" "and" "replace" proof_list
-conclusion ::= "definition" identifier_list_bar "and" "replace" proof_list       // added in version 1.2
+conclusion ::= "expand" identifier_list_bar "in" proof
 ```
 
-Apply the specified definitions to the current goal
-(see [Definition (Proof)](#definition-proof)), then the specified replacements
-(see [Replace (Proof)](#replace-proof)).  If this simplifies that formula
-to `true`, then this statement proves the goal.  Otherwise, Deduce
-signals an error.
-
-## Definition-In (Proof)
-
-```
-conclusion ::= "definition" "{" identifier_list "}" "in" proof
-conclusion ::= "definition" identifier_list_bar "in" proof       // added in version 1.2
-```
-
-In the formula of the given proof, replace the occurrences of the
+In the formula of the given proof, expand the occurrences of the
 specified names with their definitions, resulting in the formula that
-is proved by this `definition`-`in` statement.  If a definition is
+is proved by this `expand`-`in` statement.  If a definition is
 recursive, only one expansion is performed per time the definition's
 name is mentioned in the list. If one of the specified names does not
 appear in the formula, Deduce signals an error.
 
-```{.deduce^#definition_in_example}
-theorem definition_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
+```{.deduce^#expand_in_example}
+theorem expand_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
 proof
   arbitrary ls:List<Nat>
   switch ls {
@@ -648,8 +632,8 @@ proof
     }
     case node(x, ls') {
       assume A: length(node(x, ls')) = 0
-      have B: 1 + length(ls') = 0  by definition length in A
-      have C: suc(length(ls')) = 0 by definition operator+ in B
+      have B: 1 + length(ls') = 0  by expand length in A
+      have C: suc(length(ls')) = 0 by expand operator+ in B
       conclude false by C
     }
   }
@@ -731,19 +715,19 @@ theorem equations_example: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y      by exchange add_commute[y].
-          ... = #z + x# + y    by exchange add_commute.
-          ... = z + y + x      by exchange add_commute[x].
+    x + y + z = x + z + y      by replace add_commute[y].
+          ... = #z + x# + y    by replace add_commute.
+          ... = z + y + x      by replace add_commute[x].
 end
 ```
 
 The hash marks can also be used to control where Deduce applies a
-`definition`. In the following example, the hash marks tell Deduce to
-unfold the definition of `length` in the right-hand side of the second
+`expand`. In the following example, the hash marks tell Deduce to
+expand the definition of `length` in the right-hand side of the second
 equation.
 
-```{.deduce^#equations_def_example}
-theorem equations_def_example: all x:Nat, y:Nat, xs:List<Nat>.
+```{.deduce^#equations_expand_example}
+theorem equations_expand_example: all x:Nat, y:Nat, xs:List<Nat>.
   length(node(x, xs)) = length(node(y, xs))
 proof
   arbitrary x:Nat, y:Nat, xs:List<Nat>
@@ -1051,8 +1035,6 @@ identifier_list ::= identifier "," identifier_list
 
 ## Identifier List Bar
 
-(This feature was added in Deduce version 1.2.)
-
 A bar-separated sequence of identifiers. If an identifier is preceded
 by a number and the multiplication sign, then the identifier is
 repeated. (e.g. to make a definition expand recursively more than
@@ -1170,7 +1152,7 @@ proof
   case suc(n') assume IH: n' + 0 = n' {
     equations
       suc(n') + 0 = suc(n' + 0)  by expand operator+.
-              ... = suc(n')      by exchange IH.
+              ... = suc(n')      by replace IH.
   }
 end
 ```
@@ -1351,7 +1333,7 @@ define list_example = node(3, node(8, node(4, empty)))
 term ::= "#" term "#"
 ```
 
-Marking a subterm with hash symbols restricts a `replace` or `definition`
+Marking a subterm with hash symbols restricts a `replace` or `expand`
 proof to only apply to that subterm.
 
 The [`equations`](#equations) feature, by default, places marks around the entire
@@ -1364,11 +1346,11 @@ proof
   arbitrary x:Nat
   assume: x = 1
   equations
-    #x# + x + x = 1 + x + x   by exchange recall x = 1.
-  $ 1 + #x# + x = 1 + 1 + x   by exchange recall x = 1.
-  $ 1 + 1 + #x# = 1 + 1 + 1   by exchange recall x = 1.
-            ... = 1 + #x# + 1 by exchange recall x = 1.
-            ... = 1 + 1 + 1   by exchange recall x = 1.
+    #x# + x + x = 1 + x + x   by replace recall x = 1.
+  $ 1 + #x# + x = 1 + 1 + x   by replace recall x = 1.
+  $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1.
+            ... = 1 + #x# + 1 by replace recall x = 1.
+            ... = 1 + 1 + 1   by replace recall x = 1.
             ... = 3           by evaluate
 end
 ```
@@ -1614,6 +1596,7 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Have](#have-proof-statement)
 * [Injective](#injective-proof)
 * [Obtain](#obtain-exists-elimination)
+* [Show](#show-proof)
 * [Suffices](#suffices-proof-statement)
 * [Suppose](#suppose)
 
@@ -1744,7 +1727,7 @@ theorem replace_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
 proof
   arbitrary x:Nat,y:Nat
   assume prem: x = y
-  suffices 1 + y = 1 + y by exchange prem.
+  suffices 1 + y = 1 + y by replace prem.
   .
 end
 ```
@@ -1781,6 +1764,16 @@ usual set operations such as union `∪`, intersection `∩`, membership
 `∈`, and subset-or-equal `⊆` are all defined in `Set.pf`.  The
 `Set.thm` file provides a summary of the many theorems about sets that
 are proved in `Set.pf`.
+
+
+## Show (Proof)
+
+```
+proof_stmt ::= "show" formula
+```
+
+Use `show` to document the current goal formula. Deduce checks to make
+sure that the given formula matches the current goal.
 
 
 ## Some (Formula)
@@ -1831,8 +1824,8 @@ proof
   suffices all x:Nat. if x ∈ E then x ∈ F  by expand operator ⊆.
   arbitrary x:Nat
   assume: x ∈ E
-  have: 1 = x       by definition E | operator∈ | single | rep in recall (x ∈ E)
-  suffices 1 ∈ F    by exchange symmetric (recall 1 = x).
+  have: 1 = x       by expand E | operator∈ | single | rep in recall (x ∈ E)
+  suffices 1 ∈ F    by replace symmetric (recall 1 = x).
   expand F | operator∈ | single | operator ∪ | rep.
 end
 ```
@@ -1915,24 +1908,6 @@ proof
   add_zero
 end
 ```
-
-## Suffices Omitted Term
-
-Use suffices without explicitly stating the new goal. 
-Instead, you can use `─` or `__` to fill in what the new goal should be. 
-
-Example:
-
-```{.deduce^#suffices_omitted_example}
-theorem length__nat_one': all x:Nat. length([x]) = 1
-proof
-  arbitrary x:Nat
-  expand 2*length
-  add_zero[1]
-end
-```
-
-This acts similarly to [`?`](#question-mark--proof), except that deduce will fill in the omitted term internally and accept the proof as complete.
 
 ## Suppose
 
@@ -2206,11 +2181,11 @@ import Pair
 <<define_example>>
 <<define_term_example>>
 <<define_proof_example>>
-<<definition_example>>
-<<definition_in_example>>
+<<expand_example>>
+<<expand_in_example>>
 <<division_example>>
 <<equations_example>>
-<<equations_def_example>>
+<<equations_expand_example>>
 <<greater_example>>
 <<greater_equal_example>>
 <<if_then_else_example>>

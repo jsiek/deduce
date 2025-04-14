@@ -28,7 +28,7 @@ proof
   suppose not_eq
   switch y = x for update {
     case true suppose yx_true {
-      have yx: y = x by exchange yx_true.
+      have yx: y = x by replace yx_true.
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -63,10 +63,10 @@ proof
   arbitrary z:T
   switch z = y for update {
     case true suppose zy_true {
-      have zy: z = y by exchange zy_true.
+      have zy: z = y by replace zy_true.
       switch z = x {
         case true suppose zx_true {
-	        have zx: z = x by exchange zx_true.
+	        have zx: z = x by replace zx_true.
 	        have xy: x = y by transitive (symmetric zx) zy
 	        conclude false by apply x_neq_y to xy
 	      }
@@ -109,12 +109,12 @@ proof
     case none assume: f(x) = none {
       show combine(f, g)(x) = f(x)
       expand combine
-      exchange (recall f(x) = none) | (recall g(x) = none).
+      replace (recall f(x) = none) | (recall g(x) = none).
     }
     case just(v) assume: f(x) = just(v) {
       show combine(f, g)(x) = f(x)
       expand combine
-      exchange recall f(x) = just(v).
+      replace recall f(x) = just(v).
     }
   }
 end
@@ -128,7 +128,7 @@ proof
   assume: f(x) = none
   show combine(f, g)(x) = g(x)
   expand combine
-  exchange recall f(x) = none.
+  replace recall f(x) = none.
 end
 
 theorem restrict_domain:
@@ -146,10 +146,10 @@ proof
   switch x ∈ P {
     case true { . }
     case false suppose Px_false {
-      have eq: rep(P)(x) = false by definition operator∈ in Px_false
+      have eq: rep(P)(x) = false by expand operator∈ in Px_false
       conclude false by {
         replace rep_char_fun<T> | eq in
-        definition operator∈ in prem
+        expand operator∈ in prem
       }
     }
   }

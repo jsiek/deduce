@@ -1228,25 +1228,6 @@ def check_proof_of(proof, formula, env):
                 + str(red_formula))
       return red_formula
   
-    case ApplyDefs(loc, definitions):
-      new_formula = apply_definitions(loc, formula, definitions, env)
-      if new_formula != Bool(loc, None, True):
-          error(loc, 'error, remains to prove:\n\t' + str(new_formula) + '\n'\
-                + 'Replace this proof statement with:\n' \
-                + '\tsuffices ' + str(new_formula) + '\n\t\tby ' + str(proof) + '\n'\
-                + 'followed by a proof of:\n\t' + str(new_formula))
-
-    case Rewrite(loc, equation_proofs):
-      equations = [check_proof(proof, env) for proof in equation_proofs]
-      eqns = [equation.reduce(env) for equation in equations]
-      new_formula = formula.reduce(env)
-      new_formula = apply_rewrites(loc, new_formula, eqns, env)
-      if new_formula != Bool(loc, None, True):
-          error(loc, 'error, remains to prove:\n\t' + str(new_formula) + '\n'\
-                + 'Replace this proof statement with:\n' \
-                + '\tsuffices ' + str(new_formula) + '\n\t\tby ' + str(proof) + '\n'\
-                + 'followed by a proof of:\n\t' + str(new_formula))
-    
     case Suffices(loc, claim, reason, rest):
       def_or_rewrite = False
       evaluate = False
@@ -1254,18 +1235,6 @@ def check_proof_of(proof, formula, env):
       definitions = []
       # should evaluate be handled up here? -Jeremy
       match reason:
-        case ApplyDefs(loc2, defs):
-           def_or_rewrite = True
-           definitions = defs
-           equation_proofs = [] 
-        case ApplyDefsGoal(loc2, defs, Rewrite(loc3, eqns)):
-           def_or_rewrite = True
-           definitions = defs
-           equation_proofs = eqns 
-        case Rewrite(loc2, eqns):
-           def_or_rewrite = True
-           definitions = []
-           equation_proofs = eqns
         case EvaluateGoal(loc2):
            evaluate = True
         case _:
@@ -1563,11 +1532,9 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
-      #warning(loc, 'old-style rewrite will be deprecated')
     case ApplyDefsGoal(loc, defs, body):
       new_formula = apply_definitions(loc, formula, defs, env)
       check_proof_of(body, new_formula, env)
-      #warning(loc, 'old-style definition will be deprecated')
     case _:
       try:
         form = check_proof(proof, env)

@@ -176,7 +176,6 @@ known_tokens = {
     'CONCLUDE': 'keyword',
     'CONJUNCT': 'keyword',
     'DEFINE': 'keyword',
-    'DEFINITION': 'keyword',
     'DOLLAR': 'operator',
     'DOT': 'operator',
     'ELSE': 'keyword',
@@ -185,7 +184,6 @@ known_tokens = {
     'EQUATIONS': 'keyword',
     'EVALUATE': 'keyword',
     'EXPAND': 'keyword',
-    'EXCHANGE': 'keyword',
     'EXTENSIONALITY': 'keyword',
     'FALSE': 'prim',
     'FN': 'type',
@@ -255,8 +253,6 @@ known_tokens = {
     'VBAR': 'operator',
     'WHERE': 'keyword',
     'WS': 'whitespace',
-    '_DEFINITION': 'keyword',
-    '_REWRITE': 'keyword', 
     '__': 'operator',
     '__ANON_0': 'operator', # <=>
     '__ANON_1': 'operator', # ⇔

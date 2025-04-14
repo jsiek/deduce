@@ -8,13 +8,13 @@ proof
         expand operator* | operator <=.
     }
     case suc(n') suppose IH {
-        suffices suc(n') + 0 ≤ suc(n') + (0 + n' * (suc(n') + 0))
-            by definition operator *
-            and replace symmetric add_zero[suc(n')]
-        have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
-            by expand operator <=.
-        apply add_both_sides_of_less_equal[suc(n')][0, (0 + n' * (suc(n') + 0))]
-            to zero_le_any
+      expand operator *
+      replace symmetric add_zero[suc(n')]
+      show suc(n') + 0 ≤ suc(n') + (0 + n' * (suc(n') + 0))
+      have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
+        by expand operator <=.
+      apply add_both_sides_of_less_equal[suc(n')][0, (0 + n' * (suc(n') + 0))]
+      to zero_le_any
     }
 end
 
@@ -27,7 +27,7 @@ proof
     }
     case suc(n') suppose IH {
       expand operator* | operator-
-      exchange sub_zero[n']
+      replace sub_zero[n']
                   | add_sub_identity[suc(n')][n' * suc(n')]
                   | mult_commute[n'][suc(n')]
       show n' + n' * n' = suc(n') * n' 
@@ -49,20 +49,21 @@ proof
                 suppose prem : i < 1
                 symmetric zero_add[n'+i]
         suffices n' * (n' - 1) + 2 * summation(1, n', λn{n}) = (n' + 1) * ((n' + 1) - 1)
-            by exchange symmetric one_add[n'] | add_commute[1][n']
+            by replace symmetric one_add[n'] | add_commute[1][n']
             | apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
             | dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
             | IH.
         suffices n' * (n' - 1) + 2 * (n' + 0) = (n' + 1) * ((n' + 1) - 1)
             by expand 2*summation.
         suffices n' * (n' - 1) + 2 * n' = suc(n') * (suc(n') - 1)
-              by exchange add_one[n'] | add_zero[n'].
-        suffices (n' * n' - n') + (n' + n') = suc(n') * n'
-              by definition operator-
-              and replace sub_zero[n'] | blah[n'] | two_mult[n']
+              by replace add_one[n'] | add_zero[n'].
+        suffices (n' * n' - n') + (n' + n') = suc(n') * n' by {
+          expand operator-
+          replace sub_zero[n'] | blah[n'] | two_mult[n'].
+        }
         suffices ((n' * n' - n') + n') + n' = n' + n' * n' by expand operator*.
         suffices n' * n' + n' = n' + n' * n' by 
-            exchange add_commute[(n' * n' - n')][n']
+            replace add_commute[(n' * n' - n')][n']
             | apply sub_add_identity[n'*n'][n'] to n_le_nn[n'].
         add_commute[n' * n'][n']
     }
@@ -73,8 +74,8 @@ theorem sum_n' : all n : Nat.
 proof
     induction Nat
     case zero {
-        definition 2* summation | operator+
-        and replace mult_zero[2] | zero_mult[1]
+      expand 2* summation | operator+
+      replace mult_zero[2] | zero_mult[1].
     }
     case suc(n') suppose IH {
         have step1: (all i:Nat. (if i < 1 then suc(n') + i = 0 + (suc(n') + i)))
@@ -82,18 +83,19 @@ proof
                 suppose prem : i < 1
                 symmetric zero_add[suc(n')+i]
         
-        exchange symmetric one_add[n'] | add_commute[1][n']
+        replace symmetric one_add[n'] | add_commute[1][n']
                | symmetric add_one[n' + 1] | add_one[n']
                |  apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
                | dist_mult_add[2][summation(suc(n'), 0, λn{n}), summation(1, suc(n'), λn{n})]
                | IH
         show n' * (n' + 1) + 2 * summation(1, suc(n'), λn{n}) = suc(n') * (suc(n') + 1)
-        suffices n' * (n' + 1) + ((n' + 1) + (n' + 1)) = (n' + 1) * ((n' + 1) + 1)
-            by definition 2* summation
-            and replace add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n']
+        suffices n' * (n' + 1) + ((n' + 1) + (n' + 1)) = (n' + 1) * ((n' + 1) + 1) by {
+          expand 2* summation
+          replace add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n'].
+        }
         suffices (n' * n' + n') + ((n' + 1) + (n' + 1))
                = ((n' * n' + n') + (n' + 1)) + (n' + 1) by {
-          exchange dist_mult_add[n' + 1][n' + 1, 1]
+          replace dist_mult_add[n' + 1][n' + 1, 1]
           | dist_mult_add[n'][n', 1]
           | dist_mult_add[n' + 1][n', 1]
           | dist_mult_add_right[n', 1, n']

@@ -2696,20 +2696,6 @@ class EvaluateFact(Proof):
     self.subject.uniquify(env)
   
 @dataclass
-class ApplyDefs(Proof):
-  definitions: List[Term]
-
-  def pretty_print(self, indent):
-      return str(self)
-  
-  def __str__(self):
-      return 'definition ' + ' | '.join([str(d) for d in self.definitions])
-
-  def uniquify(self, env):
-    for d in self.definitions:
-      d.uniquify(env)
-
-@dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
@@ -2736,17 +2722,6 @@ class ApplyDefsFact(Proof):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
-    
-@dataclass
-class Rewrite(Proof):
-  equations: List[Proof]
-
-  def __str__(self):
-      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations])
-
-  def uniquify(self, env):
-    for eqn in self.equations:
-      eqn.uniquify(env)
     
 @dataclass
 class RewriteGoal(Proof):

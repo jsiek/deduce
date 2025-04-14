@@ -511,11 +511,6 @@ def parse_tree_to_ast(e, parent):
         ind_hyps = parse_tree_to_list(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
         return IndCase(e.meta, pat, ind_hyps, body)
-    elif e.data == 'apply_defs_goal':
-        definitions = parse_tree_to_list(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
-                             body)
     elif e.data == 'expand':
         definitions = parse_tree_to_list(e.children[0], e)
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
@@ -525,25 +520,12 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'eval_fact':
         subject = parse_tree_to_ast(e.children[0], e)
         return EvaluateFact(e.meta, subject)
-    elif e.data == 'apply_defs_goal_one':
-        definition = parse_tree_to_ast(e.children[0], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, None, definition, [])], None)
     elif e.data == 'apply_defs_fact':
         definitions = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsFact(e.meta,
                              [Var(e.meta, None, t, []) for t in definitions],
                              subject)
-    elif e.data == 'reason_definition':
-        definitions = parse_tree_to_list(e.children[0], e)
-        return ApplyDefs(e.meta, [Var(e.meta, None, t, []) for t in definitions])
-    
-    elif e.data == 'reason_def_rewrite':
-        definitions = parse_tree_to_list(e.children[0], e)
-        eqns = parse_tree_to_list(e.children[1], e)
-        return ApplyDefsGoal(e.meta,
-                             [Var(e.meta, None, t, []) for t in definitions],
-                             Rewrite(e.meta, eqns))
     elif e.data == 'rewrite_goal':
         eqns = parse_tree_to_list(e.children[0], e)
         return RewriteGoal(e.meta, eqns, None)
@@ -551,9 +533,6 @@ def parse_tree_to_ast(e, parent):
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return RewriteFact(e.meta, subject, eqns)
-    elif e.data == 'reason_rewrite':
-        eqns = parse_tree_to_list(e.children[0], e)
-        return Rewrite(e.meta, eqns)
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0], e)
         rhs = parse_tree_to_ast(e.children[1], e)

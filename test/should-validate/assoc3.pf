@@ -8,5 +8,5 @@ proof
         a + suc(x) + y + z
       = a + suc(x + y) + z     by expand operator+.
   ... = a + suc(x + y + z)     by expand operator+.
-  ... = suc(a + x + y + z)     by exchange add_suc.
+  ... = suc(a + x + y + z)     by replace add_suc.
 end

@@ -93,14 +93,14 @@ proof
   suppose prem: x ∈ A or x ∈ B
   suffices rep(A)(x) or rep(B)(x) by {
     expand operator∪ | operator∈
-    exchange rep_char_fun<T>.
+    replace rep_char_fun<T>.
   }
   cases prem
   case xA: x ∈ A {
-    conclude rep(A)(x) by definition operator∈ in xA
+    conclude rep(A)(x) by expand operator∈ in xA
   }
   case xB: x ∈ B {
-    conclude rep(B)(x) by definition operator∈ in xB
+    conclude rep(B)(x) by expand operator∈ in xB
   }
 end
 
@@ -137,7 +137,7 @@ proof
     case char_fun(f) {
       have eq: (λy{f(y)} : fn T->bool) = f   by extensionality arbitrary x:T.
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)   by evaluate
-      exchange eq.
+      replace eq.
     }
   }
 end
@@ -153,7 +153,7 @@ proof
     case char_fun(f) {
       suffices char_fun(λx{f(x)} : fn T->bool) = char_fun(f)  by evaluate
       have eq: (λx{f(x)} : fn T->bool) = f  by extensionality arbitrary x:T.
-      exchange eq.
+      replace eq.
     }
   }
 end
@@ -174,8 +174,8 @@ proof
             by expand rep.
           have fg_gf: (λx{(f(x) or g(x))} : fn T->bool) = λx{(g(x) or f(x))}
             by extensionality arbitrary x:T 
-          exchange or_sym[f(x),g(x)].
-          exchange fg_gf.
+          replace or_sym[f(x),g(x)].
+          replace fg_gf.
         }
       }
     }
@@ -200,9 +200,9 @@ proof
   suppose x_A: x ∈ A
   suffices rep(A)(x) or rep(B)(x) by {
     expand operator ∈ | operator ∪
-    exchange rep_char_fun<T>.
+    replace rep_char_fun<T>.
   }
-  definition operator ∈ in x_A
+  expand operator ∈ in x_A
 end
 
 theorem in_right_union:
@@ -236,19 +236,19 @@ proof
             extensionality
             arbitrary x:U
             have fx_to_gx: if f(x) then g(x) by {
-              definition operator ∈ | rep in
+              expand operator ∈ | rep in
               replace A_f | B_g in
               (conjunct 0 of prem)[x]
             }
             have gx_to_fx: if g(x) then f(x) by {
-              definition operator ∈ | rep in
+              expand operator ∈ | rep in
               replace A_f | B_g in
               (conjunct 1 of prem)[x]
             }
             apply iff_equal[f(x),g(x)]
             to fx_to_gx, gx_to_fx
           }
-          exchange f_g.
+          replace f_g.
         }
       }
     }

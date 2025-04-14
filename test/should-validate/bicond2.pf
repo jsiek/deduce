@@ -8,7 +8,7 @@ proof
   arbitrary l : List<E>
   have s1 : if l = empty then length(l) = 0 by {
     suppose prem
-    suffices length(@empty<E>) = 0 by exchange prem.
+    suffices length(@empty<E>) = 0 by replace prem.
     expand length.
   }
   have s2 : if length(l) = 0 then l = empty
@@ -18,7 +18,7 @@ proof
         suppose len_z
         conclude false
           by apply not_one_add_zero[length(xs')] to
-            definition length in len_z
+            expand length in len_z
       }
     }
   s1, s2

@@ -45,6 +45,6 @@ proof
     equations
       node(n,xs') ++ empty
           = node(n, xs' ++ empty)   by expand operator++.
-      ... = node(n,xs')             by exchange IH.
+      ... = node(n,xs')             by replace IH.
   }
 end
