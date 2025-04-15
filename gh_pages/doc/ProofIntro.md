@@ -1236,7 +1236,7 @@ We proceed by induction.
       ?
     }
 
-Deduce treats `not` as syntactic sugar for a conditional formal with a
+Deduce treats `not` as syntactic sugar for a conditional formula with a
 `false` conclusion. So in the first case, we must prove 
 that `0 < 0` implies `false`.
 So we `assume` the premise `0 < 0` and then conclude `false` by the
