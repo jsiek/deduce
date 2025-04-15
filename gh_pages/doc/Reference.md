@@ -452,7 +452,6 @@ must be one of the following:
 * [Comma (Logical-And Introduction)](#comma-logical-and-introduction)
 * [Conclude](#conclude-proof)
 * [Conjunct](#conjunct)
-* [Expand](#expand-proof)
 * [Expand-In](#expand-in-proof)
 * [Equations](#equations)
 * [Evaluate](#evaluate-proof)
@@ -464,7 +463,6 @@ must be one of the following:
 * [Period](#period-proof-of-true)
 * [Question Mark](#question-mark-proof)
 * [Recall](#recall-proof)
-* [Replace](#replace-proof)
 * [Sorry](#sorry-proof)
 * [Switch](#switch-proof)
 * [Symmetric](#symmetric-proof)
@@ -588,14 +586,13 @@ end
 ## Expand (Proof)
 
 ```
-conclusion ::= "expand" identifier_list_bar
+proof_stmt ::= "expand" identifier_list_bar
 ```
 
 In the current goal formula, expand the occurrences of the specified
-names with their definitions and then check whether the formula has
-simplified to `true`. If a definition is recursive, only one expansion
-is performed per time the definition's name is mentioned in the
-list. If one of the specified names does not appear in the goal
+names with their definitions. If a definition is recursive, only one
+expansion is performed per time the definition's name is mentioned in
+the list. If one of the specified names does not appear in the goal
 formula, Deduce signals an error.
 
 ```{.deduce^#expand_example}
@@ -1592,10 +1589,12 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Assume](#assume)
 * [Choose](#choose-proof)
 * [Define](#define-proof)
+* [Expand](#expand-proof)
 * [Extensionality](#extensionality)
 * [Have](#have-proof-statement)
 * [Injective](#injective-proof)
 * [Obtain](#obtain-exists-elimination)
+* [Replace](#replace-proof)
 * [Show](#show-proof)
 * [Suffices](#suffices-proof-statement)
 * [Suppose](#suppose)
@@ -1700,10 +1699,8 @@ The proof `reflexive` proves that `a = a` for any term `a`.
 
 ## Replace (Proof)
 
-(This feature was added in Deduce version 1.1.)
-
 ```
-conclusion ::= "replace" proof_list
+proof_stmt ::= "replace" proof_list
 ```
 
 Change the current goal formula according to the equalities proved by
@@ -1718,9 +1715,6 @@ in the goal formula that matches the left-hand side of the equality
 subterm is not rewritten further by the same equality. On the other
 hand, rewriting with an equality may apply to multiple disjoint
 locations in a formula.
-
-If these changes simplify the goal formula to `true`, then this statement
-proves the goal.  Otherwise, Deduce signals an error.
 
 ```{.deduce^#replace_example}
 theorem replace_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
