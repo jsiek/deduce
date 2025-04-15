@@ -521,18 +521,20 @@ error from Deduce will tell us what it needs to be.
 
 ```
   equations
-    x + y + z = ?              by replace add_commute[y,z].
+    x + y + z = ?              by replace add_commute[y,z] ?
           ... = z + y + x      by ?
 ```
 
 Deduce responds with:
 
 ```
-remains to prove:
-    x + z + y = ?
+incomplete proof
+Goal:
+	x + z + y = ?
 ```
 
-So we replace the `?` on the right-hand side with `x + z + y`.
+So we replace the `?` on the right-hand side of the `=` with `x + z + y`
+and replace the `?` at the end of the line with a period.
 Continuing in this way for several more steps, we incrementally arrive
 at the following proof that `x + y + z = z + y + x` using `equations`.
 
