@@ -206,7 +206,7 @@ We don't know anything about this hypothetical `x` other than it being
 a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
 before, using the definitions of `length` and the `add_zero` theorem.
-
+The notation `2* length` is shorthand for `length | length`.
 
 ```{.deduce^#length_nat_one}
 theorem length_nat_one: all x:Nat. length([x]) = 1
