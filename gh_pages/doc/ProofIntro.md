@@ -146,7 +146,7 @@ theorem length_node42: length([42]) = 1
 proof
   expand length | length
   show 1 + 0 = 1
-  add_zero
+  add_zero[1]
 end
 ```
 
