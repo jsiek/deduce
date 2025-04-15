@@ -1305,25 +1305,25 @@ proof
 end
 ```
 
-Deduce responds with the current goal, in which `not (x = y)` is
-expanding into `if x = y then false`.
+Deduce responds with the current goal.
 
 ```
 incomplete proof
 Goal:
-    (if x = y then false)
+    not (x = y)
 Givens:
     x_l_y: x < y
 ```
 
-So following the usual recipe to prove an `if`-`then`, we `assume` the
-condition `x = y`.
+Because `not (x = y)` is equivalent to `if x = y then false`,
+we follow the usual recipe to prove an `if`-`then`, that is,
+we `assume` the condition `x = y`.
 
 ```
   assume x_y: x = y
 ```
 
-Now we need to prove false, and we have the hint to use the
+Now we need to prove `false`, and we have the hint to use the
 `intro_less_irreflexive` theorem.
 
 ```
