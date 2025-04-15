@@ -862,8 +862,7 @@ end
 
 To summarize this section:
 
-* Use `or` in Deduce to express that at least one of two or more
-  formulas is true.
+* Use `or` in Deduce to express that at least one of two or more formulas is true.
 * To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
@@ -941,16 +940,15 @@ end
 
 To summarize this section:
 
-* Use `switch` on an entity of union type to split the proof into
-  cases, with one case for each alternative of the union.
+* Use `switch` on an entity of union type to split the proof into cases, with one case for each alternative of the union.
 
-## Conditional Formulas (Implication) and Applying Definitions to Facts
+## Conditional Formulas (Implication) and Expanding Definitions in Facts
 
 Some logical statements are true only under certain conditions, so
 Deduce provides an `if`-`then` formula.  To demonstrate how to work
 with `if`-`then` formulas, we prove that if a list has length zero,
 then it must be the `empty` list. Along the way we will also learn how
-to apply a definition to an already-known fact.
+to expand a definition in an already-known fact.
 
 ```
 theorem list_length_zero_empty: all T:type. all xs:List<T>.
@@ -1007,16 +1005,25 @@ to obtain the dubious looking `length(node(x,xs')) = 0`.
     have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
 ```
 
-The contradiction becomes apparent to Deduce once we apply the
-definition of `length` to this fact. We do so using Deduce's
-`expand`-`in` statement as follows. 
+The contradiction becomes apparent to Deduce once we expand the
+definition of `length` and `operator+` in this fact. We do so using
+Deduce's `expand`-`in` statement as follows.
 
 ```
-    conclude false  by expand length in len_z2
+    have len_z3: suc(length(xs')) = 0
+      by expand length | operator+ in len_z2
 ```
 
-We discuss contradictions and `false` in more detail in the upcoming section
-[Reasoning about `false`](#reasoning-about-false).
+When Deduce sees an equality with different constructors on the left
+and right-hand sides, it automatically simplies the formula to
+`false`.
+
+```
+    conclude false  by len_z3
+```
+
+We discuss contradictions and `false` in more detail in the upcoming
+section [Reasoning about `false`](#reasoning-about-false).
 
 Here is the complete proof of `list_length_zero_empty`.
 
@@ -1032,8 +1039,9 @@ proof
     case empty { . }
     case node(x, xs') assume xs_xxs: xs = node(x,xs') {
       have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
-      conclude false  by apply not_one_add_zero[length(xs')]
-                         to expand length in len_z2
+      have len_z3: suc(length(xs')) = 0
+        by expand length | operator+ in len_z2
+      conclude false  by len_z3
     }
   }
 end
@@ -1123,11 +1131,9 @@ end
 To summarize this section:
 
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
-* To prove an `if`-`then` formula, `assume` the condition
-  and prove the conclusion.
-* To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the
-  condition.
-* To apply a definition to a fact, use `expand`-`in`.
+* To prove an `if`-`then` formula, `assume` the condition and prove the conclusion.
+* To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the condition.
+* To expand a definition in a fact, use `expand`-`in`.
 
 ### Exercise
 
