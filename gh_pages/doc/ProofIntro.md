@@ -297,7 +297,13 @@ end
 ```
 
 To replace `length([x])` with `1`, we `replace`
-using the `list_length_one` theorem instantiated at `U` and `x`.
+using the `list_length_one` theorem instantiated at `U` and `x`,
+i.e., we are replacing using the following equation.
+
+```
+length([x]) = 1
+```
+
 Note that we use `<` and `>` when instantiating a type parameter
 and we use `[` and `]` when instantiating a term parameter.
 
@@ -319,8 +325,8 @@ this time instantiated with `y`.
 replace list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplifies to just `true`,
-so Deduce accepts the `replace` statement.
+Deduce changes the goal to `1 = 1`, which simplifies to `true`.
+So we finish the proof with a period.
 
 Here is the completed proof of `list_length_one_equal`.
 
