@@ -545,7 +545,7 @@ proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
     x + y + z = x + z + y    by replace add_commute[y,z].
-          ... = z + x + y    by replace symmetric add_commute[z,x].
+          ... = z + x + y    by replace add_commute[x,z].
           ... = z + y + x    by replace add_commute[x,y].
 end
 ```
