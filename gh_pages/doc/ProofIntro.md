@@ -554,11 +554,12 @@ If you want to skip the proof of one of the earlier steps, you can use
 [`sorry`](./Reference.md#sorry-proof) for the reason.
 
 If you want to work backwards by transforming the right-hand side of
-an equation into the left-hand side using `replace` or `definition`,
+an equation into the left-hand side using `replace` or `expand`,
 then [mark](./Reference.md#mark) the right-hand side.
 
-The `equations` feature is implemented in Deduce by translating them
-into a bunch of `transitive` statements.
+The `equations` feature is implemented in Deduce by translating into a
+bunch of `transitive` statements.
+
 
 ## Proving `all` Formulas with Induction
 
