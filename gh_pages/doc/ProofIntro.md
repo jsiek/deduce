@@ -251,13 +251,9 @@ end
 
 To summarize this section:
 
-* To state that a formula is true for all entities of a given type,
-  use Deduce's `all` formula.
-* To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
-  (We'll see a second method in the section
-  [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction).)
-* To use a fact that is an `all` formula, instantiate the fact
-  by following it with square brackets around the specific entity.
+* To state that a formula is true for all entities of a given type, use Deduce's `all` formula.
+* To prove that an `all` formula is true, use Deduce's `arbitrary` statement. (We'll see a second method in the section [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction).)
+* To use a fact that is an `all` formula, instantiate the fact by following it with square brackets around the specific entity.
 
 ### Exercise
 
