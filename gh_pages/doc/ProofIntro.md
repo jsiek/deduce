@@ -40,7 +40,9 @@ import List
 To get started, we write down the theorem we would like to prove.  A
 theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
-write `?` to say that we're not done yet.
+write `?` to say that we're not done yet. (Recall that `[]` is the
+notation for an empty list (which is a generic) and `@...<Nat>` is the
+notation for instantiating a generic at a particular type.)
 
     theorem length_nat_empty: length(@[]<Nat>) = 0
     proof
@@ -109,7 +111,7 @@ Deduce responds with
 
 It is quite common to expand a definition and then need to prove the
 remaining goal. We need to expand the definition of `length` again to
-simplify `length(empty)`, so we add another `length` to the `expand`
+simplify `length(@[]<Nat>)`, so we add another `length` to the `expand`
 statement.
 
     theorem length_node42: length([42]) = 1
