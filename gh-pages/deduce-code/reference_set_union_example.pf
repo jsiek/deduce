@@ -1,8 +1,0 @@
-
-
-define C' = single(1) ∪ single(2)
-define D' = single(2) ∪ single(3)
-assert 1 ∈ C' ∪ D'
-assert 2 ∈ C' ∪ D'
-assert 3 ∈ C' ∪ D'
-assert not (4 ∈ C' ∪ D')

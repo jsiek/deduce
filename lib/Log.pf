@@ -1,6 +1,6 @@
 import Nat
 
-function find_log(Nat, Nat, Nat) -> Nat {
+private recursive find_log(Nat, Nat, Nat) -> Nat {
   find_log(0, n, l) = l
   find_log(suc(m'), n, l) =
     if pow2(l) < suc(n) then
@@ -9,7 +9,7 @@ function find_log(Nat, Nat, Nat) -> Nat {
       find_log(m', suc(n), l)
 }
 
-theorem add_less_equal_pow_find_log: all m:Nat. all n:Nat, l:Nat.
+lemma add_less_equal_pow_find_log: all m:Nat. all n:Nat, l:Nat.
   if n ≤ pow2(l)
   then m + n ≤ pow2(find_log(m, n, l))
 proof
@@ -18,7 +18,7 @@ proof
     arbitrary n:Nat, l:Nat
     suppose n_le_pl: n ≤ pow2(l)
     suffices n ≤ pow2(l)
-        by definition {find_log, operator+}
+        by expand find_log | operator+.
     n_le_pl
   }
   case suc(m') suppose IH {
@@ -26,39 +26,46 @@ proof
     suppose prem
     switch pow2(l) < suc(n) for find_log {
       case true {
-        have sn_le_spl: suc(n) ≤ suc(pow2(l))
-	  by suffices n ≤ pow2(l) by definition operator ≤
-             prem
+        have sn_le_spl: suc(n) ≤ suc(pow2(l)) by {
+          suffices n ≤ pow2(l) by expand operator ≤.
+          prem
+        }
         obtain p where pl_sp: pow2(l) = suc(p) from
-	  (apply positive_suc[pow2(l)] to pow_positive[l])
-        have sn_le_psl: suc(n) ≤ pow2(suc(l))
-	  by suffices suc(n) ≤ suc(p) + suc(p)
-                by definition {pow2, operator*,operator*,operator*}
-	           and rewrite add_zero[pow2(l)] | pl_sp
-             suffices n ≤ pow2(l) + p
-                by definition {operator+, operator≤}
-	        and rewrite symmetric pl_sp | add_commute[p][pow2(l)]
-	     apply less_equal_trans[n][pow2(l), pow2(l) + p] 
-	     to prem, less_equal_add[pow2(l)][p]
+          (apply positive_suc[pow2(l)] to pow_positive[l])
+        have sn_le_psl: suc(n) ≤ pow2(suc(l)) by {
+          suffices suc(n) ≤ suc(p) + suc(p) by {
+            expand pow2 | 3* operator*
+            replace add_zero[pow2(l)] | pl_sp.
+          }
+          suffices n ≤ pow2(l) + p by {
+            expand operator+ | operator≤
+            replace symmetric pl_sp | add_commute[p][pow2(l)].
+          }
+          apply less_equal_trans[n][pow2(l), pow2(l) + p] 
+          to prem, less_equal_add[pow2(l)][p]
+        }
         have IH': m' + suc(n) ≤ pow2(find_log(m',suc(n),suc(l)))
-	  by apply IH[suc(n),suc(l)] to sn_le_psl
-	conclude suc(m') + n ≤ pow2(find_log(m',suc(n),suc(l)))
-	  by suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), suc(l)))
-                 by definition operator+
-             rewrite add_suc[m'][n] in IH'
+          by apply IH[suc(n),suc(l)] to sn_le_psl
+        conclude suc(m') + n ≤ pow2(find_log(m',suc(n),suc(l))) by {
+          suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), suc(l)))
+            by expand operator+.
+          replace add_suc[m'][n] in IH'
+        }
       }
       case false suppose pl_l_sn_false {
-        have not_pl_l_sn: not (pow2(l) < suc(n))
-	  by suppose pl_l_sn
-             conclude false by rewrite pl_l_sn_false in pl_l_sn
+        have not_pl_l_sn: not (pow2(l) < suc(n)) by {
+          suppose pl_l_sn
+          conclude false by replace pl_l_sn_false in pl_l_sn
+        }
         have sn_le_pl: suc(n) ≤ pow2(l)
-	  by apply not_less_less_equal[pow2(l)][suc(n)] to not_pl_l_sn
+          by apply not_less_implies_less_equal[pow2(l)][suc(n)] to not_pl_l_sn
         have IH': m' + suc(n) ≤ pow2(find_log(m',suc(n),l))
-	  by apply IH[suc(n), l] to sn_le_pl
-        conclude suc(m') + n ≤ pow2(find_log(m',suc(n),l))
-	  by suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), l))
-                 by definition operator +
-             rewrite add_suc[m'][n] in IH'
+          by apply IH[suc(n), l] to sn_le_pl
+        conclude suc(m') + n ≤ pow2(find_log(m',suc(n),l)) by {
+          suffices suc(m' + n) ≤ pow2(find_log(m', suc(n), l))
+            by expand operator +.
+          replace add_suc[m'][n] in IH'
+        }
       }
     }
   }
@@ -66,21 +73,14 @@ end
 
 define log : fn Nat -> Nat = λn{ find_log(n, 0, 0) }
 
-assert log(1) = 0
-assert log(2) = 1
-assert log(3) = 2
-assert log(4) = 2
-assert log(5) = 3
-assert log(8) = 3
-
 theorem less_equal_pow_log: all n:Nat.
   n ≤ pow2(log(n))
 proof
   arbitrary n:Nat
-  suffices n ≤ pow2(find_log(n, 0, 0)) by definition log
+  suffices n ≤ pow2(find_log(n, 0, 0)) by expand log.
   have f1: n + 0 ≤ pow2(find_log(n, 0, 0))
     by apply add_less_equal_pow_find_log[n][0,0] to
        apply less_implies_less_equal[ 0 ][pow2(0)] to pow_positive[ 0 ]
   conclude n ≤ pow2(find_log(n,0,0))
-    by rewrite add_zero[n] in f1
+    by replace add_zero[n] in f1
 end

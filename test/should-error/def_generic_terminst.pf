@@ -1,0 +1,13 @@
+union A<T> {
+  a
+}
+
+lemma L1: true
+proof
+  .
+end
+
+lemma L2: true
+proof
+  expand a.
+end

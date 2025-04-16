@@ -1,0 +1,8 @@
+./test/should-error/iff_precedence.pf:3.3-3.4: incomplete proof
+Goal:
+	(all P:bool. (P ⇔ (P = true)))
+Advice:
+	Prove this "all" formula with:
+		arbitrary P:bool
+	followed by a proof of:
+		(P ⇔ (P = true))

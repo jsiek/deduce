@@ -1,0 +1,9 @@
+import Nat
+import List
+
+theorem T: all xs:List<Nat>. if length(xs) = 0 then xs = []
+proof
+  arbitrary xs:List<Nat>
+  assume prem: length(xs) = 0
+  apply length_zero_empty to prem
+end

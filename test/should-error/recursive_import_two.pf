@@ -1,0 +1,6 @@
+import recursive_import_one
+
+fun g(x : bool) {
+  f(x)
+}
+

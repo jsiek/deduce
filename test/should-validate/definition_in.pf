@@ -1,0 +1,11 @@
+import Nat
+
+define x = 0
+define y = 1
+
+theorem T: all z:Nat. if z = x + y then z = 1
+proof
+  arbitrary z:Nat
+  assume zxy: z = x + y
+  expand x | y | operator+ in zxy
+end

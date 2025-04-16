@@ -1,0 +1,9 @@
+./test/should-error/forgot_replace_recall.pf:6.3-6.15: error, the proved formula:
+	A = B
+does not match the goal:
+	B = A
+because
+	A
+	≠ B
+
+Did you mean `replace recall A = B`?

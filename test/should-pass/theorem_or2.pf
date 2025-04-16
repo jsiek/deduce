@@ -1,8 +1,0 @@
-theorem T: if false or false then false
-proof
-  suppose ForF {
-    cases ForF
-    case F { F }
-    case F { F }
-  }
-end

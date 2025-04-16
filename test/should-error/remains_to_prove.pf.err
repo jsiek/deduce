@@ -1,0 +1,9 @@
+./test/should-error/remains_to_prove.pf:7.1-7.4: incomplete proof
+Goal:
+	0 + x = x
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		replace
+		equations
+

@@ -1,0 +1,6 @@
+import OpaqueTests
+
+theorem aTheorem: f_id(Z) = Z
+proof
+    expand f_id.
+end

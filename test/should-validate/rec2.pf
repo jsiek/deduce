@@ -1,0 +1,15 @@
+union Nat {
+  zero
+  suc(Nat)
+}
+
+recursive add(Nat,Nat) -> Nat {
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
+}
+
+define f : fn Nat,Nat,Nat->Nat = λ x, y, z { add(add(x,y),z) }
+
+assert f(zero, suc(zero), suc(suc(zero))) = suc(suc(suc(zero)))
+assert add(zero, suc(zero)) = suc(zero)
+assert add(suc(zero), zero) = suc(zero)

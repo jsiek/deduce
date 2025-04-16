@@ -1,0 +1,15 @@
+union Fruit {
+  apple
+  orange
+}
+
+recursive f(Fruit) -> Fruit {
+  f(apple) = g(orange)
+  f(orange) = g(apple)
+}
+
+recursive g(Fruit) -> Fruit {
+  g(apple) = f(orange)
+  g(orange) = f(apple)
+}
+assert g(apple) = apple

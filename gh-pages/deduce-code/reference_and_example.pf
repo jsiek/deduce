@@ -1,6 +1,0 @@
-
-
-assert true and true
-assert not (true and false)
-assert not (false and true)
-assert not (false and false)

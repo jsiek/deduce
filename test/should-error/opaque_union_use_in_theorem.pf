@@ -1,0 +1,6 @@
+import OpaqueTests
+
+theorem thm: cero = cero
+proof
+    .
+end

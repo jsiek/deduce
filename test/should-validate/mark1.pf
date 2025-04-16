@@ -1,0 +1,17 @@
+
+theorem T: all P:bool, Q:bool.
+  if Q = P and P
+  then Q and Q
+proof
+  arbitrary P:bool, Q:bool
+  suppose prem: (Q = P and P)
+  have q_p: Q = P
+    by prem
+  conclude Q and #Q# by {
+    replace q_p
+    show #Q# and P
+    replace q_p
+    show P and P
+    prem
+  }
+end

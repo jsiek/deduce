@@ -1,0 +1,10 @@
+import Nat
+
+theorem T: all x:Nat, y:Nat, z:Nat. if suc(x) = y then z = y
+proof
+  arbitrary x:Nat, y:Nat, z:Nat
+  assume prem: suc(x) = y
+  replace prem.
+end
+
+  

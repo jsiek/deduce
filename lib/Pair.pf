@@ -2,14 +2,37 @@ union Pair<T,U> {
   pair(T,U)
 }
 
-function first<T,U>(Pair<T,U>) -> T {
-  first(pair(x,y)) = x
+fun first<T,U>(p : Pair<T,U>)  {
+  switch p {
+    case pair(x,y) { x }
+  }
 }
 
-function second<T,U>(Pair<T,U>) -> U {
-  second(pair(x,y)) = y
+fun second<T,U>(p : Pair<T,U>) {
+  switch p {
+    case pair(x,y) { y }
+  }
 }
 
-define pairfun : fn<T1,T2,U1,U2>  (fn T1->T2), (fn U1->U2)
-   -> (fn Pair<T1,U1> -> Pair<T2,U2>)
-   = generic T1,T2,U1,U2 { λf,g{ λp{ pair(f(first(p)), g(second(p))) } } }
+fun pairfun<T1,T2,U1,U2>(f : fn T1->T2, g : fn U1->U2) {
+  fun p: Pair<T1,U1> {
+    pair(f(first(p)), g(second(p)))
+  }
+}
+
+theorem first_pair: all T:type,U:type, x:T, y:U. first(pair(x,y)) = x
+proof
+  arbitrary T:type,U:type, x:T, y:U
+  expand first.
+end
+  
+theorem second_pair: all T:type,U:type, x:T, y:U. second(pair(x,y)) = y
+proof
+  arbitrary T:type,U:type, x:T, y:U
+  expand second.
+end
+  
+  
+ 
+  
+ 

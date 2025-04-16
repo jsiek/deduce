@@ -1,6 +1,0 @@
-
-
-theorem length_nat_empty: length(@[]<Nat>) = 0
-proof
-  definition length
-end

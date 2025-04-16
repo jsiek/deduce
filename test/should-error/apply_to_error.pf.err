@@ -1,9 +1,9 @@
-./test/should-error/apply_to_error.pf:17.67-17.71: expected "to" after implication part of "apply", not
-	prem
-./test/should-error/apply_to_error.pf:17.50-17.66: while parsing apply-to (use a logical implication)
-	conclusion ::= "apply" proof "to" proof
-
 ./test/should-error/apply_to_error.pf:17.3-17.66: while parsing
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
+./test/should-error/apply_to_error.pf:17.50-17.66: while parsing apply-to (use a logical implication)
+	conclusion ::= "apply" proof "to" proof
+
+./test/should-error/apply_to_error.pf:17.67-17.71: expected "to" after implication part of "apply", not
+	prem

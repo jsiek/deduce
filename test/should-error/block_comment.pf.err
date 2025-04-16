@@ -1,0 +1,1 @@
+./test/should-error/block_comment.pf:4.1-4.13: assertion failed: false

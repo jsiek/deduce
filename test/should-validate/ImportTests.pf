@@ -1,0 +1,31 @@
+import List
+import Nat
+
+private union Bit {
+    High
+    Low
+}
+
+
+private recursive add_one_all(List<Nat>) -> List<Nat> {
+    add_one_all([]) = []
+    add_one_all(node(x, xs)) = node(suc(x), add_one_all(xs))
+}
+
+define f : fn Bit -> Bit = fun b { b }
+
+assert f(High) = High
+assert f(Low) = Low
+
+union OneTwo {
+    One
+    Two
+}
+
+opaque define id_one_two : fn OneTwo -> OneTwo = fun b { b }
+
+theorem id_one_two_works: all b:OneTwo. id_one_two(b) = b
+proof 
+    arbitrary b:OneTwo
+    expand id_one_two.
+end

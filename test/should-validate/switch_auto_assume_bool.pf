@@ -1,0 +1,25 @@
+union A {
+    a
+    b
+}
+
+fun test2(x : A){
+	if x = a then true else false
+}
+
+theorem test2_thm: all x:A. test2(x) = true or test2(x) = false
+proof
+	arbitrary x:A
+	suffices ((if x = a then true else false) = true or (if x = a then true else false) = false)
+		by expand test2.
+	switch x = a {
+		case true{
+      replace symmetric recall (x = a) = true
+			show x=a
+			replace recall (x = a) = true.
+		}
+		case false assume G {
+			.
+		}
+	}
+end

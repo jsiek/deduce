@@ -1,0 +1,23 @@
+union Nat {
+  zero
+  suc(Nat)
+}
+
+recursive add(Nat,Nat) -> Nat {
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
+}
+
+theorem add_zero: all n:Nat. add(n, zero) = n
+proof
+  induction Nat
+  case zero {
+    conclude add(zero, zero) = zero   by expand add.
+  }
+  case suc(n') suppose IH {
+    equations
+      add(suc(n'), zero) = suc(add(n', zero))   by expand add.
+                     ... = suc(n')              by replace IH.
+  }
+end
+

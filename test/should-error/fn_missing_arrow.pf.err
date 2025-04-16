@@ -1,8 +1,10 @@
-./test/should-error/fn_missing_arrow.pf:1.20-1.24: expected "->" after parameter types, not
-	"bool"
-./test/should-error/fn_missing_arrow.pf:1.12-1.19: while parsing
-	type ::= "fn" type_params_opt type_list "->" type
-
+./test/should-error/fn_missing_arrow.pf:1.1-1.19: while parsing
+	declaration ::= union | rec_function | function | definition
 ./test/should-error/fn_missing_arrow.pf:1.1-1.19: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
+./test/should-error/fn_missing_arrow.pf:1.12-1.19: while parsing
+	type ::= "fn" type_params_opt type_list "->" type
+
+./test/should-error/fn_missing_arrow.pf:1.20-1.24: expected "->" after parameter types, not
+	"bool"

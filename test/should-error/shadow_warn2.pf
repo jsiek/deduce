@@ -1,0 +1,47 @@
+// This should trigger a lot of warnings for already in use variables
+// The assert false at the end is so that we can actually look at the output
+// - Calvin
+
+union Blah {
+  B(bool)
+  C(Blah)
+  D(Blah, Blah)
+}
+
+// Function binding
+define C =
+  fun x:bool {
+    fun x:bool {
+      x
+    }
+  }
+
+define True = true
+  
+  // In forall, some, arbitrary, assumes of cases, have,  define in proof
+theorem blah : all C : bool. some D : bool. True 
+proof
+  arbitrary B : bool
+  switch B {
+    case true assume prop_t {
+      choose true
+      switch B {
+        case true assume prop_t {
+          expand True.
+        }
+        case false assume prop_f {
+          have prop_t : true by .
+          expand True
+          prop_t
+        }
+      }
+    }
+    case false assume blah' {
+      define blah' = True
+      choose false
+      ?
+    }
+  }
+end
+
+assert false

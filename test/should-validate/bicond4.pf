@@ -1,0 +1,27 @@
+theorem bicond_trans : all P : bool, Q : bool, R : bool.
+  if (P <=> Q) and (Q <=> R) then P <=> R
+proof 
+  arbitrary P : bool, Q : bool, R : bool
+  switch P {
+    case true assume prop_t { 
+      switch Q {
+        case true assume prop_t' {
+          .
+        }
+        case false assume prop_f {
+          .
+        }
+      }
+    }
+    case false assume prop_f {
+      switch Q {
+        case true assume prop_t {
+          .
+        }
+        case false assume prop_f' {
+          .
+        }
+      }
+    }
+  }
+end

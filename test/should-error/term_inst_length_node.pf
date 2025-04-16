@@ -1,0 +1,8 @@
+import Nat
+import List
+
+theorem l1 : length(node(1, empty)) = 1
+proof
+  expand length 
+  ?
+end

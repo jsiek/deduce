@@ -1,0 +1,4 @@
+./test/should-error/suffices_omitted.pf:4.1-4.8: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/should-error/suffices_omitted.pf:4.9-4.11: expected name of theorem, not:
+	__

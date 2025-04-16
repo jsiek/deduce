@@ -1,0 +1,7 @@
+import Nat
+
+theorem T: all x:Nat. 0 + (0 + x) = x
+proof
+  arbitrary x:Nat
+  replace zero_add
+end  

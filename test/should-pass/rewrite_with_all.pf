@@ -1,6 +1,0 @@
-import Nat
-
-theorem T: all n:Nat. 1 + (0 + n) = 1 + n
-proof
-  rewrite zero_add
-end

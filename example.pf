@@ -1,0 +1,10 @@
+import Nat
+import List
+
+define x = 1
+
+theorem one_x: 1 = x
+proof
+  suffices 1 = 1 by definition x
+  .
+end

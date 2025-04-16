@@ -3,7 +3,7 @@ union Bit {
   one
 }
 
-function f(Bit) -> Bit {
+recursive f(Bit) -> Bit {
   f(zero) = one
   f(one) zero
 }

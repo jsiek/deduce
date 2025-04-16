@@ -1,0 +1,18 @@
+import Nat
+
+define bigO : fn (fn Nat -> Nat), (fn Nat -> Nat) -> bool =
+ fun f, g{ all x : Nat. some k : Nat, c : Nat. if x >= k then f(x) <= c * g(x) }
+
+theorem n_big_o_n2 : bigO(fun x { x }, fun x { x * x })
+proof
+  suffices (all x:Nat. some k:Nat,c:Nat. (if x ≥ k then x ≤ c * (x * x)))
+    by expand bigO.
+  arbitrary x : Nat
+  choose 1, 1
+  suffices if x ≥ 1 then x ≤ x * x 
+    by one_mult[x*x]
+  assume prem : x >= 1
+  have one_le_x : 1 <= x by expand operator>= in prem
+  have x_le_xx : x * 1 <= x * x by apply mult_mono_le[x, 1, x] to one_le_x
+  conclude x <= x * x by replace mult_one[x] in x_le_xx
+end

@@ -62,9 +62,18 @@ def parse_tree_to_list(e, parent):
         return tuple([])
     elif e.data == 'single':
         return tuple([parse_tree_to_ast(e.children[0], parent)])
+    elif e.data == 'repeat':
+        num = int(e.children[0])
+        item = parse_tree_to_ast(e.children[1], parent)
+        return tuple(num * [item])
     elif e.data == 'push':
         return tuple([parse_tree_to_ast(e.children[0], parent)]) \
             + parse_tree_to_list(e.children[1], parent)
+    elif e.data == 'push_repeat':
+        num = int(e.children[0])
+        item = parse_tree_to_ast(e.children[1], parent)
+        rest = parse_tree_to_list(e.children[2], parent)
+        return tuple(num * [item]) + rest
     elif e.data == 'empty_binding':
         return tuple([])
     elif e.data == 'single_binding':
@@ -104,7 +113,7 @@ def parse_tree_to_case_list(e):
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
     
-infix_ops = {'add', 'sub', 'nat_sub', 'mul', 'div', 'mod', 'circ',
+infix_ops = {'add', 'sub', 'nat_sub', 'mul', 'div', 'mod', 'circ', 'pow',
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
              'subset_equal', 'union_op', 'intersect', 'membership',
@@ -115,6 +124,7 @@ prefix_ops = {'neg', 'not'}
 
 operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘', 'nat_sub': '⊝',
                    'mod': '%', 'neg':'-', 
+                   'pow': '^',
                    'and': 'and', 'or':'or', 'not': 'not',
                    'equal': '=', 'not_equal': '≠',
                    'less': '<', 'greater': '>',
@@ -129,13 +139,6 @@ def next_impl_num():
     impl_num += 1
     return ret
     
-def extract_tuple(pf):
-    match pf:
-      case PTuple(loc, pfs):
-        return pfs
-      case _:
-       return [pf]
-   
 def parse_tree_to_ast(e, parent):
     if isinstance(e, Token):
         return e
@@ -277,10 +280,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'false_literal':
         return Bool(e.meta, None, False)
     elif e.data == 'emptyset_literal':
-        return Call(e.meta, None,
-                    Var(e.meta, None, 'char_fun', []),
-                    [Lambda(e.meta, None, [('_',None)],
-                            Bool(e.meta, None, False))])
+        return Call(e.meta, None, Var(e.meta, None, 'empty_set', []), [])
     # elif e.data == 'field_access':
         # subject = parse_tree_to_ast(e.children[0], e)
         # field_name = str(e.children[1].value)
@@ -290,9 +290,13 @@ def parse_tree_to_ast(e, parent):
         rands = parse_tree_to_list(e.children[1], e)
         return Call(e.meta, None, rator, rands)
     elif e.data == 'lambda':
-        return Lambda(e.meta, None,
-                      parse_tree_to_list(e.children[0], e),
-                      parse_tree_to_ast(e.children[1], e))
+        typarams = parse_tree_to_list(e.children[0], e)
+        params = parse_tree_to_list(e.children[1], e)
+        body = parse_tree_to_ast(e.children[2], e)
+        if len(typarams) > 0:
+            return Generic(e.meta, None, typarams, Lambda(e.meta, None, params, body))
+        else:
+            return Lambda(e.meta, None, params, body)
     elif e.data == 'generic':
         return Generic(e.meta, None,
                        parse_tree_to_list(e.children[0], e),
@@ -325,7 +329,18 @@ def parse_tree_to_ast(e, parent):
         return parse_tree_to_ast(e.children[0], e)
     elif e.data == 'push_proof':
         proof_stmt = parse_tree_to_ast(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
+        if len(e.children) == 1:
+            meta = Meta() # Put the location of the 'Hole' at the start of the next line
+            meta.empty = False
+            meta.filename = e.meta.filename
+            meta.line = e.meta.end_line+1
+            meta.column = 0
+            meta.end_line = e.meta.end_line+1
+            meta.end_column = 0
+            body = PHole(meta)
+            #body = PTrue(meta)
+        else:
+            body = parse_tree_to_ast(e.children[1], e)
         if isinstance(proof_stmt, AllIntro):
             proof_stmt.set_body(body)
         else:
@@ -382,6 +397,10 @@ def parse_tree_to_ast(e, parent):
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_ast(e.children[1], e))
+    elif e.data == 'annot_stmt':
+        return PAnnot(e.meta,
+                      parse_tree_to_ast(e.children[0], e),
+                      None)
     elif e.data == 'conclude_from':
         return PAnnot(e.meta,
                       parse_tree_to_ast(e.children[0], e),
@@ -391,11 +410,6 @@ def parse_tree_to_ast(e, parent):
                         parse_tree_to_ast(e.children[0], e),
                         parse_tree_to_ast(e.children[1], e),
                         None)
-    elif e.data == 'term_proof':
-        return PTerm(e.meta,
-                     parse_tree_to_ast(e.children[0], e),
-                     parse_tree_to_ast(e.children[1], e),
-                     parse_tree_to_ast(e.children[2], e))
     elif e.data == 'tuple':
        left = parse_tree_to_ast(e.children[0], e)
        right = parse_tree_to_ast(e.children[1], e)
@@ -497,62 +511,21 @@ def parse_tree_to_ast(e, parent):
         ind_hyps = parse_tree_to_list(e.children[1], e)
         body = parse_tree_to_ast(e.children[2], e)
         return IndCase(e.meta, pat, ind_hyps, body)
-    elif e.data == 'apply_defs_goal':
+    elif e.data == 'expand':
         definitions = parse_tree_to_list(e.children[0], e)
-        body = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsGoal(e.meta, [Var(e.meta, None, t, []) for t in definitions],
-                             body)
+                             None)
     elif e.data == 'eval_goal':
         return EvaluateGoal(e.meta)
     elif e.data == 'eval_fact':
         subject = parse_tree_to_ast(e.children[0], e)
         return EvaluateFact(e.meta, subject)
-    elif e.data == 'apply_defs_goal_one':
-        definition = parse_tree_to_ast(e.children[0], e)
-        return ApplyDefsGoal(e.meta, [Var(e.meta, None, definition, [])], None)
     elif e.data == 'apply_defs_fact':
         definitions = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return ApplyDefsFact(e.meta,
                              [Var(e.meta, None, t, []) for t in definitions],
                              subject)
-    elif e.data == 'apply_defs_fact_one':
-        definition = parse_tree_to_ast(e.children[0], e)
-        subject = parse_tree_to_ast(e.children[1], e)
-        return ApplyDefsFact(e.meta,
-                             [Var(e.meta, None, definition, [])],
-                             subject)
-    elif e.data == 'enable_defs':
-        definitions = parse_tree_to_list(e.children[0], e)
-        return EnableDefs(e.meta,
-                          [Var(e.meta, None, x, []) for x in definitions],
-                          None)
-    elif e.data == 'reason_definition':
-        definitions = parse_tree_to_list(e.children[0], e)
-        return ApplyDefs(e.meta, [Var(e.meta, None, t, []) for t in definitions])
-    
-    elif e.data == 'reason_def_rewrite':
-        definitions = parse_tree_to_list(e.children[0], e)
-        eqns = parse_tree_to_list(e.children[1], e)
-        return ApplyDefsGoal(e.meta,
-                             [Var(e.meta, None, t, []) for t in definitions],
-                             Rewrite(e.meta, eqns))
-    elif e.data == 'reason_def_one_rewrite':
-        dfn = parse_tree_to_ast(e.children[0], e)
-        definitions = [Var(e.meta, None, dfn, [])]
-        eqns = parse_tree_to_list(e.children[1], e)
-        return ApplyDefsGoal(e.meta,
-                             definitions,
-                             Rewrite(e.meta, eqns))
-    elif e.data == 'reason_definition_one':
-        dfn = parse_tree_to_ast(e.children[0], e)
-        return ApplyDefs(e.meta, [Var(e.meta, None, dfn, [])])
-    elif e.data == 'enable_def':
-        definition = parse_tree_to_ast(e.children[0], e)
-        subject = parse_tree_to_ast(e.children[1], e)
-        return EnableDefs(e.meta,
-                          [Var(e.meta, None, definition, [])],
-                          subject)
     elif e.data == 'rewrite_goal':
         eqns = parse_tree_to_list(e.children[0], e)
         return RewriteGoal(e.meta, eqns, None)
@@ -560,9 +533,6 @@ def parse_tree_to_ast(e, parent):
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return RewriteFact(e.meta, subject, eqns)
-    elif e.data == 'reason_rewrite':
-        eqns = parse_tree_to_list(e.children[0], e)
-        return Rewrite(e.meta, eqns)
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0], e)
         rhs = parse_tree_to_ast(e.children[1], e)
@@ -613,21 +583,25 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'union':
         return Union(e.meta, str(e.children[0].value),
                      parse_tree_to_list(e.children[1], e),
-                     parse_tree_to_list(e.children[2], e), False)
+                     parse_tree_to_list(e.children[2], e))
     
     # theorem definitions
     elif e.data == 'theorem':
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
-                       parse_tree_to_ast(e.children[2], e),
-                       isLemma = False)
+                       parse_tree_to_ast(e.children[2], e))
     elif e.data == 'lemma':
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
                        parse_tree_to_ast(e.children[2], e),
-                       isLemma = True)
+                       isLemma=True)
+    elif e.data == 'assoc_decl':
+        op_var = parse_tree_to_ast(e.children[0], e)
+        typarams = parse_tree_to_list(e.children[1], e)
+        typ = parse_tree_to_ast(e.children[2], e)
+        return Associative(e.meta, typarams, Var(e.meta, None, op_var, []), typ)
 
     # patterns in function definitions
     elif e.data == 'pattern_id':
@@ -650,26 +624,51 @@ def parse_tree_to_ast(e, parent):
     
     # case of a recursive function
     elif e.data == 'fun_case':
+        rator = parse_tree_to_ast(e.children[0], e)
         pp = parse_tree_to_list(e.children[1], e)
-        return FunCase(e.meta, pp[0], pp[1:],
+        return FunCase(e.meta, Var(e.meta, None, rator, []), pp[0], pp[1:],
                        parse_tree_to_ast(e.children[2], e))
-    # recursive functions
+    # functions
+    elif e.data == 'fun':
+        name = parse_tree_to_ast(e.children[0], e)
+        typarams = parse_tree_to_list(e.children[1], e)
+        params = parse_tree_to_list(e.children[2], e)
+        body = parse_tree_to_ast(e.children[3], e)
+        lam = Lambda(e.meta, None, params, body)
+        if len(typarams) > 0:
+            fun = Generic(e.meta, None, typarams, lam)
+        else:
+            fun = lam
+        return Define(e.meta, name, None, fun)
+    
+    # structurally recursive functions
     elif e.data == 'rec_fun':
         return RecFun(e.meta, parse_tree_to_ast(e.children[0], e),
                       parse_tree_to_list(e.children[1], e),
                       parse_tree_to_list(e.children[2], e),
                       parse_tree_to_ast(e.children[3], e),
-                      parse_tree_to_list(e.children[4], e), False)
+                      parse_tree_to_list(e.children[4], e))
 
+    # general recursion
+    elif e.data == 'gen_rec_fun':
+        return GenRecFun(e.meta,
+                         parse_tree_to_ast(e.children[0], e),
+                         parse_tree_to_list(e.children[1], e),
+                         parse_tree_to_list(e.children[2], e),
+                         parse_tree_to_ast(e.children[3], e),
+                         parse_tree_to_ast(e.children[4], e),
+                         Var(e.meta, None, 'Nat', []),
+                         parse_tree_to_ast(e.children[5], e),
+                         parse_tree_to_ast(e.children[6], e))
     # term definition
     elif e.data == 'define':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       None,
-                      parse_tree_to_ast(e.children[1], e), False)
+                      parse_tree_to_ast(e.children[1], e))
     elif e.data == 'define_annot':
         return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
                       parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e), False)
+                      parse_tree_to_ast(e.children[2], e))
 
     # import module/file
     elif e.data == 'import':
@@ -683,14 +682,27 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'print':
         return Print(e.meta, parse_tree_to_ast(e.children[0], e))
 
-    elif e.data == 'private':
+    # accessibility
+    elif (e.data == 'add_access'):
+        return parse_tree_to_ast(e.children[0], e)
+
+    elif e.data == 'private_decl':
         statement = parse_tree_to_ast(e.children[0], e)
         statement.isPrivate = True
         return statement
-
+    
+    elif e.data == 'opaque_decl':
+        statement = parse_tree_to_ast(e.children[0], e)
+        statement.makeOpaque = True
+        statement.file_defined = get_filename()
+        return statement
+    
     # whole program
     elif e.data == 'program':
-        return parse_tree_to_list(e.children[0], None)
+        if e.children == []: # Allowing for empty programs
+            return []
+        else:
+            return parse_tree_to_list(e.children[0], None)
     
     else:
         raise Exception('unhandled parse tree', e)

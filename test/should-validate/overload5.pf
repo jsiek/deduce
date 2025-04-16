@@ -1,0 +1,44 @@
+union A {
+  a
+}
+
+union B {
+  b
+}
+
+union C {
+  c
+}
+
+union D {
+  d
+}
+
+fun f(x : A) {
+  switch x {
+    case a { true }
+  }
+}
+
+fun f(x : B) {
+  switch x {
+    case b { false }
+  }
+}
+
+fun f(x : C) {
+  switch x {
+    case c { true }
+  }
+}
+
+fun f(x : D) {
+  switch x {
+    case d { false }
+  }
+}
+
+assert f(a)
+assert not f(b)
+assert f(c)
+assert not f(d)

@@ -1,0 +1,111 @@
+import Nat
+
+opaque define another_five = 5
+
+// Testing defines
+union Byte {
+    Z
+    one(Byte)
+    zero(Byte)
+}
+
+opaque define f_id : fn Byte -> Byte = fun b { b }
+
+assert f_id(one(Z)) = one(Z)
+assert f_id(zero(Z)) = zero(Z)
+
+theorem f_id_correct : all b:Byte. f_id(b) = b
+proof 
+    expand f_id.
+end
+
+// Testing recursive functions
+
+opaque recursive f_z(Byte) -> Byte {
+    f_z(Z) = Z
+    f_z(zero(b)) = f_z(b)
+    f_z(one(b)) = f_z(b)
+}
+
+assert f_z(one(Z)) = Z
+assert f_z(zero(Z)) = Z
+
+theorem f_Z: all b:Byte. f_z(b) = Z
+proof
+    induction Byte
+    case Z {
+        evaluate
+    }
+    case one(b) suppose IH {
+        expand f_z
+        replace IH
+        evaluate
+    }
+    case zero(b) suppose IH {
+        expand f_z
+        replace IH
+        evaluate
+    }
+end
+
+
+// Testing genrecfun's
+
+opaque recfun fact(n : Nat) -> Nat 
+    measure n {
+    if n = 0 then 1
+    else n * fact(pred(n))
+}
+terminates {
+    induction Nat
+    case 0 {
+        evaluate
+    }
+    case suc(n') assume IH {
+        assume prem: suc(n') /= 0
+        replace pred_suc_n
+        suffices __ by evaluate
+        less_equal_refl
+    }
+}
+
+theorem some_theorem: fact(0) = 1
+proof
+    evaluate
+end
+
+theorem some_theorem1: fact(1) = 1
+proof
+    evaluate
+end
+
+theorem some_theorem2: fact(5) = 120
+proof
+    evaluate
+end
+
+// Testing opaque unions
+opaque union Nat_Hat {
+    cero
+    next(Nat_Hat)
+}
+
+// POV: isorecursive types
+recursive natToNatHat(Nat) -> Nat_Hat {
+    natToNatHat(0) = cero
+    natToNatHat(suc(x)) = next(natToNatHat(x))
+}
+
+recursive NatHatToNat(Nat_Hat) -> Nat {
+    NatHatToNat(cero) = 0
+    NatHatToNat(next(x)) = suc(NatHatToNat(x))
+}
+
+assert natToNatHat(1) = next(cero)
+
+recursive natHats(Nat_Hat, Nat_Hat) -> Nat_Hat {
+    natHats(cero, y) = y
+    natHats(next(x), y) = next(natHats(x, y))
+}
+
+assert natHats(cero, cero) = cero

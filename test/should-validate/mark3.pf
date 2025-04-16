@@ -1,0 +1,18 @@
+union C {
+  c
+}
+
+fun f(x : C) {
+  switch x {
+    case c { true }
+  }
+}
+
+theorem T: (f(c) and f(c)) = (f(c) and f(c))
+proof
+  equations
+     (#f(c)# and f(c)) = (true and f(c))    by expand f.
+   $ (true and #f(c)#) = (true and true)    by expand f.
+                   ... = (#f(c)# and true)  by expand f.
+                   ... = (f(c) and #f(c)#)  by expand f.
+end

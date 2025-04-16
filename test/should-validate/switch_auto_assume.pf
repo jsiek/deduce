@@ -1,0 +1,33 @@
+union A {
+    a
+    b
+}
+
+fun test(x : A){
+    switch x {
+        case a { true }
+        case b { false }
+    }
+}
+
+
+theorem test_thm: all x:A. test(x) = true or test(x) = false
+proof
+    arbitrary x:A
+    switch x {
+      case a assume G {
+          replace symmetric G
+          show test(x) = true
+          replace G
+          show test(a) = true
+          evaluate
+      }
+      case b {
+        replace symmetric recall x = b
+        show test(x) = false
+        replace recall x = b
+        show test(b) = false
+        evaluate
+      }
+    }
+end

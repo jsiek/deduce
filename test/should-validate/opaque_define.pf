@@ -1,0 +1,4 @@
+import OpaqueTests
+
+assert f_id(one(Z)) = one(Z)
+assert f_id(zero(Z)) = zero(Z)

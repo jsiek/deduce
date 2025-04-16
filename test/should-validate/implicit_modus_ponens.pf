@@ -1,0 +1,7 @@
+import Nat
+
+theorem T: 2 ≤ 1 + 1
+proof
+  have X: 2 = 1 + 1 by expand 2* operator+.
+  equal_implies_less_equal[2, 1+1], X
+end

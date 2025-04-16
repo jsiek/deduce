@@ -12,6 +12,7 @@ import traceback
 from pathlib import Path
 
 traceback_flag = False
+suppress_theorems = False
 
 def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
@@ -29,15 +30,19 @@ def deduce_file(filename, error_expected):
         else:
             file = open(filename, 'r', encoding="utf-8")
             program_text = file.read()
-            parser.set_filename(filename)
-            rec_desc_parser.set_filename(filename)
 
             if get_verbose():
                 print("about to parse")
             if get_recursive_descent():
+                rec_desc_parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
+                rec_desc_parser.set_filename(filename)
+                rec_desc_parser.init_parser()
                 ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
                                             error_expected=error_expected)
             else:
+                parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
+                parser.set_filename(filename)
+                parser.init_parser()
                 ast = parser.parse(program_text, trace=get_verbose(),
                                    error_expected=error_expected)
             if get_verbose():
@@ -48,13 +53,14 @@ def deduce_file(filename, error_expected):
             if get_verbose():
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
             add_uniquified_module(module_name, ast)
-                
+
         check_deduce(ast, module_name)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
         else:
-            print_theorems(filename, ast)
+            if not suppress_theorems:
+                print_theorems(filename, ast)
             print(filename + ' is valid')
 
     except Exception as e:
@@ -72,14 +78,13 @@ def deduce_file(filename, error_expected):
             # raise e
 
 def deduce_directory(directory, recursive_directories):
-    if directory[-1] != '/' or directory[-1] != '\\': # Windows moment
-        directory += '/'
     for file in os.listdir(directory):
-        if os.path.isfile(directory + file):
+        fpath = os.path.join(directory, file)
+        if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                deduce_file(directory + file, error_expected)
-        elif recursive_directories and os.path.isdir(directory + file):
-            deduce_directory(directory + file, recursive_directories)
+                deduce_file(fpath, error_expected)
+        elif recursive_directories and os.path.isdir(fpath):
+            deduce_directory(fpath, recursive_directories)
 
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
@@ -129,8 +134,10 @@ if __name__ == "__main__":
             recursive_directories = True
         elif argument == '--no-stdlib':
             add_stdlib = False
+        elif argument == '--suppress-theorems':
+            suppress_theorems = True
         elif argument == '--version' or argument == '-v':
-            print("Deduce: version 1.0.0")
+            print("Deduce: version 1.2")
             exit(0)
         else:
             deducables.append(argument)
@@ -151,10 +158,6 @@ if __name__ == "__main__":
     # higher.
 
     # Start deducing
-    parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
-    rec_desc_parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
-    parser.init_parser()
-    rec_desc_parser.init_parser()
 
     for deducable in deducables:
         if os.path.isfile(deducable):

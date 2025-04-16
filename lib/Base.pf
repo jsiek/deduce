@@ -1,4 +1,3 @@
-
 theorem or_not: all P:bool, Q:bool.
   if (P or Q) and not P
   then Q
@@ -67,11 +66,11 @@ proof
   switch P {
     case true {
       suppose q
-      rewrite (apply eq_true to q)
+      replace (apply eq_true to q).
     }
     case false {
       suppose not_q
-      rewrite (apply eq_false to not_q)
+      replace (apply eq_false to not_q).
     }
   }
 end
@@ -104,12 +103,84 @@ proof
   fwd, bkwd
 end
 
-theorem contrapositive : all P : bool, Q : bool.
+theorem contrapositive: all P : bool, Q : bool.
   if (if P then Q) and not Q then not P
 proof
   arbitrary P : bool, Q : bool
   switch Q {
     case true { . }
     case false { . }
+  }
+end
+
+theorem double_neg: all P: bool.
+  (not (not P)) = P
+proof
+  arbitrary P:bool
+  switch P {
+    case true {
+      evaluate
+    }
+    case false {
+      evaluate
+    }
+  }
+end
+
+fun xor(x : bool, y : bool) {
+  if x then not y
+  else y
+}
+
+theorem xor_true: all b:bool. xor(true, b) = not b
+proof
+  arbitrary b:bool
+  switch b {
+    case true {
+      evaluate
+    }
+    case false {
+      evaluate
+    }
+  }
+end
+
+theorem xor_false: all b:bool. xor(false, b) = b
+proof
+  arbitrary b:bool
+  switch b {
+    case true {
+      evaluate
+    }
+    case false {
+      evaluate
+    }
+  }
+end
+
+theorem xor_commute: all a:bool, b:bool. xor(a,b) = xor(b,a)
+proof
+  arbitrary a:bool, b:bool
+  switch a {
+    case true {
+      switch b {
+        case true {
+          evaluate
+        }
+        case false {
+          evaluate
+        }
+      }
+    }
+    case false {
+      switch b {
+        case true {
+          evaluate
+        }
+        case false {
+          evaluate
+        }
+      }
+    }
   }
 end

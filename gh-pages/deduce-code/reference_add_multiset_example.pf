@@ -1,6 +1,0 @@
-
-
-define A = m_one(5) ⨄ m_one(3) ⨄ m_one(5)
-assert cnt(A)(3) = 1
-assert cnt(A)(5) = 2
-assert cnt(A)(7) = 0

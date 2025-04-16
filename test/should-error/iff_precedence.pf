@@ -1,0 +1,5 @@
+theorem T: all P:bool. P ⇔ (P = true)
+proof
+  ?
+end
+

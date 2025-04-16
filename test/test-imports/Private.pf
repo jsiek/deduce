@@ -1,0 +1,4 @@
+private union Sign {
+  positive
+  negative
+}

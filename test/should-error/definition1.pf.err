@@ -1,0 +1,2 @@
+./test/should-error/definition1.pf:8.16-8.56: could not find a place to apply definition of length in:
+	length(xs) = 0

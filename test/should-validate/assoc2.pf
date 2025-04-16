@@ -1,0 +1,11 @@
+import Nat
+
+theorem T: all x:Nat,y:Nat,z:Nat.
+  x + y + suc(z) = suc(x + y + z)
+proof
+  arbitrary x:Nat,y:Nat,z:Nat
+  equations
+      x + y + suc(z)
+      = x + suc(y + z)     by replace add_suc.
+  ... = suc(x + y + z)     by replace add_suc.
+end

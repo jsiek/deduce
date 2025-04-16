@@ -1,0 +1,9 @@
+lemma L1: true
+proof
+  .
+end
+
+lemma L2: true
+proof
+  expand L1.
+end

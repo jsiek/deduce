@@ -1,3 +1,1 @@
-./test/should-error/use_private_define.pf:3.8-3.10: undefined variable: L1
-	did you intend: ≠, =
-
+./test/should-error/use_private_define.pf:3.8-3.15: undefined variable: log_one

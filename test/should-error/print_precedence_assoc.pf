@@ -1,0 +1,6 @@
+import Nat
+
+theorem T: all x:Nat, y:Nat, z:Nat. x + (y + z) + 0 = x + y + z
+proof
+  ?
+end

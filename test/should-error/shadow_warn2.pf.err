@@ -1,0 +1,14 @@
+./test/should-error/shadow_warn2.pf:14.5-16.6: WARNING: x is already defined
+./test/should-error/shadow_warn2.pf:22.16-22.49: WARNING: C is already defined
+./test/should-error/shadow_warn2.pf:22.30-22.49: WARNING: D is already defined
+./test/should-error/shadow_warn2.pf:24.3-24.21: WARNING: B is already defined
+./test/should-error/shadow_warn2.pf:29.9-31.10: WARNING: prop_t is already defined
+./test/should-error/shadow_warn2.pf:33.11-33.34: WARNING: prop_t is already defined
+./test/should-error/shadow_warn2.pf:40.7-40.26: WARNING: blah' is already defined
+./test/should-error/shadow_warn2.pf:42.7-42.8: incomplete proof
+Goal:
+	blah'
+
+
+Givens:
+	blah': B = false

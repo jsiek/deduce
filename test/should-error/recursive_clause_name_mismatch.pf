@@ -1,0 +1,6 @@
+import Nat
+
+recursive f(Nat) -> Nat {
+  g(0) = 0
+  g(suc(n)) = f(n)
+}

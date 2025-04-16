@@ -1,1 +1,1 @@
-./test/should-error/use_private_function.pf:3.8-3.19: undefined variable: add_one_all
+./test/should-error/use_private_function.pf:3.8-3.16: undefined variable: div2_aux

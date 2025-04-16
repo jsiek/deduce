@@ -1,0 +1,28 @@
+union U {
+  foo
+}
+
+fun f(u : U) {
+  switch u {
+    case foo { true }
+  }
+}
+
+fun h(u : U) {
+  switch u {
+    case foo { f(foo) }
+  }
+}
+
+fun g(u : U) {
+  switch u {
+    case foo { h(foo) }
+  }
+}
+
+theorem T: (h(foo) and g(foo)) = (f(foo) and h(foo))
+proof
+  // removing the mark causes this to fail, as intended. -Jeremy
+  conclude # h(foo) and g(foo) # = (f(foo) and h(foo))
+    by expand h | g.
+end

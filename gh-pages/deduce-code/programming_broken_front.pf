@@ -1,4 +1,0 @@
-
-
-define broken_front : fn NatList -> Option<Nat> =
-  fun ls { switch ls { case Empty { none } } }

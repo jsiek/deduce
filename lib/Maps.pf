@@ -1,12 +1,13 @@
-
 import Set
 import Option
 
-define operator ∘ = generic T,U,V { λ g:fn U->V, f:fn T->U {
-                        λ x:T { g(f(x)) } } }
+fun operator ∘ <T,U,V>(g:fn U->V, f:fn T->U) {
+  fun x:T { g(f(x)) }
+}
 
-define update = generic T, U { λf:fn T->U, x:T, v:U{ λy:T {
-                   if y = x then v else f(y) } } }
+fun update<T, U>(f:fn T->U, x:T, v:U) {
+  fun y:T { if y = x then v else f(y) }
+}
 
 theorem update_eq :
   < T, U > all f: fn (T) -> U, x:T, v:U.
@@ -14,7 +15,7 @@ theorem update_eq :
 proof
   arbitrary T:type, U:type
   arbitrary f: fn (T) -> U, x:T, v:U
-  definition update
+  expand update.
 end
 
 theorem update_not_eq :
@@ -27,7 +28,7 @@ proof
   suppose not_eq
   switch y = x for update {
     case true suppose yx_true {
-      have yx: y = x by rewrite yx_true
+      have yx: y = x by replace yx_true.
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -62,16 +63,16 @@ proof
   arbitrary z:T
   switch z = y for update {
     case true suppose zy_true {
-      have zy: z = y by rewrite zy_true
+      have zy: z = y by replace zy_true.
       switch z = x {
         case true suppose zx_true {
-	  have zx: z = x by rewrite zx_true
-	  have xy: x = y by transitive (symmetric zx) zy
-	  conclude false by apply x_neq_y to xy
-	}
-	case false {
-	  .
-	}
+	        have zx: z = x by replace zx_true.
+	        have xy: x = y by transitive (symmetric zx) zy
+	        conclude false by apply x_neq_y to xy
+	      }
+	      case false {
+	        .
+	      }
       }
     }
     case false {
@@ -97,7 +98,7 @@ define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
 define combine = generic T, U { fun f:fn(T)->Option<U>, g:fn(T)->Option<U> { fun x:T {
                      if f(x) = none then g(x) else f(x) }}}
 
-theorem combine_left: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+theorem combine_left: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if g(x) = none
   then combine(f, g)(x) = f(x)
 proof
@@ -106,25 +107,28 @@ proof
   assume: g(x) = none
   switch f(x) {
     case none assume: f(x) = none {
-      conclude combine(f, g)(x) = f(x)
-          by definition combine and rewrite (recall f(x) = none) | (recall g(x) = none)
+      show combine(f, g)(x) = f(x)
+      expand combine
+      replace (recall f(x) = none) | (recall g(x) = none).
     }
     case just(v) assume: f(x) = just(v) {
-      conclude combine(f, g)(x) = f(x)
-          by definition combine and rewrite (recall f(x) = just(v))
+      show combine(f, g)(x) = f(x)
+      expand combine
+      replace recall f(x) = just(v).
     }
   }
 end
 
-theorem combine_right: all T:type, U:type. all f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+theorem combine_right: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
   if f(x) = none
   then combine(f, g)(x) = g(x)
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T
   assume: f(x) = none
-  conclude combine(f, g)(x) = g(x)
-      by definition combine and rewrite recall f(x) = none
+  show combine(f, g)(x) = g(x)
+  expand combine
+  replace recall f(x) = none.
 end
 
 theorem restrict_domain:
@@ -133,18 +137,34 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, P:Set<T>
-  suffices (all x:T. (if x ∈ char_fun(λx{switch (if x ∈ P then f(x)
+  suffices (all x:T. (if x ∈ char_fun(λx'{switch (if x' ∈ P then f(x')
                                                  else @none<U>)
             { case none{false} case just(y){true} }}) then x ∈ P))
-      by definition {restrict, domain, operator ⊆}
+      by expand restrict | domain | operator ⊆.
   arbitrary x:T
   suppose prem
   switch x ∈ P {
     case true { . }
     case false suppose Px_false {
-      conclude false by
-        rewrite (definition operator∈ in Px_false) in
-        definition {operator∈, rep} in prem
+      have eq: rep(P)(x) = false by expand operator∈ in Px_false
+      conclude false by {
+        replace rep_char_fun<T> | eq in
+        expand operator∈ in prem
+      }
     }
   }
 end
+
+define flip : fn<T,U,V> (fn T,U->V) ->(fn U,T->V)
+  = generic T,U,V { λf{ λx,y{ f(y,x) }}}
+
+theorem flip_flip:
+  all T:type. all f:fn T,T->T. flip(flip(f)) = f
+proof
+  arbitrary T:type
+  arbitrary f:fn T,T->T
+  extensionality
+  arbitrary x:T, y:T
+  expand flip.
+end
+

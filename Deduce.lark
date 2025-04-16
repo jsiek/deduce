@@ -2,12 +2,12 @@ DIGIT: /[0-9]/
 INT: DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝]/
+OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
-COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
+COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 
 ?term:  term_iff
 
@@ -50,11 +50,14 @@ COMMENT: /\/\*([^\*]|\*+[^\/])*\*+\//
     | term_add "⊝" term_med                        -> nat_sub
     | term_med
 
-?term_med: term_med "/" term_hi                    -> div
-    | term_med "%" term_hi                         -> mod
-    | term_hi "*" term_med                         -> mul
-    | term_med "∘" term_hi                         -> circ
-    | term_med ".o." term_hi                        -> circ
+?term_med: term_med "/" term_exp                    -> div
+    | term_med "%" term_exp                         -> mod
+    | term_exp "*" term_med                         -> mul
+    | term_med "∘" term_exp                         -> circ
+    | term_med ".o." term_exp                       -> circ
+    | term_exp
+
+?term_exp : term_exp "^" term_hi                    -> pow
     | term_hi
 
 ?switch_case: "case" pattern "{" term "}"           -> switch_case
@@ -89,8 +92,8 @@ ident: IDENT              -> ident
     | "array" "(" term ")"                         -> make_array
     | term_hi "(" term_list ")"                    -> call
     | term_hi "[" term "]"                         -> array_get
-    | "λ" var_list "{" term "}"                    -> lambda
-    | "fun" var_list "{" term "}"                  -> lambda
+    | "λ" type_params_opt var_list "{" term "}"    -> lambda
+    | "fun" type_params_opt var_list "{" term "}"  -> lambda
     | "generic" ident_list "{" term "}"            -> generic
     | "switch" term "{" switch_list "}"            -> switch
     | "all" type_annot_list "." term               -> all_formula
@@ -99,6 +102,7 @@ ident: IDENT              -> ident
     | "define" IDENT "=" term ";" term             -> define_term
     | "?"                                          -> hole_term
     | "─"                                          -> omitted_term
+    | "__"                                         -> omitted_term
     | "(" term ")"                                 -> paren
     | "[" term_list "]"                            -> list_literal
     | "#" term "#"                                 -> mark
@@ -113,6 +117,12 @@ ident: IDENT              -> ident
 ?ident_list:                                       -> empty
     | ident                                        -> single
     | ident "," ident_list                         -> push
+
+?ident_list_bar:                                   -> empty
+    | ident                                        -> single
+    | INT "*" ident                                -> repeat
+    | ident "|" ident_list_bar                     -> push
+    | INT "*" ident "|" ident_list_bar             -> push_repeat
 
 ?type_annot_list:                                  -> empty_binding
     | ident ":" type                               -> single_binding
@@ -158,7 +168,7 @@ ident: IDENT              -> ident
     | proof "|" proof_list                         -> push
 
 ?proof: conclusion                                 -> single_proof
-    | proof_stmt proof                             -> push_proof
+    | proof_stmt proof?                            -> push_proof
 
 ?conclusion: "conclude" term "by" proof                  -> annot
     | proof "," proof                                    -> tuple
@@ -166,14 +176,8 @@ ident: IDENT              -> ident
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
-    | "definition" "{" ident_list "}"                   -> reason_definition
-    | "definition" ident                                -> reason_definition_one
-    | "rewrite" proof_list                              -> reason_rewrite
-    | "definition" "{" ident_list "}" "and" "rewrite" proof_list -> reason_def_rewrite
-    | "definition" ident "and" "rewrite" proof_list       -> reason_def_one_rewrite
-    | "definition" "{" ident_list "}" "in" proof         -> apply_defs_fact
-    | "definition" ident "in" proof                      -> apply_defs_fact_one
-    | "rewrite" proof_list "in" proof                    -> rewrite_fact
+    | "expand" ident_list_bar "in" proof                 -> apply_defs_fact
+    | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
@@ -201,23 +205,20 @@ ident: IDENT              -> ident
     | "assume" ":" term                             -> imp_intro_anon
     | "choose" term_list                            -> some_intro
     | "define" IDENT "=" term                       -> define_term_proof
-    | "_definition" "{" ident_list "}"              -> apply_defs_goal
-    | "_definition" ident                           -> apply_defs_goal_one
-    | "enable" "{" ident_list "}"                   -> enable_defs
-    | "enable" ident                                -> enable_def
+    | "expand" ident_list_bar                       -> expand
+    | "replace" proof_list                          -> rewrite_goal
+    | "show" term                                   -> annot_stmt
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term "by" proof              -> let
     | "have" ":" term "by" proof                    -> let_anon
     | "injective" term                              -> injective_proof
     | "obtain" ident_list "where" IDENT "from" proof          -> some_elim
     | "obtain" ident_list "where" IDENT ":" term "from" proof -> some_elim_explicit
-    | "_rewrite" proof_list                          -> rewrite_goal
     | "stop" "?"                                     -> hole_in_middle_proof
     | "suffices" term "by" proof                    -> suffices
     | "suppose" IDENT                               -> imp_intro
     | "suppose" IDENT ":" term                      -> imp_intro_explicit
     | "suppose" ":" term                            -> imp_intro_anon
-    | "term" term "by" proof                        -> term_proof
 
 ?case: "case" IDENT "{" proof "}"                        -> case
     | "case" IDENT ":" term "{" proof "}"                -> case_annot
@@ -270,9 +271,11 @@ ident: IDENT              -> ident
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?private: "private" statement -> private
+?rec_function: "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
-?rec_function: "function" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+?function: "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
+
+?gen_rec_fun: "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "{" term "}" "terminates" proof -> gen_rec_fun
 
 ?definition: "define" ident "=" term      -> define
  | "define" ident ":" type "=" term       -> define_annot
@@ -283,19 +286,29 @@ ident: IDENT              -> ident
 
 ?print: "print" term                               -> print
 
-?statement: theorem
- | union
+?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
+
+?declaration: union
  | rec_function
+ | function
+ | gen_rec_fun
  | definition
+
+?access_decl: "private" declaration    -> private_decl
+    | "opaque" declaration             -> opaque_decl
+
+?statement: declaration
+ | access_decl -> add_access
+ | assoc_decl
  | import
  | assert
  | print
- | private
+ | theorem
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push
 
-program: statement_list
+program: statement_list |
 
 %ignore COMMENT
 %ignore LINECOMMENT

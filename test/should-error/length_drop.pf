@@ -1,0 +1,20 @@
+import List 
+import Nat
+
+theorem length_drop2 : <T> all n : Nat, xs : List<T>.
+  length(drop(n, xs)) = length(xs) - n
+proof
+  arbitrary T:type
+  induction Nat
+  case 0 {
+    arbitrary xs : List<T>
+    suffices length(xs) = length(xs) - 0  by expand drop.
+    replace sub_zero[length(xs)].
+  }
+  case suc(n') assume IH {
+    arbitrary xs : List<T>
+    // Make sure TermInst is explicit around the empty list.
+    expand drop
+    ?
+  }
+end

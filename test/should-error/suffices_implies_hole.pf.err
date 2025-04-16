@@ -1,0 +1,11 @@
+./test/should-error/suffices_implies_hole.pf:6.12-6.13: 
+suffices to prove:
+	P
+./test/should-error/suffices_implies_hole.pf:7.3-7.4: incomplete proof
+Goal:
+	P
+
+
+Givens:
+	pq: (if P then Q),
+	prem: (P and (if P then Q))

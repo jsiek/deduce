@@ -1,0 +1,24 @@
+import Nat
+import List
+
+recursive length2<E>(List<E>) -> Nat {
+  length2([]) = 0
+  length2(node(n, next)) = 1 + length2(next)
+}
+
+assert @[]<Nat> = @empty<Nat>
+assert [1, 2, 3] = node(1, node(2, node(3, empty)))
+
+assert length(@[]<Nat>) = 0
+assert length([1, 2, 3]) = 3
+assert length2(@[]<Nat>) = length(@[]<Nat>) 
+assert length2([1, 2, 3]) = length([1, 2, 3])
+
+assert [1, 2] ++ [3, 4] = [1, 2, 3, 4]
+assert [1, 2] ++ node(3, node(4, empty)) = node(1, node(2, empty)) ++ [3, 4]
+
+assert reverse([1, 2, 3]) = node(3, node(2, node(1, empty)))
+
+assert set_of([1, 2, 3]) = set_of(node(1, node(2, node(3, empty))))
+
+assert map([1, 2, 3], (fun x { suc(x) } : fn Nat -> Nat)) = [2, 3, 4]

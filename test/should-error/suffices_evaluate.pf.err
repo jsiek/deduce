@@ -1,0 +1,12 @@
+./test/should-error/suffices_evaluate.pf:6.3-6.25: 
+suffices to prove:
+	((x + suc(suc(suc(suc(x + 1))))) - 0) - 2 = suc(x + suc(suc(suc(x + 1))))
+./test/should-error/suffices_evaluate.pf:7.3-7.4: incomplete proof
+Goal:
+	((x + suc(suc(suc(suc(x + 1))))) - 0) - 2 = suc(x + suc(suc(suc(x + 1))))
+Advice:
+	To prove this equality, one of these statements might help:
+		definition
+		replace
+		equations
+

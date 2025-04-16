@@ -1,8 +1,0 @@
-
-
-theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
-proof
-  have eq1: 1 = 0 + 1 by definition operator+
-  have eq2: 0 = 0 + 0 by definition operator+
-  conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
-end

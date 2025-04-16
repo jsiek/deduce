@@ -1,0 +1,9 @@
+import Nat
+import List
+
+theorem __: all x:Nat. length([x]) = 1
+proof
+  arbitrary x:Nat
+  expand 2*length
+  add_zero[1]
+end

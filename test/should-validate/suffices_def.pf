@@ -1,0 +1,9 @@
+
+define d = true
+
+theorem T: d
+proof
+  suffices true   by expand d.
+  .
+end
+

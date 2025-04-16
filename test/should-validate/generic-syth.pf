@@ -1,0 +1,6 @@
+define id = generic T { λ y:T { y } }
+
+theorem T: id(true) = true
+proof
+  expand id.
+end

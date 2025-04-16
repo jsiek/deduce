@@ -8,7 +8,7 @@ union NatList {
   cons(Nat, NatList)
 }
 
-function length(NatList) -> Nat {
+recursive length(NatList) -> Nat {
   length(null) = zero
   length(cons(a, d)) = suc(length(d))
 }

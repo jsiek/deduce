@@ -1,3 +1,0 @@
-
-
-define area = λ h:Nat, w:Nat { h * w }

@@ -1,0 +1,11 @@
+import Nat
+
+theorem add_zero_auto: all x:Nat. x + 0 = x
+proof
+    induction Nat
+    case 0 { evaluate }
+    case suc(n') {
+        suffices suc(n' + 0) = suc(n') by evaluate
+        replace recall n' + 0 = n'.
+    }
+end
