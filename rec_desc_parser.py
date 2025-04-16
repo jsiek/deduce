@@ -636,12 +636,53 @@ def parse_assumption():
 
 proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
-                  'expand',
+                  'definition',
                   'equations', 'evaluate', 'extensionality',
                   'have', 'induction', 'injective', 'obtain',
                   'recall', 'reflexive', 'replace',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
+
+# def parse_definition_proof():
+#   while_parsing = 'while parsing definition:\n' \
+#       + '\tconclusion ::= "definition" identifier_list_bar\n'
+#   token = current_token()
+#   advance()
+#   try:
+#     defs = parse_ident_list_bar()
+
+#     if current_token().type == 'AND':
+#         while_parsing = 'while parsing definition:\n' \
+#             + '\tconclusion ::= "definition" identifier_list_bar "and" "replace" proof_list\n'
+#         advance()
+#         if (current_token().type != 'REPLACE'):
+#             raise ParseError(meta_from_tokens(current_token(),current_token()),
+#                   'expected "replace" after "and" and "definition", not\n\t' \
+#                   + current_token().value)
+#         advance()
+#         eqns = parse_proof_list()
+#         meta = meta_from_tokens(token, previous_token())
+#         raise ParseError(meta, "definition-and-replace is deprecated, use expand and exchange instead")
+#         return ApplyDefsGoal(meta,
+#                               [Var(meta, None, t) for t in defs],
+#                               Rewrite(meta, eqns))
+#     elif current_token().type == 'IN':
+#         while_parsing = 'while parsing definition:\n' \
+#             + '\tconclusion ::= "definition" identifier_list_bar "in" proof\n'
+#         advance()
+#         subject = parse_proof()
+#         meta = meta_from_tokens(token, previous_token())
+#         return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
+#                               subject)
+#     else:
+#         meta = meta_from_tokens(token, previous_token())
+#         raise ParseError(meta, "definition is deprecated, use expand instead")
+#         return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
+#   except ParseError as e:
+#       raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
+#   except Exception as e:
+#     raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
+#       + str(e))
       
 def parse_recall():
   start_token = current_token()
@@ -806,6 +847,19 @@ def parse_proof_hi():
     advance()
     meta = meta_from_tokens(token, token)
     return PReflexive(meta)
+
+  # elif (token.type == 'REPLACE'):
+  #   advance()
+  #   proofs = parse_proof_list()
+  #   if current_token().type == 'IN':
+  #     advance()
+  #     subject = parse_proof()
+  #     meta = meta_from_tokens(token, previous_token())
+  #     return RewriteFact(meta, subject, proofs)
+  #   else:
+  #     meta = meta_from_tokens(token, previous_token())
+  #     raise ParseError(meta, "replace is deprecated, use exchange")
+  #     return Rewrite(meta, proofs)
     
 
   elif token.type == 'SWITCH':
@@ -1620,7 +1674,7 @@ def parse_declaration():
     raise ParseError(meta_from_tokens(token, previous_token()), while_parsing \
       + str(e))
 
-statement_keywords = {'assert', 'define', 'import', 'print', 'theorem',
+statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
                       'union', 'private', 'opaque', 'recursive'}
 
 def parse_statement():
