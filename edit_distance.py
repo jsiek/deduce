@@ -33,7 +33,7 @@ def closest_keyword(word, keywords):
     best_yet = None
     for kw in keywords:
         d = edit_distance(word, kw)
-        if d <= ceil(len(word) / 5):
+        if d <= ceil(len(word) / 6):
             if best_yet == None or d < best_yet[1]:
                 best_yet = (kw, d)
     if best_yet:
