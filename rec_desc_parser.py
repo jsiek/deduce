@@ -1011,7 +1011,8 @@ def parse_proof_med():
       term_list = parse_term_list()
       if current_token().type != 'RSQB':
         raise ParseError(meta_from_tokens(current_token(),current_token()),
-              'expected a closing "]", not\n\t' + current_token().value)
+              'expected a closing "]", not\n\t' + current_token().value \
+              + '\nPerhaps you forgot a comma?')
       advance()
       meta = meta_from_tokens(start_token, previous_token())
       for j, term in enumerate(term_list):
