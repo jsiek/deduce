@@ -1,0 +1,5 @@
+./test/parse/proof_args_comma.pf:8.1-12.6: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/proof_args_comma.pf:12.7-12.8: expected a closing "]", not
+	z
+Perhaps you forgot a comma?

@@ -1,7 +1,7 @@
 ./test/parse/switch_pf3.pf:1.1-5.14: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
-./test/parse/switch_pf3.pf:5.5-5.17: expected a "{" after assumption of "case", not
-	.
-while parsing one of the following
+./test/parse/switch_pf3.pf:5.5-5.17: while parsing one of the following
 	switch_proof_case ::= "case" pattern "{" proof "}"
 	switch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"
+./test/parse/switch_pf3.pf:5.5-5.17: expected a "{" after assumption of "case", not
+	.
