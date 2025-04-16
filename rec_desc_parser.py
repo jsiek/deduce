@@ -947,10 +947,11 @@ def parse_case():
     advance()
     label,premise = parse_assumption()
     if current_token().type != 'LBRACE':
-      raise ParseError(meta_from_tokens(start_token,current_token()),
+      loc = meta_from_tokens(start_token,current_token())
+      raise ParseError(loc,
             'expected a "{" after assumption of "case", not\n\t' \
-            + current_token().value \
-            + '\nwhile parsing:\n\t"case" label ":" formula "{" proof "}"')
+            + current_token().value) \
+        .extend(loc, 'while parsing:\n\t"case" label ":" formula "{" proof "}"')
     advance()
     body = parse_proof()
     if current_token().type != 'RBRACE':
@@ -975,10 +976,12 @@ def parse_proof_switch_case():
     else:
         assumptions = []
     if current_token().type != 'LBRACE':
-      raise ParseError(meta_from_tokens(start_token,current_token()),
+      loc = meta_from_tokens(start_token,current_token())
+      raise ParseError(loc,
             'expected a "{" after assumption of "case", not\n\t' \
-            + current_token().value \
-            + '\nwhile parsing one of the following\n' \
+            + current_token().value)\
+            .extend(loc,
+            'while parsing one of the following\n' \
             + '\tswitch_proof_case ::= "case" pattern "{" proof "}"\n' \
             + '\tswitch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"')
     advance()
@@ -998,9 +1001,10 @@ def parse_proof_med():
       advance()
       type_list = parse_type_list()
       if current_token().type != 'MORETHAN':
-        raise ParseError(meta_from_tokens(start_token,current_token()),
-              'expected a closing ">", not\n\t' + current_token().value + '\n'\
-              + 'while trying to parse type arguments for instantiation of an "all" formula:\n\t'\
+        loc = meta_from_tokens(start_token,current_token())
+        raise ParseError(loc,
+              'expected a closing ">", not\n\t' + quote(current_token().value)) \
+                 .extend(loc, 'while trying to parse type arguments for instantiation of an "all" formula:\n\t'\
               + 'proof ::= proof "<" type_list ">"')
       advance()
       meta = meta_from_tokens(start_token, previous_token())

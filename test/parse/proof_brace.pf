@@ -1,0 +1,4 @@
+theorem blah : true
+proof
+  {.
+end
