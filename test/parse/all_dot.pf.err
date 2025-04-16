@@ -1,6 +1,6 @@
+./test/parse/all_dot.pf:3.1-3.24: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
 ./test/parse/all_dot.pf:3.25-3.26: expected "." after parameters of "all", not
 	x
 while parsing
 	term ::= "all" var_list "." term
-./test/parse/all_dot.pf:3.1-3.24: while parsing
-	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"

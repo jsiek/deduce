@@ -1,4 +1,6 @@
-./test/parse/eof_def_1.pf:1.8-1.9: Expected a token, got end of file
+./test/parse/eof_def_1.pf:1.1-1.9: while parsing
+	declaration ::= union | rec_function | function | definition
 ./test/parse/eof_def_1.pf:1.1-1.9: while parsing
 	proof_stmt ::= "define" identifier "=" term
 
+./test/parse/eof_def_1.pf:1.8-1.9: Expected a token, got end of file

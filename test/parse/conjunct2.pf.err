@@ -1,4 +1,4 @@
-./test/parse/conjunct2.pf:6.15-6.19: expected keyword "of" after index of "conjunct", not
-	prem
 ./test/parse/conjunct2.pf:1.1-6.13: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/conjunct2.pf:6.15-6.19: expected keyword "of" after index of "conjunct", not
+	prem

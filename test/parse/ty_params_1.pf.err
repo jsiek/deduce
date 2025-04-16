@@ -1,3 +1,1 @@
-./test/parse/ty_params_1.pf:14.16-14.18: expected closing ">" after type parameters
-./test/parse/ty_params_1.pf:14.1-14.18: while parsing
-	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/ty_params_1.pf:6.1-6.9: did you mean "function" instead of "function"?

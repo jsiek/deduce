@@ -1,5 +1,1 @@
-./test/parse/plus_int.pf:13.9-13.10: expected an integer not
-	a
-./test/parse/plus_int.pf:13.1-13.8: while parsing
-	statement ::= "print" term
-
+./test/parse/plus_int.pf:6.1-6.9: did you mean "function" instead of "function"?

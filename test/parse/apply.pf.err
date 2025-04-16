@@ -1,7 +1,4 @@
-./test/parse/apply.pf:23.21-23.24: expected "to" after implication part of "apply", not
-	b_t
-./test/parse/apply.pf:23.3-23.19: while parsing apply-to (use a logical implication)
-	conclusion ::= "apply" proof "to" proof
-
-./test/parse/apply.pf:9.1-23.19: while parsing
+./test/parse/apply.pf:1.1-6.10: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/apply.pf:6.11-6.15: expected the keyword "end" after proof of theorem, not
+	prem

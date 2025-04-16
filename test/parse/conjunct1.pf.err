@@ -1,4 +1,4 @@
-./test/parse/conjunct1.pf:6.12-6.22: expected an int literal after "conjunct", not
-	not_number
 ./test/parse/conjunct1.pf:1.1-6.11: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/conjunct1.pf:6.12-6.22: expected an int literal after "conjunct", not
+	not_number

@@ -1,4 +1,4 @@
-./test/parse/switch_pf1.pf:5.5-5.9: expected "{" after subject of "switch", not
-	case
 ./test/parse/switch_pf1.pf:1.1-4.11: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/switch_pf1.pf:5.5-5.9: expected "{" after subject of "switch", not
+	case

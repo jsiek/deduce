@@ -1,8 +1,8 @@
-./test/parse/array1.pf:13.9-14.7: expected closing "]", not
-	assert
-./test/parse/array1.pf:13.9-13.18: while parsing array access
-	term ::= term "[" term "]"
-
 ./test/parse/array1.pf:13.1-13.18: while parsing assert
 	statement ::= "assert" formula
 
+./test/parse/array1.pf:13.9-13.18: while parsing array access
+	term ::= term "[" term "]"
+
+./test/parse/array1.pf:13.9-14.7: expected closing "]", not
+	assert

@@ -1,5 +1,7 @@
-./test/parse/generic_1.pf:2.5-2.19: expected "{" after parameters of "generic", not
-	fun
+./test/parse/generic_1.pf:1.1-2.14: while parsing
+	declaration ::= union | rec_function | function | definition
 ./test/parse/generic_1.pf:1.1-2.14: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
+./test/parse/generic_1.pf:2.5-2.19: expected "{" after parameters of "generic", not
+	fun

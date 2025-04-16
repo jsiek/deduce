@@ -1,4 +1,4 @@
-./test/parse/misspell.pf:7.3-7.10: expected a proof.
-Did you mean "suffices" instead of "sufices"?
 ./test/parse/misspell.pf:3.1-6.15: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/misspell.pf:7.3-7.10: expected a proof.
+Did you mean "suffices" instead of "sufices"?

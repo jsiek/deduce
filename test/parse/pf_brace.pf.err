@@ -1,8 +1,4 @@
-./test/parse/pf_brace.pf:23.3-23.8: expected a closing "}" around proof, not
-	apply
-./test/parse/pf_brace.pf:14.3-22.6: while parsing
-	proof_stmt ::= "have" identifier ":" formula "by" proof
-	proof_stmt ::= "have" ":" formula "by" proof
-
-./test/parse/pf_brace.pf:9.1-22.6: while parsing
+./test/parse/pf_brace.pf:1.1-6.10: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/pf_brace.pf:6.11-6.15: expected the keyword "end" after proof of theorem, not
+	prem
