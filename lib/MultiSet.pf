@@ -6,47 +6,46 @@ import Base
 import Nat
 import Set
 
-union MultiSet<T> {
+opaque union MultiSet<T> {
   m_fun(fn(T) -> Nat)
 }
 
-fun cnt<T>(M : MultiSet<T>) {
+opaque fun cnt<T>(M : MultiSet<T>) {
   switch M {
     case m_fun(f) { f }
   }
 }
 
-fun m_empty<T>() {
+opaque fun m_empty<T>() {
   m_fun(λy:T{0})
 }
 
-fun m_one<T>(x:T) {
+opaque fun m_one<T>(x:T) {
   m_fun(λy:T{if x = y then 1 else 0})
 }
 
-fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
+opaque fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
   m_fun(λx:T{ cnt(P)(x) + cnt(Q)(x) })
 }
 
-theorem cnt_m_fun: all T:type, f: fn T -> Nat. cnt(m_fun(f)) = f
+lemma cnt_m_fun: all T:type, f: fn T -> Nat. cnt(m_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> Nat)
   expand cnt.
 end
          
-theorem m_one_cnt: all T:type. all x:T. cnt(m_one(x))(x) = 1
+theorem cnt_empty: all T:type. all x:T. cnt(@m_empty<T>())(x) = 0
+proof
+  arbitrary T:type
+  arbitrary x:T
+  expand m_empty | cnt.
+end
+
+theorem cnt_one: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
   arbitrary T:type
   arbitrary x:T
   expand m_one | cnt.
-end
-
-theorem m_empty_zero: all T:type. all x:T.
-  cnt(m_fun(λy:T{0}))(x) = 0
-proof
-  arbitrary T:type
-  arbitrary x:T
-  expand cnt.
 end
 
 theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -57,12 +56,29 @@ proof
   expand operator ⨄ | cnt.
 end
 
+theorem cnt_equal: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+  if cnt(A) = cnt(B) then A = B
+proof
+  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>
+  switch A for cnt {
+    case m_fun(f) {
+      switch B {
+        case m_fun(g) {
+          assume fg
+          replace fg.
+        }
+      }
+    }
+  }
+end
+
 // Testing alternate asci notation 
 theorem m_sum_empty: all T:type. all A:MultiSet<T>.
-  A .+. m_fun(λy:T{0}) = A
+  A .+. @m_empty<T>() = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
+  expand m_empty
   switch A for operator .+., cnt {
     case m_fun(f) {
       have eq: (λx{(f(x) + 0)} : fn T->Nat) = f
@@ -74,10 +90,11 @@ proof
 end
 
 theorem empty_m_sum: all T:type. all A:MultiSet<T>.
-  m_fun(λx:T{0}) ⨄ A = A
+  @m_empty<T>() ⨄ A = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
+  expand m_empty
   switch A for operator ⨄ {
     case m_fun(f) {
       have eq: (λx:T{0 + f(x)}) = f by {
