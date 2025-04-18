@@ -8,13 +8,13 @@ opaque union Set<T> {
   char_fun(fn (T) -> bool)
 }
 
-fun rep<T>(S : Set<T>) {
+opaque fun rep<T>(S : Set<T>) {
   switch S {
     case char_fun(f) { f }
   }
 }
 
-fun set_of_pred<T>(f : fn T -> bool) {
+opaque fun set_of_pred<T>(f : fn T -> bool) {
   char_fun(f)
 }
 
@@ -41,7 +41,7 @@ opaque fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
   char_fun(fun x:T { rep(P)(x) and rep(Q)(x) })
 }
 
-fun operator ∈ <T>(x : T, S : Set<T>) {
+opaque fun operator ∈ <T>(x : T, S : Set<T>) {
   rep(S)(x)
 }
 
