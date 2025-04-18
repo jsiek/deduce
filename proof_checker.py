@@ -1538,7 +1538,7 @@ def apply_definitions(loc, formula, defs, env):
       print('apply definitions to formula: ' + str(new_formula))
   for var in defs:
     if not env.term_var_is_defined(var):
-      error(loc, f"Expected a term or a type variable when attempting to use the definition of {var}." +\
+      error(loc, f"Expected a term or a type variable when attempting to expand {var}." +\
                f"\n\tIf {var} is a theorem or a lemma, you might want to use 'replace'")
     var = var.reduce(env)
     # it's a bit strange that RecDef's can find there way into defs -Jeremy
@@ -1550,8 +1550,7 @@ def apply_definitions(loc, formula, defs, env):
           #       Or something that allows better than O(n) lookups
           for name, filename in env.dict['opaque']:
             if var_name == name and filename != loc.filename:
-                bn = base_name(name)
-                error(loc, 'Tried to apply: \n\tdefinition ' + bn + '\nHowever this particular definition cannot be unrolled')
+                error(loc, 'Cannot expand opaque definition of ' + base_name(name))
 
           if get_verbose():
               print('expanding definition ' + var_name)
