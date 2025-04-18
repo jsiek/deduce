@@ -32,7 +32,7 @@ recursive set_of<T>(List<T>) -> Set<T> {
 }
 
 recursive mset_of<T>(List<T>) -> MultiSet<T> {
-  mset_of(empty) = m_fun(λx{0})
+  mset_of(empty) = m_empty()
   mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
 }
 
@@ -481,15 +481,8 @@ proof
   arbitrary T:type
   induction List<T>
   case empty {
-    suffices char_fun(λx{(if cnt(m_fun(λx'{0}:fn T->Nat))(x) = 0
-                          then false else true)} : fn T->bool)
-           = char_fun(λ_{false})
-        by evaluate
-    have eq:(λx{if cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0 then false else true}
-             : fn T->bool)
-            = λ_{false}
-        by extensionality  arbitrary x:T  expand cnt.
-    replace eq.
+    expand mset_of | set_of
+    replace som_empty<T>.
   }
   case node(x, xs') suppose IH {
     suffices set_of_mset(m_one(x) ⨄ mset_of(xs')) = single(x) ∪ set_of(xs')

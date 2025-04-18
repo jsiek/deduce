@@ -1815,12 +1815,10 @@ define F = single(1) ∪ single(2)
 
 theorem subset_example: E ⊆ F
 proof
-  suffices all x:Nat. if x ∈ E then x ∈ F  by expand operator ⊆.
+  expand E | F | operator ⊆
   arbitrary x:Nat
-  assume: x ∈ E
-  have: 1 = x       by expand E | operator∈ | single | rep in recall (x ∈ E)
-  suffices 1 ∈ F    by replace symmetric (recall 1 = x).
-  expand F | operator∈ | single | operator ∪ | rep.
+  assume x1: x ∈ single(1)
+  apply union_member<Nat>[x, single(1), single(2)] to x1
 end
 ```
 

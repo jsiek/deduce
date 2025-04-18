@@ -85,12 +85,22 @@ end
 
 define empty_map = generic T, U { λk:T { @none<U> } }
 
+/*
 define domain : fn<T,U>  (fn(T)->Option<U>) -> Set<T>
               = generic T, U { λf: fn(T)->Option<U> {char_fun(λx:T{
                   switch f(x) {
 	            case none { false }
 		    case just(y) { true }
-		}})}}
+		  }})}}
+*/
+fun domain<T,U>(f : fn(T)->Option<U>) {
+  set_of_pred(fun x:T {
+      switch f(x) {
+        case none { false }
+        case just(y) { true }
+      }})
+}
+
 
 define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
                       if x ∈ P then f(x) else @none<U> }}}
@@ -137,20 +147,13 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, P:Set<T>
-  suffices (all x:T. (if x ∈ char_fun(λx'{switch (if x' ∈ P then f(x')
-                                                 else @none<U>)
-            { case none{false} case just(y){true} }}) then x ∈ P))
-      by expand restrict | domain | operator ⊆.
-  arbitrary x:T
-  suppose prem
-  switch x ∈ P {
+  expand restrict | domain | operator ⊆
+  arbitrary y:T
+  switch y ∈ P {
     case true { . }
     case false suppose Px_false {
-      have eq: rep(P)(x) = false by expand operator∈ in Px_false
-      conclude false by {
-        replace rep_char_fun<T> | eq in
-        expand operator∈ in prem
-      }
+      assume prem
+      conclude false by replace Px_false in apply member_set_of_pred to prem
     }
   }
 end
