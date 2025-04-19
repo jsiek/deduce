@@ -609,7 +609,7 @@ def check_proof(proof, env):
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
           check_proof_of(arg, prem, env)
-          ret = conc
+          ret = conc.reduce(env)
         case And(loc2, tyof, args):
           vars, imps = collect_all_if_then(loc, ifthen)
           arg_frm = check_proof(arg, env)
@@ -633,43 +633,25 @@ def check_proof(proof, env):
           rets = []
           reasons = []
           arg_frm = check_proof(arg, env)
-          #print('to formula: ' + str(arg_frm) )
           for prem, conc in imps: 
             try:
               matching = {}
-              #print('formula_match(' + str(prem) + ' , ' + str(arg_frm) + ')')
               formula_match(loc, vars, prem, arg_frm, matching, env)
-
-              # TODO: infer type parameters
-              
               type_vars = [x for x in vars if isinstance(x.typeof, TypeType)]
               term_vars = [x for x in vars if not isinstance(x.typeof, TypeType)]
-              
               if len(type_vars) > 0:
-                # print('{{{{{ inferring type parameters')
-                # print('type_vars = ' + ', '.join([str(x) for x in type_vars]))
-                # print()
                 var_type = {x.name : x.typeof for x in term_vars}
-                # print('term_vars:\n' + '\n'.join([x + ' : ' + str(t) for (x,t) in var_type.items()]))
-                # print()
                 formula_matches = [(x,trm) for (x,trm) in matching.items()]
-                # print('formula matches:\n' + '\n'.join([x + ' = ' + str(trm) + ' : ' + str(trm.typeof) \
-                #                                         for (x,trm) in formula_matches]))
-                # print()
                 for (x,trm) in formula_matches:
                     new_var_type = var_type[x].substitute(matching)
-                    # print('for variable ' + x + ', matchings its type ' + str(new_var_type) \
-                    #       + ' with ' + str(trm.typeof))
                     type_match(loc, type_vars, new_var_type, trm.typeof, matching)
-                #print('finished inferring type parameters }}}}}')
-              
               for x in vars:
                 if x.name not in matching.keys():
                   error(loc, "could not deduce an instantiation for variable "\
                         + str(x) + '\n' \
                         + 'for application of\n\t' + str(ifthen) + '\n'\
                         + 'to\n\t' + str(arg) + ': ' + str(arg_frm))
-              rets.append(conc.substitute(matching))
+              rets.append(conc.substitute(matching).reduce(env))
             except Exception as e:
               reasons.append(e)
           if len(rets) == 1: ret = rets[0]
@@ -1227,42 +1209,26 @@ def check_proof_of(proof, formula, env):
           error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
                 + str(red_formula))
       return red_formula
-  
+
+    #  goal is P
+    #  suffices Q by r        r proves (if Q then P)
+    #  goal is Q
     case Suffices(loc, claim, reason, rest):
-      def_or_rewrite = False
       evaluate = False
 
       definitions = []
-      # should evaluate be handled up here? -Jeremy
       match reason:
         case EvaluateGoal(loc2):
            evaluate = True
-        case _:
-           def_or_rewrite = False
 
-      if def_or_rewrite or evaluate:
+      if evaluate:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-
-        if evaluate:
-          set_reduce_all(True)
-          set_reduce_opaque_errors(True)
-          new_formula = formula.reduce(env)
-          red_claim = new_claim.reduce(env)
-          set_reduce_all(False)
-          set_reduce_opaque_errors(False)
-
-        else:
-          red_claim = new_claim.reduce(env)
-          equations = [check_proof(proof, env) for proof in equation_proofs]
-          new_formula = apply_definitions(loc, formula, definitions, env)
-          new_formula = new_formula.reduce(env)
-
-          eqns = [equation.reduce(env) for equation in equations]
-          for eq in eqns:
-            if not is_equation(eq):
-              error(loc, 'in replace, expected an equation, not:\n\t' + str(eq))
-            new_formula = rewrite(loc, new_formula, eq, env)
-            new_formula = new_formula.reduce(env)
+        set_reduce_all(True)
+        set_reduce_opaque_errors(True)
+        new_formula = formula.reduce(env)
+        red_claim = new_claim.reduce(env)
+        set_reduce_all(False)
+        set_reduce_opaque_errors(False)
 
         match red_claim:
           case Omitted(loc2, tyof):
@@ -1572,7 +1538,7 @@ def apply_definitions(loc, formula, defs, env):
       print('apply definitions to formula: ' + str(new_formula))
   for var in defs:
     if not env.term_var_is_defined(var):
-      error(loc, f"Expected a term or a type variable when attempting to use the definition of {var}." +\
+      error(loc, f"Expected a term or a type variable when attempting to expand {var}." +\
                f"\n\tIf {var} is a theorem or a lemma, you might want to use 'replace'")
     var = var.reduce(env)
     # it's a bit strange that RecDef's can find there way into defs -Jeremy
@@ -1584,8 +1550,7 @@ def apply_definitions(loc, formula, defs, env):
           #       Or something that allows better than O(n) lookups
           for name, filename in env.dict['opaque']:
             if var_name == name and filename != loc.filename:
-                bn = base_name(name)
-                error(loc, 'Tried to apply: \n\tdefinition ' + bn + '\nHowever this particular definition cannot be unrolled')
+                error(loc, 'Cannot expand opaque definition of ' + base_name(name))
 
           if get_verbose():
               print('expanding definition ' + var_name)

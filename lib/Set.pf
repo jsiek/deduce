@@ -4,14 +4,18 @@ Represent sets as predicates, that is, functions to bool.
 
 import Base
 
-union Set<T> {
+opaque union Set<T> {
   char_fun(fn (T) -> bool)
 }
 
-fun rep<T>(S : Set<T>) {
+opaque fun rep<T>(S : Set<T>) {
   switch S {
     case char_fun(f) { f }
   }
+}
+
+opaque fun set_of_pred<T>(f : fn T -> bool) {
+  char_fun(f)
 }
 
 /*
@@ -21,23 +25,23 @@ fun rep<T>(S : Set<T>) {
   empty_set()
 */
 
-fun empty_set<T>() {
+opaque fun empty_set<T>() {
   char_fun(λx:T{false})
 }
 
-fun single<V>(x : V) {
+opaque fun single<V>(x : V) {
   char_fun(fun y:V {x = y})
 }
 
-fun operator ∪ <E>(P: Set<E>, Q: Set<E>) {
+opaque fun operator ∪ <E>(P: Set<E>, Q: Set<E>) {
   char_fun(fun x:E { rep(P)(x) or rep(Q)(x) })
 }
 
-fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
+opaque fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
   char_fun(fun x:T { rep(P)(x) and rep(Q)(x) })
 }
 
-fun operator ∈ <T>(x : T, S : Set<T>) {
+opaque fun operator ∈ <T>(x : T, S : Set<T>) {
   rep(S)(x)
 }
 
@@ -69,6 +73,14 @@ proof
   expand operator ∈ | single | rep.
 end
 
+theorem single_pred: all T:type. all x:T.
+  set_of_pred(fun y:T { x = y}) = single(x)
+proof
+  arbitrary T:type
+  arbitrary x:T
+  evaluate
+end
+
 theorem empty_no_members: all T:type. all x:T.
   not (x ∈ ∅)
 proof
@@ -82,6 +94,52 @@ theorem rep_char_fun: all T:type, f: fn T -> bool. rep(char_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> bool)
   expand rep.
+end
+
+theorem rep_set_of_pred: all T:type, f: fn T -> bool. rep(set_of_pred(f)) = f
+proof
+  arbitrary T:type, f:(fn T -> bool)
+  evaluate
+end
+
+theorem set_of_pred_equal_fwd: all T:type, f: fn T -> bool, g:fn T -> bool.
+  if set_of_pred(f) = set_of_pred(g) then f = g
+proof  
+  arbitrary T:type, f:(fn T -> bool), g:(fn T -> bool)
+  expand set_of_pred
+  assume prem
+  injective char_fun
+  prem
+end
+  
+theorem set_of_pred_equal_bkwd: all T:type, f: fn T -> bool, g:fn T -> bool.
+  if f = g then set_of_pred(f) = set_of_pred(g)
+proof
+  arbitrary T:type, f:(fn T -> bool), g:(fn T -> bool)
+  assume: f = g
+  replace (recall f = g).
+end
+
+theorem set_of_pred_equal: all T:type, f: fn T -> bool, g:fn T -> bool.
+  set_of_pred(f) = set_of_pred(g) ⇔ f = g
+proof
+  arbitrary T:type, f:(fn T -> bool), g:(fn T -> bool)
+  set_of_pred_equal_fwd<T>, set_of_pred_equal_bkwd<T>
+end
+
+theorem member_set_of_pred: all T:type, x:T, f: fn T -> bool.
+  if x ∈ set_of_pred(f) then f(x)
+proof
+  arbitrary T:type, x:T, f:(fn T -> bool)
+  evaluate
+end
+
+theorem union_set_of_pred: all T:type, f: fn T -> bool, g:fn T -> bool.
+  set_of_pred(f) ∪ set_of_pred(g) = set_of_pred(fun x { f(x) or g(x) })
+proof
+  arbitrary T:type, f:(fn T -> bool), g:(fn T -> bool)
+  expand set_of_pred | operator∪
+  evaluate
 end
 
 theorem union_member: all T:type. all x:T, A:Set<T>, B:Set<T>.
@@ -255,4 +313,20 @@ proof
   }
 end
 
+theorem member_equal: all T:type, A:Set<T>, B:Set<T>.
+  if (all x:T. x ∈ A ⇔ x ∈ B) then A = B
+proof
+  arbitrary T:type, A:Set<T>, B:Set<T>
+  assume prem
+  suffices A ⊆ B and B ⊆ A by subset_equal
+  have fwd: A ⊆ B by {
+    expand operator⊆
+    prem
+  }
+  have bkwd: B ⊆ A by {
+    expand operator⊆
+    prem
+  }
+  fwd, bkwd
+end
 

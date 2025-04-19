@@ -756,7 +756,8 @@ class Var(Term):
         if get_reduce_opaque_errors():
           for name, filename in env.dict['opaque']:
             if self.name == name and filename != self.location.filename:
-                error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+                #error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+                return self
 
         res = env.get_value_of_term_var(self)
         if res:

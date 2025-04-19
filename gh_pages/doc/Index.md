@@ -206,12 +206,12 @@ proof
         empty_no_members
       }
       case false assume xy_false: (x = y) = false {
-        suffices not (x = y or y ∈ set_of(take(search(xs', y), xs')))
-            by evaluate
-        assume prem: x = y or y ∈ set_of(take(search(xs', y), xs'))
-        cases prem
-        case: x = y {
-          conclude false by replace xy_false in (recall x = y)
+        expand take | set_of
+        assume prem: y ∈ single(x) ∪ set_of(take(search(xs', y), xs'))
+        cases (apply member_union to prem)
+        case yx: y ∈ single(x) {
+          have: x = y by apply single_equal to yx
+          conclude false by replace xy_false in recall x = y
         }
         case y_in_rest: y ∈ set_of(take(search(xs', y), xs')) {
           conclude false by apply IH to y_in_rest
