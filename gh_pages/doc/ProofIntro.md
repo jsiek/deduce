@@ -32,7 +32,7 @@ of `length`, so this first example is about how to use definitions.
 We will be using features from the Deduce `Nat` and `List` libraries,
 so first we import them.
 
-```{.deduce^#intro_import}
+```{.deduce^#import_nat_and_list}
 import Nat
 import List
 ```
@@ -1485,7 +1485,7 @@ To summarize this section:
 
 <!--
 ```{.deduce^file=ProofIntro.pf}
-<<intro_import>>
+<<import_nat_and_list>>
 
 <<length_nat_empty>>
 <<length_node42>>
