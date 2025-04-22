@@ -2702,8 +2702,8 @@ class ApplyDefsGoal(Proof):
   body: Proof
 
   def __str__(self):
-      return 'definition {' + ', '.join([str(d) for d in self.definitions]) \
-        + '}' + str(self.body)
+      return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
+        + ' ' + str(self.body)
 
   def uniquify(self, env):
     for d in self.definitions:
