@@ -1,0 +1,8 @@
+theorem blah : all a : bool, c : bool. 
+  define H = a and c
+  H or not a or not c
+proof
+  arbitrary a : bool, c : bool
+  define H = a  and c
+  ?
+end

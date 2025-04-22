@@ -1,0 +1,25 @@
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+fun is_mt<E>(l : List<E>)  {
+  switch l {
+    case empty { true }
+    case node(n, next) { false }
+  }
+}
+
+union A { a }
+
+
+theorem blah : <T all x : T.
+  is_mt([x]) = false
+proof
+  definition is_mt
+end
+
+theorem blah1 : is_mt([false]) = false
+proof
+  blah<bool>[false]
+end

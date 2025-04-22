@@ -1,0 +1,10 @@
+//  Stolen from suffices misspell.pf
+
+theorem T: all P:bool, Q:bool, R:bool. if (if P then Q) and (if Q then R) and P then R
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  suppose prem
+  sufices Q   by prem
+  suffices P   by prem
+  prem
+end

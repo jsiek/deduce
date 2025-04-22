@@ -1,0 +1,2 @@
+define blah : fn bool -> bool
+ = fun x x

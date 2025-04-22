@@ -1,0 +1,5 @@
+theorem blah : true
+proof
+  suffices true  .
+    .
+end

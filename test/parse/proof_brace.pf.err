@@ -1,0 +1,4 @@
+./test/parse/proof_brace.pf:1.1-3.5: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/proof_brace.pf:4.1-4.4: expected a closing "}" around proof, not
+	end

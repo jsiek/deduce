@@ -1,0 +1,10 @@
+./test/parse/array3.pf:12.1-12.19: while parsing
+	declaration ::= union | rec_function | function | definition
+./test/parse/array3.pf:12.1-12.19: while parsing
+	proof_stmt ::= "define" identifier "=" term
+
+./test/parse/array3.pf:12.12-12.19: while parsing array creation
+	term ::= "array" "(" term ")"
+
+./test/parse/array3.pf:12.12-14.7: expected closing parenthesis ")", not
+	assert

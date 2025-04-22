@@ -1,0 +1,9 @@
+define a : fn bool -> bool
+  = fun x {
+    if x  false else true
+  }
+
+print a(true)
+print a(false)
+
+

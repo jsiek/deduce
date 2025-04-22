@@ -1,0 +1,8 @@
+theorem blah : true
+proof 
+  define t true
+
+  expand t
+
+  .
+end

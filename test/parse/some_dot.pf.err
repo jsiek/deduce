@@ -1,0 +1,4 @@
+./test/parse/some_dot.pf:1.1-1.25: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/some_dot.pf:1.12-1.27: expected "." after parameters of "some", not
+	x

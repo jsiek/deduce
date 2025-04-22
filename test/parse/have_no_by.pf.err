@@ -1,0 +1,8 @@
+./test/parse/have_no_by.pf:1.1-3.16: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/have_no_by.pf:3.3-3.16: while parsing
+	proof_stmt ::= "have" identifier ":" formula "by" proof
+	proof_stmt ::= "have" ":" formula "by" proof
+
+./test/parse/have_no_by.pf:3.17-3.18: expected the keyword "by" after formula of "have", not
+	.

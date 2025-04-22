@@ -1,0 +1,7 @@
+./test/parse/eof_have_0.pf:1.1-3.7: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/eof_have_0.pf:3.3-3.7: while parsing
+	proof_stmt ::= "have" identifier ":" formula "by" proof
+	proof_stmt ::= "have" ":" formula "by" proof
+
+./test/parse/eof_have_0.pf:3.3-3.7: expected an identifier or colon after "have", not end of file

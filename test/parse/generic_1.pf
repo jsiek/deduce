@@ -1,0 +1,2 @@
+define a : fn <E> E, E, bool -> E
+  = generic E  fun x, y, p { if p then x else y }

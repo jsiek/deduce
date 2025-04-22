@@ -1,0 +1,8 @@
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+print [true, false
+
+print [false]

@@ -1,0 +1,6 @@
+./test/parse/inst-term-angle-bracket.pf:4.1-8.17: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/inst-term-angle-bracket.pf:8.3-8.18: while trying to parse type arguments for instantiation of an "all" formula:
+	proof ::= proof "<" type_list ">"
+./test/parse/inst-term-angle-bracket.pf:8.3-8.18: expected a closing ">", not
+	"("

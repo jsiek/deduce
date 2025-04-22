@@ -1,0 +1,13 @@
+theorem P : all x : bool, y : bool.
+  true
+proof
+  arbitrary x : bool, y : bool
+  .
+end
+
+theorem Q : all w : bool, z : bool.
+  true
+proof
+  arbitrary w : bool, z : bool
+  P[w z]
+end

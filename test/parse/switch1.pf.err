@@ -1,0 +1,7 @@
+./test/parse/switch1.pf:8.1-10.13: while parsing
+	declaration ::= union | rec_function | function | definition
+./test/parse/switch1.pf:8.1-10.13: while parsing
+	proof_stmt ::= "define" identifier ":" type "=" term
+
+./test/parse/switch1.pf:11.7-11.11: expected "{" after subject of "switch", not
+	case

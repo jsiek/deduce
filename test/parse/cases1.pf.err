@@ -1,0 +1,8 @@
+./test/parse/cases1.pf:5.3-6.9: while parsing cases (use a logical or)
+	conclusion ::= "cases" proof case_clause*
+	case_clause ::= "case" identifier ":" term "{" proof "}"
+
+./test/parse/cases1.pf:6.3-6.14: while parsing:
+	"case" label ":" formula "{" proof "}"
+./test/parse/cases1.pf:6.3-6.14: expected a "{" after assumption of "case", not
+	.

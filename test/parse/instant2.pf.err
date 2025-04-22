@@ -1,0 +1,4 @@
+./test/parse/instant2.pf:9.1-9.21: while parsing assert
+	statement ::= "assert" formula
+
+./test/parse/instant2.pf:9.19-9.21: expected closing ">" after type parameters

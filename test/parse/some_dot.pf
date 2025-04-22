@@ -1,0 +1,5 @@
+theorem T: some x : bool x = x
+proof
+  choose false
+  .
+end

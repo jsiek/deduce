@@ -1,0 +1,4 @@
+./test/parse/apply.pf:1.1-6.10: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/apply.pf:6.11-6.15: expected the keyword "end" after proof of theorem, not
+	prem
