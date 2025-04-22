@@ -3657,7 +3657,7 @@ class Env:
           return formula
         case TermBinding(loc, FunctionType()):
           raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
-                        + '\nPerhaps you meant `definition ' + base_name(name) + '`?')
+                        + '\nPerhaps you meant `expand ' + base_name(name) + '`?')
         case TermBinding():
           raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `recall ' + base_name(name) + '`?')

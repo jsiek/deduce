@@ -1,4 +1,0 @@
-This is my quest to trigger every possible parsing
-error in `rec_desc_parser.py`.
-
-These reflect everything up to line 666.

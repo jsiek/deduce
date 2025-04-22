@@ -1,0 +1,5 @@
+theorem idk : true
+proof
+  have t : true . 
+  .
+end

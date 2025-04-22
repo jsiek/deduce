@@ -3,9 +3,11 @@ union List<T> {
   node(T, List<T>)
 }
 
-function is_mt<E>(List<E>) -> bool {
-  length(empty) = true
-  length(node(n, next)) = false
+fun is_mt<E>(l : List<E>)  {
+  switch l {
+    case empty { true }
+    case node(n, next) { false }
+  }
 }
 
 union A { a }
