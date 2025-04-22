@@ -1358,7 +1358,7 @@ def parse_theorem():
             + current_token().value)
     advance()
     return Theorem(meta_from_tokens(start_token, previous_token()),
-                   name, what, proof)
+                   name, what, proof, is_lemma)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
                    while_parsing)

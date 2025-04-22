@@ -2893,7 +2893,9 @@ def check_proofs(stmt, env):
   
     case Print(loc, trm):
       set_reduce_all(True)
+      set_eval_all(True)
       result = trm.reduce(env)
+      set_eval_all(False)
       set_reduce_all(False)
       print(str(result))
       
@@ -2901,8 +2903,10 @@ def check_proofs(stmt, env):
       match frm:
         case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs3), [lhs, rhs]):
           set_reduce_all(True)
+          set_eval_all(True)
           L = lhs.reduce(env)
           R = rhs.reduce(env)
+          set_eval_all(False)
           set_reduce_all(False)
           if L == R:
             pass
@@ -2911,7 +2915,9 @@ def check_proofs(stmt, env):
                     '\t' + str(L) + ' ≠ ' + str(R) + '\n')
         case _:
           set_reduce_all(True)
+          set_eval_all(True)
           result = frm.reduce(env)
+          set_eval_all(False)
           set_reduce_all(False)
           match result:
             case Bool(loc2, tyof, True):

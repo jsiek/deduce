@@ -866,10 +866,15 @@ class Lambda(Term):
       ren = {x: Var(self.location, t2, y) \
              for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
-      return new_body == other.body
+      return new_body == other.body # and self.env == other.env
 
   def reduce(self, env):
-    return Lambda(self.location, self.typeof, self.vars, self.body.reduce(env))
+    if get_eval_all():
+      ret = Lambda(self.location, self.typeof, self.vars, self.body)
+      ret.env = self.env if hasattr(self, 'env') else env
+      return ret
+    else:
+      return Lambda(self.location, self.typeof, self.vars, self.body.reduce(env))
 
   def substitute(self, sub):
       n = len(self.vars)
@@ -972,6 +977,17 @@ def set_reduce_opaque_errors(b):
   global reduce_opaque_errors
   reduce_opaque_errors = b
 
+eval_all = False
+
+def get_eval_all():
+  # return False
+  global eval_all
+  return eval_all
+
+def set_eval_all(b):
+  global eval_all
+  eval_all = b
+
 # Definitions that were reduced.
 reduced_defs = set()
 
@@ -1068,27 +1084,41 @@ def do_function_call(loc, name, type_params, type_args,
     subst[x] = ty
   for (k,v) in zip(params, args):
     subst[k] = v
-  for (k,v) in subst.items():
+
+  for k, v in subst.items():
     if isinstance(v, TermInst):
       v.inferred = False
-  new_fun_case_body = body.substitute(subst)
-  old_defs = get_reduce_only()
-  reduce_defs = [x for x in old_defs]
-  if Var(loc, None, name, []) in reduce_defs:
-    reduce_defs.remove(Var(loc, None, name, []))
-  else:
-    pass
-  reduce_defs += [Var(loc, None, x, [x]) for x in params]
-  # Revisit the following -Jeremy  
-  # reduce_defs += [Var(loc, None, x, []) \
-  #                 for x in fun_case.pattern.parameters \
-  #                 + fun_case.parameters]
-  set_reduce_only(reduce_defs)
-
-  # Reduce the body of the function
-  ret = new_fun_case_body.reduce(body_env)
   
-  set_reduce_only(old_defs)
+  if get_reduce_all() and get_eval_all():
+    if get_verbose():
+      print("Fast evaluate", body)
+    for k, v in subst.items():
+      if k in type_params:
+        env = env.define_type(loc, k, v)
+      else:
+        env = env.define_term_var(loc, k, v.typeof, v)
+      
+    ret = body.reduce(env)
+  else:
+    new_fun_case_body = body.substitute(subst)
+    old_defs = get_reduce_only()
+    reduce_defs = [x for x in old_defs]
+    if Var(loc, None, name, []) in reduce_defs:
+      reduce_defs.remove(Var(loc, None, name, []))
+    else:
+      pass
+    reduce_defs += [Var(loc, None, x, [x]) for x in params]
+    # Revisit the following -Jeremy  
+    # reduce_defs += [Var(loc, None, x, []) \
+    #                 for x in fun_case.pattern.parameters \
+    #                 + fun_case.parameters]
+    set_reduce_only(reduce_defs)
+
+    # Reduce the body of the function
+    ret = new_fun_case_body.reduce(body_env)
+  
+    set_reduce_only(old_defs)
+  
   add_reduced_def(name)
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
@@ -1145,8 +1175,11 @@ class Call(Term):
     #   print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
     #   print('reduce call ' + str(self))
     fun = self.rator.reduce(env)
-    is_assoc = is_associative(self.location, rator_name(self.rator),
-                              self.typeof, env)
+    if get_eval_all():
+      is_assoc = False
+    else:
+      is_assoc = is_associative(self.location, rator_name(self.rator),
+                                self.typeof, env)
     if is_assoc:
       flat_args = flatten_assoc_list(rator_name(self.rator), self.args)
     else:
@@ -1174,6 +1207,8 @@ class Call(Term):
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
       case Lambda(loc, ty, vars, body):
+        if hasattr(fun, 'env'):
+          return self.do_call(loc, vars, body, args, fun.env)
         return self.do_call(loc, vars, body, args, env)
       case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
@@ -1185,6 +1220,31 @@ class Call(Term):
                                       params, args, returns, cases, is_assoc,
                                       env) 
       case RecFun(loc, name, [], params, returns, cases):
+        if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
+          op = base_name(name)
+          x = natToInt(args[0])
+          y = natToInt(args[1])
+          # This is a really hack-y fix
+          sname = getSuc(args[0])
+          sname = sname if sname else getSuc(args[1])
+          zname = getZero(args[0])
+          ty = returns
+          ret = None
+          if op == '+':
+            ret = intToNat(loc, x + y, sname=sname, zname=zname, ty=ty)
+          elif op == '-':
+            ret = intToNat(loc, x - y, sname=sname, zname=zname, ty=ty)
+          elif op == '/':
+            ret = intToNat(loc, x // y, sname=sname, zname=zname, ty=ty)
+          elif op == '*':
+            ret = intToNat(loc, x * y, sname=sname, zname=zname, ty=ty)
+          elif op == '^':
+            ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
+          if ret: 
+            if get_verbose():
+              print(f"Doing fast arithmetic on call {self}.")
+            ret.typeof = returns
+            return ret
         return self.do_recursive_call(loc, name, fun, [], [], params, args,
                                       returns, cases, is_assoc, env)
       case Generic(loc2, tyof, typarams, body):
@@ -1203,16 +1263,7 @@ class Call(Term):
   def do_call(self, loc, vars, body, args, env):
     assert len(vars) == len(args)
     subst = {k: v for ((k,t),v) in zip(vars, args)}
-    for (k,v) in subst.items():
-      if isinstance(v, TermInst):
-        v.inferred = False
-    body_env = env
-    new_body = body.substitute(subst)
-    old_defs = get_reduce_only()
-    set_reduce_only(old_defs + [Var(loc, t, x, []) for (x,t) in vars])
-    ret = new_body.reduce(body_env)
-    set_reduce_only(old_defs)
-    return ret      
+    return do_function_call(loc, "", [], [], [], [], body, subst, env, None)
 
   def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
                         returns, cases, is_assoc, env):
@@ -1406,13 +1457,18 @@ class Switch(Term):
             if get_verbose():
               print('switch, matched ' + str(c.pattern) + ' and ' \
                     + str(new_subject))
-            new_body = c.body.substitute(subst)
-            new_env = env
-            old_defs = get_reduce_only()
-            set_reduce_only(old_defs + [Var(self.location, None, x, []) \
-                                        for x in subst.keys()])
-            ret = new_body.reduce(new_env)
-            set_reduce_only(old_defs)
+            if get_eval_all():
+              for k, v in subst.items():
+                env = env.define_term_var(self.location, k, v.typeof, v)
+              ret = c.body.reduce(env)
+            else:
+              new_body = c.body.substitute(subst)
+              new_env = env
+              old_defs = get_reduce_only()
+              set_reduce_only(old_defs + [Var(self.location, None, x, []) \
+                                          for x in subst.keys()])
+              ret = new_body.reduce(new_env)
+              set_reduce_only(old_defs)
             return ret
       ret = Switch(self.location, self.typeof, new_subject, self.cases)
       return ret
@@ -1463,13 +1519,17 @@ class TermInst(Term):
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
+    type_args_red = [t.reduce(env) for t in self.type_args]
     match subject_red:
       case Generic(loc2, tyof, typarams, body):
-        sub = {x:t for (x,t) in zip(typarams, self.type_args)}
+        # sub = {x:t for (x,t) in zip(typarams, self.type_args)}
+        sub = {x:t for (x,t) in zip(typarams, type_args_red)}
         return body.substitute(sub)
       case _:
+        # return TermInst(self.location, self.typeof, subject_red,
+        #                self.type_args, self.inferred)
         return TermInst(self.location, self.typeof, subject_red,
-                        self.type_args, self.inferred)
+                        type_args_red, self.inferred)
     
   def substitute(self, sub):
     return TermInst(self.location, self.typeof,
@@ -3306,17 +3366,17 @@ def is_equation(formula):
     case _:
       return False
 
-def mkZero(loc):
-  return Var(loc, None, 'zero', [])
+def mkZero(loc, zname='zero', ty=None):
+  return Var(loc, ty, zname, [])
 
-def mkSuc(loc, arg):
-  return Call(loc, None, Var(loc, None, 'suc', []), [arg])
+def mkSuc(loc, arg, sname='suc', ty=None):
+  return Call(loc, ty, Var(loc, None, sname, []), [arg])
 
-def intToNat(loc, n):
-  if n == 0:
-    return mkZero(loc)
+def intToNat(loc, n, zname='zero', sname='suc', ty=None):
+  if n <= 0:
+    return mkZero(loc, zname=zname, ty=ty)
   else:
-    return mkSuc(loc, intToNat(loc, n - 1))
+    return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty), sname=sname, ty=ty)
 
 def isNat(t):
   match t:
@@ -3325,6 +3385,26 @@ def isNat(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
       if base_name(name) == 'suc':
       return isNat(arg)
+    case _:
+      return False
+
+def getZero(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
+      return name
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'suc':
+      return getZero(arg)
+    case _:
+      return False
+
+def getSuc(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
+      return False
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'suc':
+      return name
     case _:
       return False
 
@@ -3991,7 +4071,11 @@ def explicit_term_inst(term):
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, explicit_term_inst(body))
     case Lambda(loc2, tyof, vars, body):
-      return Lambda(loc2, tyof, vars, explicit_term_inst(body))
+
+      ret = Lambda(loc2, tyof, vars, explicit_term_inst(body))
+      if hasattr(term, 'env'):
+        ret.env = term.env
+      return ret
     case Mark(loc2, tyof, subject):
       return Mark(loc2, tyof, explicit_term_inst(subject))
     case Conditional(loc2, tyof, cond, thn, els):

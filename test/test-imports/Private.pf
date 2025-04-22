@@ -2,3 +2,8 @@ private union Sign {
   positive
   negative
 }
+
+lemma cant_import_lemma: true
+proof
+  .
+end
