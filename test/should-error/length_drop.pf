@@ -9,7 +9,7 @@ proof
   case 0 {
     arbitrary xs : List<T>
     suffices length(xs) = length(xs) - 0  by expand drop.
-    exchange sub_zero[length(xs)].
+    replace sub_zero[length(xs)].
   }
   case suc(n') assume IH {
     arbitrary xs : List<T>

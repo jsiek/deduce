@@ -6,43 +6,46 @@ import Base
 import Nat
 import Set
 
-union MultiSet<T> {
+opaque union MultiSet<T> {
   m_fun(fn(T) -> Nat)
 }
 
-fun cnt<T>(M : MultiSet<T>) {
+opaque fun cnt<T>(M : MultiSet<T>) {
   switch M {
     case m_fun(f) { f }
   }
 }
 
-fun m_one<T>(x:T) {
+opaque fun m_empty<T>() {
+  m_fun(λy:T{0})
+}
+
+opaque fun m_one<T>(x:T) {
   m_fun(λy:T{if x = y then 1 else 0})
 }
 
-fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
+opaque fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
   m_fun(λx:T{ cnt(P)(x) + cnt(Q)(x) })
 }
 
-theorem cnt_m_fun: all T:type, f: fn T -> Nat. cnt(m_fun(f)) = f
+lemma cnt_m_fun: all T:type, f: fn T -> Nat. cnt(m_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> Nat)
   expand cnt.
 end
          
-theorem m_one_cnt: all T:type. all x:T. cnt(m_one(x))(x) = 1
+theorem cnt_empty: all T:type. all x:T. cnt(@m_empty<T>())(x) = 0
+proof
+  arbitrary T:type
+  arbitrary x:T
+  expand m_empty | cnt.
+end
+
+theorem cnt_one: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
   arbitrary T:type
   arbitrary x:T
   expand m_one | cnt.
-end
-
-theorem m_empty_zero: all T:type. all x:T.
-  cnt(m_fun(λy:T{0}))(x) = 0
-proof
-  arbitrary T:type
-  arbitrary x:T
-  expand cnt.
 end
 
 theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
@@ -53,34 +56,53 @@ proof
   expand operator ⨄ | cnt.
 end
 
+theorem cnt_equal: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+  if cnt(A) = cnt(B) then A = B
+proof
+  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>
+  switch A for cnt {
+    case m_fun(f) {
+      switch B {
+        case m_fun(g) {
+          assume fg
+          replace fg.
+        }
+      }
+    }
+  }
+end
+
 // Testing alternate asci notation 
 theorem m_sum_empty: all T:type. all A:MultiSet<T>.
-  A .+. m_fun(λy:T{0}) = A
+  A .+. @m_empty<T>() = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
+  expand m_empty
   switch A for operator .+., cnt {
     case m_fun(f) {
       have eq: (λx{(f(x) + 0)} : fn T->Nat) = f
         by extensionality arbitrary x:T
-           exchange add_zero[f(x)].
-      exchange eq.
+           replace add_zero[f(x)].
+      replace eq.
     }
   }
 end
 
 theorem empty_m_sum: all T:type. all A:MultiSet<T>.
-  m_fun(λx:T{0}) ⨄ A = A
+  @m_empty<T>() ⨄ A = A
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>
+  expand m_empty
   switch A for operator ⨄ {
     case m_fun(f) {
       have eq: (λx:T{0 + f(x)}) = f by {
         extensionality arbitrary x:T
  	      expand operator +.
       }
-      definition cnt and replace eq
+      expand cnt
+      replace eq.
     }
   }
 end
@@ -100,8 +122,8 @@ proof
               by expand cnt.
 	        have eq: (λx:T{(f(x) + g(x))}) = λx:T{(g(x) + f(x))}
 	          by extensionality arbitrary x:T
-	             exchange add_commute[f(x)][g(x)].
-	        exchange eq.
+	             replace add_commute[f(x)][g(x)].
+	        replace eq.
 	      }
       }
     }
@@ -133,8 +155,29 @@ proof
 end
 
 define set_of_mset : fn<T> MultiSet<T> -> Set<T>
-  = generic T {λM{char_fun(λx{ if cnt(M)(x) = 0 then false else true })}}
+  = generic T {λM{set_of_pred(λx{ if cnt(M)(x) = 0 then false else true })}}
 
+theorem som_empty: all T:type.
+  set_of_mset( @m_empty<T>() ) = @empty_set<T>()
+proof
+  arbitrary T:type
+  expand set_of_mset
+  define A = set_of_pred(fun x:T { (if cnt(@m_empty<T>())(x) = 0 then false else true) })
+  suffices (all x:T. x ∈ A ⇔ x ∈ ∅) by member_equal<T>[A,∅]
+  arbitrary x:T
+  have fwd: if x ∈ A then x ∈ empty_set() by {
+    expand A
+    assume prem
+    conclude false by evaluate in apply member_set_of_pred to prem
+  }
+  have bkwd: if x ∈ empty_set() then x ∈ A by {
+    assume prem
+    conclude false by apply empty_no_members to prem
+  }
+  fwd, bkwd
+end
+
+  
 theorem som_one_single: all T:type. all x:T.
   set_of_mset(m_one(x)) = single(x)
 proof
@@ -148,18 +191,18 @@ proof
        switch y = z for cnt {
          case true suppose yz_true {
 	   have z_y: z = y
-	     by symmetric exchange yz_true.
-	   exchange z_y.
+	     by symmetric replace yz_true.
+	   replace z_y.
 	 }
 	 case false suppose yz_false {
 	   have not_zy: not (z = y)
 	     by suppose zy
 	        replace yz_false in symmetric zy
-	   exchange (apply eq_false to not_zy).
+	   replace (apply eq_false to not_zy).
 	 }
        }
-  definition m_one | single | set_of_mset
-  and replace eq
+  expand m_one | set_of_mset
+  replace eq | single_pred<T>[z].
 end
 
 theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
@@ -167,27 +210,30 @@ theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>
-  suffices char_fun(fun x:T{(if cnt(A)(x) + cnt(B)(x) = 0 then false else true)})
-         = char_fun(fun x:T{((if cnt(A)(x) = 0 then false else true) or (if cnt(B)(x) = 0 then false else true))})
-    by definition set_of_mset | operator∪ | operator ⨄ and replace rep_char_fun<T> | cnt_m_fun<T>
-  have eq: λx:T{(if cnt(A)(x) + cnt(B)(x) = 0 then false else true)}
-         = λx:T{((if cnt(A)(x) = 0 then false else true)
-             or (if cnt(B)(x) = 0 then false else true))} by
-  {
-    extensionality
-    arbitrary x:T
-    switch cnt(A)(x) {
-      case 0 suppose Ax_z {
-	      suffices (if 0 + cnt(B)(x) = 0 then false else true)
-          = (if cnt(B)(x) = 0 then false else true) by exchange Ax_z.
-        expand operator +.
+  expand set_of_mset | operator ⨄
+  replace union_set_of_pred<T>
+  suffices (fun x:T { (if cnt(m_fun(fun y:T { cnt(A)(y) + cnt(B)(y) }))(x) = 0 then false else true) })
+    = (fun x:T { ((if cnt(A)(x) = 0 then false else true) or (if cnt(B)(x) = 0 then false else true)) })
+    by set_of_pred_equal_bkwd<T>
+  extensionality
+  arbitrary x:T
+  switch A {
+    case m_fun(f) {
+      switch B {
+        case m_fun(g) {
+          expand cnt
+          switch f(x) {
+            case 0 assume fxz {
+              replace fxz
+              evaluate
+            }
+            case suc(fx') assume fxs {
+              replace fxs
+              evaluate
+            }
+          }
+        }
       }
-	    case suc(Ax) suppose Ax_s {
-	      suffices (if suc(Ax) + cnt(B)(x) = 0 then false else true) = true
-          by exchange Ax_s.
-	      expand operator +.
-	    }
     }
   }
-  exchange eq.
 end

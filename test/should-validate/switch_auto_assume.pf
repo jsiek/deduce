@@ -16,16 +16,16 @@ proof
     arbitrary x:A
     switch x {
       case a assume G {
-          exchange symmetric G
+          replace symmetric G
           show test(x) = true
-          exchange G
+          replace G
           show test(a) = true
           evaluate
       }
       case b {
-        exchange symmetric recall x = b
+        replace symmetric recall x = b
         show test(x) = false
-        exchange recall x = b
+        replace recall x = b
         show test(b) = false
         evaluate
       }

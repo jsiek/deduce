@@ -28,7 +28,7 @@ proof
   suppose not_eq
   switch y = x for update {
     case true suppose yx_true {
-      have yx: y = x by exchange yx_true.
+      have yx: y = x by replace yx_true.
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -63,10 +63,10 @@ proof
   arbitrary z:T
   switch z = y for update {
     case true suppose zy_true {
-      have zy: z = y by exchange zy_true.
+      have zy: z = y by replace zy_true.
       switch z = x {
         case true suppose zx_true {
-	        have zx: z = x by exchange zx_true.
+	        have zx: z = x by replace zx_true.
 	        have xy: x = y by transitive (symmetric zx) zy
 	        conclude false by apply x_neq_y to xy
 	      }
@@ -85,12 +85,22 @@ end
 
 define empty_map = generic T, U { λk:T { @none<U> } }
 
+/*
 define domain : fn<T,U>  (fn(T)->Option<U>) -> Set<T>
               = generic T, U { λf: fn(T)->Option<U> {char_fun(λx:T{
                   switch f(x) {
 	            case none { false }
 		    case just(y) { true }
-		}})}}
+		  }})}}
+*/
+fun domain<T,U>(f : fn(T)->Option<U>) {
+  set_of_pred(fun x:T {
+      switch f(x) {
+        case none { false }
+        case just(y) { true }
+      }})
+}
+
 
 define restrict = generic T, U { λf:fn(T)->Option<U>, P:Set<T> { λx:T {
                       if x ∈ P then f(x) else @none<U> }}}
@@ -109,12 +119,12 @@ proof
     case none assume: f(x) = none {
       show combine(f, g)(x) = f(x)
       expand combine
-      exchange (recall f(x) = none) | (recall g(x) = none).
+      replace (recall f(x) = none) | (recall g(x) = none).
     }
     case just(v) assume: f(x) = just(v) {
       show combine(f, g)(x) = f(x)
       expand combine
-      exchange recall f(x) = just(v).
+      replace recall f(x) = just(v).
     }
   }
 end
@@ -128,7 +138,7 @@ proof
   assume: f(x) = none
   show combine(f, g)(x) = g(x)
   expand combine
-  exchange recall f(x) = none.
+  replace recall f(x) = none.
 end
 
 theorem restrict_domain:
@@ -137,20 +147,13 @@ theorem restrict_domain:
 proof
   arbitrary T:type, U:type
   arbitrary f:fn(T)->Option<U>, P:Set<T>
-  suffices (all x:T. (if x ∈ char_fun(λx'{switch (if x' ∈ P then f(x')
-                                                 else @none<U>)
-            { case none{false} case just(y){true} }}) then x ∈ P))
-      by expand restrict | domain | operator ⊆.
-  arbitrary x:T
-  suppose prem
-  switch x ∈ P {
+  expand restrict | domain | operator ⊆
+  arbitrary y:T
+  switch y ∈ P {
     case true { . }
     case false suppose Px_false {
-      have eq: rep(P)(x) = false by definition operator∈ in Px_false
-      conclude false by {
-        replace rep_char_fun<T> | eq in
-        definition operator∈ in prem
-      }
+      assume prem
+      conclude false by replace Px_false in apply member_set_of_pred to prem
     }
   }
 end

@@ -756,7 +756,8 @@ class Var(Term):
         if get_reduce_opaque_errors():
           for name, filename in env.dict['opaque']:
             if self.name == name and filename != self.location.filename:
-                error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+                #error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
+                return self
 
         res = env.get_value_of_term_var(self)
         if res:
@@ -2756,20 +2757,6 @@ class EvaluateFact(Proof):
     self.subject.uniquify(env)
   
 @dataclass
-class ApplyDefs(Proof):
-  definitions: List[Term]
-
-  def pretty_print(self, indent):
-      return str(self)
-  
-  def __str__(self):
-      return 'definition ' + ' | '.join([str(d) for d in self.definitions])
-
-  def uniquify(self, env):
-    for d in self.definitions:
-      d.uniquify(env)
-
-@dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
@@ -2796,17 +2783,6 @@ class ApplyDefsFact(Proof):
     for d in self.definitions:
       d.uniquify(env)
     self.subject.uniquify(env)
-    
-@dataclass
-class Rewrite(Proof):
-  equations: List[Proof]
-
-  def __str__(self):
-      return 'replace ' + '|'.join([str(eqn) for eqn in self.equations])
-
-  def uniquify(self, env):
-    for eqn in self.equations:
-      eqn.uniquify(env)
     
 @dataclass
 class RewriteGoal(Proof):

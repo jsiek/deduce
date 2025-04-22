@@ -12,7 +12,7 @@ proof
   suffices if x ≥ 1 then x ≤ x * x 
     by one_mult
   assume prem : x >= 1
-  have one_le_x : 1 <= x by definition operator>= in prem
+  have one_le_x : 1 <= x by expand operator>= in prem
   have x_le_xx : x * 1 <= x * x by apply mult_mono_le[x, 1, x] to one_le_x
   conclude x <= x * x by replace mult_one[x] in x_le_xx
 end

@@ -7,7 +7,7 @@ not yet read that, please do. In the following subsections we
 introduce the features of the Deduce proof language and provide
 examples of their use.
 
-* [Applying Definitions to the Goal](#applying-definitions-to-the-goal)
+* [Expanding Definitions in the Goal](#expanding-definitions-in-the-goal)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
 * [Replace equals for equals in goal](#replace-equals-for-equals-in-goal)
 * [Reasoning about Natural Numbers](#reasoning-about-natural-numbers)
@@ -17,7 +17,6 @@ examples of their use.
 * [Reasoning about `and` (Conjunction)](#reasoning-about-and-conjunction)
 * [Reasoning about `or` (Disjunction)](#reasoning-about-or-disjunction)
 * [The `switch` Proof Statement](#the-switch-proof-statement)
-* [Applying Definitions and Replacements to the Goal](#applying-definitions-and-replacements-to-the-goal)
 * [Conditional Formulas (Implication) and Applying Definitions to Facts](#conditional-formulas-implication-and-applying-definitions-to-facts)
 * [Reasoning about `true`](#reasoning-about-true)
 * [Reasoning about `false`](#reasoning-about-false)
@@ -25,9 +24,7 @@ examples of their use.
 * [Replacing equals for equals in facts](#replacing-equals-for-equals-in-facts)
 * [Reasoning about `some` (Exists) and asking for `help`](#reasoning-about-some-exists-and-asking-for-help)
 
-## Applying Definitions to the Goal
-
-[UPDATE THIS SECTION, REPLACING DEFINITION WITH EXPAND]
+## Expanding Definitions in the Goal
 
 We begin with a simple example, proving that the length of an empty
 list is `0`. Of course, this is a direct consequence of the definition
@@ -35,7 +32,7 @@ of `length`, so this first example is about how to use definitions.
 We will be using features from the Deduce `Nat` and `List` libraries,
 so first we import them.
 
-```{.deduce^#intro_import}
+```{.deduce^#import_nat_and_list}
 import Nat
 import List
 ```
@@ -43,7 +40,9 @@ import List
 To get started, we write down the theorem we would like to prove.  A
 theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
-write `?` to say that we're not done yet.
+write `?` to say that we're not done yet. (Recall that `[]` is the
+notation for an empty list (which is a generic) and `@...<Nat>` is the
+notation for instantiating a generic at a particular type.)
 
     theorem length_nat_empty: length(@[]<Nat>) = 0
     proof
@@ -53,11 +52,37 @@ write `?` to say that we're not done yet.
 Run Deduce on the file. Deduce will respond with the following message
 to remind us of what is left to prove.
 
-    incomplete proof:
-        length([]) = 0
-
+    incomplete proof
+    Goal:
+        length(@[]<Nat>) = 0
+    
 To tell Deduce to expand the definition of `length`, we can use
 the `expand` statement.
+
+    theorem length_nat_empty: length(@[]<Nat>) = 0
+    proof
+      expand length
+      ?
+    end
+
+Deduce responds with the following message.
+
+    incomplete proof
+    Goal:
+        true
+    Advice:
+        You can prove "true" with a period.
+
+Deduce expanded the definition of `length` in the goal, changing
+`length([]) = 0` to `0 = 0`. In particular, Deduce noticed that
+`length([])` matches the first clause in the definition of `length`
+and then replaced it with the right-hand side of the first
+clause. Deduce then simplified `0 = 0` to `true`. In general, whenever
+Deduce sees an equality with the same left and right-hand side, it
+automatically simplifies it to `true`. 
+
+We can complete the proof by adding a period, which is the proof of
+`true`.
 
 ```{.deduce^#length_nat_empty}
 theorem length_nat_empty: length(@[]<Nat>) = 0
@@ -65,15 +90,6 @@ proof
   expand length.
 end
 ```
-
-Deduce expanded the definition of `length` in the goal, changing
-`length([]) = 0` to `0 = 0`. In particular, Deduce noticed that
-`length([])` matches the first clause in the definition of `length`
-and then replaced it with the right-hand side of the first
-clause. Deduce then simplified `0 = 0` to `true` and therefore
-accepted the `expand` statement. In general, whenever Deduce sees
-an equality with the same left and right-hand side, it automatically
-simplifies it to `true`.
 
 Run Deduce on the file to see it respond that the file is valid.
 
@@ -83,66 +99,46 @@ we might try using the definition of `length`.
 
     theorem length_node42: length([42]) = 1
     proof
-      expand length.
-    end
-
-Deduce responds with
-
-    failed to prove:
-        length([42]) = 1
-    by
-        definition length
-    remains to prove:
-        1 + length([]) = 1
-
-It is quite common to apply a definition and then need to prove the
-remaining goal. Deduce provides the `suffices` statement for this
-purpose. The `suffices` keyword is followed by the new goal formula,
-then the keyword `with`, followed by a definition statement. However,
-it's easiest to let Deduce figure out the new goal formula, so to
-start you can use `?` as the goal formula.
-
-    theorem length_node42: length([42]) = 1
-    proof
-      suffices ? 
-          by definition length
+      expand length
       ?
     end
 
 Deduce responds with
 
-    suffices to prove:
-        1 + length([]) = 1
+    incomplete proof
+    Goal:
+        1 + length(@[]<Nat>) = 1
 
-We need to apply the definition of `length` again to simplify
-`length(empty)`, so we add another `length` to the definition
+It is quite common to expand a definition and then need to prove the
+remaining goal. We need to expand the definition of `length` again to
+simplify `length(@[]<Nat>)`, so we add another `length` to the `expand`
 statement.
 
     theorem length_node42: length([42]) = 1
     proof
-      suffices ? 
-          by definition length | length
+      expand length | length
       ?
     end
 
 Deduce responds this time with
 
-    suffices to prove:
+    incomplete proof
+    Goal:
         1 + 0 = 1
 
-Which is a nice formula to use for the `suffices`. So we cut and
-paste that to replace the `?`.
+We can make our proofs more readable by documenting the current goal at regular
+intervals within the proof. We document the current goal with a `show` statment.
 
     theorem length_node42: length([42]) = 1
     proof
-      suffices 1 + 0 = 1 
-          by definition length | length
+      expand length | length
+      show 1 + 0 = 1
       ?
     end
 
-Finally we need to prove, `1 + 0 = 1`. That can be proved using the
-`add_zero` theorem from the file `Nat.pf`, which we explain in the upcoming
-section on [Reasoning about Natural Numbers](#reasoning-about-natural-numbers).
+Finally we prove `1 + 0 = 1` using the `add_zero` theorem from the
+file `Nat.pf`, which we explain in the upcoming section on [Reasoning
+about Natural Numbers](#reasoning-about-natural-numbers).
 
 
 ```{.deduce^#length_node42}
@@ -210,7 +206,7 @@ We don't know anything about this hypothetical `x` other than it being
 a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
 before, using the definitions of `length` and the `add_zero` theorem.
-
+The notation `2* length` is shorthand for `length | length`.
 
 ```{.deduce^#length_nat_one}
 theorem length_nat_one: all x:Nat. length([x]) = 1
@@ -255,13 +251,9 @@ end
 
 To summarize this section:
 
-* To state that a formula is true for all entities of a given type,
-  use Deduce's `all` formula.
-* To prove that an `all` formula is true, use Deduce's `arbitrary` statement.
-  (We'll see a second method in the section
-  [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction).)
-* To use a fact that is an `all` formula, instantiate the fact
-  by following it with square brackets around the specific entity.
+* To state that a formula is true for all entities of a given type, use Deduce's `all` formula.
+* To prove that an `all` formula is true, use Deduce's `arbitrary` statement. (We'll see a second method in the section [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction).)
+* To use a fact that is an `all` formula, instantiate the fact by following it with square brackets around the specific entity.
 
 ### Exercise
 
@@ -305,12 +297,18 @@ end
 ```
 
 To replace `length([x])` with `1`, we `replace`
-using the `list_length_one` theorem instantiated at `U` and `x`.
+using the `list_length_one` theorem instantiated at `U` and `x`,
+i.e., we are replacing using the following equation.
+
+```
+length([x]) = 1
+```
+
 Note that we use `<` and `>` when instantiating a type parameter
 and we use `[` and `]` when instantiating a term parameter.
 
 ```
-exchange list_length_one<U>[x]
+replace list_length_one<U>[x]
 ```
 
 Deduce tells us that the current goal has become
@@ -324,11 +322,11 @@ We `replace` again, separated by a vertical bar, using `list_length_one`,
 this time instantiated with `y`.
 
 ```
-exchange list_length_one<U>[x] | list_length_one<U>[y]
+replace list_length_one<U>[x] | list_length_one<U>[y]
 ```
 
-Deduce changes the goal to `1 = 1`, which simplifies to just `true`,
-so Deduce accepts the `replace` statement.
+Deduce changes the goal to `1 = 1`, which simplifies to `true`.
+So we finish the proof with a period.
 
 Here is the completed proof of `list_length_one_equal`.
 
@@ -339,7 +337,7 @@ theorem list_length_one_equal: all U:type. all x:U, y:U.
 proof
   arbitrary U:type
   arbitrary x:U, y:U
-  exchange list_length_one<U>[x] | list_length_one<U>[y].
+  replace list_length_one<U>[x] | list_length_one<U>[y].
 end
 ```
 
@@ -441,7 +439,7 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by exchange add_commute[y,z].
+    by replace add_commute[y,z].
   ?
 end
 ```
@@ -462,9 +460,9 @@ step in the reasoning.
 
 ```
   have step2: x + z + y = z + x + y
-    by exchange add_commute[z,x].
+    by replace add_commute[z,x].
   have step3: z + x + y = z + y + x
-    by exchange add_commute[x,y].
+    by replace add_commute[x,y].
 ```
 
 We finish the proof by connecting them all together using Deduce's
@@ -487,11 +485,11 @@ theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   have step1: x + y + z = x + z + y
-    by exchange add_commute[y,z].
+    by replace add_commute[y,z].
   have step2: x + z + y = z + x + y
-    by exchange add_commute[z,x].
+    by replace add_commute[z,x].
   have step3: z + x + y = z + y + x
-    by exchange add_commute[x,y].
+    by replace add_commute[x,y].
   transitive step1 (transitive step2 step3)
 end
 ```
@@ -523,18 +521,20 @@ error from Deduce will tell us what it needs to be.
 
 ```
   equations
-    x + y + z = ?              by exchange add_commute[y,z].
+    x + y + z = ?              by replace add_commute[y,z] ?
           ... = z + y + x      by ?
 ```
 
 Deduce responds with:
 
 ```
-remains to prove:
-    x + z + y = ?
+incomplete proof
+Goal:
+	x + z + y = ?
 ```
 
-So we replace the `?` on the right-hand side with `x + z + y`.
+So we replace the `?` on the right-hand side of the `=` with `x + z + y`
+and replace the `?` at the end of the line with a period.
 Continuing in this way for several more steps, we incrementally arrive
 at the following proof that `x + y + z = z + y + x` using `equations`.
 
@@ -544,9 +544,9 @@ theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
 proof
   arbitrary x:Nat, y:Nat, z:Nat
   equations
-    x + y + z = x + z + y    by exchange add_commute[y,z].
-          ... = z + x + y    by exchange symmetric add_commute[z,x].
-          ... = z + y + x    by exchange add_commute[x,y].
+    x + y + z = x + z + y    by replace add_commute[y,z].
+          ... = z + x + y    by replace add_commute[x,z].
+          ... = z + y + x    by replace add_commute[x,y].
 end
 ```
 
@@ -554,11 +554,12 @@ If you want to skip the proof of one of the earlier steps, you can use
 [`sorry`](./Reference.md#sorry-proof) for the reason.
 
 If you want to work backwards by transforming the right-hand side of
-an equation into the left-hand side using `replace` or `definition`,
+an equation into the left-hand side using `replace` or `expand`,
 then [mark](./Reference.md#mark) the right-hand side.
 
-The `equations` feature is implemented in Deduce by translating them
-into a bunch of `transitive` statements.
+The `equations` feature is implemented in Deduce by translating into a
+bunch of `transitive` statements.
+
 
 ## Proving `all` Formulas with Induction
 
@@ -681,7 +682,7 @@ right-hand side of the induction hypothesis `IH`. We use the
       equations
         node(n,xs') ++ []
             = node(n, xs' ++ [])   by expand operator++.
-        ... = node(n,xs')          by exchange IH.
+        ... = node(n,xs')          by replace IH.
     }
 
 Here is the completed proof of `list_append_empty`.
@@ -700,7 +701,7 @@ proof
     equations
       node(n,xs') ++ []
           = node(n, xs' ++ [])     by expand operator++.
-      ... = node(n,xs')            by exchange IH.
+      ... = node(n,xs')            by replace IH.
   }
 end
 ```
@@ -822,7 +823,7 @@ reflexive property of the less-equal relation to prove that `y ≤ y`.
 
     case x_eq_y: x = y {
       have x_le_y: x ≤ y by
-          suffices y ≤ y  by exchange x_eq_y.
+          suffices y ≤ y  by replace x_eq_y.
           less_equal_refl[y]
       conclude x ≤ y or y < x by x_le_y
     }
@@ -849,7 +850,7 @@ proof
   }
   case x_eq_y: x = y {
     have x_le_y: x ≤ y by
-        suffices y ≤ y  by exchange x_eq_y.
+        suffices y ≤ y  by replace x_eq_y.
         less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
@@ -861,8 +862,7 @@ end
 
 To summarize this section:
 
-* Use `or` in Deduce to express that at least one of two or more
-  formulas is true.
+* Use `or` in Deduce to express that at least one of two or more formulas is true.
 * To prove an `or` formula, prove either one of the formulas.
 * To use a fact that is an `or` formula, use the `cases` statement.
 
@@ -940,67 +940,15 @@ end
 
 To summarize this section:
 
-* Use `switch` on an entity of union type to split the proof into
-  cases, with one case for each alternative of the union.
+* Use `switch` on an entity of union type to split the proof into cases, with one case for each alternative of the union.
 
-## Applying Definitions and Replacements to the Goal
-
-Sometimes one needs to apply a set of definitions and replacements
-to the goal. Consider the following definition of `max'`.
-(There is a different definition of `max` in `Nat.pf`.)
-
-
-```{.deduce^#alt_max}
-define max' = λx:Nat, y:Nat { if x ≤ y then y else x }
-```
-
-To prove that `x ≤ max'(x,y)` we consider two cases, whether `x ≤ y`
-or not. If `x ≤ y` is true, we apply the definition of `max'` **and**
-we replace `x ≤ y` with `true`, which resolves the
-`if`-`then`-`else` inside of `max'` to just `y`. 
-
-```
-    suffices x ≤ y  by definition max' and replace x_le_y_true
-```
-
-So we are left to prove that `x ≤ y`, which we already know.
-Similarly, if `x ≤ y` is false, we apply the definition of `max'` and
-replace `x ≤ y` with `false`. 
-
-```
-    suffices x ≤ x  by definition max' and replace x_le_y_false
-```
-
-This resolves the `if`-`then`-`else` inside of `max'` to just `x`. So
-we are left to prove `x ≤ x`, which of course is true.
-Here is the complete proof that `x ≤ max'(x,y)`.
-
-
-```{.deduce^#less_alt_max}
-theorem less_max: all x:Nat, y:Nat.  x ≤ max'(x,y)
-proof
-  arbitrary x:Nat, y:Nat
-  switch x ≤ y {
-    case true assume x_le_y_true {
-      suffices x ≤ y  by definition max' and replace x_le_y_true
-      exchange x_le_y_true.
-    }
-    case false assume x_le_y_false {
-      suffices x ≤ x  by definition max' and replace x_le_y_false
-      less_equal_refl[x]
-    }
-  }
-end
-```
-
-
-## Conditional Formulas (Implication) and Applying Definitions to Facts
+## Conditional Formulas (Implication) and Expanding Definitions in Facts
 
 Some logical statements are true only under certain conditions, so
 Deduce provides an `if`-`then` formula.  To demonstrate how to work
 with `if`-`then` formulas, we prove that if a list has length zero,
 then it must be the `empty` list. Along the way we will also learn how
-to apply a definition to an already-known fact.
+to expand a definition in an already-known fact.
 
 ```
 theorem list_length_zero_empty: all T:type. all xs:List<T>.
@@ -1057,16 +1005,25 @@ to obtain the dubious looking `length(node(x,xs')) = 0`.
     have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
 ```
 
-The contradiction becomes apparent to Deduce once we apply the
-definition of `length` to this fact. We do so using Deduce's
-`definition`-`in` statement as follows. 
+The contradiction becomes apparent to Deduce once we expand the
+definition of `length` and `operator+` in this fact. We do so using
+Deduce's `expand`-`in` statement as follows.
 
 ```
-    conclude false  by definition length in len_z2
+    have len_z3: suc(length(xs')) = 0
+      by expand length | operator+ in len_z2
 ```
 
-We discuss contradictions and `false` in more detail in the upcoming section
-[Reasoning about `false`](#reasoning-about-false).
+When Deduce sees an equality with different constructors on the left
+and right-hand sides, it automatically simplies the formula to
+`false`.
+
+```
+    conclude false  by len_z3
+```
+
+We discuss contradictions and `false` in more detail in the upcoming
+section [Reasoning about `false`](#reasoning-about-false).
 
 Here is the complete proof of `list_length_zero_empty`.
 
@@ -1082,8 +1039,9 @@ proof
     case empty { . }
     case node(x, xs') assume xs_xxs: xs = node(x,xs') {
       have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
-      conclude false  by apply not_one_add_zero[length(xs')]
-                         to definition length in len_z2
+      have len_z3: suc(length(xs')) = 0
+        by expand length | operator+ in len_z2
+      conclude false  by len_z3
     }
   }
 end
@@ -1173,11 +1131,9 @@ end
 To summarize this section:
 
 * A conditional formula is stated in Deduce using the `if`-`then` syntax.
-* To prove an `if`-`then` formula, `assume` the condition
-  and prove the conclusion.
-* To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the
-  condition.
-* To apply a definition to a fact, use `definition`-`in`.
+* To prove an `if`-`then` formula, `assume` the condition and prove the conclusion.
+* To use a fact that is an `if`-`then` formula, `apply` it `to` a proof of the condition.
+* To expand a definition in a fact, use `expand`-`in`.
 
 ### Exercise
 
@@ -1280,7 +1236,7 @@ We proceed by induction.
       ?
     }
 
-Deduce treats `not` as syntactic sugar for a conditional formal with a
+Deduce treats `not` as syntactic sugar for a conditional formula with a
 `false` conclusion. So in the first case, we must prove 
 that `0 < 0` implies `false`.
 So we `assume` the premise `0 < 0` and then conclude `false` by the
@@ -1288,7 +1244,7 @@ definitions of `<` and `≤`.
 
     case zero {
       assume z_l_z: 0 < 0
-      conclude false by definition operator < | operator ≤ in z_l_z
+      conclude false by expand operator < | operator ≤ in z_l_z
     }
 
 In the case where `x = suc(x')`, we must prove 
@@ -1312,7 +1268,7 @@ proof
   induction Nat
   case zero {
     assume z_l_z: 0 < 0
-    conclude false by definition operator < | operator ≤ in z_l_z
+    conclude false by expand operator < | operator ≤ in z_l_z
   }
   case suc(x') assume IH: not (x' < x') {
     assume sx_l_sx: suc(x') < suc(x')
@@ -1349,25 +1305,25 @@ proof
 end
 ```
 
-Deduce responds with the current goal, in which `not (x = y)` is
-expanding into `if x = y then false`.
+Deduce responds with the current goal.
 
 ```
 incomplete proof
 Goal:
-    (if x = y then false)
+    not (x = y)
 Givens:
     x_l_y: x < y
 ```
 
-So following the usual recipe to prove an `if`-`then`, we `assume` the
-condition `x = y`.
+Because `not (x = y)` is equivalent to `if x = y then false`,
+we follow the usual recipe to prove an `if`-`then`, that is,
+we `assume` the condition `x = y`.
 
 ```
   assume x_y: x = y
 ```
 
-Now we need to prove false, and we have the hint to use the
+Now we need to prove `false`, and we have the hint to use the
 `intro_less_irreflexive` theorem.
 
 ```
@@ -1443,8 +1399,8 @@ numbers is an even number. Here's the beginning of the proof.
     proof
       arbitrary x:Nat, y:Nat
       assume even_xy: Even(x) and Even(y)
-      have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
-      have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
+      have even_x: some m:Nat. x = 2 * m by expand Even in even_xy
+      have even_y: some m:Nat. y = 2 * m by expand Even in even_xy
       ?
     end
 
@@ -1496,7 +1452,7 @@ by using the equations for `x` and `y` and the distributivity
 property of multiplication over addition (from `Nat.pf`).
 
     choose a + b
-    suffices 2 * a + 2 * b = 2 * (a + b)  by exchange x_2a | y_2b.
+    suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b.
     symmetric dist_mult_add[2][a,b]
 
 Here is the complete proof.
@@ -1509,13 +1465,13 @@ theorem intro_addition_of_evens:
 proof
   arbitrary x:Nat, y:Nat
   assume even_xy: Even(x) and Even(y)
-  have even_x: some m:Nat. x = 2 * m by definition Even in even_xy
-  have even_y: some m:Nat. y = 2 * m by definition Even in even_xy
+  have even_x: some m:Nat. x = 2 * m by expand Even in even_xy
+  have even_y: some m:Nat. y = 2 * m by expand Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
   suffices some m:Nat. x + y = 2 * m  by expand Even.
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)  by exchange x_2a | y_2b.
+  suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b.
   symmetric dist_mult_add[2][a,b]
 end
 ```
@@ -1529,7 +1485,7 @@ To summarize this section:
 
 <!--
 ```{.deduce^file=ProofIntro.pf}
-<<intro_import>>
+<<import_nat_and_list>>
 
 <<length_nat_empty>>
 <<length_node42>>
@@ -1545,9 +1501,6 @@ end
 <<length_node42_again>>
 <<list_length_one>>
 <<list_length_one_equal>>
-
-<<alt_max>>
-<<less_alt_max>>
 
 <<list_append_empty>>
 

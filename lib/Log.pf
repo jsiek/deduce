@@ -34,12 +34,12 @@ proof
           (apply positive_suc[pow2(l)] to pow_positive[l])
         have sn_le_psl: suc(n) ≤ pow2(suc(l)) by {
           suffices suc(n) ≤ suc(p) + suc(p) by {
-            definition pow2 | 3* operator*
-            and replace add_zero[pow2(l)] | pl_sp
+            expand pow2 | 3* operator*
+            replace add_zero[pow2(l)] | pl_sp.
           }
           suffices n ≤ pow2(l) + p by {
-            definition operator+ | operator≤
-            and replace symmetric pl_sp | add_commute[p][pow2(l)]
+            expand operator+ | operator≤
+            replace symmetric pl_sp | add_commute[p][pow2(l)].
           }
           apply less_equal_trans[n][pow2(l), pow2(l) + p] 
           to prem, less_equal_add[pow2(l)][p]

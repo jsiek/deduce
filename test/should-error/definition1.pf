@@ -5,6 +5,6 @@ theorem T: all xs:List<Nat>. if length(xs) = 0 then false
 proof
   arbitrary xs:List<Nat>
   assume: (length(xs) = 0)
-  have X: ? by definition length in recall (length(xs) = 0)
+  have X: ? by expand length in recall (length(xs) = 0)
   ?
 end

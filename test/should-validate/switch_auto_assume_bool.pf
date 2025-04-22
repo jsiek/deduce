@@ -14,9 +14,9 @@ proof
 		by expand test2.
 	switch x = a {
 		case true{
-      exchange symmetric recall (x = a) = true
+      replace symmetric recall (x = a) = true
 			show x=a
-			exchange recall (x = a) = true.
+			replace recall (x = a) = true.
 		}
 		case false assume G {
 			.

@@ -1,3 +1,1 @@
-./test/should-error/opaque_genrec_use_in_theorem.pf:6.5-6.16: Tried to apply: 
-	definition fact
-However this particular definition cannot be unrolled
+./test/should-error/opaque_genrec_use_in_theorem.pf:6.5-6.16: Cannot expand opaque definition of fact

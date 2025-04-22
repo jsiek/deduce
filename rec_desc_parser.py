@@ -636,52 +636,12 @@ def parse_assumption():
 
 proof_keywords = {'apply', 'arbitrary', 'assume',
                   'cases', 'choose', 'conclude', 'conjunct',
-                  'definition',
+                  'expand',
                   'equations', 'evaluate', 'extensionality',
                   'have', 'induction', 'injective', 'obtain',
                   'recall', 'reflexive', 'replace',
                   'suffices', 'suppose', 'switch', 'symmetric',
                   'transitive'}
-
-def parse_definition_proof():
-  while_parsing = 'while parsing definition:\n' \
-      + '\tconclusion ::= "definition" identifier_list_bar\n'
-  token = current_token()
-  advance()
-  try:
-    defs = parse_ident_list_bar()
-
-    if current_token().type == 'AND':
-        while_parsing = 'while parsing definition:\n' \
-            + '\tconclusion ::= "definition" identifier_list_bar "and" "replace" proof_list\n'
-        advance()
-        if (current_token().type != 'REPLACE'):
-            raise ParseError(meta_from_tokens(current_token(),current_token()),
-                  'expected "replace" after "and" and "definition", not\n\t' \
-                  + current_token().value)
-        advance()
-        eqns = parse_proof_list()
-        meta = meta_from_tokens(token, previous_token())
-        return ApplyDefsGoal(meta,
-                              [Var(meta, None, t) for t in defs],
-                              Rewrite(meta, eqns))
-    elif current_token().type == 'IN':
-        while_parsing = 'while parsing definition:\n' \
-            + '\tconclusion ::= "definition" identifier_list_bar "in" proof\n'
-        advance()
-        subject = parse_proof()
-        meta = meta_from_tokens(token, previous_token())
-        return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
-                              subject)
-    else:
-        meta = meta_from_tokens(token, previous_token())
-        raise ParseError(meta, "definition is deprecated, use expand instead")
-        return ApplyDefs(meta, [Var(meta, None, n) for n in defs])
-  except ParseError as e:
-      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
-  except Exception as e:
-    raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
-      + str(e))
       
 def parse_recall():
   start_token = current_token()
@@ -771,9 +731,6 @@ def parse_proof_hi():
     meta = meta_from_tokens(token,previous_token())
     return PAndElim(meta, index, subject)
       
-  elif token.type == 'DEFINITION':
-    return parse_definition_proof()
-
   elif token.type == 'DOT':
     advance()
     return PTrue(meta_from_tokens(token, token))
@@ -850,20 +807,6 @@ def parse_proof_hi():
     meta = meta_from_tokens(token, token)
     return PReflexive(meta)
 
-  elif (token.type == 'REPLACE'):
-    advance()
-    proofs = parse_proof_list()
-    if current_token().type == 'IN':
-      advance()
-      subject = parse_proof()
-      meta = meta_from_tokens(token, previous_token())
-      return RewriteFact(meta, subject, proofs)
-    else:
-      meta = meta_from_tokens(token, previous_token())
-      raise ParseError(meta, "replace is deprecated, use exchange")
-      return Rewrite(meta, proofs)
-    
-
   elif token.type == 'SWITCH':
     advance()
     subject = parse_term()
@@ -917,6 +860,9 @@ def parse_proof_hi():
         return EvaluateGoal(meta_from_tokens(token, previous_token()))
     
   else:
+    # TODO: Move closest_keyword to another place at some point, probably after parsing
+    # However, we haven't done that right now because we get esoteric error messages
+    # Maybe an idea is move this after parsing AND do this again for a parse error
     close_keyword = closest_keyword(token.value, proof_keywords)
     if close_keyword:
       raise ParseError(meta_from_tokens(token, token),
@@ -1039,23 +985,38 @@ def parse_proof_statement():
     advance()
     proof = parse_proof()
     meta = meta_from_tokens(token, previous_token())
-    return Suffices(meta, formula, proof, None)
+    return Suffices(meta, formula, proof, None), False
 
   elif token.type == 'EXPAND':
     token = current_token()
     advance()
     defs = parse_ident_list_bar()
-    meta = meta_from_tokens(token, previous_token())
-    return ApplyDefsGoal(meta,
-                         [Var(meta, None, t) for t in defs],
-                         None)
+    if current_token().type == 'IN':
+        while_parsing = 'while parsing definition:\n' \
+            + '\tconclusion ::= "definition" identifier_list_bar "in" proof\n'
+        advance()
+        subject = parse_proof()
+        meta = meta_from_tokens(token, previous_token())
+        return ApplyDefsFact(meta, [Var(meta, None, t) for t in defs],
+                              subject), True
+    else:
+      meta = meta_from_tokens(token, previous_token())
+      return ApplyDefsGoal(meta,
+                           [Var(meta, None, t) for t in defs],
+                           None), False
 
-  elif token.type == 'EXCHANGE':
+  elif token.type == 'REPLACE':
     token = current_token()
     advance()
     eqns = parse_proof_list()
-    meta = meta_from_tokens(token, previous_token())
-    return RewriteGoal(meta, eqns, None)
+    if current_token().type == 'IN':
+      advance()
+      subject = parse_proof()
+      meta = meta_from_tokens(token, previous_token())
+      return RewriteFact(meta, subject, eqns), True
+    else:
+      meta = meta_from_tokens(token, previous_token())
+      return RewriteGoal(meta, eqns, None), False
 
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
     start_token = current_token()
@@ -1071,7 +1032,7 @@ def parse_proof_statement():
         + str(e))
       
     meta = meta_from_tokens(token,previous_token())
-    return ImpIntro(meta, label, premise, None)
+    return ImpIntro(meta, label, premise, None), False
 
   elif token.type == 'ARBITRARY':
     advance()
@@ -1080,13 +1041,13 @@ def parse_proof_statement():
     result = None
     for j, var in enumerate(reversed(vars)):
         result = AllIntro(meta, var, (j, len(vars)), result)
-    return result
+    return result, False
     
   elif token.type == 'CHOOSE':
     advance()
     witnesses = parse_nonempty_term_list()
     meta = meta_from_tokens(token, previous_token())
-    return SomeIntro(meta, witnesses, None)
+    return SomeIntro(meta, witnesses, None), False
     
   elif token.type == 'OBTAIN':
     advance()
@@ -1104,24 +1065,24 @@ def parse_proof_statement():
     advance()
     some = parse_proof()
     meta = meta_from_tokens(token, previous_token())
-    return SomeElim(meta, witnesses, label, premise, some, None)
+    return SomeElim(meta, witnesses, label, premise, some, None), False
     
   elif token.type == 'HAVE':
-    return parse_have()
+    return parse_have(), False
 
   elif token.type == 'DEFINE':
-    return parse_define_proof_stmt()
+    return parse_define_proof_stmt(), False
       
   elif token.type == 'INJECTIVE':
     advance()
     constr = parse_term()
     meta = meta_from_tokens(token, previous_token())
-    return PInjective(meta, constr, None)
+    return PInjective(meta, constr, None), False
 
   elif token.type == 'EXTENSIONALITY':
     advance()
     meta = meta_from_tokens(token, previous_token())
-    return PExtensionality(meta, None)
+    return PExtensionality(meta, None), False
 
   elif token.type == 'SHOW':
     while_parsing = 'while parsing\n' \
@@ -1129,10 +1090,10 @@ def parse_proof_statement():
     advance()
     claim = parse_term()
     return PAnnot(meta_from_tokens(token, previous_token()),
-                  claim, None)
+                  claim, None), False
 
   else:
-    return None
+    return None, False
 
 def parse_define_proof_stmt():
   while_parsing = 'while parsing\n' \
@@ -1212,7 +1173,9 @@ def parse_have():
 
 def parse_proof():
     start_token = previous_token()
-    proof_stmt = parse_proof_statement()
+    proof_stmt, concluded = parse_proof_statement()
+    if concluded:
+        return proof_stmt
     if proof_stmt:
         try:
           body = parse_proof()
@@ -1395,7 +1358,7 @@ def parse_theorem():
             + current_token().value)
     advance()
     return Theorem(meta_from_tokens(start_token, previous_token()),
-                   name, what, proof)
+                   name, what, proof, is_lemma)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
                    while_parsing)
@@ -1659,7 +1622,7 @@ def parse_declaration():
     raise ParseError(meta_from_tokens(token, previous_token()), while_parsing \
       + str(e))
 
-statement_keywords = {'assert', 'define', 'function', 'import', 'print', 'theorem',
+statement_keywords = {'assert', 'define', 'import', 'print', 'theorem',
                       'union', 'private', 'opaque', 'recursive'}
 
 def parse_statement():

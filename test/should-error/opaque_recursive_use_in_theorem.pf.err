@@ -1,3 +1,1 @@
-./test/should-error/opaque_recursive_use_in_theorem.pf:5.5-5.15: Tried to apply: 
-	definition f_z
-However this particular definition cannot be unrolled
+./test/should-error/opaque_recursive_use_in_theorem.pf:5.5-5.15: Cannot expand opaque definition of f_z

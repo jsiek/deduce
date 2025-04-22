@@ -17,7 +17,7 @@ terminates {
       apply less_equal_trans to lt_12, n2
     }
     suffices 1 + (n - 1) < 1 + n  by add_both_sides_of_less[1,n-1,n]
-    suffices n < 1 + n by exchange (apply sub_add_identity[n, 1] to n1).
+    suffices n < 1 + n by replace (apply sub_add_identity[n, 1] to n1).
     suffices n ≤ n by evaluate
     less_equal_refl
   }
@@ -27,7 +27,7 @@ terminates {
     have n2: 2 ≤ n by apply not_less_implies_less_equal to prem
     have n_eq: n = 2 + (n - 2) by symmetric apply sub_add_identity[n, 2] to n2
     define a = n - 2
-    suffices suc(a) ≤ 2 + a by exchange n_eq.
+    suffices suc(a) ≤ 2 + a by replace n_eq.
     suffices n - 2 ≤ suc(n - 2) by evaluate
     less_equal_suc
   }
@@ -66,7 +66,8 @@ proof
           have A: (2 + suc(suc(n'')) < 2) = false by evaluate
           have B: (1 + suc(suc(n'')) < 2) = false by evaluate
           have C: (suc(suc(n'')) < 2) = false by evaluate
-          suffices __ by definition fib and replace A | B | C
+          expand fib
+          replace A | B | C
           evaluate
         }
       }
@@ -82,11 +83,12 @@ proof
   }
   case suc(n') assume IH: 0 < fib(1 + n') {
     have A: (1 + suc(n') < 2) = false by evaluate
-    suffices __ by definition fib and replace A | add_sub_identity[1]
-      | add_suc_left | add_sub_identity[2] | suc_one_add
+    expand fib
+    replace A | add_sub_identity[1] | add_suc_left
+    | add_sub_identity[2] | suc_one_add
     suffices 1 ≤ fib(1 + n') + fib(n')
       by expand operator<.
-    have B: 1 ≤ fib(1 + n')  by definition operator< in IH
+    have B: 1 ≤ fib(1 + n')  by expand operator< in IH
     have C: fib(1 + n') ≤ fib(1 + n') + fib(n') by less_equal_add
     conclude 1 ≤ fib(1 + n') + fib(n')
       by apply less_equal_trans to B, C
@@ -97,17 +99,17 @@ theorem sum_fib: all n:Nat. summation(suc(n), 1, fib) = fib(3 + n) - 1
 proof
   induction Nat
   case 0 {
-    suffices fib(1) = fib(3) - 1 by definition 2*summation and replace add_zero
+    suffices fib(1) = fib(3) - 1 by expand 2*summation replace add_zero.
     evaluate
   }
   case suc(n') assume IH: summation(suc(n'), 1, fib) = fib(3 + n') - 1 {
-    exchange suc_one_add[suc(n')]
+    replace suc_one_add[suc(n')]
     suffices (fib(3 + n') - 1) + fib(2 + n') = fib(4 + n') - 1
-      by exchange summation_next[suc(n'), 1, fib] | IH | add_suc_left.
+      by replace summation_next[suc(n'), 1, fib] | IH | add_suc_left.
     have A: 3 + n' = 2 + (1 + n') by evaluate
     have B: 4 + n' = 2 + (2 + n') by evaluate
     have C: 1 + 1 = 2 by evaluate
-    exchange A | B | fib_2_n[1+n'] | fib_2_n[2+n']
+    replace A | B | fib_2_n[1+n'] | fib_2_n[2+n']
            | add_commute[1,2] | fib_2_n[1+n'] | C | fib_2_n[n']
     define X = fib(n')
     define Y = fib(1 + n')
@@ -115,15 +117,15 @@ proof
       expand Y
       have f_pos: 0 < fib(1 + n') by fib_1_pos
       obtain Z where eq: fib(1 + n') = suc(Z) from apply positive_suc to f_pos
-      exchange eq
+      replace eq
       evaluate
     }
     equations
             ((Y + X + Y) - 1) + Y + X
-          = Y + X + ((Y + X + Y) - 1)  by exchange add_commute[((Y+X+Y) - 1)].
+          = Y + X + ((Y + X + Y) - 1)  by replace add_commute[((Y+X+Y) - 1)].
       ... = (Y + X + Y + X + Y) - 1
                                 by apply sub_add_assoc[Y+X+Y, Y+X, 1] to one_YXY
-      ... = (Y + X + Y + #Y + X#) - 1  by exchange add_commute.
+      ... = (Y + X + Y + #Y + X#) - 1  by replace add_commute.
   }
 end
   
