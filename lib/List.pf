@@ -32,7 +32,7 @@ recursive set_of<T>(List<T>) -> Set<T> {
 }
 
 recursive mset_of<T>(List<T>) -> MultiSet<T> {
-  mset_of(empty) = m_fun(λx{0})
+  mset_of(empty) = m_empty()
   mset_of(node(x, xs)) = m_one(x) ⨄ mset_of(xs)
 }
 
@@ -447,7 +447,7 @@ proof
 end
 
 theorem mset_of_empty: all T:type, xs:List<T>.
-  if mset_of(xs) = m_fun(λx{0})
+  if mset_of(xs) = @m_empty<T>()
   then xs = empty
 proof
   arbitrary T:type
@@ -458,19 +458,11 @@ proof
     }
     case node(x, xs') {
       suppose prem
-      have cnt_x_z: cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0
-        by expand cnt.
-      have cnt_x_pos: 1 ≤ cnt(m_fun(λx'{0} : fn T->Nat))(x) by {
-        replace symmetric prem
-        show 1 ≤ cnt(mset_of(node(x,xs')))(x)
-        suffices 1 ≤ 1 + cnt(mset_of(xs'))(x)
-          by evaluate
-        less_equal_add[1][cnt(mset_of(xs'))(x)]
-      }
-      conclude false by {
-        expand cnt | operator ≤ in
-        cnt_x_pos
-      }
+      have X1: cnt(m_one(x) ⨄ mset_of(xs'))(x) = cnt(@m_empty<T>())(x)
+        by replace (expand mset_of in prem).
+      have X2: 1 + cnt(mset_of(xs'))(x) = 0
+        by replace cnt_sum<T> | cnt_empty | cnt_one in X1 // bug: change cnt_sum<T> to cnt_sum
+      conclude false by apply not_one_add_zero to X2
     }
   }
 end
@@ -481,15 +473,8 @@ proof
   arbitrary T:type
   induction List<T>
   case empty {
-    suffices char_fun(λx{(if cnt(m_fun(λx'{0}:fn T->Nat))(x) = 0
-                          then false else true)} : fn T->bool)
-           = char_fun(λ_{false})
-        by evaluate
-    have eq:(λx{if cnt(m_fun(λx'{0} : fn T->Nat))(x) = 0 then false else true}
-             : fn T->bool)
-            = λ_{false}
-        by extensionality  arbitrary x:T  expand cnt.
-    replace eq.
+    expand mset_of | set_of
+    replace som_empty<T>.
   }
   case node(x, xs') suppose IH {
     suffices set_of_mset(m_one(x) ⨄ mset_of(xs')) = single(x) ∪ set_of(xs')

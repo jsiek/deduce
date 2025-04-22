@@ -1,0 +1,6 @@
+import Private
+
+theorem T: true
+proof
+  cant_import_lemma
+end
