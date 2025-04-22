@@ -1074,7 +1074,6 @@ def op_arg_str(trm, arg):
 def do_function_call(loc, name, type_params, type_args,
                      params, args, body, subst, env, return_type):
   body_env = env
-  # TODO: Wtf
   if False and len(params) != len(args):
     error(loc, 'in function call ' + base_name(name) \
           + '(' + ', '.join([str(a) for a in args]) + ')\n' \
@@ -1093,12 +1092,8 @@ def do_function_call(loc, name, type_params, type_args,
     if get_verbose():
       print("Fast evaluate", body)
     for k, v in subst.items():
-      subst_hat = {}
-      for (x,ty) in zip(type_params, type_args):
-        subst_hat[x] = ty
-      body = body.substitute(subst_hat)
       if k in type_params:
-        pass # I couldn't get these working well without substitution
+        env = env.define_type(loc, k, v)
       else:
         env = env.define_term_var(loc, k, v.typeof, v)
       
@@ -1179,8 +1174,11 @@ class Call(Term):
     #   print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
     #   print('reduce call ' + str(self))
     fun = self.rator.reduce(env)
-    is_assoc = is_associative(self.location, rator_name(self.rator),
-                              self.typeof, env)
+    if get_eval_all():
+      is_assoc = False
+    else:
+      is_assoc = is_associative(self.location, rator_name(self.rator),
+                                self.typeof, env)
     if is_assoc:
       flat_args = flatten_assoc_list(rator_name(self.rator), self.args)
     else:
@@ -1225,17 +1223,22 @@ class Call(Term):
           op = base_name(name)
           x = natToInt(args[0])
           y = natToInt(args[1])
+          # This is a really hack-y fix
+          sname = getSuc(args[0])
+          sname = sname if sname else getSuc(args[1])
+          zname = getZero(args[0])
+          ty = returns
           ret = None
           if op == '+':
-            ret = intToNat(loc, x + y)
+            ret = intToNat(loc, x + y, sname=sname, zname=zname, ty=ty)
           elif op == '-':
-            ret = intToNat(loc, x - y)
+            ret = intToNat(loc, x - y, sname=sname, zname=zname, ty=ty)
           elif op == '/':
-            ret = intToNat(loc, x // y)
+            ret = intToNat(loc, x // y, sname=sname, zname=zname, ty=ty)
           elif op == '*':
-            ret = intToNat(loc, x * y)
+            ret = intToNat(loc, x * y, sname=sname, zname=zname, ty=ty)
           elif op == '^':
-            ret = intToNat(loc, x ** y)
+            ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
           if ret: 
             if get_verbose():
               print(f"Doing fast arithmetic on call {self}.")
@@ -1448,19 +1451,23 @@ class Switch(Term):
   def reduce(self, env):
       new_subject = self.subject.reduce(env)
       for c in self.cases:
-          # TODO: Don't do substitution here
           subst = {}
           if is_match(c.pattern, new_subject, subst):
             if get_verbose():
               print('switch, matched ' + str(c.pattern) + ' and ' \
                     + str(new_subject))
-            new_body = c.body.substitute(subst)
-            new_env = env
-            old_defs = get_reduce_only()
-            set_reduce_only(old_defs + [Var(self.location, None, x, []) \
-                                        for x in subst.keys()])
-            ret = new_body.reduce(new_env)
-            set_reduce_only(old_defs)
+            if get_eval_all():
+              for k, v in subst.items():
+                env = env.define_term_var(self.location, k, v.typeof, v)
+              ret = c.body.reduce(env)
+            else:
+              new_body = c.body.substitute(subst)
+              new_env = env
+              old_defs = get_reduce_only()
+              set_reduce_only(old_defs + [Var(self.location, None, x, []) \
+                                          for x in subst.keys()])
+              ret = new_body.reduce(new_env)
+              set_reduce_only(old_defs)
             return ret
       ret = Switch(self.location, self.typeof, new_subject, self.cases)
       return ret
@@ -1511,13 +1518,17 @@ class TermInst(Term):
 
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
+    type_args_red = [t.reduce(env) for t in self.type_args]
     match subject_red:
       case Generic(loc2, tyof, typarams, body):
-        sub = {x:t for (x,t) in zip(typarams, self.type_args)}
+        # sub = {x:t for (x,t) in zip(typarams, self.type_args)}
+        sub = {x:t for (x,t) in zip(typarams, type_args_red)}
         return body.substitute(sub)
       case _:
+        # return TermInst(self.location, self.typeof, subject_red,
+        #                self.type_args, self.inferred)
         return TermInst(self.location, self.typeof, subject_red,
-                        self.type_args, self.inferred)
+                        type_args_red, self.inferred)
     
   def substitute(self, sub):
     return TermInst(self.location, self.typeof,
@@ -3379,17 +3390,17 @@ def is_equation(formula):
     case _:
       return False
 
-def mkZero(loc):
-  return Var(loc, None, 'zero', [])
+def mkZero(loc, zname='zero', ty=None):
+  return Var(loc, ty, zname, [])
 
-def mkSuc(loc, arg):
-  return Call(loc, None, Var(loc, None, 'suc', []), [arg])
+def mkSuc(loc, arg, sname='suc', ty=None):
+  return Call(loc, ty, Var(loc, None, sname, []), [arg])
 
-def intToNat(loc, n):
+def intToNat(loc, n, zname='zero', sname='suc', ty=None):
   if n <= 0:
-    return mkZero(loc)
+    return mkZero(loc, zname=zname, ty=ty)
   else:
-    return mkSuc(loc, intToNat(loc, n - 1))
+    return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty), sname=sname, ty=ty)
 
 def isNat(t):
   match t:
@@ -3398,6 +3409,26 @@ def isNat(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
       if base_name(name) == 'suc':
       return isNat(arg)
+    case _:
+      return False
+
+def getZero(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
+      return name
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'suc':
+      return getZero(arg)
+    case _:
+      return False
+
+def getSuc(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
+      return False
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'suc':
+      return name
     case _:
       return False
 
