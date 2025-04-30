@@ -1287,6 +1287,24 @@ proof
   }
 end
 
+theorem add_mono_less: all a:Nat, b:Nat, c:Nat, d:Nat.
+  if a < c and b < d
+  then a + b < c + d
+proof
+  arbitrary a:Nat, b:Nat, c:Nat, d:Nat
+  assume ac_bd
+  have A: suc(a) ≤ c by expand operator< in ac_bd
+  have B: suc(b) ≤ d by expand operator< in ac_bd
+  have C: suc(a) + suc(b) ≤ c + d by apply add_mono to A, B
+  have D: suc(a + b) ≤ suc(a) + suc(b) by {
+    expand operator+ | operator≤
+    replace add_suc
+    less_equal_suc
+  }
+  have E: suc(a + b) ≤ c + d by apply less_equal_trans to D, C
+  conclude a + b < c + d by expand operator< E
+end
+  
 theorem add_pos_nonneg : all a : Nat, b : Nat.
   if 0 < a then 0 < a + b
 proof
@@ -1373,6 +1391,25 @@ proof
   arbitrary n:Nat, x:Nat, y:Nat
   replace mult_commute
   mult_mono_le_nonzero
+end
+
+theorem mono_nonzero_mult_le : all n : Nat, x : Nat, y : Nat.
+  if x < y then suc(n) * x < suc(n) * y 
+proof
+  induction Nat
+  case 0 {
+    arbitrary x:Nat, y:Nat
+    assume xy
+    replace one_mult
+    xy
+  }
+  case suc(n) assume IH {
+    arbitrary x:Nat, y:Nat
+    assume xy
+    expand operator*
+    have snx_sny: suc(n) * x < suc(n) * y by apply IH to xy
+    apply add_mono_less to xy, snx_sny
+  }
 end
 
 theorem mult_mono_le : all n : Nat. all x : Nat, y : Nat.
