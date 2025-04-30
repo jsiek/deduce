@@ -88,7 +88,7 @@ recursive summation(Nat, Nat, fn Nat->Nat) -> Nat {
 
 recursive iterate<T>(Nat, T, fn T -> T) -> T {
   iterate(0, init, f) = init
-  iterate(suc(n), init, f) = f(iterate(n, init, f))
+  iterate(suc(n), init, f) = f(@iterate<T>(n, init, f))
 }
 
 recursive pow2(Nat) -> Nat {
