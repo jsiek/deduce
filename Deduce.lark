@@ -229,6 +229,7 @@ ident: IDENT              -> ident
 
 ?theorem: "theorem" IDENT ":" term "proof" proof "end" -> theorem
  | "lemma" IDENT ":" term "proof" proof "end"          -> lemma
+ | "postulate" IDENT ":" term                          -> postulate
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                             -> type_inst

@@ -1,0 +1,10 @@
+import Nat
+
+postulate triple : all x:Nat. 3*x = x + x + x
+
+theorem quad: all x:Nat. 4*x = x + x + x + x
+proof
+  arbitrary x:Nat
+  expand operator*
+  replace triple.
+end

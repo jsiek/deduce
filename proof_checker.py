@@ -2521,6 +2521,9 @@ def process_declaration(stmt : Statement, env : Env, module_chain):
     case Theorem(loc, name, frm, pf):
       return stmt, env
   
+    case Postulate(loc, name, frm):
+      return stmt, env
+  
     case Import(loc, name, ast):
       old_verbose = get_verbose()
       if get_verbose() == VerboseLevel.CURR_ONLY:
@@ -2607,6 +2610,10 @@ def type_check_stmt(stmt, env):
     case Theorem(loc, name, frm, pf):
       new_frm = check_formula(frm, env)
       return Theorem(loc, name, new_frm, pf)
+
+    case Postulate(loc, name, frm):
+      new_frm = check_formula(frm, env)
+      return Postulate(loc, name, new_frm)
   
     case RecFun(loc, name, typarams, params, returns, cases):
       # alpha rename the type parameters in the function's type
@@ -2701,6 +2708,9 @@ def collect_env(stmt, env : Env):
       return env
           
     case Theorem(loc, name, frm, pf):
+      return env.declare_proof_var(loc, name, frm)
+
+    case Postulate(loc, name, frm):
       return env.declare_proof_var(loc, name, frm)
   
     case Import(loc, name, ast):
@@ -2844,6 +2854,9 @@ def check_proofs(stmt, env):
         print('checking proof of theorem ' + base_name(name))
       check_proof_of(pf, frm, env)
       
+    case Postulate(loc, name, frm):
+      pass
+
     case RecFun(loc, name, typarams, params, returns, cases):
       pass
 

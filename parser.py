@@ -597,6 +597,10 @@ def parse_tree_to_ast(e, parent):
                        parse_tree_to_ast(e.children[1], e),
                        parse_tree_to_ast(e.children[2], e),
                        isLemma=True)
+    elif e.data == 'postulate':
+        return Postulate(e.meta,
+                         str(e.children[0].value),
+                         parse_tree_to_ast(e.children[1], e))
     elif e.data == 'assoc_decl':
         op_var = parse_tree_to_ast(e.children[0], e)
         typarams = parse_tree_to_list(e.children[1], e)

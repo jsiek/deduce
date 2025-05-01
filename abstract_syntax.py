@@ -2836,6 +2836,26 @@ def overwrite(env, name, new_name, loc):
   env[name] = [new_name]
       
 @dataclass
+class Postulate(Statement):
+  name: str
+  what: Formula
+
+  def __str__(self):
+    return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
+
+  def uniquify(self, env):
+    if self.name in env.keys():
+      error(self.location, "theorem names may not be overloaded")
+    self.what.uniquify(env)
+    new_name = generate_name(self.name)
+    overwrite(env, self.name, new_name, self.location)
+    env['no overload'][self.name] = 'theorem'
+    self.name = new_name
+    
+  def collect_exports(self, export_env):
+    export_env[base_name(self.name)] = [self.name]
+  
+@dataclass
 class Theorem(Statement):
   name: str
   what: Formula
@@ -3835,6 +3855,8 @@ def print_theorems(filename, ast):
   to_print = []
   for s in ast:
     if isinstance(s, Theorem) and not s.isLemma:
+      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+    elif isinstance(s, Postulate):
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
     elif isinstance(s, Declaration) and not s.isPrivate:
       to_print.append(s.pretty_print(0))

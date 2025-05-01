@@ -1330,6 +1330,7 @@ def parse_theorem():
   try:    
     start_token = current_token()
     is_lemma = start_token.type == 'LEMMA'
+    is_postulate = start_token.type == 'POSTULATE'
     advance()
     try:
       name = parse_identifier()
@@ -1351,6 +1352,11 @@ def parse_theorem():
             + current_token().value)
     advance()
     what = parse_term()
+    
+    if is_postulate:
+        return Postulate(meta_from_tokens(start_token, previous_token()),
+                         name, what)
+    
     if current_token().type != 'PROOF':
       raise ParseError(meta_from_tokens(current_token(), current_token()),
             'expected the keyword "proof" after formula of theorem, not\n\t' \
@@ -1627,7 +1633,7 @@ def parse_declaration():
     raise ParseError(meta_from_tokens(token, previous_token()), while_parsing \
       + str(e))
 
-statement_keywords = {'assert', 'define', 'import', 'print', 'theorem',
+statement_keywords = {'assert', 'define', 'import', 'print', 'theorem', 'lemma', 'postulate',
                       'union', 'private', 'opaque', 'recursive'}
 
 def parse_statement():
@@ -1654,12 +1660,9 @@ def parse_statement():
         + str(e))
 
         
-  elif token.type == 'THEOREM':
+  elif token.type == 'THEOREM' or token.type == 'LEMMA' or token.type == 'POSTULATE':
     return parse_theorem()
-  
-  elif token.type == 'LEMMA':
-    return parse_theorem()
-    
+
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
         + '\tstatement ::= "import" identifier\n'
