@@ -245,6 +245,7 @@ known_tokens = {
     'TERMINATES': 'keyword',
     'THEN': 'keyword',
     'THEOREM': 'keyword',
+    'POSTULATE': 'keyword',
     'TO': 'keyword',
     'TRANSITIVE': 'keyword',
     'TRUE': 'prim',
