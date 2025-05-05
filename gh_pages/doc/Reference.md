@@ -825,7 +825,7 @@ The output is `12`.
 To add type parameters to a function (to make it generic), see
 [Generic Function](#generic-function-term).
 
-## Fun (Statement)
+## Function (Statement)
 
 ```
 statement ::= visibility "fun" ident type_params_opt "(" var_list ")" "{" term "}"
