@@ -254,7 +254,11 @@ ident: IDENT              -> ident
 ?constructor_list: constructor                             -> single
     | constructor constructor_list                         -> push
     
-?union: "union" IDENT type_params_opt "{" constructor_list "}" -> union
+?visibility:            -> public
+    | "private"         -> private
+    | "opaque"          -> opaque
+
+?union: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
 
 ?pattern: ident                                  -> pattern_id
     | "0"                                        -> pattern_zero
@@ -272,14 +276,14 @@ ident: IDENT              -> ident
 ?fun_case_list: fun_case                               -> single
     | fun_case fun_case_list                           -> push
 
-?rec_function: "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
+?rec_function: visibility "recursive" ident type_params_opt "(" type_list ")" "->" type "{" fun_case_list "}" -> rec_fun
 
-?function: "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
+?function: visibility "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
 
-?gen_rec_fun: "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "{" term "}" "terminates" proof -> gen_rec_fun
+?gen_rec_fun: visibility "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "{" term "}" "terminates" proof -> gen_rec_fun
 
-?definition: "define" ident "=" term      -> define
- | "define" ident ":" type "=" term       -> define_annot
+?definition: visibility "define" ident "=" term        -> define
+ | visibility "define" ident ":" type "=" term         -> define_annot
 
 ?import: "import" IDENT                            -> import
 
@@ -289,17 +293,11 @@ ident: IDENT              -> ident
 
 ?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
 
-?declaration: union
+?statement: union
  | rec_function
  | function
  | gen_rec_fun
  | definition
-
-?access_decl: "private" declaration    -> private_decl
-    | "opaque" declaration             -> opaque_decl
-
-?statement: declaration
- | access_decl -> add_access
  | assoc_decl
  | import
  | assert

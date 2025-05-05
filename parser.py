@@ -138,7 +138,14 @@ def next_impl_num():
     ret = impl_num
     impl_num += 1
     return ret
-    
+
+def set_visibility(statement, visibility):
+    if visibility == 'private':
+        statement.isPrivate = True
+    elif visibility == 'opaque':
+        statement.makeOpaque = True
+        statement.file_defined = get_filename()
+
 def parse_tree_to_ast(e, parent):
     if isinstance(e, Token):
         return e
@@ -581,9 +588,12 @@ def parse_tree_to_ast(e, parent):
     
     # union definitions
     elif e.data == 'union':
-        return Union(e.meta, str(e.children[0].value),
-                     parse_tree_to_list(e.children[1], e),
-                     parse_tree_to_list(e.children[2], e))
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = Union(e.meta, str(e.children[1].value),
+                          parse_tree_to_list(e.children[2], e),
+                          parse_tree_to_list(e.children[3], e))
+        set_visibility(statement, visibility)
+        return statement
     
     # theorem definitions
     elif e.data == 'theorem':
@@ -634,46 +644,63 @@ def parse_tree_to_ast(e, parent):
                        parse_tree_to_ast(e.children[2], e))
     # functions
     elif e.data == 'fun':
-        name = parse_tree_to_ast(e.children[0], e)
-        typarams = parse_tree_to_list(e.children[1], e)
-        params = parse_tree_to_list(e.children[2], e)
-        body = parse_tree_to_ast(e.children[3], e)
+        visibility = parse_tree_to_ast(e.children[0], e)
+        name = parse_tree_to_ast(e.children[1], e)
+        typarams = parse_tree_to_list(e.children[2], e)
+        params = parse_tree_to_list(e.children[3], e)
+        body = parse_tree_to_ast(e.children[4], e)
         lam = Lambda(e.meta, None, params, body)
         if len(typarams) > 0:
             fun = Generic(e.meta, None, typarams, lam)
         else:
             fun = lam
-        return Define(e.meta, name, None, fun)
+        statement = Define(e.meta, name, None, fun)
+        set_visibility(statement, visibility)
+        return statement
     
     # structurally recursive functions
     elif e.data == 'rec_fun':
-        return RecFun(e.meta, parse_tree_to_ast(e.children[0], e),
-                      parse_tree_to_list(e.children[1], e),
-                      parse_tree_to_list(e.children[2], e),
-                      parse_tree_to_ast(e.children[3], e),
-                      parse_tree_to_list(e.children[4], e))
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = RecFun(e.meta, parse_tree_to_ast(e.children[1], e),
+                           parse_tree_to_list(e.children[2], e),
+                           parse_tree_to_list(e.children[3], e),
+                           parse_tree_to_ast(e.children[4], e),
+                           parse_tree_to_list(e.children[5], e))
+        set_visibility(statement, visibility)
+        return statement
 
     # general recursion
     elif e.data == 'gen_rec_fun':
-        return GenRecFun(e.meta,
-                         parse_tree_to_ast(e.children[0], e),
-                         parse_tree_to_list(e.children[1], e),
-                         parse_tree_to_list(e.children[2], e),
-                         parse_tree_to_ast(e.children[3], e),
-                         parse_tree_to_ast(e.children[4], e),
-                         Var(e.meta, None, 'Nat', []),
-                         parse_tree_to_ast(e.children[5], e),
-                         parse_tree_to_ast(e.children[6], e))
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = GenRecFun(e.meta,
+                              parse_tree_to_ast(e.children[1], e),
+                              parse_tree_to_list(e.children[2], e),
+                              parse_tree_to_list(e.children[3], e),
+                              parse_tree_to_ast(e.children[4], e),
+                              parse_tree_to_ast(e.children[5], e),
+                              Var(e.meta, None, 'Nat', []),
+                              parse_tree_to_ast(e.children[6], e),
+                              parse_tree_to_ast(e.children[7], e))
+        set_visibility(statement, visibility)
+        return statement
+        
     # term definition
     elif e.data == 'define':
-        return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
-                      None,
-                      parse_tree_to_ast(e.children[1], e))
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = Define(e.meta, parse_tree_to_ast(e.children[1], e), 
+                           None,
+                           parse_tree_to_ast(e.children[2], e))
+        set_visibility(statement, visibility)
+        return statement
+        
     elif e.data == 'define_annot':
-        return Define(e.meta, parse_tree_to_ast(e.children[0], e), 
-                      parse_tree_to_ast(e.children[1], e),
-                      parse_tree_to_ast(e.children[2], e))
-
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = Define(e.meta, parse_tree_to_ast(e.children[1], e), 
+                           parse_tree_to_ast(e.children[2], e),
+                           parse_tree_to_ast(e.children[3], e))
+        set_visibility(statement, visibility)
+        return statement
+        
     # import module/file
     elif e.data == 'import':
         return Import(e.meta, str(e.children[0].value))
@@ -686,7 +713,15 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'print':
         return Print(e.meta, parse_tree_to_ast(e.children[0], e))
 
-    # accessibility
+    # visibility
+    elif (e.data == 'public'):
+        return 'public'
+    elif (e.data == 'private'):
+        return 'private'
+    elif (e.data == 'opaque'):
+        return 'opaque'
+    
+    # accessibility (obsolete)
     elif (e.data == 'add_access'):
         return parse_tree_to_ast(e.children[0], e)
 
