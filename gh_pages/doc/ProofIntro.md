@@ -27,7 +27,7 @@ examples of their use.
 ## Expanding Definitions in the Goal
 
 We begin with a simple example, proving that the length of an empty
-list is `0`. Of course, this is a direct consequence of the definition
+list is `0`. This fact is a direct consequence of the definition
 of `length`, so this first example is about how to use definitions.
 We will be using features from the Deduce `Nat` and `List` libraries,
 so first we import them.
@@ -127,7 +127,7 @@ Deduce responds this time with
         1 + 0 = 1
 
 We can make our proofs more readable by documenting the current goal at regular
-intervals within the proof. We document the current goal with a `show` statment.
+intervals within the proof. We document the current goal with a `show` statement.
 
     theorem length_node42: length([42]) = 1
     proof

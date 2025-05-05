@@ -237,10 +237,8 @@ Recursive functions in Deduce are somewhat special to make sure they
 always terminate.
 
 * The first parameter of the function must be a union.
-* The function definition must include a clause for every
-  constructor in the union.
-* The first argument of every recursive call must be a sub-part of the
-  current constructor of the union.
+* The function definition must include a clause for every constructor in the union.
+* The first argument of every recursive call must be a sub-part of the current constructor of the union.
 
 A recursive function begins with the `recursive` keyword, followed by
 the name of the function, then the parameters types and the return
