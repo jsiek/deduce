@@ -901,8 +901,6 @@ statement (see [Function](#function-statement)).
 
 ## Generic Function (Term)
 
-(This feature was added in Deduce version 1.1.)
-
 ```
 term ::= "fun" type_params_opt var_list "{" term "}"
          | "λ" type_params_opt var_list "{" term "}"
@@ -921,7 +919,8 @@ assert second(swap(pair(1,2))) = 1
 
 ## Given
 
-An assumption or fact that is already proved.
+An assumption or fact that is known to be true at a specific step
+within a proof.
 
 ## Greater-Than
 
@@ -1542,7 +1541,7 @@ pattern ::= identifier | "0" | "true" | "false" | identifier "(" identifier_list
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
-and [Function (Statement)](#function-statement) via a Pattern List.
+and [Recursive Function (Statement)](#function-statement) via a Pattern List.
 
 
 ## Parameter List
@@ -1678,7 +1677,7 @@ special to make sure they always terminate.
 * The first argument of every recursive call must be a sub-part of the
   current constructor of the union.
 
-A recursive function begins with the `recursive` keyword (or `function` in version 1.0),
+A recursive function begins with the `recursive` keyword,
 followed by the name of the function, then the parameters types and the return
 type. The body of the function includes one equation for every
 constructor in the union of its first parameter. For example, here's
