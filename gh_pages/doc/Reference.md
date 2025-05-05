@@ -535,8 +535,8 @@ conclude false by apply Y to X
 ## Define (Statement)
 
 ```
-statement ::= "define" ident ":" type "=" term
-            | "define" ident "=" term
+statement ::= visibility "define" ident ":" type "=" term
+            | visibility "define" ident "=" term
 ```
 
 The `define` feature of Deduce associates a name with a value.  For
@@ -741,8 +741,9 @@ end
 conclusion ::= "evaluate"
 ```
 
-The `evaluate` proof method simplifies the goal formula by applying all
-definitions. It succeeds if the formula is simplified to `true`.
+The `evaluate` proof method simplifies the goal formula by expanding
+all definitions (except for opaque ones). It succeeds if the formula is
+simplified to `true`.
 
 ## Evaluate-In (Proof)
 
@@ -751,8 +752,8 @@ conclusion ::= "evaluate" "in" proof
 ```
 
 The `evaluate`-`in` proof method simplifies the formula of the given
-proof by applying all definitions, producing a proof of the simplified
-formula.
+proof by expanding all definitions (except for opaque ones), producing
+a proof of the simplified formula.
 
 ## Extensionality
 
@@ -827,7 +828,7 @@ To add type parameters to a function (to make it generic), see
 ## Fun (Statement)
 
 ```
-statement ::= "fun" ident type_params_opt "(" var_list ")" "{" term "}"
+statement ::= visibility "fun" ident type_params_opt "(" var_list ")" "{" term "}"
 ```
 
 The `fun` statement is for defining a function (non-recursive).
@@ -1474,6 +1475,15 @@ proof
 end
 ```
 
+## Opaque (Visibility)
+
+```
+visibility ::= "opaque"
+```
+
+See [Visibility](#visibility).
+
+
 ## Or  (logical disjunction)
 
 ```
@@ -1557,6 +1567,15 @@ A period is a proof of the formula `true` in Deduce.
 ## Pos (Positive Integers)
 
 The type of positive integers `Pos` is defined in `Nat.pf`.
+
+
+## Private (Visibility)
+
+```
+visibility ::= "private"
+```
+
+See [Visibility](#visibility).
 
 
 ## Proof
@@ -1645,7 +1664,7 @@ is a proof of the formula `P1 and ... and Pn`. The formulas
 ## Recursive Function (Statement)
 
 ```
-statement ::= "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
+statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")" "->" type "{" fun_case* "}"
 fun_case ::= identifier "(" pattern_list ")" "=" term
 ```
 
@@ -2078,7 +2097,7 @@ Specifies the type parameters of a generic union or generic function.
 ## Union (Statement)
 
 ```
-statement ::= "union" identifier type_params_opt "{" constructor* "}"
+statement ::= visibility "union" identifier type_params_opt "{" constructor* "}"
 constructor ::= identifier | identifier "(" type_list ")"
 ```
 
@@ -2140,6 +2159,23 @@ var_list ::= ε | ident | ident ":" type
 
 A comma-separated list of variable declarations. Each variable may
 optionally be annotated with its type.
+
+## Visibility
+
+```
+visibility ::= ε | "private" | "opaque"
+```
+
+The visibility of a statement controls how the defined name can be
+used outside of the current file, that is, via an import.
+
+* The default visibility is public, which means the name can be freely
+  used outside the current file.
+* A `private` name cannot be mentioned outside of the current file.
+* An `opaque` name can be mentioned in other files but it cannot be expanded (via
+  the `expand` or `evaluate` statements). The constructors of an
+  `opaque` union are always private.
+
 
 <!--
 ```{.deduce^file=Reference.pf} 
