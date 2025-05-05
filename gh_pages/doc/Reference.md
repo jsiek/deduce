@@ -1672,10 +1672,8 @@ operate on `union` types. Recursive functions in Deduce are somewhat
 special to make sure they always terminate.
 
 * The first parameter of the function must be a union.
-* The function definition must include a clause for every
-  constructor in the union.
-* The first argument of every recursive call must be a sub-part of the
-  current constructor of the union.
+* The function definition must include a clause for every constructor in the union.
+* The first argument of every recursive call must be a sub-part of the current constructor of the union.
 
 A recursive function begins with the `recursive` keyword,
 followed by the name of the function, then the parameters types and the return
@@ -2168,12 +2166,9 @@ visibility ::= ε | "private" | "opaque"
 The visibility of a statement controls how the defined name can be
 used outside of the current file, that is, via an import.
 
-* The default visibility is public, which means the name can be freely
-  used outside the current file.
+* The default visibility is public, which means the name can be freely used outside the current file.
 * A `private` name cannot be mentioned outside of the current file.
-* An `opaque` name can be mentioned in other files but it cannot be expanded (via
-  the `expand` or `evaluate` statements). The constructors of an
-  `opaque` union are always private.
+* An `opaque` name can be mentioned in other files but it cannot be expanded (via the `expand` or `evaluate` statements). The constructors of an `opaque` union are always private.
 
 
 <!--
