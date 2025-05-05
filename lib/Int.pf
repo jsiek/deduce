@@ -8,7 +8,7 @@ import Base
 
 */
 
-union Int{
+union Int {
     pos(Nat)    // +10 = pos(10)
     negsuc(Nat) // -10 = negsuc(9)
 }
