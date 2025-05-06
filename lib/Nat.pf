@@ -3108,6 +3108,30 @@ proof
   }
 end
 
+fun divides(a : Nat, b : Nat) {
+  some k:Nat. a * k = b
+}
+
+theorem divides_mod: all d:Nat, m:Nat, n:Nat.
+  if divides(d, n) and divides(d, m % n) and 0 < n then divides(d, m)
+proof
+  arbitrary d:Nat, m:Nat, n:Nat
+  assume prem
+  obtain k1 where dk1_n: d*k1 = n from expand divides in conjunct 0 of prem
+  obtain k2 where dk2_mn: d*k2 = m % n from expand divides in conjunct 1 of prem
+  have n_pos: 0 < n by prem
+  have eq1: (m / n) * n + m % n = m by apply div_mod[m,n] to n_pos
+  expand divides
+  show some k:Nat. d * k = m
+  have eq2: (m / n) * n + d*k2 = m by replace symmetric dk2_mn in eq1
+  define X = m / n
+  have eq3: (m / n)*d*k1 + d*k2 = m by expand X in replace symmetric dk1_n in eq2
+  have eq4: d*(m/n)*k1 + d*k2 = m by replace mult_commute[m/n,d] in eq3
+  have eq5: d*((m/n)*k1 + k2) = m by replace symmetric dist_mult_add[d,(m/n)*k1,k2] in eq4
+  choose (m/n)*k1 + k2
+  eq5
+end
+
 theorem div_cancel: all y:Nat. if 0 < y then y / y = 1
 proof
   arbitrary y:Nat
