@@ -3573,3 +3573,71 @@ proof
       apply apply pow_lt_mono_r[b,a,c] to ola to recall c < b
   }
 end
+
+/*
+  Greatest Common Divisor
+*/
+
+recfun gcd(a : Nat, b : Nat) -> Nat
+  measure b 
+{
+  if b = 0 then a
+  else gcd(b, a % b)
+}
+terminates {
+  arbitrary a:Nat, b:Nat
+  assume bnz: not (b = 0)
+  have b_pos: 0 < b  by apply or_not to zero_or_positive[b], bnz
+  conclude a % b < b by apply mod_less_divisor[a,b] to b_pos
+}
+
+theorem gcd_divides: all b:Nat, a:Nat. divides(gcd(a,b), a) and divides(gcd(a,b), b)
+proof
+  define P = fun b':Nat {all a:Nat. divides(gcd(a,b'), a) and divides(gcd(a,b'), b')}
+  have X: all j:Nat. (if (all i:Nat. (if i < j then P(i))) then P(j)) by {
+    arbitrary j:Nat
+    assume IH: all i:Nat. (if i < j then P(i))
+    expand P
+    switch j {
+      case 0 {
+        arbitrary a:Nat
+        have A: divides(gcd(a, 0), a) by {
+          expand divides | gcd
+          choose 1
+          conclude a * 1 = a  by mult_one
+        }
+        have B: divides(gcd(a, 0), 0) by {
+          expand divides | gcd
+          choose 0
+          conclude a * 0 = 0  by mult_zero
+        }
+        A, B
+      }
+      case suc(j') assume j_suc {
+        arbitrary a:Nat
+        replace symmetric j_suc
+        have j_pos: 0 < j by {
+          replace recall j = suc(j')
+          evaluate
+        }
+        have smaller: a % j < j
+          by apply mod_less_divisor[a,j] to j_pos
+        have div_j_div_aj: divides(gcd(j, a % j), j) and divides(gcd(j, a % j), a % j)
+          by (expand P in apply IH[a%j] to smaller)[j]
+        have A: divides(gcd(a, j), a) by {
+          replace j_suc expand gcd replace symmetric j_suc
+          conclude divides(gcd(j, a % j), a)
+            by apply divides_mod[gcd(j, a % j), a, j] to div_j_div_aj, j_pos
+        }
+        have B: divides(gcd(a, j), j) by {
+          replace j_suc expand gcd replace symmetric j_suc
+          conclude divides(gcd(j, a % j), j) by div_j_div_aj
+        }
+        A, B
+      }
+    }
+  }
+  arbitrary b:Nat
+  expand P in apply strong_induction[P,b] to X
+end
+  
