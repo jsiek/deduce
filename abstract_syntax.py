@@ -3055,15 +3055,15 @@ class RecFun(Declaration):
       + '\n}'
 
   def pretty_print(self, indent):
-    header = 'recursive ' + complete_name(self.name) \
+    header = complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
            else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
     if self.makeOpaque:
-      ret = 'opaque ' + header + '\n'
+      ret = 'fun ' + header + '\n'
     else:
-      ret = header + '{\n' \
+      ret = 'recursive ' + header + '{\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n' \
       + '}\n'
 
@@ -3159,17 +3159,16 @@ class GenRecFun(Declaration):
         + 'terminates {\n' + str(self.terminates) + '\n}\n'
 
   def pretty_print(self, indent):
-    header = 'recfun ' + complete_name(self.name) \
+    header = complete_name(self.name) \
         + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
-      + ') -> ' + str(self.returns)\
-      + '\n\tmeasure ' + str(self.measure)
+      + ') -> ' + str(self.returns)
     
     if self.makeOpaque:
-      ret = 'opaque ' + header + '\n'
+      ret = 'fun ' + header + '\n'
     else:
-      ret = header + ' {\n' + self.body.pretty_print(indent+2) + '\n}\n'
+      ret = 'recfun ' + header + ' {' + self.body.pretty_print(indent+2) + '\n}\n'
 
     return indent*' ' + ret
       
