@@ -146,6 +146,22 @@ def set_visibility(statement, visibility):
         statement.makeOpaque = True
         statement.file_defined = get_filename()
 
+def build_equations_proof(loc, eqs):
+    result = None
+    for (lhs, rhs, reason) in reversed(eqs):
+        num_marks = count_marks(lhs) + count_marks(rhs)
+        if num_marks == 0 and get_default_mark_LHS():
+            new_lhs = Mark(loc, None, lhs)
+        else:
+            new_lhs = lhs
+
+        eq_proof = PAnnot(loc, mkEqual(loc, new_lhs, rhs), reason)
+        if result == None:
+            result = eq_proof
+        else:
+            result = PTransitive(loc, eq_proof, result)
+    return result
+        
 def parse_tree_to_ast(e, parent):
     if isinstance(e, Token):
         return e
@@ -551,6 +567,11 @@ def parse_tree_to_ast(e, parent):
         return (None, rhs, reason)
     elif e.data == 'hole_in_middle_proof':
         return PHole(e.meta)
+    elif e.data == 'equation_proof':
+        first = parse_tree_to_ast(e.children[0], e)
+        eqs = [first]
+        return build_equations_proof(e.meta, eqs)
+        
     elif e.data == 'equations_proof':
         first = parse_tree_to_ast(e.children[0], e)
         rest = parse_tree_to_list(e.children[1], e)
@@ -559,20 +580,7 @@ def parse_tree_to_ast(e, parent):
             if lhs == None:
                 lhs = eqs[-1][1].copy()
             eqs.append((lhs, rhs, reason))
-        result = None
-        for (lhs, rhs, reason) in reversed(eqs):
-            num_marks = count_marks(lhs) + count_marks(rhs)
-            if num_marks == 0 and get_default_mark_LHS():
-                new_lhs = Mark(e.meta, None, lhs)
-            else:
-                new_lhs = lhs
-            
-            eq_proof = PAnnot(e.meta, mkEqual(e.meta, new_lhs, rhs), reason)
-            if result == None:
-                result = eq_proof
-            else:
-                result = PTransitive(e.meta, eq_proof, result)
-        return result
+        return build_equations_proof(e.meta, eqs)
     elif e.data == 'recall_proof':
         args = parse_tree_to_list(e.children[0], e)
         return PRecall(e.meta, args)

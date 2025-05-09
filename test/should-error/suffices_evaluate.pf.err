@@ -6,7 +6,7 @@ Goal:
 	((x + suc(suc(suc(suc(x + 1))))) - 0) - 2 = suc(x + suc(suc(suc(x + 1))))
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
+		expand
 		replace
 		equations
 

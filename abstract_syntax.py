@@ -12,6 +12,12 @@ infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2, '∘': 7, '^' : 8}
 prefix_precedence = {'-': 9, 'not': 4}
 
+def name2str(s):
+    if get_unique_names():
+        return s
+    else:
+        return base_name(s)
+
 ############ AST Base Classes ###########
 
 @dataclass
@@ -210,6 +216,8 @@ def rator_name(rator):
       else:
         return n
     case RecFun(loc, name, typarams, params, returns, cases):
+      return name
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
       return name
     case Lambda(loc, ty, vars, body):
       return 'no_name'
@@ -717,6 +725,8 @@ class Var(Term):
   def __eq__(self, other):
       if isinstance(other, RecFun):
         result = self.name == other.name
+      elif isinstance(other, GenRecFun):
+        result = self.name == other.name
       elif isinstance(other, TermInst):
         result = self == other.subject
       elif not isinstance(other, Var):
@@ -735,21 +745,15 @@ class Var(Term):
         return '0'
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
-      # elif get_verbose():
-      #   return self.name + '{' + ','.join(self.resolved_names) + '}'
-      elif get_unique_names():
-        if self.typeof == None:
-          return self.name
-        else:
-          return self.name
+      elif get_verbose():
+        return name2str(self.name) + '{' + ','.join(self.resolved_names) + '}'
+      elif is_operator(self):
+        return 'operator ' + name2str(self.name)
       else:
-        if is_operator(self):
-          return 'operator ' + base_name(self.name)
-        else:
-          return base_name(self.name)
+        return name2str(self.name)
 
   def operator_str(self):
-    return base_name(self.name)
+    return name2str(self.name)
         
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
@@ -774,7 +778,7 @@ class Var(Term):
   def substitute(self, sub):
       if self.name in sub:
           trm = sub[self.name]
-          if not isinstance(trm, RecFun):
+          if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
             add_reduced_def(self.name)
           return trm
       else:
@@ -1008,7 +1012,7 @@ def complete_name(name):
        or base_name(name) in prefix_precedence.keys():
         return 'operator ' + base_name(name)
     else:
-        return base_name(name)
+        return name2str(name)
     
   
 def is_operator(trm):
@@ -1017,6 +1021,9 @@ def is_operator(trm):
       return base_name(name) in infix_precedence.keys() \
           or base_name(name) in prefix_precedence.keys()
     case RecFun(loc, name, typarams, params, returns, cases):
+      return base_name(name) in infix_precedence.keys() \
+          or base_name(name) in prefix_precedence.keys()
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
       return base_name(name) in infix_precedence.keys() \
           or base_name(name) in prefix_precedence.keys()
     case TermInst(loc, tyof, subject, tyargs, inferred):
@@ -1032,6 +1039,8 @@ def operator_name(trm):
       else:
         return base_name(name)
     case RecFun(loc, name, typarams, params, returns, cases):
+      return base_name(name)
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
       return base_name(name)
     case TermInst(loc, tyof, subject, tyargs):
       return operator_name(subject)
@@ -1072,53 +1081,83 @@ def op_arg_str(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
 
+
+
 def do_function_call(loc, name, type_params, type_args,
                      params, args, body, subst, env, return_type):
-  body_env = env
-  if False and len(params) != len(args):
-    error(loc, 'in function call ' + base_name(name) \
-          + '(' + ', '.join([str(a) for a in args]) + ')\n' \
-          + '\tnumber of parameters: ' + str(len(params)) + '\n' \
-          + '\tdoes not match number of arguments')
-  for (x,ty) in zip(type_params, type_args):
-    subst[x] = ty
-  for (k,v) in zip(params, args):
-    subst[k] = v
+  fast_call = False
+  if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
+    op = base_name(name)
+    x = natToInt(args[0])
+    y = natToInt(args[1])
+    # This is a really hack-y fix
+    sname = getSuc(args[0])
+    sname = sname if sname else getSuc(args[1])
+    zname = getZero(args[0])
+    ty = return_type
+    ret = None
+    if op == '+':
+      ret = intToNat(loc, x + y, sname=sname, zname=zname, ty=ty)
+    elif op == '-':
+      ret = intToNat(loc, x - y, sname=sname, zname=zname, ty=ty)
+    elif op == '/':
+      ret = intToNat(loc, x // y, sname=sname, zname=zname, ty=ty)
+    elif op == '*':
+      ret = intToNat(loc, x * y, sname=sname, zname=zname, ty=ty)
+    elif op == '^':
+      ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
+    if ret: 
+      if get_verbose():
+        print(f"Doing fast arithmetic on call {self}.")
+      ret.typeof = return_type
+      fast_call = True
 
-  for k, v in subst.items():
-    if isinstance(v, TermInst):
-      v.inferred = False
-  
-  if get_reduce_all() and get_eval_all():
-    if get_verbose():
-      print("Fast evaluate", body)
+  if not fast_call:    
+    body_env = env
+    if False and len(params) != len(args):
+      error(loc, 'in function call ' + name2str(name) \
+            + '(' + ', '.join([str(a) for a in args]) + ')\n' \
+            + '\tnumber of parameters: ' + str(len(params)) + '\n' \
+            + '\tdoes not match number of arguments')
+    for (x,ty) in zip(type_params, type_args):
+      subst[x] = ty
+    for (k,v) in zip(params, args):
+      subst[k] = v
+
     for k, v in subst.items():
-      if k in type_params:
-        env = env.define_type(loc, k, v)
-      else:
-        env = env.define_term_var(loc, k, v.typeof, v)
-      
-    ret = body.reduce(env)
-  else:
-    new_fun_case_body = body.substitute(subst)
-    old_defs = get_reduce_only()
-    reduce_defs = [x for x in old_defs]
-    if Var(loc, None, name, []) in reduce_defs:
-      reduce_defs.remove(Var(loc, None, name, []))
-    else:
-      pass
-    reduce_defs += [Var(loc, None, x, [x]) for x in params]
-    # Revisit the following -Jeremy  
-    # reduce_defs += [Var(loc, None, x, []) \
-    #                 for x in fun_case.pattern.parameters \
-    #                 + fun_case.parameters]
-    set_reduce_only(reduce_defs)
+      if isinstance(v, TermInst):
+        v.inferred = False
 
-    # Reduce the body of the function
-    ret = new_fun_case_body.reduce(body_env)
-  
-    set_reduce_only(old_defs)
-  
+    if get_reduce_all() and get_eval_all():
+      if get_verbose():
+        print("Fast evaluate", body)
+      for k, v in subst.items():
+        if k in type_params:
+          env = env.define_type(loc, k, v)
+        else:
+          env = env.define_term_var(loc, k, v.typeof, v)
+
+      ret = body.reduce(env)
+    else:
+      new_fun_case_body = body.substitute(subst)
+      old_defs = get_reduce_only()
+      reduce_defs = [x for x in old_defs]
+      if Var(loc, None, name, []) in reduce_defs:
+        reduce_defs.remove(Var(loc, None, name, []))
+      else:
+        pass
+      reduce_defs += [Var(loc, None, x, [x]) for x in params]
+      # Revisit the following -Jeremy  
+      # reduce_defs += [Var(loc, None, x, []) \
+      #                 for x in fun_case.pattern.parameters \
+      #                 + fun_case.parameters]
+      set_reduce_only(reduce_defs)
+
+      # Reduce the body of the function
+      ret = new_fun_case_body.reduce(body_env)
+
+      set_reduce_only(old_defs)
+
   add_reduced_def(name)
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
@@ -1210,43 +1249,30 @@ class Call(Term):
         if hasattr(fun, 'env'):
           return self.do_call(loc, vars, body, args, fun.env)
         return self.do_call(loc, vars, body, args, env)
-      case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+    
+      case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):
-        return self.do_call(loc, params, body, args, env)
+        subst = {k: v for ((k,t),v) in zip(params, args)}
+        return do_function_call(loc, name, [], [], [x for (x,t) in params], args,
+                                body, subst, env, None)
+    
+      case TermInst(loc, tyof,
+                    GenRecFun(loc2, name, typarams, params, returns,
+                              measure, measure_ty, body, terminates),
+                    type_args):
+        subst = {k: v for ((k,t),v) in zip(params, args)}
+        return do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
+                                body, subst, env, None)
+    
+      case RecFun(loc, name, [], params, returns, cases):
+        return self.do_recursive_call(loc, name, fun, [], [], params, args,
+                                      returns, cases, is_assoc, env)
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
                     type_args):
         return self.do_recursive_call(loc, name, fun, typarams, type_args,
                                       params, args, returns, cases, is_assoc,
-                                      env) 
-      case RecFun(loc, name, [], params, returns, cases):
-        if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
-          op = base_name(name)
-          x = natToInt(args[0])
-          y = natToInt(args[1])
-          # This is a really hack-y fix
-          sname = getSuc(args[0])
-          sname = sname if sname else getSuc(args[1])
-          zname = getZero(args[0])
-          ty = returns
-          ret = None
-          if op == '+':
-            ret = intToNat(loc, x + y, sname=sname, zname=zname, ty=ty)
-          elif op == '-':
-            ret = intToNat(loc, x - y, sname=sname, zname=zname, ty=ty)
-          elif op == '/':
-            ret = intToNat(loc, x // y, sname=sname, zname=zname, ty=ty)
-          elif op == '*':
-            ret = intToNat(loc, x * y, sname=sname, zname=zname, ty=ty)
-          elif op == '^':
-            ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
-          if ret: 
-            if get_verbose():
-              print(f"Doing fast arithmetic on call {self}.")
-            ret.typeof = returns
-            return ret
-        return self.do_recursive_call(loc, name, fun, [], [], params, args,
-                                      returns, cases, is_assoc, env)
+                                      env)
       case Generic(loc2, tyof, typarams, body):
         error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
@@ -1263,7 +1289,7 @@ class Call(Term):
   def do_call(self, loc, vars, body, args, env):
     assert len(vars) == len(args)
     subst = {k: v for ((k,t),v) in zip(vars, args)}
-    return do_function_call(loc, "", [], [], [], [], body, subst, env, None)
+    return do_function_call(loc, "anonymous", [], [], [], [], body, subst, env, None)
 
   def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
                         returns, cases, is_assoc, env):
@@ -3017,6 +3043,9 @@ class RecFun(Declaration):
   cases: List[FunCase]
 
   def uniquify(self, env):
+    # print('uniquifying recursive')
+    # print(self.pretty_print(0))
+      
     old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
@@ -3035,7 +3064,10 @@ class RecFun(Declaration):
 
     for c in self.cases:
       c.uniquify(body_env, old_name)
-    
+
+    # print('finished uniquifying recursive')
+    # print(self.pretty_print(0))
+      
   def collect_exports(self, export_env):
     if self.isPrivate:
       return
@@ -3045,10 +3077,10 @@ class RecFun(Declaration):
     if get_verbose():
       return self.to_string()
     else:
-      return self.name if get_unique_names() else base_name(self.name)
+      return name2str(self.name)
     
   def to_string(self):
-    return 'recursive ' + self.name + '<' + ','.join(self.type_params) + '>' \
+    return 'recursive ' + self.name + '<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns) + '{\n' \
       + '\n'.join([str(c) for c in self.cases]) \
@@ -3056,8 +3088,8 @@ class RecFun(Declaration):
 
   def pretty_print(self, indent):
     header = complete_name(self.name) \
-        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
-           else '') \
+        + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
+           if len(self.type_params) > 0 else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
     if self.makeOpaque:
@@ -3109,15 +3141,20 @@ class GenRecFun(Declaration):
   terminates: Proof
 
   def uniquify(self, env):
+    # print('uniquifying recfun')
+    # print(self.pretty_print(0))
+      
     old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
     self.name = new_name
     
     body_env = copy_dict(env)
+    terminates_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
+      extend(terminates_env, old, new, self.location)
     self.old_type_params = self.type_params
     self.type_params = new_type_params
     
@@ -3125,7 +3162,7 @@ class GenRecFun(Declaration):
     
     for (x,t) in self.vars:
       if t:
-        t.uniquify(env)
+        t.uniquify(body_env)
     new_vars = [(generate_name(x),t) for (x,t) in self.vars]
     for ((old,t1),(new,t2)) in zip(self.vars, new_vars):
       overwrite(body_env, old, new, self.location)
@@ -3133,10 +3170,13 @@ class GenRecFun(Declaration):
 
     self.measure.uniquify(body_env)
     self.measure_ty.uniquify(env)
-    self.terminates.uniquify(env)
+    self.terminates.uniquify(terminates_env)
     
     #extend(body_env, old_name, new_name, self.location)
     self.body.uniquify(body_env)
+
+    # print('finished uniquifying recfun')
+    # print(self.pretty_print(0))
     
   def collect_exports(self, export_env):
     if self.isPrivate:
@@ -3160,10 +3200,11 @@ class GenRecFun(Declaration):
 
   def pretty_print(self, indent):
     header = complete_name(self.name) \
-        + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' \
+        + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
-      + ') -> ' + str(self.returns)
+      + ') -> ' + str(self.returns) \
+      + '\nmeasure\t' + str(self.measure) + ' '
     
     if self.makeOpaque:
       ret = 'fun ' + header + '\n'
@@ -3613,7 +3654,7 @@ class AssociativeBinding(Binding):
     return 'associative ' + self.opname \
       + ' ' + ', '.join(type_params_str(type_params) + str(t) \
                         for (type_params, t) in self.types)
-        
+
 class Env:
   def __init__(self, env = None):
     if env:
@@ -3627,16 +3668,16 @@ class Env:
       if base_name(k) == name:
         return k
     return None
-      
+
   def __str__(self):
-    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
+    return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
 
   def __contains__(self, item):
     return item in self.dict.keys()
     
   def proofs_str(self):
-    return ',\n'.join(['\t' + base_name(k) + ': ' + str(v) \
+    return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,ProofBinding) and (v.local or get_verbose() == VerboseLevel.FULL)])
 
@@ -3693,7 +3734,7 @@ class Env:
     return new_env
   
   def define_term_var(self, loc, name, typ, val):
-    if typ == None:
+    if False and typ == None:
       error(loc, 'None not allowed as type in define_term_var')
     if val == None:
       error(loc, 'None not allowed as value in define_term_var')
@@ -3913,6 +3954,8 @@ def count_marks(formula):
     case SwitchCase(loc2, pat, body):
       return count_marks(body)
     case RecFun(loc, name, typarams, params, returns, cases):
+      return 0
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, trm):
       return 0
     case Conditional(loc2, tyof, cond, thn, els):
       return count_marks(cond) + count_marks(thn) + count_marks(els)

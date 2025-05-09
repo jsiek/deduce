@@ -1,5 +1,6 @@
 import Base
 import Nat
+import UInt
 import Option
 import Set
 import MultiSet
@@ -14,6 +15,12 @@ union List<T> {
 recursive length<E>(List<E>) -> Nat {
   length(empty) = 0
   length(node(n, next)) = 1 + length(next)
+}
+
+// Experimenting with replacing Nat with UInt
+recursive uint_len<E>(List<E>) -> UInt {
+  uint_len(empty) = fromNat(0)
+  uint_len(node(n, next)) = fromNat(1) + uint_len(next)
 }
 
 recursive operator ++ <E>(List<E>, List<E>) -> List<E> {
@@ -121,6 +128,13 @@ recursive take<T>(Nat, List<T>) -> List<T> {
       case empty { empty }
       case node(x, xs') { node(x, take(n, xs')) }
     }
+}
+
+recursive uint_take<T>(List<T>, UInt) -> List<T> {
+  uint_take(empty, n) = empty
+  uint_take(node(x, xs), n) =
+    if n = fromNat(0) then empty
+    else node(x, uint_take(xs, n - fromNat(1)))
 }
 
 recursive drop<T>(Nat, List<T>) -> List<T> {
@@ -530,6 +544,39 @@ proof
   }
 end
 
+theorem uint_take_zero: all E:type, xs:List<E>.
+  uint_take(xs, fromNat(0)) = []
+proof
+  arbitrary E:type, xs:List<E>
+  switch xs {
+    case empty {
+      expand uint_take.
+    }
+    case node(x, xs') {
+      expand uint_take.
+    }
+  }
+end
+
+theorem uint_take_append: all E:type, xs:List<E>, ys:List<E>.
+  uint_take(xs ++ ys, uint_len(xs)) = xs
+proof
+  arbitrary E:type
+  induction List<E>
+  case empty {
+	  arbitrary ys:List<E>
+    expand operator++ | uint_len
+    replace uint_take_zero<E>. // Bug! remove <E> to see it.
+	}
+	case node(x, xs') assume IH {
+    arbitrary ys:List<E>
+    expand operator++ | uint_take | uint_len
+    replace (apply eq_false to uint_not_one_add_zero[uint_len(xs')])
+    replace uint_add_sub_identity[fromNat(1)]
+    replace IH[ys].
+	}  
+end
+  
 theorem take_append: all E:type, xs:List<E>, ys:List<E>.
   take(length(xs), xs ++ ys) = xs
 proof

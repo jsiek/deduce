@@ -22,7 +22,6 @@ def deduce_file(filename, error_expected):
     if get_verbose():
         print("Deducing file:", filename)
     module_name = Path(filename).stem
-
     try:
     
         if module_name in get_uniquified_modules().keys():

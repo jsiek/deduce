@@ -3,7 +3,7 @@ Goal:
 	sum(node(a, d)) = a + foldr(d, 0, operator +)
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
+		expand
 		replace
 		equations
 

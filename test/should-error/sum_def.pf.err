@@ -3,7 +3,7 @@ Goal:
 	0 = sum(reverse(@[]<Nat>))
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
+		expand
 		replace
 		equations
 

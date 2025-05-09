@@ -3,7 +3,7 @@ Goal:
 	1 + length(@[]<Nat>) = 1
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
+		expand
 		replace
 		equations
 

@@ -226,11 +226,13 @@ def rewrite_aux(loc, formula, equation, env):
   found_match = False
   try:
     matching = {}
-    formula_match(loc, equation_vars(equation), lhs, formula, matching, Env())
+    eq_vars = equation_vars(equation)
+    formula_match(loc, eq_vars, lhs, formula, matching, Env())
     found_match = True
     rhs = rhs.substitute(matching)
     if get_verbose():
-      print('\tmatched LHS, rewriting to the RHS: ' + str(rhs))
+        print('\tmatched LHS, rewriting to the RHS: ' + str(rhs))
+
   except Exception as e:
     if get_verbose():
       print('\tno match')
@@ -459,7 +461,7 @@ def check_proof(proof, env):
           
     case ApplyDefsFact(loc, definitions, subject):
       formula = check_proof(subject, env)
-      new_formula = apply_definitions(loc, formula, definitions, env)
+      new_formula = expand_definitions(loc, formula, definitions, env)
       ret = new_formula
       
     case RewriteFact(loc, subject, equation_proofs):
@@ -966,7 +968,7 @@ def proof_advice(formula, env):
       case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n'\
-            + '\t\tdefinition\n' \
+            + '\t\texpand\n' \
             + '\t\treplace\n' \
             + '\t\tequations\n'
       case TLet(loc2, _, var, rhs, body):
@@ -1499,7 +1501,7 @@ def check_proof_of(proof, formula, env):
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
     case ApplyDefsGoal(loc, defs, body):
-      new_formula = apply_definitions(loc, formula, defs, env)
+      new_formula = expand_definitions(loc, formula, defs, env)
       check_proof_of(body, new_formula, env)
     case _:
       try:
@@ -1520,22 +1522,22 @@ def check_proof_of(proof, formula, env):
           raise(Exception(msg))
 
 
-def apply_definitions(loc, formula, defs, env):
+def expand_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)
   if num_marks == 0:
       new_formula = formula
   elif num_marks == 1:
       try:
           find_mark(formula)
-          error(loc, 'in apply_definitions, find_mark failed on formula:\n\t' \
+          error(loc, 'in expand_definitions, find_mark failed on formula:\n\t' \
                 + str(formula))
       except MarkException as ex:
           new_formula = ex.subject
   else:
-      error(loc, 'in definition, formula contains more than one mark:\n\t' \
+      error(loc, 'in expand, formula contains more than one mark:\n\t' \
             + str(formula))
   if get_verbose():
-      print('apply definitions to formula: ' + str(new_formula))
+      print('expand definitions to formula: ' + str(new_formula))
   for var in defs:
     if not env.term_var_is_defined(var):
       error(loc, f"Expected a term or a type variable when attempting to expand {var}." +\
@@ -1545,15 +1547,22 @@ def apply_definitions(loc, formula, defs, env):
 
     if isinstance(var, Var):
       reduced_one = False
+
+      reducible_names = []
       for var_name in var.resolved_names:
           # TODO: Use a hashmap in the hashmap!!!!!!!
           #       Or something that allows better than O(n) lookups
           for name, filename in env.dict['opaque']:
             if var_name == name and filename != loc.filename:
-                error(loc, 'Cannot expand opaque definition of ' + base_name(name))
-
+                if len(var.resolved_names) > 1:
+                    continue
+                else:
+                    error(loc, 'Cannot expand opaque definition of ' + base_name(name))
+          reducible_names.append(var_name)
+      
+      for var_name in reducible_names:
           if get_verbose():
-              print('expanding definition ' + var_name)
+              print('trying to expand definition of ' + var_name)
           rvar = Var(var.location, var.typeof, var_name, [var_name])
           rhs = env.get_value_of_term_var(rvar)
           if rhs == None:
@@ -1567,12 +1576,12 @@ def apply_definitions(loc, formula, defs, env):
               if rvar.name in get_reduced_defs():
                   reduced_one = True
                   if get_verbose():
-                      print('applied definition ' + var_name)
+                      print('expanded definition ' + var_name)
       if get_verbose():
           print('new_formula = ' + str(new_formula))
       if not reduced_one:
-          error(loc, 'could not find a place to apply definition of ' \
-                + base_name(var.name) \
+          error(loc, 'could not find a place to expand definition of ' \
+                + name2str(var.name) \
                 + ' in:\n' + '\t' + str(new_formula))
 
   if num_marks == 0:          
@@ -1849,7 +1858,7 @@ def check_type(typ, env):
     case Var(loc, tyof, name, rs):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
-        #       '\nin environment:\n' + str(env))
+              #+ '\nin environment:\n' + str(env))
       if len(rs) == 1:
           typ.name = rs[0]
       elif len(rs) == 0:
@@ -2163,6 +2172,13 @@ def type_synth_term(term, env, recfun, subterms):
       ret = term
       term.typeof = fun_type
       
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates):
+      param_types = [t for (p,t) in params]
+      fun_type = FunctionType(loc, typarams, param_types, returns)
+      ret = term
+      term.typeof = fun_type
+      
     case _:
       if isinstance(term, Type):
         error(term.location, 'type_synth_term called on type ' + str(term))
@@ -2376,6 +2392,8 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
         if constr.name in pat_constr.resolved_names:
           pat_constr.name = constr.name
           if len(typarams) > 0:
+            if not hasattr(typ, 'arg_types'):
+                error(loc, 'problem in check_constr_pattern with: ' + str(typ))
             sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
             parameter_types = [p.substitute(sub) for p in constr.parameters]
           else:
@@ -2455,8 +2473,9 @@ def process_declaration_var(decl : Declaration, env: Env):
       for t in params:
           check_type(t, body_env)
       fun_type = FunctionType(loc, typarams, params, returns)
+      # print('process declaration:')
+      # print(decl.pretty_print(4))
       return decl, env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename)
-      
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
@@ -2464,17 +2483,19 @@ def process_declaration_var(decl : Declaration, env: Env):
       check_type(returns, body_env)
       for (p,t) in params:
           if t:
-              check_type(t, env)
+              check_type(t, body_env)
       vars = [p for (p,t) in params]
       param_types = [t for (p,t) in params]
       if any([t == None for t in param_types]):
           error(loc, 'Add type annotations to the parameters.')
 
       fun_type = FunctionType(loc, typarams, param_types, returns)
+      # print('process declaration:')
+      # print(decl.pretty_print(4))
       check_type(measure_ty, env)
-      return (GenRecFun(loc, name, typarams, params, returns,
-                        measure, measure_ty, body, terminates),
-              env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename))
+      # return? GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates)
+      # changed to decl
+      return (decl, env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename))
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl)
@@ -2641,8 +2662,9 @@ def type_check_stmt(stmt, env):
           error(loc, 'missing function case for ' + base_name(c.name))
 
       new_recfun = RecFun(loc, name, typarams, params, returns, new_cases)
+      # print('type check stmt:')
+      # print(new_recfun.pretty_print(4))
       return new_recfun
-          
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
@@ -2656,15 +2678,17 @@ def type_check_stmt(stmt, env):
       
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
 
-      body_env = env.declare_type_vars(loc, new_typarams)
-      body_env = body_env.declare_term_vars(loc, new_params)
+      body_env = env.declare_type_vars(loc, typarams)
+      body_env = body_env.declare_term_vars(loc, params)
       new_measure = type_check_term(measure, measure_ty, body_env, None, [])
       
-      new_body = type_check_term(body, new_returns, body_env, None, [])
+      new_body = type_check_term(body, returns, body_env, None, [])
 
-      return GenRecFun(loc, name, new_typarams, new_params, new_returns,
-                       new_measure, measure_ty, new_body, terminates)
-
+      new_recfun = GenRecFun(loc, name, typarams, params, returns,
+                             new_measure, measure_ty, new_body, terminates)
+      # print('type check stmt:')
+      # print(new_recfun.pretty_print(4))
+      return new_recfun
   
     case Union(loc, name, typarams, alts):
       return stmt
@@ -2816,6 +2840,9 @@ def find_rec_calls(name, term, env):
   
     case RecFun(loc, name, typarams, params, returns, cases):
       return []
+    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+                   body, terminates):
+      return []
     case Conditional(loc2, tyof, cond, thn, els):
       thn_calls = find_rec_calls(name, thn, env)
       els_calls = find_rec_calls(name, els, env)
@@ -2862,8 +2889,13 @@ def check_proofs(stmt, env):
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
+      # print('check_proofs: recfun')
+      # print(stmt.pretty_print(0))
+        
+      body_env = env.declare_type_vars(loc, typarams)
+      
       # find recursive calls in the body
-      calls = find_rec_calls(name, body, env)
+      calls = find_rec_calls(name, body, body_env)
       formulas = []
       
       # create a formula Fi for each
@@ -2896,7 +2928,8 @@ def check_proofs(stmt, env):
           formula = All(loc, None, (x,t), (0,1), formula)
 
       # check that the terminates proof proves the above formula
-      check_proof_of(terminates, formula, env)
+      #print('termination formula: ' + str(formula))
+      check_proof_of(terminates, formula, body_env)
   
     case Union(loc, name, typarams, alts):
       pass

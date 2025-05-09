@@ -182,6 +182,7 @@ ident: IDENT              -> ident
     | "evaluate" "in" proof                              -> eval_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
+    | "equations" equation                               -> equation_proof
     | "equations" equation equation_list                 -> equations_proof
     | "recall" term_list                                 -> recall_proof
     | "reflexive"                                        -> refl_proof

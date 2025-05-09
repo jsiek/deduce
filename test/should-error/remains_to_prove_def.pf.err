@@ -3,7 +3,7 @@ Goal:
 	x + 0 = x
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
+		expand
 		replace
 		equations
 

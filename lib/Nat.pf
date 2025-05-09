@@ -1256,6 +1256,14 @@ proof
   less_equal_add[n][suc(zero)]
 end
 
+theorem less_suc: all n:Nat.
+  n < suc(n)
+proof
+  arbitrary n:Nat
+  expand operator<
+  less_equal_refl
+end
+  
 theorem add_mono: all a:Nat, b:Nat, c:Nat, d:Nat.
   if a ≤ c and b ≤ d
   then a + b ≤ c + d

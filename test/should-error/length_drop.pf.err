@@ -3,7 +3,7 @@ Goal:
 	length(switch xs { case [] { @[]<T> } case node(x, xs') { drop(n', xs') } }) = length(xs) - suc(n')
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
+		expand
 		replace
 		equations
 
