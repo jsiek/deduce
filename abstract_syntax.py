@@ -181,16 +181,16 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       type_match(loc, tyvars, rt1, rt2, matching)
     case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
-        error(loc, str(arg_ty) + " does not match " + str(param_ty))
+        match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
       for (arg1, arg2) in zip(args1, args2):
         type_match(loc, tyvars, arg1, arg2, matching)
     # How to handle GenericUnknownInst?
     case (TypeInst(l1, n1, args1), GenericUnknownInst(l2, n2)):
       if n1 != n2:
-        error(loc, str(arg_ty) + " does not match " + str(param_ty))
+        match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
     case _:
       if param_ty != arg_ty:
-        error(loc, str(arg_ty) + " does not match " + str(param_ty))
+        match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
 
 
 def is_associative(loc, opname, typ, env):
@@ -540,6 +540,9 @@ class PatternBool(Pattern):
 
   def set_bindings(self, new_bindings):
     pass
+
+  def reduce(self, env):
+      return self
   
 @dataclass
 class PatternCons(Pattern):
@@ -567,6 +570,8 @@ class PatternCons(Pattern):
   def uniquify(self, env):
     self.constructor.uniquify(env)
     
+  def reduce(self, env):
+    return self
     
 ################ Terms ######################################
 
@@ -1414,11 +1419,8 @@ class SwitchCase(AST):
           + indent*' ' + '}'
   
   def reduce(self, env):
-      n = len(self.pattern.parameters)
       return SwitchCase(self.location,
-                        PatternCons(self.pattern.location,
-                                    self.pattern.constructor,
-                                    self.pattern.parameters),
+                        self.pattern.reduce(env),
                         self.body.reduce(env))
     
   def substitute(self, sub):

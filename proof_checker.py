@@ -20,7 +20,7 @@
 #    and run the print and assert statements.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, print_verbose, IncompleteProof, VerboseLevel
+from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, print_verbose, IncompleteProof, VerboseLevel, match_failed, MatchFailed
 
 imported_modules = set()
 checked_modules = set()
@@ -128,7 +128,7 @@ def check_implies(loc, frm1, frm2):
        try:
          vars, body = collect_all(frm1)
          formula_match(loc, vars, body, frm2, matching, Env())
-       except Exception as e:
+       except MatchFailed as e:
          error(loc, '\nCould not prove that\n\t' + str(frm1) \
                   + '\ninstantiates to\n\t' + str(frm2) \
                + '\nbecause\n' + str(e))
@@ -233,7 +233,7 @@ def rewrite_aux(loc, formula, equation, env):
     if get_verbose():
         print('\tmatched LHS, rewriting to the RHS: ' + str(rhs))
 
-  except Exception as e:
+  except MatchFailed as e:
     if get_verbose():
       print('\tno match')
     pass
@@ -645,16 +645,17 @@ def check_proof(proof, env):
                 var_type = {x.name : x.typeof for x in term_vars}
                 formula_matches = [(x,trm) for (x,trm) in matching.items()]
                 for (x,trm) in formula_matches:
-                    new_var_type = var_type[x].substitute(matching)
-                    type_match(loc, type_vars, new_var_type, trm.typeof, matching)
+                    if x in var_type.keys():
+                      new_var_type = var_type[x].substitute(matching)
+                      type_match(loc, type_vars, new_var_type, trm.typeof, matching)
               for x in vars:
                 if x.name not in matching.keys():
-                  error(loc, "could not deduce an instantiation for variable "\
-                        + str(x) + '\n' \
-                        + 'for application of\n\t' + str(ifthen) + '\n'\
-                        + 'to\n\t' + str(arg) + ': ' + str(arg_frm))
+                  match_failed(loc, "could not deduce an instantiation for variable "\
+                               + str(x) + '\n' \
+                               + 'for application of\n\t' + str(ifthen) + '\n'\
+                               + 'to\n\t' + str(arg) + ': ' + str(arg_frm))
               rets.append(conc.substitute(matching).reduce(env))
-            except Exception as e:
+            except MatchFailed as e:
               reasons.append(e)
           if len(rets) == 1: ret = rets[0]
           elif len(rets) > 1: ret = And(loc2, tyof, rets)
@@ -1500,9 +1501,11 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
+      
     case ApplyDefsGoal(loc, defs, body):
       new_formula = expand_definitions(loc, formula, defs, env)
       check_proof_of(body, new_formula, env)
+      
     case _:
       try:
         form = check_proof(proof, env)
@@ -1619,17 +1622,31 @@ def apply_rewrites(loc, formula, eqns, env):#
   else:
       return replace_mark(formula, new_formula).reduce(env)
 
-  
 def formula_match(loc, vars, pattern_frm, frm, matching, env):
-  # if get_verbose():
-  #   print("formula_match(" + str(pattern_frm) + "," + str(frm) + ")")
-  #   print("\tin  " + ','.join([str(x) for x in vars]))
-  #   print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
+  if get_verbose():
+    print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
+    print("\tin  " + ','.join([str(x) for x in vars]))
+    print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
   match (pattern_frm, frm):
+    case (TermInst(loc1, tyof1, subject1, tyargs1, inferred1),
+          TermInst(loc2, tyof2, subject2, tyargs2, inferred2)) \
+          if len(tyargs1) == len(tyargs2):
+      try:
+        matching2 = dict(matching)
+        for (t1,t2) in zip(tyargs1, tyargs2):
+          formula_match(loc, vars, t1, t2, matching2, env)
+        formula_match(loc, vars, subject1, subject2, matching2, env)
+        matching.clear()
+        matching.update(matching2)
+      except MatchFailed as ex:
+        formula_match(loc, vars, subject1, frm, matching, env)
+        
     case (TermInst(loc2, tyof, subject, tyargs, inferred), _):
-      return formula_match(loc, vars, subject, frm, matching, env)
+      formula_match(loc, vars, subject, frm, matching, env)
+      
     case (_, TermInst(loc2, tyof, subject, tyargs, inferred)):
-      return formula_match(loc, vars, pattern_frm, subject, matching, env)
+      formula_match(loc, vars, pattern_frm, subject, matching, env)
+      
     case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
       pass
     case (Var(l1, t1, name, rs1), _) if pattern_frm in vars:
@@ -1639,6 +1656,7 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
         if get_verbose():
             print("formula_match, " + base_name(name) + ' := ' + str(frm))
         matching[name] = frm
+        
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
       formula_match(loc, vars, goal_rator, rator, matching, env)
@@ -1657,8 +1675,8 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
           formula_match(loc, vars, new_goal_rand, rand, matching, env)
           
       else:
-        error(loc, "formula: " + str(frm) + "\n" \
-              + "does not match expected formula: " + str(pattern_frm))
+        match_failed(loc, "formula: " + str(frm) + "\n" \
+                     + "does not match expected formula: " + str(pattern_frm))
         
     case (And(loc2, tyof2, goal_args),
           And(loc3, tyof3, args)):
@@ -1680,8 +1698,8 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
       red_pattern = pattern_frm.reduce(env)
       red_frm = frm.reduce(env)
       if red_pattern != red_frm:
-          error(loc, "formula: " + str(red_frm) + "\n" \
-                + "does not match expected formula: " + str(red_pattern))
+          match_failed(loc, "formula: " + str(red_frm) + "\n" \
+                       + "does not match expected formula: " + str(red_pattern))
     
 def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
                           call, typarams, param_types, return_type):
@@ -2194,8 +2212,8 @@ def type_check_formula(term, env):
 
 def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
-    print('\ntype_check_term: ' + str(term) + ' : ' + str(typ) + '?\n' \
-          + '\tin env:\n' + str(env))
+    print('\ntype_check_term: ' + str(term) + ' : ' + str(typ) + '?\n')
+    #      + '\tin env:\n' + str(env))
   match term:
     case Mark(loc, tyof, subject):
       new_subject = type_check_term(subject, typ, env, recfun, subterms)

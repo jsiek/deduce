@@ -88,6 +88,12 @@ class StaticError(Exception):
 def static_error(location, msg):
   raise StaticError(error_header(location) + msg)
 
+class MatchFailed(Exception):
+  pass
+
+def match_failed(location, msg):
+  raise MatchFailed(error_header(location) + msg)
+
 MAX_ERR_DEPTH = 2
 
 # Parse Errors need to carry around some extra data

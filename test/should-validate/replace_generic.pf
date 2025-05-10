@@ -1,0 +1,27 @@
+union List<T> {
+  empty
+}
+
+union Nat {
+  zero
+}
+
+fun length<E>(xs : List<E>) { zero }
+
+fun operator +(a : Nat, b : Nat) { b }
+
+fun operator *(a : Nat, b : Nat) { zero }
+
+fun operator ++ <E>(xs : List<E>, ys : List<E>) { ys }
+
+postulate len_app: all T:type, xs:List<T>, ys:List<T>.
+  length(xs ++ ys) = length(xs) + length(ys)
+  
+theorem foo: all U:type, ls:List<U>.
+  length(ls ++ ls) = length(ls) + 0 + length(ls)
+proof
+  arbitrary U:type, ls:List<U>
+  replace len_app
+  expand operator+.
+end
+
