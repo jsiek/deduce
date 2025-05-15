@@ -1,4 +1,4 @@
-import UINT
+import UInt
 
 fun five() {
   5
