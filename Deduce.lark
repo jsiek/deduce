@@ -1,8 +1,9 @@
 DIGIT: /[0-9]/
 INT: DIGIT+
+NAT: /[ℕ]/DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^]/
+OPERATOR: /[\-\+∸*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -47,7 +48,8 @@ COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
     | term_med ".+." term_add                      -> multiset_sum
     | term_med "++" term_add                       -> append
     | term_add "-" term_med                        -> sub
-    | term_add "⊝" term_med                        -> nat_sub
+    | term_add "∸" term_med                        -> nat_sub
+    | term_add "⊝" term_med                        -> o_sub
     | term_med
 
 ?term_med: term_med "/" term_exp                    -> div
@@ -80,6 +82,7 @@ ident: IDENT              -> ident
     | "operator" "/="      -> ident_not_equal
 
 ?term_hi: INT                                      -> int
+    | NAT                                          -> nat
     | "+" INT                                      -> pos_int
     | "-" term_hi                                  -> neg_int
     | "true"                                       -> true_literal
@@ -255,7 +258,8 @@ ident: IDENT              -> ident
 ?constructor_list: constructor                             -> single
     | constructor constructor_list                         -> push
     
-?visibility:            -> public
+?visibility:            -> default
+    | "public"          -> public
     | "private"         -> private
     | "opaque"          -> opaque
 
@@ -281,12 +285,12 @@ ident: IDENT              -> ident
 
 ?function: visibility "fun" ident type_params_opt "(" var_list ")" "{" term "}" -> fun
 
-?gen_rec_fun: visibility "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "{" term "}" "terminates" proof -> gen_rec_fun
+?gen_rec_fun: visibility "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> gen_rec_fun
 
 ?definition: visibility "define" ident "=" term        -> define
  | visibility "define" ident ":" type "=" term         -> define_annot
 
-?import: "import" IDENT                            -> import
+?import: visibility "import" IDENT                 -> import
 
 ?assert: "assert" term                             -> assert
 

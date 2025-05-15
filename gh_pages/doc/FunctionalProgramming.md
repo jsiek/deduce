@@ -23,10 +23,10 @@ that you can use to check your understanding.
 
 The `import` declaration makes available the contents of another
 Deduce file in the current file. For example, you can import the
-contents of `Nat.pf` as follows
+library for unsigned integer arithmetic (in `lib/UInt.pf`) as follows
 
-```{.deduce^#ImportNat}
-import Nat
+```{.deduce^#ImportUInt}
+import UInt
 ```
 
 ## Definitions
@@ -38,12 +38,12 @@ number `6`.
 
 ```{.deduce^#five_six}
 define five = 2 + 3
-define six : Nat = 1 + five
+define six : UInt = 1 + five
 ```
 
 Optionally, the type can be specified after the name, following a
 colon.  In the above, `six` holds a natural number, so its type is
-`Nat`.
+`UInt`.
 
 ## Printing Values
 
@@ -67,7 +67,7 @@ of a rectangle.
 
 
 ```{.deduce^#area}
-fun area(h:Nat, w:Nat) {
+fun area(h:UInt, w:UInt) {
   h * w
 }
 ```
@@ -91,14 +91,14 @@ the union type and its body specifies the name of each constructor and
 its parameter types. For example, we define the following union to
 represent a linked-list of natural numbers.
 
-```{.deduce^#NatList}
-union NatList {
+```{.deduce^#UIntList}
+union UIntList {
   Empty
-  Node(Nat, NatList)
+  Node(UInt, UIntList)
 }
 ```
 
-We can then construct values of type `NatList` using the constructors
+We can then construct values of type `UIntList` using the constructors
 `Empty` and `Node`.  To create a linked-list whose elements are
 `1` and `2`, write:
 
@@ -107,7 +107,7 @@ define NL12 = Node(1, Node(2, Empty))
 ```
 
 Unions may be recursive: a constructor may include a parameter type
-that is the union type, e.g., the `NatList` parameter of `Node`. 
+that is the union type, e.g., the `UIntList` parameter of `Node`. 
 
 ## Generic Unions
 
@@ -144,7 +144,7 @@ about them. Deduce provides shorthand notation for lists where:
 ## Switch
 
 You can branch on a value of union type using `switch`. For example,
-the following `front` function returns the first element of a `NatList`. Here
+the following `front` function returns the first element of a `UIntList`. Here
 we give an explicit type annotation for the `front` function. The type
 of a function starts with `fn`, followed by the parameter types, then
 `->`, and finally the return type.
@@ -152,9 +152,9 @@ of a function starts with `fn`, followed by the parameter types, then
 ```{.deduce^#front}
 import Option
  
-fun front(ls : NatList) {
+fun front(ls : UIntList) {
   switch ls {
-    case Empty { @none<Nat> }
+    case Empty { @none<UInt> }
     case Node(x, ls') { just(x) }
   }
 }
@@ -178,9 +178,9 @@ If you forget a `case` in a `switch`, Deduce will tell
 you. For example, if you try the following:
 
 ```{.deduce^#broken_front}
-fun broken_front(ls : NatList) {
+fun broken_front(ls : UIntList) {
   switch ls { 
-    case Empty { @none<Nat> } 
+    case Empty { @none<UInt> } 
   }
 }
 ```
@@ -188,26 +188,9 @@ fun broken_front(ls : NatList) {
 Deduce responds with
 
 ```
-this switch is missing a case for: Node(Nat,NatList)
+this switch is missing a case for: Node(UInt,UIntList)
 ```
 
-
-## Natural Numbers
-
-Natural numbers are not a builtin type in Deduce but instead they
-are defined as a `union` type:
-
-```{.deduce^#Nat}
-union Nat {
-  zero
-  suc(Nat)
-}
-```
-
-The file `Nat.pf` includes the above definition together with some
-operations on natural numbers and theorems about them.  The numerals
-`0`, `1`, `2`, etc. are shorthand for the natural numbers `zero`,
-`suc(zero)`, `suc(suc(zero))`, etc.
 
 ## Booleans, Conditionals, and Assert
 
@@ -245,8 +228,8 @@ the name of the function, then the parameters types and the return
 type. For example, here's the definition of a `len` function for
 lists of natural numbers.
 
-```{.deduce^#lenNatList}
-recursive len(NatList) -> Nat {
+```{.deduce^#lenUIntList}
+recursive len(UIntList) -> UInt {
   len(Empty) = 0
   len(Node(n, next)) = 1 + len(next)
 }
@@ -263,7 +246,7 @@ matching is only supported for the first parameter. For example, here
 is the `app` function that combines two linked lists.
 
 ```{.deduce^#app}
-recursive app(NatList, NatList) -> NatList {
+recursive app(UIntList, UIntList) -> UIntList {
   app(Empty, ys) = ys
   app(Node(n, xs), ys) = Node(n, app(xs, ys))
 }
@@ -295,7 +278,7 @@ For example, we can generalize the recursive `length` to work on lists
 with any element type as follows.
 
 ```{.deduce^#length}
-recursive length<E>(List<E>) -> Nat {
+recursive length<E>(List<E>) -> UInt {
   length(empty) = 0
   length(node(n, next)) = 1 + length(next)
 }
@@ -315,8 +298,8 @@ fun head<T>(ls: List<T>) {
 
 Calling a generic function is just like calling a normal function,
 most of the time. For example, the following invokes the
-generic `length` function on an argument of type `List<Nat>`
-and Deduce figures out that the type parameter `E` must be `Nat`.
+generic `length` function on an argument of type `List<UInt>`
+and Deduce figures out that the type parameter `E` must be `UInt`.
 
 ```{.deduce^#apply_length}
 assert length([42]) = 1
@@ -347,7 +330,7 @@ with the type arguments surrounded by `<` and `>`. Here's the
 example again with the explicit instantiation.
 
 ```{.deduce^#apply_length_empty}
-assert length(@[]<Nat>) = 0
+assert length(@[]<UInt>) = 0
 ```
 
 
@@ -382,7 +365,7 @@ operations on pairs, such as `first` and `second`.
 
 ### Sum the Elements in a List
 
-Define a function named `sum` that adds up all the elements of a `List<Nat>`.
+Define a function named `sum` that adds up all the elements of a `List<UInt>`.
 
 ```{.deduce^#test_sum}
 define L13 = [1, 2, 3]
@@ -391,7 +374,7 @@ assert sum(L13) = 6
 
 ### Inner Product
 
-Define a function named `dot` that computes the inner product of two `List<Nat>`.
+Define a function named `dot` that computes the inner product of two `List<UInt>`.
 
 ```{.deduce^#test_dot}
 define L46 = [4, 5, 6]
@@ -428,16 +411,16 @@ an empty list.
 Define a function named `average` that computes the mean of a
 non-empty list and check that it works on a few inputs.
 Note that the second parameter of the division operator `/` 
-is of type `Pos`, which is defined in `Nat.pf`.
+is of type `Pos`, which is defined in `UInt.pf`.
 
 <!--
 ```{.deduce^file=FunctionalProgramming.pf}
-<<ImportNat>>
+<<ImportUInt>>
 <<five_six>>
 <<print_five>>
 <<area>>
 <<print_area>>
-<<NatList>>
+<<UIntList>>
 <<NL12>>
 <<List>>
 <<L12>>
@@ -445,7 +428,7 @@ is of type `Pos`, which is defined in `Nat.pf`.
 <<print_front>>
 <<print7>>
 <<assert_if_true>>
-<<lenNatList>>
+<<lenUIntList>>
 <<app>>
 <<length>>
 <<apply_length>>

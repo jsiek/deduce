@@ -2,12 +2,12 @@ import List
 import Nat
 
 recursive sum(List<Nat>) -> Nat {
-  sum(empty) = 0
+  sum(empty) = ℕ0
   sum(node(n, ns)) = n + sum(ns)
 }
 
 
-theorem foldr_eq_sum : all ls : List<Nat>. sum(ls) = foldr(ls, 0, operator+)
+theorem foldr_eq_sum : all ls : List<Nat>. sum(ls) = foldr(ls, ℕ0, operator+)
 proof
   induction List<Nat>
   case empty {

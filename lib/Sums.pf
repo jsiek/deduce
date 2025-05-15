@@ -10,25 +10,25 @@ proof
     case suc(n') suppose IH {
       expand operator *
       replace symmetric add_zero[suc(n')]
-      show suc(n') + 0 ≤ suc(n') + (0 + n' * (suc(n') + 0))
-      have zero_le_any: 0 <= (0 + n' * (suc(n') + 0))
+      show suc(n') + ℕ0 ≤ suc(n') + (ℕ0 + n' * (suc(n') + ℕ0))
+      have zero_le_any: ℕ0 <= (ℕ0 + n' * (suc(n') + ℕ0))
         by expand operator <=.
-      apply add_both_sides_of_less_equal[suc(n')][0, (0 + n' * (suc(n') + 0))]
+      apply add_both_sides_of_less_equal[suc(n')][ℕ0, (ℕ0 + n' * (suc(n') + ℕ0))]
       to zero_le_any
     }
 end
 
 lemma blah : all n : Nat.
-    n * (n - 1) = n * n - n
+    n * (n ∸ ℕ1) = n * n ∸ n
 proof
     induction Nat
     case zero {
-        expand operator- | operator*.
+        expand operator∸ | operator*.
     }
     case suc(n') suppose IH {
-      expand operator* | operator-
-      replace sub_zero[n']
-                  | add_sub_identity[suc(n')][n' * suc(n')]
+      expand operator* | operator∸
+      replace monus_zero[n']
+                  | add_monus_identity[suc(n')][n' * suc(n')]
                   | mult_commute[n'][suc(n')]
       show n' + n' * n' = suc(n') * n' 
       expand operator*.
@@ -37,69 +37,69 @@ end
 
 
 theorem sum_n : all n : Nat. 
-    2 * summation(n, 0, λ x {x}) = n * (n - 1)
+    ℕ2 * summation(n, ℕ0, λ x {x}) = n * (n ∸ ℕ1)
 proof
     induction Nat
     case zero {
         evaluate
     }
     case suc(n') suppose IH {
-        have step1: (all i:Nat. (if i < 1 then n' + i = 0 + (n' + i)))
+        have step1: (all i:Nat. (if i < ℕ1 then n' + i = ℕ0 + (n' + i)))
             by arbitrary i:Nat
-                suppose prem : i < 1
+                suppose prem : i < ℕ1
                 symmetric zero_add[n'+i]
-        suffices n' * (n' - 1) + 2 * summation(1, n', λn{n}) = (n' + 1) * ((n' + 1) - 1)
-            by replace symmetric one_add[n'] | add_commute[1][n']
-            | apply summation_add[n'][1, 0, n', λn{n}, λn{n}, λn{n}] to step1
-            | dist_mult_add[2][summation(n', 0, λn{n}), summation(1, n', λn{n})]
+        suffices n' * (n' ∸ ℕ1) + ℕ2 * summation(ℕ1, n', λn{n}) = (n' + ℕ1) * ((n' + ℕ1) ∸ ℕ1)
+            by replace symmetric one_add[n'] | add_commute[ℕ1][n']
+            | apply summation_add[n'][ℕ1, ℕ0, n', λn{n}, λn{n}, λn{n}] to step1
+            | dist_mult_add[ℕ2][summation(n', ℕ0, λn{n}), summation(ℕ1, n', λn{n})]
             | IH.
-        suffices n' * (n' - 1) + 2 * (n' + 0) = (n' + 1) * ((n' + 1) - 1)
+        suffices n' * (n' ∸ ℕ1) + ℕ2 * (n' + ℕ0) = (n' + ℕ1) * ((n' + ℕ1) ∸ ℕ1)
             by expand 2*summation.
-        suffices n' * (n' - 1) + 2 * n' = suc(n') * (suc(n') - 1)
+        suffices n' * (n' ∸ ℕ1) + ℕ2 * n' = suc(n') * (suc(n') ∸ ℕ1)
               by replace add_one[n'] | add_zero[n'].
-        suffices (n' * n' - n') + (n' + n') = suc(n') * n' by {
-          expand operator-
-          replace sub_zero[n'] | blah[n'] | two_mult[n'].
+        suffices (n' * n' ∸ n') + (n' + n') = suc(n') * n' by {
+          expand operator∸
+          replace monus_zero[n'] | blah[n'] | two_mult[n'].
         }
-        suffices ((n' * n' - n') + n') + n' = n' + n' * n' by expand operator*.
+        suffices ((n' * n' ∸ n') + n') + n' = n' + n' * n' by expand operator*.
         suffices n' * n' + n' = n' + n' * n' by 
-            replace add_commute[(n' * n' - n')][n']
-            | apply sub_add_identity[n'*n'][n'] to n_le_nn[n'].
+            replace add_commute[(n' * n' ∸ n')][n']
+            | apply monus_add_identity[n'*n'][n'] to n_le_nn[n'].
         add_commute[n' * n'][n']
     }
 end
 
 theorem sum_n' : all n : Nat. 
-    2 * summation(suc(n), 0, λ x {x}) = n * (n + 1)
+    ℕ2 * summation(suc(n), ℕ0, λ x {x}) = n * (n + ℕ1)
 proof
     induction Nat
     case zero {
       expand 2* summation | operator+
-      replace mult_zero[2] | zero_mult[1].
+      replace mult_zero[ℕ2] | zero_mult[ℕ1].
     }
     case suc(n') suppose IH {
-        have step1: (all i:Nat. (if i < 1 then suc(n') + i = 0 + (suc(n') + i)))
+        have step1: (all i:Nat. (if i < ℕ1 then suc(n') + i = ℕ0 + (suc(n') + i)))
             by arbitrary i:Nat
-                suppose prem : i < 1
+                suppose prem : i < ℕ1
                 symmetric zero_add[suc(n')+i]
         
-        replace symmetric one_add[n'] | add_commute[1][n']
-               | symmetric add_one[n' + 1] | add_one[n']
-               |  apply summation_add[suc(n')][1, 0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
-               | dist_mult_add[2][summation(suc(n'), 0, λn{n}), summation(1, suc(n'), λn{n})]
+        replace symmetric one_add[n'] | add_commute[ℕ1][n']
+               | symmetric add_one[n' + ℕ1] | add_one[n']
+               |  apply summation_add[suc(n')][ℕ1, ℕ0, suc(n'), λn{n}, λn{n}, λn{n}] to step1
+               | dist_mult_add[ℕ2][summation(suc(n'), ℕ0, λn{n}), summation(ℕ1, suc(n'), λn{n})]
                | IH
-        show n' * (n' + 1) + 2 * summation(1, suc(n'), λn{n}) = suc(n') * (suc(n') + 1)
-        suffices n' * (n' + 1) + ((n' + 1) + (n' + 1)) = (n' + 1) * ((n' + 1) + 1) by {
+        show n' * (n' + ℕ1) + ℕ2 * summation(ℕ1, suc(n'), λn{n}) = suc(n') * (suc(n') + ℕ1)
+        suffices n' * (n' + ℕ1) + ((n' + ℕ1) + (n' + ℕ1)) = (n' + ℕ1) * ((n' + ℕ1) + ℕ1) by {
           expand 2* summation
           replace add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n'].
         }
-        suffices (n' * n' + n') + ((n' + 1) + (n' + 1))
-               = ((n' * n' + n') + (n' + 1)) + (n' + 1) by {
-          replace dist_mult_add[n' + 1][n' + 1, 1]
-          | dist_mult_add[n'][n', 1]
-          | dist_mult_add[n' + 1][n', 1]
-          | dist_mult_add_right[n', 1, n']
-               | mult_one[n'+1]
+        suffices (n' * n' + n') + ((n' + ℕ1) + (n' + ℕ1))
+               = ((n' * n' + n') + (n' + ℕ1)) + (n' + ℕ1) by {
+          replace dist_mult_add[n' + ℕ1][n' + ℕ1, ℕ1]
+          | dist_mult_add[n'][n', ℕ1]
+          | dist_mult_add[n' + ℕ1][n', ℕ1]
+          | dist_mult_add_right[n', ℕ1, n']
+               | mult_one[n'+ℕ1]
                | mult_one[n'] | one_mult[n'].
         }
         .

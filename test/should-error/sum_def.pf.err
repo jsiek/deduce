@@ -1,6 +1,6 @@
 ./test/should-error/sum_def.pf:15.5-15.6: incomplete proof
 Goal:
-	0 = sum(reverse(@[]<Nat>))
+	ℕ0 = sum(reverse(@[]<Nat>))
 Advice:
 	To prove this equality, one of these statements might help:
 		expand

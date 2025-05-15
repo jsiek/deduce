@@ -8,11 +8,11 @@ proof
   suffices (all x:Nat. some k:Nat,c:Nat. (if x ≥ k then x ≤ c * (x * x)))
     by expand bigO.
   arbitrary x : Nat
-  choose 1, 1
-  suffices if x ≥ 1 then x ≤ x * x 
+  choose ℕ1, ℕ1
+  suffices if x ≥ ℕ1 then x ≤ x * x 
     by one_mult[x*x]
-  assume prem : x >= 1
-  have one_le_x : 1 <= x by expand operator>= in prem
-  have x_le_xx : x * 1 <= x * x by apply mult_mono_le[x, 1, x] to one_le_x
+  assume prem : x >= ℕ1
+  have one_le_x : ℕ1 <= x by expand operator>= in prem
+  have x_le_xx : x * ℕ1 <= x * x by apply mult_mono_le[x, ℕ1, x] to one_le_x
   conclude x <= x * x by replace mult_one[x] in x_le_xx
 end

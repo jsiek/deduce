@@ -2,6 +2,6 @@ import Nat
 
 theorem T: some x : Nat. x = x
 proof
-  choose 0
+  choose ℕ0
   reflexive
 end

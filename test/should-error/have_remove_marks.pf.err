@@ -1,4 +1,4 @@
-./test/should-error/have_remove_marks.pf:11.3-11.4: incomplete proof
+./test/should-error/have_remove_marks.pf:12.3-12.4: incomplete proof
 Goal:
 	length([x]) = 1
 Advice:

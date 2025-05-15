@@ -82,11 +82,11 @@ Deduce is an automated proof checker meant for use in education to help students
 <!-- end figure -->
 
 ```{.deduce^#home_example1}
-recursive search(List<Nat>, Nat) -> Nat {
+recursive search(List<UInt>, UInt) -> UInt {
   search(empty, y) = 0
   search(node(x, xs), y) =
     if x = y then 0
-    else suc(search(xs, y))
+    else 1 + search(xs, y)
 }
 ```
 <!-- end block -->
@@ -95,14 +95,14 @@ recursive search(List<Nat>, Nat) -> Nat {
 
 ```{.deduce^#home_example2}
 theorem less_implies_not_equal:
-  all x:Nat, y:Nat.
+  all x:UInt, y:UInt.
   if x < y then not (x = y)
 proof
-  arbitrary x:Nat, y:Nat
+  arbitrary x:UInt, y:UInt
   assume: x < y
   assume xy: x = y
   have: y < y by replace xy in recall x < y
-  conclude false by apply less_irreflexive
+  conclude false by apply uint_less_irreflexive
                     to recall y < y
 end
 ```
@@ -176,44 +176,48 @@ The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyw
 As a taster for what it looks like to write programs and proofs in Deduce, the following is an implementation of the **Linear Search** algorithm and a proof that item `y` does not occur in the list `xs` at a position before the index returned by `search(xs, y)`
 
 ```{.deduce^#home_example3}
-import Nat
+import UInt
 import List
 import Set
+import Base
 
-recursive search(List<Nat>, Nat) -> Nat {
+recursive search(List<UInt>, UInt) -> UInt {
   search(empty, y) = 0
   search(node(x, xs), y) =
     if x = y then 0
-    else suc(search(xs, y))
+    else 1 + search(xs, y)
 }
 
-theorem search_take: all xs: List<Nat>. all y:Nat.
-    not (y ∈ set_of(take(search(xs, y), xs)))
+theorem search_take: all xs: List<UInt>. all y:UInt.
+    not (y ∈ set_of(take(xs, search(xs, y))))
 proof
-  induction List<Nat>
+  induction List<UInt>
   case [] {
-    arbitrary y:Nat
+    arbitrary y:UInt
     suffices not (y ∈ ∅) by evaluate
     empty_no_members
   }
   case node(x, xs')
-    assume IH: all y:Nat. not (y ∈ set_of(take(search(xs', y), xs')))
+    assume IH: all y:UInt. not (y ∈ set_of(take(xs', search(xs', y))))
   {
-    arbitrary y:Nat
+    arbitrary y:UInt
     switch x = y for search {
       case true {
         suffices not (y ∈ ∅) by evaluate
         empty_no_members
       }
       case false assume xy_false: (x = y) = false {
-        expand take | set_of
-        assume prem: y ∈ single(x) ∪ set_of(take(search(xs', y), xs'))
+        expand take
+        replace (apply eq_false to uint_not_one_add_zero[search(xs',y)])
+        expand set_of
+        replace uint_add_monus_identity
+        assume prem: y ∈ single(x) ∪ set_of(take(xs', search(xs', y)))
         cases (apply member_union to prem)
         case yx: y ∈ single(x) {
           have: x = y by apply single_equal to yx
           conclude false by replace xy_false in recall x = y
         }
-        case y_in_rest: y ∈ set_of(take(search(xs', y), xs')) {
+        case y_in_rest: y ∈ set_of(take(xs', search(xs', y))) {
           conclude false by apply IH to y_in_rest
         }
       }

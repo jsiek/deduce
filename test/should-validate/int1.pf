@@ -1,4 +1,4 @@
-import Nat
+import UInt
 import Int
 
 // Negation

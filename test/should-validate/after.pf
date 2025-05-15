@@ -38,10 +38,10 @@ recursive div_helper(Nat,Nat,Pos,Pos) -> Nat {
 
 fun operator /(n : Nat, m : Pos) {
   switch n {
-    case 0 { 0 }
-    case suc(n') { div_helper(suc(n'), 0, m, m) }
+    case 0 { ℕ0 }
+    case suc(n') { div_helper(suc(n'), ℕ0, m, m) }
   }
 }
 
-define three_div : fn Pos -> Nat = λd{ 3 / d }
-assert default(after(nat2pos(3), three_div), 0) = 1
+define three_div : fn Pos -> Nat = λd{ ℕ3 / d }
+assert default(after(nat2pos(ℕ3), three_div), ℕ0) = ℕ1

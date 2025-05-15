@@ -2,11 +2,11 @@ import Nat
 import List
 
 recursive sum(List<Nat>) -> Nat {
-  sum([]) = 0
+  sum([]) = ℕ0
   sum(node(x,ls)) = x + sum(ls)
 }
 
-assert sum([1,2,3]) = sum(reverse([1,2,3]))
+assert sum([ℕ1, ℕ2, ℕ3]) = sum(reverse([ℕ1, ℕ2, ℕ3]))
 
 /*
   sum([1,2,3] ++ [4,5,6])

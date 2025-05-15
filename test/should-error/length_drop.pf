@@ -2,14 +2,14 @@ import List
 import Nat
 
 theorem length_drop2 : <T> all n : Nat, xs : List<T>.
-  length(drop(n, xs)) = length(xs) - n
+  length_nat(drop(n, xs)) = length_nat(xs) ∸ n
 proof
   arbitrary T:type
   induction Nat
   case 0 {
     arbitrary xs : List<T>
-    suffices length(xs) = length(xs) - 0  by expand drop.
-    replace sub_zero[length(xs)].
+    suffices length_nat(xs) = length_nat(xs) ∸ ℕ0  by expand drop.
+    replace monus_zero[length_nat(xs)].
   }
   case suc(n') assume IH {
     arbitrary xs : List<T>

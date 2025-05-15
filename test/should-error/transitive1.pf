@@ -1,9 +1,9 @@
 import Nat
 
-define one = 1
+define one = ℕ1
 
-theorem T: 1 = one
+theorem T: ℕ1 = one
 proof
   have: one = one by .
-  conclude 1 = one by (transitive (recall one = one) (recall one = one))
+  conclude ℕ1 = one by (transitive (recall one = one) (recall one = one))
 end

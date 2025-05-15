@@ -1,5 +1,5 @@
 from error import set_verbose, get_verbose, set_unique_names, get_unique_names
-from proof_checker import check_deduce, uniquify_deduce
+from proof_checker import check_deduce, uniquify_deduce, is_modified
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
 from signal import signal, SIGINT
 import sys
@@ -53,7 +53,8 @@ def deduce_file(filename, error_expected):
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
             add_uniquified_module(module_name, ast)
 
-        check_deduce(ast, module_name)
+        needs_checking = is_modified(filename)
+        check_deduce(ast, module_name, needs_checking)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
@@ -77,7 +78,7 @@ def deduce_file(filename, error_expected):
             # raise e
 
 def deduce_directory(directory, recursive_directories):
-    for file in os.listdir(directory):
+    for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
             if file[-3:] == '.pf':

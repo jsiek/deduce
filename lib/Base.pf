@@ -149,12 +149,8 @@ theorem xor_false: all b:bool. xor(false, b) = b
 proof
   arbitrary b:bool
   switch b {
-    case true {
-      evaluate
-    }
-    case false {
-      evaluate
-    }
+    case true { evaluate }
+    case false { evaluate }
   }
 end
 
@@ -164,22 +160,14 @@ proof
   switch a {
     case true {
       switch b {
-        case true {
-          evaluate
-        }
-        case false {
-          evaluate
-        }
+        case true { evaluate }
+        case false { evaluate }
       }
     }
     case false {
       switch b {
-        case true {
-          evaluate
-        }
-        case false {
-          evaluate
-        }
+        case true { evaluate }
+        case false { evaluate }
       }
     }
   }

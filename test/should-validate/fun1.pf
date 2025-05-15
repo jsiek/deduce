@@ -1,6 +1,6 @@
-import Nat
+import UInt
 
-define f = (λm{m} : fn Nat->Nat)
+define f = (λm{m} : fn UInt->UInt)
 
 theorem T: f(0) = 0
 proof

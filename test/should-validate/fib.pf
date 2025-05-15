@@ -2,45 +2,45 @@ import Nat
 import Sums
 
 recfun fib(n : Nat) -> Nat
-  measure n
+  measure n of Nat
 {
-  if n < 2 then n
-  else fib(n - 1) + fib(n - 2)
+  if n < ℕ2 then n
+  else fib(n ∸ ℕ1) + fib(n ∸ ℕ2)
 }
 terminates {
   arbitrary n:Nat
-  have A: if not (n < 2) then n - 1 < n by {
-    assume prem: not (n < 2)
-    have n1: 1 ≤ n by {
-      have n2: 2 ≤ n by apply not_less_implies_less_equal to prem
-      have lt_12: 1 ≤ 2 by evaluate
+  have A: if not (n < ℕ2) then n ∸ ℕ1 < n by {
+    assume prem: not (n < ℕ2)
+    have n1: ℕ1 ≤ n by {
+      have n2: ℕ2 ≤ n by apply not_less_implies_less_equal to prem
+      have lt_12: ℕ1 ≤ ℕ2 by evaluate
       apply less_equal_trans to lt_12, n2
     }
-    suffices 1 + (n - 1) < 1 + n  by add_both_sides_of_less[1,n-1,n]
-    suffices n < 1 + n by replace (apply sub_add_identity[n, 1] to n1).
+    suffices ℕ1 + (n ∸ ℕ1) < ℕ1 + n  by add_both_sides_of_less[ℕ1,n∸ℕ1,n]
+    suffices n < ℕ1 + n by replace (apply monus_add_identity[n, ℕ1] to n1).
     suffices n ≤ n by evaluate
     less_equal_refl
   }
-  have B: if not (n < 2) then n - 2 < n by {
-    assume prem: not (n < 2)
-    suffices suc(n - 2) ≤ n by expand operator<.
-    have n2: 2 ≤ n by apply not_less_implies_less_equal to prem
-    have n_eq: n = 2 + (n - 2) by symmetric apply sub_add_identity[n, 2] to n2
-    define a = n - 2
-    suffices suc(a) ≤ 2 + a by replace n_eq.
-    suffices n - 2 ≤ suc(n - 2) by evaluate
+  have B: if not (n < ℕ2) then n ∸ ℕ2 < n by {
+    assume prem: not (n < ℕ2)
+    suffices suc(n ∸ ℕ2) ≤ n by expand operator<.
+    have n2: ℕ2 ≤ n by apply not_less_implies_less_equal to prem
+    have n_eq: n = ℕ2 + (n ∸ ℕ2) by symmetric apply monus_add_identity[n, ℕ2] to n2
+    define a = n ∸ ℕ2
+    suffices suc(a) ≤ ℕ2 + a by replace n_eq.
+    suffices n ∸ ℕ2 ≤ suc(n ∸ ℕ2) by evaluate
     less_equal_suc
   }
   A, B
 }
 
-assert fib(0) = 0
-assert fib(1) = 1
-assert fib(2) = 1
-assert fib(3) = 2
-assert fib(4) = 3
-assert fib(5) = 5
-assert fib(6) = 8
+assert fib(ℕ0) = ℕ0
+assert fib(ℕ1) = ℕ1
+assert fib(ℕ2) = ℕ1
+assert fib(ℕ3) = ℕ2
+assert fib(ℕ4) = ℕ3
+assert fib(ℕ5) = ℕ5
+assert fib(ℕ6) = ℕ8
 
 theorem add_suc_left: all a:Nat, b:Nat. a + suc(b) = suc(a) + b
 proof
@@ -50,22 +50,22 @@ proof
              ... = #suc(a) + b# by expand operator+.
 end
 
-theorem fib_2_n: all n:Nat. fib(2 + n) = fib(1 + n) + fib(n)
+theorem fib_2_n: all n:Nat. fib(ℕ2 + n) = fib(ℕ1 + n) + fib(n)
 proof
   arbitrary n:Nat
   switch n {
     case 0 {
-      conclude fib(2 + 0) = fib(1 + 0) + fib(0)   by evaluate
+      conclude fib(ℕ2 + ℕ0) = fib(ℕ1 + ℕ0) + fib(ℕ0)   by evaluate
     }
     case suc(n') {
       switch n' {
         case 0 {
-          conclude fib(2 + 1) = fib(1 + 1) + fib(1)  by evaluate
+          conclude fib(ℕ2 + ℕ1) = fib(ℕ1 + ℕ1) + fib(ℕ1)  by evaluate
         }
         case suc(n'') {
-          have A: (2 + suc(suc(n'')) < 2) = false by evaluate
-          have B: (1 + suc(suc(n'')) < 2) = false by evaluate
-          have C: (suc(suc(n'')) < 2) = false by evaluate
+          have A: (ℕ2 + suc(suc(n'')) < ℕ2) = false by evaluate
+          have B: (ℕ1 + suc(suc(n'')) < ℕ2) = false by evaluate
+          have C: (suc(suc(n'')) < ℕ2) = false by evaluate
           expand fib
           replace A | B | C
           evaluate
@@ -75,57 +75,57 @@ proof
   }
 end
 
-theorem fib_1_pos: all n:Nat. 0 < fib(1 + n)
+theorem fib_1_pos: all n:Nat. ℕ0 < fib(ℕ1 + n)
 proof
   induction Nat
   case 0 {
-    conclude 0 < fib(1 + 0)  by evaluate
+    conclude ℕ0 < fib(ℕ1 + ℕ0)  by evaluate
   }
-  case suc(n') assume IH: 0 < fib(1 + n') {
-    have A: (1 + suc(n') < 2) = false by evaluate
+  case suc(n') assume IH: ℕ0 < fib(ℕ1 + n') {
+    have A: (ℕ1 + suc(n') < ℕ2) = false by evaluate
     expand fib
-    replace A | add_sub_identity[1] | add_suc_left
-    | add_sub_identity[2] | suc_one_add
-    suffices 1 ≤ fib(1 + n') + fib(n')
+    replace A | add_monus_identity[ℕ1] | add_suc_left
+    | add_monus_identity[ℕ2] | suc_one_add
+    suffices ℕ1 ≤ fib(ℕ1 + n') + fib(n')
       by expand operator<.
-    have B: 1 ≤ fib(1 + n')  by expand operator< in IH
-    have C: fib(1 + n') ≤ fib(1 + n') + fib(n') by less_equal_add
-    conclude 1 ≤ fib(1 + n') + fib(n')
+    have B: ℕ1 ≤ fib(ℕ1 + n')  by expand operator< in IH
+    have C: fib(ℕ1 + n') ≤ fib(ℕ1 + n') + fib(n') by less_equal_add
+    conclude ℕ1 ≤ fib(ℕ1 + n') + fib(n')
       by apply less_equal_trans to B, C
   }
 end
 
-theorem sum_fib: all n:Nat. summation(suc(n), 1, fib) = fib(3 + n) - 1
+theorem sum_fib: all n:Nat. summation(suc(n), ℕ1, fib) = fib(ℕ3 + n) ∸ ℕ1
 proof
   induction Nat
   case 0 {
-    suffices fib(1) = fib(3) - 1 by expand 2*summation replace add_zero.
+    suffices fib(ℕ1) = fib(ℕ3) ∸ ℕ1 by expand 2*summation replace add_zero.
     evaluate
   }
-  case suc(n') assume IH: summation(suc(n'), 1, fib) = fib(3 + n') - 1 {
+  case suc(n') assume IH: summation(suc(n'), ℕ1, fib) = fib(ℕ3 + n') ∸ ℕ1 {
     replace suc_one_add[suc(n')]
-    suffices (fib(3 + n') - 1) + fib(2 + n') = fib(4 + n') - 1
-      by replace summation_next[suc(n'), 1, fib] | IH | add_suc_left.
-    have A: 3 + n' = 2 + (1 + n') by evaluate
-    have B: 4 + n' = 2 + (2 + n') by evaluate
-    have C: 1 + 1 = 2 by evaluate
-    replace A | B | fib_2_n[1+n'] | fib_2_n[2+n']
-           | add_commute[1,2] | fib_2_n[1+n'] | C | fib_2_n[n']
+    suffices (fib(ℕ3 + n') ∸ ℕ1) + fib(ℕ2 + n') = fib(ℕ4 + n') ∸ ℕ1
+      by replace summation_next[suc(n'), ℕ1, fib] | IH | add_suc_left.
+    have A: ℕ3 + n' = ℕ2 + (ℕ1 + n') by evaluate
+    have B: ℕ4 + n' = ℕ2 + (ℕ2 + n') by evaluate
+    have C: ℕ1 + ℕ1 = ℕ2 by evaluate
+    replace A | B | fib_2_n[ℕ1+n'] | fib_2_n[ℕ2+n']
+           | add_commute[ℕ1,ℕ2] | fib_2_n[ℕ1+n'] | C | fib_2_n[n']
     define X = fib(n')
-    define Y = fib(1 + n')
-    have one_YXY: 1 ≤ Y + X + Y by {
+    define Y = fib(ℕ1 + n')
+    have one_YXY: ℕ1 ≤ Y + X + Y by {
       expand Y
-      have f_pos: 0 < fib(1 + n') by fib_1_pos
-      obtain Z where eq: fib(1 + n') = suc(Z) from apply positive_suc to f_pos
+      have f_pos: ℕ0 < fib(ℕ1 + n') by fib_1_pos
+      obtain Z where eq: fib(ℕ1 + n') = suc(Z) from apply positive_suc to f_pos
       replace eq
       evaluate
     }
     equations
-            ((Y + X + Y) - 1) + Y + X
-          = Y + X + ((Y + X + Y) - 1)  by replace add_commute[((Y+X+Y) - 1)].
-      ... = (Y + X + Y + X + Y) - 1
-                                by apply sub_add_assoc[Y+X+Y, Y+X, 1] to one_YXY
-      ... = (Y + X + Y + #Y + X#) - 1  by replace add_commute.
+            ((Y + X + Y) ∸ ℕ1) + Y + X
+          = Y + X + ((Y + X + Y) ∸ ℕ1)  by replace add_commute[((Y+X+Y) ∸ ℕ1)].
+      ... = (Y + X + Y + X + Y) ∸ ℕ1
+                                by apply monus_add_assoc[Y+X+Y, Y+X, ℕ1] to one_YXY
+      ... = (Y + X + Y + #Y + X#) ∸ ℕ1  by replace add_commute.
   }
 end
   

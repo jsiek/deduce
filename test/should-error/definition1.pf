@@ -1,5 +1,6 @@
 import List
 import Nat
+import UInt
 
 theorem T: all xs:List<Nat>. if length(xs) = 0 then false
 proof

@@ -1,2 +1,2 @@
-./test/should-error/len_termination.pf:12.26-12.32: ill-formed recursive call
+./test/should-error/len_termination.pf:12.27-12.33: ill-formed recursive call
 expected first argument to be n or ls, not L

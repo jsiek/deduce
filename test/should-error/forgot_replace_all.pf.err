@@ -1,9 +1,9 @@
 ./test/should-error/forgot_replace_all.pf:13.8-13.16: 
 Could not prove that
-	(all n:Nat. 1 * n = n)
+	(all n:Nat. ℕ1 * n = n)
 instantiates to
-	(if (if x ≥ 1 then x ≤ x * x) then (if x ≥ 1 then x ≤ 1 * x * x))
+	(if (if x ≥ ℕ1 then x ≤ x * x) then (if x ≥ ℕ1 then x ≤ ℕ1 * x * x))
 because
-./test/should-error/forgot_replace_all.pf:13.8-13.16: formula: (if (if x ≥ 1 then x ≤ x * x) then (if x ≥ 1 then x ≤ 1 * x * x))
-does not match expected formula: 1 * n = n
+./test/should-error/forgot_replace_all.pf:13.8-13.16: formula: (if (if x ≥ ℕ1 then x ≤ x * x) then (if x ≥ ℕ1 then x ≤ ℕ1 * x * x))
+does not match expected formula: ℕ1 * n = n
 Did you mean `replace one_mult`?

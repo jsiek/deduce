@@ -1,6 +1,4 @@
 ./test/should-error/union_missing_name.pf:1.1-1.6: while parsing
-	declaration ::= union | rec_function | function | definition
-./test/should-error/union_missing_name.pf:1.1-1.6: while parsing
 	statement ::= "union" identifier type_params_opt "{" constructor* "}"
 
 ./test/should-error/union_missing_name.pf:1.7-1.8: expected an identifier, not

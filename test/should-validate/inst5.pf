@@ -1,9 +1,9 @@
-import Nat
+import UInt
 import List
 
-theorem T: all xs:List<Nat>. if length(xs) = 0 then xs = []
+theorem T: all xs:List<UInt>. if length(xs) = 0 then xs = []
 proof
-  arbitrary xs:List<Nat>
+  arbitrary xs:List<UInt>
   assume prem: length(xs) = 0
   apply length_zero_empty to prem
 end

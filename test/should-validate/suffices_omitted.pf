@@ -1,17 +1,17 @@
-import Nat
+import UInt
 import List
 
-theorem length__nat_one: all x:Nat. length([x]) = 1
+theorem length__nat_one: all x:UInt. length([x]) = 1
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   expand 2*length
-  add_zero[1]
+  uint_add_zero[1]
 end
 
 
-theorem length__nat_one': all x:Nat. length([x]) = 1
+theorem length__nat_one': all x:UInt. length([x]) = 1
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   expand 2*length
-  add_zero[1]
+  uint_add_zero[1]
 end

@@ -29,7 +29,7 @@ def get_deduce_directory():
 
 expt_operators = { '^' }
 mult_operators = {'*', '/', '%', '∘', '.o.'}
-add_operators = {'+', '-', '∪', '|', '∩', '&', '⨄', '.+.', '++', '⊝' }
+add_operators = {'+', '-', '∸', '∪', '|', '∩', '&', '⨄', '.+.', '++', '⊝' }
 compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in'}
 equal_operators = {'=', '≠', '/='}
 iff_operators = {'iff', "<=>", "⇔"}
@@ -38,8 +38,7 @@ to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '
               '(=': '⊆', 'in': '∈', '.0.': '∅', '<=>': '⇔', 'iff': '⇔'}
 
 
-accessiblity_keywords = {'OPAQUE', 'PRIVATE'}
-declaration_keywords = {'DEFINE', 'FUN', 'RECURSIVE', 'RECFUN', 'UNION'}
+accessiblity_keywords = {'OPAQUE', 'PRIVATE', 'PUBLIC'}
 
 lark_parser = None
 
@@ -172,7 +171,11 @@ def parse_term_hi():
 
   elif token.type == 'INT' or token.value == '0':
     advance()
-    return intToNat(meta_from_tokens(token,token), int(token.value))
+    return intToUInt(meta_from_tokens(token,token), int(token.value))
+
+  elif token.type == 'NAT' or token.value == '0':
+    advance()
+    return intToNat(meta_from_tokens(token,token), int(token.value[1:]))
 
   elif token.type == 'PLUS':
     advance()
@@ -296,6 +299,12 @@ def parse_term_hi():
     subject = parse_call()
     meta = meta_from_tokens(token, previous_token())
     return Call(meta, None, Var(meta, None, '-', []), [subject])
+
+  elif token.value == '∸':
+    advance()
+    subject = parse_call()
+    meta = meta_from_tokens(token, previous_token())
+    return Call(meta, None, Var(meta, None, '∸', []), [subject])
 
   elif token.type == 'NOT':
     advance()
@@ -1324,7 +1333,7 @@ def parse_equation_list():
     eqn_list.append(eqn)
   return eqn_list
 
-def parse_theorem():
+def parse_theorem(visibility):
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"'
   try:    
@@ -1378,7 +1387,7 @@ def parse_theorem():
       + str(e))
 
 
-def parse_union():
+def parse_union(visibility):
   while_parsing = 'while parsing\n' \
       + '\tstatement ::= "union" identifier type_params_opt "{" constructor* "}"\n'
   try:
@@ -1398,14 +1407,14 @@ def parse_union():
       constr_list.append(constr)
     meta = meta_from_tokens(start_token, current_token())
     advance()
-    return Union(meta, name, type_params, constr_list)
+    return Union(meta, name, type_params, constr_list, visibility=visibility)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-def parse_function():
+def parse_function(visibility):
   while_parsing = 'while parsing\n' \
       + '\tstatement ::= "fun" identifier type_params_opt "(" variable_list ")" "{" term "}"\n'
   try:
@@ -1439,7 +1448,7 @@ def parse_function():
       fun = Generic(meta, None, typarams, lam)
     else:
       fun = lam
-    return Define(meta, name, None, fun)
+    return Define(meta, name, None, fun, visibility=visibility)
     
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
@@ -1447,9 +1456,9 @@ def parse_function():
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
       
-def parse_gen_rec_function():
+def parse_gen_rec_function(visibility):
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term "{" term "}" "terminates" proof\n'
+      + '\tstatement ::= "recfun" identifier type_params_opt "(" variable_list ")" "->" type "measure" term ":" type "{" term "}" "terminates" proof\n'
   try:
     start_token = current_token()
     advance()
@@ -1478,7 +1487,14 @@ def parse_gen_rec_function():
             + current_token().value)
     advance()
     measure = parse_term()
-    
+
+    if current_token().type != 'OF':    
+      raise ParseError(meta_from_tokens(start_token, current_token()),
+            'expected "of" after measure of function, not\n\t' \
+            + current_token().value)
+    advance()
+    measure_ty = parse_type()
+  
     if current_token().type != 'LBRACE':
       raise ParseError(meta_from_tokens(start_token, current_token()),
             'expected "{" after parameters of function, not\n\t' \
@@ -1498,8 +1514,9 @@ def parse_gen_rec_function():
     terminates = parse_proof()
     
     meta = meta_from_tokens(start_token, previous_token())
-    return GenRecFun(meta, name, typarams, params, return_type, measure,
-                     Var(meta, None, 'Nat', []), body, terminates)
+    return GenRecFun(meta, name,
+                     typarams, params, return_type,
+                     measure, measure_ty, body, terminates, visibility=visibility)
     
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
@@ -1508,9 +1525,9 @@ def parse_gen_rec_function():
     raise ParseError(meta_from_tokens(start_token, previous_token()),
                      "Unexpected error while parsing:\n\t" + str(e))
     
-def parse_recursive_function():
+def parse_recursive_function(visibility):
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "function" identifier type_params_opt' \
+      + '\tstatement ::= "recursive" identifier type_params_opt' \
       + ' "(" type_list ")"\n\t\t\t "->" type "{" fun_case* "}"\n'
   try:
     start_token = current_token()
@@ -1545,15 +1562,16 @@ def parse_recursive_function():
       fun_case = parse_fun_case()
       cases.append(fun_case)
     advance()
-    return RecFun(meta_from_tokens(start_token, previous_token()), name,
-                  type_params, param_types, return_type, cases)
+    return RecFun(meta_from_tokens(start_token, previous_token()),
+                  name, type_params, param_types, return_type, cases,
+                  visibility=visibility)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
     
-def parse_define():
+def parse_define(visibility):
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "define" identifier "=" term\n'
   try:
@@ -1573,68 +1591,17 @@ def parse_define():
     advance()
     body = parse_term()
     return Define(meta_from_tokens(start_token, previous_token()),
-                   name, typ, body)
+                  name, typ, body,
+                  visibility=visibility)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-def parse_accessibility():
-  while_parsing = 'while parsing\n' \
-    + '\taccess_decl ::= accessibility declaration\n'
-  try: 
-    my_token = current_token() 
-    advance()
-
-    declaration = parse_declaration()
-
-    match my_token.type:
-      case 'PRIVATE':
-        declaration.isPrivate = True
-      case 'OPAQUE':
-        declaration.makeOpaque = True
-        declaration.file_defined = get_filename()
-      case _:
-        raise Exception("Expected a declaration after an accesibility modifier, not \"" + declaration.value)
-    
-    return declaration
-    
-
-  except Exception as e:
-    raise ParseError(meta_from_tokens(my_token, previous_token()), while_parsing + str(e))
-
-def parse_declaration():
-  while_parsing = 'while parsing\n' \
-    + '\tdeclaration ::= union | rec_function | function | definition\n'
-  try: 
-    token = current_token()
-
-    if token.type == 'DEFINE':
-      return parse_define()
-
-    elif token.type == 'FUN':
-      return parse_function()
-
-    elif token.type == 'RECURSIVE':
-      return parse_recursive_function()
-
-    elif token.type == 'UNION':
-      return parse_union()
-    
-    elif token.type == 'RECFUN':
-      return parse_gen_rec_function()
-
-    else:
-      raise Exception('Expected a declaration not \"' + token.value + '\"')
-    
-
-  except Exception as e:
-    raise ParseError(meta_from_tokens(token, previous_token()), while_parsing \
-      + str(e))
-
-statement_keywords = {'assert', 'define', 'import', 'print', 'theorem', 'lemma', 'postulate',
-                      'union', 'private', 'opaque', 'recursive'}
+statement_keywords = {'assert', 'define', 'import', 'print',
+                      'theorem', 'lemma', 'postulate', 'recursive', 'fun',
+                      'union' }
 
 def parse_statement():
   if end_of_file():
@@ -1643,9 +1610,30 @@ def parse_statement():
   token = current_token()
 
   if token.type in accessiblity_keywords:
-    return parse_accessibility()
-  elif token.type in declaration_keywords:
-    return parse_declaration()
+    visibility = token.value
+    #print('visibility = ' + str(token.value))
+    advance()
+  else:
+    visibility = 'default'
+    #print('default visibility')
+
+  token = current_token()
+    
+  if token.type == 'DEFINE':
+    return parse_define(visibility)
+
+  elif token.type == 'FUN':
+    return parse_function(visibility)
+
+  elif token.type == 'RECURSIVE':
+    return parse_recursive_function(visibility)
+
+  elif token.type == 'UNION':
+    return parse_union(visibility)
+
+  elif token.type == 'RECFUN':
+    return parse_gen_rec_function(visibility)
+
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \
         + '\tstatement ::= "assert" formula\n'
@@ -1659,9 +1647,8 @@ def parse_statement():
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
 
-        
   elif token.type == 'THEOREM' or token.type == 'LEMMA' or token.type == 'POSTULATE':
-    return parse_theorem()
+    return parse_theorem(visibility)
 
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
@@ -1669,7 +1656,8 @@ def parse_statement():
     advance()
     try:
         name = parse_identifier()
-        return Import(meta_from_tokens(token, previous_token()), name)
+        return Import(meta_from_tokens(token, previous_token()),
+                      name, visibility=visibility)
     except ParseError as e:
       raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
     except Exception as e:

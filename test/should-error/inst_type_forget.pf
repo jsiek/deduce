@@ -2,8 +2,8 @@ import List
 import Nat
 
 theorem thm: if (<T> all xs:List<T>. map(xs, fun x:T { x }) = xs)
-  then map(node(1, empty), fun x:Nat { x }) = node(1, empty)
+  then map(node(ℕ1, empty), fun x:Nat { x }) = node(ℕ1, empty)
 proof
   suppose prem: (<T> all xs:List<T>. map(xs, fun x:T { x }) = xs)
-  prem[node(1,empty)]
+  prem[node(ℕ1,empty)]
 end

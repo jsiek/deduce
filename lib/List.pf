@@ -12,15 +12,14 @@ union List<T> {
   node(T, List<T>)
 }
 
-recursive length<E>(List<E>) -> Nat {
-  length(empty) = 0
-  length(node(n, next)) = 1 + length(next)
+recursive length_nat<E>(List<E>) -> Nat {
+  length_nat(empty) = ℕ0
+  length_nat(node(n, next)) = ℕ1 + length_nat(next)
 }
 
-// Experimenting with replacing Nat with UInt
-recursive uint_len<E>(List<E>) -> UInt {
-  uint_len(empty) = fromNat(0)
-  uint_len(node(n, next)) = fromNat(1) + uint_len(next)
+recursive length<E>(List<E>) -> UInt {
+  length(empty) = 0
+  length(node(n, next)) = 1 + length(next)
 }
 
 recursive operator ++ <E>(List<E>, List<E>) -> List<E> {
@@ -76,7 +75,7 @@ recursive interval(Nat, Nat) -> List<Nat> {
 /* range(begin, end) returns the list of numbers in the half-open
    interval: [begin, end).
 */
-define range : fn Nat,Nat -> List<Nat> = λ b, e { interval(e - b, b) }
+define range : fn Nat,Nat -> List<Nat> = λ b, e { interval(e ∸ b, b) }
 
 recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
   zip(empty, ys) = empty
@@ -115,26 +114,26 @@ recursive remove_all<T>(List<T>, T) -> List<T> {
 recursive get<T>(List<T>, Nat) -> Option<T> {
   get(empty, i) = none
   get(node(x, xs), i) =
-    if i = 0 then
+    if i = ℕ0 then
        just(x)
     else
        get(xs, pred(i))
 }
 
-recursive take<T>(Nat, List<T>) -> List<T> {
-  take(0, xs) = empty
-  take(suc(n), xs) =
+recursive nat_take<T>(Nat, List<T>) -> List<T> {
+  nat_take(0, xs) = empty
+  nat_take(suc(n), xs) =
     switch xs {
       case empty { empty }
-      case node(x, xs') { node(x, take(n, xs')) }
+      case node(x, xs') { node(x, nat_take(n, xs')) }
     }
 }
 
-recursive uint_take<T>(List<T>, UInt) -> List<T> {
-  uint_take(empty, n) = empty
-  uint_take(node(x, xs), n) =
-    if n = fromNat(0) then empty
-    else node(x, uint_take(xs, n - fromNat(1)))
+recursive take<T>(List<T>, UInt) -> List<T> {
+  take(empty, n) = empty
+  take(node(x, xs), n) =
+    if n = 0 then empty
+    else node(x, take(xs, n ∸ 1))
 }
 
 recursive drop<T>(Nat, List<T>) -> List<T> {
@@ -144,6 +143,13 @@ recursive drop<T>(Nat, List<T>) -> List<T> {
       case empty { empty }
       case node(x, xs') { drop(n, xs') }
     }
+}
+
+recursive uint_drop<T>(List<T>, UInt) -> List<T> {
+  uint_drop(empty, n) = empty
+  uint_drop(node(x, xs'), n) =
+    if n = 0 then node(x, xs')
+    else uint_drop(xs', n ∸ 1)
 }
 
 fun head<T>(ls : List<T>) {
@@ -161,6 +167,25 @@ fun tail<T>(ls : List<T>) {
 }
 
 /********************** Theorems *********************************/
+
+theorem length_nat_append: all U :type, xs :List<U>, ys :List<U>.
+  length_nat(xs ++ ys) = length_nat(xs) + length_nat(ys)
+proof
+  arbitrary U :type
+  induction List<U>
+  case [] {
+    arbitrary ys:List<U>
+    conclude length_nat(@[]<U> ++ ys) = length_nat(@[]<U>) + length_nat(ys)  by evaluate
+  }
+  case node(n, xs') suppose IH {
+    arbitrary ys :List<U>
+    equations
+      length_nat(node(n,xs') ++ ys)
+          = ℕ1 + length_nat(xs' ++ ys)              by evaluate
+      ... = ℕ1 + (length_nat(xs') + length_nat(ys))     by replace IH[ys].
+      ... = length_nat(node(n,xs')) + length_nat(ys)   by evaluate
+  }
+end
 
 theorem length_append: all U :type, xs :List<U>, ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
@@ -192,7 +217,7 @@ proof
     case node(x, xs') {
       suppose len_z
       conclude false
-          by apply not_one_add_zero[length(xs')] to
+          by apply uint_not_one_add_zero[length(xs')] to
              expand length in len_z
     }
   }
@@ -235,24 +260,24 @@ proof
 end
 
 theorem length_reverse: all U :type, xs :List<U>.
-  length(reverse(xs)) = length(xs)
+  length_nat(reverse(xs)) = length_nat(xs)
 proof
   arbitrary U : type
   induction List<U>
   case empty {
-    conclude length(reverse(@empty<U>)) = length(@empty<U>)
+    conclude length_nat(reverse(@empty<U>)) = length_nat(@empty<U>)
         by expand reverse.
   }
   case node(n, xs') suppose IH {
     equations
-      length(reverse(node(n,xs')))
-          = length(reverse(xs') ++ node(n,empty)) by expand reverse.
-      ... = length(reverse(xs')) + length(node(n,empty))
-                    by replace length_append<U>[reverse(xs')][node(n,empty)].
-      ... = length(xs') + length(node(n,empty))   by replace IH.
-      ... = length(xs') + 1                       by evaluate
-      ... = 1 + length(xs')                       by replace add_commute.
-      ... = # length(node(n,xs')) #               by expand length.
+      length_nat(reverse(node(n,xs')))
+          = length_nat(reverse(xs') ++ node(n,empty)) by expand reverse.
+      ... = length_nat(reverse(xs')) + length_nat(node(n,empty))
+                    by replace length_nat_append<U>[reverse(xs')][node(n,empty)].
+      ... = length_nat(xs') + length_nat(node(n,empty))   by replace IH.
+      ... = length_nat(xs') + ℕ1                       by evaluate
+      ... = ℕ1 + length_nat(xs')                       by replace add_commute.
+      ... = # length_nat(node(n,xs')) #               by expand length_nat.
   }
 end
 
@@ -282,7 +307,7 @@ proof
 end
 
 theorem length_map: all T:type, f:fn T->T, xs:List<T>.
-  length(map(xs, f)) = length(xs)
+  length_nat(map(xs, f)) = length_nat(xs)
 proof
   arbitrary T:type
   arbitrary f:fn T->T
@@ -292,10 +317,10 @@ proof
   }
   case node(x, ls') suppose IH {
     equations
-      length(map(node(x,ls'),f))
-          = 1 + length(map(ls',f))  by expand map | length.
-      ... = 1 + length(ls')         by replace IH.
-      ... =# length(node(x,ls')) #  by expand length.
+      length_nat(map(node(x,ls'),f))
+          = ℕ1 + length_nat(map(ls',f))  by expand map | length_nat.
+      ... = ℕ1 + length_nat(ls')         by replace IH.
+      ... =# length_nat(node(x,ls')) #  by expand length_nat.
   }
 end
 
@@ -476,7 +501,7 @@ proof
         by replace (expand mset_of in prem).
       have X2: 1 + cnt(mset_of(xs'))(x) = 0
         by replace cnt_sum | cnt_empty | cnt_one in X1
-      conclude false by apply not_one_add_zero to X2
+      conclude false by apply uint_not_one_add_zero to X2
     }
   }
 end
@@ -544,93 +569,97 @@ proof
   }
 end
 
-theorem uint_take_zero: all E:type, xs:List<E>.
-  uint_take(xs, fromNat(0)) = []
+theorem take_zero: all E:type, xs:List<E>.
+  take(xs, 0) = []
 proof
   arbitrary E:type, xs:List<E>
   switch xs {
     case empty {
-      expand uint_take.
+      expand take.
     }
     case node(x, xs') {
-      expand uint_take.
+      expand take.
     }
   }
 end
 
-theorem uint_take_append: all E:type, xs:List<E>, ys:List<E>.
-  uint_take(xs ++ ys, uint_len(xs)) = xs
+theorem take_append: all E:type, xs:List<E>, ys:List<E>.
+  take(xs ++ ys, length(xs)) = xs
 proof
   arbitrary E:type
   induction List<E>
   case empty {
 	  arbitrary ys:List<E>
-    expand operator++ | uint_len
-    replace uint_take_zero.
+    expand operator++ | length
+    replace take_zero.
 	}
 	case node(x, xs') assume IH {
     arbitrary ys:List<E>
-    expand operator++ | uint_take | uint_len
-    replace (apply eq_false to uint_not_one_add_zero[uint_len(xs')])
-    replace uint_add_sub_identity[fromNat(1)]
+    expand operator++ | take | length
+    replace (apply eq_false to uint_not_one_add_zero[length(xs')])
+    replace uint_add_monus_identity[1]
     replace IH[ys].
 	}  
 end
   
-theorem take_append: all E:type, xs:List<E>, ys:List<E>.
-  take(length(xs), xs ++ ys) = xs
+theorem nat_take_append: all E:type, xs:List<E>, ys:List<E>.
+  nat_take(length_nat(xs), xs ++ ys) = xs
 proof
   arbitrary E:type
   induction List<E>
   case empty {
     arbitrary ys:List<E>
-    expand length | operator++ | take.
+    expand length_nat | operator++ | nat_take.
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
-    expand length | operator++ | operator+ | take
-    replace zero_add[length(xs')] | IH[ys].
+    expand length_nat | operator++ | operator+ | nat_take
+    replace zero_add[length_nat(xs')] | IH[ys].
   }
 end
 
 theorem length_drop: all E:type, xs:List<E>, n:Nat.
-  if n ≤ length(xs)
-  then length(drop(n, xs)) + n = length(xs)
+  if n ≤ length_nat(xs)
+  then length_nat(drop(n, xs)) + n = length_nat(xs)
 proof
   arbitrary E:type
   induction List<E>
   case empty {
     arbitrary n:Nat
     assume prem
-    have: n = 0 by apply zero_le_zero to evaluate in prem
-    suffices length(drop(0, @[]<E>)) + 0 = length(@[]<E>)
-      by replace recall n = 0.
+    have: n = ℕ0 by apply zero_le_zero to evaluate in prem
+    suffices length_nat(drop(ℕ0, @[]<E>)) + ℕ0 = length_nat(@[]<E>)
+      by replace recall n = ℕ0.
     evaluate
   }
-  case node(x, xs') assume IH: all n:Nat. (if n ≤ length(xs') then length(drop(n, xs')) + n = length(xs')) {
+  case node(x, xs') assume IH: all n:Nat. (if n ≤ length_nat(xs') then length_nat(drop(n, xs')) + n = length_nat(xs')) {
     arbitrary n:Nat
     assume prem
     switch n {
       case 0 {
-        suffices suc(length(xs') + 0) = suc(length(xs')) by evaluate
+        suffices suc(length_nat(xs') + ℕ0) = suc(length_nat(xs')) by evaluate
         replace add_zero.
       }
       case suc(n') assume n_sn {
-        suffices length(drop(n', xs')) + 1 + n' = 1 + length(xs')
-          by expand length | drop replace suc_one_add | zero_add.
-        have n_xs: n' ≤ length(xs') by evaluate in replace n_sn in prem
-        have eq: length(drop(n', xs')) + n' = length(xs')
+        suffices length_nat(drop(n', xs')) + ℕ1 + n' = ℕ1 + length_nat(xs')
+          by expand length_nat | drop replace suc_one_add | zero_add.
+        have n_xs: n' ≤ length_nat(xs') by evaluate in replace n_sn in prem
+        have eq: length_nat(drop(n', xs')) + n' = length_nat(xs')
           by apply IH[n'] to n_xs
-        conclude length(drop(n', xs')) + 1 + n' = 1 + length(xs')
-          by replace (symmetric eq) | add_commute[1, length(drop(n',xs'))].
+        conclude length_nat(drop(n', xs')) + ℕ1 + n' = ℕ1 + length_nat(xs')
+          by replace (symmetric eq) | add_commute[ℕ1, length_nat(drop(n',xs'))].
       }
     }
   }
 end
 
+postulate len_drop: all E:type, xs:List<E>, n:UInt.
+  if n ≤ length(xs)
+  then length(uint_drop(xs, n)) + n = length(xs)
+  
 theorem length_drop_zero: all E:type, xs:List<E>, n:Nat.
-  if length(xs) < n
-  then length(drop(n, xs)) = 0
+  if length_nat(xs) < n
+  then length_nat(drop(n, xs)) = ℕ0
 proof
   arbitrary E:type
   induction List<E>
@@ -638,39 +667,39 @@ proof
     arbitrary n:Nat
     assume prem
     switch n {
-      case 0 {
-        conclude length(drop(0, @[]<E>)) = 0
+      case zero {
+        conclude length_nat(drop(ℕ0, @[]<E>)) = ℕ0
           by evaluate
       }
       case suc(n') {
-        conclude length(drop(suc(n'), @[]<E>)) = 0
+        conclude length_nat(drop(suc(n'), @[]<E>)) = ℕ0
           by evaluate
       }
     }
   }
-  case node(x, xs') assume IH: all n:Nat. (if length(xs') < n then length(drop(n, xs')) = 0) {
+  case node(x, xs') assume IH: all n:Nat. (if length_nat(xs') < n then length_nat(drop(n, xs')) = ℕ0) {
     arbitrary n:Nat
     assume prem
     switch n {
-      case 0 assume nz {
+      case zero assume nz {
         conclude false 
           by evaluate in replace nz in prem
       }
       case suc(n') assume n_sn {
-        suffices length(drop(n', xs')) = 0 by evaluate
-        have xs_n: length(xs') < n' by {
-          suffices suc(length(xs')) ≤ n' by expand operator<.
-          expand operator< | length | 2*operator+ | operator≤ in
+        suffices length_nat(drop(n', xs')) = ℕ0 by evaluate
+        have xs_n: length_nat(xs') < n' by {
+          suffices suc(length_nat(xs')) ≤ n' by expand operator<.
+          expand operator< | length_nat | 2*operator+ | operator≤ in
           replace n_sn in prem
         }
-        conclude length(drop(n', xs')) = 0 by apply IH[n'] to xs_n
+        conclude length_nat(drop(n', xs')) = ℕ0 by apply IH[n'] to xs_n
       }
     }
   }
 end
   
 theorem drop_append: all E:type, xs:List<E>, ys:List<E>.
-  drop(length(xs), xs ++ ys) = ys
+  drop(length_nat(xs), xs ++ ys) = ys
 proof
   arbitrary E:type
   induction List<E>
@@ -680,8 +709,8 @@ proof
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
-    expand length | operator++ | operator+ | drop
-    replace zero_add[length(xs')] | IH[ys].
+    expand length_nat | operator++ | operator+ | drop
+    replace zero_add[length_nat(xs')] | IH[ys].
   }
 end
 
@@ -701,7 +730,7 @@ proof
         evaluate
       }
       case node(x, xs') {
-        have nsz: not (suc(n') + i = 0) by
+        have nsz: not (suc(n') + i = ℕ0) by
         suppose sz conclude false by expand operator + in sz
         suffices get(drop(n', xs'), i) = get(xs', pred(suc(n') + i))
           by expand get replace (apply eq_false to nsz).
@@ -714,19 +743,19 @@ proof
 end
 
 theorem get_append_front: all T:type, xs:List<T>, ys:List<T>, i:Nat.
-  if i < length(xs)
+  if i < length_nat(xs)
   then get(xs ++ ys, i) = get(xs, i)
 proof
   arbitrary T:type
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:Nat
-    suppose i_z: i < length(@empty<T>)
-    conclude false by expand length | operator < | operator ≤ in i_z
+    suppose i_z: i < length_nat(@empty<T>)
+    conclude false by expand length_nat | operator < | operator ≤ in i_z
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat
-    suppose i_xxs: i < length(node(x,xs))
+    suppose i_xxs: i < length_nat(node(x,xs))
     switch i {
       case zero {
         evaluate
@@ -734,9 +763,9 @@ proof
       case suc(i') suppose i_si {
         suffices get(xs ++ ys, i') = get(xs, i')
           by expand operator++ | get | pred.
-        have i_xs: i' < length(xs) by {
+        have i_xs: i' < length_nat(xs) by {
           apply less_suc_iff_suc_less to
-          expand length | operator+ | operator+ in
+          expand length_nat | operator+ | operator+ in
           replace i_si in i_xxs
         }
         apply IH[ys, i'] to i_xs
@@ -746,7 +775,7 @@ proof
 end
 
 theorem get_append_back: all T:type, xs:List<T>, ys:List<T>, i:Nat.
-  get(xs ++ ys, length(xs) + i) = get(ys, i)
+  get(xs ++ ys, length_nat(xs) + i) = get(ys, i)
 proof
   arbitrary T:type
   induction List<T>
@@ -756,21 +785,21 @@ proof
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:Nat
-    have X: not ((1 + length(xs)) + i = 0) by {
+    have X: not ((ℕ1 + length_nat(xs)) + i = ℕ0) by {
       suppose eq_z
       conclude false by evaluate in eq_z
     }
-    suffices get(xs ++ ys, pred((1 + length(xs)) + i)) = get(ys, i)
-       by expand operator++ | length | get
+    suffices get(xs ++ ys, pred((ℕ1 + length_nat(xs)) + i)) = get(ys, i)
+       by expand operator++ | length_nat | get
           replace (apply eq_false to X).
-    suffices get(xs ++ ys, length(xs) + i) = get(ys, i)
+    suffices get(xs ++ ys, length_nat(xs) + i) = get(ys, i)
        by expand 2*operator + | pred.
     IH[ys, i]
   }
 end
 
 theorem get_none: all T:type, xs:List<T>, i:Nat.
-  if length(xs) <= i
+  if length_nat(xs) <= i
   then get(xs, i) = none
 proof
   arbitrary T:type
@@ -783,8 +812,8 @@ proof
   case node(x, xs) assume IH {
     arbitrary i:Nat
     assume xxs_i
-    have i_pos: 1 + length(xs) ≤ i
-      by expand length in xxs_i
+    have i_pos: ℕ1 + length_nat(xs) ≤ i
+      by expand length_nat in xxs_i
     switch i {
       case 0 assume iz {
         conclude false by expand operator+ |operator+ |operator≤ in
@@ -792,7 +821,7 @@ proof
       }
       case suc(i') assume isi {
         suffices get(xs, i') = none by expand get | pred.
-        have xs_i: length(xs) ≤ i'
+        have xs_i: length_nat(xs) ≤ i'
           by expand operator+ | operator+ | operator≤ in
              replace isi in i_pos
         conclude get(xs, i') = none by apply IH to xs_i
@@ -815,7 +844,7 @@ proof
 end
 
 theorem head_append: all E:type, L:List<E>, R:List<E>.
-  if 0 < length(L) 
+  if ℕ0 < length_nat(L) 
   then head(L ++ R) = head(L)
 proof
   arbitrary E:type
@@ -823,7 +852,7 @@ proof
   case empty {
     arbitrary R:List<E>
     suppose pos_len
-    conclude false  by expand length | operator < | operator ≤ in pos_len
+    conclude false  by expand length_nat | operator < | operator ≤ in pos_len
   }
   case node(x, xs) suppose IH {
     arbitrary R:List<E>
@@ -836,7 +865,7 @@ proof
 end
 
 theorem tail_append: all E:type, L:List<E>, R:List<E>.
-  if 0 < length(L) 
+  if ℕ0 < length_nat(L) 
   then tail(L ++ R) = tail(L) ++ R
 proof
   arbitrary E:type
@@ -845,7 +874,7 @@ proof
     arbitrary R:List<E>
     suppose pos_len
     conclude false
-      by expand length | operator < | operator≤ in pos_len
+      by expand length_nat | operator < | operator≤ in pos_len
   }
   case node(x, xs') suppose IH {
     arbitrary R:List<E>

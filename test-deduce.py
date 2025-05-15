@@ -37,11 +37,6 @@ def test_deduce(parsers, deduce_call, paths, expected_return = 0, extra_argument
                 print('\nDeduce failed to catch an error!')
             exit(1)
     
-def list_dir_sorted(dir):
-    ret = os.listdir(dir)
-    ret.sort()
-    return ret
-            
 def generate_deduce_errors(deduce_call, path):
     # We don't pass in the --error flag so we can generate error messages
     # However, that means we can't levarage deduces already existed directory stuff
@@ -54,7 +49,7 @@ def generate_deduce_errors(deduce_call, path):
 
         if path[-1] != '/' or path[-1] != '\\':
             path += '/'
-        for file in list_dir_sorted(path): 
+        for file in sorted(os.listdir(path)): 
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     thread = Thread(target=generate_deduce_errors, args=(deduce_call, path + file))
@@ -133,7 +128,7 @@ def test_deduce_errors(deduce_call, path):
             path += '/'
 
         threads = []
-        for file in list_dir_sorted(path):
+        for file in sorted(os.listdir(path)):
             if os.path.isfile(path + file):
                 if file[-3:] == '.pf':
                     if not os.path.isfile(path + file + '.err'):
@@ -238,7 +233,7 @@ if __name__ == "__main__":
         from gh_pages.doc.convert import convert_dir
         convert_dir("./gh_pages/doc/", False)
         # test generated files
-        for f in list_dir_sorted(pass_dir):
+        for f in sorted(os.listdir(pass_dir)):
             if f.startswith('doc_') and f.endswith('.pf'):
                 test_deduce(parsers, deduce_call, pass_dir + '/' + f)
     elif test_lib:

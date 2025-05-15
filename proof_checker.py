@@ -914,10 +914,10 @@ def proof_advice(formula, env):
 
         match ty:
           case Union(loc2, name, typarams, alts):
-            if ty.makeOpaque:
-              for othername, filedefined in env.dict['opaque']:
-                if name == othername and filedefined != formula.location.filename:
-                  return arb_advice
+            if ty.visibility == 'opaque':
+              binding = env.dict[name]
+              if binding.location.filename != formula.location.filename:
+                return arb_advice
 
             if len(alts) < 2:
               return arb_advice # Can't do induction if there's only one case
@@ -1204,10 +1204,10 @@ def check_proof_of(proof, formula, env):
 
     case EvaluateGoal(loc):
       set_reduce_all(True)
-      set_reduce_opaque_errors(True)
+      set_dont_reduce_opaque(True)
       red_formula = formula.reduce(env)
       set_reduce_all(False)
-      set_reduce_opaque_errors(False)
+      set_dont_reduce_opaque(False)
       if red_formula != Bool(loc, None, True):
           error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
                 + str(red_formula))
@@ -1227,11 +1227,11 @@ def check_proof_of(proof, formula, env):
       if evaluate:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         set_reduce_all(True)
-        set_reduce_opaque_errors(True)
+        set_dont_reduce_opaque(True)
         new_formula = formula.reduce(env)
         red_claim = new_claim.reduce(env)
         set_reduce_all(False)
-        set_reduce_opaque_errors(False)
+        set_dont_reduce_opaque(False)
 
         match red_claim:
           case Omitted(loc2, tyof):
@@ -1553,15 +1553,15 @@ def expand_definitions(loc, formula, defs, env):
 
       reducible_names = []
       for var_name in var.resolved_names:
-          # TODO: Use a hashmap in the hashmap!!!!!!!
-          #       Or something that allows better than O(n) lookups
-          for name, filename in env.dict['opaque']:
-            if var_name == name and filename != loc.filename:
-                if len(var.resolved_names) > 1:
-                    continue
-                else:
-                    error(loc, 'Cannot expand opaque definition of ' + base_name(name))
-          reducible_names.append(var_name)
+          if var_name in env.dict.keys():
+              binding = env.dict[var_name]
+              if binding.visibility == 'opaque' \
+                 and binding.location.filename != loc.filename:
+                if len(var.resolved_names) == 1:
+                    error(loc, 'Cannot expand opaque definition of '
+                          + base_name(var_name))
+              else:
+                reducible_names.append(var_name)
       
       for var_name in reducible_names:
           if get_verbose():
@@ -1814,8 +1814,10 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
               except Exception as e:
                 pass
       if num_matches == 0:
-          error(loc, 'could not find a match for function call ' \
+          arg_types = [type_synth_term(arg, env, None, []).typeof for arg in args]
+          error(loc, 'could not find a match for function call:\n\t' \
                 + str(call) + '\n'\
+                + 'argument types: ' + ', '.join([str(t) for t in arg_types]) + '\n'\
                 + 'overloads:\n\t' \
                 + '\n\t'.join([str(ty) for (x,ty) in overloads]))
       elif num_matches > 1:
@@ -2454,10 +2456,17 @@ def check_formula(frm, env, recfun=None, subterms=[]):
 
 modules = set()
 
-def process_declaration_var(decl : Declaration, env: Env):
-  opaque = decl.makeOpaque
-  filename = decl.file_defined
-
+def is_modified(filename):
+    path = Path(filename)
+    last_mod = path.stat().st_mtime
+    thm_path = path.with_suffix('.thm')
+    if thm_path.exists():
+        thm_last_mod = thm_path.stat().st_mtime
+        return thm_last_mod < last_mod
+    else:
+        return True
+    
+def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -2482,8 +2491,10 @@ def process_declaration_var(decl : Declaration, env: Env):
                     + ' ' + orig_name + ' : ' + str(binding) + '\n' \
                     + 'Only functions may have multiple definitions with the same name.')
         
-      return Define(loc, name, new_ty, new_body), \
-              env.declare_term_var(loc, name, new_ty, opaque=opaque, filename=filename)
+      return Define(loc, name, new_ty, new_body,
+                    visibility=decl.visibility), \
+              env.declare_term_var(loc, name, new_ty,
+                                   visibility=decl.visibility)
   
     case RecFun(loc, name, typarams, params, returns, cases):
       body_env = env.declare_type_vars(loc, typarams)
@@ -2493,7 +2504,8 @@ def process_declaration_var(decl : Declaration, env: Env):
       fun_type = FunctionType(loc, typarams, params, returns)
       # print('process declaration:')
       # print(decl.pretty_print(4))
-      return decl, env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename)
+      return decl, env.declare_term_var(loc, name, fun_type,
+                                        visibility=decl.visibility)
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
@@ -2513,13 +2525,11 @@ def process_declaration_var(decl : Declaration, env: Env):
       check_type(measure_ty, env)
       # return? GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates)
       # changed to decl
-      return (decl, env.declare_term_var(loc, name, fun_type, opaque=opaque, filename=filename))
+      return (decl, env.declare_term_var(loc, name, fun_type,
+                                         visibility=decl.visibility))
   
     case Union(loc, name, typarams, alts):
-      env = env.define_type(loc, name, decl)
-
-      if decl.makeOpaque:
-        env.dict['opaque'].append((name, decl.file_defined))
+      env = env.define_type(loc, name, decl, decl.visibility)
       union_type = Var(loc, None, name, [name])
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
@@ -2541,28 +2551,11 @@ def process_declaration_var(decl : Declaration, env: Env):
           constr_type = union_type
 
         new_constr = constr
-        env = env.declare_term_var(loc, constr.name, constr_type, opaque=opaque, filename=filename)
+        env = env.declare_term_var(loc, constr.name, constr_type,
+                                   visibility=decl.visibility)
         new_alts.append(new_constr)
-      return Union(loc, name, typarams, new_alts), env
+      return Union(loc, name, typarams, new_alts, visibility=decl.visibility), env
 
-    case _:
-      error(decl.location, "unrecognized declaration:\n" + str(decl))
-
-
-def process_declaration(stmt : Statement, env : Env, module_chain):
-  if get_verbose():
-    print('process_declaration(' + str(stmt) + ')')
-    
-  match stmt:
-    case Declaration():
-      return process_declaration_var(stmt, env)
-          
-    case Theorem(loc, name, frm, pf):
-      return stmt, env
-  
-    case Postulate(loc, name, frm):
-      return stmt, env
-  
     case Import(loc, name, ast):
       old_verbose = get_verbose()
       if get_verbose() == VerboseLevel.CURR_ONLY:
@@ -2574,13 +2567,21 @@ def process_declaration(stmt : Statement, env : Env, module_chain):
                 + ', '.join(module_chain))
       elif name in imported_modules:
           set_verbose(old_verbose)
-          return stmt, env
+          return Import(loc, name, ast), env
       else:
           imported_modules.add(name)
           module_chain = [name] + module_chain
+
+          filename = find_file(loc, name)
+          needs_checking = [is_modified(filename)]
+          if needs_checking[0] and name not in checked_modules:
+              downstream_needs_checking[0] = True
+              if get_verbose():
+                  print('checking ' + name)
+              
           ast2 = []
           for s in ast:
-            new_s, env = process_declaration(s, env, module_chain)
+            new_s, env = process_declaration(s, env, module_chain, needs_checking)
             ast2.append(new_s)
 
           ast3 = []
@@ -2591,16 +2592,37 @@ def process_declaration(stmt : Statement, env : Env, module_chain):
           for s in ast3:
             env = collect_env(s, env)
 
-            if name not in checked_modules:
+            # TODO: only check if the pf file is newer than the thm file
+            if name not in checked_modules and needs_checking[0]:
               check_proofs(s, env)
             
           if name not in checked_modules:
-            # for s in ast3:
-            #   check_proofs(s, env)
             checked_modules.add(name)  
 
           set_verbose(old_verbose)
-          return Import(loc, name, ast3), env
+
+          if needs_checking[0]:
+            print_theorems(filename, ast3)
+          
+          return Import(loc, name, ast3, visibility=decl.visibility), env
+  
+    case _:
+      error(decl.location, "unrecognized declaration:\n" + str(decl))
+
+
+def process_declaration(stmt : Statement, env : Env, module_chain, downstream_needs_checking):
+  if get_verbose():
+    print('process_declaration(' + str(stmt) + ')')
+    
+  match stmt:
+    case Declaration():
+      return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
+          
+    case Theorem(loc, name, frm, pf):
+      return stmt, env
+  
+    case Postulate(loc, name, frm):
+      return stmt, env
   
     case Assert(loc, frm):
       return stmt, env
@@ -2644,11 +2666,11 @@ def type_check_stmt(stmt, env):
       else:
         new_body = type_check_term(body, ty, env, None, [])
         new_ty = ty
-      return Define(loc, name, new_ty, new_body)
+      return Define(loc, name, new_ty, new_body, visibility=stmt.visibility)
         
-    case Theorem(loc, name, frm, pf):
+    case Theorem(loc, name, frm, pf, isLemma):
       new_frm = check_formula(frm, env)
-      return Theorem(loc, name, new_frm, pf)
+      return Theorem(loc, name, new_frm, pf, isLemma)
 
     case Postulate(loc, name, frm):
       new_frm = check_formula(frm, env)
@@ -2662,7 +2684,8 @@ def type_check_stmt(stmt, env):
       new_returns = returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
       
-      env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
+      env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
+                                stmt.visibility)
       cases_present = {}
       body_env = env.declare_type_vars(loc, typarams)
       reset_recursive_call_count()
@@ -2679,7 +2702,8 @@ def type_check_stmt(stmt, env):
         if not c.name in cases_present.keys():
           error(loc, 'missing function case for ' + base_name(c.name))
 
-      new_recfun = RecFun(loc, name, typarams, params, returns, new_cases)
+      new_recfun = RecFun(loc, name, typarams, params, returns, new_cases,
+                          visibility=stmt.visibility)
       # print('type check stmt:')
       # print(new_recfun.pretty_print(4))
       return new_recfun
@@ -2694,7 +2718,8 @@ def type_check_stmt(stmt, env):
       fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_params],
                               new_returns)
       
-      env = env.define_term_var(loc, name, fun_type, stmt.reduce(env))
+      env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
+                                stmt.visibility)
 
       body_env = env.declare_type_vars(loc, typarams)
       body_env = body_env.declare_term_vars(loc, params)
@@ -2703,7 +2728,8 @@ def type_check_stmt(stmt, env):
       new_body = type_check_term(body, returns, body_env, None, [])
 
       new_recfun = GenRecFun(loc, name, typarams, params, returns,
-                             new_measure, measure_ty, new_body, terminates)
+                             new_measure, measure_ty, new_body, terminates,
+                             visibility=stmt.visibility)
       # print('type check stmt:')
       # print(new_recfun.pretty_print(4))
       return new_recfun
@@ -2735,16 +2761,18 @@ def collect_env(stmt, env : Env):
     print('collect_env(' + str(stmt) + ')')
   match stmt:
     case Define(loc, name, ty, body):
-      return env.define_term_var(loc, name, ty, body)
+      return env.define_term_var(loc, name, ty, body, stmt.visibility)
       
     case RecFun(loc, name, typarams, params, returns, cases):
       fun_type = FunctionType(loc, typarams, params, returns)
-      return env.define_term_var(loc, name, fun_type, stmt)
+      return env.define_term_var(loc, name, fun_type, stmt,
+                                 stmt.visibility)
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                   body, terminates):
       fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
-      return env.define_term_var(loc, name, fun_type, stmt)
+      return env.define_term_var(loc, name, fun_type, stmt,
+                                 stmt.visibility)
       
     case Union(loc, name, typarams, alts):
       return env
@@ -2786,15 +2814,30 @@ def collect_env(stmt, env : Env):
 
       assoc_formula = type_check_formula(assoc_formula, env)
         
-      # for (n, b) in env.dict.items():
-      #     if base_name(n) == 'append_assoc':
-      #         print('assoc_formula: ' + str(assoc_formula))
-      #         print('append_assoc: ' + str(b.formula))
-      #         result = assoc_formula == b.formula
-      #         print('assoc_formula =? append_assoc: ' + str(result))
-        
+      #print('Associative: ' + str(op.resolved_names))
+      # determine which overload is for the given typ
+      resolved_op = None
+      op_ty = env.get_type_of_term_var(op)
+      #print('op type = ' + str(op_ty))
+      match op_ty:
+          case OverloadType(loc2, overloads):
+              for (x, funty) in overloads:
+                  match funty:
+                      case FunctionType(loc3, typarams2, param_types, return_type):
+                          try:
+                              matching = {}
+                              type_match(loc, typarams2, param_types[0], typ, matching)
+                              resolved_op = x
+                              break
+                          except MatchFailed as ex:
+                              continue
+          case FunctionType(loc2, typarams2, param_types, return_type):
+              resolved_op = op.resolved_names[0]
+      #print('resolved_op = ' + str(resolved_op))
+      # print('typarams: ' + ', '.join([str(t) for t in typarams]))
+      # print('typ: ' + str(typ))
       if assoc_formula in env.proofs():
-          return env.declare_assoc(loc, op.resolved_names[0], typarams, typ)
+          return env.declare_assoc(loc, resolved_op, typarams, typ)
       else:
           error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
@@ -2920,9 +2963,10 @@ def check_proofs(stmt, env):
       for call in calls:
         lhs = measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)})
         rhs = measure.copy()
-        less = env.base_to_unique('<')
-        less_frm = Call(loc, None, Var(loc, None, less, [less]),
-                             [lhs,rhs])
+        #less = env.base_to_unique('<') # This doesn't work!
+        less_ovlds = env.base_to_overloads('<')
+        less = Var(loc, None, '<', less_ovlds)
+        less_frm = Call(loc, None, less, [lhs,rhs])
         condition = And(loc, None, call.conditions) \
             if len(call.conditions) > 0 else None
         if condition is not None:
@@ -2944,9 +2988,9 @@ def check_proofs(stmt, env):
           error(loc, 'There were no recursive calls in the body of this recfun')
       for (x,t) in reversed(params):
           formula = All(loc, None, (x,t), (0,1), formula)
+      formula = check_formula(formula, body_env)
 
       # check that the terminates proof proves the above formula
-      #print('termination formula: ' + str(formula))
       check_proof_of(terminates, formula, body_env)
   
     case Union(loc, name, typarams, alts):
@@ -2998,14 +3042,15 @@ def check_proofs(stmt, env):
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
-def check_deduce(ast, module_name):
-  env = Env({'opaque': []})
+def check_deduce(ast, module_name, modified):
+  env = Env()
   ast2 = []
   imported_modules.clear()
+  needs_checking = [modified]
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   for s in ast:
-    new_s, env = process_declaration(s, env, [module_name])
+    new_s, env = process_declaration(s, env, [module_name], needs_checking)
     ast2.append(new_s)
   if get_verbose():
     for s in ast2:
@@ -3024,10 +3069,12 @@ def check_deduce(ast, module_name):
   if get_verbose():
     print('--------- Proof Checking ------------------------')
   if module_name not in checked_modules:
+    if get_verbose() and needs_checking[0]:
+        print('checking ' + module_name)
     for s in ast3:
       env = collect_env(s, env)
-    #for s in ast3:
-      check_proofs(s, env)
+      if needs_checking[0]:
+        check_proofs(s, env)
     checked_modules.add(module_name)  
 
 

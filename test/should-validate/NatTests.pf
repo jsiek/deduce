@@ -1,36 +1,36 @@
 import Nat
 import Option
 
-assert 0/2 = 0
-assert 1/2 = 0
-assert 2/2 = 1
-assert 3/2 = 1
-assert 4/2 = 2
-assert 5/2 = 2
-assert 6/2 = 3
+assert ℕ0/ℕ2 = ℕ0
+assert ℕ1/ℕ2 = ℕ0
+assert ℕ2/ℕ2 = ℕ1
+assert ℕ3/ℕ2 = ℕ1
+assert ℕ4/ℕ2 = ℕ2
+assert ℕ5/ℕ2 = ℕ2
+assert ℕ6/ℕ2 = ℕ3
 
-assert 5 / 3 = 1
-assert 6 / 3 = 2
+assert ℕ5 / ℕ3 = ℕ1
+assert ℕ6 / ℕ3 = ℕ2
 
-assert 2 / 1 = 2
-assert 4 / 2 = 2
-assert 5 / 2 = 2
-assert 6 / 2 = 3
-assert 3 / 3 = 1
-assert 9 / 3 = 3
-assert 10 / 3 = 3
+assert ℕ2 / ℕ1 = ℕ2
+assert ℕ4 / ℕ2 = ℕ2
+assert ℕ5 / ℕ2 = ℕ2
+assert ℕ6 / ℕ2 = ℕ3
+assert ℕ3 / ℕ3 = ℕ1
+assert ℕ9 / ℕ3 = ℕ3
+assert ℕ10 / ℕ3 = ℕ3
 
-assert pow2(0) = 1
-assert pow2(1) = 2
-assert pow2(2) = 4
-assert pow2(3) = 8
-assert pow2(4) = 16
+assert pow2(ℕ0) = ℕ1
+assert pow2(ℕ1) = ℕ2
+assert pow2(ℕ2) = ℕ4
+assert pow2(ℕ3) = ℕ8
+assert pow2(ℕ4) = ℕ16
 
 
-assert 0 ^ 0 = 1
-assert 0 ^ 5 = 0
-assert 2 ^ 3 = 8
-assert 3 ^ 3 = 27
-assert 2 ^ 2 * 3 = 12
-assert 2 ^ 2 + 2 = 6
-assert 1 + 2 ^ 2 + 1 = 6
+assert ℕ0 ^ ℕ0 = ℕ1
+assert ℕ0 ^ ℕ5 = ℕ0
+assert ℕ2 ^ ℕ3 = ℕ8
+assert ℕ3 ^ ℕ3 = ℕ27
+assert ℕ2 ^ ℕ2 * ℕ3 = ℕ12
+assert ℕ2 ^ ℕ2 + ℕ2 = ℕ6
+assert ℕ1 + ℕ2 ^ ℕ2 + ℕ1 = ℕ6

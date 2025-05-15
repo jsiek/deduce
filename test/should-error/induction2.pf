@@ -6,8 +6,8 @@ union Tree {
 }
 
 recursive size(Tree) -> Nat {
-  size(empty) = 0
-  size(node(L, n, R)) = 1 + size(L) + size(R)
+  size(empty) = ℕ0
+  size(node(L, n, R)) = ℕ1 + size(L) + size(R)
 }
 
 theorem tree_size: all T:Tree. size(T) = size(T)

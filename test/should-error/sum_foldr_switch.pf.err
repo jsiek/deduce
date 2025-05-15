@@ -1,6 +1,6 @@
 ./test/should-error/sum_foldr_switch.pf:16.7-16.8: incomplete proof
 Goal:
-	0 = foldr(@[]<Nat>, 0, operator +)
+	ℕ0 = foldr(@[]<Nat>, ℕ0, operator +)
 Advice:
 	To prove this equality, one of these statements might help:
 		expand

@@ -1,6 +1,6 @@
 import Nat
 
-theorem T: all x:Nat. 0 + (x + 0) = x
+theorem T: all x:Nat. ℕ0 + (x + ℕ0) = x
 proof
   arbitrary x:Nat
   expand operator+

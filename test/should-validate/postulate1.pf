@@ -1,10 +1,13 @@
-import Nat
+import UInt
 
-postulate triple : all x:Nat. 3*x = x + x + x
+postulate triple : all x:UInt. 3*x = x + x + x
 
-theorem quad: all x:Nat. 4*x = x + x + x + x
+theorem quad: all x:UInt. 4*x = x + x + x + x
 proof
-  arbitrary x:Nat
-  expand operator*
-  replace triple.
+  arbitrary x:UInt
+  have A: 4 = 1 + 3 by evaluate
+  replace A
+  replace uint_dist_mult_add_right
+  replace triple
+  replace uint_one_mult.
 end

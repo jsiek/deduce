@@ -1,16 +1,16 @@
 import Nat
 import Log
 
-define log_one = log(1)
-define log_two = log(2)
-define log_three = log(3)
-define log_four = log(4)
-define log_five = log(5)
-define log_eight = log(8)
+define log_one = log(ℕ1)
+define log_two = log(ℕ2)
+define log_three = log(ℕ3)
+define log_four = log(ℕ4)
+define log_five = log(ℕ5)
+define log_eight = log(ℕ8)
 
-assert log_one = 0
-assert log_two = 1
-assert log_three = 2
-assert log_four = 2
-assert log_five = 3
-assert log_eight = 3
+assert log_one = ℕ0
+assert log_two = ℕ1
+assert log_three = ℕ2
+assert log_four = ℕ2
+assert log_five = ℕ3
+assert log_eight = ℕ3

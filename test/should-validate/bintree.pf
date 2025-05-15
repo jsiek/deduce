@@ -23,12 +23,12 @@ union Tree {
 }
 
 recursive height(Tree) -> Nat {
-  height(empty) = 0
-  height(node(n,L,R)) = 1 + max(height(L), height(R))
+  height(empty) = ℕ0
+  height(node(n,L,R)) = ℕ1 + max(height(L), height(R))
 }
 
 recursive sum(Tree) -> Nat {
-  sum(empty) = 0
+  sum(empty) = ℕ0
   sum(node(n,L,R)) = n + sum(L) + sum(R)
 }
 
@@ -40,9 +40,9 @@ recursive sum(Tree) -> Nat {
 */
 
 define t1 = node(suc(suc(suc(zero))), empty, empty)
-define t2 = node(7, empty, empty)
-define t3 = node(4, t1, t2)
+define t2 = node(ℕ7, empty, empty)
+define t3 = node(ℕ4, t1, t2)
 
-assert height(t3) = 2
-assert sum(t3) = 14
+assert height(t3) = ℕ2
+assert sum(t3) = ℕ14
 

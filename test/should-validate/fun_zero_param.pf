@@ -1,4 +1,4 @@
-import Nat
+import UINT
 
 fun five() {
   5

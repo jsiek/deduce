@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Tuple, List, Optional, Set, Self
-from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel
+from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel, match_failed
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
 import os
 
-infix_precedence = {'+': 6, '-': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
+infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '=': 1, '<': 1, '≤': 1, '≥': 1, '>': 1, 'and': 2, 'or': 3,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2, '∘': 7, '^' : 8}
 prefix_precedence = {'-': 9, 'not': 4}
@@ -194,17 +194,19 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
 
 
 def is_associative(loc, opname, typ, env):
-  # print('is_associative? ' + str(opname) + ' for ' + str(typ))
+  #print('is_associative? ' + str(opname) + ' for ' + str(typ))
   for (typarams, ty) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
     matching = {}
     try:
+      #print('type_params = ' + ', '.join([str(t) for t in type_params]))
+      #print(str(ty) + ' =? ' + str(typ))
       type_match(loc, type_params, ty, typ, matching)
-      # print('\tyes')
+      #print('\tyes')
       return True
     except Exception as e:
       pass
-  # print('\tno')
+  #print('\tno')
   return False
 
 
@@ -245,9 +247,7 @@ def flatten_assoc_list(op_name, args):
 
 @dataclass(kw_only=True)
 class Declaration(AST):
-  isPrivate: bool = False
-  makeOpaque: bool = False
-  file_defined: str = ''
+  visibility:str = 'public'
 
 
 ################ Types ######################################
@@ -747,6 +747,8 @@ class Var(Term):
               + self.resolved_names)
       
       if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
+        return 'ℕ0'
+      elif base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
         return '0'
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
@@ -762,11 +764,11 @@ class Var(Term):
         
   def reduce(self, env):
       if get_reduce_all() or (self in get_reduce_only()):
-        if get_reduce_opaque_errors():
-          for name, filename in env.dict['opaque']:
-            if self.name == name and filename != self.location.filename:
-                #error(self.location, 'Tried to evaluate \n\topaque ' + base_name(name) + '\nTry using replace with a theorem OR a definition instead')
-                return self
+        if get_dont_reduce_opaque() and self.name in env.dict.keys():
+          binding = env.dict[self.name]
+          if binding.visibility == 'opaque' \
+             and binding.location.filename != self.location.filename:
+              return self
 
         res = env.get_value_of_term_var(self)
         if res:
@@ -802,6 +804,8 @@ class Var(Term):
         import_advice = "\n\tAdd `import Nat` to supply a definition."
       elif self.name == "empty" or self.name == "node":
         import_advice = "\n\tAdd `import List` to supply a definition."
+      elif self.name == "bzero" or self.name == "dub_inc" or self.name == "inc_dub":
+        import_advice = "\n\tAdd `import UInt` to supply a definition."
 
       close_matches = []
       for var in env.keys():
@@ -976,15 +980,15 @@ def set_reduce_all(b):
   global reduce_all
   reduce_all = b
 
-reduce_opaque_errors = False
+dont_reduce_opaque = False
 
-def get_reduce_opaque_errors():
-  global reduce_opaque_errors
-  return reduce_opaque_errors
+def get_dont_reduce_opaque():
+  global dont_reduce_opaque
+  return dont_reduce_opaque
 
-def set_reduce_opaque_errors(b):
-  global reduce_opaque_errors
-  reduce_opaque_errors = b
+def set_dont_reduce_opaque(b):
+  global dont_reduce_opaque
+  dont_reduce_opaque = b
 
 eval_all = False
 
@@ -1189,7 +1193,9 @@ class Call(Term):
     elif is_prefix_operator(self.rator) and len(self.args) == 1:
       return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isNat(self): # and not get_verbose():
-      return str(natToInt(self))
+      return 'ℕ' + str(natToInt(self))
+    elif isUInt(self): # and not get_verbose():
+      return str(uintToInt(self))
     elif isDeduceInt(self):
       return deduceIntToInt(self)
     elif isNodeList(self):
@@ -1655,8 +1661,14 @@ class ArrayGet(Term):
     position_red = self.position.reduce(env)
     match subject_red:
       case Array(loc2, _, elements):
+        index = None
         if isNat(position_red):
           index = natToInt(position_red)
+        elif isUInt(position_red):
+          index = uintToInt(position_red)
+        else:
+            error(self.location, "array access expected number index, not " + str(position_red))
+        if not (index is None):
           if 0 <= index and index < len(elements):
             return elements[index].reduce(env)
           # Don't signal an error for out-of-bounds! -Jeremy
@@ -2888,7 +2900,7 @@ class Theorem(Statement):
   name: str
   what: Formula
   proof: Proof
-  isLemma: bool = False
+  isLemma: bool = False   # TODO: remove this, use visibility
 
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
@@ -2963,11 +2975,11 @@ class Union(Declaration):
       con.uniquify(env, body_env)
 
   def collect_exports(self, export_env):
-    if self.isPrivate:
+    if self.visibility == 'private':
       return
     export_env[base_name(self.name)] = [self.name]
 
-    if not self.makeOpaque:
+    if not self.visibility == 'opaque':
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
     
@@ -2978,7 +2990,7 @@ class Union(Declaration):
       header = 'union ' + base_name(self.name) \
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
              else '')
-      if self.makeOpaque:
+      if self.visibility == 'opaque':
         ret = 'opaque ' + header + '\n'
       else:
         ret = header + ' {\n' \
@@ -3071,7 +3083,7 @@ class RecFun(Declaration):
     # print(self.pretty_print(0))
       
   def collect_exports(self, export_env):
-    if self.isPrivate:
+    if self.visibility == 'private':
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3094,7 +3106,7 @@ class RecFun(Declaration):
            if len(self.type_params) > 0 else '') \
       + '(' + ','.join([str(ty) for ty in self.params]) + ')' \
       + ' -> ' + str(self.returns)
-    if self.makeOpaque:
+    if self.visibility == 'opaque':
       ret = 'fun ' + header + '\n'
     else:
       ret = 'recursive ' + header + '{\n' \
@@ -3181,7 +3193,7 @@ class GenRecFun(Declaration):
     # print(self.pretty_print(0))
     
   def collect_exports(self, export_env):
-    if self.isPrivate:
+    if self.visibility == 'private':
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3208,7 +3220,7 @@ class GenRecFun(Declaration):
       + ') -> ' + str(self.returns) \
       + '\nmeasure\t' + str(self.measure) + ' '
     
-    if self.makeOpaque:
+    if self.visibility == 'opaque':
       ret = 'fun ' + header + '\n'
     else:
       ret = 'recfun ' + header + ' {' + self.body.pretty_print(indent+2) + '\n}\n'
@@ -3272,7 +3284,7 @@ class Define(Declaration):
     self.name = new_name
 
   def collect_exports(self, export_env):
-    if self.isPrivate:
+    if self.visibility == 'private':
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3322,13 +3334,16 @@ def find_file(loc, name):
   error(loc, 'could not find a file for import: ' + name)
     
 @dataclass
-class Import(Statement):
+class Import(Declaration):
   name: str
   ast: AST = None
 
   def __str__(self):
     return 'import ' + self.name
-  
+
+  def pretty_print(self, indent):
+      return indent*' '  + str(self)
+
   def uniquify(self, env):
     if get_verbose():
       print('uniquify import ' + self.name)
@@ -3428,6 +3443,74 @@ def is_equation(formula):
     case _:
       return False
 
+def isUInt(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'bzero':
+      return True
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'inc_dub':
+        return isUInt(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'dub_inc':
+        return isUInt(arg)
+    case _:
+      return False
+
+def isBZero(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'bzero':
+      return True
+    case _:
+      return False
+  
+def isDubInc(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'dub_inc':
+        return True
+    case _:
+      return False
+  
+def isIncDub(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'inc_dub':
+        return True
+    case _:
+      return False
+
+def get_arg(t):
+  match t:
+    case Call(loc, tyof1, rator, [arg]):
+      return arg
+    case _:
+      raise Exception('get_arg')
+  
+def mkBZero(loc, zname='bzero', ty=None):
+  return Var(loc, ty, zname, [])
+
+def mkIncDub(loc, arg, cname='inc_dub', ty=None):
+  return Call(loc, ty, Var(loc, None, cname, []), [arg])
+
+def mkDubInc(loc, arg, cname='dub_inc', ty=None):
+  return Call(loc, ty, Var(loc, None, cname, []), [arg])
+
+def uint_inc(loc, x):
+    if isBZero(x):
+        return mkIncDub(loc, x)
+    elif isDubInc(x):
+        return mkIncDub(loc, uint_inc(loc, get_arg(x)))
+    elif isIncDub(x):
+        return mkDubInc(loc, get_arg(x))
+    else:
+        error(loc, 'not a UInt constructor: ' + str(x))
+  
+def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc', incdub='inc_dub', uint_ty=None):
+    if n == 0:
+        return mkBZero(loc, bzero, uint_ty)
+    else:
+        return uint_inc(loc, intToUInt(loc, n - 1, bzero, dubinc, incdub, uint_ty))
+    
 def mkZero(loc, zname='zero', ty=None):
   return Var(loc, ty, zname, [])
 
@@ -3478,6 +3561,19 @@ def natToInt(t):
       if base_name(name) == 'suc':
       return 1 + natToInt(arg)
 
+def uintToInt(t):
+  match t:
+    case Var(loc, tyof, name, rs) if base_name(name) == 'bzero':
+      return 0
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'dub_inc':
+      return 2 * (1 + uintToInt(arg))
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'inc_dub':
+      return 1 + 2 * uintToInt(arg)
+    case _:
+      raise Exception('uintToInt: not a uint ' + str(t))
+  
 def mkPos(loc, arg):
   return Call(loc, None, Var(loc, None, 'pos', []), [arg])
 
@@ -3486,9 +3582,9 @@ def mkNeg(loc, arg):
 
 def intToDeduceInt(loc, n, sign):
   if sign == 'PLUS':
-    return mkPos(loc, intToNat(loc, n))
+    return mkPos(loc, intToUInt(loc, n))
   else:
-    return mkNeg(loc, intToNat(loc, n - 1))
+    return mkNeg(loc, intToUInt(loc, n - 1))
 
 def isDeduceInt(t):
   match t:
@@ -3613,9 +3709,9 @@ def isEmptySet(t):
     case _:
       return False
 
-@dataclass
+@dataclass(kw_only=True)
 class Binding(AST):
-  pass
+  visibility : str = 'public'
 
 @dataclass
 class TypeBinding(Binding):
@@ -3671,6 +3767,13 @@ class Env:
         return k
     return None
 
+  def base_to_overloads(self, name):
+    overloads = []
+    for k in self.dict.keys():
+      if base_name(k) == name:
+        overloads.append(k)
+    return overloads
+
   def __str__(self):
     return ',\n'.join(['\t' + name2str(k) + ': ' + str(v) \
                        for (k,v) in reversed(self.dict.items())])
@@ -3688,9 +3791,9 @@ class Env:
                        for (k,v) in reversed(self.dict.items()) \
                        if isinstance(v,TermBinding) and v.local])
   
-  def declare_type(self, loc, name):
+  def declare_type(self, loc, name, vis = 'public'):
     new_env = Env(self.dict)
-    new_env.dict[name] = TypeBinding(loc)
+    new_env.dict[name] = TypeBinding(loc, visibility=vis)
     return new_env
 
   def declare_type_vars(self, loc, type_vars):
@@ -3699,27 +3802,23 @@ class Env:
       new_env = new_env.declare_type(loc, x)
     return new_env
   
-  def define_type(self, loc, name, defn):
+  def define_type(self, loc, name, defn, visibility = 'public'):
     if defn == None:
       error(loc, 'None not allowed in define_type')
     new_env = Env(self.dict)
-    new_env.dict[name] = TypeBinding(loc, defn)
+    new_env.dict[name] = TypeBinding(loc, defn, visibility=visibility)
     return new_env
   
-  def declare_term_var(self, loc, name, typ, local = False, opaque = False, filename=''):
+  def declare_term_var(self, loc, name, typ, local = False, visibility='public'):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ)
+    new_env.dict[name] = TermBinding(loc, typ, visibility=visibility)
     new_env.dict[name].local = local
-
-    if opaque:
-      new_env.dict['opaque'].append((name, filename))
-
-    
     return new_env
 
   def declare_assoc(self, loc, opname, typarams, typ):
+    #print('declaring assoc ' + opname + ' ' + str(typ))
     new_env = Env(self.dict)
     full_name = '__associative_' + opname
     if full_name in new_env:
@@ -3735,13 +3834,13 @@ class Env:
       new_env = new_env.declare_term_var(loc, x, ty, local)
     return new_env
   
-  def define_term_var(self, loc, name, typ, val):
+  def define_term_var(self, loc, name, typ, val, visibility='public'):
     if False and typ == None:
       error(loc, 'None not allowed as type in define_term_var')
     if val == None:
       error(loc, 'None not allowed as value in define_term_var')
     new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ, val)
+    new_env.dict[name] = TermBinding(loc, typ, val, visibility=visibility)
     return new_env
 
   def define_term_vars(self, loc, xv_pairs):
@@ -3787,7 +3886,7 @@ class Env:
     return False
 
   def _value_of_term_var(self, curr, name):
-    if name in curr.keys():
+    if name in curr.keys(): # the name '=' is not in the env
       return curr[name].defn
     else:
       return None
@@ -3900,7 +3999,7 @@ def print_theorems(filename, ast):
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
     elif isinstance(s, Postulate):
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
-    elif isinstance(s, Declaration) and not s.isPrivate:
+    elif isinstance(s, Declaration) and not s.visibility == 'private':
       to_print.append(s.pretty_print(0))
   
   if len(to_print) == 0:

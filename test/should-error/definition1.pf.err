@@ -1,2 +1,2 @@
-./test/should-error/definition1.pf:8.16-8.56: could not find a place to expand definition of length in:
+./test/should-error/definition1.pf:9.16-9.56: could not find a place to expand definition of length in:
 	length(xs) = 0

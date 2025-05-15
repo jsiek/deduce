@@ -1,5 +1,5 @@
 import List
-import Nat
+import UInt
 
 theorem empty_iff_0: all E:type. all l:List<E>.
   length(l) = 0 <=> l = empty
@@ -17,7 +17,7 @@ proof
       case node(n, xs') {
         suppose len_z
         conclude false
-          by apply not_one_add_zero[length(xs')] to
+          by apply uint_not_one_add_zero[length(xs')] to
             expand length in len_z
       }
     }

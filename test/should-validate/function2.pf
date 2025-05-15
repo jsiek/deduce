@@ -1,4 +1,4 @@
-import Nat
+import UInt
 import Pair
 
 fun swap<T,U>(p : Pair<T,U>) {

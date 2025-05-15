@@ -1,8 +1,8 @@
 import Nat
 
-define one = 1
+define one = ℕ1
 
-theorem T: one = 1
+theorem T: one = ℕ1
 proof
   injective one
   ?

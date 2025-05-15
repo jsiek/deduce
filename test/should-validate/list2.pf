@@ -1,19 +1,19 @@
-import Nat
+import UInt
 import List
 
 theorem length_node42: length([42]) = 1
 proof
   suffices 1 + 0 = 1
       by expand 2*length.
-  add_zero[1]
+  uint_add_zero[1]
 end
 
-theorem length_one_nat_again: all x:Nat. length([x]) = 1
+theorem length_one_nat_again: all x:UInt. length([x]) = 1
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   suffices 1 + 0 = 1
       by expand 2*length.
-  add_zero[1]
+  uint_add_zero[1]
 end
 
 theorem append_xy:

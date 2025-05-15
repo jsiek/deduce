@@ -1,4 +1,4 @@
 import Nat
 import OpaqueTests
 
-print natToNatHat(5)
+print natToNatHat(ℕ5)

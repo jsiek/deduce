@@ -1,4 +1,4 @@
-import Nat
+import UInt
 import Pair
 
 define swap = fun<T, U> p:Pair<T,U> { pair(second(p), first(p)) }

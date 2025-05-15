@@ -1,7 +1,5 @@
 ./test/should-error/function_case_missing_equal.pf:6.1-8.9: while parsing
-	declaration ::= union | rec_function | function | definition
-./test/should-error/function_case_missing_equal.pf:6.1-8.9: while parsing
-	statement ::= "function" identifier type_params_opt "(" type_list ")"
+	statement ::= "recursive" identifier type_params_opt "(" type_list ")"
 			 "->" type "{" fun_case* "}"
 
 ./test/should-error/function_case_missing_equal.pf:8.3-8.9: while parsing

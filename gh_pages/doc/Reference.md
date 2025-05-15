@@ -16,15 +16,8 @@ A vertical bar separates alternatives right-hand sides in a grammar rule.
 term ::= term "+" term
 ```
 
-The addition function for natural numbers is defined in `Nat.pf`
-as follows.
-
-```
-function operator +(Nat,Nat) -> Nat {
-  operator +(0, m) = m
-  operator +(suc(n), m) = suc(n + m)
-}
-```
+The addition operator for unsigned integers is defined in `UInt.pf`
+and the one for integers is defined in `Int.pf`.
 
 Example:
 
@@ -85,12 +78,12 @@ end
 ```
 
 ```{.deduce^#all_example_intro}
-theorem all_example_intro: all x:Nat,y:Nat,z:Nat. x + y + z = z + y + x
+theorem all_example_intro: all x:UInt,y:UInt,z:UInt. x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   equations
-    x + y + z = y + x + z by replace add_commute[x,y].
-          ... = z + y + x by add_commute[y+x,z]
+    x + y + z = y + x + z by replace uint_add_commute[x,y].
+          ... = z + y + x by uint_add_commute[y+x,z]
 end
 ```
 
@@ -129,8 +122,8 @@ Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 ```{.deduce^#and_example_intro}
 theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
 proof
-  have eq1: 1 = 0 + 1 by expand operator+.
-  have eq2: 0 = 0 + 0 by expand operator+.
+  have eq1: 1 = 0 + 1 by evaluate
+  have eq2: 0 = 0 + 0 by evaluate
   conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
 end
 ```
@@ -221,9 +214,9 @@ The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
 Example:
 
 ```{.deduce^#arbitrary_example}
-theorem arbitrary_example: all x:Nat,y:Nat. if x = y then y = x
+theorem arbitrary_example: all x:UInt,y:UInt. if x = y then y = x
 proof
-  arbitrary x:Nat,y:Nat
+  arbitrary x:UInt,y:UInt
   conclude if x = y then y = x by
     assume: x = y
     symmetric (recall x = y)
@@ -264,9 +257,9 @@ The proof `X` may use the `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
 
 ```{.deduce^#assume_example}
-theorem assume_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
+theorem assume_example: all x:UInt,y:UInt. if (x = y) then (1 + x = 1 + y)
 proof
-  arbitrary x:Nat,y:Nat
+  arbitrary x:UInt,y:UInt
   assume prem: x = y
   conclude 1 + x = 1 + y  by replace prem.
 end
@@ -385,7 +378,7 @@ if `X` is a proof of formula `P` where the `x`'s replaced by the `e`'s.
 Example:
 
 ```{.deduce^#choose_example}
-theorem choose_example: some x:Nat. 6 = 2 * x
+theorem choose_example: some x:UInt. 6 = 2 * x
 proof
   choose 3
   conclude 6 = 2 * 3   by evaluate
@@ -411,10 +404,13 @@ so that `(g ∘ f)(x) = g(f(x))`.
 
 Example:
 
-Applying the successor function `suc` (add 1) to `3` yields `5`.
+The composition of the `add1` with itself produces a function that
+adds `2`. So applying that to `3` yields `5`.
 
 ```{.deduce^#compose_example}
-assert (suc ∘ suc)(3) = 5
+fun add1(x : UInt) { 1 + x }
+
+assert (add1 ∘ add1)(3) = 5
 ```
 
 ## Conclude (Proof)
@@ -439,7 +435,7 @@ Example:
 ```{.deduce^#conclude_example}
 theorem conclude_example: 1 + 1 = 2
 proof
-  conclude 1 + 1 = 2 by expand 2* operator+.
+  conclude 1 + 1 = 2 by evaluate
 end
 ```
 
@@ -545,12 +541,12 @@ natural number `5`, and the name `six` with the natural number `6`.
 
 ```{.deduce^#define_example}
 define five = 2 + 3
-define six : Nat = 1 + five
+define six : UInt = 1 + five
 ```
 
 Optionally, the type can be specified after the name, following a
 colon.  In the above, `six` holds a natural number, so its type is
-`Nat`.
+`UInt`.
 
 ## Define (Term)
 
@@ -574,12 +570,12 @@ This associates a name with a term for use in the following proof.
 (Note: there is no semicolon after the term when using `define` in a proof.)
 
 ```{.deduce^#define_proof_example}
-theorem define_proof_example: all x:Nat. 2 * (x + x + x) = (x + x + x) + (x + x + x)
+theorem define_proof_example: all x:UInt. 2 * (x + x + x) = (x + x + x) + (x + x + x)
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   define y = x + x + x
-  suffices y + y + 0 = y + y  by expand 3* operator*.
-  replace add_zero[y].
+  show 2 * y = y + y
+  uint_two_mult
 end
 ```
 
@@ -620,9 +616,9 @@ name is mentioned in the list. If one of the specified names does not
 appear in the formula, Deduce signals an error.
 
 ```{.deduce^#expand_in_example}
-theorem expand_in_example: all ls:List<Nat>. if length(ls) = 0 then ls = []
+theorem expand_in_example: all ls:List<UInt>. if length(ls) = 0 then ls = []
 proof
-  arbitrary ls:List<Nat>
+  arbitrary ls:List<UInt>
   switch ls {
     case [] {
       .
@@ -630,8 +626,7 @@ proof
     case node(x, ls') {
       assume A: length(node(x, ls')) = 0
       have B: 1 + length(ls') = 0  by expand length in A
-      have C: suc(length(ls')) = 0 by expand operator+ in B
-      conclude false by C
+      conclude false by apply uint_not_one_add_zero to B
     }
   }
 end
@@ -643,11 +638,11 @@ end
 term ::= term "/" term
 ```
 
-The division function for `Nat` and `Pos` is defined in `Nat.pf`.
-The main theorem is `division_remainder` which states that
+The division function for `UInt` is defined in `UInt.pf`.  The main
+theorem is `uint_div_mod` which states, assume `m` is positive, that
 
 ```
-(n / m) * pos2nat(m) + (n % m) = n
+(n / m) * m + (n % m) = n
 ```
 
 Example:
@@ -707,14 +702,14 @@ around the region of the right-hand side that you want to change.
 Example:
 
 ```{.deduce^#equations_example}
-theorem equations_example: all x:Nat, y:Nat, z:Nat.
+theorem equations_example: all x:UInt, y:UInt, z:UInt.
   x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   equations
-    x + y + z = x + z + y      by replace add_commute[y].
-          ... = #z + x# + y    by replace add_commute.
-          ... = z + y + x      by replace add_commute[x].
+    x + y + z = x + z + y      by replace uint_add_commute[y].
+          ... = #z + x# + y    by replace uint_add_commute.
+          ... = z + y + x      by replace uint_add_commute[x].
 end
 ```
 
@@ -724,10 +719,10 @@ expand the definition of `length` in the right-hand side of the second
 equation.
 
 ```{.deduce^#equations_expand_example}
-theorem equations_expand_example: all x:Nat, y:Nat, xs:List<Nat>.
+theorem equations_expand_example: all x:UInt, y:UInt, xs:List<UInt>.
   length(node(x, xs)) = length(node(y, xs))
 proof
-  arbitrary x:Nat, y:Nat, xs:List<Nat>
+  arbitrary x:UInt, y:UInt, xs:List<UInt>
   equations
     length(node(x,xs)) = 1 + length(xs)         by expand length.
                    ... = # length(node(y,xs)) # by expand length.
@@ -765,12 +760,12 @@ To prove that two functions are equal, it is sufficient to prove that
 they always produce equal outputs given equal inputs.
 
 ```{.deduce^#extensionality_example}
-define inc = fun x:Nat { pred(suc(suc(x))) }
+define inc = fun x:UInt { pred(suc(suc(x))) }
 
 theorem extensionality_example: inc = suc
 proof
   extensionality
-  arbitrary x:Nat
+  arbitrary x:UInt
   conclude inc(x) = suc(x) by expand inc | pred.
 end
 ```
@@ -810,7 +805,7 @@ function enclosed in braces.  For example, the following defines a
 function for computing the area of a rectangle.
 
 ```{.deduce^#function_term_example}
-define area = fun h:Nat, w:Nat { h * w }
+define area = fun h:UInt, w:UInt { h * w }
 ```
 
 To call a function, apply it to the appropriate number and type of
@@ -838,7 +833,7 @@ then the parameter list enclosed in `(` and `)`, and finally
 the body of the function enclosed in `{` and `}`.
 
 ```{.deduce^#fun_interchange_example}
-fun interchange(p : Pair<Nat,Nat>) {
+fun interchange(p : Pair<UInt,UInt>) {
   pair(second(p), first(p))
 }
 
@@ -928,7 +923,7 @@ within a proof.
 formula ::= term ">" term
 ```
 
-The greater-than operator on natural numbers is defined in `Nat.pf`
+The greater-than operator on natural numbers is defined in `UInt.pf`
 and is defined in terms of less-than as follows
 
 ```
@@ -951,7 +946,7 @@ formula ::= term "≥" term
 formula ::= term ">=" term
 ```
 
-The greater-than-or-equal operator on natural numbers is defined in `Nat.pf`
+The greater-than-or-equal operator on natural numbers is defined in `UInt.pf`
 and is defined in terms of less-than-or-equal as follows
 
 ```
@@ -1139,17 +1134,17 @@ the formula `P` with `x` replaced by the constructor argument `ein`.
 Example:
 
 ```{.deduce^#induction_example}
-theorem induction_example: all n:Nat.
-  n + 0 = n
+theorem induction_example: all ls:List<UInt>.
+  ls ++ [] = ls
 proof
-  induction Nat
-  case 0 {
-    conclude 0 + 0 = 0   by expand operator+.
+  induction List<UInt>
+  case [] {
+    conclude @[]<UInt> ++ [] = []   by expand operator++.
   }
-  case suc(n') assume IH: n' + 0 = n' {
+  case node(x, ls') assume IH: ls' ++ [] = ls' {
     equations
-      suc(n') + 0 = suc(n' + 0)  by expand operator+.
-              ... = suc(n')      by replace IH.
+      node(x,ls') ++ [] = node(x, ls' ++ [])  by expand operator++.
+                    ... = node(x, ls')        by replace IH.
   }
 end
 ```
@@ -1338,9 +1333,9 @@ left-hand side of each equation. However, you can override this
 default by placing explicit marks.
 
 ```{.deduce^#mark_example}
-theorem mark_example: all x:Nat. if x = 1 then x + x + x = 3
+theorem mark_example: all x:UInt. if x = 1 then x + x + x = 3
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   assume: x = 1
   equations
     #x# + x + x = 1 + x + x   by replace recall x = 1.
@@ -1358,12 +1353,10 @@ end
 term ::= term "%" term
 ```
 
-The modulo operator is defined in `Nat.pf` as follows.  The first
-argument is a natural number (of type `Nat`) and the second argument
-is a positive number (of type `Pos`).
+The modulo operator is defined in `UInt.pf` as follows. 
 
 ```
-n % m = n - (n / m) * pos2nat(m)
+n % m = n ∸ (n / m) * m
 ```
 
 Example:
@@ -1460,11 +1453,11 @@ and it may also refer to the proof of `P` by writing `recall P`.
 Example:
 
 ```{.deduce^#obtain_example}
-theorem obtain_example: all n:Nat. 
-  if (some x:Nat. n = 4 * x) then (some x:Nat. n = 2 * x)
+theorem obtain_example: all n:UInt. 
+  if (some x:UInt. n = 4 * x) then (some x:UInt. n = 2 * x)
 proof
-  arbitrary n:Nat
-  assume prem: (some x:Nat. n = 4 * x)
+  arbitrary n:UInt
+  assume prem: (some x:UInt. n = 4 * x)
   obtain x where m4: n = 4 * x from prem
   choose 2 * x
   equations
@@ -1563,15 +1556,19 @@ conclusion ::= "."
 A period is a proof of the formula `true` in Deduce.
 
 
-## Pos (Positive Integers)
-
-The type of positive integers `Pos` is defined in `Nat.pf`.
-
-
 ## Private (Visibility)
 
 ```
 visibility ::= "private"
+```
+
+See [Visibility](#visibility).
+
+
+## Public (Visibility)
+
+```
+visibility ::= "public"
 ```
 
 See [Visibility](#visibility).
@@ -1682,18 +1679,18 @@ constructor in the union of its first parameter. For example, here's
 the definition of a `length` function for lists of natural numbers.
 
 ```{.deduce^#function_length_example}
-union NatList {
+union UIntList {
   Empty
-  Node(Nat, NatList)
+  Node(UInt, UIntList)
 }
 
-recursive length(NatList) -> Nat {
+recursive length(UIntList) -> UInt {
   length(Empty) = 0
   length(Node(n, next)) = 1 + length(next)
 }
 ```
 
-There are two clauses in the body of `length` because the `NatList` union
+There are two clauses in the body of `length` because the `UIntList` union
 has two constructors. The clause for `Empty` says that its length is
 `0`.  The clause for `Node` says that its length is one more than the
 length of the rest of the linked list.  Deduce approves of the
@@ -1733,9 +1730,9 @@ hand, rewriting with an equality may apply to multiple disjoint
 locations in a formula.
 
 ```{.deduce^#replace_example}
-theorem replace_example: all x:Nat,y:Nat. if (x = y) then (1 + x = 1 + y)
+theorem replace_example: all x:UInt,y:UInt. if (x = y) then (1 + x = 1 + y)
 proof
-  arbitrary x:Nat,y:Nat
+  arbitrary x:UInt,y:UInt
   assume prem: x = y
   suffices 1 + y = 1 + y by replace prem.
   .
@@ -1755,14 +1752,14 @@ The algorithm for rewriting described in the entry for
 [Replace (Proof)](#replace-proof).
 
 ```{.deduce^#replace_in_example}
-theorem replace_in_example: all x:Nat, y:Nat.
+theorem replace_in_example: all x:UInt, y:UInt.
   if x < y then not (x = y)
 proof
-  arbitrary x:Nat, y:Nat
+  arbitrary x:UInt, y:UInt
   assume: x < y
   assume: x = y
   have: y < y by replace (recall x = y) in (recall x < y)
-  conclude false by apply less_irreflexive[y] to (recall y < y)
+  conclude false by apply uint_less_irreflexive[y] to (recall y < y)
 end
 ```
 
@@ -1832,43 +1829,42 @@ define F = single(1) ∪ single(2)
 theorem subset_example: E ⊆ F
 proof
   expand E | F | operator ⊆
-  arbitrary x:Nat
+  arbitrary x:UInt
   assume x1: x ∈ single(1)
-  apply union_member<Nat>[x, single(1), single(2)] to x1
+  apply union_member<UInt>[x, single(1), single(2)] to x1
 end
 ```
 
-## Subtract
+## Subtract (Producing Integers)
 
 ```
 term ::= term "-" term
 ```
 
-Subtraction for natural numbers is defined in `Nat.pf` as follows
-
-```
-function operator -(Nat,Nat) -> Nat {
-  operator -(0, m) = 0
-  operator -(suc(n), m) =
-    switch m {
-      case 0 { suc(n) }
-      case suc(m') { n - m' }
-    }
-}
+```{.deduce^#subtract_example}
+assert 3 - 2 = +1
+assert 3 - 3 = +0
+assert 2 - 3 = -1
 ```
 
-Note that subtraction on natural numbers is different from subtraction
-on integers, as they are no negative natural numbers. If you subtract
-a larger natural number from a smaller natural number, the result is `0`.
+## Subtraction of Unsigned Integers (aka. monus or truncated subtraction)
 
-```{.deduce^subtract_example}
-assert 3 - 2 = 1
-assert 3 - 3 = 0
-assert 2 - 3 = 0
+```
+term ::= term "∸" term
 ```
 
-To search for theorems about subtraction in `Nat.thy`, search for
-theorems with `sub` in the name.
+The monus operator is different from ordanary subtraction on integers,
+as they are no negative unsigned integers. If you subtract a larger
+unsigned integer from a smaller one, the result of monus is `0`.
+
+```{.deduce^#monus_example}
+assert 3 ∸ 2 = 1
+assert 3 ∸ 3 = 0
+assert 2 ∸ 3 = 0
+```
+
+To search for theorems about monus in `UInt.thy`, search for
+theorems with `monus` in the name.
 
 ## Suffices (Proof Statement)
 
@@ -1906,14 +1902,15 @@ into
 ```
 
 by two uses of the definition of `length`.
-We then prove the new goal with theorem `add_zero` from `Nat.thm`.
+We then prove the new goal with theorem `uint_add_zero` from `UInt.thm`.
 
 ```{.deduce^#suffices_example}
 theorem suffices_example:
   length(node(3, empty)) = 1
 proof
-  suffices 1 + 0 = 1  by expand 2*length.
-  add_zero
+  expand 2*length
+  show 1 + 0 = 1
+  uint_add_zero
 end
 ```
 
@@ -1980,17 +1977,15 @@ and similarly for the other cases.
 Example:
 
 ```{.deduce^#switch_proof_example}
-theorem switch_proof_example: all x:Nat. x = 0 or 0 < x
+theorem switch_proof_example: all x:bool. x = true or x = false
 proof
-  arbitrary x:Nat
+  arbitrary x:bool
   switch x {
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
+    case true {
+      conclude true = true or true = false by .
     }
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x')
-          by expand operator < | 2* operator ≤.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    case false {
+      conclude false = true or false = false by .
     }
   }
 end
@@ -2110,8 +2105,8 @@ constructors `Leaf` and `Internal` to create the nodes.
 
 ```{.deduce^#union_example}
 union Tree {
-  Leaf(Nat)
-  Internal(Tree, Nat, Tree)
+  Leaf(UInt)
+  Internal(Tree, UInt, Tree)
 }
 
 /*
@@ -2160,13 +2155,13 @@ optionally be annotated with its type.
 ## Visibility
 
 ```
-visibility ::= ε | "private" | "opaque"
+visibility ::= ε | "public" | "private" | "opaque"
 ```
 
 The visibility of a statement controls how the defined name can be
 used outside of the current file, that is, via an import.
 
-* The default visibility is public, which means the name can be freely used outside the current file.
+* The default visibility is `public`, which means the name can be freely used outside the current file.
 * A `private` name cannot be mentioned outside of the current file.
 * An `opaque` name can be mentioned in other files but it cannot be expanded (via the `expand` or `evaluate` statements). The constructors of an `opaque` union are always private.
 
@@ -2174,6 +2169,8 @@ used outside of the current file, that is, via an import.
 <!--
 ```{.deduce^file=Reference.pf} 
 import Nat
+import UInt
+import Int
 import List
 import Set
 import MultiSet
@@ -2230,6 +2227,8 @@ import Pair
 <<switch_proof_example>>
 <<subset_example>>
 <<suffices_example>>
+<<subtract_example>>
+<<monus_example>>
 <<true_example>>
 <<union_example>>
 <<fun_interchange_example>>

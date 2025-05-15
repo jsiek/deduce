@@ -1,8 +1,8 @@
 import Nat
 
-theorem T: all x:Nat. if x = 1 + 2 + 3 then x = 6
+theorem T: all x:Nat. if x = ℕ1 + ℕ2 + ℕ3 then x = ℕ6
 proof
   arbitrary x:Nat
-  assume prem: x = 1 + 2 + 3
+  assume prem: x = ℕ1 + ℕ2 + ℕ3
   evaluate in prem
 end

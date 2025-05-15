@@ -1,9 +1,10 @@
-import Nat
+import UInt
 
-theorem T: if (some x:Nat. x = 0) then (some x:Nat. x = 1)
+theorem T: if (some x:UInt. x = 0) then (some x:UInt. x = 1)
 proof
   suppose prem
   obtain y where yeqz from prem
-  choose suc(y)
-  replace yeqz.
+  choose 1 + y
+  replace yeqz
+  evaluate
 end

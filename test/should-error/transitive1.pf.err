@@ -1,11 +1,11 @@
-./test/should-error/transitive1.pf:8.24-8.34: for transitive, from proofs of
+./test/should-error/transitive1.pf:8.25-8.35: for transitive, from proofs of
 	one = one
 and
 	one = one
 the transitive rule concludes
 	one = one
 but that does not match the goal
-	1 = one
+	ℕ1 = one
 
 Givens:
 	_: one = one

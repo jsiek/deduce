@@ -3,11 +3,11 @@
   */
 
 import Base
-import Nat
+import UInt
 import Set
 
 opaque union MultiSet<T> {
-  m_fun(fn(T) -> Nat)
+  m_fun(fn(T) -> UInt)
 }
 
 opaque fun cnt<T>(M : MultiSet<T>) {
@@ -28,9 +28,9 @@ opaque fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
   m_fun(λx:T{ cnt(P)(x) + cnt(Q)(x) })
 }
 
-lemma cnt_m_fun: all T:type, f: fn T -> Nat. cnt(m_fun(f)) = f
+lemma cnt_m_fun: all T:type, f: fn T -> UInt. cnt(m_fun(f)) = f
 proof
-  arbitrary T:type, f:(fn T -> Nat)
+  arbitrary T:type, f:(fn T -> UInt)
   expand cnt.
 end
          
@@ -81,9 +81,9 @@ proof
   expand m_empty
   switch A for operator .+., cnt {
     case m_fun(f) {
-      have eq: (λx{(f(x) + 0)} : fn T->Nat) = f
+      have eq: (λx{(f(x) + 0)} : fn T->UInt) = f
         by extensionality arbitrary x:T
-           replace add_zero[f(x)].
+           replace uint_add_zero[f(x)].
       replace eq.
     }
   }
@@ -99,7 +99,7 @@ proof
     case m_fun(f) {
       have eq: (λx:T{0 + f(x)}) = f by {
         extensionality arbitrary x:T
- 	      expand operator +.
+        replace uint_zero_add.
       }
       expand cnt
       replace eq.
@@ -122,7 +122,7 @@ proof
               by expand cnt.
 	        have eq: (λx:T{(f(x) + g(x))}) = λx:T{(g(x) + f(x))}
 	          by extensionality arbitrary x:T
-	             replace add_commute[f(x)][g(x)].
+	             replace uint_add_commute[f(x)][g(x)].
 	        replace eq.
 	      }
       }
@@ -222,15 +222,16 @@ proof
       switch B {
         case m_fun(g) {
           expand cnt
-          switch f(x) {
-            case 0 assume fxz {
-              replace fxz
-              evaluate
-            }
-            case suc(fx') assume fxs {
-              replace fxs
-              evaluate
-            }
+          cases uint_zero_or_positive[f(x)]
+          case fxz {
+            replace fxz
+            replace uint_zero_add.
+          }
+          case fx_pos {
+            obtain y where fxy: f(x) = 1 + y from apply uint_positive_add_one to fx_pos
+            replace fxy
+            replace (apply eq_false to uint_not_one_add_zero[y + g(x)])
+            replace (apply eq_false to uint_not_one_add_zero[y]).
           }
         }
       }

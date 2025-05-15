@@ -1,11 +1,11 @@
 import Nat
 
-theorem T: all n:Nat. (0 + n) + (0 + n) = n + n
+theorem T: all n:Nat. (ℕ0 + n) + (ℕ0 + n) = n + n
 proof
   arbitrary n:Nat
-  have eq1: # 0 + n # + (0 + n) = n + (0 + n)
+  have eq1: # ℕ0 + n # + (ℕ0 + n) = n + (ℕ0 + n)
     by replace zero_add.
-  have eq2: n + (0 + n) = n + n
+  have eq2: n + (ℕ0 + n) = n + n
     by replace zero_add.
   transitive eq1 eq2
 end

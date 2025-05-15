@@ -1,10 +1,10 @@
 import Nat
 
 theorem T:
-  if (all x:Nat. if x = 0 then suc(x) = 1)
-  then 1 = 1
+  if (all x:Nat. if x = ℕ0 then suc(x) = ℕ1)
+  then ℕ1 = ℕ1
 proof
   suppose prem
-  have zz: 0 = 0 by .
+  have zz: ℕ0 = ℕ0 by .
   apply prem to zz
 end

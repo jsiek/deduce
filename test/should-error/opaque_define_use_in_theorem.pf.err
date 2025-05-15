@@ -1,1 +1,1 @@
-./test/should-error/opaque_define_use_in_theorem.pf:5.5-5.16: Cannot expand opaque definition of f_id
+./test/should-error/opaque_define_use_in_theorem.pf:5.3-5.14: Cannot expand opaque definition of f_id

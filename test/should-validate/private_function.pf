@@ -1,9 +1,9 @@
-import Nat
+import UInt
 import List
 
-private recursive add_one_all(List<Nat>) -> List<Nat> {
+private recursive add_one_all(List<UInt>) -> List<UInt> {
     add_one_all([]) = []
-    add_one_all(node(x, xs)) = node(suc(x), add_one_all(xs))
+    add_one_all(node(x, xs)) = node(1 + x, add_one_all(xs))
 }
 
 assert add_one_all([1, 2, 3, 4]) = [2,3,4,5]

@@ -1,5 +1,6 @@
-import Nat
+import UInt
 import Base
+import Nat
 
 /*
 
@@ -9,8 +10,8 @@ import Base
 */
 
 union Int {
-    pos(Nat)    // +10 = pos(10)
-    negsuc(Nat) // -10 = negsuc(9)
+    pos(UInt)    // pos(n) = +n
+    negsuc(UInt) // negsuc(n) = -(1+n) 
 }
 
 // Absolute value
@@ -18,7 +19,7 @@ union Int {
 fun abs(x : Int) {
   switch x {
     case pos(n) { n }
-    case negsuc(n) { suc(n) }
+    case negsuc(n) { 1 + n }
   }
 }
 
@@ -43,7 +44,7 @@ private fun flip(s : Sign) {
   }
 }
 
-private fun operator*(s1 : Sign, s2 : Sign) {
+fun operator*(s1 : Sign, s2 : Sign) {
   switch s1 {
     case positive { s2 }
     case negative { flip(s2) }
@@ -54,39 +55,37 @@ private fun operator*(s1 : Sign, s2 : Sign) {
 
 fun operator -(x : Int) {
   switch x {
-    case pos(n) { 
-      switch n {
-        case zero { pos(zero) }
-        case suc(n') { negsuc(n') }
-      }
+    case pos(n) {
+      if n = 0 then pos(0)
+      else negsuc(n ∸ 1)
     }
-    case negsuc(n){ pos(suc(n)) }
+    case negsuc(n){ pos(1 + n) }
   }
 }
 
-fun operator -(n:Nat) {
+fun operator -(n:UInt) {
   - pos(n)
 }
 
-private fun operator*(s : Sign, n : Int) {
+fun operator*(s : Sign, n : Int) {
   switch s {
     case positive { n }
     case negative { -n }
   }
 }
 
-fun operator*(s : Sign, n : Nat) { s * pos(n) }
+fun operator*(s : Sign, n : UInt) { s * pos(n) }
 
 
-// Subtraction of natural numbers
+// Subtraction of unsigned integers, producing integer
 
-fun operator ⊝(x:Nat, y:Nat) {
+fun operator ⊝(x:UInt, y:UInt) {
   if x < y then
-    -(y - x)
+    -(y ∸ x)
   else
-    pos(x - y)
+    pos(x ∸ y)
 }
-
+  
 // Addition
   
 fun operator +(x : Int, m :Int) {
@@ -94,25 +93,26 @@ fun operator +(x : Int, m :Int) {
     case pos(n) {
       switch m {
         case pos(n') { pos(n + n') }
-        case negsuc(n') { n ⊝ suc(n') } 
+        case negsuc(n') { n ⊝ (1 + n') } 
       }
     }
     case negsuc(n) { 
       switch m {
-        case pos(n') { n' ⊝ suc(n) }
-        case negsuc(n') { negsuc(suc(n + n')) }
+        case pos(n') { n' ⊝ (1 + n) }
+        case negsuc(n') { negsuc(1 + n + n') }
       }
     }
   }
 }
-fun operator + (n:Nat, m:Int) { pos(n) + m }
-fun operator + (n:Int, m:Nat) { n + pos(m) }
+fun operator + (n:UInt, m:Int) { pos(n) + m }
+fun operator + (n:Int, m:UInt) { n + pos(m) }
 
 // Subtraction
 
 fun operator - (n:Int, m:Int) { n + (- m) }
-fun operator - (n:Nat, m:Int) { pos(n) - m }
-fun operator - (n:Int, m:Nat) { n - pos(m) }
+fun operator - (n:UInt, m:Int) { pos(n) - m }
+fun operator - (n:Int, m:UInt) { n - pos(m) }
+fun operator -(x:UInt, y:UInt) { pos(x) - pos(y) }
 
 // Multiplication
 
@@ -120,9 +120,9 @@ fun operator *(x : Int, y : Int) {
   (sign(x) * sign(y)) * (abs(x) * abs(y))
 }
 
-fun operator * (n:Nat, m:Int) { pos(n) * m }
+fun operator * (n:UInt, m:Int) { pos(n) * m }
 
-fun operator * (n:Int, m:Nat) { n * pos(m) }
+fun operator * (n:Int, m:UInt) { n * pos(m) }
 
 // Division
 
@@ -130,7 +130,7 @@ fun operator / (n:Int, m:Int) {
   (sign(n) * sign(m)) * (abs(n) / abs(m))
 }
 
-fun operator / (n:Int, m:Nat) {
+fun operator / (n:Int, m:UInt) {
   sign(n) * (abs(n) / m)
 }
 
@@ -156,68 +156,102 @@ fun operator ≤(a : Int, y : Int) {
 
 // Properties of signs
 
-lemma sign_pos: all n:Nat. sign(pos(n)) = positive
+theorem sign_pos: all n:UInt. sign(pos(n)) = positive
 proof
-  arbitrary n:Nat
+  arbitrary n:UInt
   expand sign.
 end
 
-lemma sign_negsuc: all n:Nat. sign(negsuc(n)) = negative
+theorem sign_negsuc: all n:UInt. sign(negsuc(n)) = negative
 proof
-  arbitrary n:Nat
+  arbitrary n:UInt
   expand sign.
 end
 
-lemma sign_neg_pos: all n:Nat. sign(-pos(suc(n))) = negative
+theorem sign_neg_pos: all n:UInt. sign(-pos(1 + n)) = negative
 proof
-  arbitrary n:Nat
-  expand operator- | sign.
+  arbitrary n:UInt
+  expand operator- | sign
+  replace apply eq_false to uint_not_one_add_zero[n].
 end
 
-lemma mult_pos_any: all s:Sign. positive * s = s
+theorem sign_neg_negsuc: all n:UInt. sign(-negsuc(n)) = positive
+proof
+  arbitrary n:UInt
+  expand operator - | sign.
+end
+
+theorem mult_pos_any: all s:Sign. positive * s = s
 proof
   arbitrary s:Sign
   expand operator*.
 end
 
-lemma mult_pos_neg: positive * negative = negative
+theorem mult_any_pos: all s:Sign. s * positive = s
+proof
+  arbitrary s:Sign
+  expand operator*
+  switch s {
+    case positive {
+      .
+    }
+    case negative {
+      expand flip.
+    }
+  }
+end
+
+theorem mult_pos_neg: positive * negative = negative
 proof
   expand operator*.
 end
 
-lemma mult_neg_pos: negative * positive = negative
+theorem mult_neg_pos: negative * positive = negative
 proof
   expand operator* | flip.
 end
 
-lemma mult_neg_neg: negative * negative = positive
+theorem mult_neg_neg: negative * negative = positive
 proof
   expand operator* | flip.
 end
 
-lemma mult_pos_nat: all n:Nat. positive * n = pos(n)
+theorem mult_pos_uint: all n:UInt. positive * n = pos(n)
 proof
-  arbitrary n:Nat
+  arbitrary n:UInt
   evaluate
 end
 
-lemma mult_neg_nat: all n:Nat. negative * n = - pos(n)
+theorem mult_pos_int: all n:Int. positive * n = n
 proof
-  arbitrary n:Nat
+  arbitrary n:Int
+  switch n {
+    case pos(n') {
+      expand operator*.
+    }
+    case negsuc(n') {
+      expand operator*.
+    }
+  }
+end
+
+theorem mult_neg_uint: all n:UInt. negative * n = - pos(n)
+proof
+  arbitrary n:UInt
   evaluate
 end
 
 // Properties of absolute value and subtraction
 
-lemma abs_pos: all n:Nat. abs(pos(n)) = n
+theorem abs_pos: all n:UInt. abs(pos(n)) = n
 proof
-  arbitrary n:Nat
+  arbitrary n:UInt
   expand abs.
 end
 
-lemma abs_negsuc: all n:Nat. abs(negsuc(n)) = suc(n)
+theorem abs_negsuc: all n:UInt. abs(negsuc(n)) = 1 + n
 proof
-  arbitrary n:Nat
+  arbitrary n:UInt
   expand abs.
 end
 
@@ -226,52 +260,51 @@ proof
   arbitrary n:Int
   switch n {
     case pos(n') {
-      switch n' {
-        case 0 {
-          equations
-                abs(- pos(0)) 
-              = 0              by expand operator- | abs.
-          ... = #abs(pos(0))#  by expand abs.
-       }
-       case suc(n'') {
-          equations
-                abs(- pos(suc(n''))) 
-              = suc(n'')              by expand operator- | abs.
-          ... = #abs(pos(suc(n'')))#  by expand abs.
-       }
-     }
+      have zp: n' = 0 or 0 < n' by uint_zero_or_positive[n']
+      cases zp
+      case n_z {
+        expand operator-
+        replace n_z.
+      }
+      case n_pos {
+        have n_z: not (n' = 0) by apply uint_pos_not_zero to n_pos
+        expand operator-
+        replace apply eq_false to n_z
+        replace abs_negsuc | abs_pos
+        have: 1 ≤ n' by apply uint_pos_implies_one_le to n_pos
+        conclude 1 + (n' ∸ 1) = n' by apply uint_monus_add_identity to recall 1 ≤ n'
+      }
     }
     case negsuc(n') {
-      equations
-            abs(- negsuc(n'))  
-          = suc(n')             by expand operator- | abs.
-      ... = #abs(negsuc(n'))#   by expand abs.
+      expand operator- | abs.
     }
   }
 end
 
 // Properties of negation
 
-lemma neg_pos: all n:Nat.
-	- pos(suc(n)) = negsuc(n)
+theorem neg_zero: - +0 = +0
 proof
-  arbitrary n : Nat
-  expand operator-.
+  evaluate
 end
 
-  
-lemma neg_suc: all n:Nat.
-	- suc(n) = negsuc(n)
+theorem neg_pos: all n:UInt.
+	- pos(1 + n) = negsuc(n)
 proof
-  arbitrary n : Nat
-  switch n {
-    case 0 {
-      expand 2* operator-.
-    }
-    case suc(n') {
-      expand 2* operator-.
-    }
-  }
+  arbitrary n : UInt
+  expand operator-
+  replace apply eq_false to uint_not_one_add_zero[n]
+  have eq: (1 + n) ∸ 1 = n by uint_add_monus_identity
+  replace eq.
+end
+
+theorem neg_suc: all n:UInt.
+	- (1 + n) = negsuc(n)
+proof
+  arbitrary n : UInt
+  expand 2* operator-
+  replace apply eq_false to uint_not_one_add_zero[n]
+  replace uint_add_monus_identity.
 end
 
 theorem neg_involutive: all n:Int. - - n = n
@@ -279,12 +312,29 @@ proof
   arbitrary n:Int
   switch n {
     case pos(n') {
-      switch n' {
-        case 0 { expand operator-. }
-        case suc(n'') { expand operator-. }
+      have zp: n' = 0 or 0 < n' by uint_zero_or_positive[n']
+      cases zp
+      case n_z {
+        expand operator- replace n_z.
+      }
+      case n_pos {
+        expand operator-
+        replace apply eq_false to (apply uint_pos_not_zero to n_pos)
+        replace apply uint_monus_add_identity to (apply uint_pos_implies_one_le to n_pos).
       }
     }
-    case negsuc(n') { expand operator-. }
+    case negsuc(n') {
+      have zp: n' = 0 or 0 < n' by uint_zero_or_positive[n']
+      cases zp
+      case n_z {
+        expand operator- replace n_z  evaluate
+      }
+      case n_pos {
+        expand operator-
+        replace apply eq_false to uint_not_one_add_zero[n']
+        replace uint_add_monus_identity.
+      }
+    }
   }
 end
 
@@ -299,7 +349,11 @@ proof
        evaluate
      }
      case negsuc(n') {
-       evaluate
+       expand operator+ | operator⊝
+       have A: 0 < 1 + n' by uint_zero_less_one_add
+       replace (apply eq_true to A)
+       replace uint_monus_zero
+       neg_suc
      }
   }
 end
@@ -311,10 +365,13 @@ proof
   switch n {
      case pos(n') {
        suffices pos(n' + 0) = pos(n')  by evaluate
-       replace add_zero.
+       replace uint_add_zero.
      }
      case negsuc(n') {
-       suffices - suc(n') = negsuc(n')  by evaluate
+       expand operator+ | operator⊝
+       have A: 0 < 1 + n' by uint_zero_less_one_add
+       replace (apply eq_true to A)
+       replace uint_monus_zero
        neg_suc
      }
   }
@@ -328,7 +385,7 @@ proof
       switch y {
         case pos(y') {
           suffices pos(x' + y') = pos(y' + x') by expand operator+.
-          replace add_commute[x',y'].
+          replace uint_add_commute[x',y'].
         }
         case negsuc(y') {
           expand operator+.
@@ -341,175 +398,243 @@ proof
           expand operator+.
         }
         case negsuc(y') {
-          suffices negsuc(suc(x' + y')) = negsuc(suc(y' + x'))
-              by expand operator+.
-          replace add_commute[x', y'].
+          expand operator+
+          replace uint_add_commute[x', y'].
         }
       }
     }
   }
 end
 
-lemma zero_subo_neg: all n:Nat. 0 ⊝ suc(n) = negsuc(n)
+theorem zero_monuso_neg: all n:UInt. 0 ⊝ (1 + n) = negsuc(n)
 proof
-  arbitrary n:Nat
-  expand operator⊝ | operator< | 2* operator≤ | 2* operator-.
+  arbitrary n:UInt
+  expand operator⊝
+  have A: 0 < 1 + n by uint_zero_less_one_add
+  replace (apply eq_true to A)
+  replace uint_monus_zero
+  neg_suc
 end
 
-lemma int_subo_zero: all n:Nat. n ⊝ 0 = pos(n)
+theorem int_monuso_zero: all n:UInt. n ⊝ 0 = pos(n)
 proof
-  arbitrary n:Nat
-  switch n < 0 for operator⊝ {
-    case true assume n_neg {
-      conclude false by expand operator< | operator≤ in n_neg
-    }
-    case false assume n_pos {
-      replace sub_zero.
-    }
-  }
+  arbitrary n:UInt
+  expand operator⊝
+  replace (apply eq_false to uint_not_less_zero[n])
+  replace uint_monus_zero.
 end
 
 
-lemma int_subo_cancel: all n:Nat. n ⊝ n = +0
+theorem int_monuso_cancel: all n:UInt. n ⊝ n = +0
 proof
-  arbitrary n:Nat
-  switch n < n {
-    case true assume nn_true {
-      conclude false by apply less_irreflexive[n] to replace nn_true.
-    }
-    case false assume nn_false {
-      suffices pos(n - n) = +0   by expand operator ⊝ replace nn_false.
-      replace sub_cancel.
-    }
-  }
+  arbitrary n:UInt
+  expand operator⊝
+  replace (apply eq_false to uint_less_irreflexive[n])
+  replace uint_monus_cancel.
 end
 
-lemma subo_sub: all x:Nat, y:Nat. x ⊝ y = pos(x) - pos(y)
+theorem subo_monus: all x:UInt, y:UInt. x ⊝ y = pos(x) - pos(y)
 proof
-  arbitrary x:Nat, y:Nat
-  switch x {
-    case 0 {
-      switch y {
-        case 0 {
-          evaluate
+  arbitrary x:UInt, y:UInt
+  expand operator⊝ | operator-
+  switch x < y {
+    case true assume x_y {
+      expand operator-
+      have yz_or_not: y = 0 or not (y = 0) by ex_mid[y = 0]
+      cases yz_or_not
+      case yz {
+        have xz: x < 0 by replace (replace yz in x_y).
+        conclude false by apply uint_not_less_zero to xz
+      }
+      case not_yz {
+        replace (apply eq_false to not_yz)
+        have xly: x < y by replace x_y.
+        have xy: x ≤ y by apply uint_less_implies_less_equal to xly
+        have pos_yx: 0 < y ∸ x by {
+          have A: x < x + (y ∸ x)
+            by replace (symmetric apply uint_monus_add_identity[y,x] to xy) in xly
+          have B: x + 0 < x + (y ∸ x)
+            by replace uint_add_zero A
+          apply uint_add_both_sides_of_less[x,0,y∸x] to B
         }
-        case suc(y') {
-          evaluate
-        }
+        have y_pos: 0 < y by apply uint_not_zero_pos to not_yz
+        have one_y: 1 ≤ y by apply uint_pos_implies_one_le to y_pos
+        have one_yx: 1 ≤ y ∸ x by apply uint_pos_implies_one_le to pos_yx
+        replace (apply eq_false to apply uint_pos_not_zero to pos_yx)
+        expand operator+
+        show negsuc((y ∸ x) ∸ 1) = x ⊝ (1 + (y ∸ 1))
+        replace (apply uint_monus_add_identity to one_y)
+        replace symmetric neg_suc[(y ∸ x) ∸ 1]
+        show - (1 + ((y ∸ x) ∸ 1)) = x ⊝ y
+        replace (apply uint_monus_add_identity to one_yx)
+        expand operator⊝
+        replace (apply eq_true to xly).
       }
     }
-    case suc(x') {
-      switch y {
-        case 0 {
-          suffices pos(suc(x')) = pos(suc(x' + 0)) by evaluate
-          replace add_zero.
-        }
-        case suc(y') {
-          evaluate
-        }
+    case false assume x_y_false {
+      expand operator- | operator+
+      have yz_or_not: y = 0 or not (y = 0) by ex_mid[y = 0]
+      cases yz_or_not
+      case yz {
+        replace yz
+        replace uint_monus_zero | uint_add_zero.
+      }
+      case ynz {
+        replace (apply eq_false to ynz)
+        show pos(x ∸ y) = x ⊝ (1 + (y ∸ 1))
+        have y_pos: 0 < y by apply uint_not_zero_pos to ynz
+        have one_y: 1 ≤ y by apply uint_pos_implies_one_le to y_pos
+        replace (apply uint_monus_add_identity to one_y)
+        expand operator⊝
+        replace x_y_false.
       }
     }
   }
 end
 
-lemma suc_nat_subo: all x:Nat, y:Nat. suc(x) ⊝ suc(y) = x ⊝ y
+theorem suc_uint_monuso: all x:UInt, y:UInt. (1 + x) ⊝ (1 + y) = x ⊝ y
 proof
-  arbitrary x:Nat, y:Nat
+  arbitrary x:UInt, y:UInt
   switch x < y for operator ⊝{
     case true assume xy_true {
-      have: x < y by replace xy_true.
-      have: suc(x) < suc(y) by apply less_suc_iff_suc_less to recall (x < y)
-      expand operator- replace apply eq_true to recall suc(x) < suc(y).
+      have x_y: x < y by replace xy_true.
+      have sx_sy: 1 + x < 1 + y by apply uint_add_both_sides_of_less[1,x,y] to x_y
+      expand operator-
+      replace apply eq_true to sx_sy
+      replace uint_add_both_monus[1,y,x].
     }
     case false assume xy_false {
-      have: not (suc(x) < suc(y)) by {
-        assume: suc(x) < suc(y)
-        have: x < y by apply less_suc_iff_suc_less to recall suc(x) < suc(y)
-        replace xy_false in recall x < y
+      have: not (1 + x < 1 + y) by {
+        assume xy1: 1 + x < 1 + y
+        have xy: x < y by apply uint_add_both_sides_of_less to xy1
+        conclude false by replace xy_false in xy
       }
       expand operator -
-      replace apply eq_false to recall (not (suc(x) < suc(y))).
+      replace apply eq_false to recall (not (1 + x < 1 + y))
+      replace uint_add_both_monus[1,x,y].
     }
   }
 end
 
-lemma distrib_left_sub_add: all m:Nat, n:Nat, o:Nat.
+theorem distrib_left_monus_add: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + pos(m) = (n + m) ⊝ o
 proof
-  arbitrary m:Nat
-  induction Nat
-  case 0 {
-    arbitrary o:Nat
-    switch o {
-      case 0 {       // n = 0, o = 0
-        suffices pos(m) = pos(m - 0) by evaluate
-        replace sub_zero.
-      }
-      case suc(o') { // n = 0, o = suc(o')
-        suffices negsuc(o') + pos(m) = m ⊝ suc(o')
-          by replace zero_subo_neg | zero_add.
-        expand operator+.
-      }
+  arbitrary m:UInt, n:UInt
+  define P = fun n':UInt { all o:UInt. (n' ⊝ o) + pos(m) = (n' + m) ⊝ o }
+  have P0: P(0) by {
+    expand P
+    arbitrary o:UInt
+    replace uint_zero_add
+    cases uint_zero_or_positive[o]
+    case oz {
+      replace oz
+      show (0 ⊝ 0) + pos(m) = m ⊝ 0
+      replace int_monuso_zero expand operator+ replace uint_zero_add.
+    }
+    case o_pos {
+      obtain o' where os: o = 1 + o' from apply uint_positive_add_one to o_pos
+      replace os | zero_monuso_neg
+      conclude #negsuc(o') + pos(m)# = m ⊝ (1 + o')
+           by expand operator+.
     }
   }
-  case suc(n') assume IH {
-    arbitrary o:Nat
-    switch o {
-      case 0 {       // n = suc(n'), o = 0
-        expand operator+
-        replace int_subo_zero
-        show pos(suc(n') + m) = pos(suc(n' + m))
-        expand operator+.
-      }
-      case suc(o') { // n = suc(n'), o = suc(o')
-        suffices (n' ⊝ o') + pos(m) = (n' + m) ⊝ o'
-          by replace suc_add | suc_nat_subo.
-        IH
-      }
+  have ind: all n':UInt. if P(n') then P(1 + n') by {
+    arbitrary n':UInt
+    assume IH
+    expand P
+    arbitrary o:UInt
+    cases uint_zero_or_positive[o]
+    case oz {
+      replace oz | int_monuso_zero
+      expand operator+.
+    }
+    case o_pos {
+      obtain o' where os: o = 1 + o' from apply uint_positive_add_one to o_pos
+      replace os | suc_uint_monuso
+      conclude (n' ⊝ o') + pos(m) = (n' + m) ⊝ o'
+        by expand P in IH
     }
   }
+  expand P in apply uint_induction[P, n] to P0, ind
 end
 
-lemma distrib_left_sub_add_neg: all m:Nat, n:Nat, o:Nat.
-  (n ⊝ o) + negsuc(m) = n ⊝ (suc(o) + m)
+theorem add_pos_pos: all n:UInt, m:UInt.
+  pos(n) + pos(m) = pos(n + m)
 proof
-  arbitrary m:Nat
-  induction Nat
-  case 0 {
-    arbitrary o:Nat
-    switch o {
-      case 0 {       // n = 0, o = 0
-        evaluate
-      }
-      case suc(o') { // n = 0, o = suc(o')
-        suffices negsuc(o') + negsuc(m) = negsuc(suc(o' + m))
-            by replace suc_add | zero_subo_neg | suc_add.
-        expand operator+.
-      }
-    }
-  }
-  case suc(n') assume IH {
-    arbitrary o:Nat
-    switch o {
-      case 0 {       // n = suc(n'), o = 0
-        expand operator+ replace int_subo_zero | zero_add.
-      }
-      case suc(o') { // n = suc(n'), o = suc(o')
-        replace suc_nat_subo | suc_add | suc_nat_subo
-        show (n' ⊝ o') + negsuc(m) = n' ⊝ (suc(o') + m)
-        IH
-      }
-    }
-  }
+  arbitrary n:UInt, m:UInt
+  conclude #pos(n) + pos(m)# = pos(n + m)
+    by expand operator+.
+end
+  
+theorem add_pos_negsuc: all n:UInt, m:UInt.
+  pos(n) + negsuc(m) = n ⊝ (1 + m)
+proof
+  arbitrary n:UInt, m:UInt
+  conclude #pos(n) + negsuc(m)# = n ⊝ (1 + m)
+    by expand operator+.
 end
 
-theorem add_commute_nat_int: all x:Nat, y:Int.
+theorem add_negsuc_pos: all n:UInt, m:UInt.
+  negsuc(n) + pos(m) = m ⊝ (1 + n)
+proof
+  arbitrary n:UInt, m:UInt
+  conclude #negsuc(n) + pos(m)# = m ⊝ (1 + n) by expand operator+.
+end
+
+theorem add_negsuc_negsuc: all n:UInt, m:UInt.
+  negsuc(n) + negsuc(m) = negsuc(1 + n + m)
+proof
+  arbitrary n:UInt, m:UInt
+  conclude #negsuc(n) + negsuc(m)# = negsuc(1 + n + m)
+    by expand operator+.
+end
+
+theorem distrib_left_monus_add_neg: all m:UInt, n:UInt, o:UInt.
+  (n ⊝ o) + negsuc(m) = n ⊝ ((1 + o) + m)
+proof
+  arbitrary m:UInt, n:UInt
+  define P = fun n':UInt { all o:UInt. (n' ⊝ o) + negsuc(m) = n' ⊝ ((1 + o) + m)}
+  have P0: P(0) by {
+    expand P
+    arbitrary o:UInt
+    cases uint_zero_or_positive[o]
+    case oz {
+      replace oz
+      evaluate
+    }
+    case o_pos {
+      obtain o' where os: o = 1 + o' from apply uint_positive_add_one to o_pos
+      replace os | zero_monuso_neg
+      show #negsuc(o') + negsuc(m)# = negsuc((1 + o') + m)
+      expand operator+.
+    }
+  }
+  have ind: all n':UInt. if P(n') then P(1 + n') by {
+    arbitrary n':UInt
+    assume IH
+    expand P
+    arbitrary o:UInt
+    cases uint_zero_or_positive[o]
+    case oz {
+      replace oz | int_monuso_zero | uint_add_zero | suc_uint_monuso | add_pos_negsuc
+      replace suc_uint_monuso.
+    }
+    case o_pos {
+      obtain o' where os: o = 1 + o' from apply uint_positive_add_one to o_pos
+      replace os | suc_uint_monuso
+      expand P in IH
+    }
+  }
+  expand P in apply uint_induction[P, n] to P0, ind
+end
+
+theorem add_commute_uint_int: all x:UInt, y:Int.
   x + y = y + x
 proof
-  arbitrary x:Nat, y:Int
+  arbitrary x:UInt, y:Int
   switch y {
     case pos(y') {
-      expand 2* operator+ replace add_commute[x,y'].
+      expand 2* operator+ replace uint_add_commute[x,y'].
     }
     case negsuc(y') {
       expand 2* operator+.
@@ -517,26 +642,26 @@ proof
   }
 end
 
-lemma distrib_right_sub_add: all m:Nat, n:Nat, o:Nat.
+theorem distrib_right_monus_add: all m:UInt, n:UInt, o:UInt.
   pos(m) + (n ⊝ o) = (m + n) ⊝ o
 proof
-  arbitrary m:Nat, n:Nat, o:Nat
+  arbitrary m:UInt, n:UInt, o:UInt
   equations
         pos(m) + (n ⊝ o) 
       = (n ⊝ o) + pos(m)   by int_add_commute
-  ... = (n + m) ⊝ o        by distrib_left_sub_add
-  ... = (m + n) ⊝ o        by replace add_commute.
+  ... = (n + m) ⊝ o        by distrib_left_monus_add
+  ... = (m + n) ⊝ o        by replace uint_add_commute.
 end
 
-lemma distrib_right_sub_add_neg: all m:Nat, n:Nat, o:Nat.
-  negsuc(m) + (n ⊝ o) = n ⊝ suc(m + o)
+theorem distrib_right_monus_add_neg: all m:UInt, n:UInt, o:UInt.
+  negsuc(m) + (n ⊝ o) = n ⊝ (1 + m + o)
 proof
-  arbitrary m:Nat, n:Nat, o:Nat
+  arbitrary m:UInt, n:UInt, o:UInt
   equations
         negsuc(m) + (n ⊝ o) 
-      = (n ⊝ o) + negsuc(m)         by int_add_commute
-  ... = n ⊝ (suc(o) + m)            by distrib_left_sub_add_neg[m,n,o]
-  ... = n ⊝ suc(m + o)              by replace suc_add | add_commute[o,m].
+      = (n ⊝ o) + negsuc(m)      by int_add_commute
+  ... = n ⊝ (1 + o + m)          by distrib_left_monus_add_neg[m,n,o]
+  ... = n ⊝ (1 + m + o)          by replace uint_add_commute[o,m].
 end
 
 theorem int_add_assoc: all x:Int, y:Int, z:Int. (x + y) + z = x + (y + z)
@@ -548,16 +673,14 @@ proof
         case pos(y') {
           switch z {
             case pos(z') {     // x=pos(x'), y=pos(y'), z=pos(z')
-              suffices pos((x' + y') + z') = pos(x' + (y' + z'))
-                  by expand operator+.
-              .
+              expand operator+.
             }
             case negsuc(z') { // x=pos(x'), y=pos(y'), z=negsuc(z')
               equations
                     (pos(x') + pos(y')) + negsuc(z') 
-                  = (x' + y') ⊝ suc(z')                   by expand operator+.
-              ... = pos(x') + (y' ⊝ suc(z'))              by symmetric distrib_right_sub_add
-              ... = pos(x') + #pos(y') + negsuc(z')#      by expand operator+.
+                  = (x' + y') ⊝ (1 + z')            by expand operator+.
+              ... = pos(x') + (y' ⊝ (1 + z'))       by symmetric distrib_right_monus_add
+              ... = pos(x') + #pos(y') + negsuc(z')#   by expand operator+.
             }
           }
         }
@@ -566,18 +689,19 @@ proof
             case pos(z') {     // x=pos(x'), y=negsuc(y'), z=pos(z')
               equations
                     (pos(x') + negsuc(y')) + pos(z') 
-                  = (x' ⊝ suc(y')) + pos(z')            by evaluate
-              ... = (x' + z') ⊝ suc(y')                 by distrib_left_sub_add 
-              ... = pos(x') + (z' ⊝ suc(y'))            by symmetric distrib_right_sub_add
+                  = (x' ⊝ (1 + y')) + pos(z')            by evaluate
+              ... = (x' + z') ⊝ (1 + y')                 by distrib_left_monus_add 
+              ... = pos(x') + (z' ⊝ (1 + y'))            by symmetric distrib_right_monus_add
               ... = pos(x') + #(negsuc(y') + pos(z'))#  by expand operator+.
             }
             case negsuc(z') { // x=pos(x'), y=negsuc(y'), z=negsuc(z')
               equations
                     (pos(x') + negsuc(y')) + negsuc(z') 
-                  = (x' ⊝ suc(y')) + negsuc(z')           by evaluate
-              ... = negsuc(z') + (x' ⊝ suc(y'))           by int_add_commute
-              ... = x' ⊝ suc(z' + suc(y'))                by distrib_right_sub_add_neg
-              ... = x' ⊝ suc(suc(y' + z'))                by replace add_suc | add_commute[z',y'].
+                  = (x' ⊝ (1 + y')) + negsuc(z')        by evaluate
+              ... = negsuc(z') + (x' ⊝ (1 + y'))        by int_add_commute
+              ... = x' ⊝ (1 + z' + 1 + y')              by distrib_right_monus_add_neg
+              ... = x' ⊝ (1 + 1 + y' + z')           by replace uint_add_commute[z',1]
+                                                         | uint_add_commute[z',y'].
               ... = #pos(x') + (negsuc(y') + negsuc(z'))# by expand operator+.
             }
           }
@@ -591,20 +715,19 @@ proof
             case pos(z') {     // x=negsuc(x'), y=pos(y'), z=pos(z')
               equations
                     (negsuc(x') + pos(y')) + pos(z') 
-                  = (y' ⊝ suc(x')) + pos(z')              by evaluate
-              ... = (y' + z') ⊝ suc(x')                   by distrib_left_sub_add
+                  = (y' ⊝ (1 + x')) + pos(z')            by evaluate
+              ... = (y' + z') ⊝ (1 + x')                 by distrib_left_monus_add
               ... = #negsuc(x') + (pos(y') + pos(z'))#    by expand operator+.
             }
             case negsuc(z') { // x=negsuc(x'), y=pos(y'), z=negsuc(z')
               equations
                     (negsuc(x') + pos(y')) + negsuc(z') 
-                  = (y' ⊝ suc(x')) + negsuc(z')           by evaluate
-              ... = y' ⊝ (suc(suc(x')) + z')              by distrib_left_sub_add_neg
-              ... = y' ⊝ suc(suc(x' + z'))                by expand 2*  operator+.
-              ... = y' ⊝ suc(suc(z' + x'))                by replace add_commute.
-              ... = y' ⊝ #suc(suc(z')) + x'#              by expand 2* operator+.
-              ... = (y' ⊝ suc(z')) + negsuc(x')           by symmetric distrib_left_sub_add_neg
-              ... = negsuc(x') + (y' ⊝ suc(z'))           by int_add_commute
+                  = (y' ⊝ (1 + x')) + negsuc(z')          by evaluate
+              ... = y' ⊝ (1 + 1 + x' + z')             by distrib_left_monus_add_neg[z',y',1+x']
+              ... = y' ⊝ (1 + 1 + z' + x')                by replace uint_add_commute[x'].
+              ... = (y' ⊝ (1 + z')) + negsuc(x')
+                                          by symmetric distrib_left_monus_add_neg[x',y',1+z']
+              ... = negsuc(x') + (y' ⊝ (1 + z'))           by int_add_commute
               ... = negsuc(x') + #pos(y') + negsuc(z')#   by expand operator+.
             }
           }
@@ -614,19 +737,18 @@ proof
             case pos(z') {     // x=negsuc(x'), y=negsuc(y'), z=pos(z')
               equations
                     (negsuc(x') + negsuc(y')) + pos(z') 
-                  = z' ⊝ suc(suc(x' + y'))                 by expand operator+.
-              ... = z' ⊝ suc(suc(y' + x'))                 by replace add_commute.
-              ... = z' ⊝ #suc(suc(y')) + x'#               by expand 2* operator+.
-              ... = (z' ⊝ suc(y')) + negsuc(x')            by symmetric distrib_left_sub_add_neg
-              ... = negsuc(x') + (z' ⊝ suc(y'))            by int_add_commute
+                  = z' ⊝ (1 + 1 + x' + y')               by expand operator+.
+              ... = z' ⊝ (1 + 1 + y' + x')               by replace uint_add_commute[x'].
+              ... = (z' ⊝ (1 + y')) + negsuc(x')
+                            by symmetric distrib_left_monus_add_neg[x',z',1+y']
+              ... = negsuc(x') + (z' ⊝ (1 + y'))            by int_add_commute
               ... = negsuc(x') + #negsuc(y') + pos(z')#    by expand operator+.
             }
             case negsuc(z') { // x=negsuc(x'), y=negsuc(y'), z=negsuc(z')
               equations
                     (negsuc(x') + negsuc(y')) + negsuc(z') 
-                  = negsuc(suc(suc(x' + y') + z'))             by expand operator+.
-              ... = negsuc(suc(suc((x' + y') + z')))           by expand operator+.
-              ... = negsuc(suc(x' + suc(y' + z')))             by replace symmetric add_suc[x',y'+z'].
+                  = negsuc(1 + 1 + x' + y' + z')        by expand operator+.
+              ... = negsuc(1 + x' + 1 + y' + z')        by replace uint_add_commute[1,x'].
               ... = #negsuc(x') + (negsuc(y') + negsuc(z'))#   by expand operator+.
             }
           }
@@ -645,49 +767,52 @@ proof
   arbitrary x:Int
   switch x {
     case pos(x') {
-      switch x' {
-        case 0 {
-          expand operator- | 2* operator+.
-        }
-        case suc(x'') {
-          suffices suc(x'') ⊝ suc(x'') = +0  by expand operator- | operator+.
-          int_subo_cancel
-        }
+      cases uint_zero_or_positive[x']
+      case xpz {
+        replace xpz
+        evaluate
+      }
+      case xp_pos {
+        obtain x'' where xpps: x' = 1 + x'' from apply uint_positive_add_one to xp_pos
+        replace xpps
+        expand operator-
+        replace (apply eq_false to uint_not_one_add_zero[x'']) | add_pos_negsuc
+        replace uint_add_monus_identity | suc_uint_monuso | int_monuso_cancel.
       }
     }
     case negsuc(x') {
-      suffices suc(x') ⊝ suc(x') = +0  by expand operator- | operator+.
-      int_subo_cancel
+      expand operator-
+      replace add_negsuc_pos | suc_uint_monuso | int_monuso_cancel.
     }
   }
 end
 
-lemma neg_nat: all x:Nat. -x = -pos(x)
+theorem neg_uint: all x:UInt. -x = -pos(x)
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   evaluate
 end
 
-lemma neg_subo: all x:Nat, y:Nat. - (x ⊝ y) = y ⊝ x
+theorem neg_monuso: all x:UInt, y:UInt. - (x ⊝ y) = y ⊝ x
 proof
-  arbitrary x:Nat, y:Nat
-  cases trichotomy[x,y]
+  arbitrary x:UInt, y:UInt
+  cases uint_trichotomy[x,y]
   case: x < y {
-    have: not (y < x) by apply less_implies_not_greater to (recall x < y)
-    suffices - (- (y - x)) = pos(y - x)
-       by expand operator ⊝
-          replace (apply eq_false to recall not (y < x)) | 
-                      (apply eq_true to recall x < y).
-    replace neg_nat | neg_involutive.
+    have: not (y < x) by apply uint_less_implies_not_greater to (recall x < y)
+    expand operator ⊝
+    replace (apply eq_true to recall x < y)
+    replace (apply eq_false to recall not (y < x))
+    show - (- (y ∸ x)) = pos(y ∸ x)
+    replace neg_uint | neg_involutive.
   }
   case: x = y {
     suffices - (y ⊝ y) = y ⊝ y    by replace recall x = y.
-    suffices - +0 = +0             by replace int_subo_cancel.
+    suffices - +0 = +0             by replace int_monuso_cancel.
     expand operator-.
   }
   case: y < x {
-    have: not (x < y) by apply less_implies_not_greater to recall y < x
-    suffices - pos(x - y) = - (x - y)
+    have: not (x < y) by apply uint_less_implies_not_greater to recall y < x
+    suffices - pos(x ∸ y) = - (x ∸ y)
         by expand operator⊝ replace (apply eq_true to recall y < x)
                       | (apply eq_false to recall not (x < y)).
     expand 2* operator-.
@@ -699,55 +824,67 @@ proof
   arbitrary x:Int, y:Int
   switch x {
     case pos(x') {
-      switch x' {
-        case 0 {
-          equations
-                -(+0 + y) 
-              = -y              by replace int_zero_add.
-          ... = +0 + -y         by symmetric int_zero_add
-          ... = #- +0# + -y     by expand operator-.
-        }
-        case suc(x'') {
+      cases uint_zero_or_positive[x']
+      case xpz {
+        replace xpz
+        equations
+              -(+0 + y) 
+            = -y              by replace int_zero_add.
+        ... = +0 + -y         by symmetric int_zero_add
+        ... = #- +0# + -y     by expand operator-.
+      }
+      case xp_pos {
+          have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
+          have: 1 ≤ x' by apply uint_pos_implies_one_le to xp_pos
           switch y {
             case pos(y') {
-              switch y' {
-                case 0 {
-                  expand operator+ | operator-
-                  replace add_zero | zero_subo_neg.
+              replace add_pos_pos
+              cases uint_zero_or_positive[y']
+              case ypz {
+                replace ypz | uint_add_zero | neg_zero | int_add_zero.
+              }
+              case yp_pos {
+                have ypnz: not (y' = 0) by apply uint_pos_not_zero to yp_pos
+                expand operator-
+                replace (apply eq_false to xnz) | (apply eq_false to ypnz)
+                replace add_negsuc_negsuc
+                have A: not (x' + y' = 0) by {
+                  assume xyz
+                  have: x' = 0 by apply uint_add_to_zero to xyz
+                  conclude false by apply xnz to recall x' = 0
                 }
-                case suc(y'') {
-                  suffices negsuc(x'' + suc(y'')) = negsuc(suc(x'' + y''))
-                      by expand operator- | 2* operator+.
-                  replace add_suc.
-                }
+                replace (apply eq_false to A)
+                replace apply uint_monus_add_identity to recall 1 ≤ x'
+                have: 1 ≤ y' by apply uint_pos_implies_one_le to yp_pos
+                replace apply uint_monus_add_assoc[y',x',1] to recall 1 ≤ y'.
               }
             }
             case negsuc(y') {
-              suffices - (suc(x'') ⊝ suc(y')) = suc(y') ⊝ suc(x'')
-                  by evaluate
-              suffices - (x'' ⊝ y') = y' ⊝ x''  by replace suc_nat_subo.
-              neg_subo
+              replace add_pos_negsuc
+              replace neg_monuso
+              expand operator-
+              replace (apply eq_false to xnz)
+              replace add_negsuc_pos
+              replace apply uint_monus_add_identity to recall 1 ≤ x'.
             }
           }
-        }
       }
     }
     case negsuc(x') {
       switch y {
         case pos(y') {
-          suffices - (y' ⊝ suc(x')) = - negsuc(x') + - pos(y')  by evaluate
+          suffices - (y' ⊝ (1 + x')) = - negsuc(x') + - pos(y')  by evaluate
           equations
-                - (y' ⊝ suc(x')) 
-              = suc(x') ⊝ y'                by neg_subo
-          ... = pos(suc(x'))  - pos(y')     by subo_sub
-          ... = pos(suc(x'))  + - pos(y')   by expand operator-.
+                - (y' ⊝ (1 + x')) 
+              = (1 + x') ⊝ y'                by neg_monuso
+          ... = pos(1 + x')  - pos(y')     by subo_monus
+          ... = pos(1 + x') + - pos(y')   by expand operator-.
           ... = #- negsuc(x')# + - pos(y')  by expand operator-.
         }
         case negsuc(y') {
           expand operator+ | operator-
-          show pos(suc(suc(x' + y'))) = pos(suc(x') + suc(y'))
-          expand operator +
-          replace add_suc.
+          show pos(1 + #1 + x'# + y') = pos(1 + x' + 1 + y')
+          replace uint_add_commute.
         }
       }
     }
@@ -756,7 +893,7 @@ end
 
 // Properties of Subtraction
 
-theorem int_sub_cancel: all x:Int. x - x = +0
+theorem int_monus_cancel: all x:Int. x - x = +0
 proof
   arbitrary x:Int
   expand operator-
@@ -766,17 +903,31 @@ end
 
 // Properties of Multiplication
 
+theorem mult_pos_pos: all x:UInt, y:UInt. pos(x) * pos(y) = pos(x * y)
+proof
+  arbitrary x:UInt, y:UInt
+  evaluate
+end
+
+theorem mult_pos_negsuc: all x:UInt, y:UInt.
+  pos(x) * negsuc(y) = - pos(x + x * y)
+proof
+  arbitrary x:UInt, y:UInt
+  show #pos(x) * negsuc(y)# = - pos(x + x * y)
+  expand operator*
+  expand sign | abs
+  replace mult_pos_neg | mult_neg_uint | uint_dist_mult_add | uint_mult_one.
+end
+
 theorem int_one_mult: all x:Int. +1 * x = x
 proof
   arbitrary x:Int
   switch x {
     case pos(x') {
-      suffices pos(x' + 0) = pos(x')   by evaluate
-      replace add_zero.
+      replace mult_pos_pos | uint_one_mult.
     }
     case negsuc(x') {
-      suffices negsuc(x' + 0) = negsuc(x') by evaluate
-      replace add_zero.
+      replace mult_pos_negsuc | uint_one_mult | neg_pos.
     }
   }
 end
@@ -790,6 +941,116 @@ proof
   }
 end
 
+theorem sign_neg_flip: all x:Int.
+  if not (x = +0)
+  then sign(- x) = flip(sign(x))
+proof
+  arbitrary x:Int
+  switch x {
+    case pos(x') {
+      assume prem
+      expand operator-
+      have xnz: not (x' = 0) by {
+        assume xz
+        conclude false by replace xz in prem
+      }
+      replace (apply eq_false to xnz)
+      expand sign | flip.
+    }
+    case negsuc(x') {
+      expand operator- | sign | flip.
+    }
+  }
+end
+
+theorem dist_neg_mult: all x:Int,y:Int.
+  -(x * y) = (-x) * y
+proof
+  arbitrary x:Int, y:Int
+  switch x {
+    case pos(x') {
+      switch y {
+        case pos(y') {
+          expand operator* 
+          replace sign_pos
+          replace mult_pos_any | abs_pos | mult_pos_uint
+          cases uint_zero_or_positive[x']
+          case xz {
+            replace xz | uint_zero_mult | neg_zero
+            expand sign | abs
+            replace mult_pos_any | uint_zero_mult | mult_pos_uint.
+          }
+          case xp_pos {
+            have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
+            expand operator-
+            replace (apply eq_false to xnz)
+            expand abs | sign
+            replace mult_neg_pos | mult_neg_uint
+            cases uint_zero_or_positive[y']
+            case yz {
+              replace yz | uint_mult_zero
+              expand operator-.
+            }
+            case y_pos {
+              have ynz: not (y' = 0) by apply uint_pos_not_zero to y_pos
+              have nxyz: not (x' * y' = 0) by {
+                assume xyz
+                cases apply uint_mult_to_zero[x',y'] to xyz
+                case xz {
+                  conclude false by apply xnz to xz
+                }
+                case yz {
+                  conclude false by apply ynz to yz
+                }
+              }
+              replace (apply eq_false to nxyz)
+              have one_x: 1 ≤ x' by apply uint_pos_implies_one_le to xp_pos
+              replace (apply uint_monus_add_identity to one_x)
+              replace (symmetric neg_pos[(x' * y' ∸ 1)])
+              have one_xy: 1 ≤ x' * y' by {
+                obtain y'' where yp: y' = 1 + y'' from apply uint_positive_add_one to y_pos
+                replace yp | uint_dist_mult_add | uint_mult_one
+                have x_xy: x' ≤ x' + x' * y'' by uint_less_equal_add
+                apply uint_less_equal_trans to one_x, x_xy
+              }
+              replace (apply uint_monus_add_identity to one_xy).
+            }
+          }
+        }
+        case negsuc(y') {
+          expand operator*
+          replace sign_pos | sign_negsuc | mult_pos_any | mult_neg_uint | abs_negsuc | abs_pos
+          | neg_involutive | abs_neg | abs_pos
+          cases uint_zero_or_positive[x']
+          case xz {
+            replace xz
+            evaluate
+          }
+          case xp_pos {
+            have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
+            expand operator-
+            replace (apply eq_false to xnz) | sign_negsuc | mult_neg_neg | mult_pos_uint.
+          }
+        }
+      }
+    }
+    case negsuc(x') {
+      switch y {
+        case pos(y') {
+          expand operator*
+          replace sign_negsuc | sign_pos | abs_negsuc | abs_pos | mult_neg_pos | mult_neg_uint
+          replace sign_neg_negsuc | mult_pos_any | abs_neg | abs_negsuc | mult_pos_uint | neg_involutive.
+        }
+        case negsuc(y') {
+          expand operator*
+          replace sign_negsuc | abs_negsuc | sign_neg_negsuc | mult_pos_neg | abs_neg | abs_negsuc | mult_neg_uint
+            | mult_neg_neg | mult_pos_uint.
+        }
+      }
+    }
+  }
+end
+
 theorem int_mult_commute: all x:Int, y:Int. x * y = y * x
 proof
   arbitrary x:Int, y:Int
@@ -798,23 +1059,23 @@ proof
       switch y {
         case pos(y') {
           suffices pos(x' * y') = pos(y' * x')  by evaluate
-          replace mult_commute[x',y'].
+          replace uint_mult_commute[x',y'].
         }
         case negsuc(y') {
-          suffices - (x' * suc(y')) = - (suc(y') * x')  by evaluate
-          replace mult_commute[x',suc(y')].
+          suffices - (x' * (1 + y')) = - ((1 + y') * x')  by evaluate
+          replace uint_mult_commute[x', 1 + y'].
         }
       }
     }
     case negsuc(x') {
       switch y {
         case pos(y') {
-          suffices - (suc(x') * y') = - (y' * suc(x'))  by evaluate
-          replace mult_commute[suc(x'), y'].
+          suffices - ((1 + x') * y') = - (y' * (1 + x'))  by evaluate
+          replace uint_mult_commute[1 + x', y'].
         }
         case negsuc(y') {
-          suffices pos(suc(x') * suc(y')) = pos(suc(y') * suc(x')) by evaluate
-          replace mult_commute[suc(x'), suc(y')].
+          suffices pos((1 + x') * (1 + y')) = pos((1 + y') * (1 + x')) by evaluate
+          replace uint_mult_commute[(1 + x'), (1 + y')].
         }
       }
     }
@@ -839,34 +1100,31 @@ proof
   ... = +0        by int_zero_mult
 end
 
-lemma mult_assoc_helper: all x:Nat, y:Nat, z:Nat.
-  z + (y + x * suc(y)) * suc(z)
-  = (z + y * suc(z)) + x * suc(z + y * suc(z))
+theorem mult_assoc_helper: all x:UInt, y:UInt, z:UInt.
+  z + (y + x * (1 + y)) * (1 + z)
+  = (z + y * (1 + z)) + x * (1 + z + y * (1 + z))
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   equations
-      z + (y + x * suc(y)) * suc(z)
-    = z + (y + x * (1 + y)) * (1 + z)
-      by replace suc_one_add[y] | suc_one_add[z].
-... = z + (y + x * 1 + x * y) * (1 + z)
-      by replace dist_mult_add[x].
+      z + (y + x * (1 + y)) * (1 + z)
+    = z + (y + x * 1 + x * y) * (1 + z)
+      by replace uint_dist_mult_add[x].
 ... = z + (y + x + x * y) * (1 + z)
-      by replace mult_one.
+      by replace uint_mult_one.
 ... = z + (y + x + x * y) * 1 + (y + x + x * y) * z
-      by replace dist_mult_add.
+      by replace uint_dist_mult_add.
 ... = z + y + x + x * y + (y + x + x * y) * z
-      by replace mult_one.
+      by replace uint_mult_one.
 ... = z + y + x + x * y + y*z + x*z + x*y*z
-      by replace dist_mult_add_right.
+      by replace uint_dist_mult_add_right.
 ... = z + y + x + y*z + x*y + x*z + x*y*z
-      by replace add_commute[x*y, y*z].
+      by replace uint_add_commute[x*y, y*z].
 ... = z + y + x + y*z + x*z + x*y + x*y*z
-      by replace add_commute[x*y].
+      by replace uint_add_commute[x*y].
 ... = z + y + y*z + x + x*z + x*y + x*y*z
-      by replace add_commute[x].
-... = #(z + y * suc(z)) + x * suc(z + y * suc(z))#
-  by replace suc_one_add[(z + y * suc(z))] | suc_one_add[z]
-     | dist_mult_add | mult_one.
+      by replace uint_add_commute[x].
+... = #(z + y * (1 + z)) + x * (1 + z + y * (1 + z))#
+      by replace uint_dist_mult_add | uint_mult_one.
 end
 
 theorem int_mult_assoc: all x:Int, y:Int, z:Int. (x * y) * z = x * (y * z)
@@ -874,64 +1132,63 @@ proof
   arbitrary x:Int, y:Int, z:Int
   switch x {
     case pos(x') {
-      switch x' {
-        case 0 { replace int_zero_mult | int_zero_mult. }
-        case suc(x'') {
-          switch y {
-            case pos(y') {
-              switch y' {
-                case 0 { replace int_mult_zero | int_zero_mult | int_mult_zero. }
-                case suc(y'') {
-                  switch z {
-                    case pos(z') {
-                      switch z' {
-                        case 0 { replace int_mult_zero | int_mult_zero. }
-                        case suc(z'') {
-                          suffices pos(suc(z'' + (y'' + x'' * suc(y'')) * suc(z'')))
-                              = pos(suc((z'' + y'' * suc(z''))
-                                  + x'' * suc(z'' + y'' * suc(z''))))
-                              by evaluate
-                          replace mult_assoc_helper[x'',y'',z''].
-                        }
-                      }
-                    }
-                    case negsuc(z'') {
-                      suffices negsuc(z'' + (y'' + x'' * suc(y'')) * suc(z''))
-                      = negsuc((z'' + y'' * suc(z'')) + x''*suc(z'' + y''*suc(z'')))
-                        by evaluate
-                      replace mult_assoc_helper[x'',y'',z''].
-                    }
-                  }
+      cases uint_zero_or_positive[x']
+      case xpz: x' = 0 {
+        replace xpz | int_zero_mult | int_zero_mult.
+      }
+      case xp_pos: 0 < x' {
+        have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
+        obtain x'' where xp_eq: x' = 1 + x'' from apply uint_positive_add_one to xp_pos
+        switch y {
+          case pos(y') {
+            cases uint_zero_or_positive[y']
+            case ypz: y' = 0 {
+              replace ypz | int_mult_zero | int_zero_mult | int_mult_zero.
+            }
+            case yp_pos: 0 < y' {
+              have ynz: not (y' = 0) by apply uint_pos_not_zero to yp_pos
+              switch z {
+                case pos(z') {
+                  replace mult_pos_pos | mult_pos_pos.
+                }
+                case negsuc(z') {
+                  replace mult_pos_pos
+                  replace mult_pos_negsuc
+                  replace int_mult_commute[pos(x'), -pos(y'+y'*z')] | symmetric dist_neg_mult[pos(y'+y'*z'), pos(x')]
+                  replace mult_pos_pos | uint_dist_mult_add_right | uint_mult_commute[y',x']
+                  | uint_mult_commute[y'*z',x'].
                 }
               }
             }
-            case negsuc(y') {
-              switch z {
-                case pos(z') {
-                  switch z' {
-                    case 0 { replace int_mult_zero | int_mult_zero. }
-                    case suc(z'') {
-                      expand operator*
-                      replace sign_pos | sign_negsuc | mult_pos_neg
-                      replace abs_pos | abs_negsuc | mult_neg_nat
-                      replace mult_pos_any | suc_mult | suc_add | neg_pos
-                      replace sign_negsuc | mult_neg_pos
-                      replace abs_negsuc | mult_neg_nat
-                      | neg_pos | sign_negsuc | mult_neg_nat | abs_neg
-                      | suc_mult | abs_pos | suc_add | suc_add
-                      | mult_assoc_helper[x'',y',z''].
-                    }
-                  }
+          }
+          case negsuc(y') {
+            switch z {
+              case pos(z') {
+                expand operator*
+                replace sign_pos | sign_negsuc | abs_pos | abs_negsuc | mult_pos_neg | mult_neg_uint
+                replace mult_neg_pos | mult_neg_uint | abs_neg | abs_pos | mult_any_pos | mult_pos_any
+                replace uint_dist_mult_add | uint_dist_mult_add_right | uint_mult_one | uint_one_mult
+                replace xp_eq | sign_neg_pos
+                
+                cases uint_zero_or_positive[z']
+                case zpz: z' = 0 {
+                  replace zpz
+                  replace uint_mult_zero | uint_mult_zero | uint_add_zero
+                  expand operator- | sign | 2*operator* | operator-.
                 }
-                case negsuc(z'') {
-                  expand operator*
-                  replace sign_pos | sign_negsuc | abs_pos | abs_negsuc
-                  | mult_pos_neg | mult_neg_nat | suc_mult | suc_add
-                  replace neg_pos | sign_negsuc | abs_negsuc | mult_neg_neg
-                  | mult_pos_nat | sign_pos | abs_pos | mult_pos_any
-                  replace mult_pos_nat | suc_mult
-                  replace suc_add | suc_add | mult_assoc_helper[x'',y',z''].
+                case zp_pos: 0 < z' {
+                  have znz: not (z' = 0) by apply uint_pos_not_zero to zp_pos
+                  obtain z'' where zp_eq: z' = 1 + z'' from apply uint_positive_add_one to zp_pos
+                  replace zp_eq
+                  replace sign_neg_pos.
                 }
+              }
+              case negsuc(z') {
+                expand operator*
+                replace sign_pos | sign_negsuc | abs_pos | abs_negsuc
+                replace mult_pos_neg | mult_neg_uint | mult_pos_any | mult_neg_neg | mult_pos_uint | abs_pos | sign_pos
+                replace mult_pos_uint | uint_dist_mult_add | uint_mult_one | uint_dist_mult_add | uint_mult_one
+                replace xp_eq | sign_neg_pos | mult_neg_neg | abs_neg | abs_pos | mult_pos_uint.
               }
             }
           }
@@ -940,45 +1197,77 @@ proof
     }
     case negsuc(x') {
       switch y {
-            case pos(y') {
-              switch y' {
-                case 0 {
-                  replace int_mult_zero | int_zero_mult | int_mult_zero.
-                }
-                case suc(y'') {
-                  switch z {
-                    case pos(z') {
-                      switch z' {
-                        case 0 { replace int_mult_zero | int_mult_zero. }
-                        case suc(z'') {
-                          suffices negsuc(z'' + (y'' + x' * suc(y'')) * suc(z'')) = negsuc((z'' + y'' * suc(z'')) + x' * suc(z'' + y'' * suc(z'')))
-                            by evaluate
-                          replace mult_assoc_helper[x',y'',z''].
-                        }
-                      }
-                    }
-                    case negsuc(z'') {
-                      suffices pos(suc(z'' + (y'' + x' * suc(y'')) * suc(z''))) = pos(suc((z'' + y'' * suc(z'')) + x' * suc(z'' + y'' * suc(z''))))
-                        by evaluate
-                      replace mult_assoc_helper[x',y'',z''].
-                    }
-                  }
-                }
+        case pos(y') {
+          switch z {
+            case pos(z') {
+              expand operator*
+              replace sign_negsuc | sign_pos | abs_negsuc | abs_pos | mult_neg_pos | mult_neg_uint | mult_pos_any
+              | mult_pos_uint | uint_dist_mult_add_right | uint_one_mult | sign_pos | mult_neg_pos | abs_pos
+              | mult_neg_uint
+              cases uint_zero_or_positive[y']
+              case ypz: y' = 0 {
+                replace ypz | uint_zero_add | uint_mult_zero
+                evaluate
               }
+              case yp_pos: 0 < y' {
+                obtain y'' where yp_eq: y' = 1 + y'' from apply uint_positive_add_one to yp_pos
+                replace yp_eq
+                replace sign_neg_pos | mult_neg_pos | abs_neg | abs_pos | mult_neg_uint | uint_dist_mult_add_right
+                | uint_dist_mult_add | uint_dist_mult_add_right | uint_dist_mult_add_right.
+              }
+            }
+            case negsuc(z') {
+              expand operator*
+              replace sign_negsuc | sign_pos | abs_negsuc | abs_pos | mult_neg_pos | mult_neg_uint | mult_pos_neg
+              | mult_neg_uint | uint_dist_mult_add_right | uint_dist_mult_add | uint_one_mult | uint_mult_one
+              cases uint_zero_or_positive[y']
+              case ypz: y' = 0 {
+                replace ypz | uint_zero_add | uint_mult_zero
+                expand operator-
+                replace uint_zero_mult
+                expand sign | abs
+                replace uint_mult_zero
+                evaluate
+              }
+              case yp_pos: 0 < y' {
+                obtain y'' where yp_eq: y' = 1 + y'' from apply uint_positive_add_one to yp_pos
+                replace yp_eq
+                replace sign_neg_pos | abs_neg | abs_pos | mult_neg_neg | uint_dist_mult_add | uint_dist_mult_add_right
+                replace mult_pos_uint | uint_mult_one | uint_one_mult
+                replace uint_add_commute[x'+x'*y'',z']
+                replace uint_add_commute[x'+x'*y'',y''*z'].
+              }
+            }
+          }
             }
             case negsuc(y') {
               switch z {
                 case pos(z') {
-                  switch z' {
-                    case 0 { replace int_mult_zero | int_mult_zero. }
-                    case suc(z'') {
-                      suffices pos(suc(z'' + (y' + x' * suc(y')) * suc(z''))) = pos(suc((z'' + y' * suc(z'')) + x' * suc(z'' + y' * suc(z'')))) by evaluate
-                      replace mult_assoc_helper[x',y',z''].
-                    }
+                  cases uint_zero_or_positive[z']
+                  case zpz: z' = 0 {
+                    replace zpz
+                    replace int_mult_zero | int_mult_zero.
+                  }
+                  case zp_pos: 0 < z' {
+                    have znz: not (z' = 0) by apply uint_pos_not_zero to zp_pos
+                    obtain z'' where zp_eq: z' = 1 + z'' from apply uint_positive_add_one to zp_pos
+                    replace zp_eq
+                    expand operator*
+                    replace sign_negsuc | abs_negsuc | mult_neg_neg | sign_pos | mult_pos_uint | mult_neg_pos | abs_pos
+                    | mult_neg_uint | sign_pos | mult_pos_any | uint_dist_mult_add | uint_mult_one
+                    | uint_dist_mult_add_right | uint_one_mult
+                    | uint_dist_mult_add_right | uint_one_mult
+                    | uint_dist_mult_add | uint_mult_one
+                    | sign_neg_pos | mult_neg_neg | mult_pos_uint | abs_neg | abs_pos
+                    | uint_add_commute[z'' + x' + x' * z'', y']
+                    | uint_add_commute[x' + x' * z'', y' * z'']
+                    | uint_dist_mult_add | uint_mult_one
+                    | uint_add_commute[x' * z'', x' * y'].
                   }
                 }
                 case negsuc(z'') {
-                  suffices negsuc(z'' + (y' + x' * suc(y')) * suc(z'')) = negsuc((z'' + y' * suc(z'')) + x' * suc(z'' + y' * suc(z'')))
+                  suffices negsuc(z'' + (y' + x' * (1 + y')) * (1 + z''))
+                         = negsuc((z'' + y' * (1 + z'')) + x' * (1 + z'' + y' * (1 + z'')))
                     by evaluate
                   replace mult_assoc_helper[x',y',z''].
                 }
@@ -998,12 +1287,12 @@ proof
   arbitrary n:Int
   switch n {
     case pos(n') {
-      suffices n' ≤ n' by expand operator≤.
-      less_equal_refl
+      expand operator≤
+      uint_less_equal_refl
     }
     case negsuc(n') {
-      suffices n' ≤ n' by expand operator≤.
-      less_equal_refl
+      expand operator≤
+      uint_less_equal_refl
     }
   }
 end
@@ -1018,9 +1307,10 @@ proof
         case pos(n') {
           switch o {
             case pos(o') {
-              suffices (if (m' ≤ n' and n' ≤ o') then m' ≤ o')
-                by expand operator≤.
-              less_equal_trans
+              expand operator≤
+              //suffices (if (m' ≤ n' and n' ≤ o') then m' ≤ o')
+              //  by expand operator≤.
+              uint_less_equal_trans
             }
             case negsuc(o') { expand operator≤. }
           }
@@ -1040,10 +1330,11 @@ proof
           switch o {
             case pos(o') { expand operator≤. }
             case negsuc(o') {
-              suffices (if (n' ≤ m' and o' ≤ n') then o' ≤ m')
-                by expand operator≤.
+              expand operator≤
+              //suffices (if (n' ≤ m' and o' ≤ n') then o' ≤ m')
+              //  by expand operator≤.
               assume nm_n_on
-              apply less_equal_trans[o',n',m'] to nm_n_on
+              apply uint_less_equal_trans[o',n',m'] to nm_n_on
             }
           }
         }
@@ -1064,7 +1355,7 @@ proof
       switch y {
         case pos(y') assume y_pos {
           have: x' ≤ y' and y' ≤ x' by expand operator≤ in replace x_pos | y_pos in xy_n_yx
-          have: x' = y' by apply less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
+          have: x' = y' by apply uint_less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
           conclude pos(x') = pos(y')  by replace (recall x' = y').
         }
         case negsuc(y') assume y_neg {
@@ -1079,7 +1370,7 @@ proof
         }
         case negsuc(y') assume y_neg {
           have: x' ≤ y' and y' ≤ x' by expand operator≤ in replace x_neg | y_neg in xy_n_yx
-          have: x' = y' by apply less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
+          have: x' = y' by apply uint_less_equal_antisymmetric to (recall x' ≤ y' and y' ≤ x')
           conclude negsuc(x') = negsuc(y')  by replace (recall x' = y').
         }
       }

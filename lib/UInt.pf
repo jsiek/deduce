@@ -1,29 +1,27 @@
 import Base
 import Nat
-import Pair
-import Option
 
 // This follows the representation for binary numbers in the Agda standard library
 
-opaque union UInt {
+union UInt {
   bzero         // 0
   dub_inc(UInt) // 2(1 + x)
   inc_dub(UInt) // 1 + 2x
 }
 
-opaque recursive toNat(UInt) -> Nat {
-  toNat(bzero) = 0
-  toNat(dub_inc(x)) = 2 * suc(toNat(x))
-  toNat(inc_dub(x)) = suc(2 * toNat(x))
+recursive toNat(UInt) -> Nat {
+  toNat(bzero) = ℕ0
+  toNat(dub_inc(x)) = ℕ2 * suc(toNat(x))
+  toNat(inc_dub(x)) = suc(ℕ2 * toNat(x))
 }
 
-assert toNat(bzero)                   = 0    //   0
-assert toNat(inc_dub(bzero))          = 1    //   1
-assert toNat(dub_inc(bzero))          = 2    //  10
-assert toNat(inc_dub(inc_dub(bzero))) = 3    //  11
-assert toNat(dub_inc(inc_dub(bzero))) = 4    // 100
+assert toNat(bzero)                   = ℕ0    //   0
+assert toNat(inc_dub(bzero))          = ℕ1    //   1
+assert toNat(dub_inc(bzero))          = ℕ2    //  10
+assert toNat(inc_dub(inc_dub(bzero))) = ℕ3    //  11
+assert toNat(dub_inc(inc_dub(bzero))) = ℕ4    // 100
 
-opaque recursive operator< (UInt, UInt) -> bool {
+recursive operator< (UInt, UInt) -> bool {
   operator < (bzero, y) =
     switch y {
       case bzero { false }
@@ -78,7 +76,7 @@ private fun pred(x:UInt) {
   }
 }
 
-opaque recursive operator+(UInt, UInt) -> UInt {
+recursive operator+(UInt, UInt) -> UInt {
   operator+(bzero, y) = y
   operator+(dub_inc(x), y) =
     switch y {
@@ -94,7 +92,30 @@ opaque recursive operator+(UInt, UInt) -> UInt {
     }
 }
 
-opaque recursive operator *(UInt, UInt) -> UInt {
+recursive operator ∸ (UInt, UInt) -> UInt {
+  operator∸(bzero, y) = bzero
+  operator∸(dub_inc(x), y) =
+    switch y {
+      case bzero { dub_inc(x) }
+      case dub_inc(y') {  dub(x ∸ y') } // 2(1+x) - 2(1+y') = 2 + 2x - 2 - 2y' = 2x - 2y'
+      case inc_dub(y') {
+        // 2(1+x) - (1+2y') = 2 + 2x - 1 - 2y' = 1+2(x-y')
+        if x < y' then bzero
+        else inc_dub(x ∸ y')
+      }
+    }
+  operator∸(inc_dub(x), y) =
+    switch y {
+      case bzero { inc_dub(x) }
+      case dub_inc(y') {
+        // 1 + 2x - 2(1+y') = 1 + 2x - 2 - 2y' = - 1 + 2(x - y')
+        if x < y' then bzero else pred(dub(x ∸ y'))
+      }
+      case inc_dub(y') { dub(x ∸ y') }
+    }
+}
+
+recursive operator *(UInt, UInt) -> UInt {
   operator*(bzero, y) = bzero
   operator*(dub_inc(x), y) =
     switch y {
@@ -137,43 +158,14 @@ private recursive expt(UInt, UInt) -> UInt {
   expt(inc_dub(p), a) = a * sqr(expt(p, a))  // a^(1+2*p) = a * (a^p)^2
 }
 
-opaque fun operator ^(a : UInt, b : UInt)  {
+fun operator ^(a : UInt, b : UInt)  {
   expt(b, a)
 }
 
-// fromNat is not opaque so that evaluate of
-// fromNat(1) + fromNat(2)
-// produces
-// fromNat(3)
-// It should be opaque, but then we need some way to
-// make evaluate work.
 recursive fromNat(Nat) -> UInt {
   fromNat(0) = bzero
   fromNat(suc(n)) = inc(fromNat(n))
 }
-
-opaque recursive operator-(UInt, UInt) -> UInt {
-  operator-(bzero, y) = bzero
-  operator-(dub_inc(x), y) =
-    switch y {
-      case bzero { dub_inc(x) }
-      case dub_inc(y') {  dub(x - y') } // 2(1+x) - 2(1+y') = 2 + 2x - 2 - 2y' = 2x - 2y'
-      case inc_dub(y') {
-        // 2(1+x) - (1+2y') = 2 + 2x - 1 - 2y' = 1+2(x-y')
-        if x < y' then bzero
-        else inc_dub(x - y')
-      }
-    }
-  operator-(inc_dub(x), y) =
-    switch y {
-      case bzero { inc_dub(x) }
-      case dub_inc(y') {
-        // 1 + 2x - 2(1+y') = 1 + 2x - 2 - 2y' = - 1 + 2(x - y')
-        if x < y' then bzero else pred(dub(x - y'))
-      }
-      case inc_dub(y') { dub(x - y') }
-    }
-  }
 
 fun max(x : UInt, y : UInt) {
   if x < y then y
@@ -185,7 +177,17 @@ fun min(x : UInt, y : UInt) {
   else y
 }
 
-lemma toNat_dub : all x:UInt. toNat(dub(x)) = 2 * toNat(x)
+theorem from_zero: fromNat(ℕ0) = 0
+proof
+  evaluate
+end
+
+theorem from_one: fromNat(ℕ1) = 1
+proof
+  evaluate
+end
+
+lemma toNat_dub : all x:UInt. toNat(dub(x)) = ℕ2 * toNat(x)
 proof
   induction UInt
   case bzero {
@@ -193,10 +195,10 @@ proof
   }
   case dub_inc(x) assume IH {
     expand dub | 2* toNat
-    replace mult_commute[2,toNat(x)]
-    | mult_commute[2,suc(toNat(x))]
-    | mult_commute[2,suc(toNat(x))]
-    | mult_commute[2, suc(suc(toNat(x) * 2))]
+    replace mult_commute[ℕ2,toNat(x)]
+    | mult_commute[ℕ2,suc(toNat(x))]
+    | mult_commute[ℕ2,suc(toNat(x))]
+    | mult_commute[ℕ2, suc(suc(toNat(x) * ℕ2))]
     expand 2*operator*
     replace dist_mult_add_right
     evaluate
@@ -251,27 +253,27 @@ proof
   }
 end
 
-lemma two: 1 + 1 = 2
+lemma two: ℕ1 + ℕ1 = ℕ2
 proof
   evaluate
 end
 
-lemma two_four: 2 * 2 = 4
+lemma two_four: ℕ2 * ℕ2 = ℕ4
 proof
   evaluate
 end
 
-lemma three: 1 + 2 = 3
+lemma three: ℕ1 + ℕ2 = ℕ3
 proof
   evaluate
 end
 
-lemma two_one: 2 + 1 = 3
+lemma two_one: ℕ2 + ℕ1 = ℕ3
 proof
   evaluate
 end
 
-lemma four: 2 + 2 = 4
+lemma four: ℕ2 + ℕ2 = ℕ4
 proof
   evaluate
 end
@@ -279,7 +281,7 @@ end
 theorem toNat_less: all x:UInt, y:UInt.
   if x < y then toNat(x) < toNat(y)
 proof
-  have one_three: 1 + 3 = 4 by evaluate
+  have one_three: ℕ1 + ℕ3 = ℕ4 by evaluate
     
   induction UInt
   case bzero {
@@ -309,36 +311,36 @@ proof
         have IH2: suc(toNat(x')) ≤ toNat(y') by expand operator < in IH1
         replace suc_one_add | suc_one_add | add_zero | two
           | dist_mult_add | mult_one | three
-        have IH3: 2 * (1 + toNat(x')) ≤ 2 * toNat(y')
-          by apply mult_mono_le[2,1+toNat(x'),toNat(y')]
+        have IH3: ℕ2 * (ℕ1 + toNat(x')) ≤ ℕ2 * toNat(y')
+          by apply mult_mono_le[ℕ2,ℕ1+toNat(x'),toNat(y')]
              to replace suc_one_add  in IH2
-        have IH4: 2 + 2 * toNat(x') ≤ 2 * toNat(y')
+        have IH4: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
           by replace dist_mult_add | mult_one in IH3
-        have IH5: 4 + 2 * toNat(x') ≤ 2 + 2 * toNat(y') by {
+        have IH5: ℕ4 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y') by {
           replace four in
-          apply add_both_sides_of_less_equal[2, 2+2*toNat(x'),2*toNat(y')]
+          apply add_both_sides_of_less_equal[ℕ2, ℕ2+ℕ2*toNat(x'), ℕ2*toNat(y')]
           to IH4
         }
-        have A: 3 + 2 * toNat(x') ≤ 4 + 2 * toNat(x')
-          by replace one_three in less_equal_add_left[1, 3 + 2 * toNat(x')]
+        have A: ℕ3 + ℕ2 * toNat(x') ≤ ℕ4 + ℕ2 * toNat(x')
+          by replace one_three in less_equal_add_left[ℕ1, ℕ3 + ℕ2 * toNat(x')]
         apply less_equal_trans to A, IH5
       }
       case inc_dub(y') {
         assume prem
         have: x' < y' by expand operator< in prem
         have IH1: toNat(x') < toNat(y') by apply IH[y'] to recall x' < y'
-        have IH2: 1 + toNat(x') ≤ toNat(y') by {
+        have IH2: ℕ1 + toNat(x') ≤ toNat(y') by {
           replace suc_one_add in
           expand operator< in IH1
         }
-        have IH3: 2*(1 + toNat(x')) ≤ 2*toNat(y')
-          by apply mult_mono_le[2] to IH2
-        have IH4: 2 + 2 * toNat(x') ≤ 2*toNat(y')
+        have IH3: ℕ2*(ℕ1 + toNat(x')) ≤ ℕ2*toNat(y')
+          by apply mult_mono_le[ℕ2] to IH2
+        have IH4: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2*toNat(y')
           by replace dist_mult_add | mult_one in IH3
         expand toNat
-        replace mult_commute[2]
+        replace mult_commute[ℕ2]
         expand operator* | operator< | operator ≤ 
-        replace mult_commute[toNat(x'),2] | mult_commute[toNat(y'),2]
+        replace mult_commute[toNat(x'), ℕ2] | mult_commute[toNat(y'), ℕ2]
         IH4
       }
     }
@@ -359,20 +361,20 @@ proof
             expand operator< in
             apply IH to recall x' < y'
           }
-          suffices 2 + 2 * toNat(x') ≤ 2 + 2 * toNat(y') by {
+          suffices ℕ2 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y') by {
             replace suc_one_add | suc_one_add | add_zero | two
             | dist_mult_add | mult_one.
           }
-          suffices 2 * toNat(x') ≤ 2 * toNat(y')
+          suffices ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
             by conjunct 1 of
-               add_both_sides_of_less_equal[2,2*toNat(x'),2*toNat(y')]
+               add_both_sides_of_less_equal[ℕ2, ℕ2*toNat(x'), ℕ2*toNat(y')]
           suffices toNat(x') ≤ toNat(y') by mult_mono_le
           have A: toNat(x') ≤ suc(toNat(x')) by less_equal_suc
           apply less_equal_trans to A, IH1
         }
         case: x' = y' {
           replace (recall x' = y')
-          suffices 2 + 2 * toNat(y') ≤ 2 + 2 * toNat(y') by {
+          suffices ℕ2 + ℕ2 * toNat(y') ≤ ℕ2 + ℕ2 * toNat(y') by {
             replace suc_one_add | suc_one_add | add_zero | two
             | dist_mult_add | mult_one.
           }
@@ -383,16 +385,16 @@ proof
         expand toNat | operator<
         replace suc_one_add | suc_one_add | add_zero | two
         assume prem
-        have IH2: 1 + toNat(x') ≤ toNat(y') by {
+        have IH2: ℕ1 + toNat(x') ≤ toNat(y') by {
           replace suc_one_add in
           expand operator< in 
           apply IH to prem
         }
-        have IH3: 2 + 2*toNat(x') ≤ 2* toNat(y') by {
+        have IH3: ℕ2 + ℕ2*toNat(x') ≤ ℕ2 * toNat(y') by {
           replace dist_mult_add | mult_one in
-          apply mult_mono_le[2] to IH2
+          apply mult_mono_le[ℕ2] to IH2
         }
-        have A: 2 * toNat(y') ≤ 1 + 2*toNat(y') by less_equal_add_left
+        have A: ℕ2 * toNat(y') ≤ ℕ1 + ℕ2*toNat(y') by less_equal_add_left
         apply less_equal_trans to IH3, A
       }
     }
@@ -420,7 +422,7 @@ proof
         expand toNat
         replace suc_one_add | two | dist_mult_add | mult_one
         assume prem
-        have A: 2 * toNat(x') = 2 * toNat(y')
+        have A: ℕ2 * toNat(x') = ℕ2 * toNat(y')
           by apply add_both_sides_of_equal to prem
         have B: toNat(x') = toNat(y')
           by apply mult_left_cancel to A
@@ -432,16 +434,16 @@ proof
         expand toNat
         replace suc_one_add | two | dist_mult_add | mult_one
         assume prem
-        have even: Even(2 + 2*toNat(x')) by {
-          expand Even
-          choose 1 + toNat(x')
+        have even: EvenNat(ℕ2 + ℕ2*toNat(x')) by {
+          expand EvenNat
+          choose ℕ1 + toNat(x')
           replace dist_mult_add | mult_one.
         }
-        have even2: Even(1 + 2*toNat(y')) by {
+        have even2: EvenNat(ℕ1 + ℕ2*toNat(y')) by {
           replace prem in even
         }
-        have odd: Odd(1 + 2*toNat(y')) by {
-          expand Odd
+        have odd: OddNat(ℕ1 + ℕ2*toNat(y')) by {
+          expand OddNat
           choose toNat(y')
           evaluate
         }
@@ -456,24 +458,26 @@ proof
       case dub_inc(y') {
         expand toNat replace suc_one_add | two | dist_mult_add | mult_one
         assume prem
-        have odd: Odd(1 + 2*toNat(x')) by {
-          expand Odd
+        have odd: OddNat(ℕ1 + ℕ2*toNat(x')) by {
+          expand OddNat
           choose toNat(x')
           evaluate
         }
-        have even: Even(2 + 2*toNat(y')) by {
-          expand Even
-          choose 1 + toNat(y')
+        have even: EvenNat(ℕ2 + ℕ2*toNat(y')) by {
+          expand EvenNat
+          choose ℕ1 + toNat(y')
           replace dist_mult_add | mult_one.
         }
-        have odd2: Odd(2 + 2*toNat(y')) by replace prem in odd
+        have odd2: OddNat(ℕ2 + ℕ2*toNat(y')) by replace prem in odd
         conclude false by apply (apply Even_not_Odd to even) to odd2
       }
       case inc_dub(y') {
         expand toNat replace suc_one_add
         assume prem
-        have A: 2 * toNat(x') = 2 * toNat(y') by apply add_both_sides_of_equal to prem
-        have B: toNat(x') = toNat(y') by apply mult_left_cancel[1,toNat(x'),toNat(y')] to A
+        have A: ℕ2 * toNat(x') = ℕ2 * toNat(y')
+          by apply add_both_sides_of_equal to prem
+        have B: toNat(x') = toNat(y')
+          by apply mult_left_cancel[ℕ1, toNat(x'), toNat(y')] to A
         have: x' = y' by apply IH to B
         conclude inc_dub(x') = inc_dub(y') by replace recall x' = y'.
       }
@@ -490,21 +494,21 @@ proof
   case dub_inc(b') assume IH {
     expand toNat
     replace suc_one_add | dist_mult_add | mult_one | two
-    suffices toNat(fromNat(2 + 2 * toNat(b'))) = toNat(dub_inc(b'))
-      by toNat_injective[fromNat(2 + 2 * toNat(b')), dub_inc(b')]
+    suffices toNat(fromNat(ℕ2 + ℕ2 * toNat(b'))) = toNat(dub_inc(b'))
+      by toNat_injective[fromNat(ℕ2 + ℕ2 * toNat(b')), dub_inc(b')]
     replace to_fromNat
-    show 2 + 2 * toNat(b') = toNat(dub_inc(b'))
+    show ℕ2 + ℕ2 * toNat(b') = toNat(dub_inc(b'))
     expand toNat
     replace suc_one_add | two | dist_mult_add | mult_one.
   }
   case inc_dub(b') assume IH {
     expand toNat
     replace suc_one_add
-    suffices toNat(fromNat(1 + 2 * toNat(b'))) = toNat(inc_dub(b'))
-      by toNat_injective[fromNat(1 + 2 * toNat(b')), inc_dub(b')]
+    suffices toNat(fromNat(ℕ1 + ℕ2 * toNat(b'))) = toNat(inc_dub(b'))
+      by toNat_injective[fromNat(ℕ1 + ℕ2 * toNat(b')), inc_dub(b')]
     replace to_fromNat
     expand toNat
-    show 1 + 2 * toNat(b') = suc(2 * toNat(b'))
+    show ℕ1 + ℕ2 * toNat(b') = suc(ℕ2 * toNat(b'))
     replace suc_one_add | add_zero | two.
   }
 end
@@ -557,9 +561,9 @@ proof
         expand operator<
         suffices toNat(x') < toNat(y') by IH[y']
         have sx_sy: suc(toNat(x')) < suc(toNat(y')) by {
-          apply (apply mult_lt_mono_r[2,suc(toNat(x')),suc(toNat(y'))]
+          apply (apply mult_lt_mono_r[ℕ2,suc(toNat(x')),suc(toNat(y'))]
             to evaluate)
-          to replace mult_commute[2] in prem
+          to replace mult_commute[ℕ2] in prem
         }
         apply less_suc_iff_suc_less[toNat(x'),toNat(y')] to sx_sy
       }
@@ -568,18 +572,18 @@ proof
         assume prem
         expand operator<
         suffices toNat(x') < toNat(y') by IH[y']
-        have A: 1 + 2 * toNat(x') < 2 + 2 * toNat(x')
+        have A: ℕ1 + ℕ2 * toNat(x') < ℕ2 + ℕ2 * toNat(x')
           by suffices __ by evaluate less_equal_refl
-        have B: 2 + 2 * toNat(x') < 1 + 2 * toNat(y')
-          by replace suc_one_add[toNat(x')] | suc_one_add[2*toNat(y')]
+        have B: ℕ2 + ℕ2 * toNat(x') < ℕ1 + ℕ2 * toNat(y')
+          by replace suc_one_add[toNat(x')] | suc_one_add[ℕ2*toNat(y')]
             | dist_mult_add | mult_one in prem
-        have C: 1 + 2 * toNat(x') < 1 + 2 * toNat(y')
+        have C: ℕ1 + ℕ2 * toNat(x') < ℕ1 + ℕ2 * toNat(y')
           by apply less_trans to A,B
-        have D: 2 * toNat(x') < 2 * toNat(y')
-          by apply add_both_sides_of_less[1] to C
+        have D: ℕ2 * toNat(x') < ℕ2 * toNat(y')
+          by apply add_both_sides_of_less[ℕ1] to C
         conclude toNat(x') < toNat(y') by {
-          apply mult_cancel_right_less[2, toNat(x'), toNat(y')]
-          to replace mult_commute[2] in D
+          apply mult_cancel_right_less[ℕ2, toNat(x'), toNat(y')]
+          to replace mult_commute[ℕ2] in D
         }
       }
     }
@@ -592,11 +596,11 @@ proof
         expand toNat
         assume prem
         expand operator<
-        have A: 1 + 2 * toNat(x') < 2 + 2 * toNat(y')
+        have A: ℕ1 + ℕ2 * toNat(x') < ℕ2 + ℕ2 * toNat(y')
           by replace suc_one_add | dist_mult_add | mult_one | two in prem
-        have B: 2 + 2 * toNat(x') ≤ 2 + 2 * toNat(y')
+        have B: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y')
           by replace suc_one_add | two in expand operator< in A
-        have C: 2 * toNat(x') ≤ 2 * toNat(y')
+        have C: ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
           by apply add_both_sides_of_less_equal to B
         have D: toNat(x') ≤ toNat(y')
           by apply mult_nonzero_mono_le to C
@@ -613,7 +617,7 @@ proof
       case inc_dub(y') {
         expand toNat replace suc_one_add
         assume prem
-        have A: 2 * toNat(x') < 2 * toNat(y') by apply add_both_sides_of_less to prem
+        have A: ℕ2 * toNat(x') < ℕ2 * toNat(y') by apply add_both_sides_of_less to prem
         have B: toNat(x') < toNat(y')
           by apply mult_cancel_right_less to replace mult_commute in A
         expand operator<
@@ -623,6 +627,40 @@ proof
   }
 end
 
+theorem uint_less_equal_refl: all n:UInt. n ≤ n
+proof
+  arbitrary n:UInt
+  expand operator≤.
+end
+
+theorem uint_less_implies_less_equal: all x:UInt, y:UInt.
+  if x < y then x ≤ y
+proof
+  arbitrary x:UInt, y:UInt
+  expand operator≤
+  assume prem
+  prem
+end
+
+theorem less_equal_toNat: all x:UInt, y:UInt.
+  if toNat(x) ≤ toNat(y) then x ≤ y
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  have le: toNat(x) < toNat(y) or toNat(x) = toNat(y)
+    by apply less_equal_implies_less_or_equal to prem
+  cases le
+  case less {
+    have xy: x < y by apply less_toNat to less
+    conclude x ≤ y by apply uint_less_implies_less_equal[x,y] to xy
+  }
+  case eq {
+    have x_y: x = y by apply toNat_injective to eq
+    replace x_y
+    expand operator≤.
+  }
+end
+  
 theorem uint_less_irreflexive: all x:UInt.
   not (x < x)
 proof
@@ -643,8 +681,8 @@ proof
   conclude x < z by apply less_toNat to xz
 end
 
-lemma not_less_bzero:
-  all x:UInt. not (x < bzero)
+theorem uint_not_less_zero:
+  all x:UInt. not (x < 0)
 proof
   arbitrary x:UInt
   switch x {
@@ -654,14 +692,6 @@ proof
   }
 end
 
-theorem uint_not_less_zero:
-  all x:UInt. not (x < fromNat(0))
-proof
-  arbitrary x:UInt
-  expand fromNat
-  not_less_bzero
-end
-  
 theorem uint_not_less_implies_less_equal:
   all x: UInt, y: UInt.
   if not (x < y) then y ≤ x
@@ -715,28 +745,8 @@ proof
   }
 end
 
-lemma uint_bzero_le: all x:UInt.
-  bzero ≤ x
-proof
-  arbitrary x:UInt
-  expand operator≤
-  switch x {
-    case bzero { . }
-    case dub_inc(x') { evaluate }
-    case inc_dub(x') { evaluate }
-  }
-end
-
 theorem uint_zero_le: all x:UInt.
-  fromNat(0) ≤ x
-proof
-  arbitrary x:UInt
-  expand fromNat
-  uint_bzero_le
-end
-  
-lemma uint_le_bzero: all x:UInt.
-  if x ≤ bzero then x = bzero
+  0 ≤ x
 proof
   arbitrary x:UInt
   expand operator≤
@@ -748,11 +758,15 @@ proof
 end
 
 theorem uint_le_zero: all x:UInt.
-  if x ≤ fromNat(0) then x = fromNat(0)
+  if x ≤ 0 then x = 0
 proof
   arbitrary x:UInt
-  expand fromNat
-  uint_le_bzero
+  expand operator≤
+  switch x {
+    case bzero { . }
+    case dub_inc(x') { evaluate }
+    case inc_dub(x') { evaluate }
+  }
 end
 
 theorem toNat_add: all x:UInt, y:UInt.
@@ -772,16 +786,16 @@ proof
         expand toNat
         replace toNat_inc | suc_one_add | suc_one_add | add_zero | two
           | dist_mult_add | mult_one | two_four
-        show 4 + 2 * toNat(x' + y') = 2 + 2 * toNat(x') + 2 + 2 * toNat(y')
+        show ℕ4 + ℕ2 * toNat(x' + y') = ℕ2 + ℕ2 * toNat(x') + ℕ2 + ℕ2 * toNat(y')
         replace IH[y']
-        replace dist_mult_add | add_commute[2*toNat(x'),2] | four.
+        replace dist_mult_add | add_commute[ℕ2*toNat(x'),ℕ2] | four.
       }
       case inc_dub(y') {
         expand inc | toNat
         replace toNat_inc | suc_one_add | suc_one_add | zero_add | two | add_zero
-        | dist_mult_add | mult_one | add_commute[2*toNat(x'),1] | add_commute[2,1]
+        | dist_mult_add | mult_one | add_commute[ℕ2*toNat(x'),ℕ1] | add_commute[ℕ2,ℕ1]
         | three
-        show 3 + 2 * toNat(x' + y') = 3 + 2 * toNat(x') + 2 * toNat(y')
+        show ℕ3 + ℕ2 * toNat(x' + y') = ℕ3 + ℕ2 * toNat(x') + ℕ2 * toNat(y')
         replace IH[y']
         replace dist_mult_add.
       }
@@ -794,16 +808,16 @@ proof
       case dub_inc(y') {
         expand operator+ | toNat | inc
         replace toNat_inc | suc_one_add | suc_one_add | add_zero | two
-          | dist_mult_add | mult_one | add_commute[2*toNat(x'), 2] | three
-        show 3 + 2 * toNat(x' + y') = 3 + 2 * toNat(x') + 2 * toNat(y')
+          | dist_mult_add | mult_one | add_commute[ℕ2*toNat(x'), ℕ2] | three
+        show ℕ3 + ℕ2 * toNat(x' + y') = ℕ3 + ℕ2 * toNat(x') + ℕ2 * toNat(y')
         replace IH[y']
         replace dist_mult_add.
       }
       case inc_dub(y') {
         expand operator+ | toNat | inc
         replace suc_one_add | suc_one_add | two | dist_mult_add | add_zero | zero_add
-          | two | mult_one | add_commute[2*toNat(x'), 1] | two
-        show 2 + 2 * toNat(x' + y') = 2 + 2 * toNat(x') + 2 * toNat(y')
+          | two | mult_one | add_commute[ℕ2*toNat(x'), ℕ1] | two
+        show ℕ2 + ℕ2 * toNat(x' + y') = ℕ2 + ℕ2 * toNat(x') + ℕ2 * toNat(y')
         replace IH[y']
         replace dist_mult_add.
       }
@@ -836,8 +850,16 @@ proof
     ... = #toNat(x + (y + z))#                 by replace toNat_add.
 end
 
-lemma uint_bzero_add: all x:UInt.
-  bzero + x = x
+associative operator+ in UInt
+
+lemma check_assoc: all x:UInt, y:UInt, z:UInt.
+  (x + y) + z = x + (y + z)
+proof
+  .
+end
+
+theorem uint_zero_add: all x:UInt.
+  0 + x = x
 proof
   arbitrary x:UInt
   suffices toNat(bzero + x) = toNat(x) by toNat_injective
@@ -847,16 +869,8 @@ proof
   ... = toNat(x)                   by expand toNat evaluate
 end
 
-theorem uint_zero_add: all x:UInt.
-  fromNat(0) + x = x
-proof
-  arbitrary x:UInt
-  expand fromNat
-  uint_bzero_add
-end
-
-lemma uint_add_bzero: all x:UInt.
-  x + bzero = x
+theorem uint_add_zero: all x:UInt.
+  x + 0 = x
 proof
   arbitrary x:UInt
   suffices toNat(x + bzero) = toNat(x) by toNat_injective
@@ -866,14 +880,19 @@ proof
   ... = toNat(x)                   by expand toNat replace add_zero.
 end  
 
-theorem uint_add_zero: all x:UInt.
-  x + fromNat(0) = x
+theorem uint_zero_less_one_add: all n:UInt.
+  0 < 1 + n
 proof
-  arbitrary x:UInt
-  expand fromNat
-  uint_add_bzero
+  arbitrary n:UInt
+  suffices toNat(0) < toNat(1 + n) by less_toNat
+  replace toNat_add
+  conclude toNat(0) < toNat(1) + toNat(n) by {
+    expand 2*toNat
+    replace mult_zero
+    zero_less_one_add
+  }
 end
-  
+
 theorem uint_add_both_sides_of_equal: all x:UInt, y:UInt, z:UInt.
   x + y = x + z ⇔ y = z
 proof
@@ -894,29 +913,42 @@ proof
   fwd, bkwd
 end
 
-lemma uint_add_to_bzero: all n:UInt, m:UInt.
-  if n + m = bzero
-  then n = bzero and m = bzero
+theorem uint_add_to_zero: all n:UInt, m:UInt.
+  if n + m = 0
+  then n = 0 and m = 0
 proof
   arbitrary n:UInt, m:UInt
   assume prem
   have nm_z: toNat(n + m) = toNat(bzero) by replace prem.
-  have nm_z2: toNat(n) + toNat(m) = 0 by expand toNat in replace toNat_add in nm_z
-  have nz_mz: toNat(n) = 0 and toNat(m) = 0 by apply add_to_zero to nm_z2
+  have nm_z2: toNat(n) + toNat(m) = ℕ0 by expand toNat in replace toNat_add in nm_z
+  have nz_mz: toNat(n) = ℕ0 and toNat(m) = ℕ0 by apply add_to_zero to nm_z2
   have nz: toNat(n) = toNat(bzero) by expand toNat nz_mz
   have mz: toNat(m) = toNat(bzero) by expand toNat nz_mz
   (apply toNat_injective to nz), (apply toNat_injective to mz)
 end
 
-theorem uint_add_to_zero: all n:UInt, m:UInt.
-  if n + m = fromNat(0)
-  then n = fromNat(0) and m = fromNat(0)
+theorem uint_less_equal_add: all x:UInt, y:UInt.
+  x ≤ x + y
 proof
-  arbitrary n:UInt, m:UInt
-  expand fromNat
-  uint_add_to_bzero
+  arbitrary x:UInt, y:UInt
+  suffices toNat(x) ≤ toNat(x + y) by less_equal_toNat[x, x+y]
+  replace toNat_add
+  less_equal_add
+end
+
+theorem uint_less_add_pos: all x:UInt, y:UInt.
+  if 0 < y
+  then x < x + y
+proof
+  arbitrary x:UInt, y:UInt
+  assume y_pos
+  have ny_pos: ℕ0 < toNat(y) by expand toNat in apply toNat_less to y_pos
+  have A: toNat(x) < toNat(x) + toNat(y) by apply less_add_pos[toNat(x), toNat(y)] to ny_pos
+  have B: toNat(x) < toNat(x + y) by { replace toNat_add A }
+  conclude x < x + y by apply less_toNat to B
 end
   
+
 theorem toNat_mult: all x:UInt, y:UInt.
   toNat(x * y) = toNat(x) * toNat(y)
 proof
@@ -942,14 +974,14 @@ proof
         replace IH[y']
         replace suc_one_add | two | two_four | dist_mult_add | mult_one | add_zero
         | dist_mult_add | dist_mult_add | one_mult | dist_mult_add_right
-        | dist_mult_add_right | mult_commute[toNat(x'),2] | one_mult
-        | add_commute[2*toNat(x'),2] | four 
-        replace (symmetric dist_mult_add[2,toNat(x'),toNat(x')])
+        | dist_mult_add_right | mult_commute[toNat(x'),ℕ2] | one_mult
+        | add_commute[ℕ2*toNat(x'),ℕ2] | four 
+        replace (symmetric dist_mult_add[ℕ2,toNat(x'),toNat(x')])
         replace (symmetric two_mult[toNat(x')]) | two_four
-        replace add_commute[2 * toNat(x') * toNat(y'), 2 * toNat(y')]
-        replace (symmetric dist_mult_add[2,toNat(y'),toNat(y')])
+        replace add_commute[ℕ2 * toNat(x') * toNat(y'), ℕ2 * toNat(y')]
+        replace (symmetric dist_mult_add[ℕ2,toNat(y'),toNat(y')])
         replace (symmetric two_mult[toNat(y')]) | two_four
-        replace (symmetric dist_mult_add[2,toNat(x')*toNat(y'),toNat(x')*toNat(y')])
+        replace (symmetric dist_mult_add[ℕ2,toNat(x')*toNat(y'),toNat(x')*toNat(y')])
         replace (symmetric two_mult[toNat(x')*toNat(y')]) | two_four.
       }
       case inc_dub(y') {
@@ -958,12 +990,12 @@ proof
         replace IH[y']
         replace suc_one_add | two | add_zero | one_mult | dist_mult_add
         | dist_mult_add | two_four | dist_mult_add | mult_one
-        | dist_mult_add_right | one_mult | mult_commute[toNat(x'),2]
-        replace add_commute[toNat(x'),1] | two | symmetric two_mult[toNat(x')]
-        replace add_commute[2 * toNat(x') * toNat(y'), 2 * toNat(y')]
-        replace (symmetric dist_mult_add[2,toNat(x')*toNat(y'),toNat(x')*toNat(y')])
+        | dist_mult_add_right | one_mult | mult_commute[toNat(x'),ℕ2]
+        replace add_commute[toNat(x'),ℕ1] | two | symmetric two_mult[toNat(x')]
+        replace add_commute[ℕ2 * toNat(x') * toNat(y'), ℕ2 * toNat(y')]
+        replace (symmetric dist_mult_add[ℕ2,toNat(x')*toNat(y'),toNat(x')*toNat(y')])
         replace (symmetric two_mult[toNat(x')*toNat(y')]) | two_four
-        replace (symmetric dist_mult_add[2,toNat(y'),toNat(y')])
+        replace (symmetric dist_mult_add[ℕ2,toNat(y'),toNat(y')])
         replace (symmetric two_mult[toNat(y')]) | two_four.
       }
     }
@@ -981,16 +1013,16 @@ proof
         replace toNat_add | toNat_add | toNat_dub
         replace IH[y']
         replace suc_one_add | two | dist_mult_add | mult_one | dist_mult_add
-        | two_four | mult_commute[toNat(x'), 2] | two_four
-        | dist_mult_add | two_four | add_commute[2*toNat(y'),4*toNat(x')].
+        | two_four | mult_commute[toNat(x'), ℕ2] | two_four
+        | dist_mult_add | two_four | add_commute[ℕ2*toNat(y'),ℕ4*toNat(x')].
       }
       case inc_dub(y') {
         expand operator* | toNat
         replace toNat_add | toNat_add | toNat_dub
         replace IH[y']
         replace dist_mult_add | suc_one_add | dist_mult_add | two | two_four | mult_one
-        replace mult_commute[toNat(x'),2] | two_four
-        replace add_commute[2*toNat(y'),2*toNat(x')].
+        replace mult_commute[toNat(x'),ℕ2] | two_four
+        replace add_commute[ℕ2*toNat(y'),ℕ2*toNat(x')].
       }
     }
   }
@@ -1015,28 +1047,28 @@ end
 
 associative operator* in UInt
 
-lemma inc_dub_sub_dub_inc_less: all x:UInt, y:UInt.
+lemma inc_dub_monus_dub_inc_less: all x:UInt, y:UInt.
   if x < y
-  then inc_dub(x) - dub_inc(y) = bzero
+  then inc_dub(x) ∸ dub_inc(y) = bzero
 proof
   arbitrary x:UInt, y:UInt
   assume prem
-  expand operator-
+  expand operator∸
   replace apply eq_true to prem.
 end
 
-lemma inc_dub_sub_dub_inc_greater: all x:UInt, y:UInt.
+lemma inc_dub_monus_dub_inc_greater: all x:UInt, y:UInt.
   if not (x < y)
-  then inc_dub(x) - dub_inc(y) = pred(dub(x - y))
+  then inc_dub(x) ∸ dub_inc(y) = pred(dub(x ∸ y))
 proof
   arbitrary x:UInt, y:UInt
   assume prem
-  expand operator -
+  expand operator ∸
   replace apply eq_false to prem.
 end
 
-theorem toNat_sub: all x:UInt, y:UInt.
-  toNat(x - y) = toNat(x) - toNat(y)
+theorem toNat_monus: all x:UInt, y:UInt.
+  toNat(x ∸ y) = toNat(x) ∸ toNat(y)
 proof
   induction UInt
   case bzero {
@@ -1047,52 +1079,52 @@ proof
     arbitrary y:UInt
     switch y {
       case bzero {
-        expand operator- | toNat
-        replace sub_zero.
+        expand operator∸ | toNat
+        replace monus_zero.
       }
       case dub_inc(y') {
-        expand operator- | toNat
+        expand operator∸ | toNat
         replace toNat_dub
         replace IH[y']
-        replace suc_one_add | dist_mult_sub | two | dist_mult_add | mult_one
+        replace suc_one_add | dist_mult_monus | two | dist_mult_add | mult_one
         equations
-            2 * toNat(x') - 2 * toNat(y')
-              = #2 * toNat(x') + 0# - 2 * toNat(y')          by replace add_zero.
-          ... = (2 * toNat(x') + #2 - 2#) - 2 * toNat(y')    by replace sub_cancel.
-          ... = ((2 * toNat(x') + 2) - 2) - 2 * toNat(y')    by replace (apply sub_add_assoc[2, 2 * toNat(x'), 2]
+            ℕ2 * toNat(x') ∸ ℕ2 * toNat(y')
+              = #ℕ2 * toNat(x') + ℕ0# ∸ ℕ2 * toNat(y')          by replace add_zero.
+          ... = (ℕ2 * toNat(x') + #ℕ2 ∸ ℕ2#) ∸ ℕ2 * toNat(y')    by replace monus_cancel.
+          ... = ((ℕ2 * toNat(x') + ℕ2) ∸ ℕ2) ∸ ℕ2 * toNat(y')    by replace (apply monus_add_assoc[ℕ2, ℕ2 * toNat(x'), ℕ2]
                                                                          to less_equal_refl).
-          ... = ((2 + 2 * toNat(x')) - 2) - 2 * toNat(y')    by replace add_commute.
-          ... = (2 + 2 * toNat(x')) - (2 + 2 * toNat(y'))    by sub_sub_eq_sub_add
+          ... = ((ℕ2 + ℕ2 * toNat(x')) ∸ ℕ2) ∸ ℕ2 * toNat(y')    by replace add_commute.
+          ... = (ℕ2 + ℕ2 * toNat(x')) ∸ (ℕ2 + ℕ2 * toNat(y'))    by monus_monus_eq_monus_add
       }
       case inc_dub(y') {
-        expand operator- | toNat
+        expand operator∸ | toNat
         switch x' < y' {
           case true assume x_l_y_true {
             replace suc_one_add | dist_mult_add | mult_one | two
             have x_y: x' < y' by replace x_l_y_true.
             have nx_ny: toNat(x') < toNat(y') by apply toNat_less to x_y
-            have C: 2*toNat(x') < 2*toNat(y') by apply mono_nonzero_mult_le[1] to nx_ny
-            have D: 1 + 2*toNat(x') < 1 + 2*toNat(y') by apply add_both_sides_of_less[1] to C
-            have E: 2 + 2*toNat(x') ≤ 1 + 2*toNat(y') by replace suc_one_add | two | add_zero in expand operator< in D
-            have F: (2 + 2 * toNat(x')) - (1 + 2 * toNat(y')) = 0 by apply sub_zero_iff_less_eq to E
+            have C: ℕ2*toNat(x') < ℕ2*toNat(y') by apply mono_nonzero_mult_le[ℕ1] to nx_ny
+            have D: ℕ1 + ℕ2*toNat(x') < ℕ1 + ℕ2*toNat(y') by apply add_both_sides_of_less[ℕ1] to C
+            have E: ℕ2 + ℕ2*toNat(x') ≤ ℕ1 + ℕ2*toNat(y') by replace suc_one_add | two | add_zero in expand operator< in D
+            have F: (ℕ2 + ℕ2 * toNat(x')) ∸ (ℕ1 + ℕ2 * toNat(y')) = ℕ0 by apply monus_zero_iff_less_eq to E
             replace F.
           }
           case false assume x_l_y_false {
             replace IH[y']
-            replace dist_mult_sub | suc_one_add | two | dist_mult_add | mult_one
-            replace symmetric sub_sub_eq_sub_add[2 + 2*toNat(x'), 1, 2*toNat(y')]
-            replace add_commute[2,2*toNat(x')]
-            have: 1 ≤ 2 by evaluate
-            replace symmetric (apply sub_add_assoc[2, 2*toNat(x'), 1] to recall 1 ≤ 2)
-            have: 2 - 1 = 1 by evaluate
-            replace recall 2 - 1 = 1
-            replace add_commute[2*toNat(x'), 1]
+            replace dist_mult_monus | suc_one_add | two | dist_mult_add | mult_one
+            replace symmetric monus_monus_eq_monus_add[ℕ2 + ℕ2*toNat(x'), ℕ1, ℕ2*toNat(y')]
+            replace add_commute[ℕ2,ℕ2*toNat(x')]
+            have: ℕ1 ≤ ℕ2 by evaluate
+            replace symmetric (apply monus_add_assoc[ℕ2, ℕ2*toNat(x'), ℕ1] to recall ℕ1 ≤ ℕ2)
+            have: ℕ2 ∸ ℕ1 = ℕ1 by evaluate
+            replace recall ℕ2 ∸ ℕ1 = ℕ1
+            replace add_commute[ℕ2*toNat(x'), ℕ1]
             have xy1: not (x' < y') by replace x_l_y_false.
             have xy2: y' ≤ x' by apply uint_not_less_implies_less_equal to xy1
             have xy3: toNat(y') ≤ toNat(x') by apply toNat_less_equal to xy2
-            have y2_x2: 2 * toNat(y') ≤ 2 * toNat(x')  by apply mult_mono_le[2] to xy3
-            conclude 1 + (2 * toNat(x') - 2 * toNat(y')) = (1 + 2 * toNat(x')) - 2 * toNat(y')
-              by apply sub_add_assoc[2 * toNat(x'), 1, 2 * toNat(y')] to y2_x2
+            have y2_x2: ℕ2 * toNat(y') ≤ ℕ2 * toNat(x')  by apply mult_mono_le[ℕ2] to xy3
+            conclude ℕ1 + (ℕ2 * toNat(x') ∸ ℕ2 * toNat(y')) = (ℕ1 + ℕ2 * toNat(x')) ∸ ℕ2 * toNat(y')
+              by apply monus_add_assoc[ℕ2 * toNat(x'), ℕ1, ℕ2 * toNat(y')] to y2_x2
           }
         }
       }
@@ -1107,137 +1139,126 @@ proof
       case dub_inc(y') {
         switch x' < y' {
           case true assume x_l_y_true {
-            expand operator- | toNat | operator* | operator+
-            replace one_mult | suc_one_add | add_commute[toNat(y'), 1]
-            have xx_l_syy: toNat(x') + toNat(x') ≤ 1 + toNat(y') + toNat(y') by {
+            expand operator∸ | toNat | operator* | operator+
+            replace one_mult | suc_one_add | add_commute[toNat(y'), ℕ1]
+            have xx_l_syy: toNat(x') + toNat(x') ≤ ℕ1 + toNat(y') + toNat(y') by {
               have x_y: x' < y' by replace x_l_y_true.
               have nx_l_ny: toNat(x') < toNat(y') by apply toNat_less to x_y
-              have snx_ny: 1 + toNat(x') ≤ toNat(y')
+              have snx_ny: ℕ1 + toNat(x') ≤ toNat(y')
                 by replace suc_one_add in expand operator< in nx_l_ny
-              have nx_snx: toNat(x') ≤ 1 + toNat(x')
+              have nx_snx: toNat(x') ≤ ℕ1 + toNat(x')
                 by less_equal_add_left
               have nx_ny: toNat(x') ≤ toNat(y')
                 by apply less_equal_trans to nx_snx, snx_ny
               have nx2_ny2: toNat(x') + toNat(x') ≤ toNat(y') + toNat(y')
                 by apply add_mono to nx_ny, nx_ny
-              have ny2_sny2: toNat(y') + toNat(y') ≤ 1 + toNat(y') + toNat(y')
+              have ny2_sny2: toNat(y') + toNat(y') ≤ ℕ1 + toNat(y') + toNat(y')
                 by less_equal_add_left
-              conclude toNat(x') + toNat(x') ≤ 1 + toNat(y') + toNat(y')
+              conclude toNat(x') + toNat(x') ≤ ℕ1 + toNat(y') + toNat(y')
                 by apply less_equal_trans to nx2_ny2, ny2_sny2
               }
             replace x_l_y_true
-            replace (apply sub_zero_iff_less_eq[toNat(x') + toNat(x'), 1 + toNat(y') + toNat(y')] to xx_l_syy).
+            replace (apply monus_zero_iff_less_eq[toNat(x') + toNat(x'), ℕ1 + toNat(y') + toNat(y')] to xx_l_syy).
           }
           case false assume x_l_y_false {
             expand toNat
             have x_g_y: not (x' < y') by replace x_l_y_false.
-            replace (apply inc_dub_sub_dub_inc_greater to x_g_y)
+            replace (apply inc_dub_monus_dub_inc_greater to x_g_y)
             replace toNat_pred | toNat_dub | suc_one_add | dist_mult_add | mult_one
             replace IH[y']
-            replace dist_mult_sub
-            replace symmetric sub_sub_eq_sub_add[1+2*toNat(x'), 1, 1 + (1 + 1) * toNat(y')]
-            replace add_sub_identity[1,2*toNat(x')] | two
-            replace symmetric sub_one_pred[(2 * toNat(x') - 2 * toNat(y'))]
-            show 2 * toNat(x') - 2 * toNat(y') - 1 = 2 * toNat(x') - (1 + 2 * toNat(y'))
-            replace add_commute[1]
-            replace symmetric sub_sub_eq_sub_add[2*toNat(x'), 2*toNat(y'),1].
+            replace dist_mult_monus
+            replace symmetric monus_monus_eq_monus_add[ℕ1+ℕ2*toNat(x'), ℕ1, ℕ1 + (ℕ1 + ℕ1) * toNat(y')]
+            replace add_monus_identity[ℕ1,ℕ2*toNat(x')] | two
+            replace symmetric monus_one_pred[(ℕ2 * toNat(x') ∸ ℕ2 * toNat(y'))]
+            show ℕ2 * toNat(x') ∸ ℕ2 * toNat(y') ∸ ℕ1 = ℕ2 * toNat(x') ∸ (ℕ1 + ℕ2 * toNat(y'))
+            replace add_commute[ℕ1]
+            replace symmetric monus_monus_eq_monus_add[ℕ2*toNat(x'), ℕ2*toNat(y'),ℕ1].
           }
         }
       }
       case inc_dub(y') {
-        expand toNat | operator-
+        expand toNat | operator∸
         replace toNat_dub
         replace IH[y']
-        show 2 * (toNat(x') - toNat(y')) = 2 * toNat(x') - 2 * toNat(y')
-        replace dist_mult_sub.
+        show ℕ2 * (toNat(x') ∸ toNat(y')) = ℕ2 * toNat(x') ∸ ℕ2 * toNat(y')
+        replace dist_mult_monus.
       }
     }
   }
 end
 
-lemma uint_bzero_sub: all x:UInt. bzero - x = bzero
+theorem uint_zero_monus: all x:UInt. 0 ∸ x = 0
 proof
   arbitrary x:UInt
-  expand operator-.
+  expand operator∸.
 end
 
-theorem uint_zero_sub: all x:UInt. fromNat(0) - x = fromNat(0)
-proof
-  arbitrary x:UInt
-  expand fromNat | operator-.
-end
-
-lemma uint_sub_bzero: all n:UInt. n - bzero = n
+theorem uint_monus_zero: all n:UInt. n ∸ 0 = n
 proof
   arbitrary n:UInt
-  have X: toNat(n - bzero) = toNat(n) by {
-    replace toNat_sub
+  have X: toNat(n ∸ bzero) = toNat(n) by {
+    replace toNat_monus
     expand toNat
-    replace sub_zero.
+    replace monus_zero.
   }
-  conclude n - bzero = n by apply toNat_injective to X
+  conclude n ∸ bzero = n by apply toNat_injective to X
 end
 
-theorem uint_sub_zero: all n:UInt. n - fromNat(0) = n
+theorem uint_monus_cancel: all n:UInt. n ∸ n = 0
 proof
   arbitrary n:UInt
-  expand fromNat
-  uint_sub_bzero
-end
-
-lemma uint_sub_cancel_bzero: all n:UInt. n - n = bzero
-proof
-  arbitrary n:UInt
-  have X: toNat(n - n) = toNat(bzero) by {
-    replace toNat_sub
+  have X: toNat(n ∸ n) = toNat(bzero) by {
+    replace toNat_monus
     expand toNat
-    replace sub_cancel.
+    replace monus_cancel.
   }
-  conclude n - n = bzero by apply toNat_injective to X
+  conclude n ∸ n = bzero by apply toNat_injective to X
 end
 
-theorem uint_sub_cancel: all n:UInt. n - n = fromNat(0)
-proof
-  arbitrary n:UInt
-  expand fromNat
-  uint_sub_cancel_bzero
-end
-
-theorem uint_add_sub_identity: all m:UInt, n:UInt. 
-  (m + n) - m = n
+theorem uint_add_monus_identity: all m:UInt, n:UInt. 
+  (m + n) ∸ m = n
 proof
   arbitrary m:UInt, n:UInt
-  have X: toNat((m + n) - m) = toNat(n) by {
-    replace toNat_sub | toNat_add
-    replace add_sub_identity.
+  have X: toNat((m + n) ∸ m) = toNat(n) by {
+    replace toNat_monus | toNat_add
+    replace add_monus_identity.
   }
-  conclude (m + n) - m = n by apply toNat_injective to X
+  conclude (m + n) ∸ m = n by apply toNat_injective to X
 end
 
-theorem uint_sub_sub_eq_sub_add : all x:UInt, y:UInt, z:UInt.
-  (x - y) - z = x - (y + z)
+theorem uint_monus_monus_eq_monus_add : all x:UInt, y:UInt, z:UInt.
+  (x ∸ y) ∸ z = x ∸ (y + z)
 proof
   arbitrary x:UInt, y:UInt, z:UInt
-  have X: toNat((x - y) - z) = toNat(x - (y + z)) by {
-    replace toNat_sub | toNat_add | toNat_sub
-    replace sub_sub_eq_sub_add.
+  have X: toNat((x ∸ y) ∸ z) = toNat(x ∸ (y + z)) by {
+    replace toNat_monus | toNat_add | toNat_monus
+    replace monus_monus_eq_monus_add.
   }
-  conclude (x - y) - z = x - (y + z) by apply toNat_injective to X
+  conclude (x ∸ y) ∸ z = x ∸ (y + z) by apply toNat_injective to X
 end
 
-theorem uint_sub_order : all x : UInt, y : UInt, z : UInt.
-  (x - y) - z = (x - z) - y
+theorem uint_monus_order : all x : UInt, y : UInt, z : UInt.
+  (x ∸ y) ∸ z = (x ∸ z) ∸ y
 proof
   arbitrary x:UInt, y:UInt, z:UInt
-  have X: toNat((x - y) - z) = toNat((x - z) - y) by {
-    replace toNat_sub | toNat_sub
+  have X: toNat((x ∸ y) ∸ z) = toNat((x ∸ z) ∸ y) by {
+    replace toNat_monus | toNat_monus
     equations
-      (toNat(x) - toNat(y)) - toNat(z) = (toNat(x) - toNat(z)) - toNat(y)
-         by replace sub_order.
+      (toNat(x) ∸ toNat(y)) ∸ toNat(z) = (toNat(x) ∸ toNat(z)) ∸ toNat(y)
+         by replace monus_order.
   }
-  conclude (x - y) - z = (x - z) - y by apply toNat_injective to X
+  conclude (x ∸ y) ∸ z = (x ∸ z) ∸ y by apply toNat_injective to X
 end
 
+theorem uint_add_both_monus: all z:UInt, y:UInt, x:UInt.
+  (z + y) ∸ (z + x) = y ∸ x
+proof
+  arbitrary z:UInt, y:UInt, x:UInt
+  suffices toNat((z + y) ∸ (z + x)) = toNat(y ∸ x) by toNat_injective
+  replace toNat_monus | toNat_add
+  add_both_monus
+end
+  
 lemma uint_pred_inc: all b:UInt.
   pred(inc(b)) = b
 proof
@@ -1249,28 +1270,31 @@ proof
 end
 
 lemma inc_one_add: all b:UInt.
-  inc(b) = fromNat(1) + b
+  inc(b) = 1 + b
 proof
   arbitrary b:UInt
-  suffices toNat(inc(b)) = toNat(fromNat(1) + b) by toNat_injective
+  suffices toNat(inc(b)) = toNat(1 + b) by toNat_injective
   replace toNat_inc | toNat_add
-  expand 2*fromNat | inc | 2*toNat
-  show suc(toNat(b)) = suc(2 * 0) + toNat(b)
+  expand 2*toNat
+  show suc(toNat(b)) = suc(ℕ2 * ℕ0) + toNat(b)
   evaluate
 end
   
 lemma uint_ind: all P:fn UInt -> bool, k : Nat, n : UInt.
   if n = fromNat(k) then
-  if P(fromNat(0)) and (all m:UInt. if P(m) then P(fromNat(1) + m)) then P(n)
+  if P(0) and (all m:UInt. if P(m) then P(1 + m)) then P(n)
 proof
   arbitrary P:fn UInt -> bool
   induction Nat
-  case 0 {
+  case zero {
     arbitrary n:UInt
     assume nz
     assume base_IH
     replace nz
-    conclude P(fromNat(0)) by conjunct 0 of base_IH
+    conclude P(fromNat(ℕ0)) by {
+      suffices __ by evaluate
+      conjunct 0 of base_IH
+    }
   }
   case suc(k') assume IH {
     arbitrary n:UInt
@@ -1280,15 +1304,15 @@ proof
     have eq0: pred(n) = pred(inc(fromNat(k'))) by replace n_ik.
     have eq1: pred(n) = fromNat(k') by replace uint_pred_inc in eq0
     have: P(pred(n)) by apply (apply IH[pred(n)] to eq1) to base_IH
-    have eq2: P(fromNat(1) + pred(n))
+    have eq2: P(1 + pred(n))
       by apply (conjunct 1 of base_IH)[pred(n)] to recall P(pred(n))
-    have eq3: fromNat(1) + pred(n) = n by replace eq1 | n_ik | inc_one_add.
+    have eq3: 1 + pred(n) = n by replace eq1 | n_ik | inc_one_add.
     conclude P(n) by replace eq3 in eq2
   }
 end
 
 theorem uint_induction: all P:fn UInt -> bool, n : UInt.
-  if P(fromNat(0)) and (all m:UInt. if P(m) then P(fromNat(1) + m)) then P(n)
+  if P(0) and (all m:UInt. if P(m) then P(1 + m)) then P(n)
 proof
   arbitrary P:fn UInt -> bool, n : UInt
   assume prem
@@ -1297,10 +1321,10 @@ proof
 end
 
 theorem fromNat_add: all x:Nat, y:Nat.
-  fromNat(x) + fromNat(y) = fromNat(x + y)
+  fromNat(x + y) = fromNat(x) + fromNat(y)
 proof
   arbitrary x:Nat, y:Nat
-  suffices toNat(fromNat(x) + fromNat(y)) = toNat(fromNat(x + y))
+  suffices toNat(fromNat(x + y)) = toNat(fromNat(x) + fromNat(y))
     by toNat_injective
   replace toNat_add | to_fromNat.
 end
@@ -1322,27 +1346,28 @@ postulate less_equal_fromNat: all x:Nat, y:Nat.
   if x ≤ y
   then fromNat(x) ≤ fromNat(y)
   
-theorem uint_zero_or_positive: all x:UInt. x = fromNat(0) or fromNat(0) < x
+theorem uint_zero_or_positive: all x:UInt. x = 0 or 0 < x
 proof
   arbitrary x:UInt
-  have z_p: toNat(x) = 0 or 0 < toNat(x) by zero_or_positive[toNat(x)]
+  have z_p: toNat(x) = ℕ0 or ℕ0 < toNat(x) by zero_or_positive[toNat(x)]
   cases z_p
   case z {
-    have A: fromNat(toNat(x)) = fromNat(0) by replace z.
-    have B: x = fromNat(0) by replace from_toNat in A
-    B
+    have A: fromNat(toNat(x)) = 0 by { replace z evaluate }
+    conclude x = 0 by replace from_toNat in A
   }
   case p {
-    have A: fromNat(0) < fromNat(toNat(x)) by apply less_fromNat to p
-    conclude fromNat(0) < x by replace from_toNat in A
+    have A: 0 < fromNat(toNat(x)) by {
+      replace from_zero in apply less_fromNat to p
+    }
+    conclude 0 < x by replace from_toNat in A
   }
 end
 
 theorem uint_less_plus1: all n:UInt.
-  n < fromNat(1) + n
+  n < 1 + n
 proof
   arbitrary n:UInt
-  suffices toNat(n) < toNat(fromNat(1) + n) by less_toNat[n, fromNat(1) + n]
+  suffices toNat(n) < toNat(1 + n) by less_toNat[n, 1 + n]
   replace toNat_add
   suffices toNat(n) ≤ toNat(n) by evaluate
   less_equal_refl
@@ -1374,27 +1399,27 @@ proof
 end
 
 theorem less_is_less_equal: all x:UInt, y:UInt.
-  x < y = fromNat(1) + x ≤ y
+  x < y = 1 + x ≤ y
 proof
   arbitrary x:UInt, y:UInt
-  suffices x < y ⇔ fromNat(1) + x ≤ y by iff_equal
-  have fwd: if (x < y) then (fromNat(1) + x ≤ y) by {
+  suffices x < y ⇔ 1 + x ≤ y by iff_equal
+  have fwd: if (x < y) then (1 + x ≤ y) by {
     assume prem
     have A: toNat(x) < toNat(y) by apply toNat_less to prem
     have B: suc(toNat(x)) ≤ toNat(y) by expand operator< in A
-    have C: 1 + toNat(x) ≤ toNat(y) by replace suc_one_add in B
-    have D: fromNat(1 + toNat(x)) ≤ fromNat(toNat(y))
+    have C: ℕ1 + toNat(x) ≤ toNat(y) by replace suc_one_add in B
+    have D: fromNat(ℕ1 + toNat(x)) ≤ fromNat(toNat(y))
       by apply less_equal_fromNat to C
-    have E: fromNat(1) + fromNat(toNat(x)) ≤ fromNat(toNat(y))
-      by replace symmetric fromNat_add[1, toNat(x)] in D
-    conclude fromNat(1) + x ≤ y by replace from_toNat in E
+    have E: 1 + fromNat(toNat(x)) ≤ fromNat(toNat(y))
+      by replace fromNat_add[ℕ1, toNat(x)] | from_one in D
+    conclude 1 + x ≤ y by replace from_toNat in E
   }
-  have bkwd: if (fromNat(1) + x ≤ y) then (x < y) by {
+  have bkwd: if (1 + x ≤ y) then (x < y) by {
     assume prem
-    have A: toNat(fromNat(1) + x) ≤ toNat(y) by apply toNat_less_equal to prem
-    have B: toNat(fromNat(1)) + toNat(x) ≤ toNat(y) by replace toNat_add in A
-    have C: toNat(fromNat(1)) = 1 by evaluate
-    have D: 1 + toNat(x) ≤ toNat(y) by replace C in B
+    have A: toNat(1 + x) ≤ toNat(y) by apply toNat_less_equal to prem
+    have B: toNat(1) + toNat(x) ≤ toNat(y) by replace toNat_add in A
+    have C: toNat(1) = ℕ1 by evaluate
+    have D: ℕ1 + toNat(x) ≤ toNat(y) by replace C in B
     have E: toNat(x) < toNat(y) by {
       expand operator<
       expand 2*operator+ in D
@@ -1404,28 +1429,256 @@ proof
   fwd, bkwd
 end
 
-theorem uint_sub_add_identity: all n:UInt. all m:UInt.
+theorem uint_monus_add_identity: all n:UInt. all m:UInt.
   if m ≤ n
-  then m + (n - m) = n
+  then m + (n ∸ m) = n
 proof
   arbitrary n:UInt, m:UInt
   assume prem
-  suffices toNat(m + (n - m)) = toNat(n) by toNat_injective
-  suffices toNat(m) + toNat(n - m) = toNat(n) by replace toNat_add.
-  suffices toNat(m) + (toNat(n) - toNat(m)) = toNat(n) by replace toNat_sub.
+  suffices toNat(m + (n ∸ m)) = toNat(n) by toNat_injective
+  suffices toNat(m) + toNat(n ∸ m) = toNat(n) by replace toNat_add.
+  suffices toNat(m) + (toNat(n) ∸ toNat(m)) = toNat(n) by replace toNat_monus.
   have A: toNat(m) ≤ toNat(n) by apply toNat_less_equal to prem
-  conclude toNat(m) + (toNat(n) - toNat(m)) = toNat(n)
-    by apply sub_add_identity to A
+  conclude toNat(m) + (toNat(n) ∸ toNat(m)) = toNat(n)
+    by apply monus_add_identity to A
 end
 
 theorem uint_not_one_add_zero: all n:UInt.
-    not (fromNat(1) + n = fromNat(0))
+    not (1 + n = 0)
 proof
   arbitrary n:UInt
   assume prem
-  have eq1: toNat(fromNat(1) + n) = toNat(fromNat(0)) by replace prem.
-  have eq2: toNat(fromNat(1)) + toNat(n) = toNat(fromNat(0)) by replace toNat_add in eq1
-  have eq3: 1 + toNat(n) = 0 by replace to_fromNat in eq2
+  have eq1: toNat(1 + n) = toNat(0) by replace prem.
+  have eq2: toNat(1) + toNat(n) = toNat(0) by replace toNat_add in eq1
+  have eq3: ℕ1 + toNat(n) = ℕ0 by evaluate in eq2
   conclude false by apply not_one_add_zero to eq3
 end
+
+theorem uint_not_zero_pos: all n:UInt.
+  if not (n = 0) then 0 < n
+proof
+  arbitrary n:UInt
+  assume prem
+  switch n {
+    case bzero assume nz {
+      conclude false by replace nz in prem
+    }
+    case dub_inc(n') {
+      evaluate
+    }
+    case inc_dub(n') {
+      evaluate
+    }
+  }
+end
+
+theorem uint_pos_not_zero: all n:UInt.
+  if 0 < n then not (n = 0)
+proof
+  arbitrary n:UInt
+  assume n_pos
+  assume prem
+  have zz: 0 < 0 by replace prem in n_pos
+  conclude false by apply uint_less_irreflexive to zz
+end
+
+    
+recfun operator /(n : UInt, m : UInt) -> UInt
+  measure n of UInt
+{
+  if n < m then 0
+  else if m = 0 then 0
+  else 1 + ((n ∸ m) / m)
+}
+terminates {
+  arbitrary n:UInt, m:UInt
+  assume cond: not (n < m) and not (m = 0)
+  suffices m + (n ∸ m) < m + n by uint_add_both_sides_of_less[m,n∸m,n]
+  suffices n < m + n by {
+    have m_n: m ≤ n by apply uint_not_less_implies_less_equal to conjunct 0 of cond
+    replace apply uint_monus_add_identity[n,m] to m_n.
+  }
+  have m_pos: 0 < m by apply uint_not_zero_pos to conjunct 1 of cond
+  conclude n < m + n by replace uint_add_commute in apply uint_less_add_pos[n, m] to m_pos
+}
+
+fun operator % (n:UInt, m:UInt) {
+  n ∸ (n / m) * m
+}
+
+postulate inc_add_one: all n:UInt.
+  inc(n) = 1 + n
+
+theorem uint_pos_implies_one_le: all n:UInt.
+  if 0 < n
+  then 1 ≤ n
+proof
+  arbitrary n:UInt
+  assume n_pos
+  have A: 1 + 0 ≤ n by replace less_is_less_equal in n_pos
+  have B: 1 + 0 = 1 by evaluate
+  replace B in A
+end
+
+theorem uint_positive_add_one: all n:UInt.
+  if 0 < n
+  then some n':UInt. n = 1 + n'
+proof
+  arbitrary n:UInt
+  assume n_pos
+  have pos_n: ℕ0 < toNat(n) by expand toNat in apply toNat_less to n_pos
+  obtain x where eq: toNat(n) = suc(x) from apply positive_suc[toNat(n)] to pos_n
+  have eq2: fromNat(toNat(n)) = fromNat(suc(x)) by replace eq.
+  have eq3: n = fromNat(ℕ1) + fromNat(x)
+    by replace from_toNat | suc_one_add | fromNat_add in eq2
+  choose fromNat(x)
+  conclude n = 1 + fromNat(x) by expand 2*fromNat | inc in eq3
+end
+
+theorem uint_trichotomy:
+  all x:UInt, y:UInt.
+  x < y  or  x = y  or  y < x
+proof
+  arbitrary x:UInt, y:UInt
+  have tri: toNat(x) < toNat(y) or toNat(x) = toNat(y) or toNat(y) < toNat(x)
+    by trichotomy[toNat(x), toNat(y)]
+  cases tri
+  case less {
+    conclude x < y by apply less_toNat to less
+  }
+  case eq {
+    conclude x = y by apply toNat_injective to eq
+  }
+  case greater {
+    conclude y < x by apply less_toNat to greater
+  }
+end
+
+theorem uint_less_implies_not_greater:
+  all x:UInt, y:UInt.
+  if x < y then not (y < x)
+proof
+  arbitrary x:UInt, y:UInt
+  assume x_y
+  have A: toNat(x) < toNat(y) by apply toNat_less to x_y
+  have B: not (toNat(y) < toNat(x)) by apply less_implies_not_greater to A
+  assume y_x
+  have C: toNat(y) < toNat(x) by apply toNat_less to y_x
+  conclude false by apply B to C
+end
+
+theorem uint_monus_add_assoc: all n:UInt, l:UInt,m:UInt.
+  if m ≤ n
+  then l + (n ∸ m) = (l + n) ∸ m
+proof
+  arbitrary n:UInt, l:UInt, m:UInt
+  assume mn
+  have mn2: toNat(m) ≤ toNat(n) by apply toNat_less_equal[m,n] to mn
+  have lnm: toNat(l) + (toNat(n) ∸ toNat(m)) = (toNat(l) + toNat(n)) ∸ toNat(m)
+    by apply monus_add_assoc[toNat(n), toNat(l), toNat(m)] to mn2
+  suffices toNat(l + (n ∸ m)) = toNat((l + n) ∸ m) by toNat_injective
+  replace toNat_add | toNat_monus | toNat_add
+  lnm
+end
+
+postulate uint_zero_mult: all n:UInt. 0 * n = 0
+postulate uint_mult_zero: all n:UInt. n * 0 = 0
+
+theorem uint_one_mult: all n:UInt.
+  1 * n = n
+proof
+  arbitrary n:UInt
+  suffices toNat(1 * n) = toNat(n) by toNat_injective
+  replace toNat_mult
+  expand 2*toNat
+  replace mult_zero
+  replace one_mult.
+end
+
+theorem uint_mult_one: all n:UInt.
+  n * 1 = n
+proof
+  arbitrary n:UInt
+  suffices toNat(n * 1) = toNat(n) by toNat_injective
+  replace toNat_mult
+  expand 2*toNat
+  replace mult_zero
+  replace mult_one.
+end
+
+theorem uint_dist_mult_add:
+  all a:UInt, x:UInt, y:UInt.
+  a * (x + y) = a * x + a * y
+proof
+  arbitrary a:UInt, x:UInt, y:UInt
+  suffices toNat(a * (x + y)) = toNat(a * x + a * y) by toNat_injective
+  replace toNat_mult | toNat_add | toNat_mult
+  replace dist_mult_add.
+end
+
+postulate uint_dist_mult_add_right:
+  all x:UInt, y:UInt, a:UInt.
+  (x + y) * a = x * a + y * a
+
+postulate uint_mult_to_zero: all n:UInt, m:UInt.
+  (if n * m = 0 then n = 0 or m = 0)
+
+postulate uint_less_equal_trans: all m:UInt. all n:UInt, o:UInt.
+  (if m ≤ n and n ≤ o then m ≤ o)
+
+postulate uint_less_equal_antisymmetric:
+  all x:UInt, y:UInt. 
+  (if x ≤ y and y ≤ x
+  then x = y)
+
+fun Even(n : UInt) {
+  some m:UInt. n = 2 * m
+}
+
+fun Odd(n : UInt) {
+  some m:UInt. n = 1 + (2 * m)
+}
+
+postulate uint_Even_or_Odd: all n:UInt. Even(n) or Odd(n)
+
+postulate uint_odd_one_even: all n:UInt. if Odd(1 + n) then Even(n)
+
+postulate uint_even_one_odd: all n:UInt. if Even(1 + n) then Odd(n)
+
+postulate uint_Even_not_Odd: all n:UInt. Even(n) ⇔ not Odd(n)
+
+postulate uint_div_mod: all n:UInt, m:UInt.
+  if 0 < m
+  then (n / m) * m + (n % m) = n
+
+postulate uint_mod_less_divisor: all n:UInt, m:UInt. if 0 < m then n % m < m
+
+fun divides(a : UInt, b : UInt) {
+  some k:UInt. a * k = b
+}
+
+postulate uint_divides_mod: all d:UInt, m:UInt, n:UInt.
+  if divides(d, n) and divides(d, m % n) and 0 < n then divides(d, m)
+
+postulate uint_div_cancel: all y:UInt. if 0 < y then y / y = 1
+
+postulate uint_mod_self_zero: all y:UInt. y % y = 0
+      
+postulate uint_zero_mod: all x:UInt. 0 % x = 0
+
+postulate uint_zero_div: all x:UInt. if 0 < x then 0 / x = 0
+
+postulate uint_mod_one: all n:UInt. n % 1 = 0
+
+postulate uint_div_one: all n:UInt. n / 1 = n
+
+postulate uint_add_div_one: all n:UInt, m:UInt.
+  if 0 < m
+  then (n + m) / m = 1 + n / m
   
+postulate uint_mult_div_inverse: all n:UInt, m:UInt.
+  (if 0 < m then (n * m) / m = n)
+
+postulate uint_two_mult: all n:UInt. 2 * n = n + n
+
+postulate uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x ≤ y)

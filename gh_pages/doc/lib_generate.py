@@ -212,6 +212,8 @@ known_tokens = {
     'MINUS': 'operator',
     'MORETHAN': 'operator',
     'NOT': 'keyword',
+    'NAT': 'keyword',
+    'PUBLIC': 'keyword',
     'OBTAIN': 'keyword',
     'OF': 'keyword',
     'OPAQUE': 'keyword',
@@ -274,6 +276,7 @@ known_tokens = {
     '__ANON_23': 'operator', # \\.\\.\\.
     '__ANON_24': 'operator', # \\->
     '__ANON_25': 'prim', # 0
+    '__ANON_26': 'prim',    # \.-
     '__ANON_3': 'operator', # /=
     '__ANON_4': 'operator', # ≤
     '__ANON_5': 'operator', # <=

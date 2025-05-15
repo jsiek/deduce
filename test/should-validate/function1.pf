@@ -1,7 +1,7 @@
-import Nat
+import UInt
 import Pair
 
-fun swap(p : Pair<Nat,Nat>) {
+fun swap(p : Pair<UInt,UInt>) {
   pair(second(p), first(p))
 }
 

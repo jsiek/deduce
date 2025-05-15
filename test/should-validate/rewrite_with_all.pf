@@ -1,6 +1,6 @@
-import Nat
+import UInt
 
-theorem T: all n:Nat. 1 + (0 + n) = 1 + n
+theorem T: all n:UInt. 1 + (0 + n) = 1 + n
 proof
-  replace zero_add.
+  replace uint_zero_add.
 end

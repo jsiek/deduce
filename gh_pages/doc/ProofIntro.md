@@ -10,7 +10,7 @@ examples of their use.
 * [Expanding Definitions in the Goal](#expanding-definitions-in-the-goal)
 * [Generalizing with `all` formulas](#generalizing-with-all-formulas)
 * [Replace equals for equals in goal](#replace-equals-for-equals-in-goal)
-* [Reasoning about Natural Numbers](#reasoning-about-natural-numbers)
+* [Reasoning about Unsigned Integers](#reasoning-about-unsigned-integers)
 * [Proving Intermediate Facts with `have`](#proving-intermediate-facts-with-have)
 * [Chaining Equations with `equations`](#chaining-equations-with-equations)
 * [Proving `all` Formulas with Induction](#proving-all-formulas-with-induction)
@@ -29,11 +29,11 @@ examples of their use.
 We begin with a simple example, proving that the length of an empty
 list is `0`. This fact is a direct consequence of the definition
 of `length`, so this first example is about how to use definitions.
-We will be using features from the Deduce `Nat` and `List` libraries,
-so first we import them.
+We will be using features from the Deduce usigned integer (`UInt`)
+and `List` libraries, so first we import them.
 
-```{.deduce^#import_nat_and_list}
-import Nat
+```{.deduce^#import_uint_and_list}
+import UInt
 import List
 ```
 
@@ -41,10 +41,10 @@ To get started, we write down the theorem we would like to prove.  A
 theorem starts with a label, followed by a colon, then the formula
 followed by the proof. But instead of writing the proof, we'll simply
 write `?` to say that we're not done yet. (Recall that `[]` is the
-notation for an empty list (which is a generic) and `@...<Nat>` is the
+notation for an empty list (which is a generic) and `@...<UInt>` is the
 notation for instantiating a generic at a particular type.)
 
-    theorem length_nat_empty: length(@[]<Nat>) = 0
+    theorem length_uint_empty: length(@[]<UInt>) = 0
     proof
       ?
     end
@@ -54,12 +54,12 @@ to remind us of what is left to prove.
 
     incomplete proof
     Goal:
-        length(@[]<Nat>) = 0
+        length(@[]<UInt>) = 0
     
 To tell Deduce to expand the definition of `length`, we can use
 the `expand` statement.
 
-    theorem length_nat_empty: length(@[]<Nat>) = 0
+    theorem length_uint_empty: length(@[]<UInt>) = 0
     proof
       expand length
       ?
@@ -84,8 +84,8 @@ automatically simplifies it to `true`.
 We can complete the proof by adding a period, which is the proof of
 `true`.
 
-```{.deduce^#length_nat_empty}
-theorem length_nat_empty: length(@[]<Nat>) = 0
+```{.deduce^#length_uint_empty}
+theorem length_uint_empty: length(@[]<UInt>) = 0
 proof
   expand length.
 end
@@ -107,11 +107,11 @@ Deduce responds with
 
     incomplete proof
     Goal:
-        1 + length(@[]<Nat>) = 1
+        1 + length(@[]<UInt>) = 1
 
 It is quite common to expand a definition and then need to prove the
 remaining goal. We need to expand the definition of `length` again to
-simplify `length(@[]<Nat>)`, so we add another `length` to the `expand`
+simplify `length(@[]<UInt>)`, so we add another `length` to the `expand`
 statement.
 
     theorem length_node42: length([42]) = 1
@@ -136,9 +136,9 @@ intervals within the proof. We document the current goal with a `show` statement
       ?
     end
 
-Finally we prove `1 + 0 = 1` using the `add_zero` theorem from the
-file `Nat.pf`, which we explain in the upcoming section on [Reasoning
-about Natural Numbers](#reasoning-about-natural-numbers).
+Finally we prove `1 + 0 = 1` using the `uint_add_zero` theorem from the
+file `UInt.pf`, which we explain in the upcoming section on [Reasoning
+about Unsigned Integers](#reasoning-about-unsigned-integers).
 
 
 ```{.deduce^#length_node42}
@@ -146,7 +146,7 @@ theorem length_node42: length([42]) = 1
 proof
   expand length | length
   show 1 + 0 = 1
-  add_zero[1]
+  uint_add_zero[1]
 end
 ```
 
@@ -169,12 +169,12 @@ end
 
 In the proof of `length_node42` it did not matter that the element in
 the node was `42`. We can generalize this theorem by using an `all`
-formula. We begin the formula with `all x:Nat.` to say that the
+formula. We begin the formula with `all x:UInt.` to say that the
 formula must be true for all natural numbers and the variable `x` will
 be used to refer to the natural number.  We then replace the `42` in
 the formula with `x` to obtain the following theorem statement.
 
-    theorem length_nat_one: all x:Nat. length([x]) = 1
+    theorem length_uint_one: all x:UInt. length([x]) = 1
     proof
       ?
     end
@@ -191,7 +191,7 @@ stand in for all entities of the specified type. The `arbitrary`
 statement asks you to name the hypothetical entity. Here we choose `x`
 but we could have chosen a different name.
 
-    theorem length_nat_one: all x:Nat. length([x]) = 1
+    theorem length_uint_one: all x:UInt. length([x]) = 1
     proof
       arbitrary x:Nat
       ?
@@ -205,29 +205,29 @@ Deduce responds with
 We don't know anything about this hypothetical `x` other than it being
 a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
-before, using the definitions of `length` and the `add_zero` theorem.
+before, using the definitions of `length` and the `uint_add_zero` theorem.
 The notation `2* length` is shorthand for `length | length`.
 
-```{.deduce^#length_nat_one}
-theorem length_nat_one: all x:Nat. length([x]) = 1
+```{.deduce^#length_uint_one}
+theorem length_uint_one: all x:UInt. length([x]) = 1
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   expand 2* length
   show 1 + 0 = 1
-  add_zero[1]
+  uint_add_zero[1]
 end
 ```
 
 Once we have proved that an `all` formula is true, we can use it by
 supplying an entity of the appropriate type inside square brackets. In
 the following we prove the `length_node42` theorem again, but this
-time the proof makes use of `length_nat_one`.
+time the proof makes use of `length_uint_one`.
 
 
 ```{.deduce^#length_node42_again}
 theorem length_node42_again: length([42]) = 1
 proof
-  length_nat_one[42]
+  length_uint_one[42]
 end
 ```
 
@@ -245,7 +245,7 @@ proof
   arbitrary x:U
   expand 2* length
   show 1 + 0 = 1
-  add_zero[1]
+  uint_add_zero[1]
 end
 ```
 
@@ -342,60 +342,23 @@ end
 ```
 
 
-## Reasoning about Natural Numbers
+## Reasoning about Unsigned Integers
 
-The `Nat.pf` file includes the definition of natural numbers,
+The `UInt.pf` file includes the definition of unsigned integers,
 operations on them (e.g. addition), and proofs about those
 operations. Also, Deduce automatically generates a summary of the
-theorems and puts them in the file `Nat.thm`.
-
-Here we discuss how to reason about addition. Reasoning
-about the other operations follows a similar pattern.
-
-Here is the definition of natural numbers from `Nat.pf`:
-
-```{.deduce}
-union Nat {
-  zero
-  suc(Nat)
-}
-```
-
-The parser for Deduce translates `0` into `zero`,
-`1` into `suc(zero)`, `2` into `suc(suc(zero))`, and so on.
-
-
-Here is the definition of addition from `Nat.pf`:
-
-```{.deduce}
-recursive operator +(Nat,Nat) -> Nat {
-  operator +(0, m) = m
-  operator +(suc(n), m) = suc(n + m)
-}
-```
-
-Recall that we can use Deduce's `expand` statement whenever we
-want to change the goal according to the equations for addition. Here
-are the two defining equations, but written with infix notation:
+theorems and puts them in the file `UInt.thm`. Here is sample
+of those theorems.
 
 ```
-  0 + m = m
-  suc(n) + m = suc(n + m)
-```
-
-The `Nat.pf` file also includes proofs of many equations.
-Here we list the names of the theorems and the formula. (To add more
-theorems, pull requests on the github repository are most welcome!)
-
-```
-add_zero: all n:Nat.  n + 0 = n
-add_commute: all n:Nat. all m:Nat.  n + m = m + n
-left_cancel: all x:Nat. all y:Nat, z:Nat.  if x + y = x + z then y = z
-add_to_zero: all n:Nat. all m:Nat. if n + m = 0 then n = 0 and m = 0
-dist_mult_add: all a:Nat. all x:Nat, y:Nat. a * (x + y) = a * x + a * y
-mult_zero: all n:Nat. n * 0 = 0
-mult_one: all n:Nat. n * 1 = n
-mult_commute: all m:Nat. all n:Nat. m * n = n * m
+uint_add_zero: all n:UInt.  n + 0 = n
+uint_add_commute: all n:UInt. all m:UInt.  n + m = m + n
+uint_left_cancel: all x:UInt. all y:UInt, z:UInt.  if x + y = x + z then y = z
+uint_add_to_zero: all n:UInt. all m:UInt. if n + m = 0 then n = 0 and m = 0
+uint_dist_mult_add: all a:UInt. all x:UInt, y:UInt. a * (x + y) = a * x + a * y
+uint_mult_zero: all n:UInt. n * 0 = 0
+uint_mult_one: all n:UInt. n * 1 = n
+uint_mult_commute: all m:UInt. all n:UInt. m * n = n * m
 ```
 
 You can use these theorems by instantiating them with particular
@@ -407,12 +370,12 @@ We have not yet discussed how to use the `if`-`then` formula in
 ### Exercise
 
 Prove the following theorem using the `add_zero` and `mult_one`
-theorems from `Nat.pf`.
+theorems from `UInt.pf`.
 
 
 ```{.deduce^#x_0_x_eq_2_x}
 theorem x_0_x_eq_2_x: 
-  all x:Nat. (x + 0) + x = (x + x) * 1
+  all x:UInt. (x + 0) + x = (x + x) * 1
 proof
   ?
 end
@@ -429,17 +392,17 @@ used later in the proof. For example, consider the proof of
 x + y + z = z + y + x
 ```
 
-It takes several uses of `add_commute` to prove this.
+It takes several uses of `uint_add_commute` to prove this.
 To get started, we use `have` to give the label `step1` to a proof of
 `x + y + z = x + z + y` (flipping the `y` and `z`).
 
 ```
-theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
+theorem xyz_zyx: all x:UInt, y:UInt, z:UInt.
   x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   have step1: x + y + z = x + z + y
-    by replace add_commute[y,z].
+    by replace uint_add_commute[y,z].
   ?
 end
 ```
@@ -460,9 +423,9 @@ step in the reasoning.
 
 ```
   have step2: x + z + y = z + x + y
-    by replace add_commute[z,x].
+    by replace uint_add_commute[z,x].
   have step3: z + x + y = z + y + x
-    by replace add_commute[x,y].
+    by replace uint_add_commute[x,y].
 ```
 
 We finish the proof by connecting them all together using Deduce's
@@ -480,16 +443,16 @@ Here is the complete proof of the `xyz_zyx` theorem.
 
 
 ```{.deduce^#xyz_zyx}
-theorem xyz_zyx: all x:Nat, y:Nat, z:Nat.
+theorem xyz_zyx: all x:UInt, y:UInt, z:UInt.
   x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   have step1: x + y + z = x + z + y
-    by replace add_commute[y,z].
+    by replace uint_add_commute[y,z].
   have step2: x + z + y = z + x + y
-    by replace add_commute[z,x].
+    by replace uint_add_commute[z,x].
   have step3: z + x + y = z + y + x
-    by replace add_commute[x,y].
+    by replace uint_add_commute[x,y].
   transitive step1 (transitive step2 step3)
 end
 ```
@@ -506,10 +469,10 @@ statement. We can start by just restating the goal inside `equations`
 and use `?` for the reason.
 
 ```
-theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
+theorem xyz_zyx_eqn: all x:UInt, y:UInt, z:UInt.
   x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   equations
     x + y + z = z + y + x      by ?
 end
@@ -521,7 +484,7 @@ error from Deduce will tell us what it needs to be.
 
 ```
   equations
-    x + y + z = ?              by replace add_commute[y,z] ?
+    x + y + z = ?              by replace uint_add_commute[y,z] ?
           ... = z + y + x      by ?
 ```
 
@@ -539,14 +502,14 @@ Continuing in this way for several more steps, we incrementally arrive
 at the following proof that `x + y + z = z + y + x` using `equations`.
 
 ```{.deduce^#xyz_zyx_eqn}
-theorem xyz_zyx_eqn: all x:Nat, y:Nat, z:Nat.
+theorem xyz_zyx_eqn: all x:UInt, y:UInt, z:UInt.
   x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
+  arbitrary x:UInt, y:UInt, z:UInt
   equations
-    x + y + z = x + z + y    by replace add_commute[y,z].
-          ... = z + x + y    by replace add_commute[x,z].
-          ... = z + y + x    by replace add_commute[x,y].
+    x + y + z = x + z + y    by replace uint_add_commute[y,z].
+          ... = z + x + y    by replace uint_add_commute[x,z].
+          ... = z + y + x    by replace uint_add_commute[x,y].
 end
 ```
 
@@ -736,8 +699,8 @@ using the comma operator to combine those proofs: `one_pos, two_pos`.
 ```{.deduce^#pos_1_and_2}
 theorem pos_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
-  have one_pos: 0 ≤ 1 by expand operator ≤.
-  have two_pos: 0 ≤ 2 by expand operator ≤.
+  have one_pos: 0 ≤ 1 by evaluate
+  have two_pos: 0 ≤ 2 by evaluate
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 ```
@@ -769,18 +732,18 @@ For example, consider the following variation on the trichotomy law
 for numbers, which states that for any two natural numbers `x` and `y`, 
 either `x ≤ y` or `y < x`.
 
-    theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+    theorem intro_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
     proof
       ?
     end
 
-We can prove this using the `trichotomy` theorem from `Nat.pf`,
+We can prove this using the `uint_trichotomy` theorem from `UInt.pf`,
 which tells us that `x < y` or `x = y` or `y < x`.
 
-    theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+    theorem intro_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
     proof
-      arbitrary x:Nat, y:Nat
-      have tri: x < y or x = y or y < x by trichotomy[x][y]
+      arbitrary x:UInt, y:UInt
+      have tri: x < y or x = y or y < x by uint_trichotomy[x][y]
       ?
     end
 
@@ -788,7 +751,7 @@ In Deduce, you can use an `or` fact by doing case analysis with the
 `cases` statement. There is one `case` for each subformula of the
 `or`.
 
-    have tri: x < y or x = y or y < x by trichotomy[x][y]
+    have tri: x < y or x = y or y < x by uint_trichotomy[x][y]
     cases tri
     case x_l_y: x < y {
       ?
@@ -802,10 +765,10 @@ In Deduce, you can use an `or` fact by doing case analysis with the
 
 In the first case, we consider the situation where `x < y` and still need to
 prove that `x ≤ y or y < x`. Thankfully, the theorem 
-`less_implies_less_equal` in `Nat.pf` tells us that `x ≤ y`.
+`uint_less_implies_less_equal` in `UInt.pf` tells us that `x ≤ y`.
 
     case x_l_y: x < y {
-      have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+      have x_le_y: x ≤ y by apply uint_less_implies_less_equal[x][y] to x_l_y
       ?
     }
 
@@ -813,7 +776,7 @@ In Deduce, an `or` formula can be proved using a proof of either
 subformula, so here we prove `x ≤ y or y < x` with `x ≤ y`.
 
     case x_l_y: x < y {
-      have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+      have x_le_y: x ≤ y by apply uint_less_implies_less_equal[x][y] to x_l_y
       conclude x ≤ y or y < x by x_le_y
     }
 
@@ -839,19 +802,19 @@ Here is the completed proof of the `intro_dichotomy` theorem.
 
 
 ```{.deduce^#intro_dichotomy}
-theorem intro_dichotomy:  all x:Nat, y:Nat.  x ≤ y  or  y < x
+theorem intro_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
 proof
-  arbitrary x:Nat, y:Nat
-  have tri: x < y or x = y or y < x by trichotomy[x][y]
+  arbitrary x:UInt, y:UInt
+  have tri: x < y or x = y or y < x by uint_trichotomy[x][y]
   cases tri
   case x_l_y: x < y {
-    have x_le_y: x ≤ y by apply less_implies_less_equal[x][y] to x_l_y
+    have x_le_y: x ≤ y by apply uint_less_implies_less_equal[x][y] to x_l_y
     conclude x ≤ y or y < x by x_le_y
   }
   case x_eq_y: x = y {
     have x_le_y: x ≤ y by
         suffices y ≤ y  by replace x_eq_y.
-        less_equal_refl[y]
+        uint_less_equal_refl[y]
     conclude x ≤ y or y < x by x_le_y
   }
   case y_l_x: y < x {
@@ -872,7 +835,7 @@ Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
 consider how to prove the following theorem.
 
-    theorem intro_zero_or_positive: all x:Nat. x = 0 or 0 < x
+    theorem intro_zero_or_positive: all x:UInt. x = 0 or 0 < x
     proof
       ?
     end
@@ -884,7 +847,7 @@ each alternative of the union. Unlike induction, the goal formula does
 not need to be an `all` formula. Instead, you indicate which entity to
 switch on, as in `switch x` below.
 
-    arbitrary x:Nat
+    arbitrary x:UInt
     switch x {
       case 0 assume xz: x = 0 {
         ?
@@ -923,9 +886,10 @@ or positive.
 
 
 ```{.deduce^#intro_zero_or_positive}
-theorem intro_zero_or_positive: all x:Nat. x = 0 or 0 < x
+
+theorem intro_zero_or_positive: all x:UInt. x = 0 or 0 < x
 proof
-  arbitrary x:Nat
+  arbitrary x:UInt
   switch x {
     case 0 assume xz: x = 0 {
       conclude true or 0 < 0 by .
@@ -1039,9 +1003,9 @@ proof
     case empty { . }
     case node(x, xs') assume xs_xxs: xs = node(x,xs') {
       have len_z2: length(node(x,xs')) = 0  by replace xs_xxs in len_z
-      have len_z3: suc(length(xs')) = 0
-        by expand length | operator+ in len_z2
-      conclude false  by len_z3
+      have len_z3: 1 + length(xs') = 0
+        by expand length in len_z2
+      conclude false  by apply uint_not_one_add_zero to len_z3
     }
   }
 end
@@ -1082,19 +1046,19 @@ so we can prove that `length(xs) + length(ys) = 0` as follows.
 Note that Deduce's the `symmetric` statement takes a proof
 of some equality like `a = b` and flips it around to `b = a`.
 
-Now from `Nat.pf` we have the following `if`-`then` fact.
+Now from `UInt.pf` we have the following `if`-`then` fact.
 
 ```
-add_to_zero: all n:Nat. all m:Nat. if n + m = 0 then n = 0 and m = 0
+uint_add_to_zero: all n:UInt. all m:UInt. if n + m = 0 then n = 0 and m = 0
 ```
 
 Here is our first use of `apply`-`to` to obtain `length(xs) = 0` and
 the same for `ys`. (Deduce can infer the arguments for the `all n` and `all m`
-in `add_to_zero`.)
+in `uint_add_to_zero`.)
 
 ```
-  have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
-  have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
+  have len_xs: length(xs) = 0  by apply uint_add_to_zero to len_xs_len_ys
+  have len_ys: length(ys) = 0  by apply uint_add_to_zero to len_xs_len_ys
 ```
 
 We conclude that `xs = empty and ys = empty` with our second use of
@@ -1120,8 +1084,8 @@ proof
   assume len_xs_ys: length(xs ++ ys) = 0
   have len_xs_len_ys: length(xs) + length(ys) = 0
     by transitive (symmetric length_append<T>[xs][ys]) len_xs_ys
-  have len_xs: length(xs) = 0  by apply add_to_zero to len_xs_len_ys
-  have len_ys: length(ys) = 0  by apply add_to_zero to len_xs_len_ys
+  have len_xs: length(xs) = 0  by apply uint_add_to_zero to len_xs_len_ys
+  have len_ys: length(ys) = 0  by apply uint_add_to_zero to len_xs_len_ys
   conclude xs = [] and ys = []
   by (apply list_length_zero_empty<T>[xs] to len_xs),
      (apply list_length_zero_empty<T>[ys] to len_ys)
@@ -1137,7 +1101,7 @@ To summarize this section:
 
 ### Exercise
 
-Prove that `all x:Nat. if x ≤ 0 then x = 0`.
+Prove that `all x:UInt. if x ≤ 0 then x = 0`.
 
 ## Reasoning about `true`
 
@@ -1219,61 +1183,63 @@ To summarize this section:
 ## Reasoning about `not`
 
 To express that a formula is false, precede it with `not`.  For
-example, for any natural number `x`, it is not the case that `x < x`.
-
-    theorem intro_less_irreflexive:  all x:Nat. not (x < x)
-    proof
-      ?
-    end
-
-We proceed by induction.
-
-    induction Nat
-    case zero {
-      ?
-    }
-    case suc(x') assume IH: not (x' < x') {
-      ?
-    }
-
+example, it is not true that every integer is equal to zero,
+so the negation of that is true:
+```
+not (all n:UInt. n = 0)
+```
 Deduce treats `not` as syntactic sugar for a conditional formula with a
-`false` conclusion. So in the first case, we must prove 
-that `0 < 0` implies `false`.
-So we `assume` the premise `0 < 0` and then conclude `false` by the
-definitions of `<` and `≤`.
+`false` conclusion. (This is a common thing to do in logic.)
+So the above formula is equivalent to:
+```
+if (all n:UInt. n = 0) then false
+```
+We already know how to work with `if`-`then` formulas so we can use
+that knowledge to work with `not`. For example, to prove that
+a negated formula is true, we `assume` the formula and then
+prove `false`. In the following, we instantiate the `all`
+with a number that is not `0`, such as `1`, obtaining
+`1 = 0`. We can then conclude `false` because Deduce recognizes
+that the equality has two obviously different things on each side.
 
-    case zero {
-      assume z_l_z: 0 < 0
-      conclude false by expand operator < | operator ≤ in z_l_z
-    }
-
-In the case where `x = suc(x')`, we must prove 
-that `suc(x') < suc(x')` implies `false`.
-So we assume the premise `suc(x') < suc(x')` from which we
-can prove that `x' < x'` using the definitions of `<` and `≤`.
-
-    assume sx_l_sx: suc(x') < suc(x')
-    have x_l_x: x' < x' by apply less_suc_iff_suc_less to sx_l_sx
-
-We conclude this case by applying the induction hypothesis to `x' < x'`.
-
-    conclude false by apply IH to x_l_x
-
-Here is the completed proof that less-than is irreflexive.
-
-
-```{.deduce^#intro_less_irreflexive}
-theorem intro_less_irreflexive:  all x:Nat. not (x < x)
+```{.deduce^#prove_not_example}
+theorem prove_not_example: not (all n:UInt. n = 0)
 proof
-  induction Nat
-  case zero {
-    assume z_l_z: 0 < 0
-    conclude false by expand operator < | operator ≤ in z_l_z
+  assume prem: all n:UInt. n = 0
+  have one_z: 1 = 0 by prem[1]
+  conclude false by one_z
+end
+```
+
+Next let us look at how to use a negated fact to prove something else.
+The following theorem proves one direction of De Morgan's law,
+that is, `not P or not Q` is equivalent to `not (P and Q)`.
+We proceed by cases on the `or` so in the first case we know
+that `not P`. This is shorthand for
+```
+if P then false
+```
+So we could `apply` this to a proof of `P` to prove `false`.
+Now looking at the goal `not (P and Q)`, we proceed by
+assuming `P and Q` and need to prove `false`.
+But now can deduce `P` from `P and Q`, then apply `not P`
+to conclude `false.
+
+```{.deduce^#use_not_example}
+theorem use_not_example: all P:bool, Q:bool. if not P or not Q then not (P and Q)
+proof
+  arbitrary P:bool, Q:bool
+  assume prem: not P or not Q
+  cases prem
+  case np: not P {
+    assume pq: P and Q
+    have p: P by pq
+    conclude false      by apply np to p  // !!
   }
-  case suc(x') assume IH: not (x' < x') {
-    assume sx_l_sx: suc(x') < suc(x')
-    have x_l_x: x' < x' by apply less_suc_iff_suc_less to sx_l_sx
-    conclude false by apply IH to x_l_x
+  case nq: not Q {
+    assume pq: P and Q
+    have q: Q by pq
+    conclude false      by apply nq to q  // !!
   }
 end
 ```
@@ -1283,8 +1249,7 @@ To summarize this section:
 * To expression that a formula is false, use `not`.
 * Deduce treats the formula `not P` just like `if P then false`.
 * Therefore, to prove a `not` formula, assume `P` then prove `false`.
-* To use a formula like `not P`, apply it to a proof of `P` to
-  obtain a proof of `false`.
+* To use a formula like `not P`, apply it to a proof of `P` to obtain a proof of `false`.
 
 ## Replacing equals for equals in facts
 
@@ -1296,10 +1261,10 @@ applies an equation to a fact. As an example, we'll prove the
 following theorem that is a straightforward use of `intro_less_irreflexive`.
 
 ```
-theorem intro_less_not_equal: all x:Nat, y:Nat.
+theorem intro_less_not_equal: all x:UInt, y:UInt.
   if x < y then not (x = y)
 proof
-  arbitrary x:Nat, y:Nat
+  arbitrary x:UInt, y:UInt
   assume x_l_y: x < y
   ?
 end
@@ -1350,18 +1315,18 @@ to `y < y`.
   conclude false by apply intro_less_irreflexive[y] to y_l_y
 ```
 
-Here is the complete proof of `intro_less_not_equal`.
+Here is the complete proof of `replace_in_example`.
 
 
-```{.deduce^#intro_less_not_equal}
-theorem intro_less_not_equal: all x:Nat, y:Nat.
+```{.deduce^#replace_in_example}
+theorem replace_in_example: all x:UInt, y:UInt.
   if x < y then not (x = y)
 proof
-  arbitrary x:Nat, y:Nat
+  arbitrary x:UInt, y:UInt
   assume x_l_y: x < y
   assume x_y: x = y
   have y_l_y: y < y by replace x_y in x_l_y
-  conclude false by apply intro_less_irreflexive[y] to y_l_y
+  conclude false by apply uint_less_irreflexive[y] to y_l_y
 end
 ```
 
@@ -1373,7 +1338,7 @@ then `x ≤ z`.
 
 
 ```{.deduce^#equal_less_trans}
-theorem equal_less_trans: all x:Nat, y:Nat, z:Nat.
+theorem equal_less_trans: all x:UInt, y:UInt, z:UInt.
   if x = y and y ≤ z then x ≤ z
 proof
   ?
@@ -1387,20 +1352,20 @@ satisfies a given property using the `some` formula.  For example, one
 way to define an even number is to say that it is a number that is 2
 times some other number. We express this in Deduce as follows.
 
-    define Even = λ n:Nat { some m:Nat. n = 2 * m }
+    define Even = λ n:UInt { some m:UInt. n = 2 * m }
 
 As an example of how to reason about `some` formulas, let us prove a
 classic property of the even numbers, that the addition of two even
 numbers is an even number. Here's the beginning of the proof.
 
     theorem intro_addition_of_evens:
-      all x:Nat, y:Nat.
+      all x:UInt, y:UInt.
       if Even(x) and Even(y) then Even(x + y)
     proof
-      arbitrary x:Nat, y:Nat
+      arbitrary x:UInt, y:UInt
       assume even_xy: Even(x) and Even(y)
-      have even_x: some m:Nat. x = 2 * m by expand Even in even_xy
-      have even_y: some m:Nat. y = 2 * m by expand Even in even_xy
+      have even_x: some m:UInt. x = 2 * m by expand Even in even_xy
+      have even_y: some m:UInt. y = 2 * m by expand Even in even_xy
       ?
     end
 
@@ -1412,7 +1377,7 @@ We can ask Deduce for help in how to use a given with the `help` feature.
 Deduce responds with
     
     Advice about using fact:
-    some m:Nat. x = 2 * m
+    some m:UInt. x = 2 * m
 
     Proceed with:
         obtain A where label: x = 2 * A from even_x
@@ -1441,7 +1406,7 @@ We still need to prove the following:
 
 So we use the definition of `Even` in a `suffices` statement
 
-    suffices some m:Nat. x + y = 2 * m  by expand Even.
+    suffices some m:UInt. x + y = 2 * m  by expand Even.
     ?
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
@@ -1449,30 +1414,30 @@ requires some thinking on our part.  What number can we plug in for
 `m` such that doubling it is equal to `x + y`? Given what we know
 about `a` and `b`, the answer is `a + b`. We conclude the proof
 by using the equations for `x` and `y` and the distributivity
-property of multiplication over addition (from `Nat.pf`).
+property of multiplication over addition (from `UInt.pf`).
 
     choose a + b
     suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b.
-    symmetric dist_mult_add[2][a,b]
+    symmetric uint_dist_mult_add[2][a,b]
 
 Here is the complete proof.
 
 
 ```{.deduce^#intro_addition_of_evens}
 theorem intro_addition_of_evens:
-  all x:Nat, y:Nat.
+  all x:UInt, y:UInt.
   if Even(x) and Even(y) then Even(x + y)
 proof
-  arbitrary x:Nat, y:Nat
+  arbitrary x:UInt, y:UInt
   assume even_xy: Even(x) and Even(y)
-  have even_x: some m:Nat. x = 2 * m by expand Even in even_xy
-  have even_y: some m:Nat. y = 2 * m by expand Even in even_xy
+  have even_x: some m:UInt. x = 2 * m by expand Even in even_xy
+  have even_y: some m:UInt. y = 2 * m by expand Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  suffices some m:Nat. x + y = 2 * m  by expand Even.
+  suffices some m:UInt. x + y = 2 * m  by expand Even.
   choose a + b
   suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b.
-  symmetric dist_mult_add[2][a,b]
+  symmetric uint_dist_mult_add[2][a,b]
 end
 ```
 
@@ -1485,9 +1450,9 @@ To summarize this section:
 
 <!--
 ```{.deduce^file=ProofIntro.pf}
-<<import_nat_and_list>>
+<<import_uint_and_list>>
 
-<<length_nat_empty>>
+<<length_uint_empty>>
 <<length_node42>>
 
 
@@ -1497,7 +1462,7 @@ proof
   expand 2* operator++.
 end
 
-<<length_nat_one>>
+<<length_uint_one>>
 <<length_node42_again>>
 <<list_length_one>>
 <<list_length_one_equal>>
@@ -1516,10 +1481,11 @@ end
 <<really_trivial>>
 <<contra_false>>
 <<false_any>>
-<<intro_less_irreflexive>>
-<<intro_less_not_equal>>
+<<prove_not_example>>
+<<use_not_example>>
+<<replace_in_example>>
 
-<<intro_zero_or_positive>>
+// intro_zero_or_positive
 <<intro_addition_of_evens>>
 ```
 -->

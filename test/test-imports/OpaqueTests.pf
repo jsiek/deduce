@@ -1,6 +1,6 @@
 import Nat
 
-opaque define another_five = 5
+opaque define another_five = ℕ5
 
 // Testing defines
 union Byte {
@@ -52,8 +52,8 @@ end
 // Testing genrecfun's
 
 opaque recfun fact(n : Nat) -> Nat 
-    measure n {
-    if n = 0 then 1
+    measure n of Nat {
+    if n = ℕ0 then ℕ1
     else n * fact(pred(n))
 }
 terminates {
@@ -62,24 +62,24 @@ terminates {
         evaluate
     }
     case suc(n') assume IH {
-        assume prem: suc(n') /= 0
+        assume prem: suc(n') /= ℕ0
         replace pred_suc_n
         suffices __ by evaluate
         less_equal_refl
     }
 }
 
-theorem some_theorem: fact(0) = 1
+theorem some_theorem: fact(ℕ0) = ℕ1
 proof
     evaluate
 end
 
-theorem some_theorem1: fact(1) = 1
+theorem some_theorem1: fact(ℕ1) = ℕ1
 proof
     evaluate
 end
 
-theorem some_theorem2: fact(5) = 120
+theorem some_theorem2: fact(ℕ5) = ℕ120
 proof
     evaluate
 end
@@ -97,11 +97,11 @@ recursive natToNatHat(Nat) -> Nat_Hat {
 }
 
 recursive NatHatToNat(Nat_Hat) -> Nat {
-    NatHatToNat(cero) = 0
+    NatHatToNat(cero) = ℕ0
     NatHatToNat(next(x)) = suc(NatHatToNat(x))
 }
 
-assert natToNatHat(1) = next(cero)
+assert natToNatHat(ℕ1) = next(cero)
 
 recursive natHats(Nat_Hat, Nat_Hat) -> Nat_Hat {
     natHats(cero, y) = y

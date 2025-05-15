@@ -1,4 +1,4 @@
-import Nat
+import UInt
 import List
 
 define L = [1,2,3]

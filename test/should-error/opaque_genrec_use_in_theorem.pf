@@ -1,7 +1,7 @@
 import Nat
 import OpaqueTests
 
-theorem some_theorem_again: fact(0) = 1
+theorem some_theorem_again: fact(ℕ0) = ℕ1
 proof
     expand fact.
 end

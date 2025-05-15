@@ -1,13 +1,13 @@
 import Nat
 
 recfun fib(n : Nat) -> Nat
-  measure n
+  measure n of Nat
 {
   switch n {
-    case 0 { 0 }
+    case 0 { ℕ0 }
     case suc(n1) {
       switch n1 {
-        case 0 { 1 }
+        case 0 { ℕ1 }
         case suc(n2) {
           fib(n1) + fib(n2)
         }

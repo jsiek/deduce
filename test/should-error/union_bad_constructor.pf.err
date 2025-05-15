@@ -1,6 +1,4 @@
 ./test/should-error/union_bad_constructor.pf:1.1-3.12: while parsing
-	declaration ::= union | rec_function | function | definition
-./test/should-error/union_bad_constructor.pf:1.1-3.12: while parsing
 	statement ::= "union" identifier type_params_opt "{" constructor* "}"
 
 ./test/should-error/union_bad_constructor.pf:3.3-3.12: while parsing

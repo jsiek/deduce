@@ -1,5 +1,5 @@
-import Nat
+import UInt
 
-private define f : fn Nat -> Nat = fun x{ x + x }
+private define f : fn UInt -> UInt = fun x{ x + x }
 
 assert f(1) = 2

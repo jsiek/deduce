@@ -1,9 +1,9 @@
-import Nat
+import UInt
 import List
 
-theorem __: all x:Nat. length([x]) = 1
+theorem __: all x:UInt. length([x]) = 1
 proof
   arbitrary x:Nat
   expand 2*length
-  add_zero[1]
+  uint_add_zero[1]
 end
