@@ -156,38 +156,38 @@ fun operator ≤(a : Int, y : Int) {
 
 // Properties of signs
 
-theorem sign_pos: all n:UInt. sign(pos(n)) = positive
+lemma sign_pos: all n:UInt. sign(pos(n)) = positive
 proof
   arbitrary n:UInt
   expand sign.
 end
 
-theorem sign_negsuc: all n:UInt. sign(negsuc(n)) = negative
+lemma sign_negsuc: all n:UInt. sign(negsuc(n)) = negative
 proof
   arbitrary n:UInt
   expand sign.
 end
 
-theorem sign_neg_pos: all n:UInt. sign(-pos(1 + n)) = negative
+lemma sign_neg_pos: all n:UInt. sign(-pos(1 + n)) = negative
 proof
   arbitrary n:UInt
   expand operator- | sign
   replace apply eq_false to uint_not_one_add_zero[n].
 end
 
-theorem sign_neg_negsuc: all n:UInt. sign(-negsuc(n)) = positive
+lemma sign_neg_negsuc: all n:UInt. sign(-negsuc(n)) = positive
 proof
   arbitrary n:UInt
   expand operator - | sign.
 end
 
-theorem mult_pos_any: all s:Sign. positive * s = s
+lemma mult_pos_any: all s:Sign. positive * s = s
 proof
   arbitrary s:Sign
   expand operator*.
 end
 
-theorem mult_any_pos: all s:Sign. s * positive = s
+lemma mult_any_pos: all s:Sign. s * positive = s
 proof
   arbitrary s:Sign
   expand operator*
@@ -201,28 +201,28 @@ proof
   }
 end
 
-theorem mult_pos_neg: positive * negative = negative
+lemma mult_pos_neg: positive * negative = negative
 proof
   expand operator*.
 end
 
-theorem mult_neg_pos: negative * positive = negative
+lemma mult_neg_pos: negative * positive = negative
 proof
   expand operator* | flip.
 end
 
-theorem mult_neg_neg: negative * negative = positive
+lemma mult_neg_neg: negative * negative = positive
 proof
   expand operator* | flip.
 end
 
-theorem mult_pos_uint: all n:UInt. positive * n = pos(n)
+lemma mult_pos_uint: all n:UInt. positive * n = pos(n)
 proof
   arbitrary n:UInt
   evaluate
 end
 
-theorem mult_pos_int: all n:Int. positive * n = n
+lemma mult_pos_int: all n:Int. positive * n = n
 proof
   arbitrary n:Int
   switch n {
@@ -235,7 +235,7 @@ proof
   }
 end
 
-theorem mult_neg_uint: all n:UInt. negative * n = - pos(n)
+lemma mult_neg_uint: all n:UInt. negative * n = - pos(n)
 proof
   arbitrary n:UInt
   evaluate
@@ -243,13 +243,13 @@ end
 
 // Properties of absolute value and subtraction
 
-theorem abs_pos: all n:UInt. abs(pos(n)) = n
+lemma abs_pos: all n:UInt. abs(pos(n)) = n
 proof
   arbitrary n:UInt
   expand abs.
 end
 
-theorem abs_negsuc: all n:UInt. abs(negsuc(n)) = 1 + n
+lemma abs_negsuc: all n:UInt. abs(negsuc(n)) = 1 + n
 proof
   arbitrary n:UInt
   expand abs.
@@ -288,7 +288,7 @@ proof
   evaluate
 end
 
-theorem neg_pos: all n:UInt.
+lemma neg_pos: all n:UInt.
 	- pos(1 + n) = negsuc(n)
 proof
   arbitrary n : UInt
@@ -298,7 +298,7 @@ proof
   replace eq.
 end
 
-theorem neg_suc: all n:UInt.
+lemma neg_suc: all n:UInt.
 	- (1 + n) = negsuc(n)
 proof
   arbitrary n : UInt
@@ -406,7 +406,7 @@ proof
   }
 end
 
-theorem zero_monuso_neg: all n:UInt. 0 ⊝ (1 + n) = negsuc(n)
+lemma zero_monuso_neg: all n:UInt. 0 ⊝ (1 + n) = negsuc(n)
 proof
   arbitrary n:UInt
   expand operator⊝
@@ -416,7 +416,7 @@ proof
   neg_suc
 end
 
-theorem int_monuso_zero: all n:UInt. n ⊝ 0 = pos(n)
+lemma int_monuso_zero: all n:UInt. n ⊝ 0 = pos(n)
 proof
   arbitrary n:UInt
   expand operator⊝
@@ -425,7 +425,7 @@ proof
 end
 
 
-theorem int_monuso_cancel: all n:UInt. n ⊝ n = +0
+lemma int_monuso_cancel: all n:UInt. n ⊝ n = +0
 proof
   arbitrary n:UInt
   expand operator⊝
@@ -433,7 +433,7 @@ proof
   replace uint_monus_cancel.
 end
 
-theorem subo_monus: all x:UInt, y:UInt. x ⊝ y = pos(x) - pos(y)
+lemma subo_monus: all x:UInt, y:UInt. x ⊝ y = pos(x) - pos(y)
 proof
   arbitrary x:UInt, y:UInt
   expand operator⊝ | operator-
@@ -492,7 +492,7 @@ proof
   }
 end
 
-theorem suc_uint_monuso: all x:UInt, y:UInt. (1 + x) ⊝ (1 + y) = x ⊝ y
+lemma suc_uint_monuso: all x:UInt, y:UInt. (1 + x) ⊝ (1 + y) = x ⊝ y
 proof
   arbitrary x:UInt, y:UInt
   switch x < y for operator ⊝{
@@ -516,7 +516,7 @@ proof
   }
 end
 
-theorem distrib_left_monus_add: all m:UInt, n:UInt, o:UInt.
+lemma distrib_left_monus_add: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + pos(m) = (n + m) ⊝ o
 proof
   arbitrary m:UInt, n:UInt
@@ -558,7 +558,7 @@ proof
   expand P in apply uint_induction[P, n] to P0, ind
 end
 
-theorem add_pos_pos: all n:UInt, m:UInt.
+lemma add_pos_pos: all n:UInt, m:UInt.
   pos(n) + pos(m) = pos(n + m)
 proof
   arbitrary n:UInt, m:UInt
@@ -566,7 +566,7 @@ proof
     by expand operator+.
 end
   
-theorem add_pos_negsuc: all n:UInt, m:UInt.
+lemma add_pos_negsuc: all n:UInt, m:UInt.
   pos(n) + negsuc(m) = n ⊝ (1 + m)
 proof
   arbitrary n:UInt, m:UInt
@@ -574,14 +574,14 @@ proof
     by expand operator+.
 end
 
-theorem add_negsuc_pos: all n:UInt, m:UInt.
+lemma add_negsuc_pos: all n:UInt, m:UInt.
   negsuc(n) + pos(m) = m ⊝ (1 + n)
 proof
   arbitrary n:UInt, m:UInt
   conclude #negsuc(n) + pos(m)# = m ⊝ (1 + n) by expand operator+.
 end
 
-theorem add_negsuc_negsuc: all n:UInt, m:UInt.
+lemma add_negsuc_negsuc: all n:UInt, m:UInt.
   negsuc(n) + negsuc(m) = negsuc(1 + n + m)
 proof
   arbitrary n:UInt, m:UInt
@@ -589,7 +589,7 @@ proof
     by expand operator+.
 end
 
-theorem distrib_left_monus_add_neg: all m:UInt, n:UInt, o:UInt.
+lemma distrib_left_monus_add_neg: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + negsuc(m) = n ⊝ ((1 + o) + m)
 proof
   arbitrary m:UInt, n:UInt
@@ -642,7 +642,7 @@ proof
   }
 end
 
-theorem distrib_right_monus_add: all m:UInt, n:UInt, o:UInt.
+lemma distrib_right_monus_add: all m:UInt, n:UInt, o:UInt.
   pos(m) + (n ⊝ o) = (m + n) ⊝ o
 proof
   arbitrary m:UInt, n:UInt, o:UInt
@@ -653,7 +653,7 @@ proof
   ... = (m + n) ⊝ o        by replace uint_add_commute.
 end
 
-theorem distrib_right_monus_add_neg: all m:UInt, n:UInt, o:UInt.
+lemma distrib_right_monus_add_neg: all m:UInt, n:UInt, o:UInt.
   negsuc(m) + (n ⊝ o) = n ⊝ (1 + m + o)
 proof
   arbitrary m:UInt, n:UInt, o:UInt
@@ -787,13 +787,13 @@ proof
   }
 end
 
-theorem neg_uint: all x:UInt. -x = -pos(x)
+lemma neg_uint: all x:UInt. -x = -pos(x)
 proof
   arbitrary x:UInt
   evaluate
 end
 
-theorem neg_monuso: all x:UInt, y:UInt. - (x ⊝ y) = y ⊝ x
+lemma neg_monuso: all x:UInt, y:UInt. - (x ⊝ y) = y ⊝ x
 proof
   arbitrary x:UInt, y:UInt
   cases uint_trichotomy[x,y]
@@ -893,7 +893,7 @@ end
 
 // Properties of Subtraction
 
-theorem int_monus_cancel: all x:Int. x - x = +0
+theorem int_sub_cancel: all x:Int. x - x = +0
 proof
   arbitrary x:Int
   expand operator-
@@ -903,13 +903,13 @@ end
 
 // Properties of Multiplication
 
-theorem mult_pos_pos: all x:UInt, y:UInt. pos(x) * pos(y) = pos(x * y)
+lemma mult_pos_pos: all x:UInt, y:UInt. pos(x) * pos(y) = pos(x * y)
 proof
   arbitrary x:UInt, y:UInt
   evaluate
 end
 
-theorem mult_pos_negsuc: all x:UInt, y:UInt.
+lemma mult_pos_negsuc: all x:UInt, y:UInt.
   pos(x) * negsuc(y) = - pos(x + x * y)
 proof
   arbitrary x:UInt, y:UInt
@@ -941,7 +941,7 @@ proof
   }
 end
 
-theorem sign_neg_flip: all x:Int.
+lemma sign_neg_flip: all x:Int.
   if not (x = +0)
   then sign(- x) = flip(sign(x))
 proof
@@ -1100,7 +1100,7 @@ proof
   ... = +0        by int_zero_mult
 end
 
-theorem mult_assoc_helper: all x:UInt, y:UInt, z:UInt.
+lemma mult_assoc_helper: all x:UInt, y:UInt, z:UInt.
   z + (y + x * (1 + y)) * (1 + z)
   = (z + y * (1 + z)) + x * (1 + z + y * (1 + z))
 proof
