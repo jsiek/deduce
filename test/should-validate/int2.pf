@@ -1,0 +1,8 @@
+import UInt
+import Int
+
+theorem T: +0 + -0 + +1 + -1 + 1 = +1
+proof
+  evaluate
+end
+

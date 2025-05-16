@@ -1192,12 +1192,12 @@ class Call(Term):
       return op_str.join([op_arg_str(self, arg) for arg in self.args])
     elif is_prefix_operator(self.rator) and len(self.args) == 1:
       return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
+    elif isDeduceInt(self):
+      return deduceIntToInt(self)
     elif isNat(self): # and not get_verbose():
       return 'ℕ' + str(natToInt(self))
     elif isUInt(self): # and not get_verbose():
       return str(uintToInt(self))
-    elif isDeduceInt(self):
-      return deduceIntToInt(self)
     elif isNodeList(self):
       return '[' + nodeListToString(self)[:-2] + ']'
     elif isEmptySet(self) and not get_verbose():
@@ -1298,7 +1298,11 @@ class Call(Term):
     return ret
 
   def do_call(self, loc, vars, body, args, env):
-    assert len(vars) == len(args)
+    # because of associativity, args can be longer
+    # if len(vars) != len(args):
+    #     print("params: " + ', '.join([str(x) for (x,t) in vars]))
+    #     print("args: " + ', '.join([str(p) for p in args]))
+    #     error(loc, "param arg length mismatch: " + str(self))
     subst = {k: v for ((k,t),v) in zip(vars, args)}
     return do_function_call(loc, "anonymous", [], [], [], [], body, subst, env, None)
 
@@ -3527,12 +3531,22 @@ def isNat(t):
   match t:
     case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
       return True
-    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
-      if base_name(name) == 'suc':
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) if base_name(name) == 'suc':
       return isNat(arg)
     case _:
       return False
 
+def isInt(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'pos':
+      return isUInt(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'negsuc':
+      return isUInt(arg)
+    case _:
+      return False
+  
 def getZero(t):
   match t:
     case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
@@ -3589,19 +3603,20 @@ def intToDeduceInt(loc, n, sign):
 def isDeduceInt(t):
   match t:
     case Call(loc, tyof1, Var(loc2, tyof2, name), [arg]) if base_name(name) == 'pos':
-      return isNat(arg)
+      return isUInt(arg)
     case Call(loc, tyof1, Var(loc2, tyof2, name), [arg]) if base_name(name) == 'negsuc':
-      return isNat(arg)
+      return isUInt(arg)
     case _:
       return False
-  
 
 def deduceIntToInt(t):
   match t:
     case Call(loc, tyof1, Var(loc2, tyof2, name), [arg]) if base_name(name) == 'pos':
-      return '+' + str(natToInt(arg))
+      return '+' + str(uintToInt(arg))
     case Call(loc, tyof1, Var(loc2, tyof2, name), [arg]) if base_name(name) == 'negsuc':
-      return '-' + str(1 + natToInt(arg))
+      return '-' + str(1 + uintToInt(arg))
+    case _:
+      error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
 
 def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
