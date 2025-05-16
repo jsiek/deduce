@@ -3346,7 +3346,7 @@ class Import(Declaration):
     return 'import ' + self.name
 
   def pretty_print(self, indent):
-      return indent*' '  + str(self)
+      return indent*' '  + str(self) + '\n'
 
   def uniquify(self, env):
     if get_verbose():
