@@ -410,8 +410,7 @@ an empty list.
 
 Define a function named `average` that computes the mean of a
 non-empty list and check that it works on a few inputs.
-Note that the second parameter of the division operator `/` 
-is of type `Pos`, which is defined in `UInt.pf`.
+The division operator `/`  is defined in `UInt.pf`.
 
 <!--
 ```{.deduce^file=FunctionalProgramming.pf}
