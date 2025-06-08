@@ -2585,8 +2585,9 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             ast2.append(new_s)
 
           ast3 = []
+          already_imported = set()
           for s in ast2:
-            new_s = type_check_stmt(s, env, None)
+            new_s = type_check_stmt(s, env, already_imported)
             ast3.append(new_s)
 
           for s in ast3:
@@ -2738,10 +2739,9 @@ def type_check_stmt(stmt, env, already_done_imports : set):
       return stmt
   
     case Import(loc, name, ast):
-      if already_done_imports != None:
-        if name in already_done_imports:
-          error(loc, "error, module:\n\t" + name + "\nwas imported twice")
-        already_done_imports.add(name)
+      if name in already_done_imports:
+        error(loc, "error, module:\n\t" + name + "\nwas imported twice")
+      already_done_imports.add(name)
       return stmt
   
     case Assert(loc, frm):
@@ -3064,9 +3064,8 @@ def check_deduce(ast, module_name, modified):
     print('--------- Type Checking ------------------------')
   ast3 = []
 
-  already_done_imports = set()
   for s in ast2:
-    new_s = type_check_stmt(s, env, already_done_imports)
+    new_s = type_check_stmt(s, env, set())
     ast3.append(new_s)
   if get_verbose():
     for s in ast3:
