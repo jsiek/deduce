@@ -1,4 +1,11 @@
-import Nat
+union Nat {
+  zero
+  suc(Nat)
+}
+recursive operator +(Nat,Nat) -> Nat {
+  operator +(zero, m) = m
+  operator +(suc(n), m) = suc(n + m)
+}
 
 theorem add_zero_auto: all x:Nat. x + ℕ0 = x
 proof

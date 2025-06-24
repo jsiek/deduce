@@ -1,0 +1,24 @@
+import Nat
+
+theorem add_zero_again: all n:Nat.
+  n + zero = n
+proof
+  arbitrary n:Nat
+  .
+end
+
+theorem add_zero_once_more: all n:Nat.
+   n + n + zero = n + zero + n
+proof
+  arbitrary n:Nat
+  .
+end
+
+auto zero_add
+  
+theorem yet_another_zero: all n: Nat.
+  zero + n = n
+proof
+  arbitrary n:Nat
+  .
+end

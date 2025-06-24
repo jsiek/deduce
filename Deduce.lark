@@ -298,12 +298,15 @@ ident: IDENT              -> ident
 
 ?assoc_decl: "associative" ident type_params_opt "in" type -> assoc_decl
 
+?auto_decl: "auto" proof_hi -> auto_decl
+
 ?statement: union
  | rec_function
  | function
  | gen_rec_fun
  | definition
  | assoc_decl
+ | auto_decl
  | import
  | assert
  | print

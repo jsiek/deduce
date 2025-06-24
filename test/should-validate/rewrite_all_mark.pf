@@ -5,7 +5,7 @@ proof
   arbitrary n:Nat
   have eq1: # ℕ0 + n # + (ℕ0 + n) = n + (ℕ0 + n)
     by replace zero_add.
-  have eq2: n + (ℕ0 + n) = n + n
-    by replace zero_add.
+  have eq2: n + ℕ0 + n = n + n
+    by .
   transitive eq1 eq2
 end

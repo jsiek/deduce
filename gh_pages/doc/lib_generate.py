@@ -164,6 +164,7 @@ known_tokens = {
     'ASSOCIATIVE': 'keyword',
     'ASSUME': 'keyword',
     'AT': 'operator',
+    'AUTO': 'keyword',
     'BOOL': 'type',
     'BY': 'keyword',
     'CASE': 'keyword',

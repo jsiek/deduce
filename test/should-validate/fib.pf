@@ -99,7 +99,7 @@ theorem sum_fib: all n:Nat. summation(suc(n), ℕ1, fib) = fib(ℕ3 + n) ∸ ℕ
 proof
   induction Nat
   case 0 {
-    suffices fib(ℕ1) = fib(ℕ3) ∸ ℕ1 by expand 2*summation replace add_zero.
+    suffices fib(ℕ1) = fib(ℕ3) ∸ ℕ1 by expand 2*summation.
     evaluate
   }
   case suc(n') assume IH: summation(suc(n'), ℕ1, fib) = fib(ℕ3 + n') ∸ ℕ1 {

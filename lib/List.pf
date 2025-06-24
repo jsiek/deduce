@@ -637,12 +637,11 @@ proof
     assume prem
     switch n {
       case 0 {
-        suffices suc(length_nat(xs') + ℕ0) = suc(length_nat(xs')) by evaluate
-        replace add_zero.
+        evaluate
       }
       case suc(n') assume n_sn {
         suffices length_nat(drop(n', xs')) + ℕ1 + n' = ℕ1 + length_nat(xs')
-          by expand length_nat | drop replace suc_one_add | zero_add.
+          by expand length_nat | drop replace suc_one_add.
         have n_xs: n' ≤ length_nat(xs') by evaluate in replace n_sn in prem
         have eq: length_nat(drop(n', xs')) + n' = length_nat(xs')
           by apply IH[n'] to n_xs

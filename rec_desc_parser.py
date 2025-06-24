@@ -1336,16 +1336,17 @@ def parse_equation_list():
 def parse_theorem(visibility):
   while_parsing = 'while parsing\n' \
       + '\tproof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"'
-  try:    
+  try:
     start_token = current_token()
     is_lemma = start_token.type == 'LEMMA'
     is_postulate = start_token.type == 'POSTULATE'
     advance()
+
     try:
       name = parse_identifier()
     except ParseError as e:
       if end_of_file():
-      
+
         raise ParseError(meta_from_tokens(start_token, start_token),
           'expected name of theorem, not end of file')
       else:
@@ -1354,12 +1355,13 @@ def parse_theorem(visibility):
     except Exception as e:
         raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
           + str(e))
-    
+
     if current_token().type != 'COLON':
       raise ParseError(meta_from_tokens(current_token(), current_token()),
             'expected a colon after theorem name, not\n\t' \
             + current_token().value)
     advance()
+      
     what = parse_term()
     
     if is_postulate:
@@ -1646,7 +1648,6 @@ def parse_statement():
     except Exception as e:
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
-
   elif token.type == 'THEOREM' or token.type == 'LEMMA' or token.type == 'POSTULATE':
     return parse_theorem(visibility)
 
@@ -1678,6 +1679,12 @@ def parse_statement():
         raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
           + str(e))
   
+  elif token.type == 'AUTO':
+    advance()
+    pvar = parse_proof_hi()
+    meta = meta_from_tokens(token, previous_token())
+    return Auto(meta, pvar)
+      
   elif token.type == 'ASSOCIATIVE':
     advance()
     name = parse_identifier()

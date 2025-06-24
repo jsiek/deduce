@@ -3,12 +3,13 @@ PYTHON = $(shell command -v python3.13)
 LIB_DIR = ./lib
 TEST_PASS_DIR = ./test/should-validate
 TEST_ERROR_DIR = ./test/should-error
+TEST_IMPORT_DIR = ./test/test-imports
 
 default: tests tests-lib
 
 tests-should-validate:
-	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR) --dir $(LIB_DIR)
-	$(PYTHON) ./deduce.py --lalr $(TEST_PASS_DIR) --dir $(LIB_DIR)
+	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR) --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
+	$(PYTHON) ./deduce.py --lalr $(TEST_PASS_DIR) --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
 
 tests-should-error:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) --error --dir $(LIB_DIR)

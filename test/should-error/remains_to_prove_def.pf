@@ -1,7 +1,7 @@
 import Nat
 
-theorem T: all x:Nat. ℕ0 + (x + ℕ0) = x
+theorem T: all x:Nat, y:Nat. y + (ℕ0 + x) = x + y
 proof
-  arbitrary x:Nat
+  arbitrary x:Nat, y:Nat
   expand operator+
 end  

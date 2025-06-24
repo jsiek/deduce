@@ -1,6 +1,6 @@
 ./test/should-error/remains_to_prove_def.pf:7.1-7.4: incomplete proof
 Goal:
-	x + ℕ0 = x
+	y + x = x + y
 Advice:
 	To prove this equality, one of these statements might help:
 		expand

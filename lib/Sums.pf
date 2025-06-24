@@ -9,7 +9,6 @@ proof
     }
     case suc(n') suppose IH {
       expand operator *
-      replace symmetric add_zero[suc(n')]
       show suc(n') + ℕ0 ≤ suc(n') + (ℕ0 + n' * (suc(n') + ℕ0))
       have zero_le_any: ℕ0 <= (ℕ0 + n' * (suc(n') + ℕ0))
         by expand operator <=.
@@ -56,7 +55,7 @@ proof
         suffices n' * (n' ∸ ℕ1) + ℕ2 * (n' + ℕ0) = (n' + ℕ1) * ((n' + ℕ1) ∸ ℕ1)
             by expand 2*summation.
         suffices n' * (n' ∸ ℕ1) + ℕ2 * n' = suc(n') * (suc(n') ∸ ℕ1)
-              by replace add_one[n'] | add_zero[n'].
+              by replace add_one[n'].
         suffices (n' * n' ∸ n') + (n' + n') = suc(n') * n' by {
           expand operator∸
           replace monus_zero[n'] | blah[n'] | two_mult[n'].
@@ -91,7 +90,7 @@ proof
         show n' * (n' + ℕ1) + ℕ2 * summation(ℕ1, suc(n'), λn{n}) = suc(n') * (suc(n') + ℕ1)
         suffices n' * (n' + ℕ1) + ((n' + ℕ1) + (n' + ℕ1)) = (n' + ℕ1) * ((n' + ℕ1) + ℕ1) by {
           expand 2* summation
-          replace add_zero[suc(n')] | two_mult[suc(n')] | symmetric add_one[n'].
+          replace two_mult[suc(n')] | symmetric add_one[n'].
         }
         suffices (n' * n' + n') + ((n' + ℕ1) + (n' + ℕ1))
                = ((n' * n' + n') + (n' + ℕ1)) + (n' + ℕ1) by {

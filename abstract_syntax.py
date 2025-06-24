@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Tuple, List, Optional, Set, Self
-from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel, match_failed
+from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel, match_failed, MatchFailed
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
@@ -1221,9 +1221,6 @@ class Call(Term):
       return result
 
   def reduce(self, env):
-    # if get_verbose():
-    #   print('{{{{{{{{{{{{{{{{{{{{{{{{{{')
-    #   print('reduce call ' + str(self))
     fun = self.rator.reduce(env)
     if get_eval_all():
       is_assoc = False
@@ -1235,11 +1232,6 @@ class Call(Term):
     else:
       flat_args = self.args
     args = [arg.reduce(env) for arg in flat_args]
-    # if get_verbose():
-    #   print('rator => ' + str(fun))
-    #   print('is_associative? ' + str(is_assoc))
-    # if get_verbose():
-    #   print('args => ' + ', '.join([str(arg) for arg in args]))
     ret = None
     match fun:
       case Var(loc, ty, '='):
@@ -1250,40 +1242,43 @@ class Call(Term):
         else:
           ret = Call(self.location, self.typeof, fun, args)
       case Var(loc, ty, name, rs) if is_assoc:
-        # if get_verbose():
-        #   print('rator is associative Var')
         ret = Call(self.location, self.typeof, fun,
                    flatten_assoc_list(rator_name(self.rator), args))
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
+        # time before: 61.77s user
+        # time after: 62.16s user
+        # ret = auto_rewrites(ret, env)
+            
       case Lambda(loc, ty, vars, body):
         if hasattr(fun, 'env'):
-          return self.do_call(loc, vars, body, args, fun.env)
-        return self.do_call(loc, vars, body, args, env)
+          ret = self.do_call(loc, vars, body, args, fun.env)
+        else:
+          ret = self.do_call(loc, vars, body, args, env)
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):
         subst = {k: v for ((k,t),v) in zip(params, args)}
-        return do_function_call(loc, name, [], [], [x for (x,t) in params], args,
-                                body, subst, env, None)
+        ret = do_function_call(loc, name, [], [], [x for (x,t) in params], args,
+                               body, subst, env, None)
     
       case TermInst(loc, tyof,
                     GenRecFun(loc2, name, typarams, params, returns,
                               measure, measure_ty, body, terminates),
                     type_args):
         subst = {k: v for ((k,t),v) in zip(params, args)}
-        return do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
-                                body, subst, env, None)
+        ret = do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
+                               body, subst, env, None)
     
       case RecFun(loc, name, [], params, returns, cases):
-        return self.do_recursive_call(loc, name, fun, [], [], params, args,
-                                      returns, cases, is_assoc, env)
+        ret = self.do_recursive_call(loc, name, fun, [], [], params, args,
+                                     returns, cases, is_assoc, env)
       case TermInst(loc, tyof,
                     RecFun(loc2, name, typarams, params, returns, cases),
                     type_args):
-        return self.do_recursive_call(loc, name, fun, typarams, type_args,
-                                      params, args, returns, cases, is_assoc,
-                                      env)
+        ret = self.do_recursive_call(loc, name, fun, typarams, type_args,
+                                     params, args, returns, cases, is_assoc,
+                                     env)
       case Generic(loc2, tyof, typarams, body):
         error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
@@ -1292,6 +1287,10 @@ class Call(Term):
         ret = Call(self.location, self.typeof, fun, args)
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
+
+    if not get_eval_all():
+        ret = auto_rewrites(ret, env)
+    
     # if get_verbose():
     #   print('call ' + str(self) + '\n\treturns ' + str(ret))
     #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
@@ -1820,6 +1819,13 @@ def flatten_and(args):
   lol = [list_of_and(arg) for arg in args]
   ret = sum(lol, [])
   return ret
+
+def is_true(b):
+  match b:
+    case Bool(loc, ty, val):
+        return val
+    case _:
+        return False
 
 @dataclass
 class And(Formula):
@@ -3384,6 +3390,20 @@ class Import(Declaration):
     pass
 
 @dataclass
+class Auto(Statement):
+  name: Term
+  
+  def __str__(self):
+    return 'auto ' + str(self.name)
+
+  def uniquify(self, env):
+    self.name.uniquify(env)
+    
+  def collect_exports(self, export_env):
+    pass
+
+    
+@dataclass
 class Associative(Statement):
   type_params: List[str]
   op: Term
@@ -3752,6 +3772,14 @@ class ProofBinding(Binding):
   def __str__(self):
     return str(self.formula)
 
+@dataclass
+class AutoEquationBinding(Binding):
+  equations : List[Formula]
+  
+  def __str__(self):
+    return ', '.join([str(e) for e in self.equations])
+
+
 def type_params_str(type_params):
   if len(type_params) > 0:
     return '<' + ','.join(type_params) + '>'
@@ -3842,7 +3870,23 @@ class Env:
     else:
       new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)])
     return new_env
-  
+
+  def declare_auto_rewrite(self, loc, equation):
+    new_env = Env(self.dict)
+    full_name = '__auto__'
+    if full_name in self.dict:
+        new_env.dict[full_name].equations.append(equation)
+    else:
+        new_env.dict[full_name] = AutoEquationBinding(loc, [equation])
+    return new_env
+
+  def get_auto_rewrites(self):
+    full_name = '__auto__'
+    if full_name in self.dict.keys():
+      return self.dict[full_name].equations
+    else:
+      return []
+        
   def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
     for (x,ty) in xty_pairs:
@@ -4269,3 +4313,274 @@ def explicit_term_inst(term):
                   explicit_term_inst(body))
     case _:
       return term
+
+num_rewrites = 0
+
+def reset_num_rewrites():
+    global num_rewrites
+    num_rewrites = 0
+
+def inc_rewrites():
+    global num_rewrites
+    num_rewrites = 1 + num_rewrites
+
+def get_num_rewrites():
+    global num_rewrites
+    return num_rewrites
+
+def rewrite_aux(loc, formula, equation, env, depth = -1):
+  if depth == 0:
+      return formula
+  elif depth > 0:
+      depth = depth - 1
+  try:
+    rhs = try_rewrite(loc, formula, equation, env)
+    inc_rewrites()
+    return rhs
+  except MatchFailed as e:
+    if get_verbose():
+      print('\tno match')
+    pass
+  match formula:
+    case TermInst(loc2, tyof, subject, tyargs, inferred):
+      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth),
+                      tyargs, inferred)
+    case Var(loc2, tyof, name, resolved_names):
+      return formula
+    case Bool(loc2, tyof, val):
+      return formula
+    case And(loc2, tyof, args):
+      return And(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth) for arg in args])
+    case Or(loc2, tyof, args):
+      return Or(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth) for arg in args])
+    case IfThen(loc2, tyof, prem, conc):
+      return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation, env, depth),
+                    rewrite_aux(loc, conc, equation, env, depth))
+    case All(loc2, tyof, var, pos, frm2):
+      return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation, env, depth))
+    case Some(loc2, tyof, vars, frm2):
+      return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env, depth))
+    case Call(loc2, tyof, rator, args):
+      is_assoc = is_associative(loc2, rator_name(rator), formula.typeof, env)
+      if get_verbose():
+          print('is_assoc? ' + str(is_assoc))
+      if is_assoc:
+          args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+      new_rator = rewrite_aux(loc, rator, equation, env, depth)
+      new_args = [rewrite_aux(loc, arg, equation, env, depth) for arg in args]
+      if get_verbose():
+          print('while tyring to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
+          print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
+      (lhs,rhs) = split_equation(loc2, equation)
+      arity = call_arity(lhs)
+      if get_verbose():
+          print('lhs = ' + str(lhs) + '\n\tarity: ' + str(arity)) 
+      if is_assoc and len(new_args) > arity and arity > 1:
+        # try to rewrite each arity-number of adjacent terms
+        i = 0
+        output_terms = []
+        while i + arity <= len(new_args):
+            call_args = new_args[i : i + arity]
+            tmp = Call(loc2, tyof, new_rator, call_args)
+            old_num_rewrites = get_num_rewrites()
+            try:
+               new_tmp = rewrite_aux(loc, tmp, equation, env, depth)
+            except MatchFailed as e:
+               new_tmp = tmp
+            new_num_rewrites = get_num_rewrites()
+            if new_num_rewrites == old_num_rewrites:
+                if get_verbose():
+                    print('replace using: ' + str(equation) \
+                          + '\n\tdid not match: ' + str(tmp))
+                output_terms.append(new_args[i])
+                i = i + 1
+            else:
+                flat_tmp = flatten_assoc(rator_name(rator), new_tmp)
+                if get_verbose():
+                    print('rewrote: ' + str(tmp) + '\n\tinto: ' \
+                          + ', '.join([str(a) for a in flat_tmp]))
+                output_terms += flat_tmp
+                i = i + arity
+        if i < len(new_args):
+            output_terms += new_args[i:]
+        if len(output_terms) > 1:
+            return Call(loc2, tyof, new_rator, output_terms)
+        else:
+            return output_terms[0]
+      else: # not an associative rator
+        call = Call(loc2, tyof, new_rator, new_args)
+        if hasattr(formula, 'type_args'):
+          call.type_args = formula.type_args
+        return call
+  
+    case Switch(loc2, tyof, subject, cases):
+      return Switch(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth),
+                    [rewrite_aux(loc, c, equation, env, depth) for c in cases])
+    case SwitchCase(loc2, pat, body):
+      return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation, env, depth))
+    case RecFun(loc, name, typarams, params, returns, cases):
+      return formula
+    case Conditional(loc2, tyof, cond, thn, els):
+      return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation, env, depth),
+                         rewrite_aux(loc, thn, equation, env, depth),
+                         rewrite_aux(loc, els, equation, env, depth))
+    case Lambda(loc2, tyof, vars, body):
+      return Lambda(loc2, tyof, vars, rewrite_aux(loc, body, equation, env, depth))
+  
+    case Generic(loc2, tyof, typarams, body):
+      return Generic(loc2, tyof, typarams, rewrite_aux(loc, body, equation, env, depth))
+  
+    case TAnnote(loc2, tyof, subject, typ):
+      return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation, env, depth), typ)
+
+    case ArrayGet(loc2, tyof, arr, ind):
+      return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env, depth),
+                      rewrite_aux(loc, ind, equation, env, depth))
+  
+    case TLet(loc2, tyof, var, rhs, body):
+      return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env, depth),
+                  rewrite_aux(loc, body, equation, env, depth))
+  
+    case Hole(loc2, tyof):
+      return formula
+
+    case Omitted(loc2, tyof):
+      return formula
+  
+    case Mark(loc, tyof, subject):
+      return Mark(loc, tyof, rewrite_aux(loc, subject, equation, env, depth))
+  
+    case _:
+      error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
+
+def try_rewrite(loc, formula, equation, env):
+  (lhs, rhs) = split_equation(loc, equation)
+  if get_verbose():
+    print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
+  matching = {}
+  eq_vars = equation_vars(equation)
+  formula_match(loc, eq_vars, lhs, formula, matching, Env())
+  if get_verbose():
+      print('\tmatched LHS, rewriting to the RHS: ' + str(rhs))
+  return rhs.substitute(matching)
+
+def formula_match(loc, vars, pattern_frm, frm, matching, env):
+  if get_verbose():
+    print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
+    print("\tin  " + ','.join([str(x) for x in vars]))
+    print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
+  match (pattern_frm, frm):
+    case (TermInst(loc1, tyof1, subject1, tyargs1, inferred1),
+          TermInst(loc2, tyof2, subject2, tyargs2, inferred2)) \
+          if len(tyargs1) == len(tyargs2):
+      try:
+        matching2 = dict(matching)
+        for (t1,t2) in zip(tyargs1, tyargs2):
+          formula_match(loc, vars, t1, t2, matching2, env)
+        formula_match(loc, vars, subject1, subject2, matching2, env)
+        matching.clear()
+        matching.update(matching2)
+      except MatchFailed as ex:
+        formula_match(loc, vars, subject1, frm, matching, env)
+        
+    case (TermInst(loc2, tyof, subject, tyargs, inferred), _):
+      formula_match(loc, vars, subject, frm, matching, env)
+      
+    case (_, TermInst(loc2, tyof, subject, tyargs, inferred)):
+      formula_match(loc, vars, pattern_frm, subject, matching, env)
+      
+    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
+      pass
+    case (Var(l1, t1, name, rs1), _) if pattern_frm in vars:
+      if name in matching.keys():
+        formula_match(loc, vars, matching[name], frm, matching, env)
+      else:
+        if get_verbose():
+            print("formula_match, " + base_name(name) + ' := ' + str(frm))
+        matching[name] = frm
+        
+    case (Call(loc2, tyof2, goal_rator, goal_rands),
+          Call(loc3, tyof3, rator, rands)):
+      formula_match(loc, vars, goal_rator, rator, matching, env)
+      if len(rands) >= len(goal_rands):
+        while len(rands) > 0:
+          if len(goal_rands) == 1 and len(rands) > 1:
+              rand = Call(loc3, tyof3, rator, rands)
+              rands = []
+          else:
+              rand = rands[0]
+              rands = rands[1:]
+          goal_rand = goal_rands[0]
+          goal_rands = goal_rands[1:]
+            
+          new_goal_rand = goal_rand.substitute(matching)
+          formula_match(loc, vars, new_goal_rand, rand, matching, env)
+          
+      else:
+        match_failed(loc, "formula: " + str(frm) + "\n" \
+                     + "does not match expected formula: " + str(pattern_frm))
+        
+    case (And(loc2, tyof2, goal_args),
+          And(loc3, tyof3, args)):
+      for (goal_arg, arg) in zip(goal_args, args):
+          new_goal_arg = goal_arg.substitute(matching)
+          formula_match(loc, vars, new_goal_arg, arg, matching, env)
+    case (Or(loc2, tyof2, goal_args),
+          Or(loc3, tyof3, args)):
+      for (goal_arg, arg) in zip(goal_args, args):
+          new_goal_arg = goal_arg.substitute(matching)
+          formula_match(loc, vars, new_goal_arg, arg, matching, env)
+    case (IfThen(loc2, tyof2, goal_prem, goal_conc),
+          IfThen(loc3, tyof3, prem, conc)):
+      formula_match(loc, vars, goal_prem, prem, matching, env)
+      new_goal_conc = goal_conc.substitute(matching)
+      formula_match(loc, vars, new_goal_conc, conc, matching, env)
+    # UNDER CONSTRUCTION
+    case _:
+      red_pattern = pattern_frm.reduce(env)
+      red_frm = frm.reduce(env)
+      if red_pattern != red_frm:
+          match_failed(loc, "formula: " + str(red_frm) + "\n" \
+                       + "does not match expected formula: " + str(red_pattern))
+
+def call_arity(call):
+    match call:
+      case Call(loc2, tyof, rator, args):
+        return len(args)
+      case _:
+        return 1 #raise Exception('call_arity: not a call ' + str(call))
+
+def rewrite_assoc(loc, loc2, tyof, new_rator, new_args, equation, env):
+    # try to rewrite each arity-number of adjacent terms
+    (lhs,rhs) = split_equation(loc2, equation)
+    arity = call_arity(lhs)
+    i = 0
+    output_terms = []
+    while i + arity <= len(new_args):
+        call_args = new_args[i : i + arity]
+        tmp = Call(loc2, tyof, new_rator, call_args)
+        try:
+           new_tmp = try_rewrite(loc, tmp, equation, env)
+           flat_tmp = flatten_assoc(rator_name(rator), new_tmp)
+           output_terms += flat_tmp
+           i = i + arity
+        except MatchFailed as e:
+           new_tmp = tmp
+           output_terms.append(new_args[i])
+           i = i + 1
+    if i < len(new_args):
+        output_terms += new_args[i:]
+    if len(output_terms) > 1:
+        return Call(loc2, tyof, new_rator, output_terms)
+    else:
+        return output_terms[0]
+    
+def auto_rewrites(term, env):
+    equations = env.get_auto_rewrites()
+    for eq in equations:
+        old_term = term
+        term = rewrite_aux(term.location, term, eq, env, 2)
+        # if not(term is old_term):
+        #     print('auto rewrite:\t' + str(old_term) + '\n'
+        #           '\t\t' + str(term) + '\n')
+    return term        

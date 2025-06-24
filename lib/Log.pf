@@ -35,7 +35,7 @@ proof
         have sn_le_psl: suc(n) ≤ pow2(suc(l)) by {
           suffices suc(n) ≤ suc(p) + suc(p) by {
             expand pow2 | 3* operator*
-            replace add_zero[pow2(l)] | pl_sp.
+            replace pl_sp.
           }
           suffices n ≤ pow2(l) + p by {
             expand operator+ | operator≤
@@ -82,5 +82,5 @@ proof
     by apply add_less_equal_pow_find_log[n][ℕ0,ℕ0] to
        apply less_implies_less_equal[ ℕ0 ][pow2(ℕ0)] to pow_positive[ ℕ0 ]
   conclude n ≤ pow2(find_log(n,ℕ0,ℕ0))
-    by replace add_zero[n] in f1
+    by f1
 end

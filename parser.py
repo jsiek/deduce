@@ -616,13 +616,14 @@ def parse_tree_to_ast(e, parent):
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
-                       parse_tree_to_ast(e.children[2], e))
+                       parse_tree_to_ast(e.children[2], e),
+                       False)
     elif e.data == 'lemma':
         return Theorem(e.meta,
                        str(e.children[0].value),
                        parse_tree_to_ast(e.children[1], e),
                        parse_tree_to_ast(e.children[2], e),
-                       isLemma=True)
+                       True)
     elif e.data == 'postulate':
         return Postulate(e.meta,
                          str(e.children[0].value),
@@ -633,6 +634,10 @@ def parse_tree_to_ast(e, parent):
         typ = parse_tree_to_ast(e.children[2], e)
         return Associative(e.meta, typarams, Var(e.meta, None, op_var, []), typ)
 
+    elif e.data == 'auto_decl':
+        pvar = parse_tree_to_ast(e.children[0], e)
+        return Auto(e.meta, pvar)
+    
     # patterns in function definitions
     elif e.data == 'pattern_id':
         id = parse_tree_to_ast(e.children[0], e)
