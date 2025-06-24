@@ -7,5 +7,5 @@ theorem T: all z:Nat. if z = x + y then z = ℕ1
 proof
   arbitrary z:Nat
   assume zxy: z = x + y
-  expand x | y | operator+ in zxy
+  expand x | y in zxy
 end

@@ -18,7 +18,7 @@ proof
     arbitrary n:Nat, l:Nat
     suppose n_le_pl: n ≤ pow2(l)
     suffices n ≤ pow2(l)
-        by expand find_log | operator+.
+        by expand find_log.
     n_le_pl
   }
   case suc(m') suppose IH {
@@ -34,7 +34,7 @@ proof
           (apply positive_suc[pow2(l)] to pow_positive[l])
         have sn_le_psl: suc(n) ≤ pow2(suc(l)) by {
           suffices suc(n) ≤ suc(p) + suc(p) by {
-            expand pow2 | 3* operator*
+            expand pow2 | operator*
             replace pl_sp.
           }
           suffices n ≤ pow2(l) + p by {

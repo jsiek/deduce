@@ -614,7 +614,7 @@ proof
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
     expand length_nat | operator++ | operator+ | nat_take
-    replace zero_add[length_nat(xs')] | IH[ys].
+    replace IH[ys].
   }
 end
 
@@ -688,7 +688,7 @@ proof
         suffices length_nat(drop(n', xs')) = ℕ0 by evaluate
         have xs_n: length_nat(xs') < n' by {
           suffices suc(length_nat(xs')) ≤ n' by expand operator<.
-          expand operator< | length_nat | 2*operator+ | operator≤ in
+          expand operator< | length_nat | 1*operator+ | operator≤ in
           replace n_sn in prem
         }
         conclude length_nat(drop(n', xs')) = ℕ0 by apply IH[n'] to xs_n
@@ -709,7 +709,7 @@ proof
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
     expand length_nat | operator++ | operator+ | drop
-    replace zero_add[length_nat(xs')] | IH[ys].
+    replace IH[ys].
   }
 end
 
@@ -764,7 +764,7 @@ proof
           by expand operator++ | get | pred.
         have i_xs: i' < length_nat(xs) by {
           apply less_suc_iff_suc_less to
-          expand length_nat | operator+ | operator+ in
+          expand length_nat | operator+ in
           replace i_si in i_xxs
         }
         apply IH[ys, i'] to i_xs
@@ -815,13 +815,13 @@ proof
       by expand length_nat in xxs_i
     switch i {
       case 0 assume iz {
-        conclude false by expand operator+ |operator+ |operator≤ in
+        conclude false by expand operator+ |operator≤ in
           replace iz in i_pos
       }
       case suc(i') assume isi {
         suffices get(xs, i') = none by expand get | pred.
         have xs_i: length_nat(xs) ≤ i'
-          by expand operator+ | operator+ | operator≤ in
+          by expand operator+ | operator≤ in
              replace isi in i_pos
         conclude get(xs, i') = none by apply IH to xs_i
       }

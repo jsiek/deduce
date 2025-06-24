@@ -1,11 +1,8 @@
 import Nat
 
-theorem T: all n:Nat. (ℕ0 + n) + (ℕ0 + n) = n + n
+theorem T: all n:Nat, m:Nat. (m + n) + (m + n) = n + m + m + n
 proof
-  arbitrary n:Nat
-  have eq1: # ℕ0 + n # + (ℕ0 + n) = n + (ℕ0 + n)
-    by replace zero_add.
-  have eq2: n + ℕ0 + n = n + n
-    by .
-  transitive eq1 eq2
+  arbitrary n:Nat, m:Nat
+  conclude # m + n # + (m + n) = n + m + m + n
+    by replace add_commute.
 end

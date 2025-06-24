@@ -1,9 +1,9 @@
-./test/should-error/forgot_replace_all.pf:13.8-13.16: 
+./test/should-error/forgot_replace_all.pf:7.8-7.19: 
 Could not prove that
-	(all n:Nat. ℕ1 * n = n)
+	(all n:Nat. (all m:Nat. n + m = m + n))
 instantiates to
-	(if (if x ≥ ℕ1 then x ≤ x * x) then (if x ≥ ℕ1 then x ≤ ℕ1 * x * x))
+	m + n + m + n = n + m + m + n
 because
-./test/should-error/forgot_replace_all.pf:13.8-13.16: formula: (if (if x ≥ ℕ1 then x ≤ x * x) then (if x ≥ ℕ1 then x ≤ ℕ1 * x * x))
-does not match expected formula: ℕ1 * n = n
-Did you mean `replace one_mult`?
+./test/should-error/forgot_replace_all.pf:7.8-7.19: formula: n
+does not match expected formula: n + m + n
+Did you mean `replace add_commute`?

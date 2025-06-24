@@ -1,6 +1,0 @@
-./test/should-error/forgot_replace_allelim.pf:13.8-13.21: 
-Could not prove that
-	ℕ1 * x * x = x * x
-implies
-	(if (if x ≥ ℕ1 then x ≤ x * x) then (if x ≥ ℕ1 then x ≤ ℕ1 * x * x))
-Did you mean `replace one_mult[x * x]`?

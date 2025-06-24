@@ -1,6 +1,6 @@
 ./test/should-error/remains_to_prove.pf:7.1-7.4: incomplete proof
 Goal:
-	x + y = y + x
+	y + x + z = z + y + x
 Advice:
 	To prove this equality, one of these statements might help:
 		expand

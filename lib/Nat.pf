@@ -147,12 +147,14 @@ proof
   conclude zero + n = n by expand operator+.
 end
 
+auto zero_add
+
 theorem add_zero: all n:Nat.
   n + zero = n
 proof
   induction Nat
   case zero {
-    conclude zero + zero = zero   by expand operator+.
+    conclude zero + zero = zero   by .
   }
   case suc(n') suppose IH: n' + zero = n' {
     equations
@@ -229,7 +231,7 @@ end
 theorem one_add: all m:Nat.  ℕ1 + m = suc(m)
 proof
   arbitrary m:Nat
-  expand 2 * operator+.
+  expand 1 * operator+.
 end
 
 theorem add_one: all m:Nat.  m + ℕ1 = suc(m)
@@ -371,8 +373,7 @@ proof
   induction Nat
   case zero {
     arbitrary y:Nat, x:Nat
-    conclude (ℕ0 + y) ∸ (ℕ0 + x) = y ∸ x
-      by expand operator+.
+    conclude (ℕ0 + y) ∸ (ℕ0 + x) = y ∸ x  by .
   }
   case suc(z') assume IH {
     arbitrary y:Nat, x:Nat
@@ -417,7 +418,7 @@ proof
   induction Nat
   case zero {
     arbitrary n:Nat
-    equations   (zero + n) ∸ zero = n ∸ zero    by replace zero_add.
+    equations   (zero + n) ∸ zero = n ∸ zero    by .
                         ... = n        by monus_zero[n]
   }
   case suc(m') suppose IH {
@@ -439,7 +440,7 @@ proof
     switch y {
       case zero {
         arbitrary z : Nat
-        replace monus_zero | zero_add.
+        replace monus_zero.
       }
       case suc(y')  {
         arbitrary x : Nat
@@ -477,20 +478,23 @@ proof
   arbitrary n:Nat
   expand operator*.
 end
-  
+
+auto zero_mult
+
 theorem mult_zero: all n:Nat.
   n * zero = zero
 proof
   induction Nat
   case zero {
-    conclude zero * zero = zero   by expand operator*.
+    conclude zero * zero = zero   by .
   }
   case suc(n') suppose IH {
-    equations  suc(n') * zero = zero + n' * zero      by expand operator*.
-                       ... = n' * zero          by zero_add[n'*zero]
-                       ... = zero               by IH
+    equations  suc(n') * zero = zero + n' * zero   by expand operator*.
+                          ... = zero               by IH
   }
 end
+
+auto mult_zero
 
 theorem suc_mult: all m:Nat, n:Nat.
   suc(m) * n = n + m * n
@@ -505,9 +509,7 @@ proof
   induction Nat
   case zero {
     arbitrary n:Nat
-    equations   zero * suc(n) = zero            by zero_mult[suc(n)]
-                       ... = zero * n        by symmetric zero_mult[n]
-                       ... = zero + zero * n    by symmetric zero_add[zero*n]
+    conclude zero * suc(n) = zero + zero * n    by .
   }
   case suc(m') suppose IH: all n:Nat. m' * suc(n) = m' + m' * n {
     arbitrary n:Nat
@@ -525,8 +527,8 @@ proof
   induction Nat
   case zero {
     arbitrary n:Nat
-    equations    zero * n = zero          by zero_mult[n]
-                   ... = n * zero      by symmetric mult_zero[n]
+    equations    zero * n = zero          by .
+                   ... = n * zero         by .
   }
   case suc(m') suppose IH: all n:Nat. m' * n = n * m' {
     arbitrary n:Nat
@@ -542,9 +544,11 @@ theorem one_mult: all n:Nat.
 proof
   arbitrary n:Nat
   equations     ℕ1 * n = n + zero * n    by suc_mult[zero,n]
-                  ... = n + zero        by replace zero_mult.
+                  ... = n + zero        by .
                   ... = n            by .
 end
+
+auto one_mult
   
 theorem mult_one: all n:Nat.
   n * ℕ1 = n
@@ -554,6 +558,7 @@ proof
                  ... = n        by one_mult[n]
 end
 
+auto mult_one
 
 theorem mult_to_zero : all n :Nat, m : Nat.
   if m * n = zero then m = zero or n = zero
@@ -578,12 +583,12 @@ proof
   arbitrary x : Nat, y : Nat
   switch x {  
     case zero {
-      expand operator*.
+      .
     }
     case suc(x') suppose IH {
       switch y {
         case zero {
-          replace mult_zero[suc(x')].
+          .
         }
         case suc(y') {
           suffices (if suc(y' + x' * suc(y')) = ℕ1 then (suc(x') = ℕ1 and suc(y') = ℕ1)) 
@@ -612,7 +617,7 @@ theorem two_mult: all n:Nat.
 proof
   arbitrary n:Nat
   equations   ℕ2 * n = n + ℕ1 * n   by suc_mult[ℕ1,n]
-                ... = n + n           by replace one_mult.
+                ... = n + n           by .
 end
 
 theorem dist_mult_add:
@@ -623,9 +628,9 @@ proof
   case zero {
     arbitrary x:Nat, y:Nat
     equations   zero * (x + y)
-              = zero                     by zero_mult[x+y]
+              = zero                        by .
           ... = zero + zero                 by .
-          ... =# zero * x + zero * y #      by replace zero_mult.
+          ... =# zero * x + zero * y #      by .
   }
   case suc(a') suppose IH {
     arbitrary x:Nat, y:Nat
@@ -655,9 +660,9 @@ proof
   induction Nat
   case zero {
     arbitrary n:Nat, o:Nat
-    equations   (zero * n) * o = zero * o         by replace zero_mult.
+    equations   (zero * n) * o = zero * o         by .
                         ... = zero             by zero_mult[o]
-                        ... = zero * (n * o)   by symmetric zero_mult[n*o]
+                        ... = zero * (n * o)   by .
   }
   case suc(m') suppose IH: all n:Nat, o:Nat. (m' * n) * o = m' * (n * o) {
     arbitrary n:Nat, o:Nat
@@ -1281,7 +1286,7 @@ theorem less_equal_suc: all n:Nat.
   n ≤ suc(n)
 proof
   arbitrary n:Nat
-  expand 2 * operator+ in
+  expand 1 * operator+ in
   replace add_commute in
   less_equal_add[n][ℕ1]
 end
@@ -1302,7 +1307,6 @@ proof
   case zero {
     arbitrary b:Nat, c:Nat, d:Nat
     assume prem
-    replace zero_add
     have bd: b ≤ d by prem
     have d_dc: d ≤ d + c by less_equal_add
     have d_cd: d ≤ c + d by replace add_commute in d_dc
@@ -1438,7 +1442,6 @@ proof
   case zero {
     arbitrary x:Nat, y:Nat
     assume xy
-    replace one_mult
     xy
   }
   case suc(n) assume IH {
@@ -1494,7 +1497,7 @@ proof
       case zero assume xz {
         conclude false by {
           expand operator< | operator≤ in
-          replace xz | mult_zero in prem
+          replace xz in prem
         }
         
       }
@@ -1504,7 +1507,7 @@ proof
           case zero assume zz {
             conclude false by {
               expand operator< | operator≤ in
-              replace zz | zero_mult in prem
+              replace zz in prem
             }
           }
           case suc(z') assume zsz {
@@ -1520,14 +1523,14 @@ proof
     switch x {
       case zero assume xz {
         expand operator< | operator≤ in
-        replace xz | mult_zero in prem
+        replace xz in prem
       }
       case suc(x') assume xsx {
         switch z {
           case zero assume zz {
             conclude false by {
               expand operator< | operator≤ in
-              replace xsx | zz | zero_mult in prem
+              replace xsx | zz in prem
             }
           }
           case suc(z') assume zsz {
@@ -1596,7 +1599,7 @@ proof
    }
    have Y: (ℕ1 + n) ∸ ℕ1 = n by add_monus_identity
    equations
-     suc(n ∸ ℕ1) = #ℕ1 + (n ∸ ℕ1)# by expand 2*operator+.
+     suc(n ∸ ℕ1) = #ℕ1 + (n ∸ ℕ1)# by expand 1*operator+.
             ... = (ℕ1 + n) ∸ ℕ1   by apply monus_add_assoc[n,ℕ1,ℕ1] to expand operator< in recall zero < n
             ... = n             by add_monus_identity
 end
@@ -1620,7 +1623,7 @@ proof
     show m + (suc(n') ∸ m) = suc(n')
     switch m {
       case zero {
-        conclude zero + (suc(n') ∸ zero) = suc(n') by expand operator∸ | operator+.
+        conclude zero + (suc(n') ∸ zero) = suc(n') by expand operator∸.
       }
       case suc(m') suppose m_sm {
         show suc(m') + (suc(n') ∸ suc(m')) = suc(n')
@@ -1664,7 +1667,7 @@ proof
       case zero suppose n_z {
         suffices suc(m') ≤ o  by expand operator ∸.
         conclude suc(m') ≤ o
-          by expand operator+ in replace n_z in prem
+          by replace n_z in prem
       }
       case suc(n') suppose n_sn {
         suffices m' ∸ n' ≤ o  by expand operator∸.
@@ -1779,7 +1782,7 @@ proof
   suppose x_l_y
   suffices ℕ1 ≤ y  by expand operator<.
   have sx_le_y: ℕ1 + x ≤ y  by
-    suffices suc(x) ≤ y  by expand 2*operator+.
+    suffices suc(x) ≤ y  by expand 1*operator+.
     expand operator< in x_l_y
   have one_le_sx: ℕ1 ≤ ℕ1 + x
     by less_equal_add[ℕ1][x]
@@ -1797,7 +1800,7 @@ proof
   induction Nat
   case zero {
     arbitrary y:Nat, z:Nat
-    suffices zero = zero ∸ zero   by replace zero_mult.
+    suffices zero = zero ∸ zero   by .
     expand operator∸.
   }
   case suc(n') suppose IH {
@@ -1882,7 +1885,7 @@ proof
           replace (expand operator > in prop_f) in
           zero_or_positive[c']
         }
-        suffices a<b by replace cz | mult_zero.
+        suffices a<b by replace cz.
         alb
       }
     }
@@ -2308,7 +2311,7 @@ proof
       choose suc(m)
       suffices suc(suc(ℕ2 * m)) = ℕ2 * suc(m)  by replace n_2m.
       suffices suc(suc(m + (m + ℕ0))) = suc(m + suc(m + ℕ0))
-        by expand 3 * operator* | operator+.
+        by expand operator* | operator+.
       replace add_suc.
     }
     have part2: (if is_odd(suc(n')) then OddNat(suc(n'))) by {
@@ -2367,7 +2370,7 @@ proof
         evaluate in expand operator* in replace ksk | mult_commute in nk
       }
       have n_eq: n = ℕ1 + k' * ℕ2 by apply add_both_sides_of_equal to eq1
-      replace n_eq | suc_one_add | dist_mult_add | mult_one
+      replace n_eq | suc_one_add | dist_mult_add
       choose k'
       replace two_mult.
     }
@@ -2410,7 +2413,7 @@ proof
       obtain k where ns2k: n' = suc (ℕ2 * k) from expand OddNat in on
       expand EvenNat
       choose ℕ1+k
-      replace ns2k | dist_mult_add | mult_one
+      replace ns2k | dist_mult_add
       evaluate
     }
     fwd, bkwd
@@ -2558,7 +2561,7 @@ proof
     arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
     suppose g_f_and_h_f
     suffices summation(b,s,f) = summation(b,t,h)
-      by expand operator+ | summation.
+      by expand summation.
     apply summation_cong[b][f,h,s,t]
     to arbitrary i:Nat
        suppose i_b: i < b
@@ -2705,7 +2708,7 @@ lemma div2_times2: all n:Nat.
   div2(ℕ2 * n) = n
 proof
   arbitrary n:Nat
-  suffices div2(n + (n + zero)) = n  by expand 3* operator*.
+  suffices div2(n + (n + zero)) = n  by expand operator*.
   suffices div2(n + n) = n        by .
   div2_double[n]
 end
@@ -2731,7 +2734,7 @@ lemma div2_suc_times2: all n:Nat.
   div2(suc(ℕ2 * n)) = n
 proof
   arbitrary n:Nat
-  suffices div2(suc(n + (n + zero))) = n  by expand 3* operator*.
+  suffices div2(suc(n + (n + zero))) = n  by expand operator*.
   suffices div2(suc(n + n)) = n        by .
   div2_suc_double[n]
 end
@@ -2754,7 +2757,7 @@ proof
     have k_kk: k ≤ k + k by less_equal_add
     have eq_2: (ℕ1 + (k + k)) ∸ k = ℕ1 + ((k + k) ∸ k) by symmetric apply monus_add_assoc[k + k, ℕ1, k] to k_kk
     suffices ℕ1 + ((k + k) ∸ k) ≤ suc(k) by replace eq_2.
-    suffices ((k + k) ∸ k) ≤ k by expand 2* operator+ | operator≤.
+    suffices ((k + k) ∸ k) ≤ k by expand 1* operator+ | operator≤.
     suffices k ≤ k by replace add_monus_identity[k,k].
     less_equal_refl
   }
@@ -2894,7 +2897,7 @@ proof
     obtain pn' where pn_s: pow2(n') = suc(pn')
         from apply positive_suc[pow2(n')] to IH
     suffices ℕ0 < ℕ2 * suc(pn')  by replace pn_s.
-    suffices ℕ0 < suc(pn') + (suc(pn') + ℕ0)  by expand 3* operator*.
+    suffices ℕ0 < suc(pn') + (suc(pn') + ℕ0)  by expand operator*.
     suffices ℕ0 < suc(pn') + suc(pn')  by .
     suffices ℕ0 < suc(pn' + suc(pn'))  by expand operator+.
     suffices ℕ0 < suc(suc(pn' + pn'))  by replace add_suc[pn'][pn'].
@@ -3008,7 +3011,7 @@ proof
       case true assume j_m_true {
         suffices some r:Nat. r = j and r < m by {
           expand operator /
-          replace j_m_true | zero_mult | zero_add.
+          replace j_m_true.
         }
         choose j
         conclude j = j and j < m   by replace j_m_true.
@@ -3027,7 +3030,7 @@ proof
             obtain m' where m_sm: m = suc(m') from apply not_zero_suc to not_m_z
             expand operator / replace j_m_false | m_z_false
             show some r:Nat. ((ℕ1 + (j ∸ m) / m) * m + r = j and r < m)
-            replace dist_mult_add_right | one_mult
+            replace dist_mult_add_right
             show some r:Nat. (m + ((j ∸ m) / m) * m + r = j and r < m)
             have jm_j: j ∸ m < j by {
               suffices m + (j ∸ m) < m + j by add_both_sides_of_less[m,j∸m,j]
@@ -3064,8 +3067,8 @@ proof
   have p2: n < (ℕ1 + (zero + (ℕ1 + n) * m)) * m by {
     obtain m' where m_sm: m = suc(m') from apply positive_suc to m_pos
     replace m_sm | dist_mult_add_right[ℕ1,n] | mult_commute[n]
-    | suc_one_add[m'] | dist_mult_add_right[ℕ1,m',n] | one_mult
-    | dist_mult_add | mult_one | add_commute[m',n] | add_commute[ℕ1,n]
+    | suc_one_add[m'] | dist_mult_add_right[ℕ1,m',n] 
+    | dist_mult_add | add_commute[m',n] | add_commute[ℕ1,n]
     expand operator<
     replace suc_one_add[n]
     less_equal_add[ℕ1+n]
@@ -3118,7 +3121,7 @@ proof
     by apply mod_less_divisor[y, y] to y_pos
   switch (y / y) {
     case zero assume yyz {
-      have rem_eq: y % y = y by replace yyz | zero_mult | zero_add in div_rem
+      have rem_eq: y % y = y by replace yyz in div_rem
       conclude false by apply (apply less_not_equal to rem_less) to rem_eq
     }
     case suc(y') assume ysy {
@@ -3236,7 +3239,7 @@ proof
   arbitrary n:Nat
   have one_pos: zero < ℕ1 by evaluate
   have eq1: (n / ℕ1) * ℕ1 + (n % ℕ1) = n by apply div_mod[n,ℕ1] to one_pos
-  have eq2: (n / ℕ1) + (n % ℕ1) = n by replace mult_one in eq1
+  have eq2: (n / ℕ1) + (n % ℕ1) = n by eq1
   replace mod_one in eq2
 end
 
@@ -3273,7 +3276,6 @@ proof
   case zero {
     arbitrary m:Nat
     assume prem
-    replace zero_mult
     show zero / m = zero
     apply zero_div to prem
   }
@@ -3315,7 +3317,7 @@ proof
   case suc(n') assume IH {
     have IH' : expt(n', ℕ1) = ℕ1 by expand operator^ in IH
     suffices ℕ1 * expt(n', ℕ1) = ℕ1 by expand operator^ | expt.
-    replace IH' | one_mult.
+    replace IH'.
   }
 end
 
@@ -3360,7 +3362,7 @@ proof
   induction Nat
   case zero {
     arbitrary m : Nat, n : Nat
-    suffices (m ^ n) ^ zero = m ^ zero by replace mult_zero.
+    suffices (m ^ n) ^ zero = m ^ zero by .
     evaluate
   }
   case suc(o') assume IH {
@@ -3547,7 +3549,7 @@ proof
   assume blc
   have blec : b <= c by apply less_implies_less_equal to blc
   obtain x where step from apply le_exists_monus to blec
-  replace step | pow_add_r | mult_commute[a^b, a^x] | symmetric one_mult[a^b]
+  replace step | pow_add_r | mult_commute[a^b, a^x]
   show ℕ1 * a ^ b < a ^ x * ℕ1 * a ^ b
   have zla : zero < a by {
     have zl1 : zero < ℕ1 by evaluate

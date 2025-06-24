@@ -1,7 +1,7 @@
 import Nat
 
-theorem T: all x:Nat, y:Nat. ℕ0 + x + y = y + x
+theorem T: all x:Nat, y:Nat, z:Nat. x + y + z = z + y + x
 proof
-  arbitrary x:Nat, y:Nat
-  replace zero_add
+  arbitrary x:Nat, y:Nat, z:Nat
+  replace add_commute[x,y]
 end  
