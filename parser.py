@@ -730,7 +730,7 @@ def parse_tree_to_ast(e, parent):
             vis = 'public'
         else:
             vis = 'private'
-        set_visibility(statement, visibility)
+        set_visibility(statement, vis)
         return statement
 
     # assert formula

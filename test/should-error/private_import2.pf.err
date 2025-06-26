@@ -1,0 +1,2 @@
+./test/should-error/private_import2.pf:3.8-3.12: undefined variable: zero
+	Add `import Nat` to supply a definition.

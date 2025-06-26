@@ -1,5 +1,8 @@
 #
-# The checking process for programs & proofs has three steps:
+# The checking process for programs & proofs has the following steps:
+#
+# 0. uniquify:
+#    Rename all variables to have unique names.
 #
 # 1. process_declarations:
 #    Collects the type environment for the top-level statements, usually

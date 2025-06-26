@@ -3387,7 +3387,9 @@ class Import(Declaration):
       print('\tuniquify finished import ' + self.name)
 
   def collect_exports(self, export_env):
-    pass
+    if self.visibility == 'public':
+      for stmt in self.ast:
+        stmt.collect_exports(export_env)
 
 @dataclass
 class Auto(Statement):

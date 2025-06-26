@@ -1,0 +1,3 @@
+import ImportNat
+
+assert zero = zero

@@ -1613,11 +1613,9 @@ def parse_statement():
 
   if token.type in accessiblity_keywords:
     visibility = token.value
-    #print('visibility = ' + str(token.value))
     advance()
   else:
     visibility = 'default'
-    #print('default visibility')
 
   token = current_token()
     

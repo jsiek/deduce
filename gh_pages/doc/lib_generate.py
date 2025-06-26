@@ -225,6 +225,7 @@ known_tokens = {
     'PRINT': 'keyword',
     'PRIVATE': 'keyword',
     'PROOF': 'keyword',
+    'PUBLIC': 'keyword',
     'QMARK': 'operator',
     'RBRACE': 'operator',
     'RECALL': 'keyword',
