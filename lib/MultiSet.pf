@@ -82,8 +82,7 @@ proof
   switch A for operator .+., cnt {
     case m_fun(f) {
       have eq: (λx{(f(x) + 0)} : fn T->UInt) = f
-        by extensionality arbitrary x:T
-           replace uint_add_zero[f(x)].
+        by extensionality arbitrary x:T.
       replace eq.
     }
   }
@@ -98,8 +97,7 @@ proof
   switch A for operator ⨄ {
     case m_fun(f) {
       have eq: (λx:T{0 + f(x)}) = f by {
-        extensionality arbitrary x:T
-        replace uint_zero_add.
+        extensionality arbitrary x:T.
       }
       expand cnt
       replace eq.
@@ -224,8 +222,7 @@ proof
           expand cnt
           cases uint_zero_or_positive[f(x)]
           case fxz {
-            replace fxz
-            replace uint_zero_add.
+            replace fxz.
           }
           case fx_pos {
             obtain y where fxy: f(x) = 1 + y from apply uint_positive_add_one to fx_pos
