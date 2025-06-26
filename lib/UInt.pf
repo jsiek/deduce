@@ -874,6 +874,8 @@ proof
   ... = toNat(x)                   by expand toNat evaluate
 end
 
+auto uint_zero_add
+
 theorem uint_add_zero: all x:UInt.
   x + 0 = x
 proof
@@ -883,7 +885,9 @@ proof
   	toNat(x + bzero) 
       = toNat(x) + toNat(bzero)    by toNat_add
   ... = toNat(x)                   by expand toNat.
-end  
+end
+
+auto uint_add_zero
 
 theorem uint_zero_less_one_add: all n:UInt.
   0 < 1 + n
@@ -1518,8 +1522,7 @@ proof
   arbitrary n:UInt
   assume n_pos
   have A: 1 + 0 ≤ n by replace less_is_less_equal in n_pos
-  have B: 1 + 0 = 1 by evaluate
-  replace B in A
+  A
 end
 
 theorem uint_positive_add_one: all n:UInt.
@@ -1584,7 +1587,12 @@ proof
 end
 
 postulate uint_zero_mult: all n:UInt. 0 * n = 0
+
+auto uint_zero_mult
+
 postulate uint_mult_zero: all n:UInt. n * 0 = 0
+
+auto uint_mult_zero
 
 theorem uint_one_mult: all n:UInt.
   1 * n = n
@@ -1595,6 +1603,8 @@ proof
   expand 2*toNat.
 end
 
+auto uint_one_mult
+
 theorem uint_mult_one: all n:UInt.
   n * 1 = n
 proof
@@ -1603,6 +1613,8 @@ proof
   replace toNat_mult
   expand 2*toNat.
 end
+
+auto uint_mult_one
 
 theorem uint_dist_mult_add:
   all a:UInt, x:UInt, y:UInt.

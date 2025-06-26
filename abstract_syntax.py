@@ -4580,6 +4580,9 @@ def auto_rewrites(term, env):
     for eq in equations:
         old_term = term
         term = rewrite_aux(term.location, term, eq, env, 2)
+        # print('auto rewrite\n' +
+        #       '\t' + str(old_term) + '\n' +
+        #       '   ===> ' + str(term) + '\n')
         # if not(term is old_term):
         #     print('auto rewrite:\t' + str(old_term) + '\n'
         #           '\t\t' + str(term) + '\n')

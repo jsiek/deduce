@@ -1349,8 +1349,12 @@ def check_proof_of(proof, formula, env):
           
     case RewriteGoal(loc, equation_proofs, body):
       equations = [check_proof(proof, env) for proof in equation_proofs]
+      #print('replacing ' + ', '.join(str(eq) for eq in equations))
       eqns = [equation.reduce(env) for equation in equations]
+      #print('reduced: ' + ', '.join(str(eq) for eq in eqns))
+      #print('formula: ' + str(formula))
       new_formula = formula.reduce(env)
+      #print('new_formula: ' + str(new_formula))
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
       
@@ -1458,8 +1462,11 @@ def apply_rewrites(loc, formula, eqns, env):#
       error(loc, 'in rewrite, formula contains more than one mark:\n\t' + str(formula))
 
   for eq in eqns:
+    if is_true(eq):
+        error(loc, 'no need for replace because this equation is handled automatically')
     if not is_equation(eq):
-        error(loc, 'in rewrite, expected an equation, not:\n\t' + str(eq))
+        error(loc, 'in replace, expected an equation, not:\n\t' + str(eq)
+              + '\n\twhile replacing ' + ', '.join([str(eq) for eq in eqns]))
     reset_num_rewrites()
     new_formula = rewrite_aux(loc, new_formula, eq, env)
     if get_num_rewrites() == 0:

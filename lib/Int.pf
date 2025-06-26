@@ -358,14 +358,15 @@ proof
   }
 end
 
+auto int_zero_add
+
 theorem int_add_zero: all n:Int.
   n + +0 = n
 proof
   arbitrary n:Int
   switch n {
      case pos(n') {
-       suffices pos(n' + 0) = pos(n')  by evaluate
-       replace uint_add_zero.
+       evaluate
      }
      case negsuc(n') {
        expand operator+ | operator⊝
@@ -376,6 +377,8 @@ proof
      }
   }
 end
+
+auto int_add_zero
 
 theorem int_add_commute: all x:Int, y:Int. x + y = y + x
 proof
@@ -453,8 +456,7 @@ proof
         have pos_yx: 0 < y ∸ x by {
           have A: x < x + (y ∸ x)
             by replace (symmetric apply uint_monus_add_identity[y,x] to xy) in xly
-          have B: x + 0 < x + (y ∸ x)
-            by replace uint_add_zero A
+          have B: x + 0 < x + (y ∸ x)  by A
           apply uint_add_both_sides_of_less[x,0,y∸x] to B
         }
         have y_pos: 0 < y by apply uint_not_zero_pos to not_yz
@@ -477,7 +479,7 @@ proof
       cases yz_or_not
       case yz {
         replace yz
-        replace uint_monus_zero | uint_add_zero.
+        replace uint_monus_zero.
       }
       case ynz {
         replace (apply eq_false to ynz)
@@ -524,12 +526,11 @@ proof
   have P0: P(0) by {
     expand P
     arbitrary o:UInt
-    replace uint_zero_add
     cases uint_zero_or_positive[o]
     case oz {
       replace oz
       show (0 ⊝ 0) + pos(m) = m ⊝ 0
-      replace int_monuso_zero expand operator+ replace uint_zero_add.
+      replace int_monuso_zero.
     }
     case o_pos {
       obtain o' where os: o = 1 + o' from apply uint_positive_add_one to o_pos
@@ -616,7 +617,7 @@ proof
     arbitrary o:UInt
     cases uint_zero_or_positive[o]
     case oz {
-      replace oz | int_monuso_zero | uint_add_zero | suc_uint_monuso | add_pos_negsuc
+      replace oz | int_monuso_zero | suc_uint_monuso | add_pos_negsuc
       replace suc_uint_monuso.
     }
     case o_pos {
@@ -827,11 +828,7 @@ proof
       cases uint_zero_or_positive[x']
       case xpz {
         replace xpz
-        equations
-              -(+0 + y) 
-            = -y              by replace int_zero_add.
-        ... = +0 + -y         by symmetric int_zero_add
-        ... = #- +0# + -y     by expand operator-.
+        conclude -(+0 + y) = #- +0# + -y     by expand operator-.
       }
       case xp_pos {
           have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
@@ -841,7 +838,7 @@ proof
               replace add_pos_pos
               cases uint_zero_or_positive[y']
               case ypz {
-                replace ypz | uint_add_zero | neg_zero | int_add_zero.
+                replace ypz | neg_zero.
               }
               case yp_pos {
                 have ypnz: not (y' = 0) by apply uint_pos_not_zero to yp_pos
@@ -916,7 +913,7 @@ proof
   show #pos(x) * negsuc(y)# = - pos(x + x * y)
   expand operator*
   expand sign | abs
-  replace mult_pos_neg | mult_neg_uint | uint_dist_mult_add | uint_mult_one.
+  replace mult_pos_neg | mult_neg_uint | uint_dist_mult_add.
 end
 
 theorem int_one_mult: all x:Int. +1 * x = x
@@ -924,13 +921,15 @@ proof
   arbitrary x:Int
   switch x {
     case pos(x') {
-      replace mult_pos_pos | uint_one_mult.
+      replace mult_pos_pos.
     }
     case negsuc(x') {
-      replace mult_pos_negsuc | uint_one_mult | neg_pos.
+      replace mult_pos_negsuc | neg_pos.
     }
   }
 end
+
+auto int_one_mult
 
 theorem int_zero_mult: all x:Int. +0 * x = +0
 proof
@@ -940,6 +939,8 @@ proof
     case negsuc(x') { evaluate }
   }
 end
+
+auto int_zero_mult
 
 lemma sign_neg_flip: all x:Int.
   if not (x = +0)
@@ -976,9 +977,9 @@ proof
           replace mult_pos_any | abs_pos | mult_pos_uint
           cases uint_zero_or_positive[x']
           case xz {
-            replace xz | uint_zero_mult | neg_zero
+            replace xz | neg_zero
             expand sign | abs
-            replace mult_pos_any | uint_zero_mult | mult_pos_uint.
+            replace mult_pos_any | mult_pos_uint.
           }
           case xp_pos {
             have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
@@ -988,7 +989,7 @@ proof
             replace mult_neg_pos | mult_neg_uint
             cases uint_zero_or_positive[y']
             case yz {
-              replace yz | uint_mult_zero
+              replace yz
               expand operator-.
             }
             case y_pos {
@@ -1009,7 +1010,7 @@ proof
               replace (symmetric neg_pos[(x' * y' ∸ 1)])
               have one_xy: 1 ≤ x' * y' by {
                 obtain y'' where yp: y' = 1 + y'' from apply uint_positive_add_one to y_pos
-                replace yp | uint_dist_mult_add | uint_mult_one
+                replace yp | uint_dist_mult_add
                 have x_xy: x' ≤ x' + x' * y'' by uint_less_equal_add
                 apply uint_less_equal_trans to one_x, x_xy
               }
@@ -1085,20 +1086,18 @@ end
 theorem int_mult_one: all x:Int. x * +1 = x
 proof
   arbitrary x:Int
-  equations
-        x * +1 
-      = +1 * x    by int_mult_commute
-  ... = x         by int_one_mult
+  conclude x * +1 = x    by int_mult_commute[x,+1]
 end
+
+auto int_mult_one
 
 theorem int_mult_zero: all x:Int. x * +0 = +0
 proof
   arbitrary x:Int
-  equations
-        x * +0
-      = +0 * x    by int_mult_commute
-  ... = +0        by int_zero_mult
+  conclude x * +0 = +0  by int_mult_commute[x,+0]
 end
+
+auto int_mult_zero
 
 lemma mult_assoc_helper: all x:UInt, y:UInt, z:UInt.
   z + (y + x * (1 + y)) * (1 + z)
@@ -1107,14 +1106,10 @@ proof
   arbitrary x:UInt, y:UInt, z:UInt
   equations
       z + (y + x * (1 + y)) * (1 + z)
-    = z + (y + x * 1 + x * y) * (1 + z)
+    = z + (y + x + x * y) * (1 + z)
       by replace uint_dist_mult_add[x].
-... = z + (y + x + x * y) * (1 + z)
-      by replace uint_mult_one.
-... = z + (y + x + x * y) * 1 + (y + x + x * y) * z
-      by replace uint_dist_mult_add.
 ... = z + y + x + x * y + (y + x + x * y) * z
-      by replace uint_mult_one.
+      by replace uint_dist_mult_add.
 ... = z + y + x + x * y + y*z + x*z + x*y*z
       by replace uint_dist_mult_add_right.
 ... = z + y + x + y*z + x*y + x*z + x*y*z
@@ -1124,7 +1119,7 @@ proof
 ... = z + y + y*z + x + x*z + x*y + x*y*z
       by replace uint_add_commute[x].
 ... = #(z + y * (1 + z)) + x * (1 + z + y * (1 + z))#
-      by replace uint_dist_mult_add | uint_mult_one.
+      by replace uint_dist_mult_add.
 end
 
 theorem int_mult_assoc: all x:Int, y:Int, z:Int. (x * y) * z = x * (y * z)
@@ -1134,7 +1129,7 @@ proof
     case pos(x') {
       cases uint_zero_or_positive[x']
       case xpz: x' = 0 {
-        replace xpz | int_zero_mult | int_zero_mult.
+        replace xpz.
       }
       case xp_pos: 0 < x' {
         have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
@@ -1143,7 +1138,7 @@ proof
           case pos(y') {
             cases uint_zero_or_positive[y']
             case ypz: y' = 0 {
-              replace ypz | int_mult_zero | int_zero_mult | int_mult_zero.
+              replace ypz.
             }
             case yp_pos: 0 < y' {
               have ynz: not (y' = 0) by apply uint_pos_not_zero to yp_pos
@@ -1167,13 +1162,12 @@ proof
                 expand operator*
                 replace sign_pos | sign_negsuc | abs_pos | abs_negsuc | mult_pos_neg | mult_neg_uint
                 replace mult_neg_pos | mult_neg_uint | abs_neg | abs_pos | mult_any_pos | mult_pos_any
-                replace uint_dist_mult_add | uint_dist_mult_add_right | uint_mult_one | uint_one_mult
+                replace uint_dist_mult_add | uint_dist_mult_add_right
                 replace xp_eq | sign_neg_pos
                 
                 cases uint_zero_or_positive[z']
                 case zpz: z' = 0 {
                   replace zpz
-                  replace uint_mult_zero | uint_mult_zero | uint_add_zero
                   expand operator- | sign | 2*operator* | operator-.
                 }
                 case zp_pos: 0 < z' {
@@ -1187,7 +1181,7 @@ proof
                 expand operator*
                 replace sign_pos | sign_negsuc | abs_pos | abs_negsuc
                 replace mult_pos_neg | mult_neg_uint | mult_pos_any | mult_neg_neg | mult_pos_uint | abs_pos | sign_pos
-                replace mult_pos_uint | uint_dist_mult_add | uint_mult_one | uint_dist_mult_add | uint_mult_one
+                replace mult_pos_uint | uint_dist_mult_add | uint_dist_mult_add
                 replace xp_eq | sign_neg_pos | mult_neg_neg | abs_neg | abs_pos | mult_pos_uint.
               }
             }
@@ -1202,11 +1196,11 @@ proof
             case pos(z') {
               expand operator*
               replace sign_negsuc | sign_pos | abs_negsuc | abs_pos | mult_neg_pos | mult_neg_uint | mult_pos_any
-              | mult_pos_uint | uint_dist_mult_add_right | uint_one_mult | sign_pos | mult_neg_pos | abs_pos
+              | mult_pos_uint | uint_dist_mult_add_right | sign_pos | mult_neg_pos | abs_pos
               | mult_neg_uint
               cases uint_zero_or_positive[y']
               case ypz: y' = 0 {
-                replace ypz | uint_zero_add | uint_mult_zero
+                replace ypz
                 evaluate
               }
               case yp_pos: 0 < y' {
@@ -1219,21 +1213,19 @@ proof
             case negsuc(z') {
               expand operator*
               replace sign_negsuc | sign_pos | abs_negsuc | abs_pos | mult_neg_pos | mult_neg_uint | mult_pos_neg
-              | mult_neg_uint | uint_dist_mult_add_right | uint_dist_mult_add | uint_one_mult | uint_mult_one
+              | mult_neg_uint | uint_dist_mult_add_right | uint_dist_mult_add
               cases uint_zero_or_positive[y']
               case ypz: y' = 0 {
-                replace ypz | uint_zero_add | uint_mult_zero
+                replace ypz
                 expand operator-
-                replace uint_zero_mult
                 expand sign | abs
-                replace uint_mult_zero
                 evaluate
               }
               case yp_pos: 0 < y' {
                 obtain y'' where yp_eq: y' = 1 + y'' from apply uint_positive_add_one to yp_pos
                 replace yp_eq
-                replace sign_neg_pos | abs_neg | abs_pos | mult_neg_neg | uint_dist_mult_add | uint_dist_mult_add_right
-                replace mult_pos_uint | uint_mult_one | uint_one_mult
+                replace sign_neg_pos | abs_neg | abs_pos | mult_neg_neg | uint_dist_mult_add
+                replace uint_dist_mult_add_right | mult_pos_uint
                 replace uint_add_commute[x'+x'*y'',z']
                 replace uint_add_commute[x'+x'*y'',y''*z'].
               }
@@ -1246,7 +1238,7 @@ proof
                   cases uint_zero_or_positive[z']
                   case zpz: z' = 0 {
                     replace zpz
-                    replace int_mult_zero | int_mult_zero.
+                    evaluate
                   }
                   case zp_pos: 0 < z' {
                     have znz: not (z' = 0) by apply uint_pos_not_zero to zp_pos
@@ -1254,14 +1246,14 @@ proof
                     replace zp_eq
                     expand operator*
                     replace sign_negsuc | abs_negsuc | mult_neg_neg | sign_pos | mult_pos_uint | mult_neg_pos | abs_pos
-                    | mult_neg_uint | sign_pos | mult_pos_any | uint_dist_mult_add | uint_mult_one
-                    | uint_dist_mult_add_right | uint_one_mult
-                    | uint_dist_mult_add_right | uint_one_mult
-                    | uint_dist_mult_add | uint_mult_one
+                    | mult_neg_uint | sign_pos | mult_pos_any | uint_dist_mult_add
+                    | uint_dist_mult_add_right
+                    | uint_dist_mult_add_right
+                    | uint_dist_mult_add
                     | sign_neg_pos | mult_neg_neg | mult_pos_uint | abs_neg | abs_pos
                     | uint_add_commute[z'' + x' + x' * z'', y']
                     | uint_add_commute[x' + x' * z'', y' * z'']
-                    | uint_dist_mult_add | uint_mult_one
+                    | uint_dist_mult_add
                     | uint_add_commute[x' * z'', x' * y'].
                   }
                 }

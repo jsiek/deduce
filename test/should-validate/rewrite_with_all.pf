@@ -1,6 +1,7 @@
 import UInt
 
-theorem T: all n:UInt. 1 + (0 + n) = 1 + n
+theorem T: all n:UInt. (n + 1) ∸ n = 1
 proof
-  replace uint_zero_add.
+  arbitrary n:UInt
+  replace uint_add_monus_identity.
 end
