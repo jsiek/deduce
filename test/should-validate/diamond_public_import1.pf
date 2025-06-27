@@ -1,0 +1,4 @@
+import PublicImportNat
+import PublicImportNat2
+
+assert zero = zero

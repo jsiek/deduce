@@ -3379,7 +3379,8 @@ class Import(Declaration):
       uniquified_modules[self.name] = self.ast
       set_filename(old_filename)
       uniquify_deduce(self.ast)
-      
+
+    env['__module__' + self.name] = None
     for stmt in self.ast:
       stmt.collect_exports(env)
     set_verbose(old_verbose)
@@ -3387,7 +3388,9 @@ class Import(Declaration):
       print('\tuniquify finished import ' + self.name)
 
   def collect_exports(self, export_env):
-    if self.visibility == 'public':
+    module_name = '__module__' + self.name
+    if self.visibility == 'public' and not (module_name in export_env.keys()):
+      export_env[module_name] = None
       for stmt in self.ast:
         stmt.collect_exports(export_env)
 
