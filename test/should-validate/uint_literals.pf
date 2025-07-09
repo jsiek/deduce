@@ -1,0 +1,50 @@
+import Nat
+import UIntOpaque
+
+theorem T1: fromNat(ℕ0) + fromNat(ℕ1) = fromNat(ℕ1)
+proof
+  .
+end
+
+theorem T2: fromNat(ℕ1) + fromNat(ℕ0) = fromNat(ℕ1)
+proof
+  .
+end
+
+theorem T3: fromNat(ℕ0) + fromNat(ℕ1) + fromNat(ℕ0) = fromNat(ℕ1)
+proof
+  .
+end
+
+theorem T4: all x:UInt, y:UInt.
+  fromNat(ℕ0) + x + y + fromNat(ℕ0) = y + x
+proof
+  arbitrary x:UInt, y:UInt
+  equations
+      fromNat(ℕ0) + x + y + fromNat(ℕ0)
+        = x + y by .
+    ... = y + x   by uint_add_commute
+end
+
+auto suc_add
+
+theorem T4_5: ℕ3 + ℕ2 = ℕ5
+proof
+  .
+end
+
+theorem T5: fromNat(ℕ3) + fromNat(ℕ2) = fromNat(ℕ5)
+proof
+  .
+end
+
+theorem T6: all x:UInt, y:UInt.
+  fromNat(ℕ3) + x + fromNat(ℕ1) + y + fromNat(ℕ2) = fromNat(ℕ6) + y + x
+proof
+  arbitrary x:UInt, y:UInt
+  equations
+      fromNat(ℕ3) + x + fromNat(ℕ1) + y + fromNat(ℕ2)
+        = fromNat(ℕ3) + x + fromNat(ℕ3) + y    by replace uint_add_commute[y, fromNat(ℕ2)].
+    ... = fromNat(ℕ6) + x + y    by replace uint_add_commute[x, fromNat(ℕ3)].
+    ... = fromNat(ℕ6) + y + x    by replace uint_add_commute[x,y].
+end

@@ -1,7 +1,7 @@
 ./test/should-error/theorem_implies5.pf:5.3-5.7: 
-Could not prove that
+You provided a proof of:
 	Q
-implies
+but that is different from what you need to prove:
 	R
 
 While trying to prove that

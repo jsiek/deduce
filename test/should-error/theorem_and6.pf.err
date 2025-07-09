@@ -1,7 +1,7 @@
 ./test/should-error/theorem_and6.pf:5.3-5.7: 
-Could not prove that
+You provided a proof of:
 	P
-implies
+but that is different from what you need to prove:
 	Q
 
 While trying to prove that

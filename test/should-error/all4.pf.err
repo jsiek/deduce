@@ -1,7 +1,7 @@
 ./test/should-error/all4.pf:4.3-4.7: 
-Could not prove that
+You provided a proof of:
 	P
-implies
+but that is different from what you need to prove:
 	not P
 
 While trying to prove that

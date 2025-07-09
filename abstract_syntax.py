@@ -4470,8 +4470,8 @@ def try_rewrite(loc, formula, equation, env):
   eq_vars = equation_vars(equation)
   formula_match(loc, eq_vars, lhs, formula, matching, Env())
   if get_verbose():
-      print('\tmatched LHS, rewriting to the RHS: ' + str(rhs))
-  return rhs.substitute(matching)
+      print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
+  return rhs.substitute(matching).reduce(env)
 
 def formula_match(loc, vars, pattern_frm, frm, matching, env):
   if get_verbose():
@@ -4587,12 +4587,5 @@ def rewrite_assoc(loc, loc2, tyof, new_rator, new_args, equation, env):
 def auto_rewrites(term, env):
     equations = env.get_auto_rewrites()
     for eq in equations:
-        old_term = term
         term = rewrite_aux(term.location, term, eq, env, 2)
-        # print('auto rewrite\n' +
-        #       '\t' + str(old_term) + '\n' +
-        #       '   ===> ' + str(term) + '\n')
-        # if not(term is old_term):
-        #     print('auto rewrite:\t' + str(old_term) + '\n'
-        #           '\t\t' + str(term) + '\n')
     return term        

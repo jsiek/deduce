@@ -1,7 +1,7 @@
 ./test/should-error/theorem_or3.pf:5.17-5.21: 
-Could not prove that
+You provided a proof of:
 	P
-implies
+but that is different from what you need to prove:
 	Q
 
 While trying to prove that
