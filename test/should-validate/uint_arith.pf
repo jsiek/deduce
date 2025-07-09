@@ -1,0 +1,11 @@
+import UInt
+
+theorem T: all x:UInt. x + 3 + 4 = 5 + 2 + x
+proof
+  arbitrary x:UInt
+  equations
+      x + 3 + 4
+        = x + 7 by evaluate
+    ... = 7 + x by uint_add_commute
+    ... = 5 + 2 + x by evaluate
+end

@@ -1,0 +1,11 @@
+import Nat
+
+theorem T: all x:Nat. x + ℕ3 + ℕ4 = ℕ5 + ℕ2 + x
+proof
+  arbitrary x:Nat
+  equations
+      x + ℕ3 + ℕ4
+        = x + ℕ7 by evaluate
+    ... = ℕ7 + x by add_commute
+    ... = ℕ5 + ℕ2 + x by evaluate
+end

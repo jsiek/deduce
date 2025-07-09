@@ -1,7 +1,9 @@
 import Base
 import Nat
 
-// This follows the representation for binary numbers in the Agda standard library
+// This follows the representation for binary numbers in the Agda
+// standard library. The representation is not the standard one, but
+// it is easier to work with.
 
 union UInt {
   bzero         // 0

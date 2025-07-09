@@ -150,8 +150,8 @@ def check_implies(loc, frm1, frm2):
               + 'because\n\t' + str(small_frm1) + '\n\t≠ ' + str(small_frm2) + '\n' 
               error(loc, msg)
           else:
-              error(loc, '\nCould not prove that\n\t' + str(frm1) \
-                    + '\nimplies\n\t' + str(frm2))
+              error(loc, '\nYou provided a proof of:\n\t' + str(frm1) \
+                    + '\nbut that is different from what you need to prove:\n\t' + str(frm2))
         else:
             error(loc, 'internal error, could not isolate difference for\n\t' \
                   + str(frm1) + '\nand\n\t' + str(frm2))

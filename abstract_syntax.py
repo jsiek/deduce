@@ -3533,8 +3533,10 @@ def uint_inc(loc, x):
         return mkDubInc(loc, get_arg(x))
     else:
         error(loc, 'not a UInt constructor: ' + str(x))
-  
-def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc', incdub='inc_dub', uint_ty=None):
+
+# The parsers use this function to create unsigned integer literals.
+def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc',
+              incdub='inc_dub', uint_ty=None):
     if n == 0:
         return mkBZero(loc, bzero, uint_ty)
     else:
@@ -3550,13 +3552,15 @@ def intToNat(loc, n, zname='zero', sname='suc', ty=None):
   if n <= 0:
     return mkZero(loc, zname=zname, ty=ty)
   else:
-    return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty), sname=sname, ty=ty)
+    return mkSuc(loc, intToNat(loc, n - 1, zname=zname, sname=sname, ty=ty),
+                 sname=sname, ty=ty)
 
 def isNat(t):
   match t:
     case Var(loc, tyof, name, rs) if base_name(name) == 'zero':
       return True
-    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) if base_name(name) == 'suc':
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+         if base_name(name) == 'suc':
       return isNat(arg)
     case _:
       return False
