@@ -14,8 +14,6 @@ proof
   .
 end
 
-auto zero_add
-  
 theorem yet_another_zero: all n: Nat.
   zero + n = n
 proof

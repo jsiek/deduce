@@ -31,7 +31,9 @@ terminates  {
     suffices n2 < suc(suc(n2))
       by replace conjunct 0 of prem | conjunct 1 of prem.
     suffices suc(n2) ≤ suc(suc(n2)) by expand operator <.
-    less_equal_suc
+    replace nat_suc_one_add
+    suffices n2 ≤ ℕ1 + n2 by add_both_sides_of_less_equal[ℕ1, n2, ℕ1 + n2]
+    less_equal_add_left
   }
   A, B
 }

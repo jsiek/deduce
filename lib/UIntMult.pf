@@ -1,0 +1,89 @@
+import Base
+import Nat
+import UIntDefs
+import UIntToFrom
+import UIntLess
+import UIntAdd
+
+theorem toNat_mult: all x:UInt, y:UInt.
+  toNat(x * y) = toNat(x) * toNat(y)
+proof
+  induction UInt
+  case bzero {
+    arbitrary y:UInt
+    show toNat(bzero * y) = toNat(bzero) * toNat(y)
+    expand operator* | toNat
+    evaluate
+  }
+  case dub_inc(x') assume IH {
+    arbitrary y:UInt
+    show toNat(dub_inc(x') * y) = toNat(dub_inc(x')) * toNat(y)
+    switch y {
+      case bzero {
+        expand operator* | toNat
+        evaluate
+      }
+      case dub_inc(y') {
+        expand operator* | toNat
+        replace toNat_dub
+        expand toNat
+        replace toNat_add | toNat_add
+        replace IH[y']
+        replace nat_suc_one_add | dist_mult_add[(ℕ2 + ℕ2 * toNat(x')), ℕ2, ℕ2*toNat(y')]
+          | dist_mult_add_right[ℕ4, ℕ4*toNat(x'), toNat(y')].
+      }
+      case inc_dub(y') {
+        expand operator* | toNat
+        replace toNat_add | toNat_dub | toNat_add
+        replace IH[y']
+        replace nat_suc_one_add | dist_mult_add[(ℕ2 + ℕ2 * toNat(x')), ℕ1, ℕ2*toNat(y')]
+          | dist_mult_add_right[ℕ4, ℕ4*toNat(x'), toNat(y')].
+      }
+    }
+  }
+  case inc_dub(x') assume IH {
+    arbitrary y:UInt
+    show toNat(inc_dub(x') * y) = toNat(inc_dub(x')) * toNat(y)
+    switch y {
+      case bzero {
+        expand operator* | toNat
+        evaluate
+      }
+      case dub_inc(y') {
+        expand operator* | toNat
+        replace toNat_add | toNat_add | toNat_dub
+        replace IH[y']
+        replace dist_mult_add[ℕ2 * toNat(x'), ℕ2, ℕ2 * toNat(y')]
+        replace add_commute[ℕ4 * toNat(x'), ℕ2 * toNat(y')].
+      }
+      case inc_dub(y') {
+        expand operator* | toNat
+        replace toNat_add | toNat_add | toNat_dub
+        replace IH[y']
+        replace nat_suc_one_add | nat_suc_one_add
+        replace dist_mult_add[ℕ2 * toNat(x'), ℕ1, ℕ2 * toNat(y')]
+        replace add_commute[ℕ2 * toNat(x'), ℕ2 * toNat(y')].
+      }
+    }
+  }
+end
+
+theorem uint_mult_commute: all m:UInt, n:UInt.
+  m * n = n * m
+proof
+  arbitrary m:UInt, n:UInt
+  suffices toNat(m * n) = toNat(n * m)  by toNat_injective
+  replace toNat_mult
+  mult_commute
+end
+
+theorem uint_mult_assoc: all m:UInt, n:UInt, o:UInt.
+  (m * n) * o = m * (n * o)
+proof
+  arbitrary m:UInt, n:UInt, o:UInt
+  suffices toNat((m * n) * o) = toNat(m * (n * o))  by toNat_injective
+  replace toNat_mult | toNat_mult.
+end
+
+associative operator* in UInt
+

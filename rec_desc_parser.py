@@ -175,7 +175,9 @@ def parse_term_hi():
 
   elif token.type == 'NAT' or token.value == '0':
     advance()
-    return intToNat(meta_from_tokens(token,token), int(token.value[1:]))
+    meta = meta_from_tokens(token,token)
+    return Call(meta, None, Var(meta, None, 'lit', None),
+                [intToNat(meta, int(token.value[1:]))])
 
   elif token.type == 'PLUS':
     advance()

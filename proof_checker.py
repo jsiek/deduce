@@ -484,7 +484,7 @@ def check_proof(proof, env):
                   " implies at least one of\n\t"\
                   + "\n\t".join([str(p) for p, _ in imps])
                   + "\nfor application of \n\t"+str(ifthen)
-                  + "\nto \n\t" + str(arg))
+                  + "\nto \n\t" + str(arg) + ': ' + str(arg_frm))
         case All(loc2, tyof, _, _, body):
           (vars, imps) = collect_all_if_then(loc, ifthen)
           rets = []
@@ -517,7 +517,7 @@ def check_proof(proof, env):
           else:
             error(loc, "could not deduce an instantiation for any of the variables "\
                   + "for application of \n\t" + str(ifthen) + '\n'\
-                  + 'to\n\t' + str(arg) + '\n'\
+                  + 'to\n\t' + str(arg) + ': ' + str(arg_frm) + '\n'\
                   + 'because:\n' + '\n\t'.join([str(e) for e in reasons]))
         case _:
           error(loc, "in 'apply', expected an if-then formula, not " + str(ifthen))
@@ -1060,7 +1060,7 @@ def check_proof_of(proof, formula, env):
     case EvaluateGoal(loc):
       set_reduce_all(True)
       set_dont_reduce_opaque(True)
-      red_formula = formula.reduce(env)
+      red_formula = remove_mark(formula).reduce(env)
       set_reduce_all(False)
       set_dont_reduce_opaque(False)
       if red_formula != Bool(loc, None, True):

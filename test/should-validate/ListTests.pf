@@ -22,6 +22,7 @@ assert foldr(L1, @empty<UInt>, λx,ls{ node(x,ls) }) = L1
 assert foldl(L1, 0, λa,b{ a + b }) = 3
 assert foldl(L1, @empty<UInt>, λls,x{ node(x,ls) }) = node(2,node(1,empty))
 
+/*
 assert down_from(ℕ2) = node(ℕ1, node(ℕ0, empty))
 
 assert up_to(ℕ2) = node(ℕ0, node(ℕ1, empty))
@@ -42,6 +43,7 @@ assert interval(ℕ0, ℕ3) = empty
 assert interval(ℕ1, ℕ3) = node(ℕ3, empty)
 assert interval(ℕ2, ℕ3) = node(ℕ3, node(ℕ4, empty))
 assert interval(ℕ3, ℕ3) = node(ℕ3, node(ℕ4, node(ℕ5, empty)))
+*/
 
 assert (node(1, empty) ++ node(2, empty)) ++ node(3, empty)
      = node(1, empty) ++ (node(2, empty) ++ node(3, empty))

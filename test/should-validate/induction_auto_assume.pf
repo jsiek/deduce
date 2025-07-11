@@ -7,12 +7,12 @@ recursive operator +(Nat,Nat) -> Nat {
   operator +(suc(n), m) = suc(n + m)
 }
 
-theorem add_zero_auto: all x:Nat. x + ℕ0 = x
+theorem add_zero_auto: all x:Nat. x + zero = x
 proof
     induction Nat
     case 0 { evaluate }
     case suc(n') {
-        suffices suc(n' + ℕ0) = suc(n') by evaluate
-        replace recall n' + ℕ0 = n'.
+        suffices suc(n' + zero) = suc(n') by evaluate
+        replace recall n' + zero = n'.
     }
 end

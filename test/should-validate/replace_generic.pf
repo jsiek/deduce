@@ -18,7 +18,7 @@ postulate len_app: all T:type, xs:List<T>, ys:List<T>.
   length(xs ++ ys) = length(xs) + length(ys)
   
 theorem foo: all U:type, ls:List<U>.
-  length(ls ++ ls) = length(ls) + ℕ0 + length(ls)
+  length(ls ++ ls) = length(ls) + zero + length(ls)
 proof
   arbitrary U:type, ls:List<U>
   replace len_app

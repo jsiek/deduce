@@ -747,7 +747,7 @@ class Var(Term):
               + self.resolved_names)
       
       if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
-        return 'ℕ0'
+        return '`0'
       elif base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
         return '0'
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
@@ -1194,8 +1194,10 @@ class Call(Term):
       return operator_name(self.rator) + " " + op_arg_str(self, self.args[0])
     elif isDeduceInt(self):
       return deduceIntToInt(self)
-    elif isNat(self): # and not get_verbose():
+    elif isLitNat(self): # and not get_verbose():
       return 'ℕ' + str(natToInt(self))
+    # elif isNat(self): # and not get_verbose():
+    #   return '`' + str(natToInt(self))
     elif isUInt(self): # and not get_verbose():
       return str(uintToInt(self))
     elif isNodeList(self):
@@ -2801,7 +2803,7 @@ class EvaluateFact(Proof):
       return str(self)
   
   def __str__(self):
-    return 'evaluate ' + str(self.subject)
+    return 'evaluate in ' + str(self.subject)
 
   def uniquify(self, env):
     self.subject.uniquify(env)
@@ -3562,9 +3564,20 @@ def isNat(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
          if base_name(name) == 'suc':
       return isNat(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+         if base_name(name) == 'lit':
+      return isNat(arg)
     case _:
       return False
 
+def isLitNat(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+         if base_name(name) == 'lit':
+      return isNat(arg)
+    case _:
+      return False
+  
 def isInt(t):
   match t:
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
@@ -3603,6 +3616,11 @@ def natToInt(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
       if base_name(name) == 'suc':
       return 1 + natToInt(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'lit':
+      return natToInt(arg)
+    case _:
+      raise Exception('natToInt: not a Nat: ' + str(t))
 
 def uintToInt(t):
   match t:

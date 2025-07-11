@@ -76,7 +76,8 @@ proof
   }
   case inc_dub(x) assume IH {
     suffices __ by evaluate
-    replace add_suc.
+    //replace add_suc.
+    ?
   }
 end
 
@@ -95,7 +96,7 @@ proof
       case bzero { evaluate }
       case dub_inc(y') {
         expand toNat
-        replace toNat_inc | suc_one_add | suc_one_add | two
+        replace toNat_inc | nat_suc_one_add | nat_suc_one_add | two
         | dist_mult_add | two_four | suc_one_add | two | one_three_four
         show ℕ4 + ℕ2 * toNat(x' + y') = ℕ2 + ℕ2 * toNat(x') + ℕ2 + ℕ2 * toNat(y')
         replace IH[y']
@@ -290,12 +291,15 @@ end
 associative operator+ in UInt
 
 theorem fromNat_add: all x:Nat, y:Nat.
-  fromNat(x) + fromNat(y) = fromNat(x + y)
+  fromNat(x) + fromNat(y) = fromNat(lit(x) + lit(y))
 proof
   arbitrary x:Nat, y:Nat
-  suffices toNat(fromNat(x) + fromNat(y)) = toNat(fromNat(x + y))
+  suffices toNat(fromNat(x) + fromNat(y)) = toNat(fromNat(lit(x) + lit(y)))
     by toNat_injective
-  replace toNat_add | to_fromNat.
+  replace toNat_add | to_fromNat
+  expand lit.
 end
 
 auto fromNat_add
+
+

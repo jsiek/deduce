@@ -1,0 +1,407 @@
+import Base
+import Nat
+import UIntDefs
+import UIntToFrom
+
+lemma two: ℕ1 + ℕ1 = ℕ2
+proof
+  evaluate
+end
+
+lemma two_four: ℕ2 * ℕ2 = ℕ4
+proof
+  evaluate
+end
+
+lemma three: ℕ1 + ℕ2 = ℕ3
+proof
+  evaluate
+end
+
+lemma two_one: ℕ2 + ℕ1 = ℕ3
+proof
+  evaluate
+end
+
+lemma four: ℕ2 + ℕ2 = ℕ4
+proof
+  evaluate
+end
+
+lemma one_three_four: ℕ1 + ℕ3 = ℕ4
+proof
+  evaluate
+end
+
+theorem toNat_less: all x:UInt, y:UInt.
+  if x < y then toNat(x) < toNat(y)
+proof
+  have one_three: ℕ1 + ℕ3 = ℕ4 by evaluate
+    
+  induction UInt
+  case bzero {
+    arbitrary y:UInt
+    switch y {
+      case bzero {
+        evaluate
+      }
+      case dub_inc(y') {
+        evaluate
+      }
+      case inc_dub(y') {
+        evaluate
+      }
+    }
+  }
+  case dub_inc(x') assume IH {
+    arbitrary y:UInt
+    switch y {
+      case bzero {
+        evaluate
+      }
+      case dub_inc(y') {
+        expand operator< | toNat
+        assume: x' < y'
+        replace lit_suc_add2
+        show ℕ3 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y')
+        have IH1: toNat(x') < toNat(y') by apply IH[y'] to recall x' < y'
+        have IH2: ℕ1 + toNat(x') ≤ toNat(y') by {
+          replace nat_suc_one_add in
+          expand operator < in IH1
+        }
+        have IH3: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
+          by apply mult_mono_le[ℕ2] to IH2
+        have IH5: ℕ4 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y')
+          by apply add_both_sides_of_less_equal[ℕ2] to IH3
+        have A: ℕ3 + ℕ2 * toNat(x') ≤ ℕ4 + ℕ2 * toNat(x')
+          by less_equal_add_left[ℕ1, ℕ3 + ℕ2 * toNat(x')]
+        apply less_equal_trans to A, IH5
+      }
+      case inc_dub(y') {
+        assume prem
+        have: x' < y' by expand operator< in prem
+        have IH1: toNat(x') < toNat(y') by apply IH[y'] to recall x' < y'
+        have IH2: ℕ1 + toNat(x') ≤ toNat(y') by {
+          replace nat_suc_one_add in
+          expand operator< in IH1
+        }
+        have IH3: ℕ2*(ℕ1 + toNat(x')) ≤ ℕ2*toNat(y')
+          by apply mult_mono_le[ℕ2] to IH2
+        have IH4: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2*toNat(y')
+          by apply mult_mono_le[ℕ2] to IH2
+          //by replace dist_mult_add in IH3
+        expand toNat
+        //replace mult_commute[ℕ2]
+        expand operator<
+        replace nat_suc_one_add[toNat(y') * ℕ2]
+        replace lit_suc_add2
+        apply add_both_sides_of_less_equal[ℕ1] to IH4
+        /*
+        expand operator ≤ 
+        replace mult_commute[toNat(x'), ℕ2] | mult_commute[toNat(y'), ℕ2]
+        IH4
+        */
+      }
+    }
+  }
+  case inc_dub(x') assume IH {
+    arbitrary y:UInt
+    switch y {
+      case bzero {
+        evaluate
+      }
+      case dub_inc(y') {
+        expand operator<
+        assume prem
+        expand toNat
+        cases prem
+        case: x' < y' {
+          have IH1: ℕ1 + toNat(x') ≤ toNat(y') by {
+            replace nat_suc_one_add in
+            expand operator< in
+            apply IH to recall x' < y'
+          }
+          suffices ℕ2 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y') by {
+            replace nat_suc_one_add.
+          }
+          suffices ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
+            by conjunct 1 of
+               add_both_sides_of_less_equal[ℕ2, ℕ2*toNat(x'), ℕ2*toNat(y')]
+          suffices toNat(x') ≤ toNat(y') by mult_mono_le
+          have A: toNat(x') ≤ ℕ1 + toNat(x') by less_equal_add_left
+          apply less_equal_trans to A, IH1
+        }
+        case: x' = y' {
+          replace (recall x' = y')
+          suffices ℕ2 + ℕ2 * toNat(y') ≤ ℕ2 + ℕ2 * toNat(y') by {
+            replace nat_suc_one_add.
+          }
+          less_equal_refl
+        }
+      }
+      case inc_dub(y') {
+        expand toNat | operator<
+        replace nat_suc_one_add | nat_suc_one_add
+        assume prem
+        have IH2: ℕ1 + toNat(x') ≤ toNat(y') by {
+          replace nat_suc_one_add in
+          expand operator< in 
+          apply IH to prem
+        }
+        have IH3: ℕ2 + ℕ2*toNat(x') ≤ ℕ2 * toNat(y') by {
+          //replace dist_mult_add in
+          apply mult_mono_le[ℕ2] to IH2
+        }
+        have A: ℕ2 * toNat(y') ≤ ℕ1 + ℕ2*toNat(y') by less_equal_add_left
+        apply less_equal_trans to IH3, A
+      }
+    }
+  }
+end
+
+theorem toNat_less_equal: all x:UInt, y:UInt.
+  if x ≤ y then toNat(x) ≤ toNat(y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  have le: x < y or x = y by expand operator ≤ in prem
+  cases le
+  case xy: x < y {
+    have nx_ny: toNat(x) < toNat(y) by apply toNat_less to xy
+    apply less_implies_less_equal to nx_ny
+  }
+  case xy: x = y {
+    replace xy
+    less_equal_refl
+  }
+end
+
+theorem less_toNat: all x:UInt, y:UInt.
+  if toNat(x) < toNat(y) then x < y
+proof
+  induction UInt
+  case bzero {
+    arbitrary y:UInt
+    switch y {
+      case bzero { evaluate }
+      case dub_inc(y') { evaluate }
+      case inc_dub(y') { evaluate }
+    }
+  }
+  case dub_inc(x') assume IH {
+    arbitrary y:UInt
+    switch y {
+      case bzero { evaluate }
+      case dub_inc(y') {
+        expand toNat
+        assume prem
+        expand operator<
+        suffices toNat(x') < toNat(y') by IH[y']
+        have sx_sy: ℕ1 + toNat(x') < ℕ1 + toNat(y') by {
+          apply pos_mult_right_cancel_less[ℕ2,ℕ1 + toNat(x'), ℕ1+ toNat(y')]
+          to evaluate, (replace mult_commute[ℕ2] in prem)
+        }
+        apply add_both_sides_of_less[ℕ1, toNat(x'), toNat(y')] to sx_sy
+      }
+      case inc_dub(y') {
+        expand toNat
+        assume prem
+        expand operator<
+        suffices toNat(x') < toNat(y') by IH[y']
+        have A: ℕ1 + ℕ2 * toNat(x') < ℕ2 + ℕ2 * toNat(x')
+          by suffices __ by evaluate less_equal_refl
+        have B: ℕ2 + ℕ2 * toNat(x') < ℕ1 + ℕ2 * toNat(y') by {
+          replace nat_suc_one_add[ℕ2*toNat(y')] in prem
+        }
+        have C: ℕ1 + ℕ2 * toNat(x') < ℕ1 + ℕ2 * toNat(y')
+          by apply less_trans to A,B
+        have D: ℕ2 * toNat(x') < ℕ2 * toNat(y')
+          by apply add_both_sides_of_less[ℕ1] to C
+        conclude toNat(x') < toNat(y') by {
+          apply mult_cancel_right_less[ℕ2, toNat(x'), toNat(y')]
+          to replace mult_commute[ℕ2] in D
+        }
+      }
+    }
+  }
+  case inc_dub(x') assume IH {
+    arbitrary y:UInt
+    switch y {
+      case bzero { evaluate }
+      case dub_inc(y') {
+        expand toNat
+        assume prem
+        expand operator<
+        have A: ℕ1 + ℕ2 * toNat(x') < ℕ2 + ℕ2 * toNat(y')
+          by replace nat_suc_one_add in prem
+        have B: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2 + ℕ2 * toNat(y')
+          by replace nat_suc_one_add in expand operator< in A
+        have C: ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
+          by apply add_both_sides_of_less_equal to B
+        have D: toNat(x') ≤ toNat(y')
+          by apply pos_mult_left_cancel_less_equal[ℕ2, toNat(x'), toNat(y')] to evaluate, C
+        have E: toNat(x') < toNat(y') or toNat(x') = toNat(y')
+          by apply less_equal_implies_less_or_equal to D
+        cases E
+        case less {
+          conclude x' < y' by apply IH to less
+        }
+        case eq {
+          conclude x' = y' by apply toNat_injective to eq
+        }
+      }
+      case inc_dub(y') {
+        expand toNat replace nat_suc_one_add
+        assume prem
+        have A: ℕ2 * toNat(x') < ℕ2 * toNat(y') by apply add_both_sides_of_less to prem
+        have B: toNat(x') < toNat(y') by {
+          apply mult_cancel_left_less to A
+        }
+        expand operator<
+        conclude x' < y' by apply IH to B
+      }
+    }
+  }
+end
+
+theorem uint_less_equal_refl: all n:UInt. n ≤ n
+proof
+  arbitrary n:UInt
+  expand operator≤.
+end
+
+theorem uint_less_implies_less_equal: all x:UInt, y:UInt.
+  if x < y then x ≤ y
+proof
+  arbitrary x:UInt, y:UInt
+  expand operator≤
+  assume prem
+  prem
+end
+
+theorem less_equal_toNat: all x:UInt, y:UInt.
+  if toNat(x) ≤ toNat(y) then x ≤ y
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  have le: toNat(x) < toNat(y) or toNat(x) = toNat(y)
+    by apply less_equal_implies_less_or_equal to prem
+  cases le
+  case less {
+    have xy: x < y by apply less_toNat to less
+    conclude x ≤ y by apply uint_less_implies_less_equal[x,y] to xy
+  }
+  case eq {
+    have x_y: x = y by apply toNat_injective to eq
+    replace x_y
+    expand operator≤.
+  }
+end
+  
+theorem uint_less_irreflexive: all x:UInt.
+  not (x < x)
+proof
+  arbitrary x:UInt
+  assume x_x: x < x
+  have nat_x_l_x: toNat(x) < toNat(x) by apply toNat_less to x_x
+  apply less_irreflexive to nat_x_l_x
+end
+
+theorem uint_less_trans: all x:UInt, y:UInt, z:UInt.
+  if x < y and y < z then x < z
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  assume prem
+  have xy: toNat(x) < toNat(y) by apply toNat_less[x,y] to prem
+  have yz: toNat(y) < toNat(z) by apply toNat_less[y,z] to prem
+  have xz: toNat(x) < toNat(z) by apply less_trans to xy, yz
+  conclude x < z by apply less_toNat to xz
+end
+
+theorem uint_not_less_zero:
+  all x:UInt. not (x < 0)
+proof
+  arbitrary x:UInt
+  switch x {
+    case bzero { evaluate }
+    case dub_inc(x') { evaluate }
+    case inc_dub(x') { evaluate }
+  }
+end
+
+theorem uint_not_less_implies_less_equal:
+  all x: UInt, y: UInt.
+  if not (x < y) then y ≤ x
+proof
+  arbitrary x: UInt, y: UInt
+  assume nxy
+  expand operator≤
+  have A: toNat(y) < toNat(x) or toNat(y) = toNat(x) or toNat(x) < toNat(y)  by trichotomy[toNat(y),toNat(x)]
+  cases A
+  case yx: toNat(y) < toNat(x) {
+    conclude y < x by apply less_toNat to yx
+  }
+  case yx: toNat(y) = toNat(x) {
+    conclude y = x by apply toNat_injective to yx
+  }
+  case nx_ny: toNat(x) < toNat(y) {
+    have xy: x < y by apply less_toNat to nx_ny
+    conclude false by apply nxy to xy
+  }
+end
+
+theorem uint_le_refl: all x:UInt.
+  x ≤ x
+proof
+  arbitrary x:UInt
+  expand operator≤.
+end
+
+theorem uint_le_trans: all x:UInt, y:UInt, z:UInt.
+  if x ≤ y and y ≤ z
+  then x ≤ z
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  expand operator≤
+  assume premise
+  have xy: x < y or x = y by premise
+  have yz: y < z or y = z by premise
+  cases xy
+  case: x < y {
+    cases yz
+    case: y < z {
+      conclude x < z by apply uint_less_trans to (recall x < y), (recall y < z)
+    }
+    case: y = z {
+      conclude x < z by replace (recall y = z) in (recall x < y)
+    }
+  }
+  case: x = y {
+    replace (recall x = y)
+    yz
+  }
+end
+
+theorem uint_zero_le: all x:UInt.
+  0 ≤ x
+proof
+  arbitrary x:UInt
+  expand operator≤
+  switch x {
+    case bzero { . }
+    case dub_inc(x') { evaluate }
+    case inc_dub(x') { evaluate }
+  }
+end
+
+theorem uint_le_zero: all x:UInt.
+  if x ≤ 0 then x = 0
+proof
+  arbitrary x:UInt
+  expand operator≤
+  switch x {
+    case bzero { . }
+    case dub_inc(x') { evaluate }
+    case inc_dub(x') { evaluate }
+  }
+end

@@ -1,12 +1,8 @@
 import Nat
 
 theorem T: all a:Nat, x:Nat, y:Nat, z:Nat.
-  a + suc(x) + y + z = suc(a + x + y + z)
+  a + ℕ1 + x + y + z = ℕ1 + a + x + y + z
 proof
   arbitrary a:Nat, x:Nat, y:Nat, z:Nat
-  equations
-        a + suc(x) + y + z
-      = a + suc(x + y) + z     by expand operator+.
-  ... = a + suc(x + y + z)     by expand operator+.
-  ... = suc(a + x + y + z)     by replace add_suc.
+  replace add_commute[a, ℕ1].
 end

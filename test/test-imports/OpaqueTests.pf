@@ -62,10 +62,9 @@ terminates {
         evaluate
     }
     case suc(n') assume IH {
-        assume prem: suc(n') /= ℕ0
-        replace pred_suc_n
-        suffices __ by evaluate
-        less_equal_refl
+      assume prem: suc(n') /= ℕ0
+      suffices __ by evaluate
+      less_equal_refl      
     }
 }
 

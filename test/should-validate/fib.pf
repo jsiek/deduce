@@ -23,13 +23,14 @@ terminates {
   }
   have B: if not (n < ℕ2) then n ∸ ℕ2 < n by {
     assume prem: not (n < ℕ2)
-    suffices suc(n ∸ ℕ2) ≤ n by expand operator<.
+    suffices ℕ1 + (n ∸ ℕ2) ≤ n by expand operator< replace nat_suc_one_add .
     have n2: ℕ2 ≤ n by apply not_less_implies_less_equal to prem
     have n_eq: n = ℕ2 + (n ∸ ℕ2) by symmetric apply monus_add_identity[n, ℕ2] to n2
     define a = n ∸ ℕ2
-    suffices suc(a) ≤ ℕ2 + a by replace n_eq.
-    suffices n ∸ ℕ2 ≤ suc(n ∸ ℕ2) by evaluate
-    less_equal_suc
+    replace n_eq
+    show ℕ1 + a ≤ ℕ2 + a
+    suffices a ≤ ℕ1 + a by add_both_sides_of_less_equal[ℕ1, a, ℕ1 + a]
+    less_equal_add_left
   }
   A, B
 }
@@ -42,6 +43,7 @@ assert fib(ℕ4) = ℕ3
 assert fib(ℕ5) = ℕ5
 assert fib(ℕ6) = ℕ8
 
+/*
 theorem add_suc_left: all a:Nat, b:Nat. a + suc(b) = suc(a) + b
 proof
   arbitrary a:Nat, b:Nat
@@ -49,23 +51,25 @@ proof
       a + suc(b) = suc(a + b)   by add_suc
              ... = #suc(a) + b# by expand operator+.
 end
+*/
 
 theorem fib_2_n: all n:Nat. fib(ℕ2 + n) = fib(ℕ1 + n) + fib(n)
 proof
   arbitrary n:Nat
   switch n {
-    case 0 {
-      conclude fib(ℕ2 + ℕ0) = fib(ℕ1 + ℕ0) + fib(ℕ0)   by evaluate
+    case zero {
+      conclude fib(ℕ2 + ℕ0) = fib(ℕ1 + ℕ0) + fib(zero)   by evaluate
     }
     case suc(n') {
+      replace nat_suc_one_add
       switch n' {
         case 0 {
           conclude fib(ℕ2 + ℕ1) = fib(ℕ1 + ℕ1) + fib(ℕ1)  by evaluate
         }
         case suc(n'') {
-          have A: (ℕ2 + suc(suc(n'')) < ℕ2) = false by evaluate
-          have B: (ℕ1 + suc(suc(n'')) < ℕ2) = false by evaluate
-          have C: (suc(suc(n'')) < ℕ2) = false by evaluate
+          have A: (ℕ4 + n'' < ℕ2) = false by evaluate
+          have B: (ℕ3 + n'' < ℕ2) = false by evaluate
+          have C: (ℕ2 + n'' < ℕ2) = false by evaluate
           expand fib
           replace A | B | C
           evaluate
@@ -82,10 +86,12 @@ proof
     conclude ℕ0 < fib(ℕ1 + ℕ0)  by evaluate
   }
   case suc(n') assume IH: ℕ0 < fib(ℕ1 + n') {
-    have A: (ℕ1 + suc(n') < ℕ2) = false by evaluate
+    replace nat_suc_one_add
+    have A: (ℕ2 + n' < ℕ2) = false by evaluate
     expand fib
-    replace A | add_monus_identity[ℕ1] | add_suc_left
-    | add_monus_identity[ℕ2] | suc_one_add
+    replace A
+    replace add_monus_identity[ℕ2] 
+    replace add_monus_identity[ℕ1, ℕ1 + n'] 
     suffices ℕ1 ≤ fib(ℕ1 + n') + fib(n')
       by expand operator<.
     have B: ℕ1 ≤ fib(ℕ1 + n')  by expand operator< in IH
@@ -103,20 +109,20 @@ proof
     evaluate
   }
   case suc(n') assume IH: summation(suc(n'), ℕ1, fib) = fib(ℕ3 + n') ∸ ℕ1 {
-    replace suc_one_add[suc(n')]
+    replace nat_suc_one_add
+    have IH': summation(ℕ1 + n', ℕ1, fib) = fib(ℕ3 + n') ∸ ℕ1
+      by replace nat_suc_one_add in IH    
     suffices (fib(ℕ3 + n') ∸ ℕ1) + fib(ℕ2 + n') = fib(ℕ4 + n') ∸ ℕ1
-      by replace summation_next[suc(n'), ℕ1, fib] | IH | add_suc_left.
-    have A: ℕ3 + n' = ℕ2 + (ℕ1 + n') by evaluate
-    have B: ℕ4 + n' = ℕ2 + (ℕ2 + n') by evaluate
-    have C: ℕ1 + ℕ1 = ℕ2 by evaluate
-    replace A | B | fib_2_n[ℕ1+n'] | fib_2_n[ℕ2+n']
-           | add_commute[ℕ1,ℕ2] | fib_2_n[ℕ1+n'] | C | fib_2_n[n']
+      by replace summation_next[ℕ1 + n', ℕ1, fib] | IH'.
+    replace fib_2_n[ℕ1+n'] | fib_2_n[ℕ2+n']
+    replace fib_2_n[ℕ1+n'] | fib_2_n[n']
     define X = fib(n')
     define Y = fib(ℕ1 + n')
     have one_YXY: ℕ1 ≤ Y + X + Y by {
       expand Y
       have f_pos: ℕ0 < fib(ℕ1 + n') by fib_1_pos
-      obtain Z where eq: fib(ℕ1 + n') = suc(Z) from apply positive_suc to f_pos
+      obtain Z where eq: fib(ℕ1 + n') = ℕ1 + Z
+        from apply nat_positive_suc[fib(ℕ1 + n')] to f_pos
       replace eq
       evaluate
     }

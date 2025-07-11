@@ -4,5 +4,6 @@ theorem T: all x:Nat. if x = ℕ1 + ℕ2 + ℕ3 then x = ℕ6
 proof
   arbitrary x:Nat
   assume prem: x = ℕ1 + ℕ2 + ℕ3
+  expand lit
   evaluate in prem
 end

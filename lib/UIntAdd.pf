@@ -1,0 +1,183 @@
+import Base
+import Nat
+import UIntDefs
+import UIntToFrom
+import UIntLess
+
+theorem toNat_add: all x:UInt, y:UInt.
+  toNat(x + y) = toNat(x) + toNat(y)
+proof
+  induction UInt
+  case bzero {
+    arbitrary y:UInt
+    evaluate
+  }
+  case dub_inc(x') assume IH {
+    arbitrary y:UInt
+    expand operator+
+    switch y {
+      case bzero { evaluate }
+      case dub_inc(y') {
+        expand toNat
+        replace toNat_inc | nat_suc_one_add | nat_suc_one_add | nat_suc_one_add
+        show ℕ4 + ℕ2 * toNat(x' + y') = ℕ2 + ℕ2 * toNat(x') + ℕ2 + ℕ2 * toNat(y')
+        replace IH[y'].
+      }
+      case inc_dub(y') {
+        expand inc | toNat
+        replace toNat_inc | nat_suc_one_add | nat_suc_one_add
+        show ℕ3 + ℕ2 * toNat(x' + y') = ℕ3 + ℕ2 * toNat(x') + ℕ2 * toNat(y')
+        replace IH[y'].
+      }
+    }
+  }
+  case inc_dub(x') assume IH {
+    arbitrary y:UInt
+    switch y {
+      case bzero { evaluate }
+      case dub_inc(y') {
+        expand operator+ | toNat | inc
+        replace toNat_inc | nat_suc_one_add | nat_suc_one_add
+        show ℕ3 + ℕ2 * toNat(x' + y') = ℕ3 + ℕ2 * toNat(x') + ℕ2 * toNat(y')
+        replace IH[y'].
+      }
+      case inc_dub(y') {
+        expand operator+ | toNat | inc
+        replace nat_suc_one_add | nat_suc_one_add
+        show ℕ2 + ℕ2 * toNat(x' + y') = ℕ2 + ℕ2 * toNat(x') + ℕ2 * toNat(y')
+        replace IH[y'].
+      }
+    }
+  }
+end
+
+theorem uint_add_commute: all x:UInt, y:UInt.
+  x + y = y + x
+proof
+  arbitrary x:UInt, y:UInt
+  suffices toNat(x + y) = toNat(y + x) by toNat_injective
+  equations
+	    toNat(x + y)
+        = toNat(x) + toNat(y)   by toNat_add
+    ... = toNat(y) + toNat(x)   by add_commute
+    ... = #toNat(y + x)#        by replace toNat_add.
+end
+
+theorem uint_add_assoc: all x:UInt, y:UInt, z:UInt.
+  (x + y) + z = x + (y + z)
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  suffices toNat((x + y) + z) = toNat(x + (y + z)) by toNat_injective
+  equations
+	    toNat((x + y) + z)
+        = toNat(x + y) + toNat(z)              by toNat_add
+    ... = toNat(x) + toNat(y) + toNat(z)       by replace toNat_add.
+    ... = toNat(x) + #toNat(y + z)#            by replace toNat_add.
+    ... = #toNat(x + (y + z))#                 by replace toNat_add.
+end
+
+associative operator+ in UInt
+
+lemma check_assoc: all x:UInt, y:UInt, z:UInt.
+  (x + y) + z = x + (y + z)
+proof
+  .
+end
+
+theorem uint_zero_add: all x:UInt.
+  0 + x = x
+proof
+  arbitrary x:UInt
+  suffices toNat(bzero + x) = toNat(x) by toNat_injective
+  equations
+  	toNat(bzero + x) 
+      = toNat(bzero) + toNat(x)    by toNat_add
+  ... = toNat(x)                   by expand toNat evaluate
+end
+
+auto uint_zero_add
+
+theorem uint_add_zero: all x:UInt.
+  x + 0 = x
+proof
+  arbitrary x:UInt
+  suffices toNat(x + bzero) = toNat(x) by toNat_injective
+  equations
+  	toNat(x + bzero) 
+      = toNat(x) + toNat(bzero)    by toNat_add
+  ... = toNat(x)                   by { expand toNat evaluate } // bug?
+end
+
+auto uint_add_zero
+
+theorem uint_zero_less_one_add: all n:UInt.
+  0 < 1 + n
+proof
+  arbitrary n:UInt
+  suffices toNat(0) < toNat(1 + n) by less_toNat
+  replace toNat_add
+  conclude toNat(0) < toNat(1) + toNat(n) by {
+    expand 2*toNat
+    nat_zero_less_one_add[toNat(n)]
+  }
+end
+
+theorem uint_add_both_sides_of_equal: all x:UInt, y:UInt, z:UInt.
+  x + y = x + z ⇔ y = z
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  have fwd: if x + y = x + z then y = z by {
+    assume prem
+    have xy_xz: toNat(x + y) = toNat(x + z)
+      by replace prem.
+    have xy_xz2: toNat(x) + toNat(y) = toNat(x) + toNat(z)
+      by replace toNat_add in xy_xz
+    have yz: toNat(y) = toNat(z) by apply add_both_sides_of_equal to xy_xz2
+    conclude y = z by apply toNat_injective to yz
+  }
+  have bkwd: if y = z then x + y = x + z by {
+    assume yz
+    replace yz.
+  }
+  fwd, bkwd
+end
+
+theorem uint_add_to_zero: all n:UInt, m:UInt.
+  if n + m = 0
+  then n = 0 and m = 0
+proof
+  arbitrary n:UInt, m:UInt
+  assume prem
+  have nm_z: toNat(n + m) = toNat(bzero) by replace prem.
+  have nm_z2: toNat(n) + toNat(m) = ℕ0 by expand toNat in replace toNat_add in nm_z
+  have nz_mz: toNat(n) = ℕ0 and toNat(m) = ℕ0 by {
+    apply nat_add_to_zero[toNat(n), toNat(m)] to nm_z2
+  }
+  have nz: toNat(n) = toNat(bzero) by expand toNat nz_mz
+  have mz: toNat(m) = toNat(bzero) by expand toNat nz_mz
+  (apply toNat_injective to nz), (apply toNat_injective to mz)
+end
+
+theorem uint_less_equal_add: all x:UInt, y:UInt.
+  x ≤ x + y
+proof
+  arbitrary x:UInt, y:UInt
+  suffices toNat(x) ≤ toNat(x + y) by less_equal_toNat[x, x+y]
+  replace toNat_add
+  less_equal_add
+end
+
+theorem uint_less_add_pos: all x:UInt, y:UInt.
+  if 0 < y
+  then x < x + y
+proof
+  arbitrary x:UInt, y:UInt
+  assume y_pos
+  have ny_pos: ℕ0 < toNat(y) by expand toNat in apply toNat_less to y_pos
+  have A: toNat(x) < toNat(x) + toNat(y) by {
+    apply nat_less_add_pos[toNat(x), toNat(y)] to ny_pos
+  }
+  have B: toNat(x) < toNat(x + y) by { replace toNat_add A }
+  conclude x < x + y by apply less_toNat to B
+end
+  

@@ -1,0 +1,36 @@
+import Nat
+
+theorem lit_test1: lit(ℕ0) + lit(ℕ0) = lit(ℕ0)
+proof
+  .
+end
+
+theorem lit_test2: lit(ℕ0) + lit(ℕ1) = lit(ℕ1)
+proof
+  .
+end
+
+theorem lit_test3: lit(ℕ1) + lit(ℕ0) = lit(ℕ1)
+proof
+  .
+end
+
+theorem lit_test4: lit(ℕ2) + lit(ℕ1) = lit(ℕ3)
+proof
+  .
+end
+
+theorem lit_test5: lit(ℕ2) + lit(ℕ2) = lit(ℕ4)
+proof
+  .
+end
+
+theorem lit_test6: lit(ℕ2) * lit(ℕ3) = lit(ℕ6)
+proof
+  .
+end
+
+theorem lit_test7: lit(ℕ3) ∸ lit(ℕ2) = lit(ℕ1)
+proof
+  .
+end

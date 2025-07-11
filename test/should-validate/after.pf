@@ -11,7 +11,7 @@ union Pos {
 }
 
 recursive nat2pos(Nat) -> Option<Pos> {
-  nat2pos(0) = none
+  nat2pos(zero) = none
   nat2pos(suc(n')) =
     switch nat2pos(n') {
       case none {
@@ -24,7 +24,7 @@ recursive nat2pos(Nat) -> Option<Pos> {
 }
 
 recursive div_helper(Nat,Nat,Pos,Pos) -> Nat {
-  div_helper(0, k, m, j) = k
+  div_helper(zero, k, m, j) = k
   div_helper(suc(n'), k, m, j) =
     switch j {
       case one {
@@ -38,10 +38,10 @@ recursive div_helper(Nat,Nat,Pos,Pos) -> Nat {
 
 fun operator /(n : Nat, m : Pos) {
   switch n {
-    case 0 { ℕ0 }
-    case suc(n') { div_helper(suc(n'), ℕ0, m, m) }
+    case zero { zero }
+    case suc(n') { div_helper(suc(n'), zero, m, m) }
   }
 }
 
-define three_div : fn Pos -> Nat = λd{ ℕ3 / d }
-assert default(after(nat2pos(ℕ3), three_div), ℕ0) = ℕ1
+define three_div : fn Pos -> Nat = λd{ suc(suc(suc(zero))) / d }
+assert default(after(nat2pos(suc(suc(suc(zero)))), three_div), zero) = suc(zero)
