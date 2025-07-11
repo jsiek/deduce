@@ -573,12 +573,8 @@ proof
   case empty {
     arbitrary n:UInt
     assume prem
-    have: n = 0 by {
-      apply uint_zero_le_zero[n] to expand length in prem
-    }
-    suffices length(drop(@[]<E>, 0)) + 0 = length(@[]<E>)
-      by replace recall n = 0.
-    evaluate
+    suffices n = 0 by evaluate
+    apply uint_zero_le_zero[n] to expand length in prem
   }
   case node(x, xs') assume IH: all n:UInt. (if n ≤ length(xs') then length(drop(xs', n)) + n = length(xs')) {
     arbitrary n:UInt
@@ -607,22 +603,6 @@ proof
         replace uint_add_commute[length(drop(xs', n')), 1].
       }
     }
-    /*
-    switch n {
-      case 0 {
-        evaluate
-      }
-      case suc(n') assume n_sn {
-        suffices length(drop(n', xs')) + 1 + n' = 1 + length(xs')
-          by expand length | drop replace nat_suc_one_add.
-        have n_xs: n' ≤ length(xs') by evaluate in replace n_sn in prem
-        have eq: length(drop(n', xs')) + n' = length(xs')
-          by apply IH[n'] to n_xs
-        conclude length(drop(n', xs')) + 1 + n' = 1 + length(xs')
-          by replace (symmetric eq).
-      }
-    }
-    */
   }
 end
 

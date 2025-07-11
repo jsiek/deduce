@@ -272,7 +272,8 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'int':
         return intToUInt(e.meta, int(e.children[0]))
     elif e.data == 'nat':
-        return intToNat(e.meta, int(e.children[0][1:]))
+        return Call(e.meta, None, Var(e.meta, None, 'lit', None),
+                    [intToNat(e.meta, int(e.children[0][1:]))])
     elif e.data == 'pos_int':
         return intToDeduceInt(e.meta, int(e.children[0].value), 'PLUS')
     elif e.data == 'neg_int':

@@ -1,11 +1,9 @@
-./test/should-error/length_drop.pf:18.5-18.6: incomplete proof
+./test/should-error/length_drop.pf:13.5-13.6: incomplete proof
 Goal:
-	length_nat(switch xs { case [] { @[]<T> } case node(x, xs') { drop(n', xs') } }) = length_nat(xs) ∸ suc(n')
+	length(@[]<T>) = length(@[]<T>) ∸ n
 Advice:
 	To prove this equality, one of these statements might help:
 		expand
 		replace
 		equations
 
-Givens:
-	IH: (all xs:List<T>. length_nat(drop(n', xs)) = length_nat(xs) ∸ n')

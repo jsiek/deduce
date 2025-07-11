@@ -22,7 +22,7 @@ proof
   case [] {
     arbitrary ls2:List<Nat>
     conclude sum(@[]<Nat> ++ ls2) = sum(@[]<Nat>) + sum(ls2)
-      by expand operator++ | sum.
+      by expand operator++ | sum evaluate
   }
   case node(x, ls1) suppose IH {
     arbitrary ls2:List<Nat>

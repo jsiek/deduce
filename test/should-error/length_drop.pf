@@ -1,19 +1,19 @@
 import List 
-import Nat
+import UInt
 
-theorem length_drop2 : <T> all n : Nat, xs : List<T>.
-  length_nat(drop(n, xs)) = length_nat(xs) ∸ n
+theorem length_drop2 : <T> all xs : List<T>, n : UInt.
+  length(drop(xs, n)) = length(xs) ∸ n
 proof
   arbitrary T:type
-  induction Nat
-  case 0 {
-    arbitrary xs : List<T>
-    suffices length_nat(xs) = length_nat(xs) ∸ ℕ0  by expand drop.
-    replace monus_zero[length_nat(xs)].
-  }
-  case suc(n') assume IH {
-    arbitrary xs : List<T>
+  induction List<T>
+  case empty {
+    arbitrary n : UInt
+    expand drop
     // Make sure TermInst is explicit around the empty list.
+    ?
+  }
+  case node(x, xs') assume IH {
+    arbitrary n : UInt
     expand drop
     ?
   }
