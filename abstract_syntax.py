@@ -746,9 +746,9 @@ class Var(Term):
               'resolved_names is a string but should be a list: ' \
               + self.resolved_names)
       
-      if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
-        return '`0'
-      elif base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
+      # if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
+      #   return 'zero'
+      if base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
         return '0'
       elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'

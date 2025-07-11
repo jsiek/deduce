@@ -1,9 +1,9 @@
 ./test/should-error/suffices_evaluate.pf:6.3-6.25: 
 suffices to prove:
-	((x + suc(suc(suc(suc(x + suc(`0)))))) ∸ `0) ∸ suc(suc(`0)) = suc(x + suc(suc(suc(x + suc(`0)))))
+	((x + suc(suc(suc(suc(x + suc(zero)))))) ∸ zero) ∸ suc(suc(zero)) = suc(x + suc(suc(suc(x + suc(zero)))))
 ./test/should-error/suffices_evaluate.pf:7.3-7.4: incomplete proof
 Goal:
-	((x + suc(suc(suc(suc(x + suc(`0)))))) ∸ `0) ∸ suc(suc(`0)) = suc(x + suc(suc(suc(x + suc(`0)))))
+	((x + suc(suc(suc(suc(x + suc(zero)))))) ∸ zero) ∸ suc(suc(zero)) = suc(x + suc(suc(suc(x + suc(zero)))))
 Advice:
 	To prove this equality, one of these statements might help:
 		expand
