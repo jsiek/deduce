@@ -39,7 +39,7 @@ proof
   }
   case inc_dub(x) assume IH {
     suffices __ by evaluate
-    replace nat_suc_one_add | nat_suc_one_add.
+    replace nat_suc_one_add | nat_suc_one_add | add_commute[toNat(x), ℕ1].
   }
 end
 
@@ -51,7 +51,7 @@ proof
   }
   case dub_inc(x) assume IH {
     suffices __ by evaluate
-    replace nat_suc_one_add.
+    replace nat_suc_one_add | add_commute[toNat(x), ℕ1].
   }
   case inc_dub(x) assume IH {
     suffices __ by evaluate

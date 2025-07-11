@@ -57,7 +57,7 @@ proof
           ... = (ℕ2 * toNat(x') + #ℕ2 ∸ ℕ2#) ∸ ℕ2 * toNat(y')    by .
           ... = ((ℕ2 * toNat(x') + ℕ2) ∸ ℕ2) ∸ ℕ2 * toNat(y')    by replace (apply monus_add_assoc[ℕ2, ℕ2 * toNat(x'), ℕ2]
                                                                          to less_equal_refl).
-          ... = ((ℕ2 + ℕ2 * toNat(x')) ∸ ℕ2) ∸ ℕ2 * toNat(y')    by .
+          ... = ((ℕ2 + ℕ2 * toNat(x')) ∸ ℕ2) ∸ ℕ2 * toNat(y')    by replace add_commute[ℕ2 * toNat(x'), ℕ2].
           ... = (ℕ2 + ℕ2 * toNat(x')) ∸ (ℕ2 + ℕ2 * toNat(y'))    by monus_monus_eq_monus_add
       }
       case inc_dub(y') {
@@ -80,12 +80,14 @@ proof
             replace dist_mult_monus | nat_suc_one_add
             replace symmetric monus_monus_eq_monus_add[ℕ2 + ℕ2*toNat(x'), ℕ1, ℕ2*toNat(y')]
             have: ℕ1 ≤ ℕ2 by evaluate
-            replace symmetric (apply monus_add_assoc[ℕ2, ℕ2*toNat(x'), ℕ1] to recall ℕ1 ≤ ℕ2)
+            replace symmetric (replace add_commute[ℕ2 * toNat(x'), ℕ2] in
+                               apply monus_add_assoc[ℕ2, ℕ2*toNat(x'), ℕ1] to recall ℕ1 ≤ ℕ2)
             have: ℕ2 ∸ ℕ1 = ℕ1 by evaluate
             have xy1: not (x' < y') by replace x_l_y_false.
             have xy2: y' ≤ x' by apply uint_not_less_implies_less_equal to xy1
             have xy3: toNat(y') ≤ toNat(x') by apply toNat_less_equal to xy2
             have y2_x2: ℕ2 * toNat(y') ≤ ℕ2 * toNat(x')  by apply mult_mono_le[ℕ2] to xy3
+            replace add_commute[ℕ2 * toNat(x'), ℕ1]
             conclude ℕ1 + (ℕ2 * toNat(x') ∸ ℕ2 * toNat(y')) = (ℕ1 + ℕ2 * toNat(x')) ∸ ℕ2 * toNat(y')
               by apply monus_add_assoc[ℕ2 * toNat(x'), ℕ1, ℕ2 * toNat(y')] to y2_x2
           }
@@ -121,11 +123,12 @@ proof
                 by apply less_equal_trans to nx2_ny2, ny2_sny2
               }
             replace x_l_y_true
-            have EQ: ℕ2 + ℕ2 * toNat(y') = suc(ℕ2 * toNat(y') + ℕ1) by replace lit_suc_add2.
-            replace EQ
+            expand lit | operator+
+            replace nat_suc_one_add
             replace (replace mult_two in
               apply nat_monus_zero_iff_less_eq[toNat(x') + toNat(x'), ℕ1 + toNat(y') + toNat(y')]
-              to xx_l_syy).
+              to xx_l_syy)
+            expand lit.
           }
           case false assume x_l_y_false {
             expand toNat
@@ -139,7 +142,8 @@ proof
             replace symmetric nat_monus_one_pred[(ℕ2 * toNat(x') ∸ ℕ2 * toNat(y'))]
             replace nat_suc_one_add
             show ℕ2 * toNat(x') ∸ ℕ2 * toNat(y') ∸ ℕ1 = ℕ2 * toNat(x') ∸ (ℕ1 + ℕ2 * toNat(y'))
-            replace symmetric monus_monus_eq_monus_add[ℕ2*toNat(x'), ℕ2*toNat(y'),ℕ1].
+            replace symmetric (replace add_commute[ℕ2 * toNat(y'), ℕ1] in
+                               monus_monus_eq_monus_add[ℕ2*toNat(x'), ℕ2*toNat(y'),ℕ1]).
           }
         }
       }
