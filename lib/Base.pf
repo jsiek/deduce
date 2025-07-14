@@ -1,3 +1,5 @@
+module Base
+
 theorem or_not: all P:bool, Q:bool.
   if (P or Q) and not P
   then Q

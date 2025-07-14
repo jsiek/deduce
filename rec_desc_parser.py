@@ -1695,6 +1695,12 @@ def parse_statement():
     meta = meta_from_tokens(token, previous_token())
     return Associative(meta, typarams, Var(meta, None, name, []), typ)
 
+  elif token.type == 'MODULE':
+    advance()
+    name = parse_identifier()
+    meta = meta_from_tokens(token, previous_token())
+    return Module(meta, name)
+
   else:
     for kw in statement_keywords:
         if edit_distance(token.value, kw) <= 2:

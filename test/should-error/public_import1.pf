@@ -1,0 +1,7 @@
+import UInt
+
+theorem T: dub(2) = 4
+proof
+  expand dub.
+end
+

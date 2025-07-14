@@ -1,6 +1,8 @@
+module UInt
+
 import Base
 import Nat
-import UIntDefs
+public import UIntDefs
 
 theorem from_zero: fromNat(ℕ0) = 0
 proof

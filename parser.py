@@ -639,6 +639,9 @@ def parse_tree_to_ast(e, parent):
         pvar = parse_tree_to_ast(e.children[0], e)
         return Auto(e.meta, pvar)
     
+    elif e.data == 'module_decl':
+        return Module(e.meta, parse_tree_to_ast(e.children[0], e))
+    
     # patterns in function definitions
     elif e.data == 'pattern_id':
         id = parse_tree_to_ast(e.children[0], e)

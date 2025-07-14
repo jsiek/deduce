@@ -1,7 +1,9 @@
+module UInt
+
 import Base
 import Nat
-import UIntDefs
-import UIntToFrom
+public import UIntDefs
+public import UIntToFrom
 
 lemma two: ℕ1 + ℕ1 = ℕ2
 proof

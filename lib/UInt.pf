@@ -1,3 +1,5 @@
+module UInt
+
 import Base
 import Nat
 public import UIntDefs

@@ -1,3 +1,5 @@
+module Option
+
 union Option<T> {
   none
   just(T)

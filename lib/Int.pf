@@ -1,4 +1,6 @@
-import UInt
+module Int
+
+public import UInt
 import Base
 import Nat
 

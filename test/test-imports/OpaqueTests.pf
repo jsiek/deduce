@@ -1,3 +1,5 @@
+module OpaqueTests
+
 import Nat
 
 opaque define another_five = ℕ5

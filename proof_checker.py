@@ -771,7 +771,8 @@ def proof_advice(formula, env):
           case Union(loc2, name, typarams, alts):
             if ty.visibility == 'opaque':
               binding = env.dict[name]
-              if binding.location.filename != formula.location.filename:
+              #if binding.location.filename != formula.location.filename:
+              if binding.location.filename != env.get_current_module():
                 return arb_advice
 
             if len(alts) < 2:
@@ -1024,7 +1025,7 @@ def check_proof_of(proof, formula, env):
       frm = rewrite(loc, red_formula, equation, env)
       new_body_env = Env({k: ProofBinding(b.location, \
                                           rewrite(loc, b.formula, equation, env), \
-                                          b.local) \
+                                          b.local, module=env.get_current_module()) \
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})
       ret = check_proof_of(rest, frm, new_body_env)
@@ -1415,7 +1416,8 @@ def expand_definitions(loc, formula, defs, env):
           if var_name in env.dict.keys():
               binding = env.dict[var_name]
               if binding.visibility == 'opaque' \
-                 and binding.location.filename != loc.filename:
+                 and binding.module != env.get_current_module():
+                 #and binding.location.filename != loc.filename:
                 if len(var.resolved_names) == 1:
                     error(loc, 'Cannot expand opaque definition of '
                           + base_name(var_name))
@@ -2353,6 +2355,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           set_verbose(old_verbose)
           return Import(loc, name, ast), env
       else:
+          current_module = env.get_current_module()
           imported_modules.add(name)
           module_chain = [name] + module_chain
 
@@ -2389,7 +2392,8 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           if needs_checking[0]:
             print_theorems(filename, ast3)
           
-          return Import(loc, name, ast3, visibility=decl.visibility), env
+          return Import(loc, name, ast3, visibility=decl.visibility), \
+              env.declare_module(current_module)
   
     case _:
       error(decl.location, "unrecognized declaration:\n" + str(decl))
@@ -2422,6 +2426,9 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
       body_env = env.declare_type_vars(loc, typarams)
       check_type(typeof, body_env)
       return stmt, env
+  
+    case Module(loc, name):
+      return stmt, env.declare_module(name)
   
     case _:
       error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
@@ -2546,6 +2553,9 @@ def type_check_stmt(stmt, env, already_done_imports : set):
       new_op = type_synth_term(op, env, None, [])
       return Associative(loc, typarams, new_op, typ)
   
+    case Module(loc, name):
+      return stmt
+  
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
   
@@ -2586,6 +2596,9 @@ def collect_env(stmt, env : Env):
     case Print(loc, trm):
       return env
 
+    case Module(loc, name):
+      return env.declare_module(name)
+  
     case Auto(loc, name):
       frm = env.get_formula_of_proof_var(name)
       return env.declare_auto_rewrite(loc, frm)
@@ -2840,11 +2853,15 @@ def check_proofs(stmt, env):
     case Associative(loc, typarams, op, typ):
       pass
   
+    case Module(loc, name):
+      pass
+  
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
 def check_deduce(ast, module_name, modified):
   env = Env()
+  env = env.declare_module(module_name)
   ast2 = []
   imported_modules.clear()
   needs_checking = [modified]

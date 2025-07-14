@@ -1,8 +1,10 @@
+module UInt
+
 import Base
 import Nat
-import UIntDefs
-import UIntToFrom
-import UIntLess
+public import UIntDefs
+public  import UIntToFrom
+public import UIntLess
 
 theorem toNat_add: all x:UInt, y:UInt.
   toNat(x + y) = toNat(x) + toNat(y)

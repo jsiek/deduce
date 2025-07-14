@@ -767,7 +767,8 @@ class Var(Term):
         if get_dont_reduce_opaque() and self.name in env.dict.keys():
           binding = env.dict[self.name]
           if binding.visibility == 'opaque' \
-             and binding.location.filename != self.location.filename:
+             and binding.module != env.get_current_module():
+             #and binding.location.filename != self.location.filename:
               return self
 
         res = env.get_value_of_term_var(self)
@@ -2904,7 +2905,7 @@ class Postulate(Statement):
     env['no overload'][self.name] = 'theorem'
     self.name = new_name
     
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     export_env[base_name(self.name)] = [self.name]
   
 @dataclass
@@ -2929,7 +2930,7 @@ class Theorem(Statement):
     env['no overload'][self.name] = 'theorem'
     self.name = new_name
     
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     if not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
     
@@ -2986,12 +2987,12 @@ class Union(Declaration):
     for con in self.alternatives:
       con.uniquify(env, body_env)
 
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     if self.visibility == 'private':
       return
     export_env[base_name(self.name)] = [self.name]
 
-    if not self.visibility == 'opaque':
+    if not self.visibility == 'opaque' or (import_visibility == 'public'):
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
     
@@ -3094,8 +3095,8 @@ class RecFun(Declaration):
     # print('finished uniquifying recursive')
     # print(self.pretty_print(0))
       
-  def collect_exports(self, export_env):
-    if self.visibility == 'private':
+  def collect_exports(self, export_env, import_visibility):
+    if self.visibility == 'private' and import_visibility != 'public':
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3204,8 +3205,8 @@ class GenRecFun(Declaration):
     # print('finished uniquifying recfun')
     # print(self.pretty_print(0))
     
-  def collect_exports(self, export_env):
-    if self.visibility == 'private':
+  def collect_exports(self, export_env, import_visibility):
+    if self.visibility == 'private' and (import_visibility != 'public'):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3295,8 +3296,8 @@ class Define(Declaration):
     extend(env, self.name, new_name, self.location)
     self.name = new_name
 
-  def collect_exports(self, export_env):
-    if self.visibility == 'private':
+  def collect_exports(self, export_env, import_visibility):
+    if self.visibility == 'private' and (import_visibility != 'public'):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3321,7 +3322,7 @@ class Assert(Statement):
   def uniquify(self, env):
     self.formula.uniquify(env)
   
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     pass
     
 @dataclass
@@ -3334,7 +3335,7 @@ class Print(Statement):
   def uniquify(self, env):
     self.term.uniquify(env)
   
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     pass
 
   
@@ -3344,7 +3345,15 @@ def find_file(loc, name):
     if os.path.isfile(filename):
       return filename
   error(loc, 'could not find a file for import: ' + name)
-    
+
+def greatest_lower_bound(vis1, vis2):
+    if vis1 == 'public':
+        return vis2
+    elif vis1 == 'private' or vis1 == 'default':
+        return 'private'
+    else:
+        raise Exception('in greatest_lower_bound: unknown visibility: ' + vis1)
+  
 @dataclass
 class Import(Declaration):
   name: str
@@ -3384,17 +3393,18 @@ class Import(Declaration):
 
     env['__module__' + self.name] = None
     for stmt in self.ast:
-      stmt.collect_exports(env)
+      stmt.collect_exports(env, self.visibility)
     set_verbose(old_verbose)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
 
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     module_name = '__module__' + self.name
     if self.visibility == 'public' and not (module_name in export_env.keys()):
       export_env[module_name] = None
+      glb_vis = greatest_lower_bound(import_visibility, self.visibility)
       for stmt in self.ast:
-        stmt.collect_exports(export_env)
+        stmt.collect_exports(export_env, glb_vis)
 
 @dataclass
 class Auto(Statement):
@@ -3406,10 +3416,19 @@ class Auto(Statement):
   def uniquify(self, env):
     self.name.uniquify(env)
     
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     pass
 
-    
+@dataclass
+class Module(Statement):
+  name: str
+
+  def uniquify(self, env):
+    pass
+
+  def collect_exports(self, export_env, import_visibility):
+      pass
+
 @dataclass
 class Associative(Statement):
   type_params: List[str]
@@ -3430,7 +3449,7 @@ class Associative(Statement):
     self.type_params = new_type_params
     self.typeof.uniquify(body_env)
 
-  def collect_exports(self, export_env):
+  def collect_exports(self, export_env, import_visibility):
     opname = self.op.resolved_names[0]
     full_name = '__associative_' + opname
     base = base_name(opname)
@@ -3773,6 +3792,7 @@ def isEmptySet(t):
 
 @dataclass(kw_only=True)
 class Binding(AST):
+  module : str
   visibility : str = 'public'
 
 @dataclass
@@ -3863,7 +3883,7 @@ class Env:
   
   def declare_type(self, loc, name, vis = 'public'):
     new_env = Env(self.dict)
-    new_env.dict[name] = TypeBinding(loc, visibility=vis)
+    new_env.dict[name] = TypeBinding(loc, module=self.get_current_module(), visibility=vis)
     return new_env
 
   def declare_type_vars(self, loc, type_vars):
@@ -3876,14 +3896,14 @@ class Env:
     if defn == None:
       error(loc, 'None not allowed in define_type')
     new_env = Env(self.dict)
-    new_env.dict[name] = TypeBinding(loc, defn, visibility=visibility)
+    new_env.dict[name] = TypeBinding(loc, defn, module=self.get_current_module(), visibility=visibility)
     return new_env
   
   def declare_term_var(self, loc, name, typ, local = False, visibility='public'):
     if typ == None:
       error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ, visibility=visibility)
+    new_env.dict[name] = TermBinding(loc, typ, module=self.get_current_module(), visibility=visibility)
     new_env.dict[name].local = local
     return new_env
 
@@ -3893,9 +3913,11 @@ class Env:
     full_name = '__associative_' + opname
     if full_name in new_env:
       old = new_env.dict[full_name]
-      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)] + old.types)
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)] + old.types,
+                                                   module=self.get_current_module())
     else:
-      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)])
+      new_env.dict[full_name] = AssociativeBinding(loc, opname, [(typarams, typ)],
+                                                   module=self.get_current_module())
     return new_env
 
   def declare_auto_rewrite(self, loc, equation):
@@ -3904,7 +3926,8 @@ class Env:
     if full_name in self.dict:
         new_env.dict[full_name].equations.append(equation)
     else:
-        new_env.dict[full_name] = AutoEquationBinding(loc, [equation])
+        new_env.dict[full_name] = AutoEquationBinding(loc, [equation],
+                                                      module=self.get_current_module())
     return new_env
 
   def get_auto_rewrites(self):
@@ -3926,7 +3949,8 @@ class Env:
     if val == None:
       error(loc, 'None not allowed as value in define_term_var')
     new_env = Env(self.dict)
-    new_env.dict[name] = TermBinding(loc, typ, val, visibility=visibility)
+    new_env.dict[name] = TermBinding(loc, typ, val, module=self.get_current_module(),
+                                     visibility=visibility)
     return new_env
 
   def define_term_vars(self, loc, xv_pairs):
@@ -3937,14 +3961,21 @@ class Env:
   
   def declare_proof_var(self, loc, name, frm):
     new_env = Env(self.dict)
-    new_env.dict[name] = ProofBinding(loc, frm, False)
+    new_env.dict[name] = ProofBinding(loc, frm, False, module=self.get_current_module())
     return new_env
 
   def declare_local_proof_var(self, loc, name, frm):
     new_env = Env(self.dict)
-    new_env.dict[name] = ProofBinding(loc, frm, True)
+    new_env.dict[name] = ProofBinding(loc, frm, True, module=self.get_current_module())
     return new_env
 
+  def declare_module(self, module):
+    new_env = Env(self.dict)
+    new_env.dict['__current_module__'] = module
+    return new_env
+
+  def get_current_module(self):
+      return self.dict['__current_module__']
   
   def _def_of_type_var(self, curr, name):
     if name in curr.keys():

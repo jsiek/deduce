@@ -1,3 +1,5 @@
+module UInt
+
 import Base
 import Nat
 
@@ -11,7 +13,7 @@ union UInt {
   inc_dub(UInt) // 1 + 2x
 }
 
-recursive toNat(UInt) -> Nat {
+opaque recursive toNat(UInt) -> Nat {
   toNat(bzero) = ℕ0
   toNat(dub_inc(x)) = ℕ2 * suc(toNat(x))
   toNat(inc_dub(x)) = suc(ℕ2 * toNat(x))
@@ -56,7 +58,7 @@ fun operator ≥ (x:UInt, y:UInt) {
   y ≤ x
 }
 
-recursive dub(UInt) -> UInt {
+private recursive dub(UInt) -> UInt {
   dub(bzero) = bzero
   dub(dub_inc(x)) = dub_inc(inc_dub(x))
     // because 2*2*(1+x) = 4 + 4x = 2*(2+2x) = 2*(1+(1+2*x))
@@ -64,13 +66,13 @@ recursive dub(UInt) -> UInt {
     // because 2*(1+2x) = 2*(1+2x)
 }
 
-recursive inc(UInt) -> UInt {
+private recursive inc(UInt) -> UInt {
   inc(bzero) = inc_dub(bzero)
   inc(dub_inc(x)) = inc_dub(inc(x))
   inc(inc_dub(x)) = dub_inc(x)
 }
 
-fun pred(x:UInt) {
+private fun pred(x:UInt) {
   switch x {
     case bzero { bzero }
     case dub_inc(x') { inc_dub(x') }
@@ -154,7 +156,7 @@ recursive operator *(UInt, UInt) -> UInt {
 
 fun sqr(a : UInt) { a * a }
 
-recursive expt(UInt, UInt) -> UInt {
+private recursive expt(UInt, UInt) -> UInt {
   expt(bzero, a) = inc_dub(bzero)
   expt(dub_inc(p), a) = sqr(a * expt(p, a))  // a^(2*(1+p)) = a^2 * (a^p)^2 = (a * a^p)^2
   expt(inc_dub(p), a) = a * sqr(expt(p, a))  // a^(1+2*p) = a * (a^p)^2
@@ -164,7 +166,7 @@ fun operator ^(a : UInt, b : UInt)  {
   expt(b, a)
 }
 
-recursive fromNat(Nat) -> UInt {
+opaque recursive fromNat(Nat) -> UInt {
   fromNat(0) = bzero
   fromNat(suc(n)) = inc(fromNat(n))
 }

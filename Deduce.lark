@@ -300,6 +300,8 @@ ident: IDENT              -> ident
 
 ?auto_decl: "auto" proof_hi -> auto_decl
 
+?module_decl: "module" ident  -> module_decl
+
 ?statement: union
  | rec_function
  | function
@@ -311,6 +313,7 @@ ident: IDENT              -> ident
  | assert
  | print
  | theorem
+ | module_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

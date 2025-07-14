@@ -1,3 +1,5 @@
+module Nat
+
 import Option
 import Base
 

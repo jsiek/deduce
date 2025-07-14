@@ -1,3 +1,5 @@
+module MultiSet
+
 /*
   Represent multisets as function to Nat.
   */

@@ -1,5 +1,7 @@
 import UInt
 
+assert 1 + 2 + 3 = 3 + 2 + 1
+
 theorem T: all x:UInt. x + 3 + 4 = 5 + 2 + x
 proof
   arbitrary x:UInt
