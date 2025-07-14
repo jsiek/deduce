@@ -211,6 +211,7 @@ known_tokens = {
     'LSQB': 'operator',
     'MEASURE': 'keyword',
     'MINUS': 'operator',
+    'MODULE': 'keyword',
     'MORETHAN': 'operator',
     'NOT': 'keyword',
     'NAT': 'keyword',
