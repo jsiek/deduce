@@ -95,7 +95,7 @@ proof
         expand toNat
         //replace mult_commute[ℕ2]
         expand operator<
-        replace nat_suc_one_add[toNat(y') * ℕ2]
+        replace nat_suc_one_add[ℕ2 * toNat(y')]
         replace lit_suc_add2
         apply add_both_sides_of_less_equal[ℕ1] to IH4
         /*
@@ -200,8 +200,8 @@ proof
         expand operator<
         suffices toNat(x') < toNat(y') by IH[y']
         have sx_sy: ℕ1 + toNat(x') < ℕ1 + toNat(y') by {
-          apply pos_mult_right_cancel_less[ℕ2,ℕ1 + toNat(x'), ℕ1+ toNat(y')]
-          to evaluate, (replace mult_commute[ℕ2] in prem)
+          apply pos_mult_right_cancel_less[ℕ2,ℕ1 + toNat(x'), ℕ1+ toNat(y')] to
+          evaluate, (replace mult_commute[ℕ2] in prem)
         }
         apply add_both_sides_of_less[ℕ1, toNat(x'), toNat(y')] to sx_sy
       }

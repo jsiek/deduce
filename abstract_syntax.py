@@ -4540,6 +4540,9 @@ def try_rewrite(loc, formula, equation, env):
   matching = {}
   eq_vars = equation_vars(equation)
   formula_match(loc, eq_vars, lhs, formula, matching, Env())
+  # print('rewriting using: ' + str(equation) + '\n' \
+  #       + '\t' + str(formula) \
+  #       + '\t==> ' + str(rhs.substitute(matching)) + '\n')
   if get_verbose():
       print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
   return rhs.substitute(matching).reduce(env)

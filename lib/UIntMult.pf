@@ -31,14 +31,17 @@ proof
         expand toNat
         replace toNat_add | toNat_add
         replace IH[y']
-        replace nat_suc_one_add | dist_mult_add[(ℕ2 + ℕ2 * toNat(x')), ℕ2, ℕ2*toNat(y')]
-          | dist_mult_add_right[ℕ4, ℕ4*toNat(x'), toNat(y')].
+        replace nat_suc_one_add
+        replace dist_mult_add[(ℕ2 + ℕ2 * toNat(x')), ℕ2, ℕ2*toNat(y')]
+        replace mult_commute[toNat(x'), ℕ2]
+        replace dist_mult_add_right[ℕ4, ℕ4*toNat(x'), toNat(y')].
       }
       case inc_dub(y') {
         expand operator* | toNat
         replace toNat_add | toNat_dub | toNat_add
         replace IH[y']
         replace nat_suc_one_add | dist_mult_add[(ℕ2 + ℕ2 * toNat(x')), ℕ1, ℕ2*toNat(y')]
+        replace mult_commute[toNat(x'), ℕ2]
           | dist_mult_add_right[ℕ4, ℕ4*toNat(x'), toNat(y')].
       }
     }
@@ -56,6 +59,7 @@ proof
         replace toNat_add | toNat_add | toNat_dub
         replace IH[y']
         replace dist_mult_add[ℕ2 * toNat(x'), ℕ2, ℕ2 * toNat(y')]
+        replace mult_commute[toNat(x'), ℕ2]
         replace add_commute[ℕ4 * toNat(x'), ℕ2 * toNat(y')].
       }
       case inc_dub(y') {
@@ -64,6 +68,7 @@ proof
         replace IH[y']
         replace nat_suc_one_add | nat_suc_one_add
         replace dist_mult_add[ℕ2 * toNat(x'), ℕ1, ℕ2 * toNat(y')]
+        replace mult_commute[toNat(x'), ℕ2]
         replace add_commute[ℕ2 * toNat(x'), ℕ2 * toNat(y')].
       }
     }
@@ -89,3 +94,14 @@ end
 
 associative operator* in UInt
 
+postulate fromNat_mult: all x:Nat, y:Nat. (fromNat(x * y) = fromNat(x) * fromNat(y))
+  
+theorem lit_mult_fromNat: all x:Nat, y:Nat.
+  fromNat(lit(x)) * fromNat(lit(y)) = fromNat(lit(x) * lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  symmetric 
+  fromNat_mult[lit(x), lit(y)]
+end
+
+auto lit_mult_fromNat

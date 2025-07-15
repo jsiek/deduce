@@ -122,8 +122,8 @@ Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 ```{.deduce^#and_example_intro}
 theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
 proof
-  have eq1: 1 = 0 + 1 by evaluate
-  have eq2: 0 = 0 + 0 by evaluate
+  have eq1: 1 = 0 + 1 by .
+  have eq2: 0 = 0 + 0 by .
   conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
 end
 ```
@@ -381,7 +381,7 @@ Example:
 theorem choose_example: some x:UInt. 6 = 2 * x
 proof
   choose 3
-  conclude 6 = 2 * 3   by evaluate
+  conclude 6 = 2 * 3   by .
 end
 ```
 
@@ -1343,7 +1343,7 @@ proof
   $ 1 + 1 + #x# = 1 + 1 + 1   by replace recall x = 1.
             ... = 1 + #x# + 1 by replace recall x = 1.
             ... = 1 + 1 + 1   by replace recall x = 1.
-            ... = 3           by evaluate
+            ... = 3           by .
 end
 ```
 
@@ -1462,7 +1462,7 @@ proof
   choose 2 * x
   equations
      n = 4 * x          by m4
-   ... = (2 * 2) * x    by evaluate
+   ... = (2 * 2) * x    by .
    ... = 2 * 2 * x      by mult_assoc
 end
 ```

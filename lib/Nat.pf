@@ -3956,6 +3956,8 @@ proof
   dist_mult_add_right
 end
 
+auto lit_dist_mult_add_right
+
 theorem mult_two: all n:Nat.
   n + n = lit(suc(suc(zero))) * n
 proof
@@ -3983,15 +3985,18 @@ proof
   suc_one_add
 end
 
-theorem lit_mult_commute: all n:Nat, m:Nat.
-  n * lit(m) = lit(m) * n
-proof
-  arbitrary n:Nat, m:Nat
-  expand lit
-  mult_commute
-end
+// The following causes infinite loop for
+// lit(x) * lit(y)
 
-auto lit_mult_commute
+// theorem lit_mult_commute: all n:Nat, m:Nat.
+//   n * lit(m) = lit(m) * n
+// proof
+//   arbitrary n:Nat, m:Nat
+//   expand lit
+//   mult_commute
+// end
+
+// auto lit_mult_commute
 
 theorem lit_add_suc: all n:Nat, m:Nat.
   lit(n) + suc(m) = lit(suc(n)) + m
@@ -4222,3 +4227,10 @@ end
 
 auto less_zero_false
   
+theorem zero_less_equal_true: all x:Nat. (zero ≤ x) = true
+proof
+  arbitrary x:Nat
+  expand operator≤.
+end
+
+auto zero_less_equal_true

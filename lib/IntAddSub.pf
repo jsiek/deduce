@@ -333,7 +333,7 @@ proof
   }
 end
 
-lemma suc_uint_monuso: all x:UInt, y:UInt. (1 + x) ⊝ (1 + y) = x ⊝ y
+theorem suc_uint_monuso: all x:UInt, y:UInt. (1 + x) ⊝ (1 + y) = x ⊝ y
 proof
   arbitrary x:UInt, y:UInt
   switch x < y for operator ⊝{

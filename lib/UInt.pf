@@ -537,6 +537,10 @@ end
 
 auto uint_monus_cancel
 
+postulate uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (x ≤ y)
+
+auto uint_lit_less_equal
+
 postulate uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (x < y)
 
 auto uint_lit_less

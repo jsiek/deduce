@@ -1,6 +1,6 @@
 module Int
 
-import UInt
+public import UInt
 import Base
 
 public import IntDefs
@@ -104,3 +104,178 @@ proof
     }
   }
 end
+
+theorem lit_add_pos_pos: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) + pos(fromNat(lit(y))) = pos(fromNat(lit(x) + lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+.
+end
+
+auto lit_add_pos_pos
+
+theorem lit_add_pos_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) + fromNat(lit(y)) = pos(fromNat(lit(x) + lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+.
+end
+
+auto lit_add_pos_lit
+
+theorem lit_add_lit_pos: all x:Nat, y:Nat.
+  fromNat(lit(x)) + pos(fromNat(lit(y))) = pos(fromNat(lit(x) + lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+.
+end
+
+auto lit_add_lit_pos
+
+postulate lit_add_pos_negsuc_suc: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(suc(x)))) = pos(fromNat(lit(y))) + negsuc(fromNat(lit(x)))
+
+auto lit_add_pos_negsuc_suc
+
+postulate lit_add_negsuc_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(suc(x)))) + pos(fromNat(lit(suc(y)))) = negsuc(fromNat(lit(x))) + pos(fromNat(lit(y)))
+
+auto lit_add_negsuc_pos_suc
+
+postulate lit_add_pos_suc_negsuc_zero: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(zero))) = pos(fromNat(lit(y)))
+
+auto lit_add_pos_suc_negsuc_zero
+
+postulate lit_add_negsuc_zero_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(zero))) + pos(fromNat(lit(suc(y)))) = pos(fromNat(lit(y)))
+
+auto lit_add_negsuc_zero_pos_suc
+
+theorem neg_lit_zero: - pos(fromNat(lit(zero))) = pos(fromNat(lit(zero)))
+proof
+  expand operator-.
+end
+
+auto neg_lit_zero
+
+theorem neg_uint_zero: - fromNat(lit(zero)) = pos(fromNat(lit(zero)))
+proof
+  expand operator-.
+end
+
+auto neg_uint_zero
+
+theorem neg_pos_lit_suc: all x:Nat.
+  - pos(fromNat(lit(suc(x)))) = negsuc(fromNat(lit(x)))
+proof
+  arbitrary x:Nat
+  expand operator-.
+end
+
+auto neg_pos_lit_suc
+
+theorem neg_lit_suc: all x:Nat.
+  - fromNat(lit(suc(x))) = negsuc(fromNat(lit(x)))
+proof
+  arbitrary x:Nat
+  expand operator-.
+end
+
+auto neg_lit_suc
+
+theorem neg_negsuc_lit: all x:Nat.
+  - negsuc(fromNat(lit(x))) = pos(fromNat(lit(suc(x))))
+proof
+  arbitrary x:Nat
+  expand operator-.
+end
+
+auto neg_negsuc_lit
+
+theorem abs_lit: all x:Nat. abs(pos(fromNat(lit(x)))) = fromNat(lit(x))
+proof
+  arbitrary x:Nat
+  evaluate
+end
+
+auto abs_lit
+
+theorem sign_pos_lit: all x:Nat. sign(pos(fromNat(lit(x)))) = positive
+proof
+  arbitrary x:Nat
+  evaluate
+end
+
+auto sign_pos_lit
+
+theorem sign_neg_lit: all x:Nat. sign(negsuc(fromNat(lit(x)))) = negative
+proof
+  arbitrary x:Nat
+  evaluate
+end
+
+auto sign_neg_lit
+
+theorem mult_pos_lit_pos_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) * pos(fromNat(lit(y))) = pos(fromNat(lit(x) * lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace mult_pos_pos.
+end
+
+auto mult_pos_lit_pos_lit
+
+theorem mult_lit_pos_lit: all x:Nat, y:Nat.
+  fromNat(lit(x)) * pos(fromNat(lit(y))) = pos(fromNat(lit(x) * lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator*.
+end
+
+auto mult_lit_pos_lit
+
+theorem mult_pos_lit_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) * fromNat(lit(y)) = pos(fromNat(lit(x) * lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator*.
+end
+
+auto mult_pos_lit_lit
+
+theorem mult_pos_lit_neg_lit: all x:Nat, y:Nat.
+  pos(fromNat(lit(x))) * negsuc(fromNat(lit(y)))
+  = - pos(fromNat(lit(x)) + fromNat(lit(x)) * fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace mult_pos_negsuc.
+end
+
+auto mult_pos_lit_neg_lit
+
+theorem mult_lit_neg_lit: all x:Nat, y:Nat.
+  fromNat(lit(x)) * negsuc(fromNat(lit(y)))
+  = - pos(fromNat(lit(x)) + fromNat(lit(x)) * fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator*.
+end
+
+auto mult_lit_neg_lit
+
+theorem mult_neg_lit_pos: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) * pos(fromNat(lit(y)))
+  = - pos(fromNat(lit(y)) + fromNat(lit(y)) * fromNat(lit(x)))
+proof
+  arbitrary x:Nat, y:Nat
+  replace int_mult_commute[negsuc(fromNat(lit(x))), pos(fromNat(lit(y)))].
+end
+
+auto mult_neg_lit_pos
+
+theorem mult_neg_lit_lit: all x:Nat, y:Nat.
+  negsuc(fromNat(lit(x))) * fromNat(lit(y))
+  = - pos(fromNat(lit(y)) + fromNat(lit(y)) * fromNat(lit(x)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator*.
+end
+
+auto mult_neg_lit_lit

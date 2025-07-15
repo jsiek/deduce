@@ -231,3 +231,7 @@ proof
   replace toNat_monus | toNat_add
   add_both_monus
 end
+
+postulate lit_monus_fromNat: all x:Nat, y:Nat. fromNat(lit(x)) ∸ fromNat(lit(y)) = fromNat(lit(x) ∸ lit(y))
+
+auto lit_monus_fromNat

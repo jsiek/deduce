@@ -699,8 +699,8 @@ using the comma operator to combine those proofs: `one_pos, two_pos`.
 ```{.deduce^#pos_1_and_2}
 theorem pos_1_and_2: 0 ≤ 1 and 0 ≤ 2
 proof
-  have one_pos: 0 ≤ 1 by evaluate
-  have two_pos: 0 ≤ 2 by evaluate
+  have one_pos: 0 ≤ 1 by .
+  have two_pos: 0 ≤ 2 by .
   conclude 0 ≤ 1 and 0 ≤ 2 by one_pos, two_pos
 end
 ```
