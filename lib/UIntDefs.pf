@@ -7,7 +7,7 @@ import Nat
 // standard library. The representation is not the standard one, but
 // it is easier to work with.
 
-union UInt {
+opaque union UInt {
   bzero         // 0
   dub_inc(UInt) // 2(1 + x)
   inc_dub(UInt) // 1 + 2x

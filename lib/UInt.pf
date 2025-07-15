@@ -1,7 +1,7 @@
 module UInt
 
 import Base
-import Nat
+public import Nat
 public import UIntDefs
 public import UIntToFrom
 public import UIntLess
@@ -20,10 +20,10 @@ proof
 end
 
 lemma inc_one_add: all b:UInt.
-  inc(b) = 1 + b
+  inc(b) = inc_dub(bzero) + b
 proof
   arbitrary b:UInt
-  suffices toNat(inc(b)) = toNat(1 + b) by toNat_injective
+  suffices toNat(inc(b)) = toNat(inc_dub(bzero) + b) by toNat_injective
   replace toNat_inc | toNat_add
   expand 2*toNat
   show suc(toNat(b)) = suc(ℕ2 * ℕ0) + toNat(b)
@@ -43,8 +43,7 @@ proof
     replace nz
 
     suffices __ by evaluate
-    conjunct 0 of base_IH
-
+    expand lit | fromNat in conjunct 0 of base_IH
   }
   case suc(k') assume IH {
     arbitrary n:UInt
@@ -56,7 +55,7 @@ proof
     have: P(pred(n)) by apply (apply IH[pred(n)] to eq1) to base_IH
     have eq2: P(1 + pred(n))
       by apply (conjunct 1 of base_IH)[pred(n)] to recall P(pred(n))
-    have eq3: 1 + pred(n) = n by replace eq1 | n_ik | inc_one_add.
+    have eq3: 1 + pred(n) = n by expand lit | 2*fromNat replace eq1 | n_ik | inc_one_add.
     conclude P(n) by replace eq3 in eq2
   }
 end
@@ -68,15 +67,6 @@ proof
   assume prem
   have eq: n = fromNat(toNat(n)) by replace from_toNat.
   apply (apply uint_ind[P, toNat(n), n] to eq) to prem
-end
-
-theorem fromNat_add: all x:Nat, y:Nat.
-  fromNat(x + y) = fromNat(x) + fromNat(y)
-proof
-  arbitrary x:Nat, y:Nat
-  suffices toNat(fromNat(x + y)) = toNat(fromNat(x) + fromNat(y))
-    by toNat_injective
-  replace toNat_add | to_fromNat.
 end
 
 theorem less_fromNat: all x:Nat, y:Nat.
@@ -225,7 +215,7 @@ proof
   assume prem
   switch n {
     case bzero assume nz {
-      conclude false by replace nz in prem
+      conclude false by expand lit | fromNat in replace nz in prem
     }
     case dub_inc(n') {
       evaluate
@@ -263,7 +253,11 @@ terminates {
     replace apply uint_monus_add_identity[n,m] to m_n.
   }
   have m_pos: 0 < m by apply uint_not_zero_pos to conjunct 1 of cond
-  conclude n < m + n by replace uint_add_commute in apply uint_less_add_pos[n, m] to m_pos
+  conclude n < m + n by {
+    replace uint_add_commute in
+    apply uint_less_add_pos[n, m]
+    to expand lit | fromNat in m_pos
+  }
 }
 
 fun operator % (n:UInt, m:UInt) {
@@ -289,14 +283,17 @@ theorem uint_positive_add_one: all n:UInt.
 proof
   arbitrary n:UInt
   assume n_pos
-  have pos_n: ℕ0 < toNat(n) by expand toNat in apply toNat_less to n_pos
+  have pos_n: ℕ0 < toNat(n) by expand lit | fromNat | toNat in apply toNat_less to n_pos
   obtain x where eq: toNat(n) = ℕ1 + x
     from apply nat_positive_suc[toNat(n)] to pos_n
   have eq2: fromNat(toNat(n)) = fromNat(ℕ1 + x) by replace eq.
   have eq3: n = fromNat(ℕ1) + fromNat(x)
     by { replace from_toNat | fromNat_add in eq2 }
   choose fromNat(x)
-  conclude n = 1 + fromNat(x) by expand lit | 2*fromNat | inc in eq3
+  conclude n = 1 + fromNat(x) by {
+    expand lit | 2*fromNat | inc
+    expand lit | 2*fromNat | inc in eq3
+  }
 end
 
 theorem uint_zero_or_add_one: all x:UInt. x = 0 or (some x':UInt. x = 1 + x')
@@ -377,7 +374,7 @@ proof
   arbitrary n:UInt
   suffices toNat(1 * n) = toNat(n) by toNat_injective
   replace toNat_mult
-  expand 2*toNat.
+  evaluate
 end
 
 auto uint_one_mult
@@ -388,7 +385,7 @@ proof
   arbitrary n:UInt
   suffices toNat(n * 1) = toNat(n) by toNat_injective
   replace toNat_mult
-  expand 2*toNat.
+  evaluate
 end
 
 auto uint_mult_one
@@ -472,4 +469,91 @@ postulate uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x �
 
 postulate uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
 
+theorem uint_zero_less_one_add: all n:UInt.
+  0 < 1 + n
+proof
+  expand lit | 2*fromNat | inc
+  uint_bzero_less_one_add
+end
 
+theorem uint_zero_le: all x:UInt.
+  0 ≤ x
+proof
+  expand lit | fromNat
+  uint_bzero_le
+end
+
+theorem uint_le_zero: all x:UInt.
+  if x ≤ 0 then x = 0
+proof
+  expand lit | fromNat
+  uint_le_bzero
+end
+
+theorem uint_monus_zero: all n:UInt. n ∸ 0 = n
+proof
+  expand lit | fromNat
+  uint_monus_bzero
+end
+
+auto uint_monus_zero
+
+theorem uint_zero_add: all x:UInt.
+  0 + x = x
+proof
+  expand lit | fromNat
+  uint_bzero_add
+end
+
+auto uint_zero_add
+
+theorem uint_add_zero: all x:UInt.
+  x + 0 = x
+proof
+  expand lit | fromNat
+  uint_add_bzero
+end
+  
+auto uint_add_zero
+
+theorem uint_equal: all x:Nat, y:Nat.
+  (fromNat(lit(x)) = fromNat(lit(y))) = (x = y)
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  suffices (fromNat(x) = fromNat(y)) ⇔ (x = y) by iff_equal
+  have fwd: if fromNat(x) = fromNat(y) then x = y by fromNat_injective
+  have bkwd: if x = y then fromNat(x) = fromNat(y) by assume eq replace eq.
+  fwd , bkwd
+end
+
+auto uint_equal
+
+theorem uint_monus_cancel: all n:UInt. n ∸ n = 0
+proof
+  expand lit | fromNat
+  uint_monus_cancel_bzero
+end
+
+auto uint_monus_cancel
+
+postulate uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (x < y)
+
+auto uint_lit_less
+
+theorem uint_zero_less_one_add_true: all n:UInt. (0 < 1 + n) = true
+proof
+  arbitrary n:UInt
+  apply eq_true to uint_zero_less_one_add[n]
+end
+
+auto uint_zero_less_one_add_true
+
+theorem uint_add_to_zero: all n:UInt, m:UInt.
+  if n + m = 0
+  then n = 0 and m = 0
+proof
+  expand lit | fromNat
+  uint_add_to_bzero
+end
+  

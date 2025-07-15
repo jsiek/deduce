@@ -1,7 +1,8 @@
 import UInt
 
-theorem T: 2 ≤ 1 + 1
+theorem T: all P:bool, Q:bool. if P and (if P then Q) then Q
 proof
-  have X: 2 = 1 + 1 by evaluate
-  uint_equal_implies_less_equal[2, 1+1], X
+  arbitrary P:bool, Q:bool
+  assume P_PQ
+  P_PQ
 end

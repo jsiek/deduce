@@ -1,6 +1,5 @@
-import UInt
-
-theorem T: 1 + 2 + 3 = 2 + 2 + 1
+theorem T: all P:bool, Q:bool. P = Q
 proof
+  arbitrary P:bool, Q:bool
   evaluate
 end

@@ -384,8 +384,8 @@ proof
   }
 end
 
-theorem uint_zero_le: all x:UInt.
-  0 ≤ x
+theorem uint_bzero_le: all x:UInt.
+  bzero ≤ x
 proof
   arbitrary x:UInt
   expand operator≤
@@ -396,8 +396,8 @@ proof
   }
 end
 
-theorem uint_le_zero: all x:UInt.
-  if x ≤ 0 then x = 0
+theorem uint_le_bzero: all x:UInt.
+  if x ≤ bzero then x = bzero
 proof
   arbitrary x:UInt
   expand operator≤
@@ -407,3 +407,4 @@ proof
     case inc_dub(x') { evaluate }
   }
 end
+

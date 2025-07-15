@@ -4214,3 +4214,11 @@ proof
   summation_suc_add
 end
 
+theorem less_zero_false: all x:Nat. (x < zero) = false
+proof
+  arbitrary x:Nat
+  apply eq_false to not_less_zero[x]
+end
+
+auto less_zero_false
+  

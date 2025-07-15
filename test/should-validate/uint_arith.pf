@@ -7,7 +7,7 @@ proof
   arbitrary x:UInt
   equations
       x + 3 + 4
-        = x + 7 by evaluate
-    ... = 7 + x by uint_add_commute
-    ... = 5 + 2 + x by evaluate
+        = x + 7 by .
+    ... = 7 + x by uint_add_commute[x, 7]
+    ... = 5 + 2 + x by .
 end

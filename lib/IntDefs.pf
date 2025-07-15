@@ -1,0 +1,157 @@
+module Int
+
+import UInt
+import Base
+
+/*
+
+ This mechanization of integer arithmetic is adapted from the Integer
+ module in the Agda standard library.
+
+*/
+
+union Int {
+    pos(UInt)    // pos(n) = +n
+    negsuc(UInt) // negsuc(n) = -(1+n) 
+}
+
+// Absolute value
+
+fun abs(x : Int) {
+  switch x {
+    case pos(n) { n }
+    case negsuc(n) { 1 + n }
+  }
+}
+
+// Signs and operations on them
+
+union Sign {
+  positive
+  negative
+}
+
+fun sign(n : Int) {
+  switch n {
+    case pos(n') { positive }
+    case negsuc(n') { negative }
+  }
+}
+
+private fun flip(s : Sign) {
+  switch s {
+    case positive { negative }
+    case negative { positive }
+  }
+}
+
+fun operator*(s1 : Sign, s2 : Sign) {
+  switch s1 {
+    case positive { s2 }
+    case negative { flip(s2) }
+  }
+}
+
+// Negation
+
+fun operator -(x : Int) {
+  switch x {
+    case pos(n) {
+      if n = 0 then pos(0)
+      else negsuc(n ∸ 1)
+    }
+    case negsuc(n){ pos(1 + n) }
+  }
+}
+
+fun operator -(n:UInt) {
+  - pos(n)
+}
+
+fun operator*(s : Sign, n : Int) {
+  switch s {
+    case positive { n }
+    case negative { -n }
+  }
+}
+
+fun operator*(s : Sign, n : UInt) { s * pos(n) }
+
+
+// Subtraction of unsigned integers, producing integer
+
+fun operator ⊝(x:UInt, y:UInt) {
+  if x < y then
+    -(y ∸ x)
+  else
+    pos(x ∸ y)
+}
+  
+// Addition
+  
+fun operator +(x : Int, m :Int) {
+  switch x {
+    case pos(n) {
+      switch m {
+        case pos(n') { pos(n + n') }
+        case negsuc(n') { n ⊝ (1 + n') } 
+      }
+    }
+    case negsuc(n) { 
+      switch m {
+        case pos(n') { n' ⊝ (1 + n) }
+        case negsuc(n') { negsuc(1 + n + n') }
+      }
+    }
+  }
+}
+fun operator + (n:UInt, m:Int) { pos(n) + m }
+fun operator + (n:Int, m:UInt) { n + pos(m) }
+
+// Subtraction
+
+fun operator - (n:Int, m:Int) { n + (- m) }
+fun operator - (n:UInt, m:Int) { pos(n) - m }
+fun operator - (n:Int, m:UInt) { n - pos(m) }
+fun operator -(x:UInt, y:UInt) { pos(x) - pos(y) }
+
+// Multiplication
+
+fun operator *(x : Int, y : Int) {
+  (sign(x) * sign(y)) * (abs(x) * abs(y))
+}
+
+fun operator * (n:UInt, m:Int) { pos(n) * m }
+
+fun operator * (n:Int, m:UInt) { n * pos(m) }
+
+// Division
+
+fun operator / (n:Int, m:Int) {
+  (sign(n) * sign(m)) * (abs(n) / abs(m))
+}
+
+fun operator / (n:Int, m:UInt) {
+  sign(n) * (abs(n) / m)
+}
+
+
+// Less Than
+
+fun operator ≤(a : Int, y : Int) {
+  switch a {
+    case pos(x) {
+      switch y {
+        case pos(y') {     x ≤ y' }
+        case negsuc(y') {  false  }
+      }
+    }
+    case negsuc(x) {
+      switch y {
+        case pos(y') {     true   }
+        case negsuc(y') {  y' ≤ x }
+      }
+    }
+  }
+}
+

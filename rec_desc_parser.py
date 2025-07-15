@@ -171,7 +171,7 @@ def parse_term_hi():
 
   elif token.type == 'INT' or token.value == '0':
     advance()
-    return intToUInt(meta_from_tokens(token,token), int(token.value))
+    return mkUIntLit(meta_from_tokens(token,token), int(token.value))
 
   elif token.type == 'NAT' or token.value == '0':
     advance()
@@ -184,8 +184,8 @@ def parse_term_hi():
     intToken = current_token()
     if intToken.type == 'INT' or intToken.value == '0':
       advance()
-      return intToDeduceInt(meta_from_tokens(intToken,intToken),
-                             int(intToken.value), token.type)
+      return mkIntLit(meta_from_tokens(intToken,intToken),
+                      int(intToken.value), token.type)
     else: 
       raise ParseError(meta_from_tokens(current_token(),current_token()),
             'expected an integer not\n\t' + current_token().value)

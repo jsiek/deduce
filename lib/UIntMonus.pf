@@ -8,10 +8,10 @@ public import UIntLess
 public import UIntAdd
 public import UIntMult
 
-lemma two: ℕ1 + ℕ1 = ℕ2
-proof
-  evaluate
-end
+// lemma two: ℕ1 + ℕ1 = ℕ2
+// proof
+//   evaluate
+// end
 
 lemma inc_dub_monus_dub_inc_less: all x:UInt, y:UInt.
   if x < y
@@ -160,13 +160,13 @@ proof
   }
 end
 
-theorem uint_zero_monus: all x:UInt. 0 ∸ x = 0
+theorem uint_bzero_monus: all x:UInt. bzero ∸ x = bzero
 proof
   arbitrary x:UInt
   expand operator∸.
 end
 
-theorem uint_monus_zero: all n:UInt. n ∸ 0 = n
+theorem uint_monus_bzero: all n:UInt. n ∸ bzero = n
 proof
   arbitrary n:UInt
   have X: toNat(n ∸ bzero) = toNat(n) by {
@@ -177,7 +177,7 @@ proof
   conclude n ∸ bzero = n by apply toNat_injective to X
 end
 
-theorem uint_monus_cancel: all n:UInt. n ∸ n = 0
+theorem uint_monus_cancel_bzero: all n:UInt. n ∸ n = bzero
 proof
   arbitrary n:UInt
   have X: toNat(n ∸ n) = toNat(bzero) by {

@@ -2377,6 +2377,11 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             new_s = type_check_stmt(s, env, already_done_imports)
             ast3.append(new_s)
 
+          # TODO: do the following printing by default, but
+          #   add a flag --quiet to disable it for error testing.
+          # if name not in checked_modules and needs_checking[0]:
+          #     print('> checking ' + name)
+            
           for s in ast3:
             env = collect_env(s, env)
 

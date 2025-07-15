@@ -3,7 +3,7 @@ module UInt
 import Base
 import Nat
 public import UIntDefs
-public  import UIntToFrom
+public import UIntToFrom
 public import UIntLess
 
 theorem toNat_add: all x:UInt, y:UInt.
@@ -50,6 +50,24 @@ proof
   }
 end
 
+theorem fromNat_add: all x:Nat, y:Nat.
+  fromNat(x + y) = fromNat(x) + fromNat(y)
+proof
+  arbitrary x:Nat, y:Nat
+  suffices toNat(fromNat(x + y)) = toNat(fromNat(x) + fromNat(y))
+    by toNat_injective
+  replace toNat_add | to_fromNat.
+end
+
+theorem lit_add_fromNat: all x:Nat, y:Nat.
+  fromNat(lit(x)) + fromNat(lit(y)) = fromNat(lit(x) + lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  symmetric fromNat_add
+end
+
+auto lit_add_fromNat
+  
 theorem uint_add_commute: all x:UInt, y:UInt.
   x + y = y + x
 proof
@@ -83,8 +101,8 @@ proof
   .
 end
 
-theorem uint_zero_add: all x:UInt.
-  0 + x = x
+lemma uint_bzero_add: all x:UInt.
+  bzero + x = x
 proof
   arbitrary x:UInt
   suffices toNat(bzero + x) = toNat(x) by toNat_injective
@@ -94,10 +112,10 @@ proof
   ... = toNat(x)                   by expand toNat evaluate
 end
 
-auto uint_zero_add
+auto uint_bzero_add
 
-theorem uint_add_zero: all x:UInt.
-  x + 0 = x
+lemma uint_add_bzero: all x:UInt.
+  x + bzero = x
 proof
   arbitrary x:UInt
   suffices toNat(x + bzero) = toNat(x) by toNat_injective
@@ -107,15 +125,15 @@ proof
   ... = toNat(x)                   by { expand toNat evaluate } // bug?
 end
 
-auto uint_add_zero
+auto uint_add_bzero
 
-theorem uint_zero_less_one_add: all n:UInt.
-  0 < 1 + n
+theorem uint_bzero_less_one_add: all n:UInt.
+  bzero < inc_dub(bzero) + n
 proof
   arbitrary n:UInt
-  suffices toNat(0) < toNat(1 + n) by less_toNat
+  suffices toNat(bzero) < toNat(inc_dub(bzero) + n) by less_toNat
   replace toNat_add
-  conclude toNat(0) < toNat(1) + toNat(n) by {
+  conclude toNat(bzero) < toNat(inc_dub(bzero)) + toNat(n) by {
     expand 2*toNat
     nat_zero_less_one_add[toNat(n)]
   }
@@ -141,9 +159,9 @@ proof
   fwd, bkwd
 end
 
-theorem uint_add_to_zero: all n:UInt, m:UInt.
-  if n + m = 0
-  then n = 0 and m = 0
+theorem uint_add_to_bzero: all n:UInt, m:UInt.
+  if n + m = bzero
+  then n = bzero and m = bzero
 proof
   arbitrary n:UInt, m:UInt
   assume prem
@@ -167,7 +185,7 @@ proof
 end
 
 theorem uint_less_add_pos: all x:UInt, y:UInt.
-  if 0 < y
+  if bzero < y
   then x < x + y
 proof
   arbitrary x:UInt, y:UInt

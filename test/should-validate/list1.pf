@@ -1,5 +1,4 @@
 import UInt
-import Nat
 import List
 
 recursive length2<E>(List<E>) -> UInt {

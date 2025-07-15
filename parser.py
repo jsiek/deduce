@@ -270,12 +270,13 @@ def parse_tree_to_ast(e, parent):
                            parse_tree_to_ast(e.children[1], e),
                            parse_tree_to_ast(e.children[2], e))
     elif e.data == 'int':
-        return intToUInt(e.meta, int(e.children[0]))
+        num = int(e.children[0])
+        return mkUIntLit(e.meta, num)
     elif e.data == 'nat':
         return Call(e.meta, None, Var(e.meta, None, 'lit', None),
                     [intToNat(e.meta, int(e.children[0][1:]))])
     elif e.data == 'pos_int':
-        return intToDeduceInt(e.meta, int(e.children[0].value), 'PLUS')
+        return mkIntLit(e.meta, int(e.children[0].value), 'PLUS')
     elif e.data == 'neg_int':
         arg = parse_tree_to_ast(e.children[0], e)
         return Call(e.meta, None, Var(e.meta, None, '-'), [arg])

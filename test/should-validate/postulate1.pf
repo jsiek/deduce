@@ -5,8 +5,7 @@ postulate triple : all x:UInt. 3*x = x + x + x
 theorem quad: all x:UInt. 4*x = x + x + x + x
 proof
   arbitrary x:UInt
-  have A: 4 = 1 + 3 by evaluate
-  replace A
-  replace uint_dist_mult_add_right
-  replace triple.
+  equations
+      4*x = 3*x + x         by replace uint_dist_mult_add_right[3, 1, x].
+      ... = x + x + x + x   by replace triple.
 end

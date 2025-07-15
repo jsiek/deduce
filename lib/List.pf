@@ -156,15 +156,17 @@ proof
   induction List<U>
   case [] {
     arbitrary ys:List<U>
-    conclude length(@[]<U> ++ ys) = length(@[]<U>) + length(ys)  by evaluate
+    conclude length(@[]<U> ++ ys) = length(@[]<U>) + length(ys)  by {
+      expand operator++ | length.
+    }
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>
     equations
       length(node(n,xs') ++ ys)
-          = 1 + length(xs' ++ ys)              by evaluate
+          = 1 + length(xs' ++ ys)              by expand operator++ | length.
       ... = 1 + (length(xs') + length(ys))     by replace IH[ys].
-      ... = length(node(n,xs')) + length(ys)   by evaluate
+      ... = #length(node(n,xs'))# + length(ys) by expand length.
   }
 end
 
@@ -191,7 +193,7 @@ proof
   arbitrary U :type
   induction List<U>
   case empty {
-    evaluate
+    expand operator++.
   }
   case node(n, xs') suppose IH {
     arbitrary ys :List<U>, zs :List<U>
@@ -237,7 +239,7 @@ proof
       ... = length(reverse(xs')) + length(node(n,empty))
                     by replace length_append<U>[reverse(xs')][node(n,empty)].
       ... = length(xs') + length(node(n,empty))   by replace IH.
-      ... = length(xs') + 1                       by evaluate
+      ... = length(xs') + 1                       by expand 2*length.
       ... = 1 + length(xs')                       by uint_add_commute
       ... = # length(node(n,xs')) #               by expand length.
   }
@@ -335,13 +337,14 @@ proof
   arbitrary T:type, U:type, V:type
   arbitrary f:fn T->U, g:fn U->V
   induction List<T>
-  case empty { evaluate }
+  case empty { expand map. }
   case node(x, ls) suppose IH {
     equations
       map(map(node(x,ls),f),g)
-    = node(g(f(x)), map(map(ls, f), g))        by evaluate
-      ... = node(g(f(x)), map(ls, g ∘ f))      by replace IH.
-      ... = map(node(x,ls), g .o. f)           by evaluate
+        = node(g(f(x)), map(map(ls, f), g))     by expand map.
+    ... = node(#g ∘ f#(x), map(map(ls, f), g))  by expand operator ∘.
+    ... = node((g ∘ f)(x), map(ls, g ∘ f))      by replace IH.
+    ... = #map(node(x,ls), g .o. f)#            by expand map.
   }
 end
 
@@ -573,7 +576,7 @@ proof
   case empty {
     arbitrary n:UInt
     assume prem
-    suffices n = 0 by evaluate
+    suffices n = 0 by expand drop | length.
     apply uint_zero_le_zero[n] to expand length in prem
   }
   case node(x, xs') assume IH: all n:UInt. (if n ≤ length(xs') then length(drop(xs', n)) + n = length(xs')) {
@@ -751,7 +754,7 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>, i:UInt
-    evaluate
+    expand operator++ | length.
   }
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:UInt
@@ -840,7 +843,6 @@ proof
     arbitrary R:List<E>
     suppose pos_len
     conclude false  by {
-      apply uint_not_less_zero to
       expand length in pos_len
     }
   }
@@ -864,14 +866,13 @@ proof
     arbitrary R:List<E>
     suppose pos_len
     conclude false by {
-      apply uint_not_less_zero to
       expand length in pos_len
     }
   }
   case node(x, xs') suppose IH {
     arbitrary R:List<E>
     suppose pos_len
-    evaluate
+    expand operator++ | tail.
   }
 end
 

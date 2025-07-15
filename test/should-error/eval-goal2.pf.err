@@ -1,2 +1,2 @@
-./test/should-error/eval-goal2.pf:5.3-5.11: the goal did not evaluate to `true`, but instead:
-	false
+./test/should-error/eval-goal2.pf:4.3-4.11: the goal did not evaluate to `true`, but instead:
+	P = Q

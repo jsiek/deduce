@@ -748,9 +748,9 @@ class Var(Term):
       
       # if base_name(self.name) == 'zero' and not get_unique_names() and not get_verbose():
       #   return 'zero'
-      if base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
-        return '0'
-      elif base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
+      # if base_name(self.name) == 'bzero' and not get_unique_names() and not get_verbose():
+      #   return '0'
+      if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
       elif get_verbose():
         return name2str(self.name) + '{' + ','.join(self.resolved_names) + '}'
@@ -801,11 +801,11 @@ class Var(Term):
 
       import_advice = ''
 
-      if self.name == "suc" or self.name == "zero":
+      if self.name == "suc" or self.name == "zero" or self.name == "lit":
         import_advice = "\n\tAdd `import Nat` to supply a definition."
       elif self.name == "empty" or self.name == "node":
         import_advice = "\n\tAdd `import List` to supply a definition."
-      elif self.name == "bzero" or self.name == "dub_inc" or self.name == "inc_dub":
+      elif self.name == "bzero" or self.name == "dub_inc" or self.name == "inc_dub" or self.name == "fromNat":
         import_advice = "\n\tAdd `import UInt` to supply a definition."
 
       close_matches = []
@@ -1199,7 +1199,9 @@ class Call(Term):
       return 'ℕ' + str(natToInt(self))
     # elif isNat(self): # and not get_verbose():
     #   return '`' + str(natToInt(self))
-    elif isUInt(self): # and not get_verbose():
+    elif isLitUInt(self): # and not get_verbose():
+      return str(uintToInt(self))
+    elif isUInt(self) and not get_verbose():
       return str(uintToInt(self))
     elif isNodeList(self):
       return '[' + nodeListToString(self)[:-2] + ']'
@@ -2931,7 +2933,7 @@ class Theorem(Statement):
     self.name = new_name
     
   def collect_exports(self, export_env, import_visibility):
-    if not self.isLemma:
+    if not self.isLemma or import_visibility == 'public':
       export_env[base_name(self.name)] = [self.name]
     
 @dataclass
@@ -3503,6 +3505,9 @@ def isUInt(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
       if base_name(name) == 'dub_inc':
         return isUInt(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'fromNat':
+        return isNat(arg)
     case _:
       return False
 
@@ -3596,6 +3601,14 @@ def isLitNat(t):
       return isNat(arg)
     case _:
       return False
+
+def isLitUInt(t):
+  match t:
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+         if base_name(name) == 'fromNat':
+      return isLitNat(arg)
+    case _:
+      return False
   
 def isInt(t):
   match t:
@@ -3651,8 +3664,16 @@ def uintToInt(t):
     case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
       if base_name(name) == 'inc_dub':
       return 1 + 2 * uintToInt(arg)
+    case Call(loc, tyof1, Var(loc2, tyof2, name, rs), [arg]) \
+      if base_name(name) == 'fromNat':
+      return natToInt(arg)
     case _:
       raise Exception('uintToInt: not a uint ' + str(t))
+
+def mkUIntLit(loc, num):
+    return Call(loc, None, Var(loc, None, 'fromNat', None),
+                [Call(loc, None, Var(loc, None, 'lit', None),
+                      [intToNat(loc, num)])])
   
 def mkPos(loc, arg):
   return Call(loc, None, Var(loc, None, 'pos', []), [arg])
@@ -3660,11 +3681,12 @@ def mkPos(loc, arg):
 def mkNeg(loc, arg):
   return Call(loc, None, Var(loc, None, 'negsuc', []), [arg])
 
-def intToDeduceInt(loc, n, sign):
+# The following is used in the parser.
+def mkIntLit(loc, n, sign):
   if sign == 'PLUS':
-    return mkPos(loc, intToUInt(loc, n))
+    return mkPos(loc, mkUIntLit(loc, n))
   else:
-    return mkNeg(loc, intToUInt(loc, n - 1))
+    return mkNeg(loc, mkUIntLit(loc, n - 1))
 
 def isDeduceInt(t):
   match t:
