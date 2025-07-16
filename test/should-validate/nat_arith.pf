@@ -9,3 +9,32 @@ proof
     ... = ℕ7 + x by add_commute
     ... = ℕ5 + ℕ2 + x by evaluate
 end
+
+theorem zero_div: ℕ0 / ℕ2 = ℕ0
+proof
+  .
+end
+
+theorem div_cancel: ℕ2 / ℕ2 = ℕ1
+proof
+  .
+end
+
+theorem div_4_2: ℕ4 / ℕ2 = ℕ2
+proof
+  .
+end
+
+theorem div_4_2b: ℕ4 / ℕ2 = ℕ2
+proof
+  equations
+      ℕ4 / ℕ2 = (ℕ2 + ℕ2) / ℕ2     by .
+          ... = ℕ2 / ℕ2 + ℕ2 / ℕ2  by .
+          ... = ℕ2                  by .
+end
+
+theorem zero_greater: not (ℕ0 < ℕ0)
+proof
+  .
+end
+

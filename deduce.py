@@ -1,4 +1,4 @@
-from error import set_verbose, get_verbose, set_unique_names, get_unique_names
+from flags import *
 from proof_checker import check_deduce, uniquify_deduce, is_modified
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
 from signal import signal, SIGINT
@@ -127,6 +127,8 @@ if __name__ == "__main__":
             set_recursive_descent(True)
         elif argument == '--lalr':
             set_recursive_descent(False)
+        elif argument == '--quiet':
+            set_quiet_mode(True)
         elif argument == '--traceback':
             traceback_flag = True
         elif argument == '--recursive-directories' or argument == '-r':

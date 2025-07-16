@@ -201,7 +201,13 @@ proof
         suffices toNat(x') < toNat(y') by IH[y']
         have sx_sy: ℕ1 + toNat(x') < ℕ1 + toNat(y') by {
           apply pos_mult_right_cancel_less[ℕ2,ℕ1 + toNat(x'), ℕ1+ toNat(y')] to
-          evaluate, (replace mult_commute[ℕ2] in prem)
+          have A: ℕ0 < ℕ2 by .
+          have B: (ℕ1 + toNat(x')) * ℕ2 < (ℕ1 + toNat(y')) * ℕ2 by {
+            replace mult_commute[toNat(x'), ℕ2]
+            replace mult_commute[toNat(y'), ℕ2]
+            prem
+          }
+          A, B
         }
         apply add_both_sides_of_less[ℕ1, toNat(x'), toNat(y')] to sx_sy
       }
@@ -240,8 +246,10 @@ proof
           by replace nat_suc_one_add in expand operator< in A
         have C: ℕ2 * toNat(x') ≤ ℕ2 * toNat(y')
           by apply add_both_sides_of_less_equal to B
-        have D: toNat(x') ≤ toNat(y')
-          by apply pos_mult_left_cancel_less_equal[ℕ2, toNat(x'), toNat(y')] to evaluate, C
+        have D: toNat(x') ≤ toNat(y') by {
+          have z2: ℕ0 < ℕ2 by .
+          apply pos_mult_left_cancel_less_equal[ℕ2, toNat(x'), toNat(y')] to z2, C
+        }
         have E: toNat(x') < toNat(y') or toNat(x') = toNat(y')
           by apply less_equal_implies_less_or_equal to D
         cases E

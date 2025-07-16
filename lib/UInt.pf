@@ -537,11 +537,11 @@ end
 
 auto uint_monus_cancel
 
-postulate uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (x ≤ y)
+postulate uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (lit(x) ≤ lit(y))
 
 auto uint_lit_less_equal
 
-postulate uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (x < y)
+postulate uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (lit(x) < lit(y))
 
 auto uint_lit_less
 
@@ -561,3 +561,6 @@ proof
   uint_add_to_bzero
 end
   
+postulate uint_lit_div: all x:Nat, y:Nat. (fromNat(lit(x)) / fromNat(lit(y))) = fromNat(lit(x) / lit(y))
+
+auto uint_lit_div

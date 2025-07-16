@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Tuple, List, Optional, Set, Self
-from error import error, warning, set_verbose, get_verbose, get_unique_names, VerboseLevel, match_failed, MatchFailed
+from error import error, warning, match_failed, MatchFailed
+from flags import *
 from pathlib import Path
 from edit_distance import edit_distance
 from math import ceil
@@ -111,44 +112,6 @@ def generate_name(name: str) -> str:
 def base_name(name: str) -> str:
   ls = name.split('.')
   return ls[0]
-
-
-import_directories = set()
-
-
-def init_import_directories():
-  import_directories.add(".")
-  lib_config_path = Path(os.path.expanduser("~/.config/deduce/libraries"))
-  if lib_config_path.exists() and lib_config_path.is_file():
-    with open(lib_config_path, 'r') as lib_config_file:
-      for line in lib_config_file:
-        import_directories.add(line.strip())
-
-
-def get_import_directories():
-  global import_directories
-  if (get_verbose()):
-    print("import directories: ", import_directories)
-  return import_directories
-
-
-def add_import_directory(dir):
-  global import_directories
-  import_directories.add(dir)
-
-
-recursive_descent = True
-
-
-def get_recursive_descent():
-  global recursive_descent
-  return recursive_descent
-
-
-def set_recursive_descent(b):
-  global recursive_descent
-  recursive_descent = b
-
 
 def type_names(loc, names: List[str]):
   index = 0

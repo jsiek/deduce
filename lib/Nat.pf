@@ -4234,3 +4234,49 @@ proof
 end
 
 auto zero_less_equal_true
+
+postulate less_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) < lit(suc(y))) = (lit(x) < lit(y))
+auto less_lit_suc  
+
+postulate less_lit_zero_suc: all y:Nat. (lit(zero) < lit(suc(y))) = true
+auto less_lit_zero_suc
+
+postulate lit_zero_div: all x:Nat. lit(zero) / lit(suc(x)) = lit(zero)
+auto lit_zero_div
+
+postulate lit_div_cancel: all y:Nat. lit(suc(y)) / lit(suc(y)) = lit(suc(zero))
+auto lit_div_cancel
+
+fun add_div(a : Nat, b : Nat, y : Nat) { (a + b) / y } // invariant: a ≤ y
+fun frac(x : Nat, y : Nat) { x / y } // invariant: x < y
+
+postulate lit_div: all x:Nat, y:Nat. lit(x) / lit(y) = add_div(zero, x, y)
+auto lit_div
+
+postulate lit_add_div: all b:Nat, y:Nat. add_div(y, b, y) = lit(suc(zero)) + add_div(zero, b, y)
+auto lit_add_div
+
+postulate lit_add_div_suc: all a:Nat, b:Nat, y:Nat. add_div(a, suc(b), y) = add_div(suc(a), b, y)
+auto lit_add_div_suc
+
+postulate lit_add_div_frac: all a:Nat, y:Nat. add_div(a, zero, y) = frac(lit(a), lit(y))
+auto lit_add_div_frac
+
+postulate lit_frac_zero: all y:Nat. frac(lit(zero), lit(y)) = lit(zero)
+auto lit_frac_zero
+
+theorem lit_less_zero_false: all x:Nat. (x < lit(zero)) = false
+proof
+  arbitrary x:Nat
+  expand lit.
+end
+
+auto lit_less_zero_false
+
+theorem lit_zero_less_equal_true: all x:Nat. (lit(zero) ≤ x) = true
+proof
+  arbitrary x:Nat
+  expand lit.
+end
+
+auto lit_zero_less_equal_true

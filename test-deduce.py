@@ -138,7 +138,7 @@ def test_deduce_errors(deduce_call, path):
                     
                     thread = ErrorThread(path + file)
                     threads.append(thread)
-                    thread.start(deduce_call)
+                    thread.start(deduce_call + ' --quiet')
                     if len(threads) == max_threads:
                         # I think passing 1 is for the best
                         # As this function will remove any already finished threads

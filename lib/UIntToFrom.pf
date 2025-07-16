@@ -4,17 +4,17 @@ import Base
 import Nat
 public import UIntDefs
 
-theorem from_zero: fromNat(ℕ0) = 0
+lemma from_zero: fromNat(ℕ0) = 0
 proof
   evaluate
 end
 
-theorem from_one: fromNat(ℕ1) = 1
+lemma from_one: fromNat(ℕ1) = 1
 proof
   evaluate
 end
 
-theorem toNat_dub : all x:UInt. toNat(dub(x)) = ℕ2 * toNat(x)
+lemma toNat_dub : all x:UInt. toNat(dub(x)) = ℕ2 * toNat(x)
 proof
   induction UInt
   case bzero {
@@ -29,7 +29,7 @@ proof
   }
 end
 
-theorem toNat_inc: all x:UInt. toNat(inc(x)) = suc(toNat(x))
+lemma toNat_inc: all x:UInt. toNat(inc(x)) = suc(toNat(x))
 proof
   induction UInt
   case bzero {
@@ -45,7 +45,7 @@ proof
   }
 end
 
-theorem toNat_pred: all x:UInt. toNat(pred(x)) = pred(toNat(x))
+lemma toNat_pred: all x:UInt. toNat(pred(x)) = pred(toNat(x))
 proof
   induction UInt
   case bzero {

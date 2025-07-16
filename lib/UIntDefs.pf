@@ -25,7 +25,7 @@ assert toNat(dub_inc(bzero))          = ℕ2    //  10
 assert toNat(inc_dub(inc_dub(bzero))) = ℕ3    //  11
 assert toNat(dub_inc(inc_dub(bzero))) = ℕ4    // 100
 
-recursive operator< (UInt, UInt) -> bool {
+opaque recursive operator< (UInt, UInt) -> bool {
   operator < (bzero, y) =
     switch y {
       case bzero { false }
@@ -80,7 +80,7 @@ private fun pred(x:UInt) {
   }
 }
 
-recursive operator+(UInt, UInt) -> UInt {
+opaque recursive operator+(UInt, UInt) -> UInt {
   operator+(bzero, y) = y
   operator+(dub_inc(x), y) =
     switch y {
@@ -96,7 +96,7 @@ recursive operator+(UInt, UInt) -> UInt {
     }
 }
 
-recursive operator ∸ (UInt, UInt) -> UInt {
+opaque recursive operator ∸ (UInt, UInt) -> UInt {
   operator∸(bzero, y) = bzero
   operator∸(dub_inc(x), y) =
     switch y {
@@ -119,7 +119,7 @@ recursive operator ∸ (UInt, UInt) -> UInt {
     }
 }
 
-recursive operator *(UInt, UInt) -> UInt {
+opaque recursive operator *(UInt, UInt) -> UInt {
   operator*(bzero, y) = bzero
   operator*(dub_inc(x), y) =
     switch y {
@@ -162,7 +162,7 @@ private recursive expt(UInt, UInt) -> UInt {
   expt(inc_dub(p), a) = a * sqr(expt(p, a))  // a^(1+2*p) = a * (a^p)^2
 }
 
-fun operator ^(a : UInt, b : UInt)  {
+opaque fun operator ^(a : UInt, b : UInt)  {
   expt(b, a)
 }
 

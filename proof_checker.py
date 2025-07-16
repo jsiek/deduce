@@ -24,7 +24,8 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, get_verbose, set_verbose, print_verbose, IncompleteProof, VerboseLevel, match_failed, MatchFailed
+from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed
+from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
 
 imported_modules = set()
 checked_modules = set()
@@ -2379,8 +2380,9 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
 
           # TODO: do the following printing by default, but
           #   add a flag --quiet to disable it for error testing.
-          # if name not in checked_modules and needs_checking[0]:
-          #     print('> checking ' + name)
+          if get_quiet_mode() == False \
+             and name not in checked_modules and needs_checking[0]:
+              print('> checking ' + name)
             
           for s in ast3:
             env = collect_env(s, env)

@@ -2,6 +2,7 @@ from abstract_syntax import *
 import dataclasses
 from dataclasses import dataclass
 from lark import Lark, Token, Tree, logger, exceptions
+from flags import *
 from error import *
 
 from lark import logger

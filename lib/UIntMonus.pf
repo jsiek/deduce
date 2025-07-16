@@ -69,8 +69,10 @@ proof
             replace nat_suc_one_add
             have x_y: x' < y' by replace x_l_y_true.
             have nx_ny: toNat(x') < toNat(y') by apply toNat_less to x_y
-            have C: ℕ2*toNat(x') < ℕ2*toNat(y')
-              by apply pos_mult_both_sides_of_less[ℕ2,toNat(x'),toNat(y')] to (evaluate, nx_ny)
+            have C: ℕ2*toNat(x') < ℕ2*toNat(y') by {
+              have z2: ℕ0 < ℕ2 by .
+              apply pos_mult_both_sides_of_less[ℕ2,toNat(x'),toNat(y')] to z2, nx_ny
+            }
             have D: ℕ1 + ℕ2*toNat(x') < ℕ1 + ℕ2*toNat(y') by apply add_both_sides_of_less[ℕ1] to C
             have E: ℕ2 + ℕ2*toNat(x') ≤ ℕ1 + ℕ2*toNat(y') by replace nat_suc_one_add in expand operator< in D
             have F: (ℕ2 + ℕ2 * toNat(x')) ∸ (ℕ1 + ℕ2 * toNat(y')) = ℕ0
