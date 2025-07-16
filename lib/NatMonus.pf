@@ -1,0 +1,141 @@
+module Nat
+
+import Option
+import Base
+public import NatDefs
+public import NatAdd
+
+/*
+ Properties of Subtraction
+ */
+ 
+lemma zero_monus: all x:Nat. zero ∸ x = zero
+proof
+  evaluate
+end
+
+lemma monus_cancel: all n:Nat. n ∸ n = zero
+proof
+  induction Nat
+  case zero {
+    conclude zero ∸ zero = zero   by expand operator∸.
+  }
+  case suc(n') assume IH: n' ∸ n' = zero {
+    equations
+      suc(n') ∸ suc(n') = n' ∸ n'    by expand operator∸.
+                    ... = zero          by IH
+  }
+end
+
+lemma monus_zero: all n:Nat.
+  n ∸ zero = n
+proof
+  induction Nat
+  case zero {
+    conclude zero ∸ zero = zero   by expand operator∸.
+  }
+  case suc(n') suppose IH {
+    conclude suc(n') ∸ zero = suc(n')  by expand operator∸.
+  }
+end
+
+theorem add_both_monus: all z:Nat, y:Nat, x:Nat.
+  (z + y) ∸ (z + x) = y ∸ x
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat, x:Nat
+    conclude (zero + y) ∸ (zero + x) = y ∸ x  by .
+  }
+  case suc(z') assume IH {
+    arbitrary y:Nat, x:Nat
+    expand operator+ | operator∸
+    conclude (z' + y) ∸ (z' + x) = y ∸ x  by IH
+  }
+end
+
+/*
+ Properties of pred
+*/
+
+lemma pred_one: pred(suc(zero)) = zero
+proof
+ expand pred.
+end
+
+lemma pred_suc_n: all n:Nat. pred(suc(n)) = n
+proof
+  evaluate
+end
+
+lemma monus_one_pred : all x : Nat. x ∸ suc(zero) = pred(x)
+proof
+ induction Nat
+ case zero {
+   expand pred | operator∸.
+ }
+ case suc(x') {
+   expand pred | operator∸
+   replace monus_zero.
+ }
+end
+
+/*
+ Properties of Addition and Subtraction
+ */
+
+theorem add_monus_identity: all m:Nat. all n:Nat. 
+  (m + n) ∸ m = n
+proof
+  induction Nat
+  case zero {
+    arbitrary n:Nat
+    equations   (zero + n) ∸ zero = n ∸ zero    by .
+                        ... = n        by monus_zero[n]
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat
+    equations  (suc(m') + n) ∸ suc(m')
+             = suc(m' + n) ∸ suc(m')      by replace suc_add.
+         ... = (m' + n) ∸ m'              by expand operator∸.
+         ... = n                          by IH[n]
+  }
+end
+
+theorem monus_monus_eq_monus_add : all x : Nat. all y:Nat. all z:Nat.
+  (x ∸ y) ∸ z = x ∸ (y + z)
+proof
+  induction Nat
+  case zero { expand operator∸. }
+  case suc(x') suppose IH{
+    arbitrary y :Nat
+    switch y {
+      case zero {
+        arbitrary z : Nat
+        replace monus_zero.
+      }
+      case suc(y')  {
+        arbitrary x : Nat
+        switch x {
+          case zero {
+            replace monus_zero.
+          }
+          case suc(z')  {
+            suffices  (x' ∸ y') ∸ suc(z') = x' ∸ (y' + suc(z'))
+              by expand operator+ | operator∸ .
+            IH[y'][suc(z')]
+          }
+        }
+      }
+    }
+  }
+end
+
+theorem monus_order : all x : Nat, y : Nat, z : Nat.
+  (x ∸ y) ∸ z = (x ∸ z) ∸ y
+proof
+  arbitrary x : Nat, y : Nat, z : Nat
+  equations  (x ∸ y) ∸ z = x ∸ (y + z)   by monus_monus_eq_monus_add
+                     ... = x ∸ (z + y)   by replace add_commute.
+                     ... = #(x ∸ z) ∸ y# by replace monus_monus_eq_monus_add.
+end

@@ -1,0 +1,202 @@
+module Nat
+
+import Base
+public import NatDefs
+
+
+/*
+ Properties of Addition
+ */
+
+lemma zero_add: all n:Nat.
+  zero + n = n
+proof
+  arbitrary n:Nat
+  conclude zero + n = n by expand operator+.
+end
+
+auto zero_add
+
+lemma add_zero: all n:Nat.
+  n + zero = n
+proof
+  induction Nat
+  case zero {
+    conclude zero + zero = zero   by .
+  }
+  case suc(n') suppose IH: n' + zero = n' {
+    equations
+      suc(n') + zero = suc(n' + zero)  by expand operator+.
+              ... = suc(n')      by replace IH.
+  }
+end
+
+auto add_zero
+
+lemma suc_add: all m:Nat, n:Nat.
+  suc(m) + n = suc(m + n)
+proof
+  arbitrary m:Nat, n:Nat
+  expand operator+.
+end
+
+lemma suc_one_add: all n:Nat.
+  suc(n) = suc(zero) + n
+proof
+  arbitrary n:Nat
+  equations
+    suc(n) =# suc(zero + n) #      by expand operator+.
+       ... = suc(zero) + n         by symmetric suc_add[zero, n]
+end
+
+lemma one_add_suc: all n:Nat.
+  suc(zero) + n = suc(n)
+proof
+  arbitrary n:Nat
+  symmetric suc_one_add[n]
+end
+
+lemma not_one_add_zero: all n:Nat.
+  not (suc(zero) + n = zero)
+proof
+  arbitrary n:Nat
+  expand operator+.
+end
+
+lemma add_suc: all m:Nat. all n:Nat.
+  m + suc(n) = suc(m + n)
+proof
+  induction Nat
+  case zero {
+    arbitrary n : Nat
+    conclude zero + suc(n) = suc(zero + n)  by evaluate
+  }
+  case suc(n') suppose IH {
+    arbitrary n : Nat
+    equations
+      suc(n') + suc(n) = suc(n' + suc(n))  by evaluate
+                   ... = suc(suc(n' + n))  by replace IH.
+                   ... = suc(suc(n') + n)  by evaluate
+  }
+end
+
+theorem add_commute: all n:Nat. all m:Nat.  n + m = m + n
+proof
+  induction Nat
+  case zero {
+    arbitrary m : Nat
+    equations  zero + m = m      by evaluate
+                    ... = m + zero  by .
+  }
+  case suc(n') suppose IH {
+    arbitrary m : Nat
+    equations suc(n') + m = suc(n' + m)     by evaluate
+                      ... = suc(m + n')     by replace IH.
+                      ... = # m + suc(n') # by replace add_suc.
+  }
+end
+
+lemma one_add: all m:Nat.  suc(zero) + m = suc(m)
+proof
+  arbitrary m:Nat
+  expand 1 * operator+.
+end
+
+lemma add_one: all m:Nat.  m + suc(zero) = suc(m)
+proof
+  arbitrary m:Nat
+  equations
+    m + suc(zero) = suc(zero) + m       by add_commute[m][suc(zero)]
+       ... = suc(m)       by one_add[m]
+end
+
+theorem add_assoc: all m:Nat, n:Nat, o:Nat.
+  (m + n) + o = m + (n + o)
+proof
+  induction Nat
+  case zero {
+    arbitrary n:Nat, o:Nat
+    conclude (zero + n) + o = zero + (n + o)   by evaluate
+  }
+  case suc(m') suppose IH {
+    arbitrary n:Nat, o:Nat
+    equations
+      (suc(m') + n) + o = suc((m' + n) + o)  by evaluate
+                    ... = suc(m' + (n + o))  by replace IH.
+                    ... = suc(m') + (n + o)  by evaluate
+  }
+end
+
+associative operator+ in Nat
+
+theorem assoc_add: all m:Nat, n:Nat, o:Nat.
+  m + (n + o) = (m + n) + o
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  symmetric add_assoc
+end
+
+theorem add_both_sides_of_equal: all x:Nat. all y:Nat, z:Nat.
+  x + y = x + z ⇔ y = z
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat, z:Nat
+    evaluate
+  }
+  case suc(x') suppose IH {
+    arbitrary y:Nat, z:Nat
+    expand operator+
+    have A: suc(x' + y) = suc(x' + z) ⇔ (x' + y = x' + z)
+      by { assume seq injective suc seq } , { assume eq replace eq. }
+    have B: ((x' + y = x' + z) ⇔ (y = z)) by IH[y,z]
+    conclude ((suc(x' + y) = suc(x' + z)) ⇔ (y = z))
+      by apply iff_trans[suc(x' + y) = suc(x' + z), x' + y = x' + z, y = z]
+         to A, B
+  }
+end
+
+// left_cancel is obsolete, remove soon.
+// Use add_both_sides_of_equal instead.
+theorem left_cancel: all x:Nat. all y:Nat, z:Nat.
+  if x + y = x + z then y = z
+proof
+  induction Nat
+  case zero {
+    arbitrary y:Nat, z:Nat
+    suppose prem: zero + y = zero + z
+    equations   y = zero + y      by evaluate
+              ... = zero + z      by prem
+              ... = z          by evaluate
+  }
+  case suc(x') suppose IH: all y:Nat, z:Nat. if x' + y = x' + z then y = z {
+    arbitrary y:Nat, z:Nat
+    suppose prem: suc(x') + y = suc(x') + z
+    show y = z
+    apply IH[y,z] to {
+      show x' + y = x' + z
+      injective suc
+      conclude suc(x' + y) = suc(x' + z)  by evaluate in prem
+    }
+  }
+end
+
+lemma add_to_zero: all n:Nat. all m:Nat.
+  if n + m = zero
+  then n = zero and m = zero
+proof
+  induction Nat
+  case zero {
+    arbitrary m:Nat
+    suppose zmz
+    have: m = zero
+      by expand operator + in zmz
+    replace (recall m = zero).
+  }
+  case suc(n') suppose IH {
+    arbitrary m:Nat
+    suppose snmz: suc(n') + m = zero
+    conclude false
+        by expand operator + in snmz
+  }
+end

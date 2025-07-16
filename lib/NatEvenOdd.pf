@@ -1,0 +1,227 @@
+module Nat
+
+import Base
+public import NatDefs
+public import NatAdd
+public import NatMult
+
+/*
+ Odd and Even Numbers
+ */
+
+recursive parity(Nat, bool) -> bool {
+  parity(zero, b) = b
+  parity(suc(n'), b) = parity(n', not b)
+}
+
+fun is_even(n : Nat) {
+  parity(n, true)
+}
+
+fun is_odd(n : Nat) {
+  parity(n, false)
+}
+
+fun EvenNat(n : Nat) {
+  some m:Nat. n = suc(suc(zero)) * m
+}
+
+fun OddNat(n : Nat) {
+  some m:Nat. n = suc (suc(suc(zero)) * m)
+}
+
+lemma two_even: all n:Nat. EvenNat(suc(suc(zero)) * n)
+proof
+  arbitrary n:Nat
+  expand EvenNat
+  choose n.
+end
+
+lemma one_two_odd: all n:Nat. OddNat(suc(zero) + suc(suc(zero)) * n)
+proof
+  arbitrary n:Nat
+  expand OddNat
+  choose n
+  evaluate
+end
+
+theorem even_or_odd: all n:Nat. is_even(n) or is_odd(n)
+proof
+  induction Nat
+  case zero {
+    conclude is_even(zero) by expand is_even | parity.
+  }
+  case suc(n') assume IH {
+    cases IH
+    case even {
+      conclude is_odd(suc(n')) by
+        suffices parity(n', true) by expand is_odd | parity.
+        expand is_even in even
+    }
+    case odd {
+      conclude is_even(suc(n')) by
+        suffices parity(n', false) by expand is_even | parity.
+        expand is_odd in odd
+    }
+  }
+end
+
+
+theorem addition_of_evens:
+  all x:Nat, y:Nat.
+  if EvenNat(x) and EvenNat(y) then EvenNat(x + y)
+proof
+  arbitrary x:Nat, y:Nat
+  suppose even_xy: EvenNat(x) and EvenNat(y)
+  have even_x: some m:Nat. x = suc(suc(zero)) * m by expand EvenNat in even_xy
+  have even_y: some m:Nat. y = suc(suc(zero)) * m by expand EvenNat in even_xy
+  obtain a where x_2a: x = suc(suc(zero))*a from even_x
+  obtain b where y_2b: y = suc(suc(zero))*b from even_y
+  suffices some m:Nat. x + y = suc(suc(zero)) * m  by expand EvenNat.
+  choose a + b
+  equations
+        x + y
+      = suc(suc(zero))*a + suc(suc(zero))*b       by replace x_2a | y_2b.
+  ... = #suc(suc(zero)) * (a + b)#   by replace dist_mult_add.
+end
+
+theorem is_even_odd:
+  all n:Nat.
+  (if is_even(n) then EvenNat(n))
+  and (if is_odd(n) then OddNat(n))
+proof
+  induction Nat
+  case zero {
+    have part1: if is_even(zero) then EvenNat(zero)
+      by suppose _
+         conclude EvenNat(zero)
+         by suffices some m:Nat. zero = suc(suc(zero)) * m  by expand EvenNat.
+            choose zero
+            evaluate
+   have part2: if is_odd(zero) then OddNat(zero)
+     by suppose zero_odd
+        conclude false by expand is_odd | parity in zero_odd
+    part1, part2
+  }
+  case suc(n') suppose IH {
+    have part1: (if is_even(suc(n')) then EvenNat(suc(n'))) by {
+      suppose suc_even: is_even(suc(n'))
+      have odd_n: is_odd(n') by {
+        suffices parity(n', false) by expand is_odd.
+        expand is_even | parity in suc_even
+      }
+      have OddNat_n: OddNat(n') by apply (conjunct 1 of IH) to odd_n
+      obtain m where n_2m from expand OddNat in OddNat_n
+      suffices some m':Nat. suc(n') = suc(suc(zero)) * m'  by expand EvenNat.
+      choose suc(m)
+      suffices suc(suc(suc(suc(zero)) * m)) = suc(suc(zero)) * suc(m)  by replace n_2m.
+      suffices suc(suc(m + (m + zero))) = suc(m + suc(m + zero))
+        by expand operator* | operator+.
+      replace add_suc.
+    }
+    have part2: (if is_odd(suc(n')) then OddNat(suc(n'))) by {
+      suppose suc_odd: is_odd(suc(n'))
+      have even_n: is_even(n') by {
+        suffices parity(n', true) by expand is_even.
+        expand is_odd | parity in suc_odd
+      }
+      have EvenNat_n: EvenNat(n') by apply (conjunct 0 of IH) to even_n
+      obtain m where n_2m from expand EvenNat in EvenNat_n
+      suffices some m':Nat. suc(n') = suc(suc(suc(zero)) * m')  by expand OddNat.
+      choose m
+      replace n_2m.
+    }
+    part1, part2
+  }
+end
+
+theorem Even_or_Odd: all n:Nat. EvenNat(n) or OddNat(n)
+proof
+  arbitrary n:Nat
+  cases even_or_odd[n]
+  case even {
+    conclude EvenNat(n) by apply is_even_odd to even
+  }
+  case odd {
+    conclude OddNat(n) by apply is_even_odd to odd
+  }
+end
+
+lemma odd_one_even: all n:Nat. if OddNat(suc(zero) + n) then EvenNat(n)
+proof
+  arbitrary n:Nat
+  assume n1_odd
+  obtain k where nk: suc(zero) + n = suc(suc(suc(zero)) * k) from expand OddNat in n1_odd
+  have n2k: n = suc(suc(zero))*k
+    by apply add_both_sides_of_equal[suc(zero), n, suc(suc(zero))*k] to (replace suc_one_add in nk)
+  expand EvenNat
+  choose k
+  n2k
+end
+
+lemma even_one_odd: all n:Nat. if EvenNat(suc(zero) + n) then OddNat(n)
+proof
+  arbitrary n:Nat
+  assume n1_even
+  obtain k where nk: suc(zero) + n = suc(suc(zero)) * k from expand EvenNat in n1_even
+  expand OddNat
+  switch k {
+    case zero assume kz {
+      conclude false by evaluate in replace kz in nk
+    }
+    case suc(k') assume ksk {
+      have eq1: suc(zero) + n = suc(zero) + (suc(zero) + k' * suc(suc(zero))) by {
+        suffices __ by evaluate
+        evaluate in expand operator* in replace ksk | mult_commute in nk
+      }
+      have n_eq: n = suc(zero) + k' * suc(suc(zero)) by apply add_both_sides_of_equal to eq1
+      replace n_eq | suc_one_add | dist_mult_add
+      choose k'
+      replace two_mult.
+    }
+  }
+end
+
+theorem Even_not_Odd: all n:Nat. EvenNat(n) ⇔ not OddNat(n)
+proof
+  induction Nat
+  case zero {
+    suffices some m:Nat. zero = suc(suc(zero)) * m by expand EvenNat | OddNat.
+    choose zero
+    conclude zero = suc(suc(zero)) * zero by evaluate
+  }
+  case suc(n') assume IH {
+    have fwd: if EvenNat(suc(n')) then not OddNat(suc(n')) by {
+      assume prem: EvenNat(suc(n'))
+      assume contra: OddNat(suc(n'))
+      have en: EvenNat(n') by apply odd_one_even to (replace suc_one_add in contra)
+      have not_on: not OddNat(n') by apply IH to en
+      have on: OddNat(n') by apply even_one_odd to (replace suc_one_add in prem)
+      conclude false by apply not_on to on
+    }
+    have bkwd: if not OddNat(suc(n')) then EvenNat(suc(n')) by {
+      assume prem: not OddNat(suc(n'))
+      have nen: not EvenNat(n') by {
+        assume en: EvenNat(n')
+        obtain k where n2k: n' = suc(suc(zero))*k from expand EvenNat in en
+        have sn2k: suc(n') = suc(suc(suc(zero))*k) by replace n2k.
+        have osn: OddNat(suc(n')) by {
+          expand OddNat
+          choose k
+          sn2k
+        }
+        conclude false by apply prem to osn
+      }
+      have nnon: not (not OddNat(n'))
+        by apply contrapositive[not OddNat(n'), EvenNat(n')] to IH, nen
+      have on: OddNat(n') by replace double_neg in nnon
+      obtain k where ns2k: n' = suc (suc(suc(zero)) * k) from expand OddNat in on
+      expand EvenNat
+      choose suc(zero)+k
+      replace ns2k | dist_mult_add
+      evaluate
+    }
+    fwd, bkwd
+  }
+end
+
