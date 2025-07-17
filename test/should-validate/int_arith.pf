@@ -1,0 +1,129 @@
+import Int
+
+assert +1 + +2 + +3 = +3 + +2 + +1
+assert +1 + -2 + +3 = +3 + -2 + +1
+
+theorem T1: all x:Int. x + +3 + +4 = +5 + +2 + x
+proof
+  arbitrary x:Int
+  equations
+      x + +3 + +4
+        = x + +7 by .
+    ... = +7 + x by int_add_commute[x, +7]
+    ... = +5 + +2 + x by .
+end
+
+theorem Tz1: +0 + +0 = +0
+proof
+  .
+end
+
+theorem negz: -0 = +0
+proof
+  .
+end
+
+theorem Tz2: +0 + -0 = +0
+proof
+  .
+end
+
+theorem Tz3: -0 + +0 = +0
+proof
+  .
+end
+
+theorem Tz4: -0 + -0 = +0
+proof
+  .
+end
+
+theorem nn1: --1 = +1
+proof
+  .
+end
+
+theorem T112: +1 + +1 = +2
+proof
+  .
+end
+
+theorem T2a: +1 + -1 = +0
+proof
+  .
+end
+
+theorem T2b: -1 + +1 = +0
+proof
+  .
+end
+
+theorem T2c: -3 + +4 = +1
+proof
+  .
+end
+
+theorem T2d: +4 + -3 = +1
+proof
+  .
+end
+
+theorem T2: all x:Int. x + -3 + +4 = -1 + +2 + x
+proof
+  arbitrary x:Int
+  equations
+      x + (-3 + +4)
+        = x + +1 by .
+    ... = +1 + x by int_add_commute[x, +1]
+    ... = -1 + +2 + x by .
+end
+
+theorem M1: 1 * 3 = 3
+proof
+  .
+end
+
+theorem M22: 2 * 2 = 4
+proof
+  .
+end
+
+theorem M23: 2 * 3 = 6
+proof
+  .
+end
+
+theorem M2neg0: 2 * -0 = +0
+proof
+  .
+end
+
+theorem Mpos1neg1: +1 * -1 = -1
+proof
+  .
+end
+
+theorem M1neg1: 1 * -1 = -1
+proof
+  .
+end
+
+theorem M2neg1: 2 * -1 = -2
+proof
+  .
+end
+
+theorem M2neg3: 2 * -3 = -6
+proof
+  .
+end
+
+theorem Mneg23: -2 * 3 = -6
+proof
+  .
+end
+
+theorem negM23: -(2 * 3) = -6
+proof
+  .
+end
