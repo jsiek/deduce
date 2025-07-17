@@ -3,7 +3,6 @@ module Nat
 import Base
 import NatDefs
 
-
 /*
  Properties of lit
  */

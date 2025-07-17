@@ -2243,6 +2243,8 @@ def check_formula(frm, env, recfun=None, subterms=[]):
 
 modules = set()
 
+dirty_files = set()
+
 def is_modified(filename):
     path = Path(filename)
     last_mod = path.stat().st_mtime
@@ -2350,10 +2352,12 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
 
       if name in module_chain:
           error(loc, 'error, recusive import:\n\t' + name\
-                + '\nwhile processing modules:\n\t' \
+                + '\nwhile processing files:\n\t' \
                 + ', '.join(module_chain))
       elif name in imported_modules:
           set_verbose(old_verbose)
+          if name in dirty_files:
+              downstream_needs_checking[0] = True
           return Import(loc, name, ast), env
       else:
           current_module = env.get_current_module()
@@ -2362,11 +2366,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
 
           filename = find_file(loc, name)
           needs_checking = [is_modified(filename)]
-          if needs_checking[0] and name not in checked_modules:
-              downstream_needs_checking[0] = True
-              if get_verbose():
-                  print('checking ' + name)
-              
+
           ast2 = []
           for s in ast:
             new_s, env = process_declaration(s, env, module_chain, needs_checking)
@@ -2378,12 +2378,14 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             new_s = type_check_stmt(s, env, already_done_imports)
             ast3.append(new_s)
 
-          # TODO: do the following printing by default, but
-          #   add a flag --quiet to disable it for error testing.
-          if get_quiet_mode() == False \
-             and name not in checked_modules and needs_checking[0]:
-              print('> checking ' + name)
+          if needs_checking[0]:
+              dirty_files.add(name)
+              downstream_needs_checking[0] = True
             
+          if needs_checking[0] and name not in checked_modules:
+              if get_quiet_mode() == False:
+                  print('> checking ' + name)
+              
           for s in ast3:
             env = collect_env(s, env)
 
