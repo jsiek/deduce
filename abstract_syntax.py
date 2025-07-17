@@ -3261,7 +3261,10 @@ class Define(Declaration):
             + ' = ' + self.body.pretty_print(4, False) + '\n'
     
   def pretty_print(self, indent):
-      return str(self)
+      if self.visibility == 'opaque':
+          return base_name(self.name) + ' : ' + str(self.typ) + '\n'
+      else:
+          return str(self)
     
   def uniquify(self, env):
     if self.typ:

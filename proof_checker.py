@@ -2277,7 +2277,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
                     + error_header(binding.location) \
                     + ' ' + orig_name + ' : ' + str(binding) + '\n' \
                     + 'Only functions may have multiple definitions with the same name.')
-        
+      decl.typ = new_ty
       return Define(loc, name, new_ty, new_body,
                     visibility=decl.visibility), \
               env.declare_term_var(loc, name, new_ty,
