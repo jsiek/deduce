@@ -145,3 +145,7 @@ private recursive find_log(Nat, Nat, Nat) -> Nat {
 }
 
 define log : fn Nat -> Nat = λn{ find_log(n, zero, zero) }
+
+// Invariant: only apply lit to a literal Nat.
+fun lit(a : Nat) { a }
+

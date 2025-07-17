@@ -1,5 +1,4 @@
 import Nat
-import Log
 
 define log_one = log(ℕ1)
 define log_two = log(ℕ2)

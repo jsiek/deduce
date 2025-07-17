@@ -1,9 +1,9 @@
 module Nat
 
 import Base
-public import NatDefs
-public import NatAdd
-public import NatMult
+import NatDefs
+import NatAdd
+import NatMult
 
 /*
  Odd and Even Numbers

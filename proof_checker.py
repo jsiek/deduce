@@ -2434,6 +2434,9 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
       check_type(typeof, body_env)
       return stmt, env
   
+    case Export(loc, name):
+      return stmt, env
+        
     case Module(loc, name):
       return stmt, env.declare_module(name)
   
@@ -2539,6 +2542,9 @@ def type_check_stmt(stmt, env, already_done_imports : set):
     case Union(loc, name, typarams, alts):
       return stmt
   
+    case Export(loc, name):
+        return stmt
+    
     case Import(loc, name, ast):
       if name in already_done_imports:
         error(loc, "error, module:\n\t" + name + "\nwas imported twice")
@@ -2593,6 +2599,9 @@ def collect_env(stmt, env : Env):
 
     case Postulate(loc, name, frm):
       return env.declare_proof_var(loc, name, frm)
+  
+    case Export(loc, name, ast):
+      return env
   
     case Import(loc, name, ast):
       return env
@@ -2812,6 +2821,9 @@ def check_proofs(stmt, env):
       check_proof_of(terminates, formula, body_env)
   
     case Union(loc, name, typarams, alts):
+      pass
+  
+    case Export(loc, name):
       pass
   
     case Import(loc, name, ast):

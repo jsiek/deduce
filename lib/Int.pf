@@ -1,11 +1,19 @@
 module Int
 
-public import UInt
+import Nat
+import UInt
 import Base
 
 public import IntDefs
 public import IntAddSub
 public import IntMult
+
+// Need the following for integer literals.
+
+export lit
+export zero
+export suc
+export fromNat
 
 // Properties of Less-Than or Equal
 

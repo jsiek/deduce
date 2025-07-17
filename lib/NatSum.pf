@@ -1,0 +1,201 @@
+module Nat
+
+import NatDefs
+import NatAdd
+import NatMult
+import NatLess
+
+/*
+ Properties of Summation
+ */
+
+theorem summation_cong: all k : Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s : Nat, t : Nat. 
+  if (all i:Nat. if i < k then f(s + i) = g(t + i))
+  then summation(k, s, f) = summation(k, t, g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f:fn(Nat) -> Nat,g:fn(Nat) -> Nat,s:Nat,t:Nat
+    suppose f_g
+    expand summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f:fn(Nat) -> Nat,g:fn(Nat) -> Nat,s:Nat,t:Nat
+    suppose f_g
+    show summation(suc(k'),s,f) = summation(suc(k'),t,g)
+    suffices f(s) + summation(k',suc(s),f) = g(t) + summation(k',suc(t),g)
+      by expand summation.
+    have f_g_s: f(s) = g(t) by
+       (apply f_g[zero] to expand operator < | 2* operator ≤.)
+    have IH': summation(k',suc(s),f) = summation(k',suc(t),g)
+      by apply IH[f,g,suc(s),suc(t)] 
+         to arbitrary i:Nat suppose i_k: i < k'
+            suffices f(suc(s + i)) = g(suc(t + i))  by evaluate
+            have fsi_gtsi: f(s + suc(i)) = g(t + suc(i))
+              by suffices suc(i) < suc(k') by f_g[suc(i)] 
+                 apply less_suc_iff_suc_less to i_k
+            replace add_suc  in fsi_gtsi
+    replace f_g_s | IH'.
+  }
+end
+
+lemma summation_cong4: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+  if (all i:Nat. if s ≤ i and i < s + k then f(i) = g(i))
+  then summation(k, s, f) = summation(k, s, g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    suppose _
+    expand summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+    suppose f_g: all i:Nat. if s ≤ i and i < s + suc(k') then f(i) = g(i)
+    suffices f(s) + summation(k',suc(s),f) = g(s) + summation(k',suc(s),g)
+        by expand summation.
+    have f_g_s: f(s) = g(s) by {
+      have s_s: s ≤ s by less_equal_refl[s]
+      have s_sk: s < s + suc(k') by {
+        suffices s ≤ s + k' by {
+          expand operator < | operator ≤
+          replace add_suc.
+        }
+        less_equal_add[s][k']
+      }
+      apply f_g[s] to s_s, s_sk
+    }
+    have IH': summation(k',suc(s),f) = summation(k',suc(s),g) by {
+      have IH_prem: all i:Nat. if (suc(s) ≤ i and i < suc(s) + k')
+                               then f(i) = g(i) by
+      {
+        arbitrary i:Nat
+        suppose ss_i_and_i_ss_k
+        have s_i: s ≤ i by {
+          apply less_implies_less_equal[s][i]
+          to suffices suc(s) ≤ i  by expand operator <.
+          ss_i_and_i_ss_k
+        } 
+        have i_s_k: i < s + suc(k') by {
+          suffices suc(i) ≤ suc(s + k')  by {
+            suffices __ by evaluate
+            replace add_suc.
+          }
+          suffices i ≤ s + k' by evaluate
+          evaluate in (conjunct 1 of ss_i_and_i_ss_k)
+        }
+        conclude f(i) = g(i) by apply f_g[i] to s_i, i_s_k
+      }
+      apply IH[f,g,suc(s)] to IH_prem
+    }
+    replace f_g_s | IH'.
+  }
+end
+
+lemma summation_suc:
+  all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat. 
+  if (all i:Nat. f(i) = g(suc(i)))
+  then summation(k, s, f) = summation(k, suc(s), g)
+proof
+  arbitrary k:Nat
+  arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat
+  suppose prem
+  have sum_prem: (all i:Nat. (if i < k then f(s + i) = g(suc(s) + i))) by
+      arbitrary i:Nat
+      suppose i_less_k
+      suffices f(s+i) = g(suc(s+i))  by expand operator+.
+      prem[s+i]
+  apply summation_cong[k][f, g, s, suc(s)] to sum_prem
+end
+
+lemma summation_cong3: all k:Nat. all f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat. 
+  if (all i:Nat. f(s + i) = g(t + i))
+  then summation(k, s, f) = summation(k, t, g)
+proof
+  induction Nat
+  case zero {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat
+    suppose _
+    expand summation.
+  }
+  case suc(k') suppose IH {
+    arbitrary f : fn Nat->Nat, g : fn Nat->Nat, s :Nat, t :Nat
+    suppose f_g: all i:Nat. f(s + i) = g(t + i)
+    suffices f(s) + summation(k',suc(s),f) = g(t) + summation(k',suc(t),g)
+      by expand summation.
+    have fs_gt: f(s) = g(t)   by f_g[zero]
+    have all_f_g: all i:Nat. f(suc(s) + i) = g(suc(t) + i) by {
+      arbitrary i:Nat
+      suffices f(suc(s + i)) = g(suc(t + i))  by expand operator +.
+      replace add_suc in f_g[suc(i)]
+    }
+    equations
+          f(s) + summation(k',suc(s),f)
+        = g(t) + summation(k',suc(s),f)   by replace fs_gt.
+    ... = g(t) + summation(k',suc(t),g)   by replace (apply IH[f,g,suc(s),suc(t)] to all_f_g).
+  }
+end
+
+theorem summation_add:
+  all a:Nat. all b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat.
+  if (all i:Nat. if i < a then g(s + i) = f(s + i))
+  and (all i:Nat. if i < b then h(t + i) = f(s + a + i))
+  then summation(a + b, s, f) = summation(a, s, g) + summation(b, t, h)
+proof
+  induction Nat
+  case zero {
+    arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
+    suppose g_f_and_h_f
+    suffices summation(b,s,f) = summation(b,t,h)
+      by expand summation.
+    apply summation_cong[b][f,h,s,t]
+    to arbitrary i:Nat
+       suppose i_b: i < b
+       conclude f(s + i) = h(t + i)
+       by symmetric (apply (conjunct 1 of g_f_and_h_f)[i] to i_b)
+  }
+  case suc(a') suppose IH {
+    arbitrary b:Nat, s:Nat, t:Nat, f:fn Nat->Nat, g:fn Nat->Nat, h:fn Nat->Nat
+    suppose g_f_and_h_f
+    suffices f(s) + summation(a' + b,suc(s),f) = (g(s) + summation(a',suc(s),g)) + summation(b,t,h)
+        by expand operator + | summation.
+    have fs_gs: f(s) = g(s) by symmetric
+        apply (conjunct 0 of g_f_and_h_f)[zero]
+        to expand operator < | 2* operator ≤.
+    have IH': summation(a' + b,suc(s),f)
+            = summation(a',suc(s),g) + summation(b,t,h)
+      by have p1: all i:Nat. (if i < a' then g(suc(s) + i) = f(suc(s) + i))
+           by arbitrary i:Nat suppose i_a: i < a'
+              have i_sa : suc(i) < suc(a') by 
+                apply less_suc_iff_suc_less to i_a
+              replace add_suc | symmetric suc_add[s, i]
+                in apply (conjunct 0 of g_f_and_h_f)[suc(i)] to i_sa
+         have p2: all i:Nat. (if i < b then h(t + i) = f(suc(s) + (a' + i)))
+           by arbitrary i:Nat suppose i_b: i < b
+              expand 2*operator+
+              expand operator+ in
+              replace add_suc in
+              apply (conjunct 1 of g_f_and_h_f)[i] to i_b
+         apply IH[b,suc(s),t,f,g,h] to p1, p2
+    replace fs_gs | IH' .
+  }
+end
+
+lemma summation_suc_add: all n:Nat, s:Nat, f:fn Nat->Nat.
+  summation(suc(zero) + n, s, f) = summation(n, s, f) + f(s + n)
+proof
+  arbitrary n:Nat, s:Nat, f:fn Nat->Nat
+  have A: (all i:Nat. (if i < n then f(s + i) = f(s + i))) by {
+    arbitrary i:Nat assume: i < n .
+  }
+  have B: (all i:Nat. (if i < suc(zero) then f((s + n) + i) = f(s + (n + i)))) by {
+    arbitrary i:Nat assume: i < suc(zero) .
+  }
+  have C: summation(n + suc(zero), s, f) = summation(n, s, f) + summation(suc(zero), s+n, f)
+    by apply summation_add[n,suc(zero),s,s+n,f,f,f] to A,B
+  have D: summation(suc(zero), s + n, f) = f(s + n) by {
+    expand 2*summation.
+  }
+  replace add_commute[suc(zero),n] | C | D.
+end
+

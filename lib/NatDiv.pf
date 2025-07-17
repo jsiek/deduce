@@ -2,12 +2,12 @@ module Nat
 
 import Base
 import Pair
-public import NatDefs
-public import NatAdd
-public import NatMonus
-public import NatMult
-public import NatLess
-public import NatEvenOdd
+import NatDefs
+import NatAdd
+import NatMonus
+import NatMult
+import NatLess
+import NatEvenOdd
 
 /*
  Properties of div2

@@ -2,9 +2,9 @@ module Nat
 
 import Option
 import Base
-public import NatDefs
-public import NatAdd
-public import NatMonus
+import NatDefs
+import NatAdd
+import NatMonus
 
 /*
  Properties of Multiplication
@@ -18,6 +18,15 @@ proof
 end
 
 auto zero_mult
+
+theorem nat_zero_mult: all y:Nat.
+  lit(zero) * lit(y) = lit(zero)
+proof
+  arbitrary y:Nat
+  expand lit.
+end
+
+auto nat_zero_mult
 
 lemma mult_zero: all n:Nat.
   n * zero = zero
@@ -41,6 +50,16 @@ proof
   expand operator*.
 end
 
+theorem lit_suc_mult: all m:Nat, n:Nat.
+  lit(suc(m)) * lit(n) = lit(n) + lit(m) * lit(n)
+proof
+  arbitrary m:Nat, n:Nat
+  expand lit | operator*.
+end
+
+auto lit_suc_mult
+
+
 lemma mult_suc: all m:Nat. all n:Nat.
   m * suc(n) = m + m * n
 proof
@@ -58,6 +77,26 @@ proof
           ... = suc(m' + n + m' * n)       by replace add_commute[n][m'].
   }
 end
+
+theorem lit_mult_lit_suc: all m:Nat, n:Nat.
+  lit(m) * lit(suc(n)) = lit(m) + lit(m) * lit(n)
+proof
+  arbitrary m:Nat, n:Nat
+  expand lit
+  mult_suc
+end
+
+auto lit_mult_lit_suc
+
+theorem lit_mult_suc: all m:Nat, n:Nat.
+  lit(m) * suc(n) = lit(m) + lit(m) * n
+proof
+  arbitrary m:Nat, n:Nat
+  expand lit
+  mult_suc
+end
+
+auto lit_mult_suc
 
 theorem mult_commute: all m:Nat. all n:Nat.
   m * n = n * m
@@ -87,7 +126,16 @@ proof
 end
 
 auto one_mult
-  
+
+theorem nat_one_mult: all n:Nat.
+  lit(suc(zero)) * n = n
+proof
+  arbitrary n:Nat
+  expand lit.
+end
+
+auto nat_one_mult
+
 lemma mult_one: all n:Nat.
   n * suc(zero) = n
 proof
@@ -97,6 +145,15 @@ proof
 end
 
 auto mult_one
+
+theorem nat_mult_one: all n:Nat.
+  n * lit(suc(zero)) = n
+proof
+  arbitrary n:Nat
+  expand lit.
+end
+
+auto nat_mult_one
 
 lemma mult_to_zero : all n :Nat, m : Nat.
   if m * n = zero then m = zero or n = zero

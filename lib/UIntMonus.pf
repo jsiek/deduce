@@ -2,11 +2,11 @@ module UInt
 
 import Base
 import Nat
-public import UIntDefs
-public import UIntToFrom
-public import UIntLess
-public import UIntAdd
-public import UIntMult
+import UIntDefs
+import UIntToFrom
+import UIntLess
+import UIntAdd
+import UIntMult
 
 // lemma two: ℕ1 + ℕ1 = ℕ2
 // proof

@@ -185,6 +185,7 @@ known_tokens = {
     'EQUATIONS': 'keyword',
     'EVALUATE': 'keyword',
     'EXPAND': 'keyword',
+    'EXPORT': 'keyword',
     'EXTENSIONALITY': 'keyword',
     'FALSE': 'prim',
     'FN': 'type',

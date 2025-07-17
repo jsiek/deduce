@@ -1,14 +1,20 @@
 module UInt
 
 import Base
-public import Nat
+import Nat
 public import UIntDefs
 public import UIntToFrom
 public import UIntLess
 public import UIntAdd
 public import UIntMult
 public import UIntMonus
-  
+
+// Need lit, zero, suc following for unsigned integer literals.
+
+export lit
+export zero
+export suc
+
 lemma uint_pred_inc: all b:UInt.
   pred(inc(b)) = b
 proof

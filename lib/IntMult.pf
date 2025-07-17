@@ -3,8 +3,8 @@ module Int
 import UInt
 import Base
 
-public import IntDefs
-public import IntAddSub
+import IntDefs
+import IntAddSub
 
 // Properties of Multiplication
 

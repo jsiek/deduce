@@ -19,12 +19,22 @@ def name2str(s):
     else:
         return base_name(s)
 
+# current_module is used during uniquify and collect_exports
+current_module = 'none'
+
+def get_current_module():
+    global current_module
+    return current_module
+
+def set_current_module(name):
+    global current_module
+    current_module = name
+
 ############ AST Base Classes ###########
 
 @dataclass
 class AST:
     location: Meta
-
 
 @dataclass
 class Type(AST):
@@ -2839,7 +2849,8 @@ def extend(env, name, new_name, loc):
     error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
 
   if name in env.keys():
-    env[name].append(new_name)
+      if not new_name in env[name]:
+          env[name].append(new_name)
   else:
     env[name] = [new_name]
 
@@ -2870,7 +2881,7 @@ class Postulate(Statement):
     env['no overload'][self.name] = 'theorem'
     self.name = new_name
     
-  def collect_exports(self, export_env, import_visibility):
+  def collect_exports(self, export_env, importing_module):
     export_env[base_name(self.name)] = [self.name]
   
 @dataclass
@@ -2895,8 +2906,8 @@ class Theorem(Statement):
     env['no overload'][self.name] = 'theorem'
     self.name = new_name
     
-  def collect_exports(self, export_env, import_visibility):
-    if not self.isLemma or import_visibility == 'public':
+  def collect_exports(self, export_env, importing_module):
+    if importing_module == get_current_module() or not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
     
 @dataclass
@@ -2952,12 +2963,12 @@ class Union(Declaration):
     for con in self.alternatives:
       con.uniquify(env, body_env)
 
-  def collect_exports(self, export_env, import_visibility):
-    if self.visibility == 'private':
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and importing_module != get_current_module():
       return
     export_env[base_name(self.name)] = [self.name]
 
-    if not self.visibility == 'opaque' or (import_visibility == 'public'):
+    if not self.visibility == 'opaque' or (importing_module == get_current_module()):
       for con in self.alternatives:
         extend(export_env, base_name(con.name), con.name, self.location)
     
@@ -3060,8 +3071,8 @@ class RecFun(Declaration):
     # print('finished uniquifying recursive')
     # print(self.pretty_print(0))
       
-  def collect_exports(self, export_env, import_visibility):
-    if self.visibility == 'private' and import_visibility != 'public':
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and importing_module != get_current_module():
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3170,8 +3181,8 @@ class GenRecFun(Declaration):
     # print('finished uniquifying recfun')
     # print(self.pretty_print(0))
     
-  def collect_exports(self, export_env, import_visibility):
-    if self.visibility == 'private' and (import_visibility != 'public'):
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3261,8 +3272,8 @@ class Define(Declaration):
     extend(env, self.name, new_name, self.location)
     self.name = new_name
 
-  def collect_exports(self, export_env, import_visibility):
-    if self.visibility == 'private' and (import_visibility != 'public'):
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and (importing_module != get_current_module()):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
@@ -3287,7 +3298,7 @@ class Assert(Statement):
   def uniquify(self, env):
     self.formula.uniquify(env)
   
-  def collect_exports(self, export_env, import_visibility):
+  def collect_exports(self, export_env, importing_module):
     pass
     
 @dataclass
@@ -3300,7 +3311,7 @@ class Print(Statement):
   def uniquify(self, env):
     self.term.uniquify(env)
   
-  def collect_exports(self, export_env, import_visibility):
+  def collect_exports(self, export_env, importing_module):
     pass
 
   
@@ -3328,11 +3339,13 @@ class Import(Declaration):
     return 'import ' + self.name
 
   def pretty_print(self, indent):
-      return indent*' '  + str(self) + '\n'
+    return indent*' '  + str(self) + '\n'
 
   def uniquify(self, env):
+    importing_module = get_current_module()
+    set_current_module(self.name)
     if get_verbose():
-      print('uniquify import ' + self.name)
+      print('uniquify import ' + self.name + ' ==> ' + importing_module + '\n')
     old_verbose = get_verbose()
     if get_verbose() == VerboseLevel.CURR_ONLY:
       set_verbose(VerboseLevel.NONE)
@@ -3357,19 +3370,23 @@ class Import(Declaration):
       uniquify_deduce(self.ast)
 
     env['__module__' + self.name] = None
+    if get_verbose():
+        print('collecting exports from ' + self.name + ' for import to ' + importing_module + '\n')
     for stmt in self.ast:
-      stmt.collect_exports(env, self.visibility)
+      stmt.collect_exports(env, importing_module)
     set_verbose(old_verbose)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
-
-  def collect_exports(self, export_env, import_visibility):
+    set_current_module(importing_module)
+      
+  def collect_exports(self, export_env, importing_module):
     module_name = '__module__' + self.name
     if self.visibility == 'public' and not (module_name in export_env.keys()):
+      set_current_module(self.name)
       export_env[module_name] = None
-      glb_vis = greatest_lower_bound(import_visibility, self.visibility)
       for stmt in self.ast:
-        stmt.collect_exports(export_env, glb_vis)
+        stmt.collect_exports(export_env, importing_module)
+      set_current_module(importing_module)
 
 @dataclass
 class Auto(Statement):
@@ -3381,19 +3398,37 @@ class Auto(Statement):
   def uniquify(self, env):
     self.name.uniquify(env)
     
-  def collect_exports(self, export_env, import_visibility):
+  def collect_exports(self, export_env, importing_module):
     pass
 
 @dataclass
 class Module(Statement):
   name: str
 
+  def pretty_print(self, indent):
+      return indent*' ' + 'module ' + self.name + '\n'
+  
   def uniquify(self, env):
-    pass
+      set_current_module(self.name)
 
-  def collect_exports(self, export_env, import_visibility):
-      pass
+  def collect_exports(self, export_env, importing_module):
+      set_current_module(self.name)
 
+@dataclass
+class Export(Statement):
+  name: str
+  resolved_names: list[str] = field(default_factory=list)
+
+  def pretty_print(self, indent):
+      return indent*' ' + 'export ' + self.name + '\n'
+  
+  def uniquify(self, env):
+      self.resolved_names = env[self.name]
+          
+  def collect_exports(self, export_env, importing_module):
+      for x in self.resolved_names:
+          extend(export_env, base_name(x), x, self.location)
+      
 @dataclass
 class Associative(Statement):
   type_params: List[str]
@@ -3414,7 +3449,7 @@ class Associative(Statement):
     self.type_params = new_type_params
     self.typeof.uniquify(body_env)
 
-  def collect_exports(self, export_env, import_visibility):
+  def collect_exports(self, export_env, importing_module):
     opname = self.op.resolved_names[0]
     full_name = '__associative_' + opname
     base = base_name(opname)
@@ -4091,18 +4126,24 @@ class Env:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
 
+def print_theorems_statement(s, to_print):
+    if isinstance(s, Theorem) and not s.isLemma:
+      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+    elif isinstance(s, Postulate):
+      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+    elif isinstance(s, Import):
+      if s.ast != None and s.visibility == 'public':
+        for stmt in s.ast:
+            print_theorems_statement(stmt, to_print)
+    elif isinstance(s, Declaration) and not s.visibility == 'private':
+      to_print.append(s.pretty_print(0))
 
 def print_theorems(filename, ast):
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
   to_print = []
   for s in ast:
-    if isinstance(s, Theorem) and not s.isLemma:
-      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
-    elif isinstance(s, Postulate):
-      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
-    elif isinstance(s, Declaration) and not s.visibility == 'private':
-      to_print.append(s.pretty_print(0))
+    print_theorems_statement(s, to_print)
   
   if len(to_print) == 0:
     return

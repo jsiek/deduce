@@ -2,7 +2,7 @@ module UInt
 
 import Base
 import Nat
-public import UIntDefs
+import UIntDefs
 
 lemma from_zero: fromNat(ℕ0) = 0
 proof

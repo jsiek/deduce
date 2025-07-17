@@ -2,8 +2,8 @@ module Nat
 
 import Option
 import Base
-public import NatDefs
-public import NatAdd
+import NatDefs
+import NatAdd
 
 /*
  Properties of Subtraction

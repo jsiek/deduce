@@ -2,10 +2,10 @@ module Nat
 
 import Option
 import Base
-public import NatDefs
-public import NatAdd
-public import NatMonus
-public import NatMult
+import NatDefs
+import NatAdd
+import NatMonus
+import NatMult
 
 /*
  Properties of Less-Than, Greater∸Than, etc.

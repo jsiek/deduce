@@ -2,7 +2,7 @@ module Int
 
 import UInt
 import Base
-public import IntDefs
+import IntDefs
 
 // Properties of signs
 

@@ -291,6 +291,7 @@ ident: IDENT              -> ident
  | visibility "define" ident ":" type "=" term         -> define_annot
 
 ?import: visibility "import" IDENT                 -> import
+?export: "export" IDENT                            -> export
 
 ?assert: "assert" term                             -> assert
 
@@ -310,6 +311,7 @@ ident: IDENT              -> ident
  | assoc_decl
  | auto_decl
  | import
+ | export
  | assert
  | print
  | theorem

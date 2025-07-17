@@ -1651,6 +1651,19 @@ def parse_statement():
   elif token.type == 'THEOREM' or token.type == 'LEMMA' or token.type == 'POSTULATE':
     return parse_theorem(visibility)
 
+  elif token.type == 'EXPORT':
+    while_parsing = 'while parsing import\n' \
+        + '\tstatement ::= "export" identifier\n'
+    advance()
+    try:
+        name = parse_identifier()
+        return Export(meta_from_tokens(token, previous_token()), name)
+    except ParseError as e:
+      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
+    except Exception as e:
+      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
+        + str(e))
+      
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
         + '\tstatement ::= "import" identifier\n'

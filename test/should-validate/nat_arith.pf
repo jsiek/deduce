@@ -10,12 +10,12 @@ proof
     ... = ℕ5 + ℕ2 + x by evaluate
 end
 
-theorem zero_div: ℕ0 / ℕ2 = ℕ0
+theorem div_0_2: ℕ0 / ℕ2 = ℕ0
 proof
   .
 end
 
-theorem div_cancel: ℕ2 / ℕ2 = ℕ1
+theorem div_2_2: ℕ2 / ℕ2 = ℕ1
 proof
   .
 end

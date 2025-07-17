@@ -739,6 +739,9 @@ def parse_tree_to_ast(e, parent):
         set_visibility(statement, vis)
         return statement
 
+    elif e.data == 'export':
+        return Export(e.meta, str(e.children[0].value))
+        
     # assert formula
     elif e.data == 'assert':
         return Assert(e.meta, parse_tree_to_ast(e.children[0], e))

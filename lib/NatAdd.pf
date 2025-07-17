@@ -1,8 +1,29 @@
 module Nat
 
 import Base
-public import NatDefs
+import NatDefs
 
+
+/*
+ Properties of lit
+ */
+ 
+theorem lit_idem: all x:Nat.
+  lit(lit(x)) = lit(x)
+proof
+  arbitrary x:Nat
+  expand lit.
+end
+
+auto lit_idem
+
+theorem suc_lit: all n:Nat. suc(lit(n)) = lit(suc(n))
+proof
+  arbitrary n:Nat
+  expand lit.
+end
+
+auto suc_lit
 
 /*
  Properties of Addition
@@ -16,6 +37,15 @@ proof
 end
 
 auto zero_add
+
+theorem nat_zero_add: all y:Nat.
+  lit(zero) + lit(y) = lit(y)
+proof
+  arbitrary y:Nat
+  expand lit.
+end
+
+auto nat_zero_add
 
 lemma add_zero: all n:Nat.
   n + zero = n
@@ -39,6 +69,16 @@ proof
   arbitrary m:Nat, n:Nat
   expand operator+.
 end
+
+theorem lit_suc_add: all x:Nat, y:Nat.
+  lit(suc(x)) + lit(y) = lit(suc(lit(x) + lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  suc_add
+end
+
+auto lit_suc_add
 
 lemma suc_one_add: all n:Nat.
   suc(n) = suc(zero) + n
