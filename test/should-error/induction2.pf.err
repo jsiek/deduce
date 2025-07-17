@@ -1,19 +1,19 @@
-./test/should-error/induction2.pf:15.3-15.4: incomplete proof
+./test/should-error/induction2.pf:20.3-20.4: incomplete proof
 Goal:
-	(all T:Tree. size(T) = size(T))
+	(all T:Tree. size(T) = size(flip(T)))
 Advice:
 	Prove this "all" formula with:
 		arbitrary T:Tree
 	followed by a proof of:
-		size(T) = size(T)
+		size(T) = size(flip(T))
 
 	Alternatively, you can try induction with:
 		induction Tree
 		case empty(b1) {
 		  ?
 		}
-		case node(T1, N2, T3) assume IH1: size(T1) = size(T1),
-			IH2: size(T3) = size(T3) {
+		case node(T1, N2, T3) assume IH1: size(T1) = size(flip(T1)),
+			IH2: size(T3) = size(flip(T3)) {
 		  ?
 		}
 

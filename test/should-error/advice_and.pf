@@ -1,4 +1,7 @@
-theorem T: false and false
+define P = false
+define Q = false
+
+theorem T: P and Q
 proof
   ?
 end

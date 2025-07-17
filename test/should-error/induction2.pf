@@ -6,11 +6,16 @@ union Tree {
 }
 
 recursive size(Tree) -> Nat {
-  size(empty) = ℕ0
+  size(empty(b)) = ℕ0
   size(node(L, n, R)) = ℕ1 + size(L) + size(R)
 }
 
-theorem tree_size: all T:Tree. size(T) = size(T)
+recursive flip(Tree) -> Tree {
+  flip(empty(b)) = empty(b)
+  flip(node(L, n, R)) = node(flip(R), n, flip(L))
+}
+  
+theorem tree_size: all T:Tree. size(T) = size(flip(T))
 proof
   ?
 end

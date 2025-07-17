@@ -12,13 +12,15 @@ proof
   induction UInt
   case bzero {
     arbitrary y:UInt
-    evaluate
+    expand operator+ | toNat.
   }
   case dub_inc(x') assume IH {
     arbitrary y:UInt
     expand operator+
     switch y {
-      case bzero { evaluate }
+      case bzero {
+        expand toNat.
+      }
       case dub_inc(y') {
         expand toNat
         replace toNat_inc | nat_suc_one_add | nat_suc_one_add | nat_suc_one_add
@@ -35,7 +37,9 @@ proof
   case inc_dub(x') assume IH {
     arbitrary y:UInt
     switch y {
-      case bzero { evaluate }
+      case bzero {
+        expand operator+ | toNat.
+      }
       case dub_inc(y') {
         expand operator+ | toNat | inc
         replace toNat_inc | nat_suc_one_add | nat_suc_one_add

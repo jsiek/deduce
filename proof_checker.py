@@ -1364,8 +1364,12 @@ def check_proof_of(proof, formula, env):
       check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):
+      #print('expanding definitions: ' + ', '.join([str(d) for d in defs]))
       new_formula = expand_definitions(loc, formula, defs, env)
-      check_proof_of(body, new_formula, env)
+      #print('expanded formula: ' + str(new_formula))
+      red_formula = new_formula.reduce(env)
+      #print('reduced formula: ' + str(red_formula))
+      check_proof_of(body, red_formula, env)
       
     case _:
       try:

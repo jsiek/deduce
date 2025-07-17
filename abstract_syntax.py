@@ -725,7 +725,7 @@ class Var(Term):
       #   return '0'
       if base_name(self.name) == 'empty' and not get_unique_names() and not get_verbose():
           return '[]'
-      elif get_verbose():
+      elif get_unique_names():
         return name2str(self.name) + '{' + ','.join(self.resolved_names) + '}'
       elif is_operator(self):
         return 'operator ' + name2str(self.name)
@@ -1224,9 +1224,6 @@ class Call(Term):
                    flatten_assoc_list(rator_name(self.rator), args))
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
-        # time before: 61.77s user
-        # time after: 62.16s user
-        # ret = auto_rewrites(ret, env)
             
       case Lambda(loc, ty, vars, body):
         if hasattr(fun, 'env'):
@@ -3077,7 +3074,7 @@ class RecFun(Declaration):
     extend(export_env, base_name(self.name), self.name, self.location)
 
   def __str__(self):
-    if get_verbose():
+    if False and get_verbose():
       return self.to_string()
     else:
       return name2str(self.name)
@@ -3946,19 +3943,32 @@ class Env:
   def declare_auto_rewrite(self, loc, equation):
     new_env = Env(self.dict)
     full_name = '__auto__'
+    (lhs,rhs) = split_equation(loc, equation)
+    head_lhs = term_head(lhs)
+    #print('declare auto: ' + head_lhs + '\n\t' + str(equation))
     if full_name in self.dict:
-        new_env.dict[full_name].equations.append(equation)
+        if head_lhs in new_env.dict[full_name].equations:
+            new_env.dict[full_name].equations[head_lhs].append(equation)
+        else:
+            new_env.dict[full_name].equations[head_lhs] = [equation]
     else:
-        new_env.dict[full_name] = AutoEquationBinding(loc, [equation],
+        new_equations = {}
+        new_equations[head_lhs] = [equation]
+        if 'no_name' not in new_equations:
+            new_equations['no_name'] = []
+        new_env.dict[full_name] = AutoEquationBinding(loc, new_equations,
                                                       module=self.get_current_module())
     return new_env
 
-  def get_auto_rewrites(self):
+  def get_auto_rewrites(self, head):
     full_name = '__auto__'
     if full_name in self.dict.keys():
-      return self.dict[full_name].equations
+        if head in self.dict[full_name].equations:
+            return self.dict[full_name].equations[head]
+        else:
+            return self.dict[full_name].equations['no_name']
     else:
-      return []
+        return []
         
   def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
@@ -4418,8 +4428,6 @@ def get_num_rewrites():
 def rewrite_aux(loc, formula, equation, env, depth = -1):
   if depth == 0:
       return formula
-  elif depth > 0:
-      depth = depth - 1
   try:
     rhs = try_rewrite(loc, formula, equation, env)
     inc_rewrites()
@@ -4430,31 +4438,31 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
     pass
   match formula:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
-      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth),
+      return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth - 1),
                       tyargs, inferred)
     case Var(loc2, tyof, name, resolved_names):
       return formula
     case Bool(loc2, tyof, val):
       return formula
     case And(loc2, tyof, args):
-      return And(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth) for arg in args])
+      return And(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args])
     case Or(loc2, tyof, args):
-      return Or(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth) for arg in args])
+      return Or(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args])
     case IfThen(loc2, tyof, prem, conc):
-      return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation, env, depth),
-                    rewrite_aux(loc, conc, equation, env, depth))
+      return IfThen(loc2, tyof, rewrite_aux(loc, prem, equation, env, depth - 1),
+                    rewrite_aux(loc, conc, equation, env, depth - 1))
     case All(loc2, tyof, var, pos, frm2):
-      return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation, env, depth))
+      return All(loc2, tyof, var, pos, rewrite_aux(loc, frm2, equation, env, depth - 1))
     case Some(loc2, tyof, vars, frm2):
-      return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env, depth))
+      return Some(loc2, tyof, vars, rewrite_aux(loc, frm2, equation, env, depth - 1))
     case Call(loc2, tyof, rator, args):
       is_assoc = is_associative(loc2, rator_name(rator), formula.typeof, env)
       if get_verbose():
           print('is_assoc? ' + str(is_assoc))
       if is_assoc:
           args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
-      new_rator = rewrite_aux(loc, rator, equation, env, depth)
-      new_args = [rewrite_aux(loc, arg, equation, env, depth) for arg in args]
+      new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
+      new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
       if get_verbose():
           print('while tyring to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
@@ -4501,32 +4509,32 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
         return call
   
     case Switch(loc2, tyof, subject, cases):
-      return Switch(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth),
-                    [rewrite_aux(loc, c, equation, env, depth) for c in cases])
+      return Switch(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth - 1),
+                    [rewrite_aux(loc, c, equation, env, depth - 1) for c in cases])
     case SwitchCase(loc2, pat, body):
-      return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation, env, depth))
+      return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation, env, depth - 1))
     case RecFun(loc, name, typarams, params, returns, cases):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
-      return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation, env, depth),
-                         rewrite_aux(loc, thn, equation, env, depth),
-                         rewrite_aux(loc, els, equation, env, depth))
+      return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation, env, depth - 1),
+                         rewrite_aux(loc, thn, equation, env, depth - 1),
+                         rewrite_aux(loc, els, equation, env, depth - 1))
     case Lambda(loc2, tyof, vars, body):
-      return Lambda(loc2, tyof, vars, rewrite_aux(loc, body, equation, env, depth))
+      return Lambda(loc2, tyof, vars, rewrite_aux(loc, body, equation, env, depth - 1))
   
     case Generic(loc2, tyof, typarams, body):
-      return Generic(loc2, tyof, typarams, rewrite_aux(loc, body, equation, env, depth))
+      return Generic(loc2, tyof, typarams, rewrite_aux(loc, body, equation, env, depth - 1))
   
     case TAnnote(loc2, tyof, subject, typ):
-      return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation, env, depth), typ)
+      return TAnnote(loc, tyof, rewrite_aux(loc, subject, equation, env, depth - 1), typ)
 
     case ArrayGet(loc2, tyof, arr, ind):
-      return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env, depth),
-                      rewrite_aux(loc, ind, equation, env, depth))
+      return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env, depth - 1),
+                      rewrite_aux(loc, ind, equation, env, depth - 1))
   
     case TLet(loc2, tyof, var, rhs, body):
-      return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env, depth),
-                  rewrite_aux(loc, body, equation, env, depth))
+      return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env, depth - 1),
+                  rewrite_aux(loc, body, equation, env, depth - 1))
   
     case Hole(loc2, tyof):
       return formula
@@ -4535,7 +4543,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       return formula
   
     case Mark(loc, tyof, subject):
-      return Mark(loc, tyof, rewrite_aux(loc, subject, equation, env, depth))
+      return Mark(loc, tyof, rewrite_aux(loc, subject, equation, env, depth - 1))
   
     case _:
       error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
@@ -4543,7 +4551,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
 def try_rewrite(loc, formula, equation, env):
   (lhs, rhs) = split_equation(loc, equation)
   if get_verbose():
-    print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
+      print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
   matching = {}
   eq_vars = equation_vars(equation)
   formula_match(loc, eq_vars, lhs, formula, matching, Env())
@@ -4640,6 +4648,7 @@ def call_arity(call):
       case _:
         return 1 #raise Exception('call_arity: not a call ' + str(call))
 
+# The following is not currently used, a failed attempt. -Jeremy
 def rewrite_assoc(loc, loc2, tyof, new_rator, new_args, equation, env):
     # try to rewrite each arity-number of adjacent terms
     (lhs,rhs) = split_equation(loc2, equation)
@@ -4664,9 +4673,32 @@ def rewrite_assoc(loc, loc2, tyof, new_rator, new_args, equation, env):
         return Call(loc2, tyof, new_rator, output_terms)
     else:
         return output_terms[0]
-    
-def auto_rewrites(term, env):
+
+def old_auto_rewrites(term, env):
     equations = env.get_auto_rewrites()
     for eq in equations:
         term = rewrite_aux(term.location, term, eq, env, 2)
+    return term        
+
+def term_head(term):
+    match term:
+      case Call(loc, ty1, rator, args):
+          return base_name(rator_name(rator)) # TODO: remove base_name -Jeremy
+      case _:
+          return 'no_name'
+    
+def auto_rewrites(term, env):
+    # if term_head(term) == '+' or get_verbose():
+    #     print('auto rewriting head: ' + term_head(term) + '\n\t' + str(term) + '\n')
+    orig_term = term
+    equations = env.get_auto_rewrites(term_head(term))
+    for eq in equations:
+        while True:
+            current = get_num_rewrites()
+            term = rewrite_aux(term.location, term, eq, env, 1)
+            if get_num_rewrites() == current:
+              break
+    if get_verbose():
+        print('auto rewriting head: ' + term_head(orig_term) + '\n\t' + str(orig_term) + '\n' \
+              + '\t==>\t' + str(term))
     return term        

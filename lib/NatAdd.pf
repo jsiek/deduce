@@ -38,7 +38,7 @@ end
 auto zero_add
 
 theorem nat_zero_add: all y:Nat.
-  lit(zero) + lit(y) = lit(y)
+  lit(zero) + y = y
 proof
   arbitrary y:Nat
   expand lit.
@@ -61,6 +61,15 @@ proof
 end
 
 auto add_zero
+
+theorem nat_add_zero: all x:Nat.
+  x + lit(zero) = x
+proof
+  arbitrary x:Nat
+  expand lit.
+end
+
+auto nat_add_zero
 
 lemma suc_add: all m:Nat, n:Nat.
   suc(m) + n = suc(m + n)

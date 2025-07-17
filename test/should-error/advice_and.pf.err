@@ -1,8 +1,8 @@
-./test/should-error/advice_and.pf:3.3-3.4: incomplete proof
+./test/should-error/advice_and.pf:6.3-6.4: incomplete proof
 Goal:
-	(false and false)
+	(P and Q)
 Advice:
 	Prove this logical-and formula by proving each of its parts,
 	shown below, then combine the proofs with commas.
-		false
-		false
+		P
+		Q

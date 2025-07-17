@@ -1,9 +1,9 @@
 ./test/should-error/advice_some.pf:3.3-3.4: incomplete proof
 Goal:
-	some x:bool. x = x
+	some x:bool. x = true
 Advice:
 	Prove this "some" formula with:
 		choose A
 	where you replace A with your choice(s),
 	then prove:
-		A = A
+		A = true

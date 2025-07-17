@@ -297,16 +297,18 @@ theorem sum_n' : all n : Nat.
 proof
     induction Nat
     case zero {
-      expand 2* summation | lit.
+      expand 2* summation.
     }
     case suc(n') suppose IH {
       have step1: (all i:Nat. (if i < ℕ1 then suc(n') + i = ℕ0 + (suc(n') + i))) by {
         arbitrary i:Nat
         suppose prem : i < ℕ1
-        replace nat_suc_one_add.
+        .
       }
       replace nat_suc_one_add
-      replace (replace add_commute[n',ℕ1] in (apply summation_add[ℕ1 + n'][ℕ1, ℕ0, suc(n'), λn{n}, λn{n}, λn{n}] to step1))
+      replace (replace add_commute[n',ℕ1] in
+          (apply summation_add[ℕ1 + n'][ℕ1, ℕ0, suc(n'), λn{n}, λn{n}, λn{n}]
+           to replace nat_suc_one_add.))
       replace (replace nat_suc_one_add in IH)
       expand lit | 2*summation
       replace nat_suc_one_add | dist_mult_add | dist_mult_add_right

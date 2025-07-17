@@ -43,8 +43,6 @@ proof
           switch o {
             case pos(o') {
               expand operator≤
-              //suffices (if (m' ≤ n' and n' ≤ o') then m' ≤ o')
-              //  by expand operator≤.
               uint_less_equal_trans
             }
             case negsuc(o') { expand operator≤. }

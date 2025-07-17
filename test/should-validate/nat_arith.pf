@@ -1,5 +1,20 @@
 import Nat
 
+theorem add_2_0: ℕ2 + ℕ0 = ℕ2
+proof
+  .
+end
+
+theorem add_x_0: all x:Nat. x + ℕ0 = x
+proof
+  .
+end
+
+theorem add_0_x: all x:Nat. ℕ0 + x = x
+proof
+  .
+end
+
 theorem T: all x:Nat. x + ℕ3 + ℕ4 = ℕ5 + ℕ2 + x
 proof
   arbitrary x:Nat

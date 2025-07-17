@@ -598,7 +598,7 @@ proof
   show 1 + length([1]) = 2
   expand 2*length
   show 1 + (1 + 0) = 2
-  evaluate
+  .
 end
 ```
 
