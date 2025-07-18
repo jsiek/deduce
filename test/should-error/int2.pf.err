@@ -1,4 +1,4 @@
-./test/should-error/int2.pf:7.3-7.4: incomplete proof
+./test/should-error/int2.pf:6.3-6.4: incomplete proof
 Goal:
 	(((+0 + - 0) + +1) + - 1) + 1 = +1
 Advice:

@@ -1,4 +1,3 @@
-import UInt
 import Int
 
 assert +1 ≤ +1

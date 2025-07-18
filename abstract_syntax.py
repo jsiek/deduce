@@ -4648,38 +4648,6 @@ def call_arity(call):
       case _:
         return 1 #raise Exception('call_arity: not a call ' + str(call))
 
-# The following is not currently used, a failed attempt. -Jeremy
-def rewrite_assoc(loc, loc2, tyof, new_rator, new_args, equation, env):
-    # try to rewrite each arity-number of adjacent terms
-    (lhs,rhs) = split_equation(loc2, equation)
-    arity = call_arity(lhs)
-    i = 0
-    output_terms = []
-    while i + arity <= len(new_args):
-        call_args = new_args[i : i + arity]
-        tmp = Call(loc2, tyof, new_rator, call_args)
-        try:
-           new_tmp = try_rewrite(loc, tmp, equation, env)
-           flat_tmp = flatten_assoc(rator_name(rator), new_tmp)
-           output_terms += flat_tmp
-           i = i + arity
-        except MatchFailed as e:
-           new_tmp = tmp
-           output_terms.append(new_args[i])
-           i = i + 1
-    if i < len(new_args):
-        output_terms += new_args[i:]
-    if len(output_terms) > 1:
-        return Call(loc2, tyof, new_rator, output_terms)
-    else:
-        return output_terms[0]
-
-def old_auto_rewrites(term, env):
-    equations = env.get_auto_rewrites()
-    for eq in equations:
-        term = rewrite_aux(term.location, term, eq, env, 2)
-    return term        
-
 def term_head(term):
     match term:
       case Call(loc, ty1, rator, args):
@@ -4688,17 +4656,18 @@ def term_head(term):
           return 'no_name'
     
 def auto_rewrites(term, env):
-    # if term_head(term) == '+' or get_verbose():
-    #     print('auto rewriting head: ' + term_head(term) + '\n\t' + str(term) + '\n')
     orig_term = term
-    equations = env.get_auto_rewrites(term_head(term))
-    for eq in equations:
-        while True:
-            current = get_num_rewrites()
+    # Iterate until we can't rewrite anymore (to a fixed point)
+    while True:
+        current = get_num_rewrites()
+        # Grab all the equations that are applicable to the head constructor
+        equations = env.get_auto_rewrites(term_head(term))
+        # Rewrite using the first equation that matches 
+        for eq in equations:
+            current_eq = get_num_rewrites()
             term = rewrite_aux(term.location, term, eq, env, 1)
-            if get_num_rewrites() == current:
-              break
-    if get_verbose():
-        print('auto rewriting head: ' + term_head(orig_term) + '\n\t' + str(orig_term) + '\n' \
-              + '\t==>\t' + str(term))
+            if current_eq < get_num_rewrites():
+               break
+        if current == get_num_rewrites():
+            break
     return term        
