@@ -205,8 +205,8 @@ proof
       }
       case false assume xy_false: (x = y) = false {
         expand take | set_of
-        assume prem: y ∈ single(x) ∪ set_of(take(xs', search(xs', y)))
-        cases (apply member_union to prem)
+        assume prem: x = y or y ∈ set_of(take(xs', search(xs', y)))
+        cases prem
         case xy: x = y {
           conclude false by replace xy_false in xy
         }
