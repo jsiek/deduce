@@ -475,6 +475,10 @@ postulate uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x �
 
 postulate uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
 
+postulate uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + y ≤ x + z) = (y ≤ z)
+
+auto uint_add_both_sides_of_le_equal
+
 theorem uint_zero_less_one_add: all n:UInt.
   0 < 1 + n
 proof
@@ -588,3 +592,4 @@ proof
 end
 
 auto uint_one_add_zero_false
+

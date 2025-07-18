@@ -336,33 +336,32 @@ of those theorems.
 ```
 uint_add_zero: all n:UInt.  n + 0 = n
 uint_add_commute: all n:UInt. all m:UInt.  n + m = m + n
-uint_left_cancel: all x:UInt. all y:UInt, z:UInt.  if x + y = x + z then y = z
 uint_add_to_zero: all n:UInt. all m:UInt. if n + m = 0 then n = 0 and m = 0
 uint_dist_mult_add: all a:UInt. all x:UInt, y:UInt. a * (x + y) = a * x + a * y
 uint_mult_zero: all n:UInt. n * 0 = 0
 uint_mult_one: all n:UInt. n * 1 = n
 uint_mult_commute: all m:UInt. all n:UInt. m * n = n * m
+uint_less_trans: all x:UInt, y:UInt, z:UInt. if (x < y and y < z) then x < z
 ```
 
 You can use these theorems by instantiating them with particular
 entities. For example, `uint_add_commute[a,b*c]` is a proof of `a + b*c = b*c + a`.
 Some of these theorems (the ones declared `auto`)
 are applied automatically by Deduce as it simplifies
-a formula, such as `uint_add_zero`.
+a formula, such as `uint_add_zero`. The `commute` rules are not applied automatically
+because that would trigger an infinite loop. 
 
 We have not yet discussed how to use the `if`-`then` formula in
-`left_cancel`, but we will get to that in the section below on
+`uint_less_trans`, but we will get to that in the section below on
 [Conditional Formulas (Implication)](#conditional-formulas-implication-and-applying-definitions-to-facts).
 
 ### Exercise
 
-Prove the following theorem using the `add_zero` and `mult_one`
-theorems from `UInt.pf`.
+Prove the following using the theorems from `UInt.thm`.
 
-
-```{.deduce^#x_0_x_eq_2_x}
-theorem x_0_x_eq_2_x: 
-  all x:UInt. (x + 0) + x = (x + x) * 1
+```{.deduce^#uint_equation_ex}
+theorem uint_equation_ex: 
+  all x:UInt, y:UInt, z:UInt. x * z + y + x * z = (x + x) * z + y
 proof
   ?
 end
@@ -1421,10 +1420,24 @@ proof
   have even_y: some m:UInt. y = 2 * m by expand Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  suffices some m:UInt. x + y = 2 * m  by expand Even.
+  expand Even
+  replace x_2a | y_2b
+  show some m:UInt. 2 * a + 2 * b = 2 * m
   choose a + b
-  suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b.
-  symmetric uint_dist_mult_add[2][a,b]
+  replace uint_dist_mult_add[2].
+end
+```
+
+### Exercise
+
+Prove the following theorem, using a similar approach to the proof above
+regardin ghte addition of even numbers.
+
+```{.deduce^#intro_addition_of_odds}
+theorem addition_of_odds: all x:UInt, y:UInt. 
+  if Odd(x) and Odd(y) then Even(x + y)
+proof
+  ?
 end
 ```
 
