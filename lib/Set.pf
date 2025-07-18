@@ -73,8 +73,6 @@ proof
   expand operator ∈ | single | rep.
 end
 
-auto single_equal_equal
-
 theorem single_pred: all T:type. all x:T.
   set_of_pred(fun y:T { x = y}) = single(x)
 proof
@@ -347,3 +345,40 @@ proof
   fwd, bkwd
 end
 
+
+theorem single_empty_false: all T:type, x:T. (single(x) = ∅) = false
+proof
+  arbitrary T:type, x:T
+  suffices not (single(x) = ∅) by eq_false [single(x) = ∅]
+  assume eq
+  have xx: x ∈ single(x) by single_member
+  have xmt: x ∈ ∅ by replace eq in xx
+  xmt
+end
+
+auto single_empty_false
+
+auto single_equal_equal
+
+theorem single_union_empty_false: all T:type, x:T, S:Set<T>. (single(x) ∪ S = ∅) = false
+proof
+  arbitrary T:type, x:T, S:Set<T>
+  suffices not (single(x) ∪ S = ∅) by eq_false [single(x) ∪ S = ∅]
+  assume eq
+  have x_x: x ∈ single(x) by single_member
+  have x_xS: x ∈ single(x) ∪ S by replace member_union_equal x_x
+  have xmt: x ∈ ∅ by replace eq in x_xS
+  xmt
+end
+
+auto single_union_empty_false
+
+theorem union_single_empty_false: all T:type, x:T, S:Set<T>. (S ∪ single(x) = ∅) = false
+proof
+  arbitrary T:type, x:T, S:Set<T>
+  replace union_sym.
+end
+
+auto union_single_empty_false
+
+auto member_union_equal
