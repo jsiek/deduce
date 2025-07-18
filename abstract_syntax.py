@@ -4144,6 +4144,8 @@ def print_theorems_statement(s, to_print):
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
     elif isinstance(s, Postulate):
       to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+    elif isinstance(s, Auto):
+      to_print.append('auto ' + str(s.name) + '\n')
     elif isinstance(s, Import):
       if s.ast != None and s.visibility == 'public':
         for stmt in s.ast:

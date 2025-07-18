@@ -124,29 +124,16 @@ Deduce responds this time with
 
     incomplete proof
     Goal:
-        1 + 0 = 1
+        true
 
-We can make our proofs more readable by documenting the current goal at regular
-intervals within the proof. We document the current goal with a `show` statement.
-
-    theorem length_node42: length([42]) = 1
-    proof
-      expand length | length
-      show 1 + 0 = 1
-      ?
-    end
-
-Finally we prove `1 + 0 = 1` using the `uint_add_zero` theorem from the
-file `UInt.pf`, which we explain in the upcoming section on [Reasoning
-about Unsigned Integers](#reasoning-about-unsigned-integers).
+because the goal expanded to `1 + 0 = 1`, which of course is true.
+So we can conclude the proof with a period.
 
 
 ```{.deduce^#length_node42}
 theorem length_node42: length([42]) = 1
 proof
-  expand length | length
-  show 1 + 0 = 1
-  uint_add_zero[1]
+  expand length | length.
 end
 ```
 
@@ -205,16 +192,14 @@ Deduce responds with
 We don't know anything about this hypothetical `x` other than it being
 a natural number. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
-before, using the definitions of `length` and the `uint_add_zero` theorem.
+before, using the definitions of `length`.
 The notation `2* length` is shorthand for `length | length`.
 
 ```{.deduce^#length_uint_one}
 theorem length_uint_one: all x:UInt. length([x]) = 1
 proof
   arbitrary x:UInt
-  expand 2* length
-  show 1 + 0 = 1
-  uint_add_zero[1]
+  expand 2* length.
 end
 ```
 
@@ -243,9 +228,7 @@ theorem list_length_one: all U:type. all x:U. length([x]) = 1
 proof
   arbitrary U:type
   arbitrary x:U
-  expand 2* length
-  show 1 + 0 = 1
-  uint_add_zero[1]
+  expand 2* length.
 end
 ```
 
@@ -362,7 +345,11 @@ uint_mult_commute: all m:UInt. all n:UInt. m * n = n * m
 ```
 
 You can use these theorems by instantiating them with particular
-entities. For example, `add_zero[2]` is a proof of `2 + 0 = 2`.
+entities. For example, `uint_add_commute[a,b*c]` is a proof of `a + b*c = b*c + a`.
+Some of these theorems (the ones declared `auto`)
+are applied automatically by Deduce as it simplifies
+a formula, such as `uint_add_zero`.
+
 We have not yet discussed how to use the `if`-`then` formula in
 `left_cancel`, but we will get to that in the section below on
 [Conditional Formulas (Implication)](#conditional-formulas-implication-and-applying-definitions-to-facts).
