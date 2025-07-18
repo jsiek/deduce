@@ -201,6 +201,8 @@ proof
   conclude (m + n) ∸ m = n by apply toNat_injective to X
 end
 
+auto uint_add_monus_identity
+
 theorem uint_monus_monus_eq_monus_add : all x:UInt, y:UInt, z:UInt.
   (x ∸ y) ∸ z = x ∸ (y + z)
 proof

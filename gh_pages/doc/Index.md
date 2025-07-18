@@ -102,8 +102,7 @@ proof
   assume: x < y
   assume xy: x = y
   have: y < y by replace xy in recall x < y
-  conclude false by apply uint_less_irreflexive
-                    to recall y < y
+  conclude false by recall y < y
 end
 ```
 
@@ -194,8 +193,7 @@ proof
   induction List<UInt>
   case [] {
     arbitrary y:UInt
-    suffices not (y ∈ ∅) by evaluate
-    empty_no_members
+    expand take | set_of.
   }
   case node(x, xs')
     assume IH: all y:UInt. not (y ∈ set_of(take(xs', search(xs', y))))
@@ -203,19 +201,14 @@ proof
     arbitrary y:UInt
     switch x = y for search {
       case true {
-        suffices not (y ∈ ∅) by evaluate
-        empty_no_members
+        expand take | set_of.
       }
       case false assume xy_false: (x = y) = false {
-        expand take
-        replace (apply eq_false to uint_not_one_add_zero[search(xs',y)])
-        expand set_of
-        replace uint_add_monus_identity
+        expand take | set_of
         assume prem: y ∈ single(x) ∪ set_of(take(xs', search(xs', y)))
         cases (apply member_union to prem)
-        case yx: y ∈ single(x) {
-          have: x = y by apply single_equal to yx
-          conclude false by replace xy_false in recall x = y
+        case xy: x = y {
+          conclude false by replace xy_false in xy
         }
         case y_in_rest: y ∈ set_of(take(xs', search(xs', y))) {
           conclude false by apply IH to y_in_rest

@@ -21,8 +21,7 @@ end
 lemma sign_neg_pos: all n:UInt. sign(-pos(1 + n)) = negative
 proof
   arbitrary n:UInt
-  expand operator- | sign
-  replace apply eq_false to uint_not_one_add_zero[n].
+  expand operator- | sign.
 end
 
 lemma sign_neg_negsuc: all n:UInt. sign(-negsuc(n)) = positive
@@ -142,19 +141,14 @@ lemma neg_pos: all n:UInt.
 	- pos(1 + n) = negsuc(n)
 proof
   arbitrary n : UInt
-  expand operator-
-  replace apply eq_false to uint_not_one_add_zero[n]
-  have eq: (1 + n) ∸ 1 = n by uint_add_monus_identity
-  replace eq.
+  expand operator-.
 end
 
 lemma neg_suc: all n:UInt.
 	- (1 + n) = negsuc(n)
 proof
   arbitrary n : UInt
-  expand 2* operator-
-  replace apply eq_false to uint_not_one_add_zero[n]
-  replace uint_add_monus_identity.
+  expand 2* operator-.
 end
 
 theorem neg_involutive: all n:Int. - - n = n
@@ -177,13 +171,10 @@ proof
       have zp: n' = 0 or 0 < n' by uint_zero_or_positive[n']
       cases zp
       case n_z {
-        expand operator-
-        replace n_z.
+        expand operator-.
       }
       case n_pos {
-        expand operator-
-        replace apply eq_false to uint_not_one_add_zero[n']
-        replace uint_add_monus_identity.
+        expand operator-.
       }
     }
   }
@@ -272,8 +263,7 @@ end
 lemma int_monuso_cancel: all n:UInt. n ⊝ n = +0
 proof
   arbitrary n:UInt
-  expand operator⊝
-  replace (apply eq_false to uint_less_irreflexive[n]).
+  expand operator⊝.
 end
 
 lemma subo_monus: all x:UInt, y:UInt. x ⊝ y = pos(x) - pos(y)
@@ -617,8 +607,8 @@ proof
         obtain x'' where xpps: x' = 1 + x'' from apply uint_positive_add_one to xp_pos
         replace xpps
         expand operator-
-        replace (apply eq_false to uint_not_one_add_zero[x'']) | add_pos_negsuc
-        replace uint_add_monus_identity | suc_uint_monuso | int_monuso_cancel.
+        replace add_pos_negsuc
+        replace suc_uint_monuso | int_monuso_cancel.
       }
     }
     case negsuc(x') {

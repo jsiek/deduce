@@ -73,6 +73,8 @@ proof
   expand operator ∈ | single | rep.
 end
 
+auto single_equal_equal
+
 theorem single_pred: all T:type. all x:T.
   set_of_pred(fun y:T { x = y}) = single(x)
 proof
@@ -84,11 +86,19 @@ end
 theorem empty_no_members: all T:type. all x:T.
   not (x ∈ ∅)
 proof
-  arbitrary T:type
-  arbitrary x:T
+  arbitrary T:type, x:T
   suppose x_in_empty: x ∈ ∅
   evaluate in x_in_empty
 end
+
+theorem empty_member_false: all T:type. all x:T.
+  (x ∈ ∅) = false
+proof
+  arbitrary T:type, x:T
+  apply eq_false to empty_no_members<T>[x]
+end
+
+auto empty_member_false
 
 theorem rep_char_fun: all T:type, f: fn T -> bool. rep(char_fun(f)) = f
 proof
@@ -182,6 +192,8 @@ proof
   expand operator∈ | operator∪ | rep.
 end
 
+// auto member_union_equal is problematic, too eager. -Jeremy
+
 // testing alternate syntax for ∅
 theorem union_empty: all T:type. all A:Set<T>.
   A ∪ .0. = A
@@ -200,6 +212,8 @@ proof
   }
 end
 
+auto union_empty
+
 theorem empty_union: all T:type. all A:Set<T>.
   @empty_set<T>() ∪ A = A
 proof
@@ -215,6 +229,8 @@ proof
     }
   }
 end
+
+auto empty_union
 
 theorem union_sym: all T:type. all A:Set<T>, B:Set<T>.
   A ∪ B = B ∪ A
@@ -248,6 +264,8 @@ proof
   expand operator ∪ | rep.
 end
 
+associative operator ∪ <T> in Set<T>
+
 theorem in_left_union:
   all T:type. all B:Set<T>. all x:T, A: Set<T>.
   if x ∈ A then x ∈ (A ∪ B)
@@ -257,8 +275,7 @@ proof
   arbitrary x:T, A: Set<T>
   suppose x_A: x ∈ A
   suffices rep(A)(x) or rep(B)(x) by {
-    expand operator ∈ | operator ∪
-    replace rep_char_fun<T>.
+    expand operator ∈ | operator∪ | rep.
   }
   expand operator ∈ in x_A
 end

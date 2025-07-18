@@ -422,12 +422,13 @@ proof
     }
     case node(x, xs') {
       suppose prem
-      have x_xxs: x ∈ (single(x) ∪ set_of(xs'))
-        by apply in_left_union<T>[set_of(xs')]
-           to single_member<T>[x]
-      conclude false
-        by apply empty_no_members
-           to (replace (expand set_of in prem) in x_xxs)
+      have x_xxs: x ∈ (single(x) ∪ set_of(xs')) by {
+        apply in_left_union<T>[set_of(xs')]
+        to single_member<T>[x]
+      }
+      have prem2: single(x) ∪ set_of(xs') = ∅ by expand set_of in prem
+      have xmt: x ∈ ∅ by replace prem2 in x_xxs
+      conclude false by xmt
     }
   }
 end
@@ -439,14 +440,12 @@ proof
   induction List<T>
   case empty {
     arbitrary ys:List<T>
-    suffices set_of(ys) = ∅ ∪ set_of(ys)
-        by expand operator++ | set_of .
-    replace empty_union<T>[set_of(ys)].
+    expand operator++ | set_of.
   }
   case node(x, xs') suppose IH {
     arbitrary ys:List<T>
     expand operator++ | set_of
-    replace IH[ys] | union_assoc<T>[single(x), set_of(xs'), set_of(ys)].
+    replace IH[ys].
   }
 end
 
@@ -523,7 +522,7 @@ proof
               to (expand set_of in replace xy_false in y_in_sx_xsy)
          cases y_in_sx_or_xsy
          case y_in_sx {
-           have xy: x = y by apply single_equal<U> to y_in_sx
+           have xy: x = y by y_in_sx
            conclude false by replace xy_false in xy
          }
          case y_in_xsy {
@@ -561,8 +560,6 @@ proof
 	case node(x, xs') assume IH {
     arbitrary ys:List<E>
     expand operator++ | take | length
-    replace (apply eq_false to uint_not_one_add_zero[length(xs')])
-    replace uint_add_monus_identity[1]
     replace IH[ys].
 	}  
 end
@@ -591,9 +588,7 @@ proof
       obtain n' where n_sn from n1
       replace n_sn
       suffices length(drop(xs', n')) + 1 + n' = 1 + length(xs') by {
-        expand length | drop
-        replace (apply eq_false to uint_not_one_add_zero[n'])
-        replace uint_add_monus_identity[1, n'].
+        expand length | drop.
       }
       have n_xs: n' ≤ length(xs') by {
         apply uint_add_both_sides_of_less_equal[1, n', length(xs')] to
@@ -638,8 +633,6 @@ proof
       obtain n' where n_sn from n1
       replace n_sn
       expand drop
-      replace (apply eq_false to uint_not_one_add_zero[n'])
-      replace uint_add_monus_identity[1, n']
       have xs_n: length(xs') < n' by {
         apply uint_add_both_sides_of_less[1, length(xs'), n'] to
         expand length in replace n_sn in prem
@@ -675,8 +668,6 @@ proof
   case node(x, xs') suppose IH {
     arbitrary ys:List<E>
     expand length | operator++ | drop
-    replace (apply eq_false to uint_not_one_add_zero[length(xs')])
-    replace uint_add_monus_identity[1, length(xs')]
     IH[ys]
   }
 end
@@ -700,11 +691,7 @@ proof
     case n1 {
       obtain n' where n_sn from n1
       replace n_sn
-      replace (apply eq_false to uint_not_one_add_zero[n'])
       expand get
-      replace uint_add_monus_identity[1, n'+i]
-      replace uint_add_monus_identity[1, n']
-      replace (apply eq_false to uint_not_one_add_zero[n'+i])
       IH
     }
   }
@@ -736,8 +723,6 @@ proof
       obtain i' where i_si from i1
       replace i_si
       expand operator++ | get
-      replace (apply eq_false to uint_not_one_add_zero[i'])
-      replace uint_add_monus_identity[1, i']
       have i_xs: i' < length(xs) by {
         apply uint_add_both_sides_of_less[1, i', length(xs)] to
         replace i_si in expand length in i_xxs
@@ -759,8 +744,6 @@ proof
   case node(x, xs) suppose IH {
     arbitrary ys:List<T>, i:UInt
     expand operator++ | length | get
-    replace (apply eq_false to uint_not_one_add_zero[length(xs) + i])
-    replace uint_add_monus_identity[1, length(xs) + i]
     IH[ys, i]
   }
 end
@@ -797,26 +780,8 @@ proof
         replace i_si in i_pos
       }
       expand get
-      replace (apply eq_false to uint_not_one_add_zero[i'])
-      replace uint_add_monus_identity[1, i']
       conclude get(xs, i') = none  by apply IH to xs_i
     }
-    /*
-    switch i {
-      case 0 assume iz {
-        conclude false by expand operator≤ in replace symmetric nat_suc_one_add[length(xs)] in 
-          replace iz in i_pos
-      }
-      case suc(i') assume isi {
-        suffices get(xs, i') = none by expand get | pred | lit.
-        have xs_i: length(xs) ≤ i'
-          by expand operator≤ in
-             replace symmetric nat_suc_one_add[length(xs)] in
-             replace isi in i_pos
-        conclude get(xs, i') = none by apply IH to xs_i
-      }
-    }
-    */
   }
 end
 

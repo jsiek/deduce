@@ -570,3 +570,21 @@ end
 postulate uint_lit_div: all x:Nat, y:Nat. (fromNat(lit(x)) / fromNat(lit(y))) = fromNat(lit(x) / lit(y))
 
 auto uint_lit_div
+
+theorem uint_less_refl_false: all x:UInt.
+  (x < x) = false
+proof
+  arbitrary x:UInt
+  apply eq_false to uint_less_irreflexive[x]
+end
+
+auto uint_less_refl_false
+
+theorem uint_one_add_zero_false: all n:UInt.
+    (1 + n = 0) = false
+proof
+  arbitrary n:UInt
+  apply eq_false to uint_not_one_add_zero[n]
+end
+
+auto uint_one_add_zero_false

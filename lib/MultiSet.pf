@@ -228,9 +228,7 @@ proof
           }
           case fx_pos {
             obtain y where fxy: f(x) = 1 + y from apply uint_positive_add_one to fx_pos
-            replace fxy
-            replace (apply eq_false to uint_not_one_add_zero[y + g(x)])
-            replace (apply eq_false to uint_not_one_add_zero[y]).
+            replace fxy.
           }
         }
       }
