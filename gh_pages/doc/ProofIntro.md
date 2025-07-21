@@ -534,7 +534,7 @@ Deduce replies that we need to prove
     incomplete proof:
         xs ++ [] = xs
 
-But now we're stuck because the definition of append pattern matches
+But now we're stuck because append performs pattern matching
 on its first argument, but we don't know whether `xs` is an `empty`
 list or a `node`.
 
@@ -560,7 +560,7 @@ we have a case for the `empty` and `node` alternatives.
 Furthermore, because `node` includes a recursive argument, that is,
 and argument of type `List<U>`, in the case for `node` we get to
 assume that the formula we are trying to prove is already true for
-the argument. This is commonly known at the **induction hypothesis**.
+the argument. This is known as the **induction hypothesis**.
 We must give a label for the induction hypothesis so here we choose
 `IH` for short.
 
@@ -604,7 +604,7 @@ the equation.
       equations
         node(n,xs') ++ []
             = ?                       by expand operator++.
-        ... = node(n,xs')             by ?
+        ... = node(n, xs')            by ?
     }
 
 Deduce responds with
@@ -620,7 +620,7 @@ replace the `?`.
       equations
         node(n,xs') ++ []
             = node(n, xs' ++ [])   by expand operator++.
-        ... = node(n,xs')          by ?
+        ... = node(n, xs')         by ?
     }
 
 Next, we see that the subterm `xs' ++ []` matches the
@@ -631,7 +631,7 @@ right-hand side of the induction hypothesis `IH`. We use the
       equations
         node(n,xs') ++ []
             = node(n, xs' ++ [])   by expand operator++.
-        ... = node(n,xs')          by replace IH.
+        ... = node(n, xs')         by replace IH.
     }
 
 Here is the completed proof of `list_append_empty`.
@@ -650,7 +650,7 @@ proof
     equations
       node(n,xs') ++ []
           = node(n, xs' ++ [])     by expand operator++.
-      ... = node(n,xs')            by replace IH.
+      ... = node(n, xs')           by replace IH.
   }
 end
 ```
