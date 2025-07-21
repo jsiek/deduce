@@ -463,7 +463,7 @@ proof
       have X1: cnt(m_one(x) ⨄ mset_of(xs'))(x) = cnt(@m_empty<T>())(x)
         by replace (expand mset_of in prem).
       have X2: 1 + cnt(mset_of(xs'))(x) = 0
-        by replace cnt_sum | cnt_empty | cnt_one in X1
+        by replace cnt_sum in X1
       conclude false by apply uint_not_one_add_zero to X2
     }
   }

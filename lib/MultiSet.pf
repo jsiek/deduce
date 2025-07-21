@@ -43,12 +43,16 @@ proof
   expand m_empty | cnt.
 end
 
+auto cnt_empty
+
 theorem cnt_one: all T:type. all x:T. cnt(m_one(x))(x) = 1
 proof
   arbitrary T:type
   arbitrary x:T
   expand m_one | cnt.
 end
+
+auto cnt_one
 
 theorem cnt_sum: all T:type. all A:MultiSet<T>, B:MultiSet<T>, x:T.
   cnt(A ⨄ B)(x) = cnt(A)(x) + cnt(B)(x)
@@ -57,6 +61,8 @@ proof
   arbitrary A:MultiSet<T>, B:MultiSet<T>, x:T
   expand operator ⨄ | cnt.
 end
+
+//auto cnt_sum  This is problematic. -Jeremy
 
 theorem cnt_equal: all T:type, A:MultiSet<T>, B:MultiSet<T>.
   if cnt(A) = cnt(B) then A = B
@@ -74,6 +80,20 @@ proof
   }
 end
 
+theorem cnt_equal_equal: all T:type, A:MultiSet<T>, B:MultiSet<T>.
+  (cnt(A) = cnt(B)) = (A = B)
+proof
+  arbitrary T:type, A:MultiSet<T>, B:MultiSet<T>
+  suffices (cnt(A) = cnt(B)) ⇔ (A = B) by iff_equal
+  have bkwd: if A = B then cnt(A) = cnt(B) by {
+    assume ab
+    replace ab.
+  }
+  cnt_equal<T>[A,B], bkwd
+end
+
+auto cnt_equal_equal
+  
 // Testing alternate asci notation 
 theorem m_sum_empty: all T:type. all A:MultiSet<T>.
   A .+. @m_empty<T>() = A
@@ -89,6 +109,8 @@ proof
     }
   }
 end
+
+auto m_sum_empty
 
 theorem empty_m_sum: all T:type. all A:MultiSet<T>.
   @m_empty<T>() ⨄ A = A
@@ -107,6 +129,7 @@ proof
   }
 end
 
+auto empty_m_sum
 
 theorem m_sum_commutes: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
   A ⨄ B = B ⨄ A
@@ -154,6 +177,8 @@ proof
   }
 end
 
+associative operator⨄ <T> in MultiSet<T>
+
 define set_of_mset : fn<T> MultiSet<T> -> Set<T>
   = generic T {λM{set_of_pred(λx{ if cnt(M)(x) = 0 then false else true })}}
 
@@ -177,7 +202,6 @@ proof
   fwd, bkwd
 end
 
-  
 theorem som_one_single: all T:type. all x:T.
   set_of_mset(m_one(x)) = single(x)
 proof
@@ -185,22 +209,24 @@ proof
   arbitrary z:T
   have eq: λx:T{(if cnt(m_fun(λy:T{(if z = y then 1 else 0)}))(x) = 0
                then false else true)}
-           = λy{z = y}
-    by extensionality
-       arbitrary y:T
-       switch y = z for cnt {
-         case true suppose yz_true {
-	   have z_y: z = y
-	     by symmetric replace yz_true.
-	   replace z_y.
-	 }
-	 case false suppose yz_false {
-	   have not_zy: not (z = y)
-	     by suppose zy
+           = λy{z = y} by {
+    extensionality
+    arbitrary y:T
+    switch y = z for cnt {
+      case true suppose yz_true {
+	      have z_y: z = y
+	        by symmetric replace yz_true.
+	      replace z_y.
+	    }
+	    case false suppose yz_false {
+	      have not_zy: not (z = y) by {
+          suppose zy
 	        replace yz_false in symmetric zy
-	   replace (apply eq_false to not_zy).
-	 }
-       }
+        }
+	      replace (apply eq_false to not_zy).
+	    }
+    }
+  }
   expand m_one | set_of_mset
   replace eq | single_pred<T>[z].
 end
@@ -210,10 +236,11 @@ theorem som_union: all T:type. all A:MultiSet<T>, B:MultiSet<T>.
 proof
   arbitrary T:type
   arbitrary A:MultiSet<T>, B:MultiSet<T>
-  expand set_of_mset | operator ⨄
+  expand set_of_mset
   replace union_set_of_pred<T>
-  suffices (fun x:T { (if cnt(m_fun(fun y:T { cnt(A)(y) + cnt(B)(y) }))(x) = 0 then false else true) })
-    = (fun x:T { ((if cnt(A)(x) = 0 then false else true) or (if cnt(B)(x) = 0 then false else true)) })
+  suffices (fun x:T { (if cnt(A ⨄ B)(x) = 0 then false else true) })
+         = (fun x:T { ((if cnt(A)(x) = 0 then false else true)
+                       or (if cnt(B)(x) = 0 then false else true)) })
     by set_of_pred_equal_bkwd<T>
   extensionality
   arbitrary x:T
@@ -224,9 +251,11 @@ proof
           expand cnt
           cases uint_zero_or_positive[f(x)]
           case fxz {
+            expand operator⨄ | cnt
             replace fxz.
           }
           case fx_pos {
+            expand operator⨄ | cnt
             obtain y where fxy: f(x) = 1 + y from apply uint_positive_add_one to fx_pos
             replace fxy.
           }
