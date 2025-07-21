@@ -172,10 +172,10 @@ assert [1,2] ++ [3,4] = [1,2,3,4]
 conclusion ::= "apply" proof "to" proof
 ```
 
-Suppose that you already have two facts:
-* `(if P then Q)` with label `X`,
-* `P` with label `Y`.
-Then `(apply X to Y)` is a proof of `Q`.
+The proof `(apply X to Y)` proves formula `Q`
+so long as 
+* `X` proves `(if P then Q)`,
+* `Y` proves `P`.
 
 Example:
 
@@ -207,8 +207,8 @@ arbitrary x1:T1, ..., xn:Tn
 X
 ```
 
-is a proof of the formula `all x1:T1, ..., xn:Tn. P`
-so long as `X` is a proof of `P`.
+is a proof of `all x1:T1, ..., xn:Tn. P` so long as
+* `X` is a proof of `P`.
 The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
 
 Example:
@@ -254,7 +254,8 @@ X
 ```
 
 is a proof of the formula `if P then Q`
-so long as `X` is a proof of `Q`.
+so long as
+* `X` is a proof of `Q`.
 The proof `X` may use the given `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
 
@@ -306,7 +307,7 @@ auto uint_zero_mult
 ```
 
 From here on, anytime Deduce sees a term containing a `0` multiplied by
-something, it replaced the multiplication with `0`.
+something, Deduce replaces it with `0`.
 
 Some care is needed when selecting equations for use with `auto`.  For
 example, we do **not** register the `uint_mult_commute` theorem with
@@ -316,7 +317,6 @@ example, we do **not** register the `uint_mult_commute` theorem with
 theorem uint_mult_commute: all m:UInt, n:UInt.
   m * n = n * m
 ```
-
 
 ## Biconditional (if and only if)
 
@@ -336,7 +336,7 @@ type ::= "bool"
 ```
 
 The type `bool` classifies the values `true` and `false`.
-A formula is a term of type `bool`.
+A *formula* is a term of type `bool`.
 
 ## Braces (Proof)
 
@@ -427,7 +427,7 @@ end
 conclusion ::= proof "," proof
 ```
 
-See the entry for And (logical conjunction).
+See the entry for [And](#and-logical-conjunction).
 
 ## Compose (Functions)
 
@@ -464,7 +464,8 @@ A proof of the form
 conclude P by X
 ```
 
-is a proof of formula `P` if `X` is a proof of `P`.
+is a proof of formula `P` so long as
+* `X` is a proof of `P`.
 
 Example:
 
