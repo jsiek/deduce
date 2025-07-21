@@ -27,7 +27,17 @@ proof
   .
 end
 
-theorem div: 4/2 = 2
+theorem div_4_1: 4/1 = 4
+proof
+  .
+end
+
+theorem div_4_2: 4/2 = 2
+proof
+  .
+end
+
+theorem div_32_1_12: 3/2 = 1 + 1/2
 proof
   .
 end

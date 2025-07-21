@@ -695,7 +695,7 @@ term ::= term "/" term
 ```
 
 The division function for `UInt` is defined in `UInt.pf`.  The main
-theorem is `uint_div_mod` which states, assume `m` is positive, that
+theorem is `uint_div_mod` which states, assuming `m` is positive, that
 
 ```
 (n / m) * m + (n % m) = n
@@ -838,6 +838,9 @@ each other, such as `x = 0` and `x = 1`, or `not P` and `P`.
 
 A proof of `false` can be used to prove anything else!
 (This is known as the Principle of Explosion.)
+
+See the entry for [Contradiction](#contradiction) for an example
+of both proving `false` and using `false` to prove something else.
 
 
 ## Formula
