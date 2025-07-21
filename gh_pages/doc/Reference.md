@@ -172,14 +172,10 @@ assert [1,2] ++ [3,4] = [1,2,3,4]
 conclusion ::= "apply" proof "to" proof
 ```
 
-A proof of the form
-
-```
-apply X to Y
-```
-
-is a proof of formula `Q` if `X` is a proof of `(if P then Q)`
-and `Y` is a proof of `P`.
+Suppose that you already have two facts:
+* `(if P then Q)` with label `X`,
+* `P` with label `Y`.
+Then `(apply X to Y)` is a proof of `Q`.
 
 Example:
 
