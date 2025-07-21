@@ -190,8 +190,6 @@ proof
   expand operator∈ | operator∪ | rep.
 end
 
-// auto member_union_equal is problematic, too eager. -Jeremy
-
 // testing alternate syntax for ∅
 theorem union_empty: all T:type. all A:Set<T>.
   A ∪ .0. = A

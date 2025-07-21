@@ -345,7 +345,7 @@ uint_less_trans: all x:UInt, y:UInt, z:UInt. if (x < y and y < z) then x < z
 ```
 
 You can use these theorems by instantiating them with particular
-entities. For example, `uint_add_commute[a,b*c]` is a proof of `a + b*c = b*c + a`.
+entities. For example, `uint_add_commute[a,b]` is a proof of `a + b = b + a`.
 Some of these theorems (the ones declared `auto`)
 are applied automatically by Deduce as it simplifies
 a formula, such as `uint_add_zero`. The `commute` rules are not applied automatically
