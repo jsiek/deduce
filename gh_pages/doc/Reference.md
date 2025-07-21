@@ -513,8 +513,9 @@ A proof of the form
 conjunct n of X
 ```
 
-is a proof of `Pn` if `X` is a proof of `P1 and ... and Pk`
-and 1 ≤ n ≤ k.
+is a proof of `Pn` so long as
+* `X` is a proof of `P1 and ... and Pk` and
+* 1 ≤ n ≤ k.
 
 Example:
 
@@ -563,6 +564,15 @@ then you can prove `false` using `apply`-`to`. (Because
 have X: P by ...
 have Y: not P by ...
 conclude false by apply Y to X
+```
+
+```{.deduce^#contradiction_example}
+theorem contra_example: if length([1,2]) = length([1]) then length([1,2]) = length([2])
+proof
+  assume len_12_1: length([1,2]) = length([1])
+  have contra: false by expand 3* length in len_12_1
+  conclude length([1,2]) = length([2]) by contra
+end
 ```
 
 ## Define (Statement)
@@ -2270,5 +2280,6 @@ import Pair
 <<union_example>>
 <<fun_interchange_example>>
 <<generic_fun_example>>
+<<contradiction_example>>
 ```
 -->
