@@ -207,7 +207,8 @@ arbitrary x1:T1, ..., xn:Tn
 X
 ```
 
-is a proof of the formula `all x1:T1, ..., xn:Tn. P` if `X` is a proof of `P`.
+is a proof of the formula `all x1:T1, ..., xn:Tn. P`
+so long as `X` is a proof of `P`.
 The variables `x1`, ..., `xn` may appear in the formula `P` and the proof `X`.
 
 Example:
@@ -216,9 +217,10 @@ Example:
 theorem arbitrary_example: all x:UInt,y:UInt. if x = y then y = x
 proof
   arbitrary x:UInt,y:UInt
-  conclude if x = y then y = x by
+  conclude if x = y then y = x by {
     assume: x = y
     symmetric (recall x = y)
+  }
 end
 ```
 
