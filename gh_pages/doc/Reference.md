@@ -253,8 +253,9 @@ assume label: P
 X
 ```
 
-is a proof of the formula `if P then Q` if `X` is a proof of `Q`.
-The proof `X` may use the `label` as a proof of `P`
+is a proof of the formula `if P then Q`
+so long as `X` is a proof of `Q`.
+The proof `X` may use the given `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
 
 ```{.deduce^#assume_example}
