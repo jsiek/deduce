@@ -282,6 +282,40 @@ See the entry for [Assume](#assume) to see how assumptions are used.
 
 See the entry for [Instantiation](#instantiation-term).
 
+## Auto `auto` (Automatic Reduction)
+
+```
+statement ::= "auto" identifier
+```
+
+To tell Deduce to automatically apply an equation, left to right, use
+the `auto` statement with the name of the theorem. For example, in
+`UInt.pf` we prove that zero multiplied by anything is zero and follow
+this `theorem` with an `auto` statement to register it for automatic
+reduction.
+
+```
+theorem uint_zero_mult: all n:UInt. 0 * n = 0
+proof
+  ...
+end
+
+auto uint_zero_mult
+```
+
+From here on, anytime Deduce sees a term containing a `0` multiplied by
+something, it replaced the multiplication with `0`.
+
+Some care is needed when selecting equations for use with `auto`.  For
+example, we do **not** register the `uint_mult_commute` theorem with
+`auto` because that would cause Deduce to go into an infinite loop.
+
+```
+theorem uint_mult_commute: all m:UInt, n:UInt.
+  m * n = n * m
+```
+
+
 ## Biconditional (if and only if)
 
 ```

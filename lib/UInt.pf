@@ -366,7 +366,11 @@ proof
   lnm
 end
 
-postulate uint_zero_mult: all n:UInt. 0 * n = 0
+theorem uint_zero_mult: all n:UInt. 0 * n = 0
+proof
+  arbitrary n:UInt
+  expand lit | fromNat | operator*.
+end
 
 auto uint_zero_mult
 
