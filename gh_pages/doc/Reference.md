@@ -120,11 +120,14 @@ Use comma to combine a proof of `P` and a proof of `Q` into a proof of
 `P and Q`.
 
 ```{.deduce^#and_example_intro}
-theorem and_example_intro: (1 = 0 + 1) and (0 = 0 + 0)
+define A = (1 = 0 + 1)
+define B = (0 = 0 + 0)
+
+theorem and_example_intro: A and B
 proof
-  have eq1: 1 = 0 + 1 by .
-  have eq2: 0 = 0 + 0 by .
-  conclude (1 = 0 + 1) and (0 = 0 + 0) by eq1, eq2
+  have A_true: A by expand A.
+  have B_true: B by expand B.
+  conclude A and B by A_true, B_true
 end
 ```
 
