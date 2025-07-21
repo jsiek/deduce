@@ -42,3 +42,12 @@ proof
   .
 end
 
+/*
+TODO
+
+theorem div_x: all x:UInt. x + x/2 = x * 3/2
+proof
+  arbitrary x:UInt
+  .
+end
+*/

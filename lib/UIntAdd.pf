@@ -64,6 +64,16 @@ proof
 end
 
 theorem lit_add_fromNat: all x:Nat, y:Nat.
+  fromNat(lit(x)) + fromNat(lit(y)) = fromNat(lit(x) + lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  symmetric fromNat_add
+end
+
+auto lit_add_fromNat
+
+/*
+theorem lit_add_fromNat: all x:Nat, y:Nat.
   fromNat(lit(x)) + fromNat(y) = fromNat(lit(x) + y)
 proof
   arbitrary x:Nat, y:Nat
@@ -80,6 +90,7 @@ proof
 end
 
 auto add_lit_fromNat
+*/
 
 theorem uint_add_commute: all x:UInt, y:UInt.
   x + y = y + x

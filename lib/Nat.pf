@@ -495,7 +495,7 @@ auto lit_add_div
 postulate lit_add_div_suc: all a:Nat, b:Nat, y:Nat. add_div(a, suc(b), y) = add_div(suc(a), b, y)
 auto lit_add_div_suc
 
-postulate lit_add_div_frac: all a:Nat, y:Nat. add_div(a, zero, y) = frac(lit(a), lit(y))
+postulate lit_add_div_frac: all a:Nat, y:Nat. add_div(a, zero, y) = lit(frac(lit(a), lit(y)))
 auto lit_add_div_frac
 
 postulate lit_frac_zero: all y:Nat. frac(lit(zero), lit(y)) = lit(zero)
