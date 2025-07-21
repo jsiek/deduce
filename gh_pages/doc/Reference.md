@@ -672,7 +672,7 @@ proof
     case node(x, ls') {
       assume A: length(node(x, ls')) = 0
       have B: 1 + length(ls') = 0  by expand length in A
-      conclude false by apply uint_not_one_add_zero to B
+      conclude false by B
     }
   }
 end
