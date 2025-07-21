@@ -17,11 +17,12 @@ const types = ["MultiSet", "Option", "Pair", "Set", "List", "Int", "Nat", "int",
 const keywords = [
     "define", "function", "fun", "switch", "case", "union", "if", "then", "else", "import",
     "generic", "assert", "have", "transitive", "symmetric", "extensionality", "reflexive",
-    "injective", "sorry", "help", "conclude", "suffices", "enough", "by", "rewrite",
+    "injective", "sorry", "help", "conclude", "suffices", "enough", "by", "replace",
     "conjunct", "induction", "where", "suppose", "with", "definition", "apply", "to", "cases",
     "obtain", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
     "assume", "for", "recall", "in", "and", "or", "print", "not", "some", "all", "theorem",
-    "lemma", "proof", "end", "replace", "recursive"
+    "lemma", "proof", "end", "replace", "recursive", "expand", "auto", "array", "associative",
+    "evaluate", "export", "recfun", "show", "terminates", "postulate"
 ]
 
 
