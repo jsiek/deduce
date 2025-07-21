@@ -665,7 +665,7 @@ In the example below, we write `expand length in A` to
 transform the formula
 ```
 length(node(x, ls')) = 0
-``
+```
 to
 ```
 1 + length(ls') = 0
