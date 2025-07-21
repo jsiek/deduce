@@ -537,7 +537,7 @@ each other. In these situations, you can prove `false` and from that,
 anything else (the Principle of Explosion). Here are two ways to prove
 `false` from contradictions.
 
-(1) If you have a proof `X` of an equality with different constructors
+(1) If you have a proof of an equality with different constructors
 on the left and right-hand side, such as
 
 ```
@@ -556,7 +556,7 @@ then you can implicitly use `X` to prove `false`:
 conclude false by X
 ```
 
-(2) If you have a proof `X` of `P` and a proof `Y` of `not P`,
+(2) If you have a proof of `P` and a proof of `not P`,
 then you can prove `false` using `apply`-`to`. (Because
 `not P` is shorthand for `if P then false`.)
 
@@ -592,8 +592,7 @@ define six : UInt = 1 + five
 ```
 
 Optionally, the type can be specified after the name, following a
-colon.  In the above, `six` holds a natural number, so its type is
-`UInt`.
+colon.  In the above, `six` holds an unsigned integer, so its type is `UInt`.
 
 ## Define (Term)
 
@@ -2206,11 +2205,11 @@ visibility ::= ε | "public" | "private" | "opaque"
 ```
 
 The visibility of a statement controls how the defined name can be
-used outside of the current file, that is, via an import.
+used outside of the current module.
 
-* The default visibility is `public`, which means the name can be freely used outside the current file.
-* A `private` name cannot be mentioned outside of the current file.
-* An `opaque` name can be mentioned in other files but it cannot be expanded (via the `expand` or `evaluate` statements). The constructors of an `opaque` union are always private.
+* The default visibility is `public`, which means the name can be freely used outside the current module.
+* A `private` name cannot be mentioned outside of the current module.
+* An `opaque` name can be mentioned in other modules but it cannot be expanded (via the `expand` or `evaluate` statements). The constructors of an `opaque` union are always private.
 
 
 <!--
