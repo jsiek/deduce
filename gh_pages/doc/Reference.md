@@ -661,6 +661,16 @@ recursive, only one expansion is performed per time the definition's
 name is mentioned in the list. If one of the specified names does not
 appear in the formula, Deduce signals an error.
 
+In the example below, we write `expand length in A` to
+transform the formula
+```
+length(node(x, ls')) = 0
+``
+to
+```
+1 + length(ls') = 0
+```
+
 ```{.deduce^#expand_in_example}
 theorem expand_in_example: all ls:List<UInt>. if length(ls) = 0 then ls = []
 proof
