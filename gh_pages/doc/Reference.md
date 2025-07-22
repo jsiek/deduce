@@ -982,7 +982,7 @@ within a proof.
 formula ::= term ">" term
 ```
 
-The greater-than operator on natural numbers is defined in `UInt.pf`
+The greater-than operator on unsigned integers is defined in `UInt.pf`
 and is defined in terms of less-than as follows
 
 ```
@@ -1005,7 +1005,7 @@ formula ::= term "≥" term
 formula ::= term ">=" term
 ```
 
-The greater-than-or-equal operator on natural numbers is defined in `UInt.pf`
+The greater-than-or-equal operator on unsigned integers is defined in `UInt.pf`
 and is defined in terms of less-than-or-equal as follows
 
 ```
@@ -1086,10 +1086,11 @@ identifier_list ::= identifier "," identifier_list
 
 ## Identifier List Bar
 
-A bar-separated sequence of identifiers. If an identifier is preceded
-by a number and the multiplication sign, then the identifier is
-repeated. (e.g. to make a definition expand recursively more than
-once.)
+A bar-separated sequence of identifiers used in the syntax for
+[Expand](#expand-proof) and [Expand-Int](#expand-in-proof) to specify
+which definitions to expand.  To tell Deduce to expand a definition
+multiple times (e.g. for a recursive function), preceed the identifier
+by a number and the multiplication sign.
 
 ```
 identifier_list_bar ::= identifier
@@ -1299,14 +1300,8 @@ assert not (3 ∈ C ∩ D)
 formula ::= term "<" term
 ```
 
-The less-than operator on natural numbers is defined in `Nat.pf`
-as follows.
-
-```
-x < y = suc(x) ≤ y
-```
-
-To find theorems about the less-than operator in `Nat.thm`, search for
+The less-than operator on unsigned integers is defined in `UInt.pf`.
+To find theorems about the less-than operator in `UInt.thm`, search for
 theorems with `less` in the name.
 
 Example:
@@ -1324,21 +1319,8 @@ formula ::= term "≤" term
           | term "<=" term
 ```
 
-The less-than-or-equal operator on natural numbers is defined in `Nat.pf`
-as follows.
-
-```
-function operator ≤(Nat,Nat) -> bool {
-  operator ≤(0, m) = true
-  operator ≤(suc(n'), m) =
-    switch m {
-      case 0 { false }
-      case suc(m') { n' ≤ m' }
-    }
-}
-```
-
-To find theorems about the less-than operator in `Nat.thm`, search for
+The less-than-or-equal operator on unsigned integers is defined in `UInt.pf`.
+To find theorems about the less-than operator in `UInt.thm`, search for
 theorems with `less_equal` in the name.
 
 Example:
@@ -1437,16 +1419,8 @@ See the entry for [Apply-To](#apply-to-proof-modus-ponens).
 term ::= term "*" term
 ```
 
-Multiplication on natural numbers is defined in `Nat.pf` as follows.
-
-```
-function operator *(Nat,Nat) -> Nat {
-  operator *(0, m) = 0
-  operator *(suc(n), m) = m + (n * m)
-}
-```
-
-To find theorems about multiplication, search for `mult` in `Nat.thm`.
+Multiplication on unsigned integers is defined in `UInt.pf`.
+To find theorems about multiplication, search for `mult` in `UInt.thm`.
 
 Example:
 
@@ -1464,11 +1438,14 @@ element. The `MultiSet<T>` type is defined in `MultiSet.pf`.
 ## Natural Number
 
 ```
-natural_number ::= [0-9]+
+natural_number ::= ℕ[0-9]+
 term ::= natural_number
 ```
 
-A natural number literal is a sequence of one or more digits.
+An natural number literal is the symbol `ℕ` followed by a sequence of
+one or more digits.
+
+The operations on natural numbers and theorems about them are in `Nat.thm`.
 
 
 ## Not
@@ -1504,9 +1481,10 @@ obtain x1,...,xn where label: P from X
 Y
 ```
 
-is a proof of formula `Q` if `Y` is a proof of `Q`.
-The `X` must be a proof of the form `some x1:T1,...,xn:Tn. P`.
-The proof `Y` may use the `label` as a proof of `P`
+is a proof of formula `Q` so long as
+* `Y` proves `Q`.
+* `X`proves `some x1:T1,...,xn:Tn. P`.
+The proof `Y` may use the given `label` as a proof of `P`
 and it may also refer to the proof of `P` by writing `recall P`.
 
 Example:
@@ -1517,12 +1495,10 @@ theorem obtain_example: all n:UInt.
 proof
   arbitrary n:UInt
   assume prem: (some x:UInt. n = 4 * x)
-  obtain x where m4: n = 4 * x from prem
+  obtain x where n_4x: n = 4 * x from prem
   choose 2 * x
-  equations
-     n = 4 * x          by m4
-   ... = (2 * 2) * x    by .
-   ... = 2 * 2 * x      by mult_assoc
+  show n = 2 * (2 * x)
+  replace n_4x.
 end
 ```
 
@@ -1735,7 +1711,7 @@ A recursive function begins with the `recursive` keyword,
 followed by the name of the function, then the parameters types and the return
 type. The body of the function includes one equation for every
 constructor in the union of its first parameter. For example, here's
-the definition of a `length` function for lists of natural numbers.
+the definition of a `length` function for lists of unsigned integers.
 
 ```{.deduce^#function_length_example}
 union UIntList {
@@ -2199,6 +2175,15 @@ assert 2 ∈ C' ∪ D'
 assert 3 ∈ C' ∪ D'
 assert not (4 ∈ C' ∪ D')
 ```
+
+## Unsigned Integer
+
+```
+unsigned_integer ::= [0-9]+
+term ::= unsigned_integer
+```
+
+An unsigned integer literal is a sequence of one or more digits.
 
 ## Variable List
 

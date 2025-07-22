@@ -512,3 +512,31 @@ proof
 end
 
 auto lit_zero_less_equal_true
+
+theorem lit_expt_one : all n:Nat.
+  n ^ ℕ1 = n
+proof
+  arbitrary n : Nat
+  expand lit
+  expt_one
+end
+
+auto lit_expt_one
+
+theorem lit_expt_two : all n : Nat.
+  n ^ ℕ2 = n * n
+proof
+  arbitrary n:Nat
+  expand lit
+  expt_two
+end
+
+theorem lit_one_expt : all n :Nat.
+  ℕ1 ^ n = ℕ1
+proof
+  arbitrary n:Nat
+  expand lit
+  one_expt
+end
+
+auto lit_one_expt

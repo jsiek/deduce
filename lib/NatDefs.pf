@@ -89,6 +89,7 @@ recursive iterate<T>(Nat, T, fn T -> T) -> T {
   iterate(suc(n), init, f) = f(@iterate<T>(n, init, f))
 }
 
+// 2^n
 recursive pow2(Nat) -> Nat {
   pow2(zero) = suc(zero)
   pow2(suc(n')) = suc(suc(zero)) * pow2(n')

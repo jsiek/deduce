@@ -48,6 +48,13 @@ proof
   mult_one
 end
 
+lemma expt_two : all n : Nat.
+  n ^ suc(suc(zero)) = n * n
+proof
+  arbitrary n : Nat
+  evaluate
+end
+
 lemma one_expt : all n : Nat.
   suc(zero) ^ n = suc(zero)
 proof
