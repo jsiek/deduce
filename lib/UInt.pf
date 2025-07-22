@@ -8,6 +8,7 @@ public import UIntLess
 public import UIntAdd
 public import UIntMult
 public import UIntMonus
+public import UIntPowLog
 
 // Need lit, zero, suc following for unsigned integer literals.
 

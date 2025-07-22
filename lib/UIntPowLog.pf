@@ -1,0 +1,144 @@
+module UInt
+
+import Nat
+import UIntDefs
+import UIntToFrom
+import UIntAdd
+import UIntMult
+
+lemma expt_dub_inc: all n:UInt, p:UInt. n ^ dub_inc(p) = sqr(n * (n^p))
+proof
+  arbitrary n:UInt, p:UInt
+  expand operator^ | expt.
+end
+
+lemma expt_inc_dub: all n:UInt, p:UInt. n ^ inc_dub(p) = n * sqr(n^p)
+proof
+  arbitrary n:UInt, p:UInt
+  expand operator^ | expt.
+end
+
+theorem toNat_expt: all p:UInt, n:UInt.
+  toNat(n^p) = toNat(n) ^ toNat(p)
+proof
+  induction UInt
+  case bzero {
+    arbitrary n:UInt
+    evaluate
+  }
+  case dub_inc(p') assume IH {
+    arbitrary n:UInt
+    replace expt_dub_inc
+    expand toNat
+    replace pow_add_r
+    expand sqr
+    replace toNat_mult | toNat_mult | toNat_mult | IH | lit_expt_two
+    define x = toNat(n)
+    define p = toNat(p')
+    replace symmetric pow_mul_r[p, x, ℕ2] | lit_expt_two | pow_mul_l
+    replace mult_commute[x ^ p, x].
+  }
+  case inc_dub(x') assume IH {
+    arbitrary n:UInt
+    replace expt_inc_dub
+    expand toNat
+    replace nat_suc_one_add | pow_add_r | toNat_mult
+    expand sqr
+    replace toNat_mult | IH | symmetric pow_mul_r[toNat(x'), toNat(n), ℕ2]
+    replace lit_expt_two | pow_mul_l.
+  }
+end
+
+theorem fromNat_expt: all x:Nat, y:Nat.
+  fromNat(x^y) = fromNat(x)^fromNat(y)
+proof
+  arbitrary x:Nat, y:Nat
+  suffices toNat(fromNat(x^y)) = toNat(fromNat(x)^fromNat(y))
+    by toNat_injective
+  replace toNat_expt | to_fromNat.
+end
+
+theorem lit_expt_fromNat: all x:Nat, y:Nat.
+  fromNat(lit(x)) ^ fromNat(lit(y)) = fromNat(lit(x) ^ lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  symmetric fromNat_expt
+end
+
+auto lit_expt_fromNat
+
+theorem uint_expt_one: all n:UInt.
+  n ^ 1 = n
+proof
+  arbitrary n:UInt
+  suffices toNat(n^1) = toNat(n)   by toNat_injective
+  equations
+      toNat(n^1) = toNat(n)^toNat(1)  by toNat_expt
+             ... = toNat(n)           by replace to_fromNat.
+end
+
+auto uint_expt_one
+
+theorem uint_expt_two: all n:UInt.
+  n ^ 2 = n * n
+proof
+  arbitrary n:UInt
+  suffices toNat(n^2) = toNat(n * n) by toNat_injective
+  equations
+      toNat(n^2) = toNat(n)^toNat(2)   by toNat_expt
+             ... = toNat(n) * toNat(n) by { replace to_fromNat lit_expt_two }
+             ... = #toNat(n * n)#      by replace toNat_mult.
+end
+
+theorem uint_one_expt: all n:UInt.
+  1 ^ n = 1
+proof
+  arbitrary n:UInt
+  suffices toNat(1^n) = toNat(1) by toNat_injective
+  equations
+      toNat(1^n) = toNat(1)^toNat(n)  by toNat_expt
+             ... = ℕ1^toNat(n)        by { replace to_fromNat. }
+             ... = ℕ1                 by .
+             ... = #toNat(1)#         by { replace to_fromNat. }
+end
+
+theorem uint_pow_add_r : all m:UInt, n:UInt, o:UInt.
+  m^(n + o) = m^n * m^o
+proof
+  arbitrary m:UInt, n:UInt, o:UInt
+  suffices toNat(m^(n + o)) = toNat(m^n * m^o)  by toNat_injective
+  equations
+      toNat(m^(n + o))
+        = toNat(m) ^ toNat(n + o)           by toNat_expt
+    ... = toNat(m) ^ (toNat(n) + toNat(o))  by replace toNat_add.
+    ... = toNat(m) ^ toNat(n) * toNat(m) ^ toNat(o)  by replace pow_add_r.
+    ... = #toNat(m^n) * toNat(m^o)#         by replace toNat_expt.
+    ... = #toNat(m^n * m^o)#                by replace toNat_mult.
+end
+
+theorem uint_pow_mul_l : all m:UInt, n:UInt, o:UInt.
+  (m * n)^o = m^o * n^o
+proof
+  arbitrary m:UInt, n:UInt, o:UInt
+  suffices toNat((m * n)^o) = toNat(m^o * n^o)  by toNat_injective
+  equations
+      toNat((m * n)^o)
+        = toNat(m*n)^toNat(o)                   by replace toNat_expt.
+    ... = (toNat(m)*toNat(n))^toNat(o)          by replace toNat_mult.
+    ... = toNat(m)^toNat(o) * toNat(n)^toNat(o) by replace pow_mul_l.
+    ... = #toNat(m^o) * toNat(n^o)#             by replace toNat_expt.
+    ... = #toNat(m^o * n^o)#                    by replace toNat_mult.
+end
+
+theorem uint_pow_mul_r : all m : UInt, n : UInt, o : UInt.
+  (m ^ n) ^ o = m ^ (n * o)
+proof
+  arbitrary m:UInt, n:UInt, o:UInt
+  suffices toNat((m ^ n) ^ o) = toNat(m ^ (n * o))  by toNat_injective
+  equations
+      toNat((m ^ n) ^ o)
+        = (toNat(m) ^ toNat(n)) ^ toNat(o)   by replace toNat_expt | toNat_expt.
+    ... = toNat(m) ^ (toNat(n) * toNat(o))   by pow_mul_r
+    ... = #toNat(m ^ (n * o))#               by replace toNat_expt | toNat_mult.
+end
+
