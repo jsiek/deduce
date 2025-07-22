@@ -749,11 +749,12 @@ first equation, the left-hand side of each equation is written as
 `...` because it is just a repetition of the right-hand side of the
 previous equation.
 
-When using `replace` for one of the reasoning steps in `equations`,
-the replacement is, by default, applied to the left-hand side of the
-equation (and not the right-hand side). However, if you would like to
-apply a replacement to the right-hand side, use hash marks (`#`)
-around the region of the right-hand side that you want to change.
+When using `replace` or `expand` for one of the reasoning steps in
+`equations`, the transformation is, by default, applied to the
+left-hand side of the equation (and not the right-hand side). However,
+if you would like to apply a transformation to the right-hand side,
+use hash marks (`#`) around the region of the right-hand side that you
+want to change.
 
 Example:
 
@@ -769,10 +770,8 @@ proof
 end
 ```
 
-The hash marks can also be used to control where Deduce applies a
-`expand`. In the following example, the hash marks tell Deduce to
-expand the definition of `length` in the right-hand side of the second
-equation.
+In the following example, the hash marks tell Deduce to `expand` the
+definition of `length` in the right-hand side of the second equation.
 
 ```{.deduce^#equations_expand_example}
 theorem equations_expand_example: all x:UInt, y:UInt, xs:List<UInt>.
@@ -886,7 +885,8 @@ statement ::= visibility "fun" ident type_params_opt "(" var_list ")" "{" term "
 ```
 
 The `fun` statement is for defining a function (non-recursive).
-The function begins with the `fun` keyword, followed by 
+The function statement begins with its [visibility](#visibility),
+then the `fun` keyword, followed by 
 the type parameters enclosed in `<` and `>` (if generic),
 then the parameter list enclosed in `(` and `)`, and finally
 the body of the function enclosed in `{` and `}`.
@@ -906,8 +906,8 @@ type ::= "fn" type_params_opt type_list "->" type
 ```
 
 A function type classifies a function. This includes both recursive
-functions (`function`) and anonymous functions (`fun` or `λ`).  If the
-function is generic, its function type includes type parameters
+functions (`recursive`) and non-recursive functions (`fun` or `λ`).
+If the function is generic, its function type includes type parameters
 enclosed in `<` and `>`.
 
 ## Generic (Formula)
@@ -950,8 +950,8 @@ define operator ∘ = generic T,U,V { fun g:fn U->V, f:fn T->U {
                         fun x:T { g(f(x)) } } }
 ```
 
-Generic recursive functions can be defined using the `function`
-statement (see [Function](#function-statement)).
+Generic recursive functions can be defined using the `recursive`
+statement (see [Recursive Function](#recursive-function-statement)).
 
 ## Generic Function (Term)
 

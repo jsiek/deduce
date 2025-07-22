@@ -37,17 +37,15 @@ proof
   .
 end
 
-theorem div_32_1_12: 3/2 = 1 + 1/2
+theorem div_32_1: 3/2 = 1
 proof
   .
 end
 
-/*
-TODO
-
-theorem div_x: all x:UInt. x + x/2 = x * 3/2
+theorem div_1_12: 1 = 1 + 1/2
 proof
-  arbitrary x:UInt
   .
 end
-*/
+
+
+

@@ -35,6 +35,11 @@ proof
   .
 end
 
+theorem div_4_1: ℕ4 / ℕ1 = ℕ4
+proof
+  .
+end
+
 theorem div_4_2: ℕ4 / ℕ2 = ℕ2
 proof
   .
@@ -49,6 +54,16 @@ proof
 end
 
 theorem zero_greater: not (ℕ0 < ℕ0)
+proof
+  .
+end
+
+theorem div_32_1: ℕ3/ℕ2 = ℕ1
+proof
+  .
+end
+
+theorem div_1_12: ℕ1 = ℕ1 + ℕ1/ℕ2
 proof
   .
 end
