@@ -68,3 +68,7 @@ proof
   .
 end
 
+theorem le_12: ℕ1 ≤ ℕ2
+proof
+  .
+end

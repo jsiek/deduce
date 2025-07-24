@@ -831,10 +831,10 @@ class Lambda(Term):
                  self.body.copy())
   
   def __str__(self):
-    if get_verbose():
+    if get_unique_names():
       params = self.vars
     else:
-      params = [(base_name(x), t)for (x,t) in self.vars]
+      params = [(base_name(x), t) for (x,t) in self.vars]
     return "fun " + ",".join([x + ':' + str(t) if t else x\
                               for (x,t) in params]) \
            + " { " + str(self.body) + " }"
@@ -2012,8 +2012,7 @@ class All(Formula):
   
   def __str__(self):
     v, t = self.var
-    if not get_verbose():
-      v = base_name(v)
+    v = name2str(v)
 
     (s, e) = self.pos
 
@@ -3077,7 +3076,7 @@ class RecFun(Declaration):
     if False and get_verbose():
       return self.to_string()
     else:
-      return name2str(self.name)
+      return '`' + name2str(self.name)
     
   def to_string(self):
     return 'recursive ' + self.name + '<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
@@ -4601,15 +4600,20 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
         
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
+      if get_verbose():
+          print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
+                + '\trator formula: ' + str(rator))
       formula_match(loc, vars, goal_rator, rator, matching, env)
       if len(rands) >= len(goal_rands):
         while len(rands) > 0:
+          # What is the following for? -Jeremy
           if len(goal_rands) == 1 and len(rands) > 1:
               rand = Call(loc3, tyof3, rator, rands)
               rands = []
           else:
               rand = rands[0]
               rands = rands[1:]
+              
           goal_rand = goal_rands[0]
           goal_rands = goal_rands[1:]
             

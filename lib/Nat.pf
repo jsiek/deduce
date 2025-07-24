@@ -471,6 +471,9 @@ end
 
 auto zero_less_equal_true
 
+postulate le_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) ≤ lit(suc(y))) = (lit(x) ≤ lit(y))
+auto le_lit_suc  
+
 postulate less_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) < lit(suc(y))) = (lit(x) < lit(y))
 auto less_lit_suc  
 
