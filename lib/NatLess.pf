@@ -764,6 +764,45 @@ proof
   }
 end
 
+theorem mult_mono_le2 : all n : Nat, x : Nat, m:Nat, y : Nat.
+  if n ≤ m and x ≤ y then n * x ≤ m * y
+proof
+  induction Nat
+  case zero {
+    evaluate
+  }
+  case suc(n') assume IH1 {
+    induction Nat
+    case zero {
+      evaluate
+    }
+    case suc(x') assume IH2 {
+      arbitrary m:Nat, y:Nat
+      assume prem
+      switch m {
+        case zero assume mz {
+          conclude false by expand operator≤ in replace mz in prem
+        }
+        case suc(m') assume ms {
+          switch y {
+            case zero assume yz {
+              conclude false by expand operator≤ in replace yz in prem
+            }
+            case suc(y') assume ys {
+              expand operator*
+              show suc(x') + n' * suc(x') ≤ suc(y') + m' * suc(y')
+              have n_m: n' ≤ m' by expand operator≤ in replace ms in prem
+              have x_y: x' ≤ y' by expand operator≤ in replace ys in prem
+              have sx_sy: suc(x') ≤ suc(y') by replace ys in prem
+              have nx_my: n' * suc(x') ≤ m' * suc(y') by apply IH1 to n_m, sx_sy
+              apply add_mono to sx_sy, nx_my
+            }
+          }
+        }
+      }
+    }
+  }
+end
 
 theorem mult_mono_le_r : all n : Nat. all x : Nat, y : Nat.
   if x ≤ y then x * n ≤ y * n

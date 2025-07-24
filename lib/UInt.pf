@@ -484,6 +484,10 @@ postulate uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + 
 
 auto uint_add_both_sides_of_le_equal
 
+postulate uint_mult_mono_le: (all n:UInt, x:UInt, y:UInt. (if x ≤ y then n * x ≤ n * y))
+
+postulate uint_mult_mono_le2 : all n : UInt, x : UInt, m:UInt, y : UInt. (if n ≤ m and x ≤ y then n * x ≤ m * y)
+
 theorem uint_zero_less_one_add: all n:UInt.
   0 < 1 + n
 proof
@@ -598,3 +602,10 @@ end
 
 auto uint_one_add_zero_false
 
+theorem uint_less_equal_refl_true: all n:UInt. (n ≤ n) = true
+proof
+  arbitrary n:UInt
+  apply eq_true to uint_less_equal_refl[n]
+end
+
+auto uint_less_equal_refl_true

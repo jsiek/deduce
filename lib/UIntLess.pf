@@ -151,7 +151,6 @@ proof
           apply IH to prem
         }
         have IH3: ℕ2 + ℕ2*toNat(x') ≤ ℕ2 * toNat(y') by {
-          //replace dist_mult_add in
           apply mult_mono_le[ℕ2] to IH2
         }
         have A: ℕ2 * toNat(y') ≤ ℕ1 + ℕ2*toNat(y') by less_equal_add_left
