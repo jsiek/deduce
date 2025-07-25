@@ -3073,10 +3073,10 @@ class RecFun(Declaration):
     extend(export_env, base_name(self.name), self.name, self.location)
 
   def __str__(self):
-    if False and get_verbose():
-      return self.to_string()
-    else:
+    if get_verbose():
       return '`' + name2str(self.name)
+    else:
+      return name2str(self.name)
     
   def to_string(self):
     return 'recursive ' + self.name + '<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
