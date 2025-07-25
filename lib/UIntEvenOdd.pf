@@ -1,0 +1,20 @@
+module UInt
+
+import Nat
+public import UIntDefs
+
+fun Even(n : UInt) {
+  some m:UInt. n = 2 * m
+}
+
+fun Odd(n : UInt) {
+  some m:UInt. n = 1 + (2 * m)
+}
+
+postulate uint_Even_or_Odd: all n:UInt. Even(n) or Odd(n)
+
+postulate uint_odd_one_even: all n:UInt. if Odd(1 + n) then Even(n)
+
+postulate uint_even_one_odd: all n:UInt. if Even(1 + n) then Odd(n)
+
+postulate uint_Even_not_Odd: all n:UInt. Even(n) ⇔ not Odd(n)

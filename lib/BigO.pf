@@ -123,7 +123,7 @@ proof
       apply uint_less_equal_trans to IH, cfn_2cfn
     }
     conclude f(n) + m * f(n) ≤ 2 * f(n) + 2 * c * f(n)
-      by apply uint_add_mono to fn_cfn, mfn_2cfn
+      by apply uint_add_mono_less_equal to fn_cfn, mfn_2cfn
   }
   expand P in apply uint_induction[P,k] to base, ind
 end

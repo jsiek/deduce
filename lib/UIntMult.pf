@@ -105,3 +105,62 @@ proof
 end
 
 auto lit_mult_fromNat
+
+theorem uint_zero_mult: all n:UInt. 0 * n = 0
+proof
+  arbitrary n:UInt
+  expand lit | fromNat | operator*.
+end
+
+auto uint_zero_mult
+
+postulate uint_mult_zero: all n:UInt. n * 0 = 0
+
+auto uint_mult_zero
+
+theorem uint_one_mult: all n:UInt.
+  1 * n = n
+proof
+  arbitrary n:UInt
+  suffices toNat(1 * n) = toNat(n) by toNat_injective
+  replace toNat_mult
+  evaluate
+end
+
+auto uint_one_mult
+
+theorem uint_mult_one: all n:UInt.
+  n * 1 = n
+proof
+  arbitrary n:UInt
+  suffices toNat(n * 1) = toNat(n) by toNat_injective
+  replace toNat_mult
+  evaluate
+end
+
+auto uint_mult_one
+
+theorem uint_dist_mult_add:
+  all a:UInt, x:UInt, y:UInt.
+  a * (x + y) = a * x + a * y
+proof
+  arbitrary a:UInt, x:UInt, y:UInt
+  suffices toNat(a * (x + y)) = toNat(a * x + a * y) by toNat_injective
+  replace toNat_mult | toNat_add | toNat_mult
+  replace dist_mult_add.
+end
+
+postulate uint_dist_mult_add_right:
+  all x:UInt, y:UInt, a:UInt.
+  (x + y) * a = x * a + y * a
+
+postulate uint_mult_to_zero: all n:UInt, m:UInt.
+  (if n * m = 0 then n = 0 or m = 0)
+
+postulate uint_two_mult: all n:UInt. 2 * n = n + n
+
+  
+postulate uint_mult_mono_le: (all n:UInt, x:UInt, y:UInt. (if x ≤ y then n * x ≤ n * y))
+
+postulate uint_mult_mono_le2 : all n : UInt, x : UInt, m:UInt, y : UInt. (if n ≤ m and x ≤ y then n * x ≤ m * y)
+

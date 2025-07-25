@@ -586,7 +586,7 @@ proof
   less_equal_refl
 end
   
-theorem add_mono: all a:Nat, b:Nat, c:Nat, d:Nat.
+theorem add_mono_less_equal: all a:Nat, b:Nat, c:Nat, d:Nat.
   if a ≤ c and b ≤ d
   then a + b ≤ c + d
 proof
@@ -624,7 +624,7 @@ proof
   assume ac_bd
   have A: suc(a) ≤ c by expand operator< in ac_bd
   have B: suc(b) ≤ d by expand operator< in ac_bd
-  have C: suc(a) + suc(b) ≤ c + d by apply add_mono to A, B
+  have C: suc(a) + suc(b) ≤ c + d by apply add_mono_less_equal to A, B
   have D: suc(a + b) ≤ suc(a) + suc(b) by {
     expand operator+ | operator≤
     replace add_suc
@@ -795,7 +795,7 @@ proof
               have x_y: x' ≤ y' by expand operator≤ in replace ys in prem
               have sx_sy: suc(x') ≤ suc(y') by replace ys in prem
               have nx_my: n' * suc(x') ≤ m' * suc(y') by apply IH1 to n_m, sx_sy
-              apply add_mono to sx_sy, nx_my
+              apply add_mono_less_equal to sx_sy, nx_my
             }
           }
         }

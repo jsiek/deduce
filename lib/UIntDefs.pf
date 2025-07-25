@@ -80,6 +80,14 @@ private fun pred(x:UInt) {
   }
 }
 
+fun div2(b : UInt) {
+  switch b {
+    case bzero { bzero }
+    case dub_inc(x) { inc(x) }     // 2*(1 + x) /2 = 1+x
+    case inc_dub(x) { x }          // (1 + 2*x) / 2 = 1/2 + x = x
+  }
+}
+
 opaque recursive operator+(UInt, UInt) -> UInt {
   operator+(bzero, y) = y
   operator+(dub_inc(x), y) =
@@ -180,3 +188,4 @@ fun min(x : UInt, y : UInt) {
   if x < y then x
   else y
 }
+

@@ -8,11 +8,6 @@ import UIntLess
 import UIntAdd
 import UIntMult
 
-// lemma two: ℕ1 + ℕ1 = ℕ2
-// proof
-//   evaluate
-// end
-
 lemma inc_dub_monus_dub_inc_less: all x:UInt, y:UInt.
   if x < y
   then inc_dub(x) ∸ dub_inc(y) = bzero
@@ -120,7 +115,7 @@ proof
               have nx_ny: toNat(x') ≤ toNat(y')
                 by apply less_equal_trans to nx_snx, snx_ny
               have nx2_ny2: toNat(x') + toNat(x') ≤ toNat(y') + toNat(y')
-                by apply add_mono to nx_ny, nx_ny
+                by apply add_mono_less_equal to nx_ny, nx_ny
               have ny2_sny2: toNat(y') + toNat(y') ≤ ℕ1 + toNat(y') + toNat(y')
                 by less_equal_add_left
               conclude toNat(x') + toNat(x') ≤ ℕ1 + toNat(y') + toNat(y')
@@ -239,3 +234,48 @@ end
 postulate lit_monus_fromNat: all x:Nat, y:Nat. fromNat(lit(x)) ∸ fromNat(lit(y)) = fromNat(lit(x) ∸ lit(y))
 
 auto lit_monus_fromNat
+
+theorem uint_monus_add_identity: all n:UInt. all m:UInt.
+  if m ≤ n
+  then m + (n ∸ m) = n
+proof
+  arbitrary n:UInt, m:UInt
+  assume prem
+  suffices toNat(m + (n ∸ m)) = toNat(n) by toNat_injective
+  suffices toNat(m) + toNat(n ∸ m) = toNat(n) by replace toNat_add.
+  suffices toNat(m) + (toNat(n) ∸ toNat(m)) = toNat(n) by replace toNat_monus.
+  have A: toNat(m) ≤ toNat(n) by apply toNat_less_equal to prem
+  conclude toNat(m) + (toNat(n) ∸ toNat(m)) = toNat(n)
+    by apply monus_add_identity to A
+end
+
+theorem uint_monus_add_assoc: all n:UInt, l:UInt,m:UInt.
+  if m ≤ n
+  then l + (n ∸ m) = (l + n) ∸ m
+proof
+  arbitrary n:UInt, l:UInt, m:UInt
+  assume mn
+  have mn2: toNat(m) ≤ toNat(n) by apply toNat_less_equal[m,n] to mn
+  have lnm: toNat(l) + (toNat(n) ∸ toNat(m)) = (toNat(l) + toNat(n)) ∸ toNat(m)
+    by apply monus_add_assoc[toNat(n), toNat(l), toNat(m)] to mn2
+  suffices toNat(l + (n ∸ m)) = toNat((l + n) ∸ m) by toNat_injective
+  replace toNat_add | toNat_monus | toNat_add
+  lnm
+end
+
+theorem uint_monus_zero: all n:UInt. n ∸ 0 = n
+proof
+  expand lit | fromNat
+  uint_monus_bzero
+end
+
+auto uint_monus_zero
+
+theorem uint_monus_cancel: all n:UInt. n ∸ n = 0
+proof
+  expand lit | fromNat
+  uint_monus_cancel_bzero
+end
+
+auto uint_monus_cancel
+

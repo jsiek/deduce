@@ -1,0 +1,71 @@
+module UInt
+
+import Nat
+import UIntDefs
+import UIntLess
+import UIntAdd
+import UIntMonus
+
+recfun operator /(n : UInt, m : UInt) -> UInt
+  measure n of UInt
+{
+  if n < m then 0
+  else if m = 0 then 0
+  else 1 + ((n ∸ m) / m)
+}
+terminates {
+  arbitrary n:UInt, m:UInt
+  assume cond: not (n < m) and not (m = 0)
+  suffices m + (n ∸ m) < m + n by uint_add_both_sides_of_less[m,n∸m,n]
+  suffices n < m + n by {
+    have m_n: m ≤ n by apply uint_not_less_implies_less_equal to conjunct 0 of cond
+    replace apply uint_monus_add_identity[n,m] to m_n.
+  }
+  have m_pos: 0 < m by apply uint_not_zero_pos to conjunct 1 of cond
+  conclude n < m + n by {
+    replace uint_add_commute in
+    apply uint_less_add_pos[n, m]
+    to expand lit | fromNat in m_pos
+  }
+}
+
+fun operator % (n:UInt, m:UInt) {
+  n ∸ (n / m) * m
+}
+
+postulate uint_div_mod: all n:UInt, m:UInt.
+  if 0 < m
+  then (n / m) * m + (n % m) = n
+
+postulate uint_mod_less_divisor: all n:UInt, m:UInt. if 0 < m then n % m < m
+
+fun divides(a : UInt, b : UInt) {
+  some k:UInt. a * k = b
+}
+
+postulate uint_divides_mod: all d:UInt, m:UInt, n:UInt.
+  if divides(d, n) and divides(d, m % n) and 0 < n then divides(d, m)
+
+postulate uint_div_cancel: all y:UInt. if 0 < y then y / y = 1
+
+postulate uint_mod_self_zero: all y:UInt. y % y = 0
+      
+postulate uint_zero_mod: all x:UInt. 0 % x = 0
+
+postulate uint_zero_div: all x:UInt. if 0 < x then 0 / x = 0
+
+postulate uint_mod_one: all n:UInt. n % 1 = 0
+
+postulate uint_div_one: all n:UInt. n / 1 = n
+
+postulate uint_add_div_one: all n:UInt, m:UInt.
+  if 0 < m
+  then (n + m) / m = 1 + n / m
+  
+postulate uint_mult_div_inverse: all n:UInt, m:UInt.
+  (if 0 < m then (n * m) / m = n)
+
+postulate uint_lit_div: all x:Nat, y:Nat. (fromNat(lit(x)) / fromNat(lit(y))) = fromNat(lit(x) / lit(y))
+
+auto uint_lit_div
+

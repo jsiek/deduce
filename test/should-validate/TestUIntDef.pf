@@ -1,0 +1,16 @@
+import UInt
+
+assert div2(0) = 0
+assert div2(1) = 0
+assert div2(2) = 1
+assert div2(3) = 1
+assert div2(4) = 2
+assert div2(5) = 2
+assert div2(6) = 3
+
+assert 0 / 1 = 0
+//assert 5 / 2 = 2
+//assert 6 / 2 = 3
+//assert  9 / 3 = 3
+//assert 12 / 3 = 4
+//assert 2 / 3 = 0

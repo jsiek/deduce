@@ -5,36 +5,6 @@ import Nat
 import UIntDefs
 import UIntToFrom
 
-lemma two: ℕ1 + ℕ1 = ℕ2
-proof
-  evaluate
-end
-
-lemma two_four: ℕ2 * ℕ2 = ℕ4
-proof
-  evaluate
-end
-
-lemma three: ℕ1 + ℕ2 = ℕ3
-proof
-  evaluate
-end
-
-lemma two_one: ℕ2 + ℕ1 = ℕ3
-proof
-  evaluate
-end
-
-lemma four: ℕ2 + ℕ2 = ℕ4
-proof
-  evaluate
-end
-
-lemma one_three_four: ℕ1 + ℕ3 = ℕ4
-proof
-  evaluate
-end
-
 theorem toNat_less: all x:UInt, y:UInt.
   if x < y then toNat(x) < toNat(y)
 proof
@@ -414,4 +384,128 @@ proof
     case inc_dub(x') { evaluate }
   }
 end
+
+theorem less_fromNat: all x:Nat, y:Nat.
+  if x < y
+  then fromNat(x) < fromNat(y)
+proof
+  arbitrary x:Nat, y:Nat
+  assume x_y
+  have A: toNat(fromNat(x)) < toNat(fromNat(y)) by {
+    replace to_fromNat
+    x_y
+  }
+  conclude fromNat(x) < fromNat(y) by apply less_toNat to A
+end
+  
+postulate less_equal_fromNat: all x:Nat, y:Nat.
+  if x ≤ y
+  then fromNat(x) ≤ fromNat(y)
+  
+theorem uint_zero_or_positive: all x:UInt. x = 0 or 0 < x
+proof
+  arbitrary x:UInt
+  have z_p: toNat(x) = ℕ0 or ℕ0 < toNat(x) by nat_zero_or_positive[toNat(x)]
+  cases z_p
+  case z {
+    have A: fromNat(toNat(x)) = 0 by { replace z evaluate }
+    conclude x = 0 by replace from_toNat in A
+  }
+  case p {
+    have A: 0 < fromNat(toNat(x)) by {
+      replace from_zero in apply less_fromNat to p
+    }
+    conclude 0 < x by replace from_toNat in A
+  }
+end
+
+theorem uint_trichotomy:
+  all x:UInt, y:UInt.
+  x < y  or  x = y  or  y < x
+proof
+  arbitrary x:UInt, y:UInt
+  have tri: toNat(x) < toNat(y) or toNat(x) = toNat(y) or toNat(y) < toNat(x)
+    by trichotomy[toNat(x), toNat(y)]
+  cases tri
+  case less {
+    conclude x < y by apply less_toNat to less
+  }
+  case eq {
+    conclude x = y by apply toNat_injective to eq
+  }
+  case greater {
+    conclude y < x by apply less_toNat to greater
+  }
+end
+
+theorem uint_less_implies_not_greater:
+  all x:UInt, y:UInt.
+  if x < y then not (y < x)
+proof
+  arbitrary x:UInt, y:UInt
+  assume x_y
+  have A: toNat(x) < toNat(y) by apply toNat_less to x_y
+  have B: not (toNat(y) < toNat(x)) by apply less_implies_not_greater to A
+  assume y_x
+  have C: toNat(y) < toNat(x) by apply toNat_less to y_x
+  conclude false by apply B to C
+end
+
+postulate uint_less_equal_trans: all m:UInt. all n:UInt, o:UInt.
+  (if m ≤ n and n ≤ o then m ≤ o)
+
+postulate uint_less_equal_antisymmetric:
+  all x:UInt, y:UInt. 
+  (if x ≤ y and y ≤ x
+  then x = y)
+
+postulate uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x ≤ y)
+
+theorem uint_zero_le: all x:UInt.
+  0 ≤ x
+proof
+  expand lit | fromNat
+  uint_bzero_le
+end
+
+theorem uint_zero_le_true: all x:UInt.
+  (0 ≤ x) = true
+proof
+  arbitrary x:UInt
+  apply eq_true to uint_zero_le[x]
+end
+
+auto uint_zero_le_true
+
+theorem uint_le_zero: all x:UInt.
+  if x ≤ 0 then x = 0
+proof
+  expand lit | fromNat
+  uint_le_bzero
+end
+
+postulate uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (lit(x) ≤ lit(y))
+
+auto uint_lit_less_equal
+
+postulate uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (lit(x) < lit(y))
+
+auto uint_lit_less
+
+theorem uint_less_refl_false: all x:UInt.
+  (x < x) = false
+proof
+  arbitrary x:UInt
+  apply eq_false to uint_less_irreflexive[x]
+end
+
+auto uint_less_refl_false
+
+theorem uint_less_equal_refl_true: all n:UInt. (n ≤ n) = true
+proof
+  arbitrary n:UInt
+  apply eq_true to uint_less_equal_refl[n]
+end
+
+auto uint_less_equal_refl_true
 

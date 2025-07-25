@@ -197,3 +197,16 @@ proof
   conclude x = y by replace to_fromNat in eq1
 end
 
+theorem uint_equal: all x:Nat, y:Nat.
+  (fromNat(lit(x)) = fromNat(lit(y))) = (x = y)
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  suffices (fromNat(x) = fromNat(y)) ⇔ (x = y) by iff_equal
+  have fwd: if fromNat(x) = fromNat(y) then x = y by fromNat_injective
+  have bkwd: if x = y then fromNat(x) = fromNat(y) by assume eq replace eq.
+  fwd , bkwd
+end
+
+auto uint_equal
+
