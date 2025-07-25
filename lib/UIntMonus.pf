@@ -279,3 +279,6 @@ end
 
 auto uint_monus_cancel
 
+postulate uint_pred_monus: all n:UInt. pred(n) = n ∸ 1
+
+  

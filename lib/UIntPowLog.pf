@@ -5,6 +5,8 @@ import UIntDefs
 import UIntToFrom
 import UIntAdd
 import UIntMult
+import UIntMonus
+import UIntLess
 
 lemma expt_dub_inc: all n:UInt, p:UInt. n ^ dub_inc(p) = sqr(n * (n^p))
 proof
@@ -67,6 +69,17 @@ end
 
 auto lit_expt_fromNat
 
+theorem uint_expt_zero: all n:UInt.
+  n ^ 0 = 1
+proof
+  arbitrary n:UInt
+  suffices toNat(n^0) = toNat(1)   by toNat_injective
+  equations
+      toNat(n^0) = toNat(n)^toNat(0)  by toNat_expt
+             ... = ℕ1 by replace to_fromNat.
+             ... = # toNat(1) #           by replace to_fromNat.
+end
+  
 theorem uint_expt_one: all n:UInt.
   n ^ 1 = n
 proof
@@ -142,3 +155,31 @@ proof
     ... = #toNat(m ^ (n * o))#               by replace toNat_expt | toNat_mult.
 end
 
+lemma pow_cnt_dubs_le_inc: all n:UInt. 2 ^ cnt_dubs(n) ≤ inc(n)
+proof
+  induction UInt
+  case bzero {
+    evaluate
+  }
+  case dub_inc(n') assume IH {
+    expand cnt_dubs | inc
+    replace inc_add_one | uint_pow_add_r | inc_dub_add_mult2 | uint_dist_mult_add
+    have IH': 2 ^ cnt_dubs(n') ≤ 1 + n' by replace inc_add_one in IH
+    have A: 2 * 2 ^ cnt_dubs(n') ≤ 2 * (1 + n') by apply uint_mult_mono_le[2] to IH'
+    have B: 2 * (1 + n') ≤ 3 + 2 * n' by {
+      replace uint_dist_mult_add
+      apply uint_add_mono_less_equal[2,2*n',3,2*n'] to .
+    }
+    apply uint_less_equal_trans to A, B
+  }
+  case inc_dub(n') assume IH {
+    expand cnt_dubs | inc
+    replace inc_add_one | uint_pow_add_r | dub_inc_mult2_add | uint_dist_mult_add
+    have IH': 2 ^ cnt_dubs(n') ≤ 1 + n' by replace inc_add_one in IH
+    have A: 2 * 2 ^ cnt_dubs(n') ≤ 2 * (1 + n') by apply uint_mult_mono_le[2] to IH'
+    have B: 2 * (1 + n') ≤ 2 + 2 * n' by replace uint_dist_mult_add.
+    apply uint_less_equal_trans to A, B
+  }
+end
+
+// TODO: prove something like inc(n) < 2^cnt_dub(inc(n))

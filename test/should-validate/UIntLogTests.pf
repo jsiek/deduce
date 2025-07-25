@@ -1,0 +1,15 @@
+import UInt
+
+assert log(1) = 0
+assert log(2) = 1           // 2^1 = 2
+assert log(3) = 1
+assert log(4) = 2           // 2^2 = 4
+assert log(5) = 2
+assert log(7) = 2
+assert log(8) = 3           // 2^3 = 8
+assert log(9) = 3
+assert log(16) = 4          // 2^4 = 16
+assert log(30) = 4
+assert log(31) = 4
+assert log(32) = 5          // 2^5 = 32
+assert log(33) = 5

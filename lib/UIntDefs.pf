@@ -88,6 +88,16 @@ fun div2(b : UInt) {
   }
 }
 
+recursive cnt_dubs(UInt) -> UInt {
+  cnt_dubs(bzero) = bzero
+  cnt_dubs(dub_inc(x)) = inc(cnt_dubs(x))
+  cnt_dubs(inc_dub(x)) = inc(cnt_dubs(x))
+}
+
+fun log(b : UInt) {
+  cnt_dubs(pred(b))
+}
+
 opaque recursive operator+(UInt, UInt) -> UInt {
   operator+(bzero, y) = y
   operator+(dub_inc(x), y) =

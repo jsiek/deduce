@@ -9,7 +9,7 @@ define log_eight = log(ℕ8)
 
 assert log_one = ℕ0
 assert log_two = ℕ1
-assert log_three = ℕ2
+assert log_three = ℕ2 // wrong!
 assert log_four = ℕ2
 assert log_five = ℕ3
 assert log_eight = ℕ3

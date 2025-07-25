@@ -40,6 +40,23 @@ end
   https://coq.kwarc.info/Coq.Numbers.NatInt.NZPow.html
   */
 
+
+lemma expt_zero : all n : Nat.
+  n ^ zero = suc(zero)
+proof
+  arbitrary n:Nat
+  evaluate
+end
+
+theorem lit_expt_zero : all n : Nat.
+  n ^ ℕ0 = ℕ1
+proof
+  arbitrary n:Nat
+  evaluate
+end
+
+auto lit_expt_zero
+
 lemma expt_one : all n : Nat.
   n ^ suc(zero) = n
 proof
