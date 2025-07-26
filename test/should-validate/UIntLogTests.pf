@@ -13,3 +13,21 @@ assert log(30) = 4
 assert log(31) = 4
 assert log(32) = 5          // 2^5 = 32
 assert log(33) = 5
+
+assert 2^log(1) ≤ 1 
+assert 2^log(2) ≤ 2
+assert 2^log(3) ≤ 3
+assert 2^log(4) ≤ 4
+assert 2^log(5) ≤ 5
+assert 2^log(7) ≤ 7
+assert 2^log(8) ≤ 8
+assert 2^log(9) ≤ 9
+
+assert 1 < 2^(1+log(1))
+assert 2 < 2^(1+log(2))
+assert 3 < 2^(1+log(3))
+assert 4 < 2^(1+log(4))
+assert 5 < 2^(1+log(5))
+assert 7 < 2^(1+log(7))
+assert 8 < 2^(1+log(8))
+assert 9 < 2^(1+log(9))

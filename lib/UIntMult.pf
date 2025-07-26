@@ -166,3 +166,6 @@ postulate uint_mult_mono_le2 : all n : UInt, x : UInt, m:UInt, y : UInt. (if n â
 
 postulate inc_dub_add_mult2: all n:UInt. inc_dub(n) = 1 + 2 * n
 postulate dub_inc_mult2_add: all n:UInt. dub_inc(n) = 2 * (1 + n)
+
+postulate uint_pos_mult_both_sides_of_less : all n : UInt, x : UInt, y : UInt.
+  (if 0 < n and x < y then n * x < n * y)

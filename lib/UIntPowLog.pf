@@ -164,6 +164,7 @@ proof
   case dub_inc(n') assume IH {
     expand cnt_dubs | inc
     replace inc_add_one | uint_pow_add_r | inc_dub_add_mult2 | uint_dist_mult_add
+    show 2 * 2 ^ cnt_dubs(n') ≤ 3 + 2 * n'
     have IH': 2 ^ cnt_dubs(n') ≤ 1 + n' by replace inc_add_one in IH
     have A: 2 * 2 ^ cnt_dubs(n') ≤ 2 * (1 + n') by apply uint_mult_mono_le[2] to IH'
     have B: 2 * (1 + n') ≤ 3 + 2 * n' by {
@@ -175,6 +176,7 @@ proof
   case inc_dub(n') assume IH {
     expand cnt_dubs | inc
     replace inc_add_one | uint_pow_add_r | dub_inc_mult2_add | uint_dist_mult_add
+    show 2 * 2 ^ cnt_dubs(n') ≤ 2 + 2 * n'
     have IH': 2 ^ cnt_dubs(n') ≤ 1 + n' by replace inc_add_one in IH
     have A: 2 * 2 ^ cnt_dubs(n') ≤ 2 * (1 + n') by apply uint_mult_mono_le[2] to IH'
     have B: 2 * (1 + n') ≤ 2 + 2 * n' by replace uint_dist_mult_add.
@@ -182,4 +184,50 @@ proof
   }
 end
 
-// TODO: prove something like inc(n) < 2^cnt_dub(inc(n))
+theorem pow_log_less_equal: all n:UInt. if 0 < n then 2^log(n) ≤ n
+proof
+  arbitrary n:UInt
+  assume pos
+  obtain n' where n_n': n = 1 + n' from apply uint_positive_add_one[n] to pos
+  replace n_n'
+  expand log
+  replace uint_pred_monus
+  conclude 2 ^ cnt_dubs(n') ≤ 1 + n'
+    by replace inc_add_one in pow_cnt_dubs_le_inc[n']
+end
+
+/* Having trouble with the following. -Jeremy
+lemma less_equal_pow_cnt_dubs: all n:UInt. 1 + n < 2 ^ (1 + cnt_dubs(n))
+proof
+  induction UInt
+  case bzero {
+    evaluate
+  }
+  case dub_inc(n') assume IH {
+    expand cnt_dubs
+    replace inc_add_one | uint_pow_add_r | lit_expt_two | dub_inc_mult2_add
+      | uint_dist_mult_add
+    show 3 + 2 * n' < 4 * 2 ^ cnt_dubs(n')
+    have IH1: 1 + n' < 2 * 2 ^ cnt_dubs(n') by replace uint_pow_add_r in IH
+    have IH2: 2*(1 + n') < 4 * 2 ^ cnt_dubs(n') 
+      by apply uint_pos_mult_both_sides_of_less[2, 1+n', 2*2^cnt_dubs(n')] to ., IH1
+    have IH3: 2 + 2*n' < 4 * 2 ^ cnt_dubs(n')
+      by replace uint_dist_mult_add in IH2
+    conclude 3 + 2 * n' < 4 * 2 ^ cnt_dubs(n') by sorry
+  }
+  case inc_dub(n') assume IH {
+    sorry
+  }
+end
+
+theorem less_pow_log: all n:UInt. if 0 < n then n < 2^(1 + log(n))
+proof
+  arbitrary n:UInt
+  assume npos
+  expand log
+  replace uint_pred_monus
+  obtain n' where n_n': n = 1 + n' from apply uint_positive_add_one[n] to npos
+  replace n_n'
+  less_equal_pow_cnt_dubs
+end
+*/
