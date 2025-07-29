@@ -315,6 +315,8 @@ def safeHTMLify(s):
             .replace("∩", "&#x2229;")\
             .replace("⨄", "&#x2A04;")\
             .replace("∘", "&#x2218;")\
+            .replace("≲", "&#x2272;")\
+            .replace("≈", "&#x2248;")\
             .replace("∅", "&#x2205;")
 
 def get_operator_name(i, cur_tok, program_text, tokens ):
