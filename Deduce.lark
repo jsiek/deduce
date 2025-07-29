@@ -3,7 +3,7 @@ INT: DIGIT+
 NAT: /[ℕ]/DIGIT+
 UPPER: /[A-Z]/
 LOWER: /[a-z]/
-OPERATOR: /[\-\+∸*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^]/
+OPERATOR: /[\-\+∸*%=≠<>≤≥&∘∪∩⊆∈⨄⊝\^≲≈]/
 IDENT: (/_/|UPPER|LOWER) (/_/|UPPER|LOWER|DIGIT|/[₀₁₂₃₄₅₆₇₈₉!?']/)*
 NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
@@ -36,6 +36,8 @@ COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
     | term_compare "⊆" term_add                       -> subset_equal
     | term_compare "(=" term_add                       -> subset_equal
     | term_compare "∈" term_add                       -> membership
+    | term_compare "≲" term_add                       -> approx_less_equal
+    | term_compare "≈" term_add                       -> approx_equal
     | term_compare "in" term_add                       -> membership
     | term_add
 

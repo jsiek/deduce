@@ -509,3 +509,4 @@ end
 
 auto uint_less_equal_refl_true
 
+postulate uint_less_add_one_le: all x:UInt, y:UInt. (if x < y then 1 + x ≤ y)

@@ -30,11 +30,12 @@ def get_deduce_directory():
 expt_operators = { '^' }
 mult_operators = {'*', '/', '%', '∘', '.o.'}
 add_operators = {'+', '-', '∸', '∪', '|', '∩', '&', '⨄', '.+.', '++', '⊝' }
-compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in'}
-equal_operators = {'=', '≠', '/='}
+compare_operators = {'<', '>', '≤', '<=', '≥', '>=', '⊆', '(=', '∈', 'in', '≲', '<~'}
+equal_operators = {'=', '≠', '/=', '≈', '~~'}
 iff_operators = {'iff', "<=>", "⇔"}
 
 to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '<=': '≤', '>=': '≥',
+              '~~': '≈', '<~': '≲',
               '(=': '⊆', 'in': '∈', '.0.': '∅', '<=>': '⇔', 'iff': '⇔'}
 
 
@@ -535,17 +536,16 @@ def parse_term_equal():
   while (not end_of_file()) and current_token().value in equal_operators:
     meta = meta_from_tokens(current_token(), current_token())
     opr = current_token().value
-    eq = Var(meta, None, '=')
     advance()
     right = parse_term_equal()
     call_meta = meta_from_tokens(token, previous_token())
-    if opr == '=':
-      term = Call(call_meta, None,
-                  eq, [term,right])
-    elif opr == '≠' or opr == '/=':
+    if opr == '≠' or opr == '/=':
       term = IfThen(call_meta, None, 
-                    Call(call_meta, None, eq, [term,right]),
+                    Call(call_meta, None, Var(meta, None, '='), [term,right]),
                     Bool(call_meta, None, False))
+    else:
+      term = Call(call_meta, None,
+                  Var(meta, None, opr), [term,right])
   return term
     
 def parse_term_logic():

@@ -136,6 +136,7 @@ recursive dist(Nat, Nat) -> Nat {
     }
 }
 
+// This version rounds up. Not sure why. -Jeremy
 private recursive find_log(Nat, Nat, Nat) -> Nat {
   find_log(zero, n, l) = l
   find_log(suc(m'), n, l) =
@@ -146,6 +147,18 @@ private recursive find_log(Nat, Nat, Nat) -> Nat {
 }
 
 define log : fn Nat -> Nat = λn{ find_log(n, zero, zero) }
+
+// This version rounds down. -Jeremy
+private recursive find_log2(Nat, Nat, Nat) -> Nat {
+  find_log2(zero, n, l) = l
+  find_log2(suc(k'), n, l) =
+    if n < suc(suc(zero))^suc(l) then
+      l
+    else
+      find_log2(k', n, suc(l))
+}
+
+define log2 : fn Nat -> Nat = λn{ find_log2(n, n, zero) }
 
 // Invariant: only apply lit to a literal Nat.
 fun lit(a : Nat) { a }

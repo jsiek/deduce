@@ -97,6 +97,14 @@ proof
        ... = suc(zero) + n         by symmetric suc_add[zero, n]
 end
 
+theorem nat_suc_one_add: all n:Nat.
+  suc(n) = lit(suc(zero)) + n
+proof
+  arbitrary n:Nat
+  expand lit
+  suc_one_add
+end
+
 lemma one_add_suc: all n:Nat.
   suc(zero) + n = suc(n)
 proof

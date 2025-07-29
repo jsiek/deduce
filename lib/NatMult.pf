@@ -215,6 +215,14 @@ proof
                 ... = n + n           by .
 end
 
+theorem lit_two_mult: all n:Nat.
+  ℕ2 * n = n + n
+proof
+  arbitrary n:Nat
+  expand lit
+  replace two_mult.
+end
+
 theorem dist_mult_add:
   all a:Nat, x:Nat, y:Nat.
   a * (x + y) = a * x + a * y

@@ -20,12 +20,24 @@ fun operator * (k : UInt, g : fn UInt -> UInt) {
   }
 }
 
-fun operator ≤ (f : fn UInt -> UInt, g : fn UInt -> UInt) {
+fun operator ≲ (f : fn UInt -> UInt, g : fn UInt -> UInt) {
   some n0 :UInt, c:UInt. all n:UInt. if n0 ≤ n then f(n) ≤ c * g(n)
 }
 
+fun operator ≈ (f : fn UInt -> UInt, g : fn UInt -> UInt) {
+  (f ≲ g) and (g ≲ f)
+}
+
+fun log(f : fn UInt -> UInt) {
+  fun x:UInt { log(f(x)) }
+}
+
+
 // Constant Time
 fun O_1(n:UInt) { 1 }
+
+// Logarithmic Time
+fun O_log(n:UInt) { log(n) }
 
 // Linear Time
 fun O_n(n:UInt) { n }
@@ -33,10 +45,10 @@ fun O_n(n:UInt) { n }
 // Quadratic Time
 fun O_n2(n:UInt) { n * n }
 
-theorem bigo_refl: all f : fn UInt -> UInt. f ≤ f
+theorem bigo_refl: all f : fn UInt -> UInt. f ≲ f
 proof
   arbitrary f : fn UInt -> UInt
-  expand operator≤
+  expand operator≲
   choose 0, 1
   arbitrary n:UInt
   assume prem
@@ -45,17 +57,17 @@ proof
 end
 
 theorem bigo_trans: all f : fn UInt -> UInt, g : fn UInt -> UInt, h : fn UInt -> UInt.
-  if f ≤ g and g ≤ h then f ≤ h
+  if f ≲ g and g ≲ h then f ≲ h
 proof
   arbitrary f : fn UInt -> UInt, g : fn UInt -> UInt, h : fn UInt -> UInt
   assume prem
-  have fg: f ≤ g by prem
+  have fg: f ≲ g by prem
   obtain n1, c1 where fg_all: all n:UInt. if n1 ≤ n then f(n) ≤ c1 * g(n)
-    from expand operator≤ in fg
-  have gh: g ≤ h by prem
+    from expand operator≲ in fg
+  have gh: g ≲ h by prem
   obtain n2, c2 where gh_all: all n:UInt. if n2 ≤ n then g(n) ≤ c2 * h(n)
-    from expand operator≤ in gh
-  expand operator≤
+    from expand operator≲ in gh
+  expand operator≲
   choose n1+n2, c1*c2
   arbitrary n:UInt
   assume n12_n
@@ -80,10 +92,10 @@ proof
     by apply uint_less_equal_trans to fg_n, c1g_c12_h
 end
 
-theorem bigo_add: all f: fn UInt->UInt. f + f ≤ f
+theorem bigo_add: all f: fn UInt->UInt. f + f ≲ f
 proof
   arbitrary f: fn UInt->UInt
-  expand operator≤
+  expand operator≲
   choose 0, 2
   arbitrary n:UInt
   assume prem
@@ -93,20 +105,20 @@ proof
 end
 
 theorem bigo_const_mult: all f: fn UInt -> UInt, k:UInt.
-  k * f ≤ f
+  k * f ≲ f
 proof
   arbitrary f: fn UInt -> UInt, k:UInt
-  define P = fun c:UInt { c * f ≤ f }
+  define P = fun c:UInt { c * f ≲ f }
   have base: P(0) by {
-    expand P | operator≤ | operator*.
+    expand P | operator≲ | operator*.
   }
   have ind: all m:UInt. if P(m) then P(1 + m) by {
     arbitrary m:UInt
     expand P
-    assume mf_f: m * f ≤ f 
+    assume mf_f: m * f ≲ f 
     obtain n0, c where mf_f_all: all n:UInt. if n0 ≤ n then m * f(n) ≤ c * f(n)
-      from expand operator≤ | operator* in mf_f
-    expand operator≤
+      from expand operator≲ | operator* in mf_f
+    expand operator≲
     choose n0, 2*(1 + c)
     arbitrary n:UInt
     assume n0_n
@@ -130,18 +142,18 @@ end
 
 theorem bigo_mult_mono:
   all f1: fn UInt->UInt, f2: fn UInt->UInt, g1: fn UInt->UInt, g2: fn UInt->UInt.
-  if f1 ≤ g1 and f2 ≤ g2
-  then f1 * f2 ≤ g1 * g2
+  if f1 ≲ g1 and f2 ≲ g2
+  then f1 * f2 ≲ g1 * g2
 proof
   arbitrary f1: fn UInt->UInt, f2: fn UInt->UInt, g1: fn UInt->UInt, g2: fn UInt->UInt
   assume prem
-  expand operator≤ | operator*
-  have f1_g1: f1 ≤ g1 by prem
+  expand operator≲ | operator*
+  have f1_g1: f1 ≲ g1 by prem
   obtain n1, c1 where f1_c1g1_all: all n:UInt. if n1 ≤ n then f1(n) ≤ c1 * g1(n)
-    from expand operator≤ in f1_g1
-  have f2_g2: f2 ≤ g2 by prem
+    from expand operator≲ in f1_g1
+  have f2_g2: f2 ≲ g2 by prem
   obtain n2, c2 where f2_c2g2_all: all n:UInt. if n2 ≤ n then f2(n) ≤ c2 * g2(n)
-    from expand operator≤ in f2_g2
+    from expand operator≲ in f2_g2
   choose n1 + n2, c1 * c2
   arbitrary n:UInt
   assume n12_n: n1 + n2 ≤ n
@@ -168,17 +180,27 @@ proof
     by replace uint_mult_commute[g1(n),c2] in f12_c1g1_c2g2
 end
 
-theorem constant_le_linear: O_1 ≤ O_n
+theorem constant_le_log: O_1 ≲ O_log
 proof
-  expand operator≤ | O_1 | O_n
-  choose 1, 1
+  expand operator≲ | O_1 | O_log
+  choose 2, 1
   arbitrary n:UInt
-  conclude if 1 ≤ n then 1 ≤ 1 * n   by .
+  assume two_n
+  apply uint_logn_gt_1 to two_n
 end
 
-theorem linear_le_quadratic: O_n ≤ O_n2
+theorem log_le_linear: O_log ≲ O_n
 proof
-  expand operator≤ | O_n | O_n2
+  expand operator≲ | O_log | O_n
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  uint_logn_le_n
+end
+
+theorem linear_le_quadratic: O_n ≲ O_n2
+proof
+  expand operator≲ | O_n | O_n2
   choose 1, 1
   arbitrary n:UInt
   assume pos
@@ -186,5 +208,80 @@ proof
   conclude 1 * n ≤ n * n by apply uint_mult_mono_le2 to pos, n_n
 end
 
+fun O_2n(n:UInt) { 2*n }
 
-  
+theorem O_n_eq_O_2n: O_n ≈ O_2n
+proof
+  expand operator≈
+  have A: O_n ≲ O_2n by {
+    expand operator≲
+    choose 0, 1
+    arbitrary n:UInt
+    assume _
+    expand O_n | O_2n
+    replace uint_two_mult
+    uint_less_equal_add
+  }
+  have B: O_2n ≲ O_n by {
+    expand operator≲
+    choose 0, 2
+    arbitrary n:UInt
+    assume prem
+    expand O_n | O_2n.
+  }
+  A, B
+end
+
+fun positive(f : fn UInt -> UInt) {
+  all n:UInt. 0 < f(n)
+}
+
+theorem log_product_less_equal_sum:
+  all f:fn UInt -> UInt, g:fn UInt -> UInt.
+  if (all n:UInt. 1 < f(n)) and (all n:UInt. 1 < g(n))
+  then log(f * g) ≲ log(f) + log(g)
+proof
+  arbitrary f:fn UInt -> UInt, g:fn UInt -> UInt
+  assume fg_gt_1
+  expand operator≲ | operator+ | operator* | log
+  choose 0, 2
+  arbitrary n:UInt
+  assume _
+  have A: log(f(n) * g(n)) ≤ 1 + log(f(n)) + log(g(n)) by uint_log_mult_le_log_add
+  have B: 1 + log(f(n)) + log(g(n)) ≤ 2 * (log(f(n)) + log(g(n))) by {
+    have log_fg_pos: 0 < log(f(n)) + log(g(n)) by {
+      have log_f_pos: 0 < log(f(n)) by apply uint_log_pos[f(n)] to fg_gt_1
+      have log_g_pos: 0 < log(g(n)) by apply uint_log_pos[g(n)] to fg_gt_1
+      apply uint_add_mono_less[0, 0, log(f(n)), log(g(n))] to log_f_pos, log_g_pos
+    }
+    replace uint_two_mult
+    apply uint_add_one_le_double to log_fg_pos
+  }
+  apply uint_less_equal_trans to A, B
+end
+
+theorem log_sum_less_equal_product:
+  all f:fn UInt -> UInt, g:fn UInt -> UInt.
+  log(f) + log(g) ≲ log(f * g)
+proof
+  arbitrary f:fn UInt -> UInt, g:fn UInt -> UInt
+  expand operator≲ | operator+ | operator* | log
+  choose 0, 1
+  arbitrary n:UInt
+  assume _
+  uint_log_add_le_log_mult
+end
+
+theorem log_product_equiv_sum:
+  all f:fn UInt -> UInt, g:fn UInt -> UInt.
+  if (all n:UInt. 1 < f(n)) and (all n:UInt. 1 < g(n))
+  then log(f * g) ≈ log(f) + log(g)
+proof
+  arbitrary f:fn UInt -> UInt, g:fn UInt -> UInt
+  assume fg_gt_1
+  expand operator≈
+  have A: log(f * g) ≲ log(f) + log(g) by apply log_product_less_equal_sum[f,g] to fg_gt_1
+  have B: log(f) + log(g) ≲ log(f * g) by log_sum_less_equal_product
+  A, B
+end
+

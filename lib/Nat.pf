@@ -211,14 +211,6 @@ end
 // This causes problem with pattern matching in switch. -Jeremy
 //auto lit_suc_add2
 
-theorem nat_suc_one_add: all n:Nat.
-  suc(n) = lit(suc(zero)) + n
-proof
-  arbitrary n:Nat
-  expand lit
-  suc_one_add
-end
-
 // The following causes infinite loop for
 // lit(x) * lit(y)
 
@@ -515,16 +507,6 @@ proof
 end
 
 auto lit_zero_less_equal_true
-
-theorem lit_expt_one : all n:Nat.
-  n ^ ℕ1 = n
-proof
-  arbitrary n : Nat
-  expand lit
-  expt_one
-end
-
-auto lit_expt_one
 
 theorem lit_expt_two : all n : Nat.
   n ^ ℕ2 = n * n

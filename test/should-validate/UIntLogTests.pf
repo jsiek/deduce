@@ -1,34 +1,45 @@
 import UInt
+import List
 
 assert log(1) = 0
-assert log(2) = 1           // 2^1 = 2
+assert log(2) = 1
 assert log(3) = 1
-assert log(4) = 2           // 2^2 = 4
-assert log(5) = 2
-assert log(7) = 2
-assert log(8) = 3           // 2^3 = 8
-assert log(9) = 3
-assert log(16) = 4          // 2^4 = 16
-assert log(30) = 4
-assert log(31) = 4
-assert log(32) = 5          // 2^5 = 32
-assert log(33) = 5
+assert log(4) = 2
 
-assert 2^log(1) ≤ 1 
-assert 2^log(2) ≤ 2
-assert 2^log(3) ≤ 3
-assert 2^log(4) ≤ 4
-assert 2^log(5) ≤ 5
-assert 2^log(7) ≤ 7
-assert 2^log(8) ≤ 8
-assert 2^log(9) ≤ 9
+// log(2^n) = n
+assert foldl([1,2,3,4,5,6,7,8,9,10], true,
+  fun b:bool, n:UInt {
+    b and log(2^n) = n
+  })
 
-assert 1 < 2^(1+log(1))
-assert 2 < 2^(1+log(2))
-assert 3 < 2^(1+log(3))
-assert 4 < 2^(1+log(4))
-assert 5 < 2^(1+log(5))
-assert 7 < 2^(1+log(7))
-assert 8 < 2^(1+log(8))
-assert 9 < 2^(1+log(9))
-assert 10 < 2^(1+log(10))
+// 2^log(n) ≤ n < 2 * 2^log(n)
+assert foldl([1,2,3,4,5,6,7,8,9,10], true,
+  fun b:bool, n:UInt {
+    b and 2^log(n) ≤ n and n < 2 * 2^log(n)
+  })
+
+assert log(15) = 3
+assert log(16) = 4
+assert log(15 * 15) = 7
+assert log(16 * 16) = 8
+
+// log(m) + log(n) ≤ log(m * n)
+assert foldl([1,2,3,4,5,6,7,8,9,10], true,
+  fun b:bool, y:UInt {
+    foldl([1,2,3,4,5,6,7,8,9,10], b,
+      fun c:bool, x:UInt {
+        log(x) + log(y) ≤ log(x * y)
+        and c
+      })
+  })
+
+// log(m * n) ≤ 1 + log(m) + log(n)
+assert foldl([1,2,3,4,5,6,7,8,9,10], true,
+  fun b:bool, y:UInt {
+    foldl([1,2,3,4,5,6,7,8,9,10], b,
+      fun c:bool, x:UInt {
+        log(x * y) ≤ 1 + log(x) + log(y)
+        and c
+      })
+  })
+

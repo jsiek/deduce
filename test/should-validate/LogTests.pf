@@ -1,15 +1,38 @@
 import Nat
 
-define log_one = log(ℕ1)
-define log_two = log(ℕ2)
-define log_three = log(ℕ3)
-define log_four = log(ℕ4)
-define log_five = log(ℕ5)
-define log_eight = log(ℕ8)
+assert log(ℕ1) = ℕ0
+assert log(ℕ2) = ℕ1
+//assert log(ℕ3) = ℕ1
+assert log(ℕ4) = ℕ2
+//assert log(ℕ5) = ℕ2
+//assert log(ℕ6) = ℕ2
+//assert log(ℕ7) = ℕ2
+assert log(ℕ8) = ℕ3
+//assert log(ℕ9) = ℕ3
+//assert log(ℕ10) = ℕ3
+//assert log(ℕ15) = ℕ3
+assert log(ℕ16) = ℕ4
+//assert log(ℕ17) = ℕ4
 
-assert log_one = ℕ0
-assert log_two = ℕ1
-assert log_three = ℕ2 // wrong!
-assert log_four = ℕ2
-assert log_five = ℕ3
-assert log_eight = ℕ3
+assert log2(ℕ1) = ℕ0
+assert log2(ℕ2) = ℕ1
+assert log2(ℕ3) = ℕ1
+assert log2(ℕ4) = ℕ2
+assert log2(ℕ5) = ℕ2
+assert log2(ℕ6) = ℕ2
+assert log2(ℕ7) = ℕ2
+assert log2(ℕ8) = ℕ3
+assert log2(ℕ9) = ℕ3
+assert log2(ℕ10) = ℕ3
+assert log2(ℕ15) = ℕ3
+assert log2(ℕ16) = ℕ4
+assert log2(ℕ17) = ℕ4
+
+assert ℕ2^log2(ℕ1) = ℕ1
+assert ℕ2^log2(ℕ2) = ℕ2
+assert ℕ2^log2(ℕ3) = ℕ2
+assert ℕ2^log2(ℕ4) = ℕ4
+assert ℕ2^log2(ℕ5) = ℕ4
+assert ℕ2^log2(ℕ6) = ℕ4
+assert ℕ2^log2(ℕ7) = ℕ4
+assert ℕ2^log2(ℕ8) = ℕ8

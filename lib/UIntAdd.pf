@@ -509,3 +509,14 @@ auto uint_one_add_zero_false
 
 postulate uint_add_mono_less_equal: all a:UInt, b:UInt, c:UInt, d:UInt.
   (if a ≤ c and b ≤ d then a + b ≤ c + d)
+
+postulate uint_add_mono_less: all a:UInt, b:UInt, c:UInt, d:UInt.
+  (if a < c and b < d then a + b < c + d)
+
+theorem uint_add_one_le_double: all x:UInt. if 0 < x then 1 + x ≤ x + x
+proof
+  arbitrary x:UInt
+  assume pos
+  have A: x < x + x by apply uint_less_add_pos[x,x] to expand lit | fromNat in pos
+  apply uint_less_add_one_le to A
+end

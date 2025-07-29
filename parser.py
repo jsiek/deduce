@@ -118,6 +118,7 @@ infix_ops = {'add', 'sub', 'nat_sub', 'o_sub', 'mul', 'div', 'mod', 'circ', 'pow
              'and', 'or','equal', 'not_equal',
              'less', 'greater', 'less_equal', 'greater_equal',
              'subset_equal', 'union_op', 'intersect', 'membership',
+             'approx_equal', 'approx_less_equal',
              'multiset_sum',
              'append'}
 
@@ -132,6 +133,7 @@ operator_symbol = {'add': '+', 'sub': '-', 'mul': '*', 'div': '/', 'circ': '∘'
                    'equal': '=', 'not_equal': '≠',
                    'less': '<', 'greater': '>',
                    'less_equal': '≤', 'greater_equal': '≥',
+                   'approx_less_equal': '≲', 'approx_equal': '≈',
                    'subset_equal': '⊆', 'union_op': '∪', 'intersect': '∩',
                    'membership': '∈', 'multiset_sum': '⨄', 'append': '++'}
 

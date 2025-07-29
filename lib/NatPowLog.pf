@@ -57,6 +57,9 @@ end
 
 auto lit_expt_zero
 
+postulate lit_expt_suc: all n:Nat, m:Nat. n ^ lit(suc(m)) = n * n ^ lit(m)
+auto lit_expt_suc
+
 lemma expt_one : all n : Nat.
   n ^ suc(zero) = n
 proof
@@ -64,6 +67,15 @@ proof
   suffices n * suc(zero) = n by evaluate
   mult_one
 end
+
+lemma lit_expt_one : all n:Nat.
+  n ^ ℕ1 = n
+proof
+  arbitrary n : Nat
+  .
+end
+
+//auto lit_expt_one
 
 lemma expt_two : all n : Nat.
   n ^ suc(suc(zero)) = n * n
@@ -451,5 +463,130 @@ proof
        apply less_implies_less_equal[ zero ][pow2(zero)] to pow_positive[ zero ]
   conclude n ≤ pow2(find_log(n,zero,zero))
     by { evaluate in f1 }
+end
+
+lemma pow_find_log2_less_equal: all k:Nat, n:Nat, l:Nat.
+  if ℕ2^l ≤ n
+  then ℕ2^find_log2(k, n, l) ≤ n
+proof
+  induction Nat
+  case zero {
+    arbitrary n:Nat, l:Nat
+    assume prem
+    expand find_log2
+    prem
+  }
+  case suc(k') assume IH {
+    arbitrary n:Nat, l:Nat
+    assume prem
+    expand find_log2 | operator^ | expt
+    replace nat_suc_one_add | nat_suc_one_add
+    cases dichotomy[ℕ2 * expt(l, ℕ2), n]
+    case n_less {
+      have nl: not (n < ℕ2 * expt(l, ℕ2)) by {
+        assume nl
+        have X: not (ℕ2 * expt(l, ℕ2) ≤ n) by apply not_less_equal_iff_greater to nl
+        conclude false by apply X to n_less
+      }
+      replace (apply eq_false to nl)
+      have IH_prem: ℕ2 ^ (ℕ1 + l) ≤ n by {
+        expand operator^ | lit | operator+ | expt
+        expand lit in n_less
+      }
+      have IH': ℕ2 ^ find_log2(k', n, ℕ1 + l) ≤ n by apply IH[n, ℕ1 + l] to IH_prem
+      expand operator^ in IH'
+    }
+    case n_greater {
+      replace (apply eq_true to n_greater)
+      conclude expt(l, ℕ2) ≤ n by expand operator^ in prem
+    }
+  }
+end
+
+theorem pow_log2_less_equal: all n:Nat. if ℕ0 < n then ℕ2^log2(n) ≤ n
+proof
+  arbitrary n:Nat
+  assume pos
+  expand log2
+  have Y: ℕ2 ^ zero ≤ n by {
+    expand operator^ | expt
+    expand lit | operator< in pos
+  }
+  apply pow_find_log2_less_equal[n, n, zero] to Y
+end
+
+lemma pos_find_log2_greater: all k:Nat, n:Nat, l:Nat.
+  if n < k + ℕ2^l
+  then n < ℕ2 * ℕ2 ^ find_log2(k, n, l)
+proof
+  induction Nat
+  case zero {
+    arbitrary n:Nat, l:Nat
+    assume prem
+    have n_2l: n < ℕ2 ^ l by expand operator+ in prem
+    expand find_log2
+    replace lit_two_mult
+    have X: ℕ2 ^ l ≤ ℕ2 ^ l + ℕ2 ^ l by less_equal_add
+    apply less_le_trans to n_2l, X
+  }
+  case suc(k') assume IH {
+    arbitrary n:Nat, l:Nat
+    assume prem
+    expand find_log2 | operator^ | expt
+    cases dichotomy[suc(suc(zero)) * expt(l, suc(suc(zero))), n]
+    case A {
+      have C: not (n < suc(suc(zero)) * expt(l, suc(suc(zero)))) by {
+        assume gt
+        have D: not (suc(suc(zero)) * expt(l, suc(suc(zero))) ≤ n)
+          by apply not_less_equal_iff_greater to gt
+        apply D to A
+      }
+      replace apply eq_false to C
+      show n < ℕ2 * expt(find_log2(k', n, suc(l)), ℕ2)
+      have IH_prem: n < k' + ℕ2 ^ suc(l) by {
+        expand operator^ | expt
+        show n < k' + ℕ2 * expt(l, ℕ2)
+        have L: suc(k') + ℕ2 ^ l ≤ k' + ℕ2 * expt(l, ℕ2) by {
+          expand operator^ | operator+
+          replace symmetric add_suc[k', expt(l, ℕ2)]
+          have X: suc(expt(l, ℕ2)) ≤ ℕ2 * expt(l, ℕ2) by {
+            replace lit_two_mult
+            have gt1: ℕ1 ≤ expt(l, ℕ2) by {
+              expand lit 
+              expand operator< | operator^ | lit in apply pow_pos_nonneg[l, ℕ2] to evaluate
+            }
+            expand lit
+            expand lit | operator+ in
+            apply add_mono_less_equal[ℕ1,expt(l,ℕ2),expt(l,ℕ2),expt(l,ℕ2)]
+            to gt1, less_equal_refl[expt(l,ℕ2)]
+          }
+          apply add_both_sides_of_less_equal[k'] to X
+        }
+        apply less_le_trans to prem, L
+      }
+      have IH': n < ℕ2 * ℕ2 ^ find_log2(k', n, suc(l))
+        by apply IH[n, suc(l)] to IH_prem
+      expand operator^ in IH'
+    }
+    case B {
+      replace apply eq_true to B
+      show n < ℕ2 * expt(l, ℕ2)
+      expand lit
+      B
+    }
+  }
+end
+  
+theorem pow_log2_greater: all n:Nat. n < ℕ2 * ℕ2^log2(n)
+proof
+  arbitrary n:Nat
+  expand log2
+  have prem: n < n + ℕ2 ^ zero by {
+    expand operator< | operator^ | expt
+    replace add_commute
+    expand operator+
+    less_equal_refl
+  }
+  apply pos_find_log2_greater[n, n, zero] to prem
 end
 

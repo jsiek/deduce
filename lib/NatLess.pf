@@ -1109,6 +1109,9 @@ proof
      by apply less_equal_trans to (_5, _4)
 end
 
+postulate less_le_trans: all m:Nat, n:Nat, o:Nat. (if m < n and n ≤ o then m < o)
+postulate le_less_trans: all m:Nat, n:Nat, o:Nat. (if m ≤ n and n < o then m < o)
+  
 lemma greater_any_zero: all x:Nat, y:Nat.
   if x < y
   then zero < y
