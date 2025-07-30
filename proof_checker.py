@@ -525,18 +525,30 @@ def check_proof(proof, env):
           
     case PInjective(loc, constr, eq_pf):
       check_type(constr, env)
+      if not is_constructor(constr.name, env):
+        error(loc, 'in injective, expected a constructor, not\n\t' + base_name(constr.name) 
+              + givens_str(env))
       formula = check_proof(eq_pf, env)
       (a,b) = split_equation(loc, formula)
       match (a,b):
-        case (Call(loc2, tyof2, Var(loc3,t1,f1,rs1), [arg1]),
-              Call(loc4, tyof4, Var(loc5,t2,f2,rs2), [arg2])):
+        case (Call(loc2, tyof2, rator1, args1),
+              Call(loc4, tyof4, rator2, args2)) if len(args1) == len(args2):
+          f1 = base_name(rator_name(rator1))
+          f2 = base_name(rator_name(rator2))
           if f1 != f2:
-            error(loc, 'in injective, ' + str(f1) + ' ≠ ' + str(f2))
-          if constr != f1:
-            error(loc, 'in injective, ' + str(constr) + ' ≠ ' + str(f1))
-          if not is_constructor(f1, env):
-            error(loc, 'in injective, ' + str(f1) + ' not a constructor')
-          return mkEqual(loc, arg1, arg2)
+            error(loc, 'in injective, ' + f1 + ' ≠ ' + f2)
+          if str(constr) != f1:
+            error(loc, 'in injective, ' + str(constr) + ' ≠ ' + f1)
+          if not is_constructor(rator_name(rator1), env):
+            error(loc, 'in injective, ' + rator_name(rator1) + ' not a constructor')
+          boolty = BoolType(loc)
+          eqs = [mkEqual(loc, arg1, arg2) for (arg1,arg2) in zip(args1, args2)]
+          if len(eqs) > 1:
+              return And(loc, boolty, eqs)
+          elif len(eqs) == 1:
+              return eqs[0]
+          else:
+              return Bool(loc, boolty, True)
         case _:
           error(loc, 'in injective, non-applicable formula: ' + str(formula))
           
@@ -909,17 +921,6 @@ def check_proof_of(proof, formula, env):
               + 'the transitive rule concludes\n\t' + str(a2) + ' = ' + str(c) + '\n'
               + 'but that does not match the goal\n\t' + str(formula) + '\n' 
               + givens_str(env))
-
-    case PInjective(loc, constr, eq_pf):
-      check_type(constr, env)
-      if not is_constructor(constr.name, env):
-        error(loc, 'in injective, expected a constructor, not\n\t' + base_name(constr.name) 
-              + givens_str(env))
-      (a,b) = split_equation(loc, formula)
-      lhs = Call(loc, None, constr, [a])
-      rhs = Call(loc, None, constr, [b])
-      flip_formula = mkEqual(loc, lhs, rhs)
-      check_proof_of(eq_pf, flip_formula, env)
 
     case PExtensionality(loc, proof):
       (lhs,rhs) = split_equation(loc, formula)

@@ -1178,18 +1178,18 @@ A proof of the form
 
 ```
 induction T
-case c1(e11,...,e1k) assume IH1, ... { X1 }
+case c_1(e_11,...,e_1k) assume IH_1, ... { X_1 }
 ...
-case cn(en1,...,enj) assume IH1, ... { Xn }
+case c_n(e_n1,...,e_nj) assume IH_n, ... { X_n }
 ```
 
 is a proof of the formula `all x:T. P`
-if each `Xi` is a proof of `P` where `x` is replaced
-by `ci(ei1,...,eij)`. The type `T` must be a union type.
-Each proof `Xi` may use its induction
-hypotheses `IH1, ...`. For each term `ein` whose type is `T`
+if each `X_i` is a proof of `P` where `x` is replaced
+by `c_i(e_i1,...,e_ij)`. The type `T` must be a union type.
+Each proof `X_i` may use its induction
+hypotheses `IH_i`. For each term `e_in` whose type is `T`
 (so it is recursive), the induction hypothesis is
-the formula `P` with `x` replaced by the constructor argument `ein`.
+the formula `P` with `x` replaced by the constructor argument `e_in`.
 
 Example:
 
@@ -1222,14 +1222,16 @@ if `suc(x) = suc(y)` then `x = y`.
 Example:
 
 ```{.deduce^#injective_example}
-theorem injective_example: all x:Nat, y:Nat, z:Nat.
-  if suc(x) = suc(y) and suc(y) = suc(z) then x = z
+theorem injective_example: all x:List<UInt>, y:List<UInt>, z:List<UInt>.
+  if node(1, x) = node(1, y) and node(1, y) = node(1, z) then x = z
 proof
-  arbitrary x:Nat, y:Nat, z:Nat
-  assume prem: suc(x) = suc(y) and suc(y) = suc(z)
-  have: x = y by injective suc prem
-  have: y = z by injective suc prem
-  transitive (recall x = y) (recall y = z)
+ arbitrary x:List<UInt>, y:List<UInt>, z:List<UInt>
+ assume prem: node(1, x) = node(1, y) and node(1, y) = node(1, z)
+ have nxy: node(1, x) = node(1, y) by prem
+ have nyz: node(1, y) = node(1, z) by prem
+ have: x = y by injective node nxy
+ have: y = z by injective node nyz
+ conclude x = z by transitive (recall x = y) (recall y = z)
 end
 ```
 
@@ -1250,12 +1252,12 @@ Example:
 ```{.deduce^#instantiate_proof_example}
 theorem instantiate_proof_example: length(node(42, empty)) = 1
 proof
-  have X: all T:type. all x:T. length(node(x, empty)) = 1 by {
+  have len_node_1: all T:type. all x:T. length(node(x, empty)) = 1 by {
     arbitrary T:type arbitrary x:T
-    expand 2* length | 2* operator+.
+    expand 2* length.
   }
   conclude length(node(42, empty)) = 1
-    by X<Nat>[42]
+    by len_node_1<UInt>[42]
 end
 ```
 
@@ -1270,7 +1272,7 @@ Instantiates a generic function or constructor, replaces its type
 parameters with the given type arguments.
 
 ```{.deduce^#instantiate_example}
-define empty_nat_list = @empty<Nat>
+define empty_nat_list = @empty<UInt>
 ```
 
 ## Intersection
@@ -1565,7 +1567,7 @@ A term, formula, or a proof may be surrounded in parentheses.
 ## Pattern
 
 ```
-pattern ::= identifier | "0" | "true" | "false" | identifier "(" identifier_list ")"
+pattern ::= identifier | "true" | "false" | identifier "(" identifier_list ")"
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
@@ -1632,7 +1634,7 @@ in [Replace (Proof)](#replace-proof).
 ## Proof Statement
 
 The following are proof statements (`proof_stmt` symbol in the grammar).
-A proof may begin with zero or more proof statements, but it must end
+A proof begins with zero or more proof statements, but it must end
 with a [Conclusion](#conclusion-proof) (not a proof statement).
 
 * [Arbitrary](#arbitrary-forall-introduction)
@@ -1866,7 +1868,7 @@ proof
   expand E | F | operator ⊆
   arbitrary x:UInt
   assume x1: x ∈ single(1)
-  apply union_member<UInt>[x, single(1), single(2)] to x1
+  x1
 end
 ```
 
@@ -1888,8 +1890,8 @@ assert 2 - 3 = -1
 term ::= term "∸" term
 ```
 
-The monus operator is different from ordanary subtraction on integers,
-as they are no negative unsigned integers. If you subtract a larger
+The monus operator is different from ordanary subtraction on integers
+because there are no negative unsigned integers. If you subtract a larger
 unsigned integer from a smaller one, the result of monus is `0`.
 
 ```{.deduce^#monus_example}
@@ -1943,8 +1945,7 @@ We then prove the new goal with theorem `uint_add_zero` from `UInt.thm`.
 theorem suffices_example:
   length(node(3, empty)) = 1
 proof
-  expand 2*length
-  show 1 + 0 = 1
+  suffices 1 + 0 = 1 by expand 2*length.
   uint_add_zero
 end
 ```
@@ -2254,6 +2255,8 @@ import Pair
 <<if_then_else_example>>
 <<membership_example>>
 <<induction_example>>
+<<injective_example>>
+<<instantiate_proof_example>>
 <<instantiate_example>>
 <<intersect_example>>
 <<less_than_example>>
@@ -2273,10 +2276,12 @@ import Pair
 <<suffices_example>>
 <<subtract_example>>
 <<monus_example>>
+<<multiply_example>>
 <<true_example>>
 <<union_example>>
 <<fun_interchange_example>>
 <<generic_fun_example>>
 <<contradiction_example>>
+<<set_union_example>>
 ```
 -->

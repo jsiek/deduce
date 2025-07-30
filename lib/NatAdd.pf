@@ -203,8 +203,15 @@ proof
   case suc(x') suppose IH {
     arbitrary y:Nat, z:Nat
     expand operator+
-    have A: suc(x' + y) = suc(x' + z) ⇔ (x' + y = x' + z)
-      by { assume seq injective suc seq } , { assume eq replace eq. }
+    have A: suc(x' + y) = suc(x' + z) ⇔ (x' + y = x' + z) by {
+      have fwd: if suc(x' + y) = suc(x' + z) then (x' + y = x' + z) by {
+        assume seq injective suc seq
+      }
+      have bkwd: if (x' + y = x' + z) then suc(x' + y) = suc(x' + z) by {
+        assume eq replace eq.
+      }
+      fwd, bkwd
+    }
     have B: ((x' + y = x' + z) ⇔ (y = z)) by IH[y,z]
     conclude ((suc(x' + y) = suc(x' + z)) ⇔ (y = z))
       by apply iff_trans[suc(x' + y) = suc(x' + z), x' + y = x' + z, y = z]
