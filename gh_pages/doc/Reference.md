@@ -579,7 +579,7 @@ conclude false by X
 ```
 
 (2) If you have a proof of `P` and a proof of `not P`,
-then you can prove `false` using `contradict`.
+then you can prove `false` using [`contradict`](#contradict-proof).
 
 ```
 have X: P by ...
