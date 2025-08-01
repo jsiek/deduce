@@ -1199,33 +1199,28 @@ end
 
 Next let us look at how to use a negated fact to prove something else.
 The following theorem proves one direction of De Morgan's law,
-that is, `not P or not Q` is equivalent to `not (P and Q)`.
-We proceed by cases on the `or` so in the first case we know
-that `not P`. This is shorthand for
-```
-if P then false
-```
-So we could `apply` this to a proof of `P` to prove `false`.
-Now looking at the goal `not (P and Q)`, we proceed by
-assuming `P and Q` and need to prove `false`.
-But now can deduce `P` from `P and Q`, then apply `not P`
-to conclude `false.
+that is, `not P or not Q` implies `not (P and Q)`.
+So we assume that `P and Q` and our goal is to prove `false`.
+Next we proceed by cases on the `or` so in the first case we know
+that `not P`. Of course, from `P and Q` we have `P`,
+which contradicts `not P`. So we use `contradict` to prove `false`.
+The other case is similar. We have a contradiction between
+`not Q` and `Q`.
 
 ```{.deduce^#use_not_example}
 theorem use_not_example: all P:bool, Q:bool. if not P or not Q then not (P and Q)
 proof
   arbitrary P:bool, Q:bool
   assume prem: not P or not Q
+  assume pq: P and Q
   cases prem
   case np: not P {
-    assume pq: P and Q
     have p: P by pq
-    conclude false      by apply np to p  // !!
+    conclude false      by contradict np, p  // !!
   }
   case nq: not Q {
-    assume pq: P and Q
     have q: Q by pq
-    conclude false      by apply nq to q  // !!
+    conclude false      by contradict nq, q  // !!
   }
 end
 ```
@@ -1235,7 +1230,7 @@ To summarize this section:
 * To expression that a formula is false, use `not`.
 * Deduce treats the formula `not P` just like `if P then false`.
 * Therefore, to prove a `not` formula, assume `P` then prove `false`.
-* To use a formula like `not P`, apply it to a proof of `P` to obtain a proof of `false`.
+* To use a formula like `not P`, use `contradict` with a proof of `P` to prove `false`.
 
 ## Replacing equals for equals in facts
 
