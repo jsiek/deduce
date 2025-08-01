@@ -726,7 +726,7 @@ def proof_advice(formula, env):
         return prefix \
             + '\tProve "false" by proving a contradiction:\n' \
             + '\tif you prove both "P" and "not P", \n' \
-            + '\tthen "apply (recall not P) to (recall P)" proves "false".\n'
+            + '\tthen "contradict (recall not P), (recall P)" proves "false".\n'
       case And(loc, tyof, args):
         return prefix \
             + '\tProve this logical-and formula by proving each of its'\
