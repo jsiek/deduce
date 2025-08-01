@@ -36,14 +36,14 @@ def set_current_module(name):
 
 @dataclass
 class AST:
-    location: Meta
+  location: Meta
+
+  def copy(self) -> Self:
+    error(self.location, 'copy not implemented for \n\t' + repr(self))
+    return self
 
 @dataclass
 class Type(AST):
-
-  def copy(self) -> Self:
-    error(self.location, 'copy not implemented')
-    return self
 
   def free_vars(self) -> Set[str]:
     error(self.location, 'free_vars not implemented')
@@ -2172,6 +2172,9 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
+  def copy(self):
+      return PLet(self.location, self.label, self.proved.copy(), self.because.copy(), self.body.copy())
+  
   def pretty_print(self, indent):
       return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
           + self.because.pretty_print(indent+2) + '\n' \
@@ -2197,6 +2200,9 @@ class PTLetNew(Proof):
   rhs : Term
   body: Proof
 
+  def copy(self):
+      return PLetNew(self.location, self.var, self.rhs.copy(), self.body.copy())
+  
   def pretty_print(self, indent):
       return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
           + self.body.pretty_print(indent)
@@ -2217,6 +2223,9 @@ class PTLetNew(Proof):
 @dataclass
 class PRecall(Proof):
   facts: List[Formula]
+
+  def copy(self):
+      return PRecall(self.location, [fact.copy() for fact in facts])
   
   def pretty_print(self, indent):
       return str(self)
@@ -2234,6 +2243,9 @@ class PAnnot(Proof):
   claim: Formula
   body: Proof
 
+  def copy(self):
+      return PAnnot(self.location, self.claim.copy(), self.body.copy())
+  
   def pretty_print(self, indent):
       return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
           + self.body.pretty_print(indent+2) + '\n' \
@@ -2252,6 +2264,9 @@ class Suffices(Proof):
   reason: Proof
   body: Proof
 
+  def copy(self):
+      return Suffices(self.location, self.claim.copy(), self.reason.copy(), self.body.copy())
+  
   def pretty_print(self, indent):
       return indent*' ' + 'suffices ' + str(self.claim) + '  by {\n' \
           + self.reason.pretty_print(indent+2) + '\n' \
@@ -2270,6 +2285,9 @@ class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Formula,Proof]]
 
+  def copy(self):
+      return Cases(self.location, self.subject.copy(), [(l, f.copy(), p.copy()) for (l,f,p) in cases])
+  
   def pretty_print(self, indent):
       cases_str = ''
       for (label, frm, body) in self.cases:
@@ -2301,6 +2319,9 @@ class ModusPonens(Proof):
   implication: Proof
   arg: Proof
 
+  def copy(self):
+      return ModusPonens(self.location, self.implication.copy(), self.arg.copy())
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2317,6 +2338,9 @@ class ImpIntro(Proof):
   premise: Formula
   body: Proof
 
+  def copy(self):
+      return ImpIntro(self.location, self.label, self.premise.copy(), self.body.copy())
+  
   def pretty_print(self, indent):
     return indent*' ' + 'assume ' + str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + '\n'\
@@ -2345,6 +2369,9 @@ class AllIntro(Proof):
   pos: Tuple[int, int]
   body: Proof
 
+  def copy(self):
+      return AllIntro(self.location, (self.var[0], self.var[1].copy()), self.position, self.body.copy())
+  
   def arbitrary_str(self):
     s, e = self.pos
     x, t = self.var
@@ -2390,6 +2417,9 @@ class AllElimTypes(Proof):
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
+  def copy(self):
+      return AllElimTypes(self.location, self.univ.copy(), self.arg, self.pos)
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2420,6 +2450,9 @@ class AllElim(Proof):
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
+  def copy(self):
+      return AllElim(self.location, self.univ.copy(), self.arg.copy(), self.pos)
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2445,6 +2478,9 @@ class SomeIntro(Proof):
   witnesses: List[Term]
   body: Proof
 
+  def copy(self):
+      return SomeIntro(self.location, [w.copy() for w in witnesses], self.body.copy())
+
   def pretty_print(self, indent):
     return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
         + maybe_pretty_print(self.body, indent)
@@ -2465,6 +2501,10 @@ class SomeElim(Proof):
   prop: Formula
   some: Proof
   body: Proof
+
+  def copy(self):
+      return SomeElim(self.location, self.witnesses, self.label,
+                      self.prop.copy(), self.some.copy(), self.body.copy())
   
   def pretty_print(self, indent):
     return indent*' ' + 'obtain ' + ",".join(self.witnesses) \
@@ -2500,6 +2540,9 @@ class SomeElim(Proof):
 class PTuple(Proof):
   args: List[Proof]
 
+  def copy(self) -> Self:
+      return PTuple(self.location, [arg.copy() for arg in self.args])
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2522,6 +2565,9 @@ class PAndElim(Proof):
   which: int
   subject: Proof
 
+  def copy(self):
+      return PAndElim(self.location, self.which, self.subject.copy())
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2533,7 +2579,10 @@ class PAndElim(Proof):
       
 @dataclass
 class PTrue(Proof):
-  
+
+  def copy(self):
+      return PTrue(self.location)
+    
   def pretty_print(self, indent):
       return str(self)
   
@@ -2545,7 +2594,10 @@ class PTrue(Proof):
   
 @dataclass
 class PReflexive(Proof):
-  
+
+  def copy(self):
+      return PReflexive(self.location)
+    
   def pretty_print(self, indent):
       return str(self)
   
@@ -2558,6 +2610,9 @@ class PReflexive(Proof):
 @dataclass
 class PHole(Proof):
   
+  def copy(self):
+      return PHole(self.location)
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2569,6 +2624,9 @@ class PHole(Proof):
 
 @dataclass
 class PSorry(Proof):
+  
+  def copy(self):
+      return PSorry(self.location)
   
   def pretty_print(self, indent):
       return str(self)
@@ -2583,6 +2641,9 @@ class PSorry(Proof):
 class PHelpUse(Proof):
   proof : Proof
   
+  def copy(self):
+      return PHelpUse(self.location, self.proof.copy())
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2595,6 +2656,9 @@ class PHelpUse(Proof):
 @dataclass
 class PSymmetric(Proof):
   body: Proof
+
+  def copy(self):
+      return PSymmetric(self.location, self.body.copy())
   
   def pretty_print(self, indent):
       return str(self)
@@ -2610,6 +2674,9 @@ class PTransitive(Proof):
   first: Proof
   second: Proof
   
+  def copy(self):
+      return PTransitive(self.location, self.first.copy(), self.second.copy())
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2624,6 +2691,9 @@ class PTransitive(Proof):
 class PInjective(Proof):
   constr: Type
   body: Proof
+
+  def copy(self):
+      return PInjective(self.location, self.constr.copy(), self.body.copy())
   
   def pretty_print(self, indent):
     return indent*' ' + 'injective ' + str(self.constr) + '\n' \
@@ -2639,6 +2709,9 @@ class PInjective(Proof):
 @dataclass
 class PExtensionality(Proof):
   body: Proof
+
+  def copy(self):
+      return PExtensionality(self.location, self.body.copy())
   
   def pretty_print(self, indent):
     return indent*' ' + 'extensionality\n' \
@@ -2656,6 +2729,11 @@ class IndCase(AST):
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
+  def copy(self):
+      return IndCase(self.location, self.pattern.copy(),
+                     [(l,f.copy()) for (l,f) in self.induction_hypotheses],
+                     self.body.copy())
+  
   def pretty_print(self, indent):
     return indent*' ' + 'case ' + str(self.pattern) \
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
@@ -2692,6 +2770,9 @@ class Induction(Proof):
   typ: Type
   cases: List[IndCase]
 
+  def copy(self):
+      return Induction(self.location, self.typ.copy(), [c.copy() for c in self.cases])
+  
   def pretty_print(self, indent):
     return indent*' ' + 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([c.pretty_print(indent) for c in self.cases])
@@ -2711,6 +2792,11 @@ class SwitchProofCase(AST):
   assumptions: list[Tuple[str,Formula]]
   body: Proof
 
+  def copy(self):
+      return SwitchProofCase(self.location, self.pattern.copy(),
+                             [(l,f.copy()) for (l,f) in self.assumptions],
+                             self.body.copy())
+  
   def pretty_print(self, indent):
     return indent*' ' + 'case ' + str(self.pattern) + '{\n' \
         + self.body.pretty_print(indent+2) \
@@ -2742,7 +2828,11 @@ class SwitchProofCase(AST):
 class SwitchProof(Proof):
   subject: Term
   cases: List[SwitchProofCase]
-
+  
+  def copy(self):
+      return SwitchProof(self.location, self.subject.copy(),
+                         [c.copy() for c in self.cases])
+      
   def pretty_print(self, indent):
       return indent*' ' + 'switch ' + str(self.subject) + '{\n' \
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) \
@@ -2760,6 +2850,9 @@ class SwitchProof(Proof):
 @dataclass
 class EvaluateGoal(Proof):
 
+  def copy(self):
+      return EvaluateGoal(self.location)
+
   def pretty_print(self, indent):
       return str(self)
   
@@ -2773,6 +2866,9 @@ class EvaluateGoal(Proof):
 class EvaluateFact(Proof):
   subject: Proof
 
+  def copy(self):
+      return EvaluateFact(self.location, self.subject.copy())
+  
   def pretty_print(self, indent):
       return str(self)
   
@@ -2787,6 +2883,9 @@ class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
 
+  def copy(self):
+      return ApplyDefsGoal(self.location, [d.copy() for d in self.definitions], self.body.copy())
+  
   def __str__(self):
       return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' ' + str(self.body)
@@ -2801,6 +2900,10 @@ class ApplyDefsFact(Proof):
   definitions: List[Term]
   subject: Proof
 
+  def copy(self):
+      return ApplyDefsFact(self.location, [t.copy() for t in self.definitions],
+                           self.subject.copy())
+  
   def __str__(self):
       return 'definition ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
@@ -2815,6 +2918,10 @@ class RewriteGoal(Proof):
   equations: List[Proof]
   body: Proof
 
+  def copy(self):
+      return RewriteGoal(self.location, [p.copy() for p in self.equations],
+                         self.body.copy())
+  
   def __str__(self):
       return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \
         + '\n' + str(self.body)
@@ -2829,6 +2936,11 @@ class RewriteFact(Proof):
   subject: Proof
   equations: List[Proof]
 
+  def copy(self):
+      return RewriteFast(self.location,
+                         self.subject.copy(),
+                         [p.copy() for p in self.equations])
+  
   def __str__(self):
       return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)

@@ -386,6 +386,10 @@ def parse_tree_to_ast(e, parent):
         e1, e2 = e.children
         return ModusPonens(e.meta, parse_tree_to_ast(e1, e),
                            parse_tree_to_ast(e2, e))
+    elif e.data == 'contradict':
+        child1 = parse_tree_to_ast(e.children[0], e)
+        child2 = parse_tree_to_ast(e.children[0], e)
+        return ModusPonens(e.meta, child1, child2)
     elif e.data == 'true_proof':
         return PTrue(e.meta)
     elif e.data == 'hole_proof':
@@ -599,7 +603,9 @@ def parse_tree_to_ast(e, parent):
         return PRecall(e.meta, args)
     elif e.data == 'ident_proof_error':
         error(e.meta, "parsing error: " + repr(e))
-    
+    elif e.data == 'reason':
+        return parse_tree_to_ast(e.children[0], e)
+        
     # constructor declaration
     elif e.data == 'constructor_id':
         return Constructor(e.meta, str(e.children[0].value), [])

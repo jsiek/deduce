@@ -329,6 +329,8 @@ proof
   }
 end
 
+postulate uint_not_less_equal_iff_greater: all x:UInt, y:UInt. not (x ≤ y) ⇔ (y < x)
+
 theorem uint_le_refl: all x:UInt.
   x ≤ x
 proof
@@ -438,6 +440,8 @@ proof
   }
 end
 
+postulate uint_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
+
 theorem uint_less_implies_not_greater:
   all x:UInt, y:UInt.
   if x < y then not (y < x)
@@ -510,3 +514,12 @@ end
 auto uint_less_equal_refl_true
 
 postulate uint_less_add_one_le: all x:UInt, y:UInt. (if x < y then 1 + x ≤ y)
+
+postulate uint_zero_max: all x:UInt. max(0, x) = x
+postulate uint_max_zero: all x:UInt. max(x, 0) = x
+postulate uint_max_symmetric: all x:UInt, y:UInt. max(x,y) = max(y,x)
+postulate uint_max_assoc: all x:UInt, y:UInt,z:UInt. max(max(x, y), z) = max(x, max(y, z))
+postulate uint_max_equal_greater_right: all x:UInt, y:UInt. (if x ≤ y then max(x, y) = y)
+postulate uint_max_equal_greater_left: all x:UInt, y:UInt. (if y ≤ x then max(x, y) = x)
+postulate uint_max_less_equal: all x:UInt, y:UInt, z:UInt. (if x ≤ z and y ≤ z then max(x, y) ≤ z)
+

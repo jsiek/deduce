@@ -176,6 +176,7 @@ known_tokens = {
     'COMMENT': 'comment',
     'CONCLUDE': 'keyword',
     'CONJUNCT': 'keyword',
+    'CONTRADICT': 'operator',
     'DEFINE': 'keyword',
     'DOLLAR': 'operator',
     'DOT': 'operator',

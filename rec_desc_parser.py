@@ -660,7 +660,28 @@ def parse_recall():
   facts = parse_nonempty_term_list()
   meta = meta_from_tokens(start_token, previous_token())
   return PRecall(meta, facts)
-  
+
+def parse_reason():
+    if end_of_file():
+      raise ParseError(meta_from_tokens(start_token, start_token),
+            'expected a reason, not end of file')
+    if current_token().type == 'BY':
+      advance()
+      proof = parse_proof()
+    elif current_token().type == 'PROOF':
+      advance()
+      proof = parse_proof()
+      if current_token().type != 'END':
+        raise ParseError(meta_from_tokens(current_token(), current_token()),
+              'expected the keyword "end" after proof of theorem, not\n\t' \
+              + current_token().value)
+      advance()
+    else:
+      raise ParseError(meta_from_tokens(current_token(), current_token()),
+            'expected the keyword "by" or "proof" at beginning of a reason, not\n\t' \
+            + current_token().value)
+    return proof
+
 def parse_proof_hi():
   token = current_token()
   if token.type == 'APPLY':
@@ -681,7 +702,21 @@ def parse_proof_hi():
     except Exception as e:
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
-    
+
+  elif token.type == 'CONTRADICT':
+    while_parsing = 'while parsing contracit (use a logical negation)\n' \
+        + '\tconclusion ::= "contradict" proof "," proof\n'
+    advance()
+    try:
+      child1 = parse_proof()
+      child2 = child1.copy()
+      return ModusPonens(meta_from_tokens(token, previous_token()), child1, child2)
+    except ParseError as e:
+      raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
+    except Exception as e:
+      raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
+        + str(e))
+  
   elif token.type == 'CASES':
     while_parsing = 'while parsing cases (use a logical or)\n' \
         + '\tconclusion ::= "cases" proof case_clause*\n' \
@@ -707,15 +742,8 @@ def parse_proof_hi():
     advance()
     try:
       claim = parse_term()
-      if current_token().type == 'BY':
-        advance()
-        reason = parse_proof()
-      else:
-        raise ParseError(meta_from_tokens(current_token(), current_token()),
-              'expected the keyword "by" after formula of "conclude", '\
-              + 'not\n\t' + current_token().value)
-      return PAnnot(meta_from_tokens(token, previous_token()),
-                    claim, reason)
+      reason = parse_reason()
+      return PAnnot(meta_from_tokens(token, previous_token()), claim, reason)
     except ParseError as e:
       raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
     except Exception as e:
@@ -994,12 +1022,7 @@ def parse_proof_statement():
   if token.type == 'SUFFICES':
     advance()
     formula = parse_term()
-    if current_token().type != 'BY':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword "by" after formula of "suffices", not\n\t' \
-            + current_token().value)
-    advance()
-    proof = parse_proof()
+    proof = parse_reason()
     meta = meta_from_tokens(token, previous_token())
     return Suffices(meta, formula, proof, None), False
 
@@ -1169,18 +1192,8 @@ def parse_have():
             + current_token().value)
     advance()
     proved = parse_term()
-    if end_of_file():
-      raise ParseError(meta_from_tokens(start_token, start_token),
-            'expected the keyword "by" after formula of "have", not end of file')
-    elif current_token().type == 'BY':
-      advance()
-      because = parse_proof()
-    else:        
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword "by" after formula of "have", ' \
-            + 'not\n\t' + current_token().value)
-    return PLet(meta_from_tokens(token, previous_token()),
-                label, proved, because, None)
+    because = parse_reason()
+    return PLet(meta_from_tokens(token, previous_token()), label, proved, because, None)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
   except Exception as e:
@@ -1296,12 +1309,7 @@ def parse_equation():
             + current_token().value)
   advance()
   rhs = parse_term_compare()
-  if current_token().type != 'BY':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected "by" after equation, not\n\t' \
-            + current_token().value)
-  advance()
-  reason = parse_proof()
+  reason = parse_reason()
   return (lhs, rhs, reason)
 
 def parse_half_equation():
@@ -1313,12 +1321,7 @@ def parse_half_equation():
               + current_token().value)
     advance()
     rhs = parse_term_compare()
-    if current_token().type != 'BY':
-        raise ParseError(meta_from_tokens(current_token(), current_token()),
-              'expected "by" after equation, not\n\t' \
-              + current_token().value)
-    advance()
-    reason = parse_proof()
+    reason = parse_reason()
     return (None, rhs, reason)
   elif current_token().value == '$':
     advance()
@@ -1369,18 +1372,8 @@ def parse_theorem(visibility):
     if is_postulate:
         return Postulate(meta_from_tokens(start_token, previous_token()),
                          name, what)
-    
-    if current_token().type != 'PROOF':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword "proof" after formula of theorem, not\n\t' \
-            + current_token().value)
-    advance()
-    proof = parse_proof()
-    if current_token().type != 'END':
-      raise ParseError(meta_from_tokens(current_token(), current_token()),
-            'expected the keyword "end" after proof of theorem, not\n\t' \
-            + current_token().value)
-    advance()
+
+    proof = parse_reason()
     return Theorem(meta_from_tokens(start_token, previous_token()),
                    name, what, proof, is_lemma)
   except ParseError as e:

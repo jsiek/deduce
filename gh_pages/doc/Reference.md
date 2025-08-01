@@ -7,7 +7,6 @@ feature in alphabetical order by keyword. It gives the grammar rule
 In the grammar rules, an unquoted asterisk means zero-or more
 repetitions of the grammar item that it follows.
 The symbol ε means the empty string.
-A vertical bar separates alternatives right-hand sides in a grammar rule.
 
 
 ## Add
@@ -243,7 +242,7 @@ assert (if true then 7 else 5+6) = 7
 
 ```
 proof_stmt ::= "assume" assumption
-             | "suppose" assumption
+proof_stmt ::= "suppose" assumption
 ```
 
 A proof of the form
@@ -322,8 +321,8 @@ theorem uint_mult_commute: all m:UInt, n:UInt.
 
 ```
 formula ::= formula "⇔" formula
-          | formula "<=>" formula
-          | formula "iff" formula
+formula ::= formula "<=>" formula
+formula ::= formula "iff" formula
 ```
 
 The biconditional formula `P ⇔ Q` is syntactic sugar for
@@ -365,7 +364,7 @@ assert length(list_example) = 3
 conclusion ::= "cases" proof case_list
 case_list ::= case | case case_list
 case ::= "case" identifier "{" proof "}"
-       | "case" identifier ":" term "{" proof "}"
+case ::= "case" identifier ":" term "{" proof "}"
 ```
 
 In Deduce, you can use an `or` fact by doing case analysis with the
@@ -432,7 +431,8 @@ See the entry for [And](#and-logical-conjunction).
 ## Compose (Functions)
 
 ```
-term ::= term "∘" term | term "[o]" term
+term ::= term "∘" term
+term ::= term "[o]" term
 ```
 
 The composition of two functions `g ∘ f` is defined in `Maps.pf`
@@ -452,7 +452,7 @@ assert (add1 ∘ add1)(3) = 5
 ## Conclude (Proof)
 
 ```
-conclusion ::= "conclude" formula "by" proof
+conclusion ::= "conclude" formula reason
 ```
 
 This proof statement is useful when you wish to emphasize the end of a
@@ -485,6 +485,7 @@ must be one of the following:
 * [Comma (Logical-And Introduction)](#comma-logical-and-introduction)
 * [Conclude](#conclude-proof)
 * [Conjunct](#conjunct)
+* [Contradict](#contradict-proof)
 * [Expand-In](#expand-in-proof)
 * [Equations](#equations)
 * [Evaluate](#evaluate-proof)
@@ -530,6 +531,27 @@ proof
 end
 ```
 
+## Contradict (Proof)
+
+```
+conclusion ::= "contradict" proof "," proof
+```
+
+* The `contradict` proof expects a proof of some formula `P` and its negation, `not P`.
+* The result of `contradict` is a proof of `false`.
+
+```{.deduce^#contradict_example}
+theorem contradict_example: all P:bool, Q:bool. if P and not P then Q
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  have p: P by prem
+  have np: not P by prem
+  conclude Q by contradict p, np
+end
+```
+
+
 ## Contradiction
 
 During a proof, one sometimes encounters assumptions that contradict
@@ -557,21 +579,20 @@ conclude false by X
 ```
 
 (2) If you have a proof of `P` and a proof of `not P`,
-then you can prove `false` using `apply`-`to`. (Because
-`not P` is shorthand for `if P then false`.)
+then you can prove `false` using `contradict`.
 
 ```
 have X: P by ...
 have Y: not P by ...
-conclude false by apply Y to X
+conclude false by contradict Y, X
 ```
 
 ```{.deduce^#contradiction_example}
 theorem contra_example: if length([1,2]) = length([1]) then length([1,2]) = length([2])
 proof
   assume len_12_1: length([1,2]) = length([1])
-  have contra: false by expand 3* length in len_12_1
-  conclude length([1,2]) = length([2]) by contra
+  have F: false by expand 3* length in len_12_1
+  conclude length([1,2]) = length([2]) by F
 end
 ```
 
@@ -736,8 +757,8 @@ Deduce.)
 
 ```
 conclusion ::= "equations" equation equation_list
-equation ::= term "=" term "by" proof
-half_equation ::= "..." "=" term "by" proof
+equation ::= term "=" term reason
+half_equation ::= "..." "=" term reason
 equation_list ::= half_equation
 equation_list ::= half_equation equation_list
 equation_list ::= "$" equation equation_list
@@ -854,7 +875,7 @@ formula ::= term
 
 ```
 term ::= "fun" var_list "{" term "}"
-         | "λ" var_list "{" term "}"
+term ::= "λ" var_list "{" term "}"
 ```
 
 Functions are created with a `fun` expression.  Their syntax starts with
@@ -957,7 +978,7 @@ statement (see [Recursive Function](#recursive-function-statement)).
 
 ```
 term ::= "fun" type_params_opt var_list "{" term "}"
-         | "λ" type_params_opt var_list "{" term "}"
+term ::= "λ" type_params_opt var_list "{" term "}"
 ```
 
 To make a [Function](#function-term) generic, add type parameters surrounded
@@ -1023,8 +1044,8 @@ assert not (0 ≥ 1)
 ## Have (Proof Statement)
 
 ```
-proof_stmt ::= "have" identifier ":" term "by" proof 
-             | "have" ":" term "by" proof 
+proof_stmt ::= "have" identifier ":" term reason 
+proof_stmt ::= "have" ":" term reason 
 ```
 
 Use `have` to prove a formula that may help you later to prove the
@@ -1171,7 +1192,7 @@ assert 1 ∈ S and 2 ∈ S and 3 ∈ S and not (4 ∈ S)
 ```
 conclusion ::= "induction" type ind_case*
 ind_case ::= "case" pattern "{" proof "}"
-           | "case" pattern "assume" assumption_list "{" proof "}"
+ind_case ::= "case" pattern "assume" assumption_list "{" proof "}"
 ```
 
 A proof of the form
@@ -1240,7 +1261,7 @@ end
 
 ```
 conclusion ::= proof '<' type_list '>'
-             | proof '[' term_list ']'
+conclusion ::= proof '[' term_list ']'
 ```
 
 Use square brackets `[` and `]` to instantiate an `all` formula with 
@@ -1318,7 +1339,7 @@ assert not (2 < 1)
 
 ```
 formula ::= term "≤" term
-          | term "<=" term
+formula ::= term "<=" term
 ```
 
 The less-than-or-equal operator on unsigned integers is defined in `UInt.pf`.
@@ -1567,7 +1588,10 @@ A term, formula, or a proof may be surrounded in parentheses.
 ## Pattern
 
 ```
-pattern ::= identifier | "true" | "false" | identifier "(" identifier_list ")"
+pattern ::= identifier
+pattern ::= "true"
+pattern ::= "false"
+pattern ::= identifier "(" identifier_list ")"
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
@@ -1577,7 +1601,9 @@ and [Recursive Function (Statement)](#function-statement) via a Pattern List.
 ## Parameter List
 
 ```
-param_list ::= ε | pattern | pattern "," identifier_list
+param_list ::= ε
+param_list ::= pattern
+param_list ::= pattern "," identifier_list
 ```
 
 A parameter list begins with a pattern (for the first function
@@ -1615,7 +1641,7 @@ See [Visibility](#visibility).
 
 ```
 proof ::= proof_stmt proof
-        | conclusion
+proof ::= conclusion
 ```
 
 A proof is a sequence of zero or more [proof statements](#proof-statement)
@@ -1678,6 +1704,12 @@ don't know. Deduce halts at the `?` and prints an error message with
 the location of the `?` and the formula that needs to be proved, as
 well as some advice about how to prove it.
 
+## Reason
+
+```
+reason ::= "by" proof
+reason ::= "begin" proof "end"
+```
 
 ## Recall (Proof)
 
@@ -1906,7 +1938,7 @@ theorems with `monus` in the name.
 ## Suffices (Proof Statement)
 
 ```
-proof_stmt ::= "suffices" formula "by" proof
+proof_stmt ::= "suffices" formula reason
 ```
 
 A proof of the form
@@ -2040,8 +2072,8 @@ for any terms `a` and `b`.
 ## Theorem (Statement)
 
 ```
-statement ::= "theorem" IDENT ":" formula "proof" proof "end"
-            | "lemma" IDENT ":" formula "proof" proof "end"
+statement ::= "theorem" IDENT ":" formula reason
+statement ::= "lemma" IDENT ":" formula reason
 ```
 
 A theorem (or lemma) proves that a formula is true. The theorem's name
@@ -2065,7 +2097,9 @@ as a proof of `P`.
 A term list is a comma-separated sequence of zero or more terms.
 
 ```
-term_list ::= ε | term | term "," term_list
+term_list ::= ε
+term_list ::= term
+term_list ::= term "," term_list
 ```
 
 ## Transitive (Proof)
@@ -2098,16 +2132,18 @@ end
 
 ```
 type ::= "bool"                                        // type of a Boolean
-       | identifier                                    // type of a union
-       | identifier "<" type_list ">"                  // type of a generic union
-       | "fn" type_params_opt type_list "->" type      // type of a function 
-       | "(" type ")"
+type ::= identifier                                    // type of a union
+type ::= identifier "<" type_list ">"                  // type of a generic union
+type ::= "fn" type_params_opt type_list "->" type      // type of a function 
+type ::= "(" type ")"
 ```
 
 ## Type List
 
 ```
-type_list ::= ε | type | type "," type_list
+type_list ::= ε
+type_list ::= type
+type_list ::= type "," type_list
 ```
 
 A type list is a comma-separated list of zero or more types.
@@ -2116,7 +2152,8 @@ A type list is a comma-separated list of zero or more types.
 ## Type Parameters
 
 ```
-type_params_opt ::= ε | "<" identifier_list ">"
+type_params_opt ::= ε
+type_params_opt ::= "<" identifier_list ">"
 ```
 
 Specifies the type parameters of a generic union or generic function.
@@ -2126,7 +2163,8 @@ Specifies the type parameters of a generic union or generic function.
 
 ```
 statement ::= visibility "union" identifier type_params_opt "{" constructor* "}"
-constructor ::= identifier | identifier "(" type_list ")"
+constructor ::= identifier
+constructor ::= identifier "(" type_list ")"
 ```
 
 The `union` statement defines a new type whose values are created by
@@ -2189,9 +2227,11 @@ An unsigned integer literal is a sequence of one or more digits.
 ## Variable List
 
 ```
-var_list ::= ε | ident | ident ":" type
-       | ident ":" type "," var_list
-       | ident "," var_list
+var_list ::= ε
+var_list ::= ident
+var_list ::= ident ":" type
+var_list ::= ident ":" type "," var_list
+var_list ::= ident "," var_list
 ```
 
 A comma-separated list of variable declarations. Each variable may
@@ -2200,7 +2240,10 @@ optionally be annotated with its type.
 ## Visibility
 
 ```
-visibility ::= ε | "public" | "private" | "opaque"
+visibility ::= ε
+visibility ::= "public"
+visibility ::= "private"
+visibility ::= "opaque"
 ```
 
 The visibility of a statement controls how the defined name can be
@@ -2283,5 +2326,6 @@ import Pair
 <<generic_fun_example>>
 <<contradiction_example>>
 <<set_union_example>>
+<<contradict_example>>
 ```
 -->

@@ -208,6 +208,13 @@ proof
   less_equal_add
 end
 
+theorem uint_less_equal_add_left: all x:UInt, y:UInt. y ≤ x + y
+proof
+  arbitrary x:UInt, y:UInt
+  replace uint_add_commute[x, y]
+  uint_less_equal_add
+end
+
 theorem uint_less_add_pos: all x:UInt, y:UInt.
   if bzero < y
   then x < x + y
