@@ -331,14 +331,7 @@ end
 
 postulate uint_not_less_equal_iff_greater: all x:UInt, y:UInt. not (x ≤ y) ⇔ (y < x)
 
-theorem uint_le_refl: all x:UInt.
-  x ≤ x
-proof
-  arbitrary x:UInt
-  expand operator≤.
-end
-
-theorem uint_le_trans: all x:UInt, y:UInt, z:UInt.
+theorem uint_less_equal_trans: all x:UInt, y:UInt, z:UInt.
   if x ≤ y and y ≤ z
   then x ≤ z
 proof
@@ -375,7 +368,7 @@ proof
   }
 end
 
-theorem uint_le_bzero: all x:UInt.
+theorem uint_less_equal_bzero: all x:UInt.
   if x ≤ bzero then x = bzero
 proof
   arbitrary x:UInt
@@ -455,9 +448,6 @@ proof
   conclude false by apply B to C
 end
 
-postulate uint_less_equal_trans: all m:UInt. all n:UInt, o:UInt.
-  (if m ≤ n and n ≤ o then m ≤ o)
-
 postulate uint_less_equal_antisymmetric:
   all x:UInt, y:UInt. 
   (if x ≤ y and y ≤ x
@@ -472,20 +462,20 @@ proof
   uint_bzero_le
 end
 
-theorem uint_zero_le_true: all x:UInt.
+theorem uint_zero_less_equal_true: all x:UInt.
   (0 ≤ x) = true
 proof
   arbitrary x:UInt
   apply eq_true to uint_zero_le[x]
 end
 
-auto uint_zero_le_true
+auto uint_zero_less_equal_true
 
-theorem uint_le_zero: all x:UInt.
+theorem uint_less_equal_zero: all x:UInt.
   if x ≤ 0 then x = 0
 proof
   expand lit | fromNat
-  uint_le_bzero
+  uint_less_equal_bzero
 end
 
 postulate uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (lit(x) ≤ lit(y))

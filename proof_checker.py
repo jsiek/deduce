@@ -1052,7 +1052,7 @@ def check_proof_of(proof, formula, env):
       match new_claim:
         case Hole(loc2, tyof):
           check_proof_of(reason, formula, env)
-          error(loc, '\nconclude ' + str(formula))
+          error(loc, '\nneed to show:\n\t' + str(formula))
         case _:
           claim_red = new_claim.reduce(env)
           formula_red = formula.reduce(env)

@@ -16,6 +16,11 @@ recursive length<E>(List<E>) -> UInt {
   length(node(n, next)) = 1 + length(next)
 }
 
+recursive contains<E>(List<E>, E) -> bool {
+  contains(empty, x) = false
+  contains(node(y, next), x) = (y = x) or contains(next, x)
+}
+
 recursive operator ++ <E>(List<E>, List<E>) -> List<E> {
   operator ++([], ys) = ys
   operator ++(node(n, xs), ys) = node(n, xs ++ ys)

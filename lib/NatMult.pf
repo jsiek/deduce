@@ -59,7 +59,6 @@ end
 
 auto lit_suc_mult
 
-
 lemma mult_suc: all m:Nat. all n:Nat.
   m * suc(n) = m + m * n
 proof
