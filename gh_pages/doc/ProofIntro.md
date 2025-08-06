@@ -1370,6 +1370,7 @@ another for `even_y`, making different choices to replace the variable
 
     obtain a where x_2a: x = 2*a from even_x
     obtain b where y_2b: y = 2*b from even_y
+    replace x_2a | y_2b
 
 Deduce responds with
 
@@ -1383,23 +1384,23 @@ are the subformulas of the `some`, but with `a` and `b` replacing `m`.
 We still need to prove the following:
 
     incomplete proof:
-        Even(x + y)
+        Even(2 * a + 2 * b)
 
-So we use the definition of `Even` in a `suffices` statement
+So we use the definition of `Even` in an `expand` statement
 
-    suffices some m:UInt. x + y = 2 * m  by expand Even.
+    expand Even
+    show some m:UInt. 2 * a + 2 * b = 2 * m
     ?
 
 To prove a `some` formula, we use Deduce's `choose` statement.  This
 requires some thinking on our part.  What number can we plug in for
-`m` such that doubling it is equal to `x + y`? Given what we know
-about `a` and `b`, the answer is `a + b`. We conclude the proof
-by using the equations for `x` and `y` and the distributivity
+`m` such that doubling it is equal to `2*a + 2*b`? Of course the
+answer is `a + b`. We conclude the proof by using the distributivity
 property of multiplication over addition (from `UInt.pf`).
 
     choose a + b
-    suffices 2 * a + 2 * b = 2 * (a + b)  by replace x_2a | y_2b.
-    symmetric uint_dist_mult_add[2][a,b]
+    replace x_2a | y_2b
+    replate uint_dist_mult_add[2].
 
 Here is the complete proof.
 
@@ -1415,8 +1416,8 @@ proof
   have even_y: some m:UInt. y = 2 * m by expand Even in even_xy
   obtain a where x_2a: x = 2*a from even_x
   obtain b where y_2b: y = 2*b from even_y
-  expand Even
   replace x_2a | y_2b
+  expand Even
   show some m:UInt. 2 * a + 2 * b = 2 * m
   choose a + b
   replace uint_dist_mult_add[2].

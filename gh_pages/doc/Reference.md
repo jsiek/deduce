@@ -646,6 +646,28 @@ proof
 end
 ```
 
+## Divide
+
+```
+term ::= term "/" term
+```
+
+The division function for `UInt` is defined in `UInt.pf`.  The main
+theorem is `uint_div_mod` which states, assuming `m` is positive, that
+
+```
+(n / m) * m + (n % m) = n
+```
+
+Example:
+
+```{.deduce^#division_example}
+assert 6 / 3 = 2
+assert 7 / 3 = 2
+assert 8 / 3 = 2
+assert 9 / 3 = 3
+```
+
 ## Expand (Proof)
 
 ```
@@ -707,28 +729,6 @@ proof
     }
   }
 end
-```
-
-## Divide
-
-```
-term ::= term "/" term
-```
-
-The division function for `UInt` is defined in `UInt.pf`.  The main
-theorem is `uint_div_mod` which states, assuming `m` is positive, that
-
-```
-(n / m) * m + (n % m) = n
-```
-
-Example:
-
-```{.deduce^#division_example}
-assert 6 / 3 = 2
-assert 7 / 3 = 2
-assert 8 / 3 = 2
-assert 9 / 3 = 3
 ```
 
 ## Empty Set
@@ -1266,7 +1266,9 @@ conclusion ::= proof '[' term_list ']'
 
 Use square brackets `[` and `]` to instantiate an `all` formula with 
 terms and use angle brackets `<` and `>` to instantiate an `all`
-formula with types.
+formula with types. In the following example, at the bottom of the proof,
+we instantiate `len_node_1` with the type `UInt` and then the term `42`,
+with the syntax `len_node_1<UInt>[42]`.
 
 Example:
 
