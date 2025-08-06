@@ -90,6 +90,13 @@ recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
     }
 }
 
+recursive unzip<T,U>(List< Pair<T, U> >) -> Pair< List<T>, List<U> > {
+  unzip(empty) = pair(@empty<T>, @empty<U>)
+  unzip(node(p, ps)) =
+    define xys = unzip(ps);
+    pair(node(first(p), first(xys)), node(second(p), second(xys)))
+}
+
 recursive filter<E>(List<E>, fn (E)->bool) -> List<E> {
   filter(empty, P) = empty
   filter(node(x, ls), P) =

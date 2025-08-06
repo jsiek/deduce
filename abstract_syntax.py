@@ -2225,7 +2225,7 @@ class PRecall(Proof):
   facts: List[Formula]
 
   def copy(self):
-      return PRecall(self.location, [fact.copy() for fact in facts])
+      return PRecall(self.location, [fact.copy() for fact in self.facts])
   
   def pretty_print(self, indent):
       return str(self)

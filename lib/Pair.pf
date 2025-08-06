@@ -32,7 +32,14 @@ proof
   expand second.
 end
   
-  
- 
-  
- 
+theorem pair_first_second: <T, U> all p:Pair<T, U>.
+  pair(first(p), second(p)) = p
+proof
+  arbitrary T:type, U:type, p:Pair<T,U>
+  switch p {
+    case pair(x,y) {
+      replace first_pair | second_pair.
+    }
+  }
+end
+
