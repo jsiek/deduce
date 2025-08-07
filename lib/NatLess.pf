@@ -1109,8 +1109,28 @@ proof
      by apply less_equal_trans to (_5, _4)
 end
 
-postulate less_le_trans: all m:Nat, n:Nat, o:Nat. (if m < n and n ≤ o then m < o)
-postulate le_less_trans: all m:Nat, n:Nat, o:Nat. (if m ≤ n and n < o then m < o)
+theorem less_le_trans: all m:Nat, n:Nat, o:Nat. (if m < n and n ≤ o then m < o)
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  suppose prem
+  expand operator<
+  show suc(m) ≤ o
+  have: suc(m) ≤ n by expand operator< in prem
+  have: n ≤ o by prem
+  apply less_equal_trans to (recall suc(m) ≤ n), (recall n ≤ o)
+end
+  
+theorem le_less_trans: all m:Nat, n:Nat, o:Nat. (if m ≤ n and n < o then m < o)
+proof
+  arbitrary m:Nat, n:Nat, o:Nat
+  suppose prem
+  expand operator<
+  show suc(m) ≤ o
+  have: m ≤ n by prem
+  have: suc(n) ≤ o by expand operator< in prem
+  have: suc(m) ≤ suc(n) by expand operator≤ recall m ≤ n
+  apply less_equal_trans to (recall suc(m) ≤ suc(n)), (recall suc(n) ≤ o)
+end
   
 lemma greater_any_zero: all x:Nat, y:Nat.
   if x < y

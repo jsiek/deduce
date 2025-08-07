@@ -479,13 +479,27 @@ end
 auto lit_suc_less_equal_zero_false
   
 
-postulate le_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) ≤ lit(suc(y))) = (lit(x) ≤ lit(y))
+theorem le_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) ≤ lit(suc(y))) = (lit(x) ≤ lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  replace apply iff_equal to suc_less_equal_iff_less_equal_suc[x,y].
+end
 auto le_lit_suc  
 
-postulate less_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) < lit(suc(y))) = (lit(x) < lit(y))
+theorem less_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) < lit(suc(y))) = (lit(x) < lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  replace apply iff_equal to less_suc_iff_suc_less[x,y].
+end
 auto less_lit_suc  
 
-postulate less_lit_zero_suc: all y:Nat. (lit(zero) < lit(suc(y))) = true
+theorem less_lit_zero_suc: all y:Nat. (lit(zero) < lit(suc(y))) = true
+proof
+  arbitrary y:Nat
+  expand lit | operator< | operator≤.
+end
 auto less_lit_zero_suc
 
 postulate lit_zero_div: all x:Nat. lit(zero) / lit(suc(x)) = lit(zero)
