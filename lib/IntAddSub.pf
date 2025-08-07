@@ -350,7 +350,7 @@ end
 lemma distrib_left_monus_add: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + pos(m) = (n + m) ⊝ o
 proof
-  arbitrary m:UInt, n:UInt
+  arbitrary m:UInt
   define P = fun n':UInt { all o:UInt. (n' ⊝ o) + pos(m) = (n' + m) ⊝ o }
   have P0: P(0) by {
     expand P
@@ -385,7 +385,7 @@ proof
         by expand P in IH
     }
   }
-  expand P in apply uint_induction[P, n] to P0, ind
+  expand P in apply uint_induction[P] to P0, ind
 end
 
 lemma add_pos_pos: all n:UInt, m:UInt.
@@ -422,7 +422,7 @@ end
 lemma distrib_left_monus_add_neg: all m:UInt, n:UInt, o:UInt.
   (n ⊝ o) + negsuc(m) = n ⊝ ((1 + o) + m)
 proof
-  arbitrary m:UInt, n:UInt
+  arbitrary m:UInt
   define P = fun n':UInt { all o:UInt. (n' ⊝ o) + negsuc(m) = n' ⊝ ((1 + o) + m)}
   have P0: P(0) by {
     expand P
@@ -456,7 +456,7 @@ proof
       expand P in IH
     }
   }
-  expand P in apply uint_induction[P, n] to P0, ind
+  expand P in apply uint_induction[P] to P0, ind
 end
 
 theorem add_commute_uint_int: all x:UInt, y:Int.

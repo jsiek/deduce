@@ -107,7 +107,7 @@ end
 theorem bigo_const_mult: all f: fn UInt -> UInt, k:UInt.
   k * f ≲ f
 proof
-  arbitrary f: fn UInt -> UInt, k:UInt
+  arbitrary f: fn UInt -> UInt
   define P = fun c:UInt { c * f ≲ f }
   have base: P(0) by {
     expand P | operator≲ | operator*.
@@ -137,7 +137,7 @@ proof
     conclude f(n) + m * f(n) ≤ 2 * f(n) + 2 * c * f(n)
       by apply uint_add_mono_less_equal to fn_cfn, mfn_2cfn
   }
-  expand P in apply uint_induction[P,k] to base, ind
+  expand P in apply uint_induction[P] to base, ind
 end
 
 theorem bigo_mult_mono:

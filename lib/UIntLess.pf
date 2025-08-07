@@ -504,6 +504,7 @@ end
 auto uint_less_equal_refl_true
 
 postulate uint_less_add_one_le: all x:UInt, y:UInt. (if x < y then 1 + x ≤ y)
+postulate uint_less_add_one_implies_less_equal: all x:UInt, y:UInt. (if x < 1 + y then x ≤ y)
 
 postulate uint_zero_max: all x:UInt. max(0, x) = x
 postulate uint_max_zero: all x:UInt. max(x, 0) = x

@@ -280,13 +280,47 @@ proof
   }
 end
 
-theorem uint_induction: all P:fn UInt -> bool, n : UInt.
-  if P(0) and (all m:UInt. if P(m) then P(1 + m)) then P(n)
+theorem uint_induction: all P:fn UInt -> bool.
+  if P(0) and (all m:UInt. if P(m) then P(1 + m))
+  then all n : UInt. P(n)
 proof
-  arbitrary P:fn UInt -> bool, n : UInt
+  arbitrary P:fn UInt -> bool
   assume prem
+  arbitrary n : UInt
   have eq: n = fromNat(toNat(n)) by replace from_toNat.
   apply (apply uint_ind[P, toNat(n), n] to eq) to prem
+end
+
+theorem uint_k_induction: all P: fn UInt -> bool, k:UInt.
+  if (P(k) and (all m:UInt. (if P(m) then P(1 + m))))
+  then all n:UInt. if k ≤ n then P(n)
+proof
+  arbitrary P: fn UInt -> bool, k:UInt
+  assume prem
+  define Q = fun m:UInt { if k ≤ m then P(m) }
+  have base: Q(0) by {
+    expand Q
+    assume kle0
+    have kz: k = 0 by apply uint_less_equal_zero to kle0
+    conclude P(0) by replace kz in prem
+  }
+  have ind_case: all m:UInt. (if Q(m) then Q(1 + m)) by {
+    arbitrary m:UInt
+    expand Q
+    assume IH: if k ≤ m then P(m)
+    assume k_1m: k ≤ 1 + m
+    have kless_or_eq: k < 1 + m or k = 1 + m by expand operator≤ in k_1m
+    cases kless_or_eq
+    case k_l_1m {
+      have: k ≤ m by apply uint_less_add_one_implies_less_equal to k_l_1m
+      have: P(m) by apply IH to recall k ≤ m
+      conclude P(1 + m) by apply (conjunct 1 of prem)[m] to recall P(m)
+    }
+    case k_e_1m {
+      conclude P(1 + m) by replace k_e_1m in prem
+    }
+  }
+  expand Q in apply uint_induction[Q] to base, ind_case
 end
 
 theorem uint_less_plus1: all n:UInt.
@@ -298,6 +332,15 @@ proof
   suffices toNat(n) ≤ toNat(n) by evaluate
   less_equal_refl
 end
+
+theorem uint_less_plus1_true: all n:UInt.
+  (n < 1 + n) = true
+proof
+  arbitrary n:UInt
+  apply eq_true to uint_less_plus1[n]
+end
+
+auto uint_less_plus1_true
 
 theorem uint_add_both_sides_of_less: all x:UInt, y:UInt, z:UInt.
   x + y < x + z ⇔ y < z

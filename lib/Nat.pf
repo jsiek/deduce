@@ -463,6 +463,22 @@ end
 
 auto zero_less_equal_true
 
+theorem not_suc_less_equal_zero: all x:Nat. not (suc(x) ≤ zero)
+proof
+  arbitrary x:Nat
+  expand operator≤.
+end
+
+theorem lit_suc_less_equal_zero_false: all x:Nat. (lit(suc(x)) ≤ lit(zero)) = false
+proof
+  arbitrary x:Nat
+  expand lit
+  apply eq_false to not_suc_less_equal_zero[x]
+end
+
+auto lit_suc_less_equal_zero_false
+  
+
 postulate le_lit_suc: all x:Nat, y:Nat. (lit(suc(x)) ≤ lit(suc(y))) = (lit(x) ≤ lit(y))
 auto le_lit_suc  
 
