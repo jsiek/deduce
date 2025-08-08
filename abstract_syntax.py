@@ -95,6 +95,9 @@ class Proof(AST):
 @dataclass
 class Statement(AST):
     
+  def key(self) -> str:
+      return str(self)
+    
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
@@ -224,6 +227,11 @@ def flatten_assoc_list(op_name, args):
 class Declaration(AST):
   visibility:str = 'public'
 
+  def key(self):
+      if is_operator_name(self.name):
+          return 'operator ' + name2str(self.name)
+      else:
+          return name2str(self.name)
 
 ################ Types ######################################
 
@@ -1002,18 +1010,19 @@ def complete_name(name):
     else:
         return name2str(name)
     
-  
+def is_operator_name(name):
+    return base_name(name) in infix_precedence.keys() \
+        or base_name(name) in prefix_precedence.keys()
+    
+    
 def is_operator(trm):
   match trm:
     case Var(loc, tyof, name):
-      return base_name(name) in infix_precedence.keys() \
-          or base_name(name) in prefix_precedence.keys()
+      return is_operator_name(name)
     case RecFun(loc, name, typarams, params, returns, cases):
-      return base_name(name) in infix_precedence.keys() \
-          or base_name(name) in prefix_precedence.keys()
+      return is_operator_name(name)
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
-      return base_name(name) in infix_precedence.keys() \
-          or base_name(name) in prefix_precedence.keys()
+      return is_operator_name(name)
     case TermInst(loc, tyof, subject, tyargs, inferred):
       return is_operator(subject)
     case _:
@@ -2978,6 +2987,9 @@ class Postulate(Statement):
   name: str
   what: Formula
 
+  def key(self):
+      return self.name
+  
   def __str__(self):
     return 'postulate ' + self.name + ': ' + str(self.what) + '\n\n'
 
@@ -3000,6 +3012,9 @@ class Theorem(Statement):
   proof: Proof
   isLemma: bool = False   # TODO: remove this, use visibility
 
+  def key(self):
+      return self.name
+  
   def __str__(self):
     return ('lemma ' if self.isLemma else 'theorem ') \
       + self.name + ': ' + str(self.what) \
@@ -3089,7 +3104,7 @@ class Union(Declaration):
           + ('<' + ','.join([base_name(t) for t in self.type_params]) + '>' if len(self.type_params) > 0 \
              else '')
       if self.visibility == 'opaque':
-        ret = 'opaque ' + header + '\n'
+        ret = header + '\n'
       else:
         ret = header + ' {\n' \
                      + '\n'.join([c.pretty_print(indent+2) for c in self.alternatives]) + '\n'\
@@ -3233,6 +3248,13 @@ class RecFun(Declaration):
   def substitute(self, sub):
     return self
 
+def pretty_print_function_header(name, type_params, params):
+    return 'fun ' + complete_name(name) \
+        + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
+           if len(type_params) > 0 else '') \
+        + '(' + ', '.join([x + ':' + str(t) if t else x \
+                           for (x,t) in params]) + ')\n'
+
 def pretty_print_function(name, type_params, params, body):
     return 'fun ' + complete_name(name) \
         + ('<' + ', '.join([base_name(t) for t in type_params]) + '>' \
@@ -3350,10 +3372,19 @@ class Define(Declaration):
   typ: Type
   body: Term
 
-  # TODO: Define pretty print
-  def pretty_print(self, indent):
-    return ''
-
+  def str_header(self):
+    if isinstance(self.body, Lambda):
+        params = [(base_name(x), t) for (x,t) in self.body.vars]
+        return pretty_print_function_header(self.name,[],params)
+    elif isinstance(self.body, Generic) \
+         and isinstance(self.body.body, Lambda):
+        typarams = self.body.type_params
+        params = [(base_name(x), t) for (x,t) in self.body.body.vars]
+        return pretty_print_function_header(self.name, typarams, params)
+    else:
+        return 'define ' + complete_name(self.name) \
+            + (' : ' + str(self.typ) if self.typ else '') + '\n'
+  
   def __str__(self):
     if isinstance(self.body, Lambda):
         params = [(base_name(x), t) for (x,t) in self.body.vars]
@@ -3371,7 +3402,7 @@ class Define(Declaration):
     
   def pretty_print(self, indent):
       if self.visibility == 'opaque':
-          return base_name(self.name) + ' : ' + str(self.typ) + '\n'
+          return self.str_header()
       else:
           return str(self)
     
@@ -3503,6 +3534,9 @@ class Import(Declaration):
 @dataclass
 class Auto(Statement):
   name: Term
+
+  def key(self):
+      return str(self.name)
   
   def __str__(self):
     return 'auto ' + str(self.name)
@@ -4251,26 +4285,45 @@ class Env:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
 
-def print_theorems_statement(s, to_print):
+collected_imports = set()
+
+def collect_public(s, to_print):
+    global collected_imports
     if isinstance(s, Theorem) and not s.isLemma:
-      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+      to_print.append(s)
     elif isinstance(s, Postulate):
-      to_print.append(base_name(s.name) + ': ' + str(s.what) + '\n')
+      to_print.append(s)
     elif isinstance(s, Auto):
-      to_print.append('auto ' + str(s.name) + '\n')
+      to_print.append(s)
     elif isinstance(s, Import):
+      if s.name in collected_imports:
+          return
+      collected_imports.add(s.name)
       if s.ast != None and s.visibility == 'public':
         for stmt in s.ast:
-            print_theorems_statement(stmt, to_print)
+            collect_public(stmt, to_print)
     elif isinstance(s, Declaration) and not s.visibility == 'private':
-      to_print.append(s.pretty_print(0))
+      to_print.append(s)
 
+def print_theorems_statement(s, f):
+    if isinstance(s, Theorem) and not s.isLemma:
+        print(base_name(s.name) + ': ' + str(s.what) + '\n', file=f)
+    elif isinstance(s, Postulate):
+      print(base_name(s.name) + ': ' + str(s.what) + '\n', file=f)
+    elif isinstance(s, Auto):
+      print('auto ' + str(s.name) + '\n', file=f)
+    elif isinstance(s, Declaration) and not s.visibility == 'private':
+      print(s.pretty_print(0), file=f)
+      
 def print_theorems(filename, ast):
+  global collected_imports
+  collected_imports = set()
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
   to_print = []
+  
   for s in ast:
-    print_theorems_statement(s, to_print)
+    collect_public(s, to_print)
   
   if len(to_print) == 0:
     return
@@ -4279,8 +4332,8 @@ def print_theorems(filename, ast):
     print('This file was automatically generated by Deduce.', file=theorem_file)
     print('This file summarizes the theorems proved in the file:\n\t' + filename, file=theorem_file)
     print('', file=theorem_file)
-    for line in to_print:
-      print(line, file=theorem_file)
+    for s in sorted(to_print, key=lambda s: s.key()):
+      print_theorems_statement(s, theorem_file)
 
 ############# Marks for controlling rewriting and definitions #########################
 
