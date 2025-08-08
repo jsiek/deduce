@@ -1,2 +1,2 @@
-./test/should-error/noimport1.pf:1.7-1.9: undefined variable: fromNat
-	Add `import UInt` to supply a definition.
+./test/should-error/noimport1.pf:1.7-1.9: 
+	Add `import UInt` to use unsigned integers.

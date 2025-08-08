@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Tuple, List, Optional, Set, Self
-from error import error, warning, match_failed, MatchFailed
+from error import error, warning, static_error, match_failed, MatchFailed
 from flags import *
 from pathlib import Path
 from edit_distance import edit_distance
@@ -777,12 +777,14 @@ class Var(Term):
       import_advice = ''
 
       if self.name == "suc" or self.name == "zero" or self.name == "lit":
-        import_advice = "\n\tAdd `import Nat` to supply a definition."
+        import_advice = "\n\tAdd `import Nat` to use natural numbers."
       elif self.name == "empty" or self.name == "node":
-        import_advice = "\n\tAdd `import List` to supply a definition."
+        import_advice = "\n\tAdd `import List` to use lists."
       elif self.name == "bzero" or self.name == "dub_inc" or self.name == "inc_dub" or self.name == "fromNat":
-        import_advice = "\n\tAdd `import UInt` to supply a definition."
-
+        import_advice = "\n\tAdd `import UInt` to use unsigned integers."
+      if import_advice != '':
+          static_error(self.location, import_advice)
+        
       close_matches = []
       for var in env.keys():
         if edit_distance(self.name, var) <= ceil(len(self.name) / 5):
@@ -791,8 +793,9 @@ class Var(Term):
         mispell_advice = '\n\tdid you intend: ' + ', '.join(close_matches) + '\n'
       else:
         mispell_advice = ''
-      error(self.location, 'undefined variable: ' + self.name \
-            + mispell_advice + import_advice + '' + env_str)
+      static_error(self.location, 'undefined variable: ' + self.name \
+                   + mispell_advice + '' + env_str)
+      
     self.resolved_names = env[self.name]
     
 @dataclass
@@ -1377,13 +1380,9 @@ class Call(Term):
     return ret
 
   def uniquify(self, env):
-    if False and get_verbose():
-      print("uniquify call: " + str(self))
     self.rator.uniquify(env)
     for arg in self.args:
       arg.uniquify(env)
-    if False and get_verbose():
-      print("uniquify call result: " + str(self))
 
       
 @dataclass
