@@ -171,7 +171,7 @@ proof
     expand toNat
     .
   }
-  conclude n ∸ bzero = n by apply toNat_injective to X
+  conclude n ∸ bzero = n by apply uint_toNat_injective to X
 end
 
 theorem uint_monus_cancel_bzero: all n:UInt. n ∸ n = bzero
@@ -182,7 +182,7 @@ proof
     expand toNat
     replace nat_monus_cancel.
   }
-  conclude n ∸ n = bzero by apply toNat_injective to X
+  conclude n ∸ n = bzero by apply uint_toNat_injective to X
 end
 
 theorem uint_add_monus_identity: all m:UInt, n:UInt. 
@@ -193,7 +193,7 @@ proof
     replace toNat_monus | toNat_add
     replace add_monus_identity.
   }
-  conclude (m + n) ∸ m = n by apply toNat_injective to X
+  conclude (m + n) ∸ m = n by apply uint_toNat_injective to X
 end
 
 auto uint_add_monus_identity
@@ -206,7 +206,7 @@ proof
     replace toNat_monus | toNat_add | toNat_monus
     replace monus_monus_eq_monus_add.
   }
-  conclude (x ∸ y) ∸ z = x ∸ (y + z) by apply toNat_injective to X
+  conclude (x ∸ y) ∸ z = x ∸ (y + z) by apply uint_toNat_injective to X
 end
 
 theorem uint_monus_order : all x : UInt, y : UInt, z : UInt.
@@ -219,14 +219,14 @@ proof
       (toNat(x) ∸ toNat(y)) ∸ toNat(z) = (toNat(x) ∸ toNat(z)) ∸ toNat(y)
          by replace monus_order.
   }
-  conclude (x ∸ y) ∸ z = (x ∸ z) ∸ y by apply toNat_injective to X
+  conclude (x ∸ y) ∸ z = (x ∸ z) ∸ y by apply uint_toNat_injective to X
 end
 
 theorem uint_add_both_monus: all z:UInt, y:UInt, x:UInt.
   (z + y) ∸ (z + x) = y ∸ x
 proof
   arbitrary z:UInt, y:UInt, x:UInt
-  suffices toNat((z + y) ∸ (z + x)) = toNat(y ∸ x) by toNat_injective
+  suffices toNat((z + y) ∸ (z + x)) = toNat(y ∸ x) by uint_toNat_injective
   replace toNat_monus | toNat_add
   add_both_monus
 end
@@ -241,7 +241,7 @@ theorem uint_monus_add_identity: all n:UInt. all m:UInt.
 proof
   arbitrary n:UInt, m:UInt
   assume prem
-  suffices toNat(m + (n ∸ m)) = toNat(n) by toNat_injective
+  suffices toNat(m + (n ∸ m)) = toNat(n) by uint_toNat_injective
   suffices toNat(m) + toNat(n ∸ m) = toNat(n) by replace toNat_add.
   suffices toNat(m) + (toNat(n) ∸ toNat(m)) = toNat(n) by replace toNat_monus.
   have A: toNat(m) ≤ toNat(n) by apply toNat_less_equal to prem
@@ -258,7 +258,7 @@ proof
   have mn2: toNat(m) ≤ toNat(n) by apply toNat_less_equal[m,n] to mn
   have lnm: toNat(l) + (toNat(n) ∸ toNat(m)) = (toNat(l) + toNat(n)) ∸ toNat(m)
     by apply monus_add_assoc[toNat(n), toNat(l), toNat(m)] to mn2
-  suffices toNat(l + (n ∸ m)) = toNat((l + n) ∸ m) by toNat_injective
+  suffices toNat(l + (n ∸ m)) = toNat((l + n) ∸ m) by uint_toNat_injective
   replace toNat_add | toNat_monus | toNat_add
   lnm
 end

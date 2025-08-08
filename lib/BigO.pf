@@ -186,7 +186,7 @@ proof
   choose 2, 1
   arbitrary n:UInt
   assume two_n
-  apply uint_logn_gt_1 to two_n
+  apply uint_log_greater_one to two_n
 end
 
 theorem log_le_linear: O_log ≲ O_n

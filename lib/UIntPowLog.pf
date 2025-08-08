@@ -56,8 +56,8 @@ theorem fromNat_expt: all x:Nat, y:Nat.
 proof
   arbitrary x:Nat, y:Nat
   suffices toNat(fromNat(x^y)) = toNat(fromNat(x)^fromNat(y))
-    by toNat_injective
-  replace toNat_expt | to_fromNat.
+    by uint_toNat_injective
+  replace toNat_expt | uint_toNat_fromNat.
 end
 
 theorem lit_expt_fromNat: all x:Nat, y:Nat.
@@ -73,11 +73,11 @@ theorem uint_expt_zero: all n:UInt.
   n ^ 0 = 1
 proof
   arbitrary n:UInt
-  suffices toNat(n^0) = toNat(1)   by toNat_injective
+  suffices toNat(n^0) = toNat(1)   by uint_toNat_injective
   equations
       toNat(n^0) = toNat(n)^toNat(0)  by toNat_expt
-             ... = ℕ1 by replace to_fromNat.
-             ... = # toNat(1) #           by replace to_fromNat.
+             ... = ℕ1 by replace uint_toNat_fromNat.
+             ... = # toNat(1) #           by replace uint_toNat_fromNat.
 end
 
 auto uint_expt_zero
@@ -89,7 +89,7 @@ theorem uint_expt_one: all n:UInt.
   n ^ 1 = n
 proof
   arbitrary n:UInt
-  suffices toNat(n^1) = toNat(n)   by toNat_injective
+  suffices toNat(n^1) = toNat(n)   by uint_toNat_injective
   .
 end
 
@@ -97,7 +97,7 @@ theorem uint_expt_two: all n:UInt.
   n ^ 2 = n * n
 proof
   arbitrary n:UInt
-  suffices toNat(n^2) = toNat(n * n) by toNat_injective
+  suffices toNat(n^2) = toNat(n * n) by uint_toNat_injective
   .
 end
 
@@ -105,19 +105,19 @@ theorem uint_one_expt: all n:UInt.
   1 ^ n = 1
 proof
   arbitrary n:UInt
-  suffices toNat(1^n) = toNat(1) by toNat_injective
+  suffices toNat(1^n) = toNat(1) by uint_toNat_injective
   equations
       toNat(1^n) = toNat(1)^toNat(n)  by toNat_expt
-             ... = ℕ1^toNat(n)        by { replace to_fromNat. }
+             ... = ℕ1^toNat(n)        by { replace uint_toNat_fromNat. }
              ... = ℕ1                 by .
-             ... = #toNat(1)#         by { replace to_fromNat. }
+             ... = #toNat(1)#         by { replace uint_toNat_fromNat. }
 end
 
 theorem uint_pow_add_r : all m:UInt, n:UInt, o:UInt.
   m^(n + o) = m^n * m^o
 proof
   arbitrary m:UInt, n:UInt, o:UInt
-  suffices toNat(m^(n + o)) = toNat(m^n * m^o)  by toNat_injective
+  suffices toNat(m^(n + o)) = toNat(m^n * m^o)  by uint_toNat_injective
   equations
       toNat(m^(n + o))
         = toNat(m) ^ toNat(n + o)           by toNat_expt
@@ -131,7 +131,7 @@ theorem uint_pow_mul_l : all m:UInt, n:UInt, o:UInt.
   (m * n)^o = m^o * n^o
 proof
   arbitrary m:UInt, n:UInt, o:UInt
-  suffices toNat((m * n)^o) = toNat(m^o * n^o)  by toNat_injective
+  suffices toNat((m * n)^o) = toNat(m^o * n^o)  by uint_toNat_injective
   equations
       toNat((m * n)^o)
         = toNat(m*n)^toNat(o)                   by replace toNat_expt.
@@ -145,7 +145,7 @@ theorem uint_pow_mul_r : all m : UInt, n : UInt, o : UInt.
   (m ^ n) ^ o = m ^ (n * o)
 proof
   arbitrary m:UInt, n:UInt, o:UInt
-  suffices toNat((m ^ n) ^ o) = toNat(m ^ (n * o))  by toNat_injective
+  suffices toNat((m ^ n) ^ o) = toNat(m ^ (n * o))  by uint_toNat_injective
   equations
       toNat((m ^ n) ^ o)
         = (toNat(m) ^ toNat(n)) ^ toNat(o)   by replace toNat_expt | toNat_expt.
@@ -226,7 +226,7 @@ end
 
 postulate log_pow: all n:UInt. log(2^n) = n
   
-theorem pow_log_less_equal: all n:UInt. if 0 < n then 2^log(n) ≤ n
+theorem uint_expt_log_less_equal: all n:UInt. if 0 < n then 2^log(n) ≤ n
 proof
   arbitrary n:UInt
   assume pos
@@ -284,15 +284,15 @@ theorem log_product: all m:UInt, n:UInt. log(m * n) = log(m) + log(n)
   
 */
 
-postulate log_mono: all x:UInt, y:UInt. (if x ≤ y then log(x) ≤ log(y))
+postulate uint_log_mono: all x:UInt, y:UInt. (if x ≤ y then log(x) ≤ log(y))
 
-theorem uint_logn_gt_1: all n:UInt. if 2 ≤ n then 1 ≤ log(n)
+theorem uint_log_greater_one: all n:UInt. if 2 ≤ n then 1 ≤ log(n)
 proof
   arbitrary n:UInt
   assume two_n
   have log2_1: log(2) = 1 by evaluate
   have one_log2: 1 ≤ log(2) by replace log2_1.
-  have log2_logn: log(2) ≤ log(n) by apply log_mono to two_n
+  have log2_logn: log(2) ≤ log(n) by apply uint_log_mono to two_n
   conclude 1 ≤ log(n)
     by apply uint_less_equal_trans to one_log2, log2_logn
 end

@@ -79,7 +79,7 @@ theorem uint_mult_commute: all m:UInt, n:UInt.
   m * n = n * m
 proof
   arbitrary m:UInt, n:UInt
-  suffices toNat(m * n) = toNat(n * m)  by toNat_injective
+  suffices toNat(m * n) = toNat(n * m)  by uint_toNat_injective
   replace toNat_mult
   mult_commute
 end
@@ -88,7 +88,7 @@ theorem uint_mult_assoc: all m:UInt, n:UInt, o:UInt.
   (m * n) * o = m * (n * o)
 proof
   arbitrary m:UInt, n:UInt, o:UInt
-  suffices toNat((m * n) * o) = toNat(m * (n * o))  by toNat_injective
+  suffices toNat((m * n) * o) = toNat(m * (n * o))  by uint_toNat_injective
   replace toNat_mult | toNat_mult.
 end
 
@@ -122,7 +122,7 @@ theorem uint_one_mult: all n:UInt.
   1 * n = n
 proof
   arbitrary n:UInt
-  suffices toNat(1 * n) = toNat(n) by toNat_injective
+  suffices toNat(1 * n) = toNat(n) by uint_toNat_injective
   replace toNat_mult
   evaluate
 end
@@ -133,7 +133,7 @@ theorem uint_mult_one: all n:UInt.
   n * 1 = n
 proof
   arbitrary n:UInt
-  suffices toNat(n * 1) = toNat(n) by toNat_injective
+  suffices toNat(n * 1) = toNat(n) by uint_toNat_injective
   replace toNat_mult
   evaluate
 end
@@ -145,7 +145,7 @@ theorem uint_dist_mult_add:
   a * (x + y) = a * x + a * y
 proof
   arbitrary a:UInt, x:UInt, y:UInt
-  suffices toNat(a * (x + y)) = toNat(a * x + a * y) by toNat_injective
+  suffices toNat(a * (x + y)) = toNat(a * x + a * y) by uint_toNat_injective
   replace toNat_mult | toNat_add | toNat_mult
   replace dist_mult_add.
 end
@@ -159,13 +159,28 @@ postulate uint_mult_to_zero: all n:UInt, m:UInt.
 
 postulate uint_two_mult: all n:UInt. 2 * n = n + n
 
-  
 postulate uint_mult_mono_le: (all n:UInt, x:UInt, y:UInt. (if x ≤ y then n * x ≤ n * y))
 
 postulate uint_mult_mono_le2 : all n : UInt, x : UInt, m:UInt, y : UInt. (if n ≤ m and x ≤ y then n * x ≤ m * y)
 
-postulate inc_dub_add_mult2: all n:UInt. inc_dub(n) = 1 + 2 * n
-postulate dub_inc_mult2_add: all n:UInt. dub_inc(n) = 2 * (1 + n)
+lemma inc_dub_add_mult2: all n:UInt. inc_dub(n) = 1 + 2 * n
+proof  
+  arbitrary n:UInt
+  suffices toNat(inc_dub(n)) = toNat(1 + 2 * n)  by uint_toNat_injective
+  replace toNat_add | toNat_mult
+  expand toNat
+  replace uint_toNat_fromNat
+  replace nat_suc_one_add.
+end
+
+lemma dub_inc_mult2_add: all n:UInt. dub_inc(n) = 2 * (1 + n)
+proof
+  arbitrary n:UInt
+  suffices toNat(dub_inc(n)) = toNat(2 * (1 + n))  by uint_toNat_injective
+  replace toNat_mult | toNat_add
+  expand toNat
+  replace uint_toNat_fromNat.
+end
 
 postulate uint_pos_mult_both_sides_of_less : all n : UInt, x : UInt, y : UInt.
   (if 0 < n and x < y then n * x < n * y)

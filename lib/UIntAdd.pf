@@ -59,8 +59,8 @@ theorem fromNat_add: all x:Nat, y:Nat.
 proof
   arbitrary x:Nat, y:Nat
   suffices toNat(fromNat(x + y)) = toNat(fromNat(x) + fromNat(y))
-    by toNat_injective
-  replace toNat_add | to_fromNat.
+    by uint_toNat_injective
+  replace toNat_add | uint_toNat_fromNat.
 end
 
 theorem lit_add_fromNat: all x:Nat, y:Nat.
@@ -96,7 +96,7 @@ theorem uint_add_commute: all x:UInt, y:UInt.
   x + y = y + x
 proof
   arbitrary x:UInt, y:UInt
-  suffices toNat(x + y) = toNat(y + x) by toNat_injective
+  suffices toNat(x + y) = toNat(y + x) by uint_toNat_injective
   equations
 	    toNat(x + y)
         = toNat(x) + toNat(y)   by toNat_add
@@ -108,7 +108,7 @@ theorem uint_add_assoc: all x:UInt, y:UInt, z:UInt.
   (x + y) + z = x + (y + z)
 proof
   arbitrary x:UInt, y:UInt, z:UInt
-  suffices toNat((x + y) + z) = toNat(x + (y + z)) by toNat_injective
+  suffices toNat((x + y) + z) = toNat(x + (y + z)) by uint_toNat_injective
   equations
 	    toNat((x + y) + z)
         = toNat(x + y) + toNat(z)              by toNat_add
@@ -129,20 +129,18 @@ lemma uint_bzero_add: all x:UInt.
   bzero + x = x
 proof
   arbitrary x:UInt
-  suffices toNat(bzero + x) = toNat(x) by toNat_injective
+  suffices toNat(bzero + x) = toNat(x) by uint_toNat_injective
   equations
   	toNat(bzero + x) 
       = toNat(bzero) + toNat(x)    by toNat_add
   ... = toNat(x)                   by expand toNat evaluate
 end
 
-auto uint_bzero_add
-
 lemma uint_add_bzero: all x:UInt.
   x + bzero = x
 proof
   arbitrary x:UInt
-  suffices toNat(x + bzero) = toNat(x) by toNat_injective
+  suffices toNat(x + bzero) = toNat(x) by uint_toNat_injective
   equations
   	toNat(x + bzero) 
       = toNat(x) + toNat(bzero)    by toNat_add
@@ -174,7 +172,7 @@ proof
     have xy_xz2: toNat(x) + toNat(y) = toNat(x) + toNat(z)
       by replace toNat_add in xy_xz
     have yz: toNat(y) = toNat(z) by apply add_both_sides_of_equal to xy_xz2
-    conclude y = z by apply toNat_injective to yz
+    conclude y = z by apply uint_toNat_injective to yz
   }
   have bkwd: if y = z then x + y = x + z by {
     assume yz
@@ -196,7 +194,7 @@ proof
   }
   have nz: toNat(n) = toNat(bzero) by expand toNat nz_mz
   have mz: toNat(m) = toNat(bzero) by expand toNat nz_mz
-  (apply toNat_injective to nz), (apply toNat_injective to mz)
+  (apply uint_toNat_injective to nz), (apply uint_toNat_injective to mz)
 end
 
 theorem uint_less_equal_add: all x:UInt, y:UInt.
@@ -233,7 +231,7 @@ lemma uint_pred_inc: all b:UInt.
   pred(inc(b)) = b
 proof
   arbitrary b:UInt
-  suffices toNat(pred(inc(b))) = toNat(b) by toNat_injective
+  suffices toNat(pred(inc(b))) = toNat(b) by uint_toNat_injective
   replace toNat_pred | toNat_inc
   show pred(suc(toNat(b))) = toNat(b)
   expand pred.
@@ -243,84 +241,20 @@ lemma inc_one_add: all b:UInt.
   inc(b) = inc_dub(bzero) + b
 proof
   arbitrary b:UInt
-  suffices toNat(inc(b)) = toNat(inc_dub(bzero) + b) by toNat_injective
+  suffices toNat(inc(b)) = toNat(inc_dub(bzero) + b) by uint_toNat_injective
   replace toNat_inc | toNat_add
   expand 2*toNat
   show suc(toNat(b)) = suc(ℕ2 * ℕ0) + toNat(b)
   evaluate
 end
-  
-lemma uint_ind: all P:fn UInt -> bool, k : Nat, n : UInt.
-  if n = fromNat(k) then
-  if P(0) and (all m:UInt. if P(m) then P(1 + m)) then P(n)
-proof
-  arbitrary P:fn UInt -> bool
-  induction Nat
-  case zero {
-    arbitrary n:UInt
-    assume nz
-    assume base_IH
-    replace nz
 
-    suffices __ by evaluate
-    expand lit | fromNat in conjunct 0 of base_IH
-  }
-  case suc(k') assume IH {
-    arbitrary n:UInt
-    assume n_sk
-    assume base_IH
-    have n_ik: n = inc(fromNat(k')) by expand fromNat in n_sk
-    have eq0: pred(n) = pred(inc(fromNat(k'))) by replace n_ik.
-    have eq1: pred(n) = fromNat(k') by replace uint_pred_inc in eq0
-    have: P(pred(n)) by apply (apply IH[pred(n)] to eq1) to base_IH
-    have eq2: P(1 + pred(n))
-      by apply (conjunct 1 of base_IH)[pred(n)] to recall P(pred(n))
-    have eq3: 1 + pred(n) = n by expand lit | 2*fromNat replace eq1 | n_ik | inc_one_add.
-    conclude P(n) by replace eq3 in eq2
-  }
-end
-
-theorem uint_induction: all P:fn UInt -> bool.
-  if P(0) and (all m:UInt. if P(m) then P(1 + m))
-  then all n : UInt. P(n)
+lemma inc_add_one: all n:UInt.
+  inc(n) = 1 + n
 proof
-  arbitrary P:fn UInt -> bool
-  assume prem
-  arbitrary n : UInt
-  have eq: n = fromNat(toNat(n)) by replace from_toNat.
-  apply (apply uint_ind[P, toNat(n), n] to eq) to prem
-end
-
-theorem uint_k_induction: all P: fn UInt -> bool, k:UInt.
-  if (P(k) and (all m:UInt. (if P(m) then P(1 + m))))
-  then all n:UInt. if k ≤ n then P(n)
-proof
-  arbitrary P: fn UInt -> bool, k:UInt
-  assume prem
-  define Q = fun m:UInt { if k ≤ m then P(m) }
-  have base: Q(0) by {
-    expand Q
-    assume kle0
-    have kz: k = 0 by apply uint_less_equal_zero to kle0
-    conclude P(0) by replace kz in prem
-  }
-  have ind_case: all m:UInt. (if Q(m) then Q(1 + m)) by {
-    arbitrary m:UInt
-    expand Q
-    assume IH: if k ≤ m then P(m)
-    assume k_1m: k ≤ 1 + m
-    have kless_or_eq: k < 1 + m or k = 1 + m by expand operator≤ in k_1m
-    cases kless_or_eq
-    case k_l_1m {
-      have: k ≤ m by apply uint_less_add_one_implies_less_equal to k_l_1m
-      have: P(m) by apply IH to recall k ≤ m
-      conclude P(1 + m) by apply (conjunct 1 of prem)[m] to recall P(m)
-    }
-    case k_e_1m {
-      conclude P(1 + m) by replace k_e_1m in prem
-    }
-  }
-  expand Q in apply uint_induction[Q] to base, ind_case
+  arbitrary n:UInt
+  suffices toNat(inc(n)) = toNat(1 + n)  by uint_toNat_injective
+  replace toNat_inc | toNat_add
+  evaluate
 end
 
 theorem uint_less_plus1: all n:UInt.
@@ -367,7 +301,7 @@ proof
   fwd, bkwd
 end
 
-theorem less_is_less_equal: all x:UInt, y:UInt.
+theorem uint_less_is_less_equal: all x:UInt, y:UInt.
   x < y = 1 + x ≤ y
 proof
   arbitrary x:UInt, y:UInt
@@ -383,7 +317,7 @@ proof
       by apply less_equal_fromNat to C
     have E: 1 + fromNat(toNat(x)) ≤ fromNat(toNat(y))
       by replace fromNat_add[ℕ1, toNat(x)] | from_one in D
-    conclude 1 + x ≤ y by replace from_toNat in E
+    conclude 1 + x ≤ y by replace uint_fromNat_toNat in E
   }
   have bkwd: if (1 + x ≤ y) then (x < y) by {
     assume prem
@@ -399,6 +333,18 @@ proof
     conclude x < y by apply less_toNat to E
   }
   fwd, bkwd
+end
+
+postulate uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
+
+postulate uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + y ≤ x + z) = (y ≤ z)
+
+auto uint_add_both_sides_of_le_equal
+
+theorem uint_less_add_one_implies_less_equal: all x:UInt, y:UInt. (if x < 1 + y then x ≤ y)
+proof
+  arbitrary x:UInt, y:UInt
+  replace uint_less_is_less_equal.
 end
 
 theorem uint_not_one_add_zero: all n:UInt.
@@ -452,15 +398,13 @@ proof
 end
 
     
-postulate inc_add_one: all n:UInt. inc(n) = 1 + n
-
 theorem uint_pos_implies_one_le: all n:UInt.
   if 0 < n
   then 1 ≤ n
 proof
   arbitrary n:UInt
   assume n_pos
-  have A: 1 + 0 ≤ n by replace less_is_less_equal in n_pos
+  have A: 1 + 0 ≤ n by replace uint_less_is_less_equal in n_pos
   A
 end
 
@@ -475,7 +419,7 @@ proof
     from apply nat_positive_suc[toNat(n)] to pos_n
   have eq2: fromNat(toNat(n)) = fromNat(ℕ1 + x) by replace eq.
   have eq3: n = fromNat(ℕ1) + fromNat(x)
-    by { replace from_toNat | fromNat_add in eq2 }
+    by { replace uint_fromNat_toNat | fromNat_add in eq2 }
   choose fromNat(x)
   conclude n = 1 + fromNat(x) by {
     expand lit | 2*fromNat | inc
@@ -500,12 +444,6 @@ proof
     G
   }
 end
-
-postulate uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
-
-postulate uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + y ≤ x + z) = (y ≤ z)
-
-auto uint_add_both_sides_of_le_equal
 
 theorem uint_zero_less_one_add: all n:UInt.
   0 < 1 + n
@@ -568,5 +506,81 @@ proof
   arbitrary x:UInt
   assume pos
   have A: x < x + x by apply uint_less_add_pos[x,x] to expand lit | fromNat in pos
-  apply uint_less_add_one_le to A
+  replace uint_less_is_less_equal in A
 end
+
+auto uint_bzero_add
+
+lemma uint_ind: all P:fn UInt -> bool, k : Nat, n : UInt.
+  if n = fromNat(k) then
+  if P(0) and (all m:UInt. if P(m) then P(1 + m)) then P(n)
+proof
+  arbitrary P:fn UInt -> bool
+  induction Nat
+  case zero {
+    arbitrary n:UInt
+    assume nz
+    assume base_IH
+    replace nz
+
+    suffices __ by evaluate
+    expand lit | fromNat in conjunct 0 of base_IH
+  }
+  case suc(k') assume IH {
+    arbitrary n:UInt
+    assume n_sk
+    assume base_IH
+    have n_ik: n = inc(fromNat(k')) by expand fromNat in n_sk
+    have eq0: pred(n) = pred(inc(fromNat(k'))) by replace n_ik.
+    have eq1: pred(n) = fromNat(k') by replace uint_pred_inc in eq0
+    have: P(pred(n)) by apply (apply IH[pred(n)] to eq1) to base_IH
+    have eq2: P(1 + pred(n))
+      by apply (conjunct 1 of base_IH)[pred(n)] to recall P(pred(n))
+    have eq3: 1 + pred(n) = n by expand lit | 2*fromNat replace eq1 | n_ik | inc_one_add.
+    conclude P(n) by replace eq3 in eq2
+  }
+end
+
+theorem uint_induction: all P:fn UInt -> bool.
+  if P(0) and (all m:UInt. if P(m) then P(1 + m))
+  then all n : UInt. P(n)
+proof
+  arbitrary P:fn UInt -> bool
+  assume prem
+  arbitrary n : UInt
+  have eq: n = fromNat(toNat(n)) by replace uint_fromNat_toNat.
+  apply (apply uint_ind[P, toNat(n), n] to eq) to prem
+end
+
+theorem uint_k_induction: all P: fn UInt -> bool, k:UInt.
+  if (P(k) and (all m:UInt. (if P(m) then P(1 + m))))
+  then all n:UInt. if k ≤ n then P(n)
+proof
+  arbitrary P: fn UInt -> bool, k:UInt
+  assume prem
+  define Q = fun m:UInt { if k ≤ m then P(m) }
+  have base: Q(0) by {
+    expand Q
+    assume kle0
+    have kz: k = 0 by apply uint_less_equal_zero to kle0
+    conclude P(0) by replace kz in prem
+  }
+  have ind_case: all m:UInt. (if Q(m) then Q(1 + m)) by {
+    arbitrary m:UInt
+    expand Q
+    assume IH: if k ≤ m then P(m)
+    assume k_1m: k ≤ 1 + m
+    have kless_or_eq: k < 1 + m or k = 1 + m by expand operator≤ in k_1m
+    cases kless_or_eq
+    case k_l_1m {
+      have: k ≤ m by apply uint_less_add_one_implies_less_equal to k_l_1m
+      have: P(m) by apply IH to recall k ≤ m
+      conclude P(1 + m) by apply (conjunct 1 of prem)[m] to recall P(m)
+    }
+    case k_e_1m {
+      conclude P(1 + m) by replace k_e_1m in prem
+    }
+  }
+  expand Q in apply uint_induction[Q] to base, ind_case
+end
+

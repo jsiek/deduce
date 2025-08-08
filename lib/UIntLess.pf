@@ -226,7 +226,7 @@ proof
           conclude x' < y' by apply IH to less
         }
         case eq {
-          conclude x' = y' by apply toNat_injective to eq
+          conclude x' = y' by apply uint_toNat_injective to eq
         }
       }
       case inc_dub(y') {
@@ -271,7 +271,7 @@ proof
     conclude x ≤ y by apply uint_less_implies_less_equal[x,y] to xy
   }
   case eq {
-    have x_y: x = y by apply toNat_injective to eq
+    have x_y: x = y by apply uint_toNat_injective to eq
     replace x_y
     expand operator≤.
   }
@@ -321,7 +321,7 @@ proof
     conclude y < x by apply less_toNat to yx
   }
   case yx: toNat(y) = toNat(x) {
-    conclude y = x by apply toNat_injective to yx
+    conclude y = x by apply uint_toNat_injective to yx
   }
   case nx_ny: toNat(x) < toNat(y) {
     have xy: x < y by apply less_toNat to nx_ny
@@ -368,7 +368,7 @@ proof
   }
 end
 
-theorem uint_less_equal_bzero: all x:UInt.
+lemma uint_less_equal_bzero: all x:UInt.
   if x ≤ bzero then x = bzero
 proof
   arbitrary x:UInt
@@ -387,7 +387,7 @@ proof
   arbitrary x:Nat, y:Nat
   assume x_y
   have A: toNat(fromNat(x)) < toNat(fromNat(y)) by {
-    replace to_fromNat
+    replace uint_toNat_fromNat
     x_y
   }
   conclude fromNat(x) < fromNat(y) by apply less_toNat to A
@@ -404,13 +404,13 @@ proof
   cases z_p
   case z {
     have A: fromNat(toNat(x)) = 0 by { replace z evaluate }
-    conclude x = 0 by replace from_toNat in A
+    conclude x = 0 by replace uint_fromNat_toNat in A
   }
   case p {
     have A: 0 < fromNat(toNat(x)) by {
       replace from_zero in apply less_fromNat to p
     }
-    conclude 0 < x by replace from_toNat in A
+    conclude 0 < x by replace uint_fromNat_toNat in A
   }
 end
 
@@ -426,7 +426,7 @@ proof
     conclude x < y by apply less_toNat to less
   }
   case eq {
-    conclude x = y by apply toNat_injective to eq
+    conclude x = y by apply uint_toNat_injective to eq
   }
   case greater {
     conclude y < x by apply less_toNat to greater
@@ -502,9 +502,6 @@ proof
 end
 
 auto uint_less_equal_refl_true
-
-postulate uint_less_add_one_le: all x:UInt, y:UInt. (if x < y then 1 + x ≤ y)
-postulate uint_less_add_one_implies_less_equal: all x:UInt, y:UInt. (if x < 1 + y then x ≤ y)
 
 postulate uint_zero_max: all x:UInt. max(0, x) = x
 postulate uint_max_zero: all x:UInt. max(x, 0) = x

@@ -61,7 +61,7 @@ proof
   }
 end
 
-theorem to_fromNat: all x:Nat. toNat(fromNat(x)) = x
+theorem uint_toNat_fromNat: all x:Nat. toNat(fromNat(x)) = x
 proof
   induction Nat
   case 0 {
@@ -73,7 +73,7 @@ proof
   }
 end
 
-theorem toNat_injective: all x:UInt, y:UInt.
+theorem uint_toNat_injective: all x:UInt, y:UInt.
   if toNat(x) = toNat(y) then x = y
 proof
   induction UInt
@@ -161,7 +161,7 @@ proof
   }
 end
 
-theorem from_toNat: all b:UInt. fromNat(toNat(b)) = b
+theorem uint_fromNat_toNat: all b:UInt. fromNat(toNat(b)) = b
 proof
   induction UInt
   case bzero {
@@ -171,8 +171,8 @@ proof
     expand toNat
     replace nat_suc_one_add// | dist_mult_add | two
     suffices toNat(fromNat(ℕ2 + ℕ2 * toNat(b'))) = toNat(dub_inc(b'))
-      by toNat_injective[fromNat(ℕ2 + ℕ2 * toNat(b')), dub_inc(b')]
-    replace to_fromNat
+      by uint_toNat_injective[fromNat(ℕ2 + ℕ2 * toNat(b')), dub_inc(b')]
+    replace uint_toNat_fromNat
     show ℕ2 + ℕ2 * toNat(b') = toNat(dub_inc(b'))
     expand toNat.
   }
@@ -180,8 +180,8 @@ proof
     expand toNat
     replace nat_suc_one_add
     suffices toNat(fromNat(ℕ1 + ℕ2 * toNat(b'))) = toNat(inc_dub(b'))
-      by expand lit expand lit in toNat_injective[fromNat(ℕ1 + ℕ2 * toNat(b')), inc_dub(b')]
-    replace to_fromNat
+      by expand lit expand lit in uint_toNat_injective[fromNat(ℕ1 + ℕ2 * toNat(b')), inc_dub(b')]
+    replace uint_toNat_fromNat
     expand toNat
     show ℕ1 + ℕ2 * toNat(b') = suc(ℕ2 * toNat(b'))
     replace nat_suc_one_add.
@@ -194,7 +194,7 @@ proof
   arbitrary x:Nat, y:Nat
   assume prem
   have eq1: toNat(fromNat(x)) = toNat(fromNat(y)) by replace prem.
-  conclude x = y by replace to_fromNat in eq1
+  conclude x = y by replace uint_toNat_fromNat in eq1
 end
 
 theorem uint_equal: all x:Nat, y:Nat.
