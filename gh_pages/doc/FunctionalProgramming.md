@@ -60,10 +60,11 @@ The output is `5`.
 
 ## Function (Statement)
 
-A function statement starts `fun`, followed by parameter names
-and their types, then the body of the function enclosed in braces.
-For example, the following creates a function for computing the area
-of a rectangle.
+A function statement starts `fun`, followed by the function name, the
+parameter names and their types (comma separated and enclosed in
+parentheses), then the body of the function (enclosed in braces).  For
+example, the following creates a function for computing the area of a
+rectangle.
 
 
 ```{.deduce^#area}
