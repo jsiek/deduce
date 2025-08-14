@@ -31,6 +31,7 @@ package:
 	cp deduce.py deduce
 	cp edit_distance.py deduce
 	cp error.py deduce
+	cp flags.py deduce
 	cp parser.py deduce
 	cp proof_checker.py deduce
 	cp example.pf deduce
