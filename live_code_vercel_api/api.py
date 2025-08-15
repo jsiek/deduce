@@ -49,14 +49,12 @@ def deduce_req():
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
 
-    command = "cp -r lib /tmp/lib"
-    result = subprocess.check_output(command, shell=True, text=True)
-    print(result)
-
-    command = "ls /tmp"
-    result = subprocess.check_output(command, shell=True, text=True)
-    print(result)
-        
+    # move lib to /tmp
+    os.system('cp -r lib /tmp/lib')
+    # trick deduce into thinking thm files are new
+    for pf in os.listdir('/tmp/lib'):
+        open(os.path.join('/tmp/lib', Path(pf).stem + '.thm')).close()
+    
     # Start deducing
     rec_desc_parser.set_deduce_directory("./")
     rec_desc_parser.init_parser()
