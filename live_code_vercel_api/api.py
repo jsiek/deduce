@@ -53,7 +53,7 @@ def deduce_req():
     result = subprocess.check_output(command, shell=True, text=True)
     print(result)
 
-    command = "ls"
+    command = "ls /tmp"
     result = subprocess.check_output(command, shell=True, text=True)
     print(result)
         
