@@ -1,10 +1,12 @@
 {
     "version": 2,
-    "installCommand": "pip install -r live_code_vercel_api/requirements.txt && mv lib /tmp/lib",
     "builds": [
         {
             "src": "live_code_vercel_api/api.py",
-            "use": "@vercel/python"
+            "use": "@vercel/python",
+			"config": {
+				"buildCommand": "pip install -r live_code_vercel_api/requirements.txt && mv lib /tmp/lib"
+			}
         }
     ],
     "routes": [
