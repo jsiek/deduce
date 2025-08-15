@@ -6,6 +6,7 @@ import os
 import uuid
 import sys
 import io
+import shutil
 
 from proof_checker import check_deduce, uniquify_deduce
 from abstract_syntax import get_uniquified_modules, add_uniquified_module, add_import_directory
@@ -48,11 +49,13 @@ def deduce_req():
     code_filename = f"/tmp/{unique_id}.pf"
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
-
+    shutil.copytree('./', '/tmp', dir_exists_ok=True)
+    
+        
     # Start deducing
-    rec_desc_parser.set_deduce_directory("./")
+    rec_desc_parser.set_deduce_directory("/tmp")
     rec_desc_parser.init_parser()
-    add_import_directory("./lib")
+    add_import_directory("/tmp/lib")
     
     try:    
         with redirect_stdout(io.StringIO()) as stdout:
