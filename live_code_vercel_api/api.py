@@ -53,7 +53,7 @@ def deduce_req():
     os.system('cp -r lib /tmp/lib')
     # trick deduce into thinking thm files are new
     for pf in os.listdir('/tmp/lib'):
-        open(os.path.join('/tmp/lib', Path(pf).stem + '.thm')).close()
+        open(os.path.join('/tmp/lib', Path(pf).stem + '.thm'), 'w').close()
     
     # Start deducing
     rec_desc_parser.set_deduce_directory("./")
