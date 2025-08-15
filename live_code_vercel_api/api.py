@@ -52,7 +52,7 @@ def deduce_req():
     
         
     # Start deducing
-    rec_desc_parser.set_deduce_directory("/tmp")
+    rec_desc_parser.set_deduce_directory("./")
     rec_desc_parser.init_parser()
     add_import_directory("/tmp/lib")
     
