@@ -49,7 +49,7 @@ def deduce_req():
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
 
-    command = "pwd"
+    command = "mv lib /tmp/lib"
     result = subprocess.check_output(command, shell=True, text=True)
     print(result)
 

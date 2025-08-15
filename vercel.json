@@ -1,7 +1,11 @@
 {
 	"version": 2,
-	"installCommand": "sh live_code_vercel_api/install.sh",
-	"buildCommand": "cp -r live_code_vercel_api /vercel/output",
+	"builds": [
+		{
+			"src": "live_code_vercel_api/api.py",
+			"use": "@vercel/python"
+		}
+	],
 	"routes": [
 		{
 			"src": "/(.*)",
