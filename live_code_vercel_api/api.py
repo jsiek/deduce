@@ -48,8 +48,14 @@ def deduce_req():
     code_filename = f"/tmp/{unique_id}.pf"
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
-    os.system('cp -r ./lib /tmp')
-    
+
+    command = "pwd"
+    result = subprocess.check_output(command, shell=True, text=True)
+    print(result)
+
+    command = "ls"
+    result = subprocess.check_output(command, shell=True, text=True)
+    print(result)
         
     # Start deducing
     rec_desc_parser.set_deduce_directory("./")
