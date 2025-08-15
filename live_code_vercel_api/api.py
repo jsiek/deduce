@@ -6,7 +6,6 @@ import os
 import uuid
 import sys
 import io
-import shutil
 
 from proof_checker import check_deduce, uniquify_deduce
 from abstract_syntax import get_uniquified_modules, add_uniquified_module, add_import_directory
@@ -49,7 +48,7 @@ def deduce_req():
     code_filename = f"/tmp/{unique_id}.pf"
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
-    shutil.copytree('./', '/tmp', dirs_exist_ok=True)
+    os.system('cp -r ./** /tmp')
     
         
     # Start deducing
