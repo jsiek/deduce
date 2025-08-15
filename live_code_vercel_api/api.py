@@ -48,7 +48,7 @@ def deduce_req():
     code_filename = f"/tmp/{unique_id}.pf"
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
-    os.system('cp -r ./** /tmp')
+    os.system('cp -r ./lib /tmp')
     
         
     # Start deducing
