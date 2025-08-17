@@ -34,7 +34,6 @@ def deduce_req():
     
     # Start deducing
     add_import_directory("./lib")
-
     set_recursive_descent(True)
     set_check_imports(False)
     
@@ -61,4 +60,4 @@ def deduce_req():
 
 
 if __name__ == '__main__':
-    app.run(port=PORT, ssl_context='adhoc')
+    app.run(port=PORT)
