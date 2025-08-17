@@ -16,26 +16,27 @@ PORT = 12357
 
 def deduce_file(filename, error_expected):
     module_name = Path(filename).stem
-
     try:
         if module_name in get_uniquified_modules().keys():
             ast = get_uniquified_modules()[module_name]
         else:
             file = open(filename, 'r', encoding="utf-8")
             program_text = file.read()
-            rec_desc_parser.set_filename(filename)
 
-            ast = rec_desc_parser.parse(program_text, False, False)
+            rec_desc_parser.set_filename(filename)
+            rec_desc_parser.init_parser()
+            ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
+                                        error_expected=error_expected)
+            
             uniquify_deduce(ast)
             add_uniquified_module(module_name, ast)
-                
-        check_deduce(ast, module_name, False)
+
+        check_deduce(ast, module_name, True)
         print(filename + ' is valid')
 
     except Exception as e:
         print(str(e))
-
-
+        
 
 @app.route('/deduce', methods=['POST'])
 def deduce_req():
@@ -57,7 +58,6 @@ def deduce_req():
     
     # Start deducing
     rec_desc_parser.set_deduce_directory("./")
-    rec_desc_parser.init_parser()
     add_import_directory("/tmp/lib")
     
     try:    
