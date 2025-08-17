@@ -25,15 +25,13 @@ def deduce_file(filename, error_expected):
 
             rec_desc_parser.set_filename(filename)
             rec_desc_parser.init_parser()
-            ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
-                                        error_expected=error_expected)
+            ast = rec_desc_parser.parse(program_text, False, False)
             
             uniquify_deduce(ast)
             add_uniquified_module(module_name, ast)
 
         check_deduce(ast, module_name, True)
         print(filename + ' is valid')
-
     except Exception as e:
         print(str(e))
         
