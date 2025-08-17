@@ -6,38 +6,42 @@ import os
 import uuid
 import sys
 import io
+import builtins
 
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import get_uniquified_modules, add_uniquified_module, add_import_directory
+from abstract_syntax import get_uniquified_modules, add_uniquified_module, add_import_directory, set_recursive_descent
+from deduce import deduce_file
 import rec_desc_parser
 
 app = Flask(__name__)
 PORT = 12357
 
-def deduce_file(filename, error_expected):
-    module_name = Path(filename).stem
-    try:
-        if module_name in get_uniquified_modules().keys():
-            ast = get_uniquified_modules()[module_name]
-        else:
-            file = open(filename, 'r', encoding="utf-8")
-            program_text = file.read()
+# def deduce_file(filename, error_expected):
+#     module_name = Path(filename).stem
+#     try:
+#         if module_name in get_uniquified_modules().keys():
+#             ast = get_uniquified_modules()[module_name]
+#         else:
+#             file = open(filename, 'r', encoding="utf-8")
+#             program_text = file.read()
 
-            rec_desc_parser.set_filename(filename)
-            rec_desc_parser.init_parser()
-            ast = rec_desc_parser.parse(program_text, False, False)
+#             rec_desc_parser.set_filename(filename)
+#             rec_desc_parser.init_parser()
+#             ast = rec_desc_parser.parse(program_text, False, False)
             
-            uniquify_deduce(ast)
-            add_uniquified_module(module_name, ast)
+#             uniquify_deduce(ast)
+#             add_uniquified_module(module_name, ast)
 
-        check_deduce(ast, module_name, True)
-        print(filename + ' is valid')
-    except Exception as e:
-        print(str(e))
+#         check_deduce(ast, module_name, True)
+#         print(filename + ' is valid')
+#     except Exception as e:
+#         print(str(e))
         
 
 @app.route('/deduce', methods=['POST'])
 def deduce_req():
+    builtins.exit = lambda: None
+    
     # Get user code
     deduce_code = request.data.decode("utf-8")
     print("Code received: " + deduce_code)
@@ -57,6 +61,8 @@ def deduce_req():
     # Start deducing
     rec_desc_parser.set_deduce_directory("./")
     add_import_directory("/tmp/lib")
+
+    set_recursive_descent(True)
     
     try:    
         with redirect_stdout(io.StringIO()) as stdout:
