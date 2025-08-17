@@ -9,38 +9,18 @@ import io
 import builtins
 
 from proof_checker import check_deduce, uniquify_deduce
-from abstract_syntax import get_uniquified_modules, add_uniquified_module, add_import_directory, set_recursive_descent
+from abstract_syntax import get_uniquified_modules, add_uniquified_module, add_import_directory, set_recursive_descent, set_check_imports
 from deduce import deduce_file
 import rec_desc_parser
 
 app = Flask(__name__)
-PORT = 12357
-
-# def deduce_file(filename, error_expected):
-#     module_name = Path(filename).stem
-#     try:
-#         if module_name in get_uniquified_modules().keys():
-#             ast = get_uniquified_modules()[module_name]
-#         else:
-#             file = open(filename, 'r', encoding="utf-8")
-#             program_text = file.read()
-
-#             rec_desc_parser.set_filename(filename)
-#             rec_desc_parser.init_parser()
-#             ast = rec_desc_parser.parse(program_text, False, False)
-            
-#             uniquify_deduce(ast)
-#             add_uniquified_module(module_name, ast)
-
-#         check_deduce(ast, module_name, True)
-#         print(filename + ' is valid')
-#     except Exception as e:
-#         print(str(e))
-        
+PORT = 12357        
 
 @app.route('/deduce', methods=['POST'])
 def deduce_req():
-    builtins.exit = lambda: None
+    # Overwrite exit
+    builtins.exit = lambda exit_code: None
+    sys.argv[0] = './'
     
     # Get user code
     deduce_code = request.data.decode("utf-8")
@@ -51,18 +31,12 @@ def deduce_req():
     code_filename = f"/tmp/{unique_id}.pf"
     with open(code_filename, "w") as code_file:
         code_file.write(deduce_code)
-
-    # move lib to /tmp
-    os.system('cp -r lib /tmp/lib')
-    # trick deduce into thinking thm files are new
-    for pf in os.listdir('/tmp/lib'):
-        open(os.path.join('/tmp/lib', Path(pf).stem + '.thm'), 'w').close()
     
     # Start deducing
-    rec_desc_parser.set_deduce_directory("./")
-    add_import_directory("/tmp/lib")
+    add_import_directory("./lib")
 
     set_recursive_descent(True)
+    set_check_imports(False)
     
     try:    
         with redirect_stdout(io.StringIO()) as stdout:
@@ -87,4 +61,4 @@ def deduce_req():
 
 
 if __name__ == '__main__':
-    app.run(port=12347)
+    app.run(port=PORT, ssl_context='adhoc')
