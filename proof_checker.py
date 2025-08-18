@@ -2370,7 +2370,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           module_chain = [name] + module_chain
 
           filename = find_file(loc, name)
-          needs_checking = [is_modified(filename)]
+          needs_checking = [get_check_imports() and is_modified(filename)]
 
           ast2 = []
           for s in ast:

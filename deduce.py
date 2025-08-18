@@ -140,6 +140,8 @@ if __name__ == "__main__":
         elif argument == '--version' or argument == '-v':
             print("Deduce: version 1.3")
             exit(0)
+        elif argument == '--no-check-imports':
+            set_check_imports(False)
         else:
             deducables.append(argument)
     

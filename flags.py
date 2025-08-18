@@ -107,3 +107,16 @@ def get_quiet_mode():
 def set_quiet_mode(b):
   global quiet_mode
   quiet_mode = b
+
+# flag for checking to see if we need to re-deduce imported files
+
+check_imports = True
+
+def get_check_imports():
+  global check_imports
+  return check_imports
+
+def set_check_imports(b):
+  global check_imports
+  check_imports = b
+  
