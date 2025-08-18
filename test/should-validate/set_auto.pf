@@ -1,0 +1,23 @@
+import UInt
+import Set
+
+theorem MT: not (1 ∈ ∅)
+proof
+  assume prem: 1 ∈ ∅
+  conclude false by prem
+end
+
+theorem SNMT: not (single(1) = ∅)
+proof
+  .
+end
+
+theorem SUNMT: all S:Set<UInt>. not (single(1) ∪ S = ∅)
+proof
+  .
+end
+
+theorem USNMT: all S:Set<UInt>. not (S ∪ single(1) = ∅)
+proof
+  .
+end
