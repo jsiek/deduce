@@ -502,23 +502,61 @@ proof
 end
 auto less_lit_zero_suc
 
-postulate lit_zero_div: all x:Nat. lit(zero) / lit(suc(x)) = lit(zero)
+theorem lit_zero_div: all x:Nat. lit(zero) / lit(suc(x)) = lit(zero)
+proof
+  arbitrary x:Nat
+  have pos: zero < suc(x) by expand operator< | operator≤.
+  have zero_div_theorem: lit(zero) / lit(suc(x)) = lit(zero) by {
+    expand lit
+    apply zero_div[suc(x)] to pos
+  }
+  zero_div_theorem
+end
 auto lit_zero_div
 
-postulate lit_div_cancel: all y:Nat. lit(suc(y)) / lit(suc(y)) = lit(suc(zero))
+theorem lit_div_cancel: all y:Nat. lit(suc(y)) / lit(suc(y)) = lit(suc(zero))
+proof
+  arbitrary y:Nat
+  have pos: zero < suc(y) by expand operator< | operator≤.
+  have cancel_theorem: lit(suc(y)) / lit(suc(y)) = lit(suc(zero)) by {
+    expand lit
+    apply div_cancel[suc(y)] to pos
+  }
+  cancel_theorem
+end
 auto lit_div_cancel
 
 fun add_div(a : Nat, b : Nat, y : Nat) { (a + b) / y } // invariant: a ≤ y
 
-postulate lit_div: all x:Nat, y:Nat. lit(x) / lit(y) = add_div(zero, x, y)
+theorem lit_div: all x:Nat, y:Nat. lit(x) / lit(y) = add_div(zero, x, y)
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit | add_div.
+end
 auto lit_div
 
-postulate lit_add_div: all b:Nat, y:Nat. add_div(y, b, y) = lit(suc(zero)) + add_div(zero, b, y)
+theorem lit_add_div: all b:Nat, y:Nat. add_div(suc(y), b, suc(y)) = lit(suc(zero)) + add_div(zero, b, suc(y))
+proof
+  arbitrary b:Nat, y:Nat
+  have pos: zero < suc(y) by expand operator< | operator≤.
+  expand lit | add_div | operator+
+  replace add_commute[y,b]
+  have X: (b + suc(y)) / suc(y) = suc(zero) + b / suc(y) by apply add_div_one[b, suc(y)] to pos
+  expand operator+ in replace add_suc in X
+end
 auto lit_add_div
 
-postulate lit_add_div_suc: all a:Nat, b:Nat, y:Nat. add_div(a, suc(b), y) = add_div(suc(a), b, y)
+theorem lit_add_div_suc: all a:Nat, b:Nat, y:Nat. add_div(a, suc(b), y) = add_div(suc(a), b, y)
+proof
+  arbitrary a:Nat, b:Nat, y:Nat
+  expand add_div
+  replace add_suc
+  expand operator+.
+end
 auto lit_add_div_suc
 
+// This postulate is not true. It would be true if we added the premise a < y.
+// But the rewriting system does not yet handle conditional rewriting. -Jeremy
 postulate lit_add_div_zero: all a:Nat, y:Nat. add_div(a, zero, y) = lit(zero)
 auto lit_add_div_zero
 

@@ -434,7 +434,7 @@ proof
   switch (y / y) {
     case zero assume yyz {
       have rem_eq: y % y = y by replace yyz in div_rem
-      conclude false by apply (apply less_not_equal to rem_less) to rem_eq
+      conclude false by apply (apply less_implies_not_equal to rem_less) to rem_eq
     }
     case suc(y') assume ysy {
       have eq1: y + (y' * y + y % y) = y + zero by {
@@ -523,7 +523,7 @@ proof
   have eq2: (zero/x)*x = zero  by apply add_to_zero to eq1
   switch x {
     case zero assume xz {
-      conclude false by apply (apply less_not_equal to xpos) to replace xz.
+      conclude false by apply (apply less_implies_not_equal to xpos) to replace xz.
     }
     case suc(x') assume xsx {
       have eq3: zero / suc(x') + x' * (zero / suc(x')) = zero
