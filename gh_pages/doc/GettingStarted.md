@@ -211,3 +211,6 @@ Deduce will expect all files that it processes to contain an error. If
 there is a file that does not contain an error, Deduce will exit with
 a return code of 255.
 
+`--no-check-imports`
+
+Deduce will no longer check the proofs of imported files.
