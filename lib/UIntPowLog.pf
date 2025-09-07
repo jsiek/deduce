@@ -238,7 +238,18 @@ proof
     by replace inc_add_one in pow_cnt_dubs_le_inc[n']
 end
 
-/* Having trouble with the following. -Jeremy
+
+lemma inc_dub_less_dub : all n : UInt, m : UInt. if n < m then 1 + 2 * n < 2 * m
+proof  
+  arbitrary n : UInt, m : UInt
+  assume prem
+  have prem1 : 1 + n <= m by replace uint_less_is_less_equal[n][m] in prem
+  have prem2 : 2 * (1 + n) <= 2 * m by apply uint_mult_mono_le[2] to prem1
+  have prem3 : 1 + (1 + 2 * n) <= 2 * m by replace uint_dist_mult_add in prem2
+  define g = 1 + 2 * n
+  conclude g < 2 * m by replace symmetric uint_less_is_less_equal[g][2 * m] in prem3
+end
+
 lemma less_equal_pow_cnt_dubs: all n:UInt. 1 + n < 2 ^ (1 + cnt_dubs(n))
 proof
   induction UInt
@@ -247,18 +258,22 @@ proof
   }
   case dub_inc(n') assume IH {
     expand cnt_dubs
-    replace inc_add_one | uint_pow_add_r | lit_expt_two | dub_inc_mult2_add
-      | uint_dist_mult_add
+    replace inc_add_one | uint_pow_add_r | dub_inc_mult2_add | uint_dist_mult_add
     show 3 + 2 * n' < 4 * 2 ^ cnt_dubs(n')
     have IH1: 1 + n' < 2 * 2 ^ cnt_dubs(n') by replace uint_pow_add_r in IH
-    have IH2: 2*(1 + n') < 4 * 2 ^ cnt_dubs(n') 
-      by apply uint_pos_mult_both_sides_of_less[2, 1+n', 2*2^cnt_dubs(n')] to ., IH1
-    have IH3: 2 + 2*n' < 4 * 2 ^ cnt_dubs(n')
+    have IH2: 1 + 2*(1 + n') < 4 * 2 ^ cnt_dubs(n') 
+      by apply inc_dub_less_dub[1+n', 2*2^cnt_dubs(n')] to ., IH1
+    conclude 3 + 2*n' < 4 * 2 ^ cnt_dubs(n')
       by replace uint_dist_mult_add in IH2
-    conclude 3 + 2 * n' < 4 * 2 ^ cnt_dubs(n') by sorry
   }
   case inc_dub(n') assume IH {
-    sorry
+    expand cnt_dubs
+    replace inc_add_one | uint_pow_add_r | inc_dub_add_mult2
+    show 2 + 2 * n' < 4 * 2 ^ cnt_dubs(n')
+    have IH1 : 2 * (1 + n') < 2 * 2 ^ (1 + cnt_dubs(n')) by
+      apply uint_pos_mult_both_sides_of_less[2, 1+n', 2^(1+ cnt_dubs(n'))] to ., IH
+    conclude  2 + 2 * n' < 4 * 2 ^ cnt_dubs(n') by
+      replace uint_dist_mult_add[2, 1, n'] | uint_pow_add_r in IH1
   }
 end
 
@@ -272,7 +287,6 @@ proof
   replace n_n'
   less_equal_pow_cnt_dubs
 end
-*/
 
 /*
  The following rule is not literally true for UInt:
