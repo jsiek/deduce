@@ -1,3 +1,5 @@
+from abstract_syntax import Import # TODO: GET RID OF THIS
+from lark.tree import Meta # TODO: GET RID OF THIS
 from flags import *
 from proof_checker import check_deduce, uniquify_deduce, is_modified
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
@@ -18,7 +20,7 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected):
+def deduce_file(filename, error_expected, prelude : list[str]) -> str | None:
     if get_verbose():
         print("Deducing file:", filename)
     module_name = Path(filename).stem
@@ -48,12 +50,22 @@ def deduce_file(filename, error_expected):
                 print("abstract syntax tree:\n" \
                       +'\n'.join([str(s) for s in ast])+"\n\n")
                 print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
+
+            if len(prelude) > 0: 
+                # Create a new AST for the import statements
+                ast2 = []
+                for name in prelude:
+                    import_stmt = Import(Meta(), name, visibility='private')
+                    ast2.append(import_stmt)
+                # Add import statements at head of original AST
+                ast = ast2 + ast
+
             uniquify_deduce(ast)
             if get_verbose():
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
             add_uniquified_module(module_name, ast)
 
-        check_deduce(ast, module_name, True)
+        check_deduce(ast, module_name, True, prelude)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
@@ -61,6 +73,8 @@ def deduce_file(filename, error_expected):
             if not suppress_theorems:
                 print_theorems(filename, ast)
             print(filename + ' is valid')
+
+        return module_name
 
     except Exception as e:
         if error_expected:
@@ -76,14 +90,19 @@ def deduce_file(filename, error_expected):
             # during development, reraise
             # raise e
 
-def deduce_directory(directory, recursive_directories):
+def deduce_directory(directory, recursive_directories, prelude) -> list[str]:
+    ret = []
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                deduce_file(fpath, error_expected)
+                module_name = deduce_file(fpath, error_expected, prelude)
+                ret.append(module_name)
         elif recursive_directories and os.path.isdir(fpath):
-            deduce_directory(fpath, recursive_directories)
+            incoming_module_names = deduce_directory(fpath, recursive_directories, prelude)
+            ret.extend(incoming_module_names)
+    
+    return ret
 
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
@@ -145,9 +164,13 @@ if __name__ == "__main__":
         else:
             deducables.append(argument)
     
+    prelude = []
     if add_stdlib:
         add_import_directory(stdlib_dir)
-    
+        # TODO: Make this the whole stdlib_dir
+        # prelude = [deduce_file(os.path.join(stdlib_dir, 'Base.pf'), False, [])]
+        prelude = deduce_directory(stdlib_dir, False, [])
+
     if len(deducables) == 0:
         print("Couldn't find a file to deduce!")
         exit(1)
@@ -164,9 +187,9 @@ if __name__ == "__main__":
 
     for deducable in deducables:
         if os.path.isfile(deducable):
-            deduce_file(deducable, error_expected)
+            deduce_file(deducable, error_expected, prelude)
         elif os.path.isdir(deducable):
-            deduce_directory(deducable, recursive_directories)
+            deduce_directory(deducable, recursive_directories, prelude)
         else:
             print(deducable, "was not found!")
             exit(1)

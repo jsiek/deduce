@@ -710,7 +710,7 @@ def is_recursive(name, typ):
 def update_all_head(r):
     match r:
       case All(loc2, tyof, var, (s, e), frm):
-        if s == 0:
+        if s == 0:  
           return All(loc2, tyof, var, (s, e-1), frm)
         else:
           return All(loc2, tyof, var, (s, e-1), update_all_head(frm))
@@ -2260,6 +2260,67 @@ def is_modified(filename):
     else:
         return True
     
+# TODO: This is probably not good practice...
+def process_declaration_import(env : Env, module_chain, downstream_needs_checking, visibility, loc, name, ast):
+      old_verbose = get_verbose()
+      if get_verbose() == VerboseLevel.CURR_ONLY:
+        set_verbose(VerboseLevel.NONE)
+
+      if name in module_chain:
+          error(loc, 'error, recusive import:\n\t' + name\
+                + '\nwhile processing files:\n\t' \
+                + ', '.join(module_chain))
+      elif name in imported_modules:
+          set_verbose(old_verbose)
+          if name in dirty_files:
+              downstream_needs_checking[0] = True
+          return Import(loc, name, ast), env
+      else:
+          current_module = env.get_current_module()
+          imported_modules.add(name)
+          module_chain = [name] + module_chain
+
+          filename = find_file(loc, name)
+          needs_checking = [get_check_imports() and is_modified(filename)]
+
+          ast2 = []
+          for s in ast:
+            new_s, env = process_declaration(s, env, module_chain, needs_checking)
+            ast2.append(new_s)
+
+          ast3 = []
+          already_done_imports : dict[str, bool] = {}
+          for s in ast2:
+            new_s = type_check_stmt(s, env, already_done_imports)
+            if new_s != None:
+              ast3.append(new_s)
+
+          if needs_checking[0]:
+              dirty_files.add(name)
+              downstream_needs_checking[0] = True
+            
+          if needs_checking[0] and name not in checked_modules:
+              if get_quiet_mode() == False:
+                  print('> checking ' + name)
+              
+          for s in ast3:
+            env = collect_env(s, env)
+
+            # TODO: only check if the pf file is newer than the thm file
+            if name not in checked_modules and needs_checking[0]:
+              check_proofs(s, env)
+            
+          if name not in checked_modules:
+            checked_modules.add(name)  
+
+          set_verbose(old_verbose)
+
+          if needs_checking[0]:
+            print_theorems(filename, ast3)
+          
+          return Import(loc, name, ast3, visibility=visibility), \
+              env.declare_module(current_module)
+    
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
@@ -2351,63 +2412,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       return Union(loc, name, typarams, new_alts, visibility=decl.visibility), env
 
     case Import(loc, name, ast):
-      old_verbose = get_verbose()
-      if get_verbose() == VerboseLevel.CURR_ONLY:
-        set_verbose(VerboseLevel.NONE)
-
-      if name in module_chain:
-          error(loc, 'error, recusive import:\n\t' + name\
-                + '\nwhile processing files:\n\t' \
-                + ', '.join(module_chain))
-      elif name in imported_modules:
-          set_verbose(old_verbose)
-          if name in dirty_files:
-              downstream_needs_checking[0] = True
-          return Import(loc, name, ast), env
-      else:
-          current_module = env.get_current_module()
-          imported_modules.add(name)
-          module_chain = [name] + module_chain
-
-          filename = find_file(loc, name)
-          needs_checking = [get_check_imports() and is_modified(filename)]
-
-          ast2 = []
-          for s in ast:
-            new_s, env = process_declaration(s, env, module_chain, needs_checking)
-            ast2.append(new_s)
-
-          ast3 = []
-          already_done_imports = set()
-          for s in ast2:
-            new_s = type_check_stmt(s, env, already_done_imports)
-            ast3.append(new_s)
-
-          if needs_checking[0]:
-              dirty_files.add(name)
-              downstream_needs_checking[0] = True
-            
-          if needs_checking[0] and name not in checked_modules:
-              if get_quiet_mode() == False:
-                  print('> checking ' + name)
-              
-          for s in ast3:
-            env = collect_env(s, env)
-
-            # TODO: only check if the pf file is newer than the thm file
-            if name not in checked_modules and needs_checking[0]:
-              check_proofs(s, env)
-            
-          if name not in checked_modules:
-            checked_modules.add(name)  
-
-          set_verbose(old_verbose)
-
-          if needs_checking[0]:
-            print_theorems(filename, ast3)
-          
-          return Import(loc, name, ast3, visibility=decl.visibility), \
-              env.declare_module(current_module)
+      return process_declaration_import(env, module_chain, downstream_needs_checking, decl.visibility, loc, name, ast)
   
     case _:
       error(decl.location, "unrecognized declaration:\n" + str(decl))
@@ -2467,7 +2472,7 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
-def type_check_stmt(stmt, env, already_done_imports : set):
+def type_check_stmt(stmt, env, already_done_imports : dict[str, bool]):
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
   match stmt:
@@ -2554,8 +2559,18 @@ def type_check_stmt(stmt, env, already_done_imports : set):
     
     case Import(loc, name, ast):
       if name in already_done_imports:
-        error(loc, "error, module:\n\t" + name + "\nwas imported twice")
-      already_done_imports.add(name)
+        if already_done_imports[name]:
+          # The first import was from the prelude
+          # So instead of erroring we'll error next time
+          # and return None to signal that this stmt should be removed
+          already_done_imports[name] = True
+          return None
+        else:
+          # The user manually imported the module twice, so throw an error
+          error(loc, "error, module:\n\t" + name + "\nwas imported twice")
+
+      # If loc is empty then this import comes from the prelude
+      already_done_imports[name] = loc.empty
       return stmt
   
     case Assert(loc, frm):
@@ -2885,7 +2900,7 @@ def check_proofs(stmt, env):
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
-def check_deduce(ast, module_name, modified):
+def check_deduce(ast, module_name, modified, prelude : list[str]):
   env = Env()
   env = env.declare_module(module_name)
   ast2 = []
@@ -2904,10 +2919,13 @@ def check_deduce(ast, module_name, modified):
     print('--------- Type Checking ------------------------')
   ast3 = []
 
-  already_done_imports = set()
+  # Dictionary mapping module names to booleans
+  # Where the value represents if the last found import was from the prelude
+  already_done_imports : dict[str, bool] = {}
   for s in ast2:
     new_s = type_check_stmt(s, env, already_done_imports)
-    ast3.append(new_s)
+    if new_s != None:
+      ast3.append(new_s)
   if get_verbose():
     for s in ast3:
       print(s)
