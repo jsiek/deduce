@@ -65,7 +65,7 @@ def deduce_file(filename, error_expected, prelude : list[str]) -> str | None:
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
             add_uniquified_module(module_name, ast)
 
-        check_deduce(ast, module_name, True, prelude)
+        check_deduce(ast, module_name, True)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
@@ -167,9 +167,12 @@ if __name__ == "__main__":
     prelude = []
     if add_stdlib:
         add_import_directory(stdlib_dir)
-        # TODO: Make this the whole stdlib_dir
-        # prelude = [deduce_file(os.path.join(stdlib_dir, 'Base.pf'), False, [])]
-        prelude = deduce_directory(stdlib_dir, False, [])
+        # Find files in the prelude
+        # For now we consider the entire stdlib the prelude
+        previous_quiet = get_quiet_mode()
+        for file in sorted(os.listdir(stdlib_dir)):
+            if file.endswith('.pf'):
+                prelude.append(file.removesuffix('.pf'))
 
     if len(deducables) == 0:
         print("Couldn't find a file to deduce!")

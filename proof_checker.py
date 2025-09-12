@@ -2900,7 +2900,7 @@ def check_proofs(stmt, env):
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
-def check_deduce(ast, module_name, modified, prelude : list[str]):
+def check_deduce(ast, module_name, modified):
   env = Env()
   env = env.declare_module(module_name)
   ast2 = []
