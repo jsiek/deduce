@@ -20,12 +20,11 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected, prelude : list[str]) -> str | None:
+def deduce_file(filename, error_expected, prelude : list[str]) -> None:
     if get_verbose():
         print("Deducing file:", filename)
     module_name = Path(filename).stem
     try:
-    
         if module_name in get_uniquified_modules().keys():
             ast = get_uniquified_modules()[module_name]
         else:
@@ -74,8 +73,6 @@ def deduce_file(filename, error_expected, prelude : list[str]) -> str | None:
                 print_theorems(filename, ast)
             print(filename + ' is valid')
 
-        return module_name
-
     except Exception as e:
         if error_expected:
             print(filename + ' caught an error as expected')
@@ -90,20 +87,15 @@ def deduce_file(filename, error_expected, prelude : list[str]) -> str | None:
             # during development, reraise
             # raise e
 
-def deduce_directory(directory, recursive_directories, prelude) -> list[str]:
-    ret = []
+def deduce_directory(directory, recursive_directories, prelude) -> None:
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                module_name = deduce_file(fpath, error_expected, prelude)
-                ret.append(module_name)
+                deduce_file(fpath, error_expected, prelude)
         elif recursive_directories and os.path.isdir(fpath):
-            incoming_module_names = deduce_directory(fpath, recursive_directories, prelude)
-            ret.extend(incoming_module_names)
+            deduce_directory(fpath, recursive_directories, prelude)
     
-    return ret
-
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
     # Check command line arguments
@@ -169,7 +161,6 @@ if __name__ == "__main__":
         add_import_directory(stdlib_dir)
         # Find files in the prelude
         # For now we consider the entire stdlib the prelude
-        previous_quiet = get_quiet_mode()
         for file in sorted(os.listdir(stdlib_dir)):
             if file.endswith('.pf'):
                 prelude.append(file.removesuffix('.pf'))
