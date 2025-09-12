@@ -57,7 +57,8 @@ def deduce_file(filename, error_expected, prelude : list[str]) -> None:
                     import_stmt = Import(Meta(), name, visibility='private')
                     ast2.append(import_stmt)
                 # Add import statements at head of original AST
-                ast = ast2 + ast
+                ast2.append(*ast) # The LALR parser returns a tuple so
+                ast = ast2
 
             uniquify_deduce(ast)
             if get_verbose():
