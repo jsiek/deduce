@@ -710,7 +710,7 @@ def is_recursive(name, typ):
 def update_all_head(r):
     match r:
       case All(loc2, tyof, var, (s, e), frm):
-        if s == 0:
+        if s == 0:  
           return All(loc2, tyof, var, (s, e-1), frm)
         else:
           return All(loc2, tyof, var, (s, e-1), update_all_head(frm))
@@ -2259,7 +2259,7 @@ def is_modified(filename):
         return thm_last_mod < last_mod
     else:
         return True
-    
+          
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
@@ -2378,10 +2378,11 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             ast2.append(new_s)
 
           ast3 = []
-          already_done_imports = set()
+          already_done_imports : dict[str, bool] = {}
           for s in ast2:
             new_s = type_check_stmt(s, env, already_done_imports)
-            ast3.append(new_s)
+            if new_s != None:
+              ast3.append(new_s)
 
           if needs_checking[0]:
               dirty_files.add(name)
@@ -2467,7 +2468,7 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
-def type_check_stmt(stmt, env, already_done_imports : set):
+def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
   match stmt:
@@ -2553,9 +2554,19 @@ def type_check_stmt(stmt, env, already_done_imports : set):
         return stmt
     
     case Import(loc, name, ast):
-      if name in already_done_imports:
-        error(loc, "error, module:\n\t" + name + "\nwas imported twice")
-      already_done_imports.add(name)
+      if name in error_on_next_import:
+        if error_on_next_import[name]:
+          # The first import was from the prelude
+          # So instead of erroring we'll error next time
+          # and return None to signal that this stmt should be removed
+          error_on_next_import[name] = True
+          return None # Return none to signify that this stmt should be removed
+        else:
+          # The user manually imported the module twice, so throw an error
+          error(loc, "error, module:\n\t" + name + "\nwas imported twice")
+
+      # If loc is empty then this import comes from the prelude
+      error_on_next_import[name] = loc.empty
       return stmt
   
     case Assert(loc, frm):
@@ -2904,10 +2915,13 @@ def check_deduce(ast, module_name, modified):
     print('--------- Type Checking ------------------------')
   ast3 = []
 
-  already_done_imports = set()
+  error_on_next_import : dict[str, bool] = {}
   for s in ast2:
-    new_s = type_check_stmt(s, env, already_done_imports)
-    ast3.append(new_s)
+    new_s = type_check_stmt(s, env, error_on_next_import)
+    # If None gets returned we want to remove the current statement
+    # Which is represented by not appending it to the new ast
+    if new_s != None:
+      ast3.append(new_s)
   if get_verbose():
     for s in ast3:
       print(s)
