@@ -2259,68 +2259,7 @@ def is_modified(filename):
         return thm_last_mod < last_mod
     else:
         return True
-    
-# TODO: This is probably not good practice...
-def process_declaration_import(env : Env, module_chain, downstream_needs_checking, visibility, loc, name, ast):
-      old_verbose = get_verbose()
-      if get_verbose() == VerboseLevel.CURR_ONLY:
-        set_verbose(VerboseLevel.NONE)
-
-      if name in module_chain:
-          error(loc, 'error, recusive import:\n\t' + name\
-                + '\nwhile processing files:\n\t' \
-                + ', '.join(module_chain))
-      elif name in imported_modules:
-          set_verbose(old_verbose)
-          if name in dirty_files:
-              downstream_needs_checking[0] = True
-          return Import(loc, name, ast), env
-      else:
-          current_module = env.get_current_module()
-          imported_modules.add(name)
-          module_chain = [name] + module_chain
-
-          filename = find_file(loc, name)
-          needs_checking = [get_check_imports() and is_modified(filename)]
-
-          ast2 = []
-          for s in ast:
-            new_s, env = process_declaration(s, env, module_chain, needs_checking)
-            ast2.append(new_s)
-
-          ast3 = []
-          already_done_imports : dict[str, bool] = {}
-          for s in ast2:
-            new_s = type_check_stmt(s, env, already_done_imports)
-            if new_s != None:
-              ast3.append(new_s)
-
-          if needs_checking[0]:
-              dirty_files.add(name)
-              downstream_needs_checking[0] = True
-            
-          if needs_checking[0] and name not in checked_modules:
-              if get_quiet_mode() == False:
-                  print('> checking ' + name)
-              
-          for s in ast3:
-            env = collect_env(s, env)
-
-            # TODO: only check if the pf file is newer than the thm file
-            if name not in checked_modules and needs_checking[0]:
-              check_proofs(s, env)
-            
-          if name not in checked_modules:
-            checked_modules.add(name)  
-
-          set_verbose(old_verbose)
-
-          if needs_checking[0]:
-            print_theorems(filename, ast3)
           
-          return Import(loc, name, ast3, visibility=visibility), \
-              env.declare_module(current_module)
-    
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
@@ -2412,7 +2351,64 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       return Union(loc, name, typarams, new_alts, visibility=decl.visibility), env
 
     case Import(loc, name, ast):
-      return process_declaration_import(env, module_chain, downstream_needs_checking, decl.visibility, loc, name, ast)
+      old_verbose = get_verbose()
+      if get_verbose() == VerboseLevel.CURR_ONLY:
+        set_verbose(VerboseLevel.NONE)
+
+      if name in module_chain:
+          error(loc, 'error, recusive import:\n\t' + name\
+                + '\nwhile processing files:\n\t' \
+                + ', '.join(module_chain))
+      elif name in imported_modules:
+          set_verbose(old_verbose)
+          if name in dirty_files:
+              downstream_needs_checking[0] = True
+          return Import(loc, name, ast), env
+      else:
+          current_module = env.get_current_module()
+          imported_modules.add(name)
+          module_chain = [name] + module_chain
+
+          filename = find_file(loc, name)
+          needs_checking = [get_check_imports() and is_modified(filename)]
+
+          ast2 = []
+          for s in ast:
+            new_s, env = process_declaration(s, env, module_chain, needs_checking)
+            ast2.append(new_s)
+
+          ast3 = []
+          already_done_imports : dict[str, bool] = {}
+          for s in ast2:
+            new_s = type_check_stmt(s, env, already_done_imports)
+            if new_s != None:
+              ast3.append(new_s)
+
+          if needs_checking[0]:
+              dirty_files.add(name)
+              downstream_needs_checking[0] = True
+            
+          if needs_checking[0] and name not in checked_modules:
+              if get_quiet_mode() == False:
+                  print('> checking ' + name)
+              
+          for s in ast3:
+            env = collect_env(s, env)
+
+            # TODO: only check if the pf file is newer than the thm file
+            if name not in checked_modules and needs_checking[0]:
+              check_proofs(s, env)
+            
+          if name not in checked_modules:
+            checked_modules.add(name)  
+
+          set_verbose(old_verbose)
+
+          if needs_checking[0]:
+            print_theorems(filename, ast3)
+          
+          return Import(loc, name, ast3, visibility=decl.visibility), \
+              env.declare_module(current_module)
   
     case _:
       error(decl.location, "unrecognized declaration:\n" + str(decl))
