@@ -1,0 +1,6 @@
+theorem or_not_again: all P:bool, Q:bool.
+  if (P or Q) and not P
+  then Q
+proof
+  or_not
+end

@@ -9,6 +9,7 @@ parsers = ['--recursive-descent', '--lalr']
 
 lib_dir = './lib'
 pass_dir = './test/should-validate'
+prelude_dir = './test/prelude'
 error_dir = './test/should-error'
 test_imports_dir = './test/test-imports'
 site_dir = './gh_pages/deduce-code'
@@ -240,6 +241,7 @@ if __name__ == "__main__":
         test_deduce(parsers, deduce_call, lib_dir)
     elif test_passable:
         test_deduce(parsers, deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', pass_dir)
+        test_deduce(parsers, deduce_call, prelude_dir)
     elif test_errors:
         test_deduce_errors(deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', error_dir)
     elif test_parse:
@@ -250,4 +252,5 @@ if __name__ == "__main__":
         # Jeremy doesn't have that installed.
         # Also not the parse errors
         test_deduce(parsers, deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', [lib_dir, pass_dir])
+        test_deduce(parsers, deduce_call, prelude_dir)
         test_deduce_errors(deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', error_dir)    
