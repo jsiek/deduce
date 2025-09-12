@@ -1,5 +1,5 @@
-from abstract_syntax import Import # TODO: GET RID OF THIS
-from lark.tree import Meta # TODO: GET RID OF THIS
+from abstract_syntax import Import
+from lark.tree import Meta
 from flags import *
 from proof_checker import check_deduce, uniquify_deduce, is_modified
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
