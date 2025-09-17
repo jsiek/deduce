@@ -263,4 +263,3 @@ proof
         by expand operator + in snmz
   }
 end
-
