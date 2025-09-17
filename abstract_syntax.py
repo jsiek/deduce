@@ -3022,7 +3022,7 @@ class Theorem(Statement):
 
   def uniquify(self, env):
     if self.name in env.keys():
-      error(self.location, "theorem names may not be overloaded")
+      error(self.location, "theorem names may not be overloaded: " + base_name(self.name))
     self.what.uniquify(env)
     self.proof.uniquify(env)
     new_name = generate_name(self.name)
