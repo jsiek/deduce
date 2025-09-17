@@ -1,6 +1,4 @@
 ./test/parse/array2.pf:12.1-12.17: while parsing
-	declaration ::= union | rec_function | function | definition
-./test/parse/array2.pf:12.1-12.17: while parsing
 	proof_stmt ::= "define" identifier "=" term
 
 ./test/parse/array2.pf:12.12-12.17: while parsing array creation

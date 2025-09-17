@@ -1,4 +1,4 @@
 ./test/parse/suffices1.pf:1.1-3.16: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
-./test/parse/suffices1.pf:3.18-3.19: expected the keyword "by" after formula of "suffices", not
+./test/parse/suffices1.pf:3.18-3.19: expected the keyword "by" or "proof" at beginning of a reason, not
 	.

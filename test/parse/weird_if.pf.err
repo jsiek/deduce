@@ -6,7 +6,7 @@ Goal:
 Advice:
 	Prove "false" by proving a contradiction:
 	if you prove both "P" and "not P", 
-	then "apply (recall not P) to (recall P)" proves "false".
+	then "contradict (recall not P), (recall P)" proves "false".
 
 Givens:
 	prop_f: b = false

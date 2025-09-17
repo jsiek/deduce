@@ -4,4 +4,4 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
-./test/parse/eof_have_3.pf:3.3-3.7: expected the keyword "by" after formula of "have", not end of file
+./test/parse/eof_have_3.pf:3.15-3.19: Expected a token, got end of file

@@ -663,7 +663,7 @@ def parse_recall():
 
 def parse_reason():
     if end_of_file():
-      raise ParseError(meta_from_tokens(start_token, start_token),
+      raise ParseError(meta_from_tokens(current_token(), current_token()),
             'expected a reason, not end of file')
     if current_token().type == 'BY':
       advance()

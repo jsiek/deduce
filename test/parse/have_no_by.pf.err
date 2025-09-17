@@ -4,5 +4,5 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
-./test/parse/have_no_by.pf:3.17-3.18: expected the keyword "by" after formula of "have", not
+./test/parse/have_no_by.pf:3.17-3.18: expected the keyword "by" or "proof" at beginning of a reason, not
 	.

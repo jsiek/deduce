@@ -1,6 +1,4 @@
 ./test/parse/fun_1.pf:1.1-2.9: while parsing
-	declaration ::= union | rec_function | function | definition
-./test/parse/fun_1.pf:1.1-2.9: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
 ./test/parse/fun_1.pf:2.4-2.11: expected "{" after parameters of fun, not

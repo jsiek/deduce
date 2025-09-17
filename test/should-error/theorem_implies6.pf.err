@@ -1,1 +1,1 @@
-./test/should-error/theorem_implies6.pf:7.1-12.4: theorem names may not be overloaded
+./test/should-error/theorem_implies6.pf:7.1-12.4: theorem names may not be overloaded: T
