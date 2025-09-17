@@ -1,4 +1,0 @@
-theorem single_member_again: <T> all x:T.  x ∈ single(x)
-proof
-    single_member
-end

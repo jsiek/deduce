@@ -1,4 +1,3 @@
-#
 # The checking process for programs & proofs has the following steps:
 #
 # 0. uniquify:

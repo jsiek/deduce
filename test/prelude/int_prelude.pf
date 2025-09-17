@@ -1,4 +1,0 @@
-theorem int_less_equal_refl_again: all n:Int. n ≤ n
-proof
-    int_less_equal_refl
-end

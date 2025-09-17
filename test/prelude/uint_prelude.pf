@@ -1,5 +1,0 @@
-theorem toNat_add_again: all x:UInt, y:UInt.
-  toNat(x + y) = toNat(x) + toNat(y)
-proof
-    toNat_add
-end

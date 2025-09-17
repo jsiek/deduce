@@ -1,4 +1,0 @@
-theorem equal_refl_again: all n:Nat. equal(n,n)
-proof
-  equal_refl
-end
