@@ -2349,7 +2349,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
         new_alts.append(new_constr)
       return Union(loc, name, typarams, new_alts, visibility=decl.visibility), env
 
-    case Import(loc, name, ast):
+    case Import(loc, name, ast, visibility=vis):
       old_verbose = get_verbose()
       if get_verbose() == VerboseLevel.CURR_ONLY:
         set_verbose(VerboseLevel.NONE)
@@ -2362,7 +2362,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           set_verbose(old_verbose)
           if name in dirty_files:
               downstream_needs_checking[0] = True
-          return Import(loc, name, ast), env
+          return Import(loc, name, ast, visibility=vis), env
       else:
           current_module = env.get_current_module()
           imported_modules.add(name)
