@@ -78,10 +78,11 @@ def advance():
     
 def end_of_file():
     return current_position >= len(token_list)
-
+  
+check_closest_kwd = False
 
 def parse(program_text, trace = False, error_expected = False):
-  global token_list, current_position
+  global token_list, current_position, check_closest_kwd
   lexed = lark_parser.lex(program_text)
   token_list = []
   current_position = 0
@@ -92,7 +93,18 @@ def parse(program_text, trace = False, error_expected = False):
 
   stmts = []
   while not end_of_file():
-    stmt = parse_statement()
+    try:
+      stmt = parse_statement()
+    except ParseError as e:
+      if not check_closest_kwd:
+        check_closest_kwd = True
+        parse(program_text, trace, error_expected)
+      else:
+        raise e
+    except Exception as e:
+      raise e
+
+        
     stmts.append(stmt)
   return stmts
 
@@ -646,7 +658,7 @@ def parse_assumption():
     return label,None
 
 proof_keywords = {'apply', 'arbitrary', 'assume',
-                  'cases', 'choose', 'conclude', 'conjunct',
+                  'cases', 'case', 'choose', 'conclude', 'conjunct',
                   'expand',
                   'equations', 'evaluate', 'extensionality',
                   'have', 'induction', 'injective', 'obtain',
@@ -723,7 +735,7 @@ def parse_proof_hi():
         + '\tcase_clause ::= "case" identifier ":" term "{" proof "}"\n'
     advance()
     try:
-      subject = parse_proof()
+      subject = parse_proof(allow_missing=False)
       cases = []
       while (not end_of_file()) and current_token().type == 'CASE':
           c = parse_case()
@@ -899,20 +911,19 @@ def parse_proof_hi():
         return EvaluateGoal(meta_from_tokens(token, previous_token()))
     
   else:
-    # TODO: Move closest_keyword to another place at some point, probably after parsing
-    # However, we haven't done that right now because we get esoteric error messages
-    # Maybe an idea is move this after parsing AND do this again for a parse error
-    close_keyword = closest_keyword(token.value, proof_keywords)
-    if close_keyword:
-      raise ParseError(meta_from_tokens(token, token),
-            'expected a proof.\nDid you mean "' + close_keyword \
-            + '" instead of "' + token.value + '"?')
+    if check_closest_kwd:
+      close_keyword = closest_keyword(token.value, proof_keywords)
+      if close_keyword and close_keyword != token.value:
+        raise ParseError(meta_from_tokens(token, token),
+                         'expected a proof.\nDid you mean "' + close_keyword \
+                         + '" instead of "' + token.value + '"?')
+  
     try:
       name = parse_identifier()
     except ParseError as e:
       raise ParseError(meta_from_tokens(token, current_token()),
-                    'expected a proof, not\n\t' + quote(current_token().value),
-                    missing=True)
+                       'expected a proof, not\n\t' + quote(current_token().value),
+                       missing=True)
     except Exception as e:
       raise ParseError(meta_from_tokens(token, previous_token()), "Unexpected error while parsing:\n\t" \
         + str(e))
@@ -1200,7 +1211,7 @@ def parse_have():
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-def parse_proof():
+def parse_proof(allow_missing=True):
     start_token = previous_token()
     proof_stmt, concluded = parse_proof_statement()
     if concluded:
@@ -1228,7 +1239,7 @@ def parse_proof():
         try:
           ret = parse_finishing_proof()
         except ParseError as ex:
-          if not ex.missing:
+          if not ex.missing or not allow_missing:
               raise ex
           else:
               ret = PHole(meta_from_tokens(current_token(), current_token()))
