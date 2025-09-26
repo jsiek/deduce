@@ -1,5 +1,4 @@
 import Nat
-import Sums
 
 recfun fib(n : Nat) -> Nat
   measure n of Nat
