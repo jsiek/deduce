@@ -1,0 +1,6 @@
+theorem combine_left_again: all T:type, U:type, f:fn(T)->Option<U>, g:fn(T)->Option<U>, x:T.
+  if g(x) = none
+  then combine(f, g)(x) = f(x)
+proof
+  combine_left
+end
