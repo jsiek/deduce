@@ -1,3 +1,5 @@
+from abstract_syntax import Import
+from lark.tree import Meta
 from flags import *
 from proof_checker import check_deduce, uniquify_deduce, is_modified
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
@@ -18,12 +20,11 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected):
+def deduce_file(filename, error_expected, prelude : list[str]) -> None:
     if get_verbose():
         print("Deducing file:", filename)
     module_name = Path(filename).stem
     try:
-    
         if module_name in get_uniquified_modules().keys():
             ast = get_uniquified_modules()[module_name]
         else:
@@ -48,6 +49,17 @@ def deduce_file(filename, error_expected):
                 print("abstract syntax tree:\n" \
                       +'\n'.join([str(s) for s in ast])+"\n\n")
                 print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
+
+            if len(prelude) > 0: 
+                # Create a new AST for the import statements
+                ast2 = []
+                for name in prelude:
+                    import_stmt = Import(Meta(), name, visibility='private')
+                    ast2.append(import_stmt)
+                # Add import statements at front of original AST
+                ast2 += ast
+                ast = ast2
+
             uniquify_deduce(ast)
             if get_verbose():
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
@@ -76,14 +88,27 @@ def deduce_file(filename, error_expected):
             # during development, reraise
             # raise e
 
-def deduce_directory(directory, recursive_directories):
+def deduce_directory(directory, recursive_directories, prelude) -> None:
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                deduce_file(fpath, error_expected)
+                deduce_file(fpath, error_expected, prelude)
         elif recursive_directories and os.path.isdir(fpath):
-            deduce_directory(fpath, recursive_directories)
+            deduce_directory(fpath, recursive_directories, prelude)
+    
+def check_in_prelude(deducable : str, stdlib_dir : str) -> bool:
+    deducable_path = Path(deducable)
+    stdlib_path = Path(stdlib_dir)
+    if deducable_path.is_file():
+        return deducable_path.parent.absolute() == stdlib_path
+    elif deducable_path.is_dir():
+        return deducable_path.absolute() == stdlib_path.absolute()
+    else:
+        # If the funciton reaches this point then the path does not exist
+        # However, there is handling for that in another place
+        # So return false
+        return False
 
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
@@ -92,7 +117,7 @@ if __name__ == "__main__":
     if (sys.argv[0] == 'deduce.py'):
         sys.argv[0] = os.path.join(os.getcwd(), sys.argv[0])
 
-    stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib/')
+    stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib')
     add_stdlib = True
     deducables = []
     error_expected = False
@@ -145,9 +170,15 @@ if __name__ == "__main__":
         else:
             deducables.append(argument)
     
+    prelude = []
     if add_stdlib:
         add_import_directory(stdlib_dir)
-    
+        # Find files in the prelude
+        # For now we consider the entire stdlib the prelude
+        for file in sorted(os.listdir(stdlib_dir)):
+            if file.endswith('.pf'):
+                prelude.append(file.removesuffix('.pf'))
+
     if len(deducables) == 0:
         print("Couldn't find a file to deduce!")
         exit(1)
@@ -163,10 +194,19 @@ if __name__ == "__main__":
     # Start deducing
 
     for deducable in deducables:
+        # If a file is in the prelude and we include the prelude
+        # Then we'll process the file twice, hence using an empty "prelude"
+        # For said file
+        
+        if check_in_prelude(deducable, stdlib_dir):
+            deducable_prelude = []
+        else:
+            deducable_prelude = prelude
+        
         if os.path.isfile(deducable):
-            deduce_file(deducable, error_expected)
+            deduce_file(deducable, error_expected, deducable_prelude)
         elif os.path.isdir(deducable):
-            deduce_directory(deducable, recursive_directories)
+            deduce_directory(deducable, recursive_directories, deducable_prelude)
         else:
             print(deducable, "was not found!")
             exit(1)
