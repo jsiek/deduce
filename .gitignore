@@ -20,3 +20,9 @@ deduce-release.zip
 # Generated content for site
 gh_pages/pages
 gh_pages/deduce-code
+
+# temp error file
+actual_error.tmp
+
+# Generated deduce profile image
+profile.png
