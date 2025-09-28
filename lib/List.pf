@@ -562,15 +562,15 @@ proof
   arbitrary E:type
   induction List<E>
   case empty {
-	  arbitrary ys:List<E>
+    arbitrary ys:List<E>
     expand operator++ | length
     replace take_zero.
-	}
-	case node(x, xs') assume IH {
+  }
+  case node(x, xs') assume IH {
     arbitrary ys:List<E>
     expand operator++ | take | length
     replace IH[ys].
-	}  
+  }  
 end
   
 theorem length_drop: all E:type, xs:List<E>, n:UInt.
@@ -652,7 +652,7 @@ proof
 end
 
 theorem drop_zero_identity: all E:type, xs:List<E>.
-	drop(xs, 0) = xs
+  drop(xs, 0) = xs
 proof
   arbitrary E:type
   induction List<E>
