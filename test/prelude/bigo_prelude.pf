@@ -1,0 +1,4 @@
+theorem bigo_refl_again: all f : fn UInt -> UInt. f ≲ f
+proof
+  bigo_refl
+end

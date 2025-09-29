@@ -1,0 +1,4 @@
+theorem first_pair_again: all T:type,U:type, x:T, y:U. first(pair(x,y)) = x
+proof
+    first_pair
+end

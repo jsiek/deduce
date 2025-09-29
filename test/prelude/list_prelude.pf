@@ -1,0 +1,5 @@
+theorem length_append_again: all U :type, xs :List<U>, ys :List<U>.
+  length(xs ++ ys) = length(xs) + length(ys)
+proof
+  length_append
+end
