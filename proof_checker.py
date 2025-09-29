@@ -1165,13 +1165,15 @@ def check_proof_of(proof, formula, env):
       sub_red = sub_frm.reduce(env)
       match sub_red:
         case Or(loc1, tyof, frms):
-          for (frm, (label,frm2,case)) in zip(frms, cases):
+          if len(cases) < len(frms):
+              error(loc, "expected " + str(len(frms)) + " cases, not " + str(len(cases)))
+          for (frm, (label,frm2,the_case)) in zip(frms, cases):
             if frm2:
                 new_frm2 = check_formula(frm2, env)
             if frm2 and (frm != new_frm2): # was frm != red_frm2
               error(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
             body_env = env.declare_local_proof_var(loc, label, frm)
-            check_proof_of(case, formula, body_env)
+            check_proof_of(the_case, formula, body_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_red))
           
