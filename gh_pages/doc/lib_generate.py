@@ -255,6 +255,7 @@ known_tokens = {
     'POSTULATE': 'keyword',
     'TO': 'keyword',
     'TRANSITIVE': 'keyword',
+    'TRACE': 'keyword',
     'TRUE': 'prim',
     'TYPE': 'type',
     'UNION': 'keyword',
