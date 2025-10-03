@@ -2445,6 +2445,9 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
         
     case Module(loc, name):
       return stmt, env.declare_module(name)
+    
+    case Trace(loc, name):
+      return stmt, env
   
     case _:
       error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
@@ -2544,6 +2547,15 @@ def type_check_stmt(stmt, env, already_done_imports : set):
       # print('type check stmt:')
       # print(new_recfun.pretty_print(4))
       return new_recfun
+    
+    case Trace(loc, var):
+      var_ty = env.get_type_of_term_var(var)
+      match var_ty:
+        case FunctionType(loc2, args, typs, ret_ty):
+          pass
+        case _:
+          error(var.location, 'trace expects an identifer of type function, but instead got type ' + str(var_ty))
+      return stmt
   
     case Union(loc, name, typarams, alts):
       return stmt
@@ -2674,6 +2686,9 @@ def collect_env(stmt, env : Env):
       else:
           error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
+    case Trace(loc, recfun_name):
+      return env.declare_tracing(recfun_name.get_name())
+
     case _:
       error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
 
@@ -2764,7 +2779,7 @@ def find_rec_calls(name, term, env):
       error(loc, 'in find_rec_calls, unhandled ' + str(term))
     
 
-def check_proofs(stmt, env):
+def check_proofs(stmt, env: Env):
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
   match stmt:
@@ -2880,7 +2895,10 @@ def check_proofs(stmt, env):
   
     case Module(loc, name):
       pass
-  
+
+    case Trace(loc, recfun_name):
+      pass
+
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       

@@ -309,6 +309,8 @@ ident: IDENT              -> ident
 
 ?module_decl: "module" ident  -> module_decl
 
+?trace: "trace" ident -> trace
+
 ?statement: union
  | rec_function
  | function
@@ -322,6 +324,7 @@ ident: IDENT              -> ident
  | print
  | theorem
  | module_decl
+ | trace
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

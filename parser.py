@@ -768,6 +768,10 @@ def parse_tree_to_ast(e, parent):
     elif (e.data == 'default'):
         return 'default'
     
+    # trace
+    elif e.data == 'trace':
+        return Trace(e.meta, Var(e.meta, None, parse_tree_to_ast(e.children[0], e), []))
+    
     # whole program
     elif e.data == 'program':
         if e.children == []: # Allowing for empty programs
