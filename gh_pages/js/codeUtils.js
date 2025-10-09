@@ -121,7 +121,7 @@ for (let cb of codeBlocks) {
         // If code is cached just return that
         let code = cacheJS.get({'codeID': cb, 'type': 'html'})
 
-        if(false){
+        if(code){
             let codeText = cacheJS.get({'codeID': cb, 'type': 'text'})
             htmlCode.innerHTML = code
             make_button(htmlCode, codeText)
