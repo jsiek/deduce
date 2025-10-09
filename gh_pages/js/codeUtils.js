@@ -1,32 +1,7 @@
-const operators = [
-    "->", "\\+\\+", "(?<!\\/|\\*)\\/(?!\\/|\\*)", "\\|", "&", "\\[\\+\\]", "\\[o\\]", "\\(=", 
-    "<=", ">=", "\\/=", "≠", "⊆", "≤", "≥", "∈", "∪", "\\+", "%", "(?<!\\/)\\*(?!\\/)", "⨄", 
-    "-", "∩", "∘", "λ", "@", ":", "&gt;", "&lt;", "\\(", "\\)", "{", "}", ",", "=", "\\.", "\\[", 
-    "\\]", ";", "#"
-]
-
-const prims = ["true", "false", "0", "[0-9]+", "empty"]
-
-const defines = ["node", "suc", "take", "set_of", "empty_no_members",
-    "single", "member_union", "single_equal", "length"]
-
-const primsSym = ["∅", "\\[0\\]", "\\?"]
-
-const types = ["MultiSet", "Option", "Pair", "Set", "List", "Int", "Nat", "int", "bool", "fn", "type"]
-
-const keywords = [
-    "define", "function", "fun", "switch", "case", "union", "if", "then", "else", "import",
-    "generic", "assert", "have", "transitive", "symmetric", "extensionality", "reflexive",
-    "injective", "sorry", "help", "conclude", "suffices", "enough", "by", "replace",
-    "conjunct", "induction", "where", "suppose", "with", "definition", "apply", "to", "cases",
-    "obtain", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
-    "assume", "for", "recall", "in", "and", "or", "print", "not", "some", "all", "theorem",
-    "lemma", "proof", "end", "replace", "recursive", "expand", "auto", "array", "associative",
-    "evaluate", "export", "recfun", "show", "terminates", "postulate"
-]
-
+import { operators, prims, types, keywords, libs } from './codeKeywords.js'
 
 function getRegex(ls) {
+	if (ls.length == 0) return "$"
     let fullRegex = ls.reduce((a, s) => `\\b${s}\\b|` + a, "")
     return fullRegex.substring(0, fullRegex.length - 1)
 }
@@ -45,35 +20,44 @@ function replaceLeadingTabs(str) {
 function codeToHTML(code) {
     // scan to get user defined functions and variables
     const fncRe = new RegExp("(?<=\\bfunction\\s)\\w+(?=\\s*[\\(|<])", "g")
+	const funRe = new RegExp("(?<=\\bfun\\s)\\w+(?=\\s*[\\(|<])", "g")
     const recRe = new RegExp("(?<=\\brecursive\\s)\\w+(?=\\s*[\\(|<])", "g")
     const thmRe = new RegExp("(?<=\\btheorem\\s)\\w+(?=\\s*:)", "g")
     const uniRe = new RegExp("(?<=\\bunion\\s)\\w+(?=\\s*<)?", "g")
     const defRe = new RegExp("(?<=\\bdefine\\s)\\w+(?=\\s*:)?", "g")
-    let userDefs = []
+	const appRe = new RegExp("(\\w+)\\(", "g")
+    let defs = []
         .concat(Array.from(code.matchAll(fncRe)).flat())
+	    .concat(Array.from(code.matchAll(funRe)).flat())
         .concat(Array.from(code.matchAll(recRe)).flat())
         .concat(Array.from(code.matchAll(thmRe)).flat())
         .concat(Array.from(code.matchAll(uniRe)).flat())
         .concat(Array.from(code.matchAll(defRe)).flat())
-    userDefs = userDefs.filter(e => e !== undefined && e !== "operator")
-
+		.concat(Array.from(code.matchAll(appRe)).map(e => e[1]))
+    defs = defs.filter(e => e !== undefined && e !== "operator")
+	
     // prep regex
     const ore = new RegExp(getRegexSymbols(operators), "g")
-    const pre = new RegExp(getRegex(prims) + "|" + getRegexSymbols(primsSym), "g")
-    const tre = new RegExp(getRegex(types), "g")
+    const pre = new RegExp(getRegex(prims), "g")
+    const tre = new RegExp(getRegex(types) + '|' + getRegex(libs), "g")
     const kre = new RegExp(getRegex(keywords), "g")
-    const dre = new RegExp(getRegex(defines.concat(userDefs)), "g")
-    const cre = new RegExp("(\\/\\*(.|\r|\n)+\\*\\/|\\/\\/.+)", "g")
+    const dre = new RegExp(getRegex(defs), "g")
+    const cre = new RegExp("(\\&sol;\\*(.|\r|\n)+\\*\\&sol;|\\&sol;\\&sol;[^\r\n]+)", "g")
     // remove first new line
     code = (code[0] == '\n' ? code.substring(1) : code)
     // fixing things for html
+	code = code.replaceAll(";", "(TEMPORARY_AMP)semi;");
+	code = code.replaceAll("&", "&amp;");
+	code = code.replaceAll("=", "&equals;");
+	code = code.replaceAll("/", "&sol;");
     code = code.replaceAll("<", "&lt;");
     code = code.replaceAll(">", "&gt;");
+	code = code.replaceAll("(TEMPORARY_AMP)", "&");
     // (heavy quote) lexing (heavy quote)
     code = code.replaceAll("\t", "    ");
     code = code.replaceAll(" ", "\x00"); // temporary
-    code = code.replaceAll(ore, "<span class=\"operator\">$&</span>");
     code = code.replaceAll(cre, "<span class=\"comment\">$&</span>");
+    code = code.replaceAll(ore, "<span class=\"operator\">$&</span>");
     code = code.replaceAll(pre, "<span class=\"prim\">$&</span>");
     code = code.replaceAll(tre, "<span class=\"type\">$&</span>");
     code = code.replaceAll(kre, "<span class=\"keyword\">$&</span>");
@@ -97,7 +81,7 @@ function codeToHTML(code) {
 }
 
 function removeImports(code){
-    split = code.split("\n");
+    let split = code.split("\n");
     // remove import statements
     while(split[0].trim().substring(0, 6) == "import") split.shift()
     // remove empty newlines
@@ -155,7 +139,10 @@ for (let cb of codeBlocks) {
                 htmlCode.innerHTML = code
                 make_button(htmlCode, codeText)
             })
-            .catch(err => htmlCode.innerHTML = "Error loading code block...")
+				.catch(err => {
+					console.log(err)
+					htmlCode.innerHTML = "Error loading code block..."
+				})
         }
     } catch (error) {
         console.error(error);

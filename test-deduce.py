@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
     elif test_site:
         # generate test files for doc code without generating html
-        from gh_pages.doc.convert import convert_dir
+        from gh_pages.scripts.convert import convert_dir
         convert_dir("./gh_pages/doc/", False)
         # test generated files
         for f in sorted(os.listdir(pass_dir)):
