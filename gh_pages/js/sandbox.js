@@ -1,3 +1,5 @@
+import { idents, types, prims, operators, keywords, whitespaces, comments, libs } from './codeKeywords.js'
+
 const isMobile = window.innerWidth < 990;
 
 let editor;
@@ -71,35 +73,18 @@ require(['vs/editor/editor.main'], function () {
         // Set defaultToken to invalid to see what you do not tokenize yet
         // defaultToken: 'invalid',
 
-        keywords: [
-            "define", "function", "fun", "switch", "case", "union", "if", "then", "else", "import",
-            "generic", "assert", "have", "transitive", "symmetric", "extensionality", "reflexive",
-            "injective", "sorry", "help", "conclude", "suffices", "enough", "by", "rewrite",
-            "conjunct", "induction", "where", "suppose", "with", "definition", "apply", "to", "cases",
-            "obtain", "stop", "equations", "of", "arbitrary", "choose", "term", "from",
-            "assume", "for", "recall", "in", "and", "or", "print", "not", "some", "all", "theorem",
-            "lemma", "proof", "end"
-        ],
+        keywords: keywords,
 
-        typeKeywords: [
-            "MultiSet", "Option", "Pair", "Set", "List", "Int", "Nat", "int", "bool", "fn", "type"
-        ],
+        typeKeywords: types.concat(libs),
 
-        operators: [
-            "->", "++", "/", "|", "&", "[+]", "[o]", "(=",
-            "<=", ">=", "/=", "≠", "⊆", "≤", "≥", "∈", "∪", "+", "%", "(?<!/)*(?!/)", "⨄",
-            "-", "∩", "∘", "λ", "@", ":", "<", ">", ",", "=", ".", ";", "#"
-        ],
+        operators: operators,
 
         defines: [
             "node", "suc", "take", "set_of", "empty_no_members",
             "single", "member_union", "single_equal", "length"
         ],
 
-        prims: ["true", "false", "empty"],
-
-        primSymbols: ["∅", "[0]", "?"],
-
+        prims: prims,
 
         // we include these common regular expressions
         symbols: /(=|>|<|!|~|\?|:|&|\||\+|-|\^|%|\)|\(|\]|\[|o|0|≠|⊆|≤|≥|∈|∪|∅|\.)/,
@@ -125,7 +110,6 @@ require(['vs/editor/editor.main'], function () {
                 // [/[<>](?!@symbols)/, '@brackets'],
                 [/[.@*=><!~?:&|+^%≤≥⇔∘∪∩⊆∈⨄∅-]+/, {
                     cases: {
-                        '@primSymbols': 'primitive',
                         '@operators': 'operator',
                         '@default': 'operator'
                     }
