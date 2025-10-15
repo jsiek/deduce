@@ -649,6 +649,13 @@ def parse_tree_to_ast(e, parent):
         pvar = parse_tree_to_ast(e.children[0], e)
         return Auto(e.meta, pvar)
     
+    elif e.data == 'inductive_decl':
+        ty = parse_tree_to_ast(e.children[0], e)
+        thm = parse_tree_to_ast(e.children[1], e)
+        print(thm)
+        return Inductive(e.meta, ty, thm)
+    
+    
     elif e.data == 'module_decl':
         return Module(e.meta, parse_tree_to_ast(e.children[0], e))
     

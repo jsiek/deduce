@@ -2756,7 +2756,7 @@ class PExtensionality(Proof):
     
 @dataclass
 class IndCase(AST):
-  pattern: Pattern
+  pattern: Term
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
@@ -2780,8 +2780,17 @@ class IndCase(AST):
   def uniquify(self, env):
     body_env = copy_dict(env)
 
+    # I need to write a method that gets the free variables?
+    # Only allow var nodes that are free that aren't a part of a union
+    # TODO: Ask jeremy what he thinks about adding state
+    # ALT: Every free variable, set them equal to the original version later?
+    ind_params = {}
+
+    self.pattern.uniquify(ind_params)
+
     new_params = [generate_name(x) for x in self.pattern.parameters]
-    for (old,new) in zip(self.pattern.parameters, new_params):
+    # for (old,new) in zip(self.pattern.parameters, new_params):
+    for old, new in ind_params:
       overwrite(body_env, old, new, self.location)
 
     new_hyps = [(generate_name(x),f) for (x,f) in self.induction_hypotheses]
@@ -3571,6 +3580,22 @@ class Auto(Statement):
     pass
 
 @dataclass
+class Inductive(Statement):
+  typ: Type 
+  thm_name: Term
+
+  def __str__(self):
+    return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
+
+  def uniquify(self, env):
+    self.typ.uniquify(env)
+    self.thm_name.uniquify(env)
+
+  def collect_exports(self, export_env, importing_module):
+    pass
+
+
+@dataclass
 class Module(Statement):
   name: str
 
@@ -4153,8 +4178,37 @@ class Env:
         else:
             return self.dict[full_name].equations['no_name']
     else:
-        return []
-        
+      return []
+
+  def declare_inductive(self, loc, ind_dict, thm):
+    new_env = Env(self.dict)
+    full_name = '__inductive__'
+    typ = ind_dict["ind_ty"]
+    ind_dict["thm"] = thm
+
+    if full_name in new_env.dict:
+      if typ.name in new_env.dict[full_name]:
+        pass
+      else:
+        new_env.dict[full_name][typ.name] = ind_dict
+      # Check for type, overwrite/ add to existing
+      pass
+    else:
+      new_env.dict[full_name] = {}
+      new_env.dict[full_name][typ.name] = ind_dict
+
+    
+    return new_env
+
+  def get_inductive(self, typ):
+    full_name = '__inductive__'
+    if full_name in self.dict:
+      if typ in self.dict[full_name]:
+        return self.dict[full_name][typ]
+
+    return None
+
+
   def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
     for (x,ty) in xty_pairs:

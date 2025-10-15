@@ -147,9 +147,9 @@ ident: IDENT              -> ident
     | ":" term "," assumption_list                 -> push_anon_binding
     | ident "," assumption_list                    -> push_var
 
-?ind_case: "case" pattern "{" proof "}"            -> ind_case
-    | "case" pattern "suppose" assumption_list "{" proof "}" -> ind_case_assume
-    | "case" pattern "assume" assumption_list "{" proof "}" -> ind_case_assume
+?ind_case: "case" term "{" proof "}"            -> ind_case
+    | "case" term "suppose" assumption_list "{" proof "}" -> ind_case_assume
+    | "case" term "assume" assumption_list "{" proof "}" -> ind_case_assume
 
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push
@@ -311,6 +311,8 @@ ident: IDENT              -> ident
 
 ?trace: "trace" ident -> trace
 
+?inductive_decl: "inductive" type "by" proof_hi
+
 ?statement: union
  | rec_function
  | function
@@ -325,6 +327,7 @@ ident: IDENT              -> ident
  | theorem
  | module_decl
  | trace
+ | inductive_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

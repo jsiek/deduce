@@ -1223,74 +1223,141 @@ def check_proof_of(proof, formula, env):
       if isinstance(formula, TLet):
         formula = formula.reduceLets(env)
       
+      ind_frm = None
+      function_var = None
       match formula:
         case All(loc2, tyof, (var,ty), _, frm):
           if typ != ty:
             error(loc, "type of induction: " + str(typ) \
                   + "\ndoes not match the all-formula's type: " + str(ty))
+          ind_frm = frm
+          function_var = (var, ty)
         case _:
           error(loc, 'induction expected an all-formula, not ' + str(formula))
-      match env.get_def_of_type_var(get_type_name(typ)):
-        case Union(loc2, name, typarams, alts):
-          if len(cases) != len(alts):
-            error(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
-                  + ', but only have ' + str(len(cases)))
-          cases_present = {}
-          for (constr,indcase) in zip(alts, cases):
-            check_pattern(indcase.pattern, typ, env, cases_present)
-            if get_verbose():
-                print('\nCase ' + str(indcase.pattern))
-            if indcase.pattern.constructor.name != constr.name:
-              error(indcase.location, "expected a case for " + str(base_name(constr.name)) \
-                    + " not " + str(base_name(indcase.pattern.constructor.name)))
-            if len(indcase.pattern.parameters) != len(constr.parameters):
-              error(indcase.location, "expected " + str(len(constr.parameters)) \
-                    + " arguments to " + base_name(constr.name) \
-                    + " not " + str(len(indcase.pattern.parameters)))
-            induction_hypotheses = [instantiate(loc, formula,
-                                                Var(loc,None,param,[]))
-                                    for (param, ty) in 
-                                    zip(indcase.pattern.parameters,
-                                        constr.parameters)
-                                    if is_recursive(name, ty)]
-            body_env = env
-              
-            if len(typarams) > 0:
-              sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
-              parameter_types = [p.substitute(sub) for p in constr.parameters]
-            else:
-              parameter_types = constr.parameters
-            body_env = body_env.declare_term_vars(loc,
-                                                  zip(indcase.pattern.parameters,
-                                                      parameter_types),
-                                                  True)
-            
-            trm = pattern_to_term(indcase.pattern)
-            new_trm = type_check_term(trm, typ, body_env, None, [])
-            if isinstance(new_trm, TermInst):
-                new_trm.inferred = False
-            pre_goal = instantiate(loc, formula, new_trm)
-            goal = check_formula(pre_goal, body_env)
-            
-            # fill the rest of the given induction_hypotheses with _ labels
-            for i in range(len(indcase.induction_hypotheses), len(induction_hypotheses)):
-              indcase.induction_hypotheses.append((generate_name('_'), None))
+      
+      # Problem, no resolved names
 
-            for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
-              if frm1 != None:
-                new_frm1 = check_formula(frm1, body_env)
-                if new_frm1 != frm2:
-                  (small_frm1,small_frm2) = isolate_difference(new_frm1, frm2)
-                  msg = 'incorrect induction hypothesis, expected\n' \
-                      + str(frm2) + '\nbut got\n' + str(new_frm1) \
-                      + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
-                  error(frm1.location, msg)
-              body_env = body_env.declare_local_proof_var(loc, x, frm2)
-            
-            check_proof_of(indcase.body, goal, body_env)
-        case blah:
-          error(loc, "induction expected name of union, not " + str(typ)
-                + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
+      # Look for existence of custom induction
+      custom_ind = env.get_inductive(typ.name)
+
+
+      if custom_ind:
+        conjuncts = custom_ind["conjuncts"]
+        fun_name = custom_ind["fun"]
+        ind_ty = custom_ind["ind_ty"]
+        fun_ty = custom_ind['fun_ty']
+
+        # TODO:
+        # Use formula to create the predicate we need
+        # Generate labels, don't matter except internally
+        # Because comes from the conjuncts of the induction
+        # Match ind_case patterns against each of the preds we need to prove
+        
+
+        pfun = Lambda(loc, fun_ty, [function_var], ind_frm)
+        fun_var = Var(loc, fun_ty, fun_name, [fun_name])
+
+        # TODO: Validate conjuncts and cases match up correctly - first
+        # And need to update the parser
+
+        # TODO: These should have better names / be hidden / etc. 
+          # so that the user doesn't have to worry
+        names = [generate_name("case") for _ in conjuncts]
+
+        thms_to_apply = [PVar(loc, name) for name in names]
+
+        # TODO: Figure out how to handle induction type variables (all elim_types)
+        print(type(function_var[0]))
+
+        ind_conclusion = ApplyDefsFact(loc, 
+                                       [fun_var],
+                                       #function_name,  #Should be a term (var)
+                                        ModusPonens(loc, 
+                                                    AllElim(loc, custom_ind["thm"], fun_var,  (0, 1)),
+                                                    PTuple(loc, thms_to_apply)))
+        
+        
+        plets = ind_conclusion
+
+        for i, (conjunct, case) in enumerate(reversed(list(zip(conjuncts, cases)))):
+          # TODO: Prepend some stuff needed to case.body
+            # Namely assume prem_n
+          new_body = ApplyDefsGoal(loc, [fun_var], case.body)
+
+          # TODO: Issue with an evaluate proof sometimes :)
+            # But only when I don't do my own expand, idk
+          plets = PLet(loc, names[i], conjunct, new_body, plets)
+
+
+        # AllIntro
+        new_pf = PTLetNew(loc, fun_name, pfun, plets)
+        # new_pf = AllIntro(loc, function_var, (0, 1), new_pf)
+        print("Generated induction")
+        print(new_pf)
+        
+        check_proof_of(new_pf, formula, env)
+      else:
+        match env.get_def_of_type_var(get_type_name(typ)):
+          case Union(loc2, name, typarams, alts):
+            if len(cases) != len(alts):
+              error(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
+                    + ', but only have ' + str(len(cases)))
+            cases_present = {}
+            for (constr,indcase) in zip(alts, cases):
+              check_pattern(indcase.pattern, typ, env, cases_present)
+              if get_verbose():
+                  print('\nCase ' + str(indcase.pattern))
+              if indcase.pattern.constructor.name != constr.name:
+                error(indcase.location, "expected a case for " + str(base_name(constr.name)) \
+                      + " not " + str(base_name(indcase.pattern.constructor.name)))
+              if len(indcase.pattern.parameters) != len(constr.parameters):
+                error(indcase.location, "expected " + str(len(constr.parameters)) \
+                      + " arguments to " + base_name(constr.name) \
+                      + " not " + str(len(indcase.pattern.parameters)))
+              induction_hypotheses = [instantiate(loc, formula,
+                                                  Var(loc,None,param,[]))
+                                      for (param, ty) in 
+                                      zip(indcase.pattern.parameters,
+                                          constr.parameters)
+                                      if is_recursive(name, ty)]
+              body_env = env
+
+              if len(typarams) > 0:
+                sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
+                parameter_types = [p.substitute(sub) for p in constr.parameters]
+              else:
+                parameter_types = constr.parameters
+              body_env = body_env.declare_term_vars(loc,
+                                                    zip(indcase.pattern.parameters,
+                                                        parameter_types),
+                                                    True)
+
+              trm = pattern_to_term(indcase.pattern)
+              new_trm = type_check_term(trm, typ, body_env, None, [])
+              if isinstance(new_trm, TermInst):
+                  new_trm.inferred = False
+              pre_goal = instantiate(loc, formula, new_trm)
+              goal = check_formula(pre_goal, body_env)
+
+              # fill the rest of the given induction_hypotheses with _ labels
+              for i in range(len(indcase.induction_hypotheses), len(induction_hypotheses)):
+                indcase.induction_hypotheses.append((generate_name('_'), None))
+
+              for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
+                if frm1 != None:
+                  new_frm1 = check_formula(frm1, body_env)
+                  if new_frm1 != frm2:
+                    (small_frm1,small_frm2) = isolate_difference(new_frm1, frm2)
+                    msg = 'incorrect induction hypothesis, expected\n' \
+                        + str(frm2) + '\nbut got\n' + str(new_frm1) \
+                        + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
+                    error(frm1.location, msg)
+                body_env = body_env.declare_local_proof_var(loc, x, frm2)
+
+              check_proof_of(indcase.body, goal, body_env)
+          case blah:
+            error(loc, "induction expected name of union, not " + str(typ)
+                  + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
 
     case SwitchProof(loc, subject, cases):
       new_subject = type_synth_term(subject, env, None, [])
@@ -1462,8 +1529,11 @@ def expand_definitions(loc, formula, defs, env):
     if isinstance(var, Var):
       reduced_one = False
 
+      print(f"red: {var}")
+
       reducible_names = []
       for var_name in var.resolved_names:
+          print(var_name)
           if var_name in env.dict.keys():
               binding = env.dict[var_name]
               if binding.visibility == 'opaque' \
@@ -2488,6 +2558,10 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
     
     case Trace(loc, name):
       return stmt, env
+    
+    case Inductive(loc, typ, name):
+      check_type(typ, env)
+      return stmt, env
   
     case _:
       error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
@@ -2626,10 +2700,68 @@ def type_check_stmt(stmt, env, already_done_imports : set):
   
     case Module(loc, name):
       return stmt
+
+    case Inductive(loc, ty, name):
+      return Inductive(loc, ty, name)
   
     case _:
       error(stmt.location, "type checking, unrecognized statement:\n" + str(stmt))
-  
+
+def validate_conjunct(loc, conj, fun):
+  match conj:
+    case All(loc1, _, (name, ty), pos, body):
+      pass
+    case Call(loc1, rator, args):
+      pass
+    case IfThen(loc1, prem, conc):
+      pass
+    case _:
+      error(loc, "invalid conjunct form")
+
+
+# TODO: This is kinda spaghetti, I should unfold a bit, write helpers
+# This returns the types, the conjuncts
+def match_induction(frm, ind_ty = None, fun=None, fun_ty=None):
+  tys = []
+  conjuncts = []
+
+  match frm:
+    case All(loc, _, (name, ty), pos, body):
+      match ty:
+        case TypeType():
+          tys.append(ty)
+        case FunctionType(loc3, tps, [param_ty], BoolType()):
+          if fun: error(loc, "Only one predicate allowed for induction")
+          ind_ty = param_ty
+          fun = name
+          fun_ty = ty
+          pass
+        case _:
+          error(loc, "Inductive invalid type")
+      a = match_induction(body, ind_ty = ind_ty, fun=fun, fun_ty=fun_ty)
+      a["tys"] += tys
+      return a
+    case IfThen(loc, typof, prem, conc):
+      # TODO: Validate form of the conjuncts
+      match prem:
+        case And(loc2, tyof, args):
+          conjuncts = args
+        case _:
+          conjuncts = [prem]
+
+      # Conclusion should be of the form all t : T. P(t)
+      match conc:
+        case All(_, typeof, (name, ty), pos, Call(loc, tyof, rator, [arg])):
+          # Also arg should be the name
+          assert(ty == ind_ty and rator.name == fun)
+        case _:
+          error(loc, "Inductive theorem invalid conclusion")
+      
+      return {"tys": tys, "conjuncts": conjuncts, "fun": fun, "ind_ty": ind_ty, "fun_ty": fun_ty}
+
+    case _:
+      error(frm.location, f"induction match error got {frm} \n \t {frm.var}")
+
 
 def collect_env(stmt, env : Env):
   if get_verbose():
@@ -2676,6 +2808,23 @@ def collect_env(stmt, env : Env):
     case Auto(loc, name):
       frm = env.get_formula_of_proof_var(name)
       return env.declare_auto_rewrite(loc, frm)
+    
+    case Inductive(loc, typ, name):
+      frm = env.get_formula_of_proof_var(name)
+
+      d = match_induction(frm)
+
+      if d: 
+        return env.declare_inductive(loc, d, name)
+      else:
+        error(loc, "Invalid inductive")
+
+      # Types, Predicate.
+      # IfThen, Ands, all
+
+      # Check that frm is a valid induction theorem, 
+      # then declare it with the things it needs in the environment
+
         
     case Associative(loc, typarams, op, typ):
       # Example proof of associativity:
@@ -2931,6 +3080,9 @@ def check_proofs(stmt, env: Env):
       pass
   
     case Associative(loc, typarams, op, typ):
+      pass
+  
+    case Inductive():
       pass
   
     case Module(loc, name):
