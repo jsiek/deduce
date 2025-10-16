@@ -13,7 +13,7 @@ proof
         replace append_empty
         .
     }
-    case node(x, xs') assume IH {
+    case node(x, xs') assume IH : all ys : List<U>. reverse(reverse(xs') ++ ys) = reverse(ys) ++ reverse(reverse(xs')) {
         arbitrary ys:List<U>
         expand reverse
         expand 2* operator ++

@@ -1377,8 +1377,7 @@ class Call(Term):
       return explicit_term_inst(flat_results[0])
     else:
       return Call(self.location, self.typeof,
-                  Var(loc, FunctionType(loc, [], params, returns),
-                      name, [name]),
+                  fun,
                   flat_results)
   
   def substitute(self, sub):
@@ -4627,7 +4626,8 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       if get_verbose():
           print('is_assoc? ' + str(is_assoc))
       if is_assoc:
-          args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+          # args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+          args = flatten_assoc_list(rator_name(rator), args)
       new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
       new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
       if get_verbose():
