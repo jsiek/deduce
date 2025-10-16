@@ -1,0 +1,25 @@
+import UInt
+import List
+
+lemma rev_rev_lemma2: all U:type. all xs : List<U>, ys :List<U>.
+    reverse(reverse(xs) ++ ys) = reverse(ys) ++ reverse(reverse(xs))
+proof
+    arbitrary U:type
+    induction List<U>
+    case [] {
+        arbitrary ys:List<U>
+        expand reverse
+        expand operator ++
+        replace append_empty
+        .
+    }
+    case node(x, xs') assume IH {
+        arbitrary ys:List<U>
+        expand reverse
+        expand 2* operator ++
+        replace IH[node(x, ys)]
+        expand reverse
+        replace IH[[x]]
+        evaluate
+    }
+end

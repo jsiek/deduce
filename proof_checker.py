@@ -1363,6 +1363,7 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       #print('new_formula: ' + str(new_formula))
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
+      new_formula = check_formula(new_formula, env)
       check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):
