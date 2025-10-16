@@ -1504,25 +1504,19 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     error(loc, 'incorrect number of arguments in call:\n\t' + str(call) \
           + '\n\texpected ' + str(len(param_types)) \
           + ' arguments, not ' + str(len(args)))
+  # We force associative operators to have the same param type
+  if is_assoc:
+    param_types = [param_types[0]] * len(args)
+
   if len(typarams) == 0:
     #print('type check call to regular: ' + str(call))
-    if is_assoc:
-      new_args = []
-      param_type = param_types[0]
-      for arg in args:
-        new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
-      if ret_ty != None and ret_ty != return_type:
-        error(loc, 'expected ' + str(ret_ty) \
-              + ' but the call returns ' + str(return_type))
-      return Call(loc, return_type, new_rator, new_args)
-    else:
-      new_args = []
-      for (param_type, arg) in zip(param_types, args):
-        new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
-      if ret_ty != None and ret_ty != return_type:
-        error(loc, 'expected ' + str(ret_ty) \
-              + ' but the call returns ' + str(return_type))
-      return Call(loc, return_type, new_rator, new_args)
+    new_args = []
+    for (param_type, arg) in zip(param_types, args):
+      new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
+    if ret_ty != None and ret_ty != return_type:
+      error(loc, 'expected ' + str(ret_ty) \
+            + ' but the call returns ' + str(return_type))
+    return Call(loc, return_type, new_rator, new_args)
   else:
     #print('type check call to generic: ' + str(call))
     matching = {}
