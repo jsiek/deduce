@@ -10,7 +10,7 @@ For your convenience, we've split up this doc into different sections to make it
 
 ## Updating site content
 
-Most of the pages on the site are generated into html from the markdown files found in the `/gh_pages/doc` directory. If you want to update the content for those pages, just update the markdown file and `/gh_pages/doc/convert.py` will do the rest for you.
+Most of the pages on the site are generated into html from the markdown files found in the `/gh_pages/doc` directory. If you want to update the content for those pages, just update the markdown file and `/gh_pages/scripts/convert.py` will do the rest for you.
 
 The only three pages that are not automatically generated from the markdown files are
 
