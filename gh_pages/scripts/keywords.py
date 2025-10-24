@@ -110,6 +110,7 @@ known_tokens = {
     'THEOREM': 'keyword',
     'POSTULATE': 'keyword',
     'TO': 'keyword',
+    'TRACE' : 'keyword',
     'TRANSITIVE': 'keyword',
     'TRUE': 'prim',
     'TYPE': 'type',
