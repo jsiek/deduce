@@ -1,0 +1,37 @@
+import Nat
+
+recfun fib(n : Nat) -> Nat
+  measure n of Nat
+{
+  if n < ℕ2 then n
+  else fib(n ∸ ℕ1) + fib(n ∸ ℕ2)
+}
+terminates {
+  arbitrary n:Nat
+  have A: if not (n < ℕ2) then n ∸ ℕ1 < n by {
+    assume prem: not (n < ℕ2)
+    have n1: ℕ1 ≤ n by {
+      have n2: ℕ2 ≤ n by apply not_less_implies_less_equal to prem
+      have lt_12: ℕ1 ≤ ℕ2 by evaluate
+      apply less_equal_trans to lt_12, n2
+    }
+    suffices ℕ1 + (n ∸ ℕ1) < ℕ1 + n  by add_both_sides_of_less[ℕ1,n∸ℕ1,n]
+    suffices n < ℕ1 + n by replace (apply monus_add_identity[n, ℕ1] to n1).
+    suffices n ≤ n by evaluate
+    less_equal_refl
+  }
+  have B: if not (n < ℕ2) then n ∸ ℕ2 < n by {
+    assume prem: not (n < ℕ2)
+    suffices ℕ1 + (n ∸ ℕ2) ≤ n by expand operator< replace nat_suc_one_add .
+    have n2: ℕ2 ≤ n by apply not_less_implies_less_equal to prem
+    have n_eq: n = ℕ2 + (n ∸ ℕ2) by symmetric apply monus_add_identity[n, ℕ2] to n2
+    define a = n ∸ ℕ2
+    replace n_eq
+    show ℕ1 + a ≤ ℕ2 + a
+    suffices a ≤ ℕ1 + a by add_both_sides_of_less_equal[ℕ1, a, ℕ1 + a]
+    less_equal_add_left
+  }
+  A, B
+}
+trace fib
+print fib(ℕ5)

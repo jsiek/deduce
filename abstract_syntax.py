@@ -14,6 +14,7 @@ infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2,
                     '∘': 7, '^' : 8}
 prefix_precedence = {'-': 9, 'not': 4}
+recursion_depth = 0
 
 def name2str(s):
     if get_unique_names():
@@ -1158,6 +1159,12 @@ def do_function_call(loc, name, type_params, type_args,
   add_reduced_def(name)
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
+
+  if env.get_tracing(name):
+    global recursion_depth
+    print('<' * recursion_depth, str(ret))
+    recursion_depth -= 1
+
   return explicit_term_inst(ret)
 
 
@@ -1247,6 +1254,11 @@ class Call(Term):
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):
+        if env.get_tracing(name):
+          global recursion_depth
+          recursion_depth += 1
+          print('>' * recursion_depth, str(base_name(name)) + '(' + str(' '.join([str(x) for x in args]) + ')'))
+
         subst = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, [], [], [x for (x,t) in params], args,
                                body, subst, env, None)
@@ -1299,6 +1311,11 @@ class Call(Term):
     if get_verbose():
       print('call to recursive function: ' + str(fun))
       print('\targs: ' + ', '.join([str(a) for a in args]))
+
+    if env.get_tracing(name):
+      global recursion_depth
+      recursion_depth += 1
+      print('>' * recursion_depth, str(base_name(name)) + '(' + str(' '.join([str(x) for x in args]) + ')'))
 
     if is_assoc and len(args) > len(params):
       return self.reduce_associative(loc, name, fun, type_params, type_args,
@@ -3602,6 +3619,19 @@ class Associative(Statement):
     full_base_name = '__associative_' + base
     export_env[full_base_name] = [full_name]
 
+@dataclass
+class Trace(Statement):
+  rec_fun: Var
+
+  def __str__(self):
+    return 'trace ' + str(self.rec_fun)
+
+  def uniquify(self, env):
+    self.rec_fun.uniquify(env)
+
+  def reduce(self, env):
+    self.rec_fun.reduce(env)
+
 # ---------------------
 # Auxiliary Functions
   
@@ -4152,6 +4182,13 @@ class Env:
     new_env = Env(self.dict)
     new_env.dict['__current_module__'] = module
     return new_env
+  
+  def declare_tracing(self, function_name: str):
+    new_env = Env(self.dict)
+    if 'tracing' not in new_env.dict:
+      new_env.dict['tracing'] = set()
+    new_env.dict['tracing'].add(function_name)
+    return new_env
 
   def get_current_module(self):
       return self.dict['__current_module__']
@@ -4162,6 +4199,7 @@ class Env:
     else:
       raise Exception('variable not in env: ' + name)
   
+
   def _type_of_term_var(self, curr, name):
     if name in curr.keys():
       binding = curr[name]
@@ -4276,6 +4314,9 @@ class Env:
     match tvar:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
+      
+  def get_tracing(self, function_name: str) -> bool:
+    return 'tracing' in self.dict and function_name in self.dict['tracing']
 
   def local_proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
