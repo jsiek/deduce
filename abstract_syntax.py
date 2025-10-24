@@ -1106,7 +1106,7 @@ def do_function_call(loc, name, type_params, type_args,
       ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
     if ret: 
       if get_verbose():
-        print(f"Doing fast arithmetic on call {self}.")
+        print(f"Doing fast arithmetic on call {x} {op} {y}.")
       ret.typeof = return_type
       fast_call = True
 
@@ -1394,8 +1394,7 @@ class Call(Term):
       return explicit_term_inst(flat_results[0])
     else:
       return Call(self.location, self.typeof,
-                  Var(loc, FunctionType(loc, [], params, returns),
-                      name, [name]),
+                  fun,
                   flat_results)
   
   def substitute(self, sub):
@@ -2226,7 +2225,7 @@ class PTLetNew(Proof):
   body: Proof
 
   def copy(self):
-      return PLetNew(self.location, self.var, self.rhs.copy(), self.body.copy())
+      return PTLetNew(self.location, self.var, self.rhs.copy(), self.body.copy())
   
   def pretty_print(self, indent):
       return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
@@ -2311,7 +2310,7 @@ class Cases(Proof):
   cases: List[Tuple[str,Formula,Proof]]
 
   def copy(self):
-      return Cases(self.location, self.subject.copy(), [(l, f.copy(), p.copy()) for (l,f,p) in cases])
+      return Cases(self.location, self.subject.copy(), [(l, f.copy(), p.copy()) for (l,f,p) in self.cases])
   
   def pretty_print(self, indent):
       cases_str = ''
@@ -2504,7 +2503,7 @@ class SomeIntro(Proof):
   body: Proof
 
   def copy(self):
-      return SomeIntro(self.location, [w.copy() for w in witnesses], self.body.copy())
+      return SomeIntro(self.location, [w.copy() for w in self.witnesses], self.body.copy())
 
   def pretty_print(self, indent):
     return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
@@ -2930,7 +2929,7 @@ class ApplyDefsFact(Proof):
                            self.subject.copy())
   
   def __str__(self):
-      return 'definition ' + ' | '.join([str(d) for d in self.definitions]) \
+      return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
@@ -2962,7 +2961,7 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def copy(self):
-      return RewriteFast(self.location,
+      return RewriteFact(self.location,
                          self.subject.copy(),
                          [p.copy() for p in self.equations])
   
@@ -4668,7 +4667,8 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       if get_verbose():
           print('is_assoc? ' + str(is_assoc))
       if is_assoc:
-          args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+          # args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+          args = flatten_assoc_list(rator_name(rator), args)
       new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
       new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
       if get_verbose():
