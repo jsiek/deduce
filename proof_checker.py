@@ -2902,7 +2902,7 @@ def check_proofs(stmt, env: Env):
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
-def check_deduce(ast, module_name, modified):
+def check_deduce(ast, module_name, modified, tracing_functions):
   env = Env()
   env = env.declare_module(module_name)
   ast2 = []
@@ -2916,6 +2916,14 @@ def check_deduce(ast, module_name, modified):
   if get_verbose():
     for s in ast2:
       print(s)
+  
+  for func_name in tracing_functions:
+    # TODO: base_to_unique is a hack so use another function instead
+    new_name = env.base_to_unique(func_name)
+    if new_name is None:
+      print("Couldn't find function to trace:", func_name)
+    else:
+      env = env.declare_tracing(new_name) 
 
   if get_verbose():
     print('--------- Type Checking ------------------------')

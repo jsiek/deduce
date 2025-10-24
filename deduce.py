@@ -18,7 +18,7 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected):
+def deduce_file(filename, error_expected, tracing_functions):
     if get_verbose():
         print("Deducing file:", filename)
     module_name = Path(filename).stem
@@ -53,7 +53,7 @@ def deduce_file(filename, error_expected):
                 print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
             add_uniquified_module(module_name, ast)
 
-        check_deduce(ast, module_name, True)
+        check_deduce(ast, module_name, True, tracing_functions)
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
@@ -76,14 +76,14 @@ def deduce_file(filename, error_expected):
             # during development, reraise
             # raise e
 
-def deduce_directory(directory, recursive_directories):
+def deduce_directory(directory, recursive_directories, tracing_functions):
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                deduce_file(fpath, error_expected)
+                deduce_file(fpath, error_expected, tracing_functions)
         elif recursive_directories and os.path.isdir(fpath):
-            deduce_directory(fpath, recursive_directories)
+            deduce_directory(fpath, recursive_directories, tracing_functions)
 
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
@@ -95,6 +95,7 @@ if __name__ == "__main__":
     stdlib_dir = os.path.join(os.path.dirname(sys.argv[0]), 'lib/')
     add_stdlib = True
     deducables = []
+    tracing_functions = []
     error_expected = False
     recursive_directories = False
     already_processed_next = False
@@ -129,6 +130,10 @@ if __name__ == "__main__":
             set_recursive_descent(False)
         elif argument == '--quiet':
             set_quiet_mode(True)
+        elif argument == '--trace':
+            if i + 1 < len(sys.argv):
+                tracing_functions.append(sys.argv[i+1])
+            already_processed_next = True
         elif argument == '--traceback':
             traceback_flag = True
         elif argument == '--recursive-directories' or argument == '-r':
@@ -164,9 +169,9 @@ if __name__ == "__main__":
 
     for deducable in deducables:
         if os.path.isfile(deducable):
-            deduce_file(deducable, error_expected)
+            deduce_file(deducable, error_expected, tracing_functions)
         elif os.path.isdir(deducable):
-            deduce_directory(deducable, recursive_directories)
+            deduce_directory(deducable, recursive_directories, tracing_functions)
         else:
             print(deducable, "was not found!")
             exit(1)
