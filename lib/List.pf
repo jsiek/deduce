@@ -257,7 +257,7 @@ proof
   }
 end
 
-lemma reverse_append: all U :type, xs :List<U>, ys :List<U>.
+theorem reverse_append: all U :type, xs :List<U>, ys :List<U>.
   reverse(xs ++ ys) = reverse(ys) ++ reverse(xs)
 proof
   arbitrary U :type

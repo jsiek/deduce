@@ -1,0 +1,25 @@
+import List
+
+theorem reverse_reverse: all U :type. all ls :List<U>.
+  reverse(reverse(ls)) = ls
+proof
+  arbitrary U :type
+  induction List<U>
+  case [] {
+    conclude reverse(reverse(@[]<U>)) = []   by expand reverse.
+  }
+  case node(n, ls') suppose IH: reverse(reverse(ls')) = ls' {
+    equations
+      reverse(reverse(node(n,ls')))
+          = reverse(reverse(ls') ++ [n])           by expand reverse.
+      ... = reverse([n]) ++ reverse(reverse(ls'))  by reverse_append<U>[reverse(ls')][[n]]
+      ... = reverse([n]) ++ ls'                    by replace IH.
+      ... = node(n,ls')                            by {
+      expand 2*reverse
+      show @[]<U> ++ [n] ++ ls' = node(n, ls')
+      expand 2*operator++
+      show node(n, @[]<U> ++ ls') = node(n, ls')
+      expand operator++.
+    }
+  }
+end
