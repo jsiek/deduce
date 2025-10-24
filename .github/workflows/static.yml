@@ -68,7 +68,7 @@ jobs:
 
         # Run the Python code block syntax generate script
       - name: Run lib generate script
-        run: python ./gh_pages/scripts/code_block_syntax_generate.py
+        run: python ./gh_pages/scripts/code_block_syntax_generator.py
 
       # Convert scss to css
       - name: Convert scss to css
