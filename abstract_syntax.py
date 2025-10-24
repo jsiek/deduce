@@ -4630,8 +4630,8 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
           args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
       new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
       new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
-      if get_verbose():
-          print('while tyring to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
+      if False and get_verbose():
+          print('while trying to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
       (lhs,rhs) = split_equation(loc2, equation)
       arity = call_arity(lhs)
@@ -4717,7 +4717,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
 
 def try_rewrite(loc, formula, equation, env):
   (lhs, rhs) = split_equation(loc, equation)
-  if get_verbose():
+  if False and get_verbose():
       print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
   matching = {}
   eq_vars = equation_vars(equation)
@@ -4725,12 +4725,12 @@ def try_rewrite(loc, formula, equation, env):
   # print('rewriting using: ' + str(equation) + '\n' \
   #       + '\t' + str(formula) \
   #       + '\t==> ' + str(rhs.substitute(matching)) + '\n')
-  if get_verbose():
+  if False and get_verbose():
       print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
   return rhs.substitute(matching).reduce(env)
 
 def formula_match(loc, vars, pattern_frm, frm, matching, env):
-  if get_verbose():
+  if False and get_verbose():
     print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
     print("\tin  " + ','.join([str(x) for x in vars]))
     print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
@@ -4766,7 +4766,7 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
         
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
-      if get_verbose():
+      if False and get_verbose():
           print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
                 + '\trator formula: ' + str(rator))
       formula_match(loc, vars, goal_rator, rator, matching, env)

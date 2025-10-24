@@ -183,7 +183,7 @@ def pattern_to_term(pat):
       error(pat.location, "expected a pattern, not " + str(pat))
 
 def rewrite(loc, formula, equation, env):
-    if get_verbose():
+    if False and get_verbose():
         print('rewriting ' + str(formula) + '\n\twith ' + str(equation))
     num_marks = count_marks(formula)
     if num_marks == 0:
