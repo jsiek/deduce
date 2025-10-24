@@ -1609,7 +1609,7 @@ def parse_define(visibility):
 
 statement_keywords = {'assert', 'define', 'import', 'print',
                       'theorem', 'lemma', 'postulate', 'recursive', 'fun',
-                      'union' }
+                      'trace', 'union' }
 
 def parse_statement():
   if end_of_file():
@@ -1717,6 +1717,13 @@ def parse_statement():
     name = parse_identifier()
     meta = meta_from_tokens(token, previous_token())
     return Module(meta, name)
+
+  elif token.type == 'TRACE':
+    advance()
+    fun = parse_identifier()
+    my_meta = meta_from_tokens(token, previous_token())
+    var_meta = meta_from_tokens(previous_token(), previous_token())
+    return Trace(my_meta, Var(var_meta, None, fun, []))
 
   else:
     for kw in statement_keywords:

@@ -1,0 +1,15 @@
+import UInt
+
+union nelist<T> {
+    one(T)
+    ls(T, nelist<T>)
+}
+
+recursive nelen<T>(nelist<T>) -> UInt {
+    nelen(one(x)) = 1
+    nelen(ls(x, xs)) = 1 + nelen(xs)
+}
+trace nelen
+trace nelen
+
+print nelen(ls(1, one(2)))

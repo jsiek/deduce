@@ -1,0 +1,22 @@
+import List
+import UInt
+
+recursive insert(List<UInt>, UInt) -> List<UInt> {
+    insert([], i) = [i]
+    insert(node(h, t), i) = if i < h then 
+                                      node(i, node(h, t))
+                                   else node(h, insert(t, i))
+}
+
+recursive insertionSortAcc(List<UInt>, List<UInt>) -> List<UInt> {
+    insertionSortAcc([], acc) = acc
+    insertionSortAcc(node(h,t), acc) = insertionSortAcc(t, insert(acc, h))
+}
+
+fun insertionSort(toSort : List<UInt>) {
+    insertionSortAcc(toSort, [])
+}
+
+trace insert
+trace insertionSortAcc
+print insertionSort([5, 4, 3, 2, 1])
