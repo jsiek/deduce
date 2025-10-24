@@ -2686,8 +2686,8 @@ def collect_env(stmt, env : Env):
       else:
           error(loc, 'Could not find a proof of\n\t' + str(assoc_formula))
   
-    case Trace(loc, recfun_name):
-      return env.declare_tracing(recfun_name.get_name())
+    case Trace(loc, function_name):
+      return env.declare_tracing(function_name.get_name())
 
     case _:
       error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
@@ -2896,7 +2896,7 @@ def check_proofs(stmt, env: Env):
     case Module(loc, name):
       pass
 
-    case Trace(loc, recfun_name):
+    case Trace(loc, function_name):
       pass
 
     case _:

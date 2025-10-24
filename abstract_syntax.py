@@ -4183,11 +4183,11 @@ class Env:
     new_env.dict['__current_module__'] = module
     return new_env
   
-  def declare_tracing(self, recfun_name: str):
+  def declare_tracing(self, function_name: str):
     new_env = Env(self.dict)
     if 'tracing' not in new_env.dict:
       new_env.dict['tracing'] = set()
-    new_env.dict['tracing'].add(recfun_name)
+    new_env.dict['tracing'].add(function_name)
     return new_env
 
   def get_current_module(self):
@@ -4315,8 +4315,8 @@ class Env:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
       
-  def get_tracing(self, recfun_name: str) -> bool:
-    return 'tracing' in self.dict and recfun_name in self.dict['tracing']
+  def get_tracing(self, function_name: str) -> bool:
+    return 'tracing' in self.dict and function_name in self.dict['tracing']
 
   def local_proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
