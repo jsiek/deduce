@@ -22,6 +22,7 @@ and 5 make use of the table below.
 | `P and Q`      |  `,` [Comma](./Reference.md#comma-logical-and-introduction) | (1) implicitly proves `P`, (2) implicitly proves `Q` |
 | `P or Q`      | (1) implicit from `P`, (2) implicit from `Q` | [`cases`](./Reference.md#cases-disjunction-elimination) |
 | `if P then Q` | [`assume`](./Reference.md#assume) | [`apply`-`to`](./Reference.md#apply-to-proof-modus-ponens) |
+| `not P`       | [`assume`](./Reference.md#assume) | [`apply`-`to`](./Reference.md#apply-to-proof-modus-ponens) |
 | `all x:T. P`  | [`arbitrary`](./Reference.md#arbitrary-forall-introduction), [`induction`](./Reference.md#induction) | [brackets](./Reference.md#instantiation-proof) |
 | `some x:T. P` | [`choose`](./Reference.md#choose-exists-introduction) | [`obtain`](./Reference.md#obtain-exists-elimination) |
 | `x = y`    | [`symmetric`](./Reference.md#symmetric-proof), [`transitive`](./Reference.md#transitive-proof), [`equations`](./Reference.md#equations), [`definition`](./Reference.md#definition-proof), [`replace`](./Reference.md#replace-proof) | [`symmetric`](./Reference.md#symmetric-proof), [`transitive`](./Reference.md#transitive-proof), [`replace`](./Reference.md#replace-proof), [`replace`-`in`](./Reference.md#replace-in-proof) |
