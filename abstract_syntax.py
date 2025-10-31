@@ -556,6 +556,30 @@ class PatternCons(Pattern):
     
   def reduce(self, env):
     return self
+
+@dataclass
+class PatternTerm(Pattern):
+  term: Term
+  parameters: list[str]
+
+  def bindings(self):
+    return self.parameters
+
+  def copy(self):
+    return PatternTerm(self.location, self.term.copy(), [x for x in self.parameters])
+
+  def __str__(self):
+    return str(self.term)
+
+  def uniquify(self, env):
+    # Do some parameter discovery, while also uniquifying things
+    # For now, only do the var nodes
+    # This should also fill up the parameters
+    pass
+  
+  # def reduce(self, env):
+  
+
     
 ################ Terms ######################################
 
@@ -711,17 +735,18 @@ class Var(Term):
   def copy(self):
     return Var(self.location, self.typeof, self.name, self.resolved_names)
   
+  # TODO: These get_names seem sketchy
   def __eq__(self, other):
       if isinstance(other, RecFun):
-        result = self.name == other.name
+        result = self.get_name() == other.name
       elif isinstance(other, GenRecFun):
-        result = self.name == other.name
+        result = self.get_name() == other.name
       elif isinstance(other, TermInst):
         result = self == other.subject
       elif not isinstance(other, Var):
         result = False
       else:
-        result = self.name == other.name
+        result = self.get_name() == other.name
       return result
   
   def __str__(self):
@@ -768,6 +793,8 @@ class Var(Term):
         return self
   
   def substitute(self, sub):
+      if len(self.resolved_names) == 1:
+        self.name = self.resolved_names[0]
       if self.name in sub:
           trm = sub[self.name]
           if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
@@ -2756,7 +2783,7 @@ class PExtensionality(Proof):
     
 @dataclass
 class IndCase(AST):
-  pattern: Term
+  pattern: Pattern
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
@@ -2784,14 +2811,14 @@ class IndCase(AST):
     # Only allow var nodes that are free that aren't a part of a union
     # TODO: Ask jeremy what he thinks about adding state
     # ALT: Every free variable, set them equal to the original version later?
-    ind_params = {}
-
-    self.pattern.uniquify(ind_params)
 
     new_params = [generate_name(x) for x in self.pattern.parameters]
-    # for (old,new) in zip(self.pattern.parameters, new_params):
-    for old, new in ind_params:
+    for (old,new) in zip(self.pattern.parameters, new_params):
+    # for old, new in ind_params:
       overwrite(body_env, old, new, self.location)
+
+    if hasattr(self.pattern, "term"):
+      self.pattern.term.uniquify(body_env)
 
     new_hyps = [(generate_name(x),f) for (x,f) in self.induction_hypotheses]
     for ((old,old_frm),(new,new_frm)) in zip(self.induction_hypotheses, new_hyps):

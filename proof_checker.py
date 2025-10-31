@@ -1239,9 +1239,10 @@ def check_proof_of(proof, formula, env):
 
       # Look for existence of custom induction
       custom_ind = env.get_inductive(typ.name)
-
+      # custom_ind = False
 
       if custom_ind:
+        print("Using custom induction")
         conjuncts = custom_ind["conjuncts"]
         fun_name = custom_ind["fun"]
         ind_ty = custom_ind["ind_ty"]
@@ -1258,10 +1259,10 @@ def check_proof_of(proof, formula, env):
         fun_var = Var(loc, fun_ty, fun_name, [fun_name])
 
         # TODO: Validate conjuncts and cases match up correctly - first
-        # And need to update the parser
+        # And need to update the rec_desc_parser
 
         # TODO: These should have better names / be hidden / etc. 
-          # so that the user doesn't have to worry
+          # so that the user doesn't have to worry about them polluting the space while proving?
         names = [generate_name("case") for _ in conjuncts]
 
         thms_to_apply = [PVar(loc, name) for name in names]
@@ -1271,7 +1272,6 @@ def check_proof_of(proof, formula, env):
 
         ind_conclusion = ApplyDefsFact(loc, 
                                        [fun_var],
-                                       #function_name,  #Should be a term (var)
                                         ModusPonens(loc, 
                                                     AllElim(loc, custom_ind["thm"], fun_var,  (0, 1)),
                                                     PTuple(loc, thms_to_apply)))
@@ -1282,10 +1282,17 @@ def check_proof_of(proof, formula, env):
         for i, (conjunct, case) in enumerate(reversed(list(zip(conjuncts, cases)))):
           # TODO: Prepend some stuff needed to case.body
             # Namely assume prem_n
-          new_body = ApplyDefsGoal(loc, [fun_var], case.body)
+            # Also arbitrary for each of the things in the case
+
+
+          new_body = generate_conjunct_body(loc, conjunct, case, fun_var, {}, env)
+          new_body = ApplyDefsGoal(loc, [fun_var], new_body)
+
 
           # TODO: Issue with an evaluate proof sometimes :)
             # But only when I don't do my own expand, idk
+          # TODO: Problem here using m / variable from the induction, 
+          # instead of the provided variable
           plets = PLet(loc, names[i], conjunct, new_body, plets)
 
 
@@ -1529,11 +1536,11 @@ def expand_definitions(loc, formula, defs, env):
     if isinstance(var, Var):
       reduced_one = False
 
-      print(f"red: {var}")
+      # print(f"red: {var}")
 
       reducible_names = []
       for var_name in var.resolved_names:
-          print(var_name)
+          # print(var_name)
           if var_name in env.dict.keys():
               binding = env.dict[var_name]
               if binding.visibility == 'opaque' \
@@ -2718,6 +2725,61 @@ def validate_conjunct(loc, conj, fun):
     case _:
       error(loc, "invalid conjunct form")
 
+# def generate_ind_case_name(loc, conjunct):
+  # match conjunct:
+    # case All():
+      # Hmm
+    # case IfThen():
+      # Look for a call in the conclusion
+    # case Call():
+      # Use the argument of the call as the name
+    # case _:
+      # Error for now
+
+# Can we use case.pattern.parameters? Maybe... - we would need the types
+
+# TODO: Make sure that case matches still
+def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env):
+  print("gen_conj", conjunct, type(conjunct))
+  match conjunct:
+    case All(loc, _, (name, ty), _, body):
+      # TODO: Here use the variable name provided for the all
+      # TODO: Does it need to be in some order? - I'll enforce it for now
+      if case.pattern.parameters == []:
+        error(loc, "No available params")
+      # TODO: This is really slapdash
+      inst_name = case.pattern.parameters[0]
+      subst[inst_name]= Var(loc, ty, name, [name])
+      env = env.declare_term_var(loc, inst_name, ty)
+      # TODO: This does some IH breaking
+      # case = case.copy()
+      case.pattern.parameters = case.pattern.parameters[1:]
+      return AllIntro(loc, (inst_name, ty), (1, 1), generate_conjunct_body(loc, body, case, fun_var, subst, env))
+    case IfThen(loc, ty, prem, conc):
+      # TODO: This also feels incredibly sketchy
+      ind_hyp = generate_name("_")
+      if len(case.induction_hypotheses) > 0:
+        ind_hyp = case.induction_hypotheses[0][0]
+        case.induction_hypotheses = case.induction_hypotheses[1:]
+      return ImpIntro(loc, ind_hyp, None, generate_conjunct_body(loc, conc, case, fun_var, subst, env))
+    case Call(loc, ty, rator, [arg]):
+      # The arg needs to match with the case
+      # Do a substitution in the case, changing the parameters for the names in the all
+      # Problem, if it's 0 or something it will be annoying?
+      if (hasattr(case.pattern, "term")):
+        print(subst)
+        # TODO: I might need a reduce??
+        type_check_term(case.pattern.term, arg.typeof, env, None, [])
+
+        new_case = case.pattern.term.copy()
+        new_case = new_case.substitute(subst)
+        if new_case != arg:
+          error(loc, "Induction pattern didn't match\n\t" + str(new_case) + " /= " + str(arg))
+
+      # assert arg = case.pattern.term?
+      return case.body
+    case _:
+      return case.body
 
 # TODO: This is kinda spaghetti, I should unfold a bit, write helpers
 # This returns the types, the conjuncts

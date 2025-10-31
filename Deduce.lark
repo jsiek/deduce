@@ -147,9 +147,9 @@ ident: IDENT              -> ident
     | ":" term "," assumption_list                 -> push_anon_binding
     | ident "," assumption_list                    -> push_var
 
-?ind_case: "case" term "{" proof "}"            -> ind_case
-    | "case" term "suppose" assumption_list "{" proof "}" -> ind_case_assume
-    | "case" term "assume" assumption_list "{" proof "}" -> ind_case_assume
+?ind_case: "case" pattern "{" proof "}"            -> ind_case
+    | "case" pattern "suppose" assumption_list "{" proof "}" -> ind_case_assume
+    | "case" pattern "assume" assumption_list "{" proof "}" -> ind_case_assume
 
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push
@@ -277,6 +277,7 @@ ident: IDENT              -> ident
     | "false"                                    -> pattern_false
     | "[" "]"                                    -> pattern_empty_list
     | IDENT "(" ident_list ")"                   -> pattern_apply
+    | "with" ident_list "." term            -> pattern_term
 
 ?param_list:                                      -> empty
     | pattern                                       -> single
