@@ -1,0 +1,13 @@
+// induction
+union UnionBlah {
+	A
+	B
+}
+
+theorem inductionTLet: (define R = all U: UnionBlah.
+	U = A or U = B; R)
+proof
+	induction UnionBlah
+	case A { . }
+	case B { . }
+end

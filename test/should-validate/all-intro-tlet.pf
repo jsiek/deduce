@@ -1,0 +1,8 @@
+// all intro
+theorem allIntroTLet:
+	(define R = all P: bool. if P then P; R)
+proof
+	arbitrary P: bool
+	assume: P
+	recall P
+end

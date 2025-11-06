@@ -1,0 +1,8 @@
+// imp intro
+theorem impIntroTLet : all P: bool.
+	(define R = if P then P; R)
+proof
+	arbitrary P:bool
+	assume prem
+	prem
+end
