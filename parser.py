@@ -652,7 +652,6 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'inductive_decl':
         ty = parse_tree_to_ast(e.children[0], e)
         thm = parse_tree_to_ast(e.children[1], e)
-        print(thm)
         return Inductive(e.meta, ty, thm)
     
     

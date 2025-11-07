@@ -4100,6 +4100,18 @@ class AssociativeBinding(Binding):
       + ' ' + ', '.join(type_params_str(type_params) + str(t) \
                         for (type_params, t) in self.types)
 
+
+# TODO: Move this helper somewhere else
+def get_ind_type_hash(typ):
+  match typ:
+    # HEre it's just a union or something
+    case Var(): return typ.name
+    case TypeInst(loc, ty, ps):
+      return get_ind_type_hash(ty)
+    case _:
+      print(type(typ), type)
+      error("Unsupport inductive:")
+
 class Env:
   def __init__(self, env = None):
     if env:
@@ -4212,26 +4224,35 @@ class Env:
     full_name = '__inductive__'
     typ = ind_dict["ind_ty"]
     ind_dict["thm"] = thm
+    # TODO: SHould be repr, need to change elsewhere too
+    type_name = get_ind_type_hash(typ)
+
+    # type could be a var, but it could also be 
+    # TypeType / TypeInst
+
+
+    print("BLAH", type_name)
 
     if full_name in new_env.dict:
-      if typ.name in new_env.dict[full_name]:
+      if type_name in new_env.dict[full_name]:
         pass
       else:
-        new_env.dict[full_name][typ.name] = ind_dict
+        new_env.dict[full_name][type_name] = ind_dict
       # Check for type, overwrite/ add to existing
       pass
     else:
       new_env.dict[full_name] = {}
-      new_env.dict[full_name][typ.name] = ind_dict
+      new_env.dict[full_name][type_name] = ind_dict
 
     
     return new_env
 
   def get_inductive(self, typ):
     full_name = '__inductive__'
+    type_name = get_ind_type_hash(typ)
     if full_name in self.dict:
-      if typ in self.dict[full_name]:
-        return self.dict[full_name][typ]
+      if type_name in self.dict[full_name]:
+        return self.dict[full_name][type_name]
 
     return None
 

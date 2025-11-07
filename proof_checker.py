@@ -1238,15 +1238,36 @@ def check_proof_of(proof, formula, env):
       # Problem, no resolved names
 
       # Look for existence of custom induction
-      custom_ind = env.get_inductive(typ.name)
+      custom_ind = env.get_inductive(typ)
       # custom_ind = False
 
       if custom_ind:
         print("Using custom induction")
         conjuncts = custom_ind["conjuncts"]
         fun_name = custom_ind["fun"]
+        # TODO: This isn't used at all!
         ind_ty = custom_ind["ind_ty"]
         fun_ty = custom_ind['fun_ty']
+        # Should bind these to the typeinst parsed from typ
+        # Do a subsitute!!!
+        type_vars = custom_ind['tys'] 
+        type_subst = {}
+
+        types_elimmed = custom_ind["thm"]
+
+        if type_vars != []:
+          match typ:
+            case TypeInst(loc, t, params):
+              # Params should line up with type vars
+              # Then do type_subst in each of the conjuncts
+              # Dict should map from type_vars -> params
+              for k, v in zip(type_vars, params):
+                print("type_subst", k, v)
+                type_subst[k] = v
+                types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
+            case _:
+              error("Expected a type inst")
+
 
         # TODO:
         # Use formula to create the predicate we need
@@ -1254,51 +1275,26 @@ def check_proof_of(proof, formula, env):
         # Because comes from the conjuncts of the induction
         # Match ind_case patterns against each of the preds we need to prove
         
-
         pfun = Lambda(loc, fun_ty, [function_var], ind_frm)
         fun_var = Var(loc, fun_ty, fun_name, [fun_name])
 
-        # TODO: Validate conjuncts and cases match up correctly - first
-        # And need to update the rec_desc_parser
+        annots = []
 
-        # TODO: These should have better names / be hidden / etc. 
-          # so that the user doesn't have to worry about them polluting the space while proving?
-        names = [generate_name("case") for _ in conjuncts]
-
-        thms_to_apply = [PVar(loc, name) for name in names]
-
-        # TODO: Figure out how to handle induction type variables (all elim_types)
-        print(type(function_var[0]))
-
-        ind_conclusion = ApplyDefsFact(loc, 
-                                       [fun_var],
-                                        ModusPonens(loc, 
-                                                    AllElim(loc, custom_ind["thm"], fun_var,  (0, 1)),
-                                                    PTuple(loc, thms_to_apply)))
-        
-        
-        plets = ind_conclusion
-
-        for i, (conjunct, case) in enumerate(reversed(list(zip(conjuncts, cases)))):
-          # TODO: Prepend some stuff needed to case.body
-            # Namely assume prem_n
-            # Also arbitrary for each of the things in the case
-
-
-          new_body = generate_conjunct_body(loc, conjunct, case, fun_var, {}, env)
+        for (conjunct, case) in zip(conjuncts, cases):
+          conjunct = conjunct.substitute(type_subst)
+          new_body = generate_conjunct_body(loc, conjunct, case, fun_var, {}, env, type_subst)
           new_body = ApplyDefsGoal(loc, [fun_var], new_body)
 
-
-          # TODO: Issue with an evaluate proof sometimes :)
-            # But only when I don't do my own expand, idk
-          # TODO: Problem here using m / variable from the induction, 
-          # instead of the provided variable
-          plets = PLet(loc, names[i], conjunct, new_body, plets)
-
-
-        # AllIntro
-        new_pf = PTLetNew(loc, fun_name, pfun, plets)
-        # new_pf = AllIntro(loc, function_var, (0, 1), new_pf)
+          annot = PAnnot(loc, conjunct, new_body)
+          annots.append(annot)
+        
+        conclude = ApplyDefsFact(loc, 
+                                       [fun_var],
+                                        ModusPonens(loc, 
+                                                    AllElim(loc, types_elimmed, fun_var,  (0, 1)),
+                                                    PTuple(loc, annots)))
+        
+        new_pf = PTLetNew(loc, fun_name, pfun, conclude)
         print("Generated induction")
         print(new_pf)
         
@@ -1890,7 +1886,7 @@ def type_synth_term(term, env, recfun, subterms):
         ty = env.get_type_of_term_var(term)
         if ty == None:
           raise Exception('while type checking, undefined variable ' + str(term) \
-                + '\nin scope:\n' + str(env))
+                + '\nin scope:\n' + 'str(env)')
       except Exception as e:
         error(loc, str(e))
       match ty:
@@ -2153,7 +2149,7 @@ def type_check_term(term, typ, env, recfun, subterms):
           print('var_typ = ' + str(var_typ))
       if var_typ == None:
         error(loc, 'variable ' + str(term) + ' is not defined' \
-              + '\nin scope:\n' + str(env))
+              + '\nin scope:\n' + 'str(env)')
       match (var_typ, typ):
         case (OverloadType(loc2, overloads), _):
           for (x, ty) in overloads:
@@ -2725,21 +2721,9 @@ def validate_conjunct(loc, conj, fun):
     case _:
       error(loc, "invalid conjunct form")
 
-# def generate_ind_case_name(loc, conjunct):
-  # match conjunct:
-    # case All():
-      # Hmm
-    # case IfThen():
-      # Look for a call in the conclusion
-    # case Call():
-      # Use the argument of the call as the name
-    # case _:
-      # Error for now
 
-# Can we use case.pattern.parameters? Maybe... - we would need the types
-
-# TODO: Make sure that case matches still
-def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env):
+# TODO: I can think subst and type_subst are mergeable
+def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, type_subst):
   print("gen_conj", conjunct, type(conjunct))
   match conjunct:
     case All(loc, _, (name, ty), _, body):
@@ -2754,14 +2738,14 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env):
       # TODO: This does some IH breaking
       # case = case.copy()
       case.pattern.parameters = case.pattern.parameters[1:]
-      return AllIntro(loc, (inst_name, ty), (1, 1), generate_conjunct_body(loc, body, case, fun_var, subst, env))
+      return AllIntro(loc, (inst_name, ty), (1, 1), generate_conjunct_body(loc, body, case, fun_var, subst, env, type_subst))
     case IfThen(loc, ty, prem, conc):
       # TODO: This also feels incredibly sketchy
       ind_hyp = generate_name("_")
       if len(case.induction_hypotheses) > 0:
         ind_hyp = case.induction_hypotheses[0][0]
         case.induction_hypotheses = case.induction_hypotheses[1:]
-      return ImpIntro(loc, ind_hyp, None, generate_conjunct_body(loc, conc, case, fun_var, subst, env))
+      return ImpIntro(loc, ind_hyp, None, generate_conjunct_body(loc, conc, case, fun_var, subst, env, type_subst))
     case Call(loc, ty, rator, [arg]):
       # The arg needs to match with the case
       # Do a substitution in the case, changing the parameters for the names in the all
@@ -2769,12 +2753,17 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env):
       if (hasattr(case.pattern, "term")):
         print(subst)
         # TODO: I might need a reduce??
-        type_check_term(case.pattern.term, arg.typeof, env, None, [])
+        # This should get substituted too
+        # 
+        print("ARG", arg.typeof)
+        type_check_term(case.pattern.term, arg.typeof.substitute(type_subst), env, None, [])
 
         new_case = case.pattern.term.copy()
         new_case = new_case.substitute(subst)
         if new_case != arg:
-          error(loc, "Induction pattern didn't match\n\t" + str(new_case) + " /= " + str(arg))
+          # TODO: Use the version with the variable the user typed
+          error(loc, "Induction pattern didn't match\n\t" + str(case.pattern.term) + " /= " + str(arg))
+      # TODO: else: Check if it's a zero or empty list cons (ask jeremy)
 
       # assert arg = case.pattern.term?
       return case.body
@@ -2791,7 +2780,7 @@ def match_induction(frm, ind_ty = None, fun=None, fun_ty=None):
     case All(loc, _, (name, ty), pos, body):
       match ty:
         case TypeType():
-          tys.append(ty)
+          tys.append(name)
         case FunctionType(loc3, tps, [param_ty], BoolType()):
           if fun: error(loc, "Only one predicate allowed for induction")
           ind_ty = param_ty
@@ -2801,10 +2790,11 @@ def match_induction(frm, ind_ty = None, fun=None, fun_ty=None):
         case _:
           error(loc, "Inductive invalid type")
       a = match_induction(body, ind_ty = ind_ty, fun=fun, fun_ty=fun_ty)
-      a["tys"] += tys
+      a["tys"] = tys + a["tys"] # TODO: Verify this order is correct
       return a
     case IfThen(loc, typof, prem, conc):
       # TODO: Validate form of the conjuncts
+      # I know that I'm doing this longer
       match prem:
         case And(loc2, tyof, args):
           conjuncts = args
