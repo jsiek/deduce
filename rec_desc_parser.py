@@ -1712,6 +1712,20 @@ def parse_statement():
     meta = meta_from_tokens(token, previous_token())
     return Associative(meta, typarams, Var(meta, None, name, []), typ)
 
+  elif token.type == 'INDUCTIVE':
+    start = current_token()
+    advance()
+    ty = parse_type()
+    if current_token().type != 'BY':
+        raise ParseError(meta_from_tokens(current_token(), current_token()),
+              'expected "by" after type part of "inductive", not\n\t' \
+              + current_token().value)
+    advance()
+    pf = parse_proof_hi()
+    meta = meta_from_tokens(start, current_token())
+    return Inductive(meta, ty, pf)
+
+
   elif token.type == 'MODULE':
     advance()
     name = parse_identifier()
@@ -1931,6 +1945,26 @@ def parse_pattern():
     advance()
     meta = meta_from_tokens(current_token(), current_token())
     return PatternBool(meta, False)
+  elif current_token().type == 'WITH':
+    # TODO: This is sketchy
+    start_token = current_token()
+    advance()
+    if current_token().type != 'LBRACE':
+      raise ParseError(meta_from_tokens(current_token(),current_token()),
+            'expected a "{" after "with", not\n\t' \
+            + quote(current_token().value))
+    advance()
+    idents = parse_ident_list()
+    if current_token().type != 'RBRACE':
+      raise ParseError(meta_from_tokens(current_token(),current_token()),
+            'expected a "}" after idents, not\n\t' \
+            + quote(current_token().value))
+    advance()
+    if current_token().type != "DOT":
+      raise ParseError(meta_from_tokens(current_token(), current_token()), "IDK BRO")
+    advance()
+    term = parse_term()
+    return PatternTerm(meta_from_tokens(start_token, current_token()), term, idents)
   else:
     start_token = current_token()
     try:
