@@ -1,0 +1,9 @@
+// switch
+theorem switch_proof_example: all x:bool. define g=x; g = true or g = false
+proof
+  arbitrary x:bool
+  switch x {
+    case true { . }
+    case false { . }
+  }
+end

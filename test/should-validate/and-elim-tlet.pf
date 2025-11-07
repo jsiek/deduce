@@ -1,0 +1,10 @@
+// and elim
+theorem andElimTLet: all P : bool.
+  if (define R = true and P; R) then 
+  P
+proof
+  arbitrary P : bool
+  assume prem
+  have _ : P by conjunct 1 of prem
+  recall P
+end

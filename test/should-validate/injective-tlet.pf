@@ -1,0 +1,13 @@
+// injective (already works)
+union UnionBleh {
+	B
+	C(UnionBleh)
+}
+
+theorem injectiveTLet: all a:UnionBleh, b:UnionBleh.
+	if (define R = C(a) = C(b); R) then a = b
+proof
+	arbitrary a:UnionBleh, b:UnionBleh
+	assume prem
+	injective C prem
+end

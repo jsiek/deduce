@@ -250,11 +250,15 @@ def isolate_difference(term1, term2):
       case _:
         return (term1, term2)
 
-def collect_all_if_then(loc, frm):
+def collect_all_if_then(loc, frm, env):
     """Returns a list of all variables that need be instantiated, and anythings that need applied"""
+
+    if isinstance(frm, TLet):
+      frm = frm.reduceLets(env)
+
     match frm:
       case All(loc2, tyof, var, _, frm):
-        (rest_vars, mps) = collect_all_if_then(loc, frm)
+        (rest_vars, mps) = collect_all_if_then(loc, frm, env)
         x, t = var
         return ([Var(loc2, t, x, [])] + rest_vars, mps)
       case IfThen(loc2, tyof, prem, conc):
@@ -263,7 +267,7 @@ def collect_all_if_then(loc, frm):
         mps1 = []
         for arg in args:
           try:
-            (rest_vars, mps) = collect_all_if_then(loc, arg)
+            (rest_vars, mps) = collect_all_if_then(loc, arg, env)
           except:
             continue
           # Making the executive decision that we can't apply for alls nested within ands
@@ -382,6 +386,10 @@ def check_proof(proof, env):
       
     case PAndElim(loc, which, subject):
       formula = check_proof(subject, env)
+      # formula = formula.reduce(env)
+      if isinstance(formula, TLet):
+        formula = formula.reduceLets(env)
+      
       match formula:
         case And(loc2, tyof, args):
           if which >= len(args):
@@ -401,7 +409,7 @@ def check_proof(proof, env):
       conc = check_proof(body, body_env)
       ret = IfThen(loc, BoolType(loc), new_prem, conc)
       
-    case AllIntro(loc, var, pos, body):
+    case AllIntro(loc, var, pos, body):      
       body_env = env
       x, ty = var
       check_type(ty, env)
@@ -414,6 +422,10 @@ def check_proof(proof, env):
       
     case AllElim(loc, univ, arg, pos):
       allfrm = check_proof(univ, env)
+
+      if isinstance(allfrm, TLet):
+        allfrm = allfrm.reduceLets(env)
+      
       match allfrm:
         case All(loc2, tyof, var, _, frm):
           sub = {}
@@ -439,6 +451,10 @@ def check_proof(proof, env):
 
     case AllElimTypes(loc, univ, type_arg, _):
       allfrm = check_proof(univ, env)
+
+      if isinstance(allfrm, TLet):
+        allfrm = allfrm.reduceLets(env)
+
       match allfrm:
         case All(loc2, tyof, vars, _, frm):
           sub = {}
@@ -452,7 +468,6 @@ def check_proof(proof, env):
       return instantiate(loc, allfrm, type_arg)
   
     case ModusPonens(loc, imp, arg):
-
       ifthen = check_proof(imp, env)
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
@@ -468,7 +483,7 @@ def check_proof(proof, env):
           check_proof_of(arg, prem, env)
           ret = conc.reduce(env)
         case And(loc2, tyof, args):
-          vars, imps = collect_all_if_then(loc, ifthen)
+          vars, imps = collect_all_if_then(loc, ifthen, env)
           arg_frm = check_proof(arg, env)
           rets = []
           for prem, conc in imps:
@@ -486,7 +501,7 @@ def check_proof(proof, env):
                   + "\nfor application of \n\t"+str(ifthen)
                   + "\nto \n\t" + str(arg) + ': ' + str(arg_frm))
         case All(loc2, tyof, _, _, body):
-          (vars, imps) = collect_all_if_then(loc, ifthen)
+          (vars, imps) = collect_all_if_then(loc, ifthen, env)
           rets = []
           reasons = []
           arg_frm = check_proof(arg, env)
@@ -528,7 +543,7 @@ def check_proof(proof, env):
         error(loc, 'in injective, expected a constructor, not\n\t' + base_name(constr.name) 
               + givens_str(env))
       formula = check_proof(eq_pf, env)
-      (a,b) = split_equation(loc, formula)
+      (a,b) = split_equation(loc, formula, env)
       match (a,b):
         case (Call(loc2, tyof2, rator1, args1),
               Call(loc4, tyof4, rator2, args2)) if len(args1) == len(args2):
@@ -553,14 +568,14 @@ def check_proof(proof, env):
           
     case PSymmetric(loc, eq_pf):
       frm = check_proof(eq_pf, env)
-      (a,b) = split_equation(loc, frm)
+      (a,b) = split_equation(loc, frm, env)
       return mkEqual(loc, b, a)
 
     case PTransitive(loc, eq_pf1, eq_pf2):
       eq1 = check_proof(eq_pf1, env)
       eq2 = check_proof(eq_pf2, env)
-      (a,b1) = split_equation(loc, eq1)
-      (b2,c) = split_equation(loc, eq2)
+      (a,b1) = split_equation(loc, eq1, env)
+      (b2,c) = split_equation(loc, eq2, env)
       b1r = b1.reduce(env)
       b2r = b2.reduce(env)
       if b1r != b2r:
@@ -870,6 +885,10 @@ def check_proof_of(proof, formula, env):
   match proof:
     case PHole(loc):
       new_formula = check_formula(remove_mark(formula), env)
+      # Uncommented by i ran into a proof where I had to prove
+      # (A = A or A = B) which should have just reduced to A = A
+      # but it didn't.
+      # new_formula = new_formula.reduce(env)
       incomplete_error(loc, 'incomplete proof\n' \
                        + 'Goal:\n\t' + str(new_formula) + '\n'\
                        + proof_advice(new_formula, env) \
@@ -898,15 +917,15 @@ def check_proof_of(proof, formula, env):
                 + givens_str(env))
           
     case PSymmetric(loc, eq_pf):
-      (a,b) = split_equation(loc, formula)
+      (a,b) = split_equation(loc, formula, env)
       flip_formula = mkEqual(loc, b, a)
       check_proof_of(eq_pf, flip_formula, env)
 
     case PTransitive(loc, eq_pf1, eq_pf2):
-      (a1,c) = split_equation(loc, formula)
+      (a1,c) = split_equation(loc, formula, env)
       
       eq1 = check_proof(eq_pf1, env)
-      (a2,b) = split_equation(loc, eq1)
+      (a2,b) = split_equation(loc, eq1, env)
       
       check_proof_of(eq_pf2, mkEqual(loc, b, c), env)
       
@@ -922,7 +941,7 @@ def check_proof_of(proof, formula, env):
               + givens_str(env))
 
     case PExtensionality(loc, proof):
-      (lhs,rhs) = split_equation(loc, formula)
+      (lhs,rhs) = split_equation(loc, formula, env)
       match lhs.typeof:
         case FunctionType(loc2, [], typs, ret_ty):
           names = [generate_name('x') for ty in typs]
@@ -943,6 +962,10 @@ def check_proof_of(proof, formula, env):
     case AllIntro(loc, var, _, body):
       x, ty = var
       check_type(ty, env)
+
+      if isinstance(formula, TLet):
+        formula = formula.reduceLets(env)
+      
       match formula:
         case All(loc2, tyof, var2, (s, e), formula2):
           sub = {}
@@ -962,6 +985,10 @@ def check_proof_of(proof, formula, env):
     case SomeIntro(loc, witnesses, body):
       # room for improvement, if var has type annotation, could type_check the witness
       witnesses = [type_synth_term(trm, env, None, []) for trm in witnesses]
+
+      if isinstance(formula, TLet):
+        formula = formula.reduceLets(env)
+      
       match formula:
         case Some(loc2, tyof, vars, formula2):
           sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
@@ -972,6 +999,10 @@ def check_proof_of(proof, formula, env):
           
     case SomeElim(loc, witnesses, label, prop, some, body):
       someFormula = check_proof(some, env)
+
+      if isinstance(someFormula, TLet):
+        someFormula = someFormula.reduceLets(env)
+      
       match someFormula:
         case Some(loc2, tyof, vars, formula2):
           sub = {var[0]: Var(loc2, None, x, [x]) for (var,x) in zip(vars,witnesses)}
@@ -990,6 +1021,10 @@ def check_proof_of(proof, formula, env):
           error(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula))
         
     case ImpIntro(loc, label, None, body):
+
+      if isinstance(formula, TLet):
+        formula = formula.reduceLets(env)
+
       match formula:
         case IfThen(loc2, tyof, prem, conc):
           body_env = env.declare_local_proof_var(loc, label, prem)
@@ -1162,7 +1197,12 @@ def check_proof_of(proof, formula, env):
             
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
-      sub_red = sub_frm.reduce(env)
+
+      # sub_red = sub_frm.reduce(env)
+      sub_red = sub_frm
+      if isinstance(sub_frm, TLet):
+        sub_red = sub_frm.reduceLets(env)
+
       match sub_red:
         case Or(loc1, tyof, frms):
           if len(cases) < len(frms):
@@ -1179,6 +1219,10 @@ def check_proof_of(proof, formula, env):
           
     case Induction(loc, typ, cases):
       check_type(typ, env)
+
+      if isinstance(formula, TLet):
+        formula = formula.reduceLets(env)
+      
       match formula:
         case All(loc2, tyof, (var,ty), _, frm):
           if typ != ty:
@@ -1482,7 +1526,7 @@ def apply_rewrites(loc, formula, eqns, env):#
     reset_num_rewrites()
     new_formula = rewrite_aux(loc, new_formula, eq, env)
     if get_num_rewrites() == 0:
-        (lhs, rhs) = split_equation(loc, eq)
+        (lhs, rhs) = split_equation(loc, eq, env)
         error(loc, '\ncould not find any matches for\n\t' + str(lhs) \
               + '\nin\n\t' + str(new_formula) \
               + '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq))

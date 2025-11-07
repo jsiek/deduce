@@ -1,0 +1,10 @@
+// transitive (already works)
+theorem test: all P:bool, Q:bool, R:bool.
+	if P = Q and Q = R then P = R
+proof
+	arbitrary P:bool, Q:bool, R:bool
+	assume prem
+	have pq: (define a = P = Q; a) by prem
+	have qr: (define b = Q = R; b) by prem
+	transitive pq qr
+end

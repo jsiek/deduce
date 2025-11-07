@@ -1,0 +1,9 @@
+// symmetric (already works)
+theorem symmetricTLet: all P:bool, Q:bool.
+	if (define R = P = Q; R) then Q = P
+proof
+	arbitrary P:bool, Q:bool
+	assume G
+	replace symmetric G
+	.
+end

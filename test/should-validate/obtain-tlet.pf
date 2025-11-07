@@ -1,0 +1,13 @@
+import UInt
+
+// obtain
+theorem obtainTLet: all n:UInt. 
+  if (define R = some x:UInt. n = 4 * x; R) then (some x:UInt. n = 2 * x)
+proof
+  arbitrary n:UInt
+  assume prem: (define R = some x:UInt. n = 4 * x; R)
+  obtain x where n_4x: n = 4 * x from prem
+  choose 2 * x
+  show n = 2 * (2 * x)
+  replace n_4x.
+end

@@ -1702,7 +1702,14 @@ class TLet(Term):
   def reduce(self, env):
     new_body = self.body.substitute({self.var: self.rhs})
     return new_body.reduce(env)
-    
+
+  def reduceLets(self, env):
+    new_body = self.body.substitute({self.var: self.rhs})
+    if isinstance(new_body, TLet):
+      return new_body.reduceLets(env)
+    else:
+      return new_body
+
   def copy(self):
     return TLet(self.location, self.typeof, self.var,
                 self.rhs.copy(), self.body.copy())
@@ -3638,12 +3645,15 @@ def mkEqual(loc, arg1, arg2):
   ret = Call(loc, None, Var(loc, None, '=', []), [arg1, arg2])
   return ret
 
-def split_equation(loc, equation):
+def split_equation(loc, equation, env):
+  if isinstance(equation, TLet):
+    equation = equation.reduceLets(env)
+    
   match equation:
     case Call(loc1, tyof, Var(loc2, tyof2, '=', rs2), [L, R]):
       return (L, R)
     case All(loc1, tyof, var, pos, body):
-      return split_equation(loc, body)
+      return split_equation(loc, body, env)
     case _:
       error(loc, 'expected an equality, not ' + str(equation))
 
@@ -4118,7 +4128,7 @@ class Env:
   def declare_auto_rewrite(self, loc, equation):
     new_env = Env(self.dict)
     full_name = '__auto__'
-    (lhs,rhs) = split_equation(loc, equation)
+    (lhs,rhs) = split_equation(loc, equation, new_env)
     head_lhs = term_head(lhs)
     #print('declare auto: ' + head_lhs + '\n\t' + str(equation))
     if full_name in self.dict:
@@ -4674,7 +4684,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       if False and get_verbose():
           print('while trying to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
-      (lhs,rhs) = split_equation(loc2, equation)
+      (lhs,rhs) = split_equation(loc2, equation, env)
       arity = call_arity(lhs)
       if get_verbose():
           print('lhs = ' + str(lhs) + '\n\tarity: ' + str(arity)) 
@@ -4757,7 +4767,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
 
 def try_rewrite(loc, formula, equation, env):
-  (lhs, rhs) = split_equation(loc, equation)
+  (lhs, rhs) = split_equation(loc, equation, env)
   if False and get_verbose():
       print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
   matching = {}

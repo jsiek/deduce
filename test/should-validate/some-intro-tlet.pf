@@ -1,0 +1,7 @@
+// some intro
+import UInt
+theorem someIntroTlet: (define R = some x:UInt. 6 = 2 * x; R)
+proof
+  choose 3
+  conclude 6 = 2 * 3   by .
+end

@@ -1,0 +1,9 @@
+// modus ponens and (contradict)
+theorem contradictTLet: all P:bool, Q:bool. if (define p = P; p) and (define np = not P; np) then Q
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  have p: (define p = P; p) by prem
+  have np: (define np = not P; np) by prem
+  conclude Q by contradict p, np
+end

@@ -1,0 +1,10 @@
+// cases 
+theorem casesTLet: all P:bool, Q:bool.
+	if (define R = true or Q; R) then (true or Q)
+proof
+	arbitrary P:bool, Q:bool
+	assume prem
+	cases prem
+	case t: true { t }
+	case q: Q { q }
+end
