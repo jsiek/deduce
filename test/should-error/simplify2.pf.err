@@ -1,0 +1,12 @@
+./test/should-error/simplify2.pf:3.3-3.4: incomplete proof
+Goal:
+	(true or false)
+Advice:
+	This goal simplifies to
+		true
+	Consider using
+		simplify
+
+	Prove this logical-or formula by proving one of its parts:
+		true
+		false
