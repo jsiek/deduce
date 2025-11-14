@@ -573,6 +573,11 @@ def parse_tree_to_ast(e, parent):
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return RewriteFact(e.meta, subject, eqns)
+    elif e.data == 'simplify_goal':
+        return SimplifyGoal(e.meta, None)
+    elif e.data == 'simplify_fact':
+        subject = parse_tree_to_ast(e.children[0], e)
+        return SimplifyFact(e.meta, subject)
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0], e)
         rhs = parse_tree_to_ast(e.children[1], e)

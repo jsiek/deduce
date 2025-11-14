@@ -1408,6 +1408,10 @@ def check_proof_of(proof, formula, env):
       #print('new_formula: ' + str(new_formula))
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
+
+    case SimplifyGoal(loc, body):
+      new_formula = formula.reduce(env)
+      check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):
       #print('expanding definitions: ' + ', '.join([str(d) for d in defs]))

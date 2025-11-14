@@ -1068,6 +1068,18 @@ def parse_proof_statement():
       meta = meta_from_tokens(token, previous_token())
       return RewriteGoal(meta, eqns, None), False
 
+  elif token.type == 'SIMPLIFY':
+    token = current_token()
+    advance()
+    if current_token().type == 'IN':
+      advance()
+      subject = parse_proof()
+      meta = meta_from_tokens(token, previous_token())
+      return SimplifyFact(meta, subject), True
+    else:
+      meta = meta_from_tokens(token, previous_token())
+      return SimplifyGoal(meta, None), False
+  
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
     start_token = current_token()
     advance()
