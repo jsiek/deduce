@@ -1607,7 +1607,7 @@ def parse_define(visibility):
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-statement_keywords = {'assert', 'define', 'import', 'print',
+statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'recursive', 'fun',
                       'trace', 'union' }
 
@@ -1722,7 +1722,7 @@ def parse_statement():
               + current_token().value)
     advance()
     pf = parse_proof_hi()
-    meta = meta_from_tokens(start, current_token())
+    meta = meta_from_tokens(start, previous_token())
     return Inductive(meta, ty, pf)
 
 
@@ -1946,22 +1946,11 @@ def parse_pattern():
     meta = meta_from_tokens(current_token(), current_token())
     return PatternBool(meta, False)
   elif current_token().type == 'WITH':
-    # TODO: This is sketchy
     start_token = current_token()
     advance()
-    if current_token().type != 'LBRACE':
-      raise ParseError(meta_from_tokens(current_token(),current_token()),
-            'expected a "{" after "with", not\n\t' \
-            + quote(current_token().value))
-    advance()
     idents = parse_ident_list()
-    if current_token().type != 'RBRACE':
-      raise ParseError(meta_from_tokens(current_token(),current_token()),
-            'expected a "}" after idents, not\n\t' \
-            + quote(current_token().value))
-    advance()
     if current_token().type != "DOT":
-      raise ParseError(meta_from_tokens(current_token(), current_token()), "IDK BRO")
+      raise ParseError(meta_from_tokens(current_token(), current_token()), "Expected a '.' after list of parameters in induction case.")
     advance()
     term = parse_term()
     return PatternTerm(meta_from_tokens(start_token, current_token()), term, idents)

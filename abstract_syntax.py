@@ -572,14 +572,10 @@ class PatternTerm(Pattern):
     return str(self.term)
 
   def uniquify(self, env):
-    # Do some parameter discovery, while also uniquifying things
-    # For now, only do the var nodes
-    # This should also fill up the parameters
-    pass
+    self.term.uniquify(env)
   
-  # def reduce(self, env):
-  
-
+  def reduce(self, env):
+    return self
     
 ################ Terms ######################################
 
@@ -735,18 +731,17 @@ class Var(Term):
   def copy(self):
     return Var(self.location, self.typeof, self.name, self.resolved_names)
   
-  # TODO: These get_names seem sketchy
   def __eq__(self, other):
       if isinstance(other, RecFun):
-        result = self.get_name() == other.name
+        result = self.name == other.name
       elif isinstance(other, GenRecFun):
-        result = self.get_name() == other.name
+        result = self.name == other.name
       elif isinstance(other, TermInst):
         result = self == other.subject
       elif not isinstance(other, Var):
         result = False
       else:
-        result = self.get_name() == other.name
+        result = self.name == other.name
       return result
   
   def __str__(self):
@@ -2807,18 +2802,9 @@ class IndCase(AST):
   def uniquify(self, env):
     body_env = copy_dict(env)
 
-    # I need to write a method that gets the free variables?
-    # Only allow var nodes that are free that aren't a part of a union
-    # TODO: Ask jeremy what he thinks about adding state
-    # ALT: Every free variable, set them equal to the original version later?
-
     new_params = [generate_name(x) for x in self.pattern.parameters]
     for (old,new) in zip(self.pattern.parameters, new_params):
-    # for old, new in ind_params:
       overwrite(body_env, old, new, self.location)
-
-    if hasattr(self.pattern, "term"):
-      self.pattern.term.uniquify(body_env)
 
     new_hyps = [(generate_name(x),f) for (x,f) in self.induction_hypotheses]
     for ((old,old_frm),(new,new_frm)) in zip(self.induction_hypotheses, new_hyps):
@@ -2828,7 +2814,7 @@ class IndCase(AST):
         f.uniquify(body_env)
       
     self.pattern.parameters = new_params
-    self.pattern.uniquify(env)
+    self.pattern.uniquify(body_env)
     self.induction_hypotheses = new_hyps
     self.body.uniquify(body_env)
     
@@ -4100,17 +4086,14 @@ class AssociativeBinding(Binding):
       + ' ' + ', '.join(type_params_str(type_params) + str(t) \
                         for (type_params, t) in self.types)
 
-
-# TODO: Move this helper somewhere else
 def get_ind_type_hash(typ):
   match typ:
-    # HEre it's just a union or something
     case Var(): return typ.name
     case TypeInst(loc, ty, ps):
       return get_ind_type_hash(ty)
     case _:
       print(type(typ), type)
-      error("Unsupport inductive:")
+      error(typ.location, "Unsupported inductive:")
 
 class Env:
   def __init__(self, env = None):
@@ -4224,14 +4207,7 @@ class Env:
     full_name = '__inductive__'
     typ = ind_dict["ind_ty"]
     ind_dict["thm"] = thm
-    # TODO: SHould be repr, need to change elsewhere too
     type_name = get_ind_type_hash(typ)
-
-    # type could be a var, but it could also be 
-    # TypeType / TypeInst
-
-
-    print("BLAH", type_name)
 
     if full_name in new_env.dict:
       if type_name in new_env.dict[full_name]:
@@ -4243,7 +4219,6 @@ class Env:
     else:
       new_env.dict[full_name] = {}
       new_env.dict[full_name][type_name] = ind_dict
-
     
     return new_env
 
@@ -4255,7 +4230,6 @@ class Env:
         return self.dict[full_name][type_name]
 
     return None
-
 
   def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self

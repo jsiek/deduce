@@ -277,7 +277,7 @@ ident: IDENT              -> ident
     | "false"                                    -> pattern_false
     | "[" "]"                                    -> pattern_empty_list
     | IDENT "(" ident_list ")"                   -> pattern_apply
-    | "with" "{" ident_list "}" "." term            -> pattern_term
+    | "with" ident_list "." term                 -> pattern_term
 
 ?param_list:                                      -> empty
     | pattern                                       -> single
