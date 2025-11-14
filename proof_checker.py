@@ -733,6 +733,12 @@ def update_all_head(r):
     
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
+
+    red_formula = formula.reduce(env)
+    if formula != red_formula:
+        prefix += '\tThis goal simplifies to\n\t\t' + str(red_formula) + '\n' \
+            + '\tConsider using\n\t\tsimplify\n\n'
+    
     match formula:
       case Bool(loc, tyof, True):
         return prefix + '\tYou can prove "true" with a period.\n'

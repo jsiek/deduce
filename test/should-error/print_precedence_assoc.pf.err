@@ -2,6 +2,11 @@
 Goal:
 	(all x:Nat, y:Nat, z:Nat. (x + (y + z)) + ℕ0 = (x + y) + z)
 Advice:
+	This goal simplifies to
+		true
+	Consider using
+		simplify
+
 	Prove this "all" formula with:
 		arbitrary x:Nat, y:Nat, z:Nat
 	followed by a proof of:
