@@ -2726,7 +2726,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
       inst_name = case.pattern.parameters[param_i]
       subst[inst_name]= Var(loc, ty, name, [name])
       env = env.declare_term_var(loc, inst_name, ty)
-      return AllIntro(loc, (inst_name, ty), (1, 1), 
+      return AllIntro(loc, (inst_name, ty), (0, 1), 
                       generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1))
     case IfThen(loc, ty, prem, conc):
       ind_hyp = generate_name("_")

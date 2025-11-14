@@ -2477,7 +2477,6 @@ class AllElimTypes(Proof):
       return str(self)
   
   def __str__(self):
-    print(self.pos)
     s, e = self.pos
     res = str(self.univ)
     if s == 0:
