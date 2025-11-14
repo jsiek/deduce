@@ -1,0 +1,10 @@
+define Q = false
+
+theorem T: all P:bool. if true and Q then P
+proof
+  arbitrary P:bool
+  assume prem
+  have q: Q by simplify in prem
+  expand Q in q
+end
+
