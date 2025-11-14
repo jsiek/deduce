@@ -41,6 +41,7 @@ known_tokens = {
     'EQUAL': 'operator',
     'EQUATIONS': 'keyword',
     'EVALUATE': 'keyword',
+    'SIMPLIFY': 'keyword',
     'EXPAND': 'keyword',
     'EXPORT': 'keyword',
     'EXTENSIONALITY': 'keyword',
@@ -167,11 +168,11 @@ def check_known_tokens():
         token_types.add(terminal.name)
     for tok in token_types:
         if tok not in known_tokens.keys():
-            print("ERROR: " + tok + " from the Lark file is missing from the known_tokens in the the lib_generator.py script.")
+            print("ERROR: " + tok + " from the Lark file is missing from the known_tokens in the the keywords.py script.")
             exit(255)
     for tok in known_tokens.keys():
         if tok not in token_types:
-            print("ERROR: " + tok + " from the known_tokens in the the lib_generator.py script is not a keyword in the Lark file .")
+            print("ERROR: " + tok + " from the known_tokens in the the keywords.py script is not a keyword in the Lark file .")
             exit(255)
 
 def get_known_tokens():
