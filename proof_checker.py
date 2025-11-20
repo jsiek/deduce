@@ -591,15 +591,6 @@ def check_proof(proof, env):
     print('\t=> ' + str(ret))
   return ret
 
-def get_type_name(ty):
-  match ty:
-    case Var(l1, tyof, n, rs):
-      return ty
-    case TypeInst(l1, ty, type_args):
-      return get_type_name(ty)
-    case _:
-      raise Exception('unhandled case in get_type_name: ' + repr(ty))
-
 def get_type_args(ty):
   match ty:
     case Var(l1, tyof, n, rs):
@@ -730,7 +721,26 @@ def update_all_head(r):
           return All(loc2, tyof, var, (s, e-1), update_all_head(frm))
       case _:
         return r
-    
+
+def gen_conjunct_advice(conjunct, arbs, ihs):
+  match conjunct:
+    case All(_, _, (n, t), _, b):
+      return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
+    case IfThen(_, _, _, b):
+      return gen_conjunct_advice(b, arbs, ihs + [f"IH{len(ihs)}"])
+    case Call(_, _, _, [arg]):
+      withs = ""
+      if arbs:
+        withs = "with " + ", ".join(arbs) + ". "
+      assumes = ""
+      if ihs:
+        assumes = "assume " + ", ".join(ihs) +" "
+      return f"\t\tcase {withs}{arg} {assumes} {'{'}\n\t\t\t?\n{'\t\t}'}"
+  pass
+
+def gen_custom_induction_advice(conjuncts):
+  return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
+
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
     match formula:
@@ -796,10 +806,12 @@ def proof_advice(formula, env):
 
         match ty:
           case Union(loc2, name, typarams, alts):
+            has_custom_ind = env.get_inductive(var_ty)
+
             if ty.visibility == 'opaque':
               binding = env.dict[name]
               #if binding.location.filename != formula.location.filename:
-              if binding.location.filename != env.get_current_module():
+              if binding.location.filename != env.get_current_module() and not has_custom_ind:
                 return arb_advice
 
             if len(alts) < 2:
@@ -807,8 +819,13 @@ def proof_advice(formula, env):
                 
             ind_advice = '\n\n\tAlternatively, you can try induction with:\n' \
               +  '\t\tinduction ' + str(var_ty) + '\n'
-                
-            for alt in alts:
+
+            if has_custom_ind:
+              # Do advice based on the theorem
+              ind_advice += gen_custom_induction_advice(has_custom_ind["conjuncts"])
+            else:
+              # Do advice based on the alts of the union
+              for alt in alts:
                 match alt:
                   case Constructor(loc3, constr_name, param_types):
                     params = [make_unique(type_first_letter(ty)+str(i+1), env)\
@@ -2705,6 +2722,8 @@ def validate_conjunct(loc, conj, fun):
     case IfThen(loc1, ty, prem, conc):
       # Make sure that prem and conclusion are both calls?
       return IfThen(loc1, ty, validate_conjunct(loc, prem, fun), validate_conjunct(loc, conc, fun))
+    case And(loc1, ty, args):
+      return And(loc1, ty, [validate_conjunct(loc, a, fun) for a in args])
     case _:
       error(loc, "invalid conjunct form")
 
@@ -2737,15 +2756,18 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
     case Call(loc, ty, rator, [arg]):
       match case.pattern:
         case PatternTerm(loc, term, params):
-          case.pattern.term = type_check_term(case.pattern.term, arg.typeof.substitute(subst), env, None, [])
-
+          try:
+            case.pattern.term = type_check_term(case.pattern.term, arg.typeof.substitute(subst), env, None, [])
+          except Exception as e:
+            # TODO: Better way to communicate about parameter order
+            error(loc, "Problem type checking induction pattern\n" + str(e))
           new_case = case.pattern.term.copy()
           new_case = new_case.substitute(subst)
           if new_case != arg:
             error(loc, "Induction pattern didn't match\n\t" + str(case.pattern.term) + "\ndid not match with\n\t" + str(arg))
 
         case PatternBool():
-          error(loc, "No pattern bool allowed for custom?")
+          error(loc, "No pattern bool allowed for custom induction")
         # TODO: Do I really need to handle constructors without parameters differently?
         case PatternCons(loc, constructor, []):
           if isUInt(arg):

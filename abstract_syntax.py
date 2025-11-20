@@ -499,7 +499,14 @@ class GenericUnknownInst(Type):
   def uniquify(self, env):
     self.typ.uniquify(env)
   
-  
+def get_type_name(ty):
+  match ty:
+    case Var(l1, tyof, n, rs):
+      return ty
+    case TypeInst(l1, ty, type_args):
+      return get_type_name(ty)
+    case _:
+      raise Exception('unhandled case in get_type_name: ' + repr(ty))
 ################ Patterns ######################################
 
 @dataclass
@@ -4085,15 +4092,6 @@ class AssociativeBinding(Binding):
       + ' ' + ', '.join(type_params_str(type_params) + str(t) \
                         for (type_params, t) in self.types)
 
-def get_ind_type_hash(typ):
-  match typ:
-    case Var(): return typ.name
-    case TypeInst(loc, ty, ps):
-      return get_ind_type_hash(ty)
-    case _:
-      print(type(typ), type)
-      error(typ.location, "Unsupported inductive:")
-
 class Env:
   def __init__(self, env = None):
     if env:
@@ -4206,7 +4204,7 @@ class Env:
     full_name = '__inductive__'
     typ = ind_dict["ind_ty"]
     ind_dict["thm"] = thm
-    type_name = get_ind_type_hash(typ)
+    type_name = get_type_name(typ).name
 
     if full_name in new_env.dict:
       if type_name in new_env.dict[full_name]:
@@ -4223,7 +4221,7 @@ class Env:
 
   def get_inductive(self, typ):
     full_name = '__inductive__'
-    type_name = get_ind_type_hash(typ)
+    type_name = get_type_name(typ).name
     if full_name in self.dict:
       if type_name in self.dict[full_name]:
         return self.dict[full_name][type_name]
