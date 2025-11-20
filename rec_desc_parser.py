@@ -1619,7 +1619,7 @@ def parse_define(visibility):
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
-statement_keywords = {'assert', 'define', 'import', 'print',
+statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'recursive', 'fun',
                       'trace', 'union' }
 
@@ -1723,6 +1723,20 @@ def parse_statement():
     typ = parse_type()
     meta = meta_from_tokens(token, previous_token())
     return Associative(meta, typarams, Var(meta, None, name, []), typ)
+
+  elif token.type == 'INDUCTIVE':
+    start = current_token()
+    advance()
+    ty = parse_type()
+    if current_token().type != 'BY':
+        raise ParseError(meta_from_tokens(current_token(), current_token()),
+              'expected "by" after type part of "inductive", not\n\t' \
+              + current_token().value)
+    advance()
+    pf = parse_proof_hi()
+    meta = meta_from_tokens(start, previous_token())
+    return Inductive(meta, ty, pf)
+
 
   elif token.type == 'MODULE':
     advance()
@@ -1943,6 +1957,15 @@ def parse_pattern():
     advance()
     meta = meta_from_tokens(current_token(), current_token())
     return PatternBool(meta, False)
+  elif current_token().type == 'WITH':
+    start_token = current_token()
+    advance()
+    idents = parse_ident_list()
+    if current_token().type != "DOT":
+      raise ParseError(meta_from_tokens(current_token(), current_token()), "Expected a '.' after list of parameters in induction case.")
+    advance()
+    term = parse_term()
+    return PatternTerm(meta_from_tokens(start_token, current_token()), term, idents)
   else:
     start_token = current_token()
     try:

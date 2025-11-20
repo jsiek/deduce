@@ -1,0 +1,7 @@
+import UInt
+
+theorem uintFact : all o : UInt.
+  if o + o = 0 then o = 0
+proof
+  ?
+end

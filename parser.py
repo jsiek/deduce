@@ -654,6 +654,12 @@ def parse_tree_to_ast(e, parent):
         pvar = parse_tree_to_ast(e.children[0], e)
         return Auto(e.meta, pvar)
     
+    elif e.data == 'inductive_decl':
+        ty = parse_tree_to_ast(e.children[0], e)
+        thm = parse_tree_to_ast(e.children[1], e)
+        return Inductive(e.meta, ty, thm)
+    
+    
     elif e.data == 'module_decl':
         return Module(e.meta, parse_tree_to_ast(e.children[0], e))
     
@@ -675,6 +681,11 @@ def parse_tree_to_ast(e, parent):
         return PatternCons(e.meta,
                            Var(e.meta, None, str(e.children[0].value), []),
                            params)
+    elif e.data == 'pattern_term':
+        params = parse_tree_to_list(e.children[0], e)
+        term = parse_tree_to_ast(e.children[1], e)
+        print(params, term)
+        return PatternTerm(e.meta, term, list(params)) 
     
     # case of a recursive function
     elif e.data == 'fun_case':
