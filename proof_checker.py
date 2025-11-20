@@ -330,6 +330,10 @@ def check_proof(proof, env):
       current_formula = red_formula
       current_formula = apply_rewrites(loc, current_formula, eqns, env)
       ret = current_formula
+
+    case SimplifyFact(loc, subject):
+      formula = check_proof(subject, env)
+      ret = formula.reduce(env)
       
     case PHole(loc):
       incomplete_error(loc, 'unfinished proof')
@@ -743,6 +747,12 @@ def gen_custom_induction_advice(conjuncts):
 
 def proof_advice(formula, env):
     prefix = 'Advice:\n'
+
+    red_formula = formula.reduce(env)
+    if formula != red_formula:
+        prefix += '\tThis goal simplifies to\n\t\t' + str(red_formula) + '\n' \
+            + '\tConsider using\n\t\tsimplify\n\n'
+    
     match formula:
       case Bool(loc, tyof, True):
         return prefix + '\tYou can prove "true" with a period.\n'
@@ -1473,6 +1483,10 @@ def check_proof_of(proof, formula, env):
       new_formula = formula.reduce(env)
       #print('new_formula: ' + str(new_formula))
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
+      check_proof_of(body, new_formula, env)
+
+    case SimplifyGoal(loc, body):
+      new_formula = formula.reduce(env)
       check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):

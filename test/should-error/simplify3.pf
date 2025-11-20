@@ -1,0 +1,8 @@
+// When there is no opportunity for simplification,
+// don't give advice to simplify.
+
+theorem T: all P:bool. P or P
+proof
+  arbitrary P:bool
+  ?
+end

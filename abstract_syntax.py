@@ -2936,7 +2936,36 @@ class EvaluateFact(Proof):
 
   def uniquify(self, env):
     self.subject.uniquify(env)
+
+@dataclass
+class SimplifyGoal(Proof):
+  body: Proof
+
+  def copy(self):
+      return SimplifyGoal(self.location, self.body.copy())
   
+  def __str__(self):
+      return 'simplify\n' + str(self.body)
+
+  def uniquify(self, env):
+    self.body.uniquify(env)
+
+@dataclass
+class SimplifyFact(Proof):
+  subject: Proof
+
+  def copy(self):
+      return SimplifyFact(self.location, self.subject.copy())
+  
+  def pretty_print(self, indent):
+      return str(self)
+  
+  def __str__(self):
+    return 'simplify in ' + str(self.subject)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+
 @dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]

@@ -1,0 +1,5 @@
+theorem T: true or false
+proof
+  simplify
+  .
+end
