@@ -9,6 +9,7 @@ NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
+ARROW: "->"
 
 ?term:  term_iff
 
@@ -243,7 +244,7 @@ ident: IDENT              -> ident
  | "lemma" IDENT ":" term reason                       -> lemma
  | "postulate" IDENT ":" term                          -> postulate
 
-?type: "fn" type_params_opt type_list "->" type        -> function_type
+?type: "fn" type_params_opt type_list ARROW type        -> function_type
  | IDENT "<" type_list ">"                             -> type_inst
  | type_hi
 

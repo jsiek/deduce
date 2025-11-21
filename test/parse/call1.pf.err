@@ -4,6 +4,6 @@
 ./test/parse/call1.pf:4.7-4.13: while parsing function call
 	term ::= term "(" term_list ")"
 
-./test/parse/call1.pf:4.7-4.13: expected closing parenthesis ")", not
+./test/parse/call1.pf:5.1-5.6: expected closing parenthesis ")" , not
 	print
 Perhaps you forgot a comma?

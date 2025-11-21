@@ -3,5 +3,5 @@
 
 ./test/should-error/switch_case_open.pf:9.10-9.24: while parsing
 	switch_case ::= "case" pattern "{" term "}"
-./test/should-error/switch_case_open.pf:9.20-9.24: expected a "{" after pattern of case, not
-	"true"
+./test/should-error/switch_case_open.pf:9.20-9.24: expected "{" after pattern of case, not
+	true

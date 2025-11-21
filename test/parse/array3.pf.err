@@ -4,5 +4,5 @@
 ./test/parse/array3.pf:12.12-12.19: while parsing array creation
 	term ::= "array" "(" term ")"
 
-./test/parse/array3.pf:12.12-14.7: expected closing parenthesis ")", not
+./test/parse/array3.pf:14.1-14.7: expected closing parenthesis ")" , not
 	assert

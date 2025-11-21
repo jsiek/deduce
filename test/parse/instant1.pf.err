@@ -1,7 +1,8 @@
-./test/parse/instant1.pf:9.1-9.21: while parsing assert
-	statement ::= "assert" formula
+./test/parse/instant1.pf:9.17-9.22: while parsing parenthesized term
+	term ::= "(" term ")"
 
-./test/parse/instant1.pf:9.21-9.22: expected "<" after subject of instantiation ("@"), not
-	)
+./test/parse/instant1.pf:9.18-9.22: 
 while parsing
 	term ::= "@" term "<" type_list ">"
+./test/parse/instant1.pf:9.21-9.22: expected "<" after subject of instantiation ("@"), not
+	)
