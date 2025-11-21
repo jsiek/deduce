@@ -9,6 +9,7 @@ NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
+ARROW: "->"
 
 ?term:  term_iff
 

@@ -5,4 +5,4 @@
 	type ::= "fn" type_params_opt type_list "->" type
 
 ./test/should-error/fn_missing_arrow.pf:1.20-1.24: expected "->" after parameter types, not
-	"bool"
+	bool

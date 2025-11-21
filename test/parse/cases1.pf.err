@@ -4,5 +4,5 @@
 
 ./test/parse/cases1.pf:6.3-6.14: while parsing:
 	"case" label ":" formula "{" proof "}"
-./test/parse/cases1.pf:6.3-6.14: expected a "{" after assumption of "case", not
+./test/parse/cases1.pf:6.13-6.14: expected "{" after assumption of "case", not
 	.

@@ -1,4 +1,8 @@
 ./test/parse/instant2.pf:9.1-9.21: while parsing assert
 	statement ::= "assert" formula
 
-./test/parse/instant2.pf:9.19-9.21: expected closing ">" after type parameters
+./test/parse/instant2.pf:9.17-9.22: while parsing parenthesized term
+	term ::= "(" term ")"
+
+./test/parse/instant2.pf:9.21-9.22: expected closing ">" after type parameters, not
+	)

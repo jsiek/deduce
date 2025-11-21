@@ -4,5 +4,5 @@
 ./test/parse/array2.pf:12.12-12.17: while parsing array creation
 	term ::= "array" "(" term ")"
 
-./test/parse/array2.pf:12.12-12.19: expected open parenthesis "(", not
+./test/parse/array2.pf:12.18-12.19: expected open parenthesis "(" , not
 	L
