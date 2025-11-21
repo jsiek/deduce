@@ -60,6 +60,7 @@ known_tokens = {
     'IMPORT': 'keyword',
     'IN': 'keyword',
     'INDUCTION': 'keyword',
+    'INDUCTIVE': 'keyword',
     'INJECTIVE': 'keyword',
     'INT': 'prim',
     'LBRACE': 'operator',
@@ -118,6 +119,7 @@ known_tokens = {
     'UNION': 'keyword',
     'VBAR': 'operator',
     'WHERE': 'keyword',
+    'WITH': 'keyword',
     'WS': 'whitespace',
     '__': 'operator',
     '__ANON_0': 'operator',  # <=>
