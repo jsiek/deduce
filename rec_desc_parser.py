@@ -1529,11 +1529,7 @@ def parse_statement():
     start = current_token()
     advance()
     ty = parse_type()
-    if current_token().type != 'BY':
-        raise ParseError(meta_from_tokens(current_token(), current_token()),
-              'expected "by" after type part of "inductive", not\n\t' \
-              + current_token().value)
-    advance()
+    consume_token('BY', '"by"', context='after type part of "inductive"')
     pf = parse_proof_hi()
     meta = meta_from_tokens(start, previous_token())
     return Inductive(meta, ty, pf)
@@ -1733,9 +1729,7 @@ def parse_pattern():
     start_token = current_token()
     advance()
     idents = parse_ident_list()
-    if current_token().type != "DOT":
-      raise ParseError(meta_from_tokens(current_token(), current_token()), "Expected a '.' after list of parameters in induction case.")
-    advance()
+    consume_token('DOT', '"."', context='after parameters in induction case')
     term = parse_term()
     return PatternTerm(meta_from_tokens(start_token, current_token()), term, idents)
   else:
