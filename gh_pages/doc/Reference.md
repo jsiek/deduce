@@ -2104,6 +2104,36 @@ term_list ::= term
 term_list ::= term "," term_list
 ```
 
+## Trace (Statement)
+```
+statement ::= "trace" term
+```
+
+You can ask Deduce to print the stack trace of functions as they get called or return a value using the `trace` statement. 
+
+```{.deduce^#trace_example}
+recursive sum(List<UInt>) -> UInt {
+  sum([]) = 0
+  sum(node(h, t)) = h + sum(t)
+} 
+trace sum
+assert sum([1, 2, 3]) = 6
+```
+
+The output of this program will be:
+```
+> sum([1, 2, 3])
+>> sum([2, 3])
+>>> sum([3])
+>>>> sum(@[]<UInt>)
+<<<< bzero
+<<< 3
+<< 5
+< 6
+```
+
+Where `bzero`, `3`, `5`, and `6` are the return values of `sum`.
+
 ## Transitive (Proof)
 
 ```

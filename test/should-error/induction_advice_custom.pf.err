@@ -1,0 +1,17 @@
+./test/should-error/induction_advice_custom.pf:6.3-6.4: incomplete proof
+Goal:
+	(all o:UInt. (if o + o = 0 then o = 0))
+Advice:
+	Prove this "all" formula with:
+		arbitrary o:UInt
+	followed by a proof of:
+		(if o + o = 0 then o = 0)
+
+	Alternatively, you can try induction with:
+		induction UInt
+		case 0  {
+			?
+		}
+		case with m. 1 + m assume IH0  {
+			?
+		}

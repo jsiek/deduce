@@ -280,6 +280,7 @@ ident: IDENT              -> ident
     | "false"                                    -> pattern_false
     | "[" "]"                                    -> pattern_empty_list
     | IDENT "(" ident_list ")"                   -> pattern_apply
+    | "with" ident_list "." term                 -> pattern_term
 
 ?param_list:                                      -> empty
     | pattern                                       -> single
@@ -314,6 +315,8 @@ ident: IDENT              -> ident
 
 ?trace: "trace" ident -> trace
 
+?inductive_decl: "inductive" type "by" proof_hi
+
 ?statement: union
  | rec_function
  | function
@@ -328,6 +331,7 @@ ident: IDENT              -> ident
  | theorem
  | module_decl
  | trace
+ | inductive_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

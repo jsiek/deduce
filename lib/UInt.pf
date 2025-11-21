@@ -17,3 +17,5 @@ export lit
 export zero
 export suc
 
+// Declaring at the end of the library, so that 
+inductive UInt by uint_induction

@@ -499,7 +499,14 @@ class GenericUnknownInst(Type):
   def uniquify(self, env):
     self.typ.uniquify(env)
   
-  
+def get_type_name(ty):
+  match ty:
+    case Var(l1, tyof, n, rs):
+      return ty
+    case TypeInst(l1, ty, type_args):
+      return get_type_name(ty)
+    case _:
+      raise Exception('unhandled case in get_type_name: ' + repr(ty))
 ################ Patterns ######################################
 
 @dataclass
@@ -554,6 +561,26 @@ class PatternCons(Pattern):
   def uniquify(self, env):
     self.constructor.uniquify(env)
     
+  def reduce(self, env):
+    return self
+
+@dataclass
+class PatternTerm(Pattern):
+  term: Term
+  parameters: list[str]
+
+  def bindings(self):
+    return self.parameters
+
+  def copy(self):
+    return PatternTerm(self.location, self.term.copy(), [x for x in self.parameters])
+
+  def __str__(self):
+    return str(self.term)
+
+  def uniquify(self, env):
+    self.term.uniquify(env)
+  
   def reduce(self, env):
     return self
     
@@ -768,6 +795,8 @@ class Var(Term):
         return self
   
   def substitute(self, sub):
+      if len(self.resolved_names) == 1:
+        self.name = self.resolved_names[0]
       if self.name in sub:
           trm = sub[self.name]
           if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
@@ -2455,7 +2484,6 @@ class AllElimTypes(Proof):
       return str(self)
   
   def __str__(self):
-    print(self.pos)
     s, e = self.pos
     res = str(self.univ)
     if s == 0:
@@ -2792,7 +2820,7 @@ class IndCase(AST):
         f.uniquify(body_env)
       
     self.pattern.parameters = new_params
-    self.pattern.uniquify(env)
+    self.pattern.uniquify(body_env)
     self.induction_hypotheses = new_hyps
     self.body.uniquify(body_env)
     
@@ -3600,6 +3628,22 @@ class Auto(Statement):
     pass
 
 @dataclass
+class Inductive(Statement):
+  typ: Type 
+  thm_name: Term
+
+  def __str__(self):
+    return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
+
+  def uniquify(self, env):
+    self.typ.uniquify(env)
+    self.thm_name.uniquify(env)
+
+  def collect_exports(self, export_env, importing_module):
+    pass
+
+
+@dataclass
 class Module(Statement):
   name: str
 
@@ -4182,8 +4226,37 @@ class Env:
         else:
             return self.dict[full_name].equations['no_name']
     else:
-        return []
-        
+      return []
+
+  def declare_inductive(self, loc, ind_dict, thm):
+    new_env = Env(self.dict)
+    full_name = '__inductive__'
+    typ = ind_dict["ind_ty"]
+    ind_dict["thm"] = thm
+    type_name = get_type_name(typ).name
+
+    if full_name in new_env.dict:
+      if type_name in new_env.dict[full_name]:
+        pass
+      else:
+        new_env.dict[full_name][type_name] = ind_dict
+      # Check for type, overwrite/ add to existing
+      pass
+    else:
+      new_env.dict[full_name] = {}
+      new_env.dict[full_name][type_name] = ind_dict
+    
+    return new_env
+
+  def get_inductive(self, typ):
+    full_name = '__inductive__'
+    type_name = get_type_name(typ).name
+    if full_name in self.dict:
+      if type_name in self.dict[full_name]:
+        return self.dict[full_name][type_name]
+
+    return None
+
   def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
     for (x,ty) in xty_pairs:
