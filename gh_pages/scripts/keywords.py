@@ -16,6 +16,7 @@ known_tokens = {
     'APPLY': 'keyword',
     'ARBITRARY': 'keyword',
     'ARRAY': 'operator',
+    'ARROW': 'operator',
     'ASSERT': 'keyword',
     'ASSOCIATIVE': 'keyword',
     'ASSUME': 'keyword',
