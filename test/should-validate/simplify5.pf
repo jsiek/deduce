@@ -1,0 +1,8 @@
+theorem T: all P:bool. if P then P and true
+proof
+  arbitrary P:bool
+  assume p: P
+  simplify
+  p
+end
+

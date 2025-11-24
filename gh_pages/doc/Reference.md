@@ -591,8 +591,8 @@ conclude false by contradict Y, X
 theorem contra_example: if length([1,2]) = length([1]) then length([1,2]) = length([2])
 proof
   assume len_12_1: length([1,2]) = length([1])
-  have F: false by expand 3* length in len_12_1
-  conclude length([1,2]) = length([2]) by F
+  have: false by expand 3* length in len_12_1
+  conclude length([1,2]) = length([2]) by recall false
 end
 ```
 
@@ -1834,6 +1834,62 @@ proof
 end
 ```
 
+## Simplify (Proof)
+
+```
+proof_stmt :: "simplify"
+proof_stmt :: "simplify" "with" identifier_list_bar
+```
+
+Simplify the current goal formula using all of the built-in automatic
+equations.
+
+```{.deduce^#simplify_arith_if}
+theorem simplify_arith_if: all x:UInt.
+  if x + 0 = x then true else false
+proof
+  arbitrary x:UInt
+  simplify.
+end
+```
+
+The `simplify` statement also applies all the theorems and lemmas that
+are declared to be `auto`.
+
+```{.deduce^#simplify_auto}
+fun make_true() { true }
+
+theorem make_true_is_true: make_true() = true
+proof
+  expand make_true.
+end
+
+auto make_true_is_true
+
+theorem simplify_auto: if make_true() then true else false
+proof
+  simplify.
+end
+```
+
+Additionally, you can use givens to simplify the current goal by
+adding `with` and the list of givens. If the given is of the form `not P`,
+then `simplify` replaces occurences of `P` with `false`.
+Otherwise `simplify` replaces occurences of the given `P` with `true`.
+
+```{.deduce^#simplify_with_if}
+theorem simplify_with_if: all P:bool, Q:bool.
+  if P and not Q then   
+  (if Q then false else P or Q)
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  have p: P by prem
+  have nq: not Q by prem
+  simplify with p | nq.
+end
+```
+
 ## Set (Type)
 
 The `Set<T>` type defined in `Set.pf` represents the standard
@@ -2345,6 +2401,9 @@ import Pair
 <<print_example>>
 <<replace_example>>
 <<replace_in_example>>
+<<simplify_arith_if>>
+<<simplify_with_if>>
+<<simplify_auto>>
 <<switch_example>>
 <<switch_proof_example>>
 <<subset_example>>

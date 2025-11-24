@@ -904,7 +904,16 @@ def givens_str(env):
     else:
         givens = ''
     return givens
-    
+
+def pred_to_equality(meta, pred):
+    match pred:
+      case IfThen(meta1, ty1, p, Bool(meta2, ty2, False)):
+          return Call(meta, None, Var(meta, None, '=', []),
+                      [p , Bool(meta, None, False)])
+      case _:
+          return Call(meta, None, Var(meta, None, '=', []),
+                      [pred , Bool(meta, None, True)])
+
 def check_proof_of(proof, formula, env):
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
@@ -1476,25 +1485,22 @@ def check_proof_of(proof, formula, env):
           
     case RewriteGoal(loc, equation_proofs, body):
       equations = [check_proof(proof, env) for proof in equation_proofs]
-      #print('replacing ' + ', '.join(str(eq) for eq in equations))
       eqns = [equation.reduce(env) for equation in equations]
-      #print('reduced: ' + ', '.join(str(eq) for eq in eqns))
-      #print('formula: ' + str(formula))
       new_formula = formula.reduce(env)
-      #print('new_formula: ' + str(new_formula))
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
 
-    case SimplifyGoal(loc, body):
-      new_formula = formula.reduce(env)
+    case SimplifyGoal(loc, body, givens):
+      preds = [check_proof(proof, env) for proof in givens]
+      equations = [pred_to_equality(loc, p) for p in preds]
+      eqns = [equation.reduce(env) for equation in equations]
+      new_formula = apply_rewrites(loc, formula, eqns, env)
+      new_formula = new_formula.reduce(env)
       check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):
-      #print('expanding definitions: ' + ', '.join([str(d) for d in defs]))
       new_formula = expand_definitions(loc, formula, defs, env)
-      #print('expanded formula: ' + str(new_formula))
       red_formula = new_formula.reduce(env)
-      #print('reduced formula: ' + str(red_formula))
       check_proof_of(body, red_formula, env)
       
     case _:
@@ -1602,7 +1608,7 @@ def apply_rewrites(loc, formula, eqns, env):#
 
   for eq in eqns:
     if is_true(eq):
-        error(loc, 'no need for replace because this equation is handled automatically')
+        error(loc, 'no need for replace because this equation is handled automatically\n\t' + str(eq))
     if not is_equation(eq):
         error(loc, 'in replace, expected an equation, not:\n\t' + str(eq)
               + '\n\twhile replacing ' + ', '.join([str(eq) for eq in eqns]))

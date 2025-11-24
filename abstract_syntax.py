@@ -2940,15 +2940,21 @@ class EvaluateFact(Proof):
 @dataclass
 class SimplifyGoal(Proof):
   body: Proof
+  givens: List[Proof]
 
   def copy(self):
-      return SimplifyGoal(self.location, self.body.copy())
+      return SimplifyGoal(self.location, self.body.copy(),
+                          [p.copy() for p in self.givens])
   
   def __str__(self):
-      return 'simplify\n' + str(self.body)
+      return 'simplify' + ' | '.join([str(p) for p in self.givens]) + '\n' \
+          + str(self.body)
 
   def uniquify(self, env):
     self.body.uniquify(env)
+    for p in self.givens:
+      p.uniquify(env)
+
 
 @dataclass
 class SimplifyFact(Proof):
