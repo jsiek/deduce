@@ -575,7 +575,7 @@ def parse_tree_to_ast(e, parent):
         return RewriteFact(e.meta, subject, eqns)
     elif e.data == 'simplify_goal':
         givens = parse_tree_to_list(e.children[0], e)
-        return SimplifyGoal(e.meta, None, [PVar(e.meta, g) for g in givens])
+        return SimplifyGoal(e.meta, None, givens)
     elif e.data == 'simplify_fact':
         subject = parse_tree_to_ast(e.children[0], e)
         return SimplifyFact(e.meta, subject)

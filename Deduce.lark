@@ -211,8 +211,8 @@ ident: IDENT              -> ident
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"
 
-?opt_ident_list:                                    -> empty
-    | "with" ident_list_bar
+?opt_proof_list:                                    -> empty
+    | "with" proof_list
 
 ?proof_stmt: "arbitrary" type_annot_list            -> all_intro
     | "assume" IDENT                                -> imp_intro
@@ -223,7 +223,7 @@ ident: IDENT              -> ident
     | "expand" ident_list_bar                       -> expand
     | "replace" proof_list                          -> rewrite_goal
     | "show" term                                   -> annot_stmt
-    | "simplify" opt_ident_list                     -> simplify_goal
+    | "simplify" opt_proof_list                     -> simplify_goal
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term reason              -> let
     | "have" ":" term reason                    -> let_anon

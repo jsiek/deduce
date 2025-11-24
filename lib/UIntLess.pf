@@ -503,9 +503,49 @@ end
 
 auto uint_less_equal_refl_true
 
-postulate uint_zero_max: all x:UInt. max(0, x) = x
-postulate uint_max_zero: all x:UInt. max(x, 0) = x
-postulate uint_max_symmetric: all x:UInt, y:UInt. max(x,y) = max(y,x)
+theorem uint_zero_max: all x:UInt. max(0, x) = x
+proof
+  arbitrary x:UInt
+  expand max
+  have x_pos_or_not: 0 < x or not (0 < x) by ex_mid[0 < x]
+  cases x_pos_or_not
+  case pos: 0 < x {
+    simplify with pos.
+  }
+  case not_pos: not (0 < x) {
+    simplify with not_pos
+    show 0 = x
+    have x_le_0: x ≤ 0 by apply uint_not_less_implies_less_equal to not_pos
+    replace (apply uint_less_equal_zero to x_le_0).
+  }
+end
+  
+theorem uint_max_symmetric: all x:UInt, y:UInt. max(x,y) = max(y,x)
+proof
+  arbitrary x:UInt, y:UInt
+  expand max
+  have tri: x < y  or  x = y  or  y < x by uint_trichotomy[x,y]
+  cases tri
+  case: x < y {
+    have: not (y < x) by apply uint_less_implies_not_greater to recall x < y
+    simplify with (recall x < y) | (recall not (y < x)).
+  }
+  case: x = y {
+    replace (recall x = y).
+  }
+  case: y < x {
+    have: not (x < y) by apply uint_less_implies_not_greater to recall y < x
+    simplify with (recall y < x) | (recall not (x < y)).
+  }
+end
+  
+theorem uint_max_zero: all x:UInt. max(x, 0) = x
+proof
+  arbitrary x:UInt
+  replace uint_max_symmetric[x]
+  uint_zero_max
+end
+
 postulate uint_max_assoc: all x:UInt, y:UInt,z:UInt. max(max(x, y), z) = max(x, max(y, z))
 postulate uint_max_equal_greater_right: all x:UInt, y:UInt. (if x ≤ y then max(x, y) = y)
 postulate uint_max_equal_greater_left: all x:UInt, y:UInt. (if y ≤ x then max(x, y) = x)

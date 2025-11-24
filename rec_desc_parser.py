@@ -966,7 +966,7 @@ def parse_proof_statement():
     advance()
     if current_token().type == 'WITH':
       advance()
-      givens = parse_ident_list_bar()
+      givens = parse_proof_list()
     else:
       givens = []
     if current_token().type == 'IN':
@@ -976,7 +976,7 @@ def parse_proof_statement():
       return SimplifyFact(meta, subject), True
     else:
       meta = meta_from_tokens(token, previous_token())
-      return SimplifyGoal(meta, None, [PVar(meta, g) for g in givens]), False
+      return SimplifyGoal(meta, None, givens), False
   
   elif token.type == 'SUPPOSE' or token.type == 'ASSUME':
     start_token = current_token()

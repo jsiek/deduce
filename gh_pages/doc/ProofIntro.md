@@ -23,14 +23,15 @@ examples of their use.
 * [Reasoning about `not`](#reasoning-about-not)
 * [Replacing equals for equals in facts](#replacing-equals-for-equals-in-facts)
 * [Reasoning about `some` (Exists) and asking for `help`](#reasoning-about-some-exists-and-asking-for-help)
+* [Simplify the Goal](#simplify-the-goal)
 
 ## Expanding Definitions in the Goal
 
-We begin with a simple example, proving that the length of an empty
-list is `0`. This fact is a direct consequence of the definition
-of `length`, so this first example is about how to use definitions.
-We will be using features from the Deduce usigned integer (`UInt`)
-and `List` libraries, so first we import them.
+As a simple example of using `expand` we shall prove that the length
+of an empty list is `0`. This fact is a direct consequence of the
+definition of `length`, so this first example is about how to expand
+definitions.  We will be using features from the Deduce usigned
+integer (`UInt`) and `List` libraries, so first we import them.
 
 ```{.deduce^#import_uint_and_list}
 import UInt
@@ -663,7 +664,6 @@ To summarize this section:
 ### Exercise
 
 Fill in the proof of the following theorem about `length` and `++`.
-
 
 ```{.deduce^#length_append}
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
@@ -1443,11 +1443,30 @@ To summarize this section:
 * Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.
 
+## Simplify the Goal
+
+The `simplify` proof statement tells Deduce to simplify the goal
+formula using all of the theorems that are marked `auto` as well as
+additional built-in theorems regarding the logical operators.  For
+example, in the following proof we use `simplify` to turn `2 + 3` and
+`4 + 1` into `5`. However, the `simplify` statement does not know
+about the commutativity of addition, so we complete the proof by
+manually applying that theorem.
+
+```{.deduce^#simplify_or_true}
+theorem or_false_true: all x:UInt. 2 + 3 + x = x + 4 + 1
+proof
+  arbitrary x:UInt
+  simplify
+  conclude 5 + x = x + 5 by uint_add_commute
+end
+```  
 
 <!--
 ```{.deduce^file=ProofIntro.pf}
 <<import_uint_and_list>>
 
+<<simplify_or_true>>
 <<length_uint_empty>>
 <<length_node42>>
 
