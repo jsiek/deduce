@@ -27,8 +27,7 @@ proof
   arbitrary f: fn (T) -> U, x:T, v:U, y:T
   suppose not_eq
   switch y = x for update {
-    case true suppose yx_true {
-      have yx: y = x by replace yx_true.
+    case true suppose yx {
       have xy: x = y by symmetric yx
       conclude false by apply not_eq to xy
     }
@@ -151,9 +150,11 @@ proof
   arbitrary y:T
   switch y ∈ P {
     case true { . }
-    case false suppose Px_false {
+    case false suppose not_Px {
       assume prem
-      conclude false by replace Px_false in apply member_set_of_pred to prem
+      conclude false
+        by simplify with not_Px in
+           apply member_set_of_pred to prem
     }
   }
 end
