@@ -831,7 +831,7 @@ induction hypothesis. In such situations, we can instead use `switch`.
 Like induction, `switch` works on unions and there is one case for
 each alternative of the union. Unlike induction, the goal formula does
 not need to be an `all` formula. Instead, you indicate which entity to
-switch on, as in `switch x` below.
+switch on, as in `switch xs` below.
 
     arbitrary E:type, xs:List<E>
     switch xs {
