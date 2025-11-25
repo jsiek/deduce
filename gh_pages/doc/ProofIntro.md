@@ -821,7 +821,7 @@ Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
 consider how to prove the following theorem.
 
-    theorem intro_zero_or_positive: all x:UInt. x = 0 or 0 < x
+    theorem take_zero_empty: all xs:List<UInt>. take(xs, 0) = []
     proof
       ?
     end
@@ -833,56 +833,55 @@ each alternative of the union. Unlike induction, the goal formula does
 not need to be an `all` formula. Instead, you indicate which entity to
 switch on, as in `switch x` below.
 
-    arbitrary x:UInt
-    switch x {
-      case 0 assume xz: x = 0 {
+    arbitrary E:type, xs:List<E>
+    switch xs {
+      case [] {
         ?
       }
-      case suc(x') assume xs: x = suc(x') {
+      case node(x, xs') {
         ?
       }
     }
 
 Deduce responds that in the first case we need to prove the following.
 
-    incomplete proof:
-        true or 0 < 0
+    incomplete proof
+    Goal:
+        take(@[]<E>, 0) = []
 
-So we just need to prove `true`, which is what the period is for.
+So we expand `take`.
 
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
+    case [] {
+      expand take.
     }
 
-In the second case, for `x = suc(x')`, we need to prove the following.
+In the second case, for `xs = node(x, xs')`, we need to prove the following.
 
-    incomplete proof:
-        false or 0 < suc(x')
+    incomplete proof
+    Goal:
+        take(node(x, xs'), 0) = []
 
-There's no hope of proving `false`, so we better prove `0 < suc(x')`.
-Thankfully that follows from the definitions of `<` and `≤`.
+Again we conclude by expanding `take`.
 
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by expand operator < | operator ≤.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    case node(x, xs') {
+      expand take.
     }
 
-Here is the completed proof that every natural number is either zero
-or positive.
+Here is the completed proof that taking zero elements from a list
+produces the empty list.
 
 
-```{.deduce^#intro_zero_or_positive}
-
-theorem intro_zero_or_positive: all x:UInt. x = 0 or 0 < x
+```{.deduce^#take_zero_empty}
+theorem take_zero_empty: all E:type, xs:List<E>.
+  take(xs, 0) = []
 proof
-  arbitrary x:UInt
-  switch x {
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
+  arbitrary E:type, xs:List<E>
+  switch xs {
+    case [] {
+      expand take.
     }
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by expand operator < | 2* operator ≤.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    case node(x, xs') {
+      expand take.
     }
   }
 end
@@ -1500,7 +1499,7 @@ end
 <<use_not_example>>
 <<replace_in_example>>
 
-// intro_zero_or_positive
+<<take_zero_empty>>
 <<intro_addition_of_evens>>
 ```
 -->

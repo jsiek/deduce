@@ -190,12 +190,7 @@ proof
   arbitrary xs:List<T>
   switch xs {
     case empty { . }
-    case node(x, xs') {
-      suppose len_z
-      conclude false
-          by apply uint_not_one_add_zero[length(xs')] to
-             expand length in len_z
-    }
+    case node(x, xs') { expand length. }
   }
 end
 
@@ -434,12 +429,7 @@ proof
     }
     case node(x, xs') {
       suppose prem
-      have x_xxs: x ∈ (single(x) ∪ set_of(xs')) by {
-        apply in_left_union<T>[set_of(xs')]
-        to single_member<T>[x]
-      }
-      have prem2: single(x) ∪ set_of(xs') = ∅ by expand set_of in prem
-      conclude false by prem2
+      conclude false by expand set_of in prem
     }
   }
 end
