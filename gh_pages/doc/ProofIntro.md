@@ -821,7 +821,8 @@ Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
 consider how to prove the following theorem.
 
-    theorem take_zero_empty: all xs:List<UInt>. take(xs, 0) = []
+    theorem take_zero_empty: all E:type, xs:List<E>.
+      take(xs, 0) = []
     proof
       ?
     end
