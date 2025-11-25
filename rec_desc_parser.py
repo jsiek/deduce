@@ -973,7 +973,7 @@ def parse_proof_statement():
       advance()
       subject = parse_proof()
       meta = meta_from_tokens(token, previous_token())
-      return SimplifyFact(meta, subject), True
+      return SimplifyFact(meta, subject, givens), True
     else:
       meta = meta_from_tokens(token, previous_token())
       return SimplifyGoal(meta, None, givens), False

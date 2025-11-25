@@ -9,4 +9,4 @@ Advice:
 	then "contradict (recall not P), (recall P)" proves "false".
 
 Givens:
-	prop_f: b = false
+	prop_f: not b

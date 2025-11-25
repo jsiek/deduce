@@ -68,11 +68,11 @@ proof
   switch P {
     case true {
       suppose q
-      replace (apply eq_true to q).
+      simplify with q.
     }
     case false {
       suppose not_q
-      replace (apply eq_false to not_q).
+      simplify with not_q.
     }
   }
 end

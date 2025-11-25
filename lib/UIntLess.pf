@@ -61,18 +61,11 @@ proof
           by apply mult_mono_le[ℕ2] to IH2
         have IH4: ℕ2 + ℕ2 * toNat(x') ≤ ℕ2*toNat(y')
           by apply mult_mono_le[ℕ2] to IH2
-          //by replace dist_mult_add in IH3
         expand toNat
-        //replace mult_commute[ℕ2]
         expand operator<
         replace nat_suc_one_add[ℕ2 * toNat(y')]
         replace lit_suc_add2
         apply add_both_sides_of_less_equal[ℕ1] to IH4
-        /*
-        expand operator ≤ 
-        replace mult_commute[toNat(x'), ℕ2] | mult_commute[toNat(y'), ℕ2]
-        IH4
-        */
       }
     }
   }
@@ -466,7 +459,7 @@ theorem uint_zero_less_equal_true: all x:UInt.
   (0 ≤ x) = true
 proof
   arbitrary x:UInt
-  apply eq_true to uint_zero_le[x]
+  simplify with uint_zero_le[x].
 end
 
 auto uint_zero_less_equal_true
@@ -490,7 +483,7 @@ theorem uint_less_refl_false: all x:UInt.
   (x < x) = false
 proof
   arbitrary x:UInt
-  apply eq_false to uint_less_irreflexive[x]
+  simplify with uint_less_irreflexive[x].
 end
 
 auto uint_less_refl_false
@@ -498,7 +491,7 @@ auto uint_less_refl_false
 theorem uint_less_equal_refl_true: all n:UInt. (n ≤ n) = true
 proof
   arbitrary n:UInt
-  apply eq_true to uint_less_equal_refl[n]
+  simplify with uint_less_equal_refl[n].
 end
 
 auto uint_less_equal_refl_true

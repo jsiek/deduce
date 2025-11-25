@@ -13,12 +13,10 @@ proof
 	suffices ((if x = a then true else false) = true or (if x = a then true else false) = false)
 		by expand test2.
 	switch x = a {
-		case true{
-      replace symmetric recall (x = a) = true
-			show x=a
-			replace recall (x = a) = true.
+		case true {
+      .
 		}
-		case false assume G {
+		case false {
 			.
 		}
 	}

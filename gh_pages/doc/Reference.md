@@ -2099,19 +2099,42 @@ switch t {
 is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
 The fact `t = p1` is a given that can be used in `X1`
 and similarly for the other cases.
+The goal `R` is automatically simplified using the assumption
+for each case.
+
+Example:
+
+```{.deduce^#switch_proof_list_example}
+theorem switch_proof_list: all ls:List<bool>.
+  if length(ls) = 0 then ls = []
+proof
+  arbitrary ls:List<bool>
+  switch ls {
+    case [] assume: ls = [] {
+      .
+    }
+    case node(b, ls') assume: ls = node(b, ls') {
+      expand length.
+    }
+  }
+end
+```
+
+If the subject `t` of the switch is a `bool`, then the assumptions for
+the two cases are `t` and `not t`, respectively.
 
 Example:
 
 ```{.deduce^#switch_proof_example}
-theorem switch_proof_example: all x:bool. x = true or x = false
+theorem switch_proof_example: all x:bool. x or not x
 proof
   arbitrary x:bool
   switch x {
-    case true {
-      conclude true = true or true = false by .
+    case true assume: x {
+      .
     }
-    case false {
-      conclude false = true or false = false by .
+    case false assume: not x {
+      .
     }
   }
 end
@@ -2405,6 +2428,7 @@ import Pair
 <<simplify_with_if>>
 <<simplify_auto>>
 <<switch_example>>
+<<switch_proof_list_example>>
 <<switch_proof_example>>
 <<subset_example>>
 <<suffices_example>>

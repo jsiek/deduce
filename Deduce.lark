@@ -190,7 +190,7 @@ ident: IDENT              -> ident
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
-    | "simplify" "in" proof                              -> simplify_fact
+    | "simplify" opt_proof_list "in" proof               -> simplify_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation                               -> equation_proof

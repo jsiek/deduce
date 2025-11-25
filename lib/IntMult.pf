@@ -67,7 +67,7 @@ proof
         assume xz
         conclude false by replace xz in prem
       }
-      replace (apply eq_false to xnz)
+      simplify with xnz
       expand sign | flip.
     }
     case negsuc(x') {
@@ -96,7 +96,7 @@ proof
           case xp_pos {
             have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
             expand operator-
-            replace (apply eq_false to xnz)
+            simplify with xnz
             expand abs | sign
             replace mult_neg_pos | mult_neg_uint
             cases uint_zero_or_positive[y']
@@ -116,7 +116,7 @@ proof
                   conclude false by apply ynz to yz
                 }
               }
-              replace (apply eq_false to nxyz)
+              simplify with nxyz
               have one_x: 1 ≤ x' by apply uint_pos_implies_one_le to xp_pos
               replace (apply uint_monus_add_identity to one_x)
               replace (symmetric neg_pos[(x' * y' ∸ 1)])
@@ -142,7 +142,8 @@ proof
           case xp_pos {
             have xnz: not (x' = 0) by apply uint_pos_not_zero to xp_pos
             expand operator-
-            replace (apply eq_false to xnz) | sign_negsuc | mult_neg_neg | mult_pos_uint.
+            simplify with xnz
+            replace sign_negsuc | mult_neg_neg | mult_pos_uint.
           }
         }
       }

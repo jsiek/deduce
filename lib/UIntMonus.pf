@@ -15,7 +15,7 @@ proof
   arbitrary x:UInt, y:UInt
   assume prem
   expand operator∸
-  replace apply eq_true to prem.
+  simplify with prem.
 end
 
 lemma inc_dub_monus_dub_inc_greater: all x:UInt, y:UInt.
@@ -60,9 +60,8 @@ proof
       case inc_dub(y') {
         expand operator∸ | toNat
         switch x' < y' {
-          case true assume x_l_y_true {
+          case true assume x_y {
             replace nat_suc_one_add
-            have x_y: x' < y' by replace x_l_y_true.
             have nx_ny: toNat(x') < toNat(y') by apply toNat_less to x_y
             have C: ℕ2*toNat(x') < ℕ2*toNat(y') by {
               have z2: ℕ0 < ℕ2 by .
@@ -74,7 +73,7 @@ proof
               by apply nat_monus_zero_iff_less_eq to E
             replace F.
           }
-          case false assume x_l_y_false {
+          case false assume not_x_l_y {
             replace IH[y']
             replace dist_mult_monus | nat_suc_one_add
             replace symmetric monus_monus_eq_monus_add[ℕ2 + ℕ2*toNat(x'), ℕ1, ℕ2*toNat(y')]
@@ -82,8 +81,8 @@ proof
             replace symmetric (replace add_commute[ℕ2 * toNat(x'), ℕ2] in
                                apply monus_add_assoc[ℕ2, ℕ2*toNat(x'), ℕ1] to recall ℕ1 ≤ ℕ2)
             have: ℕ2 ∸ ℕ1 = ℕ1 by evaluate
-            have xy1: not (x' < y') by replace x_l_y_false.
-            have xy2: y' ≤ x' by apply uint_not_less_implies_less_equal to xy1
+            have xy2: y' ≤ x'
+              by apply uint_not_less_implies_less_equal to not_x_l_y
             have xy3: toNat(y') ≤ toNat(x') by apply toNat_less_equal to xy2
             have y2_x2: ℕ2 * toNat(y') ≤ ℕ2 * toNat(x')  by apply mult_mono_le[ℕ2] to xy3
             replace add_commute[ℕ2 * toNat(x'), ℕ1]
@@ -102,11 +101,10 @@ proof
       }
       case dub_inc(y') {
         switch x' < y' {
-          case true assume x_l_y_true {
+          case true assume x_y {
             expand operator∸ | toNat
             replace nat_suc_one_add
             have xx_l_syy: toNat(x') + toNat(x') ≤ ℕ1 + toNat(y') + toNat(y') by {
-              have x_y: x' < y' by replace x_l_y_true.
               have nx_l_ny: toNat(x') < toNat(y') by apply toNat_less to x_y
               have snx_ny: ℕ1 + toNat(x') ≤ toNat(y')
                 by replace nat_suc_one_add in expand operator< in nx_l_ny
@@ -121,7 +119,7 @@ proof
               conclude toNat(x') + toNat(x') ≤ ℕ1 + toNat(y') + toNat(y')
                 by apply less_equal_trans to nx2_ny2, ny2_sny2
               }
-            replace x_l_y_true
+            simplify with x_y
             expand lit | operator+
             replace nat_suc_one_add
             replace (replace mult_two in
@@ -129,9 +127,8 @@ proof
               to xx_l_syy)
             expand lit.
           }
-          case false assume x_l_y_false {
+          case false assume x_g_y {
             expand toNat
-            have x_g_y: not (x' < y') by replace x_l_y_false.
             replace (apply inc_dub_monus_dub_inc_greater to x_g_y)
             replace toNat_pred | toNat_dub | nat_suc_one_add
             replace IH[y']

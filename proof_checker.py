@@ -331,9 +331,13 @@ def check_proof(proof, env):
       current_formula = apply_rewrites(loc, current_formula, eqns, env)
       ret = current_formula
 
-    case SimplifyFact(loc, subject):
+    case SimplifyFact(loc, subject, givens):
       formula = check_proof(subject, env)
-      ret = formula.reduce(env)
+      preds = [check_proof(proof, env) for proof in givens]
+      equations = [pred_to_equality(loc, p) for p in preds]
+      eqns = [equation.reduce(env) for equation in equations]
+      new_formula = apply_rewrites(loc, formula, eqns, env)
+      ret = new_formula.reduce(env)
       
     case PHole(loc):
       incomplete_error(loc, 'unfinished proof')
@@ -1402,10 +1406,13 @@ def check_proof_of(proof, formula, env):
           for scase in cases:
             if not isinstance(scase.pattern, PatternBool):
               error(scase.location, "expected pattern 'true' or 'false' in switch on bool")
+              
             subject_case = Bool(scase.location, BoolType(scase.location), True) if scase.pattern.value \
                            else Bool(scase.location, BoolType(scase.location), False)
             equation = mkEqual(scase.location, new_subject, subject_case)
-
+            predicate = new_subject if scase.pattern.value \
+                                    else IfThen(loc, None, new_subject, Bool(loc, None, False))
+            
             body_env = env
 
             if len(scase.assumptions) == 0:
@@ -1413,13 +1420,13 @@ def check_proof_of(proof, formula, env):
 
             assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
             if len(assumptions) == 1:
-              if assumptions[0][1] != None and assumptions[0][1] != equation:
-                (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], equation)
-                msg = 'expected assumption\n' + str(equation) \
+              if assumptions[0][1] != None and assumptions[0][1] != predicate:
+                (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], predicate)
+                msg = 'expected assumption\n' + str(predicate) \
                     + '\nnot\n' + str(assumptions[0][1]) \
                     + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
                 error(scase.location, msg)
-              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], equation)
+              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], predicate)
 
             if len(assumptions) > 1:
               error(scase.location, 'only one assumption is allowed in a switch case')
@@ -1873,8 +1880,8 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
           check_type(ty, env)
       ty = env.get_type_of_term_var(Var(loc2, tyof, name, rs))
       match ty:
-        case Var(loc3, ty2, name, rs2):
-          retty = TypeInst(loc, name, tyargs)
+        case Var(loc3, ty2, name2, rs2):
+          retty = TypeInst(loc, name2, tyargs)
         case FunctionType(loc3, typarams, param_types, return_type):
           sub = {x: t for (x,t) in zip(typarams, tyargs)}
           inst_param_types = [t.substitute(sub) for t in param_types]
@@ -1884,7 +1891,10 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
           retty = TypeInst(loc3, union_type, tyargs)
         case _:
           error(loc, 'cannot instantiate a term of type ' + str(ty))
-      return TermInst(loc, retty, Var(loc2, tyof, rs[0], [rs[0]]), tyargs, inferred)
+      new_name = rs[0] if len(rs) > 0 else name
+      new_rs = [new_name] if len(rs) > 0 else []
+      return TermInst(loc, retty, Var(loc2, tyof, new_name, new_rs),
+                      tyargs, inferred)
     case _:
       error(loc, 'internal error, expected variable, not ' + str(subject_var))
 

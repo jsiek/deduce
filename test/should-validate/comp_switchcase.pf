@@ -1,4 +1,3 @@
-// This is here because it was previously an error
 
 theorem idek : all A : bool, B : bool.
   if (switch A { case true { false } case false {false}}) then B
@@ -10,10 +9,10 @@ proof
     case true assume prop_t {
       have prem' : switch A { case true{false} case false{false} }
         by prem
-      replace prop_t in prem'
+      simplify with prop_t in prem'
     }
     case false assume prop_f {
-      replace prop_f in prem
+      simplify with prop_f in prem
     }
   }
 end

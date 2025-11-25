@@ -2947,7 +2947,7 @@ class SimplifyGoal(Proof):
                           [p.copy() for p in self.givens])
   
   def __str__(self):
-      return 'simplify' + ' | '.join([str(p) for p in self.givens]) + '\n' \
+      return 'simplify ' + ' | '.join([str(p) for p in self.givens]) + '\n' \
           + str(self.body)
 
   def uniquify(self, env):
@@ -2959,18 +2959,24 @@ class SimplifyGoal(Proof):
 @dataclass
 class SimplifyFact(Proof):
   subject: Proof
+  givens: List[Proof]
 
   def copy(self):
-      return SimplifyFact(self.location, self.subject.copy())
+      return SimplifyFact(self.location, self.subject.copy(),
+                          [p.copy() for p in self.givens])
   
   def pretty_print(self, indent):
       return str(self)
   
   def __str__(self):
-    return 'simplify in ' + str(self.subject)
+    return 'simplify ' \
+        + ' | '.join([str(p) for p in self.givens]) \
+        + ' in ' + str(self.subject)
 
   def uniquify(self, env):
     self.subject.uniquify(env)
+    for p in self.givens:
+      p.uniquify(env)
 
 @dataclass
 class ApplyDefsGoal(Proof):
