@@ -279,6 +279,29 @@ proof
   apply less_irreflexive to nat_x_l_x
 end
 
+theorem uint_less_implies_not_equal: all x:UInt, y:UInt.
+  if x < y then not (x = y)
+proof
+  arbitrary x:UInt, y:UInt
+  suppose: x < y
+  suppose: x = y
+  have: y < y by replace (recall x = y) in recall x < y
+  have: not (y < y) by uint_less_irreflexive
+  conclude false by recall y < y, not (y < y)
+end
+
+theorem uint_greater_implies_not_equal: all x:UInt, y:UInt.
+  if x > y then not (x = y)
+proof
+  arbitrary x:UInt, y:UInt
+  suppose: x > y
+  suppose: x = y
+  have: y > y  by replace (recall x = y) in (recall x > y)
+  have: y < y  by expand operator> in recall y > y
+  have: not (y < y) by uint_less_irreflexive
+  conclude false by recall y < y, not (y < y)
+end
+
 theorem uint_less_trans: all x:UInt, y:UInt, z:UInt.
   if x < y and y < z then x < z
 proof
