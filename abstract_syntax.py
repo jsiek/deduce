@@ -1079,10 +1079,10 @@ def op_arg_str(trm, arg):
       return "(" + str(arg) + ")"
   return str(arg)
 
-
-
 def do_function_call(loc, name, type_params, type_args,
                      params, args, body, subst, env, return_type):
+  from function_trap_handler import on_function, after_function
+  on_function(name, loc, env, args, [base_name(p) for p in params])
   fast_call = False
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
     op = base_name(name)
@@ -1164,9 +1164,28 @@ def do_function_call(loc, name, type_params, type_args,
     global recursion_depth
     print('<' * recursion_depth, str(ret))
     recursion_depth -= 1
-
+  
+  after_function(name, loc, env, args, ret)
   return explicit_term_inst(ret)
 
+@dataclass
+class Breakpoint(Term):
+  point: Term
+
+  def __str__(self):
+    return str(self.point)
+
+  def uniquify(self, env):
+    self.point.uniquify(env)
+    from function_trap_handler import break_at_point
+    break_at_point(self.point.location)
+
+  def reduce(self, env):  
+    from function_trap_handler import on_statement, after_statement
+    on_statement(self.point.location, env)
+    ret = self.point.reduce(env)
+    after_statement(self.point.location, env)
+    return ret
 
 @dataclass
 class Call(Term):
@@ -1219,7 +1238,7 @@ class Call(Term):
       #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
       return result
 
-  def reduce(self, env):
+  def reduce(self, env):        
     fun = self.rator.reduce(env)
     if get_eval_all():
       is_assoc = False
@@ -1247,10 +1266,16 @@ class Call(Term):
           ret.type_args = self.type_args
             
       case Lambda(loc, ty, vars, body):
+        from function_trap_handler import on_function, after_function
+        name = rator_name(self.rator)
         if hasattr(fun, 'env'):
+          on_function(name, self.location, fun.env, args, param_names=[base_name(x[0]) for x in vars])
           ret = self.do_call(loc, vars, body, args, fun.env)
+          after_function(name, self.location, fun.env, args, ret, param_names=[base_name(x[0]) for x in vars])
         else:
+          on_function(name, self.location, env, args, param_names=[base_name(x[0]) for x in vars])
           ret = self.do_call(loc, vars, body, args, env)
+          after_function(name, self.location, env, args, ret, param_names=[base_name(x[0]) for x in vars])
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):
@@ -1312,6 +1337,7 @@ class Call(Term):
       print('call to recursive function: ' + str(fun))
       print('\targs: ' + ', '.join([str(a) for a in args]))
 
+
     if env.get_tracing(name):
       global recursion_depth
       recursion_depth += 1
@@ -1327,9 +1353,13 @@ class Call(Term):
       for fun_case in cases:
           subst = {}
           if is_match(fun_case.pattern, first_arg, subst):
-              return do_function_call(loc, name, type_params, type_args,
+              from function_trap_handler import on_function, after_function
+              on_function(name, fun_case.location, env, args)
+              ret = do_function_call(loc, name, type_params, type_args,
                                       fun_case.parameters, rest_args,
                                       fun_case.body, subst, env, returns)
+              after_function(name, fun_case.location, env, args, ret)
+              return ret
     if is_assoc:
       if get_verbose():
         print('not reducing recursive call to associative ' + str(fun))
@@ -4286,6 +4316,12 @@ class Env:
         return self._def_of_type_var(self.dict, name)
       case _:
         raise Exception('get_def_of_type_var: unexpected ' + str(var))
+  
+  def get_def_of_term_name(self, name):
+    if name in self.dict.keys(): # the name '=' is not in the env
+      return self.dict[name]
+    else:
+      return None
       
   def get_formula_of_proof_var(self, pvar):
     match pvar:

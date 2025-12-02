@@ -23,8 +23,10 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
+from function_trap_handler import ask_for_input
 from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
+from function_trap_handler import on_statement, after_statement
 
 imported_modules = set()
 checked_modules = set()
@@ -37,7 +39,7 @@ def generate_name(name):
     new_id = name_id
     name_id += 1
     return ls[0] + '.' + str(new_id)
-  
+
 def check_implies(loc, frm1, frm2):
   if get_verbose():
     print('check_implies? ' + str(frm1) + ' => ' + str(frm2))
@@ -2782,6 +2784,7 @@ def find_rec_calls(name, term, env):
     
 
 def check_proofs(stmt, env: Env):
+  on_statement(stmt, env)
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
   match stmt:
@@ -2903,6 +2906,8 @@ def check_proofs(stmt, env: Env):
 
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
+
+  after_statement(stmt, env)
       
 def check_deduce(ast, module_name, modified, tracing_functions):
   env = Env()
@@ -2939,7 +2944,7 @@ def check_deduce(ast, module_name, modified, tracing_functions):
   if get_verbose():
     for s in ast3:
       print(s)
-      
+
   if get_verbose():
     print('--------- Proof Checking ------------------------')
   if module_name not in checked_modules:
