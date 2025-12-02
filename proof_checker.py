@@ -23,10 +23,10 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from function_trap_handler import ask_for_input
+from deduce_debugger import ask_for_input
 from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
-from function_trap_handler import on_statement, after_statement
+from deduce_debugger import on_statement, after_statement
 
 imported_modules = set()
 checked_modules = set()

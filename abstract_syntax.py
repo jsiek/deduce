@@ -1081,7 +1081,7 @@ def op_arg_str(trm, arg):
 
 def do_function_call(loc, name, type_params, type_args,
                      params, args, body, subst, env, return_type):
-  from function_trap_handler import on_function, after_function
+  from deduce_debugger import on_function, after_function
   on_function(name, loc, env, args, [base_name(p) for p in params])
   fast_call = False
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
@@ -1177,11 +1177,11 @@ class Breakpoint(Term):
 
   def uniquify(self, env):
     self.point.uniquify(env)
-    from function_trap_handler import break_at_point
+    from deduce_debugger import break_at_point
     break_at_point(self.point.location)
 
   def reduce(self, env):  
-    from function_trap_handler import on_statement, after_statement
+    from deduce_debugger import on_statement, after_statement
     on_statement(self.point.location, env)
     ret = self.point.reduce(env)
     after_statement(self.point.location, env)
@@ -1266,7 +1266,7 @@ class Call(Term):
           ret.type_args = self.type_args
             
       case Lambda(loc, ty, vars, body):
-        from function_trap_handler import on_function, after_function
+        from deduce_debugger import on_function, after_function
         name = rator_name(self.rator)
         if hasattr(fun, 'env'):
           on_function(name, self.location, fun.env, args, param_names=[base_name(x[0]) for x in vars])
@@ -1353,7 +1353,7 @@ class Call(Term):
       for fun_case in cases:
           subst = {}
           if is_match(fun_case.pattern, first_arg, subst):
-              from function_trap_handler import on_function, after_function
+              from deduce_debugger import on_function, after_function
               on_function(name, fun_case.location, env, args)
               ret = do_function_call(loc, name, type_params, type_args,
                                       fun_case.parameters, rest_args,

@@ -1,13 +1,15 @@
 from abstract_syntax import *
-from collections import deque
-from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
 from lark.tree import Meta
 
 breakpoints: set[str | Meta] = set()
 stepping: bool = False
-break_on_next: bool = True
+break_on_next: bool = False
 last_input: list[str] = ['']
 break_after: dict[object, list[int]] = {}
+
+def set_debugging():
+    global break_on_next
+    break_on_next = True
 
 def break_at_point(loc: Meta | str):
     global breakpoints

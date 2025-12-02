@@ -5,7 +5,7 @@ from abstract_syntax import *
 from lark import Lark, Token, logger, exceptions, tree
 from error import *
 from edit_distance import closest_keyword, edit_distance
-from function_trap_handler import break_at_point
+from deduce_debugger import break_at_point
 
 filename = '???'
 
