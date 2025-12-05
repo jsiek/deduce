@@ -9,6 +9,7 @@ NEWLINE: (/\r/? /\n/)+
 WS: /[ \t\f\r\n]/+
 LINECOMMENT: "//" /[^\n]*/ 
 COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
+ARROW: "->"
 
 ?term:  term_iff
 
@@ -189,6 +190,7 @@ ident: IDENT              -> ident
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
     | "evaluate" "in" proof                              -> eval_fact
+    | "simplify" opt_proof_list "in" proof               -> simplify_fact
     | "switch" term "{" switch_pf_case_list "}"          -> switch_proof
     | "switch" term "for" ident_list "{" switch_pf_case_list "}" -> switch_proof_for
     | "equations" equation                               -> equation_proof
@@ -208,8 +210,11 @@ ident: IDENT              -> ident
     | proof_hi "<" type_list ">"                         -> all_elim_types
     | "sorry"                                            -> sorry_proof
     | "{" proof "}"
-    
-?proof_stmt: "arbitrary" type_annot_list                   -> all_intro
+
+?opt_proof_list:                                    -> empty
+    | "with" proof_list
+
+?proof_stmt: "arbitrary" type_annot_list            -> all_intro
     | "assume" IDENT                                -> imp_intro
     | "assume" IDENT ":" term                       -> imp_intro_explicit
     | "assume" ":" term                             -> imp_intro_anon
@@ -218,6 +223,7 @@ ident: IDENT              -> ident
     | "expand" ident_list_bar                       -> expand
     | "replace" proof_list                          -> rewrite_goal
     | "show" term                                   -> annot_stmt
+    | "simplify" opt_proof_list                     -> simplify_goal
     | "extensionality"                              -> extensionality_proof
     | "have" IDENT ":" term reason              -> let
     | "have" ":" term reason                    -> let_anon
@@ -277,6 +283,7 @@ ident: IDENT              -> ident
     | "false"                                    -> pattern_false
     | "[" "]"                                    -> pattern_empty_list
     | IDENT "(" ident_list ")"                   -> pattern_apply
+    | "with" ident_list "." term                 -> pattern_term
 
 ?param_list:                                      -> empty
     | pattern                                       -> single
@@ -309,6 +316,10 @@ ident: IDENT              -> ident
 
 ?module_decl: "module" ident  -> module_decl
 
+?trace: "trace" ident -> trace
+
+?inductive_decl: "inductive" type "by" proof_hi
+
 ?statement: union
  | rec_function
  | function
@@ -322,6 +333,8 @@ ident: IDENT              -> ident
  | print
  | theorem
  | module_decl
+ | trace
+ | inductive_decl
 
 ?statement_list: statement                               -> single
     | statement statement_list                           -> push

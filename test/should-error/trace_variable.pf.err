@@ -1,0 +1,1 @@
+./test/should-error/trace_variable.pf:2.7-2.9: trace expects an identifer of type function, but instead got type bool

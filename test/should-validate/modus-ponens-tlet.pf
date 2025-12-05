@@ -1,0 +1,11 @@
+// modus ponens
+// (this already worked before since we just reduce imp)
+theorem modusPonensTLet: all P:bool, Q:bool.
+	if P and (define R = if P then Q; R) then Q
+proof
+	arbitrary P:bool, Q:bool
+	assume G
+	have p: P by G
+	have r: (define R = (if P then Q); R) by G
+	apply r to p
+end

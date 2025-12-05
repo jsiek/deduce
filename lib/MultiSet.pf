@@ -213,17 +213,17 @@ proof
     extensionality
     arbitrary y:T
     switch y = z for cnt {
-      case true suppose yz_true {
+      case true suppose y_z {
 	      have z_y: z = y
-	        by symmetric replace yz_true.
+	        by symmetric replace y_z.
 	      replace z_y.
 	    }
-	    case false suppose yz_false {
+	    case false suppose not_yz {
 	      have not_zy: not (z = y) by {
           suppose zy
-	        replace yz_false in symmetric zy
+	        simplify with not_yz in symmetric zy
         }
-	      replace (apply eq_false to not_zy).
+	      simplify with not_zy.
 	    }
     }
   }

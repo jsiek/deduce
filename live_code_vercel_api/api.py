@@ -39,7 +39,7 @@ def deduce_req():
     
     try:    
         with redirect_stdout(io.StringIO()) as stdout:
-            deduce_file(f"/tmp/{unique_id}.pf", False)
+            deduce_file(f"/tmp/{unique_id}.pf", error_expected=False, tracing_functions=[])
         deduce_output = stdout.getvalue()
     except Exception as e:
         deduce_output = str(e)

@@ -2,6 +2,11 @@
 Goal:
 	not false
 Advice:
+	This goal simplifies to
+		true
+	Consider using
+		simplify
+
 	Prove this if-then formula with:
 		assume label: false
 	followed by a proof of:

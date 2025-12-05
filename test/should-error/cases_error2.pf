@@ -1,0 +1,9 @@
+theorem ex_or_commute: all P:bool, Q:bool. if (P or Q) then (Q or P)
+proof
+  arbitrary P:bool, Q:bool
+  assume pq: (P or Q)
+  cases pq
+  case: P {
+    recall P
+  }
+end

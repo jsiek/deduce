@@ -1238,7 +1238,8 @@ proof
     show  a + a * c' < b + b * c'
     switch c' > zero {
       case true assume prop_t {
-        have ac_l_bc : a * c' < b * c' by apply (replace prop_t in IH) to alb
+        have ac_l_bc : a * c' < b * c'
+          by apply (simplify with prop_t in IH) to alb
         have step1 : a + a * c' < a + b * c'
           by apply add_both_sides_of_less[a, a*c'] to ac_l_bc
         have step2 : a + b * c' < b + b * c' by 
@@ -1249,7 +1250,7 @@ proof
       }
       case false assume prop_f {
         have cz : c' = zero by {
-          replace (expand operator > in prop_f) in
+          simplify with (expand operator > in prop_f) in
           zero_or_positive[c']
         }
         suffices a<b by replace cz.

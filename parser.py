@@ -573,6 +573,13 @@ def parse_tree_to_ast(e, parent):
         eqns = parse_tree_to_list(e.children[0], e)
         subject = parse_tree_to_ast(e.children[1], e)
         return RewriteFact(e.meta, subject, eqns)
+    elif e.data == 'simplify_goal':
+        givens = parse_tree_to_list(e.children[0], e)
+        return SimplifyGoal(e.meta, None, givens)
+    elif e.data == 'simplify_fact':
+        givens = parse_tree_to_list(e.children[0], e)
+        subject = parse_tree_to_ast(e.children[1], e)
+        return SimplifyFact(e.meta, subject, givens)
     elif e.data == 'equation':
         lhs = parse_tree_to_ast(e.children[0], e)
         rhs = parse_tree_to_ast(e.children[1], e)
@@ -649,6 +656,12 @@ def parse_tree_to_ast(e, parent):
         pvar = parse_tree_to_ast(e.children[0], e)
         return Auto(e.meta, pvar)
     
+    elif e.data == 'inductive_decl':
+        ty = parse_tree_to_ast(e.children[0], e)
+        thm = parse_tree_to_ast(e.children[1], e)
+        return Inductive(e.meta, ty, thm)
+    
+    
     elif e.data == 'module_decl':
         return Module(e.meta, parse_tree_to_ast(e.children[0], e))
     
@@ -670,6 +683,11 @@ def parse_tree_to_ast(e, parent):
         return PatternCons(e.meta,
                            Var(e.meta, None, str(e.children[0].value), []),
                            params)
+    elif e.data == 'pattern_term':
+        params = parse_tree_to_list(e.children[0], e)
+        term = parse_tree_to_ast(e.children[1], e)
+        print(params, term)
+        return PatternTerm(e.meta, term, list(params)) 
     
     # case of a recursive function
     elif e.data == 'fun_case':
@@ -767,6 +785,10 @@ def parse_tree_to_ast(e, parent):
         return 'opaque'
     elif (e.data == 'default'):
         return 'default'
+    
+    # trace
+    elif e.data == 'trace':
+        return Trace(e.meta, Var(e.meta, None, parse_tree_to_ast(e.children[0], e), []))
     
     # whole program
     elif e.data == 'program':

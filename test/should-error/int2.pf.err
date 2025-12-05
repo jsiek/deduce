@@ -2,6 +2,11 @@
 Goal:
 	(((+0 + - 0) + +1) + - 1) + 1 = +1
 Advice:
+	This goal simplifies to
+		true
+	Consider using
+		simplify
+
 	To prove this equality, one of these statements might help:
 		expand
 		replace

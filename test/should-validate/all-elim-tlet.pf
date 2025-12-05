@@ -1,0 +1,14 @@
+// all elim
+lemma blah:
+	(define R = all P: bool. if P then P; R)
+proof
+	arbitrary P: bool
+	assume: P
+	recall P
+end
+
+theorem allElimTLet: all P: bool. if P then P
+proof
+	arbitrary P: bool
+	blah[P]
+end

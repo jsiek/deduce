@@ -1,0 +1,14 @@
+// all elim types
+lemma bleh:
+	(define R = all T: type. if true then true; R)
+proof
+	arbitrary T: type
+	assume prem
+	.
+end
+
+theorem allElimTypesTLet: all T: type. if true then true
+proof
+	arbitrary T: type
+	bleh<T>
+end

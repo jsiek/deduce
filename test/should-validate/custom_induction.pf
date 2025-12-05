@@ -1,0 +1,33 @@
+
+union TwoList<K, V> {
+  nil
+  vnode(V, TwoList<K, V>)
+  knode(K, TwoList<K, V>)
+}
+
+recursive tlFun<K, V>(TwoList<K, V>) -> bool {
+  tlFun(nil) = true
+  tlFun(vnode(v, tl')) = tlFun(tl')
+  tlFun(knode(v, tl')) = tlFun(tl')
+}
+
+postulate tl_induction : all T: type, E : type.
+  all P : fn TwoList<T, E> -> bool.
+  if P(nil) and (all k : T, tl : TwoList<T, E>. if (P(tl) and P(nil)) then P(knode(k, tl)))
+  then all x : TwoList<T, E>. P(x)
+
+inductive TwoList by tl_induction
+
+theorem exampl : all K : type, V : type. all tll : TwoList<K, V>.
+  tlFun(tll)
+proof
+  arbitrary K : type, V:type
+  induction TwoList<K, V>
+  case nil {
+    evaluate
+  }
+  case with k', tl'. knode(k', tl') assume IH {
+    expand tlFun
+    IH
+  }
+end

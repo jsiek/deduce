@@ -1,0 +1,7 @@
+./test/should-error/simplify3.pf:7.3-7.4: incomplete proof
+Goal:
+	(P or P)
+Advice:
+	Prove this logical-or formula by proving one of its parts:
+		P
+		P

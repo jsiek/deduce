@@ -1,0 +1,19 @@
+// extensionality
+define func1 = fun x:bool { x }
+define func2 = fun x:bool { x }
+
+theorem extensionalityTLet1: (define f = func1; f) = (define g = func2; g)
+proof
+	extensionality
+	arbitrary x:bool
+	expand func1 | func2
+	.
+end
+
+theorem extensionalityTLet2: (define f = func1 = func2; f)
+proof
+	extensionality
+	arbitrary x:bool
+	expand func1 | func2
+	.
+end

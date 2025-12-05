@@ -3,4 +3,5 @@
 
 ./test/should-error/union_bad_constructor.pf:3.3-3.12: while parsing
 	constructor ::= identifier | identifier "(" type_list ")"
-./test/should-error/union_bad_constructor.pf:3.3-3.12: missing closing parenthesis
+./test/should-error/union_bad_constructor.pf:3.13-3.17: expected closing parenthesis ")" , not
+	Tree

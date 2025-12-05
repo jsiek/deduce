@@ -1,4 +1,4 @@
 ./test/parse/switch_pf2.pf:1.1-6.35: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
-./test/parse/switch_pf2.pf:4.3-8.4: expected "}" after last case of "switch", not
+./test/parse/switch_pf2.pf:8.1-8.4: expected "}" after last case of "switch", not
 	end

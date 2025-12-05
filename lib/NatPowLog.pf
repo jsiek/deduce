@@ -243,7 +243,7 @@ proof
         suffices a * expt(n', a) < b * expt(n', b) 
           by expand operator^ | expt.
         have ena_l_enb : expt(n', a) < expt(n', b) 
-          by expand operator^ in apply (replace prop_t in IH) to alb
+          by expand operator^ in apply (simplify with prop_t in IH) to alb
         have enb_nz :  expt(n', b) > zero by {
           expand operator >
           apply greater_any_zero to ena_l_enb
@@ -265,7 +265,7 @@ proof
         }
       }
       case false assume prop_f {
-        have nz : n' = zero by replace prop_f in zero_or_positive[n']
+        have nz : n' = zero by simplify with prop_f in zero_or_positive[n']
         suffices a < b by replace nz | expt_one.
         alb
       }
@@ -434,11 +434,7 @@ proof
           replace add_suc[m'][n] in IH'
         }
       }
-      case false suppose pl_l_sn_false {
-        have not_pl_l_sn: not (pow2(l) < suc(n)) by {
-          suppose pl_l_sn
-          conclude false by replace pl_l_sn_false in pl_l_sn
-        }
+      case false suppose not_pl_l_sn {
         have sn_le_pl: suc(n) ≤ pow2(l)
           by apply not_less_implies_less_equal[pow2(l)][suc(n)] to not_pl_l_sn
         have IH': m' + suc(n) ≤ pow2(find_log(m',suc(n),l))
@@ -569,7 +565,7 @@ proof
       expand operator^ in IH'
     }
     case B {
-      replace apply eq_true to B
+      simplify with B
       show n < ℕ2 * expt(l, ℕ2)
       expand lit
       B

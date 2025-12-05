@@ -14,6 +14,7 @@ infix_precedence = {'+': 6, '-': 6, '∸': 6, '⊝': 6, '*': 7, '/': 7, '%': 7,
                     '++': 6, '⨄': 6, '∈':1, '∪':6, '∩':6, '⊆': 1, '⇔': 2,
                     '∘': 7, '^' : 8}
 prefix_precedence = {'-': 9, 'not': 4}
+recursion_depth = 0
 
 def name2str(s):
     if get_unique_names():
@@ -498,7 +499,14 @@ class GenericUnknownInst(Type):
   def uniquify(self, env):
     self.typ.uniquify(env)
   
-  
+def get_type_name(ty):
+  match ty:
+    case Var(l1, tyof, n, rs):
+      return ty
+    case TypeInst(l1, ty, type_args):
+      return get_type_name(ty)
+    case _:
+      raise Exception('unhandled case in get_type_name: ' + repr(ty))
 ################ Patterns ######################################
 
 @dataclass
@@ -553,6 +561,26 @@ class PatternCons(Pattern):
   def uniquify(self, env):
     self.constructor.uniquify(env)
     
+  def reduce(self, env):
+    return self
+
+@dataclass
+class PatternTerm(Pattern):
+  term: Term
+  parameters: list[str]
+
+  def bindings(self):
+    return self.parameters
+
+  def copy(self):
+    return PatternTerm(self.location, self.term.copy(), [x for x in self.parameters])
+
+  def __str__(self):
+    return str(self.term)
+
+  def uniquify(self, env):
+    self.term.uniquify(env)
+  
   def reduce(self, env):
     return self
     
@@ -767,6 +795,8 @@ class Var(Term):
         return self
   
   def substitute(self, sub):
+      if len(self.resolved_names) == 1:
+        self.name = self.resolved_names[0]
       if self.name in sub:
           trm = sub[self.name]
           if not isinstance(trm, RecFun) and not isinstance(trm, GenRecFun):
@@ -1105,7 +1135,7 @@ def do_function_call(loc, name, type_params, type_args,
       ret = intToNat(loc, x ** y, sname=sname, zname=zname, ty=ty)
     if ret: 
       if get_verbose():
-        print(f"Doing fast arithmetic on call {self}.")
+        print(f"Doing fast arithmetic on call {x} {op} {y}.")
       ret.typeof = return_type
       fast_call = True
 
@@ -1158,6 +1188,12 @@ def do_function_call(loc, name, type_params, type_args,
   add_reduced_def(name)
   if get_verbose():
     print('\tcall to ' + name + ' returns ' + str(ret))
+
+  if env.get_tracing(name):
+    global recursion_depth
+    print('<' * recursion_depth, str(ret))
+    recursion_depth -= 1
+
   return explicit_term_inst(ret)
 
 
@@ -1247,6 +1283,11 @@ class Call(Term):
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):
+        if env.get_tracing(name):
+          global recursion_depth
+          recursion_depth += 1
+          print('>' * recursion_depth, str(base_name(name)) + '(' + str(' '.join([str(x) for x in args]) + ')'))
+
         subst = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, [], [], [x for (x,t) in params], args,
                                body, subst, env, None)
@@ -1299,6 +1340,11 @@ class Call(Term):
     if get_verbose():
       print('call to recursive function: ' + str(fun))
       print('\targs: ' + ', '.join([str(a) for a in args]))
+
+    if env.get_tracing(name):
+      global recursion_depth
+      recursion_depth += 1
+      print('>' * recursion_depth, str(base_name(name)) + '(' + str(' '.join([str(x) for x in args]) + ')'))
 
     if is_assoc and len(args) > len(params):
       return self.reduce_associative(loc, name, fun, type_params, type_args,
@@ -1377,8 +1423,7 @@ class Call(Term):
       return explicit_term_inst(flat_results[0])
     else:
       return Call(self.location, self.typeof,
-                  Var(loc, FunctionType(loc, [], params, returns),
-                      name, [name]),
+                  fun,
                   flat_results)
   
   def substitute(self, sub):
@@ -1686,7 +1731,14 @@ class TLet(Term):
   def reduce(self, env):
     new_body = self.body.substitute({self.var: self.rhs})
     return new_body.reduce(env)
-    
+
+  def reduceLets(self, env):
+    new_body = self.body.substitute({self.var: self.rhs})
+    if isinstance(new_body, TLet):
+      return new_body.reduceLets(env)
+    else:
+      return new_body
+
   def copy(self):
     return TLet(self.location, self.typeof, self.var,
                 self.rhs.copy(), self.body.copy())
@@ -2209,7 +2261,7 @@ class PTLetNew(Proof):
   body: Proof
 
   def copy(self):
-      return PLetNew(self.location, self.var, self.rhs.copy(), self.body.copy())
+      return PTLetNew(self.location, self.var, self.rhs.copy(), self.body.copy())
   
   def pretty_print(self, indent):
       return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
@@ -2294,7 +2346,7 @@ class Cases(Proof):
   cases: List[Tuple[str,Formula,Proof]]
 
   def copy(self):
-      return Cases(self.location, self.subject.copy(), [(l, f.copy(), p.copy()) for (l,f,p) in cases])
+      return Cases(self.location, self.subject.copy(), [(l, f.copy(), p.copy()) for (l,f,p) in self.cases])
   
   def pretty_print(self, indent):
       cases_str = ''
@@ -2432,7 +2484,6 @@ class AllElimTypes(Proof):
       return str(self)
   
   def __str__(self):
-    print(self.pos)
     s, e = self.pos
     res = str(self.univ)
     if s == 0:
@@ -2487,7 +2538,7 @@ class SomeIntro(Proof):
   body: Proof
 
   def copy(self):
-      return SomeIntro(self.location, [w.copy() for w in witnesses], self.body.copy())
+      return SomeIntro(self.location, [w.copy() for w in self.witnesses], self.body.copy())
 
   def pretty_print(self, indent):
     return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
@@ -2769,7 +2820,7 @@ class IndCase(AST):
         f.uniquify(body_env)
       
     self.pattern.parameters = new_params
-    self.pattern.uniquify(env)
+    self.pattern.uniquify(body_env)
     self.induction_hypotheses = new_hyps
     self.body.uniquify(body_env)
     
@@ -2885,7 +2936,48 @@ class EvaluateFact(Proof):
 
   def uniquify(self, env):
     self.subject.uniquify(env)
+
+@dataclass
+class SimplifyGoal(Proof):
+  body: Proof
+  givens: List[Proof]
+
+  def copy(self):
+      return SimplifyGoal(self.location, self.body.copy(),
+                          [p.copy() for p in self.givens])
   
+  def __str__(self):
+      return 'simplify ' + ' | '.join([str(p) for p in self.givens]) + '\n' \
+          + str(self.body)
+
+  def uniquify(self, env):
+    self.body.uniquify(env)
+    for p in self.givens:
+      p.uniquify(env)
+
+
+@dataclass
+class SimplifyFact(Proof):
+  subject: Proof
+  givens: List[Proof]
+
+  def copy(self):
+      return SimplifyFact(self.location, self.subject.copy(),
+                          [p.copy() for p in self.givens])
+  
+  def pretty_print(self, indent):
+      return str(self)
+  
+  def __str__(self):
+    return 'simplify ' \
+        + ' | '.join([str(p) for p in self.givens]) \
+        + ' in ' + str(self.subject)
+
+  def uniquify(self, env):
+    self.subject.uniquify(env)
+    for p in self.givens:
+      p.uniquify(env)
+
 @dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]
@@ -2913,7 +3005,7 @@ class ApplyDefsFact(Proof):
                            self.subject.copy())
   
   def __str__(self):
-      return 'definition ' + ' | '.join([str(d) for d in self.definitions]) \
+      return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
@@ -2945,7 +3037,7 @@ class RewriteFact(Proof):
   equations: List[Proof]
 
   def copy(self):
-      return RewriteFast(self.location,
+      return RewriteFact(self.location,
                          self.subject.copy(),
                          [p.copy() for p in self.equations])
   
@@ -3548,6 +3640,22 @@ class Auto(Statement):
     pass
 
 @dataclass
+class Inductive(Statement):
+  typ: Type 
+  thm_name: Term
+
+  def __str__(self):
+    return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
+
+  def uniquify(self, env):
+    self.typ.uniquify(env)
+    self.thm_name.uniquify(env)
+
+  def collect_exports(self, export_env, importing_module):
+    pass
+
+
+@dataclass
 class Module(Statement):
   name: str
 
@@ -3602,6 +3710,19 @@ class Associative(Statement):
     full_base_name = '__associative_' + base
     export_env[full_base_name] = [full_name]
 
+@dataclass
+class Trace(Statement):
+  rec_fun: Var
+
+  def __str__(self):
+    return 'trace ' + str(self.rec_fun)
+
+  def uniquify(self, env):
+    self.rec_fun.uniquify(env)
+
+  def reduce(self, env):
+    self.rec_fun.reduce(env)
+
 # ---------------------
 # Auxiliary Functions
   
@@ -3609,12 +3730,15 @@ def mkEqual(loc, arg1, arg2):
   ret = Call(loc, None, Var(loc, None, '=', []), [arg1, arg2])
   return ret
 
-def split_equation(loc, equation):
+def split_equation(loc, equation, env):
+  if isinstance(equation, TLet):
+    equation = equation.reduceLets(env)
+    
   match equation:
     case Call(loc1, tyof, Var(loc2, tyof2, '=', rs2), [L, R]):
       return (L, R)
     case All(loc1, tyof, var, pos, body):
-      return split_equation(loc, body)
+      return split_equation(loc, body, env)
     case _:
       error(loc, 'expected an equality, not ' + str(equation))
 
@@ -4089,7 +4213,7 @@ class Env:
   def declare_auto_rewrite(self, loc, equation):
     new_env = Env(self.dict)
     full_name = '__auto__'
-    (lhs,rhs) = split_equation(loc, equation)
+    (lhs,rhs) = split_equation(loc, equation, new_env)
     head_lhs = term_head(lhs)
     #print('declare auto: ' + head_lhs + '\n\t' + str(equation))
     if full_name in self.dict:
@@ -4114,8 +4238,37 @@ class Env:
         else:
             return self.dict[full_name].equations['no_name']
     else:
-        return []
-        
+      return []
+
+  def declare_inductive(self, loc, ind_dict, thm):
+    new_env = Env(self.dict)
+    full_name = '__inductive__'
+    typ = ind_dict["ind_ty"]
+    ind_dict["thm"] = thm
+    type_name = get_type_name(typ).name
+
+    if full_name in new_env.dict:
+      if type_name in new_env.dict[full_name]:
+        pass
+      else:
+        new_env.dict[full_name][type_name] = ind_dict
+      # Check for type, overwrite/ add to existing
+      pass
+    else:
+      new_env.dict[full_name] = {}
+      new_env.dict[full_name][type_name] = ind_dict
+    
+    return new_env
+
+  def get_inductive(self, typ):
+    full_name = '__inductive__'
+    type_name = get_type_name(typ).name
+    if full_name in self.dict:
+      if type_name in self.dict[full_name]:
+        return self.dict[full_name][type_name]
+
+    return None
+
   def declare_term_vars(self, loc, xty_pairs, local = False):
     new_env = self
     for (x,ty) in xty_pairs:
@@ -4152,6 +4305,13 @@ class Env:
     new_env = Env(self.dict)
     new_env.dict['__current_module__'] = module
     return new_env
+  
+  def declare_tracing(self, function_name: str):
+    new_env = Env(self.dict)
+    if 'tracing' not in new_env.dict:
+      new_env.dict['tracing'] = set()
+    new_env.dict['tracing'].add(function_name)
+    return new_env
 
   def get_current_module(self):
       return self.dict['__current_module__']
@@ -4162,6 +4322,7 @@ class Env:
     else:
       raise Exception('variable not in env: ' + name)
   
+
   def _type_of_term_var(self, curr, name):
     if name in curr.keys():
       binding = curr[name]
@@ -4276,6 +4437,9 @@ class Env:
     match tvar:
       case Var(loc, tyof, name):
         return self._value_of_term_var(self.dict, name)
+      
+  def get_tracing(self, function_name: str) -> bool:
+    return 'tracing' in self.dict and function_name in self.dict['tracing']
 
   def local_proofs(self):
     return [b.formula for (name, b) in self.dict.items() \
@@ -4627,13 +4791,14 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       if get_verbose():
           print('is_assoc? ' + str(is_assoc))
       if is_assoc:
-          args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+          # args = sum([flatten_assoc(rator_name(rator), arg) for arg in args], [])
+          args = flatten_assoc_list(rator_name(rator), args)
       new_rator = rewrite_aux(loc, rator, equation, env, depth - 1)
       new_args = [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args]
-      if get_verbose():
-          print('while tyring to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
+      if False and get_verbose():
+          print('while trying to rewrite ' + str(formula) + '\n\twith equation ' + str(equation))
           print('new_args: ' + ', '.join([str(arg) for arg in new_args]))
-      (lhs,rhs) = split_equation(loc2, equation)
+      (lhs,rhs) = split_equation(loc2, equation, env)
       arity = call_arity(lhs)
       if get_verbose():
           print('lhs = ' + str(lhs) + '\n\tarity: ' + str(arity)) 
@@ -4716,8 +4881,8 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
 
 def try_rewrite(loc, formula, equation, env):
-  (lhs, rhs) = split_equation(loc, equation)
-  if get_verbose():
+  (lhs, rhs) = split_equation(loc, equation, env)
+  if False and get_verbose():
       print('try rewrite? ' + str(formula) + '\n\twith equation ' + str(equation))
   matching = {}
   eq_vars = equation_vars(equation)
@@ -4725,12 +4890,12 @@ def try_rewrite(loc, formula, equation, env):
   # print('rewriting using: ' + str(equation) + '\n' \
   #       + '\t' + str(formula) \
   #       + '\t==> ' + str(rhs.substitute(matching)) + '\n')
-  if get_verbose():
+  if False and get_verbose():
       print('\tmatched LHS, rewriting to the RHS: ' + str(rhs.substitute(matching)))
   return rhs.substitute(matching).reduce(env)
 
 def formula_match(loc, vars, pattern_frm, frm, matching, env):
-  if get_verbose():
+  if False and get_verbose():
     print("formula_match:\n\t" + str(pattern_frm) + "\n\t" + str(frm) + "\n")
     print("\tin  " + ','.join([str(x) for x in vars]))
     print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
@@ -4766,7 +4931,7 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
         
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
-      if get_verbose():
+      if False and get_verbose():
           print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
                 + '\trator formula: ' + str(rator))
       formula_match(loc, vars, goal_rator, rator, matching, env)

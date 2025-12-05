@@ -5,5 +5,5 @@
 ./test/should-error/function_case_missing_equal.pf:8.3-8.9: while parsing
 	fun_case ::= identifier "(" param_list ")" "=" term
 
-./test/should-error/function_case_missing_equal.pf:8.10-8.14: expected "=" and then a term, not
+./test/should-error/function_case_missing_equal.pf:8.10-8.14: expected "=" and then a term , not
 	zero
