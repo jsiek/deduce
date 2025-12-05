@@ -1,0 +1,9 @@
+union A<E> {
+    a(E)
+}
+
+union No<K, V> {
+    nil
+    th(No<K>)
+    thi(A)
+}

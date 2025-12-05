@@ -2382,6 +2382,35 @@ def is_modified(filename):
     else:
         return True
           
+def validate_union_type(ty, params, env):
+  match ty:
+    case Var(loc, t, name, rns):
+      type_def = env.get_def_of_type_var(ty)
+
+      if isinstance(type_def, Union):
+        union_params_len = len(type_def.type_params)
+        provided_params_len = len(params)
+        if union_params_len != provided_params_len:
+          error(ty.location, f"Expected union type '{ty}' in constructor parameters " \
+               + f"to have {union_params_len} parameters, not {provided_params_len}")
+    case TypeInst(loc, ty, type_args):
+      for t in type_args:
+        validate_union_type(t, [], env)
+      validate_union_type(ty, type_args, env)
+      pass
+    case FunctionType(loc, ty_params, param_types, return_type):  
+      for t in param_types:
+        validate_union_type(t, [], env)
+      validate_union_type(return_type, [], env)
+    case IntType():
+      pass
+    case BoolType():
+      pass
+    case ArrayType(loc, elt_ty):
+      validate_union_type(elt_ty, [], env)
+    case _:
+      error(ty.location, f"Unhandled case '{type(ty)}' in 'validate_union_type")
+
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
@@ -2459,6 +2488,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             return_type = body_union_type
           for ty in constr.parameters:
             check_type(ty, body_env)
+            validate_union_type(ty, [], body_env)
           constr_type = FunctionType(constr.location, typarams,
                                      constr.parameters, return_type)
         elif len(typarams) > 0:

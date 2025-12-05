@@ -1,0 +1,1 @@
+./test/should-error/union_missing_typarams_fun.pf:6.13-6.14: Expected union type 'A' in constructor parameters to have 1 parameters, not 0
