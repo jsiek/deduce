@@ -1,0 +1,1 @@
+./test/should-error/union_missing_typarams.pf:7.8-7.10: Expected union type 'No' in constructor parameters to have 2 parameters, not 1
