@@ -20,7 +20,7 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected, tracing_functions, prelude: list[str]):
+def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] = []):
     if get_verbose():
         print("Deducing file:", filename)
     module_name = Path(filename).stem
@@ -88,7 +88,7 @@ def deduce_file(filename, error_expected, tracing_functions, prelude: list[str])
             # during development, reraise
             # raise e
 
-def deduce_directory(directory, recursive_directories, tracing_functions, prelude):
+def deduce_directory(directory, recursive_directories, tracing_functions, prelude: list[str] = []):
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
