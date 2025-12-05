@@ -55,7 +55,7 @@ def ask_for_input(loc: str, env: Env, params={}):
                     case _:
                         print("Couldn't add a breakpoint for", func_name)
                         continue
-            case ['next'] | ['n']:
+            case ['step over'] | ['so']:
                 last_input = user_input
                 if loc not in break_after:
                     break_after[loc] = [0]
