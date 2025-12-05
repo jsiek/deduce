@@ -5,6 +5,7 @@ from abstract_syntax import *
 from lark import Lark, Token, logger, exceptions, tree
 from error import *
 from edit_distance import closest_keyword, edit_distance
+from deduce_debugger import break_at_point
 
 filename = '???'
 
@@ -352,6 +353,12 @@ def parse_term_hi():
   
   elif token.type == 'DEFINE':
     return parse_define_term()
+  
+  elif token.type == 'BREAK':
+    advance()
+    break_point = parse_term_hi()
+    break_at_point(break_point.location)
+    return break_point
   
   else:
     try:

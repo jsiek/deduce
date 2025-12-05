@@ -115,6 +115,7 @@ ident: IDENT              -> ident
     | "if" term "then" term "else" term            -> conditional
     | "if" term "then" term                        -> if_then_formula
     | "%" type
+    | "break" term_hi                              -> break_before
     
 ?term_list:                                        -> empty
     | term                                         -> single

@@ -1,3 +1,4 @@
+from deduce_debugger import set_debugging
 from flags import *
 from proof_checker import check_deduce, uniquify_deduce, is_modified
 from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
@@ -147,6 +148,8 @@ if __name__ == "__main__":
             exit(0)
         elif argument == '--no-check-imports':
             set_check_imports(False)
+        elif argument == '--debug':
+            set_debugging()
         else:
             deducables.append(argument)
     
