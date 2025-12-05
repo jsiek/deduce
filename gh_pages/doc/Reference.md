@@ -1230,6 +1230,35 @@ proof
 end
 ```
 
+## Inductive (Statement)
+```
+inductive_decl: "inductive" type "by" proof
+```
+
+The `inductive` statement allows you to declare custom inductive structure
+for any type in deduce, provided that the structure has been proved in a 
+proof of the appropriate form. For example, the `UInt` library provides
+the natural induction on positive integers, rather than requiring you to
+do induction with the binary definition of the type.
+
+```
+theorem uint_induction: all P:fn UInt -> bool.
+  if P(0) and (all m:UInt. if P(m) then P(1 + m))
+  then all n : UInt. P(n)
+```
+
+All theorems must be of a similar form to the one above,
+including a function from the desired inductive type to bool, 
+and a set of formulas that are either calls or if-thens that 
+lead to the conclusion of the form `all n : T. P(n)`.
+
+When performing induction on a type that has custom induction defined,
+cases with free variables must use the "with" [pattern](#pattern) to
+instantiate them. For example:
+```
+case with x. 1 + x assume IH { ... }
+```
+
 ## Injective (Proof)
 
 ```
@@ -1594,10 +1623,11 @@ pattern ::= identifier
 pattern ::= "true"
 pattern ::= "false"
 pattern ::= identifier "(" identifier_list ")"
+pattern ::= "with" identifier_list "." term
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
-and [Recursive Function (Statement)](#function-statement) via a Pattern List.
+and [Recursive Function (Statement)](#function-statement) via a Parameter List.
 
 
 ## Parameter List
