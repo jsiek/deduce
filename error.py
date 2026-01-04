@@ -1,5 +1,13 @@
 import flags
 
+def get_location_text_lines(location):
+  if not location.empty:
+    with open(location.filename, 'r') as f:
+      lines = list(f.readlines())
+      return lines[location.line-1:location.end_line]
+  else:
+    return ''
+
 def error_header(location):
   if not location.empty:
     return '{file}:{line1}.{column1}-{line2}.{column2}: ' \
@@ -8,14 +16,6 @@ def error_header(location):
                 line2=location.end_line, column2=location.end_column)
   else:
     return '' # Don't want to risk returning None ever leading to issues
-
-def get_location_text_lines(location):
-  if not location.empty:
-    with open(location.filename, 'r') as f:
-      lines = list(f.readlines())
-      return lines[location.line-1:location.end_line]
-  else:
-    return ''
 
 def error_program_text(location):
   if not location.empty:
@@ -31,10 +31,17 @@ def error_program_text(location):
     tab_width = 4
     for i in range(len(error)):
       if error[i] == '\t':
-        if i < start_column: num_space += tab_width - 1
-        else: num_carrot += tab_width - 1
-        error.replace('\t', ' ' * tab_width)
+        if i < start_column:
+          num_space += tab_width - 1
+        else:
+          num_carrot += tab_width - 1
+          # num_space += tab_width
+          # num_carrot -= 1
+          
+    error = error.replace('\t', ' ' * tab_width)
+    lines = list(map(lambda s: s.replace('\t', ' ' * tab_width), lines))
 
+    if error[-1] != '\n': error += '\n'
     error += (' ' * num_space) + ('^' * num_carrot)
     return ''.join(lines[:-1]) + error
   else:
@@ -42,6 +49,7 @@ def error_program_text(location):
 
 def error(location, msg):
   exc = Exception(error_header(location) + msg)
+  # exc = Exception(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
   exc.depth = 0
   raise exc
 
@@ -61,12 +69,14 @@ class StaticError(Exception):
 
 def static_error(location, msg):
   raise StaticError(error_header(location) + msg)
+  # raise StaticError(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
 
 class MatchFailed(Exception):
   pass
 
 def match_failed(location, msg):
   raise MatchFailed(error_header(location) + msg)
+  # raise MatchFailed(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
 
 MAX_ERR_DEPTH = 2
 
