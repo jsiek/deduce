@@ -1,2 +1,6 @@
+
+
+private opaque define X: bool = true
+        ^^^^^^
 ./test/should-error/private_opaque.pf:1.9-1.15: expected a statement, not
 	opaque

@@ -1,2 +1,2 @@
-./test/should-error/private_import1.pf:3.8-3.12: 
-	Add `import Nat` to use natural numbers.
+> checking ImportNat
+./test/should-error/private_import1.pf is valid

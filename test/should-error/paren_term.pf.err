@@ -4,5 +4,9 @@
 ./test/should-error/paren_term.pf:9.6-9.11: while parsing parenthesized term
 	term ::= "(" term ")"
 
+
+print(sum, [1,2,3])
+         ^
+
 ./test/should-error/paren_term.pf:9.10-9.11: expected closing parenthesis ")" , not
 	,

@@ -4,5 +4,9 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
+
+  have true by .
+       ^^^^
+
 ./test/should-error/missing-colon-in-have.pf:3.8-3.12: expected an identifier or colon after "have", not
 	true

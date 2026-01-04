@@ -5,5 +5,9 @@
 ./test/should-error/apply_to_error.pf:17.50-17.66: while parsing apply-to (use a logical implication)
 	conclusion ::= "apply" proof "to" proof
 
+
+  have step : (if P then Q) and (if Q then R) by apply T[P, Q, R] prem
+                                                                  ^^^^
+
 ./test/should-error/apply_to_error.pf:17.67-17.71: expected "to" after implication part of "apply", not
 	prem

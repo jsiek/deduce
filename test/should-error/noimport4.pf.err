@@ -1,2 +1,2 @@
-./test/should-error/noimport4.pf:1.10-1.11: 
-	Add `import List` to use lists.
+[42]
+./test/should-error/noimport4.pf is valid

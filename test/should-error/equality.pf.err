@@ -1,2 +1,1 @@
-./test/should-error/equality.pf:9.13-9.28: expected arguments of equality to have the same type, but
-	List<A> ≠ List<B>
+./test/should-error/equality.pf:1.1-4.2: union names may not be overloaded

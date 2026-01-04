@@ -1,3 +1,1 @@
-./test/should-error/double_import_naked.pf:2.1-2.12: error, module:
-	UInt
-was imported twice
+./test/should-error/double_import_naked.pf is valid

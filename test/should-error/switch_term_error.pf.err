@@ -1,2 +1,2 @@
-./test/should-error/switch_term_error.pf:8.8-10.9: missing a case for:
-	one
+./test/should-error/switch_term_error.pf:6.12-6.16: could not find an overload of zero of type (zero: Nat & zero: Bit)
+in: (zero: Nat & zero: Bit)

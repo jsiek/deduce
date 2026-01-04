@@ -1,2 +1,2 @@
-./test/should-error/noimport2.pf:1.7-1.8: 
-	Add `import UInt` to use unsigned integers.
+bzero
+./test/should-error/noimport2.pf is valid

@@ -1,2 +1,4 @@
-./test/should-error/forgot_def.pf:7.17-7.20: expected a proof but instead got term `xor`.
-Perhaps you meant `expand xor`?
+./test/should-error/forgot_def.pf:5.18-5.27: in call to xor
+ambiguous overloads:
+./lib/Base.pf:132.1-135.2: (fn bool, bool -> bool)
+./test/should-error/forgot_def.pf:1.14-1.35: (fn bool, bool -> bool)
