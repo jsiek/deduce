@@ -1,1 +1,3 @@
-./test/should-error/double_import.pf is valid
+./test/should-error/double_import.pf:2.1-2.12: error, module:
+	UInt
+was imported twice

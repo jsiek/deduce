@@ -1,5 +1,5 @@
-./test/should-error/sum_append.pf:35.16-35.36: Nat does not match List<E>
+./test/should-error/sum_append.pf:35.16-35.36: expected type Nat
+	but the call sum(ls1) ++ sum(ls2)
+	has return type List<E>
 
-	in context of call sum(ls1) ++ sum(ls2)
-	function type: (fn <E> List<E>, List<E> -> List<E>)
 	inferred type arguments: 

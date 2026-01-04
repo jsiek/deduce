@@ -1,3 +1,1 @@
-> checking Private
-./test/should-error/use_private_union.pf:3.19-3.27: could not find an overload of positive of type (positive: (fn (fn UInt -> UInt) -> bool) & positive: Sign)
-in: (positive: (fn (fn UInt -> UInt) -> bool) & positive: Sign)
+./test/should-error/use_private_union.pf:3.8-3.16: undefined variable: positive

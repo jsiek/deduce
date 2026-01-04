@@ -1,10 +1,2 @@
-./test/should-error/len_termination.pf:12.22-12.33: could not find a match for function call:
-	ℕ1 + len(L)
-argument types: Nat, Nat
-overloads:
-	(fn (fn UInt -> UInt), (fn UInt -> UInt) -> (fn UInt -> UInt))
-	(fn UInt, UInt -> UInt)
-	(fn Int, Int -> Int)
-	(fn UInt, Int -> Int)
-	(fn Int, UInt -> Int)
-	(fn Nat, Nat -> Nat)
+./test/should-error/len_termination.pf:12.27-12.33: ill-formed recursive call
+expected first argument to be n or ls, not L
