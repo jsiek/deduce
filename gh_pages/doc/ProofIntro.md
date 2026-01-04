@@ -23,14 +23,15 @@ examples of their use.
 * [Reasoning about `not`](#reasoning-about-not)
 * [Replacing equals for equals in facts](#replacing-equals-for-equals-in-facts)
 * [Reasoning about `some` (Exists) and asking for `help`](#reasoning-about-some-exists-and-asking-for-help)
+* [Simplify the Goal](#simplify-the-goal)
 
 ## Expanding Definitions in the Goal
 
-We begin with a simple example, proving that the length of an empty
-list is `0`. This fact is a direct consequence of the definition
-of `length`, so this first example is about how to use definitions.
-We will be using features from the Deduce usigned integer (`UInt`)
-and `List` libraries, so first we import them.
+As a simple example of using `expand` we shall prove that the length
+of an empty list is `0`. This fact is a direct consequence of the
+definition of `length`, so this first example is about how to expand
+definitions.  We will be using features from the Deduce usigned
+integer (`UInt`) and `List` libraries, so first we import them.
 
 ```{.deduce^#import_uint_and_list}
 import UInt
@@ -664,7 +665,6 @@ To summarize this section:
 
 Fill in the proof of the following theorem about `length` and `++`.
 
-
 ```{.deduce^#length_append}
 theorem length_append: all U :type. all xs :List<U>. all ys :List<U>.
   length(xs ++ ys) = length(xs) + length(ys)
@@ -821,7 +821,8 @@ Similar to Deduce's `switch` statement for writing functions, there is
 also a `switch` statement for writing proofs. As an example, let us
 consider how to prove the following theorem.
 
-    theorem intro_zero_or_positive: all x:UInt. x = 0 or 0 < x
+    theorem take_zero_empty: all E:type, xs:List<E>.
+      take(xs, 0) = []
     proof
       ?
     end
@@ -831,58 +832,57 @@ induction hypothesis. In such situations, we can instead use `switch`.
 Like induction, `switch` works on unions and there is one case for
 each alternative of the union. Unlike induction, the goal formula does
 not need to be an `all` formula. Instead, you indicate which entity to
-switch on, as in `switch x` below.
+switch on, as in `switch xs` below.
 
-    arbitrary x:UInt
-    switch x {
-      case 0 assume xz: x = 0 {
+    arbitrary E:type, xs:List<E>
+    switch xs {
+      case [] {
         ?
       }
-      case suc(x') assume xs: x = suc(x') {
+      case node(x, xs') {
         ?
       }
     }
 
 Deduce responds that in the first case we need to prove the following.
 
-    incomplete proof:
-        true or 0 < 0
+    incomplete proof
+    Goal:
+        take(@[]<E>, 0) = []
 
-So we just need to prove `true`, which is what the period is for.
+So we expand `take`.
 
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
+    case [] {
+      expand take.
     }
 
-In the second case, for `x = suc(x')`, we need to prove the following.
+In the second case, for `xs = node(x, xs')`, we need to prove the following.
 
-    incomplete proof:
-        false or 0 < suc(x')
+    incomplete proof
+    Goal:
+        take(node(x, xs'), 0) = []
 
-There's no hope of proving `false`, so we better prove `0 < suc(x')`.
-Thankfully that follows from the definitions of `<` and `≤`.
+Again we conclude by expanding `take`.
 
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by expand operator < | operator ≤.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    case node(x, xs') {
+      expand take.
     }
 
-Here is the completed proof that every natural number is either zero
-or positive.
+Here is the completed proof that taking zero elements from a list
+produces the empty list.
 
 
-```{.deduce^#intro_zero_or_positive}
-
-theorem intro_zero_or_positive: all x:UInt. x = 0 or 0 < x
+```{.deduce^#take_zero_empty}
+theorem take_zero_empty: all E:type, xs:List<E>.
+  take(xs, 0) = []
 proof
-  arbitrary x:UInt
-  switch x {
-    case 0 assume xz: x = 0 {
-      conclude true or 0 < 0 by .
+  arbitrary E:type, xs:List<E>
+  switch xs {
+    case [] {
+      expand take.
     }
-    case suc(x') assume xs: x = suc(x') {
-      have z_l_sx: 0 < suc(x') by expand operator < | 2* operator ≤.
-      conclude suc(x') = 0 or 0 < suc(x') by z_l_sx
+    case node(x, xs') {
+      expand take.
     }
   }
 end
@@ -1443,11 +1443,30 @@ To summarize this section:
 * Deduce's `obtain` statement lets you make use of a fact that is a `some` formula.
 * To prove a `some` formula, use Deduce's `choose` statement.
 
+## Simplify the Goal
+
+The `simplify` proof statement tells Deduce to simplify the goal
+formula using all of the theorems that are marked `auto` as well as
+additional built-in theorems regarding the logical operators.  For
+example, in the following proof we use `simplify` to turn `2 + 3` and
+`4 + 1` into `5`. However, the `simplify` statement does not know
+about the commutativity of addition, so we complete the proof by
+manually applying that theorem.
+
+```{.deduce^#simplify_or_true}
+theorem or_false_true: all x:UInt. 2 + 3 + x = x + 4 + 1
+proof
+  arbitrary x:UInt
+  simplify
+  conclude 5 + x = x + 5 by uint_add_commute
+end
+```  
 
 <!--
 ```{.deduce^file=ProofIntro.pf}
 <<import_uint_and_list>>
 
+<<simplify_or_true>>
 <<length_uint_empty>>
 <<length_node42>>
 
@@ -1481,7 +1500,7 @@ end
 <<use_not_example>>
 <<replace_in_example>>
 
-// intro_zero_or_positive
+<<take_zero_empty>>
 <<intro_addition_of_evens>>
 ```
 -->

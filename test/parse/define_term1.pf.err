@@ -4,4 +4,4 @@
 	term ::= "define" identifier "=" term ";" term
 
 ./test/parse/define_term1.pf:2.13-2.14: expected "=" after name in "define", not
-	"a"
+	a

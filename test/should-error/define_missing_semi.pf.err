@@ -5,4 +5,4 @@
 	term ::= "define" identifier "=" term ";" term
 
 ./test/should-error/define_missing_semi.pf:9.12-9.13: expected ";" after right-hand side of "define", not
-	"z"
+	z

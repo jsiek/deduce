@@ -16,6 +16,7 @@ known_tokens = {
     'APPLY': 'keyword',
     'ARBITRARY': 'keyword',
     'ARRAY': 'operator',
+    'ARROW': 'operator',
     'ASSERT': 'keyword',
     'ASSOCIATIVE': 'keyword',
     'ASSUME': 'keyword',
@@ -139,11 +140,10 @@ known_tokens = {
     '__ANON_21': 'prim',     # \\.0\\.
     '__ANON_22': 'operator', # ─
     '__ANON_23': 'operator', # \\.\\.\\.
-    '__ANON_24': 'operator', # \\->
-    '__ANON_25': 'prim',     # 0
-    '__ANON_26': 'prim',     # \.-
-    '__ANON_27': 'operator', # ≲
-    '__ANON_28': 'operator', # ≈
+    '__ANON_24': 'prim',     # 0
+    '__ANON_25': 'prim',     # \.-
+    '__ANON_26': 'operator', # ≲
+    '__ANON_27': 'operator', # ≈
     '__ANON_3': 'operator',  # /=
     '__ANON_4': 'operator',  # ≤
     '__ANON_5': 'operator',  # <=

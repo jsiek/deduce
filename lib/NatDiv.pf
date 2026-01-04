@@ -320,27 +320,25 @@ proof
     arbitrary m:Nat
     assume m_pos
     switch j < m {
-      case true assume j_m_true {
+      case true assume j_m {
         suffices some r:Nat. r = j and r < m by {
           expand operator /
-          replace j_m_true.
+          simplify with j_m.
         }
         choose j
-        conclude j = j and j < m   by replace j_m_true.
+        conclude j = j and j < m   by simplify with j_m.
       }
-      case false assume j_m_false {
+      case false assume not_j_m {
         switch m = zero {
           case true assume m_z_true {
             have: m = zero by replace m_z_true.
             conclude false
               by apply less_irreflexive to replace (recall m = zero) in m_pos
           }
-          case false assume m_z_false {
-            have not_m_z: not (m = zero) by replace m_z_false.
-            have not_j_m: not (j < m) by replace j_m_false.
+          case false assume not_m_z {
             have m_j: m ≤ j by apply not_less_implies_less_equal to not_j_m
             obtain m' where m_sm: m = suc(m') from apply not_zero_suc to not_m_z
-            expand operator / replace j_m_false | m_z_false
+            expand operator / simplify with not_j_m | not_m_z
             show some r:Nat. ((suc(zero) + (j ∸ m) / m) * m + r = j and r < m)
             replace dist_mult_add_right
             show some r:Nat. (m + ((j ∸ m) / m) * m + r = j and r < m)

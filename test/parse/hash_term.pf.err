@@ -1,5 +1,5 @@
 ./test/parse/hash_term.pf:1.1-1.13: while parsing
 	statement ::= "print" term
 
-./test/parse/hash_term.pf:2.1-2.6: expected closing hash "#", not
+./test/parse/hash_term.pf:2.1-2.6: expected closing hash "#" , not
 	print

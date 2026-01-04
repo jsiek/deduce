@@ -3,5 +3,5 @@
 ./test/parse/switch_pf5.pf:5.5-5.31: while parsing one of the following
 	switch_proof_case ::= "case" pattern "{" proof "}"
 	switch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"
-./test/parse/switch_pf5.pf:5.5-5.31: expected a "{" after assumption of "case", not
+./test/parse/switch_pf5.pf:5.30-5.31: expected "{" after assumption of "case", not
 	.

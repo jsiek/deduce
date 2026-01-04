@@ -11,4 +11,4 @@ Goal:
 
 
 Givens:
-	blah': B = false
+	blah': not B

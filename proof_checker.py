@@ -331,9 +331,13 @@ def check_proof(proof, env):
       current_formula = apply_rewrites(loc, current_formula, eqns, env)
       ret = current_formula
 
-    case SimplifyFact(loc, subject):
+    case SimplifyFact(loc, subject, givens):
       formula = check_proof(subject, env)
-      ret = formula.reduce(env)
+      preds = [check_proof(proof, env) for proof in givens]
+      equations = [pred_to_equality(loc, p) for p in preds]
+      eqns = [equation.reduce(env) for equation in equations]
+      new_formula = apply_rewrites(loc, formula, eqns, env)
+      ret = new_formula.reduce(env)
       
     case PHole(loc):
       incomplete_error(loc, 'unfinished proof')
@@ -904,7 +908,16 @@ def givens_str(env):
     else:
         givens = ''
     return givens
-    
+
+def pred_to_equality(meta, pred):
+    match pred:
+      case IfThen(meta1, ty1, p, Bool(meta2, ty2, False)):
+          return Call(meta, None, Var(meta, None, '=', []),
+                      [p , Bool(meta, None, False)])
+      case _:
+          return Call(meta, None, Var(meta, None, '=', []),
+                      [pred , Bool(meta, None, True)])
+
 def check_proof_of(proof, formula, env):
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
@@ -1393,10 +1406,13 @@ def check_proof_of(proof, formula, env):
           for scase in cases:
             if not isinstance(scase.pattern, PatternBool):
               error(scase.location, "expected pattern 'true' or 'false' in switch on bool")
+              
             subject_case = Bool(scase.location, BoolType(scase.location), True) if scase.pattern.value \
                            else Bool(scase.location, BoolType(scase.location), False)
             equation = mkEqual(scase.location, new_subject, subject_case)
-
+            predicate = new_subject if scase.pattern.value \
+                                    else IfThen(loc, None, new_subject, Bool(loc, None, False))
+            
             body_env = env
 
             if len(scase.assumptions) == 0:
@@ -1404,13 +1420,13 @@ def check_proof_of(proof, formula, env):
 
             assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
             if len(assumptions) == 1:
-              if assumptions[0][1] != None and assumptions[0][1] != equation:
-                (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], equation)
-                msg = 'expected assumption\n' + str(equation) \
+              if assumptions[0][1] != None and assumptions[0][1] != predicate:
+                (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], predicate)
+                msg = 'expected assumption\n' + str(predicate) \
                     + '\nnot\n' + str(assumptions[0][1]) \
                     + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
                 error(scase.location, msg)
-              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], equation)
+              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], predicate)
 
             if len(assumptions) > 1:
               error(scase.location, 'only one assumption is allowed in a switch case')
@@ -1476,25 +1492,22 @@ def check_proof_of(proof, formula, env):
           
     case RewriteGoal(loc, equation_proofs, body):
       equations = [check_proof(proof, env) for proof in equation_proofs]
-      #print('replacing ' + ', '.join(str(eq) for eq in equations))
       eqns = [equation.reduce(env) for equation in equations]
-      #print('reduced: ' + ', '.join(str(eq) for eq in eqns))
-      #print('formula: ' + str(formula))
       new_formula = formula.reduce(env)
-      #print('new_formula: ' + str(new_formula))
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
       check_proof_of(body, new_formula, env)
 
-    case SimplifyGoal(loc, body):
-      new_formula = formula.reduce(env)
+    case SimplifyGoal(loc, body, givens):
+      preds = [check_proof(proof, env) for proof in givens]
+      equations = [pred_to_equality(loc, p) for p in preds]
+      eqns = [equation.reduce(env) for equation in equations]
+      new_formula = apply_rewrites(loc, formula, eqns, env)
+      new_formula = new_formula.reduce(env)
       check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):
-      #print('expanding definitions: ' + ', '.join([str(d) for d in defs]))
       new_formula = expand_definitions(loc, formula, defs, env)
-      #print('expanded formula: ' + str(new_formula))
       red_formula = new_formula.reduce(env)
-      #print('reduced formula: ' + str(red_formula))
       check_proof_of(body, red_formula, env)
       
     case _:
@@ -1602,7 +1615,7 @@ def apply_rewrites(loc, formula, eqns, env):#
 
   for eq in eqns:
     if is_true(eq):
-        error(loc, 'no need for replace because this equation is handled automatically')
+        error(loc, 'no need for replace because this equation is handled automatically\n\t' + str(eq))
     if not is_equation(eq):
         error(loc, 'in replace, expected an equation, not:\n\t' + str(eq)
               + '\n\twhile replacing ' + ', '.join([str(eq) for eq in eqns]))
@@ -1867,8 +1880,8 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
           check_type(ty, env)
       ty = env.get_type_of_term_var(Var(loc2, tyof, name, rs))
       match ty:
-        case Var(loc3, ty2, name, rs2):
-          retty = TypeInst(loc, name, tyargs)
+        case Var(loc3, ty2, name2, rs2):
+          retty = TypeInst(loc, name2, tyargs)
         case FunctionType(loc3, typarams, param_types, return_type):
           sub = {x: t for (x,t) in zip(typarams, tyargs)}
           inst_param_types = [t.substitute(sub) for t in param_types]
@@ -1878,7 +1891,10 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
           retty = TypeInst(loc3, union_type, tyargs)
         case _:
           error(loc, 'cannot instantiate a term of type ' + str(ty))
-      return TermInst(loc, retty, Var(loc2, tyof, rs[0], [rs[0]]), tyargs, inferred)
+      new_name = rs[0] if len(rs) > 0 else name
+      new_rs = [new_name] if len(rs) > 0 else []
+      return TermInst(loc, retty, Var(loc2, tyof, new_name, new_rs),
+                      tyargs, inferred)
     case _:
       error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
@@ -2382,6 +2398,35 @@ def is_modified(filename):
     else:
         return True
           
+def validate_union_type(ty, params, env):
+  match ty:
+    case Var(loc, t, name, rns):
+      type_def = env.get_def_of_type_var(ty)
+
+      if isinstance(type_def, Union):
+        union_params_len = len(type_def.type_params)
+        provided_params_len = len(params)
+        if union_params_len != provided_params_len:
+          error(ty.location, f"Expected union type '{ty}' in constructor parameters " \
+               + f"to have {union_params_len} parameters, not {provided_params_len}")
+    case TypeInst(loc, ty, type_args):
+      for t in type_args:
+        validate_union_type(t, [], env)
+      validate_union_type(ty, type_args, env)
+      pass
+    case FunctionType(loc, ty_params, param_types, return_type):  
+      for t in param_types:
+        validate_union_type(t, [], env)
+      validate_union_type(return_type, [], env)
+    case IntType():
+      pass
+    case BoolType():
+      pass
+    case ArrayType(loc, elt_ty):
+      validate_union_type(elt_ty, [], env)
+    case _:
+      error(ty.location, f"Unhandled case '{type(ty)}' in 'validate_union_type")
+
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
@@ -2459,6 +2504,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             return_type = body_union_type
           for ty in constr.parameters:
             check_type(ty, body_env)
+            validate_union_type(ty, [], body_env)
           constr_type = FunctionType(constr.location, typarams,
                                      constr.parameters, return_type)
         elif len(typarams) > 0:
@@ -2500,10 +2546,11 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             ast2.append(new_s)
 
           ast3 = []
-          already_done_imports = set()
+          already_done_imports : dict[str, bool] = {}
           for s in ast2:
             new_s = type_check_stmt(s, env, already_done_imports)
-            ast3.append(new_s)
+            if new_s != None:
+              ast3.append(new_s)
 
           if needs_checking[0]:
               dirty_files.add(name)
@@ -2596,7 +2643,7 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
-def type_check_stmt(stmt, env, already_done_imports : set):
+def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
   match stmt:
@@ -2691,9 +2738,19 @@ def type_check_stmt(stmt, env, already_done_imports : set):
         return stmt
     
     case Import(loc, name, ast):
-      if name in already_done_imports:
-        error(loc, "error, module:\n\t" + name + "\nwas imported twice")
-      already_done_imports.add(name)
+      if name in error_on_next_import:
+        if error_on_next_import[name]:
+          # The first import was from the prelude
+          # So instead of erroring we'll error next time
+          # and return None to signal that this stmt should be removed
+          error_on_next_import[name] = True
+          return None # Return none to signify that this stmt should be removed
+        else:
+          # The user manually imported the module twice, so throw an error
+          error(loc, "error, module:\n\t" + name + "\nwas imported twice")
+
+      # If loc is empty then this import comes from the prelude
+      error_on_next_import[name] = loc.empty
       return stmt
   
     case Assert(loc, frm):
@@ -3232,11 +3289,13 @@ def check_deduce(ast, module_name, modified, tracing_functions):
     print('--------- Type Checking ------------------------')
   ast3 = []
 
-  already_done_imports = set()
+  error_on_next_import : dict[str, bool] = {}
   for s in ast2:
-    new_s = type_check_stmt(s, env, already_done_imports)
-    ast3.append(new_s)
-    
+    new_s = type_check_stmt(s, env, error_on_next_import)
+    # If None gets returned we want to remove the current statement
+    # Which is represented by not appending it to the new ast
+    if new_s != None:
+      ast3.append(new_s)
   if get_verbose():
     for s in ast3:
       print(s)
@@ -3251,6 +3310,3 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       if needs_checking[0]:
         check_proofs(s, env)
     checked_modules.add(module_name)  
-
-
-    

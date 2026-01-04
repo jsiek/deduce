@@ -1,0 +1,4 @@
+theorem cnt_empty_again: all T:type. all x:T. cnt(@m_empty<T>())(x) = 0
+proof
+    cnt_empty
+end

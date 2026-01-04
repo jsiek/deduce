@@ -1,0 +1,15 @@
+import Base
+import BigO
+import Int
+import List
+import Maps
+import MultiSet
+import Nat
+import Option
+import Pair
+import Set
+import UInt
+
+// This test ensures that the prelude imports don't trigger an error
+// So any code that validates will suffice
+assert true = true

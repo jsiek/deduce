@@ -591,8 +591,8 @@ conclude false by contradict Y, X
 theorem contra_example: if length([1,2]) = length([1]) then length([1,2]) = length([2])
 proof
   assume len_12_1: length([1,2]) = length([1])
-  have F: false by expand 3* length in len_12_1
-  conclude length([1,2]) = length([2]) by F
+  have: false by expand 3* length in len_12_1
+  conclude length([1,2]) = length([2]) by recall false
 end
 ```
 
@@ -1230,6 +1230,35 @@ proof
 end
 ```
 
+## Inductive (Statement)
+```
+inductive_decl: "inductive" type "by" proof
+```
+
+The `inductive` statement allows you to declare custom inductive structure
+for any type in deduce, provided that the structure has been proved in a 
+proof of the appropriate form. For example, the `UInt` library provides
+the natural induction on positive integers, rather than requiring you to
+do induction with the binary definition of the type.
+
+```
+theorem uint_induction: all P:fn UInt -> bool.
+  if P(0) and (all m:UInt. if P(m) then P(1 + m))
+  then all n : UInt. P(n)
+```
+
+All theorems must be of a similar form to the one above,
+including a function from the desired inductive type to bool, 
+and a set of formulas that are either calls or if-thens that 
+lead to the conclusion of the form `all n : T. P(n)`.
+
+When performing induction on a type that has custom induction defined,
+cases with free variables must use the "with" [pattern](#pattern) to
+instantiate them. For example:
+```
+case with x. 1 + x assume IH { ... }
+```
+
 ## Injective (Proof)
 
 ```
@@ -1594,10 +1623,11 @@ pattern ::= identifier
 pattern ::= "true"
 pattern ::= "false"
 pattern ::= identifier "(" identifier_list ")"
+pattern ::= "with" identifier_list "." term
 ```
 
 This syntax is used in [Switch (Term)](#switch-term), [Switch (Proof)](#switch-proof),
-and [Recursive Function (Statement)](#function-statement) via a Pattern List.
+and [Recursive Function (Statement)](#function-statement) via a Parameter List.
 
 
 ## Parameter List
@@ -1834,6 +1864,62 @@ proof
 end
 ```
 
+## Simplify (Proof)
+
+```
+proof_stmt :: "simplify"
+proof_stmt :: "simplify" "with" identifier_list_bar
+```
+
+Simplify the current goal formula using all of the built-in automatic
+equations.
+
+```{.deduce^#simplify_arith_if}
+theorem simplify_arith_if: all x:UInt.
+  if x + 0 = x then true else false
+proof
+  arbitrary x:UInt
+  simplify.
+end
+```
+
+The `simplify` statement also applies all the theorems and lemmas that
+are declared to be `auto`.
+
+```{.deduce^#simplify_auto}
+fun make_true() { true }
+
+theorem make_true_is_true: make_true() = true
+proof
+  expand make_true.
+end
+
+auto make_true_is_true
+
+theorem simplify_auto: if make_true() then true else false
+proof
+  simplify.
+end
+```
+
+Additionally, you can use givens to simplify the current goal by
+adding `with` and the list of givens. If the given is of the form `not P`,
+then `simplify` replaces occurences of `P` with `false`.
+Otherwise `simplify` replaces occurences of the given `P` with `true`.
+
+```{.deduce^#simplify_with_if}
+theorem simplify_with_if: all P:bool, Q:bool.
+  if P and not Q then   
+  (if Q then false else P or Q)
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  have p: P by prem
+  have nq: not Q by prem
+  simplify with p | nq.
+end
+```
+
 ## Set (Type)
 
 The `Set<T>` type defined in `Set.pf` represents the standard
@@ -2043,19 +2129,42 @@ switch t {
 is a proof of formula `R` if `X1`,...,`Xn` are all proofs of `R`.
 The fact `t = p1` is a given that can be used in `X1`
 and similarly for the other cases.
+The goal `R` is automatically simplified using the assumption
+for each case.
+
+Example:
+
+```{.deduce^#switch_proof_list_example}
+theorem switch_proof_list: all ls:List<bool>.
+  if length(ls) = 0 then ls = []
+proof
+  arbitrary ls:List<bool>
+  switch ls {
+    case [] assume: ls = [] {
+      .
+    }
+    case node(b, ls') assume: ls = node(b, ls') {
+      expand length.
+    }
+  }
+end
+```
+
+If the subject `t` of the switch is a `bool`, then the assumptions for
+the two cases are `t` and `not t`, respectively.
 
 Example:
 
 ```{.deduce^#switch_proof_example}
-theorem switch_proof_example: all x:bool. x = true or x = false
+theorem switch_proof_example: all x:bool. x or not x
 proof
   arbitrary x:bool
   switch x {
-    case true {
-      conclude true = true or true = false by .
+    case true assume: x {
+      .
     }
-    case false {
-      conclude false = true or false = false by .
+    case false assume: not x {
+      .
     }
   }
 end
@@ -2103,6 +2212,36 @@ term_list ::= ε
 term_list ::= term
 term_list ::= term "," term_list
 ```
+
+## Trace (Statement)
+```
+statement ::= "trace" term
+```
+
+You can ask Deduce to print the stack trace of functions as they get called or return a value using the `trace` statement. 
+
+```{.deduce^#trace_example}
+recursive sum(List<UInt>) -> UInt {
+  sum([]) = 0
+  sum(node(h, t)) = h + sum(t)
+} 
+trace sum
+assert sum([1, 2, 3]) = 6
+```
+
+The output of this program will be:
+```
+> sum([1, 2, 3])
+>> sum([2, 3])
+>>> sum([3])
+>>>> sum(@[]<UInt>)
+<<<< bzero
+<<< 3
+<< 5
+< 6
+```
+
+Where `bzero`, `3`, `5`, and `6` are the return values of `sum`.
 
 ## Transitive (Proof)
 
@@ -2315,7 +2454,11 @@ import Pair
 <<print_example>>
 <<replace_example>>
 <<replace_in_example>>
+<<simplify_arith_if>>
+<<simplify_with_if>>
+<<simplify_auto>>
 <<switch_example>>
+<<switch_proof_list_example>>
 <<switch_proof_example>>
 <<subset_example>>
 <<suffices_example>>

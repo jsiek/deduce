@@ -1,0 +1,9 @@
+define P = true
+define Q = false
+
+theorem T: if P and Q then false
+proof
+  have q: not Q by expand Q.
+  simplify with q.
+end
+

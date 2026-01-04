@@ -203,12 +203,12 @@ proof
       case true {
         expand take | set_of.
       }
-      case false assume xy_false: (x = y) = false {
+      case false assume not_xy: not (x = y) {
         expand take | set_of
         assume prem: x = y or y ∈ set_of(take(xs', search(xs', y)))
         cases prem
         case xy: x = y {
-          conclude false by replace xy_false in xy
+          conclude false by simplify with not_xy in xy
         }
         case y_in_rest: y ∈ set_of(take(xs', search(xs', y))) {
           conclude false by apply IH to y_in_rest

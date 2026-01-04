@@ -1,0 +1,7 @@
+union A<E> {
+    a(E)
+}
+
+union No<K, V> {
+    thi(fn (A) -> bool)
+}
