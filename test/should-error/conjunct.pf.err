@@ -1,4 +1,8 @@
 ./test/should-error/conjunct.pf:8.1-13.11: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+  conjunct num of prem
+           ^^^
+
 ./test/should-error/conjunct.pf:13.12-13.15: expected an int literal after "conjunct", not
 	num

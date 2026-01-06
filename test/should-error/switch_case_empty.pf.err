@@ -3,5 +3,9 @@
 
 ./test/should-error/switch_case_empty.pf:9.10-9.23: while parsing
 	switch_case ::= "case" pattern "{" term "}"
+
+         case zero { }
+                     ^
+
 ./test/should-error/switch_case_empty.pf:9.22-9.23: expected a term, not
 	"}"

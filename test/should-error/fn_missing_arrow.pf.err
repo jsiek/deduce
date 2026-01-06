@@ -4,5 +4,9 @@
 ./test/should-error/fn_missing_arrow.pf:1.12-1.19: while parsing
 	type ::= "fn" type_params_opt type_list "->" type
 
+
+define f : fn bool bool = fun x { not x }
+                   ^^^^
+
 ./test/should-error/fn_missing_arrow.pf:1.20-1.24: expected "->" after parameter types, not
 	bool

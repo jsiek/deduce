@@ -1,4 +1,8 @@
 ./test/should-error/cases_error.pf:1.1-4.10: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+    case F { F }
+    ^^^^
+
 ./test/should-error/cases_error.pf:5.5-5.9: expected closing "}" around proof, not
 	case

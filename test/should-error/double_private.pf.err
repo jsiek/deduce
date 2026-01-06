@@ -1,2 +1,6 @@
+
+
+private private define X: bool = true
+        ^^^^^^^
 ./test/should-error/double_private.pf:1.9-1.16: expected a statement, not
 	private

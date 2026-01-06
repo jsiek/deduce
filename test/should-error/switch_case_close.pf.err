@@ -3,5 +3,9 @@
 
 ./test/should-error/switch_case_close.pf:9.10-10.14: while parsing
 	switch_case ::= "case" pattern "{" term "}"
+
+         case one { true }
+         ^^^^
+
 ./test/should-error/switch_case_close.pf:10.10-10.14: expected "}" after body of case, not
 	case
