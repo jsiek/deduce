@@ -2543,6 +2543,140 @@ def infer_param_polarities(union_decl, env):
     if before == polarities:
       break
 
+# ============================================================
+# Predicate / relation validation (phase 2: shape, arity, strict positivity)
+# ============================================================
+#
+# Validates an inductively defined predicate or relation. The Predicate AST
+# already went through uniquify, so any free variable in a rule's body has
+# already been caught by Var.uniquify with its own did-you-mean message.
+# What's left for us:
+#
+# 1. Signature shape: 'fn ... -> bool' (arity ≥ 1) or 'bool' (arity 0).
+# 2. Each rule's conclusion is a call to the predicate, with the right arity.
+# 3. Strict positivity: the predicate may not appear in a "negative" position
+#    of any rule's premise — under 'not', or to the left of an inner '->'.
+#    The predicate at the top of the *outer* implication's conclusion (i.e.
+#    the rule's main conclusion) is always positive and is not flagged.
+# 4. A soft style hint when the keyword and arity disagree (predicate of
+#    arity ≥ 2 → suggest 'relation', and vice versa).
+#
+# Error messages name the rule (`In rule 'NAME' of predicate 'FOO': ...`) so
+# the user can locate which rule misfired without re-reading the whole block.
+
+def _validate_predicate_signature(sig, name, keyword, env):
+  check_type(sig, env)
+  if isinstance(sig, BoolType):
+    return 0, []
+  if isinstance(sig, FunctionType):
+    if not isinstance(sig.return_type, BoolType):
+      error(sig.return_type.location,
+            "the result type of a " + keyword + " must be 'bool', not '"
+            + str(sig.return_type) + "'")
+    return len(sig.param_types), sig.param_types
+  error(sig.location,
+        "the type of " + keyword + " '" + base_name(name)
+        + "' must be 'bool' or 'fn ... -> bool', not '" + str(sig) + "'")
+
+def _predicate_style_hint(loc, name, keyword, arity):
+  if keyword == 'predicate' and arity >= 2:
+    warning(loc,
+            "style hint: '" + base_name(name) + "' has arity "
+            + str(arity) + "; consider 'relation' instead of 'predicate' "
+            "for n-ary relations.")
+  elif keyword == 'relation' and arity == 1:
+    warning(loc,
+            "style hint: '" + base_name(name) + "' has arity 1; consider "
+            "'predicate' instead of 'relation' for unary properties.")
+
+def _decompose_rule_body(formula):
+  """Strip outer 'all' quantifiers, then split optional 'if prem then conc'.
+  Returns (binders, premise_or_None, conclusion). The conclusion is whatever
+  is left after stripping 'all's and an optional outermost implication."""
+  while isinstance(formula, All):
+    formula = formula.body
+  if isinstance(formula, IfThen):
+    return formula.premise, formula.conclusion
+  return None, formula
+
+def _validate_predicate_rule_shape(rule, pred_name, keyword, arity, env):
+  _, concl = _decompose_rule_body(rule.formula)
+  if not isinstance(concl, Call):
+    error(concl.location,
+          "in rule '" + base_name(rule.name) + "' of " + keyword + " '"
+          + base_name(pred_name) + "': the rule's conclusion must apply '"
+          + base_name(pred_name) + "', but found '" + str(concl) + "'")
+  rator = concl.rator
+  rator_name = None
+  if isinstance(rator, Var):
+    rator_name = rator.resolved_names[0] if rator.resolved_names else rator.name
+  if rator_name != pred_name:
+    suggestion = ''
+    if rator_name is not None:
+      base_rator = base_name(rator_name)
+      base_pred = base_name(pred_name)
+      if edit_distance(base_rator, base_pred) <= max(2, len(base_pred) // 5):
+        suggestion = " (did you mean '" + base_pred + "'?)"
+    error(concl.location,
+          "in rule '" + base_name(rule.name) + "' of " + keyword + " '"
+          + base_name(pred_name) + "': the rule's conclusion must apply '"
+          + base_name(pred_name) + "', but it applies '" + str(rator)
+          + "'" + suggestion)
+  if len(concl.args) != arity:
+    plural = 's' if arity != 1 else ''
+    error(concl.location,
+          keyword + " '" + base_name(pred_name) + "' takes " + str(arity)
+          + " argument" + plural + ", but rule '" + base_name(rule.name)
+          + "' applies it to " + str(len(concl.args)))
+
+def _check_predicate_strict_positivity(rule, pred_name, keyword, env):
+  premise, _concl = _decompose_rule_body(rule.formula)
+  if premise is None:
+    return
+  _walk_pred_premise(premise, pred_name, keyword, rule, forbidden=False)
+
+def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
+  """Walk a premise looking for occurrences of the predicate. The
+  `forbidden` flag flips on under 'not' / 'if/then' premises and stays on
+  through subsequent nesting (sticky semantics, matching the union check)."""
+  match formula:
+    case Call(loc, _, rator, args):
+      ratname = None
+      if isinstance(rator, Var):
+        ratname = rator.resolved_names[0] if rator.resolved_names \
+                  else rator.name
+      if forbidden and ratname == pred_name:
+        error(loc,
+              keyword + " '" + base_name(pred_name) + "' must not occur "
+              "in a negative position (under 'not' or to the left of an "
+              "inner 'then') of its own introduction rules; this would "
+              "make the definition circular and inconsistent.\n"
+              "In rule '" + base_name(rule.name) + "'.")
+      for a in args:
+        _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
+    case Var(loc, _, name, rns):
+      ref = rns[0] if rns else name
+      if forbidden and ref == pred_name:
+        error(loc,
+              keyword + " '" + base_name(pred_name) + "' must not occur "
+              "in a negative position of its own introduction rules.\n"
+              "In rule '" + base_name(rule.name) + "'.")
+    case IfThen(loc, _, prem, conc):
+      _walk_pred_premise(prem, pred_name, keyword, rule, forbidden=True)
+      _walk_pred_premise(conc, pred_name, keyword, rule, forbidden)
+    case And(loc, _, parts):
+      for a in parts:
+        _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
+    case Or(loc, _, parts):
+      for a in parts:
+        _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
+    case All(loc, _, _, _, body):
+      _walk_pred_premise(body, pred_name, keyword, rule, forbidden)
+    case Some(loc, _, _, body):
+      _walk_pred_premise(body, pred_name, keyword, rule, forbidden)
+    case _:
+      pass
+
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
@@ -2699,14 +2833,27 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
               env.declare_module(current_module)
 
     case Predicate(loc, name, typarams, sig, rules, keyword):
-      # Phase 1: AST and grammar only. Semantics (signature/arity check,
-      # rule validation, strict positivity, translation to define + intro
-      # theorems) lands in the next commit.
+      body_env = env.declare_type_vars(loc, typarams)
+
+      arity, param_types = _validate_predicate_signature(sig, name, keyword,
+                                                         body_env)
+
+      _predicate_style_hint(loc, name, keyword, arity)
+
+      for rule in rules:
+        _validate_predicate_rule_shape(rule, name, keyword, arity, body_env)
+
+      for rule in rules:
+        _check_predicate_strict_positivity(rule, name, keyword, body_env)
+
+      # Phase 2 (this commit): validation. The translation into a 'define'
+      # plus one intro theorem per rule lands next. Until then, a validated
+      # predicate still surfaces a clear "not yet implemented" message at
+      # the declaration site so test fixtures can pin progress.
       error(loc,
-            keyword + " '" + base_name(name) + "': inductively defined "
-            + keyword + "s are parsed but not yet checked. The semantics "
-            + "(rule validation, strict positivity, intro lemmas, and "
-            + "induction principle) lands in a follow-up commit.")
+            keyword + " '" + base_name(name) + "' validates, but the "
+            "translation to a 'define' plus one intro theorem per rule is "
+            "not yet implemented (lands in the next commit).")
 
     case _:
       error(decl.location, "unrecognized declaration:\n" + str(decl))

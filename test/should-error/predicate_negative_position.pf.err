@@ -1,0 +1,2 @@
+./test/should-error/predicate_negative_position.pf:7.36-7.42: predicate 'bad' must not occur in a negative position (under 'not' or to the left of an inner 'then') of its own introduction rules; this would make the definition circular and inconsistent.
+In rule 'bad_rule'.

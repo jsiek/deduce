@@ -1,0 +1,7 @@
+// The conclusion's arity must match the predicate's signature.
+
+import UInt
+
+predicate foo : fn UInt -> bool {
+  bad : foo(0, 1)
+}

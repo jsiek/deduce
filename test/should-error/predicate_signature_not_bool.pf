@@ -1,0 +1,7 @@
+// A predicate / relation must end in 'bool'.
+
+import UInt
+
+predicate foo : fn UInt -> UInt {
+  bad : foo(0)
+}

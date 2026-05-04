@@ -1,0 +1,1 @@
+./test/should-error/predicate_signature_not_bool.pf:5.28-5.32: the result type of a predicate must be 'bool', not 'UInt'

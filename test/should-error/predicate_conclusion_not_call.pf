@@ -1,0 +1,5 @@
+// A rule's conclusion must apply the predicate being defined.
+
+predicate foo : fn bool -> bool {
+  bad : true
+}

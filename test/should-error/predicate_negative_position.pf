@@ -1,0 +1,8 @@
+// Strict positivity: the predicate may not occur in a negative position
+// of its own introduction rules. Here it appears under 'not'.
+
+import UInt
+
+predicate bad : fn UInt -> bool {
+  bad_rule : all n : UInt. if (not bad(n)) then bad(n)
+}
