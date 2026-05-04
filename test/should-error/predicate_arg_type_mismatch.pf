@@ -1,0 +1,8 @@
+// Conclusion arity is right, but the argument type doesn't match the
+// predicate's declared parameter type.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0 : even(true)
+}

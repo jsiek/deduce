@@ -2840,8 +2840,26 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
 
       _predicate_style_hint(loc, name, keyword, arity)
 
+      # Register the predicate as a term-var so calls to it in rule bodies
+      # type-check correctly. The predicate's full type combines the outer
+      # type parameters from `predicate FOO<...>` with anything declared
+      # inside the signature itself.
+      if isinstance(sig, FunctionType):
+        pred_type = FunctionType(sig.location,
+                                 list(typarams) + list(sig.type_params),
+                                 sig.param_types, sig.return_type)
+      else:
+        pred_type = sig
+      rule_env = body_env.declare_term_var(loc, name, pred_type,
+                                           visibility=decl.visibility)
+
       for rule in rules:
-        _validate_predicate_rule_shape(rule, name, keyword, arity, body_env)
+        _validate_predicate_rule_shape(rule, name, keyword, arity, rule_env)
+        # Type-check the rule's body. This catches argument-type mismatches
+        # in both the conclusion and the premises (which the shape pass does
+        # not look at), and is what makes `even(true)` an error here rather
+        # than later in the pipeline.
+        check_formula(rule.formula, rule_env)
 
       for rule in rules:
         _check_predicate_strict_positivity(rule, name, keyword, body_env)
