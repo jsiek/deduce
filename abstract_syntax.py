@@ -3205,7 +3205,23 @@ class Predicate(Declaration):
     new_name = generate_name(self.name)
     env[self.name] = [new_name]
     env['no overload'][self.name] = self.original_keyword
+    base_pred = base_name(self.name)  # before reassignment
     self.name = new_name
+
+    # Pre-register the synthesised `<pred>_rule_induction` theorem name so
+    # user code referencing it gets resolved correctly during uniquify.
+    # The translation pass in proof_checker.py reads `rule_induction_name`
+    # off the AST and emits a Theorem with that exact uniquified name.
+    rule_ind_base = base_pred + '_rule_induction'
+    if rule_ind_base in env.keys():
+      error(self.location,
+            "name '" + rule_ind_base + "' is already defined; the "
+            + self.original_keyword + " '" + base_pred
+            + "' would auto-generate a theorem with that name")
+    rule_ind_unique = generate_name(rule_ind_base)
+    env[rule_ind_base] = [rule_ind_unique]
+    env['no overload'][rule_ind_base] = 'theorem'
+    self.rule_induction_name = rule_ind_unique
 
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
@@ -3224,6 +3240,9 @@ class Predicate(Declaration):
     export_env[base_name(self.name)] = [self.name]
     for rule in self.rules:
       extend(export_env, base_name(rule.name), rule.name, self.location)
+    if hasattr(self, 'rule_induction_name'):
+      extend(export_env, base_name(self.rule_induction_name),
+             self.rule_induction_name, self.location)
 
   def __str__(self):
     if get_verbose():
