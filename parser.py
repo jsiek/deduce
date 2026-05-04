@@ -526,6 +526,10 @@ def parse_tree_to_ast(e, parent):
         hyp = str(e.children[0].value)
         cases = parse_tree_to_list(e.children[1], e)
         return RuleInduction(e.meta, hyp, cases)
+    elif e.data == 'rule_inversion':
+        hyp = str(e.children[0].value)
+        cases = parse_tree_to_list(e.children[1], e)
+        return RuleInversion(e.meta, hyp, cases)
     elif e.data == 'rule_ind_case':
         rule_name = str(e.children[0].value)
         body = parse_tree_to_ast(e.children[1], e)

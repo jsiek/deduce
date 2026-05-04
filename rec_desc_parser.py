@@ -1206,13 +1206,28 @@ def parse_induction_case():
       + str(e))
 
 def parse_rule_induction():
+  # Dispatch on the second token: "induction" -> RuleInduction,
+  # "inversion" -> RuleInversion. Both have the same case-branch shape.
+  start_token = current_token()
+  advance()  # consume 'rule'
+  next_tok = current_token()
+  if next_tok.type == 'INDUCTION':
+    is_inv = False
+    keyword_msg = 'induction'
+    advance()
+  elif next_tok.type == 'INVERSION':
+    is_inv = True
+    keyword_msg = 'inversion'
+    advance()
+  else:
+    raise ParseError(
+      meta_from_tokens(start_token, next_tok),
+      'expected "induction" or "inversion" after "rule", not "'
+      + next_tok.value + '"')
   while_parsing = 'while parsing\n' \
-      + '\tconclusion ::= "rule" "induction" identifier rule_ind_case*\n'
+      + '\tconclusion ::= "rule" "' + keyword_msg \
+      + '" identifier rule_ind_case*\n'
   try:
-    start_token = current_token()
-    advance()  # consume 'rule'
-    consume_token('INDUCTION', '"induction"',
-                  context='after "rule" in proof')
     hyp_name = parse_identifier()
     cases = []
     while current_token().type == 'CASE':
@@ -1220,9 +1235,12 @@ def parse_rule_induction():
       cases.append(c)
     if not cases:
       raise ParseError(meta_from_tokens(start_token, previous_token()),
-                       'rule induction needs at least one "case" branch')
-    return RuleInduction(meta_from_tokens(start_token, previous_token()),
-                         hyp_name, cases)
+                       'rule ' + keyword_msg
+                       + ' needs at least one "case" branch')
+    meta = meta_from_tokens(start_token, previous_token())
+    if is_inv:
+      return RuleInversion(meta, hyp_name, cases)
+    return RuleInduction(meta, hyp_name, cases)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
                    while_parsing)

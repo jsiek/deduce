@@ -191,6 +191,7 @@ ident: IDENT              -> ident
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
     | "rule" "induction" IDENT rule_ind_case_list        -> rule_induction
+    | "rule" "inversion" IDENT rule_ind_case_list        -> rule_inversion
     | "expand" ident_list_bar "in" proof                 -> apply_defs_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal

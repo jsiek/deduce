@@ -2894,10 +2894,10 @@ class RuleInductionCase(AST):
 
 @dataclass
 class RuleInduction(Proof):
-  # `rule induction <hyp> case <r1> { ... } ...`
+  # `rule induction <pred> case <r1> { ... } ...`
   # Desugars to `apply <pred>_rule_induction[<motive>] to (<case_1>, ...,
-  # <case_k>)` after looking up the predicate from `hyp`'s formula and
-  # inferring the motive from the goal.
+  # <case_k>)`. The motive is inferred from the goal, which must have
+  # the shape `all xs. if <pred>(xs) then Q(xs)`.
   hyp_name: str
   cases: list
 
@@ -2922,7 +2922,45 @@ class RuleInduction(Proof):
                   <= ceil(len(self.hyp_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
       error(self.location,
-            "rule induction: no such hypothesis '"
+            "rule induction: no such predicate '"
+            + self.hyp_name + "'" + hint)
+    resolved = env[self.hyp_name]
+    if isinstance(resolved, list) and len(resolved) >= 1:
+      self.hyp_name = resolved[0]
+    for c in self.cases:
+      c.uniquify(env)
+
+@dataclass
+class RuleInversion(Proof):
+  # `rule inversion <pred> case <r1> { ... } ...`
+  # Same shape as RuleInduction, but desugars to applying the
+  # `<pred>_rule_inversion` theorem instead — the cases prove the
+  # *non*-augmented rule conjuncts (no induction hypothesis).
+  hyp_name: str
+  cases: list
+
+  def copy(self):
+    return RuleInversion(self.location, self.hyp_name,
+                         [c.copy() for c in self.cases])
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
+        + '\n'.join([c.pretty_print(indent) for c in self.cases])
+
+  def __str__(self):
+    return 'rule inversion ' + base_name(self.hyp_name) + ' ' \
+        + ' '.join([str(c) for c in self.cases])
+
+  def uniquify(self, env):
+    if self.hyp_name not in env.keys():
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.hyp_name, v)
+                  <= ceil(len(self.hyp_name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      error(self.location,
+            "rule inversion: no such predicate '"
             + self.hyp_name + "'" + hint)
     resolved = env[self.hyp_name]
     if isinstance(resolved, list) and len(resolved) >= 1:
@@ -3307,10 +3345,21 @@ class Predicate(Declaration):
     env[rule_ind_base] = [rule_ind_unique]
     env['no overload'][rule_ind_base] = 'theorem'
     self.rule_induction_name = rule_ind_unique
+    # Same treatment for the inversion principle.
+    rule_inv_base = base_pred + '_rule_inversion'
+    if rule_inv_base in env.keys():
+      error(self.location,
+            "name '" + rule_inv_base + "' is already defined; the "
+            + self.original_keyword + " '" + base_pred
+            + "' would auto-generate a theorem with that name")
+    rule_inv_unique = generate_name(rule_inv_base)
+    env[rule_inv_base] = [rule_inv_unique]
+    env['no overload'][rule_inv_base] = 'theorem'
+    self.rule_inversion_name = rule_inv_unique
     # Register a back-pointer keyed by the predicate's uniquified name so
     # the proof checker can recover this AST node (specifically
-    # `rule_induction_name` and the rule list) when desugaring a
-    # `rule induction` proof.
+    # `rule_induction_name` / `rule_inversion_name` and the rule list)
+    # when desugaring a `rule induction` / `rule inversion` proof.
     _predicate_decls_by_unique_name[self.name] = self
 
     body_env = copy_dict(env)

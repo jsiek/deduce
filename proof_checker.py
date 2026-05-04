@@ -919,18 +919,23 @@ def pred_to_equality(meta, pred):
                       [pred , Bool(meta, None, True)])
 
 def _check_rule_induction(proof, goal, env):
-  """Desugar `rule induction <pred> case <r1> { ... } ...` to
-     `apply <pred>_rule_induction[<motive>] to (<case_1>, ..., <case_k>)`
-  and check that against `goal`. The goal must be of the form
-     `all x1:T1, ..., xn:Tn. if <pred>(x1,...,xn) then Q(x1,...,xn)`
-  i.e. `rule induction` happens *before* any `arbitrary`/`assume` for
-  the predicate's args and the predicate hypothesis. The motive is
-  inferred as `fun xs. Q(xs)`.
-  """
+  """See `_check_rule_inversion`: same shape, applies the
+  `<pred>_rule_induction` theorem instead of the inversion theorem."""
+  _check_rule_induction_or_inversion(proof, goal, env, is_inversion=False)
+
+def _check_rule_inversion(proof, goal, env):
+  """Desugar `rule inversion <pred> case <r1> { ... } ...` to
+     `apply <pred>_rule_inversion[<motive>] to (<case_1>, ..., <case_k>)`.
+  Same goal shape as `rule induction`, but each case proves the rule's
+  *non*-augmented conjunct (premises in their original form, no
+  motive's induction hypothesis paired with recursive premises)."""
+  _check_rule_induction_or_inversion(proof, goal, env, is_inversion=True)
+
+def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
   loc = proof.location
-  pred_name_in = proof.hyp_name  # parser stored the IDENT here; it's the
-                                  # predicate name after `rule induction`
+  pred_name_in = proof.hyp_name  # the predicate name after the keyword
   ri_cases = proof.cases
+  keyword_phrase = 'rule inversion' if is_inversion else 'rule induction'
 
   # Strip outer `all` quantifiers and the `if pred(xs) then ...` from
   # the goal.
@@ -940,12 +945,12 @@ def _check_rule_induction(proof, goal, env):
     binders.append(rest.var)
     rest = rest.body
   if not isinstance(rest, IfThen):
-    error(loc, "rule induction expects a goal of the form "
+    error(loc, keyword_phrase + " expects a goal of the form "
           "'all xs. if <pred>(xs) then Q(xs)', got '" + str(goal) + "'")
   pred_call = rest.premise
   q_formula = rest.conclusion
   if not isinstance(pred_call, Call):
-    error(loc, "rule induction expects the goal's premise to be a call "
+    error(loc, keyword_phrase + " expects the goal's premise to be a call "
           "to the predicate, got '" + str(pred_call) + "'")
 
   rator = pred_call.rator
@@ -954,28 +959,26 @@ def _check_rule_induction(proof, goal, env):
     rator_name = rator.resolved_names[0] if rator.resolved_names \
                  else rator.name
   if rator_name != pred_name_in:
-    error(loc, "rule induction over '" + base_name(pred_name_in)
+    error(loc, keyword_phrase + " over '" + base_name(pred_name_in)
           + "' but the goal's premise is a call to '"
           + str(rator) + "'")
   pred_decl = get_predicate_decl(rator_name)
   if pred_decl is None:
-    error(loc, "rule induction: '" + base_name(rator_name)
+    error(loc, keyword_phrase + ": '" + base_name(rator_name)
           + "' is not a predicate or relation declared with the "
           "'predicate' or 'relation' keyword")
 
   # The args of the goal's `pred(xs)` should be the binders' Vars, in
-  # order. They give us the motive parameters. We allow more general
-  # shapes by treating them as the lambda's arguments — Deduce will
-  # beta-reduce when checking.
+  # order. They give us the motive parameters.
   args = pred_call.args
   arg_names = []
   for a in args:
     if not isinstance(a, Var):
-      error(loc, "rule induction: predicate arguments in the goal must "
-            "be plain variables (got '" + str(a) + "')")
+      error(loc, keyword_phrase + ": predicate arguments in the goal "
+            "must be plain variables (got '" + str(a) + "')")
     arg_names.append(a.resolved_names[0] if a.resolved_names else a.name)
   if len(set(arg_names)) != len(arg_names):
-    error(loc, "rule induction: duplicate predicate argument vars in "
+    error(loc, keyword_phrase + ": duplicate predicate argument vars in "
           "the goal (motive inference does not yet handle this)")
 
   arity = len(args)
@@ -990,18 +993,18 @@ def _check_rule_induction(proof, goal, env):
     if c.rule_name not in rule_unique_names:
       base = base_name(c.rule_name)
       error(c.location,
-            "rule induction: '" + base
+            keyword_phrase + ": '" + base
             + "' is not a rule of predicate '"
             + base_name(rator_name) + "'")
     if c.rule_name in user_cases_by_rule:
       error(c.location,
-            "rule induction: duplicate case for rule '"
+            keyword_phrase + ": duplicate case for rule '"
             + base_name(c.rule_name) + "'")
     user_cases_by_rule[c.rule_name] = c
   missing = [base_name(rn) for rn in rule_unique_names
              if rn not in user_cases_by_rule]
   if missing:
-    error(loc, "rule induction: missing case"
+    error(loc, keyword_phrase + ": missing case"
           + ('s' if len(missing) > 1 else '')
           + " for rule" + ('s' if len(missing) > 1 else '') + ": "
           + ', '.join(missing))
@@ -1015,7 +1018,8 @@ def _check_rule_induction(proof, goal, env):
                    for i in range(arity)],
                   q_formula.copy())
 
-  thm_name = pred_decl.rule_induction_name
+  thm_name = pred_decl.rule_inversion_name if is_inversion \
+             else pred_decl.rule_induction_name
   thm_proof = PVar(loc, thm_name)
   with_motive = AllElim(loc, thm_proof, motive, (0, 1))
   case_proofs = [user_cases_by_rule[rn].body
@@ -1369,6 +1373,9 @@ def check_proof_of(proof, formula, env):
           
     case RuleInduction(loc, hyp_name, ri_cases):
       _check_rule_induction(proof, formula, env)
+
+    case RuleInversion(loc, hyp_name, ri_cases):
+      _check_rule_inversion(proof, formula, env)
 
     case Induction(loc, typ, cases):
       check_type(typ, env)
@@ -3073,13 +3080,16 @@ def _build_predicate_translation(decl, param_types):
     intro_theorems.append(
       _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, cname))
 
-  # 5. Synthesised rule-induction theorem: see _build_rule_induction_theorem.
+  # 5. Synthesised rule-induction and rule-inversion theorems.
   rule_ind_theorem = _build_rule_induction_theorem(
     decl, param_types, rule_translations, constr_names,
-    pred_var, is_deriv_var, deriv_type_inst)
+    pred_var, is_deriv_var, deriv_type_inst, is_inversion=False)
+  rule_inv_theorem = _build_rule_induction_theorem(
+    decl, param_types, rule_translations, constr_names,
+    pred_var, is_deriv_var, deriv_type_inst, is_inversion=True)
 
   return [deriv_union, validator, define_decl] + intro_theorems + \
-         [rule_ind_theorem]
+         [rule_ind_theorem, rule_inv_theorem]
 
 def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
   """Build a `Theorem` for one rule's intro lemma."""
@@ -3166,7 +3176,14 @@ def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
 
 def _build_rule_induction_theorem(decl, param_types, rule_translations,
                                   constr_names, pred_var, is_deriv_var,
-                                  deriv_type_inst):
+                                  deriv_type_inst, is_inversion=False):
+  """Build the `<pred>_rule_induction` (or `_rule_inversion`) theorem.
+
+  When `is_inversion` is True, generate the strictly weaker inversion
+  principle: rule premises are *not* augmented with the motive's
+  induction hypothesis, and the per-case premise tuple omits the
+  matching `M(<rec args>)` entries. The proof still inducts on the
+  derivation `union` (we just don't use the induction hypotheses)."""
   loc = decl.location
   pred_name = decl.name
   base_pred = base_name(pred_name)
@@ -3174,8 +3191,9 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
 
   # The theorem's uniquified name was pre-registered in env during
   # Predicate.uniquify so user code referencing `<pred>_rule_induction`
-  # resolves correctly.
-  thm_name = decl.rule_induction_name
+  # (or `_rule_inversion`) resolves correctly.
+  thm_name = decl.rule_inversion_name if is_inversion \
+             else decl.rule_induction_name
 
   motive_name = generate_name('M')
   if arity > 0:
@@ -3218,7 +3236,7 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
       augmented = []
       for p in rt.premises:
         augmented.append(p.atom.copy())
-        if p.is_recursive:
+        if p.is_recursive and not is_inversion:
           augmented.append(apply_motive([a.copy() for a in p.rec_args]))
       aug_premise = augmented[0] if len(augmented) == 1 \
                     else And(loc, BoolType(loc), augmented)
@@ -3276,7 +3294,7 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
     ind_cases.append(_build_rule_induction_case(
       cname, rt, rule_idx, len(rule_translations), pred_var, is_deriv_var,
       apply_motive, apply_pred, rules_hyp_label, arity, param_types,
-      wrap_alls, wrap_all_intros))
+      wrap_alls, wrap_all_intros, is_inversion))
 
   helper_proof = Induction(loc, deriv_type_inst.copy(), ind_cases)
 
@@ -3319,7 +3337,8 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
 def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
                                pred_var, is_deriv_var, apply_motive,
                                apply_pred, rules_hyp_label, arity,
-                               param_types, wrap_alls, wrap_all_intros):
+                               param_types, wrap_alls, wrap_all_intros,
+                               is_inversion=False):
   """Build one ind_case for the helper's `induction <Deriv>`.
 
   The case proves: all m1,...,mn. if is_<pred>_deriv(C(<bound>, <subs>), ms)
@@ -3446,15 +3465,16 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
                     [Var(loc, None, p_info.sub_deriv_name,
                          [p_info.sub_deriv_name])],
                     validator_proof))
-        # Proof of M(rec_args): apply IH[rec_args]... to validator_proof
-        ih_idx = list(rt.recursive_premises).index(p_info)
-        ih_label = case_ih_labels[ih_idx]
-        ih_applied = PVar(loc, ih_label)
-        for k, ra in enumerate(p_info.rec_args):
-          ih_applied = AllElim(loc, ih_applied, ra.copy(), (k, arity))
-        m_proof = ModusPonens(loc, ih_applied, validator_proof)
         augmented_proof_parts.append(atom_proof)
-        augmented_proof_parts.append(m_proof)
+        if not is_inversion:
+          # Proof of M(rec_args): apply IH[rec_args]... to validator_proof
+          ih_idx = list(rt.recursive_premises).index(p_info)
+          ih_label = case_ih_labels[ih_idx]
+          ih_applied = PVar(loc, ih_label)
+          for k, ra in enumerate(p_info.rec_args):
+            ih_applied = AllElim(loc, ih_applied, ra.copy(), (k, arity))
+          m_proof = ModusPonens(loc, ih_applied, validator_proof)
+          augmented_proof_parts.append(m_proof)
       else:
         # Non-recursive: the atom's proof is the validator's matching conjunct.
         augmented_proof_parts.append(nr_proofs_by_orig_idx[p.orig_idx])

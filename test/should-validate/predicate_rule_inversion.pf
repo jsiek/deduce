@@ -1,0 +1,25 @@
+// `rule inversion <pred>` desugars to applying the auto-generated
+// `<pred>_rule_inversion` theorem (the strictly-weaker companion of
+// `<pred>_rule_induction`: same shape, but rule premises are *not*
+// augmented with the motive's induction hypothesis). Same goal shape
+// as `rule induction`: the inversion happens before any
+// `arbitrary` / `assume`.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+// In the ev_ss case, `assume ev_k : even(k)` (not `even(k) and M(k)`).
+theorem even_self_via_inv : all n : UInt. if even(n) then even(n)
+proof
+  rule inversion even
+  case ev0 { ev0 }
+  case ev_ss {
+    arbitrary k : UInt
+    assume ev_k : even(k)
+    apply ev_ss[k] to ev_k
+  }
+end
