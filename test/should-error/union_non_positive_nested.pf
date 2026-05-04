@@ -1,0 +1,12 @@
+// `Container<T>` is harmless on its own (no recursive use of Container),
+// but its parameter `T` is used in a negative position. Wrapping the
+// type being defined inside `Container` should therefore be rejected:
+// `B ≅ Container<B> ≅ B -> bool` is the Russell setup again.
+
+union Container<T> {
+  C(fn T -> bool)
+}
+
+union B {
+  W(Container<B>)
+}

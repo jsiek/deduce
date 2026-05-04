@@ -2430,17 +2430,37 @@ def validate_union_type(ty, params, env):
 # Strict-positivity check for inductive (union) types.
 #
 # A constructor parameter type is strictly positive in the union being defined
-# (`union_name`) if the union name does not appear in any "negative position",
+# (`union_name`) if `union_name` does not appear in any "negative position",
 # i.e. to the left of an arrow in a `FunctionType`. Without this restriction
 # the type theory is inconsistent: `union Bad { Wrap(fn Bad -> bool) }` admits
 # Russell's paradox via `R = Wrap(fun x { not unwrap(x)(x) })`.
 #
-# This check only handles direct self-reference. It does NOT catch nested
-# non-positivity introduced by another generic union whose type parameter is
-# itself used non-positively (e.g. `union B { Mk(Set<B>) }`, where `Set<X>` is
-# defined as `char_fun(fn X -> bool)`). Detecting that case requires a polarity
-# analysis of every generic union's parameters, which would currently reject
-# the stdlib's `Set` and `MultiSet`.
+# When walking through a `TypeInst(D, args)` of some other generic union `D`,
+# the polarity for each arg is adjusted by the polarity that `D` uses for that
+# parameter. Per-parameter polarities for each generic union are inferred by
+# `infer_param_polarities` and stored on the `Union` AST node before this
+# check runs. This catches "nested" non-positivity such as
+# `union B { Mk(Set<B>) }`, where `Set<X>` is `char_fun(fn X -> bool)` — `Set`'s
+# parameter `X` is negative, so `B` ends up in a negative position.
+#
+# Deduce does not allow forward references between unions, so polarities can be
+# computed in source order.
+def _flip_polarity(pol):
+  return '-' if pol == '+' else '+'
+
+def _lookup_param_polarities(head, env):
+  """If `head` resolves to a Union, return its inferred per-parameter polarities
+  (or None if not yet inferred)."""
+  if not isinstance(head, Var):
+    return None
+  try:
+    head_def = env.get_def_of_type_var(head)
+  except Exception:
+    return None
+  if isinstance(head_def, Union):
+    return getattr(head_def, 'param_polarities', None)
+  return None
+
 def check_strict_positivity(ty, union_name, env, forbidden=False):
   match ty:
     case Var(loc, _, name, rns):
@@ -2453,8 +2473,15 @@ def check_strict_positivity(ty, union_name, env, forbidden=False):
               f"inconsistent (Russell's paradox)")
     case TypeInst(loc, head, type_args):
       check_strict_positivity(head, union_name, env, forbidden)
-      for t in type_args:
-        check_strict_positivity(t, union_name, env, forbidden)
+      head_pols = _lookup_param_polarities(head, env)
+      for i, t in enumerate(type_args):
+        if head_pols is not None and i < len(head_pols) and head_pols[i] == '-':
+          # Sticky: passing through a negative parameter forbids occurrences
+          # in this arg, even under further negations.
+          eff_forbidden = True
+        else:
+          eff_forbidden = forbidden
+        check_strict_positivity(t, union_name, env, eff_forbidden)
     case FunctionType(loc, ty_params, param_types, return_type):
       for t in param_types:
         check_strict_positivity(t, union_name, env, forbidden=True)
@@ -2463,6 +2490,58 @@ def check_strict_positivity(ty, union_name, env, forbidden=False):
       check_strict_positivity(elt_ty, union_name, env, forbidden)
     case _:
       pass
+
+# Infer per-parameter polarities for `union_decl` and stash them on the AST
+# node as `param_polarities`. The list is mutable and used in-place during a
+# fixpoint iteration so self-references read the in-progress polarities. This
+# converges in at most |type_params| iterations because polarity is monotone
+# (only goes '+' -> '-').
+def infer_param_polarities(union_decl, env):
+  if not union_decl.type_params:
+    union_decl.param_polarities = []
+    return
+
+  polarities = ['+'] * len(union_decl.type_params)
+  union_decl.param_polarities = polarities  # exposed in-place for self-refs
+
+  type_param_names = set(union_decl.type_params)
+
+  def walk(ty, current):
+    match ty:
+      case Var(loc, _, name, rns):
+        ref_name = rns[0] if rns else name
+        if ref_name in type_param_names:
+          idx = union_decl.type_params.index(ref_name)
+          if current == '-':
+            polarities[idx] = '-'
+      case TypeInst(loc, head, type_args):
+        walk(head, current)
+        head_pols = _lookup_param_polarities(head, env)
+        for i, arg in enumerate(type_args):
+          if head_pols is not None and i < len(head_pols) and head_pols[i] == '-':
+            # Sticky: descending through a negative parameter records this arg
+            # as negative regardless of how deeply further function arrows
+            # nest. This matches Coq's strict positivity (no parity flipping).
+            eff = '-'
+          else:
+            eff = current
+          walk(arg, eff)
+      case FunctionType(loc, ty_params, param_types, return_type):
+        for t in param_types:
+          walk(t, '-')
+        walk(return_type, current)
+      case ArrayType(loc, elt_ty):
+        walk(elt_ty, current)
+      case _:
+        pass
+
+  while True:
+    before = list(polarities)
+    for con in union_decl.alternatives:
+      for ty in con.parameters:
+        walk(ty, '+')
+    if before == polarities:
+      break
 
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
@@ -2531,6 +2610,9 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       union_type = Var(loc, None, name, [name])
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
+      # Infer per-parameter polarities first so check_strict_positivity (and
+      # any future checks on later unions) can consult them.
+      infer_param_polarities(decl, body_env)
       new_alts = []
       for constr in alts:
         if len(constr.parameters) > 0:

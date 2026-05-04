@@ -1,0 +1,11 @@
+import List
+
+// `List<T>` uses `T` strictly positively, so wrapping the type being
+// defined inside `List` is fine: `Tree ≅ Leaf | Node(List<Tree>)`.
+
+union Tree {
+  Leaf
+  Node(List<Tree>)
+}
+
+define t : Tree = Node([Leaf, Node([]), Leaf])
