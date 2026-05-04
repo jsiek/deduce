@@ -1230,6 +1230,9 @@ proof
 end
 ```
 
+For induction over an inductively-defined predicate (rather than a
+union type), see [`rule induction`](#rule-induction-proof).
+
 ## Inductive (Statement)
 ```
 inductive_decl: "inductive" type "by" proof
@@ -1240,6 +1243,12 @@ for any type in deduce, provided that the structure has been proved in a
 proof of the appropriate form. For example, the `UInt` library provides
 the natural induction on positive integers, rather than requiring you to
 do induction with the binary definition of the type.
+
+Note: `inductive` is for installing a custom induction principle on
+an *existing* type. To define an inductive predicate or relation —
+i.e. a set characterized by a list of introduction rules — use
+[`predicate`](#predicate-statement) or
+[`relation`](#relation-statement) instead.
 
 ```
 theorem uint_induction: all P:fn UInt -> bool.
@@ -1709,6 +1718,84 @@ with a [Conclusion](#conclusion-proof) (not a proof statement).
 * [Suffices](#suffices-proof-statement)
 * [Suppose](#suppose)
 
+## Predicate (Statement)
+
+```
+statement ::= visibility "predicate" identifier type_params_opt ":" type "{" rule* "}"
+rule ::= identifier ":" formula
+```
+
+The `predicate` statement defines an inductively-defined set: the
+predicate holds for some arguments exactly when one of the listed
+introduction rules can produce a derivation showing it does. This is
+the standard inductive-predicate construct from logic and PL
+semantics; it is distinct from [`inductive`](#inductive-statement),
+which declares a custom induction principle for an *existing* type.
+
+The signature must end in `bool`, and each rule's conclusion must
+apply the predicate being defined. Premises (in v1) must be a
+conjunction of atoms — each atom is either a recursive call to the
+predicate (giving the rule access to a sub-derivation) or a
+non-recursive formula (a side condition).
+
+The keyword [`relation`](#relation-statement) is an exact synonym;
+each is preferred for its natural reading (a unary `predicate`, an
+n-ary `relation`).
+
+Example:
+
+```
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+```
+
+Each `predicate` declaration auto-generates the following:
+
+* **Intro lemmas.** Each rule name (here `ev0`, `ev_ss`) is usable
+  as a proof-var of the rule's formula:
+  ```
+  theorem zero_is_even : even(0)
+  proof
+    ev0
+  end
+  ```
+* **Rule-induction theorem.** A theorem named `<pred>_rule_induction`
+  whose statement is the standard rule-induction principle:
+  ```
+  even_rule_induction :
+    all M : fn UInt -> bool.
+      if M(0) and (all n:UInt. if even(n) and M(n) then M(n + 2))
+      then all n:UInt. if even(n) then M(n)
+  ```
+  Use it directly via `apply`, or via the
+  [`rule induction`](#rule-induction-proof) proof form.
+* **Rule-inversion theorem.** A theorem named `<pred>_rule_inversion`
+  whose statement is the strictly-weaker companion (rule premises
+  stay in their original form, with no induction hypothesis paired
+  with recursive premises). See [`rule inversion`](#rule-inversion-proof).
+
+### Strict positivity
+
+The predicate may not occur in a *negative* position of any rule's
+premise — under `not` or to the left of an inner `if/then`. This
+restriction is necessary for the definition to be well-founded; the
+diagnostic explicitly names the rule and the offending occurrence.
+
+### Soft style hint
+
+Declaring a `predicate` of arity ≥ 2 emits a non-blocking style hint
+suggesting `relation`; the reverse hint fires for an arity-1
+`relation`. Both keywords produce identical AST.
+
+### Limitations (v1)
+
+* Each rule's premise must be a conjunction of atoms. Disjunctive,
+  implicational, or quantified premises produce a clear "supported
+  in a later commit" diagnostic.
+* Mutual `predicate ... and predicate ...` is not supported.
+
 ## Print (Statement)
 
 ```
@@ -1803,6 +1890,33 @@ If you need to pattern match on a parameter that is not the first, you
 can use a `switch` statement. 
 
 
+## Relation (Statement)
+
+```
+statement ::= visibility "relation" identifier type_params_opt ":" type "{" rule* "}"
+```
+
+`relation` is an exact synonym for [`predicate`](#predicate-statement).
+The two keywords parse to the same AST and produce identical output;
+the choice is purely stylistic. The convention is `predicate` for
+unary properties and `relation` for n-ary relations:
+
+```
+relation reaches : fn Node, Node -> bool {
+  refl : all n : Node. reaches(n, n)
+  step : all a : Node, b : Node, c : Node.
+            if edge(a, b) and reaches(b, c) then reaches(a, c)
+}
+```
+
+Declaring a `predicate` whose arity is ≥ 2 — or a `relation` whose
+arity is 1 — emits a non-blocking style hint suggesting the other
+keyword.
+
+See [`predicate`](#predicate-statement) for the full description of
+the construct.
+
+
 ## Reflexive (Proof)
 
 ```
@@ -1863,6 +1977,118 @@ proof
   conclude false by apply uint_less_irreflexive[y] to (recall y < y)
 end
 ```
+
+## Rule Induction (Proof)
+
+```
+conclusion ::= "rule" "induction" identifier rule_ind_case+
+rule_ind_case ::= "case" identifier "{" proof "}"
+```
+
+A proof of the form
+
+```
+rule induction P
+case r_1 { X_1 }
+...
+case r_k { X_k }
+```
+
+is a proof of the formula
+
+```
+all x1:T1, ..., xn:Tn. if P(x1,...,xn) then Q(x1,...,xn)
+```
+
+where `P` is a [`predicate`](#predicate-statement) (or
+[`relation`](#relation-statement)), and each `r_i` is one of `P`'s
+rules. The motive `Q` is inferred from the goal. Each case proof
+`X_i` proves the i-th rule's conjunct of the rule-induction
+principle: with the rule's outer-quantified variables introduced via
+`arbitrary`, and its premise — *augmented* with the motive's
+induction hypothesis for each recursive premise — assumed.
+
+The induction sits *before* any `arbitrary` / `assume` — the goal
+must include the outer `all` and the `if P(...)` premise, so that
+the motive can be inferred and the rule-induction theorem applied.
+
+`rule induction P` desugars to applying the auto-generated
+[`<P>_rule_induction`](#predicate-statement) theorem with the
+inferred motive:
+
+```
+apply <P>_rule_induction[fun xs. Q(xs)] to (X_1, ..., X_k)
+```
+
+Example:
+
+```
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem even_self : all n : UInt. if even(n) then even(n)
+proof
+  rule induction even
+  case ev0 { ev0 }
+  case ev_ss {
+    arbitrary k : UInt
+    assume hyp : even(k) and even(k)
+    apply ev_ss[k] to (conjunct 0 of hyp)
+  }
+end
+```
+
+In the `ev_ss` case, the assumed hypothesis is `even(k) and even(k)`
+— the rule's recursive premise `even(k)` is paired with the motive's
+induction hypothesis `even(k)` (since the motive in this proof is
+`even` itself).
+
+If a case names a rule that doesn't belong to `P`, or omits a rule
+that does, an error reports the offending rule and the predicate.
+
+Compare with [`rule inversion`](#rule-inversion-proof), which uses
+the same shape but does not pair recursive premises with an
+induction hypothesis.
+
+## Rule Inversion (Proof)
+
+```
+conclusion ::= "rule" "inversion" identifier rule_ind_case+
+rule_ind_case ::= "case" identifier "{" proof "}"
+```
+
+The structurally-identical companion to
+[`rule induction`](#rule-induction-proof). It desugars to applying
+the auto-generated [`<P>_rule_inversion`](#predicate-statement)
+theorem, which is the strictly-weaker variant of the rule-induction
+principle: rule premises stay in their *original* form, without the
+motive's induction hypothesis paired with recursive premises.
+
+Use `rule inversion` when each case needs only the rule's premises
+"as given" — typical for one-step inversions of typing or reduction
+judgments.
+
+Example:
+
+```
+theorem even_self_via_inv : all n : UInt. if even(n) then even(n)
+proof
+  rule inversion even
+  case ev0 { ev0 }
+  case ev_ss {
+    arbitrary k : UInt
+    assume ev_k : even(k)
+    apply ev_ss[k] to ev_k
+  }
+end
+```
+
+In the `ev_ss` case, the assumed hypothesis is `even(k)` alone — no
+induction hypothesis paired. Compare with the
+[`rule induction`](#rule-induction-proof) example above, where the
+analogous case body assumes `even(k) and even(k)`.
 
 ## Simplify (Proof)
 
@@ -2170,6 +2396,10 @@ proof
 end
 ```
 
+For case analysis on a member of an inductively-defined predicate
+(rather than a union value), see
+[`rule inversion`](#rule-inversion-proof).
+
 ## Symmetric (Proof)
 
 ```
@@ -2201,6 +2431,10 @@ end
 
 The proof `X` must prove the formula `P`. After the theorem, the `label` can be used
 as a proof of `P`.
+
+A [`predicate`](#predicate-statement) declaration auto-generates
+several theorems with predictable names: one per rule (the intro
+lemma), plus `<pred>_rule_induction` and `<pred>_rule_inversion`.
 
 
 ## Term List
