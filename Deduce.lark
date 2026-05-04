@@ -277,6 +277,14 @@ ident: IDENT              -> ident
 
 ?union: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
 
+?pred_rule: IDENT ":" term                                 -> pred_rule
+
+?pred_rule_list:                                           -> empty
+    | pred_rule pred_rule_list                             -> push
+
+?predicate_decl: visibility "predicate" IDENT type_params_opt ":" type "{" pred_rule_list "}" -> predicate_decl
+?relation_decl:  visibility "relation"  IDENT type_params_opt ":" type "{" pred_rule_list "}" -> relation_decl
+
 ?pattern: ident                                  -> pattern_id
     | "0"                                        -> pattern_zero
     | "true"                                     -> pattern_true
@@ -321,6 +329,8 @@ ident: IDENT              -> ident
 ?inductive_decl: "inductive" type "by" proof_hi
 
 ?statement: union
+ | predicate_decl
+ | relation_decl
  | rec_function
  | function
  | gen_rec_fun

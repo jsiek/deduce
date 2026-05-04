@@ -2697,7 +2697,17 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           
           return Import(loc, name, ast3, visibility=decl.visibility), \
               env.declare_module(current_module)
-  
+
+    case Predicate(loc, name, typarams, sig, rules, keyword):
+      # Phase 1: AST and grammar only. Semantics (signature/arity check,
+      # rule validation, strict positivity, translation to define + intro
+      # theorems) lands in the next commit.
+      error(loc,
+            keyword + " '" + base_name(name) + "': inductively defined "
+            + keyword + "s are parsed but not yet checked. The semantics "
+            + "(rule validation, strict positivity, intro lemmas, and "
+            + "induction principle) lands in a follow-up commit.")
+
     case _:
       error(decl.location, "unrecognized declaration:\n" + str(decl))
 

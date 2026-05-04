@@ -628,6 +628,21 @@ def parse_tree_to_ast(e, parent):
                           parse_tree_to_list(e.children[3], e))
         set_visibility(statement, visibility)
         return statement
+
+    # predicate / relation definitions
+    elif e.data == 'predicate_decl' or e.data == 'relation_decl':
+        keyword = 'predicate' if e.data == 'predicate_decl' else 'relation'
+        visibility = parse_tree_to_ast(e.children[0], e)
+        name = str(e.children[1].value)
+        typarams = parse_tree_to_list(e.children[2], e)
+        signature = parse_tree_to_ast(e.children[3], e)
+        rules = parse_tree_to_list(e.children[4], e)
+        statement = Predicate(e.meta, name, typarams, signature, rules, keyword)
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'pred_rule':
+        return Rule(e.meta, str(e.children[0].value),
+                    parse_tree_to_ast(e.children[1], e))
     
     # theorem definitions
     elif e.data == 'theorem':

@@ -3154,6 +3154,93 @@ class Constructor(AST):
   
       
 @dataclass
+class Rule(AST):
+  # An introduction rule of a `predicate` / `relation` declaration.
+  # The formula is whatever the user wrote on the right of `name :`.
+  # Validation (must be a quantified implication or a bare conclusion of
+  # the form `pred(args)`) happens later, with diagnostics that quote
+  # `original_keyword` and the rule's name.
+  name: str
+  formula: Formula
+
+  def uniquify(self, env, body_env):
+    self.formula.uniquify(body_env)
+    if self.name in env.keys():
+      error(self.location,
+            "rule names may not be overloaded: " + base_name(self.name))
+    new_name = generate_name(self.name)
+    overwrite(env, self.name, new_name, self.location)
+    env['no overload'][self.name] = 'rule'
+    self.name = new_name
+
+  def __str__(self):
+    return base_name(self.name) + ' : ' + str(self.formula)
+
+  def pretty_print(self, indent):
+    return indent*' ' + base_name(self.name) + ' : ' + str(self.formula)
+
+
+@dataclass
+class Predicate(Declaration):
+  # An inductively defined predicate or relation. `original_keyword` is
+  # 'predicate' or 'relation' — kept on the AST so error messages echo the
+  # form the user actually wrote.
+  name: str
+  type_params: List[str]
+  signature: Type
+  rules: List[Rule]
+  original_keyword: str = 'predicate'
+
+  def reduce(self, env):
+    return self
+
+  def substitute(self, sub):
+    return self
+
+  def uniquify(self, env):
+    if self.name in env.keys():
+      error(self.location,
+            self.original_keyword + " names may not be overloaded: " \
+            + base_name(self.name))
+    new_name = generate_name(self.name)
+    env[self.name] = [new_name]
+    env['no overload'][self.name] = self.original_keyword
+    self.name = new_name
+
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old, new) in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+    self.type_params = new_type_params
+
+    self.signature.uniquify(body_env)
+
+    for rule in self.rules:
+      rule.uniquify(env, body_env)
+
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and importing_module != get_current_module():
+      return
+    export_env[base_name(self.name)] = [self.name]
+    for rule in self.rules:
+      extend(export_env, base_name(rule.name), rule.name, self.location)
+
+  def __str__(self):
+    if get_verbose():
+      shown_name = self.name
+    else:
+      shown_name = base_name(self.name)
+    header = self.original_keyword + ' ' + shown_name
+    if self.type_params:
+      header += '<' + ','.join([base_name(t) for t in self.type_params]) + '>'
+    body = '\n'.join('  ' + str(r) for r in self.rules)
+    return header + ' : ' + str(self.signature) + ' {\n' + body + '\n}'
+
+  def pretty_print(self, indent):
+    return indent*' ' + str(self)
+
+
+@dataclass
 class Union(Declaration):
   name: str
   type_params: List[str]

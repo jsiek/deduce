@@ -1,0 +1,1 @@
+./test/should-error/predicate_not_yet_implemented.pf:7.1-10.2: predicate 'even': inductively defined predicates are parsed but not yet checked. The semantics (rule validation, strict positivity, intro lemmas, and induction principle) lands in a follow-up commit.
