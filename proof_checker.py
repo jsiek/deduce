@@ -2635,6 +2635,73 @@ def _check_predicate_strict_positivity(rule, pred_name, keyword, env):
     return
   _walk_pred_premise(premise, pred_name, keyword, rule, forbidden=False)
 
+# --- translation -------------------------------------------------------
+#
+# Lower a validated `Predicate` to:
+#
+#   1. one `Define` whose body is the impredicative encoding
+#         pred(x1,...,xn) := all P : fn (T1,...,Tn) -> bool.
+#                              if (rules-with-pred-replaced-by-P)
+#                              then P(x1,...,xn)
+#   2. one `Postulate` per rule, asserting the rule's formula verbatim.
+#
+# Each rule's intro lemma is *derivable* from the impredicative encoding,
+# so postulating it here is sound. A follow-up commit will replace the
+# postulates with theorem-with-proof entries; the proof generator is
+# stereotyped but multi-step, and lives better in its own change.
+def _build_predicate_translation(decl, param_types):
+  loc = decl.location
+  pred_name = decl.name
+  typarams = decl.type_params
+  rules = decl.rules
+  arity = len(param_types)
+
+  p_name = generate_name('P')
+  arg_names = [generate_name('x') for _ in range(arity)]
+
+  if arity > 0:
+    p_type = FunctionType(loc, [], [t.copy() for t in param_types],
+                          BoolType(loc))
+  else:
+    p_type = BoolType(loc)
+
+  arg_vars = [Var(loc, None, x, [x]) for x in arg_names]
+  if arity > 0:
+    p_at_args = Call(loc, None, Var(loc, None, p_name, [p_name]), arg_vars)
+  else:
+    p_at_args = Var(loc, None, p_name, [p_name])
+
+  sub = { pred_name: Var(loc, None, p_name, [p_name]) }
+  p_substituted = [r.formula.copy().substitute(sub) for r in rules]
+
+  if not p_substituted:
+    rules_conj = Bool(loc, BoolType(loc), True)
+  elif len(p_substituted) == 1:
+    rules_conj = p_substituted[0]
+  else:
+    rules_conj = And(loc, BoolType(loc), p_substituted)
+
+  encoding = All(loc, BoolType(loc), (p_name, p_type), (0, 1),
+                 IfThen(loc, BoolType(loc), rules_conj, p_at_args))
+
+  if arity > 0:
+    body = Lambda(loc, None,
+                  [(x, t.copy()) for (x, t) in zip(arg_names, param_types)],
+                  encoding)
+  else:
+    body = encoding
+
+  if typarams:
+    body = Generic(loc, None, list(typarams), body)
+
+  define_decl = Define(loc, pred_name, decl.signature.copy(), body,
+                       visibility=decl.visibility)
+
+  postulates = [Postulate(r.location, r.name, r.formula.copy())
+                for r in rules]
+
+  return [define_decl] + postulates
+
 def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
   """Walk a premise looking for occurrences of the predicate. The
   `forbidden` flag flips on under 'not' / 'if/then' premises and stays on
@@ -2864,14 +2931,31 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       for rule in rules:
         _check_predicate_strict_positivity(rule, name, keyword, body_env)
 
-      # Phase 2 (this commit): validation. The translation into a 'define'
-      # plus one intro theorem per rule lands next. Until then, a validated
-      # predicate still surfaces a clear "not yet implemented" message at
-      # the declaration site so test fixtures can pin progress.
-      error(loc,
-            keyword + " '" + base_name(name) + "' validates, but the "
-            "translation to a 'define' plus one intro theorem per rule is "
-            "not yet implemented (lands in the next commit).")
+      # Translation: lower this predicate to a Define (impredicative
+      # encoding) plus one Postulate per rule. The generated decls are
+      # threaded through the rest of the pipeline inline (mirroring how
+      # Import processes its sub-AST), then stashed on the Predicate AST
+      # node so the outer passes can recognise it as already handled.
+      translated = _build_predicate_translation(decl, param_types)
+
+      processed = []
+      for s in translated:
+        new_s, env = process_declaration(s, env, module_chain,
+                                         downstream_needs_checking)
+        processed.append(new_s)
+
+      typed = []
+      inline_imports : dict[str, bool] = {}
+      for s in processed:
+        new_s = type_check_stmt(s, env, inline_imports)
+        if new_s is not None:
+          typed.append(new_s)
+
+      for s in typed:
+        env = collect_env(s, env)
+
+      decl.translated_ast = typed
+      return decl, env
 
     case _:
       error(decl.location, "unrecognized declaration:\n" + str(decl))
@@ -2958,7 +3042,13 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
     case Postulate(loc, name, frm):
       new_frm = check_formula(frm, env)
       return Postulate(loc, name, new_frm)
-  
+
+    case Predicate():
+      # The translation is processed inline during process_declaration
+      # (`stmt.translated_ast` is the result). The wrapper itself has
+      # nothing more to type-check.
+      return stmt
+
     case RecFun(loc, name, typarams, params, returns, cases):
       # alpha rename the type parameters in the function's type
       new_typarams = [generate_name(t) for t in typarams]
@@ -3256,10 +3346,14 @@ def collect_env(stmt, env : Env):
 
     case Postulate(loc, name, frm):
       return env.declare_proof_var(loc, name, frm)
-  
+
+    case Predicate():
+      # Already collected inline during process_declaration.
+      return env
+
     case Export(loc, name, ast):
       return env
-  
+
     case Import(loc, name, ast):
       return env
   
@@ -3443,6 +3537,9 @@ def check_proofs(stmt, env: Env):
       check_proof_of(pf, frm, env)
       
     case Postulate(loc, name, frm):
+      pass
+
+    case Predicate():
       pass
 
     case RecFun(loc, name, typarams, params, returns, cases):

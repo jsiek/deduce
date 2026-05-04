@@ -1,1 +1,0 @@
-./test/should-error/predicate_not_yet_implemented.pf:7.1-10.2: predicate 'even' validates, but the translation to a 'define' plus one intro theorem per rule is not yet implemented (lands in the next commit).

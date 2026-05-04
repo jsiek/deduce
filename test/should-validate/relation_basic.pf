@@ -1,0 +1,19 @@
+// A binary relation is lowered the same way; the rule names become
+// proof-vars usable by name.
+
+import UInt
+
+relation le : fn UInt, UInt -> bool {
+  le_refl : all n : UInt. le(n, n)
+  le_step : all m : UInt, n : UInt. if le(m, n) then le(m, n + 1)
+}
+
+theorem zero_le_zero : le(0, 0)
+proof
+  le_refl[0]
+end
+
+theorem zero_le_one : le(0, 1)
+proof
+  apply le_step[0, 0] to le_refl[0]
+end

@@ -1,0 +1,20 @@
+// A predicate is lowered to a Define (impredicative encoding) plus one
+// Postulate per rule. The postulates are usable as proofs by name; the
+// theorems below exercise them.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem zero_is_even : even(0)
+proof
+  ev0
+end
+
+theorem two_is_even : even(2)
+proof
+  apply ev_ss[0] to ev0
+end
