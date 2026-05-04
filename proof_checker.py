@@ -2637,70 +2637,229 @@ def _check_predicate_strict_positivity(rule, pred_name, keyword, env):
 
 # --- translation -------------------------------------------------------
 #
-# Lower a validated `Predicate` to:
+# Lower a validated `Predicate` to a derivation-tree encoding:
 #
-#   1. one `Define` whose body is the impredicative encoding
-#         pred(x1,...,xn) := all P : fn (T1,...,Tn) -> bool.
-#                              if (rules-with-pred-replaced-by-P)
-#                              then P(x1,...,xn)
-#   2. one `Postulate` per rule, asserting the rule's formula verbatim.
+#   1. A `union <Pred>Deriv { D_<rule_1>(...) ; D_<rule_2>(...) ; ... }`
+#      whose constructors mirror the rules. Each constructor takes the
+#      rule's outer `all`-bound variables and one sub-derivation per
+#      *recursive* premise (a premise of the form `<pred>(...)`).
+#   2. A `recursive is_<pred>_deriv(<Pred>Deriv, T1, ..., Tn) -> bool`
+#      that pattern-matches on the derivation and returns true exactly
+#      when the derivation justifies that the predicate holds for the
+#      given arguments. Each case asserts the conclusion's args, the
+#      rule's non-recursive premises, and the validator on each
+#      sub-derivation.
+#   3. A `define <pred>(x1,...,xn) := some d. is_<pred>_deriv(d, x1,...,xn)`.
+#   4. A `postulate <rule_name> : <rule's formula>` per rule.
 #
-# Each rule's intro lemma is *derivable* from the impredicative encoding,
-# so postulating it here is sound. A follow-up commit will replace the
-# postulates with theorem-with-proof entries; the proof generator is
-# stereotyped but multi-step, and lives better in its own change.
+# This encoding is the same one Coq uses internally: the predicate is the
+# image of `is_*_deriv` under existential elimination on a strictly
+# positive `union`. Because both `induction` (over the derivation `union`)
+# and `switch` (on a derivation, for inversion) are existing primitives
+# in Deduce, both elimination forms are cheap to add as user-facing sugar
+# in follow-up commits.
+#
+# Limitations of this v1 translation:
+#   * Rule premises must be a (possibly empty) conjunction of atoms.
+#     Disjunctive premises (`if A or B then ...`) and nested implications
+#     are rejected with a clear error pointing at the offending premise.
+#   * Higher-order recursive premises (`all m. if Q(m) then pred(m)`) are
+#     also rejected — the derivation constructor would need to carry a
+#     function `fn ... -> <Pred>Deriv`, which is fine in Deduce but adds
+#     enough complexity to defer to a later commit.
+
+@dataclass
+class _RuleTranslation:
+  rule: object                  # the original Rule
+  bound_vars: list              # [(name, type)] outer all-bound
+  recursive_premises: list      # list of args-lists for each recursive call
+  non_recursive_premises: list  # list of formulas
+  conclusion_args: list         # the rule conclusion's args
+  sub_deriv_names: list         # fresh names, one per recursive premise
+  validator_arg_names: list     # fresh names for the validator's arity-many extra params
+
+def _flatten_and(formula):
+  if isinstance(formula, And):
+    return list(formula.args)
+  return [formula]
+
+def _is_recursive_atom(atom, pred_name):
+  if not isinstance(atom, Call):
+    return False
+  rator = atom.rator
+  if not isinstance(rator, Var):
+    return False
+  rname = rator.resolved_names[0] if rator.resolved_names else rator.name
+  return rname == pred_name
+
+def _premise_too_complex(prem):
+  # Anything whose top is something we don't peel away in `_flatten_and`
+  # signals a premise shape we won't translate yet. Bare atoms, calls,
+  # and conjunctions of those are fine.
+  if isinstance(prem, (IfThen, Or, All, Some)):
+    return True
+  if isinstance(prem, And):
+    return any(_premise_too_complex(p) for p in prem.args)
+  return False
+
+def _decompose_rule_for_translation(rule, pred_name, keyword):
+  formula = rule.formula
+  bound_vars = []
+  while isinstance(formula, All):
+    bound_vars.append(formula.var)
+    formula = formula.body
+  if isinstance(formula, IfThen):
+    premise = formula.premise
+    conclusion = formula.conclusion
+  else:
+    premise = None
+    conclusion = formula
+
+  recursive_premises = []
+  non_recursive_premises = []
+  if premise is not None:
+    if _premise_too_complex(premise):
+      error(premise.location,
+            "in rule '" + base_name(rule.name) + "' of " + keyword + " '"
+            + base_name(pred_name) + "': v1 of the predicate translation "
+            "supports only a conjunction of atoms as the rule's premise. "
+            "Disjunctive, implicational, or quantified premises will be "
+            "supported in a later commit.")
+    for atom in _flatten_and(premise):
+      if _is_recursive_atom(atom, pred_name):
+        recursive_premises.append([a.copy() for a in atom.args])
+      else:
+        non_recursive_premises.append(atom.copy())
+
+  if not isinstance(conclusion, Call):
+    error(conclusion.location,
+          "expected a Call in conclusion of rule '"
+          + base_name(rule.name) + "' (validation should have caught this)")
+  conclusion_args = [a.copy() for a in conclusion.args]
+
+  sub_deriv_names = [generate_name('d') for _ in recursive_premises]
+  validator_arg_names = [generate_name('m') for _ in conclusion_args]
+
+  return _RuleTranslation(rule=rule,
+                          bound_vars=bound_vars,
+                          recursive_premises=recursive_premises,
+                          non_recursive_premises=non_recursive_premises,
+                          conclusion_args=conclusion_args,
+                          sub_deriv_names=sub_deriv_names,
+                          validator_arg_names=validator_arg_names)
+
 def _build_predicate_translation(decl, param_types):
   loc = decl.location
   pred_name = decl.name
   typarams = decl.type_params
   rules = decl.rules
+  keyword = decl.original_keyword
   arity = len(param_types)
+  base_pred = base_name(pred_name)
 
-  p_name = generate_name('P')
-  arg_names = [generate_name('x') for _ in range(arity)]
+  rule_translations = [_decompose_rule_for_translation(r, pred_name, keyword)
+                       for r in rules]
 
-  if arity > 0:
-    p_type = FunctionType(loc, [], [t.copy() for t in param_types],
-                          BoolType(loc))
-  else:
-    p_type = BoolType(loc)
+  # 1. Build the derivation union.
+  deriv_union_name = generate_name(base_pred + 'Deriv')
+  constr_names = [generate_name('D_' + base_name(r.name)) for r in rules]
 
-  arg_vars = [Var(loc, None, x, [x]) for x in arg_names]
-  if arity > 0:
-    p_at_args = Call(loc, None, Var(loc, None, p_name, [p_name]), arg_vars)
-  else:
-    p_at_args = Var(loc, None, p_name, [p_name])
-
-  sub = { pred_name: Var(loc, None, p_name, [p_name]) }
-  p_substituted = [r.formula.copy().substitute(sub) for r in rules]
-
-  if not p_substituted:
-    rules_conj = Bool(loc, BoolType(loc), True)
-  elif len(p_substituted) == 1:
-    rules_conj = p_substituted[0]
-  else:
-    rules_conj = And(loc, BoolType(loc), p_substituted)
-
-  encoding = All(loc, BoolType(loc), (p_name, p_type), (0, 1),
-                 IfThen(loc, BoolType(loc), rules_conj, p_at_args))
-
-  if arity > 0:
-    body = Lambda(loc, None,
-                  [(x, t.copy()) for (x, t) in zip(arg_names, param_types)],
-                  encoding)
-  else:
-    body = encoding
-
+  # The type-arg-applied form of the derivation type, used both as the
+  # type of sub-derivations inside constructors and as the existential's
+  # binder type below. For arity 0 type params, just a Var; otherwise a
+  # TypeInst over the type-param vars.
   if typarams:
-    body = Generic(loc, None, list(typarams), body)
+    deriv_type_inst = TypeInst(
+      loc,
+      Var(loc, None, deriv_union_name, [deriv_union_name]),
+      [Var(loc, None, t, [t]) for t in typarams])
+  else:
+    deriv_type_inst = Var(loc, None, deriv_union_name, [deriv_union_name])
 
-  define_decl = Define(loc, pred_name, decl.signature.copy(), body,
+  constructors = []
+  for cname, rt in zip(constr_names, rule_translations):
+    fields = [t.copy() for (_, t) in rt.bound_vars] + \
+             [deriv_type_inst.copy() for _ in rt.recursive_premises]
+    constructors.append(Constructor(rt.rule.location, cname, fields))
+  deriv_union = Union(loc, deriv_union_name, list(typarams), constructors,
+                      visibility='public')
+
+  # 2. Build the validator.
+  is_deriv_name = generate_name('is_' + base_pred + '_deriv')
+  fun_cases = []
+  for cname, rt in zip(constr_names, rule_translations):
+    pat_param_names = [v for (v, _) in rt.bound_vars] + list(rt.sub_deriv_names)
+    pattern = PatternCons(
+      rt.rule.location,
+      Var(rt.rule.location, None, cname, [cname]),
+      pat_param_names)
+
+    clauses = []
+    # m_i = conclusion_args[i]
+    for (m, c) in zip(rt.validator_arg_names, rt.conclusion_args):
+      clauses.append(
+        Call(rt.rule.location, BoolType(rt.rule.location),
+             Var(rt.rule.location, None, '=', ['=']),
+             [Var(rt.rule.location, None, m, [m]), c.copy()]))
+    # non-recursive premises verbatim
+    for prem in rt.non_recursive_premises:
+      clauses.append(prem.copy())
+    # recursive premise validators
+    for sd, rargs in zip(rt.sub_deriv_names, rt.recursive_premises):
+      args = [Var(rt.rule.location, None, sd, [sd])] + \
+             [a.copy() for a in rargs]
+      clauses.append(
+        Call(rt.rule.location, BoolType(rt.rule.location),
+             Var(rt.rule.location, None, is_deriv_name, [is_deriv_name]),
+             args))
+
+    if not clauses:
+      body = Bool(rt.rule.location, BoolType(rt.rule.location), True)
+    elif len(clauses) == 1:
+      body = clauses[0]
+    else:
+      body = And(rt.rule.location, BoolType(rt.rule.location), clauses)
+
+    fun_cases.append(FunCase(
+      rt.rule.location,
+      Var(rt.rule.location, None, is_deriv_name, [is_deriv_name]),
+      pattern, list(rt.validator_arg_names), body))
+
+  validator_param_types = [deriv_type_inst.copy()] + \
+                          [t.copy() for t in param_types]
+  validator = RecFun(loc, is_deriv_name, list(typarams),
+                     validator_param_types, BoolType(loc), fun_cases,
+                     visibility=decl.visibility)
+
+  # 3. Build the predicate's `define` body: fun args { some d. is_*_deriv(d, args) }
+  arg_var_names = [generate_name('x') for _ in range(arity)]
+  arg_vars = [Var(loc, None, x, [x]) for x in arg_var_names]
+  d_name = generate_name('d')
+  is_deriv_call = Call(loc, BoolType(loc),
+                       Var(loc, None, is_deriv_name, [is_deriv_name]),
+                       [Var(loc, None, d_name, [d_name])] + arg_vars)
+  some_body = Some(loc, BoolType(loc),
+                   [(d_name, deriv_type_inst.copy())], is_deriv_call)
+  if arity > 0:
+    define_body = Lambda(loc, None,
+                         [(x, t.copy())
+                          for (x, t) in zip(arg_var_names, param_types)],
+                         some_body)
+  else:
+    define_body = some_body
+  if typarams:
+    define_body = Generic(loc, None, list(typarams), define_body)
+
+  define_decl = Define(loc, pred_name, decl.signature.copy(), define_body,
                        visibility=decl.visibility)
 
+  # 4. Postulates for each rule. Each is provable from the encoding (see
+  # _build_predicate_translation comment); a follow-up commit replaces
+  # them with synthesised proofs.
   postulates = [Postulate(r.location, r.name, r.formula.copy())
                 for r in rules]
 
-  return [define_decl] + postulates
+  return [deriv_union, validator, define_decl] + postulates
 
 def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
   """Walk a premise looking for occurrences of the predicate. The

@@ -1,0 +1,10 @@
+// V1 of the translation only handles rule premises that are a
+// conjunction of atoms. A disjunctive premise should produce a clear
+// "supported in a later commit" message rather than a confusing
+// downstream error.
+
+import UInt
+
+predicate ord : fn UInt, UInt -> bool {
+  ord_or : all a:UInt, b:UInt. if (a < b or b < a) then ord(a, b)
+}
