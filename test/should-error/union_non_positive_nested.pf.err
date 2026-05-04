@@ -1,0 +1,1 @@
+./test/should-error/union_non_positive_nested.pf:11.15-11.16: the union 'B' must not occur in a negative position (to the left of '->') of its own constructor parameters; this would make the logic inconsistent (Russell's paradox)

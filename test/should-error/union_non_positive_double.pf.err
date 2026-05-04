@@ -1,0 +1,1 @@
+./test/should-error/union_non_positive_double.pf:10.8-10.9: the union 'M' must not occur in a negative position (to the left of '->') of its own constructor parameters; this would make the logic inconsistent (Russell's paradox)

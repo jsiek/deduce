@@ -1,0 +1,11 @@
+// Double-negation in the parameter is still non-strictly-positive.
+// `M ≅ DN<M> ≅ (M -> bool) -> bool` has no fixpoint either, so the
+// definition must be rejected.
+
+union DN<T> {
+  D(fn (fn T -> bool) -> bool)
+}
+
+union M {
+  W(DN<M>)
+}
