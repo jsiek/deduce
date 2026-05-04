@@ -2414,7 +2414,7 @@ def validate_union_type(ty, params, env):
         validate_union_type(t, [], env)
       validate_union_type(ty, type_args, env)
       pass
-    case FunctionType(loc, ty_params, param_types, return_type):  
+    case FunctionType(loc, ty_params, param_types, return_type):
       for t in param_types:
         validate_union_type(t, [], env)
       validate_union_type(return_type, [], env)
@@ -2426,6 +2426,43 @@ def validate_union_type(ty, params, env):
       validate_union_type(elt_ty, [], env)
     case _:
       error(ty.location, f"Unhandled case '{type(ty)}' in 'validate_union_type")
+
+# Strict-positivity check for inductive (union) types.
+#
+# A constructor parameter type is strictly positive in the union being defined
+# (`union_name`) if the union name does not appear in any "negative position",
+# i.e. to the left of an arrow in a `FunctionType`. Without this restriction
+# the type theory is inconsistent: `union Bad { Wrap(fn Bad -> bool) }` admits
+# Russell's paradox via `R = Wrap(fun x { not unwrap(x)(x) })`.
+#
+# This check only handles direct self-reference. It does NOT catch nested
+# non-positivity introduced by another generic union whose type parameter is
+# itself used non-positively (e.g. `union B { Mk(Set<B>) }`, where `Set<X>` is
+# defined as `char_fun(fn X -> bool)`). Detecting that case requires a polarity
+# analysis of every generic union's parameters, which would currently reject
+# the stdlib's `Set` and `MultiSet`.
+def check_strict_positivity(ty, union_name, env, forbidden=False):
+  match ty:
+    case Var(loc, _, name, rns):
+      ref_name = rns[0] if rns else name
+      if forbidden and ref_name == union_name:
+        error(loc,
+              f"the union '{base_name(union_name)}' must not occur in a "
+              f"negative position (to the left of '->') of its own "
+              f"constructor parameters; this would make the logic "
+              f"inconsistent (Russell's paradox)")
+    case TypeInst(loc, head, type_args):
+      check_strict_positivity(head, union_name, env, forbidden)
+      for t in type_args:
+        check_strict_positivity(t, union_name, env, forbidden)
+    case FunctionType(loc, ty_params, param_types, return_type):
+      for t in param_types:
+        check_strict_positivity(t, union_name, env, forbidden=True)
+      check_strict_positivity(return_type, union_name, env, forbidden)
+    case ArrayType(loc, elt_ty):
+      check_strict_positivity(elt_ty, union_name, env, forbidden)
+    case _:
+      pass
 
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
@@ -2505,6 +2542,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           for ty in constr.parameters:
             check_type(ty, body_env)
             validate_union_type(ty, [], body_env)
+            check_strict_positivity(ty, name, body_env)
           constr_type = FunctionType(constr.location, typarams,
                                      constr.parameters, return_type)
         elif len(typarams) > 0:

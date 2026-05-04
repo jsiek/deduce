@@ -1,0 +1,1 @@
+./test/should-error/union_non_positive.pf:2.11-2.14: the union 'Bad' must not occur in a negative position (to the left of '->') of its own constructor parameters; this would make the logic inconsistent (Russell's paradox)
