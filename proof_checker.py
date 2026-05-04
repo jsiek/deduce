@@ -918,6 +918,116 @@ def pred_to_equality(meta, pred):
           return Call(meta, None, Var(meta, None, '=', []),
                       [pred , Bool(meta, None, True)])
 
+def _check_rule_induction(proof, goal, env):
+  """Desugar `rule induction <pred> case <r1> { ... } ...` to
+     `apply <pred>_rule_induction[<motive>] to (<case_1>, ..., <case_k>)`
+  and check that against `goal`. The goal must be of the form
+     `all x1:T1, ..., xn:Tn. if <pred>(x1,...,xn) then Q(x1,...,xn)`
+  i.e. `rule induction` happens *before* any `arbitrary`/`assume` for
+  the predicate's args and the predicate hypothesis. The motive is
+  inferred as `fun xs. Q(xs)`.
+  """
+  loc = proof.location
+  pred_name_in = proof.hyp_name  # parser stored the IDENT here; it's the
+                                  # predicate name after `rule induction`
+  ri_cases = proof.cases
+
+  # Strip outer `all` quantifiers and the `if pred(xs) then ...` from
+  # the goal.
+  binders = []
+  rest = goal
+  while isinstance(rest, All):
+    binders.append(rest.var)
+    rest = rest.body
+  if not isinstance(rest, IfThen):
+    error(loc, "rule induction expects a goal of the form "
+          "'all xs. if <pred>(xs) then Q(xs)', got '" + str(goal) + "'")
+  pred_call = rest.premise
+  q_formula = rest.conclusion
+  if not isinstance(pred_call, Call):
+    error(loc, "rule induction expects the goal's premise to be a call "
+          "to the predicate, got '" + str(pred_call) + "'")
+
+  rator = pred_call.rator
+  rator_name = None
+  if isinstance(rator, Var):
+    rator_name = rator.resolved_names[0] if rator.resolved_names \
+                 else rator.name
+  if rator_name != pred_name_in:
+    error(loc, "rule induction over '" + base_name(pred_name_in)
+          + "' but the goal's premise is a call to '"
+          + str(rator) + "'")
+  pred_decl = get_predicate_decl(rator_name)
+  if pred_decl is None:
+    error(loc, "rule induction: '" + base_name(rator_name)
+          + "' is not a predicate or relation declared with the "
+          "'predicate' or 'relation' keyword")
+
+  # The args of the goal's `pred(xs)` should be the binders' Vars, in
+  # order. They give us the motive parameters. We allow more general
+  # shapes by treating them as the lambda's arguments — Deduce will
+  # beta-reduce when checking.
+  args = pred_call.args
+  arg_names = []
+  for a in args:
+    if not isinstance(a, Var):
+      error(loc, "rule induction: predicate arguments in the goal must "
+            "be plain variables (got '" + str(a) + "')")
+    arg_names.append(a.resolved_names[0] if a.resolved_names else a.name)
+  if len(set(arg_names)) != len(arg_names):
+    error(loc, "rule induction: duplicate predicate argument vars in "
+          "the goal (motive inference does not yet handle this)")
+
+  arity = len(args)
+  param_types = []
+  if isinstance(pred_decl.signature, FunctionType):
+    param_types = pred_decl.signature.param_types
+
+  # Match user case names to predicate rule names.
+  rule_unique_names = [r.name for r in pred_decl.rules]
+  user_cases_by_rule = {}
+  for c in ri_cases:
+    if c.rule_name not in rule_unique_names:
+      base = base_name(c.rule_name)
+      error(c.location,
+            "rule induction: '" + base
+            + "' is not a rule of predicate '"
+            + base_name(rator_name) + "'")
+    if c.rule_name in user_cases_by_rule:
+      error(c.location,
+            "rule induction: duplicate case for rule '"
+            + base_name(c.rule_name) + "'")
+    user_cases_by_rule[c.rule_name] = c
+  missing = [base_name(rn) for rn in rule_unique_names
+             if rn not in user_cases_by_rule]
+  if missing:
+    error(loc, "rule induction: missing case"
+          + ('s' if len(missing) > 1 else '')
+          + " for rule" + ('s' if len(missing) > 1 else '') + ": "
+          + ', '.join(missing))
+
+  # Build the motive as a lambda whose binders match the goal's outer
+  # `all` binders (renaming if needed for cleanliness). The body is the
+  # goal's `Q(xs)` with arg-vars left intact (since they're the lambda's
+  # own binders).
+  motive = Lambda(loc, None,
+                  [(arg_names[i], param_types[i].copy())
+                   for i in range(arity)],
+                  q_formula.copy())
+
+  thm_name = pred_decl.rule_induction_name
+  thm_proof = PVar(loc, thm_name)
+  with_motive = AllElim(loc, thm_proof, motive, (0, 1))
+  case_proofs = [user_cases_by_rule[rn].body
+                 for rn in rule_unique_names]
+  if len(case_proofs) == 1:
+    rules_proof = case_proofs[0]
+  else:
+    rules_proof = PTuple(loc, case_proofs)
+  desugared = ModusPonens(loc, with_motive, rules_proof)
+
+  check_proof_of(desugared, goal, env)
+
 def check_proof_of(proof, formula, env):
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
@@ -1257,6 +1367,9 @@ def check_proof_of(proof, formula, env):
         case _:
           error(proof.location, "expected 'or', not " + str(sub_red))
           
+    case RuleInduction(loc, hyp_name, ri_cases):
+      _check_rule_induction(proof, formula, env)
+
     case Induction(loc, typ, cases):
       check_type(typ, env)
 

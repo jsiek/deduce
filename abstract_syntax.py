@@ -33,6 +33,15 @@ def set_current_module(name):
     global current_module
     current_module = name
 
+# Back-pointers from a predicate's uniquified name to its Predicate AST
+# node. Populated during Predicate.uniquify and read by the proof checker
+# when desugaring `rule induction`. Persisted across check_deduce
+# invocations because uniquify happens once per file.
+_predicate_decls_by_unique_name = {}
+
+def get_predicate_decl(unique_name):
+  return _predicate_decls_by_unique_name.get(unique_name)
+
 ############ AST Base Classes ###########
 
 @dataclass
@@ -2844,7 +2853,83 @@ class Induction(Proof):
     self.typ.uniquify(env)
     for c in self.cases:
       c.uniquify(env)
-      
+
+@dataclass
+class RuleInductionCase(AST):
+  # `case <rule_name> { <proof> }` from a `rule induction` block.
+  # The body is a complete proof of the rule's M-augmented conjunct of
+  # `<pred>_rule_induction`'s `rules_hyp` (the user's `arbitrary` and
+  # `assume` happen inside the body).
+  rule_name: str
+  body: Proof
+
+  def copy(self):
+    return RuleInductionCase(self.location, self.rule_name, self.body.copy())
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'case ' + base_name(self.rule_name) + ' {\n' \
+        + self.body.pretty_print(indent+2) + '\n' + indent*' ' + '}'
+
+  def __str__(self):
+    return 'case ' + base_name(self.rule_name) + ' { ' \
+        + str(self.body) + ' }'
+
+  def uniquify(self, env):
+    # Resolve the rule name against the env so we can match against the
+    # uniquified rule names later. Wrong names are reported with a
+    # did-you-mean message.
+    if self.rule_name not in env.keys():
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.rule_name, v)
+                  <= ceil(len(self.rule_name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      error(self.location,
+            "no such rule '" + self.rule_name + "'" + hint)
+    resolved = env[self.rule_name]
+    if isinstance(resolved, list) and len(resolved) >= 1:
+      self.rule_name = resolved[0]
+    self.body.uniquify(env)
+
+@dataclass
+class RuleInduction(Proof):
+  # `rule induction <hyp> case <r1> { ... } ...`
+  # Desugars to `apply <pred>_rule_induction[<motive>] to (<case_1>, ...,
+  # <case_k>)` after looking up the predicate from `hyp`'s formula and
+  # inferring the motive from the goal.
+  hyp_name: str
+  cases: list
+
+  def copy(self):
+    return RuleInduction(self.location, self.hyp_name,
+                         [c.copy() for c in self.cases])
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
+        + '\n'.join([c.pretty_print(indent) for c in self.cases])
+
+  def __str__(self):
+    return 'rule induction ' + base_name(self.hyp_name) + ' ' \
+        + ' '.join([str(c) for c in self.cases])
+
+  def uniquify(self, env):
+    if self.hyp_name not in env.keys():
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.hyp_name, v)
+                  <= ceil(len(self.hyp_name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      error(self.location,
+            "rule induction: no such hypothesis '"
+            + self.hyp_name + "'" + hint)
+    resolved = env[self.hyp_name]
+    if isinstance(resolved, list) and len(resolved) >= 1:
+      self.hyp_name = resolved[0]
+    for c in self.cases:
+      c.uniquify(env)
+
 @dataclass
 class SwitchProofCase(AST):
   pattern: Pattern
@@ -3222,6 +3307,11 @@ class Predicate(Declaration):
     env[rule_ind_base] = [rule_ind_unique]
     env['no overload'][rule_ind_base] = 'theorem'
     self.rule_induction_name = rule_ind_unique
+    # Register a back-pointer keyed by the predicate's uniquified name so
+    # the proof checker can recover this AST node (specifically
+    # `rule_induction_name` and the rule list) when desugaring a
+    # `rule induction` proof.
+    _predicate_decls_by_unique_name[self.name] = self
 
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]

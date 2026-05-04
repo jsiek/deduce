@@ -1,0 +1,22 @@
+// `rule induction <pred>` desugars to applying the auto-generated
+// `<pred>_rule_induction` theorem with the motive inferred from the
+// goal. The goal must be `all xs. if <pred>(xs) then Q(xs)` — the
+// induction happens before any `arbitrary` / `assume`.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem even_self : all n : UInt. if even(n) then even(n)
+proof
+  rule induction even
+  case ev0 { ev0 }
+  case ev_ss {
+    arbitrary k : UInt
+    assume hyp : even(k) and even(k)
+    apply ev_ss[k] to (conjunct 0 of hyp)
+  }
+end

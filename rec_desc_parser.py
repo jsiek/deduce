@@ -742,6 +742,9 @@ def parse_proof_hi():
   elif token.type == 'INDUCTION':
     return parse_induction()
 
+  elif token.type == 'RULE':
+    return parse_rule_induction()
+
   elif token.type == 'LPAR':
     advance()
     proof = parse_proof()
@@ -1201,6 +1204,53 @@ def parse_induction_case():
   except Exception as e:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
+
+def parse_rule_induction():
+  while_parsing = 'while parsing\n' \
+      + '\tconclusion ::= "rule" "induction" identifier rule_ind_case*\n'
+  try:
+    start_token = current_token()
+    advance()  # consume 'rule'
+    consume_token('INDUCTION', '"induction"',
+                  context='after "rule" in proof')
+    hyp_name = parse_identifier()
+    cases = []
+    while current_token().type == 'CASE':
+      c = parse_rule_induction_case()
+      cases.append(c)
+    if not cases:
+      raise ParseError(meta_from_tokens(start_token, previous_token()),
+                       'rule induction needs at least one "case" branch')
+    return RuleInduction(meta_from_tokens(start_token, previous_token()),
+                         hyp_name, cases)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
+def parse_rule_induction_case():
+  while_parsing = 'while parsing\n' \
+      + '\trule_ind_case ::= "case" identifier "{" proof "}"\n'
+  try:
+    start_token = current_token()
+    advance()  # consume 'case'
+    rule_name = parse_identifier()
+    consume_token('LBRACE', '"{"',
+                  context='after rule name "' + rule_name
+                  + '" in rule induction case')
+    body = parse_proof()
+    consume_token('RBRACE', '"}"',
+                  context='after body of rule induction case')
+    return RuleInductionCase(meta_from_tokens(start_token, previous_token()),
+                             rule_name, body)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
 
 def parse_equation():
   lhs = parse_term_compare()

@@ -96,6 +96,7 @@ known_tokens = {
     'RECFUN': 'keyword',
     'REFLEXIVE': 'keyword',
     'RELATION': 'keyword',
+    'RULE': 'keyword',
     'REPLACE': 'keyword',
     'RPAR': 'operator',
     'RSQB': 'operator',

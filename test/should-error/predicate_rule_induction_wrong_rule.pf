@@ -1,0 +1,25 @@
+// Using `rule induction <pred>` with a case that names a rule that
+// doesn't belong to <pred> should fail with a clear error.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+predicate odd : fn UInt -> bool {
+  o1 : odd(1)
+  o_ss : all n : UInt. if odd(n) then odd(n + 2)
+}
+
+theorem foo : all n : UInt. if even(n) then even(n)
+proof
+  rule induction even
+  case o1 { ev0 }     // wrong: o1 belongs to `odd`, not `even`
+  case ev_ss {
+    arbitrary k : UInt
+    assume hyp : even(k) and even(k)
+    apply ev_ss[k] to (conjunct 0 of hyp)
+  }
+end
