@@ -2669,14 +2669,31 @@ def _check_predicate_strict_positivity(rule, pred_name, keyword, env):
 #     enough complexity to defer to a later commit.
 
 @dataclass
+class _PremiseInfo:
+  atom: object                  # the premise atom, copied
+  is_recursive: bool
+  orig_idx: int                 # index in the original conjunction (for PAndElim)
+  sub_deriv_name: object        # str if recursive (the obtain'd witness), else None
+  deriv_label: object           # str if recursive (the obtain'd proof label), else None
+  rec_args: object              # list[Term] if recursive (atom.args), else None
+
+@dataclass
 class _RuleTranslation:
   rule: object                  # the original Rule
   bound_vars: list              # [(name, type)] outer all-bound
-  recursive_premises: list      # list of args-lists for each recursive call
-  non_recursive_premises: list  # list of formulas
-  conclusion_args: list         # the rule conclusion's args
-  sub_deriv_names: list         # fresh names, one per recursive premise
+  premise_top: object           # the original premise formula (or None)
+  premises: list                # list of _PremiseInfo, in original order
+  conclusion_args: list         # the rule conclusion's args, copied
+  conclusion_loc: object        # location of the conclusion (for proof spans)
   validator_arg_names: list     # fresh names for the validator's arity-many extra params
+
+  @property
+  def recursive_premises(self):
+    return [p for p in self.premises if p.is_recursive]
+
+  @property
+  def non_recursive_premises(self):
+    return [p for p in self.premises if not p.is_recursive]
 
 def _flatten_and(formula):
   if isinstance(formula, And):
@@ -2715,8 +2732,7 @@ def _decompose_rule_for_translation(rule, pred_name, keyword):
     premise = None
     conclusion = formula
 
-  recursive_premises = []
-  non_recursive_premises = []
+  premises = []
   if premise is not None:
     if _premise_too_complex(premise):
       error(premise.location,
@@ -2725,27 +2741,31 @@ def _decompose_rule_for_translation(rule, pred_name, keyword):
             "supports only a conjunction of atoms as the rule's premise. "
             "Disjunctive, implicational, or quantified premises will be "
             "supported in a later commit.")
-    for atom in _flatten_and(premise):
+    for idx, atom in enumerate(_flatten_and(premise)):
       if _is_recursive_atom(atom, pred_name):
-        recursive_premises.append([a.copy() for a in atom.args])
+        premises.append(_PremiseInfo(
+          atom=atom.copy(), is_recursive=True, orig_idx=idx,
+          sub_deriv_name=generate_name('d'),
+          deriv_label=generate_name('deriv'),
+          rec_args=[a.copy() for a in atom.args]))
       else:
-        non_recursive_premises.append(atom.copy())
+        premises.append(_PremiseInfo(
+          atom=atom.copy(), is_recursive=False, orig_idx=idx,
+          sub_deriv_name=None, deriv_label=None, rec_args=None))
 
   if not isinstance(conclusion, Call):
     error(conclusion.location,
           "expected a Call in conclusion of rule '"
           + base_name(rule.name) + "' (validation should have caught this)")
   conclusion_args = [a.copy() for a in conclusion.args]
-
-  sub_deriv_names = [generate_name('d') for _ in recursive_premises]
   validator_arg_names = [generate_name('m') for _ in conclusion_args]
 
   return _RuleTranslation(rule=rule,
                           bound_vars=bound_vars,
-                          recursive_premises=recursive_premises,
-                          non_recursive_premises=non_recursive_premises,
+                          premise_top=premise,
+                          premises=premises,
                           conclusion_args=conclusion_args,
-                          sub_deriv_names=sub_deriv_names,
+                          conclusion_loc=conclusion.location,
                           validator_arg_names=validator_arg_names)
 
 def _build_predicate_translation(decl, param_types):
@@ -2788,7 +2808,8 @@ def _build_predicate_translation(decl, param_types):
   is_deriv_name = generate_name('is_' + base_pred + '_deriv')
   fun_cases = []
   for cname, rt in zip(constr_names, rule_translations):
-    pat_param_names = [v for (v, _) in rt.bound_vars] + list(rt.sub_deriv_names)
+    pat_param_names = [v for (v, _) in rt.bound_vars] + \
+                      [p.sub_deriv_name for p in rt.recursive_premises]
     pattern = PatternCons(
       rt.rule.location,
       Var(rt.rule.location, None, cname, [cname]),
@@ -2802,12 +2823,13 @@ def _build_predicate_translation(decl, param_types):
              Var(rt.rule.location, None, '=', ['=']),
              [Var(rt.rule.location, None, m, [m]), c.copy()]))
     # non-recursive premises verbatim
-    for prem in rt.non_recursive_premises:
-      clauses.append(prem.copy())
+    for p in rt.non_recursive_premises:
+      clauses.append(p.atom.copy())
     # recursive premise validators
-    for sd, rargs in zip(rt.sub_deriv_names, rt.recursive_premises):
-      args = [Var(rt.rule.location, None, sd, [sd])] + \
-             [a.copy() for a in rargs]
+    for p in rt.recursive_premises:
+      args = [Var(rt.rule.location, None, p.sub_deriv_name,
+                  [p.sub_deriv_name])] + \
+             [a.copy() for a in p.rec_args]
       clauses.append(
         Call(rt.rule.location, BoolType(rt.rule.location),
              Var(rt.rule.location, None, is_deriv_name, [is_deriv_name]),
@@ -2827,9 +2849,35 @@ def _build_predicate_translation(decl, param_types):
 
   validator_param_types = [deriv_type_inst.copy()] + \
                           [t.copy() for t in param_types]
-  validator = RecFun(loc, is_deriv_name, list(typarams),
-                     validator_param_types, BoolType(loc), fun_cases,
-                     visibility=decl.visibility)
+  has_any_recursive = any(len(rt.recursive_premises) > 0
+                          for rt in rule_translations)
+  if has_any_recursive:
+    validator = RecFun(loc, is_deriv_name, list(typarams),
+                       validator_param_types, BoolType(loc), fun_cases,
+                       visibility=decl.visibility)
+  else:
+    # Deduce's `recursive` requires at least one recursive call. When no
+    # rule has a recursive premise, lower the validator to a plain `fun`
+    # whose body is a `switch` on the derivation. The cases match the
+    # `fun_cases` we already built — we just rebuild them as switch cases
+    # with the m_i parameters captured by the lambda.
+    d_param_name = generate_name('d')
+    d_param_var = Var(loc, None, d_param_name, [d_param_name])
+    switch_cases = []
+    for fc in fun_cases:
+      switch_cases.append(SwitchCase(fc.location, fc.pattern, fc.body))
+    switch_term = Switch(loc, BoolType(loc), d_param_var, switch_cases)
+    fun_params = [(d_param_name, deriv_type_inst.copy())] + \
+                 [(m, t.copy()) for (m, t) in
+                  zip(rule_translations[0].validator_arg_names
+                      if rule_translations else [], param_types)]
+    fun_body = Lambda(loc, None, fun_params, switch_term)
+    if typarams:
+      fun_body = Generic(loc, None, list(typarams), fun_body)
+    validator_typ = FunctionType(loc, list(typarams),
+                                 validator_param_types, BoolType(loc))
+    validator = Define(loc, is_deriv_name, validator_typ, fun_body,
+                       visibility=decl.visibility)
 
   # 3. Build the predicate's `define` body: fun args { some d. is_*_deriv(d, args) }
   arg_var_names = [generate_name('x') for _ in range(arity)]
@@ -2853,13 +2901,99 @@ def _build_predicate_translation(decl, param_types):
   define_decl = Define(loc, pred_name, decl.signature.copy(), define_body,
                        visibility=decl.visibility)
 
-  # 4. Postulates for each rule. Each is provable from the encoding (see
-  # _build_predicate_translation comment); a follow-up commit replaces
-  # them with synthesised proofs.
-  postulates = [Postulate(r.location, r.name, r.formula.copy())
-                for r in rules]
+  # 4. Synthesised intro theorems. For each rule we build a Theorem whose
+  # statement is the user's rule formula and whose proof:
+  #   * `arbitrary` over the bound vars,
+  #   * `assume` the premise (if any),
+  #   * for each recursive premise, `obtain` the underlying derivation,
+  #   * `expand` the predicate, `choose` the rule's derivation
+  #     constructor, `expand` the validator, then prove the resulting
+  #     conjunction with reflexivity for argument equalities, hypothesis
+  #     access for non-recursive premises, and the obtained labels for
+  #     recursive premise validators.
+  pred_var = lambda l: Var(l, None, pred_name, [pred_name])
+  is_deriv_var = lambda l: Var(l, None, is_deriv_name, [is_deriv_name])
+  intro_theorems = []
+  for cname, rt in zip(constr_names, rule_translations):
+    intro_theorems.append(
+      _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, cname))
 
-  return [deriv_union, validator, define_decl] + postulates
+  return [deriv_union, validator, define_decl] + intro_theorems
+
+def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
+  """Build a `Theorem` for one rule's intro lemma."""
+  loc = rt.rule.location
+  hyp_label = generate_name('hyp')
+  n_premises = len(rt.premises)
+
+  # Constructor witness: D_<rule>(<bound vars>, <obtained derivation labels>)
+  constr_args = [Var(loc, None, name, [name]) for (name, _) in rt.bound_vars] \
+                + [Var(loc, None, p.sub_deriv_name, [p.sub_deriv_name])
+                   for p in rt.recursive_premises]
+  if constr_args:
+    constr_witness = Call(loc, None,
+                          Var(loc, None, constr_name, [constr_name]),
+                          constr_args)
+  else:
+    constr_witness = Var(loc, None, constr_name, [constr_name])
+
+  # The proof of the validator-body conjunction. Order matches the
+  # validator: m_i = c_i for each conclusion arg, then non-recursive
+  # premises (in original order), then recursive validators (in original
+  # order).
+  conjunct_proofs = []
+  for _ in rt.conclusion_args:
+    conjunct_proofs.append(PReflexive(loc))
+  for p in rt.non_recursive_premises:
+    if n_premises == 1:
+      conjunct_proofs.append(PVar(loc, hyp_label))
+    else:
+      conjunct_proofs.append(PAndElim(loc, p.orig_idx, PVar(loc, hyp_label)))
+  for p in rt.recursive_premises:
+    conjunct_proofs.append(PVar(loc, p.deriv_label))
+
+  if not conjunct_proofs:
+    inner_proof = PTrue(loc)
+  elif len(conjunct_proofs) == 1:
+    inner_proof = conjunct_proofs[0]
+  else:
+    inner_proof = PTuple(loc, conjunct_proofs)
+
+  # expand is_<pred>_deriv to reduce the validator call
+  inner_proof = ApplyDefsGoal(loc, [is_deriv_var(loc)], inner_proof)
+  # choose the rule's constructor as the existential witness
+  inner_proof = SomeIntro(loc, [constr_witness], inner_proof)
+  # expand the predicate to expose the existential
+  inner_proof = ApplyDefsGoal(loc, [pred_var(loc)], inner_proof)
+
+  # For each recursive premise (innermost-first), wrap in a SomeElim that
+  # binds the derivation. Walk in reverse so the first premise ends up as
+  # the outermost obtain.
+  for p in reversed(rt.recursive_premises):
+    is_deriv_call = Call(loc, BoolType(loc), is_deriv_var(loc),
+                         [Var(loc, None, p.sub_deriv_name,
+                              [p.sub_deriv_name])]
+                         + [a.copy() for a in p.rec_args])
+    if n_premises == 1:
+      atom_proof = PVar(loc, hyp_label)
+    else:
+      atom_proof = PAndElim(loc, p.orig_idx, PVar(loc, hyp_label))
+    some_proof = ApplyDefsFact(loc, [pred_var(loc)], atom_proof)
+    inner_proof = SomeElim(loc, [p.sub_deriv_name], p.deriv_label,
+                           is_deriv_call, some_proof, inner_proof)
+
+  # If there's a premise, wrap in ImpIntro
+  if rt.premise_top is not None:
+    inner_proof = ImpIntro(loc, hyp_label, rt.premise_top.copy(), inner_proof)
+
+  # Wrap with AllIntro for each bound var (innermost first)
+  n_bound = len(rt.bound_vars)
+  for i, (vname, vty) in enumerate(reversed(rt.bound_vars)):
+    inner_proof = AllIntro(loc, (vname, vty.copy()), (i, n_bound),
+                           inner_proof)
+
+  return Theorem(rt.rule.location, rt.rule.name, rt.rule.formula.copy(),
+                 inner_proof, False)
 
 def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
   """Walk a premise looking for occurrences of the predicate. The
