@@ -1,0 +1,3 @@
+union Bad {
+  Wrap(fn Bad -> bool)
+}
