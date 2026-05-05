@@ -1,0 +1,22 @@
+// A relation can be declared with an operator-symbol name. Tests run
+// with --no-stdlib, so `≤` is not already in scope.
+
+union Nat {
+  zero
+  suc(Nat)
+}
+
+relation operator ≤ : fn Nat, Nat -> bool {
+  le_zero : all n:Nat. zero ≤ n
+  le_suc  : all m:Nat, n:Nat. if m ≤ n then suc(m) ≤ suc(n)
+}
+
+theorem zero_le_zero : zero ≤ zero
+proof
+  le_zero[zero]
+end
+
+theorem one_le_two : suc(zero) ≤ suc(suc(zero))
+proof
+  apply le_suc[zero, suc(zero)] to le_zero[suc(zero)]
+end
