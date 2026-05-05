@@ -1,3 +1,7 @@
 ./test/parse/id_eof_thm.pf:1.1-1.8: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+theorem 
+^^^^^^^
+
 ./test/parse/id_eof_thm.pf:1.1-1.8: expected name of theorem, not end of file

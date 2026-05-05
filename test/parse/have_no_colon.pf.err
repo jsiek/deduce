@@ -4,5 +4,9 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
+
+  have t  true by . 
+          ^^^^
+
 ./test/parse/have_no_colon.pf:3.11-3.15: expected a colon after label of "have", not
 	true

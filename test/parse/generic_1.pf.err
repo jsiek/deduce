@@ -1,5 +1,9 @@
 ./test/parse/generic_1.pf:1.1-2.14: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
+
+  = generic E  fun x, y, p { if p then x else y }
+               ^^^
+
 ./test/parse/generic_1.pf:2.16-2.19: expected "{" after parameters of "generic", not
 	fun

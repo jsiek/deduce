@@ -4,5 +4,9 @@
 ./test/parse/array2.pf:12.12-12.17: while parsing array creation
 	term ::= "array" "(" term ")"
 
+
+define A = array L
+                 ^
+
 ./test/parse/array2.pf:12.18-12.19: expected open parenthesis "(" , not
 	L

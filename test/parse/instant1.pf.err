@@ -4,5 +4,9 @@
 ./test/parse/instant1.pf:9.18-9.22: 
 while parsing
 	term ::= "@" term "<" type_list ">"
+
+assert @[]<A> = (@[])
+                    ^
+
 ./test/parse/instant1.pf:9.21-9.22: expected "<" after subject of instantiation ("@"), not
 	)

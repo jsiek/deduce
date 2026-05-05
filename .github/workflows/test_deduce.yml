@@ -26,3 +26,4 @@ jobs:
         run: |
           python test-deduce.py --site
           python test-deduce.py
+          python test-deduce.py --parser

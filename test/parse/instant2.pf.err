@@ -4,5 +4,9 @@
 ./test/parse/instant2.pf:9.17-9.22: while parsing parenthesized term
 	term ::= "(" term ")"
 
+
+assert @[]<A> = (@<A)
+                    ^
+
 ./test/parse/instant2.pf:9.21-9.22: expected closing ">" after type parameters, not
 	)

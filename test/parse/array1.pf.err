@@ -4,5 +4,9 @@
 ./test/parse/array1.pf:13.9-13.18: while parsing array access
 	term ::= term "[" term "]"
 
+
+assert A[1] = false
+^^^^^^
+
 ./test/parse/array1.pf:14.1-14.7: expected closing bracket "]" , not
 	assert

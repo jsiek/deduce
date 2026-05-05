@@ -1,5 +1,9 @@
 ./test/parse/fun_1.pf:1.1-2.9: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
+
+ = fun x x
+         ^
+
 ./test/parse/fun_1.pf:2.10-2.11: expected "{" after parameters of fun, not
 	x

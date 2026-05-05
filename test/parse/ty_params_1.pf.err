@@ -1,4 +1,8 @@
 ./test/parse/ty_params_1.pf:16.1-16.18: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+theorem blah : <T all x : T.
+                  ^^^
+
 ./test/parse/ty_params_1.pf:16.19-16.22: expected closing ">" after type parameters, not
 	all
