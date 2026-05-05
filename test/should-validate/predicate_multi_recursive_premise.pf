@@ -1,0 +1,22 @@
+// Rule with multiple recursive premises: transitivity for `chain`.
+// The intro proof for `ch_trans` has to obtain *two* sub-derivations
+// from the conjunctive premise and re-bundle them.
+
+import UInt
+
+relation chain : fn UInt, UInt -> bool {
+  ch_refl  : all n : UInt. chain(n, n)
+  ch_trans : all a : UInt, b : UInt, c : UInt.
+                if chain(a, b) and chain(b, c) then chain(a, c)
+}
+
+theorem chain_self : chain(7, 7)
+proof
+  ch_refl[7]
+end
+
+theorem chain_compose : if chain(2, 3) and chain(3, 4) then chain(2, 4)
+proof
+  assume h : chain(2, 3) and chain(3, 4)
+  apply ch_trans[2, 3, 4] to h
+end

@@ -1,0 +1,15 @@
+// A predicate whose only rule has a non-recursive premise. The
+// generated validator has no recursive calls, so it's emitted as a
+// plain `define` with a `switch` body rather than a `recursive`.
+
+import UInt
+
+predicate strictly_pos : fn UInt -> bool {
+  sp_intro : all n:UInt. if (0 < n) then strictly_pos(n)
+}
+
+theorem one_is_strictly_pos : strictly_pos(1)
+proof
+  have one_gt_zero : 0 < 1 by .
+  apply sp_intro[1] to one_gt_zero
+end

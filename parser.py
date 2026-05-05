@@ -522,6 +522,18 @@ def parse_tree_to_ast(e, parent):
         typ = parse_tree_to_ast(e.children[0], e)
         cases = parse_tree_to_list(e.children[1], e)
         return Induction(e.meta, typ, cases)
+    elif e.data == 'rule_induction':
+        hyp = str(e.children[0].value)
+        cases = parse_tree_to_list(e.children[1], e)
+        return RuleInduction(e.meta, hyp, cases)
+    elif e.data == 'rule_inversion':
+        hyp = str(e.children[0].value)
+        cases = parse_tree_to_list(e.children[1], e)
+        return RuleInversion(e.meta, hyp, cases)
+    elif e.data == 'rule_ind_case':
+        rule_name = str(e.children[0].value)
+        body = parse_tree_to_ast(e.children[1], e)
+        return RuleInductionCase(e.meta, rule_name, body)
     elif e.data == 'switch_pf_case':
         pat = parse_tree_to_ast(e.children[0], e)
         body = parse_tree_to_ast(e.children[1], e)
@@ -628,6 +640,21 @@ def parse_tree_to_ast(e, parent):
                           parse_tree_to_list(e.children[3], e))
         set_visibility(statement, visibility)
         return statement
+
+    # predicate / relation definitions
+    elif e.data == 'predicate_decl' or e.data == 'relation_decl':
+        keyword = 'predicate' if e.data == 'predicate_decl' else 'relation'
+        visibility = parse_tree_to_ast(e.children[0], e)
+        name = str(e.children[1].value)
+        typarams = parse_tree_to_list(e.children[2], e)
+        signature = parse_tree_to_ast(e.children[3], e)
+        rules = parse_tree_to_list(e.children[4], e)
+        statement = Predicate(e.meta, name, typarams, signature, rules, keyword)
+        set_visibility(statement, visibility)
+        return statement
+    elif e.data == 'pred_rule':
+        return Rule(e.meta, str(e.children[0].value),
+                    parse_tree_to_ast(e.children[1], e))
     
     # theorem definitions
     elif e.data == 'theorem':

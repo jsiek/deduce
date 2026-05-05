@@ -1,0 +1,1 @@
+./test/should-error/predicate_arity_mismatch.pf:6.9-6.18: predicate 'foo' takes 1 argument, but rule 'bad' applies it to 2

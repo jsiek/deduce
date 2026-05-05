@@ -1,0 +1,1 @@
+./test/should-error/predicate_rule_induction_wrong_rule.pf:19.3-19.18: rule induction: 'o1' is not a rule of predicate 'even'

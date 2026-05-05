@@ -1,0 +1,2 @@
+./test/should-error/predicate_complex_premise.pf:8.1-10.2: style hint: 'ord' has arity 2; consider 'relation' instead of 'predicate' for n-ary relations.
+./test/should-error/predicate_complex_premise.pf:9.36-9.50: in rule 'ord_or' of predicate 'ord': v1 of the predicate translation supports only a conjunction of atoms as the rule's premise. Disjunctive, implicational, or quantified premises will be supported in a later commit.

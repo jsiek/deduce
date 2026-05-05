@@ -1,0 +1,29 @@
+// Each `predicate` / `relation` declaration auto-generates a
+// `<name>_rule_induction` theorem of the form
+//
+//   all M : fn (T1,...,Tn) -> bool.
+//     if <conjunction of per-rule premises augmented with M-IH for
+//         each recursive premise>
+//     then all xs. if <pred>(xs) then M(xs)
+//
+// Users can use it directly via `apply` to do rule induction over
+// the predicate. (Phase 3c will add `rule induction` proof-form sugar
+// that desugars to this.)
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem even_self : all n : UInt. if even(n) then even(n)
+proof
+  have step : all n : UInt. if even(n) and even(n) then even(n + 2)
+    proof
+      arbitrary n : UInt
+      assume h : even(n) and even(n)
+      apply ev_ss[n] to (conjunct 0 of h)
+    end
+  apply even_rule_induction[even] to (ev0, step)
+end

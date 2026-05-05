@@ -1,0 +1,1 @@
+./test/should-error/predicate_rule_did_you_mean.pf:13.9-13.16: in rule 'bad' of predicate 'evens': the rule's conclusion must apply 'evens', but it applies 'even' (did you mean 'evens'?)

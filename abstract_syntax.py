@@ -33,6 +33,15 @@ def set_current_module(name):
     global current_module
     current_module = name
 
+# Back-pointers from a predicate's uniquified name to its Predicate AST
+# node. Populated during Predicate.uniquify and read by the proof checker
+# when desugaring `rule induction`. Persisted across check_deduce
+# invocations because uniquify happens once per file.
+_predicate_decls_by_unique_name = {}
+
+def get_predicate_decl(unique_name):
+  return _predicate_decls_by_unique_name.get(unique_name)
+
 ############ AST Base Classes ###########
 
 @dataclass
@@ -144,15 +153,24 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
     print("\tin  " + ', '.join([str(x) for x in tyvars]))
     print("\twith " + str(matching))
   match (param_ty, arg_ty):
-    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
-      pass
     case (Var(l1, t1, name, rs1), _) if param_ty in tyvars:
+      # Check this case BEFORE the name-equal case so a generic
+      # function called recursively (or with a type-var arg whose
+      # name matches a bound tyvar) still records the binding instead
+      # of being silently dropped on the floor by name equality.
       if name in matching.keys():
-        type_match(loc, tyvars, matching[name], arg_ty, matching)
+        if matching[name] == arg_ty:
+          # Already bound to the same type — re-recursing would loop
+          # for self-bindings like `T := T`.
+          pass
+        else:
+          type_match(loc, tyvars, matching[name], arg_ty, matching)
       else:
         if get_verbose():
           print('matching ' + name + ' := ' + str(arg_ty))
         matching[name] = arg_ty
+    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
+      pass
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
       if len(tv1) == len(tv2) and len(pts1) == len(pts2):
       for (pt1, pt2) in zip(pts1, pts2):
@@ -2844,7 +2862,121 @@ class Induction(Proof):
     self.typ.uniquify(env)
     for c in self.cases:
       c.uniquify(env)
-      
+
+@dataclass
+class RuleInductionCase(AST):
+  # `case <rule_name> { <proof> }` from a `rule induction` block.
+  # The body is a complete proof of the rule's M-augmented conjunct of
+  # `<pred>_rule_induction`'s `rules_hyp` (the user's `arbitrary` and
+  # `assume` happen inside the body).
+  rule_name: str
+  body: Proof
+
+  def copy(self):
+    return RuleInductionCase(self.location, self.rule_name, self.body.copy())
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'case ' + base_name(self.rule_name) + ' {\n' \
+        + self.body.pretty_print(indent+2) + '\n' + indent*' ' + '}'
+
+  def __str__(self):
+    return 'case ' + base_name(self.rule_name) + ' { ' \
+        + str(self.body) + ' }'
+
+  def uniquify(self, env):
+    # Resolve the rule name against the env so we can match against the
+    # uniquified rule names later. Wrong names are reported with a
+    # did-you-mean message.
+    if self.rule_name not in env.keys():
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.rule_name, v)
+                  <= ceil(len(self.rule_name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      error(self.location,
+            "no such rule '" + self.rule_name + "'" + hint)
+    resolved = env[self.rule_name]
+    if isinstance(resolved, list) and len(resolved) >= 1:
+      self.rule_name = resolved[0]
+    self.body.uniquify(env)
+
+@dataclass
+class RuleInduction(Proof):
+  # `rule induction <pred> case <r1> { ... } ...`
+  # Desugars to `apply <pred>_rule_induction[<motive>] to (<case_1>, ...,
+  # <case_k>)`. The motive is inferred from the goal, which must have
+  # the shape `all xs. if <pred>(xs) then Q(xs)`.
+  hyp_name: str
+  cases: list
+
+  def copy(self):
+    return RuleInduction(self.location, self.hyp_name,
+                         [c.copy() for c in self.cases])
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
+        + '\n'.join([c.pretty_print(indent) for c in self.cases])
+
+  def __str__(self):
+    return 'rule induction ' + base_name(self.hyp_name) + ' ' \
+        + ' '.join([str(c) for c in self.cases])
+
+  def uniquify(self, env):
+    if self.hyp_name not in env.keys():
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.hyp_name, v)
+                  <= ceil(len(self.hyp_name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      error(self.location,
+            "rule induction: no such predicate '"
+            + self.hyp_name + "'" + hint)
+    resolved = env[self.hyp_name]
+    if isinstance(resolved, list) and len(resolved) >= 1:
+      self.hyp_name = resolved[0]
+    for c in self.cases:
+      c.uniquify(env)
+
+@dataclass
+class RuleInversion(Proof):
+  # `rule inversion <pred> case <r1> { ... } ...`
+  # Same shape as RuleInduction, but desugars to applying the
+  # `<pred>_rule_inversion` theorem instead — the cases prove the
+  # *non*-augmented rule conjuncts (no induction hypothesis).
+  hyp_name: str
+  cases: list
+
+  def copy(self):
+    return RuleInversion(self.location, self.hyp_name,
+                         [c.copy() for c in self.cases])
+
+  def pretty_print(self, indent):
+    return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
+        + '\n'.join([c.pretty_print(indent) for c in self.cases])
+
+  def __str__(self):
+    return 'rule inversion ' + base_name(self.hyp_name) + ' ' \
+        + ' '.join([str(c) for c in self.cases])
+
+  def uniquify(self, env):
+    if self.hyp_name not in env.keys():
+      from edit_distance import edit_distance
+      from math import ceil
+      close = [v for v in env.keys()
+               if edit_distance(self.hyp_name, v)
+                  <= ceil(len(self.hyp_name) / 5)]
+      hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
+      error(self.location,
+            "rule inversion: no such predicate '"
+            + self.hyp_name + "'" + hint)
+    resolved = env[self.hyp_name]
+    if isinstance(resolved, list) and len(resolved) >= 1:
+      self.hyp_name = resolved[0]
+    for c in self.cases:
+      c.uniquify(env)
+
 @dataclass
 class SwitchProofCase(AST):
   pattern: Pattern
@@ -3153,6 +3285,128 @@ class Constructor(AST):
       return name
   
       
+@dataclass
+class Rule(AST):
+  # An introduction rule of a `predicate` / `relation` declaration.
+  # The formula is whatever the user wrote on the right of `name :`.
+  # Validation (must be a quantified implication or a bare conclusion of
+  # the form `pred(args)`) happens later, with diagnostics that quote
+  # `original_keyword` and the rule's name.
+  name: str
+  formula: Formula
+
+  def uniquify(self, env, body_env):
+    self.formula.uniquify(body_env)
+    if self.name in env.keys():
+      error(self.location,
+            "rule names may not be overloaded: " + base_name(self.name))
+    new_name = generate_name(self.name)
+    overwrite(env, self.name, new_name, self.location)
+    env['no overload'][self.name] = 'rule'
+    self.name = new_name
+
+  def __str__(self):
+    return base_name(self.name) + ' : ' + str(self.formula)
+
+  def pretty_print(self, indent):
+    return indent*' ' + base_name(self.name) + ' : ' + str(self.formula)
+
+
+@dataclass
+class Predicate(Declaration):
+  # An inductively defined predicate or relation. `original_keyword` is
+  # 'predicate' or 'relation' — kept on the AST so error messages echo the
+  # form the user actually wrote.
+  name: str
+  type_params: List[str]
+  signature: Type
+  rules: List[Rule]
+  original_keyword: str = 'predicate'
+
+  def reduce(self, env):
+    return self
+
+  def substitute(self, sub):
+    return self
+
+  def uniquify(self, env):
+    if self.name in env.keys():
+      error(self.location,
+            self.original_keyword + " names may not be overloaded: " \
+            + base_name(self.name))
+    new_name = generate_name(self.name)
+    env[self.name] = [new_name]
+    env['no overload'][self.name] = self.original_keyword
+    base_pred = base_name(self.name)  # before reassignment
+    self.name = new_name
+
+    # Pre-register the synthesised `<pred>_rule_induction` theorem name so
+    # user code referencing it gets resolved correctly during uniquify.
+    # The translation pass in proof_checker.py reads `rule_induction_name`
+    # off the AST and emits a Theorem with that exact uniquified name.
+    rule_ind_base = base_pred + '_rule_induction'
+    if rule_ind_base in env.keys():
+      error(self.location,
+            "name '" + rule_ind_base + "' is already defined; the "
+            + self.original_keyword + " '" + base_pred
+            + "' would auto-generate a theorem with that name")
+    rule_ind_unique = generate_name(rule_ind_base)
+    env[rule_ind_base] = [rule_ind_unique]
+    env['no overload'][rule_ind_base] = 'theorem'
+    self.rule_induction_name = rule_ind_unique
+    # Same treatment for the inversion principle.
+    rule_inv_base = base_pred + '_rule_inversion'
+    if rule_inv_base in env.keys():
+      error(self.location,
+            "name '" + rule_inv_base + "' is already defined; the "
+            + self.original_keyword + " '" + base_pred
+            + "' would auto-generate a theorem with that name")
+    rule_inv_unique = generate_name(rule_inv_base)
+    env[rule_inv_base] = [rule_inv_unique]
+    env['no overload'][rule_inv_base] = 'theorem'
+    self.rule_inversion_name = rule_inv_unique
+    # Register a back-pointer keyed by the predicate's uniquified name so
+    # the proof checker can recover this AST node (specifically
+    # `rule_induction_name` / `rule_inversion_name` and the rule list)
+    # when desugaring a `rule induction` / `rule inversion` proof.
+    _predicate_decls_by_unique_name[self.name] = self
+
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t) for t in self.type_params]
+    for (old, new) in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+    self.type_params = new_type_params
+
+    self.signature.uniquify(body_env)
+
+    for rule in self.rules:
+      rule.uniquify(env, body_env)
+
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and importing_module != get_current_module():
+      return
+    export_env[base_name(self.name)] = [self.name]
+    for rule in self.rules:
+      extend(export_env, base_name(rule.name), rule.name, self.location)
+    if hasattr(self, 'rule_induction_name'):
+      extend(export_env, base_name(self.rule_induction_name),
+             self.rule_induction_name, self.location)
+
+  def __str__(self):
+    if get_verbose():
+      shown_name = self.name
+    else:
+      shown_name = base_name(self.name)
+    header = self.original_keyword + ' ' + shown_name
+    if self.type_params:
+      header += '<' + ','.join([base_name(t) for t in self.type_params]) + '>'
+    body = '\n'.join('  ' + str(r) for r in self.rules)
+    return header + ' : ' + str(self.signature) + ' {\n' + body + '\n}'
+
+  def pretty_print(self, indent):
+    return indent*' ' + str(self)
+
+
 @dataclass
 class Union(Declaration):
   name: str

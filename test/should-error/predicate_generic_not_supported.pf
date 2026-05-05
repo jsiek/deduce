@@ -1,0 +1,10 @@
+// Generic predicates / relations are accepted by the parser but blocked
+// during validation while the translation is being finished — the
+// auto-generated intro theorems and rule_induction / rule_inversion
+// theorems still need typevar abstraction work.
+
+import UInt
+
+predicate same<T> : fn T, T -> bool {
+  same_refl : all x : T. same(x, x)
+}

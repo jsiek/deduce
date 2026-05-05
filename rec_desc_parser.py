@@ -742,6 +742,9 @@ def parse_proof_hi():
   elif token.type == 'INDUCTION':
     return parse_induction()
 
+  elif token.type == 'RULE':
+    return parse_rule_induction()
+
   elif token.type == 'LPAR':
     advance()
     proof = parse_proof()
@@ -1202,6 +1205,71 @@ def parse_induction_case():
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
 
+def parse_rule_induction():
+  # Dispatch on the second token: "induction" -> RuleInduction,
+  # "inversion" -> RuleInversion. Both have the same case-branch shape.
+  start_token = current_token()
+  advance()  # consume 'rule'
+  next_tok = current_token()
+  if next_tok.type == 'INDUCTION':
+    is_inv = False
+    keyword_msg = 'induction'
+    advance()
+  elif next_tok.type == 'INVERSION':
+    is_inv = True
+    keyword_msg = 'inversion'
+    advance()
+  else:
+    raise ParseError(
+      meta_from_tokens(start_token, next_tok),
+      'expected "induction" or "inversion" after "rule", not "'
+      + next_tok.value + '"')
+  while_parsing = 'while parsing\n' \
+      + '\tconclusion ::= "rule" "' + keyword_msg \
+      + '" identifier rule_ind_case*\n'
+  try:
+    hyp_name = parse_identifier()
+    cases = []
+    while current_token().type == 'CASE':
+      c = parse_rule_induction_case()
+      cases.append(c)
+    if not cases:
+      raise ParseError(meta_from_tokens(start_token, previous_token()),
+                       'rule ' + keyword_msg
+                       + ' needs at least one "case" branch')
+    meta = meta_from_tokens(start_token, previous_token())
+    if is_inv:
+      return RuleInversion(meta, hyp_name, cases)
+    return RuleInduction(meta, hyp_name, cases)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
+def parse_rule_induction_case():
+  while_parsing = 'while parsing\n' \
+      + '\trule_ind_case ::= "case" identifier "{" proof "}"\n'
+  try:
+    start_token = current_token()
+    advance()  # consume 'case'
+    rule_name = parse_identifier()
+    consume_token('LBRACE', '"{"',
+                  context='after rule name "' + rule_name
+                  + '" in rule induction case')
+    body = parse_proof()
+    consume_token('RBRACE', '"}"',
+                  context='after body of rule induction case')
+    return RuleInductionCase(meta_from_tokens(start_token, previous_token()),
+                             rule_name, body)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
 def parse_equation():
   lhs = parse_term_compare()
   consume_token('EQUAL', '"="', context='after left-hand side of equation')
@@ -1295,6 +1363,52 @@ def parse_union(visibility):
   except Exception as e:
     raise ParseError(meta_from_tokens(start_token, previous_token()), "Unexpected error while parsing:\n\t" \
       + str(e))
+
+def parse_predicate(visibility, keyword):
+  # Parses both `predicate` and `relation`. They produce the same AST;
+  # `keyword` ('predicate' | 'relation') is preserved on the AST node so
+  # later error messages can echo the form the user wrote.
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "' + keyword + '" identifier type_params_opt' \
+      + ' ":" type "{" rule* "}"\n'
+  try:
+    start_token = current_token()
+    advance()  # consume the keyword
+    name = parse_identifier()
+    type_params = parse_type_parameters()
+    consume_token('COLON', '":"',
+                  context='after name of ' + keyword + ' "' + name + '"')
+    signature = parse_type()
+    consume_token('LBRACE', '"{"',
+                  context='after signature of ' + keyword + ' "' + name + '"')
+    rules = []
+    while current_token().type != 'RBRACE':
+      rules.append(parse_predicate_rule())
+    meta = meta_from_tokens(start_token, current_token())
+    advance()  # consume }
+    return Predicate(meta, name, type_params, signature, rules, keyword,
+                     visibility=visibility)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
+def parse_predicate_rule():
+  while_parsing = 'while parsing\n' \
+      + '\trule ::= identifier ":" formula\n'
+  try:
+    start_token = current_token()
+    name = parse_identifier()
+    consume_token('COLON', '":"',
+                  context='after rule name "' + name + '"')
+    formula = parse_term()
+    return Rule(meta_from_tokens(start_token, previous_token()), name, formula)
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
 
 def parse_function(visibility):
   while_parsing = 'while parsing\n' \
@@ -1426,8 +1540,8 @@ def parse_define(visibility):
       + str(e))
 
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
-                      'theorem', 'lemma', 'postulate', 'recursive', 'fun',
-                      'trace', 'union' }
+                      'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
+                      'relation', 'fun', 'trace', 'union' }
 
 def parse_statement():
   if end_of_file():
@@ -1454,6 +1568,12 @@ def parse_statement():
 
   elif token.type == 'UNION':
     return parse_union(visibility)
+
+  elif token.type == 'PREDICATE':
+    return parse_predicate(visibility, 'predicate')
+
+  elif token.type == 'RELATION':
+    return parse_predicate(visibility, 'relation')
 
   elif token.type == 'RECFUN':
     return parse_gen_rec_function(visibility)

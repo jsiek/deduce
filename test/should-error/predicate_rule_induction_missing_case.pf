@@ -1,0 +1,15 @@
+// `rule induction` must cover every rule of the predicate.
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0   : even(0)
+  ev_ss : all n : UInt. if even(n) then even(n + 2)
+}
+
+theorem foo : all n : UInt. if even(n) then even(n)
+proof
+  rule induction even
+  case ev0 { ev0 }
+  // ev_ss case missing
+end

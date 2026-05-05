@@ -1,0 +1,14 @@
+// When a rule's conclusion applies an existing predicate that's close
+// in spelling to the predicate being defined, the diagnostic offers a
+// did-you-mean suggestion (a misspelling that doesn't resolve to
+// anything is caught earlier by `Var.uniquify`'s own did-you-mean).
+
+import UInt
+
+predicate even : fn UInt -> bool {
+  ev0 : even(0)
+}
+
+predicate evens : fn UInt -> bool {
+  bad : even(0)
+}

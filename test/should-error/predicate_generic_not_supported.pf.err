@@ -1,0 +1,1 @@
+./test/should-error/predicate_generic_not_supported.pf:8.1-10.2: generic predicates (with '<...>' type parameters) are not yet supported. Drop the type parameter list and specialise to a concrete type for now; full generics land in a follow-up commit.

@@ -155,6 +155,10 @@ ident: IDENT              -> ident
 ?ind_case_list: ind_case                           -> single
     | ind_case ind_case_list                       -> push
 
+?rule_ind_case: "case" IDENT "{" proof "}"         -> rule_ind_case
+?rule_ind_case_list: rule_ind_case                 -> single
+    | rule_ind_case rule_ind_case_list             -> push
+
 ?switch_pf_case: "case" pattern "{" proof "}"      -> switch_pf_case
     | "case" pattern "suppose" assumption_list "{" proof "}"      -> switch_pf_case_assume
     | "case" pattern "assume" assumption_list "{" proof "}"      -> switch_pf_case_assume    
@@ -186,6 +190,8 @@ ident: IDENT              -> ident
     | "conjunct" INT "of" proof                          -> conjunct
     | "cases" proof case_list                            -> cases
     | "induction" type ind_case_list                     -> induction
+    | "rule" "induction" IDENT rule_ind_case_list        -> rule_induction
+    | "rule" "inversion" IDENT rule_ind_case_list        -> rule_inversion
     | "expand" ident_list_bar "in" proof                 -> apply_defs_fact
     | "replace" proof_list "in" proof                    -> rewrite_fact
     | "evaluate"                                         -> eval_goal
@@ -277,6 +283,14 @@ ident: IDENT              -> ident
 
 ?union: visibility "union" IDENT type_params_opt "{" constructor_list "}" -> union
 
+?pred_rule: IDENT ":" term                                 -> pred_rule
+
+?pred_rule_list:                                           -> empty
+    | pred_rule pred_rule_list                             -> push
+
+?predicate_decl: visibility "predicate" IDENT type_params_opt ":" type "{" pred_rule_list "}" -> predicate_decl
+?relation_decl:  visibility "relation"  IDENT type_params_opt ":" type "{" pred_rule_list "}" -> relation_decl
+
 ?pattern: ident                                  -> pattern_id
     | "0"                                        -> pattern_zero
     | "true"                                     -> pattern_true
@@ -321,6 +335,8 @@ ident: IDENT              -> ident
 ?inductive_decl: "inductive" type "by" proof_hi
 
 ?statement: union
+ | predicate_decl
+ | relation_decl
  | rec_function
  | function
  | gen_rec_fun

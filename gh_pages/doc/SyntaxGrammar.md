@@ -15,12 +15,13 @@ A deduce file contains a list of statements. Each statement can be one of:
 
 1. [Theorem](./Reference.md#theorem-statement)
 2. [Union](./Reference.md#union-statement)
-3. [Function](./Reference.md#function-statement)
-4. [Recursive Function](./Reference.md#recursive-function-statement)
-5. [Define](./Reference.md#define-statement)
-6. [Import](./Reference.md#import-statement)
-7. [Assert](./Reference.md#assert-statement)
-8. [Print](./Reference.md#print-statement)
+3. [Predicate](./Reference.md#predicate-statement) (or [Relation](./Reference.md#relation-statement))
+4. [Function](./Reference.md#function-statement)
+5. [Recursive Function](./Reference.md#recursive-function-statement)
+6. [Define](./Reference.md#define-statement)
+7. [Import](./Reference.md#import-statement)
+8. [Assert](./Reference.md#assert-statement)
+9. [Print](./Reference.md#print-statement)
 
 ## Proofs
 
