@@ -645,7 +645,7 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'predicate_decl' or e.data == 'relation_decl':
         keyword = 'predicate' if e.data == 'predicate_decl' else 'relation'
         visibility = parse_tree_to_ast(e.children[0], e)
-        name = str(e.children[1].value)
+        name = parse_tree_to_ast(e.children[1], e)
         typarams = parse_tree_to_list(e.children[2], e)
         signature = parse_tree_to_ast(e.children[3], e)
         rules = parse_tree_to_list(e.children[4], e)

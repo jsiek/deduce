@@ -288,8 +288,8 @@ ident: IDENT              -> ident
 ?pred_rule_list:                                           -> empty
     | pred_rule pred_rule_list                             -> push
 
-?predicate_decl: visibility "predicate" IDENT type_params_opt ":" type "{" pred_rule_list "}" -> predicate_decl
-?relation_decl:  visibility "relation"  IDENT type_params_opt ":" type "{" pred_rule_list "}" -> relation_decl
+?predicate_decl: visibility "predicate" ident type_params_opt ":" type "{" pred_rule_list "}" -> predicate_decl
+?relation_decl:  visibility "relation"  ident type_params_opt ":" type "{" pred_rule_list "}" -> relation_decl
 
 ?pattern: ident                                  -> pattern_id
     | "0"                                        -> pattern_zero
