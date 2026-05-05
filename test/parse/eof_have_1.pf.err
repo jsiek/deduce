@@ -4,4 +4,8 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
+
+  have :
+       ^
+
 ./test/parse/eof_have_1.pf:3.8-3.9: expected a term, not end of file

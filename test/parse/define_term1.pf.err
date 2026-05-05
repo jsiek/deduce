@@ -3,5 +3,9 @@
 ./test/parse/define_term1.pf:2.3-2.11: while parsing
 	term ::= "define" identifier "=" term ";" term
 
+
+  define H  a and c;
+            ^
+
 ./test/parse/define_term1.pf:2.13-2.14: expected "=" after name in "define", not
 	a

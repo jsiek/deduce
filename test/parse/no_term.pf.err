@@ -3,5 +3,9 @@
 ./test/parse/no_term.pf:5.3-5.13: while parsing
 	proof_stmt ::= "define" identifier "=" term
 
+
+  .
+  ^
+
 ./test/parse/no_term.pf:6.3-6.4: expected a term, not
 	"."

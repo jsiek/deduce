@@ -3,5 +3,9 @@
 ./test/parse/switch_pf4.pf:5.5-6.9: while parsing one of the following
 	switch_proof_case ::= "case" pattern "{" proof "}"
 	switch_proof_case ::= "case" pattern "assume" assumption_list "{" proof "}"
+
+    case false assume prop_f { . }
+    ^^^^
+
 ./test/parse/switch_pf4.pf:6.5-6.9: expected "}" after body of "case", not
 	case

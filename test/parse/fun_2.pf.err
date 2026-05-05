@@ -1,5 +1,9 @@
 ./test/parse/fun_2.pf:1.1-2.13: while parsing
 	proof_stmt ::= "define" identifier ":" type "=" term
 
+
+assert true
+^^^^^^
+
 ./test/parse/fun_2.pf:4.1-4.7: expected "}" after body of fun, not
 	assert

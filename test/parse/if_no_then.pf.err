@@ -4,5 +4,9 @@
 ./test/parse/if_no_then.pf:3.5-3.16: 
 while parsing
 	formula ::= "if" formula "then" formula
+
+    if x  false else true
+          ^^^^^
+
 ./test/parse/if_no_then.pf:3.11-3.16: expected keyword "then" after premise of "if" formula, not
 	false

@@ -4,4 +4,8 @@
 	proof_stmt ::= "have" identifier ":" formula "by" proof
 	proof_stmt ::= "have" ":" formula "by" proof
 
+
+  have asdf
+  ^^^^
+
 ./test/parse/eof_have_2.pf:3.3-3.7: expected a colon after label of "have", not end of file

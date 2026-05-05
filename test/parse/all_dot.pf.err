@@ -3,5 +3,9 @@
 ./test/parse/all_dot.pf:3.12-3.26: 
 while parsing
 	term ::= "all" var_list "." term
+
+theorem T: all x : bool x = x 
+                        ^
+
 ./test/parse/all_dot.pf:3.25-3.26: expected "." after parameters of "all", not
 	x

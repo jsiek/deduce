@@ -1,3 +1,7 @@
 ./test/parse/eof_proof.pf:1.1-2.6: while parsing
 	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+proof 
+^^^^^
+
 ./test/parse/eof_proof.pf:2.1-2.6: expected a proof, not end of file

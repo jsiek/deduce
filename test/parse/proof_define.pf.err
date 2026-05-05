@@ -3,5 +3,9 @@
 ./test/parse/proof_define.pf:3.3-3.11: while parsing
 	proof_stmt ::= "define" identifier "=" term
 
+
+  define t true
+           ^^^^
+
 ./test/parse/proof_define.pf:3.12-3.16: expected "=" after name in "define", not
 	true

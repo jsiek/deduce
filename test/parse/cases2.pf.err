@@ -4,5 +4,9 @@
 
 ./test/parse/cases2.pf:6.3-7.7: while parsing:
 	"case" label ":" formula "{" proof "}"
+
+  case b : false { . }
+  ^^^^
+
 ./test/parse/cases2.pf:7.3-7.7: expected "}" after body of "case", not
 	case
