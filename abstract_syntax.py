@@ -153,15 +153,24 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
     print("\tin  " + ', '.join([str(x) for x in tyvars]))
     print("\twith " + str(matching))
   match (param_ty, arg_ty):
-    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
-      pass
     case (Var(l1, t1, name, rs1), _) if param_ty in tyvars:
+      # Check this case BEFORE the name-equal case so a generic
+      # function called recursively (or with a type-var arg whose
+      # name matches a bound tyvar) still records the binding instead
+      # of being silently dropped on the floor by name equality.
       if name in matching.keys():
-        type_match(loc, tyvars, matching[name], arg_ty, matching)
+        if matching[name] == arg_ty:
+          # Already bound to the same type — re-recursing would loop
+          # for self-bindings like `T := T`.
+          pass
+        else:
+          type_match(loc, tyvars, matching[name], arg_ty, matching)
       else:
         if get_verbose():
           print('matching ' + name + ' := ' + str(arg_ty))
         matching[name] = arg_ty
+    case (Var(l1, t1, n1, rs1), Var(l2, t2, n2, rs2)) if n1 == n2:
+      pass
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
       if len(tv1) == len(tv2) and len(pts1) == len(pts2):
       for (pt1, pt2) in zip(pts1, pts2):

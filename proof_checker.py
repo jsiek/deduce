@@ -3727,6 +3727,22 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
               env.declare_module(current_module)
 
     case Predicate(loc, name, typarams, sig, rules, keyword):
+      if typarams:
+        # Generic predicates / relations are syntactically accepted but
+        # the translation isn't yet finished: the auto-generated intro
+        # theorems (and the rule_induction / rule_inversion theorems)
+        # would each need an outer `all <T>:type. ...` quantifier, the
+        # synthesised proofs would need to thread `arbitrary <T>:type`
+        # through, and every internal reference to the predicate /
+        # validator / constructors would need explicit type
+        # instantiation. None of that is hard, just additive — flagged
+        # for a follow-up commit.
+        error(loc,
+              "generic " + keyword + "s (with '<...>' type parameters) "
+              "are not yet supported. Drop the type parameter list and "
+              "specialise to a concrete type for now; full generics "
+              "land in a follow-up commit.")
+
       body_env = env.declare_type_vars(loc, typarams)
 
       arity, param_types = _validate_predicate_signature(sig, name, keyword,
