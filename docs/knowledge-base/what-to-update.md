@@ -20,6 +20,9 @@ Any changes to the Deduce syntax should be reflected in the following places:
 - `Reference.md`: add or update the alphabetical entry for the new construct, and cross-reference touches in any related entries.
 - `SyntaxGrammar.md`: keep the `## Statements` list current when introducing a new top-level statement form.
 - `CheatSheet.md`: add a row to the "Formula / Prove / Use" table when a new formula shape gains a canonical proof or elimination form.
+- `TacticsCheatSheet.md`: add or update the corresponding row for any new or renamed tactic, and revise the "Common pitfalls" section if the change introduces a new gotcha.
+
+When adding a new top-level documentation page under `gh_pages/doc/`, also add an entry for it to all four dictionaries in `gh_pages/scripts/convert.py` (`mdToHtmlName`, `mdToTitle`, `mdToDescription`, `mdToDeduceCode`), and link it from `Index.md`.
 
 **External:**
 - [deduce-mode (vscode)](https://github.com/HalflingHelper/deduce-mode#): Deduce extension for vscode.
