@@ -154,7 +154,7 @@ end
 
 auto nat_mult_one
 
-lemma mult_to_zero : all n :Nat, m : Nat.
+theorem mult_to_zero : all n :Nat, m : Nat.
   if m * n = zero then m = zero or n = zero
 proof
   arbitrary n : Nat, m :Nat
