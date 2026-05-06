@@ -1,0 +1,26 @@
+// Phase 2 step 8: MakeArray and ArrayGet. Custom List<T> and a
+// custom Nat suffice; the runtime dispatches by the constructors'
+// base names (`empty`/`node` for the list, `zero`/`suc` for the
+// index), matching the interpreter's `isNodeList`/`isNat` helpers.
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+define ns : List<MyNat> = node(zero, node(suc(zero), node(suc(suc(zero)), empty)))
+define A = array(ns)
+
+print A
+print A[zero]
+print A[suc(zero)]
+print A[suc(suc(zero))]
+
+assert A[zero] = zero
+assert A[suc(zero)] = suc(zero)
+assert A[suc(suc(zero))] = suc(suc(zero))

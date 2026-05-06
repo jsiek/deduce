@@ -1,0 +1,72 @@
+// Phase 2 step 7: recfun-with-measure (GenRecFun) lowers like a
+// regular function — measure and terminates proof both erase.
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+fun iszero(n : MyNat) {
+  switch n {
+    case zero { true }
+    case suc(n') { false }
+  }
+}
+
+fun pred(n : MyNat) {
+  switch n {
+    case zero { zero }
+    case suc(n') { n' }
+  }
+}
+
+recursive operator <(MyNat, MyNat) -> bool {
+  operator <(zero, m) =
+    switch m {
+      case zero { false }
+      case suc(m') { true }
+    }
+  operator <(suc(n'), m) =
+    switch m {
+      case zero { false }
+      case suc(m') { n' < m' }
+    }
+}
+
+theorem less_suc: all n:MyNat. n < suc(n)
+proof
+  induction MyNat
+  case zero { expand operator<. }
+  case suc(n') assume IH {
+    suffices n' < suc(n')  by expand operator<.
+    IH
+  }
+end
+
+theorem pred_suc_less_suc: all n:MyNat. pred(suc(n)) < suc(n)
+proof
+  arbitrary n:MyNat
+  expand pred
+  less_suc[n]
+end
+
+recfun count_down(n : MyNat) -> MyNat
+  measure n of MyNat
+{
+  if iszero(n) then zero
+  else count_down(pred(n))
+}
+terminates {
+  arbitrary n:MyNat
+  assume nz: not iszero(n)
+  switch n {
+    case zero assume eq {
+      conclude false by apply nz to expand iszero replace eq.
+    }
+    case suc(n') assume eq {
+      pred_suc_less_suc[n']
+    }
+  }
+}
+
+print count_down(suc(suc(suc(zero))))

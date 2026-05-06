@@ -116,11 +116,7 @@ class LoweringCtx:
         if isinstance(s, ast.RecFun):
             return self.lower_recfun(s)
         if isinstance(s, ast.GenRecFun):
-            raise CompileError(
-                s.location,
-                "GenRecFun (recfun with measure) is not supported in Phase 1; "
-                "see docs/compile-plan.md Step 7",
-            )
+            return self.lower_genrecfun(s)
         if isinstance(s, ast.Print):
             return ir.Print(self.lower_term(s.term))
         if isinstance(s, ast.Assert):
@@ -189,6 +185,20 @@ class LoweringCtx:
             body=match,
         )
 
+    def lower_genrecfun(self, r: ast.GenRecFun):
+        """Recfun-with-measure: a single-body recursive function. The
+        measure expression and the `terminates` proof are erased — the
+        compiler does no termination checking, just like the Deduce
+        interpreter at runtime. The user already proved termination at
+        check time, so a non-terminating compiled binary is on us only
+        if the proof checker accepted a buggy proof."""
+        params = [x for (x, _t) in r.vars]
+        return ir.Function(
+            name=r.name,
+            params=params,
+            body=self.lower_term(r.body),
+        )
+
     def lower_assert(self, s: ast.Assert):
         # `assert lhs = rhs` becomes a structural-equality check;
         # everything else (incl. `assert b` for a bool b) becomes
@@ -231,6 +241,29 @@ class LoweringCtx:
                 self.lower_term(t.thn),
                 self.lower_term(t.els),
             )
+        if isinstance(t, ast.IfThen):
+            # `if P then Q` (formula form) is `(not P) or Q`. As a
+            # boolean term: `if P then Q else true`.
+            return ir.If(
+                self.lower_term(t.premise),
+                self.lower_term(t.conclusion),
+                ir.Bool(True),
+            )
+        if isinstance(t, ast.And):
+            # n-ary short-circuit AND, right-folded.
+            if not t.args:
+                return ir.Bool(True)
+            result = self.lower_term(t.args[-1])
+            for a in reversed(t.args[:-1]):
+                result = ir.If(self.lower_term(a), result, ir.Bool(False))
+            return result
+        if isinstance(t, ast.Or):
+            if not t.args:
+                return ir.Bool(False)
+            result = self.lower_term(t.args[-1])
+            for a in reversed(t.args[:-1]):
+                result = ir.If(self.lower_term(a), ir.Bool(True), result)
+            return result
         if isinstance(t, ast.TLet):
             return ir.Let(
                 t.var,
@@ -250,12 +283,20 @@ class LoweringCtx:
                 "hole/omitted term reached compilation; the proof "
                 "checker should have rejected this earlier",
             )
-        if isinstance(t, ast.MakeArray) or isinstance(t, ast.ArrayGet) \
-           or isinstance(t, ast.Array):
+        if isinstance(t, ast.MakeArray):
+            return ir.MakeArray(self.lower_term(t.subject))
+        if isinstance(t, ast.ArrayGet):
+            return ir.ArrayGet(
+                self.lower_term(t.subject),
+                self.lower_term(t.position),
+            )
+        if isinstance(t, ast.Array):
+            # `Array` only appears in source as the result of reducing
+            # `MakeArray` (literal `array([…])` uses the latter). The
+            # post-uniquify AST should not contain `Array` directly.
             raise CompileError(
                 t.location,
-                "arrays are not yet supported by the compiler "
-                "(Phase 2 step 8)",
+                "Array term reached compilation; expected MakeArray instead",
             )
         raise CompileError(
             getattr(t, "location", None),
@@ -269,6 +310,16 @@ class LoweringCtx:
             rator = rator.subject
         if isinstance(rator, ast.Var):
             name = self._resolve(rator)
+            base = ast.base_name(name)
+            # Built-in equality. `=` is not a Deduce-source-level
+            # function — it's parsed as `Call(Var('='), [a, b])` and
+            # the type checker accepts it for any pair of same-typed
+            # values. The runtime decides via `deduce_equal`.
+            if base == "=" and len(c.args) == 2:
+                return ir.Eq(
+                    self.lower_term(c.args[0]),
+                    self.lower_term(c.args[1]),
+                )
             if name in self.ctors:
                 return ir.Con(name, [self.lower_term(a) for a in c.args])
         return ir.App(
@@ -354,6 +405,12 @@ def subst_vars(t: ir.Term, sub: Dict[str, str]) -> ir.Term:
                         inner = blocked
                     new_arms.append(ir.MatchArm(arm.pattern, go(arm.body, inner)))
                 return ir.Match(go(subj, blocked), new_arms)
+            case ir.Eq(l, r):
+                return ir.Eq(go(l, blocked), go(r, blocked))
+            case ir.MakeArray(s):
+                return ir.MakeArray(go(s, blocked))
+            case ir.ArrayGet(s, i):
+                return ir.ArrayGet(go(s, blocked), go(i, blocked))
         raise AssertionError(f"subst_vars: unknown {type(t).__name__}")
 
     return go(t, set())

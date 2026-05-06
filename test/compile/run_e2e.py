@@ -26,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 LOWER_DIR = ROOT / "test" / "compile" / "lower"
 E2E_DIR = ROOT / "test" / "compile" / "e2e"
+ALLOWLIST = ROOT / "test" / "compile-allowlist.txt"
 RUNTIME_DIR = ROOT / "compiler" / "runtime"
 
 
@@ -94,6 +95,16 @@ def main() -> int:
     for d in (E2E_DIR, LOWER_DIR):
         if d.exists():
             fixtures.extend(sorted(d.glob("*.pf")))
+    if ALLOWLIST.exists():
+        for raw in ALLOWLIST.read_text().splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            p = (ROOT / line).resolve()
+            if not p.exists():
+                print(f"WARN: allowlist entry not found: {line}", file=sys.stderr)
+                continue
+            fixtures.append(p)
     if args.filter:
         fixtures = [f for f in fixtures if args.filter in f.name]
     if not fixtures:

@@ -1,0 +1,7 @@
+union Box.33 {box.35/1}
+fn unbox.39(b.37) = match b.37 { | box.35(x.38) -> x.38 }
+fn id.43(x.42) = x.42
+union MyNat.44 {zero.45/0, suc.46/1}
+print id.43(suc.46(zero.45))
+print unbox.39(box.35(suc.46(suc.46(zero.45))))
+assert_eq id.43(zero.45) == zero.45

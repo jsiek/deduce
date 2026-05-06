@@ -114,7 +114,36 @@ class Match:
     arms: List[MatchArm]
 
 
-Term = Union[Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match]
+@dataclass
+class Eq:
+    """Structural equality, the only built-in primitive in the IR.
+    Comes from `Call(Var('='), [a, b])` in the source. Closures
+    compare by pointer identity (matches the runtime `deduce_equal`)."""
+    lhs: "Term"
+    rhs: "Term"
+
+
+@dataclass
+class MakeArray:
+    """Convert a `List<T>`-shaped value (a chain of `node(_, _)` ending
+    in `empty`) into a runtime array. Uses base-name dispatch at the
+    runtime, matching the interpreter's `isNodeList` semantics — any
+    union with constructors named `empty`/`node` works."""
+    subject: "Term"
+
+
+@dataclass
+class ArrayGet:
+    """Read an array element by index. The index is a Nat or UInt;
+    the runtime decodes it by inspecting constructor names. Out-of-
+    bounds returns the original ArrayGet — matches the interpreter
+    convention of not raising on OOB. (We diverge: the compiled
+    binary aborts via `deduce_panic` instead.)"""
+    subject: "Term"
+    index: "Term"
+
+
+Term = Union[Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match, Eq, MakeArray, ArrayGet]
 
 
 # ---------- top-level ----------
@@ -254,6 +283,12 @@ def pp_term(t: Term, indent: int) -> str:
                         raise AssertionError("pp_term: bad pattern")
                 arm_strs.append("| " + ps + " -> " + pp_term(arm.body, indent))
             return "match " + pp_term(subj, indent) + " { " + " ".join(arm_strs) + " }"
+        case Eq(l, r):
+            return "(" + pp_term(l, indent) + " == " + pp_term(r, indent) + ")"
+        case MakeArray(s):
+            return "array(" + pp_term(s, indent) + ")"
+        case ArrayGet(s, i):
+            return pp_term(s, indent) + "[" + pp_term(i, indent) + "]"
     raise AssertionError(f"pp_term: unknown term {type(t).__name__}")
 
 
@@ -261,6 +296,96 @@ def pp_term(t: Term, indent: int) -> str:
 #
 # Used by closure conversion (free-variable analysis) and by emitters.
 # Kept here so the contract is local to the IR module.
+
+def verify(p: Program) -> None:
+    """Walk an IR program and assert every node is a known IR class.
+
+    This is a safety net: it would fire if a future change to lowering
+    accidentally embedded an `abstract_syntax.*` AST node (a Type, or a
+    Term that wasn't translated) inside an IR term. The IR has no
+    field that holds a type — there is nothing to "erase" at this
+    layer; the check enforces that the layer below us did its job.
+
+    Raises `AssertionError` on the first stray node it finds, with the
+    enclosing decl name in the message so the failure is locatable."""
+    top_classes = (UnionDecl, Function, Global, Print, AssertEq, AssertBool)
+    term_classes = (
+        Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match, Eq,
+        MakeArray, ArrayGet,
+    )
+
+    def check_term(t: object, ctx: str) -> None:
+        if not isinstance(t, term_classes):
+            raise AssertionError(
+                f"verify: non-IR term {type(t).__name__} in {ctx}"
+            )
+        match t:
+            case Var(_) | Bool(_) | Int(_):
+                return
+            case Lam(_, body):
+                check_term(body, ctx)
+            case MkClosure(_, caps):
+                for c in caps:
+                    check_term(c, ctx)
+            case App(rator, args):
+                check_term(rator, ctx)
+                for a in args:
+                    check_term(a, ctx)
+            case Let(_, rhs, body):
+                check_term(rhs, ctx)
+                check_term(body, ctx)
+            case If(c, th, el):
+                check_term(c, ctx)
+                check_term(th, ctx)
+                check_term(el, ctx)
+            case Con(_, args):
+                for a in args:
+                    check_term(a, ctx)
+            case Match(subj, arms):
+                check_term(subj, ctx)
+                for arm in arms:
+                    if not isinstance(arm, MatchArm):
+                        raise AssertionError(
+                            f"verify: non-MatchArm in {ctx}"
+                        )
+                    if not isinstance(arm.pattern, (PatBool, PatCon)):
+                        raise AssertionError(
+                            f"verify: non-IR pattern in {ctx}"
+                        )
+                    check_term(arm.body, ctx)
+            case Eq(l, r):
+                check_term(l, ctx)
+                check_term(r, ctx)
+            case MakeArray(s):
+                check_term(s, ctx)
+            case ArrayGet(s, i):
+                check_term(s, ctx)
+                check_term(i, ctx)
+
+    if not isinstance(p, Program):
+        raise AssertionError(f"verify: not a Program: {type(p).__name__}")
+    for d in p.decls:
+        if not isinstance(d, top_classes):
+            raise AssertionError(
+                f"verify: non-IR top-level {type(d).__name__}"
+            )
+        match d:
+            case UnionDecl(_, ctors):
+                for c in ctors:
+                    if not isinstance(c, Constructor):
+                        raise AssertionError("verify: non-IR ctor")
+            case Function(name, _, body, _):
+                check_term(body, f"function {name}")
+            case Global(name, body):
+                check_term(body, f"global {name}")
+            case Print(t):
+                check_term(t, "print")
+            case AssertEq(l, r):
+                check_term(l, "assert_eq")
+                check_term(r, "assert_eq")
+            case AssertBool(t):
+                check_term(t, "assert_bool")
+
 
 def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
     match t:
@@ -298,4 +423,10 @@ def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
                     case PatBool(_):
                         out |= free_vars(arm.body, bound)
             return out
+        case Eq(l, r):
+            return free_vars(l, bound) | free_vars(r, bound)
+        case MakeArray(s):
+            return free_vars(s, bound)
+        case ArrayGet(s, i):
+            return free_vars(s, bound) | free_vars(i, bound)
     raise AssertionError(f"free_vars: unknown term {type(t).__name__}")

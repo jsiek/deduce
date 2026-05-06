@@ -83,6 +83,12 @@ def closure_convert(p: ir.Program) -> ir.Program:
             case ir.Match(subj, arms):
                 new_arms = [ir.MatchArm(arm.pattern, go(arm.body)) for arm in arms]
                 return ir.Match(go(subj), new_arms)
+            case ir.Eq(l, r):
+                return ir.Eq(go(l), go(r))
+            case ir.MakeArray(s):
+                return ir.MakeArray(go(s))
+            case ir.ArrayGet(s, i):
+                return ir.ArrayGet(go(s), go(i))
         raise AssertionError(f"closure_convert: unknown term {type(t).__name__}")
 
     new_decls: List[ir.TopLevel] = []
