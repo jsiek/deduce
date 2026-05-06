@@ -2236,6 +2236,19 @@ class PVar(Proof):
 
   def uniquify(self, env):
     if self.name not in env.keys():
+      hits = find_private_lemma_definers(self.name)
+      if hits:
+        def fmt_hit(h):
+          module, filename, line = h
+          if filename is not None and line is not None:
+            return "module " + module + " (" + filename + ":" + str(line) + ")"
+          return "module " + module
+        where = ', '.join(fmt_hit(h) for h in hits)
+        msg = ("'" + self.name + "' is declared as a `lemma` in "
+               + where + "; lemmas are module-private and not accessible"
+               + " from other modules. To make it accessible here, change"
+               + " `lemma` to `theorem` there.")
+        error(self.location, msg)
       env_str = ('\n' + ', '.join(env.keys())) if get_verbose() else ''
       error(self.location, "undefined proof variable " + self.name + env_str)
     if isinstance(env[self.name], list):
@@ -3775,6 +3788,38 @@ def get_uniquified_modules():
 def add_uniquified_module(module_name, ast):
   global uniquified_modules
   uniquified_modules[module_name] = ast
+
+def find_private_lemma_definers(name):
+  """Return a list of (module, filename, line) tuples for every private
+  `lemma` whose base name matches `name`. Used by `PVar.uniquify` to give
+  a more specific error than "undefined proof variable" when a lookup
+  fails because the matching definition was filtered out by
+  `Theorem.collect_exports` (lemmas are module-private).
+
+  The `module` field is the module declared by the file (one module can
+  span several files — e.g., `lib/Nat.pf` and `lib/NatMult.pf` both
+  declare `module Nat`); falls back to the import key for files with no
+  `module` declaration. `filename` and `line` come from the `lemma`'s
+  source location and may be `None` if the location is empty."""
+  global uniquified_modules
+  hits = []
+  for import_key, ast in uniquified_modules.items():
+    if ast is None:
+      continue
+    declared_module = None
+    matching_loc = None
+    for stmt in ast:
+      if isinstance(stmt, Module) and declared_module is None:
+        declared_module = stmt.name
+      if isinstance(stmt, Theorem) and stmt.isLemma \
+         and base_name(stmt.name) == name and matching_loc is None:
+        matching_loc = stmt.location
+    if matching_loc is not None:
+      reported = declared_module if declared_module is not None else import_key
+      filename = matching_loc.filename if not matching_loc.empty else None
+      line = matching_loc.line if not matching_loc.empty else None
+      hits.append((reported, filename, line))
+  return hits
 
 
 @dataclass
