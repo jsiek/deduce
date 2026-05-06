@@ -4,4 +4,3 @@ fn id.43(x.42) = x.42
 union MyNat.44 {zero.45/0, suc.46/1}
 print id.43(suc.46(zero.45))
 print unbox.39(box.35(suc.46(suc.46(zero.45))))
-assert_eq id.43(zero.45) == zero.45

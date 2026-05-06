@@ -5,4 +5,3 @@ fn add_two.18(x.17) = add.12(two.16, x.17)
 fn pick.22(b.19, x.20, y.21) = if b.19 then x.20 else y.21
 print add_two.18(suc.11(zero.10))
 print pick.22(true, two.16, zero.10)
-assert_eq add.12(two.16, zero.10) == two.16

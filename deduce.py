@@ -36,15 +36,22 @@ def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] 
                 print(result.error_traceback)
             exit(1)
 
-def compile_file(filename: str, output: str, prelude: list[str]) -> None:
+def compile_file(filename: str, output: str, prelude: list[str],
+                 no_prune: bool = False) -> None:
     """Compile a checked .pf file to a single .c source file.
 
-    Phase 1 of docs/compile-plan.md: parse + uniquify + type-check via
-    the existing pipeline, then run lower → closure-convert → emit_c.
-    The runtime in compiler/runtime/ supplies the matching deduce.h /
-    deduce.c that callers must compile alongside the generated source.
+    Pipeline: parse + uniquify + type-check via the existing front-end,
+    then lower → closure-convert → (prune) → emit_c. The runtime in
+    compiler/runtime/ supplies the matching deduce.h / deduce.c that
+    callers must compile alongside the generated source.
+
+    Pruning drops definitions not transitively reached from a `print`
+    statement. Pass `no_prune=True` to keep every lowered decl in the
+    output — useful when debugging an emitter issue on code the
+    pruner would normally have removed.
     """
     from compiler import closure as _closure, emit_c, ir, lower
+    from compiler import prune as _prune
 
     result = check_file(filename, tracing_functions=(), prelude=prelude)
     if not result.ok:
@@ -56,6 +63,9 @@ def compile_file(filename: str, output: str, prelude: list[str]) -> None:
     ir.verify(program)
     program = _closure.closure_convert(program)
     ir.verify(program)
+    if not no_prune:
+        program = _prune.prune(program)
+        ir.verify(program)
     src = emit_c.emit_program(program)
     if output == "-":
         sys.stdout.write(src)
@@ -101,6 +111,7 @@ if __name__ == "__main__":
     already_processed_next = False
     compile_target = None
     compile_output = None
+    no_prune = False
     init_import_directories()
 
     # TODO: Cleanup 
@@ -154,6 +165,8 @@ if __name__ == "__main__":
         elif argument == '-o' and i + 1 < len(sys.argv):
             compile_output = sys.argv[i + 1]
             already_processed_next = True
+        elif argument == '--no-prune':
+            no_prune = True
         else:
             deducables.append(argument)
     
@@ -196,7 +209,7 @@ if __name__ == "__main__":
                 exit(1)
             out = compile_output if compile_output is not None \
                 else os.path.splitext(deducable)[0] + ".c"
-            compile_file(deducable, out, deducable_prelude)
+            compile_file(deducable, out, deducable_prelude, no_prune=no_prune)
         elif os.path.isfile(deducable):
             deduce_file(deducable, error_expected, tracing_functions, deducable_prelude)
         elif os.path.isdir(deducable):

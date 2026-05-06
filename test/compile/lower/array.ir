@@ -6,6 +6,3 @@ print A.8
 print A.8[zero.1]
 print A.8[suc.2(zero.1)]
 print A.8[suc.2(suc.2(zero.1))]
-assert_eq A.8[zero.1] == zero.1
-assert_eq A.8[suc.2(zero.1)] == suc.2(zero.1)
-assert_eq A.8[suc.2(suc.2(zero.1))] == suc.2(suc.2(zero.1))
