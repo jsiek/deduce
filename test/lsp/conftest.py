@@ -1,19 +1,27 @@
 """Shared pytest fixtures for the lsp/ test suite.
 
-The Deduce pipeline keeps a lot of module-level state in
-``proof_checker`` and ``abstract_syntax`` (caches keyed by module name,
-counters, sets of "already checked" modules, etc.). The CLI doesn't
-care because each invocation runs in a fresh process, but the in-process
-tests below run many checks back-to-back. ``_reset_state`` is the
-working inventory of those globals; Step 6 of the LSP plan replaces
-this hack with proper per-call isolation.
+Phase 1 / Step 6 moved per-call state isolation into ``check_file``
+itself, so the heavy-handed ``_reset_state`` fixture this file used
+to declare is gone. Tests now rely on ``check_file`` to restore the
+post-prelude snapshot before each call.
+
+The session-scoped ``_set_up_globals`` fixture remains: it mirrors
+what ``deduce.py`` does once at process start (enabling quiet mode,
+adding ``lib/`` and ``test/test-imports/`` to the import path,
+bumping the recursion limit). All test modules in this directory
+inherit it automatically.
+
+The ``_reset_prelude_per_test`` fixture drops the prelude cache
+between tests so each test starts from a clean slate. Strictly
+optional now that ``check_file`` is self-contained, but it makes
+test failures less puzzling -- a leak in the new state machinery
+shows up as a single failing test rather than as a cascade.
 """
 
 import sys
 from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -23,34 +31,16 @@ sys.path.insert(0, str(REPO_ROOT))
 # module imports the pipeline.
 sys.argv = [str(REPO_ROOT / "deduce.py")]
 
-import abstract_syntax  # noqa: E402
-import proof_checker  # noqa: E402
 from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
 )
 from flags import set_quiet_mode  # noqa: E402
+from lsp.library import reset_prelude_cache  # noqa: E402
 
 
 LIB_DIR = REPO_ROOT / "lib"
 TEST_IMPORTS_DIR = REPO_ROOT / "test" / "test-imports"
-
-
-def _reset_state() -> None:
-    """Clear the module-level caches the pipeline accumulates per file.
-
-    If a future change to the checker adds another cache, the in-process
-    tests will go flaky -- add the new global here.
-    """
-    abstract_syntax.uniquified_modules.clear()
-    abstract_syntax._predicate_decls_by_unique_name.clear()
-    abstract_syntax.collected_imports.clear()
-    abstract_syntax.reduce_only.clear()
-    abstract_syntax.reduced_defs.clear()
-    proof_checker.imported_modules.clear()
-    proof_checker.checked_modules.clear()
-    proof_checker.dirty_files.clear()
-    proof_checker.modules.clear()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -65,7 +55,12 @@ def _set_up_globals():
 
 
 @pytest.fixture(autouse=True)
-def _reset_between_tests():
-    _reset_state()
+def _reset_prelude_per_test():
+    """Drop the prelude snapshot between tests for tidier isolation.
+
+    ``check_file``'s automatic state restore is enough for correctness,
+    but starting each test from a fresh bootstrap keeps test ordering
+    invisible.
+    """
+    reset_prelude_cache()
     yield
-    _reset_state()
