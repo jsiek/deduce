@@ -1,1 +1,1 @@
-./test/should-error/import_lemma.pf:5.3-5.20: undefined proof variable cant_import_lemma
+./test/should-error/import_lemma.pf:5.3-5.20: 'cant_import_lemma' is declared as a `lemma` in module Private; lemmas are module-private and not accessible from other modules. To make it accessible here, change `lemma` to `theorem` in module Private.

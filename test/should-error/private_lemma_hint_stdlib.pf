@@ -1,0 +1,14 @@
+import NatDefs
+import NatAdd
+import NatMult
+
+// `zero_mult` is a `lemma` in `lib/NatMult.pf` (module Nat), so it is
+// module-private. Referencing it from this file (no `module` declaration,
+// so it is in the default module) should give the new "private lemma"
+// hint, not the old typo-style "undefined proof variable" message.
+
+theorem T: all n:Nat. zero * n = zero
+proof
+  arbitrary n:Nat
+  zero_mult[n]
+end

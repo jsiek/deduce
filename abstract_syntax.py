@@ -2236,6 +2236,14 @@ class PVar(Proof):
 
   def uniquify(self, env):
     if self.name not in env.keys():
+      hits = find_private_lemma_definers(self.name)
+      if hits:
+        where = hits[0] if len(hits) == 1 else ', '.join(hits)
+        msg = ("'" + self.name + "' is declared as a `lemma` in module "
+               + where + "; lemmas are module-private and not accessible"
+               + " from other modules. To make it accessible here, change"
+               + " `lemma` to `theorem` in module " + where + ".")
+        error(self.location, msg)
       env_str = ('\n' + ', '.join(env.keys())) if get_verbose() else ''
       error(self.location, "undefined proof variable " + self.name + env_str)
     if isinstance(env[self.name], list):
@@ -3775,6 +3783,35 @@ def get_uniquified_modules():
 def add_uniquified_module(module_name, ast):
   global uniquified_modules
   uniquified_modules[module_name] = ast
+
+def find_private_lemma_definers(name):
+  """Return the names of modules that define a private `lemma` whose base
+  name matches `name`. Used by `PVar.uniquify` to give a more specific
+  error than "undefined proof variable" when a lookup fails because the
+  matching definition was filtered out by `Theorem.collect_exports`
+  (lemmas are module-private). Returns *module* names, not file names —
+  one module can span several files (e.g., `lib/Nat.pf` and `lib/NatMult.pf`
+  both declare `module Nat`), so the file-level import key would be
+  misleading. Falls back to the import key for files with no `module`
+  declaration."""
+  global uniquified_modules
+  hits = []
+  for import_key, ast in uniquified_modules.items():
+    if ast is None:
+      continue
+    declared_module = None
+    found_lemma = False
+    for stmt in ast:
+      if isinstance(stmt, Module) and declared_module is None:
+        declared_module = stmt.name
+      if isinstance(stmt, Theorem) and stmt.isLemma \
+         and base_name(stmt.name) == name:
+        found_lemma = True
+    if found_lemma:
+      reported = declared_module if declared_module is not None else import_key
+      if reported not in hits:
+        hits.append(reported)
+  return hits
 
 
 @dataclass
