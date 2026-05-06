@@ -1,16 +1,9 @@
-from abstract_syntax import Import
-from lark.tree import Meta
 from flags import *
-from proof_checker import check_deduce, uniquify_deduce, is_modified
-from abstract_syntax import init_import_directories, add_import_directory, print_theorems, get_recursive_descent, set_recursive_descent, get_uniquified_modules, add_uniquified_module, VerboseLevel
+from abstract_syntax import init_import_directories, add_import_directory, print_theorems, set_recursive_descent, VerboseLevel
+from lsp.library import check_file
 from signal import signal, SIGINT
 import sys
 import os
-import parser
-import rec_desc_parser
-#from parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
-#from rec_desc_parser import parse, set_filename, get_filename, set_deduce_directory, init_parser
-import traceback
 from pathlib import Path
 
 traceback_flag = False
@@ -21,72 +14,27 @@ def handle_sigint(signal, stack_frame):
     exit(137)
 
 def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] = []):
-    if get_verbose():
-        print("Deducing file:", filename)
-    module_name = Path(filename).stem
-    try:
-        if module_name in get_uniquified_modules().keys():
-            ast = get_uniquified_modules()[module_name]
-        else:
-            file = open(filename, 'r', encoding="utf-8")
-            program_text = file.read()
+    """CLI wrapper around lsp.library.check_file.
 
-            if get_verbose():
-                print("about to parse")
-            if get_recursive_descent():
-                rec_desc_parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
-                rec_desc_parser.set_filename(filename)
-                rec_desc_parser.init_parser()
-                ast = rec_desc_parser.parse(program_text, trace=get_verbose(),
-                                            error_expected=error_expected)
-            else:
-                parser.set_deduce_directory(os.path.dirname(sys.argv[0]))
-                parser.set_filename(filename)
-                parser.init_parser()
-                ast = parser.parse(program_text, trace=get_verbose(),
-                                   error_expected=error_expected)
-            if get_verbose():
-                print("abstract syntax tree:\n" \
-                      +'\n'.join([str(s) for s in ast])+"\n\n")
-                print("starting uniquify:\n" + '\n'.join([str(d) for d in ast]))
-
-            if len(prelude) > 0: 
-                # Create a new AST for the import statements
-                ast2 = []
-                for name in prelude:
-                    import_stmt = Import(Meta(), name, visibility='private')
-                    ast2.append(import_stmt)
-                # Add import statements at front of original AST
-                ast2 += ast
-                ast = ast2
-
-            uniquify_deduce(ast)
-            if get_verbose():
-                print("finished uniquify:\n" + '\n'.join([str(d) for d in ast]))
-            add_uniquified_module(module_name, ast)
-
-        check_deduce(ast, module_name, True, tracing_functions)
+    Translates CheckResult into the historical print/exit behavior so
+    test-deduce.py and existing tooling keep working.
+    """
+    result = check_file(filename, tracing_functions=tracing_functions, prelude=prelude)
+    if result.ok:
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
-        else:
-            if not suppress_theorems:
-                print_theorems(filename, ast)
-            print(filename + ' is valid')
-
-    except Exception as e:
+        if not suppress_theorems:
+            print_theorems(filename, result.ast)
+        print(filename + ' is valid')
+    else:
         if error_expected:
             print(filename + ' caught an error as expected')
-            # exit(0)
         else:
-            print(str(e))
-            # Use the following when debugging internal exceptions -Jeremy
+            print(result.error_message)
             if traceback_flag:
-                print(traceback.format_exc())
-            # for production, exit
+                print(result.error_traceback)
             exit(1)
-            # during development, reraise
-            # raise e
 
 def deduce_directory(directory, recursive_directories, tracing_functions, prelude: list[str] = []):
     for file in sorted(os.listdir(directory)):

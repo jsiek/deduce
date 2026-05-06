@@ -858,10 +858,13 @@ def parse(program_text, trace = False, error_expected = False):
       if error_expected:
           raise Exception()
       else:
-          print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
-                + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-                + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n' \
-                + "(The error may be immediately before this token.)")
-
-          exit(1)
+          # Raise instead of print+exit so library/LSP callers can
+          # surface the message without their process being killed.
+          # The CLI in deduce.py catches this and prints str(e), which
+          # produces the same stdout the print() did before.
+          msg = (get_filename() + ":" + str(t.token.line) + "." + str(t.token.column)
+                 + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": "
+                 + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n'
+                 + "(The error may be immediately before this token.)")
+          raise Exception(msg)
         
