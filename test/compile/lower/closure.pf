@@ -1,0 +1,17 @@
+// Exercises closure conversion: a top-level function returns a lambda
+// that captures the outer parameter.
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+recursive add(MyNat, MyNat) -> MyNat {
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
+}
+
+define adder : fn MyNat -> (fn MyNat -> MyNat)
+  = λ x : MyNat { λ y : MyNat { add(x, y) } }
+
+print adder(suc(zero))(suc(suc(zero)))
