@@ -424,13 +424,32 @@ def definition_of(
 ) -> Optional[Location]:
     """Return the source location of the symbol under ``pos``.
 
+    Walks the post-typecheck AST returned by ``check_file``, finds the
+    ``Var`` whose source range contains ``pos``, takes its first
+    (i.e. type-resolved) entry from ``resolved_names``, and looks up
+    the matching top-level declaration.
+
     Returns ``None`` when there is no resolvable symbol at ``pos``
     (whitespace, keyword, unparseable region) or when the definition
-    is outside any source file the server can see.
-
-    Implemented in Step 5.
+    is outside any source file the server can see -- e.g. it lives in
+    an imported module, since today the only AST we consult is the
+    user's file.
     """
-    raise NotImplementedError("Step 5 implements definition_of.")
+    from lsp.library import check_file
+
+    result = check_file(path, content=content)
+    if result.ast is None:
+        return None
+
+    target_name = _find_reference_at(result.ast, pos)
+    if target_name is None:
+        return None
+
+    decl_meta = _find_declaration(result.ast, target_name)
+    if decl_meta is None:
+        return None
+
+    return Location(path=path, range=_range_from_meta(decl_meta))
 
 
 def list_symbols(path: str, content: str) -> list[SymbolInfo]:
@@ -438,9 +457,211 @@ def list_symbols(path: str, content: str) -> list[SymbolInfo]:
 
     Used for editor outline views and the MCP ``list_symbols`` tool.
     Includes theorems, lemmas, functions, defines, unions, predicates,
-    postulates, and imports; does not descend into nested definitions
-    inside proofs.
-
-    Implemented in Step 5.
+    postulates, postulates, and imports; does not descend into nested
+    definitions inside proofs. Uses the post-typecheck AST so signature
+    text reflects type-checked formulas.
     """
-    raise NotImplementedError("Step 5 implements list_symbols.")
+    from lsp.library import check_file
+
+    result = check_file(path, content=content)
+    if result.ast is None:
+        return []
+
+    out: list[SymbolInfo] = []
+    for stmt in result.ast:
+        info = _symbol_info_for(stmt, path)
+        if info is not None:
+            out.append(info)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Internals shared by definition_of and list_symbols
+# ---------------------------------------------------------------------------
+
+
+def _range_from_meta(meta) -> Range:
+    """Convert a lark ``Meta`` (or compatible duck) to a ``Range``."""
+    return Range(
+        start=Position(line=meta.line, column=meta.column),
+        end=Position(line=meta.end_line, column=meta.end_column),
+    )
+
+
+def _meta_contains(meta, pos: Position) -> bool:
+    """Test whether 1-indexed ``pos`` falls inside the ``meta`` range.
+
+    The range is inclusive-start, exclusive-end (matches lark's
+    convention and the documented Range semantics).
+    """
+    if getattr(meta, "empty", True):
+        return False
+    after_start = (meta.line, meta.column) <= (pos.line, pos.column)
+    before_end = (pos.line, pos.column) < (meta.end_line, meta.end_column)
+    return after_start and before_end
+
+
+def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
+    """Locate the smallest reference node whose range contains ``pos``.
+
+    Recognises term references (``Var``, with overload resolution via
+    ``resolved_names[0]``) and proof references (``PVar``, whose
+    ``name`` is already the chosen uniquified name post-uniquify).
+    "Smallest" means the deepest match in the AST -- inner refs take
+    precedence over enclosing constructs that happen to share a range.
+
+    Returns the resolved (uniquified) name, or ``None`` when no
+    reference node contains ``pos``. The ``base_name`` of the return
+    value is the user-visible identifier; the suffix is what
+    ``_find_declaration`` matches against.
+    """
+    # Late import: lsp/query.py is the protocol-neutral surface, so we
+    # don't pull in abstract_syntax until a query actually runs.
+    from abstract_syntax import AST, PVar, Var
+
+    best: list[Optional[str]] = [None]
+    best_span: list[Optional[int]] = [None]
+
+    def visit(node):
+        if isinstance(node, Var):
+            resolved = (node.resolved_names or [None])[0] or node.name
+        elif isinstance(node, PVar):
+            resolved = node.name
+        else:
+            return
+        meta = getattr(node, "location", None)
+        if meta is None or not _meta_contains(meta, pos):
+            return
+        span = _meta_span(meta)
+        if best_span[0] is None or span < best_span[0]:
+            best_span[0] = span
+            best[0] = resolved
+
+    for top in ast_nodes:
+        _walk_ast(top, visit, ast_class=AST)
+
+    return best[0]
+
+
+def _meta_span(meta) -> int:
+    """Crude size measure for a ``Meta``; smaller wins ties in tree
+    descent so inner nodes outrank enclosing ones."""
+    if meta.line == meta.end_line:
+        return meta.end_column - meta.column
+    # Multi-line ranges are larger than any single-line range. Use a
+    # huge per-line cost so we never pick a multi-line Var over a
+    # single-line one that contains the cursor.
+    return 10_000 * (meta.end_line - meta.line) + meta.end_column
+
+
+def _find_declaration(ast_nodes, target_name: str):
+    """Find the top-level declaration whose uniquified ``name`` field
+    equals ``target_name``. Returns its ``Meta`` location or ``None``.
+    """
+    from abstract_syntax import (
+        Define,
+        Import,
+        Postulate,
+        Predicate,
+        RecFun,
+        Theorem,
+        Union,
+    )
+
+    decl_types = (Theorem, Postulate, Define, RecFun, Union, Predicate, Import)
+    for stmt in ast_nodes:
+        if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
+            return stmt.location
+    return None
+
+
+def _walk_ast(node, visit, ast_class, seen=None):
+    """Recursively visit every AST descendant of ``node``.
+
+    Uses dataclass reflection so we don't have to enumerate every
+    concrete class. The ``seen`` set guards against shared sub-trees
+    (e.g. the env reused across statements after type checking).
+    """
+    if seen is None:
+        seen = set()
+    nid = id(node)
+    if nid in seen:
+        return
+    seen.add(nid)
+    visit(node)
+
+    from dataclasses import fields, is_dataclass
+
+    if not is_dataclass(node):
+        return
+    for f in fields(node):
+        value = getattr(node, f.name, None)
+        if isinstance(value, ast_class):
+            _walk_ast(value, visit, ast_class, seen)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, ast_class):
+                    _walk_ast(item, visit, ast_class, seen)
+
+
+def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
+    """Build a ``SymbolInfo`` for a top-level statement, or ``None``
+    if the node isn't a kind we surface (e.g. ``Auto``)."""
+    from abstract_syntax import (
+        Auto,
+        Define,
+        Import,
+        Postulate,
+        Predicate,
+        RecFun,
+        Theorem,
+        Union,
+        base_name,
+    )
+
+    location = Location(path=path, range=_range_from_meta(stmt.location))
+
+    if isinstance(stmt, Theorem):
+        kind = SymbolKind.LEMMA if stmt.isLemma else SymbolKind.THEOREM
+        signature = f"{base_name(stmt.name)}: {stmt.what}"
+    elif isinstance(stmt, Postulate):
+        kind = SymbolKind.POSTULATE
+        signature = f"{base_name(stmt.name)}: {stmt.what}"
+    elif isinstance(stmt, Define):
+        kind = SymbolKind.DEFINE
+        ty_text = f": {stmt.typ}" if stmt.typ is not None else ""
+        signature = f"define {base_name(stmt.name)}{ty_text}"
+    elif isinstance(stmt, RecFun):
+        kind = SymbolKind.FUNCTION
+        params = ", ".join(str(p) for p in stmt.params)
+        typarams = (
+            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
+        )
+        signature = (
+            f"function {base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
+        )
+    elif isinstance(stmt, Union):
+        kind = SymbolKind.UNION
+        typarams = (
+            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
+        )
+        signature = f"union {base_name(stmt.name)}{typarams}"
+    elif isinstance(stmt, Predicate):
+        kind = SymbolKind.PREDICATE
+        signature = f"{stmt.original_keyword} {base_name(stmt.name)}: {stmt.signature}"
+    elif isinstance(stmt, Import):
+        kind = SymbolKind.IMPORT
+        signature = f"import {stmt.name}"
+    elif isinstance(stmt, Auto):
+        # Auto declares an auto-rewrite rule and doesn't introduce a
+        # named symbol of its own; skip it from the outline.
+        return None
+    else:
+        return None
+
+    return SymbolInfo(
+        name=base_name(stmt.name) if hasattr(stmt, "name") else "",
+        kind=kind,
+        location=location,
+        signature=signature,
+    )
