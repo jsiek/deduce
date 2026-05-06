@@ -128,6 +128,8 @@ def _referenced(t: ir.Term) -> Set[str]:
             case ir.Eq(l, r):
                 walk(l)
                 walk(r)
+            case ir.Panic(_):
+                pass
             case ir.MakeArray(s):
                 walk(s)
             case ir.ArrayGet(s, i):

@@ -250,7 +250,17 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                 raise EmitError(
                     f"constructor {name} used as a value; not yet supported"
                 )
-            raise EmitError(f"unbound name in emission: {name}")
+            # Reference to a name we never produced a definition for —
+            # almost always because a Predicate / theorem / `some`/`all`
+            # in the source code reduced to a name that the compiler
+            # can't materialise. Emit a runtime panic so the binary
+            # still builds; if pruning kept this code path it'll abort
+            # with a clear message.
+            tmp = ctx.fresh_tmp()
+            return [
+                f"deduce_value {tmp} = deduce_unreachable_value("
+                f"{_c_string(f'undefined name: {name}')});"
+            ], tmp
 
         case ir.Bool(b):
             return [], f"deduce_make_bool({'true' if b else 'false'})"
@@ -452,6 +462,12 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                 f"deduce_value {tmp} = deduce_make_bool(deduce_equal({el}, {er}));"
             )
             return stmts, tmp
+
+        case ir.Panic(msg):
+            tmp = ctx.fresh_tmp()
+            return [
+                f"deduce_value {tmp} = deduce_unreachable_value({_c_string(msg)});"
+            ], tmp
 
         case ir.MakeArray(s):
             ssub, esub = _emit_term(s, ctx, locals_in_scope)

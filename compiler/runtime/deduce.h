@@ -86,6 +86,12 @@ void deduce_assert_eq(deduce_value lhs, deduce_value rhs, const char* loc);
 void deduce_assert_bool(deduce_value b, const char* loc);
 void deduce_panic(const char* msg) __attribute__((noreturn));
 
+/* Value-returning panic. Same as `deduce_panic` but its return type
+ * is `deduce_value`, so it can stand in for an expression. The
+ * compiler emits this for IR `Panic` nodes — reachable only if the
+ * pruner couldn't drop the surrounding code. */
+deduce_value deduce_unreachable_value(const char* msg) __attribute__((noreturn));
+
 /* Generated programs call this from main(). */
 void deduce_program_main(void);
 

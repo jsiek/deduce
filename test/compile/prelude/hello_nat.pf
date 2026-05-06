@@ -1,0 +1,9 @@
+// Step 10 acceptance: a file that uses the prelude `Nat` operators.
+// Compiler should inline the prelude, then prune everything not
+// reached from the prints.
+
+import Nat
+
+print ℕ2 + ℕ3
+print pow2(ℕ4)
+print gcd(ℕ12, ℕ8)

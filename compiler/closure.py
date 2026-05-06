@@ -85,6 +85,8 @@ def closure_convert(p: ir.Program) -> ir.Program:
                 return ir.Match(go(subj), new_arms)
             case ir.Eq(l, r):
                 return ir.Eq(go(l), go(r))
+            case ir.Panic(_):
+                return t
             case ir.MakeArray(s):
                 return ir.MakeArray(go(s))
             case ir.ArrayGet(s, i):
