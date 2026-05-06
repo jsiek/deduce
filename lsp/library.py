@@ -52,10 +52,15 @@ class CheckResult:
                           without re-parsing strings. ``None`` when ok.
         module_name:      Module name derived from the filename
                           (``Path(filename).stem``).
-        ast:              Post-uniquify AST. Populated on success and on
-                          failures that occur after parse + uniquify
-                          (e.g. type-check failures). ``None`` on parse
-                          or uniquify failure.
+        ast:              On success, the **post-typecheck** AST: the
+                          form returned by ``proof_checker.check_deduce``
+                          after type checking has resolved overloaded
+                          ``Var.resolved_names`` to the single chosen
+                          name. On failure, the post-uniquify AST that
+                          existed before the error (still with
+                          unresolved overload candidates) when parse +
+                          uniquify succeeded; ``None`` on parse or
+                          uniquify failure. See issue #305.
     """
 
     ok: bool
@@ -138,14 +143,20 @@ def check_file(
             if use_cache:
                 add_uniquified_module(module_name, ast)
 
-        check_deduce(ast, module_name, True, list(tracing_functions))
+        # check_deduce returns the post-typecheck AST (ast3 internally)
+        # so callers like the Deduce-to-C compiler see overload-resolved
+        # Var.resolved_names. On failure the variable retains the
+        # post-uniquify ast for best-effort partial info.
+        typechecked_ast = check_deduce(
+            ast, module_name, True, list(tracing_functions)
+        )
         return CheckResult(
             ok=True,
             error_message=None,
             error_traceback=None,
             exception=None,
             module_name=module_name,
-            ast=ast,
+            ast=typechecked_ast,
         )
     except Exception as e:
         return CheckResult(

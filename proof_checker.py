@@ -4544,4 +4544,8 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       env = collect_env(s, env)
       if needs_checking[0]:
         check_proofs(s, env)
-    checked_modules.add(module_name)  
+    checked_modules.add(module_name)
+  # Return the post-typecheck AST so callers (lsp.library.check_file,
+  # the Deduce-to-C compiler) can read the overload-resolved form.
+  # See issue #305.
+  return ast3

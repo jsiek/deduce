@@ -11,13 +11,10 @@
 test/should-validate/bintree.pf
 test/should-validate/empty_file.pf
 test/should-validate/not_equal.pf
+test/should-validate/overload1.pf
 test/should-validate/overload3.pf
+test/should-validate/overload5.pf
 test/should-validate/private_union.pf
 test/should-validate/rec1.pf
 test/should-validate/rec2.pf
 test/should-validate/switch_term.pf
-
-# Known limitation: overload1.pf and overload5.pf fail because the
-# compiler uses `Var.resolved_names[0]` rather than the type-checker's
-# chosen overload (post-typecheck AST is not returned by `check_file`
-# today — see lsp/library.py). Track in Phase 2 follow-up.
