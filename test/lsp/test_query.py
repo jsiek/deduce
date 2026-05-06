@@ -169,18 +169,6 @@ def test_list_symbols_signature():
     _check_sig(list_symbols, ["path", "content"], list[SymbolInfo])
 
 
-# --------------------------------------------------------------------------
-# Stubs raise NotImplementedError until the dedicated step lands.
-# ``check`` is implemented (Step 3, see test_check.py).
-# ``goal_at`` is implemented (Step 4, see test_goal_at.py).
-# --------------------------------------------------------------------------
-
-
-def test_definition_of_stub_raises():
-    with pytest.raises(NotImplementedError):
-        definition_of("file.pf", "", Position(1, 1))
-
-
-def test_list_symbols_stub_raises():
-    with pytest.raises(NotImplementedError):
-        list_symbols("file.pf", "")
+# All Phase 1 query functions are now implemented; their acceptance
+# tests live in test_check.py (Step 3), test_goal_at.py (Step 4), and
+# test_symbols.py (Step 5).

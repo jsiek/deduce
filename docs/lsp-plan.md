@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 in progress — Steps 1–4 done.
+**Status:** Phase 1 in progress — Steps 1–5 done.
 
 ## Goals
 
@@ -47,8 +47,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
   - *Acceptance:* hand-crafted fixtures in `test/lsp/` with `-- expect goal: ...` markers; test reads marker and asserts.
   - *Implementation:* `lsp/query.py:goal_at` rewrites the content from the cursor up to the next `end` keyword as `\n?\n`, then runs `check_file` and parses the resulting `IncompleteProof.message_body` for `Goal:` and `Givens:`. The goal formula is the first non-blank line after `Goal:` (Deduce's `__str__` always emits a single line); givens are pulled from the trailing `Givens:` block split on `,\n`. Returns `None` when the cursor is out of range, the inserted `?` produces a parse error, or the message has no `Goal:` header. Required hardening in `error.py`: `get_location_text_lines` and `error_program_text` previously crashed on `OSError`/empty lines when the path didn't exist on disk — they now return empty source excerpts so in-memory content (LSP/MCP) doesn't break exception formatting. 6-case acceptance test in `test/lsp/test_goal_at.py`.
 
-- [ ] **Step 5: Implement `definition_of` and `list_symbols`.** AST walk using `Var.resolved_names` after a successful check; lexical-scope fallback if check failed.
+- [x] **Step 5: Implement `definition_of` and `list_symbols`.** AST walk using `Var.resolved_names` after a successful check; lexical-scope fallback if check failed.
   - *Acceptance:* hand-crafted fixtures with known symbol locations.
+  - *Implementation:* both functions consume `check_file`'s post-typecheck AST (issue #305 prerequisite, merged separately). `definition_of` walks the AST via dataclass reflection, finds the smallest `Var` or `PVar` whose range contains the cursor, takes the resolved (uniquified) name (post-typecheck, so `resolved_names[0]` is unambiguous), then locates the matching top-level declaration. Returns `None` for parse failures or symbols defined outside the user's file (e.g. imports, built-ins). `list_symbols` iterates top-level statements and emits a `SymbolInfo` per declaration with kind, location, and a one-line signature; `Auto` declarations are skipped. Lexical-scope fallback for parse failures was deferred — Step 11's multi-error collection will give us a partial AST to walk in those cases. 10-case acceptance test in `test/lsp/test_symbols.py`.
 
 - [ ] **Step 6: In-process prelude caching.** Lazily-initialized module-level `_prelude_state`, reused across calls. Risk step — surfaces global-state leaks in `proof_checker.py` (`name_id`, `imported_modules`, `checked_modules`, `dirty_files`, `recursive_call_count`). Lift only the globals the test catches.
   - *Acceptance:* (a) call `check` on the same file twice in one process, results identical; (b) `check(A); check(B); check(A)` — third call matches first.
