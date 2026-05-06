@@ -23,7 +23,8 @@ typedef enum {
     D_BOOL,
     D_INT,
     D_CTOR,
-    D_CLOSURE
+    D_CLOSURE,
+    D_ARRAY
 } deduce_tag;
 
 /* The actual struct shape is hidden in deduce.c. */
@@ -53,6 +54,19 @@ deduce_value deduce_ctor_field(deduce_value v, int i);
 
 /* Closure call: dispatches through the closure's function pointer. */
 deduce_value deduce_call(deduce_value clo, int n_args, deduce_value* args);
+
+/* `array(<list>)` — walk a `node(_, _)` … `empty` chain and pack into
+ * a flat array. Dispatches by the constructor's stored base name, so
+ * any union with `empty` and `node` constructors works (matches the
+ * interpreter's `isNodeList` semantics). Aborts on a non-list value. */
+deduce_value deduce_make_array_from_list(deduce_value list);
+
+/* `arr[idx]` — read an element. The index must be a Nat or UInt; the
+ * runtime decodes by inspecting constructor base names (`zero`/`suc`
+ * for Nat, `bzero`/`dub_inc`/`inc_dub` for UInt). Out-of-bounds
+ * aborts; the interpreter's behaviour of leaving the term un-reduced
+ * has no compiled-program analogue. */
+deduce_value deduce_array_get(deduce_value arr, deduce_value idx);
 
 /* Structural equality. Closures compare by pointer identity (the
  * surface language has no closure-equality primitive at runtime, but

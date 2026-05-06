@@ -1,0 +1,23 @@
+// Phase 2 step 9: generics fully erase. The lowered IR contains no
+// type-parameter or type-instantiation residue.
+
+union Box<T> {
+  box(T)
+}
+
+fun unbox<T>(b : Box<T>) {
+  switch b {
+    case box(x) { x }
+  }
+}
+
+define id : fn <T> T -> T = generic T { fun x : T { x } }
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+print id(suc(zero))
+print unbox(box(suc(suc(zero))))
+assert id(zero) = zero

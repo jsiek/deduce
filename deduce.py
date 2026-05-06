@@ -53,7 +53,9 @@ def compile_file(filename: str, output: str, prelude: list[str]) -> None:
             print(result.error_traceback)
         exit(1)
     program = lower.lower_program(result.ast)
+    ir.verify(program)
     program = _closure.closure_convert(program)
+    ir.verify(program)
     src = emit_c.emit_program(program)
     if output == "-":
         sys.stdout.write(src)

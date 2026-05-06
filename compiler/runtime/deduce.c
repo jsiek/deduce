@@ -26,6 +26,10 @@ struct deduce_obj {
             int n_env;
             deduce_value* env;
         } closure;
+        struct {
+            int n;
+            deduce_value* elements;
+        } array;
     } u;
 };
 
@@ -117,6 +121,79 @@ deduce_value deduce_call(deduce_value clo, int n_args, deduce_value* args) {
     return clo->u.closure.fn(clo->u.closure.env, args);
 }
 
+/* --- arrays ----------------------------------------------------------- */
+
+/* Count list length by walking node(_, rest) until empty. */
+static int list_length(deduce_value v) {
+    int n = 0;
+    while (1) {
+        if (v->tag != D_CTOR) deduce_panic("array: subject is not a list");
+        const char* name = v->u.ctor.name;
+        if (strcmp(name, "empty") == 0 || strcmp(name, "[]") == 0) return n;
+        if (strcmp(name, "node") != 0)
+            deduce_panic("array: list constructor not empty/node");
+        if (v->u.ctor.n_fields != 2)
+            deduce_panic("array: node arity != 2");
+        n++;
+        v = v->u.ctor.fields[1];
+    }
+}
+
+deduce_value deduce_make_array_from_list(deduce_value list) {
+    int n = list_length(list);
+    deduce_value v = deduce_alloc(sizeof(struct deduce_obj));
+    v->tag = D_ARRAY;
+    v->u.array.n = n;
+    if (n > 0) {
+        v->u.array.elements = deduce_alloc(sizeof(deduce_value) * (size_t)n);
+        deduce_value cur = list;
+        for (int i = 0; i < n; ++i) {
+            v->u.array.elements[i] = cur->u.ctor.fields[0];
+            cur = cur->u.ctor.fields[1];
+        }
+    } else {
+        v->u.array.elements = NULL;
+    }
+    return v;
+}
+
+/* Decode a Nat (zero / suc) or UInt (bzero / dub_inc / inc_dub) value
+ * to a non-negative C int. `lit` (and any wrapper that the user may
+ * have defined for literal-display purposes) is unwrapped silently. */
+static int64_t decode_index(deduce_value v) {
+    while (1) {
+        if (v->tag != D_CTOR) deduce_panic("array index is not Nat/UInt");
+        const char* n = v->u.ctor.name;
+        if (strcmp(n, "zero") == 0) return 0;
+        if (strcmp(n, "bzero") == 0) return 0;
+        if (strcmp(n, "suc") == 0) {
+            if (v->u.ctor.n_fields != 1) deduce_panic("suc arity != 1");
+            return 1 + decode_index(v->u.ctor.fields[0]);
+        }
+        if (strcmp(n, "dub_inc") == 0) {
+            if (v->u.ctor.n_fields != 1) deduce_panic("dub_inc arity != 1");
+            return 2 * (1 + decode_index(v->u.ctor.fields[0]));
+        }
+        if (strcmp(n, "inc_dub") == 0) {
+            if (v->u.ctor.n_fields != 1) deduce_panic("inc_dub arity != 1");
+            return 1 + 2 * decode_index(v->u.ctor.fields[0]);
+        }
+        if (strcmp(n, "lit") == 0 || strcmp(n, "fromNat") == 0) {
+            if (v->u.ctor.n_fields != 1) deduce_panic("lit/fromNat arity != 1");
+            v = v->u.ctor.fields[0];
+            continue;
+        }
+        deduce_panic("array index: unrecognized constructor");
+    }
+}
+
+deduce_value deduce_array_get(deduce_value arr, deduce_value idx) {
+    if (arr->tag != D_ARRAY) deduce_panic("array get: not an array");
+    int64_t i = decode_index(idx);
+    if (i < 0 || i >= arr->u.array.n) deduce_panic("array index out of range");
+    return arr->u.array.elements[(int)i];
+}
+
 bool deduce_equal(deduce_value a, deduce_value b) {
     if (a == b) return true;
     if (a->tag != b->tag) return false;
@@ -128,6 +205,15 @@ bool deduce_equal(deduce_value a, deduce_value b) {
             if (a->u.ctor.n_fields != b->u.ctor.n_fields) return false;
             for (int i = 0; i < a->u.ctor.n_fields; ++i) {
                 if (!deduce_equal(a->u.ctor.fields[i], b->u.ctor.fields[i]))
+                    return false;
+            }
+            return true;
+        }
+        case D_ARRAY: {
+            if (a->u.array.n != b->u.array.n) return false;
+            for (int i = 0; i < a->u.array.n; ++i) {
+                if (!deduce_equal(a->u.array.elements[i],
+                                  b->u.array.elements[i]))
                     return false;
             }
             return true;
@@ -163,6 +249,14 @@ void deduce_print(deduce_value v) {
             return;
         case D_CLOSURE:
             printf("<closure %s>", v->u.closure.name ? v->u.closure.name : "?");
+            return;
+        case D_ARRAY:
+            fputs("array(", stdout);
+            for (int i = 0; i < v->u.array.n; ++i) {
+                if (i > 0) fputs(", ", stdout);
+                deduce_print(v->u.array.elements[i]);
+            }
+            fputc(')', stdout);
             return;
     }
 }

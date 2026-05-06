@@ -135,10 +135,11 @@ def emit_program(p: ir.Program) -> str:
             pass
     out.append("")
 
-    # Global variables
+    # Global variables. Same reasoning as the function declarations:
+    # not `static`, so unused globals don't trip -Wunused-variable.
     for d in p.decls:
         if isinstance(d, ir.Global):
-            out.append(f"static deduce_value {_global_id(d.name)};")
+            out.append(f"deduce_value {_global_id(d.name)};")
     out.append("")
 
     # Function bodies
@@ -179,7 +180,12 @@ def emit_program(p: ir.Program) -> str:
 
 
 def _emit_fn_decl(f: ir.Function) -> str:
-    return f"static deduce_value {_func_id(f.name)}(deduce_value* env, deduce_value* args)"
+    # Not `static`: a function may be unused at runtime if it's only
+    # referenced by an erased proof (e.g. used inside a `terminates`
+    # block that compiled to nothing). `static` would trip
+    # -Wunneeded-internal-declaration; an extern function is silently
+    # dropped by the linker if nothing references it.
+    return f"deduce_value {_func_id(f.name)}(deduce_value* env, deduce_value* args)"
 
 
 def _emit_function(f: ir.Function, ctx: EmitCtx) -> str:
@@ -194,8 +200,10 @@ def _emit_function(f: ir.Function, ctx: EmitCtx) -> str:
         body_stmts.append("    (void)env;")
     for i, p in enumerate(f.params):
         body_stmts.append(f"    deduce_value {_local_id(p)} = args[{i}];")
+        body_stmts.append(f"    (void){_local_id(p)};")
     for i, c in enumerate(f.captures):
         body_stmts.append(f"    deduce_value {_local_id(c)} = env[{i}];")
+        body_stmts.append(f"    (void){_local_id(c)};")
     stmts, expr = _emit_term(f.body, ctx, in_scope)
     for s in stmts:
         body_stmts.append("    " + s)
@@ -418,10 +426,13 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                     stmts.append(f"case {_ctor_id_macro(pc.ctor)}: {{")
                     inner_scope = locals_in_scope | set(pc.binds)
                     for i, b in enumerate(pc.binds):
+                        # Cast to (void) to silence -Wunused on bindings
+                        # the case body happens to ignore.
                         stmts.append(
                             f"    deduce_value {_local_id(b)} = "
                             f"deduce_ctor_field({subj_var}, {i});"
                         )
+                        stmts.append(f"    (void){_local_id(b)};")
                     bs, be = _emit_term(arm.body, ctx, inner_scope)
                     for s in bs:
                         stmts.append("    " + s)
@@ -430,6 +441,35 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                     stmts.append("}")
                 stmts.append("default: deduce_panic(\"non-exhaustive match\");")
                 stmts.append("}")
+            return stmts, tmp
+
+        case ir.Eq(l, r):
+            sl, el = _emit_term(l, ctx, locals_in_scope)
+            sr, er = _emit_term(r, ctx, locals_in_scope)
+            stmts = list(sl) + list(sr)
+            tmp = ctx.fresh_tmp()
+            stmts.append(
+                f"deduce_value {tmp} = deduce_make_bool(deduce_equal({el}, {er}));"
+            )
+            return stmts, tmp
+
+        case ir.MakeArray(s):
+            ssub, esub = _emit_term(s, ctx, locals_in_scope)
+            stmts = list(ssub)
+            tmp = ctx.fresh_tmp()
+            stmts.append(
+                f"deduce_value {tmp} = deduce_make_array_from_list({esub});"
+            )
+            return stmts, tmp
+
+        case ir.ArrayGet(s, i):
+            ssub, esub = _emit_term(s, ctx, locals_in_scope)
+            sidx, eidx = _emit_term(i, ctx, locals_in_scope)
+            stmts = list(ssub) + list(sidx)
+            tmp = ctx.fresh_tmp()
+            stmts.append(
+                f"deduce_value {tmp} = deduce_array_get({esub}, {eidx});"
+            )
             return stmts, tmp
 
         case ir.Lam(_, _):

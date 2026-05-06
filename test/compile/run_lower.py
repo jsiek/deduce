@@ -37,8 +37,10 @@ def lower_file(path: Path) -> tuple[str, str]:
     if not result.ok:
         raise RuntimeError(f"{path}: deduce check failed:\n{result.error_message}")
     program = lower.lower_program(result.ast)
+    ir.verify(program)
     lowered_str = ir.pp_program(program)
     converted = closure.closure_convert(program)
+    ir.verify(converted)
     converted_str = ir.pp_program(converted)
     return lowered_str, converted_str
 

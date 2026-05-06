@@ -1,0 +1,23 @@
+# Phase 1+2 allowlist for `make tests-compile`.
+#
+# Each non-empty, non-comment line is a path to a `.pf` file (relative
+# to repo root) that the e2e harness will compile, run, and diff
+# against the interpreter's output. Files are required to be
+# compatible with `--no-stdlib` (Phase 1+2 has no prelude support).
+#
+# Files in `test/compile/lower/` are picked up automatically and need
+# not be listed here.
+
+test/should-validate/bintree.pf
+test/should-validate/empty_file.pf
+test/should-validate/not_equal.pf
+test/should-validate/overload3.pf
+test/should-validate/private_union.pf
+test/should-validate/rec1.pf
+test/should-validate/rec2.pf
+test/should-validate/switch_term.pf
+
+# Known limitation: overload1.pf and overload5.pf fail because the
+# compiler uses `Var.resolved_names[0]` rather than the type-checker's
+# chosen overload (post-typecheck AST is not returned by `check_file`
+# today — see lsp/library.py). Track in Phase 2 follow-up.
