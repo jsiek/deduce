@@ -27,3 +27,10 @@ When adding a new top-level documentation page under `gh_pages/doc/`, also add a
 **External:**
 - [deduce-mode (vscode)](https://github.com/HalflingHelper/deduce-mode#): Deduce extension for vscode.
 - [deduce-mode (emacs)](https://github.com/mateidragony/deduce-mode#): Deduce package for emacs.
+
+## Adding a new standard-library module
+
+When a new top-level module is added under `lib/`, update:
+
+- `gh_pages/doc/StandardLib.md`: add an entry for the new module (alphabetical order). Only list top-level module files — private helper files (e.g. `UIntAdd.pf`, `NatDiv.pf`) that are `public import`-ed from a main module should not be listed. If the module defines theorems, link both `<Name>.thm` and `<Name>.pf`; otherwise link only `<Name>.pf`.
+- `lib/README.md`: keep the naming-convention notes accurate if the module introduces a new type prefix (e.g. `uint`, `nat`).
