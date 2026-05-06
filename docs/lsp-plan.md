@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 in progress — Steps 1–5 done.
+**Status:** Phase 1 in progress — Steps 1–6 done.
 
 ## Goals
 
@@ -51,8 +51,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
   - *Acceptance:* hand-crafted fixtures with known symbol locations.
   - *Implementation:* both functions consume `check_file`'s post-typecheck AST (issue #305 prerequisite, merged separately). `definition_of` walks the AST via dataclass reflection, finds the smallest `Var` or `PVar` whose range contains the cursor, takes the resolved (uniquified) name (post-typecheck, so `resolved_names[0]` is unambiguous), then locates the matching top-level declaration. Returns `None` for parse failures or symbols defined outside the user's file (e.g. imports, built-ins). `list_symbols` iterates top-level statements and emits a `SymbolInfo` per declaration with kind, location, and a one-line signature; `Auto` declarations are skipped. Lexical-scope fallback for parse failures was deferred — Step 11's multi-error collection will give us a partial AST to walk in those cases. 10-case acceptance test in `test/lsp/test_symbols.py`.
 
-- [ ] **Step 6: In-process prelude caching.** Lazily-initialized module-level `_prelude_state`, reused across calls. Risk step — surfaces global-state leaks in `proof_checker.py` (`name_id`, `imported_modules`, `checked_modules`, `dirty_files`, `recursive_call_count`). Lift only the globals the test catches.
+- [x] **Step 6: In-process prelude caching.** Lazily-initialized module-level `_prelude_state`, reused across calls. Risk step — surfaces global-state leaks in `proof_checker.py` (`name_id`, `imported_modules`, `checked_modules`, `dirty_files`, `recursive_call_count`). Lift only the globals the test catches.
   - *Acceptance:* (a) call `check` on the same file twice in one process, results identical; (b) `check(A); check(B); check(A)` — third call matches first.
+  - *Implementation:* `lsp/library.py` gained a snapshot/restore layer over the pipeline's module-level containers. On the first call with a given prelude, the old containers are cleared, the prelude bootstraps via `_check_file_impl` on an empty buffer, and the resulting post-prelude state is shallow-copied into `_prelude_snapshot`. Subsequent calls with the same prelude restore from the snapshot — much faster than re-running `lib/`. Counters (e.g. `name_id`) are intentionally **not** restored: letting them increase monotonically guarantees freshly generated names never collide with cached prelude names. Tracked containers are `uniquified_modules`, `_predicate_decls_by_unique_name`, `collected_imports`, `reduce_only`, `reduced_defs` (from `abstract_syntax`); `imported_modules`, `checked_modules`, `modules`, `dirty_files` (from `proof_checker`). The conftest `_reset_state` hack is gone — `check_file` is now self-contained — and a new `reset_prelude_cache()` helper lets long-running daemons or tests force a reload. 6-case acceptance test in `test/lsp/test_state_isolation.py` covers idempotency, interleaving, snapshot reuse, and the reset helper.
 
 - [ ] **Step 7: MCP adapter.** `lsp/mcp_server.py` using the Python `mcp` SDK. Each tool is a thin wrapper around a query API function. Stdio transport.
   - *Acceptance:* (a) unit tests via the `mcp` SDK's in-memory test client; (b) end-to-end smoke from Claude Code on a real proof.
