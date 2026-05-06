@@ -82,7 +82,12 @@ end
 
 auto uint_expt_zero
   
-postulate uint_expt_suc: all n:UInt, m:Nat. n ^ fromNat(lit(suc(m))) = n * n ^ fromNat(lit(m))
+theorem uint_expt_suc: all n:UInt, m:Nat. n ^ fromNat(lit(suc(m))) = n * n ^ fromNat(lit(m))
+proof
+  arbitrary n:UInt, m:Nat
+  suffices toNat(n ^ fromNat(lit(suc(m)))) = toNat(n * n ^ fromNat(lit(m))) by uint_toNat_injective
+  replace toNat_mult | toNat_expt | uint_toNat_fromNat.
+end
 auto uint_expt_suc
 
 theorem uint_expt_one: all n:UInt.
@@ -153,8 +158,12 @@ proof
     ... = #toNat(m ^ (n * o))#               by replace toNat_expt | toNat_mult.
 end
 
-postulate lit_pow_mul_r: all m:Nat, n:Nat, o:UInt.
+theorem lit_pow_mul_r: all m:Nat, n:Nat, o:UInt.
   fromNat(lit(m)) ^ (fromNat(lit(n)) * o) = (fromNat(lit(m)) ^ fromNat(lit(n))) ^ o
+proof
+  arbitrary m:Nat, n:Nat, o:UInt
+  symmetric uint_pow_mul_r[fromNat(lit(m)), fromNat(lit(n)), o]
+end
 auto lit_pow_mul_r
 
 lemma pow_cnt_dubs_le_inc: all n:UInt. 2 ^ cnt_dubs(n) ≤ inc(n)
@@ -224,7 +233,49 @@ proof
   }
 end
 
-postulate log_pow: all n:UInt. log(2^n) = n
+theorem log_pow: all n:UInt. log(2^n) = n
+proof
+  define P = fun n:UInt { log(2^n) = n }
+  have base: P(0) by {
+    expand P
+    evaluate
+  }
+  have step: all m:UInt. if P(m) then P(1 + m) by {
+    arbitrary m:UInt
+    expand P
+    assume IH: log(2^m) = m
+    have pow_pos: 0 < 2^m by {
+      have toNat0: toNat((0:UInt)) = zero by evaluate
+      have toNat2: toNat((2:UInt)) = suc(suc(zero)) by evaluate
+      apply less_toNat[0, 2^m] to {
+        replace toNat_expt | toNat0 | toNat2
+        have two_pos: zero < suc(suc(zero)) by evaluate
+        apply pow_pos_nonneg[toNat(m), suc(suc(zero))] to two_pos
+      }
+    }
+    obtain b where eq_pow: 2^m = 1 + b from apply uint_positive_add_one[2^m] to pow_pos
+    have b_eq: pred(2^m) = b by {
+      replace eq_pow
+      replace symmetric inc_add_one[b]
+      uint_pred_inc
+    }
+    have cnt_b: cnt_dubs(b) = m by {
+      replace symmetric b_eq
+      expand log in IH
+    }
+    have step_eq: 2^(1+m) = dub_inc(b) by {
+      have h1: 2^(1+m) = 2 * 2^m by uint_pow_add_r[2, 1, m]
+      have h2: 2 * 2^m = 2 * (1 + b) by replace eq_pow.
+      have h3: 2 * (1 + b) = dub_inc(b) by symmetric dub_inc_mult2_add[b]
+      transitive h1 (transitive h2 h3)
+    }
+    expand log
+    replace step_eq
+    expand pred | cnt_dubs
+    replace cnt_b | inc_add_one.
+  }
+  expand P in apply uint_induction[P] to base, step
+end
   
 theorem uint_expt_log_less_equal: all n:UInt. if 0 < n then 2^log(n) ≤ n
 proof
@@ -298,7 +349,151 @@ theorem log_product: all m:UInt, n:UInt. log(m * n) = log(m) + log(n)
   
 */
 
-postulate uint_log_mono: all x:UInt, y:UInt. (if x ≤ y then log(x) ≤ log(y))
+lemma cnt_dubs_mono: all y:UInt, x:UInt. if x ≤ y then cnt_dubs(x) ≤ cnt_dubs(y)
+proof
+  induction UInt
+  case bzero {
+    arbitrary x:UInt
+    assume xle
+    have x_z: x = bzero by apply uint_less_equal_bzero to xle
+    replace x_z.
+  }
+  case dub_inc(y') assume IH {
+    arbitrary x:UInt
+    assume xle: x ≤ dub_inc(y')
+    switch x {
+      case bzero {
+        expand cnt_dubs
+        uint_bzero_le
+      }
+      case dub_inc(x') assume xeq {
+        have step: x' ≤ y' by {
+          have h: dub_inc(x') ≤ dub_inc(y') by replace xeq in xle
+          have or_eq: dub_inc(x') < dub_inc(y') or dub_inc(x') = dub_inc(y') by expand operator≤ in h
+          cases or_eq
+          case lt {
+            have hh: x' < y' by expand operator< in lt
+            apply uint_less_implies_less_equal to hh
+          }
+          case eq {
+            have hh: x' = y' by injective dub_inc eq
+            replace hh.
+          }
+        }
+        have ihres: cnt_dubs(x') ≤ cnt_dubs(y') by apply IH[x'] to step
+        expand cnt_dubs
+        replace inc_add_one
+        apply uint_add_both_sides_of_less_equal[1] to ihres
+      }
+      case inc_dub(x') assume xeq {
+        have step: x' ≤ y' by {
+          have h: inc_dub(x') ≤ dub_inc(y') by replace xeq in xle
+          have or_eq: inc_dub(x') < dub_inc(y') or inc_dub(x') = dub_inc(y') by expand operator≤ in h
+          cases or_eq
+          case lt {
+            have hh: x' < y' or x' = y' by expand operator< in lt
+            cases hh
+            case llt { apply uint_less_implies_less_equal to llt }
+            case leq { replace leq. }
+          }
+          case eq {
+            // inc_dub = dub_inc impossible
+            conclude false by evaluate in eq
+          }
+        }
+        have ihres: cnt_dubs(x') ≤ cnt_dubs(y') by apply IH[x'] to step
+        expand cnt_dubs
+        replace inc_add_one
+        apply uint_add_both_sides_of_less_equal[1] to ihres
+      }
+    }
+  }
+  case inc_dub(y') assume IH {
+    arbitrary x:UInt
+    assume xle: x ≤ inc_dub(y')
+    switch x {
+      case bzero {
+        expand cnt_dubs
+        uint_bzero_le
+      }
+      case dub_inc(x') assume xeq {
+        have step: x' ≤ y' by {
+          have h: dub_inc(x') ≤ inc_dub(y') by replace xeq in xle
+          have or_eq: dub_inc(x') < inc_dub(y') or dub_inc(x') = inc_dub(y') by expand operator≤ in h
+          cases or_eq
+          case lt {
+            have hh: x' < y' by expand operator< in lt
+            apply uint_less_implies_less_equal to hh
+          }
+          case eq {
+            conclude false by evaluate in eq
+          }
+        }
+        have ihres: cnt_dubs(x') ≤ cnt_dubs(y') by apply IH[x'] to step
+        expand cnt_dubs
+        replace inc_add_one
+        apply uint_add_both_sides_of_less_equal[1] to ihres
+      }
+      case inc_dub(x') assume xeq {
+        have step: x' ≤ y' by {
+          have h: inc_dub(x') ≤ inc_dub(y') by replace xeq in xle
+          have or_eq: inc_dub(x') < inc_dub(y') or inc_dub(x') = inc_dub(y') by expand operator≤ in h
+          cases or_eq
+          case lt {
+            have hh: x' < y' by expand operator< in lt
+            apply uint_less_implies_less_equal to hh
+          }
+          case eq {
+            have hh: x' = y' by injective inc_dub eq
+            replace hh.
+          }
+        }
+        have ihres: cnt_dubs(x') ≤ cnt_dubs(y') by apply IH[x'] to step
+        expand cnt_dubs
+        replace inc_add_one
+        apply uint_add_both_sides_of_less_equal[1] to ihres
+      }
+    }
+  }
+end
+
+lemma nat_pred_mono: all a:Nat. all b:Nat. if a ≤ b then pred(a) ≤ pred(b)
+proof
+  induction Nat
+  case zero {
+    arbitrary b:Nat
+    assume _
+    expand pred.
+  }
+  case suc(a') assume IH {
+    arbitrary b:Nat
+    assume hle
+    switch b {
+      case zero assume bz {
+        conclude pred(suc(a')) ≤ pred(zero) by expand operator≤ in replace bz in hle
+      }
+      case suc(b') assume bs {
+        expand pred
+        expand operator≤ in replace bs in hle
+      }
+    }
+  }
+end
+
+theorem uint_log_mono: all x:UInt, y:UInt. (if x ≤ y then log(x) ≤ log(y))
+proof
+  arbitrary x:UInt, y:UInt
+  assume xle
+  expand log
+  have predle: pred(x) ≤ pred(y) by {
+    apply less_equal_toNat[pred(x), pred(y)] to {
+      replace toNat_pred
+      have nle: toNat(x) ≤ toNat(y) by apply toNat_less_equal to xle
+      apply nat_pred_mono[toNat(x), toNat(y)] to nle
+    }
+  }
+  apply cnt_dubs_mono[pred(y), pred(x)] to predle
+end
 
 theorem uint_log_greater_one: all n:UInt. if 2 ≤ n then 1 ≤ log(n)
 proof
@@ -363,8 +558,24 @@ proof
   }
 end
 
+// This postulate is false in general: e.g., m = 0, n = 4 gives
+//   log(0) + log(4) = 0 + 2 = 2, log(0 * 4) = log(0) = 0, but 2 ≤ 0 is false.
+// It would be true with the premise 0 < m and 0 < n.
 postulate uint_log_add_le_log_mult: all m:UInt, n:UInt. log(m) + log(n) ≤ log(m * n)
 
+// Difficult: a proof would proceed by case analysis on m = 0 and n = 0,
+// then for both positive use less_pow_log to bound m * n < 2^(2 + log(m) + log(n))
+// and conclude log(m * n) ≤ 1 + log(m) + log(n) via strict monotonicity of 2^x.
+// The chain requires several auxiliary lemmas (uint_one_le_pow2, uint_pow2_mono,
+// uint_pow2_lt_implies_lt) plus careful Nat-arithmetic bridging.
 postulate uint_log_mult_le_log_add: all m:UInt, n:UInt. log(m * n) ≤ 1 + log(m) + log(n)
 
-postulate uint_log_pos: all n:UInt. (if 1 < n then 0 < log(n))
+theorem uint_log_pos: all n:UInt. (if 1 < n then 0 < log(n))
+proof
+  arbitrary n:UInt
+  assume one_n: 1 < n
+  have two_n: 2 ≤ n by replace uint_less_is_less_equal[1, n] in one_n
+  have one_logn: 1 ≤ log(n) by apply uint_log_greater_one to two_n
+  replace uint_less_is_less_equal[0, log(n)]
+  one_logn
+end

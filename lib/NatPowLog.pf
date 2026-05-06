@@ -57,7 +57,11 @@ end
 
 auto lit_expt_zero
 
-postulate lit_expt_suc: all n:Nat, m:Nat. n ^ lit(suc(m)) = n * n ^ lit(m)
+theorem lit_expt_suc: all n:Nat, m:Nat. n ^ lit(suc(m)) = n * n ^ lit(m)
+proof
+  arbitrary n:Nat, m:Nat
+  expand operator^ | lit | expt.
+end
 auto lit_expt_suc
 
 lemma expt_one : all n : Nat.
@@ -154,7 +158,7 @@ proof
   }
 end
 
-lemma pow_pos_nonneg : all b : Nat, a : Nat.
+theorem pow_pos_nonneg : all b : Nat, a : Nat.
   if zero<a then zero<a^b
 proof
   induction Nat

@@ -603,9 +603,12 @@ proof
   }
 end
 
-postulate len_drop: all E:type, xs:List<E>, n:UInt.
+theorem len_drop: all E:type, xs:List<E>, n:UInt.
   if n ≤ length(xs)
   then length(drop(xs, n)) + n = length(xs)
+proof
+  length_drop
+end
   
 theorem length_drop_zero: all E:type, xs:List<E>, n:UInt.
   if length(xs) < n

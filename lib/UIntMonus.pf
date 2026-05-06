@@ -228,7 +228,12 @@ proof
   add_both_monus
 end
 
-postulate lit_monus_fromNat: all x:Nat, y:Nat. fromNat(lit(x)) ∸ fromNat(lit(y)) = fromNat(lit(x) ∸ lit(y))
+theorem lit_monus_fromNat: all x:Nat, y:Nat. fromNat(lit(x)) ∸ fromNat(lit(y)) = fromNat(lit(x) ∸ lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  suffices toNat(fromNat(lit(x)) ∸ fromNat(lit(y))) = toNat(fromNat(lit(x) ∸ lit(y))) by uint_toNat_injective
+  replace toNat_monus | uint_toNat_fromNat.
+end
 
 auto lit_monus_fromNat
 
@@ -276,6 +281,11 @@ end
 
 auto uint_monus_cancel
 
-postulate uint_pred_monus: all n:UInt. pred(n) = n ∸ 1
+theorem uint_pred_monus: all n:UInt. pred(n) = n ∸ 1
+proof
+  arbitrary n:UInt
+  suffices toNat(pred(n)) = toNat(n ∸ 1) by uint_toNat_injective
+  replace toNat_pred | toNat_monus | uint_toNat_fromNat | nat_monus_one_pred.
+end
 
   

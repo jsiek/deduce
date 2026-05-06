@@ -248,7 +248,7 @@ proof
   evaluate
 end
 
-lemma inc_add_one: all n:UInt.
+theorem inc_add_one: all n:UInt.
   inc(n) = 1 + n
 proof
   arbitrary n:UInt
