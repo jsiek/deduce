@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 in progress — Steps 1–3 done.
+**Status:** Phase 1 in progress — Steps 1–4 done.
 
 ## Goals
 
@@ -43,8 +43,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
   - *Acceptance:* parallel to `test/should-error/*.pf.err` — assert each fixture produces a `Diagnostic` with the right line/severity.
   - *Implementation:* `lsp/query.py:check` calls `check_file(path, content=content)` and translates the captured exception into a `Diagnostic`. Required surfacing structured location/body via `error.py` (added `location`/`message_body` attributes to `error`/`incomplete_error`/`static_error`/`match_failed`/`ParseError`), a new `wrap_error` helper, and patches at six wrap sites in `proof_checker.py` that previously raised bare `Exception(str(e) + ...)` and dropped the location. `lsp/library.py` gained a `content` parameter (bypasses the uniquified-modules cache) and an `exception` field on `CheckResult`. `rec_desc_parser.py` had a pre-existing leak: `check_closest_kwd` was set to `True` on first parse error and never reset, leaking spurious "did you mean" suggestions across calls in library mode — now reset in a `finally`. Acceptance test `test/lsp/test_check.py` runs 158 cases.
 
-- [ ] **Step 4: Implement `goal_at`.** Insert a `?` (`PHole`) at the requested position into a copy of the source, run check, capture the printed goal.
+- [x] **Step 4: Implement `goal_at`.** Insert a `?` (`PHole`) at the requested position into a copy of the source, run check, capture the printed goal.
   - *Acceptance:* hand-crafted fixtures in `test/lsp/` with `-- expect goal: ...` markers; test reads marker and asserts.
+  - *Implementation:* `lsp/query.py:goal_at` rewrites the content from the cursor up to the next `end` keyword as `\n?\n`, then runs `check_file` and parses the resulting `IncompleteProof.message_body` for `Goal:` and `Givens:`. The goal formula is the first non-blank line after `Goal:` (Deduce's `__str__` always emits a single line); givens are pulled from the trailing `Givens:` block split on `,\n`. Returns `None` when the cursor is out of range, the inserted `?` produces a parse error, or the message has no `Goal:` header. Required hardening in `error.py`: `get_location_text_lines` and `error_program_text` previously crashed on `OSError`/empty lines when the path didn't exist on disk — they now return empty source excerpts so in-memory content (LSP/MCP) doesn't break exception formatting. 6-case acceptance test in `test/lsp/test_goal_at.py`.
 
 - [ ] **Step 5: Implement `definition_of` and `list_symbols`.** AST walk using `Var.resolved_names` after a successful check; lexical-scope fallback if check failed.
   - *Acceptance:* hand-crafted fixtures with known symbol locations.
