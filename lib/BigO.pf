@@ -262,14 +262,18 @@ end
 
 theorem log_sum_less_equal_product:
   all f:fn UInt -> UInt, g:fn UInt -> UInt.
-  log(f) + log(g) ≲ log(f * g)
+  if (all n:UInt. 0 < f(n)) and (all n:UInt. 0 < g(n))
+  then log(f) + log(g) ≲ log(f * g)
 proof
   arbitrary f:fn UInt -> UInt, g:fn UInt -> UInt
+  assume fg_pos
   expand operator≲ | operator+ | operator* | log
   choose 0, 1
   arbitrary n:UInt
   assume _
-  uint_log_add_le_log_mult
+  have f_pos: 0 < f(n) by fg_pos
+  have g_pos: 0 < g(n) by fg_pos
+  apply uint_log_add_le_log_mult to f_pos, g_pos
 end
 
 theorem log_product_equiv_sum:
@@ -281,7 +285,20 @@ proof
   assume fg_gt_1
   expand operator≈
   have A: log(f * g) ≲ log(f) + log(g) by apply log_product_less_equal_sum[f,g] to fg_gt_1
-  have B: log(f) + log(g) ≲ log(f * g) by log_sum_less_equal_product
+  have f_pos: all n:UInt. 0 < f(n) by {
+    arbitrary n:UInt
+    have one_lt_f: 1 < f(n) by fg_gt_1
+    have zero_lt_one: (0:UInt) < 1 by .
+    apply uint_less_trans to zero_lt_one, one_lt_f
+  }
+  have g_pos: all n:UInt. 0 < g(n) by {
+    arbitrary n:UInt
+    have one_lt_g: 1 < g(n) by fg_gt_1
+    have zero_lt_one: (0:UInt) < 1 by .
+    apply uint_less_trans to zero_lt_one, one_lt_g
+  }
+  have B: log(f) + log(g) ≲ log(f * g)
+    by apply log_sum_less_equal_product[f,g] to f_pos, g_pos
   A, B
 end
 

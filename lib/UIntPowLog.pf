@@ -558,10 +558,11 @@ proof
   }
 end
 
-// This postulate is false in general: e.g., m = 0, n = 4 gives
+// Without positivity premises this is false: e.g., m = 0, n = 4 gives
 //   log(0) + log(4) = 0 + 2 = 2, log(0 * 4) = log(0) = 0, but 2 ≤ 0 is false.
-// It would be true with the premise 0 < m and 0 < n.
-postulate uint_log_add_le_log_mult: all m:UInt, n:UInt. log(m) + log(n) ≤ log(m * n)
+postulate uint_log_add_le_log_mult: all m:UInt, n:UInt.
+  if 0 < m and 0 < n
+  then log(m) + log(n) ≤ log(m * n)
 
 // Difficult: a proof would proceed by case analysis on m = 0 and n = 0,
 // then for both positive use less_pow_log to bound m * n < 2^(2 + log(m) + log(n))
