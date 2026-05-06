@@ -1,12 +1,15 @@
-# Phase 1+2 allowlist for `make tests-compile`.
+# Allowlist for `make tests-compile`.
 #
 # Each non-empty, non-comment line is a path to a `.pf` file (relative
 # to repo root) that the e2e harness will compile, run, and diff
-# against the interpreter's output. Files are required to be
-# compatible with `--no-stdlib` (Phase 1+2 has no prelude support).
+# against the interpreter's output. The harness auto-detects whether
+# a fixture needs the prelude by scanning for `import` lines, so the
+# two groups below differ only in commentary.
 #
-# Files in `test/compile/lower/` are picked up automatically and need
-# not be listed here.
+# Files in `test/compile/lower/` and `test/compile/prelude/` are
+# picked up automatically and need not be listed here.
+
+# --- Tests that don't import the prelude ---
 
 test/should-validate/bintree.pf
 test/should-validate/empty_file.pf
@@ -18,3 +21,28 @@ test/should-validate/private_union.pf
 test/should-validate/rec1.pf
 test/should-validate/rec2.pf
 test/should-validate/switch_term.pf
+
+# --- Tests that import the prelude ---
+#
+# A scan over `test/should-validate/` after Step 10 landed found 122
+# of 149 files compile and round-trip cleanly through the compiler.
+# The set below is a curated selection covering different feature
+# areas — arrays, integers, lists, generics, simplification, marks.
+# Adding more is a one-line change.
+
+test/should-validate/array1.pf
+test/should-validate/array3.pf
+test/should-validate/generic1.pf
+test/should-validate/generic2.pf
+test/should-validate/inst1.pf
+test/should-validate/int1.pf
+test/should-validate/int_arith.pf
+test/should-validate/list1.pf
+test/should-validate/list2.pf
+test/should-validate/mark1.pf
+test/should-validate/nat_arith.pf
+test/should-validate/nat_literals.pf
+test/should-validate/simplify1.pf
+test/should-validate/theorem_and.pf
+test/should-validate/theorem_or.pf
+test/should-validate/uint_arith.pf

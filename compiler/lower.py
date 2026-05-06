@@ -50,12 +50,22 @@ def _format_loc(loc) -> str:
 # --------------------------------------------------------------------------
 
 def lower_program(stmts: List[ast.Statement]) -> ir.Program:
-    """Entry point. Walks the top-level statement list once to collect
-    constructor names (so `Call(Var(ctor), ...)` can become `Con` rather
-    than `App`), then lowers each statement."""
+    """Entry point. Walks the top-level statement list, recursing into
+    each `Import.ast` so the imported module's declarations end up in
+    the same flat list. Each module is recursed into at most once
+    (matching how the interpreter populates `imported_modules`).
+    Then collects constructor names (so `Call(Var(ctor), ...)` can
+    become `Con` rather than `App`) and lowers each statement.
+
+    Pruning (compiler/prune.py) downstream removes everything that
+    isn't transitively reached from the user's `print` statements;
+    this lets us inline the entire prelude without paying for the
+    parts the user doesn't touch."""
+    flat = _flatten_imports(stmts)
+
     ctors: Set[str] = set()
     arities: Dict[str, int] = {}
-    for s in stmts:
+    for s in flat:
         if isinstance(s, ast.Union):
             for c in s.alternatives:
                 ctors.add(c.name)
@@ -63,7 +73,7 @@ def lower_program(stmts: List[ast.Statement]) -> ir.Program:
 
     lc = LoweringCtx(ctors=ctors, ctor_arities=arities)
     out: List[ir.TopLevel] = []
-    for s in stmts:
+    for s in flat:
         d = lc.lower_stmt(s)
         if d is not None:
             if isinstance(d, list):
@@ -71,6 +81,31 @@ def lower_program(stmts: List[ast.Statement]) -> ir.Program:
             else:
                 out.append(d)
     return ir.Program(decls=out)
+
+
+def _flatten_imports(stmts: List[ast.Statement]) -> List[ast.Statement]:
+    """Walk `stmts`, splicing each `Import.ast` (the imported module's
+    post-typecheck statement list — see `process_declaration` in
+    proof_checker.py) in place of the import itself. Imports are
+    deduplicated by module name; only the first occurrence's nested
+    statements are emitted, matching `imported_modules` semantics in
+    the interpreter."""
+    seen: Set[str] = set()
+    out: List[ast.Statement] = []
+
+    def walk(items: List[ast.Statement]) -> None:
+        for s in items:
+            if isinstance(s, ast.Import):
+                if s.name in seen:
+                    continue
+                seen.add(s.name)
+                if s.ast is not None:
+                    walk(s.ast)
+            else:
+                out.append(s)
+
+    walk(stmts)
+    return out
 
 
 class LoweringCtx:
@@ -275,6 +310,13 @@ class LoweringCtx:
                 "hole/omitted term reached compilation; the proof "
                 "checker should have rejected this earlier",
             )
+        # Quantifiers are formulas — they show up in `fun`/`define`
+        # bodies in the prelude (e.g. `fun EvenNat(n) { some m. … }`)
+        # but are not computational. Lower to a panic stub; pruning
+        # drops it if no `print`-reachable path actually evaluates it.
+        if isinstance(t, (ast.Some, ast.All)):
+            kind = "some" if isinstance(t, ast.Some) else "all"
+            return ir.Panic(f"non-computational `{kind}` quantifier evaluated")
         if isinstance(t, ast.MakeArray):
             return ir.MakeArray(self.lower_term(t.subject))
         if isinstance(t, ast.ArrayGet):
@@ -399,6 +441,8 @@ def subst_vars(t: ir.Term, sub: Dict[str, str]) -> ir.Term:
                 return ir.Match(go(subj, blocked), new_arms)
             case ir.Eq(l, r):
                 return ir.Eq(go(l, blocked), go(r, blocked))
+            case ir.Panic(_):
+                return t
             case ir.MakeArray(s):
                 return ir.MakeArray(go(s, blocked))
             case ir.ArrayGet(s, i):

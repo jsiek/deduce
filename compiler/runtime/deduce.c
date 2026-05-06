@@ -289,6 +289,10 @@ void deduce_panic(const char* msg) {
     exit(1);
 }
 
+deduce_value deduce_unreachable_value(const char* msg) {
+    deduce_panic(msg);
+}
+
 int main(void) {
     deduce_program_main();
     return 0;

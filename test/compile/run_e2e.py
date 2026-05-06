@@ -26,8 +26,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 LOWER_DIR = ROOT / "test" / "compile" / "lower"
 E2E_DIR = ROOT / "test" / "compile" / "e2e"
+PRELUDE_DIR = ROOT / "test" / "compile" / "prelude"
 ALLOWLIST = ROOT / "test" / "compile-allowlist.txt"
 RUNTIME_DIR = ROOT / "compiler" / "runtime"
+
+
+def needs_prelude(pf: Path) -> bool:
+    """A fixture needs the prelude if it has any `import` statement.
+    Cheap textual check — good enough for our fixtures, and avoids
+    trying to parse with two different stdlib settings."""
+    for raw in pf.read_text().splitlines():
+        s = raw.strip()
+        if not s or s.startswith("//") or s.startswith("/*"):
+            continue
+        if s.startswith("import ") or s.startswith("public import "):
+            return True
+    return False
 
 
 def find_cc() -> str | None:
@@ -37,10 +51,12 @@ def find_cc() -> str | None:
 def run_interpreter(pf: Path) -> str:
     """Returns the interpreter's stdout (excluding the trailing
     `... is valid` line)."""
+    cmd = [sys.executable, str(ROOT / "deduce.py"),
+           "--suppress-theorems", "--quiet", str(pf)]
+    if not needs_prelude(pf):
+        cmd.insert(2, "--no-stdlib")
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "deduce.py"), "--no-stdlib",
-         "--suppress-theorems", "--quiet", str(pf)],
-        cwd=str(ROOT),
+        cmd, cwd=str(ROOT),
         capture_output=True, text=True, check=False,
     )
     if proc.returncode != 0:
@@ -54,11 +70,13 @@ def run_interpreter(pf: Path) -> str:
 def run_compiled(pf: Path, cc: str, tmp: Path) -> str:
     c_path = tmp / (pf.stem + ".c")
     bin_path = tmp / pf.stem
+    cmd = [sys.executable, str(ROOT / "deduce.py"),
+           "--suppress-theorems", "--quiet", "--compile",
+           "-o", str(c_path), str(pf)]
+    if not needs_prelude(pf):
+        cmd.insert(2, "--no-stdlib")
     subprocess.run(
-        [sys.executable, str(ROOT / "deduce.py"), "--no-stdlib",
-         "--suppress-theorems", "--quiet", "--compile",
-         "-o", str(c_path), str(pf)],
-        cwd=str(ROOT), check=True,
+        cmd, cwd=str(ROOT), check=True,
         # Suppress the interpreter's own print/assert output during
         # compilation; we only want the compiled program's stdout.
         capture_output=True, text=True,
@@ -92,7 +110,7 @@ def main() -> int:
         return 0
 
     fixtures: list[Path] = []
-    for d in (E2E_DIR, LOWER_DIR):
+    for d in (E2E_DIR, LOWER_DIR, PRELUDE_DIR):
         if d.exists():
             fixtures.extend(sorted(d.glob("*.pf")))
     if ALLOWLIST.exists():

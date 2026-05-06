@@ -115,6 +115,20 @@ class Match:
 
 
 @dataclass
+class Panic:
+    """Stand-in for a non-computational term (e.g. a `some`/`all`
+    formula in a `fun` body) or a reference to a name we couldn't
+    lower. Emits a `deduce_unreachable_value` call at the C level —
+    the compiled program aborts if execution actually reaches it.
+
+    The whole point is to let the rest of the function lower
+    successfully so the pruner can drop it if it isn't reached at
+    runtime. If pruning keeps it, the user gets a clear runtime
+    message naming what went wrong."""
+    msg: str
+
+
+@dataclass
 class Eq:
     """Structural equality, the only built-in primitive in the IR.
     Comes from `Call(Var('='), [a, b])` in the source. Closures
@@ -143,7 +157,7 @@ class ArrayGet:
     index: "Term"
 
 
-Term = Union[Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match, Eq, MakeArray, ArrayGet]
+Term = Union[Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match, Eq, Panic, MakeArray, ArrayGet]
 
 
 # ---------- top-level ----------
@@ -285,6 +299,8 @@ def pp_term(t: Term, indent: int) -> str:
             return "match " + pp_term(subj, indent) + " { " + " ".join(arm_strs) + " }"
         case Eq(l, r):
             return "(" + pp_term(l, indent) + " == " + pp_term(r, indent) + ")"
+        case Panic(msg):
+            return f"panic({msg!r})"
         case MakeArray(s):
             return "array(" + pp_term(s, indent) + ")"
         case ArrayGet(s, i):
@@ -311,7 +327,7 @@ def verify(p: Program) -> None:
     top_classes = (UnionDecl, Function, Global, Print, AssertEq, AssertBool)
     term_classes = (
         Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match, Eq,
-        MakeArray, ArrayGet,
+        Panic, MakeArray, ArrayGet,
     )
 
     def check_term(t: object, ctx: str) -> None:
@@ -356,6 +372,8 @@ def verify(p: Program) -> None:
             case Eq(l, r):
                 check_term(l, ctx)
                 check_term(r, ctx)
+            case Panic(_):
+                pass
             case MakeArray(s):
                 check_term(s, ctx)
             case ArrayGet(s, i):
@@ -425,6 +443,8 @@ def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
             return out
         case Eq(l, r):
             return free_vars(l, bound) | free_vars(r, bound)
+        case Panic(_):
+            return set()
         case MakeArray(s):
             return free_vars(s, bound)
         case ArrayGet(s, i):
