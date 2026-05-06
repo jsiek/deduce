@@ -36,6 +36,31 @@ def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] 
                 print(result.error_traceback)
             exit(1)
 
+def compile_file(filename: str, output: str, prelude: list[str]) -> None:
+    """Compile a checked .pf file to a single .c source file.
+
+    Phase 1 of docs/compile-plan.md: parse + uniquify + type-check via
+    the existing pipeline, then run lower → closure-convert → emit_c.
+    The runtime in compiler/runtime/ supplies the matching deduce.h /
+    deduce.c that callers must compile alongside the generated source.
+    """
+    from compiler import closure as _closure, emit_c, ir, lower
+
+    result = check_file(filename, tracing_functions=(), prelude=prelude)
+    if not result.ok:
+        print(result.error_message)
+        if traceback_flag:
+            print(result.error_traceback)
+        exit(1)
+    program = lower.lower_program(result.ast)
+    program = _closure.closure_convert(program)
+    src = emit_c.emit_program(program)
+    if output == "-":
+        sys.stdout.write(src)
+    else:
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(src)
+
 def deduce_directory(directory, recursive_directories, tracing_functions, prelude: list[str] = []):
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
@@ -72,6 +97,8 @@ if __name__ == "__main__":
     error_expected = False
     recursive_directories = False
     already_processed_next = False
+    compile_target = None
+    compile_output = None
     init_import_directories()
 
     # TODO: Cleanup 
@@ -120,6 +147,11 @@ if __name__ == "__main__":
             exit(0)
         elif argument == '--no-check-imports':
             set_check_imports(False)
+        elif argument == '--compile':
+            compile_target = '__pending__'
+        elif argument == '-o' and i + 1 < len(sys.argv):
+            compile_output = sys.argv[i + 1]
+            already_processed_next = True
         else:
             deducables.append(argument)
     
@@ -150,13 +182,20 @@ if __name__ == "__main__":
         # If a file is in the prelude and we include the prelude
         # Then we'll process the file twice, hence using an empty "prelude"
         # For said file
-        
+
         if check_in_prelude(deducable, stdlib_dir):
             deducable_prelude = []
         else:
             deducable_prelude = prelude
-        
-        if os.path.isfile(deducable):
+
+        if compile_target is not None:
+            if not os.path.isfile(deducable):
+                print(deducable, "was not found!")
+                exit(1)
+            out = compile_output if compile_output is not None \
+                else os.path.splitext(deducable)[0] + ".c"
+            compile_file(deducable, out, deducable_prelude)
+        elif os.path.isfile(deducable):
             deduce_file(deducable, error_expected, tracing_functions, deducable_prelude)
         elif os.path.isdir(deducable):
             deduce_directory(deducable, recursive_directories, tracing_functions, deducable_prelude)

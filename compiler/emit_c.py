@@ -1,0 +1,440 @@
+"""Emit C source from a closure-converted IR program.
+
+The output `#include`s `deduce.h` (the runtime header). Every Deduce
+value is a `deduce_value` (opaque pointer); every function takes
+`(deduce_value* env, deduce_value* args)` and returns `deduce_value`.
+
+Top-level functions are emitted as `static deduce_value F_<mangled>(...)`.
+Top-level globals are emitted as `static deduce_value G_<mangled>;` and
+their initialisation is appended to `deduce_program_main`. Print and
+assert statements are appended to `deduce_program_main` in source order.
+
+Emit is purely functional in the IR: walks the program once, builds a
+list of strings, joins. No global state.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Set, Tuple
+
+from compiler import ir
+
+
+class EmitError(Exception):
+    pass
+
+
+# --------------------------------------------------------------------------
+# Name mangling
+# --------------------------------------------------------------------------
+
+def _mangle(name: str) -> str:
+    """Turn a Deduce uniquified name (which may contain `.`, `<`, `>`,
+    digits, operator characters) into a valid C identifier suffix."""
+    out: List[str] = []
+    for c in name:
+        if c.isalnum() or c == "_":
+            out.append(c)
+        elif c == ".":
+            out.append("_")
+        elif c == "$":
+            out.append("__")  # generated names like `$lam1`
+        else:
+            out.append(f"_x{ord(c):02x}")
+    s = "".join(out)
+    # First char must be a letter or underscore. Prefix if needed.
+    if not (s and (s[0].isalpha() or s[0] == "_")):
+        s = "_" + s
+    return s
+
+
+def _func_id(name: str) -> str:
+    return "F_" + _mangle(name)
+
+
+def _global_id(name: str) -> str:
+    return "G_" + _mangle(name)
+
+
+def _local_id(name: str) -> str:
+    return "v_" + _mangle(name)
+
+
+def _ctor_id_macro(name: str) -> str:
+    return "CTOR_" + _mangle(name)
+
+
+def _base_name(name: str) -> str:
+    """Strip the uniquify suffix. Mirrors `abstract_syntax.base_name`
+    but local so emit_c.py has no dependency on the AST module."""
+    return name.split(".", 1)[0]
+
+
+def _c_string(s: str) -> str:
+    out = ['"']
+    for ch in s:
+        b = ch.encode("utf-8")
+        for byte in b:
+            if 0x20 <= byte < 0x7f and byte not in (ord('"'), ord("\\")):
+                out.append(chr(byte))
+            else:
+                out.append("\\x%02x" % byte)
+    out.append('"')
+    return "".join(out)
+
+
+# --------------------------------------------------------------------------
+# Emit context
+# --------------------------------------------------------------------------
+
+@dataclass
+class EmitCtx:
+    top_funcs: Dict[str, int] = field(default_factory=dict)   # name -> arity
+    top_globals: Set[str] = field(default_factory=set)
+    ctor_ids: Dict[str, int] = field(default_factory=dict)
+    ctor_arities: Dict[str, int] = field(default_factory=dict)
+    tmp_counter: int = 0
+
+    def fresh_tmp(self) -> str:
+        n = self.tmp_counter
+        self.tmp_counter += 1
+        return f"t{n}"
+
+
+def emit_program(p: ir.Program) -> str:
+    ctx = EmitCtx()
+    next_ctor_id = 0
+    for d in p.decls:
+        if isinstance(d, ir.UnionDecl):
+            for c in d.ctors:
+                ctx.ctor_ids[c.name] = next_ctor_id
+                ctx.ctor_arities[c.name] = c.arity
+                next_ctor_id += 1
+        elif isinstance(d, ir.Function):
+            ctx.top_funcs[d.name] = len(d.params)
+        elif isinstance(d, ir.Global):
+            ctx.top_globals.add(d.name)
+
+    out: List[str] = []
+    out.append('#include "deduce.h"')
+    out.append("")
+
+    # Constructor id macros
+    for name, cid in ctx.ctor_ids.items():
+        out.append(f"#define {_ctor_id_macro(name)} {cid}")
+    out.append("")
+
+    # Forward declarations
+    for d in p.decls:
+        if isinstance(d, ir.Function):
+            out.append(_emit_fn_decl(d) + ";")
+    for d in p.decls:
+        if isinstance(d, ir.Function) and getattr(d, "captures", None):
+            # Already declared above; here we'd handle the lifted case.
+            pass
+    out.append("")
+
+    # Global variables
+    for d in p.decls:
+        if isinstance(d, ir.Global):
+            out.append(f"static deduce_value {_global_id(d.name)};")
+    out.append("")
+
+    # Function bodies
+    for d in p.decls:
+        if isinstance(d, ir.Function):
+            out.append(_emit_function(d, ctx))
+            out.append("")
+
+    # The single program-entry function with globals + prints + asserts
+    # in source order.
+    out.append("void deduce_program_main(void) {")
+    for d in p.decls:
+        if isinstance(d, ir.Global):
+            tmp = ctx.fresh_tmp()
+            stmts, expr = _emit_term(d.body, ctx, locals_in_scope=set())
+            for s in stmts:
+                out.append("    " + s)
+            out.append(f"    {_global_id(d.name)} = {expr};")
+        elif isinstance(d, ir.Print):
+            stmts, expr = _emit_term(d.term, ctx, locals_in_scope=set())
+            for s in stmts:
+                out.append("    " + s)
+            out.append(f"    deduce_println({expr});")
+        elif isinstance(d, ir.AssertEq):
+            sl, el = _emit_term(d.lhs, ctx, locals_in_scope=set())
+            sr, er = _emit_term(d.rhs, ctx, locals_in_scope=set())
+            for s in sl + sr:
+                out.append("    " + s)
+            out.append(f"    deduce_assert_eq({el}, {er}, NULL);")
+        elif isinstance(d, ir.AssertBool):
+            stmts, expr = _emit_term(d.term, ctx, locals_in_scope=set())
+            for s in stmts:
+                out.append("    " + s)
+            out.append(f"    deduce_assert_bool({expr}, NULL);")
+    out.append("}")
+
+    return "\n".join(out) + "\n"
+
+
+def _emit_fn_decl(f: ir.Function) -> str:
+    return f"static deduce_value {_func_id(f.name)}(deduce_value* env, deduce_value* args)"
+
+
+def _emit_function(f: ir.Function, ctx: EmitCtx) -> str:
+    # Locals in scope inside the body include the params (bound from
+    # args[]) and the captures (bound from env[]).
+    in_scope: Set[str] = set(f.params) | set(f.captures)
+    body_stmts: List[str] = []
+    body_stmts.append(_emit_fn_decl(f) + " {")
+    if not f.params:
+        body_stmts.append("    (void)args;")
+    if not f.captures:
+        body_stmts.append("    (void)env;")
+    for i, p in enumerate(f.params):
+        body_stmts.append(f"    deduce_value {_local_id(p)} = args[{i}];")
+    for i, c in enumerate(f.captures):
+        body_stmts.append(f"    deduce_value {_local_id(c)} = env[{i}];")
+    stmts, expr = _emit_term(f.body, ctx, in_scope)
+    for s in stmts:
+        body_stmts.append("    " + s)
+    body_stmts.append(f"    return {expr};")
+    body_stmts.append("}")
+    return "\n".join(body_stmts)
+
+
+# --------------------------------------------------------------------------
+# Term emission
+# --------------------------------------------------------------------------
+#
+# Returns (statements, expr): statements run before the expression is
+# evaluated; expr is a deduce_value-typed C expression. The caller is
+# free to use `expr` multiple times if it's a single C variable, but
+# only once otherwise (avoiding double-evaluation of side effects).
+# The current emitter always assigns multi-step results to a fresh tmp,
+# so callers can treat `expr` as side-effect-free.
+
+def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[List[str], str]:
+    match t:
+        case ir.Var(name):
+            if name in locals_in_scope:
+                return [], _local_id(name)
+            if name in ctx.top_globals:
+                return [], _global_id(name)
+            if name in ctx.top_funcs:
+                # First-class top-level function reference: build a
+                # closure with empty env. Phase 1 doesn't exercise this,
+                # but supporting it is a few lines.
+                arity = ctx.top_funcs[name]
+                stmts = []
+                tmp = ctx.fresh_tmp()
+                stmts.append(
+                    f"deduce_value {tmp} = deduce_make_closure("
+                    f"{_func_id(name)}, {_c_string(_base_name(name))}, "
+                    f"{arity}, 0, NULL);"
+                )
+                return stmts, tmp
+            if name in ctx.ctor_ids:
+                # Bare constructor reference (rare; usually constructors
+                # appear as Con(...) in the IR). Phase 1 doesn't expect
+                # this; surface the case as an error so we notice.
+                raise EmitError(
+                    f"constructor {name} used as a value; not yet supported"
+                )
+            raise EmitError(f"unbound name in emission: {name}")
+
+        case ir.Bool(b):
+            return [], f"deduce_make_bool({'true' if b else 'false'})"
+
+        case ir.Int(v):
+            return [], f"deduce_make_int({v})"
+
+        case ir.If(cond, thn, els):
+            scond, econd = _emit_term(cond, ctx, locals_in_scope)
+            sthn, ethn = _emit_term(thn, ctx, locals_in_scope)
+            sels, eels = _emit_term(els, ctx, locals_in_scope)
+            tmp = ctx.fresh_tmp()
+            stmts: List[str] = []
+            stmts.extend(scond)
+            stmts.append(f"deduce_value {tmp};")
+            stmts.append(f"if (deduce_get_bool({econd})) {{")
+            for s in sthn:
+                stmts.append("    " + s)
+            stmts.append(f"    {tmp} = {ethn};")
+            stmts.append("} else {")
+            for s in sels:
+                stmts.append("    " + s)
+            stmts.append(f"    {tmp} = {eels};")
+            stmts.append("}")
+            return stmts, tmp
+
+        case ir.Let(name, rhs, body):
+            srhs, erhs = _emit_term(rhs, ctx, locals_in_scope)
+            stmts: List[str] = []
+            stmts.extend(srhs)
+            stmts.append(f"deduce_value {_local_id(name)} = {erhs};")
+            sbody, ebody = _emit_term(body, ctx, locals_in_scope | {name})
+            stmts.extend(sbody)
+            return stmts, ebody
+
+        case ir.Con(ctor, args):
+            if ctor not in ctx.ctor_ids:
+                raise EmitError(f"unknown constructor: {ctor}")
+            arg_stmts: List[str] = []
+            arg_exprs: List[str] = []
+            for a in args:
+                sa, ea = _emit_term(a, ctx, locals_in_scope)
+                arg_stmts.extend(sa)
+                arg_exprs.append(ea)
+            stmts = list(arg_stmts)
+            if arg_exprs:
+                arr = ctx.fresh_tmp() + "_args"
+                stmts.append(
+                    f"deduce_value {arr}[] = {{ {', '.join(arg_exprs)} }};"
+                )
+                arr_arg = arr
+            else:
+                arr_arg = "NULL"
+            tmp = ctx.fresh_tmp()
+            stmts.append(
+                f"deduce_value {tmp} = deduce_make_ctor("
+                f"{_ctor_id_macro(ctor)}, {_c_string(_base_name(ctor))}, "
+                f"{len(args)}, {arr_arg});"
+            )
+            return stmts, tmp
+
+        case ir.MkClosure(fn, caps):
+            if fn not in ctx.top_funcs:
+                raise EmitError(f"closure refers to unknown function: {fn}")
+            arity = ctx.top_funcs[fn]
+            cap_stmts: List[str] = []
+            cap_exprs: List[str] = []
+            for c in caps:
+                sc, ec = _emit_term(c, ctx, locals_in_scope)
+                cap_stmts.extend(sc)
+                cap_exprs.append(ec)
+            stmts = list(cap_stmts)
+            if cap_exprs:
+                arr = ctx.fresh_tmp() + "_env"
+                stmts.append(
+                    f"deduce_value {arr}[] = {{ {', '.join(cap_exprs)} }};"
+                )
+                arr_arg = arr
+            else:
+                arr_arg = "NULL"
+            tmp = ctx.fresh_tmp()
+            stmts.append(
+                f"deduce_value {tmp} = deduce_make_closure("
+                f"{_func_id(fn)}, {_c_string(_base_name(fn))}, {arity}, "
+                f"{len(caps)}, {arr_arg});"
+            )
+            return stmts, tmp
+
+        case ir.App(rator, args):
+            arg_stmts: List[str] = []
+            arg_exprs: List[str] = []
+            for a in args:
+                sa, ea = _emit_term(a, ctx, locals_in_scope)
+                arg_stmts.extend(sa)
+                arg_exprs.append(ea)
+            stmts = list(arg_stmts)
+
+            # Direct call to a top-level function: no env, args[].
+            if isinstance(rator, ir.Var) \
+               and rator.name in ctx.top_funcs \
+               and rator.name not in locals_in_scope:
+                if ctx.top_funcs[rator.name] != len(args):
+                    raise EmitError(
+                        f"arity mismatch calling {rator.name}: "
+                        f"declared {ctx.top_funcs[rator.name]}, called with {len(args)}"
+                    )
+                if arg_exprs:
+                    arr = ctx.fresh_tmp() + "_args"
+                    stmts.append(
+                        f"deduce_value {arr}[] = {{ {', '.join(arg_exprs)} }};"
+                    )
+                    arr_arg = arr
+                else:
+                    arr_arg = "NULL"
+                tmp = ctx.fresh_tmp()
+                stmts.append(
+                    f"deduce_value {tmp} = {_func_id(rator.name)}(NULL, {arr_arg});"
+                )
+                return stmts, tmp
+
+            # Closure call: dispatch via runtime.
+            srator, erator = _emit_term(rator, ctx, locals_in_scope)
+            stmts = srator + stmts
+            if arg_exprs:
+                arr = ctx.fresh_tmp() + "_args"
+                stmts.append(
+                    f"deduce_value {arr}[] = {{ {', '.join(arg_exprs)} }};"
+                )
+                arr_arg = arr
+            else:
+                arr_arg = "NULL"
+            tmp = ctx.fresh_tmp()
+            stmts.append(
+                f"deduce_value {tmp} = deduce_call({erator}, {len(args)}, {arr_arg});"
+            )
+            return stmts, tmp
+
+        case ir.Match(subj, arms):
+            ssubj, esubj = _emit_term(subj, ctx, locals_in_scope)
+            stmts = list(ssubj)
+            subj_var = ctx.fresh_tmp()
+            stmts.append(f"deduce_value {subj_var} = {esubj};")
+            tmp = ctx.fresh_tmp()
+            stmts.append(f"deduce_value {tmp};")
+
+            # Detect bool vs ctor patterns. Mixing is not allowed in
+            # Deduce source so we don't try to handle it.
+            is_bool = any(isinstance(arm.pattern, ir.PatBool) for arm in arms)
+
+            if is_bool:
+                stmts.append(f"if (deduce_get_bool({subj_var})) {{")
+                # Separate true/false branches; pattern order may vary.
+                true_arm = next((a for a in arms if isinstance(a.pattern, ir.PatBool) and a.pattern.value), None)
+                false_arm = next((a for a in arms if isinstance(a.pattern, ir.PatBool) and not a.pattern.value), None)
+                if true_arm is None or false_arm is None:
+                    raise EmitError("bool match must have both true and false arms")
+                ts, te = _emit_term(true_arm.body, ctx, locals_in_scope)
+                for s in ts:
+                    stmts.append("    " + s)
+                stmts.append(f"    {tmp} = {te};")
+                stmts.append("} else {")
+                fs, fe = _emit_term(false_arm.body, ctx, locals_in_scope)
+                for s in fs:
+                    stmts.append("    " + s)
+                stmts.append(f"    {tmp} = {fe};")
+                stmts.append("}")
+            else:
+                stmts.append(f"switch (deduce_ctor_id({subj_var})) {{")
+                for arm in arms:
+                    if not isinstance(arm.pattern, ir.PatCon):
+                        raise EmitError("expected constructor pattern in ctor match")
+                    pc: ir.PatCon = arm.pattern
+                    stmts.append(f"case {_ctor_id_macro(pc.ctor)}: {{")
+                    inner_scope = locals_in_scope | set(pc.binds)
+                    for i, b in enumerate(pc.binds):
+                        stmts.append(
+                            f"    deduce_value {_local_id(b)} = "
+                            f"deduce_ctor_field({subj_var}, {i});"
+                        )
+                    bs, be = _emit_term(arm.body, ctx, inner_scope)
+                    for s in bs:
+                        stmts.append("    " + s)
+                    stmts.append(f"    {tmp} = {be};")
+                    stmts.append("    break;")
+                    stmts.append("}")
+                stmts.append("default: deduce_panic(\"non-exhaustive match\");")
+                stmts.append("}")
+            return stmts, tmp
+
+        case ir.Lam(_, _):
+            raise EmitError(
+                "Lam reached emit_c; closure conversion should have lifted it"
+            )
+
+    raise EmitError(f"emit: unknown term {type(t).__name__}")

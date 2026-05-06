@@ -21,6 +21,10 @@ tests-lib:
 
 tests: tests-should-validate tests-should-error
 
+tests-compile:
+	$(PYTHON) ./test/compile/run_lower.py
+	$(PYTHON) ./test/compile/run_e2e.py
+
 package:
 	$(PYTHON) ./deduce.py ./lib
 	mkdir deduce
@@ -46,3 +50,4 @@ clean:
 	rm -f ./lib/*.thm
 	rm -f ./test/should-validate/*.thm
 	rm -f deduce-release.zip
+	rm -f ./test/compile/lower/*.c ./test/compile/e2e/*.c

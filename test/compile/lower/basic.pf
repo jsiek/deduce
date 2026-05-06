@@ -1,0 +1,23 @@
+// Phase-1 lowering smoke test. Uses no prelude so the IR fixture
+// stays small and human-readable.
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+recursive add(MyNat, MyNat) -> MyNat {
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
+}
+
+define two : MyNat = suc(suc(zero))
+
+define add_two : fn MyNat -> MyNat = λ x { add(two, x) }
+
+define pick : fn bool, MyNat, MyNat -> MyNat
+  = λ b:bool, x:MyNat, y:MyNat { if b then x else y }
+
+print add_two(suc(zero))
+print pick(true, two, zero)
+assert add(two, zero) = two

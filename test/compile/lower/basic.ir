@@ -1,0 +1,8 @@
+union MyNat.0 {zero.1/0, suc.2/1}
+fn add.3($scr0, m.4) = match $scr0 { | zero.1 -> m.4 | suc.2(n.5) -> suc.2(add.3(n.5, m.4)) }
+global two.7 = suc.2(suc.2(zero.1))
+fn add_two.9(x.8) = add.3(two.7, x.8)
+fn pick.13(b.10, x.11, y.12) = if b.10 then x.11 else y.12
+print add_two.9(suc.2(zero.1))
+print pick.13(true, two.7, zero.1)
+assert_eq add.3(two.7, zero.1) == two.7
