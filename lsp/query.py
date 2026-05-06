@@ -39,6 +39,7 @@ before calling. The pipeline uses ``path`` for import resolution and
 in user-visible error messages.
 """
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -247,11 +248,175 @@ def goal_at(path: str, content: str, pos: Position) -> Optional[Goal]:
     Returns ``None`` when there is no active proof at that position --
     e.g. the cursor is outside any ``proof ... end`` block, or the file
     does not parse. Implemented by inserting a ``?`` hole at ``pos``
-    and capturing the printed goal state.
-
-    Implemented in Step 4.
+    (more precisely: replacing the content from ``pos`` up to the next
+    ``end`` keyword with ``?``) and capturing the goal text the checker
+    prints when it reaches the hole.
     """
-    raise NotImplementedError("Step 4 implements goal_at.")
+    from lsp.library import check_file
+
+    modified = _insert_hole(content, pos)
+    if modified is None:
+        return None
+
+    result = check_file(path, content=modified)
+    if result.ok:
+        # No PHole was hit -- the surrounding proof was already complete
+        # without needing the inserted ?. Nothing to report.
+        return None
+
+    return _goal_from_exception(result.exception, pos)
+
+
+def _insert_hole(content: str, pos: Position) -> Optional[str]:
+    """Modify ``content`` so that the proof at ``pos`` halts on a ``?``.
+
+    Strategy: find the byte offset for ``pos``, replace everything from
+    there up to (but not including) the next ``end`` keyword with
+    ``\\n?\\n``. The intervening tactics are dropped so the parser sees
+    a complete proof terminating at the hole.
+
+    Returns ``None`` when ``pos`` is out of range. If no ``end`` keyword
+    follows the cursor we fall back to "append ``?`` at the cursor and
+    leave the rest" -- the parser may still error, in which case
+    ``goal_at`` returns ``None``.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return None
+
+    before = content[:offset]
+    after = content[offset:]
+    m = _END_RE.search(after)
+    if m is None:
+        return before + "\n?\n" + after
+    return before + "\n?\n" + after[m.start():]
+
+
+def _line_col_to_offset(content: str, pos: Position) -> Optional[int]:
+    """Convert a 1-indexed (line, column) to a 0-indexed byte offset.
+
+    Returns ``None`` when the position is past the end of the file.
+    Columns past the end of a line clamp to the line's length.
+    """
+    if pos.line < 1 or pos.column < 1:
+        return None
+    lines = content.splitlines(keepends=True)
+    if pos.line > len(lines):
+        return None
+    line_start = sum(len(line) for line in lines[: pos.line - 1])
+    line = lines[pos.line - 1]
+    # splitlines(keepends=True) keeps the trailing newline; clamp the
+    # column to the line length minus that newline so we don't insert
+    # past it.
+    visible_len = len(line.rstrip("\r\n"))
+    col = min(pos.column - 1, visible_len)
+    return line_start + col
+
+
+_END_RE = re.compile(r"\bend\b")
+
+
+def _goal_from_exception(
+    exc: Optional[BaseException], pos: Position
+) -> Optional[Goal]:
+    """Parse an ``IncompleteProof`` message into a ``Goal``.
+
+    The pipeline raises ``IncompleteProof`` from ``incomplete_error``
+    with a message body of the form::
+
+        incomplete proof
+        Goal:
+        \\t<formula>
+        [<advice text -- may or may not start with "Advice:">]
+        [Givens:
+        \\t<label>: <formula>[,
+        \\t<label>: <formula>]*]
+
+    Formula AST objects always render to a single line, so we take the
+    first non-blank line after ``Goal:`` as the formula and stop. The
+    advice that follows is intentionally discarded -- callers that want
+    advice can read ``Diagnostic.message`` from ``check`` instead.
+
+    Returns ``None`` when the message doesn't match (e.g. the exception
+    is something other than the goal-bearing PHole, like a parse error
+    triggered by the inserted ``?`` ending up in a bad spot).
+    """
+    if exc is None:
+        return None
+    body = getattr(exc, "message_body", None)
+    if body is None:
+        return None
+
+    formula = _extract_goal_formula(body)
+    if formula is None:
+        return None
+
+    givens = _parse_givens_section(body)
+
+    cursor_range = Range(start=pos, end=pos)
+    return Goal(formula=formula, givens=givens, range=cursor_range)
+
+
+def _extract_goal_formula(body: str) -> Optional[str]:
+    """Return the formula on the line immediately after ``Goal:``.
+
+    The formula is always a single line because Deduce's ``__str__``
+    renderers don't emit newlines inside a formula. Returns ``None``
+    when no ``Goal:`` header is present.
+    """
+    idx = body.find("Goal:")
+    if idx < 0:
+        return None
+    after = body[idx + len("Goal:"):]
+    for line in after.splitlines():
+        if not line.strip():
+            continue
+        # Section content is indented with a tab; drop one level.
+        if line.startswith("\t"):
+            line = line[1:]
+        return line.strip()
+    return None
+
+
+def _parse_givens_section(body: str) -> tuple:
+    """Pull a ``Givens:`` block (if any) into a tuple of ``Given``.
+
+    Each entry has the form ``<label>: <formula>``, joined by ``,\\n``
+    (see ``Env.proofs_str``). Lines that don't start with a tab are
+    treated as outside the section and stop iteration -- which never
+    actually happens today since Givens is the last section, but keeps
+    us robust if a future change appends more text.
+    """
+    idx = body.find("Givens:")
+    if idx < 0:
+        return ()
+    after = body[idx + len("Givens:"):]
+    if after.startswith("\n"):
+        after = after[1:]
+
+    section_lines = []
+    for line in after.splitlines():
+        if line == "" or line.startswith("\t"):
+            section_lines.append(line)
+        else:
+            break
+    block = "\n".join(section_lines)
+
+    givens = []
+    # Split on ",\n" rather than just commas because formulas can
+    # contain commas (e.g. argument lists).
+    for entry in block.split(",\n"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        sep = entry.find(":")
+        if sep < 0:
+            givens.append(Given(label=None, formula=entry))
+            continue
+        label = entry[:sep].strip()
+        formula = entry[sep + 1:].strip()
+        givens.append(Given(label=label or None, formula=formula))
+    return tuple(givens)
 
 
 def definition_of(

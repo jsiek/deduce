@@ -2,9 +2,16 @@ import flags
 
 def get_location_text_lines(location):
   if not location.empty:
-    with open(location.filename, 'r') as f:
-      lines = list(f.readlines())
-      return lines[location.line-1:location.end_line]
+    try:
+      with open(location.filename, 'r') as f:
+        lines = list(f.readlines())
+        return lines[location.line-1:location.end_line]
+    except OSError:
+      # Library/LSP/MCP callers pass in-memory content with a path
+      # that may not exist on disk. Returning an empty source excerpt
+      # keeps str(ParseError) from crashing -- the location header
+      # still carries the file:line:col coordinates.
+      return ''
   else:
     return ''
 
@@ -20,6 +27,10 @@ def error_header(location):
 def error_program_text(location):
   if not location.empty:
     lines = get_location_text_lines(location)
+    if not lines:
+      # Source file isn't on disk (in-memory content from library/LSP
+      # callers); skip the source excerpt and carrot rendering.
+      return ''
     # last line decides where we draw the carrots (^)
     error = lines[-1]
 
