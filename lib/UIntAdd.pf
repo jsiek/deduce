@@ -335,9 +335,37 @@ proof
   fwd, bkwd
 end
 
-postulate uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
+theorem uint_add_both_sides_of_less_equal: all x:UInt. all y:UInt, z:UInt. x + y ≤ x + z ⇔ y ≤ z
+proof
+  arbitrary x:UInt
+  arbitrary y:UInt, z:UInt
+  have fwd: if x + y ≤ x + z then y ≤ z by {
+    assume prem
+    have A: toNat(x + y) ≤ toNat(x + z) by apply toNat_less_equal[x+y,x+z] to prem
+    have B: toNat(x) + toNat(y) ≤ toNat(x) + toNat(z) by replace toNat_add in A
+    have C: toNat(y) ≤ toNat(z) by apply add_both_sides_of_less_equal to B
+    conclude y ≤ z by apply less_equal_toNat to C
+  }
+  have bkwd: if y ≤ z then x + y ≤ x + z by {
+    assume prem
+    have A: toNat(y) ≤ toNat(z) by apply toNat_less_equal[y,z] to prem
+    have B: toNat(x) + toNat(y) ≤ toNat(x) + toNat(z)
+      by apply add_both_sides_of_less_equal[toNat(x)] to A
+    have C: toNat(x + y) ≤ toNat(x + z) by {
+      replace toNat_add
+      B
+    }
+    conclude x + y ≤ x + z by apply less_equal_toNat to C
+  }
+  fwd, bkwd
+end
 
-postulate uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + y ≤ x + z) = (y ≤ z)
+theorem uint_add_both_sides_of_le_equal: all x:UInt. all y:UInt, z:UInt. (x + y ≤ x + z) = (y ≤ z)
+proof
+  arbitrary x:UInt
+  arbitrary y:UInt, z:UInt
+  apply iff_equal to uint_add_both_sides_of_less_equal[x][y, z]
+end
 
 auto uint_add_both_sides_of_le_equal
 
@@ -358,7 +386,11 @@ proof
   conclude false by apply nat_not_one_add_zero to eq3
 end
 
-postulate uint_zero_le_zero: all x:UInt. (if x ≤ 0 then x = 0)
+theorem uint_zero_le_zero: all x:UInt. (if x ≤ 0 then x = 0)
+proof
+  arbitrary x:UInt
+  uint_less_equal_zero
+end
 
 theorem uint_not_one_add_le_zero: all n:UInt.
   not (1 + n ≤ 0)
@@ -495,11 +527,31 @@ end
 
 auto uint_one_add_zero_false
 
-postulate uint_add_mono_less_equal: all a:UInt, b:UInt, c:UInt, d:UInt.
+theorem uint_add_mono_less_equal: all a:UInt, b:UInt, c:UInt, d:UInt.
   (if a ≤ c and b ≤ d then a + b ≤ c + d)
+proof
+  arbitrary a:UInt, b:UInt, c:UInt, d:UInt
+  assume prem
+  have ac: toNat(a) ≤ toNat(c) by apply toNat_less_equal to conjunct 0 of prem
+  have bd: toNat(b) ≤ toNat(d) by apply toNat_less_equal to conjunct 1 of prem
+  have A: toNat(a) + toNat(b) ≤ toNat(c) + toNat(d)
+    by apply add_mono_less_equal to ac, bd
+  have B: toNat(a + b) ≤ toNat(c + d) by replace toNat_add A
+  conclude a + b ≤ c + d by apply less_equal_toNat to B
+end
 
-postulate uint_add_mono_less: all a:UInt, b:UInt, c:UInt, d:UInt.
+theorem uint_add_mono_less: all a:UInt, b:UInt, c:UInt, d:UInt.
   (if a < c and b < d then a + b < c + d)
+proof
+  arbitrary a:UInt, b:UInt, c:UInt, d:UInt
+  assume prem
+  have ac: toNat(a) < toNat(c) by apply toNat_less to conjunct 0 of prem
+  have bd: toNat(b) < toNat(d) by apply toNat_less to conjunct 1 of prem
+  have A: toNat(a) + toNat(b) < toNat(c) + toNat(d)
+    by apply add_mono_less to ac, bd
+  have B: toNat(a + b) < toNat(c + d) by replace toNat_add A
+  conclude a + b < c + d by apply less_toNat to B
+end
 
 theorem uint_add_one_le_double: all x:UInt. if 0 < x then 1 + x ≤ x + x
 proof
