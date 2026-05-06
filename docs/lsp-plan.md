@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** not started.
+**Status:** Phase 1 in progress — Step 1 done.
 
 ## Goals
 
@@ -31,8 +31,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
 
 ## Phase 1 — usable MCP server
 
-- [ ] **Step 1: Library-mode entry point.** Refactor `deduce.py:deduce_file` so the pipeline can be called from another Python script and returns structured results. Keep the CLI as a thin wrapper.
+- [x] **Step 1: Library-mode entry point.** Refactor `deduce.py:deduce_file` so the pipeline can be called from another Python script and returns structured results. Keep the CLI as a thin wrapper.
   - *Acceptance:* `pytest` that runs the library API across `test/should-validate/` and `test/should-error/` and asserts the same outcomes the existing `test-deduce.py` harness produces.
+  - *Implementation:* `lsp/library.py` (`check_file`, `CheckResult`); CLI wrapper in `deduce.py`; one parser fix in `parser.py` (replace `print + exit` on parse error with `raise` so library callers aren't killed); 302-test pytest at `test/lsp/test_library.py`.
 
 - [ ] **Step 2: Query API surface, no implementations.** Create `lsp/query.py` with dataclasses and function stubs (`check`, `goal_at`, `definition_of`, `list_symbols`). Bodies raise `NotImplementedError`. Lock the contract.
   - *Acceptance:* import test verifying signatures. After this step, any change to `query.py` signatures requires explicit justification in the PR.

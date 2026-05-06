@@ -49,54 +49,57 @@ def init_parser():
 
 def parse_tree_to_str_list(e):
     if e.data == 'empty':
-        return tuple([])
+        return []
     elif e.data == 'single':
-        return tuple([str(e.children[0].value)])
+        return [str(e.children[0].value)]
     elif e.data == 'push':
-        return tuple([str(e.children[0].value)]) \
+        return [str(e.children[0].value)] \
             + parse_tree_to_str_list(e.children[1])
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
 def parse_tree_to_list(e, parent):
+    # Returns a list to match the recursive-descent parser's convention.
+    # The inner 2-tuples like (ident, typ) are paired data, not collections,
+    # and stay as tuples.
     if e.data == 'empty':
-        return tuple([])
+        return []
     elif e.data == 'single':
-        return tuple([parse_tree_to_ast(e.children[0], parent)])
+        return [parse_tree_to_ast(e.children[0], parent)]
     elif e.data == 'repeat':
         num = int(e.children[0])
         item = parse_tree_to_ast(e.children[1], parent)
-        return tuple(num * [item])
+        return num * [item]
     elif e.data == 'push':
-        return tuple([parse_tree_to_ast(e.children[0], parent)]) \
+        return [parse_tree_to_ast(e.children[0], parent)] \
             + parse_tree_to_list(e.children[1], parent)
     elif e.data == 'push_repeat':
         num = int(e.children[0])
         item = parse_tree_to_ast(e.children[1], parent)
         rest = parse_tree_to_list(e.children[2], parent)
-        return tuple(num * [item]) + rest
+        return num * [item] + rest
     elif e.data == 'empty_binding':
-        return tuple([])
+        return []
     elif e.data == 'single_binding':
         ident = parse_tree_to_ast(e.children[0], parent)
         typ = parse_tree_to_ast(e.children[1], parent)
-        return tuple([(ident,typ)])
+        return [(ident,typ)]
     elif e.data == 'single_anon_binding':
         typ = parse_tree_to_ast(e.children[0], parent)
-        return tuple([('_',typ)])
+        return [('_',typ)]
     elif e.data == 'single_var':
         ident = parse_tree_to_ast(e.children[0], parent)
-        return tuple([(ident,None)])
+        return [(ident,None)]
     elif e.data == 'push_binding':
         ident = parse_tree_to_ast(e.children[0], parent)
         typ = parse_tree_to_ast(e.children[1], parent)
-        return tuple([(ident,typ)]) + parse_tree_to_list(e.children[2], parent)
+        return [(ident,typ)] + parse_tree_to_list(e.children[2], parent)
     elif e.data == 'push_anon_binding':
         typ = parse_tree_to_ast(e.children[0], parent)
-        return tuple([('_',typ)]) + parse_tree_to_list(e.children[1], parent)
+        return [('_',typ)] + parse_tree_to_list(e.children[1], parent)
     elif e.data == 'push_var':
         ident = parse_tree_to_ast(e.children[0], parent)
-        return tuple([(ident,None)]) + parse_tree_to_list(e.children[1], parent)
+        return [(ident,None)] + parse_tree_to_list(e.children[1], parent)
     else:
         raise Exception('parse_tree_to_str_list, unexpected ' + str(e))
 
@@ -107,9 +110,9 @@ def parse_tree_to_case(e):
 
 def parse_tree_to_case_list(e):
     if e.data == 'single':
-        return (parse_tree_to_case(e.children[0]),)
+        return [parse_tree_to_case(e.children[0])]
     elif e.data == 'push':
-        return (parse_tree_to_case(e.children[0]),) \
+        return [parse_tree_to_case(e.children[0])] \
             + parse_tree_to_case_list(e.children[1])
     else:
         raise Exception('unrecognized as a type list ' + repr(e))
@@ -858,10 +861,13 @@ def parse(program_text, trace = False, error_expected = False):
       if error_expected:
           raise Exception()
       else:
-          print(get_filename() + ":" + str(t.token.line) + "." + str(t.token.column) \
-                + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": " \
-                + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n' \
-                + "(The error may be immediately before this token.)")
-
-          exit(1)
+          # Raise instead of print+exit so library/LSP callers can
+          # surface the message without their process being killed.
+          # The CLI in deduce.py catches this and prints str(e), which
+          # produces the same stdout the print() did before.
+          msg = (get_filename() + ":" + str(t.token.line) + "." + str(t.token.column)
+                 + "-" + str(t.token.end_line) + "." + str(t.token.end_column) + ": "
+                 + "error in parsing, unexpected token: " + token_str(t.token, program_text) + '\n'
+                 + "(The error may be immediately before this token.)")
+          raise Exception(msg)
         
