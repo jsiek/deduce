@@ -94,7 +94,13 @@ end
 
 associative operator* in UInt
 
-postulate fromNat_mult: all x:Nat, y:Nat. (fromNat(x * y) = fromNat(x) * fromNat(y))
+theorem fromNat_mult: all x:Nat, y:Nat. (fromNat(x * y) = fromNat(x) * fromNat(y))
+proof
+  arbitrary x:Nat, y:Nat
+  suffices toNat(fromNat(x * y)) = toNat(fromNat(x) * fromNat(y))
+    by uint_toNat_injective
+  replace toNat_mult | uint_toNat_fromNat.
+end
   
 theorem lit_mult_fromNat: all x:Nat, y:Nat.
   fromNat(lit(x)) * fromNat(lit(y)) = fromNat(lit(x) * lit(y))
@@ -114,7 +120,13 @@ end
 
 auto uint_zero_mult
 
-postulate uint_mult_zero: all n:UInt. n * 0 = 0
+theorem uint_mult_zero: all n:UInt. n * 0 = 0
+proof
+  arbitrary n:UInt
+  suffices toNat(n * 0) = toNat(0) by uint_toNat_injective
+  replace toNat_mult
+  evaluate
+end
 
 auto uint_mult_zero
 
@@ -150,18 +162,82 @@ proof
   replace dist_mult_add.
 end
 
-postulate uint_dist_mult_add_right:
+theorem uint_dist_mult_add_right:
   all x:UInt, y:UInt, a:UInt.
   (x + y) * a = x * a + y * a
+proof
+  arbitrary x:UInt, y:UInt, a:UInt
+  replace uint_mult_commute[x + y, a]
+        | uint_mult_commute[x, a]
+        | uint_mult_commute[y, a]
+  uint_dist_mult_add[a, x, y]
+end
 
-postulate uint_mult_to_zero: all n:UInt, m:UInt.
+theorem uint_mult_to_zero: all n:UInt, m:UInt.
   (if n * m = 0 then n = 0 or m = 0)
+proof
+  arbitrary n:UInt, m:UInt
+  assume prem: n * m = 0
+  have toNat_zero: toNat((0:UInt)) = zero by evaluate
+  have eq_nm_z: toNat(n) * toNat(m) = zero by {
+    have e: toNat(n * m) = zero by {
+      replace prem
+      toNat_zero
+    }
+    replace toNat_mult in e
+  }
+  have disj: toNat(n) = zero or toNat(m) = zero
+    by apply mult_to_zero[toNat(m), toNat(n)] to eq_nm_z
+  cases disj
+  case nz: toNat(n) = zero {
+    have nzz: toNat(n) = toNat((0:UInt)) by {
+      replace toNat_zero
+      nz
+    }
+    have n0: n = (0:UInt) by apply uint_toNat_injective to nzz
+    conclude n = 0 or m = 0 by n0
+  }
+  case mz: toNat(m) = zero {
+    have mzz: toNat(m) = toNat((0:UInt)) by {
+      replace toNat_zero
+      mz
+    }
+    have m0: m = (0:UInt) by apply uint_toNat_injective to mzz
+    conclude n = 0 or m = 0 by m0
+  }
+end
 
-postulate uint_two_mult: all n:UInt. 2 * n = n + n
+theorem uint_two_mult: all n:UInt. 2 * n = n + n
+proof
+  arbitrary n:UInt
+  suffices toNat(2 * n) = toNat(n + n) by uint_toNat_injective
+  replace toNat_mult | toNat_add
+  show toNat(2) * toNat(n) = toNat(n) + toNat(n)
+  have toNat_two: toNat((2:UInt)) = ℕ2 by evaluate
+  replace toNat_two | lit_two_mult.
+end
 
-postulate uint_mult_mono_le: (all n:UInt, x:UInt, y:UInt. (if x ≤ y then n * x ≤ n * y))
+theorem uint_mult_mono_le: all n:UInt, x:UInt, y:UInt. (if x ≤ y then n * x ≤ n * y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  assume xy: x ≤ y
+  have nxy: toNat(x) ≤ toNat(y) by apply toNat_less_equal to xy
+  suffices toNat(n * x) ≤ toNat(n * y) by less_equal_toNat
+  replace toNat_mult
+  apply mult_mono_le[toNat(n)] to nxy
+end
 
-postulate uint_mult_mono_le2 : all n : UInt, x : UInt, m:UInt, y : UInt. (if n ≤ m and x ≤ y then n * x ≤ m * y)
+theorem uint_mult_mono_le2: all n:UInt, x:UInt, m:UInt, y:UInt.
+  (if n ≤ m and x ≤ y then n * x ≤ m * y)
+proof
+  arbitrary n:UInt, x:UInt, m:UInt, y:UInt
+  assume prem
+  have nm: toNat(n) ≤ toNat(m) by apply toNat_less_equal to (conjunct 0 of prem)
+  have xy: toNat(x) ≤ toNat(y) by apply toNat_less_equal to (conjunct 1 of prem)
+  suffices toNat(n * x) ≤ toNat(m * y) by less_equal_toNat
+  replace toNat_mult
+  apply mult_mono_le2 to nm, xy
+end
 
 lemma inc_dub_add_mult2: all n:UInt. inc_dub(n) = 1 + 2 * n
 proof  
@@ -182,5 +258,16 @@ proof
   replace uint_toNat_fromNat.
 end
 
-postulate uint_pos_mult_both_sides_of_less : all n : UInt, x : UInt, y : UInt.
+theorem uint_pos_mult_both_sides_of_less: all n:UInt, x:UInt, y:UInt.
   (if 0 < n and x < y then n * x < n * y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  assume prem
+  have zn0: toNat((0:UInt)) < toNat(n) by apply toNat_less to (conjunct 0 of prem)
+  have toNat_zero: toNat((0:UInt)) = ℕ0 by evaluate
+  have zn: ℕ0 < toNat(n) by replace toNat_zero in zn0
+  have xy: toNat(x) < toNat(y) by apply toNat_less to (conjunct 1 of prem)
+  suffices toNat(n * x) < toNat(n * y) by less_toNat
+  replace toNat_mult
+  apply pos_mult_both_sides_of_less to zn, xy
+end
