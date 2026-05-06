@@ -120,7 +120,12 @@ class LoweringCtx:
         if isinstance(s, ast.Print):
             return ir.Print(self.lower_term(s.term))
         if isinstance(s, ast.Assert):
-            return self.lower_assert(s)
+            # Asserts have already been validated by `check_proofs`
+            # before lowering runs. Re-checking them at the compiled
+            # binary's startup is wasted work, and treating them as
+            # roots would force the prelude's many sanity-check asserts
+            # to drag in their dependencies. Drop them.
+            return None
         raise CompileError(
             getattr(s, "location", None),
             f"compiler does not yet support top-level: {type(s).__name__}",
@@ -198,19 +203,6 @@ class LoweringCtx:
             params=params,
             body=self.lower_term(r.body),
         )
-
-    def lower_assert(self, s: ast.Assert):
-        # `assert lhs = rhs` becomes a structural-equality check;
-        # everything else (incl. `assert b` for a bool b) becomes
-        # AssertBool.
-        f = s.formula
-        if isinstance(f, ast.Call) and isinstance(f.rator, ast.Var) \
-           and ast.base_name(f.rator.name) == "=" and len(f.args) == 2:
-            return ir.AssertEq(
-                self.lower_term(f.args[0]),
-                self.lower_term(f.args[1]),
-            )
-        return ir.AssertBool(self.lower_term(f))
 
     # ---- terms -------------------------------------------------------
 

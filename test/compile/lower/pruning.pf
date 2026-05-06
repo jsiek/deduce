@@ -1,0 +1,21 @@
+// Pruning fixture: only `used` and `print` are roots; `unused` and
+// `also_unused` should not survive the pruning pass.
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+recursive used(MyNat, MyNat) -> MyNat {
+  used(zero, m) = m
+  used(suc(n), m) = suc(used(n, m))
+}
+
+recursive unused(MyNat, MyNat) -> MyNat {
+  unused(zero, m) = m
+  unused(suc(n), m) = suc(unused(n, m))
+}
+
+define also_unused : MyNat = suc(suc(suc(zero)))
+
+print used(suc(zero), suc(suc(zero)))

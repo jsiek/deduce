@@ -23,15 +23,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from compiler import closure, ir, lower  # noqa: E402
+from compiler import closure, ir, lower, prune  # noqa: E402
 from lsp.library import check_file  # noqa: E402
 
 
 FIXTURE_DIR = ROOT / "test" / "compile" / "lower"
 
 
-def lower_file(path: Path) -> tuple[str, str]:
-    """Returns (post-lower IR, post-closure-conversion IR)."""
+def lower_file(path: Path) -> tuple[str, str, str]:
+    """Returns (post-lower IR, post-closure-conversion IR, post-prune IR)."""
     sys.argv = [str(ROOT / "deduce.py")]  # check_file looks at sys.argv[0]
     result = check_file(str(path), prelude=[])
     if not result.ok:
@@ -42,7 +42,10 @@ def lower_file(path: Path) -> tuple[str, str]:
     converted = closure.closure_convert(program)
     ir.verify(converted)
     converted_str = ir.pp_program(converted)
-    return lowered_str, converted_str
+    pruned = prune.prune(converted)
+    ir.verify(pruned)
+    pruned_str = ir.pp_program(pruned)
+    return lowered_str, converted_str, pruned_str
 
 
 def main() -> int:
@@ -60,12 +63,12 @@ def main() -> int:
     failures: list[str] = []
     for pf in fixtures:
         try:
-            lowered, converted = lower_file(pf)
+            lowered, converted, pruned = lower_file(pf)
         except Exception as e:
             failures.append(f"{pf.name}: lowering raised: {e}")
             continue
 
-        for stage, actual in (("ir", lowered), ("cir", converted)):
+        for stage, actual in (("ir", lowered), ("cir", converted), ("pir", pruned)):
             expect_path = pf.with_suffix("." + stage)
             if args.regenerate:
                 expect_path.write_text(actual)

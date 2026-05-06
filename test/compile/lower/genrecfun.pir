@@ -1,0 +1,5 @@
+union MyNat.47 {zero.48/0, suc.49/1}
+fn iszero.52(n.50) = match n.50 { | zero.48 -> true | suc.49(n'.51) -> false }
+fn pred.55(n.53) = match n.53 { | zero.48 -> zero.48 | suc.49(n'.54) -> n'.54 }
+fn count_down.69(n.70) = if iszero.52(n.70) then zero.48 else count_down.69(pred.55(n.70))
+print count_down.69(suc.49(suc.49(suc.49(zero.48))))
