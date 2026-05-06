@@ -345,7 +345,47 @@ proof
   }
 end
 
-postulate uint_not_less_equal_iff_greater: all x:UInt, y:UInt. not (x ≤ y) ⇔ (y < x)
+theorem uint_not_less_equal_iff_greater: all x:UInt, y:UInt. not (x ≤ y) ⇔ (y < x)
+proof
+  arbitrary x:UInt, y:UInt
+  have fwd: if not (x ≤ y) then y < x by {
+    assume nxy
+    have A: toNat(y) < toNat(x) or toNat(y) = toNat(x) or toNat(x) < toNat(y)
+      by trichotomy[toNat(y), toNat(x)]
+    cases A
+    case yx: toNat(y) < toNat(x) {
+      conclude y < x by apply less_toNat to yx
+    }
+    case yx: toNat(y) = toNat(x) {
+      have y_eq_x: y = x by apply uint_toNat_injective to yx
+      have x_le_y: x ≤ y by {
+        replace symmetric y_eq_x
+        uint_less_equal_refl[y]
+      }
+      conclude false by apply nxy to x_le_y
+    }
+    case nxlny: toNat(x) < toNat(y) {
+      have xy: x < y by apply less_toNat to nxlny
+      have x_le_y: x ≤ y by apply uint_less_implies_less_equal to xy
+      conclude false by apply nxy to x_le_y
+    }
+  }
+  have bkwd: if y < x then not (x ≤ y) by {
+    assume y_l_x
+    assume x_le_y
+    have x_l_y_or_eq: x < y or x = y by expand operator≤ in x_le_y
+    cases x_l_y_or_eq
+    case x_l_y: x < y {
+      have x_l_x: x < x by apply uint_less_trans to x_l_y, y_l_x
+      apply uint_less_irreflexive to x_l_x
+    }
+    case x_eq_y: x = y {
+      have y_l_y: y < y by replace x_eq_y in y_l_x
+      apply uint_less_irreflexive to y_l_y
+    }
+  }
+  fwd, bkwd
+end
 
 theorem uint_less_equal_trans: all x:UInt, y:UInt, z:UInt.
   if x ≤ y and y ≤ z
@@ -409,9 +449,18 @@ proof
   conclude fromNat(x) < fromNat(y) by apply less_toNat to A
 end
   
-postulate less_equal_fromNat: all x:Nat, y:Nat.
+theorem less_equal_fromNat: all x:Nat, y:Nat.
   if x ≤ y
   then fromNat(x) ≤ fromNat(y)
+proof
+  arbitrary x:Nat, y:Nat
+  assume x_y
+  have A: toNat(fromNat(x)) ≤ toNat(fromNat(y)) by {
+    replace uint_toNat_fromNat
+    x_y
+  }
+  conclude fromNat(x) ≤ fromNat(y) by apply less_equal_toNat to A
+end
   
 theorem uint_zero_or_positive: all x:UInt. x = 0 or 0 < x
 proof
@@ -449,7 +498,26 @@ proof
   }
 end
 
-postulate uint_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
+theorem uint_dichotomy:  all x:UInt, y:UInt.  x ≤ y  or  y < x
+proof
+  arbitrary x:UInt, y:UInt
+  have tri: x < y or x = y or y < x by uint_trichotomy[x,y]
+  cases tri
+  case x_l_y: x < y {
+    have x_le_y: x ≤ y by apply uint_less_implies_less_equal to x_l_y
+    conclude x ≤ y or y < x by x_le_y
+  }
+  case x_eq_y: x = y {
+    have x_le_y: x ≤ y by {
+      replace x_eq_y
+      uint_less_equal_refl[y]
+    }
+    conclude x ≤ y or y < x by x_le_y
+  }
+  case y_l_x: y < x {
+    conclude x ≤ y or y < x by y_l_x
+  }
+end
 
 theorem uint_less_implies_not_greater:
   all x:UInt, y:UInt.
@@ -464,12 +532,28 @@ proof
   conclude false by apply B to C
 end
 
-postulate uint_less_equal_antisymmetric:
-  all x:UInt, y:UInt. 
+theorem uint_less_equal_antisymmetric:
+  all x:UInt, y:UInt.
   (if x ≤ y and y ≤ x
   then x = y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  have xy: x ≤ y by prem
+  have yx: y ≤ x by prem
+  have nx_ny: toNat(x) ≤ toNat(y) by apply toNat_less_equal to xy
+  have ny_nx: toNat(y) ≤ toNat(x) by apply toNat_less_equal to yx
+  have eq: toNat(x) = toNat(y) by apply less_equal_antisymmetric to nx_ny, ny_nx
+  apply uint_toNat_injective to eq
+end
 
-postulate uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x ≤ y)
+theorem uint_equal_implies_less_equal: all x:UInt, y:UInt. (if x = y then x ≤ y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume eq
+  replace eq
+  uint_less_equal_refl[y]
+end
 
 theorem uint_zero_le: all x:UInt.
   0 ≤ x
@@ -494,11 +578,35 @@ proof
   uint_less_equal_bzero
 end
 
-postulate uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (lit(x) ≤ lit(y))
+theorem uint_lit_less_equal: all x:Nat, y:Nat. (fromNat(lit(x)) ≤ fromNat(lit(y))) = (lit(x) ≤ lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  suffices (fromNat(x) ≤ fromNat(y)) ⇔ (x ≤ y) by iff_equal
+  have fwd: if fromNat(x) ≤ fromNat(y) then x ≤ y by {
+    assume prem
+    have A: toNat(fromNat(x)) ≤ toNat(fromNat(y)) by apply toNat_less_equal to prem
+    replace uint_toNat_fromNat in A
+  }
+  have bkwd: if x ≤ y then fromNat(x) ≤ fromNat(y) by less_equal_fromNat
+  fwd, bkwd
+end
 
 auto uint_lit_less_equal
 
-postulate uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (lit(x) < lit(y))
+theorem uint_lit_less: all x:Nat, y:Nat. (fromNat(lit(x)) < fromNat(lit(y))) = (lit(x) < lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  expand lit
+  suffices (fromNat(x) < fromNat(y)) ⇔ (x < y) by iff_equal
+  have fwd: if fromNat(x) < fromNat(y) then x < y by {
+    assume prem
+    have A: toNat(fromNat(x)) < toNat(fromNat(y)) by apply toNat_less to prem
+    replace uint_toNat_fromNat in A
+  }
+  have bkwd: if x < y then fromNat(x) < fromNat(y) by less_fromNat
+  fwd, bkwd
+end
 
 auto uint_lit_less
 
@@ -562,8 +670,117 @@ proof
   uint_zero_max
 end
 
-postulate uint_max_assoc: all x:UInt, y:UInt,z:UInt. max(max(x, y), z) = max(x, max(y, z))
-postulate uint_max_equal_greater_right: all x:UInt, y:UInt. (if x ≤ y then max(x, y) = y)
-postulate uint_max_equal_greater_left: all x:UInt, y:UInt. (if y ≤ x then max(x, y) = x)
-postulate uint_max_less_equal: all x:UInt, y:UInt, z:UInt. (if x ≤ z and y ≤ z then max(x, y) ≤ z)
+theorem uint_max_assoc: all x:UInt, y:UInt,z:UInt. max(max(x, y), z) = max(x, max(y, z))
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  have yz: y < z or not (y < z) by ex_mid[y < z]
+  cases xy
+  case x_l_y: x < y {
+    cases yz
+    case y_l_z: y < z {
+      have x_l_z: x < z by apply uint_less_trans to x_l_y, y_l_z
+      expand max
+      simplify with x_l_y
+      simplify with y_l_z
+      simplify with x_l_z.
+    }
+    case not_y_l_z: not (y < z) {
+      expand max
+      simplify with x_l_y
+      simplify with not_y_l_z
+      simplify with x_l_y.
+    }
+  }
+  case not_x_l_y: not (x < y) {
+    cases yz
+    case y_l_z: y < z {
+      expand max
+      simplify with not_x_l_y
+      simplify with y_l_z.
+    }
+    case not_y_l_z: not (y < z) {
+      have y_le_x: y ≤ x by apply uint_not_less_implies_less_equal to not_x_l_y
+      have z_le_y: z ≤ y by apply uint_not_less_implies_less_equal to not_y_l_z
+      have z_le_x: z ≤ x by apply uint_less_equal_trans to z_le_y, y_le_x
+      have not_x_l_z: not (x < z) by {
+        assume x_l_z
+        have z_l_x_or_eq: z < x or z = x by expand operator≤ in z_le_x
+        cases z_l_x_or_eq
+        case z_l_x: z < x {
+          have x_l_x: x < x by apply uint_less_trans to x_l_z, z_l_x
+          apply uint_less_irreflexive to x_l_x
+        }
+        case z_eq_x: z = x {
+          have x_l_x: x < x by replace z_eq_x in x_l_z
+          apply uint_less_irreflexive to x_l_x
+        }
+      }
+      expand max
+      simplify with not_x_l_y
+      simplify with not_y_l_z
+      simplify with not_x_l_z
+      simplify with not_x_l_y.
+    }
+  }
+end
+
+theorem uint_max_equal_greater_right: all x:UInt, y:UInt. (if x ≤ y then max(x, y) = y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  expand max
+  have x_l_y_or_eq: x < y or x = y by expand operator≤ in prem
+  cases x_l_y_or_eq
+  case x_l_y: x < y {
+    simplify with x_l_y.
+  }
+  case x_eq_y: x = y {
+    have not_x_l_y: not (x < y) by {
+      replace x_eq_y
+      uint_less_irreflexive[y]
+    }
+    simplify with not_x_l_y
+    x_eq_y
+  }
+end
+
+theorem uint_max_equal_greater_left: all x:UInt, y:UInt. (if y ≤ x then max(x, y) = x)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  expand max
+  have y_l_x_or_eq: y < x or y = x by expand operator≤ in prem
+  cases y_l_x_or_eq
+  case y_l_x: y < x {
+    have not_x_l_y: not (x < y) by apply uint_less_implies_not_greater to y_l_x
+    simplify with not_x_l_y.
+  }
+  case y_eq_x: y = x {
+    have not_x_l_y: not (x < y) by {
+      replace y_eq_x
+      uint_less_irreflexive[x]
+    }
+    simplify with not_x_l_y.
+  }
+end
+
+theorem uint_max_less_equal: all x:UInt, y:UInt, z:UInt. (if x ≤ z and y ≤ z then max(x, y) ≤ z)
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  assume prem
+  expand max
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y
+    show y ≤ z
+    prem
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y
+    show x ≤ z
+    prem
+  }
+end
 
