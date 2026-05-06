@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 in progress — Step 1 done.
+**Status:** Phase 1 in progress — Steps 1–2 done.
 
 ## Goals
 
@@ -35,8 +35,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
   - *Acceptance:* `pytest` that runs the library API across `test/should-validate/` and `test/should-error/` and asserts the same outcomes the existing `test-deduce.py` harness produces.
   - *Implementation:* `lsp/library.py` (`check_file`, `CheckResult`); CLI wrapper in `deduce.py`; one parser fix in `parser.py` (replace `print + exit` on parse error with `raise` so library callers aren't killed); 302-test pytest at `test/lsp/test_library.py`.
 
-- [ ] **Step 2: Query API surface, no implementations.** Create `lsp/query.py` with dataclasses and function stubs (`check`, `goal_at`, `definition_of`, `list_symbols`). Bodies raise `NotImplementedError`. Lock the contract.
+- [x] **Step 2: Query API surface, no implementations.** Create `lsp/query.py` with dataclasses and function stubs (`check`, `goal_at`, `definition_of`, `list_symbols`). Bodies raise `NotImplementedError`. Lock the contract.
   - *Acceptance:* import test verifying signatures. After this step, any change to `query.py` signatures requires explicit justification in the PR.
+  - *Implementation:* `lsp/query.py` with 9 frozen dataclasses/enums (`Position`, `Range`, `Location`, `Diagnostic`, `Given`, `Goal`, `SymbolInfo`, `Severity`, `SymbolKind`) and 4 stub functions; `__all__` declared. `test/lsp/test_query.py` (21 tests) locks signatures, parameter names, return annotations, frozen-ness, `__all__` membership, stub-raises behavior, and statically asserts no protocol imports (`pygls`/`mcp`/`lsprotocol`/`anthropic`). Position convention: 1-indexed (matches Deduce error messages and lark Meta).
 
 - [ ] **Step 3: Implement `check`.** Convert raised `Exception` / `StaticError` / `IncompleteProof` into `Diagnostic` objects. Single-diagnostic mode is fine; multi-error collection is Step 10.
   - *Acceptance:* parallel to `test/should-error/*.pf.err` — assert each fixture produces a `Diagnostic` with the right line/severity.
