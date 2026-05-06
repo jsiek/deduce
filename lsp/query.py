@@ -195,10 +195,50 @@ def check(path: str, content: str) -> list[Diagnostic]:
     on the first error, so today the list will have at most one entry;
     Step 11 (multi-error collection) will lift that limit without
     changing this signature.
-
-    Implemented in Step 3.
     """
-    raise NotImplementedError("Step 3 implements check.")
+    # Imported here, not at module top, so this module stays free of
+    # any pipeline import while it is just a stub at module-load time.
+    # That keeps the protocol-neutral boundary cheap to enforce.
+    from lsp.library import check_file
+
+    result = check_file(path, content=content)
+    if result.ok:
+        return []
+
+    return [_diagnostic_from_exception(result.exception, str_fallback=result.error_message)]
+
+
+def _diagnostic_from_exception(
+    exc: Optional[BaseException], str_fallback: Optional[str]
+) -> Diagnostic:
+    """Build a Diagnostic from an exception raised by the pipeline.
+
+    Reads ``exc.location`` and ``exc.message_body`` if present
+    (attached by ``error.py`` for all error/incomplete/static/match/
+    parse errors). Falls back to ``str_fallback`` plus a sentinel
+    range when the exception is unstructured -- which only happens
+    for unexpected internal exceptions.
+    """
+    sentinel = Range(Position(1, 1), Position(1, 1))
+
+    if exc is None:
+        # Should not happen in practice; defensive fallback.
+        return Diagnostic(Severity.ERROR, sentinel, str_fallback or "unknown error")
+
+    location = getattr(exc, "location", None)
+    if location is not None and not getattr(location, "empty", True):
+        rng = Range(
+            start=Position(location.line, location.column),
+            end=Position(location.end_line, location.end_column),
+        )
+    else:
+        rng = sentinel
+
+    body = getattr(exc, "message_body", None)
+    if body is None:
+        body = str_fallback if str_fallback is not None else str(exc)
+
+    return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
 
 
 def goal_at(path: str, content: str, pos: Position) -> Optional[Goal]:

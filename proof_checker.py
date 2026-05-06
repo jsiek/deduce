@@ -23,7 +23,7 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed
+from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
 
 imported_modules = set()
@@ -50,20 +50,20 @@ def check_implies(loc, frm1, frm2):
         for arg2 in args:
           check_implies(loc, frm1, arg2)
       except Exception as e:
-          msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+          context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
               + '\nimplies\n'\
               + '\t' + str(frm2)
-          raise Exception(msg)
-        
+          raise wrap_error(e, context) from e
+
     case(Or(loc1, tyof1, args1), _):
       for arg1 in args1:
         try:
           check_implies(loc, arg1, frm2)
         except Exception as e:
-          msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+          context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
               + '\nimplies\n'\
               + '\t' + str(frm2)
-          raise Exception(msg)
+          raise wrap_error(e, context) from e
       
     case (Bool(loc2, tyof2, False), _):
       return
@@ -111,21 +111,21 @@ def check_implies(loc, frm1, frm2):
         check_implies(loc, prem2, prem1)
         check_implies(loc, conc1, conc2)
       except Exception as e:
-        msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+        context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
             + '\nimplies\n'\
             + '\t' + str(frm2)
-        raise Exception(msg)
-      
+        raise wrap_error(e, context) from e
+
     case (All(loc1, tyof1, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
       try:
           sub = { var2[0]: Var(loc2, var1[1], var1[0], []) }
           body2a = body2.substitute(sub)
           check_implies(loc, body1, body2a)
       except Exception as e:
-        msg = str(e) + '\n\nWhile trying to prove that\n\t' + str(frm1) \
+        context = '\n\nWhile trying to prove that\n\t' + str(frm1) \
             + '\nimplies\n'\
             + '\t' + str(frm2)
-        raise Exception(msg)
+        raise wrap_error(e, context) from e
 
     case (All(loc1, tyof1, vars1, _, body1), _):
        matching = {}
@@ -1293,7 +1293,7 @@ def check_proof_of(proof, formula, env):
             try:
               check_implies(loc, red_claim, new_formula)
             except Exception as e:
-              raise Exception(str(e) + '\nGivens:\n' + env.proofs_str())
+              raise wrap_error(e, '\nGivens:\n' + env.proofs_str()) from e
             check_proof_of(rest, new_claim, env)
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
@@ -1639,14 +1639,14 @@ def check_proof_of(proof, formula, env):
       except IncompleteProof as e:
         raise e
       except Exception as e:
-        msg = str(e)
         # It could be that form is never reduced, such as in a PHelpUse
         # In that case, we don't give 'replace' advice
-        try: 
-          if is_equation(form_red): 
-            msg += '\nDid you mean `replace ' + str(proof) + '`?'
+        replace_advice = ''
+        try:
+          if is_equation(form_red):
+            replace_advice = '\nDid you mean `replace ' + str(proof) + '`?'
         finally:
-          raise(Exception(msg))
+          raise wrap_error(e, replace_advice) from e
 
 
 def expand_definitions(loc, formula, defs, env):
@@ -1814,12 +1814,12 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
             type_match(loc, type_params, param_type, new_arg.typeof, matching)
           new_args.append(new_arg)
     except Exception as e:
-        new_msg = str(e) + '\n\n\t' + 'in context of call ' + str(call) + '\n' \
+        context = '\n\n\t' + 'in context of call ' + str(call) + '\n' \
             + '\tfunction type: ' + str(FunctionType(loc, typarams, param_types,
                                                      return_type)) + '\n' \
             + '\tinferred type arguments: ' \
             + ', '.join([base_name(x) + ' := ' + str(ty) for (x,ty) in matching.items()])
-        raise Exception(new_msg)
+        raise wrap_error(e, context) from e
     
     # Were all the type parameters deduced?
     for x in typarams:

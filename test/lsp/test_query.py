@@ -171,12 +171,9 @@ def test_list_symbols_signature():
 
 # --------------------------------------------------------------------------
 # Stubs raise NotImplementedError until the dedicated step lands
+# (``check`` is now implemented; its acceptance test lives in
+# ``test_check.py``).
 # --------------------------------------------------------------------------
-
-
-def test_check_stub_raises():
-    with pytest.raises(NotImplementedError):
-        check("file.pf", "")
 
 
 def test_goal_at_stub_raises():
