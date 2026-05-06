@@ -93,30 +93,39 @@ check_closest_kwd = False
 
 def parse(program_text, trace = False, error_expected = False):
   global token_list, current_position, check_closest_kwd
-  lexed = lark_parser.lex(program_text)
-  token_list = []
-  current_position = 0
-  for token in lexed:
-    if trace:
-      print(repr(token))
-    token_list.append(token)
+  try:
+    lexed = lark_parser.lex(program_text)
+    token_list = []
+    current_position = 0
+    for token in lexed:
+      if trace:
+        print(repr(token))
+      token_list.append(token)
 
-  stmts = []
-  while not end_of_file():
-    try:
-      stmt = parse_statement()
-    except ParseError as e:
-      if not check_closest_kwd:
-        check_closest_kwd = True
-        parse(program_text, trace, error_expected)
-      else:
+    stmts = []
+    while not end_of_file():
+      try:
+        stmt = parse_statement()
+      except ParseError as e:
+        if not check_closest_kwd:
+          check_closest_kwd = True
+          parse(program_text, trace, error_expected)
+        else:
+          raise e
+      except Exception as e:
         raise e
-    except Exception as e:
-      raise e
 
-        
-    stmts.append(stmt)
-  return stmts
+
+      stmts.append(stmt)
+    return stmts
+  finally:
+    # check_closest_kwd is set to True when a first-pass parse error
+    # triggers a "did you mean" retry. Without this reset, the True
+    # value leaks into subsequent parses (e.g. of imported library
+    # files in library mode) and produces spurious keyword-closeness
+    # suggestions. The CLI never noticed because each invocation is
+    # a fresh process.
+    check_closest_kwd = False
 
 
 def parse_identifier():

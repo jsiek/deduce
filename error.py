@@ -51,6 +51,11 @@ def error(location, msg):
   exc = Exception(error_header(location) + msg)
   # exc = Exception(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
   exc.depth = 0
+  # Attach structured fields so library/LSP/MCP callers can build
+  # Diagnostic objects without regex-parsing str(exc). The CLI ignores
+  # these attributes; existing print(str(exc)) output is unchanged.
+  exc.location = location
+  exc.message_body = msg
   raise exc
 
 class IncompleteProof(Exception):
@@ -59,24 +64,57 @@ class IncompleteProof(Exception):
 def incomplete_error(location, msg):
   exc = IncompleteProof(error_header(location) + msg)
   exc.depth = 0
+  exc.location = location
+  exc.message_body = msg
   raise exc
 
 def warning(location, msg):
   print(error_header(location) + msg)
 
+def wrap_error(inner, context):
+  """Return a new Exception that re-raises ``inner`` with ``context``
+  appended to the message, preserving the structured ``location`` and
+  ``message_body`` attributes set by error()/incomplete_error()/
+  static_error()/match_failed().
+
+  Callers that catch a structured exception and want to add trailing
+  context should use this helper instead of ``raise Exception(str(e)
+  + context)`` -- the bare-Exception form drops the location, which
+  the LSP/MCP query API needs for Diagnostic.range.
+
+  ``str()`` of the returned exception equals ``str(inner) + context``,
+  so user-visible error text (and the should-error/*.pf.err fixtures)
+  is unchanged.
+  """
+  new_exc = Exception(str(inner) + context)
+  inner_loc = getattr(inner, 'location', None)
+  if inner_loc is not None:
+    new_exc.location = inner_loc
+  inner_body = getattr(inner, 'message_body', None)
+  if inner_body is None:
+    inner_body = str(inner)
+  new_exc.message_body = inner_body + context
+  return new_exc
+
 class StaticError(Exception):
   pass
 
 def static_error(location, msg):
-  raise StaticError(error_header(location) + msg)
+  exc = StaticError(error_header(location) + msg)
   # raise StaticError(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
+  exc.location = location
+  exc.message_body = msg
+  raise exc
 
 class MatchFailed(Exception):
   pass
 
 def match_failed(location, msg):
-  raise MatchFailed(error_header(location) + msg)
+  exc = MatchFailed(error_header(location) + msg)
   # raise MatchFailed(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
+  exc.location = location
+  exc.message_body = msg
+  raise exc
 
 MAX_ERR_DEPTH = 2
 
@@ -89,6 +127,12 @@ class ParseError(Exception):
     self.missing = missing
     self.last = last
     self.trace = []
+    # Aliases that match the attribute names attached to Exception by
+    # error()/incomplete_error()/static_error()/match_failed(), so the
+    # query API can read e.location / e.message_body uniformly across
+    # exception types.
+    self.location = loc
+    self.message_body = msg
 
   def extend(self, loc, msg):
     self.trace.append(ParseError(loc, msg))

@@ -46,6 +46,10 @@ class CheckResult:
         error_traceback:  Full Python traceback at the point of failure,
                           for callers that want it (e.g. ``--traceback``).
                           ``None`` when ``ok`` is True.
+        exception:        The raised exception object, preserved so
+                          structured callers (``lsp.query.check``) can
+                          read ``e.location`` / ``e.message_body``
+                          without re-parsing strings. ``None`` when ok.
         module_name:      Module name derived from the filename
                           (``Path(filename).stem``).
         ast:              Post-uniquify AST. Populated on success and on
@@ -57,6 +61,7 @@ class CheckResult:
     ok: bool
     error_message: Optional[str]
     error_traceback: Optional[str]
+    exception: Optional[BaseException]
     module_name: str
     ast: Optional[Any]
 
@@ -65,6 +70,7 @@ def check_file(
     filename: str,
     tracing_functions: Sequence[str] = (),
     prelude: Sequence[str] = (),
+    content: Optional[str] = None,
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
 
@@ -78,6 +84,13 @@ def check_file(
         prelude:            Module names to import as a private prelude
                             in front of the file. Pass ``[]`` for no
                             prelude (matches ``--no-stdlib``).
+        content:            If given, parsed instead of reading
+                            ``filename`` from disk. Use this to check
+                            an unsaved editor buffer. ``filename`` is
+                            still used for import resolution and
+                            error messages. Bypasses the
+                            ``uniquified_modules`` cache, since the
+                            cached AST corresponds to disk content.
     """
     module_name = Path(filename).stem
     if get_verbose():
@@ -86,11 +99,18 @@ def check_file(
     ast: Optional[Any] = None
     try:
         cached = get_uniquified_modules()
-        if module_name in cached:
+        # The cache is keyed by module name and corresponds to a
+        # specific on-disk state. When the caller passes in-memory
+        # content, the cache may be stale, so we bypass it and re-parse.
+        use_cache = content is None
+        if use_cache and module_name in cached:
             ast = cached[module_name]
         else:
-            with open(filename, "r", encoding="utf-8") as f:
-                program_text = f.read()
+            if content is None:
+                with open(filename, "r", encoding="utf-8") as f:
+                    program_text = f.read()
+            else:
+                program_text = content
 
             deduce_dir = os.path.dirname(sys.argv[0])
             if get_recursive_descent():
@@ -115,13 +135,15 @@ def check_file(
                 ast = imports + ast
 
             uniquify_deduce(ast)
-            add_uniquified_module(module_name, ast)
+            if use_cache:
+                add_uniquified_module(module_name, ast)
 
         check_deduce(ast, module_name, True, list(tracing_functions))
         return CheckResult(
             ok=True,
             error_message=None,
             error_traceback=None,
+            exception=None,
             module_name=module_name,
             ast=ast,
         )
@@ -130,6 +152,7 @@ def check_file(
             ok=False,
             error_message=str(e),
             error_traceback=_traceback.format_exc(),
+            exception=e,
             module_name=module_name,
             ast=ast,
         )
