@@ -164,6 +164,7 @@ The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyw
 <!-- buttons -->
 [Reference Manual](./pages/reference.html)
 [Cheat Sheet](./pages/cheat-sheet.html)
+[Tactics Cheat Sheet](./pages/tactics-cheat-sheet.html)
 <!-- end buttons -->
 <!-- end block -->
 <!-- end section -->

@@ -80,6 +80,10 @@ Per `docs/knowledge-base/what-to-update.md`, a syntax change touches: `Deduce.la
 
 `lib/README.md`: theorem names are lowercase snake_case; first word is the type (`uint`, `nat`, `list`, …), second the main operator/function, third the secondary one if any, then a descriptor.
 
+## Writing proofs
+
+When the task is to write or modify a `.pf` proof, read [`gh_pages/doc/TacticsCheatSheet.md`](gh_pages/doc/TacticsCheatSheet.md) first — it lists every tactic with a one-line meaning and documents the syntactic pitfalls (auto-rule goal collapse, `lemma` privacy, `replace` direction, `ℕ0`/`zero` non-unification, conjunction destructuring with `conjunct N of`, etc.) that otherwise have to be discovered by trial. The companion [`gh_pages/doc/CheatSheet.md`](gh_pages/doc/CheatSheet.md) gives goal-shape-keyed strategy advice; [`gh_pages/doc/Reference.md`](gh_pages/doc/Reference.md) is the long-form reference manual.
+
 ## Profiling
 
 `./profile.sh file.pf` runs cProfile + gprof2dot and opens a PNG (requires `dot`).
