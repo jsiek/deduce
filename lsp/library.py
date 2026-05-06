@@ -109,12 +109,10 @@ def check_file(
                 )
 
             if len(prelude) > 0:
-                # The LALR parser returns a tuple here while the recursive
-                # descent parser returns a list, so coerce before concat.
                 imports = [
                     Import(Meta(), name, visibility="private") for name in prelude
                 ]
-                ast = imports + list(ast)
+                ast = imports + ast
 
             uniquify_deduce(ast)
             add_uniquified_module(module_name, ast)
