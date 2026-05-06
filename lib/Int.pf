@@ -138,19 +138,39 @@ end
 
 auto lit_add_lit_pos
 
-postulate lit_add_pos_negsuc_suc: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(suc(x)))) = pos(fromNat(lit(y))) + negsuc(fromNat(lit(x)))
+theorem lit_add_pos_negsuc_suc: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(suc(x)))) = pos(fromNat(lit(y))) + negsuc(fromNat(lit(x)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+
+  suc_uint_monuso[fromNat(lit(y)), fromNat(lit(suc(x)))]
+end
 
 auto lit_add_pos_negsuc_suc
 
-postulate lit_add_negsuc_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(suc(x)))) + pos(fromNat(lit(suc(y)))) = negsuc(fromNat(lit(x))) + pos(fromNat(lit(y)))
+theorem lit_add_negsuc_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(suc(x)))) + pos(fromNat(lit(suc(y)))) = negsuc(fromNat(lit(x))) + pos(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+
+  suc_uint_monuso[fromNat(lit(y)), fromNat(lit(suc(x)))]
+end
 
 auto lit_add_negsuc_pos_suc
 
-postulate lit_add_pos_suc_negsuc_zero: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(zero))) = pos(fromNat(lit(y)))
+theorem lit_add_pos_suc_negsuc_zero: all x:Nat, y:Nat. pos(fromNat(lit(suc(y)))) + negsuc(fromNat(lit(zero))) = pos(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+
+  transitive suc_uint_monuso[fromNat(lit(y)), 0] int_monuso_zero[fromNat(lit(y))]
+end
 
 auto lit_add_pos_suc_negsuc_zero
 
-postulate lit_add_negsuc_zero_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(zero))) + pos(fromNat(lit(suc(y)))) = pos(fromNat(lit(y)))
+theorem lit_add_negsuc_zero_pos_suc: all x:Nat, y:Nat. negsuc(fromNat(lit(zero))) + pos(fromNat(lit(suc(y)))) = pos(fromNat(lit(y)))
+proof
+  arbitrary x:Nat, y:Nat
+  expand operator+
+  transitive suc_uint_monuso[fromNat(lit(y)), 0] int_monuso_zero[fromNat(lit(y))]
+end
 
 auto lit_add_negsuc_zero_pos_suc
 
