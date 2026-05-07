@@ -26,3 +26,6 @@ actual_error.tmp
 
 # Generated deduce profile image
 profile.png
+
+# Emacs byte-compiled files
+*.elc
