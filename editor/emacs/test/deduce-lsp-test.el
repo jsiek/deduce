@@ -674,6 +674,29 @@ content when the request is processed."
                      "buffer content for the test")))))
 
 
+(ert-deftest deduce-lsp/current-uri-resolves-symlinks ()
+  "`deduce-lsp--current-uri' uses `file-truename' so the URI
+matches what eglot's didOpen registered.  Without this, files
+opened via a symlinked path (e.g. `/tmp' -> `/private/tmp' on
+macOS) would land under one URI in pygls's workspace and be
+queried under another, surfacing as `KeyError' on every
+request."
+  (let ((tmpdir (make-temp-file "deduce-lsp-symlink" t)))
+    (unwind-protect
+        (let* ((real-target (expand-file-name "real.pf" tmpdir))
+               (symlink-path (expand-file-name "alias.pf" tmpdir)))
+          (with-temp-file real-target (insert "x"))
+          (make-symbolic-link real-target symlink-path)
+          (with-temp-buffer
+            ;; Visit via the symlink path.
+            (setq buffer-file-name symlink-path)
+            (let ((uri (deduce-lsp--current-uri)))
+              ;; URI must point at the *target*, not the symlink.
+              (should (string-suffix-p "/real.pf" uri))
+              (should-not (string-suffix-p "/alias.pf" uri)))))
+      (delete-directory tmpdir t))))
+
+
 (ert-deftest deduce-lsp/sync-buffer-version-monotonic ()
   "Each `deduce-lsp--sync-buffer' bumps `deduce-lsp--didChange-version',
 so successive notifications carry strictly increasing version

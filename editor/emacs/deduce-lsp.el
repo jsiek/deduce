@@ -194,13 +194,16 @@ unless `deduce-lsp-auto-start' is nil."
 (defun deduce-lsp--current-uri ()
   "Return the LSP URI for the current buffer's file.
 
-Errors out if the buffer isn't visiting a file.  Builds a
-`file://' URI by hand: eglot's URI helpers are private, and the
-underlying construction is simple enough that depending on them
-isn't worth it for ASCII paths."
+Errors out if the buffer isn't visiting a file.  Resolves
+symlinks via `file-truename' so the URI matches what eglot uses
+when it sends `textDocument/didOpen' -- otherwise pygls keys its
+workspace under the truename URI and our requests (using a
+non-resolved path) hit `KeyError'.  This bites on macOS where
+`/tmp' is a symlink to `/private/tmp', and on any system where
+the user opens a file via a symlinked path."
   (let ((path (or buffer-file-name
                   (user-error "Buffer is not visiting a file"))))
-    (concat "file://" (expand-file-name path))))
+    (concat "file://" (file-truename path))))
 
 
 (defun deduce-lsp--current-position ()
