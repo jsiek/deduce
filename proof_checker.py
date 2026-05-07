@@ -2450,15 +2450,13 @@ def type_check_term(term, typ, env, recfun, subterms):
       return new_term
   
 def lookup_union(loc, typ, env):
-  tyname = None
+  if isinstance(typ, VarRef):
+    return env.get_def_of_type_var(typ)
   match typ:
-    case OverloadedVar(loc2, vty, rs):
-      tyname = typ
     case TypeInst(loc2, inst_typ, tyargs):
-      tyname = inst_typ
+      return env.get_def_of_type_var(inst_typ)
     case _:
       error(loc, 'expected a union type but instead got ' + str(typ))
-  return env.get_def_of_type_var(tyname)
 
 def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
   if get_verbose():

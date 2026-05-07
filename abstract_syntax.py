@@ -1127,44 +1127,37 @@ def is_match(pattern, arg, subst):
         match arg:
           case Bool(loc2, tyof, arg_value):
             ret = arg_value == value
-          case OverloadedVar(loc2, ty2, rs2):
+          case _ if isinstance(arg, VarRef):
             ret = False
           case _:
             error(loc1, 'Boolean pattern expected boolean argument, not\n\t' \
                   + str(arg))
       case PatternCons(loc1, constr, []):
-        match arg:
-          case OverloadedVar(loc2, ty2, rs2):
-            ret = constr == arg
-          case TermInst(loc3, tyof, arg2, tyargs):
-            ret = is_match(pattern, arg2, subst)
-          case _:
-            ret = False
-        
+        if isinstance(arg, VarRef):
+          ret = constr == arg
+        else:
+          match arg:
+            case TermInst(loc3, tyof, arg2, tyargs):
+              ret = is_match(pattern, arg2, subst)
+            case _:
+              ret = False
+
       case PatternCons(loc1, constr, params):
         match arg:
           case Call(loc2, cty, rator, args):
-            match rator:
-              case OverloadedVar(loc3, ty3, rs):
-                if constr == OverloadedVar(loc3, ty3, rs) and len(params) == len(args):
-                    for (k,v) in zip(params, args):
-                        subst[k] = v
-                        if isinstance(v, TermInst):
-                          v.inferred = False
-                    ret = True
-                else:
-                    ret = False
-              case TermInst(loc4, tyof, OverloadedVar(loc3, ty3, rs), tyargs):
-                if constr == OverloadedVar(loc3, ty3, rs) and len(params) == len(args):
-                    for (k,v) in zip(params, args):
-                        subst[k] = v
-                        if isinstance(v, TermInst):
-                          v.inferred = False
-                    ret = True
-                else:
-                    ret = False
-              case _:
-                ret = False
+            # `rator` may be a (possibly term-instantiated) VarRef.
+            inner = rator
+            if isinstance(inner, TermInst):
+              inner = inner.subject
+            if isinstance(inner, VarRef) \
+               and constr == inner and len(params) == len(args):
+              for (k, v) in zip(params, args):
+                subst[k] = v
+                if isinstance(v, TermInst):
+                  v.inferred = False
+              ret = True
+            else:
+              ret = False
           case _:
             ret = False
       case _:
@@ -4238,7 +4231,7 @@ def equation_vars(formula):
       
 def is_equation(formula):
   match formula:
-    case Call(loc1, tyof, OverloadedVar(loc2, tyof2, rs2), [L, R]):
+    case Call(loc1, tyof, (OverloadedVar() | ResolvedVar()), [L, R]):
       return True
     case All(loc1, tyof, var, pos, body):
       return is_equation(body)
@@ -4479,18 +4472,18 @@ def is_constructor(constr_name, env):
   return False
 
 def is_constr_term(term, env):
+  if isinstance(term, VarRef):
+    return is_constructor(term.get_name(), env)
   match term:
-    case OverloadedVar(loc, ty, rs):
-      return is_constructor(n, env)
     case TermInst(loc, ty, body):
       return is_constr_term(body, env)
     case _:
       return False
 
 def constr_name(term):
+  if isinstance(term, VarRef):
+    return term.get_name()
   match term:
-    case OverloadedVar(loc, ty, rs):
-      return n
     case TermInst(loc, ty, body):
       return constr_name(body)
     case _:
@@ -5256,7 +5249,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return TermInst(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth - 1),
                       tyargs, inferred)
-    case OverloadedVar(loc2, tyof, resolved_names):
+    case OverloadedVar() | ResolvedVar() | Var():
       return formula
     case Bool(loc2, tyof, val):
       return formula
@@ -5404,10 +5397,11 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
     case (_, TermInst(loc2, tyof, subject, tyargs, inferred)):
       formula_match(loc, vars, pattern_frm, subject, matching, env)
       
-    case (OverloadedVar(l1, t1, rs1), OverloadedVar(l2, t2, rs2)) if rs1[0] == rs2[0]:
+    case _ if isinstance(pattern_frm, VarRef) and isinstance(frm, VarRef) \
+              and pattern_frm.get_name() == frm.get_name():
       pass
-    case (OverloadedVar(l1, t1, rs1), _) if pattern_frm in vars:
-      tyvar_name = rs1[0]
+    case _ if isinstance(pattern_frm, VarRef) and pattern_frm in vars:
+      tyvar_name = pattern_frm.get_name()
       if tyvar_name in matching.keys():
         formula_match(loc, vars, matching[tyvar_name], frm, matching, env)
       else:
