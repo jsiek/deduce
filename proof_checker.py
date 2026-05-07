@@ -4340,7 +4340,7 @@ def find_rec_calls(name, term, env):
   match term:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return find_rec_calls(name, subject, env)
-    case OverloadedVar(loc2, tyof, resolved_names):
+    case Var() | OverloadedVar() | ResolvedVar():
       return []
     case Bool(loc2, tyof, val):
       return []
@@ -4409,7 +4409,8 @@ def find_rec_calls(name, term, env):
     case Omitted(loc2, tyof):
       return []
     case _:
-      error(loc, 'in find_rec_calls, unhandled ' + str(term))
+      error(getattr(term, 'location', None),
+            'in find_rec_calls, unhandled ' + str(term))
     
 
 def check_proofs(stmt, env: Env):

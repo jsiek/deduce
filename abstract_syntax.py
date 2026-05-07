@@ -3772,19 +3772,19 @@ class RecFun(Declaration):
     return indent*' ' + ret 
 
   def __eq__(self, other):
-    if isinstance(other, Var):
-      result = self.name == other.name
-      #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
-      return result
+    if isinstance(other, ResolvedVar):
+      return self.name == other.name
+    elif isinstance(other, OverloadedVar):
+      return self.name == other.resolved_names[0]
+    elif isinstance(other, Var):
+      return self.name == other.name
     elif isinstance(other, TermInst):
       return self == other.subject
     elif isinstance(other, RecFun):
-      result = self.name == other.name
-      #print(str(self) + ' =? ' + str(other) + ' = ' + str(result))
-      return result
+      return self.name == other.name
     else:
       return False
-  
+
   def reduce(self, env):
     return self
 
@@ -3886,14 +3886,16 @@ class GenRecFun(Declaration):
       
 
   def __eq__(self, other):
-    if isinstance(other, Var):
-      result = self.name == other.name
-      return result
+    if isinstance(other, ResolvedVar):
+      return self.name == other.name
+    elif isinstance(other, OverloadedVar):
+      return self.name == other.resolved_names[0]
+    elif isinstance(other, Var):
+      return self.name == other.name
     elif isinstance(other, TermInst):
       return self == other.subject
     elif isinstance(other, GenRecFun):
-      result = self.name == other.name
-      return result
+      return self.name == other.name
     else:
       return False
   
@@ -4383,7 +4385,7 @@ def isInt(t):
 def getZero(t):
   match t:
     case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'zero':
-      return rs[0]
+      return n
     case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
       if base_name(n) == 'suc':
       return getZero(arg)
@@ -4396,7 +4398,7 @@ def getSuc(t):
       return False
     case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
       if base_name(n) == 'suc':
-      return rs[0]
+      return n
     case _:
       return False
 
