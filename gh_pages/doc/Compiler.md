@@ -23,33 +23,35 @@ This page walks through how to use it.
 Save this file as `hello.pf`:
 
 ```deduce
-union MyNat {
-  zero
-  suc(MyNat)
-}
+import Nat
 
-recursive add(MyNat, MyNat) -> MyNat {
-  add(zero, m) = m
-  add(suc(n), m) = suc(add(n, m))
-}
-
-print add(suc(zero), suc(suc(zero)))
+print ℕ1 + ℕ2
 ```
 
 Compile it to C, then build and run the binary. From the Deduce
 checkout:
 
 ```
-$ python3 deduce.py --compile --no-stdlib hello.pf
+$ python3 deduce.py --compile hello.pf
 $ cc -I compiler/runtime -o hello hello.c compiler/runtime/deduce.c
 $ ./hello
 suc(suc(suc(zero)))
 ```
 
 That's it. The `--compile` flag tells Deduce to write a `.c` file
-next to the source instead of just type-checking it. The C code links
-against the small runtime in `compiler/runtime/`, which provides the
-allocator, value tags, and pretty-printer.
+next to the source instead of just type-checking it. The standard
+library is auto-imported (the `import Nat` line gives the file
+access to `+` on `Nat`), and the generated C inlines whatever the
+program actually uses — see [the prelude
+section](#programs-that-use-the-standard-library).
+
+The C code links against the small runtime in `compiler/runtime/`,
+which provides the allocator, value tags, and pretty-printer.
+
+> **Why `suc(suc(suc(zero)))` and not `3`?** Deduce's `Nat` is the
+> Peano numeral: `1 + 2` reduces to `suc(suc(suc(zero)))`. For
+> performance-sensitive arithmetic use `UInt` or `Int` instead — see
+> [Performance notes](#performance-notes).
 
 ## The CLI flags
 
@@ -60,7 +62,7 @@ Compile-related flags on `python3 deduce.py`:
 | `--compile` | Compile the `.pf` file to C instead of just checking it. The output goes to a sibling `.c` file by default. |
 | `-o <path>` | Override the output path. Use `-o -` to write to stdout. |
 | `--no-prune` | Skip the dead-code-elimination pass. Useful for debugging emitter issues; otherwise leave it on. |
-| `--no-stdlib` | Don't auto-import the standard library. Required when your program defines its own primitives (as in [Quick start](#quick-start)). |
+| `--no-stdlib` | Don't auto-import the standard library. Useful when your program defines its own primitives, or when you want to keep the generated C as small as possible. |
 | `--suppress-theorems` | Quiet the post-check theorem listing; nice for scripts. |
 | `--quiet` | Suppress informational chatter. |
 
@@ -96,10 +98,15 @@ to install. It compiles cleanly with `-Wall -Wextra -Werror`.
 
 ## Programs that use the standard library
 
-When your `.pf` file imports the prelude, omit `--no-stdlib`. The
-compiler walks every imported module and inlines the definitions it
-finds; the pruner then drops everything that isn't reached from a
-`print` statement.
+The standard library is auto-imported by default — that's why the
+quick-start above can use `+` on `Nat` without ceremony. Each
+`import` statement makes the named module's definitions visible by
+their unqualified names; the compiler then walks every imported
+module and inlines the definitions it finds. The pruner drops
+everything that isn't reached from a `print` statement.
+
+To see how lightly that scales, here's a program that uses three
+non-trivial prelude functions:
 
 ```deduce
 import Nat
@@ -123,6 +130,10 @@ suc(suc(suc(suc(zero))))
 The full standard library has hundreds of definitions; the pruner
 keeps only the ones your program touches, so the generated `.c` for
 this three-line program is well under 400 lines.
+
+If your program defines its own primitives and doesn't need the
+prelude, pass `--no-stdlib` to skip auto-importing. The generated
+output is smaller and the compile is faster.
 
 ## What compiles, what doesn't
 
