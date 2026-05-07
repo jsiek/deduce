@@ -96,8 +96,52 @@ Only if 3s/check turns out to be too slow. None of this is needed for a working 
 - [ ] **Step 14: Dependency-aware invalidation.** Walk each statement's post-uniquify AST to collect referenced names; invalidate dependents on edit.
   - *Acceptance:* edit theorem `T1`; assert `T2` (which uses `T1`) is invalidated and rechecked.
 
+## Phase 4 — Structured proof-editing operations (Agda-like)
+
+Three productivity features that mirror what Agda exposes via `C-c C-c` (case split), `C-c C-r` (refine), and induction-skeleton generation. Each is a transformation that takes the current AST + cursor position and produces a `WorkspaceEdit` — exposed to LSP clients as a `textDocument/codeAction` and to MCP/Claude as a tool.
+
+These steps share infrastructure (the code-action plumbing in `lsp_server.py`, a transformation API in `lsp/query.py` or a sibling module, and `WorkspaceEdit`-shaped return values in both adapters), so the first one to land pays the wiring cost and the next two reuse it. They're orthogonal to Phase 3 (incrementality) and can be implemented in either order; if the test suite is too slow without incrementality, do Phase 3 first.
+
+The new query-API functions are additive — Step 2's signature lock applies, and these get added to `__all__`.
+
+- [ ] **Step 15: Hole refine.** Given a `?`, propose a refinement template based on the goal shape. The simplest of the three; lays the code-action / WorkspaceEdit plumbing the next two reuse.
+
+  Template selection (reuses the `proof_advice` machinery in `proof_checker.py`):
+
+    - `P and Q` → `?, ?`
+    - `if P then Q` → `assume <fresh>: P\n<indent>?`
+    - `all x:T. P` → `arbitrary x: T\n<indent>?`
+    - `some x:T. P` → `choose <fresh>\n<indent>?`
+    - reducible equality `e1 = e2` (where `e1.reduce(env) == e2.reduce(env)`) → `reflexive`
+
+  New query API: `refine_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. `WorkspaceEdit` is a new frozen dataclass — `{path, range, new_text}` — added to `lsp/query.py` and to `__all__`. LSP wiring: `lsp_server.py` gains a `textDocument/codeAction` handler that returns a `CodeAction(kind="refactor.rewrite", edit=...)` when the cursor is on a hole. MCP wiring: a new `refine_at` tool in `mcp_server.py`.
+
+  - *Acceptance:* one fixture per shape (5 cases) plus a "no goal at cursor" None case; assert the produced text matches the expected template literally and that re-running `check` on the post-edit content surfaces a fresh hole at the inner `?` (or, for `reflexive`, no hole).
+
+- [ ] **Step 16: Case split.** Given a cursor on a variable inside a hole context, generate the `switch` (term-level union) or `cases` (proof-level disjunction) skeleton. Replaces the surrounding hole with one branch per constructor / disjunct, each containing a fresh `?`.
+
+  Constructor signatures and case labels come from the union declaration's AST (`Union.alternatives`); for proof variables of `or`-type, the cases come from `Or.args`. Variable scope and capture-avoiding renames piggyback on the existing `make_unique` helper.
+
+  New query API: `case_split_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. Same LSP/MCP wiring shape as Step 15.
+
+  - *Acceptance:* fixtures for (a) splitting a `Nat` variable, (b) splitting a `List<T>` variable, (c) splitting a custom-union variable with multiple typed parameters, (d) splitting a proof variable of `P or Q`, plus (e) a "cursor not on a variable" None case. Each splitting case asserts: the produced text parses; the case order matches the declaration order; each case body holds a fresh hole; rerunning `check` re-raises an `IncompleteProof` whose location is inside the first case body.
+
+- [ ] **Step 17: Induction skeleton.** Given a goal of the form `all x:T. P(x)` (or analogous on inductive predicates) where `T` is a union, generate
+
+      induction T
+        case Cons1(...) { ? }
+        case Cons2(...) assume IH1: ... { ? }
+        ...
+
+  Reuses `gen_custom_induction_advice` for theorems that ship a custom induction principle. Distinct from Step 16 because (a) it operates on the *goal* rather than a variable, (b) it adds `assume IH<N>: ...` clauses for recursive constructor parameters, and (c) it uses Deduce's `induction` keyword rather than `switch`.
+
+  New query API: `induction_skeleton_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. Wired same as the previous two.
+
+  - *Acceptance:* fixtures over (a) a `Nat`-quantified theorem (canonical zero/suc cases, IH on suc), (b) a `List<T>`-quantified theorem (empty/node cases, IH on node), and (c) a theorem with a `@induction` custom-induction marker (cases match the conjuncts of the marker). Each asserts: cases appear in declaration order, recursive parameters introduce an `IH<N>` binding, each case body holds a fresh hole.
+
 ## Cross-cutting notes
 
 - Add `lsp/` to the `make tests` target as a separate phase, otherwise it'll bitrot.
 - Step 6 is the highest-risk step despite looking small. Budget ~3 extra days; expect to do part of Step 11's work early to make the test pass.
 - Two-process-shared-library is the v1 deployment shape (one daemon per protocol, each loading the prelude). A shared-daemon-with-thin-frontends design over a Unix socket is a later option if duplicated startup cost actually hurts.
+- Phase 3 (incrementality) and Phase 4 (structured editing) are independent; either can land first. Phase 4's per-call latency is dominated by the same `check` cost Phase 3 would shave, so doing Phase 3 first makes Phase 4's interactive latency snappier — but isn't a hard prerequisite.
