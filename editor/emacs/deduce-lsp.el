@@ -326,7 +326,13 @@ non-ASCII source support, swap this for eglot's
 
 EDIT is a plist of the form `(:range PLIST :newText STR)' where
 the range is `(:start POS :end POS)' and POS is `(:line N
-:character N)'."
+:character N)'.
+
+After applying the edit, point is moved onto the first `?` in the
+inserted text -- the natural next refinement target so the user
+can type `C-c C-r' or `C-c C-c' immediately without repositioning.
+When the template has no `?' (e.g. `reflexive', `.'), point is
+left at the end of the insertion."
   (let* ((range (plist-get edit :range))
          (start (plist-get range :start))
          (end (plist-get range :end))
@@ -339,7 +345,14 @@ the range is `(:start POS :end POS)' and POS is `(:line N
               (plist-get end :character))))
     (delete-region p1 p2)
     (goto-char p1)
-    (insert new-text)))
+    (insert new-text)
+    (let ((insert-end (point)))
+      (goto-char p1)
+      (if (search-forward "?" insert-end t)
+          ;; `search-forward' lands point AFTER the match; back up
+          ;; one so it sits ON the `?'.
+          (backward-char 1)
+        (goto-char insert-end)))))
 
 
 (defun deduce-lsp--text-edits-for-uri (changes uri)
