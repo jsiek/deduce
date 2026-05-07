@@ -4218,7 +4218,7 @@ def split_equation(loc, equation, env):
     equation = equation.reduceLets(env)
     
   match equation:
-    case Call(loc1, tyof, (OverloadedVar() | ResolvedVar()), [L, R]):
+    case Call(loc1, tyof, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return (L, R)
     case All(loc1, tyof, var, pos, body):
       return split_equation(loc, body, env)
@@ -4227,7 +4227,7 @@ def split_equation(loc, equation, env):
 
 def equation_vars(formula):
   match formula:
-    case Call(loc1, tyof, (OverloadedVar() | ResolvedVar()), [L, R]):
+    case Call(loc1, tyof, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return []
     case All(loc1, tyof, var, pos, body):
       x, t = var
@@ -4239,7 +4239,7 @@ def equation_vars(formula):
       
 def is_equation(formula):
   match formula:
-    case Call(loc1, tyof, (OverloadedVar() | ResolvedVar()), [L, R]):
+    case Call(loc1, tyof, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return True
     case All(loc1, tyof, var, pos, body):
       return is_equation(body)

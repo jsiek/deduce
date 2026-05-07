@@ -698,7 +698,7 @@ def proof_use_advice(proof, formula, env):
                else ' is a new name of your choice' ) + ',\n' \
             + 'followed by a proof of the goal.'
 
-      case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
+      case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
         return prefix \
             + '\tYou can use this equality in a replace statement:\n' \
             + '\t\treplace ' + str(proof) + '\n'
@@ -880,7 +880,7 @@ def proof_advice(formula, env):
             + ' with your choice(s),\n' \
             + '\tthen prove:\n' \
             + '\t\t' + str(body.substitute(new_vars))
-      case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
+      case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n'\
             + '\t\texpand\n' \
@@ -1052,7 +1052,7 @@ def check_proof_of(proof, formula, env):
       
     case PReflexive(loc):
       match formula:
-        case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
+        case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
           lhsNF = lhs.reduce(env)
           rhsNF = rhs.reduce(env)
           if lhsNF != rhsNF:
@@ -4494,7 +4494,7 @@ def check_proofs(stmt, env: Env):
       
     case Assert(loc, frm):
       match frm:
-        case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
+        case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
           set_reduce_all(True)
           set_eval_all(True)
           L = lhs.reduce(env)
