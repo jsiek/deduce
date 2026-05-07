@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 complete — Steps 1–8 done.
+**Status:** Phase 2 in progress — Steps 1–9 done.
 
 ## Goals
 
@@ -74,8 +74,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
 
 ## Phase 2 — LSP and robustness
 
-- [ ] **Step 9: LSP adapter.** `lsp/lsp_server.py` using `pygls`. Adds open-buffer tracking via `didOpen` / `didChange`; query API itself unchanged.
+- [x] **Step 9: LSP adapter.** `lsp/lsp_server.py` using `pygls`. Adds open-buffer tracking via `didOpen` / `didChange`; query API itself unchanged.
   - *Acceptance:* `pygls` protocol-level tests; manual VS Code testing via existing `deduce-mode`.
+  - *Implementation:* `lsp/lsp_server.py` with pygls 2.1's `LanguageServer`. Document sync uses pygls's built-in workspace (no manual buffer tracking needed). Seven features: `didOpen`/`didSave` push diagnostics; `didChange` is a no-op (buffer-only update — Step 12's per-statement caching is what would make per-keystroke checks affordable); `didClose` clears diagnostics; `textDocument/definition` and `textDocument/documentSymbol` map directly to `query.definition_of` / `query.list_symbols`. LSP has no built-in for "current proof goal", so a custom `deduce/goalAt` request takes a `{textDocument, position}` payload (LSP-shaped) and returns `{formula, givens, range}`. Coordinate translation (LSP's 0-indexed line/character ↔ query's 1-indexed line/column) is centralized in two helpers, exercised by their own unit tests. Bootstrap mirrors `lsp/mcp_server.py` (DEDUCE_ROOT / DEDUCE_NO_STDLIB env knobs, auto-prelude from `lib/`). 14-case acceptance test in `test/lsp/test_lsp_server.py` exercises feature registration, position translation, didOpen/didSave/didClose diagnostics, definition + outline, custom goal-at, and defensive paths (unknown URI, missing position). `pygls>=2.1.0` added to `requirements-lsp.txt`. Manual VS Code smoke (the plan's second acceptance prong) is left for the user to run with `pip install -r requirements-lsp.txt` and a client config pointing at `python3 -m lsp.lsp_server`.
 
 - [ ] **Step 10: Process-lifecycle hardening.** Crash recovery, structured logging, settings, graceful shutdown. Shared between adapters in `lsp/runtime.py`.
   - *Acceptance:* fault-injection tests — kill prelude mid-load, send malformed requests, send a request before `initialize`. Server reports a structured error instead of crashing.
