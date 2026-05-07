@@ -153,6 +153,28 @@ should be type-faced."
               'font-lock-type-face)))
 
 
+(ert-deftest deduce-mode/type-arguments-each-get-type-face ()
+  "`Option<Pos>' parses as three tokens, not one symbol -- the type
+parameters should each be picked up by the capitalized-identifier
+rule.  Regression test for an early bug where `<' and `>' were
+symbol-class and swallowed the symbol boundary, leaving `Option'
+and `Pos' default-faced inside `Foo<Bar>'."
+  (with-temp-buffer
+    (insert "recursive nat2pos(Nat) -> Option<Pos> {\n  ?\n}\n")
+    (deduce-mode)
+    (font-lock-ensure)
+    ;; case-fold-search defaults to t, which would let `search-forward
+    ;; "Nat"' match `nat' inside `nat2pos'. Bind it nil so we land on
+    ;; the capitalized occurrence.
+    (let ((case-fold-search nil))
+      (dolist (name '("Nat" "Option" "Pos"))
+        (goto-char (point-min))
+        (should (search-forward name nil t))
+        (goto-char (match-beginning 0))
+        (should (eq (get-text-property (point) 'face)
+                    'font-lock-type-face))))))
+
+
 (ert-deftest deduce-mode/standalone-question-mark-gets-warning-face ()
   "A standalone `?' (proof hole) should be warning-faced."
   (should (eq (deduce-mode-test--face-at

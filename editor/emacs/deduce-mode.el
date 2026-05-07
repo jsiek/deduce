@@ -173,6 +173,14 @@ at true symbol edges."
     (modify-syntax-entry ?\{ "(}" st)
     (modify-syntax-entry ?\} "){" st)
 
+    ;; Operator chars Emacs's default syntax table marks as
+    ;; symbol-class (or, for `%', word-class).  We need them
+    ;; punctuation so they break symbol boundaries -- otherwise
+    ;; `Option<Pos>' would parse as one symbol and `\_<...\_>'
+    ;; couldn't match the inner identifiers.
+    (dolist (c '(?+ ?- ?= ?< ?> ?& ?| ?%))
+      (modify-syntax-entry c "." st))
+
     st)
   "Syntax table for `deduce-mode'.")
 
