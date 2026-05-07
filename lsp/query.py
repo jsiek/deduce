@@ -65,6 +65,7 @@ __all__ = [
     "list_symbols",
     "refine_at",
     "case_split_at",
+    "splittable_vars_at",
 ]
 
 
@@ -926,29 +927,34 @@ def _fresh_assume_label(env) -> str:
 
 
 # ---------------------------------------------------------------------------
-# case_split_at -- Phase 4 / Step 16: case split on a variable
+# case_split_at -- Phase 4 / Step 16: case split on a named variable
 # ---------------------------------------------------------------------------
 #
-# Given a cursor on an in-scope variable and a `?` somewhere in the
-# surrounding proof body, replace the `?` with a per-constructor (for
-# term-level Union types) or per-disjunct (for proof-level `Or`
-# formulas) skeleton. Each branch ends in a fresh `?` for further
-# refinement.
+# UX shape: cursor on a `?`, *plus* an explicit ``variable`` argument
+# (the name of the in-scope variable to split on). The replacement
+# target is the `?` the cursor sits on; the variable arg drives the
+# template choice. This separation is what lets the editor binding
+# read the variable name from the user (with completion against
+# `splittable_vars_at`) before issuing the request -- the cursor's
+# role is unambiguous.
 #
-# Mechanism: same trick as ``refine_at`` -- the source already has a
-# `?`, so re-running ``check_file`` raises ``IncompleteProof`` at that
-# hole. ``incomplete_error`` stashes the proof env on the exception
-# (Step 15 plumbing), which we read here to look up the cursor's
-# identifier and find its type or formula. The case skeleton is then
-# rendered against ``Union.alternatives`` or ``Or.args``.
+# Mechanism: same trick as ``refine_at`` -- the cursor's `?` is what
+# raises ``IncompleteProof``, and ``incomplete_error`` stashes the
+# proof env on the exception (Step 15 plumbing). We read that env to
+# look up ``variable``'s binding and render the case skeleton against
+# ``Union.alternatives`` or ``Or.args``.
 
 
 def case_split_at(
-    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+    path: str, content: str, pos: Position,
+    variable: str,
+    prelude: Sequence[str] = (),
 ) -> Optional[WorkspaceEdit]:
-    """Generate a case-split skeleton for the variable at ``pos``.
+    """Generate a case-split skeleton for ``variable`` at the hole at ``pos``.
 
-    The cursor should sit on an identifier that names either:
+    The cursor must sit on (or immediately adjacent to) a ``?`` token;
+    that ``?`` is the replacement target. The ``variable`` argument
+    names an in-scope binding to split on:
 
     - a *term variable* whose type is a ``Union`` (or an instance of
       a parameterised union like ``List<T>``) -- yields a ``switch``
@@ -958,29 +964,19 @@ def case_split_at(
       ``cases`` skeleton with one ``case <fresh>: <disjunct> { ? }``
       per disjunct.
 
-    The replacement target is the next ``?`` token at or after the
-    cursor, on the same proof body. Returns ``None`` when:
+    Returns ``None`` when:
 
-    - the cursor isn't on an identifier,
-    - no ``?`` follows the cursor in the file,
-    - the file doesn't reach the hole (e.g. an earlier error stops
-      checking),
-    - the identifier isn't bound at the hole,
+    - the cursor isn't on a ``?``,
+    - the file has no incomplete proof at the cursor,
+    - ``variable`` isn't bound at the hole,
     - or the binding's shape isn't a union / disjunction.
 
-    Limitation: in a multi-theorem file with earlier ``?``s, the
-    checker raises on the first hole encountered; the env returned
-    may not be the one at the cursor's hole. Same caveat as
-    ``goal_at`` and ``refine_at``.
+    For client-side completion of valid ``variable`` choices at a
+    given cursor position, see :func:`splittable_vars_at`.
     """
-    name = _identifier_at(content, pos)
-    if name is None:
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
         return None
-
-    hole_offset = _find_next_hole_offset(content, pos)
-    if hole_offset is None:
-        return None
-    hole_range = _char_range_at(content, hole_offset)
 
     from lsp.library import check_file
 
@@ -993,71 +989,95 @@ def case_split_at(
     if env is None:
         return None
 
-    template = _case_split_template(name, env)
+    template = _case_split_template(variable, env)
     if template is None:
         return None
 
     return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
-def _identifier_at(content: str, pos: Position) -> Optional[str]:
-    """Return the source identifier whose span contains or abuts ``pos``.
+def splittable_vars_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> tuple:
+    """Return base names of in-scope variables that case-split can target.
 
-    Walks left and right from the cursor over identifier characters
-    (letters, digits, underscore, prime). Returns ``None`` when the
-    cursor isn't on an identifier.
+    Computes the env at the ``?`` token the cursor is on (via the
+    same ``IncompleteProof``-based mechanism as ``case_split_at``),
+    then walks the env for bindings whose shape supports a case
+    split: term variables of ``Union`` type and proof variables of
+    ``Or`` formulas.
 
-    Eglot sends the cursor at the column past the character (so the
-    cursor "between" ``foo`` and ``bar`` reads as on ``bar``); this
-    helper handles both "cursor inside identifier" and "cursor at
-    identifier's right edge" by checking the char to the left when
-    the char at ``offset`` isn't an id char.
+    Used by editor clients to populate completion candidates when the
+    user types ``C-c C-c`` and is prompted for a variable name.
+    Returns an empty tuple when the cursor isn't on a ``?`` or no
+    splittable variable is in scope. Names are deduplicated and
+    sorted.
     """
-    offset = _line_col_to_offset(content, pos)
-    if offset is None:
-        return None
-    if offset >= len(content) or not _is_id_char(content[offset]):
-        # Try one position back -- cursor sits just after the
-        # identifier's last character.
-        if offset > 0 and _is_id_char(content[offset - 1]):
-            offset -= 1
-        else:
-            return None
-    start = offset
-    while start > 0 and _is_id_char(content[start - 1]):
-        start -= 1
-    end = offset + 1
-    while end < len(content) and _is_id_char(content[end]):
-        end += 1
-    if start == end:
-        return None
-    name = content[start:end]
-    # Reject pure digits -- those are integer literals, not vars.
-    if name.isdigit():
-        return None
-    return name
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return ()
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return ()
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    if env is None:
+        return ()
+
+    return _splittable_vars(env)
 
 
-def _is_id_char(c: str) -> bool:
-    """Identifier characters per Deduce's lexer: letters, digits,
-    underscore, and ``'`` (used in names like ``n'``)."""
-    return c.isalnum() or c in "_'"
+def _splittable_vars(env) -> tuple:
+    """Names of bindings whose ``case_split`` would succeed.
 
-
-def _find_next_hole_offset(content: str, pos: Position) -> Optional[int]:
-    """Return the offset of the first ``?`` at or after ``pos``.
-
-    A simple text scan is enough -- ``?`` is a single-character token
-    in Deduce (``QMARK``) and never appears inside identifiers. Returns
-    ``None`` when no ``?`` follows the cursor.
+    Excludes constructor names: the env stores each union's
+    constructor as a TermBinding of the union's type, structurally
+    indistinguishable from a local variable like ``arbitrary x:N``.
+    Splitting on a constructor name would just produce a redundant
+    skeleton (``switch z { case z {...} case s(...) {...} }``), so
+    we filter the constructor set out by walking every Union in the
+    env up front.
     """
-    offset = _line_col_to_offset(content, pos)
-    if offset is None:
-        return None
-    idx = content.find("?", offset)
-    if idx < 0:
-        return None
-    return idx
+    from abstract_syntax import (
+        Or, ProofBinding, TermBinding, TypeBinding, Union, Var, base_name,
+        get_type_name,
+    )
+
+    # Collect constructor names from every union in scope.
+    constructor_names = set()
+    for unique, binding in env.dict.items():
+        if isinstance(binding, TypeBinding) and isinstance(binding.defn, Union):
+            for alt in binding.defn.alternatives:
+                constructor_names.add(base_name(alt.name))
+
+    seen = set()
+    for unique in env.dict.keys():
+        bname = base_name(unique)
+        if bname in seen or bname in constructor_names:
+            continue
+        binding = env.dict[unique]
+        if isinstance(binding, ProofBinding):
+            if isinstance(binding.formula, Or):
+                seen.add(bname)
+        elif isinstance(binding, TermBinding):
+            ty = binding.typ
+            try:
+                type_var = get_type_name(ty)
+            except Exception:
+                continue
+            if not isinstance(type_var, Var):
+                continue
+            type_binding = env.dict.get(type_var.name)
+            if (
+                isinstance(type_binding, TypeBinding)
+                and isinstance(type_binding.defn, Union)
+            ):
+                seen.add(bname)
+    return tuple(sorted(seen))
 
 
 def _case_split_template(name: str, env) -> Optional[str]:

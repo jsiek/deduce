@@ -92,12 +92,16 @@ auto-start hook:
   and Q`, `assume H: P\n?` for `if P then Q`, `arbitrary x:T\n?` for
   `all`, `choose ?\n?` for `some`, `reflexive` when both sides of an
   equation reduce to the same term.
-- `C-c C-c` -- case split on the variable at point. Issues
-  `textDocument/codeAction` and applies the action titled `Case
-  split` directly. Replaces the next `?` in the surrounding proof
-  body with a `switch x { case Cons1(...) { ? } ... }` skeleton (for
+- `C-c C-c` -- case split. Cursor must sit on a `?`. Issues
+  `deduce/splittableVarsAt` to fetch the in-scope variables that
+  case-split can target, prompts via `completing-read` (TAB
+  completion) for which one to split on, then issues
+  `deduce/caseSplitAt` with the chosen variable. Replaces the `?`
+  with a `switch x { case Cons1(...) { ? } ... }` skeleton (for
   term variables of `Union` type) or `cases H\n  case h1: P { ? }
-  ...` (for proof variables of `P or Q` shape).
+  ...` (for proof variables of `P or Q` shape). The `?` under the
+  cursor is unambiguously the replacement target -- no surprise
+  inserts at the wrong hole.
 
 ## Keybindings
 
@@ -109,7 +113,7 @@ auto-start hook:
 | `M-x imenu` | `imenu`                        | eglot          | Outline of top-level declarations         |
 | `C-c C-g` | `deduce-show-goal-at-point`      | `deduce-lsp`   | Goal + givens at cursor                   |
 | `C-c C-r` | `deduce-lsp-refine-hole`         | `deduce-lsp`   | Apply LSP-suggested template at hole      |
-| `C-c C-c` | `deduce-lsp-case-split`          | `deduce-lsp`   | Apply LSP-suggested case-split skeleton   |
+| `C-c C-c` | `deduce-lsp-case-split`          | `deduce-lsp`   | Prompt for variable, replace `?` with case skeleton |
 
 The remaining Phase-4 keybinding (`C-c C-i` induction) will land
 when the server's Step 17 operation does.
@@ -230,10 +234,12 @@ Then verify the LSP integration:
    end
    ```
 
-   Place point on the `x` after `arbitrary` and press `C-c C-c`. The
-   `?` should be replaced with a `switch x { case z { ? } case s(n1)
-   { ? } }` skeleton. Each branch is now its own hole that
-   `C-c C-r` / `C-c C-c` can refine further.
+   Place point on the `?` and press `C-c C-c`. Emacs prompts `Case
+   split on:` with TAB completion against the splittable variables
+   in scope (`x` for this fixture). Type `x RET`. The `?` is
+   replaced with `switch x { case z { ? } case s(n1) { ? } }`. Each
+   branch is now its own hole that `C-c C-r` / `C-c C-c` can refine
+   further.
 
 ## Development
 

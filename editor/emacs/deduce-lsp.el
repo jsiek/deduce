@@ -278,20 +278,32 @@ is running in the current buffer."
 ;; Phase-4 structured edits (Step 6 -- partial)
 ;; ---------------------------------------------------------------------
 ;;
-;; Each binding here issues a `textDocument/codeAction' request and
-;; picks the action whose `:title' matches a fixed string -- bypassing
-;; `eglot-code-actions' (which prompts for an action kind and then for
-;; the action itself).  One keystroke per operation; the speed
-;; difference matters in interactive proof editing.
-;;
 ;; Live bindings (LSP Steps 15-16):
-;;   `C-c C-r'  Refine hole       -- title "Refine hole"  (Step 15)
-;;   `C-c C-c'  Case split        -- title "Case split"   (Step 16)
+;;
+;;   `C-c C-r'  deduce-lsp-refine-hole  (Step 15)
+;;     Cursor on a `?'.  Issues `textDocument/codeAction' filtered to
+;;     `refactor.rewrite' and applies the action titled "Refine hole".
+;;     One keystroke; no prompt.
+;;
+;;   `C-c C-c'  deduce-lsp-case-split   (Step 16)
+;;     Cursor on a `?'.  Issues `deduce/splittableVarsAt' to fetch
+;;     candidate variable names, prompts via `completing-read' (TAB
+;;     completion), then issues `deduce/caseSplitAt' with the chosen
+;;     variable.  Two keystrokes + identifier; no ambiguity about
+;;     which `?' the skeleton replaces -- it's the one under the
+;;     cursor.
+;;
+;; The two operations use different transports because their UX
+;; requirements differ: refine takes no extra input (the cursor is
+;; the only signal), so it fits cleanly in `textDocument/codeAction';
+;; case-split takes a user-supplied variable name, which codeAction
+;; can't carry, so it gets a custom server method.
 ;;
 ;; Step 17 (induction skeleton) will land as `C-c C-i' once the
-;; server's induction_skeleton_at operation is available.  The pattern
-;; is the same: another defun calling
-;; `deduce-lsp--apply-code-action-by-title'.
+;; server's induction_skeleton_at operation is available.  Like
+;; refine, it takes no extra input -- the cursor is on a `?' whose
+;; goal is `all x:T. ...' -- so it'll surface as another
+;; `refactor.rewrite' code action.
 
 (defun deduce-lsp--lsp-pos-to-point (line character)
   "Convert LSP 0-indexed (LINE, CHARACTER) to a point in the current buffer.
@@ -344,23 +356,8 @@ URI has no edits."
 
 
 (defun deduce-lsp--apply-code-action (action)
-  "Apply the WorkspaceEdit of CodeAction plist ACTION to the
-current buffer.
-
-Today the server's only edit shape is `:changes' keyed by the
-file's URI; `:documentChanges' isn't used.  TextEdits are applied
-in the order the server returned them -- a single edit for
-Step 15, so order doesn't matter yet."
-  (let* ((edit (plist-get action :edit))
-         (changes (plist-get edit :changes))
-         (uri (deduce-lsp--current-uri))
-         (edits (deduce-lsp--text-edits-for-uri changes uri)))
-    (unless edits
-      (user-error "Refine action has no edits for the current buffer"))
-    ;; Apply in reverse order so each edit's offsets stay valid.
-    ;; Today there's only one edit; this is forward-compat for
-    ;; multi-edit actions in later steps.
-    (mapc #'deduce-lsp--apply-text-edit (reverse (append edits nil)))))
+  "Apply the WorkspaceEdit of CodeAction plist ACTION to the buffer."
+  (deduce-lsp--apply-workspace-edit (plist-get action :edit)))
 
 
 (defun deduce-lsp--find-action-by-title (title)
@@ -407,24 +404,68 @@ to run `M-x eglot' first."
     (deduce-lsp--apply-code-action action)))
 
 
-(defun deduce-lsp-case-split ()
-  "Apply the LSP-suggested case split for the variable at point.
+(defun deduce-lsp--text-document-position ()
+  "Return the LSP `{textDocument, position}' plist for point."
+  (list :textDocument (list :uri (deduce-lsp--current-uri))
+        :position (deduce-lsp--current-position)))
 
-Issues a `textDocument/codeAction' request and picks the action
-titled \"Case split\" -- the LSP server's Step-16 output.  The
-matching action's WorkspaceEdit replaces the next `?' in the
-surrounding proof body with a `switch' (term-level Union) or
-`cases' (proof-level disjunction) skeleton.
 
-When the cursor isn't on a variable whose shape supports case
-splitting -- or no `?' follows it in the proof body -- errors
-with `No case split available at point.'  When no eglot
-connection is active, prompts the user to run `M-x eglot' first."
-  (interactive)
-  (let ((action (deduce-lsp--find-action-by-title "Case split")))
-    (unless action
-      (user-error "No case split available at point"))
-    (deduce-lsp--apply-code-action action)))
+(defun deduce-lsp-case-split (variable)
+  "Case-split the hole at point on VARIABLE.
+
+The cursor must sit on (or immediately adjacent to) a `?' token;
+that `?' is the replacement target.  VARIABLE names the in-scope
+binding to split on -- a Union-typed term variable yields a
+`switch' skeleton, an `Or'-shaped proof variable yields a
+`cases' skeleton.
+
+Interactively, queries the server for the splittable variables in
+scope at the hole (custom request `deduce/splittableVarsAt') and
+prompts via `completing-read' with TAB completion against that
+list.  When the candidate list is empty -- e.g. the cursor isn't
+on a `?' or no Union/Or binding is in scope -- errors with `No
+case split available at point.'
+
+The chosen variable is then sent in a `deduce/caseSplitAt'
+request; the returned WorkspaceEdit is applied directly.  Errors
+out without applying when the server returns null."
+  (interactive
+   (let ((server (eglot-current-server)))
+     (unless server
+       (user-error
+        "No eglot server active in this buffer; M-x eglot first"))
+     (let* ((params (deduce-lsp--text-document-position))
+            (candidates (jsonrpc-request server :deduce/splittableVarsAt
+                                          params))
+            (candidate-list (if (vectorp candidates)
+                                (append candidates nil)
+                              candidates)))
+       (unless candidate-list
+         (user-error "No case split available at point"))
+       (list (completing-read "Case split on: " candidate-list
+                              nil t)))))
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error
+       "No eglot server active in this buffer; M-x eglot first"))
+    (let* ((params (append (deduce-lsp--text-document-position)
+                           (list :variable variable)))
+           (edit (jsonrpc-request server :deduce/caseSplitAt params)))
+      (unless edit
+        (user-error
+         "Server returned no edit for case split on %s" variable))
+      (deduce-lsp--apply-workspace-edit edit))))
+
+
+(defun deduce-lsp--apply-workspace-edit (edit)
+  "Apply a WorkspaceEdit plist EDIT (`:changes' shape) to the buffer."
+  (let* ((changes (plist-get edit :changes))
+         (uri (deduce-lsp--current-uri))
+         (edits (deduce-lsp--text-edits-for-uri changes uri)))
+    (unless edits
+      (user-error
+       "WorkspaceEdit has no edits for the current buffer"))
+    (mapc #'deduce-lsp--apply-text-edit (reverse (append edits nil)))))
 
 
 ;; Bind `C-c C-r' (refine) and `C-c C-c' (case split) in

@@ -392,11 +392,11 @@ buffer ends up with the new text in its place."
 ;; Step 6 (partial): deduce-lsp-case-split
 ;; ---------------------------------------------------------------------
 ;;
-;; Phase-4 / LSP Step 16, fronted by `C-c C-c'.  Same wire-shape as
-;; refine -- a textDocument/codeAction request -- but filters the
-;; response by `:title' equal to "Case split" rather than taking the
-;; first action.  The shared building block is
-;; `deduce-lsp--find-action-by-title'.
+;; Phase-4 / LSP Step 16, fronted by `C-c C-c'.  UX: cursor on a `?',
+;; press `C-c C-c', completing-read prompts for the variable to split
+;; on.  The interactive form fetches candidates via
+;; `deduce/splittableVarsAt'; the chosen variable then drives a
+;; `deduce/caseSplitAt' request.
 
 (ert-deftest deduce-lsp/case-split-bound-to-c-c-c-c ()
   "`C-c C-c' in deduce-mode-map runs `deduce-lsp-case-split'."
@@ -404,70 +404,80 @@ buffer ends up with the new text in its place."
               #'deduce-lsp-case-split)))
 
 
-(ert-deftest deduce-lsp/case-split-issues-codeAction-request ()
-  "The command sends `textDocument/codeAction' with a single-point
-range at the cursor."
+(defun deduce-lsp-test--with-method-mock (responses-by-method thunk)
+  "Run THUNK with `jsonrpc-request' returning per-method responses.
+RESPONSES-BY-METHOD is an alist of (METHOD . RESPONSE) where
+METHOD is a keyword like :deduce/caseSplitAt.  Returns the list
+of every captured (method . params) pair, in call order."
+  (let ((calls nil))
+    (cl-letf (((symbol-function 'eglot-current-server)
+               (lambda () 'mock-server))
+              ((symbol-function 'jsonrpc-request)
+               (lambda (_server method params)
+                 (push (cons method params) calls)
+                 (cdr (assq method responses-by-method)))))
+      (funcall thunk))
+    (reverse calls)))
+
+
+(ert-deftest deduce-lsp/case-split-issues-caseSplitAt-request ()
+  "Calling `deduce-lsp-case-split' with a variable arg sends
+`deduce/caseSplitAt' with `{textDocument, position, variable}'."
   (let ((tmp (make-temp-file "deduce-lsp-split" nil ".pf"))
-        captured)
+        calls)
     (unwind-protect
         (with-temp-buffer
           (insert "union N {\n  z\n  s(N)\n}\n\ntheorem t: all x:N. x = x\nproof\n  arbitrary x:N\n  ?\nend\n")
           (setq buffer-file-name tmp)
           (deduce-mode)
-          ;; `x' after `arbitrary' is at line 8, col 13 (1-indexed).
-          ;; LSP-space: line 7, char 12.
+          ;; Cursor on the `?' (line 9, col 3) -> LSP line 8, char 2.
           (goto-char (point-min))
-          (forward-line 7)
-          (forward-char 12)
-          (setq captured
-                (deduce-lsp-test--with-mock-server
-                 ;; Empty -> command will user-error; we only
-                 ;; care about the captured request shape.
-                 []
+          (forward-line 8)
+          (forward-char 2)
+          (setq calls
+                (deduce-lsp-test--with-method-mock
+                 ;; Server returns nil for caseSplitAt -> the
+                 ;; command will user-error; we only care about
+                 ;; the captured request shape.
+                 '((:deduce/caseSplitAt . nil))
                  (lambda ()
-                   (ignore-errors (deduce-lsp-case-split)))))
-          (should (eq (plist-get captured :method) :textDocument/codeAction))
-          (let* ((params (plist-get captured :params))
-                 (range (plist-get params :range))
-                 (start (plist-get range :start))
-                 (end (plist-get range :end)))
-            (should (= (plist-get start :line) 7))
-            (should (= (plist-get start :character) 12))
-            (should (equal start end))))
+                   (ignore-errors (deduce-lsp-case-split "x")))))
+          (let* ((call (assq :deduce/caseSplitAt calls))
+                 (params (cdr call))
+                 (text-doc (plist-get params :textDocument))
+                 (pos (plist-get params :position)))
+            (should call)
+            (should (string-prefix-p "file://"
+                                      (plist-get text-doc :uri)))
+            (should (= (plist-get pos :line) 8))
+            (should (= (plist-get pos :character) 2))
+            (should (equal (plist-get params :variable) "x"))))
       (delete-file tmp))))
 
 
-(ert-deftest deduce-lsp/case-split-applies-text-edit ()
-  "Given a CodeAction titled \"Case split\" with a TextEdit replacing
-the surrounding `?', the buffer ends up with a `switch' skeleton."
+(ert-deftest deduce-lsp/case-split-applies-workspace-edit ()
+  "Given a server response with a `:changes' WorkspaceEdit, the
+buffer ends up with the new text replacing the `?'."
   (let ((tmp (make-temp-file "deduce-lsp-split" nil ".pf")))
     (unwind-protect
         (with-temp-buffer
           (insert "union N {\n  z\n  s(N)\n}\n\ntheorem t: all x:N. x = x\nproof\n  arbitrary x:N\n  ?\nend\n")
           (setq buffer-file-name tmp)
           (deduce-mode)
-          ;; Cursor on `x' after `arbitrary' (line 8, col 13).
+          ;; Cursor on the `?' at line 9 col 3.
           (goto-char (point-min))
-          (forward-line 7)
-          (forward-char 12)
+          (forward-line 8)
+          (forward-char 2)
           (let* ((uri (deduce-lsp--current-uri))
-                 ;; Server response: one action titled "Case split"
-                 ;; whose edit replaces the `?' on line 8 col 3
-                 ;; (LSP line 8 char 2..3 in 0-indexed) with the
-                 ;; switch skeleton.
                  (skeleton "switch x {\n  case z { ? }\n  case s(n1) { ? }\n}")
-                 (action `(:title "Case split"
-                           :kind "refactor.rewrite"
-                           :edit
-                           (:changes
-                            (,(intern (concat ":" uri))
-                             [(:range (:start (:line 8 :character 2)
-                                       :end (:line 8 :character 3))
-                                      :newText ,skeleton)]))))
-                 (response (vector action)))
-            (deduce-lsp-test--with-mock-server
-             response
-             (lambda () (deduce-lsp-case-split))))
+                 (edit `(:changes
+                         (,(intern (concat ":" uri))
+                          [(:range (:start (:line 8 :character 2)
+                                    :end (:line 8 :character 3))
+                                   :newText ,skeleton)]))))
+            (deduce-lsp-test--with-method-mock
+             `((:deduce/caseSplitAt . ,edit))
+             (lambda () (deduce-lsp-case-split "x"))))
           (let ((text (buffer-substring-no-properties (point-min) (point-max))))
             (should (string-match-p "switch x" text))
             (should (string-match-p "case z {" text))
@@ -475,43 +485,19 @@ the surrounding `?', the buffer ends up with a `switch' skeleton."
       (delete-file tmp))))
 
 
-(ert-deftest deduce-lsp/case-split-rejects-non-matching-title ()
-  "If the server returns an action titled \"Refine hole\" instead
-of \"Case split\", the case-split command must NOT apply it -- it
-should user-error."
+(ert-deftest deduce-lsp/case-split-null-server-response-errors ()
+  "If the server returns null for caseSplitAt, the command
+user-errors instead of silently no-op-ing."
   (let ((tmp (make-temp-file "deduce-lsp-split" nil ".pf")))
     (unwind-protect
         (with-temp-buffer
           (insert "x")
           (setq buffer-file-name tmp)
           (deduce-mode)
-          (let* ((uri (deduce-lsp--current-uri))
-                 ;; Action titled "Refine hole" -- should be ignored
-                 ;; by case-split.
-                 (action `(:title "Refine hole"
-                           :kind "refactor.rewrite"
-                           :edit (:changes
-                                  (,(intern (concat ":" uri)) []))))
-                 (response (vector action)))
-            (deduce-lsp-test--with-mock-server
-             response
-             (lambda ()
-               (should-error (deduce-lsp-case-split) :type 'user-error)))))
-      (delete-file tmp))))
-
-
-(ert-deftest deduce-lsp/case-split-no-actions-signals-user-error ()
-  "An empty action list yields a `No case split available' user-error."
-  (let ((tmp (make-temp-file "deduce-lsp-split" nil ".pf")))
-    (unwind-protect
-        (with-temp-buffer
-          (insert "x")
-          (setq buffer-file-name tmp)
-          (deduce-mode)
-          (deduce-lsp-test--with-mock-server
-           nil
+          (deduce-lsp-test--with-method-mock
+           '((:deduce/caseSplitAt . nil))
            (lambda ()
-             (should-error (deduce-lsp-case-split) :type 'user-error))))
+             (should-error (deduce-lsp-case-split "x") :type 'user-error))))
       (delete-file tmp))))
 
 
@@ -525,27 +511,58 @@ should user-error."
             (insert "x")
             (setq buffer-file-name tmp)
             (deduce-mode)
-            (should-error (deduce-lsp-case-split) :type 'user-error)))
+            (should-error (deduce-lsp-case-split "x") :type 'user-error)))
       (delete-file tmp))))
 
 
-(ert-deftest deduce-lsp/find-action-by-title-picks-by-title ()
-  "When the response has multiple actions, the helper returns the one
-whose `:title' equals the requested title -- not the first one."
-  (let ((tmp (make-temp-file "deduce-lsp-find" nil ".pf")))
+(ert-deftest deduce-lsp/case-split-interactive-uses-completing-read ()
+  "Interactive entry hits `deduce/splittableVarsAt' for candidates
+and feeds them to `completing-read'."
+  (let ((tmp (make-temp-file "deduce-lsp-split" nil ".pf"))
+        captured-prompt
+        captured-collection)
     (unwind-protect
         (with-temp-buffer
           (insert "x")
           (setq buffer-file-name tmp)
           (deduce-mode)
-          (let* ((refine-action '(:title "Refine hole" :kind "refactor.rewrite"))
-                 (split-action  '(:title "Case split"  :kind "refactor.rewrite"))
-                 (response (vector refine-action split-action)))
-            (deduce-lsp-test--with-mock-server
-             response
-             (lambda ()
-               (let ((found (deduce-lsp--find-action-by-title "Case split")))
-                 (should (equal found split-action)))))))
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method _params)
+                       (cond
+                        ((eq method :deduce/splittableVarsAt) ["H" "x"])
+                        ((eq method :deduce/caseSplitAt) nil))))
+                    ((symbol-function 'completing-read)
+                     (lambda (prompt collection &rest _rest)
+                       (setq captured-prompt prompt)
+                       (setq captured-collection collection)
+                       "H")))
+            (ignore-errors
+              (call-interactively #'deduce-lsp-case-split)))
+          (should (string-match-p "Case split on:" captured-prompt))
+          ;; The collection passed to completing-read is the list of
+          ;; candidates.
+          (should (member "H" captured-collection))
+          (should (member "x" captured-collection)))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/case-split-interactive-empty-candidates-errors ()
+  "If `deduce/splittableVarsAt' returns no candidates, the
+interactive entry user-errors with `No case split available'."
+  (let ((tmp (make-temp-file "deduce-lsp-split" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server _method _params) [])))
+            (should-error (call-interactively #'deduce-lsp-case-split)
+                          :type 'user-error)))
       (delete-file tmp))))
 
 

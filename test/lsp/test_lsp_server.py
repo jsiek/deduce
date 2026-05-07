@@ -116,6 +116,8 @@ def test_all_expected_features_are_registered():
         lsp_types.TEXT_DOCUMENT_DOCUMENT_SYMBOL,
         lsp_types.TEXT_DOCUMENT_CODE_ACTION,
         lsp_server.GOAL_AT_REQUEST,
+        lsp_server.CASE_SPLIT_REQUEST,
+        lsp_server.SPLITTABLE_VARS_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -489,13 +491,39 @@ def test_code_action_with_unknown_uri_returns_empty(server):
 
 
 # --------------------------------------------------------------------------
-# Code actions: case_split_at (Phase 4 / Step 16)
+# Custom requests: deduce/splittableVarsAt and deduce/caseSplitAt
+# (Phase 4 / Step 16)
 # --------------------------------------------------------------------------
 
 
-def test_code_action_offers_case_split_on_union_variable(server, open_doc):
-    """Cursor on a Union-typed variable with a reachable `?` ->
-    a "Case split" action carrying the switch skeleton."""
+def test_splittable_vars_at_returns_in_scope_variables(server, open_doc):
+    """Cursor on a `?`; the response lists splittable variables in
+    scope at that hole."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, x:N. if P or P then x = x\n"
+        "proof\n"
+        "  arbitrary P:bool, x:N\n"
+        "  assume H: P or P\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("splittable.pf", src)
+    # `?` at line 10 col 3 (1-indexed) -> LSP line 9, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 9, "character": 2},
+    }
+    result = lsp_server.on_splittable_vars_at(server, params)
+    assert result == ["H", "x"]
+
+
+def test_splittable_vars_at_returns_empty_off_hole(server, open_doc):
+    """Cursor not on a `?` -> empty list."""
     src = (
         "union N {\n"
         "  z\n"
@@ -508,63 +536,80 @@ def test_code_action_offers_case_split_on_union_variable(server, open_doc):
         "  ?\n"
         "end\n"
     )
-    _, uri = open_doc("case_split.pf", src)
-    # `x` after `arbitrary` is at line 8, col 13 (1-indexed) ->
-    # LSP line 7, character 12.
-    params = lsp_types.CodeActionParams(
-        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
-        range=lsp_types.Range(
-            start=lsp_types.Position(line=7, character=12),
-            end=lsp_types.Position(line=7, character=12),
-        ),
-        context=lsp_types.CodeActionContext(diagnostics=[]),
-    )
-    actions = lsp_server.on_code_action(server, params)
-    assert len(actions) == 1
-    action = actions[0]
-    assert action.title == "Case split"
-    assert action.kind == lsp_types.CodeActionKind.RefactorRewrite
-    edits = action.edit.changes[uri]
-    assert len(edits) == 1
-    assert "switch x" in edits[0].new_text
-    assert "case z {" in edits[0].new_text
-    assert "case s(n1) {" in edits[0].new_text
-    # Range covers the `?` at line 9 col 3 (LSP line 8, char 2..3).
-    assert edits[0].range.start == lsp_types.Position(line=8, character=2)
-    assert edits[0].range.end == lsp_types.Position(line=8, character=3)
+    _, uri = open_doc("splittable_off.pf", src)
+    # On `arbitrary` keyword, line 8 col 3 -> LSP line 7, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 7, "character": 2},
+    }
+    assert lsp_server.on_splittable_vars_at(server, params) == []
 
 
-def test_code_action_offers_both_when_cursor_on_or_proof_var(
+def test_case_split_at_returns_workspace_edit_for_union_variable(
     server, open_doc
 ):
-    """A proof variable of `Or` exposes both refine (if cursor is on
-    a hole) and case-split (cursor on a variable). For this fixture
-    the cursor sits on the proof variable label, so only Case split
-    applies."""
+    """Cursor on `?`, variable=`x` (Union-typed) -> WorkspaceEdit
+    with switch skeleton."""
     src = (
-        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
         "proof\n"
-        "  arbitrary P:bool, Q:bool\n"
-        "  assume H: P or Q\n"
+        "  arbitrary x:N\n"
         "  ?\n"
         "end\n"
     )
-    _, uri = open_doc("or_split.pf", src)
-    # `H` of `assume H:` is at line 4 col 10 (1-indexed) -> LSP
-    # line 3, character 9.
-    params = lsp_types.CodeActionParams(
-        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
-        range=lsp_types.Range(
-            start=lsp_types.Position(line=3, character=9),
-            end=lsp_types.Position(line=3, character=9),
-        ),
-        context=lsp_types.CodeActionContext(diagnostics=[]),
+    _, uri = open_doc("split.pf", src)
+    # `?` at line 9 col 3 -> LSP line 8, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 8, "character": 2},
+        "variable": "x",
+    }
+    result = lsp_server.on_case_split_at(server, params)
+    assert result is not None
+    assert "changes" in result
+    edits = result["changes"][uri]
+    assert len(edits) == 1
+    assert "switch x" in edits[0]["newText"]
+    assert "case z {" in edits[0]["newText"]
+    assert "case s(n1) {" in edits[0]["newText"]
+    assert edits[0]["range"]["start"] == {"line": 8, "character": 2}
+    assert edits[0]["range"]["end"] == {"line": 8, "character": 3}
+
+
+def test_case_split_at_returns_null_for_unknown_variable(server, open_doc):
+    """The variable name doesn't match any in-scope binding -> null."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
     )
-    actions = lsp_server.on_code_action(server, params)
-    titles = [a.title for a in actions]
-    assert "Case split" in titles
-    case_action = next(a for a in actions if a.title == "Case split")
-    edits = case_action.edit.changes[uri]
-    assert "cases H" in edits[0].new_text
-    assert "case h1: P" in edits[0].new_text
-    assert "case h2: Q" in edits[0].new_text
+    _, uri = open_doc("split_bad.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 8, "character": 2},
+        "variable": "no_such_var",
+    }
+    assert lsp_server.on_case_split_at(server, params) is None
+
+
+def test_case_split_at_returns_null_when_variable_omitted(server, open_doc):
+    """Missing `variable` field -> null (defensive)."""
+    src = "x"
+    _, uri = open_doc("noop.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 0},
+    }
+    assert lsp_server.on_case_split_at(server, params) is None

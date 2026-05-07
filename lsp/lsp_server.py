@@ -130,6 +130,14 @@ SERVER_VERSION = "0.1.0"
 # raw request with this method.
 GOAL_AT_REQUEST = "deduce/goalAt"
 
+# Custom requests for Step 16 (case split). ``deduce/caseSplitAt``
+# carries the user-supplied variable name in its params, which
+# ``textDocument/codeAction`` can't do; ``deduce/splittableVarsAt``
+# returns the candidate variable names so editor clients can offer
+# completion before prompting.
+CASE_SPLIT_REQUEST = "deduce/caseSplitAt"
+SPLITTABLE_VARS_REQUEST = "deduce/splittableVarsAt"
+
 server = LanguageServer(
     SERVER_NAME,
     SERVER_VERSION,
@@ -354,14 +362,12 @@ def on_code_action(
 
     - **Refine hole** (Step 15) -- offered when the cursor sits on a
       ``?`` whose goal has a recognised shape.
-    - **Case split** (Step 16) -- offered when the cursor sits on a
-      term variable (Union type) or proof variable (``Or`` formula)
-      with a ``?`` reachable in the surrounding proof body.
 
-    Both, neither, or one may apply depending on cursor position. The
-    Emacs binding for each operation filters the returned list by
-    title; multi-action picker behaviour is reserved for clients that
-    request the full set.
+    Step 16 (case split) takes a user-supplied variable name, which
+    ``textDocument/codeAction`` can't carry, so it lives behind the
+    custom ``deduce/caseSplitAt`` request instead. The Emacs binding
+    prompts for the variable (with completion against
+    ``deduce/splittableVarsAt``) before issuing the request.
     """
     uri = params.text_document.uri
     content = _document_content(ls, uri)
@@ -377,12 +383,6 @@ def on_code_action(
     if refine_edit is not None:
         actions.append(
             _code_action_from_edit(uri, "Refine hole", refine_edit)
-        )
-
-    split_edit = _query.case_split_at(path, content, pos, prelude=prelude)
-    if split_edit is not None:
-        actions.append(
-            _code_action_from_edit(uri, "Case split", split_edit)
         )
 
     return actions
@@ -447,6 +447,99 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
                 "character": max(goal.range.end.column - 1, 0),
             },
         },
+    }
+
+
+@server.feature(SPLITTABLE_VARS_REQUEST)
+def on_splittable_vars_at(ls: LanguageServer, params) -> list[str]:
+    """Custom request: return variables at the cursor's hole that
+    case-split can target.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}}``. Editor clients call this to populate
+    completion candidates when prompting for the variable name.
+
+    Result: a list of base names (sorted, deduplicated). Empty when
+    the cursor isn't on a ``?`` or no splittable variable is in
+    scope.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    if not uri:
+        return []
+    content = _document_content(ls, uri)
+    if content is None:
+        return []
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    path = _path_from_uri(uri)
+    return list(
+        _query.splittable_vars_at(path, content, pos, prelude=_prelude_for(path))
+    )
+
+
+@server.feature(CASE_SPLIT_REQUEST)
+def on_case_split_at(ls: LanguageServer, params) -> Optional[dict]:
+    """Custom request: return a WorkspaceEdit that case-splits the
+    cursor's hole on a named variable.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "variable": str}``. The cursor must sit
+    on a ``?``; the ``variable`` arg names which in-scope binding to
+    split on.
+
+    Result: ``{"changes": {<uri>: [{"range": Range, "newText":
+    str}]}}`` (an LSP-shaped WorkspaceEdit) or ``null`` when the
+    cursor isn't on a hole, the variable isn't in scope, or its
+    shape isn't a Union / Or.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    variable = _get_field(params, "variable")
+    if not uri or not variable:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    path = _path_from_uri(uri)
+    edit = _query.case_split_at(
+        path, content, pos, str(variable), prelude=_prelude_for(path)
+    )
+    if edit is None:
+        return None
+    # Shape-shift to the LSP wire format: an LSP WorkspaceEdit with
+    # `changes: {uri: [TextEdit]}`. Mirrors what the codeAction
+    # handler emits for refine.
+    return {
+        "changes": {
+            uri: [
+                {
+                    "range": {
+                        "start": {
+                            "line": max(edit.range.start.line - 1, 0),
+                            "character": max(edit.range.start.column - 1, 0),
+                        },
+                        "end": {
+                            "line": max(edit.range.end.line - 1, 0),
+                            "character": max(edit.range.end.column - 1, 0),
+                        },
+                    },
+                    "newText": edit.new_text,
+                }
+            ]
+        }
     }
 
 
