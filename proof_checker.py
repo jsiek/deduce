@@ -1674,17 +1674,20 @@ def expand_definitions(loc, formula, defs, env):
     if isinstance(var, VarRef):
       reduced_one = False
 
-      # print(f"red: {var}")
+      # `var` may be either an OverloadedVar (multi-candidate) or a
+      # ResolvedVar (single chosen name). Normalize to a candidate list.
+      if isinstance(var, OverloadedVar):
+        candidate_names = var.resolved_names
+      else:
+        candidate_names = [var.get_name()]
 
       reducible_names = []
-      for var_name in var.resolved_names:
-          # print(var_name)
+      for var_name in candidate_names:
           if var_name in env.dict.keys():
               binding = env.dict[var_name]
               if binding.visibility == 'opaque' \
                  and binding.module != env.get_current_module():
-                 #and binding.location.filename != loc.filename:
-                if len(var.resolved_names) == 1:
+                if len(candidate_names) == 1:
                     error(loc, 'Cannot expand opaque definition of '
                           + base_name(var_name))
               else:

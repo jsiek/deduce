@@ -4187,7 +4187,7 @@ class Associative(Statement):
     return Associative(self.location, new_type_params, new_op, new_typeof)
 
   def collect_exports(self, export_env, importing_module):
-    opname = self.op.resolved_names[0]
+    opname = self.op.get_name()
     full_name = '__associative_' + opname
     base = base_name(opname)
     full_base_name = '__associative_' + base

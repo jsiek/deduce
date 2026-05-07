@@ -582,14 +582,14 @@ def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
     """
     # Late import: lsp/query.py is the protocol-neutral surface, so we
     # don't pull in abstract_syntax until a query actually runs.
-    from abstract_syntax import AST, PVar, Var
+    from abstract_syntax import AST, PVar, Var, VarRef
 
     best: list[Optional[str]] = [None]
     best_span: list[Optional[int]] = [None]
 
     def visit(node):
         if isinstance(node, VarRef):
-            resolved = (node.resolved_names or [None])[0] or node.name
+            resolved = node.get_name()
         elif isinstance(node, PVar):
             resolved = node.name
         else:
