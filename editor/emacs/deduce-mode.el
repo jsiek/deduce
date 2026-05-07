@@ -52,6 +52,96 @@
 ;; the unicode subscripts default to symbol class which is fine for
 ;; word-motion purposes.
 
+;; ---------------------------------------------------------------------
+;; Font-lock (Step 2)
+;; ---------------------------------------------------------------------
+;;
+;; Keyword categorization is based on the actual `Deduce.lark` grammar,
+;; not a guess.  All quoted lowercase tokens in the grammar become
+;; keywords; `true' / `false' become constants; `bool' / `type' (the
+;; built-in kind) become types; `sorry' and a standalone `?' become
+;; warning-faced.  Capitalized identifiers (constructors, type names
+;; like `Nat' or `List') are heuristically rendered as type-face.
+;;
+;; If `Deduce.lark' grows a new keyword, append it to one of the lists
+;; below -- nothing else needs to change.
+
+(defconst deduce-mode--keywords
+  '(;; declaration / structure
+    "theorem" "lemma" "postulate" "define" "recursive" "recfun"
+    "union" "inductive" "predicate" "relation" "import" "export"
+    "module" "auto" "assert" "print" "operator" "associative"
+    "terminates" "measure" "trace" "generic" "fun" "λ"
+    ;; visibility
+    "public" "private" "opaque"
+    ;; proof structure
+    "proof" "end" "case" "cases" "with" "where"
+    ;; tactics
+    "arbitrary" "assume" "suppose" "have" "show" "obtain" "from" "for"
+    "induction" "rule" "inversion" "switch" "replace" "expand"
+    "evaluate" "simplify" "equations" "recall" "reflexive" "symmetric"
+    "transitive" "injective" "extensionality" "apply" "to" "conclude"
+    "conjunct" "contradict" "suffices" "choose" "stop" "help" "by" "of"
+    ;; logical / control
+    "if" "then" "else" "all" "some" "in"
+    "not" "and" "or" "iff"
+    ;; built-in operators / forms
+    "fn" "array")
+  "Deduce keywords highlighted with `font-lock-keyword-face'.")
+
+(defconst deduce-mode--constants
+  '("true" "false")
+  "Deduce literal constants highlighted with `font-lock-constant-face'.")
+
+(defconst deduce-mode--types
+  '("bool" "type")
+  "Built-in Deduce type-level identifiers highlighted with
+`font-lock-type-face'.  User-defined types (capitalized
+identifiers) are caught by a separate rule.")
+
+(defconst deduce-mode--warnings
+  '("sorry")
+  "Words highlighted with `font-lock-warning-face' to draw the eye
+to incomplete proofs.  Standalone `?' is matched separately.")
+
+(defun deduce-mode--symbol-regexp (words)
+  "Build a `\\_<...\\_>' alternation from WORDS.
+
+Symbol boundaries (rather than word boundaries) ensure that
+`theorem' inside an identifier like `theorem1?' is not
+mis-highlighted: identifier-trailing characters `'', `?', `!'
+are symbol-class in our syntax table, so the boundary fires only
+at true symbol edges."
+  (concat "\\_<" (regexp-opt words t) "\\_>"))
+
+(defvar deduce-mode-font-lock-keywords
+  ;; Order matters: the first rule that matches a span sets the face,
+  ;; and later rules don't override unless told to.  We put the most
+  ;; specific (warning-face) first.
+  `(;; Standalone `?' as a proof hole.  Symbol boundaries skip the `?'
+    ;; inside identifiers like `done?'.
+    ("\\_<\\?\\_>" 0 font-lock-warning-face)
+    ;; Other warning-face words (currently just `sorry').
+    (,(deduce-mode--symbol-regexp deduce-mode--warnings)
+     0 font-lock-warning-face)
+    ;; Built-in constants: `true', `false'.
+    (,(deduce-mode--symbol-regexp deduce-mode--constants)
+     0 font-lock-constant-face)
+    ;; Integer / Nat literals.
+    ("\\_<\\(?:ℕ\\)?[0-9]+\\_>" 0 font-lock-constant-face)
+    ;; Built-in types: `bool', `type'.
+    (,(deduce-mode--symbol-regexp deduce-mode--types)
+     0 font-lock-type-face)
+    ;; All Deduce keywords.
+    (,(deduce-mode--symbol-regexp deduce-mode--keywords)
+     0 font-lock-keyword-face)
+    ;; Capitalized identifiers (user-defined types and constructors).
+    ;; ASCII only for now; subscripted variants like `Nat₁' fall
+    ;; through to default face -- revisit if it comes up.
+    ("\\_<[A-Z][[:alnum:]_]*\\_>" 0 font-lock-type-face))
+  "Font-lock keywords for `deduce-mode'.")
+
+
 (defvar deduce-mode-syntax-table
   (let ((st (make-syntax-table)))
     ;; Comment markers.  `/' is the first character of `/*' (start
@@ -83,6 +173,14 @@
     (modify-syntax-entry ?\{ "(}" st)
     (modify-syntax-entry ?\} "){" st)
 
+    ;; Operator chars Emacs's default syntax table marks as
+    ;; symbol-class (or, for `%', word-class).  We need them
+    ;; punctuation so they break symbol boundaries -- otherwise
+    ;; `Option<Pos>' would parse as one symbol and `\_<...\_>'
+    ;; couldn't match the inner identifiers.
+    (dolist (c '(?+ ?- ?= ?< ?> ?& ?| ?%))
+      (modify-syntax-entry c "." st))
+
     st)
   "Syntax table for `deduce-mode'.")
 
@@ -111,7 +209,11 @@ steps; LSP integration lives in `deduce-lsp.el'.
   ;; Use the syntax table's comment markers for `comment-region'
   ;; instead of `comment-padright'-derived ones.  Avoids the dwim
   ;; helper inserting `/*' '*/' around a single-line comment.
-  (setq-local comment-use-syntax t))
+  (setq-local comment-use-syntax t)
+  ;; Font-lock: keyword highlighting (Step 2).  No multi-line
+  ;; constructs need special treatment yet, so the default
+  ;; defaults tuple is sufficient.
+  (setq-local font-lock-defaults '(deduce-mode-font-lock-keywords)))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.pf\\'" . deduce-mode))
