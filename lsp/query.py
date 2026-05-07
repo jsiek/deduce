@@ -42,7 +42,7 @@ in user-visible error messages.
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Optional, Sequence
 
 
 __all__ = [
@@ -188,7 +188,9 @@ class SymbolInfo:
 # resolution and error messages depend on it.
 
 
-def check(path: str, content: str) -> list[Diagnostic]:
+def check(
+    path: str, content: str, prelude: Sequence[str] = ()
+) -> list[Diagnostic]:
     """Run the full Deduce pipeline on ``content`` (treated as if it
     were the contents of ``path``) and return all diagnostics found.
 
@@ -196,13 +198,17 @@ def check(path: str, content: str) -> list[Diagnostic]:
     on the first error, so today the list will have at most one entry;
     Step 11 (multi-error collection) will lift that limit without
     changing this signature.
+
+    ``prelude`` is the list of module names auto-imported in front of
+    the file (matching ``deduce.py``'s ``--no-stdlib`` flag: empty by
+    default; the MCP / LSP server passes the standard library here).
     """
     # Imported here, not at module top, so this module stays free of
     # any pipeline import while it is just a stub at module-load time.
     # That keeps the protocol-neutral boundary cheap to enforce.
     from lsp.library import check_file
 
-    result = check_file(path, content=content)
+    result = check_file(path, content=content, prelude=prelude)
     if result.ok:
         return []
 
@@ -242,7 +248,9 @@ def _diagnostic_from_exception(
     return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
 
 
-def goal_at(path: str, content: str, pos: Position) -> Optional[Goal]:
+def goal_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> Optional[Goal]:
     """Return the proof obligation visible at ``pos``.
 
     Returns ``None`` when there is no active proof at that position --
@@ -251,6 +259,8 @@ def goal_at(path: str, content: str, pos: Position) -> Optional[Goal]:
     (more precisely: replacing the content from ``pos`` up to the next
     ``end`` keyword with ``?``) and capturing the goal text the checker
     prints when it reaches the hole.
+
+    ``prelude`` matches the meaning in :func:`check`.
     """
     from lsp.library import check_file
 
@@ -258,7 +268,7 @@ def goal_at(path: str, content: str, pos: Position) -> Optional[Goal]:
     if modified is None:
         return None
 
-    result = check_file(path, content=modified)
+    result = check_file(path, content=modified, prelude=prelude)
     if result.ok:
         # No PHole was hit -- the surrounding proof was already complete
         # without needing the inserted ?. Nothing to report.
@@ -420,7 +430,7 @@ def _parse_givens_section(body: str) -> tuple:
 
 
 def definition_of(
-    path: str, content: str, pos: Position
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
 ) -> Optional[Location]:
     """Return the source location of the symbol under ``pos``.
 
@@ -434,10 +444,12 @@ def definition_of(
     is outside any source file the server can see -- e.g. it lives in
     an imported module, since today the only AST we consult is the
     user's file.
+
+    ``prelude`` matches the meaning in :func:`check`.
     """
     from lsp.library import check_file
 
-    result = check_file(path, content=content)
+    result = check_file(path, content=content, prelude=prelude)
     if result.ast is None:
         return None
 
@@ -452,7 +464,9 @@ def definition_of(
     return Location(path=path, range=_range_from_meta(decl_meta))
 
 
-def list_symbols(path: str, content: str) -> list[SymbolInfo]:
+def list_symbols(
+    path: str, content: str, prelude: Sequence[str] = ()
+) -> list[SymbolInfo]:
     """Return all top-level declarations in ``content``.
 
     Used for editor outline views and the MCP ``list_symbols`` tool.
@@ -460,15 +474,26 @@ def list_symbols(path: str, content: str) -> list[SymbolInfo]:
     postulates, postulates, and imports; does not descend into nested
     definitions inside proofs. Uses the post-typecheck AST so signature
     text reflects type-checked formulas.
+
+    ``prelude`` matches the meaning in :func:`check`. Symbols that
+    come from prelude imports are *not* included in the result --
+    only declarations in ``content`` itself.
     """
     from lsp.library import check_file
 
-    result = check_file(path, content=content)
+    from abstract_syntax import Import as _ImportNode
+
+    result = check_file(path, content=content, prelude=prelude)
     if result.ast is None:
         return []
 
+    prelude_set = set(prelude)
     out: list[SymbolInfo] = []
     for stmt in result.ast:
+        # Skip the auto-prepended prelude imports -- the user didn't
+        # write them, so they shouldn't show up in the outline.
+        if isinstance(stmt, _ImportNode) and stmt.name in prelude_set:
+            continue
         info = _symbol_info_for(stmt, path)
         if info is not None:
             out.append(info)

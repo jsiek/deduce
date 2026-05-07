@@ -154,19 +154,39 @@ def _check_sig(func, expected_params, expected_return):
 
 
 def test_check_signature():
-    _check_sig(check, ["path", "content"], list[Diagnostic])
+    _check_sig(check, ["path", "content", "prelude"], list[Diagnostic])
 
 
 def test_goal_at_signature():
-    _check_sig(goal_at, ["path", "content", "pos"], Optional[Goal])
+    _check_sig(
+        goal_at, ["path", "content", "pos", "prelude"], Optional[Goal]
+    )
 
 
 def test_definition_of_signature():
-    _check_sig(definition_of, ["path", "content", "pos"], Optional[Location])
+    _check_sig(
+        definition_of,
+        ["path", "content", "pos", "prelude"],
+        Optional[Location],
+    )
 
 
 def test_list_symbols_signature():
-    _check_sig(list_symbols, ["path", "content"], list[SymbolInfo])
+    _check_sig(
+        list_symbols, ["path", "content", "prelude"], list[SymbolInfo]
+    )
+
+
+def test_prelude_param_has_default():
+    """``prelude`` is optional on every query function so existing
+    Step 3-5 callers (which pass ``path`` and ``content`` only)
+    keep working."""
+    for func in (check, goal_at, definition_of, list_symbols):
+        prelude_param = inspect.signature(func).parameters["prelude"]
+        assert prelude_param.default == (), (
+            f"{func.__name__}.prelude default drifted: "
+            f"got {prelude_param.default!r}"
+        )
 
 
 # All Phase 1 query functions are now implemented; their acceptance
