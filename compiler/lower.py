@@ -273,7 +273,7 @@ class LoweringCtx:
             return ir.Bool(t.value)
         if isinstance(t, ast.Int):
             return ir.Int(t.value)
-        if isinstance(t, ast.Var):
+        if isinstance(t, ast.VarRef):
             name = self._resolve(t)
             if name in self.ctors and self.ctor_arities.get(name, 0) == 0:
                 # Nullary constructor used as a value.
@@ -366,7 +366,7 @@ class LoweringCtx:
         # Peel TermInst: the type instantiation is irrelevant at runtime.
         while isinstance(rator, ast.TermInst):
             rator = rator.subject
-        if isinstance(rator, ast.Var):
+        if isinstance(rator, ast.VarRef):
             name = self._resolve(rator)
             base = ast.base_name(name)
             # Built-in equality. `=` is not a Deduce-source-level
@@ -404,7 +404,7 @@ class LoweringCtx:
             # The constructor field is typically a Var; sometimes a
             # bare string slips through. Either way we want the
             # uniquified name.
-            if isinstance(ctor, ast.Var):
+            if isinstance(ctor, ast.VarRef):
                 name = self._resolve(ctor)
             else:
                 name = str(ctor)
@@ -416,26 +416,14 @@ class LoweringCtx:
 
     # ---- helpers -----------------------------------------------------
 
-    def _resolve(self, v: ast.Var) -> str:
-        # Type-check writes the chosen overload back to `Var.name` for
-        # pattern constructors (`check_constructor_pattern`) and for
-        # most call sites. `resolved_names` is set by uniquify and is
-        # NOT filtered down by type-check — for an overloaded name
-        # like `zero` (with both `Nat`'s and a user union's `zero`)
-        # `resolved_names` keeps both candidates indefinitely.
-        #
-        # So prefer `.name` when it's clearly a uniquified name (any
-        # name containing `.`, since uniquify suffixes every name
-        # with `.<n>` and source identifiers can't contain `.`).
-        # Fall back to `resolved_names[0]` only when `.name` is still
-        # the bare source name — that path is hit by code paths the
-        # type-checker doesn't touch (we leave the original behaviour
-        # intact rather than pessimise it).
-        if "." in v.name:
-            return v.name
-        if v.resolved_names:
-            return v.resolved_names[0]
-        return v.name
+    def _resolve(self, v: ast.VarRef) -> str:
+        # `OverloadedVar.name` is a derived property returning
+        # `resolved_names[0]`, so this works uniformly: post-uniquify
+        # variables always present a uniquified name via `.name`.
+        # Pre-uniquify `Var` would return the source name, which is
+        # only sensible if the lowering is processing a sub-AST that
+        # bypasses uniquify (rare; left intact).
+        return v.get_name()
 
 
 # --------------------------------------------------------------------------
