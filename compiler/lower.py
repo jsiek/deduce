@@ -417,7 +417,7 @@ class LoweringCtx:
     # ---- helpers -----------------------------------------------------
 
     def _resolve(self, v: ast.VarRef) -> str:
-        # `ResolvedVar.name` is a derived property returning
+        # `OverloadedVar.name` is a derived property returning
         # `resolved_names[0]`, so this works uniformly: post-uniquify
         # variables always present a uniquified name via `.name`.
         # Pre-uniquify `Var` would return the source name, which is
