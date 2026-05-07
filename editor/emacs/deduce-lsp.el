@@ -35,8 +35,9 @@
 ;;   M-x imenu                  outline of top-level decls (documentSymbol)
 ;;
 ;; Step 5 adds `C-c C-g' for the custom `deduce/goalAt' request.
-;; Step 6 adds Phase-4 keybindings (`C-c C-r', `C-c C-c', `C-c C-i')
-;; for the LSP-side structured-editing operations once they land.
+;; Step 6 adds Phase-4 keybindings: `C-c C-r' (refine, Step 15) is
+;; live; `C-c C-c' (case split, Step 16) and `C-c C-i' (induction,
+;; Step 17) follow when those server operations land.
 ;;
 ;; Server command
 ;; --------------
@@ -271,6 +272,129 @@ is running in the current buffer."
 ;; being available, so the binding only makes sense once the user
 ;; has opted into LSP via `(require 'deduce-lsp)'.
 (define-key deduce-mode-map (kbd "C-c C-g") #'deduce-show-goal-at-point)
+
+
+;; ---------------------------------------------------------------------
+;; Refine hole (Step 6 -- partial; Phase-4 / LSP Step 15)
+;; ---------------------------------------------------------------------
+;;
+;; Bypasses `eglot-code-actions' (which prompts for an action kind and
+;; then for the action itself) by issuing the
+;; `textDocument/codeAction' request directly with a kind filter, then
+;; applying the first matching CodeAction's WorkspaceEdit without a
+;; picker.  One keystroke per refine -- the speed difference matters
+;; in interactive proof editing.
+;;
+;; Today the Deduce LSP only emits one `refactor.rewrite' action
+;; ("Refine hole").  When Steps 16/17 land (case split, induction
+;; skeleton) they'll add more refactor.rewrite actions; at that point
+;; this command will need a picker after all, OR we'll split the
+;; bindings: `C-c C-r' for refine, `C-c C-c' for case split, `C-c C-i'
+;; for induction.  The plan picks the latter.
+
+(defun deduce-lsp--lsp-pos-to-point (line character)
+  "Convert LSP 0-indexed (LINE, CHARACTER) to a point in the current buffer.
+
+Assumes ASCII (or at least each codepoint costs one column); for
+proof files in practice this is the case.  When/if Deduce gains
+non-ASCII source support, swap this for eglot's
+`eglot--lsp-position-to-point' which handles UTF-16 properly."
+  (save-excursion
+    (goto-char (point-min))
+    (forward-line line)
+    ;; `forward-char' works in characters, which on UTF-16 ASCII text
+    ;; matches LSP's `character'.
+    (forward-char character)
+    (point)))
+
+
+(defun deduce-lsp--apply-text-edit (edit)
+  "Apply a single LSP `TextEdit' EDIT to the current buffer.
+
+EDIT is a plist of the form `(:range PLIST :newText STR)' where
+the range is `(:start POS :end POS)' and POS is `(:line N
+:character N)'."
+  (let* ((range (plist-get edit :range))
+         (start (plist-get range :start))
+         (end (plist-get range :end))
+         (new-text (or (plist-get edit :newText) ""))
+         (p1 (deduce-lsp--lsp-pos-to-point
+              (plist-get start :line)
+              (plist-get start :character)))
+         (p2 (deduce-lsp--lsp-pos-to-point
+              (plist-get end :line)
+              (plist-get end :character))))
+    (delete-region p1 p2)
+    (goto-char p1)
+    (insert new-text)))
+
+
+(defun deduce-lsp--text-edits-for-uri (changes uri)
+  "Extract the TextEdit list for URI from a WorkspaceEdit `changes' plist.
+
+CHANGES is the value of the WorkspaceEdit's `:changes' field --
+a plist whose keys are URIs interned as keywords (e.g.
+`:file:///path/foo.pf').  Returns the TextEdit list, or nil if
+URI has no edits."
+  (when changes
+    (let ((target (intern-soft (concat ":" uri))))
+      (when target
+        (plist-get changes target)))))
+
+
+(defun deduce-lsp--apply-code-action (action)
+  "Apply the WorkspaceEdit of CodeAction plist ACTION to the
+current buffer.
+
+Today the server's only edit shape is `:changes' keyed by the
+file's URI; `:documentChanges' isn't used.  TextEdits are applied
+in the order the server returned them -- a single edit for
+Step 15, so order doesn't matter yet."
+  (let* ((edit (plist-get action :edit))
+         (changes (plist-get edit :changes))
+         (uri (deduce-lsp--current-uri))
+         (edits (deduce-lsp--text-edits-for-uri changes uri)))
+    (unless edits
+      (user-error "Refine action has no edits for the current buffer"))
+    ;; Apply in reverse order so each edit's offsets stay valid.
+    ;; Today there's only one edit; this is forward-compat for
+    ;; multi-edit actions in later steps.
+    (mapc #'deduce-lsp--apply-text-edit (reverse (append edits nil)))))
+
+
+(defun deduce-lsp-refine-hole ()
+  "Apply the LSP-suggested refinement for the hole at point.
+
+Issues a `textDocument/codeAction' request filtered to the
+`refactor.rewrite' kind, applies the first matching action's
+WorkspaceEdit directly, and skips the action picker.  This is
+the fast path for the keybinding.
+
+When the cursor isn't on a hole (or the goal shape isn't
+recognised by the server), errors with `No refinement available
+at point.'  When no eglot connection is active, prompts the user
+to run `M-x eglot' first."
+  (interactive)
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error
+       "No eglot server active in this buffer; M-x eglot first"))
+    (let* ((pos (deduce-lsp--current-position))
+           (params (list :textDocument (list :uri (deduce-lsp--current-uri))
+                         :range (list :start pos :end pos)
+                         :context (list :diagnostics [])))
+           (actions (jsonrpc-request server :textDocument/codeAction params)))
+      ;; The server returns either a vector or nil.  Normalise to a
+      ;; list so we can use plain seq operations.
+      (let ((action-list (if (vectorp actions) (append actions nil) actions)))
+        (unless action-list
+          (user-error "No refinement available at point"))
+        (deduce-lsp--apply-code-action (car action-list))))))
+
+
+;; Bind `C-c C-r' in `deduce-mode-map' for refine-at-point.  Same
+;; rationale as `C-c C-g': only meaningful when LSP is loaded.
+(define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
 
 
 (provide 'deduce-lsp)

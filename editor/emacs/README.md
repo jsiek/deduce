@@ -86,6 +86,13 @@ auto-start hook:
   (`textDocument/documentSymbol`).
 - `C-c C-g` -- show the proof goal at point in a popup buffer
   (custom `deduce/goalAt` request -- see below).
+- `C-c C-r` -- refine the hole at point. Issues
+  `textDocument/codeAction` filtered to `refactor.rewrite`, applies
+  the first matching action's `WorkspaceEdit` directly (no picker).
+  Templates by goal shape: `?, ?` for `P and Q`, `assume H: P\n?` for
+  `if P then Q`, `arbitrary x:T\n?` for `all`, `choose ?\n?` for
+  `some`, `reflexive` when both sides of an equation reduce to the
+  same term.
 
 ## Keybindings
 
@@ -96,11 +103,11 @@ auto-start hook:
 | `M-,`     | `xref-go-back`                   | eglot          | Pop the xref stack                        |
 | `M-x imenu` | `imenu`                        | eglot          | Outline of top-level declarations         |
 | `C-c C-g` | `deduce-show-goal-at-point`      | `deduce-lsp`   | Goal + givens at cursor                   |
+| `C-c C-r` | `deduce-lsp-refine-hole`         | `deduce-lsp`   | Apply LSP-suggested template at hole      |
 
-Phase-4 keybindings (`C-c C-r` refine, `C-c C-c` case split,
-`C-c C-i` induction) are reserved for Step 6 of the Emacs plan and
-will land once the server's structured-editing operations are
-available.
+Remaining Phase-4 keybindings (`C-c C-c` case split, `C-c C-i`
+induction) will land when the server's Step 16 / Step 17 operations
+do.
 
 ## Customization
 
@@ -191,6 +198,18 @@ Then verify the LSP integration:
    the `IH` line of `equal_refl`) and press `C-c C-g`. A `*deduce
    goal*` popup should show the goal formula and any givens in
    scope.
+8. In a scratch `.pf` buffer, type a theorem with a hole, e.g.
+
+   ```
+   theorem t: all P:bool. P = P
+   proof
+     ?
+   end
+   ```
+
+   Place point on the `?` and press `C-c C-r`. The `?` should be
+   replaced with `arbitrary P:bool\n?`. Press `C-c C-r` again on the
+   inner `?`; it becomes `reflexive`.
 
 ## Development
 
