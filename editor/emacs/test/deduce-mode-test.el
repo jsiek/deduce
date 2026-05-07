@@ -74,6 +74,146 @@ character break sexp motion."
     (should (= (point) (point-max)))))
 
 
+;; ---------------------------------------------------------------------
+;; Step 2: font-lock
+;; ---------------------------------------------------------------------
+
+(defun deduce-mode-test--face-at (target text)
+  "Return the `face' text property at the start of TARGET in TEXT,
+after `deduce-mode' font-locking.  Returns nil if TARGET isn't
+found or if the position has no face property."
+  (with-temp-buffer
+    (insert text)
+    (deduce-mode)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (when (search-forward target nil t)
+      (get-text-property (match-beginning 0) 'face))))
+
+
+(ert-deftest deduce-mode/keyword-theorem-gets-keyword-face ()
+  (should (eq (deduce-mode-test--face-at
+               "theorem"
+               "theorem t: true\nproof\n  .\nend\n")
+              'font-lock-keyword-face)))
+
+
+(ert-deftest deduce-mode/keyword-proof-gets-keyword-face ()
+  (should (eq (deduce-mode-test--face-at
+               "proof"
+               "theorem t: true\nproof\n  .\nend\n")
+              'font-lock-keyword-face)))
+
+
+(ert-deftest deduce-mode/keyword-arbitrary-gets-keyword-face ()
+  (should (eq (deduce-mode-test--face-at
+               "arbitrary"
+               "theorem t: all P:bool. P\nproof\n  arbitrary P:bool\n  ?\nend\n")
+              'font-lock-keyword-face)))
+
+
+(ert-deftest deduce-mode/constant-true-gets-constant-face ()
+  (should (eq (deduce-mode-test--face-at
+               "true"
+               "theorem t: true\n")
+              'font-lock-constant-face)))
+
+
+(ert-deftest deduce-mode/constant-false-gets-constant-face ()
+  (should (eq (deduce-mode-test--face-at
+               "false"
+               "theorem t: false\n")
+              'font-lock-constant-face)))
+
+
+(ert-deftest deduce-mode/integer-literal-gets-constant-face ()
+  (should (eq (deduce-mode-test--face-at
+               "42"
+               "define x: bool = 42 = 42\n")
+              'font-lock-constant-face)))
+
+
+(ert-deftest deduce-mode/builtin-type-bool-gets-type-face ()
+  (should (eq (deduce-mode-test--face-at
+               "bool"
+               "define x: bool = true\n")
+              'font-lock-type-face)))
+
+
+(ert-deftest deduce-mode/capitalized-identifier-gets-type-face ()
+  "User-defined types and constructors (capitalized identifiers)
+should be type-faced."
+  (should (eq (deduce-mode-test--face-at
+               "Nat"
+               "import Nat\n")
+              'font-lock-type-face))
+  (should (eq (deduce-mode-test--face-at
+               "Color"
+               "union Color {\n  Red\n}\n")
+              'font-lock-type-face)))
+
+
+(ert-deftest deduce-mode/standalone-question-mark-gets-warning-face ()
+  "A standalone `?' (proof hole) should be warning-faced."
+  (should (eq (deduce-mode-test--face-at
+               "?"
+               "theorem t: true\nproof\n  ?\nend\n")
+              'font-lock-warning-face)))
+
+
+(ert-deftest deduce-mode/sorry-gets-warning-face ()
+  (should (eq (deduce-mode-test--face-at
+               "sorry"
+               "theorem t: true\nproof\n  sorry\nend\n")
+              'font-lock-warning-face)))
+
+
+(ert-deftest deduce-mode/question-mark-inside-identifier-not-warning ()
+  "The `?' in `done?' is part of the identifier, not a hole, and
+should not be warning-faced."
+  (with-temp-buffer
+    (insert "define done?: bool = true\n")
+    (deduce-mode)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "done?")
+    ;; Move to the `?' character itself.
+    (backward-char)
+    (should-not (eq (get-text-property (point) 'face)
+                    'font-lock-warning-face))))
+
+
+(ert-deftest deduce-mode/keyword-not-matched-inside-identifier ()
+  "`theoremish' should NOT be highlighted as `theorem' followed by
+trailing characters: symbol boundaries protect against that."
+  (with-temp-buffer
+    (insert "define theoremish: bool = true\n")
+    (deduce-mode)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "theoremish")
+    (goto-char (match-beginning 0))
+    (should-not (eq (get-text-property (point) 'face)
+                    'font-lock-keyword-face))))
+
+
+(ert-deftest deduce-mode/keywords-inside-comments-not-highlighted ()
+  "Keywords inside line and block comments should not be highlighted."
+  (with-temp-buffer
+    (insert "// theorem t: true\n/* theorem t: true */\n")
+    (deduce-mode)
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "theorem")
+    (goto-char (match-beginning 0))
+    (should (eq (get-text-property (point) 'face)
+                'font-lock-comment-face))
+    (search-forward "theorem")
+    (goto-char (match-beginning 0))
+    (should (eq (get-text-property (point) 'face)
+                'font-lock-comment-face))))
+
+
 (provide 'deduce-mode-test)
 
 ;;; deduce-mode-test.el ends here
