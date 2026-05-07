@@ -588,7 +588,7 @@ def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
     best_span: list[Optional[int]] = [None]
 
     def visit(node):
-        if isinstance(node, Var):
+        if isinstance(node, VarRef):
             resolved = (node.resolved_names or [None])[0] or node.name
         elif isinstance(node, PVar):
             resolved = node.name

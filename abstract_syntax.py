@@ -158,18 +158,19 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
       # function called recursively (or with a type-var arg whose
       # name matches a bound tyvar) still records the binding instead
       # of being silently dropped on the floor by name equality.
-      if name in matching.keys():
-        if matching[name] == arg_ty:
+      tyvar_name = rs1[0]
+      if tyvar_name in matching.keys():
+        if matching[tyvar_name] == arg_ty:
           # Already bound to the same type — re-recursing would loop
           # for self-bindings like `T := T`.
           pass
         else:
-          type_match(loc, tyvars, matching[name], arg_ty, matching)
+          type_match(loc, tyvars, matching[tyvar_name], arg_ty, matching)
       else:
         if get_verbose():
-          print('matching ' + name + ' := ' + str(arg_ty))
-        matching[name] = arg_ty
-    case (ResolvedVar(l1, t1, rs1), ResolvedVar(l2, t2, rs2)) if n1 == n2:
+          print('matching ' + tyvar_name + ' := ' + str(arg_ty))
+        matching[tyvar_name] = arg_ty
+    case (ResolvedVar(l1, t1, rs1), ResolvedVar(l2, t2, rs2)) if rs1[0] == rs2[0]:
       pass
     case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
       if len(tv1) == len(tv2) and len(pts1) == len(pts2):
@@ -4226,10 +4227,20 @@ def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc',
         return uint_inc(loc, intToUInt(loc, n - 1, bzero, dubinc, incdub, uint_ty))
     
 def mkZero(loc, zname='zero', ty=None):
-  return ResolvedVar(loc, ty, [zname])
+  # Use ResolvedVar when the name is already uniquified (contains
+  # '.'), otherwise a pre-uniquify Var. Fast-arithmetic call sites
+  # in the type checker pass uniquified names extracted from the
+  # existing AST; parser call sites pass the bare source name.
+  if '.' in zname:
+    return ResolvedVar(loc, ty, [zname])
+  return Var(loc, ty, zname)
 
 def mkSuc(loc, arg, sname='suc', ty=None):
-  return Call(loc, ty, ResolvedVar(loc, None, [sname]), [arg])
+  if '.' in sname:
+    rator = ResolvedVar(loc, None, [sname])
+  else:
+    rator = Var(loc, None, sname)
+  return Call(loc, ty, rator, [arg])
 
 def intToNat(loc, n, zname='zero', sname='suc', ty=None):
   if n <= 0:
@@ -4333,10 +4344,10 @@ def mkUIntLit(loc, num):
                       [intToNat(loc, num)])])
   
 def mkPos(loc, arg):
-  return Call(loc, None, ResolvedVar(loc, None, ['pos']), [arg])
+  return Call(loc, None, Var(loc, None, 'pos'), [arg])
 
 def mkNeg(loc, arg):
-  return Call(loc, None, ResolvedVar(loc, None, ['negsuc']), [arg])
+  return Call(loc, None, Var(loc, None, 'negsuc'), [arg])
 
 # The following is used in the parser.
 def mkIntLit(loc, n, sign):
@@ -4449,10 +4460,10 @@ def nodeListToString(t):
       return str(arg) + ', ' + nodeListToString(ls)
 
 def mkEmpty(loc):
-  return ResolvedVar(loc, None, ['empty'])
+  return Var(loc, None, 'empty')
 
 def mkNode(loc, arg, ls):
-  return Call(loc, None, ResolvedVar(loc, None, ['node']), [arg, ls])
+  return Call(loc, None, Var(loc, None, 'node'), [arg, ls])
 
 def listToNodeList(loc, lst):
   if len(lst) == 0:
@@ -4799,7 +4810,15 @@ class Env:
   def get_type_of_term_var(self, tvar):
     match tvar:
       case ResolvedVar(loc, tyof, resolved_names):
-        overloads = [(x, self._type_of_term_var(self.dict, x)) for x in resolved_names]
+        looked_up = [(x, self._type_of_term_var(self.dict, x)) for x in resolved_names]
+        # Drop candidates not in env (e.g., overloads from modules
+        # that haven't been imported here).
+        overloads = [(x, ty) for (x, ty) in looked_up if ty is not None]
+        if len(overloads) == 0:
+          if get_verbose():
+            print('get_type_of_term_var(' + resolved_names[0] + ') = None'
+                  + ' (none of ' + ','.join(resolved_names) + ' in env)')
+          return None
         if len(overloads) > 1:
           ret = OverloadType(loc, overloads)
         else:
@@ -5292,15 +5311,16 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
     case (_, TermInst(loc2, tyof, subject, tyargs, inferred)):
       formula_match(loc, vars, pattern_frm, subject, matching, env)
       
-    case (ResolvedVar(l1, t1, rs1), ResolvedVar(l2, t2, rs2)) if n1 == n2:
+    case (ResolvedVar(l1, t1, rs1), ResolvedVar(l2, t2, rs2)) if rs1[0] == rs2[0]:
       pass
     case (ResolvedVar(l1, t1, rs1), _) if pattern_frm in vars:
-      if name in matching.keys():
-        formula_match(loc, vars, matching[name], frm, matching, env)
+      tyvar_name = rs1[0]
+      if tyvar_name in matching.keys():
+        formula_match(loc, vars, matching[tyvar_name], frm, matching, env)
       else:
         if get_verbose():
-            print("formula_match, " + base_name(name) + ' := ' + str(frm))
-        matching[name] = frm
+            print("formula_match, " + base_name(tyvar_name) + ' := ' + str(frm))
+        matching[tyvar_name] = frm
         
     case (Call(loc2, tyof2, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):

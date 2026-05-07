@@ -955,7 +955,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
 
   rator = pred_call.rator
   rator_name = None
-  if isinstance(rator, Var):
+  if isinstance(rator, VarRef):
     rator_name = rator.resolved_names[0] if rator.resolved_names \
                  else rator.name
   if rator_name != pred_name_in:
@@ -973,7 +973,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
   args = pred_call.args
   arg_names = []
   for a in args:
-    if not isinstance(a, Var):
+    if not isinstance(a, VarRef):
       error(loc, keyword_phrase + ": predicate arguments in the goal "
             "must be plain variables (got '" + str(a) + "')")
     arg_names.append(a.resolved_names[0] if a.resolved_names else a.name)
@@ -1601,7 +1601,7 @@ def check_proof_of(proof, formula, env):
                 if len(assumptions) > 1:
                   error(scase.location, 'only one assumption is allowed in a switch case')
                   
-                if isinstance(new_subject, Var):
+                if isinstance(new_subject, VarRef):
                   frm = formula.substitute({new_subject.name: new_subject_case})
                 else:
                   frm = formula
@@ -1672,7 +1672,7 @@ def expand_definitions(loc, formula, defs, env):
     var = var.reduce(env)
     # it's a bit strange that RecDef's can find there way into defs -Jeremy
 
-    if isinstance(var, Var):
+    if isinstance(var, VarRef):
       reduced_one = False
 
       # print(f"red: {var}")
@@ -1907,7 +1907,7 @@ def check_recursive_call(call, recfun, subterms):
       return
   increment_recursive_call_count()  
 
-  if isinstance(call.args[0], Var):
+  if isinstance(call.args[0], VarRef):
     if not (call.args[0].get_name() in subterms):
       error(call.location, "ill-formed recursive call\n" \
             + "expected first argument to be " \
@@ -1978,7 +1978,7 @@ def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
   ty = new_subject.typeof
   match ty:
     case ResolvedVar(loc2, ty2, rs):
-      retty = TypeInst(loc, name, tyargs)
+      retty = TypeInst(loc, ty, tyargs)
     case FunctionType(loc2, typarams, param_types, return_type):
       sub = {x: t for (x,t) in zip(typarams, tyargs)}
       inst_param_types = [t.substitute(sub) for t in param_types]
@@ -2298,7 +2298,7 @@ def type_check_term(term, typ, env, recfun, subterms):
                   if get_verbose():
                       print('found overload ' + x + ' of type ' + str(typ))
                   return ResolvedVar(loc, typ, [x])
-          error(loc, 'could not find an overload of ' + name \
+          error(loc, 'could not find an overload of ' + base_name(rs[0]) \
                 + ' of type ' + str(typ) + '\nin: ' + str(var_typ))
         case (GenericUnknownInst(loc2, union1), TypeInst(loc3, union2, tyargs)):
           if union1 == union2:
@@ -2319,10 +2319,7 @@ def type_check_term(term, typ, env, recfun, subterms):
             except Exception as e:
               pass
       if var_typ == typ:
-        if len(rs) > 0:
-            return ResolvedVar(loc, typ, [ rs[0] ])
-        else:
-            return ResolvedVar(loc, typ, [name])
+        return ResolvedVar(loc, typ, [rs[0]])
       else:
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
@@ -2568,7 +2565,7 @@ def _flip_polarity(pol):
 def _lookup_param_polarities(head, env):
   """If `head` resolves to a Union, return its inferred per-parameter polarities
   (or None if not yet inferred)."""
-  if not isinstance(head, Var):
+  if not isinstance(head, VarRef):
     return None
   try:
     head_def = env.get_def_of_type_var(head)
@@ -2581,7 +2578,7 @@ def _lookup_param_polarities(head, env):
 def check_strict_positivity(ty, union_name, env, forbidden=False):
   match ty:
     case ResolvedVar(loc, _, rns):
-      ref_name = rns[0] if rns else name
+      ref_name = rns[0]
       if forbidden and ref_name == union_name:
         error(loc,
               f"the union '{base_name(union_name)}' must not occur in a "
@@ -2626,7 +2623,7 @@ def infer_param_polarities(union_decl, env):
   def walk(ty, current):
     match ty:
       case ResolvedVar(loc, _, rns):
-        ref_name = rns[0] if rns else name
+        ref_name = rns[0]
         if ref_name in type_param_names:
           idx = union_decl.type_params.index(ref_name)
           if current == '-':
@@ -2725,7 +2722,7 @@ def _validate_predicate_rule_shape(rule, pred_name, keyword, arity, env):
           + base_name(pred_name) + "', but found '" + str(concl) + "'")
   rator = concl.rator
   rator_name = None
-  if isinstance(rator, Var):
+  if isinstance(rator, VarRef):
     rator_name = rator.resolved_names[0] if rator.resolved_names else rator.name
   if rator_name != pred_name:
     suggestion = ''
@@ -2759,7 +2756,7 @@ def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
   match formula:
     case Call(loc, _, rator, args):
       ratname = None
-      if isinstance(rator, Var):
+      if isinstance(rator, VarRef):
         ratname = rator.resolved_names[0] if rator.resolved_names \
                   else rator.name
       if forbidden and ratname == pred_name:
@@ -2772,7 +2769,7 @@ def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
       for a in args:
         _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
     case ResolvedVar(loc, _, rns):
-      ref = rns[0] if rns else name
+      ref = rns[0]
       if forbidden and ref == pred_name:
         error(loc,
               keyword + " '" + base_name(pred_name) + "' must not occur "
@@ -2863,7 +2860,7 @@ def _is_recursive_atom(atom, pred_name):
   if not isinstance(atom, Call):
     return False
   rator = atom.rator
-  if not isinstance(rator, Var):
+  if not isinstance(rator, VarRef):
     return False
   rname = rator.resolved_names[0] if rator.resolved_names else rator.name
   return rname == pred_name
@@ -3533,7 +3530,7 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
   match formula:
     case Call(loc, _, rator, args):
       ratname = None
-      if isinstance(rator, Var):
+      if isinstance(rator, VarRef):
         ratname = rator.resolved_names[0] if rator.resolved_names \
                   else rator.name
       if forbidden and ratname == pred_name:
@@ -3546,7 +3543,7 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
       for a in args:
         _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
     case ResolvedVar(loc, _, rns):
-      ref = rns[0] if rns else name
+      ref = rns[0]
       if forbidden and ref == pred_name:
         error(loc,
               keyword + " '" + base_name(pred_name) + "' must not occur "
@@ -4115,11 +4112,11 @@ def match_induction_fun(frm, ty_tys, ind_ty):
           if len(ps) != len(ty_tys):
             error(loc, "Theorem and predicate should have the same number of type parameters")
           # TODO: Name should be defined for the parameters all the time?
-          if not all([isinstance(x, Var) and x.name == y for x, y in zip(ps, ty_tys)]):
+          if not all([isinstance(x, VarRef) and x.name == y for x, y in zip(ps, ty_tys)]):
             print(ps, ty_tys)
             error(loc, "Theorem type params don't match function type params for inductive declaration")
           type_mismatch = ind_ty != typ
-        case Var():
+        case Var() | ResolvedVar():
           type_mismatch = ind_ty != param_ty
         case _:
           print(type(param_ty), param_ty)
@@ -4212,7 +4209,7 @@ def collect_env(stmt, env : Env):
     
     case Inductive(loc, typ, name):
       frm = env.get_formula_of_proof_var(name)
-      if not isinstance(typ, Var):
+      if not isinstance(typ, VarRef):
         error(loc, "Only able to declare uninstantiated union types inductive")
       return env.declare_inductive(loc, match_induction(frm, typ), name)
 
