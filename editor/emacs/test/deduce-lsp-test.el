@@ -67,6 +67,41 @@ PYTHONPATH carries the checkout location."
       (should-not (string-match-p "~" (cadr cmd))))))
 
 
+(ert-deftest deduce-lsp/server-command-prelude-disabled-alone ()
+  "`deduce-lsp-prelude-disabled' alone wraps in `env DEDUCE_NO_STDLIB=1'."
+  (let ((deduce-lsp-deduce-root nil)
+        (deduce-lsp-prelude-disabled t)
+        (deduce-lsp-python-program "python3"))
+    (should (equal (deduce-lsp-server-command)
+                   '("env" "DEDUCE_NO_STDLIB=1"
+                     "python3" "-m" "lsp.lsp_server")))))
+
+
+(ert-deftest deduce-lsp/server-command-prelude-disabled-with-root ()
+  "Both knobs combine: `env PYTHONPATH=... DEDUCE_NO_STDLIB=1 python3 ...'."
+  (let ((deduce-lsp-deduce-root "/tmp/deduce-checkout")
+        (deduce-lsp-prelude-disabled t)
+        (deduce-lsp-python-program "python3"))
+    (let ((cmd (deduce-lsp-server-command)))
+      (should (equal (car cmd) "env"))
+      ;; Both bindings present (order is implementation-defined; assert
+      ;; membership rather than position).
+      (should (member "PYTHONPATH=/tmp/deduce-checkout" cmd))
+      (should (member "DEDUCE_NO_STDLIB=1" cmd))
+      ;; Interpreter + module spec come last, in order.
+      (should (equal (last cmd 3) '("python3" "-m" "lsp.lsp_server"))))))
+
+
+(ert-deftest deduce-lsp/server-command-prelude-disabled-nil-stays-bare ()
+  "With both knobs nil, no `env' wrapper is introduced."
+  (let ((deduce-lsp-deduce-root nil)
+        (deduce-lsp-prelude-disabled nil)
+        (deduce-lsp-python-program "python3"))
+    (let ((cmd (deduce-lsp-server-command)))
+      (should-not (equal (car cmd) "env"))
+      (should (equal cmd '("python3" "-m" "lsp.lsp_server"))))))
+
+
 (ert-deftest deduce-lsp/auto-start-hook-installed ()
   "`deduce-lsp--maybe-ensure' is on `deduce-mode-hook' after load."
   (should (memq #'deduce-lsp--maybe-ensure deduce-mode-hook)))

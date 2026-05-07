@@ -50,6 +50,13 @@
 ;; `deduce-lsp-deduce-root' to point at your deduce checkout; the
 ;; server command will then be invoked with PYTHONPATH including
 ;; that directory so the import resolves regardless of cwd.
+;;
+;; Set `deduce-lsp-prelude-disabled' to a non-nil value to skip the
+;; standard library prelude (mirrors `deduce.py --no-stdlib').  The
+;; server command then includes `DEDUCE_NO_STDLIB=1' in its env.
+;;
+;; See `editor/emacs/README.md' for the full list of customization
+;; variables, keybindings, and a manual smoke-test script.
 
 ;;; Code:
 
@@ -107,21 +114,47 @@ are warm."
   :group 'deduce-lsp)
 
 
+(defcustom deduce-lsp-prelude-disabled nil
+  "If non-nil, start the LSP server without the standard library prelude.
+
+Sets `DEDUCE_NO_STDLIB=1' in the spawned process environment, which
+mirrors `deduce.py --no-stdlib'.  Useful when working on `lib/'
+itself or on minimal test fixtures where the prelude bootstrap is
+unwanted overhead."
+  :type 'boolean
+  :group 'deduce-lsp)
+
+
 (defun deduce-lsp-server-command (&optional _interactive)
   "Return the command list eglot uses to launch the Deduce LSP server.
 
-When `deduce-lsp-deduce-root' is set, prepend it to PYTHONPATH
-via `env'.  Otherwise return the bare `python3 -m lsp.lsp_server'
-form and trust eglot's cwd to be the deduce repo root.
+Two knobs influence the command shape:
+
+- `deduce-lsp-deduce-root', when set, contributes a `PYTHONPATH'
+  entry so `python3 -m lsp.lsp_server' resolves regardless of cwd.
+- `deduce-lsp-prelude-disabled', when non-nil, contributes
+  `DEDUCE_NO_STDLIB=1' so the server skips the stdlib prelude.
+
+Whenever at least one knob is active, the command is wrapped in
+`env KEY=VAL ...' so the bindings reach the spawned process.
+Otherwise the bare `python3 -m lsp.lsp_server' form is returned
+and eglot's cwd is trusted to be the deduce repo root.
 
 The optional argument is unused; it's accepted because eglot
 calls server-program functions with one argument (an
 `interactive' flag) since Emacs 29."
   (let ((py deduce-lsp-python-program)
-        (mod-args '("-m" "lsp.lsp_server")))
-    (if deduce-lsp-deduce-root
-        (let ((root (expand-file-name deduce-lsp-deduce-root)))
-          (append (list "env" (format "PYTHONPATH=%s" root) py) mod-args))
+        (mod-args '("-m" "lsp.lsp_server"))
+        (env-bindings nil))
+    (when deduce-lsp-deduce-root
+      (push (format "PYTHONPATH=%s"
+                    (expand-file-name deduce-lsp-deduce-root))
+            env-bindings))
+    (when deduce-lsp-prelude-disabled
+      (push "DEDUCE_NO_STDLIB=1" env-bindings))
+    (if env-bindings
+        (append (cons "env" (nreverse env-bindings))
+                (cons py mod-args))
       (cons py mod-args))))
 
 
