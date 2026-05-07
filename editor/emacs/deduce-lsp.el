@@ -73,6 +73,7 @@
 (defvar eglot-server-programs)
 (declare-function eglot-ensure "eglot")
 (declare-function eglot-current-server "eglot")
+(declare-function eglot--signal-textDocument/didChange "eglot")
 
 
 (defgroup deduce-lsp nil
@@ -213,55 +214,30 @@ LSP positions are 0-indexed (line and character)."
         :character (current-column)))
 
 
-(defvar-local deduce-lsp--didChange-version 0
-  "Monotonic counter for our manual textDocument/didChange notifications.
-
-Each call to `deduce-lsp--sync-buffer' increments this and uses it
-as the LSP `version' field.  We don't share state with eglot's
-`eglot--versioned-identifier'; pygls doesn't enforce monotonicity
-across senders, so two parallel counters are harmless.")
-
-
-(defun deduce-lsp--sync-buffer (server)
-  "Send a Full `textDocument/didChange' so SERVER sees the buffer.
+(defun deduce-lsp--request (server method params)
+  "Issue an LSP request to SERVER, flushing pending buffer changes first.
 
 `jsonrpc-request' on its own races with eglot's didChange
-debouncing.  Eglot batches buffer changes into a notification
-fired on idle (after `eglot-send-changes-idle-time', default
-0.5s).  When the user chains structured edits -- e.g. `C-c C-r'
-on a hole, then `C-c C-r' on the inserted hole right away -- the
-second request can reach the server before the didChange from
-the first edit has gone out, so the server runs against stale
-buffer content and returns the wrong (or no) edit.
+debouncing.  Eglot batches buffer changes into a
+`textDocument/didChange' notification fired on idle (after
+`eglot-send-changes-idle-time', default 0.5s).  When the user
+chains structured edits -- e.g. `C-c C-r' on a hole, then
+`C-c C-r' on the inserted hole right away -- the second request
+can reach the server before the didChange from the first edit
+has gone out, so the server runs against stale buffer content
+and returns the wrong (or no) edit.
 
-Rather than depend on eglot's internal flush (which has been
-unreliable in practice -- see issue #339), we just send a Full
-sync directly: the entire current buffer content as a single
-`{:text ...}' contentChange.  pygls's `apply_change' replaces the
-workspace document's source verbatim, so subsequent requests see
-the up-to-date content.
+This helper sends pending changes synchronously, then issues
+the JSON-RPC request.  Mirrors the pattern eglot's internal
+`eglot--request' uses by default.
 
-The Deduce LSP advertises `Full' sync (see lsp/lsp_server.py),
-matching what we send here."
-  (cl-incf deduce-lsp--didChange-version)
-  (jsonrpc-notify
-   server :textDocument/didChange
-   (list :textDocument
-         (list :uri (deduce-lsp--current-uri)
-               :version deduce-lsp--didChange-version)
-         :contentChanges
-         (vector (list :text (buffer-substring-no-properties
-                              (point-min) (point-max)))))))
-
-
-(defun deduce-lsp--request (server method params)
-  "Issue an LSP request to SERVER, syncing the buffer content first.
-
-Sends a Full `textDocument/didChange' before the request so the
-server's workspace has the up-to-date buffer content -- belts and
-braces against eglot's debounced didChange flush.  See
-`deduce-lsp--sync-buffer' for the rationale (issue #339)."
-  (deduce-lsp--sync-buffer server)
+Note on private API: `eglot--signal-textDocument/didChange' has
+the `--' private-symbol convention, but the function name and
+behaviour have been stable across recent eglot releases and it's
+the explicit primitive eglot itself uses for this purpose.  If a
+future eglot release renames it, this function is the single
+point of update."
+  (eglot--signal-textDocument/didChange)
   (jsonrpc-request server method params))
 
 
