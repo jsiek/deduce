@@ -368,3 +368,43 @@ def test_definition_with_unknown_uri_returns_none(server):
 
 def test_goal_at_without_uri_returns_none(server):
     assert lsp_server.on_goal_at(server, {}) is None
+
+
+# --------------------------------------------------------------------------
+# Prelude scoping (regression for the lib/* self-import bug)
+# --------------------------------------------------------------------------
+
+
+def test_prelude_for_lib_file_is_empty():
+    """Files inside ``lib/`` are themselves part of the prelude;
+    auto-prepending the prelude when checking one would import
+    the file twice and trip ``theorem names may not be overloaded``.
+    Mirrors ``deduce.py``'s ``check_in_prelude`` logic."""
+    lib_file = REPO_ROOT / "lib" / "Nat.pf"
+    if not lib_file.exists():
+        pytest.skip(f"{lib_file} not present in this checkout")
+    assert lsp_server._prelude_for(str(lib_file)) == ()
+
+
+def test_prelude_for_user_file_is_default():
+    """A file outside ``lib/`` gets the configured prelude."""
+    # `_PRELUDE` is captured at import time; it could be `()` if the
+    # test process set DEDUCE_NO_STDLIB=1 (as test_mcp_server.py
+    # does). Either way, a user-file path should match `_PRELUDE`
+    # exactly, while a lib-path returns `()`.
+    user_file = REPO_ROOT / "test" / "should-validate" / "after.pf"
+    if not user_file.exists():
+        pytest.skip(f"{user_file} not present")
+    assert lsp_server._prelude_for(str(user_file)) == lsp_server._PRELUDE
+
+
+def test_path_is_in_lib_helper():
+    lib_file = REPO_ROOT / "lib" / "Nat.pf"
+    if lib_file.exists():
+        assert lsp_server._path_is_in_lib(str(lib_file)) is True
+    user_file = REPO_ROOT / "test" / "should-validate" / "after.pf"
+    if user_file.exists():
+        assert lsp_server._path_is_in_lib(str(user_file)) is False
+    # Nonexistent path: the resolve() walks the parents that do exist;
+    # if its lexical prefix matches lib/, it counts as in lib.
+    assert lsp_server._path_is_in_lib("/nope/not-a-path.pf") is False

@@ -85,6 +85,32 @@ def _default_prelude() -> tuple[str, ...]:
 _PRELUDE = _default_prelude()
 
 
+def _path_is_in_lib(path: str) -> bool:
+    """True iff ``path`` lives inside the standard library directory.
+
+    Files inside ``lib/`` are themselves part of the prelude, so when
+    we check one we must NOT auto-prepend the prelude -- otherwise
+    the file gets imported twice (once via the prelude, once as the
+    user file) and every theorem in it triggers
+    ``theorem names may not be overloaded``.
+    """
+    try:
+        Path(path).resolve().relative_to(_LIB_DIR.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def _prelude_for(path: str) -> tuple[str, ...]:
+    """Return the prelude appropriate for checking ``path``.
+
+    Mirrors ``deduce.py``'s ``check_in_prelude`` logic: empty prelude
+    for files that are themselves part of the standard library, the
+    full default prelude otherwise.
+    """
+    return () if _path_is_in_lib(path) else _PRELUDE
+
+
 # ---------------------------------------------------------------------------
 # Server definition
 # ---------------------------------------------------------------------------
@@ -181,7 +207,7 @@ def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
     if content is None:
         return
     path = _path_from_uri(uri)
-    diags = _query.check(path, content, prelude=_PRELUDE)
+    diags = _query.check(path, content, prelude=_prelude_for(path))
     # pygls 2.x exposes the publish-diagnostics notification as
     # ``text_document_publish_diagnostics(params)``. The pre-2.x
     # ``publish_diagnostics(uri, list)`` shape was removed; calling
@@ -263,7 +289,7 @@ def on_definition(
         return None
     path = _path_from_uri(uri)
     pos = _query_pos_from_lsp(params.position)
-    loc = _query.definition_of(path, content, pos, prelude=_PRELUDE)
+    loc = _query.definition_of(path, content, pos, prelude=_prelude_for(path))
     if loc is None:
         return None
     return lsp_types.Location(
@@ -282,7 +308,7 @@ def on_document_symbol(
     if content is None:
         return []
     path = _path_from_uri(uri)
-    syms = _query.list_symbols(path, content, prelude=_PRELUDE)
+    syms = _query.list_symbols(path, content, prelude=_prelude_for(path))
     return [
         lsp_types.DocumentSymbol(
             name=s.name,
@@ -324,7 +350,8 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
             character=int(pos_obj.get("character", 0)),
         )
     )
-    goal = _query.goal_at(_path_from_uri(uri), content, pos, prelude=_PRELUDE)
+    path = _path_from_uri(uri)
+    goal = _query.goal_at(path, content, pos, prelude=_prelude_for(path))
     if goal is None:
         return None
     return {
