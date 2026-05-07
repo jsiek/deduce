@@ -52,6 +52,13 @@ class _FakeWorkspace:
     def add_document(self, uri: str, content: str) -> None:
         self._docs[uri] = SimpleNamespace(source=content, uri=uri)
 
+    def update_document(self, uri: str, content: str) -> None:
+        """Simulate pygls's `update_text_document` for the Full
+        TextDocumentSyncKind: replace the document's source."""
+        if uri not in self._docs:
+            raise KeyError(uri)
+        self._docs[uri].source = content
+
     def get_text_document(self, uri: str) -> SimpleNamespace:
         if uri not in self._docs:
             raise KeyError(uri)
@@ -209,6 +216,94 @@ def test_did_save_re_runs_diagnostics(server, open_doc):
         text_document=lsp_types.TextDocumentIdentifier(uri=uri),
     )
     lsp_server.on_did_save(server, save_params)
+    assert server.published[uri] == []
+
+
+def test_did_change_re_runs_diagnostics(server, open_doc):
+    """`on_did_change' republishes diagnostics so the underline
+    tracks the buffer's `?` location after a refactor edit."""
+    # Open with a hole present -> diagnostic published on didOpen.
+    src1 = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("didchange.pf", src1)
+    open_params = lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri,
+            language_id="deduce",
+            version=1,
+            text=src1,
+        )
+    )
+    lsp_server.on_did_open(server, open_params)
+    assert len(server.published[uri]) == 1
+    initial_line = server.published[uri][0].range.start.line  # `?` on
+    #  0-indexed line 2.
+    assert initial_line == 2
+
+    # Simulate a refactor edit: replace the `?` with an
+    # `arbitrary P:bool\n  ?` skeleton.  The new `?` is now on line
+    # 4 (0-indexed line 3).
+    src2 = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    server.workspace.update_document(uri, src2)
+
+    change_params = lsp_types.DidChangeTextDocumentParams(
+        text_document=lsp_types.VersionedTextDocumentIdentifier(
+            uri=uri, version=2
+        ),
+        content_changes=[],  # pygls already applied; we drive the handler
+    )
+    lsp_server.on_did_change(server, change_params)
+
+    # Diagnostic re-published; the new range follows the new `?`.
+    assert len(server.published[uri]) == 1
+    new_line = server.published[uri][0].range.start.line
+    assert new_line == 3, (
+        f"diagnostic line should follow the new `?` (line 3, 0-indexed); "
+        f"got {new_line}"
+    )
+
+
+def test_did_change_clears_diagnostics_when_proof_completes(
+    server, open_doc
+):
+    """If the buffer change makes the proof valid, the
+    `on_did_change' re-publish clears the previously-published
+    diagnostic."""
+    src_with_hole = "theorem t: true\nproof\n  ?\nend\n"
+    _, uri = open_doc("complete.pf", src_with_hole)
+    open_params = lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri,
+            language_id="deduce",
+            version=1,
+            text=src_with_hole,
+        )
+    )
+    lsp_server.on_did_open(server, open_params)
+    assert len(server.published[uri]) == 1
+
+    # Replace `?` with `.` -- now the proof validates.
+    server.workspace.update_document(
+        uri, "theorem t: true\nproof\n  .\nend\n"
+    )
+    change_params = lsp_types.DidChangeTextDocumentParams(
+        text_document=lsp_types.VersionedTextDocumentIdentifier(
+            uri=uri, version=2
+        ),
+        content_changes=[],
+    )
+    lsp_server.on_did_change(server, change_params)
+
     assert server.published[uri] == []
 
 
@@ -488,6 +583,72 @@ def test_code_action_with_unknown_uri_returns_empty(server):
         context=lsp_types.CodeActionContext(diagnostics=[]),
     )
     assert lsp_server.on_code_action(server, params) == []
+
+
+def test_chained_refine_after_workspace_update(server, open_doc):
+    """End-to-end transport simulation for issue #339.
+
+    Sequence:
+    1. didOpen with `?` at line 3 col 3.
+    2. codeAction at the `?` -> returns refine action.
+    3. Simulate the client applying the edit + sending didChange:
+       update the workspace document with the new content.
+    4. codeAction at the new `?` (line 4 col 3) -> should ALSO
+       return a refine action, against the UPDATED workspace.
+
+    Step 4 is what failed in the user's manual test before the
+    fix shipped: the second codeAction saw stale buffer content
+    because eglot's didChange hadn't gone out yet.  The
+    server-side handler is correct; this test pins the contract
+    that pygls' workspace update + our handler do the right
+    thing when the didChange DOES arrive.
+    """
+    src = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("chain.pf", src)
+
+    # Round 1: codeAction at the `?` (LSP line 2, col 2).
+    params1 = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=2, character=2),
+            end=lsp_types.Position(line=2, character=2),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    actions1 = lsp_server.on_code_action(server, params1)
+    assert len(actions1) == 1, (
+        f"first codeAction should return one refine action; got {actions1!r}"
+    )
+    assert actions1[0].title == "Refine hole"
+    edit1 = actions1[0].edit.changes[uri][0]
+    # Eglot would apply this edit locally and then send didChange.
+    # Simulate the post-edit content here.
+    new_text = "arbitrary P:bool\n  ?"
+    src_after = src.replace("  ?", "  " + new_text, 1)
+    server.workspace.update_document(uri, src_after)
+
+    # Round 2: codeAction at the NEW `?` (now at LSP line 3 col 2).
+    params2 = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=3, character=2),
+            end=lsp_types.Position(line=3, character=2),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    actions2 = lsp_server.on_code_action(server, params2)
+    assert len(actions2) == 1, (
+        f"second codeAction should return another refine action; "
+        f"got {actions2!r}.  This is the issue-#339 regression: if the "
+        f"workspace update isn't visible to the handler, the second "
+        f"refine fails."
+    )
+    assert actions2[0].title == "Refine hole"
 
 
 # --------------------------------------------------------------------------

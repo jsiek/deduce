@@ -136,10 +136,17 @@ PYTHONPATH carries the checkout location."
   "Run THUNK with `jsonrpc-request' and `eglot-current-server'
 mocked: any request returns RESPONSE, and `eglot-current-server'
 returns the symbol `mock-server'.  Returns the captured request
-arguments."
+arguments.
+
+Also no-ops `eglot--signal-textDocument/didChange', which our
+`deduce-lsp--request' wrapper calls before each request to flush
+pending buffer changes (issue #339).  In the test harness there's
+no real eglot server to track against, so we just stub the call."
   (let ((captured nil))
     (cl-letf (((symbol-function 'eglot-current-server)
                (lambda () 'mock-server))
+              ((symbol-function 'eglot--signal-textDocument/didChange)
+               (lambda () nil))
               ((symbol-function 'jsonrpc-request)
                (lambda (server method params)
                  (setq captured (list :server server :method method :params params))
@@ -454,10 +461,16 @@ prefer."
   "Run THUNK with `jsonrpc-request' returning per-method responses.
 RESPONSES-BY-METHOD is an alist of (METHOD . RESPONSE) where
 METHOD is a keyword like :deduce/caseSplitAt.  Returns the list
-of every captured (method . params) pair, in call order."
+of every captured (method . params) pair, in call order.
+
+Also no-ops `eglot--signal-textDocument/didChange' (called by
+`deduce-lsp--request' before every request) so the mock harness
+doesn't try to flush against a non-existent server."
   (let ((calls nil))
     (cl-letf (((symbol-function 'eglot-current-server)
                (lambda () 'mock-server))
+              ((symbol-function 'eglot--signal-textDocument/didChange)
+               (lambda () nil))
               ((symbol-function 'jsonrpc-request)
                (lambda (_server method params)
                  (push (cons method params) calls)
@@ -574,6 +587,8 @@ and feeds them to `completing-read'."
           (deduce-mode)
           (cl-letf (((symbol-function 'eglot-current-server)
                      (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
                     ((symbol-function 'jsonrpc-request)
                      (lambda (_server method _params)
                        (cond
@@ -605,11 +620,65 @@ interactive entry user-errors with `No case split available'."
           (deduce-mode)
           (cl-letf (((symbol-function 'eglot-current-server)
                      (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
                     ((symbol-function 'jsonrpc-request)
                      (lambda (_server _method _params) [])))
             (should-error (call-interactively #'deduce-lsp-case-split)
                           :type 'user-error)))
       (delete-file tmp))))
+
+
+;; ---------------------------------------------------------------------
+;; deduce-lsp--request: flush pending didChange before each request
+;; ---------------------------------------------------------------------
+;;
+;; Issue #339: a sequence like `C-c C-r' -> `C-c C-r' (chained refines)
+;; races eglot's `eglot-send-changes-idle-time' debouncing when we
+;; call `jsonrpc-request' directly -- the second request can reach
+;; the server before eglot has sent didChange for the first edit.
+;; `deduce-lsp--request' wraps `jsonrpc-request' with a synchronous
+;; `eglot--signal-textDocument/didChange' first, the same primitive
+;; eglot's own internal `eglot--request' uses.
+
+(ert-deftest deduce-lsp/request-flushes-pending-didChange-before-request ()
+  "`deduce-lsp--request' calls `eglot--signal-textDocument/didChange'
+*before* `jsonrpc-request', so the server sees the latest buffer
+state when the request is processed."
+  (let ((order nil))
+    (cl-letf (((symbol-function 'eglot--signal-textDocument/didChange)
+               (lambda () (push 'flush order)))
+              ((symbol-function 'jsonrpc-request)
+               (lambda (_server _method _params)
+                 (push 'request order)
+                 'mock-response)))
+      (let ((response (deduce-lsp--request 'mock-server :foo nil)))
+        (should (eq response 'mock-response))))
+    ;; `push' adds to the head, so the call sequence is the reverse.
+    (should (equal (reverse order) '(flush request)))))
+
+
+(ert-deftest deduce-lsp/current-uri-resolves-symlinks ()
+  "`deduce-lsp--current-uri' uses `file-truename' so the URI
+matches what eglot's didOpen registered.  Without this, files
+opened via a symlinked path (e.g. `/tmp' -> `/private/tmp' on
+macOS) would land under one URI in pygls's workspace and be
+queried under another, surfacing as `KeyError' on every
+request."
+  (let ((tmpdir (make-temp-file "deduce-lsp-symlink" t)))
+    (unwind-protect
+        (let* ((real-target (expand-file-name "real.pf" tmpdir))
+               (symlink-path (expand-file-name "alias.pf" tmpdir)))
+          (with-temp-file real-target (insert "x"))
+          (make-symbolic-link real-target symlink-path)
+          (with-temp-buffer
+            ;; Visit via the symlink path.
+            (setq buffer-file-name symlink-path)
+            (let ((uri (deduce-lsp--current-uri)))
+              ;; URI must point at the *target*, not the symlink.
+              (should (string-suffix-p "/real.pf" uri))
+              (should-not (string-suffix-p "/alias.pf" uri)))))
+      (delete-directory tmpdir t))))
 
 
 (provide 'deduce-lsp-test)
