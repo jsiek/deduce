@@ -5268,68 +5268,6 @@ def check_post_uniquify_invariants(ast_list):
       'Each one is a leftover construction site that wasn\'t migrated '
       'to OverloadedVar/ResolvedVar.\n' + '\n'.join(msgs) + suffix)
 
-def normalize_post_typecheck(ast_list):
-  """Walk the post-typecheck AST and promote every single-candidate
-  ``OverloadedVar`` to ``ResolvedVar``.
-
-  After type checking, an ``OverloadedVar`` whose ``resolved_names``
-  list has exactly one element is no longer overloaded — there's no
-  candidate to choose between. The class transition is normally
-  performed inline by the type checker (``type_synth_term`` /
-  ``type_check_term`` produce a ``ResolvedVar`` once they've narrowed
-  to one option), but several positions in the AST aren't visited by
-  those code paths: type annotations, the `definitions` list of an
-  ``ApplyDefsGoal``, components of ``FunctionType`` / ``TypeInst``
-  buried inside theorems, etc. This pass enforces the invariant
-  uniformly.
-
-  The conversion is *in place*: each AST node that holds a reference
-  to an ``OverloadedVar`` field has that field rebound to a freshly
-  constructed ``ResolvedVar`` carrying the same canonical name and
-  ``typeof``. Multi-candidate ``OverloadedVar`` nodes (genuine
-  unresolved overloads) are left untouched.
-
-  Run after ``check_deduce`` and before
-  ``check_post_typecheck_invariants``."""
-  from dataclasses import fields, is_dataclass
-
-  def normalize(value):
-    """Recursively normalize ``value``, returning a (possibly
-    new) version with single-candidate OverloadedVars replaced by
-    ResolvedVars. Containers (list/tuple/dict) are rebuilt with
-    normalized children; AST nodes have their fields mutated in
-    place to point to normalized children."""
-    if isinstance(value, OverloadedVar) and len(value.resolved_names) == 1:
-      return ResolvedVar(value.location, normalize(value.typeof),
-                         value.resolved_names[0])
-    if isinstance(value, list):
-      return [normalize(v) for v in value]
-    if isinstance(value, tuple):
-      return tuple(normalize(v) for v in value)
-    if isinstance(value, dict):
-      return {k: normalize(v) for k, v in value.items()}
-    if isinstance(value, AST) and is_dataclass(value):
-      if id(value) in seen:
-        return value
-      seen.add(id(value))
-      for f in fields(value):
-        old = getattr(value, f.name, None)
-        if old is None:
-          continue
-        if isinstance(old, str) or isinstance(old, (int, bool)):
-          continue
-        new = normalize(old)
-        if new is not old:
-          # ResolvedVar enforces a non-empty name via __post_init__,
-          # but does not freeze its fields. Plain attribute set is
-          # fine for the dataclass.
-          object.__setattr__(value, f.name, new)
-      return value
-    return value
-
-  seen = set()
-  return [normalize(stmt) for stmt in ast_list]
-
 def check_post_typecheck_invariants(ast_list):
   """Strict post-typecheck invariants:
 

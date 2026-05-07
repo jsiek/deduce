@@ -1922,7 +1922,13 @@ def check_recursive_call(call, recfun, subterms):
           + " or ".join([base_name(x) for x in subterms]) \
           + ", not " + str(call.args[0]))
 
-# well-formed types
+# Validate that ``typ`` is well-formed in ``env`` and return the type
+# with every single-candidate ``OverloadedVar`` narrowed to
+# ``ResolvedVar``. The returned type may share structure with ``typ``
+# when nothing changed; otherwise it's a freshly constructed copy.
+# Callers MUST use the returned value, not the original ``typ`` —
+# the strict post-typecheck invariant rejects single-candidate
+# OverloadedVars, so dropping the return on the floor leaks them.
 def check_type(typ, env):
   match typ:
     case OverloadedVar(loc, tyof, rs):
@@ -1930,28 +1936,27 @@ def check_type(typ, env):
         error(loc, 'undefined type variable ' + str(typ))
       if len(rs) > 1:
         error(loc, 'type names may not be overloaded ' + str(typ))
+      # len(rs) == 1: this is a non-overloaded type reference. Promote.
+      return ResolvedVar(loc, tyof, rs[0])
     case ResolvedVar(loc, tyof, name):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
-    case IntType(loc):
-      pass
-    case BoolType(loc):
-      pass
-    case TypeType(loc):
-      pass
+      return typ
+    case IntType(loc) | BoolType(loc) | TypeType(loc):
+      return typ
     case FunctionType(loc, typarams, param_types, return_type):
-      env = env.declare_type_vars(loc, typarams)
-      for ty in param_types:
-        check_type(ty, env)
-      check_type(return_type, env)
-    case TypeInst(loc, typ, arg_types):
-      check_type(typ, env)
-      for ty in arg_types:
-        check_type(ty, env)
-    case GenericUnknownInst(loc, typ):
-      check_type(typ, env)
+      body_env = env.declare_type_vars(loc, typarams)
+      new_param_types = [check_type(ty, body_env) for ty in param_types]
+      new_return_type = check_type(return_type, body_env)
+      return FunctionType(loc, typarams, new_param_types, new_return_type)
+    case TypeInst(loc, inner_typ, arg_types):
+      new_inner = check_type(inner_typ, env)
+      new_args = [check_type(ty, env) for ty in arg_types]
+      return TypeInst(loc, new_inner, new_args)
+    case GenericUnknownInst(loc, inner_typ):
+      return GenericUnknownInst(loc, check_type(inner_typ, env))
     case ArrayType(loc, elt_type):
-      check_type(elt_type, env)
+      return ArrayType(loc, check_type(elt_type, env))
     case _:
       error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
@@ -2128,8 +2133,8 @@ def type_synth_term(term, env, recfun, subterms):
     case All(loc, _, var, pos, body):
       all_types = None
       x, ty = var
-      check_type(ty, env)
-      if isinstance(ty, TypeType):
+      new_ty = check_type(ty, env)
+      if isinstance(new_ty, TypeType):
         if all_types == None or all_types == True:
           all_types = True
         else:
@@ -2139,18 +2144,16 @@ def type_synth_term(term, env, recfun, subterms):
           all_types = False
         else:
           error(loc, 'cannot mix type and term variables in an all formula')
-      body_env = env.declare_term_vars(loc, [var])
-      new_body = check_formula(body, body_env, recfun, subterms)      
-      ty = BoolType(loc)
-      ret = All(loc, ty, var, pos, new_body)
-  
-    case Some(loc, _, vars, body):
-      for (x,ty) in vars:
-          check_type(ty, env)
-      body_env = env.declare_term_vars(loc, vars)
+      new_var = (x, new_ty)
+      body_env = env.declare_term_vars(loc, [new_var])
       new_body = check_formula(body, body_env, recfun, subterms)
-      ty = BoolType(loc)
-      ret = Some(loc, ty, vars, new_body)
+      ret = All(loc, BoolType(loc), new_var, pos, new_body)
+
+    case Some(loc, _, vars, body):
+      new_vars = [(x, check_type(ty, env)) for (x, ty) in vars]
+      body_env = env.declare_term_vars(loc, new_vars)
+      new_body = check_formula(body, body_env, recfun, subterms)
+      ret = Some(loc, BoolType(loc), new_vars, new_body)
       
     case MakeArray(loc, _, arg):
       lst = type_synth_term(arg, env, recfun, subterms)
@@ -3942,30 +3945,32 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
       new_params = [p.substitute(sub) for p in params]
       new_returns = returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
-      
+
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
       cases_present = {}
       body_env = env.declare_type_vars(loc, typarams)
+      # Narrow params and returns once we have body_env (with the
+      # original typarams in scope, since `params`/`returns` reference
+      # them, not `new_typarams`).
+      checked_params = [check_type(p, body_env) for p in params]
+      checked_returns = check_type(returns, body_env)
       reset_recursive_call_count()
-      new_cases = [type_check_fun_case(c, name, params, returns, body_env,
-                                       cases_present) \
+      new_cases = [type_check_fun_case(c, name, checked_params, checked_returns,
+                                       body_env, cases_present) \
                    for c in cases]
       if get_recursive_call_count() == 0:
           error(loc, name + ' is declared recursive, but does not make any recursive calls.\n' \
                 + 'Use a "fun" statement instead.')
-      
+
       # check for completeness of cases
-      uniondef = lookup_union(params[0].location, params[0], env)
+      uniondef = lookup_union(checked_params[0].location, checked_params[0], env)
       for c in uniondef.alternatives:
         if not c.name in cases_present.keys():
           error(loc, 'missing function case for ' + base_name(c.name))
 
-      new_recfun = RecFun(loc, name, typarams, params, returns, new_cases,
-                          visibility=stmt.visibility)
-      # print('type check stmt:')
-      # print(new_recfun.pretty_print(4))
-      return new_recfun
+      return RecFun(loc, name, typarams, checked_params, checked_returns,
+                    new_cases, visibility=stmt.visibility)
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
@@ -4591,13 +4596,6 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       if needs_checking[0]:
         check_proofs(s, env)
     checked_modules.add(module_name)
-  # Promote every single-candidate ``OverloadedVar`` to
-  # ``ResolvedVar`` uniformly. The type checker handles most term
-  # references inline, but type annotations / def-list entries /
-  # buried sub-ASTs aren't always visited. This walker enforces the
-  # phase invariant in one place rather than chasing every leaky
-  # site individually.
-  ast3 = normalize_post_typecheck(ast3)
   # Sanity-check the post-typecheck AST: every variable reference
   # should be ``ResolvedVar`` (or, if a real overload couldn't be
   # resolved, a multi-candidate ``OverloadedVar``). Any pre-uniquify
