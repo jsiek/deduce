@@ -681,6 +681,92 @@ request."
       (delete-directory tmpdir t))))
 
 
+;; ---------------------------------------------------------------------
+;; deduce-lsp-induction (LSP Step 17, fronted by `C-c C-i')
+;; ---------------------------------------------------------------------
+;;
+;; Same wire-shape as refine -- a `textDocument/codeAction' request,
+;; filtered by `:title' "Induction".  No user input beyond the
+;; cursor on a `?'.
+
+(ert-deftest deduce-lsp/induction-bound-to-c-c-c-i ()
+  "`C-c C-i' in deduce-mode-map runs `deduce-lsp-induction'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-i"))
+              #'deduce-lsp-induction)))
+
+
+(ert-deftest deduce-lsp/induction-applies-text-edit ()
+  "Given a CodeAction titled \"Induction\" with a TextEdit replacing
+the `?', the buffer ends up with an `induction T' skeleton."
+  (let ((tmp (make-temp-file "deduce-lsp-induction" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "union N {\n  z\n  s(N)\n}\n\ntheorem t: all x:N. x = x\nproof\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          ;; Cursor on the `?` at line 8 col 3 -> LSP line 7, char 2.
+          (goto-char (point-min))
+          (forward-line 7)
+          (forward-char 2)
+          (let* ((uri (deduce-lsp--current-uri))
+                 (skeleton "induction N\n    case z { ? }\n    case s(n1) assume IH1: n1 = n1 { ? }")
+                 (action `(:title "Induction"
+                           :kind "refactor.rewrite"
+                           :edit
+                           (:changes
+                            (,(intern (concat ":" uri))
+                             [(:range (:start (:line 7 :character 2)
+                                       :end (:line 7 :character 3))
+                                      :newText ,skeleton)]))))
+                 (response (vector action)))
+            (deduce-lsp-test--with-mock-server
+             response
+             (lambda () (deduce-lsp-induction))))
+          (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+            (should (string-match-p "induction N" text))
+            (should (string-match-p "case z {" text))
+            (should (string-match-p "case s(n1) assume IH1" text))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/induction-no-action-signals-user-error ()
+  "An empty action list yields a `No induction available' user-error."
+  (let ((tmp (make-temp-file "deduce-lsp-induction" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (deduce-lsp-test--with-mock-server
+           nil
+           (lambda ()
+             (should-error (deduce-lsp-induction) :type 'user-error))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/induction-rejects-non-matching-title ()
+  "If the server returns an action titled \"Refine hole\" instead
+of \"Induction\", the induction command must NOT apply it -- it
+should user-error."
+  (let ((tmp (make-temp-file "deduce-lsp-induction" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (let* ((uri (deduce-lsp--current-uri))
+                 (action `(:title "Refine hole"
+                           :kind "refactor.rewrite"
+                           :edit (:changes
+                                  (,(intern (concat ":" uri)) []))))
+                 (response (vector action)))
+            (deduce-lsp-test--with-mock-server
+             response
+             (lambda ()
+               (should-error (deduce-lsp-induction) :type 'user-error)))))
+      (delete-file tmp))))
+
+
 (provide 'deduce-lsp-test)
 
 ;;; deduce-lsp-test.el ends here

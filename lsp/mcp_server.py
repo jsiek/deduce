@@ -277,6 +277,39 @@ def splittable_vars_at(path: str, line: int, column: int) -> list[str]:
 
 
 @mcp.tool()
+def induction_skeleton_at(
+    path: str, line: int, column: int
+) -> Optional[dict]:
+    """Generate an ``induction T`` skeleton for the goal at ``line``:``column``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token
+    whose goal has the shape ``all x:T. P(x)`` where ``T`` is a
+    ``Union`` with at least two alternatives.  The skeleton emits one
+    ``case <Cons>(<params>) [assume IH<N>: ...] { ? }`` per
+    constructor in declaration order; recursive parameters introduce
+    ``IH<N>`` bindings whose formula is the goal body with the
+    inducted variable substituted.
+
+    Returns ``None`` when the cursor isn't on a ``?``, the goal isn't
+    a single ``all`` over a Union, or the union has fewer than 2
+    alternatives.  Otherwise returns ``{path, range, new_text}``.
+
+    Distinct from ``case_split_at``:
+    - Operates on the *goal*, not a named variable (no ``variable''
+      argument).
+    - Emits ``induction T`` (term-level) rather than
+      ``switch x``/``cases H``.
+    - Adds ``assume IH<N>: ...`` bindings for recursive parameters.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    edit = query.induction_skeleton_at(
+        path, content, pos, prelude=_prelude_for(path)
+    )
+    return _to_serializable(edit)
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

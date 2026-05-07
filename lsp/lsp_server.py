@@ -374,6 +374,9 @@ def on_code_action(
 
     - **Refine hole** (Step 15) -- offered when the cursor sits on a
       ``?`` whose goal has a recognised shape.
+    - **Induction** (Step 17) -- offered when the cursor sits on a
+      ``?`` whose goal is ``all x:T. P(x)`` with T a Union of two
+      or more constructors.
 
     Step 16 (case split) takes a user-supplied variable name, which
     ``textDocument/codeAction`` can't carry, so it lives behind the
@@ -395,6 +398,14 @@ def on_code_action(
     if refine_edit is not None:
         actions.append(
             _code_action_from_edit(uri, "Refine hole", refine_edit)
+        )
+
+    induction_edit = _query.induction_skeleton_at(
+        path, content, pos, prelude=prelude
+    )
+    if induction_edit is not None:
+        actions.append(
+            _code_action_from_edit(uri, "Induction", induction_edit)
         )
 
     return actions

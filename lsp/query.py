@@ -66,6 +66,7 @@ __all__ = [
     "refine_at",
     "case_split_at",
     "splittable_vars_at",
+    "induction_skeleton_at",
 ]
 
 
@@ -962,7 +963,7 @@ def _refine_template(formula, env) -> Optional[str]:
     uses for pipeline-level imports.
     """
     from abstract_syntax import (
-        All, And, Bool, Call, IfThen, Some, Var, base_name,
+        All, And, Bool, Call, IfThen, Some, VarRef, base_name,
     )
 
     match formula:
@@ -979,7 +980,15 @@ def _refine_template(formula, env) -> Optional[str]:
         case Some(_, _, vars, _body):
             choices = ", ".join("?" for _ in vars)
             return f"choose {choices}\n?"
-        case Call(_, _, Var(_, _, "=", _), [lhs, rhs]) if env is not None:
+        # Match the equality operator at any stage of name resolution
+        # (`Var', `OverloadedVar', or `ResolvedVar' all subclass
+        # `VarRef').  Mirrors the dispatch in `proof_checker.py'
+        # `PReflexive' after the Var/ResolvedVar split (PR #330).
+        case Call(_, _, rator, [lhs, rhs]) if (
+            isinstance(rator, VarRef)
+            and rator.get_name() == "="
+            and env is not None
+        ):
             try:
                 if lhs.reduce(env) == rhs.reduce(env):
                     return "reflexive"
@@ -1138,7 +1147,7 @@ def _splittable_vars(env) -> tuple:
     env up front.
     """
     from abstract_syntax import (
-        Or, ProofBinding, TermBinding, TypeBinding, Union, Var, base_name,
+        Or, ProofBinding, TermBinding, TypeBinding, Union, VarRef, base_name,
         get_type_name,
     )
 
@@ -1164,9 +1173,15 @@ def _splittable_vars(env) -> tuple:
                 type_var = get_type_name(ty)
             except Exception:
                 continue
-            if not isinstance(type_var, Var):
+            # Match any name-resolution stage: pre-uniquify ``Var',
+            # post-uniquify ``OverloadedVar', or post-typecheck
+            # ``ResolvedVar' -- all subclass ``VarRef'.  Pre-#330
+            # this used ``isinstance(type_var, Var)' which only
+            # caught the pre-uniquify form and silently dropped the
+            # rest.
+            if not isinstance(type_var, VarRef):
                 continue
-            type_binding = env.dict.get(type_var.name)
+            type_binding = env.dict.get(type_var.get_name())
             if (
                 isinstance(type_binding, TypeBinding)
                 and isinstance(type_binding.defn, Union)
@@ -1189,7 +1204,7 @@ def _case_split_template(name: str, env) -> Optional[str]:
     non-disjunctive proof, etc.).
     """
     from abstract_syntax import (
-        Or, ProofBinding, TermBinding, TypeBinding, Union, Var, base_name,
+        Or, ProofBinding, TermBinding, TypeBinding, Union, VarRef, base_name,
         get_type_name,
     )
 
@@ -1204,17 +1219,19 @@ def _case_split_template(name: str, env) -> Optional[str]:
         return None
 
     if isinstance(binding, TermBinding):
-        # The variable's type may be a Var (named type), a TypeInst
+        # The variable's type may be a VarRef (named type), a TypeInst
         # (parameterised), or built-in (BoolType etc.). Walk to the
-        # underlying type definition.
+        # underlying type definition. ``VarRef'' covers pre-uniquify
+        # ``Var'', post-uniquify ``OverloadedVar'', and post-typecheck
+        # ``ResolvedVar'' (issue: PR #330 split these classes).
         ty = binding.typ
         try:
             type_var = get_type_name(ty)
         except Exception:
             return None
-        if not isinstance(type_var, Var):
+        if not isinstance(type_var, VarRef):
             return None
-        type_binding = env.dict.get(type_var.name)
+        type_binding = env.dict.get(type_var.get_name())
         if not isinstance(type_binding, TypeBinding):
             return None
         defn = type_binding.defn
@@ -1303,3 +1320,155 @@ def _type_first_letter(ty) -> str:
         if c.isalpha():
             return c.lower()
     return "x"
+
+
+# ---------------------------------------------------------------------------
+# induction_skeleton_at -- Phase 4 / Step 17: induction over the goal
+# ---------------------------------------------------------------------------
+#
+# Distinct from Step 16 (case split) in three ways:
+#
+# - It operates on the *goal* (an `all x:T. P(x)` quantifier) rather
+#   than a named variable.  No `variable' parameter; the cursor on a
+#   `?' is the only input.
+# - The skeleton uses Deduce's `induction' keyword instead of `switch'
+#   / `cases'.
+# - For recursive constructor parameters (those of the union's own
+#   type), each case gets `assume IH<N>: <body>[var := param]'
+#   bindings -- the inductive hypothesis(es).
+#
+# Reuses the Step 15 plumbing: the cursor's `?' raises
+# ``IncompleteProof'' and we read the goal AST + env off the
+# exception.  Same single-theorem caveat as the rest of Phase 4.
+
+
+def induction_skeleton_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> Optional[WorkspaceEdit]:
+    """Generate an ``induction T`` skeleton for the goal at ``pos``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token
+    whose goal has the shape ``all x:T. P(x)`` where ``T`` is a Union
+    with at least two alternatives.  The skeleton emits one
+    ``case <Cons>(<params>) [assume IH<N>: ...] { ? }`` per
+    constructor, in declaration order.  Recursive parameters (those
+    of type ``T``) introduce ``IH<N>`` bindings whose formula is the
+    goal body with the inducted variable substituted.
+
+    Returns ``None`` when:
+
+    - the cursor isn't on a ``?``,
+    - the file doesn't reach an incomplete proof there,
+    - the goal isn't a single ``all`` over a Union, or
+    - the union has fewer than 2 alternatives (no induction to do).
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    formula = getattr(exc, "formula", None)
+    env = getattr(exc, "env", None)
+    if formula is None or env is None:
+        return None
+
+    template = _induction_template(formula, env)
+    if template is None:
+        return None
+
+    template = _indent_continuation(
+        template, _line_indent_at(content, hole_range.start)
+    )
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def _induction_template(formula, env) -> Optional[str]:
+    """Render an ``induction T`` skeleton if ``formula`` is
+    ``all x:T. P(x)`` with T a multi-alternative union."""
+    from abstract_syntax import (
+        All, TypeBinding, Union, VarRef, base_name, get_type_name,
+    )
+
+    if not isinstance(formula, All):
+        return None
+    var_x, var_ty = formula.var
+    body = formula.body
+
+    try:
+        type_var = get_type_name(var_ty)
+    except Exception:
+        return None
+    if not isinstance(type_var, VarRef):
+        return None
+    type_binding = env.dict.get(type_var.get_name())
+    if not isinstance(type_binding, TypeBinding):
+        return None
+    union_def = type_binding.defn
+    if not isinstance(union_def, Union):
+        return None
+    if len(union_def.alternatives) < 2:
+        # `induction' requires at least two alternatives -- otherwise
+        # it'd just be a no-op / direct proof.
+        return None
+
+    return _render_induction(var_x, var_ty, body, union_def, env)
+
+
+def _render_induction(var_x, var_ty, body, union_def, env) -> str:
+    """Build the ``induction T\\n  case ... { ? }\\n  ...`` text."""
+    from abstract_syntax import ResolvedVar, base_name
+    # `is_recursive' and `update_all_head' live in proof_checker;
+    # they're pipeline-side helpers, not protocol-specific, so the
+    # protocol-neutrality guard in this module's docstring isn't
+    # broken by importing them.
+    from proof_checker import is_recursive, update_all_head
+
+    union_name = union_def.name  # uniquified, e.g. ``N.0''
+    env_used = {base_name(k) for k in env.dict.keys()}
+
+    case_lines = []
+    for alt in union_def.alternatives:
+        cons_name = base_name(alt.name)
+        used = set(env_used)
+        params = []  # list of (name, type) pairs for this case
+        for i, p_ty in enumerate(alt.parameters):
+            stem = _type_first_letter(p_ty)
+            candidate = f"{stem}{i + 1}"
+            n = 0
+            while candidate in used:
+                n += 1
+                candidate = f"{stem}{i + 1}_{n}"
+            used.add(candidate)
+            params.append((candidate, p_ty))
+
+        if params:
+            line = (
+                f"  case {cons_name}("
+                + ", ".join(p for p, _ in params)
+                + ")"
+            )
+        else:
+            line = f"  case {cons_name}"
+
+        # Recursive params -> IH bindings.
+        rec_params = [
+            (p, ty) for (p, ty) in params if is_recursive(union_name, ty)
+        ]
+        if rec_params:
+            ih_clauses = []
+            for i, (p, p_ty) in enumerate(rec_params):
+                ih_var = ResolvedVar(p_ty.location, p_ty, p)
+                ih_body = update_all_head(body.substitute({var_x: ih_var}))
+                ih_clauses.append(f"IH{i + 1}: {ih_body}")
+            line += " assume " + ", ".join(ih_clauses)
+
+        line += " { ? }"
+        case_lines.append(line)
+
+    return f"induction {var_ty}\n" + "\n".join(case_lines)

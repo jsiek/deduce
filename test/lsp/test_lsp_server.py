@@ -572,6 +572,46 @@ def test_code_action_returns_empty_when_cursor_not_on_hole(server, open_doc):
     assert lsp_server.on_code_action(server, params) == []
 
 
+def test_code_action_offers_induction_when_goal_is_forall_over_union(
+    server, open_doc
+):
+    """Cursor on a `?` whose goal is `all x:T. P(x)` (T a Union) ->
+    one "Induction" action carrying the induction-T skeleton."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("induction.pf", src)
+    # `?` at line 8 col 3 (1-indexed) -> LSP line 7, col 2.
+    params = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=7, character=2),
+            end=lsp_types.Position(line=7, character=2),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    actions = lsp_server.on_code_action(server, params)
+    titles = [a.title for a in actions]
+    # Both "Refine hole" (forall -> arbitrary) and "Induction" should
+    # apply; we care that Induction is in the set.
+    assert "Induction" in titles
+    induction_action = next(a for a in actions if a.title == "Induction")
+    assert induction_action.kind == lsp_types.CodeActionKind.RefactorRewrite
+    edits = induction_action.edit.changes[uri]
+    assert len(edits) == 1
+    assert "induction N" in edits[0].new_text
+    assert "case z {" in edits[0].new_text
+    assert "case s(n1) assume IH1: n1 = n1 {" in edits[0].new_text
+
+
 def test_code_action_with_unknown_uri_returns_empty(server):
     """Defensive: the workspace doesn't know about this URI."""
     params = lsp_types.CodeActionParams(
