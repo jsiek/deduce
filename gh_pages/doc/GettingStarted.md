@@ -213,3 +213,10 @@ a return code of 255.
 `--no-check-imports`
 
 Deduce will no longer check the proofs of imported files.
+
+`--compile`
+
+Translate the file to a self-contained C program instead of just
+checking it. Pair with `-o <path>` to control the output filename.
+See [Compiling Deduce Programs to C](./compiler.html) for the full
+walkthrough.

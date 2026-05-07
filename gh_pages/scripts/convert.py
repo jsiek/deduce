@@ -21,6 +21,7 @@ mdToHtmlName = {
     'SyntaxGrammar' : 'syntax',
     'GettingStarted' : 'getting-started',
     'StandardLib' : 'stdlib',
+    'Compiler' : 'compiler',
     'Index' : 'index',
 }
 
@@ -33,6 +34,7 @@ mdToTitle = {
     'SyntaxGrammar' : 'Syntax Overview',
     'GettingStarted' : 'Getting Started',
     'StandardLib' : 'Standard Library',
+    'Compiler' : 'Compiler',
     'Index' : 'Home',
 }
 
@@ -45,6 +47,7 @@ mdToDescription = {
     'SyntaxGrammar' : 'Syntax and grammar overview for the deduce language.',
     'GettingStarted' : 'Getting started with deduce.',
     'StandardLib' : 'Documentation for the deduce standard library.',
+    'Compiler' : 'Compile Deduce programs to a self-contained C binary.',
     'Index' : 'Deduce is an automated proof checker meant for use in education to help students',
 }
 
@@ -57,6 +60,7 @@ mdToDeduceCode = {
     'SyntaxGrammar' : 'syntax-grammar',
     'GettingStarted' : 'getting-started',
     'StandardLib' : 'stdlib',
+    'Compiler' : 'compiler',
     'Index' : 'index',
 }
 
