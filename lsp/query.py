@@ -314,18 +314,37 @@ def goal_at(
 
     Returns ``None`` when there is no active proof at that position --
     e.g. the cursor is outside any ``proof ... end`` block, or the file
-    does not parse. Implemented by inserting a ``?`` hole at ``pos``
-    (more precisely: replacing the content from ``pos`` up to the next
-    ``end`` keyword with ``?``) and capturing the goal text the checker
-    prints when it reaches the hole.
+    does not parse.
+
+    When the cursor sits on or immediately adjacent to a ``?`` already
+    present in the source, that hole IS the goal site and we run
+    ``check`` on the original content -- the existing ``?`` raises
+    ``IncompleteProof`` and we read the goal off the exception. The
+    returned ``Goal.range`` covers exactly the ``?`` token (1-char
+    span), matching what :func:`refine_at` and :func:`case_split_at`
+    return.
+
+    Otherwise we insert a synthetic ``?`` at the cursor (truncating
+    forward to the enclosing block end) and capture the goal text the
+    checker prints when it reaches that hole. The returned
+    ``Goal.range`` is then a degenerate range at the cursor.
 
     ``prelude`` matches the meaning in :func:`check`.
     """
     from lsp.library import check_file
 
-    modified = _insert_hole(content, pos)
-    if modified is None:
-        return None
+    # Cursor on (or just past) an existing `?`?  Don't insert a
+    # second one -- `_insert_hole` would emit `?\n?` which the parser
+    # rejects (issue #341).
+    existing_hole = _find_hole_at(content, pos)
+    if existing_hole is not None:
+        modified = content
+        goal_range = existing_hole
+    else:
+        modified = _insert_hole(content, pos)
+        if modified is None:
+            return None
+        goal_range = Range(start=pos, end=pos)
 
     result = check_file(path, content=modified, prelude=prelude)
     if result.ok:
@@ -333,7 +352,7 @@ def goal_at(
         # without needing the inserted ?. Nothing to report.
         return None
 
-    return _goal_from_exception(result.exception, pos)
+    return _goal_from_exception(result.exception, goal_range)
 
 
 def _insert_hole(content: str, pos: Position) -> Optional[str]:
@@ -426,7 +445,7 @@ _END_RE = re.compile(r"\bend\b")
 
 
 def _goal_from_exception(
-    exc: Optional[BaseException], pos: Position
+    exc: Optional[BaseException], goal_range: Range
 ) -> Optional[Goal]:
     """Parse an ``IncompleteProof`` message into a ``Goal``.
 
@@ -446,6 +465,11 @@ def _goal_from_exception(
     advice that follows is intentionally discarded -- callers that want
     advice can read ``Diagnostic.message`` from ``check`` instead.
 
+    ``goal_range`` is the source range to attach to the returned
+    :class:`Goal` -- typically the 1-char span of an existing ``?``
+    token, or a degenerate range at the cursor when ``goal_at``
+    inserted a synthetic hole.
+
     Returns ``None`` when the message doesn't match (e.g. the exception
     is something other than the goal-bearing PHole, like a parse error
     triggered by the inserted ``?`` ending up in a bad spot).
@@ -461,9 +485,7 @@ def _goal_from_exception(
         return None
 
     givens = _parse_givens_section(body)
-
-    cursor_range = Range(start=pos, end=pos)
-    return Goal(formula=formula, givens=givens, range=cursor_range)
+    return Goal(formula=formula, givens=givens, range=goal_range)
 
 
 def _extract_goal_formula(body: str) -> Optional[str]:

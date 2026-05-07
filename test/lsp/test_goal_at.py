@@ -189,3 +189,81 @@ def test_goal_at_works_inside_nested_case_block() -> None:
     )
     assert isinstance(g, Goal)
     assert g.range.start == Position(line=6, column=1)
+
+
+# --------------------------------------------------------------------------
+# Cursor on or adjacent to an existing `?` (issue #341)
+# --------------------------------------------------------------------------
+#
+# When the cursor sits on -- or one column past -- a `?` already in
+# the source, the existing hole IS the goal site.  ``goal_at`` should
+# *not* synthesise a second `?` (which would put two `?`s in a row in
+# the modified source and trip the parser); it should run ``check``
+# on the unmodified content and let the existing `?` raise.
+
+
+def test_goal_at_cursor_on_existing_hole() -> None:
+    """Cursor exactly on the `?` returns the goal at that hole, with
+    a Range covering the `?` itself."""
+    source = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    g = goal_at("test.pf", source, Position(line=4, column=3))
+    assert g is not None
+    assert g.formula == "P = P"
+    # Range covers exactly the `?` token, matching what refine_at
+    # and case_split_at return.
+    assert g.range.start == Position(line=4, column=3)
+    assert g.range.end == Position(line=4, column=4)
+
+
+def test_goal_at_cursor_immediately_after_existing_hole() -> None:
+    """Cursor one column past the `?` (the natural cursor position
+    just after typing `?`) still resolves to the existing hole.
+    Without the fix this returned ``None`` because ``_insert_hole''
+    produced an unparseable ``?\\n?`` sequence."""
+    source = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    # `?` is at line 4 col 3; cursor at col 4 sits just past it.
+    g = goal_at("test.pf", source, Position(line=4, column=4))
+    assert g is not None, (
+        "goal_at returned None for cursor-just-past-`?` -- the "
+        "regression for issue #341 has reappeared."
+    )
+    assert g.formula == "P = P"
+    # Range still covers the `?`, not the cursor position.
+    assert g.range.start == Position(line=4, column=3)
+    assert g.range.end == Position(line=4, column=4)
+
+
+def test_goal_at_cursor_on_hole_matches_synthetic_hole_path() -> None:
+    """Sanity: the cursor-on-`?` path and the synthesise-a-hole path
+    return the same formula and givens for matching positions.
+    (Range differs: 1-char vs degenerate.)"""
+    source_with_hole = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    source_without_hole = source_with_hole.replace("?", "pP")
+    # On the `?`: existing-hole path.
+    g1 = goal_at("test.pf", source_with_hole, Position(line=6, column=3))
+    # Synthesise-a-hole path: cursor on the same line, but the source
+    # has `pP` instead of `?`.
+    g2 = goal_at("test.pf", source_without_hole, Position(line=6, column=1))
+    assert g1 is not None and g2 is not None
+    assert g1.formula == g2.formula
+    assert g1.givens == g2.givens
