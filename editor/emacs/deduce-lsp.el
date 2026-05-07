@@ -35,9 +35,9 @@
 ;;   M-x imenu                  outline of top-level decls (documentSymbol)
 ;;
 ;; Step 5 adds `C-c C-g' for the custom `deduce/goalAt' request.
-;; Step 6 adds Phase-4 keybindings: `C-c C-r' (refine, LSP Step 15)
-;; and `C-c C-c' (case split, LSP Step 16) are live; `C-c C-i'
-;; (induction, Step 17) follows when that server operation lands.
+;; Step 6 adds Phase-4 keybindings: `C-c C-r' (refine, LSP Step 15),
+;; `C-c C-c' (case split, LSP Step 16), and `C-c C-i' (induction
+;; skeleton, LSP Step 17) are all live.
 ;;
 ;; Server command
 ;; --------------
@@ -306,10 +306,10 @@ is running in the current buffer."
 
 
 ;; ---------------------------------------------------------------------
-;; Phase-4 structured edits (Step 6 -- partial)
+;; Phase-4 structured edits (Step 6)
 ;; ---------------------------------------------------------------------
 ;;
-;; Live bindings (LSP Steps 15-16):
+;; Live bindings (LSP Steps 15-17):
 ;;
 ;;   `C-c C-r'  deduce-lsp-refine-hole  (Step 15)
 ;;     Cursor on a `?'.  Issues `textDocument/codeAction' filtered to
@@ -324,17 +324,17 @@ is running in the current buffer."
 ;;     which `?' the skeleton replaces -- it's the one under the
 ;;     cursor.
 ;;
-;; The two operations use different transports because their UX
-;; requirements differ: refine takes no extra input (the cursor is
-;; the only signal), so it fits cleanly in `textDocument/codeAction';
-;; case-split takes a user-supplied variable name, which codeAction
-;; can't carry, so it gets a custom server method.
+;;   `C-c C-i'  deduce-lsp-induction    (Step 17)
+;;     Cursor on a `?' whose goal is `all x:T. P(x)' (T a Union with
+;;     >=2 alternatives).  Issues `textDocument/codeAction' filtered
+;;     to `refactor.rewrite' and applies the action titled
+;;     "Induction".  Same one-keystroke shape as refine -- the goal
+;;     itself is the only input the operation needs.
 ;;
-;; Step 17 (induction skeleton) will land as `C-c C-i' once the
-;; server's induction_skeleton_at operation is available.  Like
-;; refine, it takes no extra input -- the cursor is on a `?' whose
-;; goal is `all x:T. ...' -- so it'll surface as another
-;; `refactor.rewrite' code action.
+;; Refine and induction use `textDocument/codeAction' because they
+;; take no extra user input.  Case-split takes a user-supplied
+;; variable name, which codeAction can't carry, so it gets a custom
+;; server method.
 
 (defun deduce-lsp--lsp-pos-to-point (line character)
   "Convert LSP 0-indexed (LINE, CHARACTER) to a point in the current buffer.
@@ -512,11 +512,33 @@ out without applying when the server returns null."
     (mapc #'deduce-lsp--apply-text-edit (reverse (append edits nil)))))
 
 
-;; Bind `C-c C-r' (refine) and `C-c C-c' (case split) in
-;; `deduce-mode-map'.  Same rationale as `C-c C-g': only meaningful
-;; when LSP is loaded.
+(defun deduce-lsp-induction ()
+  "Apply the LSP-suggested induction skeleton for the goal at point.
+
+Issues a `textDocument/codeAction' request and picks the action
+titled \"Induction\" -- the LSP server's Step-17 output.  The
+matching action's WorkspaceEdit replaces the `?' under point
+with an `induction T\\n  case Cons1(...) [assume IH<N>: ...] { ? }
+  ...' skeleton, one case per constructor.
+
+When the cursor isn't on a hole, when the goal isn't `all x:T.
+P(x)' over a Union, or when the union has fewer than two
+constructors, errors with `No induction available at point.'
+When no eglot connection is active, prompts the user to run
+`M-x eglot' first."
+  (interactive)
+  (let ((action (deduce-lsp--find-action-by-title "Induction")))
+    (unless action
+      (user-error "No induction available at point"))
+    (deduce-lsp--apply-code-action action)))
+
+
+;; Bind `C-c C-r' (refine), `C-c C-c' (case split), and `C-c C-i'
+;; (induction) in `deduce-mode-map'.  Same rationale as `C-c C-g':
+;; only meaningful when LSP is loaded.
 (define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
 (define-key deduce-mode-map (kbd "C-c C-c") #'deduce-lsp-case-split)
+(define-key deduce-mode-map (kbd "C-c C-i") #'deduce-lsp-induction)
 
 
 (provide 'deduce-lsp)

@@ -100,6 +100,7 @@ async def test_all_tools_are_registered(server):
             "refine_at",
             "case_split_at",
             "splittable_vars_at",
+            "induction_skeleton_at",
         }
 
 
@@ -417,6 +418,66 @@ async def test_splittable_vars_at_returns_empty_off_hole(server, tmp_path):
         {"path": str(fp), "line": 8, "column": 13},
     )
     assert payload == []
+
+
+# --------------------------------------------------------------------------
+# induction_skeleton_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_induction_skeleton_at_returns_workspace_edit(
+    server, tmp_path
+):
+    """Cursor on `?` whose goal is `all x:N. x = x` -> induction
+    skeleton with one case per Nat constructor."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "induction.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "induction_skeleton_at",
+        {"path": str(fp), "line": 8, "column": 3},
+    )
+    assert payload is not None
+    assert payload["path"] == str(fp)
+    assert "induction N" in payload["new_text"]
+    assert "case z {" in payload["new_text"]
+    assert "case s(n1) assume IH1: n1 = n1 {" in payload["new_text"]
+    assert payload["range"]["start"] == {"line": 8, "column": 3}
+    assert payload["range"]["end"] == {"line": 8, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_induction_skeleton_at_returns_null_for_non_forall(
+    server, tmp_path
+):
+    """A goal that isn't `all x:T. ...` -> null."""
+    src = (
+        "theorem t: all P:bool. P or not P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "no_induction.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "induction_skeleton_at",
+        {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload is None
 
 
 # --------------------------------------------------------------------------
