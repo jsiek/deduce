@@ -99,11 +99,13 @@ Only if 3s/check turns out to be too slow. None of this is needed for a working 
 
 ## Phase 4 — Structured proof-editing operations (Agda-like)
 
-Three productivity features that mirror what Agda exposes via `C-c C-c` (case split), `C-c C-r` (refine), and induction-skeleton generation. Each is a transformation that takes the current AST + cursor position and produces a `WorkspaceEdit` — exposed to LSP clients as a `textDocument/codeAction` and to MCP/Claude as a tool.
+Four productivity features that mirror what Agda exposes via `C-c C-c` (case split), `C-c C-r` (refine), induction-skeleton generation, and `C-c C-e` (eliminate / use-fact). Each is a transformation that takes the current AST + cursor position (and, for elimination, an extra label argument) and produces a `WorkspaceEdit` — exposed to LSP clients as a `textDocument/codeAction` (or a custom request when extra input is needed) and to MCP/Claude as a tool.
 
-These steps share infrastructure (the code-action plumbing in `lsp_server.py`, a transformation API in `lsp/query.py` or a sibling module, and `WorkspaceEdit`-shaped return values in both adapters), so the first one to land pays the wiring cost and the next two reuse it. They're orthogonal to Phase 3 (incrementality) and can be implemented in either order; if the test suite is too slow without incrementality, do Phase 3 first.
+These steps share infrastructure (the code-action plumbing in `lsp_server.py`, a transformation API in `lsp/query.py` or a sibling module, and `WorkspaceEdit`-shaped return values in both adapters), so the first one to land pays the wiring cost and the rest reuse it. They're orthogonal to Phase 3 (incrementality) and can be implemented in either order; if the test suite is too slow without incrementality, do Phase 3 first.
 
 The new query-API functions are additive — Step 2's signature lock applies, and these get added to `__all__`.
+
+Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *goal* shape — what to construct), Step 18 is **elimination** (template chosen by the *hypothesis* shape — how to use what's in scope). Step 16 (case split on a variable) and Step 17 (induction on the goal) round out the corners that don't fit the introduction/elimination split — they operate on bound names rather than on the proof position.
 
 - [ ] **Step 15: Hole refine.** Given a `?`, propose a refinement template based on the goal shape. The simplest of the three; lays the code-action / WorkspaceEdit plumbing the next two reuse.
 
@@ -139,6 +141,27 @@ The new query-API functions are additive — Step 2's signature lock applies, an
   New query API: `induction_skeleton_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. Wired same as the previous two.
 
   - *Acceptance:* fixtures over (a) a `Nat`-quantified theorem (canonical zero/suc cases, IH on suc), (b) a `List<T>`-quantified theorem (empty/node cases, IH on node), and (c) a theorem with a `@induction` custom-induction marker (cases match the conjuncts of the marker). Each asserts: cases appear in declaration order, recursive parameters introduce an `IH<N>` binding, each case body holds a fresh hole.
+
+- [ ] **Step 18: Eliminate / use-fact.** The dual to Step 15. Given a hypothesis label (`H1`, `pP`, etc.) supplied by the user, generate a tactic that *uses* that fact based on its shape — modus ponens on an implication, instantiation on an `all`, case-split on an `or`, replace on an equality, and so on. The cursor's role is just where to insert; the *label* drives template selection.
+
+  The shape table mirrors `proof_use_advice` in `proof_checker.py` (Deduce's existing `help <proof>` statement walks the same shapes):
+
+    - `H: P and Q [and R...]` → use the conjuncts implicitly (no skeleton needed; the tactic is just `H` itself, optionally with `conjunct N of H` for explicit access). For v1, surface this as a `define <fresh1> = conjunct 1 of H\ndefine <fresh2> = conjunct 2 of H\n?` or skip — the conjuncts are usable without a tactic. Mark this case as no-op-with-message in v1 and revisit.
+    - `H: P or Q [or R...]` → `cases H\n  case <fresh1>: P { ? }\n  case <fresh2>: Q { ? }\n  ...` (overlap with Step 16's `or` case; both produce `cases` skeletons but Step 18 is keyed by the hypothesis label, Step 16 by a variable on which to switch — keep them separate so each binding stays single-purpose).
+    - `H: if P then Q` → `apply H to ?` (the `?` is a proof of `P`; the result is a proof of `Q`).
+    - `H: all x:T [, y:U, ...]. P` → `H[?, ?, ...]` for term arguments or `H<?, ?, ...>` for type arguments (one `?` per quantifier; user fills in the witness terms).
+    - `H: some x:T [, y:U, ...]. P` → `obtain <fresh1>[, <fresh2>, ...] where <fresh-label>: P from H\n?`. The fresh names follow the same `make_unique` convention as Step 15's `H<N>` labels.
+    - `H: e1 = e2` → `replace H\n?`.
+    - `H: true` → message "the `true` fact is useless" (no edit).
+    - `H: false` → `H` alone is enough to discharge any goal; surface as inserting `H` at the cursor with no `?` follow-up.
+
+  New query API: `eliminate_at(path, content, pos, label, prelude=()) -> Optional[WorkspaceEdit]`. The extra `label` arg is what differentiates this from the others — `pos` says *where to insert*; `label` says *which hypothesis to use*. Returns `None` when `label` isn't bound at `pos`'s scope, when the hypothesis's shape isn't in the table, or when the cursor isn't in a proof context.
+
+  Wiring is the same shape as Steps 15–17 — additive in `__all__`, plus matching MCP tool `eliminate_at(path, line, column, label)` in `mcp_server.py`. The LSP side is slightly different from the others: `textDocument/codeAction` doesn't carry user input, so this surfaces as a custom server method `deduce/eliminateAt` that the client calls *after* prompting for the label. The MCP side just takes `label` as a tool argument; Claude already has the conversational context to pick a sensible one.
+
+  Editor UX (`editor/emacs/deduce-lsp.el`, beyond the Step 6 keybindings already documented): bind `C-c C-e` to a command that `read-string`s for the label (with completion against the labels currently in scope, computed from the same `goal_at` env walk that powers `C-c C-g`'s givens panel) and then issues `deduce/eliminateAt`. Pressing RET on the empty input cancels.
+
+  - *Acceptance:* fixtures for each shape (and/or/if-then/all/some/equality), keyed by a hypothesis label that the env binds at the cursor. Each asserts: the produced tactic parses; running `check` on the post-edit content surfaces a fresh hole at the inserted `?` (or, for the no-`?` cases like `false`, no hole). Plus boundary cases: a label that isn't in scope at the cursor returns `None`; a label whose formula is `true` returns `None` (or a stub edit with a comment-only template — pick one and pin it); the cursor outside any proof context returns `None`.
 
 ## Cross-cutting notes
 
