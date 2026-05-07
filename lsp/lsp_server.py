@@ -324,6 +324,21 @@ def on_document_symbol(
     ]
 
 
+def _get_field(obj, name):
+    """Read a named field from a custom-request param value.
+
+    pygls 2.x converts the JSON params for *known* LSP methods into
+    typed dataclasses, but for custom methods (like ``deduce/goalAt'')
+    it produces a generic ``LSPObject`` whose JSON keys become
+    Python attributes.  Older pygls / direct test invocations may
+    pass a plain ``dict`` instead.  Handle both shapes."""
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
 @server.feature(GOAL_AT_REQUEST)
 def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
     """Custom request: return the proof goal at a cursor position.
@@ -334,11 +349,9 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
     Result: ``{"formula": str, "givens": [{"label": str | None,
     "formula": str}], "range": Range}`` or ``null``.
     """
-    # Params arrive as a dict from the JSON-RPC layer (no static
-    # type, since this is a custom method).
-    text_doc = params.get("textDocument") or {}
-    pos_obj = params.get("position") or {}
-    uri = text_doc.get("uri")
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
     if not uri:
         return None
     content = _document_content(ls, uri)
@@ -346,8 +359,8 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
         return None
     pos = _query_pos_from_lsp(
         lsp_types.Position(
-            line=int(pos_obj.get("line", 0)),
-            character=int(pos_obj.get("character", 0)),
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
         )
     )
     path = _path_from_uri(uri)
