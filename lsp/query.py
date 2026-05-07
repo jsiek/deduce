@@ -64,6 +64,8 @@ __all__ = [
     "definition_of",
     "list_symbols",
     "refine_at",
+    "case_split_at",
+    "splittable_vars_at",
 ]
 
 
@@ -922,3 +924,287 @@ def _fresh_assume_label(env) -> str:
     while f"H{n}" in used_bases:
         n += 1
     return f"H{n}"
+
+
+# ---------------------------------------------------------------------------
+# case_split_at -- Phase 4 / Step 16: case split on a named variable
+# ---------------------------------------------------------------------------
+#
+# UX shape: cursor on a `?`, *plus* an explicit ``variable`` argument
+# (the name of the in-scope variable to split on). The replacement
+# target is the `?` the cursor sits on; the variable arg drives the
+# template choice. This separation is what lets the editor binding
+# read the variable name from the user (with completion against
+# `splittable_vars_at`) before issuing the request -- the cursor's
+# role is unambiguous.
+#
+# Mechanism: same trick as ``refine_at`` -- the cursor's `?` is what
+# raises ``IncompleteProof``, and ``incomplete_error`` stashes the
+# proof env on the exception (Step 15 plumbing). We read that env to
+# look up ``variable``'s binding and render the case skeleton against
+# ``Union.alternatives`` or ``Or.args``.
+
+
+def case_split_at(
+    path: str, content: str, pos: Position,
+    variable: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """Generate a case-split skeleton for ``variable`` at the hole at ``pos``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token;
+    that ``?`` is the replacement target. The ``variable`` argument
+    names an in-scope binding to split on:
+
+    - a *term variable* whose type is a ``Union`` (or an instance of
+      a parameterised union like ``List<T>``) -- yields a ``switch``
+      skeleton with one ``case Cons(p1, ..., pN) { ? }`` per
+      constructor.
+    - a *proof variable* whose formula is ``Or(...)`` -- yields a
+      ``cases`` skeleton with one ``case <fresh>: <disjunct> { ? }``
+      per disjunct.
+
+    Returns ``None`` when:
+
+    - the cursor isn't on a ``?``,
+    - the file has no incomplete proof at the cursor,
+    - ``variable`` isn't bound at the hole,
+    - or the binding's shape isn't a union / disjunction.
+
+    For client-side completion of valid ``variable`` choices at a
+    given cursor position, see :func:`splittable_vars_at`.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    if env is None:
+        return None
+
+    template = _case_split_template(variable, env)
+    if template is None:
+        return None
+
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def splittable_vars_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> tuple:
+    """Return base names of in-scope variables that case-split can target.
+
+    Computes the env at the ``?`` token the cursor is on (via the
+    same ``IncompleteProof``-based mechanism as ``case_split_at``),
+    then walks the env for bindings whose shape supports a case
+    split: term variables of ``Union`` type and proof variables of
+    ``Or`` formulas.
+
+    Used by editor clients to populate completion candidates when the
+    user types ``C-c C-c`` and is prompted for a variable name.
+    Returns an empty tuple when the cursor isn't on a ``?`` or no
+    splittable variable is in scope. Names are deduplicated and
+    sorted.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return ()
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return ()
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    if env is None:
+        return ()
+
+    return _splittable_vars(env)
+
+
+def _splittable_vars(env) -> tuple:
+    """Names of bindings whose ``case_split`` would succeed.
+
+    Excludes constructor names: the env stores each union's
+    constructor as a TermBinding of the union's type, structurally
+    indistinguishable from a local variable like ``arbitrary x:N``.
+    Splitting on a constructor name would just produce a redundant
+    skeleton (``switch z { case z {...} case s(...) {...} }``), so
+    we filter the constructor set out by walking every Union in the
+    env up front.
+    """
+    from abstract_syntax import (
+        Or, ProofBinding, TermBinding, TypeBinding, Union, Var, base_name,
+        get_type_name,
+    )
+
+    # Collect constructor names from every union in scope.
+    constructor_names = set()
+    for unique, binding in env.dict.items():
+        if isinstance(binding, TypeBinding) and isinstance(binding.defn, Union):
+            for alt in binding.defn.alternatives:
+                constructor_names.add(base_name(alt.name))
+
+    seen = set()
+    for unique in env.dict.keys():
+        bname = base_name(unique)
+        if bname in seen or bname in constructor_names:
+            continue
+        binding = env.dict[unique]
+        if isinstance(binding, ProofBinding):
+            if isinstance(binding.formula, Or):
+                seen.add(bname)
+        elif isinstance(binding, TermBinding):
+            ty = binding.typ
+            try:
+                type_var = get_type_name(ty)
+            except Exception:
+                continue
+            if not isinstance(type_var, Var):
+                continue
+            type_binding = env.dict.get(type_var.name)
+            if (
+                isinstance(type_binding, TypeBinding)
+                and isinstance(type_binding.defn, Union)
+            ):
+                seen.add(bname)
+    return tuple(sorted(seen))
+
+
+def _case_split_template(name: str, env) -> Optional[str]:
+    """Render a switch/cases skeleton for the variable named ``name``.
+
+    Looks up ``name`` in ``env`` by base name (the dict is keyed by
+    post-uniquify names like ``foo.42``; the user types the source
+    name ``foo``). Dispatches on the binding's kind:
+
+    - ``ProofBinding`` whose formula is ``Or(...)`` -> ``cases``
+    - ``TermBinding`` whose type resolves to a ``Union`` -> ``switch``
+
+    Returns ``None`` for any other shape (built-in atom, function,
+    non-disjunctive proof, etc.).
+    """
+    from abstract_syntax import (
+        Or, ProofBinding, TermBinding, TypeBinding, Union, Var, base_name,
+        get_type_name,
+    )
+
+    matches = [k for k in env.dict if base_name(k) == name]
+    if not matches:
+        return None
+    binding = env.dict[matches[0]]
+
+    if isinstance(binding, ProofBinding):
+        if isinstance(binding.formula, Or):
+            return _cases_template(name, binding.formula, env)
+        return None
+
+    if isinstance(binding, TermBinding):
+        # The variable's type may be a Var (named type), a TypeInst
+        # (parameterised), or built-in (BoolType etc.). Walk to the
+        # underlying type definition.
+        ty = binding.typ
+        try:
+            type_var = get_type_name(ty)
+        except Exception:
+            return None
+        if not isinstance(type_var, Var):
+            return None
+        type_binding = env.dict.get(type_var.name)
+        if not isinstance(type_binding, TypeBinding):
+            return None
+        defn = type_binding.defn
+        if isinstance(defn, Union):
+            return _switch_template(name, defn, env)
+        return None
+
+    return None
+
+
+def _cases_template(var_name: str, formula, env) -> str:
+    """Render a ``cases <var> ...`` block for an ``Or`` formula.
+
+    Each disjunct gets a fresh per-branch label so successive
+    refinements inside the cases stay collision-free. The labels
+    follow the same ``H<N>`` convention ``_fresh_assume_label`` uses.
+    """
+    from abstract_syntax import base_name
+    used = {base_name(k) for k in env.dict.keys()}
+
+    def fresh() -> str:
+        n = 1
+        while f"h{n}" in used:
+            n += 1
+        used.add(f"h{n}")
+        return f"h{n}"
+
+    args = formula.args
+    case_lines = [
+        f"  case {fresh()}: {arg} {{ ? }}" for arg in args
+    ]
+    return f"cases {var_name}\n" + "\n".join(case_lines)
+
+
+def _switch_template(var_name: str, union_def, env) -> str:
+    """Render a ``switch <var> { ... }`` block for a ``Union`` type.
+
+    Each constructor's parameters get fresh names against the
+    *enclosing* env -- but not against names introduced by *other*
+    cases, since each ``case Cons(...) { ... }`` opens its own scope.
+    Cases are emitted in the declaration order of
+    ``union_def.alternatives``.
+    """
+    from abstract_syntax import base_name
+
+    env_used = {base_name(k) for k in env.dict.keys()}
+
+    case_lines = []
+    for alt in union_def.alternatives:
+        cons_name = base_name(alt.name)
+        # Reset per-case: each case body opens a new scope, so
+        # naming conflicts only matter against the enclosing env
+        # plus the other params of *this* case.
+        used = set(env_used)
+        params = []
+        # Use the first letter of each param's type as the name stem,
+        # mirroring proof_advice/gen_custom_induction_advice.
+        for i, p_ty in enumerate(alt.parameters):
+            stem = _type_first_letter(p_ty)
+            candidate = f"{stem}{i + 1}"
+            n = 0
+            while candidate in used:
+                n += 1
+                candidate = f"{stem}{i + 1}_{n}"
+            used.add(candidate)
+            params.append(candidate)
+        if params:
+            case_lines.append(
+                f"  case {cons_name}({', '.join(params)}) {{ ? }}"
+            )
+        else:
+            case_lines.append(f"  case {cons_name} {{ ? }}")
+    return f"switch {var_name} {{\n" + "\n".join(case_lines) + "\n}"
+
+
+def _type_first_letter(ty) -> str:
+    """First letter of a type's printed form, lowercased.
+
+    Mirrors the naming convention in ``proof_advice``: a parameter of
+    type ``Nat`` becomes ``n1``, ``n2``, ...; ``List<T>`` -> ``l1``,
+    etc. Falls back to ``"x"`` for types whose printer output starts
+    with something non-alphabetic.
+    """
+    s = str(ty)
+    for c in s:
+        if c.isalpha():
+            return c.lower()
+    return "x"

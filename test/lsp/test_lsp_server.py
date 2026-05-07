@@ -116,6 +116,8 @@ def test_all_expected_features_are_registered():
         lsp_types.TEXT_DOCUMENT_DOCUMENT_SYMBOL,
         lsp_types.TEXT_DOCUMENT_CODE_ACTION,
         lsp_server.GOAL_AT_REQUEST,
+        lsp_server.CASE_SPLIT_REQUEST,
+        lsp_server.SPLITTABLE_VARS_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -486,3 +488,128 @@ def test_code_action_with_unknown_uri_returns_empty(server):
         context=lsp_types.CodeActionContext(diagnostics=[]),
     )
     assert lsp_server.on_code_action(server, params) == []
+
+
+# --------------------------------------------------------------------------
+# Custom requests: deduce/splittableVarsAt and deduce/caseSplitAt
+# (Phase 4 / Step 16)
+# --------------------------------------------------------------------------
+
+
+def test_splittable_vars_at_returns_in_scope_variables(server, open_doc):
+    """Cursor on a `?`; the response lists splittable variables in
+    scope at that hole."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, x:N. if P or P then x = x\n"
+        "proof\n"
+        "  arbitrary P:bool, x:N\n"
+        "  assume H: P or P\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("splittable.pf", src)
+    # `?` at line 10 col 3 (1-indexed) -> LSP line 9, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 9, "character": 2},
+    }
+    result = lsp_server.on_splittable_vars_at(server, params)
+    assert result == ["H", "x"]
+
+
+def test_splittable_vars_at_returns_empty_off_hole(server, open_doc):
+    """Cursor not on a `?` -> empty list."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("splittable_off.pf", src)
+    # On `arbitrary` keyword, line 8 col 3 -> LSP line 7, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 7, "character": 2},
+    }
+    assert lsp_server.on_splittable_vars_at(server, params) == []
+
+
+def test_case_split_at_returns_workspace_edit_for_union_variable(
+    server, open_doc
+):
+    """Cursor on `?`, variable=`x` (Union-typed) -> WorkspaceEdit
+    with switch skeleton."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("split.pf", src)
+    # `?` at line 9 col 3 -> LSP line 8, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 8, "character": 2},
+        "variable": "x",
+    }
+    result = lsp_server.on_case_split_at(server, params)
+    assert result is not None
+    assert "changes" in result
+    edits = result["changes"][uri]
+    assert len(edits) == 1
+    assert "switch x" in edits[0]["newText"]
+    assert "case z {" in edits[0]["newText"]
+    assert "case s(n1) {" in edits[0]["newText"]
+    assert edits[0]["range"]["start"] == {"line": 8, "character": 2}
+    assert edits[0]["range"]["end"] == {"line": 8, "character": 3}
+
+
+def test_case_split_at_returns_null_for_unknown_variable(server, open_doc):
+    """The variable name doesn't match any in-scope binding -> null."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("split_bad.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 8, "character": 2},
+        "variable": "no_such_var",
+    }
+    assert lsp_server.on_case_split_at(server, params) is None
+
+
+def test_case_split_at_returns_null_when_variable_omitted(server, open_doc):
+    """Missing `variable` field -> null (defensive)."""
+    src = "x"
+    _, uri = open_doc("noop.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 0},
+    }
+    assert lsp_server.on_case_split_at(server, params) is None

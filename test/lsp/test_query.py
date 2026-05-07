@@ -38,11 +38,13 @@ from lsp.query import (  # noqa: E402
     SymbolInfo,
     SymbolKind,
     WorkspaceEdit,
+    case_split_at,
     check,
     definition_of,
     goal_at,
     list_symbols,
     refine_at,
+    splittable_vars_at,
 )
 
 
@@ -67,6 +69,8 @@ EXPECTED_PUBLIC = {
     "definition_of",
     "list_symbols",
     "refine_at",
+    "case_split_at",
+    "splittable_vars_at",
 }
 
 
@@ -190,11 +194,30 @@ def test_refine_at_signature():
     )
 
 
+def test_case_split_at_signature():
+    _check_sig(
+        case_split_at,
+        ["path", "content", "pos", "variable", "prelude"],
+        Optional[WorkspaceEdit],
+    )
+
+
+def test_splittable_vars_at_signature():
+    _check_sig(
+        splittable_vars_at,
+        ["path", "content", "pos", "prelude"],
+        tuple,
+    )
+
+
 def test_prelude_param_has_default():
     """``prelude`` is optional on every query function so existing
     Step 3-5 callers (which pass ``path`` and ``content`` only)
     keep working."""
-    for func in (check, goal_at, definition_of, list_symbols, refine_at):
+    for func in (
+        check, goal_at, definition_of, list_symbols, refine_at,
+        case_split_at, splittable_vars_at,
+    ):
         prelude_param = inspect.signature(func).parameters["prelude"]
         assert prelude_param.default == (), (
             f"{func.__name__}.prelude default drifted: "

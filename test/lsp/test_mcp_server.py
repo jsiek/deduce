@@ -98,6 +98,8 @@ async def test_all_tools_are_registered(server):
             "definition_of",
             "list_symbols",
             "refine_at",
+            "case_split_at",
+            "splittable_vars_at",
         }
 
 
@@ -300,6 +302,121 @@ async def test_refine_at_returns_null_when_cursor_not_on_hole(
         {"path": str(fp), "line": 4, "column": 3},
     )
     assert payload is None
+
+
+# --------------------------------------------------------------------------
+# case_split_at and splittable_vars_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_case_split_at_returns_switch_workspace_edit(server, tmp_path):
+    """Cursor on `?` + variable=`x` -> switch skeleton edit."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "case_split.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "case_split_at",
+        {"path": str(fp), "line": 9, "column": 3, "variable": "x"},
+    )
+    assert payload is not None
+    assert payload["path"] == str(fp)
+    assert "switch x" in payload["new_text"]
+    assert "case z {" in payload["new_text"]
+    assert "case s(n1) {" in payload["new_text"]
+    assert payload["range"]["start"] == {"line": 9, "column": 3}
+    assert payload["range"]["end"] == {"line": 9, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_case_split_at_returns_null_when_cursor_not_on_hole(
+    server, tmp_path
+):
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "no_split.pf"
+    fp.write_text(src)
+    # Cursor on the `x` of `arbitrary x:N` -- not on the ?.
+    payload = await _call(
+        server,
+        "case_split_at",
+        {"path": str(fp), "line": 8, "column": 13, "variable": "x"},
+    )
+    assert payload is None
+
+
+@pytest.mark.anyio
+async def test_splittable_vars_at_returns_candidates(server, tmp_path):
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, x:N. if P or P then x = x\n"
+        "proof\n"
+        "  arbitrary P:bool, x:N\n"
+        "  assume H: P or P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "candidates.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "splittable_vars_at",
+        {"path": str(fp), "line": 10, "column": 3},
+    )
+    # Constructors (z, s) excluded; bool var (P) excluded; only the
+    # Union-typed term var and the Or-formula proof var.
+    assert payload == ["H", "x"]
+
+
+@pytest.mark.anyio
+async def test_splittable_vars_at_returns_empty_off_hole(server, tmp_path):
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "off.pf"
+    fp.write_text(src)
+    # Cursor on `x` of arbitrary -- not on ?.
+    payload = await _call(
+        server,
+        "splittable_vars_at",
+        {"path": str(fp), "line": 8, "column": 13},
+    )
+    assert payload == []
 
 
 # --------------------------------------------------------------------------

@@ -87,12 +87,21 @@ auto-start hook:
 - `C-c C-g` -- show the proof goal at point in a popup buffer
   (custom `deduce/goalAt` request -- see below).
 - `C-c C-r` -- refine the hole at point. Issues
-  `textDocument/codeAction` filtered to `refactor.rewrite`, applies
-  the first matching action's `WorkspaceEdit` directly (no picker).
-  Templates by goal shape: `?, ?` for `P and Q`, `assume H: P\n?` for
-  `if P then Q`, `arbitrary x:T\n?` for `all`, `choose ?\n?` for
-  `some`, `reflexive` when both sides of an equation reduce to the
-  same term.
+  `textDocument/codeAction` and applies the action titled `Refine
+  hole` directly (no picker). Templates by goal shape: `?, ?` for `P
+  and Q`, `assume H: P\n?` for `if P then Q`, `arbitrary x:T\n?` for
+  `all`, `choose ?\n?` for `some`, `reflexive` when both sides of an
+  equation reduce to the same term.
+- `C-c C-c` -- case split. Cursor must sit on a `?`. Issues
+  `deduce/splittableVarsAt` to fetch the in-scope variables that
+  case-split can target, prompts via `completing-read` (TAB
+  completion) for which one to split on, then issues
+  `deduce/caseSplitAt` with the chosen variable. Replaces the `?`
+  with a `switch x { case Cons1(...) { ? } ... }` skeleton (for
+  term variables of `Union` type) or `cases H\n  case h1: P { ? }
+  ...` (for proof variables of `P or Q` shape). The `?` under the
+  cursor is unambiguously the replacement target -- no surprise
+  inserts at the wrong hole.
 
 ## Keybindings
 
@@ -104,10 +113,10 @@ auto-start hook:
 | `M-x imenu` | `imenu`                        | eglot          | Outline of top-level declarations         |
 | `C-c C-g` | `deduce-show-goal-at-point`      | `deduce-lsp`   | Goal + givens at cursor                   |
 | `C-c C-r` | `deduce-lsp-refine-hole`         | `deduce-lsp`   | Apply LSP-suggested template at hole      |
+| `C-c C-c` | `deduce-lsp-case-split`          | `deduce-lsp`   | Prompt for variable, replace `?` with case skeleton |
 
-Remaining Phase-4 keybindings (`C-c C-c` case split, `C-c C-i`
-induction) will land when the server's Step 16 / Step 17 operations
-do.
+The remaining Phase-4 keybinding (`C-c C-i` induction) will land
+when the server's Step 17 operation does.
 
 ## Customization
 
@@ -210,6 +219,27 @@ Then verify the LSP integration:
    Place point on the `?` and press `C-c C-r`. The `?` should be
    replaced with `arbitrary P:bool\n?`. Press `C-c C-r` again on the
    inner `?`; it becomes `reflexive`.
+9. In a scratch `.pf` buffer with a custom union, e.g.
+
+   ```
+   union N {
+     z
+     s(N)
+   }
+
+   theorem t: all x:N. x = x
+   proof
+     arbitrary x:N
+     ?
+   end
+   ```
+
+   Place point on the `?` and press `C-c C-c`. Emacs prompts `Case
+   split on:` with TAB completion against the splittable variables
+   in scope (`x` for this fixture). Type `x RET`. The `?` is
+   replaced with `switch x { case z { ? } case s(n1) { ? } }`. Each
+   branch is now its own hole that `C-c C-r` / `C-c C-c` can refine
+   further.
 
 ## Development
 
