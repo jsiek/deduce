@@ -224,6 +224,32 @@ def refine_at(path: str, line: int, column: int) -> Optional[dict]:
 
 
 @mcp.tool()
+def case_split_at(path: str, line: int, column: int) -> Optional[dict]:
+    """Generate a case-split skeleton for the variable at ``line``:``column``.
+
+    The cursor should sit on an identifier that names either:
+
+    - a term variable whose type is a ``Union`` (or an instance of a
+      parameterised union like ``List<T>``) -- yields a ``switch``
+      skeleton with one ``case Cons(p1, ..., pN) { ? }`` per
+      constructor, in declaration order.
+    - a proof variable whose formula is ``P or Q [or R...]`` --
+      yields a ``cases`` skeleton with one
+      ``case <fresh>: <disjunct> { ? }`` per disjunct.
+
+    The replacement target is the next ``?`` at or after the cursor.
+    Returns ``None`` when the cursor isn't on an identifier, no ``?``
+    follows it, the identifier isn't bound at the hole, or the
+    binding's shape isn't a union / disjunction. Otherwise returns
+    ``{path, range, new_text}``.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    edit = query.case_split_at(path, content, pos, prelude=_prelude_for(path))
+    return _to_serializable(edit)
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

@@ -350,14 +350,18 @@ def on_code_action(
 ) -> list[lsp_types.CodeAction]:
     """Surface Phase-4 structured edits as refactor.rewrite actions.
 
-    Today: just the hole-refine action (Step 15). When the cursor sits
-    on a ``?`` and the goal has a recognised shape, the action's
-    ``edit`` field carries a single-file ``WorkspaceEdit`` that the
-    client applies on selection.
+    Today's actions:
 
-    The action is silently absent when ``refine_at`` returns ``None``
-    -- the client (eglot, VS Code) will then offer no rewrite, which
-    matches the LSP convention of "no action available."
+    - **Refine hole** (Step 15) -- offered when the cursor sits on a
+      ``?`` whose goal has a recognised shape.
+    - **Case split** (Step 16) -- offered when the cursor sits on a
+      term variable (Union type) or proof variable (``Or`` formula)
+      with a ``?`` reachable in the surrounding proof body.
+
+    Both, neither, or one may apply depending on cursor position. The
+    Emacs binding for each operation filters the returned list by
+    title; multi-action picker behaviour is reserved for clients that
+    request the full set.
     """
     uri = params.text_document.uri
     content = _document_content(ls, uri)
@@ -365,25 +369,39 @@ def on_code_action(
         return []
     path = _path_from_uri(uri)
     pos = _query_pos_from_lsp(params.range.start)
+    prelude = _prelude_for(path)
 
-    edit = _query.refine_at(path, content, pos, prelude=_prelude_for(path))
-    if edit is None:
-        return []
+    actions: list[lsp_types.CodeAction] = []
 
+    refine_edit = _query.refine_at(path, content, pos, prelude=prelude)
+    if refine_edit is not None:
+        actions.append(
+            _code_action_from_edit(uri, "Refine hole", refine_edit)
+        )
+
+    split_edit = _query.case_split_at(path, content, pos, prelude=prelude)
+    if split_edit is not None:
+        actions.append(
+            _code_action_from_edit(uri, "Case split", split_edit)
+        )
+
+    return actions
+
+
+def _code_action_from_edit(
+    uri: str, title: str, edit: _query.WorkspaceEdit
+) -> lsp_types.CodeAction:
+    """Wrap a query-API ``WorkspaceEdit`` as an LSP ``CodeAction``."""
     text_edit = lsp_types.TextEdit(
         range=_lsp_range_from_query(edit.range),
         new_text=edit.new_text,
     )
-    workspace_edit = lsp_types.WorkspaceEdit(
-        changes={uri: [text_edit]},
+    workspace_edit = lsp_types.WorkspaceEdit(changes={uri: [text_edit]})
+    return lsp_types.CodeAction(
+        title=title,
+        kind=lsp_types.CodeActionKind.RefactorRewrite,
+        edit=workspace_edit,
     )
-    return [
-        lsp_types.CodeAction(
-            title="Refine hole",
-            kind=lsp_types.CodeActionKind.RefactorRewrite,
-            edit=workspace_edit,
-        )
-    ]
 
 
 @server.feature(GOAL_AT_REQUEST)

@@ -98,6 +98,7 @@ async def test_all_tools_are_registered(server):
             "definition_of",
             "list_symbols",
             "refine_at",
+            "case_split_at",
         }
 
 
@@ -298,6 +299,65 @@ async def test_refine_at_returns_null_when_cursor_not_on_hole(
         server,
         "refine_at",
         {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload is None
+
+
+# --------------------------------------------------------------------------
+# case_split_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_case_split_at_returns_switch_workspace_edit(server, tmp_path):
+    """Cursor on a Union-typed variable -> switch skeleton edit."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "case_split.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "case_split_at",
+        {"path": str(fp), "line": 8, "column": 13},
+    )
+    assert payload is not None
+    assert payload["path"] == str(fp)
+    assert "switch x" in payload["new_text"]
+    assert "case z {" in payload["new_text"]
+    assert "case s(n1) {" in payload["new_text"]
+    # Range covers the `?` at line 9 col 3.
+    assert payload["range"]["start"] == {"line": 9, "column": 3}
+    assert payload["range"]["end"] == {"line": 9, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_case_split_at_returns_null_when_cursor_not_on_variable(
+    server, tmp_path
+):
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "no_split.pf"
+    fp.write_text(src)
+    # Cursor on the `:` of `arbitrary P:bool` -- not on a variable.
+    payload = await _call(
+        server,
+        "case_split_at",
+        {"path": str(fp), "line": 3, "column": 14},
     )
     assert payload is None
 

@@ -486,3 +486,85 @@ def test_code_action_with_unknown_uri_returns_empty(server):
         context=lsp_types.CodeActionContext(diagnostics=[]),
     )
     assert lsp_server.on_code_action(server, params) == []
+
+
+# --------------------------------------------------------------------------
+# Code actions: case_split_at (Phase 4 / Step 16)
+# --------------------------------------------------------------------------
+
+
+def test_code_action_offers_case_split_on_union_variable(server, open_doc):
+    """Cursor on a Union-typed variable with a reachable `?` ->
+    a "Case split" action carrying the switch skeleton."""
+    src = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  arbitrary x:N\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("case_split.pf", src)
+    # `x` after `arbitrary` is at line 8, col 13 (1-indexed) ->
+    # LSP line 7, character 12.
+    params = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=7, character=12),
+            end=lsp_types.Position(line=7, character=12),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    actions = lsp_server.on_code_action(server, params)
+    assert len(actions) == 1
+    action = actions[0]
+    assert action.title == "Case split"
+    assert action.kind == lsp_types.CodeActionKind.RefactorRewrite
+    edits = action.edit.changes[uri]
+    assert len(edits) == 1
+    assert "switch x" in edits[0].new_text
+    assert "case z {" in edits[0].new_text
+    assert "case s(n1) {" in edits[0].new_text
+    # Range covers the `?` at line 9 col 3 (LSP line 8, char 2..3).
+    assert edits[0].range.start == lsp_types.Position(line=8, character=2)
+    assert edits[0].range.end == lsp_types.Position(line=8, character=3)
+
+
+def test_code_action_offers_both_when_cursor_on_or_proof_var(
+    server, open_doc
+):
+    """A proof variable of `Or` exposes both refine (if cursor is on
+    a hole) and case-split (cursor on a variable). For this fixture
+    the cursor sits on the proof variable label, so only Case split
+    applies."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("or_split.pf", src)
+    # `H` of `assume H:` is at line 4 col 10 (1-indexed) -> LSP
+    # line 3, character 9.
+    params = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=3, character=9),
+            end=lsp_types.Position(line=3, character=9),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    actions = lsp_server.on_code_action(server, params)
+    titles = [a.title for a in actions]
+    assert "Case split" in titles
+    case_action = next(a for a in actions if a.title == "Case split")
+    edits = case_action.edit.changes[uri]
+    assert "cases H" in edits[0].new_text
+    assert "case h1: P" in edits[0].new_text
+    assert "case h2: Q" in edits[0].new_text

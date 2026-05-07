@@ -64,6 +64,7 @@ __all__ = [
     "definition_of",
     "list_symbols",
     "refine_at",
+    "case_split_at",
 ]
 
 
@@ -922,3 +923,268 @@ def _fresh_assume_label(env) -> str:
     while f"H{n}" in used_bases:
         n += 1
     return f"H{n}"
+
+
+# ---------------------------------------------------------------------------
+# case_split_at -- Phase 4 / Step 16: case split on a variable
+# ---------------------------------------------------------------------------
+#
+# Given a cursor on an in-scope variable and a `?` somewhere in the
+# surrounding proof body, replace the `?` with a per-constructor (for
+# term-level Union types) or per-disjunct (for proof-level `Or`
+# formulas) skeleton. Each branch ends in a fresh `?` for further
+# refinement.
+#
+# Mechanism: same trick as ``refine_at`` -- the source already has a
+# `?`, so re-running ``check_file`` raises ``IncompleteProof`` at that
+# hole. ``incomplete_error`` stashes the proof env on the exception
+# (Step 15 plumbing), which we read here to look up the cursor's
+# identifier and find its type or formula. The case skeleton is then
+# rendered against ``Union.alternatives`` or ``Or.args``.
+
+
+def case_split_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> Optional[WorkspaceEdit]:
+    """Generate a case-split skeleton for the variable at ``pos``.
+
+    The cursor should sit on an identifier that names either:
+
+    - a *term variable* whose type is a ``Union`` (or an instance of
+      a parameterised union like ``List<T>``) -- yields a ``switch``
+      skeleton with one ``case Cons(p1, ..., pN) { ? }`` per
+      constructor.
+    - a *proof variable* whose formula is ``Or(...)`` -- yields a
+      ``cases`` skeleton with one ``case <fresh>: <disjunct> { ? }``
+      per disjunct.
+
+    The replacement target is the next ``?`` token at or after the
+    cursor, on the same proof body. Returns ``None`` when:
+
+    - the cursor isn't on an identifier,
+    - no ``?`` follows the cursor in the file,
+    - the file doesn't reach the hole (e.g. an earlier error stops
+      checking),
+    - the identifier isn't bound at the hole,
+    - or the binding's shape isn't a union / disjunction.
+
+    Limitation: in a multi-theorem file with earlier ``?``s, the
+    checker raises on the first hole encountered; the env returned
+    may not be the one at the cursor's hole. Same caveat as
+    ``goal_at`` and ``refine_at``.
+    """
+    name = _identifier_at(content, pos)
+    if name is None:
+        return None
+
+    hole_offset = _find_next_hole_offset(content, pos)
+    if hole_offset is None:
+        return None
+    hole_range = _char_range_at(content, hole_offset)
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    if env is None:
+        return None
+
+    template = _case_split_template(name, env)
+    if template is None:
+        return None
+
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def _identifier_at(content: str, pos: Position) -> Optional[str]:
+    """Return the source identifier whose span contains or abuts ``pos``.
+
+    Walks left and right from the cursor over identifier characters
+    (letters, digits, underscore, prime). Returns ``None`` when the
+    cursor isn't on an identifier.
+
+    Eglot sends the cursor at the column past the character (so the
+    cursor "between" ``foo`` and ``bar`` reads as on ``bar``); this
+    helper handles both "cursor inside identifier" and "cursor at
+    identifier's right edge" by checking the char to the left when
+    the char at ``offset`` isn't an id char.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return None
+    if offset >= len(content) or not _is_id_char(content[offset]):
+        # Try one position back -- cursor sits just after the
+        # identifier's last character.
+        if offset > 0 and _is_id_char(content[offset - 1]):
+            offset -= 1
+        else:
+            return None
+    start = offset
+    while start > 0 and _is_id_char(content[start - 1]):
+        start -= 1
+    end = offset + 1
+    while end < len(content) and _is_id_char(content[end]):
+        end += 1
+    if start == end:
+        return None
+    name = content[start:end]
+    # Reject pure digits -- those are integer literals, not vars.
+    if name.isdigit():
+        return None
+    return name
+
+
+def _is_id_char(c: str) -> bool:
+    """Identifier characters per Deduce's lexer: letters, digits,
+    underscore, and ``'`` (used in names like ``n'``)."""
+    return c.isalnum() or c in "_'"
+
+
+def _find_next_hole_offset(content: str, pos: Position) -> Optional[int]:
+    """Return the offset of the first ``?`` at or after ``pos``.
+
+    A simple text scan is enough -- ``?`` is a single-character token
+    in Deduce (``QMARK``) and never appears inside identifiers. Returns
+    ``None`` when no ``?`` follows the cursor.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return None
+    idx = content.find("?", offset)
+    if idx < 0:
+        return None
+    return idx
+
+
+def _case_split_template(name: str, env) -> Optional[str]:
+    """Render a switch/cases skeleton for the variable named ``name``.
+
+    Looks up ``name`` in ``env`` by base name (the dict is keyed by
+    post-uniquify names like ``foo.42``; the user types the source
+    name ``foo``). Dispatches on the binding's kind:
+
+    - ``ProofBinding`` whose formula is ``Or(...)`` -> ``cases``
+    - ``TermBinding`` whose type resolves to a ``Union`` -> ``switch``
+
+    Returns ``None`` for any other shape (built-in atom, function,
+    non-disjunctive proof, etc.).
+    """
+    from abstract_syntax import (
+        Or, ProofBinding, TermBinding, TypeBinding, Union, Var, base_name,
+        get_type_name,
+    )
+
+    matches = [k for k in env.dict if base_name(k) == name]
+    if not matches:
+        return None
+    binding = env.dict[matches[0]]
+
+    if isinstance(binding, ProofBinding):
+        if isinstance(binding.formula, Or):
+            return _cases_template(name, binding.formula, env)
+        return None
+
+    if isinstance(binding, TermBinding):
+        # The variable's type may be a Var (named type), a TypeInst
+        # (parameterised), or built-in (BoolType etc.). Walk to the
+        # underlying type definition.
+        ty = binding.typ
+        try:
+            type_var = get_type_name(ty)
+        except Exception:
+            return None
+        if not isinstance(type_var, Var):
+            return None
+        type_binding = env.dict.get(type_var.name)
+        if not isinstance(type_binding, TypeBinding):
+            return None
+        defn = type_binding.defn
+        if isinstance(defn, Union):
+            return _switch_template(name, defn, env)
+        return None
+
+    return None
+
+
+def _cases_template(var_name: str, formula, env) -> str:
+    """Render a ``cases <var> ...`` block for an ``Or`` formula.
+
+    Each disjunct gets a fresh per-branch label so successive
+    refinements inside the cases stay collision-free. The labels
+    follow the same ``H<N>`` convention ``_fresh_assume_label`` uses.
+    """
+    from abstract_syntax import base_name
+    used = {base_name(k) for k in env.dict.keys()}
+
+    def fresh() -> str:
+        n = 1
+        while f"h{n}" in used:
+            n += 1
+        used.add(f"h{n}")
+        return f"h{n}"
+
+    args = formula.args
+    case_lines = [
+        f"  case {fresh()}: {arg} {{ ? }}" for arg in args
+    ]
+    return f"cases {var_name}\n" + "\n".join(case_lines)
+
+
+def _switch_template(var_name: str, union_def, env) -> str:
+    """Render a ``switch <var> { ... }`` block for a ``Union`` type.
+
+    Each constructor's parameters get fresh names against the
+    *enclosing* env -- but not against names introduced by *other*
+    cases, since each ``case Cons(...) { ... }`` opens its own scope.
+    Cases are emitted in the declaration order of
+    ``union_def.alternatives``.
+    """
+    from abstract_syntax import base_name
+
+    env_used = {base_name(k) for k in env.dict.keys()}
+
+    case_lines = []
+    for alt in union_def.alternatives:
+        cons_name = base_name(alt.name)
+        # Reset per-case: each case body opens a new scope, so
+        # naming conflicts only matter against the enclosing env
+        # plus the other params of *this* case.
+        used = set(env_used)
+        params = []
+        # Use the first letter of each param's type as the name stem,
+        # mirroring proof_advice/gen_custom_induction_advice.
+        for i, p_ty in enumerate(alt.parameters):
+            stem = _type_first_letter(p_ty)
+            candidate = f"{stem}{i + 1}"
+            n = 0
+            while candidate in used:
+                n += 1
+                candidate = f"{stem}{i + 1}_{n}"
+            used.add(candidate)
+            params.append(candidate)
+        if params:
+            case_lines.append(
+                f"  case {cons_name}({', '.join(params)}) {{ ? }}"
+            )
+        else:
+            case_lines.append(f"  case {cons_name} {{ ? }}")
+    return f"switch {var_name} {{\n" + "\n".join(case_lines) + "\n}"
+
+
+def _type_first_letter(ty) -> str:
+    """First letter of a type's printed form, lowercased.
+
+    Mirrors the naming convention in ``proof_advice``: a parameter of
+    type ``Nat`` becomes ``n1``, ``n2``, ...; ``List<T>`` -> ``l1``,
+    etc. Falls back to ``"x"`` for types whose printer output starts
+    with something non-alphabetic.
+    """
+    s = str(ty)
+    for c in s:
+        if c.isalpha():
+            return c.lower()
+    return "x"
