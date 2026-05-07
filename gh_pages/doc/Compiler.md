@@ -23,17 +23,11 @@ This page walks through how to use it.
 Save this file as `hello.pf`:
 
 ```deduce
-union MyNat {
-  zero
-  suc(MyNat)
-}
+import UInt
+import List
 
-recursive add(MyNat, MyNat) -> MyNat {
-  add(zero, m) = m
-  add(suc(n), m) = suc(add(n, m))
-}
-
-print add(suc(zero), suc(suc(zero)))
+print 1 + 2
+print [3, 4, 5]
 ```
 
 Compile it to C, then build and run the binary. From the Deduce
@@ -43,7 +37,8 @@ checkout:
 $ python3 deduce.py --compile hello.pf
 $ cc -I compiler/runtime -o hello hello.c compiler/runtime/deduce.c
 $ ./hello
-suc(suc(suc(zero)))
+3
+[3, 4, 5]
 ```
 
 That's it. The `--compile` flag tells Deduce to write a `.c` file
@@ -51,12 +46,11 @@ next to the source instead of just type-checking it. The C code
 links against the small runtime in `compiler/runtime/`, which
 provides the allocator, value tags, and pretty-printer.
 
-This file uses `MyNat` rather than the standard library's `Nat` so
-that the example is fully self-contained — but the compiler is
-happy to mix user-defined types with prelude code, so you don't
-need `--no-stdlib` to compile it. See [the prelude
-section](#programs-that-use-the-standard-library) for what changes
-when you `import` modules from the standard library.
+The example uses `UInt` (Deduce's recommended numeric type for
+ordinary computation — see [Performance
+notes](#performance-notes)) and a list of `UInt`s. Both render
+the way the interpreter does: decimal integers and bracketed
+lists.
 
 ## The CLI flags
 
