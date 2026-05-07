@@ -278,7 +278,7 @@ def _diagnostic_from_exception(
 
     formula = getattr(exc, "formula", None)
     if formula is not None:
-        body = _format_incomplete_proof_message(formula, getattr(exc, "env", None))
+        body = _format_incomplete_proof_message(formula)
     else:
         body = getattr(exc, "message_body", None)
         if body is None:
@@ -287,35 +287,24 @@ def _diagnostic_from_exception(
     return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
 
 
-def _format_incomplete_proof_message(formula, env) -> str:
-    """Render an ``IncompleteProof`` as a goal-at-style block.
+def _format_incomplete_proof_message(formula) -> str:
+    """Render an ``IncompleteProof`` as a one-line diagnostic.
 
-    Mirrors :func:`goal_at`'s output: a ``Goal:`` line followed by
-    the formula at 2-space indent, then a ``Givens:`` block (when
-    any local proof bindings are in scope) with one
-    ``<label>: <formula>`` line per binding. Bindings are listed
-    most-recent-first, matching the iteration order of
-    ``Env.proofs_str``.
+    LSP diagnostic messages land in space-constrained UI: the echo
+    area, the mode-line, the underline tooltip. Multi-line text
+    truncates badly (often to just the first line). A goal/givens
+    *display* belongs in :func:`goal_at`'s ``*Deduce Goal*`` buffer
+    instead -- the editor binding (`C-c C-g`) is one keystroke away
+    and gets the full structured view.
 
-    Drops the ``Advice:`` text that the CLI message includes -- the
-    advice is rule-of-thumb prose useful from the command line but
-    noisy as an editor diagnostic, and it pads the message to
-    several lines that all the user wanted to see was the goal.
+    The diagnostic itself just signals "this `?` needs filling, and
+    here's what type of thing": the literal phrase ``incomplete
+    proof`` (matching the CLI prefix for continuity) plus the goal
+    formula. Givens are deliberately omitted -- they'd push the
+    line past one screen width on most proofs, and the user has
+    `C-c C-g` for them.
     """
-    lines = [f"Goal:\n  {formula}"]
-    if env is not None:
-        from abstract_syntax import ProofBinding, base_name
-
-        given_lines = []
-        for unique, binding in reversed(list(env.dict.items())):
-            if isinstance(binding, ProofBinding) and binding.local:
-                given_lines.append(
-                    f"  {base_name(unique)}: {binding.formula}"
-                )
-        if given_lines:
-            lines.append("\nGivens:")
-            lines.extend(given_lines)
-    return "\n".join(lines)
+    return f"incomplete proof; goal: {formula}"
 
 
 def goal_at(

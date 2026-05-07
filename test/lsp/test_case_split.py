@@ -213,9 +213,7 @@ def test_post_edit_check_raises_at_first_case_body(
     )
     diag = diags[0]
     assert diag.severity == Severity.ERROR
-    # Diagnostic for IncompleteProof renders as a "Goal: ..." block
-    # (matches goal_at output, no advice text -- issue #335).
-    assert "Goal:" in diag.message
+    assert "incomplete proof" in diag.message
     first_case_line = edit.range.start.line + 1
     assert diag.range.start.line == first_case_line, (
         f"{case.name}: expected diagnostic on line "

@@ -114,14 +114,16 @@ def test_check_returns_empty_for_valid_files(name: str) -> None:
 # Incomplete-proof diagnostic shape (issue #335)
 # --------------------------------------------------------------------------
 #
-# When the file has a `?', `check' must produce a Diagnostic whose
-# message reads like ``goal_at''s output -- a `Goal:' line plus an
-# optional `Givens:' block, both 2-space-indented -- not the verbose
-# checker prose with `Advice:' sections.
+# When the file has a `?', `check' produces a Diagnostic whose message
+# is a *one-line* "incomplete proof; goal: <formula>" summary.  The
+# goal/givens block lives in `goal_at''s `*Deduce Goal*' buffer
+# instead (one keystroke away, `C-c C-g'); the diagnostic message
+# itself lands in space-constrained UI (echo area, mode-line,
+# underline tooltip) where multi-line content gets truncated.
 
 
-def test_incomplete_proof_diagnostic_uses_goal_format() -> None:
-    """A `?` produces a diagnostic in the new goal-at-style format."""
+def test_incomplete_proof_diagnostic_is_single_line() -> None:
+    """The diagnostic message fits on one line for the echo area."""
     src = (
         "theorem t: all P:bool, Q:bool. if P then if Q then P\n"
         "proof\n"
@@ -134,27 +136,23 @@ def test_incomplete_proof_diagnostic_uses_goal_format() -> None:
     diags = check("test.pf", src)
     assert len(diags) == 1
     msg = diags[0].message
-
-    # Must contain the goal-at-style header.
-    assert msg.startswith("Goal:\n  P"), (
-        f"diagnostic message should start with 'Goal:\\n  P'; got:\n{msg}"
+    # No newlines -- echo-area-friendly.
+    assert "\n" not in msg, (
+        f"diagnostic message should be single-line; got:\n{msg}"
     )
-    # Givens block lists the in-scope hypotheses, 2-space-indented.
-    assert "\nGivens:\n" in msg
-    assert "  H1: P" in msg
-    assert "  H2: Q" in msg
-    # The CLI prose (Advice text, "incomplete proof" header,
-    # tab-indented lines) must NOT appear.
-    assert "incomplete proof" not in msg
+    # The message announces the kind of error and the goal.
+    assert "incomplete proof" in msg
+    assert "P" in msg  # the goal formula
+    # The verbose CLI prose (Advice text, Givens block, tabs) must NOT
+    # appear -- those belong in the *Deduce Goal* buffer.
     assert "Advice:" not in msg
-    # No tab characters: the new format uses 2-space indent
-    # exclusively.
+    assert "Givens:" not in msg
     assert "\t" not in msg
 
 
-def test_incomplete_proof_diagnostic_omits_givens_when_empty() -> None:
-    """A `?` at top of an empty proof body has no givens -> the
-    message has just the `Goal:' line."""
+def test_incomplete_proof_diagnostic_includes_goal_formula() -> None:
+    """The single-line message names the goal so the user can
+    triage without opening *Deduce Goal*."""
     src = (
         "theorem t: all P:bool. P = P\n"
         "proof\n"
@@ -164,7 +162,7 @@ def test_incomplete_proof_diagnostic_omits_givens_when_empty() -> None:
     diags = check("test.pf", src)
     assert len(diags) == 1
     msg = diags[0].message
-    assert msg.startswith("Goal:\n  ")
-    # No Givens block when no local proof bindings.
-    assert "Givens:" not in msg
-    assert "Advice:" not in msg
+    # Goal text is rendered into the message somewhere after the
+    # "incomplete proof" prefix.
+    assert msg.startswith("incomplete proof")
+    assert "P = P" in msg or "(all P:bool. P = P)" in msg

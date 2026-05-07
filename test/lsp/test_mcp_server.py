@@ -124,9 +124,7 @@ async def test_check_file_on_error_file_returns_one_diagnostic(server):
     assert diag["severity"] == "error"
     assert "range" in diag
     assert diag["range"]["start"]["line"] == 6
-    # IncompleteProof diagnostic renders as a "Goal: ..." block,
-    # matching goal_at output (issue #335).
-    assert "Goal:" in diag["message"]
+    assert "incomplete proof" in diag["message"]
 
 
 # --------------------------------------------------------------------------
