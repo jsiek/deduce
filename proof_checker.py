@@ -698,7 +698,7 @@ def proof_use_advice(proof, formula, env):
                else ' is a new name of your choice' ) + ',\n' \
             + 'followed by a proof of the goal.'
 
-      case Call(loc2, tyof2, OverloadedVar(loc3, tyof3, rs), [lhs, rhs]):
+      case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
         return prefix \
             + '\tYou can use this equality in a replace statement:\n' \
             + '\t\treplace ' + str(proof) + '\n'
@@ -804,7 +804,7 @@ def proof_advice(formula, env):
         match var_ty:
           # NOTE: These are the types that are handled in get_type_name, and
           # get_def_of_type_var
-          case TypeInst() | Var():
+          case TypeInst() | Var() | OverloadedVar() | ResolvedVar():
             pass
           case _:
             return arb_advice # don't give induction advice for type variables
@@ -880,7 +880,7 @@ def proof_advice(formula, env):
             + ' with your choice(s),\n' \
             + '\tthen prove:\n' \
             + '\t\t' + str(body.substitute(new_vars))
-      case Call(loc2, tyof2, OverloadedVar(loc3, tyof3, rs), [lhs, rhs]):
+      case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n'\
             + '\t\texpand\n' \
@@ -956,8 +956,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
   rator = pred_call.rator
   rator_name = None
   if isinstance(rator, VarRef):
-    rator_name = rator.resolved_names[0] if rator.resolved_names \
-                 else rator.name
+    rator_name = rator.get_name()
   if rator_name != pred_name_in:
     error(loc, keyword_phrase + " over '" + base_name(pred_name_in)
           + "' but the goal's premise is a call to '"
@@ -976,7 +975,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
     if not isinstance(a, VarRef):
       error(loc, keyword_phrase + ": predicate arguments in the goal "
             "must be plain variables (got '" + str(a) + "')")
-    arg_names.append(a.resolved_names[0] if a.resolved_names else a.name)
+    arg_names.append(a.get_name())
   if len(set(arg_names)) != len(arg_names):
     error(loc, keyword_phrase + ": duplicate predicate argument vars in "
           "the goal (motive inference does not yet handle this)")
@@ -2564,16 +2563,16 @@ def is_modified(filename):
         return True
           
 def validate_union_type(ty, params, env):
+  if isinstance(ty, VarRef):
+    type_def = env.get_def_of_type_var(ty)
+    if isinstance(type_def, Union):
+      union_params_len = len(type_def.type_params)
+      provided_params_len = len(params)
+      if union_params_len != provided_params_len:
+        error(ty.location, f"Expected union type '{ty}' in constructor parameters " \
+             + f"to have {union_params_len} parameters, not {provided_params_len}")
+    return
   match ty:
-    case OverloadedVar(loc, t, rns):
-      type_def = env.get_def_of_type_var(ty)
-
-      if isinstance(type_def, Union):
-        union_params_len = len(type_def.type_params)
-        provided_params_len = len(params)
-        if union_params_len != provided_params_len:
-          error(ty.location, f"Expected union type '{ty}' in constructor parameters " \
-               + f"to have {union_params_len} parameters, not {provided_params_len}")
     case TypeInst(loc, ty, type_args):
       for t in type_args:
         validate_union_type(t, [], env)
@@ -2774,7 +2773,7 @@ def _validate_predicate_rule_shape(rule, pred_name, keyword, arity, env):
   rator = concl.rator
   rator_name = None
   if isinstance(rator, VarRef):
-    rator_name = rator.resolved_names[0] if rator.resolved_names else rator.name
+    rator_name = rator.get_name()
   if rator_name != pred_name:
     suggestion = ''
     if rator_name is not None:
@@ -2808,8 +2807,7 @@ def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
     case Call(loc, _, rator, args):
       ratname = None
       if isinstance(rator, VarRef):
-        ratname = rator.resolved_names[0] if rator.resolved_names \
-                  else rator.name
+        ratname = rator.get_name()
       if forbidden and ratname == pred_name:
         error(loc,
               keyword + " '" + base_name(pred_name) + "' must not occur "
@@ -2913,7 +2911,7 @@ def _is_recursive_atom(atom, pred_name):
   rator = atom.rator
   if not isinstance(rator, VarRef):
     return False
-  rname = rator.resolved_names[0] if rator.resolved_names else rator.name
+  rname = rator.get_name()
   return rname == pred_name
 
 def _premise_too_complex(prem):
@@ -3579,8 +3577,7 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
     case Call(loc, _, rator, args):
       ratname = None
       if isinstance(rator, VarRef):
-        ratname = rator.resolved_names[0] if rator.resolved_names \
-                  else rator.name
+        ratname = rator.get_name()
       if forbidden and ratname == pred_name:
         error(loc,
               keyword + " '" + base_name(pred_name) + "' must not occur "
@@ -4497,7 +4494,7 @@ def check_proofs(stmt, env: Env):
       
     case Assert(loc, frm):
       match frm:
-        case Call(loc2, tyof2, OverloadedVar(loc3, tyof3, rs3), [lhs, rhs]):
+        case Call(loc2, tyof2, (OverloadedVar() | ResolvedVar()), [lhs, rhs]):
           set_reduce_all(True)
           set_eval_all(True)
           L = lhs.reduce(env)
