@@ -182,18 +182,26 @@ def _publish_diagnostics(ls: LanguageServer, uri: str) -> None:
         return
     path = _path_from_uri(uri)
     diags = _query.check(path, content, prelude=_PRELUDE)
-    ls.publish_diagnostics(
-        uri,
-        [
-            lsp_types.Diagnostic(
-                range=_lsp_range_from_query(d.range),
-                severity=_severity_to_lsp(d.severity),
-                message=d.message,
-                source=SERVER_NAME,
-                code=d.code,
-            )
-            for d in diags
-        ],
+    # pygls 2.x exposes the publish-diagnostics notification as
+    # ``text_document_publish_diagnostics(params)``. The pre-2.x
+    # ``publish_diagnostics(uri, list)`` shape was removed; calling
+    # it raises ``AttributeError: 'LanguageServer' object has no
+    # attribute 'publish_diagnostics'`` at runtime, which is what
+    # eglot users hit on first connect.
+    ls.text_document_publish_diagnostics(
+        lsp_types.PublishDiagnosticsParams(
+            uri=uri,
+            diagnostics=[
+                lsp_types.Diagnostic(
+                    range=_lsp_range_from_query(d.range),
+                    severity=_severity_to_lsp(d.severity),
+                    message=d.message,
+                    source=SERVER_NAME,
+                    code=d.code,
+                )
+                for d in diags
+            ],
+        )
     )
 
 
@@ -233,7 +241,12 @@ def on_did_close(
     ls: LanguageServer, params: lsp_types.DidCloseTextDocumentParams
 ) -> None:
     """Clear diagnostics when the editor closes the buffer."""
-    ls.publish_diagnostics(params.text_document.uri, [])
+    ls.text_document_publish_diagnostics(
+        lsp_types.PublishDiagnosticsParams(
+            uri=params.text_document.uri,
+            diagnostics=[],
+        )
+    )
 
 
 # --- Query features ------------------------------------------------------
