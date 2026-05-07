@@ -114,6 +114,7 @@ def test_all_expected_features_are_registered():
         lsp_types.TEXT_DOCUMENT_DID_CLOSE,
         lsp_types.TEXT_DOCUMENT_DEFINITION,
         lsp_types.TEXT_DOCUMENT_DOCUMENT_SYMBOL,
+        lsp_types.TEXT_DOCUMENT_CODE_ACTION,
         lsp_server.GOAL_AT_REQUEST,
     }
     assert expected.issubset(set(fm.features))
@@ -408,3 +409,80 @@ def test_path_is_in_lib_helper():
     # Nonexistent path: the resolve() walks the parents that do exist;
     # if its lexical prefix matches lib/, it counts as in lib.
     assert lsp_server._path_is_in_lib("/nope/not-a-path.pf") is False
+
+
+# --------------------------------------------------------------------------
+# Code actions: refine_at (Phase 4 / Step 15)
+# --------------------------------------------------------------------------
+
+
+def test_code_action_offers_refine_when_cursor_on_hole(server, open_doc):
+    """Cursor on a `?` whose goal is a recognised shape -> one
+    RefactorRewrite action carrying a single-file WorkspaceEdit."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp, uri = open_doc("refine.pf", src)
+    # LSP coords for the `?` at line 4 col 3 (1-indexed) -- that's
+    # line=3, character=2 in LSP-space.
+    params = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=3, character=2),
+            end=lsp_types.Position(line=3, character=2),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    actions = lsp_server.on_code_action(server, params)
+    assert len(actions) == 1
+    action = actions[0]
+    assert action.title == "Refine hole"
+    assert action.kind == lsp_types.CodeActionKind.RefactorRewrite
+    # The edit has one TextEdit in the file's URI bucket.
+    assert action.edit is not None
+    assert list(action.edit.changes.keys()) == [uri]
+    edits = action.edit.changes[uri]
+    assert len(edits) == 1
+    text_edit = edits[0]
+    assert text_edit.new_text == "reflexive"
+    # Range covers exactly the `?` (LSP 0-indexed: line 3, col 2-3).
+    assert text_edit.range.start == lsp_types.Position(line=3, character=2)
+    assert text_edit.range.end == lsp_types.Position(line=3, character=3)
+
+
+def test_code_action_returns_empty_when_cursor_not_on_hole(server, open_doc):
+    """No `?` near the cursor -> no actions offered."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    _, uri = open_doc("complete.pf", src)
+    params = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri=uri),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=3, character=2),
+            end=lsp_types.Position(line=3, character=2),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    assert lsp_server.on_code_action(server, params) == []
+
+
+def test_code_action_with_unknown_uri_returns_empty(server):
+    """Defensive: the workspace doesn't know about this URI."""
+    params = lsp_types.CodeActionParams(
+        text_document=lsp_types.TextDocumentIdentifier(uri="file:///nope.pf"),
+        range=lsp_types.Range(
+            start=lsp_types.Position(line=0, character=0),
+            end=lsp_types.Position(line=0, character=0),
+        ),
+        context=lsp_types.CodeActionContext(diagnostics=[]),
+    )
+    assert lsp_server.on_code_action(server, params) == []
