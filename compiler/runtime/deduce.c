@@ -257,6 +257,70 @@ bool deduce_equal(deduce_value a, deduce_value b) {
     return false;
 }
 
+/* --- pretty-printer for special-cased shapes --------------------------
+ * Mirrors what the interpreter does in `Call.__str__` and the helpers
+ * around `isUInt` / `isDeduceInt` / `isNodeList` in abstract_syntax.py:
+ * UInt values print in decimal, Int values with a sign, and lists with
+ * brackets. Dispatch is by base name on the constructor (i.e. any union
+ * with `bzero`/`dub_inc`/`inc_dub` constructors prints as decimal),
+ * matching the interpreter's structural-recogniser approach.
+ */
+
+/* Walk a value of UInt shape (bzero / dub_inc / inc_dub). Returns
+ * true on success and writes the decoded non-negative integer to *out;
+ * returns false if any node in the chain fails to match the shape. */
+static bool try_decode_uint(deduce_value v, int64_t* out) {
+    if (v->tag != D_CTOR) return false;
+    const char* n = v->u.ctor.name;
+    if (strcmp(n, "bzero") == 0) { *out = 0; return true; }
+    if (strcmp(n, "dub_inc") == 0 && v->u.ctor.n_fields == 1) {
+        int64_t inner;
+        if (!try_decode_uint(v->u.ctor.fields[0], &inner)) return false;
+        *out = 2 * (1 + inner);
+        return true;
+    }
+    if (strcmp(n, "inc_dub") == 0 && v->u.ctor.n_fields == 1) {
+        int64_t inner;
+        if (!try_decode_uint(v->u.ctor.fields[0], &inner)) return false;
+        *out = 1 + 2 * inner;
+        return true;
+    }
+    return false;
+}
+
+/* Walk an Int-shaped value (`pos(<UInt>)` or `negsuc(<UInt>)`). On
+ * success writes the signed value and returns true. */
+static bool try_decode_int(deduce_value v, int64_t* out) {
+    if (v->tag != D_CTOR || v->u.ctor.n_fields != 1) return false;
+    const char* n = v->u.ctor.name;
+    int64_t mag;
+    if (strcmp(n, "pos") == 0 && try_decode_uint(v->u.ctor.fields[0], &mag)) {
+        *out = mag;
+        return true;
+    }
+    if (strcmp(n, "negsuc") == 0 && try_decode_uint(v->u.ctor.fields[0], &mag)) {
+        *out = -(mag + 1);
+        return true;
+    }
+    return false;
+}
+
+/* Detect a list-shaped value (chain of `node(_, _)` ending in `empty`).
+ * Used only for printing, so we don't decode — the caller walks the
+ * chain itself. */
+static bool is_list_shape(deduce_value v) {
+    while (v->tag == D_CTOR) {
+        const char* n = v->u.ctor.name;
+        if (strcmp(n, "empty") == 0 && v->u.ctor.n_fields == 0) return true;
+        if (strcmp(n, "node") == 0 && v->u.ctor.n_fields == 2) {
+            v = v->u.ctor.fields[1];
+            continue;
+        }
+        return false;
+    }
+    return false;
+}
+
 void deduce_println(deduce_value v) {
     deduce_print(v);
     fputc('\n', stdout);
@@ -270,7 +334,35 @@ void deduce_print(deduce_value v) {
         case D_INT:
             printf("%lld", (long long)v->u.i);
             return;
-        case D_CTOR:
+        case D_CTOR: {
+            int64_t n;
+            /* Int first — `pos(bzero)` and `negsuc(bzero)` would also
+             * match try_decode_uint (since `pos`/`negsuc` aren't UInt
+             * constructors), but checking Int first keeps the dispatch
+             * unambiguous. */
+            if (try_decode_int(v, &n)) {
+                printf("%c%lld", n < 0 ? '-' : '+',
+                       (long long)(n < 0 ? -n : n));
+                return;
+            }
+            if (try_decode_uint(v, &n)) {
+                printf("%lld", (long long)n);
+                return;
+            }
+            if (is_list_shape(v)) {
+                fputc('[', stdout);
+                deduce_value cur = v;
+                int first = 1;
+                while (cur->tag == D_CTOR
+                       && strcmp(cur->u.ctor.name, "node") == 0) {
+                    if (!first) fputs(", ", stdout);
+                    first = 0;
+                    deduce_print(cur->u.ctor.fields[0]);
+                    cur = cur->u.ctor.fields[1];
+                }
+                fputc(']', stdout);
+                return;
+            }
             fputs(v->u.ctor.name, stdout);
             if (v->u.ctor.n_fields > 0) {
                 fputc('(', stdout);
@@ -281,6 +373,7 @@ void deduce_print(deduce_value v) {
                 fputc(')', stdout);
             }
             return;
+        }
         case D_CLOSURE:
             printf("<closure %s>", v->u.closure.name ? v->u.closure.name : "?");
             return;

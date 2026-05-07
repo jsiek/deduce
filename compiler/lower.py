@@ -417,9 +417,22 @@ class LoweringCtx:
     # ---- helpers -----------------------------------------------------
 
     def _resolve(self, v: ast.Var) -> str:
-        # `resolved_names` is filled in by uniquify and may contain
-        # multiple entries when the name is overloaded. After
-        # type-checking, the first entry is the resolved overload.
+        # Type-check writes the chosen overload back to `Var.name` for
+        # pattern constructors (`check_constructor_pattern`) and for
+        # most call sites. `resolved_names` is set by uniquify and is
+        # NOT filtered down by type-check — for an overloaded name
+        # like `zero` (with both `Nat`'s and a user union's `zero`)
+        # `resolved_names` keeps both candidates indefinitely.
+        #
+        # So prefer `.name` when it's clearly a uniquified name (any
+        # name containing `.`, since uniquify suffixes every name
+        # with `.<n>` and source identifiers can't contain `.`).
+        # Fall back to `resolved_names[0]` only when `.name` is still
+        # the bare source name — that path is hit by code paths the
+        # type-checker doesn't touch (we leave the original behaviour
+        # intact rather than pessimise it).
+        if "." in v.name:
+            return v.name
         if v.resolved_names:
             return v.resolved_names[0]
         return v.name
