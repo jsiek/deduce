@@ -59,16 +59,21 @@ class _FakeWorkspace:
 
 
 class FakeServer:
-    """Just enough of ``LanguageServer`` to drive the handlers."""
+    """Just enough of ``LanguageServer`` to drive the handlers.
+
+    Mirrors pygls 2.x's API: ``text_document_publish_diagnostics``
+    takes a ``PublishDiagnosticsParams`` rather than the pre-2.x
+    ``publish_diagnostics(uri, list)`` shape.
+    """
 
     def __init__(self) -> None:
         self.workspace = _FakeWorkspace()
         self.published: dict[str, list[lsp_types.Diagnostic]] = {}
 
-    def publish_diagnostics(
-        self, uri: str, diagnostics: list[lsp_types.Diagnostic]
+    def text_document_publish_diagnostics(
+        self, params: lsp_types.PublishDiagnosticsParams
     ) -> None:
-        self.published[uri] = list(diagnostics)
+        self.published[params.uri] = list(params.diagnostics)
 
 
 def _file_uri(path: Path) -> str:
