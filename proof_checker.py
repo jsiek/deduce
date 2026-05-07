@@ -1953,9 +1953,9 @@ def check_type(typ, env):
       error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
 def type_first_letter(typ):
+  if isinstance(typ, VarRef):
+    return typ.get_name()[0]
   match typ:
-    case OverloadedVar(loc, tyof, rs):
-      return rs[0][0]
     case IntType(loc):
       return 'i'
     case BoolType(loc):
@@ -1977,42 +1977,45 @@ def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
       check_type(ty, env)
   new_subject = type_synth_term(subject, env, recfun, subterms)
   ty = new_subject.typeof
-  match ty:
-    case OverloadedVar(loc2, ty2, rs):
-      retty = TypeInst(loc, ty, tyargs)
-    case FunctionType(loc2, typarams, param_types, return_type):
-      sub = {x: t for (x,t) in zip(typarams, tyargs)}
-      inst_param_types = [t.substitute(sub) for t in param_types]
-      inst_return_type = return_type.substitute(sub)
-      retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
-    case GenericUnknownInst(loc2, union_type):
-      retty = TypeInst(loc2, union_type, tyargs)
-    case _:
-      error(loc, 'expected a type name, not ' + str(ty))
+  if isinstance(ty, VarRef):
+    retty = TypeInst(loc, ty, tyargs)
+  else:
+    match ty:
+      case FunctionType(loc2, typarams, param_types, return_type):
+        sub = {x: t for (x,t) in zip(typarams, tyargs)}
+        inst_param_types = [t.substitute(sub) for t in param_types]
+        inst_return_type = return_type.substitute(sub)
+        retty = FunctionType(loc2, [], inst_param_types, inst_return_type)
+      case GenericUnknownInst(loc2, union_type):
+        retty = TypeInst(loc2, union_type, tyargs)
+      case _:
+        error(loc, 'expected a type name, not ' + str(ty))
   return TermInst(loc, retty, new_subject, tyargs, inferred)
 
 def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
-  match subject_var:
-    case OverloadedVar(loc2, tyof, rs):
+  if isinstance(subject_var, VarRef):
       for ty in tyargs:
           check_type(ty, env)
-      ty = env.get_type_of_term_var(OverloadedVar(loc2, tyof, rs))
-      match ty:
-        case OverloadedVar(loc3, ty2, rs2):
-          retty = TypeInst(loc, ty, tyargs)
-        case FunctionType(loc3, typarams, param_types, return_type):
-          sub = {x: t for (x,t) in zip(typarams, tyargs)}
-          inst_param_types = [t.substitute(sub) for t in param_types]
-          inst_return_type = return_type.substitute(sub)
-          retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
-        case GenericUnknownInst(loc3, union_type):
-          retty = TypeInst(loc3, union_type, tyargs)
-        case _:
-          error(loc, 'cannot instantiate a term of type ' + str(ty))
-      return TermInst(loc, retty, OverloadedVar(loc2, tyof, [rs[0]]),
+      ty = env.get_type_of_term_var(subject_var)
+      if isinstance(ty, VarRef):
+        retty = TypeInst(loc, ty, tyargs)
+      else:
+        match ty:
+          case FunctionType(loc3, typarams, param_types, return_type):
+            sub = {x: t for (x,t) in zip(typarams, tyargs)}
+            inst_param_types = [t.substitute(sub) for t in param_types]
+            inst_return_type = return_type.substitute(sub)
+            retty = FunctionType(loc3, [], inst_param_types, inst_return_type)
+          case GenericUnknownInst(loc3, union_type):
+            retty = TypeInst(loc3, union_type, tyargs)
+          case _:
+            error(loc, 'cannot instantiate a term of type ' + str(ty))
+      # Subject is now resolved (we've narrowed to its single typed name).
+      return TermInst(loc, retty,
+                      ResolvedVar(subject_var.location, subject_var.typeof,
+                                  subject_var.get_name()),
                       tyargs, inferred)
-    case _:
-      error(loc, 'internal error, expected variable, not ' + str(subject_var))
+  error(loc, 'internal error, expected variable, not ' + str(subject_var))
 
 def type_synth_term(term, env, recfun, subterms):
   if get_verbose():
@@ -2234,13 +2237,12 @@ def type_synth_term(term, env, recfun, subterms):
             case _:
               error(loc, 'expected a union type, not ' + str(ty))
 
-    case TermInst(loc, _, OverloadedVar(loc2, tyof, rs), tyargs, inferred):
-      ret = type_check_term_inst_var(loc, OverloadedVar(loc2, tyof, rs), tyargs,
-                                     inferred, env)
-      
+    case TermInst(loc, _, subject, tyargs, inferred) if isinstance(subject, VarRef):
+      ret = type_check_term_inst_var(loc, subject, tyargs, inferred, env)
+
     case TermInst(loc, _, subject, tyargs, inferred):
       ret = type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
-          
+
     case TAnnote(loc, tyof, subject, typ):
       check_type(typ, env)
       ret = type_check_term(subject, typ, env, recfun, subterms)
@@ -2301,11 +2303,29 @@ def type_check_term(term, typ, env, recfun, subterms):
       var_typ = env.get_type_of_term_var(term)
       if var_typ is None:
         error(loc, 'variable ' + str(term) + ' is not defined')
+      match (var_typ, typ):
+        case (GenericUnknownInst(loc2, union1), TypeInst(loc3, union2, tyargs)):
+          if union1 == union2:
+            return TermInst(loc, typ, ResolvedVar(loc, typ, name),
+                            tyargs, True)
+        case (FunctionType(loc1, typarams, param_types1, ret_type1),
+              FunctionType(loc2, [], param_types2, ret_type2)):
+          if len(typarams) > 0:
+            matching = {}
+            type_params = type_names(loc, typarams)
+            try:
+              type_match(loc, type_params, ret_type1, ret_type2, matching)
+              for (p1, p2) in zip(param_types1, param_types2):
+                  type_match(loc, type_params, p1, p2, matching)
+              type_args = [matching[x] for x in type_params]
+              return TermInst(ResolvedVar(loc, var_typ, name),
+                              type_args, True)
+            except Exception:
+              pass
       if var_typ == typ:
         return ResolvedVar(loc, typ, name)
-      else:
-        error(loc, 'expected a term of type ' + str(typ) \
-              + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
+      error(loc, 'expected a term of type ' + str(typ) \
+            + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
 
     case OverloadedVar(loc, _, rs):
       var_typ = env.get_type_of_term_var(term)
@@ -2432,13 +2452,12 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_els = type_check_term(els, typ, env, recfun, subterms)
       return Conditional(loc, typ, new_cond, new_thn, new_els)
   
-    case TermInst(loc, _, OverloadedVar(loc2, tyof, rs), tyargs, inferred):
-      return type_check_term_inst_var(loc, OverloadedVar(loc2, tyof, rs), tyargs,
-                                      inferred, env)
-      
+    case TermInst(loc, _, subject, tyargs, inferred) if isinstance(subject, VarRef):
+      return type_check_term_inst_var(loc, subject, tyargs, inferred, env)
+
     case TermInst(loc, _, subject, tyargs, inferred):
       return type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
-  
+
     case _:
       if get_verbose():
           print('type_check_term delegating to type_synth_term')

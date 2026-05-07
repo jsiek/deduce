@@ -1091,10 +1091,12 @@ class Lambda(Term):
   def __eq__(self, other):
       if not isinstance(other, Lambda):
           return False
-      ren = {x: Var(self.location, t2, y) \
+      # ResolvedVar so the substituted bodies compare equal to the
+      # uniquified-name references already in `other.body`.
+      ren = {x: ResolvedVar(self.location, t2, y) \
              for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
       new_body = self.body.substitute(ren)
-      return new_body == other.body # and self.env == other.env
+      return new_body == other.body
 
   def reduce(self, env):
     if get_eval_all():
@@ -1685,7 +1687,11 @@ class SwitchCase(AST):
       case PatternBool(loc1, value1), PatternBool(loc2, value2):
         return value1 == value2 and self.body == other.body
       case PatternCons(loc1, constr1, params1), PatternCons(loc2, constr2, params2):
-        alpha_rename = {x: Var(self.location, None, y) \
+        # Use ResolvedVar in the rename so substituted-in references
+        # compare equal to the (already uniquified) ResolvedVars in
+        # `other.body`. Picking Var here would break post-uniquify
+        # equality across the two bodies.
+        alpha_rename = {x: ResolvedVar(self.location, None, y) \
                         for (x,y) in zip(params1, params2) }
         new_body = self.body.substitute(alpha_rename)
         return constr1 == constr2 \
