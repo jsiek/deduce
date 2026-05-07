@@ -55,6 +55,10 @@ class CaseSplitCase:
 CASES = [
     CaseSplitCase(
         name="nat_like_union",
+        # Cursor on `?` at column 3 -> 2-space indent. Each line of
+        # the switch skeleton picks up that indent so the inserted
+        # block lines up with the surrounding proof body
+        # (issue #333).
         source=(
             "union N {\n"
             "  z\n"
@@ -67,13 +71,13 @@ CASES = [
             "  ?\n"
             "end\n"
         ),
-        cursor=Position(line=9, column=3),  # the ?
+        cursor=Position(line=9, column=3),
         variable="x",
         expected_text=(
             "switch x {\n"
-            "  case z { ? }\n"
-            "  case s(n1) { ? }\n"
-            "}"
+            "    case z { ? }\n"
+            "    case s(n1) { ? }\n"
+            "  }"
         ),
         expected_range=Range(
             start=Position(line=9, column=3),
@@ -98,9 +102,9 @@ CASES = [
         variable="xs",
         expected_text=(
             "switch xs {\n"
-            "  case e { ? }\n"
-            "  case cons(t1, l2) { ? }\n"
-            "}"
+            "    case e { ? }\n"
+            "    case cons(t1, l2) { ? }\n"
+            "  }"
         ),
         expected_range=Range(
             start=Position(line=9, column=3),
@@ -126,10 +130,10 @@ CASES = [
         variable="x",
         expected_text=(
             "switch x {\n"
-            "  case empty { ? }\n"
-            "  case flag(b1) { ? }\n"
-            "  case pair(b1, b2) { ? }\n"
-            "}"
+            "    case empty { ? }\n"
+            "    case flag(b1) { ? }\n"
+            "    case pair(b1, b2) { ? }\n"
+            "  }"
         ),
         expected_range=Range(
             start=Position(line=10, column=3),
@@ -150,8 +154,8 @@ CASES = [
         variable="H",
         expected_text=(
             "cases H\n"
-            "  case h1: P { ? }\n"
-            "  case h2: Q { ? }"
+            "    case h1: P { ? }\n"
+            "    case h2: Q { ? }"
         ),
         expected_range=Range(
             start=Position(line=5, column=3),

@@ -334,6 +334,52 @@ buffer ends up with the new text in its place."
       (delete-file tmp))))
 
 
+(ert-deftest deduce-lsp/apply-text-edit-leaves-point-on-first-question-mark ()
+  "After applying a multi-line template that contains a `?', point
+lands on the FIRST `?' in the inserted text -- not at the end of
+the insertion -- so successive C-c C-r / C-c C-c can fire without
+the user repositioning the cursor."
+  (with-temp-buffer
+    (insert "  ?\n")
+    ;; Cursor on the `?` at line 1, col 3 (LSP line 0, char 2).
+    (let* ((uri "file:///tmp/x.pf")
+           (target-key (intern (concat ":" uri)))
+           (skeleton "switch x {\n    case z { ? }\n    case s(n1) { ? }\n  }")
+           (edit `(:range (:start (:line 0 :character 2)
+                           :end (:line 0 :character 3))
+                          :newText ,skeleton)))
+      (cl-letf (((symbol-function 'deduce-lsp--current-uri)
+                 (lambda () uri)))
+        (deduce-lsp--apply-text-edit edit))
+      ;; Buffer is now:
+      ;;   "  switch x {\n    case z { ? }\n    case s(n1) { ? }\n  }\n"
+      ;; The first `?' lives in `case z { ? }' on line 2.  Point
+      ;; should be sitting ON it.
+      (should (eq (char-after) ?\?))
+      ;; And the char after point is `?', not `?,' or anything else.
+      (should (looking-at-p "\\? }")))))
+
+
+(ert-deftest deduce-lsp/apply-text-edit-no-question-mark-lands-at-end ()
+  "If the template contains no `?' (e.g. `reflexive', `.'), point
+lands at the end of the insertion -- there's no inner hole to
+prefer."
+  (with-temp-buffer
+    (insert "  ?\n")
+    (let* ((uri "file:///tmp/x.pf")
+           (edit `(:range (:start (:line 0 :character 2)
+                           :end (:line 0 :character 3))
+                          :newText "reflexive")))
+      (cl-letf (((symbol-function 'deduce-lsp--current-uri)
+                 (lambda () uri)))
+        (deduce-lsp--apply-text-edit edit))
+      ;; Buffer is "  reflexive\n".  Point is at end of "reflexive"
+      ;; (12, just before the newline) -- char-after is the newline.
+      (should (eq (char-after) ?\n))
+      ;; Char before point is the last `e' of "reflexive".
+      (should (eq (char-before) ?e)))))
+
+
 (ert-deftest deduce-lsp/refine-hole-no-actions-signals-user-error ()
   "An empty action list yields a `No refinement available' user-error."
   (let ((tmp (make-temp-file "deduce-lsp-refine" nil ".pf")))
