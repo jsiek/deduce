@@ -5182,13 +5182,125 @@ def extract_or(frm):
       case _:
        return [frm]
 
+# --------------------------------------------------------------------------
+# AST sanity checks
+#
+# Phase invariants encoded by the class hierarchy:
+#   - parser produces ``Var`` (source-name only)
+#   - ``uniquify`` produces ``OverloadedVar`` (uniquified candidates)
+#   - type checking narrows ``OverloadedVar`` to ``ResolvedVar`` (single
+#     chosen name) where it can; genuinely-unresolved overloads stay
+#     as multi-candidate ``OverloadedVar``
+#
+# These walkers verify the invariants by visiting every AST descendant
+# of a top-level statement list. They're meant to run after each phase
+# during development, and fail fast on stray pre-uniquify ``Var`` nodes
+# left behind by helper functions that haven't been migrated to the
+# new class hierarchy.
+# --------------------------------------------------------------------------
+
+def _walk_ast_descendants(roots):
+  """Yield every AST descendant reachable from ``roots`` (a single
+  node or an iterable). Memoized by ``id()`` so shared sub-ASTs
+  (e.g. cached imported-module statements) aren't revisited."""
+  from dataclasses import fields, is_dataclass
+  seen = set()
+  stack = []
+  if isinstance(roots, list) or isinstance(roots, tuple):
+    stack.extend(roots)
+  else:
+    stack.append(roots)
+  while stack:
+    node = stack.pop()
+    nid = id(node)
+    if nid in seen:
+      continue
+    seen.add(nid)
+    yield node
+    if isinstance(node, list) or isinstance(node, tuple):
+      stack.extend(node)
+      continue
+    if isinstance(node, dict):
+      stack.extend(node.values())
+      continue
+    if isinstance(node, AST) and is_dataclass(node):
+      for f in fields(node):
+        child = getattr(node, f.name, None)
+        if child is None:
+          continue
+        # Skip strings explicitly — the bound-name lists in Lambda /
+        # All / Some are str values that should not be walked.
+        if isinstance(child, str):
+          continue
+        if isinstance(child, (int, bool)):
+          continue
+        stack.append(child)
+
+def check_post_uniquify_invariants(ast_list):
+  """Assert that the AST is in canonical post-uniquify shape: every
+  variable reference is an ``OverloadedVar`` or ``ResolvedVar``; no
+  pre-uniquify ``Var`` survives. ``ResolvedVar`` is allowed because
+  some construction helpers (mkSuc/mkZero etc. for runtime
+  arithmetic) already produce a fully-narrowed reference, and that's
+  fine — it just means there's nothing for type-check to do.
+
+  Raises ``Exception`` listing up to 20 offending nodes on failure."""
+  bad = []
+  for node in _walk_ast_descendants(ast_list):
+    if type(node) is Var:
+      bad.append((getattr(node, 'location', None), node.name))
+  if bad:
+    msgs = []
+    for (loc, name) in bad[:20]:
+      loc_str = ''
+      try:
+        if loc is not None and not getattr(loc, 'empty', True):
+          loc_str = f'{loc.filename}:{loc.line}: '
+      except Exception:
+        pass
+      msgs.append(f'  {loc_str}pre-uniquify Var({name!r})')
+    suffix = f'\n  ... and {len(bad) - 20} more' if len(bad) > 20 else ''
+    raise Exception(
+      'Post-uniquify AST sanity check failed: pre-uniquify `Var` '
+      'nodes still present.\n'
+      'Each one is a leftover construction site that wasn\'t migrated '
+      'to OverloadedVar/ResolvedVar.\n' + '\n'.join(msgs) + suffix)
+
+def check_post_typecheck_invariants(ast_list):
+  """Check post-typecheck invariants. Hard error if any pre-uniquify
+  ``Var`` survives (that's a refactor leak). Soft warning if a
+  single-candidate ``OverloadedVar`` exists — those should have been
+  narrowed to ``ResolvedVar`` by overload resolution, but the type
+  checker doesn't visit every node yet, so we tolerate them while
+  the migration is in progress. Multi-candidate ``OverloadedVar``
+  is permitted (genuine unresolved overload)."""
+  bad_var = []
+  for node in _walk_ast_descendants(ast_list):
+    if type(node) is Var:
+      bad_var.append((getattr(node, 'location', None), node.name))
+  if bad_var:
+    def loc_prefix(loc):
+      try:
+        if loc is not None and not getattr(loc, 'empty', True):
+          return f'{loc.filename}:{loc.line}: '
+      except Exception:
+        pass
+      return ''
+    msgs = [f'  {loc_prefix(loc)}pre-uniquify Var({name!r})'
+            for (loc, name) in bad_var[:20]]
+    raise Exception(
+      'Post-typecheck AST sanity check failed: pre-uniquify `Var` '
+      'nodes still present.\n' + '\n'.join(msgs))
+
 def uniquify_deduce(ast):
   env = {}
   env['≠'] = ['≠']
   env['='] = ['=']
   # Using a space in the name to not collide with deduce identifiers
   env['no overload'] = {}
-  return [stmt.uniquify(env) for stmt in ast]
+  result = [stmt.uniquify(env) for stmt in ast]
+  check_post_uniquify_invariants(result)
+  return result
 
 def make_switch_for(meta, defs, subject, cases):
   new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,

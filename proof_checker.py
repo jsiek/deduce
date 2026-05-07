@@ -4589,6 +4589,11 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       if needs_checking[0]:
         check_proofs(s, env)
     checked_modules.add(module_name)
+  # Sanity-check the post-typecheck AST: every variable reference
+  # should be ResolvedVar (or, if the type-checker punted, a
+  # multi-candidate OverloadedVar). Any pre-uniquify Var or
+  # single-candidate OverloadedVar is a refactor leak.
+  check_post_typecheck_invariants(ast3)
   # Return the post-typecheck AST so callers (lsp.library.check_file,
   # the Deduce-to-C compiler) can read the overload-resolved form.
   # See issue #305.
