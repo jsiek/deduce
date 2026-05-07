@@ -101,6 +101,25 @@ def _default_prelude() -> tuple[str, ...]:
 _PRELUDE = _default_prelude()
 
 
+def _path_is_in_lib(path: str) -> bool:
+    """True iff ``path`` lives inside the standard library directory.
+
+    Files inside ``lib/`` are part of the prelude themselves; checking
+    one with the prelude prepended would import the file twice and
+    trip ``theorem names may not be overloaded`` (mirrors the
+    ``check_in_prelude`` logic in ``deduce.py``)."""
+    try:
+        Path(path).resolve().relative_to(_LIB_DIR.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def _prelude_for(path: str) -> tuple[str, ...]:
+    """Empty prelude for files in ``lib/``, otherwise the default."""
+    return () if _path_is_in_lib(path) else _PRELUDE
+
+
 # ---------------------------------------------------------------------------
 # Server definition
 # ---------------------------------------------------------------------------
@@ -146,7 +165,7 @@ def check_file(path: str) -> dict:
     ``code``.
     """
     content = _read_file(path)
-    diagnostics = query.check(path, content, prelude=_PRELUDE)
+    diagnostics = query.check(path, content, prelude=_prelude_for(path))
     return {"diagnostics": _to_serializable(diagnostics)}
 
 
@@ -162,7 +181,7 @@ def goal_at(path: str, line: int, column: int) -> Optional[dict]:
     """
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
-    goal = query.goal_at(path, content, pos, prelude=_PRELUDE)
+    goal = query.goal_at(path, content, pos, prelude=_prelude_for(path))
     return _to_serializable(goal)
 
 
@@ -176,7 +195,7 @@ def definition_of(path: str, line: int, column: int) -> Optional[dict]:
     """
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
-    loc = query.definition_of(path, content, pos, prelude=_PRELUDE)
+    loc = query.definition_of(path, content, pos, prelude=_prelude_for(path))
     return _to_serializable(loc)
 
 
@@ -192,7 +211,7 @@ def list_symbols(path: str) -> list[dict]:
     ``signature``.
     """
     content = _read_file(path)
-    syms = query.list_symbols(path, content, prelude=_PRELUDE)
+    syms = query.list_symbols(path, content, prelude=_prelude_for(path))
     return _to_serializable(syms)
 
 
