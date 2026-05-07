@@ -86,7 +86,9 @@ CASES = [
     RefineCase(
         name="implication",
         # Goal: ``(if P then P)``. Template uses ``H1`` (no other
-        # ``H<N>`` is in scope yet, so we start at 1).
+        # ``H<N>`` is in scope yet, so we start at 1). The ``?'' on
+        # the second line picks up the surrounding proof body's
+        # 2-space indent (issue #333).
         source=(
             "theorem t: all P:bool. if P then P\n"
             "proof\n"
@@ -95,7 +97,7 @@ CASES = [
             "end\n"
         ),
         cursor=Position(line=4, column=3),
-        expected_text="assume H1: P\n?",
+        expected_text="assume H1: P\n  ?",
         expected_range=Range(
             start=Position(line=4, column=3),
             end=Position(line=4, column=4),
@@ -116,7 +118,7 @@ CASES = [
             "end\n"
         ),
         cursor=Position(line=5, column=3),
-        expected_text="assume H2: Q\n?",
+        expected_text="assume H2: Q\n  ?",
         expected_range=Range(
             start=Position(line=5, column=3),
             end=Position(line=5, column=4),
@@ -136,7 +138,7 @@ CASES = [
             "end\n"
         ),
         cursor=Position(line=7, column=3),
-        expected_text="assume H3: P\n?",
+        expected_text="assume H3: P\n  ?",
         expected_range=Range(
             start=Position(line=7, column=3),
             end=Position(line=7, column=4),
@@ -145,6 +147,7 @@ CASES = [
     RefineCase(
         name="forall",
         # Goal: ``(all P:bool. P = P)``. Template: ``arbitrary P:bool\n?``.
+        # ``?`` picks up the proof body's 2-space indent.
         source=(
             "theorem t: all P:bool. P = P\n"
             "proof\n"
@@ -152,7 +155,7 @@ CASES = [
             "end\n"
         ),
         cursor=Position(line=3, column=3),
-        expected_text="arbitrary P:bool\n?",
+        expected_text="arbitrary P:bool\n  ?",
         expected_range=Range(
             start=Position(line=3, column=3),
             end=Position(line=3, column=4),
@@ -259,3 +262,90 @@ def test_refine_at_cursor_one_position_after_hole() -> None:
     assert edit is not None
     assert edit.new_text == "reflexive"
     assert edit.range.start == Position(line=4, column=3)
+
+
+# --------------------------------------------------------------------------
+# Indent preservation (issue #333)
+# --------------------------------------------------------------------------
+
+
+def test_indent_continuation_zero_indent_no_change() -> None:
+    """Hole at column 1 -> no indent to add -> template unchanged."""
+    # Cursor on `?' at line 4 col 1 -- no leading whitespace.
+    # The `arbitrary P:bool` line is also unindented so the env at
+    # the hole really has just ``P`` available; goal at hole is the
+    # ``if P then P`` implication.
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "arbitrary P:bool\n"
+        "?\n"
+        "end\n"
+    )
+    edit = refine_at("test.pf", source, Position(line=4, column=1))
+    assert edit is not None
+    # No indent to add; the inner `?` stays at col 0.
+    assert edit.new_text == "assume H1: P\n?"
+
+
+def test_indent_continuation_tab_indent_preserved() -> None:
+    """Hole on a tab-indented line -> continuation line gets the
+    same tab prefix."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "\tarbitrary P:bool\n"
+        "\t?\n"
+        "end\n"
+    )
+    # Cursor on `?` at line 4 col 2 (the tab is 1 char).
+    edit = refine_at("test.pf", source, Position(line=4, column=2))
+    assert edit is not None
+    assert edit.new_text == "assume H1: P\n\t?"
+
+
+def test_indent_continuation_three_step_refine_stays_at_indent() -> None:
+    """End-to-end: three successive refines on the issue #333 reproducer
+    keep all the inserted lines at the same 2-space indent."""
+    source = (
+        "theorem ex_all_if_and: all P:bool, Q:bool, R:bool.\n"
+        "  if (if P and Q then R) then (if Q then if P then R)\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  arbitrary Q:bool\n"
+        "  arbitrary R:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+
+    def apply(src: str, edit) -> str:
+        lines = src.splitlines(keepends=True)
+        i = edit.range.start.line - 1
+        col = edit.range.start.column - 1
+        ec = edit.range.end.column - 1
+        new_line = lines[i][:col] + edit.new_text + lines[i][ec:]
+        return "".join(lines[:i] + [new_line] + lines[i + 1:])
+
+    # Three rounds of `assume H<N>: ...`
+    for _ in range(3):
+        # Find the next `?`
+        for line_num, line in enumerate(source.split("\n"), 1):
+            if "?" in line:
+                col = line.index("?") + 1
+                break
+        edit = refine_at(
+            "test.pf", source, Position(line=line_num, column=col)
+        )
+        assert edit is not None
+        source = apply(source, edit)
+
+    # Every `assume` line should be 2-space-indented; no line drops
+    # to column 0 mid-staircase.
+    for ln in source.splitlines():
+        if ln.startswith("assume "):
+            raise AssertionError(
+                f"Line lost its indent (issue #333 regression):\n  {ln!r}"
+            )
+    assert "  assume H1:" in source
+    assert "  assume H2: Q" in source
+    assert "  assume H3: P" in source

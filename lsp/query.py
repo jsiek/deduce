@@ -823,6 +823,9 @@ def refine_at(
     if template is None:
         return None
 
+    template = _indent_continuation(
+        template, _line_indent_at(content, hole_range.start)
+    )
     return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
@@ -849,6 +852,40 @@ def _char_range_at(content: str, offset: int) -> Range:
         start=Position(line=line, column=col),
         end=Position(line=line, column=col + 1),
     )
+
+
+def _line_indent_at(content: str, pos: Position) -> str:
+    """Return the leading whitespace of the source line containing ``pos``.
+
+    "Whitespace" here means spaces and tabs only -- newlines aren't
+    counted. Used to re-indent multi-line refactor templates so the
+    inserted text matches the surrounding proof body's indentation
+    instead of starting subsequent lines at column 0.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return ""
+    line_start = content.rfind("\n", 0, offset) + 1
+    indent_end = line_start
+    while indent_end < len(content) and content[indent_end] in " \t":
+        indent_end += 1
+    return content[line_start:indent_end]
+
+
+def _indent_continuation(template: str, indent: str) -> str:
+    """Prefix every newline-introduced line in ``template`` with ``indent``.
+
+    The first line is left alone -- it gets the indentation of the
+    line containing the ``?`` it replaces, since the WorkspaceEdit
+    inserts at that column. The continuation lines, by contrast, would
+    naturally land at column 0 without this prefix; that's the bug
+    issue #333 is about.
+
+    No-op when ``indent`` is empty or the template has no newlines.
+    """
+    if not indent or "\n" not in template:
+        return template
+    return template.replace("\n", "\n" + indent)
 
 
 def _offset_to_line_col(content: str, offset: int) -> tuple:
@@ -993,6 +1030,9 @@ def case_split_at(
     if template is None:
         return None
 
+    template = _indent_continuation(
+        template, _line_indent_at(content, hole_range.start)
+    )
     return WorkspaceEdit(path=path, range=hole_range, new_text=template)
 
 
