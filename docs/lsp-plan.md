@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 in progress — Steps 1–7 done.
+**Status:** Phase 1 complete — Steps 1–8 done.
 
 ## Goals
 
@@ -59,8 +59,16 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
   - *Acceptance:* (a) unit tests via the `mcp` SDK's in-memory test client; (b) end-to-end smoke from Claude Code on a real proof.
   - *Implementation:* `lsp/mcp_server.py` with FastMCP. Four tools (`check_file`, `goal_at`, `definition_of`, `list_symbols`) wrap the corresponding `lsp.query` functions; each reads the file from disk, calls the query helper, and lets FastMCP serialize. Stdio transport via `python3 -m lsp.mcp_server`. Standard library at `lib/` is auto-prepended as the prelude unless `DEDUCE_NO_STDLIB=1`; `DEDUCE_ROOT` overrides where the server looks for `lib/`. **Required contract change** (justified): `lsp.query` functions gained an optional `prelude` parameter (default `()`) so the server can pass the stdlib through; the Step 2 signature test was updated, and a new test pins the default at `()` so existing Step 3-5 callers keep working unchanged. `list_symbols` filters out auto-prepended prelude imports so the outline shows only what the user wrote. 8-case acceptance test in `test/lsp/test_mcp_server.py` exercises tool registration, valid/error file checking, goal lookup with and without active proof, definition lookup with whitespace fallback, and the symbol outline. End-to-end smoke from Claude Code is left for the user to verify with `requirements-lsp.txt` installed.
 
-- [ ] **Step 8: Phase 1 latency benchmark.** Measure MCP `check` latency (warm daemon) against baseline `python deduce.py file.pf` latency on a representative set of files. Expected: ~10× speedup (~30s → ~3s).
+- [x] **Step 8: Phase 1 latency benchmark.** Measure MCP `check` latency (warm daemon) against baseline `python deduce.py file.pf` latency on a representative set of files. Expected: ~10× speedup (~30s → ~3s).
   - *Acceptance:* benchmark script that reports a side-by-side table for several files. Decision point — if the speedup is well below expected, identify the bottleneck (prelude not actually cached? per-call work that should be amortized?) and address before continuing to Phase 2.
+  - *Implementation:* `lsp/benchmark.py` runs each fixture once via subprocess (cold path) and after a single in-process bootstrap (warm path), 3 runs per phase, median reported. Default fixtures cover small/medium/large should-validate files compatible with the auto-prelude.
+  - *Results (with `lib/*.thm` cache present, the typical developer state, on Python 3.13):*
+    - Cold subprocess: 0.88–1.41s per file (mostly fixed Python+lark+`.thm`-read startup).
+    - Warm via daemon: 0.19–0.75s per file.
+    - Bootstrap: ~0.75s one-time per process.
+    - Per-call speedup: **2–5×**, dominant for small files where startup dwarfs the actual checking work.
+  - *Results (no `.thm` cache, fresh checkout, single fixture):* cold 13.8s, bootstrap 13.9s, subsequent warm 0.26s — **~53× per-call speedup** after bootstrap. The plan's ~10× target was based on this baseline; .thm caching was already pre-paying most of the prelude cost in the typical case.
+  - *Decision:* proceed to Phase 2. The 2–5× speedup is meaningful for editor latency, the daemon is required for any LSP server architecturally (Step 6's state isolation), and the warm-path cost is independent of `.thm` staleness so the daemon stays fast even when the on-disk caches are invalidated.
 
 **Milestone:** MCP works for Claude at the expected speedup. Shippable. Stop and use it for ~1 week before continuing — usage will tell you which queries actually matter.
 
