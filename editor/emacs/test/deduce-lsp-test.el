@@ -246,6 +246,148 @@ error rather than silently failing."
               #'deduce-show-goal-at-point)))
 
 
+;; ---------------------------------------------------------------------
+;; Step 6 (partial): deduce-lsp-refine-hole
+;; ---------------------------------------------------------------------
+;;
+;; The Phase-4 / Step 15 hole-refine code action, fronted by `C-c C-r'.
+;; The command sends `textDocument/codeAction' filtered to
+;; `refactor.rewrite' and applies the first matching action's
+;; WorkspaceEdit directly -- skipping the picker that
+;; `eglot-code-actions' shows.
+
+(ert-deftest deduce-lsp/refine-hole-bound-to-c-c-c-r ()
+  "`C-c C-r' in deduce-mode-map runs `deduce-lsp-refine-hole'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-r"))
+              #'deduce-lsp-refine-hole)))
+
+
+(ert-deftest deduce-lsp/refine-hole-issues-codeAction-request ()
+  "The command sends `textDocument/codeAction' with a single-point
+range at the cursor."
+  (let ((tmp (make-temp-file "deduce-lsp-refine" nil ".pf"))
+        captured)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool. P = P\nproof\n  arbitrary P:bool\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          ;; Cursor at line 4, col 3 (the `?').  LSP-space: line 3, char 2.
+          (goto-char (point-min))
+          (forward-line 3)
+          (forward-char 2)
+          (setq captured
+                (deduce-lsp-test--with-mock-server
+                 ;; Empty vector -> no actions; the command will
+                 ;; user-error.  We only care about the captured
+                 ;; request shape here.
+                 []
+                 (lambda ()
+                   (ignore-errors (deduce-lsp-refine-hole)))))
+          (should (eq (plist-get captured :method) :textDocument/codeAction))
+          (let* ((params (plist-get captured :params))
+                 (uri (plist-get (plist-get params :textDocument) :uri))
+                 (range (plist-get params :range))
+                 (start (plist-get range :start))
+                 (end (plist-get range :end)))
+            (should (string-prefix-p "file://" uri))
+            ;; Range degenerates to a single point at the cursor.
+            (should (= (plist-get start :line) 3))
+            (should (= (plist-get start :character) 2))
+            (should (equal start end))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/refine-hole-applies-text-edit ()
+  "Given a CodeAction with a TextEdit replacing the `?', the
+buffer ends up with the new text in its place."
+  (let ((tmp (make-temp-file "deduce-lsp-refine" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool. P = P\nproof\n  arbitrary P:bool\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          ;; Cursor on the `?'.
+          (goto-char (point-min))
+          (forward-line 3)
+          (forward-char 2)
+          (let* ((uri (deduce-lsp--current-uri))
+                 ;; CodeAction response: one action, one text-edit
+                 ;; replacing the `?' (line 3, char 2..3) with
+                 ;; `reflexive'.
+                 (action `(:title "Refine hole"
+                           :kind "refactor.rewrite"
+                           :edit
+                           (:changes
+                            (,(intern (concat ":" uri))
+                             [(:range (:start (:line 3 :character 2)
+                                       :end (:line 3 :character 3))
+                                      :newText "reflexive")]))))
+                 (response (vector action)))
+            (deduce-lsp-test--with-mock-server
+             response
+             (lambda () (deduce-lsp-refine-hole))))
+          (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+            (should (string-match-p "reflexive" text))
+            ;; `?' is gone.
+            (should-not (string-match-p "?\nend" text))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/refine-hole-no-actions-signals-user-error ()
+  "An empty action list yields a `No refinement available' user-error."
+  (let ((tmp (make-temp-file "deduce-lsp-refine" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (deduce-lsp-test--with-mock-server
+           nil
+           (lambda ()
+             (should-error (deduce-lsp-refine-hole) :type 'user-error))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/refine-hole-without-server-errors ()
+  "Without an active eglot server, the command signals a user error."
+  (let ((tmp (make-temp-file "deduce-lsp-refine" nil ".pf")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'eglot-current-server)
+                   (lambda () nil)))
+          (with-temp-buffer
+            (insert "x")
+            (setq buffer-file-name tmp)
+            (deduce-mode)
+            (should-error (deduce-lsp-refine-hole) :type 'user-error)))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/lsp-pos-to-point-converts-zero-indexed-coords ()
+  "LSP (line, character) maps to the right buffer point."
+  (with-temp-buffer
+    (insert "abc\ndef\nghi\n")
+    ;; Line 0, char 0 -> point 1 (start of `a').
+    (should (= (deduce-lsp--lsp-pos-to-point 0 0) 1))
+    ;; Line 1, char 0 -> point 5 (start of `d').
+    (should (= (deduce-lsp--lsp-pos-to-point 1 0) 5))
+    ;; Line 2, char 2 -> point 11 (the `i' on line 3, 1-indexed).
+    (should (= (deduce-lsp--lsp-pos-to-point 2 2) 11))))
+
+
+(ert-deftest deduce-lsp/text-edits-for-uri-finds-keyword-keyed-changes ()
+  "The `:changes' plist uses URIs as keywords; the helper finds them."
+  (let* ((uri "file:///tmp/foo.pf")
+         (target-key (intern (concat ":" uri)))
+         (changes (list target-key (vector "edit-A")
+                        :other-uri (vector "edit-B"))))
+    (should (equal (deduce-lsp--text-edits-for-uri changes uri)
+                   (vector "edit-A")))
+    ;; URI not present -> nil.
+    (should-not
+     (deduce-lsp--text-edits-for-uri changes "file:///nope.pf"))))
+
+
 (provide 'deduce-lsp-test)
 
 ;;; deduce-lsp-test.el ends here
