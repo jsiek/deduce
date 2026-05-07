@@ -119,7 +119,7 @@ def _referenced(t: ir.Term) -> Set[str]:
                 out.add(ctor)
                 for a in args:
                     walk(a)
-            case ir.Match(subj, arms):
+            case ir.Match(subj, arms, _):
                 walk(subj)
                 for arm in arms:
                     if isinstance(arm.pattern, ir.PatCon):
@@ -128,11 +128,11 @@ def _referenced(t: ir.Term) -> Set[str]:
             case ir.Eq(l, r):
                 walk(l)
                 walk(r)
-            case ir.Panic(_):
+            case ir.Panic(_, _):
                 pass
-            case ir.MakeArray(s):
+            case ir.MakeArray(s, _):
                 walk(s)
-            case ir.ArrayGet(s, i):
+            case ir.ArrayGet(s, i, _):
                 walk(s)
                 walk(i)
 

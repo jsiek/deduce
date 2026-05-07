@@ -45,6 +45,20 @@ def _format_loc(loc) -> str:
         return ""
 
 
+def _ast_loc(loc) -> "str | None":
+    """Format a `lark.tree.Meta` location as `file:line`, or None if
+    the location is empty / missing. Used to populate `loc` fields on
+    IR nodes for source-map output."""
+    if loc is None:
+        return None
+    try:
+        if getattr(loc, "empty", True):
+            return None
+        return f"{loc.filename}:{loc.line}"
+    except Exception:
+        return None
+
+
 # --------------------------------------------------------------------------
 # Top-level lowering
 # --------------------------------------------------------------------------
@@ -181,6 +195,7 @@ class LoweringCtx:
                 name=d.name,
                 params=params,
                 body=self.lower_term(unwrapped.body),
+                loc=_ast_loc(d.location),
             )
         return ir.Global(name=d.name, body=self.lower_term(body))
 
@@ -218,11 +233,12 @@ class LoweringCtx:
             pat = self.lower_pattern(case.pattern)
             arms.append(ir.MatchArm(pat, body))
 
-        match = ir.Match(ir.Var(scrutinee), arms)
+        match = ir.Match(ir.Var(scrutinee), arms, loc=_ast_loc(r.location))
         return ir.Function(
             name=r.name,
             params=[scrutinee] + other_params,
             body=match,
+            loc=_ast_loc(r.location),
         )
 
     def lower_genrecfun(self, r: ast.GenRecFun):
@@ -237,6 +253,7 @@ class LoweringCtx:
             name=r.name,
             params=params,
             body=self.lower_term(r.body),
+            loc=_ast_loc(r.location),
         )
 
     # ---- terms -------------------------------------------------------
@@ -316,13 +333,20 @@ class LoweringCtx:
         # drops it if no `print`-reachable path actually evaluates it.
         if isinstance(t, (ast.Some, ast.All)):
             kind = "some" if isinstance(t, ast.Some) else "all"
-            return ir.Panic(f"non-computational `{kind}` quantifier evaluated")
+            return ir.Panic(
+                f"non-computational `{kind}` quantifier evaluated",
+                loc=_ast_loc(t.location),
+            )
         if isinstance(t, ast.MakeArray):
-            return ir.MakeArray(self.lower_term(t.subject))
+            return ir.MakeArray(
+                self.lower_term(t.subject),
+                loc=_ast_loc(t.location),
+            )
         if isinstance(t, ast.ArrayGet):
             return ir.ArrayGet(
                 self.lower_term(t.subject),
                 self.lower_term(t.position),
+                loc=_ast_loc(t.location),
             )
         if isinstance(t, ast.Array):
             # `Array` only appears in source as the result of reducing
@@ -368,7 +392,9 @@ class LoweringCtx:
                 self.lower_pattern(case.pattern),
                 self.lower_term(case.body),
             ))
-        return ir.Match(self.lower_term(sw.subject), arms)
+        return ir.Match(
+            self.lower_term(sw.subject), arms, loc=_ast_loc(sw.location),
+        )
 
     def lower_pattern(self, p: ast.Pattern) -> ir.Pattern:
         if isinstance(p, ast.PatternBool):
@@ -430,7 +456,7 @@ def subst_vars(t: ir.Term, sub: Dict[str, str]) -> ir.Term:
                 return ir.If(go(c, blocked), go(th, blocked), go(el, blocked))
             case ir.Con(ctor, args):
                 return ir.Con(ctor, [go(a, blocked) for a in args])
-            case ir.Match(subj, arms):
+            case ir.Match(subj, arms, loc):
                 new_arms = []
                 for arm in arms:
                     if isinstance(arm.pattern, ir.PatCon):
@@ -438,15 +464,15 @@ def subst_vars(t: ir.Term, sub: Dict[str, str]) -> ir.Term:
                     else:
                         inner = blocked
                     new_arms.append(ir.MatchArm(arm.pattern, go(arm.body, inner)))
-                return ir.Match(go(subj, blocked), new_arms)
+                return ir.Match(go(subj, blocked), new_arms, loc=loc)
             case ir.Eq(l, r):
                 return ir.Eq(go(l, blocked), go(r, blocked))
-            case ir.Panic(_):
+            case ir.Panic(_, _):
                 return t
-            case ir.MakeArray(s):
-                return ir.MakeArray(go(s, blocked))
-            case ir.ArrayGet(s, i):
-                return ir.ArrayGet(go(s, blocked), go(i, blocked))
+            case ir.MakeArray(s, loc):
+                return ir.MakeArray(go(s, blocked), loc=loc)
+            case ir.ArrayGet(s, i, loc):
+                return ir.ArrayGet(go(s, blocked), go(i, blocked), loc=loc)
         raise AssertionError(f"subst_vars: unknown {type(t).__name__}")
 
     return go(t, set())

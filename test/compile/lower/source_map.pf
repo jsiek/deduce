@@ -1,0 +1,21 @@
+// Step 14: an array out-of-bounds at runtime panics with a message
+// that includes the original `.pf:line`. Type-checks fine; the
+// interpreter happily leaves the OOB ArrayGet un-reduced (printing
+// `array(zero)[suc(zero)]`), so the compiled binary's behavior
+// diverges. The harness compares only the panic substring.
+//
+// expected-runtime-error: source_map.pf:
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+union List<T> {
+  empty
+  node(T, List<T>)
+}
+
+define A = array(node(zero, empty))
+
+print A[suc(zero)]

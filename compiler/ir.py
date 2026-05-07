@@ -112,6 +112,7 @@ class MatchArm:
 class Match:
     subject: "Term"
     arms: List[MatchArm]
+    loc: "str | None" = None  # source `file:line`, for runtime panic messages
 
 
 @dataclass
@@ -126,6 +127,7 @@ class Panic:
     runtime. If pruning keeps it, the user gets a clear runtime
     message naming what went wrong."""
     msg: str
+    loc: "str | None" = None  # source `file:line`, prepended to msg in output
 
 
 @dataclass
@@ -144,6 +146,7 @@ class MakeArray:
     runtime, matching the interpreter's `isNodeList` semantics — any
     union with constructors named `empty`/`node` works."""
     subject: "Term"
+    loc: "str | None" = None  # source `file:line`, for runtime panic messages
 
 
 @dataclass
@@ -155,6 +158,7 @@ class ArrayGet:
     binary aborts via `deduce_panic` instead.)"""
     subject: "Term"
     index: "Term"
+    loc: "str | None" = None  # source `file:line`, for OOB panic messages
 
 
 Term = Union[Var, Bool, Int, Lam, MkClosure, App, Let, If, Con, Match, Eq, Panic, MakeArray, ArrayGet]
@@ -186,11 +190,16 @@ class Function:
 
     Functions originating from top-level user `Define`/`RecFun` decls
     are never captured by closures and have `captures=[]`. Lambda-lifted
-    functions produced by closure conversion have `captures=[fv0, ...]`."""
+    functions produced by closure conversion have `captures=[fv0, ...]`.
+
+    `loc` is the original `.pf` file:line where the function was
+    declared. Emitted as a `// from foo.pf:42` comment so a debugger
+    or human reader can navigate from the generated C back to source."""
     name: str
     params: List[str]
     body: Term
     captures: List[str] = field(default_factory=list)
+    loc: "str | None" = None
 
 
 @dataclass
@@ -244,7 +253,7 @@ def pp_top(d: TopLevel) -> str:
         case UnionDecl(name, ctors):
             body = ", ".join(f"{c.name}/{c.arity}" for c in ctors)
             return f"union {name} {{{body}}}"
-        case Function(name, params, body, captures):
+        case Function(name, params, body, captures, _):
             head = f"fn {name}"
             if captures:
                 head += "[" + ", ".join(captures) + "]"
@@ -283,7 +292,7 @@ def pp_term(t: Term, indent: int) -> str:
             return ctor
         case Con(ctor, args):
             return ctor + "(" + ", ".join(pp_term(a, indent) for a in args) + ")"
-        case Match(subj, arms):
+        case Match(subj, arms, _):
             arm_strs = []
             for arm in arms:
                 match arm.pattern:
@@ -299,11 +308,11 @@ def pp_term(t: Term, indent: int) -> str:
             return "match " + pp_term(subj, indent) + " { " + " ".join(arm_strs) + " }"
         case Eq(l, r):
             return "(" + pp_term(l, indent) + " == " + pp_term(r, indent) + ")"
-        case Panic(msg):
+        case Panic(msg, _):
             return f"panic({msg!r})"
-        case MakeArray(s):
+        case MakeArray(s, _):
             return "array(" + pp_term(s, indent) + ")"
-        case ArrayGet(s, i):
+        case ArrayGet(s, i, _):
             return pp_term(s, indent) + "[" + pp_term(i, indent) + "]"
     raise AssertionError(f"pp_term: unknown term {type(t).__name__}")
 
@@ -357,7 +366,7 @@ def verify(p: Program) -> None:
             case Con(_, args):
                 for a in args:
                     check_term(a, ctx)
-            case Match(subj, arms):
+            case Match(subj, arms, _):
                 check_term(subj, ctx)
                 for arm in arms:
                     if not isinstance(arm, MatchArm):
@@ -372,11 +381,11 @@ def verify(p: Program) -> None:
             case Eq(l, r):
                 check_term(l, ctx)
                 check_term(r, ctx)
-            case Panic(_):
+            case Panic(_, _):
                 pass
-            case MakeArray(s):
+            case MakeArray(s, _):
                 check_term(s, ctx)
-            case ArrayGet(s, i):
+            case ArrayGet(s, i, _):
                 check_term(s, ctx)
                 check_term(i, ctx)
 
@@ -392,7 +401,7 @@ def verify(p: Program) -> None:
                 for c in ctors:
                     if not isinstance(c, Constructor):
                         raise AssertionError("verify: non-IR ctor")
-            case Function(name, _, body, _):
+            case Function(name, _, body, _, _):
                 check_term(body, f"function {name}")
             case Global(name, body):
                 check_term(body, f"global {name}")
@@ -432,7 +441,7 @@ def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
             for a in args:
                 out |= free_vars(a, bound)
             return out
-        case Match(subj, arms):
+        case Match(subj, arms, _):
             out = free_vars(subj, bound)
             for arm in arms:
                 match arm.pattern:
@@ -443,10 +452,10 @@ def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
             return out
         case Eq(l, r):
             return free_vars(l, bound) | free_vars(r, bound)
-        case Panic(_):
+        case Panic(_, _):
             return set()
-        case MakeArray(s):
+        case MakeArray(s, _):
             return free_vars(s, bound)
-        case ArrayGet(s, i):
+        case ArrayGet(s, i, _):
             return free_vars(s, bound) | free_vars(i, bound)
     raise AssertionError(f"free_vars: unknown term {type(t).__name__}")
