@@ -4591,10 +4591,17 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       if needs_checking[0]:
         check_proofs(s, env)
     checked_modules.add(module_name)
+  # Promote every single-candidate ``OverloadedVar`` to
+  # ``ResolvedVar`` uniformly. The type checker handles most term
+  # references inline, but type annotations / def-list entries /
+  # buried sub-ASTs aren't always visited. This walker enforces the
+  # phase invariant in one place rather than chasing every leaky
+  # site individually.
+  ast3 = normalize_post_typecheck(ast3)
   # Sanity-check the post-typecheck AST: every variable reference
-  # should be ResolvedVar (or, if the type-checker punted, a
-  # multi-candidate OverloadedVar). Any pre-uniquify Var or
-  # single-candidate OverloadedVar is a refactor leak.
+  # should be ``ResolvedVar`` (or, if a real overload couldn't be
+  # resolved, a multi-candidate ``OverloadedVar``). Any pre-uniquify
+  # ``Var`` or single-candidate ``OverloadedVar`` is a refactor leak.
   check_post_typecheck_invariants(ast3)
   # Return the post-typecheck AST so callers (lsp.library.check_file,
   # the Deduce-to-C compiler) can read the overload-resolved form.

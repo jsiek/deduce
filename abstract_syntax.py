@@ -516,9 +516,9 @@ class GenericUnknownInst(Type):
     return GenericUnknownInst(self.location, self.typ.uniquify(env))
 
 def get_type_name(ty):
+  if isinstance(ty, VarRef):
+    return ty
   match ty:
-    case OverloadedVar(l1, tyof, rs):
-      return ty
     case TypeInst(l1, ty, type_args):
       return get_type_name(ty)
     case _:
@@ -5268,31 +5268,106 @@ def check_post_uniquify_invariants(ast_list):
       'Each one is a leftover construction site that wasn\'t migrated '
       'to OverloadedVar/ResolvedVar.\n' + '\n'.join(msgs) + suffix)
 
+def normalize_post_typecheck(ast_list):
+  """Walk the post-typecheck AST and promote every single-candidate
+  ``OverloadedVar`` to ``ResolvedVar``.
+
+  After type checking, an ``OverloadedVar`` whose ``resolved_names``
+  list has exactly one element is no longer overloaded — there's no
+  candidate to choose between. The class transition is normally
+  performed inline by the type checker (``type_synth_term`` /
+  ``type_check_term`` produce a ``ResolvedVar`` once they've narrowed
+  to one option), but several positions in the AST aren't visited by
+  those code paths: type annotations, the `definitions` list of an
+  ``ApplyDefsGoal``, components of ``FunctionType`` / ``TypeInst``
+  buried inside theorems, etc. This pass enforces the invariant
+  uniformly.
+
+  The conversion is *in place*: each AST node that holds a reference
+  to an ``OverloadedVar`` field has that field rebound to a freshly
+  constructed ``ResolvedVar`` carrying the same canonical name and
+  ``typeof``. Multi-candidate ``OverloadedVar`` nodes (genuine
+  unresolved overloads) are left untouched.
+
+  Run after ``check_deduce`` and before
+  ``check_post_typecheck_invariants``."""
+  from dataclasses import fields, is_dataclass
+
+  def normalize(value):
+    """Recursively normalize ``value``, returning a (possibly
+    new) version with single-candidate OverloadedVars replaced by
+    ResolvedVars. Containers (list/tuple/dict) are rebuilt with
+    normalized children; AST nodes have their fields mutated in
+    place to point to normalized children."""
+    if isinstance(value, OverloadedVar) and len(value.resolved_names) == 1:
+      return ResolvedVar(value.location, normalize(value.typeof),
+                         value.resolved_names[0])
+    if isinstance(value, list):
+      return [normalize(v) for v in value]
+    if isinstance(value, tuple):
+      return tuple(normalize(v) for v in value)
+    if isinstance(value, dict):
+      return {k: normalize(v) for k, v in value.items()}
+    if isinstance(value, AST) and is_dataclass(value):
+      if id(value) in seen:
+        return value
+      seen.add(id(value))
+      for f in fields(value):
+        old = getattr(value, f.name, None)
+        if old is None:
+          continue
+        if isinstance(old, str) or isinstance(old, (int, bool)):
+          continue
+        new = normalize(old)
+        if new is not old:
+          # ResolvedVar enforces a non-empty name via __post_init__,
+          # but does not freeze its fields. Plain attribute set is
+          # fine for the dataclass.
+          object.__setattr__(value, f.name, new)
+      return value
+    return value
+
+  seen = set()
+  return [normalize(stmt) for stmt in ast_list]
+
 def check_post_typecheck_invariants(ast_list):
-  """Check post-typecheck invariants. Hard error if any pre-uniquify
-  ``Var`` survives (that's a refactor leak). Soft warning if a
-  single-candidate ``OverloadedVar`` exists — those should have been
-  narrowed to ``ResolvedVar`` by overload resolution, but the type
-  checker doesn't visit every node yet, so we tolerate them while
-  the migration is in progress. Multi-candidate ``OverloadedVar``
-  is permitted (genuine unresolved overload)."""
+  """Strict post-typecheck invariants:
+
+  1. No pre-uniquify ``Var``.
+  2. No single-candidate ``OverloadedVar`` — these should have been
+     narrowed to ``ResolvedVar`` by overload resolution. (Multi-
+     candidate ``OverloadedVar`` is permitted; that's a genuine
+     unresolved overload the type checker punted on.)
+
+  Raises ``Exception`` listing up to 20 offending nodes on failure.
+  Each violation is a sign that some type-checker code path didn't
+  visit a node it should have, or built a fresh Var-like in a
+  helper and forgot to narrow it."""
+  def loc_prefix(loc):
+    try:
+      if loc is not None and not getattr(loc, 'empty', True):
+        return f'{loc.filename}:{loc.line}: '
+    except Exception:
+      pass
+    return ''
   bad_var = []
+  bad_singleton = []
   for node in _walk_ast_descendants(ast_list):
     if type(node) is Var:
       bad_var.append((getattr(node, 'location', None), node.name))
-  if bad_var:
-    def loc_prefix(loc):
-      try:
-        if loc is not None and not getattr(loc, 'empty', True):
-          return f'{loc.filename}:{loc.line}: '
-      except Exception:
-        pass
-      return ''
-    msgs = [f'  {loc_prefix(loc)}pre-uniquify Var({name!r})'
-            for (loc, name) in bad_var[:20]]
-    raise Exception(
-      'Post-typecheck AST sanity check failed: pre-uniquify `Var` '
-      'nodes still present.\n' + '\n'.join(msgs))
+    elif type(node) is OverloadedVar and len(node.resolved_names) == 1:
+      bad_singleton.append((getattr(node, 'location', None),
+                            node.resolved_names[0]))
+  if not bad_var and not bad_singleton:
+    return
+  msgs = []
+  for (loc, name) in bad_var[:10]:
+    msgs.append(f'  {loc_prefix(loc)}pre-uniquify Var({name!r})')
+  for (loc, name) in bad_singleton[:10]:
+    msgs.append(f'  {loc_prefix(loc)}OverloadedVar([{name!r}]) '
+                'with one candidate (should be ResolvedVar)')
+  raise Exception(
+    'Post-typecheck AST sanity check failed:\n' + '\n'.join(msgs))
 
 def uniquify_deduce(ast):
   env = {}
