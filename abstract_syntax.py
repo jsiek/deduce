@@ -62,7 +62,7 @@ class Type(AST):
   def substitute(self, sub) -> Self:
     error(self.location, 'substitute not implemented')
 
-  def uniquify(self, env) -> None:
+  def uniquify(self, env) -> Self:
     error(self.location, 'uniquify not implemented')
 
   def reduce(self, env) -> Self:
@@ -77,7 +77,7 @@ class Term(AST):
     error(self.location, 'copy not implemented')
     return self
 
-  def uniquify(self, env) -> None:
+  def uniquify(self, env) -> Self:
     error(self.location, 'uniquify not implemented')
 
   def substitute(self, sub) -> Self:
@@ -276,8 +276,8 @@ class IntType(Type):
     return self
 
   def uniquify(self, env):
-    pass
-  
+    return self
+
 @dataclass
 class BoolType(Type):
   def copy(self):
@@ -299,11 +299,11 @@ class BoolType(Type):
     return self
 
   def uniquify(self, env):
-    pass
-  
+    return self
+
   def reduce(self, env):
     return self
-  
+
 @dataclass
 class TypeType(Type):
   def copy(self):
@@ -322,11 +322,11 @@ class TypeType(Type):
     return self
 
   def uniquify(self, env):
-    pass
-  
+    return self
+
   def reduce(self, env):
     return self
-  
+
 @dataclass
 class OverloadType(Type):
   types: List[Tuple[str,Type]]
@@ -353,9 +353,9 @@ class OverloadType(Type):
 
     
   def uniquify(self, env):
-    for (x,t) in self.types:
-      t.uniquify(env)
-    
+    return OverloadType(self.location,
+                        [(x, t.uniquify(env)) for (x,t) in self.types])
+
   def reduce(self, env):
     return OverloadType(self.location, [(x, ty.reduce(env)) for (x,ty) in self.types])
       
@@ -406,12 +406,12 @@ class FunctionType(Type):
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(t) for t in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
-      overwrite(body_env, old, new, self.location)        
-    self.type_params = new_type_params
-    for p in self.param_types:
-      p.uniquify(body_env)
-    self.return_type.uniquify(body_env)
-    
+      overwrite(body_env, old, new, self.location)
+    new_param_types = [p.uniquify(body_env) for p in self.param_types]
+    new_return_type = self.return_type.uniquify(body_env)
+    return FunctionType(self.location, new_type_params,
+                        new_param_types, new_return_type)
+
   def reduce(self, env):
     return FunctionType(self.location, self.type_params,
                         [ty.reduce(env) for ty in self.param_types],
@@ -441,7 +441,7 @@ class ArrayType(Type):
     return ArrayType(self.location, self.elt_type.substitute(sub))
 
   def uniquify(self, env):
-    self.elt_type.uniquify(env)
+    return ArrayType(self.location, self.elt_type.uniquify(env))
 
   def reduce(self, env):
     return ArrayType(self.location, self.elt_type.reduce(env))
@@ -478,9 +478,9 @@ class TypeInst(Type):
                     [ty.substitute(sub) for ty in self.arg_types])
 
   def uniquify(self, env):
-    self.typ.uniquify(env)
-    for ty in self.arg_types:
-      ty.uniquify(env)
+    return TypeInst(self.location,
+                    self.typ.uniquify(env),
+                    [ty.uniquify(env) for ty in self.arg_types])
 
   def reduce(self, env):
     return TypeInst(self.location,
@@ -515,8 +515,8 @@ class GenericUnknownInst(Type):
     return self
 
   def uniquify(self, env):
-    self.typ.uniquify(env)
-  
+    return GenericUnknownInst(self.location, self.typ.uniquify(env))
+
 def get_type_name(ty):
   match ty:
     case Var(l1, tyof, n, rs):
@@ -542,17 +542,17 @@ class PatternBool(Pattern):
   #     return str(self)
 
   def uniquify(self, env):
-    pass
+    return self
 
   def bindings(self):
     return []
 
-  def set_bindings(self, new_bindings):
-    pass
+  def with_bindings(self, new_bindings):
+    return self
 
   def reduce(self, env):
       return self
-  
+
 @dataclass
 class PatternCons(Pattern):
   constructor : Term         # typically a Var
@@ -561,14 +561,14 @@ class PatternCons(Pattern):
   def bindings(self):
     return self.parameters
 
-  def set_bindings(self, params):
-    self.parameters = params
-  
+  def with_bindings(self, params):
+    return PatternCons(self.location, self.constructor, params)
+
   def copy(self):
     return PatternCons(self.location,
                        self.constructor.copy(),
                        [p for p in self.parameters])
-  
+
   def __str__(self):
       if len(self.parameters) > 0:
         return str(self.constructor) \
@@ -577,8 +577,9 @@ class PatternCons(Pattern):
         return str(self.constructor)
 
   def uniquify(self, env):
-    self.constructor.uniquify(env)
-    
+    return PatternCons(self.location, self.constructor.uniquify(env),
+                       [p for p in self.parameters])
+
   def reduce(self, env):
     return self
 
@@ -590,6 +591,9 @@ class PatternTerm(Pattern):
   def bindings(self):
     return self.parameters
 
+  def with_bindings(self, params):
+    return PatternTerm(self.location, self.term, params)
+
   def copy(self):
     return PatternTerm(self.location, self.term.copy(), [x for x in self.parameters])
 
@@ -597,8 +601,9 @@ class PatternTerm(Pattern):
     return str(self.term)
 
   def uniquify(self, env):
-    self.term.uniquify(env)
-  
+    return PatternTerm(self.location, self.term.uniquify(env),
+                       [p for p in self.parameters])
+
   def reduce(self, env):
     return self
     
@@ -646,10 +651,10 @@ class Generic(Term):
     new_type_params = [generate_name(x) for x in self.type_params]
     for (old,new) in zip(self.type_params, new_type_params):
       overwrite(body_env, old, new, self.location)
-    self.type_params = new_type_params
-    self.body.uniquify(body_env)
-    
-  
+    return Generic(self.location, self.typeof, new_type_params,
+                   self.body.uniquify(body_env))
+
+
 @dataclass
 class Conditional(Term):
   cond: Term
@@ -703,11 +708,12 @@ class Conditional(Term):
                        self.thn.substitute(sub), self.els.substitute(sub))
   
   def uniquify(self, env):
-    self.cond.uniquify(env)
-    self.thn.uniquify(env)
-    self.els.uniquify(env)
+    return Conditional(self.location, self.typeof,
+                       self.cond.uniquify(env),
+                       self.thn.uniquify(env),
+                       self.els.uniquify(env))
 
-    
+
 @dataclass
 class TAnnote(Term):
   subject: Term
@@ -728,8 +734,9 @@ class TAnnote(Term):
                    self.typ.substitute(sub))
   
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    self.typ.uniquify(env)
+    return TAnnote(self.location, self.typeof,
+                   self.subject.uniquify(env),
+                   self.typ.uniquify(env))
 
   def __eq__(self, other):
     return self.subject == other
@@ -840,7 +847,7 @@ class Var(Term):
         import_advice = "\n\tAdd `import UInt` to use unsigned integers."
       if import_advice != '':
           static_error(self.location, import_advice)
-        
+
       close_matches = []
       for var in env.keys():
         if edit_distance(self.name, var) <= ceil(len(self.name) / 5):
@@ -851,9 +858,9 @@ class Var(Term):
         mispell_advice = ''
       static_error(self.location, 'undefined variable: ' + self.name \
                    + mispell_advice + '' + env_str)
-      
-    self.resolved_names = env[self.name]
-    
+
+    return Var(self.location, self.typeof, self.name, env[self.name])
+
 @dataclass
 class Int(Term):
   value: int
@@ -878,8 +885,8 @@ class Int(Term):
       return self
 
   def uniquify(self, env):
-    pass
-  
+    return self
+
 
 @dataclass
 class Lambda(Term):
@@ -932,15 +939,14 @@ class Lambda(Term):
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
-    for (x,t) in self.vars:
-      if t:
-        t.uniquify(env)
-    new_vars = [(generate_name(x),t) for (x,t) in self.vars]
-    for ((old,t1),(new,t2)) in zip(self.vars, new_vars):
+    new_var_types = [t.uniquify(env) if t else None for (x,t) in self.vars]
+    new_vars = [(generate_name(x), nt) \
+                for ((x,_), nt) in zip(self.vars, new_var_types)]
+    for ((old,_), (new,_)) in zip(self.vars, new_vars):
       overwrite(body_env, old, new, self.location)
-    self.vars = new_vars
-    self.body.uniquify(body_env)
-    
+    new_body = self.body.uniquify(body_env)
+    return Lambda(self.location, self.typeof, new_vars, new_body)
+
 def is_match(pattern, arg, subst):
     ret = False
     match pattern:
@@ -1452,11 +1458,14 @@ class Call(Term):
     return ret
 
   def uniquify(self, env):
-    self.rator.uniquify(env)
-    for arg in self.args:
-      arg.uniquify(env)
+    new_rator = self.rator.uniquify(env)
+    new_args = [a.uniquify(env) for a in self.args]
+    ret = Call(self.location, self.typeof, new_rator, new_args)
+    if hasattr(self, 'type_args'):
+      ret.type_args = self.type_args
+    return ret
 
-      
+
 @dataclass
 class SwitchCase(AST):
   pattern: Pattern
@@ -1487,18 +1496,19 @@ class SwitchCase(AST):
                         self.body.substitute(new_sub))
 
   def uniquify(self, env):
-    self.pattern.uniquify(env)
+    new_pat = self.pattern.uniquify(env)
     body_env = {x:y for (x,y) in env.items()}
-    match self.pattern:
+    match new_pat:
       case PatternBool(loc, value):
         pass
       case PatternCons(loc, constr, params):
         new_params = [generate_name(x) for x in params]
         for (old,new) in zip(params, new_params):
           overwrite(body_env, old, new, self.location)
-        self.pattern.parameters = new_params
-    self.body.uniquify(body_env)
-    
+        new_pat = new_pat.with_bindings(new_params)
+    new_body = self.body.uniquify(body_env)
+    return SwitchCase(self.location, new_pat, new_body)
+
   def __eq__(self, other):
     if not isinstance(other, SwitchCase):
       return False
@@ -1564,10 +1574,10 @@ class Switch(Term):
                     [c.substitute(sub) for c in self.cases])
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    for c in self.cases:
-      c.uniquify(env)
-      
+    return Switch(self.location, self.typeof,
+                  self.subject.uniquify(env),
+                  [c.uniquify(env) for c in self.cases])
+
   def __eq__(self, other):
     if not isinstance(other, Switch):
       return False
@@ -1623,10 +1633,11 @@ class TermInst(Term):
                     self.inferred)
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    for ty in self.type_args:
-      ty.uniquify(env)
-      
+    return TermInst(self.location, self.typeof,
+                    self.subject.uniquify(env),
+                    [ty.uniquify(env) for ty in self.type_args],
+                    self.inferred)
+
 @dataclass
 class Array(Term):
   elements: List[Term]
@@ -1653,9 +1664,9 @@ class Array(Term):
                  [elt.substitute(sub) for elt in self.elements])
                     
   def uniquify(self, env):
-    for elt in self.elements:
-      elt.uniquify(env)
-  
+    return Array(self.location, self.typeof,
+                 [elt.uniquify(env) for elt in self.elements])
+
 @dataclass
 class MakeArray(Term):
   subject: Term
@@ -1686,7 +1697,7 @@ class MakeArray(Term):
                     self.subject.substitute(sub))
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
+    return MakeArray(self.location, self.typeof, self.subject.uniquify(env))
 
 @dataclass
 class ArrayGet(Term):
@@ -1731,9 +1742,10 @@ class ArrayGet(Term):
                     self.position.substitute(sub))
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    self.position.uniquify(env)
-      
+    return ArrayGet(self.location, self.typeof,
+                    self.subject.uniquify(env),
+                    self.position.uniquify(env))
+
 @dataclass
 class TLet(Term):
   var: str
@@ -1762,13 +1774,13 @@ class TLet(Term):
                 self.rhs.copy(), self.body.copy())
   
   def uniquify(self, env):
-    self.rhs.uniquify(env)
+    new_rhs = self.rhs.uniquify(env)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var)
     overwrite(body_env, self.var, new_var, self.location)
-    self.var = new_var
-    self.body.uniquify(body_env)
-    
+    new_body = self.body.uniquify(body_env)
+    return TLet(self.location, self.typeof, new_var, new_rhs, new_body)
+
   def substitute(self, sub):
     new_rhs = self.rhs.substitute(sub)
     new_body = self.body.substitute(sub)
@@ -1779,9 +1791,9 @@ class Hole(Term):
   
   def __str__(self):
       return '?'
-    
+
   def uniquify(self, env):
-    pass
+    return self
 
   def reduce(self, env):
     return self
@@ -1794,12 +1806,12 @@ class Hole(Term):
 
 @dataclass
 class Omitted(Term):
-  
+
   def __str__(self):
       return '--'
-    
+
   def uniquify(self, env):
-    pass
+    return self
 
   def reduce(self, env):
     return self
@@ -1837,7 +1849,7 @@ class Mark(Term):
                 self.subject.substitute(sub))
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
+    return Mark(self.location, self.typeof, self.subject.uniquify(env))
 
 ################ Formulas ######################################
   
@@ -1861,7 +1873,7 @@ class Bool(Formula):
   def substitute(self, sub):
     return self
   def uniquify(self, env):
-    pass
+    return self
 
 def list_of_and(arg):
   match arg:
@@ -1948,8 +1960,8 @@ class And(Formula):
                [arg.substitute(sub) for arg in self.args])
   
   def uniquify(self, env):
-    for arg in self.args:
-      arg.uniquify(env)
+    return And(self.location, self.typeof,
+               [a.uniquify(env) for a in self.args])
 
 def list_of_or(arg):
   match arg:
@@ -2004,8 +2016,8 @@ class Or(Formula):
               [arg.substitute(sub) for arg in self.args])
   
   def uniquify(self, env):
-    for arg in self.args:
-      arg.uniquify(env)
+    return Or(self.location, self.typeof,
+              [a.uniquify(env) for a in self.args])
 
 # @dataclass
 # class Compare(Formula):
@@ -2074,8 +2086,9 @@ class IfThen(Formula):
                   self.conclusion.substitute(sub))
   
   def uniquify(self, env):
-    self.premise.uniquify(env)
-    self.conclusion.uniquify(env)
+    return IfThen(self.location, self.typeof,
+                  self.premise.uniquify(env),
+                  self.conclusion.uniquify(env))
 
 @dataclass
 class All(Formula):
@@ -2146,14 +2159,14 @@ class All(Formula):
 
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
-    (x,ty) = self.var
-    t = ty.copy()
-    t.uniquify(body_env)
+    (x, ty) = self.var
+    new_t = ty.uniquify(body_env)
     new_x = generate_name(x)
     overwrite(body_env, x, new_x, self.location)
-    self.var = (new_x,t)
-    self.body.uniquify(body_env)
-    
+    new_body = self.body.uniquify(body_env)
+    return All(self.location, self.typeof, (new_x, new_t),
+               self.pos, new_body)
+
 @dataclass
 class Some(Formula):
   vars: list[Tuple[str,Type]]
@@ -2195,15 +2208,14 @@ class Some(Formula):
   def uniquify(self, env):
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
-    for (x,ty) in self.vars:
-      t = ty.copy()
-      t.uniquify(body_env)
+    for (x, ty) in self.vars:
+      new_t = ty.uniquify(body_env)
       new_x = generate_name(x)
-      new_vars.append( (new_x,t) )
+      new_vars.append((new_x, new_t))
       overwrite(body_env, x, new_x, self.location)
-    self.vars = new_vars
-    self.body.uniquify(body_env)
-    
+    new_body = self.body.uniquify(body_env)
+    return Some(self.location, self.typeof, new_vars, new_body)
+
   def __eq__(self, other):
     if not isinstance(other, Some):
       return False
@@ -2251,10 +2263,9 @@ class PVar(Proof):
         error(self.location, msg)
       env_str = ('\n' + ', '.join(env.keys())) if get_verbose() else ''
       error(self.location, "undefined proof variable " + self.name + env_str)
-    if isinstance(env[self.name], list):
-      self.name = env[self.name][0]
-    else:
+    if not isinstance(env[self.name], list):
       error(self.location, "proof variable not bound to list " + self.name)
+    return PVar(self.location, env[self.name][0])
     
 @dataclass
 class PLet(Proof):
@@ -2277,13 +2288,13 @@ class PLet(Proof):
         + ' by ' + str(self.because) + (' ' + str(self.body) if self.body else '')
 
   def uniquify(self, env):
-    self.proved.uniquify(env)
-    self.because.uniquify(env)
+    new_proved = self.proved.uniquify(env)
+    new_because = self.because.uniquify(env)
     body_env = {x:y for (x,y) in env.items()}
     new_label = generate_name(self.label)
     overwrite(body_env, self.label, new_label, self.location)
-    self.label = new_label
-    self.body.uniquify(body_env)
+    new_body = self.body.uniquify(body_env)
+    return PLet(self.location, new_label, new_proved, new_because, new_body)
 
 @dataclass
 class PTLetNew(Proof):
@@ -2303,14 +2314,14 @@ class PTLetNew(Proof):
          + str(self.body)
 
   def uniquify(self, env):
-    self.rhs.uniquify(env)
+    new_rhs = self.rhs.uniquify(env)
     body_env = {x:y for (x,y) in env.items()}
     new_var = generate_name(self.var)
     overwrite(body_env, self.var, new_var, self.location)
-    self.var = new_var
-    self.body.uniquify(body_env)
-    
-    
+    new_body = self.body.uniquify(body_env)
+    return PTLetNew(self.location, new_var, new_rhs, new_body)
+
+
 @dataclass
 class PRecall(Proof):
   facts: List[Formula]
@@ -2325,10 +2336,9 @@ class PRecall(Proof):
       return 'recall ' + ', '.join([str(f) for f in self.facts])
 
   def uniquify(self, env):
-    for fact in self.facts:
-      fact.uniquify(env)
+    return PRecall(self.location, [f.uniquify(env) for f in self.facts])
 
-  
+
 @dataclass
 class PAnnot(Proof):
   claim: Formula
@@ -2346,8 +2356,9 @@ class PAnnot(Proof):
       return 'conclude ' + str(self.claim) + ' by ' + str(self.body)
 
   def uniquify(self, env):
-    self.claim.uniquify(env)
-    self.body.uniquify(env)
+    return PAnnot(self.location,
+                  self.claim.uniquify(env),
+                  self.body.uniquify(env))
 
 @dataclass
 class Suffices(Proof):
@@ -2367,10 +2378,11 @@ class Suffices(Proof):
     return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + maybe_str(self.body)
 
   def uniquify(self, env):
-    self.claim.uniquify(env)
-    self.reason.uniquify(env)
-    self.body.uniquify(env)
-  
+    return Suffices(self.location,
+                    self.claim.uniquify(env),
+                    self.reason.uniquify(env),
+                    self.body.uniquify(env))
+
 @dataclass
 class Cases(Proof):
   subject: Proof
@@ -2388,22 +2400,16 @@ class Cases(Proof):
       return '\n'.join(cases_str) + '\n'
       
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    i = 0
+    new_subject = self.subject.uniquify(env)
     new_cases = []
-    while i != len(self.cases):
+    for (label, formula, proof) in self.cases:
       body_env = {x:y for (x,y) in env.items()}
-      label = self.cases[i][0]
-      formula = self.cases[i][1]
-      proof = self.cases[i][2]
-      if formula:
-        formula.uniquify(env)
+      new_formula = formula.uniquify(env) if formula else None
       new_label = generate_name(label)
       overwrite(body_env, label, new_label, self.location)
-      proof.uniquify(body_env)
-      new_cases.append((new_label, formula, proof))
-      i += 1
-    self.cases = new_cases
+      new_proof = proof.uniquify(body_env)
+      new_cases.append((new_label, new_formula, new_proof))
+    return Cases(self.location, new_subject, new_cases)
       
 @dataclass
 class ModusPonens(Proof):
@@ -2420,9 +2426,10 @@ class ModusPonens(Proof):
       return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
 
   def uniquify(self, env):
-    self.implication.uniquify(env)
-    self.arg.uniquify(env)
-    
+    return ModusPonens(self.location,
+                       self.implication.uniquify(env),
+                       self.arg.uniquify(env))
+
 @dataclass
 class ImpIntro(Proof):
   label: str
@@ -2443,14 +2450,13 @@ class ImpIntro(Proof):
       ('{' + str(self.body) + '}' if self.body else '')
 
   def uniquify(self, env):
-    if self.premise:
-      self.premise.uniquify(env)
+    new_premise = self.premise.uniquify(env) if self.premise else None
     body_env = copy_dict(env)
     new_label = generate_name(self.label)
     overwrite(body_env, self.label, new_label, self.location)
-    self.label = new_label
-    self.body.uniquify(body_env)
-    
+    new_body = self.body.uniquify(body_env)
+    return ImpIntro(self.location, new_label, new_premise, new_body)
+
 @dataclass
 class AllIntro(Proof):
   var: Tuple[str,Type]
@@ -2486,12 +2492,11 @@ class AllIntro(Proof):
   def uniquify(self, env):
     body_env = copy_dict(env)
     x, ty = self.var
-    new_t = ty.copy()
-    new_t.uniquify(body_env)
+    new_t = ty.uniquify(body_env)
     new_x = generate_name(x)
     overwrite(body_env, x, new_x, self.location)
-    self.var = (new_x, new_t)
-    self.body.uniquify(body_env)
+    new_body = self.body.uniquify(body_env)
+    return AllIntro(self.location, (new_x, new_t), self.pos, new_body)
 
   def set_body(self, new_body):
     if self.body:
@@ -2528,9 +2533,11 @@ class AllElimTypes(Proof):
     return res
 
   def uniquify(self, env):
-    self.univ.uniquify(env)
-    self.arg.uniquify(env)
-      
+    return AllElimTypes(self.location,
+                        self.univ.uniquify(env),
+                        self.arg.uniquify(env),
+                        self.pos)
+
 @dataclass
 class AllElim(Proof):
   univ: Proof
@@ -2560,9 +2567,11 @@ class AllElim(Proof):
     return res
 
   def uniquify(self, env):
-    self.univ.uniquify(env)
-    self.arg.uniquify(env)
-      
+    return AllElim(self.location,
+                   self.univ.uniquify(env),
+                   self.arg.uniquify(env),
+                   self.pos)
+
 @dataclass
 class SomeIntro(Proof):
   witnesses: List[Term]
@@ -2580,9 +2589,9 @@ class SomeIntro(Proof):
         + '; ' + maybe_str(self.body)
   
   def uniquify(self, env):
-    for t in self.witnesses:
-      t.uniquify(env)
-    self.body.uniquify(env)
+    return SomeIntro(self.location,
+                     [w.uniquify(env) for w in self.witnesses],
+                     self.body.uniquify(env))
 
 @dataclass
 class SomeElim(Proof):
@@ -2611,20 +2620,19 @@ class SomeElim(Proof):
       + '; ' + maybe_str(self.body)
   
   def uniquify(self, env):
-    self.some.uniquify(env)
+    new_some = self.some.uniquify(env)
     body_env = copy_dict(env)
     new_witnesses = []
     for x in self.witnesses:
       new_x = generate_name(x)
-      new_witnesses.append( new_x )
+      new_witnesses.append(new_x)
       overwrite(body_env, x, new_x, self.location)
     new_label = generate_name(self.label)
     overwrite(body_env, self.label, new_label, self.location)
-    self.witnesses = new_witnesses
-    self.label = new_label
-    if self.prop:
-      self.prop.uniquify(body_env)
-    self.body.uniquify(body_env)
+    new_prop = self.prop.uniquify(body_env) if self.prop else None
+    new_body = self.body.uniquify(body_env)
+    return SomeElim(self.location, new_witnesses, new_label,
+                    new_prop, new_some, new_body)
     
 @dataclass
 class PTuple(Proof):
@@ -2640,8 +2648,7 @@ class PTuple(Proof):
     return ', '.join([str(arg) for arg in self.args])
 
   def uniquify(self, env):
-    for arg in self.args:
-      arg.uniquify(env)
+    return PTuple(self.location, [a.uniquify(env) for a in self.args])
 
 def extract_tuple(pf):
     match pf:
@@ -2665,8 +2672,8 @@ class PAndElim(Proof):
     return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
-      
+    return PAndElim(self.location, self.which, self.subject.uniquify(env))
+
 @dataclass
 class PTrue(Proof):
 
@@ -2678,10 +2685,10 @@ class PTrue(Proof):
   
   def __str__(self):
     return '.'
-  
+
   def uniquify(self, env):
-    pass
-  
+    return self
+
 @dataclass
 class PReflexive(Proof):
 
@@ -2693,9 +2700,9 @@ class PReflexive(Proof):
   
   def __str__(self):
     return 'reflexive'
-  
+
   def uniquify(self, env):
-    pass
+    return self
 
 @dataclass
 class PHole(Proof):
@@ -2708,9 +2715,9 @@ class PHole(Proof):
   
   def __str__(self):
       return '?'
-    
+
   def uniquify(self, env):
-    pass
+    return self
 
 @dataclass
 class PSorry(Proof):
@@ -2723,9 +2730,9 @@ class PSorry(Proof):
   
   def __str__(self):
       return 'sorry'
-    
+
   def uniquify(self, env):
-    pass
+    return self
 
 @dataclass
 class PHelpUse(Proof):
@@ -2739,10 +2746,10 @@ class PHelpUse(Proof):
   
   def __str__(self):
       return 'help ' + str(self.proof)
-    
+
   def uniquify(self, env):
-    self.proof.uniquify(env)
-  
+    return PHelpUse(self.location, self.proof.uniquify(env))
+
 @dataclass
 class PSymmetric(Proof):
   body: Proof
@@ -2755,9 +2762,9 @@ class PSymmetric(Proof):
   
   def __str__(self):
     return 'symmetric ' + str(self.body)
-  
+
   def uniquify(self, env):
-    self.body.uniquify(env)
+    return PSymmetric(self.location, self.body.uniquify(env))
 
 @dataclass
 class PTransitive(Proof):
@@ -2774,8 +2781,9 @@ class PTransitive(Proof):
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
 
   def uniquify(self, env):
-    self.first.uniquify(env)
-    self.second.uniquify(env)
+    return PTransitive(self.location,
+                       self.first.uniquify(env),
+                       self.second.uniquify(env))
 
 @dataclass
 class PInjective(Proof):
@@ -2793,8 +2801,9 @@ class PInjective(Proof):
     return 'injective ' + str(self.constr) + '; ' + maybe_str(self.body)
 
   def uniquify(self, env):
-    self.constr.uniquify(env)
-    self.body.uniquify(env)
+    return PInjective(self.location,
+                      self.constr.uniquify(env),
+                      self.body.uniquify(env))
 
 @dataclass
 class PExtensionality(Proof):
@@ -2811,8 +2820,8 @@ class PExtensionality(Proof):
     return 'extensionality\n' + maybe_str(self.body)
 
   def uniquify(self, env):
-    self.body.uniquify(env)
-    
+    return PExtensionality(self.location, self.body.uniquify(env))
+
 @dataclass
 class IndCase(AST):
   pattern: Pattern
@@ -2840,21 +2849,22 @@ class IndCase(AST):
     body_env = copy_dict(env)
 
     new_params = [generate_name(x) for x in self.pattern.parameters]
-    for (old,new) in zip(self.pattern.parameters, new_params):
+    for (old, new) in zip(self.pattern.parameters, new_params):
       overwrite(body_env, old, new, self.location)
 
-    new_hyps = [(generate_name(x),f) for (x,f) in self.induction_hypotheses]
-    for ((old,old_frm),(new,new_frm)) in zip(self.induction_hypotheses, new_hyps):
+    new_hyp_labels = [generate_name(x) for (x, _) in self.induction_hypotheses]
+    for ((old, _), new) in zip(self.induction_hypotheses, new_hyp_labels):
       overwrite(body_env, old, new, self.location)
-    for (x,f) in new_hyps:
-      if f:
-        f.uniquify(body_env)
-      
-    self.pattern.parameters = new_params
-    self.pattern.uniquify(body_env)
-    self.induction_hypotheses = new_hyps
-    self.body.uniquify(body_env)
-    
+
+    new_hyps = []
+    for ((_, f), new_label) in zip(self.induction_hypotheses, new_hyp_labels):
+      new_f = f.uniquify(body_env) if f else None
+      new_hyps.append((new_label, new_f))
+
+    new_pat = self.pattern.with_bindings(new_params).uniquify(body_env)
+    new_body = self.body.uniquify(body_env)
+    return IndCase(self.location, new_pat, new_hyps, new_body)
+
 @dataclass
 class Induction(Proof):
   typ: Type
@@ -2872,9 +2882,9 @@ class Induction(Proof):
       + '\n'.join([str(c) for c in self.cases])
   
   def uniquify(self, env):
-    self.typ.uniquify(env)
-    for c in self.cases:
-      c.uniquify(env)
+    return Induction(self.location,
+                     self.typ.uniquify(env),
+                     [c.uniquify(env) for c in self.cases])
 
 @dataclass
 class RuleInductionCase(AST):
@@ -2910,9 +2920,11 @@ class RuleInductionCase(AST):
       error(self.location,
             "no such rule '" + self.rule_name + "'" + hint)
     resolved = env[self.rule_name]
+    new_rule_name = self.rule_name
     if isinstance(resolved, list) and len(resolved) >= 1:
-      self.rule_name = resolved[0]
-    self.body.uniquify(env)
+      new_rule_name = resolved[0]
+    return RuleInductionCase(self.location, new_rule_name,
+                             self.body.uniquify(env))
 
 @dataclass
 class RuleInduction(Proof):
@@ -2947,10 +2959,11 @@ class RuleInduction(Proof):
             "rule induction: no such predicate '"
             + self.hyp_name + "'" + hint)
     resolved = env[self.hyp_name]
+    new_hyp_name = self.hyp_name
     if isinstance(resolved, list) and len(resolved) >= 1:
-      self.hyp_name = resolved[0]
-    for c in self.cases:
-      c.uniquify(env)
+      new_hyp_name = resolved[0]
+    return RuleInduction(self.location, new_hyp_name,
+                         [c.uniquify(env) for c in self.cases])
 
 @dataclass
 class RuleInversion(Proof):
@@ -2985,10 +2998,11 @@ class RuleInversion(Proof):
             "rule inversion: no such predicate '"
             + self.hyp_name + "'" + hint)
     resolved = env[self.hyp_name]
+    new_hyp_name = self.hyp_name
     if isinstance(resolved, list) and len(resolved) >= 1:
-      self.hyp_name = resolved[0]
-    for c in self.cases:
-      c.uniquify(env)
+      new_hyp_name = resolved[0]
+    return RuleInversion(self.location, new_hyp_name,
+                         [c.uniquify(env) for c in self.cases])
 
 @dataclass
 class SwitchProofCase(AST):
@@ -3010,24 +3024,26 @@ class SwitchProofCase(AST):
     return 'case ' + str(self.pattern) + '{' + str(self.body) + '}'
 
   def uniquify(self, env):
-    self.pattern.uniquify(env)
     body_env = copy_dict(env)
-    
+
     new_params = [generate_name(x) for x in self.pattern.bindings()]
-    for (old,new) in zip(self.pattern.bindings(), new_params):
+    for (old, new) in zip(self.pattern.bindings(), new_params):
       overwrite(body_env, old, new, self.location)
 
-    new_assumptions = [(generate_name(x),f) for (x,f) in self.assumptions]
-    for (x,f) in new_assumptions:
-      if f:
-        f.uniquify(body_env)
-    for ((old,old_frm),(new,new_frm)) in zip(self.assumptions, new_assumptions):
+    new_assumption_labels = [generate_name(x) for (x, _) in self.assumptions]
+    for ((old, _), new) in zip(self.assumptions, new_assumption_labels):
       overwrite(body_env, old, new, self.location)
 
-    self.pattern.set_bindings(new_params)
-    self.assumptions = new_assumptions
-    self.body.uniquify(body_env)
-    
+    new_assumptions = []
+    for ((_, f), new_label) in zip(self.assumptions, new_assumption_labels):
+      new_f = f.uniquify(body_env) if f else None
+      new_assumptions.append((new_label, new_f))
+
+    new_pat = self.pattern.with_bindings(new_params).uniquify(body_env)
+    new_body = self.body.uniquify(body_env)
+    return SwitchProofCase(self.location, new_pat,
+                           new_assumptions, new_body)
+
 @dataclass
 class SwitchProof(Proof):
   subject: Term
@@ -3047,10 +3063,10 @@ class SwitchProof(Proof):
         + '{' + '\n'.join([str(c) for c in self.cases]) + '}'
     
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    for c in self.cases:
-      c.uniquify(env)
-      
+    return SwitchProof(self.location,
+                       self.subject.uniquify(env),
+                       [c.uniquify(env) for c in self.cases])
+
 @dataclass
 class EvaluateGoal(Proof):
 
@@ -3064,7 +3080,7 @@ class EvaluateGoal(Proof):
     return 'evaluate'
 
   def uniquify(self, env):
-    pass
+    return self
 
 @dataclass
 class EvaluateFact(Proof):
@@ -3080,7 +3096,7 @@ class EvaluateFact(Proof):
     return 'evaluate in ' + str(self.subject)
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
+    return EvaluateFact(self.location, self.subject.uniquify(env))
 
 @dataclass
 class SimplifyGoal(Proof):
@@ -3096,9 +3112,9 @@ class SimplifyGoal(Proof):
           + str(self.body)
 
   def uniquify(self, env):
-    self.body.uniquify(env)
-    for p in self.givens:
-      p.uniquify(env)
+    return SimplifyGoal(self.location,
+                        self.body.uniquify(env),
+                        [p.uniquify(env) for p in self.givens])
 
 
 @dataclass
@@ -3119,9 +3135,9 @@ class SimplifyFact(Proof):
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
-    self.subject.uniquify(env)
-    for p in self.givens:
-      p.uniquify(env)
+    return SimplifyFact(self.location,
+                        self.subject.uniquify(env),
+                        [p.uniquify(env) for p in self.givens])
 
 @dataclass
 class ApplyDefsGoal(Proof):
@@ -3136,9 +3152,9 @@ class ApplyDefsGoal(Proof):
         + ' ' + str(self.body)
 
   def uniquify(self, env):
-    for d in self.definitions:
-      d.uniquify(env)
-    self.body.uniquify(env)
+    return ApplyDefsGoal(self.location,
+                         [d.uniquify(env) for d in self.definitions],
+                         self.body.uniquify(env))
 
 @dataclass
 class ApplyDefsFact(Proof):
@@ -3154,10 +3170,10 @@ class ApplyDefsFact(Proof):
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
-    for d in self.definitions:
-      d.uniquify(env)
-    self.subject.uniquify(env)
-    
+    return ApplyDefsFact(self.location,
+                         [d.uniquify(env) for d in self.definitions],
+                         self.subject.uniquify(env))
+
 @dataclass
 class RewriteGoal(Proof):
   equations: List[Proof]
@@ -3172,10 +3188,10 @@ class RewriteGoal(Proof):
         + '\n' + str(self.body)
 
   def uniquify(self, env):
-    for eqn in self.equations:
-      eqn.uniquify(env)
-    self.body.uniquify(env)
-    
+    return RewriteGoal(self.location,
+                       [e.uniquify(env) for e in self.equations],
+                       self.body.uniquify(env))
+
 @dataclass
 class RewriteFact(Proof):
   subject: Proof
@@ -3191,10 +3207,10 @@ class RewriteFact(Proof):
         + ' in ' + str(self.subject)
 
   def uniquify(self, env):
-    for eqn in self.equations:
-      eqn.uniquify(env)
-    self.subject.uniquify(env)
-    
+    return RewriteFact(self.location,
+                       self.subject.uniquify(env),
+                       [e.uniquify(env) for e in self.equations])
+
 ################ Statements ######################################
 
 ## Updates the environment with a name, creating overloads
@@ -3233,15 +3249,15 @@ class Postulate(Statement):
   def uniquify(self, env):
     if self.name in env.keys():
       error(self.location, "theorem names may not be overloaded")
-    self.what.uniquify(env)
+    new_what = self.what.uniquify(env)
     new_name = generate_name(self.name)
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'theorem'
-    self.name = new_name
-    
+    return Postulate(self.location, new_name, new_what)
+
   def collect_exports(self, export_env, importing_module):
     export_env[base_name(self.name)] = [self.name]
-  
+
 @dataclass
 class Theorem(Statement):
   name: str
@@ -3260,13 +3276,13 @@ class Theorem(Statement):
   def uniquify(self, env):
     if self.name in env.keys():
       error(self.location, "theorem names may not be overloaded: " + base_name(self.name))
-    self.what.uniquify(env)
-    self.proof.uniquify(env)
+    new_what = self.what.uniquify(env)
+    new_proof = self.proof.uniquify(env)
     new_name = generate_name(self.name)
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'theorem'
-    self.name = new_name
-    
+    return Theorem(self.location, new_name, new_what, new_proof, self.isLemma)
+
   def collect_exports(self, export_env, importing_module):
     if importing_module == get_current_module() or not self.isLemma:
       export_env[base_name(self.name)] = [self.name]
@@ -3280,13 +3296,11 @@ class Constructor(AST):
       return indent*' ' + str(self)
   
   def uniquify(self, env, body_env):
-    for ty in self.parameters:
-      ty.uniquify(body_env)
-
+    new_params = [ty.uniquify(body_env) for ty in self.parameters]
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
-    self.name = new_name
-      
+    return Constructor(self.location, new_name, new_params)
+
   def __str__(self):
     if get_verbose():
       name = self.name
@@ -3309,14 +3323,14 @@ class Rule(AST):
   formula: Formula
 
   def uniquify(self, env, body_env):
-    self.formula.uniquify(body_env)
+    new_formula = self.formula.uniquify(body_env)
     if self.name in env.keys():
       error(self.location,
             "rule names may not be overloaded: " + base_name(self.name))
     new_name = generate_name(self.name)
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'rule'
-    self.name = new_name
+    return Rule(self.location, new_name, new_formula)
 
   def __str__(self):
     return base_name(self.name) + ' : ' + str(self.formula)
@@ -3350,8 +3364,7 @@ class Predicate(Declaration):
     new_name = generate_name(self.name)
     env[self.name] = [new_name]
     env['no overload'][self.name] = self.original_keyword
-    base_pred = base_name(self.name)  # before reassignment
-    self.name = new_name
+    base_pred = base_name(self.name)
 
     # Pre-register the synthesised `<pred>_rule_induction` theorem name so
     # user code referencing it gets resolved correctly during uniquify.
@@ -3366,7 +3379,6 @@ class Predicate(Declaration):
     rule_ind_unique = generate_name(rule_ind_base)
     env[rule_ind_base] = [rule_ind_unique]
     env['no overload'][rule_ind_base] = 'theorem'
-    self.rule_induction_name = rule_ind_unique
     # Same treatment for the inversion principle.
     rule_inv_base = base_pred + '_rule_inversion'
     if rule_inv_base in env.keys():
@@ -3377,23 +3389,27 @@ class Predicate(Declaration):
     rule_inv_unique = generate_name(rule_inv_base)
     env[rule_inv_base] = [rule_inv_unique]
     env['no overload'][rule_inv_base] = 'theorem'
-    self.rule_inversion_name = rule_inv_unique
-    # Register a back-pointer keyed by the predicate's uniquified name so
-    # the proof checker can recover this AST node (specifically
-    # `rule_induction_name` / `rule_inversion_name` and the rule list)
-    # when desugaring a `rule induction` / `rule inversion` proof.
-    _predicate_decls_by_unique_name[self.name] = self
 
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
     for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
-    self.type_params = new_type_params
 
-    self.signature.uniquify(body_env)
+    new_signature = self.signature.uniquify(body_env)
+    new_rules = [rule.uniquify(env, body_env) for rule in self.rules]
 
-    for rule in self.rules:
-      rule.uniquify(env, body_env)
+    new_pred = Predicate(self.location, new_name, new_type_params,
+                         new_signature, new_rules,
+                         self.original_keyword,
+                         visibility=self.visibility)
+    new_pred.rule_induction_name = rule_ind_unique
+    new_pred.rule_inversion_name = rule_inv_unique
+    # Register a back-pointer keyed by the predicate's uniquified name so
+    # the proof checker can recover this AST node (specifically
+    # `rule_induction_name` / `rule_inversion_name` and the rule list)
+    # when desugaring a `rule induction` / `rule inversion` proof.
+    _predicate_decls_by_unique_name[new_name] = new_pred
+    return new_pred
 
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -3435,16 +3451,15 @@ class Union(Declaration):
     new_name = generate_name(self.name)
     env[self.name] = [new_name]
     env['no overload'][self.name] = 'union'
-    self.name = new_name
-    
+
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
+    for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
-    self.type_params = new_type_params
-    
-    for con in self.alternatives:
-      con.uniquify(env, body_env)
+
+    new_alts = [con.uniquify(env, body_env) for con in self.alternatives]
+    return Union(self.location, new_name, new_type_params, new_alts,
+                 visibility=self.visibility)
 
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -3499,27 +3514,27 @@ class FunCase(AST):
     if self.rator.name != fun_name:
         error(self.rator.location, 'expected function name "' + fun_name + \
               '", not "' + str(self.rator.name) + '"')
-    self.rator.uniquify(env)
-    self.pattern.uniquify(env)
+    new_rator = self.rator.uniquify(env)
+    new_pat = self.pattern.uniquify(env)
     body_env = copy_dict(env)
 
-    match self.pattern:
+    match new_pat:
       case PatternCons(loc, cons, parameters):
         new_pat_params = [generate_name(x) for x in parameters]
-        for (old,new) in zip(parameters, new_pat_params):
+        for (old, new) in zip(parameters, new_pat_params):
           overwrite(body_env, old, new, self.location)
-        self.pattern.parameters = new_pat_params
+        new_pat = new_pat.with_bindings(new_pat_params)
       case PatternBool(loc, b):
         pass
 
     new_params = [generate_name(x) for x in self.parameters]
-    for (old,new) in zip(self.parameters, new_params):
+    for (old, new) in zip(self.parameters, new_params):
       overwrite(body_env, old, new, self.location)
-    self.parameters = new_params
 
-    self.body.uniquify(body_env)
-    
-    
+    new_body = self.body.uniquify(body_env)
+    return FunCase(self.location, new_rator, new_pat, new_params, new_body)
+
+
 @dataclass
 class RecFun(Declaration):
   name: str
@@ -3529,30 +3544,24 @@ class RecFun(Declaration):
   cases: List[FunCase]
 
   def uniquify(self, env):
-    # print('uniquifying recursive')
-    # print(self.pretty_print(0))
-      
     old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
-    self.name = new_name
-    
+
     body_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
+    for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
-    self.old_type_params = self.type_params
-    self.type_params = new_type_params
-    
-    for ty in self.params:
-      ty.uniquify(body_env)
-    self.returns.uniquify(body_env)
 
-    for c in self.cases:
-      c.uniquify(body_env, old_name)
+    new_params = [ty.uniquify(body_env) for ty in self.params]
+    new_returns = self.returns.uniquify(body_env)
+    new_cases = [c.uniquify(body_env, old_name) for c in self.cases]
 
-    # print('finished uniquifying recursive')
-    # print(self.pretty_print(0))
+    new_recfun = RecFun(self.location, new_name, new_type_params,
+                        new_params, new_returns, new_cases,
+                        visibility=self.visibility)
+    new_recfun.old_type_params = self.type_params
+    return new_recfun
       
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -3634,42 +3643,36 @@ class GenRecFun(Declaration):
   terminates: Proof
 
   def uniquify(self, env):
-    # print('uniquifying recfun')
-    # print(self.pretty_print(0))
-      
-    old_name = self.name
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
-    self.name = new_name
-    
+
     body_env = copy_dict(env)
     terminates_env = copy_dict(env)
     new_type_params = [generate_name(t) for t in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
+    for (old, new) in zip(self.type_params, new_type_params):
       extend(body_env, old, new, self.location)
       extend(terminates_env, old, new, self.location)
-    self.old_type_params = self.type_params
-    self.type_params = new_type_params
-    
-    self.returns.uniquify(body_env)
-    
-    for (x,t) in self.vars:
-      if t:
-        t.uniquify(body_env)
-    new_vars = [(generate_name(x),t) for (x,t) in self.vars]
-    for ((old,t1),(new,t2)) in zip(self.vars, new_vars):
+
+    new_returns = self.returns.uniquify(body_env)
+
+    new_var_types = [t.uniquify(body_env) if t else None
+                     for (_, t) in self.vars]
+    new_vars = [(generate_name(x), nt)
+                for ((x, _), nt) in zip(self.vars, new_var_types)]
+    for ((old, _), (new, _)) in zip(self.vars, new_vars):
       overwrite(body_env, old, new, self.location)
-    self.vars = new_vars
 
-    self.measure.uniquify(body_env)
-    self.measure_ty.uniquify(env)
-    self.terminates.uniquify(terminates_env)
-    
-    #extend(body_env, old_name, new_name, self.location)
-    self.body.uniquify(body_env)
+    new_measure = self.measure.uniquify(body_env)
+    new_measure_ty = self.measure_ty.uniquify(env)
+    new_terminates = self.terminates.uniquify(terminates_env)
+    new_body = self.body.uniquify(body_env)
 
-    # print('finished uniquifying recfun')
-    # print(self.pretty_print(0))
+    new_recfun = GenRecFun(self.location, new_name, new_type_params,
+                           new_vars, new_returns, new_measure,
+                           new_measure_ty, new_body, new_terminates,
+                           visibility=self.visibility)
+    new_recfun.old_type_params = self.type_params
+    return new_recfun
     
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and (importing_module != get_current_module()):
@@ -3766,13 +3769,13 @@ class Define(Declaration):
           return str(self)
     
   def uniquify(self, env):
-    if self.typ:
-      self.typ.uniquify(env)
-    self.body.uniquify(env)
+    new_typ = self.typ.uniquify(env) if self.typ else None
+    new_body = self.body.uniquify(env)
 
     new_name = generate_name(self.name)
     extend(env, self.name, new_name, self.location)
-    self.name = new_name
+    return Define(self.location, new_name, new_typ, new_body,
+                  visibility=self.visibility)
 
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and (importing_module != get_current_module()):
@@ -3830,11 +3833,11 @@ class Assert(Statement):
     return 'assert ' + str(self.formula)
 
   def uniquify(self, env):
-    self.formula.uniquify(env)
-  
+    return Assert(self.location, self.formula.uniquify(env))
+
   def collect_exports(self, export_env, importing_module):
     pass
-    
+
 @dataclass
 class Print(Statement):
   term : Term
@@ -3843,12 +3846,12 @@ class Print(Statement):
     return 'print ' + str(self.term)
 
   def uniquify(self, env):
-    self.term.uniquify(env)
-  
+    return Print(self.location, self.term.uniquify(env))
+
   def collect_exports(self, export_env, importing_module):
     pass
 
-  
+
 def find_file(loc, name):
   for dir in get_import_directories():
     filename = os.path.join(dir, name + ".pf")
@@ -3886,7 +3889,7 @@ class Import(Declaration):
 
     global uniquified_modules
     if self.name in uniquified_modules.keys():
-      self.ast = uniquified_modules[self.name]
+      new_ast = uniquified_modules[self.name]
     else:
       filename = find_file(self.location, self.name)
       file = open(filename, 'r', encoding="utf-8")
@@ -3898,21 +3901,23 @@ class Import(Declaration):
         from parser import get_filename, set_filename, parse
       old_filename = get_filename()
       set_filename(filename)
-      self.ast = parse(src, trace=False)
-      uniquified_modules[self.name] = self.ast
+      parsed_ast = parse(src, trace=False)
       set_filename(old_filename)
-      uniquify_deduce(self.ast)
+      new_ast = uniquify_deduce(parsed_ast)
+      uniquified_modules[self.name] = new_ast
 
     env['__module__' + self.name] = None
     if get_verbose():
         print('collecting exports from ' + self.name + ' for import to ' + importing_module + '\n')
-    for stmt in self.ast:
+    for stmt in new_ast:
       stmt.collect_exports(env, importing_module)
     set_verbose(old_verbose)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
     set_current_module(importing_module)
-      
+    return Import(self.location, self.name, new_ast,
+                  visibility=self.visibility)
+
   def collect_exports(self, export_env, importing_module):
     module_name = '__module__' + self.name
     if self.visibility == 'public' and not (module_name in export_env.keys()):
@@ -3933,8 +3938,8 @@ class Auto(Statement):
     return 'auto ' + str(self.name)
 
   def uniquify(self, env):
-    self.name.uniquify(env)
-    
+    return Auto(self.location, self.name.uniquify(env))
+
   def collect_exports(self, export_env, importing_module):
     pass
 
@@ -3947,8 +3952,9 @@ class Inductive(Statement):
     return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
 
   def uniquify(self, env):
-    self.typ.uniquify(env)
-    self.thm_name.uniquify(env)
+    return Inductive(self.location,
+                     self.typ.uniquify(env),
+                     self.thm_name.uniquify(env))
 
   def collect_exports(self, export_env, importing_module):
     pass
@@ -3963,6 +3969,7 @@ class Module(Statement):
   
   def uniquify(self, env):
       set_current_module(self.name)
+      return Module(self.location, self.name)
 
   def collect_exports(self, export_env, importing_module):
       set_current_module(self.name)
@@ -3976,8 +3983,8 @@ class Export(Statement):
       return indent*' ' + 'export ' + self.name + '\n'
   
   def uniquify(self, env):
-      self.resolved_names = env[self.name]
-          
+      return Export(self.location, self.name, env[self.name])
+
   def collect_exports(self, export_env, importing_module):
       for x in self.resolved_names:
           extend(export_env, base_name(x), x, self.location)
@@ -3994,13 +4001,13 @@ class Associative(Statement):
       + ' ' + str(self.typeof)
 
   def uniquify(self, env):
-    self.op.uniquify(env)
+    new_op = self.op.uniquify(env)
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(x) for x in self.type_params]
-    for (old,new) in zip(self.type_params, new_type_params):
+    for (old, new) in zip(self.type_params, new_type_params):
       overwrite(body_env, old, new, self.location)
-    self.type_params = new_type_params
-    self.typeof.uniquify(body_env)
+    new_typeof = self.typeof.uniquify(body_env)
+    return Associative(self.location, new_type_params, new_op, new_typeof)
 
   def collect_exports(self, export_env, importing_module):
     opname = self.op.resolved_names[0]
@@ -4017,7 +4024,7 @@ class Trace(Statement):
     return 'trace ' + str(self.rec_fun)
 
   def uniquify(self, env):
-    self.rec_fun.uniquify(env)
+    return Trace(self.location, self.rec_fun.uniquify(env))
 
   def reduce(self, env):
     self.rec_fun.reduce(env)
@@ -5002,8 +5009,7 @@ def uniquify_deduce(ast):
   env['='] = ['=']
   # Using a space in the name to not collide with deduce identifiers
   env['no overload'] = {}
-  for stmt in ast:
-    stmt.uniquify(env)
+  return [stmt.uniquify(env) for stmt in ast]
 
 def make_switch_for(meta, defs, subject, cases):
   new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,

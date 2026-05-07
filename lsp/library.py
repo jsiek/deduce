@@ -173,7 +173,7 @@ def _check_file_impl(
                 ]
                 ast = imports + ast
 
-            uniquify_deduce(ast)
+            ast = uniquify_deduce(ast)
             if use_cache:
                 add_uniquified_module(module_name, ast)
 
