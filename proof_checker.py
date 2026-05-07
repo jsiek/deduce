@@ -600,13 +600,13 @@ def check_proof(proof, env):
   return ret
 
 def get_type_args(ty):
+  if isinstance(ty, VarRef):
+    return []
   match ty:
-    case OverloadedVar(l1, tyof, rs):
-      return []
     case TypeInst(l1, ty, type_args):
       return type_args
     case _:
-      raise Exception('unhandled case in get_type_args')
+      raise Exception('unhandled case in get_type_args: ' + repr(ty))
 
 label_count = 0
 
@@ -3695,18 +3695,26 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             return_type = TypeInst(loc, body_union_type, tyvars)
           else:
             return_type = body_union_type
+          # Narrow each constructor parameter's type. The check_type
+          # return goes back into the new Constructor so the union's
+          # AST has ResolvedVars in place of single-candidate
+          # OverloadedVars.
+          new_params = []
           for ty in constr.parameters:
-            check_type(ty, body_env)
-            validate_union_type(ty, [], body_env)
-            check_strict_positivity(ty, name, body_env)
+            new_ty = check_type(ty, body_env)
+            validate_union_type(new_ty, [], body_env)
+            check_strict_positivity(new_ty, name, body_env)
+            new_params.append(new_ty)
           constr_type = FunctionType(constr.location, typarams,
-                                     constr.parameters, return_type)
+                                     new_params, return_type)
+          new_constr = Constructor(constr.location, constr.name, new_params)
         elif len(typarams) > 0:
           constr_type = GenericUnknownInst(loc, union_type)
+          new_constr = constr
         else:
           constr_type = union_type
+          new_constr = constr
 
-        new_constr = constr
         env = env.declare_term_var(loc, constr.name, constr_type,
                                    visibility=decl.visibility)
         new_alts.append(new_constr)
@@ -3920,8 +3928,8 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
         new_body = body # already type checked in process_declaration
         new_ty = body.typeof
       else:
-        new_body = type_check_term(body, ty, env, None, [])
-        new_ty = ty
+        new_ty = check_type(ty, env)
+        new_body = type_check_term(body, new_ty, env, None, [])
       return Define(loc, name, new_ty, new_body, visibility=stmt.visibility)
         
     case Theorem(loc, name, frm, pf, isLemma):

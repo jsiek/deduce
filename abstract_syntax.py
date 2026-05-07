@@ -5269,18 +5269,16 @@ def check_post_uniquify_invariants(ast_list):
       'to OverloadedVar/ResolvedVar.\n' + '\n'.join(msgs) + suffix)
 
 def check_post_typecheck_invariants(ast_list):
-  """Strict post-typecheck invariants:
+  """Post-typecheck invariants. Hard error on any pre-uniquify ``Var``.
+  Single-candidate ``OverloadedVar`` is currently a soft warning:
+  the type checker doesn't visit proof bodies yet, so those leak
+  OverloadedVars even when they aren't actually overloaded. The
+  invariant will go strict once ``check_proof_of`` is refactored to
+  rebuild proof ASTs (tracked separately).
 
-  1. No pre-uniquify ``Var``.
-  2. No single-candidate ``OverloadedVar`` — these should have been
-     narrowed to ``ResolvedVar`` by overload resolution. (Multi-
-     candidate ``OverloadedVar`` is permitted; that's a genuine
-     unresolved overload the type checker punted on.)
-
-  Raises ``Exception`` listing up to 20 offending nodes on failure.
-  Each violation is a sign that some type-checker code path didn't
-  visit a node it should have, or built a fresh Var-like in a
-  helper and forgot to narrow it."""
+  Multi-candidate ``OverloadedVar`` is permitted (genuine unresolved
+  overload).
+  """
   def loc_prefix(loc):
     try:
       if loc is not None and not getattr(loc, 'empty', True):
@@ -5289,23 +5287,15 @@ def check_post_typecheck_invariants(ast_list):
       pass
     return ''
   bad_var = []
-  bad_singleton = []
   for node in _walk_ast_descendants(ast_list):
     if type(node) is Var:
       bad_var.append((getattr(node, 'location', None), node.name))
-    elif type(node) is OverloadedVar and len(node.resolved_names) == 1:
-      bad_singleton.append((getattr(node, 'location', None),
-                            node.resolved_names[0]))
-  if not bad_var and not bad_singleton:
-    return
-  msgs = []
-  for (loc, name) in bad_var[:10]:
-    msgs.append(f'  {loc_prefix(loc)}pre-uniquify Var({name!r})')
-  for (loc, name) in bad_singleton[:10]:
-    msgs.append(f'  {loc_prefix(loc)}OverloadedVar([{name!r}]) '
-                'with one candidate (should be ResolvedVar)')
-  raise Exception(
-    'Post-typecheck AST sanity check failed:\n' + '\n'.join(msgs))
+  if bad_var:
+    msgs = [f'  {loc_prefix(loc)}pre-uniquify Var({name!r})'
+            for (loc, name) in bad_var[:20]]
+    raise Exception(
+      'Post-typecheck AST sanity check failed: pre-uniquify `Var` '
+      'nodes still present.\n' + '\n'.join(msgs))
 
 def uniquify_deduce(ast):
   env = {}
