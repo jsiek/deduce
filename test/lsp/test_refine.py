@@ -85,7 +85,8 @@ CASES = [
     ),
     RefineCase(
         name="implication",
-        # Goal: ``(if P then P)``. Template: ``assume H: P\n?``.
+        # Goal: ``(if P then P)``. Template uses ``H1`` (no other
+        # ``H<N>`` is in scope yet, so we start at 1).
         source=(
             "theorem t: all P:bool. if P then P\n"
             "proof\n"
@@ -94,10 +95,51 @@ CASES = [
             "end\n"
         ),
         cursor=Position(line=4, column=3),
-        expected_text="assume H: P\n?",
+        expected_text="assume H1: P\n?",
         expected_range=Range(
             start=Position(line=4, column=3),
             end=Position(line=4, column=4),
+        ),
+    ),
+    RefineCase(
+        name="implication_picks_H2_when_H1_in_scope",
+        # Regression for the label-collision bug: the user already
+        # has ``H1`` in scope from a prior ``assume H1:``. The
+        # template must pick the next free ``H<N>``, i.e. ``H2``,
+        # rather than re-using ``H`` or ``H1``.
+        source=(
+            "theorem t: all P:bool, Q:bool. if P then if Q then P\n"
+            "proof\n"
+            "  arbitrary P:bool, Q:bool\n"
+            "  assume H1: P\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=5, column=3),
+        expected_text="assume H2: Q\n?",
+        expected_range=Range(
+            start=Position(line=5, column=3),
+            end=Position(line=5, column=4),
+        ),
+    ),
+    RefineCase(
+        name="implication_picks_H3_when_H1_and_H2_in_scope",
+        # Two hypotheses already in scope -> next is H3.
+        source=(
+            "theorem t: all P:bool, Q:bool, R:bool.\n"
+            "  if (if P and Q then R) then if Q then if P then R\n"
+            "proof\n"
+            "  arbitrary P:bool, Q:bool, R:bool\n"
+            "  assume H1: (if (P and Q) then R)\n"
+            "  assume H2: Q\n"
+            "  ?\n"
+            "end\n"
+        ),
+        cursor=Position(line=7, column=3),
+        expected_text="assume H3: P\n?",
+        expected_range=Range(
+            start=Position(line=7, column=3),
+            end=Position(line=7, column=4),
         ),
     ),
     RefineCase(
