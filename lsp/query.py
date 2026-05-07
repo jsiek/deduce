@@ -280,15 +280,21 @@ def goal_at(
 def _insert_hole(content: str, pos: Position) -> Optional[str]:
     """Modify ``content`` so that the proof at ``pos`` halts on a ``?``.
 
-    Strategy: find the byte offset for ``pos``, replace everything from
-    there up to (but not including) the next ``end`` keyword with
-    ``\\n?\\n``. The intervening tactics are dropped so the parser sees
-    a complete proof terminating at the hole.
+    Strategy: find the byte offset for ``pos``, then scan forward
+    tracking ``{``/``}`` depth. Truncate at whichever comes first:
+    the closer of the enclosing case block (a ``}`` that would make
+    the depth negative) or the proof body's ``end`` keyword (matched
+    only at depth 0). Replace the dropped span with ``\\n?\\n`` so
+    the parser sees a complete proof terminating at the hole.
 
-    Returns ``None`` when ``pos`` is out of range. If no ``end`` keyword
-    follows the cursor we fall back to "append ``?`` at the cursor and
-    leave the rest" -- the parser may still error, in which case
-    ``goal_at`` returns ``None``.
+    The depth tracker is what makes this work inside nested ``case``
+    blocks: a naive "next ``end``" search would consume the case's
+    own closing ``}`` and leave the parser with an unbalanced brace.
+
+    Returns ``None`` when ``pos`` is out of range. If no closer is
+    found we append ``?`` at the cursor and leave the rest -- the
+    parser may still error, in which case ``goal_at`` returns
+    ``None``.
     """
     offset = _line_col_to_offset(content, pos)
     if offset is None:
@@ -296,10 +302,44 @@ def _insert_hole(content: str, pos: Position) -> Optional[str]:
 
     before = content[:offset]
     after = content[offset:]
-    m = _END_RE.search(after)
-    if m is None:
+    cut = _find_block_end(after)
+    if cut is None:
         return before + "\n?\n" + after
-    return before + "\n?\n" + after[m.start():]
+    return before + "\n?\n" + after[cut:]
+
+
+def _find_block_end(s: str) -> Optional[int]:
+    """Return the offset in ``s`` where the enclosing proof block closes.
+
+    Tracks ``{``/``}`` depth from the start of ``s``. Stops at:
+    - The first ``}`` that would make depth go negative (the closer
+      of the block that encloses the cursor).
+    - The first ``\\bend\\b`` keyword at depth 0 (the proof body
+      terminator).
+
+    Returns ``None`` if neither is found before EOF.
+    """
+    depth = 0
+    i = 0
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c == "{":
+            depth += 1
+            i += 1
+        elif c == "}":
+            if depth == 0:
+                return i
+            depth -= 1
+            i += 1
+        elif depth == 0:
+            m = _END_RE.match(s, i)
+            if m:
+                return m.start()
+            i += 1
+        else:
+            i += 1
+    return None
 
 
 def _line_col_to_offset(content: str, pos: Position) -> Optional[int]:

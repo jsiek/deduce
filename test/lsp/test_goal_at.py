@@ -142,3 +142,50 @@ def test_goal_at_returns_none_when_position_is_invalid() -> None:
     source = "theorem t: bool = true\n"
     assert goal_at("test.pf", source, Position(line=0, column=1)) is None
     assert goal_at("test.pf", source, Position(line=1, column=0)) is None
+
+
+def test_goal_at_works_inside_nested_case_block() -> None:
+    """Regression: cursor inside a ``case ... { ... }`` block.
+
+    The hole-insertion algorithm has to stop at the case body's own
+    ``}`` rather than the proof body's ``end`` -- otherwise the ``}``
+    gets consumed and the parser sees an unbalanced brace, which
+    makes ``goal_at`` silently return ``None``.
+
+    Mirrors the proof shape that surfaced this bug in ``lib/Nat.pf``::
+
+        proof
+          induction Nat
+          case zero { ... }
+          case suc(n') suppose IH {
+            <cursor here>
+            IH
+          }
+        end
+
+    The exact reduced formula isn't asserted -- Deduce's reduction
+    is implementation-detail-y for ``switch`` on bool. What matters
+    is that ``goal_at`` doesn't trip over the nested ``}``.
+    """
+    source = (
+        "theorem t: all x:bool. x = true or x = false\n"
+        "proof\n"
+        "  arbitrary x:bool\n"
+        "  switch x {\n"
+        "    case true {\n"
+        "      .\n"
+        "    }\n"
+        "    case false {\n"
+        "      .\n"
+        "    }\n"
+        "  }\n"
+        "end\n"
+    )
+    # Line 6, column 1 -- the body of `case true { ... }`.
+    g = goal_at("test.pf", source, Position(line=6, column=1))
+    assert g is not None, (
+        "goal_at returned None inside a case body -- the nested "
+        "`}` likely confused the hole-insertion truncation."
+    )
+    assert isinstance(g, Goal)
+    assert g.range.start == Position(line=6, column=1)
