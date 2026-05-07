@@ -138,15 +138,15 @@ mocked: any request returns RESPONSE, and `eglot-current-server'
 returns the symbol `mock-server'.  Returns the captured request
 arguments.
 
-Also no-ops `eglot--signal-textDocument/didChange', which our
-`deduce-lsp--request' wrapper calls before each request to flush
-pending buffer changes (issue #339).  In the test harness there's
-no real eglot server to track against, so we just stub the call."
+Also no-ops `jsonrpc-notify', which our `deduce-lsp--request'
+wrapper calls before each request to send a Full didChange
+keeping the server's workspace in sync (issue #339).  Tests that
+care about the sync notification override this mock locally."
   (let ((captured nil))
     (cl-letf (((symbol-function 'eglot-current-server)
                (lambda () 'mock-server))
-              ((symbol-function 'eglot--signal-textDocument/didChange)
-               (lambda () nil))
+              ((symbol-function 'jsonrpc-notify)
+               (lambda (&rest _) nil))
               ((symbol-function 'jsonrpc-request)
                (lambda (server method params)
                  (setq captured (list :server server :method method :params params))
@@ -463,14 +463,14 @@ RESPONSES-BY-METHOD is an alist of (METHOD . RESPONSE) where
 METHOD is a keyword like :deduce/caseSplitAt.  Returns the list
 of every captured (method . params) pair, in call order.
 
-Also no-ops `eglot--signal-textDocument/didChange' (called by
-`deduce-lsp--request' before every request) so the mock harness
-doesn't try to flush against a non-existent server."
+Also no-ops `jsonrpc-notify' (called by `deduce-lsp--request'
+before every request to send a Full didChange) so the mock
+harness doesn't try to talk to a non-existent server."
   (let ((calls nil))
     (cl-letf (((symbol-function 'eglot-current-server)
                (lambda () 'mock-server))
-              ((symbol-function 'eglot--signal-textDocument/didChange)
-               (lambda () nil))
+              ((symbol-function 'jsonrpc-notify)
+               (lambda (&rest _) nil))
               ((symbol-function 'jsonrpc-request)
                (lambda (_server method params)
                  (push (cons method params) calls)
@@ -587,8 +587,8 @@ and feeds them to `completing-read'."
           (deduce-mode)
           (cl-letf (((symbol-function 'eglot-current-server)
                      (lambda () 'mock-server))
-                    ((symbol-function 'eglot--signal-textDocument/didChange)
-                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-notify)
+                     (lambda (&rest _) nil))
                     ((symbol-function 'jsonrpc-request)
                      (lambda (_server method _params)
                        (cond
@@ -620,8 +620,8 @@ interactive entry user-errors with `No case split available'."
           (deduce-mode)
           (cl-letf (((symbol-function 'eglot-current-server)
                      (lambda () 'mock-server))
-                    ((symbol-function 'eglot--signal-textDocument/didChange)
-                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-notify)
+                     (lambda (&rest _) nil))
                     ((symbol-function 'jsonrpc-request)
                      (lambda (_server _method _params) [])))
             (should-error (call-interactively #'deduce-lsp-case-split)
@@ -630,29 +630,67 @@ interactive entry user-errors with `No case split available'."
 
 
 ;; ---------------------------------------------------------------------
-;; deduce-lsp--request: flush pending didChange before each request
+;; deduce-lsp--request: sync buffer to server before each request
 ;; ---------------------------------------------------------------------
 ;;
 ;; Issue #339: a sequence like `C-c C-r' -> `C-c C-r' (chained refines)
-;; can race eglot's `eglot-send-changes-idle-time' debouncing if we
-;; call `jsonrpc-request' directly.  `deduce-lsp--request' wraps it
-;; with a synchronous `eglot--signal-textDocument/didChange' first.
+;; races eglot's `eglot-send-changes-idle-time' debouncing when we
+;; call `jsonrpc-request' directly -- the second request can reach
+;; the server before eglot has sent didChange for the first edit.
+;; `deduce-lsp--request' bypasses eglot's flush machinery entirely
+;; by sending a Full `textDocument/didChange' synchronously.
 
-(ert-deftest deduce-lsp/request-flushes-pending-didChange-before-request ()
-  "`deduce-lsp--request' calls `eglot--signal-textDocument/didChange'
+(ert-deftest deduce-lsp/request-syncs-buffer-before-request ()
+  "`deduce-lsp--request' sends a Full didChange via `jsonrpc-notify'
 *before* `jsonrpc-request', so the server sees the latest buffer
-state when the request is processed."
-  (let ((order nil))
-    (cl-letf (((symbol-function 'eglot--signal-textDocument/didChange)
-               (lambda () (push 'flush order)))
-              ((symbol-function 'jsonrpc-request)
-               (lambda (_server _method _params)
-                 (push 'request order)
-                 'mock-response)))
-      (let ((response (deduce-lsp--request 'mock-server :foo nil)))
-        (should (eq response 'mock-response))))
-    ;; `push' adds to the head, so the call sequence is the reverse.
-    (should (equal (reverse order) '(flush request)))))
+content when the request is processed."
+  (let ((order nil)
+        (notify-args nil))
+    (with-temp-buffer
+      (insert "buffer content for the test")
+      (setq buffer-file-name "/tmp/x.pf")
+      (cl-letf (((symbol-function 'jsonrpc-notify)
+                 (lambda (server method params)
+                   (push 'notify order)
+                   (setq notify-args (list server method params))))
+                ((symbol-function 'jsonrpc-request)
+                 (lambda (_server _method _params)
+                   (push 'request order)
+                   'mock-response)))
+        (let ((response (deduce-lsp--request 'mock-server :foo nil)))
+          (should (eq response 'mock-response)))))
+    ;; The notify came before the request.
+    (should (equal (reverse order) '(notify request)))
+    ;; Notify shape: textDocument/didChange with our buffer content
+    ;; in a single Full contentChange.
+    (should (eq (nth 1 notify-args) :textDocument/didChange))
+    (let* ((params (nth 2 notify-args))
+           (text-doc (plist-get params :textDocument))
+           (changes (plist-get params :contentChanges)))
+      (should (string-prefix-p "file://" (plist-get text-doc :uri)))
+      (should (integerp (plist-get text-doc :version)))
+      (should (equal (length changes) 1))
+      (should (equal (plist-get (aref changes 0) :text)
+                     "buffer content for the test")))))
+
+
+(ert-deftest deduce-lsp/sync-buffer-version-monotonic ()
+  "Each `deduce-lsp--sync-buffer' bumps `deduce-lsp--didChange-version',
+so successive notifications carry strictly increasing version
+numbers (LSP spec compliance)."
+  (with-temp-buffer
+    (insert "x")
+    (setq buffer-file-name "/tmp/x.pf")
+    (let ((versions nil))
+      (cl-letf (((symbol-function 'jsonrpc-notify)
+                 (lambda (_server _method params)
+                   (push (plist-get (plist-get params :textDocument) :version)
+                         versions))))
+        (deduce-lsp--sync-buffer 'mock-server)
+        (deduce-lsp--sync-buffer 'mock-server)
+        (deduce-lsp--sync-buffer 'mock-server))
+      (let ((vs (reverse versions)))
+        (should (apply #'< vs))))))
 
 
 (provide 'deduce-lsp-test)
