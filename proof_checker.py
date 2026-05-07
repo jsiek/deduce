@@ -118,7 +118,7 @@ def check_implies(loc, frm1, frm2):
 
     case (All(loc1, tyof1, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
       try:
-          sub = { var2[0]: Var(loc2, var1[1], var1[0], []) }
+          sub = { var2[0]: ResolvedVar(loc2, var1[1], [var1[0]]) }
           body2a = body2.substitute(sub)
           check_implies(loc, body1, body2a)
       except Exception as e:
@@ -175,7 +175,7 @@ def pattern_to_term(pat):
     case PatternCons(loc, constr, params):
       if len(params) > 0:
         ret = Call(loc, None, constr,
-                   [Var(loc, None, param, [param]) for param in params])
+                   [ResolvedVar(loc, None, [param]) for param in params])
         return ret
       else:
         return constr
@@ -223,7 +223,7 @@ def isolate_difference(term1, term2):
   else:
     match (term1, term2):
       case (Lambda(l1, tyof1, vs1, body1), Lambda(l2, tyof2, vs2, body2)):
-        ren = {x: Var(l1, t2, y, []) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
+        ren = {x: ResolvedVar(l1, t2, [y]) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
         return isolate_difference(body1.substitute(ren), body2)
       case (Call(l1, tyof1, fun1, args1), Call(l2, tyof2, fun2, args2)):
         if fun1 == fun2:
@@ -260,7 +260,7 @@ def collect_all_if_then(loc, frm, env):
       case All(loc2, tyof, var, _, frm):
         (rest_vars, mps) = collect_all_if_then(loc, frm, env)
         x, t = var
-        return ([Var(loc2, t, x, [])] + rest_vars, mps)
+        return ([ResolvedVar(loc2, t, [x])] + rest_vars, mps)
       case IfThen(loc2, tyof, prem, conc):
         return ([], [(prem, conc)])
       case And(loc2, tyof, args):
@@ -284,7 +284,7 @@ def collect_all(frm):
       case All(loc2, tyof, var, _, frm):
         (rest_vars, body) = collect_all(frm)
         x, t = var
-        return ([Var(loc2, t, x, [])] + rest_vars, body)
+        return ([ResolvedVar(loc2, t, [x])] + rest_vars, body)
       case _:
         return ([], frm)
         
@@ -601,7 +601,7 @@ def check_proof(proof, env):
 
 def get_type_args(ty):
   match ty:
-    case Var(l1, tyof, n, rs):
+    case ResolvedVar(l1, tyof, rs):
       return []
     case TypeInst(l1, ty, type_args):
       return type_args
@@ -662,7 +662,7 @@ def proof_use_advice(proof, formula, env):
           if isinstance(ty, TypeType):
               type_param = True
           letters.append(chr(i))
-          new_vars[x] = Var(loc,ty, chr(i), [])
+          new_vars[x] = ResolvedVar(loc,ty, [chr(i)])
           i = i + 1
         plural = 's' if len(vars) > 1 else ''
         pronoun = 'them' if len(vars) > 1 else 'it'
@@ -686,7 +686,7 @@ def proof_use_advice(proof, formula, env):
         i = 65
         for (x,ty) in vars:
             letters.append(chr(i))
-            new_vars[x] = Var(loc,ty, chr(i), [])
+            new_vars[x] = ResolvedVar(loc,ty, [chr(i)])
             i = i + 1
         new_body = body.substitute(new_vars)
         return prefix \
@@ -698,7 +698,7 @@ def proof_use_advice(proof, formula, env):
                else ' is a new name of your choice' ) + ',\n' \
             + 'followed by a proof of the goal.'
 
-      case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
+      case Call(loc2, tyof2, ResolvedVar(loc3, tyof3, rs), [lhs, rhs]):
         return prefix \
             + '\tYou can use this equality in a replace statement:\n' \
             + '\t\treplace ' + str(proof) + '\n'
@@ -713,8 +713,8 @@ def make_unique(name, env):
 
 def is_recursive(name, typ):
     match typ:
-      case Var(l1, tyof, n, rs):
-        return name == n
+      case ResolvedVar(l1, tyof, rs):
+        return name == rs[0]
       case TypeInst(l1, ty, type_args):
         return is_recursive(name, ty)
       case _:
@@ -854,7 +854,7 @@ def proof_advice(formula, env):
                                    if is_recursive(name, ty)]
                       ind_advice += ' assume '
                       ind_advice += ',\n\t\t\t'.join(['IH' + str(i+1) + ': ' \
-                            + str(update_all_head(body.substitute({var_x: Var(loc3, param_ty, param, [])}))) \
+                            + str(update_all_head(body.substitute({var_x: ResolvedVar(loc3, param_ty, [param])}))) \
                             for i, (param,param_ty) in enumerate(rec_params)])
 
                     ind_advice += ' {\n\t\t  ?\n\t\t}\n'
@@ -871,7 +871,7 @@ def proof_advice(formula, env):
         i = 65
         for (x,ty) in vars:
             letters.append(chr(i))
-            new_vars[x] = Var(loc,ty, chr(i), [])
+            new_vars[x] = ResolvedVar(loc,ty, [chr(i)])
             i = i + 1
         return prefix \
             + '\tProve this "some" formula with:\n' \
@@ -880,7 +880,7 @@ def proof_advice(formula, env):
             + ' with your choice(s),\n' \
             + '\tthen prove:\n' \
             + '\t\t' + str(body.substitute(new_vars))
-      case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
+      case Call(loc2, tyof2, ResolvedVar(loc3, tyof3, rs), [lhs, rhs]):
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n'\
             + '\t\texpand\n' \
@@ -912,10 +912,10 @@ def givens_str(env):
 def pred_to_equality(meta, pred):
     match pred:
       case IfThen(meta1, ty1, p, Bool(meta2, ty2, False)):
-          return Call(meta, None, Var(meta, None, '=', []),
+          return Call(meta, None, ResolvedVar(meta, None, ['=']),
                       [p , Bool(meta, None, False)])
       case _:
-          return Call(meta, None, Var(meta, None, '=', []),
+          return Call(meta, None, ResolvedVar(meta, None, ['=']),
                       [pred , Bool(meta, None, True)])
 
 def _check_rule_induction(proof, goal, env):
@@ -1053,7 +1053,7 @@ def check_proof_of(proof, formula, env):
       
     case PReflexive(loc):
       match formula:
-        case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs), [lhs, rhs]):
+        case Call(loc2, tyof2, ResolvedVar(loc3, tyof3, rs), [lhs, rhs]):
           lhsNF = lhs.reduce(env)
           rhsNF = rhs.reduce(env)
           if lhsNF != rhsNF:
@@ -1099,7 +1099,7 @@ def check_proof_of(proof, formula, env):
       match lhs.typeof:
         case FunctionType(loc2, [], typs, ret_ty):
           names = [generate_name('x') for ty in typs]
-          args = [Var(loc, None, x, []) for x in names]
+          args = [ResolvedVar(loc, None, [x]) for x in names]
           call_lhs = Call(loc, None, lhs, args)
           call_rhs = Call(loc, None, rhs, args)
           formula = mkEqual(loc, call_lhs, call_rhs)
@@ -1123,7 +1123,7 @@ def check_proof_of(proof, formula, env):
       match formula:
         case All(loc2, tyof, var2, (s, e), formula2):
           sub = {}
-          sub[ var2[0] ] = Var(loc, var[1], var[0], [ var[0] ])
+          sub[ var2[0] ] = ResolvedVar(loc, var[1], [ var[0] ])
           
           frm2 = formula2.substitute(sub)
 
@@ -1159,7 +1159,7 @@ def check_proof_of(proof, formula, env):
       
       match someFormula:
         case Some(loc2, tyof, vars, formula2):
-          sub = {var[0]: Var(loc2, None, x, [x]) for (var,x) in zip(vars,witnesses)}
+          sub = {var[0]: ResolvedVar(loc2, None, [x]) for (var,x) in zip(vars,witnesses)}
           witnessFormula = formula2.substitute(sub)
           
           witnesses_types = [(x,var[1]) for (var,x) in zip(vars,witnesses)]
@@ -1207,7 +1207,7 @@ def check_proof_of(proof, formula, env):
     case PTLetNew(loc, var, rhs, rest):
       new_rhs = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
-      equation = mkEqual(loc, new_rhs, Var(loc, None, var, [])).reduce(env)
+      equation = mkEqual(loc, new_rhs, ResolvedVar(loc, None, [var])).reduce(env)
       red_formula = formula.reduce(env)
       if get_verbose():
           print('define ' + str(var) + '\n\trewrite with ' + str(equation) + '\n\tin ' \
@@ -1415,7 +1415,7 @@ def check_proof_of(proof, formula, env):
               error("Expected a type inst")
 
         pfun = Lambda(loc, fun_ty, [formula.var], formula.body)
-        fun_var = Var(loc, fun_ty, fun_name, [fun_name])
+        fun_var = ResolvedVar(loc, fun_ty, [fun_name])
 
         annots = []
 
@@ -1457,7 +1457,7 @@ def check_proof_of(proof, formula, env):
                       + " arguments to " + base_name(constr.name) \
                       + " not " + str(len(indcase.pattern.parameters)))
               induction_hypotheses = [instantiate(loc, formula,
-                                                  Var(loc,None,param,[]))
+                                                  ResolvedVar(loc,None, [param]))
                                       for (param, ty) in 
                                       zip(indcase.pattern.parameters,
                                           constr.parameters)
@@ -1694,7 +1694,7 @@ def expand_definitions(loc, formula, defs, env):
       for var_name in reducible_names:
           if get_verbose():
               print('trying to expand definition of ' + var_name)
-          rvar = Var(var.location, var.typeof, var_name, [var_name])
+          rvar = ResolvedVar(var.location, var.typeof, [var_name])
           rhs = env.get_value_of_term_var(rvar)
           if rhs == None:
               error(loc, 'could not find definition of ' + str(rvar))
@@ -1854,7 +1854,7 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
           match funty:
             case FunctionType(loc2, typarams, param_types, return_type):
               try:
-                new_call = type_check_call_funty(loc, Var(loc2, funty, x, []), args, env, recfun,
+                new_call = type_check_call_funty(loc, ResolvedVar(loc2, funty, [x]), args, env, recfun,
                                                  subterms, ret_ty, call,
                                                  typarams, param_types, return_type)
                 num_matches += 1
@@ -1922,16 +1922,13 @@ def check_recursive_call(call, recfun, subterms):
 # well-formed types
 def check_type(typ, env):
   match typ:
-    case Var(loc, tyof, name, rs):
+    case ResolvedVar(loc, tyof, rs):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
-              #+ '\nin environment:\n' + str(env))
-      if len(rs) == 1:
-          typ.name = rs[0]
-      elif len(rs) == 0:
-          pass
-      else:
-          error(loc, 'type names may not be overloaded ' + str(typ))
+      if len(rs) > 1:
+        error(loc, 'type names may not be overloaded ' + str(typ))
+      # No need to mutate `name` to keep it in sync with rs[0] —
+      # ResolvedVar.name is a derived property.
     case IntType(loc):
       pass
     case BoolType(loc):
@@ -1956,8 +1953,8 @@ def check_type(typ, env):
 
 def type_first_letter(typ):
   match typ:
-    case Var(loc, tyof, name, rs):
-      return name[0]
+    case ResolvedVar(loc, tyof, rs):
+      return rs[0][0]
     case IntType(loc):
       return 'i'
     case BoolType(loc):
@@ -1980,7 +1977,7 @@ def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
   new_subject = type_synth_term(subject, env, recfun, subterms)
   ty = new_subject.typeof
   match ty:
-    case Var(loc2, ty2, name, rs):
+    case ResolvedVar(loc2, ty2, rs):
       retty = TypeInst(loc, name, tyargs)
     case FunctionType(loc2, typarams, param_types, return_type):
       sub = {x: t for (x,t) in zip(typarams, tyargs)}
@@ -1995,13 +1992,13 @@ def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
 
 def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
   match subject_var:
-    case Var(loc2, tyof, name, rs):
+    case ResolvedVar(loc2, tyof, rs):
       for ty in tyargs:
           check_type(ty, env)
-      ty = env.get_type_of_term_var(Var(loc2, tyof, name, rs))
+      ty = env.get_type_of_term_var(ResolvedVar(loc2, tyof, rs))
       match ty:
-        case Var(loc3, ty2, name2, rs2):
-          retty = TypeInst(loc, name2, tyargs)
+        case ResolvedVar(loc3, ty2, rs2):
+          retty = TypeInst(loc, ty, tyargs)
         case FunctionType(loc3, typarams, param_types, return_type):
           sub = {x: t for (x,t) in zip(typarams, tyargs)}
           inst_param_types = [t.substitute(sub) for t in param_types]
@@ -2011,9 +2008,7 @@ def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
           retty = TypeInst(loc3, union_type, tyargs)
         case _:
           error(loc, 'cannot instantiate a term of type ' + str(ty))
-      new_name = rs[0] if len(rs) > 0 else name
-      new_rs = [new_name] if len(rs) > 0 else []
-      return TermInst(loc, retty, Var(loc2, tyof, new_name, new_rs),
+      return TermInst(loc, retty, ResolvedVar(loc2, tyof, [rs[0]]),
                       tyargs, inferred)
     case _:
       error(loc, 'internal error, expected variable, not ' + str(subject_var))
@@ -2027,7 +2022,7 @@ def type_synth_term(term, env, recfun, subterms):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ret = Mark(loc, new_subject.typeof, new_subject)
   
-    case Var(loc, _, name, rs):
+    case ResolvedVar(loc, _, rs):
       try:
         ty = env.get_type_of_term_var(term)
         if ty == None:
@@ -2038,15 +2033,15 @@ def type_synth_term(term, env, recfun, subterms):
       match ty:
         case GenericUnknownInst(loc2, union_type):
           error(loc, 'Cannot infer type arguments for\n' \
-                + '\t' + base_name(name) + '\nPlease make them explicit.')
+                + '\t' + base_name(rs[0]) + '\nPlease make them explicit.')
       
-      #ret = Var(loc, ty, name, rs)
+      #ret = ResolvedVar(loc, ty, rs)
       if len(rs) == 1:
-          ret = Var(loc, ty, rs[0], [ rs[0] ])
+          ret = ResolvedVar(loc, ty, [ rs[0] ])
       else:
           if get_verbose():
               print('type_synth_term(' + str(term) + ') waiting to resolve name')
-          ret = Var(loc, ty, name, rs)
+          ret = ResolvedVar(loc, ty, rs)
       
     case Generic(loc, _, type_params, body):
       body_env = env.declare_type_vars(loc, type_params)
@@ -2160,8 +2155,8 @@ def type_synth_term(term, env, recfun, subterms):
         case _:
           error(loc, 'expected an array, not ' + str(new_array.typeof))
           
-    case Call(loc, _, Var(loc2, ty2, name, rs), args) \
-        if name == '=' or name == '≠':
+    case Call(loc, _, ResolvedVar(loc2, ty2, rs), args) \
+        if rs[0] == '=' or rs[0] == '≠':
       assert len(args) == 2
       lhs = type_synth_term(args[0], env, recfun, subterms)
       rhs = type_check_term(args[1], lhs.typeof, env, recfun, subterms)
@@ -2169,7 +2164,7 @@ def type_synth_term(term, env, recfun, subterms):
       if lhs.typeof != rhs.typeof:
           error(loc, 'expected arguments of equality to have the same type, but\n' \
                 + '\t' + str(lhs.typeof) + ' ≠ ' + str(rhs.typeof))
-      ret = Call(loc, ty, Var(loc2, ty2, name, rs), [lhs, rhs])
+      ret = Call(loc, ty, ResolvedVar(loc2, ty2, rs), [lhs, rhs])
         
     case Call(loc, _, rator, args):
       ret = type_check_call(loc, rator, args, env, recfun, subterms, None, term)
@@ -2226,8 +2221,8 @@ def type_synth_term(term, env, recfun, subterms):
             case _:
               error(loc, 'expected a union type, not ' + str(ty))
 
-    case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
-      ret = type_check_term_inst_var(loc, Var(loc2, tyof, name, rs), tyargs,
+    case TermInst(loc, _, ResolvedVar(loc2, tyof, rs), tyargs, inferred):
+      ret = type_check_term_inst_var(loc, ResolvedVar(loc2, tyof, rs), tyargs,
                                      inferred, env)
       
     case TermInst(loc, _, subject, tyargs, inferred):
@@ -2278,7 +2273,7 @@ def type_check_term(term, typ, env, recfun, subterms):
     case Generic(loc, _, type_params, body):
       match typ:
         case FunctionType(loc2, type_params2, param_types2, return_type2):
-          sub = {U: Var(loc, None, T, [T]) \
+          sub = {U: ResolvedVar(loc, None, [T]) \
                  for (T,U) in zip(type_params, type_params2) }
           new_param_types = [ty.substitute(sub) for ty in param_types2]
           new_return_type = return_type2.substitute(sub)
@@ -2289,7 +2284,7 @@ def type_check_term(term, typ, env, recfun, subterms):
         case _:
           error(loc, 'expected a generic term, not ' + str(term))
         
-    case Var(loc, _, name, rs):
+    case ResolvedVar(loc, _, rs):
       var_typ = env.get_type_of_term_var(term)
       if get_verbose():
           print('var_typ = ' + str(var_typ))
@@ -2302,12 +2297,12 @@ def type_check_term(term, typ, env, recfun, subterms):
               if ty == typ:
                   if get_verbose():
                       print('found overload ' + x + ' of type ' + str(typ))
-                  return Var(loc, typ, x, [x])
+                  return ResolvedVar(loc, typ, [x])
           error(loc, 'could not find an overload of ' + name \
                 + ' of type ' + str(typ) + '\nin: ' + str(var_typ))
         case (GenericUnknownInst(loc2, union1), TypeInst(loc3, union2, tyargs)):
           if union1 == union2:
-              return TermInst(loc, typ, Var(loc, typ, rs[0], [rs[0]]),
+              return TermInst(loc, typ, ResolvedVar(loc, typ, [rs[0]]),
                               tyargs, True)
         case (FunctionType(loc1, typarams, param_types1, ret_type1),
               FunctionType(loc2, [], param_types2, ret_type2)):
@@ -2319,15 +2314,15 @@ def type_check_term(term, typ, env, recfun, subterms):
               for (p1, p2) in zip(param_types1, param_types2):
                   type_match(loc, type_params, p1, p2, matching)
               type_args = [matching[x] for x in type_params]
-              return TermInst(Var(loc, var_typ, rs[0], [rs[0]]),
+              return TermInst(ResolvedVar(loc, var_typ, [rs[0]]),
                               type_args, True)
             except Exception as e:
               pass
       if var_typ == typ:
         if len(rs) > 0:
-            return Var(loc, typ, rs[0], [ rs[0] ])
+            return ResolvedVar(loc, typ, [ rs[0] ])
         else:
-            return Var(loc, typ, name, [name])
+            return ResolvedVar(loc, typ, [name])
       else:
         error(loc, 'expected a term of type ' + str(typ) \
               + '\nbut got term ' + str(term) + ' of type ' + str(var_typ))
@@ -2356,8 +2351,8 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_body = type_check_term(body, typ, body_env, recfun, subterms)
       return TLet(loc, typ, var, new_rhs, new_body)
       
-    case Call(loc, _, Var(loc2, vt, name, rs), args) \
-        if name == '=' or name == '≠':
+    case Call(loc, _, ResolvedVar(loc2, vt, rs), args) \
+        if rs[0] == '=' or rs[0] == '≠':
       new_term = type_synth_term(term, env, recfun, subterms)
       ty = new_term.typeof
       if ty != typ:
@@ -2416,8 +2411,8 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_els = type_check_term(els, typ, env, recfun, subterms)
       return Conditional(loc, typ, new_cond, new_thn, new_els)
   
-    case TermInst(loc, _, Var(loc2, tyof, name, rs), tyargs, inferred):
-      return type_check_term_inst_var(loc, Var(loc2, tyof, name, rs), tyargs,
+    case TermInst(loc, _, ResolvedVar(loc2, tyof, rs), tyargs, inferred):
+      return type_check_term_inst_var(loc, ResolvedVar(loc2, tyof, rs), tyargs,
                                       inferred, env)
       
     case TermInst(loc, _, subject, tyargs, inferred):
@@ -2436,7 +2431,7 @@ def type_check_term(term, typ, env, recfun, subterms):
 def lookup_union(loc, typ, env):
   tyname = None
   match typ:
-    case Var(loc2, vty, name, rs):
+    case ResolvedVar(loc2, vty, rs):
       tyname = typ
     case TypeInst(loc2, inst_typ, tyargs):
       tyname = inst_typ
@@ -2460,7 +2455,9 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
       for constr in alts:
         # constr = node(T, List<T>)
         if constr.name in pat_constr.resolved_names:
-          pat_constr.name = constr.name
+          # Narrow the candidate list to just the chosen constructor;
+          # ResolvedVar.name is a derived property that follows.
+          pat_constr.resolved_names = [constr.name]
           if len(typarams) > 0:
             if not hasattr(typ, 'arg_types'):
                 error(loc, 'problem in check_constr_pattern with: ' + str(typ))
@@ -2520,7 +2517,7 @@ def is_modified(filename):
           
 def validate_union_type(ty, params, env):
   match ty:
-    case Var(loc, t, name, rns):
+    case ResolvedVar(loc, t, rns):
       type_def = env.get_def_of_type_var(ty)
 
       if isinstance(type_def, Union):
@@ -2583,7 +2580,7 @@ def _lookup_param_polarities(head, env):
 
 def check_strict_positivity(ty, union_name, env, forbidden=False):
   match ty:
-    case Var(loc, _, name, rns):
+    case ResolvedVar(loc, _, rns):
       ref_name = rns[0] if rns else name
       if forbidden and ref_name == union_name:
         error(loc,
@@ -2628,7 +2625,7 @@ def infer_param_polarities(union_decl, env):
 
   def walk(ty, current):
     match ty:
-      case Var(loc, _, name, rns):
+      case ResolvedVar(loc, _, rns):
         ref_name = rns[0] if rns else name
         if ref_name in type_param_names:
           idx = union_decl.type_params.index(ref_name)
@@ -2774,7 +2771,7 @@ def _walk_pred_premise(formula, pred_name, keyword, rule, forbidden):
               "In rule '" + base_name(rule.name) + "'.")
       for a in args:
         _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
-    case Var(loc, _, name, rns):
+    case ResolvedVar(loc, _, rns):
       ref = rns[0] if rns else name
       if forbidden and ref == pred_name:
         error(loc,
@@ -2953,10 +2950,10 @@ def _build_predicate_translation(decl, param_types):
   if typarams:
     deriv_type_inst = TypeInst(
       loc,
-      Var(loc, None, deriv_union_name, [deriv_union_name]),
-      [Var(loc, None, t, [t]) for t in typarams])
+      ResolvedVar(loc, None, [deriv_union_name]),
+      [ResolvedVar(loc, None, [t]) for t in typarams])
   else:
-    deriv_type_inst = Var(loc, None, deriv_union_name, [deriv_union_name])
+    deriv_type_inst = ResolvedVar(loc, None, [deriv_union_name])
 
   constructors = []
   for cname, rt in zip(constr_names, rule_translations):
@@ -2974,7 +2971,7 @@ def _build_predicate_translation(decl, param_types):
                       [p.sub_deriv_name for p in rt.recursive_premises]
     pattern = PatternCons(
       rt.rule.location,
-      Var(rt.rule.location, None, cname, [cname]),
+      ResolvedVar(rt.rule.location, None, [cname]),
       pat_param_names)
 
     clauses = []
@@ -2982,19 +2979,19 @@ def _build_predicate_translation(decl, param_types):
     for (m, c) in zip(rt.validator_arg_names, rt.conclusion_args):
       clauses.append(
         Call(rt.rule.location, BoolType(rt.rule.location),
-             Var(rt.rule.location, None, '=', ['=']),
-             [Var(rt.rule.location, None, m, [m]), c.copy()]))
+             ResolvedVar(rt.rule.location, None, ['=']),
+             [ResolvedVar(rt.rule.location, None, [m]), c.copy()]))
     # non-recursive premises verbatim
     for p in rt.non_recursive_premises:
       clauses.append(p.atom.copy())
     # recursive premise validators
     for p in rt.recursive_premises:
-      args = [Var(rt.rule.location, None, p.sub_deriv_name,
+      args = [ResolvedVar(rt.rule.location, None,
                   [p.sub_deriv_name])] + \
              [a.copy() for a in p.rec_args]
       clauses.append(
         Call(rt.rule.location, BoolType(rt.rule.location),
-             Var(rt.rule.location, None, is_deriv_name, [is_deriv_name]),
+             ResolvedVar(rt.rule.location, None, [is_deriv_name]),
              args))
 
     if not clauses:
@@ -3006,7 +3003,7 @@ def _build_predicate_translation(decl, param_types):
 
     fun_cases.append(FunCase(
       rt.rule.location,
-      Var(rt.rule.location, None, is_deriv_name, [is_deriv_name]),
+      ResolvedVar(rt.rule.location, None, [is_deriv_name]),
       pattern, list(rt.validator_arg_names), body))
 
   validator_param_types = [deriv_type_inst.copy()] + \
@@ -3024,7 +3021,7 @@ def _build_predicate_translation(decl, param_types):
     # `fun_cases` we already built — we just rebuild them as switch cases
     # with the m_i parameters captured by the lambda.
     d_param_name = generate_name('d')
-    d_param_var = Var(loc, None, d_param_name, [d_param_name])
+    d_param_var = ResolvedVar(loc, None, [d_param_name])
     switch_cases = []
     for fc in fun_cases:
       switch_cases.append(SwitchCase(fc.location, fc.pattern, fc.body))
@@ -3043,11 +3040,11 @@ def _build_predicate_translation(decl, param_types):
 
   # 3. Build the predicate's `define` body: fun args { some d. is_*_deriv(d, args) }
   arg_var_names = [generate_name('x') for _ in range(arity)]
-  arg_vars = [Var(loc, None, x, [x]) for x in arg_var_names]
+  arg_vars = [ResolvedVar(loc, None, [x]) for x in arg_var_names]
   d_name = generate_name('d')
   is_deriv_call = Call(loc, BoolType(loc),
-                       Var(loc, None, is_deriv_name, [is_deriv_name]),
-                       [Var(loc, None, d_name, [d_name])] + arg_vars)
+                       ResolvedVar(loc, None, [is_deriv_name]),
+                       [ResolvedVar(loc, None, [d_name])] + arg_vars)
   some_body = Some(loc, BoolType(loc),
                    [(d_name, deriv_type_inst.copy())], is_deriv_call)
   if arity > 0:
@@ -3073,8 +3070,8 @@ def _build_predicate_translation(decl, param_types):
   #     conjunction with reflexivity for argument equalities, hypothesis
   #     access for non-recursive premises, and the obtained labels for
   #     recursive premise validators.
-  pred_var = lambda l: Var(l, None, pred_name, [pred_name])
-  is_deriv_var = lambda l: Var(l, None, is_deriv_name, [is_deriv_name])
+  pred_var = lambda l: ResolvedVar(l, None, [pred_name])
+  is_deriv_var = lambda l: ResolvedVar(l, None, [is_deriv_name])
   intro_theorems = []
   for cname, rt in zip(constr_names, rule_translations):
     intro_theorems.append(
@@ -3098,15 +3095,15 @@ def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
   n_premises = len(rt.premises)
 
   # Constructor witness: D_<rule>(<bound vars>, <obtained derivation labels>)
-  constr_args = [Var(loc, None, name, [name]) for (name, _) in rt.bound_vars] \
-                + [Var(loc, None, p.sub_deriv_name, [p.sub_deriv_name])
+  constr_args = [ResolvedVar(loc, None, [name]) for (name, _) in rt.bound_vars] \
+                + [ResolvedVar(loc, None, [p.sub_deriv_name])
                    for p in rt.recursive_premises]
   if constr_args:
     constr_witness = Call(loc, None,
-                          Var(loc, None, constr_name, [constr_name]),
+                          ResolvedVar(loc, None, [constr_name]),
                           constr_args)
   else:
-    constr_witness = Var(loc, None, constr_name, [constr_name])
+    constr_witness = ResolvedVar(loc, None, [constr_name])
 
   # The proof of the validator-body conjunction. Order matches the
   # validator: m_i = c_i for each conclusion arg, then non-recursive
@@ -3142,7 +3139,7 @@ def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
   # the outermost obtain.
   for p in reversed(rt.recursive_premises):
     is_deriv_call = Call(loc, BoolType(loc), is_deriv_var(loc),
-                         [Var(loc, None, p.sub_deriv_name,
+                         [ResolvedVar(loc, None,
                               [p.sub_deriv_name])]
                          + [a.copy() for a in p.rec_args])
     if n_premises == 1:
@@ -3203,7 +3200,7 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
     motive_type = BoolType(loc)
 
   def motive_var(l):
-    return Var(l, None, motive_name, [motive_name])
+    return ResolvedVar(l, None, [motive_name])
 
   def apply_motive(args, l=loc):
     if args:
@@ -3257,10 +3254,10 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
 
   outer_arg_names = [generate_name('x') for _ in range(arity)]
   outer_arg_types_pairs = list(zip(outer_arg_names, param_types))
-  pred_call_outer = apply_pred([Var(loc, None, x, [x])
+  pred_call_outer = apply_pred([ResolvedVar(loc, None, [x])
                                 for x in outer_arg_names])
   main_conc = IfThen(loc, BoolType(loc), pred_call_outer,
-                     apply_motive([Var(loc, None, x, [x])
+                     apply_motive([ResolvedVar(loc, None, [x])
                                    for x in outer_arg_names]))
   main_conc = wrap_alls(main_conc, outer_arg_types_pairs)
 
@@ -3278,10 +3275,10 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
   helper_m_pairs = list(zip(helper_m_names, param_types))
   helper_validator_call = Call(
     loc, BoolType(loc), is_deriv_var(loc),
-    [Var(loc, None, helper_d_name, [helper_d_name])] +
-    [Var(loc, None, m, [m]) for m in helper_m_names])
+    [ResolvedVar(loc, None, [helper_d_name])] +
+    [ResolvedVar(loc, None, [m]) for m in helper_m_names])
   helper_inner = IfThen(loc, BoolType(loc), helper_validator_call,
-                        apply_motive([Var(loc, None, m, [m])
+                        apply_motive([ResolvedVar(loc, None, [m])
                                       for m in helper_m_names]))
   helper_inner = wrap_alls(helper_inner, helper_m_pairs)
   helper_formula = All(loc, BoolType(loc),
@@ -3305,15 +3302,15 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
 
   pred_h_validator = Call(
     loc, BoolType(loc), is_deriv_var(loc),
-    [Var(loc, None, final_d_name, [final_d_name])] +
-    [Var(loc, None, x, [x]) for x in outer_arg_names])
+    [ResolvedVar(loc, None, [final_d_name])] +
+    [ResolvedVar(loc, None, [x]) for x in outer_arg_names])
 
   helper_at_d = AllElim(loc, PVar(loc, helper_label),
-                        Var(loc, None, final_d_name, [final_d_name]),
+                        ResolvedVar(loc, None, [final_d_name]),
                         (0, 1))
   applied = helper_at_d
   for i, x in enumerate(outer_arg_names):
-    applied = AllElim(loc, applied, Var(loc, None, x, [x]), (i, arity))
+    applied = AllElim(loc, applied, ResolvedVar(loc, None, [x]), (i, arity))
   use_helper = ModusPonens(loc, applied, PVar(loc, final_deriv_label))
 
   pred_h_expanded = ApplyDefsFact(loc, [pred_var(loc)],
@@ -3358,34 +3355,34 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
   sub_deriv_names = [p.sub_deriv_name for p in rt.recursive_premises]
 
   pat_param_names = list(bound_var_names) + list(sub_deriv_names)
-  pattern = PatternCons(loc, Var(loc, None, constr_name, [constr_name]),
+  pattern = PatternCons(loc, ResolvedVar(loc, None, [constr_name]),
                         pat_param_names)
 
   case_ih_labels = [generate_name('IH') for _ in rt.recursive_premises]
   ind_hyps = []
   for ih_label, p in zip(case_ih_labels, rt.recursive_premises):
     ih_m_names = [generate_name('m') for _ in range(arity)]
-    ih_m_vars = [Var(loc, None, m, [m]) for m in ih_m_names]
+    ih_m_vars = [ResolvedVar(loc, None, [m]) for m in ih_m_names]
     ih_validator = Call(
       loc, BoolType(loc), is_deriv_var(loc),
-      [Var(loc, None, p.sub_deriv_name, [p.sub_deriv_name])] + ih_m_vars)
+      [ResolvedVar(loc, None, [p.sub_deriv_name])] + ih_m_vars)
     ih_inner = IfThen(loc, BoolType(loc), ih_validator,
                       apply_motive(ih_m_vars))
     ih_inner = wrap_alls(ih_inner, list(zip(ih_m_names, param_types)))
     ind_hyps.append((ih_label, ih_inner))
 
   m_names = [generate_name('m') for _ in range(arity)]
-  m_vars = [Var(loc, None, m, [m]) for m in m_names]
+  m_vars = [ResolvedVar(loc, None, [m]) for m in m_names]
   m_pairs = list(zip(m_names, param_types))
 
-  constr_args = [Var(loc, None, n, [n]) for n in bound_var_names] + \
-                [Var(loc, None, n, [n]) for n in sub_deriv_names]
+  constr_args = [ResolvedVar(loc, None, [n]) for n in bound_var_names] + \
+                [ResolvedVar(loc, None, [n]) for n in sub_deriv_names]
   if constr_args:
     constr_term = Call(loc, None,
-                       Var(loc, None, constr_name, [constr_name]),
+                       ResolvedVar(loc, None, [constr_name]),
                        constr_args)
   else:
-    constr_term = Var(loc, None, constr_name, [constr_name])
+    constr_term = ResolvedVar(loc, None, [constr_name])
 
   dh_label = generate_name('dh')
   dh_formula = Call(loc, BoolType(loc), is_deriv_var(loc),
@@ -3442,7 +3439,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
   n_bound = len(rt.bound_vars)
   for i, (bv, _) in enumerate(rt.bound_vars):
     applied = AllElim(loc, applied,
-                      Var(loc, None, bv, [bv]), (i, n_bound))
+                      ResolvedVar(loc, None, [bv]), (i, n_bound))
 
   # Build the augmented-premise tuple (in original order):
   #   for each premise atom (orig_idx in rt.premises):
@@ -3462,7 +3459,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
         atom_proof = ApplyDefsGoal(
           loc, [pred_var(loc)],
           SomeIntro(loc,
-                    [Var(loc, None, p_info.sub_deriv_name,
+                    [ResolvedVar(loc, None,
                          [p_info.sub_deriv_name])],
                     validator_proof))
         augmented_proof_parts.append(atom_proof)
@@ -3516,14 +3513,14 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
   clauses = []
   for (m_var, c) in zip(m_vars, rt.conclusion_args):
     clauses.append(Call(loc, BoolType(loc),
-                        Var(loc, None, '=', ['=']),
+                        ResolvedVar(loc, None, ['=']),
                         [m_var, c.copy()]))
   for p in rt.non_recursive_premises:
     clauses.append(p.atom.copy())
   for p in rt.recursive_premises:
     clauses.append(Call(
       loc, BoolType(loc), is_deriv_var(loc),
-      [Var(loc, None, p.sub_deriv_name, [p.sub_deriv_name])] +
+      [ResolvedVar(loc, None, [p.sub_deriv_name])] +
       [a.copy() for a in p.rec_args]))
   if not clauses:
     return Bool(loc, BoolType(loc), True)
@@ -3548,7 +3545,7 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
               "In rule '" + base_name(rule.name) + "'.")
       for a in args:
         _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
-    case Var(loc, _, name, rns):
+    case ResolvedVar(loc, _, rns):
       ref = rns[0] if rns else name
       if forbidden and ref == pred_name:
         error(loc,
@@ -3635,7 +3632,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl, decl.visibility)
-      union_type = Var(loc, None, name, [name])
+      union_type = ResolvedVar(loc, None, [name])
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
       # Infer per-parameter polarities first so check_strict_positivity (and
@@ -3645,7 +3642,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       for constr in alts:
         if len(constr.parameters) > 0:
           if len(typarams) > 0:
-            tyvars = [Var(loc, None, p, [p]) for p in typarams]
+            tyvars = [ResolvedVar(loc, None, [p]) for p in typarams]
             return_type = TypeInst(loc, body_union_type, tyvars)
           else:
             return_type = body_union_type
@@ -3895,7 +3892,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
     case RecFun(loc, name, typarams, params, returns, cases):
       # alpha rename the type parameters in the function's type
       new_typarams = [generate_name(t) for t in typarams]
-      sub = {x: Var(loc, None, y, [y]) for (x,y) in zip(typarams, new_typarams)}
+      sub = {x: ResolvedVar(loc, None, [y]) for (x,y) in zip(typarams, new_typarams)}
       new_params = [p.substitute(sub) for p in params]
       new_returns = returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
@@ -3928,7 +3925,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
                    body, terminates):
       # alpha rename the type parameters in the function's type
       new_typarams = [generate_name(t) for t in typarams]
-      sub = {x: Var(loc, None, y, [y]) for (x,y) in zip(typarams, new_typarams)}
+      sub = {x: ResolvedVar(loc, None, [y]) for (x,y) in zip(typarams, new_typarams)}
       new_params = [(x,p.substitute(sub)) for (x,p) in params]
       new_returns = returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_params],
@@ -4042,7 +4039,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
         error(loc, "Parameters in induction case didn't match parameters in conjunct")
       # TODO: This is really slapdash, it would be nice to know for the error message, for example, how many parameters the conjunct expects
       inst_name = case.pattern.parameters[param_i]
-      subst[inst_name]= Var(loc, ty, name, [name])
+      subst[inst_name]= ResolvedVar(loc, ty, [name])
       env = env.declare_term_var(loc, inst_name, ty)
       return AllIntro(loc, (inst_name, ty), (0, 1), 
                       generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1))
@@ -4141,7 +4138,7 @@ def match_induction_conjuncts(frm, fun, fun_ty, ind_ty):
       conjuncts = extract_conjuncts(prem, fun)
 
       expected_conc = All(loc, None, ('x', ind_ty), (0, 1),
-                       Call(loc, fun_ty, Var(loc, None, fun, []), [Var(loc, None, 'x', [])]))
+                       Call(loc, fun_ty, ResolvedVar(loc, None, [fun]), [ResolvedVar(loc, None, ['x'])]))
 
       match conc:
         case All(_, typeof, (name, ty), pos, Call(loc, tyof, rator, [arg])) \
@@ -4230,11 +4227,11 @@ def collect_env(stmt, env : Env):
       # Example proof of associativity:
       # all U :type. all xs :List<U>, ys :List<U>, zs:List<U>. (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
       m_name = generate_name("m")
-      m_var = Var(loc, typ, m_name, [m_name])
+      m_var = ResolvedVar(loc, typ, [m_name])
       n_name = generate_name("n")
-      n_var = Var(loc, typ, n_name, [n_name])
+      n_var = ResolvedVar(loc, typ, [n_name])
       o_name = generate_name("o")
-      o_var = Var(loc, typ, o_name, [o_name])
+      o_var = ResolvedVar(loc, typ, [o_name])
       def makeOp(left, right):
           return Call(loc, typ, op, [left,right])
       assoc_formula = mkEqual(loc, makeOp(makeOp(m_var, n_var), o_var),
@@ -4298,7 +4295,7 @@ def find_rec_calls(name, term, env):
   match term:
     case TermInst(loc2, tyof, subject, tyargs, inferred):
       return find_rec_calls(name, subject, env)
-    case Var(loc2, tyof, name, resolved_names):
+    case ResolvedVar(loc2, tyof, resolved_names):
       return []
     case Bool(loc2, tyof, val):
       return []
@@ -4405,7 +4402,7 @@ def check_proofs(stmt, env: Env):
         rhs = measure.copy()
         #less = env.base_to_unique('<') # This doesn't work!
         less_ovlds = env.base_to_overloads('<')
-        less = Var(loc, None, '<', less_ovlds)
+        less = ResolvedVar(loc, None, less_ovlds)
         less_frm = Call(loc, None, less, [lhs,rhs])
         condition = And(loc, None, call.conditions) \
             if len(call.conditions) > 0 else None
@@ -4452,7 +4449,7 @@ def check_proofs(stmt, env: Env):
       
     case Assert(loc, frm):
       match frm:
-        case Call(loc2, tyof2, Var(loc3, tyof3, '=', rs3), [lhs, rhs]):
+        case Call(loc2, tyof2, ResolvedVar(loc3, tyof3, rs3), [lhs, rhs]):
           set_reduce_all(True)
           set_eval_all(True)
           L = lhs.reduce(env)

@@ -197,7 +197,7 @@ def parse_term_hi():
   elif token.type == 'NAT' or token.value == '0':
     advance()
     meta = meta_from_tokens(token,token)
-    return Call(meta, None, Var(meta, None, 'lit', None),
+    return Call(meta, None, Var(meta, None, 'lit'),
                 [intToNat(meta, int(token.value[1:]))])
 
   elif token.type == 'PLUS':
@@ -299,13 +299,13 @@ def parse_term_hi():
     advance()
     subject = parse_call()
     meta = meta_from_tokens(token, previous_token())
-    return Call(meta, None, Var(meta, None, '-', []), [subject])
+    return Call(meta, None, Var(meta, None, '-'), [subject])
 
   elif token.value == '∸':
     advance()
     subject = parse_call()
     meta = meta_from_tokens(token, previous_token())
-    return Call(meta, None, Var(meta, None, '∸', []), [subject])
+    return Call(meta, None, Var(meta, None, '∸'), [subject])
 
   elif token.type == 'NOT':
     advance()
@@ -1657,7 +1657,7 @@ def parse_statement():
     
     typ = parse_type()
     meta = meta_from_tokens(token, previous_token())
-    return Associative(meta, typarams, Var(meta, None, name, []), typ)
+    return Associative(meta, typarams, Var(meta, None, name), typ)
 
   elif token.type == 'INDUCTIVE':
     start = current_token()
@@ -1680,7 +1680,7 @@ def parse_statement():
     fun = parse_identifier()
     my_meta = meta_from_tokens(token, previous_token())
     var_meta = meta_from_tokens(previous_token(), previous_token())
-    return Trace(my_meta, Var(var_meta, None, fun, []))
+    return Trace(my_meta, Var(var_meta, None, fun))
 
   else:
     for kw in statement_keywords:
@@ -1837,7 +1837,7 @@ def parse_constructor_pattern():
   return PatternCons(meta_from_tokens(start_token, previous_token()),
                      Var(meta_from_tokens(start_token,
                                           start_token),
-                         None, constr_name, []),
+                         None, constr_name),
                      ident_list)
     
 
@@ -1845,12 +1845,12 @@ def parse_pattern():
   if current_token().value == '0':
     advance()
     meta = meta_from_tokens(current_token(), current_token())
-    return PatternCons(meta, Var(meta, None, 'zero', []), [])
+    return PatternCons(meta, Var(meta, None, 'zero'), [])
   if current_token().type == 'LSQB' and next_token().type == 'RSQB':
     advance()
     advance()
     meta = meta_from_tokens(current_token(), current_token())
-    return PatternCons(meta, Var(meta, None, 'empty', []), [])
+    return PatternCons(meta, Var(meta, None, 'empty'), [])
   elif current_token().type == 'TRUE':
     advance()
     meta = meta_from_tokens(current_token(), current_token())
@@ -1980,7 +1980,7 @@ def parse_fun_case():
     consume_token('EQUAL', '"=" and then a term',)
     body = parse_term()
     meta = meta_from_tokens(start_token, previous_token())
-    return FunCase(meta, Var(rator_meta, None, rator, []),
+    return FunCase(meta, Var(rator_meta, None, rator),
                    pat_list[0], pat_list[1:], body)
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()), while_parsing)
