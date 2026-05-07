@@ -219,6 +219,94 @@ def test_did_save_re_runs_diagnostics(server, open_doc):
     assert server.published[uri] == []
 
 
+def test_did_change_re_runs_diagnostics(server, open_doc):
+    """`on_did_change' republishes diagnostics so the underline
+    tracks the buffer's `?` location after a refactor edit."""
+    # Open with a hole present -> diagnostic published on didOpen.
+    src1 = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("didchange.pf", src1)
+    open_params = lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri,
+            language_id="deduce",
+            version=1,
+            text=src1,
+        )
+    )
+    lsp_server.on_did_open(server, open_params)
+    assert len(server.published[uri]) == 1
+    initial_line = server.published[uri][0].range.start.line  # `?` on
+    #  0-indexed line 2.
+    assert initial_line == 2
+
+    # Simulate a refactor edit: replace the `?` with an
+    # `arbitrary P:bool\n  ?` skeleton.  The new `?` is now on line
+    # 4 (0-indexed line 3).
+    src2 = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    server.workspace.update_document(uri, src2)
+
+    change_params = lsp_types.DidChangeTextDocumentParams(
+        text_document=lsp_types.VersionedTextDocumentIdentifier(
+            uri=uri, version=2
+        ),
+        content_changes=[],  # pygls already applied; we drive the handler
+    )
+    lsp_server.on_did_change(server, change_params)
+
+    # Diagnostic re-published; the new range follows the new `?`.
+    assert len(server.published[uri]) == 1
+    new_line = server.published[uri][0].range.start.line
+    assert new_line == 3, (
+        f"diagnostic line should follow the new `?` (line 3, 0-indexed); "
+        f"got {new_line}"
+    )
+
+
+def test_did_change_clears_diagnostics_when_proof_completes(
+    server, open_doc
+):
+    """If the buffer change makes the proof valid, the
+    `on_did_change' re-publish clears the previously-published
+    diagnostic."""
+    src_with_hole = "theorem t: true\nproof\n  ?\nend\n"
+    _, uri = open_doc("complete.pf", src_with_hole)
+    open_params = lsp_types.DidOpenTextDocumentParams(
+        text_document=lsp_types.TextDocumentItem(
+            uri=uri,
+            language_id="deduce",
+            version=1,
+            text=src_with_hole,
+        )
+    )
+    lsp_server.on_did_open(server, open_params)
+    assert len(server.published[uri]) == 1
+
+    # Replace `?` with `.` -- now the proof validates.
+    server.workspace.update_document(
+        uri, "theorem t: true\nproof\n  .\nend\n"
+    )
+    change_params = lsp_types.DidChangeTextDocumentParams(
+        text_document=lsp_types.VersionedTextDocumentIdentifier(
+            uri=uri, version=2
+        ),
+        content_changes=[],
+    )
+    lsp_server.on_did_change(server, change_params)
+
+    assert server.published[uri] == []
+
+
 def test_did_close_clears_diagnostics(server, open_doc):
     _, uri = open_doc("close.pf", "theorem t: true\nproof\n  .\nend\n")
     # Pretend a previous run had stored some diagnostics.

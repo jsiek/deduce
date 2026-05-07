@@ -262,12 +262,24 @@ def on_did_save(
 def on_did_change(
     ls: LanguageServer, params: lsp_types.DidChangeTextDocumentParams
 ) -> None:
-    """Buffer is updated by pygls automatically; we deliberately do
-    not re-run check on every keystroke. Diagnostics refresh on save.
+    """Re-publish diagnostics so the underline tracks the buffer.
+
+    pygls updates the workspace document content automatically before
+    invoking this handler.  We then re-run ``check`` and republish so
+    the editor's flymake/diagnostic underline moves to the new
+    location of any ``?`` (or clears if the proof is now complete) --
+    otherwise the underline stays pinned to the pre-edit `?` position
+    and the user can't tell at a glance which hole still needs work.
+
+    Trade-off: this fires on every didChange, including ones from
+    ordinary typing.  Eglot debounces typing-driven didChanges via
+    ``eglot-send-changes-idle-time`` (default 0.5s), so the cost is
+    one ``check`` per pause-while-typing rather than per-keystroke.
+    For typical proof files that's tolerable.  Step 12 of
+    ``docs/lsp-plan.md`` (per-statement caching) is the proper
+    long-term answer if this turns out to be too slow.
     """
-    # No-op beyond the implicit buffer update. Step 12 (per-statement
-    # caching) is what makes per-keystroke checks cheap enough; until
-    # then the goal-at-cursor request is the per-keystroke contract.
+    _publish_diagnostics(ls, params.text_document.uri)
 
 
 @server.feature(lsp_types.TEXT_DOCUMENT_DID_CLOSE)
