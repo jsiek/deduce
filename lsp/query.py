@@ -877,7 +877,8 @@ def _refine_template(formula, env) -> Optional[str]:
         case And(_, _, args):
             return ", ".join(["?"] * len(args))
         case IfThen(_, _, prem, _conc):
-            return f"assume H: {prem}\n?"
+            label = _fresh_assume_label(env)
+            return f"assume {label}: {prem}\n?"
         case All(_, _, var, _, _body):
             x, ty = var
             return f"arbitrary {base_name(x)}:{ty}\n?"
@@ -895,3 +896,29 @@ def _refine_template(formula, env) -> Optional[str]:
                 return None
             return None
     return None
+
+
+def _fresh_assume_label(env) -> str:
+    """Return the lowest ``H<N>`` (N >= 1) not already bound in ``env``.
+
+    Successive ``assume H1: ...``, ``assume H2: ...`` invocations
+    keep climbing rather than collide -- otherwise repeatedly
+    refining nested implications produces several ``assume H: ...``
+    lines in a row, which Deduce accepts (with a warning) but
+    confuses any subsequent proof step that names the hypothesis.
+
+    Checks against the *base* names in ``env.dict`` so we look at
+    pre-uniquification source-level identifiers, not the post-
+    uniquify ``foo.42`` form. Falls back to ``"H1"`` when ``env``
+    is None (the `IfThen` case is reachable today only via the
+    `IncompleteProof` exception, so ``env`` is always non-None in
+    practice; the guard is for defensive composition).
+    """
+    if env is None:
+        return "H1"
+    from abstract_syntax import base_name
+    used_bases = {base_name(k) for k in env.dict.keys()}
+    n = 1
+    while f"H{n}" in used_bases:
+        n += 1
+    return f"H{n}"
