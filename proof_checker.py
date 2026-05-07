@@ -1046,7 +1046,8 @@ def check_proof_of(proof, formula, env):
       incomplete_error(loc, 'incomplete proof\n' \
                        + 'Goal:\n\t' + str(new_formula) + '\n'\
                        + proof_advice(new_formula, env) \
-                       + givens_str(env))
+                       + givens_str(env),
+                       formula=new_formula, env=env)
 
     case PSorry(loc):
       warning(loc, 'unfinished proof')

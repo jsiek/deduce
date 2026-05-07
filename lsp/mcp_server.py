@@ -200,6 +200,30 @@ def definition_of(path: str, line: int, column: int) -> Optional[dict]:
 
 
 @mcp.tool()
+def refine_at(path: str, line: int, column: int) -> Optional[dict]:
+    """Propose a refinement template for the hole at ``line``:``column``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    Returns ``None`` when the cursor isn't on a hole, the file has no
+    incomplete proof at that hole, or the goal shape isn't supported.
+    Otherwise returns a ``{path, range, new_text}`` dict describing
+    the edit to apply.
+
+    Templates by goal shape:
+    - ``true`` -> ``.``
+    - ``P and Q [and R...]`` -> ``?, ?[, ?...]``
+    - ``if P then Q`` -> ``assume H: P\\n?``
+    - ``all x:T. body`` -> ``arbitrary x:T\\n?``
+    - ``some x:T. body`` -> ``choose ?\\n?``
+    - reducible ``e1 = e2`` -> ``reflexive``
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    edit = query.refine_at(path, content, pos, prelude=_prelude_for(path))
+    return _to_serializable(edit)
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

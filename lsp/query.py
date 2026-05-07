@@ -57,11 +57,13 @@ __all__ = [
     "Given",
     "Goal",
     "SymbolInfo",
+    "WorkspaceEdit",
     # Query functions
     "check",
     "goal_at",
     "definition_of",
     "list_symbols",
+    "refine_at",
 ]
 
 
@@ -160,6 +162,28 @@ class Goal:
     formula: str
     givens: tuple
     range: Range
+
+
+@dataclass(frozen=True)
+class WorkspaceEdit:
+    """A single textual edit to apply to a file.
+
+    Adapters map this to their wire-format equivalents:
+
+    - LSP wraps it in ``WorkspaceEdit`` / ``TextDocumentEdit`` /
+      ``TextEdit`` and exposes it via ``textDocument/codeAction``.
+    - MCP returns the dict ``{path, range, new_text}`` as a tool
+      result; the agent applies it through its own edit tooling.
+
+    The semantics are "replace ``range`` with ``new_text``". Multi-
+    file edits and file creates/renames aren't represented here --
+    the Phase-4 refactoring operations in this module all return a
+    single-file, single-range edit, so a flat shape is enough.
+    """
+
+    path: str
+    range: Range
+    new_text: str
 
 
 @dataclass(frozen=True)
@@ -730,3 +754,144 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
         location=location,
         signature=signature,
     )
+
+
+# ---------------------------------------------------------------------------
+# refine_at -- Phase 4 / Step 15: hole refine
+# ---------------------------------------------------------------------------
+#
+# Given a cursor on a `?` token, return a WorkspaceEdit that replaces
+# the hole with a tactic skeleton chosen from the goal's shape. The
+# adapters expose this as a code action (LSP) and as an MCP tool.
+#
+# Mechanism: the source already has a `?`, so re-running ``check_file``
+# raises ``IncompleteProof`` at that hole. ``proof_checker.py`` stashes
+# the goal AST and the type-checking env on the exception
+# (``incomplete_error(..., formula=, env=)``), which we read here to
+# select the template -- string-based shape detection isn't expressive
+# enough for the reducible-equality case (``e1.reduce(env) ==
+# e2.reduce(env)``).
+#
+# Limitation (v1): in a multi-theorem file with earlier `?`s, the
+# checker raises on the first hole encountered; the goal returned may
+# not be for the cursor's hole. The same limitation applies to
+# ``goal_at``; both will lift it together when the pipeline gains
+# per-hole goal extraction.
+
+
+def refine_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> Optional[WorkspaceEdit]:
+    """Propose a refinement template for the hole at ``pos``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token
+    in the source. The template is selected based on the goal's shape:
+
+    - ``true`` -> ``.``
+    - ``P and Q [and R...]`` -> ``?, ?[, ?...]``
+    - ``if P then Q`` -> ``assume H: P\\n?``
+    - ``all x:T. body`` -> ``arbitrary x:T\\n?`` (one quantifier per
+      invocation; nested quantifiers are refined in further steps)
+    - ``some x:T. body`` -> ``choose ?\\n?``
+    - reducible ``e1 = e2`` -> ``reflexive``
+
+    Returns ``None`` when the cursor is not on a ``?``, when the file
+    does not raise at a hole, or when the goal shape is not in the
+    list above.
+
+    ``prelude`` matches the meaning in :func:`check`.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    formula = getattr(exc, "formula", None)
+    env = getattr(exc, "env", None)
+    if formula is None:
+        return None
+
+    template = _refine_template(formula, env)
+    if template is None:
+        return None
+
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def _find_hole_at(content: str, pos: Position) -> Optional[Range]:
+    """Return the source range of a ``?`` token at or adjacent to ``pos``.
+
+    Tries the cursor offset itself, then one position to the left
+    (cursor sits just after the ``?``). Returns ``None`` when neither
+    matches.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return None
+    for try_off in (offset, offset - 1):
+        if 0 <= try_off < len(content) and content[try_off] == "?":
+            return _char_range_at(content, try_off)
+    return None
+
+
+def _char_range_at(content: str, offset: int) -> Range:
+    """Return the 1-indexed Range covering exactly the character at ``offset``."""
+    line, col = _offset_to_line_col(content, offset)
+    return Range(
+        start=Position(line=line, column=col),
+        end=Position(line=line, column=col + 1),
+    )
+
+
+def _offset_to_line_col(content: str, offset: int) -> tuple:
+    """Inverse of ``_line_col_to_offset``: 0-indexed offset to 1-indexed (line, col)."""
+    line = 1
+    line_start = 0
+    for i in range(offset):
+        if content[i] == "\n":
+            line += 1
+            line_start = i + 1
+    return (line, offset - line_start + 1)
+
+
+def _refine_template(formula, env) -> Optional[str]:
+    """Select a refinement template based on the goal AST.
+
+    Imports the AST node classes lazily so this module's import-time
+    cost stays minimal -- the same pattern the rest of ``query.py``
+    uses for pipeline-level imports.
+    """
+    from abstract_syntax import (
+        All, And, Bool, Call, IfThen, Some, Var, base_name,
+    )
+
+    match formula:
+        case Bool(_, _, True):
+            return "."
+        case And(_, _, args):
+            return ", ".join(["?"] * len(args))
+        case IfThen(_, _, prem, _conc):
+            return f"assume H: {prem}\n?"
+        case All(_, _, var, _, _body):
+            x, ty = var
+            return f"arbitrary {base_name(x)}:{ty}\n?"
+        case Some(_, _, vars, _body):
+            choices = ", ".join("?" for _ in vars)
+            return f"choose {choices}\n?"
+        case Call(_, _, Var(_, _, "=", _), [lhs, rhs]) if env is not None:
+            try:
+                if lhs.reduce(env) == rhs.reduce(env):
+                    return "reflexive"
+            except Exception:
+                # If reduction fails (e.g. a malformed env after a
+                # mid-check error), don't crash the editor request --
+                # just report "no template".
+                return None
+            return None
+    return None

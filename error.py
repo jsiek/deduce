@@ -72,11 +72,16 @@ def error(location, msg):
 class IncompleteProof(Exception):
   pass
 
-def incomplete_error(location, msg):
+def incomplete_error(location, msg, *, formula=None, env=None):
   exc = IncompleteProof(error_header(location) + msg)
   exc.depth = 0
   exc.location = location
   exc.message_body = msg
+  # Optional structured fields for the LSP/MCP refine pipeline:
+  # the goal AST and the type-checking env at the hole. The CLI
+  # ignores these; print(str(exc)) output is unchanged.
+  exc.formula = formula
+  exc.env = env
   raise exc
 
 def warning(location, msg):

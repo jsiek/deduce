@@ -37,10 +37,12 @@ from lsp.query import (  # noqa: E402
     Severity,
     SymbolInfo,
     SymbolKind,
+    WorkspaceEdit,
     check,
     definition_of,
     goal_at,
     list_symbols,
+    refine_at,
 )
 
 
@@ -59,10 +61,12 @@ EXPECTED_PUBLIC = {
     "Given",
     "Goal",
     "SymbolInfo",
+    "WorkspaceEdit",
     "check",
     "goal_at",
     "definition_of",
     "list_symbols",
+    "refine_at",
 }
 
 
@@ -92,7 +96,8 @@ def test_no_protocol_imports():
 
 @pytest.mark.parametrize(
     "cls",
-    [Position, Range, Location, Diagnostic, Given, Goal, SymbolInfo],
+    [Position, Range, Location, Diagnostic, Given, Goal, SymbolInfo,
+     WorkspaceEdit],
 )
 def test_dataclasses_are_frozen(cls):
     """All public data types must be frozen so callers can't mutate
@@ -177,11 +182,19 @@ def test_list_symbols_signature():
     )
 
 
+def test_refine_at_signature():
+    _check_sig(
+        refine_at,
+        ["path", "content", "pos", "prelude"],
+        Optional[WorkspaceEdit],
+    )
+
+
 def test_prelude_param_has_default():
     """``prelude`` is optional on every query function so existing
     Step 3-5 callers (which pass ``path`` and ``content`` only)
     keep working."""
-    for func in (check, goal_at, definition_of, list_symbols):
+    for func in (check, goal_at, definition_of, list_symbols, refine_at):
         prelude_param = inspect.signature(func).parameters["prelude"]
         assert prelude_param.default == (), (
             f"{func.__name__}.prelude default drifted: "
@@ -191,4 +204,5 @@ def test_prelude_param_has_default():
 
 # All Phase 1 query functions are now implemented; their acceptance
 # tests live in test_check.py (Step 3), test_goal_at.py (Step 4), and
-# test_symbols.py (Step 5).
+# test_symbols.py (Step 5). The Phase 4 / Step 15 ``refine_at``
+# acceptance tests live in test_refine.py.

@@ -339,6 +339,53 @@ def _get_field(obj, name):
     return getattr(obj, name, None)
 
 
+@server.feature(
+    lsp_types.TEXT_DOCUMENT_CODE_ACTION,
+    lsp_types.CodeActionOptions(
+        code_action_kinds=[lsp_types.CodeActionKind.RefactorRewrite],
+    ),
+)
+def on_code_action(
+    ls: LanguageServer, params: lsp_types.CodeActionParams
+) -> list[lsp_types.CodeAction]:
+    """Surface Phase-4 structured edits as refactor.rewrite actions.
+
+    Today: just the hole-refine action (Step 15). When the cursor sits
+    on a ``?`` and the goal has a recognised shape, the action's
+    ``edit`` field carries a single-file ``WorkspaceEdit`` that the
+    client applies on selection.
+
+    The action is silently absent when ``refine_at`` returns ``None``
+    -- the client (eglot, VS Code) will then offer no rewrite, which
+    matches the LSP convention of "no action available."
+    """
+    uri = params.text_document.uri
+    content = _document_content(ls, uri)
+    if content is None:
+        return []
+    path = _path_from_uri(uri)
+    pos = _query_pos_from_lsp(params.range.start)
+
+    edit = _query.refine_at(path, content, pos, prelude=_prelude_for(path))
+    if edit is None:
+        return []
+
+    text_edit = lsp_types.TextEdit(
+        range=_lsp_range_from_query(edit.range),
+        new_text=edit.new_text,
+    )
+    workspace_edit = lsp_types.WorkspaceEdit(
+        changes={uri: [text_edit]},
+    )
+    return [
+        lsp_types.CodeAction(
+            title="Refine hole",
+            kind=lsp_types.CodeActionKind.RefactorRewrite,
+            edit=workspace_edit,
+        )
+    ]
+
+
 @server.feature(GOAL_AT_REQUEST)
 def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
     """Custom request: return the proof goal at a cursor position.

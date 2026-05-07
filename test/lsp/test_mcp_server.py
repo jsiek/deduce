@@ -85,7 +85,7 @@ async def _call(server, name: str, arguments: dict) -> Any:
 
 
 @pytest.mark.anyio
-async def test_all_four_tools_are_registered(server):
+async def test_all_tools_are_registered(server):
     async with create_connected_server_and_client_session(
         server._mcp_server
     ) as session:
@@ -97,6 +97,7 @@ async def test_all_four_tools_are_registered(server):
             "goal_at",
             "definition_of",
             "list_symbols",
+            "refine_at",
         }
 
 
@@ -249,6 +250,56 @@ async def test_list_symbols_returns_each_top_level_decl(server, tmp_path):
     assert by_name["t1"]["kind"] == "theorem"
     assert by_name["X"]["kind"] == "define"
     assert by_name["Color"]["kind"] == "union"
+
+
+# --------------------------------------------------------------------------
+# refine_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_refine_at_returns_workspace_edit(server, tmp_path):
+    """Cursor on a `?` whose goal is `P = P` -> reflexive template."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "refine.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "refine_at",
+        {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload is not None
+    assert payload["path"] == str(fp)
+    assert payload["new_text"] == "reflexive"
+    assert payload["range"]["start"] == {"line": 4, "column": 3}
+    assert payload["range"]["end"] == {"line": 4, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_refine_at_returns_null_when_cursor_not_on_hole(
+    server, tmp_path
+):
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    fp = tmp_path / "complete.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "refine_at",
+        {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload is None
 
 
 # --------------------------------------------------------------------------
