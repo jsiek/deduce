@@ -35,9 +35,9 @@
 ;;   M-x imenu                  outline of top-level decls (documentSymbol)
 ;;
 ;; Step 5 adds `C-c C-g' for the custom `deduce/goalAt' request.
-;; Step 6 adds Phase-4 keybindings: `C-c C-r' (refine, Step 15) is
-;; live; `C-c C-c' (case split, Step 16) and `C-c C-i' (induction,
-;; Step 17) follow when those server operations land.
+;; Step 6 adds Phase-4 keybindings: `C-c C-r' (refine, LSP Step 15)
+;; and `C-c C-c' (case split, LSP Step 16) are live; `C-c C-i'
+;; (induction, Step 17) follows when that server operation lands.
 ;;
 ;; Server command
 ;; --------------
@@ -275,22 +275,23 @@ is running in the current buffer."
 
 
 ;; ---------------------------------------------------------------------
-;; Refine hole (Step 6 -- partial; Phase-4 / LSP Step 15)
+;; Phase-4 structured edits (Step 6 -- partial)
 ;; ---------------------------------------------------------------------
 ;;
-;; Bypasses `eglot-code-actions' (which prompts for an action kind and
-;; then for the action itself) by issuing the
-;; `textDocument/codeAction' request directly with a kind filter, then
-;; applying the first matching CodeAction's WorkspaceEdit without a
-;; picker.  One keystroke per refine -- the speed difference matters
-;; in interactive proof editing.
+;; Each binding here issues a `textDocument/codeAction' request and
+;; picks the action whose `:title' matches a fixed string -- bypassing
+;; `eglot-code-actions' (which prompts for an action kind and then for
+;; the action itself).  One keystroke per operation; the speed
+;; difference matters in interactive proof editing.
 ;;
-;; Today the Deduce LSP only emits one `refactor.rewrite' action
-;; ("Refine hole").  When Steps 16/17 land (case split, induction
-;; skeleton) they'll add more refactor.rewrite actions; at that point
-;; this command will need a picker after all, OR we'll split the
-;; bindings: `C-c C-r' for refine, `C-c C-c' for case split, `C-c C-i'
-;; for induction.  The plan picks the latter.
+;; Live bindings (LSP Steps 15-16):
+;;   `C-c C-r'  Refine hole       -- title "Refine hole"  (Step 15)
+;;   `C-c C-c'  Case split        -- title "Case split"   (Step 16)
+;;
+;; Step 17 (induction skeleton) will land as `C-c C-i' once the
+;; server's induction_skeleton_at operation is available.  The pattern
+;; is the same: another defun calling
+;; `deduce-lsp--apply-code-action-by-title'.
 
 (defun deduce-lsp--lsp-pos-to-point (line character)
   "Convert LSP 0-indexed (LINE, CHARACTER) to a point in the current buffer.
@@ -362,19 +363,15 @@ Step 15, so order doesn't matter yet."
     (mapc #'deduce-lsp--apply-text-edit (reverse (append edits nil)))))
 
 
-(defun deduce-lsp-refine-hole ()
-  "Apply the LSP-suggested refinement for the hole at point.
+(defun deduce-lsp--find-action-by-title (title)
+  "Send `textDocument/codeAction' at point, return the action plist
+whose `:title' equals TITLE, or nil if no such action is offered.
 
-Issues a `textDocument/codeAction' request filtered to the
-`refactor.rewrite' kind, applies the first matching action's
-WorkspaceEdit directly, and skips the action picker.  This is
-the fast path for the keybinding.
+Errors out when no eglot server is active in the current buffer
+-- the codeAction request needs a server to run against.
 
-When the cursor isn't on a hole (or the goal shape isn't
-recognised by the server), errors with `No refinement available
-at point.'  When no eglot connection is active, prompts the user
-to run `M-x eglot' first."
-  (interactive)
+This is the shared building block for the Phase-4 keybindings;
+each command wraps it with its own \"not available\" message."
   (let ((server (eglot-current-server)))
     (unless server
       (user-error
@@ -383,18 +380,58 @@ to run `M-x eglot' first."
            (params (list :textDocument (list :uri (deduce-lsp--current-uri))
                          :range (list :start pos :end pos)
                          :context (list :diagnostics [])))
-           (actions (jsonrpc-request server :textDocument/codeAction params)))
-      ;; The server returns either a vector or nil.  Normalise to a
-      ;; list so we can use plain seq operations.
-      (let ((action-list (if (vectorp actions) (append actions nil) actions)))
-        (unless action-list
-          (user-error "No refinement available at point"))
-        (deduce-lsp--apply-code-action (car action-list))))))
+           (actions (jsonrpc-request server :textDocument/codeAction params))
+           ;; The server returns either a vector or nil; normalise.
+           (action-list (if (vectorp actions) (append actions nil) actions)))
+      (seq-find
+       (lambda (a) (equal (plist-get a :title) title))
+       action-list))))
 
 
-;; Bind `C-c C-r' in `deduce-mode-map' for refine-at-point.  Same
-;; rationale as `C-c C-g': only meaningful when LSP is loaded.
+(defun deduce-lsp-refine-hole ()
+  "Apply the LSP-suggested refinement for the hole at point.
+
+Issues a `textDocument/codeAction' request and picks the action
+titled \"Refine hole\" -- the LSP server's Step-15 output.  The
+matching action's WorkspaceEdit is applied directly, skipping the
+action picker.  This is the fast path for the keybinding.
+
+When the cursor isn't on a hole (or the goal shape isn't
+recognised by the server), errors with `No refinement available
+at point.'  When no eglot connection is active, prompts the user
+to run `M-x eglot' first."
+  (interactive)
+  (let ((action (deduce-lsp--find-action-by-title "Refine hole")))
+    (unless action
+      (user-error "No refinement available at point"))
+    (deduce-lsp--apply-code-action action)))
+
+
+(defun deduce-lsp-case-split ()
+  "Apply the LSP-suggested case split for the variable at point.
+
+Issues a `textDocument/codeAction' request and picks the action
+titled \"Case split\" -- the LSP server's Step-16 output.  The
+matching action's WorkspaceEdit replaces the next `?' in the
+surrounding proof body with a `switch' (term-level Union) or
+`cases' (proof-level disjunction) skeleton.
+
+When the cursor isn't on a variable whose shape supports case
+splitting -- or no `?' follows it in the proof body -- errors
+with `No case split available at point.'  When no eglot
+connection is active, prompts the user to run `M-x eglot' first."
+  (interactive)
+  (let ((action (deduce-lsp--find-action-by-title "Case split")))
+    (unless action
+      (user-error "No case split available at point"))
+    (deduce-lsp--apply-code-action action)))
+
+
+;; Bind `C-c C-r' (refine) and `C-c C-c' (case split) in
+;; `deduce-mode-map'.  Same rationale as `C-c C-g': only meaningful
+;; when LSP is loaded.
 (define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
+(define-key deduce-mode-map (kbd "C-c C-c") #'deduce-lsp-case-split)
 
 
 (provide 'deduce-lsp)
