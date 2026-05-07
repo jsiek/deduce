@@ -73,6 +73,7 @@
 (defvar eglot-server-programs)
 (declare-function eglot-ensure "eglot")
 (declare-function eglot-current-server "eglot")
+(declare-function eglot--signal-textDocument/didChange "eglot")
 
 
 (defgroup deduce-lsp nil
@@ -210,6 +211,27 @@ LSP positions are 0-indexed (line and character)."
         :character (current-column)))
 
 
+(defun deduce-lsp--request (server method params)
+  "Issue an LSP request to SERVER, flushing pending didChange first.
+
+`jsonrpc-request' on its own races with eglot's didChange
+debouncing.  Eglot batches buffer changes into a
+`textDocument/didChange' notification fired on idle (after
+`eglot-send-changes-idle-time', default 0.5s).  When the user
+chains structured edits -- e.g. `C-c C-r' on a hole, then
+`C-c C-r' on the inserted hole right away -- the second request
+can reach the server before the didChange from the first edit
+has gone out, so the server runs against stale buffer content
+and returns the wrong (or no) edit.
+
+This helper sends the pending changes synchronously, then issues
+the JSON-RPC request.  Mirrors the pattern eglot's internal
+`eglot--request' uses: same private didChange flush, no
+behavioural difference vs. the always-saved case."
+  (eglot--signal-textDocument/didChange)
+  (jsonrpc-request server method params))
+
+
 (defun deduce-lsp--render-goal (response)
   "Pretty-print a `deduce/goalAt' RESPONSE into the current buffer.
 
@@ -263,7 +285,7 @@ is running in the current buffer."
     (let* ((params (list :textDocument
                          (list :uri (deduce-lsp--current-uri))
                          :position (deduce-lsp--current-position)))
-           (response (jsonrpc-request server :deduce/goalAt params)))
+           (response (deduce-lsp--request server :deduce/goalAt params)))
       (deduce-lsp--show-goal response))))
 
 
@@ -390,7 +412,7 @@ each command wraps it with its own \"not available\" message."
            (params (list :textDocument (list :uri (deduce-lsp--current-uri))
                          :range (list :start pos :end pos)
                          :context (list :diagnostics [])))
-           (actions (jsonrpc-request server :textDocument/codeAction params))
+           (actions (deduce-lsp--request server :textDocument/codeAction params))
            ;; The server returns either a vector or nil; normalise.
            (action-list (if (vectorp actions) (append actions nil) actions)))
       (seq-find
@@ -448,8 +470,8 @@ out without applying when the server returns null."
        (user-error
         "No eglot server active in this buffer; M-x eglot first"))
      (let* ((params (deduce-lsp--text-document-position))
-            (candidates (jsonrpc-request server :deduce/splittableVarsAt
-                                          params))
+            (candidates (deduce-lsp--request server :deduce/splittableVarsAt
+                                              params))
             (candidate-list (if (vectorp candidates)
                                 (append candidates nil)
                               candidates)))
@@ -463,7 +485,7 @@ out without applying when the server returns null."
        "No eglot server active in this buffer; M-x eglot first"))
     (let* ((params (append (deduce-lsp--text-document-position)
                            (list :variable variable)))
-           (edit (jsonrpc-request server :deduce/caseSplitAt params)))
+           (edit (deduce-lsp--request server :deduce/caseSplitAt params)))
       (unless edit
         (user-error
          "Server returned no edit for case split on %s" variable))
