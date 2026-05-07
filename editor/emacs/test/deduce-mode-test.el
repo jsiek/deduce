@@ -236,6 +236,159 @@ trailing characters: symbol boundaries protect against that."
                 'font-lock-comment-face))))
 
 
+;; ---------------------------------------------------------------------
+;; Step 3: indentation
+;; ---------------------------------------------------------------------
+
+(defun deduce-mode-test--reindent (input)
+  "Indent INPUT in a fresh `deduce-mode' buffer and return the
+result as a string.  Uses `indent-region' to walk every line
+top-to-bottom through `indent-line-function'."
+  (with-temp-buffer
+    (insert input)
+    (deduce-mode)
+    (let ((indent-tabs-mode nil))
+      (indent-region (point-min) (point-max)))
+    (buffer-string)))
+
+
+(ert-deftest deduce-mode/indent-simple-proof ()
+  "`proof' opens a block; `end' aligns with its `proof'."
+  (should (equal
+           (deduce-mode-test--reindent
+            "theorem t: true\nproof\n.\nend\n")
+           "theorem t: true\nproof\n  .\nend\n")))
+
+
+(ert-deftest deduce-mode/indent-proof-with-multiple-tactics ()
+  "Tactic lines inside `proof ... end' all sit at +offset."
+  (should (equal
+           (deduce-mode-test--reindent
+            (concat
+             "theorem t: all P:bool. P = P\n"
+             "proof\n"
+             "arbitrary P:bool\n"
+             "reflexive\n"
+             "end\n"))
+           (concat
+            "theorem t: all P:bool. P = P\n"
+            "proof\n"
+            "  arbitrary P:bool\n"
+            "  reflexive\n"
+            "end\n"))))
+
+
+(ert-deftest deduce-mode/indent-union-body ()
+  "`union ... { ... }' indents body by `deduce-mode-indent-offset'."
+  (should (equal
+           (deduce-mode-test--reindent
+            "union Color {\nRed\nBlue\n}\n")
+           "union Color {\n  Red\n  Blue\n}\n")))
+
+
+(ert-deftest deduce-mode/indent-recursive-body ()
+  (should (equal
+           (deduce-mode-test--reindent
+            "recursive add(Nat, Nat) -> Nat {\nadd(0, n) = n\n}\n")
+           "recursive add(Nat, Nat) -> Nat {\n  add(0, n) = n\n}\n")))
+
+
+(ert-deftest deduce-mode/indent-induction-cases ()
+  "Cases of `induction' / `switch' sit at the same indent as the
+keyword, and case bodies (after `case ... {') are nested one
+level deeper.  Closing `}' aligns with its `case ... {' line."
+  (should (equal
+           (deduce-mode-test--reindent
+            (concat
+             "theorem t: all n:Nat. n = n\n"
+             "proof\n"
+             "arbitrary n:Nat\n"
+             "induction Nat\n"
+             "case zero {\n"
+             ".\n"
+             "}\n"
+             "case suc(n') suppose IH {\n"
+             "?\n"
+             "}\n"
+             "end\n"))
+           (concat
+            "theorem t: all n:Nat. n = n\n"
+            "proof\n"
+            "  arbitrary n:Nat\n"
+            "  induction Nat\n"
+            "  case zero {\n"
+            "    .\n"
+            "  }\n"
+            "  case suc(n') suppose IH {\n"
+            "    ?\n"
+            "  }\n"
+            "end\n"))))
+
+
+(ert-deftest deduce-mode/indent-switch-inside-proof ()
+  "`switch x { ... }' inside a `proof' nests one extra level."
+  (should (equal
+           (deduce-mode-test--reindent
+            (concat
+             "theorem t: all b:bool. b or not b\n"
+             "proof\n"
+             "arbitrary b:bool\n"
+             "switch b {\n"
+             "case true { . }\n"
+             "case false { . }\n"
+             "}\n"
+             "end\n"))
+           (concat
+            "theorem t: all b:bool. b or not b\n"
+            "proof\n"
+            "  arbitrary b:bool\n"
+            "  switch b {\n"
+            "    case true { . }\n"
+            "    case false { . }\n"
+            "  }\n"
+            "end\n"))))
+
+
+(ert-deftest deduce-mode/indent-respects-blank-lines ()
+  "Blank lines between content shouldn't break the previous-line
+indent logic -- the helper skips them."
+  (should (equal
+           (deduce-mode-test--reindent
+            (concat
+             "theorem t: true\n"
+             "proof\n"
+             ".\n"
+             "\n"
+             "  // comment-only line\n"
+             ".\n"
+             "end\n"))
+           (concat
+            "theorem t: true\n"
+            "proof\n"
+            "  .\n"
+            "\n"
+            "  // comment-only line\n"
+            "  .\n"
+            "end\n"))))
+
+
+(ert-deftest deduce-mode/indent-leaves-already-correct-buffer-stable ()
+  "Re-indenting a correctly-indented buffer is idempotent."
+  (let ((correct
+         (concat
+          "theorem t: all P:bool. P = P\n"
+          "proof\n"
+          "  arbitrary P:bool\n"
+          "  reflexive\n"
+          "end\n"
+          "\n"
+          "union Color {\n"
+          "  Red\n"
+          "  Blue\n"
+          "}\n")))
+    (should (equal (deduce-mode-test--reindent correct) correct))))
+
+
 (provide 'deduce-mode-test)
 
 ;;; deduce-mode-test.el ends here

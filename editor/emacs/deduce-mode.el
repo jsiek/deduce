@@ -53,6 +53,157 @@
 ;; word-motion purposes.
 
 ;; ---------------------------------------------------------------------
+;; Indentation (Step 3)
+;; ---------------------------------------------------------------------
+;;
+;; A simple custom `indent-line-function' rather than SMIE.  Deduce's
+;; structure has two flavors of opener/closer:
+;;
+;;   * Bracket pairs: `{' / `}', `(' / `)', `[' / `]'.
+;;   * Keyword pair:  `proof' / `end'.
+;;
+;; Rules at TAB / RET on a line:
+;;
+;;   1. If the line starts with `end', find the matching `proof' by
+;;      depth-counting backward and align with `proof''s column.
+;;   2. If the line starts with `}', `)', or `]', use Emacs's syntax
+;;      engine (`backward-up-list') to find the opener's line and
+;;      align with that line's first non-whitespace column.
+;;   3. Otherwise, look at the previous non-blank, non-comment-only
+;;      line.  If it ends with an opener (`proof', `{', `(', `['),
+;;      indent one `deduce-mode-indent-offset' deeper than that
+;;      line; otherwise match its indent.
+;;
+;; The rules cover the common Deduce shapes:
+;;
+;;   theorem t: ...   ; col 0
+;;   proof            ; col 0
+;;     arbitrary ...  ; col 2 (proof opens)
+;;     induction Nat  ; col 2 (no opener, same as prev)
+;;     case zero {    ; col 2 (no opener, same as prev)
+;;       body         ; col 4 (`{' opens)
+;;     }              ; col 2 (matches `case zero {' line)
+;;     case suc(n) {  ; col 2
+;;       ...
+;;     }
+;;   end              ; col 0 (matches `proof')
+;;
+;; Refinements (e.g. SMIE-grade alignment for multi-line type
+;; signatures, smarter handling of `case' placement) can replace
+;; this function later without changing the mode's interface.
+
+(defcustom deduce-mode-indent-offset 2
+  "Indentation step for `deduce-mode', in spaces."
+  :type 'integer
+  :group 'deduce
+  :safe #'integerp)
+
+
+(defun deduce-mode--line-starter ()
+  "Return a symbol describing how the current line starts.
+
+Possible values: `end' for the `end' keyword, `rbra' / `rpar' /
+`rbrk' for `}', `)', `]', or nil for anything else."
+  (save-excursion
+    (back-to-indentation)
+    (cond
+     ((looking-at-p "\\_<end\\_>") 'end)
+     ((eq (char-after) ?})        'rbra)
+     ((eq (char-after) ?\))       'rpar)
+     ((eq (char-after) ?\])       'rbrk))))
+
+
+(defun deduce-mode--match-proof-for-end ()
+  "Find the column of the `proof' keyword that matches the `end'
+on the current line.  Returns the column, or nil if no match."
+  (save-excursion
+    (back-to-indentation)
+    (let ((depth 1)
+          (col nil))
+      (while (and (> depth 0) (not (bobp)))
+        (forward-line -1)
+        (back-to-indentation)
+        (cond
+         ((looking-at-p "\\_<end\\_>")
+          (setq depth (1+ depth)))
+         ((looking-at-p "\\_<proof\\_>")
+          (setq depth (1- depth))
+          (when (zerop depth)
+            (setq col (current-column))))))
+      col)))
+
+
+(defun deduce-mode--match-bracket-line-indent ()
+  "Find the column of the line containing the opener for the
+closing bracket on the current line.  Returns the column or nil."
+  (save-excursion
+    (back-to-indentation)
+    (when (memq (char-after) '(?} ?\) ?\]))
+      (forward-char 1)
+      (condition-case nil
+          (progn
+            (backward-list)
+            (back-to-indentation)
+            (current-column))
+        (scan-error nil)))))
+
+
+(defun deduce-mode--prev-line-info ()
+  "Move to the previous non-blank, non-comment-only line.
+Return cons (INDENT . OPENS) where INDENT is its indent column
+and OPENS is t if it ends with an opener (`proof', `{', `(', `[').
+Returns nil if no such line exists above point."
+  (save-excursion
+    (let ((found nil))
+      ;; `forward-line -1' returns 0 on success, nonzero (-N) when it
+      ;; couldn't move that many lines (e.g. already at bobp).  Loop
+      ;; until we either find a content line or run out of buffer.
+      (while (and (not found) (zerop (forward-line -1)))
+        (back-to-indentation)
+        (unless (or (eolp)
+                    (looking-at-p "\\(?://\\|/\\*\\)"))
+          (setq found t)))
+      (when found
+        (let ((indent (current-column))
+              (opens nil))
+          (end-of-line)
+          (skip-chars-backward " \t")
+          (cond
+           ((memq (char-before) '(?{ ?\( ?\[))
+            (setq opens t))
+           ((looking-back "\\_<proof\\_>"
+                          (max (point-min) (- (point) 6)))
+            (setq opens t)))
+          (cons indent opens))))))
+
+
+(defun deduce-mode-indent-line ()
+  "Indent the current line for `deduce-mode'.
+
+See the comment block above for the rules.  Bound to TAB and used
+by `electric-indent-mode' on RET."
+  (interactive)
+  (let* ((closer (deduce-mode--line-starter))
+         (target
+          (cond
+           ((eq closer 'end)
+            (or (deduce-mode--match-proof-for-end) 0))
+           ((memq closer '(rbra rpar rbrk))
+            (or (deduce-mode--match-bracket-line-indent) 0))
+           (t
+            (let ((info (deduce-mode--prev-line-info)))
+              (if info
+                  (+ (car info)
+                     (if (cdr info) deduce-mode-indent-offset 0))
+                0)))))
+         (point-was-at-or-before-indent
+          (<= (current-column) (current-indentation))))
+    (indent-line-to (max 0 target))
+    (when point-was-at-or-before-indent
+      (back-to-indentation))))
+
+
+;; ---------------------------------------------------------------------
 ;; Font-lock (Step 2)
 ;; ---------------------------------------------------------------------
 ;;
@@ -213,7 +364,10 @@ steps; LSP integration lives in `deduce-lsp.el'.
   ;; Font-lock: keyword highlighting (Step 2).  No multi-line
   ;; constructs need special treatment yet, so the default
   ;; defaults tuple is sufficient.
-  (setq-local font-lock-defaults '(deduce-mode-font-lock-keywords)))
+  (setq-local font-lock-defaults '(deduce-mode-font-lock-keywords))
+  ;; Indentation (Step 3).  TAB and (via electric-indent-mode) RET
+  ;; both call this.
+  (setq-local indent-line-function #'deduce-mode-indent-line))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.pf\\'" . deduce-mode))
