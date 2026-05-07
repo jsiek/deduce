@@ -44,6 +44,30 @@ def needs_prelude(pf: Path) -> bool:
     return False
 
 
+def expected_allocs(pf: Path) -> int | None:
+    """Look for an `// expected-allocs: N` directive in the fixture.
+    If present, the e2e runner re-runs the binary with
+    DEDUCE_TRACE_ALLOC=1 and asserts the count matches. Used for the
+    nullary-constructor unboxing acceptance test (Step 13)."""
+    for raw in pf.read_text().splitlines():
+        s = raw.strip()
+        if s.startswith("// expected-allocs:"):
+            return int(s.split(":", 1)[1].strip())
+    return None
+
+
+def expected_runtime_error(pf: Path) -> str | None:
+    """Look for an `// expected-runtime-error: <substring>` directive.
+    If present, the runner inverts its expectations: the binary must
+    exit non-zero and the substring must appear in stderr. Used to
+    exercise the source-map / runtime-panic path (Step 14)."""
+    for raw in pf.read_text().splitlines():
+        s = raw.strip()
+        if s.startswith("// expected-runtime-error:"):
+            return s.split(":", 1)[1].strip()
+    return None
+
+
 def find_cc() -> str | None:
     return shutil.which("cc") or shutil.which("clang") or shutil.which("gcc")
 
@@ -89,11 +113,52 @@ def run_compiled(pf: Path, cc: str, tmp: Path) -> str:
         check=True, capture_output=True, text=True,
     )
     proc = subprocess.run([str(bin_path)], capture_output=True, text=True, check=False)
+    err_substring = expected_runtime_error(pf)
+    if err_substring is not None:
+        if proc.returncode == 0:
+            raise RuntimeError(
+                f"{pf.name}: expected runtime error containing "
+                f"{err_substring!r}, but binary exited 0"
+            )
+        if err_substring not in proc.stderr:
+            raise RuntimeError(
+                f"{pf.name}: expected stderr to contain {err_substring!r}, "
+                f"got:\n{proc.stderr}"
+            )
+        # On a deliberate failure, return the captured stdout so the
+        # caller can still diff with the interpreter's output (which
+        # is empty if the proof checker accepts the program).
+        return proc.stdout
     if proc.returncode != 0:
         raise RuntimeError(
             f"{pf.name}: compiled binary exit {proc.returncode}:\n"
             f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
         )
+
+    # If the fixture declares an expected allocation count, re-run
+    # under DEDUCE_TRACE_ALLOC=1 and verify.
+    expected = expected_allocs(pf)
+    if expected is not None:
+        env = {**os.environ, "DEDUCE_TRACE_ALLOC": "1"}
+        traced = subprocess.run(
+            [str(bin_path)], capture_output=True, text=True, check=False, env=env,
+        )
+        # Last stderr line is `deduce: N allocations`.
+        marker = "deduce: "
+        suffix = " allocations"
+        actual = None
+        for line in traced.stderr.splitlines():
+            if line.startswith(marker) and line.endswith(suffix):
+                actual = int(line[len(marker):-len(suffix)])
+        if actual is None:
+            raise RuntimeError(
+                f"{pf.name}: DEDUCE_TRACE_ALLOC=1 produced no count line\n"
+                f"stderr:\n{traced.stderr}"
+            )
+        if actual != expected:
+            raise RuntimeError(
+                f"{pf.name}: expected {expected} allocations, got {actual}"
+            )
     return proc.stdout
 
 
@@ -133,8 +198,15 @@ def main() -> int:
     failures: list[str] = []
     for pf in fixtures:
         try:
-            interp_out = run_interpreter(pf)
             compiled_out = run_compiled(pf, cc, tmp)
+            # Fixtures that deliberately panic at runtime aren't
+            # expected to match the interpreter's stdout — the panic
+            # cuts the program short and the interpreter would have
+            # printed more.
+            if expected_runtime_error(pf) is not None:
+                print(f"ok {pf.relative_to(ROOT)}")
+                continue
+            interp_out = run_interpreter(pf)
         except Exception as e:
             failures.append(f"{pf.name}: {e}")
             continue

@@ -80,17 +80,17 @@ def closure_convert(p: ir.Program) -> ir.Program:
                 return ir.If(go(c), go(th), go(el))
             case ir.Con(ctor, args):
                 return ir.Con(ctor, [go(a) for a in args])
-            case ir.Match(subj, arms):
+            case ir.Match(subj, arms, loc):
                 new_arms = [ir.MatchArm(arm.pattern, go(arm.body)) for arm in arms]
-                return ir.Match(go(subj), new_arms)
+                return ir.Match(go(subj), new_arms, loc=loc)
             case ir.Eq(l, r):
                 return ir.Eq(go(l), go(r))
-            case ir.Panic(_):
+            case ir.Panic(_, _):
                 return t
-            case ir.MakeArray(s):
-                return ir.MakeArray(go(s))
-            case ir.ArrayGet(s, i):
-                return ir.ArrayGet(go(s), go(i))
+            case ir.MakeArray(s, loc):
+                return ir.MakeArray(go(s), loc=loc)
+            case ir.ArrayGet(s, i, loc):
+                return ir.ArrayGet(go(s), go(i), loc=loc)
         raise AssertionError(f"closure_convert: unknown term {type(t).__name__}")
 
     new_decls: List[ir.TopLevel] = []
@@ -98,7 +98,7 @@ def closure_convert(p: ir.Program) -> ir.Program:
         match d:
             case ir.UnionDecl():
                 new_decls.append(d)
-            case ir.Function(name, params, body, captures):
+            case ir.Function(name, params, body, captures, loc):
                 if captures:
                     raise AssertionError(
                         "closure_convert: input already has lifted functions; "
@@ -106,7 +106,7 @@ def closure_convert(p: ir.Program) -> ir.Program:
                     )
                 new_decls.append(ir.Function(
                     name=name, params=list(params),
-                    body=go(body), captures=[],
+                    body=go(body), captures=[], loc=loc,
                 ))
             case ir.Global(name, body):
                 new_decls.append(ir.Global(name=name, body=go(body)))

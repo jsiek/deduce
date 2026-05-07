@@ -1,0 +1,16 @@
+// Step 13 acceptance: nullary constructors are emitted as shared
+// singletons. Allocation count via DEDUCE_TRACE_ALLOC=1 stays
+// constant regardless of how many times we print `zero`.
+//
+// expected-allocs: 1
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+print zero
+print zero
+print zero
+print zero
+print zero

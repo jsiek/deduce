@@ -65,6 +65,12 @@ def _ctor_id_macro(name: str) -> str:
     return "CTOR_" + _mangle(name)
 
 
+def _ctor_singleton(name: str) -> str:
+    """Per-ctor static value for nullary constructors. Allocated once
+    at program startup and reused at every `Con(c, [])` site."""
+    return "C_" + _mangle(name)
+
+
 def _base_name(name: str) -> str:
     """Strip the uniquify suffix. Mirrors `abstract_syntax.base_name`
     but local so emit_c.py has no dependency on the AST module."""
@@ -116,6 +122,16 @@ def emit_program(p: ir.Program) -> str:
         elif isinstance(d, ir.Global):
             ctx.top_globals.add(d.name)
 
+    # Collect every nullary constructor that survives pruning. Each
+    # gets a single `C_<mangled>` storage location allocated once at
+    # startup; `print zero` ends up doing zero per-call allocations
+    # after the first. (Bool literals are interned in the runtime
+    # itself, no codegen needed.)
+    nullary_ctors = [
+        c.name for d in p.decls if isinstance(d, ir.UnionDecl)
+        for c in d.ctors if c.arity == 0
+    ]
+
     out: List[str] = []
     out.append('#include "deduce.h"')
     out.append("")
@@ -129,10 +145,11 @@ def emit_program(p: ir.Program) -> str:
     for d in p.decls:
         if isinstance(d, ir.Function):
             out.append(_emit_fn_decl(d) + ";")
-    for d in p.decls:
-        if isinstance(d, ir.Function) and getattr(d, "captures", None):
-            # Already declared above; here we'd handle the lifted case.
-            pass
+    out.append("")
+
+    # Singleton storage for nullary ctors.
+    for name in nullary_ctors:
+        out.append(f"deduce_value {_ctor_singleton(name)};")
     out.append("")
 
     # Global variables. Same reasoning as the function declarations:
@@ -151,6 +168,14 @@ def emit_program(p: ir.Program) -> str:
     # The single program-entry function with globals + prints + asserts
     # in source order.
     out.append("void deduce_program_main(void) {")
+    # Initialise the nullary-ctor singletons. Must run before any
+    # global initialiser because user-level Globals like
+    # `define two = suc(suc(zero))` reference these.
+    for name in nullary_ctors:
+        out.append(
+            f"    {_ctor_singleton(name)} = deduce_make_ctor("
+            f"{_ctor_id_macro(name)}, {_c_string(_base_name(name))}, 0, NULL);"
+        )
     for d in p.decls:
         if isinstance(d, ir.Global):
             tmp = ctx.fresh_tmp()
@@ -193,6 +218,8 @@ def _emit_function(f: ir.Function, ctx: EmitCtx) -> str:
     # args[]) and the captures (bound from env[]).
     in_scope: Set[str] = set(f.params) | set(f.captures)
     body_stmts: List[str] = []
+    if f.loc:
+        body_stmts.append(f"// from {f.loc}")
     body_stmts.append(_emit_fn_decl(f) + " {")
     if not f.params:
         body_stmts.append("    (void)args;")
@@ -299,6 +326,9 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
         case ir.Con(ctor, args):
             if ctor not in ctx.ctor_ids:
                 raise EmitError(f"unknown constructor: {ctor}")
+            # Nullary ctors are pre-allocated singletons.
+            if not args:
+                return [], _ctor_singleton(ctor)
             arg_stmts: List[str] = []
             arg_exprs: List[str] = []
             for a in args:
@@ -306,19 +336,15 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                 arg_stmts.extend(sa)
                 arg_exprs.append(ea)
             stmts = list(arg_stmts)
-            if arg_exprs:
-                arr = ctx.fresh_tmp() + "_args"
-                stmts.append(
-                    f"deduce_value {arr}[] = {{ {', '.join(arg_exprs)} }};"
-                )
-                arr_arg = arr
-            else:
-                arr_arg = "NULL"
+            arr = ctx.fresh_tmp() + "_args"
+            stmts.append(
+                f"deduce_value {arr}[] = {{ {', '.join(arg_exprs)} }};"
+            )
             tmp = ctx.fresh_tmp()
             stmts.append(
                 f"deduce_value {tmp} = deduce_make_ctor("
                 f"{_ctor_id_macro(ctor)}, {_c_string(_base_name(ctor))}, "
-                f"{len(args)}, {arr_arg});"
+                f"{len(args)}, {arr});"
             )
             return stmts, tmp
 
@@ -398,7 +424,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             )
             return stmts, tmp
 
-        case ir.Match(subj, arms):
+        case ir.Match(subj, arms, match_loc):
             ssubj, esubj = _emit_term(subj, ctx, locals_in_scope)
             stmts = list(ssubj)
             subj_var = ctx.fresh_tmp()
@@ -449,7 +475,10 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                     stmts.append(f"    {tmp} = {be};")
                     stmts.append("    break;")
                     stmts.append("}")
-                stmts.append("default: deduce_panic(\"non-exhaustive match\");")
+                msg = "non-exhaustive match"
+                if match_loc:
+                    msg = f"{match_loc}: {msg}"
+                stmts.append(f"default: deduce_panic({_c_string(msg)});")
                 stmts.append("}")
             return stmts, tmp
 
@@ -463,28 +492,31 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             )
             return stmts, tmp
 
-        case ir.Panic(msg):
+        case ir.Panic(msg, loc):
             tmp = ctx.fresh_tmp()
+            full = f"{loc}: {msg}" if loc else msg
             return [
-                f"deduce_value {tmp} = deduce_unreachable_value({_c_string(msg)});"
+                f"deduce_value {tmp} = deduce_unreachable_value({_c_string(full)});"
             ], tmp
 
-        case ir.MakeArray(s):
+        case ir.MakeArray(s, loc):
             ssub, esub = _emit_term(s, ctx, locals_in_scope)
             stmts = list(ssub)
             tmp = ctx.fresh_tmp()
+            loc_arg = _c_string(loc) if loc else "NULL"
             stmts.append(
-                f"deduce_value {tmp} = deduce_make_array_from_list({esub});"
+                f"deduce_value {tmp} = deduce_make_array_from_list({esub}, {loc_arg});"
             )
             return stmts, tmp
 
-        case ir.ArrayGet(s, i):
+        case ir.ArrayGet(s, i, loc):
             ssub, esub = _emit_term(s, ctx, locals_in_scope)
             sidx, eidx = _emit_term(i, ctx, locals_in_scope)
             stmts = list(ssub) + list(sidx)
             tmp = ctx.fresh_tmp()
+            loc_arg = _c_string(loc) if loc else "NULL"
             stmts.append(
-                f"deduce_value {tmp} = deduce_array_get({esub}, {eidx});"
+                f"deduce_value {tmp} = deduce_array_get({esub}, {eidx}, {loc_arg});"
             )
             return stmts, tmp
 

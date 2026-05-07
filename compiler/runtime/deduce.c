@@ -33,7 +33,24 @@ struct deduce_obj {
     } u;
 };
 
+/* Total allocations performed by the program. Reported at exit when
+ * DEDUCE_TRACE_ALLOC=1 is in the environment. */
+static long long deduce_alloc_count = 0;
+static int deduce_trace_alloc_enabled = -1;  /* -1 = uninspected */
+
+static void deduce_alloc_atexit(void) {
+    fprintf(stderr, "deduce: %lld allocations\n", deduce_alloc_count);
+}
+
 void* deduce_alloc(size_t size) {
+    if (deduce_trace_alloc_enabled == -1) {
+        const char* env = getenv("DEDUCE_TRACE_ALLOC");
+        deduce_trace_alloc_enabled = (env && env[0] == '1') ? 1 : 0;
+        if (deduce_trace_alloc_enabled) {
+            atexit(deduce_alloc_atexit);
+        }
+    }
+    deduce_alloc_count++;
     void* p = calloc(1, size);
     if (!p) {
         fprintf(stderr, "deduce: out of memory\n");
@@ -42,11 +59,15 @@ void* deduce_alloc(size_t size) {
     return p;
 }
 
+/* Bool values are interned: every `deduce_make_bool(true)` returns
+ * the same pointer, every `deduce_make_bool(false)` returns the
+ * other. Lifts the bool case of constructor unboxing into the
+ * runtime so the codegen doesn't have to special-case it. */
+static struct deduce_obj BOOL_TRUE  = { D_BOOL, { .b = true } };
+static struct deduce_obj BOOL_FALSE = { D_BOOL, { .b = false } };
+
 deduce_value deduce_make_bool(bool b) {
-    deduce_value v = deduce_alloc(sizeof(struct deduce_obj));
-    v->tag = D_BOOL;
-    v->u.b = b;
-    return v;
+    return b ? &BOOL_TRUE : &BOOL_FALSE;
 }
 
 deduce_value deduce_make_int(int64_t i) {
@@ -123,24 +144,35 @@ deduce_value deduce_call(deduce_value clo, int n_args, deduce_value* args) {
 
 /* --- arrays ----------------------------------------------------------- */
 
+/* Format a "<loc>: <msg>" string into a static buffer when `loc` is
+ * non-NULL, else just `<msg>`. The buffer is shared and overwritten
+ * on each call — fine for a panic-and-exit usage. */
+static const char* with_loc(const char* loc, const char* msg) {
+    static char buf[256];
+    if (!loc) return msg;
+    snprintf(buf, sizeof(buf), "%s: %s", loc, msg);
+    return buf;
+}
+
 /* Count list length by walking node(_, rest) until empty. */
-static int list_length(deduce_value v) {
+static int list_length(deduce_value v, const char* loc) {
     int n = 0;
     while (1) {
-        if (v->tag != D_CTOR) deduce_panic("array: subject is not a list");
+        if (v->tag != D_CTOR)
+            deduce_panic(with_loc(loc, "array: subject is not a list"));
         const char* name = v->u.ctor.name;
         if (strcmp(name, "empty") == 0 || strcmp(name, "[]") == 0) return n;
         if (strcmp(name, "node") != 0)
-            deduce_panic("array: list constructor not empty/node");
+            deduce_panic(with_loc(loc, "array: list constructor not empty/node"));
         if (v->u.ctor.n_fields != 2)
-            deduce_panic("array: node arity != 2");
+            deduce_panic(with_loc(loc, "array: node arity != 2"));
         n++;
         v = v->u.ctor.fields[1];
     }
 }
 
-deduce_value deduce_make_array_from_list(deduce_value list) {
-    int n = list_length(list);
+deduce_value deduce_make_array_from_list(deduce_value list, const char* loc) {
+    int n = list_length(list, loc);
     deduce_value v = deduce_alloc(sizeof(struct deduce_obj));
     v->tag = D_ARRAY;
     v->u.array.n = n;
@@ -187,10 +219,12 @@ static int64_t decode_index(deduce_value v) {
     }
 }
 
-deduce_value deduce_array_get(deduce_value arr, deduce_value idx) {
-    if (arr->tag != D_ARRAY) deduce_panic("array get: not an array");
+deduce_value deduce_array_get(deduce_value arr, deduce_value idx, const char* loc) {
+    if (arr->tag != D_ARRAY)
+        deduce_panic(with_loc(loc, "array get: not an array"));
     int64_t i = decode_index(idx);
-    if (i < 0 || i >= arr->u.array.n) deduce_panic("array index out of range");
+    if (i < 0 || i >= arr->u.array.n)
+        deduce_panic(with_loc(loc, "array index out of range"));
     return arr->u.array.elements[(int)i];
 }
 
