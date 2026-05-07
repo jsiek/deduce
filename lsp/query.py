@@ -251,6 +251,15 @@ def _diagnostic_from_exception(
     parse errors). Falls back to ``str_fallback`` plus a sentinel
     range when the exception is unstructured -- which only happens
     for unexpected internal exceptions.
+
+    For ``IncompleteProof``, the message is replaced with a clean
+    ``Goal: ... \\n Givens: ...`` block formatted to match
+    :func:`goal_at`'s output (2-space indent, no advice text). The
+    raw checker message includes "Advice:" sections that are useful
+    in CLI output but noisy as an editor diagnostic. Detection: the
+    PHole site stashes ``formula`` and ``env`` on the exception
+    (Step 15 plumbing); presence of ``formula`` is the signal that
+    we have an IncompleteProof shaped for this re-render.
     """
     sentinel = Range(Position(1, 1), Position(1, 1))
 
@@ -267,11 +276,46 @@ def _diagnostic_from_exception(
     else:
         rng = sentinel
 
-    body = getattr(exc, "message_body", None)
-    if body is None:
-        body = str_fallback if str_fallback is not None else str(exc)
+    formula = getattr(exc, "formula", None)
+    if formula is not None:
+        body = _format_incomplete_proof_message(formula, getattr(exc, "env", None))
+    else:
+        body = getattr(exc, "message_body", None)
+        if body is None:
+            body = str_fallback if str_fallback is not None else str(exc)
 
     return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
+
+
+def _format_incomplete_proof_message(formula, env) -> str:
+    """Render an ``IncompleteProof`` as a goal-at-style block.
+
+    Mirrors :func:`goal_at`'s output: a ``Goal:`` line followed by
+    the formula at 2-space indent, then a ``Givens:`` block (when
+    any local proof bindings are in scope) with one
+    ``<label>: <formula>`` line per binding. Bindings are listed
+    most-recent-first, matching the iteration order of
+    ``Env.proofs_str``.
+
+    Drops the ``Advice:`` text that the CLI message includes -- the
+    advice is rule-of-thumb prose useful from the command line but
+    noisy as an editor diagnostic, and it pads the message to
+    several lines that all the user wanted to see was the goal.
+    """
+    lines = [f"Goal:\n  {formula}"]
+    if env is not None:
+        from abstract_syntax import ProofBinding, base_name
+
+        given_lines = []
+        for unique, binding in reversed(list(env.dict.items())):
+            if isinstance(binding, ProofBinding) and binding.local:
+                given_lines.append(
+                    f"  {base_name(unique)}: {binding.formula}"
+                )
+        if given_lines:
+            lines.append("\nGivens:")
+            lines.extend(given_lines)
+    return "\n".join(lines)
 
 
 def goal_at(

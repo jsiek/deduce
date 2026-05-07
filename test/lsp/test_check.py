@@ -108,3 +108,63 @@ def test_check_returns_empty_for_valid_files(name: str) -> None:
         f"{name} should validate but check returned {len(diagnostics)} "
         f"diagnostic(s): {[d.message for d in diagnostics]}"
     )
+
+
+# --------------------------------------------------------------------------
+# Incomplete-proof diagnostic shape (issue #335)
+# --------------------------------------------------------------------------
+#
+# When the file has a `?', `check' must produce a Diagnostic whose
+# message reads like ``goal_at''s output -- a `Goal:' line plus an
+# optional `Givens:' block, both 2-space-indented -- not the verbose
+# checker prose with `Advice:' sections.
+
+
+def test_incomplete_proof_diagnostic_uses_goal_format() -> None:
+    """A `?` produces a diagnostic in the new goal-at-style format."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H1: P\n"
+        "  assume H2: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    diags = check("test.pf", src)
+    assert len(diags) == 1
+    msg = diags[0].message
+
+    # Must contain the goal-at-style header.
+    assert msg.startswith("Goal:\n  P"), (
+        f"diagnostic message should start with 'Goal:\\n  P'; got:\n{msg}"
+    )
+    # Givens block lists the in-scope hypotheses, 2-space-indented.
+    assert "\nGivens:\n" in msg
+    assert "  H1: P" in msg
+    assert "  H2: Q" in msg
+    # The CLI prose (Advice text, "incomplete proof" header,
+    # tab-indented lines) must NOT appear.
+    assert "incomplete proof" not in msg
+    assert "Advice:" not in msg
+    # No tab characters: the new format uses 2-space indent
+    # exclusively.
+    assert "\t" not in msg
+
+
+def test_incomplete_proof_diagnostic_omits_givens_when_empty() -> None:
+    """A `?` at top of an empty proof body has no givens -> the
+    message has just the `Goal:' line."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    diags = check("test.pf", src)
+    assert len(diags) == 1
+    msg = diags[0].message
+    assert msg.startswith("Goal:\n  ")
+    # No Givens block when no local proof bindings.
+    assert "Givens:" not in msg
+    assert "Advice:" not in msg
