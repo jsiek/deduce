@@ -108,3 +108,61 @@ def test_check_returns_empty_for_valid_files(name: str) -> None:
         f"{name} should validate but check returned {len(diagnostics)} "
         f"diagnostic(s): {[d.message for d in diagnostics]}"
     )
+
+
+# --------------------------------------------------------------------------
+# Incomplete-proof diagnostic shape (issue #335)
+# --------------------------------------------------------------------------
+#
+# When the file has a `?', `check' produces a Diagnostic whose message
+# is a *one-line* "incomplete proof; goal: <formula>" summary.  The
+# goal/givens block lives in `goal_at''s `*Deduce Goal*' buffer
+# instead (one keystroke away, `C-c C-g'); the diagnostic message
+# itself lands in space-constrained UI (echo area, mode-line,
+# underline tooltip) where multi-line content gets truncated.
+
+
+def test_incomplete_proof_diagnostic_is_single_line() -> None:
+    """The diagnostic message fits on one line for the echo area."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H1: P\n"
+        "  assume H2: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    diags = check("test.pf", src)
+    assert len(diags) == 1
+    msg = diags[0].message
+    # No newlines -- echo-area-friendly.
+    assert "\n" not in msg, (
+        f"diagnostic message should be single-line; got:\n{msg}"
+    )
+    # The message announces the kind of error and the goal.
+    assert "incomplete proof" in msg
+    assert "P" in msg  # the goal formula
+    # The verbose CLI prose (Advice text, Givens block, tabs) must NOT
+    # appear -- those belong in the *Deduce Goal* buffer.
+    assert "Advice:" not in msg
+    assert "Givens:" not in msg
+    assert "\t" not in msg
+
+
+def test_incomplete_proof_diagnostic_includes_goal_formula() -> None:
+    """The single-line message names the goal so the user can
+    triage without opening *Deduce Goal*."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    diags = check("test.pf", src)
+    assert len(diags) == 1
+    msg = diags[0].message
+    # Goal text is rendered into the message somewhere after the
+    # "incomplete proof" prefix.
+    assert msg.startswith("incomplete proof")
+    assert "P = P" in msg or "(all P:bool. P = P)" in msg

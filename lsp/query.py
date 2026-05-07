@@ -251,6 +251,15 @@ def _diagnostic_from_exception(
     parse errors). Falls back to ``str_fallback`` plus a sentinel
     range when the exception is unstructured -- which only happens
     for unexpected internal exceptions.
+
+    For ``IncompleteProof``, the message is replaced with a clean
+    ``Goal: ... \\n Givens: ...`` block formatted to match
+    :func:`goal_at`'s output (2-space indent, no advice text). The
+    raw checker message includes "Advice:" sections that are useful
+    in CLI output but noisy as an editor diagnostic. Detection: the
+    PHole site stashes ``formula`` and ``env`` on the exception
+    (Step 15 plumbing); presence of ``formula`` is the signal that
+    we have an IncompleteProof shaped for this re-render.
     """
     sentinel = Range(Position(1, 1), Position(1, 1))
 
@@ -267,11 +276,35 @@ def _diagnostic_from_exception(
     else:
         rng = sentinel
 
-    body = getattr(exc, "message_body", None)
-    if body is None:
-        body = str_fallback if str_fallback is not None else str(exc)
+    formula = getattr(exc, "formula", None)
+    if formula is not None:
+        body = _format_incomplete_proof_message(formula)
+    else:
+        body = getattr(exc, "message_body", None)
+        if body is None:
+            body = str_fallback if str_fallback is not None else str(exc)
 
     return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
+
+
+def _format_incomplete_proof_message(formula) -> str:
+    """Render an ``IncompleteProof`` as a one-line diagnostic.
+
+    LSP diagnostic messages land in space-constrained UI: the echo
+    area, the mode-line, the underline tooltip. Multi-line text
+    truncates badly (often to just the first line). A goal/givens
+    *display* belongs in :func:`goal_at`'s ``*Deduce Goal*`` buffer
+    instead -- the editor binding (`C-c C-g`) is one keystroke away
+    and gets the full structured view.
+
+    The diagnostic itself just signals "this `?` needs filling, and
+    here's what type of thing": the literal phrase ``incomplete
+    proof`` (matching the CLI prefix for continuity) plus the goal
+    formula. Givens are deliberately omitted -- they'd push the
+    line past one screen width on most proofs, and the user has
+    `C-c C-g` for them.
+    """
+    return f"incomplete proof; goal: {formula}"
 
 
 def goal_at(
