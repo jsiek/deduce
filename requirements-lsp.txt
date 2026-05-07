@@ -1,0 +1,10 @@
+# Optional dependencies for the Deduce LSP/MCP server (lsp/mcp_server.py).
+#
+# Install with: python3 -m pip install -r requirements-lsp.txt
+#
+# These are NOT required to run deduce.py, test-deduce.py, or the
+# in-process pieces of lsp/ (library, query). Only lsp/mcp_server.py
+# depends on the MCP SDK, and the test_mcp_server.py acceptance suite
+# skips itself when mcp isn't installed.
+
+mcp>=1.27.0

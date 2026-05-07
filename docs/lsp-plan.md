@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1 in progress — Steps 1–6 done.
+**Status:** Phase 1 in progress — Steps 1–7 done.
 
 ## Goals
 
@@ -55,8 +55,9 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
   - *Acceptance:* (a) call `check` on the same file twice in one process, results identical; (b) `check(A); check(B); check(A)` — third call matches first.
   - *Implementation:* `lsp/library.py` gained a snapshot/restore layer over the pipeline's module-level containers. On the first call with a given prelude, the old containers are cleared, the prelude bootstraps via `_check_file_impl` on an empty buffer, and the resulting post-prelude state is shallow-copied into `_prelude_snapshot`. Subsequent calls with the same prelude restore from the snapshot — much faster than re-running `lib/`. Counters (e.g. `name_id`) are intentionally **not** restored: letting them increase monotonically guarantees freshly generated names never collide with cached prelude names. Tracked containers are `uniquified_modules`, `_predicate_decls_by_unique_name`, `collected_imports`, `reduce_only`, `reduced_defs` (from `abstract_syntax`); `imported_modules`, `checked_modules`, `modules`, `dirty_files` (from `proof_checker`). The conftest `_reset_state` hack is gone — `check_file` is now self-contained — and a new `reset_prelude_cache()` helper lets long-running daemons or tests force a reload. 6-case acceptance test in `test/lsp/test_state_isolation.py` covers idempotency, interleaving, snapshot reuse, and the reset helper.
 
-- [ ] **Step 7: MCP adapter.** `lsp/mcp_server.py` using the Python `mcp` SDK. Each tool is a thin wrapper around a query API function. Stdio transport.
+- [x] **Step 7: MCP adapter.** `lsp/mcp_server.py` using the Python `mcp` SDK. Each tool is a thin wrapper around a query API function. Stdio transport.
   - *Acceptance:* (a) unit tests via the `mcp` SDK's in-memory test client; (b) end-to-end smoke from Claude Code on a real proof.
+  - *Implementation:* `lsp/mcp_server.py` with FastMCP. Four tools (`check_file`, `goal_at`, `definition_of`, `list_symbols`) wrap the corresponding `lsp.query` functions; each reads the file from disk, calls the query helper, and lets FastMCP serialize. Stdio transport via `python3 -m lsp.mcp_server`. Standard library at `lib/` is auto-prepended as the prelude unless `DEDUCE_NO_STDLIB=1`; `DEDUCE_ROOT` overrides where the server looks for `lib/`. **Required contract change** (justified): `lsp.query` functions gained an optional `prelude` parameter (default `()`) so the server can pass the stdlib through; the Step 2 signature test was updated, and a new test pins the default at `()` so existing Step 3-5 callers keep working unchanged. `list_symbols` filters out auto-prepended prelude imports so the outline shows only what the user wrote. 8-case acceptance test in `test/lsp/test_mcp_server.py` exercises tool registration, valid/error file checking, goal lookup with and without active proof, definition lookup with whitespace fallback, and the symbol outline. End-to-end smoke from Claude Code is left for the user to verify with `requirements-lsp.txt` installed.
 
 - [ ] **Step 8: Phase 1 latency benchmark.** Measure MCP `check` latency (warm daemon) against baseline `python deduce.py file.pf` latency on a representative set of files. Expected: ~10× speedup (~30s → ~3s).
   - *Acceptance:* benchmark script that reports a side-by-side table for several files. Decision point — if the speedup is well below expected, identify the bottleneck (prelude not actually cached? per-call work that should be amortized?) and address before continuing to Phase 2.
