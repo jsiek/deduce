@@ -156,7 +156,7 @@ Recommend (1) for v1; reach for (2) only if a real workload shows it's needed.
 
 ## Phase 5 — separate compilation and other targets
 
-- [ ] **Step 17: Separate compilation.** Each `.pf` file produces its own `.c`/`.o`; `import` becomes a header inclusion. Need to nail down a stable mangling scheme — uniquified names already work for in-process uniqueness, but emitted symbols must be valid C identifiers (current scheme uses `.`/`<`/`>`).
+- [ ] **Step 17: Separate compilation.** Each `.pf` file produces its own `.c`/`.h`/`.o`; `import` becomes a header inclusion; the prelude ships as a pre-built static archive. Detailed design in [`docs/separate-compile-plan.md`](separate-compile-plan.md), which expands this into Steps 25–30.
   - *Acceptance:* recompiling one file out of ten reuses the others' `.o`. Build-system integration left to user (Make example provided).
 
 - [ ] **Step 18: Second backend.** Pick whichever lands first: JavaScript (single file output, easy demos on the GitHub Pages site), or Rust (memory-safe target without GC). Both consume the same IR; the work is the emitter.
