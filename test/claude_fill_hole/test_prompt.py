@@ -72,14 +72,27 @@ def test_build_user_message_shape():
         givens=(Given(label="pP", formula="P"),),
         lemmas_in_scope=(
             LemmaInfo(name="h", kind="lemma", signature="h: true"),
+            LemmaInfo(
+                name="add",
+                kind="function",
+                signature=(
+                    "recursive add(Nat,Nat) -> Nat{\n"
+                    "  add(zero, m) = m\n"
+                    "  add(suc(n), m) = suc(add(n, m))\n"
+                    "}"
+                ),
+            ),
         ),
         surrounding_excerpt="  ?",
     )
     assert "Goal:" in out
     assert "P = P" in out
     assert "pP: P" in out
-    # Lemma section format: "[<kind>] <signature>"
-    assert "[lemma] h: true" in out
+    # New format: each declaration's signature is emitted raw
+    # (matching the .thm file format), not prefixed with `[kind]`.
+    assert "h: true" in out
+    assert "recursive add(Nat,Nat) -> Nat{" in out
+    assert "add(zero, m) = m" in out
     assert "  ?" in out
 
 

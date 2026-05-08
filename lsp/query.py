@@ -2154,23 +2154,25 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
 
     - ``ast_nodes`` -- the user file's post-typecheck AST. Skips the
       auto-prepended prelude ``Import`` nodes (they're not real
-      declarations, just pointers).
+      declarations, just pointers). All declarations from the user's
+      file are surfaced (including private ``lemma``s and
+      private-visibility declarations) since they are in scope at
+      the hole.
     - ``get_uniquified_modules()`` -- the post-uniquify ASTs of every
       module imported into the pipeline. We pull from each module
-      named in ``prelude`` so prelude declarations show up in the
-      list.
+      named in ``prelude``, applying the same visibility filter as
+      ``print_theorems_statement`` (only public declarations -- the
+      same set that ends up in ``.thm`` files).
 
-    Includes theorems, lemmas, postulates, *and* the function /
-    define / union / predicate declarations the proof might need to
-    name (e.g. so the model knows ``length`` is callable and can
-    ``expand length``).  Excludes ``Auto`` (rewrite rules without a
-    surfaced name) and ``Import`` (not a declaration of its own).
+    Surfaces theorems, postulates, ``auto`` rules, and the full
+    pretty-printed source of functions / defines / unions /
+    predicates -- the same content the .thm files carry. The model
+    sees, for each function, its full pattern-matching body, which
+    is what teaches it how to ``expand`` calls correctly.
 
     Order is: user-file declarations first (in source order), then
     prelude declarations (grouped by module name in ``prelude`` order,
-    in source order within each module). Duplicates are not deduped --
-    the user's file shouldn't shadow a prelude name in practice, and
-    the model can disambiguate from the rendered signature.
+    in source order within each module). Duplicates are not deduped.
     """
     from abstract_syntax import (
         Import as _ImportNode,
@@ -2184,7 +2186,7 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
         for stmt in ast_nodes:
             if isinstance(stmt, _ImportNode) and stmt.name in prelude_set:
                 continue
-            info = _lemma_info_for(stmt)
+            info = _lemma_info_for(stmt, public_only=False)
             if info is not None:
                 out.append(info)
 
@@ -2195,69 +2197,83 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
             if module_ast is None:
                 continue
             for stmt in module_ast:
-                info = _lemma_info_for(stmt)
+                info = _lemma_info_for(stmt, public_only=True)
                 if info is not None:
                     out.append(info)
 
     return tuple(out)
 
 
-def _lemma_info_for(stmt) -> Optional[LemmaInfo]:
+def _lemma_info_for(stmt, public_only: bool = False) -> Optional[LemmaInfo]:
     """Build a :class:`LemmaInfo` from a top-level statement, or
-    ``None`` if the node isn't surfaced (``Auto``, ``Import``, etc.).
+    ``None`` if the node isn't surfaced (``Import``, etc.).
 
-    Surfaces enough kinds for a proof-fill prompt: theorems and
-    postulates so the model can apply named lemmas, plus functions /
-    defines / unions / predicates so the model can ``expand``,
-    pattern-match constructors, and reference predicate rules.
+    The ``signature`` field carries the pretty-printed declaration
+    in the same format as ``.thm`` files (see
+    ``abstract_syntax.print_theorems_statement``):
+
+      - Theorems / lemmas / postulates: ``name: formula``
+      - Auto rules: ``auto NAME``
+      - Functions / defines / unions / predicates: full
+        ``pretty_print(0)`` source, including the body
+
+    Multi-line for declarations with bodies; that's by design --
+    the model needs to see the function body to know how
+    ``expand fn`` will rewrite a call.
+
+    When ``public_only`` is set, private theorems (``lemma``) and
+    private-visibility declarations are skipped, matching what
+    ``print_theorems`` writes to ``.thm``. The user's own file
+    bypasses this filter (everything in the file is in scope).
     """
     from abstract_syntax import (
-        Define,
+        Auto,
+        Declaration,
         Postulate,
-        Predicate,
-        RecFun,
         Theorem,
-        Union,
         base_name,
     )
 
     if isinstance(stmt, Theorem):
+        if public_only and stmt.isLemma:
+            return None
         kind = SymbolKind.LEMMA if stmt.isLemma else SymbolKind.THEOREM
         signature = f"{base_name(stmt.name)}: {stmt.what}"
     elif isinstance(stmt, Postulate):
         kind = SymbolKind.POSTULATE
         signature = f"{base_name(stmt.name)}: {stmt.what}"
-    elif isinstance(stmt, RecFun):
-        kind = SymbolKind.FUNCTION
-        params = ", ".join(str(p) for p in stmt.params)
-        typarams = (
-            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
-        )
-        signature = (
-            f"{base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
-        )
-    elif isinstance(stmt, Define):
-        kind = SymbolKind.DEFINE
-        ty_text = f": {stmt.typ}" if stmt.typ is not None else ""
-        signature = f"{base_name(stmt.name)}{ty_text}"
-    elif isinstance(stmt, Union):
-        kind = SymbolKind.UNION
-        typarams = (
-            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
-        )
-        ctors = ", ".join(base_name(c.name) for c in stmt.alternatives)
-        signature = f"{base_name(stmt.name)}{typarams} {{ {ctors} }}"
-    elif isinstance(stmt, Predicate):
-        kind = SymbolKind.PREDICATE
-        signature = f"{base_name(stmt.name)}: {stmt.signature}"
+    elif isinstance(stmt, Auto):
+        kind = SymbolKind.OTHER  # no dedicated SymbolKind value for ``auto``
+        signature = f"auto {stmt.name}"
+    elif isinstance(stmt, Declaration):
+        if public_only and getattr(stmt, "visibility", "public") == "private":
+            return None
+        kind = _declaration_kind(stmt)
+        signature = stmt.pretty_print(0).rstrip("\n")
     else:
         return None
 
+    name = base_name(stmt.name) if hasattr(stmt, "name") else ""
     return LemmaInfo(
-        name=base_name(stmt.name),
+        name=name,
         kind=kind,
         signature=signature,
     )
+
+
+def _declaration_kind(stmt) -> SymbolKind:
+    """Map a non-Theorem/Postulate ``Declaration`` to its SymbolKind."""
+    from abstract_syntax import Define, Predicate, RecFun, Union
+
+    if isinstance(stmt, RecFun):
+        return SymbolKind.FUNCTION
+    if isinstance(stmt, Define):
+        return SymbolKind.DEFINE
+    if isinstance(stmt, Union):
+        return SymbolKind.UNION
+    if isinstance(stmt, Predicate):
+        return SymbolKind.PREDICATE
+    return SymbolKind.OTHER
 
 
 def _hole_fingerprint(goal_formula: str, givens: tuple) -> str:
