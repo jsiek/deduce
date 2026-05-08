@@ -120,6 +120,15 @@ auto-start hook:
   `obtain ... from H` for `some`, `replace H` for equality, the
   bare label for `false`. Dual to `C-c C-r` (refine): refine picks
   by goal shape, eliminate picks by named-hypothesis shape.
+- `C-c C-f` -- fill hole with a given. Cursor on a `?`. Issues
+  `deduce/matchingGivensAt` to fetch the in-scope hypothesis labels
+  whose formula equals the goal, then issues
+  `deduce/fillFromGivenAt` with a chosen label and replaces the `?`
+  with `conclude <goal> by <label>`. With a single match, applies
+  it directly (no prompt). With multiple matches, prompts via
+  `completing-read` (TAB completion). A narrower sibling of `C-c
+  C-e`: eliminate picks by hypothesis shape; fill-from-given picks
+  by formula equality with the goal.
 
 ## Keybindings
 
@@ -134,6 +143,7 @@ auto-start hook:
 | `C-c C-c` | `deduce-lsp-case-split`          | `deduce-lsp`   | Prompt for variable, replace `?` with case skeleton |
 | `C-c C-i` | `deduce-lsp-induction`           | `deduce-lsp`   | Replace `?` with `induction T` skeleton at a forall goal |
 | `C-c C-e` | `deduce-lsp-eliminate`           | `deduce-lsp`   | Prompt for hypothesis, replace `?` with use-fact tactic |
+| `C-c C-f` | `deduce-lsp-fill-from-given`     | `deduce-lsp`   | Replace `?` with `conclude ... by H` for a given matching the goal |
 
 ## Customization
 
@@ -294,6 +304,24 @@ Then verify the LSP integration:
     { ? }`. Try the same with an `assume H: P and Q` hypothesis to
     see the destructuring template, or `assume H: P = Q` to see
     `replace H`.
+12. In a scratch `.pf` buffer with a given that already matches the
+    goal:
+
+    ```
+    theorem t: all P:bool. if P then P
+    proof
+      arbitrary P:bool
+      assume H: P
+      ?
+    end
+    ```
+
+    Place point on the `?` and press `C-c C-f`. There is exactly
+    one matching given (`H: P` matches the goal `P`), so the `?` is
+    replaced directly -- no prompt -- with `conclude P by H`. With
+    two matching givens in scope (e.g. `assume H1: P` and `assume
+    H2: P`), Emacs prompts `Fill from:` with TAB completion against
+    the matching labels.
 
 ## Development
 
