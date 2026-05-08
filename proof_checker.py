@@ -2633,15 +2633,16 @@ def _lookup_param_polarities(head, env):
   return None
 
 def check_strict_positivity(ty, union_name, env, forbidden=False):
+  if isinstance(ty, VarRef):
+    ref_name = ty.get_name()
+    if forbidden and ref_name == union_name:
+      error(ty.location,
+            f"the union '{base_name(union_name)}' must not occur in a "
+            f"negative position (to the left of '->') of its own "
+            f"constructor parameters; this would make the logic "
+            f"inconsistent (Russell's paradox)")
+    return
   match ty:
-    case OverloadedVar(loc, _, rns):
-      ref_name = rns[0]
-      if forbidden and ref_name == union_name:
-        error(loc,
-              f"the union '{base_name(union_name)}' must not occur in a "
-              f"negative position (to the left of '->') of its own "
-              f"constructor parameters; this would make the logic "
-              f"inconsistent (Russell's paradox)")
     case TypeInst(loc, head, type_args):
       check_strict_positivity(head, union_name, env, forbidden)
       head_pols = _lookup_param_polarities(head, env)
@@ -2678,13 +2679,14 @@ def infer_param_polarities(union_decl, env):
   type_param_names = set(union_decl.type_params)
 
   def walk(ty, current):
+    if isinstance(ty, VarRef):
+      ref_name = ty.get_name()
+      if ref_name in type_param_names:
+        idx = union_decl.type_params.index(ref_name)
+        if current == '-':
+          polarities[idx] = '-'
+      return
     match ty:
-      case OverloadedVar(loc, _, rns):
-        ref_name = rns[0]
-        if ref_name in type_param_names:
-          idx = union_decl.type_params.index(ref_name)
-          if current == '-':
-            polarities[idx] = '-'
       case TypeInst(loc, head, type_args):
         walk(head, current)
         head_pols = _lookup_param_polarities(head, env)
