@@ -214,6 +214,107 @@ def emit_program(p: ir.Program) -> str:
     return "\n".join(out) + "\n"
 
 
+def emit_header(p: ir.Program, module_name: str) -> str:
+    """Generate the C header for a single module of an IR program.
+
+    Declares (forward-decl / extern) every top-level decl whose
+    `module == module_name`, plus the module's nullary-ctor
+    singletons and constructor-ID macros for its unions. Wrapped in
+    a standard `#ifndef`/`#define`/`#endif` include guard so a
+    consumer can `#include "Foo.h"` from multiple translation units
+    without redefinition errors.
+
+    The constructor IDs match the IDs `emit_program` assigns for the
+    same `Program`, so a `.c` and its `.h` agree. Step 27 will use
+    this to wire up per-module compilation; Step 26 exposes it for
+    fixture-based testing of the header's shape.
+    """
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
+    next_ctor_id = 0
+    for d in p.decls:
+        if isinstance(d, ir.UnionDecl):
+            for c in d.ctors:
+                ctx.ctor_ids[c.name] = next_ctor_id
+                ctx.ctor_arities[c.name] = c.arity
+                next_ctor_id += 1
+        elif isinstance(d, ir.Function):
+            ctx.top_funcs[d.name] = len(d.params)
+        elif isinstance(d, ir.Global):
+            ctx.top_globals.add(d.name)
+
+    def in_module(decl) -> bool:
+        return getattr(decl, "module", None) == module_name
+
+    guard = "DEDUCE_" + _mangle(module_name) + "_H"
+    out: List[str] = [
+        f"#ifndef {guard}",
+        f"#define {guard}",
+        '#include "deduce.h"',
+        "",
+    ]
+
+    # Constructor ID macros — one per ctor of any union in this module.
+    macros: List[str] = []
+    for d in p.decls:
+        if isinstance(d, ir.UnionDecl) and in_module(d):
+            for c in d.ctors:
+                macros.append(
+                    f"#define {ctx.ctor_id_macro(c.name)} {ctx.ctor_ids[c.name]}"
+                )
+    if macros:
+        out.extend(macros)
+        out.append("")
+
+    # Nullary-ctor singleton externs.
+    singletons: List[str] = []
+    for d in p.decls:
+        if isinstance(d, ir.UnionDecl) and in_module(d):
+            for c in d.ctors:
+                if c.arity == 0:
+                    singletons.append(
+                        f"extern deduce_value {ctx.ctor_singleton(c.name)};"
+                    )
+    if singletons:
+        out.extend(singletons)
+        out.append("")
+
+    # Function prototypes.
+    fn_protos: List[str] = []
+    for d in p.decls:
+        if isinstance(d, ir.Function) and in_module(d):
+            fn_protos.append(_emit_fn_decl(d, ctx) + ";")
+    if fn_protos:
+        out.extend(fn_protos)
+        out.append("")
+
+    # Globals.
+    global_externs: List[str] = []
+    for d in p.decls:
+        if isinstance(d, ir.Global) and in_module(d):
+            global_externs.append(
+                f"extern deduce_value {ctx.global_id(d.name)};"
+            )
+    if global_externs:
+        out.extend(global_externs)
+        out.append("")
+
+    out.append("#endif")
+    return "\n".join(out) + "\n"
+
+
+def modules_in(p: ir.Program) -> List[str]:
+    """Return the set of source modules that have at least one
+    top-level decl in `p`, sorted for stable iteration. Used by the
+    header-emit test runner to know which `emit_header` calls to
+    make per fixture."""
+    seen: Set[str] = set()
+    for d in p.decls:
+        m = getattr(d, "module", None)
+        if m is not None:
+            seen.add(m)
+    return sorted(seen)
+
+
 def _emit_fn_decl(f: ir.Function, ctx: EmitCtx) -> str:
     # Not `static`: a function may be unused at runtime if it's only
     # referenced by an erased proof (e.g. used inside a `terminates`
