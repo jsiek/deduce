@@ -107,8 +107,9 @@ When you switch backends, you typically also want to update
 `deduce-fill-hole-model' and `deduce-fill-hole-api-key-env' to
 match.  Sensible defaults shift with this variable: setting it
 to `openai-compat' makes the sidecar default to model
-\"Qwen3-Coder-Next\" (REALLMs' top coding model) and reads
-`OPENAI_API_KEY' if you don't override the env var name."
+\"gemma-4-31B-it\" (a fast REALLMs model that scored well on
+the hole-fill benchmark) and reads `OPENAI_API_KEY' if you
+don't override the env var name."
   :type '(choice (const :tag "Anthropic API" anthropic)
                  (const :tag "OpenAI-compatible (REALLMs / OpenAI / Ollama)"
                         openai-compat))
@@ -133,11 +134,11 @@ Ignored when `deduce-fill-hole-backend' is `anthropic'."
   "Model id the sidecar uses, or nil to pick a backend-appropriate default.
 
 When nil, the default is `claude-opus-4-7' for
-`deduce-fill-hole-backend' = `anthropic', or `Qwen3-Coder-Next'
+`deduce-fill-hole-backend' = `anthropic', or `gemma-4-31B-it'
 for `openai-compat'.  When set explicitly, this overrides the
 default.  Examples: `claude-sonnet-4-6' for cheaper Claude;
-`gpt-oss-120b' or `llama-4-scout' for REALLMs alternatives;
-`gpt-4o' or `gpt-5' for real OpenAI."
+`gpt-oss-120b', `Qwen3-Coder-Next', or `llama-4-scout' for
+REALLMs alternatives; `gpt-4o' or `gpt-5' for real OpenAI."
   :type '(choice (const :tag "Backend default" nil)
                  (string :tag "Model id"))
   :group 'deduce-fill-hole)
@@ -585,7 +586,7 @@ in the success message."
 `deduce-fill-hole-model' is nil."
   (pcase deduce-fill-hole-backend
     ('anthropic "claude-opus-4-7")
-    ('openai-compat "Qwen3-Coder-Next")
+    ('openai-compat "gemma-4-31B-it")
     (_ "claude-opus-4-7")))
 
 
