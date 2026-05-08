@@ -34,3 +34,4 @@ profile.png
 *.a
 compiler/runtime/libdeduce_prelude.*
 compiler/runtime/include/
+compiler/runtime/_build/

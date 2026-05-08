@@ -27,6 +27,10 @@ tests-compile:
 	$(PYTHON) ./test/compile/run_determinism.py
 	$(PYTHON) ./test/compile/run_headers.py
 	$(PYTHON) ./test/compile/run_separate.py
+	$(PYTHON) ./test/compile/run_prelude_archive.py
+
+compile-prelude:
+	$(PYTHON) ./compiler/compile_prelude.py
 
 package:
 	$(PYTHON) ./deduce.py ./lib
@@ -54,3 +58,6 @@ clean:
 	rm -f ./test/should-validate/*.thm
 	rm -f deduce-release.zip
 	rm -f ./test/compile/lower/*.c ./test/compile/e2e/*.c
+	rm -f ./lib/*.c ./lib/*.h ./lib/*.o
+	rm -f ./compiler/runtime/libdeduce_prelude.a
+	rm -rf ./compiler/runtime/include
