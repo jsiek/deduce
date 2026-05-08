@@ -1,0 +1,7 @@
+// Level 1 / 6 -- the lowest possible bar.
+// The goal `true' is satisfied by `.', the proof of true.
+
+theorem t01_trivial: true
+proof
+  ?
+end

@@ -1,0 +1,9 @@
+// Level 2 / 6 -- reflexive equality.
+// After `arbitrary P:bool', the goal is `P = P', satisfied by
+// `reflexive' (or `.' since `P = P' reduces to `true').
+
+theorem t02_reflexive: all P:bool. P = P
+proof
+  arbitrary P:bool
+  ?
+end
