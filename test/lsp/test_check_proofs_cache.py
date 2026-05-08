@@ -1,21 +1,38 @@
-"""Acceptance test for the per-statement ``check_proofs`` cache (Phase 3 / Step 13).
+"""Acceptance tests for the per-statement ``check_proofs`` cache.
 
-Plan acceptance: ``edit one statement, recheck; instrumentation
-confirms untouched statements were cache hits``.
+Phase 3 / Steps 13 and 14.  Plan acceptances:
+
+- *Step 13:* ``edit one statement, recheck; instrumentation confirms
+  untouched statements were cache hits``.
+- *Step 14:* ``edit theorem T1; assert T2 (which uses T1) is
+  invalidated and rechecked``.
 
 The cache lives in ``proof_checker._stmt_cache`` and is keyed by
-``(stmt_hash, chain_hash)``.  ``stmt_hash`` is a structural hash
-that skips the ``location`` (``Meta``) field, so adding/removing
-*other* statements doesn't perturb the hash of an unchanged one.
-``chain_hash`` is a fold over prior statements' hashes -- it
-identifies the cumulative state at this position in the AST.
+``(stmt_hash, deps_fingerprint, target, module_name)``.
+
+- ``stmt_hash`` is a structural hash that skips ``location``
+  (``Meta``) so adding/removing *other* statements doesn't perturb
+  the hash of an unchanged one.  Per-statement scoping in
+  ``uniquify_deduce`` (Step 14) keeps the structural hash stable
+  even when an earlier statement's body changes size.
+- ``deps_fingerprint`` folds in the structural hashes of just the
+  prior statements *this* statement actually references (plus any
+  global-barrier ``Import`` / ``Auto`` statements).  Editing an
+  unrelated theorem leaves ``deps_fingerprint`` unchanged.
+- ``target`` is the ``goal_at`` target-hole location (so a `?` that
+  was previously treated as ``sorry`` doesn't reuse a stale
+  verdict).
+- ``module_name`` keeps two files in the same process from
+  cross-contaminating each other.
 
 What this file pins:
 
 - a clean run populates the cache with all-misses,
 - a re-run on the same content is all-hits,
-- editing a statement near the end leaves the unchanged prefix
-  cache-hits and only the touched statement misses.
+- editing one statement leaves untouched prefix entries hit,
+- editing a middle statement leaves later statements that don't
+  reference it as hits (Step 14's deps-fingerprint kicking in),
+- editing T1 invalidates T2 that uses it (Step 14 acceptance).
 
 The earlier two loops (``process_declaration``, ``type_check_stmt``)
 are deliberately *not* cached -- their AST output carries
@@ -128,16 +145,22 @@ def test_editing_one_statement_keeps_others_cache_hits() -> None:
     assert _misses() == 1
 
 
-def test_editing_a_statement_in_the_middle_invalidates_downstream() -> None:
-    """Editing a statement in the middle invalidates it AND every
-    statement after it (the chain hash has changed for them)."""
+def test_editing_a_middle_statement_leaves_unrelated_downstream_hits() -> None:
+    """Step 14 acceptance, negative direction: editing a middle
+    statement that nobody references leaves later, unrelated
+    statements as cache hits.
+
+    Under the old chain-hash invalidation, t3 would also miss --
+    even though it doesn't use t2 -- because the running chain hash
+    shifted.  Under Step 14's deps-fingerprint, t3 doesn't reference
+    t2's name, so its dependency set is empty and its cache entry
+    survives the edit."""
     check("test.pf", _THREE_THEOREMS)
 
     # Edit the *second* theorem.  Replace the proof body with an
-    # intermediate ``have'' step -- AST changes structurally, the
-    # proof still passes.  The first theorem is unchanged; the
-    # third's `chain` hash now differs from the cached entry, so
-    # it has to recheck too.
+    # intermediate ``have`` step -- AST changes structurally but
+    # the proof still passes.  t1 (before t2) and t3 (after t2 but
+    # not referencing it) should both stay cached.
     edited = _THREE_THEOREMS.replace(
         "theorem t2: true = true\n"
         "proof\n"
@@ -154,10 +177,112 @@ def test_editing_a_statement_in_the_middle_invalidates_downstream() -> None:
     proof_checker._cache_stats["misses"].clear()
     diags = check("test.pf", edited)
     assert diags == []
-    # Only t1 is upstream of the edit -> one hit.  t2 was edited,
-    # t3's chain shifted -> two misses.
-    assert _hits() == 1
+    # t1 unchanged, no deps -> hit.  t2 edited -> miss.  t3
+    # unchanged and doesn't reference t2 -> hit.
+    assert _hits() == 2, (
+        f"expected 2 hits (t1 + t3 unchanged, neither references t2), "
+        f"got {_hits()}; misses={_misses()}"
+    )
+    assert _misses() == 1
+
+
+_T1_USED_BY_T2 = (
+    "theorem t1: true\n"
+    "proof\n"
+    "  .\n"
+    "end\n"
+    "\n"
+    "theorem t2: true and true\n"
+    "proof\n"
+    "  t1, t1\n"
+    "end\n"
+)
+
+
+def test_editing_T1_invalidates_T2_that_uses_it() -> None:
+    """Step 14 acceptance (verbatim from ``docs/lsp-plan.md``):
+    ``edit theorem T1; assert T2 (which uses T1) is invalidated
+    and rechecked``.
+
+    t2 references t1 in its proof body (``t1, t1``).  Editing t1
+    -- even just the proof body -- changes t1's stmt_hash, which
+    in turn shifts t2's deps_fingerprint, so t2's cache entry is
+    invalidated."""
+    check("test.pf", _T1_USED_BY_T2)
+
+    # Edit t1's proof body. Its statement type/conclusion is
+    # unchanged so t2 still type-checks; what changes is t1's
+    # post-uniquify structural hash, which is in t2's
+    # deps_fingerprint.
+    edited = _T1_USED_BY_T2.replace(
+        "theorem t1: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n",
+        "theorem t1: true\n"
+        "proof\n"
+        "  have h: true by .\n"
+        "  h\n"
+        "end\n",
+    )
+
+    proof_checker._cache_stats["hits"].clear()
+    proof_checker._cache_stats["misses"].clear()
+    diags = check("test.pf", edited)
+    assert diags == []
+    # t1 was edited -> miss.  t2 references t1, so t1's new
+    # stmt_hash changes t2's deps_fingerprint -> miss.
+    assert _hits() == 0, (
+        f"expected 0 hits -- t1 edited and t2 depends on t1; "
+        f"got hits={_hits()}, misses={_misses()}"
+    )
     assert _misses() == 2
+
+
+def test_editing_T1_leaves_unrelated_T2_a_hit() -> None:
+    """The complement of the above: if T2 does *not* reference T1,
+    editing T1 leaves T2's verdict in the cache.  Pins the
+    direction-specificity of Step 14 so a regression that conflates
+    "any prior statement changed" with "a *referenced* prior
+    statement changed" shows up here.
+
+    Two-theorem fixture so the only possible source of T2's
+    invalidation is dependency tracking on T1's hash."""
+    src = (
+        "theorem t1: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+        "\n"
+        "theorem t2: true = true\n"
+        "proof\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    check("test.pf", src)
+
+    edited = src.replace(
+        "theorem t1: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n",
+        "theorem t1: true\n"
+        "proof\n"
+        "  have h: true by .\n"
+        "  h\n"
+        "end\n",
+    )
+
+    proof_checker._cache_stats["hits"].clear()
+    proof_checker._cache_stats["misses"].clear()
+    diags = check("test.pf", edited)
+    assert diags == []
+    # t1 edited -> miss.  t2 doesn't reference t1 -> hit.
+    assert _hits() == 1, (
+        f"expected 1 hit -- t2 doesn't reference t1; "
+        f"got hits={_hits()}, misses={_misses()}"
+    )
+    assert _misses() == 1
 
 
 def test_comment_only_edit_in_unchanged_proof_still_hits() -> None:

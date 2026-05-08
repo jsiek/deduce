@@ -94,8 +94,9 @@ Only if 3s/check turns out to be too slow. None of this is needed for a working 
 - [ ] **Step 13: Per-statement env caching.** In `check_deduce`'s three loops, record `(stmt_hash, env_in_hash) → env_out`. Skip cached entries on later runs. No dependency tracking yet.
   - *Acceptance:* edit one statement, recheck; instrumentation confirms untouched statements were cache hits. Sub-second for typical edits.
 
-- [ ] **Step 14: Dependency-aware invalidation.** Walk each statement's post-uniquify AST to collect referenced names; invalidate dependents on edit.
+- [x] **Step 14: Dependency-aware invalidation.** Walk each statement's post-uniquify AST to collect referenced names; invalidate dependents on edit.
   - *Acceptance:* edit theorem `T1`; assert `T2` (which uses `T1`) is invalidated and rechecked.
+  - *Implementation:* `_collect_referenced_names` walks the post-uniquify AST gathering every `VarRef` / `PVar` name; `_collect_defined_names` returns the names a top-level statement introduces (its own name plus union constructors / predicate rules / synthesised induction lemmas). `check_deduce`'s third loop maintains a `defined_to_idx` map and replaces Step 13's `chain_hash` with `deps_fingerprint = hash(tuple(stmt_hashes_so_far[j] for j in sorted(dep_indices)))` — only the prior statements *this* one references contribute. `Import` and `Auto` are treated as global barriers (every later statement implicitly depends on them) since they have effects observable everywhere downstream. Required a foundational fix in `uniquify_deduce`: each top-level statement now gets its own `s<N>_` scope segment with `name_id` reset, so an edit confined to statement *N* no longer shifts the bound-name suffixes of statement *M > N* — without that, every downstream statement's stmt_hash drifts on every edit and the cache is useless. Acceptance test in `test/lsp/test_check_proofs_cache.py::test_editing_T1_invalidates_T2_that_uses_it`; complement test pins the negative direction (unrelated downstream stays a hit).
 
 ## Phase 4 — Structured proof-editing operations (Agda-like)
 

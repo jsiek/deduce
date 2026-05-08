@@ -58,13 +58,28 @@ def _collect_unique_names(ast) -> list:
     out: list = []
 
     def looks_uniquified(s) -> bool:
-        # uniquified names contain a literal `.` followed by digits.
+        # uniquified names contain a literal `.` followed by either a
+        # plain digit run (legacy global-counter form) or one or more
+        # ``s<idx>_<n>`` segments (per-statement scoping, Step 14).
         if not isinstance(s, str):
             return False
         if "." not in s:
             return False
         suffix = s.rsplit(".", 1)[1]
-        return suffix.isdigit()
+        if suffix.isdigit():
+            return True
+        # Per-statement scoped form: zero or more ``s<idx>_`` prefixes
+        # followed by a trailing decimal run.
+        rest = suffix
+        while True:
+            if not rest.startswith("s"):
+                break
+            tail = rest[1:]
+            digits, sep, after = tail.partition("_")
+            if not sep or not digits.isdigit():
+                return False
+            rest = after
+        return rest.isdigit()
 
     def visit(node, seen):
         if id(node) in seen:
@@ -149,48 +164,75 @@ def test_uniquify_deduce_byte_equal_for_proof_with_holes() -> None:
 
 
 def test_uniquify_context_starts_at_zero() -> None:
-    """A freshly-constructed ``UniquifyContext`` has counter 0 --
-    pinning the contract that future per-module / per-statement
-    scoping (Step 13/14) will rely on."""
+    """A freshly-constructed ``UniquifyContext`` has counter 0 and
+    empty scope -- pinning the contract that per-statement scoping
+    (Step 14) builds on."""
     ctx = UniquifyContext()
     assert ctx.name_id == 0
+    assert ctx.scope == ""
 
 
-def test_shared_ctx_accumulates_ids_across_calls() -> None:
-    """Passing the *same* ctx to two ``uniquify_deduce`` calls
-    advances the counter monotonically -- this is what the LSP
-    pipeline relies on so prelude and user-file names never
-    collide.  After call 2, ``name_id`` is strictly greater than
-    after call 1."""
+def test_uniquify_deduce_restores_caller_state() -> None:
+    """Step 14: each top-level statement gets its own scope segment
+    and counter reset, and the call as a whole restores the caller's
+    ``name_id`` / ``scope`` on exit.  The counter no longer
+    accumulates across calls -- per-statement scope is what keeps
+    names from colliding instead."""
     src = "theorem t: true\nproof\n  .\nend\n"
     ctx = UniquifyContext()
     uniquify_deduce(_parse(src), ctx)
-    after_first = ctx.name_id
-    assert after_first > 0
+    assert ctx.name_id == 0
+    assert ctx.scope == ""
     uniquify_deduce(_parse(src), ctx)
-    after_second = ctx.name_id
-    assert after_second > after_first
+    assert ctx.name_id == 0
+    assert ctx.scope == ""
+
+
+def test_uniquify_deduce_uses_per_statement_scopes() -> None:
+    """Two top-level statements that share a base name (here, both
+    bind the proof variable ``pP``) get *disjoint* uniquified suffixes
+    because ``uniquify_deduce`` pushes a fresh ``s<idx>_`` segment onto
+    ``ctx.scope`` per top-level statement.  This is what makes
+    structural hashing edit-invariant -- the dependency-tracking cache
+    (Step 14) needs unrelated downstream statements' hashes to stay
+    stable when an earlier statement's body changes size."""
+    src = (
+        "theorem t1: all P:bool. if P then P\n"
+        "proof arbitrary P:bool suppose pP: P pP end\n"
+        "theorem t2: all P:bool. if P then P\n"
+        "proof arbitrary P:bool suppose pP: P pP end\n"
+    )
+    out = uniquify_deduce(_parse(src), UniquifyContext())
+    names = _collect_unique_names(out)
+    s0_names = [n for n in names if ".s0_" in n]
+    s1_names = [n for n in names if ".s1_" in n]
+    assert s0_names, f"no s0_-scoped names found in {names}"
+    assert s1_names, f"no s1_-scoped names found in {names}"
+    # Each top-level statement's bound names live in its own scope.
+    assert set(s0_names).isdisjoint(set(s1_names))
 
 
 def test_independent_ctxs_do_not_leak() -> None:
-    """Two contexts are independent allocators -- advancing one
-    leaves the other untouched."""
-    src = "theorem t: true\nproof\n  .\nend\n"
+    """Two contexts are independent objects -- mutating one doesn't
+    affect the other."""
     ctx_a = UniquifyContext()
     ctx_b = UniquifyContext()
-    uniquify_deduce(_parse(src), ctx_a)
-    assert ctx_a.name_id > 0
-    assert ctx_b.name_id == 0  # untouched
+    ctx_a.name_id = 99
+    ctx_a.scope = "x_"
+    assert ctx_b.name_id == 0
+    assert ctx_b.scope == ""
 
 
-def test_snapshot_forks_independent_counter() -> None:
-    """``UniquifyContext.snapshot`` returns a fresh ctx with the
-    same counter value, but advancing one doesn't affect the
-    other -- the LSP pipeline forks a per-user-file ctx from the
-    post-prelude baseline this way."""
-    parent = UniquifyContext(name_id=42)
+def test_snapshot_forks_independent_counter_and_scope() -> None:
+    """``UniquifyContext.snapshot`` returns a fresh ctx with the same
+    counter and scope, but mutating one doesn't affect the other."""
+    parent = UniquifyContext(name_id=42, scope="p_")
     child = parent.snapshot()
     assert child.name_id == 42
+    assert child.scope == "p_"
     child.name_id += 5
+    child.scope = "c_"
     assert parent.name_id == 42  # parent untouched
+    assert parent.scope == "p_"
     assert child.name_id == 47
+    assert child.scope == "c_"
