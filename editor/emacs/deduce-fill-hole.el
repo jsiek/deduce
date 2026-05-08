@@ -344,6 +344,8 @@ failing, errors with a message that names the failure mode
 without touching the source."
   (let* ((source-buffer (plist-get session :source-buffer))
          (stdout-buffer (plist-get session :stdout-buffer))
+         (stderr-buffer (plist-get session :stderr-buffer))
+         (process (plist-get session :process))
          (start-marker (plist-get session :start-marker))
          (end-marker (plist-get session :end-marker))
          (orig-fingerprint (plist-get session :fingerprint))
@@ -351,6 +353,14 @@ without touching the source."
                 (with-current-buffer stdout-buffer
                   (buffer-substring-no-properties
                    (point-min) (point-max)))))
+         (stderr-tail (when (buffer-live-p stderr-buffer)
+                        (with-current-buffer stderr-buffer
+                          (let ((all (buffer-substring-no-properties
+                                      (point-min) (point-max))))
+                            (if (> (length all) 2048)
+                                (substring all (- (length all) 2048))
+                              all)))))
+         (exit-code (and (processp process) (process-exit-status process)))
          (source-alive (buffer-live-p source-buffer)))
     ;; Cleanup is destructive (kills the stdout/stderr buffers, clears
     ;; markers) so we read everything we need first.
@@ -367,16 +377,62 @@ without touching the source."
                (ok (plist-get response :ok))
                (proof (plist-get response :proof))
                (error-msg (plist-get response :error))
-               (attempts (or (plist-get response :attempts) 0)))
+               (attempts (or (plist-get response :attempts) 0))
+               ;; If the sidecar wrote nothing on stdout it usually
+               ;; crashed at import time or argparse rejected the
+               ;; flags -- the actual diagnostic lives on stderr.
+               ;; Surface a tail of stderr so the user has something
+               ;; to act on instead of just "no output".
+               (no-stdout (or (null raw)
+                              (string-empty-p (string-trim raw))))
+               (debug-buf
+                (when (and no-stdout stderr-tail
+                           (not (string-empty-p
+                                 (string-trim stderr-tail))))
+                  (deduce-fill-hole--stash-debug-output
+                   stderr-tail exit-code))))
           (cond
            ((not ok)
-            (message "deduce-fill-hole: %s (after %d attempt%s)"
-                     (or error-msg "no proof produced")
-                     attempts
-                     (if (= attempts 1) "" "s")))
+            (if debug-buf
+                (message
+                 "deduce-fill-hole: sidecar exited %s without writing a result; see %s"
+                 (or exit-code "?") debug-buf)
+              (message "deduce-fill-hole: %s (after %d attempt%s)"
+                       (or error-msg "no proof produced")
+                       attempts
+                       (if (= attempts 1) "" "s"))))
            (t
             (deduce-fill-hole--splice-proof
              start-marker end-marker proof orig-fingerprint attempts)))))))))
+
+
+(defconst deduce-fill-hole--debug-buffer-name "*deduce-fill-hole debug*"
+  "Name of the buffer that captures sidecar stderr after an empty-stdout
+failure.  Persistent across runs (each failure overwrites it) so the
+user has somewhere stable to look.")
+
+
+(defun deduce-fill-hole--stash-debug-output (stderr-tail exit-code)
+  "Stash STDERR-TAIL into a debug buffer, return the buffer's name.
+
+EXIT-CODE is the sidecar process's exit status (an integer or symbol
+like `signal').  Used as a header so the user can see at a glance
+whether the sidecar crashed (non-zero exit), was killed (signal),
+or completed but somehow produced no stdout."
+  (let ((buf (get-buffer-create deduce-fill-hole--debug-buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (read-only-mode 0)
+        (erase-buffer)
+        (insert (format "deduce-fill-hole sidecar exited with status: %s\n"
+                        (or exit-code "?")))
+        (insert "Stderr (last 2KB; NDJSON progress + any Python traceback):\n")
+        (insert "----------------------------------------------------------\n")
+        (insert stderr-tail)
+        (unless (eq (char-before) ?\n) (insert "\n"))
+        (goto-char (point-min)))
+      (special-mode))
+    (buffer-name buf)))
 
 
 (defun deduce-fill-hole--parse-response (raw)
