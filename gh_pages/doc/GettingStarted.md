@@ -5,7 +5,7 @@ Here are some resources to help you get started with Deduce.
 * [Installing Deduce](#installation)
 * [Running Programs](#running-deduce-programs)
 * [AI-assisted proof completion in Emacs (`C-c C-a`)](#ai-assisted-proof-completion-in-emacs)
-* [Letting an AI assistant call Deduce (MCP)](#letting-an-ai-assistant-call-deduce-mcp)
+* [Calling Deduce from an AI assistant (MCP)](#calling-deduce-from-an-ai-assistant-mcp)
 * [Learning Deduce](#deduce-introduction)
 
 ## Installation
@@ -214,19 +214,18 @@ hello.pf is valid
 
 ## AI-assisted proof completion in Emacs
 
-In this flow **Deduce calls a language model**: you press `C-c C-a`
-on a `?`, the Emacs mode spawns the
+`C-c C-a` asks a language model to fill the `?` at point. The Emacs
+mode spawns the
 [`tools/claude_fill_hole`](https://github.com/jsiek/deduce/tree/main/tools/claude_fill_hole)
-sidecar, which asks a model for a candidate proof, validates each
-candidate against `deduce.py`, and splices the first valid one back
-into your buffer. Emacs stays interactive while the model iterates
-(up to five attempts by default; the first valid proof wins). The
-binding is provided by `deduce-fill-hole` — make sure your init file
-has `(require 'deduce-fill-hole)` from the
-[Emacs setup](#emacs) above.
+sidecar, which requests a candidate proof, validates it against
+`deduce.py`, and splices the first valid one back into your buffer.
+Emacs stays interactive while the model iterates (up to five
+attempts; the first valid proof wins).
 
-Because Deduce is the one calling the model here, **you need an API
-key** for whichever provider you point the sidecar at.
+The binding comes from `deduce-fill-hole` — make sure your init file
+has `(require 'deduce-fill-hole)` from the [Emacs setup](#emacs)
+above. You'll also need an API key for whichever model provider you
+point the sidecar at.
 
 **1. Install the sidecar's Python dependencies:**
 
@@ -235,8 +234,8 @@ cd /path/to/deduce
 python3 -m pip install -r requirements-fill-hole.txt
 ```
 
-This pulls in `anthropic` and `openai` (the sidecar picks one at run
-time depending on your backend choice).
+This pulls in `anthropic` and `openai`; the sidecar picks one at run
+time based on your backend choice.
 
 **2. Pick a backend and set its API key.** Three common setups:
 
@@ -274,14 +273,14 @@ export OPENAI_API_KEY=sk-…
 
 Add the `export` line to your shell init file (`~/.zshrc`,
 `~/.bashrc`, …) so the variable is available in every Emacs session.
-On macOS GUI Emacs, where shell variables don't always propagate, the
+On macOS GUI Emacs, where shell variables sometimes fail to propagate
+into the GUI environment, the
 [`exec-path-from-shell`](https://github.com/purcell/exec-path-from-shell)
 package is a reliable fix.
 
-**3. (Optional) Pin the model and tune attempts.** When the model
-variable is unset, the sidecar picks `claude-opus-4-7` for the
-Anthropic backend and `gemma-4-31B-it` for OpenAI-compat. Override
-either:
+**3. (Optional) Pin the model and tune attempts.** By default the
+sidecar uses `claude-opus-4-7` (Anthropic backend) or
+`gemma-4-31B-it` (OpenAI-compat). To override:
 
 ```elisp
 (setq deduce-fill-hole-model "claude-sonnet-4-6")  ; cheaper Claude
@@ -297,35 +296,32 @@ customization table.
 **4. Try it.** Open a `.pf` file with a `?` to fill, place point on
 the `?`, and press `C-c C-a`. The mode line shows progress; when the
 model returns a valid proof, it replaces the `?` automatically. If
-none of the attempts validate, the buffer is left untouched and the
-sidecar's last error surfaces in the echo area.
+every attempt fails validation, the sidecar surfaces its last error
+in the echo area and leaves the buffer as it was.
 
 
-## Letting an AI assistant call Deduce (MCP)
+## Calling Deduce from an AI assistant (MCP)
 
-This is the *opposite* direction from the previous section: instead
-of Deduce asking a model to fill a hole, **an AI assistant calls
-Deduce** as a tool. The assistant (e.g. Claude Code, Claude Desktop,
-Cursor) lives in its own window and uses Deduce to check a file,
-inspect a proof goal, refine a hole, case-split, and so on — driven by
-whatever conversation you're having with it.
+An AI assistant like
+[Claude Code](https://docs.anthropic.com/claude/docs/claude-code),
+Claude Desktop, or Cursor can call Deduce as a tool — checking a
+file, inspecting a proof goal, refining a hole, case-splitting — all
+driven by your conversation with the assistant.
 
 Deduce supplies the bridge: an
 [MCP](https://modelcontextprotocol.io) (Model Context Protocol)
-server at `lsp/mcp_server.py` that exposes its checking and
-proof-editing helpers as MCP tools. **The MCP server doesn't talk to
-any language model itself, so it needs no API key of its own** — it
-just speaks JSON-RPC on stdio. The model credentials and model choice
-belong to whatever MCP client you connect: that's part of *that*
-client's setup, not Deduce's.
+server at `lsp/mcp_server.py` that speaks JSON-RPC on stdio and
+exposes Deduce's checking and proof-editing helpers as MCP tools.
+Your assistant brings its own login and model choice; on the Deduce
+side you install the server's Python dependencies, register the
+server with your assistant, and you're set.
 
-The instructions below assume
-[Claude Code](https://docs.anthropic.com/claude/docs/claude-code) is
-already installed and authenticated; the shape is similar for other
-MCP clients (check their docs for the exact config-file location).
+The instructions below assume Claude Code is installed and
+authenticated; the shape is similar for other MCP clients (check
+their docs for the exact config-file location).
 
-**1. Install the MCP server's Python dependencies.** If you didn't
-install the LSP requirements above, do it now:
+**1. Install the MCP server's Python dependencies.** Skip this if
+you already installed the LSP requirements above:
 
 ```sh
 cd /path/to/deduce
@@ -335,7 +331,7 @@ python3 -m pip install -r requirements-lsp.txt
 This pulls in the `mcp` Python package.
 
 **2. Register the Deduce MCP server with your assistant.** For Claude
-Code: create (or edit) `.mcp.json` in the directory where you'll run
+Code, create (or edit) `.mcp.json` in the directory where you'll run
 `claude` — typically your Deduce checkout or the directory containing
 your `.pf` files:
 
