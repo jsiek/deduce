@@ -64,25 +64,35 @@ def _ast_loc(loc) -> "str | None":
 # --------------------------------------------------------------------------
 
 def lower_program(stmts: List[ast.Statement],
-                  main_module: str = "main") -> ir.Program:
-    """Entry point. Walks the top-level statement list, recursing into
-    each `Import.ast` so the imported module's declarations end up in
-    the same flat list. Each module is recursed into at most once
-    (matching how the interpreter populates `imported_modules`).
-    Then collects constructor names (so `Call(Var(ctor), ...)` can
-    become `Con` rather than `App`) and lowers each statement.
+                  main_module: str = "main",
+                  separate: bool = False) -> ir.Program:
+    """Entry point. Walks the top-level statement list, lowering each
+    statement to an IR node.
 
     `main_module` is the module name attached to user-file statements
     (those not inside any `Import.ast`). Used for symbol mangling in
     the C emitter — `<Module>__<base_name>` keeps two compilation
-    units' names from colliding at link time. Defaults to `"main"`
-    so callers that don't care (e.g. test harnesses) can ignore it.
+    units' names from colliding at link time.
 
-    Pruning (compiler/prune.py) downstream removes everything that
-    isn't transitively reached from the user's `print` statements;
-    this lets us inline the entire prelude without paying for the
-    parts the user doesn't touch."""
-    flat, name_to_module = _flatten_imports(stmts, main_module)
+    `separate` controls how imports are handled:
+
+    - `False` (default — monolithic mode): walks each `Import.ast`
+      recursively and splices the imported module's declarations
+      into the same flat list. Each module is recursed into at most
+      once (matching the interpreter's `imported_modules`). Pruning
+      downstream removes whatever isn't reached from a `print`.
+
+    - `True` (per-module mode, Step 27): imports are NOT inlined.
+      Only the user's own statements are lowered. The set of
+      directly-imported modules is collected on `Program.imports`
+      so the emitter can `#include` their headers and the runtime
+      can call their `_init` functions in the right order.
+      Pruning is skipped — cross-module reachability is the
+      linker's job (`-Wl,--gc-sections`)."""
+    (flat, name_to_module, name_to_seq, imports,
+     import_funcs, import_globals, import_ctors) = _flatten_imports(
+        stmts, main_module, separate=separate,
+    )
 
     ctors: Set[str] = set()
     arities: Dict[str, int] = {}
@@ -91,6 +101,13 @@ def lower_program(stmts: List[ast.Statement],
             for c in s.alternatives:
                 ctors.add(c.name)
                 arities[c.name] = len(c.parameters)
+    # In per-module mode, lower_call still needs to identify
+    # imported ctors so `Call(Var(suc), args)` lowers to `Con(suc, args)`
+    # rather than a function call. The ctor's body isn't ours to emit;
+    # the macro and singleton come from the imported header.
+    for cname, carity in import_ctors.items():
+        ctors.add(cname)
+        arities[cname] = carity
 
     lc = LoweringCtx(ctors=ctors, ctor_arities=arities)
     out: List[ir.TopLevel] = []
@@ -101,27 +118,120 @@ def lower_program(stmts: List[ast.Statement],
                 out.extend(d)
             else:
                 out.append(d)
-    return ir.Program(decls=out, name_to_module=name_to_module)
+    return ir.Program(
+        decls=out,
+        name_to_module=name_to_module,
+        name_to_seq=name_to_seq,
+        main_module=main_module,
+        imports=imports,
+        import_funcs=import_funcs,
+        import_globals=import_globals,
+        import_ctors=import_ctors,
+    )
 
 
 def _flatten_imports(
     stmts: List[ast.Statement],
     main_module: str,
-) -> "tuple[list[tuple[ast.Statement, str]], Dict[str, str]]":
-    """Walk `stmts`, splicing each `Import.ast` (the imported module's
-    post-typecheck statement list — see `process_declaration` in
-    proof_checker.py) in place of the import itself, while tracking
-    each statement's source module. Imports are deduplicated by
-    module name; only the first occurrence's nested statements are
-    emitted, matching `imported_modules` semantics in the interpreter.
+    separate: bool = False,
+):
+    """Walk `stmts` and produce a flat list of (statement, module).
 
-    Returns (statements paired with their module names,
-    name → module map covering every uniquified top-level name a
-    decl exposes — function/global/union/constructor names).
+    In monolithic mode (`separate=False`) splices each `Import.ast`
+    (the imported module's post-typecheck statement list — see
+    `process_declaration` in proof_checker.py) in place of the
+    import itself, deduplicating by module name. In per-module mode
+    (`separate=True`) records the direct imports' names and stops —
+    the imported modules are compiled separately.
+
+    Returns:
+      - statements paired with their module names,
+      - name → module map covering every uniquified top-level name
+        the lowered statements expose (function/global/union/
+        constructor),
+      - list of directly-imported module names, in source order
+        with duplicates removed (only meaningful in per-module
+        mode; empty in monolithic mode since there's no separate
+        compilation unit boundary to record).
     """
     seen: Set[str] = set()
     out: List[tuple[ast.Statement, str]] = []
     name_to_module: Dict[str, str] = {}
+    name_to_seq: Dict[str, int] = {}
+    direct_imports: List[str] = []
+    import_funcs: Dict[str, int] = {}
+    import_globals: Set[str] = set()
+    import_ctors: Dict[str, int] = {}
+    counters_by_module: Dict[str, int] = {}
+
+    def assign_seq(uniq_name: str, module: str) -> None:
+        """Per-module ordinal for `uniq_name` based on order of
+        encounter inside `module`. The ordinal is stable across
+        compilation contexts because we walk a module's AST in the
+        same order regardless of whether we're compiling that module
+        standalone or pulling it in via `Import.ast` from another
+        module's lowering. emit_c uses this as the within-module
+        symbol disambiguator instead of the uniquify counter (whose
+        values shift with the import set seen during one compile)."""
+        n = counters_by_module.get(module, 0)
+        name_to_seq[uniq_name] = n
+        counters_by_module[module] = n + 1
+
+    def record_decl_module(s: ast.Statement, module: str) -> None:
+        if isinstance(s, ast.Define):
+            name_to_module[s.name] = module
+            assign_seq(s.name, module)
+        elif isinstance(s, ast.RecFun):
+            name_to_module[s.name] = module
+            assign_seq(s.name, module)
+        elif isinstance(s, ast.GenRecFun):
+            name_to_module[s.name] = module
+            assign_seq(s.name, module)
+        elif isinstance(s, ast.Union):
+            name_to_module[s.name] = module
+            assign_seq(s.name, module)
+            for c in s.alternatives:
+                name_to_module[c.name] = module
+                assign_seq(c.name, module)
+
+    def record_imported_kind(s: ast.Statement) -> None:
+        """In per-module mode we additionally need the kind/arity of
+        every imported decl so emit_c can pick the right call shape
+        and look up ctor macros via the imported `.h`."""
+        if isinstance(s, ast.Define):
+            unwrapped = s.body
+            if isinstance(unwrapped, ast.Generic):
+                unwrapped = unwrapped.body
+            if isinstance(unwrapped, ast.Lambda):
+                import_funcs[s.name] = len(unwrapped.vars)
+            else:
+                import_globals.add(s.name)
+        elif isinstance(s, ast.RecFun):
+            import_funcs[s.name] = len(s.params)
+        elif isinstance(s, ast.GenRecFun):
+            import_funcs[s.name] = len(s.vars)
+        elif isinstance(s, ast.Union):
+            for c in s.alternatives:
+                import_ctors[c.name] = len(c.parameters)
+
+    def register_imported(items: List[ast.Statement], current_module: str) -> None:
+        """Walk an imported module's AST recording each top-level
+        decl's name → module mapping plus its kind/arity. We don't
+        emit anything for these statements — that happens in their
+        own per-module compile — but we DO need both maps so
+        references from the importing module's code mangle the
+        same way as the definitions in the imported module's `.c`
+        and dispatch through the right call shape."""
+        for s in items:
+            if isinstance(s, ast.Import):
+                if s.name in seen:
+                    continue
+                seen.add(s.name)
+                if s.ast is not None:
+                    register_imported(s.ast, s.name)
+            else:
+                record_decl_module(s, current_module)
+                record_imported_kind(s)
 
     def walk(items: List[ast.Statement], current_module: str) -> None:
         for s in items:
@@ -129,23 +239,31 @@ def _flatten_imports(
                 if s.name in seen:
                     continue
                 seen.add(s.name)
+                if separate and current_module == main_module:
+                    # Direct import: record so emit_c emits the
+                    # right `#include` and the right module-init
+                    # call, then recurse just to populate
+                    # name_to_module so references mangle correctly.
+                    direct_imports.append(s.name)
+                    if s.ast is not None:
+                        register_imported(s.ast, s.name)
+                    continue
+                if separate:
+                    # Indirect import inside an already-handled
+                    # module: don't recurse — it's the imported
+                    # module's build-system dependency, not ours.
+                    continue
                 if s.ast is not None:
                     walk(s.ast, s.name)
             else:
                 out.append((s, current_module))
-                if isinstance(s, ast.Define):
-                    name_to_module[s.name] = current_module
-                elif isinstance(s, ast.RecFun):
-                    name_to_module[s.name] = current_module
-                elif isinstance(s, ast.GenRecFun):
-                    name_to_module[s.name] = current_module
-                elif isinstance(s, ast.Union):
-                    name_to_module[s.name] = current_module
-                    for c in s.alternatives:
-                        name_to_module[c.name] = current_module
+                record_decl_module(s, current_module)
 
     walk(stmts, main_module)
-    return out, name_to_module
+    return (
+        out, name_to_module, name_to_seq, direct_imports,
+        import_funcs, import_globals, import_ctors,
+    )
 
 
 class LoweringCtx:

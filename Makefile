@@ -26,6 +26,7 @@ tests-compile:
 	$(PYTHON) ./test/compile/run_e2e.py
 	$(PYTHON) ./test/compile/run_determinism.py
 	$(PYTHON) ./test/compile/run_headers.py
+	$(PYTHON) ./test/compile/run_separate.py
 
 package:
 	$(PYTHON) ./deduce.py ./lib

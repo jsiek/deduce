@@ -9,7 +9,8 @@
 extern deduce_value C_closure__zero_1;
 
 deduce_value F_closure__add_3(deduce_value* env, deduce_value* args);
-deduce_value F_closure__adder_9(deduce_value* env, deduce_value* args);
+deduce_value F_closure__adder_4(deduce_value* env, deduce_value* args);
+deduce_value F_closure__closure__lam1(deduce_value* env, deduce_value* args);
 
 #endif
 

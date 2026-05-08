@@ -251,10 +251,41 @@ class Program:
     uniquified name (function/global/union/constructor) to its source
     module. emit_c consults it to mangle reference sites — calls,
     constructor applications, pattern matches — without needing to
-    chase parents. Synthesised names (closure-conversion `$lam<N>`)
-    are intentionally absent; emit_c handles them as module-less."""
+    chase parents.
+
+    `main_module` is the module name attached to user-file
+    statements that aren't inside any `Import.ast`. Used by closure
+    conversion to module-prefix lifted lambdas inside Print/Global
+    bodies, and by emit_c to know which module's `_init` to call
+    from `deduce_program_main`.
+
+    `imports` lists the directly-imported module names, in source
+    order with duplicates removed. Only populated in per-module
+    mode (Step 27 of `docs/separate-compile-plan.md`); empty in
+    monolithic mode.
+
+    `import_funcs` / `import_globals` / `import_ctors` describe
+    decls that live in imported modules. emit_c needs to know
+    these so calls and ctor applications dispatch correctly
+    (direct call vs. closure call, ctor IDs available via the
+    imported header). All three are empty in monolithic mode
+    (where the decls are flattened into `decls` directly)."""
     decls: List[TopLevel] = field(default_factory=list)
     name_to_module: Dict[str, str] = field(default_factory=dict)
+    # Per-module ordinal of each top-level uniquified name (function /
+    # global / union / constructor). emit_c uses this as the
+    # within-module symbol disambiguator instead of the uniquify
+    # counter, because the uniquify counter shifts with the import
+    # set seen during one compile while the ordinal is computed by
+    # walking the module's AST in source order — stable regardless
+    # of whether the module was compiled standalone or pulled in via
+    # `Import.ast`.
+    name_to_seq: Dict[str, int] = field(default_factory=dict)
+    main_module: "str | None" = None
+    imports: List[str] = field(default_factory=list)
+    import_funcs: Dict[str, int] = field(default_factory=dict)
+    import_globals: "set[str]" = field(default_factory=set)
+    import_ctors: Dict[str, int] = field(default_factory=dict)
 
 
 # ---------- pretty printer ----------

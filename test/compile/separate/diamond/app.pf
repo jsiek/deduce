@@ -1,0 +1,7 @@
+import d
+import b
+import c
+
+print incr(zero)
+print add_two(zero)
+print add(incr(zero), add_two(zero))

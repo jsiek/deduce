@@ -84,9 +84,14 @@ class EmitCtx:
     ctor_arities: Dict[str, int] = field(default_factory=dict)
     # Per-name source module for `<Module>__<base_name>` symbol
     # mangling (Step 25 of separate-compile-plan.md). Names absent
-    # from this map (closure-conversion `$lam<N>` lifts, etc.)
-    # mangle without a module prefix.
+    # from this map (closure-conversion `$lam<N>` lifts) mangle
+    # without a module prefix.
     name_to_module: Dict[str, str] = field(default_factory=dict)
+    # Per-module ordinal disambiguator. Used in place of the uniquify
+    # counter so a module's symbols are stable regardless of what
+    # other modules were processed in the same compile (Step 28 of
+    # separate-compile-plan.md).
+    name_to_seq: Dict[str, int] = field(default_factory=dict)
     tmp_counter: int = 0
 
     def fresh_tmp(self) -> str:
@@ -96,10 +101,18 @@ class EmitCtx:
 
     def _mangle_top(self, name: str) -> str:
         """Mangle a top-level name. If we know its source module,
-        prefix with `<Module>__`; otherwise mangle the uniquified name
-        directly."""
+        prefix with `<Module>__`. The within-module disambiguator is
+        the per-module ordinal from `name_to_seq` (stable across
+        compile contexts) when available; otherwise fall back to
+        mangling the uniquified name directly (covers closure-lifted
+        lambdas and any synthesised name that was never assigned an
+        ordinal during lowering)."""
         module = self.name_to_module.get(name)
-        if module:
+        seq = self.name_to_seq.get(name)
+        base = _mangle(_base_name(name))
+        if module is not None and seq is not None:
+            return _mangle(module) + "__" + base + f"_{seq}"
+        if module is not None:
             return _mangle(module) + "__" + _mangle(name)
         return _mangle(name)
 
@@ -119,7 +132,7 @@ class EmitCtx:
 
 
 def emit_program(p: ir.Program) -> str:
-    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module), name_to_seq=dict(p.name_to_seq))
     next_ctor_id = 0
     for d in p.decls:
         if isinstance(d, ir.UnionDecl):
@@ -214,7 +227,191 @@ def emit_program(p: ir.Program) -> str:
     return "\n".join(out) + "\n"
 
 
-def emit_header(p: ir.Program, module_name: str) -> str:
+def _seed_ctx_with_imports(ctx: "EmitCtx", p: ir.Program,
+                           own_ctor_count: int) -> None:
+    """In per-module mode, register every imported decl in `ctx`
+    so reference sites in this module's code dispatch correctly.
+    Imported ctor IDs are assigned values past this module's
+    range — they're never emitted as `#define`s (the imported
+    `.h` does that), and emit_c only uses `ctor_id_macro` (a
+    string mangle) for them, but the dict-membership tests
+    elsewhere need an entry to be present."""
+    next_imp_id = own_ctor_count
+    for cname, carity in p.import_ctors.items():
+        ctx.ctor_ids[cname] = next_imp_id
+        ctx.ctor_arities[cname] = carity
+        next_imp_id += 1
+    for fname, arity in p.import_funcs.items():
+        ctx.top_funcs[fname] = arity
+    for gname in p.import_globals:
+        ctx.top_globals.add(gname)
+
+
+def emit_module(p: ir.Program, is_main: bool) -> "tuple[str, str]":
+    """Emit (c_source, h_source) for a single-module IR program.
+
+    Step 27 of `docs/separate-compile-plan.md`. The input program is
+    expected to have been lowered with `separate=True`: `p.decls`
+    contains only this module's declarations, `p.imports` lists the
+    direct imports, and `p.main_module` is the module name.
+
+    The `.c` file:
+    - `#include "deduce.h"` and the imported modules' headers.
+    - Defines this module's ctor singletons, functions, and globals.
+    - Defines `void <Module>_init(void)` — idempotent; calls each
+      direct import's `_init` (so the user only has to call the main
+      module's `_init`), then allocates the singletons and runs
+      global initialisers.
+    - If `is_main`, also defines `void deduce_program_main(void)`
+      that calls `<Module>_init()` and runs the prints in source
+      order.
+
+    The `.h` file is what `emit_header` produces, plus the module's
+    `_init` prototype so downstream consumers can call it (or
+    declare an extern dependency on it).
+    """
+    if p.main_module is None:
+        raise EmitError("emit_module: program has no main_module")
+
+    module = p.main_module
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module), name_to_seq=dict(p.name_to_seq))
+    next_ctor_id = 0
+    for d in p.decls:
+        if isinstance(d, ir.UnionDecl):
+            for c in d.ctors:
+                ctx.ctor_ids[c.name] = next_ctor_id
+                ctx.ctor_arities[c.name] = c.arity
+                next_ctor_id += 1
+        elif isinstance(d, ir.Function):
+            ctx.top_funcs[d.name] = len(d.params)
+        elif isinstance(d, ir.Global):
+            ctx.top_globals.add(d.name)
+    own_ctor_count = next_ctor_id
+    _seed_ctx_with_imports(ctx, p, own_ctor_count)
+
+    # Imported modules' headers must be available before we use any
+    # of their functions, ctor IDs, or singletons. The corresponding
+    # `<import>_init` extern decls come from the same headers.
+    nullary_ctors = [
+        c.name for d in p.decls if isinstance(d, ir.UnionDecl)
+        for c in d.ctors if c.arity == 0
+    ]
+
+    # ----- the .c file -----
+    out: List[str] = []
+    out.append('#include "deduce.h"')
+    for imp in p.imports:
+        out.append(f'#include "{imp}.h"')
+    out.append("")
+
+    # Constructor id macros for THIS module's ctors only. Imported
+    # ctors' macros come from the corresponding `<import>.h` we
+    # already `#include`d above; redefining them here would conflict.
+    own_ctor_macros: List[str] = []
+    for d in p.decls:
+        if isinstance(d, ir.UnionDecl):
+            for c in d.ctors:
+                own_ctor_macros.append(
+                    f"#define {ctx.ctor_id_macro(c.name)} {ctx.ctor_ids[c.name]}"
+                )
+    if own_ctor_macros:
+        out.extend(own_ctor_macros)
+        out.append("")
+
+    # Forward declarations for this module's functions.
+    for d in p.decls:
+        if isinstance(d, ir.Function):
+            out.append(_emit_fn_decl(d, ctx) + ";")
+    if any(isinstance(d, ir.Function) for d in p.decls):
+        out.append("")
+
+    # Ctor singleton storage (definitions, not externs — the .h
+    # declares them extern; here we provide the storage).
+    for name in nullary_ctors:
+        out.append(f"deduce_value {ctx.ctor_singleton(name)};")
+    if nullary_ctors:
+        out.append("")
+
+    # Global storage.
+    for d in p.decls:
+        if isinstance(d, ir.Global):
+            out.append(f"deduce_value {ctx.global_id(d.name)};")
+    if any(isinstance(d, ir.Global) for d in p.decls):
+        out.append("")
+
+    # Function bodies.
+    for d in p.decls:
+        if isinstance(d, ir.Function):
+            out.append(_emit_function(d, ctx))
+            out.append("")
+
+    # Per-module init: idempotent (per-module flag), calls direct
+    # imports' inits first so any singletons / globals they own are
+    # ready before this module's globals try to reference them.
+    init_name = _module_init_name(module)
+    out.append(f"static int {init_name}__inited;")
+    out.append(f"void {init_name}(void) {{")
+    out.append(f"    if ({init_name}__inited) return;")
+    out.append(f"    {init_name}__inited = 1;")
+    for imp in p.imports:
+        out.append(f"    {_module_init_name(imp)}();")
+    for name in nullary_ctors:
+        out.append(
+            f"    {ctx.ctor_singleton(name)} = deduce_make_ctor("
+            f"{ctx.ctor_id_macro(name)}, {_c_string(_base_name(name))}, 0, NULL);"
+        )
+    for d in p.decls:
+        if isinstance(d, ir.Global):
+            stmts, expr = _emit_term(d.body, ctx, locals_in_scope=set())
+            for s in stmts:
+                out.append("    " + s)
+            out.append(f"    {ctx.global_id(d.name)} = {expr};")
+    out.append("}")
+    out.append("")
+
+    # Main-module entry point: calls our init, then runs prints.
+    if is_main:
+        out.append("void deduce_program_main(void) {")
+        out.append(f"    {init_name}();")
+        for d in p.decls:
+            if isinstance(d, ir.Print):
+                stmts, expr = _emit_term(d.term, ctx, locals_in_scope=set())
+                for s in stmts:
+                    out.append("    " + s)
+                out.append(f"    deduce_println({expr});")
+            elif isinstance(d, ir.AssertEq):
+                sl, el = _emit_term(d.lhs, ctx, locals_in_scope=set())
+                sr, er = _emit_term(d.rhs, ctx, locals_in_scope=set())
+                for s in sl + sr:
+                    out.append("    " + s)
+                out.append(f"    deduce_assert_eq({el}, {er}, NULL);")
+            elif isinstance(d, ir.AssertBool):
+                stmts, expr = _emit_term(d.term, ctx, locals_in_scope=set())
+                for s in stmts:
+                    out.append("    " + s)
+                out.append(f"    deduce_assert_bool({expr}, NULL);")
+        out.append("}")
+
+    c_source = "\n".join(out) + "\n"
+
+    # ----- the .h file -----
+    h_source = emit_header(p, module, init_name=init_name, imports=p.imports)
+
+    return c_source, h_source
+
+
+def _module_init_name(module: str) -> str:
+    """Mangle a module name to its `_init` function symbol."""
+    return _mangle(module) + "_init"
+
+
+def emit_header(
+    p: ir.Program,
+    module_name: str,
+    *,
+    init_name: "str | None" = None,
+    imports: "list[str] | None" = None,
+) -> str:
     """Generate the C header for a single module of an IR program.
 
     Declares (forward-decl / extern) every top-level decl whose
@@ -225,11 +422,16 @@ def emit_header(p: ir.Program, module_name: str) -> str:
     without redefinition errors.
 
     The constructor IDs match the IDs `emit_program` assigns for the
-    same `Program`, so a `.c` and its `.h` agree. Step 27 will use
-    this to wire up per-module compilation; Step 26 exposes it for
-    fixture-based testing of the header's shape.
+    same `Program`, so a `.c` and its `.h` agree.
+
+    `init_name` and `imports` are filled in by `emit_module`: when
+    the header is part of a per-module compile pair, it also
+    re-includes the imported modules' headers and prototypes the
+    module's `_init` function. In monolithic mode (Step 26's
+    fixture testing) these are None and the header is just static
+    declarations.
     """
-    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module), name_to_seq=dict(p.name_to_seq))
     next_ctor_id = 0
     for d in p.decls:
         if isinstance(d, ir.UnionDecl):
@@ -250,8 +452,11 @@ def emit_header(p: ir.Program, module_name: str) -> str:
         f"#ifndef {guard}",
         f"#define {guard}",
         '#include "deduce.h"',
-        "",
     ]
+    if imports:
+        for imp in imports:
+            out.append(f'#include "{imp}.h"')
+    out.append("")
 
     # Constructor ID macros — one per ctor of any union in this module.
     macros: List[str] = []
@@ -296,6 +501,10 @@ def emit_header(p: ir.Program, module_name: str) -> str:
             )
     if global_externs:
         out.extend(global_externs)
+        out.append("")
+
+    if init_name is not None:
+        out.append(f"void {init_name}(void);")
         out.append("")
 
     out.append("#endif")

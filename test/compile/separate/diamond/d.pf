@@ -1,0 +1,13 @@
+module d
+
+// Bottom of the diamond. Defines the type that B and C both share.
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+recursive add(MyNat, MyNat) -> MyNat {
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
+}

@@ -1,0 +1,11 @@
+module lib
+
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+recursive add(MyNat, MyNat) -> MyNat {
+  add(zero, m) = m
+  add(suc(n), m) = suc(add(n, m))
+}

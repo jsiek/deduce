@@ -37,18 +37,27 @@ def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] 
             exit(1)
 
 def compile_file(filename: str, output: str, prelude: list[str],
-                 no_prune: bool = False) -> None:
-    """Compile a checked .pf file to a single .c source file.
+                 no_prune: bool = False,
+                 separate: bool = False,
+                 is_main: bool = True) -> None:
+    """Compile a checked .pf file.
 
-    Pipeline: parse + uniquify + type-check via the existing front-end,
-    then lower → closure-convert → (prune) → emit_c. The runtime in
-    compiler/runtime/ supplies the matching deduce.h / deduce.c that
-    callers must compile alongside the generated source.
-
-    Pruning drops definitions not transitively reached from a `print`
-    statement. Pass `no_prune=True` to keep every lowered decl in the
-    output — useful when debugging an emitter issue on code the
+    In monolithic mode (`separate=False`, the default): inlines every
+    transitively-imported module's declarations, prunes everything
+    not reached from a `print`, and emits a single self-contained
+    `.c` file. Pass `no_prune=True` to keep every lowered decl in
+    the output — useful when debugging an emitter issue on code the
     pruner would normally have removed.
+
+    In per-module mode (`separate=True`, Step 27 of
+    `docs/separate-compile-plan.md`): treats `filename` as one
+    compilation unit. Imports are NOT inlined; the emitted `.c`
+    includes the headers of its directly-imported modules, and the
+    linker resolves cross-module symbols. Both `.c` and `.h` are
+    written; pruning is skipped (the C linker handles dead-code
+    elimination via `-Wl,--gc-sections`). `is_main=True` (default)
+    means the module emits `deduce_program_main`; pass `False` for
+    library modules with no `print` statements of their own.
     """
     from compiler import closure as _closure, emit_c, ir, lower
     from compiler import prune as _prune
@@ -60,10 +69,23 @@ def compile_file(filename: str, output: str, prelude: list[str],
             print(result.error_traceback)
         exit(1)
     main_module = Path(filename).stem
-    program = lower.lower_program(result.ast, main_module=main_module)
+    program = lower.lower_program(
+        result.ast, main_module=main_module, separate=separate,
+    )
     ir.verify(program)
     program = _closure.closure_convert(program)
     ir.verify(program)
+    if separate:
+        c_src, h_src = emit_c.emit_module(program, is_main=is_main)
+        if output == "-":
+            sys.stdout.write(c_src)
+        else:
+            with open(output, "w", encoding="utf-8") as f:
+                f.write(c_src)
+            h_out = Path(output).with_suffix(".h")
+            with open(h_out, "w", encoding="utf-8") as f:
+                f.write(h_src)
+        return
     if not no_prune:
         program = _prune.prune(program)
         ir.verify(program)
@@ -113,6 +135,8 @@ if __name__ == "__main__":
     compile_target = None
     compile_output = None
     no_prune = False
+    separate_compile = False
+    is_main_module = True
     init_import_directories()
 
     # TODO: Cleanup 
@@ -163,6 +187,11 @@ if __name__ == "__main__":
             set_check_imports(False)
         elif argument == '--compile':
             compile_target = '__pending__'
+        elif argument == '--compile-module':
+            compile_target = '__pending__'
+            separate_compile = True
+        elif argument == '--no-main':
+            is_main_module = False
         elif argument == '-o' and i + 1 < len(sys.argv):
             compile_output = sys.argv[i + 1]
             already_processed_next = True
@@ -210,7 +239,12 @@ if __name__ == "__main__":
                 exit(1)
             out = compile_output if compile_output is not None \
                 else os.path.splitext(deducable)[0] + ".c"
-            compile_file(deducable, out, deducable_prelude, no_prune=no_prune)
+            compile_file(
+                deducable, out, deducable_prelude,
+                no_prune=no_prune,
+                separate=separate_compile,
+                is_main=is_main_module,
+            )
         elif os.path.isfile(deducable):
             deduce_file(deducable, error_expected, tracing_functions, deducable_prelude)
         elif os.path.isdir(deducable):
