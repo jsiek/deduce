@@ -15,6 +15,7 @@ html_dir = './gh_pages/pages'
 mdToHtmlName = {
     'CheatSheet' : 'cheat-sheet',
     'TacticsCheatSheet' : 'tactics-cheat-sheet',
+    'WorkedExamples' : 'worked-examples',
     'FunctionalProgramming' : 'deduce-programming',
     'ProofIntro' : 'deduce-proofs',
     'Reference' : 'reference',
@@ -28,6 +29,7 @@ mdToHtmlName = {
 mdToTitle = {
     'CheatSheet' : 'Cheat Sheet',
     'TacticsCheatSheet' : 'Tactics Cheat Sheet',
+    'WorkedExamples' : 'Worked Examples',
     'FunctionalProgramming' : 'Programming',
     'ProofIntro' : 'Proofs',
     'Reference' : 'Reference Manual',
@@ -41,6 +43,7 @@ mdToTitle = {
 mdToDescription = {
     'CheatSheet' : 'Cheat sheet for advice on deduce proofs.',
     'TacticsCheatSheet' : 'Concise reference for every Deduce tactic, with common pitfalls.',
+    'WorkedExamples' : 'Concrete short proofs demonstrating each Deduce construct, organized by goal shape.',
     'FunctionalProgramming' : 'A guide on deduce programming with exercises.',
     'ProofIntro' : 'A guide on writing proofs in deduce with exercises.',
     'Reference' : 'Full reference manual for the deduce language.',
@@ -54,6 +57,7 @@ mdToDescription = {
 mdToDeduceCode = {
     'CheatSheet' : 'cheat-sheet',
     'TacticsCheatSheet' : 'tactics-cheat-sheet',
+    'WorkedExamples' : 'worked-examples',
     'FunctionalProgramming' : 'programming',
     'ProofIntro' : 'proof',
     'Reference' : 'reference',

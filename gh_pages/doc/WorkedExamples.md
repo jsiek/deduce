@@ -300,6 +300,182 @@ Three Deduce-specific tactics from this example:
 - `replace IH` rewrites the goal left-to-right using `IH`'s equation.
 - `equations LHS = step1 by reason1 ... = end by reasonN` is the readable form of nested `transitive`. Each `... = next` continues the chain.
 
+### Pitfall: don't `arbitrary` before `induction`
+
+`induction T` consumes a leading `all x:T.` in the current goal — it introduces the variable for you, one fresh name per case. If you write `arbitrary n:T` first, the `all` is gone and `induction T` no longer matches.
+
+```
+// WRONG — induction has nothing to bind to
+theorem bad: all n:UnaryNat. add(n, zero) = n
+proof
+  arbitrary n:UnaryNat   // strips the `all`
+  induction UnaryNat     // FAILS: goal is not `all ...`
+  ...
+end
+
+// RIGHT — go straight to induction
+theorem good: all n:UnaryNat. add(n, zero) = n
+proof
+  induction UnaryNat
+  case zero { expand add. }
+  case succ(n') suppose IH: add(n', zero) = n' {
+    equations
+      add(succ(n'), zero) = succ(add(n', zero))   by expand add.
+                      ... = succ(n')               by replace IH.
+  }
+end
+```
+
+If the goal has *several* leading `all`s and you only want to induct on one of them, `arbitrary` the *outer* universals first, then `induction` the one you want. The induction variable's `all` must be the *outermost* `all` left in the goal at the moment you call `induction`.
+
+### Three-step `equations` chain
+
+`equations` chains can be any length. Each `... = next  by reason` extends the previous step. The `by reason` justifies the *previous* equality; the final `by reason` closes the chain.
+
+```
+union UnaryNat {
+  zero
+  succ(UnaryNat)
+}
+
+recursive add(UnaryNat, UnaryNat) -> UnaryNat {
+  add(zero, m) = m
+  add(succ(n), m) = succ(add(n, m))
+}
+
+theorem ex_induction_three_step: all n:UnaryNat. add(n, succ(zero)) = succ(n)
+proof
+  induction UnaryNat
+  case zero {
+    expand add.
+  }
+  case succ(n') suppose IH: add(n', succ(zero)) = succ(n') {
+    equations
+      add(succ(n'), succ(zero))
+          = succ(add(n', succ(zero)))   by expand add.
+      ... = succ(succ(n'))              by replace IH.
+  }
+end
+```
+
+The first step's `by` justifies `add(succ(n'), succ(zero)) = succ(add(n', succ(zero)))` — that's the unfolding of `add` on a `succ` argument. The second step's `by replace IH.` rewrites `add(n', succ(zero))` to `succ(n')` inside the right-hand side and the resulting equation `succ(succ(n')) = succ(succ(n'))` discharges by reflexivity (the trailing `.` does it).
+
+### Induction whose goal involves a predicate
+
+When the goal mentions an inductively-defined predicate (`even`, `≤`, etc.), the case bodies often need to invoke the predicate's rules to construct the conclusion. Drop the trailing `.` on `expand` when you want the unfolding to land but you still need a follow-up tactic to close the goal.
+
+```
+union UnaryNat {
+  zero
+  succ(UnaryNat)
+}
+
+recursive double(UnaryNat) -> UnaryNat {
+  double(zero) = zero
+  double(succ(n)) = succ(succ(double(n)))
+}
+
+predicate even : fn UnaryNat -> bool {
+  ev_zero : even(zero)
+  ev_ss   : all n:UnaryNat. if even(n) then even(succ(succ(n)))
+}
+
+theorem ex_induction_predicate:
+  all n:UnaryNat. even(double(n))
+proof
+  induction UnaryNat
+  case zero {
+    expand double
+    ev_zero
+  }
+  case succ(n') suppose IH: even(double(n')) {
+    expand double
+    apply ev_ss[double(n')] to IH
+  }
+end
+```
+
+Two things worth pinning down:
+
+- `expand double` *without* a trailing `.` unfolds `double(...)` in the goal but does NOT try to discharge it. Use the no-`.` form whenever the unfolded goal is not yet the trivial equation. The `.` form is only correct when the unfolded equation is reflexive.
+- `apply ev_ss[double(n')] to IH` instantiates `ev_ss` at `double(n')` (giving `if even(double(n')) then even(succ(succ(double(n'))))`), then applies it to `IH : even(double(n'))` — yielding `even(succ(succ(double(n'))))`, which matches the post-`expand` goal.
+
+### Induction over a list type
+
+Induction works on any union type, not just numerics. Lists are the second-most common scrutinee.
+
+```
+union MyList<T> {
+  empty
+  node(T, MyList<T>)
+}
+
+recursive append<T>(MyList<T>, MyList<T>) -> MyList<T> {
+  append(empty, ys) = ys
+  append(node(x, xs), ys) = node(x, append(xs, ys))
+}
+
+theorem ex_induction_list:
+  all U:type. all xs:MyList<U>.
+  append(xs, empty) = xs
+proof
+  arbitrary U:type
+  induction MyList<U>
+  case empty {
+    expand append.
+  }
+  case node(x, xs') suppose IH: append(xs', empty) = xs' {
+    equations
+      append(node(x, xs'), empty)
+          = node(x, append(xs', empty))   by expand append.
+      ... = node(x, xs')                   by replace IH.
+  }
+end
+```
+
+Two details to notice:
+
+- The theorem has `all U:type. all xs:MyList<U>.` — two nested universals. `arbitrary U:type` fixes the element type, then `induction MyList<U>` binds `xs`, splitting into the `empty` and `node` constructor cases.
+- The IH in the `node` case is `append(xs', empty) = xs'` — about the smaller list `xs'`, not about `node(x, xs')`. The `equations` chain rewrites the `succ`-case's LHS into the IH's LHS, then applies `replace IH` to swap it for the IH's RHS.
+
+### Induction with a quantified IH
+
+When the theorem has a leading `all x:T.` *plus* additional `all m:T'.` quantifiers inside the body, induct on `x` first; then in each case, `arbitrary m:T'` to introduce the inner variable. The IH is then *quantified* (`all m:T'. ...`) and you instantiate it with `IH[m]`.
+
+```
+union UnaryNat {
+  zero
+  succ(UnaryNat)
+}
+
+recursive add(UnaryNat, UnaryNat) -> UnaryNat {
+  add(zero, m) = m
+  add(succ(n), m) = succ(add(n, m))
+}
+
+theorem ex_induction_quantified_ih:
+  all n:UnaryNat. all m:UnaryNat. add(n, succ(m)) = succ(add(n, m))
+proof
+  induction UnaryNat
+  case zero {
+    arbitrary m:UnaryNat
+    expand add.
+  }
+  case succ(n') suppose IH:
+    all m:UnaryNat. add(n', succ(m)) = succ(add(n', m)) {
+    arbitrary m:UnaryNat
+    expand add
+    equations
+      succ(add(n', succ(m))) = succ(succ(add(n', m)))   by replace IH[m].
+  }
+end
+```
+
+Two patterns to notice:
+
+- **Quantified IH.** `IH` has shape `all m:UnaryNat. add(n', succ(m)) = succ(add(n', m))` because the second `all` was *inside* the inductive `all`. To use it on a specific `m`, write `IH[m]`. (For `if-then`-shaped IHs, write `apply IH[m] to <proof-of-antecedent>`.)
+- **`expand` to reshape, then `equations`.** `expand add` (no trailing `.`) on the `succ` case rewrites the goal from `add(succ(n'), succ(m)) = succ(add(succ(n'), m))` to `succ(add(n', succ(m))) = succ(succ(add(n', m)))`. The `equations` chain then closes the rewritten goal in one step. Reaching for `expand` *before* `equations` is a useful trick when both sides need unfolding.
+
 ---
 
 ## Using `query_goal` to plan a multi-step proof
