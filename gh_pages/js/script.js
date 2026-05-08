@@ -151,7 +151,7 @@ class DeduceFooter extends HTMLElement {
                     <a href="${urlPrefix}/sandbox.html">Live Code</a>
                     <a href="https://github.com/jsiek/deduce" target="_blank">Source Code</a>
                     <a href="https://github.com/HalflingHelper/deduce-mode" target="_blank">VS-Code deduce-mode</a>
-                    <a href="https://github.com/mateidragony/deduce-mode" target="_blank">Emacs deduce-mode</a>
+                    <a href="https://github.com/jsiek/deduce/tree/main/editor/emacs" target="_blank">Emacs deduce-mode</a>
                 </div>
                 <div class="footer-col">
                     <a href="${urlPrefix}/pages/reference.html">Reference</a>
