@@ -169,9 +169,14 @@ def build_user_message(
         parts.append("")
 
     if lemmas_in_scope:
-        parts.append("Lemmas in scope:")
+        parts.append("Declarations in scope (same content as `.thm` files --")
+        parts.append("theorem signatures, function bodies, union")
+        parts.append("constructors, predicate rules, and auto-rewrite rules):")
+        parts.append("```")
         for lemma in lemmas_in_scope:
-            parts.append(f"  [{lemma.kind}] {lemma.signature}")
+            parts.append(lemma.signature)
+            parts.append("")
+        parts.append("```")
         parts.append("")
 
     if surrounding_excerpt:
