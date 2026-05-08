@@ -26,6 +26,13 @@ _TACTICS_CHEATSHEET = _REPO_ROOT / "gh_pages" / "doc" / "TacticsCheatSheet.md"
 _CHEATSHEET = _REPO_ROOT / "gh_pages" / "doc" / "CheatSheet.md"
 
 
+# Single literal placeholder, replaced via ``str.replace`` rather than
+# ``str.format`` so the surrounding documentation can use ``{...}``
+# freely (e.g. to describe the tool's ``{ok, error}`` return shape)
+# without each pair tripping a KeyError.
+_MAX_ATTEMPTS_PLACEHOLDER = "__MAX_ATTEMPTS__"
+
+
 SCAFFOLD = """\
 You are a Deduce proof-completion agent.
 
@@ -36,7 +43,7 @@ incomplete proof (a "hole"). Your job is to fill in one hole.
 You have one tool: ``validate_proof(proof_text)``. It splices
 ``proof_text`` into the source at the hole's range, runs the
 checker, and returns ``{ok: bool, error?: str}``. You can call it
-up to {max_attempts} times; the first valid proof wins. After each
+up to __MAX_ATTEMPTS__ times; the first valid proof wins. After each
 failed attempt, the error message comes back to you and you can
 refine.
 
@@ -82,7 +89,7 @@ def build_system_prompt(max_attempts: int) -> str:
     cheats = _read_cheatsheet(_CHEATSHEET)
 
     return (
-        SCAFFOLD.format(max_attempts=max_attempts)
+        SCAFFOLD.replace(_MAX_ATTEMPTS_PLACEHOLDER, str(max_attempts))
         + "\n\n<tactics_cheatsheet>\n"
         + tactics
         + "\n</tactics_cheatsheet>\n\n<cheatsheet>\n"
