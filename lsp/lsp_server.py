@@ -152,6 +152,18 @@ ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
 FILL_FROM_GIVEN_REQUEST = "deduce/fillFromGivenAt"
 MATCHING_GIVENS_REQUEST = "deduce/matchingGivensAt"
 
+# Custom request for the Claude hole-fill sidecar (hole-fill-plan
+# Phase 1 / Step 2). Returns goal + givens + lemmas-in-scope +
+# fingerprint for the ``?`` token at the cursor. Sibling to
+# ``deduce/goalAt``; richer payload, doesn't disturb that contract.
+HOLE_CONTEXT_AT_REQUEST = "deduce/holeContextAt"
+
+# Custom request for the Claude hole-fill sidecar (hole-fill-plan
+# Phase 1 / Step 4). Splices a candidate proof into the open buffer
+# at a hole range and runs the checker, returning {ok, error}. The
+# sidecar calls this on each candidate Claude generates.
+VALIDATE_PROOF_REQUEST = "deduce/validateProof"
+
 server = LanguageServer(
     SERVER_NAME,
     SERVER_VERSION,
@@ -165,6 +177,15 @@ server = LanguageServer(
 def _query_pos_from_lsp(pos: lsp_types.Position) -> _query.Position:
     """LSP is 0-indexed line/character; query API is 1-indexed."""
     return _query.Position(line=pos.line + 1, column=pos.character + 1)
+
+
+def _query_range_from_lsp(rng: lsp_types.Range) -> _query.Range:
+    """Inverse of :func:`_lsp_range_from_query`: LSP-shaped Range to
+    query-shaped Range, 0->1 indexed."""
+    return _query.Range(
+        start=_query_pos_from_lsp(rng.start),
+        end=_query_pos_from_lsp(rng.end),
+    )
 
 
 def _lsp_range_from_query(rng: _query.Range) -> lsp_types.Range:
@@ -485,6 +506,136 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
             },
         },
     }
+
+
+@server.feature(HOLE_CONTEXT_AT_REQUEST)
+def on_hole_context_at(ls: LanguageServer, params) -> Optional[dict]:
+    """Custom request: return rich context for the ``?`` at a cursor.
+
+    Sibling to ``deduce/goalAt``; the hole-fill sidecar uses this to
+    pick up the goal + givens + lemmas in scope before asking Claude
+    for a proof, plus a fingerprint to detect that the hole moved or
+    its statement changed before the answer comes back.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "includeLemmas": bool?}``. ``includeLemmas``
+    defaults to ``True``.
+
+    Result: ``{"holeRange": Range, "goal": str, "givens":
+    [{"label": str | None, "formula": str}], "lemmasInScope":
+    [{"name": str, "kind": str, "signature": str}], "fingerprint":
+    str}`` or ``null``.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    if not uri:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    include_lemmas = _get_field(params, "includeLemmas")
+    if include_lemmas is None:
+        include_lemmas = True
+    path = _path_from_uri(uri)
+    ctx = _query.hole_context_at(
+        path,
+        content,
+        pos,
+        prelude=_prelude_for(path),
+        include_lemmas=bool(include_lemmas),
+    )
+    if ctx is None:
+        return None
+    return {
+        "holeRange": {
+            "start": {
+                "line": max(ctx.hole_range.start.line - 1, 0),
+                "character": max(ctx.hole_range.start.column - 1, 0),
+            },
+            "end": {
+                "line": max(ctx.hole_range.end.line - 1, 0),
+                "character": max(ctx.hole_range.end.column - 1, 0),
+            },
+        },
+        "goal": ctx.goal,
+        "givens": [
+            {"label": g.label, "formula": g.formula} for g in ctx.givens
+        ],
+        "lemmasInScope": [
+            {
+                "name": lemma.name,
+                "kind": lemma.kind.value,
+                "signature": lemma.signature,
+            }
+            for lemma in ctx.lemmas_in_scope
+        ],
+        "fingerprint": ctx.fingerprint,
+    }
+
+
+@server.feature(VALIDATE_PROOF_REQUEST)
+def on_validate_proof(ls: LanguageServer, params) -> dict:
+    """Custom request: splice a proof into the open buffer at a hole
+    range and report whether the resulting file checks.
+
+    Wraps :func:`lsp.query.validate_proof_at`. The sidecar uses this
+    on each candidate Claude generates; first valid wins.
+
+    Params: ``{"textDocument": {"uri": "..."}, "holeRange": Range,
+    "proofText": str}``. ``holeRange`` is LSP-shaped (0-indexed) and
+    must cover exactly the ``?`` token at the hole.
+
+    Result: ``{"ok": bool, "error": str | None}``. Unlike
+    ``deduce/holeContextAt`` and ``deduce/goalAt``, this never
+    returns ``null`` -- callers always get a structured outcome,
+    even on malformed params (``ok=False`` with a helpful
+    ``error``), so the sidecar has no separate "request failed"
+    path to reason about.
+    """
+    text_doc = _get_field(params, "textDocument")
+    uri = _get_field(text_doc, "uri")
+    if not uri:
+        return {"ok": False, "error": "missing textDocument.uri"}
+    content = _document_content(ls, uri)
+    if content is None:
+        return {"ok": False, "error": f"no open document for {uri}"}
+
+    range_obj = _get_field(params, "holeRange")
+    if range_obj is None:
+        return {"ok": False, "error": "missing holeRange"}
+    start_obj = _get_field(range_obj, "start")
+    end_obj = _get_field(range_obj, "end")
+    if start_obj is None or end_obj is None:
+        return {"ok": False, "error": "holeRange missing start/end"}
+    hole_range = _query_range_from_lsp(
+        lsp_types.Range(
+            start=lsp_types.Position(
+                line=int(_get_field(start_obj, "line") or 0),
+                character=int(_get_field(start_obj, "character") or 0),
+            ),
+            end=lsp_types.Position(
+                line=int(_get_field(end_obj, "line") or 0),
+                character=int(_get_field(end_obj, "character") or 0),
+            ),
+        )
+    )
+
+    proof_text = _get_field(params, "proofText")
+    if proof_text is None:
+        return {"ok": False, "error": "missing proofText"}
+
+    path = _path_from_uri(uri)
+    result = _query.validate_proof_at(
+        path, content, hole_range, str(proof_text), prelude=_prelude_for(path)
+    )
+    return {"ok": result.ok, "error": result.error}
 
 
 @server.feature(SPLITTABLE_VARS_REQUEST)

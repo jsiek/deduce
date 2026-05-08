@@ -127,6 +127,8 @@ def test_all_expected_features_are_registered():
         lsp_server.SPLITTABLE_VARS_REQUEST,
         lsp_server.ELIMINATE_REQUEST,
         lsp_server.ELIMINABLE_VARS_REQUEST,
+        lsp_server.HOLE_CONTEXT_AT_REQUEST,
+        lsp_server.VALIDATE_PROOF_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -468,6 +470,212 @@ def test_definition_with_unknown_uri_returns_none(server):
 
 def test_goal_at_without_uri_returns_none(server):
     assert lsp_server.on_goal_at(server, {}) is None
+
+
+# --------------------------------------------------------------------------
+# deduce/holeContextAt (hole-fill plan, Phase 1 / Step 2)
+# --------------------------------------------------------------------------
+
+
+def test_hole_context_at_returns_payload(server, open_doc):
+    """Cursor on a `?`: the handler returns goal, givens, lemmas, and
+    a fingerprint, with LSP-shaped (0-indexed) coordinates."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("hole.pf", src)
+    # `?` sits at LSP line 3, character 2 (1-indexed query line 4 col 3).
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 3, "character": 2},
+    }
+    result = lsp_server.on_hole_context_at(server, params)
+    assert result is not None
+    assert result["goal"] == "P = P"
+    assert result["givens"] == []
+    # Range covers exactly the `?` token (1-char span).
+    assert result["holeRange"]["start"] == {"line": 3, "character": 2}
+    assert result["holeRange"]["end"] == {"line": 3, "character": 3}
+    # Lemmas-in-scope: the user's own theorem `t` is surfaced.
+    names = {lemma["name"] for lemma in result["lemmasInScope"]}
+    assert "t" in names
+    # Fingerprint is a 64-char hex SHA-256.
+    assert isinstance(result["fingerprint"], str)
+    assert len(result["fingerprint"]) == 64
+
+
+def test_hole_context_at_no_hole_returns_none(server, open_doc):
+    """Cursor not on a `?`: the handler returns ``None`` rather than
+    synthesising a hole the way ``deduce/goalAt`` does."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    _, uri = open_doc("nohole.pf", src)
+    # Cursor on `reflexive`, not on a `?`.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 3, "character": 2},
+    }
+    assert lsp_server.on_hole_context_at(server, params) is None
+
+
+def test_hole_context_at_without_uri_returns_none(server):
+    """Defensive path: malformed params with no URI."""
+    assert lsp_server.on_hole_context_at(server, {}) is None
+
+
+def test_hole_context_at_lemmas_excluded_when_disabled(server, open_doc):
+    """``includeLemmas=False`` returns an empty ``lemmasInScope`` list."""
+    src = (
+        "theorem helper: true\nproof . end\n"
+        "\n"
+        "theorem with_hole: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("nolemmas.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 6, "character": 2},
+        "includeLemmas": False,
+    }
+    result = lsp_server.on_hole_context_at(server, params)
+    assert result is not None
+    assert result["lemmasInScope"] == []
+    # Goal still surfaces normally.
+    assert result["goal"] == "P = P"
+
+
+# --------------------------------------------------------------------------
+# deduce/validateProof (hole-fill plan, Phase 1 / Step 4)
+# --------------------------------------------------------------------------
+#
+# These tests share a fixture: a buffer with a single hole at LSP
+# line 3 character 2 (1-char range). The sidecar's exact call
+# pattern is to first issue ``deduce/holeContextAt`` to get the
+# hole's range, then pass that same range back here for each
+# candidate proof. The tests bypass the holeContextAt round-trip
+# and construct the range literally.
+
+
+_VALIDATE_SRC = (
+    "theorem t: all P:bool. P = P\n"
+    "proof\n"
+    "  arbitrary P:bool\n"
+    "  ?\n"
+    "end\n"
+)
+# `?` at LSP line 3, character 2 (1-indexed query line 4 col 3).
+_VALIDATE_HOLE_RANGE = {
+    "start": {"line": 3, "character": 2},
+    "end":   {"line": 3, "character": 3},
+}
+
+
+def test_validate_proof_valid(server, open_doc):
+    """A proof that completes the goal yields ok=True."""
+    _, uri = open_doc("validate_ok.pf", _VALIDATE_SRC)
+    params = {
+        "textDocument": {"uri": uri},
+        "holeRange": _VALIDATE_HOLE_RANGE,
+        "proofText": "reflexive",
+    }
+    result = lsp_server.on_validate_proof(server, params)
+    assert result == {"ok": True, "error": None}
+
+
+def test_validate_proof_invalid_returns_error(server, open_doc):
+    """A proof that doesn't check yields ok=False with the checker's
+    message; the message text is non-empty."""
+    src = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  suppose pP: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("validate_bad.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "holeRange": {
+            "start": {"line": 4, "character": 2},
+            "end":   {"line": 4, "character": 3},
+        },
+        "proofText": "definitely_undefined_label",
+    }
+    result = lsp_server.on_validate_proof(server, params)
+    assert result["ok"] is False
+    assert result["error"]
+    assert isinstance(result["error"], str)
+
+
+def test_validate_proof_unknown_uri(server):
+    """A request for a URI the workspace doesn't know about yields
+    ok=False with an explanatory error rather than crashing."""
+    params = {
+        "textDocument": {"uri": "file:///does/not/exist.pf"},
+        "holeRange": _VALIDATE_HOLE_RANGE,
+        "proofText": "reflexive",
+    }
+    result = lsp_server.on_validate_proof(server, params)
+    assert result["ok"] is False
+    assert "no open document" in (result["error"] or "")
+
+
+def test_validate_proof_range_does_not_cover_hole(server, open_doc):
+    """A range pointing somewhere other than a `?` is rejected with a
+    structured error -- the sidecar's stale-range case lands here
+    when the buffer has been edited since the holeContextAt request."""
+    _, uri = open_doc("validate_badrange.pf", _VALIDATE_SRC)
+    params = {
+        "textDocument": {"uri": uri},
+        # Range over `arbitrary` instead of the `?`.
+        "holeRange": {
+            "start": {"line": 2, "character": 2},
+            "end":   {"line": 2, "character": 3},
+        },
+        "proofText": "reflexive",
+    }
+    result = lsp_server.on_validate_proof(server, params)
+    assert result["ok"] is False
+    assert result["error"]
+    assert "?" in result["error"]
+
+
+def test_validate_proof_empty_text_is_rejected_by_checker(server, open_doc):
+    """Empty proofText leaves the buffer with `proof end` after the
+    splice, which the parser rejects. The handler surfaces that
+    parse error with ok=False rather than special-casing empty text
+    -- the sidecar should never send an empty proof, but if it
+    does, the checker's error is the right thing to return."""
+    _, uri = open_doc("validate_empty.pf", _VALIDATE_SRC)
+    params = {
+        "textDocument": {"uri": uri},
+        "holeRange": _VALIDATE_HOLE_RANGE,
+        "proofText": "",
+    }
+    result = lsp_server.on_validate_proof(server, params)
+    assert result["ok"] is False
+    assert result["error"]
+
+
+def test_validate_proof_missing_uri(server):
+    """Defensive: malformed params with no URI returns a structured
+    error, doesn't crash."""
+    result = lsp_server.on_validate_proof(server, {})
+    assert result["ok"] is False
+    assert "uri" in (result["error"] or "").lower()
 
 
 # --------------------------------------------------------------------------

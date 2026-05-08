@@ -3,18 +3,22 @@
 A self-contained Emacs mode for the [Deduce][deduce] proof checker:
 syntax highlighting + indentation in `deduce-mode.el`, plus optional
 [eglot][eglot] integration in `deduce-lsp.el` that wires `.pf`
-buffers to the LSP server in `lsp/lsp_server.py`.
+buffers to the LSP server in `lsp/lsp_server.py`. An optional
+`deduce-fill-hole.el` adds Claude-powered hole filling on top.
 
 [deduce]: https://github.com/jsiek/deduce
 [eglot]: https://www.gnu.org/software/emacs/manual/html_mono/eglot.html
 
 ## Prerequisites
 
-| Component                   | Required when                    | How to install                                  |
-| --------------------------- | -------------------------------- | ----------------------------------------------- |
-| Emacs **29.1** or newer     | always                           | `brew install emacs` / distro package           |
-| Python 3.11+ with `lark`    | always (deduce.py itself)        | `pip install lark==1.2.2`                       |
-| `pygls>=2.1.0`              | only if you load `deduce-lsp.el` | `pip install -r requirements-lsp.txt`           |
+| Component                   | Required when                          | How to install                                  |
+| --------------------------- | -------------------------------------- | ----------------------------------------------- |
+| Emacs **29.1** or newer     | always                                 | `brew install emacs` / distro package           |
+| Python 3.11+ with `lark`    | always (deduce.py itself)              | `pip install lark==1.2.2`                       |
+| `pygls>=2.1.0`              | only if you load `deduce-lsp.el`       | `pip install -r requirements-lsp.txt`           |
+| `anthropic>=0.40.0`         | only if you load `deduce-fill-hole.el` | `pip install -r requirements-fill-hole.txt`     |
+| `openai>=1.50.0`            | only if you load `deduce-fill-hole.el` | `pip install -r requirements-fill-hole.txt`     |
+| API key env var             | only if you load `deduce-fill-hole.el` | one of: `ANTHROPIC_API_KEY` (real Claude), `OPENAI_API_KEY` (real OpenAI), `REALLMS_API_KEY` (IU REALLMs) |
 
 Emacs 29 is the minimum because `eglot` ships in-tree from 29 onward
 and the `jsonrpc` library has a stable API there. Older Emacs would
@@ -30,6 +34,7 @@ supported.
 (add-to-list 'load-path "/path/to/deduce/editor/emacs")
 (require 'deduce-mode)
 (require 'deduce-lsp)         ; optional: omit for major mode only
+(require 'deduce-fill-hole)   ; optional: Claude hole filling, depends on deduce-lsp
 
 ;; If your .pf files live OUTSIDE the deduce repo, point the LSP
 ;; server at your checkout so `python3 -m lsp.lsp_server' resolves:
@@ -130,6 +135,21 @@ auto-start hook:
   C-e`: eliminate picks by hypothesis shape; fill-from-given picks
   by formula equality with the goal.
 
+`deduce-fill-hole` (additional, requires an LLM API key — Anthropic,
+OpenAI, or IU REALLMs depending on backend choice):
+
+- `C-c C-a` -- ask an LLM to fill the `?` at point ("ask AI"). Issues
+  `deduce/holeContextAt` to capture the goal, givens, lemmas in
+  scope, and a stable fingerprint, then spawns the
+  `tools/claude_fill_hole` sidecar asynchronously. Emacs stays
+  interactive while the model iterates (up to
+  `deduce-fill-hole-max-attempts` `validate_proof` calls; first valid
+  proof wins). On completion, if the markers around the hole are
+  still live and the fingerprint hasn't changed, the validated
+  proof is spliced in; otherwise the command errors and leaves the
+  buffer untouched. One fill-hole per buffer at a time; multiple
+  buffers can fill in parallel.
+
 ## Keybindings
 
 | Binding   | Command                          | Provided by    | Notes                                     |
@@ -144,6 +164,7 @@ auto-start hook:
 | `C-c C-i` | `deduce-lsp-induction`           | `deduce-lsp`   | Replace `?` with `induction T` skeleton at a forall goal |
 | `C-c C-e` | `deduce-lsp-eliminate`           | `deduce-lsp`   | Prompt for hypothesis, replace `?` with use-fact tactic |
 | `C-c C-f` | `deduce-lsp-fill-from-given`     | `deduce-lsp`   | Replace `?` with `conclude ... by H` for a given matching the goal |
+| `C-c C-a` | `deduce-fill-hole`               | `deduce-fill-hole` | Ask an LLM to fill the `?` at point. Async, non-blocking. |
 
 ## Customization
 
@@ -167,6 +188,30 @@ RET deduce RET` or `M-x customize-group RET deduce-lsp RET`.
 
 For full control over the launch command, `defun deduce-lsp-server-command`
 in your `init.el` returning whatever list eglot should spawn.
+
+### `deduce-fill-hole`
+
+| Variable                              | Default                       | Effect                                                      |
+| ------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| `deduce-fill-hole-backend`            | `'anthropic`                  | `'anthropic` (Claude via Anthropic API) or `'openai-compat` (REALLMs / OpenAI / Ollama) |
+| `deduce-fill-hole-base-url`           | `nil`                         | OpenAI-compat endpoint URL; e.g. `"https://reallms.rescloud.iu.edu/direct/v1"`. Ignored when backend is `'anthropic`. |
+| `deduce-fill-hole-model`              | `nil` (backend default)       | Model id; backend default is `"claude-opus-4-7"` (anthropic) or `"Qwen3-Coder-Next"` (openai-compat) |
+| `deduce-fill-hole-api-key-env`        | `nil` (backend default)       | Env var name; backend default is `"ANTHROPIC_API_KEY"` or `"OPENAI_API_KEY"`. IU REALLMs users override to `"REALLMS_API_KEY"`. |
+| `deduce-fill-hole-python-program`     | `"python3"`                   | Python interpreter used to launch the sidecar               |
+| `deduce-fill-hole-deduce-root`        | `nil`                         | Path to a Deduce checkout; falls back to `deduce-lsp-deduce-root`, then `project-root`, then cwd |
+| `deduce-fill-hole-max-attempts`       | `5`                           | Maximum number of `validate_proof` calls per invocation     |
+| `deduce-fill-hole-prelude-disabled`   | `nil`                         | If non-nil, sidecar invokes `deduce.py --no-stdlib`         |
+| `deduce-fill-hole-timeout`            | `60`                          | Per-validate-proof timeout passed to the sidecar (seconds)  |
+
+**IU REALLMs preset** — drop this in your `init.el` to point at REALLMs:
+
+```elisp
+(with-eval-after-load 'deduce-fill-hole
+  (setq deduce-fill-hole-backend 'openai-compat
+        deduce-fill-hole-base-url "https://reallms.rescloud.iu.edu/direct/v1"
+        deduce-fill-hole-api-key-env "REALLMS_API_KEY"
+        deduce-fill-hole-model "Qwen3-Coder-Next"))
+```
 
 ## Troubleshooting
 
@@ -323,6 +368,40 @@ Then verify the LSP integration:
     H2: P`), Emacs prompts `Fill from:` with TAB completion against
     the matching labels.
 
+If you have `deduce-fill-hole` loaded and `ANTHROPIC_API_KEY`
+exported, also verify the Claude path:
+
+12. Smoke-test the sidecar standalone first (no API key needed):
+
+    ```sh
+    pip install -r requirements-fill-hole.txt
+    cat > /tmp/req.json <<'EOF'
+    {"file": "/tmp/smoke.pf",
+     "holeRange": {"start": {"line": 3, "character": 2},
+                   "end":   {"line": 3, "character": 3}},
+     "goal": "P = P", "givens": [], "lemmasInScope": [],
+     "fingerprint": "fp",
+     "content": "theorem t: all P:bool. P = P\nproof\n  arbitrary P:bool\n  ?\nend\n"}
+    EOF
+    python3 -m tools.claude_fill_hole --dry-run --no-stdlib \
+      --deduce-root . < /tmp/req.json
+    ```
+
+    The dry-run reports `ok: false` with a structured `incomplete
+    proof` error (the stub it sends is `?`, which never validates).
+    What you're checking is that the splice + subprocess pipeline
+    works -- if you see the goal text in `errorTail`, the sidecar
+    is wired correctly.
+
+13. In a scratch `.pf` buffer with the same `theorem t: all P:bool.
+    P = P` shape, place point on the `?` and press `C-c C-a`
+    ("ask AI"). Emacs reports `deduce-fill-hole: asking...`. Within a
+    few seconds (depending on `effort` and how many attempts it
+    takes), the `?` is replaced with the validated proof and you
+    get a `filled in N attempts` message. If the API key is
+    missing, the sidecar surfaces a structured error and the buffer
+    is untouched.
+
 ## Development
 
 Run the ert tests in batch mode (no GUI required):
@@ -332,6 +411,8 @@ emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-mode-test -f ert-run-tests-batch-and-exit
 emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-lsp-test -f ert-run-tests-batch-and-exit
+emacs --batch -L editor/emacs -L editor/emacs/test \
+      -l deduce-fill-hole-test -f ert-run-tests-batch-and-exit
 ```
 
 The end-to-end loop (subprocess server + real LSP traffic) is
@@ -344,7 +425,8 @@ Byte-compile the sources to catch warnings:
 
 ```sh
 emacs --batch -L editor/emacs \
-      -f batch-byte-compile editor/emacs/deduce-mode.el editor/emacs/deduce-lsp.el
+      -f batch-byte-compile editor/emacs/deduce-mode.el \
+      editor/emacs/deduce-lsp.el editor/emacs/deduce-fill-hole.el
 ```
 
 If a stale `.elc` file is loaded instead of the source, `M-x

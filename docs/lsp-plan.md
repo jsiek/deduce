@@ -4,6 +4,8 @@ Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
 **Status:** Phase 1, Phase 2 Step 9, Phase 3 Steps 12–14, and Phase 4 Steps 15–19 are done.  Open: Steps 10 (process-lifecycle hardening) and 11 (multi-error collection).
 
+**Related:** [`hole-fill-plan.md`](hole-fill-plan.md) — downstream feature that adds two new LSP requests (`deduce/holeContextAt`, `deduce/validateProof`) and a library-side `validate_theorem` hook, building on this plan's Phase 1–2 deliverables.
+
 ## Goals
 
 1. IDE integration via LSP (live diagnostics, goal-at-cursor, go-to-def, completion).

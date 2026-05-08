@@ -1,0 +1,13 @@
+theorem hf_refl_true: true = true
+proof
+  .
+end
+
+theorem hf_intro_and: all P:bool. if P then P and P
+proof
+  arbitrary P:bool
+  suppose pP: P
+  pP, pP
+end
+
+postulate hf_postulate: all x:bool. x = x
