@@ -28,3 +28,9 @@ profile.png
 
 # Emacs byte-compiled files
 *.elc
+
+# C compilation artifacts from the deduce-to-C compiler
+*.o
+*.a
+compiler/runtime/libdeduce_prelude.*
+compiler/runtime/include/
