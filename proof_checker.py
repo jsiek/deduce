@@ -37,6 +37,108 @@ def generate_name(name):
     new_id = name_id
     name_id += 1
     return ls[0] + '.' + str(new_id)
+
+
+# ---------------------------------------------------------------------------
+# Per-statement cache (Phase 3 / Step 13)
+# ---------------------------------------------------------------------------
+#
+# ``check_deduce`` runs three loops over the AST: ``process_declaration``,
+# ``type_check_stmt``, and ``collect_env``+``check_proofs``. Each loop's
+# work for a given statement is determined by (a) the statement's
+# post-uniquify structure and (b) the env coming in. Cache by both, and
+# we can skip statements unchanged since the previous run.
+#
+# Key shape: ``(loop_tag, stmt_hash, chain_hash)``.  ``chain_hash`` is
+# a fold over the prior statements' hashes -- equivalent to
+# ``env_in_hash`` in the plan, but cheaper to maintain and stable
+# across calls (since uniquify is now deterministic per Step 12).
+#
+# The cache lives at module level and accumulates across
+# ``check_deduce`` calls.  ``lsp/library.py`` clears it when the
+# prelude key changes (different prelude => different baseline =>
+# cache invalid).
+
+_stmt_cache: dict = {}
+
+# Hits and misses bucketed by loop, for the test instrumentation
+# the plan requires ("untouched statements were cache hits").
+_cache_stats: dict = {"hits": {}, "misses": {}}
+
+
+def reset_stmt_cache() -> None:
+    """Drop everything in ``_stmt_cache`` and zero the stats.  Called
+    by the LSP pipeline when the prelude key changes; tests use it
+    to start each fixture from a clean slate."""
+    global _stmt_cache
+    _stmt_cache.clear()
+    _cache_stats["hits"].clear()
+    _cache_stats["misses"].clear()
+
+
+def get_cache_stats() -> dict:
+    """Return a copy of the per-loop hit/miss counters."""
+    return {
+        "hits": dict(_cache_stats["hits"]),
+        "misses": dict(_cache_stats["misses"]),
+    }
+
+
+def _record_hit(loop_tag: str) -> None:
+    _cache_stats["hits"][loop_tag] = _cache_stats["hits"].get(loop_tag, 0) + 1
+
+
+def _record_miss(loop_tag: str) -> None:
+    _cache_stats["misses"][loop_tag] = _cache_stats["misses"].get(loop_tag, 0) + 1
+
+
+def _hash_ast(node) -> int:
+    """Stable structural hash of a (post-uniquify) AST.
+
+    Skips the ``location`` (Meta) attribute, which carries source
+    line/column info that shifts with edits to unrelated parts of
+    the file -- we want only the structure + names to participate
+    in the hash.
+
+    Memoised on the node via ``__hash_cache__`` so each statement
+    is hashed at most once per session, even if it appears in
+    several of ``check_deduce``'s loops.
+    """
+    if node is None:
+        return 0
+    if isinstance(node, (str, int, bool, float)):
+        return hash(node)
+    if isinstance(node, (list, tuple)):
+        return hash(tuple(_hash_ast(x) for x in node))
+    if isinstance(node, dict):
+        return hash(
+            tuple(sorted((k, _hash_ast(v)) for k, v in node.items()))
+        )
+    cached = getattr(node, "__hash_cache__", None)
+    if cached is not None:
+        return cached
+    if hasattr(node, "__dict__"):
+        items = []
+        for k, v in node.__dict__.items():
+            if k == "location" or k == "__hash_cache__":
+                continue
+            items.append((k, _hash_ast(v)))
+        h = hash((type(node).__name__, tuple(items)))
+        try:
+            node.__hash_cache__ = h
+        except AttributeError:
+            pass
+        return h
+    return hash(repr(node))
+
+
+def _chain(prev: int, stmt_hash: int) -> int:
+    """Fold a statement's hash into the running chain hash.
+
+    Stable across runs: same prefix -> same chain -> same key for
+    the next statement.  Uses ``hash()`` for symmetry with the
+    inner ``_hash_ast``."""
+    return hash((prev, stmt_hash))
   
 def check_implies(loc, frm1, frm2):
   if get_verbose():
@@ -4573,45 +4675,74 @@ def check_deduce(ast, module_name, modified, tracing_functions):
   needs_checking = [modified]
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
+  # Hash each statement structurally as we go.  Used by the
+  # check_proofs cache below; computed here so we visit each AST
+  # only once.  ``_hash_ast`` skips the ``location`` field, so two
+  # parses of the same source produce matching hashes.
+  stmt_hashes = []
   for s in ast:
+    stmt_hashes.append(_hash_ast(s))
     new_s, env = process_declaration(s, env, [module_name], needs_checking)
     ast2.append(new_s)
   if get_verbose():
     for s in ast2:
       print(s)
-  
+
   for func_name in tracing_functions:
     # TODO: base_to_unique is a hack so use another function instead
     new_name = env.base_to_unique(func_name)
     if new_name is None:
       print("Couldn't find function to trace:", func_name)
     else:
-      env = env.declare_tracing(new_name) 
+      env = env.declare_tracing(new_name)
 
   if get_verbose():
     print('--------- Type Checking ------------------------')
   ast3 = []
+  ast3_hashes = []
 
   error_on_next_import : dict[str, bool] = {}
-  for s in ast2:
+  for s, sh in zip(ast2, stmt_hashes):
     new_s = type_check_stmt(s, env, error_on_next_import)
     # If None gets returned we want to remove the current statement
     # Which is represented by not appending it to the new ast
     if new_s != None:
       ast3.append(new_s)
+      ast3_hashes.append(sh)
   if get_verbose():
     for s in ast3:
       print(s)
-      
+
   if get_verbose():
     print('--------- Proof Checking ------------------------')
   if module_name not in checked_modules:
     if get_verbose() and needs_checking[0]:
         print('checking ' + module_name)
-    for s in ast3:
+    # Per-statement cache for ``check_proofs`` (Step 13).  Earlier
+    # loops (``process_declaration``, ``type_check_stmt``) emit AST
+    # nodes whose ``Meta`` locations participate in side-effecting
+    # behaviour (e.g. the ``target_hole_location`` flag used by
+    # ``goal_at`` to single out which `?` raises), so caching their
+    # outputs across calls would let stale locations leak into a new
+    # run.  ``check_proofs`` itself is the bulk of the time and its
+    # only persistent effect is "verified" -- safe to cache.
+    #
+    # Key includes ``target_hole_location``: a different target means
+    # a `?` that was previously treated as ``sorry`` should now raise
+    # (or vice versa), so we mustn't reuse the prior verdict.
+    target = get_target_hole_location()
+    proof_chain = hash(("check_proofs_seed", module_name, target))
+    for s, sh in zip(ast3, ast3_hashes):
       env = collect_env(s, env)
+      key = ("check_proofs", sh, proof_chain)
       if needs_checking[0]:
-        check_proofs(s, env)
+        if key in _stmt_cache:
+          _record_hit("check_proofs")
+        else:
+          check_proofs(s, env)
+          _stmt_cache[key] = True
+          _record_miss("check_proofs")
+      proof_chain = _chain(proof_chain, sh)
     checked_modules.add(module_name)
   # Sanity-check the post-typecheck AST: every variable reference
   # should be ``ResolvedVar`` (or, if a real overload couldn't be

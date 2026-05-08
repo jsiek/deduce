@@ -338,6 +338,10 @@ def _clear_containers() -> None:
     """Reset every tracked container to empty."""
     for module, attr in _TRACKED_CONTAINERS:
         getattr(module, attr).clear()
+    # The Step-13 statement cache lives outside the snapshot list
+    # (it accumulates across calls), but it's only valid for a given
+    # prelude key.  Clear it whenever we clear the rest of the state.
+    _proof_checker.reset_stmt_cache()
 
 
 def _shallow_copy(obj: Any) -> Any:
