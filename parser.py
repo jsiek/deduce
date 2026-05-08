@@ -787,12 +787,23 @@ def parse_tree_to_ast(e, parent):
     elif e.data == 'import':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = Import(e.meta, str(e.children[1].value))
-        if visibility == 'public':
-            vis = 'public'
-        else:
-            vis = 'private'
+        vis = 'public' if visibility == 'public' else 'private'
         set_visibility(statement, vis)
         return statement
+
+    elif e.data == 'import_using' or e.data == 'import_hiding':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        names = parse_tree_to_ast(e.children[2], e)
+        if e.data == 'import_using':
+            statement = Import(e.meta, str(e.children[1].value), using=names)
+        else:
+            statement = Import(e.meta, str(e.children[1].value), hiding=names)
+        vis = 'public' if visibility == 'public' else 'private'
+        set_visibility(statement, vis)
+        return statement
+
+    elif e.data == 'import_filter_list':
+        return [parse_tree_to_ast(c, e) for c in e.children]
 
     elif e.data == 'export':
         return Export(e.meta, str(e.children[0].value))

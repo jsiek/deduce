@@ -318,6 +318,9 @@ ident: IDENT              -> ident
  | visibility "define" ident ":" type "=" term         -> define_annot
 
 ?import: visibility "import" IDENT                 -> import
+       | visibility "import" IDENT "using" import_filter_list  -> import_using
+       | visibility "import" IDENT "hiding" import_filter_list -> import_hiding
+?import_filter_list: ident ("|" ident)*            -> import_filter_list
 ?export: "export" IDENT                            -> export
 
 ?assert: "assert" term                             -> assert

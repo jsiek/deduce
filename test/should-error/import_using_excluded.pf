@@ -1,0 +1,3 @@
+import Filter using Color
+
+assert is_red(red)

@@ -1,0 +1,4 @@
+import Filter using Color | is_red
+
+assert is_red(red)
+assert not is_red(blue)
