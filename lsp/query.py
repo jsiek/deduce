@@ -59,6 +59,8 @@ __all__ = [
     "Goal",
     "SymbolInfo",
     "WorkspaceEdit",
+    "LemmaInfo",
+    "HoleContext",
     # Query functions
     "check",
     "goal_at",
@@ -72,6 +74,7 @@ __all__ = [
     "eliminable_vars_at",
     "fill_from_given_at",
     "matching_givens_at",
+    "hole_context_at",
 ]
 
 
@@ -207,6 +210,50 @@ class SymbolInfo:
     kind: SymbolKind
     location: Location
     signature: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class LemmaInfo:
+    """A theorem, lemma, or postulate visible from a hole site.
+
+    Returned (in tuples) inside :class:`HoleContext`. ``signature`` is
+    rendered text -- the same one-line form :func:`list_symbols`
+    produces -- so the hole-fill sidecar can drop it into a model
+    prompt without re-rendering the AST. ``kind`` distinguishes
+    public theorems from module-private lemmas and from postulates.
+    """
+
+    name: str
+    kind: SymbolKind
+    signature: str
+
+
+@dataclass(frozen=True)
+class HoleContext:
+    """The proof obligation, hypotheses, and lemmas-in-scope at a hole.
+
+    Returned by :func:`hole_context_at` for the ``?`` token at the
+    cursor. The shape extends :class:`Goal` with a list of theorems
+    visible from the hole site (for the hole-fill sidecar's prompt)
+    and a stable fingerprint over goal and givens so async callers
+    can detect that the context has changed by the time they want
+    to apply a generated proof.
+
+    ``hole_range`` covers the ``?`` token itself (1-char span);
+    ``goal`` and ``givens`` echo :class:`Goal`'s shape; the
+    ``lemmas_in_scope`` tuple is empty when ``include_lemmas=False``
+    was passed to :func:`hole_context_at`. ``fingerprint`` is a
+    hex SHA-256 over a canonical rendering of goal + givens; lemmas
+    are deliberately excluded from the fingerprint so that adding a
+    new lemma between request and response doesn't invalidate an
+    otherwise valid generated proof.
+    """
+
+    hole_range: Range
+    goal: str
+    givens: tuple
+    lemmas_in_scope: tuple
+    fingerprint: str
 
 
 # ---------------------------------------------------------------------------
@@ -1999,3 +2046,171 @@ def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
         return None
     return f"conclude {goal} by {label}"
 
+
+# ---------------------------------------------------------------------------
+# hole_context_at -- Phase 5 / Step 1: rich context for the hole-fill sidecar
+# ---------------------------------------------------------------------------
+#
+# Sibling to ``goal_at``: returns goal + givens for the cursor's hole,
+# plus a list of theorems/lemmas/postulates visible at that hole (so
+# the hole-fill sidecar can include them in the model prompt) and a
+# stable fingerprint over goal+givens (so async callers can detect
+# that the context has changed by the time a generated proof comes
+# back). See docs/hole-fill-plan.md.
+
+
+def hole_context_at(
+    path: str,
+    content: str,
+    pos: Position,
+    prelude: Sequence[str] = (),
+    include_lemmas: bool = True,
+) -> Optional[HoleContext]:
+    """Return rich context for the ``?`` hole at ``pos``.
+
+    Unlike :func:`goal_at`, this function does **not** synthesise a
+    hole when the cursor is not on one; it returns ``None`` instead.
+    The hole-fill sidecar only ever fires on an existing ``?``.
+
+    The cursor must sit on (or one column past) a ``?`` token; uses
+    the same per-cursor hole targeting machinery as :func:`refine_at`.
+    Returns ``None`` when:
+
+    - the cursor is not on a ``?``,
+    - the file does not parse,
+    - the targeted hole isn't reached by the checker (e.g. an earlier
+      error short-circuits before ever hitting it),
+    - the surfaced exception is not an ``IncompleteProof``-shaped one.
+
+    ``include_lemmas`` toggles the lemma list. When ``False``, the
+    returned ``HoleContext`` has ``lemmas_in_scope=()``. The lemma
+    list is computed from the user's file (top-level theorems,
+    lemmas, and postulates from ``content``) plus all prelude
+    modules' uniquified ASTs -- not strictly scope-aware (a theorem
+    defined later in the file is still surfaced), but a good
+    approximation for the hole-fill prompt.
+
+    The fingerprint is hex SHA-256 over ``goal + "\\n" + sorted
+    "label: formula" lines``. Lemmas are deliberately excluded so
+    that adding a new lemma between request and response doesn't
+    invalidate an otherwise valid generated proof.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    goal = _goal_from_exception(result.exception, hole_range)
+    if goal is None:
+        return None
+
+    if include_lemmas:
+        lemmas = _collect_lemmas_in_scope(result.ast, prelude)
+    else:
+        lemmas = ()
+
+    fingerprint = _hole_fingerprint(goal.formula, goal.givens)
+    return HoleContext(
+        hole_range=hole_range,
+        goal=goal.formula,
+        givens=goal.givens,
+        lemmas_in_scope=lemmas,
+        fingerprint=fingerprint,
+    )
+
+
+def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
+    """Build the ``lemmas_in_scope`` tuple for :class:`HoleContext`.
+
+    Walks two sources of top-level declarations:
+
+    - ``ast_nodes`` -- the user file's post-typecheck AST. Skips the
+      auto-prepended prelude ``Import`` nodes (they're not real
+      declarations, just pointers).
+    - ``get_uniquified_modules()`` -- the post-uniquify ASTs of every
+      module imported into the pipeline. We pull from each module
+      named in ``prelude`` so prelude theorems show up in the list.
+
+    Order is: user-file declarations first (in source order), then
+    prelude declarations (grouped by module name in ``prelude`` order,
+    in source order within each module). Duplicates are not deduped --
+    the user's file shouldn't shadow a prelude name in practice, and
+    the model can disambiguate from the rendered signature.
+    """
+    from abstract_syntax import (
+        Import as _ImportNode,
+        Postulate,
+        Theorem,
+        get_uniquified_modules,
+    )
+
+    out: list[LemmaInfo] = []
+
+    if ast_nodes is not None:
+        prelude_set = set(prelude)
+        for stmt in ast_nodes:
+            if isinstance(stmt, _ImportNode) and stmt.name in prelude_set:
+                continue
+            info = _lemma_info_for(stmt)
+            if info is not None:
+                out.append(info)
+
+    if prelude:
+        modules = get_uniquified_modules()
+        for module_name in prelude:
+            module_ast = modules.get(module_name)
+            if module_ast is None:
+                continue
+            for stmt in module_ast:
+                if not isinstance(stmt, (Theorem, Postulate)):
+                    continue
+                info = _lemma_info_for(stmt)
+                if info is not None:
+                    out.append(info)
+
+    return tuple(out)
+
+
+def _lemma_info_for(stmt) -> Optional[LemmaInfo]:
+    """Build a :class:`LemmaInfo` from a top-level statement, or
+    ``None`` if the node isn't a theorem/lemma/postulate."""
+    from abstract_syntax import Postulate, Theorem, base_name
+
+    if isinstance(stmt, Theorem):
+        kind = SymbolKind.LEMMA if stmt.isLemma else SymbolKind.THEOREM
+        signature = f"{base_name(stmt.name)}: {stmt.what}"
+    elif isinstance(stmt, Postulate):
+        kind = SymbolKind.POSTULATE
+        signature = f"{base_name(stmt.name)}: {stmt.what}"
+    else:
+        return None
+
+    return LemmaInfo(
+        name=base_name(stmt.name),
+        kind=kind,
+        signature=signature,
+    )
+
+
+def _hole_fingerprint(goal_formula: str, givens: tuple) -> str:
+    """Hex SHA-256 over a canonical rendering of goal + givens.
+
+    Givens are sorted alphabetically by ``"label: formula"`` so the
+    fingerprint doesn't depend on the order Deduce happens to print
+    them in -- adding/removing an unrelated hypothesis stays detected,
+    but reshuffling doesn't trigger a spurious mismatch.
+    """
+    import hashlib
+
+    given_lines = sorted(
+        f"{g.label or ''}: {g.formula}" for g in givens
+    )
+    canonical = goal_formula + "\n" + "\n".join(given_lines)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

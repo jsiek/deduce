@@ -31,6 +31,8 @@ from lsp.query import (  # noqa: E402
     Diagnostic,
     Given,
     Goal,
+    HoleContext,
+    LemmaInfo,
     Location,
     Position,
     Range,
@@ -44,6 +46,7 @@ from lsp.query import (  # noqa: E402
     eliminable_vars_at,
     eliminate_at,
     goal_at,
+    hole_context_at,
     induction_skeleton_at,
     list_symbols,
     refine_at,
@@ -67,6 +70,8 @@ EXPECTED_PUBLIC = {
     "Goal",
     "SymbolInfo",
     "WorkspaceEdit",
+    "LemmaInfo",
+    "HoleContext",
     "check",
     "goal_at",
     "definition_of",
@@ -79,6 +84,7 @@ EXPECTED_PUBLIC = {
     "eliminable_vars_at",
     "fill_from_given_at",
     "matching_givens_at",
+    "hole_context_at",
 }
 
 
@@ -109,7 +115,7 @@ def test_no_protocol_imports():
 @pytest.mark.parametrize(
     "cls",
     [Position, Range, Location, Diagnostic, Given, Goal, SymbolInfo,
-     WorkspaceEdit],
+     WorkspaceEdit, LemmaInfo, HoleContext],
 )
 def test_dataclasses_are_frozen(cls):
     """All public data types must be frozen so callers can't mutate
@@ -242,6 +248,21 @@ def test_eliminable_vars_at_signature():
     )
 
 
+def test_hole_context_at_signature():
+    _check_sig(
+        hole_context_at,
+        ["path", "content", "pos", "prelude", "include_lemmas"],
+        Optional[HoleContext],
+    )
+
+
+def test_hole_context_at_include_lemmas_default():
+    """``include_lemmas`` defaults to True so the hole-fill sidecar's
+    common case (wants lemmas) is the trivial call shape."""
+    param = inspect.signature(hole_context_at).parameters["include_lemmas"]
+    assert param.default is True
+
+
 def test_prelude_param_has_default():
     """``prelude`` is optional on every query function so existing
     Step 3-5 callers (which pass ``path`` and ``content`` only)
@@ -249,7 +270,7 @@ def test_prelude_param_has_default():
     for func in (
         check, goal_at, definition_of, list_symbols, refine_at,
         case_split_at, splittable_vars_at, induction_skeleton_at,
-        eliminate_at, eliminable_vars_at,
+        eliminate_at, eliminable_vars_at, hole_context_at,
     ):
         prelude_param = inspect.signature(func).parameters["prelude"]
         assert prelude_param.default == (), (
