@@ -189,6 +189,11 @@ model and the loop continues until the budget is exhausted."
 When non-nil, this is a plist describing the in-flight request:
 
   :process       -- the `make-process' handle
+  :source-buffer -- the .pf buffer the user invoked from (where the
+                    proof gets spliced).  Tracked separately because
+                    `process-buffer' returns the *stdout* buffer
+                    (since we set :buffer stdout-buffer on the process)
+                    and we need to know which `.pf' buffer to apply to.
   :start-marker  -- marker at the hole's start position
   :end-marker    -- marker at the hole's end position (advance-on-insert)
   :fingerprint   -- the SHA-256 fingerprint captured at request time
@@ -337,33 +342,41 @@ fingerprint check (re-issue `deduce/holeContextAt' and compare
 fingerprints) before mutating the buffer.  On either check
 failing, errors with a message that names the failure mode
 without touching the source."
-  (let* ((buffer (process-buffer (plist-get session :process)))
+  (let* ((source-buffer (plist-get session :source-buffer))
          (stdout-buffer (plist-get session :stdout-buffer))
          (start-marker (plist-get session :start-marker))
          (end-marker (plist-get session :end-marker))
          (orig-fingerprint (plist-get session :fingerprint))
-         (raw (with-current-buffer stdout-buffer
-                (buffer-substring-no-properties (point-min) (point-max)))))
+         (raw (when (buffer-live-p stdout-buffer)
+                (with-current-buffer stdout-buffer
+                  (buffer-substring-no-properties
+                   (point-min) (point-max)))))
+         (source-alive (buffer-live-p source-buffer)))
+    ;; Cleanup is destructive (kills the stdout/stderr buffers, clears
+    ;; markers) so we read everything we need first.
     (deduce-fill-hole--cleanup session)
-    (unless (buffer-live-p buffer)
-      (user-error "Source buffer was killed before fill-hole completed"))
-    (with-current-buffer buffer
-      (when (eq deduce-fill-hole--session session)
-        (setq deduce-fill-hole--session nil))
-      (let* ((response (deduce-fill-hole--parse-response raw))
-             (ok (plist-get response :ok))
-             (proof (plist-get response :proof))
-             (error-msg (plist-get response :error))
-             (attempts (or (plist-get response :attempts) 0)))
-        (cond
-         ((not ok)
-          (message "deduce-fill-hole: %s (after %d attempt%s)"
-                   (or error-msg "no proof produced")
-                   attempts
-                   (if (= attempts 1) "" "s")))
-         (t
-          (deduce-fill-hole--splice-proof
-           start-marker end-marker proof orig-fingerprint attempts)))))))
+    (cond
+     ((not source-alive)
+      (message
+       "deduce-fill-hole: source buffer was killed before result arrived"))
+     (t
+      (with-current-buffer source-buffer
+        (when (eq deduce-fill-hole--session session)
+          (setq deduce-fill-hole--session nil))
+        (let* ((response (deduce-fill-hole--parse-response (or raw "")))
+               (ok (plist-get response :ok))
+               (proof (plist-get response :proof))
+               (error-msg (plist-get response :error))
+               (attempts (or (plist-get response :attempts) 0)))
+          (cond
+           ((not ok)
+            (message "deduce-fill-hole: %s (after %d attempt%s)"
+                     (or error-msg "no proof produced")
+                     attempts
+                     (if (= attempts 1) "" "s")))
+           (t
+            (deduce-fill-hole--splice-proof
+             start-marker end-marker proof orig-fingerprint attempts)))))))))
 
 
 (defun deduce-fill-hole--parse-response (raw)
@@ -555,13 +568,13 @@ have their own session in parallel."
            :noquery t
            :sentinel #'deduce-fill-hole--sentinel)))
     (let ((session (list :process process
+                         :source-buffer (current-buffer)
                          :start-marker start-marker
                          :end-marker end-marker
                          :fingerprint fingerprint
                          :stdout-buffer stdout-buffer
                          :stderr-buffer stderr-buffer)))
       (process-put process 'deduce-fill-hole-session session)
-      (process-put process 'deduce-fill-hole-buffer (current-buffer))
       (setq deduce-fill-hole--session session))
     (process-send-string process
                          (deduce-fill-hole--build-request context))
