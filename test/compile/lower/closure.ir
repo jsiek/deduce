@@ -1,4 +1,4 @@
-union MyNat.0 {zero.1/0, suc.2/1}
-fn add.3($scr0, m.4) = match $scr0 { | zero.1 -> m.4 | suc.2(n.5) -> suc.2(add.3(n.5, m.4)) }
-fn adder.9(x.7) = λ(y.8). add.3(x.7, y.8)
-print adder.9(suc.2(zero.1))(suc.2(suc.2(zero.1)))
+union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
+fn add.s1_0($scr0, m.s1_1) = match $scr0 { | zero.s0_1 -> m.s1_1 | suc.s0_2(n.s1_2) -> suc.s0_2(add.s1_0(n.s1_2, m.s1_1)) }
+fn adder.s2_2(x.s2_0) = λ(y.s2_1). add.s1_0(x.s2_0, y.s2_1)
+print adder.s2_2(suc.s0_2(zero.s0_1))(suc.s0_2(suc.s0_2(zero.s0_1)))

@@ -1,5 +1,5 @@
-union MyNat.0 {zero.1/0, suc.2/1}
-fn iszero.5(n.3) = match n.3 { | zero.1 -> true | suc.2(n'.4) -> false }
-fn pred.8(n.6) = match n.6 { | zero.1 -> zero.1 | suc.2(n'.7) -> n'.7 }
-fn count_down.22(n.23) = if iszero.5(n.23) then zero.1 else count_down.22(pred.8(n.23))
-print count_down.22(suc.2(suc.2(suc.2(zero.1))))
+union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
+fn iszero.s1_2(n.s1_0) = match n.s1_0 { | zero.s0_1 -> true | suc.s0_2(n'.s1_1) -> false }
+fn pred.s2_2(n.s2_0) = match n.s2_0 { | zero.s0_1 -> zero.s0_1 | suc.s0_2(n'.s2_1) -> n'.s2_1 }
+fn count_down.s6_0(n.s6_1) = if iszero.s1_2(n.s6_1) then zero.s0_1 else count_down.s6_0(pred.s2_2(n.s6_1))
+print count_down.s6_0(suc.s0_2(suc.s0_2(suc.s0_2(zero.s0_1))))

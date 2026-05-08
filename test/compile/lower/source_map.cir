@@ -1,4 +1,4 @@
-union MyNat.0 {zero.1/0, suc.2/1}
-union List.3 {empty.5/0, node.6/2}
-global A.7 = array(node.6(zero.1, empty.5))
-print A.7[suc.2(zero.1)]
+union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
+union List.s1_0 {empty.s1_2/0, node.s1_3/2}
+global A.s2_0 = array(node.s1_3(zero.s0_1, empty.s1_2))
+print A.s2_0[suc.s0_2(zero.s0_1)]
