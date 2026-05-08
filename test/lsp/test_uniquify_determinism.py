@@ -26,7 +26,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-import abstract_syntax  # noqa: E402
 from abstract_syntax import UniquifyContext, uniquify_deduce  # noqa: E402
 
 
@@ -157,36 +156,41 @@ def test_uniquify_context_starts_at_zero() -> None:
     assert ctx.name_id == 0
 
 
-def test_uniquify_deduce_default_context_persists() -> None:
-    """The default (no-ctx) path uses a module-level shared context
-    so ids monotonically accumulate across calls.  This is the
-    production pipeline's behaviour and what stops prelude-cached
-    names from colliding with later allocations.
-
-    Two same-input calls without an explicit ctx should NOT produce
-    the same names -- the second call sees a higher starting id."""
+def test_shared_ctx_accumulates_ids_across_calls() -> None:
+    """Passing the *same* ctx to two ``uniquify_deduce`` calls
+    advances the counter monotonically -- this is what the LSP
+    pipeline relies on so prelude and user-file names never
+    collide.  After call 2, ``name_id`` is strictly greater than
+    after call 1."""
     src = "theorem t: true\nproof\n  .\nend\n"
+    ctx = UniquifyContext()
+    uniquify_deduce(_parse(src), ctx)
+    after_first = ctx.name_id
+    assert after_first > 0
+    uniquify_deduce(_parse(src), ctx)
+    after_second = ctx.name_id
+    assert after_second > after_first
 
-    # Snapshot the counter, run, snapshot again.
-    before = abstract_syntax._default_uniquify_ctx.name_id
-    uniquify_deduce(_parse(src))
-    after = abstract_syntax._default_uniquify_ctx.name_id
 
-    # Some names get allocated -- counter advanced.
-    assert after > before
-
-
-def test_explicit_context_is_isolated_from_default() -> None:
-    """Passing an explicit ``ctx`` doesn't disturb the default
-    context's counter -- the two are independent allocators."""
+def test_independent_ctxs_do_not_leak() -> None:
+    """Two contexts are independent allocators -- advancing one
+    leaves the other untouched."""
     src = "theorem t: true\nproof\n  .\nend\n"
+    ctx_a = UniquifyContext()
+    ctx_b = UniquifyContext()
+    uniquify_deduce(_parse(src), ctx_a)
+    assert ctx_a.name_id > 0
+    assert ctx_b.name_id == 0  # untouched
 
-    default_before = abstract_syntax._default_uniquify_ctx.name_id
-    explicit_ctx = UniquifyContext()
-    uniquify_deduce(_parse(src), ctx=explicit_ctx)
-    default_after = abstract_syntax._default_uniquify_ctx.name_id
 
-    # Default context untouched.
-    assert default_before == default_after
-    # Explicit context advanced.
-    assert explicit_ctx.name_id > 0
+def test_snapshot_forks_independent_counter() -> None:
+    """``UniquifyContext.snapshot`` returns a fresh ctx with the
+    same counter value, but advancing one doesn't affect the
+    other -- the LSP pipeline forks a per-user-file ctx from the
+    post-prelude baseline this way."""
+    parent = UniquifyContext(name_id=42)
+    child = parent.snapshot()
+    assert child.name_id == 42
+    child.name_id += 5
+    assert parent.name_id == 42  # parent untouched
+    assert child.name_id == 47
