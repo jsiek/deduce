@@ -161,10 +161,13 @@ The Deduce Reference manual provides an alphabetical list of all the features in
 
 The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyword to use next in a proof.
 
+The Compiler page walks through translating a checked Deduce program into a self-contained C binary.
+
 <!-- buttons -->
 [Reference Manual](./pages/reference.html)
 [Cheat Sheet](./pages/cheat-sheet.html)
 [Tactics Cheat Sheet](./pages/tactics-cheat-sheet.html)
+[Compile to C](./pages/compiler.html)
 <!-- end buttons -->
 <!-- end block -->
 <!-- end section -->
