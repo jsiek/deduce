@@ -1,0 +1,11 @@
+union TwoList<K, V> {
+  empty
+  vnode(V, TwoList<K, V>)
+  knode(K, TwoList<K, V>)
+}
+
+recursive nonempty<K, V>(TwoList) -> bool {
+  nonempty(empty) = false
+  nonempty(vnode(v, t)) = true
+  nonempty(knode(k, t)) = true
+}

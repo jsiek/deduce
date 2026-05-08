@@ -1,0 +1,7 @@
+union TwoList<K, V> {
+  empty
+  vnode(V, TwoList<K, V>)
+  knode(K, TwoList<K, V>)
+}
+
+define x : TwoList = empty

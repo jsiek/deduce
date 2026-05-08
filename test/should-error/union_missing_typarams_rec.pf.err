@@ -1,1 +1,1 @@
-./test/should-error/union_missing_typarams_rec.pf:8.9-8.10: Expected union type 'A' in constructor parameters to have 1 parameters, not 0
+./test/should-error/union_missing_typarams_rec.pf:8.9-8.10: Expected union type 'A' to have 1 type arguments, not 0

@@ -1925,6 +1925,21 @@ def check_recursive_call(call, recfun, subterms):
           + " or ".join([base_name(x) for x in subterms]) \
           + ", not " + str(call.args[0]))
 
+# Helper for check_type: a bare reference to a generic union (one with N>0
+# type parameters) is ill-formed. The arity check used to live in a separate
+# `validate_union_type` pass that was only run on union-constructor parameters
+# (issue #257); folding it into `check_type` makes every site that accepts a
+# user-written type — postulate/define/recursive/theorem signatures, etc. —
+# reject `Foo` when it should be `Foo<...>`.
+def _check_union_arity(head, given, env):
+  if not env.type_var_is_defined(head):
+    return
+  type_def = env.get_def_of_type_var(head)
+  if isinstance(type_def, Union) and len(type_def.type_params) != given:
+    error(head.location,
+          f"Expected union type '{head}' to have "
+          f"{len(type_def.type_params)} type arguments, not {given}")
+
 # Validate that ``typ`` is well-formed in ``env`` and return the type
 # with every single-candidate ``OverloadedVar`` narrowed to
 # ``ResolvedVar``. The returned type may share structure with ``typ``
@@ -1932,18 +1947,27 @@ def check_recursive_call(call, recfun, subterms):
 # Callers MUST use the returned value, not the original ``typ`` —
 # the strict post-typecheck invariant rejects single-candidate
 # OverloadedVars, so dropping the return on the floor leaks them.
-def check_type(typ, env):
+#
+# ``arity_required`` is internal: callers that wrap a bare generic union
+# head (TypeInst, GenericUnknownInst) and certain declaration sites (e.g.
+# ``inductive Foo by ...``, which legitimately names a union by its bare
+# name) pass False to suppress the zero-arity error.
+def check_type(typ, env, arity_required=True):
   match typ:
     case OverloadedVar(loc, tyof, rs):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
       if len(rs) > 1:
         error(loc, 'type names may not be overloaded ' + str(typ))
+      if arity_required:
+        _check_union_arity(typ, 0, env)
       # len(rs) == 1: this is a non-overloaded type reference. Promote.
       return ResolvedVar(loc, tyof, rs[0])
     case ResolvedVar(loc, tyof, name):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
+      if arity_required:
+        _check_union_arity(typ, 0, env)
       return typ
     case IntType(loc) | BoolType(loc) | TypeType(loc):
       return typ
@@ -1953,11 +1977,17 @@ def check_type(typ, env):
       new_return_type = check_type(return_type, body_env)
       return FunctionType(loc, typarams, new_param_types, new_return_type)
     case TypeInst(loc, inner_typ, arg_types):
-      new_inner = check_type(inner_typ, env)
+      # The head is a generic-union reference applied to ``arg_types``;
+      # suppress the bare-head arity check and validate against the
+      # actual arg count instead.
+      new_inner = check_type(inner_typ, env, arity_required=False)
+      if isinstance(new_inner, VarRef):
+        _check_union_arity(new_inner, len(arg_types), env)
       new_args = [check_type(ty, env) for ty in arg_types]
       return TypeInst(loc, new_inner, new_args)
     case GenericUnknownInst(loc, inner_typ):
-      return GenericUnknownInst(loc, check_type(inner_typ, env))
+      # Internal node deliberately wrapping an unapplied generic union.
+      return GenericUnknownInst(loc, check_type(inner_typ, env, arity_required=False))
     case ArrayType(loc, elt_type):
       return ArrayType(loc, check_type(elt_type, env))
     case _:
@@ -2572,35 +2602,6 @@ def is_modified(filename):
     else:
         return True
           
-def validate_union_type(ty, params, env):
-  if isinstance(ty, VarRef):
-    type_def = env.get_def_of_type_var(ty)
-    if isinstance(type_def, Union):
-      union_params_len = len(type_def.type_params)
-      provided_params_len = len(params)
-      if union_params_len != provided_params_len:
-        error(ty.location, f"Expected union type '{ty}' in constructor parameters " \
-             + f"to have {union_params_len} parameters, not {provided_params_len}")
-    return
-  match ty:
-    case TypeInst(loc, ty, type_args):
-      for t in type_args:
-        validate_union_type(t, [], env)
-      validate_union_type(ty, type_args, env)
-      pass
-    case FunctionType(loc, ty_params, param_types, return_type):
-      for t in param_types:
-        validate_union_type(t, [], env)
-      validate_union_type(return_type, [], env)
-    case IntType():
-      pass
-    case BoolType():
-      pass
-    case ArrayType(loc, elt_ty):
-      validate_union_type(elt_ty, [], env)
-    case _:
-      error(ty.location, f"Unhandled case '{type(ty)}' in 'validate_union_type")
-
 # Strict-positivity check for inductive (union) types.
 #
 # A constructor parameter type is strictly positive in the union being defined
@@ -3707,7 +3708,6 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           new_params = []
           for ty in constr.parameters:
             new_ty = check_type(ty, body_env)
-            validate_union_type(new_ty, [], body_env)
             check_strict_positivity(new_ty, name, body_env)
             new_params.append(new_ty)
           constr_type = FunctionType(constr.location, typarams,
@@ -3901,7 +3901,11 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
       return stmt, env
     
     case Inductive(loc, typ, name):
-      check_type(typ, env)
+      # `inductive Foo by ...` names a union by its bare name; suppress
+      # the generic-arity check so `inductive Foo by ...` works when Foo
+      # is a generic union. The `case Inductive(...)` in check_proofs
+      # enforces that ``typ`` is a ``VarRef``.
+      check_type(typ, env, arity_required=False)
       return stmt, env
   
     case _:
