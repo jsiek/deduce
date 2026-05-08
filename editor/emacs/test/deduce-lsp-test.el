@@ -912,6 +912,179 @@ interactive entry user-errors with `No elimination available'."
       (delete-file tmp))))
 
 
+;; ---------------------------------------------------------------------
+;; deduce-lsp-fill-from-given (issue #353, fronted by `C-c C-f')
+;; ---------------------------------------------------------------------
+;;
+;; Same wire shape as eliminate (Step 18): cursor on `?', the
+;; interactive form fetches candidate labels via
+;; `deduce/matchingGivensAt'; on a single match it skips
+;; completing-read and applies directly; on multiple it prompts.
+;; The chosen label drives a `deduce/fillFromGivenAt' request.
+
+(ert-deftest deduce-lsp/fill-from-given-bound-to-c-c-c-f ()
+  "`C-c C-f' in deduce-mode-map runs `deduce-lsp-fill-from-given'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-f"))
+              #'deduce-lsp-fill-from-given)))
+
+
+(ert-deftest deduce-lsp/fill-from-given-issues-fillFromGivenAt-request ()
+  "Calling `deduce-lsp-fill-from-given' with a label arg sends
+`deduce/fillFromGivenAt' with `{textDocument, position, label}'."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf"))
+        calls)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool. if P then P\nproof\n  arbitrary P:bool\n  assume H: P\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          ;; `?` at line 5 col 3 -> LSP line 4, char 2.
+          (goto-char (point-min))
+          (forward-line 4)
+          (forward-char 2)
+          (setq calls
+                (deduce-lsp-test--with-method-mock
+                 '((:deduce/fillFromGivenAt . nil))
+                 (lambda ()
+                   (ignore-errors (deduce-lsp-fill-from-given "H")))))
+          (let* ((call (assq :deduce/fillFromGivenAt calls))
+                 (params (cdr call))
+                 (text-doc (plist-get params :textDocument))
+                 (pos (plist-get params :position)))
+            (should call)
+            (should (string-prefix-p "file://"
+                                      (plist-get text-doc :uri)))
+            (should (= (plist-get pos :line) 4))
+            (should (= (plist-get pos :character) 2))
+            (should (equal (plist-get params :label) "H"))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/fill-from-given-applies-workspace-edit ()
+  "Given a server response with a `:changes' WorkspaceEdit, the
+buffer ends up with the new text replacing the `?'."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool. if P then P\nproof\n  arbitrary P:bool\n  assume H: P\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (goto-char (point-min))
+          (forward-line 4)
+          (forward-char 2)
+          (let* ((uri (deduce-lsp--current-uri))
+                 (skeleton "conclude P by H")
+                 (edit `(:changes
+                         (,(intern (concat ":" uri))
+                          [(:range (:start (:line 4 :character 2)
+                                    :end (:line 4 :character 3))
+                                   :newText ,skeleton)]))))
+            (deduce-lsp-test--with-method-mock
+             `((:deduce/fillFromGivenAt . ,edit))
+             (lambda () (deduce-lsp-fill-from-given "H"))))
+          (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+            (should (string-match-p "conclude P by H" text))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/fill-from-given-null-server-response-errors ()
+  "If the server returns null for fillFromGivenAt, the command
+user-errors instead of silently no-op-ing."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (deduce-lsp-test--with-method-mock
+           '((:deduce/fillFromGivenAt . nil))
+           (lambda ()
+             (should-error (deduce-lsp-fill-from-given "H") :type 'user-error))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/fill-from-given-interactive-single-match-autoselects ()
+  "With exactly one matching given, the interactive entry skips
+`completing-read' and uses the single candidate directly."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf"))
+        completing-read-called)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method _params)
+                       (cond
+                        ((eq method :deduce/matchingGivensAt) ["H"])
+                        ((eq method :deduce/fillFromGivenAt) nil))))
+                    ((symbol-function 'completing-read)
+                     (lambda (&rest _args)
+                       (setq completing-read-called t)
+                       "H")))
+            (ignore-errors
+              (call-interactively #'deduce-lsp-fill-from-given)))
+          (should-not completing-read-called))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/fill-from-given-interactive-multi-uses-completing-read ()
+  "With multiple matches, the interactive entry hits
+`deduce/matchingGivensAt' and feeds them to `completing-read'."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf"))
+        captured-prompt
+        captured-collection)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method _params)
+                       (cond
+                        ((eq method :deduce/matchingGivensAt) ["H1" "H2"])
+                        ((eq method :deduce/fillFromGivenAt) nil))))
+                    ((symbol-function 'completing-read)
+                     (lambda (prompt collection &rest _rest)
+                       (setq captured-prompt prompt)
+                       (setq captured-collection collection)
+                       "H1")))
+            (ignore-errors
+              (call-interactively #'deduce-lsp-fill-from-given)))
+          (should (string-match-p "Fill from given:" captured-prompt))
+          (should (member "H1" captured-collection))
+          (should (member "H2" captured-collection)))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/fill-from-given-interactive-empty-candidates-errors ()
+  "If `deduce/matchingGivensAt' returns no candidates, the
+interactive entry user-errors with `No matching given'."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server _method _params) [])))
+            (should-error (call-interactively #'deduce-lsp-fill-from-given)
+                          :type 'user-error)))
+      (delete-file tmp))))
+
+
 (provide 'deduce-lsp-test)
 
 ;;; deduce-lsp-test.el ends here

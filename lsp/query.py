@@ -70,6 +70,8 @@ __all__ = [
     "induction_skeleton_at",
     "eliminate_at",
     "eliminable_vars_at",
+    "fill_from_given_at",
+    "matching_givens_at",
 ]
 
 
@@ -1857,4 +1859,143 @@ def _eliminate_some(label: str, formula, env) -> str:
         f"obtain {', '.join(fresh_witnesses)} where "
         f"{h}: {new_body} from {label}\n?"
     )
+
+
+# ---------------------------------------------------------------------------
+# fill_from_given_at -- issue #353: fill a hole with a matching given
+# ---------------------------------------------------------------------------
+#
+# Sibling of ``eliminate_at''.  Where ``eliminate_at'' picks a template
+# from the *shape* of a named hypothesis, ``fill_from_given_at'' picks
+# by formula *equality*: the chosen given's formula must equal the goal,
+# and the replacement is just ``conclude <goal> by <label>'' -- the same
+# advice ``proof_advice'' in proof_checker.py emits when an exact match
+# is in scope.
+#
+# The proof checker already does this matching internally (see
+# proof_checker.py around line 893: it walks env.dict for ProofBindings
+# whose formula equals the goal and offers a `conclude ... by ...'
+# completion).  The LSP just surfaces it as an editor command.
+#
+# UX shape mirrors ``eliminate_at'': the editor binding fetches
+# candidate labels via ``matching_givens_at'' and prompts via
+# ``completing-read'' before issuing ``deduce/fillFromGivenAt''.
+
+
+def fill_from_given_at(
+    path: str, content: str, pos: Position,
+    label: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """Fill the hole at ``pos`` with ``conclude <goal> by <label>``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token;
+    that ``?`` is the replacement target.  ``label`` names an in-scope
+    local proof binding whose formula equals the goal at the hole.
+
+    Returns ``None`` when:
+
+    - the cursor isn't on a ``?``,
+    - the file has no incomplete proof at the cursor,
+    - ``label`` isn't bound at the hole,
+    - the bound formula doesn't equal the goal, or
+    - the bound formula isn't local (theorems are referred to by name
+      directly, not via this command).
+
+    For client-side completion of valid ``label`` choices, see
+    :func:`matching_givens_at`.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    goal = getattr(exc, "formula", None)
+    if env is None or goal is None:
+        return None
+
+    template = _fill_from_given_template(label, goal, env)
+    if template is None:
+        return None
+
+    template = _indent_continuation(
+        template, _line_indent_at(content, hole_range.start)
+    )
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def matching_givens_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> tuple:
+    """Return base names of in-scope local proof bindings whose
+    formula equals the goal at the hole at ``pos``.
+
+    Used by editor clients to populate completion candidates for the
+    ``Fill from given:'' prompt.  Empty when the cursor isn't on a
+    ``?``, the goal AST isn't available, or no local binding matches.
+    Names are sorted and deduplicated.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return ()
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return ()
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    goal = getattr(exc, "formula", None)
+    if env is None or goal is None:
+        return ()
+
+    return _matching_given_names(goal, env)
+
+
+def _matching_given_names(goal, env) -> tuple:
+    """Names of local proof bindings whose formula equals ``goal``."""
+    from abstract_syntax import ProofBinding, base_name
+
+    seen = set()
+    for unique, binding in env.dict.items():
+        if not isinstance(binding, ProofBinding):
+            continue
+        if not binding.local:
+            continue
+        if binding.formula != goal:
+            continue
+        seen.add(base_name(unique))
+    return tuple(sorted(seen))
+
+
+def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
+    """Return ``conclude <goal> by <label>`` when ``label`` names a
+    local proof binding in ``env`` whose formula equals ``goal``.
+
+    Returns ``None`` when the label isn't bound, isn't a local proof
+    binding, or its formula doesn't match the goal.  The base-name
+    match (rather than unique-name) mirrors :func:`_eliminate_template`.
+    """
+    from abstract_syntax import ProofBinding, base_name
+
+    matches = [k for k in env.dict if base_name(k) == label]
+    if not matches:
+        return None
+    binding = env.dict[matches[0]]
+    if not isinstance(binding, ProofBinding):
+        return None
+    if not binding.local:
+        return None
+    if binding.formula != goal:
+        return None
+    return f"conclude {goal} by {label}"
 

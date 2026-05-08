@@ -367,6 +367,51 @@ def eliminable_vars_at(
 
 
 @mcp.tool()
+def fill_from_given_at(
+    path: str, line: int, column: int, label: str
+) -> Optional[dict]:
+    """Fill the hole at ``line``:``column`` with ``conclude <goal> by
+    <label>``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token;
+    that ``?`` is the replacement target.  ``label`` names an in-scope
+    *local* proof binding (typically a hypothesis introduced by
+    ``assume`` / ``suppose`` / ``have``) whose formula equals the goal
+    at the hole.
+
+    Returns ``None`` when the cursor isn't on a ``?``, ``label`` isn't
+    bound, the bound formula doesn't match the goal, or the binding
+    isn't local.  Otherwise returns ``{path, range, new_text}``.
+
+    For a list of valid ``label`` choices, see ``matching_givens_at``.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    edit = query.fill_from_given_at(
+        path, content, pos, label, prelude=_prelude_for(path)
+    )
+    return _to_serializable(edit)
+
+
+@mcp.tool()
+def matching_givens_at(
+    path: str, line: int, column: int
+) -> list[str]:
+    """Return labels of in-scope local proof bindings whose formula
+    equals the goal at ``line``:``column``.
+
+    The cursor must sit on a ``?`` token.  Names are sorted and
+    deduplicated.  Returns ``[]`` when the cursor isn't on a ``?``,
+    the goal AST isn't available, or no local binding matches.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    return list(
+        query.matching_givens_at(path, content, pos, prelude=_prelude_for(path))
+    )
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

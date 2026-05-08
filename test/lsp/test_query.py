@@ -77,6 +77,8 @@ EXPECTED_PUBLIC = {
     "induction_skeleton_at",
     "eliminate_at",
     "eliminable_vars_at",
+    "fill_from_given_at",
+    "matching_givens_at",
 }
 
 
