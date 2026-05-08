@@ -82,7 +82,7 @@ def prune(p: ir.Program) -> ir.Program:
             # the roots themselves (and asserts are normally dropped in
             # lowering, so they shouldn't be here anyway).
             new_decls.append(d)
-    return ir.Program(decls=new_decls)
+    return ir.Program(decls=new_decls, name_to_module=p.name_to_module)
 
 
 def _referenced(t: ir.Term) -> Set[str]:

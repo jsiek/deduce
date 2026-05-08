@@ -1,5 +1,5 @@
-union MyNat.23 {zero.24/0, suc.25/1}
-fn add.26($scr0, m.27) = match $scr0 { | zero.24 -> m.27 | suc.25(n.28) -> suc.25(add.26(n.28, m.27)) }
-fn adder.32(x.30) = closure[$lam1](x.30)
-print adder.32(suc.25(zero.24))(suc.25(suc.25(zero.24)))
-fn $lam1[x.30](y.31) = add.26(x.30, y.31)
+union MyNat.0 {zero.1/0, suc.2/1}
+fn add.3($scr0, m.4) = match $scr0 { | zero.1 -> m.4 | suc.2(n.5) -> suc.2(add.3(n.5, m.4)) }
+fn adder.9(x.7) = closure[$lam1](x.7)
+print adder.9(suc.2(zero.1))(suc.2(suc.2(zero.1)))
+fn $lam1[x.7](y.8) = add.3(x.7, y.8)

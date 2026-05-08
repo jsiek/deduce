@@ -1,6 +1,6 @@
-union Box.33 {box.35/1}
-fn unbox.39(b.37) = match b.37 { | box.35(x.38) -> x.38 }
-fn id.43(x.42) = x.42
-union MyNat.44 {zero.45/0, suc.46/1}
-print id.43(suc.46(zero.45))
-print unbox.39(box.35(suc.46(suc.46(zero.45))))
+union Box.0 {box.2/1}
+fn unbox.6(b.4) = match b.4 { | box.2(x.5) -> x.5 }
+fn id.10(x.9) = x.9
+union MyNat.11 {zero.12/0, suc.13/1}
+print id.10(suc.13(zero.12))
+print unbox.6(box.2(suc.13(suc.13(zero.12))))

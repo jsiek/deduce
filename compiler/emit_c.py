@@ -49,26 +49,8 @@ def _mangle(name: str) -> str:
     return s
 
 
-def _func_id(name: str) -> str:
-    return "F_" + _mangle(name)
-
-
-def _global_id(name: str) -> str:
-    return "G_" + _mangle(name)
-
-
 def _local_id(name: str) -> str:
     return "v_" + _mangle(name)
-
-
-def _ctor_id_macro(name: str) -> str:
-    return "CTOR_" + _mangle(name)
-
-
-def _ctor_singleton(name: str) -> str:
-    """Per-ctor static value for nullary constructors. Allocated once
-    at program startup and reused at every `Con(c, [])` site."""
-    return "C_" + _mangle(name)
 
 
 def _base_name(name: str) -> str:
@@ -100,6 +82,11 @@ class EmitCtx:
     top_globals: Set[str] = field(default_factory=set)
     ctor_ids: Dict[str, int] = field(default_factory=dict)
     ctor_arities: Dict[str, int] = field(default_factory=dict)
+    # Per-name source module for `<Module>__<base_name>` symbol
+    # mangling (Step 25 of separate-compile-plan.md). Names absent
+    # from this map (closure-conversion `$lam<N>` lifts, etc.)
+    # mangle without a module prefix.
+    name_to_module: Dict[str, str] = field(default_factory=dict)
     tmp_counter: int = 0
 
     def fresh_tmp(self) -> str:
@@ -107,9 +94,32 @@ class EmitCtx:
         self.tmp_counter += 1
         return f"t{n}"
 
+    def _mangle_top(self, name: str) -> str:
+        """Mangle a top-level name. If we know its source module,
+        prefix with `<Module>__`; otherwise mangle the uniquified name
+        directly."""
+        module = self.name_to_module.get(name)
+        if module:
+            return _mangle(module) + "__" + _mangle(name)
+        return _mangle(name)
+
+    def func_id(self, name: str) -> str:
+        return "F_" + self._mangle_top(name)
+
+    def global_id(self, name: str) -> str:
+        return "G_" + self._mangle_top(name)
+
+    def ctor_id_macro(self, name: str) -> str:
+        return "CTOR_" + self._mangle_top(name)
+
+    def ctor_singleton(self, name: str) -> str:
+        """Per-ctor static value for nullary constructors. Allocated
+        once at program startup and reused at every `Con(c, [])` site."""
+        return "C_" + self._mangle_top(name)
+
 
 def emit_program(p: ir.Program) -> str:
-    ctx = EmitCtx()
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
     next_ctor_id = 0
     for d in p.decls:
         if isinstance(d, ir.UnionDecl):
@@ -138,25 +148,25 @@ def emit_program(p: ir.Program) -> str:
 
     # Constructor id macros
     for name, cid in ctx.ctor_ids.items():
-        out.append(f"#define {_ctor_id_macro(name)} {cid}")
+        out.append(f"#define {ctx.ctor_id_macro(name)} {cid}")
     out.append("")
 
     # Forward declarations
     for d in p.decls:
         if isinstance(d, ir.Function):
-            out.append(_emit_fn_decl(d) + ";")
+            out.append(_emit_fn_decl(d, ctx) + ";")
     out.append("")
 
     # Singleton storage for nullary ctors.
     for name in nullary_ctors:
-        out.append(f"deduce_value {_ctor_singleton(name)};")
+        out.append(f"deduce_value {ctx.ctor_singleton(name)};")
     out.append("")
 
     # Global variables. Same reasoning as the function declarations:
     # not `static`, so unused globals don't trip -Wunused-variable.
     for d in p.decls:
         if isinstance(d, ir.Global):
-            out.append(f"deduce_value {_global_id(d.name)};")
+            out.append(f"deduce_value {ctx.global_id(d.name)};")
     out.append("")
 
     # Function bodies
@@ -173,8 +183,8 @@ def emit_program(p: ir.Program) -> str:
     # `define two = suc(suc(zero))` reference these.
     for name in nullary_ctors:
         out.append(
-            f"    {_ctor_singleton(name)} = deduce_make_ctor("
-            f"{_ctor_id_macro(name)}, {_c_string(_base_name(name))}, 0, NULL);"
+            f"    {ctx.ctor_singleton(name)} = deduce_make_ctor("
+            f"{ctx.ctor_id_macro(name)}, {_c_string(_base_name(name))}, 0, NULL);"
         )
     for d in p.decls:
         if isinstance(d, ir.Global):
@@ -182,7 +192,7 @@ def emit_program(p: ir.Program) -> str:
             stmts, expr = _emit_term(d.body, ctx, locals_in_scope=set())
             for s in stmts:
                 out.append("    " + s)
-            out.append(f"    {_global_id(d.name)} = {expr};")
+            out.append(f"    {ctx.global_id(d.name)} = {expr};")
         elif isinstance(d, ir.Print):
             stmts, expr = _emit_term(d.term, ctx, locals_in_scope=set())
             for s in stmts:
@@ -204,13 +214,13 @@ def emit_program(p: ir.Program) -> str:
     return "\n".join(out) + "\n"
 
 
-def _emit_fn_decl(f: ir.Function) -> str:
+def _emit_fn_decl(f: ir.Function, ctx: EmitCtx) -> str:
     # Not `static`: a function may be unused at runtime if it's only
     # referenced by an erased proof (e.g. used inside a `terminates`
     # block that compiled to nothing). `static` would trip
     # -Wunneeded-internal-declaration; an extern function is silently
     # dropped by the linker if nothing references it.
-    return f"deduce_value {_func_id(f.name)}(deduce_value* env, deduce_value* args)"
+    return f"deduce_value {ctx.func_id(f.name)}(deduce_value* env, deduce_value* args)"
 
 
 def _emit_function(f: ir.Function, ctx: EmitCtx) -> str:
@@ -220,7 +230,7 @@ def _emit_function(f: ir.Function, ctx: EmitCtx) -> str:
     body_stmts: List[str] = []
     if f.loc:
         body_stmts.append(f"// from {f.loc}")
-    body_stmts.append(_emit_fn_decl(f) + " {")
+    body_stmts.append(_emit_fn_decl(f, ctx) + " {")
     if not f.params:
         body_stmts.append("    (void)args;")
     if not f.captures:
@@ -256,7 +266,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             if name in locals_in_scope:
                 return [], _local_id(name)
             if name in ctx.top_globals:
-                return [], _global_id(name)
+                return [], ctx.global_id(name)
             if name in ctx.top_funcs:
                 # First-class top-level function reference: build a
                 # closure with empty env. Phase 1 doesn't exercise this,
@@ -266,7 +276,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                 tmp = ctx.fresh_tmp()
                 stmts.append(
                     f"deduce_value {tmp} = deduce_make_closure("
-                    f"{_func_id(name)}, {_c_string(_base_name(name))}, "
+                    f"{ctx.func_id(name)}, {_c_string(_base_name(name))}, "
                     f"{arity}, 0, NULL);"
                 )
                 return stmts, tmp
@@ -328,7 +338,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                 raise EmitError(f"unknown constructor: {ctor}")
             # Nullary ctors are pre-allocated singletons.
             if not args:
-                return [], _ctor_singleton(ctor)
+                return [], ctx.ctor_singleton(ctor)
             arg_stmts: List[str] = []
             arg_exprs: List[str] = []
             for a in args:
@@ -343,7 +353,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             tmp = ctx.fresh_tmp()
             stmts.append(
                 f"deduce_value {tmp} = deduce_make_ctor("
-                f"{_ctor_id_macro(ctor)}, {_c_string(_base_name(ctor))}, "
+                f"{ctx.ctor_id_macro(ctor)}, {_c_string(_base_name(ctor))}, "
                 f"{len(args)}, {arr});"
             )
             return stmts, tmp
@@ -370,7 +380,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             tmp = ctx.fresh_tmp()
             stmts.append(
                 f"deduce_value {tmp} = deduce_make_closure("
-                f"{_func_id(fn)}, {_c_string(_base_name(fn))}, {arity}, "
+                f"{ctx.func_id(fn)}, {_c_string(_base_name(fn))}, {arity}, "
                 f"{len(caps)}, {arr_arg});"
             )
             return stmts, tmp
@@ -403,7 +413,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                     arr_arg = "NULL"
                 tmp = ctx.fresh_tmp()
                 stmts.append(
-                    f"deduce_value {tmp} = {_func_id(rator.name)}(NULL, {arr_arg});"
+                    f"deduce_value {tmp} = {ctx.func_id(rator.name)}(NULL, {arr_arg});"
                 )
                 return stmts, tmp
 
@@ -459,7 +469,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                     if not isinstance(arm.pattern, ir.PatCon):
                         raise EmitError("expected constructor pattern in ctor match")
                     pc: ir.PatCon = arm.pattern
-                    stmts.append(f"case {_ctor_id_macro(pc.ctor)}: {{")
+                    stmts.append(f"case {ctx.ctor_id_macro(pc.ctor)}: {{")
                     inner_scope = locals_in_scope | set(pc.binds)
                     for i, b in enumerate(pc.binds):
                         # Cast to (void) to silence -Wunused on bindings

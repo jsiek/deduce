@@ -98,7 +98,7 @@ def closure_convert(p: ir.Program) -> ir.Program:
         match d:
             case ir.UnionDecl():
                 new_decls.append(d)
-            case ir.Function(name, params, body, captures, loc):
+            case ir.Function(name, params, body, captures, loc, module):
                 if captures:
                     raise AssertionError(
                         "closure_convert: input already has lifted functions; "
@@ -107,9 +107,11 @@ def closure_convert(p: ir.Program) -> ir.Program:
                 new_decls.append(ir.Function(
                     name=name, params=list(params),
                     body=go(body), captures=[], loc=loc,
+                    module=module,
                 ))
-            case ir.Global(name, body):
-                new_decls.append(ir.Global(name=name, body=go(body)))
+            case ir.Global(name, body, module):
+                new_decls.append(ir.Global(name=name, body=go(body),
+                                           module=module))
             case ir.Print(t):
                 new_decls.append(ir.Print(go(t)))
             case ir.AssertEq(l, r):
@@ -121,4 +123,5 @@ def closure_convert(p: ir.Program) -> ir.Program:
                     f"closure_convert: unknown top-level {type(d).__name__}"
                 )
 
-    return ir.Program(decls=new_decls + lifted)
+    return ir.Program(decls=new_decls + lifted,
+                      name_to_module=p.name_to_module)

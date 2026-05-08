@@ -1,4 +1,4 @@
-union MyNat.88 {zero.89/0, suc.90/1}
-union List.91 {empty.93/0, node.94/2}
-global A.95 = array(node.94(zero.89, empty.93))
-print A.95[suc.90(zero.89)]
+union MyNat.0 {zero.1/0, suc.2/1}
+union List.3 {empty.5/0, node.6/2}
+global A.7 = array(node.6(zero.1, empty.5))
+print A.7[suc.2(zero.1)]

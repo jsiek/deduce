@@ -24,6 +24,7 @@ tests: tests-should-validate tests-should-error
 tests-compile:
 	$(PYTHON) ./test/compile/run_lower.py
 	$(PYTHON) ./test/compile/run_e2e.py
+	$(PYTHON) ./test/compile/run_determinism.py
 
 package:
 	$(PYTHON) ./deduce.py ./lib
