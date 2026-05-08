@@ -337,5 +337,216 @@ distinct features and live on distinct keystrokes."
               #'deduce-lsp-fill-from-given)))
 
 
+;; ---------------------------------------------------------------------
+;; Sentinel-path tests
+;; ---------------------------------------------------------------------
+;;
+;; The sentinel runs after the sidecar exits.  Its job is to read
+;; stdout/stderr, verify the source buffer hasn't been killed and the
+;; markers still cover a live `?', then either splice the proof in or
+;; surface a diagnostic to the user.  Three real bugs lived along this
+;; path and weren't caught by the construction-only tests above:
+;;
+;;   - process-buffer returned the stdout buffer, not the source buffer
+;;     (sentinel always thought source was killed).
+;;   - cleanup nilled markers before splice could read them (sentinel
+;;     always thought hole had moved).
+;;   - empty-stdout failures and budget-exhausted failures both swallowed
+;;     all diagnostic info, leaving "no output" / "budget exhausted"
+;;     with no breadcrumb.
+;;
+;; These tests construct a plausible session, invoke
+;; `deduce-fill-hole--apply-result' directly (no real subprocess), and
+;; assert on the post-conditions: was the buffer mutated?  was the
+;; *deduce-fill-hole debug* buffer populated?  did the right
+;; `(current-message)' come out?
+
+
+(defvar deduce-fill-hole-test--messages nil
+  "List of formatted message strings captured by
+`deduce-fill-hole-test--with-captured-messages'.  defvar'd so the
+override-message lambda can resolve it dynamically -- a lexical
+closure over a `let'-bound local doesn't survive `cl-letf''s
+trampoline reliably across emacs versions.")
+
+
+(defun deduce-fill-hole-test--capture-message (fmt &rest args)
+  "Push the formatted message into `deduce-fill-hole-test--messages'."
+  (push (apply #'format fmt args) deduce-fill-hole-test--messages)
+  nil)
+
+
+(defmacro deduce-fill-hole-test--with-captured-messages (&rest body)
+  "Run BODY with `message' captured to a list, then return that list
+in source order (oldest first).  Used because `current-message' is
+unreliable in `emacs --batch' -- ert sees nil even after `(message
+...)' has fired."
+  (declare (indent 0) (debug t))
+  `(let ((deduce-fill-hole-test--messages '()))
+     (cl-letf (((symbol-function 'message)
+                #'deduce-fill-hole-test--capture-message))
+       ,@body)
+     (nreverse deduce-fill-hole-test--messages)))
+
+
+(defun deduce-fill-hole-test--make-session (source-buffer stdout-text stderr-text)
+  "Build a session plist suitable for `deduce-fill-hole--apply-result'.
+
+Hole markers cover the first `?' in SOURCE-BUFFER.  No real process
+is started -- `apply-result' only reads :process via
+`process-exit-status', which returns nil when :process is nil, and
+that's fine for the diagnostic header."
+  (let* ((qpos (with-current-buffer source-buffer
+                 (goto-char (point-min))
+                 (and (search-forward "?" nil t) (1- (point)))))
+         ;; Markers cover exactly the `?' character: start AT the
+         ;; `?', end one past.  Mirrors what production code plants
+         ;; via copy-marker on lsp-pos-to-point output.
+         (start (and qpos (copy-marker qpos nil)))
+         (end (and qpos (copy-marker (1+ qpos) t)))
+         (stdout-buf (generate-new-buffer " *test-stdout*"))
+         (stderr-buf (generate-new-buffer " *test-stderr*")))
+    (when stdout-text
+      (with-current-buffer stdout-buf (insert stdout-text)))
+    (when stderr-text
+      (with-current-buffer stderr-buf (insert stderr-text)))
+    (list :process nil
+          :source-buffer source-buffer
+          :start-marker start
+          :end-marker end
+          :fingerprint "test-fp"
+          :stdout-buffer stdout-buf
+          :stderr-buffer stderr-buf)))
+
+
+(ert-deftest deduce-fill-hole/cleanup-does-not-nil-markers ()
+  "Regression for the third sentinel bug: cleanup must NOT nil
+markers, because splice-proof reads them after cleanup runs."
+  (with-temp-buffer
+    (insert "hello ? world")
+    (let* ((session (deduce-fill-hole-test--make-session
+                     (current-buffer) nil nil))
+           (start (plist-get session :start-marker))
+           (end (plist-get session :end-marker)))
+      (should (markerp start))
+      (should (marker-position start))
+      (deduce-fill-hole--cleanup session)
+      ;; After cleanup, the markers must still point at the hole --
+      ;; otherwise splice-proof's `(unless (marker-position ...))'
+      ;; check would always fire.
+      (should (marker-position start))
+      (should (marker-position end)))))
+
+
+(ert-deftest deduce-fill-hole/sentinel-success-splices-proof ()
+  "When stdout is `{ok: true, proof: ...}' and the buffer state
+hasn't changed, the proof replaces the `?' and the user gets a
+`filled in N attempts' message."
+  (with-temp-buffer
+    (insert "theorem t: bool = true\nproof\n  ?\nend\n")
+    (let* ((source (current-buffer))
+           (session (deduce-fill-hole-test--make-session
+                     source
+                     (concat "{\"ok\": true, \"proof\": \"reflexive\","
+                             " \"attempts\": 1, \"fingerprint\": \"test-fp\","
+                             " \"elapsedMs\": 100, \"model\": \"test\","
+                             " \"validations\": []}")
+                     nil)))
+      (let ((msgs (deduce-fill-hole-test--with-captured-messages
+                    (deduce-fill-hole--apply-result session))))
+        (should (string-match-p "reflexive" (buffer-string)))
+        (should-not (string-match-p "\\?" (buffer-string)))
+        (should (cl-some (lambda (m) (string-match-p "filled in 1 attempt" m))
+                         msgs))))))
+
+
+(ert-deftest deduce-fill-hole/sentinel-validation-trace-populates-debug-buffer ()
+  "When the sidecar reports ok=false with per-attempt validations,
+the debug buffer is populated and the user is pointed at it."
+  (when (get-buffer deduce-fill-hole--debug-buffer-name)
+    (kill-buffer deduce-fill-hole--debug-buffer-name))
+  (with-temp-buffer
+    (insert "theorem t: bool = true\nproof\n  ?\nend\n")
+    (let* ((source (current-buffer))
+           (session (deduce-fill-hole-test--make-session
+                     source
+                     (concat "{\"ok\": false,"
+                             " \"error\": \"budget exhausted\","
+                             " \"attempts\": 2, \"fingerprint\": \"test-fp\","
+                             " \"elapsedMs\": 100, \"model\": \"test\","
+                             " \"validations\": ["
+                             "  {\"attempt\": 1, \"ok\": false,"
+                             "   \"proofPreview\": \"bad-proof-1\","
+                             "   \"errorTail\": \"goal mismatch\"},"
+                             "  {\"attempt\": 2, \"ok\": false,"
+                             "   \"proofPreview\": \"bad-proof-2\","
+                             "   \"errorTail\": \"undefined label\"}"
+                             "]}")
+                     nil)))
+      (let ((msgs (deduce-fill-hole-test--with-captured-messages
+                    (deduce-fill-hole--apply-result session))))
+        ;; Buffer NOT mutated -- the `?' is still there.
+        (should (string-match-p "\\?" (buffer-string)))
+        (let ((buf (get-buffer deduce-fill-hole--debug-buffer-name)))
+          (should buf)
+          (with-current-buffer buf
+            (let ((text (buffer-string)))
+              (should (string-match-p "Attempt 1" text))
+              (should (string-match-p "bad-proof-1" text))
+              (should (string-match-p "goal mismatch" text))
+              (should (string-match-p "Attempt 2" text))
+              (should (string-match-p "bad-proof-2" text))
+              (should (string-match-p "undefined label" text)))))
+        (should (cl-some
+                 (lambda (m) (string-match-p
+                              (regexp-quote deduce-fill-hole--debug-buffer-name)
+                              m))
+                 msgs))))))
+
+
+(ert-deftest deduce-fill-hole/sentinel-empty-stdout-stashes-stderr ()
+  "When stdout is empty but stderr has content (sidecar crash case),
+the debug buffer is populated with the stderr tail and the user is
+pointed at it."
+  (when (get-buffer deduce-fill-hole--debug-buffer-name)
+    (kill-buffer deduce-fill-hole--debug-buffer-name))
+  (with-temp-buffer
+    (insert "theorem t: bool = true\nproof\n  ?\nend\n")
+    (let* ((source (current-buffer))
+           (session (deduce-fill-hole-test--make-session
+                     source
+                     ""
+                     "Traceback (most recent call last):\n  ImportError: lark\n")))
+      (let ((msgs (deduce-fill-hole-test--with-captured-messages
+                    (deduce-fill-hole--apply-result session))))
+        (let ((buf (get-buffer deduce-fill-hole--debug-buffer-name)))
+          (should buf)
+          (with-current-buffer buf
+            (should (string-match-p "Traceback" (buffer-string)))
+            (should (string-match-p "ImportError" (buffer-string)))))
+        (should (cl-some
+                 (lambda (m) (string-match-p
+                              (regexp-quote deduce-fill-hole--debug-buffer-name)
+                              m))
+                 msgs))))))
+
+
+(ert-deftest deduce-fill-hole/sentinel-handles-killed-source-buffer ()
+  "If the user killed the source buffer while the model was
+thinking, the sentinel must not raise -- just message the user."
+  (let* ((source (generate-new-buffer "*test-source*"))
+         session)
+    (with-current-buffer source
+      (insert "theorem t: bool = true\nproof\n  ?\nend\n")
+      (setq session (deduce-fill-hole-test--make-session source
+                                                         "{\"ok\": true, \"proof\": \"reflexive\", \"attempts\": 1, \"fingerprint\": \"test-fp\", \"elapsedMs\": 100, \"model\": \"test\", \"validations\": []}"
+                                                         nil)))
+    (kill-buffer source)
+    (let ((msgs (deduce-fill-hole-test--with-captured-messages
+                  (deduce-fill-hole--apply-result session))))
+      (should (cl-some (lambda (m) (string-match-p "source buffer was killed" m))
+                       msgs)))))
+
+
 (provide 'deduce-fill-hole-test)
 ;;; deduce-fill-hole-test.el ends here
