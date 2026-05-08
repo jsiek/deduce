@@ -127,6 +127,7 @@ def test_all_expected_features_are_registered():
         lsp_server.SPLITTABLE_VARS_REQUEST,
         lsp_server.ELIMINATE_REQUEST,
         lsp_server.ELIMINABLE_VARS_REQUEST,
+        lsp_server.HOLE_CONTEXT_AT_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -468,6 +469,90 @@ def test_definition_with_unknown_uri_returns_none(server):
 
 def test_goal_at_without_uri_returns_none(server):
     assert lsp_server.on_goal_at(server, {}) is None
+
+
+# --------------------------------------------------------------------------
+# deduce/holeContextAt (hole-fill plan, Phase 1 / Step 2)
+# --------------------------------------------------------------------------
+
+
+def test_hole_context_at_returns_payload(server, open_doc):
+    """Cursor on a `?`: the handler returns goal, givens, lemmas, and
+    a fingerprint, with LSP-shaped (0-indexed) coordinates."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("hole.pf", src)
+    # `?` sits at LSP line 3, character 2 (1-indexed query line 4 col 3).
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 3, "character": 2},
+    }
+    result = lsp_server.on_hole_context_at(server, params)
+    assert result is not None
+    assert result["goal"] == "P = P"
+    assert result["givens"] == []
+    # Range covers exactly the `?` token (1-char span).
+    assert result["holeRange"]["start"] == {"line": 3, "character": 2}
+    assert result["holeRange"]["end"] == {"line": 3, "character": 3}
+    # Lemmas-in-scope: the user's own theorem `t` is surfaced.
+    names = {lemma["name"] for lemma in result["lemmasInScope"]}
+    assert "t" in names
+    # Fingerprint is a 64-char hex SHA-256.
+    assert isinstance(result["fingerprint"], str)
+    assert len(result["fingerprint"]) == 64
+
+
+def test_hole_context_at_no_hole_returns_none(server, open_doc):
+    """Cursor not on a `?`: the handler returns ``None`` rather than
+    synthesising a hole the way ``deduce/goalAt`` does."""
+    src = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    _, uri = open_doc("nohole.pf", src)
+    # Cursor on `reflexive`, not on a `?`.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 3, "character": 2},
+    }
+    assert lsp_server.on_hole_context_at(server, params) is None
+
+
+def test_hole_context_at_without_uri_returns_none(server):
+    """Defensive path: malformed params with no URI."""
+    assert lsp_server.on_hole_context_at(server, {}) is None
+
+
+def test_hole_context_at_lemmas_excluded_when_disabled(server, open_doc):
+    """``includeLemmas=False`` returns an empty ``lemmasInScope`` list."""
+    src = (
+        "theorem helper: true\nproof . end\n"
+        "\n"
+        "theorem with_hole: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("nolemmas.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 6, "character": 2},
+        "includeLemmas": False,
+    }
+    result = lsp_server.on_hole_context_at(server, params)
+    assert result is not None
+    assert result["lemmasInScope"] == []
+    # Goal still surfaces normally.
+    assert result["goal"] == "P = P"
 
 
 # --------------------------------------------------------------------------

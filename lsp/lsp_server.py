@@ -152,6 +152,12 @@ ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
 FILL_FROM_GIVEN_REQUEST = "deduce/fillFromGivenAt"
 MATCHING_GIVENS_REQUEST = "deduce/matchingGivensAt"
 
+# Custom request for the Claude hole-fill sidecar (hole-fill-plan
+# Phase 1 / Step 2). Returns goal + givens + lemmas-in-scope +
+# fingerprint for the ``?`` token at the cursor. Sibling to
+# ``deduce/goalAt``; richer payload, doesn't disturb that contract.
+HOLE_CONTEXT_AT_REQUEST = "deduce/holeContextAt"
+
 server = LanguageServer(
     SERVER_NAME,
     SERVER_VERSION,
@@ -484,6 +490,78 @@ def on_goal_at(ls: LanguageServer, params) -> Optional[dict]:
                 "character": max(goal.range.end.column - 1, 0),
             },
         },
+    }
+
+
+@server.feature(HOLE_CONTEXT_AT_REQUEST)
+def on_hole_context_at(ls: LanguageServer, params) -> Optional[dict]:
+    """Custom request: return rich context for the ``?`` at a cursor.
+
+    Sibling to ``deduce/goalAt``; the hole-fill sidecar uses this to
+    pick up the goal + givens + lemmas in scope before asking Claude
+    for a proof, plus a fingerprint to detect that the hole moved or
+    its statement changed before the answer comes back.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "includeLemmas": bool?}``. ``includeLemmas``
+    defaults to ``True``.
+
+    Result: ``{"holeRange": Range, "goal": str, "givens":
+    [{"label": str | None, "formula": str}], "lemmasInScope":
+    [{"name": str, "kind": str, "signature": str}], "fingerprint":
+    str}`` or ``null``.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    if not uri:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    include_lemmas = _get_field(params, "includeLemmas")
+    if include_lemmas is None:
+        include_lemmas = True
+    path = _path_from_uri(uri)
+    ctx = _query.hole_context_at(
+        path,
+        content,
+        pos,
+        prelude=_prelude_for(path),
+        include_lemmas=bool(include_lemmas),
+    )
+    if ctx is None:
+        return None
+    return {
+        "holeRange": {
+            "start": {
+                "line": max(ctx.hole_range.start.line - 1, 0),
+                "character": max(ctx.hole_range.start.column - 1, 0),
+            },
+            "end": {
+                "line": max(ctx.hole_range.end.line - 1, 0),
+                "character": max(ctx.hole_range.end.column - 1, 0),
+            },
+        },
+        "goal": ctx.goal,
+        "givens": [
+            {"label": g.label, "formula": g.formula} for g in ctx.givens
+        ],
+        "lemmasInScope": [
+            {
+                "name": lemma.name,
+                "kind": lemma.kind.value,
+                "signature": lemma.signature,
+            }
+            for lemma in ctx.lemmas_in_scope
+        ],
+        "fingerprint": ctx.fingerprint,
     }
 
 
