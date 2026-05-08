@@ -9,10 +9,10 @@
 extern deduce_value C_basic__zero_1;
 
 deduce_value F_basic__add_3(deduce_value* env, deduce_value* args);
-deduce_value F_basic__add_two_9(deduce_value* env, deduce_value* args);
-deduce_value F_basic__pick_13(deduce_value* env, deduce_value* args);
+deduce_value F_basic__add_two_5(deduce_value* env, deduce_value* args);
+deduce_value F_basic__pick_6(deduce_value* env, deduce_value* args);
 
-extern deduce_value G_basic__two_7;
+extern deduce_value G_basic__two_4;
 
 #endif
 

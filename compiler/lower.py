@@ -89,7 +89,7 @@ def lower_program(stmts: List[ast.Statement],
       can call their `_init` functions in the right order.
       Pruning is skipped — cross-module reachability is the
       linker's job (`-Wl,--gc-sections`)."""
-    (flat, name_to_module, imports,
+    (flat, name_to_module, name_to_seq, imports,
      import_funcs, import_globals, import_ctors) = _flatten_imports(
         stmts, main_module, separate=separate,
     )
@@ -121,6 +121,7 @@ def lower_program(stmts: List[ast.Statement],
     return ir.Program(
         decls=out,
         name_to_module=name_to_module,
+        name_to_seq=name_to_seq,
         main_module=main_module,
         imports=imports,
         import_funcs=import_funcs,
@@ -156,22 +157,42 @@ def _flatten_imports(
     seen: Set[str] = set()
     out: List[tuple[ast.Statement, str]] = []
     name_to_module: Dict[str, str] = {}
+    name_to_seq: Dict[str, int] = {}
     direct_imports: List[str] = []
     import_funcs: Dict[str, int] = {}
     import_globals: Set[str] = set()
     import_ctors: Dict[str, int] = {}
+    counters_by_module: Dict[str, int] = {}
+
+    def assign_seq(uniq_name: str, module: str) -> None:
+        """Per-module ordinal for `uniq_name` based on order of
+        encounter inside `module`. The ordinal is stable across
+        compilation contexts because we walk a module's AST in the
+        same order regardless of whether we're compiling that module
+        standalone or pulling it in via `Import.ast` from another
+        module's lowering. emit_c uses this as the within-module
+        symbol disambiguator instead of the uniquify counter (whose
+        values shift with the import set seen during one compile)."""
+        n = counters_by_module.get(module, 0)
+        name_to_seq[uniq_name] = n
+        counters_by_module[module] = n + 1
 
     def record_decl_module(s: ast.Statement, module: str) -> None:
         if isinstance(s, ast.Define):
             name_to_module[s.name] = module
+            assign_seq(s.name, module)
         elif isinstance(s, ast.RecFun):
             name_to_module[s.name] = module
+            assign_seq(s.name, module)
         elif isinstance(s, ast.GenRecFun):
             name_to_module[s.name] = module
+            assign_seq(s.name, module)
         elif isinstance(s, ast.Union):
             name_to_module[s.name] = module
+            assign_seq(s.name, module)
             for c in s.alternatives:
                 name_to_module[c.name] = module
+                assign_seq(c.name, module)
 
     def record_imported_kind(s: ast.Statement) -> None:
         """In per-module mode we additionally need the kind/arity of
@@ -240,7 +261,7 @@ def _flatten_imports(
 
     walk(stmts, main_module)
     return (
-        out, name_to_module, direct_imports,
+        out, name_to_module, name_to_seq, direct_imports,
         import_funcs, import_globals, import_ctors,
     )
 

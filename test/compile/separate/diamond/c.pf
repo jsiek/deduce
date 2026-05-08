@@ -1,0 +1,7 @@
+module c
+
+import d
+
+fun add_two(n : MyNat) {
+  suc(suc(n))
+}

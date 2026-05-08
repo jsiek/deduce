@@ -272,6 +272,15 @@ class Program:
     (where the decls are flattened into `decls` directly)."""
     decls: List[TopLevel] = field(default_factory=list)
     name_to_module: Dict[str, str] = field(default_factory=dict)
+    # Per-module ordinal of each top-level uniquified name (function /
+    # global / union / constructor). emit_c uses this as the
+    # within-module symbol disambiguator instead of the uniquify
+    # counter, because the uniquify counter shifts with the import
+    # set seen during one compile while the ordinal is computed by
+    # walking the module's AST in source order — stable regardless
+    # of whether the module was compiled standalone or pulled in via
+    # `Import.ast`.
+    name_to_seq: Dict[str, int] = field(default_factory=dict)
     main_module: "str | None" = None
     imports: List[str] = field(default_factory=list)
     import_funcs: Dict[str, int] = field(default_factory=dict)

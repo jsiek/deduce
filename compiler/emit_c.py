@@ -84,9 +84,14 @@ class EmitCtx:
     ctor_arities: Dict[str, int] = field(default_factory=dict)
     # Per-name source module for `<Module>__<base_name>` symbol
     # mangling (Step 25 of separate-compile-plan.md). Names absent
-    # from this map (closure-conversion `$lam<N>` lifts, etc.)
-    # mangle without a module prefix.
+    # from this map (closure-conversion `$lam<N>` lifts) mangle
+    # without a module prefix.
     name_to_module: Dict[str, str] = field(default_factory=dict)
+    # Per-module ordinal disambiguator. Used in place of the uniquify
+    # counter so a module's symbols are stable regardless of what
+    # other modules were processed in the same compile (Step 28 of
+    # separate-compile-plan.md).
+    name_to_seq: Dict[str, int] = field(default_factory=dict)
     tmp_counter: int = 0
 
     def fresh_tmp(self) -> str:
@@ -96,10 +101,18 @@ class EmitCtx:
 
     def _mangle_top(self, name: str) -> str:
         """Mangle a top-level name. If we know its source module,
-        prefix with `<Module>__`; otherwise mangle the uniquified name
-        directly."""
+        prefix with `<Module>__`. The within-module disambiguator is
+        the per-module ordinal from `name_to_seq` (stable across
+        compile contexts) when available; otherwise fall back to
+        mangling the uniquified name directly (covers closure-lifted
+        lambdas and any synthesised name that was never assigned an
+        ordinal during lowering)."""
         module = self.name_to_module.get(name)
-        if module:
+        seq = self.name_to_seq.get(name)
+        base = _mangle(_base_name(name))
+        if module is not None and seq is not None:
+            return _mangle(module) + "__" + base + f"_{seq}"
+        if module is not None:
             return _mangle(module) + "__" + _mangle(name)
         return _mangle(name)
 
@@ -119,7 +132,7 @@ class EmitCtx:
 
 
 def emit_program(p: ir.Program) -> str:
-    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module), name_to_seq=dict(p.name_to_seq))
     next_ctor_id = 0
     for d in p.decls:
         if isinstance(d, ir.UnionDecl):
@@ -261,7 +274,7 @@ def emit_module(p: ir.Program, is_main: bool) -> "tuple[str, str]":
         raise EmitError("emit_module: program has no main_module")
 
     module = p.main_module
-    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module), name_to_seq=dict(p.name_to_seq))
     next_ctor_id = 0
     for d in p.decls:
         if isinstance(d, ir.UnionDecl):
@@ -418,7 +431,7 @@ def emit_header(
     fixture testing) these are None and the header is just static
     declarations.
     """
-    ctx = EmitCtx(name_to_module=dict(p.name_to_module))
+    ctx = EmitCtx(name_to_module=dict(p.name_to_module), name_to_seq=dict(p.name_to_seq))
     next_ctor_id = 0
     for d in p.decls:
         if isinstance(d, ir.UnionDecl):

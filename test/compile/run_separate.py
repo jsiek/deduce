@@ -101,6 +101,27 @@ def run_compiled(scenario: Path, cc: str, build_dir: Path) -> str:
     return proc.stdout
 
 
+def check_diamond_init(build_dir: Path) -> "str | None":
+    """For the diamond scenario, verify D's singletons are allocated
+    exactly once. Concretely:
+      - d.c contains an idempotent `_inited` guard inside `d_init`,
+      - the line that assigns `C_d__zero_1` appears in exactly one
+        .c file (d.c) — neither b.c, c.c, nor app.c re-runs it.
+    Step 28 acceptance criterion."""
+    d_c = (build_dir / "d.c").read_text()
+    if "d_init__inited" not in d_c or "if (d_init__inited) return;" not in d_c:
+        return "d.c missing idempotent d_init guard"
+    assigns = []
+    for c_path in sorted(build_dir.glob("*.c")):
+        text = c_path.read_text()
+        if "C_d__zero_1 =" in text:
+            assigns.append(c_path.name)
+    if assigns != ["d.c"]:
+        return (f"C_d__zero_1 should only be assigned in d.c, "
+                f"but found in: {assigns}")
+    return None
+
+
 def main() -> int:
     cc = find_cc()
     if cc is None:
@@ -135,6 +156,11 @@ def main() -> int:
                 f"--- compiled ({len(compiled_out)} bytes)\n{compiled_out}"
             )
             continue
+        if scenario.name == "diamond":
+            err = check_diamond_init(build_dir)
+            if err is not None:
+                failures.append(f"diamond: {err}")
+                continue
         print(f"ok {scenario.name}")
 
     if failures:

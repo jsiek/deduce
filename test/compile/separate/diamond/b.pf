@@ -1,0 +1,7 @@
+module b
+
+import d
+
+fun incr(n : MyNat) {
+  suc(n)
+}
