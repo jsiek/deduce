@@ -1165,10 +1165,23 @@ end
 
 ```
 statement ::= "import" identifier
+            | "import" identifier "using"  identifier ("|" identifier)*
+            | "import" identifier "hiding" identifier ("|" identifier)*
 ```
 
 Import all of the definitions and theorems from the specified file
 (without the file extension).
+
+The optional `using` clause restricts the import to a whitelist of
+top-level names; `hiding` excludes a blacklist. The names are matched
+against the primary name of each top-level statement in the imported
+module, so `import M using U` brings the union `U` together with its
+constructors. To filter an operator, use the `operator` form, e.g.
+`import Nat using Nat | operator+`. A name in `using`/`hiding` that is
+not exported by the module is reported as an error at the import.
+
+If the import is `public`, the `using`/`hiding` filter also applies to
+the re-exports.
 
 
 ## In (Set Membership)

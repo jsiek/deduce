@@ -1617,12 +1617,26 @@ def parse_statement():
       
   elif token.type == 'IMPORT':
     while_parsing = 'while parsing import\n' \
-        + '\tstatement ::= "import" identifier\n'
+        + '\tstatement ::= "import" identifier ["using" | "hiding" name ("|" name)*]\n'
     advance()
     try:
         name = parse_identifier()
+        using = None
+        hiding = None
+        if not end_of_file() and current_token().type in ('USING', 'HIDING'):
+          clause = current_token().type
+          advance()
+          names = [parse_identifier()]
+          while not end_of_file() and current_token().type == 'VBAR':
+            advance()
+            names.append(parse_identifier())
+          if clause == 'USING':
+            using = names
+          else:
+            hiding = names
         return Import(meta_from_tokens(token, previous_token()),
-                      name, visibility=visibility)
+                      name, using=using, hiding=hiding,
+                      visibility=visibility)
     except ParseError as e:
       raise e.extend(meta_from_tokens(token, previous_token()), while_parsing)
     except Exception as e:

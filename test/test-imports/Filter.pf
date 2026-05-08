@@ -1,0 +1,37 @@
+module Filter
+
+union Color {
+  red
+  green
+  blue
+}
+
+fun is_red(c : Color) {
+  switch c {
+    case red { true }
+    case green { false }
+    case blue { false }
+  }
+}
+
+fun is_blue(c : Color) {
+  switch c {
+    case red { false }
+    case green { false }
+    case blue { true }
+  }
+}
+
+fun operator +(c : Color, d : Color) {
+  switch c {
+    case red { d }
+    case green { c }
+    case blue { c }
+  }
+}
+
+theorem filter_red_at_anything : all c:Color. red + c = c
+proof
+  arbitrary c:Color
+  expand operator+.
+end

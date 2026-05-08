@@ -1,0 +1,9 @@
+import Filter hiding is_blue | filter_red_at_anything
+
+assert is_red(red)
+assert not is_red(green)
+
+define mix : fn Color, Color -> Color = fun a, b { a + b }
+
+assert mix(red, green) = green
+assert mix(green, red) = green

@@ -4066,17 +4066,56 @@ def greatest_lower_bound(vis1, vis2):
         return 'private'
     else:
         raise Exception('in greatest_lower_bound: unknown visibility: ' + vis1)
-  
+
+def _stmt_primary_name(stmt):
+  # The user-visible name to match against an import's using/hiding list,
+  # or None for statements that don't export a name.
+  name = getattr(stmt, 'name', None)
+  if isinstance(name, str):
+    return base_name(name)
+  return None
+
 @dataclass
 class Import(Declaration):
   name: str
   ast: AST = None
+  using:  Optional[List[str]] = None    # whitelist; None means no whitelist
+  hiding: Optional[List[str]] = None    # blacklist; None means no blacklist
+
+  def _filter_clause_str(self):
+    if self.using is not None:
+      return ' using ' + ' | '.join(self.using)
+    if self.hiding is not None:
+      return ' hiding ' + ' | '.join(self.hiding)
+    return ''
 
   def __str__(self):
-    return 'import ' + self.name
+    return 'import ' + self.name + self._filter_clause_str()
 
   def pretty_print(self, indent):
     return indent*' '  + str(self) + '\n'
+
+  def _filter_admits(self, stmt):
+    if self.using is None and self.hiding is None:
+      return True
+    name = _stmt_primary_name(stmt)
+    if name is None:
+      return True
+    if self.using is not None:
+      return name in self.using
+    return name not in self.hiding
+
+  def _validate_filter(self, new_ast):
+    if self.using is None and self.hiding is None:
+      return
+    exported = {n for n in (_stmt_primary_name(s) for s in new_ast) if n is not None}
+    requested = self.using if self.using is not None else self.hiding
+    for name in requested:
+      if name not in exported:
+        clause = 'using' if self.using is not None else 'hiding'
+        error(self.location,
+              "import " + clause + ": '" + name
+              + "' is not exported by module '" + self.name + "'")
 
   def uniquify(self, env, ctx):
     importing_module = get_current_module()
@@ -4109,14 +4148,17 @@ class Import(Declaration):
     env['__module__' + self.name] = None
     if get_verbose():
         print('collecting exports from ' + self.name + ' for import to ' + importing_module + '\n')
+    self._validate_filter(new_ast)
     for stmt in new_ast:
-      stmt.collect_exports(env, importing_module)
+      if self._filter_admits(stmt):
+        stmt.collect_exports(env, importing_module)
     set_verbose(old_verbose)
     if get_verbose():
       print('\tuniquify finished import ' + self.name)
     set_current_module(importing_module)
     return Import(self.location, self.name, new_ast,
-                  visibility=self.visibility)
+                  visibility=self.visibility,
+                  using=self.using, hiding=self.hiding)
 
   def collect_exports(self, export_env, importing_module):
     module_name = '__module__' + self.name
@@ -4124,7 +4166,8 @@ class Import(Declaration):
       set_current_module(self.name)
       export_env[module_name] = None
       for stmt in self.ast:
-        stmt.collect_exports(export_env, importing_module)
+        if self._filter_admits(stmt):
+          stmt.collect_exports(export_env, importing_module)
       set_current_module(importing_module)
 
 @dataclass

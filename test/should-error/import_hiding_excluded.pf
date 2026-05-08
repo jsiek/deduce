@@ -1,0 +1,3 @@
+import Filter hiding is_red
+
+assert is_red(red)
