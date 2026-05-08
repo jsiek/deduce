@@ -767,6 +767,151 @@ should user-error."
       (delete-file tmp))))
 
 
+;; ---------------------------------------------------------------------
+;; deduce-lsp-eliminate (LSP Step 18, fronted by `C-c C-e')
+;; ---------------------------------------------------------------------
+;;
+;; Same wire shape as case split (Step 16): cursor on `?', the
+;; interactive form fetches candidate labels via
+;; `deduce/eliminableVarsAt' and uses completing-read; the chosen
+;; label drives a `deduce/eliminateAt' request.
+
+(ert-deftest deduce-lsp/eliminate-bound-to-c-c-c-e ()
+  "`C-c C-e' in deduce-mode-map runs `deduce-lsp-eliminate'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-e"))
+              #'deduce-lsp-eliminate)))
+
+
+(ert-deftest deduce-lsp/eliminate-issues-eliminateAt-request ()
+  "Calling `deduce-lsp-eliminate' with a label arg sends
+`deduce/eliminateAt' with `{textDocument, position, label}'."
+  (let ((tmp (make-temp-file "deduce-lsp-elim" nil ".pf"))
+        calls)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool, Q:bool. if P or Q then Q or P\nproof\n  arbitrary P:bool, Q:bool\n  assume H: P or Q\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          ;; `?` at line 5 col 3 -> LSP line 4, char 2.
+          (goto-char (point-min))
+          (forward-line 4)
+          (forward-char 2)
+          (setq calls
+                (deduce-lsp-test--with-method-mock
+                 '((:deduce/eliminateAt . nil))
+                 (lambda ()
+                   (ignore-errors (deduce-lsp-eliminate "H")))))
+          (let* ((call (assq :deduce/eliminateAt calls))
+                 (params (cdr call))
+                 (text-doc (plist-get params :textDocument))
+                 (pos (plist-get params :position)))
+            (should call)
+            (should (string-prefix-p "file://"
+                                      (plist-get text-doc :uri)))
+            (should (= (plist-get pos :line) 4))
+            (should (= (plist-get pos :character) 2))
+            (should (equal (plist-get params :label) "H"))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/eliminate-applies-workspace-edit ()
+  "Given a server response with a `:changes' WorkspaceEdit, the
+buffer ends up with the new text replacing the `?'."
+  (let ((tmp (make-temp-file "deduce-lsp-elim" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: all P:bool, Q:bool. if P or Q then Q or P\nproof\n  arbitrary P:bool, Q:bool\n  assume H: P or Q\n  ?\nend\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (goto-char (point-min))
+          (forward-line 4)
+          (forward-char 2)
+          (let* ((uri (deduce-lsp--current-uri))
+                 (skeleton "cases H\n    case h1: P { ? }\n    case h2: Q { ? }")
+                 (edit `(:changes
+                         (,(intern (concat ":" uri))
+                          [(:range (:start (:line 4 :character 2)
+                                    :end (:line 4 :character 3))
+                                   :newText ,skeleton)]))))
+            (deduce-lsp-test--with-method-mock
+             `((:deduce/eliminateAt . ,edit))
+             (lambda () (deduce-lsp-eliminate "H"))))
+          (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+            (should (string-match-p "cases H" text))
+            (should (string-match-p "case h1: P" text))
+            (should (string-match-p "case h2: Q" text))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/eliminate-null-server-response-errors ()
+  "If the server returns null for eliminateAt, the command
+user-errors instead of silently no-op-ing."
+  (let ((tmp (make-temp-file "deduce-lsp-elim" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (deduce-lsp-test--with-method-mock
+           '((:deduce/eliminateAt . nil))
+           (lambda ()
+             (should-error (deduce-lsp-eliminate "H") :type 'user-error))))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/eliminate-interactive-uses-completing-read ()
+  "Interactive entry hits `deduce/eliminableVarsAt' for candidates
+and feeds them to `completing-read'."
+  (let ((tmp (make-temp-file "deduce-lsp-elim" nil ".pf"))
+        captured-prompt
+        captured-collection)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method _params)
+                       (cond
+                        ((eq method :deduce/eliminableVarsAt) ["H1" "H2"])
+                        ((eq method :deduce/eliminateAt) nil))))
+                    ((symbol-function 'completing-read)
+                     (lambda (prompt collection &rest _rest)
+                       (setq captured-prompt prompt)
+                       (setq captured-collection collection)
+                       "H1")))
+            (ignore-errors
+              (call-interactively #'deduce-lsp-eliminate)))
+          (should (string-match-p "Eliminate on:" captured-prompt))
+          (should (member "H1" captured-collection))
+          (should (member "H2" captured-collection)))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/eliminate-interactive-empty-candidates-errors ()
+  "If `deduce/eliminableVarsAt' returns no candidates, the
+interactive entry user-errors with `No elimination available'."
+  (let ((tmp (make-temp-file "deduce-lsp-elim" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server _method _params) [])))
+            (should-error (call-interactively #'deduce-lsp-eliminate)
+                          :type 'user-error)))
+      (delete-file tmp))))
+
+
 (provide 'deduce-lsp-test)
 
 ;;; deduce-lsp-test.el ends here

@@ -67,6 +67,8 @@ __all__ = [
     "case_split_at",
     "splittable_vars_at",
     "induction_skeleton_at",
+    "eliminate_at",
+    "eliminable_vars_at",
 ]
 
 
@@ -1472,3 +1474,346 @@ def _render_induction(var_x, var_ty, body, union_def, env) -> str:
         case_lines.append(line)
 
     return f"induction {var_ty}\n" + "\n".join(case_lines)
+
+
+# ---------------------------------------------------------------------------
+# eliminate_at -- Phase 4 / Step 18: use-fact / hypothesis elimination
+# ---------------------------------------------------------------------------
+#
+# Dual to Step 15 (refine).  Step 15 picks a template based on the
+# *goal* shape (introduction); Step 18 picks based on a named
+# *hypothesis* shape (elimination).
+#
+# UX shape: cursor on a `?', plus an explicit ``label'' argument
+# naming the in-scope proof binding to use.  Same wire/transport
+# pattern as Step 16 (case split): the editor binding fetches
+# candidate labels via ``eliminable_vars_at'' and prompts via
+# ``completing-read'' before issuing ``deduce/eliminateAt''.
+#
+# Templates by hypothesis shape (mirrors ``proof_use_advice'' in
+# proof_checker.py):
+#
+# - ``H: true''         -> None ("the `true' fact is useless")
+# - ``H: false''        -> ``H'' (discharges any goal)
+# - ``H: P and Q''      -> ``have h1: P by conjunct 1 of H\nhave
+#                            h2: Q by conjunct 2 of H\n?''
+# - ``H: P or Q''       -> ``cases H\n  case h1: P { ? }\n
+#                            case h2: Q { ? }''
+# - ``H: if P then Q''  -> ``have h: Q by apply H to ?\n?''
+# - ``H: all x:T. P''   -> ``H[?, ?, ...]'' (or ``H<?, ?, ...>''
+#                            for type-arg quantifiers)
+# - ``H: some x:T. P''  -> ``obtain x1, ... where h: <body[subst]>
+#                            from H\n?''
+# - ``H: e1 = e2''      -> ``replace H\n?''
+
+
+def eliminate_at(
+    path: str, content: str, pos: Position,
+    label: str,
+    prelude: Sequence[str] = (),
+) -> Optional[WorkspaceEdit]:
+    """Generate a tactic that uses ``label'' to derive a new fact
+    or to discharge the goal at the hole at ``pos``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token;
+    that ``?`` is the replacement target. ``label`` names an in-scope
+    proof binding (a hypothesis introduced by ``assume`` or a
+    theorem/lemma reference). The template is chosen from the
+    binding's formula shape -- see the table at the top of this
+    section.
+
+    Returns ``None`` when:
+
+    - the cursor isn't on a ``?``,
+    - the file has no incomplete proof at the cursor,
+    - ``label`` isn't bound at the hole, or
+    - the binding's shape isn't in the supported template table
+      (e.g. ``H: true`` -- usability nil).
+
+    For client-side completion of valid ``label`` choices, see
+    :func:`eliminable_vars_at`.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    if env is None:
+        return None
+
+    template = _eliminate_template(label, env)
+    if template is None:
+        return None
+
+    template = _indent_continuation(
+        template, _line_indent_at(content, hole_range.start)
+    )
+    return WorkspaceEdit(path=path, range=hole_range, new_text=template)
+
+
+def eliminable_vars_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = ()
+) -> tuple:
+    """Return base names of in-scope proof bindings that
+    ``eliminate_at'' can target.
+
+    Used by editor clients to populate completion candidates for the
+    ``Eliminate on:'' prompt.  Includes labels for local hypotheses
+    (introduced by ``assume''/``suppose''/``have'') whose formula
+    matches one of the supported template shapes.  ``true''-shaped
+    facts are filtered out (no useful template) but everything else
+    is included; the client gets a wider candidate list at the cost
+    of the rare "Eliminate produced no edit" round-trip.
+
+    Empty when the cursor isn't on a ``?`` or no eliminable binding
+    is in scope.  Names are sorted and deduplicated.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return ()
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return ()
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    if env is None:
+        return ()
+
+    return _eliminable_vars(env)
+
+
+def _eliminable_vars(env) -> tuple:
+    """Names of local proof bindings whose ``eliminate'' would
+    produce a meaningful edit."""
+    from abstract_syntax import (
+        Bool, ProofBinding, base_name,
+    )
+
+    seen = set()
+    for unique, binding in env.dict.items():
+        bname = base_name(unique)
+        if bname in seen:
+            continue
+        if not isinstance(binding, ProofBinding):
+            continue
+        if not binding.local:
+            # Skip theorem references: they're not what users mean
+            # when they say "eliminate <label>".  Theorems are
+            # invoked by name without completion in any case.
+            continue
+        formula = binding.formula
+        # `true' is the one shape we filter out -- there's no
+        # useful template for "use the `true' fact".
+        if isinstance(formula, Bool) and formula.value is True:
+            continue
+        if _eliminate_template_for_formula(formula, binding_name=bname,
+                                           env=env, dry_run=True) is None:
+            continue
+        seen.add(bname)
+    return tuple(sorted(seen))
+
+
+def _eliminate_template(label: str, env) -> Optional[str]:
+    """Look up ``label'' in ``env'' and dispatch to the appropriate
+    template.
+
+    Returns ``None'' when the label isn't bound, isn't a proof
+    binding, or its formula's shape isn't in the supported table.
+    """
+    from abstract_syntax import ProofBinding, base_name
+
+    matches = [k for k in env.dict if base_name(k) == label]
+    if not matches:
+        return None
+    binding = env.dict[matches[0]]
+    if not isinstance(binding, ProofBinding):
+        return None
+    return _eliminate_template_for_formula(
+        binding.formula, binding_name=label, env=env, dry_run=False,
+    )
+
+
+def _eliminate_template_for_formula(
+    formula, binding_name: str, env, dry_run: bool
+) -> Optional[str]:
+    """Pick a template for ``formula''.
+
+    ``binding_name'' is the user-facing name of the hypothesis (e.g.
+    ``H1''); it appears in the rendered template.  ``dry_run'' is
+    set by ``_eliminable_vars'' to detect "is there a template?"
+    without paying the rendering cost; in that mode we just return
+    a non-None sentinel string when the shape is supported.
+    """
+    from abstract_syntax import (
+        All, And, Bool, Call, IfThen, Or, ResolvedVar, Some, TypeType,
+        VarRef, base_name,
+    )
+
+    if isinstance(formula, Bool):
+        if formula.value is True:
+            return None
+        # `false' discharges any goal: replace ? with the label.
+        return binding_name
+
+    if isinstance(formula, And):
+        if dry_run:
+            return "and"
+        return _eliminate_and(binding_name, formula, env)
+
+    if isinstance(formula, Or):
+        if dry_run:
+            return "or"
+        return _eliminate_or(binding_name, formula, env)
+
+    if isinstance(formula, IfThen):
+        if dry_run:
+            return "if"
+        return _eliminate_ifthen(binding_name, formula, env)
+
+    if isinstance(formula, All):
+        if dry_run:
+            return "all"
+        return _eliminate_all(binding_name, formula, env)
+
+    if isinstance(formula, Some):
+        if dry_run:
+            return "some"
+        return _eliminate_some(binding_name, formula, env)
+
+    if (
+        isinstance(formula, Call)
+        and isinstance(formula.rator, VarRef)
+        and formula.rator.get_name() == "="
+        and len(formula.args) == 2
+    ):
+        if dry_run:
+            return "eq"
+        return f"replace {binding_name}\n?"
+
+    return None
+
+
+def _fresh_h_labels(env, count: int) -> list:
+    """Generate ``count`` fresh ``H<N>``-style labels not in env."""
+    from abstract_syntax import base_name
+    used = {base_name(k) for k in env.dict.keys()}
+    out = []
+    n = 1
+    for _ in range(count):
+        while f"H{n}" in used:
+            n += 1
+        out.append(f"H{n}")
+        used.add(f"H{n}")
+        n += 1
+    return out
+
+
+def _eliminate_and(label: str, formula, env) -> str:
+    """``have h1: P by conjunct 1 of H\\nhave h2: Q by conjunct 2
+    of H\\n?''"""
+    labels = _fresh_h_labels(env, len(formula.args))
+    lines = [
+        f"have {h}: {arg} by conjunct {i + 1} of {label}"
+        for i, (h, arg) in enumerate(zip(labels, formula.args))
+    ]
+    lines.append("?")
+    return "\n".join(lines)
+
+
+def _eliminate_or(label: str, formula, env) -> str:
+    """``cases H\\n  case h1: P { ? }\\n  case h2: Q { ? } ...''"""
+    from abstract_syntax import base_name
+
+    used = {base_name(k) for k in env.dict.keys()}
+
+    def fresh_lower() -> str:
+        n = 1
+        while f"h{n}" in used:
+            n += 1
+        used.add(f"h{n}")
+        return f"h{n}"
+
+    case_lines = [
+        f"  case {fresh_lower()}: {arg} {{ ? }}" for arg in formula.args
+    ]
+    return f"cases {label}\n" + "\n".join(case_lines)
+
+
+def _eliminate_ifthen(label: str, formula, env) -> str:
+    """``have h: Q by apply H to ?\\n?''"""
+    h = _fresh_h_labels(env, 1)[0]
+    return f"have {h}: {formula.conclusion} by apply {label} to ?\n?"
+
+
+def _eliminate_all(label: str, formula, env) -> str:
+    """``H[?, ?, ...]'' (term args) or ``H<?, ?, ...>'' (type args).
+
+    Handles a single all-block: ``all x:T1, y:T2. P'' yields
+    ``H[?, ?]''.  Separate blocks (``all x:T1. all y:T2. P'')
+    instantiate one at a time -- the user can chain.
+    """
+    from abstract_syntax import All, TypeType
+
+    vars_in_block = []
+    cur = formula
+    while isinstance(cur, All):
+        x, ty = cur.var
+        vars_in_block.append((x, ty))
+        s, e = cur.pos
+        if s == 0:
+            # Last var in this block; following body is no longer an
+            # All-of-the-same-block.
+            break
+        cur = cur.body
+
+    if not vars_in_block:
+        return f"{label}[?]"
+
+    has_type_param = any(isinstance(ty, TypeType) for _, ty in vars_in_block)
+    open_b, close_b = ("<", ">") if has_type_param else ("[", "]")
+    placeholders = ", ".join(["?"] * len(vars_in_block))
+    return f"{label}{open_b}{placeholders}{close_b}"
+
+
+def _eliminate_some(label: str, formula, env) -> str:
+    """``obtain x1, ... where h: <body[subst]> from H\\n?''"""
+    from abstract_syntax import ResolvedVar, base_name
+
+    used = {base_name(k) for k in env.dict.keys()}
+    fresh_witnesses = []
+    sub = {}
+    for (x, ty) in formula.vars:
+        stem = _type_first_letter(ty)
+        n = 1
+        while f"{stem}{n}" in used:
+            n += 1
+        candidate = f"{stem}{n}"
+        used.add(candidate)
+        fresh_witnesses.append(candidate)
+        sub[x] = ResolvedVar(ty.location, ty, candidate)
+
+    new_body = formula.body.substitute(sub)
+
+    h = None
+    n = 1
+    while f"H{n}" in used:
+        n += 1
+    h = f"H{n}"
+    used.add(h)
+
+    return (
+        f"obtain {', '.join(fresh_witnesses)} where "
+        f"{h}: {new_body} from {label}\n?"
+    )
+

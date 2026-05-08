@@ -110,6 +110,16 @@ auto-start hook:
   IH<N>: ... { ? }\n...` -- one case per constructor in declaration
   order; recursive parameters get `IH<N>` bindings whose formula is
   the body with the inducted variable substituted.
+- `C-c C-e` -- eliminate / use-fact. Cursor on a `?`. Issues
+  `deduce/eliminableVarsAt` to fetch the in-scope hypothesis labels
+  whose formula has a supported template, prompts via
+  `completing-read` (TAB completion) for which label to use, then
+  issues `deduce/eliminateAt` with the chosen label. The template
+  depends on the hypothesis's shape: destructure for `and`, `cases`
+  for `or`, `apply ... to ?` for `if then`, `H[?]` for `all`,
+  `obtain ... from H` for `some`, `replace H` for equality, the
+  bare label for `false`. Dual to `C-c C-r` (refine): refine picks
+  by goal shape, eliminate picks by named-hypothesis shape.
 
 ## Keybindings
 
@@ -123,6 +133,7 @@ auto-start hook:
 | `C-c C-r` | `deduce-lsp-refine-hole`         | `deduce-lsp`   | Apply LSP-suggested template at hole      |
 | `C-c C-c` | `deduce-lsp-case-split`          | `deduce-lsp`   | Prompt for variable, replace `?` with case skeleton |
 | `C-c C-i` | `deduce-lsp-induction`           | `deduce-lsp`   | Replace `?` with `induction T` skeleton at a forall goal |
+| `C-c C-e` | `deduce-lsp-eliminate`           | `deduce-lsp`   | Prompt for hypothesis, replace `?` with use-fact tactic |
 
 ## Customization
 
@@ -265,6 +276,24 @@ Then verify the LSP integration:
     replaced with `induction N\n  case z { ? }\n  case s(n1) assume
     IH1: n1 = n1 { ? }`. The recursive constructor `s` gets an `IH1`
     binding for the predecessor `n1`.
+11. In a scratch `.pf` buffer with a hypothesis to eliminate:
+
+    ```
+    theorem t: all P:bool, Q:bool. if P or Q then Q or P
+    proof
+      arbitrary P:bool, Q:bool
+      assume H: P or Q
+      ?
+    end
+    ```
+
+    Place point on the `?` and press `C-c C-e`. Emacs prompts
+    `Eliminate on:` with TAB completion against the eliminable
+    hypotheses in scope (`H` for this fixture). Type `H RET`. The
+    `?` is replaced with `cases H\n  case h1: P { ? }\n  case h2: Q
+    { ? }`. Try the same with an `assume H: P and Q` hypothesis to
+    see the destructuring template, or `assume H: P = Q` to see
+    `replace H`.
 
 ## Development
 

@@ -310,6 +310,63 @@ def induction_skeleton_at(
 
 
 @mcp.tool()
+def eliminate_at(
+    path: str, line: int, column: int, label: str
+) -> Optional[dict]:
+    """Generate a tactic that uses ``label`` to derive a fact (or
+    discharge the goal) at the hole at ``line``:``column``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token;
+    that ``?`` is the replacement target.  ``label`` names an in-scope
+    proof binding -- typically a hypothesis introduced by ``assume``.
+    The template is chosen from the binding's formula shape:
+
+    - ``H: P and Q`` -> destructure with ``have h1: P by conjunct 1
+      of H``, etc.
+    - ``H: P or Q`` -> ``cases H ...``
+    - ``H: if P then Q`` -> ``have h: Q by apply H to ?``
+    - ``H: all x:T. P`` -> ``H[?, ...]``
+    - ``H: some x:T. P`` -> ``obtain ... where ... from H``
+    - ``H: e1 = e2`` -> ``replace H``
+    - ``H: false`` -> ``H`` (discharges any goal)
+    - ``H: true`` -> ``None`` (no useful template)
+
+    Returns ``None`` when the cursor isn't on a ``?``, ``label`` isn't
+    bound at the hole, or the binding's shape isn't supported.
+    Otherwise returns ``{path, range, new_text}``.
+
+    For a list of valid ``label`` choices, see ``eliminable_vars_at``.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    edit = query.eliminate_at(
+        path, content, pos, label, prelude=_prelude_for(path)
+    )
+    return _to_serializable(edit)
+
+
+@mcp.tool()
+def eliminable_vars_at(
+    path: str, line: int, column: int
+) -> list[str]:
+    """Return labels of in-scope hypotheses that ``eliminate_at`` can
+    target at ``line``:``column``.
+
+    The cursor must sit on a ``?`` token.  Includes labels for local
+    proof bindings (introduced by ``assume`` / ``suppose`` / ``have``)
+    whose formula has a supported template shape.  ``true``-shaped
+    facts are filtered out.  Names are sorted and deduplicated.
+    Returns ``[]`` when the cursor isn't on a ``?`` or no eliminable
+    binding is in scope.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    return list(
+        query.eliminable_vars_at(path, content, pos, prelude=_prelude_for(path))
+    )
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

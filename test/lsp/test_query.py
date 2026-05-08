@@ -41,6 +41,8 @@ from lsp.query import (  # noqa: E402
     case_split_at,
     check,
     definition_of,
+    eliminable_vars_at,
+    eliminate_at,
     goal_at,
     induction_skeleton_at,
     list_symbols,
@@ -73,6 +75,8 @@ EXPECTED_PUBLIC = {
     "case_split_at",
     "splittable_vars_at",
     "induction_skeleton_at",
+    "eliminate_at",
+    "eliminable_vars_at",
 }
 
 
@@ -220,6 +224,22 @@ def test_induction_skeleton_at_signature():
     )
 
 
+def test_eliminate_at_signature():
+    _check_sig(
+        eliminate_at,
+        ["path", "content", "pos", "label", "prelude"],
+        Optional[WorkspaceEdit],
+    )
+
+
+def test_eliminable_vars_at_signature():
+    _check_sig(
+        eliminable_vars_at,
+        ["path", "content", "pos", "prelude"],
+        tuple,
+    )
+
+
 def test_prelude_param_has_default():
     """``prelude`` is optional on every query function so existing
     Step 3-5 callers (which pass ``path`` and ``content`` only)
@@ -227,6 +247,7 @@ def test_prelude_param_has_default():
     for func in (
         check, goal_at, definition_of, list_symbols, refine_at,
         case_split_at, splittable_vars_at, induction_skeleton_at,
+        eliminate_at, eliminable_vars_at,
     ):
         prelude_param = inspect.signature(func).parameters["prelude"]
         assert prelude_param.default == (), (
