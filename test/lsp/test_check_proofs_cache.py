@@ -239,6 +239,74 @@ def test_editing_T1_invalidates_T2_that_uses_it() -> None:
     assert _misses() == 2
 
 
+_T1_AUTO_T2 = (
+    "theorem t1: true = true\n"
+    "proof\n"
+    "  reflexive\n"
+    "end\n"
+    "\n"
+    "auto t1\n"
+    "\n"
+    "theorem t2: true = true\n"
+    "proof\n"
+    "  reflexive\n"
+    "end\n"
+)
+
+
+def test_editing_an_autod_theorem_invalidates_later_proofs() -> None:
+    """``auto`` registers a theorem as an implicit rewrite rule;
+    a later proof can rely on it without ever mentioning the
+    theorem's name.  Editing the auto'd theorem must therefore
+    invalidate every subsequent proof, even ones that don't
+    textually reference it.
+
+    Without the auto-aware deps machinery, t2's
+    ``deps_fingerprint`` would only include the ``Auto`` barrier's
+    own ``stmt_hash`` -- and the ``Auto`` stmt's hash doesn't
+    change when the theorem it points to changes (the reference
+    is by uniquified name, which stays the same).  The fix folds
+    each prior ``Auto``'s referenced names into the current
+    statement's dependency set."""
+    check("test.pf", _T1_AUTO_T2)
+
+    # Edit t1's body. Its statement type is still ``true = true``
+    # -- so ``auto t1`` and ``t2`` both still type-check -- but
+    # t1's stmt_hash changes.
+    edited = _T1_AUTO_T2.replace(
+        "theorem t1: true = true\n"
+        "proof\n"
+        "  reflexive\n"
+        "end\n",
+        "theorem t1: true = true\n"
+        "proof\n"
+        "  have h: true = true by reflexive\n"
+        "  h\n"
+        "end\n",
+    )
+
+    proof_checker._cache_stats["hits"].clear()
+    proof_checker._cache_stats["misses"].clear()
+    diags = check("test.pf", edited)
+    assert diags == []
+    # t1 edited -> miss.  ``auto t1`` references t1 directly so
+    # picks up t1 as a dep -> miss.  t2 doesn't reference t1
+    # textually but transitively depends on it via the prior
+    # ``auto`` -> miss.
+    #
+    # The key thing this pins is t2 missing.  Without the
+    # auto-transitive dep, t2 would have hit (it references
+    # nothing, and the ``auto`` barrier's own stmt_hash also
+    # doesn't change since the reference is by unchanged
+    # uniquified name).
+    assert _hits() == 0, (
+        f"expected 0 hits -- editing an auto'd theorem must "
+        f"invalidate later proofs that rely on it implicitly; "
+        f"got hits={_hits()}, misses={_misses()}"
+    )
+    assert _misses() == 3
+
+
 def test_editing_T1_leaves_unrelated_T2_a_hit() -> None:
     """The complement of the above: if T2 does *not* reference T1,
     editing T1 leaves T2's verdict in the cache.  Pins the

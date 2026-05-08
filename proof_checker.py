@@ -4820,10 +4820,20 @@ def check_deduce(ast, module_name, modified, tracing_functions):
     target = get_target_hole_location()
     defined_to_idx: dict = {}
     barrier_idxs: set = set()
+    auto_idxs: list = []
     stmt_hashes_so_far: list = []
     for i, (s, sh) in enumerate(zip(ast3, ast3_hashes)):
       env = collect_env(s, env)
       referenced = _collect_referenced_names(s)
+      # ``auto`` declarations register theorems as implicit rewrite
+      # rules consulted by every later proof.  A proof can rely on
+      # an auto'd theorem without textually referencing it, so each
+      # prior ``Auto``'s referenced names also contribute to this
+      # statement's dependency set -- editing the auto'd theorem
+      # then invalidates downstream proofs that relied on it
+      # implicitly.
+      for j in auto_idxs:
+        referenced |= _collect_referenced_names(ast3[j])
       dep_idxs = set(barrier_idxs)
       for n in referenced:
         j = defined_to_idx.get(n)
@@ -4847,6 +4857,8 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       # not get treated as a self-dependency.
       if _is_global_barrier(s):
         barrier_idxs.add(i)
+      if isinstance(s, Auto):
+        auto_idxs.append(i)
       for n in _collect_defined_names(s):
         defined_to_idx[n] = i
       stmt_hashes_so_far.append(sh)
