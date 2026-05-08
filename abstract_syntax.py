@@ -516,9 +516,9 @@ class GenericUnknownInst(Type):
     return GenericUnknownInst(self.location, self.typ.uniquify(env))
 
 def get_type_name(ty):
+  if isinstance(ty, VarRef):
+    return ty
   match ty:
-    case OverloadedVar(l1, tyof, rs):
-      return ty
     case TypeInst(l1, ty, type_args):
       return get_type_name(ty)
     case _:
@@ -5269,25 +5269,28 @@ def check_post_uniquify_invariants(ast_list):
       'to OverloadedVar/ResolvedVar.\n' + '\n'.join(msgs) + suffix)
 
 def check_post_typecheck_invariants(ast_list):
-  """Check post-typecheck invariants. Hard error if any pre-uniquify
-  ``Var`` survives (that's a refactor leak). Soft warning if a
-  single-candidate ``OverloadedVar`` exists — those should have been
-  narrowed to ``ResolvedVar`` by overload resolution, but the type
-  checker doesn't visit every node yet, so we tolerate them while
-  the migration is in progress. Multi-candidate ``OverloadedVar``
-  is permitted (genuine unresolved overload)."""
+  """Post-typecheck invariants. Hard error on any pre-uniquify ``Var``.
+  Single-candidate ``OverloadedVar`` is currently a soft warning:
+  the type checker doesn't visit proof bodies yet, so those leak
+  OverloadedVars even when they aren't actually overloaded. The
+  invariant will go strict once ``check_proof_of`` is refactored to
+  rebuild proof ASTs (tracked separately).
+
+  Multi-candidate ``OverloadedVar`` is permitted (genuine unresolved
+  overload).
+  """
+  def loc_prefix(loc):
+    try:
+      if loc is not None and not getattr(loc, 'empty', True):
+        return f'{loc.filename}:{loc.line}: '
+    except Exception:
+      pass
+    return ''
   bad_var = []
   for node in _walk_ast_descendants(ast_list):
     if type(node) is Var:
       bad_var.append((getattr(node, 'location', None), node.name))
   if bad_var:
-    def loc_prefix(loc):
-      try:
-        if loc is not None and not getattr(loc, 'empty', True):
-          return f'{loc.filename}:{loc.line}: '
-      except Exception:
-        pass
-      return ''
     msgs = [f'  {loc_prefix(loc)}pre-uniquify Var({name!r})'
             for (loc, name) in bad_var[:20]]
     raise Exception(
