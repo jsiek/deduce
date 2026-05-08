@@ -378,25 +378,35 @@ without touching the source."
                (proof (plist-get response :proof))
                (error-msg (plist-get response :error))
                (attempts (or (plist-get response :attempts) 0))
+               (validations (plist-get response :validations))
                ;; If the sidecar wrote nothing on stdout it usually
                ;; crashed at import time or argparse rejected the
                ;; flags -- the actual diagnostic lives on stderr.
-               ;; Surface a tail of stderr so the user has something
-               ;; to act on instead of just "no output".
+               ;; If it wrote a non-ok response with validation
+               ;; attempts, surface those instead -- the user wants
+               ;; to see what proofs the model tried and why each
+               ;; failed.
                (no-stdout (or (null raw)
                               (string-empty-p (string-trim raw))))
                (debug-buf
-                (when (and no-stdout stderr-tail
-                           (not (string-empty-p
-                                 (string-trim stderr-tail))))
+                (cond
+                 ((and no-stdout stderr-tail
+                       (not (string-empty-p (string-trim stderr-tail))))
                   (deduce-fill-hole--stash-debug-output
-                   stderr-tail exit-code))))
+                   stderr-tail exit-code))
+                 ((and (not ok) validations
+                       (> (length (or validations [])) 0))
+                  (deduce-fill-hole--stash-validation-trace
+                   error-msg attempts validations)))))
           (cond
            ((not ok)
             (if debug-buf
                 (message
-                 "deduce-fill-hole: sidecar exited %s without writing a result; see %s"
-                 (or exit-code "?") debug-buf)
+                 "deduce-fill-hole: %s (after %d attempt%s); see %s"
+                 (or error-msg "no proof produced")
+                 attempts
+                 (if (= attempts 1) "" "s")
+                 debug-buf)
               (message "deduce-fill-hole: %s (after %d attempt%s)"
                        (or error-msg "no proof produced")
                        attempts
@@ -430,6 +440,53 @@ or completed but somehow produced no stdout."
         (insert "----------------------------------------------------------\n")
         (insert stderr-tail)
         (unless (eq (char-before) ?\n) (insert "\n"))
+        (goto-char (point-min)))
+      (special-mode))
+    (buffer-name buf)))
+
+
+(defun deduce-fill-hole--stash-validation-trace
+    (error-msg attempts validations)
+  "Pretty-print the per-attempt validation trace into the debug buffer.
+
+ERROR-MSG is the sidecar's top-level error string (e.g. \"budget
+exhausted without a valid proof\").  ATTEMPTS is the count.
+VALIDATIONS is the list of plists from `:validations' in the
+response, each carrying `:attempt', `:ok', `:proofPreview', and
+`:errorTail'.
+
+The trace is what the user actually needs when the model tried but
+nothing validated -- proof previews so they can see what the model
+thought to write, error tails so they can see why each was
+rejected.  Returns the buffer's name."
+  (let ((buf (get-buffer-create deduce-fill-hole--debug-buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (read-only-mode 0)
+        (erase-buffer)
+        (insert (format "deduce-fill-hole: %s (%d attempt%s)\n"
+                        (or error-msg "no proof produced")
+                        attempts
+                        (if (= attempts 1) "" "s")))
+        (insert "================================================================\n")
+        (let ((vlist (if (vectorp validations)
+                         (append validations nil)
+                       validations)))
+          (dolist (v vlist)
+            (let ((n (plist-get v :attempt))
+                  (ok (plist-get v :ok))
+                  (preview (plist-get v :proofPreview))
+                  (err (plist-get v :errorTail)))
+              (insert (format "\n--- Attempt %s%s ---\n"
+                              (or n "?")
+                              (if ok "  [OK]" "")))
+              (insert "Proof (first ~80 chars):\n")
+              (insert (or preview "(empty)"))
+              (unless (eq (char-before) ?\n) (insert "\n"))
+              (when (and (not ok) err (not (string-empty-p err)))
+                (insert "Checker error (last ~200 chars):\n")
+                (insert err)
+                (unless (eq (char-before) ?\n) (insert "\n"))))))
         (goto-char (point-min)))
       (special-mode))
     (buffer-name buf)))
