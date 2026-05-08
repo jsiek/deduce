@@ -1,5 +1,5 @@
-union MyNat.0 {zero.1/0, suc.2/1}
-fn used.3($scr0, m.4) = match $scr0 { | zero.1 -> m.4 | suc.2(n.5) -> suc.2(used.3(n.5, m.4)) }
-fn unused.7($scr1, m.8) = match $scr1 { | zero.1 -> m.8 | suc.2(n.9) -> suc.2(unused.7(n.9, m.8)) }
-global also_unused.11 = suc.2(suc.2(suc.2(zero.1)))
-print used.3(suc.2(zero.1), suc.2(suc.2(zero.1)))
+union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
+fn used.s1_0($scr0, m.s1_1) = match $scr0 { | zero.s0_1 -> m.s1_1 | suc.s0_2(n.s1_2) -> suc.s0_2(used.s1_0(n.s1_2, m.s1_1)) }
+fn unused.s2_0($scr1, m.s2_1) = match $scr1 { | zero.s0_1 -> m.s2_1 | suc.s0_2(n.s2_2) -> suc.s0_2(unused.s2_0(n.s2_2, m.s2_1)) }
+global also_unused.s3_0 = suc.s0_2(suc.s0_2(suc.s0_2(zero.s0_1)))
+print used.s1_0(suc.s0_2(zero.s0_1), suc.s0_2(suc.s0_2(zero.s0_1)))

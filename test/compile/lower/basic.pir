@@ -1,7 +1,7 @@
-union MyNat.0 {zero.1/0, suc.2/1}
-fn add.3($scr0, m.4) = match $scr0 { | zero.1 -> m.4 | suc.2(n.5) -> suc.2(add.3(n.5, m.4)) }
-global two.7 = suc.2(suc.2(zero.1))
-fn add_two.9(x.8) = add.3(two.7, x.8)
-fn pick.13(b.10, x.11, y.12) = if b.10 then x.11 else y.12
-print add_two.9(suc.2(zero.1))
-print pick.13(true, two.7, zero.1)
+union MyNat.s0_0 {zero.s0_1/0, suc.s0_2/1}
+fn add.s1_0($scr0, m.s1_1) = match $scr0 { | zero.s0_1 -> m.s1_1 | suc.s0_2(n.s1_2) -> suc.s0_2(add.s1_0(n.s1_2, m.s1_1)) }
+global two.s2_0 = suc.s0_2(suc.s0_2(zero.s0_1))
+fn add_two.s3_1(x.s3_0) = add.s1_0(two.s2_0, x.s3_0)
+fn pick.s4_3(b.s4_0, x.s4_1, y.s4_2) = if b.s4_0 then x.s4_1 else y.s4_2
+print add_two.s3_1(suc.s0_2(zero.s0_1))
+print pick.s4_3(true, two.s2_0, zero.s0_1)
