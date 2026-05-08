@@ -123,15 +123,70 @@ def maybe_str(o: Optional[str], default='') -> str:
 def maybe_pretty_print(o: Optional[str], indent, default='') -> str:
   return o.pretty_print(indent) if o is not None else default
 
-name_id = 0
+class UniquifyContext:
+  """Mutable state shared across an ``uniquify_deduce`` call.
+
+  Currently holds a single counter for fresh-name allocation.  The
+  shape is intentionally tiny -- this exists so callers can run an
+  uniquify on a fresh counter (for reproducibility / caching), or
+  share a counter across multiple uniquify calls (the production
+  pipeline path: prelude modules and the user's file accumulate
+  ids in one counter, so generated names never collide with
+  already-cached prelude names).
+
+  Step 12 of ``docs/lsp-plan.md``: lifts the previous
+  ``abstract_syntax.name_id`` global into this object.  Subsequent
+  Phase-3 steps may extend it (per-module sub-counters, AST hashes,
+  etc.) without touching every ``uniquify`` call site.
+  """
+
+  def __init__(self):
+    self.name_id = 0
+
+
+# Default context used when no explicit one is passed to
+# ``uniquify_deduce``.  Module-level so it persists across calls --
+# preserves the legacy "monotonic counter across the whole process"
+# behaviour, which is what keeps prelude-cache names from
+# colliding with later-allocated ones.  See the comment in
+# ``lsp/library.py`` ``_TRACKED_CONTAINERS`` for the rationale.
+_default_uniquify_ctx = UniquifyContext()
+
+# The currently-active context, set by ``uniquify_deduce`` for the
+# duration of a single uniquify run.  ``generate_name`` reads its
+# counter from here.  Module-level rather than passed through every
+# ``uniquify`` method's signature -- a future cleanup could thread it
+# explicitly without behavioural change, but it's not required to
+# meet Step 12's acceptance criterion (deterministic output for a
+# fresh context) or to enable Step 13's caching.
+_active_uniquify_ctx: "UniquifyContext | None" = None
+
+
+# Backwards-compat: ``name_id`` used to be a module global; some
+# code might still read it.  We keep the attribute as a property-like
+# alias backed by the default context.  External writes are
+# unsupported.
+def _get_name_id():
+  return _default_uniquify_ctx.name_id
+
+# Old-name alias retained as a read-only attribute for any external
+# code that imported ``name_id`` directly.  The rest of the module
+# has been migrated to read through the active context.
+name_id = _default_uniquify_ctx.name_id  # snapshot; updated below
 
 
 def generate_name(name: str) -> str:
   global name_id
-  ls = name.split('.')
-  new_id = name_id
-  name_id += 1
-  return ls[0] + '.' + str(new_id)
+  ctx = _active_uniquify_ctx if _active_uniquify_ctx is not None \
+      else _default_uniquify_ctx
+  base = name.split('.')[0]
+  new_id = ctx.name_id
+  ctx.name_id += 1
+  # Keep the legacy module-level snapshot in sync for any code that
+  # still reads it directly.
+  if ctx is _default_uniquify_ctx:
+    name_id = ctx.name_id
+  return base + '.' + str(new_id)
 
 
 def base_name(name: str) -> str:
@@ -5297,15 +5352,36 @@ def check_post_typecheck_invariants(ast_list):
       'Post-typecheck AST sanity check failed: pre-uniquify `Var` '
       'nodes still present.\n' + '\n'.join(msgs))
 
-def uniquify_deduce(ast):
-  env = {}
-  env['≠'] = ['≠']
-  env['='] = ['=']
-  # Using a space in the name to not collide with deduce identifiers
-  env['no overload'] = {}
-  result = [stmt.uniquify(env) for stmt in ast]
-  check_post_uniquify_invariants(result)
-  return result
+def uniquify_deduce(ast, ctx=None):
+  """Uniquify ``ast``, returning the post-uniquify AST.
+
+  ``ctx`` is an optional :class:`UniquifyContext`.  When ``None``
+  (the default), uses the module-level shared context so name ids
+  accumulate monotonically across calls -- this is what the
+  production pipeline relies on so prelude-cached names don't
+  collide with names later generated for the user's file.
+
+  Pass an explicit fresh ``UniquifyContext()`` when you want
+  reproducible, deterministic output: two calls with the same
+  input AST and a fresh ctx each time produce byte-equal results.
+  Step 12's acceptance criterion checks exactly this.
+  """
+  global _active_uniquify_ctx
+  if ctx is None:
+    ctx = _default_uniquify_ctx
+  saved = _active_uniquify_ctx
+  _active_uniquify_ctx = ctx
+  try:
+    env = {}
+    env['≠'] = ['≠']
+    env['='] = ['=']
+    # Using a space in the name to not collide with deduce identifiers
+    env['no overload'] = {}
+    result = [stmt.uniquify(env) for stmt in ast]
+    check_post_uniquify_invariants(result)
+    return result
+  finally:
+    _active_uniquify_ctx = saved
 
 def make_switch_for(meta, defs, subject, cases):
   new_cases = [SwitchProofCase(c.location, c.pattern, c.assumptions,
