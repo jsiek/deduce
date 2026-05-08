@@ -134,6 +134,52 @@ def test_missing_api_key_returns_failure(monkeypatch, tmp_path):
     assert "NONEXISTENT_KEY_FOR_TEST" in decoded["error"]
 
 
+def test_default_deduce_cmd_uses_sys_executable(monkeypatch, tmp_path):
+    """Regression: when --deduce-cmd is omitted, the validator should
+    fork the *current* Python (sys.executable), not bare ``python3''.
+
+    Bare ``python3'' picks the first ``python3'' on PATH, which on
+    macOS GUI emacs is typically the system Python without lark, so
+    every validate would crash with a ``ModuleNotFoundError: No
+    module named 'lark'`` traceback.  Pinning to ``sys.executable''
+    means the checker subprocess inherits the host Python's
+    site-packages.
+
+    We assert the failure doesn't mention lark/ModuleNotFoundError
+    -- if the default ever drifts back to bare ``python3'' on a
+    machine without lark on $PATH's first python, this test fails."""
+    source = (
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    file_path = tmp_path / "proof.pf"
+    file_path.write_text(source)
+    request = _build_request(str(file_path), source)
+
+    # No --deduce-cmd: relies on the default.
+    argv = [
+        "--dry-run",
+        "--no-stdlib",
+        "--deduce-root",
+        str(REPO_ROOT),
+        "--timeout",
+        "30",
+    ]
+    rc, stdout, _ = _run_main(argv, request, monkeypatch)
+    decoded = json.loads(stdout.strip())
+    error_text = (decoded.get("error") or "") + "".join(
+        v.get("errorTail") or "" for v in decoded.get("validations") or ()
+    )
+    assert "ModuleNotFoundError" not in error_text, (
+        "Validator's deduce.py subprocess crashed importing lark -- "
+        "the default --deduce-cmd is forking the wrong Python."
+    )
+    assert "No module named 'lark'" not in error_text
+
+
 def test_hole_range_out_of_bounds_returns_failure(monkeypatch, tmp_path):
     """A holeRange past EOF is rejected before hitting the validator."""
     source = "theorem t: bool = true\n"

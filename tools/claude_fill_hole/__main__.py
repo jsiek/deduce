@@ -41,7 +41,6 @@ from .schema import (
 from .validator import SubprocessValidator, ValidationOutcome
 
 
-_DEFAULT_DEDUCE_CMD = "python3 deduce.py"
 _BACKEND_CHOICES = ("anthropic", "openai-compat")
 _DEFAULT_MODELS = {
     "anthropic": "claude-opus-4-7",
@@ -115,7 +114,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         sys.stdout.write("\n")
         return 2
 
-    deduce_cmd = tuple(args.deduce_cmd.split())
+    # Default `--deduce-cmd` to `<this Python> deduce.py` so the
+    # checker subprocess inherits our site-packages.  Bare "python3"
+    # picks up whatever's first on PATH, which on macOS GUI emacs is
+    # typically the system Python -- which doesn't have lark, so
+    # every validate would crash with a ModuleNotFoundError.
+    if args.deduce_cmd:
+        deduce_cmd = tuple(args.deduce_cmd.split())
+    else:
+        deduce_cmd = (sys.executable, "deduce.py")
     validator = SubprocessValidator(
         file_path=request.file,
         content=content,
@@ -284,9 +291,15 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     )
     p.add_argument(
         "--deduce-cmd",
-        default=_DEFAULT_DEDUCE_CMD,
-        help="command (space-separated) used to invoke deduce.py "
-        "(default 'python3 deduce.py')",
+        default=None,
+        help=(
+            "command (space-separated) used to invoke deduce.py "
+            "(default '<sys.executable> deduce.py' so the checker "
+            "subprocess inherits this Python's site-packages -- "
+            "important when the host Python (e.g. the one the LSP "
+            "/ sidecar is pinned to) has lark while the system "
+            "`python3` does not)"
+        ),
     )
     p.add_argument(
         "--deduce-root",
