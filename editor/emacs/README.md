@@ -73,6 +73,20 @@ preference, use `use-package`** — it is built into Emacs 29 and
 keeps the configuration tidy. Otherwise, use the plain `require`
 form.
 
+### With `use-package`
+
+```elisp
+(use-package deduce-mode
+  :load-path "/path/to/deduce/editor/emacs"
+  :mode "\\.pf\\'")
+
+(use-package deduce-lsp
+  :load-path "/path/to/deduce/editor/emacs"
+  :after (deduce-mode eglot)
+  ;; :custom (deduce-lsp-deduce-root "~/src/deduce")
+  )
+```
+
 ### Without `use-package`
 
 ```elisp
@@ -90,20 +104,6 @@ form.
 Opening any `.pf` file will then enter `deduce-mode` (registered via
 `auto-mode-alist`) and, with `deduce-lsp` loaded, the language server
 will auto-connect on first save.
-
-### With `use-package`
-
-```elisp
-(use-package deduce-mode
-  :load-path "/path/to/deduce/editor/emacs"
-  :mode "\\.pf\\'")
-
-(use-package deduce-lsp
-  :load-path "/path/to/deduce/editor/emacs"
-  :after (deduce-mode eglot)
-  ;; :custom (deduce-lsp-deduce-root "~/src/deduce")
-  )
-```
 
 ### Major mode only (no LSP)
 
@@ -133,10 +133,9 @@ auto-start hook:
 
 - **Diagnostics on save.** When you save a `.pf` buffer, the language
   server re-checks the file and reports any errors back to Emacs.
-  Each error is rendered as a *flymake-style underline* — a colored
-  squiggle drawn under the offending text directly in the buffer
-  (flymake is Emacs's built-in inline-diagnostics framework, which
-  eglot reuses). Hover the cursor on an underlined region to see the
+  Each error is marked with a colored
+  squiggle drawn under the offending text directly in the buffer.
+  Hover the cursor on an underlined region to see the
   error message in the echo area, or run `M-x flymake-show-buffer-diagnostics`
   for a list view of every error in the file.
 - `M-.` — **go to definition.** Jump from a name to where it is
@@ -150,6 +149,14 @@ auto-start hook:
   `assume H: P\n?` for `if P then Q`, `arbitrary x:T\n?` for `all`,
   `choose ?\n?` for `some`, `reflexive` when both sides of an
   equation reduce to the same term.
+- `C-c C-e` — **eliminate / use-fact.** Cursor on a `?`. Emacs prompts
+  for a hypothesis label (TAB completion against the in-scope
+  hypotheses whose shape matches a supported template). The
+  template depends on the hypothesis's shape: destructure for `and`,
+  `cases` for `or`, `apply ... to ?` for `if then`, `H[?]` for
+  `all`, `obtain ... from H` for `some`, `replace H` for equality,
+  the bare label for `false`. Dual to `C-c C-r` (refine): refine
+  picks by goal shape, eliminate picks by named-hypothesis shape.
 - `C-c C-c` — **case split.** Cursor must sit on a `?`. Emacs prompts
   (with TAB completion) for which in-scope variable to split on,
   then replaces the `?` with a `switch` skeleton (one branch per
@@ -163,14 +170,6 @@ auto-start hook:
   constructor in declaration order; recursive parameters get `IH<N>`
   bindings whose formula is the body with the inducted variable
   substituted.
-- `C-c C-e` — **eliminate / use-fact.** Cursor on a `?`. Emacs prompts
-  for a hypothesis label (TAB completion against the in-scope
-  hypotheses whose shape matches a supported template). The
-  template depends on the hypothesis's shape: destructure for `and`,
-  `cases` for `or`, `apply ... to ?` for `if then`, `H[?]` for
-  `all`, `obtain ... from H` for `some`, `replace H` for equality,
-  the bare label for `false`. Dual to `C-c C-r` (refine): refine
-  picks by goal shape, eliminate picks by named-hypothesis shape.
 - `C-c C-f` — **fill hole with a matching given.** Cursor on a `?`.
   If exactly one in-scope given's formula equals the goal, the `?`
   is replaced directly with `conclude <goal> by <label>`. With
