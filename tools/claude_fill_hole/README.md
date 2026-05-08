@@ -76,7 +76,7 @@ an API key.
 |---|---|---|
 | `--backend NAME` | `anthropic` | Model backend: `anthropic` or `openai-compat`. |
 | `--base-url URL` | `nil` (real OpenAI) | OpenAI-compat endpoint; ignored for `--backend anthropic`. |
-| `--model MODEL` | backend-dependent | Model id. Defaults: `claude-opus-4-7` for anthropic, `Qwen3-Coder-Next` for openai-compat. |
+| `--model MODEL` | backend-dependent | Model id. Defaults: `claude-opus-4-7` for anthropic, `gemma-4-31B-it` for openai-compat. |
 | `--api-key-env NAME` | backend-dependent | Env var name. Defaults: `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. |
 | `--max-attempts N` | 5 | Maximum number of `validate_proof` calls. |
 | `--deduce-cmd CMD` | `python3 deduce.py` | Command used to invoke the checker (space-separated). |

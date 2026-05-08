@@ -195,7 +195,7 @@ in your `init.el` returning whatever list eglot should spawn.
 | ------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
 | `deduce-fill-hole-backend`            | `'anthropic`                  | `'anthropic` (Claude via Anthropic API) or `'openai-compat` (REALLMs / OpenAI / Ollama) |
 | `deduce-fill-hole-base-url`           | `nil`                         | OpenAI-compat endpoint URL; e.g. `"https://reallms.rescloud.iu.edu/direct/v1"`. Ignored when backend is `'anthropic`. |
-| `deduce-fill-hole-model`              | `nil` (backend default)       | Model id; backend default is `"claude-opus-4-7"` (anthropic) or `"Qwen3-Coder-Next"` (openai-compat) |
+| `deduce-fill-hole-model`              | `nil` (backend default)       | Model id; backend default is `"claude-opus-4-7"` (anthropic) or `"gemma-4-31B-it"` (openai-compat) |
 | `deduce-fill-hole-api-key-env`        | `nil` (backend default)       | Env var name; backend default is `"ANTHROPIC_API_KEY"` or `"OPENAI_API_KEY"`. IU REALLMs users override to `"REALLMS_API_KEY"`. |
 | `deduce-fill-hole-python-program`     | `"python3"`                   | Python interpreter used to launch the sidecar               |
 | `deduce-fill-hole-deduce-root`        | `nil`                         | Path to a Deduce checkout; falls back to `deduce-lsp-deduce-root`, then `project-root`, then cwd |

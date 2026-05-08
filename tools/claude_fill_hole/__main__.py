@@ -44,7 +44,7 @@ from .validator import SubprocessValidator, ValidationOutcome
 _BACKEND_CHOICES = ("anthropic", "openai-compat")
 _DEFAULT_MODELS = {
     "anthropic": "claude-opus-4-7",
-    "openai-compat": "Qwen3-Coder-Next",  # IU REALLMs default
+    "openai-compat": "gemma-4-31B-it",  # IU REALLMs default
 }
 _DEFAULT_API_KEY_ENVS = {
     "anthropic": "ANTHROPIC_API_KEY",
@@ -286,7 +286,7 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         default=None,
         help=(
             "model id; defaults to claude-opus-4-7 (anthropic) or "
-            "Qwen3-Coder-Next (openai-compat)"
+            "gemma-4-31B-it (openai-compat)"
         ),
     )
     p.add_argument(

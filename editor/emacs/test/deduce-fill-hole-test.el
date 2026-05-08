@@ -140,7 +140,7 @@ override the backend defaults."
 
 
 (ert-deftest deduce-fill-hole/build-cli-args-openai-compat-defaults ()
-  "Switching backend to openai-compat picks Qwen3-Coder-Next + OPENAI_API_KEY
+  "Switching backend to openai-compat picks gemma-4-31B-it + OPENAI_API_KEY
 defaults; setting base-url adds --base-url."
   (let ((deduce-fill-hole-backend 'openai-compat)
         (deduce-fill-hole-base-url
@@ -154,7 +154,7 @@ defaults; setting base-url adds --base-url."
         (deduce-lsp-deduce-root nil))
     (let ((args (deduce-fill-hole--build-cli-args)))
       (should (member "openai-compat" args))
-      (should (member "Qwen3-Coder-Next" args))
+      (should (member "gemma-4-31B-it" args))
       (should (member "OPENAI_API_KEY" args))
       (should (member "--base-url" args))
       (should (member "https://reallms.rescloud.iu.edu/direct/v1" args)))))
