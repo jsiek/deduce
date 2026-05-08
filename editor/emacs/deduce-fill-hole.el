@@ -92,26 +92,70 @@ this is a ceiling -- typical successful runs use 1-3 attempts."
   :group 'deduce-fill-hole)
 
 
-(defcustom deduce-fill-hole-model "claude-opus-4-7"
-  "Claude model the sidecar drives.
+(defcustom deduce-fill-hole-backend 'anthropic
+  "Which model backend the sidecar drives.
 
-Default is `claude-opus-4-7', the most capable model.  For
-cost-sensitive use, `claude-sonnet-4-6' is cheaper and still
-strong at this kind of structured-output work.  The exact string
-must match a real model id (see the `claude-api' skill's catalog
-in the deduce repo for the up-to-date list)."
-  :type 'string
+`anthropic' uses the Anthropic SDK (Claude models, requires an
+ANTHROPIC_API_KEY).  `openai-compat' uses an OpenAI-compatible
+HTTP endpoint -- works for IU REALLMs (set
+`deduce-fill-hole-base-url' to
+\"https://reallms.rescloud.iu.edu/direct/v1\"), real OpenAI
+(leave the base URL unset), or local Ollama
+(\"http://localhost:11434/v1\").
+
+When you switch backends, you typically also want to update
+`deduce-fill-hole-model' and `deduce-fill-hole-api-key-env' to
+match.  Sensible defaults shift with this variable: setting it
+to `openai-compat' makes the sidecar default to model
+\"Qwen3-Coder-Next\" (REALLMs' top coding model) and reads
+`OPENAI_API_KEY' if you don't override the env var name."
+  :type '(choice (const :tag "Anthropic API" anthropic)
+                 (const :tag "OpenAI-compatible (REALLMs / OpenAI / Ollama)"
+                        openai-compat))
   :group 'deduce-fill-hole)
 
 
-(defcustom deduce-fill-hole-api-key-env "ANTHROPIC_API_KEY"
-  "Environment variable the sidecar reads for the Anthropic API key.
+(defcustom deduce-fill-hole-base-url nil
+  "Base URL for the openai-compat backend, or nil for real OpenAI.
+
+Examples:
+  \"https://reallms.rescloud.iu.edu/direct/v1\"  -- IU REALLMs
+  \"http://localhost:11434/v1\"                  -- local Ollama
+  nil                                            -- api.openai.com (default)
+
+Ignored when `deduce-fill-hole-backend' is `anthropic'."
+  :type '(choice (const :tag "Real OpenAI (api.openai.com)" nil)
+                 (string :tag "Custom base URL"))
+  :group 'deduce-fill-hole)
+
+
+(defcustom deduce-fill-hole-model nil
+  "Model id the sidecar uses, or nil to pick a backend-appropriate default.
+
+When nil, the default is `claude-opus-4-7' for
+`deduce-fill-hole-backend' = `anthropic', or `Qwen3-Coder-Next'
+for `openai-compat'.  When set explicitly, this overrides the
+default.  Examples: `claude-sonnet-4-6' for cheaper Claude;
+`gpt-oss-120b' or `llama-4-scout' for REALLMs alternatives;
+`gpt-4o' or `gpt-5' for real OpenAI."
+  :type '(choice (const :tag "Backend default" nil)
+                 (string :tag "Model id"))
+  :group 'deduce-fill-hole)
+
+
+(defcustom deduce-fill-hole-api-key-env nil
+  "Environment variable the sidecar reads for the API key, or nil for the default.
+
+When nil, defaults to `ANTHROPIC_API_KEY' for the anthropic
+backend or `OPENAI_API_KEY' for the openai-compat backend.  IU
+users on REALLMs typically override to `REALLMS_API_KEY'.
 
 The variable must already be exported in the emacs process'
-environment (e.g. via `setenv', `exec-path-from-shell', or
-your shell init).  When unset, the sidecar exits with a
-structured error and `deduce-fill-hole' surfaces that to you."
-  :type 'string
+environment (e.g. via `setenv', `exec-path-from-shell', or your
+shell init).  When unset at run time, the sidecar exits with a
+structured error and `deduce-fill-hole' surfaces it to you."
+  :type '(choice (const :tag "Backend default" nil)
+                 (string :tag "Custom env var name"))
   :group 'deduce-fill-hole)
 
 
@@ -405,15 +449,51 @@ in the success message."
         (deduce-fill-hole--apply-result session)))))
 
 
+(defun deduce-fill-hole--default-model ()
+  "Return the model id appropriate for the current backend, when
+`deduce-fill-hole-model' is nil."
+  (pcase deduce-fill-hole-backend
+    ('anthropic "claude-opus-4-7")
+    ('openai-compat "Qwen3-Coder-Next")
+    (_ "claude-opus-4-7")))
+
+
+(defun deduce-fill-hole--default-api-key-env ()
+  "Return the env-var name appropriate for the current backend, when
+`deduce-fill-hole-api-key-env' is nil."
+  (pcase deduce-fill-hole-backend
+    ('anthropic "ANTHROPIC_API_KEY")
+    ('openai-compat "OPENAI_API_KEY")
+    (_ "ANTHROPIC_API_KEY")))
+
+
+(defun deduce-fill-hole--backend-flag ()
+  "Return the `--backend' CLI value matching the customization variable.
+
+The defcustom uses elisp symbols (`anthropic', `openai-compat')
+for nicer customize UI; the sidecar takes hyphenated string flags."
+  (pcase deduce-fill-hole-backend
+    ('anthropic "anthropic")
+    ('openai-compat "openai-compat")
+    (sym (symbol-name sym))))
+
+
 (defun deduce-fill-hole--build-cli-args ()
   "Return the CLI flag list for the current customization values."
-  (append (list "--max-attempts" (number-to-string deduce-fill-hole-max-attempts)
-                "--model" deduce-fill-hole-model
-                "--timeout" (number-to-string deduce-fill-hole-timeout)
-                "--api-key-env" deduce-fill-hole-api-key-env
-                "--deduce-root" (deduce-fill-hole--effective-deduce-root))
-          (when deduce-fill-hole-prelude-disabled
-            (list "--no-stdlib"))))
+  (let ((model (or deduce-fill-hole-model
+                   (deduce-fill-hole--default-model)))
+        (api-key-env (or deduce-fill-hole-api-key-env
+                         (deduce-fill-hole--default-api-key-env))))
+    (append (list "--backend" (deduce-fill-hole--backend-flag)
+                  "--max-attempts" (number-to-string deduce-fill-hole-max-attempts)
+                  "--model" model
+                  "--timeout" (number-to-string deduce-fill-hole-timeout)
+                  "--api-key-env" api-key-env
+                  "--deduce-root" (deduce-fill-hole--effective-deduce-root))
+            (when deduce-fill-hole-base-url
+              (list "--base-url" deduce-fill-hole-base-url))
+            (when deduce-fill-hole-prelude-disabled
+              (list "--no-stdlib")))))
 
 
 ;; ---------------------------------------------------------------------

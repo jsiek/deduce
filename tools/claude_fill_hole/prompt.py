@@ -64,20 +64,24 @@ def _read_cheatsheet(path: Path) -> str:
         return ""
 
 
-def build_system_prompt(max_attempts: int) -> list[dict]:
-    """Return the system block for ``messages.create``, with prompt
-    caching enabled on the cheatsheet content.
+def build_system_prompt(max_attempts: int) -> str:
+    """Return the rendered system prompt as a plain string.
 
-    Render order in the API is ``tools`` -> ``system`` -> ``messages``;
-    putting the breakpoint on the last system block caches both the
-    tool definition and the cheatsheets together. Subsequent
-    attempts on the same hole pay only for the per-attempt
-    tool-result chain.
+    Backend-agnostic.  The Anthropic backend wraps this in a
+    text-block list with ``cache_control``; the OpenAI-compat
+    backend uses it as the content of a leading ``system`` message.
+
+    The prompt embeds two cheatsheets verbatim
+    (``gh_pages/doc/TacticsCheatSheet.md`` and ``CheatSheet.md``).
+    On Anthropic the caching breakpoint amortises that cost; on
+    OpenAI-compat servers, prefix caching is implicit (real OpenAI)
+    or absent (Ollama, some LiteLLM deployments) -- in either case
+    the same text is sent.
     """
     tactics = _read_cheatsheet(_TACTICS_CHEATSHEET)
     cheats = _read_cheatsheet(_CHEATSHEET)
 
-    body = (
+    return (
         SCAFFOLD.format(max_attempts=max_attempts)
         + "\n\n<tactics_cheatsheet>\n"
         + tactics
@@ -85,13 +89,6 @@ def build_system_prompt(max_attempts: int) -> list[dict]:
         + cheats
         + "\n</cheatsheet>\n"
     )
-    return [
-        {
-            "type": "text",
-            "text": body,
-            "cache_control": {"type": "ephemeral"},
-        }
-    ]
 
 
 def build_user_message(

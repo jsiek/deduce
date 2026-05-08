@@ -1,15 +1,15 @@
-"""Agent-loop tests using a fake Anthropic client.
+"""AnthropicBackend tests using a fake Anthropic client.
 
 The loop's contract: drive ``client.messages.create`` repeatedly,
 extract ``tool_use`` blocks, splice the proof_text through the
 validator, append tool_result messages, and stop on the first
-ok=True. These tests exercise that contract without burning API
+ok=True.  These tests exercise that contract without burning API
 credits.
 
 Fake client + fake validator are both small, hand-rolled stand-ins.
 The ``Block`` / ``FakeResponse`` dataclasses match the duck-typing
-shape ``agent.py`` reads through (``block.type`` / ``block.id`` /
-``block.input``).
+shape ``anthropic_backend.py`` reads through (``block.type`` /
+``block.id`` / ``block.input``).
 """
 
 from __future__ import annotations
@@ -19,7 +19,8 @@ from typing import Any, Optional
 
 import pytest
 
-from tools.claude_fill_hole.agent import AgentResult, run as run_agent
+from tools.claude_fill_hole.agent import AgentResult
+from tools.claude_fill_hole.anthropic_backend import AnthropicBackend
 from tools.claude_fill_hole.validator import ValidationOutcome
 
 
@@ -83,8 +84,11 @@ def _tool_use(proof: str, *, id_: str = "tu_1") -> Block:
     return Block(type="tool_use", id=id_, input={"proof_text": proof})
 
 
-def _system() -> list[dict]:
-    return [{"type": "text", "text": "stub system prompt"}]
+_SYSTEM_TEXT = "stub system prompt"
+
+
+def _backend(client: FakeClient) -> AnthropicBackend:
+    return AnthropicBackend(client=client)
 
 
 # ---------------------------------------------------------------------------
@@ -93,15 +97,13 @@ def _system() -> list[dict]:
 
 
 def test_first_attempt_succeeds_returns_ok():
-    client = FakeClient(
-        [FakeResponse(content=[_tool_use("reflexive")])]
-    )
+    client = FakeClient([FakeResponse(content=[_tool_use("reflexive")])])
     validator = FakeValidator([ValidationOutcome(ok=True)])
-    result = run_agent(
-        client=client,
-        system=_system(),
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P = P",
         validator=validator,
+        max_attempts=5,
     )
     assert result.ok is True
     assert result.proof == "reflexive"
@@ -124,9 +126,8 @@ def test_third_attempt_succeeds_after_two_failures():
             ValidationOutcome(ok=True),
         ]
     )
-    result = run_agent(
-        client=client,
-        system=_system(),
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P = P",
         validator=validator,
         max_attempts=5,
@@ -150,9 +151,8 @@ def test_budget_exhausted_returns_failure():
             ValidationOutcome(ok=False, error="err2"),
         ]
     )
-    result = run_agent(
-        client=client,
-        system=_system(),
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P",
         validator=validator,
         max_attempts=2,
@@ -176,9 +176,8 @@ def test_no_tool_call_returns_failure_immediately():
         ]
     )
     validator = FakeValidator([])
-    result = run_agent(
-        client=client,
-        system=_system(),
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P",
         validator=validator,
         max_attempts=5,
@@ -193,22 +192,21 @@ def test_malformed_tool_input_is_recoverable():
     tool_result and gives it another attempt."""
     client = FakeClient(
         [
-            FakeResponse(content=[Block(type="tool_use", id="tu_1", input={})]),
+            FakeResponse(
+                content=[Block(type="tool_use", id="tu_1", input={})]
+            ),
             FakeResponse(content=[_tool_use("reflexive", id_="tu_2")]),
         ]
     )
     validator = FakeValidator([ValidationOutcome(ok=True)])
-    result = run_agent(
-        client=client,
-        system=_system(),
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P = P",
         validator=validator,
         max_attempts=5,
     )
     assert result.ok is True
     assert result.attempts == 2
-    # Validator was only called for the second attempt -- the
-    # first never made it past the tool-input check.
     assert validator.calls == ["reflexive"]
 
 
@@ -225,9 +223,8 @@ def test_api_failure_is_reported_as_hard_error():
             self.messages = ExplodingMessages()
 
     validator = FakeValidator([])
-    result = run_agent(
-        client=ExplodingClient(),
-        system=_system(),
+    result = AnthropicBackend(client=ExplodingClient()).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P",
         validator=validator,
         max_attempts=5,
@@ -243,15 +240,13 @@ def test_progress_callback_fires_for_each_phase():
     def on_progress(event: str, **fields):
         events.append((event, fields))
 
-    client = FakeClient(
-        [FakeResponse(content=[_tool_use("reflexive")])]
-    )
+    client = FakeClient([FakeResponse(content=[_tool_use("reflexive")])])
     validator = FakeValidator([ValidationOutcome(ok=True)])
-    run_agent(
-        client=client,
-        system=_system(),
+    _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P = P",
         validator=validator,
+        max_attempts=5,
         on_progress=on_progress,
     )
 
@@ -265,17 +260,15 @@ def test_progress_callback_fires_for_each_phase():
 
 def test_dispatches_required_request_kwargs():
     """The fake client captures the kwargs the loop passes; assert
-    the agent uses adaptive thinking, an effort level, the
-    validate_proof tool, and prompt-cached system content."""
-    client = FakeClient(
-        [FakeResponse(content=[_tool_use("reflexive")])]
-    )
+    the backend uses adaptive thinking, an effort level, the
+    validate_proof tool, and a system block with cache_control."""
+    client = FakeClient([FakeResponse(content=[_tool_use("reflexive")])])
     validator = FakeValidator([ValidationOutcome(ok=True)])
-    run_agent(
-        client=client,
-        system=_system(),
+    _backend(client).run(
+        system_text=_SYSTEM_TEXT,
         user_message="goal: P = P",
         validator=validator,
+        max_attempts=5,
     )
     kwargs = client.messages.last_kwargs
     assert kwargs["thinking"] == {"type": "adaptive"}
@@ -283,5 +276,11 @@ def test_dispatches_required_request_kwargs():
     assert kwargs["model"] == "claude-opus-4-7"
     tool_names = [t["name"] for t in kwargs["tools"]]
     assert tool_names == ["validate_proof"]
-    # System block is passed through unchanged.
-    assert kwargs["system"] == _system()
+    # The backend wraps the system_text with a cache_control breakpoint.
+    assert kwargs["system"] == [
+        {
+            "type": "text",
+            "text": _SYSTEM_TEXT,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]

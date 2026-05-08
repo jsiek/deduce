@@ -1,8 +1,19 @@
-# claude_fill_hole — Claude proof-completion sidecar
+# claude_fill_hole — LLM-driven proof-completion sidecar
 
 A standalone Python program that fills a `?` hole in a Deduce proof
-by asking Claude. Reads a JSON request on stdin, writes a JSON
-response on stdout, streams progress events on stderr.
+by asking a large language model. Two backends are bundled:
+
+- **`anthropic`** (default) — drives Claude via the official
+  Anthropic SDK. Best quality at the cost of a per-token Anthropic
+  bill.
+- **`openai-compat`** — drives any OpenAI-compatible HTTP endpoint.
+  Works for [Indiana University REALLMs](https://servicenow.iu.edu/kb?id=kb_article_view&sysparm_article=KB0027272)
+  (free for IU researchers/faculty/staff, hosted on-prem, models
+  include `Qwen3-Coder-Next` and `gpt-oss-120b`), real OpenAI, and
+  local [Ollama](https://ollama.com).
+
+Reads a JSON request on stdin, writes a JSON response on stdout,
+streams progress events on stderr.
 
 This is **Phase 2** of the [hole-fill plan](../../docs/hole-fill-plan.md).
 Phase 1 (the LSP request handlers `deduce/holeContextAt` and
@@ -13,13 +24,35 @@ binding) lives in the separate `deduce-mode` repo.
 
 ```sh
 pip install -r ../../requirements-fill-hole.txt
-export ANTHROPIC_API_KEY=...
+# Pick one based on which backend you'll use:
+export ANTHROPIC_API_KEY=...     # for --backend anthropic
+export OPENAI_API_KEY=...        # for --backend openai-compat (real OpenAI)
+export REALLMS_API_KEY=...       # for IU REALLMs (use --api-key-env REALLMS_API_KEY)
 ```
 
 ## Usage
 
 ```sh
+# Default: Anthropic / Claude
 python3 -m tools.claude_fill_hole < request.json > response.json 2> progress.ndjson
+
+# IU REALLMs
+python3 -m tools.claude_fill_hole \
+  --backend openai-compat \
+  --base-url https://reallms.rescloud.iu.edu/direct/v1 \
+  --api-key-env REALLMS_API_KEY \
+  --model Qwen3-Coder-Next \
+  < request.json
+
+# Local Ollama (smoke testing only -- small Ollama models tend to
+# emit JSON-as-content rather than proper tool_calls; not all
+# distributions of qwen2.5-coder / llama3 do reliable tool use)
+python3 -m tools.claude_fill_hole \
+  --backend openai-compat \
+  --base-url http://localhost:11434/v1 \
+  --api-key-env OPENAI_API_KEY \
+  --model qwen2.5-coder:14b \
+  < request.json
 ```
 
 Where `request.json` is the response shape from `deduce/holeContextAt`,
@@ -41,13 +74,15 @@ an API key.
 
 | Flag | Default | Purpose |
 |---|---|---|
+| `--backend NAME` | `anthropic` | Model backend: `anthropic` or `openai-compat`. |
+| `--base-url URL` | `nil` (real OpenAI) | OpenAI-compat endpoint; ignored for `--backend anthropic`. |
+| `--model MODEL` | backend-dependent | Model id. Defaults: `claude-opus-4-7` for anthropic, `Qwen3-Coder-Next` for openai-compat. |
+| `--api-key-env NAME` | backend-dependent | Env var name. Defaults: `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. |
 | `--max-attempts N` | 5 | Maximum number of `validate_proof` calls. |
-| `--model MODEL` | `claude-opus-4-7` | Claude model to drive the loop. |
 | `--deduce-cmd CMD` | `python3 deduce.py` | Command used to invoke the checker (space-separated). |
 | `--deduce-root DIR` | dir of request file | Working directory for `deduce.py`. |
 | `--no-stdlib` | off | Pass `--no-stdlib` to `deduce.py` on each call. |
 | `--timeout SECS` | 60 | Per-validate timeout. |
-| `--api-key-env NAME` | `ANTHROPIC_API_KEY` | Name of env var holding the API key. |
 | `--dry-run` | off | Skip the API; smoke-test the validator only. |
 
 ## Stdin contract
@@ -130,18 +165,26 @@ the end.
 ## Architecture
 
 ```
-__main__.py     — CLI entry; argparse, stdin reader, dry-run path
-agent.py        — manual tool-use loop (anthropic SDK)
-prompt.py       — system prompt assembly, cheatsheet embedding
-validator.py    — Validator abstract + SubprocessValidator
-schema.py       — request/response/event JSON shapes
+__main__.py            — CLI entry; argparse, stdin reader, dry-run path,
+                         backend dispatch
+agent.py               — Backend ABC, AgentResult, shared types
+anthropic_backend.py   — AnthropicBackend (Anthropic SDK + adaptive thinking
+                         + cheatsheet cache_control)
+openai_backend.py      — OpenAICompatBackend (OpenAI SDK; works for REALLMs,
+                         real OpenAI, Ollama via base_url override)
+prompt.py              — system prompt assembly, cheatsheet embedding
+validator.py           — Validator abstract + SubprocessValidator
+schema.py              — request/response/event JSON shapes
 ```
 
 The system prompt embeds [`TacticsCheatSheet.md`](../../gh_pages/doc/TacticsCheatSheet.md)
-and [`CheatSheet.md`](../../gh_pages/doc/CheatSheet.md) verbatim with
-prompt caching enabled (`cache_control: {type: "ephemeral"}`), so
-the cheatsheet cost is paid once per 5-minute window rather than
-once per attempt.
+and [`CheatSheet.md`](../../gh_pages/doc/CheatSheet.md) verbatim. On
+the Anthropic backend, prompt caching is enabled
+(`cache_control: {type: "ephemeral"}`) so the cheatsheet cost is
+paid once per 5-minute window rather than once per attempt. On the
+OpenAI-compat backend the cache breakpoint isn't applied; servers
+that support implicit prefix caching (real OpenAI, some LiteLLM
+deployments) get it for free, others pay full price each attempt.
 
 ## Security
 

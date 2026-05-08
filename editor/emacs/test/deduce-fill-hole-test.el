@@ -94,31 +94,92 @@ without disturbing the rest of the command shape."
 
 
 (ert-deftest deduce-fill-hole/build-cli-args-default ()
-  "Default custom values produce the expected flag set, no --no-stdlib."
-  (let ((deduce-fill-hole-max-attempts 5)
-        (deduce-fill-hole-model "claude-opus-4-7")
+  "Default custom values produce the expected flag set, no --no-stdlib,
+no --base-url (defaults to anthropic backend)."
+  (let ((deduce-fill-hole-backend 'anthropic)
+        (deduce-fill-hole-base-url nil)
+        (deduce-fill-hole-max-attempts 5)
+        (deduce-fill-hole-model nil)            ; -> backend default
         (deduce-fill-hole-timeout 60)
-        (deduce-fill-hole-api-key-env "ANTHROPIC_API_KEY")
+        (deduce-fill-hole-api-key-env nil)      ; -> backend default
         (deduce-fill-hole-prelude-disabled nil)
         (deduce-fill-hole-deduce-root "/opt/deduce")
         (deduce-lsp-deduce-root nil))
     (let ((args (deduce-fill-hole--build-cli-args)))
+      (should (member "--backend" args))
+      (should (member "anthropic" args))
       (should (member "--max-attempts" args))
       (should (member "5" args))
       (should (member "--model" args))
-      (should (member "claude-opus-4-7" args))
+      (should (member "claude-opus-4-7" args)) ; the anthropic default
       (should (member "--timeout" args))
       (should (member "60" args))
       (should (member "--api-key-env" args))
-      (should (member "ANTHROPIC_API_KEY" args))
+      (should (member "ANTHROPIC_API_KEY" args)) ; the anthropic default
       (should (member "--deduce-root" args))
       (should (member "/opt/deduce" args))
-      (should-not (member "--no-stdlib" args)))))
+      (should-not (member "--no-stdlib" args))
+      (should-not (member "--base-url" args)))))
+
+
+(ert-deftest deduce-fill-hole/build-cli-args-explicit-overrides-defaults ()
+  "Explicit `deduce-fill-hole-model' / `deduce-fill-hole-api-key-env'
+override the backend defaults."
+  (let ((deduce-fill-hole-backend 'anthropic)
+        (deduce-fill-hole-base-url nil)
+        (deduce-fill-hole-max-attempts 5)
+        (deduce-fill-hole-model "claude-sonnet-4-6")
+        (deduce-fill-hole-timeout 60)
+        (deduce-fill-hole-api-key-env "MY_KEY")
+        (deduce-fill-hole-prelude-disabled nil)
+        (deduce-fill-hole-deduce-root "/opt/deduce")
+        (deduce-lsp-deduce-root nil))
+    (let ((args (deduce-fill-hole--build-cli-args)))
+      (should (member "claude-sonnet-4-6" args))
+      (should (member "MY_KEY" args)))))
+
+
+(ert-deftest deduce-fill-hole/build-cli-args-openai-compat-defaults ()
+  "Switching backend to openai-compat picks Qwen3-Coder-Next + OPENAI_API_KEY
+defaults; setting base-url adds --base-url."
+  (let ((deduce-fill-hole-backend 'openai-compat)
+        (deduce-fill-hole-base-url
+         "https://reallms.rescloud.iu.edu/direct/v1")
+        (deduce-fill-hole-max-attempts 5)
+        (deduce-fill-hole-model nil)
+        (deduce-fill-hole-timeout 60)
+        (deduce-fill-hole-api-key-env nil)
+        (deduce-fill-hole-prelude-disabled nil)
+        (deduce-fill-hole-deduce-root "/opt/deduce")
+        (deduce-lsp-deduce-root nil))
+    (let ((args (deduce-fill-hole--build-cli-args)))
+      (should (member "openai-compat" args))
+      (should (member "Qwen3-Coder-Next" args))
+      (should (member "OPENAI_API_KEY" args))
+      (should (member "--base-url" args))
+      (should (member "https://reallms.rescloud.iu.edu/direct/v1" args)))))
+
+
+(ert-deftest deduce-fill-hole/build-cli-args-openai-compat-no-base-url ()
+  "openai-compat with base-url nil omits --base-url (real-OpenAI path)."
+  (let ((deduce-fill-hole-backend 'openai-compat)
+        (deduce-fill-hole-base-url nil)
+        (deduce-fill-hole-max-attempts 5)
+        (deduce-fill-hole-model nil)
+        (deduce-fill-hole-timeout 60)
+        (deduce-fill-hole-api-key-env nil)
+        (deduce-fill-hole-prelude-disabled nil)
+        (deduce-fill-hole-deduce-root "/opt/deduce")
+        (deduce-lsp-deduce-root nil))
+    (let ((args (deduce-fill-hole--build-cli-args)))
+      (should-not (member "--base-url" args)))))
 
 
 (ert-deftest deduce-fill-hole/build-cli-args-with-prelude-disabled ()
   "`deduce-fill-hole-prelude-disabled' adds --no-stdlib."
-  (let ((deduce-fill-hole-prelude-disabled t)
+  (let ((deduce-fill-hole-backend 'anthropic)
+        (deduce-fill-hole-base-url nil)
+        (deduce-fill-hole-prelude-disabled t)
         (deduce-fill-hole-max-attempts 3)
         (deduce-fill-hole-model "claude-sonnet-4-6")
         (deduce-fill-hole-timeout 30)

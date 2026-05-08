@@ -17,7 +17,8 @@ buffers to the LSP server in `lsp/lsp_server.py`. An optional
 | Python 3.11+ with `lark`    | always (deduce.py itself)              | `pip install lark==1.2.2`                       |
 | `pygls>=2.1.0`              | only if you load `deduce-lsp.el`       | `pip install -r requirements-lsp.txt`           |
 | `anthropic>=0.40.0`         | only if you load `deduce-fill-hole.el` | `pip install -r requirements-fill-hole.txt`     |
-| `ANTHROPIC_API_KEY` env var | only if you load `deduce-fill-hole.el` | https://console.anthropic.com/settings/keys     |
+| `openai>=1.50.0`            | only if you load `deduce-fill-hole.el` | `pip install -r requirements-fill-hole.txt`     |
+| API key env var             | only if you load `deduce-fill-hole.el` | one of: `ANTHROPIC_API_KEY` (real Claude), `OPENAI_API_KEY` (real OpenAI), `REALLMS_API_KEY` (IU REALLMs) |
 
 Emacs 29 is the minimum because `eglot` ships in-tree from 29 onward
 and the `jsonrpc` library has a stable API there. Older Emacs would
@@ -190,15 +191,27 @@ in your `init.el` returning whatever list eglot should spawn.
 
 ### `deduce-fill-hole`
 
-| Variable                              | Default              | Effect                                                      |
-| ------------------------------------- | -------------------- | ----------------------------------------------------------- |
-| `deduce-fill-hole-python-program`     | `"python3"`          | Python interpreter used to launch the sidecar               |
-| `deduce-fill-hole-deduce-root`        | `nil`                | Path to a Deduce checkout; falls back to `deduce-lsp-deduce-root`, then `project-root`, then cwd |
-| `deduce-fill-hole-max-attempts`       | `5`                  | Maximum number of `validate_proof` calls per invocation     |
-| `deduce-fill-hole-model`              | `"claude-opus-4-7"`  | Claude model id the sidecar drives                          |
-| `deduce-fill-hole-api-key-env`        | `"ANTHROPIC_API_KEY"`| Environment variable holding the API key                    |
-| `deduce-fill-hole-prelude-disabled`   | `nil`                | If non-nil, sidecar invokes `deduce.py --no-stdlib`         |
-| `deduce-fill-hole-timeout`            | `60`                 | Per-validate-proof timeout passed to the sidecar (seconds)  |
+| Variable                              | Default                       | Effect                                                      |
+| ------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| `deduce-fill-hole-backend`            | `'anthropic`                  | `'anthropic` (Claude via Anthropic API) or `'openai-compat` (REALLMs / OpenAI / Ollama) |
+| `deduce-fill-hole-base-url`           | `nil`                         | OpenAI-compat endpoint URL; e.g. `"https://reallms.rescloud.iu.edu/direct/v1"`. Ignored when backend is `'anthropic`. |
+| `deduce-fill-hole-model`              | `nil` (backend default)       | Model id; backend default is `"claude-opus-4-7"` (anthropic) or `"Qwen3-Coder-Next"` (openai-compat) |
+| `deduce-fill-hole-api-key-env`        | `nil` (backend default)       | Env var name; backend default is `"ANTHROPIC_API_KEY"` or `"OPENAI_API_KEY"`. IU REALLMs users override to `"REALLMS_API_KEY"`. |
+| `deduce-fill-hole-python-program`     | `"python3"`                   | Python interpreter used to launch the sidecar               |
+| `deduce-fill-hole-deduce-root`        | `nil`                         | Path to a Deduce checkout; falls back to `deduce-lsp-deduce-root`, then `project-root`, then cwd |
+| `deduce-fill-hole-max-attempts`       | `5`                           | Maximum number of `validate_proof` calls per invocation     |
+| `deduce-fill-hole-prelude-disabled`   | `nil`                         | If non-nil, sidecar invokes `deduce.py --no-stdlib`         |
+| `deduce-fill-hole-timeout`            | `60`                          | Per-validate-proof timeout passed to the sidecar (seconds)  |
+
+**IU REALLMs preset** — drop this in your `init.el` to point at REALLMs:
+
+```elisp
+(with-eval-after-load 'deduce-fill-hole
+  (setq deduce-fill-hole-backend 'openai-compat
+        deduce-fill-hole-base-url "https://reallms.rescloud.iu.edu/direct/v1"
+        deduce-fill-hole-api-key-env "REALLMS_API_KEY"
+        deduce-fill-hole-model "Qwen3-Coder-Next"))
+```
 
 ## Troubleshooting
 

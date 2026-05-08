@@ -2,7 +2,7 @@
 
 Tracking issue: TBD. PR: [#357](https://github.com/jsiek/deduce/pull/357) (Phase 1 + Phase 2 + Phase 3 Step 7).
 
-**Status:** Phase 1 + Phase 2 done; Phase 3 Step 7 (emacs MVP) done. The whole stack is now end-to-end exercisable: `M-x deduce-fill-hole` (or `C-c C-f`) on a `?` in a `.pf` buffer asks Claude, splices the validated proof in. Step 8 polish (cancellation, fallback buffer, mode-line indicator) is the natural next chunk.
+**Status:** Phase 1 + Phase 2 + Phase 3 Step 7 done. **Pluggable model backend** added on top: the sidecar now drives either Anthropic (Claude) or any OpenAI-compatible endpoint (Indiana University REALLMs is the recommended default for IU users; real OpenAI and local Ollama also supported). Whole stack end-to-end exercisable. Step 8 polish (cancellation, fallback buffer, mode-line indicator) is the natural next chunk.
 
 **Related:** [`lsp-plan.md`](lsp-plan.md) — this feature consumes the LSP server and adds two new requests to it.
 

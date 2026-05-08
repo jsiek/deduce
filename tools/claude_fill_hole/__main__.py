@@ -1,16 +1,20 @@
 """CLI entry point: ``python -m tools.claude_fill_hole``.
 
 Reads one JSON request on stdin, runs the agent loop, writes one
-JSON response on stdout. Progress events stream to stderr as NDJSON.
+JSON response on stdout.  Progress events stream to stderr as NDJSON.
 
-Two modes:
+Three modes:
 
-- Default: real run. Requires an ``ANTHROPIC_API_KEY`` and connects
-  to the Anthropic API to drive Claude.
-- ``--dry-run``: skips the API entirely, splices a known stub proof
-  through the validator, and reports whether the validate path
-  works. Useful for testing the spawn/validate pipeline without
-  burning API credits.
+- ``--backend anthropic`` (default): Anthropic SDK, model id
+  ``claude-opus-4-7``, API key from ``ANTHROPIC_API_KEY``.
+- ``--backend openai-compat``: OpenAI-compatible HTTP endpoint.
+  Set ``--base-url`` (e.g. ``https://reallms.rescloud.iu.edu/direct/v1``
+  for IU REALLMs, ``http://localhost:11434/v1`` for local Ollama,
+  omit for real OpenAI).  Set ``--api-key-env`` to the env var
+  holding the bearer token.  Set ``--model`` to the model id.
+- ``--dry-run``: skip the API entirely, splice a stub proof
+  through the validator, report whether the splice/validate
+  pipeline works.  No API key needed.
 
 See ``tools/claude_fill_hole/README.md`` for the full CLI contract.
 """
@@ -24,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from .agent import AgentResult, run as run_agent
+from .agent import AgentResult, Backend
 from .prompt import build_system_prompt, build_user_message, slice_around_hole
 from .schema import (
     HoleFillRequest,
@@ -38,6 +42,15 @@ from .validator import SubprocessValidator, ValidationOutcome
 
 
 _DEFAULT_DEDUCE_CMD = "python3 deduce.py"
+_BACKEND_CHOICES = ("anthropic", "openai-compat")
+_DEFAULT_MODELS = {
+    "anthropic": "claude-opus-4-7",
+    "openai-compat": "Qwen3-Coder-Next",  # IU REALLMs default
+}
+_DEFAULT_API_KEY_ENVS = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai-compat": "OPENAI_API_KEY",
+}
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -132,16 +145,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     try:
-        import anthropic  # type: ignore[import-not-found]
-    except ImportError:
+        backend = _build_backend(args, api_key)
+    except _BackendBuildError as e:
         sys.stdout.write(
             response_to_json(
                 _failure_response(
                     fingerprint=request.fingerprint,
-                    error=(
-                        "the `anthropic` package is required; install via "
-                        "`pip install -r requirements-fill-hole.txt`"
-                    ),
+                    error=str(e),
                     model=args.model,
                 )
             )
@@ -149,8 +159,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         sys.stdout.write("\n")
         return 2
 
-    client = anthropic.Anthropic(api_key=api_key)
-    system = build_system_prompt(max_attempts=args.max_attempts)
+    system_text = build_system_prompt(max_attempts=args.max_attempts)
     excerpt = request.surrounding_excerpt or slice_around_hole(
         content, hole_start_offset, hole_end_offset
     )
@@ -165,22 +174,65 @@ def main(argv: Optional[list[str]] = None) -> int:
         "start",
         fingerprint=request.fingerprint,
         maxAttempts=args.max_attempts,
+        backend=backend.name,
+        model=backend.model,
     )
 
-    result = run_agent(
-        client=client,
-        system=system,
+    result = backend.run(
+        system_text=system_text,
         user_message=user_message,
         validator=validator,
-        model=args.model,
         max_attempts=args.max_attempts,
         on_progress=_emit_progress,
     )
 
-    response = _agent_result_to_response(request, result, args.model)
+    response = _agent_result_to_response(request, result, backend.model)
     sys.stdout.write(response_to_json(response))
     sys.stdout.write("\n")
     return 0 if result.ok else 1
+
+
+class _BackendBuildError(RuntimeError):
+    """Raised when we can't construct the requested backend (missing
+    optional package, missing required CLI arg, etc.)."""
+
+
+def _build_backend(args: argparse.Namespace, api_key: str) -> Backend:
+    """Construct the backend selected by ``args.backend``.
+
+    Imports SDK packages lazily so a sidecar invocation that uses
+    only one backend doesn't blow up on a missing optional dep.
+    """
+    if args.backend == "anthropic":
+        try:
+            import anthropic  # type: ignore[import-not-found]
+        except ImportError as e:
+            raise _BackendBuildError(
+                "the `anthropic` package is required for --backend anthropic; "
+                "install via `pip install -r requirements-fill-hole.txt`"
+            ) from e
+        from .anthropic_backend import AnthropicBackend
+
+        client = anthropic.Anthropic(api_key=api_key)
+        return AnthropicBackend(client=client, model=args.model)
+
+    if args.backend == "openai-compat":
+        try:
+            import openai  # type: ignore[import-not-found]
+        except ImportError as e:
+            raise _BackendBuildError(
+                "the `openai` package is required for --backend openai-compat; "
+                "install via `pip install -r requirements-fill-hole.txt`"
+            ) from e
+        from .openai_backend import OpenAICompatBackend
+
+        client_kwargs: dict = {"api_key": api_key}
+        if args.base_url:
+            client_kwargs["base_url"] = args.base_url
+        client = openai.OpenAI(**client_kwargs)
+        return OpenAICompatBackend(client=client, model=args.model)
+
+    raise _BackendBuildError(f"unknown backend: {args.backend!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -192,8 +244,28 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="python -m tools.claude_fill_hole",
         description=(
-            "Read a hole-fill request on stdin, drive Claude through "
+            "Read a hole-fill request on stdin, drive a model through "
             "validate_proof, write the validated proof on stdout."
+        ),
+    )
+    p.add_argument(
+        "--backend",
+        choices=_BACKEND_CHOICES,
+        default="anthropic",
+        help=(
+            "model backend (default anthropic). 'openai-compat' works "
+            "with IU REALLMs, real OpenAI, or local Ollama -- pair "
+            "with --base-url and --model."
+        ),
+    )
+    p.add_argument(
+        "--base-url",
+        default=None,
+        help=(
+            "base URL for openai-compat backend "
+            "(e.g. https://reallms.rescloud.iu.edu/direct/v1, "
+            "http://localhost:11434/v1, or omit for real OpenAI). "
+            "Ignored for the anthropic backend."
         ),
     )
     p.add_argument(
@@ -204,8 +276,11 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     )
     p.add_argument(
         "--model",
-        default="claude-opus-4-7",
-        help="Claude model id (default claude-opus-4-7)",
+        default=None,
+        help=(
+            "model id; defaults to claude-opus-4-7 (anthropic) or "
+            "Qwen3-Coder-Next (openai-compat)"
+        ),
     )
     p.add_argument(
         "--deduce-cmd",
@@ -232,9 +307,11 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     )
     p.add_argument(
         "--api-key-env",
-        default="ANTHROPIC_API_KEY",
-        help="environment variable holding the API key "
-        "(default ANTHROPIC_API_KEY)",
+        default=None,
+        help=(
+            "environment variable holding the API key; defaults to "
+            "ANTHROPIC_API_KEY (anthropic) or OPENAI_API_KEY (openai-compat)"
+        ),
     )
     p.add_argument(
         "--dry-run",
@@ -244,7 +321,13 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
             "and report whether the splice/validate pipeline works"
         ),
     )
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    # Apply backend-specific defaults.
+    if args.model is None:
+        args.model = _DEFAULT_MODELS[args.backend]
+    if args.api_key_env is None:
+        args.api_key_env = _DEFAULT_API_KEY_ENVS[args.backend]
+    return args
 
 
 def _resolve_content(request: HoleFillRequest) -> Optional[str]:
