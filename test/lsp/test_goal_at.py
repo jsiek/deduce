@@ -267,3 +267,89 @@ def test_goal_at_cursor_on_hole_matches_synthetic_hole_path() -> None:
     assert g1 is not None and g2 is not None
     assert g1.formula == g2.formula
     assert g1.givens == g2.givens
+
+
+# ---------------------------------------------------------------------------
+# Multi-hole files (issue #337)
+# ---------------------------------------------------------------------------
+#
+# The proof checker raises IncompleteProof at the first `?` it
+# encounters. Without the targeted-hole machinery in lsp/query.py,
+# every cursor position in a multi-hole file would return the goal of
+# the first hole. These tests pin the per-hole behaviour.
+
+
+def test_goal_at_picks_second_of_two_holes_in_one_proof() -> None:
+    """Two `have ... by ?` lines in one proof: cursor on the second `?`
+    returns the second hole's goal, not the first."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  have h1: P by ?\n"
+        "  have h2: Q by ?\n"
+        "  h1, h2\n"
+        "end\n"
+    )
+    # Cursor on the first `?` -> goal is `P`.
+    g_first = goal_at("test.pf", source, Position(line=6, column=17))
+    assert g_first is not None
+    assert g_first.formula == "P"
+    # Cursor on the second `?` -> goal is `Q`, with `h1: P` available
+    # because the checker trusted the first hole.
+    g_second = goal_at("test.pf", source, Position(line=7, column=17))
+    assert g_second is not None
+    assert g_second.formula == "Q"
+    labels = {given.label for given in g_second.givens}
+    assert "h1" in labels, (
+        f"expected h1 in scope at second hole, got givens: {g_second.givens}"
+    )
+
+
+def test_goal_at_picks_hole_in_second_theorem() -> None:
+    """Two theorems each with `?`: cursor on the second theorem's hole
+    returns that theorem's goal, not the first theorem's."""
+    source = (
+        "theorem t1: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem t2: all Q:bool. Q = Q\n"
+        "proof\n"
+        "  arbitrary Q:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    g = goal_at("test.pf", source, Position(line=10, column=3))
+    assert g is not None
+    assert g.formula == "Q = Q"
+
+
+def test_goal_at_synthetic_hole_skips_earlier_existing_hole() -> None:
+    """A `?` already exists earlier in the proof; cursor sits on a
+    blank line later. The synthetic `?` inserted at the cursor must
+    drive the goal report -- the earlier `?` should be skipped."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  have h1: P by ?\n"
+        "  \n"
+        "end\n"
+    )
+    # Cursor on the blank line 7 (no `?` there) -> should report the
+    # local goal at that point, not the first hole's goal `P`.
+    g = goal_at("test.pf", source, Position(line=7, column=3))
+    assert g is not None
+    # The remaining goal after `have h1: P` is the conjunction.
+    assert g.formula == "(P and Q)"
+    labels = {given.label for given in g.givens}
+    assert "h1" in labels, (
+        f"expected h1 in scope at synthetic hole, got givens: {g.givens}"
+    )

@@ -24,7 +24,7 @@
 
 from abstract_syntax import *
 from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error
-from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
+from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location
 
 imported_modules = set()
 checked_modules = set()
@@ -600,13 +600,13 @@ def check_proof(proof, env):
   return ret
 
 def get_type_args(ty):
+  if isinstance(ty, VarRef):
+    return []
   match ty:
-    case OverloadedVar(l1, tyof, rs):
-      return []
     case TypeInst(l1, ty, type_args):
       return type_args
     case _:
-      raise Exception('unhandled case in get_type_args')
+      raise Exception('unhandled case in get_type_args: ' + repr(ty))
 
 label_count = 0
 
@@ -1042,6 +1042,9 @@ def check_proof_of(proof, formula, env):
       # (A = A or A = B) which should have just reduced to A = A
       # but it didn't.
       # new_formula = new_formula.reduce(env)
+      target = get_target_hole_location()
+      if target is not None and (loc.line, loc.column) != target:
+        return
       incomplete_error(loc, 'incomplete proof\n' \
                        + 'Goal:\n\t' + str(new_formula) + '\n'\
                        + proof_advice(new_formula, env) \
@@ -1937,52 +1940,56 @@ def _check_union_arity(head, given, env):
           f"Expected union type '{head}' to have "
           f"{len(type_def.type_params)} type arguments, not {given}")
 
-# well-formed types
-def check_type(typ, env):
+# Validate that ``typ`` is well-formed in ``env`` and return the type
+# with every single-candidate ``OverloadedVar`` narrowed to
+# ``ResolvedVar``. The returned type may share structure with ``typ``
+# when nothing changed; otherwise it's a freshly constructed copy.
+# Callers MUST use the returned value, not the original ``typ`` —
+# the strict post-typecheck invariant rejects single-candidate
+# OverloadedVars, so dropping the return on the floor leaks them.
+#
+# ``arity_required`` is internal: callers that wrap a bare generic union
+# head (TypeInst, GenericUnknownInst) and certain declaration sites (e.g.
+# ``inductive Foo by ...``, which legitimately names a union by its bare
+# name) pass False to suppress the zero-arity error.
+def check_type(typ, env, arity_required=True):
   match typ:
     case OverloadedVar(loc, tyof, rs):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
       if len(rs) > 1:
         error(loc, 'type names may not be overloaded ' + str(typ))
-      _check_union_arity(typ, 0, env)
+      if arity_required:
+        _check_union_arity(typ, 0, env)
+      # len(rs) == 1: this is a non-overloaded type reference. Promote.
+      return ResolvedVar(loc, tyof, rs[0])
     case ResolvedVar(loc, tyof, name):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
-      _check_union_arity(typ, 0, env)
-    case IntType(loc):
-      pass
-    case BoolType(loc):
-      pass
-    case TypeType(loc):
-      pass
+      if arity_required:
+        _check_union_arity(typ, 0, env)
+      return typ
+    case IntType(loc) | BoolType(loc) | TypeType(loc):
+      return typ
     case FunctionType(loc, typarams, param_types, return_type):
-      env = env.declare_type_vars(loc, typarams)
-      for ty in param_types:
-        check_type(ty, env)
-      check_type(return_type, env)
-    case TypeInst(loc, head, arg_types):
-      # Validate the head's arity against arg_types directly rather than
-      # recursing via check_type on the bare head (which would now fire the
-      # arity error). The head must be a VarRef referring to a generic union.
-      if isinstance(head, VarRef):
-        if not env.type_var_is_defined(head):
-          error(head.location, 'undefined type variable ' + str(head))
-        _check_union_arity(head, len(arg_types), env)
-      else:
-        check_type(head, env)
-      for ty in arg_types:
-        check_type(ty, env)
-    case GenericUnknownInst(loc, head):
-      # Internal node wrapping a deliberately-unapplied generic; don't trigger
-      # the arity check on its bare head.
-      if isinstance(head, VarRef):
-        if not env.type_var_is_defined(head):
-          error(head.location, 'undefined type variable ' + str(head))
-      else:
-        check_type(head, env)
+      body_env = env.declare_type_vars(loc, typarams)
+      new_param_types = [check_type(ty, body_env) for ty in param_types]
+      new_return_type = check_type(return_type, body_env)
+      return FunctionType(loc, typarams, new_param_types, new_return_type)
+    case TypeInst(loc, inner_typ, arg_types):
+      # The head is a generic-union reference applied to ``arg_types``;
+      # suppress the bare-head arity check and validate against the
+      # actual arg count instead.
+      new_inner = check_type(inner_typ, env, arity_required=False)
+      if isinstance(new_inner, VarRef):
+        _check_union_arity(new_inner, len(arg_types), env)
+      new_args = [check_type(ty, env) for ty in arg_types]
+      return TypeInst(loc, new_inner, new_args)
+    case GenericUnknownInst(loc, inner_typ):
+      # Internal node deliberately wrapping an unapplied generic union.
+      return GenericUnknownInst(loc, check_type(inner_typ, env, arity_required=False))
     case ArrayType(loc, elt_type):
-      check_type(elt_type, env)
+      return ArrayType(loc, check_type(elt_type, env))
     case _:
       error(typ.location, 'error in check_type: unhandled type ' + repr(typ) + ' ' + str(type(typ)))
 
@@ -2159,8 +2166,8 @@ def type_synth_term(term, env, recfun, subterms):
     case All(loc, _, var, pos, body):
       all_types = None
       x, ty = var
-      check_type(ty, env)
-      if isinstance(ty, TypeType):
+      new_ty = check_type(ty, env)
+      if isinstance(new_ty, TypeType):
         if all_types == None or all_types == True:
           all_types = True
         else:
@@ -2170,18 +2177,16 @@ def type_synth_term(term, env, recfun, subterms):
           all_types = False
         else:
           error(loc, 'cannot mix type and term variables in an all formula')
-      body_env = env.declare_term_vars(loc, [var])
-      new_body = check_formula(body, body_env, recfun, subterms)      
-      ty = BoolType(loc)
-      ret = All(loc, ty, var, pos, new_body)
-  
-    case Some(loc, _, vars, body):
-      for (x,ty) in vars:
-          check_type(ty, env)
-      body_env = env.declare_term_vars(loc, vars)
+      new_var = (x, new_ty)
+      body_env = env.declare_term_vars(loc, [new_var])
       new_body = check_formula(body, body_env, recfun, subterms)
-      ty = BoolType(loc)
-      ret = Some(loc, ty, vars, new_body)
+      ret = All(loc, BoolType(loc), new_var, pos, new_body)
+
+    case Some(loc, _, vars, body):
+      new_vars = [(x, check_type(ty, env)) for (x, ty) in vars]
+      body_env = env.declare_term_vars(loc, new_vars)
+      new_body = check_formula(body, body_env, recfun, subterms)
+      ret = Some(loc, BoolType(loc), new_vars, new_body)
       
     case MakeArray(loc, _, arg):
       lst = type_synth_term(arg, env, recfun, subterms)
@@ -2632,15 +2637,16 @@ def _lookup_param_polarities(head, env):
   return None
 
 def check_strict_positivity(ty, union_name, env, forbidden=False):
+  if isinstance(ty, VarRef):
+    ref_name = ty.get_name()
+    if forbidden and ref_name == union_name:
+      error(ty.location,
+            f"the union '{base_name(union_name)}' must not occur in a "
+            f"negative position (to the left of '->') of its own "
+            f"constructor parameters; this would make the logic "
+            f"inconsistent (Russell's paradox)")
+    return
   match ty:
-    case OverloadedVar(loc, _, rns):
-      ref_name = rns[0]
-      if forbidden and ref_name == union_name:
-        error(loc,
-              f"the union '{base_name(union_name)}' must not occur in a "
-              f"negative position (to the left of '->') of its own "
-              f"constructor parameters; this would make the logic "
-              f"inconsistent (Russell's paradox)")
     case TypeInst(loc, head, type_args):
       check_strict_positivity(head, union_name, env, forbidden)
       head_pols = _lookup_param_polarities(head, env)
@@ -2677,13 +2683,14 @@ def infer_param_polarities(union_decl, env):
   type_param_names = set(union_decl.type_params)
 
   def walk(ty, current):
+    if isinstance(ty, VarRef):
+      ref_name = ty.get_name()
+      if ref_name in type_param_names:
+        idx = union_decl.type_params.index(ref_name)
+        if current == '-':
+          polarities[idx] = '-'
+      return
     match ty:
-      case OverloadedVar(loc, _, rns):
-        ref_name = rns[0]
-        if ref_name in type_param_names:
-          idx = union_decl.type_params.index(ref_name)
-          if current == '-':
-            polarities[idx] = '-'
       case TypeInst(loc, head, type_args):
         walk(head, current)
         head_pols = _lookup_param_polarities(head, env)
@@ -3694,17 +3701,25 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             return_type = TypeInst(loc, body_union_type, tyvars)
           else:
             return_type = body_union_type
+          # Narrow each constructor parameter's type. The check_type
+          # return goes back into the new Constructor so the union's
+          # AST has ResolvedVars in place of single-candidate
+          # OverloadedVars.
+          new_params = []
           for ty in constr.parameters:
-            check_type(ty, body_env)
-            check_strict_positivity(ty, name, body_env)
+            new_ty = check_type(ty, body_env)
+            check_strict_positivity(new_ty, name, body_env)
+            new_params.append(new_ty)
           constr_type = FunctionType(constr.location, typarams,
-                                     constr.parameters, return_type)
+                                     new_params, return_type)
+          new_constr = Constructor(constr.location, constr.name, new_params)
         elif len(typarams) > 0:
           constr_type = GenericUnknownInst(loc, union_type)
+          new_constr = constr
         else:
           constr_type = union_type
+          new_constr = constr
 
-        new_constr = constr
         env = env.declare_term_var(loc, constr.name, constr_type,
                                    visibility=decl.visibility)
         new_alts.append(new_constr)
@@ -3886,14 +3901,11 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
       return stmt, env
     
     case Inductive(loc, typ, name):
-      # `inductive Foo by ...` names a union by its bare name (the
-      # corresponding `case Inductive(...)` in check_proofs enforces this).
-      # Skip the usual `check_type` here so the generic-arity check doesn't
-      # reject `inductive Foo by ...` when Foo is a generic union.
-      if not isinstance(typ, VarRef):
-        error(loc, "Only able to declare uninstantiated union types inductive")
-      if not env.type_var_is_defined(typ):
-        error(typ.location, 'undefined type variable ' + str(typ))
+      # `inductive Foo by ...` names a union by its bare name; suppress
+      # the generic-arity check so `inductive Foo by ...` works when Foo
+      # is a generic union. The `case Inductive(...)` in check_proofs
+      # enforces that ``typ`` is a ``VarRef``.
+      check_type(typ, env, arity_required=False)
       return stmt, env
   
     case _:
@@ -3925,8 +3937,8 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
         new_body = body # already type checked in process_declaration
         new_ty = body.typeof
       else:
-        new_body = type_check_term(body, ty, env, None, [])
-        new_ty = ty
+        new_ty = check_type(ty, env)
+        new_body = type_check_term(body, new_ty, env, None, [])
       return Define(loc, name, new_ty, new_body, visibility=stmt.visibility)
         
     case Theorem(loc, name, frm, pf, isLemma):
@@ -3950,30 +3962,32 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
       new_params = [p.substitute(sub) for p in params]
       new_returns = returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
-      
+
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
       cases_present = {}
       body_env = env.declare_type_vars(loc, typarams)
+      # Narrow params and returns once we have body_env (with the
+      # original typarams in scope, since `params`/`returns` reference
+      # them, not `new_typarams`).
+      checked_params = [check_type(p, body_env) for p in params]
+      checked_returns = check_type(returns, body_env)
       reset_recursive_call_count()
-      new_cases = [type_check_fun_case(c, name, params, returns, body_env,
-                                       cases_present) \
+      new_cases = [type_check_fun_case(c, name, checked_params, checked_returns,
+                                       body_env, cases_present) \
                    for c in cases]
       if get_recursive_call_count() == 0:
           error(loc, name + ' is declared recursive, but does not make any recursive calls.\n' \
                 + 'Use a "fun" statement instead.')
-      
+
       # check for completeness of cases
-      uniondef = lookup_union(params[0].location, params[0], env)
+      uniondef = lookup_union(checked_params[0].location, checked_params[0], env)
       for c in uniondef.alternatives:
         if not c.name in cases_present.keys():
           error(loc, 'missing function case for ' + base_name(c.name))
 
-      new_recfun = RecFun(loc, name, typarams, params, returns, new_cases,
-                          visibility=stmt.visibility)
-      # print('type check stmt:')
-      # print(new_recfun.pretty_print(4))
-      return new_recfun
+      return RecFun(loc, name, typarams, checked_params, checked_returns,
+                    new_cases, visibility=stmt.visibility)
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
@@ -4600,9 +4614,9 @@ def check_deduce(ast, module_name, modified, tracing_functions):
         check_proofs(s, env)
     checked_modules.add(module_name)
   # Sanity-check the post-typecheck AST: every variable reference
-  # should be ResolvedVar (or, if the type-checker punted, a
-  # multi-candidate OverloadedVar). Any pre-uniquify Var or
-  # single-candidate OverloadedVar is a refactor leak.
+  # should be ``ResolvedVar`` (or, if a real overload couldn't be
+  # resolved, a multi-candidate ``OverloadedVar``). Any pre-uniquify
+  # ``Var`` or single-candidate ``OverloadedVar`` is a refactor leak.
   check_post_typecheck_invariants(ast3)
   # Return the post-typecheck AST so callers (lsp.library.check_file,
   # the Deduce-to-C compiler) can read the overload-resolved form.

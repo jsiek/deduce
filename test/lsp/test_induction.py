@@ -258,3 +258,37 @@ def test_returns_none_when_quantifier_is_over_non_union_type() -> None:
         "test.pf", source, Position(line=3, column=3)
     )
     assert edit is None
+
+
+# --------------------------------------------------------------------------
+# Multi-hole files (issue #337)
+# --------------------------------------------------------------------------
+
+
+def test_induction_skeleton_at_picks_second_of_two_holes() -> None:
+    """Two `?`s in one proof: induction_skeleton_at on the second hole
+    picks the goal at THAT hole, not the first hole's goal."""
+    # First hole's goal: ``true``. Second hole's goal: ``all x:N. x = x``,
+    # which the induction template can target. Without per-hole
+    # targeting we'd see ``true`` and refuse to emit a template.
+    source = (
+        "union N {\n"
+        "  z\n"
+        "  s(N)\n"
+        "}\n"
+        "\n"
+        "theorem t: all x:N. x = x\n"
+        "proof\n"
+        "  have triv: true by ?\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = induction_skeleton_at(
+        "test.pf", source, Position(line=9, column=3)
+    )
+    assert edit is not None, (
+        "induction_skeleton_at returned None -- per-hole targeting "
+        "may have failed to reach the second hole"
+    )
+    assert "induction N" in edit.new_text
+    assert edit.range.start == Position(line=9, column=3)
