@@ -20,7 +20,7 @@ emacs (deduce-mode repo)             Deduce repo
         ▼                                       ▼
    deduce/holeContextAt    (NEW)  ──→  lsp/lsp_server.py
    deduce/validateProof    (NEW)  ──→  lsp/query.py
-                                       lsp/library.py:validate_theorem  (NEW)
+                                       lsp/query.py:validate_proof_at  (NEW)
 ```
 
 The sidecar talks to two parties: stdin/stdout with emacs (one-shot request/response) and JSON-RPC with the LSP daemon (for `deduce/validateProof` on each retry). emacs does not proxy validation traffic.
@@ -28,8 +28,8 @@ The sidecar talks to two parties: stdin/stdout with emacs (one-shot request/resp
 ## Components
 
 1. **LSP request `deduce/holeContextAt`** — returns goal, givens, lemmas-in-scope, and a fingerprint for the hole at the cursor. Sibling to the existing `deduce/goalAt`; richer payload, doesn't disturb the stable contract.
-2. **Library hook `validate_theorem`** — revalidates one theorem in a loaded module without re-running the prelude or unrelated declarations. Backed by the incremental proof-checking work being built in a parallel session; falls back to a fresh `check_file` of swapped-in source until incremental lands.
-3. **LSP request `deduce/validateProof`** — wraps `validate_theorem` so the sidecar can call it over JSON-RPC.
+2. **Query function `validate_proof_at`** — splices a candidate proof at a hole range and re-runs the checker, returning `{ok, error}`. v0 calls `check_file` (warm-cheap thanks to the prelude snapshot in `lsp.library`); switches to the in-flight incremental-checking path once that lands. Independently useful: a "check this proof only" command in emacs is a natural future consumer.
+3. **LSP request `deduce/validateProof`** — wraps `validate_proof_at` so the sidecar can call it over JSON-RPC.
 4. **Sidecar** — Python process under `tools/claude-fill-hole/`, plain `anthropic` SDK with a manual tool-use loop. One model-facing tool: `validate_proof(proof_text)`.
 5. **emacs side** — async command in the separate `deduce-mode` repo using `make-process`; marker pair + fingerprint to track holes through async.
 
@@ -50,10 +50,10 @@ The sidecar talks to two parties: stdin/stdout with emacs (one-shot request/resp
 - [ ] **Step 2: `deduce/holeContextAt` LSP request.** Add handler in `lsp/lsp_server.py` mirroring the existing `on_goal_at` (`lsp_server.py:131,437-480`). LSP-shaped (0-indexed) coordinates in/out. Don't modify `deduce/goalAt` — it's stable and used by the existing goal panel.
    - *Acceptance:* 4 cases in `test/lsp/test_lsp_server.py` reusing the `FakeServer` pattern: happy path, no-hole returns null, missing URI returns null, lemma list excluded when `includeLemmas=false`. ~80 LoC.
 
-- [ ] **Step 3: `validate_theorem` library hook.** New entry point in `lsp/library.py`: `validate_theorem(module, theorem_name, replacement_proof_text) -> {ok, error}`. Mutates the named theorem's proof in the loaded module, runs only the proof-checking phase on that one theorem, rolls back on the way out. v0 implementation can fall back to a fresh `check_file` of swapped-in source if the incremental work isn't ready; switch to the cheap path once incremental lands. Independent value beyond hole-fill: a "check this theorem only" command in emacs is a natural consumer.
-   - *Acceptance:* `test/lsp/test_validate_theorem.py` covering: valid replacement returns ok, invalid replacement returns structured error pointing at the theorem, replacement that breaks an unrelated theorem reports the unrelated error (regression check that scope is correct), idempotency (two valid replacements in a row), rollback (a failed replacement leaves the module re-checkable).
+- [x] **Step 3: `validate_proof_at` query function.** Added to `lsp/query.py` (not `lsp/library.py` -- mirrors every other `*_at` query, keeps the LSP adapter uniform). v0 splices `proof_text` into `content` at `hole_range` and re-runs `check_file`; the prelude snapshot in `lsp.library` makes that warm-cheap. The narrower `validate_proof_at` signature replaces the plan's original sketched `validate_theorem(loaded_module, theorem_name, replacement_proof_text)` -- the latter shape was for a future incremental "check one theorem in a loaded module" API and remains a follow-up; for the sidecar's needs, the splice-at-range form matches the LSP request shape (`{textDocument, holeRange, proofText}`) directly.
+   - *Acceptance:* `test/lsp/test_validate_proof.py` (8 cases): valid proof returns ok, invalid proof returns ok=False with the checker's error message, range not on `?` is rejected, range out of bounds is rejected, two valid calls in a row each succeed (idempotency), failed call doesn't break the next valid call (rollback), end-to-end round-trip with `hole_context_at`, splice actually places the proof at the hole (a hypothesis-using proof works only because the splice is at the hole's range).
 
-- [ ] **Step 4: `deduce/validateProof` LSP request.** Wraps `validate_theorem`. Params `{textDocument, holeRange, proofText}`, returns `{ok, error?}`. Server applies the proof to its in-memory copy of the module and returns the result without writing to disk.
+- [ ] **Step 4: `deduce/validateProof` LSP request.** Wraps `validate_proof_at`. Params `{textDocument, holeRange, proofText}`, returns `{ok, error?}`. Server applies the proof to its in-memory copy of the module and returns the result without writing to disk.
    - *Acceptance:* 5 cases in `test/lsp/test_lsp_server.py`: valid proof, invalid proof, unknown URI, range that doesn't enclose a hole, `proofText` empty.
 
 ## Phase 2 — Sidecar
@@ -120,7 +120,7 @@ The sidecar's validator interface is narrow on purpose: `validate(proof_text) ->
 | Backend | When | Cost (warm) | Notes |
 |---|---|---|---|
 | `SubprocessValidator` | No LSP endpoint provided; offline use | ~0.9–1.4s/attempt warm, ~14s cold (no `.thm` cache) | Forks `python deduce.py --quiet` on a tempfile in the user's directory. Subprocess isolation is the security boundary. |
-| `LspValidator` | `lspEndpoint` in stdin payload | bounded by `validate_theorem` cost | Default once Step 4 lands. Drops to near-zero validation time once incremental checking lands on the library side. |
+| `LspValidator` | `lspEndpoint` in stdin payload | bounded by `validate_proof_at` cost | Default once Step 4 lands. Drops to near-zero validation time once incremental checking lands on the library side. |
 
 Default: `LspValidator` when an endpoint is provided, `SubprocessValidator` otherwise.
 
@@ -137,13 +137,13 @@ Default: `LspValidator` when an endpoint is provided, `SubprocessValidator` othe
 
 Three tiers, mirroring the components:
 
-1. **LSP request tests** (Steps 1–4): `test/lsp/test_hole_context.py`, `test/lsp/test_validate_theorem.py`, additions to `test/lsp/test_lsp_server.py`.
+1. **LSP request tests** (Steps 1–4): `test/lsp/test_hole_context.py`, `test/lsp/test_validate_proof.py`, additions to `test/lsp/test_lsp_server.py`.
 2. **Sidecar isolation tests** (Steps 5–6): under `tools/claude-fill-hole/tests/`. Validator tests use real `deduce.py`; agent tests use a fake `anthropic` client. Live-API smoke gated by `RUN_LIVE_TESTS=1`.
 3. **emacs `ert` tests** (Steps 7–8): in the separate `deduce-mode` repo. Mock `make-process`; cover marker behavior, fingerprint mismatch routing, cancellation, concurrent sessions.
 
 ## Cross-cutting notes
 
-- The LSP daemon is now responsible for long-running tasks on behalf of clients (the `validateProof` path can take seconds while the model is between attempts). Step 4's handler should be careful not to block other LSP requests — pygls handles concurrency at the protocol level, but `validate_theorem` itself must be safe to call while a `didChange` is in flight. Probably means a per-document mutex.
+- The LSP daemon is now responsible for long-running tasks on behalf of clients (the `validateProof` path can take seconds while the model is between attempts). Step 4's handler should be careful not to block other LSP requests — pygls handles concurrency at the protocol level, but `validate_proof_at` itself must be safe to call while a `didChange` is in flight. Probably means a per-document mutex.
 - The sidecar duplicates the LSP's prelude-loading cost when running via `SubprocessValidator`, since each `deduce.py --quiet` invocation pays the warm cost. With `LspValidator` this disappears. One more reason `LspValidator` is the default.
 - Adding `tools/` is a small precedent. If a second tool ever shows up (a CLI front end, a different model integration), it goes alongside.
 - Once the incremental proof-checking work is far enough along to expose "revalidate one theorem against the existing env" cleanly, Step 3 should switch from the fallback `check_file`-with-swapped-source implementation to the cheap path. That's a one-PR follow-up, not a redesign.

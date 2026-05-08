@@ -39,6 +39,7 @@ from lsp.query import (  # noqa: E402
     Severity,
     SymbolInfo,
     SymbolKind,
+    ValidationResult,
     WorkspaceEdit,
     case_split_at,
     check,
@@ -51,6 +52,7 @@ from lsp.query import (  # noqa: E402
     list_symbols,
     refine_at,
     splittable_vars_at,
+    validate_proof_at,
 )
 
 
@@ -72,6 +74,7 @@ EXPECTED_PUBLIC = {
     "WorkspaceEdit",
     "LemmaInfo",
     "HoleContext",
+    "ValidationResult",
     "check",
     "goal_at",
     "definition_of",
@@ -85,6 +88,7 @@ EXPECTED_PUBLIC = {
     "fill_from_given_at",
     "matching_givens_at",
     "hole_context_at",
+    "validate_proof_at",
 }
 
 
@@ -115,7 +119,7 @@ def test_no_protocol_imports():
 @pytest.mark.parametrize(
     "cls",
     [Position, Range, Location, Diagnostic, Given, Goal, SymbolInfo,
-     WorkspaceEdit, LemmaInfo, HoleContext],
+     WorkspaceEdit, LemmaInfo, HoleContext, ValidationResult],
 )
 def test_dataclasses_are_frozen(cls):
     """All public data types must be frozen so callers can't mutate
@@ -263,6 +267,14 @@ def test_hole_context_at_include_lemmas_default():
     assert param.default is True
 
 
+def test_validate_proof_at_signature():
+    _check_sig(
+        validate_proof_at,
+        ["path", "content", "hole_range", "proof_text", "prelude"],
+        ValidationResult,
+    )
+
+
 def test_prelude_param_has_default():
     """``prelude`` is optional on every query function so existing
     Step 3-5 callers (which pass ``path`` and ``content`` only)
@@ -271,6 +283,7 @@ def test_prelude_param_has_default():
         check, goal_at, definition_of, list_symbols, refine_at,
         case_split_at, splittable_vars_at, induction_skeleton_at,
         eliminate_at, eliminable_vars_at, hole_context_at,
+        validate_proof_at,
     ):
         prelude_param = inspect.signature(func).parameters["prelude"]
         assert prelude_param.default == (), (

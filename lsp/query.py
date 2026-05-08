@@ -61,6 +61,7 @@ __all__ = [
     "WorkspaceEdit",
     "LemmaInfo",
     "HoleContext",
+    "ValidationResult",
     # Query functions
     "check",
     "goal_at",
@@ -75,6 +76,7 @@ __all__ = [
     "fill_from_given_at",
     "matching_givens_at",
     "hole_context_at",
+    "validate_proof_at",
 ]
 
 
@@ -254,6 +256,25 @@ class HoleContext:
     givens: tuple
     lemmas_in_scope: tuple
     fingerprint: str
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """Outcome of splicing a candidate proof into a hole and rechecking.
+
+    Returned by :func:`validate_proof_at`. ``ok`` is ``True`` iff the
+    spliced source checks. ``error`` carries the checker's message
+    (location + body, the same text ``deduce.py`` would print) on
+    failure; ``None`` when ``ok`` is ``True``.
+
+    Callers that want a structured error -- a location plus the
+    diagnostic body -- should use :func:`check` on the spliced source
+    instead. For the hole-fill sidecar a plain string is enough; the
+    LLM doesn't need a parsed range.
+    """
+
+    ok: bool
+    error: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -2214,3 +2235,64 @@ def _hole_fingerprint(goal_formula: str, givens: tuple) -> str:
     )
     canonical = goal_formula + "\n" + "\n".join(given_lines)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# validate_proof_at -- Phase 5 / Step 3: splice-and-recheck for the sidecar
+# ---------------------------------------------------------------------------
+#
+# The Claude hole-fill sidecar calls this once per proof candidate it
+# generates. v0 just splices and re-runs check_file; the prelude is
+# already cached across calls (lsp.library snapshot machinery), so
+# the warm cost is roughly parse + uniquify + check of the user's
+# file. Once the in-flight incremental-checking work lands, this
+# function is the single call site to swap to the cheap path -- the
+# signature is shaped to survive that change.
+
+
+def validate_proof_at(
+    path: str,
+    content: str,
+    hole_range: Range,
+    proof_text: str,
+    prelude: Sequence[str] = (),
+) -> ValidationResult:
+    """Splice ``proof_text`` into ``content`` at ``hole_range`` and
+    return whether the resulting file checks.
+
+    ``hole_range`` must cover exactly the ``?`` token at the hole;
+    the function rejects any range whose source slice is not the
+    one-character string ``"?"``. That catches stale ranges from
+    async callers (the sidecar's hole moved while Claude was
+    thinking) cleanly, rather than splicing in a random location.
+
+    Returns ``ValidationResult(ok=True)`` on success; on failure,
+    ``ok=False`` with ``error`` set to the checker's message
+    (the same string ``deduce.py`` would print, location prefix
+    included). The sidecar truncates this before sending it back
+    to the model.
+
+    ``prelude`` matches the meaning in :func:`check`.
+    """
+    start_off = _line_col_to_offset(content, hole_range.start)
+    end_off = _line_col_to_offset(content, hole_range.end)
+    if start_off is None or end_off is None:
+        return ValidationResult(
+            ok=False, error="hole range out of bounds for content"
+        )
+    if start_off >= end_off:
+        return ValidationResult(ok=False, error="hole range is empty")
+    if content[start_off:end_off] != "?":
+        return ValidationResult(
+            ok=False,
+            error="hole range does not cover a `?` token",
+        )
+
+    spliced = content[:start_off] + proof_text + content[end_off:]
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=spliced, prelude=prelude)
+    if result.ok:
+        return ValidationResult(ok=True, error=None)
+    return ValidationResult(ok=False, error=result.error_message)
