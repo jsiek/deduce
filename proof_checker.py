@@ -4844,7 +4844,18 @@ def check_deduce(ast, module_name, modified, tracing_functions):
       )
       key = ("check_proofs", sh, deps_fingerprint, target, module_name)
       if needs_checking[0]:
-        if key in _stmt_cache:
+        # ``Print`` and ``Assert`` have observable side effects in
+        # ``check_proofs`` (printing a value, raising on a failed
+        # assertion).  Their cache key is fully determined by the
+        # statement's text and its dependency set, so two identical
+        # ``print zero`` lines hash to the same key -- caching the
+        # verdict would skip the side effect on every duplicate.
+        # Bypass the cache for them; ``check_proofs`` on these is
+        # cheap anyway.
+        if isinstance(s, (Print, Assert)):
+          check_proofs(s, env)
+          _record_miss("check_proofs")
+        elif key in _stmt_cache:
           _record_hit("check_proofs")
         else:
           check_proofs(s, env)
