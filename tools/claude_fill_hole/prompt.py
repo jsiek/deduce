@@ -83,6 +83,12 @@ the complete result.
 Rules:
 - Emit raw Deduce text in ``proof_text``. Do not wrap it in code
   fences. Do not include English commentary in the proof itself.
+- ``proof_text`` is spliced verbatim where the ``?'' was -- emit
+  ONLY the proof body that fills the hole. Do NOT include the
+  surrounding ``theorem``, ``proof``, or ``end`` keywords; those
+  are already in the source.  A trailing ``end'' in your
+  ``proof_text'' will produce a parse error ("expected a
+  statement, not end") because the source already has its own.
 - Keep edits to the hole only. Do not modify anything outside it.
 - Prefer existing givens and the listed lemmas over postulates.
 - If the goal reduces trivially (e.g. ``true``, reflexive
@@ -169,7 +175,12 @@ def build_user_message(
         parts.append("")
 
     if surrounding_excerpt:
-        parts.append("Source around the hole:")
+        parts.append(
+            "Source around the hole (for context only -- "
+            "your proof_text REPLACES the `?', so do NOT echo "
+            "back the surrounding `theorem'/`proof'/`end' "
+            "keywords):"
+        )
         parts.append("```")
         parts.append(surrounding_excerpt)
         parts.append("```")
