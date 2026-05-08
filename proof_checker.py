@@ -1922,6 +1922,21 @@ def check_recursive_call(call, recfun, subterms):
           + " or ".join([base_name(x) for x in subterms]) \
           + ", not " + str(call.args[0]))
 
+# Helper for check_type: a bare reference to a generic union (one with N>0
+# type parameters) is ill-formed. The arity check used to live in a separate
+# `validate_union_type` pass that was only run on union-constructor parameters
+# (issue #257); folding it into `check_type` makes every site that accepts a
+# user-written type — postulate/define/recursive/theorem signatures, etc. —
+# reject `Foo` when it should be `Foo<...>`.
+def _check_union_arity(head, given, env):
+  if not env.type_var_is_defined(head):
+    return
+  type_def = env.get_def_of_type_var(head)
+  if isinstance(type_def, Union) and len(type_def.type_params) != given:
+    error(head.location,
+          f"Expected union type '{head}' to have "
+          f"{len(type_def.type_params)} type arguments, not {given}")
+
 # well-formed types
 def check_type(typ, env):
   match typ:
@@ -1930,9 +1945,11 @@ def check_type(typ, env):
         error(loc, 'undefined type variable ' + str(typ))
       if len(rs) > 1:
         error(loc, 'type names may not be overloaded ' + str(typ))
+      _check_union_arity(typ, 0, env)
     case ResolvedVar(loc, tyof, name):
       if not env.type_var_is_defined(typ):
         error(loc, 'undefined type variable ' + str(typ))
+      _check_union_arity(typ, 0, env)
     case IntType(loc):
       pass
     case BoolType(loc):
@@ -1944,12 +1961,26 @@ def check_type(typ, env):
       for ty in param_types:
         check_type(ty, env)
       check_type(return_type, env)
-    case TypeInst(loc, typ, arg_types):
-      check_type(typ, env)
+    case TypeInst(loc, head, arg_types):
+      # Validate the head's arity against arg_types directly rather than
+      # recursing via check_type on the bare head (which would now fire the
+      # arity error). The head must be a VarRef referring to a generic union.
+      if isinstance(head, VarRef):
+        if not env.type_var_is_defined(head):
+          error(head.location, 'undefined type variable ' + str(head))
+        _check_union_arity(head, len(arg_types), env)
+      else:
+        check_type(head, env)
       for ty in arg_types:
         check_type(ty, env)
-    case GenericUnknownInst(loc, typ):
-      check_type(typ, env)
+    case GenericUnknownInst(loc, head):
+      # Internal node wrapping a deliberately-unapplied generic; don't trigger
+      # the arity check on its bare head.
+      if isinstance(head, VarRef):
+        if not env.type_var_is_defined(head):
+          error(head.location, 'undefined type variable ' + str(head))
+      else:
+        check_type(head, env)
     case ArrayType(loc, elt_type):
       check_type(elt_type, env)
     case _:
@@ -2566,35 +2597,6 @@ def is_modified(filename):
     else:
         return True
           
-def validate_union_type(ty, params, env):
-  if isinstance(ty, VarRef):
-    type_def = env.get_def_of_type_var(ty)
-    if isinstance(type_def, Union):
-      union_params_len = len(type_def.type_params)
-      provided_params_len = len(params)
-      if union_params_len != provided_params_len:
-        error(ty.location, f"Expected union type '{ty}' in constructor parameters " \
-             + f"to have {union_params_len} parameters, not {provided_params_len}")
-    return
-  match ty:
-    case TypeInst(loc, ty, type_args):
-      for t in type_args:
-        validate_union_type(t, [], env)
-      validate_union_type(ty, type_args, env)
-      pass
-    case FunctionType(loc, ty_params, param_types, return_type):
-      for t in param_types:
-        validate_union_type(t, [], env)
-      validate_union_type(return_type, [], env)
-    case IntType():
-      pass
-    case BoolType():
-      pass
-    case ArrayType(loc, elt_ty):
-      validate_union_type(elt_ty, [], env)
-    case _:
-      error(ty.location, f"Unhandled case '{type(ty)}' in 'validate_union_type")
-
 # Strict-positivity check for inductive (union) types.
 #
 # A constructor parameter type is strictly positive in the union being defined
@@ -3694,7 +3696,6 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
             return_type = body_union_type
           for ty in constr.parameters:
             check_type(ty, body_env)
-            validate_union_type(ty, [], body_env)
             check_strict_positivity(ty, name, body_env)
           constr_type = FunctionType(constr.location, typarams,
                                      constr.parameters, return_type)
@@ -3885,7 +3886,14 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
       return stmt, env
     
     case Inductive(loc, typ, name):
-      check_type(typ, env)
+      # `inductive Foo by ...` names a union by its bare name (the
+      # corresponding `case Inductive(...)` in check_proofs enforces this).
+      # Skip the usual `check_type` here so the generic-arity check doesn't
+      # reject `inductive Foo by ...` when Foo is a generic union.
+      if not isinstance(typ, VarRef):
+        error(loc, "Only able to declare uninstantiated union types inductive")
+      if not env.type_var_is_defined(typ):
+        error(typ.location, 'undefined type variable ' + str(typ))
       return stmt, env
   
     case _:
