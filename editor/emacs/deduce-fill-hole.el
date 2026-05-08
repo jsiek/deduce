@@ -320,11 +320,16 @@ default; users can switch to it via `M-x switch-to-buffer'."
 
 
 (defun deduce-fill-hole--cleanup (session)
-  "Clean up SESSION's markers, buffers, and process handle."
-  (when-let ((m (plist-get session :start-marker)))
-    (set-marker m nil))
-  (when-let ((m (plist-get session :end-marker)))
-    (set-marker m nil))
+  "Tear down SESSION's I/O buffers.
+
+Does NOT nil the session's markers.  Markers are read by
+`deduce-fill-hole--splice-proof', which runs after cleanup; if we
+nilled them here, the splice's `(marker-position start-marker)'
+check would always return nil and falsely report `hole moved while
+the model was thinking'.  The markers become unreferenced once the
+session plist is set to nil (in the sentinel) and GC reclaims them
+on its own schedule -- explicit nil-ing is an optimization we
+don't need."
   (when-let ((b (plist-get session :stdout-buffer)))
     (when (buffer-live-p b)
       (kill-buffer b)))
