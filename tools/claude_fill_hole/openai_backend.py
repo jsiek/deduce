@@ -59,6 +59,25 @@ _VALIDATE_TOOL = {
 }
 
 
+# Substrings (lower-cased) that indicate a 400 response is the result
+# of malformed JSON in a tool-call's `arguments` field, which is
+# recoverable -- we can retry with a synthetic correction note.  Seen
+# in production against LiteLLM in front of vLLM serving Qwen3-Coder;
+# see https://github.com/jsiek/deduce/issues/376.
+_RECOVERABLE_BAD_REQUEST_MARKERS = (
+    "json parse",
+    "unterminated string",
+    "invalid arguments",
+    "invalid tool call",
+    "bad json",
+)
+
+_MALFORMED_RETRY_NOTE = (
+    "(previous tool call was rejected for malformed JSON in `arguments`; "
+    "retry with well-formed JSON, e.g. {\"proof_text\": \"...\"})"
+)
+
+
 class OpenAICompatBackend(Backend):
     """Drive a model through the validate_proof loop via an OpenAI client.
 
@@ -122,6 +141,27 @@ class OpenAICompatBackend(Backend):
                     messages=messages,
                 )
             except Exception as exc:
+                if (
+                    _is_recoverable_malformed_args_error(exc)
+                    and attempt < max_attempts
+                ):
+                    _progress(
+                        "malformed_args_recovery",
+                        attempt=attempt,
+                        error=preview(str(exc), 200),
+                    )
+                    history.append(
+                        AttemptRecord(
+                            attempt=attempt,
+                            proof_text="",
+                            outcome=ValidationOutcome(
+                                ok=False,
+                                error=f"server rejected malformed tool-call JSON: {exc}",
+                            ),
+                        )
+                    )
+                    messages = _strip_trailing_turn_with_synthetic_note(messages)
+                    continue
                 elapsed = int((time.monotonic() - started) * 1000)
                 _progress(
                     "finish",
@@ -365,20 +405,78 @@ def _extract_proof_text(args_raw: str) -> Optional[str]:
 
 def _serialize_tool_calls(tool_calls) -> list[dict]:
     """Re-serialise a list of tool_call objects (Pydantic models or dicts)
-    into a plain list of dicts safe to round-trip through the request."""
+    into a plain list of dicts safe to round-trip through the request.
+
+    For ``validate_proof`` calls whose ``arguments`` aren't well-formed
+    JSON containing ``proof_text``, we substitute a placeholder
+    ``{"proof_text": ""}`` -- some servers (LiteLLM-fronted vLLM
+    in particular) re-validate the message transcript on each
+    request and reject malformed bytes from a prior turn.  See
+    https://github.com/jsiek/deduce/issues/376.
+    """
     out: list[dict] = []
     for tc in tool_calls:
+        name = _tool_call_function_name(tc)
+        args_raw = _tool_call_function_arguments(tc)
         out.append(
             {
                 "id": _tool_call_id(tc),
                 "type": "function",
                 "function": {
-                    "name": _tool_call_function_name(tc),
-                    "arguments": _tool_call_function_arguments(tc),
+                    "name": name,
+                    "arguments": _normalize_args_for_request(name, args_raw),
                 },
             }
         )
     return out
+
+
+def _normalize_args_for_request(name: str, args_raw: str) -> str:
+    """Replace malformed/missing ``validate_proof`` arguments with a
+    placeholder so the next request's transcript is well-formed JSON.
+
+    Only touches ``validate_proof`` calls -- unknown tools are passed
+    through unchanged so the loop's existing unknown-tool error
+    response still describes what the model actually did.
+    """
+    if name != VALIDATE_TOOL_NAME:
+        return args_raw
+    if _extract_proof_text(args_raw) is not None:
+        return args_raw
+    return json.dumps({"proof_text": ""})
+
+
+def _is_recoverable_malformed_args_error(exc: BaseException) -> bool:
+    """True if ``exc`` looks like a server-side 400 caused by malformed
+    JSON inside a tool-call's ``arguments`` field.
+
+    Matched by class name (``BadRequestError``) so this module doesn't
+    need to import ``openai`` -- the same check works against the real
+    SDK exception and the test fakes.
+    """
+    if type(exc).__name__ != "BadRequestError":
+        return False
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _RECOVERABLE_BAD_REQUEST_MARKERS)
+
+
+def _strip_trailing_turn_with_synthetic_note(messages: list[dict]) -> list[dict]:
+    """Walk back to the last ``role: assistant`` entry, drop it (and
+    any tool messages that followed it), and replace it with a plain
+    synthetic note pointing the model at what went wrong.
+
+    Used after a recoverable malformed-args 400: the prior turn's
+    tool_calls are what the server choked on, so we can't carry them
+    forward into the next request.
+    """
+    cut = len(messages)
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i].get("role") == "assistant":
+            cut = i
+            break
+    return messages[:cut] + [
+        {"role": "assistant", "content": _MALFORMED_RETRY_NOTE}
+    ]
 
 
 def _attr(obj, name, default=None):

@@ -436,3 +436,327 @@ def test_works_with_dict_shaped_responses():
     )
     assert result.ok is True
     assert result.proof == "reflexive"
+
+
+# ---------------------------------------------------------------------------
+# Defensive recovery for malformed tool-call arguments (issue #376)
+# ---------------------------------------------------------------------------
+
+
+class _CapturingChatCompletions:
+    """Like FakeChatCompletions but records the messages list passed
+    on every call so we can inspect transcript normalisation."""
+
+    def __init__(self, scripted: list[FakeResponse]) -> None:
+        self._scripted = scripted
+        self.calls = 0
+        self.messages_per_call: list[list[dict]] = []
+
+    def create(self, **kwargs):
+        self.messages_per_call.append([dict(m) for m in kwargs["messages"]])
+        if self.calls >= len(self._scripted):
+            raise AssertionError(
+                "fake client: loop made more API calls than scripted"
+            )
+        response = self._scripted[self.calls]
+        self.calls += 1
+        return response
+
+
+class _CapturingClient:
+    def __init__(self, scripted: list[FakeResponse]) -> None:
+        self.chat = type(
+            "FakeChat", (), {"completions": _CapturingChatCompletions(scripted)}
+        )()
+
+
+def test_malformed_args_are_normalized_in_next_request_transcript():
+    """Issue #376: when the model emits tool-call arguments without a
+    valid `proof_text`, the next request's `messages` array must
+    carry placeholder JSON (`{"proof_text": ""}`) rather than the
+    original malformed bytes -- LiteLLM/vLLM in front of Qwen3-Coder
+    re-validates the transcript and rejects malformed arguments with
+    a 400 before the model gets to retry."""
+    malformed_args = '{"proof_text": "unterminated'  # invalid JSON
+    client = _CapturingClient(
+        [
+            FakeResponse(
+                choices=[
+                    FakeChoice(
+                        message=FakeMessage(
+                            role="assistant",
+                            tool_calls=[
+                                FakeToolCall(
+                                    id="call_1",
+                                    function=FakeFunction(
+                                        name="validate_proof",
+                                        arguments=malformed_args,
+                                    ),
+                                )
+                            ],
+                        ),
+                        finish_reason="tool_calls",
+                    )
+                ]
+            ),
+            _response_with_tool_call("reflexive", id_="call_2"),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    result = OpenAICompatBackend(
+        client=client, model="Qwen3-Coder-Next"
+    ).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+    )
+    assert result.ok is True
+    assert result.attempts == 2
+
+    # Inspect the transcript of the second request: the assistant
+    # turn from attempt 1 must have placeholder arguments, NOT the
+    # original malformed bytes.
+    second_request_messages = client.chat.completions.messages_per_call[1]
+    assistant_turns = [
+        m for m in second_request_messages if m.get("role") == "assistant"
+    ]
+    assert len(assistant_turns) >= 1
+    serialized_args = assistant_turns[-1]["tool_calls"][0]["function"]["arguments"]
+    assert serialized_args != malformed_args
+    parsed = json.loads(serialized_args)
+    assert parsed == {"proof_text": ""}
+
+
+def test_well_formed_args_are_passed_through_unchanged():
+    """The normalisation must NOT touch arguments that already parse
+    cleanly with a `proof_text` field -- otherwise the model loses
+    its own context across turns."""
+    good_args = json.dumps({"proof_text": "bad-but-well-formed"})
+    client = _CapturingClient(
+        [
+            FakeResponse(
+                choices=[
+                    FakeChoice(
+                        message=FakeMessage(
+                            role="assistant",
+                            tool_calls=[
+                                FakeToolCall(
+                                    id="call_1",
+                                    function=FakeFunction(
+                                        name="validate_proof",
+                                        arguments=good_args,
+                                    ),
+                                )
+                            ],
+                        ),
+                        finish_reason="tool_calls",
+                    )
+                ]
+            ),
+            _response_with_tool_call("reflexive", id_="call_2"),
+        ]
+    )
+    validator = FakeValidator(
+        [
+            ValidationOutcome(ok=False, error="goal mismatch"),
+            ValidationOutcome(ok=True),
+        ]
+    )
+    OpenAICompatBackend(client=client, model="Qwen3-Coder-Next").run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+    )
+    second_request_messages = client.chat.completions.messages_per_call[1]
+    assistant_turns = [
+        m for m in second_request_messages if m.get("role") == "assistant"
+    ]
+    serialized_args = assistant_turns[-1]["tool_calls"][0]["function"]["arguments"]
+    assert serialized_args == good_args
+
+
+class _FakeBadRequestError(Exception):
+    """Mimics openai.BadRequestError for tests -- the backend matches
+    by class name, not by importing openai, so this works without the
+    real SDK installed."""
+
+
+_FakeBadRequestError.__name__ = "BadRequestError"
+
+
+class _FlakyChatCompletions:
+    """Returns a scripted response, raises on the second call, then
+    returns a scripted response on the third call."""
+
+    def __init__(
+        self,
+        scripted: list[FakeResponse],
+        raise_on_call: int,
+        exception: Exception,
+    ) -> None:
+        self._scripted = scripted
+        self.calls = 0
+        self._raise_on_call = raise_on_call
+        self._exception = exception
+        self.messages_per_call: list[list[dict]] = []
+
+    def create(self, **kwargs):
+        self.messages_per_call.append([dict(m) for m in kwargs["messages"]])
+        self.calls += 1
+        if self.calls == self._raise_on_call:
+            raise self._exception
+        idx = self.calls - 1 if self.calls < self._raise_on_call else self.calls - 2
+        return self._scripted[idx]
+
+
+class _FlakyClient:
+    def __init__(
+        self,
+        scripted: list[FakeResponse],
+        raise_on_call: int,
+        exception: Exception,
+    ) -> None:
+        self.chat = type(
+            "FakeChat",
+            (),
+            {
+                "completions": _FlakyChatCompletions(
+                    scripted, raise_on_call, exception
+                )
+            },
+        )()
+
+
+def test_recoverable_bad_request_continues_loop():
+    """Issue #376: when client.chat.completions.create raises a
+    BadRequestError that mentions malformed JSON in arguments, the
+    loop should record it as a failed attempt, replace the trailing
+    assistant turn with a synthetic note, and try again -- not bail
+    out as a hard error."""
+    exc = _FakeBadRequestError(
+        "Error code: 400 - {'error': {'message': "
+        "'litellm.BadRequestError: Hosted_vllmException - "
+        "{\"error\":{\"message\":\"Unterminated string starting at: "
+        "line 1 column 16 (char 15)\"}}'}}"
+    )
+    client = _FlakyClient(
+        scripted=[
+            _response_with_tool_call("bad1", id_="call_1"),  # call 1
+            _response_with_tool_call("reflexive", id_="call_2"),  # call 3
+        ],
+        raise_on_call=2,
+        exception=exc,
+    )
+    validator = FakeValidator(
+        [
+            ValidationOutcome(ok=False, error="goal mismatch"),
+            ValidationOutcome(ok=True),
+        ]
+    )
+    result = OpenAICompatBackend(
+        client=client, model="Qwen3-Coder-Next"
+    ).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+    )
+    assert result.ok is True
+    assert result.proof == "reflexive"
+    assert client.chat.completions.calls == 3
+
+    # The third request's transcript should have a synthetic
+    # assistant note replacing the prior failed turn -- no
+    # tool_calls in that assistant entry.
+    third_request_messages = client.chat.completions.messages_per_call[2]
+    assistant_turns = [
+        m for m in third_request_messages if m.get("role") == "assistant"
+    ]
+    assert any(
+        "tool_calls" not in m and "malformed" in (m.get("content") or "").lower()
+        for m in assistant_turns
+    )
+
+    # History should record both the malformed-args recovery and the
+    # subsequent successful attempt.
+    assert len(result.history) >= 2
+    recovery_record = next(
+        (h for h in result.history if "server rejected" in (h.outcome.error or "")),
+        None,
+    )
+    assert recovery_record is not None
+
+
+def test_non_recoverable_bad_request_still_returns_hard_error():
+    """A BadRequestError unrelated to malformed arguments (e.g.
+    auth/quota) must NOT be silently retried -- bail out as before."""
+    exc = _FakeBadRequestError("invalid api key")
+
+    class _AlwaysRaise:
+        def __init__(self):
+            self.calls = 0
+            self.messages_per_call = []
+
+        def create(self, **kwargs):
+            self.calls += 1
+            self.messages_per_call.append([dict(m) for m in kwargs["messages"]])
+            raise exc
+
+    raising = _AlwaysRaise()
+    client = type(
+        "FakeClient2",
+        (),
+        {"chat": type("FakeChat2", (), {"completions": raising})()},
+    )()
+    validator = FakeValidator([])
+    result = OpenAICompatBackend(
+        client=client, model="Qwen3-Coder-Next"
+    ).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P",
+        validator=validator,
+        max_attempts=5,
+    )
+    assert result.ok is False
+    assert "invalid api key" in (result.error or "")
+    # Loop should not have looped on this error.
+    assert raising.calls == 1
+
+
+def test_recoverable_bad_request_on_last_attempt_does_not_loop():
+    """If the malformed-args 400 lands on the final attempt of the
+    budget, there's no retry left -- return failure cleanly rather
+    than continuing past max_attempts."""
+    exc = _FakeBadRequestError(
+        "Error code: 400 - litellm.BadRequestError: "
+        "Unterminated string at line 1 column 16"
+    )
+
+    class _RaiseOnce:
+        def __init__(self):
+            self.calls = 0
+
+        def create(self, **kwargs):
+            self.calls += 1
+            raise exc
+
+    raising = _RaiseOnce()
+    client = type(
+        "FakeClient3",
+        (),
+        {"chat": type("FakeChat3", (), {"completions": raising})()},
+    )()
+    validator = FakeValidator([])
+    result = OpenAICompatBackend(
+        client=client, model="Qwen3-Coder-Next"
+    ).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P",
+        validator=validator,
+        max_attempts=1,
+    )
+    assert result.ok is False
+    assert "API call failed" in (result.error or "")
+    assert raising.calls == 1
