@@ -126,35 +126,44 @@ def maybe_pretty_print(o: Optional[str], indent, default='') -> str:
 class UniquifyContext:
   """Mutable state threaded through an ``uniquify_deduce`` call.
 
-  Currently holds a single counter for fresh-name allocation.  Two
-  uniquify runs with the same input AST and a fresh
+  Holds two pieces of state for fresh-name allocation:
+
+  * ``name_id`` -- a counter that increments on every ``generate_name``.
+  * ``scope`` -- a string prepended to the counter when forming the
+    name suffix.  ``uniquify_deduce`` resets ``name_id`` and pushes a
+    per-statement segment onto ``scope`` at each top-level statement,
+    so two top-level statements get *disjoint* suffix spaces and an
+    edit confined to statement N can no longer shift statement N+1's
+    bound-name suffixes.  Without this, Step 14's dependency-aware
+    invalidation never gets to fire -- the structural hash of an
+    unrelated downstream statement would change as a side-effect of
+    counter drift.
+
+  Two uniquify runs with the same input AST and a fresh
   ``UniquifyContext`` each produce byte-equal output -- that's the
   acceptance for Step 12 of ``docs/lsp-plan.md`` and the foundation
   Step 13's caching needs.
-
-  Subsequent Phase-3 steps may extend the context (per-module
-  sub-counters, statement-AST hashes, etc.) without changing the
-  thread-it-explicitly contract.
   """
 
-  def __init__(self, name_id: int = 0):
+  def __init__(self, name_id: int = 0, scope: str = ""):
     self.name_id = name_id
+    self.scope = scope
 
   def snapshot(self) -> "UniquifyContext":
-    """Return a fresh context with the same counter value.
+    """Return a fresh context with the same counter and scope.
 
     Used by the LSP pipeline to fork off a per-user-file context
     from the post-prelude baseline, so each user-file check starts
     from the same counter state and produces reproducible names.
     """
-    return UniquifyContext(name_id=self.name_id)
+    return UniquifyContext(name_id=self.name_id, scope=self.scope)
 
 
 def generate_name(name: str, ctx: UniquifyContext) -> str:
   base = name.split('.')[0]
   new_id = ctx.name_id
   ctx.name_id += 1
-  return base + '.' + str(new_id)
+  return base + '.' + ctx.scope + str(new_id)
 
 
 def base_name(name: str) -> str:
@@ -5377,13 +5386,34 @@ def uniquify_deduce(ast, ctx: UniquifyContext):
   freshly generated user-file names never collide with cached
   prelude names.  Tests typically pass a fresh context for
   reproducibility.
+
+  Each top-level statement gets its own scope segment (``"sN_"``
+  appended to the caller's scope, ``name_id`` reset to ``0``) so
+  edits confined to statement *N* don't perturb the bound-name
+  suffixes in statement *M > N*.  That edit-invariance is what
+  Phase-3 Step 14's dependency-aware cache invalidation relies on
+  -- without it, the structural hash of every downstream statement
+  drifts on every edit and the cache is useless.
   """
   env = {}
   env['≠'] = ['≠']
   env['='] = ['=']
   # Using a space in the name to not collide with deduce identifiers
   env['no overload'] = {}
-  result = [stmt.uniquify(env, ctx) for stmt in ast]
+  outer_scope = ctx.scope
+  outer_name_id = ctx.name_id
+  result = []
+  for i, stmt in enumerate(ast):
+    ctx.scope = outer_scope + 's' + str(i) + '_'
+    ctx.name_id = 0
+    result.append(stmt.uniquify(env, ctx))
+  # Restore the caller's scope/counter -- the per-statement reset is
+  # purely local to this call.  The caller's snapshot (e.g. the LSP
+  # post-prelude baseline) sees the same state it passed in, and a
+  # nested ``uniquify_deduce`` (called from ``Import.uniquify``)
+  # leaves no residue in the surrounding statement's scope.
+  ctx.scope = outer_scope
+  ctx.name_id = outer_name_id
   check_post_uniquify_invariants(result)
   return result
 

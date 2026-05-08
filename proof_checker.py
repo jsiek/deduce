@@ -132,13 +132,90 @@ def _hash_ast(node) -> int:
     return hash(repr(node))
 
 
-def _chain(prev: int, stmt_hash: int) -> int:
-    """Fold a statement's hash into the running chain hash.
+def _collect_referenced_names(node, out=None) -> set:
+    """Walk a statement's post-uniquify AST and gather every uniquified
+    name it references via ``VarRef`` (``Var`` / ``OverloadedVar`` /
+    ``ResolvedVar``) or ``PVar``.
 
-    Stable across runs: same prefix -> same chain -> same key for
-    the next statement.  Uses ``hash()`` for symmetry with the
-    inner ``_hash_ast``."""
-    return hash((prev, stmt_hash))
+    Used by Step 14's dependency-aware invalidation: a statement's
+    cache verdict is keyed on the hashes of the prior statements that
+    introduced any of these names, so editing an unrelated theorem
+    leaves this statement's entry intact.
+
+    Skips ``location`` (irrelevant), ``__hash_cache__`` (memoisation
+    artefact), and ``Import.ast`` (the imported module is checked on
+    its own pass, and we treat ``Import`` as a global barrier in the
+    caller anyway)."""
+    if out is None:
+        out = set()
+    if node is None or isinstance(node, (str, int, bool, float)):
+        return out
+    if isinstance(node, (list, tuple)):
+        for x in node:
+            _collect_referenced_names(x, out)
+        return out
+    if isinstance(node, dict):
+        for v in node.values():
+            _collect_referenced_names(v, out)
+        return out
+    if isinstance(node, VarRef):
+        out.add(node.get_name())
+        return out
+    if isinstance(node, PVar):
+        out.add(node.name)
+        return out
+    if isinstance(node, Import):
+        # Imports are treated as a global barrier by the caller; we
+        # don't want to recurse into the imported module's AST here.
+        return out
+    if hasattr(node, "__dict__"):
+        for k, v in node.__dict__.items():
+            if k in ("location", "__hash_cache__"):
+                continue
+            _collect_referenced_names(v, out)
+    return out
+
+
+def _collect_defined_names(stmt) -> set:
+    """Return the uniquified names a top-level statement introduces.
+
+    Includes the statement's own name plus any auxiliary names it
+    creates (union constructors; ``predicate`` rules and the
+    auto-synthesised ``<pred>_rule_induction`` / ``_rule_inversion``
+    theorems). Statements that don't introduce names (``Assert``,
+    ``Print``, ``Auto``, ``Module``, ``Trace``, ``Import``) return
+    the empty set; ``Import`` and ``Auto`` are handled separately by
+    the caller as global barriers."""
+    names: set = set()
+    name = getattr(stmt, "name", None)
+    if isinstance(name, str):
+        names.add(name)
+    if isinstance(stmt, Union):
+        for con in stmt.alternatives:
+            if isinstance(con.name, str):
+                names.add(con.name)
+    elif isinstance(stmt, Predicate):
+        for rule in stmt.rules:
+            if isinstance(rule.name, str):
+                names.add(rule.name)
+        rule_ind = getattr(stmt, "rule_induction_name", None)
+        if isinstance(rule_ind, str):
+            names.add(rule_ind)
+        rule_inv = getattr(stmt, "rule_inversion_name", None)
+        if isinstance(rule_inv, str):
+            names.add(rule_inv)
+    return names
+
+
+def _is_global_barrier(stmt) -> bool:
+    """Statements with global side-effects on later checking.
+
+    ``Import`` brings a module's exports into the environment;
+    ``Auto`` registers a rewrite rule consulted by every later
+    proof. Conservatively treat both as a barrier: every later
+    statement implicitly depends on them, so editing or removing
+    one invalidates the cache for everything after."""
+    return isinstance(stmt, (Import, Auto))
   
 def check_implies(loc, frm1, frm2):
   if get_verbose():
@@ -4718,23 +4795,54 @@ def check_deduce(ast, module_name, modified, tracing_functions):
   if module_name not in checked_modules:
     if get_verbose() and needs_checking[0]:
         print('checking ' + module_name)
-    # Per-statement cache for ``check_proofs`` (Step 13).  Earlier
-    # loops (``process_declaration``, ``type_check_stmt``) emit AST
-    # nodes whose ``Meta`` locations participate in side-effecting
-    # behaviour (e.g. the ``target_hole_location`` flag used by
-    # ``goal_at`` to single out which `?` raises), so caching their
-    # outputs across calls would let stale locations leak into a new
-    # run.  ``check_proofs`` itself is the bulk of the time and its
-    # only persistent effect is "verified" -- safe to cache.
+    # Per-statement cache for ``check_proofs`` (Steps 13 + 14).
+    # Earlier loops (``process_declaration``, ``type_check_stmt``)
+    # emit AST nodes whose ``Meta`` locations participate in
+    # side-effecting behaviour (e.g. the ``target_hole_location``
+    # flag used by ``goal_at`` to single out which `?` raises), so
+    # caching their outputs across calls would let stale locations
+    # leak into a new run.  ``check_proofs`` itself is the bulk of
+    # the time and its only persistent effect is "verified" -- safe
+    # to cache.
     #
-    # Key includes ``target_hole_location``: a different target means
-    # a `?` that was previously treated as ``sorry`` should now raise
-    # (or vice versa), so we mustn't reuse the prior verdict.
+    # Step 14: the cache key is ``(stmt_hash, deps_fingerprint,
+    # target, module_name)`` where ``deps_fingerprint`` folds in
+    # only the prior statements *this* statement actually references
+    # (plus any global-barrier statements -- ``Import`` / ``Auto``
+    # -- whose effects are observable everywhere downstream).
+    # Editing an unrelated theorem leaves ``deps_fingerprint``
+    # unchanged, so the entry hits.
+    #
+    # ``target`` is in the key so a different ``goal_at`` target
+    # doesn't reuse a verdict made under the previous target (a `?`
+    # that was previously treated as ``sorry`` should now raise, or
+    # vice versa).
     target = get_target_hole_location()
-    proof_chain = hash(("check_proofs_seed", module_name, target))
-    for s, sh in zip(ast3, ast3_hashes):
+    defined_to_idx: dict = {}
+    barrier_idxs: set = set()
+    auto_idxs: list = []
+    stmt_hashes_so_far: list = []
+    for i, (s, sh) in enumerate(zip(ast3, ast3_hashes)):
       env = collect_env(s, env)
-      key = ("check_proofs", sh, proof_chain)
+      referenced = _collect_referenced_names(s)
+      # ``auto`` declarations register theorems as implicit rewrite
+      # rules consulted by every later proof.  A proof can rely on
+      # an auto'd theorem without textually referencing it, so each
+      # prior ``Auto``'s referenced names also contribute to this
+      # statement's dependency set -- editing the auto'd theorem
+      # then invalidates downstream proofs that relied on it
+      # implicitly.
+      for j in auto_idxs:
+        referenced |= _collect_referenced_names(ast3[j])
+      dep_idxs = set(barrier_idxs)
+      for n in referenced:
+        j = defined_to_idx.get(n)
+        if j is not None:
+          dep_idxs.add(j)
+      deps_fingerprint = hash(
+        tuple(stmt_hashes_so_far[j] for j in sorted(dep_idxs))
+      )
+      key = ("check_proofs", sh, deps_fingerprint, target, module_name)
       if needs_checking[0]:
         if key in _stmt_cache:
           _record_hit("check_proofs")
@@ -4742,7 +4850,18 @@ def check_deduce(ast, module_name, modified, tracing_functions):
           check_proofs(s, env)
           _stmt_cache[key] = True
           _record_miss("check_proofs")
-      proof_chain = _chain(proof_chain, sh)
+      # Bookkeeping for the next iteration -- happens regardless of
+      # ``needs_checking`` so the dependency map stays consistent.
+      # ``defined_to_idx`` is updated *after* the dep lookup so a
+      # statement's self-references (e.g. recursive functions) do
+      # not get treated as a self-dependency.
+      if _is_global_barrier(s):
+        barrier_idxs.add(i)
+      if isinstance(s, Auto):
+        auto_idxs.append(i)
+      for n in _collect_defined_names(s):
+        defined_to_idx[n] = i
+      stmt_hashes_so_far.append(sh)
     checked_modules.add(module_name)
   # Sanity-check the post-typecheck AST: every variable reference
   # should be ``ResolvedVar`` (or, if a real overload couldn't be
