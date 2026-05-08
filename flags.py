@@ -119,4 +119,20 @@ def get_check_imports():
 def set_check_imports(b):
   global check_imports
   check_imports = b
-  
+
+# flag for LSP-targeted hole queries: when set to (line, column), the
+# proof checker treats every `?` hole at a different location as a
+# successful proof of its goal, and only raises IncompleteProof at the
+# hole matching this location. None (the default) preserves the
+# raise-on-first-hole behavior used by the CLI.
+
+target_hole_location = None
+
+def get_target_hole_location():
+  global target_hole_location
+  return target_hole_location
+
+def set_target_hole_location(loc):
+  global target_hole_location
+  target_hole_location = loc
+

@@ -396,3 +396,73 @@ def test_splittable_vars_returns_sorted_dedup_names() -> None:
     # Both H (proof var of `P or P`) and x (Union-typed term var)
     # qualify; constructors and `P` (bool) don't.
     assert candidates == ("H", "x")
+
+
+# --------------------------------------------------------------------------
+# Multi-hole files (issue #337)
+# --------------------------------------------------------------------------
+
+
+def test_splittable_vars_at_picks_second_hole_env() -> None:
+    """splittable_vars_at on the second of two holes returns the
+    bindings in scope at THAT hole, including a splittable proof var
+    introduced between the first and second hole."""
+    # Setup: an `Or` hypothesis is introduced *after* the first `?`,
+    # so it's only visible at the second hole. Without per-hole
+    # targeting, both calls would use the env at the first hole and
+    # `h1` would never appear.
+    source = (
+        "theorem t: all P:bool, Q:bool. if P or Q then if P or Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  have h1: P or Q by ?\n"
+        "  assume H2: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    # First hole at line 5 col 22. Only `H` is splittable here.
+    first = splittable_vars_at(
+        "test.pf", source, Position(line=5, column=22)
+    )
+    assert first == ("H",), f"first hole candidates: {first}"
+    # Second hole at line 7 col 3. Now `h1`, `H`, and `H2` are all
+    # in scope and splittable.
+    second = splittable_vars_at(
+        "test.pf", source, Position(line=7, column=3)
+    )
+    assert "h1" in second, (
+        f"expected h1 in scope at second hole, got: {second}"
+    )
+    assert "H2" in second, (
+        f"expected H2 in scope at second hole, got: {second}"
+    )
+
+
+def test_case_split_at_picks_second_of_two_holes() -> None:
+    """case_split_at on the second of two holes splits the env at
+    THAT hole. The split target is a proof variable introduced
+    between the first and second hole, so it would not be visible
+    if the first hole's env were used."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P or Q then if P or Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  have h1: P or Q by ?\n"
+        "  assume H2: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Cursor on the second `?` at line 7 col 3, splitting on `h1`
+    # (introduced at line 5, only visible at the second hole).
+    edit = case_split_at(
+        "test.pf", source, Position(line=7, column=3), "h1"
+    )
+    assert edit is not None, (
+        "case_split_at returned None -- per-hole targeting may have "
+        "failed to reach the second hole"
+    )
+    # Template covers both disjuncts of `P or Q`.
+    assert "case" in edit.new_text
+    assert edit.range.start == Position(line=7, column=3)

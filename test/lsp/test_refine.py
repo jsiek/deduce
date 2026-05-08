@@ -349,3 +349,33 @@ def test_indent_continuation_three_step_refine_stays_at_indent() -> None:
     assert "  assume H1:" in source
     assert "  assume H2: Q" in source
     assert "  assume H3: P" in source
+
+
+# --------------------------------------------------------------------------
+# Multi-hole files (issue #337)
+# --------------------------------------------------------------------------
+
+
+def test_refine_at_picks_second_of_two_holes() -> None:
+    """Two `?`s in one proof: refine_at on the second hole picks the
+    template for that hole's goal, not the first hole's."""
+    # First hole's goal: ``P`` (label ``pP`` proves it).
+    # Second hole's goal: ``(Q and P)`` -- a conjunction, so the
+    # template is ``?, ?``. Without per-hole targeting we'd see the
+    # template for ``P`` (which is a non-conjunctive atom and yields
+    # no template, so refine_at would return None).
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then Q and P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  have h1: P by ?\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Cursor on the second `?` at line 7 col 3.
+    edit = refine_at("test.pf", source, Position(line=7, column=3))
+    assert edit is not None
+    assert edit.new_text == "?, ?"
+    assert edit.range.start == Position(line=7, column=3)
