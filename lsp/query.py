@@ -2157,7 +2157,14 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
       declarations, just pointers).
     - ``get_uniquified_modules()`` -- the post-uniquify ASTs of every
       module imported into the pipeline. We pull from each module
-      named in ``prelude`` so prelude theorems show up in the list.
+      named in ``prelude`` so prelude declarations show up in the
+      list.
+
+    Includes theorems, lemmas, postulates, *and* the function /
+    define / union / predicate declarations the proof might need to
+    name (e.g. so the model knows ``length`` is callable and can
+    ``expand length``).  Excludes ``Auto`` (rewrite rules without a
+    surfaced name) and ``Import`` (not a declaration of its own).
 
     Order is: user-file declarations first (in source order), then
     prelude declarations (grouped by module name in ``prelude`` order,
@@ -2167,8 +2174,6 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
     """
     from abstract_syntax import (
         Import as _ImportNode,
-        Postulate,
-        Theorem,
         get_uniquified_modules,
     )
 
@@ -2190,8 +2195,6 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
             if module_ast is None:
                 continue
             for stmt in module_ast:
-                if not isinstance(stmt, (Theorem, Postulate)):
-                    continue
                 info = _lemma_info_for(stmt)
                 if info is not None:
                     out.append(info)
@@ -2201,8 +2204,22 @@ def _collect_lemmas_in_scope(ast_nodes, prelude: Sequence[str]) -> tuple:
 
 def _lemma_info_for(stmt) -> Optional[LemmaInfo]:
     """Build a :class:`LemmaInfo` from a top-level statement, or
-    ``None`` if the node isn't a theorem/lemma/postulate."""
-    from abstract_syntax import Postulate, Theorem, base_name
+    ``None`` if the node isn't surfaced (``Auto``, ``Import``, etc.).
+
+    Surfaces enough kinds for a proof-fill prompt: theorems and
+    postulates so the model can apply named lemmas, plus functions /
+    defines / unions / predicates so the model can ``expand``,
+    pattern-match constructors, and reference predicate rules.
+    """
+    from abstract_syntax import (
+        Define,
+        Postulate,
+        Predicate,
+        RecFun,
+        Theorem,
+        Union,
+        base_name,
+    )
 
     if isinstance(stmt, Theorem):
         kind = SymbolKind.LEMMA if stmt.isLemma else SymbolKind.THEOREM
@@ -2210,6 +2227,29 @@ def _lemma_info_for(stmt) -> Optional[LemmaInfo]:
     elif isinstance(stmt, Postulate):
         kind = SymbolKind.POSTULATE
         signature = f"{base_name(stmt.name)}: {stmt.what}"
+    elif isinstance(stmt, RecFun):
+        kind = SymbolKind.FUNCTION
+        params = ", ".join(str(p) for p in stmt.params)
+        typarams = (
+            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
+        )
+        signature = (
+            f"{base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
+        )
+    elif isinstance(stmt, Define):
+        kind = SymbolKind.DEFINE
+        ty_text = f": {stmt.typ}" if stmt.typ is not None else ""
+        signature = f"{base_name(stmt.name)}{ty_text}"
+    elif isinstance(stmt, Union):
+        kind = SymbolKind.UNION
+        typarams = (
+            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
+        )
+        ctors = ", ".join(base_name(c.name) for c in stmt.alternatives)
+        signature = f"{base_name(stmt.name)}{typarams} {{ {ctors} }}"
+    elif isinstance(stmt, Predicate):
+        kind = SymbolKind.PREDICATE
+        signature = f"{base_name(stmt.name)}: {stmt.signature}"
     else:
         return None
 
