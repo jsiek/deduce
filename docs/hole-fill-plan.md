@@ -1,8 +1,8 @@
 # Hole-fill plan: Claude proof-completion via emacs + LSP
 
-Tracking issue: TBD. Phase 1 PR: [#357](https://github.com/jsiek/deduce/pull/357).
+Tracking issue: TBD. PR: [#357](https://github.com/jsiek/deduce/pull/357) (Phase 1 + Phase 2).
 
-**Status:** Phase 1 complete (Steps 1–4 done). Phase 2 (sidecar) is next.
+**Status:** Phase 1 + Phase 2 complete (Steps 1–6 done). The sidecar can be exercised standalone: pipe a JSON request to `python -m tools.claude_fill_hole`, get a validated proof on stdout. The emacs binding (Phase 3, separate `deduce-mode` repo) is what's left for the keyboard-shortcut UX.
 
 **Related:** [`lsp-plan.md`](lsp-plan.md) — this feature consumes the LSP server and adds two new requests to it.
 
@@ -60,11 +60,17 @@ The sidecar talks to two parties: stdin/stdout with emacs (one-shot request/resp
 
 Both steps live under `tools/claude-fill-hole/`. Layout: `__main__.py`, `agent.py`, `validator.py`, `prompt.py`, `schema.py`, `README.md`, `tests/`.
 
-- [ ] **Step 5: Sidecar scaffolding + `--dry-run`.** `schema.py`, `validator.py` with two pluggable backends (`SubprocessValidator` calling `python deduce.py --quiet` on a tempfile in the user's directory; `LspValidator` calling `deduce/validateProof`), `__main__.py` argparse + stdin reader. **No model calls yet.** `--dry-run` reads stdin, splices a known stub proof, validates, returns. New `requirements-fill-hole.txt` declares `anthropic>=0.40.0`. The `anthropic` import is isolated to `agent.py` (added in Step 6) so this step's tests don't need the dep.
-   - *Acceptance:* validator tests against real fixtures (known-good proof → ok; known-bad proof → structured error; tempfile cleanup on subprocess error; timeout handling). Schema round-trip tests. `--dry-run` end-to-end test. ~250 LoC.
+- [x] **Steps 5 + 6: Sidecar (scaffolding + model loop in one PR slice).** Original plan split these but they're not separately useful: Step 5 alone with `--dry-run` is testable but doesn't do anything you'd actually want, so the work was bundled to give a runnable artifact. Layout: `tools/claude_fill_hole/{__init__.py, __main__.py, agent.py, prompt.py, schema.py, validator.py, README.md}` plus `requirements-fill-hole.txt` at repo root.
 
-- [ ] **Step 6: Model loop.** `agent.py` runs the manual tool-use loop; `prompt.py` assembles the system prompt with cache control on the cheatsheet blocks. `__main__.py` learns the real flow: read stdin, build prompt, run loop, write stdout, NDJSON progress on stderr. Retry budget (default 5), first-valid-wins. Bounded backoff for API 429s independent of the proof-attempt budget.
-   - *Acceptance:* `test/test_agent.py` with a fake `anthropic` client covering: success on first attempt, retry success, budget exhausted, model emits no tool call → fail, missing API key → exit 2, tool-result truncation. End-to-end smoke (gated by `RUN_LIVE_TESTS=1`) hits a real fixture against the live API. ~300 LoC + ~150 LoC tests.
+   **Naming deviation from plan:** the directory uses underscores (`tools/claude_fill_hole/`) not hyphens, so it's importable as a Python package. `python -m tools.claude_fill_hole` works.
+
+   - `schema.py` — request/response dataclasses with camelCase ↔ snake_case mapping at the JSON boundary so emacs can forward the LSP `holeContextAt` response shape directly.
+   - `validator.py` — `Validator` ABC + `SubprocessValidator` (the v0 backend: fork `deduce.py` on a hidden tempfile in the file's directory). `LspValidator` is a placeholder for when the in-flight incremental-checking work lands.
+   - `prompt.py` — assembles system prompt from `gh_pages/doc/TacticsCheatSheet.md` + `CheatSheet.md` with `cache_control: {type: "ephemeral"}` so the cheatsheet cost is paid once per 5-minute window, not per attempt. Builds the per-request user message (goal + givens + lemmas + ~30-line excerpt around the hole).
+   - `agent.py` — manual tool-use loop. Single tool: `validate_proof(proof_text)`. Uses `claude-opus-4-7`, `thinking={type: "adaptive"}`, `effort: "high"`. First-valid-wins. Duck-typed `client` so tests can inject a fake.
+   - `__main__.py` — CLI: read JSON on stdin, run agent (or `--dry-run`), write JSON on stdout, stream NDJSON progress on stderr.
+   - *Acceptance:* `test/claude_fill_hole/` with 26 passing tests covering schema round-trips, validator against the real `deduce.py` (success / failure / cleanup / idempotency / rollback / oversize cap / missing executable), the agent loop with a fake `anthropic` client (first-attempt success / retry success / budget exhaustion / no-tool-call / malformed input / API failure / progress callback / required request kwargs), and the `__main__` entry point (`--dry-run`, missing/malformed stdin, missing API key, hole-range OOB).
+   - *Manual smoke confirmed:* dry-run pipeline drives `deduce.py --quiet` correctly and returns the structured `incomplete proof` error; `SubprocessValidator.validate("reflexive")` against a `P = P` goal returns `ok=True`.
 
 ### stdin / stdout contract
 
