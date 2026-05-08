@@ -35,9 +35,10 @@
 ;;   M-x imenu                  outline of top-level decls (documentSymbol)
 ;;
 ;; Step 5 adds `C-c C-g' for the custom `deduce/goalAt' request.
-;; Step 6 adds Phase-4 keybindings: `C-c C-r' (refine, LSP Step 15),
-;; `C-c C-c' (case split, LSP Step 16), and `C-c C-i' (induction
-;; skeleton, LSP Step 17) are all live.
+;; Step 6 adds the four Phase-4 keybindings: `C-c C-r' (refine, LSP
+;; Step 15), `C-c C-c' (case split, LSP Step 16), `C-c C-i'
+;; (induction, LSP Step 17), and `C-c C-e' (eliminate / use-fact,
+;; LSP Step 18) -- all live.
 ;;
 ;; Server command
 ;; --------------
@@ -309,7 +310,7 @@ is running in the current buffer."
 ;; Phase-4 structured edits (Step 6)
 ;; ---------------------------------------------------------------------
 ;;
-;; Live bindings (LSP Steps 15-17):
+;; Live bindings (LSP Steps 15-18):
 ;;
 ;;   `C-c C-r'  deduce-lsp-refine-hole  (Step 15)
 ;;     Cursor on a `?'.  Issues `textDocument/codeAction' filtered to
@@ -331,10 +332,17 @@ is running in the current buffer."
 ;;     "Induction".  Same one-keystroke shape as refine -- the goal
 ;;     itself is the only input the operation needs.
 ;;
+;;   `C-c C-e'  deduce-lsp-eliminate    (Step 18)
+;;     Cursor on a `?'.  Issues `deduce/eliminableVarsAt' to fetch
+;;     candidate hypothesis labels, prompts via `completing-read'
+;;     (TAB completion), then issues `deduce/eliminateAt' with the
+;;     chosen label.  Same wire-shape as case split (custom request,
+;;     extra user-supplied label argument) -- their UX is symmetric.
+;;
 ;; Refine and induction use `textDocument/codeAction' because they
-;; take no extra user input.  Case-split takes a user-supplied
-;; variable name, which codeAction can't carry, so it gets a custom
-;; server method.
+;; take no extra user input.  Case-split and eliminate take a
+;; user-supplied identifier, which codeAction can't carry, so they
+;; get custom server methods.
 
 (defun deduce-lsp--lsp-pos-to-point (line character)
   "Convert LSP 0-indexed (LINE, CHARACTER) to a point in the current buffer.
@@ -533,12 +541,67 @@ When no eglot connection is active, prompts the user to run
     (deduce-lsp--apply-code-action action)))
 
 
-;; Bind `C-c C-r' (refine), `C-c C-c' (case split), and `C-c C-i'
-;; (induction) in `deduce-mode-map'.  Same rationale as `C-c C-g':
-;; only meaningful when LSP is loaded.
+(defun deduce-lsp-eliminate (label)
+  "Use the in-scope hypothesis LABEL at the hole at point.
+
+The cursor must sit on (or immediately adjacent to) a `?' token;
+that `?' is the replacement target.  LABEL names an in-scope
+proof binding -- typically a hypothesis introduced by `assume'.
+The template is chosen from the binding's formula shape:
+
+  H: P and Q     -> destructure with `have ... by conjunct N of H'
+  H: P or Q      -> `cases H ...'
+  H: if P then Q -> `have h: Q by apply H to ?'
+  H: all x:T. P  -> `H[?]'
+  H: some x:T. P -> `obtain ... where ... from H'
+  H: e1 = e2     -> `replace H'
+  H: false       -> `H' (discharges any goal)
+
+Interactively, queries the server for the eliminable hypothesis
+labels in scope at the hole (custom request
+`deduce/eliminableVarsAt') and prompts via `completing-read' with
+TAB completion against that list.  When the candidate list is
+empty -- e.g. the cursor isn't on a `?' or no eliminable binding
+is in scope -- errors with `No elimination available at point.'
+
+The chosen label is then sent in a `deduce/eliminateAt' request;
+the returned WorkspaceEdit is applied directly.  Errors out
+without applying when the server returns null."
+  (interactive
+   (let ((server (eglot-current-server)))
+     (unless server
+       (user-error
+        "No eglot server active in this buffer; M-x eglot first"))
+     (let* ((params (deduce-lsp--text-document-position))
+            (candidates (deduce-lsp--request server :deduce/eliminableVarsAt
+                                              params))
+            (candidate-list (if (vectorp candidates)
+                                (append candidates nil)
+                              candidates)))
+       (unless candidate-list
+         (user-error "No elimination available at point"))
+       (list (completing-read "Eliminate on: " candidate-list
+                              nil t)))))
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error
+       "No eglot server active in this buffer; M-x eglot first"))
+    (let* ((params (append (deduce-lsp--text-document-position)
+                           (list :label label)))
+           (edit (deduce-lsp--request server :deduce/eliminateAt params)))
+      (unless edit
+        (user-error
+         "Server returned no edit for elimination on %s" label))
+      (deduce-lsp--apply-workspace-edit edit))))
+
+
+;; Bind `C-c C-r' (refine), `C-c C-c' (case split), `C-c C-i'
+;; (induction), and `C-c C-e' (eliminate) in `deduce-mode-map'.
+;; Same rationale as `C-c C-g': only meaningful when LSP is loaded.
 (define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
 (define-key deduce-mode-map (kbd "C-c C-c") #'deduce-lsp-case-split)
 (define-key deduce-mode-map (kbd "C-c C-i") #'deduce-lsp-induction)
+(define-key deduce-mode-map (kbd "C-c C-e") #'deduce-lsp-eliminate)
 
 
 (provide 'deduce-lsp)

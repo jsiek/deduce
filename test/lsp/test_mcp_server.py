@@ -101,6 +101,8 @@ async def test_all_tools_are_registered(server):
             "case_split_at",
             "splittable_vars_at",
             "induction_skeleton_at",
+            "eliminate_at",
+            "eliminable_vars_at",
         }
 
 
@@ -478,6 +480,56 @@ async def test_induction_skeleton_at_returns_null_for_non_forall(
         {"path": str(fp), "line": 4, "column": 3},
     )
     assert payload is None
+
+
+# --------------------------------------------------------------------------
+# eliminate_at and eliminable_vars_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_eliminate_at_returns_workspace_edit(server, tmp_path):
+    """Cursor on `?` + label='H' (Or-shaped) -> cases skeleton edit."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "eliminate.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "eliminate_at",
+        {"path": str(fp), "line": 5, "column": 3, "label": "H"},
+    )
+    assert payload is not None
+    assert payload["path"] == str(fp)
+    assert "cases H" in payload["new_text"]
+    assert payload["range"]["start"] == {"line": 5, "column": 3}
+    assert payload["range"]["end"] == {"line": 5, "column": 4}
+
+
+@pytest.mark.anyio
+async def test_eliminable_vars_at_returns_candidates(server, tmp_path):
+    src = (
+        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "candidates.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "eliminable_vars_at",
+        {"path": str(fp), "line": 5, "column": 3},
+    )
+    assert "H" in payload
 
 
 # --------------------------------------------------------------------------

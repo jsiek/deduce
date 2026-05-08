@@ -125,6 +125,8 @@ def test_all_expected_features_are_registered():
         lsp_server.GOAL_AT_REQUEST,
         lsp_server.CASE_SPLIT_REQUEST,
         lsp_server.SPLITTABLE_VARS_REQUEST,
+        lsp_server.ELIMINATE_REQUEST,
+        lsp_server.ELIMINABLE_VARS_REQUEST,
     }
     assert expected.issubset(set(fm.features))
 
@@ -814,3 +816,88 @@ def test_case_split_at_returns_null_when_variable_omitted(server, open_doc):
         "position": {"line": 0, "character": 0},
     }
     assert lsp_server.on_case_split_at(server, params) is None
+
+
+# --------------------------------------------------------------------------
+# Custom requests: deduce/eliminableVarsAt and deduce/eliminateAt
+# (Phase 4 / Step 18)
+# --------------------------------------------------------------------------
+
+
+def test_eliminable_vars_at_returns_in_scope_labels(server, open_doc):
+    """Cursor on a `?`; the response lists the eliminable hypothesis
+    labels in scope at that hole."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("eliminable.pf", src)
+    # `?` at line 5 col 3 (1-indexed) -> LSP line 4, char 2.
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 4, "character": 2},
+    }
+    result = lsp_server.on_eliminable_vars_at(server, params)
+    assert "H" in result
+
+
+def test_eliminate_at_returns_workspace_edit_for_or(server, open_doc):
+    """Cursor on `?`, label='H' (Or-shaped) -> WorkspaceEdit with
+    `cases H ...` skeleton."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("eliminate.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 4, "character": 2},
+        "label": "H",
+    }
+    result = lsp_server.on_eliminate_at(server, params)
+    assert result is not None
+    assert "changes" in result
+    edits = result["changes"][uri]
+    assert len(edits) == 1
+    assert "cases H" in edits[0]["newText"]
+    assert "case h1: P" in edits[0]["newText"]
+    assert "case h2: Q" in edits[0]["newText"]
+    assert edits[0]["range"]["start"] == {"line": 4, "character": 2}
+    assert edits[0]["range"]["end"] == {"line": 4, "character": 3}
+
+
+def test_eliminate_at_returns_null_for_unknown_label(server, open_doc):
+    src = (
+        "theorem t: all P:bool, Q:bool. if P or Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    _, uri = open_doc("eliminate_bad.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 4, "character": 2},
+        "label": "no_such_label",
+    }
+    assert lsp_server.on_eliminate_at(server, params) is None
+
+
+def test_eliminate_at_returns_null_when_label_omitted(server, open_doc):
+    """Missing `label` field -> null (defensive)."""
+    src = "x"
+    _, uri = open_doc("noop2.pf", src)
+    params = {
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 0},
+    }
+    assert lsp_server.on_eliminate_at(server, params) is None

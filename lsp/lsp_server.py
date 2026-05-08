@@ -138,6 +138,13 @@ GOAL_AT_REQUEST = "deduce/goalAt"
 CASE_SPLIT_REQUEST = "deduce/caseSplitAt"
 SPLITTABLE_VARS_REQUEST = "deduce/splittableVarsAt"
 
+# Custom requests for Step 18 (eliminate / use-fact).  Same shape as
+# the case-split pair: the editor fetches candidate labels via
+# ``deduce/eliminableVarsAt`` for completion, then issues
+# ``deduce/eliminateAt`` with the user's chosen label.
+ELIMINATE_REQUEST = "deduce/eliminateAt"
+ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
+
 server = LanguageServer(
     SERVER_NAME,
     SERVER_VERSION,
@@ -545,6 +552,96 @@ def on_case_split_at(ls: LanguageServer, params) -> Optional[dict]:
     # Shape-shift to the LSP wire format: an LSP WorkspaceEdit with
     # `changes: {uri: [TextEdit]}`. Mirrors what the codeAction
     # handler emits for refine.
+    return {
+        "changes": {
+            uri: [
+                {
+                    "range": {
+                        "start": {
+                            "line": max(edit.range.start.line - 1, 0),
+                            "character": max(edit.range.start.column - 1, 0),
+                        },
+                        "end": {
+                            "line": max(edit.range.end.line - 1, 0),
+                            "character": max(edit.range.end.column - 1, 0),
+                        },
+                    },
+                    "newText": edit.new_text,
+                }
+            ]
+        }
+    }
+
+
+@server.feature(ELIMINABLE_VARS_REQUEST)
+def on_eliminable_vars_at(ls: LanguageServer, params) -> list[str]:
+    """Custom request: return labels of in-scope hypotheses that
+    ``eliminate`` can target.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}}``.  Editor clients call this to populate
+    completion candidates when prompting for the hypothesis label.
+
+    Result: a list of base names (sorted, deduplicated).  Empty when
+    the cursor isn't on a ``?`` or no eliminable hypothesis is in
+    scope.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    if not uri:
+        return []
+    content = _document_content(ls, uri)
+    if content is None:
+        return []
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    path = _path_from_uri(uri)
+    return list(
+        _query.eliminable_vars_at(path, content, pos, prelude=_prelude_for(path))
+    )
+
+
+@server.feature(ELIMINATE_REQUEST)
+def on_eliminate_at(ls: LanguageServer, params) -> Optional[dict]:
+    """Custom request: return a WorkspaceEdit that uses the named
+    hypothesis at the cursor's hole.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "label": str}``.  The cursor must sit on
+    a ``?``; the ``label`` arg names which in-scope hypothesis to
+    use.
+
+    Result: ``{"changes": {<uri>: [{"range": Range, "newText":
+    str}]}}`` (an LSP-shaped WorkspaceEdit) or ``null`` when the
+    cursor isn't on a hole, the label isn't bound, or its formula's
+    shape isn't in the supported template table (e.g. ``true``).
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    label = _get_field(params, "label")
+    if not uri or not label:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    path = _path_from_uri(uri)
+    edit = _query.eliminate_at(
+        path, content, pos, str(label), prelude=_prelude_for(path)
+    )
+    if edit is None:
+        return None
     return {
         "changes": {
             uri: [
