@@ -1,8 +1,8 @@
 # Hole-fill plan: Claude proof-completion via emacs + LSP
 
-Tracking issue: TBD.
+Tracking issue: TBD. Phase 1 PR: [#357](https://github.com/jsiek/deduce/pull/357).
 
-**Status:** Design complete, no code yet.
+**Status:** Phase 1 complete (Steps 1–4 done). Phase 2 (sidecar) is next.
 
 **Related:** [`lsp-plan.md`](lsp-plan.md) — this feature consumes the LSP server and adds two new requests to it.
 
@@ -53,8 +53,8 @@ The sidecar talks to two parties: stdin/stdout with emacs (one-shot request/resp
 - [x] **Step 3: `validate_proof_at` query function.** Added to `lsp/query.py` (not `lsp/library.py` -- mirrors every other `*_at` query, keeps the LSP adapter uniform). v0 splices `proof_text` into `content` at `hole_range` and re-runs `check_file`; the prelude snapshot in `lsp.library` makes that warm-cheap. The narrower `validate_proof_at` signature replaces the plan's original sketched `validate_theorem(loaded_module, theorem_name, replacement_proof_text)` -- the latter shape was for a future incremental "check one theorem in a loaded module" API and remains a follow-up; for the sidecar's needs, the splice-at-range form matches the LSP request shape (`{textDocument, holeRange, proofText}`) directly.
    - *Acceptance:* `test/lsp/test_validate_proof.py` (8 cases): valid proof returns ok, invalid proof returns ok=False with the checker's error message, range not on `?` is rejected, range out of bounds is rejected, two valid calls in a row each succeed (idempotency), failed call doesn't break the next valid call (rollback), end-to-end round-trip with `hole_context_at`, splice actually places the proof at the hole (a hypothesis-using proof works only because the splice is at the hole's range).
 
-- [ ] **Step 4: `deduce/validateProof` LSP request.** Wraps `validate_proof_at`. Params `{textDocument, holeRange, proofText}`, returns `{ok, error?}`. Server applies the proof to its in-memory copy of the module and returns the result without writing to disk.
-   - *Acceptance:* 5 cases in `test/lsp/test_lsp_server.py`: valid proof, invalid proof, unknown URI, range that doesn't enclose a hole, `proofText` empty.
+- [x] **Step 4: `deduce/validateProof` LSP request.** Wraps `validate_proof_at`. Params `{textDocument, holeRange, proofText}`, returns `{ok, error}`. Server splices the proof into its in-memory copy of the document and returns the result without writing to disk. Always returns a structured outcome (never `null`) so the sidecar has no separate "request failed" path; malformed params surface as `{ok: false, error: ...}`. New `_query_range_from_lsp` helper is the inverse of the existing `_lsp_range_from_query` (0->1 indexed); first request that takes a Range from LSP, so the helper hadn't existed yet.
+   - *Acceptance:* 6 cases in `test/lsp/test_lsp_server.py`: valid proof, invalid proof carries the checker's error, unknown URI returns structured error, range not on a `?` is rejected, empty `proofText` is rejected by the checker (parse error, not a special case in the handler), missing URI returns structured error.
 
 ## Phase 2 — Sidecar
 
