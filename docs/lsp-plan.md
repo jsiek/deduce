@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 2 in progress — Steps 1–9 done.
+**Status:** Phase 1, Phase 2 Step 9, Phase 3 Steps 12–14, and Phase 4 Steps 15–19 are done.  Open: Steps 10 (process-lifecycle hardening) and 11 (multi-error collection).
 
 ## Goals
 
@@ -84,19 +84,21 @@ All new code lives under `lsp/` (subject to rename). Only exception: Step 1's re
 - [ ] **Step 11: Multi-error collection.** Replace `raise` sites in `proof_checker.py` with an error-sink in env. Larger refactor than it looks; defer until actually wanted.
   - *Acceptance:* fixture file with multiple independent errors; all reported.
 
-## Phase 3 — incrementality (optional)
+## Phase 3 — incrementality
 
-Only if 3s/check turns out to be too slow. None of this is needed for a working LSP/MCP.
+Originally framed as optional ("only if 3s/check turns out to be too slow") but landed end-to-end: Step 12 made uniquify deterministic, Step 13 added the per-statement `check_proofs` cache, and Step 14 made invalidation dependency-aware so editing one theorem only re-runs proofs that actually use it.
 
-- [ ] **Step 12: Deterministic `uniquify`.** Lift `name_id` into a context object passed through. Don't make `uniquify` pure yet — just deterministic.
+- [x] **Step 12: Deterministic `uniquify`.** Lift `name_id` into a context object passed through. Don't make `uniquify` pure yet — just deterministic.
   - *Acceptance:* call `uniquify` on the same AST twice, byte-equal output.
+  - *Implementation:* `abstract_syntax.UniquifyContext` holds the counter; `generate_name(name, ctx)` reads the counter from the explicit ctx.  Threaded through every `uniquify(self, env, ctx)` method (98 method defs, ~135 call sites in `abstract_syntax.py`) — no module-level scaffolding, no implicit "active context" pointer, no backwards-compat aliases.  `UniquifyContext.snapshot()` forks an independent counter with the same value, used by `lsp/library.py` to capture the post-prelude baseline once and fork a fresh ctx per `check_file` call so user-file uniquify is byte-stable across calls.  7-case acceptance test in `test/lsp/test_uniquify_determinism.py` (byte-equal output, ctx isolation, snapshot semantics).  CLAUDE.md gained a "Code style" section noting the closed-world / no-backwards-compat policy that drove the refactor.
 
-- [ ] **Step 13: Per-statement env caching.** In `check_deduce`'s three loops, record `(stmt_hash, env_in_hash) → env_out`. Skip cached entries on later runs. No dependency tracking yet.
+- [x] **Step 13: Per-statement env caching.** In `check_deduce`'s three loops, record `(stmt_hash, env_in_hash) → env_out`. Skip cached entries on later runs. No dependency tracking yet.
   - *Acceptance:* edit one statement, recheck; instrumentation confirms untouched statements were cache hits. Sub-second for typical edits.
+  - *Implementation:* cache lives at module scope in `proof_checker.py` (`_stmt_cache`, `_cache_stats`, `reset_stmt_cache`, `get_cache_stats`).  `_hash_ast` is a structural hash that skips the `location` field and memoises the result on each AST node via `__hash_cache__`, so an unchanged statement keeps its hash regardless of where it sits in the file.  Cache scope is just the third of `check_deduce`'s loops (`check_proofs`) — caching loops 1–2 would let `Meta` locations leak across calls and break the `target_hole_location` flag mechanism that `goal_at` / `refine_at` / etc. rely on, surfacing as goal-at-cursor returning `None` when it shouldn't.  The original Step-13 key was `(stmt_hash, chain_hash, target_hole_location, module_name)`; Step 14 replaced `chain_hash` with `deps_fingerprint`.  `lsp/library.py:_clear_containers` resets the cache when the prelude key changes.  Cache stays valid across `check_file` calls within the same prelude.  6-case acceptance test in `test/lsp/test_check_proofs_cache.py` covered all-misses, all-hits, single-stmt edit, comment-only edit, and a stub-instrumented direct check; Step 14 grew it to 9 cases.
 
 - [x] **Step 14: Dependency-aware invalidation.** Walk each statement's post-uniquify AST to collect referenced names; invalidate dependents on edit.
   - *Acceptance:* edit theorem `T1`; assert `T2` (which uses `T1`) is invalidated and rechecked.
-  - *Implementation:* `_collect_referenced_names` walks the post-uniquify AST gathering every `VarRef` / `PVar` name; `_collect_defined_names` returns the names a top-level statement introduces (its own name plus union constructors / predicate rules / synthesised induction lemmas). `check_deduce`'s third loop maintains a `defined_to_idx` map and replaces Step 13's `chain_hash` with `deps_fingerprint = hash(tuple(stmt_hashes_so_far[j] for j in sorted(dep_indices)))` — only the prior statements *this* one references contribute. `Import` and `Auto` are treated as global barriers (every later statement implicitly depends on them) since they have effects observable everywhere downstream. Required a foundational fix in `uniquify_deduce`: each top-level statement now gets its own `s<N>_` scope segment with `name_id` reset, so an edit confined to statement *N* no longer shifts the bound-name suffixes of statement *M > N* — without that, every downstream statement's stmt_hash drifts on every edit and the cache is useless. Acceptance test in `test/lsp/test_check_proofs_cache.py::test_editing_T1_invalidates_T2_that_uses_it`; complement test pins the negative direction (unrelated downstream stays a hit).
+  - *Implementation:* `_collect_referenced_names` walks the post-uniquify AST gathering every `VarRef` / `PVar` name; `_collect_defined_names` returns the names a top-level statement introduces (its own name plus union constructors / predicate rules / synthesised induction lemmas). `check_deduce`'s third loop maintains a `defined_to_idx` map and replaces Step 13's `chain_hash` with `deps_fingerprint = hash(tuple(stmt_hashes_so_far[j] for j in sorted(dep_indices)))` — only the prior statements *this* one references contribute. `Import` and `Auto` are treated as global barriers (every later statement implicitly depends on them) since they have effects observable everywhere downstream. `Auto` additionally propagates its referenced names into every later statement's dependency set, so editing an `auto`'d theorem invalidates downstream proofs that rely on the implicit rewrite without textually mentioning it. Required a foundational fix in `uniquify_deduce`: each top-level statement now gets its own `s<N>_` scope segment with `name_id` reset, so an edit confined to statement *N* no longer shifts the bound-name suffixes of statement *M > N* — without that, every downstream statement's stmt_hash drifts on every edit and the cache is useless. Acceptance test in `test/lsp/test_check_proofs_cache.py::test_editing_T1_invalidates_T2_that_uses_it`; complement test pins the negative direction (unrelated downstream stays a hit), plus an `auto`-aware test for the implicit-dep case. Known limitation tracked in [#368](https://github.com/jsiek/deduce/issues/368): `proof_checker.name_id` is still process-monotonic and can perturb stmt hashes for modules that exercise predicate desugaring / induction translation — fold it into a context object or snapshot it via the LSP state machinery.
 
 ## Phase 4 — Structured proof-editing operations (Agda-like)
 
@@ -108,29 +110,32 @@ The new query-API functions are additive — Step 2's signature lock applies, an
 
 Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *goal* shape — what to construct), Step 18 is **elimination** (template chosen by the *hypothesis* shape — how to use what's in scope). Step 16 (case split on a variable) and Step 17 (induction on the goal) round out the corners that don't fit the introduction/elimination split — they operate on bound names rather than on the proof position.
 
-- [ ] **Step 15: Hole refine.** Given a `?`, propose a refinement template based on the goal shape. The simplest of the three; lays the code-action / WorkspaceEdit plumbing the next two reuse.
+- [x] **Step 15: Hole refine.** Given a `?`, propose a refinement template based on the goal shape. The simplest of the three; lays the code-action / WorkspaceEdit plumbing the next two reuse.
 
   Template selection (reuses the `proof_advice` machinery in `proof_checker.py`):
 
-    - `P and Q` → `?, ?`
+    - `true` → `.`
+    - `P and Q [and R...]` → `?, ?[, ?...]`
     - `if P then Q` → `assume <fresh>: P\n<indent>?`
-    - `all x:T. P` → `arbitrary x: T\n<indent>?`
-    - `some x:T. P` → `choose <fresh>\n<indent>?`
+    - `all x:T. P` → `arbitrary x:T\n<indent>?`
+    - `some x:T. P` → `choose ?\n?`
     - reducible equality `e1 = e2` (where `e1.reduce(env) == e2.reduce(env)`) → `reflexive`
 
   New query API: `refine_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. `WorkspaceEdit` is a new frozen dataclass — `{path, range, new_text}` — added to `lsp/query.py` and to `__all__`. LSP wiring: `lsp_server.py` gains a `textDocument/codeAction` handler that returns a `CodeAction(kind="refactor.rewrite", edit=...)` when the cursor is on a hole. MCP wiring: a new `refine_at` tool in `mcp_server.py`.
 
-  - *Acceptance:* one fixture per shape (5 cases) plus a "no goal at cursor" None case; assert the produced text matches the expected template literally and that re-running `check` on the post-edit content surfaces a fresh hole at the inner `?` (or, for `reflexive`, no hole).
+  - *Acceptance:* one fixture per shape plus a "no goal at cursor" None case; assert the produced text matches the expected template literally and that re-running `check` on the post-edit content surfaces a fresh hole at the inner `?` (or, for `reflexive` / `.`, no hole).
+  - *Implementation:* `lsp/query.py:refine_at` runs `check` on the buffer with the cursor's `?` flagged via `flags.target_hole_location`, catches `IncompleteProof`, dispatches on the goal AST (`Bool(True)`, `And`, `IfThen`, `All`, `Some`, equality where both sides reduce to the same term), and returns a `WorkspaceEdit` whose `range` covers the `?` token. `WorkspaceEdit` is a new frozen dataclass added to `lsp/query.py` and `__all__`. The `make_unique` helper supplies fresh hypothesis labels. LSP code-action handler emits `CodeAction(kind="refactor.rewrite")` only when `refine_at` returns non-None, matching pygls's contract.  MCP gains a `refine_at` tool.  9-case acceptance test in `test/lsp/test_refine.py` covers each goal shape, the no-goal-at-cursor case, indentation preservation, and the inner-hole assertion.
 
-- [ ] **Step 16: Case split.** Given a cursor on a variable inside a hole context, generate the `switch` (term-level union) or `cases` (proof-level disjunction) skeleton. Replaces the surrounding hole with one branch per constructor / disjunct, each containing a fresh `?`.
+- [x] **Step 16: Case split.** Given a cursor on a variable inside a hole context, generate the `switch` (term-level union) or `cases` (proof-level disjunction) skeleton. Replaces the surrounding hole with one branch per constructor / disjunct, each containing a fresh `?`.
 
   Constructor signatures and case labels come from the union declaration's AST (`Union.alternatives`); for proof variables of `or`-type, the cases come from `Or.args`. Variable scope and capture-avoiding renames piggyback on the existing `make_unique` helper.
 
-  New query API: `case_split_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. Same LSP/MCP wiring shape as Step 15.
+  New query API: `case_split_at(path, content, pos, variable, prelude=()) -> Optional[WorkspaceEdit]` plus a companion `splittable_vars_at(path, content, pos, prelude=()) -> tuple` so editor clients can offer completion against in-scope splittable variables before issuing the request.
 
   - *Acceptance:* fixtures for (a) splitting a `Nat` variable, (b) splitting a `List<T>` variable, (c) splitting a custom-union variable with multiple typed parameters, (d) splitting a proof variable of `P or Q`, plus (e) a "cursor not on a variable" None case. Each splitting case asserts: the produced text parses; the case order matches the declaration order; each case body holds a fresh hole; rerunning `check` re-raises an `IncompleteProof` whose location is inside the first case body.
+  - *Implementation:* `lsp/query.py:case_split_at` consumes the proof env that `incomplete_error` stashes on the `IncompleteProof` exception (Step 4 plumbing), looks up the named variable, and emits either a `switch` (term variable whose type resolves to a Union or `TypeInst` of one) or `cases` (proof variable whose formula is `Or`).  Constructor parameter names follow `proof_advice`'s convention (first letter of the type, plus a 1-N suffix when there are multiple args), with per-case scope reset so two cases can both have a `b1`.  The hole's source range is found via a forward text scan from the cursor (Deduce's `?` is a single character).  Custom request `deduce/caseSplitAt` (since `textDocument/codeAction` can't carry the variable name) plus a companion `deduce/splittableVarsAt` for completion.  Matching MCP tools `case_split_at` and `splittable_vars_at`.  Emacs binds `C-c C-c` to a command that prompts for the variable via `completing-read` against `deduce/splittableVarsAt`.  13-case acceptance test in `test/lsp/test_case_split.py`.
 
-- [ ] **Step 17: Induction skeleton.** Given a goal of the form `all x:T. P(x)` (or analogous on inductive predicates) where `T` is a union, generate
+- [x] **Step 17: Induction skeleton.** Given a goal of the form `all x:T. P(x)` (or analogous on inductive predicates) where `T` is a union, generate
 
       induction T
         case Cons1(...) { ? }
@@ -142,8 +147,9 @@ Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *
   New query API: `induction_skeleton_at(path, content, pos, prelude=()) -> Optional[WorkspaceEdit]`. Wired same as the previous two.
 
   - *Acceptance:* fixtures over (a) a `Nat`-quantified theorem (canonical zero/suc cases, IH on suc), (b) a `List<T>`-quantified theorem (empty/node cases, IH on node), and (c) a theorem with a `@induction` custom-induction marker (cases match the conjuncts of the marker). Each asserts: cases appear in declaration order, recursive parameters introduce an `IH<N>` binding, each case body holds a fresh hole.
+  - *Implementation:* `lsp/query.py:induction_skeleton_at` runs `check` with the cursor's `?` flagged, inspects the resulting `IncompleteProof.formula` for an `All` whose body's bound variable resolves to a Union, and emits `induction <T>` followed by one case per constructor in declaration order.  Each constructor parameter that is recursive in `T` gets a sibling `assume IH<N>: <body[var := param]>` binding (substituting the parameter for the inducted variable in the goal).  Same UX shape as `refine_at` -- cursor on `?`, no extra input -- so it shares the `textDocument/codeAction` plumbing and surfaces as the "Induction" action alongside "Refine hole".  Matching MCP tool.  7-case acceptance test in `test/lsp/test_induction.py`.
 
-- [ ] **Step 18: Eliminate / use-fact.** The dual to Step 15. Given a hypothesis label (`H1`, `pP`, etc.) supplied by the user, generate a tactic that *uses* that fact based on its shape — modus ponens on an implication, instantiation on an `all`, case-split on an `or`, replace on an equality, and so on. The cursor's role is just where to insert; the *label* drives template selection.
+- [x] **Step 18: Eliminate / use-fact.** The dual to Step 15. Given a hypothesis label (`H1`, `pP`, etc.) supplied by the user, generate a tactic that *uses* that fact based on its shape — modus ponens on an implication, instantiation on an `all`, case-split on an `or`, replace on an equality, and so on. The cursor's role is just where to insert; the *label* drives template selection.
 
   The shape table mirrors `proof_use_advice` in `proof_checker.py` (Deduce's existing `help <proof>` statement walks the same shapes):
 
@@ -163,10 +169,13 @@ Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *
   Editor UX (`editor/emacs/deduce-lsp.el`, beyond the Step 6 keybindings already documented): bind `C-c C-e` to a command that `read-string`s for the label (with completion against the labels currently in scope, computed from the same `goal_at` env walk that powers `C-c C-g`'s givens panel) and then issues `deduce/eliminateAt`. Pressing RET on the empty input cancels.
 
   - *Acceptance:* fixtures for each shape (and/or/if-then/all/some/equality), keyed by a hypothesis label that the env binds at the cursor. Each asserts: the produced tactic parses; running `check` on the post-edit content surfaces a fresh hole at the inserted `?` (or, for the no-`?` cases like `false`, no hole). Plus boundary cases: a label that isn't in scope at the cursor returns `None`; a label whose formula is `true` returns `None` (or a stub edit with a comment-only template — pick one and pin it); the cursor outside any proof context returns `None`.
+  - *Implementation:* `lsp/query.py:eliminate_at(path, content, pos, label, prelude=())` plus a companion `eliminable_vars_at(path, content, pos, prelude=()) -> tuple` for in-scope label completion.  Templates emitted (mirroring `proof_use_advice` in `proof_checker.py`): `P and Q` → `have h1: P by conjunct 1 of H` / `have h2: Q by conjunct 2 of H` / `?`; `P or Q` → `cases H` skeleton; `if P then Q` → `have h: Q by apply H to ?`; `all x:T. P` → `H[?, ?, ...]` (or `H<?, ?, ...>` for type quantifiers); `some x:T. P` → `obtain x1, ... where h: <body[subst]> from H`; `e1 = e2` → `replace H` skeleton; `false` → bare `H`; `true` → `None` ("the `true` fact is useless").  Custom request `deduce/eliminateAt` (label is user input, can't ride on `textDocument/codeAction`) plus `deduce/eliminableVarsAt` for completion.  Matching MCP tools.  Emacs binds `C-c C-e` to a command that `completing-read`s the label against `deduce/eliminableVarsAt` and issues the request; empty-input cancels.  9-case acceptance test in `test/lsp/test_eliminate.py`.
 
 - [x] **Step 19: Fill hole with a given (issue #353).** A narrower sibling of Step 18: where eliminate picks a template by the *shape* of the chosen hypothesis, fill-from-given picks by formula *equality* — the chosen given's formula must equal the goal, and the replacement is just `conclude <goal> by <label>`. The proof checker already does this matching internally (`proof_advice` in `proof_checker.py` walks `env.dict` for `ProofBinding`s whose formula equals the goal); the LSP just surfaces it as an editor command.
 
   New query API: `fill_from_given_at(path, content, pos, label, prelude=()) -> Optional[WorkspaceEdit]` plus `matching_givens_at(path, content, pos, prelude=()) -> tuple[str, ...]`. Same wire shape as the eliminate pair — custom server methods `deduce/fillFromGivenAt` and `deduce/matchingGivensAt`, matching MCP tools, and an emacs `C-c C-f` binding that auto-applies on a single match (the prompt would just be a confirmation) and prompts via `completing-read` on multiple. Filters to local proof bindings only — theorems are referred to by name directly.
+
+  - *Implementation:* `lsp/query.py:matching_givens_at` walks `IncompleteProof`'s stashed env for `ProofBinding`s whose formula equals the goal and returns the labels in declaration order; `fill_from_given_at` validates that `label` is among them and emits `WorkspaceEdit(... new_text="conclude <goal> by <label>")` covering the `?` token.  Filters out `Theorem`-typed bindings -- those are referred to by name directly, no `conclude … by` wrapping needed.  14-case acceptance test in `test/lsp/test_fill_from_given.py` covering single-match, multi-match completion list, no-match (returns `None`), label-not-in-scope, and the auto-apply / completing-read editor flow.
 
 ## Cross-cutting notes
 
