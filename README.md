@@ -7,6 +7,7 @@ The web page for Deduce is at the following link:
 **[https://jsiek.github.io/deduce/](https://jsiek.github.io/deduce/)**
 
 The directory structure:
+* `/compiler` Deduce-to-C compiler ([user guide](https://jsiek.github.io/deduce/pages/compiler.html))
 * `/docs` Documentation for contributing to Deduce
 * `/gh_pages` Source code for the [Deduce website](https://jsiek.github.io/deduce/)
 * `/lib` Deduce library files. This includes Nat, List, etc.

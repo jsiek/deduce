@@ -11,6 +11,7 @@ This page walks through how to use it.
 * [The CLI flags](#the-cli-flags)
 * [Linking against the runtime](#linking-against-the-runtime)
 * [Programs that use the standard library](#programs-that-use-the-standard-library)
+* [Building larger programs](#building-larger-programs) — per-module compile and the prelude archive
 * [What compiles, what doesn't](#what-compiles-what-doesnt)
 * [Pruning unused definitions](#pruning-unused-definitions)
 * [Allocation tracing](#allocation-tracing)
@@ -58,9 +59,11 @@ Compile-related flags on `python3 deduce.py`:
 
 | Flag | Effect |
 | --- | --- |
-| `--compile` | Compile the `.pf` file to C instead of just checking it. The output goes to a sibling `.c` file by default. |
-| `-o <path>` | Override the output path. Use `-o -` to write to stdout. |
-| `--no-prune` | Skip the dead-code-elimination pass. Useful for debugging emitter issues; otherwise leave it on. |
+| `--compile` | Compile the `.pf` file to a single self-contained `.c` (the prelude and any imports are inlined). Output defaults to a sibling `.c`. |
+| `--compile-module` | Per-module compile: write both `<file>.c` and `<file>.h`. Imports become `#include` lines instead of inlined definitions. See [Building larger programs](#building-larger-programs). |
+| `--no-main` | Pairs with `--compile-module`. Treat this file as a library — skip emitting `deduce_program_main`. The module's `_init` is still emitted. |
+| `-o <path>` | Override the output path. Use `-o -` to write to stdout (`--compile` only — `--compile-module` always writes a sibling `.h` so it needs a real path). |
+| `--no-prune` | Skip the dead-code-elimination pass. Useful for debugging emitter issues; otherwise leave it on. (`--compile-module` already skips pruning — cross-module DCE is the linker's job via `-Wl,--gc-sections`.) |
 | `--no-stdlib` | Don't auto-import the standard library. Useful when your program defines its own primitives, or when you want to keep the generated C as small as possible. |
 | `--suppress-theorems` | Quiet the post-check theorem listing; nice for scripts. |
 | `--quiet` | Suppress informational chatter. |
@@ -129,6 +132,193 @@ other prelude definition.
 If your program defines its own primitives and doesn't need the
 prelude, pass `--no-stdlib` to skip auto-importing. The generated
 output is smaller and the compile is faster.
+
+## Building larger programs
+
+`--compile` produces one big self-contained `.c` per source file.
+That's the simplest path and the right default for short
+programs, but as a project grows you'll want to:
+
+1. compile each `.pf` file into its own `.c` and `.h`, and
+2. link against a pre-built archive of the standard library
+   instead of inlining it into every binary.
+
+Both are supported.
+
+### Per-module compile (`--compile-module`)
+
+`--compile-module` produces a `.c` and `.h` next to each `.pf`,
+each containing only that file's definitions. Imports become
+`#include "<other>.h"` lines and the linker stitches the modules
+together at link time.
+
+A minimal two-file example (no stdlib involved):
+
+```deduce
+// lib.pf
+union MyNat {
+  zero
+  suc(MyNat)
+}
+
+fun two() {
+  suc(suc(zero))
+}
+```
+
+```deduce
+// app.pf
+import lib
+
+print two()
+print suc(two())
+```
+
+```
+$ python3 deduce.py --compile-module --no-main --no-stdlib --dir . lib.pf
+$ python3 deduce.py --compile-module --no-stdlib --dir . app.pf
+$ cc -I . -I compiler/runtime app.c lib.c compiler/runtime/deduce.c -o app
+$ ./app
+suc(suc(zero))
+suc(suc(suc(zero)))
+```
+
+Programs that use the standard library follow the same shape but
+link against the pre-built prelude archive — see the next section.
+
+Two extra flags pair with `--compile-module`:
+
+| Flag | Effect |
+| --- | --- |
+| `--compile-module` | Per-module compile mode. Both `<file>.c` and `<file>.h` are written; imported `.h`s are `#include`d. |
+| `--no-main` | This file is a library, not the entry point. Skip emitting `deduce_program_main` and the `print` body. The module's `_init` function is still emitted so other modules can call it. |
+
+Each module's `<Module>_init()` is **idempotent**: it allocates
+the module's nullary-constructor singletons, runs its
+module-level globals, and recursively initialises its direct
+imports. The main module's `deduce_program_main()` calls its own
+`_init` once at startup. Diamond imports are safe — each module
+inits exactly once regardless of how many transitive paths reach
+it.
+
+Symbols are mangled as `<Module>__<name>_<seq>` where `<seq>` is
+a per-module ordinal computed from the source file. The mangling
+is stable across compilation contexts: a module produces the
+same C symbol names whether it was compiled standalone or
+walked-through-imports as part of another module's compile.
+
+### The prelude as a static archive (`make compile-prelude`)
+
+For larger programs, building the standard library once into a
+static archive saves work on every subsequent build.
+
+```
+$ make compile-prelude
+built compiler/runtime/libdeduce_prelude.a (134064 bytes, 32 modules)
+```
+
+This produces:
+
+- `compiler/runtime/libdeduce_prelude.a` — every prelude module
+  pre-compiled, packaged as an `ar` archive.
+- `compiler/runtime/include/*.h` — the matching headers.
+
+The archive is **reproducible**: a second run produces a
+byte-identical `.a`.
+
+A user program that imports stdlib modules then links against
+the archive instead of inlining the prelude:
+
+```
+$ cat > app.pf <<'PF'
+import Nat
+import UInt
+
+print 0
+print 1 + 2
+print 3 * 4
+PF
+$ python3 deduce.py --compile-module --no-stdlib --dir lib -o app.c app.pf
+$ cc -I compiler/runtime/include -I compiler/runtime \
+     -L compiler/runtime \
+     app.c compiler/runtime/deduce.c -ldeduce_prelude \
+     -o app
+$ ./app
+0
+3
+12
+```
+
+Adding `-ffunction-sections -fdata-sections` to your `cc` flags
+and `-Wl,--gc-sections` (Linux) or `-Wl,-dead_strip` (macOS) to
+the linker lets the toolchain drop archive members your program
+doesn't reference, so the binary stays small.
+
+### A reusable Makefile
+
+Drop this into your project (alongside your `.pf` files) to drive
+the per-module flow. Set `DEDUCE_ROOT` to wherever the Deduce
+checkout lives — it points at `lib/`, `compiler/runtime/`, and
+the prelude archive you built with `make compile-prelude`.
+
+```make
+DEDUCE_ROOT ?= ../deduce
+DEDUCE       = python3 $(DEDUCE_ROOT)/deduce.py
+LIB          = $(DEDUCE_ROOT)/lib
+RUNTIME      = $(DEDUCE_ROOT)/compiler/runtime
+CC           = cc
+CFLAGS       = -I$(RUNTIME)/include -I$(RUNTIME) \
+               -ffunction-sections -fdata-sections
+LDFLAGS      = -L$(RUNTIME) -ldeduce_prelude -Wl,--gc-sections
+# macOS uses -dead_strip instead of --gc-sections:
+#   LDFLAGS = -L$(RUNTIME) -ldeduce_prelude -Wl,-dead_strip
+
+.DEFAULT_GOAL := app
+
+# Library modules: pass --no-main so deduce_program_main isn't
+# emitted. Each rule must explicitly list its .pf so make picks
+# the right --no-main set.
+lib.c lib.h: lib.pf
+	$(DEDUCE) --compile-module --no-main --no-stdlib \
+	          --dir $(LIB) --dir . -o lib.c lib.pf
+
+# Main module: depends on every library .h it imports.
+app.c app.h: app.pf lib.h
+	$(DEDUCE) --compile-module --no-stdlib \
+	          --dir $(LIB) --dir . -o app.c app.pf
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Compile the runtime locally so we don't pollute the Deduce
+# checkout with a .o.
+deduce_runtime.o: $(RUNTIME)/deduce.c
+	$(CC) -I$(RUNTIME) -ffunction-sections -fdata-sections \
+	      -c -o $@ $<
+
+app: app.o lib.o deduce_runtime.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+clean:
+	rm -f *.c *.h *.o app
+```
+
+One-time setup: in the Deduce checkout, run `make compile-prelude`
+(this produces the archive + headers). Then in your project,
+`make` builds and links incrementally — touching `app.pf` only
+recompiles the app, the prelude archive is reused untouched.
+
+### When to use which mode
+
+| You're | Use |
+| --- | --- |
+| Sketching a one-file program | `--compile` (monolithic) |
+| Building a multi-file project | `--compile-module` per file + the Makefile above |
+| Iterating on a single module | `--compile-module` + `make` (incremental) |
+| Shipping a binary | either; `--compile-module` + `--gc-sections` produces smaller binaries |
+
+Both modes produce identical output for the same source — they
+only differ in where the prelude lives at link time.
 
 ## What compiles, what doesn't
 
@@ -274,13 +464,15 @@ These are the rough edges to be aware of:
   Python recursion-depth thing); the compiled binary inherits a
   similar limit from the C stack.
 - **Peano `Nat` is slow** — see above.
-- **One file per compile.** The compiler currently produces a single
-  self-contained `.c` per top-level `.pf`, with the prelude inlined
-  every time. Separate compilation (one `.o` per module) isn't yet
-  supported.
+- **The runtime ABI is unstable.** `compiler/runtime/deduce.h` may
+  change between commits. Rebuild every `.o` and the prelude
+  archive together when you upgrade Deduce — don't carry old
+  objects forward.
 - **Only C output.** The IR is intentionally retargetable, but C is
   the only emitter implemented today. JavaScript and Rust backends
   are planned.
 
 The compile plan in [`docs/compile-plan.md`](../../docs/compile-plan.md)
-tracks the open items.
+tracks the open performance/runtime items, and the separate-compile
+plan in [`docs/separate-compile-plan.md`](../../docs/separate-compile-plan.md)
+covers the per-module / archive workflow described above.
