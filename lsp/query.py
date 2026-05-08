@@ -2228,9 +2228,12 @@ def _lemma_info_for(stmt, public_only: bool = False) -> Optional[LemmaInfo]:
     """
     from abstract_syntax import (
         Auto,
-        Declaration,
+        Define,
         Postulate,
+        Predicate,
+        RecFun,
         Theorem,
+        Union,
         base_name,
     )
 
@@ -2238,42 +2241,45 @@ def _lemma_info_for(stmt, public_only: bool = False) -> Optional[LemmaInfo]:
         if public_only and stmt.isLemma:
             return None
         kind = SymbolKind.LEMMA if stmt.isLemma else SymbolKind.THEOREM
-        signature = f"{base_name(stmt.name)}: {stmt.what}"
+        name = base_name(stmt.name)
+        signature = f"{name}: {stmt.what}"
     elif isinstance(stmt, Postulate):
         kind = SymbolKind.POSTULATE
-        signature = f"{base_name(stmt.name)}: {stmt.what}"
+        name = base_name(stmt.name)
+        signature = f"{name}: {stmt.what}"
     elif isinstance(stmt, Auto):
         kind = SymbolKind.OTHER  # no dedicated SymbolKind value for ``auto``
-        signature = f"auto {stmt.name}"
-    elif isinstance(stmt, Declaration):
+        # ``Auto.name`` is a ``Term`` (typically a ``Var``/``PVar``),
+        # not a string -- ``base_name`` would crash on it.  ``str()``
+        # gives the rendered identifier, which is what
+        # ``print_theorems_statement`` writes to ``.thm`` too.
+        name = str(stmt.name)
+        signature = f"auto {name}"
+    elif isinstance(stmt, (RecFun, Define, Union, Predicate)):
+        # Allowlist of declaration kinds we surface.  ``Import`` is
+        # also a ``Declaration`` subclass but isn't a definition
+        # itself; ``GenRecFun`` is a niche generic-recursion form
+        # that ``print_theorems_statement`` doesn't currently emit.
         if public_only and getattr(stmt, "visibility", "public") == "private":
             return None
-        kind = _declaration_kind(stmt)
+        if isinstance(stmt, RecFun):
+            kind = SymbolKind.FUNCTION
+        elif isinstance(stmt, Define):
+            kind = SymbolKind.DEFINE
+        elif isinstance(stmt, Union):
+            kind = SymbolKind.UNION
+        else:
+            kind = SymbolKind.PREDICATE
+        name = base_name(str(stmt.name)) if getattr(stmt, "name", None) else ""
         signature = stmt.pretty_print(0).rstrip("\n")
     else:
         return None
 
-    name = base_name(stmt.name) if hasattr(stmt, "name") else ""
     return LemmaInfo(
         name=name,
         kind=kind,
         signature=signature,
     )
-
-
-def _declaration_kind(stmt) -> SymbolKind:
-    """Map a non-Theorem/Postulate ``Declaration`` to its SymbolKind."""
-    from abstract_syntax import Define, Predicate, RecFun, Union
-
-    if isinstance(stmt, RecFun):
-        return SymbolKind.FUNCTION
-    if isinstance(stmt, Define):
-        return SymbolKind.DEFINE
-    if isinstance(stmt, Union):
-        return SymbolKind.UNION
-    if isinstance(stmt, Predicate):
-        return SymbolKind.PREDICATE
-    return SymbolKind.OTHER
 
 
 def _hole_fingerprint(goal_formula: str, givens: tuple) -> str:
