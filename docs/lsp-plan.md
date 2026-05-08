@@ -163,6 +163,10 @@ Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *
 
   - *Acceptance:* fixtures for each shape (and/or/if-then/all/some/equality), keyed by a hypothesis label that the env binds at the cursor. Each asserts: the produced tactic parses; running `check` on the post-edit content surfaces a fresh hole at the inserted `?` (or, for the no-`?` cases like `false`, no hole). Plus boundary cases: a label that isn't in scope at the cursor returns `None`; a label whose formula is `true` returns `None` (or a stub edit with a comment-only template — pick one and pin it); the cursor outside any proof context returns `None`.
 
+- [x] **Step 19: Fill hole with a given (issue #353).** A narrower sibling of Step 18: where eliminate picks a template by the *shape* of the chosen hypothesis, fill-from-given picks by formula *equality* — the chosen given's formula must equal the goal, and the replacement is just `conclude <goal> by <label>`. The proof checker already does this matching internally (`proof_advice` in `proof_checker.py` walks `env.dict` for `ProofBinding`s whose formula equals the goal); the LSP just surfaces it as an editor command.
+
+  New query API: `fill_from_given_at(path, content, pos, label, prelude=()) -> Optional[WorkspaceEdit]` plus `matching_givens_at(path, content, pos, prelude=()) -> tuple[str, ...]`. Same wire shape as the eliminate pair — custom server methods `deduce/fillFromGivenAt` and `deduce/matchingGivensAt`, matching MCP tools, and an emacs `C-c C-f` binding that auto-applies on a single match (the prompt would just be a confirmation) and prompts via `completing-read` on multiple. Filters to local proof bindings only — theorems are referred to by name directly.
+
 ## Cross-cutting notes
 
 - Add `lsp/` to the `make tests` target as a separate phase, otherwise it'll bitrot.

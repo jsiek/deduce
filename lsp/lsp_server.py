@@ -145,6 +145,13 @@ SPLITTABLE_VARS_REQUEST = "deduce/splittableVarsAt"
 ELIMINATE_REQUEST = "deduce/eliminateAt"
 ELIMINABLE_VARS_REQUEST = "deduce/eliminableVarsAt"
 
+# Custom requests for issue #353 (fill hole with a given).  Same shape
+# as the eliminate pair: the editor fetches matching-given labels via
+# ``deduce/matchingGivensAt`` for completion, then issues
+# ``deduce/fillFromGivenAt`` with the user's chosen label.
+FILL_FROM_GIVEN_REQUEST = "deduce/fillFromGivenAt"
+MATCHING_GIVENS_REQUEST = "deduce/matchingGivensAt"
+
 server = LanguageServer(
     SERVER_NAME,
     SERVER_VERSION,
@@ -638,6 +645,95 @@ def on_eliminate_at(ls: LanguageServer, params) -> Optional[dict]:
     )
     path = _path_from_uri(uri)
     edit = _query.eliminate_at(
+        path, content, pos, str(label), prelude=_prelude_for(path)
+    )
+    if edit is None:
+        return None
+    return {
+        "changes": {
+            uri: [
+                {
+                    "range": {
+                        "start": {
+                            "line": max(edit.range.start.line - 1, 0),
+                            "character": max(edit.range.start.column - 1, 0),
+                        },
+                        "end": {
+                            "line": max(edit.range.end.line - 1, 0),
+                            "character": max(edit.range.end.column - 1, 0),
+                        },
+                    },
+                    "newText": edit.new_text,
+                }
+            ]
+        }
+    }
+
+
+@server.feature(MATCHING_GIVENS_REQUEST)
+def on_matching_givens_at(ls: LanguageServer, params) -> list[str]:
+    """Custom request: return labels of in-scope local proof
+    bindings whose formula equals the goal at the cursor's hole.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}}``.  Editor clients call this to populate
+    completion candidates when prompting for the hypothesis label.
+
+    Result: a list of base names (sorted, deduplicated).  Empty when
+    the cursor isn't on a ``?`` or no local binding matches the goal.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    if not uri:
+        return []
+    content = _document_content(ls, uri)
+    if content is None:
+        return []
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    path = _path_from_uri(uri)
+    return list(
+        _query.matching_givens_at(path, content, pos, prelude=_prelude_for(path))
+    )
+
+
+@server.feature(FILL_FROM_GIVEN_REQUEST)
+def on_fill_from_given_at(ls: LanguageServer, params) -> Optional[dict]:
+    """Custom request: return a WorkspaceEdit that fills the cursor's
+    hole with ``conclude <goal> by <label>``.
+
+    Params: ``{"textDocument": {"uri": "..."}, "position": {"line":
+    int, "character": int}, "label": str}``.  The cursor must sit on
+    a ``?``; the ``label`` arg names which in-scope local hypothesis
+    to use.
+
+    Result: ``{"changes": {<uri>: [{"range": Range, "newText":
+    str}]}}`` (an LSP-shaped WorkspaceEdit) or ``null`` when the
+    cursor isn't on a hole, the label isn't bound, or the bound
+    formula doesn't match the goal.
+    """
+    text_doc = _get_field(params, "textDocument")
+    pos_obj = _get_field(params, "position")
+    uri = _get_field(text_doc, "uri")
+    label = _get_field(params, "label")
+    if not uri or not label:
+        return None
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    pos = _query_pos_from_lsp(
+        lsp_types.Position(
+            line=int(_get_field(pos_obj, "line") or 0),
+            character=int(_get_field(pos_obj, "character") or 0),
+        )
+    )
+    path = _path_from_uri(uri)
+    edit = _query.fill_from_given_at(
         path, content, pos, str(label), prelude=_prelude_for(path)
     )
     if edit is None:

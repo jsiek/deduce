@@ -339,6 +339,15 @@ is running in the current buffer."
 ;;     chosen label.  Same wire-shape as case split (custom request,
 ;;     extra user-supplied label argument) -- their UX is symmetric.
 ;;
+;;   `C-c C-f'  deduce-lsp-fill-from-given  (issue #353)
+;;     Cursor on a `?'.  Issues `deduce/matchingGivensAt' to fetch
+;;     labels of in-scope givens whose formula equals the goal.
+;;     With a single match, applies it directly (no prompt -- the
+;;     prompt would just be a confirmation since there's only one
+;;     answer).  With multiple matches, prompts via `completing-
+;;     read'.  Issues `deduce/fillFromGivenAt' with the chosen
+;;     label and replaces the `?' with `conclude <goal> by <label>'.
+;;
 ;; Refine and induction use `textDocument/codeAction' because they
 ;; take no extra user input.  Case-split and eliminate take a
 ;; user-supplied identifier, which codeAction can't carry, so they
@@ -595,13 +604,65 @@ without applying when the server returns null."
       (deduce-lsp--apply-workspace-edit edit))))
 
 
+(defun deduce-lsp-fill-from-given (label)
+  "Fill the hole at point with `conclude <goal> by LABEL'.
+
+The cursor must sit on (or immediately adjacent to) a `?' token;
+that `?' is the replacement target.  LABEL names an in-scope local
+proof binding whose formula equals the goal at the hole.
+
+Interactively, queries the server for the matching given labels in
+scope at the hole (custom request `deduce/matchingGivensAt') and:
+
+  - errors with `No matching given at point.' when the candidate
+    list is empty;
+  - applies the single match directly when exactly one given
+    matches (the prompt would just be a confirmation);
+  - prompts via `completing-read' with TAB completion when multiple
+    givens match.
+
+The chosen label is then sent in a `deduce/fillFromGivenAt'
+request; the returned WorkspaceEdit is applied directly.  Errors
+out without applying when the server returns null."
+  (interactive
+   (let ((server (eglot-current-server)))
+     (unless server
+       (user-error
+        "No eglot server active in this buffer; M-x eglot first"))
+     (let* ((params (deduce-lsp--text-document-position))
+            (candidates (deduce-lsp--request server :deduce/matchingGivensAt
+                                              params))
+            (candidate-list (if (vectorp candidates)
+                                (append candidates nil)
+                              candidates)))
+       (unless candidate-list
+         (user-error "No matching given at point"))
+       (list (if (= (length candidate-list) 1)
+                 (car candidate-list)
+               (completing-read "Fill from given: " candidate-list
+                                nil t))))))
+  (let ((server (eglot-current-server)))
+    (unless server
+      (user-error
+       "No eglot server active in this buffer; M-x eglot first"))
+    (let* ((params (append (deduce-lsp--text-document-position)
+                           (list :label label)))
+           (edit (deduce-lsp--request server :deduce/fillFromGivenAt params)))
+      (unless edit
+        (user-error
+         "Server returned no edit for fill-from-given on %s" label))
+      (deduce-lsp--apply-workspace-edit edit))))
+
+
 ;; Bind `C-c C-r' (refine), `C-c C-c' (case split), `C-c C-i'
-;; (induction), and `C-c C-e' (eliminate) in `deduce-mode-map'.
-;; Same rationale as `C-c C-g': only meaningful when LSP is loaded.
+;; (induction), `C-c C-e' (eliminate), and `C-c C-f' (fill from
+;; given) in `deduce-mode-map'.  Same rationale as `C-c C-g': only
+;; meaningful when LSP is loaded.
 (define-key deduce-mode-map (kbd "C-c C-r") #'deduce-lsp-refine-hole)
 (define-key deduce-mode-map (kbd "C-c C-c") #'deduce-lsp-case-split)
 (define-key deduce-mode-map (kbd "C-c C-i") #'deduce-lsp-induction)
 (define-key deduce-mode-map (kbd "C-c C-e") #'deduce-lsp-eliminate)
+(define-key deduce-mode-map (kbd "C-c C-f") #'deduce-lsp-fill-from-given)
 
 
 (provide 'deduce-lsp)

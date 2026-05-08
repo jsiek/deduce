@@ -1,0 +1,297 @@
+"""Acceptance tests for ``lsp.query.fill_from_given_at`` and
+``lsp.query.matching_givens_at`` (issue #353).
+
+UX shape: cursor on a ``?`` plus an explicit ``label`` argument
+naming the in-scope local hypothesis whose formula equals the goal.
+Same shape as Step 18 (eliminate) -- editor clients fetch candidate
+labels via ``matching_givens_at`` and prompt with ``completing-read``
+before issuing ``fill_from_given_at``.
+
+Coverage:
+
+(a) goal matches a unique given -> ``conclude <goal> by <label>``;
+(b) goal matches multiple givens -> all labels listed; either works;
+(c) goal matches no given -> empty list, ``None`` edit;
+(d) cursor not on ``?`` -> empty list, ``None`` edit;
+(e) label not in scope -> ``None``;
+(f) label is a term variable (not a proof binding) -> ``None``;
+(g) label is a theorem (not a local binding) -> ``None``.
+
+All fixtures stay inside ``bool``-only territory so the tests run
+without the standard library prelude.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+from lsp.query import (  # noqa: E402
+    Position,
+    Range,
+    WorkspaceEdit,
+    fill_from_given_at,
+    matching_givens_at,
+)
+
+
+# --------------------------------------------------------------------------
+# fill_from_given_at
+# --------------------------------------------------------------------------
+
+
+def test_fill_from_given_at_single_match() -> None:
+    """Goal ``P or Q`` with given ``H: P or Q`` -> conclude by H."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P or Q then P or Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=5, column=3), "H"
+    )
+    assert edit is not None
+    assert isinstance(edit, WorkspaceEdit)
+    assert edit.path == "test.pf"
+    assert edit.range == Range(
+        start=Position(line=5, column=3),
+        end=Position(line=5, column=4),
+    )
+    assert edit.new_text == "conclude (P or Q) by H"
+
+
+def test_fill_from_given_at_atomic_goal() -> None:
+    """Atomic-formula match: goal ``P`` with given ``pP: P``."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume pP: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=5, column=3), "pP"
+    )
+    assert edit is not None
+    assert edit.new_text == "conclude P by pP"
+
+
+def test_fill_from_given_at_picks_either_match() -> None:
+    """Two matching givens: caller-chosen label both work."""
+    source = (
+        "theorem t: all P:bool. if P then if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H1: P\n"
+        "  assume H2: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    for label in ("H1", "H2"):
+        edit = fill_from_given_at(
+            "test.pf", source, Position(line=6, column=3), label
+        )
+        assert edit is not None, f"label {label} produced no edit"
+        assert edit.new_text == f"conclude P by {label}"
+
+
+def test_fill_from_given_at_returns_none_when_no_match() -> None:
+    """Goal ``P or Q`` with given ``H: P`` (different formula)."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then P or Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=5, column=3), "H"
+    )
+    assert edit is None
+
+
+def test_fill_from_given_at_returns_none_off_hole() -> None:
+    """Cursor not on a ``?`` -> no replacement target."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Cursor on `assume` keyword, line 4 col 3.
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=4, column=3), "H"
+    )
+    assert edit is None
+
+
+def test_fill_from_given_at_returns_none_for_unknown_label() -> None:
+    """Label doesn't match any in-scope binding."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=5, column=3), "nope"
+    )
+    assert edit is None
+
+
+def test_fill_from_given_at_returns_none_for_term_variable() -> None:
+    """Label refers to a term variable (`P:bool'), not a proof
+    binding -- defensively returns None even though the formula
+    doesn't make sense to compare."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume pP: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=5, column=3), "P"
+    )
+    assert edit is None
+
+
+def test_fill_from_given_at_returns_none_for_non_local_binding() -> None:
+    """A theorem in scope is a non-local proof binding -- excluded
+    from the matching givens.  Users invoke theorems by name, not
+    via this command."""
+    source = (
+        "theorem h: true\n"
+        "proof . end\n"
+        "theorem t: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    # `h' has formula `true', which equals the goal `true', but `h'
+    # is a theorem reference (non-local), so fill-from-given skips it.
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=5, column=3), "h"
+    )
+    assert edit is None
+
+
+# --------------------------------------------------------------------------
+# matching_givens_at
+# --------------------------------------------------------------------------
+
+
+def test_matching_givens_includes_unique_match() -> None:
+    source = (
+        "theorem t: all P:bool, Q:bool. if P or Q then P or Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P or Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=5, column=3)
+    )
+    assert candidates == ("H",)
+
+
+def test_matching_givens_lists_all_matches() -> None:
+    source = (
+        "theorem t: all P:bool. if P then if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H1: P\n"
+        "  assume H2: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=6, column=3)
+    )
+    assert candidates == ("H1", "H2")
+
+
+def test_matching_givens_excludes_non_matching() -> None:
+    """Givens whose formulas differ from the goal aren't listed."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P or Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H1: P\n"
+        "  assume H2: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Goal here is `P or Q`; neither H1 nor H2 matches it.
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=6, column=3)
+    )
+    assert candidates == ()
+
+
+def test_matching_givens_excludes_term_variables() -> None:
+    """Term variables aren't proof bindings -- excluded."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume pP: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=5, column=3)
+    )
+    # `pP` matches the goal `P` and is local -> in.
+    # `P` is a term variable -> out.
+    assert "pP" in candidates
+    assert "P" not in candidates
+
+
+def test_matching_givens_excludes_non_local() -> None:
+    """A theorem with the same formula as the goal isn't listed
+    -- only local proof bindings count."""
+    source = (
+        "theorem h: true\n"
+        "proof . end\n"
+        "theorem t: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=5, column=3)
+    )
+    assert "h" not in candidates
+
+
+def test_matching_givens_returns_empty_off_hole() -> None:
+    """Cursor not on a `?` -> empty list."""
+    source = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=4, column=3)
+    )
+    assert candidates == ()
