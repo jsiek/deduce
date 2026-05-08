@@ -304,6 +304,8 @@ def parse_tree_to_ast(e, parent):
         return '∈'
     elif e.data == 'ident_multiset_sum':
         return '⨄'
+    elif e.data == 'ident_nat_sub':
+        return '∸'
     elif e.data == 'ident_subset_equal':
         return '⊆'
     elif e.data == 'ident_less_equal':
