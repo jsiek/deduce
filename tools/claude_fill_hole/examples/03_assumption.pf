@@ -1,0 +1,11 @@
+// Level 3 / 6 -- use a hypothesis.
+// After `assume p: P', the goal is `P' and the hypothesis `p' is in
+// scope.  The proof is just `p' (or `conclude P by p').  Tests
+// whether the model can read the goal and pick the matching binding.
+
+theorem t03_assumption: all P:bool. if P then P
+proof
+  arbitrary P:bool
+  assume p: P
+  ?
+end

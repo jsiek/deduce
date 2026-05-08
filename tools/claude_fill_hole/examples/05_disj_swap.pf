@@ -1,0 +1,12 @@
+// Level 5 / 6 -- case-split on a disjunction.
+// Hypothesis `pq: P or Q'.  Goal `Q or P'.  Tests whether the model
+// knows to use `cases pq' (or `apply' on the disjunction) and proves
+// each branch -- in each case we have one side, and need to inject
+// it into the swapped disjunction.
+
+theorem t05_disj_swap: all P:bool, Q:bool. if P or Q then Q or P
+proof
+  arbitrary P:bool, Q:bool
+  assume pq: P or Q
+  ?
+end

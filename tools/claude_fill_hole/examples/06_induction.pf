@@ -1,0 +1,24 @@
+// Level 6 / 6 -- induction on a self-defined inductive type.
+// `add' is defined by recursion on its FIRST argument, so `add(n, zero)
+// = n' (zero on the right) doesn't reduce by computation -- it
+// requires structural induction on `n'.  This is the simplest proof
+// in the sequence that genuinely needs induction.
+//
+// Self-contained (no `import') so it works whether or not the user
+// has the standard library prelude enabled.
+
+union UnaryNat {
+  zero
+  succ(UnaryNat)
+}
+
+recursive add(UnaryNat, UnaryNat) -> UnaryNat {
+  add(zero, m) = m
+  add(succ(n), m) = succ(add(n, m))
+}
+
+theorem t06_add_zero_right: all n:UnaryNat. add(n, zero) = n
+proof
+  arbitrary n:UnaryNat
+  ?
+end

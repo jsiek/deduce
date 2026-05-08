@@ -1,0 +1,11 @@
+// Level 4 / 6 -- destructure a conjunction and reconstruct the swap.
+// Hypothesis `pq: P and Q'.  Goal `Q and P'.  Tests whether the model
+// knows Deduce's `conjunct N of H' destructure and the comma-pair
+// proof of an `and' goal.
+
+theorem t04_conj_swap: all P:bool, Q:bool. if P and Q then Q and P
+proof
+  arbitrary P:bool, Q:bool
+  assume pq: P and Q
+  ?
+end
