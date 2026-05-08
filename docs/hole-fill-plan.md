@@ -1,8 +1,8 @@
 # Hole-fill plan: Claude proof-completion via emacs + LSP
 
-Tracking issue: TBD. PR: [#357](https://github.com/jsiek/deduce/pull/357) (Phase 1 + Phase 2).
+Tracking issue: TBD. PR: [#357](https://github.com/jsiek/deduce/pull/357) (Phase 1 + Phase 2 + Phase 3 Step 7).
 
-**Status:** Phase 1 + Phase 2 complete (Steps 1–6 done). The sidecar can be exercised standalone: pipe a JSON request to `python -m tools.claude_fill_hole`, get a validated proof on stdout. The emacs binding (Phase 3, separate `deduce-mode` repo) is what's left for the keyboard-shortcut UX.
+**Status:** Phase 1 + Phase 2 done; Phase 3 Step 7 (emacs MVP) done. The whole stack is now end-to-end exercisable: `M-x deduce-fill-hole` (or `C-c C-f`) on a `?` in a `.pf` buffer asks Claude, splices the validated proof in. Step 8 polish (cancellation, fallback buffer, mode-line indicator) is the natural next chunk.
 
 **Related:** [`lsp-plan.md`](lsp-plan.md) — this feature consumes the LSP server and adds two new requests to it.
 
@@ -107,10 +107,14 @@ Both steps live under `tools/claude-fill-hole/`. Layout: `__main__.py`, `agent.p
 {"event": "finish", "ok": true, "attempts": 3}
 ```
 
-## Phase 3 — emacs (separate `deduce-mode` repo)
+## Phase 3 — emacs (this repo, `editor/emacs/`)
 
-- [ ] **Step 7: `deduce-fill-hole` MVP.** Single command, no cancellation, no fallback buffer. Async via `make-process`. Marker pair planted on the hole's range when the request goes out. On completion: marker check + fingerprint check; on success splice in; on mismatch, signal an error message. Customization: `deduce-fill-hole-deduce-root`, `deduce-fill-hole-max-attempts`, `deduce-fill-hole-model`. ~200 LoC of elisp.
-   - *Acceptance:* an `ert` test that mocks `make-process` and feeds canned stdout/stderr through the sentinel; asserts the success path inserts text and the marker-mismatch path errors cleanly.
+When the original plan was written the `deduce-mode` was a separate
+repo; it has since moved into this repo, so Phase 3 lands as part
+of the same PR as Phases 1 and 2.
+
+- [x] **Step 7: `deduce-fill-hole` MVP.** [editor/emacs/deduce-fill-hole.el](../editor/emacs/deduce-fill-hole.el). Single command bound to `C-c C-f`, no cancellation, no fallback buffer. Async via `make-process`. Marker pair planted on the hole's range when the request goes out (start: insertion-type nil, end: insertion-type t). On completion the sentinel verifies markers still live, the text between them is still `?` (catches edits inside the hole), and the fingerprint matches a fresh `deduce/holeContextAt` (catches theorem-statement edits); on success splices in, on mismatch errors with a clear message and leaves the buffer untouched. One in-flight session per buffer; different buffers can fill in parallel. Customization: `deduce-fill-hole-{python-program,deduce-root,max-attempts,model,api-key-env,prelude-disabled,timeout}`.
+   - *Acceptance:* 16 ert tests in [editor/emacs/test/deduce-fill-hole-test.el](../editor/emacs/test/deduce-fill-hole-test.el) covering sidecar command construction, CLI flag assembly, deduce-root resolution priority, request payload (file path + content + LSP fields, error without `buffer-file-name`), response parsing (success / failure / empty / malformed), LSP position translation, keybinding registration. Manual end-to-end smoke confirmed: emacs's `deduce-fill-hole--build-request` produces a JSON payload the sidecar accepts; `python -m tools.claude_fill_hole --dry-run` against the buffer-derived payload drives `deduce.py` correctly and surfaces the structured `incomplete proof` error.
 
 - [ ] **Step 8: Polish.** `deduce-fill-hole-cancel` interactive command. `*deduce-claude-results*` fallback buffer for stale-marker / fingerprint-mismatch cases. Mode-line indicator (`[fill-hole #N attempt M/5]`). Concurrent sessions keyed by request-id. Per-request progress buffer.
    - *Acceptance:* `ert` tests for cancellation (SIGINT exit code routes correctly), concurrent sessions (two requests don't trample each other's markers), fallback buffer is populated correctly when fingerprints diverge.
