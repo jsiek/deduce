@@ -168,6 +168,176 @@ class LspValidator(Validator):
         raise NotImplementedError
 
 
+# ---------------------------------------------------------------------------
+# Mid-proof goal queries: HoleQuerier
+# ---------------------------------------------------------------------------
+#
+# Sibling to Validator: instead of "splice this proof and run the
+# checker to completion", it answers "splice this partial proof
+# (which itself contains a `?') and tell me what the goal looks like
+# at that `?'".  Used by the agent loop's `query_goal' tool, which
+# does NOT count toward the validate budget -- it's a peek at the
+# proof state mid-construction so the model can see intermediate
+# goals (e.g. inside an induction case) before committing to a full
+# proof.
+#
+# Implementation: imports `lsp.query.hole_context_at' directly
+# (in-process), so the deduce environment must already be
+# bootstrapped (see __main__.py).
+
+
+@dataclass(frozen=True)
+class _Given:
+    """Local copy of the Given shape from `lsp.query`, included here
+    so test code that imports HoleQuerier doesn't have to also import
+    the deduce env."""
+
+    label: Optional[str]
+    formula: str
+
+
+@dataclass(frozen=True)
+class QueryOutcome:
+    """Result of one ``query_goal`` invocation.
+
+    On success: ``goal`` is the rendered formula at the queried
+    `?'; ``givens`` is the tuple of in-scope hypothesis labels and
+    formulas at that point.  On failure: ``error`` carries a
+    human-readable reason (no `?' in proof_text, splice didn't reach
+    the hole, parse error in the spliced source, etc.) and the other
+    fields are empty.
+    """
+
+    ok: bool
+    goal: Optional[str] = None
+    givens: tuple = ()
+    error: Optional[str] = None
+
+
+class HoleQuerier:
+    """Splice a partial proof and report the goal at the first `?' inside.
+
+    The model uses this to inspect intermediate goals during proof
+    construction without burning a `validate_proof' attempt.  Typical
+    flow: write a proof skeleton with `?' marking where you want to
+    see the goal, call query_goal, read the goal, refine the
+    skeleton, repeat.
+
+    Constructor takes the same splice anchors as SubprocessValidator
+    (file_path, content, hole offsets) plus the prelude tuple so
+    `hole_context_at' can resolve standard-library imports.
+    """
+
+    def __init__(
+        self,
+        file_path: str,
+        content: str,
+        hole_start_offset: int,
+        hole_end_offset: int,
+        prelude: tuple = (),
+        max_proof_text_bytes: int = 32 * 1024,
+    ) -> None:
+        self.file_path = file_path
+        self.content = content
+        self.hole_start_offset = hole_start_offset
+        self.hole_end_offset = hole_end_offset
+        self.prelude = prelude
+        self.max_proof_text_bytes = max_proof_text_bytes
+
+    def query(self, proof_text: str) -> QueryOutcome:
+        if len(proof_text.encode("utf-8")) > self.max_proof_text_bytes:
+            return QueryOutcome(
+                ok=False,
+                error=(
+                    f"proof text exceeds {self.max_proof_text_bytes} bytes; "
+                    "cap is meant to catch runaway model output"
+                ),
+            )
+        if "?" not in proof_text:
+            return QueryOutcome(
+                ok=False,
+                error=(
+                    "proof_text contains no `?'; query_goal needs at least "
+                    "one `?' marking where you want to inspect the goal"
+                ),
+            )
+
+        spliced = (
+            self.content[: self.hole_start_offset]
+            + proof_text
+            + self.content[self.hole_end_offset :]
+        )
+        # Find the first `?` AT OR AFTER the splice point -- earlier
+        # `?'s would belong to other (already-filled or unrelated) holes
+        # in the file, which we don't want to query.
+        new_q_offset = spliced.find("?", self.hole_start_offset)
+        if new_q_offset < 0:
+            return QueryOutcome(
+                ok=False,
+                error="splice produced no `?' to query (unexpected)",
+            )
+
+        line, col = _offset_to_line_col_1indexed(spliced, new_q_offset)
+
+        try:
+            from lsp.query import Position, hole_context_at
+        except ImportError as e:
+            return QueryOutcome(
+                ok=False,
+                error=(
+                    f"could not import lsp.query for goal lookup: {e} "
+                    "(sidecar must be invoked with deduce repo root on "
+                    "PYTHONPATH and the deduce env bootstrapped)"
+                ),
+            )
+
+        try:
+            ctx = hole_context_at(
+                self.file_path,
+                spliced,
+                Position(line=line, column=col),
+                prelude=self.prelude,
+                include_lemmas=False,
+            )
+        except Exception as e:  # pragma: no cover -- defensive
+            return QueryOutcome(
+                ok=False,
+                error=f"goal lookup raised: {e}",
+            )
+
+        if ctx is None:
+            return QueryOutcome(
+                ok=False,
+                error=(
+                    "couldn't reach the `?' to query -- check for parse "
+                    "or type errors before that point in your proof"
+                ),
+            )
+
+        givens = tuple(
+            _Given(label=g.label, formula=g.formula) for g in ctx.givens
+        )
+        return QueryOutcome(ok=True, goal=ctx.goal, givens=givens)
+
+
+def _offset_to_line_col_1indexed(text: str, offset: int) -> tuple:
+    """Convert a 0-indexed byte offset to a 1-indexed (line, column).
+
+    Mirrors lsp.query._offset_to_line_col but lives here so HoleQuerier
+    doesn't need to reach into lsp.query's private surface."""
+    line = 1
+    col = 1
+    for i, ch in enumerate(text):
+        if i == offset:
+            return line, col
+        if ch == "\n":
+            line += 1
+            col = 1
+        else:
+            col += 1
+    return line, col
+
+
 def _tail(text: str, max_bytes: int) -> str:
     """Return the last ``max_bytes`` of ``text``, byte-safe.
 

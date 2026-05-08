@@ -302,6 +302,49 @@ Three Deduce-specific tactics from this example:
 
 ---
 
+## Using `query_goal` to plan a multi-step proof
+
+For multi-step proofs (especially induction), don't try to write the whole thing in one shot. Build a skeleton with `?` placeholders inside each branch, call `query_goal` to see the goal + givens at each `?`, then fill them in one at a time.
+
+For example, to prove `add(n, zero) = n` by induction:
+
+**Step 1 — write the skeleton.** Each case body is just `?`:
+
+```
+induction UnaryNat
+case zero { ? }
+case succ(n') suppose IH: add(n', zero) = n' { ? }
+```
+
+**Step 2 — call `query_goal` on that skeleton.** It splices the partial proof at the hole, finds the first `?` in the result, and returns its goal + givens. For the `case zero` `?`, you'd see:
+
+```
+{"goal": "add(zero, zero) = zero", "givens": []}
+```
+
+That's discharged by `expand add.`. Update the skeleton:
+
+```
+induction UnaryNat
+case zero { expand add. }
+case succ(n') suppose IH: add(n', zero) = n' { ? }
+```
+
+**Step 3 — `query_goal` again.** Now the first remaining `?` is in the `succ` branch:
+
+```
+{"goal": "add(succ(n'), zero) = succ(n')",
+ "givens": [{"label": "IH", "formula": "add(n', zero) = n'"}]}
+```
+
+That's a one-step `equations` chain using `expand add.` then `replace IH.`. Fill it in.
+
+**Step 4 — `validate_proof` the complete proof.** When there are no more `?` markers in the body, hand the whole thing to `validate_proof`.
+
+`query_goal` does not count toward your `validate_proof` budget — call it freely as you refine. The first `?` in the spliced text is what gets reported, so you don't need to remove earlier branches' `?` markers as you fill them; just leave the skeleton structure intact and `query_goal` will walk through them in order on subsequent calls.
+
+---
+
 ## `switch` on a term (vs `cases` on a hypothesis)
 
 Use `switch x` to case-split on a value of a union type. `cases p` is for splitting a *hypothesis* of disjunction shape; `switch` is for splitting on an inductive *value*.

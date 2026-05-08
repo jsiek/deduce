@@ -58,12 +58,27 @@ Deduce is a small functional language and proof checker for teaching
 logic. Source files have ``.pf`` extension; ``?`` marks an
 incomplete proof (a "hole"). Your job is to fill in one hole.
 
-You have one tool: ``validate_proof(proof_text)``. It splices
-``proof_text`` into the source at the hole's range, runs the
-checker, and returns ``{ok: bool, error?: str}``. You can call it
-up to __MAX_ATTEMPTS__ times; the first valid proof wins. After each
-failed attempt, the error message comes back to you and you can
-refine.
+You have two tools:
+
+  - ``validate_proof(proof_text)`` -- splice ``proof_text`` into the
+    source at the hole and run the checker.  Returns
+    ``{ok: bool, error?: str}``.  Call this when you're ready to
+    commit a complete proof.  You can call it up to __MAX_ATTEMPTS__
+    times; the first valid proof wins.  Counts toward your budget.
+
+  - ``query_goal(proof_text)`` -- splice a PARTIAL ``proof_text``
+    that itself contains a ``?'' marker, and return the goal +
+    in-scope givens at that ``?'' as a JSON object with ``{goal,
+    givens}'' (or ``{error}'' if the splice didn't reach the
+    marker).  Does NOT count toward your validate budget -- call it
+    freely to inspect intermediate goals.
+
+Use ``query_goal`` to plan multi-step proofs.  For an induction proof:
+write the skeleton ``induction T case ctor1 { ? } case ctor2(n')
+suppose IH: ... { ? }`` and call ``query_goal`` to see what each
+``?'' has to prove.  Refine each case with progressively-smaller
+holes until you can fill the whole thing, then ``validate_proof''
+the complete result.
 
 Rules:
 - Emit raw Deduce text in ``proof_text``. Do not wrap it in code

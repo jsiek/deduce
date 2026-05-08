@@ -22,6 +22,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 from tools.claude_fill_hole.validator import (  # noqa: E402
+    HoleQuerier,
+    QueryOutcome,
     SubprocessValidator,
     ValidationOutcome,
 )
@@ -149,3 +151,118 @@ def test_missing_deduce_cmd_returns_structured_error(make_validator):
     outcome = v.validate("reflexive")
     assert outcome.ok is False
     assert outcome.error is not None
+
+
+# ---------------------------------------------------------------------------
+# HoleQuerier tests.
+#
+# A handful are pure-Python (rejecting bad input before invoking the
+# pipeline); the integration-shaped one bootstraps the deduce env and
+# exercises a real `lsp.query.hole_context_at' round-trip on a tiny
+# in-memory `.pf' source.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def make_querier(tmp_path):
+    def _build(source: str = SOURCE_WITH_HOLE, **overrides) -> HoleQuerier:
+        file_path = tmp_path / "proof.pf"
+        file_path.write_text(source)
+        start, end = _hole_offsets(source)
+        kwargs = {
+            "file_path": str(file_path),
+            "content": source,
+            "hole_start_offset": start,
+            "hole_end_offset": end,
+            "prelude": (),
+        }
+        kwargs.update(overrides)
+        return HoleQuerier(**kwargs)
+    return _build
+
+
+def test_query_rejects_proof_text_without_question_mark(make_querier):
+    """``query_goal`` is for inspecting partial proofs; a complete
+    proof_text with no ``?`` is a misuse and should be rejected
+    locally without invoking the pipeline."""
+    q = make_querier()
+    outcome = q.query("reflexive")
+    assert outcome.ok is False
+    assert outcome.error and "?" in outcome.error
+    # No goal/givens on failure.
+    assert outcome.goal is None
+    assert outcome.givens == ()
+
+
+def test_query_rejects_oversized_proof_text(make_querier):
+    """Same byte-cap as the validator; meant to bound runaway model output."""
+    q = make_querier(max_proof_text_bytes=128)
+    huge = "?" + "x " * 200  # has a `?' but is too long
+    outcome = q.query(huge)
+    assert outcome.ok is False
+    assert outcome.error and "exceeds" in outcome.error
+
+
+def _bootstrap_deduce_env_for_tests() -> None:
+    """Bootstrap the deduce env so HoleQuerier's in-process call to
+    ``lsp.query.hole_context_at`` can resolve imports.
+
+    Mirrors what __main__.py does at startup.  Idempotent.
+    """
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    sys.setrecursionlimit(10000)
+    # parser.py reads `Deduce.lark' relative to dirname(sys.argv[0]);
+    # under pytest, argv[0] is the pytest runner so the parser can't
+    # find the grammar.  Point it at deduce.py in REPO_ROOT.
+    sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
+    from abstract_syntax import (  # noqa: E402
+        add_import_directory,
+        init_import_directories,
+    )
+    from flags import set_quiet_mode  # noqa: E402
+
+    set_quiet_mode(True)
+    init_import_directories()
+    lib_dir = REPO_ROOT / "lib"
+    if lib_dir.is_dir():
+        add_import_directory(str(lib_dir))
+
+
+def test_query_returns_goal_at_hole_in_simple_proof(make_querier):
+    """Round-trip: feed a simple file with one ``?`` and ask the
+    querier to report the goal at that ``?``.
+
+    The fixture file has goal ``P = P`` after ``arbitrary P:bool``;
+    asking with ``proof_text = "?"`` should report exactly that goal.
+    """
+    _bootstrap_deduce_env_for_tests()
+    q = make_querier()  # default SOURCE_WITH_HOLE: P = P after arbitrary
+    outcome = q.query("?")
+    assert outcome.ok is True, f"expected ok, got error: {outcome.error}"
+    # The goal contains "P = P" (or some slight whitespace variant).
+    assert outcome.goal is not None
+    assert "P = P" in outcome.goal.replace(" ", "") or "P=P" in outcome.goal.replace(" ", "")
+
+
+def test_query_finds_first_question_mark_after_splice(make_querier):
+    """When proof_text contains multiple ``?``s, the querier reports
+    on the FIRST one located AT OR AFTER the hole's start offset.
+    """
+    _bootstrap_deduce_env_for_tests()
+    # Source has only one hole; we splice in a partial proof with
+    # the first `?' at the case-zero branch.
+    source = (
+        "union UN { z  s(UN) }\n"
+        "theorem t: all n:UN. n = n\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    q = make_querier(source=source)
+    outcome = q.query("induction UN\ncase z { ? }\ncase s(n') suppose IH: n' = n' { ? }\n")
+    assert outcome.ok is True, f"expected ok, got error: {outcome.error}"
+    # First `?' after the splice point is in the `case z' branch;
+    # its goal should mention z = z.
+    assert outcome.goal is not None
+    assert "z" in outcome.goal

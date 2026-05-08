@@ -34,7 +34,9 @@ def test_build_system_prompt_does_not_raise_on_braces_in_scaffold():
 
 def test_build_system_prompt_substitutes_max_attempts():
     out = build_system_prompt(max_attempts=7)
-    assert "up to 7 times" in out
+    # The substitution lands; tolerate any whitespace between number
+    # and the next word (the SCAFFOLD wraps mid-sentence).
+    assert "up to 7" in out
     # The placeholder sentinel itself shouldn't survive into output.
     assert "__MAX_ATTEMPTS__" not in out
 

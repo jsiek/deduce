@@ -21,7 +21,7 @@ import pytest
 
 from tools.claude_fill_hole.agent import AgentResult
 from tools.claude_fill_hole.anthropic_backend import AnthropicBackend
-from tools.claude_fill_hole.validator import ValidationOutcome
+from tools.claude_fill_hole.validator import QueryOutcome, ValidationOutcome
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +33,7 @@ from tools.claude_fill_hole.validator import ValidationOutcome
 class Block:
     type: str
     id: str = ""
+    name: str = ""  # tool name when type == "tool_use"
     input: dict = field(default_factory=dict)
     text: str = ""
 
@@ -80,8 +81,27 @@ class FakeValidator:
         return self._outcomes[idx]
 
 
-def _tool_use(proof: str, *, id_: str = "tu_1") -> Block:
-    return Block(type="tool_use", id=id_, input={"proof_text": proof})
+def _tool_use(proof: str, *, id_: str = "tu_1",
+              name: str = "validate_proof") -> Block:
+    return Block(type="tool_use", id=id_, name=name,
+                 input={"proof_text": proof})
+
+
+class FakeQuerier:
+    """Mock HoleQuerier: returns scripted QueryOutcomes per call."""
+
+    def __init__(self, outcomes: list[QueryOutcome]) -> None:
+        self._outcomes = outcomes
+        self.calls: list[str] = []
+
+    def query(self, proof_text: str) -> QueryOutcome:
+        self.calls.append(proof_text)
+        idx = len(self.calls) - 1
+        if idx >= len(self._outcomes):
+            raise AssertionError(
+                "fake querier: more query() calls than scripted outcomes"
+            )
+        return self._outcomes[idx]
 
 
 _SYSTEM_TEXT = "stub system prompt"
@@ -183,7 +203,7 @@ def test_no_tool_call_returns_failure_immediately():
         max_attempts=5,
     )
     assert result.ok is False
-    assert "no validate_proof" in (result.error or "")
+    assert "no tool call" in (result.error or "")
     assert validator.calls == []
 
 
@@ -193,7 +213,8 @@ def test_malformed_tool_input_is_recoverable():
     client = FakeClient(
         [
             FakeResponse(
-                content=[Block(type="tool_use", id="tu_1", input={})]
+                content=[Block(type="tool_use", id="tu_1",
+                               name="validate_proof", input={})]
             ),
             FakeResponse(content=[_tool_use("reflexive", id_="tu_2")]),
         ]
@@ -284,3 +305,120 @@ def test_dispatches_required_request_kwargs():
             "cache_control": {"type": "ephemeral"},
         }
     ]
+
+
+# ---------------------------------------------------------------------------
+# query_goal tool tests.
+#
+# Three things worth pinning down:
+#   1) When ``querier`` is passed, the API receives BOTH tools.
+#   2) A query_goal call doesn't burn a validate_proof attempt.
+#   3) The loop interleaves correctly: query, then validate, then stop.
+# ---------------------------------------------------------------------------
+
+
+def _query_use(proof: str, *, id_: str = "tu_q1",
+               name: str = "query_goal") -> Block:
+    return Block(type="tool_use", id=id_, name=name,
+                 input={"proof_text": proof})
+
+
+def test_querier_exposes_both_tools_to_api():
+    """When a querier is passed, both validate_proof and query_goal
+    are advertised in the request's tools array."""
+    client = FakeClient([FakeResponse(content=[_tool_use("reflexive")])])
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    querier = FakeQuerier([])
+    _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=querier,
+    )
+    tool_names = [t["name"] for t in client.messages.last_kwargs["tools"]]
+    assert tool_names == ["validate_proof", "query_goal"]
+
+
+def test_query_goal_call_does_not_burn_validate_attempt():
+    """The model calls query_goal first, sees the goal, then commits
+    a validate_proof.  attempts on the result reflects ONLY the
+    validate_proof call -- query_goal is free."""
+    client = FakeClient(
+        [
+            FakeResponse(content=[_query_use("?", id_="tu_q1")]),
+            FakeResponse(content=[_tool_use("reflexive", id_="tu_v1")]),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    querier = FakeQuerier(
+        [QueryOutcome(ok=True, goal="P = P", givens=())]
+    )
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=querier,
+    )
+    assert result.ok is True
+    assert result.proof == "reflexive"
+    # Two API turns (one query, one validate) but only one validate attempt.
+    assert result.attempts == 1
+    assert client.messages.calls == 2
+    assert querier.calls == ["?"]
+    assert validator.calls == ["reflexive"]
+
+
+def test_query_goal_failure_is_reported_to_model_and_loop_continues():
+    """If the querier returns ok=False, the loop hands the error to
+    the model as a tool_result and lets it try again -- it doesn't
+    fail the whole run."""
+    client = FakeClient(
+        [
+            FakeResponse(content=[_query_use("no_marker", id_="tu_q1")]),
+            FakeResponse(content=[_tool_use("reflexive", id_="tu_v1")]),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    querier = FakeQuerier(
+        [QueryOutcome(ok=False, error="proof_text contains no `?'")]
+    )
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=querier,
+    )
+    assert result.ok is True
+    assert result.attempts == 1
+    assert querier.calls == ["no_marker"]
+
+
+def test_query_goal_unavailable_when_querier_is_none():
+    """Without a querier, the tools array contains only validate_proof,
+    and a model that tries to call query_goal anyway gets an
+    unknown-tool error back (does NOT crash the loop).
+
+    We script the model to call query_goal first; the loop should
+    surface 'unknown tool' and let the model recover with
+    validate_proof on the next turn."""
+    client = FakeClient(
+        [
+            FakeResponse(content=[_query_use("?", id_="tu_q1")]),
+            FakeResponse(content=[_tool_use("reflexive", id_="tu_v1")]),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=None,
+    )
+    assert result.ok is True
+    # Only validate_proof should appear in the tools list.
+    tool_names = [t["name"] for t in client.messages.last_kwargs["tools"]]
+    assert tool_names == ["validate_proof"]
