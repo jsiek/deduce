@@ -63,7 +63,8 @@ def _ast_loc(loc) -> "str | None":
 # Top-level lowering
 # --------------------------------------------------------------------------
 
-def lower_program(stmts: List[ast.Statement]) -> ir.Program:
+def lower_program(stmts: List[ast.Statement],
+                  main_module: str = "main") -> ir.Program:
     """Entry point. Walks the top-level statement list, recursing into
     each `Import.ast` so the imported module's declarations end up in
     the same flat list. Each module is recursed into at most once
@@ -71,15 +72,21 @@ def lower_program(stmts: List[ast.Statement]) -> ir.Program:
     Then collects constructor names (so `Call(Var(ctor), ...)` can
     become `Con` rather than `App`) and lowers each statement.
 
+    `main_module` is the module name attached to user-file statements
+    (those not inside any `Import.ast`). Used for symbol mangling in
+    the C emitter — `<Module>__<base_name>` keeps two compilation
+    units' names from colliding at link time. Defaults to `"main"`
+    so callers that don't care (e.g. test harnesses) can ignore it.
+
     Pruning (compiler/prune.py) downstream removes everything that
     isn't transitively reached from the user's `print` statements;
     this lets us inline the entire prelude without paying for the
     parts the user doesn't touch."""
-    flat = _flatten_imports(stmts)
+    flat, name_to_module = _flatten_imports(stmts, main_module)
 
     ctors: Set[str] = set()
     arities: Dict[str, int] = {}
-    for s in flat:
+    for s, _mod in flat:
         if isinstance(s, ast.Union):
             for c in s.alternatives:
                 ctors.add(c.name)
@@ -87,39 +94,58 @@ def lower_program(stmts: List[ast.Statement]) -> ir.Program:
 
     lc = LoweringCtx(ctors=ctors, ctor_arities=arities)
     out: List[ir.TopLevel] = []
-    for s in flat:
-        d = lc.lower_stmt(s)
+    for s, mod in flat:
+        d = lc.lower_stmt(s, mod)
         if d is not None:
             if isinstance(d, list):
                 out.extend(d)
             else:
                 out.append(d)
-    return ir.Program(decls=out)
+    return ir.Program(decls=out, name_to_module=name_to_module)
 
 
-def _flatten_imports(stmts: List[ast.Statement]) -> List[ast.Statement]:
+def _flatten_imports(
+    stmts: List[ast.Statement],
+    main_module: str,
+) -> "tuple[list[tuple[ast.Statement, str]], Dict[str, str]]":
     """Walk `stmts`, splicing each `Import.ast` (the imported module's
     post-typecheck statement list — see `process_declaration` in
-    proof_checker.py) in place of the import itself. Imports are
-    deduplicated by module name; only the first occurrence's nested
-    statements are emitted, matching `imported_modules` semantics in
-    the interpreter."""
-    seen: Set[str] = set()
-    out: List[ast.Statement] = []
+    proof_checker.py) in place of the import itself, while tracking
+    each statement's source module. Imports are deduplicated by
+    module name; only the first occurrence's nested statements are
+    emitted, matching `imported_modules` semantics in the interpreter.
 
-    def walk(items: List[ast.Statement]) -> None:
+    Returns (statements paired with their module names,
+    name → module map covering every uniquified top-level name a
+    decl exposes — function/global/union/constructor names).
+    """
+    seen: Set[str] = set()
+    out: List[tuple[ast.Statement, str]] = []
+    name_to_module: Dict[str, str] = {}
+
+    def walk(items: List[ast.Statement], current_module: str) -> None:
         for s in items:
             if isinstance(s, ast.Import):
                 if s.name in seen:
                     continue
                 seen.add(s.name)
                 if s.ast is not None:
-                    walk(s.ast)
+                    walk(s.ast, s.name)
             else:
-                out.append(s)
+                out.append((s, current_module))
+                if isinstance(s, ast.Define):
+                    name_to_module[s.name] = current_module
+                elif isinstance(s, ast.RecFun):
+                    name_to_module[s.name] = current_module
+                elif isinstance(s, ast.GenRecFun):
+                    name_to_module[s.name] = current_module
+                elif isinstance(s, ast.Union):
+                    name_to_module[s.name] = current_module
+                    for c in s.alternatives:
+                        name_to_module[c.name] = current_module
 
-    walk(stmts)
-    return out
+    walk(stmts, main_module)
+    return out, name_to_module
 
 
 class LoweringCtx:
@@ -137,7 +163,7 @@ class LoweringCtx:
 
     # ---- statements --------------------------------------------------
 
-    def lower_stmt(self, s: ast.Statement):
+    def lower_stmt(self, s: ast.Statement, module: str):
         if isinstance(s, ast.Theorem) or isinstance(s, ast.Postulate) \
            or isinstance(s, ast.Predicate) or isinstance(s, ast.Auto) \
            or isinstance(s, ast.Inductive) or isinstance(s, ast.Module) \
@@ -159,13 +185,14 @@ class LoweringCtx:
                 name=s.name,
                 ctors=[ir.Constructor(c.name, len(c.parameters))
                        for c in s.alternatives],
+                module=module,
             )
         if isinstance(s, ast.Define):
-            return self.lower_define(s)
+            return self.lower_define(s, module)
         if isinstance(s, ast.RecFun):
-            return self.lower_recfun(s)
+            return self.lower_recfun(s, module)
         if isinstance(s, ast.GenRecFun):
-            return self.lower_genrecfun(s)
+            return self.lower_genrecfun(s, module)
         if isinstance(s, ast.Print):
             return ir.Print(self.lower_term(s.term))
         if isinstance(s, ast.Assert):
@@ -180,7 +207,7 @@ class LoweringCtx:
             f"compiler does not yet support top-level: {type(s).__name__}",
         )
 
-    def lower_define(self, d: ast.Define):
+    def lower_define(self, d: ast.Define, module: str):
         body = d.body
         # `define f = generic <T> { fun x { ... } }` and
         # `define f = fun x { ... }` should both become a top-level
@@ -196,10 +223,12 @@ class LoweringCtx:
                 params=params,
                 body=self.lower_term(unwrapped.body),
                 loc=_ast_loc(d.location),
+                module=module,
             )
-        return ir.Global(name=d.name, body=self.lower_term(body))
+        return ir.Global(name=d.name, body=self.lower_term(body),
+                         module=module)
 
-    def lower_recfun(self, r: ast.RecFun):
+    def lower_recfun(self, r: ast.RecFun, module: str):
         if len(r.cases) == 0:
             raise CompileError(r.location, "RecFun with no cases")
 
@@ -239,9 +268,10 @@ class LoweringCtx:
             params=[scrutinee] + other_params,
             body=match,
             loc=_ast_loc(r.location),
+            module=module,
         )
 
-    def lower_genrecfun(self, r: ast.GenRecFun):
+    def lower_genrecfun(self, r: ast.GenRecFun, module: str):
         """Recfun-with-measure: a single-body recursive function. The
         measure expression and the `terminates` proof are erased — the
         compiler does no termination checking, just like the Deduce
@@ -254,6 +284,7 @@ class LoweringCtx:
             params=params,
             body=self.lower_term(r.body),
             loc=_ast_loc(r.location),
+            module=module,
         )
 
     # ---- terms -------------------------------------------------------

@@ -1,6 +1,6 @@
-union MyNat.96 {zero.97/0, suc.98/1}
-print zero.97
-print zero.97
-print zero.97
-print zero.97
-print zero.97
+union MyNat.0 {zero.1/0, suc.2/1}
+print zero.1
+print zero.1
+print zero.1
+print zero.1
+print zero.1

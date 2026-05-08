@@ -59,7 +59,8 @@ def compile_file(filename: str, output: str, prelude: list[str],
         if traceback_flag:
             print(result.error_traceback)
         exit(1)
-    program = lower.lower_program(result.ast)
+    main_module = Path(filename).stem
+    program = lower.lower_program(result.ast, main_module=main_module)
     ir.verify(program)
     program = _closure.closure_convert(program)
     ir.verify(program)

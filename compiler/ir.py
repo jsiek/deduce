@@ -21,7 +21,7 @@ against; keep it stable.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 
 # ---------- terms ----------
@@ -176,6 +176,11 @@ class Constructor:
 class UnionDecl:
     name: str
     ctors: List[Constructor]
+    # Source module the union was declared in. Used by emit_c to mangle
+    # constructor symbols as `<Module>__<base_name>`. None means
+    # "synthetic / no specific home" — emit_c falls back to a generic
+    # mangle of the uniquified name in that case.
+    module: "str | None" = None
 
 
 @dataclass
@@ -194,12 +199,17 @@ class Function:
 
     `loc` is the original `.pf` file:line where the function was
     declared. Emitted as a `// from foo.pf:42` comment so a debugger
-    or human reader can navigate from the generated C back to source."""
+    or human reader can navigate from the generated C back to source.
+
+    `module` is the source module the function came from (or None for
+    synthesised functions like closure-conversion `$lam<N>`). Used by
+    emit_c for `<Module>__<base_name>` symbol mangling."""
     name: str
     params: List[str]
     body: Term
     captures: List[str] = field(default_factory=list)
     loc: "str | None" = None
+    module: "str | None" = None
 
 
 @dataclass
@@ -207,6 +217,7 @@ class Global:
     """A top-level non-function binding. Initialised at program start."""
     name: str
     body: Term
+    module: "str | None" = None
 
 
 @dataclass
@@ -234,8 +245,16 @@ TopLevel = Union[UnionDecl, Function, Global, Print, AssertEq, AssertBool]
 class Program:
     """A complete IR program. `decls` is in source order; backends
     typically emit unions and functions first, then `main`-like glue
-    that runs the globals/prints/asserts in order."""
+    that runs the globals/prints/asserts in order.
+
+    `name_to_module` is a flat lookup from each top-level decl's
+    uniquified name (function/global/union/constructor) to its source
+    module. emit_c consults it to mangle reference sites — calls,
+    constructor applications, pattern matches — without needing to
+    chase parents. Synthesised names (closure-conversion `$lam<N>`)
+    are intentionally absent; emit_c handles them as module-less."""
     decls: List[TopLevel] = field(default_factory=list)
+    name_to_module: Dict[str, str] = field(default_factory=dict)
 
 
 # ---------- pretty printer ----------
@@ -250,16 +269,16 @@ def pp_program(p: Program) -> str:
 
 def pp_top(d: TopLevel) -> str:
     match d:
-        case UnionDecl(name, ctors):
+        case UnionDecl(name, ctors, _):
             body = ", ".join(f"{c.name}/{c.arity}" for c in ctors)
             return f"union {name} {{{body}}}"
-        case Function(name, params, body, captures, _):
+        case Function(name, params, body, captures, _, _):
             head = f"fn {name}"
             if captures:
                 head += "[" + ", ".join(captures) + "]"
             head += "(" + ", ".join(params) + ")"
             return head + " = " + pp_term(body, 2)
-        case Global(name, body):
+        case Global(name, body, _):
             return f"global {name} = " + pp_term(body, 2)
         case Print(t):
             return "print " + pp_term(t, 2)
@@ -397,13 +416,13 @@ def verify(p: Program) -> None:
                 f"verify: non-IR top-level {type(d).__name__}"
             )
         match d:
-            case UnionDecl(_, ctors):
+            case UnionDecl(_, ctors, _):
                 for c in ctors:
                     if not isinstance(c, Constructor):
                         raise AssertionError("verify: non-IR ctor")
-            case Function(name, _, body, _, _):
+            case Function(name, _, body, _, _, _):
                 check_term(body, f"function {name}")
-            case Global(name, body):
+            case Global(name, body, _):
                 check_term(body, f"global {name}")
             case Print(t):
                 check_term(t, "print")
