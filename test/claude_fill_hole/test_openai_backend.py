@@ -17,7 +17,7 @@ import pytest
 
 from tools.claude_fill_hole.agent import AgentResult
 from tools.claude_fill_hole.openai_backend import OpenAICompatBackend
-from tools.claude_fill_hole.validator import ValidationOutcome
+from tools.claude_fill_hole.validator import QueryOutcome, ValidationOutcome
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +97,46 @@ class FakeValidator:
                 "fake validator: more validate() calls than scripted outcomes"
             )
         return self._outcomes[idx]
+
+
+class FakeQuerier:
+    def __init__(self, outcomes: list[QueryOutcome]) -> None:
+        self._outcomes = outcomes
+        self.calls: list[str] = []
+
+    def query(self, proof_text: str) -> QueryOutcome:
+        self.calls.append(proof_text)
+        idx = len(self.calls) - 1
+        if idx >= len(self._outcomes):
+            raise AssertionError(
+                "fake querier: more query() calls than scripted outcomes"
+            )
+        return self._outcomes[idx]
+
+
+def _query_call(proof: str, *, id_: str = "qcall_1") -> FakeToolCall:
+    return FakeToolCall(
+        id=id_,
+        function=FakeFunction(
+            name="query_goal",
+            arguments=json.dumps({"proof_text": proof}),
+        ),
+    )
+
+
+def _response_with_query(proof: str, *, id_: str = "qcall_1") -> FakeResponse:
+    return FakeResponse(
+        choices=[
+            FakeChoice(
+                message=FakeMessage(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[_query_call(proof, id_=id_)],
+                ),
+                finish_reason="tool_calls",
+            )
+        ]
+    )
 
 
 def _tool_call(proof: str, *, id_: str = "call_1") -> FakeToolCall:
@@ -230,7 +270,7 @@ def test_no_tool_call_returns_failure_immediately():
         max_attempts=5,
     )
     assert result.ok is False
-    assert "no validate_proof" in (result.error or "")
+    assert "no tool call" in (result.error or "")
     assert validator.calls == []
 
 
@@ -312,9 +352,13 @@ def test_unknown_tool_call_is_recoverable():
         max_attempts=5,
     )
     assert result.ok is True
-    assert result.attempts == 2
-    # Validator only ran on the second attempt -- the first never
-    # got past the unknown-tool check.
+    # Under the new contract, unknown-tool calls do NOT count toward
+    # the validate_proof budget -- only the second turn's actual
+    # validate counts.  attempts is the number of validate_proof
+    # invocations (1), not the number of model turns (2).
+    assert result.attempts == 1
+    # Validator only ran on the second turn -- the first turn's
+    # unknown-tool call never reached it.
     assert validator.calls == ["reflexive"]
 
 
@@ -436,6 +480,108 @@ def test_works_with_dict_shaped_responses():
     )
     assert result.ok is True
     assert result.proof == "reflexive"
+
+
+# ---------------------------------------------------------------------------
+# query_goal tool tests.
+# ---------------------------------------------------------------------------
+
+
+def test_querier_exposes_both_tools_to_api():
+    """When a querier is passed, both tools appear in the request."""
+    client = FakeClient([_response_with_tool_call("reflexive")])
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    querier = FakeQuerier([])
+    _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=querier,
+    )
+    tool_names = [
+        t["function"]["name"]
+        for t in client.chat.completions.last_kwargs["tools"]
+    ]
+    assert tool_names == ["validate_proof", "query_goal"]
+
+
+def test_query_goal_call_does_not_burn_validate_attempt():
+    """query_goal first, then validate_proof; result.attempts counts
+    only the validate."""
+    client = FakeClient(
+        [
+            _response_with_query("?", id_="qcall_1"),
+            _response_with_tool_call("reflexive", id_="vcall_1"),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    querier = FakeQuerier(
+        [QueryOutcome(ok=True, goal="P = P", givens=())]
+    )
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=querier,
+    )
+    assert result.ok is True
+    assert result.proof == "reflexive"
+    assert result.attempts == 1
+    assert client.chat.completions.calls == 2
+    assert querier.calls == ["?"]
+    assert validator.calls == ["reflexive"]
+
+
+def test_query_goal_failure_is_surfaced_to_model_not_loop():
+    """If the querier returns ok=False, the loop reports it via a
+    tool message and lets the model recover -- not a hard error."""
+    client = FakeClient(
+        [
+            _response_with_query("no_marker", id_="qcall_1"),
+            _response_with_tool_call("reflexive", id_="vcall_1"),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    querier = FakeQuerier(
+        [QueryOutcome(ok=False, error="proof_text contains no `?'")]
+    )
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=querier,
+    )
+    assert result.ok is True
+    assert result.attempts == 1
+    assert querier.calls == ["no_marker"]
+
+
+def test_query_goal_unavailable_when_querier_is_none():
+    """No querier -> tools list contains only validate_proof; a
+    model that calls query_goal anyway gets unknown-tool back."""
+    client = FakeClient(
+        [
+            _response_with_query("?", id_="qcall_1"),
+            _response_with_tool_call("reflexive", id_="vcall_1"),
+        ]
+    )
+    validator = FakeValidator([ValidationOutcome(ok=True)])
+    result = _backend(client).run(
+        system_text=_SYSTEM_TEXT,
+        user_message="goal: P = P",
+        validator=validator,
+        max_attempts=5,
+        querier=None,
+    )
+    assert result.ok is True
+    tool_names = [
+        t["function"]["name"]
+        for t in client.chat.completions.last_kwargs["tools"]
+    ]
+    assert tool_names == ["validate_proof"]
 
 
 # ---------------------------------------------------------------------------
@@ -725,16 +871,19 @@ def test_non_recoverable_bad_request_still_returns_hard_error():
     assert raising.calls == 1
 
 
-def test_recoverable_bad_request_on_last_attempt_does_not_loop():
-    """If the malformed-args 400 lands on the final attempt of the
-    budget, there's no retry left -- return failure cleanly rather
-    than continuing past max_attempts."""
+def test_recoverable_bad_request_does_not_loop_indefinitely():
+    """A persistent malformed-args 400 (every call raises) eventually
+    bails -- it doesn't loop forever.  Under the new contract that
+    introduces query_goal, the loop runs up to max_attempts * 2
+    turns total, so a max_attempts=1 budget allows one recovery
+    retry before bailing.  The point is finite-loop, not exact
+    call-count."""
     exc = _FakeBadRequestError(
         "Error code: 400 - litellm.BadRequestError: "
         "Unterminated string at line 1 column 16"
     )
 
-    class _RaiseOnce:
+    class _AlwaysRaise:
         def __init__(self):
             self.calls = 0
 
@@ -742,7 +891,7 @@ def test_recoverable_bad_request_on_last_attempt_does_not_loop():
             self.calls += 1
             raise exc
 
-    raising = _RaiseOnce()
+    raising = _AlwaysRaise()
     client = type(
         "FakeClient3",
         (),
@@ -759,4 +908,6 @@ def test_recoverable_bad_request_on_last_attempt_does_not_loop():
     )
     assert result.ok is False
     assert "API call failed" in (result.error or "")
-    assert raising.calls == 1
+    # Bounded: with max_attempts=1, max_turns=2 -- so at most 2 calls
+    # before bailing.
+    assert raising.calls <= 2

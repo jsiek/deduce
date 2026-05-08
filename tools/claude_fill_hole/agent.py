@@ -19,19 +19,32 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from .validator import Validator, ValidationOutcome
+from .validator import HoleQuerier, Validator, ValidationOutcome
 
 
-# What we tell the model the tool does.  Kept brief; the SCAFFOLD
-# in ``prompt.py`` already explains the iteration model.  The shape
-# below is the JSON-Schema spelling Anthropic uses; OpenAI wraps the
-# same dict in ``{"type": "function", "function": {...}}`` -- each
-# backend handles the wrapping at its own boundary.
+# What we tell the model the tools do.  Kept brief; the SCAFFOLD
+# in ``prompt.py`` already explains the iteration model.  Both
+# tools share the same input shape (a candidate proof_text); they
+# differ in semantics:
+#
+#   - ``validate_proof'' splices and runs the FULL checker.  Returns
+#     {ok, error}.  Counts toward the validate budget.
+#
+#   - ``query_goal'' splices a PARTIAL proof containing a `?', then
+#     reports the goal at that `?' without running the checker to
+#     completion.  Returns {goal, givens} (or {error}).  Does NOT
+#     count toward the validate budget -- use it freely to inspect
+#     the proof state mid-construction (e.g. inside an induction
+#     case before committing to the full proof).
+#
+# The shape below is the JSON-Schema spelling Anthropic uses; OpenAI
+# wraps the same dict in ``{"type": "function", "function": {...}}'' --
+# each backend handles the wrapping at its own boundary.
 VALIDATE_TOOL_NAME = "validate_proof"
 VALIDATE_TOOL_DESCRIPTION = (
     "Splice the given proof text into the file at the hole and run "
-    "the Deduce checker. Returns {ok, error}. Call repeatedly to "
-    "iterate; first valid proof wins."
+    "the Deduce checker. Returns {ok, error}. Counts toward your "
+    "attempt budget; first valid proof wins."
 )
 VALIDATE_TOOL_PARAMETERS = {
     "type": "object",
@@ -43,6 +56,33 @@ VALIDATE_TOOL_PARAMETERS = {
                 "The complete Deduce proof text to splice into the "
                 "hole. Multi-line allowed; do NOT wrap in code "
                 "fences; do NOT include English commentary."
+            ),
+        }
+    },
+    "additionalProperties": False,
+}
+
+
+QUERY_GOAL_TOOL_NAME = "query_goal"
+QUERY_GOAL_TOOL_DESCRIPTION = (
+    "Splice a partial proof_text (which itself MUST contain at least "
+    "one `?') into the file at the hole, then return the goal and "
+    "in-scope givens at the FIRST `?' in your spliced text. Use to "
+    "inspect intermediate goals -- e.g. after writing `induction T "
+    "case base { ? } case rec(n') suppose IH: ... { ? }' to see "
+    "what each case has to prove.  Does NOT count toward your "
+    "validate_proof budget; call it as often as helpful."
+)
+QUERY_GOAL_TOOL_PARAMETERS = {
+    "type": "object",
+    "required": ["proof_text"],
+    "properties": {
+        "proof_text": {
+            "type": "string",
+            "description": (
+                "Partial Deduce proof text containing at least one "
+                "`?' marking where to inspect the goal. Multi-line "
+                "allowed."
             ),
         }
     },
@@ -106,9 +146,10 @@ class Backend(ABC):
         user_message: str,
         validator: Validator,
         max_attempts: int,
+        querier: Optional[HoleQuerier] = None,
         on_progress: Optional[ProgressFn] = None,
     ) -> AgentResult:
-        """Drive the validate_proof tool-use loop until ok or budget exhausted.
+        """Drive the tool-use loop until ok or budget exhausted.
 
         ``system_text`` is the rendered system prompt as plain text;
         the backend wraps it in whatever shape its SDK expects (e.g.
@@ -119,7 +160,14 @@ class Backend(ABC):
         per-request bits (goal, givens, lemmas, surrounding source).
 
         ``validator`` runs each candidate proof.  The first call
-        that returns ``ok=True`` ends the loop.
+        that returns ``ok=True`` ends the loop.  Counts toward
+        ``max_attempts``.
+
+        ``querier``, when provided, is exposed to the model as the
+        ``query_goal'' tool.  It splices a partial proof containing a
+        `?'-marker and reports the goal at that point without
+        consuming a validate attempt.  When ``None``, only
+        ``validate_proof'' is exposed.
 
         ``on_progress`` is an optional NDJSON-shaped callback the
         protocol layer uses to stream status to emacs over stderr.

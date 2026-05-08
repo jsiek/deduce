@@ -19,6 +19,5 @@ recursive add(UnaryNat, UnaryNat) -> UnaryNat {
 
 theorem t06_add_zero_right: all n:UnaryNat. add(n, zero) = n
 proof
-  arbitrary n:UnaryNat
   ?
 end

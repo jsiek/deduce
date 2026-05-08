@@ -38,12 +38,15 @@ from .agent import (
     AttemptRecord,
     Backend,
     ProgressFn,
+    QUERY_GOAL_TOOL_DESCRIPTION,
+    QUERY_GOAL_TOOL_NAME,
+    QUERY_GOAL_TOOL_PARAMETERS,
     VALIDATE_TOOL_DESCRIPTION,
     VALIDATE_TOOL_NAME,
     VALIDATE_TOOL_PARAMETERS,
     preview,
 )
-from .validator import Validator, ValidationOutcome
+from .validator import HoleQuerier, QueryOutcome, Validator, ValidationOutcome
 
 
 _DEFAULT_MAX_TOKENS = 16000
@@ -55,6 +58,15 @@ _VALIDATE_TOOL = {
         "name": VALIDATE_TOOL_NAME,
         "description": VALIDATE_TOOL_DESCRIPTION,
         "parameters": VALIDATE_TOOL_PARAMETERS,
+    },
+}
+
+_QUERY_GOAL_TOOL = {
+    "type": "function",
+    "function": {
+        "name": QUERY_GOAL_TOOL_NAME,
+        "description": QUERY_GOAL_TOOL_DESCRIPTION,
+        "parameters": QUERY_GOAL_TOOL_PARAMETERS,
     },
 }
 
@@ -108,6 +120,7 @@ class OpenAICompatBackend(Backend):
         user_message: str,
         validator: Validator,
         max_attempts: int,
+        querier: Optional[HoleQuerier] = None,
         on_progress: Optional[ProgressFn] = None,
     ) -> AgentResult:
         started = time.monotonic()
@@ -127,32 +140,42 @@ class OpenAICompatBackend(Backend):
         ]
         history: list[AttemptRecord] = []
 
+        tools = [_VALIDATE_TOOL]
+        if querier is not None:
+            tools = [_VALIDATE_TOOL, _QUERY_GOAL_TOOL]
+
         _progress("start", maxAttempts=max_attempts)
 
-        for attempt in range(1, max_attempts + 1):
-            _progress("model_request", attempt=attempt)
+        validate_attempts = 0
+        max_turns = max_attempts * 2
+
+        for turn in range(1, max_turns + 1):
+            _progress(
+                "model_request", turn=turn, attempt=validate_attempts
+            )
 
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=self.max_tokens,
-                    tools=[_VALIDATE_TOOL],
+                    tools=tools,
                     tool_choice="auto",
                     messages=messages,
                 )
             except Exception as exc:
                 if (
                     _is_recoverable_malformed_args_error(exc)
-                    and attempt < max_attempts
+                    and validate_attempts < max_attempts
+                    and turn < max_turns
                 ):
                     _progress(
                         "malformed_args_recovery",
-                        attempt=attempt,
+                        turn=turn,
                         error=preview(str(exc), 200),
                     )
                     history.append(
                         AttemptRecord(
-                            attempt=attempt,
+                            attempt=validate_attempts,
                             proof_text="",
                             outcome=ValidationOutcome(
                                 ok=False,
@@ -166,17 +189,17 @@ class OpenAICompatBackend(Backend):
                 _progress(
                     "finish",
                     ok=False,
-                    attempts=attempt - 1,
+                    attempts=validate_attempts,
                     error=str(exc),
                 )
                 return AgentResult(
                     ok=False,
                     proof=None,
-                    attempts=attempt - 1,
+                    attempts=validate_attempts,
                     elapsed_ms=elapsed,
                     model=self.model,
                     history=tuple(history),
-                    error=f"API call failed on attempt {attempt}: {exc}",
+                    error=f"API call failed on turn {turn}: {exc}",
                 )
 
             choice = _first_choice(response)
@@ -184,29 +207,23 @@ class OpenAICompatBackend(Backend):
             tool_calls = _tool_calls(assistant_msg)
 
             if not tool_calls:
-                # Model emitted a text-only response (or nothing).
-                # Treated as "gave up" -- mirror AnthropicBackend.
                 elapsed = int((time.monotonic() - started) * 1000)
                 _progress(
                     "finish",
                     ok=False,
-                    attempts=attempt,
+                    attempts=validate_attempts,
                     reason="no_tool_call",
                 )
                 return AgentResult(
                     ok=False,
                     proof=None,
-                    attempts=attempt,
+                    attempts=validate_attempts,
                     elapsed_ms=elapsed,
                     model=self.model,
                     history=tuple(history),
-                    error="model returned no validate_proof call",
+                    error="model returned no tool call",
                 )
 
-            # Append the assistant turn.  We have to re-serialise
-            # tool_calls into a JSON-safe shape because some clients
-            # return Pydantic models that don't round-trip through
-            # the request-side ``messages`` parameter.
             messages.append(
                 {
                     "role": "assistant",
@@ -215,124 +232,175 @@ class OpenAICompatBackend(Backend):
                 }
             )
 
-            valid_proof = None
+            valid_proof: Optional[str] = None
+
             for tc in tool_calls:
                 tc_id = _tool_call_id(tc)
                 tc_name = _tool_call_function_name(tc)
                 tc_args_raw = _tool_call_function_arguments(tc)
+                proof_text = _extract_proof_text(tc_args_raw)
 
-                if tc_name != VALIDATE_TOOL_NAME:
-                    # Model called something we don't expose.  Tell
-                    # it so via a tool message and let it retry.
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tc_id,
-                            "content": json.dumps(
+                if tc_name == VALIDATE_TOOL_NAME:
+                    if validate_attempts >= max_attempts:
+                        messages.append(
+                            _tool_message(
+                                tc_id,
                                 {
                                     "ok": False,
                                     "error": (
-                                        f"unknown tool {tc_name!r}; "
-                                        f"only {VALIDATE_TOOL_NAME!r} is available"
+                                        "validate_proof budget exhausted; "
+                                        "no further validates will run"
                                     ),
-                                }
-                            ),
-                        }
-                    )
-                    continue
+                                },
+                            )
+                        )
+                        continue
+                    validate_attempts += 1
 
-                proof_text = _extract_proof_text(tc_args_raw)
-                if proof_text is None:
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tc_id,
-                            "content": json.dumps(
+                    if proof_text is None:
+                        messages.append(
+                            _tool_message(
+                                tc_id,
                                 {
                                     "ok": False,
                                     "error": "tool input missing required `proof_text`",
-                                }
-                            ),
-                        }
+                                },
+                            )
+                        )
+                        history.append(
+                            AttemptRecord(
+                                attempt=validate_attempts,
+                                proof_text="",
+                                outcome=ValidationOutcome(
+                                    ok=False, error="missing proof_text"
+                                ),
+                            )
+                        )
+                        _progress(
+                            "tool_call",
+                            tool=VALIDATE_TOOL_NAME,
+                            attempt=validate_attempts,
+                            proofPreview="",
+                        )
+                        _progress(
+                            "tool_result",
+                            tool=VALIDATE_TOOL_NAME,
+                            attempt=validate_attempts,
+                            ok=False,
+                            errorTail="missing proof_text",
+                        )
+                        continue
+
+                    _progress(
+                        "tool_call",
+                        tool=VALIDATE_TOOL_NAME,
+                        attempt=validate_attempts,
+                        proofPreview=preview(proof_text),
                     )
+                    outcome = validator.validate(proof_text)
                     history.append(
                         AttemptRecord(
-                            attempt=attempt,
-                            proof_text="",
-                            outcome=ValidationOutcome(
-                                ok=False, error="missing proof_text"
-                            ),
+                            attempt=validate_attempts,
+                            proof_text=proof_text,
+                            outcome=outcome,
                         )
                     )
                     _progress(
-                        "tool_call", attempt=attempt, proofPreview=""
+                        "tool_result",
+                        tool=VALIDATE_TOOL_NAME,
+                        attempt=validate_attempts,
+                        ok=outcome.ok,
+                        errorTail=preview(outcome.error or "", 200),
+                    )
+                    messages.append(
+                        _tool_message(
+                            tc_id,
+                            {"ok": outcome.ok, "error": outcome.error},
+                        )
+                    )
+                    if outcome.ok and valid_proof is None:
+                        valid_proof = proof_text
+
+                elif tc_name == QUERY_GOAL_TOOL_NAME and querier is not None:
+                    _progress(
+                        "tool_call",
+                        tool=QUERY_GOAL_TOOL_NAME,
+                        proofPreview=preview(proof_text or ""),
+                    )
+                    if proof_text is None:
+                        messages.append(
+                            _tool_message(
+                                tc_id,
+                                {
+                                    "ok": False,
+                                    "error": "tool input missing required `proof_text`",
+                                },
+                            )
+                        )
+                        _progress(
+                            "tool_result",
+                            tool=QUERY_GOAL_TOOL_NAME,
+                            ok=False,
+                            errorTail="missing proof_text",
+                        )
+                        continue
+                    outcome = querier.query(proof_text)
+                    messages.append(
+                        _tool_message(tc_id, _query_payload(outcome))
                     )
                     _progress(
                         "tool_result",
-                        attempt=attempt,
-                        ok=False,
-                        errorTail="missing proof_text",
+                        tool=QUERY_GOAL_TOOL_NAME,
+                        ok=outcome.ok,
+                        goal=preview(outcome.goal or "", 100),
+                        errorTail=preview(outcome.error or "", 200),
                     )
-                    continue
 
-                _progress(
-                    "tool_call",
-                    attempt=attempt,
-                    proofPreview=preview(proof_text),
-                )
-                outcome = validator.validate(proof_text)
-                history.append(
-                    AttemptRecord(
-                        attempt=attempt,
-                        proof_text=proof_text,
-                        outcome=outcome,
+                else:
+                    messages.append(
+                        _tool_message(
+                            tc_id,
+                            {
+                                "ok": False,
+                                "error": (
+                                    f"unknown tool {tc_name!r}; available: "
+                                    f"{VALIDATE_TOOL_NAME}"
+                                    + (
+                                        f", {QUERY_GOAL_TOOL_NAME}"
+                                        if querier is not None
+                                        else ""
+                                    )
+                                ),
+                            },
+                        )
                     )
-                )
-                _progress(
-                    "tool_result",
-                    attempt=attempt,
-                    ok=outcome.ok,
-                    errorTail=preview(outcome.error or "", 200),
-                )
-
-                tool_payload = {
-                    "ok": outcome.ok,
-                    "error": outcome.error,
-                }
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc_id,
-                        "content": json.dumps(tool_payload),
-                    }
-                )
-                if outcome.ok and valid_proof is None:
-                    valid_proof = proof_text
 
             if valid_proof is not None:
                 elapsed = int((time.monotonic() - started) * 1000)
-                _progress("finish", ok=True, attempts=attempt)
+                _progress("finish", ok=True, attempts=validate_attempts)
                 return AgentResult(
                     ok=True,
                     proof=valid_proof,
-                    attempts=attempt,
+                    attempts=validate_attempts,
                     elapsed_ms=elapsed,
                     model=self.model,
                     history=tuple(history),
                 )
 
-        # Budget exhausted with no valid proof.
+            if validate_attempts >= max_attempts:
+                break
+
         elapsed = int((time.monotonic() - started) * 1000)
         _progress(
             "finish",
             ok=False,
-            attempts=max_attempts,
+            attempts=validate_attempts,
             reason="budget_exhausted",
         )
         return AgentResult(
             ok=False,
             proof=None,
-            attempts=max_attempts,
+            attempts=validate_attempts,
             elapsed_ms=elapsed,
             model=self.model,
             history=tuple(history),
@@ -344,6 +412,34 @@ class OpenAICompatBackend(Backend):
 # Response introspection -- duck-typed across openai's Pydantic models
 # and dict-shaped fakes used in tests.
 # ---------------------------------------------------------------------------
+
+
+def _tool_message(tool_call_id: str, payload: dict) -> dict:
+    """Format a `role: tool' message carrying a JSON-encoded payload.
+
+    Centralised here so the validate_proof and query_goal paths
+    serialise the same way -- the model sees a parseable structure
+    in either case."""
+    return {
+        "role": "tool",
+        "tool_call_id": tool_call_id,
+        "content": json.dumps(payload),
+    }
+
+
+def _query_payload(outcome: QueryOutcome) -> dict:
+    """Convert a QueryOutcome into the JSON shape the model sees in
+    the tool_result message: `{goal, givens}` on success, `{error}`
+    on failure."""
+    if outcome.ok:
+        return {
+            "goal": outcome.goal,
+            "givens": [
+                {"label": g.label, "formula": g.formula}
+                for g in outcome.givens
+            ],
+        }
+    return {"error": outcome.error or "unknown"}
 
 
 def _first_choice(response):

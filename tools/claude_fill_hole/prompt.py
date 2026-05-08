@@ -1,10 +1,28 @@
 """System prompt + user message assembly for the hole-fill agent loop.
 
-Two cheatsheet files (``gh_pages/doc/TacticsCheatSheet.md`` and
-``gh_pages/doc/CheatSheet.md``) carry most of the model-facing
-context. They are embedded in the system prompt with prompt
-caching enabled, so the cost of sending them is paid once per
-5-minute window rather than once per attempt.
+Two model-facing reference docs are embedded in the system prompt:
+
+  - ``gh_pages/doc/WorkedExamples.md`` -- short proof snippets that
+    demonstrate each tactic concept (one per goal-shape and per
+    non-shape-keyed tactic). Models pattern-match on concrete
+    examples much more reliably than they parse strategy prose,
+    so this leads.
+
+  - ``gh_pages/doc/TacticsCheatSheet.md`` -- dense reference: every
+    tactic with a one-line meaning, plus a "Common pitfalls"
+    section. Used as the look-up table when the worked examples
+    don't cover a specific construct.
+
+The third doc, ``CheatSheet.md``, is intentionally NOT included --
+its strategy-by-goal-shape table is subsumed by the goal-shape-
+indexed worked examples, and including it adds noise without
+adding new information.
+
+The two embedded docs are wrapped in XML-ish tags
+(``<worked_examples>`` and ``<tactics_cheatsheet>``) so the model
+can refer to them in its reasoning. Prompt caching on the Anthropic
+backend amortises the cost across attempts; OpenAI-compat servers
+re-tokenise each attempt (no breakpoints).
 
 The user message carries the per-request bits: the goal, the
 givens, the lemmas in scope, and a small excerpt of the source
@@ -22,8 +40,8 @@ from .schema import Given, LemmaInfo
 # Repo root is two parents up from this file: tools/claude_fill_hole/prompt.py
 # -> tools/claude_fill_hole/ -> tools/ -> <repo>/.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_WORKED_EXAMPLES = _REPO_ROOT / "gh_pages" / "doc" / "WorkedExamples.md"
 _TACTICS_CHEATSHEET = _REPO_ROOT / "gh_pages" / "doc" / "TacticsCheatSheet.md"
-_CHEATSHEET = _REPO_ROOT / "gh_pages" / "doc" / "CheatSheet.md"
 
 
 # Single literal placeholder, replaced via ``str.replace`` rather than
@@ -40,12 +58,27 @@ Deduce is a small functional language and proof checker for teaching
 logic. Source files have ``.pf`` extension; ``?`` marks an
 incomplete proof (a "hole"). Your job is to fill in one hole.
 
-You have one tool: ``validate_proof(proof_text)``. It splices
-``proof_text`` into the source at the hole's range, runs the
-checker, and returns ``{ok: bool, error?: str}``. You can call it
-up to __MAX_ATTEMPTS__ times; the first valid proof wins. After each
-failed attempt, the error message comes back to you and you can
-refine.
+You have two tools:
+
+  - ``validate_proof(proof_text)`` -- splice ``proof_text`` into the
+    source at the hole and run the checker.  Returns
+    ``{ok: bool, error?: str}``.  Call this when you're ready to
+    commit a complete proof.  You can call it up to __MAX_ATTEMPTS__
+    times; the first valid proof wins.  Counts toward your budget.
+
+  - ``query_goal(proof_text)`` -- splice a PARTIAL ``proof_text``
+    that itself contains a ``?'' marker, and return the goal +
+    in-scope givens at that ``?'' as a JSON object with ``{goal,
+    givens}'' (or ``{error}'' if the splice didn't reach the
+    marker).  Does NOT count toward your validate budget -- call it
+    freely to inspect intermediate goals.
+
+Use ``query_goal`` to plan multi-step proofs.  For an induction proof:
+write the skeleton ``induction T case ctor1 { ? } case ctor2(n')
+suppose IH: ... { ? }`` and call ``query_goal`` to see what each
+``?'' has to prove.  Refine each case with progressively-smaller
+holes until you can fill the whole thing, then ``validate_proof''
+the complete result.
 
 Rules:
 - Emit raw Deduce text in ``proof_text``. Do not wrap it in code
@@ -57,13 +90,13 @@ Rules:
 """
 
 
-def _read_cheatsheet(path: Path) -> str:
-    """Return the cheatsheet's contents, or an empty string if missing.
+def _read_doc(path: Path) -> str:
+    """Return the doc's contents, or an empty string if missing.
 
     The sidecar is expected to be invoked from a Deduce checkout
-    where the cheatsheets exist; missing-file is unusual but we
-    don't fail the whole run over it -- the model still has the
-    SCAFFOLD instructions.
+    where the docs exist; missing-file is unusual but we don't fail
+    the whole run over it -- the model still has the SCAFFOLD
+    instructions.
     """
     try:
         return path.read_text(encoding="utf-8")
@@ -78,23 +111,25 @@ def build_system_prompt(max_attempts: int) -> str:
     text-block list with ``cache_control``; the OpenAI-compat
     backend uses it as the content of a leading ``system`` message.
 
-    The prompt embeds two cheatsheets verbatim
-    (``gh_pages/doc/TacticsCheatSheet.md`` and ``CheatSheet.md``).
-    On Anthropic the caching breakpoint amortises that cost; on
-    OpenAI-compat servers, prefix caching is implicit (real OpenAI)
-    or absent (Ollama, some LiteLLM deployments) -- in either case
-    the same text is sent.
+    The prompt embeds two docs:
+
+    - ``gh_pages/doc/WorkedExamples.md`` (concrete proof snippets)
+    - ``gh_pages/doc/TacticsCheatSheet.md`` (dense tactic reference)
+
+    Worked examples come first because models pattern-match on
+    concrete code more reliably than they parse strategy prose.
+    The tactics cheatsheet follows as a look-up table.
     """
-    tactics = _read_cheatsheet(_TACTICS_CHEATSHEET)
-    cheats = _read_cheatsheet(_CHEATSHEET)
+    worked = _read_doc(_WORKED_EXAMPLES)
+    tactics = _read_doc(_TACTICS_CHEATSHEET)
 
     return (
         SCAFFOLD.replace(_MAX_ATTEMPTS_PLACEHOLDER, str(max_attempts))
-        + "\n\n<tactics_cheatsheet>\n"
+        + "\n\n<worked_examples>\n"
+        + worked
+        + "\n</worked_examples>\n\n<tactics_cheatsheet>\n"
         + tactics
-        + "\n</tactics_cheatsheet>\n\n<cheatsheet>\n"
-        + cheats
-        + "\n</cheatsheet>\n"
+        + "\n</tactics_cheatsheet>\n"
     )
 
 

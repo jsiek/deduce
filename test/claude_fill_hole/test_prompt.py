@@ -34,19 +34,36 @@ def test_build_system_prompt_does_not_raise_on_braces_in_scaffold():
 
 def test_build_system_prompt_substitutes_max_attempts():
     out = build_system_prompt(max_attempts=7)
-    assert "up to 7 times" in out
+    # The substitution lands; tolerate any whitespace between number
+    # and the next word (the SCAFFOLD wraps mid-sentence).
+    assert "up to 7" in out
     # The placeholder sentinel itself shouldn't survive into output.
     assert "__MAX_ATTEMPTS__" not in out
 
 
-def test_build_system_prompt_embeds_cheatsheets_when_available():
-    """Both cheatsheets should be inlined under recognisable XML-ish
-    markers so a downstream consumer can find them."""
+def test_build_system_prompt_embeds_docs_when_available():
+    """The worked-examples doc and tactics cheatsheet should both be
+    inlined under recognisable XML-ish markers so a downstream
+    consumer can find them.  CheatSheet.md was deliberately dropped
+    -- its strategy-by-goal-shape content is subsumed by the
+    goal-shape-organised worked examples."""
     out = build_system_prompt(max_attempts=3)
+    assert "<worked_examples>" in out
+    assert "</worked_examples>" in out
     assert "<tactics_cheatsheet>" in out
     assert "</tactics_cheatsheet>" in out
-    assert "<cheatsheet>" in out
-    assert "</cheatsheet>" in out
+    # The standalone strategy cheatsheet is intentionally NOT embedded.
+    assert "<cheatsheet>" not in out
+
+
+def test_worked_examples_appear_before_tactics_cheatsheet():
+    """Worked examples lead because models pattern-match on concrete
+    code more reliably than they read strategy prose; the tactics
+    cheatsheet is the lookup-table fallback."""
+    out = build_system_prompt(max_attempts=3)
+    we_pos = out.index("<worked_examples>")
+    tc_pos = out.index("<tactics_cheatsheet>")
+    assert we_pos < tc_pos
 
 
 def test_build_user_message_shape():

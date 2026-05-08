@@ -38,7 +38,67 @@ from .schema import (
     request_from_json,
     response_to_json,
 )
-from .validator import SubprocessValidator, ValidationOutcome
+from .validator import HoleQuerier, SubprocessValidator, ValidationOutcome
+
+
+def _default_prelude(deduce_root: Path) -> tuple:
+    """Return the standard-library prelude tuple for `hole_context_at'.
+
+    Matches what `lsp.lsp_server' does: every `.pf' file under `lib/'
+    is auto-prepended as a private import.  Returns an empty tuple
+    when `lib/' is missing.
+    """
+    lib_dir = deduce_root / "lib"
+    if not lib_dir.is_dir():
+        return ()
+    return tuple(sorted(p.stem for p in lib_dir.glob("*.pf")))
+
+
+def _bootstrap_deduce_env(deduce_root: Path) -> None:
+    """Configure module-level state in `abstract_syntax`/`flags' so the
+    in-process ``lsp.query.hole_context_at'' (used by HoleQuerier) can
+    resolve imports and produce sensible diagnostics.
+
+    Mirrors what `lsp.lsp_server' does at module-load time.  Running
+    this is harmless even if the sidecar never calls query_goal --
+    the validator's subprocess path is unaffected.
+
+    Idempotent: calling multiple times is OK (init_import_directories
+    resets the list each call).
+    """
+    if str(deduce_root) not in sys.path:
+        sys.path.insert(0, str(deduce_root))
+    sys.setrecursionlimit(10000)
+    # The deduce parser locates `Deduce.lark' via
+    # ``os.path.dirname(sys.argv[0])'' (see parser.py:get_deduce_directory).
+    # When the sidecar is launched as ``python -m tools.claude_fill_hole'',
+    # ``sys.argv[0]'' points at the runpy entry, not at deduce.py, so the
+    # in-process parser (used by query_goal) can't find the grammar.
+    # Repoint argv[0] at the deduce.py in our resolved root, mirroring
+    # what lsp.lsp_server does.
+    pseudo_entry = str(deduce_root / "deduce.py")
+    sys.argv = [pseudo_entry] + sys.argv[1:]
+    try:
+        from abstract_syntax import (  # noqa: E402
+            add_import_directory,
+            init_import_directories,
+        )
+        from flags import set_quiet_mode  # noqa: E402
+    except ImportError:
+        # Bootstrap is best-effort -- if the deduce repo isn't on
+        # sys.path (e.g. user invoked sidecar from outside a checkout
+        # with the wrong --deduce-root), validate_proof still works
+        # via subprocess; only query_goal will fail with a clear
+        # message.
+        return
+    set_quiet_mode(True)
+    init_import_directories()
+    lib_dir = deduce_root / "lib"
+    if lib_dir.is_dir():
+        add_import_directory(str(lib_dir))
+    test_imports = deduce_root / "test" / "test-imports"
+    if test_imports.is_dir():
+        add_import_directory(str(test_imports))
 
 
 _BACKEND_CHOICES = ("anthropic", "openai-compat")
@@ -134,6 +194,28 @@ def main(argv: Optional[list[str]] = None) -> int:
         timeout_seconds=float(args.timeout),
     )
 
+    # Bootstrap the deduce env so HoleQuerier's in-process
+    # `lsp.query.hole_context_at' call can resolve imports.  Best-
+    # effort: query_goal will fail with a clear message if the
+    # bootstrap couldn't load `abstract_syntax' (e.g. user pointed
+    # --deduce-root somewhere else than a real checkout).  Use the
+    # sidecar's own location as the deduce root when --deduce-root
+    # isn't given -- the sidecar lives at <root>/tools/claude_fill_hole/.
+    sidecar_root = (
+        Path(args.deduce_root)
+        if args.deduce_root
+        else Path(__file__).resolve().parents[2]
+    )
+    _bootstrap_deduce_env(sidecar_root)
+    prelude = () if args.no_stdlib else _default_prelude(sidecar_root)
+    querier = HoleQuerier(
+        file_path=request.file,
+        content=content,
+        hole_start_offset=hole_start_offset,
+        hole_end_offset=hole_end_offset,
+        prelude=prelude,
+    )
+
     if args.dry_run:
         return _run_dry_run(request, validator, args)
 
@@ -190,6 +272,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         user_message=user_message,
         validator=validator,
         max_attempts=args.max_attempts,
+        querier=querier,
         on_progress=_emit_progress,
     )
 
