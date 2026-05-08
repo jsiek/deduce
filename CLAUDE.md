@@ -8,6 +8,14 @@ Deduce is a proof checker and small functional language for teaching logic, writ
 
 Single dependency: `lark==1.2.2` (Python 3.11+, CI uses 3.12, Makefile uses 3.13).
 
+## Code style
+
+This repository is closed-world: nothing outside this repo depends on its Python API, and the `.pf` source language is the only stable surface. **Backwards compatibility within the repo's own internals is not a concern** — when refactoring, delete old shims rather than carrying them forward.
+
+Smaller code is better. Prefer the change that removes lines over the one that adds them. When two paths are functionally equivalent, pick the one with less surface area. Don't leave deprecation aliases, legacy fallbacks, or "just in case" branches around — if a thing is unused, delete it; if it's needed later, recover it from git.
+
+This applies to refactors especially: when a global goes away, the module-level alias for it goes away too. When a function's signature changes, every caller updates in the same PR — no overload that accepts both shapes.
+
 ## Running and testing
 
 ```sh
