@@ -39,6 +39,7 @@ before calling. The pipeline uses ``path`` for import resolution and
 in user-visible error messages.
 """
 
+import contextlib
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -343,13 +344,17 @@ def goal_at(
     if existing_hole is not None:
         modified = content
         goal_range = existing_hole
+        target = (existing_hole.start.line, existing_hole.start.column)
     else:
-        modified = _insert_hole(content, pos)
-        if modified is None:
+        inserted = _insert_hole(content, pos)
+        if inserted is None:
             return None
+        modified, hole_pos = inserted
         goal_range = Range(start=pos, end=pos)
+        target = (hole_pos.line, hole_pos.column)
 
-    result = check_file(path, content=modified, prelude=prelude)
+    with _target_hole(target):
+        result = check_file(path, content=modified, prelude=prelude)
     if result.ok:
         # No PHole was hit -- the surrounding proof was already complete
         # without needing the inserted ?. Nothing to report.
@@ -358,7 +363,7 @@ def goal_at(
     return _goal_from_exception(result.exception, goal_range)
 
 
-def _insert_hole(content: str, pos: Position) -> Optional[str]:
+def _insert_hole(content: str, pos: Position) -> Optional[tuple]:
     """Modify ``content`` so that the proof at ``pos`` halts on a ``?``.
 
     Strategy: find the byte offset for ``pos``, then scan forward
@@ -372,10 +377,13 @@ def _insert_hole(content: str, pos: Position) -> Optional[str]:
     blocks: a naive "next ``end``" search would consume the case's
     own closing ``}`` and leave the parser with an unbalanced brace.
 
-    Returns ``None`` when ``pos`` is out of range. If no closer is
-    found we append ``?`` at the cursor and leave the rest -- the
-    parser may still error, in which case ``goal_at`` returns
-    ``None``.
+    Returns ``None`` when ``pos`` is out of range. Otherwise returns a
+    tuple ``(modified, hole_pos)`` where ``hole_pos`` is the 1-indexed
+    ``Position`` of the inserted ``?`` in ``modified`` -- callers use
+    this to target that specific hole when running the proof checker.
+    If no closer is found we append ``?`` at the cursor and leave the
+    rest -- the parser may still error, in which case ``goal_at``
+    returns ``None``.
     """
     offset = _line_col_to_offset(content, pos)
     if offset is None:
@@ -385,8 +393,34 @@ def _insert_hole(content: str, pos: Position) -> Optional[str]:
     after = content[offset:]
     cut = _find_block_end(after)
     if cut is None:
-        return before + "\n?\n" + after
-    return before + "\n?\n" + after[cut:]
+        modified = before + "\n?\n" + after
+    else:
+        modified = before + "\n?\n" + after[cut:]
+    # The inserted `?` sits at offset len(before) + 1 (after the
+    # leading "\n") in `modified`.
+    line, col = _offset_to_line_col(modified, len(before) + 1)
+    return (modified, Position(line=line, column=col))
+
+
+@contextlib.contextmanager
+def _target_hole(loc):
+    """Tell the proof checker to raise IncompleteProof only at ``loc``.
+
+    ``loc`` is a (line, column) tuple matching the hole's lark
+    ``Meta`` location. While the context is active, every other ``?``
+    the checker encounters is treated as a successful proof of its
+    goal, so the checker can keep going and reach the targeted hole
+    in a multi-hole file. See ``flags.target_hole_location`` and the
+    ``PHole`` arm of ``check_proof_of`` in ``proof_checker.py``.
+    """
+    import flags
+
+    prev = flags.get_target_hole_location()
+    flags.set_target_hole_location(loc)
+    try:
+        yield
+    finally:
+        flags.set_target_hole_location(prev)
 
 
 def _find_block_end(s: str) -> Optional[int]:
@@ -832,11 +866,10 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
 # enough for the reducible-equality case (``e1.reduce(env) ==
 # e2.reduce(env)``).
 #
-# Limitation (v1): in a multi-theorem file with earlier `?`s, the
-# checker raises on the first hole encountered; the goal returned may
-# not be for the cursor's hole. The same limitation applies to
-# ``goal_at``; both will lift it together when the pipeline gains
-# per-hole goal extraction.
+# Multi-hole files: ``_target_hole`` (above) tells the checker to skip
+# every ``?`` whose location doesn't match the cursor's hole, so the
+# goal/env we read here is the one at the cursor specifically -- not
+# whichever hole happens to come first in source order.
 
 
 def refine_at(
@@ -867,7 +900,9 @@ def refine_at(
 
     from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude)
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
     if result.ok:
         return None
 
@@ -1083,7 +1118,9 @@ def case_split_at(
 
     from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude)
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
     if result.ok:
         return None
 
@@ -1125,7 +1162,9 @@ def splittable_vars_at(
 
     from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude)
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
     if result.ok:
         return ()
 
@@ -1370,7 +1409,9 @@ def induction_skeleton_at(
 
     from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude)
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
     if result.ok:
         return None
 

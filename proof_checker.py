@@ -24,7 +24,7 @@
 
 from abstract_syntax import *
 from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error
-from flags import get_verbose, set_verbose, print_verbose, VerboseLevel
+from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location
 
 imported_modules = set()
 checked_modules = set()
@@ -1042,6 +1042,9 @@ def check_proof_of(proof, formula, env):
       # (A = A or A = B) which should have just reduced to A = A
       # but it didn't.
       # new_formula = new_formula.reduce(env)
+      target = get_target_hole_location()
+      if target is not None and (loc.line, loc.column) != target:
+        return
       incomplete_error(loc, 'incomplete proof\n' \
                        + 'Goal:\n\t' + str(new_formula) + '\n'\
                        + proof_advice(new_formula, env) \
