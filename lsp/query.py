@@ -41,6 +41,7 @@ in user-visible error messages.
 
 import contextlib
 import re
+import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Sequence
@@ -341,9 +342,12 @@ def _diagnostic_from_exception(
 
     Reads ``exc.location`` and ``exc.message_body`` if present
     (attached by ``error.py`` for all error/incomplete/static/match/
-    parse errors). Falls back to ``str_fallback`` plus a sentinel
-    range when the exception is unstructured -- which only happens
-    for unexpected internal exceptions.
+    parse errors). When the exception is unstructured -- a Python
+    exception that escaped the checker without being wrapped as a
+    Deduce error, almost always a bug in Deduce itself -- the
+    diagnostic message includes the formatted traceback so the user
+    reporting the bug knows which frame raised, instead of seeing a
+    bare ``name 'X' is not defined`` at the sentinel position.
 
     For ``IncompleteProof``, the message is replaced with a clean
     ``Goal: ... \\n Givens: ...`` block formatted to match
@@ -375,9 +379,29 @@ def _diagnostic_from_exception(
     else:
         body = getattr(exc, "message_body", None)
         if body is None:
-            body = str_fallback if str_fallback is not None else str(exc)
+            body = _format_unstructured_exception(exc, str_fallback)
 
     return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
+
+
+def _format_unstructured_exception(
+    exc: BaseException, str_fallback: Optional[str]
+) -> str:
+    """Format an unstructured exception with its traceback.
+
+    The pipeline catches ``Diagnostic`` subclasses (``UserError``,
+    ``IncompleteProof``, ``StaticError``) and decorates them with
+    ``location`` / ``message_body``. Anything else -- ``NameError``,
+    ``AttributeError``, an unexpected ``KeyError``, etc. -- is a bug
+    in Deduce. Without the traceback the user only sees ``str(exc)``
+    pinned to line 1, column 1, which is useless for filing a report.
+    """
+    msg = str_fallback if str_fallback is not None else str(exc)
+    tb = exc.__traceback__
+    if tb is not None:
+        formatted = "".join(_traceback.format_exception(type(exc), exc, tb))
+        return f"internal error in Deduce: {msg}\n\n{formatted}"
+    return f"internal error in Deduce: {msg}"
 
 
 def _format_incomplete_proof_message(formula) -> str:
