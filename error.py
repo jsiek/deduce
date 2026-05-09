@@ -1,5 +1,23 @@
 import flags
 
+class Diagnostic(Exception):
+  """Base class for exceptions that represent user-facing diagnostics.
+  ``ErrorSink`` and the per-statement / sibling-recovery sites catch
+  ``Diagnostic`` so every subclass is collected uniformly. Internal
+  errors and control-flow signals (``InternalError``, ``MatchFailed``)
+  intentionally do not inherit from this -- they should not be caught
+  by the sink machinery."""
+  pass
+
+class UserError(Diagnostic):
+  pass
+
+class InternalError(Exception):
+  pass
+
+class IncompleteProof(Diagnostic):
+  pass
+
 def get_location_text_lines(location):
   if not location.empty:
     try:
@@ -59,18 +77,21 @@ def error_program_text(location):
     return ''
 
 class ErrorSink:
-  """Collects exceptions during a checker run instead of letting them
-  propagate. When ``proof_checker.check_deduce`` is given a sink, each
-  top-level statement runs in a try/except per phase; raised
-  exceptions are appended to ``errors`` and the next statement runs.
-  Without a sink (the default), ``check_deduce`` keeps its
-  raise-on-first-error behavior — preserving CLI semantics and the
-  ``goal_at`` / MCP query paths that depend on it.
+  """Collects :class:`Diagnostic` exceptions during a checker run
+  instead of letting them propagate. When ``proof_checker.check_deduce``
+  is given a sink, each top-level statement runs in a try/except per
+  phase; ``Diagnostic`` subclasses (``UserError``, ``IncompleteProof``,
+  ``StaticError``) are appended to ``errors`` and the next statement
+  runs. ``InternalError``, ``MatchFailed``, and unexpected exceptions
+  intentionally bypass the sink so bugs and control-flow signals are
+  not silently swallowed. Without a sink (the default), ``check_deduce``
+  keeps its raise-on-first-error behavior — preserving CLI semantics
+  and the ``goal_at`` / MCP query paths that depend on it.
   """
   def __init__(self):
-    self.errors: list = []
+    self.errors: list[Diagnostic] = []
 
-  def add(self, exc):
+  def add(self, exc: 'Diagnostic'):
     self.errors.append(exc)
 
   def __bool__(self):
@@ -79,9 +100,8 @@ class ErrorSink:
   def __len__(self):
     return len(self.errors)
 
-def error(location, msg):
-  exc = Exception(error_header(location) + msg)
-  # exc = Exception(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
+def user_error(location, msg):
+  exc = UserError(error_header(location) + msg)
   exc.depth = 0
   # Attach structured fields so library/LSP/MCP callers can build
   # Diagnostic objects without regex-parsing str(exc). The CLI ignores
@@ -90,8 +110,8 @@ def error(location, msg):
   exc.message_body = msg
   raise exc
 
-class IncompleteProof(Exception):
-  pass
+def internal_error(location, msg):
+  raise InternalError(error_header(location) + msg)
 
 def incomplete_error(location, msg, *, formula=None, env=None):
   exc = IncompleteProof(error_header(location) + msg)
@@ -108,7 +128,7 @@ def incomplete_error(location, msg, *, formula=None, env=None):
 def warning(location, msg):
   print(error_header(location) + msg)
 
-def wrap_error(inner, context):
+def wrap_user_error(inner, context):
   """Return a new Exception that re-raises ``inner`` with ``context``
   appended to the message, preserving the structured ``location`` and
   ``message_body`` attributes set by error()/incomplete_error()/
@@ -123,7 +143,7 @@ def wrap_error(inner, context):
   so user-visible error text (and the should-error/*.pf.err fixtures)
   is unchanged.
   """
-  new_exc = Exception(str(inner) + context)
+  new_exc = UserError(str(inner) + context)
   inner_loc = getattr(inner, 'location', None)
   if inner_loc is not None:
     new_exc.location = inner_loc
@@ -133,12 +153,11 @@ def wrap_error(inner, context):
   new_exc.message_body = inner_body + context
   return new_exc
 
-class StaticError(Exception):
+class StaticError(Diagnostic):
   pass
 
 def static_error(location, msg):
   exc = StaticError(error_header(location) + msg)
-  # raise StaticError(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
   exc.location = location
   exc.message_body = msg
   raise exc
@@ -148,7 +167,6 @@ class MatchFailed(Exception):
 
 def match_failed(location, msg):
   exc = MatchFailed(error_header(location) + msg)
-  # raise MatchFailed(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)
   exc.location = location
   exc.message_body = msg
   raise exc
