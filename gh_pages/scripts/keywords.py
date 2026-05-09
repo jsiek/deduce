@@ -132,24 +132,25 @@ known_tokens = {
     '__ANON_0': 'operator',  # <=>
     '__ANON_1': 'operator',  # ⇔
     '__ANON_10': 'operator', # ∈
-    '__ANON_11': 'operator', # ∪
-    '__ANON_12': 'operator', # ∩
-    '__ANON_13': 'operator', # ⨄
-    '__ANON_14': 'operator', # \\.\\+\\.
-    '__ANON_15': 'operator', # \\+\\+
-    '__ANON_16': 'operator', # ⊝
-    '__ANON_17': 'operator', # ∘
-    '__ANON_18': 'operator', # \\.o\\.
-    '__ANON_19': 'keyword',  # operator
+    '__ANON_11': 'operator', # ≲
+    '__ANON_12': 'operator', # ≈
+    '__ANON_13': 'operator', # ∪
+    '__ANON_14': 'operator', # ∩
+    '__ANON_15': 'operator', # ⨄
+    '__ANON_16': 'operator', # \\.\\+\\.
+    '__ANON_17': 'operator', # \\+\\+
+    '__ANON_18': 'operator', # ∸
+    '__ANON_19': 'operator', # \\.\\-\\.
     '__ANON_2': 'operator',  # ≠
-    '__ANON_20': 'prim',     # ∅
-    '__ANON_21': 'prim',     # \\.0\\.
-    '__ANON_22': 'operator', # ─
-    '__ANON_23': 'operator', # \\.\\.\\.
-    '__ANON_24': 'prim',     # 0
-    '__ANON_25': 'prim',     # \.-
-    '__ANON_26': 'operator', # ≲
-    '__ANON_27': 'operator', # ≈
+    '__ANON_20': 'operator', # ⊝
+    '__ANON_21': 'operator', # ∘
+    '__ANON_22': 'operator', # \\.o\\.
+    '__ANON_23': 'keyword',  # operator
+    '__ANON_24': 'prim',     # ∅
+    '__ANON_25': 'prim',     # \\.0\\.
+    '__ANON_26': 'operator', # ─
+    '__ANON_27': 'operator', # \\.\\.\\.
+    '__ANON_28': 'prim',     # 0
     '__ANON_3': 'operator',  # /=
     '__ANON_4': 'operator',  # ≤
     '__ANON_5': 'operator',  # <=
