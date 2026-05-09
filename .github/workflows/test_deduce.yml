@@ -22,6 +22,8 @@ jobs:
             python -m pip install --upgrade pip
             if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
             if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
+      - name: Check known tokens
+        run: python ./gh_pages/scripts/keywords.py
       - name: execute py script # run file
         run: |
           python test-deduce.py --site
