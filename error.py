@@ -153,6 +153,77 @@ def wrap_user_error(inner, context):
   new_exc.message_body = inner_body + context
   return new_exc
 
+# ---------------------------------------------------------------------------
+# Active sink (Step 11, depth-2)
+# ---------------------------------------------------------------------------
+#
+# ``check_deduce`` installs an :class:`ErrorSink` here for the
+# duration of one run when its caller asked for multi-error
+# collection. ``add_diagnostic`` / ``add_incomplete``
+# consult this slot and, when set, append the just-built exception to
+# the sink before raising — so every diagnostic is captured at its
+# own raise site rather than waiting for a top-level catch. None
+# outside of an opted-in run, so CLI / goal_at / MCP behaviour is
+# untouched.
+_active_sink = None
+
+
+def set_active_sink(sink):
+  """Install ``sink`` as the active error sink and return the
+  previously installed sink (so callers can restore it on exit
+  exactly the way ``check_deduce`` does in its try/finally)."""
+  global _active_sink
+  prev = _active_sink
+  _active_sink = sink
+  return prev
+
+def get_active_sink():
+  return _active_sink
+
+def add_diagnostic(location, msg):
+  """Record a user-visible diagnostic in the active sink and *return
+  normally*, unlike :func:`user_error` which raises. Use at sites whose
+  enclosing function can tolerate falling through.
+
+  Without an active sink and outside any probing region, falls
+  back to :func:`error` -- so a CLI run still raises and the
+  existing ``goal_at`` / MCP paths see the same shape they always
+  have.
+  """
+  global _active_sink
+  if _active_sink is None:
+    user_error(location, msg)
+  exc = UserError(error_header(location) + msg)
+  exc.depth = 0
+  exc.location = location
+  exc.message_body = msg
+  _active_sink.add(exc)
+
+def add_incomplete(location, msg, formula=None, env=None):
+  """Record a user-visible diagnostic in the active sink and *return
+  normally*, unlike :func:`user_error` which raises. Use at sites whose
+  enclosing function can tolerate falling through.
+
+  Without an active sink and outside any probing region, falls
+  back to :func:`incompleteerror` -- so a CLI run still raises and the
+  existing ``goal_at`` / MCP paths see the same shape they always
+  have.
+  """
+  global _active_sink
+  if _active_sink is None:
+    incomplete_error(location, msg)
+  exc = IncompleteProof(error_header(location) + msg)
+  exc.depth = 0
+  exc.location = location
+  exc.message_body = msg
+  # Optional structured fields for the LSP/MCP refine pipeline:
+  # the goal AST and the type-checking env at the hole. The CLI
+  # ignores these; print(str(exc)) output is unchanged.
+  exc.formula = formula
+  exc.env = env
+  _active_sink.add(exc)
+
+  
 class StaticError(Diagnostic):
   pass
 
