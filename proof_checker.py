@@ -31,6 +31,49 @@ checked_modules = set()
 
 name_id = 0
 
+
+# ---------------------------------------------------------------------------
+# In-proof error collection (Step 11, depth-2)
+# ---------------------------------------------------------------------------
+#
+# ``check_deduce`` already collects one error per top-level statement.
+# Inside a single proof, ``check_proof_of`` recurses; many of those
+# recursions are sequential (each subproof's success is the parent's
+# premise) but a handful are *sibling-independent*: each conjunct of
+# a ``?, ?, ?`` tuple, each arm of a ``switch``, each case of an
+# ``induction`` proves the same goal under different hypotheses with
+# no value flowing between siblings. Catching and continuing at those
+# loops surfaces every hole / failed subgoal in the proof, not just
+# the first.
+#
+# Set by ``check_deduce`` for the duration of a single run with an
+# error sink in scope; ``None`` otherwise (CLI / goal_at / MCP all
+# leave it ``None`` and keep raise-on-first behaviour).  Mirrors the
+# existing ``flags.target_hole_location`` pattern -- a module-level
+# flag is how the rest of the checker plumbs run-wide context into
+# ``check_proof_of`` without dragging an extra parameter through 50+
+# recursive call sites.
+_active_sink = None
+
+
+def _try_check_proof_of(pf, frm, env):
+  """Call ``check_proof_of`` and, when an error sink is active, catch
+  any raised exception, append it to the sink, and return normally so
+  the surrounding sibling loop continues.
+
+  Use this only at sibling-independent recursion sites (PTuple
+  conjuncts, switch / induction / cases arms). At sequential sites a
+  failure means the parent can't continue meaningfully -- stick with
+  a plain ``check_proof_of`` call there.
+  """
+  global _active_sink
+  try:
+    check_proof_of(pf, frm, env)
+  except Exception as e:
+    if _active_sink is None:
+      raise
+    _active_sink.add(e)
+
 def generate_name(name):
     global name_id
     ls = name.split('.')
@@ -1510,7 +1553,7 @@ def check_proof_of(proof, formula, env):
         match red_formula:
           case And(loc2, tyof2, frms):
             for (frm,pf) in zip(frms, pfs):
-              check_proof_of(pf, frm, env)
+              _try_check_proof_of(pf, frm, env)
             if len(pfs) < len(frms):
               incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
                                + str(len(pfs)))
@@ -1549,7 +1592,7 @@ def check_proof_of(proof, formula, env):
             if frm2 and (frm != new_frm2): # was frm != red_frm2
               error(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
             body_env = env.declare_local_proof_var(loc, label, frm)
-            check_proof_of(the_case, formula, body_env)
+            _try_check_proof_of(the_case, formula, body_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_red))
           
@@ -1678,7 +1721,7 @@ def check_proof_of(proof, formula, env):
                     error(frm1.location, msg)
                 body_env = body_env.declare_local_proof_var(loc, x, frm2)
 
-              check_proof_of(indcase.body, goal, body_env)
+              _try_check_proof_of(indcase.body, goal, body_env)
           case blah:
             error(loc, "induction expected name of union, not " + str(typ)
                   + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
@@ -1734,7 +1777,7 @@ def check_proof_of(proof, formula, env):
               error(scase.location, 'only one assumption is allowed in a switch case')
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env), env)
             new_frm = frm.reduce(env)
-            check_proof_of(scase.body, new_frm, body_env)
+            _try_check_proof_of(scase.body, new_frm, body_env)
         case TypeType(_):
           # As far as I know, it is not possible to switch on a type
           error(loc, "In 'switch' expected a variable, got " + str(new_subject))
@@ -1788,7 +1831,7 @@ def check_proof_of(proof, formula, env):
                 else:
                   frm = formula
                 red_frm = frm.reduce(body_env)
-                check_proof_of(scase.body, red_frm, body_env)
+                _try_check_proof_of(scase.body, red_frm, body_env)
             case _:
               error(loc, "switch expected union type or bool, not " + str(ty))
           
@@ -4769,6 +4812,20 @@ def check_deduce(ast, module_name, modified, tracing_functions, error_sink=None)
   imported_modules.clear()
   needs_checking = [modified]
 
+  global _active_sink
+  prev_sink = _active_sink
+  _active_sink = error_sink
+  try:
+    return _check_deduce_body(
+      ast, module_name, modified, tracing_functions, error_sink, env, needs_checking
+    )
+  finally:
+    _active_sink = prev_sink
+
+
+def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink, env, needs_checking):
+  """Body of ``check_deduce``, split out so the ``_active_sink``
+  push/pop in the caller stays a tidy try/finally."""
   def _collect(exc):
     """Append ``exc`` to the sink, or re-raise when no sink is set."""
     if error_sink is None:

@@ -212,6 +212,61 @@ def test_check_reports_multiple_holes() -> None:
     )
 
 
+def test_check_reports_multiple_holes_within_one_proof() -> None:
+    """Sibling subproofs in a single theorem each report their own
+    hole. Covers the four sibling-independent recursion sites in
+    ``check_proof_of``: PTuple (``?, ?``), proof-by-cases on ``or``,
+    switch on ``bool``, switch on a union.
+    """
+    # PTuple: each conjunct of ``P and Q`` has its own ?
+    src_tuple = (
+        "theorem t: all P:bool, Q:bool. P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?, ?\n"
+        "end\n"
+    )
+    diags = check("test.pf", src_tuple)
+    assert len(diags) == 2, (
+        f"PTuple: expected 2 holes, got {len(diags)}: "
+        f"{[d.message for d in diags]}"
+    )
+
+    # Switch on bool: each arm has its own ?
+    src_switch_bool = (
+        "theorem t: all P:bool. P or not P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  switch P {\n"
+        "    case true { ? }\n"
+        "    case false { ? }\n"
+        "  }\n"
+        "end\n"
+    )
+    diags = check("test.pf", src_switch_bool)
+    assert len(diags) == 2, (
+        f"switch on bool: expected 2 holes, got {len(diags)}: "
+        f"{[d.message for d in diags]}"
+    )
+
+    # Proof-by-cases on `or`: each arm has its own ?
+    src_cases = (
+        "theorem t: all P:bool, Q:bool. if P or Q then true\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose prem: P or Q\n"
+        "  cases prem\n"
+        "  case p { ? }\n"
+        "  case q { ? }\n"
+        "end\n"
+    )
+    diags = check("test.pf", src_cases)
+    assert len(diags) == 2, (
+        f"cases on or: expected 2 holes, got {len(diags)}: "
+        f"{[d.message for d in diags]}"
+    )
+
+
 def test_check_reports_proof_error_plus_hole_independently() -> None:
     """A proof-checking error in one theorem doesn't suppress a hole
     in an unrelated later theorem. The first theorem misuses

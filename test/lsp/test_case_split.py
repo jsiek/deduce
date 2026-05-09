@@ -207,18 +207,22 @@ def test_post_edit_check_raises_at_first_case_body(
     post = "".join(lines[:line_idx] + [new_line] + lines[line_idx + 1:])
 
     diags = check("test.pf", post, prelude=())
-    assert len(diags) == 1, (
-        f"{case.name}: expected exactly one diagnostic on post-edit "
-        f"content, got {len(diags)}"
+    # After Step 11's depth-2 collection (sibling-loop catch in
+    # ``check_proof_of``), each case body's hole reports
+    # independently — assert the first-case hole is among them, not
+    # that it's the only diagnostic.
+    assert len(diags) >= 1, (
+        f"{case.name}: expected at least one diagnostic on post-edit "
+        f"content, got 0"
     )
-    diag = diags[0]
-    assert diag.severity == Severity.ERROR
-    assert "incomplete proof" in diag.message
+    for diag in diags:
+        assert diag.severity == Severity.ERROR
+        assert "incomplete proof" in diag.message
     first_case_line = edit.range.start.line + 1
-    assert diag.range.start.line == first_case_line, (
-        f"{case.name}: expected diagnostic on line "
-        f"{first_case_line} (first case body), got line "
-        f"{diag.range.start.line}"
+    assert any(d.range.start.line == first_case_line for d in diags), (
+        f"{case.name}: expected a diagnostic on line "
+        f"{first_case_line} (first case body), got lines "
+        f"{[d.range.start.line for d in diags]}"
     )
 
 
