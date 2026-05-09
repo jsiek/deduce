@@ -724,7 +724,7 @@ def definition_of(
     if result.ast is None:
         return None
 
-    target_name = _find_reference_at(result.ast, pos)
+    target_name = _find_reference_at(result.ast, pos, path)
     if target_name is None:
         return None
 
@@ -797,7 +797,7 @@ def _meta_contains(meta, pos: Position) -> bool:
     return after_start and before_end
 
 
-def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
+def _find_reference_at(ast_nodes, pos: Position, path: str) -> Optional[str]:
     """Locate the smallest reference node whose range contains ``pos``.
 
     Recognises term references (``Var``, with overload resolution via
@@ -805,6 +805,13 @@ def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
     ``name`` is already the chosen uniquified name post-uniquify).
     "Smallest" means the deepest match in the AST -- inner refs take
     precedence over enclosing constructs that happen to share a range.
+
+    Only considers nodes whose ``location.filename`` matches ``path``.
+    The post-typecheck AST is threaded with references back into
+    imported library files (constructors, types, overload candidates),
+    and those nodes carry the *library* file's line/column. Without
+    this filter, a cursor in the user's file can spuriously match a
+    library node whose range happens to overlap the same coordinates.
 
     Returns the resolved (uniquified) name, or ``None`` when no
     reference node contains ``pos``. The ``base_name`` of the return
@@ -828,6 +835,8 @@ def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
         meta = getattr(node, "location", None)
         if meta is None or not _meta_contains(meta, pos):
             return
+        if not _meta_in_file(meta, path):
+            return
         span = _meta_span(meta)
         if best_span[0] is None or span < best_span[0]:
             best_span[0] = span
@@ -837,6 +846,33 @@ def _find_reference_at(ast_nodes, pos: Position) -> Optional[str]:
         _walk_ast(top, visit, ast_class=AST)
 
     return best[0]
+
+
+def _meta_in_file(meta, path: str) -> bool:
+    """True iff ``meta``'s source file is ``path``.
+
+    Compares the ``filename`` attribute the parsers stash on each
+    ``Meta`` against ``path``. We accept a match when either the raw
+    strings are equal or the resolved absolute paths agree, so a
+    relative ``path`` from the caller still matches an absolute
+    ``meta.filename`` from the parser (and vice versa). When neither
+    side has a filename, fall back to permissive behaviour -- the
+    pre-prelude code path didn't filter at all.
+    """
+    import os
+
+    fname = getattr(meta, "filename", None)
+    if fname is None or fname == "???":
+        # No reliable file info on this node. Don't reject -- some
+        # synthetic nodes never get a filename, and rejecting them
+        # outright would regress same-file lookups.
+        return True
+    if fname == path:
+        return True
+    try:
+        return os.path.realpath(fname) == os.path.realpath(path)
+    except (OSError, ValueError):
+        return False
 
 
 def _meta_span(meta) -> int:
