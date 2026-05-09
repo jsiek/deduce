@@ -2247,16 +2247,19 @@ assert 2 - 3 = -1
 
 ```
 term ::= term "∸" term
+term ::= term ".-." term
 ```
 
 The monus operator is different from ordanary subtraction on integers
 because there are no negative unsigned integers. If you subtract a larger
 unsigned integer from a smaller one, the result of monus is `0`.
+The ASCII spelling `.-.` is equivalent to `∸`.
 
 ```{.deduce^#monus_example}
 assert 3 ∸ 2 = 1
 assert 3 ∸ 3 = 0
 assert 2 ∸ 3 = 0
+assert 3 .-. 2 = 1
 ```
 
 To search for theorems about monus in `UInt.thy`, search for

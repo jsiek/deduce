@@ -52,6 +52,7 @@ ARROW: "->"
     | term_med "++" term_add                       -> append
     | term_add "-" term_med                        -> sub
     | term_add "∸" term_med                        -> nat_sub
+    | term_add ".-." term_med                      -> nat_sub
     | term_add "⊝" term_med                        -> o_sub
     | term_med
 
@@ -78,6 +79,7 @@ ident: IDENT              -> ident
     | "operator" "&"      -> ident_intersect
     | "operator" "in"      -> ident_member
     | "operator" ".+."      -> ident_multiset_sum
+    | "operator" ".-."      -> ident_nat_sub
     | "operator" ".o."      -> ident_circ
     | "operator" "(="      -> ident_subset_equal
     | "operator" "<="      -> ident_less_equal

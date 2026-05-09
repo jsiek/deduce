@@ -17,6 +17,17 @@ proof
   .
 end
 
+theorem sub_ascii: 3 .-. 2 = 1
+proof
+  .
+end
+
+theorem sub_ascii_eq: all x:UInt, y:UInt. x .-. y = x ∸ y
+proof
+  arbitrary x:UInt, y:UInt
+  .
+end
+
 theorem mul: 2 * 3 = 6
 proof
   .
