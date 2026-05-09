@@ -1,0 +1,8 @@
+union Blah {
+  zero
+  suc(Blah)
+}
+
+define id_blah : fn Blah -> Blah = λx{x}
+
+assert id_blah /= id_blah
