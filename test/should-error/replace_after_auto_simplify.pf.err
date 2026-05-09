@@ -1,0 +1,10 @@
+./test/should-error/replace_after_auto_simplify.pf:7.3-7.21: 
+could not find any matches for
+	toNat(x * y)
+in
+	true
+while trying to replace using the below equation, left to right
+	(all x:UInt, y:UInt. toNat(x * y) = toNat(x) * toNat(y))
+The goal has been simplified to `true`, possibly by an `auto` rewrite rule.
+You may have an unnecessary tactic, or an earlier `suffices`/`have` step
+already discharged this obligation.

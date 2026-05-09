@@ -1,0 +1,10 @@
+import UInt
+
+define foo : UInt = 0
+
+theorem auto_already_done_expand: all n:UInt. n * 0 = 0
+proof
+  arbitrary n:UInt
+  expand foo
+  evaluate
+end
