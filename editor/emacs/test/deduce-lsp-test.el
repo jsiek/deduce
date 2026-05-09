@@ -916,11 +916,10 @@ interactive entry user-errors with `No elimination available'."
 ;; deduce-lsp-fill-from-given (issue #353, fronted by `C-c C-f')
 ;; ---------------------------------------------------------------------
 ;;
-;; Same wire shape as eliminate (Step 18): cursor on `?', the
-;; interactive form fetches candidate labels via
-;; `deduce/matchingGivensAt'; on a single match it skips
-;; completing-read and applies directly; on multiple it prompts.
-;; The chosen label drives a `deduce/fillFromGivenAt' request.
+;; Cursor on `?', the interactive form fetches candidate labels via
+;; `deduce/matchingGivensAt' and picks the first one without prompting
+;; (issue #385).  The chosen label drives a `deduce/fillFromGivenAt'
+;; request.
 
 (ert-deftest deduce-lsp/fill-from-given-bound-to-c-c-c-f ()
   "`C-c C-f' in deduce-mode-map runs `deduce-lsp-fill-from-given'."
@@ -1004,8 +1003,8 @@ user-errors instead of silently no-op-ing."
 
 
 (ert-deftest deduce-lsp/fill-from-given-interactive-single-match-autoselects ()
-  "With exactly one matching given, the interactive entry skips
-`completing-read' and uses the single candidate directly."
+  "With exactly one matching given, the interactive entry uses the
+single candidate without prompting via `completing-read'."
   (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf"))
         completing-read-called)
     (unwind-protect
@@ -1032,12 +1031,12 @@ user-errors instead of silently no-op-ing."
       (delete-file tmp))))
 
 
-(ert-deftest deduce-lsp/fill-from-given-interactive-multi-uses-completing-read ()
-  "With multiple matches, the interactive entry hits
-`deduce/matchingGivensAt' and feeds them to `completing-read'."
+(ert-deftest deduce-lsp/fill-from-given-interactive-multi-picks-first ()
+  "With multiple matches, the interactive entry picks the first
+candidate without prompting via `completing-read' (issue #385)."
   (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf"))
-        captured-prompt
-        captured-collection)
+        completing-read-called
+        captured-label)
     (unwind-protect
         (with-temp-buffer
           (insert "x")
@@ -1048,20 +1047,20 @@ user-errors instead of silently no-op-ing."
                     ((symbol-function 'eglot--signal-textDocument/didChange)
                      (lambda () nil))
                     ((symbol-function 'jsonrpc-request)
-                     (lambda (_server method _params)
+                     (lambda (_server method params)
                        (cond
                         ((eq method :deduce/matchingGivensAt) ["H1" "H2"])
-                        ((eq method :deduce/fillFromGivenAt) nil))))
+                        ((eq method :deduce/fillFromGivenAt)
+                         (setq captured-label (plist-get params :label))
+                         nil))))
                     ((symbol-function 'completing-read)
-                     (lambda (prompt collection &rest _rest)
-                       (setq captured-prompt prompt)
-                       (setq captured-collection collection)
-                       "H1")))
+                     (lambda (&rest _args)
+                       (setq completing-read-called t)
+                       "H2")))
             (ignore-errors
               (call-interactively #'deduce-lsp-fill-from-given)))
-          (should (string-match-p "Fill from given:" captured-prompt))
-          (should (member "H1" captured-collection))
-          (should (member "H2" captured-collection)))
+          (should-not completing-read-called)
+          (should (equal captured-label "H1")))
       (delete-file tmp))))
 
 

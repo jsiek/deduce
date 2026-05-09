@@ -341,12 +341,10 @@ is running in the current buffer."
 ;;
 ;;   `C-c C-f'  deduce-lsp-fill-from-given  (issue #353)
 ;;     Cursor on a `?'.  Issues `deduce/matchingGivensAt' to fetch
-;;     labels of in-scope givens whose formula equals the goal.
-;;     With a single match, applies it directly (no prompt -- the
-;;     prompt would just be a confirmation since there's only one
-;;     answer).  With multiple matches, prompts via `completing-
-;;     read'.  Issues `deduce/fillFromGivenAt' with the chosen
-;;     label and replaces the `?' with `conclude <goal> by <label>'.
+;;     labels of in-scope givens whose formula equals the goal, then
+;;     picks the first match without prompting (issue #385).  Issues
+;;     `deduce/fillFromGivenAt' with that label and replaces the `?'
+;;     with `conclude <goal> by <label>'.
 ;;
 ;; Refine and induction use `textDocument/codeAction' because they
 ;; take no extra user input.  Case-split and eliminate take a
@@ -612,14 +610,10 @@ that `?' is the replacement target.  LABEL names an in-scope local
 proof binding whose formula equals the goal at the hole.
 
 Interactively, queries the server for the matching given labels in
-scope at the hole (custom request `deduce/matchingGivensAt') and:
-
-  - errors with `No matching given at point.' when the candidate
-    list is empty;
-  - applies the single match directly when exactly one given
-    matches (the prompt would just be a confirmation);
-  - prompts via `completing-read' with TAB completion when multiple
-    givens match.
+scope at the hole (custom request `deduce/matchingGivensAt'),
+errors with `No matching given at point.' when the candidate list
+is empty, and otherwise picks the first candidate without prompting
+\(issue #385\).
 
 The chosen label is then sent in a `deduce/fillFromGivenAt'
 request; the returned WorkspaceEdit is applied directly.  Errors
@@ -637,10 +631,7 @@ out without applying when the server returns null."
                               candidates)))
        (unless candidate-list
          (user-error "No matching given at point"))
-       (list (if (= (length candidate-list) 1)
-                 (car candidate-list)
-               (completing-read "Fill from given: " candidate-list
-                                nil t))))))
+       (list (car candidate-list)))))
   (let ((server (eglot-current-server)))
     (unless server
       (user-error
