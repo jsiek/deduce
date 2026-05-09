@@ -295,3 +295,53 @@ def test_check_reports_proof_error_plus_hole_independently() -> None:
         f"expected a diagnostic on line 8 (the hole), got "
         f"{[(d.range.start.line, d.message[:40]) for d in diags]}"
     )
+
+
+# --------------------------------------------------------------------------
+# Unstructured-exception fallback
+# --------------------------------------------------------------------------
+#
+# A Python exception that escapes the checker without being wrapped as
+# a Deduce error (NameError, AttributeError, an unexpected KeyError) is
+# almost always a Deduce bug -- the kind of thing the user needs a
+# traceback for to file a useful report. Without this hook, a typo
+# like ``incomplete_user_error`` (issue surfaced during MCP smoke
+# testing of #390) shows up as a single-line ``name 'X' is not
+# defined`` at line 1, column 1 with no indication of which checker
+# frame raised. The diagnostic must include the formatted traceback.
+
+
+def test_check_includes_traceback_for_unstructured_exception(
+    monkeypatch,
+) -> None:
+    """When the checker raises a plain Python exception (not a Deduce
+    error type), the resulting diagnostic carries the traceback so
+    the user can file a bug report with a real frame."""
+    from lsp import library, query
+
+    sentinel_msg = "deliberate test failure: synthetic NameError"
+
+    def _boom(*args, **kwargs):
+        raise NameError(sentinel_msg)
+
+    # ``check_deduce`` runs inside ``_check_file_impl``'s catch-all
+    # try/except. A NameError here bypasses the sink (which only
+    # catches ``Diagnostic`` subclasses) and lands in
+    # ``CheckResult.exception`` -- the single-diagnostic fallback in
+    # ``query.check``.
+    monkeypatch.setattr(library, "check_deduce", _boom)
+
+    # Use a goal that needs no prelude (UInt et al. aren't loaded for a
+    # default ``query.check``), so we reach ``check_deduce`` before any
+    # uniquify diagnostic short-circuits the test.
+    diags = query.check("synthetic.pf", "theorem t: true proof . end\n")
+    assert len(diags) == 1
+    msg = diags[0].message
+    assert "internal error in Deduce" in msg, msg
+    assert sentinel_msg in msg, msg
+    # The formatted traceback must include the file that raised --
+    # the user filing a report needs to know which frame failed.
+    assert "Traceback" in msg, f"expected traceback in message, got: {msg!r}"
+    assert "_boom" in msg, (
+        f"expected the offending frame name in the traceback, got: {msg!r}"
+    )

@@ -1562,7 +1562,7 @@ def check_proof_of(proof, formula, env):
             for (frm,pf) in zip(frms, pfs):
               _try_check_proof_of(pf, frm, env)
             if len(pfs) < len(frms):
-              incomplete_user_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
+              incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
                                + str(len(pfs)))
           case _:
             user_error(loc, 'comma proves logical-and, not ' + str(red_formula))
