@@ -115,7 +115,7 @@ proof
   }
 end
 
-lemma one_mult: all n:Nat.
+theorem one_mult: all n:Nat.
   suc(zero) * n = n
 proof
   arbitrary n:Nat

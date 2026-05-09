@@ -596,7 +596,7 @@ def check_proof(proof, env):
           proved_formula = check_proof(reason, env)
           error(loc, "\nhave " + label + ':\n\t' + str(proved_formula))
         case _:
-          check_proof_of(reason, new_frm, env)
+          _try_check_proof_of(reason, new_frm, env)
           body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
           ret = check_proof(rest, body_env)
       
@@ -607,7 +607,7 @@ def check_proof(proof, env):
           proved_formula = check_proof(reason, env)
           error(loc, '\nconclude ' + str(proved_formula))
         case _:
-          check_proof_of(reason, new_claim, env)
+          _try_check_proof_of(reason, new_claim, env)
           ret = remove_mark(new_claim)
       
     case PTuple(loc, pfs):
@@ -710,7 +710,7 @@ def check_proof(proof, env):
           ifthen = ifthen.reduce(env)
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
-          check_proof_of(arg, prem, env)
+          _try_check_proof_of(arg, prem, env)
           ret = conc.reduce(env)
         case And(loc2, tyof, args):
           vars, imps = collect_all_if_then(loc, ifthen, env)
@@ -718,7 +718,7 @@ def check_proof(proof, env):
           rets = []
           for prem, conc in imps:
             try:
-              check_proof_of(arg, prem, env)
+              _try_check_proof_of(arg, prem, env)
               rets.append(conc)
             except Exception as e:
               pass
@@ -1251,7 +1251,7 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
     rules_proof = PTuple(loc, case_proofs)
   desugared = ModusPonens(loc, with_motive, rules_proof)
 
-  check_proof_of(desugared, goal, env)
+  _try_check_proof_of(desugared, goal, env)
 
 def check_proof_of(proof, formula, env):
   if get_verbose():
@@ -1298,7 +1298,7 @@ def check_proof_of(proof, formula, env):
     case PSymmetric(loc, eq_pf):
       (a,b) = split_equation(loc, formula, env)
       flip_formula = mkEqual(loc, b, a)
-      check_proof_of(eq_pf, flip_formula, env)
+      _try_check_proof_of(eq_pf, flip_formula, env)
 
     case PTransitive(loc, eq_pf1, eq_pf2):
       (a1,c) = split_equation(loc, formula, env)
@@ -1306,7 +1306,7 @@ def check_proof_of(proof, formula, env):
       eq1 = check_proof(eq_pf1, env)
       (a2,b) = split_equation(loc, eq1, env)
       
-      check_proof_of(eq_pf2, mkEqual(loc, b, c), env)
+      _try_check_proof_of(eq_pf2, mkEqual(loc, b, c), env)
       
       a1r = a1.reduce(env)
       a2r = a2.reduce(env)
@@ -1330,7 +1330,7 @@ def check_proof_of(proof, formula, env):
           formula = mkEqual(loc, call_lhs, call_rhs)
           for i, v in enumerate(reversed(list(zip(names, typs)))):
             formula = All(loc, None, v, (i, len(names)), formula)
-          check_proof_of(proof, formula, env)
+          _try_check_proof_of(proof, formula, env)
         case FunctionType(loc2, ty_params, params, ret_ty):
           error(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params))
                 + givens_str(env))
@@ -1356,7 +1356,7 @@ def check_proof_of(proof, formula, env):
             frm2 = update_all_head(frm2)
 
           body_env = env.declare_term_vars(loc, [var])
-          check_proof_of(body, frm2, body_env)
+          _try_check_proof_of(body, frm2, body_env)
         case _:
           error(loc, 'arbitrary is proof of an all formula, not\n' \
                 + str(formula))
@@ -1372,7 +1372,7 @@ def check_proof_of(proof, formula, env):
         case Some(loc2, tyof, vars, formula2):
           sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
           body_frm = formula2.substitute(sub)
-          check_proof_of(body, body_frm, env)
+          _try_check_proof_of(body, body_frm, env)
         case _:
           error(loc, "choose expects the goal to start with 'some', not " + str(formula))
           
@@ -1395,7 +1395,7 @@ def check_proof_of(proof, formula, env):
           else:
             prop = witnessFormula
           body_env = body_env.declare_local_proof_var(loc, label, prop)
-          check_proof_of(body, formula, body_env)
+          _try_check_proof_of(body, formula, body_env)
         case _:
           error(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula))
         
@@ -1407,7 +1407,7 @@ def check_proof_of(proof, formula, env):
       match formula:
         case IfThen(loc2, tyof, prem, conc):
           body_env = env.declare_local_proof_var(loc, label, prem)
-          check_proof_of(body, conc, body_env)
+          _try_check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'expected proof of ' + str(formula) + \
                 '\n\tnot a proof of if-then: ' + str(proof))
@@ -1424,7 +1424,7 @@ def check_proof_of(proof, formula, env):
                 + 'because\n' + str(small1) + ' ≠ ' + str(small2)
             error(loc, 'mismatch in premise:\n' + msg)
           body_env = env.declare_local_proof_var(loc, label, new_prem1)
-          check_proof_of(body, conc, body_env)
+          _try_check_proof_of(body, conc, body_env)
         case _:
           error(proof.location, 'the assume statement is for if-then formula, not ' + repr(formula))
 
@@ -1443,7 +1443,7 @@ def check_proof_of(proof, formula, env):
                                           b.local, module=env.get_current_module()) \
                           if isinstance(b, ProofBinding) else b \
                            for (k,b) in body_env.dict.items()})
-      ret = check_proof_of(rest, frm, new_body_env)
+      _try_check_proof_of(rest, frm, new_body_env)
 
     # have X: P by frm
     case PLet(loc, label, frm, reason, rest):
@@ -1456,22 +1456,22 @@ def check_proof_of(proof, formula, env):
           warning(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
           body_env = env.declare_local_proof_var(loc, label, proved_formula)
         case _:
-          check_proof_of(reason, new_frm, env)
+          _try_check_proof_of(reason, new_frm, env)
           body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
-      check_proof_of(rest, formula, body_env)
+      _try_check_proof_of(rest, formula, body_env)
 
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
       match new_claim:
         case Hole(loc2, tyof):
-          check_proof_of(reason, formula, env)
+          _try_check_proof_of(reason, formula, env)
           error(loc, '\nneed to show:\n\t' + str(formula))
         case _:
           claim_red = new_claim.reduce(env)
           formula_red = formula.reduce(env)
           check_implies(loc, remove_mark(claim_red).reduce(env),
                         remove_mark(formula_red).reduce(env))
-          check_proof_of(reason, claim_red, env)
+          _try_check_proof_of(reason, claim_red, env)
 
     case EvaluateGoal(loc):
       set_reduce_all(True)
@@ -1505,7 +1505,7 @@ def check_proof_of(proof, formula, env):
 
         match red_claim:
           case Omitted(loc2, tyof):
-            check_proof_of(rest, new_formula, env)
+            _try_check_proof_of(rest, new_formula, env)
           case Hole(loc2, tyof):
             try:
               newer_formula = check_formula(new_formula, env)
@@ -1518,7 +1518,7 @@ def check_proof_of(proof, formula, env):
               check_implies(loc, red_claim, new_formula)
             except Exception as e:
               raise wrap_error(e, '\nGivens:\n' + env.proofs_str()) from e
-            check_proof_of(rest, new_claim, env)
+            _try_check_proof_of(rest, new_claim, env)
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])
         claim_red = new_claim.reduce(env)
@@ -1530,7 +1530,7 @@ def check_proof_of(proof, formula, env):
               case IfThen(loc3, _, prem, conc):
                 check_implies(loc, conc, formula)
                 warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
-                check_proof_of(rest, prem, env)
+                _try_check_proof_of(rest, prem, env)
               case _:
                 error(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula))
           case Omitted(loc2, tyof):
@@ -1538,13 +1538,13 @@ def check_proof_of(proof, formula, env):
             match proved_formula:
               case IfThen(loc3, _, prem, conc):
                 check_implies(loc, conc, formula)
-                check_proof_of(rest, prem, env)
+                _try_check_proof_of(rest, prem, env)
               case _:
                 error(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula))
           case _:
             imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
-            check_proof_of(reason, imp, env)
-            check_proof_of(rest, claim_red, env)
+            _try_check_proof_of(reason, imp, env)
+            _try_check_proof_of(rest, claim_red, env)
 
     case PTuple(loc, pfs):
       try:
@@ -1661,7 +1661,7 @@ def check_proof_of(proof, formula, env):
           print("Generated custom induction:")
           print(new_pf)
         
-        check_proof_of(new_pf, formula, env)
+        _try_check_proof_of(new_pf, formula, env)
       else:
         match env.get_def_of_type_var(get_type_name(typ)):
           case Union(loc2, name, typarams, alts):
@@ -1839,7 +1839,7 @@ def check_proof_of(proof, formula, env):
       eqns = [equation.reduce(env) for equation in equations]
       new_formula = formula.reduce(env)
       new_formula = apply_rewrites(loc, new_formula, eqns, env)
-      check_proof_of(body, new_formula, env)
+      _try_check_proof_of(body, new_formula, env)
 
     case SimplifyGoal(loc, body, givens):
       preds = [check_proof(proof, env) for proof in givens]
@@ -1847,12 +1847,12 @@ def check_proof_of(proof, formula, env):
       eqns = [equation.reduce(env) for equation in equations]
       new_formula = apply_rewrites(loc, formula, eqns, env)
       new_formula = new_formula.reduce(env)
-      check_proof_of(body, new_formula, env)
+      _try_check_proof_of(body, new_formula, env)
       
     case ApplyDefsGoal(loc, defs, body):
       new_formula = expand_definitions(loc, formula, defs, env)
       red_formula = new_formula.reduce(env)
-      check_proof_of(body, red_formula, env)
+      _try_check_proof_of(body, red_formula, env)
       
     case _:
       try:
@@ -4675,7 +4675,7 @@ def check_proofs(stmt, env: Env):
     case Theorem(loc, name, frm, pf, isLemma):
       if get_verbose():
         print('checking proof of theorem ' + base_name(name))
-      check_proof_of(pf, frm, env)
+      _try_check_proof_of(pf, frm, env)
       
     case Postulate(loc, name, frm):
       pass
@@ -4729,7 +4729,7 @@ def check_proofs(stmt, env: Env):
       formula = check_formula(formula, body_env)
 
       # check that the terminates proof proves the above formula
-      check_proof_of(terminates, formula, body_env)
+      _try_check_proof_of(terminates, formula, body_env)
   
     case Union(loc, name, typarams, alts):
       pass
@@ -4977,6 +4977,7 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
         # Bypass the cache for them; ``check_proofs`` on these is
         # cheap anyway.
         try:
+          pre_n = len(_active_sink) if _active_sink is not None else 0
           if isinstance(s, (Print, Assert)):
             check_proofs(s, env)
             _record_miss("check_proofs")
@@ -4984,7 +4985,11 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
             _record_hit("check_proofs")
           else:
             check_proofs(s, env)
-            _stmt_cache[key] = True
+            # Don't cache if check_proofs absorbed errors into the
+            # sink -- next run must re-check so the diagnostic is
+            # re-emitted.
+            if _active_sink is None or len(_active_sink) == pre_n:
+              _stmt_cache[key] = True
             _record_miss("check_proofs")
         except Exception as e:
           # Don't update the cache on failure -- next run will
