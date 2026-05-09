@@ -1,1 +1,13 @@
 assert true ≠ false
+assert true /= false
+
+union Blah {
+  zero
+  suc(Blah)
+}
+
+define id_blah : fn Blah -> Blah = λx{x}
+define other_blah : fn Blah -> Blah = fun x { zero }
+
+assert id_blah ≠ other_blah
+assert id_blah /= other_blah
