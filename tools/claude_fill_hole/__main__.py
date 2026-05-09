@@ -115,63 +115,92 @@ _DEFAULT_API_KEY_ENVS = {
 def main(argv: Optional[list[str]] = None) -> int:
     args = _parse_args(argv)
 
+    # Claim stdout for the JSON response and redirect ``sys.stdout`` to
+    # ``sys.stderr`` so any stray ``print()`` from the in-process deduce
+    # checker pipeline (or a third-party SDK that logs to stdout) lands
+    # in the progress buffer instead of corrupting the response.  Without
+    # this, a single leaked path-shaped line is enough to make emacs
+    # fail with ``JSON readtable error: 47`` (47 == ``/``).  See #383.
+    response_stream = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        return _main_with_response_stream(args, response_stream)
+    except BaseException as exc:
+        # Last-ditch: an uncaught exception (deduce internal_error,
+        # SDK fault, OOM, ...) still produces a parseable response so
+        # the editor doesn't fall back to the generic "could not parse"
+        # path with no diagnostic.  Re-raise SystemExit so test runners
+        # and ``sys.exit`` calls behave normally.
+        _emit_response(
+            response_stream,
+            HoleFillResponse(
+                ok=False,
+                fingerprint="",
+                attempts=0,
+                elapsed_ms=0,
+                model=getattr(args, "model", "") or "",
+                proof=None,
+                error=f"sidecar crashed: {type(exc).__name__}: {exc}",
+                validations=(),
+            ),
+        )
+        if isinstance(exc, SystemExit):
+            raise
+        return 1
+    finally:
+        sys.stdout = response_stream
+
+
+def _main_with_response_stream(args: argparse.Namespace, response_stream) -> int:
     raw = sys.stdin.read()
     if not raw.strip():
         _emit_progress("error", message="empty stdin")
-        sys.stdout.write(
-            response_to_json(
-                _failure_response(
-                    fingerprint="",
-                    error="empty stdin -- expected a JSON request",
-                    model="",
-                )
-            )
+        _emit_response(
+            response_stream,
+            _failure_response(
+                fingerprint="",
+                error="empty stdin -- expected a JSON request",
+                model="",
+            ),
         )
-        sys.stdout.write("\n")
         return 2
 
     try:
         request = request_from_json(raw)
     except (ValueError, KeyError) as e:
         _emit_progress("error", message=f"bad request: {e}")
-        sys.stdout.write(
-            response_to_json(
-                _failure_response(
-                    fingerprint="",
-                    error=f"could not parse stdin as a HoleFillRequest: {e}",
-                    model="",
-                )
-            )
+        _emit_response(
+            response_stream,
+            _failure_response(
+                fingerprint="",
+                error=f"could not parse stdin as a HoleFillRequest: {e}",
+                model="",
+            ),
         )
-        sys.stdout.write("\n")
         return 2
 
     content = _resolve_content(request)
     if content is None:
-        sys.stdout.write(
-            response_to_json(
-                _failure_response(
-                    fingerprint=request.fingerprint,
-                    error=f"could not read content for {request.file}",
-                    model="",
-                )
-            )
+        _emit_response(
+            response_stream,
+            _failure_response(
+                fingerprint=request.fingerprint,
+                error=f"could not read content for {request.file}",
+                model="",
+            ),
         )
-        sys.stdout.write("\n")
         return 2
 
     hole_start_offset, hole_end_offset = _hole_offsets(content, request)
     if hole_start_offset is None or hole_end_offset is None:
-        sys.stdout.write(
-            response_to_json(
-                _failure_response(
-                    fingerprint=request.fingerprint,
-                    error="hole range out of bounds",
-                    model="",
-                )
-            )
+        _emit_response(
+            response_stream,
+            _failure_response(
+                fingerprint=request.fingerprint,
+                error="hole range out of bounds",
+                model="",
+            ),
         )
-        sys.stdout.write("\n")
         return 2
 
     # Default `--deduce-cmd` to `<this Python> deduce.py` so the
@@ -217,35 +246,31 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     if args.dry_run:
-        return _run_dry_run(request, validator, args)
+        return _run_dry_run(request, validator, args, response_stream)
 
     api_key = os.environ.get(args.api_key_env)
     if not api_key:
-        sys.stdout.write(
-            response_to_json(
-                _failure_response(
-                    fingerprint=request.fingerprint,
-                    error=f"{args.api_key_env} not set",
-                    model=args.model,
-                )
-            )
+        _emit_response(
+            response_stream,
+            _failure_response(
+                fingerprint=request.fingerprint,
+                error=f"{args.api_key_env} not set",
+                model=args.model,
+            ),
         )
-        sys.stdout.write("\n")
         return 2
 
     try:
         backend = _build_backend(args, api_key)
     except _BackendBuildError as e:
-        sys.stdout.write(
-            response_to_json(
-                _failure_response(
-                    fingerprint=request.fingerprint,
-                    error=str(e),
-                    model=args.model,
-                )
-            )
+        _emit_response(
+            response_stream,
+            _failure_response(
+                fingerprint=request.fingerprint,
+                error=str(e),
+                model=args.model,
+            ),
         )
-        sys.stdout.write("\n")
         return 2
 
     system_text = build_system_prompt(max_attempts=args.max_attempts)
@@ -277,8 +302,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     response = _agent_result_to_response(request, result, backend.model)
-    sys.stdout.write(response_to_json(response))
-    sys.stdout.write("\n")
+    _emit_response(response_stream, response)
     return 0 if result.ok else 1
 
 
@@ -504,7 +528,10 @@ def _failure_response(
 
 
 def _run_dry_run(
-    request: HoleFillRequest, validator: SubprocessValidator, args: argparse.Namespace
+    request: HoleFillRequest,
+    validator: SubprocessValidator,
+    args: argparse.Namespace,
+    response_stream,
 ) -> int:
     """Validate a known-trivial stub proof and report the outcome.
 
@@ -540,9 +567,20 @@ def _run_dry_run(
             ),
         ),
     )
-    sys.stdout.write(response_to_json(response))
-    sys.stdout.write("\n")
+    _emit_response(response_stream, response)
     return 0 if outcome.ok else 1
+
+
+def _emit_response(stream, response: HoleFillResponse) -> None:
+    """Write the JSON response and a trailing newline to ``stream``.
+
+    All response writes go through this helper so the response channel
+    stays a single, well-defined object -- ``main()`` captures the
+    real stdout into ``stream`` once at startup and points
+    ``sys.stdout`` at stderr; nothing else writes to ``stream``."""
+    stream.write(response_to_json(response))
+    stream.write("\n")
+    stream.flush()
 
 
 def _emit_progress(event: str, **fields):

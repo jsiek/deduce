@@ -180,6 +180,59 @@ def test_default_deduce_cmd_uses_sys_executable(monkeypatch, tmp_path):
     assert "No module named 'lark'" not in error_text
 
 
+def test_stray_print_does_not_corrupt_response(monkeypatch, tmp_path):
+    """Regression for #383: a stray ``print()`` from anywhere in the
+    sidecar's working code (deduce checker, third-party SDK, ...) must
+    not pollute the JSON response on stdout.
+
+    Before the fix, a ``/``-leading line printed to stdout produced
+    ``JSON readtable error: 47`` in emacs -- the editor saw the
+    pollution before the response and tried to parse the leading
+    ``/`` as the start of a JSON value.
+
+    Here we simulate the failure by patching ``_resolve_content`` to
+    print to stdout while still returning a valid string; the sidecar
+    must still emit a single, parseable JSON object on its
+    response stream."""
+    source = "theorem t: bool = true\n"
+    file_path = tmp_path / "proof.pf"
+    file_path.write_text(source)
+    request = _build_request(str(file_path), "?")  # placeholder; we use --dry-run
+
+    request_json = json.dumps(
+        {
+            "file": str(file_path),
+            "holeRange": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 0, "character": 1},
+            },
+            "goal": "x",
+            "givens": [],
+            "lemmasInScope": [],
+            "fingerprint": "fp",
+            "content": source,
+        }
+    )
+
+    real_resolve = sidecar_main._resolve_content
+
+    def leaky_resolve(req):
+        # The kind of accidental stdout write that triggered #383 --
+        # a path-shaped string ending up on fd 1.
+        print("/Users/someone/leaked/stdout.log: stray write")
+        return real_resolve(req)
+
+    monkeypatch.setattr(sidecar_main, "_resolve_content", leaky_resolve)
+    rc, stdout, stderr = _run_main(["--dry-run"], request_json, monkeypatch)
+
+    # The response on stdout must be a single parseable JSON object,
+    # regardless of what leaky_resolve scribbled.
+    decoded = json.loads(stdout.strip())
+    assert decoded["fingerprint"] == "fp"
+    # The leaked line must have ended up on stderr, where it's harmless.
+    assert "stray write" in stderr
+
+
 def test_hole_range_out_of_bounds_returns_failure(monkeypatch, tmp_path):
     """A holeRange past EOF is rejected before hitting the validator."""
     source = "theorem t: bool = true\n"
