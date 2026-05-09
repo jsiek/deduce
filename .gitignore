@@ -23,6 +23,9 @@ gh_pages/deduce-code
 # temp error file
 actual_error.tmp
 
+# scratch directory for ad-hoc .pf reproductions
+tmp/
+
 # Generated deduce profile image
 profile.png
 
