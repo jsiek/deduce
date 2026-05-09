@@ -54,6 +54,7 @@ from abstract_syntax import (
     get_recursive_descent,
     get_uniquified_modules,
 )
+from error import ErrorSink
 from flags import get_verbose
 from proof_checker import check_deduce, uniquify_deduce
 
@@ -70,10 +71,19 @@ class CheckResult:
         error_traceback:  Full Python traceback at the point of failure,
                           for callers that want it (e.g. ``--traceback``).
                           ``None`` when ``ok`` is True.
-        exception:        The raised exception object, preserved so
-                          structured callers (``lsp.query.check``) can
-                          read ``e.location`` / ``e.message_body``
+        exception:        The first raised exception object, preserved
+                          so structured callers (``lsp.query.check``)
+                          can read ``e.location`` / ``e.message_body``
                           without re-parsing strings. ``None`` when ok.
+                          When ``check_file`` runs in collect-errors
+                          mode, this is just ``errors[0]``; the full
+                          list lives in ``errors``.
+        errors:           All exceptions collected during this run.
+                          Empty list when ``ok`` is True; one-element
+                          list in the default raise-on-first mode;
+                          potentially several entries when
+                          ``collect_errors=True`` was passed (one per
+                          failing top-level statement / hole).
         module_name:      Module name derived from the filename
                           (``Path(filename).stem``).
         ast:              On success, the **post-typecheck** AST: the
@@ -93,6 +103,14 @@ class CheckResult:
     exception: Optional[BaseException]
     module_name: str
     ast: Optional[Any]
+    errors: list = None  # populated by __post_init__ when not provided
+
+    def __post_init__(self):
+        if self.errors is None:
+            # Default: a single-error result (or no error). Mirrors the
+            # historical ``exception`` field so unchanged callers see
+            # the same shape.
+            self.errors = [self.exception] if self.exception is not None else []
 
 
 def check_file(
@@ -100,6 +118,7 @@ def check_file(
     tracing_functions: Sequence[str] = (),
     prelude: Sequence[str] = (),
     content: Optional[str] = None,
+    collect_errors: bool = False,
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
 
@@ -120,6 +139,19 @@ def check_file(
                             error messages. Bypasses the
                             ``uniquified_modules`` cache, since the
                             cached AST corresponds to disk content.
+        collect_errors:     When ``False`` (default), the pipeline
+                            raises on the first error and ``result``
+                            carries that single exception — matching
+                            the CLI / ``goal_at`` / MCP behaviour.
+                            When ``True``, an :class:`ErrorSink` is
+                            threaded through ``check_deduce`` so each
+                            top-level statement that fails (and each
+                            ``?`` hole) appears as a separate entry in
+                            ``result.errors``; ``result.exception`` is
+                            still the first one for backward compat.
+                            ``lsp.query.check`` opts in to this so
+                            every error in the buffer becomes its own
+                            editor diagnostic.
 
     Concurrency note: this function is NOT thread-safe. The Deduce
     pipeline mutates module-level state, and the snapshot/restore
@@ -136,7 +168,10 @@ def check_file(
         if _post_prelude_ctx is not None
         else UniquifyContext()
     )
-    return _check_file_impl(filename, tracing_functions, prelude, content, ctx)
+    return _check_file_impl(
+        filename, tracing_functions, prelude, content, ctx,
+        collect_errors=collect_errors,
+    )
 
 
 def _check_file_impl(
@@ -145,6 +180,7 @@ def _check_file_impl(
     prelude: Sequence[str],
     content: Optional[str],
     ctx: UniquifyContext,
+    collect_errors: bool = False,
 ) -> CheckResult:
     """The original ``check_file`` body.
 
@@ -201,9 +237,25 @@ def _check_file_impl(
         # so callers like the Deduce-to-C compiler see overload-resolved
         # Var.resolved_names. On failure the variable retains the
         # post-uniquify ast for best-effort partial info.
+        sink = ErrorSink() if collect_errors else None
         typechecked_ast = check_deduce(
-            ast, module_name, True, list(tracing_functions)
+            ast, module_name, True, list(tracing_functions), error_sink=sink
         )
+        if sink is not None and sink.errors:
+            # collect-errors mode: at least one statement failed but
+            # the pipeline kept running. Surface the full list while
+            # preserving the historical single-error fields so
+            # unchanged callers (CLI, goal_at, MCP) still work.
+            first = sink.errors[0]
+            return CheckResult(
+                ok=False,
+                error_message=str(first),
+                error_traceback=None,  # no single Python traceback in this mode
+                exception=first,
+                module_name=module_name,
+                ast=typechecked_ast,
+                errors=list(sink.errors),
+            )
         return CheckResult(
             ok=True,
             error_message=None,

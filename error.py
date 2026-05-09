@@ -58,6 +58,27 @@ def error_program_text(location):
   else:
     return ''
 
+class ErrorSink:
+  """Collects exceptions during a checker run instead of letting them
+  propagate. When ``proof_checker.check_deduce`` is given a sink, each
+  top-level statement runs in a try/except per phase; raised
+  exceptions are appended to ``errors`` and the next statement runs.
+  Without a sink (the default), ``check_deduce`` keeps its
+  raise-on-first-error behavior — preserving CLI semantics and the
+  ``goal_at`` / MCP query paths that depend on it.
+  """
+  def __init__(self):
+    self.errors: list = []
+
+  def add(self, exc):
+    self.errors.append(exc)
+
+  def __bool__(self):
+    return bool(self.errors)
+
+  def __len__(self):
+    return len(self.errors)
+
 def error(location, msg):
   exc = Exception(error_header(location) + msg)
   # exc = Exception(error_header(location) + '\n\n' + error_program_text(location) + '\n\n' + msg)

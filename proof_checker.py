@@ -23,13 +23,56 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error
+from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error, ErrorSink
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location
 
 imported_modules = set()
 checked_modules = set()
 
 name_id = 0
+
+
+# ---------------------------------------------------------------------------
+# In-proof error collection (Step 11, depth-2)
+# ---------------------------------------------------------------------------
+#
+# ``check_deduce`` already collects one error per top-level statement.
+# Inside a single proof, ``check_proof_of`` recurses; many of those
+# recursions are sequential (each subproof's success is the parent's
+# premise) but a handful are *sibling-independent*: each conjunct of
+# a ``?, ?, ?`` tuple, each arm of a ``switch``, each case of an
+# ``induction`` proves the same goal under different hypotheses with
+# no value flowing between siblings. Catching and continuing at those
+# loops surfaces every hole / failed subgoal in the proof, not just
+# the first.
+#
+# Set by ``check_deduce`` for the duration of a single run with an
+# error sink in scope; ``None`` otherwise (CLI / goal_at / MCP all
+# leave it ``None`` and keep raise-on-first behaviour).  Mirrors the
+# existing ``flags.target_hole_location`` pattern -- a module-level
+# flag is how the rest of the checker plumbs run-wide context into
+# ``check_proof_of`` without dragging an extra parameter through 50+
+# recursive call sites.
+_active_sink = None
+
+
+def _try_check_proof_of(pf, frm, env):
+  """Call ``check_proof_of`` and, when an error sink is active, catch
+  any raised exception, append it to the sink, and return normally so
+  the surrounding sibling loop continues.
+
+  Use this only at sibling-independent recursion sites (PTuple
+  conjuncts, switch / induction / cases arms). At sequential sites a
+  failure means the parent can't continue meaningfully -- stick with
+  a plain ``check_proof_of`` call there.
+  """
+  global _active_sink
+  try:
+    check_proof_of(pf, frm, env)
+  except Exception as e:
+    if _active_sink is None:
+      raise
+    _active_sink.add(e)
 
 def generate_name(name):
     global name_id
@@ -1509,7 +1552,7 @@ def check_proof_of(proof, formula, env):
         match red_formula:
           case And(loc2, tyof2, frms):
             for (frm,pf) in zip(frms, pfs):
-              check_proof_of(pf, frm, env)
+              _try_check_proof_of(pf, frm, env)
             if len(pfs) < len(frms):
               incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
                                + str(len(pfs)))
@@ -1548,7 +1591,7 @@ def check_proof_of(proof, formula, env):
             if frm2 and (frm != new_frm2): # was frm != red_frm2
               error(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
             body_env = env.declare_local_proof_var(loc, label, frm)
-            check_proof_of(the_case, formula, body_env)
+            _try_check_proof_of(the_case, formula, body_env)
         case _:
           error(proof.location, "expected 'or', not " + str(sub_red))
           
@@ -1677,7 +1720,7 @@ def check_proof_of(proof, formula, env):
                     error(frm1.location, msg)
                 body_env = body_env.declare_local_proof_var(loc, x, frm2)
 
-              check_proof_of(indcase.body, goal, body_env)
+              _try_check_proof_of(indcase.body, goal, body_env)
           case blah:
             error(loc, "induction expected name of union, not " + str(typ)
                   + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
@@ -1733,7 +1776,7 @@ def check_proof_of(proof, formula, env):
               error(scase.location, 'only one assumption is allowed in a switch case')
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env), env)
             new_frm = frm.reduce(env)
-            check_proof_of(scase.body, new_frm, body_env)
+            _try_check_proof_of(scase.body, new_frm, body_env)
         case TypeType(_):
           # As far as I know, it is not possible to switch on a type
           error(loc, "In 'switch' expected a variable, got " + str(new_subject))
@@ -1787,7 +1830,7 @@ def check_proof_of(proof, formula, env):
                 else:
                   frm = formula
                 red_frm = frm.reduce(body_env)
-                check_proof_of(scase.body, red_frm, body_env)
+                _try_check_proof_of(scase.body, red_frm, body_env)
             case _:
               error(loc, "switch expected union type or bool, not " + str(ty))
           
@@ -4766,25 +4809,71 @@ def check_proofs(stmt, env: Env):
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
-def check_deduce(ast, module_name, modified, tracing_functions):
+def check_deduce(ast, module_name, modified, tracing_functions, error_sink=None):
+  """Run the four-phase pipeline (process_declarations, type_check_stmt,
+  collect_env, check_proofs) over ``ast``.
+
+  ``error_sink``: when ``None`` (default), exceptions raised by any
+  phase propagate immediately — the historical CLI / goal_at / MCP
+  behaviour. When given an :class:`ErrorSink`, each top-level
+  statement runs inside a per-phase try/except: a raised exception is
+  appended to the sink, the failing statement is dropped from the
+  remaining phases, and processing continues to the next statement.
+  ``lsp.query.check`` opts in to this so every error and every ``?``
+  hole in the file becomes a separate diagnostic instead of just the
+  first one.
+
+  The recovery boundary is the top-level statement; deep
+  ``error()`` / ``incomplete_error()`` calls keep raising as before
+  (refactoring 200+ raise sites to plumb a sink through every helper
+  would require each site to invent a "what to return" continuation,
+  with no benefit over a top-loop catch).
+  """
   env = Env()
   env = env.declare_module(module_name)
-  ast2 = []
   imported_modules.clear()
   needs_checking = [modified]
+
+  global _active_sink
+  prev_sink = _active_sink
+  _active_sink = error_sink
+  try:
+    return _check_deduce_body(
+      ast, module_name, modified, tracing_functions, error_sink, env, needs_checking
+    )
+  finally:
+    _active_sink = prev_sink
+
+
+def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink, env, needs_checking):
+  """Body of ``check_deduce``, split out so the ``_active_sink``
+  push/pop in the caller stays a tidy try/finally."""
+  def _collect(exc):
+    """Append ``exc`` to the sink, or re-raise when no sink is set."""
+    if error_sink is None:
+      raise exc
+    error_sink.add(exc)
+
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   # Hash each statement structurally as we go.  Used by the
   # check_proofs cache below; computed here so we visit each AST
   # only once.  ``_hash_ast`` skips the ``location`` field, so two
   # parses of the same source produce matching hashes.
-  stmt_hashes = []
+  # ``ast2_pairs`` collects (post-decl AST, hash) pairs only for
+  # statements whose declaration phase succeeded; failed statements
+  # are dropped here so they don't show up in later phases.
+  ast2_pairs = []
   for s in ast:
-    stmt_hashes.append(_hash_ast(s))
-    new_s, env = process_declaration(s, env, [module_name], needs_checking)
-    ast2.append(new_s)
+    sh = _hash_ast(s)
+    try:
+      new_s, env = process_declaration(s, env, [module_name], needs_checking)
+    except Exception as e:
+      _collect(e)
+      continue
+    ast2_pairs.append((new_s, sh))
   if get_verbose():
-    for s in ast2:
+    for s, _ in ast2_pairs:
       print(s)
 
   for func_name in tracing_functions:
@@ -4801,8 +4890,12 @@ def check_deduce(ast, module_name, modified, tracing_functions):
   ast3_hashes = []
 
   error_on_next_import : dict[str, bool] = {}
-  for s, sh in zip(ast2, stmt_hashes):
-    new_s = type_check_stmt(s, env, error_on_next_import)
+  for s, sh in ast2_pairs:
+    try:
+      new_s = type_check_stmt(s, env, error_on_next_import)
+    except Exception as e:
+      _collect(e)
+      continue
     # If None gets returned we want to remove the current statement
     # Which is represented by not appending it to the new ast
     if new_s != None:
@@ -4845,7 +4938,16 @@ def check_deduce(ast, module_name, modified, tracing_functions):
     auto_idxs: list = []
     stmt_hashes_so_far: list = []
     for i, (s, sh) in enumerate(zip(ast3, ast3_hashes)):
-      env = collect_env(s, env)
+      try:
+        env = collect_env(s, env)
+      except Exception as e:
+        # collect_env failed -- skip check_proofs for this stmt and
+        # the bookkeeping below. Append to ``stmt_hashes_so_far`` so
+        # subsequent indices keep lining up with ``ast3`` for the
+        # dependency lookup.
+        _collect(e)
+        stmt_hashes_so_far.append(sh)
+        continue
       referenced = _collect_referenced_names(s)
       # ``auto`` declarations register theorems as implicit rewrite
       # rules consulted by every later proof.  A proof can rely on
@@ -4874,15 +4976,21 @@ def check_deduce(ast, module_name, modified, tracing_functions):
         # verdict would skip the side effect on every duplicate.
         # Bypass the cache for them; ``check_proofs`` on these is
         # cheap anyway.
-        if isinstance(s, (Print, Assert)):
-          check_proofs(s, env)
-          _record_miss("check_proofs")
-        elif key in _stmt_cache:
-          _record_hit("check_proofs")
-        else:
-          check_proofs(s, env)
-          _stmt_cache[key] = True
-          _record_miss("check_proofs")
+        try:
+          if isinstance(s, (Print, Assert)):
+            check_proofs(s, env)
+            _record_miss("check_proofs")
+          elif key in _stmt_cache:
+            _record_hit("check_proofs")
+          else:
+            check_proofs(s, env)
+            _stmt_cache[key] = True
+            _record_miss("check_proofs")
+        except Exception as e:
+          # Don't update the cache on failure -- next run will
+          # re-check this stmt, which is what we want once the user
+          # fixes it.
+          _collect(e)
       # Bookkeeping for the next iteration -- happens regardless of
       # ``needs_checking`` so the dependency map stays consistent.
       # ``defined_to_idx`` is updated *after* the dep lookup so a
