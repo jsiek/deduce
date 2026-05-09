@@ -1830,6 +1830,13 @@ def check_proof_of(proof, formula, env):
           raise wrap_error(e, replace_advice) from e
 
 
+def auto_simplified_hint(new_formula):
+  if is_true(new_formula):
+    return '\nThe goal has been simplified to `true`, possibly by an `auto` rewrite rule.\n' \
+           'Finish the proof with `.` (which closes any goal of the form `true`).'
+  return ''
+
+
 def expand_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)
   if num_marks == 0:
@@ -1897,7 +1904,8 @@ def expand_definitions(loc, formula, defs, env):
       if not reduced_one:
           error(loc, 'could not find a place to expand definition of ' \
                 + name2str(var.name) \
-                + ' in:\n' + '\t' + str(new_formula))
+                + ' in:\n' + '\t' + str(new_formula) \
+                + auto_simplified_hint(new_formula))
 
   if num_marks == 0:          
       return check_formula(new_formula, env)
@@ -1929,7 +1937,8 @@ def apply_rewrites(loc, formula, eqns, env):#
         (lhs, rhs) = split_equation(loc, eq, env)
         error(loc, '\ncould not find any matches for\n\t' + str(lhs) \
               + '\nin\n\t' + str(new_formula) \
-              + '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq))
+              + '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq) \
+              + auto_simplified_hint(new_formula))
     new_formula = new_formula.reduce(env)
       
   if num_marks == 0:          

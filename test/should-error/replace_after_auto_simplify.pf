@@ -1,0 +1,9 @@
+import UInt
+
+theorem auto_already_done: all n:UInt. n * 0 = 0
+proof
+  arbitrary n:UInt
+  suffices toNat(n * 0) = toNat(0) by uint_toNat_injective
+  replace toNat_mult
+  evaluate
+end
