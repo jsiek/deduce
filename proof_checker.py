@@ -1439,7 +1439,6 @@ def check_proof_of(proof, formula, env):
       if red_formula != Bool(loc, None, True):
           error(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
                 + str(red_formula))
-      return red_formula
 
     #  goal is P
     #  suffices Q by r        r proves (if Q then P)
