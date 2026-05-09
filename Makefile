@@ -21,6 +21,37 @@ tests-lib:
 
 tests: tests-should-validate tests-should-error
 
+# A curated subset of LSP / diagnostic-handling tests for rapid
+# iteration on the error.py + check_deduce sink machinery. These are
+# the cases most sensitive to changes in raise/record semantics:
+# spurious-diagnostic regressions on valid files, multi-hole shape,
+# the PTuple "comma proves" speculative-comma trap, the shape of an
+# IncompleteProof diagnostic, and a few representative should-error
+# fixtures spanning incomplete / type-error / overload-conflict
+# shapes. Runs in a few seconds; the full LSP suite takes ~3 minutes.
+quick-lsp:
+	$(PYTHON) -m pytest test/lsp/test_check.py test/lsp/test_check_proofs_cache.py \
+	    -k "valid_files \
+	        or incomplete_proof_diagnostic \
+	        or multiple_holes \
+	        or proof_error_plus_hole \
+	        or editing_T1_invalidates \
+	        or advice_and.pf \
+	        or overload6.pf \
+	        or apply_to_non_imp.pf \
+	        or forgot_def \
+	        or missing_recall.pf \
+	        or recursive_clause_name_mismatch.pf"
+
+# Full LSP suite (~3:20). Use ``quick-lsp`` for fast iteration; this
+# target is the comprehensive check before merging.
+tests-lsp:
+	$(PYTHON) -m pytest test/lsp/
+
+quick-tests: 
+	$(PYTHON) ./deduce.py --recursive-descent lib/Nat.pf --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
+	$(PYTHON) ./deduce.py --recursive-descent ./test/should-error/induction2.pf --error --dir $(LIB_DIR)
+
 tests-compile:
 	$(PYTHON) ./test/compile/run_lower.py
 	$(PYTHON) ./test/compile/run_e2e.py

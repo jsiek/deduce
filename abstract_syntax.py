@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from lark.tree import Meta
 from typing import Tuple, List, Optional, Set, Self
-from error import error, warning, static_error, match_failed, MatchFailed
+from error import user_error, internal_error, warning, static_error, match_failed, MatchFailed, UserError
 from flags import *
 from pathlib import Path
 from edit_distance import edit_distance
@@ -49,24 +49,24 @@ class AST:
   location: Meta
 
   def copy(self) -> Self:
-    error(self.location, 'copy not implemented for \n\t' + repr(self))
+    internal_error(self.location, 'copy not implemented for \n\t' + repr(self))
     return self
 
 @dataclass
 class Type(AST):
 
   def free_vars(self) -> Set[str]:
-    error(self.location, 'free_vars not implemented')
+    internal_error(self.location, 'free_vars not implemented')
     return set()
 
   def substitute(self, sub) -> Self:
-    error(self.location, 'substitute not implemented')
+    internal_error(self.location, 'substitute not implemented')
 
   def uniquify(self, env, ctx) -> Self:
-    error(self.location, 'uniquify not implemented')
+    internal_error(self.location, 'uniquify not implemented')
 
   def reduce(self, env) -> Self:
-    error(self.location, 'reduce not implemented')
+    internal_error(self.location, 'reduce not implemented')
 
 
 @dataclass
@@ -74,17 +74,17 @@ class Term(AST):
   typeof: Optional[Type]
 
   def copy(self) -> Self:
-    error(self.location, 'copy not implemented')
+    internal_error(self.location, 'copy not implemented')
     return self
 
   def uniquify(self, env, ctx) -> Self:
-    error(self.location, 'uniquify not implemented')
+    internal_error(self.location, 'uniquify not implemented')
 
   def substitute(self, sub) -> Self:
-    error(self.location, 'substitute not implemented')
+    internal_error(self.location, 'substitute not implemented')
 
   def reduce(self, env) -> Self:
-    error(self.location, 'reduce not implemented')
+    internal_error(self.location, 'reduce not implemented')
 
   def pretty_print(self, indent: int, afterNewline=False) -> str:
       if afterNewline:
@@ -226,21 +226,15 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
 
 
 def is_associative(loc, opname, typ, env):
-  #print('is_associative? ' + str(opname) + ' for ' + str(typ))
   for (typarams, ty) in env.get_assoc_types(opname):
     type_params = type_names(loc, typarams)
     matching = {}
     try:
-      #print('type_params = ' + ', '.join([str(t) for t in type_params]))
-      #print(str(ty) + ' =? ' + str(typ))
       type_match(loc, type_params, ty, typ, matching)
-      #print('\tyes')
       return True
-    except Exception as e:
+    except MatchFailed as e:
       pass
-  #print('\tno')
   return False
-
 
 def rator_name(rator):
   if isinstance(rator, VarRef):
@@ -293,9 +287,6 @@ class IntType(Type):
   def __str__(self):
     return 'int'
 
-  # def __repr__(self):
-  #   return str(self)
-
   def __eq__(self, other):
     return isinstance(other, IntType)
 
@@ -315,9 +306,6 @@ class BoolType(Type):
   
   def __str__(self):
     return 'bool'
-
-  # def __repr__(self):
-  #   return str(self)
 
   def __eq__(self, other):
     return isinstance(other, BoolType)
@@ -362,7 +350,8 @@ class OverloadType(Type):
   types: List[Tuple[str,Type]]
 
   def __str__(self):
-    return '(' + ' & '.join([base_name(x) + ': ' + str(ty) for (x,ty) in self.types]) + ')'
+    return '(' + ' & '.join([base_name(x) + ': ' + str(ty) \
+                             for (x,ty) in self.types]) + ')'
 
   def __eq__(self, other):
     match other:
@@ -379,7 +368,8 @@ class OverloadType(Type):
     return set().union(*fvs)
 
   def substitute(self, sub):
-      return OverloadType(self.location, [(x, t.substitute(sub)) for (x,t) in self.types])
+      return OverloadType(self.location, [(x, t.substitute(sub)) \
+                                          for (x,t) in self.types])
 
     
   def uniquify(self, env, ctx):
@@ -554,7 +544,8 @@ def get_type_name(ty):
     case TypeInst(l1, ty, type_args):
       return get_type_name(ty)
     case _:
-      raise Exception('unhandled case in get_type_name: ' + repr(ty))
+      raise InternalError('unhandled case in get_type_name: ' + repr(ty))
+  
 ################ Patterns ######################################
 
 @dataclass
@@ -781,7 +772,7 @@ class VarRef(Term):
   # call `get_name()` rather than reach for a `name` field — the two
   # subclasses store names differently on purpose.
   def get_name(self) -> str:
-    error(self.location, 'get_name not implemented on VarRef base')
+    internal_error(self.location, 'get_name not implemented on VarRef base')
 
   def free_vars(self):
     return {self.get_name()}
@@ -890,7 +881,7 @@ class OverloadedVar(VarRef):
 
   def __post_init__(self):
     if len(self.resolved_names) == 0:
-      error(self.location,
+      internal_error(self.location,
             'OverloadedVar must have at least one resolved name')
 
   @property
@@ -1164,8 +1155,8 @@ def is_match(pattern, arg, subst):
           case _ if isinstance(arg, VarRef):
             ret = False
           case _:
-            error(loc1, 'Boolean pattern expected boolean argument, not\n\t' \
-                  + str(arg))
+            user_error(loc1, 'Boolean pattern expected boolean argument, not\n\t' \
+                       + str(arg))
       case PatternCons(loc1, constr, []):
         if isinstance(arg, VarRef):
           ret = constr == arg
@@ -1299,7 +1290,7 @@ def operator_name(trm):
     case TermInst(loc, tyof, subject, tyargs):
       return operator_name(subject)
     case _:
-      raise Exception('operator_name, unexpected term ' + str(trm))
+      raise InternalError('operator_name, unexpected term ' + str(trm))
 
 def is_infix_operator(trm):
   return is_operator(trm) and operator_name(trm) in infix_precedence.keys()
@@ -1368,11 +1359,11 @@ def do_function_call(loc, name, type_params, type_args,
 
   if not fast_call:    
     body_env = env
-    if False and len(params) != len(args):
-      error(loc, 'in function call ' + name2str(name) \
-            + '(' + ', '.join([str(a) for a in args]) + ')\n' \
-            + '\tnumber of parameters: ' + str(len(params)) + '\n' \
-            + '\tdoes not match number of arguments')
+    if False and len(params) != len(args): # TODO: why if False?? -Jeremy
+      user_error(loc, 'in function call ' + name2str(name) \
+                 + '(' + ', '.join([str(a) for a in args]) + ')\n' \
+                 + '\tnumber of parameters: ' + str(len(params)) + '\n' \
+                 + '\tdoes not match number of arguments')
     for (x,ty) in zip(type_params, type_args):
       subst[x] = ty
     for (k,v) in zip(params, args):
@@ -1537,10 +1528,8 @@ class Call(Term):
                                      params, args, returns, cases, is_assoc,
                                      env)
       case Generic(loc2, tyof, typarams, body):
-        error(self.location, 'in reduction, call to generic\n\t' + str(self))
+        internal_error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
-        # if get_verbose():
-        #   print('not reducing call because neutral function: ' + str(fun))
         ret = Call(self.location, self.typeof, fun, args)
         if hasattr(self, 'type_args'):
           ret.type_args = self.type_args
@@ -1548,17 +1537,10 @@ class Call(Term):
     if not get_eval_all():
         ret = auto_rewrites(ret, env)
     
-    # if get_verbose():
-    #   print('call ' + str(self) + '\n\treturns ' + str(ret))
-    #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     return ret
 
   def do_call(self, loc, vars, body, args, env):
-    # because of associativity, args can be longer
-    # if len(vars) != len(args):
-    #     print("params: " + ', '.join([str(x) for (x,t) in vars]))
-    #     print("args: " + ', '.join([str(p) for p in args]))
-    #     error(loc, "param arg length mismatch: " + str(self))
+    # because of associativity, args can be longer than vars
     subst = {k: v for ((k,t),v) in zip(vars, args)}
     return do_function_call(loc, "anonymous", [], [], [], [], body, subst, env, None)
 
@@ -1609,9 +1591,6 @@ class Call(Term):
     new_args = []
     worklist = args
     while len(worklist) > 1:
-      # if get_verbose():
-      #   print('worklist: ' + ', '.join([str(a) for a in worklist]))
-      #   print('new_args: ' + ', '.join([str(a) for a in new_args]))
       first_arg = worklist[0]; worklist = worklist[1:]
       did_call = False
       for fun_case in cases:
@@ -1634,24 +1613,14 @@ class Call(Term):
         new_args.append(first_arg)
       if did_call and not get_reduce_all():
         break
-      # if get_verbose():
-      #   print('-----------------------------')
     set_reduce_only(old_reduce_only)
-    # if get_verbose():
-    #   print('end associative operator ' + str(fun))
-    #   print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-
 
     new_args += worklist
     flat_results = flatten_assoc_list(rator_name(self.rator), new_args)
-    # if get_verbose():
-    #   print('}}}}}}}}}}}}}}}}}}}}}}}}}}')
     if len(flat_results) == 1:
       return explicit_term_inst(flat_results[0])
     else:
-      return Call(self.location, self.typeof,
-                  fun,
-                  flat_results)
+      return Call(self.location, self.typeof, fun, flat_results)
   
   def substitute(self, sub):
     ret = Call(self.location, self.typeof, self.rator.substitute(sub),
@@ -1936,7 +1905,7 @@ class ArrayGet(Term):
         elif isUInt(position_red):
           index = uintToInt(position_red)
         else:
-            error(self.location, "array access expected number index, not " + str(position_red))
+            user_error(self.location, "array access expected number index, not " + str(position_red))
         if not (index is None):
           if 0 <= index and index < len(elements):
             return elements[index].reduce(env)
@@ -2467,11 +2436,11 @@ class PVar(Proof):
                + where + "; lemmas are module-private and not accessible"
                + " from other modules. To make it accessible here, change"
                + " `lemma` to `theorem` there.")
-        error(self.location, msg)
+        user_error(self.location, msg)
       env_str = ('\n' + ', '.join(env.keys())) if get_verbose() else ''
-      error(self.location, "undefined proof variable " + self.name + env_str)
+      user_error(self.location, "undefined proof variable " + self.name + env_str)
     if not isinstance(env[self.name], list):
-      error(self.location, "proof variable not bound to list " + self.name)
+      user_error(self.location, "proof variable not bound to list " + self.name)
     return PVar(self.location, env[self.name][0])
     
 @dataclass
@@ -3124,8 +3093,8 @@ class RuleInductionCase(AST):
                if edit_distance(self.rule_name, v)
                   <= ceil(len(self.rule_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
-      error(self.location,
-            "no such rule '" + self.rule_name + "'" + hint)
+      user_error(self.location,
+                 "no such rule '" + self.rule_name + "'" + hint)
     resolved = env[self.rule_name]
     new_rule_name = self.rule_name
     if isinstance(resolved, list) and len(resolved) >= 1:
@@ -3162,9 +3131,9 @@ class RuleInduction(Proof):
                if edit_distance(self.hyp_name, v)
                   <= ceil(len(self.hyp_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
-      error(self.location,
-            "rule induction: no such predicate '"
-            + self.hyp_name + "'" + hint)
+      user_error(self.location,
+                 "rule induction: no such predicate '"
+                 + self.hyp_name + "'" + hint)
     resolved = env[self.hyp_name]
     new_hyp_name = self.hyp_name
     if isinstance(resolved, list) and len(resolved) >= 1:
@@ -3201,9 +3170,9 @@ class RuleInversion(Proof):
                if edit_distance(self.hyp_name, v)
                   <= ceil(len(self.hyp_name) / 5)]
       hint = '\n\tdid you intend: ' + ', '.join(close) if close else ''
-      error(self.location,
-            "rule inversion: no such predicate '"
-            + self.hyp_name + "'" + hint)
+      user_error(self.location,
+                 "rule inversion: no such predicate '"
+                 + self.hyp_name + "'" + hint)
     resolved = env[self.hyp_name]
     new_hyp_name = self.hyp_name
     if isinstance(resolved, list) and len(resolved) >= 1:
@@ -3424,7 +3393,7 @@ class RewriteFact(Proof):
 def extend(env, name, new_name, loc):
   if name in env['no overload']:
     ty = env['no overload'][name]
-    error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
+    user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
 
   if name in env.keys():
       if not new_name in env[name]:
@@ -3436,7 +3405,7 @@ def extend(env, name, new_name, loc):
 def overwrite(env, name, new_name, loc):
   if name in env['no overload']:
     ty = env['no overload'][name]
-    error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
+    user_error(loc, f"Cannot overload {ty} names. {name} is already defined as a {ty}")
 
   if base_name(name) != "_" and name in env.keys():
     warning(loc, f"WARNING: {name} is already defined")
@@ -3455,7 +3424,7 @@ class Postulate(Statement):
 
   def uniquify(self, env, ctx):
     if self.name in env.keys():
-      error(self.location, "theorem names may not be overloaded")
+      user_error(self.location, "theorem names may not be overloaded")
     new_what = self.what.uniquify(env, ctx)
     new_name = generate_name(self.name, ctx)
     overwrite(env, self.name, new_name, self.location)
@@ -3482,7 +3451,7 @@ class Theorem(Statement):
 
   def uniquify(self, env, ctx):
     if self.name in env.keys():
-      error(self.location, "theorem names may not be overloaded: " + base_name(self.name))
+      user_error(self.location, "theorem names may not be overloaded: " + base_name(self.name))
     new_what = self.what.uniquify(env, ctx)
     new_proof = self.proof.uniquify(env, ctx)
     new_name = generate_name(self.name, ctx)
@@ -3532,8 +3501,8 @@ class Rule(AST):
   def uniquify(self, env, body_env, ctx):
     new_formula = self.formula.uniquify(body_env, ctx)
     if self.name in env.keys():
-      error(self.location,
-            "rule names may not be overloaded: " + base_name(self.name))
+      user_error(self.location,
+                 "rule names may not be overloaded: " + base_name(self.name))
     new_name = generate_name(self.name, ctx)
     overwrite(env, self.name, new_name, self.location)
     env['no overload'][self.name] = 'rule'
@@ -3565,9 +3534,9 @@ class Predicate(Declaration):
 
   def uniquify(self, env, ctx):
     if self.name in env.keys():
-      error(self.location,
-            self.original_keyword + " names may not be overloaded: " \
-            + base_name(self.name))
+      user_error(self.location,
+                 self.original_keyword + " names may not be overloaded: " \
+                 + base_name(self.name))
     new_name = generate_name(self.name, ctx)
     env[self.name] = [new_name]
     env['no overload'][self.name] = self.original_keyword
@@ -3579,20 +3548,20 @@ class Predicate(Declaration):
     # off the AST and emits a Theorem with that exact uniquified name.
     rule_ind_base = base_pred + '_rule_induction'
     if rule_ind_base in env.keys():
-      error(self.location,
-            "name '" + rule_ind_base + "' is already defined; the "
-            + self.original_keyword + " '" + base_pred
-            + "' would auto-generate a theorem with that name")
+      user_error(self.location,
+                 "name '" + rule_ind_base + "' is already defined; the "
+                 + self.original_keyword + " '" + base_pred
+                 + "' would auto-generate a theorem with that name")
     rule_ind_unique = generate_name(rule_ind_base, ctx)
     env[rule_ind_base] = [rule_ind_unique]
     env['no overload'][rule_ind_base] = 'theorem'
     # Same treatment for the inversion principle.
     rule_inv_base = base_pred + '_rule_inversion'
     if rule_inv_base in env.keys():
-      error(self.location,
-            "name '" + rule_inv_base + "' is already defined; the "
-            + self.original_keyword + " '" + base_pred
-            + "' would auto-generate a theorem with that name")
+        user_error(self.location,
+                   "name '" + rule_inv_base + "' is already defined; the "
+                   + self.original_keyword + " '" + base_pred
+                   + "' would auto-generate a theorem with that name")
     rule_inv_unique = generate_name(rule_inv_base, ctx)
     env[rule_inv_base] = [rule_inv_unique]
     env['no overload'][rule_inv_base] = 'theorem'
@@ -3654,7 +3623,7 @@ class Union(Declaration):
   
   def uniquify(self, env, ctx):
     if self.name in env.keys():
-      error(self.location, "union names may not be overloaded")
+      user_error(self.location, "union names may not be overloaded")
     new_name = generate_name(self.name, ctx)
     env[self.name] = [new_name]
     env['no overload'][self.name] = 'union'
@@ -3719,8 +3688,8 @@ class FunCase(AST):
 
   def uniquify(self, env, fun_name, ctx):
     if self.rator.name != fun_name:
-        error(self.rator.location, 'expected function name "' + fun_name + \
-              '", not "' + str(self.rator.name) + '"')
+        user_error(self.rator.location, 'expected function name "' + fun_name + \
+                   '", not "' + str(self.rator.name) + '"')
     new_rator = self.rator.uniquify(env, ctx)
     new_pat = self.pattern.uniquify(env, ctx)
     body_env = copy_dict(env)
@@ -4066,7 +4035,7 @@ def find_file(loc, name):
     filename = os.path.join(dir, name + ".pf")
     if os.path.isfile(filename):
       return filename
-  error(loc, 'could not find a file for import: ' + name)
+  user_error(loc, 'could not find a file for import: ' + name)
 
 def greatest_lower_bound(vis1, vis2):
     if vis1 == 'public':
@@ -4074,7 +4043,7 @@ def greatest_lower_bound(vis1, vis2):
     elif vis1 == 'private' or vis1 == 'default':
         return 'private'
     else:
-        raise Exception('in greatest_lower_bound: unknown visibility: ' + vis1)
+        raise InternalError('in greatest_lower_bound: unknown visibility: ' + vis1)
 
 def _stmt_primary_name(stmt):
   # The user-visible name to match against an import's using/hiding list,
@@ -4122,9 +4091,9 @@ class Import(Declaration):
     for name in requested:
       if name not in exported:
         clause = 'using' if self.using is not None else 'hiding'
-        error(self.location,
-              "import " + clause + ": '" + name
-              + "' is not exported by module '" + self.name + "'")
+        user_error(self.location,
+                   "import " + clause + ": '" + name
+                   + "' is not exported by module '" + self.name + "'")
 
   def uniquify(self, env, ctx):
     importing_module = get_current_module()
@@ -4298,7 +4267,7 @@ def split_equation(loc, equation, env):
     case All(loc1, tyof, var, pos, body):
       return split_equation(loc, body, env)
     case _:
-      error(loc, 'expected an equality, not ' + str(equation))
+      internal_error(loc, 'expected an equality, not ' + str(equation))
 
 def equation_vars(formula):
   match formula:
@@ -4310,7 +4279,7 @@ def equation_vars(formula):
       v.typeof = t
       return [v] + equation_vars(body)
     case _:
-      raise Exception('equation_vars unhandled ' + str(formula))
+      raise InternalError('equation_vars unhandled ' + str(formula))
       
 def is_equation(formula):
   match formula:
@@ -4365,7 +4334,7 @@ def get_arg(t):
     case Call(loc, tyof1, rator, [arg]):
       return arg
     case _:
-      raise Exception('get_arg')
+      raise InternalError('get_arg')
   
 def mkBZero(loc, zname='bzero', ty=None):
   return ResolvedVar(loc, ty, zname)
@@ -4384,7 +4353,7 @@ def uint_inc(loc, x):
     elif isIncDub(x):
         return mkDubInc(loc, get_arg(x))
     else:
-        error(loc, 'not a UInt constructor: ' + str(x))
+        internal_error(loc, 'not a UInt constructor: ' + str(x))
 
 # The parsers use this function to create unsigned integer literals.
 def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc',
@@ -4488,7 +4457,7 @@ def natToInt(t):
       if base_name(n) == 'lit':
       return natToInt(arg)
     case _:
-      raise Exception('natToInt: not a Nat: ' + str(t))
+      raise InternalError('natToInt: not a Nat: ' + str(t))
 
 def uintToInt(t):
   match t:
@@ -4504,7 +4473,7 @@ def uintToInt(t):
       if base_name(n) == 'fromNat':
       return natToInt(arg)
     case _:
-      raise Exception('uintToInt: not a uint ' + str(t))
+      raise InternalError('uintToInt: not a uint ' + str(t))
 
 def mkUIntLit(loc, num):
     return Call(loc, None, Var(loc, None, 'fromNat'),
@@ -4540,7 +4509,7 @@ def deduceIntToInt(t):
     case Call(loc, tyof1, (Var(loc2, tyof2, name) | OverloadedVar(loc2, tyof2, [name, *_]) | ResolvedVar(loc2, tyof2, name)), [arg]) if base_name(name) == 'negsuc':
       return '-' + str(1 + uintToInt(arg))
     case _:
-      error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
+      internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
 
 def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
@@ -4570,7 +4539,7 @@ def constr_name(term):
     case TermInst(loc, ty, body):
       return constr_name(body)
     case _:
-      raise Exception('constr_name unhandled ' + str(term))
+      raise InternalError('constr_name unhandled ' + str(term))
     
 def constructor_conflict(term1, term2, env):
   match (term1, term2):
@@ -4754,14 +4723,14 @@ class Env:
   
   def define_type(self, loc, name, defn, visibility = 'public'):
     if defn == None:
-      error(loc, 'None not allowed in define_type')
+      internal_error(loc, 'None not allowed in define_type')
     new_env = Env(self.dict)
     new_env.dict[name] = TypeBinding(loc, defn, module=self.get_current_module(), visibility=visibility)
     return new_env
   
   def declare_term_var(self, loc, name, typ, local = False, visibility='public'):
     if typ == None:
-      error(loc, 'None not allowed as type of variable in declare_term_var')
+      internal_error(loc, 'None not allowed as type of variable in declare_term_var')
     new_env = Env(self.dict)
     new_env.dict[name] = TermBinding(loc, typ, module=self.get_current_module(), visibility=visibility)
     new_env.dict[name].local = local
@@ -4847,9 +4816,9 @@ class Env:
   
   def define_term_var(self, loc, name, typ, val, visibility='public'):
     if False and typ == None:
-      error(loc, 'None not allowed as type in define_term_var')
+      internal_error(loc, 'None not allowed as type in define_term_var')
     if val == None:
-      error(loc, 'None not allowed as value in define_term_var')
+      internal_error(loc, 'None not allowed as value in define_term_var')
     new_env = Env(self.dict)
     new_env.dict[name] = TermBinding(loc, typ, val, module=self.get_current_module(),
                                      visibility=visibility)
@@ -4924,15 +4893,15 @@ class Env:
         case ProofBinding(loc, formula):
           return formula
         case TermBinding(loc, FunctionType()):
-          raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+          raise UserError('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `expand ' + base_name(name) + '`?')
         case TermBinding():
-          raise Exception('expected a proof but instead got term `' + base_name(name) + '`.'\
+          raise UserError('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `recall ' + base_name(name) + '`?')
         case TypeBinding():
-          raise Exception('expected a proof but instead got type ' + base_name(name))
+          raise UserError('expected a proof but instead got type ' + base_name(name))
         case _:
-          raise Exception('expected a proof but instead got ' + base_name(name))
+          raise UserError('expected a proof but instead got ' + base_name(name))
     else:
       return None
     
@@ -5061,7 +5030,7 @@ def print_theorems(filename, ast):
     for s in sorted(to_print, key=lambda s: s.key()):
       print_theorems_statement(s, theorem_file)
 
-############# Marks for controlling rewriting and definitions #########################
+############# Marks for controlling rewriting and definitions ##################
 
 default_mark_LHS = True
 
@@ -5124,7 +5093,7 @@ def count_marks(formula):
     case ArrayGet(loc, tyof, arr, ind):
       return count_marks(arr) + count_marks(ind)
     case _:
-      error(formula.location, 'in count_marks function, unhandled ' + str(formula))
+      internal_error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
 def find_mark(formula):
   match formula:
@@ -5180,7 +5149,7 @@ def find_mark(formula):
       find_mark(arr)
       find_mark(ind)
     case _:
-      error(formula.location, 'in find_mark function, unhandled ' + str(formula))
+      internal_error(formula.location, 'in find_mark function, unhandled ' + str(formula))
 
 def replace_mark(formula, replacement):
   match formula:
@@ -5231,7 +5200,7 @@ def replace_mark(formula, replacement):
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
     case _:
-      error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
+      internal_error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
 def remove_mark(formula):
   num_marks = count_marks(formula)
@@ -5241,7 +5210,7 @@ def remove_mark(formula):
         try:
             find_mark(formula)
             loc = formula.location if hasattr(formula, 'location') else None
-            error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
+            internal_error(loc, 'in remove_mark, find_mark failed on formula:\n\t' + str(formula))
         except MarkException as ex:
             return replace_mark(formula, ex.subject)
       
@@ -5589,7 +5558,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
       return Mark(loc, tyof, rewrite_aux(loc, subject, equation, env, depth - 1))
   
     case _:
-      error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
+      internal_error(loc, 'internal error in rewrite function, unhandled ' + str(formula))
 
 def try_rewrite(loc, formula, equation, env):
   (lhs, rhs) = split_equation(loc, equation, env)

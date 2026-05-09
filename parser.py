@@ -626,7 +626,7 @@ def parse_tree_to_ast(e, parent):
         args = parse_tree_to_list(e.children[0], e)
         return PRecall(e.meta, args)
     elif e.data == 'ident_proof_error':
-        error(e.meta, "parsing error: " + repr(e))
+        raise ParseError(e.meta, "parsing error: " + repr(e))
     elif e.data == 'reason':
         return parse_tree_to_ast(e.children[0], e)
         
