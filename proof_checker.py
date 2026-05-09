@@ -1833,8 +1833,7 @@ def check_proof_of(proof, formula, env):
 def auto_simplified_hint(new_formula):
   if is_true(new_formula):
     return '\nThe goal has been simplified to `true`, possibly by an `auto` rewrite rule.\n' \
-           'You may have an unnecessary tactic, or an earlier `suffices`/`have` step\n' \
-           'already discharged this obligation.'
+           'Finish the proof with `.` (which closes any goal of the form `true`).'
   return ''
 
 
