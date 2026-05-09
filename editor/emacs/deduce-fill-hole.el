@@ -524,6 +524,67 @@ doesn't have to special-case parse failures."
                :attempts 0)))))))
 
 
+(defun deduce-fill-hole--reindent-proof (proof column)
+  "Return PROOF with each line after the first prefixed by COLUMN spaces.
+
+The model emits proof text without knowing the column the `?'
+sits at, so a multi-line response lands with the first line at
+the hole's column (correct) and every following line at column 0
+(wrong).  We re-indent to match the hole's column so the splice
+lines up with the surrounding source.  If the model already
+prefixed lines with whitespace (mirroring the excerpt's
+indentation), strip a common leading-whitespace prefix from the
+follow-on lines first so we don't double-indent."
+  (let* ((lines (split-string proof "\n"))
+         (first (car lines))
+         (rest (cdr lines)))
+    (if (null rest)
+        proof
+      (let* ((non-blank (seq-filter
+                         (lambda (l) (not (string-match-p "\\`[ \t]*\\'" l)))
+                         rest))
+             (common (deduce-fill-hole--common-leading-whitespace non-blank))
+             (strip (length common))
+             (pad (make-string column ?\s))
+             (rest-fixed
+              (mapcar (lambda (l)
+                        (cond
+                         ;; Blank lines stay blank -- don't pad trailing
+                         ;; whitespace onto an otherwise-empty line.
+                         ((string-match-p "\\`[ \t]*\\'" l) "")
+                         ((and (> strip 0)
+                               (>= (length l) strip)
+                               (string= (substring l 0 strip) common))
+                          (concat pad (substring l strip)))
+                         (t (concat pad l))))
+                      rest)))
+        (mapconcat #'identity (cons first rest-fixed) "\n")))))
+
+
+(defun deduce-fill-hole--common-leading-whitespace (lines)
+  "Return the longest leading-whitespace prefix shared by LINES.
+
+Used by `deduce-fill-hole--reindent-proof' to detect the model's
+own indentation so it can be stripped before re-indenting to the
+hole's column.  Returns the empty string when LINES is empty or
+no shared prefix exists."
+  (if (null lines)
+      ""
+    (let ((prefix (progn
+                    (string-match "\\`\\([ \t]*\\)" (car lines))
+                    (match-string 1 (car lines)))))
+      (dolist (line (cdr lines))
+        (string-match "\\`\\([ \t]*\\)" line)
+        (let ((this (match-string 1 line))
+              (i 0)
+              (lim (min (length prefix)
+                        (length (match-string 1 line)))))
+          (while (and (< i lim) (eq (aref prefix i) (aref this i)))
+            (setq i (1+ i)))
+          (setq prefix (substring prefix 0 i))))
+      prefix)))
+
+
 (defun deduce-fill-hole--splice-proof (start-marker end-marker proof
                                                     orig-fingerprint attempts)
   "Replace the marker range with PROOF after the marker + fingerprint check.
@@ -567,8 +628,9 @@ in the success message."
            "deduce-fill-hole: hole context changed while the model was thinking")))))
   (save-excursion
     (goto-char start-marker)
-    (delete-region start-marker end-marker)
-    (insert proof))
+    (let ((column (current-column)))
+      (delete-region start-marker end-marker)
+      (insert (deduce-fill-hole--reindent-proof proof column))))
   (message "deduce-fill-hole: filled in %d attempt%s"
            attempts (if (= attempts 1) "" "s")))
 

@@ -548,5 +548,67 @@ thinking, the sentinel must not raise -- just message the user."
                        msgs)))))
 
 
+;; ---------------------------------------------------------------------
+;; Multi-line proof re-indentation (issue #391)
+;; ---------------------------------------------------------------------
+
+
+(ert-deftest deduce-fill-hole/reindent-leaves-single-line-proofs-alone ()
+  "A proof with no newline has no follow-on lines to indent."
+  (should (equal (deduce-fill-hole--reindent-proof "reflexive" 2)
+                 "reflexive")))
+
+
+(ert-deftest deduce-fill-hole/reindent-pads-followon-lines-to-column ()
+  "Lines after the first get prefixed by COLUMN spaces so the splice
+lines up under the hole's indent."
+  (should (equal (deduce-fill-hole--reindent-proof
+                  "arbitrary x:Nat\nassume p: P x\np" 2)
+                 "arbitrary x:Nat\n  assume p: P x\n  p")))
+
+
+(ert-deftest deduce-fill-hole/reindent-strips-common-prefix-then-pads ()
+  "When the model already indented its follow-on lines (mirroring the
+excerpt), strip a common leading-whitespace prefix before padding."
+  (should (equal (deduce-fill-hole--reindent-proof
+                  "arbitrary x:Nat\n  assume p: P x\n  p" 4)
+                 "arbitrary x:Nat\n    assume p: P x\n    p")))
+
+
+(ert-deftest deduce-fill-hole/reindent-blank-lines-stay-blank ()
+  "Blank follow-on lines must not collect trailing whitespace."
+  (should (equal (deduce-fill-hole--reindent-proof
+                  "arbitrary x:Nat\n\nassume p: P x" 2)
+                 "arbitrary x:Nat\n\n  assume p: P x")))
+
+
+(ert-deftest deduce-fill-hole/reindent-zero-column-is-noop ()
+  "A hole at column 0 (theorems start there) needs no padding."
+  (should (equal (deduce-fill-hole--reindent-proof
+                  "arbitrary x:Nat\nassume p: P x" 0)
+                 "arbitrary x:Nat\nassume p: P x")))
+
+
+(ert-deftest deduce-fill-hole/sentinel-success-indents-multiline-proof ()
+  "End-to-end: a multi-line proof from the sidecar gets each follow-on
+line padded to the `?''s column when spliced into the buffer."
+  (with-temp-buffer
+    (insert "theorem t: bool = true\nproof\n  ?\nend\n")
+    (let* ((source (current-buffer))
+           (session (deduce-fill-hole-test--make-session
+                     source
+                     (concat "{\"ok\": true,"
+                             " \"proof\": \"arbitrary x:Nat\\nassume p: P x\\np\","
+                             " \"attempts\": 1, \"fingerprint\": \"test-fp\","
+                             " \"elapsedMs\": 100, \"model\": \"test\","
+                             " \"validations\": []}")
+                     nil)))
+      (deduce-fill-hole-test--with-captured-messages
+        (deduce-fill-hole--apply-result session))
+      (should (string-match-p
+               "  arbitrary x:Nat\n  assume p: P x\n  p"
+               (buffer-string))))))
+
+
 (provide 'deduce-fill-hole-test)
 ;;; deduce-fill-hole-test.el ends here
