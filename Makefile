@@ -5,7 +5,10 @@ TEST_PASS_DIR = ./test/should-validate
 TEST_ERROR_DIR = ./test/should-error
 TEST_IMPORT_DIR = ./test/test-imports
 
-default: tests tests-lib
+default: tests-tokens tests tests-lib
+
+tests-tokens:
+	$(PYTHON) ./gh_pages/scripts/keywords.py
 
 tests-should-validate:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR) --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
