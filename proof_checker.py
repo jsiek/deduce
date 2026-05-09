@@ -23,7 +23,7 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error
+from error import error, incomplete_error, warning, error_header, IncompleteProof, match_failed, MatchFailed, wrap_error, ErrorSink
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location
 
 imported_modules = set()
@@ -4744,25 +4744,57 @@ def check_proofs(stmt, env: Env):
     case _:
       error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
       
-def check_deduce(ast, module_name, modified, tracing_functions):
+def check_deduce(ast, module_name, modified, tracing_functions, error_sink=None):
+  """Run the four-phase pipeline (process_declarations, type_check_stmt,
+  collect_env, check_proofs) over ``ast``.
+
+  ``error_sink``: when ``None`` (default), exceptions raised by any
+  phase propagate immediately — the historical CLI / goal_at / MCP
+  behaviour. When given an :class:`ErrorSink`, each top-level
+  statement runs inside a per-phase try/except: a raised exception is
+  appended to the sink, the failing statement is dropped from the
+  remaining phases, and processing continues to the next statement.
+  ``lsp.query.check`` opts in to this so every error and every ``?``
+  hole in the file becomes a separate diagnostic instead of just the
+  first one.
+
+  The recovery boundary is the top-level statement; deep
+  ``error()`` / ``incomplete_error()`` calls keep raising as before
+  (refactoring 200+ raise sites to plumb a sink through every helper
+  would require each site to invent a "what to return" continuation,
+  with no benefit over a top-loop catch).
+  """
   env = Env()
   env = env.declare_module(module_name)
-  ast2 = []
   imported_modules.clear()
   needs_checking = [modified]
+
+  def _collect(exc):
+    """Append ``exc`` to the sink, or re-raise when no sink is set."""
+    if error_sink is None:
+      raise exc
+    error_sink.add(exc)
+
   if get_verbose():
       print('--------- Processing Declarations ------------------------')
   # Hash each statement structurally as we go.  Used by the
   # check_proofs cache below; computed here so we visit each AST
   # only once.  ``_hash_ast`` skips the ``location`` field, so two
   # parses of the same source produce matching hashes.
-  stmt_hashes = []
+  # ``ast2_pairs`` collects (post-decl AST, hash) pairs only for
+  # statements whose declaration phase succeeded; failed statements
+  # are dropped here so they don't show up in later phases.
+  ast2_pairs = []
   for s in ast:
-    stmt_hashes.append(_hash_ast(s))
-    new_s, env = process_declaration(s, env, [module_name], needs_checking)
-    ast2.append(new_s)
+    sh = _hash_ast(s)
+    try:
+      new_s, env = process_declaration(s, env, [module_name], needs_checking)
+    except Exception as e:
+      _collect(e)
+      continue
+    ast2_pairs.append((new_s, sh))
   if get_verbose():
-    for s in ast2:
+    for s, _ in ast2_pairs:
       print(s)
 
   for func_name in tracing_functions:
@@ -4779,8 +4811,12 @@ def check_deduce(ast, module_name, modified, tracing_functions):
   ast3_hashes = []
 
   error_on_next_import : dict[str, bool] = {}
-  for s, sh in zip(ast2, stmt_hashes):
-    new_s = type_check_stmt(s, env, error_on_next_import)
+  for s, sh in ast2_pairs:
+    try:
+      new_s = type_check_stmt(s, env, error_on_next_import)
+    except Exception as e:
+      _collect(e)
+      continue
     # If None gets returned we want to remove the current statement
     # Which is represented by not appending it to the new ast
     if new_s != None:
@@ -4823,7 +4859,16 @@ def check_deduce(ast, module_name, modified, tracing_functions):
     auto_idxs: list = []
     stmt_hashes_so_far: list = []
     for i, (s, sh) in enumerate(zip(ast3, ast3_hashes)):
-      env = collect_env(s, env)
+      try:
+        env = collect_env(s, env)
+      except Exception as e:
+        # collect_env failed -- skip check_proofs for this stmt and
+        # the bookkeeping below. Append to ``stmt_hashes_so_far`` so
+        # subsequent indices keep lining up with ``ast3`` for the
+        # dependency lookup.
+        _collect(e)
+        stmt_hashes_so_far.append(sh)
+        continue
       referenced = _collect_referenced_names(s)
       # ``auto`` declarations register theorems as implicit rewrite
       # rules consulted by every later proof.  A proof can rely on
@@ -4852,15 +4897,21 @@ def check_deduce(ast, module_name, modified, tracing_functions):
         # verdict would skip the side effect on every duplicate.
         # Bypass the cache for them; ``check_proofs`` on these is
         # cheap anyway.
-        if isinstance(s, (Print, Assert)):
-          check_proofs(s, env)
-          _record_miss("check_proofs")
-        elif key in _stmt_cache:
-          _record_hit("check_proofs")
-        else:
-          check_proofs(s, env)
-          _stmt_cache[key] = True
-          _record_miss("check_proofs")
+        try:
+          if isinstance(s, (Print, Assert)):
+            check_proofs(s, env)
+            _record_miss("check_proofs")
+          elif key in _stmt_cache:
+            _record_hit("check_proofs")
+          else:
+            check_proofs(s, env)
+            _stmt_cache[key] = True
+            _record_miss("check_proofs")
+        except Exception as e:
+          # Don't update the cache on failure -- next run will
+          # re-check this stmt, which is what we want once the user
+          # fixes it.
+          _collect(e)
       # Bookkeeping for the next iteration -- happens regardless of
       # ``needs_checking`` so the dependency map stays consistent.
       # ``defined_to_idx`` is updated *after* the dep lookup so a

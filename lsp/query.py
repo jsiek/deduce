@@ -294,10 +294,22 @@ def check(
     """Run the full Deduce pipeline on ``content`` (treated as if it
     were the contents of ``path``) and return all diagnostics found.
 
-    An empty list means the file is valid. The current pipeline raises
-    on the first error, so today the list will have at most one entry;
-    Step 11 (multi-error collection) will lift that limit without
-    changing this signature.
+    An empty list means the file is valid. With Step 11 (multi-error
+    collection) this returns one ``Diagnostic`` per top-level
+    statement that fails, plus one per ``?`` hole — so editors paint
+    every error and incomplete proof in the buffer instead of just
+    the first.
+
+    Recovery boundary is the top-level statement, so an error inside
+    one theorem doesn't suppress the diagnostic for an unrelated
+    theorem later in the file. Cascading errors (a downstream stmt
+    that depended on a broken decl) are reported too: usually they
+    point at a real follow-on problem the user wants to see, and
+    suppressing them risks hiding errors.
+
+    A parse / uniquify failure still short-circuits the run — the
+    pipeline can't produce a partial AST in those cases, so the result
+    is always one diagnostic for the parse error.
 
     ``prelude`` is the list of module names auto-imported in front of
     the file (matching ``deduce.py``'s ``--no-stdlib`` flag: empty by
@@ -308,10 +320,17 @@ def check(
     # That keeps the protocol-neutral boundary cheap to enforce.
     from lsp.library import check_file
 
-    result = check_file(path, content=content, prelude=prelude)
+    result = check_file(path, content=content, prelude=prelude, collect_errors=True)
     if result.ok:
         return []
 
+    if result.errors:
+        return [
+            _diagnostic_from_exception(exc, str_fallback=str(exc))
+            for exc in result.errors
+        ]
+    # Fallback: parse/uniquify failure (raised before check_deduce
+    # ever ran, so the sink stayed empty). Single-diagnostic path.
     return [_diagnostic_from_exception(result.exception, str_fallback=result.error_message)]
 
 
