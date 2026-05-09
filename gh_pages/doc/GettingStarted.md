@@ -328,39 +328,62 @@ cd /path/to/deduce
 python3 -m pip install -r requirements-lsp.txt
 ```
 
-This pulls in the `mcp` Python package.
+This pulls in the `mcp` Python package. Note which interpreter
+`python3` resolves to here (`which python3`); step 2 must launch the
+**same** interpreter, or Claude Code will start a Python that doesn't
+have `mcp` installed.
 
 **2. Register the Deduce MCP server with your assistant.** For Claude
-Code, create (or edit) `.mcp.json` in the directory where you'll run
-`claude` — typically your Deduce checkout or the directory containing
-your `.pf` files:
+Code, create (or edit) `.mcp.json` in your Deduce checkout:
 
 ```json
 {
   "mcpServers": {
     "deduce": {
       "command": "python3",
-      "args": ["-m", "lsp.mcp_server"],
-      "env": {
-        "DEDUCE_ROOT": "/path/to/deduce"
-      }
+      "args": ["-m", "lsp.mcp_server"]
     }
   }
 }
 ```
 
-`DEDUCE_ROOT` tells the server where to find `lib/` (the standard
-library prelude) and `Deduce.lark` (the parser grammar). If you launch
-`claude` *from* the Deduce checkout, `DEDUCE_ROOT` is optional. To
-skip the prelude entirely, add `"DEDUCE_NO_STDLIB": "1"`. Alternative
-CLI registration:
+This form requires `claude` to be launched from the Deduce checkout
+(so Python can find the `lsp` package). To launch `claude` from a
+different directory — e.g. a separate proofs directory — give the
+absolute path to `mcp_server.py` instead. The server bootstraps
+itself from the file's location, so it works from any cwd:
 
-```sh
-claude mcp add deduce -- python3 -m lsp.mcp_server
+```json
+{
+  "mcpServers": {
+    "deduce": {
+      "command": "python3",
+      "args": ["/path/to/deduce/lsp/mcp_server.py"]
+    }
+  }
+}
 ```
 
-**3. Try it out.** Start `claude` in the directory with your `.pf`
-file and ask something concrete:
+To skip the standard library prelude, add
+`"env": {"DEDUCE_NO_STDLIB": "1"}`.
+
+Alternative CLI registration. The default scope is `local` (per-user,
+per-project — won't be picked up by other contributors); pass
+`--scope project` to write to `.mcp.json` in the current directory
+instead:
+
+```sh
+claude mcp add --scope project deduce -- python3 -m lsp.mcp_server
+```
+
+After creating `.mcp.json`, **restart `claude`** so it discovers
+the new server. On first start in a project with `.mcp.json`, Claude
+Code prompts you to trust the server before invoking its tools.
+
+**3. Try it out.** Start `claude` from the directory matching the
+`.mcp.json` form you picked in step 2 — the Deduce checkout for the
+`-m lsp.mcp_server` form, or anywhere for the absolute-path form —
+and ask something concrete:
 
 ```
 $ cd /path/to/your/proofs
