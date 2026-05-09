@@ -1,0 +1,1 @@
+./test/should-error/ptuple_too_few.pf:10.3-10.13: expected 3 proofs but only got 2

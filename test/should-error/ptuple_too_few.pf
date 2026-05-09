@@ -1,0 +1,11 @@
+theorem T: all x:bool. x or not x
+proof
+  arbitrary x:bool
+  switch x { case true { . } case false { . } }
+end
+
+theorem U: all x:bool. (x or not x) and (x or not x) and (x or not x)
+proof
+  arbitrary x:bool
+  T[x], T[x]
+end
