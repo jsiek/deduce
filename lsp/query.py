@@ -61,6 +61,7 @@ __all__ = [
     "SymbolInfo",
     "WorkspaceEdit",
     "LemmaInfo",
+    "LemmaMatch",
     "HoleContext",
     "ValidationResult",
     # Query functions
@@ -77,6 +78,7 @@ __all__ = [
     "fill_from_given_at",
     "matching_givens_at",
     "hole_context_at",
+    "available_lemmas_at",
     "validate_proof_at",
 ]
 
@@ -229,6 +231,26 @@ class LemmaInfo:
     name: str
     kind: SymbolKind
     signature: str
+
+
+@dataclass(frozen=True)
+class LemmaMatch:
+    """A lemma surfaced by :func:`available_lemmas_at`, with ranking.
+
+    Like :class:`LemmaInfo` but adds the ``module`` of origin (the
+    file's stem for the user file, the module name for prelude
+    lemmas) and a ``relevance`` score in ``[0.0, 1.0]`` -- ``1.0``
+    is the best match in the result set.
+
+    ``kind`` is restricted to ``THEOREM``, ``LEMMA``, or ``POSTULATE``;
+    other declaration kinds aren't returned.
+    """
+
+    name: str
+    kind: SymbolKind
+    signature: str
+    module: Optional[str]
+    relevance: float
 
 
 @dataclass(frozen=True)
@@ -2323,6 +2345,491 @@ def _lemma_info_for(stmt, public_only: bool = False) -> Optional[LemmaInfo]:
         kind=kind,
         signature=signature,
     )
+
+
+def available_lemmas_at(
+    path: str,
+    content: str,
+    pos: Position,
+    query: Optional[str] = None,
+    prelude: Sequence[str] = (),
+    limit: int = 50,
+) -> tuple:
+    """Return ranked lemmas visible at ``pos``, best matches first.
+
+    Driven by either (or both) of two signals:
+
+    - The cursor sits on a ``?`` token: the goal at that hole defines
+      the shape we're searching for.  ``available_lemmas_at`` extracts
+      the goal text and uses its head operator and operator/function
+      tokens for ranking.
+    - ``query`` is given: a substring (matched against the rendered
+      lemma signature) or a goal-shape pattern containing ``_``
+      placeholders (each ``_`` matches any run of characters).
+
+    When both are given they combine -- a lemma that matches the goal
+    *and* the query ranks above one that matches only one.
+
+    The result is a tuple of :class:`LemmaMatch` ordered by descending
+    ``relevance``; ties broken by name.  ``relevance`` is normalised
+    so the best match in the set is ``1.0`` and others scale linearly.
+    Only theorems, lemmas, and postulates are surfaced.
+
+    The lemma set is the same one :func:`hole_context_at` collects
+    (user-file declarations plus public declarations from each module
+    in ``prelude``), so this works without a hole as long as the file
+    parses.  Returns ``()`` when neither a hole nor a ``query`` is
+    available, or when no lemma matches even minimally.
+    """
+    from lsp.library import check_file
+
+    hole_range = _find_hole_at(content, pos)
+    goal_text: Optional[str] = None
+    if hole_range is not None:
+        target = (hole_range.start.line, hole_range.start.column)
+        with _target_hole(target):
+            result = check_file(path, content=content, prelude=prelude)
+        if not result.ok:
+            goal = _goal_from_exception(result.exception, hole_range)
+            if goal is not None:
+                goal_text = goal.formula
+        ast_nodes = result.ast
+    else:
+        result = check_file(path, content=content, prelude=prelude)
+        ast_nodes = result.ast
+
+    if goal_text is None and not query:
+        return ()
+
+    candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
+    if not candidates:
+        return ()
+
+    ranked = _rank_lemmas(candidates, goal_text, query, _module_for_path(path))
+    if not ranked:
+        return ()
+
+    if limit > 0:
+        ranked = ranked[:limit]
+    return tuple(ranked)
+
+
+def _module_for_path(path: str) -> str:
+    """Module name for the file at ``path`` -- the path's stem."""
+    from pathlib import Path
+
+    return Path(path).stem
+
+
+def _collect_lemma_candidates(
+    path: str, ast_nodes, prelude: Sequence[str]
+) -> tuple:
+    """Build the ranking input: theorems/lemmas/postulates with their
+    formula AST and module of origin.
+
+    Returns a tuple of ``(LemmaInfo, formula_ast, module)`` triples,
+    drawn from the user file (one entry per ``Theorem``/``Postulate``
+    in source order, including private ones) and from each module
+    named in ``prelude`` (public theorems/postulates only, matching
+    ``print_theorems``' visibility filter).
+    """
+    from abstract_syntax import (
+        Import as _ImportNode,
+        Postulate,
+        Theorem,
+        get_uniquified_modules,
+    )
+
+    out = []
+    user_module = _module_for_path(path)
+
+    if ast_nodes is not None:
+        prelude_set = set(prelude)
+        for stmt in ast_nodes:
+            if isinstance(stmt, _ImportNode) and stmt.name in prelude_set:
+                continue
+            if not isinstance(stmt, (Theorem, Postulate)):
+                continue
+            info = _lemma_info_for(stmt, public_only=False)
+            if info is None:
+                continue
+            out.append((info, stmt.what, user_module))
+
+    if prelude:
+        modules = get_uniquified_modules()
+        for module_name in prelude:
+            module_ast = modules.get(module_name)
+            if module_ast is None:
+                continue
+            for stmt in module_ast:
+                if not isinstance(stmt, (Theorem, Postulate)):
+                    continue
+                info = _lemma_info_for(stmt, public_only=True)
+                if info is None:
+                    continue
+                out.append((info, stmt.what, module_name))
+
+    return tuple(out)
+
+
+# Operator-like rator names whose appearance in a goal we can extract
+# from rendered text.  Order is the precedence order used by Deduce's
+# pretty printer (coarsely): the lowest-precedence operator that
+# appears at depth 0 in a formula's text is its head.
+_GOAL_HEAD_OPERATORS = (
+    " iff ",
+    " or ",
+    " and ",
+    " = ",
+    " ≠ ",
+    " ≤ ",
+    " ≥ ",
+    " < ",
+    " > ",
+    " + ",
+    " - ",
+    " * ",
+    " ÷ ",
+    " / ",
+    " % ",
+)
+
+
+# Tokens that are language keywords / type names rather than the
+# function/operator names we want to count for symbol overlap.
+_GOAL_TOKEN_STOPWORDS = frozenset({
+    "all", "some", "if", "then", "else", "and", "or", "not",
+    "iff", "true", "false", "fun", "switch", "case", "where",
+    "obtain", "from", "by", "have", "suppose", "assume",
+    "lemma", "theorem", "proof", "end", "of", "in",
+})
+
+
+def _strip_outer_parens(text: str) -> str:
+    """Strip a single pair of outer parens iff they are balanced and
+    wrap the entire expression."""
+    s = text.strip()
+    while len(s) >= 2 and s[0] == "(" and s[-1] == ")":
+        depth = 0
+        inner_min = 1
+        for i, ch in enumerate(s):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0 and i < len(s) - 1:
+                    inner_min = 0
+                    break
+        if inner_min == 0:
+            break
+        s = s[1:-1].strip()
+    return s
+
+
+def _strip_outer_quantifiers(text: str) -> str:
+    """Repeatedly strip leading ``all <bindings>. `` and ``if <p> then ``
+    prefixes from rendered goal text, returning the conclusion body.
+
+    Stops as soon as neither prefix matches.  Paren-aware: an ``all``
+    or ``if`` inside parens at depth >0 is not a candidate."""
+    s = _strip_outer_parens(text)
+
+    while True:
+        prev = s
+        # all <bindings>. body
+        if s.startswith("all "):
+            dot = _find_top_level(s, ".")
+            if dot is not None:
+                s = s[dot + 1:].lstrip()
+                s = _strip_outer_parens(s)
+                continue
+        # if <prem> then <conc>
+        if s.startswith("if "):
+            then_pos = _find_top_level(s, " then ")
+            if then_pos is not None:
+                s = s[then_pos + len(" then "):].lstrip()
+                s = _strip_outer_parens(s)
+                continue
+        if s == prev:
+            break
+    return s
+
+
+def _find_top_level(s: str, needle: str) -> Optional[int]:
+    """Return the offset of ``needle`` at paren-depth 0 in ``s``, or
+    ``None``.  Used to strip top-level binders from rendered goals."""
+    depth = 0
+    n = len(needle)
+    for i, ch in enumerate(s):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif depth == 0 and s.startswith(needle, i):
+            return i
+    return None
+
+
+def _goal_head_symbol(text: Optional[str]) -> Optional[str]:
+    """Best-effort extraction of the head operator from rendered goal
+    text.  Returns the operator with surrounding spaces stripped (e.g.
+    ``"="``, ``"≤"``, ``"and"``), or ``None`` when no recognised
+    operator appears at depth 0.
+
+    For function-call goals (e.g. ``less(x, y)``), returns the
+    function name."""
+    if not text:
+        return None
+    s = _strip_outer_quantifiers(text)
+    if not s:
+        return None
+
+    # Bare bool literal or identifier with nothing else: that's the head.
+    for op in _GOAL_HEAD_OPERATORS:
+        if _find_top_level(s, op) is not None:
+            return op.strip()
+
+    # Function call: ``name(...)`` at the top level.
+    m = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(", s)
+    if m:
+        return m.group(1)
+
+    # Negation prefix.
+    if s.startswith("not "):
+        return "not"
+
+    return None
+
+
+_TOKEN_RE = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_]*|[+\-*/%<>=≤≥≠÷]|and|or|iff|not"
+)
+
+
+def _goal_tokens(text: Optional[str]) -> frozenset:
+    """Operator and function-name tokens appearing in rendered goal
+    text, with stopwords (binders, language keywords) and short
+    identifiers (1 char) filtered out."""
+    if not text:
+        return frozenset()
+    tokens = set()
+    for raw in _TOKEN_RE.findall(text):
+        if raw in _GOAL_TOKEN_STOPWORDS:
+            continue
+        if raw.isalpha() and len(raw) == 1:
+            # Skip bare ``x``/``y``/``n``/``P``/``Q`` -- almost always
+            # bound variables or schematic placeholders, not symbols
+            # that distinguish lemmas.
+            continue
+        if raw.isdigit():
+            continue
+        tokens.add(raw)
+    return frozenset(tokens)
+
+
+def _formula_head_symbol(formula) -> Optional[str]:
+    """Head operator of a lemma's formula (peeling outer ``All`` and
+    ``IfThen``).  Returns the rator's base name for a ``Call``, or a
+    string token for non-Call shapes (``and``/``or``/``not``/etc.).
+    Returns ``None`` for unsupported shapes."""
+    from abstract_syntax import (
+        All, And, Bool, Call, IfThen, Or, TermInst, VarRef, base_name,
+    )
+
+    f = formula
+    while True:
+        if isinstance(f, All):
+            f = f.body
+        elif isinstance(f, IfThen):
+            f = f.conclusion
+        else:
+            break
+
+    if isinstance(f, Call):
+        rator = f.rator
+        if isinstance(rator, TermInst):
+            inner = getattr(rator, "subject", None)
+            if isinstance(inner, VarRef):
+                return base_name(inner.get_name())
+        if isinstance(rator, VarRef):
+            return base_name(rator.get_name())
+        return None
+    if isinstance(f, And):
+        return "and"
+    if isinstance(f, Or):
+        return "or"
+    if isinstance(f, Bool):
+        return "true" if f.value else "false"
+    return None
+
+
+def _formula_symbols(formula) -> frozenset:
+    """Set of all rator names appearing in ``formula`` (recursively).
+
+    Drives the symbol-overlap signal in lemma ranking.  Bound
+    variables introduced by ``All``/``Some`` are excluded -- only the
+    uniquified rator names of ``Call`` nodes count.  Names are
+    returned as their ``base_name`` so they line up with the
+    user-visible operator/function names used in goal text."""
+    from abstract_syntax import (
+        AST, And, Bool, Call, IfThen, Or, TermInst, VarRef, base_name,
+    )
+
+    out = set()
+
+    def visit(node):
+        if isinstance(node, Call):
+            rator = node.rator
+            if isinstance(rator, TermInst):
+                inner = getattr(rator, "subject", None)
+                if isinstance(inner, VarRef):
+                    out.add(base_name(inner.get_name()))
+            elif isinstance(rator, VarRef):
+                out.add(base_name(rator.get_name()))
+        elif isinstance(node, And):
+            out.add("and")
+        elif isinstance(node, Or):
+            out.add("or")
+        elif isinstance(node, IfThen):
+            # IfThen is logical implication; we don't add ``then`` or
+            # ``if`` to the symbol set -- the head match handles it.
+            pass
+        elif isinstance(node, Bool):
+            out.add("true" if node.value else "false")
+
+    _walk_ast(formula, visit, ast_class=AST)
+    return frozenset(out)
+
+
+def _query_pattern(query: Optional[str]):
+    """Return a compiled regex if ``query`` is a goal-shape pattern
+    (contains ``_``), else ``None``.  Each ``_`` becomes ``.+?`` and
+    other characters are matched literally with whitespace
+    flexibility (any run of whitespace matches any other run)."""
+    if not query or "_" not in query:
+        return None
+    parts = []
+    for chunk in query.split("_"):
+        if not chunk:
+            parts.append("")
+            continue
+        # Collapse runs of whitespace in the literal, then split on
+        # them so we can re-emit ``\s+`` between literal pieces.
+        words = chunk.split()
+        if not words:
+            parts.append(r"\s*")
+            continue
+        prefix = r"\s*" if chunk[:1].isspace() else ""
+        suffix = r"\s*" if chunk[-1:].isspace() else ""
+        parts.append(prefix + r"\s+".join(re.escape(w) for w in words) + suffix)
+    body = ".+?".join(parts)
+    try:
+        return re.compile(body)
+    except re.error:
+        return None
+
+
+def _rank_lemmas(
+    candidates: tuple,
+    goal_text: Optional[str],
+    query: Optional[str],
+    user_module: str,
+) -> list:
+    """Score and sort candidate lemmas.
+
+    ``candidates`` is the tuple from :func:`_collect_lemma_candidates`.
+    Returns a list of :class:`LemmaMatch` with normalised relevance
+    in ``[0.0, 1.0]``; only candidates with a strictly positive raw
+    score are included.
+
+    The four signals from issue #403:
+
+    1. Exact head-symbol match between conclusion and goal.
+    2. Goal symbols appearing in the lemma's full formula symbols.
+    3. Module proximity to the file under cursor.
+    4. Fuzzy substring of the query against the lemma name as
+       tiebreaker.
+
+    Plus one extra: a goal-shape pattern (a ``query`` containing ``_``
+    placeholders) matched against the rendered signature.
+    """
+    goal_head = _goal_head_symbol(goal_text)
+    goal_syms = _goal_tokens(goal_text)
+    pattern = _query_pattern(query)
+    query_substr = (query or "").strip().lower()
+    has_substring_query = bool(query_substr) and pattern is None
+
+    raw_scores: list = []
+    for info, formula, module in candidates:
+        head = _formula_head_symbol(formula)
+        symbols = _formula_symbols(formula)
+
+        head_score = 1.0 if (goal_head is not None and head == goal_head) else 0.0
+
+        if goal_syms:
+            overlap = len(goal_syms & symbols) / len(goal_syms)
+        else:
+            overlap = 0.0
+
+        proximity = 1.0 if module == user_module else 0.0
+
+        sig_lower = info.signature.lower()
+        name_lower = info.name.lower()
+
+        substring_score = 0.0
+        if has_substring_query:
+            if query_substr in name_lower:
+                substring_score = 1.0
+            elif query_substr in sig_lower:
+                substring_score = 0.5
+
+        pattern_score = 0.0
+        if pattern is not None and pattern.search(info.signature):
+            pattern_score = 1.0
+
+        raw = (
+            4.0 * head_score
+            + 2.0 * overlap
+            + 1.0 * proximity
+            + 2.0 * substring_score
+            + 3.0 * pattern_score
+        )
+
+        # When the user typed a goal-shape pattern or substring, only
+        # surface lemmas that match it -- other signals shouldn't
+        # promote unrelated lemmas above a query-only baseline.
+        if has_substring_query and substring_score == 0.0:
+            continue
+        if pattern is not None and pattern_score == 0.0:
+            continue
+
+        # No goal AND no query that this lemma matched -> nothing to
+        # score on.  Skip.
+        if raw <= 0.0:
+            continue
+
+        raw_scores.append((raw, info, module))
+
+    if not raw_scores:
+        return []
+
+    max_raw = max(r for r, _, _ in raw_scores)
+    if max_raw <= 0.0:
+        return []
+
+    raw_scores.sort(key=lambda t: (-t[0], t[1].name))
+    matches = []
+    for raw, info, module in raw_scores:
+        matches.append(
+            LemmaMatch(
+                name=info.name,
+                kind=info.kind,
+                signature=info.signature,
+                module=module,
+                relevance=raw / max_raw,
+            )
+        )
+    return matches
 
 
 def _hole_fingerprint(goal_formula: str, givens: tuple) -> str:

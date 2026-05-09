@@ -73,6 +73,7 @@ EXPECTED_PUBLIC = {
     "SymbolInfo",
     "WorkspaceEdit",
     "LemmaInfo",
+    "LemmaMatch",
     "HoleContext",
     "ValidationResult",
     "check",
@@ -88,6 +89,7 @@ EXPECTED_PUBLIC = {
     "fill_from_given_at",
     "matching_givens_at",
     "hole_context_at",
+    "available_lemmas_at",
     "validate_proof_at",
 }
 
