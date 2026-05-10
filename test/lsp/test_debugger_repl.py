@@ -440,29 +440,32 @@ def test_next_over_generic_call_does_not_recurse():
     assert "-> call length" not in out
 
 
-def test_prelude_imports_do_not_trap():
-    """The CLI's default mode prepends one synthesized
-    ``Import(Meta(), name)`` per stdlib module before parsing the
-    user file -- without filtering, the user has to ``continue`` past
-    ~32 prelude imports before reaching their own code.  The
-    debugger skips these synthetic-``Meta`` statements: the very
-    first ``on_statement`` trap should land on the user's first
-    *real* statement, not on a prepended ``import``."""
-    path = _write_fixture("prelude_skip.pf", GENERIC_PROGRAM)
-    # Single ``continue`` is enough: we expect zero trap on the
-    # 32 synthetic imports.  If the filter regressed, this would
-    # hit EOF and fail with DebuggerQuit before count_down/print.
+def test_imports_do_not_trap():
+    """The debugger does not trap on ``import`` statements -- they
+    are pure declarations and have no executable body for ``step``
+    to advance through (gdb's ``step`` doesn't trap on ``#include``
+    for the same reason).
+
+    The CLI's default mode also prepends one synthesised ``Import``
+    per stdlib module before parsing the user file; ~32 of them
+    with the full stdlib.  Skipping the whole ``Import`` AST type
+    covers both -- without keying on ``Meta`` internals."""
+    path = _write_fixture("import_skip.pf", GENERIC_PROGRAM)
+    # Single ``continue`` is enough: zero trap on the 32 synthesised
+    # prelude imports, zero trap on the user's own ``import Nat`` /
+    # ``import List`` (which type_check_stmt drops anyway as
+    # duplicates of the prelude).  If the filter regressed, the
+    # transcript hits EOF and fails with DebuggerQuit before reaching
+    # the user's first real statement.
     result, _, out = _run_with_prelude(path, "continue\n", GENERIC_PRELUDE)
     assert result.ok, result.error_message
-    # The first (and only) trap should be at a real source line --
-    # not "<unknown>" -- and should reference the user's fixture.
+    # No ``-> statement at`` lines mention ``import``.
+    for line in out.splitlines():
+        if line.startswith("-> statement"):
+            assert "import" not in line, line
+    # And nothing should display as ``<unknown>`` -- the only stmts
+    # that lack source locations *are* the synthetic prelude imports.
     assert "<unknown>" not in out
-    first_trap_line = next(
-        (line for line in out.splitlines() if line.startswith("-> statement")),
-        None,
-    )
-    assert first_trap_line is not None
-    assert "<unknown>" not in first_trap_line
 
 
 def test_print_generic_call_returns_result():

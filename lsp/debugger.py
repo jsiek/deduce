@@ -191,20 +191,19 @@ class Debugger:
     # ------------------------------------------------------------------
 
     def on_statement(self, stmt, env) -> None:
-        # ``lsp.library.check_file`` prepends one synthetic
-        # ``Import(Meta(), name)`` per prelude module before parsing
-        # the user file -- ~32 modules with the full stdlib.  Those
-        # synthetic statements have no filename and no line, so they
-        # have nothing useful to show in ``list`` and trapping on
-        # them just makes the user mash ``continue`` to escape the
-        # stdlib before reaching their own code.  Skip them.
-        loc = getattr(stmt, "location", None)
-        if not self._is_user_visible(loc):
+        # gdb doesn't trap on ``#include``; the debugger doesn't trap
+        # on ``import``.  Imports are pure declarations -- no
+        # user-visible side effect to step through, no body for
+        # ``list`` to point at.  This rule applies uniformly: the
+        # 32 prelude prepends synthesised by ``lsp.library`` *and*
+        # any user-written ``import M`` that survives dedup.
+        from abstract_syntax import Import
+        if isinstance(stmt, Import):
             return
         self._current_stmt = stmt
         self._current_env = env
-        self._current_loc = loc
-        sp = getattr(loc, "filename", None)
+        self._current_loc = getattr(stmt, "location", None)
+        sp = getattr(self._current_loc, "filename", None)
         if sp:
             self._source_path = sp
         if not self._should_pause_at_statement(stmt, env):
@@ -721,21 +720,3 @@ class Debugger:
             return f"{line}:{col}"
         return "<unknown>"
 
-    @staticmethod
-    def _is_user_visible(loc) -> bool:
-        """True iff ``loc`` carries enough info to surface in the
-        debugger UI.  Synthetic ``Meta()`` nodes (those manufactured
-        in code rather than emitted by the parser) leave the lark
-        ``empty`` flag at True and never set ``filename`` / ``line``,
-        so a hit-here on one of them would print "<unknown>" and
-        ``list`` would say "(no source location)".  Treat those as
-        invisible -- the debugger's job is to step through *source*."""
-        if loc is None:
-            return False
-        if getattr(loc, "empty", False):
-            return False
-        if getattr(loc, "filename", None) is None:
-            return False
-        if getattr(loc, "line", None) is None:
-            return False
-        return True
