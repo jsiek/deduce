@@ -222,3 +222,30 @@ def test_definition_of_returns_none_when_target_is_imported() -> None:
     # The 'true' literal is a Bool node, not a Var, so it has no
     # definition to find.
     assert definition_of("test.pf", source, Position(line=1, column=13)) is None
+
+
+def test_definition_of_ignores_imported_node_locations() -> None:
+    """Issue #398: with the prelude active, post-typecheck nodes copied
+    in from library files share Meta line/column with the user's file
+    by coincidence. The lookup must filter those out by ``filename``,
+    or the cursor in a postulate / equation lands on a library node
+    instead of the user's reference."""
+    # Prelude entries get auto-imported by the harness and contribute
+    # the noisy library-file Var nodes. ``List`` is enough to give
+    # ``app`` a return type of ``List<E>`` and pull in the library
+    # locations whose line numbers overlap the user file.
+    prelude = ("List",)
+    source = (
+        "recursive app <E>(List<E>, List<E>) -> List<E> {\n"  # 1
+        "  app([], ys) = ys\n"                                 # 2
+        "  app(node(n, xs), ys) = node(n, app(xs, ys))\n"      # 3
+        "}\n"                                                  # 4
+        "\n"                                                   # 5
+        "postulate p: all T:type. all x:T, y:T.\n"             # 6
+        "  app([x], [y]) = [x,y]\n"                            # 7 — the postulate body
+    )
+    # Cursor on the `app` reference inside the postulate body.
+    loc = definition_of("test.pf", source, Position(line=7, column=3),
+                        prelude=prelude)
+    assert loc is not None, "postulate body: definition_of returned None"
+    assert loc.range.start.line == 1

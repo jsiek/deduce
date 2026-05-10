@@ -106,6 +106,9 @@ async def test_all_tools_are_registered(server):
             "fill_from_given_at",
             "matching_givens_at",
             "apply_at",
+            "preview_replace_at",
+            "preview_expand_at",
+            "available_lemmas_at",
         }
 
 
@@ -626,6 +629,156 @@ async def test_apply_at_with_args_instantiates_quantifier(
         "conclusion": "Q",
         "remaining_premises": ["Q"],
     }
+
+
+# --------------------------------------------------------------------------
+# preview_replace_at and preview_expand_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_preview_replace_at_returns_ok_outcome(server, tmp_path):
+    """``replace H`` rewrites the goal's LHS to the RHS; preview shows
+    both forms."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P = Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P = Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_replace.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_replace_at",
+        {"path": str(fp), "line": 5, "column": 3, "equation": "H"},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "ok"
+    assert payload["before"] == "P"
+    assert payload["after"] == "Q"
+
+
+@pytest.mark.anyio
+async def test_preview_replace_at_returns_unbound(server, tmp_path):
+    src = (
+        "theorem t: all P:bool. P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_replace_unbound.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_replace_at",
+        {"path": str(fp), "line": 4, "column": 3, "equation": "no_such"},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "unbound"
+    assert payload["name"] == "no_such"
+
+
+@pytest.mark.anyio
+async def test_preview_expand_at_unfolds_and_returns_ok(server, tmp_path):
+    src = (
+        "define my_and : fn bool, bool -> bool = λ a, b { a and b }\n"
+        "theorem t: all P:bool, Q:bool. my_and(P, Q) = my_and(Q, P)\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_expand.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_expand_at",
+        {"path": str(fp), "line": 5, "column": 3, "names": ["my_and"]},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "ok"
+    assert "my_and" in payload["before"]
+    assert "my_and" not in payload["after"]
+
+
+@pytest.mark.anyio
+async def test_preview_expand_at_returns_unknown(server, tmp_path):
+    src = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_expand_unknown.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_expand_at",
+        {"path": str(fp), "line": 5, "column": 3, "names": ["nope"]},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "unknown"
+    assert payload["name"] == "nope"
+
+
+# --------------------------------------------------------------------------
+# available_lemmas_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_available_lemmas_at_query_pattern(server, tmp_path):
+    """Goal-shape pattern with `_` placeholders surfaces matching lemmas."""
+    fp = tmp_path / "lemmas.pf"
+    fp.write_text(
+        "theorem helper_le_zero: all x:bool. x = x\n"
+        "proof\n"
+        "  arbitrary x:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    payload = await _call(
+        server,
+        "available_lemmas_at",
+        {
+            "path": str(fp),
+            "line": 1,
+            "column": 1,
+            "query": "helper_le",
+        },
+    )
+    assert isinstance(payload, list)
+    names = [m["name"] for m in payload]
+    assert "helper_le_zero" in names
+    entry = next(m for m in payload if m["name"] == "helper_le_zero")
+    assert entry["kind"] == "theorem"
+    assert entry["module"] == "lemmas"
+    assert 0.0 <= entry["relevance"] <= 1.0
+
+
+@pytest.mark.anyio
+async def test_available_lemmas_at_no_signal_returns_empty(server, tmp_path):
+    """No `?` and no `query` -> empty list."""
+    fp = tmp_path / "empty.pf"
+    fp.write_text(
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    payload = await _call(
+        server,
+        "available_lemmas_at",
+        {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload == []
 
 
 # --------------------------------------------------------------------------

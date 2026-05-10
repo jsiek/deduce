@@ -462,6 +462,131 @@ def apply_at(
 
 
 @mcp.tool()
+def preview_replace_at(
+    path: str, line: int, column: int, equation: str
+) -> Optional[dict]:
+    """Preview the result of ``replace <equation>`` at the hole at
+    ``line``:``column``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``equation`` is the *name* of an in-scope theorem, lemma, or local
+    hypothesis whose formula is an equation, optionally prefixed with
+    ``"symmetric "`` for a right-to-left rewrite (e.g. ``"foo"`` or
+    ``"symmetric foo"``).
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof there. Otherwise returns a dict with an
+    ``outcome`` field:
+
+    - ``{outcome: "ok", before: <goal text>, after: <goal text>}``
+      -- the rewrite would succeed.
+    - ``{outcome: "no_match", reason: <text>}`` -- the equation's LHS
+      does not occur in the (post-reduction) goal; usually means an
+      ``auto`` rule has already canonicalized it away.
+    - ``{outcome: "not_an_equation", formula: <text>}`` -- the named
+      binding's formula isn't an equation.
+    - ``{outcome: "unbound", name: <input>}`` -- no proof binding by
+      that name is in scope at the hole.
+
+    Pure / read-only: the file on disk is not modified. Pairs with
+    ``goal_at`` for the inner loop where the agent picks an equation,
+    previews the rewrite, and only commits when the after-text matches
+    its plan.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    preview = query.preview_replace_at(
+        path, content, pos, equation, prelude=_prelude_for(path)
+    )
+    return _to_serializable(preview)
+
+
+@mcp.tool()
+def preview_expand_at(
+    path: str, line: int, column: int, names: list[str]
+) -> Optional[dict]:
+    """Preview the result of ``expand <names>`` at the hole at
+    ``line``:``column``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``names`` is a list of definitions to unfold (matching the
+    ``expand X | Y | Z`` syntactic form).
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof there. Otherwise returns a dict with an
+    ``outcome`` field:
+
+    - ``{outcome: "ok", before: <goal text>, after: <goal text>}``
+      -- every name unfolded at least once.
+    - ``{outcome: "no_match", name: <name>}`` -- a name is in scope
+      and expandable, but its definition has no place to apply in the
+      current goal (often an ``auto`` rule canonicalized the call
+      away).
+    - ``{outcome: "opaque", name: <name>}`` -- the named binding is
+      opaque from the file under check.
+    - ``{outcome: "unknown", name: <name>}`` -- no term/type binding
+      by that name is in scope.
+
+    Pure / read-only: the file on disk is not modified.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    preview = query.preview_expand_at(
+        path, content, pos, names, prelude=_prelude_for(path)
+    )
+    return _to_serializable(preview)
+
+
+@mcp.tool()
+def available_lemmas_at(
+    path: str,
+    line: int,
+    column: int,
+    query: Optional[str] = None,
+    limit: int = 50,
+) -> list[dict]:
+    """Search for theorems/lemmas/postulates relevant at a position.
+
+    The cursor at ``line``:``column`` is interpreted as follows:
+
+    - On a ``?`` token: the goal at that hole drives ranking. The
+      goal's head operator and operator/function tokens are matched
+      against each candidate lemma's conclusion.
+    - Off a ``?``: ``query`` is required. ``query`` is either a
+      substring (matched against the rendered signature) or a goal-
+      shape pattern containing ``_`` placeholders (each ``_`` matches
+      any run of characters, e.g. ``"_ ≤ _ + _"``).
+
+    Results are returned best-first, capped at ``limit`` entries
+    (default 50). Each entry has ``name``, ``kind`` (``"theorem"`` /
+    ``"lemma"`` / ``"postulate"``), ``signature``, ``module`` (the
+    source module's name; the file's stem for declarations in the
+    current file), and ``relevance`` -- a score in ``[0.0, 1.0]``
+    where ``1.0`` is the best match in the result set.
+
+    Visibility: lemmas declared ``private`` in the current file are
+    surfaced (they're in scope), but private lemmas in prelude
+    modules are not (matching what ``print_theorems`` exports).
+
+    Returns ``[]`` when the cursor isn't on a ``?`` and no ``query``
+    was given, or when nothing matches.
+    """
+    from lsp import query as _q
+
+    content = _read_file(path)
+    pos = _q.Position(line=line, column=column)
+    matches = _q.available_lemmas_at(
+        path,
+        content,
+        pos,
+        query=query,
+        prelude=_prelude_for(path),
+        limit=limit,
+    )
+    return [_to_serializable(m) for m in matches]
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

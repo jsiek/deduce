@@ -1,3 +1,5 @@
+import contextlib
+
 import flags
 
 class Diagnostic(Exception):
@@ -180,6 +182,53 @@ def set_active_sink(sink):
 def get_active_sink():
   return _active_sink
 
+# Depth counter for nested speculative_probe blocks. While > 0,
+# ``add_diagnostic`` raises instead of silently recording — so the
+# surrounding ``except UserError`` at a backtracking site actually
+# fires. ``add_incomplete`` is intentionally unaffected so holes
+# from sibling subproofs (e.g. ``?, ?`` in a PTuple) still each
+# become their own diagnostic.
+_speculative_depth = 0
+
+
+@contextlib.contextmanager
+def speculative_probe():
+  """Make a speculative proof-checker probe well-behaved when an
+  error sink is active.
+
+  Use at sites that try one interpretation and have a recovery path
+  on failure (iff-application picking a direction, PTuple's
+  goal-directed-then-synthesis fallback, etc.). Inside the block:
+
+  * ``add_diagnostic`` raises (instead of silently recording into the
+    sink), so the surrounding ``except UserError`` fires and the
+    parent rule's recovery path runs.
+  * ``add_incomplete`` continues to record holes — multiple ``?``
+    siblings still each become their own diagnostic.
+
+  On exit, if a ``UserError`` escaped the block, any sink entries
+  that were added inside are discarded (apart from
+  ``IncompleteProof`` holes, which represent real user-visible
+  ``?``s that the recovery path can't conjure away). Without this,
+  failed probes used to surface as false-positive errors in
+  ``check_file(..., collect_errors=True)`` while ``deduce.py``
+  validated the same file cleanly (issue #400)."""
+  global _speculative_depth
+  sink = _active_sink
+  saved_len = len(sink.errors) if sink is not None else 0
+  _speculative_depth += 1
+  try:
+    yield
+  except UserError:
+    if sink is not None:
+      kept = [e for e in sink.errors[saved_len:]
+              if isinstance(e, IncompleteProof)]
+      del sink.errors[saved_len:]
+      sink.errors.extend(kept)
+    raise
+  finally:
+    _speculative_depth -= 1
+
 def add_diagnostic(location, msg):
   """Record a user-visible diagnostic in the active sink and *return
   normally*, unlike :func:`user_error` which raises. Use at sites whose
@@ -189,9 +238,14 @@ def add_diagnostic(location, msg):
   back to :func:`error` -- so a CLI run still raises and the
   existing ``goal_at`` / MCP paths see the same shape they always
   have.
+
+  Inside a :func:`speculative_probe` block (depth > 0), this also
+  raises -- the parent rule has a recovery path waiting on the
+  exception, and silently recording would leak the failed probe's
+  error into the user-visible list (issue #400).
   """
   global _active_sink
-  if _active_sink is None:
+  if _active_sink is None or _speculative_depth > 0:
     user_error(location, msg)
   exc = UserError(error_header(location) + msg)
   exc.depth = 0
