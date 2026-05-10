@@ -338,9 +338,16 @@ class Debugger:
         if self._should_pause_after_function(popped):
             from abstract_syntax import base_name
             self._frame_cursor = -1
-            self._print(
-                f"<- returned from {base_name(name)} = {return_value}"
-            )
+            # Echo the call signature so the user can tell which
+            # frame is unwinding -- five identical ``returned from
+            # count_down`` lines are useless during a recursive
+            # unwind.  Return value goes on an indented second line
+            # so it's visually distinct from the call header.
+            pretty = ", ".join(
+                f"{k}={v}" for k, v in popped.params.items()
+            ) if popped.params else ""
+            self._print(f"<- returned from {base_name(name)}({pretty})")
+            self._print(f"     = {return_value}")
             self._repl()
 
     def _should_pause_after_function(self, popped: _Frame) -> bool:
