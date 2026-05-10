@@ -935,19 +935,19 @@ class OverloadedVar(VarRef):
         binding = env.dict[chosen]
         if binding.visibility == 'opaque' \
            and binding.module != env.get_current_module():
-            return self
+            return self if get_eval_all() else auto_rewrites(self, env)
 
       res = env.get_value_of_term_var(self)
       if res:
         if get_verbose():
           print('\t var ' + chosen + ' ===> ' + str(res))
         if isinstance(res, Union):
-          return self
+          return self if get_eval_all() else auto_rewrites(self, env)
         return res.reduce(env)
       else:
-        return self
+        return self if get_eval_all() else auto_rewrites(self, env)
     else:
-      return self
+      return self if get_eval_all() else auto_rewrites(self, env)
 
   def substitute(self, sub):
     chosen = self.resolved_names[0]
@@ -1029,19 +1029,19 @@ class ResolvedVar(VarRef):
         binding = env.dict[self.name]
         if binding.visibility == 'opaque' \
            and binding.module != env.get_current_module():
-            return self
+            return self if get_eval_all() else auto_rewrites(self, env)
 
       res = env.get_value_of_term_var(self)
       if res:
         if get_verbose():
           print('\t var ' + self.name + ' ===> ' + str(res))
         if isinstance(res, Union):
-          return self
+          return self if get_eval_all() else auto_rewrites(self, env)
         return res.reduce(env)
       else:
-        return self
+        return self if get_eval_all() else auto_rewrites(self, env)
     else:
-      return self
+      return self if get_eval_all() else auto_rewrites(self, env)
 
   def substitute(self, sub):
     if self.name in sub:
