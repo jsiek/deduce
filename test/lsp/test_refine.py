@@ -27,6 +27,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from lsp.query import (  # noqa: E402
     Position,
     Range,
+    REFINE_SUPPORTED_SHAPES,
+    UnsupportedRefineShape,
     WorkspaceEdit,
     refine_at,
 )
@@ -214,10 +216,16 @@ def test_refine_at_returns_none_when_cursor_not_on_hole() -> None:
     assert refine_at("test.pf", source, Position(line=4, column=3)) is None
 
 
-def test_refine_at_returns_none_for_unsupported_goal_shape() -> None:
-    """A bare bool atom (no logical structure) has no template here."""
+def test_refine_at_returns_unsupported_shape_for_bare_atom() -> None:
+    """A bare bool atom (no logical structure) -> UnsupportedRefineShape.
+
+    Distinguishes "no template applies" (this case) from "no hole
+    here" (returns ``None``). The caller gets the rendered goal and
+    the list of shapes ``refine_at`` does cover, so it can pick
+    another tactic without re-reading the docstring.
+    """
     # Goal at hole: ``P`` (a bool literal-shape variable). Not in the
-    # template table, so refine_at returns None rather than guess.
+    # template table.
     source = (
         "theorem t: all P:bool. if P then P\n"
         "proof\n"
@@ -226,8 +234,11 @@ def test_refine_at_returns_none_for_unsupported_goal_shape() -> None:
         "  ?\n"
         "end\n"
     )
-    edit = refine_at("test.pf", source, Position(line=5, column=3))
-    assert edit is None
+    result = refine_at("test.pf", source, Position(line=5, column=3))
+    assert isinstance(result, UnsupportedRefineShape)
+    assert result.outcome == "unsupported_shape"
+    assert result.goal == "P"
+    assert result.supported_shapes == REFINE_SUPPORTED_SHAPES
 
 
 def test_refine_at_returns_none_when_file_is_complete() -> None:

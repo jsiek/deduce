@@ -314,6 +314,34 @@ async def test_refine_at_returns_null_when_cursor_not_on_hole(
     assert payload is None
 
 
+@pytest.mark.anyio
+async def test_refine_at_returns_unsupported_shape_dict(server, tmp_path):
+    """Cursor on a real `?` whose goal is a bare bool atom: no
+    template applies, so the tool returns an explanatory dict
+    (``outcome``/``goal``/``supported_shapes``) rather than ``None``.
+    Distinguishes "no template" from "no hole here" for callers."""
+    src = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  suppose pP: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "unsupported.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "refine_at",
+        {"path": str(fp), "line": 5, "column": 3},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "unsupported_shape"
+    assert payload["goal"] == "P"
+    assert "if _ then _" in payload["supported_shapes"]
+    assert "all _. _" in payload["supported_shapes"]
+
+
 # --------------------------------------------------------------------------
 # case_split_at and splittable_vars_at
 # --------------------------------------------------------------------------

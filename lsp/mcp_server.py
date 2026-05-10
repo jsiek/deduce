@@ -204,10 +204,17 @@ def refine_at(path: str, line: int, column: int) -> Optional[dict]:
     """Propose a refinement template for the hole at ``line``:``column``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token.
-    Returns ``None`` when the cursor isn't on a hole, the file has no
-    incomplete proof at that hole, or the goal shape isn't supported.
-    Otherwise returns a ``{path, range, new_text}`` dict describing
-    the edit to apply.
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof at that hole.
+
+    Returns ``{path, range, new_text}`` (a workspace edit) when a
+    template applies.
+
+    Returns ``{outcome: "unsupported_shape", goal, supported_shapes}``
+    when the cursor *is* on a real hole but the goal's shape isn't in
+    the table below -- so the caller can pick another tactic without
+    guessing why ``refine_at`` declined.
 
     Templates by goal shape:
     - ``true`` -> ``.``
