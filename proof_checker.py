@@ -23,7 +23,7 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, ErrorSink, get_active_sink, set_active_sink, add_incomplete, add_diagnostic
+from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, ErrorSink, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location
 
 imported_modules = set()
@@ -722,7 +722,8 @@ def check_proof(proof, env):
           rets = []
           for prem, conc in imps:
             try:
-              _try_check_proof_of(arg, prem, env)
+              with speculative_probe():
+                check_proof_of(arg, prem, env)
               rets.append(conc)
             except UserError as e:
               pass
@@ -1556,24 +1557,26 @@ def check_proof_of(proof, formula, env):
 
     case PTuple(loc, pfs):
       try:
-        red_formula = formula.reduce(env)
-        match red_formula:
-          case And(loc2, tyof2, frms):
-            for (frm,pf) in zip(frms, pfs):
-              _try_check_proof_of(pf, frm, env)
-            if len(pfs) < len(frms):
-              incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
-                               + str(len(pfs)))
-          case _:
-            user_error(loc, 'comma proves logical-and, not ' + str(red_formula))
+        with speculative_probe():
+          red_formula = formula.reduce(env)
+          match red_formula:
+            case And(loc2, tyof2, frms):
+              for (frm,pf) in zip(frms, pfs):
+                check_proof_of(pf, frm, env)
+              if len(pfs) < len(frms):
+                incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
+                                 + str(len(pfs)))
+            case _:
+              user_error(loc, 'comma proves logical-and, not ' + str(red_formula))
       except IncompleteProof as ex:
         raise ex
       except UserError as ex1:
         try:
-          form = check_proof(proof, env)
-          form_red = form.reduce(env)
-          formula_red = formula.reduce(env)
-          check_implies(proof.location, form_red, remove_mark(formula_red))
+          with speculative_probe():
+            form = check_proof(proof, env)
+            form_red = form.reduce(env)
+            formula_red = formula.reduce(env)
+            check_implies(proof.location, form_red, remove_mark(formula_red))
         except UserError as ex2:
           add_diagnostic(loc, 'failed to prove: ' + str(formula) + '\n' \
                 + '\tfirst tried each subproof in goal-directed mode, but:\n' \
