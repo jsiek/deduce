@@ -586,18 +586,35 @@ class Debugger:
         return False
 
     def _cmd_delete(self, args: str) -> bool:
-        """``delete``  or  ``delete <id>...`` -- remove breakpoints."""
+        """``delete`` (all) or ``delete <id|spec>...`` -- remove
+        breakpoints.  Each argument is matched first against the
+        breakpoint ids (gdb-style ``d 1``), and on miss against the
+        breakpoint specs the user originally passed to ``break``
+        (``d length``, ``d 13``, ``d foo.pf:13``).  Bare line numbers
+        resolve against the current source file, mirroring
+        ``break``'s convenience."""
         if not args:
             self.breakpoints.clear()
             self._print("all breakpoints deleted")
             return False
-        ids_to_remove = set()
+        existing_ids = {bp.id for bp in self.breakpoints}
+        ids_to_remove: set = set()
         for piece in args.split():
-            try:
+            # Id match first (gdb convention).
+            if piece.isdigit() and int(piece) in existing_ids:
                 ids_to_remove.add(int(piece))
-            except ValueError:
-                self._print(f"not a breakpoint id: {piece!r}")
+                continue
+            # Spec match.  Apply the same bare-line -> current-file
+            # rewrite ``_cmd_break`` does so symmetric ``d 13`` works
+            # after ``b 13``.
+            spec = piece
+            if spec.isdigit() and self._source_path is not None:
+                spec = f"{self._source_path}:{spec}"
+            matches = [bp.id for bp in self.breakpoints if bp.spec == spec]
+            if not matches:
+                self._print(f"no breakpoint matching {piece!r}")
                 return False
+            ids_to_remove.update(matches)
         before = len(self.breakpoints)
         self.breakpoints = [
             bp for bp in self.breakpoints if bp.id not in ids_to_remove
@@ -723,11 +740,15 @@ class Debugger:
 
     def _cmd_help(self, args: str) -> bool:
         self._print(
-            "commands: continue/c, step/s, next/n, finish/fin,\n"
-            "          break/b <line | file:line | name>[ if <expr>],\n"
-            "          delete/d [id...], info breakpoints,\n"
-            "          print/p <expr>, list/l,\n"
-            "          where/bt, up, down, locals, quit/q"
+            "commands:\n"
+            "  continue/c, step/s, next/n, finish/fin, quit/q\n"
+            "  break/b <line | file:line | name>[ if <expr>]   -- set breakpoint\n"
+            "  delete/d [id|line|file:line|name ...]           -- remove breakpoints (all if no arg)\n"
+            "  info breakpoints                                 -- list breakpoints\n"
+            "  print/p <expr>                                   -- evaluate expression\n"
+            "  list/l                                           -- show source around current line\n"
+            "  where/bt, up, down                               -- call stack navigation\n"
+            "  locals                                           -- show bindings in current frame"
         )
         return False
 

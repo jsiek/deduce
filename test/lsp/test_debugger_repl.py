@@ -275,6 +275,26 @@ def test_delete_breakpoints():
     assert "-> call double" not in out
 
 
+def test_delete_by_spec_or_id():
+    """``delete`` accepts either a breakpoint id (gdb convention)
+    or the spec the user passed to ``break``.  Bare line numbers
+    follow the same current-file rewrite as ``break``."""
+    path = _write_fixture("bp_delete_spec.pf", RECURSIVE_PROGRAM)
+    result, dbg, out = _run(
+        path,
+        "break 6\n"             # line bp on the print
+        "break double\n"        # function bp
+        "delete 6\n"            # by bare line (rewritten to file:6)
+        "delete double\n"       # by name
+        "info breakpoints\n"
+        "continue\n",
+    )
+    assert result.ok, result.error_message
+    # All breakpoints should be gone after the two deletes.
+    assert dbg.breakpoints == []
+    assert "no breakpoints" in out
+
+
 def test_info_breakpoints_lists_them():
     path = _write_fixture("bp_info.pf", RECURSIVE_PROGRAM)
     _, _, out = _run(
