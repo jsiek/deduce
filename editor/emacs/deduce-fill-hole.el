@@ -652,6 +652,13 @@ in the success message."
     (_ "claude-opus-4-7")))
 
 
+(defun deduce-fill-hole--effective-model ()
+  "Return the model id that will be passed to the sidecar, honoring the
+user's `deduce-fill-hole-model' override before falling back to the
+backend default."
+  (or deduce-fill-hole-model (deduce-fill-hole--default-model)))
+
+
 (defun deduce-fill-hole--default-api-key-env ()
   "Return the env-var name appropriate for the current backend, when
 `deduce-fill-hole-api-key-env' is nil."
@@ -674,8 +681,7 @@ for nicer customize UI; the sidecar takes hyphenated string flags."
 
 (defun deduce-fill-hole--build-cli-args ()
   "Return the CLI flag list for the current customization values."
-  (let ((model (or deduce-fill-hole-model
-                   (deduce-fill-hole--default-model)))
+  (let ((model (deduce-fill-hole--effective-model))
         (api-key-env (or deduce-fill-hole-api-key-env
                          (deduce-fill-hole--default-api-key-env))))
     (append (list "--backend" (deduce-fill-hole--backend-flag)
@@ -760,7 +766,8 @@ have their own session in parallel."
     (process-send-string process
                          (deduce-fill-hole--build-request context))
     (process-send-eof process)
-    (message "deduce-fill-hole: asking the model...")))
+    (message "deduce-fill-hole: asking %s..."
+             (deduce-fill-hole--effective-model))))
 
 
 ;; Bind `C-c C-a' (ask AI) in `deduce-mode-map'.  Same rationale as

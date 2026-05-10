@@ -414,8 +414,9 @@ verify the LLM path:
 
 13. In a scratch `.pf` buffer with a `theorem t: all P:bool. P = P`
     (or similar simple) shape, place point on the `?` and press
-    `C-c C-a` ("ask AI"). Emacs reports `deduce-fill-hole:
-    asking...`. Within a few seconds (depending on the model and how
+    `C-c C-a` ("ask AI"). Emacs reports `deduce-fill-hole: asking
+    <model>...` (e.g. `asking claude-opus-4-7...`). Within a few
+    seconds (depending on the model and how
     many attempts it takes), the `?` is replaced with the validated
     proof and you get a `filled in N attempts` message. If the API
     key is missing, the buffer is left untouched and an error
