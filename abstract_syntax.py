@@ -1329,7 +1329,8 @@ def op_arg_str(trm, arg):
 
 
 def do_function_call(loc, name, type_params, type_args,
-                     params, args, body, subst, env, return_type):
+                     params, args, body, subst, env, return_type,
+                     display_args=None):
   # Phase 5 / Step 21 hook: trap on every named user-function reduction.
   # This single site catches RecFun, GenRecFun, and the recursive
   # case-dispatch path -- all of which funnel through here.  Lambdas
@@ -1344,6 +1345,13 @@ def do_function_call(loc, name, type_params, type_args,
     # empty for every recursive call that consumes its argument
     # via pattern matching -- a very common Deduce idiom.
     #
+    # ``display_args``: the *original* call's args, before pattern
+    # match splits the first arg off.  Use this for the call header
+    # in trap output so the user sees what they actually passed
+    # (e.g. ``count_down(suc(suc(zero)))``) rather than what survived
+    # the pattern match (``count_down(n'=suc(zero))``).  Defaults to
+    # ``args`` for callers that haven't been updated.
+    #
     # ``defn_loc``: ``loc`` is whatever the caller passed -- for the
     # generic ``TermInst(RecFun)`` arm of ``Call.reduce`` that's the
     # *call site* in the user file, which would let prelude
@@ -1353,7 +1361,9 @@ def do_function_call(loc, name, type_params, type_args,
     # skip decisions on.
     defn_loc = getattr(body, 'location', None)
     _dbg.on_function(name, loc, env, params=params, args=args, subst=subst,
-                     defn_loc=defn_loc)
+                     defn_loc=defn_loc,
+                     display_args=display_args if display_args is not None
+                                                 else args)
   fast_call = False
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
     op = base_name(name)
@@ -1546,15 +1556,17 @@ class Call(Term):
 
         subst = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, [], [], [x for (x,t) in params], args,
-                               body, subst, env, None)
-    
+                               body, subst, env, None,
+                               display_args=args)
+
       case TermInst(loc, tyof,
                     GenRecFun(loc2, name, typarams, params, returns,
                               measure, measure_ty, body, terminates),
                     type_args):
         subst = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
-                               body, subst, env, None)
+                               body, subst, env, None,
+                               display_args=args)
     
       case RecFun(loc, name, [], params, returns, cases):
         ret = self.do_recursive_call(loc, name, fun, [], [], params, args,
@@ -1584,7 +1596,8 @@ class Call(Term):
     # so debugger traps and trace output see ``foo`` rather than
     # ``anonymous`` when the lambda came from a named binding.
     subst = {k: v for ((k,t),v) in zip(vars, args)}
-    return do_function_call(loc, name, [], [], [], [], body, subst, env, None)
+    return do_function_call(loc, name, [], [], [], [], body, subst, env, None,
+                            display_args=args)
 
   def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
                         returns, cases, is_assoc, env):
@@ -1618,7 +1631,8 @@ class Call(Term):
               return do_function_call(fun_case.location, name,
                                       type_params, type_args,
                                       fun_case.parameters, rest_args,
-                                      fun_case.body, subst, env, returns)
+                                      fun_case.body, subst, env, returns,
+                                      display_args=args)
     if is_assoc:
       if get_verbose():
         print('not reducing recursive call to associative ' + str(fun))
@@ -1652,10 +1666,15 @@ class Call(Term):
               # ``->`` arrow lands on the case body, not on the
               # surrounding ``recursive`` declaration header.  Same
               # rationale as the change in ``do_recursive_call``.
+              # For associative reduction, the "call" conceptually
+              # consumes ``first_arg`` plus enough of ``worklist`` to
+              # match the remaining params -- that's the original
+              # arg list to display.
               result = do_function_call(fun_case.location, name,
                                         type_params, type_args,
                                         fun_case.parameters, rest_args,
-                                        fun_case.body, subst, env, returns)
+                                        fun_case.body, subst, env, returns,
+                                        display_args=[first_arg] + rest_args)
               # if get_verbose():
               #   print('call result: ' + str(result))
               worklist = [result] + worklist[len(fun_case.parameters):]

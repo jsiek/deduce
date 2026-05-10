@@ -595,17 +595,19 @@ def test_recursive_case_location_points_at_matched_case():
         "continue\n",
     )
     assert result.ok, result.error_message
-    # Inductive-case entries land on line 3.  The REPL prompt is on
-    # the same line as the trap header (no newline after the prompt),
-    # so use ``in`` rather than ``startswith``.
+    # Inductive-case entries land on line 3.  The REPL prompt sits
+    # on the same line as the trap header (no newline after the
+    # prompt), so use ``in`` rather than ``startswith``.  Args are
+    # now displayed positionally, so ``-> call double(suc(...))``
+    # matches the suc-cases.
     suc_traps = [line for line in out.splitlines()
-                 if "-> call double(n'=" in line]
+                 if "-> call double(suc(" in line]
     assert suc_traps, f"expected at least one suc-case trap\n{out}"
     for line in suc_traps:
         assert " at 3:" in line, line
-    # Base-case entry lands on line 2.
+    # Base-case entry lands on line 2 -- ``count_down(zero)``.
     base_traps = [line for line in out.splitlines()
-                  if "-> call double() " in line]
+                  if "-> call double(zero)" in line]
     for line in base_traps:
         assert " at 2:" in line, line
 

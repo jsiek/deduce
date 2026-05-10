@@ -71,6 +71,10 @@ class _Frame:
     env: object
     params: dict = field(default_factory=dict)
     is_skipped: bool = False
+    # The call's positional arguments, as the user wrote them.
+    # Used by both the entry trap header and the matching return
+    # trap so the unwinding view is self-describing.
+    display_args: list = field(default_factory=list)
 
 
 @dataclass
@@ -254,6 +258,7 @@ class Debugger:
         args: Optional[list] = None,
         subst: Optional[dict] = None,
         defn_loc=None,
+        display_args: Optional[list] = None,
     ) -> None:
         # ``defn_loc`` is the function's *defining* site (from its
         # body's ``Meta``).  ``location`` is the call site.  For
@@ -284,9 +289,10 @@ class Debugger:
                 key = base_name(k) if isinstance(k, str) else str(k)
                 params_dict[key] = v
         skipped = self._is_skipped(defn_loc)
+        args_for_display = list(display_args) if display_args else []
         frame = _Frame(
             name=name, location=location, env=env, params=params_dict,
-            is_skipped=skipped,
+            is_skipped=skipped, display_args=args_for_display,
         )
         self.stack.append(frame)
         self._current_env = env
@@ -294,9 +300,7 @@ class Debugger:
         if not self._should_pause_at_function(name, location, env, defn_loc):
             return
         self._frame_cursor = -1
-        pretty = ", ".join(
-            f"{k}={v}" for k, v in params_dict.items()
-        ) if params_dict else ""
+        pretty = ", ".join(str(a) for a in args_for_display)
         self._print(
             f"-> call {base_name(name)}({pretty}) at "
             f"{self._format_loc(location)}"
@@ -341,11 +345,14 @@ class Debugger:
             # Echo the call signature so the user can tell which
             # frame is unwinding -- five identical ``returned from
             # count_down`` lines are useless during a recursive
-            # unwind.  Return value goes on an indented second line
-            # so it's visually distinct from the call header.
-            pretty = ", ".join(
-                f"{k}={v}" for k, v in popped.params.items()
-            ) if popped.params else ""
+            # unwind.  Use the *original* call args (stored at push
+            # time), not the pattern-bound names: that way the base
+            # case shows ``count_down(zero)`` rather than the empty
+            # ``count_down()`` (the pattern consumes the arg, so
+            # ``params`` is empty for the base case).  Return value
+            # goes on an indented second line so it's visually
+            # distinct from the call header.
+            pretty = ", ".join(str(a) for a in popped.display_args)
             self._print(f"<- returned from {base_name(name)}({pretty})")
             self._print(f"     = {return_value}")
             self._repl()
