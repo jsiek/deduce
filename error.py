@@ -211,7 +211,7 @@ def add_incomplete(location, msg, formula=None, env=None):
   """
   global _active_sink
   if _active_sink is None:
-    incomplete_error(location, msg)
+    incomplete_error(location, msg, formula=formula, env=env)
   exc = IncompleteProof(error_header(location) + msg)
   exc.depth = 0
   exc.location = location

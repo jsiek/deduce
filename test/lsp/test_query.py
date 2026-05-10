@@ -87,6 +87,7 @@ EXPECTED_PUBLIC = {
     "eliminable_vars_at",
     "fill_from_given_at",
     "matching_givens_at",
+    "apply_at",
     "hole_context_at",
     "validate_proof_at",
 }
