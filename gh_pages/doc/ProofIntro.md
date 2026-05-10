@@ -1462,11 +1462,50 @@ proof
 end
 ```  
 
+When `simplify` reduces the goal all the way to `true`, you can close
+the proof by ending the statement with a period. In the next proof,
+the auto theorem `uint_zero_add` from the standard library lets
+`simplify` rewrite `0 + x` to `x`, and `simplify` then reduces `x = x`
+to `true`.
+
+```{.deduce^#simplify_zero_plus}
+theorem zero_plus_eq: all x:UInt. 0 + x = x
+proof
+  arbitrary x:UInt
+  simplify.
+end
+```
+
+If there is a fact you would like `simplify` to use, write `simplify
+with` followed by the label of that fact. If the fact has the form
+`not P`, then `simplify` replaces occurrences of `P` with `false`;
+otherwise it replaces occurrences of the fact `P` with `true`.
+Multiple facts are separated by `|`.
+
+```{.deduce^#simplify_with_if}
+theorem simplify_with_if: all P:bool, Q:bool.
+  if P and not Q then (if Q then false else P or Q)
+proof
+  arbitrary P:bool, Q:bool
+  assume prem
+  have p: P by prem
+  have nq: not Q by prem
+  simplify with p | nq.
+end
+```
+
+In the proof above, `simplify with p | nq` tells `simplify` to
+substitute `P` with `true` (using `p: P`) and `Q` with `false` (using
+`nq: not Q`). The goal becomes `if false then false else true or
+false`, which the built-in rules then reduce to `true`.
+
 <!--
 ```{.deduce^file=ProofIntro.pf}
 <<import_uint_and_list>>
 
 <<simplify_or_true>>
+<<simplify_zero_plus>>
+<<simplify_with_if>>
 <<length_uint_empty>>
 <<length_node42>>
 
