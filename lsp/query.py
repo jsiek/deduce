@@ -2252,29 +2252,70 @@ def matching_givens_at(
     return _matching_given_names(goal, env)
 
 
+def _implies(frm1, frm2) -> bool:
+    """Side-effect-free wrapper around ``proof_checker.check_implies``.
+
+    ``check_implies`` raises ``UserError`` (or ``MatchFailed``) on failure
+    and prints when ``--verbose`` is set. Here we silence verbose
+    temporarily and treat any exception as a negative answer, so this
+    function can be used as a predicate inside candidate filters.
+    """
+    import flags
+    from proof_checker import check_implies
+
+    saved = flags.verbose
+    flags.verbose = False
+    try:
+        check_implies(frm1.location, frm1, frm2)
+        return True
+    except Exception:
+        return False
+    finally:
+        flags.verbose = saved
+
+
 def _matching_given_names(goal, env) -> tuple:
-    """Names of local proof bindings whose formula equals ``goal``."""
+    """Names of local proof bindings that discharge ``goal``.
+
+    Exact equality matches come first (alphabetical), followed by
+    implies-only matches (alphabetical) -- the latter where the given's
+    formula strictly implies the goal via ``proof_checker.check_implies``
+    (handles ``Or`` introduction, ``And`` elimination, ``IfThen``
+    covariance, ``All`` instantiation; see issue #361).
+    """
     from abstract_syntax import ProofBinding, base_name
 
-    seen = set()
+    exact: set = set()
+    implies: set = set()
     for unique, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
         if not binding.local:
             continue
-        if binding.formula != goal:
+        name = base_name(unique)
+        if binding.formula == goal:
+            exact.add(name)
+            implies.discard(name)
             continue
-        seen.add(base_name(unique))
-    return tuple(sorted(seen))
+        if name in exact:
+            continue
+        if _implies(binding.formula, goal):
+            implies.add(name)
+    return tuple(sorted(exact)) + tuple(sorted(implies))
 
 
 def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
     """Return ``conclude <goal> by <label>`` when ``label`` names a
-    local proof binding in ``env`` whose formula equals ``goal``.
+    local proof binding in ``env`` whose formula equals or implies
+    ``goal``.
 
     Returns ``None`` when the label isn't bound, isn't a local proof
-    binding, or its formula doesn't match the goal.  The base-name
-    match (rather than unique-name) mirrors :func:`_eliminate_template`.
+    binding, or its formula neither equals nor implies the goal. The
+    base-name match (rather than unique-name) mirrors
+    :func:`_eliminate_template`. Implication checks use
+    ``proof_checker.check_implies`` -- the same routine ``conclude ... by
+    ...`` runs at proof-check time -- so any accepted label produces a
+    template the proof checker will validate.
     """
     from abstract_syntax import ProofBinding, base_name
 
@@ -2286,7 +2327,7 @@ def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
         return None
     if not binding.local:
         return None
-    if binding.formula != goal:
+    if binding.formula != goal and not _implies(binding.formula, goal):
         return None
     return f"conclude {goal} by {label}"
 

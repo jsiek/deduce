@@ -1084,6 +1084,37 @@ interactive entry user-errors with `No matching given'."
       (delete-file tmp))))
 
 
+(ert-deftest deduce-lsp/fill-from-given-implies-candidate-flows-through ()
+  "When `deduce/matchingGivensAt' returns an implies-only candidate
+\(issue #361 widens the filter to `check_implies'\), the interactive
+entry sends `deduce/fillFromGivenAt' with that label just like an
+exact-match candidate -- no special-casing at the transport layer."
+  (let ((tmp (make-temp-file "deduce-lsp-fill" nil ".pf"))
+        captured-label)
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'eglot-current-server)
+                     (lambda () 'mock-server))
+                    ((symbol-function 'eglot--signal-textDocument/didChange)
+                     (lambda () nil))
+                    ((symbol-function 'jsonrpc-request)
+                     (lambda (_server method params)
+                       (cond
+                        ;; H: P implies goal P or Q -- single candidate,
+                        ;; returned by the widened filter.
+                        ((eq method :deduce/matchingGivensAt) ["H"])
+                        ((eq method :deduce/fillFromGivenAt)
+                         (setq captured-label (plist-get params :label))
+                         nil)))))
+            (ignore-errors
+              (call-interactively #'deduce-lsp-fill-from-given)))
+          (should (equal captured-label "H")))
+      (delete-file tmp))))
+
+
 (provide 'deduce-lsp-test)
 
 ;;; deduce-lsp-test.el ends here
