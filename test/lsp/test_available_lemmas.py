@@ -201,6 +201,56 @@ def test_user_file_private_lemma_is_visible() -> None:
     assert "local_priv" in names
 
 
+def test_explicit_import_substring_query_finds_lemma() -> None:
+    """Issue #417: a substring ``query`` should match theorems that
+    live in modules the user explicitly ``import``s, not just the
+    user's file and the prelude.
+
+    Mirrors the ``lib/`` reproducer: a file in ``lib/`` has an empty
+    prelude (``_prelude_for`` returns ``()``) but still pulls in
+    cross-module lemmas via ``import``. Without the fix the candidate
+    set is empty, so the substring query returns nothing.
+    """
+    source = (
+        "import HoleFillPrelude\n"
+        "\n"
+        "theorem t: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf",
+        source,
+        Position(line=3, column=1),
+        query="hf_intro_and",
+    )
+    by_name = {m.name: m for m in matches}
+    assert "hf_intro_and" in by_name
+    assert by_name["hf_intro_and"].module == "HoleFillPrelude"
+
+
+def test_explicit_import_goal_shape_query_finds_lemma() -> None:
+    """Issue #417: goal-shape patterns must also match lemmas from
+    explicitly-imported modules, not just the user's file."""
+    source = (
+        "import HoleFillPrelude\n"
+        "\n"
+        "theorem t: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf",
+        source,
+        Position(line=3, column=1),
+        query="if _ then _ and _",
+    )
+    names = {m.name for m in matches}
+    assert "hf_intro_and" in names
+
+
 def test_prelude_postulate_is_surfaced() -> None:
     """Postulates and theorems imported via the prelude appear in
     results, with ``module`` set to the source module name."""

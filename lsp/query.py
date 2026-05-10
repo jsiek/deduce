@@ -2834,11 +2834,12 @@ def available_lemmas_at(
     so the best match in the set is ``1.0`` and others scale linearly.
     Only theorems, lemmas, and postulates are surfaced.
 
-    The lemma set is the same one :func:`hole_context_at` collects
-    (user-file declarations plus public declarations from each module
-    in ``prelude``), so this works without a hole as long as the file
-    parses.  Returns ``()`` when neither a hole nor a ``query`` is
-    available, or when no lemma matches even minimally.
+    The lemma set covers everything in scope at the cursor: the
+    user-file's own declarations, the modules it explicitly
+    ``import``s (transitively, through public imports), and any
+    module named in ``prelude``.  This works without a hole as long
+    as the file parses.  Returns ``()`` when neither a hole nor a
+    ``query`` is available, or when no lemma matches even minimally.
     """
     from lsp.library import check_file
 
@@ -2887,10 +2888,18 @@ def _collect_lemma_candidates(
     formula AST and module of origin.
 
     Returns a tuple of ``(LemmaInfo, formula_ast, module)`` triples,
-    drawn from the user file (one entry per ``Theorem``/``Postulate``
-    in source order, including private ones) and from each module
-    named in ``prelude`` (public theorems/postulates only, matching
-    ``print_theorems``' visibility filter).
+    drawn from:
+
+    - The user file: one entry per ``Theorem``/``Postulate`` in source
+      order, including private ones (everything in the file is in
+      scope at a hole there).
+    - Each module the user file explicitly ``import``s, and the
+      transitive closure of those modules' public imports (matching
+      what ``Import.collect_exports`` propagates): public theorems
+      and postulates only, filtered through the import's
+      ``using``/``hiding`` clause.
+    - Each module named in ``prelude`` (public theorems/postulates
+      only, matching ``print_theorems``' visibility filter).
     """
     from abstract_syntax import (
         Import as _ImportNode,
@@ -2901,11 +2910,39 @@ def _collect_lemma_candidates(
 
     out = []
     user_module = _module_for_path(path)
+    prelude_set = set(prelude)
+    seen_modules: set = set()
+
+    def _collect_from_module(
+        module_ast, module_name: str, importer
+    ) -> None:
+        if module_ast is None:
+            return
+        for stmt in module_ast:
+            if importer is not None and not importer._filter_admits(stmt):
+                continue
+            if isinstance(stmt, (Theorem, Postulate)):
+                info = _lemma_info_for(stmt, public_only=True)
+                if info is not None:
+                    out.append((info, stmt.what, module_name))
+            elif isinstance(stmt, _ImportNode) and stmt.visibility == "public":
+                if stmt.name in seen_modules or stmt.name == user_module:
+                    continue
+                if stmt.name in prelude_set:
+                    # Prelude is walked separately below.
+                    continue
+                seen_modules.add(stmt.name)
+                _collect_from_module(stmt.ast, stmt.name, stmt)
 
     if ast_nodes is not None:
-        prelude_set = set(prelude)
         for stmt in ast_nodes:
-            if isinstance(stmt, _ImportNode) and stmt.name in prelude_set:
+            if isinstance(stmt, _ImportNode):
+                if stmt.name in prelude_set or stmt.name == user_module:
+                    continue
+                if stmt.name in seen_modules:
+                    continue
+                seen_modules.add(stmt.name)
+                _collect_from_module(stmt.ast, stmt.name, stmt)
                 continue
             if not isinstance(stmt, (Theorem, Postulate)):
                 continue
@@ -2917,16 +2954,13 @@ def _collect_lemma_candidates(
     if prelude:
         modules = get_uniquified_modules()
         for module_name in prelude:
+            if module_name in seen_modules:
+                continue
             module_ast = modules.get(module_name)
             if module_ast is None:
                 continue
-            for stmt in module_ast:
-                if not isinstance(stmt, (Theorem, Postulate)):
-                    continue
-                info = _lemma_info_for(stmt, public_only=True)
-                if info is None:
-                    continue
-                out.append((info, stmt.what, module_name))
+            seen_modules.add(module_name)
+            _collect_from_module(module_ast, module_name, None)
 
     return tuple(out)
 
