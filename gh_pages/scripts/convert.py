@@ -23,6 +23,7 @@ mdToHtmlName = {
     'GettingStarted' : 'getting-started',
     'StandardLib' : 'stdlib',
     'Compiler' : 'compiler',
+    'Debugger' : 'debugger',
     'Index' : 'index',
 }
 
@@ -37,6 +38,7 @@ mdToTitle = {
     'GettingStarted' : 'Getting Started',
     'StandardLib' : 'Standard Library',
     'Compiler' : 'Compiler',
+    'Debugger' : 'Debugger',
     'Index' : 'Home',
 }
 
@@ -51,6 +53,7 @@ mdToDescription = {
     'GettingStarted' : 'Getting started with deduce.',
     'StandardLib' : 'Documentation for the deduce standard library.',
     'Compiler' : 'Compile Deduce programs to a self-contained C binary.',
+    'Debugger' : 'Step through Deduce programs with the gdb-style debugger.',
     'Index' : 'Deduce is an automated proof checker meant for use in education to help students',
 }
 
@@ -65,6 +68,7 @@ mdToDeduceCode = {
     'GettingStarted' : 'getting-started',
     'StandardLib' : 'stdlib',
     'Compiler' : 'compiler',
+    'Debugger' : 'debugger',
     'Index' : 'index',
 }
 

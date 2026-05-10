@@ -163,11 +163,14 @@ The Cheat Sheet gives some advice regarding proof strategy and which Deduce keyw
 
 The Compiler page walks through translating a checked Deduce program into a self-contained C binary.
 
+The Debugger page walks through stepping through Deduce programs with the gdb-style command-line debugger.
+
 <!-- buttons -->
 [Reference Manual](./pages/reference.html)
 [Cheat Sheet](./pages/cheat-sheet.html)
 [Tactics Cheat Sheet](./pages/tactics-cheat-sheet.html)
 [Compile to C](./pages/compiler.html)
+[Debugger](./pages/debugger.html)
 <!-- end buttons -->
 <!-- end block -->
 <!-- end section -->
