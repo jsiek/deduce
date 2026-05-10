@@ -499,6 +499,7 @@ class Debugger:
             "b":        self._cmd_break,
             "delete":   self._cmd_delete,
             "d":        self._cmd_delete,
+            "clear":    self._cmd_clear,
             "info":     self._cmd_info,
             "print":    self._cmd_print,
             "p":        self._cmd_print,
@@ -586,40 +587,67 @@ class Debugger:
         return False
 
     def _cmd_delete(self, args: str) -> bool:
-        """``delete`` (all) or ``delete <id|spec>...`` -- remove
-        breakpoints.  Each argument is matched first against the
-        breakpoint ids (gdb-style ``d 1``), and on miss against the
-        breakpoint specs the user originally passed to ``break``
-        (``d length``, ``d 13``, ``d foo.pf:13``).  Bare line numbers
-        resolve against the current source file, mirroring
-        ``break``'s convenience."""
+        """``delete`` (all) or ``delete <id>...`` -- remove
+        breakpoints by id (gdb convention).  Non-integer args error
+        out -- use ``clear <line|file:line|name>`` for spec-based
+        removal.
+        """
         if not args:
             self.breakpoints.clear()
             self._print("all breakpoints deleted")
             return False
-        existing_ids = {bp.id for bp in self.breakpoints}
         ids_to_remove: set = set()
         for piece in args.split():
-            # Id match first (gdb convention).
-            if piece.isdigit() and int(piece) in existing_ids:
-                ids_to_remove.add(int(piece))
-                continue
-            # Spec match.  Apply the same bare-line -> current-file
-            # rewrite ``_cmd_break`` does so symmetric ``d 13`` works
-            # after ``b 13``.
-            spec = piece
-            if spec.isdigit() and self._source_path is not None:
-                spec = f"{self._source_path}:{spec}"
-            matches = [bp.id for bp in self.breakpoints if bp.spec == spec]
-            if not matches:
-                self._print(f"no breakpoint matching {piece!r}")
+            if not piece.isdigit():
+                self._print(
+                    f"delete expects breakpoint ids; "
+                    f"use ``clear {piece}`` for spec-based removal"
+                )
                 return False
-            ids_to_remove.update(matches)
+            ids_to_remove.add(int(piece))
         before = len(self.breakpoints)
         self.breakpoints = [
             bp for bp in self.breakpoints if bp.id not in ids_to_remove
         ]
         self._print(f"deleted {before - len(self.breakpoints)} breakpoint(s)")
+        return False
+
+    def _cmd_clear(self, args: str) -> bool:
+        """``clear <spec>`` -- remove the breakpoint(s) at the given
+        location.  ``spec`` is one of:
+          - a bare line number (defaults to the current source file)
+          - ``file:line``
+          - a function name
+        Bare line numbers resolve against the current source file,
+        mirroring ``break``'s convenience.  Multiple breakpoints at
+        the same spec are all removed.
+        """
+        if not args:
+            self._print(
+                "usage: clear <line | file:line | name>"
+            )
+            return False
+        # Same bare-line rewrite as ``_cmd_break`` so ``clear 13`` is
+        # symmetric with ``break 13``.
+        spec = args.strip()
+        if spec.isdigit():
+            if self._source_path is None:
+                self._print(
+                    "cannot resolve bare line number: no current "
+                    "source file (try ``file:line`` form)"
+                )
+                return False
+            spec = f"{self._source_path}:{spec}"
+        matches = [bp.id for bp in self.breakpoints if bp.spec == spec]
+        if not matches:
+            self._print(f"no breakpoint at {spec!r}")
+            return False
+        before = len(self.breakpoints)
+        match_set = set(matches)
+        self.breakpoints = [
+            bp for bp in self.breakpoints if bp.id not in match_set
+        ]
+        self._print(f"cleared {before - len(self.breakpoints)} breakpoint(s)")
         return False
 
     def _cmd_info(self, args: str) -> bool:
@@ -743,8 +771,9 @@ class Debugger:
             "commands:\n"
             "  continue/c, step/s, next/n, finish/fin, quit/q\n"
             "  break/b <line | file:line | name>[ if <expr>]   -- set breakpoint\n"
-            "  delete/d [id|line|file:line|name ...]           -- remove breakpoints (all if no arg)\n"
-            "  info breakpoints                                 -- list breakpoints\n"
+            "  delete/d [id...]                                 -- remove breakpoints by id (all if no arg)\n"
+            "  clear <line | file:line | name>                  -- remove breakpoint(s) at a location\n"
+            "  info breakpoints                                 -- list breakpoints with ids\n"
             "  print/p <expr>                                   -- evaluate expression\n"
             "  list/l                                           -- show source around current line\n"
             "  where/bt, up, down                               -- call stack navigation\n"

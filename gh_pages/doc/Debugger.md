@@ -66,11 +66,15 @@ frame as each call returns.
 | `break <spec> if <expr>`                   | `b 14 if x = zero` | Pause only when `<expr>` reduces to `true` in the current scope. |
 | `info breakpoints` <br> `info b`           |          | List active breakpoints, with their assigned ids. |
 | `delete`                                   | `d`      | Remove all breakpoints. |
-| `delete <id>` <br> `delete <spec>`         | `d 1`, `d 14`, `d double` | Remove a specific breakpoint, by id or by the original spec. |
+| `delete <id>...`                           | `d 1 3`  | Remove specific breakpoints by id (the number `info b` shows in the first column). |
+| `clear <spec>`                             | `clear 14`, `clear double` | Remove the breakpoint(s) at a location.  Accepts the same forms `break` does. |
 
 A breakpoint that names a function fires on **every** call to that
-function — including recursive self-calls.  Use `delete` (or
-`delete <id>`) to disarm.
+function — including recursive self-calls.
+
+`delete` and `clear` are separate commands: `delete` takes ids
+(from `info breakpoints`), `clear` takes locations (the same form
+you wrote with `break`).  Use whichever is more convenient.
 
 Each `break` reports the breakpoint's assigned id:
 

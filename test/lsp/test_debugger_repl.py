@@ -275,24 +275,56 @@ def test_delete_breakpoints():
     assert "-> call double" not in out
 
 
-def test_delete_by_spec_or_id():
-    """``delete`` accepts either a breakpoint id (gdb convention)
-    or the spec the user passed to ``break``.  Bare line numbers
-    follow the same current-file rewrite as ``break``."""
-    path = _write_fixture("bp_delete_spec.pf", RECURSIVE_PROGRAM)
+def test_delete_by_id():
+    """``delete <id>`` removes specific breakpoints by id (gdb
+    convention).  Non-integer args are rejected with a hint to use
+    ``clear`` instead."""
+    path = _write_fixture("bp_delete_id.pf", RECURSIVE_PROGRAM)
     result, dbg, out = _run(
         path,
-        "break 6\n"             # line bp on the print
-        "break double\n"        # function bp
-        "delete 6\n"            # by bare line (rewritten to file:6)
-        "delete double\n"       # by name
-        "info breakpoints\n"
-        "continue\n",
+        "break 6\n"           # bp 1
+        + "break double\n"     # bp 2
+        + "delete 1\n"         # remove bp 1
+        + "delete double\n"    # non-integer -> error
+        + "delete 2\n"         # remove bp 2
+        + "info breakpoints\n"
+        + "continue\n",
     )
     assert result.ok, result.error_message
-    # All breakpoints should be gone after the two deletes.
     assert dbg.breakpoints == []
+    # The non-integer ``delete double`` should produce a hint
+    # pointing at ``clear``; it shouldn't have removed anything.
+    assert "clear double" in out
     assert "no breakpoints" in out
+
+
+def test_clear_by_spec():
+    """``clear <spec>`` removes the breakpoint(s) at a location.
+    Same forms ``break`` accepts: bare line, ``file:line``, name."""
+    path = _write_fixture("bp_clear_spec.pf", RECURSIVE_PROGRAM)
+    result, dbg, out = _run(
+        path,
+        "break 6\n"           # line bp on the print
+        + "break double\n"     # function bp
+        + "clear 6\n"          # remove by bare line
+        + "clear double\n"     # remove by name
+        + "info breakpoints\n"
+        + "continue\n",
+    )
+    assert result.ok, result.error_message
+    assert dbg.breakpoints == []
+    assert out.count("cleared 1 breakpoint(s)") == 2
+    assert "no breakpoints" in out
+
+
+def test_clear_missing_spec_reports_error():
+    path = _write_fixture("bp_clear_miss.pf", RECURSIVE_PROGRAM)
+    _, _, out = _run(
+        path,
+        "clear 99\n"
+        + "quit\n",
+    )
+    assert "no breakpoint at" in out
 
 
 def test_info_breakpoints_lists_them():
