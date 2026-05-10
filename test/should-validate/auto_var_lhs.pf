@@ -1,0 +1,14 @@
+define my_true = true
+
+theorem my_true_is_true: my_true = true
+proof
+  expand my_true.
+end
+
+auto my_true_is_true
+
+theorem simplify_auto: if my_true then true else false
+proof
+  simplify
+  conclude true by .
+end
