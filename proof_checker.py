@@ -554,7 +554,8 @@ def check_proof(proof, env):
       eqns = [check_proof(proof, env) for proof in equation_proofs]
       red_formula = formula.reduce(env)
       current_formula = red_formula
-      current_formula = apply_rewrites(loc, current_formula, eqns, env)
+      current_formula = apply_rewrites(loc, current_formula, eqns, env,
+                                       display_formula=formula)
       ret = current_formula
 
     case SimplifyFact(loc, subject, givens):
@@ -1849,7 +1850,8 @@ def check_proof_of(proof, formula, env):
       equations = [check_proof(proof, env) for proof in equation_proofs]
       eqns = [equation.reduce(env) for equation in equations]
       new_formula = formula.reduce(env)
-      new_formula = apply_rewrites(loc, new_formula, eqns, env)
+      new_formula = apply_rewrites(loc, new_formula, eqns, env,
+                                   display_formula=formula)
       _try_check_proof_of(body, new_formula, env)
 
     case SimplifyGoal(loc, body, givens):
@@ -1966,7 +1968,10 @@ def expand_definitions(loc, formula, defs, env):
   else:
       return check_formula(replace_mark(formula, new_formula).reduce(env), env)
 
-def apply_rewrites(loc, formula, eqns, env):#
+def apply_rewrites(loc, formula, eqns, env, *, display_formula=None):
+  # `formula` is the value rewrites operate over (may be auto-normalized).
+  # `display_formula`, if provided, is the pre-normalized form shown in
+  # error messages so users see the goal they actually wrote.
   num_marks = count_marks(formula)
   if num_marks == 0:
       new_formula = formula
@@ -1990,10 +1995,15 @@ def apply_rewrites(loc, formula, eqns, env):#
     new_formula = rewrite_aux(loc, new_formula, eq, env)
     if get_num_rewrites() == 0:
         (lhs, rhs) = split_equation(loc, eq, env)
-        user_error(loc, '\ncould not find any matches for\n\t' + str(lhs) \
-                   + '\nin\n\t' + str(new_formula) \
-                   + '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq) \
-                   + auto_simplified_hint(new_formula))
+        shown_formula = display_formula if display_formula is not None else new_formula
+        msg = '\ncould not find any matches for\n\t' + str(lhs) \
+              + '\nin\n\t' + str(shown_formula)
+        if display_formula is not None and str(shown_formula) != str(new_formula):
+            msg += '\n(which auto-rule normalization reduced to:\n\t' \
+                   + str(new_formula) + ')'
+        msg += '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq) \
+               + auto_simplified_hint(new_formula)
+        user_error(loc, msg)
     new_formula = new_formula.reduce(env)
       
   if num_marks == 0:          

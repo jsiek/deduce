@@ -1,0 +1,9 @@
+./test/should-error/replace_shows_preauto_form.pf:18.7-18.27:
+could not find any matches for
+	b
+in
+	a < a
+(which auto-rule normalization reduced to:
+	false)
+while trying to replace using the below equation, left to right
+	b = a

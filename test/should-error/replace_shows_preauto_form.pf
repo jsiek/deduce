@@ -1,0 +1,23 @@
+import UInt
+
+// Regression test for issue #419: when an auto rewrite rule (here,
+// uint_less_refl_false: (x < x) = false) normalizes the current goal,
+// a failing `replace` should still show the goal the user wrote,
+// not just the auto-normalized form.
+
+postulate fact: all a:UInt, b:UInt. a < a
+
+theorem test419: all a:UInt, b:UInt. if a < b or a = b then false
+proof
+  arbitrary a:UInt, b:UInt
+  assume disj: a < b or a = b
+  have step: a < a by {
+    cases disj
+    case lt: a < b { fact[a, b] }
+    case eq: a = b {
+      replace symmetric eq
+      fact[a, b]
+    }
+  }
+  apply uint_less_irreflexive to step
+end
