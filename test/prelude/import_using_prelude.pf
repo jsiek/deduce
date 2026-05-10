@@ -1,0 +1,11 @@
+// Issue #365: `import M using ...` from a prelude (lib/) module must
+// behave the same as for non-prelude modules. The prelude's unfiltered
+// auto-import used to race ahead and pollute the env; we now skip the
+// prelude entry whenever the user has an explicit `using`/`hiding`.
+
+import BigO using bigo_refl | operator≲
+
+theorem prelude_filter_using_admits: all f : fn UInt -> UInt. f ≲ f
+proof
+  bigo_refl
+end

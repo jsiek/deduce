@@ -1,0 +1,9 @@
+// Issue #365 companion: `hiding` against a prelude (lib/) module also
+// has to take effect — names other than the hidden one stay in scope.
+
+import BigO hiding bigo_trans
+
+theorem prelude_filter_hiding_admits: all f : fn UInt -> UInt. f ≲ f
+proof
+  bigo_refl
+end
