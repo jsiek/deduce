@@ -75,6 +75,8 @@ EXPECTED_PUBLIC = {
     "LemmaInfo",
     "HoleContext",
     "ValidationResult",
+    "RewritePreview",
+    "ExpandPreview",
     "check",
     "goal_at",
     "definition_of",
@@ -89,6 +91,8 @@ EXPECTED_PUBLIC = {
     "matching_givens_at",
     "hole_context_at",
     "validate_proof_at",
+    "preview_replace_at",
+    "preview_expand_at",
 }
 
 

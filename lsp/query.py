@@ -63,6 +63,8 @@ __all__ = [
     "LemmaInfo",
     "HoleContext",
     "ValidationResult",
+    "RewritePreview",
+    "ExpandPreview",
     # Query functions
     "check",
     "goal_at",
@@ -78,6 +80,8 @@ __all__ = [
     "matching_givens_at",
     "hole_context_at",
     "validate_proof_at",
+    "preview_replace_at",
+    "preview_expand_at",
 ]
 
 
@@ -257,6 +261,59 @@ class HoleContext:
     givens: tuple
     lemmas_in_scope: tuple
     fingerprint: str
+
+
+@dataclass(frozen=True)
+class RewritePreview:
+    """Outcome of previewing a ``replace <equation>`` rewrite at a hole.
+
+    Returned by :func:`preview_replace_at`. ``outcome`` is one of:
+
+    - ``"ok"`` -- the rewrite would succeed; ``before`` and ``after``
+      are the rendered goal text before and after the rewrite.
+    - ``"no_match"`` -- the equation's LHS does not occur in the
+      current goal (or an auto-rule has already canonicalized it
+      away); ``reason`` is a human-readable explanation.
+    - ``"not_an_equation"`` -- the named binding's formula is not an
+      ``=``; ``formula`` is the rendered formula text.
+    - ``"unbound"`` -- no proof binding by that name is in scope at
+      the hole; ``name`` echoes the input.
+
+    Fields not relevant to the chosen ``outcome`` are ``None``.
+    """
+
+    outcome: str
+    before: Optional[str] = None
+    after: Optional[str] = None
+    reason: Optional[str] = None
+    formula: Optional[str] = None
+    name: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ExpandPreview:
+    """Outcome of previewing an ``expand <names>`` unfolding at a hole.
+
+    Returned by :func:`preview_expand_at`. ``outcome`` is one of:
+
+    - ``"ok"`` -- every name unfolded at least once; ``before`` and
+      ``after`` are the rendered goal text before and after.
+    - ``"no_match"`` -- a name is in scope and expandable but its
+      definition has no place to apply in the current goal (often an
+      auto-rule canonicalized the call away); ``name`` is the first
+      name that produced no change.
+    - ``"opaque"`` -- the named binding exists but is opaque from the
+      file under check (private/abstracted); ``name`` is that name.
+    - ``"unknown"`` -- no term/type binding by that name is in scope;
+      ``name`` is that name.
+
+    Fields not relevant to the chosen ``outcome`` are ``None``.
+    """
+
+    outcome: str
+    before: Optional[str] = None
+    after: Optional[str] = None
+    name: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -2401,3 +2458,259 @@ def validate_proof_at(
     if result.ok:
         return ValidationResult(ok=True, error=None)
     return ValidationResult(ok=False, error=result.error_message)
+
+
+# ---------------------------------------------------------------------------
+# preview_replace_at / preview_expand_at -- issue #401: rewrite previews
+# ---------------------------------------------------------------------------
+#
+# Pure read-only previews of what ``replace <equation>`` or ``expand
+# <names>`` would do to the current goal. The mechanism mirrors the
+# Phase 4 query helpers: target the cursor's `?`, run the pipeline so
+# `incomplete_error` stashes the goal AST and env on the exception,
+# then call into the same ``apply_rewrites`` / ``expand_definitions``
+# helpers that the proof checker uses for the real tactic. Failure
+# modes (no match, opaque, unbound) are returned as structured
+# outcomes rather than raised, so the agent can decide what to do
+# without round-tripping through `check_file`.
+
+
+_REPLACE_SYMMETRIC_PREFIX = "symmetric "
+
+
+def preview_replace_at(
+    path: str,
+    content: str,
+    pos: Position,
+    equation: str,
+    prelude: Sequence[str] = (),
+) -> Optional[RewritePreview]:
+    """Preview the result of ``replace <equation>`` at the hole at ``pos``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``equation`` is the *name* of an in-scope theorem, lemma, or local
+    hypothesis whose formula is an equation, optionally prefixed with
+    ``"symmetric "`` for a right-to-left rewrite.
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof there. Otherwise returns a :class:`RewritePreview`
+    with one of four outcomes; see that class's docstring.
+
+    The preview reduces the goal first (matching what the proof checker
+    does for ``replace``) so ``before`` reflects what the equation is
+    actually applied against -- this is what catches the "an auto rule
+    already canonicalized the LHS away" case the issue calls out.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    formula = getattr(exc, "formula", None)
+    if env is None or formula is None:
+        return None
+
+    raw = equation.strip()
+    is_symmetric = raw.startswith(_REPLACE_SYMMETRIC_PREFIX)
+    name = raw[len(_REPLACE_SYMMETRIC_PREFIX):].strip() if is_symmetric else raw
+
+    return _preview_replace(
+        name=name,
+        is_symmetric=is_symmetric,
+        original_input=equation,
+        formula=formula,
+        env=env,
+        loc=getattr(exc, "location", None),
+    )
+
+
+def _preview_replace(
+    name: str,
+    is_symmetric: bool,
+    original_input: str,
+    formula,
+    env,
+    loc,
+) -> RewritePreview:
+    """Look up ``name`` and apply the rewrite (or report a structured
+    failure). ``loc`` is the hole's source location, used for the
+    diagnostic-shaped exceptions raised by ``apply_rewrites``."""
+    from abstract_syntax import (
+        ProofBinding, base_name, is_equation, mkEqual, split_equation,
+    )
+
+    matches = [k for k in env.dict if base_name(k) == name]
+    binding = None
+    for k in matches:
+        cand = env.dict[k]
+        if isinstance(cand, ProofBinding):
+            binding = cand
+            break
+    if binding is None:
+        return RewritePreview(outcome="unbound", name=original_input)
+
+    eq_formula = binding.formula
+    if not is_equation(eq_formula):
+        return RewritePreview(
+            outcome="not_an_equation",
+            formula=str(eq_formula),
+        )
+
+    if is_symmetric:
+        # Mirror PSymmetric: split off the (a,b) pair (descends through
+        # any outer Alls) and swap. PSymmetric's behavior on quantified
+        # equations drops the quantifier; preview_replace mirrors that
+        # so the preview matches what the real tactic would do.
+        try:
+            (lhs, rhs) = split_equation(loc, eq_formula, env)
+        except Exception:
+            return RewritePreview(
+                outcome="not_an_equation",
+                formula=str(eq_formula),
+            )
+        eq_formula = mkEqual(loc, rhs, lhs)
+
+    eq_reduced = eq_formula.reduce(env)
+    before = formula.reduce(env)
+
+    from error import UserError
+    from proof_checker import apply_rewrites
+
+    try:
+        after = apply_rewrites(loc, before, [eq_reduced], env)
+    except UserError as exc:
+        msg = getattr(exc, "message_body", None) or str(exc)
+        if "no need for replace" in msg:
+            reason = (
+                "this equation is handled automatically -- "
+                "no `replace` needed"
+            )
+        elif "could not find any matches" in msg:
+            try:
+                (lhs, _rhs) = split_equation(loc, eq_reduced, env)
+                reason = (
+                    f"LHS '{lhs}' does not occur in the current goal"
+                )
+            except Exception:
+                reason = "no matches for the equation in the current goal"
+        else:
+            reason = msg
+        return RewritePreview(outcome="no_match", reason=reason)
+
+    return RewritePreview(
+        outcome="ok",
+        before=str(before),
+        after=str(after),
+    )
+
+
+def preview_expand_at(
+    path: str,
+    content: str,
+    pos: Position,
+    names: Sequence[str],
+    prelude: Sequence[str] = (),
+) -> Optional[ExpandPreview]:
+    """Preview the result of ``expand <names>`` at the hole at ``pos``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``names`` is a list of definition names to unfold, matching the
+    ``expand X | Y | Z`` syntax (each name in turn is substituted into
+    the goal and reduced).
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof there. Otherwise returns an :class:`ExpandPreview`
+    with one of four outcomes; see that class's docstring.
+
+    Names are resolved in order: the first name that fails (unknown,
+    opaque, or no match) determines the failure outcome. If every name
+    expands at least once, the result is ``ok``.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    target = (hole_range.start.line, hole_range.start.column)
+    with _target_hole(target):
+        result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    formula = getattr(exc, "formula", None)
+    if env is None or formula is None:
+        return None
+
+    return _preview_expand(
+        list(names),
+        formula=formula,
+        env=env,
+        loc=getattr(exc, "location", None),
+    )
+
+
+def _preview_expand(
+    names: list, formula, env, loc
+) -> ExpandPreview:
+    """Resolve each name then call ``expand_definitions`` with the
+    constructed var list. Pre-checks unknown / all-opaque names so the
+    failure is reported as a structured outcome instead of an exception."""
+    from abstract_syntax import (
+        OverloadedVar, TermBinding, TypeBinding, base_name,
+    )
+
+    defs = []
+    for name in names:
+        candidates = [k for k in env.dict if base_name(k) == name]
+        # Skip non-term/type bindings (proof labels can't be expanded).
+        defn_candidates = [
+            k for k in candidates
+            if isinstance(env.dict[k], (TermBinding, TypeBinding))
+        ]
+        if not defn_candidates:
+            return ExpandPreview(outcome="unknown", name=name)
+        current_module = env.get_current_module()
+        non_opaque = [
+            k for k in defn_candidates
+            if not (
+                env.dict[k].visibility == "opaque"
+                and env.dict[k].module != current_module
+            )
+        ]
+        if not non_opaque:
+            return ExpandPreview(outcome="opaque", name=name)
+        defs.append(OverloadedVar(loc, None, non_opaque))
+
+    from error import UserError
+    from proof_checker import expand_definitions
+
+    try:
+        after = expand_definitions(loc, formula, defs, env)
+    except UserError as exc:
+        msg = getattr(exc, "message_body", None) or str(exc)
+        # Find which name failed by parsing the message: messages from
+        # ``expand_definitions`` echo the failing identifier.
+        failing = None
+        for name in names:
+            if name in msg:
+                failing = name
+                break
+        return ExpandPreview(outcome="no_match", name=failing or names[0])
+
+    return ExpandPreview(
+        outcome="ok",
+        before=str(formula),
+        after=str(after),
+    )

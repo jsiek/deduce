@@ -105,6 +105,8 @@ async def test_all_tools_are_registered(server):
             "eliminable_vars_at",
             "fill_from_given_at",
             "matching_givens_at",
+            "preview_replace_at",
+            "preview_expand_at",
         }
 
 
@@ -532,6 +534,102 @@ async def test_eliminable_vars_at_returns_candidates(server, tmp_path):
         {"path": str(fp), "line": 5, "column": 3},
     )
     assert "H" in payload
+
+
+# --------------------------------------------------------------------------
+# preview_replace_at and preview_expand_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_preview_replace_at_returns_ok_outcome(server, tmp_path):
+    """``replace H`` rewrites the goal's LHS to the RHS; preview shows
+    both forms."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if P = Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P = Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_replace.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_replace_at",
+        {"path": str(fp), "line": 5, "column": 3, "equation": "H"},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "ok"
+    assert payload["before"] == "P"
+    assert payload["after"] == "Q"
+
+
+@pytest.mark.anyio
+async def test_preview_replace_at_returns_unbound(server, tmp_path):
+    src = (
+        "theorem t: all P:bool. P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_replace_unbound.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_replace_at",
+        {"path": str(fp), "line": 4, "column": 3, "equation": "no_such"},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "unbound"
+    assert payload["name"] == "no_such"
+
+
+@pytest.mark.anyio
+async def test_preview_expand_at_unfolds_and_returns_ok(server, tmp_path):
+    src = (
+        "define my_and : fn bool, bool -> bool = λ a, b { a and b }\n"
+        "theorem t: all P:bool, Q:bool. my_and(P, Q) = my_and(Q, P)\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_expand.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_expand_at",
+        {"path": str(fp), "line": 5, "column": 3, "names": ["my_and"]},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "ok"
+    assert "my_and" in payload["before"]
+    assert "my_and" not in payload["after"]
+
+
+@pytest.mark.anyio
+async def test_preview_expand_at_returns_unknown(server, tmp_path):
+    src = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "preview_expand_unknown.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "preview_expand_at",
+        {"path": str(fp), "line": 5, "column": 3, "names": ["nope"]},
+    )
+    assert payload is not None
+    assert payload["outcome"] == "unknown"
+    assert payload["name"] == "nope"
 
 
 # --------------------------------------------------------------------------
