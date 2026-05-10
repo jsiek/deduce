@@ -1338,7 +1338,12 @@ def do_function_call(loc, name, type_params, type_args,
   # and double-fired; do not carry that pattern forward.
   _dbg = get_debugger()
   if _dbg is not None:
-    _dbg.on_function(name, loc, params=params, args=args)
+    # ``subst`` holds the *pattern-bound* names introduced by the
+    # recursive case dispatch (e.g. ``n'`` -> the predecessor of
+    # the matched ``suc(n')``).  Without it, ``locals`` would be
+    # empty for every recursive call that consumes its argument
+    # via pattern matching -- a very common Deduce idiom.
+    _dbg.on_function(name, loc, env, params=params, args=args, subst=subst)
   fast_call = False
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
     op = base_name(name)
@@ -1422,7 +1427,7 @@ def do_function_call(loc, name, type_params, type_args,
     recursion_depth -= 1
 
   if _dbg is not None:
-    _dbg.after_function(name, return_value=ret)
+    _dbg.after_function(name, env, return_value=ret)
   return explicit_term_inst(ret)
 
 
@@ -1510,15 +1515,13 @@ class Call(Term):
         # they need their own one-line trap.  ``<lambda>`` stands in
         # for the missing name in the REPL display.
         _dbg = get_debugger()
+        call_env = fun.env if hasattr(fun, 'env') else env
         if _dbg is not None:
-          _dbg.on_function('<lambda>', loc,
+          _dbg.on_function('<lambda>', loc, call_env,
                            params=[v[0] for v in vars], args=args)
-        if hasattr(fun, 'env'):
-          ret = self.do_call(loc, vars, body, args, fun.env)
-        else:
-          ret = self.do_call(loc, vars, body, args, env)
+        ret = self.do_call(loc, vars, body, args, call_env)
         if _dbg is not None:
-          _dbg.after_function('<lambda>', return_value=ret)
+          _dbg.after_function('<lambda>', call_env, return_value=ret)
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):

@@ -4686,10 +4686,12 @@ def check_proofs(stmt, env: Env):
   # statement.  ``get_debugger()`` returns ``None`` in the common case
   # (no debug session attached), so non-debug runs pay one attribute
   # load and a None-check per statement -- well below the noise floor
-  # of the surrounding match dispatch.
+  # of the surrounding match dispatch.  Step 22: ``env`` is passed in
+  # so ``print <expr>`` and breakpoint conditions can be evaluated in
+  # the current scope.
   _dbg = get_debugger()
   if _dbg is not None:
-    _dbg.on_statement(stmt)
+    _dbg.on_statement(stmt, env)
   match stmt:
     case Define(loc, name, ty, body):
       pass
@@ -4831,7 +4833,7 @@ def check_proofs(stmt, env: Env):
       internal_error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
 
   if _dbg is not None:
-    _dbg.after_statement(stmt)
+    _dbg.after_statement(stmt, env)
 
 def check_deduce(ast, module_name, modified, tracing_functions, error_sink=None):
   """Run the four-phase pipeline (process_declarations, type_check_stmt,

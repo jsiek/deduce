@@ -178,13 +178,13 @@ class _CountingDebugger(Debugger):
         self.statement_count = 0
         self.function_calls: list[str] = []
 
-    def on_statement(self, stmt):
+    def on_statement(self, stmt, env):
         self.statement_count += 1
-        super().on_statement(stmt)
+        super().on_statement(stmt, env)
 
-    def on_function(self, name, location, params=None, args=None):
+    def on_function(self, name, location, env, **kw):
         self.function_calls.append(name)
-        super().on_function(name, location, params=params, args=args)
+        super().on_function(name, location, env, **kw)
 
 
 def test_hooks_fire_on_statements_and_function_calls():
