@@ -105,6 +105,7 @@ async def test_all_tools_are_registered(server):
             "eliminable_vars_at",
             "fill_from_given_at",
             "matching_givens_at",
+            "apply_at",
             "preview_replace_at",
             "preview_expand_at",
             "available_lemmas_at",
@@ -535,6 +536,99 @@ async def test_eliminable_vars_at_returns_candidates(server, tmp_path):
         {"path": str(fp), "line": 5, "column": 3},
     )
     assert "H" in payload
+
+
+# --------------------------------------------------------------------------
+# apply_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_apply_at_returns_ok_dict(server, tmp_path):
+    """Cursor on ``?`` + ``theorem='H'`` for an in-scope ``if P then Q``
+    -> ``ok`` outcome with the premise as a remaining obligation."""
+    src = (
+        "theorem t: all P:bool, Q:bool. if (if P then Q) and P then Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: (if P then Q) and P\n"
+        "  have Hpq: if P then Q by conjunct 0 of H\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "apply_ok.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "apply_at",
+        {"path": str(fp), "line": 6, "column": 3, "theorem": "Hpq"},
+    )
+    assert payload == {
+        "outcome": "ok",
+        "conclusion": "Q",
+        "remaining_premises": ["P"],
+    }
+
+
+@pytest.mark.anyio
+async def test_apply_at_unbound_returns_unbound_dict(server, tmp_path):
+    src = (
+        "theorem t: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "apply_unbound.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "apply_at",
+        {"path": str(fp), "line": 5, "column": 3, "theorem": "no_such"},
+    )
+    assert payload == {"outcome": "unbound", "theorem": "no_such"}
+
+
+@pytest.mark.anyio
+async def test_apply_at_with_args_instantiates_quantifier(
+    server, tmp_path
+):
+    """Explicit ``[Q]`` instantiates the outer ``all P`` so the
+    conclusion ``Q`` matches the goal."""
+    src = (
+        "theorem identity: all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  H\n"
+        "end\n"
+        "\n"
+        "theorem t: all Q:bool. if Q then Q\n"
+        "proof\n"
+        "  arbitrary Q:bool\n"
+        "  assume H: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "apply_args.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "apply_at",
+        {
+            "path": str(fp),
+            "line": 12,
+            "column": 3,
+            "theorem": "identity",
+            "args": ["Q"],
+        },
+    )
+    assert payload == {
+        "outcome": "ok",
+        "conclusion": "Q",
+        "remaining_premises": ["Q"],
+    }
 
 
 # --------------------------------------------------------------------------

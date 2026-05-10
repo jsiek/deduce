@@ -79,6 +79,7 @@ __all__ = [
     "eliminable_vars_at",
     "fill_from_given_at",
     "matching_givens_at",
+    "apply_at",
     "hole_context_at",
     "available_lemmas_at",
     "validate_proof_at",
@@ -2224,6 +2225,307 @@ def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
     if binding.formula != goal:
         return None
     return f"conclude {goal} by {label}"
+
+
+# ---------------------------------------------------------------------------
+# apply_at -- issue #402: forward `apply` preview tool
+# ---------------------------------------------------------------------------
+#
+# Sibling to ``eliminate_at`` / ``fill_from_given_at``: simulates
+# ``apply <theorem>[<args>] to ?`` against the goal at the cursor's
+# hole and reports whether the apply would succeed, what conclusion it
+# produces, and what premises the user would still have to discharge.
+#
+# Strategy: do the matching manually rather than splicing ``apply ...
+# to ?`` and reading the result. Splicing looked simpler but suffers
+# from a short-circuit in ``proof_checker.ModusPonens``: the inner
+# ``?`` raises ``IncompleteProof`` *before* the apply's conclusion is
+# compared with the outer goal, so a mismatched conclusion looks like
+# success. Manual matching reproduces what the checker would do
+# (``collect_all_if_then`` + ``formula_match``) and gives us full
+# visibility into both the conclusion match and the premise.
+#
+# When ``args`` is non-empty, we splice ``define`` statements at the
+# hole so the proof checker parses and type-checks the user-supplied
+# arg expressions in the right scope (the variables ``arbitrary``-
+# bound by the surrounding proof have to be visible). We then read the
+# resulting term ASTs out of ``env`` and feed them to ``instantiate``.
+
+
+def apply_at(
+    path: str, content: str, pos: Position,
+    theorem: str,
+    args: Optional[Sequence[str]] = None,
+    prelude: Sequence[str] = (),
+) -> Optional[dict]:
+    """Preview ``apply <theorem>[<args>] to ?`` at the cursor's hole.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``theorem`` names an in-scope hypothesis, theorem, lemma, or
+    postulate. ``args`` is the optional list of explicit term arguments
+    instantiating the theorem's outermost ``all`` quantifiers --
+    matching the ``theorem[arg, arg, ...]`` syntax. Each entry is the
+    rendered text of a term (parsed in the scope at the hole, so
+    ``arbitrary``-bound variables are visible).
+
+    Returns ``None`` when the cursor isn't on a ``?`` or when the
+    surrounding file fails to reach an ``IncompleteProof`` at the
+    targeted hole (e.g. earlier parse / type errors). Otherwise returns
+    a dict whose ``outcome`` field discriminates the shape:
+
+    - ``{"outcome": "ok", "conclusion": "<rendered formula>",
+       "remaining_premises": ["<formula>", ...]}``
+       The apply would succeed; ``conclusion`` is the goal at the hole
+       (which the apply matched), and ``remaining_premises`` is the
+       ordered list of obligations the user still has to prove. A
+       conjunctive premise is split on top-level ``and`` so the list
+       maps to what the user would put after ``to``.
+
+    - ``{"outcome": "unifies_against", "goal": "<rendered formula>",
+       "reason": "<message>"}``
+       The conclusion did not match the goal, or instantiation could
+       not deduce the all-bound variables.
+
+    - ``{"outcome": "unbound", "theorem": "<name>"}``
+       ``theorem`` is not in scope at the hole.
+
+    - ``{"outcome": "arity_mismatch", "expected": N, "got": M}``
+       Too many ``[args]`` were supplied for the theorem's outer
+       quantifiers (``expected`` is the maximum acceptable count;
+       ``got`` is ``len(args)``). Also returned without ``expected`` /
+       ``got`` when ``theorem`` is not an implication at all.
+    """
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from error import IncompleteProof
+    from lsp.library import check_file
+
+    # Splice ``define`` statements at the hole so user-supplied arg
+    # expressions are parsed and type-checked in the surrounding
+    # proof's scope. Without args we just check the file as-is.
+    if args:
+        run_path, run_content, target = _splice_apply_args(
+            path, content, hole_range, args
+        )
+    else:
+        run_path = path
+        run_content = content
+        target = (hole_range.start.line, hole_range.start.column)
+
+    with _target_hole(target):
+        result = check_file(run_path, content=run_content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    if not isinstance(exc, IncompleteProof):
+        # Splicing a malformed arg expression can produce a UserError
+        # at the synthetic ``define`` line. Surface it as a parse-of-
+        # arg error rather than pretending the apply itself failed.
+        if args:
+            msg = getattr(exc, "message_body", None) or str(exc) or ""
+            return {
+                "outcome": "unifies_against",
+                "goal": "",
+                "reason": "could not parse args: " + msg.strip(),
+            }
+        return None
+    goal = getattr(exc, "formula", None)
+    env = getattr(exc, "env", None)
+    if goal is None or env is None:
+        return None
+
+    # When ``args`` were spliced via ``define _apply_at_arg_N = <arg>``,
+    # the goal printed by the checker is in terms of the synthetic
+    # alias instead of the user's original term (e.g. ``_apply_at_arg_0``
+    # in place of ``Q``). Render the goal with full reduction so the
+    # user-visible string is unaffected by the splice.
+    from abstract_syntax import set_reduce_all
+    if args:
+        set_reduce_all(True)
+        try:
+            goal_for_display = goal.reduce(env)
+        finally:
+            set_reduce_all(False)
+        goal_str = str(goal_for_display)
+    else:
+        goal_str = str(goal)
+
+    from abstract_syntax import ProofBinding, TermBinding, base_name
+    matches = [k for k in env.dict if base_name(k) == theorem]
+    if not matches or not isinstance(env.dict[matches[0]], ProofBinding):
+        return {"outcome": "unbound", "theorem": theorem}
+    formula = env.dict[matches[0]].formula
+
+    # Resolve and apply each user-supplied arg by instantiating the
+    # outermost ``All``-quantifier on the theorem formula.
+    if args:
+        from proof_checker import instantiate
+        from abstract_syntax import All
+        for i, raw_arg in enumerate(args):
+            arg_key = _APPLY_AT_ARG_PREFIX + str(i)
+            arg_matches = [k for k in env.dict if base_name(k) == arg_key]
+            if not arg_matches:
+                return {
+                    "outcome": "unifies_against",
+                    "goal": goal_str,
+                    "reason": "could not parse arg #" + str(i + 1)
+                              + ": " + raw_arg,
+                }
+            binding = env.dict[arg_matches[0]]
+            if not isinstance(binding, TermBinding) or binding.defn is None:
+                return {
+                    "outcome": "unifies_against",
+                    "goal": goal_str,
+                    "reason": "arg #" + str(i + 1) + " is not a term: "
+                              + raw_arg,
+                }
+            if not isinstance(formula, All):
+                already_consumed = i
+                return {
+                    "outcome": "arity_mismatch",
+                    "expected": already_consumed,
+                    "got": len(args),
+                }
+            formula = instantiate(formula.location, formula, binding.defn)
+
+    return _apply_match_manual(formula, goal, env, goal_str)
+
+
+_APPLY_AT_ARG_PREFIX = "_apply_at_arg_"
+
+
+def _splice_apply_args(
+    path: str, content: str, hole_range: Range, args: Sequence[str]
+) -> tuple:
+    """Splice ``define _apply_at_arg_N = <arg_N>`` statements before
+    the hole and return ``(path, modified_content, target_pos)``.
+
+    The new ``?`` ends up on the line after the last define so the
+    surrounding proof body's indentation isn't disturbed.
+    """
+    start_off = _line_col_to_offset(content, hole_range.start)
+    end_off = _line_col_to_offset(content, hole_range.end)
+    indent = _line_indent_at(content, hole_range.start)
+
+    define_lines = "".join(
+        f"define {_APPLY_AT_ARG_PREFIX}{i} = {raw}\n{indent}"
+        for i, raw in enumerate(args)
+    )
+    splice_text = define_lines + "?"
+    spliced = content[:start_off] + splice_text + content[end_off:]
+
+    new_offset = start_off + len(splice_text) - 1
+    new_line, new_col = _offset_to_line_col(spliced, new_offset)
+    return path, spliced, (new_line, new_col)
+
+
+def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
+    """Compute the result of ``apply <formula> to ?`` against ``goal``.
+
+    Mirrors what ``ModusPonens`` does in ``proof_checker``:
+
+    - ``if P then C``: ``C`` must reduce to the goal; ``P`` is the
+      premise the user still has to prove.
+    - ``all xs. <body>``: collect outer ``all``-quantifiers and the
+      ``(prem, conc)`` pairs of the body via ``collect_all_if_then``,
+      then ``formula_match`` each conclusion against the goal to
+      deduce the all-bound variables; substitute those back into the
+      premise.
+    - anything else: ``arity_mismatch`` -- the theorem isn't an
+      implication.
+
+    Reductions happen with ``reduce_all`` enabled so the synthetic
+    ``define _apply_at_arg_N = <arg>`` bindings the splice introduces
+    fold back to their definitions before the comparison.
+    """
+    from abstract_syntax import All, IfThen, formula_match, set_reduce_all
+    from error import MatchFailed
+    from proof_checker import collect_all_if_then
+
+    location = formula.location
+
+    set_reduce_all(True)
+    try:
+        if isinstance(formula, IfThen):
+            if formula.conclusion.reduce(env) == goal.reduce(env):
+                premise = formula.premise.reduce(env)
+                return {
+                    "outcome": "ok",
+                    "conclusion": goal_str,
+                    "remaining_premises": _split_premise_on_and(premise),
+                }
+            return {
+                "outcome": "unifies_against",
+                "goal": goal_str,
+                "reason": (
+                    "the proved formula\n\t" + str(formula.conclusion)
+                    + "\ndoes not match the goal\n\t" + goal_str
+                ),
+            }
+
+        if isinstance(formula, All):
+            try:
+                vars, imps = collect_all_if_then(location, formula, env)
+            except Exception as e:
+                msg = getattr(e, "message_body", None) or str(e) or ""
+                return {
+                    "outcome": "arity_mismatch",
+                    "reason": msg.strip() if msg else (
+                        "expected an if-then formula under "
+                        "the all-quantifiers, not " + str(formula)
+                    ),
+                }
+            reasons = []
+            for prem, conc in imps:
+                matching = {}
+                try:
+                    formula_match(location, vars, conc, goal, matching, env)
+                except MatchFailed as e:
+                    reasons.append(str(e))
+                    continue
+                unmatched = [v for v in vars if v.name not in matching]
+                if unmatched:
+                    reasons.append(
+                        "could not deduce instantiations for "
+                        + ", ".join(str(v) for v in unmatched)
+                    )
+                    continue
+                premise = prem.substitute(matching).reduce(env)
+                return {
+                    "outcome": "ok",
+                    "conclusion": goal_str,
+                    "remaining_premises": _split_premise_on_and(premise),
+                }
+            return {
+                "outcome": "unifies_against",
+                "goal": goal_str,
+                "reason": (
+                    "\n".join(reasons) if reasons
+                    else "no quantified implication conclusion matched the goal"
+                ),
+            }
+
+        return {
+            "outcome": "arity_mismatch",
+            "reason": "expected an if-then formula, not " + str(formula),
+        }
+    finally:
+        set_reduce_all(False)
+
+
+def _split_premise_on_and(formula) -> list:
+    """If ``formula`` is a top-level conjunction, render each conjunct
+    separately so the result maps to what the user would put after
+    ``to`` (Deduce desugars ``to A, B`` into a tuple proof of an
+    ``And``). Otherwise return a singleton list."""
+    from abstract_syntax import And
+
+    if isinstance(formula, And):
+        return [str(arg) for arg in formula.args]
+    return [str(formula)]
 
 
 # ---------------------------------------------------------------------------

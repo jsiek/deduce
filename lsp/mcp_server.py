@@ -412,6 +412,56 @@ def matching_givens_at(
 
 
 @mcp.tool()
+def apply_at(
+    path: str, line: int, column: int,
+    theorem: str,
+    args: Optional[list[str]] = None,
+) -> Optional[dict]:
+    """Preview ``apply <theorem>[<args>] to ?`` at the hole at
+    ``line``:``column``.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``theorem`` is the name of an in-scope hypothesis, theorem, lemma,
+    or postulate. ``args`` is the optional ordered list of explicit
+    term arguments instantiating ``theorem``'s outermost ``all``
+    quantifiers, matching the ``theorem[arg, arg, ...]`` syntax. Each
+    entry is the rendered text of a term (parsed in the scope at the
+    hole, so ``arbitrary``-bound variables are visible).
+
+    Returns ``None`` when the cursor isn't on a ``?``, the
+    surrounding file fails to parse, or the targeted hole isn't
+    reached. Otherwise returns a dict whose ``outcome`` field
+    discriminates the shape:
+
+    - ``{"outcome": "ok", "conclusion": "<formula>",
+       "remaining_premises": ["<formula>", ...]}`` -- the apply would
+      succeed; ``remaining_premises`` is the ordered list of
+      obligations the user still has to prove (split on top-level
+      ``and`` so it maps to what would go after ``to``).
+    - ``{"outcome": "unifies_against", "goal": "<formula>",
+       "reason": "<message>"}`` -- the conclusion didn't match the
+      goal, or all-bound variables couldn't be deduced.
+    - ``{"outcome": "unbound", "theorem": "<name>"}`` -- the theorem
+      isn't in scope at the hole.
+    - ``{"outcome": "arity_mismatch", "expected": N, "got": M}``
+      (or ``{"outcome": "arity_mismatch", "reason": "..."}``) --
+      too many ``[args]`` for the theorem's outer quantifiers, or
+      ``theorem`` is not an implication.
+
+    Companion to ``eliminate_at`` (which generates an ``apply`` /
+    ``cases`` / ... template from a hypothesis): ``eliminate_at`` says
+    *what tactic to write*; ``apply_at`` says *whether the apply will
+    actually unify with the current goal*.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    return query.apply_at(
+        path, content, pos, theorem,
+        args=args, prelude=_prelude_for(path),
+    )
+
+
+@mcp.tool()
 def preview_replace_at(
     path: str, line: int, column: int, equation: str
 ) -> Optional[dict]:
