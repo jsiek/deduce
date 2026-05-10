@@ -564,12 +564,121 @@ postulate uint_log_add_le_log_mult: all m:UInt, n:UInt.
   if 0 < m and 0 < n
   then log(m) + log(n) ≤ log(m * n)
 
-// Difficult: a proof would proceed by case analysis on m = 0 and n = 0,
-// then for both positive use less_pow_log to bound m * n < 2^(2 + log(m) + log(n))
-// and conclude log(m * n) ≤ 1 + log(m) + log(n) via strict monotonicity of 2^x.
-// The chain requires several auxiliary lemmas (uint_one_le_pow2, uint_pow2_mono,
-// uint_pow2_lt_implies_lt) plus careful Nat-arithmetic bridging.
-postulate uint_log_mult_le_log_add: all m:UInt, n:UInt. log(m * n) ≤ 1 + log(m) + log(n)
+lemma uint_one_le_pow2: all k:UInt. 1 ≤ 2^k
+proof
+  arbitrary k:UInt
+  have pow_pos: 0 < 2^k by {
+    have toNat0: toNat((0:UInt)) = zero by evaluate
+    have toNat2: toNat((2:UInt)) = suc(suc(zero)) by evaluate
+    apply less_toNat[0, 2^k] to {
+      replace toNat_expt | toNat0 | toNat2
+      have two_pos: zero < suc(suc(zero)) by evaluate
+      apply pow_pos_nonneg[toNat(k), suc(suc(zero))] to two_pos
+    }
+  }
+  apply uint_pos_implies_one_le to pow_pos
+end
+
+lemma uint_pow2_mono: all a:UInt, b:UInt. if a ≤ b then 2^a ≤ 2^b
+proof
+  arbitrary a:UInt, b:UInt
+  assume aleb: a ≤ b
+  have step: a + (b ∸ a) = b by apply uint_monus_add_identity[b, a] to aleb
+  have pow_eq: 2^b = 2^a * 2^(b ∸ a) by {
+    replace symmetric step
+    uint_pow_add_r[2, a, b ∸ a]
+  }
+  have one_le: 1 ≤ 2^(b ∸ a) by uint_one_le_pow2[b ∸ a]
+  have mult_le: 2^a * 1 ≤ 2^a * 2^(b ∸ a) by apply uint_mult_mono_le[2^a] to one_le
+  conclude 2^a ≤ 2^b by {
+    replace pow_eq
+    mult_le
+  }
+end
+
+lemma uint_pow2_lt_implies_lt: all a:UInt, b:UInt. if 2^a < 2^b then a < b
+proof
+  arbitrary a:UInt, b:UInt
+  assume powlt: 2^a < 2^b
+  have tri: a < b or a = b or b < a by uint_trichotomy[a, b]
+  cases tri
+  case alb: a < b {
+    alb
+  }
+  case aeb: a = b {
+    have absurd: 2^a < 2^a by replace symmetric aeb in powlt
+    conclude false by apply uint_less_irreflexive to absurd
+  }
+  case bla: b < a {
+    have ble: b ≤ a by apply uint_less_implies_less_equal to bla
+    have powle: 2^b ≤ 2^a by apply uint_pow2_mono[b, a] to ble
+    have disj: 2^b < 2^a or 2^b = 2^a by expand operator≤ in powle
+    have powlt2: 2^a < 2^a by {
+      cases disj
+      case lt: 2^b < 2^a {
+        apply uint_less_trans to powlt, lt
+      }
+      case eq: 2^b = 2^a {
+        conclude 2^a < 2^a by replace eq in powlt
+      }
+    }
+    conclude false by apply uint_less_irreflexive to powlt2
+  }
+end
+
+theorem uint_log_mult_le_log_add: all m:UInt, n:UInt. log(m * n) ≤ 1 + log(m) + log(n)
+proof
+  arbitrary m:UInt, n:UInt
+  cases uint_zero_or_positive[m]
+  case m_zero: m = 0 {
+    replace m_zero
+    have logz: log((0:UInt)) = 0 by evaluate
+    replace logz
+    uint_zero_le[1 + log(n)]
+  }
+  case m_pos: 0 < m {
+    cases uint_zero_or_positive[n]
+    case n_zero: n = 0 {
+      replace n_zero
+      have logz: log((0:UInt)) = 0 by evaluate
+      replace logz
+      uint_zero_le[1 + log(m) + 0]
+    }
+    case n_pos: 0 < n {
+      have mn_pos: 0 < m * n
+        by apply uint_pos_mult_both_sides_of_less[m, 0, n] to m_pos, n_pos
+      have m_lt: m < 2^(1 + log(m)) by apply less_pow_log to m_pos
+      have n_lt: n < 2^(1 + log(n)) by apply less_pow_log to n_pos
+      have step1: m * n < 2^(1 + log(m)) * n by {
+        have h: n * m < n * 2^(1 + log(m)) by apply uint_pos_mult_both_sides_of_less[n, m, 2^(1 + log(m))] to n_pos, m_lt
+        replace uint_mult_commute[n, m] | uint_mult_commute[n, 2^(1 + log(m))] in h
+      }
+      have pow_pos_m: 0 < 2^(1 + log(m)) by {
+        have one_le: 1 ≤ 2^(1 + log(m)) by uint_one_le_pow2[1 + log(m)]
+        have one_pos: 0 < 1 by evaluate
+        have or_eq: 1 < 2^(1 + log(m)) or 1 = 2^(1 + log(m)) by expand operator≤ in one_le
+        cases or_eq
+        case lt { apply uint_less_trans to one_pos, lt }
+        case eq { replace symmetric eq one_pos }
+      }
+      have step2: 2^(1 + log(m)) * n < 2^(1 + log(m)) * 2^(1 + log(n))
+        by apply uint_pos_mult_both_sides_of_less[2^(1 + log(m)), n, 2^(1 + log(n))] to pow_pos_m, n_lt
+      have step3: m * n < 2^(1 + log(m)) * 2^(1 + log(n)) by apply uint_less_trans to step1, step2
+      have pow_combine: 2^(1 + log(m)) * 2^(1 + log(n)) = 2^((1 + log(m)) + (1 + log(n))) by symmetric uint_pow_add_r[2, 1 + log(m), 1 + log(n)]
+      have step4: m * n < 2^((1 + log(m)) + (1 + log(n))) by replace pow_combine in step3
+      have step5: 2^log(m * n) ≤ m * n by apply uint_expt_log_less_equal to mn_pos
+      have or_eq: 2^log(m * n) < m * n or 2^log(m * n) = m * n by expand operator≤ in step5
+      have step6: 2^log(m * n) < 2^((1 + log(m)) + (1 + log(n))) by {
+        cases or_eq
+        case lt { apply uint_less_trans to lt, step4 }
+        case eq { replace eq step4 }
+      }
+      have step7: log(m * n) < (1 + log(m)) + (1 + log(n)) by apply uint_pow2_lt_implies_lt to step6
+      have step8: log(m * n) ≤ log(m) + 1 + log(n) by replace uint_less_is_less_equal in step7
+      replace uint_add_commute[log(m), 1] in step8
+    }
+  }
+end
 
 theorem uint_log_pos: all n:UInt. (if 1 < n then 0 < log(n))
 proof
