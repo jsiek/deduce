@@ -58,16 +58,23 @@ frame as each call returns.
 
 ## Breakpoints
 
+In the command table below, `<spec>` stands for one of three forms
+that name a location:
+
+| Form               | Example         | Meaning |
+| ------------------ | --------------- | ------- |
+| `<line>`           | `14`            | Line `<line>` of the *current* source file (the file the debugger is currently inside). |
+| `<file>:<line>`    | `foo.pf:14`     | Line `<line>` of `<file>`. |
+| `<name>`           | `double`        | Every call to the function `<name>`. |
+
 | Command                                    | Short    | Effect |
 | ------------------------------------------ | -------- | ------ |
-| `break <line>`                             | `b 14`   | Pause when execution reaches line `14` of the current source file. |
-| `break <file>:<line>`                      | `b foo.pf:14` | As above, but specifying the file explicitly. |
-| `break <name>`                             | `b double` | Pause every time a call to `double` is about to evaluate. |
-| `break <spec> if <expr>`                   | `b 14 if x = zero` | Pause only when `<expr>` reduces to `true` in the current scope. |
+| `break <spec>`                             | `b 14`   | Pause when execution reaches `<spec>`. |
+| `break <spec> if <expr>`                   | `b 14 if x = zero` | Pause at `<spec>` only when `<expr>` reduces to `true` in the current scope. |
 | `info breakpoints` <br> `info b`           |          | List active breakpoints, with their assigned ids. |
 | `delete`                                   | `d`      | Remove all breakpoints. |
 | `delete <id>...`                           | `d 1 3`  | Remove specific breakpoints by id (the number `info b` shows in the first column). |
-| `clear <spec>`                             | `clear 14`, `clear double` | Remove the breakpoint(s) at a location.  Accepts the same forms `break` does. |
+| `clear <spec>`                             | `clear 14`, `clear double` | Remove the breakpoint(s) at `<spec>`. |
 
 A breakpoint that names a function fires on **every** call to that
 function — including recursive self-calls.
