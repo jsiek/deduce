@@ -224,8 +224,19 @@ def _check_file_impl(
                 )
 
             if len(prelude) > 0:
+                # If the user file explicitly imports a prelude module
+                # with `using` or `hiding`, suppress the prelude's
+                # unfiltered auto-import for that module so the user's
+                # filter actually takes effect (issue #365).
+                user_filtered = {
+                    s.name for s in ast
+                    if isinstance(s, Import)
+                    and (s.using is not None or s.hiding is not None)
+                }
                 imports = [
-                    Import(Meta(), name, visibility="private") for name in prelude
+                    Import(Meta(), name, visibility="private")
+                    for name in prelude
+                    if name not in user_filtered
                 ]
                 ast = imports + ast
 
