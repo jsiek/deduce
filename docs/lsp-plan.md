@@ -179,6 +179,12 @@ Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *
 
   - *Implementation:* `lsp/query.py:matching_givens_at` walks `IncompleteProof`'s stashed env for `ProofBinding`s whose formula equals the goal and returns the labels in declaration order; `fill_from_given_at` validates that `label` is among them and emits `WorkspaceEdit(... new_text="conclude <goal> by <label>")` covering the `?` token.  Filters out `Theorem`-typed bindings -- those are referred to by name directly, no `conclude … by` wrapping needed.  14-case acceptance test in `test/lsp/test_fill_from_given.py` covering single-match, multi-match completion list, no-match (returns `None`), label-not-in-scope, and the auto-apply / completing-read editor flow.
 
+- [x] **Step 20: List in-scope `auto` rewrite rules (issue #404).**  Pure read-only query, no edit.  When Deduce silently rewrites a goal via an `auto` rule (or rejects a `replace` with *no need for replace because this equation is handled automatically*), the user wants to know which rule fired.  Today the recovery is `grep '^auto ' lib/*.pf`; the post-uniquify state already has the answer.
+
+  New query API: `auto_rules_at(path, content, pos, prelude=()) -> tuple[AutoRule, ...]` plus a new frozen `AutoRule(name, equation, module)` dataclass added to `lsp/query.py` and `__all__`.  Order matches declaration order — the same order ``abstract_syntax.auto_rewrites`` tries equations when several share a head constructor.  MCP-only for v1: the issue notes the editor side is less load-bearing (the diagnostic surface that *needs* the answer is "no need for replace" and the agent can call the tool itself); skip the LSP custom request unless an editor consumer asks.
+
+  - *Implementation:* `lsp/query.py:auto_rules_at` runs `check` once, then walks every module cached in `get_uniquified_modules()` for top-level `Auto` statements (always in scope — they were imported into the env before the user's file ran) and the user file's AST for the same nodes filtered to `location <= pos`.  Each rule's `equation` is resolved by looking up the referenced theorem's `what` in the same walk's `Theorem`/`Postulate` map.  MCP wrapper `auto_rules_at(path, line, column)` in `mcp_server.py`.  7-case acceptance test in `test/lsp/test_auto_rules.py` covering declaration order, position filtering, the empty case, and the dataclass shape; matching MCP wrapper test in `test/lsp/test_mcp_server.py`.
+
 ## Cross-cutting notes
 
 - Add `lsp/` to the `make tests` target as a separate phase, otherwise it'll bitrot.

@@ -587,6 +587,29 @@ def available_lemmas_at(
 
 
 @mcp.tool()
+def auto_rules_at(path: str, line: int, column: int) -> list[dict]:
+    """Return ``auto`` rewrite rules in scope at ``line``:``column``.
+
+    Lines and columns are 1-indexed.  Each entry has ``name`` (the
+    user-visible identifier of the source theorem), ``equation`` (the
+    rendered formula the rule rewrites with), and ``module`` (the
+    module that declared the ``auto`` statement).  Order matches
+    declaration order, which is also the order the auto-rewriter
+    tries equations when multiple share a head constructor -- so the
+    first hit in the list is the one that fires first.
+
+    Useful when Deduce reports *no need for replace because this
+    equation is handled automatically* or a goal silently simplifies
+    before a tactic runs: scan the list for the rewrite rule whose
+    equation matches the surprise.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    rules = query.auto_rules_at(path, content, pos, prelude=_prelude_for(path))
+    return _to_serializable(rules)
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 
