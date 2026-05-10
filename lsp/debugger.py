@@ -59,12 +59,18 @@ class _Frame:
     ``env`` is the env at the call site; ``params`` is the {param ->
     arg} dict captured when we entered the frame.  Both are consumed
     by ``up`` / ``down`` / ``locals`` / ``print``.
+
+    ``is_skipped`` records the skip-policy decision at push time so
+    ``after_function`` can suppress the return-trap symmetrically:
+    if we didn't trap on entry into a prelude function, we don't
+    want to trap on its exit either.
     """
 
     name: str
     location: object
     env: object
     params: dict = field(default_factory=dict)
+    is_skipped: bool = False
 
 
 @dataclass
@@ -277,8 +283,10 @@ class Debugger:
             for k, v in subst.items():
                 key = base_name(k) if isinstance(k, str) else str(k)
                 params_dict[key] = v
+        skipped = self._is_skipped(defn_loc)
         frame = _Frame(
             name=name, location=location, env=env, params=params_dict,
+            is_skipped=skipped,
         )
         self.stack.append(frame)
         self._current_env = env
@@ -296,17 +304,53 @@ class Debugger:
         self._repl()
 
     def after_function(self, name: str, env, return_value=None) -> None:
-        # No matching frame iff ``on_function`` chose to skip this
-        # call (``_is_skipped`` is deterministic on the same args,
-        # but we just check the stack instead of recomputing).
+        # No matching frame iff ``on_function`` chose not to push
+        # (invisible function).  Nothing to pop, nothing to trap.
         if not self.stack:
             return
         # Defensive: only pop if the top frame matches the name we're
         # leaving.  A mismatch can happen on the boundary if a hook
         # is added or removed without symmetry; popping unconditionally
         # would silently corrupt the depth count.
-        if self.stack[-1].name == name:
-            self.stack.pop()
+        if self.stack[-1].name != name:
+            return
+        popped = self.stack.pop()
+        # Refresh ``_current_env`` / ``_current_loc`` to the caller's
+        # frame so ``locals`` and ``print`` evaluated at the return
+        # trap see the caller's scope, not the just-returned frame's.
+        # (At depth 0 the most recent ``on_statement`` already set
+        # these to the top-level env, so no refresh needed.)
+        if self.stack:
+            top = self.stack[-1]
+            self._current_env = top.env
+            self._current_loc = top.location
+        # gdb-style: ``step`` at the last line of a function pops you
+        # back to the caller.  Without trapping on returns, a ``step``
+        # at a base-case body cascades through every unwinding frame
+        # in one keystroke -- you blast past 5 nested ``count_down``
+        # returns and land at the next top-level statement, losing the
+        # "we returned from each frame" UX.  Trap here:
+        # - STEP: every return is interesting (gdb's ``step``), EXCEPT
+        #   skipped frames -- if we didn't trap on entry into the
+        #   prelude function, don't trap on exit either.
+        # - NEXT / FINISH: trap once when we cross below the depth at
+        #   which the mode was armed.  Same skip exception.
+        if self._should_pause_after_function(popped):
+            from abstract_syntax import base_name
+            self._frame_cursor = -1
+            self._print(
+                f"<- returned from {base_name(name)} = {return_value}"
+            )
+            self._repl()
+
+    def _should_pause_after_function(self, popped: _Frame) -> bool:
+        if popped.is_skipped:
+            return False
+        if self._step_mode == _StepMode.STEP:
+            return True
+        if self._step_mode in (_StepMode.NEXT, _StepMode.FINISH):
+            return len(self.stack) < self._step_depth
+        return False
 
     def _is_invisible(self, name: str) -> bool:
         """The stronger policy: the function is hidden entirely --

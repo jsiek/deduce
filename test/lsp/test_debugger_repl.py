@@ -506,6 +506,63 @@ def test_skip_lib_still_honours_explicit_breakpoint():
     assert "-> call length" in out
 
 
+def test_step_traps_on_each_return():
+    """gdb-style: ``step`` at the last instruction of a function
+    pops you back to the caller -- one frame at a time.  Without a
+    return trap, ``step`` cascades through every unwinding frame in
+    one keystroke and lands at the next top-level statement.
+
+    For ``double(suc(suc(zero)))`` we expect:
+    - 2 entries into the suc-case
+    - 1 entry into the base case
+    - 3 return traps as we unwind (one per visible frame)
+    """
+    path = _write_fixture("step_return.pf", RECURSIVE_PROGRAM)
+    # Set a function breakpoint to drop us inside the first call,
+    # then step through to the end so we see every return.
+    result, _, out = _run(
+        path,
+        # Adjacent string literals concat *before* ``*`` binds, so use
+        # explicit ``+`` here -- otherwise the prefix gets repeated 20
+        # times along with the ``step``s.
+        "break double\n"
+        + "continue\n"   # depth=1 in double(suc(suc(zero)))
+        + "delete\n"     # stop the breakpoint from re-firing on recursion
+        + ("step\n" * 20)   # walk through entries + returns
+        + "continue\n"
+    )
+    assert result.ok, result.error_message
+    # Count the return traps; with ``double(suc(suc(zero)))`` we hit
+    # the suc-case twice, then the base case, then unwind 3 frames.
+    return_lines = [line for line in out.splitlines()
+                    if "<- returned from double" in line]
+    assert len(return_lines) >= 3, (
+        f"expected at least 3 return traps (one per double frame), "
+        f"got {len(return_lines)}:\n{out}"
+    )
+
+
+def test_skipped_returns_do_not_trap():
+    """The skip rule is symmetric: if we didn't trap on entry to a
+    prelude function, we don't trap on its return either.  Without
+    this check, ``step`` through a ``print length(...)`` cascades
+    return-traps from every internal ``fromNat`` / ``inc`` /
+    ``+`` frame in the prelude."""
+    path = _write_fixture("skip_returns.pf", GENERIC_PROGRAM)
+    # ``length`` is in lib/List.pf -- skipped on entry.  All its
+    # internal calls into UInt arithmetic are likewise skipped.
+    # Step the whole way through; no ``<- returned`` line should
+    # mention a prelude function.
+    result, _, out = _run_with_prelude(path, "step\n" * 40 + "continue\n",
+                                       GENERIC_PRELUDE)
+    assert result.ok, result.error_message
+    for line in out.splitlines():
+        if "<- returned" in line:
+            assert "length" not in line, line
+            assert "fromNat" not in line, line
+            assert "inc" not in line, line
+
+
 def test_recursive_case_location_points_at_matched_case():
     """Recursive functions have one ``Case`` per pattern arm.  When
     a call dispatches to a specific arm, the debugger's ``-> call``
