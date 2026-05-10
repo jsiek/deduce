@@ -550,15 +550,34 @@ class Debugger:
     def _cmd_break(self, args: str) -> bool:
         """``break <spec>``  or  ``break <spec> if <expr>``.
 
-        ``spec`` is either ``file:line`` or a bare function name.  No
-        validation here -- a typo just produces a breakpoint that
+        ``spec`` is one of:
+          - a bare line number (defaults to the current source file)
+          - ``file:line``
+          - a function name
+
+        No validation here -- a typo just produces a breakpoint that
         never fires, which is consistent with how gdb behaves on
         symbols not yet loaded.
         """
         if not args:
-            self._print("usage: break <file:line | function> [if <expr>]")
+            self._print(
+                "usage: break <line | file:line | function> [if <expr>]"
+            )
             return False
         spec, condition = self._split_condition(args)
+        # gdb-style convenience: bare line number means "the current
+        # source file".  Requires we know the current source path --
+        # ``on_statement`` sets ``_source_path`` on the very first
+        # trap, so this is available by the time the REPL accepts
+        # input.
+        if spec.isdigit():
+            if self._source_path is None:
+                self._print(
+                    "cannot resolve bare line number: no current "
+                    "source file (try ``file:line`` form)"
+                )
+                return False
+            spec = f"{self._source_path}:{spec}"
         bp = _Breakpoint(id=self._next_bp_id, spec=spec, condition=condition)
         self._next_bp_id += 1
         self.breakpoints.append(bp)
@@ -705,8 +724,9 @@ class Debugger:
     def _cmd_help(self, args: str) -> bool:
         self._print(
             "commands: continue/c, step/s, next/n, finish/fin,\n"
-            "          break/b <spec>[ if <expr>], delete/d [id...],\n"
-            "          info breakpoints, print/p <expr>, list/l,\n"
+            "          break/b <line | file:line | name>[ if <expr>],\n"
+            "          delete/d [id...], info breakpoints,\n"
+            "          print/p <expr>, list/l,\n"
             "          where/bt, up, down, locals, quit/q"
         )
         return False

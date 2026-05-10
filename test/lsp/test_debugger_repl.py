@@ -193,6 +193,29 @@ def test_function_breakpoint_fires():
     assert "-> call double" in out
 
 
+def test_bare_line_breakpoint_uses_current_file():
+    """``break <N>`` (just a number) sets a breakpoint at line ``N``
+    of the file the debugger is currently inside.  Resolved spec is
+    echoed so the user can see what file got picked."""
+    path = _write_fixture("bp_bareline.pf", RECURSIVE_PROGRAM)
+    # ``RECURSIVE_PROGRAM`` puts ``print double(...)`` on line 6.
+    result, dbg, out = _run(
+        path,
+        "break 6\n"
+        "continue\n"   # advance to the print
+        "continue\n",  # finish
+    )
+    assert result.ok, result.error_message
+    # The resolved spec should include the user's fixture path.
+    assert "breakpoint 1 set:" in out
+    assert "bp_bareline.pf:6" in out
+    # And the trap should have fired at line 6.
+    assert any(
+        "-> statement" in line and " at 6:" in line
+        for line in out.splitlines()
+    ), out
+
+
 def test_file_line_breakpoint_fires():
     """File:line breakpoint should trap on the matching ``Print``
     statement's location."""
