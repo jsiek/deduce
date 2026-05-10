@@ -175,6 +175,26 @@ defaults; setting base-url adds --base-url."
       (should-not (member "--base-url" args)))))
 
 
+(ert-deftest deduce-fill-hole/effective-model-uses-override ()
+  "An explicit `deduce-fill-hole-model' wins over the backend default."
+  (let ((deduce-fill-hole-backend 'anthropic)
+        (deduce-fill-hole-model "claude-sonnet-4-6"))
+    (should (equal (deduce-fill-hole--effective-model)
+                   "claude-sonnet-4-6"))))
+
+
+(ert-deftest deduce-fill-hole/effective-model-falls-back-to-backend-default ()
+  "With `deduce-fill-hole-model' nil the helper picks the backend default."
+  (let ((deduce-fill-hole-backend 'openai-compat)
+        (deduce-fill-hole-model nil))
+    (should (equal (deduce-fill-hole--effective-model)
+                   "gemma-4-31B-it")))
+  (let ((deduce-fill-hole-backend 'anthropic)
+        (deduce-fill-hole-model nil))
+    (should (equal (deduce-fill-hole--effective-model)
+                   "claude-opus-4-7"))))
+
+
 (ert-deftest deduce-fill-hole/build-cli-args-with-prelude-disabled ()
   "`deduce-fill-hole-prelude-disabled' adds --no-stdlib."
   (let ((deduce-fill-hole-backend 'anthropic)
