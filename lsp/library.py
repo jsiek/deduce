@@ -224,8 +224,23 @@ def _check_file_impl(
                 )
 
             if len(prelude) > 0:
+                # Suppress the prelude entry for any module the user explicitly
+                # imports with `using`/`hiding`. Both imports run during
+                # ``uniquify_deduce`` and additively populate the env, so an
+                # unfiltered prelude entry races ahead of a filtered user
+                # entry and pollutes the env with names the user wanted to
+                # exclude. Skipping the prelude entry leaves the user's
+                # filtered import as the only one for that module. See #365.
+                user_filtered_modules = {
+                    s.name
+                    for s in ast
+                    if isinstance(s, Import)
+                    and (s.using is not None or s.hiding is not None)
+                }
                 imports = [
-                    Import(Meta(), name, visibility="private") for name in prelude
+                    Import(Meta(), name, visibility="private")
+                    for name in prelude
+                    if name not in user_filtered_modules
                 ]
                 ast = imports + ast
 
