@@ -488,6 +488,55 @@ def preview_expand_at(
 
 
 @mcp.tool()
+def available_lemmas_at(
+    path: str,
+    line: int,
+    column: int,
+    query: Optional[str] = None,
+    limit: int = 50,
+) -> list[dict]:
+    """Search for theorems/lemmas/postulates relevant at a position.
+
+    The cursor at ``line``:``column`` is interpreted as follows:
+
+    - On a ``?`` token: the goal at that hole drives ranking. The
+      goal's head operator and operator/function tokens are matched
+      against each candidate lemma's conclusion.
+    - Off a ``?``: ``query`` is required. ``query`` is either a
+      substring (matched against the rendered signature) or a goal-
+      shape pattern containing ``_`` placeholders (each ``_`` matches
+      any run of characters, e.g. ``"_ ≤ _ + _"``).
+
+    Results are returned best-first, capped at ``limit`` entries
+    (default 50). Each entry has ``name``, ``kind`` (``"theorem"`` /
+    ``"lemma"`` / ``"postulate"``), ``signature``, ``module`` (the
+    source module's name; the file's stem for declarations in the
+    current file), and ``relevance`` -- a score in ``[0.0, 1.0]``
+    where ``1.0`` is the best match in the result set.
+
+    Visibility: lemmas declared ``private`` in the current file are
+    surfaced (they're in scope), but private lemmas in prelude
+    modules are not (matching what ``print_theorems`` exports).
+
+    Returns ``[]`` when the cursor isn't on a ``?`` and no ``query``
+    was given, or when nothing matches.
+    """
+    from lsp import query as _q
+
+    content = _read_file(path)
+    pos = _q.Position(line=line, column=column)
+    matches = _q.available_lemmas_at(
+        path,
+        content,
+        pos,
+        query=query,
+        prelude=_prelude_for(path),
+        limit=limit,
+    )
+    return [_to_serializable(m) for m in matches]
+
+
+@mcp.tool()
 def list_symbols(path: str) -> list[dict]:
     """Return all top-level declarations in ``path``.
 

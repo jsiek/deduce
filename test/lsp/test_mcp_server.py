@@ -107,6 +107,7 @@ async def test_all_tools_are_registered(server):
             "matching_givens_at",
             "preview_replace_at",
             "preview_expand_at",
+            "available_lemmas_at",
         }
 
 
@@ -630,6 +631,60 @@ async def test_preview_expand_at_returns_unknown(server, tmp_path):
     assert payload is not None
     assert payload["outcome"] == "unknown"
     assert payload["name"] == "nope"
+
+
+# --------------------------------------------------------------------------
+# available_lemmas_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_available_lemmas_at_query_pattern(server, tmp_path):
+    """Goal-shape pattern with `_` placeholders surfaces matching lemmas."""
+    fp = tmp_path / "lemmas.pf"
+    fp.write_text(
+        "theorem helper_le_zero: all x:bool. x = x\n"
+        "proof\n"
+        "  arbitrary x:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    payload = await _call(
+        server,
+        "available_lemmas_at",
+        {
+            "path": str(fp),
+            "line": 1,
+            "column": 1,
+            "query": "helper_le",
+        },
+    )
+    assert isinstance(payload, list)
+    names = [m["name"] for m in payload]
+    assert "helper_le_zero" in names
+    entry = next(m for m in payload if m["name"] == "helper_le_zero")
+    assert entry["kind"] == "theorem"
+    assert entry["module"] == "lemmas"
+    assert 0.0 <= entry["relevance"] <= 1.0
+
+
+@pytest.mark.anyio
+async def test_available_lemmas_at_no_signal_returns_empty(server, tmp_path):
+    """No `?` and no `query` -> empty list."""
+    fp = tmp_path / "empty.pf"
+    fp.write_text(
+        "theorem t: all P:bool. P = P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  reflexive\n"
+        "end\n"
+    )
+    payload = await _call(
+        server,
+        "available_lemmas_at",
+        {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload == []
 
 
 # --------------------------------------------------------------------------

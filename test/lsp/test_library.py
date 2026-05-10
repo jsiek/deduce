@@ -22,6 +22,7 @@ from lsp.library import CheckResult, check_file  # noqa: E402
 
 PASS_DIR = REPO_ROOT / "test" / "should-validate"
 ERROR_DIR = REPO_ROOT / "test" / "should-error"
+LIB_DIR = REPO_ROOT / "lib"
 
 
 def _pf_files(d: Path) -> list[Path]:
@@ -53,3 +54,18 @@ def test_should_error(path: Path) -> None:
     assert result.error_message != ""
     assert result.exception is not None
     assert result.module_name == path.stem
+
+
+@pytest.mark.parametrize("path", _pf_files(LIB_DIR), ids=lambda p: p.name)
+def test_lib_collect_errors_no_false_positives(path: Path) -> None:
+    """Regression test for issue #400: ``check_file(..., collect_errors=True)``
+    on a stdlib file must agree with ``deduce.py`` -- speculative
+    iff-application and PTuple goal-directed-then-synthesis attempts
+    used to leak failed-probe errors into the sink even when the
+    enclosing rule recovered."""
+    result = check_file(str(path), collect_errors=True, prelude=())
+    assert result.ok, (
+        f"{path.name} should validate but collect_errors mode reported "
+        f"{len(result.errors)} error(s); first:\n{result.error_message}"
+    )
+    assert result.errors == []
