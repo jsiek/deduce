@@ -104,8 +104,9 @@ def test_fill_from_given_at_picks_either_match() -> None:
         assert edit.new_text == f"conclude P by {label}"
 
 
-def test_fill_from_given_at_returns_none_when_no_match() -> None:
-    """Goal ``P or Q`` with given ``H: P`` (different formula)."""
+def test_fill_from_given_at_implies_or_intro() -> None:
+    """Goal ``P or Q`` with given ``H: P`` -- the given strictly
+    implies the goal via ``Or`` introduction (issue #361)."""
     source = (
         "theorem t: all P:bool, Q:bool. if P then P or Q\n"
         "proof\n"
@@ -116,6 +117,26 @@ def test_fill_from_given_at_returns_none_when_no_match() -> None:
     )
     edit = fill_from_given_at(
         "test.pf", source, Position(line=5, column=3), "H"
+    )
+    assert edit is not None
+    assert edit.new_text == "conclude (P or Q) by H"
+
+
+def test_fill_from_given_at_returns_none_when_unrelated() -> None:
+    """Goal ``Q`` with an unrelated given ``H: P`` -- neither equals
+    nor implies the goal."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if Q then if P then Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume HQ: Q\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    # Goal at the hole is `Q`; `H: P` does not imply it.
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=6, column=3), "H"
     )
     assert edit is None
 
@@ -227,22 +248,75 @@ def test_matching_givens_lists_all_matches() -> None:
     assert candidates == ("H1", "H2")
 
 
-def test_matching_givens_excludes_non_matching() -> None:
-    """Givens whose formulas differ from the goal aren't listed."""
+def test_matching_givens_excludes_unrelated() -> None:
+    """Givens that neither equal nor imply the goal aren't listed."""
     source = (
-        "theorem t: all P:bool, Q:bool. if P then if Q then P or Q\n"
+        "theorem t: all P:bool, Q:bool. if Q then if P then Q\n"
         "proof\n"
         "  arbitrary P:bool, Q:bool\n"
-        "  assume H1: P\n"
-        "  assume H2: Q\n"
+        "  assume HQ: Q\n"
+        "  assume H: P\n"
         "  ?\n"
         "end\n"
     )
-    # Goal here is `P or Q`; neither H1 nor H2 matches it.
+    # Goal is `Q`; only HQ matches (exactly). H is unrelated.
     candidates = matching_givens_at(
         "test.pf", source, Position(line=6, column=3)
     )
-    assert candidates == ()
+    assert candidates == ("HQ",)
+
+
+def test_matching_givens_includes_implies_or_intro() -> None:
+    """Given strictly implies the goal via ``Or`` introduction
+    (issue #361): ``H: P`` should match goal ``P or Q``."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then P or Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=5, column=3)
+    )
+    assert candidates == ("H",)
+
+
+def test_matching_givens_includes_implies_and_elim() -> None:
+    """Given strictly implies the goal via ``And`` elimination
+    (issue #361): ``H: P and Q`` should match goal ``P``."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P and Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P and Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=5, column=3)
+    )
+    assert candidates == ("H",)
+
+
+def test_matching_givens_orders_exact_before_implies() -> None:
+    """When both an exact match and an implies-only match are
+    available, the exact match comes first (issue #361)."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P or Q then if P then P or Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H1: P or Q\n"
+        "  assume H2: P\n"
+        "  ?\n"
+        "end\n"
+    )
+    # H1: P or Q is exact; H2: P implies (P or Q) but isn't exact.
+    candidates = matching_givens_at(
+        "test.pf", source, Position(line=6, column=3)
+    )
+    assert candidates == ("H1", "H2")
 
 
 def test_matching_givens_excludes_term_variables() -> None:
