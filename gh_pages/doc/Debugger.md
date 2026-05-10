@@ -38,18 +38,25 @@ Each pause prints a one-line description of where you are:
 | `-> call double(suc(zero)) at 14:3`          | About to evaluate the body of a function call. |
 | `<- returned from double(suc(zero))` <br> `     = suc(suc(zero))` | A call just returned the value shown.        |
 
-After each pause, the debugger prompts for a command.  Pressing
-Return with no text replays the previous command (handy for
-repeated `step`s).
+After each pause, the debugger prompts for a command.
+
+- Pressing Return with no text **replays the previous command**
+  (handy for repeated `step`s).
+- A mistyped command is rejected with a hint at the closest match —
+  `unrecognized command: 'lis' (did you mean 'list'?)`.
 
 At a terminal, the prompt has full line editing, **tab
 completion**, and **persistent history**:
 
 - Pressing Tab at the start of the line completes against the
   command verbs.
-- Pressing Tab after `print`, `break`, or `clear` completes against
+- Pressing Tab after `print` or `break` completes against
   identifiers visible in the current scope (top-level definitions
   and the focused frame's pattern bindings).
+- Pressing Tab after `clear` completes against the active
+  breakpoint specs (so you can finish what you typed to `break`)
+  *and* against in-scope identifiers (useful for clearing a
+  function-name breakpoint you haven't typed yet).
 - Pressing Tab after `delete` completes against the active
   breakpoint ids.
 - Up-arrow / down-arrow walk through previously entered commands.
