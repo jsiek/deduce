@@ -440,6 +440,31 @@ def test_next_over_generic_call_does_not_recurse():
     assert "-> call length" not in out
 
 
+def test_prelude_imports_do_not_trap():
+    """The CLI's default mode prepends one synthesized
+    ``Import(Meta(), name)`` per stdlib module before parsing the
+    user file -- without filtering, the user has to ``continue`` past
+    ~32 prelude imports before reaching their own code.  The
+    debugger skips these synthetic-``Meta`` statements: the very
+    first ``on_statement`` trap should land on the user's first
+    *real* statement, not on a prepended ``import``."""
+    path = _write_fixture("prelude_skip.pf", GENERIC_PROGRAM)
+    # Single ``continue`` is enough: we expect zero trap on the
+    # 32 synthetic imports.  If the filter regressed, this would
+    # hit EOF and fail with DebuggerQuit before count_down/print.
+    result, _, out = _run_with_prelude(path, "continue\n", GENERIC_PRELUDE)
+    assert result.ok, result.error_message
+    # The first (and only) trap should be at a real source line --
+    # not "<unknown>" -- and should reference the user's fixture.
+    assert "<unknown>" not in out
+    first_trap_line = next(
+        (line for line in out.splitlines() if line.startswith("-> statement")),
+        None,
+    )
+    assert first_trap_line is not None
+    assert "<unknown>" not in first_trap_line
+
+
 def test_print_generic_call_returns_result():
     """``print length(...)`` inside the debugger should reduce the
     full generic call.  The save/restore around ``_eval_expr`` keeps
