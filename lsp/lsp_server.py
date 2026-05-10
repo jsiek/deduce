@@ -430,7 +430,7 @@ def on_code_action(
     actions: list[lsp_types.CodeAction] = []
 
     refine_edit = _query.refine_at(path, content, pos, prelude=prelude)
-    if refine_edit is not None:
+    if isinstance(refine_edit, _query.WorkspaceEdit):
         actions.append(
             _code_action_from_edit(uri, "Refine hole", refine_edit)
         )

@@ -44,7 +44,7 @@ import re
 import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 
 __all__ = [
@@ -60,6 +60,7 @@ __all__ = [
     "Goal",
     "SymbolInfo",
     "WorkspaceEdit",
+    "UnsupportedRefineShape",
     "LemmaInfo",
     "LemmaMatch",
     "HoleContext",
@@ -207,6 +208,37 @@ class WorkspaceEdit:
     path: str
     range: Range
     new_text: str
+
+
+# Stable list of goal shapes that ``refine_at`` knows a template for.
+# Surfaced on ``UnsupportedRefineShape`` so callers don't have to
+# re-read the docstring to find out which shapes are covered.
+REFINE_SUPPORTED_SHAPES: tuple = (
+    "true",
+    "_ and _",
+    "if _ then _",
+    "all _. _",
+    "some _. _",
+    "reducible _ = _",
+)
+
+
+@dataclass(frozen=True)
+class UnsupportedRefineShape:
+    """Reason returned by :func:`refine_at` when the cursor sits on a
+    real hole but no template matches the goal's shape.
+
+    Distinguishes "there's nothing to refine" (``refine_at`` returns
+    ``None``) from "there's a goal but no template applies"
+    (``refine_at`` returns this). ``goal`` is the rendered goal text;
+    ``supported_shapes`` enumerates the shapes ``refine_at`` does
+    cover, so the caller can decide what to try next without
+    re-reading the docstring.
+    """
+
+    outcome: str
+    goal: str
+    supported_shapes: tuple
 
 
 @dataclass(frozen=True)
@@ -1125,7 +1157,7 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
 
 def refine_at(
     path: str, content: str, pos: Position, prelude: Sequence[str] = ()
-) -> Optional[WorkspaceEdit]:
+) -> Union[WorkspaceEdit, UnsupportedRefineShape, None]:
     """Propose a refinement template for the hole at ``pos``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token
@@ -1139,9 +1171,15 @@ def refine_at(
     - ``some x:T. body`` -> ``choose ?\\n?``
     - reducible ``e1 = e2`` -> ``reflexive``
 
-    Returns ``None`` when the cursor is not on a ``?``, when the file
-    does not raise at a hole, or when the goal shape is not in the
-    list above.
+    Returns:
+
+    - :class:`WorkspaceEdit` when a template applies.
+    - :class:`UnsupportedRefineShape` when the cursor is on a real
+      hole with a goal but the goal's shape isn't in the table above.
+      The shape list is surfaced so the caller can decide what to try
+      next without re-reading the docstring.
+    - ``None`` when the cursor isn't on a ``?`` or the file has no
+      incomplete proof at that hole.
 
     ``prelude`` matches the meaning in :func:`check`.
     """
@@ -1165,7 +1203,11 @@ def refine_at(
 
     template = _refine_template(formula, env)
     if template is None:
-        return None
+        return UnsupportedRefineShape(
+            outcome="unsupported_shape",
+            goal=str(formula),
+            supported_shapes=REFINE_SUPPORTED_SHAPES,
+        )
 
     template = _indent_continuation(
         template, _line_indent_at(content, hole_range.start)

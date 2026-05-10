@@ -19,7 +19,7 @@ broken adapter contract. It checks:
 import inspect
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import pytest
 
@@ -39,6 +39,7 @@ from lsp.query import (  # noqa: E402
     Severity,
     SymbolInfo,
     SymbolKind,
+    UnsupportedRefineShape,
     ValidationResult,
     WorkspaceEdit,
     case_split_at,
@@ -72,6 +73,7 @@ EXPECTED_PUBLIC = {
     "Goal",
     "SymbolInfo",
     "WorkspaceEdit",
+    "UnsupportedRefineShape",
     "LemmaInfo",
     "LemmaMatch",
     "HoleContext",
@@ -128,7 +130,8 @@ def test_no_protocol_imports():
 @pytest.mark.parametrize(
     "cls",
     [Position, Range, Location, Diagnostic, Given, Goal, SymbolInfo,
-     WorkspaceEdit, LemmaInfo, HoleContext, ValidationResult],
+     WorkspaceEdit, UnsupportedRefineShape, LemmaInfo, HoleContext,
+     ValidationResult],
 )
 def test_dataclasses_are_frozen(cls):
     """All public data types must be frozen so callers can't mutate
@@ -217,7 +220,7 @@ def test_refine_at_signature():
     _check_sig(
         refine_at,
         ["path", "content", "pos", "prelude"],
-        Optional[WorkspaceEdit],
+        Union[WorkspaceEdit, UnsupportedRefineShape, None],
     )
 
 
