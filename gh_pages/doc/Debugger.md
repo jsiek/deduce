@@ -42,6 +42,20 @@ After each pause, the debugger prompts for a command.  Pressing
 Return with no text replays the previous command (handy for
 repeated `step`s).
 
+At a terminal, the prompt has full line editing, **tab
+completion**, and **persistent history**:
+
+- Pressing Tab at the start of the line completes against the
+  command verbs.
+- Pressing Tab after `print`, `break`, or `clear` completes against
+  identifiers visible in the current scope (top-level definitions
+  and the focused frame's pattern bindings).
+- Pressing Tab after `delete` completes against the active
+  breakpoint ids.
+- Up-arrow / down-arrow walk through previously entered commands.
+  History is saved at `~/.config/deduce/debug_history` and persists
+  across sessions.
+
 ## Stepping commands
 
 | Command         | Short | Effect |

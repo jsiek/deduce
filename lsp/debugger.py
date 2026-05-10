@@ -22,10 +22,14 @@ inspection.
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from os.path import basename
 from typing import IO, Optional
+
+
+DEFAULT_HISTORY_FILE = os.path.expanduser("~/.config/deduce/debug_history")
 
 
 class DebuggerQuit(Exception):
@@ -164,9 +168,29 @@ class Debugger:
         self,
         input: Optional[IO[str]] = None,
         output: Optional[IO[str]] = None,
+        history_file: Optional[str] = None,
     ):
         self.input = input if input is not None else sys.stdin
         self.output = output if output is not None else sys.stdout
+        # Use GNU readline (line editing + tab completion + history)
+        # only when the REPL is talking to a real terminal.  Tests
+        # pass StringIO objects; for those we fall back to plain
+        # ``readline()`` on the stream and skip the history file
+        # entirely so unit tests don't poke the filesystem.
+        self._readline = None
+        self._history_file: Optional[str] = None
+        if (self.input is sys.stdin and self.output is sys.stdout
+                and sys.stdin.isatty()):
+            try:
+                import readline as _readline
+                self._readline = _readline
+                self._history_file = (
+                    history_file if history_file is not None
+                    else DEFAULT_HISTORY_FILE
+                )
+                self._setup_readline()
+            except ImportError:  # pragma: no cover -- readline absent
+                pass
         # Step 21 carried this name to mean "first statement traps";
         # Step 22 generalizes via ``_StepMode.STOP`` for the same effect.
         self.stack: list[_Frame] = []
@@ -445,38 +469,158 @@ class Debugger:
         (CI, dead pipes) terminate cleanly.
         """
         commands = self._command_table()
-        while True:
-            self._write("(deduce-debug) ")
+        try:
+            while True:
+                line = self._read_input()
+                if line == "":
+                    raise DebuggerQuit("EOF on debugger input")
+                line = line.strip()
+                if line == "":
+                    line = self._last_command
+                else:
+                    self._last_command = line
+                if line == "":
+                    continue
+                cmd, _, rest = line.partition(" ")
+                handler = commands.get(cmd)
+                if handler is None:
+                    from edit_distance import closest_keyword
+                    suggestion = closest_keyword(cmd, list(commands.keys()))
+                    hint = f" (did you mean {suggestion!r}?)" if suggestion else ""
+                    self._print(f"unrecognized command: {cmd!r}{hint}")
+                    continue
+                try:
+                    resume = handler(rest.strip())
+                except DebuggerQuit:
+                    raise
+                except Exception as e:
+                    self._print(f"error running {cmd!r}: {e}")
+                    continue
+                if resume:
+                    return
+        finally:
+            # Save history on every REPL exit (including via
+            # ``DebuggerQuit``) so a session that crashes mid-flow
+            # doesn't lose the user's typing.  Cheap when readline
+            # isn't active (no-op).
+            self._save_history()
+
+    def _read_input(self) -> str:
+        """One line of REPL input, ``""`` on EOF.  Routes through
+        Python's ``input()`` when readline is active so line editing
+        / completion / history all work; falls back to plain stream
+        reads for the StringIO-driven test path."""
+        if self._readline is not None:
             try:
-                line = self.input.readline()
+                return input("(deduce-debug) ") + "\n"
             except (EOFError, KeyboardInterrupt):
-                line = ""
-            if line == "":
-                raise DebuggerQuit("EOF on debugger input")
-            line = line.strip()
-            if line == "":
-                line = self._last_command
-            else:
-                self._last_command = line
-            if line == "":
-                continue
-            cmd, _, rest = line.partition(" ")
-            handler = commands.get(cmd)
-            if handler is None:
-                from edit_distance import closest_keyword
-                suggestion = closest_keyword(cmd, list(commands.keys()))
-                hint = f" (did you mean {suggestion!r}?)" if suggestion else ""
-                self._print(f"unrecognized command: {cmd!r}{hint}")
-                continue
+                # Ctrl-D / Ctrl-C end the session cleanly.
+                return ""
+        self._write("(deduce-debug) ")
+        try:
+            return self.input.readline()
+        except (EOFError, KeyboardInterrupt):
+            return ""
+
+    def _setup_readline(self) -> None:
+        """Install the completer and load the history file.  Called
+        once during ``__init__`` when readline is available."""
+        r = self._readline
+        r.set_completer(self._completer)
+        r.parse_and_bind("tab: complete")
+        # ``readline`` defaults its delimiters to include ``-``,
+        # which breaks completion on names like ``operator-`` and
+        # on anything else with a hyphen.  Restrict to whitespace --
+        # that's the only thing that separates tokens in our REPL
+        # syntax.
+        r.set_completer_delims(" \t\n")
+        try:
+            os.makedirs(os.path.dirname(self._history_file), exist_ok=True)
+        except OSError:  # pragma: no cover -- best-effort
+            return
+        if os.path.exists(self._history_file):
             try:
-                resume = handler(rest.strip())
-            except DebuggerQuit:
-                raise
-            except Exception as e:
-                self._print(f"error running {cmd!r}: {e}")
-                continue
-            if resume:
-                return
+                r.read_history_file(self._history_file)
+            except OSError:  # pragma: no cover -- defensive
+                pass
+
+    def _save_history(self) -> None:
+        if self._readline is None or self._history_file is None:
+            return
+        try:
+            self._readline.write_history_file(self._history_file)
+        except OSError:  # pragma: no cover -- best-effort
+            pass
+
+    # ------------------------------------------------------------------
+    # Tab completion.  ``_completer`` is the readline-facing entry
+    # point; ``_complete`` is a pure function we test directly so
+    # readline doesn't need to be in the loop.
+    # ------------------------------------------------------------------
+
+    def _completer(self, text: str, state: int):
+        """``readline`` calls this repeatedly with increasing
+        ``state`` until it returns ``None``.  Each call returns one
+        candidate."""
+        if self._readline is None:
+            return None
+        line = self._readline.get_line_buffer()
+        begidx = self._readline.get_begidx()
+        opts = self._complete(text, line, begidx)
+        return opts[state] if state < len(opts) else None
+
+    def _complete(self, text: str, line: str, begidx: int) -> list[str]:
+        """Pure-function completion.  ``text`` is the partial token
+        under the cursor, ``line`` is the whole input buffer, and
+        ``begidx`` is the start index of ``text`` within ``line``.
+
+        Context rules:
+        - When ``begidx == 0`` we're completing the command verb --
+          return matching command names.
+        - Otherwise the first token of ``line`` is the command;
+          dispatch to ``_completion_options`` for argument hints.
+        """
+        if begidx == 0:
+            verbs = sorted(self._command_table().keys())
+            return [v for v in verbs if v.startswith(text)]
+        prefix_tokens = line[:begidx].split()
+        cmd = prefix_tokens[0] if prefix_tokens else ""
+        return self._completion_options(cmd, text)
+
+    def _completion_options(self, cmd: str, text: str) -> list[str]:
+        """Candidate list for the argument position of ``cmd``."""
+        if cmd in ("print", "p"):
+            return self._sorted_matches(self._scope_names(), text)
+        if cmd in ("break", "b"):
+            return self._sorted_matches(self._scope_names(), text)
+        if cmd == "clear":
+            return self._sorted_matches(
+                [bp.spec for bp in self.breakpoints] + self._scope_names(),
+                text,
+            )
+        if cmd in ("delete", "d"):
+            return self._sorted_matches(
+                [str(bp.id) for bp in self.breakpoints], text,
+            )
+        return []
+
+    def _scope_names(self) -> list[str]:
+        """Identifiers visible at the current pause: the proof-checker
+        env's bound names (base form, so the uniquified ``foo.s0_...``
+        becomes ``foo``) plus the focused frame's pattern bindings."""
+        if self._current_env is None:
+            return []
+        from abstract_syntax import base_name
+        names: set = set()
+        for unique in self._current_env.dict.keys():
+            names.add(base_name(unique))
+        for k in self._focus_params().keys():
+            names.add(k)
+        return list(names)
+
+    @staticmethod
+    def _sorted_matches(seq, text: str) -> list[str]:
+        return sorted(set(s for s in seq if s.startswith(text)))
 
     def _command_table(self) -> dict:
         """Map of command verb -> handler.  Aliases get their own
