@@ -147,17 +147,18 @@ def test_next_doesnt_retrap_after_first_call(monkeypatch):
 def test_finish_runs_to_return():
     """``finish`` from inside a frame runs until that frame returns.
 
-    We arm by hitting a function breakpoint on ``double``, then issue
-    ``finish``: subsequent traps must only fire after returning from
-    the current ``double`` frame (i.e. either at a *later* statement
-    or at a re-entrant call after we've popped out)."""
+    We arm by hitting a function breakpoint on ``double``, then
+    ``delete`` it (otherwise the recursive ``double`` calls keep
+    re-trapping: breakpoints fire regardless of step mode, gdb-style),
+    then ``finish`` to run until the current frame returns."""
     path = _write_fixture("finish.pf", RECURSIVE_PROGRAM)
     result, dbg, out = _run(
         path,
-        "break double\n"   # arm function breakpoint
-        "continue\n"        # advance to it
-        "finish\n"          # run until the current double frame returns
-        "continue\n",       # mop up
+        "break double\n"
+        "continue\n"   # advance to first ``double`` call
+        "delete\n"     # so the recursive descent doesn't keep firing
+        "finish\n"     # unwind the current double frame
+        "continue\n",  # mop up any remaining statements
     )
     assert result.ok, result.error_message
     assert "-> call double" in out
@@ -466,6 +467,116 @@ def test_imports_do_not_trap():
     # And nothing should display as ``<unknown>`` -- the only stmts
     # that lack source locations *are* the synthetic prelude imports.
     assert "<unknown>" not in out
+
+
+def test_skip_lib_suppresses_step_into():
+    """Default skip rule (``lib/``): ``step`` past a print of a
+    prelude function does not trap inside the function's body.  The
+    call still happens (the print produces the correct value) and the
+    frame is still pushed (a breakpoint set on the function would
+    still fire); the trap-on-entry is what gets suppressed."""
+    path = _write_fixture("skip_lib.pf", GENERIC_PROGRAM)
+    # ``step`` four times: statement -> print -> next statement
+    # boundary should be reachable without ever trapping inside
+    # ``length`` (which lives in lib/List.pf).
+    result, _, out = _run_with_prelude(path, "step\nstep\nstep\nstep\ncontinue\n",
+                                       GENERIC_PRELUDE)
+    assert result.ok, result.error_message
+    # No trap line should reference ``length`` -- it's skipped.
+    for line in out.splitlines():
+        if line.startswith("-> call"):
+            assert "length" not in line, line
+
+
+def test_skip_lib_still_honours_explicit_breakpoint():
+    """The whole point of the skip-vs-invisible split: a user who
+    explicitly says ``break length`` wants to drill in.  Skip rules
+    only suppress the *automatic* step-into trap; explicit
+    breakpoints take precedence."""
+    path = _write_fixture("skip_lib_break.pf", GENERIC_PROGRAM)
+    result, _, out = _run_with_prelude(
+        path,
+        "break length\n"
+        "continue\n"     # advance to first length() call
+        "delete\n"        # avoid retraps on length's recursion
+        "continue\n",
+        GENERIC_PRELUDE,
+    )
+    assert result.ok, result.error_message
+    assert "-> call length" in out
+
+
+def test_recursive_case_location_points_at_matched_case():
+    """Recursive functions have one ``Case`` per pattern arm.  When
+    a call dispatches to a specific arm, the debugger's ``-> call``
+    location should be that arm's body, not the ``recursive`` header
+    line that opens the function.
+
+    For our ``count_down`` fixture:
+      line 12: ``recursive count_down(Nat) -> Nat {``
+      line 13: ``  count_down(zero) = zero``
+      line 14: ``  count_down(suc(n')) = count_down(n')``
+
+    A call with a ``suc(...)`` arg must trap at 14:N; a call with
+    ``zero`` must trap at 13:N.  Step 22 originally surfaced the
+    RecFun's outer ``loc`` for every case, gluing the ``->`` arrow
+    to line 12 on every recursive entry."""
+    path = _write_fixture("rec_case_loc.pf", RECURSIVE_PROGRAM)
+    # ``RECURSIVE_PROGRAM`` defines ``double`` similarly:
+    #   line 1: recursive double(Nat) -> Nat {
+    #   line 2:   double(zero) = zero
+    #   line 3:   double(suc(n')) = suc(suc(double(n')))
+    # ``double(suc(suc(zero)))`` hits the inductive case twice then
+    # the base case.  We expect to see ``-> call double(...) at 3:N``
+    # for the suc cases and ``-> call double()`` at ``2:N`` for the
+    # base.
+    result, _, out = _run(
+        path,
+        "break double\n"
+        "continue\n" "continue\n" "continue\n"
+        "delete\n"
+        "continue\n",
+    )
+    assert result.ok, result.error_message
+    # Inductive-case entries land on line 3.  The REPL prompt is on
+    # the same line as the trap header (no newline after the prompt),
+    # so use ``in`` rather than ``startswith``.
+    suc_traps = [line for line in out.splitlines()
+                 if "-> call double(n'=" in line]
+    assert suc_traps, f"expected at least one suc-case trap\n{out}"
+    for line in suc_traps:
+        assert " at 3:" in line, line
+    # Base-case entry lands on line 2.
+    base_traps = [line for line in out.splitlines()
+                  if "-> call double() " in line]
+    for line in base_traps:
+        assert " at 2:" in line, line
+
+
+def test_invisible_lit_never_appears():
+    """``lit`` is a Nat-identity marker in lib/NatDefs.pf used by
+    the auto-rewrite machinery.  It's an implementation detail the
+    user model doesn't have; the debugger hides it entirely:
+
+    - never traps on entry, even with ``step`` or ``break lit``;
+    - never appears in ``where``;
+    - never gets pushed onto the call stack.
+
+    This test confirms it: step through the whole file and assert
+    no transcript line mentions lit."""
+    path = _write_fixture("invisible_lit.pf", GENERIC_PROGRAM)
+    result, _, out = _run_with_prelude(
+        path,
+        "break lit\n"           # would normally fire; invisible vetoes it
+        "step\n" * 30 +
+        "continue\n",
+        GENERIC_PRELUDE,
+    )
+    assert result.ok, result.error_message
+    # No reference to ``lit`` anywhere in the captured transcript.
+    for line in out.splitlines():
+        if line.startswith("-> "):
+            assert "lit" not in line, line
 
 
 def test_lambda_does_not_double_trap():

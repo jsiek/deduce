@@ -1343,7 +1343,17 @@ def do_function_call(loc, name, type_params, type_args,
     # the matched ``suc(n')``).  Without it, ``locals`` would be
     # empty for every recursive call that consumes its argument
     # via pattern matching -- a very common Deduce idiom.
-    _dbg.on_function(name, loc, env, params=params, args=args, subst=subst)
+    #
+    # ``defn_loc``: ``loc`` is whatever the caller passed -- for the
+    # generic ``TermInst(RecFun)`` arm of ``Call.reduce`` that's the
+    # *call site* in the user file, which would let prelude
+    # functions slip past a ``skip lib/`` rule the very first time
+    # they're entered.  ``body.location`` always points to the
+    # function's *defining* site, which is the right thing to key
+    # skip decisions on.
+    defn_loc = getattr(body, 'location', None)
+    _dbg.on_function(name, loc, env, params=params, args=args, subst=subst,
+                     defn_loc=defn_loc)
   fast_call = False
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
     op = base_name(name)
@@ -1597,7 +1607,16 @@ class Call(Term):
       for fun_case in cases:
           subst = {}
           if is_match(fun_case.pattern, first_arg, subst):
-              return do_function_call(loc, name, type_params, type_args,
+              # Pass the matched case's own location to
+              # ``do_function_call``, not the RecFun's overall
+              # location.  This is what surfaces in the debugger's
+              # ``-> call ... at L:C`` line and what ``list`` points
+              # the ``->`` arrow at -- the user wants the *matched
+              # case body* (line 13/14 for ``count_down``'s base /
+              # inductive case), not the bare ``recursive`` header
+              # on line 12.
+              return do_function_call(fun_case.location, name,
+                                      type_params, type_args,
                                       fun_case.parameters, rest_args,
                                       fun_case.body, subst, env, returns)
     if is_assoc:
@@ -1629,7 +1648,12 @@ class Call(Term):
           subst = {}
           if is_match(fun_case.pattern, first_arg, subst):
               rest_args = worklist[:len(fun_case.parameters)]
-              result = do_function_call(loc, name, type_params, type_args,
+              # Use the matched case's location so the debugger's
+              # ``->`` arrow lands on the case body, not on the
+              # surrounding ``recursive`` declaration header.  Same
+              # rationale as the change in ``do_recursive_call``.
+              result = do_function_call(fun_case.location, name,
+                                        type_params, type_args,
                                         fun_case.parameters, rest_args,
                                         fun_case.body, subst, env, returns)
               # if get_verbose():

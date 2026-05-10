@@ -185,6 +185,30 @@ class Debugger:
         # source path.  Subsequent hooks (function calls) preserve
         # this so ``list`` still works inside a call.
         self._source_path: Optional[str] = None
+        # Two separate visibility policies (Step 22, refined after
+        # smoke testing).  gdb conflates them; Deduce splits them
+        # because the use cases differ:
+        #
+        # Skip (``_skip_file_substrs``): the gdb-style policy.
+        # ``step`` treats a call into a skipped function as ``next``
+        # -- skip into the body is suppressed -- but the frame
+        # still gets pushed, so ``where`` shows the call, ``locals``
+        # works inside it, and ``break <name>`` can drill in.  This
+        # is what users want for the prelude: they care that they're
+        # *inside* ``length`` even if they don't want to step
+        # through 30 lines of UInt arithmetic.
+        #
+        # Invisible (``_invisible_function_names``): the stronger
+        # policy.  No frame, no trap, no breakpoint match -- the
+        # function might as well not exist.  Reserved for
+        # implementation hacks the user model doesn't have, like
+        # ``lit`` (the Nat-identity marker used to tag literal
+        # numerals for auto-rewrite -- ``lib/NatDefs.pf``).
+        #
+        # Step 23 will add ``skip`` / ``unskip`` / ``hide`` /
+        # ``unhide`` REPL commands; for now we ship defaults.
+        self._skip_file_substrs: list[str] = ["lib/"]
+        self._invisible_function_names: set[str] = {"lit"}
 
     # ------------------------------------------------------------------
     # Hook callbacks -- called from proof_checker / abstract_syntax.
@@ -223,7 +247,21 @@ class Debugger:
         params: Optional[list] = None,
         args: Optional[list] = None,
         subst: Optional[dict] = None,
+        defn_loc=None,
     ) -> None:
+        # ``defn_loc`` is the function's *defining* site (from its
+        # body's ``Meta``).  ``location`` is the call site.  For
+        # generic calls in particular these differ: the TermInst
+        # wrapping the RecFun keeps its synthesised location at the
+        # user's call site, not at the prelude file where the
+        # function actually lives.  Visibility decisions key on
+        # ``defn_loc``.
+        if self._is_invisible(name):
+            # Invisible: no frame, no trap, no breakpoint match.
+            # ``after_function`` will see nothing to pop.  Keeps the
+            # depth-based step machinery honest (``next`` / ``finish``
+            # measure visible frames only).
+            return
         params_dict: dict = {}
         from abstract_syntax import base_name
         if params is not None and args is not None:
@@ -245,10 +283,9 @@ class Debugger:
         self.stack.append(frame)
         self._current_env = env
         self._current_loc = location
-        if not self._should_pause_at_function(name, location, env):
+        if not self._should_pause_at_function(name, location, env, defn_loc):
             return
         self._frame_cursor = -1
-        from abstract_syntax import base_name
         pretty = ", ".join(
             f"{k}={v}" for k, v in params_dict.items()
         ) if params_dict else ""
@@ -259,8 +296,36 @@ class Debugger:
         self._repl()
 
     def after_function(self, name: str, env, return_value=None) -> None:
-        if self.stack:
+        # No matching frame iff ``on_function`` chose to skip this
+        # call (``_is_skipped`` is deterministic on the same args,
+        # but we just check the stack instead of recomputing).
+        if not self.stack:
+            return
+        # Defensive: only pop if the top frame matches the name we're
+        # leaving.  A mismatch can happen on the boundary if a hook
+        # is added or removed without symmetry; popping unconditionally
+        # would silently corrupt the depth count.
+        if self.stack[-1].name == name:
             self.stack.pop()
+
+    def _is_invisible(self, name: str) -> bool:
+        """The stronger policy: the function is hidden entirely --
+        no frame, no trap, no breakpoint match.  See the
+        ``_invisible_function_names`` doc in ``__init__``."""
+        from abstract_syntax import base_name
+        bn = base_name(name) if isinstance(name, str) else ""
+        return bn in self._invisible_function_names
+
+    def _is_skipped(self, defn_loc) -> bool:
+        """The gdb-style policy: ``step`` doesn't trap on entry, but
+        the function still pushes a frame.  Keyed on the function's
+        defining-file location (so generic calls don't slip past via
+        the call-site location).  See the ``_skip_file_substrs`` doc
+        in ``__init__``."""
+        fn = getattr(defn_loc, "filename", None)
+        if fn is None:
+            return False
+        return any(substr in fn for substr in self._skip_file_substrs)
 
     # ------------------------------------------------------------------
     # Pause-decision logic.  Single source of truth for every hook.
@@ -279,7 +344,19 @@ class Debugger:
         return any(bp.hits_at_statement(stmt, env, self)
                    for bp in self.breakpoints)
 
-    def _should_pause_at_function(self, name, location, env) -> bool:
+    def _should_pause_at_function(self, name, location, env, defn_loc=None) -> bool:
+        # Breakpoints always fire, regardless of step mode and
+        # regardless of whether the file is in the skip list -- the
+        # whole point of ``break length`` after ``skip lib/`` is to
+        # drill *into* a skipped function deliberately.
+        if any(bp.hits_at_function(name, location, env, self)
+               for bp in self.breakpoints):
+            return True
+        # Skip rule: ``step`` into a function defined in a skipped
+        # file becomes ``next`` -- the frame is pushed (so ``where``
+        # / ``locals`` still work) but we don't trap on entry.
+        if self._is_skipped(defn_loc):
+            return False
         if self._step_mode == _StepMode.STEP:
             return True
         if self._step_mode == _StepMode.NEXT:
@@ -295,10 +372,7 @@ class Debugger:
             return False
         # STOP only triggers in on_statement; in on_function it's a no-op
         # so the first frame's call doesn't double-trap.
-        if self._step_mode == _StepMode.STOP:
-            return False
-        return any(bp.hits_at_function(name, location, env, self)
-                   for bp in self.breakpoints)
+        return False
 
     # ------------------------------------------------------------------
     # REPL.
