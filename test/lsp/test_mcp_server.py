@@ -109,6 +109,7 @@ async def test_all_tools_are_registered(server):
             "preview_replace_at",
             "preview_expand_at",
             "available_lemmas_at",
+            "auto_rules_at",
         }
 
 
@@ -777,6 +778,83 @@ async def test_available_lemmas_at_no_signal_returns_empty(server, tmp_path):
         server,
         "available_lemmas_at",
         {"path": str(fp), "line": 4, "column": 3},
+    )
+    assert payload == []
+
+
+# --------------------------------------------------------------------------
+# auto_rules_at
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_auto_rules_at_returns_each_in_scope_rule(server, tmp_path):
+    """Two ``auto`` declarations, cursor past both -> both surfaced
+    in declaration order with their rendered equations."""
+    src = (
+        "union Foo {\n"
+        "  fzero\n"
+        "  fsucc(Foo)\n"
+        "}\n"
+        "\n"
+        "recursive fadd(Foo, Foo) -> Foo {\n"
+        "  fadd(fzero, y) = y\n"
+        "  fadd(fsucc(x), y) = fsucc(fadd(x, y))\n"
+        "}\n"
+        "\n"
+        "theorem fadd_zero_left: all y:Foo. fadd(fzero, y) = y\n"
+        "proof\n"
+        "  arbitrary y:Foo\n"
+        "  conclude fadd(fzero, y) = y by expand fadd.\n"
+        "end\n"
+        "auto fadd_zero_left\n"
+        "\n"
+        "theorem fadd_succ:\n"
+        "  all x:Foo, y:Foo. fadd(fsucc(x), y) = fsucc(fadd(x, y))\n"
+        "proof\n"
+        "  arbitrary x:Foo, y:Foo\n"
+        "  conclude fadd(fsucc(x), y) = fsucc(fadd(x, y))\n"
+        "    by expand fadd.\n"
+        "end\n"
+        "auto fadd_succ\n"
+        "\n"
+        "theorem use_them: all z:Foo. z = z\n"
+        "proof\n"
+        "  arbitrary z:Foo\n"
+        "  ?\n"
+        "end\n"
+    )
+    fp = tmp_path / "auto.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "auto_rules_at",
+        {"path": str(fp), "line": 30, "column": 3},
+    )
+    assert isinstance(payload, list)
+    names = [r["name"] for r in payload]
+    assert names == ["fadd_zero_left", "fadd_succ"]
+    assert all(r["module"] == "auto" for r in payload)
+    assert "fadd(fzero, y) = y" in payload[0]["equation"]
+    assert "fadd(fsucc(x), y)" in payload[1]["equation"]
+
+
+@pytest.mark.anyio
+async def test_auto_rules_at_returns_empty_when_no_rules_in_scope(
+    server, tmp_path
+):
+    src = (
+        "theorem t: true\n"
+        "proof\n"
+        "  .\n"
+        "end\n"
+    )
+    fp = tmp_path / "empty.pf"
+    fp.write_text(src)
+    payload = await _call(
+        server,
+        "auto_rules_at",
+        {"path": str(fp), "line": 3, "column": 3},
     )
     assert payload == []
 

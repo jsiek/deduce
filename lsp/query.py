@@ -66,6 +66,7 @@ __all__ = [
     "ValidationResult",
     "RewritePreview",
     "ExpandPreview",
+    "AutoRule",
     # Query functions
     "check",
     "goal_at",
@@ -85,6 +86,7 @@ __all__ = [
     "validate_proof_at",
     "preview_replace_at",
     "preview_expand_at",
+    "auto_rules_at",
 ]
 
 
@@ -356,6 +358,26 @@ class ValidationResult:
 
     ok: bool
     error: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class AutoRule:
+    """An ``auto`` rewrite rule visible at a source position.
+
+    Returned (in tuples) by :func:`auto_rules_at`. ``name`` is the
+    user-visible identifier of the theorem the rule was declared from
+    (i.e. ``base_name`` of the uniquified name). ``equation`` is the
+    rendered formula -- the same string Deduce's printer would
+    produce for the theorem's body -- so callers can see what shape
+    the auto-rewriter will rewrite. ``module`` is the module that
+    declared the ``auto`` statement (the file stem for prelude
+    modules and for the user file itself), useful to disambiguate
+    rules with the same base name from different modules.
+    """
+
+    name: str
+    equation: str
+    module: str
 
 
 # ---------------------------------------------------------------------------
@@ -3558,4 +3580,139 @@ def _preview_expand(
         outcome="ok",
         before=str(formula),
         after=str(after),
+    )
+
+
+# ---------------------------------------------------------------------------
+# auto_rules_at -- list `auto` rewrite rules in scope at a position
+# ---------------------------------------------------------------------------
+#
+# Issue #404: when Deduce reports "no need for replace because this
+# equation is handled automatically" or a goal silently simplifies
+# before a tactic can fire, the user wants to know which `auto`
+# declaration is responsible without grepping the prelude.  This
+# function returns every `auto` rule visible at the cursor in
+# declaration order -- the same order ``auto_rewrites`` (in
+# ``abstract_syntax.py``) tries them when several heads match.
+
+
+def auto_rules_at(
+    path: str,
+    content: str,
+    pos: Position,
+    prelude: Sequence[str] = (),
+) -> tuple:
+    """Return the ``auto`` rewrite rules in scope at ``pos``.
+
+    The returned tuple lists rules in *declaration order* -- the same
+    order the auto-rewriter applies them when multiple equations
+    share a head constructor.  Sources are walked in this order:
+
+    1. Every module currently cached in ``get_uniquified_modules()``
+       (the prelude transitively, plus any module the user file
+       imports), each module's ``Auto`` statements in source order.
+       Modules are visited in the alphabetical iteration order of
+       the cache, which is stable for a given prelude key.
+    2. The user's file itself, ``Auto`` statements in source order,
+       restricted to those whose location is at or before ``pos``.
+
+    Each entry's ``equation`` is the rendered formula of the theorem
+    the rule references; if the theorem can't be located in any
+    walked AST (rare -- e.g. a private lemma in a module we can
+    only see through a filtered import), ``equation`` is ``""``.
+
+    ``prelude`` matches the meaning in :func:`check`.  Returns ``()``
+    when the file fails to parse before any prelude is loaded.
+    """
+    from abstract_syntax import (
+        Auto,
+        Postulate,
+        Theorem,
+        get_uniquified_modules,
+    )
+    from lsp.library import check_file
+    from pathlib import Path as _Path
+
+    # Run the pipeline once. We don't bail on errors -- partial
+    # results are still useful (and the prelude state is loaded by
+    # ``_prepare_state`` before the user file is even parsed).
+    result = check_file(path, content=content, prelude=prelude)
+
+    user_module = _Path(path).stem
+    cached_modules = get_uniquified_modules()
+
+    # Build a lookup ``unique_name -> formula_text`` so each Auto
+    # can resolve its referenced theorem.  Walk every module we
+    # know about, then the user file's own AST (which overrides any
+    # cached entry that happens to share a unique name -- shouldn't
+    # happen in practice, but the cache could be slightly stale).
+    formula_by_name: dict[str, str] = {}
+    for module_name, module_ast in cached_modules.items():
+        if module_name == user_module:
+            continue
+        for stmt in module_ast or ():
+            if isinstance(stmt, (Theorem, Postulate)):
+                formula_by_name[stmt.name] = str(stmt.what)
+    if result.ast is not None:
+        for stmt in result.ast:
+            if isinstance(stmt, (Theorem, Postulate)):
+                formula_by_name[stmt.name] = str(stmt.what)
+
+    rules: list[AutoRule] = []
+
+    for module_name in sorted(cached_modules.keys()):
+        if module_name == user_module:
+            continue
+        module_ast = cached_modules.get(module_name)
+        if module_ast is None:
+            continue
+        for stmt in module_ast:
+            if isinstance(stmt, Auto):
+                rules.append(_auto_rule_from_stmt(stmt, module_name, formula_by_name))
+
+    if result.ast is not None:
+        for stmt in result.ast:
+            if isinstance(stmt, Auto) and _meta_at_or_before(stmt.location, pos):
+                rules.append(_auto_rule_from_stmt(stmt, user_module, formula_by_name))
+
+    return tuple(rules)
+
+
+def _meta_at_or_before(meta, pos: Position) -> bool:
+    """True iff ``meta`` starts at or before 1-indexed ``pos``.
+
+    Empty/missing meta counts as "before" so we don't drop a rule
+    just because the parser elided its location info.
+    """
+    if getattr(meta, "empty", True):
+        return True
+    if meta.line < pos.line:
+        return True
+    if meta.line == pos.line and meta.column <= pos.column:
+        return True
+    return False
+
+
+def _auto_rule_from_stmt(stmt, module_name: str, formula_by_name) -> "AutoRule":
+    """Render an ``Auto`` AST node into an :class:`AutoRule`.
+
+    ``Auto.name`` is a ``PVar`` (or compatible proof reference) whose
+    ``.name`` field holds the uniquified identifier after
+    ``uniquify``.  ``base_name`` strips the suffix to recover what
+    the user wrote.  ``formula_by_name`` is the lookup built in
+    :func:`auto_rules_at`.
+    """
+    from abstract_syntax import base_name
+
+    unique = getattr(stmt.name, "name", None)
+    if unique is None:
+        # Best effort: render whatever Term is here (shouldn't happen
+        # in practice -- the parsers always emit a PVar).
+        return AutoRule(
+            name=str(stmt.name), equation="", module=module_name
+        )
+    return AutoRule(
+        name=base_name(unique),
+        equation=formula_by_name.get(unique, ""),
+        module=module_name,
     )

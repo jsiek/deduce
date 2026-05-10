@@ -78,6 +78,7 @@ EXPECTED_PUBLIC = {
     "ValidationResult",
     "RewritePreview",
     "ExpandPreview",
+    "AutoRule",
     "check",
     "goal_at",
     "definition_of",
@@ -96,6 +97,7 @@ EXPECTED_PUBLIC = {
     "validate_proof_at",
     "preview_replace_at",
     "preview_expand_at",
+    "auto_rules_at",
 }
 
 
