@@ -1330,6 +1330,15 @@ def op_arg_str(trm, arg):
 
 def do_function_call(loc, name, type_params, type_args,
                      params, args, body, subst, env, return_type):
+  # Phase 5 / Step 21 hook: trap on every named user-function reduction.
+  # This single site catches RecFun, GenRecFun, and the recursive
+  # case-dispatch path -- all of which funnel through here.  Lambdas
+  # are handled separately in ``Call.reduce``'s ``Lambda`` arm because
+  # they have no name binding.  PR #269 hooked all three call sites
+  # and double-fired; do not carry that pattern forward.
+  _dbg = get_debugger()
+  if _dbg is not None:
+    _dbg.on_function(name, loc, params=params, args=args)
   fast_call = False
   if get_eval_all() and len(args) == 2  and isNat(args[0]) and isNat(args[1]):
     op = base_name(name)
@@ -1412,6 +1421,8 @@ def do_function_call(loc, name, type_params, type_args,
     print('<' * recursion_depth, str(ret))
     recursion_depth -= 1
 
+  if _dbg is not None:
+    _dbg.after_function(name, return_value=ret)
   return explicit_term_inst(ret)
 
 
@@ -1494,10 +1505,20 @@ class Call(Term):
           ret.type_args = self.type_args
             
       case Lambda(loc, ty, vars, body):
+        # Phase 5 / Step 21 hook: lambdas don't go through
+        # ``do_function_call`` (which keys on a named binding), so
+        # they need their own one-line trap.  ``<lambda>`` stands in
+        # for the missing name in the REPL display.
+        _dbg = get_debugger()
+        if _dbg is not None:
+          _dbg.on_function('<lambda>', loc,
+                           params=[v[0] for v in vars], args=args)
         if hasattr(fun, 'env'):
           ret = self.do_call(loc, vars, body, args, fun.env)
         else:
           ret = self.do_call(loc, vars, body, args, env)
+        if _dbg is not None:
+          _dbg.after_function('<lambda>', return_value=ret)
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):

@@ -13,13 +13,19 @@ def handle_sigint(signal, stack_frame):
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] = []):
+def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] = [],
+                debugger=None):
     """CLI wrapper around lsp.library.check_file.
 
     Translates CheckResult into the historical print/exit behavior so
     test-deduce.py and existing tooling keep working.
+
+    ``debugger`` (Phase 5 / Step 21): when given, attached for the
+    user-file check.  ``None`` keeps the path zero-overhead for normal
+    runs.
     """
-    result = check_file(filename, tracing_functions=tracing_functions, prelude=prelude)
+    result = check_file(filename, tracing_functions=tracing_functions,
+                        prelude=prelude, debugger=debugger)
     if result.ok:
         if error_expected:
             print('an error was expected in', filename, "but it was not caught")
@@ -96,14 +102,15 @@ def compile_file(filename: str, output: str, prelude: list[str],
         with open(output, "w", encoding="utf-8") as f:
             f.write(src)
 
-def deduce_directory(directory, recursive_directories, tracing_functions, prelude: list[str] = []):
+def deduce_directory(directory, recursive_directories, tracing_functions, prelude: list[str] = [],
+                     debugger=None):
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
             if file[-3:] == '.pf':
-                deduce_file(fpath, error_expected, tracing_functions, prelude)
+                deduce_file(fpath, error_expected, tracing_functions, prelude, debugger=debugger)
         elif recursive_directories and os.path.isdir(fpath):
-            deduce_directory(fpath, recursive_directories, tracing_functions, prelude)
+            deduce_directory(fpath, recursive_directories, tracing_functions, prelude, debugger=debugger)
     
 def check_in_prelude(deducable : str, stdlib_dir : str) -> bool:
     deducable_path = Path(deducable)
@@ -137,6 +144,7 @@ if __name__ == "__main__":
     no_prune = False
     separate_compile = False
     is_main_module = True
+    debug_enabled = False
     init_import_directories()
 
     # TODO: Cleanup 
@@ -197,6 +205,8 @@ if __name__ == "__main__":
             already_processed_next = True
         elif argument == '--no-prune':
             no_prune = True
+        elif argument == '--debug':
+            debug_enabled = True
         else:
             deducables.append(argument)
     
@@ -223,6 +233,15 @@ if __name__ == "__main__":
 
     # Start deducing
 
+    # Phase 5 / Step 21: build a single Debugger instance shared across
+    # all deducables in this CLI invocation.  Detached during prelude
+    # bootstrap (lsp.library handles that) so the user lands in their
+    # own file rather than stepping through lib/.
+    debugger = None
+    if debug_enabled:
+        from lsp.debugger import Debugger
+        debugger = Debugger()
+
     for deducable in deducables:
         # If a file is in the prelude and we include the prelude
         # Then we'll process the file twice, hence using an empty "prelude"
@@ -246,9 +265,11 @@ if __name__ == "__main__":
                 is_main=is_main_module,
             )
         elif os.path.isfile(deducable):
-            deduce_file(deducable, error_expected, tracing_functions, deducable_prelude)
+            deduce_file(deducable, error_expected, tracing_functions, deducable_prelude,
+                        debugger=debugger)
         elif os.path.isdir(deducable):
-            deduce_directory(deducable, recursive_directories, tracing_functions, deducable_prelude)
+            deduce_directory(deducable, recursive_directories, tracing_functions, deducable_prelude,
+                             debugger=debugger)
         else:
             print(deducable, "was not found!")
             exit(1)

@@ -24,7 +24,7 @@
 
 from abstract_syntax import *
 from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, ErrorSink, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
-from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location
+from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
 
 imported_modules = set()
 checked_modules = set()
@@ -4682,6 +4682,14 @@ def find_rec_calls(name, term, env):
 def check_proofs(stmt, env: Env):
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
+  # Phase 5 / Step 21 hook: trap before evaluating each top-level
+  # statement.  ``get_debugger()`` returns ``None`` in the common case
+  # (no debug session attached), so non-debug runs pay one attribute
+  # load and a None-check per statement -- well below the noise floor
+  # of the surrounding match dispatch.
+  _dbg = get_debugger()
+  if _dbg is not None:
+    _dbg.on_statement(stmt)
   match stmt:
     case Define(loc, name, ty, body):
       pass
@@ -4821,7 +4829,10 @@ def check_proofs(stmt, env: Env):
 
     case _:
       internal_error(stmt.location, "check_proofs: unrecognized statement:\n" + str(stmt))
-      
+
+  if _dbg is not None:
+    _dbg.after_statement(stmt)
+
 def check_deduce(ast, module_name, modified, tracing_functions, error_sink=None):
   """Run the four-phase pipeline (process_declarations, type_check_stmt,
   collect_env, check_proofs) over ``ast``.
@@ -4991,7 +5002,15 @@ def _check_deduce_body(ast, module_name, modified, tracing_functions, error_sink
         # cheap anyway.
         try:
           pre_n = len(get_active_sink()) if get_active_sink() is not None else 0
-          if isinstance(s, (Print, Assert)):
+          # Phase 5 / Step 21: when a debugger is attached, every
+          # ``check_proofs`` call must run its hooks -- a cache hit
+          # would silently skip the trap.  Re-check unconditionally;
+          # this also avoids polluting the cache with cache-key
+          # collisions caused by debugger-driven reduction order.
+          if get_debugger() is not None:
+            check_proofs(s, env)
+            _record_miss("check_proofs")
+          elif isinstance(s, (Print, Assert)):
             check_proofs(s, env)
             _record_miss("check_proofs")
           elif key in _stmt_cache:
