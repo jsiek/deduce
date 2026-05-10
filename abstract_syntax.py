@@ -1510,18 +1510,22 @@ class Call(Term):
           ret.type_args = self.type_args
             
       case Lambda(loc, ty, vars, body):
-        # Phase 5 / Step 21 hook: lambdas don't go through
-        # ``do_function_call`` (which keys on a named binding), so
-        # they need their own one-line trap.  ``<lambda>`` stands in
-        # for the missing name in the REPL display.
-        _dbg = get_debugger()
+        # Note (Phase 5 / Step 22): no debugger hook here.
+        # ``do_call`` forwards to ``do_function_call`` which is
+        # already hooked; trapping a second time here would
+        # double-fire on every lambda application -- the exact bug
+        # PR #269 had with named functions.  We do pass the source
+        # rator's name down so the REPL displays the user-visible
+        # name (e.g. a ``define f = λ ...``) rather than a generic
+        # ``anonymous``; literal lambdas with no name fall back to
+        # ``<lambda>``.
         call_env = fun.env if hasattr(fun, 'env') else env
-        if _dbg is not None:
-          _dbg.on_function('<lambda>', loc, call_env,
-                           params=[v[0] for v in vars], args=args)
-        ret = self.do_call(loc, vars, body, args, call_env)
-        if _dbg is not None:
-          _dbg.after_function('<lambda>', call_env, return_value=ret)
+        rn = rator_name(self.rator)
+        if rn == 'no_name':
+          display_name = '<lambda>'
+        else:
+          display_name = rn
+        ret = self.do_call(loc, vars, body, args, call_env, name=display_name)
     
       case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
                    body, terminates):
@@ -1563,10 +1567,14 @@ class Call(Term):
     
     return ret
 
-  def do_call(self, loc, vars, body, args, env):
-    # because of associativity, args can be longer than vars
+  def do_call(self, loc, vars, body, args, env, name="anonymous"):
+    # because of associativity, args can be longer than vars.
+    # ``name`` is the source-visible name of the function being
+    # called -- caller passes the result of ``rator_name(self.rator)``
+    # so debugger traps and trace output see ``foo`` rather than
+    # ``anonymous`` when the lambda came from a named binding.
     subst = {k: v for ((k,t),v) in zip(vars, args)}
-    return do_function_call(loc, "anonymous", [], [], [], [], body, subst, env, None)
+    return do_function_call(loc, name, [], [], [], [], body, subst, env, None)
 
   def do_recursive_call(self, loc, name, fun, type_params, type_args, params, args,
                         returns, cases, is_assoc, env):

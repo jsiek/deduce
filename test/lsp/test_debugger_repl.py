@@ -468,6 +468,39 @@ def test_imports_do_not_trap():
     assert "<unknown>" not in out
 
 
+def test_lambda_does_not_double_trap():
+    """``Call.reduce``'s ``Lambda`` arm forwards to ``do_call`` which
+    in turn calls ``do_function_call(name='anonymous', ...)``.  A
+    naive Step-21 implementation hooked *both* sites and produced a
+    pair of back-to-back traps at the same source location -- PR
+    #269's bug verbatim.  The single hook in ``do_function_call`` is
+    enough; this test pins that.
+
+    Uses ``length(...)`` on a 1-element list, which reduces through
+    enough lambda-bearing prelude infrastructure that any duplicate
+    hook would surface as adjacent identical traps in the output."""
+    path = _write_fixture("lambda_no_double.pf", GENERIC_PROGRAM)
+    # ``step`` through every hook, capturing all traps.  Feed enough
+    # ``step`` commands to drive the recursion to completion;
+    # remaining ones are no-ops once the file finishes.
+    result, _, out = _run_with_prelude(
+        path,
+        ("step\n" * 200),
+        GENERIC_PRELUDE,
+    )
+    # Collect every trap header.  No two consecutive entries should
+    # be at the same source location with the same args -- that's
+    # the double-trap signature.
+    traps = [line for line in out.splitlines()
+             if line.startswith("-> call ") or
+                line.startswith("-> statement ")]
+    for prev, cur in zip(traps, traps[1:]):
+        assert prev != cur, (
+            f"adjacent identical traps -- hook double-fire?\n"
+            f"  prev: {prev}\n  cur:  {cur}"
+        )
+
+
 def test_print_generic_call_returns_result():
     """``print length(...)`` inside the debugger should reduce the
     full generic call.  The save/restore around ``_eval_expr`` keeps
