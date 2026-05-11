@@ -352,6 +352,7 @@ in your `init.el` returning whatever list eglot should spawn.
 | `deduce-dap-python-program`    | `"python3"` | Python interpreter used to launch the DAP adapter (`lsp/dap_server.py`)      |
 | `deduce-dap-deduce-root`       | `nil`       | Path to a Deduce checkout; sets `PYTHONPATH` so `python3 -m lsp.dap_server` resolves regardless of cwd. By default the adapter's cwd is the project root (via `project-current`), which is enough when your `.pf` lives inside the Deduce repo. |
 | `deduce-dap-prelude-disabled`  | `nil`       | If non-nil, sets `DEDUCE_NO_STDLIB=1` so debug sessions skip the prelude     |
+| `deduce-dap-auto-ui`           | `t`         | If non-nil, enable `dap-ui-mode` automatically before the first session — gives you fringe indicators, tooltips, and the side panes without an extra command. Set to nil to manage `dap-ui-mode` yourself. |
 
 The common gotcha: on systems with multiple Python installs the
 `python3` first on `$PATH` may not be the one you `pip install
@@ -671,19 +672,27 @@ also verify the debugger integration:
 
 14. Open a `.pf` file that has at least one `print` statement —
     e.g. `tmp/debugger_smoke.pf` if you've worked through the
-    Debugger.md walkthrough, or any prelude module like `lib/UInt.pf`
-    that contains a top-level `print`. Press `C-c C-d`.
+    Debugger.md walkthrough, or any prelude module like
+    `lib/UInt.pf` that contains a top-level `print`. Press
+    `C-c C-d`.  `deduce-dap` enables `dap-ui-mode` for you
+    automatically on first launch (see `deduce-dap-auto-ui`), so
+    the source buffer should highlight a line at the first
+    user-level statement (matching where `python deduce.py
+    --debug` would initially trap).
 
-15. dap-mode opens its UI: a `*dap-ui-locals*` window, a
-    `*dap-ui-sessions*` window listing one session, and the source
-    buffer with a yellow gutter arrow at the first user-level
-    statement (the same place `python deduce.py --debug` would
-    initially trap).
+15. If the side panes (locals / sessions / breakpoints) didn't
+    pop up, open them with `M-x dap-ui-many-windows` or
+    individually with `dap-ui-locals` / `dap-ui-sessions` /
+    `dap-ui-breakpoints`.  The Locals tree starts collapsed —
+    `RET` (or click the triangle) to expand.
 
-16. Click in the gutter of a line containing a `print` or `assert`
-    (or `M-x dap-breakpoint-toggle`) to set a breakpoint. Press
-    `F10` (or `M-x dap-next`) to step over; `F11` (`dap-step-in`)
-    to step into a function call; `F5` (`dap-continue`) to resume.
+16. Set a breakpoint at a line of interest: `C-c d b` with
+    cursor on the target line (or `M-x dap-breakpoint-toggle`).
+    Resume with `F5` / `C-c d c`; step over with `F10` /
+    `C-c d n`; step into with `F11` / `C-c d s`.  Or open
+    `dap-hydra` with `C-c d h` for a single-key transient menu.
+    (See the keybinding caveats above if F-keys don't work on
+    your OS.)
 
 17. While paused inside a function, the locals panel should show
     the pattern-bound names (e.g. `n' = suc(zero)` inside
@@ -694,10 +703,8 @@ also verify the debugger integration:
     an expression like `suc(zero)` to invoke the DAP `evaluate`
     request — the same reducer the CLI's `print` command uses.
 
-19. Press `M-x dap-disconnect RET` (or close the session from the
-    sessions panel) to end the run. The DAP adapter exits cleanly
-    when stdin is closed; you should see a `terminated` event in
-    the debug log if `M-x dap-go-back` shows the trace.
+19. Press `C-c d q` (or `M-x dap-disconnect`) to end the run.
+    The DAP adapter exits cleanly when stdin is closed.
 
 If `dap-mode` isn't installed, `C-c C-d` reports an error pointing
 at the MELPA install command rather than crashing.

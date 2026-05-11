@@ -64,6 +64,7 @@
 (declare-function dap-register-debug-provider "dap-mode")
 (declare-function dap-register-debug-template "dap-mode")
 (declare-function dap-hydra "dap-hydra")
+(declare-function dap-ui-mode "dap-ui")
 
 
 (defgroup deduce-dap nil
@@ -107,6 +108,17 @@ Sets `DEDUCE_NO_STDLIB=1' in the spawned process environment,
 mirroring `deduce.py --no-stdlib' and `deduce-lsp's option of the
 same name.  Useful when working on `lib/' itself or on minimal
 test fixtures."
+  :type 'boolean
+  :group 'deduce-dap)
+
+
+(defcustom deduce-dap-auto-ui t
+  "If non-nil, enable `dap-ui-mode' before launching a session.
+
+`dap-ui-mode' is what gives you the fringe breakpoint indicators,
+tooltips, and the side panes for locals / sessions / breakpoints.
+Without it, traps happen but no UI surfaces them.  Set this to nil
+if you prefer to manage `dap-ui-mode' yourself."
   :type 'boolean
   :group 'deduce-dap)
 
@@ -176,13 +188,24 @@ subdirectory and won't have `lsp/' on the path)."
 
 Convenience wrapper around `dap-debug' that doesn't make the user
 visit the debug-templates picker.  Requires `dap-mode' to be
-installed; errors out informatively otherwise."
+installed; errors out informatively otherwise.
+
+Enables `dap-ui-mode' first (unless `deduce-dap-auto-ui' is nil)
+so the editor's panes / fringe indicators / tooltips appear
+without an extra command.  `dap-ui-mode' is a global minor mode,
+so this is a one-time cost; subsequent launches see it already
+active and skip the call."
   (interactive)
   (unless (buffer-file-name)
     (user-error "Buffer is not visiting a file"))
   (unless (require 'dap-mode nil 'noerror)
     (user-error
      "deduce-dap: dap-mode is not installed; install it from MELPA"))
+  (when (and deduce-dap-auto-ui
+             (require 'dap-ui nil 'noerror)
+             (fboundp 'dap-ui-mode)
+             (not (bound-and-true-p dap-ui-mode)))
+    (dap-ui-mode 1))
   (dap-debug (list :type "deduce"
                    :request "launch"
                    :name "Deduce :: launch current file"
