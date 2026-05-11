@@ -2,7 +2,7 @@
 
 Tracking issue: [#279](https://github.com/jsiek/deduce/issues/279).
 
-**Status:** Phase 1, Phase 2 Step 9, Phase 3 Steps 12–14, and Phase 4 Steps 15–19 are done.  Open: Steps 10 (process-lifecycle hardening) and 11 (multi-error collection).
+**Status:** Phase 1, Phase 2 Step 9, Phase 3 Steps 12–14, Phase 4 Steps 15–19, and Phase 5 Steps 21–23 + 25–26 are done.  Open: Steps 10 (process-lifecycle hardening), 11 (multi-error collection), 24 (tactic stepping), and all of Phase 6 (VS Code parity + tab completion).
 
 **Related:** [`hole-fill-plan.md`](hole-fill-plan.md) — downstream feature that adds two new LSP requests (`deduce/holeContextAt`, `deduce/validateProof`) and a library-side `validate_theorem` hook, building on this plan's Phase 1–2 deliverables.
 
@@ -305,6 +305,34 @@ The only thing that *could* go in LSP is a `deduce/runnableLines` custom request
 - Step 21 is the highest-risk step (parallel to Step 6's prelude-cache work). Touches three pipeline files and interacts with two prior phases (cache invalidation, prelude bootstrap). Budget ~3 extra days.
 - Steps 22–24 are independent of the DAP adapter and shippable as a CLI-only debugger after Step 23. Use the CLI for ~1 week before starting Step 25 — usage will tell you which commands actually matter and which DAP capabilities to expose.
 - PR #269's source-level `break <expr>` keyword is **dropped**: it adds parser / AST / uniquify surface for a feature that REPL-set breakpoints cover better, and source-level markers fight git noise. If demand surfaces later, recover the parser change from PR #269 and integrate the `Breakpoint` AST node properly against today's pure-uniquify (non-trivial — needs `copy`, `substitute`, `__eq__`, type-check arm, and a `reduce` arm that doesn't double-fire with the `do_function_call` hook).
+
+## Phase 6 — Editor parity
+
+Today's editor packages are asymmetric.  Emacs (`editor/emacs/`) ships four layers: syntax highlighting + indentation (`deduce-mode`), full LSP wiring (`deduce-lsp` — diagnostics, go-to-def, document outline, goal-at-point, the four Phase-4 structured-edit keybindings, fill-from-given), LLM hole filling (`deduce-fill-hole`), and the Phase-5 DAP integration (`deduce-dap`).  VS Code (`editor/vscode/`) ships only the Phase-5 debugger contribution plus a stub `deduce` language declaration so the adapter can attach.  Phase 6 closes that gap and adds in-buffer tab completion — a new LSP capability not previously surfaced in either editor.
+
+- [x] **Step 27: VS Code syntax highlighting.** Hand-written TextMate grammar at `editor/vscode/syntaxes/deduce.tmLanguage.json`, wired via `contributes.grammars` in `package.json`.  Keyword categories mirror Emacs's `deduce-mode--keywords` / `--constants` / `--types` / `--warnings`; capitalized identifiers get `entity.name.type` so user-defined Unions and constructors get the same colorization Emacs's `font-lock-type-face` rule produces.  A follow-up step can replace the hand-written grammar with one generated from `gh_pages/scripts/keywords.py` once the web sandbox is ready to share the same source.  Also ships `editor/vscode/language-configuration.json` so `Cmd+/` toggles `//` comments, `{}/[]/()` auto-close, and word motion uses the same `'!?` continuation chars as Emacs's syntax table.
+
+- [x] **Step 28: VS Code LSP client.** Added `vscode-languageclient` (^8.1.0) to `editor/vscode/package.json`; `extension.js` instantiates a `LanguageClient` on the `deduce` language that spawns `<deduce.pythonPath> -m lsp.lsp_server` with cwd = `<deduce.deduceRoot>` and `PYTHONPATH` set to the same path (belt-and-suspenders for when VS Code is launched outside the workspace folder).  Once running, VS Code gets the LSP server's existing features for free: live diagnostics, go-to-definition (F12 / Ctrl-click), document outline / breadcrumbs (`Cmd+Shift+O`), and the no-prompt code actions ("Refine hole", "Induction") via the lightbulb.  Reuses the existing `deduce.pythonPath` / `deduce.deduceRoot` settings and adds `deduce.noStdlib` (sets `DEDUCE_NO_STDLIB=1` in the spawned env) to mirror Emacs's `deduce-lsp-prelude-disabled`.  A `**/*.pf` filesystem watcher is registered in `clientOptions.synchronize` so cross-file edits (sibling modules, prelude) invalidate the LSP server's per-statement cache.  Install / packaging notes in `editor/vscode/README.md` gain an `npm install` step ahead of `vsce package` so the runtime dep is bundled.
+
+- [x] **Step 29: Goal-at-point command in VS Code.** Command palette entry `Deduce: Show goal at cursor` (bound to `Ctrl+Alt+G` via `contributes.keybindings` with `editorLangId == deduce` so the binding doesn't leak into other languages), registered in `extension.js` as `deduce.showGoal`.  The handler issues the existing `deduce/goalAt` custom request at the current cursor and renders the goal + givens in a dedicated `Deduce Goal` Output channel via a `renderGoal` helper that mirrors Emacs's `deduce-lsp--render-goal` line-by-line.  Output channel chosen as the closest VS Code analogue to Emacs's `*Deduce Goal*` popup buffer — dedicated panel, doesn't disturb the editor layout, survives across repeated calls (each call clears + repopulates).  No-goal / no-server / no-client cases yield distinct user-facing error messages.
+
+- [ ] **Step 30: Structured-editing commands in VS Code.** Five commands that mirror the Emacs `C-c C-{r,c,i,e,f}` bindings (refine, case split, induction, eliminate, fill-from-given).  `refine` and `induction` issue `textDocument/codeAction` and apply the matched action's `WorkspaceEdit` directly; `caseSplit` and `eliminate` first issue `deduce/{splittableVars,eliminableVars}At` to populate a `window.showQuickPick` of candidates, then issue the matching custom edit request; `fillFromGiven` picks the first candidate without prompting (matching Emacs after issue #385).
+
+- [ ] **Step 31: `textDocument/completion` — in-buffer tab completion.** Add a `TEXT_DOCUMENT_COMPLETION` feature to `lsp/lsp_server.py` that returns:
+    - Deduce keywords from `gh_pages/scripts/keywords.py` (those with category `keyword` / `type` / `prim`).
+    - Top-level names in scope at the cursor (already available via `definition_of` / `list_symbols`).
+    - Inside a hole context (`PHole` at cursor), labels and variable names from `holeContextAt`'s `env`, so completion narrows to in-scope hypotheses without the user remembering exact label spelling.
+  Editor wiring: VS Code gets it for free once Step 28 ships (the LSP client advertises `completionProvider` by default).  Emacs gains a CAPF (`deduce-mode-completion-at-point`) registered from `deduce-lsp` so `TAB` / `M-TAB` triggers the same in-buffer completion (today `TAB` is indentation-only and `completing-read` is minibuffer-only).
+
+- [ ] **Step 32: LLM hole filling in VS Code.** Port `deduce-fill-hole.el` to a VS Code command.  Same backend choices (`anthropic` / `openai`) and validation contract (the LLM's proof must check before splice).  API keys read from the environment (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `REALLMS_API_KEY`), same as Emacs.
+
+- [ ] **Step 33: VS Code Marketplace publication.** Bump `version` in `package.json`, write `CHANGELOG.md`, publish via `vsce publish`.  Gate on Steps 27-30 landing; Steps 31-32 can ship in later versions.
+
+### Sequencing notes for Phase 6
+
+- Steps 27, 28, 29 are tightly grouped and the natural first PR: syntax highlighting + LSP client + goal-at-point gets VS Code from "debugger only" to "browse + check + diagnose".  Step 30 is a larger lift (five new commands, candidate-list QuickPicks, WorkspaceEdit application) and a natural second PR.
+- Step 31 is the only step in Phase 6 that touches the LSP server itself.  Sequence it after Step 30 (so the VS Code client is exercising the server before we add a new feature) and before Step 33 (so completion ships in v1.0 of the marketplace extension).
+- Step 32 is independent and can land at any point after Step 28.
 
 ## Cross-cutting notes
 

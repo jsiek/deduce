@@ -177,6 +177,46 @@ CASES = [
         cursor=Position(line=6, column=17),
         expected_def_line=1,
     ),
+    DefnCase(
+        # F12 on a Union constructor (vs. the Union name above) must
+        # descend into Union.alternatives and return the constructor's
+        # own location, not None.  Pre-fix the lookup only checked
+        # top-level statements; constructors live inside the Union.
+        name="constructor_red_in_define_body",
+        source=(
+            "union Color {\n"          # line 1
+            "  Red\n"                  # line 2: constructor declaration
+            "  Blue\n"                 # line 3
+            "}\n"                      # line 4
+            "\n"                       # line 5
+            "define MyColor: Color = Red\n"   # line 6
+        ),
+        # cursor on the `R` of `Red` in the body of the define
+        cursor=Position(line=6, column=25),
+        expected_def_line=2,
+    ),
+    DefnCase(
+        # F12 on a predicate-rule label (e.g. ``ev0`` below) must
+        # descend into ``Predicate.rules`` -- the rule's name + Meta
+        # live inside the predicate declaration, not at top level.
+        name="predicate_rule_use_in_proof",
+        source=(
+            "import UInt\n"                                       # line 1
+            "\n"                                                  # line 2
+            "predicate even : fn UInt -> bool {\n"                # line 3
+            "  ev0   : even(0)\n"                                 # line 4: rule declaration
+            "  ev_ss : all n : UInt. if even(n) then even(n + 2)\n"  # line 5
+            "}\n"                                                 # line 6
+            "\n"                                                  # line 7
+            "theorem zero_is_even : even(0)\n"                    # line 8
+            "proof\n"                                             # line 9
+            "  ev0\n"                                             # line 10: rule used as a proof
+            "end\n"                                               # line 11
+        ),
+        # cursor on the `e` of `ev0` on the proof line
+        cursor=Position(line=10, column=3),
+        expected_def_line=4,
+    ),
 ]
 
 
@@ -210,18 +250,104 @@ def test_definition_of_returns_none_on_parse_error() -> None:
 
 
 def test_definition_of_returns_none_when_target_is_imported() -> None:
-    """The current implementation only consults the user's file; if
-    the cursor lands on an identifier defined in an imported module
-    (or a built-in like ``bool``), we return None rather than guess."""
+    """The ``true`` literal is a ``Bool`` AST node, not a ``Var``, so it
+    has no resolvable name -- ``_find_reference_at`` returns ``None``
+    well before ``_find_declaration`` would get a chance.  Holds
+    regardless of the cross-file import-walking added later."""
     source = (
         "theorem t: true\n"
         "proof\n"
         "  .\n"
         "end\n"
     )
-    # The 'true' literal is a Bool node, not a Var, so it has no
-    # definition to find.
     assert definition_of("test.pf", source, Position(line=1, column=13)) is None
+
+
+# --------------------------------------------------------------------------
+# Cross-file definition_of
+# --------------------------------------------------------------------------
+
+
+def test_definition_of_cross_file_constructor() -> None:
+    """F12 on ``suc`` from a file that ``import Nat``s should jump to
+    the constructor's declaration in ``lib/NatDefs.pf`` (the actual
+    Union home, reached transitively through Nat's barrel imports)."""
+    source = (
+        "import Nat\n"                       # line 1
+        "\n"                                  # line 2
+        "define x : Nat = suc(zero)\n"        # line 3
+    )
+    # column count for line 3: d=1 e=2 f=3 i=4 n=5 e=6 ' '=7 x=8 ' '=9
+    # :=10 ' '=11 N=12 a=13 t=14 ' '=15 ==16 ' '=17 s=18
+    loc = definition_of("test.pf", source, Position(line=3, column=18))
+    assert loc is not None, "cross-file F12 on suc returned None"
+    assert loc.path.endswith("lib/NatDefs.pf"), (
+        f"expected lib/NatDefs.pf, got {loc.path!r}"
+    )
+    # The ``suc(Nat)`` constructor sits inside ``union Nat { ... }`` on
+    # line 5 of NatDefs.pf.
+    assert loc.range.start.line == 5
+
+
+def test_definition_of_cross_file_operator() -> None:
+    """F12 on a ``recursive operator`` defined in an imported module
+    should jump to the start of the operator's declaration block --
+    same shape as the constructor case but exercises the ``RecFun``
+    arm of the walker rather than ``Union.alternatives``."""
+    source = (
+        "import Nat\n"                       # line 1
+        "\n"                                  # line 2
+        "define one : Nat = suc(zero)\n"      # line 3
+        "define two : Nat = one + one\n"      # line 4
+    )
+    # line 4: d=1 e=2 f=3 i=4 n=5 e=6 ' '=7 t=8 w=9 o=10 ' '=11 :=12
+    # ' '=13 N=14 a=15 t=16 ' '=17 ==18 ' '=19 o=20 n=21 e=22 ' '=23 +=24
+    loc = definition_of("test.pf", source, Position(line=4, column=24))
+    assert loc is not None, "cross-file F12 on + returned None"
+    assert loc.path.endswith("lib/NatDefs.pf"), (
+        f"expected lib/NatDefs.pf, got {loc.path!r}"
+    )
+    # ``recursive operator +(Nat,Nat) -> Nat { ... }'' starts on line 8.
+    assert loc.range.start.line == 8
+
+
+def test_definition_of_overloaded_operator_preserves_use_site() -> None:
+    """Regression for the type-checker location leak: when an
+    overloaded operator's call gets resolved during type-check,
+    ``type_check_call_helper'' must keep the rator's use-site
+    location on the new ``ResolvedVar''.  Pre-fix it copied the
+    FunctionType's declaration-site location, which made
+    ``_find_reference_at'' miss the use site and F12 returned null.
+
+    ``+'' is overloaded across at least Nat and UInt; both arms
+    exercise the bug, but Nat's is enough.  This test asserts F12
+    on ``+'' returns the Nat operator (and not None), which is
+    only possible when the rator's Var/ResolvedVar still has the
+    use-site Meta in the user-file."""
+    source = (
+        "import Nat\n"                       # line 1
+        "\n"                                  # line 2
+        "theorem add_zero : all n:Nat. zero + n = n\n"   # line 3
+        "proof\n"                                         # line 4
+        "  arbitrary n:Nat\n"                             # line 5
+        "  evaluate\n"                                    # line 6
+        "end\n"                                           # line 7
+    )
+    # line 3: t=1 h=2 e=3 o=4 r=5 e=6 m=7 ' '=8 a=9 d=10 d=11 _=12 z=13
+    # e=14 r=15 o=16 ' '=17 :=18 ' '=19 a=20 l=21 l=22 ' '=23 n=24 :=25
+    # N=26 a=27 t=28 .=29 ' '=30 z=31 e=32 r=33 o=34 ' '=35 +=36
+    loc = definition_of("test.pf", source, Position(line=3, column=36))
+    assert loc is not None, (
+        "F12 on overloaded `+' returned None -- "
+        "type checker is leaking the operator declaration's location "
+        "onto the ResolvedVar, masking the use site"
+    )
+    # ``recursive operator +(Nat,Nat) -> Nat { ... }'' starts on line 8
+    # of lib/NatDefs.pf.
+    assert loc.path.endswith("lib/NatDefs.pf"), (
+        f"expected lib/NatDefs.pf, got {loc.path!r}"
+    )
+    assert loc.range.start.line == 8
 
 
 def test_definition_of_ignores_imported_node_locations() -> None:

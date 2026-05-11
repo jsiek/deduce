@@ -936,13 +936,21 @@ def definition_of(
     Walks the post-typecheck AST returned by ``check_file``, finds the
     ``Var`` whose source range contains ``pos``, takes its first
     (i.e. type-resolved) entry from ``resolved_names``, and looks up
-    the matching top-level declaration.
+    the matching declaration.  Cross-file references are followed
+    through ``Import.ast`` (see :func:`_find_declaration`), so F12 on
+    a name imported from the prelude or a user import resolves to the
+    declaration site in that file.
+
+    The returned ``Location``'s ``path`` is taken from the matched
+    declaration's ``Meta.filename`` — for same-file matches this is
+    ``path``; for cross-file matches it's the imported module's source
+    path (e.g. ``lib/NatDefs.pf``).  Callers that turn this back into
+    an LSP URI (the LSP server's ``on_definition``) need to be ready
+    for a different file than the request URI.
 
     Returns ``None`` when there is no resolvable symbol at ``pos``
-    (whitespace, keyword, unparseable region) or when the definition
-    is outside any source file the server can see -- e.g. it lives in
-    an imported module, since today the only AST we consult is the
-    user's file.
+    (whitespace, keyword, unparseable region) or when the declaration
+    can't be found anywhere reachable from the file's import graph.
 
     ``prelude`` matches the meaning in :func:`check`.
     """
@@ -960,7 +968,13 @@ def definition_of(
     if decl_meta is None:
         return None
 
-    return Location(path=path, range=_range_from_meta(decl_meta))
+    # Prefer the meta's recorded source file when available: for
+    # cross-file matches this is the imported module's path.  Falling
+    # back to the request path keeps the behaviour consistent for
+    # synthetic AST nodes whose meta lacks ``filename`` (e.g. test
+    # fixtures built without a parser pass).
+    resolved_path = getattr(decl_meta, "filename", None) or path
+    return Location(path=resolved_path, range=_range_from_meta(decl_meta))
 
 
 def list_symbols(
@@ -1114,9 +1128,33 @@ def _meta_span(meta) -> int:
     return 10_000 * (meta.end_line - meta.line) + meta.end_column
 
 
-def _find_declaration(ast_nodes, target_name: str):
-    """Find the top-level declaration whose uniquified ``name`` field
-    equals ``target_name``. Returns its ``Meta`` location or ``None``.
+def _find_declaration(ast_nodes, target_name: str, _seen=None):
+    """Find a declaration whose uniquified ``name`` field equals
+    ``target_name``.  Returns its ``Meta`` location, or ``None``.
+
+    Walks top-level statements first, then descends into:
+
+    - ``Union.alternatives`` — each ``Constructor`` carries its own
+      uniquified name + ``Meta``, so F12 on ``suc`` from a
+      ``case suc(n')`` pattern or a ``suc(n+m)`` expression resolves
+      to the constructor's declaration line inside the ``union``
+      block.
+    - ``Predicate.rules`` — each introduction ``Rule`` likewise carries
+      a uniquified name + ``Meta``, so F12 on a rule label inside a
+      ``rule`` invocation jumps to the rule's declaration inside the
+      ``predicate``/``relation`` block.
+    - ``Import.ast`` — each ``Import`` (both user-written and prelude-
+      injected) stashes the imported module's processed AST on the node
+      itself.  Walking it gives us cross-file F12: a reference to a
+      name declared in an imported module resolves to that file's
+      Meta (whose ``filename`` field points at the source file).  The
+      walk is transitive — ``Nat`` is a "barrel" module that imports
+      ``NatDefs``, ``Base``, etc., so reaching the actual constructor
+      declaration requires descending through the chain.
+
+    ``_seen`` tracks already-visited module names so a diamond import
+    (A → B, A → C, both → D) doesn't double-walk D's AST.  It's a
+    private recursion parameter; callers should leave it ``None``.
     """
     from abstract_syntax import (
         Define,
@@ -1128,10 +1166,28 @@ def _find_declaration(ast_nodes, target_name: str):
         Union,
     )
 
-    decl_types = (Theorem, Postulate, Define, RecFun, Union, Predicate, Import)
+    if _seen is None:
+        _seen = set()
+
+    decl_types = (Theorem, Postulate, Define, RecFun, Union, Predicate)
     for stmt in ast_nodes:
         if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
             return stmt.location
+        if isinstance(stmt, Union):
+            for cons in stmt.alternatives:
+                if getattr(cons, "name", None) == target_name:
+                    return cons.location
+        elif isinstance(stmt, Predicate):
+            for rule in stmt.rules:
+                if getattr(rule, "name", None) == target_name:
+                    return rule.location
+        elif isinstance(stmt, Import) and stmt.ast:
+            if stmt.name in _seen:
+                continue
+            _seen.add(stmt.name)
+            found = _find_declaration(stmt.ast, target_name, _seen)
+            if found is not None:
+                return found
     return None
 
 

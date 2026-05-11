@@ -6,24 +6,55 @@ lockstep with it.
 
 [deduce]: https://github.com/jsiek/deduce
 
-> **Status (May 2026):** the extension currently ships the debugger
-> integration (Phase 5 / Step 26 of `docs/lsp-plan.md`).  Syntax
-> highlighting and the LSP client wiring will be added in follow-up
-> work; today, language-mode features come from any companion
-> TextMate / LSP setup you already have.  This directory is the
-> place for those additions when they land.
+> **Status (May 2026):** the extension ships syntax highlighting
+> (Phase 6 / Step 27 of `docs/lsp-plan.md`), the LSP client
+> (Step 28), the goal-at-cursor command (Step 29), and the
+> debugger integration (Phase 5 / Step 26).  The structured-
+> editing commands (refine, case split, induction, eliminate,
+> fill-from-given) and in-buffer tab completion are the next
+> chunks.
 
 ## What ships today
 
-- A `type: "deduce"` debugger contribution.  When you launch a
+- **Syntax highlighting** for `.pf` files via the TextMate grammar
+  at `syntaxes/deduce.tmLanguage.json`.  Keyword, type, constant,
+  comment, numeric, and "warning" (standalone `?`, `sorry`)
+  categories mirror the Emacs `deduce-mode` font-lock rules.
+  Capitalized identifiers — user-defined Union types and
+  constructors — are heuristically rendered with the type face.
+- **Language configuration** (`language-configuration.json`) for
+  `Cmd+/` line-comment toggling, `/* */` block-comment toggling,
+  bracket matching and auto-closing for `{}` / `[]` / `()`, and
+  a word pattern that treats `'`, `!`, `?` as identifier
+  continuation characters so word motion (M-f / Ctrl-Right) stops
+  at the right boundaries for names like `theorem1'?`.
+- **Language server client** (`vscode-languageclient`) that spawns
+  `<deduce.pythonPath> -m lsp.lsp_server` with cwd =
+  `<deduce.deduceRoot>` and gives you, for any open `.pf` file:
+    - **Live diagnostics** — errors and *incomplete proof* goals
+      show up as red squiggles in the editor and rows in the
+      *Problems* panel (`Cmd+Shift+M`) as soon as the file is
+      checked.
+    - **Go to definition** (`F12`, `Cmd+Click`) — jump from a
+      name to where it's defined, across `lib/` and your own
+      imports.
+    - **Document outline** (`Cmd+Shift+O`, breadcrumbs) — the
+      top-level theorems, definitions, unions, and inductive
+      declarations of the current file.
+    - **Code actions** — when the cursor is on a `?` hole that
+      the server can fill, the lightbulb (`Cmd+.`) offers
+      *Refine hole* (Step 15) and *Induction* (Step 17).
+- **Goal-at-cursor command** — `Ctrl+Alt+G` (or Command Palette:
+  *Deduce: Show goal at cursor*) issues the custom
+  `deduce/goalAt` request at the cursor and renders the goal +
+  givens in a dedicated *Deduce Goal* Output channel.  Mirror of
+  Emacs's `C-c C-g` / `deduce-show-goal-at-point`.
+- A `type: "deduce"` **debugger** contribution.  When you launch a
   debug session, the extension spawns
   `<deduce.pythonPath> <deduce.deduceRoot>/lsp/dap_server.py` as
   the DAP adapter and wires the standard VS Code debug UI
   (gutter breakpoints, the call-stack panel, the locals view, the
   Debug Console, the step/over/in/out toolbar) to it.
-- A minimal `deduce` language declaration so the debugger
-  contribution can attach to `.pf` files.  (No syntax highlighting
-  shipped here yet — that's a follow-up.)
 
 ## Prerequisites
 
@@ -31,9 +62,21 @@ lockstep with it.
 - Python 3.11+ with `lark==1.2.2` installed (the same prerequisites
   as `deduce.py` itself).  See *Settings* below if your default
   `python3` doesn't have `lark`.
+- For the LSP features (diagnostics, go-to-def, outline, code
+  actions), also install `pygls>=2.1.0`:
+  ```sh
+  pip install -r requirements-lsp.txt   # from the repo root
+  ```
+  Without `pygls`, the syntax highlighting and debugger still
+  work, but the language server fails to start and you'll see a
+  red status bar entry.
 - A Deduce checkout (this repository).  By default the extension
   expects `.pf` files to live inside the checkout so the adapter
-  can find `lsp/dap_server.py`; set `deduce.deduceRoot` otherwise.
+  can find `lsp/dap_server.py` and `lsp/lsp_server.py`; set
+  `deduce.deduceRoot` otherwise.
+- Node.js + npm if you plan to package the extension yourself
+  (used by `vsce package` to install runtime deps like
+  `vscode-languageclient`).
 - The `code` CLI helper if you want to launch from a terminal
   (used in the install snippets below).  Install via VS Code's
   Command Palette: `Cmd+Shift+P` → "Shell Command: Install 'code'
@@ -46,9 +89,22 @@ out, run from source.
 
 ### Run from source (no install)
 
+Install the runtime npm deps once, then point VS Code at the
+extension directory:
+
 ```sh
+cd editor/vscode
+npm install
+cd -
 code --extensionDevelopmentPath="$(pwd)/editor/vscode" /path/to/your/proofs
 ```
+
+The `npm install` step pulls `vscode-languageclient` into
+`editor/vscode/node_modules/` so the LSP client can load.
+Without it, syntax highlighting and the debugger still work,
+but you'll see *"Cannot find module 'vscode-languageclient/node'"*
+in the Developer Tools console and language-server features
+will be inactive.
 
 VS Code opens a fresh window with the extension active for that
 session only.  Useful while iterating on the extension itself.
@@ -63,6 +119,7 @@ Package into a `.vsix` and install.  Requires [`vsce`][vsce]:
 
 ```sh
 cd editor/vscode
+npm install
 npx vsce package           # produces deduce-0.1.0.vsix
 code --install-extension deduce-0.1.0.vsix
 ```
@@ -103,13 +160,14 @@ picker offers the "Deduce" snippet from this extension's
 
 ## Settings
 
-The extension exposes two settings under the `Deduce` group
+The extension exposes three settings under the `Deduce` group
 (`Cmd+,` → search for "deduce" or edit JSON):
 
 | Setting              | Default     | Effect                                                                                |
 | -------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `deduce.pythonPath`  | `"python3"` | Path to the Python interpreter used to run the debug adapter (`lsp/dap_server.py`).  Must have `lark` installed.  Absolute paths are supported; otherwise looked up on `$PATH`. |
-| `deduce.deduceRoot`  | `""`        | Absolute path to your Deduce **installation** — the directory containing `lsp/dap_server.py`.  **Not** your proofs directory.  Defaults to the workspace folder when empty.  Set this only when your workspace is your proofs directory and the Deduce checkout lives elsewhere. |
+| `deduce.pythonPath`  | `"python3"` | Path to the Python interpreter used to run both the language server (`lsp/lsp_server.py`) and the debug adapter (`lsp/dap_server.py`).  Must have `lark` (and, for LSP features, `pygls`) installed.  Absolute paths are supported; otherwise looked up on `$PATH`. |
+| `deduce.deduceRoot`  | `""`        | Absolute path to your Deduce **installation** — the directory containing `lsp/lsp_server.py` and `lsp/dap_server.py`.  **Not** your proofs directory.  Defaults to the workspace folder when empty.  Set this only when your workspace is your proofs directory and the Deduce checkout lives elsewhere. |
+| `deduce.noStdlib`    | `false`     | If true, the language server starts without the standard library prelude (sets `DEDUCE_NO_STDLIB=1`, mirroring `deduce.py --no-stdlib`).  Useful when working on `lib/` itself.  Does not affect the debugger. |
 
 **Common pitfall on macOS:** the default `python3` on `$PATH` may
 not be the interpreter you `pip install lark`ed into.  If F5
@@ -203,6 +261,29 @@ After installing, wiring `launch.json`, and (if needed) setting
 
 ## Troubleshooting
 
+### No diagnostics appear / "Deduce Language Server" stopped
+
+A red status-bar entry "Deduce Language Server" means the LSP
+client started but the server process died.  Two common causes:
+
+- **`pygls` not installed.**  The LSP server (unlike the debug
+  adapter) needs `pygls`:
+  ```sh
+  <your python> -m pip install -r requirements-lsp.txt
+  ```
+  Run this against the same interpreter you pointed
+  `deduce.pythonPath` at.
+- **`vscode-languageclient` not installed.**  If you're running
+  from source (`--extensionDevelopmentPath`), `npm install` once
+  inside `editor/vscode/` to pull the runtime deps; the Developer
+  Tools console (`Help → Toggle Developer Tools`) shows
+  *"Cannot find module 'vscode-languageclient/node'"* in this
+  case.
+
+Click the status-bar entry once to see the server log in an
+Output channel — the full Python traceback usually points at
+the missing import or the wrong working directory.
+
 ### "Configured debug type 'deduce' is not supported"
 
 The extension didn't load.  Either:
@@ -277,15 +358,22 @@ deliberately.
 
 ## Roadmap
 
-- **Syntax highlighting** via a TextMate grammar (`syntaxes/`).
-  The keyword list lives in `gh_pages/scripts/keywords.py`; a
-  TextMate grammar generator there would keep VS Code and the web
-  sandbox aligned.
-- **LSP client** wiring `python3 -m lsp.lsp_server` via
-  `vscode-languageclient`.  Diagnostics, hover, go-to-definition,
-  the goal-at-point command — same surface
-  [`deduce-lsp.el`](../emacs/deduce-lsp.el) exposes for Emacs.
-- **Marketplace publication** once syntax + LSP are in.
+Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
+section.  In rough landing order:
+
+- **Structured-editing commands** (Step 30) — refine, case split,
+  induction, eliminate, fill-from-given.  Emacs equivalents:
+  `C-c C-{r,c,i,e,f}`.
+- **Tab completion** (Step 31).  Needs a new LSP-server feature
+  (`textDocument/completion`) returning keywords + in-scope names
+  + hole-aware label/variable candidates; once it lands, the LSP
+  client picks it up automatically.  Same feature surfaces in
+  Emacs as a CAPF.
+- **LLM hole filling** (Step 32) — VS Code port of
+  [`deduce-fill-hole.el`](../emacs/deduce-fill-hole.el).
+- **Marketplace publication** (Step 33) once Steps 27-30 are in.
+
+[kw]: ../../gh_pages/scripts/keywords.py
 
 The replaced unmaintained extension was
 [HalflingHelper/deduce-mode][external]; this in-tree directory

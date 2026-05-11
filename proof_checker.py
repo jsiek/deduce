@@ -2111,8 +2111,17 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
       for (x, funty) in overloads:
           match funty:
             case FunctionType(loc2, typarams, param_types, return_type):
+              # Preserve the rator's use-site location (e.g. the `+'
+              # token in `x + y') on the resolved variable.  Using
+              # `loc2' (the FunctionType's declaration site) here
+              # would leak the operator's declaration location into
+              # every Call.rator, breaking F12 / hover for overloaded
+              # operators -- the location info is the only thing the
+              # LSP can use to spot the use site.  Non-overloaded
+              # names go through the `FunctionType' arm below where
+              # ``new_rator'' is passed through unchanged.
               try:
-                new_call = type_check_call_funty(loc, ResolvedVar(loc2, funty, x), args, env, recfun,
+                new_call = type_check_call_funty(loc, ResolvedVar(new_rator.location, funty, x), args, env, recfun,
                                                  subterms, ret_ty, call,
                                                  typarams, param_types, return_type)
                 num_matches += 1
