@@ -38,6 +38,19 @@ Three layers, each independently usable:
   from the repo root. (pygls 2.0.x had a different API and will not
   work.)
 
+### For the debugger (`deduce-dap`)
+
+- **`dap-mode`** — the third-party package that drives the
+  graphical debug UI.  Install from MELPA:
+  `M-x package-install RET dap-mode RET`.  No specific minimum
+  version; `dap-mode` 0.7 or later is widely tested.
+- **The DAP adapter itself** is already part of the Deduce
+  checkout (`lsp/dap_server.py`) and inherits the `python3 +
+  lark` prerequisite listed above.  Make sure the Python you
+  point `deduce-dap-python-program` at (default `"python3"`) is
+  the one that has `lark` — see the troubleshooting entry below
+  for the common pitfall.
+
 ### For LLM-powered hole filling (`deduce-fill-hole`)
 
 - **`anthropic>=0.40.0`** and **`openai>=1.50.0`** — install both
@@ -89,6 +102,12 @@ form.
   :after (deduce-mode eglot)
   ;; :custom (deduce-lsp-deduce-root "~/src/deduce")
   )
+
+(use-package deduce-dap
+  :load-path "/path/to/deduce/editor/emacs"
+  :after (deduce-mode dap-mode)
+  ;; :custom (deduce-dap-python-program "python3.13")
+  )
 ```
 
 ### Without `use-package`
@@ -99,10 +118,13 @@ form.
 (require 'deduce-mode)
 (require 'deduce-lsp)         ; optional: omit for major mode only
 (require 'deduce-fill-hole)   ; optional: LLM hole filling, depends on deduce-lsp
+(require 'deduce-dap)         ; optional: debugger; requires dap-mode from MELPA
 
 ;; If your .pf files live OUTSIDE the deduce repo, point the LSP
 ;; server at your checkout so the language server can be found:
 ;; (setq deduce-lsp-deduce-root "~/src/deduce")
+;; And/or pin the python interpreter for the debug adapter:
+;; (setq deduce-dap-python-program "python3.13")
 ```
 
 Opening any `.pf` file will then enter `deduce-mode` (registered via
@@ -182,6 +204,46 @@ auto-start hook:
   hypothesis shape; fill-from-given picks by formula equality with
   the goal.
 
+`deduce-dap` (when loaded, also requires the third-party
+`dap-mode` package from MELPA):
+
+- `C-c C-d` — **launch a debug session on the current `.pf`
+  file.**  Spawns `python3 -m lsp.dap_server` as the adapter and
+  drives it via `dap-mode`'s standard UI: gutter breakpoints,
+  call-stack pane (`*dap-ui-sessions*`), locals view
+  (`*dap-ui-locals*`), program-output pane (`*Deduce :: launch
+  current file out*` — `print` results land here), and the
+  Debug Console.  The very first pause lands at your file's
+  first user-level statement, mirroring `python deduce.py
+  --debug`.
+- **Stepping with F-keys.**  `F5` continues, `F10` steps over,
+  `F11` steps in, `S-F11` steps out, `S-F5` disconnects.
+  Bindings are gdb / VS Code conventions and only fire in
+  `deduce-mode` buffers.
+- **Breakpoints.**  `M-x dap-breakpoint-toggle` (or
+  `dap-breakpoint-add`) on a line sets a line breakpoint;
+  breakpoints set before `C-c C-d` are armed via
+  `setBreakpoints` at launch.  Conditional breakpoints work via
+  `M-x dap-breakpoint-condition`.  Function-name breakpoints are
+  not exposed by stock dap-mode — set a line bp on the function
+  definition instead, or use the CLI debugger's `b <name>`.
+- **Evaluate expressions** at a pause: `M-x dap-eval RET <expr>
+  RET` sends a DAP `evaluate` request that drives the same
+  parser + reducer the CLI debugger's `print` command uses.
+- **Pattern-bound locals are visible.**  When you step into a
+  recursive function such as `count_down(suc(n'))`, the locals
+  pane shows the pattern binding (e.g. `n' = suc(zero)`).  Each
+  recursive descent updates it; each return restores the
+  caller's binding.  The Locals tree starts collapsed — click
+  the triangle (or `RET` on the line) to expand.
+- **Return notifications** (`<- returned from count_down(...)`)
+  appear in the per-session output pane as the recursion
+  unwinds, one line per visible frame.
+- Standard-library calls are stepped over automatically
+  (matching the CLI's behavior); see
+  [`gh_pages/doc/Debugger.md`](../../gh_pages/doc/Debugger.md#what-the-debugger-skips)
+  for the full command surface and the skip rules.
+
 `deduce-fill-hole` (additional, requires an LLM API key — Anthropic,
 OpenAI, or IU REALLMs depending on backend choice):
 
@@ -220,7 +282,8 @@ OpenAI, or IU REALLMs depending on backend choice):
 ## Customization
 
 All variables are `defcustom`s reachable via `M-x customize-group
-RET deduce RET` or `M-x customize-group RET deduce-lsp RET`.
+RET deduce RET` (root group), or any of the per-layer groups:
+`deduce-lsp`, `deduce-fill-hole`, `deduce-dap`.
 
 ### `deduce-mode`
 
@@ -239,6 +302,21 @@ RET deduce RET` or `M-x customize-group RET deduce-lsp RET`.
 
 For full control over the launch command, `defun deduce-lsp-server-command`
 in your `init.el` returning whatever list eglot should spawn.
+
+### `deduce-dap`
+
+| Variable                       | Default     | Effect                                                                       |
+| ------------------------------ | ----------- | ---------------------------------------------------------------------------- |
+| `deduce-dap-python-program`    | `"python3"` | Python interpreter used to launch the DAP adapter (`lsp/dap_server.py`)      |
+| `deduce-dap-deduce-root`       | `nil`       | Path to a Deduce checkout; sets `PYTHONPATH` so `python3 -m lsp.dap_server` resolves regardless of cwd. By default the adapter's cwd is the project root (via `project-current`), which is enough when your `.pf` lives inside the Deduce repo. |
+| `deduce-dap-prelude-disabled`  | `nil`       | If non-nil, sets `DEDUCE_NO_STDLIB=1` so debug sessions skip the prelude     |
+
+The common gotcha: on systems with multiple Python installs the
+`python3` first on `$PATH` may not be the one you `pip install
+lark`ed into, leading to a `ModuleNotFoundError: No module named
+'lark'` and the session exiting immediately.  Point
+`deduce-dap-python-program` at the right interpreter — see the
+matching troubleshooting entry below.
 
 ### `deduce-fill-hole`
 
