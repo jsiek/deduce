@@ -112,6 +112,74 @@ function activate(context) {
     // Start asynchronously; failures show up as the server status
     // bar entry going red rather than as a popup on every activation.
     client.start();
+
+    // --- Goal-at-cursor command ----------------------------------
+    //
+    // Mirror of editor/emacs/deduce-lsp.el's `deduce-show-goal-at-point'
+    // (C-c C-g).  Issues `deduce/goalAt' on the current cursor and
+    // renders the result into a dedicated Output channel.  An Output
+    // channel is the closest analogue to Emacs's `*Deduce Goal*'
+    // buffer: dedicated panel, doesn't disturb the editor layout,
+    // append-friendly across repeated calls.
+    const goalChannel = vscode.window.createOutputChannel('Deduce Goal');
+    context.subscriptions.push(goalChannel);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('deduce.showGoal', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'deduce') {
+                vscode.window.showInformationMessage(
+                    'Deduce: open a .pf file and place the cursor where you want the goal.');
+                return;
+            }
+            if (!client) {
+                vscode.window.showErrorMessage(
+                    'Deduce: language server is not running.  See the '
+                    + '"Deduce Language Server" status bar entry for details.');
+                return;
+            }
+            const params = {
+                textDocument: { uri: editor.document.uri.toString() },
+                position: {
+                    line: editor.selection.active.line,
+                    character: editor.selection.active.character,
+                },
+            };
+            let response;
+            try {
+                response = await client.sendRequest('deduce/goalAt', params);
+            } catch (err) {
+                vscode.window.showErrorMessage(
+                    `Deduce: goal-at-cursor request failed: ${err.message || err}`);
+                return;
+            }
+            goalChannel.clear();
+            renderGoal(goalChannel, response);
+            goalChannel.show(true);
+        })
+    );
+}
+
+// Pretty-print a deduce/goalAt response into the goal Output channel.
+// Mirror of editor/emacs/deduce-lsp.el's `deduce-lsp--render-goal'.
+// Shape: { formula: str, givens: [{ label: str|null, formula: str }], range: ... }
+function renderGoal(channel, response) {
+    if (!response) {
+        channel.appendLine('No goal at this position.');
+        return;
+    }
+    channel.appendLine('Goal:');
+    channel.appendLine('  ' + (response.formula || '?'));
+    const givens = response.givens || [];
+    if (givens.length > 0) {
+        channel.appendLine('');
+        channel.appendLine('Givens:');
+        for (const g of givens) {
+            const label = g.label || '_';
+            const formula = g.formula || '';
+            channel.appendLine(`  ${label}: ${formula}`);
+        }
+    }
 }
 
 function deactivate() {

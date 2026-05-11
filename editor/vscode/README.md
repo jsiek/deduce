@@ -8,10 +8,11 @@ lockstep with it.
 
 > **Status (May 2026):** the extension ships syntax highlighting
 > (Phase 6 / Step 27 of `docs/lsp-plan.md`), the LSP client
-> (Step 28), and the debugger integration (Phase 5 / Step 26).
-> Goal-at-point and the structured-editing commands (refine,
-> case split, induction, eliminate, fill-from-given) are the
-> next chunks.
+> (Step 28), the goal-at-cursor command (Step 29), and the
+> debugger integration (Phase 5 / Step 26).  The structured-
+> editing commands (refine, case split, induction, eliminate,
+> fill-from-given) and in-buffer tab completion are the next
+> chunks.
 
 ## What ships today
 
@@ -43,6 +44,11 @@ lockstep with it.
     - **Code actions** — when the cursor is on a `?` hole that
       the server can fill, the lightbulb (`Cmd+.`) offers
       *Refine hole* (Step 15) and *Induction* (Step 17).
+- **Goal-at-cursor command** — `Ctrl+Alt+G` (or Command Palette:
+  *Deduce: Show goal at cursor*) issues the custom
+  `deduce/goalAt` request at the cursor and renders the goal +
+  givens in a dedicated *Deduce Goal* Output channel.  Mirror of
+  Emacs's `C-c C-g` / `deduce-show-goal-at-point`.
 - A `type: "deduce"` **debugger** contribution.  When you launch a
   debug session, the extension spawns
   `<deduce.pythonPath> <deduce.deduceRoot>/lsp/dap_server.py` as
@@ -355,9 +361,6 @@ deliberately.
 Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
 section.  In rough landing order:
 
-- **Goal-at-point command** (Step 29) — `Ctrl+Alt+G` issues the
-  custom `deduce/goalAt` request and renders the goal in a
-  *Deduce Goal* output channel.  Emacs equivalent: `C-c C-g`.
 - **Structured-editing commands** (Step 30) — refine, case split,
   induction, eliminate, fill-from-given.  Emacs equivalents:
   `C-c C-{r,c,i,e,f}`.

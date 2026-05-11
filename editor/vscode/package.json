@@ -54,6 +54,20 @@
         "language": "deduce"
       }
     ],
+    "commands": [
+      {
+        "command": "deduce.showGoal",
+        "title": "Deduce: Show goal at cursor",
+        "category": "Deduce"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "deduce.showGoal",
+        "key": "ctrl+alt+g",
+        "when": "editorTextFocus && editorLangId == deduce"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Deduce",
