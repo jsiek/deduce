@@ -32,6 +32,10 @@ profile.png
 # Emacs byte-compiled files
 *.elc
 
+# VS Code extension build artifacts
+editor/vscode/node_modules/
+editor/vscode/*.vsix
+
 # C compilation artifacts from the deduce-to-C compiler
 *.o
 *.a
