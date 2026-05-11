@@ -2328,18 +2328,30 @@ def fill_from_given_at(
     label: str,
     prelude: Sequence[str] = (),
 ) -> Optional[WorkspaceEdit]:
-    """Fill the hole at ``pos`` with ``conclude <goal> by <label>``.
+    """Fill the hole at ``pos`` with a proof drawn from ``label``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token;
     that ``?`` is the replacement target.  ``label`` names an in-scope
-    local proof binding whose formula equals the goal at the hole.
+    local proof binding whose formula equals (or implies) the goal at
+    the hole.
+
+    Template shape depends on the match kind:
+
+    - **Exact** (``binding.formula == goal``): replaces ``?`` with just
+      ``<label>``.  A bare proof term is valid in both statement and
+      term positions, so this is the only shape that's safe inside a
+      conjunction slot ``pf1, pf2``, the body of ``have ... by``, etc.
+    - **Implies-only** (the binding's formula strictly implies the goal
+      via ``check_implies``): replaces ``?`` with ``conclude <goal> by
+      <label>``.  Statement-level shape; the verbose form lets the
+      proof checker run its auto-rule normalisation.
 
     Returns ``None`` when:
 
     - the cursor isn't on a ``?``,
     - the file has no incomplete proof at the cursor,
     - ``label`` isn't bound at the hole,
-    - the bound formula doesn't equal the goal, or
+    - the bound formula neither equals nor implies the goal, or
     - the bound formula isn't local (theorems are referred to by name
       directly, not via this command).
 
@@ -2455,9 +2467,29 @@ def _matching_given_names(goal, env) -> tuple:
 
 
 def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
-    """Return ``conclude <goal> by <label>`` when ``label`` names a
-    local proof binding in ``env`` whose formula equals or implies
+    """Return a proof of ``goal`` using ``label`` when ``label`` names
+    a local proof binding in ``env`` whose formula equals or implies
     ``goal``.
+
+    Two template shapes:
+
+    - **Exact match** (``binding.formula == goal``): returns just the
+      bare label.  A bare proof term works as a proof in *both*
+      statement position (top of a proof body, after ``assume``, ...)
+      and term position (the slots of a conjunction ``pf1, pf2``, the
+      body of ``have ... by``, an argument to ``apply``, ...).
+      ``conclude <goal> by <label>`` would be syntactically rejected
+      in term positions (``conclude`` is statement-level only), so the
+      bare label is the only universally safe shape.
+    - **Implies-only match** (``binding.formula`` strictly implies the
+      goal via ``check_implies``; e.g. ``Or`` introduction, ``And``
+      elimination): returns ``conclude <goal> by <label>``.  The
+      verbose form lets the proof checker run its auto-rule
+      normalisation, which a bare label wouldn't trigger.  This shape
+      stays statement-level; users hitting it in a term position will
+      need to wrap or restructure.  In practice exact matches dominate
+      (the whole point of fill-from-given is that the formulas match),
+      so the term-position breakage is mostly hypothetical.
 
     Returns ``None`` when the label isn't bound, isn't a local proof
     binding, or its formula neither equals nor implies the goal. The
@@ -2477,9 +2509,11 @@ def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
         return None
     if not binding.local:
         return None
-    if binding.formula != goal and not _implies(binding.formula, goal):
-        return None
-    return f"conclude {goal} by {label}"
+    if binding.formula == goal:
+        return label
+    if _implies(binding.formula, goal):
+        return f"conclude {goal} by {label}"
+    return None
 
 
 # ---------------------------------------------------------------------------

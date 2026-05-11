@@ -9,13 +9,16 @@ before issuing ``fill_from_given_at``.
 
 Coverage:
 
-(a) goal matches a unique given -> ``conclude <goal> by <label>``;
+(a) goal exactly matches a unique given -> bare ``<label>`` (the only
+    shape valid in both statement and term positions);
 (b) goal matches multiple givens -> all labels listed; either works;
-(c) goal matches no given -> empty list, ``None`` edit;
-(d) cursor not on ``?`` -> empty list, ``None`` edit;
-(e) label not in scope -> ``None``;
-(f) label is a term variable (not a proof binding) -> ``None``;
-(g) label is a theorem (not a local binding) -> ``None``.
+(c) given strictly implies the goal -> ``conclude <goal> by <label>``
+    (verbose form for auto-rule normalisation);
+(d) goal matches no given -> empty list, ``None`` edit;
+(e) cursor not on ``?`` -> empty list, ``None`` edit;
+(f) label not in scope -> ``None``;
+(g) label is a term variable (not a proof binding) -> ``None``;
+(h) label is a theorem (not a local binding) -> ``None``.
 
 All fixtures stay inside ``bool``-only territory so the tests run
 without the standard library prelude.
@@ -46,7 +49,9 @@ from lsp.query import (  # noqa: E402
 
 
 def test_fill_from_given_at_single_match() -> None:
-    """Goal ``P or Q`` with given ``H: P or Q`` -> conclude by H."""
+    """Exact match (goal ``P or Q`` with given ``H: P or Q``) emits the
+    bare label -- a proof term that's valid in both statement and term
+    positions, unlike ``conclude ... by ...`` which is statement-only."""
     source = (
         "theorem t: all P:bool, Q:bool. if P or Q then P or Q\n"
         "proof\n"
@@ -65,11 +70,12 @@ def test_fill_from_given_at_single_match() -> None:
         start=Position(line=5, column=3),
         end=Position(line=5, column=4),
     )
-    assert edit.new_text == "conclude (P or Q) by H"
+    assert edit.new_text == "H"
 
 
 def test_fill_from_given_at_atomic_goal() -> None:
-    """Atomic-formula match: goal ``P`` with given ``pP: P``."""
+    """Atomic-formula exact match: goal ``P`` with given ``pP: P``
+    emits just the bare label."""
     source = (
         "theorem t: all P:bool. if P then P\n"
         "proof\n"
@@ -82,11 +88,12 @@ def test_fill_from_given_at_atomic_goal() -> None:
         "test.pf", source, Position(line=5, column=3), "pP"
     )
     assert edit is not None
-    assert edit.new_text == "conclude P by pP"
+    assert edit.new_text == "pP"
 
 
 def test_fill_from_given_at_picks_either_match() -> None:
-    """Two matching givens: caller-chosen label both work."""
+    """Two matching givens: caller-chosen label both work, both as
+    bare labels."""
     source = (
         "theorem t: all P:bool. if P then if P then P\n"
         "proof\n"
@@ -101,12 +108,14 @@ def test_fill_from_given_at_picks_either_match() -> None:
             "test.pf", source, Position(line=6, column=3), label
         )
         assert edit is not None, f"label {label} produced no edit"
-        assert edit.new_text == f"conclude P by {label}"
+        assert edit.new_text == label
 
 
 def test_fill_from_given_at_implies_or_intro() -> None:
-    """Goal ``P or Q`` with given ``H: P`` -- the given strictly
-    implies the goal via ``Or`` introduction (issue #361)."""
+    """Implies-only match: goal ``P or Q`` with given ``H: P`` -- the
+    given strictly implies the goal via ``Or`` introduction (issue
+    #361).  Stays as ``conclude <goal> by <label>`` so the proof
+    checker's auto-rule normalisation fires."""
     source = (
         "theorem t: all P:bool, Q:bool. if P then P or Q\n"
         "proof\n"
@@ -120,6 +129,33 @@ def test_fill_from_given_at_implies_or_intro() -> None:
     )
     assert edit is not None
     assert edit.new_text == "conclude (P or Q) by H"
+
+
+def test_fill_from_given_at_in_conjunction_slot() -> None:
+    """Regression for the term-position breakage.
+
+    After refining ``? : P and Q`` into the conjunction shape
+    ``?, ?``, the first hole is in *term* position (a slot of the
+    conjunction proof), where ``conclude ... by ...'' is a syntax
+    error.  Exact-match fill must therefore emit the bare label so
+    the resulting ``H1, ?'' is a valid proof of ``P and Q''."""
+    source = (
+        "theorem t : all P:bool, Q:bool. if P then if Q then P and Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H1: P\n"
+        "  assume H2: Q\n"
+        "  ?, ?\n"
+        "end\n"
+    )
+    edit = fill_from_given_at(
+        "test.pf", source, Position(line=6, column=3), "H1"
+    )
+    assert edit is not None
+    # Critical: bare label, not ``conclude P by H1''.  The latter
+    # would produce ``conclude P by H1, ?'' which the parser rejects
+    # (``conclude'' is statement-level, not term-level).
+    assert edit.new_text == "H1"
 
 
 def test_fill_from_given_at_returns_none_when_unrelated() -> None:

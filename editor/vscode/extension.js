@@ -126,25 +126,15 @@ function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('deduce.showGoal', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'deduce') {
-                vscode.window.showInformationMessage(
-                    'Deduce: open a .pf file and place the cursor where you want the goal.');
-                return;
-            }
+            const editor = ensureDeduceEditor();
+            if (!editor) return;
             if (!client) {
                 vscode.window.showErrorMessage(
                     'Deduce: language server is not running.  See the '
                     + '"Deduce Language Server" status bar entry for details.');
                 return;
             }
-            const params = {
-                textDocument: { uri: editor.document.uri.toString() },
-                position: {
-                    line: editor.selection.active.line,
-                    character: editor.selection.active.character,
-                },
-            };
+            const params = textDocumentPosition(editor);
             let response;
             try {
                 response = await client.sendRequest('deduce/goalAt', params);
@@ -158,6 +148,245 @@ function activate(context) {
             goalChannel.show(true);
         })
     );
+
+    // --- Phase-4 structured edits --------------------------------
+    //
+    // Mirror of editor/emacs/deduce-lsp.el's C-c C-{r,c,i,e,f}
+    // bindings.  Two patterns:
+    //
+    //   Refine / Induction      issue `textDocument/codeAction',
+    //                           pick the action whose title matches
+    //                           ("Refine hole" / "Induction"), apply
+    //                           its WorkspaceEdit.  No prompts.
+    //   Case split / Eliminate  query `deduce/{splittableVars,
+    //                           eliminableVars}At' for candidates,
+    //                           show QuickPick, send the matching
+    //                           edit request (`deduce/caseSplitAt',
+    //                           `deduce/eliminateAt'), apply.
+    //   Fill from given         query `deduce/matchingGivensAt', use
+    //                           the first candidate without prompting
+    //                           (matches Emacs after issue #385),
+    //                           send `deduce/fillFromGivenAt', apply.
+    //
+    // After each successful edit, the cursor moves onto the first
+    // `?' inside the inserted text, so the next refine/case-split
+    // can fire immediately without repositioning.
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('deduce.refineHole', () =>
+            applyCodeActionByTitle(client, 'Refine hole', 'No refinement available at point.')),
+        vscode.commands.registerCommand('deduce.induction', () =>
+            applyCodeActionByTitle(client, 'Induction', 'No induction available at point.')),
+        vscode.commands.registerCommand('deduce.caseSplit', () =>
+            applyCandidateEdit(
+                client,
+                'deduce/splittableVarsAt',
+                'deduce/caseSplitAt',
+                'variable',
+                'Case split on:',
+                'No case split available at point.',
+            )),
+        vscode.commands.registerCommand('deduce.eliminate', () =>
+            applyCandidateEdit(
+                client,
+                'deduce/eliminableVarsAt',
+                'deduce/eliminateAt',
+                'label',
+                'Eliminate on:',
+                'No elimination available at point.',
+            )),
+        vscode.commands.registerCommand('deduce.fillFromGiven', () =>
+            applyFirstCandidateEdit(
+                client,
+                'deduce/matchingGivensAt',
+                'deduce/fillFromGivenAt',
+                'label',
+                'No matching given at point.',
+            )),
+    );
+}
+
+// --- Shared helpers for the command implementations ---------------
+
+// Return the active editor only if it's a .pf buffer with focus, else
+// surface a one-time information message and return null.  Centralised
+// so every command gives the user the same error text in the same way.
+function ensureDeduceEditor() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.languageId !== 'deduce') {
+        vscode.window.showInformationMessage(
+            'Deduce: open a .pf file and place the cursor inside it first.');
+        return null;
+    }
+    return editor;
+}
+
+// Build the {textDocument, position} param object common to most LSP
+// requests we issue.
+function textDocumentPosition(editor) {
+    return {
+        textDocument: { uri: editor.document.uri.toString() },
+        position: {
+            line: editor.selection.active.line,
+            character: editor.selection.active.character,
+        },
+    };
+}
+
+// Translate an LSP WorkspaceEdit's {changes: {uri: TextEdit[]}} shape
+// into a vscode.WorkspaceEdit, then apply it via the workspace API.
+// We don't use client.protocol2CodeConverter because it expects fully
+// typed (LSPAny) inputs and our custom requests return plain JSON.
+async function applyLspWorkspaceEdit(editor, lspEdit) {
+    if (!lspEdit) return false;
+    const wsEdit = new vscode.WorkspaceEdit();
+    const changes = lspEdit.changes || {};
+    let foundEdits = false;
+    for (const uriStr of Object.keys(changes)) {
+        const uri = vscode.Uri.parse(uriStr);
+        for (const e of changes[uriStr]) {
+            const range = new vscode.Range(
+                new vscode.Position(e.range.start.line, e.range.start.character),
+                new vscode.Position(e.range.end.line, e.range.end.character),
+            );
+            wsEdit.replace(uri, range, e.newText || '');
+            foundEdits = true;
+        }
+    }
+    if (!foundEdits) return false;
+    const ok = await vscode.workspace.applyEdit(wsEdit);
+    if (!ok) return false;
+    jumpToFirstHole(editor, lspEdit);
+    return true;
+}
+
+// After a structured edit applies, move the cursor onto the first `?'
+// inside what was just inserted.  Searches the document forward from
+// the first edit's start position.  Matches Emacs's
+// deduce-lsp--apply-text-edit cursor placement and is what makes
+// chained edits (refine -> case split -> induction) feel snappy.
+function jumpToFirstHole(editor, lspEdit) {
+    const uri = editor.document.uri.toString();
+    const lspEdits = (lspEdit.changes && lspEdit.changes[uri]) || [];
+    if (lspEdits.length === 0) return;
+    const start = lspEdits[0].range.start;
+    const doc = editor.document;
+    for (let line = start.line; line < doc.lineCount; line++) {
+        const text = doc.lineAt(line).text;
+        const startCol = line === start.line ? start.character : 0;
+        const idx = text.indexOf('?', startCol);
+        if (idx >= 0) {
+            const pos = new vscode.Position(line, idx);
+            editor.selection = new vscode.Selection(pos, pos);
+            editor.revealRange(new vscode.Range(pos, pos));
+            return;
+        }
+    }
+}
+
+// Refine / Induction shape: query `textDocument/codeAction', find the
+// action with the matching title, apply its `edit'.
+async function applyCodeActionByTitle(client, title, notFoundMessage) {
+    const editor = ensureDeduceEditor();
+    if (!editor || !client) return;
+    const pos = {
+        line: editor.selection.active.line,
+        character: editor.selection.active.character,
+    };
+    let actions;
+    try {
+        actions = await client.sendRequest('textDocument/codeAction', {
+            textDocument: { uri: editor.document.uri.toString() },
+            range: { start: pos, end: pos },
+            context: { diagnostics: [] },
+        });
+    } catch (err) {
+        vscode.window.showErrorMessage(`Deduce: ${title} request failed: ${err.message || err}`);
+        return;
+    }
+    const action = (actions || []).find((a) => a && a.title === title);
+    if (!action || !action.edit) {
+        vscode.window.showInformationMessage(`Deduce: ${notFoundMessage}`);
+        return;
+    }
+    await applyLspWorkspaceEdit(editor, action.edit);
+}
+
+// Case split / Eliminate shape: query a candidate list, prompt the
+// user via QuickPick, send the edit request, apply.
+async function applyCandidateEdit(
+    client, candidatesMethod, editMethod, paramKey, placeHolder, notFoundMessage,
+) {
+    const editor = ensureDeduceEditor();
+    if (!editor || !client) return;
+    const params = textDocumentPosition(editor);
+    let candidates;
+    try {
+        candidates = await client.sendRequest(candidatesMethod, params);
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: ${candidatesMethod} failed: ${err.message || err}`);
+        return;
+    }
+    const choices = Array.isArray(candidates) ? candidates : [];
+    if (choices.length === 0) {
+        vscode.window.showInformationMessage(`Deduce: ${notFoundMessage}`);
+        return;
+    }
+    const pick = await vscode.window.showQuickPick(choices, { placeHolder });
+    if (!pick) return;
+    let edit;
+    try {
+        edit = await client.sendRequest(editMethod, { ...params, [paramKey]: pick });
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: ${editMethod} failed: ${err.message || err}`);
+        return;
+    }
+    if (!edit) {
+        vscode.window.showErrorMessage(`Deduce: server returned no edit for ${pick}.`);
+        return;
+    }
+    await applyLspWorkspaceEdit(editor, edit);
+}
+
+// Fill-from-given shape: query candidates, pick the first match
+// without prompting (matches Emacs after issue #385 -- the server
+// already filters to formula-equal givens, so any candidate is a
+// valid fill), send the edit request, apply.
+async function applyFirstCandidateEdit(
+    client, candidatesMethod, editMethod, paramKey, notFoundMessage,
+) {
+    const editor = ensureDeduceEditor();
+    if (!editor || !client) return;
+    const params = textDocumentPosition(editor);
+    let candidates;
+    try {
+        candidates = await client.sendRequest(candidatesMethod, params);
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: ${candidatesMethod} failed: ${err.message || err}`);
+        return;
+    }
+    const choices = Array.isArray(candidates) ? candidates : [];
+    if (choices.length === 0) {
+        vscode.window.showInformationMessage(`Deduce: ${notFoundMessage}`);
+        return;
+    }
+    const label = choices[0];
+    let edit;
+    try {
+        edit = await client.sendRequest(editMethod, { ...params, [paramKey]: label });
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: ${editMethod} failed: ${err.message || err}`);
+        return;
+    }
+    if (!edit) {
+        vscode.window.showErrorMessage(`Deduce: server returned no edit for ${label}.`);
+        return;
+    }
+    await applyLspWorkspaceEdit(editor, edit);
 }
 
 // Pretty-print a deduce/goalAt response into the goal Output channel.
