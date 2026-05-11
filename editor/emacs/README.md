@@ -307,9 +307,38 @@ you ask. SMIE-grade alignment is a future enhancement.
 dap-mode doesn't bind mouse clicks in the fringe by default —
 that's a VS-Code convention that emacs doesn't ship out of the
 box.  Use `M-x dap-breakpoint-toggle` (cursor on the target line)
-or `M-x dap-breakpoint-add-function NAME` for function
-breakpoints.  If you really want the click, bind `<mouse-1>` to
-`dap-mouse-toggle-breakpoint` in `dap-mode-map` yourself.
+or `M-x dap-breakpoint-add`.
+
+If you want the click as well, paste this into your init after
+`(require 'deduce-dap)`:
+
+```elisp
+(defun my/dap-toggle-bp-at-mouse (event)
+  "Toggle a dap-mode breakpoint at the clicked fringe line."
+  (interactive "e")
+  (let* ((posn   (event-start event))
+         (window (posn-window posn))
+         (pos    (posn-point posn)))
+    (when (and window pos)
+      (with-selected-window window
+        (goto-char pos)
+        (call-interactively #'dap-breakpoint-toggle)))))
+
+(with-eval-after-load 'dap-mode
+  (define-key dap-mode-map [left-fringe mouse-1]
+              #'my/dap-toggle-bp-at-mouse))
+```
+
+### Function breakpoints from the keyboard
+
+Stock dap-mode doesn't expose a command for function-name
+breakpoints (the DAP protocol supports them — our adapter
+implements ``setFunctionBreakpoints'' — but the dap-mode UI is
+line-based).  Workaround: set a line breakpoint on the first
+line of the function definition.  For a pattern-matched
+``recursive'' function, set one breakpoint per arm so each case
+traps.  The CLI debugger's ``b <name>'' command exposes the
+function-bp surface directly if you need it.
 
 ### `C-c C-d` reports "Debug session process exited with status: exited abnormally with code 1"
 
