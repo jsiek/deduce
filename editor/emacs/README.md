@@ -282,9 +282,8 @@ OpenAI, or IU REALLMs depending on backend choice):
 > **macOS users:** F5 / F10 / F11 are intercepted by macOS for
 > brightness / mute / volume before they reach emacs.  Press `fn`
 > with the F-key (e.g. `fn-F11` for step-in) per keystroke, or
-> flip *System Settings → Keyboard → Use F1, F2, etc. keys as
-> standard function keys* on permanently — the standard
-> macOS-developer tweak.
+> flip the "standard function keys" toggle on permanently — see
+> the troubleshooting section below for the exact menu path.
 
 ## Customization
 
@@ -400,10 +399,16 @@ F5 = brightness, F10 = mute, F11 = volume down.  Two fixes:
 
 - **One-shot**: hold `fn` while pressing the F-key.  `fn-F11`
   sends a real F11 to Emacs.
-- **Permanent**: System Settings → Keyboard → toggle on *Use F1,
-  F2, etc. keys as standard function keys*.  The keys now go to
-  Emacs by default; you press `fn` to get the macOS hardware
-  function.
+- **Permanent (Sonoma / Sequoia)**: System Settings → Keyboard →
+  scroll down to *Keyboard Shortcuts…* (button) → in the sidebar
+  pick *Function Keys* → toggle on *Use F1, F2, etc. as standard
+  function keys*.
+- **Permanent (Monterey and older)**: System Preferences →
+  Keyboard → Keyboard tab → check *Use F1, F2, etc. keys as
+  standard function keys*.
+
+The keys then go to Emacs by default; you press `fn` to get the
+macOS hardware function instead.
 
 Linux users with `gnome-shell` or KDE sometimes hit the same
 issue with WM-bound F-keys; check your window-manager shortcuts
