@@ -55,7 +55,7 @@
         "deduce.deduceRoot": {
           "type": "string",
           "default": "",
-          "description": "Path to a Deduce checkout.  Defaults to the workspace folder when empty -- set this if your .pf files live outside the Deduce repo so the adapter can find lsp/dap_server.py."
+          "description": "Absolute path to your Deduce *installation* (the directory containing lsp/dap_server.py), NOT to your proofs directory.  When empty (the default) the extension uses the open workspace folder; set this only when your workspace is your proofs directory and the Deduce checkout lives elsewhere."
         }
       }
     },

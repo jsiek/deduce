@@ -87,18 +87,23 @@ with multiple Python installs."
 
 
 (defcustom deduce-dap-deduce-root nil
-  "Path to a Deduce repository checkout, or nil to rely on cwd.
+  "Path to your Deduce *installation* (the directory containing
+`lsp/dap_server.py'), or nil to fall back to the current project
+root.  This is NOT your proofs directory -- emacs already knows
+that as `default-directory' / the project root.
 
-When nil, dap-mode launches the adapter from the project root
-determined by `project-current' -- this works when editing `.pf'
-files inside the deduce repo, where `lsp/dap_server.py' is on
-Python's import path.
+When nil (the default), dap-mode launches the adapter from the
+project root determined by `project-current'.  That works
+correctly when your .pf files live inside the Deduce checkout
+(the common case for contributors to Deduce itself).
 
-When set to a directory path, the adapter command runs through
-`env' with PYTHONPATH including that directory.  Useful when your
-proofs live outside the deduce repo."
+When set, the adapter command runs through `env' with PYTHONPATH
+including this directory, so it resolves regardless of cwd.
+Useful when your .pf files live in a separate directory (e.g.
+your course-work folder) and Deduce is checked out somewhere
+else."
   :type '(choice (const :tag "Auto (project root)" nil)
-                 (directory :tag "Deduce checkout"))
+                 (directory :tag "Deduce installation"))
   :group 'deduce-dap)
 
 

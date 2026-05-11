@@ -109,7 +109,7 @@ The extension exposes two settings under the `Deduce` group
 | Setting              | Default     | Effect                                                                                |
 | -------------------- | ----------- | ------------------------------------------------------------------------------------- |
 | `deduce.pythonPath`  | `"python3"` | Path to the Python interpreter used to run the debug adapter (`lsp/dap_server.py`).  Must have `lark` installed.  Absolute paths are supported; otherwise looked up on `$PATH`. |
-| `deduce.deduceRoot`  | `""`        | Path to a Deduce checkout.  Defaults to the workspace folder when empty.  Set this if your `.pf` files live outside the Deduce repo so the adapter can locate `lsp/dap_server.py`. |
+| `deduce.deduceRoot`  | `""`        | Absolute path to your Deduce **installation** — the directory containing `lsp/dap_server.py`.  **Not** your proofs directory.  Defaults to the workspace folder when empty.  Set this only when your workspace is your proofs directory and the Deduce checkout lives elsewhere. |
 
 **Common pitfall on macOS:** the default `python3` on `$PATH` may
 not be the interpreter you `pip install lark`ed into.  If F5
@@ -133,6 +133,21 @@ python3.13 -c 'import lark; print(lark.__version__)'
 
 If that prints a version (e.g. `1.2.2`), `python3.13` is the
 binary to put in `deduce.pythonPath`.
+
+**Proofs outside the Deduce checkout.**  If your `.pf` files live
+in (say) `~/courses/cs401/proofs/` and you've cloned Deduce to
+`~/src/deduce/`, open the proofs directory as your VS Code
+workspace and set `deduce.deduceRoot` to the Deduce installation:
+
+```json
+{
+  "deduce.deduceRoot": "/Users/you/src/deduce"
+}
+```
+
+The setting is the path to where `lsp/dap_server.py` is — i.e.
+your Deduce *installation*.  It's not the path to your project
+directory; VS Code already knows that as the workspace folder.
 
 ## Manual smoke test
 
