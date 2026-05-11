@@ -248,7 +248,14 @@ class _DAPDebugger(Debugger):
 
     def stack_trace(self) -> list[dict]:
         """Convert ``self.stack`` to DAP stack frames.  Frame 0 is
-        the innermost call -- gdb / DAP convention."""
+        the innermost call -- gdb / DAP convention.
+
+        When ``self.stack`` is empty (we're paused at a top-level
+        statement, not inside a function call) DAP still needs a
+        frame to anchor the editor's UI on -- otherwise the
+        ``stackTrace`` response is an empty array and the editor
+        silently resumes.  Synthesize a single ``<top-level>`` frame
+        pointing at ``_current_loc``."""
         frames: list[dict] = []
         for i in range(len(self.stack) - 1, -1, -1):
             f = self.stack[i]
@@ -261,6 +268,20 @@ class _DAPDebugger(Debugger):
                 "column": getattr(loc, "column", 0) or 0,
             }
             src_path = getattr(loc, "filename", None)
+            if src_path:
+                entry["source"] = {
+                    "name": Path(src_path).name,
+                    "path": src_path,
+                }
+            frames.append(entry)
+        if not frames and self._current_loc is not None:
+            entry = {
+                "id": 0,
+                "name": "<top-level>",
+                "line": getattr(self._current_loc, "line", 0) or 0,
+                "column": getattr(self._current_loc, "column", 0) or 0,
+            }
+            src_path = getattr(self._current_loc, "filename", None)
             if src_path:
                 entry["source"] = {
                     "name": Path(src_path).name,

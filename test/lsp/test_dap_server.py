@@ -237,6 +237,33 @@ def test_full_session_continue_to_end(dap_session, tmp_path):
     client.wait_for_event("terminated", timeout=10.0)
 
 
+def test_stack_trace_synthesizes_top_level_frame(dap_session, tmp_path):
+    """At the first pause we're at a top-level statement, not inside
+    a function call -- ``self.stack`` is empty.  DAP still needs a
+    frame in the trace for the editor's UI to anchor on; otherwise
+    the editor silently resumes (this is exactly what happened in
+    Jeremy's first emacs smoke run).  The server synthesises a
+    single ``<top-level>`` frame pointing at the current location."""
+    server, client, _ = dap_session
+    fixture = _write_fixture(tmp_path, "toplevel.pf", SIMPLE_PROGRAM)
+    client.request("initialize", {})
+    client.wait_for_event("initialized")
+    client.request("launch", {"program": fixture})
+    client.request("configurationDone")
+    client.wait_for_event("stopped", timeout=10.0)
+    resp = client.request("stackTrace", {"threadId": 1})
+    assert resp["success"], resp
+    frames = resp["body"]["stackFrames"]
+    assert len(frames) == 1, f"expected exactly one top-level frame, got {frames}"
+    assert frames[0]["name"] == "<top-level>"
+    assert frames[0]["source"]["path"] == fixture
+    client.request("continue")
+    try:
+        client.wait_for_event("terminated", timeout=5.0)
+    except TimeoutError:
+        pass
+
+
 def test_stack_trace_inside_function(dap_session, tmp_path):
     """After setting a function breakpoint and continuing into the
     call, ``stackTrace`` should report one frame named ``double``."""
