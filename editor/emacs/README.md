@@ -302,6 +302,33 @@ matcher; it doesn't currently handle multi-line type signatures or
 want, just type the spaces yourself — the indenter only fires when
 you ask. SMIE-grade alignment is a future enhancement.
 
+### `C-c C-d` reports "Debug session process exited with status: exited abnormally with code 1"
+
+Check the buffer named `*Deduce :: launch current file stderr*`
+(or `M-x switch-to-buffer RET *De TAB`) for the actual error.
+The two most common causes:
+
+1. **`ModuleNotFoundError: No module named 'lark'`** — `lark` isn't
+   installed on whichever `python3` is on your `$PATH`.  Macs and
+   Linux distros routinely have multiple Python installs, and the
+   one `dap-mode` finds first may not be the same one you used to
+   `pip install lark`.  Tell `deduce-dap` which interpreter to use:
+
+   ```elisp
+   (setq deduce-dap-python-program "python3.13")  ;; or wherever lark lives
+   ```
+
+   Confirm from a shell first with `python3.13 -c 'import lark'` —
+   exit code 0 means the variable above is the right setting.
+
+2. **`No module named 'lsp'`** — the adapter's cwd isn't your
+   Deduce checkout, so `python3 -m lsp.dap_server` can't find the
+   `lsp/` directory.  `deduce-dap` defaults `:cwd` to
+   `project-current`'s root; if Emacs can't determine the project
+   root for your buffer, set `deduce-dap-deduce-root` to the
+   absolute path of your checkout (this also feeds `PYTHONPATH`
+   into the adapter's environment).
+
 ## Manual smoke test
 
 After installing, verify the major mode:

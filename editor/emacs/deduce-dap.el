@@ -72,7 +72,13 @@
 
 
 (defcustom deduce-dap-python-program "python3"
-  "Python interpreter used to launch the Deduce DAP adapter."
+  "Python interpreter used to launch the Deduce DAP adapter.
+
+Set this to an absolute path (e.g. ``\"/usr/local/bin/python3.13\"``)
+if your default ``python3'' doesn't have ``lark'' installed.  The
+adapter dies with ``ModuleNotFoundError: No module named 'lark'''
+if pointed at the wrong interpreter -- a common pitfall on systems
+with multiple Python installs."
   :type 'string
   :group 'deduce-dap)
 
@@ -126,6 +132,21 @@ lsp.dap_server' when no knobs are active, wrapped in
       (cons py mod-args))))
 
 
+(defun deduce-dap--project-root ()
+  "Best guess at the Deduce checkout root for the current buffer.
+
+`python3 -m lsp.dap_server' needs to be launched from a directory
+that has `lsp/' on its import path -- the Deduce repo root.
+`default-directory' is usually wrong (it's the buffer's own
+directory, often a `tmp/' or proofs subdirectory).  Prefer the
+`project-current' root when emacs can find one; fall back to
+`default-directory'.  Users can override via `deduce-dap-deduce-root',
+which is consulted by `deduce-dap-server-command' for `PYTHONPATH'."
+  (or (when-let* ((proj (project-current nil)))
+        (expand-file-name (project-root proj)))
+      default-directory))
+
+
 (defun deduce-dap--populate-launch (conf)
   "Provider hook: fill in defaults on the dap-mode launch CONF
 plist before the session is spawned.
@@ -134,12 +155,14 @@ dap-mode looks up the registered provider for `:type \"deduce\"',
 calls this function with the user's partial config, and uses the
 returned plist verbatim.  We set `:dap-server-path' to the adapter
 command, default `:program' to the current buffer's file, and
-default `:cwd' to `default-directory' so module imports resolve."
+default `:cwd' to the project root so `python3 -m lsp.dap_server'
+resolves (the buffer's `default-directory' is usually a `tmp/'
+subdirectory and won't have `lsp/' on the path)."
   (let ((cmd (deduce-dap-server-command)))
     (setq conf (plist-put conf :dap-server-path cmd))
     (setq conf (plist-put conf :type "deduce"))
     (unless (plist-get conf :cwd)
-      (setq conf (plist-put conf :cwd default-directory)))
+      (setq conf (plist-put conf :cwd (deduce-dap--project-root))))
     (unless (plist-get conf :program)
       (setq conf (plist-put conf :program (buffer-file-name))))
     (unless (plist-get conf :name)

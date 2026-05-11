@@ -157,6 +157,42 @@ configured `cwd`.  Make sure `cwd` is your Deduce checkout
 (containing the `lsp/` directory).  You can also set
 `PYTHONPATH=/path/to/deduce` in `launch.json` under `env`.
 
+### Debug session exits immediately with code 1 / "ModuleNotFoundError: No module named 'lark'"
+
+`lark` isn't installed on whichever `python3` VS Code finds first.
+Many systems have multiple Python installs and the one on `$PATH`
+may not be the one you used to `pip install lark`.  Override the
+interpreter by giving an absolute path in `launch.json`:
+
+```json
+{
+  "type": "deduce",
+  "request": "launch",
+  "name": "Debug current Deduce file",
+  "program": "${file}",
+  "cwd": "${workspaceFolder}",
+  "pythonPath": "/usr/local/bin/python3.13"
+}
+```
+
+VS Code currently ignores `pythonPath` for adapter spawn — instead
+override at the extension level: edit `editor/vscode/package.json`
+and replace `"program": "python3"` with the absolute path to your
+working interpreter (e.g. `"/Library/Frameworks/Python.framework/
+Versions/3.13/bin/python3.13"`).  Repackage with `vsce` (or relaunch
+with `--extensionDevelopmentPath`) for the change to take effect.
+A Marketplace release should expose this as a user setting instead;
+tracked under the roadmap section above.
+
+Confirm the right interpreter from a shell first:
+
+```sh
+python3.13 -c 'import lark; print(lark.__version__)'
+```
+
+Exit code 0 means that's the interpreter to point the extension
+at.
+
 ### Breakpoints are gray with "Verified: false"
 
 Either the file path doesn't match what the adapter sees, or the
