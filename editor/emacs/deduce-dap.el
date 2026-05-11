@@ -63,6 +63,7 @@
 (declare-function dap-debug "dap-mode")
 (declare-function dap-register-debug-provider "dap-mode")
 (declare-function dap-register-debug-template "dap-mode")
+(declare-function dap-hydra "dap-hydra")
 
 
 (defgroup deduce-dap nil
@@ -234,7 +235,13 @@ installed; errors out informatively otherwise."
   (define-key deduce-mode-map (kbd "C-c d n") #'dap-next)
   (define-key deduce-mode-map (kbd "C-c d s") #'dap-step-in)
   (define-key deduce-mode-map (kbd "C-c d o") #'dap-step-out)
-  (define-key deduce-mode-map (kbd "C-c d q") #'dap-disconnect))
+  (define-key deduce-mode-map (kbd "C-c d q") #'dap-disconnect)
+  ;; ``C-c d h'' opens dap-mode's transient single-key menu --
+  ;; an OS-independent way to step (``n''/``s''/``o''), continue
+  ;; (``c''), eval (``e''), quit (``q''), etc. without
+  ;; multi-keystroke chords.  See the README's *Useful dap-mode
+  ;; commands* section.
+  (define-key deduce-mode-map (kbd "C-c d h") #'dap-hydra))
 
 
 (provide 'deduce-dap)

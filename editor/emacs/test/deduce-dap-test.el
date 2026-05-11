@@ -162,7 +162,9 @@ macOS / a WM intercepts the function row."
   (should (eq (lookup-key deduce-mode-map (kbd "C-c d o"))
               #'dap-step-out))
   (should (eq (lookup-key deduce-mode-map (kbd "C-c d q"))
-              #'dap-disconnect)))
+              #'dap-disconnect))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d h"))
+              #'dap-hydra)))
 
 
 (provide 'deduce-dap-test)

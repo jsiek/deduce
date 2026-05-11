@@ -244,6 +244,32 @@ auto-start hook:
   [`gh_pages/doc/Debugger.md`](../../gh_pages/doc/Debugger.md#what-the-debugger-skips)
   for the full command surface and the skip rules.
 
+Useful `dap-mode` commands you'll want to know about
+(inherited as-is — `deduce-dap` is a thin contribution on top):
+
+| Command                          | What it does                                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `dap-hydra` (bound to `C-c d h`) | Single-key transient menu: `n` next, `s` step-in, `o` step-out, `c` continue, `q` quit, `e` eval, etc.  The OS-independent way to drive the debugger; great on macOS where the F-keys get intercepted. |
+| `dap-breakpoint-toggle`          | Toggle a line breakpoint at point.                                                  |
+| `dap-breakpoint-add`             | Same as toggle when there's no bp; otherwise a no-op (idempotent set).              |
+| `dap-breakpoint-delete-all`      | Clear every breakpoint in every file.                                               |
+| `dap-breakpoint-condition`       | Cursor on an existing breakpoint; prompts for a Deduce expression.  The bp fires only when the expression reduces to `true`. |
+| `dap-breakpoint-log-message`     | Turn a breakpoint into a *logpoint*: instead of pausing it logs a message to the output pane each time it would fire. |
+| `dap-eval`                       | Prompts for an expression and evaluates it via the DAP `evaluate` request (same parser + reducer as the CLI's `print` command). |
+| `dap-eval-region`                | Like `dap-eval` but uses the selected region as the expression.                     |
+| `dap-eval-thing-at-point`        | Sends the identifier under cursor to `evaluate`.                                    |
+| `dap-ui-locals`                  | Open / focus the locals pane (`*dap-ui-locals*`).  The tree starts collapsed — `RET` (or click the triangle) to expand. |
+| `dap-ui-sessions`                | Open the active-sessions pane (`*dap-ui-sessions*`).                                |
+| `dap-ui-breakpoints`             | Open the breakpoints pane (`*dap-ui-breakpoints*`).                                 |
+| `dap-ui-many-windows`            | Open all the standard panes at once.  Handy at the start of a session.              |
+| `dap-debug-restart`              | End the current session and re-launch the same configuration.                       |
+| `dap-delete-session`             | Force-kill the currently-active session (use if it's stuck).                        |
+| `dap-delete-all-sessions`        | Same as above for every session.                                                    |
+
+For the full surface see [emacs-lsp.github.io/dap-mode][dapdoc].
+
+[dapdoc]: https://emacs-lsp.github.io/dap-mode/
+
 `deduce-fill-hole` (additional, requires an LLM API key — Anthropic,
 OpenAI, or IU REALLMs depending on backend choice):
 
@@ -284,6 +310,7 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `C-c d s` | Step in (F-key-free fallback)                                      | `dap-step-in`                    | `deduce-dap`   |
 | `C-c d o` | Step out (F-key-free fallback)                                     | `dap-step-out`                   | `deduce-dap`   |
 | `C-c d q` | Disconnect / end session (F-key-free fallback)                     | `dap-disconnect`                 | `deduce-dap`   |
+| `C-c d h` | Open dap-mode's single-key transient menu                          | `dap-hydra`                      | `deduce-dap`   |
 
 > **macOS users:** F5 / F10 / F11 are intercepted *twice* —
 > once by the hardware (brightness / mute / volume) and again
@@ -426,11 +453,16 @@ reach Emacs:
 Linux users with `gnome-shell` or KDE sometimes hit the same
 issue with WM-bound F-keys; check your window-manager shortcuts.
 
-**Don't want to fight your OS?**  Use the `C-c d <letter>`
-fallback bindings listed in the Keybindings table — none of them
-touch the function row.  `M-x dap-hydra` is another option: a
-single-key transient menu with `n`/`s`/`o`/`c`/`q` for the step
-commands.
+**Don't want to fight your OS?**  Two options that never touch
+the function row:
+
+- The `C-c d <letter>` bindings listed in the Keybindings table:
+  `c`ontinue, `n`ext, `s`tep-in, step-`o`ut, `q`uit, `d`ebug
+  (launch), `h`ydra.
+- `C-c d h` (or `M-x dap-hydra`) — the transient menu — is the
+  one to learn if you only learn one.  Single-key actions: `n`/
+  `s`/`o`/`c`/`q`, plus `e` for eval, `b` for breakpoints, etc.
+  Press `q` to dismiss the menu.
 
 Linux users with `gnome-shell` or KDE sometimes hit the same
 issue with WM-bound F-keys; check your window-manager shortcuts
