@@ -365,6 +365,40 @@ def test_set_file_breakpoint_fires_at_line(dap_session, tmp_path):
         pass
 
 
+def test_print_routed_to_output_event(dap_session, tmp_path):
+    """``print double(...)`` runs during ``check_file``; in DAP mode
+    its stdout has to be forwarded as an ``output`` event so the
+    editor's Debug Console / output panel surfaces it (and so the
+    bytes don't corrupt the protocol stream)."""
+    server, client, _ = dap_session
+    fixture = _write_fixture(tmp_path, "print.pf", SIMPLE_PROGRAM)
+    client.request("initialize", {})
+    client.wait_for_event("initialized")
+    client.request("launch", {"program": fixture})
+    client.request("configurationDone")
+    client.wait_for_event("stopped", timeout=10.0)
+    client.request("continue")
+    # The program runs ``print double(suc(zero))`` -> ``suc(suc(zero))``.
+    # Drain events until we see an output one with stdout category,
+    # then confirm the body contains the expected value.
+    output_lines: list[str] = []
+    while True:
+        try:
+            evt = client.wait_for_event("output", timeout=5.0)
+        except TimeoutError:
+            break
+        body = evt.get("body") or {}
+        if body.get("category") == "stdout":
+            output_lines.append(body.get("output", ""))
+    assert any("suc(suc(zero))" in line for line in output_lines), (
+        f"expected print output in stdout events; got {output_lines}"
+    )
+    try:
+        client.wait_for_event("terminated", timeout=5.0)
+    except TimeoutError:
+        pass
+
+
 def test_disconnect_terminates(dap_session, tmp_path):
     server, client, _ = dap_session
     fixture = _write_fixture(tmp_path, "disc.pf", SIMPLE_PROGRAM)

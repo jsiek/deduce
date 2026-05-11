@@ -34,6 +34,7 @@ aren't user-throwable), ``restart`` (just relaunch),
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -369,6 +370,54 @@ class _DAPDebugger(Debugger):
 # ---------------------------------------------------------------------------
 
 
+class _DAPOutputCapture:
+    """Stand-in for ``sys.stdout`` that forwards each line to a DAP
+    ``output`` event.
+
+    In CLI mode, Deduce's ``print`` statement writes the reduced
+    value to ``sys.stdout`` and the user sees it in the terminal.
+    In DAP mode, ``sys.stdout`` is the protocol wire; letting
+    ``print`` write to it directly would corrupt JSON-RPC framing.
+    Wrap the program's stdout in this capture so each output line
+    becomes a DAP event the editor surfaces in its Debug Console /
+    output panel.
+
+    Lines are buffered until a newline arrives, so we don't fire
+    one event per character.  ``flush()`` emits any partial line.
+    """
+
+    def __init__(self, server: "DAPServer", category: str = "stdout"):
+        self._server = server
+        self._category = category
+        self._buf = ""
+
+    def write(self, s: str) -> int:
+        if not s:
+            return 0
+        self._buf += s
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            self._server._send_event("output", {
+                "category": self._category,
+                "output": line + "\n",
+            })
+        return len(s)
+
+    def flush(self) -> None:
+        if self._buf:
+            self._server._send_event("output", {
+                "category": self._category,
+                "output": self._buf,
+            })
+            self._buf = ""
+
+    def isatty(self) -> bool:
+        return False
+
+    def writable(self) -> bool:
+        return True
+
+
 class DAPServer:
     def __init__(
         self,
@@ -626,27 +675,39 @@ class DAPServer:
         if self._terminated or self._program_path is None:
             return
         prelude = _default_prelude()
+        # Route the user program's ``print`` output -- and any
+        # incidental ``print``s from inside the proof checker -- to
+        # DAP ``output`` events.  Without this redirect, Deduce's
+        # ``print`` statement writes the reduced value to
+        # ``sys.stdout``, which in DAP mode IS the protocol wire;
+        # the editor never displays it and at worst the editor's
+        # JSON-RPC parser chokes on the unframed bytes.
+        capture = _DAPOutputCapture(self)
         try:
-            result = check_file(
-                self._program_path, prelude=prelude, debugger=self.debugger,
-            )
-            # A failed CheckResult (parse/type/proof error) doesn't
-            # raise from ``check_file`` -- surface it as a DAP
-            # ``output`` event so the editor (and our tests) can see
-            # what went wrong instead of mysteriously not producing
-            # a ``stopped`` event.
-            if not result.ok and not isinstance(result.exception, DebuggerQuit):
-                self._send_event("output", {
-                    "category": "stderr",
-                    "output": f"{result.error_message}\n",
-                })
-        except DebuggerQuit:
-            pass
-        except Exception as e:
-            self._send_event("output", {
-                "category": "stderr",
-                "output": f"{type(e).__name__}: {e}\n{_traceback.format_exc()}",
-            })
+            with contextlib.redirect_stdout(capture):
+                try:
+                    result = check_file(
+                        self._program_path, prelude=prelude, debugger=self.debugger,
+                    )
+                    # A failed CheckResult (parse/type/proof error)
+                    # doesn't raise from ``check_file`` -- surface it
+                    # as a DAP ``output`` event so the editor (and
+                    # our tests) can see what went wrong instead of
+                    # mysteriously not producing a ``stopped`` event.
+                    if not result.ok and not isinstance(result.exception, DebuggerQuit):
+                        self._send_event("output", {
+                            "category": "stderr",
+                            "output": f"{result.error_message}\n",
+                        })
+                except DebuggerQuit:
+                    pass
+                except Exception as e:
+                    self._send_event("output", {
+                        "category": "stderr",
+                        "output": f"{type(e).__name__}: {e}\n{_traceback.format_exc()}",
+                    })
+                finally:
+                    capture.flush()
         finally:
             self._program_done.set()
             self._send_event("terminated")
