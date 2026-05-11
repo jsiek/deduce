@@ -419,6 +419,51 @@ def matching_givens_at(
 
 
 @mcp.tool()
+def preview_conclude_at(
+    path: str, line: int, column: int, label: str
+) -> Optional[dict]:
+    """Preview ``conclude <goal> by <label>`` modulo auto-rule
+    normalization at the hole at ``line``:``column``.
+
+    Like ``fill_from_given_at`` / ``matching_givens_at`` but reduces
+    both sides via ``.reduce(env)`` before checking implication --
+    mirroring what the proof checker does in the catch-all branch of
+    ``check_proof_of``. So a label this preview reports as
+    ``discharges`` would also validate when used as a proof body.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``label`` names an in-scope local proof binding.
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof there. Otherwise returns a dict whose
+    ``outcome`` field discriminates:
+
+    - ``{"outcome": "discharges", "goal_normalized": "<formula>",
+       "given_normalized": "<formula>"}`` -- the (reduced) label
+      discharges the (reduced) goal.
+    - ``{"outcome": "no_match", "goal_normalized": "<formula>",
+       "given_normalized": "<formula>", "reason": "<message>"}`` --
+      the label is bound but its formula does not discharge the goal,
+      even modulo auto.
+    - ``{"outcome": "unbound", "label": "<name>"}`` -- ``label`` is
+      not bound at the hole.
+    - ``{"outcome": "not_local", "label": "<name>"}`` -- ``label``
+      refers to a non-local proof binding (theorem reference);
+      callers invoke those by name in proof position directly.
+
+    Companion to ``matching_givens_at`` / ``fill_from_given_at``: those
+    use bare ``check_implies`` (no reduce); this one matches what the
+    proof checker actually accepts. Use this to confirm a hypothesis
+    discharges the goal before committing an edit.
+    """
+    content = _read_file(path)
+    pos = query.Position(line=line, column=column)
+    return query.preview_conclude_at(
+        path, content, pos, label, prelude=_prelude_for(path)
+    )
+
+
+@mcp.tool()
 def apply_at(
     path: str, line: int, column: int,
     theorem: str,

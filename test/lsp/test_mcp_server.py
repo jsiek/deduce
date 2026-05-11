@@ -105,6 +105,7 @@ async def test_all_tools_are_registered(server):
             "eliminable_vars_at",
             "fill_from_given_at",
             "matching_givens_at",
+            "preview_conclude_at",
             "apply_at",
             "preview_replace_at",
             "preview_expand_at",
