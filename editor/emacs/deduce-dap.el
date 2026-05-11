@@ -65,6 +65,7 @@
 (declare-function dap-register-debug-template "dap-mode")
 (declare-function dap-hydra "dap-hydra")
 (declare-function dap-ui-mode "dap-ui")
+(declare-function dap-ui-many-windows "dap-ui")
 
 
 (defgroup deduce-dap nil
@@ -113,12 +114,17 @@ test fixtures."
 
 
 (defcustom deduce-dap-auto-ui t
-  "If non-nil, enable `dap-ui-mode' before launching a session.
+  "If non-nil, set up dap-mode's UI automatically before launch.
 
-`dap-ui-mode' is what gives you the fringe breakpoint indicators,
-tooltips, and the side panes for locals / sessions / breakpoints.
-Without it, traps happen but no UI surfaces them.  Set this to nil
-if you prefer to manage `dap-ui-mode' yourself."
+Specifically, ``deduce-dap-debug-current-buffer'' will (a) enable
+`dap-ui-mode' so fringe indicators, tooltips, and side-pane
+support all work; and (b) open the standard set of side windows
+(locals / sessions / breakpoints / expressions) via
+`dap-ui-many-windows'.
+
+Set this to nil if you prefer to manage the dap UI yourself --
+e.g. you've configured `dap-auto-configure-mode' globally or want
+a custom window layout."
   :type 'boolean
   :group 'deduce-dap)
 
@@ -190,11 +196,11 @@ Convenience wrapper around `dap-debug' that doesn't make the user
 visit the debug-templates picker.  Requires `dap-mode' to be
 installed; errors out informatively otherwise.
 
-Enables `dap-ui-mode' first (unless `deduce-dap-auto-ui' is nil)
-so the editor's panes / fringe indicators / tooltips appear
-without an extra command.  `dap-ui-mode' is a global minor mode,
-so this is a one-time cost; subsequent launches see it already
-active and skip the call."
+When `deduce-dap-auto-ui' is non-nil (the default), the launcher
+turns on `dap-ui-mode' (one-time global setup) and opens the
+standard side panes via `dap-ui-many-windows' so the locals /
+sessions / breakpoints views are visible right away.  Both calls
+are idempotent across repeat launches."
   (interactive)
   (unless (buffer-file-name)
     (user-error "Buffer is not visiting a file"))
@@ -202,10 +208,12 @@ active and skip the call."
     (user-error
      "deduce-dap: dap-mode is not installed; install it from MELPA"))
   (when (and deduce-dap-auto-ui
-             (require 'dap-ui nil 'noerror)
-             (fboundp 'dap-ui-mode)
-             (not (bound-and-true-p dap-ui-mode)))
-    (dap-ui-mode 1))
+             (require 'dap-ui nil 'noerror))
+    (when (and (fboundp 'dap-ui-mode)
+               (not (bound-and-true-p dap-ui-mode)))
+      (dap-ui-mode 1))
+    (when (fboundp 'dap-ui-many-windows)
+      (dap-ui-many-windows)))
   (dap-debug (list :type "deduce"
                    :request "launch"
                    :name "Deduce :: launch current file"

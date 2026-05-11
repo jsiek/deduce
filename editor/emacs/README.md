@@ -352,7 +352,7 @@ in your `init.el` returning whatever list eglot should spawn.
 | `deduce-dap-python-program`    | `"python3"` | Python interpreter used to launch the DAP adapter (`lsp/dap_server.py`)      |
 | `deduce-dap-deduce-root`       | `nil`       | Path to a Deduce checkout; sets `PYTHONPATH` so `python3 -m lsp.dap_server` resolves regardless of cwd. By default the adapter's cwd is the project root (via `project-current`), which is enough when your `.pf` lives inside the Deduce repo. |
 | `deduce-dap-prelude-disabled`  | `nil`       | If non-nil, sets `DEDUCE_NO_STDLIB=1` so debug sessions skip the prelude     |
-| `deduce-dap-auto-ui`           | `t`         | If non-nil, enable `dap-ui-mode` automatically before the first session — gives you fringe indicators, tooltips, and the side panes without an extra command. Set to nil to manage `dap-ui-mode` yourself. |
+| `deduce-dap-auto-ui`           | `t`         | If non-nil, set up dap-mode's UI automatically before each launch: enables `dap-ui-mode` (one-time) and opens the standard side panes (locals / sessions / breakpoints / expressions) via `dap-ui-many-windows`. Set to nil to keep the launcher minimal and manage the UI yourself. |
 
 The common gotcha: on systems with multiple Python installs the
 `python3` first on `$PATH` may not be the one you `pip install
@@ -674,17 +674,16 @@ also verify the debugger integration:
     e.g. `tmp/debugger_smoke.pf` if you've worked through the
     Debugger.md walkthrough, or any prelude module like
     `lib/UInt.pf` that contains a top-level `print`. Press
-    `C-c C-d`.  `deduce-dap` enables `dap-ui-mode` for you
-    automatically on first launch (see `deduce-dap-auto-ui`), so
-    the source buffer should highlight a line at the first
-    user-level statement (matching where `python deduce.py
-    --debug` would initially trap).
+    `C-c C-d`.  `deduce-dap` enables `dap-ui-mode` and opens the
+    standard side panes (locals / sessions / breakpoints /
+    expressions) for you automatically (see
+    `deduce-dap-auto-ui`).  The source buffer should highlight
+    a line at the first user-level statement (matching where
+    `python deduce.py --debug` would initially trap).
 
-15. If the side panes (locals / sessions / breakpoints) didn't
-    pop up, open them with `M-x dap-ui-many-windows` or
-    individually with `dap-ui-locals` / `dap-ui-sessions` /
-    `dap-ui-breakpoints`.  The Locals tree starts collapsed —
-    `RET` (or click the triangle) to expand.
+15. The Locals tree starts collapsed — `RET` (or click the
+    triangle next to `Locals`) to expand.  Inside a function
+    call, the pattern-bound names appear there.
 
 16. Set a breakpoint at a line of interest: `C-c d b` with
     cursor on the target line (or `M-x dap-breakpoint-toggle`).
