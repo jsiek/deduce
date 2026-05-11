@@ -145,7 +145,7 @@ known_tokens = {
     '__ANON_20': 'operator', # ⊝
     '__ANON_21': 'operator', # ∘
     '__ANON_22': 'operator', # \\.o\\.
-    '__ANON_23': 'keyword',  # operator
+    '__ANON_23': 'operator', # the literal keyword `operator`; categorised here, not in 'keyword', because the CSS class name `operator` in codeUtils.js collides with `\boperator\b` when applied after the operator-span pass and corrupts the rendered HTML
     '__ANON_24': 'prim',     # ∅
     '__ANON_25': 'prim',     # \\.0\\.
     '__ANON_26': 'operator', # ─
