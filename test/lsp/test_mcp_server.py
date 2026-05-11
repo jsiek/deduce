@@ -793,11 +793,16 @@ async def test_available_lemmas_at_query_pattern(server, tmp_path):
 
 
 @pytest.mark.anyio
-async def test_available_lemmas_at_no_signal_returns_empty(server, tmp_path):
-    """No `?` and no `query` -> empty list."""
-    fp = tmp_path / "empty.pf"
+async def test_available_lemmas_at_no_signal_browses(server, tmp_path):
+    """No `?` and no `query`: browse mode surfaces every in-scope
+    lemma so off-hole exploration works (issue #418)."""
+    fp = tmp_path / "browse.pf"
     fp.write_text(
-        "theorem t: all P:bool. P = P\n"
+        "theorem alpha: true\nproof\n  .\nend\n"
+        "\n"
+        "theorem beta: true\nproof\n  .\nend\n"
+        "\n"
+        "theorem gamma: all P:bool. P = P\n"
         "proof\n"
         "  arbitrary P:bool\n"
         "  reflexive\n"
@@ -806,9 +811,11 @@ async def test_available_lemmas_at_no_signal_returns_empty(server, tmp_path):
     payload = await _call(
         server,
         "available_lemmas_at",
-        {"path": str(fp), "line": 4, "column": 3},
+        {"path": str(fp), "line": 9, "column": 3},
     )
-    assert payload == []
+    assert isinstance(payload, list)
+    names = {m["name"] for m in payload}
+    assert {"alpha", "beta", "gamma"} <= names
 
 
 # --------------------------------------------------------------------------
