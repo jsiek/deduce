@@ -199,6 +199,17 @@ class _DAPDebugger(Debugger):
         self._stop_reason = "step"
         super().after_function(name, env, return_value=return_value)
 
+    def _print(self, msg: str) -> None:  # type: ignore[override]
+        """Override the text-mode helper so debugger-emitted messages
+        (``-> call ...``, ``-> statement ...``, ``<- returned ...``,
+        REPL output) reach the editor as DAP ``output`` events
+        instead of disappearing into the per-instance ``StringIO``."""
+        text = msg if msg.endswith("\n") else msg + "\n"
+        self._server._send_event("output", {
+            "category": "console",
+            "output": text,
+        })
+
     def _reason_for_statement(self, stmt, env) -> str:
         if any(bp.hits_at_statement(stmt, env, self) for bp in self.breakpoints):
             return "breakpoint"

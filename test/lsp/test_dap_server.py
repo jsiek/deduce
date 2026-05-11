@@ -399,6 +399,54 @@ def test_print_routed_to_output_event(dap_session, tmp_path):
         pass
 
 
+def test_return_trap_emits_console_output(dap_session, tmp_path):
+    """The text-mode debugger writes ``<- returned from ...`` to its
+    output stream at each per-frame return trap (Step 22).  In DAP
+    mode that stream is a throwaway StringIO; the editor needs to
+    see those messages as ``output`` events with category console.
+    ``_DAPDebugger._print`` forwards them; this test pins that."""
+    server, client, _ = dap_session
+    fixture = _write_fixture(tmp_path, "ret.pf", SIMPLE_PROGRAM)
+    client.request("initialize", {})
+    client.wait_for_event("initialized")
+    client.request("launch", {"program": fixture})
+    # Function breakpoint so we drop into double's body deterministically.
+    client.request("setFunctionBreakpoints", {
+        "breakpoints": [{"name": "double"}],
+    })
+    client.request("configurationDone")
+    client.wait_for_event("stopped", timeout=10.0)  # first user stmt
+    client.request("continue")
+    client.wait_for_event("stopped", timeout=10.0)  # double() entry
+    # Clear the function breakpoint so stepOut isn't re-trapped on
+    # each recursive call to double inside the body.
+    client.request("setFunctionBreakpoints", {"breakpoints": []})
+    # Step-out: we expect to see a ``<- returned from double`` event
+    # before the next stop or terminated.
+    client.request("stepOut")
+    saw_return = False
+    deadline_evts: list = []
+    while not saw_return:
+        try:
+            evt = client.wait_for_event("output", timeout=5.0)
+        except TimeoutError:
+            break
+        body = evt.get("body") or {}
+        text = body.get("output", "")
+        deadline_evts.append(text)
+        if "<- returned from double" in text:
+            saw_return = True
+    assert saw_return, (
+        f"expected ``<- returned from double`` in output events; "
+        f"got {deadline_evts}"
+    )
+    # Mop up so the fixture teardown sees a clean session.
+    try:
+        client.request("continue", timeout=1.0)
+    except TimeoutError:
+        pass
+
+
 def test_disconnect_terminates(dap_session, tmp_path):
     server, client, _ = dap_session
     fixture = _write_fixture(tmp_path, "disc.pf", SIMPLE_PROGRAM)

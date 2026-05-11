@@ -346,12 +346,19 @@ class Debugger:
         # Refresh ``_current_env`` / ``_current_loc`` to the caller's
         # frame so ``locals`` and ``print`` evaluated at the return
         # trap see the caller's scope, not the just-returned frame's.
-        # (At depth 0 the most recent ``on_statement`` already set
-        # these to the top-level env, so no refresh needed.)
+        # When popping the *last* frame we're back at top-level --
+        # fall back to the current statement's location so the
+        # editor's UI shows where we actually are (the statement
+        # whose reduction we're partway through), not the stale
+        # location of the function we just returned from.
         if self.stack:
             top = self.stack[-1]
             self._current_env = top.env
             self._current_loc = top.location
+        elif self._current_stmt is not None:
+            stmt_loc = getattr(self._current_stmt, "location", None)
+            if stmt_loc is not None:
+                self._current_loc = stmt_loc
         # gdb-style: ``step`` at the last line of a function pops you
         # back to the caller.  Without trapping on returns, a ``step``
         # at a base-case body cascades through every unwinding frame
