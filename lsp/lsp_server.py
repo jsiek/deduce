@@ -236,6 +236,14 @@ def _path_from_uri(uri: str) -> str:
     return uri
 
 
+def _uri_from_path(path: str) -> str:
+    """Inverse of :func:`_path_from_uri`: build an LSP ``file://`` URI
+    from a (possibly relative) filesystem path.  Used by the
+    ``textDocument/definition`` handler when a match lives in an
+    imported module rather than the request URI's file."""
+    return Path(os.path.abspath(path)).as_uri()
+
+
 def _document_content(ls: LanguageServer, uri: str) -> Optional[str]:
     """Read open-buffer contents from pygls's workspace."""
     try:
@@ -337,7 +345,14 @@ def on_did_close(
 def on_definition(
     ls: LanguageServer, params: lsp_types.DefinitionParams
 ) -> Optional[lsp_types.Location]:
-    """Resolve a reference to its definition."""
+    """Resolve a reference to its definition.
+
+    ``definition_of`` follows imports, so the matched declaration may
+    live in a different file from the request URI.  When that happens
+    we build a fresh ``file://`` URI from the matched ``Location``'s
+    ``path``; same-file matches reuse the incoming URI verbatim to
+    avoid unnecessary path normalisation round-trips.
+    """
     uri = params.text_document.uri
     content = _document_content(ls, uri)
     if content is None:
@@ -347,8 +362,12 @@ def on_definition(
     loc = _query.definition_of(path, content, pos, prelude=_prelude_for(path))
     if loc is None:
         return None
+    if os.path.abspath(loc.path) == os.path.abspath(path):
+        target_uri = uri
+    else:
+        target_uri = _uri_from_path(loc.path)
     return lsp_types.Location(
-        uri=uri,  # the query only finds same-file definitions today
+        uri=target_uri,
         range=_lsp_range_from_query(loc.range),
     )
 

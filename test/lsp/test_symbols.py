@@ -250,18 +250,65 @@ def test_definition_of_returns_none_on_parse_error() -> None:
 
 
 def test_definition_of_returns_none_when_target_is_imported() -> None:
-    """The current implementation only consults the user's file; if
-    the cursor lands on an identifier defined in an imported module
-    (or a built-in like ``bool``), we return None rather than guess."""
+    """The ``true`` literal is a ``Bool`` AST node, not a ``Var``, so it
+    has no resolvable name -- ``_find_reference_at`` returns ``None``
+    well before ``_find_declaration`` would get a chance.  Holds
+    regardless of the cross-file import-walking added later."""
     source = (
         "theorem t: true\n"
         "proof\n"
         "  .\n"
         "end\n"
     )
-    # The 'true' literal is a Bool node, not a Var, so it has no
-    # definition to find.
     assert definition_of("test.pf", source, Position(line=1, column=13)) is None
+
+
+# --------------------------------------------------------------------------
+# Cross-file definition_of
+# --------------------------------------------------------------------------
+
+
+def test_definition_of_cross_file_constructor() -> None:
+    """F12 on ``suc`` from a file that ``import Nat``s should jump to
+    the constructor's declaration in ``lib/NatDefs.pf`` (the actual
+    Union home, reached transitively through Nat's barrel imports)."""
+    source = (
+        "import Nat\n"                       # line 1
+        "\n"                                  # line 2
+        "define x : Nat = suc(zero)\n"        # line 3
+    )
+    # column count for line 3: d=1 e=2 f=3 i=4 n=5 e=6 ' '=7 x=8 ' '=9
+    # :=10 ' '=11 N=12 a=13 t=14 ' '=15 ==16 ' '=17 s=18
+    loc = definition_of("test.pf", source, Position(line=3, column=18))
+    assert loc is not None, "cross-file F12 on suc returned None"
+    assert loc.path.endswith("lib/NatDefs.pf"), (
+        f"expected lib/NatDefs.pf, got {loc.path!r}"
+    )
+    # The ``suc(Nat)`` constructor sits inside ``union Nat { ... }`` on
+    # line 5 of NatDefs.pf.
+    assert loc.range.start.line == 5
+
+
+def test_definition_of_cross_file_operator() -> None:
+    """F12 on a ``recursive operator`` defined in an imported module
+    should jump to the start of the operator's declaration block --
+    same shape as the constructor case but exercises the ``RecFun``
+    arm of the walker rather than ``Union.alternatives``."""
+    source = (
+        "import Nat\n"                       # line 1
+        "\n"                                  # line 2
+        "define one : Nat = suc(zero)\n"      # line 3
+        "define two : Nat = one + one\n"      # line 4
+    )
+    # line 4: d=1 e=2 f=3 i=4 n=5 e=6 ' '=7 t=8 w=9 o=10 ' '=11 :=12
+    # ' '=13 N=14 a=15 t=16 ' '=17 ==18 ' '=19 o=20 n=21 e=22 ' '=23 +=24
+    loc = definition_of("test.pf", source, Position(line=4, column=24))
+    assert loc is not None, "cross-file F12 on + returned None"
+    assert loc.path.endswith("lib/NatDefs.pf"), (
+        f"expected lib/NatDefs.pf, got {loc.path!r}"
+    )
+    # ``recursive operator +(Nat,Nat) -> Nat { ... }'' starts on line 8.
+    assert loc.range.start.line == 8
 
 
 def test_definition_of_ignores_imported_node_locations() -> None:
