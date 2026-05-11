@@ -177,6 +177,46 @@ CASES = [
         cursor=Position(line=6, column=17),
         expected_def_line=1,
     ),
+    DefnCase(
+        # F12 on a Union constructor (vs. the Union name above) must
+        # descend into Union.alternatives and return the constructor's
+        # own location, not None.  Pre-fix the lookup only checked
+        # top-level statements; constructors live inside the Union.
+        name="constructor_red_in_define_body",
+        source=(
+            "union Color {\n"          # line 1
+            "  Red\n"                  # line 2: constructor declaration
+            "  Blue\n"                 # line 3
+            "}\n"                      # line 4
+            "\n"                       # line 5
+            "define MyColor: Color = Red\n"   # line 6
+        ),
+        # cursor on the `R` of `Red` in the body of the define
+        cursor=Position(line=6, column=25),
+        expected_def_line=2,
+    ),
+    DefnCase(
+        # F12 on a predicate-rule label (e.g. ``ev0`` below) must
+        # descend into ``Predicate.rules`` -- the rule's name + Meta
+        # live inside the predicate declaration, not at top level.
+        name="predicate_rule_use_in_proof",
+        source=(
+            "import UInt\n"                                       # line 1
+            "\n"                                                  # line 2
+            "predicate even : fn UInt -> bool {\n"                # line 3
+            "  ev0   : even(0)\n"                                 # line 4: rule declaration
+            "  ev_ss : all n : UInt. if even(n) then even(n + 2)\n"  # line 5
+            "}\n"                                                 # line 6
+            "\n"                                                  # line 7
+            "theorem zero_is_even : even(0)\n"                    # line 8
+            "proof\n"                                             # line 9
+            "  ev0\n"                                             # line 10: rule used as a proof
+            "end\n"                                               # line 11
+        ),
+        # cursor on the `e` of `ev0` on the proof line
+        cursor=Position(line=10, column=3),
+        expected_def_line=4,
+    ),
 ]
 
 

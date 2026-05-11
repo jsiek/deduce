@@ -1115,8 +1115,22 @@ def _meta_span(meta) -> int:
 
 
 def _find_declaration(ast_nodes, target_name: str):
-    """Find the top-level declaration whose uniquified ``name`` field
-    equals ``target_name``. Returns its ``Meta`` location or ``None``.
+    """Find a declaration whose uniquified ``name`` field equals
+    ``target_name``.  Returns its ``Meta`` location, or ``None`` if no
+    match exists in the file.
+
+    Walks top-level statements first, then descends one level into
+    compound declarations:
+
+    - ``Union.alternatives`` — each ``Constructor`` carries its own
+      uniquified name + ``Meta``, so F12 on ``suc`` from a
+      ``case suc(n')`` pattern or a ``suc(n+m)`` expression resolves
+      to the constructor's declaration line inside the ``union``
+      block.
+    - ``Predicate.rules`` — each introduction ``Rule`` likewise carries
+      a uniquified name + ``Meta``, so F12 on a rule label inside a
+      ``rule`` invocation jumps to the rule's declaration inside the
+      ``predicate``/``relation`` block.
     """
     from abstract_syntax import (
         Define,
@@ -1132,6 +1146,14 @@ def _find_declaration(ast_nodes, target_name: str):
     for stmt in ast_nodes:
         if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
             return stmt.location
+        if isinstance(stmt, Union):
+            for cons in stmt.alternatives:
+                if getattr(cons, "name", None) == target_name:
+                    return cons.location
+        elif isinstance(stmt, Predicate):
+            for rule in stmt.rules:
+                if getattr(rule, "name", None) == target_name:
+                    return rule.location
     return None
 
 
