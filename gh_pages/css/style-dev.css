@@ -821,6 +821,11 @@ table {
             padding: 10px 15px;
             border: solid var(--light-gray) 1px;
         }
+
+        th code.inline,
+        td code.inline {
+            white-space: nowrap;
+        }
     }
 
     tr:nth-child(even) {
