@@ -81,6 +81,7 @@ __all__ = [
     "eliminable_vars_at",
     "fill_from_given_at",
     "matching_givens_at",
+    "preview_conclude_at",
     "apply_at",
     "hole_context_at",
     "available_lemmas_at",
@@ -2423,6 +2424,117 @@ def _fill_from_given_template(label: str, goal, env) -> Optional[str]:
     if binding.formula != goal and not _implies(binding.formula, goal):
         return None
     return f"conclude {goal} by {label}"
+
+
+# ---------------------------------------------------------------------------
+# preview_conclude_at -- issue #420: like ``fill_from_given_at`` but
+# matches modulo auto-rule normalization.
+# ---------------------------------------------------------------------------
+#
+# ``fill_from_given_at`` / ``matching_givens_at`` compare ``binding.formula``
+# against the goal under ``check_implies`` directly. The proof checker's
+# catch-all branch of ``check_proof_of`` (proof_checker.py, ~line 1870) does
+# more: it calls ``.reduce(env)`` on both sides first, which applies the
+# active ``auto`` rewrite rules. So the checker accepts a label whose
+# formula becomes the goal *after* auto fires, but ``matching_givens_at``
+# reports no match. Concrete example from PR #413: given
+# ``mult_le: 2^a * 1 ≤ 2^a * 2^(b - a)`` and goal ``2^a ≤ 2^a * 2^(b - a)``,
+# the goal and given differ by ``uint_mult_one: n * 1 = n`` (an auto rule),
+# so they are equal post-reduce but unequal pre-reduce.
+#
+# ``preview_conclude_at`` reproduces the checker's reduce-then-implies
+# step as a read-only preview, so an agent can confirm "this label
+# discharges the goal once auto fires" before committing the edit.
+
+
+def preview_conclude_at(
+    path: str, content: str, pos: Position,
+    label: str,
+    prelude: Sequence[str] = (),
+) -> Optional[dict]:
+    """Preview ``conclude <goal> by <label>`` modulo auto-rule
+    normalization.
+
+    The cursor must sit on (or immediately adjacent to) a ``?`` token.
+    ``label`` names an in-scope local proof binding. Both the binding's
+    formula and the goal are reduced via ``.reduce(env)`` -- which
+    applies any active ``auto`` rewrites -- and then
+    ``proof_checker.check_implies`` decides whether the (reduced)
+    binding discharges the (reduced) goal. This mirrors the catch-all
+    branch of the proof checker, so any label this preview reports as
+    ``discharges`` would also validate when used as the proof body of
+    a ``conclude ... by ...``.
+
+    Returns ``None`` when the cursor isn't on a ``?`` or the file has
+    no incomplete proof at that hole. Otherwise returns a dict whose
+    ``outcome`` field discriminates:
+
+    - ``{"outcome": "discharges", "goal_normalized": "<str>",
+       "given_normalized": "<str>"}`` -- the label's formula
+       (post-reduce) implies the goal (post-reduce).
+
+    - ``{"outcome": "no_match", "goal_normalized": "<str>",
+       "given_normalized": "<str>", "reason": "<msg>"}`` -- the label
+       is bound but its formula does not discharge the goal, even
+       modulo auto.
+
+    - ``{"outcome": "unbound", "label": "<name>"}`` -- ``label`` isn't
+       bound at the hole.
+
+    - ``{"outcome": "not_local", "label": "<name>"}`` -- ``label``
+       refers to a non-local proof binding (a theorem reference).
+       Theorem references are invoked by name in proof position
+       directly, not via ``conclude ... by ...`` -- matching the
+       filter already in :func:`fill_from_given_at`.
+    """
+    from abstract_syntax import ProofBinding, base_name
+
+    hole_range = _find_hole_at(content, pos)
+    if hole_range is None:
+        return None
+
+    from lsp.library import check_file
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ok:
+        return None
+
+    exc = result.exception
+    env = getattr(exc, "env", None)
+    goal = getattr(exc, "formula", None)
+    if env is None or goal is None:
+        return None
+
+    matches = [k for k in env.dict if base_name(k) == label]
+    if not matches:
+        return {"outcome": "unbound", "label": label}
+    binding = env.dict[matches[0]]
+    if not isinstance(binding, ProofBinding):
+        return {"outcome": "unbound", "label": label}
+    if not binding.local:
+        return {"outcome": "not_local", "label": label}
+
+    from abstract_syntax import remove_mark
+
+    given_red = binding.formula.reduce(env)
+    goal_red = remove_mark(goal).reduce(env)
+
+    if given_red == goal_red or _implies(given_red, goal_red):
+        return {
+            "outcome": "discharges",
+            "goal_normalized": str(goal_red),
+            "given_normalized": str(given_red),
+        }
+
+    return {
+        "outcome": "no_match",
+        "goal_normalized": str(goal_red),
+        "given_normalized": str(given_red),
+        "reason": (
+            f"{label}: {given_red} does not imply {goal_red} "
+            "(checked modulo auto-rule normalization)"
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------
