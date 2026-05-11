@@ -167,10 +167,16 @@ class Given:
     explicit label). ``formula`` is rendered text -- the same string
     Deduce's printer would produce -- not an AST node, so the type
     survives serialization across the MCP boundary.
+
+    ``formula_normalized`` is the post-auto-reduction form -- the shape
+    the proof checker actually compares against. ``None`` when it
+    coincides with ``formula`` (no auto rule fired), or when the
+    structured AST/env wasn't available to compute it.
     """
 
     label: Optional[str]
     formula: str
+    formula_normalized: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -181,11 +187,18 @@ class Goal:
     text. ``givens`` is a tuple (not list) so ``Goal`` stays hashable.
     ``range`` is the source range the goal corresponds to -- typically
     where the cursor or hole sits.
+
+    ``formula_normalized`` is the post-auto-reduction form of the goal
+    -- the shape the proof checker compares against when matching a
+    candidate proof body. ``None`` when it coincides with ``formula``
+    (no auto rule fired), or when the structured AST/env wasn't
+    available to compute it. See issue #421.
     """
 
     formula: str
     givens: tuple
     range: Range
+    formula_normalized: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -768,8 +781,88 @@ def _goal_from_exception(
     if formula is None:
         return None
 
+    formula_ast = getattr(exc, "formula", None)
+    env = getattr(exc, "env", None)
+    formula_normalized = _normalize_formula(formula_ast, env, formula)
+
     givens = _parse_givens_section(body)
-    return Goal(formula=formula, givens=givens, range=goal_range)
+    givens = _attach_normalized_givens(givens, env)
+
+    return Goal(
+        formula=formula,
+        givens=givens,
+        range=goal_range,
+        formula_normalized=formula_normalized,
+    )
+
+
+def _normalize_formula(formula_ast, env, rendered: str) -> Optional[str]:
+    """Render the auto-reduced form of ``formula_ast`` under ``env``.
+
+    Returns ``None`` when reduction is unavailable (missing AST or env)
+    or when the result matches the source-shaped ``rendered`` string,
+    so callers don't have to compare to know "no auto rule fired".
+    """
+    if formula_ast is None or env is None:
+        return None
+    try:
+        reduced = formula_ast.reduce(env)
+    except Exception:
+        return None
+    text = str(reduced)
+    if text == rendered:
+        return None
+    return text
+
+
+def _attach_normalized_givens(givens: tuple, env) -> tuple:
+    """Add ``formula_normalized`` to each given when env exposes its AST.
+
+    Walks ``env``'s ``ProofBinding`` entries to map each printed label
+    back to its formula AST, reduces under ``env``, and attaches the
+    string form when it differs from what the given carries. Givens
+    that we can't match (anonymous, env unavailable, label collisions)
+    pass through unchanged.
+    """
+    if env is None or not givens:
+        return givens
+    try:
+        from abstract_syntax import ProofBinding, name2str
+    except Exception:
+        return givens
+
+    by_label: dict = {}
+    for unique, binding in env.dict.items():
+        if not isinstance(binding, ProofBinding):
+            continue
+        label = name2str(unique)
+        # A label could appear more than once across nested scopes;
+        # keep the most recent (later-inserted) binding to match what
+        # the proof checker resolves to at the hole.
+        by_label[label] = binding.formula
+
+    result = []
+    for given in givens:
+        if given.label is None or given.label not in by_label:
+            result.append(given)
+            continue
+        try:
+            reduced = by_label[given.label].reduce(env)
+        except Exception:
+            result.append(given)
+            continue
+        text = str(reduced)
+        if text == given.formula:
+            result.append(given)
+            continue
+        result.append(
+            Given(
+                label=given.label,
+                formula=given.formula,
+                formula_normalized=text,
+            )
+        )
+    return tuple(result)
 
 
 def _extract_goal_formula(body: str) -> Optional[str]:
