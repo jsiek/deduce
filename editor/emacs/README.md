@@ -311,6 +311,7 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `C-c d o` | Step out (F-key-free fallback)                                     | `dap-step-out`                   | `deduce-dap`   |
 | `C-c d q` | Disconnect / end session (F-key-free fallback)                     | `dap-disconnect`                 | `deduce-dap`   |
 | `C-c d h` | Open dap-mode's single-key transient menu                          | `dap-hydra`                      | `deduce-dap`   |
+| `C-c d b` | Toggle a breakpoint at the current line                            | `dap-breakpoint-toggle`          | `deduce-dap`   |
 
 > **macOS users:** F5 / F10 / F11 are intercepted *twice* —
 > once by the hardware (brightness / mute / volume) and again
@@ -470,13 +471,16 @@ if your distro intercepts them.
 
 ### Gutter-clicking doesn't set breakpoints
 
-dap-mode doesn't bind mouse clicks in the fringe by default —
-that's a VS-Code convention that emacs doesn't ship out of the
-box.  Use `M-x dap-breakpoint-toggle` (cursor on the target line)
-or `M-x dap-breakpoint-add`.
+dap-mode doesn't bind mouse clicks in the fringe by default
+(VS Code convention; emacs doesn't ship it out of the box) and
+making it work cleanly fights the flymake / eglot fringe
+indicators, which often grab `[left-fringe mouse-1]` to surface
+their own actions.  **Strongly recommended:** use the keyboard
+binding `C-c d b` (`dap-breakpoint-toggle`) instead.
 
-If you want the click as well, paste this into your init after
-`(require 'deduce-dap)`:
+If you really want a mouse click, **shift-click** in the fringe
+avoids the conflict with flymake's plain-mouse-1 capture.  Paste
+into your init after `(require 'deduce-dap)`:
 
 ```elisp
 (defun my/dap-toggle-bp-at-mouse (event)
@@ -490,10 +494,14 @@ If you want the click as well, paste this into your init after
         (goto-char pos)
         (call-interactively #'dap-breakpoint-toggle)))))
 
-(with-eval-after-load 'dap-mode
-  (define-key dap-mode-map [left-fringe mouse-1]
+(with-eval-after-load 'deduce-mode
+  (define-key deduce-mode-map [left-fringe S-mouse-1]
               #'my/dap-toggle-bp-at-mouse))
 ```
+
+We attach to `deduce-mode-map' rather than `dap-mode-map' so the
+binding works in `.pf' buffers whether or not a debug session is
+currently active.
 
 ### Function breakpoints from the keyboard
 

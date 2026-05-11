@@ -164,7 +164,9 @@ macOS / a WM intercepts the function row."
   (should (eq (lookup-key deduce-mode-map (kbd "C-c d q"))
               #'dap-disconnect))
   (should (eq (lookup-key deduce-mode-map (kbd "C-c d h"))
-              #'dap-hydra)))
+              #'dap-hydra))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d b"))
+              #'dap-breakpoint-toggle)))
 
 
 (provide 'deduce-dap-test)

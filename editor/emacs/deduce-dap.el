@@ -236,6 +236,7 @@ installed; errors out informatively otherwise."
   (define-key deduce-mode-map (kbd "C-c d s") #'dap-step-in)
   (define-key deduce-mode-map (kbd "C-c d o") #'dap-step-out)
   (define-key deduce-mode-map (kbd "C-c d q") #'dap-disconnect)
+  (define-key deduce-mode-map (kbd "C-c d b") #'dap-breakpoint-toggle)
   ;; ``C-c d h'' opens dap-mode's transient single-key menu --
   ;; an OS-independent way to step (``n''/``s''/``o''), continue
   ;; (``c''), eval (``e''), quit (``q''), etc. without
