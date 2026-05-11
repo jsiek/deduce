@@ -218,16 +218,31 @@ there.
 
 ## Editor integration
 
-Deduce also exposes the same debugger over the
+Deduce exposes the same debugger over the
 [Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/),
-which is what graphical IDEs use for their built-in debug UIs.
-The adapter is `python -m lsp.dap_server`; it speaks DAP on stdio,
-so any DAP client (VS Code's debug view, Emacs `dap-mode`,
-Neovim's `nvim-dap`) can drive it.
+so graphical IDEs can drive it.  Two editor packages ship in this
+repository:
 
-Editor packages (VS Code launch configuration, Emacs
-`deduce-dap.el`) are not yet shipped; if you'd like to wire one up
-manually, point your DAP client at `python -m lsp.dap_server` and
-include `"program": "<path-to-your.pf>"` in the launch arguments.
-The command-line debugger documented above remains the
-recommended day-to-day interface.
+- **Emacs** — [`editor/emacs/deduce-dap.el`](../../editor/emacs/deduce-dap.el)
+  registers a `dap-mode` debug template.  Install it alongside
+  `deduce-mode` / `deduce-lsp` (see
+  [`editor/emacs/README.md`](../../editor/emacs/README.md)), then
+  press `C-c C-d` in any `.pf` buffer to launch.  Requires the
+  `dap-mode` package from MELPA.
+- **VS Code** — [`editor/vscode/`](../../editor/vscode/) contains a
+  minimal extension that registers the `deduce` debugger type.  Run
+  it standalone with
+  `code --extensionDevelopmentPath=editor/vscode`, or package it
+  into a `.vsix` and install permanently.  Drop the sample
+  `launch.json` into your workspace and press F5.  See
+  [`editor/vscode/README.md`](../../editor/vscode/README.md) for the
+  full instructions.
+
+Both packages launch `python -m lsp.dap_server` as the adapter and
+expose the same UI surface as gdb-style debug clients: gutter
+breakpoints, a call-stack panel, a locals view, an evaluate-in-REPL
+console, and Step Over / Step Into / Step Out / Continue.  The
+command-line debugger remains the recommended interface for
+quickly iterating on a single proof — the editor packages add value
+when you want to set many breakpoints visually or already have a
+debug workflow muscle-memoried into your IDE.

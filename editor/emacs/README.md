@@ -14,6 +14,10 @@ Three layers, each independently usable:
 - **`deduce-fill-hole`** *(optional)* — ask an LLM to fill the hole at
   point. Validated proofs only; the LLM's output is checked before
   it is spliced into your buffer.
+- **`deduce-dap`** *(optional)* — drive the `python deduce.py --debug`
+  command-line debugger through `dap-mode`, so gutter breakpoints,
+  the call-stack pane, and the locals view all work directly from
+  your `.pf` buffer.
 
 [deduce]: https://github.com/jsiek/deduce
 
@@ -422,6 +426,43 @@ verify the LLM path:
     key is missing, the buffer is left untouched and an error
     message is reported.
 
+If you have `deduce-dap` loaded and `dap-mode` installed
+(`M-x package-install RET dap-mode RET` or via MELPA in your config),
+also verify the debugger integration:
+
+14. Open a `.pf` file that has at least one `print` statement —
+    e.g. `tmp/debugger_smoke.pf` if you've worked through the
+    Debugger.md walkthrough, or any prelude module like `lib/UInt.pf`
+    that contains a top-level `print`. Press `C-c C-d`.
+
+15. dap-mode opens its UI: a `*dap-ui-locals*` window, a
+    `*dap-ui-sessions*` window listing one session, and the source
+    buffer with a yellow gutter arrow at the first user-level
+    statement (the same place `python deduce.py --debug` would
+    initially trap).
+
+16. Click in the gutter of a line containing a `print` or `assert`
+    (or `M-x dap-breakpoint-toggle`) to set a breakpoint. Press
+    `F10` (or `M-x dap-next`) to step over; `F11` (`dap-step-in`)
+    to step into a function call; `F5` (`dap-continue`) to resume.
+
+17. While paused inside a function, the locals panel should show
+    the pattern-bound names (e.g. `n' = suc(zero)` inside
+    `count_down`'s `suc` case). The call-stack panel shows one
+    entry per frame, gdb-style with the innermost at the top.
+
+18. In the `*dap-ui-repl*` window (or via `dap-eval-region`), type
+    an expression like `suc(zero)` to invoke the DAP `evaluate`
+    request — the same reducer the CLI's `print` command uses.
+
+19. Press `M-x dap-disconnect RET` (or close the session from the
+    sessions panel) to end the run. The DAP adapter exits cleanly
+    when stdin is closed; you should see a `terminated` event in
+    the debug log if `M-x dap-go-back` shows the trace.
+
+If `dap-mode` isn't installed, `C-c C-d` reports an error pointing
+at the MELPA install command rather than crashing.
+
 ## Development
 
 Run the ert tests in batch mode (no GUI required):
@@ -431,6 +472,8 @@ emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-mode-test -f ert-run-tests-batch-and-exit
 emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-lsp-test -f ert-run-tests-batch-and-exit
+emacs --batch -L editor/emacs -L editor/emacs/test \
+      -l deduce-dap-test -f ert-run-tests-batch-and-exit
 emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-fill-hole-test -f ert-run-tests-batch-and-exit
 ```
@@ -446,7 +489,8 @@ Byte-compile the sources to catch warnings:
 ```sh
 emacs --batch -L editor/emacs \
       -f batch-byte-compile editor/emacs/deduce-mode.el \
-      editor/emacs/deduce-lsp.el editor/emacs/deduce-fill-hole.el
+      editor/emacs/deduce-lsp.el editor/emacs/deduce-fill-hole.el \
+      editor/emacs/deduce-dap.el
 ```
 
 If a stale `.elc` file is loaded instead of the source, `M-x

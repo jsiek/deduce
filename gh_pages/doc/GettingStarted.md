@@ -86,9 +86,10 @@ backed by Deduce's Language Server Protocol (LSP) implementation.
   Includes both a major mode (highlighting + indentation) and an LSP
   client with goal-at-cursor, refine-hole, case-split, induction
   skeleton, and more.
-* [VS Code](#vs-code) — separate
-  [`HalflingHelper/deduce-mode`](https://github.com/HalflingHelper/deduce-mode)
-  repo. LSP integration is on the roadmap but not yet wired up.
+* [VS Code](#vs-code) — in-tree at
+  [`editor/vscode/`](https://github.com/jsiek/deduce/tree/main/editor/vscode).
+  Currently ships the debugger integration; syntax highlighting and
+  the LSP client are on the roadmap.
 
 #### Emacs
 
@@ -164,15 +165,22 @@ manual smoke test — see
 
 #### VS Code
 
-The VS Code extension lives in a separate repo:
-[HalflingHelper/deduce-mode](https://github.com/HalflingHelper/deduce-mode).
-It currently provides syntax highlighting only; the interactive
-LSP-backed features (goal-at-cursor, refine, case split, etc.) are not
-yet wired up. If you want them today, use the Emacs mode above; if you
-want to help build the VS Code client, the Deduce LSP server lives at
-`lsp/lsp_server.py` and speaks standard LSP plus a few custom
-`deduce/...` requests documented in
-[`docs/lsp-plan.md`](https://github.com/jsiek/deduce/blob/main/docs/lsp-plan.md).
+The VS Code extension lives in-tree at
+[`editor/vscode/`](https://github.com/jsiek/deduce/blob/main/editor/vscode/README.md)
+and supersedes the older out-of-tree
+[HalflingHelper/deduce-mode](https://github.com/HalflingHelper/deduce-mode)
+(no longer maintained).  Today the extension ships the **debugger
+integration**: gutter breakpoints, the call-stack panel, the locals
+view, and the Debug Console all work over the same DAP adapter
+(`python3 -m lsp.dap_server`) the
+[Debugger guide](https://github.com/jsiek/deduce/blob/main/gh_pages/doc/Debugger.md)
+describes for the command line.
+
+Syntax highlighting and the LSP-client wiring (goal-at-cursor,
+refine, case split, etc.) are tracked in
+[`editor/vscode/README.md`](https://github.com/jsiek/deduce/blob/main/editor/vscode/README.md#roadmap)'s
+roadmap; for those interactive features today, use the Emacs mode
+above.
 
 
 ## Running Deduce Programs

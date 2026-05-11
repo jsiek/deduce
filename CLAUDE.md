@@ -82,7 +82,7 @@ Steps 3–6 all run inside `proof_checker.check_deduce`. The four-phase comment 
 
 ## When changing syntax
 
-Per `docs/knowledge-base/what-to-update.md`, a syntax change touches: `Deduce.lark`, `parser.py`, `rec_desc_parser.py`, `abstract_syntax.py`, `gh_pages/scripts/keywords.py`, `gh_pages/js/codeUtils.js`, `gh_pages/js/sandbox.js`. The two external editor modes (`deduce-mode` for VS Code and Emacs) also need updates but live in separate repos.
+Per `docs/knowledge-base/what-to-update.md`, a syntax change touches: `Deduce.lark`, `parser.py`, `rec_desc_parser.py`, `abstract_syntax.py`, `gh_pages/scripts/keywords.py`, `gh_pages/js/codeUtils.js`, `gh_pages/js/sandbox.js`. The in-tree editor integrations at `editor/emacs/` and `editor/vscode/` may also need updates — neither ships syntax highlighting today, but those additions will live alongside the existing files.
 
 ## Stdlib naming convention
 
