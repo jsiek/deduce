@@ -55,6 +55,8 @@ const codeBlocks = [
 	"proof_really_trivial",
 	"proof_replace_in_example",
 	"proof_simplify_or_true",
+	"proof_simplify_with_if",
+	"proof_simplify_zero_plus",
 	"proof_take_zero_empty",
 	"proof_uint_equation_ex",
 	"proof_use_not_example",
