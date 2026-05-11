@@ -76,6 +76,15 @@
 (declare-function eglot-current-server "eglot")
 (declare-function eglot--signal-textDocument/didChange "eglot")
 
+;; Flymake is built into Emacs 29+; declare the diagnostic accessors so
+;; the byte-compiler doesn't warn before `flymake' is loaded.
+(declare-function flymake-diagnostics "flymake")
+(declare-function flymake-diagnostic-type "flymake")
+(declare-function flymake-diagnostic-beg "flymake")
+(declare-function flymake-diagnostic-end "flymake")
+(declare-function flymake-diagnostic-text "flymake")
+(declare-function flymake-diagnostic-buffer "flymake")
+
 
 (defgroup deduce-lsp nil
   "Eglot integration for `deduce-mode'."
@@ -654,6 +663,115 @@ out without applying when the server returns null."
 (define-key deduce-mode-map (kbd "C-c C-i") #'deduce-lsp-induction)
 (define-key deduce-mode-map (kbd "C-c C-e") #'deduce-lsp-eliminate)
 (define-key deduce-mode-map (kbd "C-c C-f") #'deduce-lsp-fill-from-given)
+
+
+;; ---------------------------------------------------------------------
+;; Show diagnostic at point (issue #430)
+;; ---------------------------------------------------------------------
+;;
+;; Deduce error messages are multi-line by design: a one-line headline
+;; followed by a location line and one or more tab-indented grammar
+;; rules (parse errors) or a goal/givens block (proof errors).  The
+;; echo area, where flymake/eglot surface the diagnostic at point,
+;; shows only the first line on most Emacs configurations -- the body
+;; gets clipped and the user can't see why their proof failed.
+;;
+;; `deduce-show-diagnostic-at-point' pulls every flymake diagnostic
+;; overlapping point and renders the full text into a `*Deduce
+;; Diagnostic*' popup buffer.  Same display strategy as the goal-at
+;; popup (read-only `view-mode', `display-buffer'), so the keybinding
+;; is symmetric: `C-c C-g' for the proof goal, `C-c C-x' for the
+;; error explanation.
+
+(defconst deduce-lsp-diagnostic-buffer-name "*Deduce Diagnostic*"
+  "Buffer name used to display the full diagnostic message at point.")
+
+
+(defun deduce-lsp--diagnostics-at-point ()
+  "Return the list of flymake diagnostics overlapping point.
+
+When point sits between diagnostics, this returns nil; the caller
+widens the search to the current line."
+  (require 'flymake)
+  (when (fboundp 'flymake-diagnostics)
+    (flymake-diagnostics (point) (point))))
+
+
+(defun deduce-lsp--diagnostics-on-line ()
+  "Return the list of flymake diagnostics overlapping the current line."
+  (require 'flymake)
+  (when (fboundp 'flymake-diagnostics)
+    (flymake-diagnostics (line-beginning-position) (line-end-position))))
+
+
+(defun deduce-lsp--render-diagnostic (diag)
+  "Insert a flymake DIAG into the current buffer.
+
+Renders a one-line header (severity + 1-indexed line:col range) so
+the user can correlate the popup with the underline in the source
+buffer, then the full diagnostic text on subsequent lines -- newlines
+and tab-indented continuations preserved."
+  (let* ((type   (flymake-diagnostic-type diag))
+         (beg    (flymake-diagnostic-beg diag))
+         (end    (flymake-diagnostic-end diag))
+         (text   (or (flymake-diagnostic-text diag) ""))
+         (buffer (flymake-diagnostic-buffer diag))
+         (sev    (cond ((eq type :error)   "error")
+                       ((eq type :warning) "warning")
+                       ((eq type :note)    "note")
+                       (t                  (format "%s" type)))))
+    (insert (format "[%s]" sev))
+    (when (and buffer (buffer-live-p buffer) beg end)
+      (let (line col-start col-end)
+        (with-current-buffer buffer
+          (save-excursion
+            (goto-char beg)
+            (setq line (line-number-at-pos)
+                  col-start (1+ (current-column)))
+            (goto-char end)
+            (setq col-end (1+ (current-column)))))
+        (insert (format " %d:%d-%d" line col-start col-end))))
+    (insert "\n")
+    (insert text)
+    (unless (string-suffix-p "\n" text)
+      (insert "\n"))))
+
+
+(defun deduce-lsp--show-diagnostics (diags)
+  "Display the list of DIAGS in the `*Deduce Diagnostic*' buffer."
+  (let ((buf (get-buffer-create deduce-lsp-diagnostic-buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (read-only-mode 0)
+        (erase-buffer)
+        (if (null diags)
+            (insert "No diagnostic at point.\n")
+          (let ((first t))
+            (dolist (d diags)
+              (unless first (insert "\n"))
+              (setq first nil)
+              (deduce-lsp--render-diagnostic d))))
+        (goto-char (point-min)))
+      (view-mode 1))
+    (display-buffer buf)))
+
+
+(defun deduce-show-diagnostic-at-point ()
+  "Show the full text of the diagnostic(s) at point in a popup buffer.
+
+Deduce error messages span several lines (a headline, a location,
+and a grammar / proof context).  Flymake clips that to the first
+line in the echo area, so this command opens a `*Deduce
+Diagnostic*' buffer with every diagnostic that overlaps point --
+or, if point is between diagnostics, every diagnostic on the
+current line."
+  (interactive)
+  (let ((diags (or (deduce-lsp--diagnostics-at-point)
+                   (deduce-lsp--diagnostics-on-line))))
+    (deduce-lsp--show-diagnostics diags)))
+
+
+(define-key deduce-mode-map (kbd "C-c C-x") #'deduce-show-diagnostic-at-point)
 
 
 (provide 'deduce-lsp)

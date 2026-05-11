@@ -1115,6 +1115,158 @@ exact-match candidate -- no special-casing at the transport layer."
       (delete-file tmp))))
 
 
+;; ---------------------------------------------------------------------
+;; deduce-show-diagnostic-at-point (issue #430)
+;; ---------------------------------------------------------------------
+;;
+;; The popup-buffer command for full multi-line diagnostics.  We don't
+;; run a live flymake-eglot loop in these tests; instead we stub
+;; `flymake-diagnostics' to return a hand-built diagnostic and check
+;; that the render routine preserves the newlines / tabs that the echo
+;; area would otherwise clip.
+
+(require 'flymake)
+
+(defun deduce-lsp-test--make-diag (buffer beg end type text)
+  "Build a flymake diagnostic for the tests.
+
+The flymake constructor (`flymake-make-diagnostic') accepts the
+five-positional form `(buffer beg end type text)' across every
+Emacs version we support; using it keeps the diagnostic structurally
+identical to one flymake itself would emit."
+  (flymake-make-diagnostic buffer beg end type text))
+
+
+(ert-deftest deduce-lsp/show-diagnostic-bound-to-c-c-c-x ()
+  "`C-c C-x' in deduce-mode-map runs `deduce-show-diagnostic-at-point'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-x"))
+              #'deduce-show-diagnostic-at-point)))
+
+
+(ert-deftest deduce-lsp/show-diagnostic-renders-multiline-text ()
+  "The popup buffer preserves newlines and tab-indented continuations
+from the diagnostic text -- the whole point of the command."
+  (let ((tmp (make-temp-file "deduce-diag" nil ".pf"))
+        (multi (concat "Missing type annotation. Expected ':' followed by a type.\n"
+                       "/tmp/x.pf:1.18-1.20: while parsing\n"
+                       "\ttype_annot_list ::= identifier \":\" type")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem foo: all P. P = P\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (goto-char (point-min))
+          (forward-char 18)
+          (let* ((src-buffer (current-buffer))
+                 (diag (deduce-lsp-test--make-diag
+                        src-buffer (point) (1+ (point)) :error multi)))
+            (cl-letf (((symbol-function 'flymake-diagnostics)
+                       (lambda (&rest _) (list diag))))
+              (deduce-show-diagnostic-at-point)))
+          (let ((rendered
+                 (with-current-buffer
+                     (get-buffer deduce-lsp-diagnostic-buffer-name)
+                   (buffer-substring-no-properties (point-min) (point-max)))))
+            (should (string-match-p "\\[error\\]" rendered))
+            (should (string-match-p "Missing type annotation" rendered))
+            (should (string-match-p "while parsing" rendered))
+            ;; The tab-indented continuation must survive intact --
+            ;; without this the echo-area version (which clips at
+            ;; the first newline) is exactly what the user already
+            ;; sees, and the command is pointless.
+            (should (string-match-p "\ttype_annot_list" rendered))))
+      (when (get-buffer deduce-lsp-diagnostic-buffer-name)
+        (kill-buffer deduce-lsp-diagnostic-buffer-name))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/show-diagnostic-falls-back-to-line ()
+  "When point sits between diagnostics, the command widens its
+search to the current line and still finds the diagnostic."
+  (let ((tmp (make-temp-file "deduce-diag" nil ".pf"))
+        (calls nil))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem foo: all P. P = P\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (goto-char (point-min))
+          (let* ((src-buffer (current-buffer))
+                 (diag (deduce-lsp-test--make-diag
+                        src-buffer 19 20 :error
+                        "Missing type annotation.")))
+            (cl-letf (((symbol-function 'flymake-diagnostics)
+                       (lambda (beg end)
+                         (push (cons beg end) calls)
+                         ;; First call (point .. point) returns nil;
+                         ;; second call (line bounds) returns the diag.
+                         (if (= beg end) nil (list diag)))))
+              (deduce-show-diagnostic-at-point)))
+          ;; Two queries: point-level, then line-level.
+          (should (= (length calls) 2))
+          (let ((rendered
+                 (with-current-buffer
+                     (get-buffer deduce-lsp-diagnostic-buffer-name)
+                   (buffer-substring-no-properties (point-min) (point-max)))))
+            (should (string-match-p "Missing type annotation" rendered))))
+      (when (get-buffer deduce-lsp-diagnostic-buffer-name)
+        (kill-buffer deduce-lsp-diagnostic-buffer-name))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/show-diagnostic-empty-reports-none ()
+  "With no diagnostics at point or on the line, the popup buffer
+states `No diagnostic at point.' rather than displaying stale text."
+  (let ((tmp (make-temp-file "deduce-diag" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "theorem t: bool\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (cl-letf (((symbol-function 'flymake-diagnostics)
+                     (lambda (&rest _) nil)))
+            (deduce-show-diagnostic-at-point))
+          (let ((rendered
+                 (with-current-buffer
+                     (get-buffer deduce-lsp-diagnostic-buffer-name)
+                   (buffer-substring-no-properties (point-min) (point-max)))))
+            (should (string-match-p "No diagnostic at point" rendered))))
+      (when (get-buffer deduce-lsp-diagnostic-buffer-name)
+        (kill-buffer deduce-lsp-diagnostic-buffer-name))
+      (delete-file tmp))))
+
+
+(ert-deftest deduce-lsp/show-diagnostic-multiple-diagnostics ()
+  "When several diagnostics overlap point, each is rendered with its
+own [severity] header so the user can tell them apart."
+  (let ((tmp (make-temp-file "deduce-diag" nil ".pf")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "x\n")
+          (setq buffer-file-name tmp)
+          (deduce-mode)
+          (let* ((src-buffer (current-buffer))
+                 (d1 (deduce-lsp-test--make-diag
+                      src-buffer 1 2 :error "first error\nwith body"))
+                 (d2 (deduce-lsp-test--make-diag
+                      src-buffer 1 2 :warning "second warning")))
+            (cl-letf (((symbol-function 'flymake-diagnostics)
+                       (lambda (&rest _) (list d1 d2))))
+              (deduce-show-diagnostic-at-point)))
+          (let ((rendered
+                 (with-current-buffer
+                     (get-buffer deduce-lsp-diagnostic-buffer-name)
+                   (buffer-substring-no-properties (point-min) (point-max)))))
+            (should (string-match-p "\\[error\\]" rendered))
+            (should (string-match-p "\\[warning\\]" rendered))
+            (should (string-match-p "first error" rendered))
+            (should (string-match-p "with body" rendered))
+            (should (string-match-p "second warning" rendered))))
+      (when (get-buffer deduce-lsp-diagnostic-buffer-name)
+        (kill-buffer deduce-lsp-diagnostic-buffer-name))
+      (delete-file tmp))))
+
+
 (provide 'deduce-lsp-test)
 
 ;;; deduce-lsp-test.el ends here

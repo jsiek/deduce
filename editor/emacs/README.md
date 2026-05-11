@@ -203,6 +203,13 @@ auto-start hook:
   use. A narrower sibling of `C-c C-e`: eliminate picks by
   hypothesis shape; fill-from-given picks by formula equality with
   the goal.
+- `C-c C-x` — **show the full diagnostic at point** in a `*Deduce
+  Diagnostic*` popup buffer. Deduce error messages are multi-line
+  (headline + location + grammar / proof context); the echo area
+  clips them to the first line. This command preserves the newlines
+  and tab-indented continuations so the whole message is readable.
+  When point sits between diagnostics, every diagnostic on the
+  current line is shown.
 
 `deduce-dap` (when loaded, also requires the third-party
 `dap-mode` package from MELPA):
@@ -297,6 +304,7 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `C-c C-i` | Replace `?` with `induction T` skeleton at a forall goal           | `deduce-lsp-induction`           | `deduce-lsp`   |
 | `C-c C-e` | Prompt for hypothesis, replace `?` with use-fact tactic            | `deduce-lsp-eliminate`           | `deduce-lsp`   |
 | `C-c C-f` | Replace `?` with `conclude ... by H` for a given matching the goal | `deduce-lsp-fill-from-given`     | `deduce-lsp`   |
+| `C-c C-x` | Show the full diagnostic at point in a popup buffer                | `deduce-show-diagnostic-at-point`| `deduce-lsp`   |
 | `C-c C-a` | Ask an LLM to fill the `?` at point. Async, non-blocking.          | `deduce-fill-hole`               | `deduce-fill-hole` |
 | `C-c C-d` | Launch a debug session on the current `.pf` file                   | `deduce-dap-debug-current-buffer`| `deduce-dap`   |
 | `F5`      | Continue execution (inside an active debug session)                | `dap-continue`                   | `deduce-dap`   |
