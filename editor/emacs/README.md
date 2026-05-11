@@ -302,6 +302,15 @@ matcher; it doesn't currently handle multi-line type signatures or
 want, just type the spaces yourself — the indenter only fires when
 you ask. SMIE-grade alignment is a future enhancement.
 
+### Gutter-clicking doesn't set breakpoints
+
+dap-mode doesn't bind mouse clicks in the fringe by default —
+that's a VS-Code convention that emacs doesn't ship out of the
+box.  Use `M-x dap-breakpoint-toggle` (cursor on the target line)
+or `M-x dap-breakpoint-add-function NAME` for function
+breakpoints.  If you really want the click, bind `<mouse-1>` to
+`dap-mouse-toggle-breakpoint` in `dap-mode-map` yourself.
+
 ### `C-c C-d` reports "Debug session process exited with status: exited abnormally with code 1"
 
 Check the buffer named `*Deduce :: launch current file stderr*`
