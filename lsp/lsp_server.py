@@ -398,6 +398,64 @@ def on_document_symbol(
     ]
 
 
+# Map ``CompletionCandidate.kind`` strings to LSP ``CompletionItemKind``
+# enum values.  Defaults to ``Text`` for anything not in the table so
+# unknown kinds don't crash the client.
+_COMPLETION_KIND_MAP = {
+    "keyword": lsp_types.CompletionItemKind.Keyword,
+    "constant": lsp_types.CompletionItemKind.Constant,
+    "type": lsp_types.CompletionItemKind.Class,
+    "theorem": lsp_types.CompletionItemKind.Function,
+    "lemma": lsp_types.CompletionItemKind.Function,
+    "postulate": lsp_types.CompletionItemKind.Function,
+    "predicate": lsp_types.CompletionItemKind.Function,
+    "function": lsp_types.CompletionItemKind.Function,
+    "rule": lsp_types.CompletionItemKind.Function,
+    "define": lsp_types.CompletionItemKind.Variable,
+    "union": lsp_types.CompletionItemKind.Class,
+    "constructor": lsp_types.CompletionItemKind.Constructor,
+}
+
+
+@server.feature(
+    lsp_types.TEXT_DOCUMENT_COMPLETION,
+    lsp_types.CompletionOptions(),
+)
+def on_completion(
+    ls: LanguageServer, params: lsp_types.CompletionParams
+) -> Optional[lsp_types.CompletionList]:
+    """In-buffer completion.  Returns keywords plus every top-level
+    name reachable from the file (own declarations + transitive
+    imports), letting the client filter by the typed prefix.
+
+    Local bindings (``arbitrary`` / ``assume`` / ``obtain``) are not
+    yet surfaced -- that needs an env walker for arbitrary cursor
+    positions.  Tracked as a follow-up to Step 31.
+    """
+    uri = params.text_document.uri
+    content = _document_content(ls, uri)
+    if content is None:
+        return None
+    path = _path_from_uri(uri)
+    pos = _query_pos_from_lsp(params.position)
+    candidates = _query.completions_at(
+        path, content, pos, prelude=_prelude_for(path)
+    )
+    items = [
+        lsp_types.CompletionItem(
+            label=c.label,
+            kind=_COMPLETION_KIND_MAP.get(c.kind, lsp_types.CompletionItemKind.Text),
+            detail=c.detail,
+        )
+        for c in candidates
+    ]
+    # ``is_incomplete=False`` tells the client our candidate set is
+    # complete for this position -- it can cache and filter locally
+    # rather than re-issuing ``textDocument/completion`` on every
+    # keystroke.
+    return lsp_types.CompletionList(is_incomplete=False, items=items)
+
+
 def _get_field(obj, name):
     """Read a named field from a custom-request param value.
 

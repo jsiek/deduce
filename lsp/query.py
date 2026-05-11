@@ -60,6 +60,7 @@ __all__ = [
     "Goal",
     "SymbolInfo",
     "WorkspaceEdit",
+    "CompletionCandidate",
     "UnsupportedRefineShape",
     "LemmaInfo",
     "LemmaMatch",
@@ -73,6 +74,7 @@ __all__ = [
     "goal_at",
     "definition_of",
     "list_symbols",
+    "completions_at",
     "refine_at",
     "case_split_at",
     "splittable_vars_at",
@@ -235,6 +237,71 @@ REFINE_SUPPORTED_SHAPES: tuple = (
     "some _. _",
     "reducible _ = _",
 )
+
+
+# Deduce keywords surfaced by :func:`completions_at`.  Mirrors
+# ``deduce-mode--keywords`` in editor/emacs/deduce-mode.el and the
+# keyword categories in editor/vscode/syntaxes/deduce.tmLanguage.json
+# (kept in sync by hand for now; a generator off ``Deduce.lark`` would
+# eventually replace the three copies).  Categorisation feeds the
+# LSP-side ``CompletionItemKind`` mapping: ``keyword`` -> Keyword,
+# ``constant`` -> Constant, ``type`` -> Class.
+COMPLETION_KEYWORDS: tuple = (
+    # declaration / structure
+    "theorem", "lemma", "postulate", "define", "recursive", "recfun",
+    "union", "inductive", "predicate", "relation", "import", "export",
+    "module", "auto", "assert", "print", "operator", "associative",
+    "terminates", "measure", "trace", "generic", "fun", "λ",
+    # visibility
+    "public", "private", "opaque",
+    # module-import filters
+    "using", "hiding",
+    # proof structure
+    "proof", "end", "case", "cases", "with", "where",
+    # tactics
+    "arbitrary", "assume", "suppose", "have", "show", "obtain", "from", "for",
+    "induction", "rule", "inversion", "switch", "replace", "expand",
+    "evaluate", "simplify", "equations", "recall", "reflexive", "symmetric",
+    "transitive", "injective", "extensionality", "apply", "to", "conclude",
+    "conjunct", "contradict", "suffices", "choose", "stop", "help", "by", "of",
+    # logical / control
+    "if", "then", "else", "all", "some", "in",
+    "not", "and", "or", "iff",
+    # built-in operators / forms
+    "fn", "array",
+)
+
+COMPLETION_CONSTANT_KEYWORDS: tuple = ("true", "false")
+COMPLETION_TYPE_KEYWORDS: tuple = ("bool", "type")
+
+
+@dataclass(frozen=True)
+class CompletionCandidate:
+    """A single completion candidate returned by :func:`completions_at`.
+
+    ``label`` is the user-visible text the client filters against.
+
+    ``kind`` is a string tag from a stable vocabulary:
+
+    - ``"keyword"`` (e.g. ``theorem``, ``arbitrary``, ``proof``)
+    - ``"constant"`` (``true``, ``false``)
+    - ``"type"`` (``bool``, ``type``)
+    - ``"theorem"`` / ``"lemma"`` / ``"postulate"``
+    - ``"define"`` / ``"function"`` (a ``recursive`` / ``recfun``)
+    - ``"union"`` / ``"constructor"``
+    - ``"predicate"`` / ``"rule"``
+
+    Adapters map this to their wire format: the LSP server translates
+    to ``CompletionItemKind``; MCP would surface the string directly.
+
+    ``detail`` is an optional one-line signature (e.g. ``"plus_zero:
+    all n:Nat. n + 0 = n"``) shown alongside the label in the picker
+    UI.  ``None`` when no signature is known.
+    """
+
+    label: str
+    kind: str
+    detail: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -1011,6 +1078,138 @@ def list_symbols(
         if info is not None:
             out.append(info)
     return out
+
+
+def completions_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = (),
+) -> tuple:
+    """Return completion candidates visible at ``pos``.
+
+    Candidate set:
+
+    1. Deduce keywords (always included): the static lists
+       :data:`COMPLETION_KEYWORDS`, :data:`COMPLETION_CONSTANT_KEYWORDS`,
+       :data:`COMPLETION_TYPE_KEYWORDS`.  Clients filter against the
+       prefix the user is typing, so we always return the full set;
+       the cost is fixed and cheap.
+    2. Top-level names declared in ``content`` itself -- theorems,
+       lemmas, postulates, defines, recursive functions, unions (plus
+       their constructors), predicates (plus their introduction rules).
+    3. Top-level names reachable through ``Import.ast`` -- the
+       user-written imports plus the auto-prepended prelude.  Walks
+       transitively so e.g. ``import Nat`` surfaces ``suc``, ``zero``,
+       ``+``, ``length``, ... reached through Nat's barrel chain to
+       NatDefs / NatAdd / ... .  Diamond imports are guarded by a
+       visited-module set.
+
+    Local bindings introduced by ``arbitrary`` / ``assume`` /
+    ``obtain`` are NOT (yet) surfaced -- needs an env walker that
+    handles arbitrary cursor positions, which doesn't exist in the
+    query module today.  Tracked as a follow-up to Step 31.
+
+    ``pos`` is accepted but not currently consulted; reserved so a
+    future implementation can scope completions (e.g. only keywords
+    valid inside a ``proof`` block, only constructors inside a
+    ``switch`` pattern position) without breaking the API.
+
+    ``prelude`` matches the meaning in :func:`check`.
+
+    Returns an empty tuple if the file can't be parsed at all and no
+    AST is available -- keywords alone wouldn't add value over the
+    client's word-based fallback, and they're easy enough to recover
+    once the file parses again.
+    """
+    from lsp.library import check_file
+
+    out: list[CompletionCandidate] = []
+
+    for kw in COMPLETION_KEYWORDS:
+        out.append(CompletionCandidate(label=kw, kind="keyword"))
+    for kw in COMPLETION_CONSTANT_KEYWORDS:
+        out.append(CompletionCandidate(label=kw, kind="constant"))
+    for kw in COMPLETION_TYPE_KEYWORDS:
+        out.append(CompletionCandidate(label=kw, kind="type"))
+
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ast is None:
+        return tuple(out)
+
+    seen_labels: set[str] = set()
+    for cand in _collect_completion_names_from_ast(result.ast):
+        # Same name reachable through multiple imports collapses to
+        # one entry.  Order-preserving: user-file decls (walked first)
+        # win, then transitive-import duplicates are dropped.
+        if cand.label in seen_labels:
+            continue
+        seen_labels.add(cand.label)
+        out.append(cand)
+
+    return tuple(out)
+
+
+def _collect_completion_names_from_ast(ast_nodes, _seen=None):
+    """Yield a :class:`CompletionCandidate` per named top-level decl.
+
+    Walks the user file's top-level statements plus ``Import.ast``
+    chains (mirror of the descent used in :func:`_find_declaration`).
+    Constructors inside ``Union.alternatives`` and introduction rules
+    inside ``Predicate.rules`` are yielded as their own candidates so
+    e.g. ``suc`` shows up alongside ``Nat`` in the completion list.
+
+    ``_seen`` is the visited-module set used to break diamond imports;
+    callers should leave it ``None``.
+    """
+    from abstract_syntax import (
+        Define,
+        Import,
+        Postulate,
+        Predicate,
+        RecFun,
+        Theorem,
+        Union,
+        base_name,
+    )
+
+    if _seen is None:
+        _seen = set()
+
+    for stmt in ast_nodes:
+        if isinstance(stmt, Theorem):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(
+                label=label,
+                kind="lemma" if stmt.isLemma else "theorem",
+                detail=f"{label}: {stmt.what}",
+            )
+        elif isinstance(stmt, Postulate):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(
+                label=label,
+                kind="postulate",
+                detail=f"{label}: {stmt.what}",
+            )
+        elif isinstance(stmt, Define):
+            label = base_name(stmt.name)
+            detail = f"define {label}: {stmt.typ}" if stmt.typ is not None else None
+            yield CompletionCandidate(label=label, kind="define", detail=detail)
+        elif isinstance(stmt, RecFun):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(label=label, kind="function")
+        elif isinstance(stmt, Union):
+            yield CompletionCandidate(label=base_name(stmt.name), kind="union")
+            for cons in stmt.alternatives:
+                yield CompletionCandidate(
+                    label=base_name(cons.name), kind="constructor"
+                )
+        elif isinstance(stmt, Predicate):
+            yield CompletionCandidate(label=base_name(stmt.name), kind="predicate")
+            for rule in stmt.rules:
+                yield CompletionCandidate(label=base_name(rule.name), kind="rule")
+        elif isinstance(stmt, Import) and stmt.ast:
+            if stmt.name in _seen:
+                continue
+            _seen.add(stmt.name)
+            yield from _collect_completion_names_from_ast(stmt.ast, _seen=_seen)
 
 
 # ---------------------------------------------------------------------------
