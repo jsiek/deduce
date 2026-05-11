@@ -148,5 +148,22 @@ commands plus disconnect, all on `deduce-mode-map'."
               #'dap-disconnect)))
 
 
+(ert-deftest deduce-dap/cc-d-prefix-bindings-installed ()
+  "Non-F-key fallback bindings on `C-c d <letter>'.  Useful when
+macOS / a WM intercepts the function row."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d d"))
+              #'deduce-dap-debug-current-buffer))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d c"))
+              #'dap-continue))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d n"))
+              #'dap-next))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d s"))
+              #'dap-step-in))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d o"))
+              #'dap-step-out))
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c d q"))
+              #'dap-disconnect)))
+
+
 (provide 'deduce-dap-test)
 ;;; deduce-dap-test.el ends here

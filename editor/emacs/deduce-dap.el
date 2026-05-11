@@ -202,21 +202,39 @@ installed; errors out informatively otherwise."
          :program nil)))
 
 
-;; Convenience keybindings.  `C-c C-d' is free of all the existing
-;; deduce-lsp bindings (which take C-c C-g/r/c/i/e/f/a).  The F-keys
-;; mirror VS Code / gdb conventions so debug-toolbar muscle memory
-;; transfers; they reference dap-mode commands so they're no-ops
-;; outside an active session and error informatively if dap-mode
-;; itself isn't installed.
+;; Convenience keybindings.  Two equivalent surfaces:
+;;
+;; - The F-keys mirror VS Code / gdb conventions so debug-toolbar
+;;   muscle memory transfers.  Caveat: F5 / F10 / F11 are
+;;   intercepted by macOS (volume / mute / Mission Control's "Show
+;;   Desktop") and by some Linux WMs; see README.md for the
+;;   workarounds.
+;; - The ``C-c d <letter>'' prefix is a non-F-key fallback that no
+;;   OS or window manager fights us for: ``C-c d c'' continue,
+;;   ``C-c d n'' next, ``C-c d s'' step-in, ``C-c d o'' step-out,
+;;   ``C-c d q'' disconnect.  ``C-c d d'' is the same as
+;;   ``C-c C-d'' (launch).
+;;
+;; Bindings reference dap-mode commands so they're no-ops outside
+;; an active session and error informatively if dap-mode itself
+;; isn't installed.
 ;;;###autoload
 (with-eval-after-load 'deduce-mode
   (define-key deduce-mode-map (kbd "C-c C-d")
               #'deduce-dap-debug-current-buffer)
+  ;; F-key surface.
   (define-key deduce-mode-map (kbd "<f5>")    #'dap-continue)
   (define-key deduce-mode-map (kbd "<f10>")   #'dap-next)
   (define-key deduce-mode-map (kbd "<f11>")   #'dap-step-in)
   (define-key deduce-mode-map (kbd "S-<f11>") #'dap-step-out)
-  (define-key deduce-mode-map (kbd "S-<f5>")  #'dap-disconnect))
+  (define-key deduce-mode-map (kbd "S-<f5>")  #'dap-disconnect)
+  ;; ``C-c d <letter>'' fallback.
+  (define-key deduce-mode-map (kbd "C-c d d") #'deduce-dap-debug-current-buffer)
+  (define-key deduce-mode-map (kbd "C-c d c") #'dap-continue)
+  (define-key deduce-mode-map (kbd "C-c d n") #'dap-next)
+  (define-key deduce-mode-map (kbd "C-c d s") #'dap-step-in)
+  (define-key deduce-mode-map (kbd "C-c d o") #'dap-step-out)
+  (define-key deduce-mode-map (kbd "C-c d q") #'dap-disconnect))
 
 
 (provide 'deduce-dap)

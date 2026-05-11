@@ -278,12 +278,20 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `F11`     | Step into the next function call                                   | `dap-step-in`                    | `deduce-dap`   |
 | `S-F11`   | Step out of the current function                                   | `dap-step-out`                   | `deduce-dap`   |
 | `S-F5`    | End the debug session                                              | `dap-disconnect`                 | `deduce-dap`   |
+| `C-c d d` | Same as `C-c C-d` — launch a debug session                         | `deduce-dap-debug-current-buffer`| `deduce-dap`   |
+| `C-c d c` | Continue (F-key-free fallback)                                     | `dap-continue`                   | `deduce-dap`   |
+| `C-c d n` | Next / step-over (F-key-free fallback)                             | `dap-next`                       | `deduce-dap`   |
+| `C-c d s` | Step in (F-key-free fallback)                                      | `dap-step-in`                    | `deduce-dap`   |
+| `C-c d o` | Step out (F-key-free fallback)                                     | `dap-step-out`                   | `deduce-dap`   |
+| `C-c d q` | Disconnect / end session (F-key-free fallback)                     | `dap-disconnect`                 | `deduce-dap`   |
 
-> **macOS users:** F5 / F10 / F11 are intercepted by macOS for
-> brightness / mute / volume before they reach emacs.  Press `fn`
-> with the F-key (e.g. `fn-F11` for step-in) per keystroke, or
-> flip the "standard function keys" toggle on permanently — see
-> the troubleshooting section below for the exact menu path.
+> **macOS users:** F5 / F10 / F11 are intercepted *twice* —
+> once by the hardware (brightness / mute / volume) and again
+> by Mission Control (F11 = "Show Desktop").  Either fix both,
+> or use the `C-c d <letter>` fallback bindings above (no
+> F-keys involved).  `M-x dap-hydra` opens dap-mode's single-key
+> transient menu (`n`/`s`/`o`/`c`/`q`) — another good escape
+> hatch.  Troubleshooting section below has the exact menu paths.
 
 ## Customization
 
@@ -392,23 +400,37 @@ matcher; it doesn't currently handle multi-line type signatures or
 want, just type the spaces yourself — the indenter only fires when
 you ask. SMIE-grade alignment is a future enhancement.
 
-### F-keys do macOS things (volume, brightness) instead of debugger actions
+### F-keys do macOS / WM things instead of debugger actions
 
-macOS intercepts the function-row keys before they reach Emacs:
-F5 = brightness, F10 = mute, F11 = volume down.  Two fixes:
+macOS intercepts the function-row keys at two layers before they
+reach Emacs:
 
-- **One-shot**: hold `fn` while pressing the F-key.  `fn-F11`
-  sends a real F11 to Emacs.
-- **Permanent (Sonoma / Sequoia)**: System Settings → Keyboard →
-  scroll down to *Keyboard Shortcuts…* (button) → in the sidebar
-  pick *Function Keys* → toggle on *Use F1, F2, etc. as standard
-  function keys*.
-- **Permanent (Monterey and older)**: System Preferences →
-  Keyboard → Keyboard tab → check *Use F1, F2, etc. keys as
-  standard function keys*.
+1. **Hardware row** — F5 = brightness, F10 = mute, F11 = volume
+   down, etc.  Fix one of:
+   - **One-shot**: hold `fn` while pressing the F-key.  `fn-F11`
+     sends a real F11 to Emacs.
+   - **Permanent (Sonoma / Sequoia)**: System Settings →
+     Keyboard → *Keyboard Shortcuts…* (button) → sidebar:
+     *Function Keys* → toggle on *Use F1, F2, etc. as standard
+     function keys*.
+   - **Permanent (Monterey and older)**: System Preferences →
+     Keyboard → Keyboard tab → check *Use F1, F2, etc. keys as
+     standard function keys*.
 
-The keys then go to Emacs by default; you press `fn` to get the
-macOS hardware function instead.
+2. **Mission Control shortcuts** — even after step 1, macOS still
+   binds F11 to *Show Desktop* and F12 to *Show Dashboard*.
+   System Settings → Keyboard → *Keyboard Shortcuts…* → sidebar:
+   *Mission Control* → uncheck (or rebind) anything you want
+   freed up.  F11 is the usual culprit.
+
+Linux users with `gnome-shell` or KDE sometimes hit the same
+issue with WM-bound F-keys; check your window-manager shortcuts.
+
+**Don't want to fight your OS?**  Use the `C-c d <letter>`
+fallback bindings listed in the Keybindings table — none of them
+touch the function row.  `M-x dap-hydra` is another option: a
+single-key transient menu with `n`/`s`/`o`/`c`/`q` for the step
+commands.
 
 Linux users with `gnome-shell` or KDE sometimes hit the same
 issue with WM-bound F-keys; check your window-manager shortcuts
