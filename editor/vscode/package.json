@@ -59,12 +59,62 @@
         "command": "deduce.showGoal",
         "title": "Deduce: Show goal at cursor",
         "category": "Deduce"
+      },
+      {
+        "command": "deduce.refineHole",
+        "title": "Deduce: Refine hole at cursor",
+        "category": "Deduce"
+      },
+      {
+        "command": "deduce.induction",
+        "title": "Deduce: Apply induction at cursor",
+        "category": "Deduce"
+      },
+      {
+        "command": "deduce.caseSplit",
+        "title": "Deduce: Case split at cursor",
+        "category": "Deduce"
+      },
+      {
+        "command": "deduce.eliminate",
+        "title": "Deduce: Eliminate / use hypothesis at cursor",
+        "category": "Deduce"
+      },
+      {
+        "command": "deduce.fillFromGiven",
+        "title": "Deduce: Fill hole with matching given",
+        "category": "Deduce"
       }
     ],
     "keybindings": [
       {
         "command": "deduce.showGoal",
         "key": "ctrl+alt+g",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.refineHole",
+        "key": "ctrl+alt+r",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.induction",
+        "key": "ctrl+alt+i",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.caseSplit",
+        "key": "ctrl+alt+c",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.eliminate",
+        "key": "ctrl+alt+e",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.fillFromGiven",
+        "key": "ctrl+alt+f",
         "when": "editorTextFocus && editorLangId == deduce"
       }
     ],
