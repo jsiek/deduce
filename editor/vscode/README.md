@@ -9,11 +9,10 @@ lockstep with it.
 > **Status (May 2026):** the extension ships syntax highlighting
 > (Phase 6 / Step 27 of `docs/lsp-plan.md`), the LSP client
 > (Step 28), the goal-at-cursor command (Step 29), the
-> structured-editing commands (Step 30), and the debugger
-> integration (Phase 5 / Step 26).  In-buffer tab completion
-> (Step 31, needs server-side work) and LLM hole filling
-> (Step 32) are the remaining chunks before Marketplace
-> publication.
+> structured-editing commands (Step 30), in-buffer tab
+> completion (Step 31), and the debugger integration (Phase 5 /
+> Step 26).  LLM hole filling (Step 32) and Marketplace
+> publication (Step 33) are the remaining chunks.
 
 ## What ships today
 
@@ -45,6 +44,17 @@ lockstep with it.
     - **Code actions** — when the cursor is on a `?` hole that
       the server can fill, the lightbulb (`Cmd+.`) offers
       *Refine hole* (Step 15) and *Induction* (Step 17).
+    - **Tab completion** — `Ctrl+Space` (or, when
+      `editor.quickSuggestions` is enabled, automatically as you
+      type) opens an inline picker.  The candidate set is:
+      Deduce keywords (`theorem`, `arbitrary`, `induction`, ...),
+      `true`/`false` constants, the built-in types `bool` /
+      `type`, and every top-level name reachable from the file
+      (its own theorems, lemmas, postulates, defines, recursive
+      functions, unions + constructors, predicates + rules,
+      *plus* the transitive walk through your imports — so
+      `import Nat` brings in `suc`, `zero`, `+`, `length`, ...).
+      VS Code filters client-side as you type.
 - **Goal-at-cursor command** — `Ctrl+Alt+G` (or Command Palette:
   *Deduce: Show goal at cursor*) issues the custom
   `deduce/goalAt` request at the cursor and renders the goal +
@@ -377,14 +387,9 @@ deliberately.
 Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
 section.  In rough landing order:
 
-- **Tab completion** (Step 31).  Needs a new LSP-server feature
-  (`textDocument/completion`) returning keywords + in-scope names
-  + hole-aware label/variable candidates; once it lands, the LSP
-  client picks it up automatically.  Same feature surfaces in
-  Emacs as a CAPF.
 - **LLM hole filling** (Step 32) — VS Code port of
   [`deduce-fill-hole.el`](../emacs/deduce-fill-hole.el).
-- **Marketplace publication** (Step 33) once Steps 27-30 are in.
+- **Marketplace publication** (Step 33).
 
 [kw]: ../../gh_pages/scripts/keywords.py
 
