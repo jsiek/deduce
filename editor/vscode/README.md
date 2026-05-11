@@ -277,15 +277,36 @@ deliberately.
 
 ## Roadmap
 
-- **Syntax highlighting** via a TextMate grammar (`syntaxes/`).
-  The keyword list lives in `gh_pages/scripts/keywords.py`; a
-  TextMate grammar generator there would keep VS Code and the web
-  sandbox aligned.
-- **LSP client** wiring `python3 -m lsp.lsp_server` via
-  `vscode-languageclient`.  Diagnostics, hover, go-to-definition,
-  the goal-at-point command — same surface
+Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
+section.  In rough landing order:
+
+- **Syntax highlighting** (Step 27) via a TextMate grammar at
+  `syntaxes/deduce.tmLanguage.json`.  Keyword categories mirror
+  Emacs's `deduce-mode--keywords` / `--constants` / `--types` /
+  `--warnings` lists.  The keyword list also lives in
+  [`gh_pages/scripts/keywords.py`][kw]; a generator there could
+  eventually share one source with the web sandbox.
+- **LSP client** (Step 28) wiring `python3 -m lsp.lsp_server` via
+  `vscode-languageclient`.  Diagnostics, go-to-definition,
+  document outline, and the no-prompt code actions ("Refine
+  hole", "Induction") fall out for free — same surface
   [`deduce-lsp.el`](../emacs/deduce-lsp.el) exposes for Emacs.
-- **Marketplace publication** once syntax + LSP are in.
+- **Goal-at-point command** (Step 29) — `Ctrl+Alt+G` issues the
+  custom `deduce/goalAt` request and renders the goal in a
+  *Deduce Goal* output channel.  Emacs equivalent: `C-c C-g`.
+- **Structured-editing commands** (Step 30) — refine, case split,
+  induction, eliminate, fill-from-given.  Emacs equivalents:
+  `C-c C-{r,c,i,e,f}`.
+- **Tab completion** (Step 31).  Needs a new LSP-server feature
+  (`textDocument/completion`) returning keywords + in-scope names
+  + hole-aware label/variable candidates; once it lands, the LSP
+  client picks it up automatically.  Same feature surfaces in
+  Emacs as a CAPF.
+- **LLM hole filling** (Step 32) — VS Code port of
+  [`deduce-fill-hole.el`](../emacs/deduce-fill-hole.el).
+- **Marketplace publication** (Step 33) once Steps 27-30 are in.
+
+[kw]: ../../gh_pages/scripts/keywords.py
 
 The replaced unmaintained extension was
 [HalflingHelper/deduce-mode][external]; this in-tree directory
