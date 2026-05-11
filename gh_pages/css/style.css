@@ -537,6 +537,9 @@ table {
     margin: 0;
     padding: 10px 15px;
     border: solid var(--light-gray) 1px; }
+  table tr th code.inline,
+  table tr td code.inline {
+    white-space: nowrap; }
   table tr:nth-child(even) {
     background-color: var(--very-lighter-gray); }
 
