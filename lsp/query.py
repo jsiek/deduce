@@ -2857,7 +2857,7 @@ def available_lemmas_at(
 ) -> tuple:
     """Return ranked lemmas visible at ``pos``, best matches first.
 
-    Driven by either (or both) of two signals:
+    Driven by zero, one, or both of two signals:
 
     - The cursor sits on a ``?`` token: the goal at that hole defines
       the shape we're searching for.  ``available_lemmas_at`` extracts
@@ -2868,7 +2868,11 @@ def available_lemmas_at(
       placeholders (each ``_`` matches any run of characters).
 
     When both are given they combine -- a lemma that matches the goal
-    *and* the query ranks above one that matches only one.
+    *and* the query ranks above one that matches only one.  When
+    neither is given (off-hole exploration), every in-scope lemma is
+    surfaced, ranked by module proximity (user-file first) then by
+    name -- useful for "what's available here?" browsing without
+    inserting a synthetic ``?``.
 
     The result is a tuple of :class:`LemmaMatch` ordered by descending
     ``relevance``; ties broken by name.  ``relevance`` is normalised
@@ -2878,9 +2882,9 @@ def available_lemmas_at(
     The lemma set covers everything in scope at the cursor: the
     user-file's own declarations, the modules it explicitly
     ``import``s (transitively, through public imports), and any
-    module named in ``prelude``.  This works without a hole as long
-    as the file parses.  Returns ``()`` when neither a hole nor a
-    ``query`` is available, or when no lemma matches even minimally.
+    module named in ``prelude``.  Returns ``()`` only when the file
+    produces no candidates at all, or when a given ``query`` matches
+    nothing.
     """
     from lsp.library import check_file
 
@@ -2898,9 +2902,6 @@ def available_lemmas_at(
     else:
         result = check_file(path, content=content, prelude=prelude)
         ast_nodes = result.ast
-
-    if goal_text is None and not query:
-        return ()
 
     candidates = _collect_lemma_candidates(path, ast_nodes, prelude)
     if not candidates:
@@ -3286,12 +3287,19 @@ def _rank_lemmas(
 
     Plus one extra: a goal-shape pattern (a ``query`` containing ``_``
     placeholders) matched against the rendered signature.
+
+    When neither a goal nor a query is given, runs in *browse mode*:
+    every candidate is surfaced, ranked only by module proximity
+    (user-file lemmas first) then alphabetically. This is what makes
+    off-hole exploration usable -- an agent can ask "what's in scope
+    here?" without inserting a synthetic hole.
     """
     goal_head = _goal_head_symbol(goal_text)
     goal_syms = _goal_tokens(goal_text)
     pattern = _query_pattern(query)
     query_substr = (query or "").strip().lower()
     has_substring_query = bool(query_substr) and pattern is None
+    browse_mode = goal_text is None and not query
 
     raw_scores: list = []
     for info, formula, module in candidates:
@@ -3335,6 +3343,13 @@ def _rank_lemmas(
         if has_substring_query and substring_score == 0.0:
             continue
         if pattern is not None and pattern_score == 0.0:
+            continue
+
+        if browse_mode:
+            # Surface every candidate; ranking is proximity then name.
+            # Use a fixed baseline so out-of-module candidates aren't
+            # dropped by the ``raw <= 0`` filter below.
+            raw_scores.append((1.0 + proximity, info, module))
             continue
 
         # No goal AND no query that this lemma matched -> nothing to

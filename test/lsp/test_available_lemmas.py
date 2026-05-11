@@ -79,19 +79,30 @@ def test_goal_drives_ranking_by_head_symbol() -> None:
     assert by_name["and_helper"].relevance > by_name["eq_helper"].relevance
 
 
-def test_no_hole_no_query_returns_empty() -> None:
-    """Cursor not on a `?` and no `query` -> nothing to match against."""
+def test_no_hole_no_query_returns_browse_results() -> None:
+    """Cursor not on a `?` and no `query`: browse mode surfaces every
+    in-scope lemma so off-hole exploration works without inserting a
+    synthetic `?` (issue #418)."""
     source = (
-        "theorem t: all P:bool. P = P\n"
+        "theorem alpha: true\n"
+        "proof\n  .\nend\n"
+        "\n"
+        "theorem beta: true\n"
+        "proof\n  .\nend\n"
+        "\n"
+        "theorem gamma: all P:bool. P = P\n"
         "proof\n"
         "  arbitrary P:bool\n"
         "  reflexive\n"
         "end\n"
     )
-    # Line 4 sits on `reflexive`, not a `?`.
-    assert available_lemmas_at(
-        "lemmas.pf", source, Position(line=4, column=3)
-    ) == ()
+    # Cursor on `reflexive` (line 12), not a `?`. Browse mode returns
+    # every user-file lemma in scope at that point.
+    matches = available_lemmas_at(
+        "lemmas.pf", source, Position(line=12, column=3)
+    )
+    names = {m.name for m in matches}
+    assert {"alpha", "beta", "gamma"} <= names
 
 
 def test_user_lemmas_get_module_set_to_file_stem() -> None:
@@ -355,6 +366,69 @@ def test_limit_caps_result_count() -> None:
         source,
         Position(line=1, column=1),
         query="t",
+        limit=2,
+    )
+    assert len(matches) == 2
+
+
+# ---------------------------------------------------------------------------
+# Browse mode (no hole, no query): issue #418
+# ---------------------------------------------------------------------------
+
+
+def test_browse_mode_includes_prelude_lemmas() -> None:
+    """Browse mode (no `?`, no `query`) also surfaces lemmas reached
+    through ``prelude``, not just user-file declarations."""
+    source = (
+        "theorem local: true\n"
+        "proof\n  .\nend\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf",
+        source,
+        Position(line=1, column=1),
+        prelude=("HoleFillPrelude",),
+    )
+    by_name = {m.name: m for m in matches}
+    # User-file lemma is present.
+    assert "local" in by_name
+    # Prelude lemma is also surfaced.
+    assert "hf_intro_and" in by_name
+    assert by_name["hf_intro_and"].module == "HoleFillPrelude"
+
+
+def test_browse_mode_user_module_outranks_prelude() -> None:
+    """Browse-mode ordering: same-file lemmas come before prelude
+    lemmas, so the most-relevant scope shows up first."""
+    source = (
+        "theorem local: true\n"
+        "proof\n  .\nend\n"
+    )
+    matches = available_lemmas_at(
+        "user.pf",
+        source,
+        Position(line=1, column=1),
+        prelude=("HoleFillPrelude",),
+    )
+    by_name = {m.name: m for m in matches}
+    if "local" in by_name and "hf_intro_and" in by_name:
+        assert (
+            by_name["local"].relevance > by_name["hf_intro_and"].relevance
+        )
+
+
+def test_browse_mode_respects_limit() -> None:
+    """``limit`` caps browse-mode results too."""
+    source = (
+        "theorem t1: true\nproof\n  .\nend\n"
+        "theorem t2: true\nproof\n  .\nend\n"
+        "theorem t3: true\nproof\n  .\nend\n"
+        "theorem t4: true\nproof\n  .\nend\n"
+    )
+    matches = available_lemmas_at(
+        "lemmas.pf",
+        source,
+        Position(line=1, column=1),
         limit=2,
     )
     assert len(matches) == 2

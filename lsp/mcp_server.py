@@ -559,10 +559,14 @@ def available_lemmas_at(
     - On a ``?`` token: the goal at that hole drives ranking. The
       goal's head operator and operator/function tokens are matched
       against each candidate lemma's conclusion.
-    - Off a ``?``: ``query`` is required. ``query`` is either a
-      substring (matched against the rendered signature) or a goal-
-      shape pattern containing ``_`` placeholders (each ``_`` matches
-      any run of characters, e.g. ``"_ ≤ _ + _"``).
+    - Off a ``?`` with ``query`` given: ``query`` is a substring
+      (matched against the rendered signature) or a goal-shape
+      pattern containing ``_`` placeholders (each ``_`` matches any
+      run of characters, e.g. ``"_ ≤ _ + _"``).
+    - Off a ``?`` with no ``query``: browse mode -- every lemma in
+      scope at ``line``:``column`` is returned, ranked by module
+      proximity (user-file first) then alphabetically. Lets agents
+      explore "what's available here?" without inserting a ``?``.
 
     Results are returned best-first, capped at ``limit`` entries
     (default 50). Each entry has ``name``, ``kind`` (``"theorem"`` /
@@ -575,8 +579,8 @@ def available_lemmas_at(
     surfaced (they're in scope), but private lemmas in prelude
     modules are not (matching what ``print_theorems`` exports).
 
-    Returns ``[]`` when the cursor isn't on a ``?`` and no ``query``
-    was given, or when nothing matches.
+    Returns ``[]`` only when nothing is in scope at the position or
+    a given ``query`` matches nothing.
     """
     from lsp import query as _q
 
