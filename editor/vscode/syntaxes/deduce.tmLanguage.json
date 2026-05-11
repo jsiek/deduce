@@ -1,0 +1,103 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Deduce",
+  "scopeName": "source.deduce",
+  "fileTypes": ["pf"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#numbers" },
+    { "include": "#hole" },
+    { "include": "#sorry" },
+    { "include": "#constants" },
+    { "include": "#types" },
+    { "include": "#keywords" },
+    { "include": "#capitalized" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.deduce",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.deduce",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.nat.deduce",
+          "match": "ℕ[0-9]+"
+        },
+        {
+          "name": "constant.numeric.integer.deduce",
+          "match": "(?<![A-Za-z0-9_'!?])[0-9]+(?![A-Za-z0-9_'!?])"
+        }
+      ]
+    },
+    "hole": {
+      "name": "invalid.deprecated.hole.deduce",
+      "match": "(?<![A-Za-z0-9_'!?])\\?(?![A-Za-z0-9_'!?])"
+    },
+    "sorry": {
+      "name": "invalid.deprecated.sorry.deduce",
+      "match": "\\bsorry\\b"
+    },
+    "constants": {
+      "name": "constant.language.deduce",
+      "match": "\\b(true|false)\\b"
+    },
+    "types": {
+      "name": "support.type.primitive.deduce",
+      "match": "\\b(bool|type)\\b"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "comment": "Declaration / structure",
+          "name": "keyword.other.declaration.deduce",
+          "match": "\\b(theorem|lemma|postulate|define|recursive|recfun|union|inductive|predicate|relation|import|export|module|auto|assert|print|operator|associative|terminates|measure|trace|generic|fun)\\b"
+        },
+        {
+          "comment": "Lambda symbol",
+          "name": "keyword.other.declaration.deduce",
+          "match": "λ"
+        },
+        {
+          "comment": "Visibility",
+          "name": "storage.modifier.visibility.deduce",
+          "match": "\\b(public|private|opaque)\\b"
+        },
+        {
+          "comment": "Proof structure",
+          "name": "keyword.control.proof.deduce",
+          "match": "\\b(proof|end|case|cases|with|where)\\b"
+        },
+        {
+          "comment": "Tactics",
+          "name": "keyword.control.tactic.deduce",
+          "match": "\\b(arbitrary|assume|suppose|have|show|obtain|from|for|induction|rule|inversion|switch|replace|expand|evaluate|simplify|equations|recall|reflexive|symmetric|transitive|injective|extensionality|apply|to|conclude|conjunct|contradict|suffices|choose|stop|help|by|of)\\b"
+        },
+        {
+          "comment": "Logical / control",
+          "name": "keyword.control.deduce",
+          "match": "\\b(if|then|else|all|some|in|not|and|or|iff)\\b"
+        },
+        {
+          "comment": "Built-in operators / forms",
+          "name": "keyword.other.deduce",
+          "match": "\\b(fn|array)\\b"
+        }
+      ]
+    },
+    "capitalized": {
+      "comment": "User-defined types and constructors (heuristic: capitalized identifier)",
+      "name": "entity.name.type.deduce",
+      "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+    }
+  }
+}

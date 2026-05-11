@@ -35,7 +35,15 @@
         ],
         "aliases": [
           "Deduce"
-        ]
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "deduce",
+        "scopeName": "source.deduce",
+        "path": "./syntaxes/deduce.tmLanguage.json"
       }
     ],
     "breakpoints": [

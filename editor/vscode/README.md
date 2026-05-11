@@ -6,24 +6,33 @@ lockstep with it.
 
 [deduce]: https://github.com/jsiek/deduce
 
-> **Status (May 2026):** the extension currently ships the debugger
-> integration (Phase 5 / Step 26 of `docs/lsp-plan.md`).  Syntax
-> highlighting and the LSP client wiring will be added in follow-up
-> work; today, language-mode features come from any companion
-> TextMate / LSP setup you already have.  This directory is the
-> place for those additions when they land.
+> **Status (May 2026):** the extension ships syntax highlighting
+> (Phase 6 / Step 27 of `docs/lsp-plan.md`) and the debugger
+> integration (Phase 5 / Step 26).  The LSP client wiring and
+> goal-at-point command are the next chunks; until they land,
+> diagnostics still require running `python deduce.py` from a
+> terminal.
 
 ## What ships today
 
-- A `type: "deduce"` debugger contribution.  When you launch a
+- **Syntax highlighting** for `.pf` files via the TextMate grammar
+  at `syntaxes/deduce.tmLanguage.json`.  Keyword, type, constant,
+  comment, numeric, and "warning" (standalone `?`, `sorry`)
+  categories mirror the Emacs `deduce-mode` font-lock rules.
+  Capitalized identifiers — user-defined Union types and
+  constructors — are heuristically rendered with the type face.
+- **Language configuration** (`language-configuration.json`) for
+  `Cmd+/` line-comment toggling, `/* */` block-comment toggling,
+  bracket matching and auto-closing for `{}` / `[]` / `()`, and
+  a word pattern that treats `'`, `!`, `?` as identifier
+  continuation characters so word motion (M-f / Ctrl-Right) stops
+  at the right boundaries for names like `theorem1'?`.
+- A `type: "deduce"` **debugger** contribution.  When you launch a
   debug session, the extension spawns
   `<deduce.pythonPath> <deduce.deduceRoot>/lsp/dap_server.py` as
   the DAP adapter and wires the standard VS Code debug UI
   (gutter breakpoints, the call-stack panel, the locals view, the
   Debug Console, the step/over/in/out toolbar) to it.
-- A minimal `deduce` language declaration so the debugger
-  contribution can attach to `.pf` files.  (No syntax highlighting
-  shipped here yet — that's a follow-up.)
 
 ## Prerequisites
 
@@ -280,12 +289,6 @@ deliberately.
 Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
 section.  In rough landing order:
 
-- **Syntax highlighting** (Step 27) via a TextMate grammar at
-  `syntaxes/deduce.tmLanguage.json`.  Keyword categories mirror
-  Emacs's `deduce-mode--keywords` / `--constants` / `--types` /
-  `--warnings` lists.  The keyword list also lives in
-  [`gh_pages/scripts/keywords.py`][kw]; a generator there could
-  eventually share one source with the web sandbox.
 - **LSP client** (Step 28) wiring `python3 -m lsp.lsp_server` via
   `vscode-languageclient`.  Diagnostics, go-to-definition,
   document outline, and the no-prompt code actions ("Refine
