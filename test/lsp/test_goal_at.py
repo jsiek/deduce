@@ -329,6 +329,110 @@ def test_goal_at_picks_hole_in_second_theorem() -> None:
     assert g.formula == "Q = Q"
 
 
+# ---------------------------------------------------------------------------
+# Post-auto-rule normalization (issue #421)
+# ---------------------------------------------------------------------------
+#
+# When the goal or a given differs from the post-auto-reduction form
+# that the proof checker compares against, ``goal_at`` surfaces the
+# normalized form via ``formula_normalized``. When they coincide --
+# the common case -- the field is ``None`` so callers can detect "no
+# auto rule fired" by presence alone.
+
+
+def test_goal_at_normalized_is_none_when_no_auto_rule_fires() -> None:
+    """No auto rule in scope: ``formula_normalized`` stays ``None``
+    on the goal and on each given, so callers don't have to compare
+    strings to know the proof checker sees the same shape."""
+    source = (
+        "theorem t: all P:bool, Q:bool. if P then if Q then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose pP: P\n"
+        "  suppose qQ: Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    g = goal_at("test.pf", source, Position(line=6, column=3))
+    assert g is not None
+    assert g.formula == "P"
+    assert g.formula_normalized is None, (
+        "expected no normalized form when no auto rule fires; "
+        f"got {g.formula_normalized!r}"
+    )
+    for given in g.givens:
+        assert given.formula_normalized is None, (
+            f"given {given.label!r} unexpectedly normalized "
+            f"from {given.formula!r} to {given.formula_normalized!r}"
+        )
+
+
+def test_goal_at_exposes_normalized_goal_under_auto_rule() -> None:
+    """An ``auto`` rewrite turns ``id_bool(Q)`` into ``Q``. The
+    pre-auto form stays in ``formula`` (matching the rendered
+    ``Goal:`` text in the error message), and the post-auto form
+    appears in ``formula_normalized`` -- the shape ``check_implies``
+    actually sees."""
+    source = (
+        "fun id_bool(x : bool) { x }\n"
+        "\n"
+        "theorem id_bool_id: all x:bool. id_bool(x) = x\n"
+        "proof\n"
+        "  arbitrary x:bool\n"
+        "  expand id_bool.\n"
+        "end\n"
+        "\n"
+        "auto id_bool_id\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if id_bool(P) then id_bool(Q)\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose hp: id_bool(P)\n"
+        "  ?\n"
+        "end\n"
+    )
+    g = goal_at("test.pf", source, Position(line=15, column=3))
+    assert g is not None
+    assert g.formula == "id_bool(Q)"
+    assert g.formula_normalized == "Q", (
+        f"expected normalized goal 'Q'; got {g.formula_normalized!r}"
+    )
+
+
+def test_goal_at_exposes_normalized_given_under_auto_rule() -> None:
+    """Same auto rule as the goal test, but cursor is on a hole where
+    the given ``hp: id_bool(P)`` should expose ``formula_normalized
+    = 'P'`` -- so an agent can match the given against a goal of
+    shape ``P`` without writing a probe edit."""
+    source = (
+        "fun id_bool(x : bool) { x }\n"
+        "\n"
+        "theorem id_bool_id: all x:bool. id_bool(x) = x\n"
+        "proof\n"
+        "  arbitrary x:bool\n"
+        "  expand id_bool.\n"
+        "end\n"
+        "\n"
+        "auto id_bool_id\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if id_bool(P) then id_bool(Q)\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  suppose hp: id_bool(P)\n"
+        "  ?\n"
+        "end\n"
+    )
+    g = goal_at("test.pf", source, Position(line=15, column=3))
+    assert g is not None
+    by_label = {given.label: given for given in g.givens}
+    assert "hp" in by_label, f"expected hp in givens; got {g.givens}"
+    assert by_label["hp"].formula == "id_bool(P)"
+    assert by_label["hp"].formula_normalized == "P", (
+        f"expected normalized given 'P'; got "
+        f"{by_label['hp'].formula_normalized!r}"
+    )
+
+
 def test_goal_at_synthetic_hole_skips_earlier_existing_hole() -> None:
     """A `?` already exists earlier in the proof; cursor sits on a
     blank line later. The synthetic `?` inserted at the cursor must

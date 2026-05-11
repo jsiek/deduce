@@ -176,8 +176,16 @@ def goal_at(path: str, line: int, column: int) -> Optional[dict]:
     Lines and columns are 1-indexed (matching the location text in
     Deduce error messages). Returns ``None`` when the cursor is
     outside any active proof or the file does not parse. The result
-    has ``formula`` (a rendered string), ``givens`` (a list of
-    ``{label, formula}`` pairs in scope), and ``range``.
+    has ``formula`` (a rendered string, source-shaped), ``givens``
+    (a list of ``{label, formula, formula_normalized?}`` pairs in
+    scope), ``range``, and ``formula_normalized``.
+
+    ``formula_normalized`` (on the goal and on each given) is the
+    post-auto-reduction form -- the shape the proof checker uses
+    when matching a candidate proof body. It is ``None`` (or absent
+    after serialization) when it would equal ``formula`` -- i.e. no
+    auto rule fired -- so callers can compare cheaply by presence
+    alone.
     """
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
