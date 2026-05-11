@@ -15,11 +15,12 @@ lockstep with it.
 
 ## What ships today
 
-- A `type: "deduce"` debugger contribution that launches
-  `python3 -m lsp.dap_server` as the DAP adapter.  Enables the full
-  VS Code debug UI for `.pf` files: gutter breakpoints, the
-  call-stack panel, the locals view, the Debug Console, and the
-  step/over/in/out toolbar.
+- A `type: "deduce"` debugger contribution.  When you launch a
+  debug session, the extension spawns
+  `<deduce.pythonPath> <deduce.deduceRoot>/lsp/dap_server.py` as
+  the DAP adapter and wires the standard VS Code debug UI
+  (gutter breakpoints, the call-stack panel, the locals view, the
+  Debug Console, the step/over/in/out toolbar) to it.
 - A minimal `deduce` language declaration so the debugger
   contribution can attach to `.pf` files.  (No syntax highlighting
   shipped here yet — that's a follow-up.)
@@ -27,10 +28,16 @@ lockstep with it.
 ## Prerequisites
 
 - VS Code 1.80 or newer.
-- Python 3.11+ with `lark` installed (the same prerequisites as
-  `deduce.py` itself).
-- A Deduce checkout — the same one that contains
-  `lsp/dap_server.py`.
+- Python 3.11+ with `lark==1.2.2` installed (the same prerequisites
+  as `deduce.py` itself).  See *Settings* below if your default
+  `python3` doesn't have `lark`.
+- A Deduce checkout (this repository).  By default the extension
+  expects `.pf` files to live inside the checkout so the adapter
+  can find `lsp/dap_server.py`; set `deduce.deduceRoot` otherwise.
+- The `code` CLI helper if you want to launch from a terminal
+  (used in the install snippets below).  Install via VS Code's
+  Command Palette: `Cmd+Shift+P` → "Shell Command: Install 'code'
+  command in PATH".
 
 ## Install
 
@@ -45,6 +52,10 @@ code --extensionDevelopmentPath="$(pwd)/editor/vscode" /path/to/your/proofs
 
 VS Code opens a fresh window with the extension active for that
 session only.  Useful while iterating on the extension itself.
+
+The first time you open a directory, VS Code asks whether to
+trust the authors — accept it ("Yes, I trust the authors") so
+debug sessions are allowed.
 
 ### Install permanently
 
@@ -125,28 +136,26 @@ binary to put in `deduce.pythonPath`.
 
 ## Manual smoke test
 
-After installing and wiring `launch.json`:
+After installing, wiring `launch.json`, and (if needed) setting
+`deduce.pythonPath`:
 
 1. **Open a `.pf` file** with a top-level `print` or `assert` —
    e.g. `tmp/debugger_smoke.pf` if you've worked through the
    [Debugger.md](../../gh_pages/doc/Debugger.md) walkthrough, or
    any prelude module under `lib/`.
 
-2. **Set a breakpoint.**  Click the gutter to the left of a line
-   number; a red dot appears.
+2. **Press F5** (or *Run → Start Debugging*).  Within a couple of
+   seconds the debug toolbar appears at the top of the window and
+   the debugger pauses at the first user-level statement of the
+   file — VS Code highlights the matching line with a yellow
+   gutter arrow.  The left sidebar shows the **VARIABLES**,
+   **WATCH**, **CALL STACK**, and **BREAKPOINTS** panels.
 
-3. **Press F5** (or *Run > Start Debugging*).  VS Code spawns the
-   adapter, sends `initialize` / `launch` / `setBreakpoints` /
-   `configurationDone`, and within a couple of seconds the debug
-   toolbar appears at the top of the window.
+   If the toolbar appears then disappears immediately, see the
+   *Troubleshooting* section below — most often it's the
+   `python3` / `lark` mismatch.
 
-4. **The debugger pauses** at the first user-level statement of
-   the file — VS Code highlights the matching line and *Continue*
-   becomes active.  The "Call Stack" view in the left sidebar
-   shows the current frame; the "Variables" view shows `Locals`
-   (empty at top level; populated once you step into a function).
-
-5. **Step through.**  Use the toolbar:
+3. **Step through.**  Use the toolbar buttons or the keyboard:
    - *Continue* (F5) — run until next breakpoint or end.
    - *Step Over* (F10) — advance one top-level statement,
      stepping *over* function calls.
@@ -154,23 +163,28 @@ After installing and wiring `launch.json`:
    - *Step Out* (Shift+F11) — run until the current function
      returns.
 
-6. **Watch the locals.**  When you step into a recursive function
-   such as `count_down(suc(n'))`, the "Variables" panel should
-   show the pattern-bound `n'`.  Each recursive descent updates
-   it; each return (visible as the call-stack popping) takes you
-   back to the caller's frame.
+4. **Watch the locals.**  When you step into a recursive function
+   such as `count_down(suc(n'))`, the **VARIABLES → Locals**
+   panel should show the pattern-bound `n'` (click the chevron
+   to expand if collapsed).  Each recursive descent updates it.
 
-7. **Evaluate expressions.**  In the *Debug Console* at the bottom
-   of the screen, type a Deduce expression — `suc(zero)`,
-   `count_down(suc(zero))`, etc. — and press Enter.  VS Code sends
-   a DAP `evaluate` request; the reduced value comes back inline.
-   This uses the same reducer the CLI's `print <expr>` command
-   uses (see [Debugger.md](../../gh_pages/doc/Debugger.md) for the
-   full command surface).
+5. **Set a breakpoint.**  Click the gutter to the left of a line
+   number — a red dot appears.  Press F5; execution resumes and
+   pauses at the dot.  Breakpoints can be set before *or* during
+   a session.
 
-8. **Stop the session.**  Click the red square (*Stop*) in the
-   toolbar, press Shift+F5, or close the window.  VS Code sends a
-   DAP `disconnect`; the adapter exits cleanly.
+6. **Evaluate expressions.**  In the **DEBUG CONSOLE** panel at
+   the bottom, type a Deduce expression — `suc(zero)`,
+   `suc(zero) + suc(zero)`, `count_down(suc(zero))`, etc. — and
+   press Enter.  VS Code sends a DAP `evaluate` request; the
+   reduced value comes back inline.  Same reducer the CLI's
+   `print <expr>` command uses (see
+   [Debugger.md](../../gh_pages/doc/Debugger.md) for the full
+   command surface).
+
+7. **Stop the session.**  Click the red square in the toolbar, or
+   press Shift+F5.  VS Code sends a DAP `disconnect`; the adapter
+   exits cleanly and the toolbar disappears.
 
 ## Troubleshooting
 
@@ -183,27 +197,54 @@ The extension didn't load.  Either:
 - You installed the wrong version.  Check *Extensions* in the
   sidebar; `Deduce` should be enabled.
 
-### "Couldn't import lsp.dap_server"
+### Debug session exits immediately (toolbar appears then disappears)
 
-The adapter is launched with `python3 -m lsp.dap_server` from the
-configured `cwd`.  Make sure `cwd` is your Deduce checkout
-(containing the `lsp/` directory).  You can also set
-`PYTHONPATH=/path/to/deduce` in `launch.json` under `env`.
+By far the most common cause is `lark` not being installed on
+whichever interpreter the extension is using.  Diagnose:
 
-### Debug session exits immediately / "ModuleNotFoundError: No module named 'lark'"
+```sh
+<your python> -m pip show lark
+```
 
-`lark` isn't installed on whichever `python3` VS Code finds first.
-Override via the `deduce.pythonPath` setting — see the *Settings*
-section above for the exact JSON snippet and the macOS
-absolute-path example.
+If that says "Package(s) not found", install:
 
-### Debug session fails with "Couldn't find a debug adapter descriptor for debug type 'deduce' (extension might have failed to activate)"
+```sh
+<your python> -m pip install lark==1.2.2
+```
 
-The extension's JavaScript failed to load.  Open Developer Tools
-(*Help → Toggle Developer Tools* → Console) and look for a stack
-trace mentioning `extension.js` or `deduce.deduce`.  Usually
-this is a regression in `extension.js`; check `node --check
-editor/vscode/extension.js` from a shell to validate the syntax.
+Or point the extension at a different interpreter via
+`deduce.pythonPath` — see the *Settings* section above for the
+exact JSON snippet.
+
+Less common but possible: the adapter can't find
+`lsp/dap_server.py`.  This happens if your `.pf` workspace
+doesn't contain a Deduce checkout.  Fix by setting
+`deduce.deduceRoot` to the absolute path of your checkout.
+
+To see the actual error message, temporarily redirect the
+adapter's stderr to a file by editing `editor/vscode/extension.js`
+(wrap the spawn in `/bin/sh -c "exec ... 2>>/tmp/dap_stderr.log"`),
+then re-run.
+
+### "Couldn't find a debug adapter descriptor for debug type 'deduce' (extension might have failed to activate)"
+
+The extension's JavaScript failed to load.  Two common causes:
+
+- **Syntax error in `extension.js`.**  Run `node --check
+  editor/vscode/extension.js` from a shell; fix any error
+  reported.  Then reload the window: `Cmd+Shift+P → Developer:
+  Reload Window`.
+- **Stale cache after editing the extension.**  With
+  `--extensionDevelopmentPath`, a fresh `Cmd+Q` + relaunch
+  *should* pick up changes, but occasionally a "Code Helper"
+  subprocess keeps an older state alive.  Force-reload from the
+  Command Palette: `Cmd+Shift+P → Developer: Reload Window`.  If
+  that doesn't work, fully quit (`Cmd+Q`) and kill stragglers:
+  `killall "Code Helper" "Code Helper (Plugin)" "Code Helper
+  (Renderer)" 2>/dev/null`.
+
+Open Developer Tools (*Help → Toggle Developer Tools* → Console)
+to see the actual JavaScript error.
 
 ### Breakpoints are gray with "Verified: false"
 
