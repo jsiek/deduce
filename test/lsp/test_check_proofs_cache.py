@@ -400,3 +400,96 @@ def test_cache_skips_check_proofs_for_unchanged_stmt() -> None:
         f"check_proofs was invoked despite cache hits; "
         f"called {len(calls)} times: {calls}"
     )
+
+
+# Predicate desugaring (``process_declaration`` for the ``Predicate``
+# case) consumes ``proof_checker.name_id`` to mint synthesised names
+# for the derivation union (``<Pred>Deriv.<id>``), its constructors
+# (``D_<rule>.<id>``), the validator, and the auto-generated
+# rule-induction / rule-inversion theorems.  Two consecutive
+# ``check_file`` calls on the same source must produce the same
+# suffixes -- the post-decl AST has to be reproducible across calls,
+# so the per-statement cache keys (and any other state that walks the
+# post-decl AST) stay stable.  Issue #368.
+
+_PREDICATE_SRC = (
+    "predicate Even : fn Nat -> bool {\n"
+    "  even_zero: Even(zero)\n"
+    "  even_ss: all n:Nat. if Even(n) then Even(suc(suc(n)))\n"
+    "}\n"
+    "\n"
+    "theorem t1: Even(zero)\n"
+    "proof\n"
+    "  even_zero\n"
+    "end\n"
+)
+
+
+def test_predicate_fresh_names_are_stable_across_calls() -> None:
+    """A predicate exercises ``proof_checker.generate_name`` during
+    process_declaration.  Two checks of the same source must leave
+    ``proof_checker.name_id`` at the same value -- otherwise the
+    synthesised names drift between calls, the post-decl AST drifts
+    with them, and any post-decl hashing path silently invalidates
+    its cache."""
+    from lsp.library import reset_prelude_cache
+    reset_prelude_cache()
+    check("test.pf", _PREDICATE_SRC, prelude=("Nat",))
+    name_id_after_first = proof_checker.name_id
+
+    check("test.pf", _PREDICATE_SRC, prelude=("Nat",))
+    name_id_after_second = proof_checker.name_id
+
+    assert name_id_after_first == name_id_after_second, (
+        f"proof_checker.name_id drifted between identical checks: "
+        f"first={name_id_after_first}, second={name_id_after_second}. "
+        f"Predicate desugaring uses generate_name, so a drifting "
+        f"counter makes the post-decl AST non-reproducible."
+    )
+
+
+def test_predicate_re_check_is_all_hits() -> None:
+    """End-to-end: a fixture that triggers predicate desugaring on
+    the first run hits the per-statement cache on every user-file
+    statement on the second run.  Pins the plan acceptance for
+    issue #368 -- the test the issue asks to land alongside the
+    name_id snapshot."""
+    from lsp.library import reset_prelude_cache
+    reset_prelude_cache()
+    check("test.pf", _PREDICATE_SRC, prelude=("Nat",))
+    proof_checker._cache_stats["hits"].clear()
+    proof_checker._cache_stats["misses"].clear()
+
+    calls: list = []
+    real_check_proofs = proof_checker.check_proofs
+
+    def stub(s, env):
+        calls.append(s)
+        return real_check_proofs(s, env)
+
+    proof_checker.check_proofs = stub
+    try:
+        check("test.pf", _PREDICATE_SRC, prelude=("Nat",))
+    finally:
+        proof_checker.check_proofs = real_check_proofs
+
+    # All four user-file statements (one ``Import`` for the prelude
+    # module, the ``Predicate``, and the ``Theorem``) should hit the
+    # cache.  The prelude module itself is checked once during
+    # bootstrap; on the second call ``_prepare_state`` restores the
+    # post-prelude snapshot so the prelude isn't re-checked.
+    assert _hits() >= 3, (
+        f"expected the predicate + theorem + import to hit the "
+        f"cache on re-run; got hits={_hits()}, misses={_misses()}, "
+        f"check_proofs invocations={len(calls)}"
+    )
+    assert _misses() == 0, (
+        f"unexpected misses on re-run of identical source; "
+        f"misses={_misses()}, check_proofs invocations={len(calls)}"
+    )
+    assert calls == [], (
+        f"check_proofs ran on a cache hit -- name_id drift would "
+        f"cause this by changing the synthesised names in the "
+        f"post-decl AST; called {len(calls)} times: "
+        f"{[type(c).__name__ for c in calls]}"
+    )
