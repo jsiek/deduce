@@ -81,14 +81,47 @@ Drop a `launch.json` into your workspace's `.vscode/` (template in
 }
 ```
 
-`${workspaceFolder}` should be (or contain) your Deduce checkout so
-the adapter's `python3 -m lsp.dap_server` resolves on the import
-path.  If your proofs live elsewhere, set `cwd` to point at the
-Deduce repo root explicitly.
+`${workspaceFolder}` should be (or contain) your Deduce checkout
+so the adapter can find `lsp/dap_server.py`.  If your proofs live
+elsewhere, set the `deduce.deduceRoot` setting (see *Settings*
+below) to point at your Deduce repo root.
 
 With no `launch.json` at all, F5 still works: VS Code's debug
 picker offers the "Deduce" snippet from this extension's
 `initialConfigurations`.
+
+## Settings
+
+The extension exposes two settings under the `Deduce` group
+(`Cmd+,` → search for "deduce" or edit JSON):
+
+| Setting              | Default     | Effect                                                                                |
+| -------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `deduce.pythonPath`  | `"python3"` | Path to the Python interpreter used to run the debug adapter (`lsp/dap_server.py`).  Must have `lark` installed.  Absolute paths are supported; otherwise looked up on `$PATH`. |
+| `deduce.deduceRoot`  | `""`        | Path to a Deduce checkout.  Defaults to the workspace folder when empty.  Set this if your `.pf` files live outside the Deduce repo so the adapter can locate `lsp/dap_server.py`. |
+
+**Common pitfall on macOS:** the default `python3` on `$PATH` may
+not be the interpreter you `pip install lark`ed into.  If F5
+fails with "Debug Adapter process has terminated unexpectedly" or
+a `ModuleNotFoundError`, point the extension at the right one:
+
+```json
+{
+  "deduce.pythonPath": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13"
+}
+```
+
+You can put this in either your workspace settings (`.vscode/settings.json`)
+or User settings (Cmd+, → switch to JSON view).
+
+Confirm the right interpreter from a shell first:
+
+```sh
+python3.13 -c 'import lark; print(lark.__version__)'
+```
+
+If that prints a version (e.g. `1.2.2`), `python3.13` is the
+binary to put in `deduce.pythonPath`.
 
 ## Manual smoke test
 
@@ -157,41 +190,20 @@ configured `cwd`.  Make sure `cwd` is your Deduce checkout
 (containing the `lsp/` directory).  You can also set
 `PYTHONPATH=/path/to/deduce` in `launch.json` under `env`.
 
-### Debug session exits immediately with code 1 / "ModuleNotFoundError: No module named 'lark'"
+### Debug session exits immediately / "ModuleNotFoundError: No module named 'lark'"
 
 `lark` isn't installed on whichever `python3` VS Code finds first.
-Many systems have multiple Python installs and the one on `$PATH`
-may not be the one you used to `pip install lark`.  Override the
-interpreter by giving an absolute path in `launch.json`:
+Override via the `deduce.pythonPath` setting — see the *Settings*
+section above for the exact JSON snippet and the macOS
+absolute-path example.
 
-```json
-{
-  "type": "deduce",
-  "request": "launch",
-  "name": "Debug current Deduce file",
-  "program": "${file}",
-  "cwd": "${workspaceFolder}",
-  "pythonPath": "/usr/local/bin/python3.13"
-}
-```
+### Debug session fails with "Couldn't find a debug adapter descriptor for debug type 'deduce' (extension might have failed to activate)"
 
-VS Code currently ignores `pythonPath` for adapter spawn — instead
-override at the extension level: edit `editor/vscode/package.json`
-and replace `"program": "python3"` with the absolute path to your
-working interpreter (e.g. `"/Library/Frameworks/Python.framework/
-Versions/3.13/bin/python3.13"`).  Repackage with `vsce` (or relaunch
-with `--extensionDevelopmentPath`) for the change to take effect.
-A Marketplace release should expose this as a user setting instead;
-tracked under the roadmap section above.
-
-Confirm the right interpreter from a shell first:
-
-```sh
-python3.13 -c 'import lark; print(lark.__version__)'
-```
-
-Exit code 0 means that's the interpreter to point the extension
-at.
+The extension's JavaScript failed to load.  Open Developer Tools
+(*Help → Toggle Developer Tools* → Console) and look for a stack
+trace mentioning `extension.js` or `deduce.deduce`.  Usually
+this is a regression in `extension.js`; check `node --check
+editor/vscode/extension.js` from a shell to validate the syntax.
 
 ### Breakpoints are gray with "Verified: false"
 

@@ -21,6 +21,11 @@
     "proof",
     "debugger"
   ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onDebug",
+    "onLanguage:deduce"
+  ],
   "contributes": {
     "languages": [
       {
@@ -38,17 +43,28 @@
         "language": "deduce"
       }
     ],
+    "configuration": {
+      "type": "object",
+      "title": "Deduce",
+      "properties": {
+        "deduce.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Path to the Python interpreter used to run the Deduce debug adapter (lsp/dap_server.py).  The interpreter must have lark installed.  Absolute paths are supported; otherwise the binary is looked up on $PATH."
+        },
+        "deduce.deduceRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a Deduce checkout.  Defaults to the workspace folder when empty -- set this if your .pf files live outside the Deduce repo so the adapter can find lsp/dap_server.py."
+        }
+      }
+    },
     "debuggers": [
       {
         "type": "deduce",
         "label": "Deduce",
         "languages": [
           "deduce"
-        ],
-        "program": "python3",
-        "args": [
-          "-m",
-          "lsp.dap_server"
         ],
         "configurationAttributes": {
           "launch": {
