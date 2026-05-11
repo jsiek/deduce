@@ -215,3 +215,19 @@ bottom in the order frames pop off the stack.
 If you only care about the final value, type `c` from the first
 prompt and the file runs to completion as if `--debug` weren't
 there.
+
+## Editor integration
+
+Deduce also exposes the same debugger over the
+[Debug Adapter Protocol](https://microsoft.github.io/debug-adapter-protocol/),
+which is what graphical IDEs use for their built-in debug UIs.
+The adapter is `python -m lsp.dap_server`; it speaks DAP on stdio,
+so any DAP client (VS Code's debug view, Emacs `dap-mode`,
+Neovim's `nvim-dap`) can drive it.
+
+Editor packages (VS Code launch configuration, Emacs
+`deduce-dap.el`) are not yet shipped; if you'd like to wire one up
+manually, point your DAP client at `python -m lsp.dap_server` and
+include `"program": "<path-to-your.pf>"` in the launch arguments.
+The command-line debugger documented above remains the
+recommended day-to-day interface.

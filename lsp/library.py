@@ -36,10 +36,22 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import traceback as _traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence
+
+
+# Process-wide lock around ``check_file``.  The Deduce pipeline
+# mutates module-level state (prelude caches, name counters, the
+# ``uniquified_modules`` dict).  Concurrent callers race -- e.g. a
+# leaked daemon program-thread from a stale DAP debug session can
+# corrupt the prelude bootstrap of the next session, surfacing as
+# "undefined variable: Nat" because the second bootstrap cleared
+# ``uniquified_modules`` from under the first.  Serialise here
+# rather than asking every caller to do it.
+_check_file_lock = threading.Lock()
 
 from lark.tree import Meta
 
@@ -171,6 +183,22 @@ def check_file(
     machinery here assumes a single caller at a time. Callers that
     want to fan out should serialize.
     """
+    with _check_file_lock:
+        return _check_file_locked(
+            filename, tracing_functions, prelude, content,
+            collect_errors=collect_errors, debugger=debugger,
+        )
+
+
+def _check_file_locked(
+    filename: str,
+    tracing_functions: Sequence[str],
+    prelude: Sequence[str],
+    content: Optional[str],
+    collect_errors: bool,
+    debugger,
+) -> CheckResult:
+    """Body of ``check_file``, run under the global pipeline lock."""
     # Prelude bootstrap runs without a debugger attached -- the user
     # asked to step through their own file, not lib/.  Phase 5 plan
     # rationale: this is the only sensible default and avoids PR #269's
