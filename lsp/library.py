@@ -36,10 +36,22 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import traceback as _traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence
+
+
+# Process-wide lock around ``check_file``.  The Deduce pipeline
+# mutates module-level state (prelude caches, name counters, the
+# ``uniquified_modules`` dict).  Concurrent callers race -- e.g. a
+# leaked daemon program-thread from a stale DAP debug session can
+# corrupt the prelude bootstrap of the next session, surfacing as
+# "undefined variable: Nat" because the second bootstrap cleared
+# ``uniquified_modules`` from under the first.  Serialise here
+# rather than asking every caller to do it.
+_check_file_lock = threading.Lock()
 
 from lark.tree import Meta
 
@@ -55,7 +67,7 @@ from abstract_syntax import (
     get_uniquified_modules,
 )
 from error import ErrorSink
-from flags import get_verbose
+from flags import get_verbose, get_debugger, set_debugger
 from proof_checker import check_deduce, uniquify_deduce
 
 
@@ -119,6 +131,7 @@ def check_file(
     prelude: Sequence[str] = (),
     content: Optional[str] = None,
     collect_errors: bool = False,
+    debugger=None,
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
 
@@ -152,12 +165,44 @@ def check_file(
                             ``lsp.query.check`` opts in to this so
                             every error in the buffer becomes its own
                             editor diagnostic.
+        debugger:           When given, attached to the active session
+                            via ``flags.set_debugger`` for the user
+                            file's check_proofs / reduce hooks (Phase
+                            5 / Step 21).  ``None`` (the default) means
+                            no debug session; hook callbacks short-
+                            circuit so non-debug runs pay one attribute
+                            load per hook site and nothing else.  The
+                            prelude is *always* loaded debugger-detached
+                            (``_prepare_state`` runs before we attach),
+                            so a ``--debug`` user lands at the first
+                            statement of *their* file rather than
+                            stepping through ``lib/``.
 
     Concurrency note: this function is NOT thread-safe. The Deduce
     pipeline mutates module-level state, and the snapshot/restore
     machinery here assumes a single caller at a time. Callers that
     want to fan out should serialize.
     """
+    with _check_file_lock:
+        return _check_file_locked(
+            filename, tracing_functions, prelude, content,
+            collect_errors=collect_errors, debugger=debugger,
+        )
+
+
+def _check_file_locked(
+    filename: str,
+    tracing_functions: Sequence[str],
+    prelude: Sequence[str],
+    content: Optional[str],
+    collect_errors: bool,
+    debugger,
+) -> CheckResult:
+    """Body of ``check_file``, run under the global pipeline lock."""
+    # Prelude bootstrap runs without a debugger attached -- the user
+    # asked to step through their own file, not lib/.  Phase 5 plan
+    # rationale: this is the only sensible default and avoids PR #269's
+    # "first prelude statement traps" bug in long-lived daemons.
     _prepare_state(tuple(prelude))
     # Each user-file check forks a fresh ctx from the post-prelude
     # baseline so successive checks produce reproducible names.  See
@@ -168,10 +213,36 @@ def check_file(
         if _post_prelude_ctx is not None
         else UniquifyContext()
     )
-    return _check_file_impl(
-        filename, tracing_functions, prelude, content, ctx,
-        collect_errors=collect_errors,
-    )
+    if debugger is None:
+        return _check_file_impl(
+            filename, tracing_functions, prelude, content, ctx,
+            collect_errors=collect_errors,
+        )
+    # Attach the debugger only for the user-file check; detach in a
+    # ``finally`` so a quit/crash mid-session leaves the next check_file
+    # call with a clean ``flags.debugger == None``.  ``DebuggerQuit`` is
+    # caught and translated into a normal failed CheckResult so callers
+    # don't have to special-case it.
+    from lsp.debugger import DebuggerQuit
+    prev = get_debugger()
+    set_debugger(debugger)
+    try:
+        return _check_file_impl(
+            filename, tracing_functions, prelude, content, ctx,
+            collect_errors=collect_errors,
+        )
+    except DebuggerQuit as e:
+        module_name = Path(filename).stem
+        return CheckResult(
+            ok=False,
+            error_message=f"debugger session ended: {e}",
+            error_traceback=None,
+            exception=e,
+            module_name=module_name,
+            ast=None,
+        )
+    finally:
+        set_debugger(prev)
 
 
 def _check_file_impl(
@@ -280,6 +351,15 @@ def _check_file_impl(
             ast=typechecked_ast,
         )
     except Exception as e:
+        # ``DebuggerQuit`` is control flow (the user typed ``quit`` or
+        # closed the input pipe) -- not a checker error.  Re-raise so
+        # ``check_file``'s outer handler translates it into a
+        # human-friendly result instead of letting "EOF on debugger
+        # input" leak as the error_message.  Local import to avoid
+        # forcing every check_file caller to load the debugger module.
+        from lsp.debugger import DebuggerQuit
+        if isinstance(e, DebuggerQuit):
+            raise
         return CheckResult(
             ok=False,
             error_message=str(e),

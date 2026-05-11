@@ -185,6 +185,127 @@ Steps 15 and 18 are duals: Step 15 is **introduction** (template chosen by the *
 
   - *Implementation:* `lsp/query.py:auto_rules_at` runs `check` once, then walks every module cached in `get_uniquified_modules()` for top-level `Auto` statements (always in scope — they were imported into the env before the user's file ran) and the user file's AST for the same nodes filtered to `location <= pos`.  Each rule's `equation` is resolved by looking up the referenced theorem's `what` in the same walk's `Theorem`/`Postulate` map.  MCP wrapper `auto_rules_at(path, line, column)` in `mcp_server.py`.  7-case acceptance test in `test/lsp/test_auto_rules.py` covering declaration order, position filtering, the empty case, and the dataclass shape; matching MCP wrapper test in `test/lsp/test_mcp_server.py`.
 
+## Phase 5 — Debugger (gdb-style stepper for the functional fragment)
+
+Tracking issue: [#239](https://github.com/jsiek/deduce/issues/239). Prior art: [PR #269](https://github.com/jsiek/deduce/pull/269) (Temperz87, Dec 2025), now stale — predates the `lsp/` infrastructure, in-process prelude caching, the per-statement cache, and the pure-functional uniquify refactor. Treat that PR as a working prototype that validates the hook locations; rebuild on top of today's daemon.
+
+### Scope and non-goals
+
+In scope: stepping through the *functional* fragment of Deduce — top-level statements (`Print` / `Assert`) and user-function calls evaluated during their reduction. Out of scope: stepping through proofs themselves (proofs are static derivations, not a stepwise execution; a future "explain this proof" UI is a tree viewer, not a stepper, and should not be jammed into DAP).
+
+The natural unit of stepping is **one reduction step inside a `print` / `assert`**, plus call/return on user-defined functions. This matches PR #269's instincts and what `gdb` users expect.
+
+### Architecture
+
+```
+lsp/
+  query.py          ← protocol-neutral query API (Phase 1, locked)
+  library.py        ← daemon, prelude cache (Phase 1)
+  debugger.py       ← NEW: Debugger core, hook callbacks, REPL
+  lsp_server.py     ← pygls (Phase 2)
+  mcp_server.py     ← FastMCP (Phase 1)
+  dap_server.py     ← NEW: stdio DAP adapter, thin wrapper over Debugger
+```
+
+Same shape as the LSP/MCP split: a protocol-neutral `Debugger` class, then thin wire-format adapters. The CLI `--debug` mode is a third client (writing to stdout, reading from stdin) on top of the same core. The DAP server is launched per-debug-session (not shared with the LSP daemon — a debug session blocks reduction, which would freeze any concurrent LSP request on the same process).
+
+### Hook sites (validated by PR #269)
+
+Three places in the existing pipeline need callbacks:
+
+1. **`proof_checker.py:check_proofs`** — before/after each top-level statement. Fires for `Print` and `Assert` (the only statements that reduce user code), plus for `Theorem` if tactic-stepping is enabled (Step 24).
+2. **`abstract_syntax.py:do_function_call`** — before/after every user-function reduction. The single layer that catches both `Lambda` and `RecFun` calls; PR #269's fix (also hooking `Call.reduce`'s `Lambda` arm and `do_recursive_call`'s case dispatch) double-fires and should not be carried over.
+3. **`abstract_syntax.py:Call.reduce`** — only for `Lambda` literals applied directly. Lambdas don't go through `do_function_call` because they have no name binding; they need their own one-line hook.
+
+All three sites read `flags.get_debugger()`. When it returns `None` (the default in non-debug runs), the callback is a no-op call into the `Debugger` class — measure overhead in PR 1's acceptance test, but expect <1% on the existing test suite. If overhead is measurable, gate the call on a `flags.debug` boolean to skip the function call entirely.
+
+### Phase 5 plan
+
+- [x] **Step 21: Foundation — `Debugger` core, daemon-aware.** Stand up `lsp/debugger.py` with a `Debugger` class owning all state (no module-level globals). Plumb through `lsp/library.py:check_file` as an optional `debugger=None` parameter; thread through `proof_checker.check_deduce` to the three hook sites. Replace PR #269's six-function module-globals API.
+
+  Required interaction with prior phases:
+    - **Bypass the per-statement cache** (Steps 13–14) when `debugger is not None`. Cache hits skip `check_proofs`, which would silently skip every debugger trap. Either short-circuit on the cache key or thread a "debugger active" bit into the key — short-circuit is simpler and the cache is valueless during a stepping session anyway.
+    - **Prelude is loaded debugger-detached.** The CLI / DAP adapter calls `check_file` once with `debugger=None` to bootstrap the prelude (as today), then attaches the debugger for the user's file. This solves PR #269's "first prelude statement traps" bug without special-casing.
+    - **Pure-functional uniquify** (commit bfc498a) means PR #269's uniquify-time `break_at_point` side-effect can't survive — drop the `Breakpoint` AST node entirely and use REPL-set breakpoints only (Step 22).
+
+  CLI mode: `python deduce.py --debug file.pf` instantiates `Debugger(io=sys.stdin/stdout)` and passes it to `check_file`. The `--debug` flag from PR #269 is preserved verbatim.
+
+  - *Acceptance:* `test/lsp/test_debugger.py` scripts the REPL via captured stdio against fixed inputs; `test/should-validate/` and `test/should-error/` runs unchanged (with and without `--debug`); benchmark from `lsp/benchmark.py` shows ≤1% overhead on non-debug runs.
+  - *Implementation:* `lsp/debugger.py:Debugger` owns all per-session state (stack, last-command replay, ``stop_on_next_statement`` flag).  `flags.get_debugger()` / ``set_debugger()`` are the daemon-aware accessor pair; hook callsites short-circuit on ``None``.  Hook sites: ``proof_checker.check_proofs`` (top-level statements), ``abstract_syntax.do_function_call`` (every named user-function reduction -- single hook catches RecFun + GenRecFun + recursive case dispatch; PR #269's three-site approach double-fired), and the ``Lambda`` arm of ``Call.reduce``.  ``lsp/library.py:check_file`` gains a ``debugger=`` parameter; attached for the user-file check only (prelude bootstrap stays detached).  ``DebuggerQuit`` is propagated past ``_check_file_impl``'s ``except Exception`` so the outer handler can translate it into a normal failed ``CheckResult``.  Step 13/14 cache is bypassed when ``get_debugger()`` is not None.  CLI flag ``--debug`` constructs a stdio-driven ``Debugger`` and threads it through ``deduce_file`` / ``deduce_directory``.  Step 21's REPL is intentionally tiny -- ``continue`` and ``quit`` only -- so the wiring is independently reviewable; Step 22 adds the full command set.  9-case acceptance test in ``test/lsp/test_debugger.py``.
+
+- [x] **Step 22: Step modes and breakpoints — gdb parity.** REPL commands, all keyed off the `Debugger` instance from Step 21:
+    - `continue` / `c` — run until next breakpoint.
+    - `step` / `s` — step into next reduction (current statement or function call).
+    - `next` / `n` — step over: pause when call-stack depth ≤ depth at command time. (PR #269 keyed step-over on *location*, which re-traps on recursion — fix in this step.)
+    - `finish` / `fin` — step out: pause when depth < depth at command time.
+    - `break <file:line>` / `b <file:line>` — line breakpoint, resolved against `Meta.line` on first hit. Replaces PR #269's function-name-only `b foo`; function breakpoints stay as `b <name>` for ergonomics, dispatched on whether the arg parses as `name:int`.
+    - `print <expr>` / `p <expr>` — parse and reduce arbitrary expression in the current env. Reuses the existing parser + `Term.reduce`.
+    - `list` / `l` — show source ±5 lines around current location, reading the `.pf` file by `Meta.filename`.
+    - `where` / `bt` — call stack maintained as `on_function` push / `after_function` pop on the `Debugger` instance.
+    - `up` / `down` — move within the saved stack to inspect locals.
+    - `locals` — dump captured `params_dict` for the current frame.
+    - `quit` / `q` — abort the run cleanly (raises a `DebuggerQuit` that `check_file` translates to a normal `CheckResult`).
+
+  Conditional breakpoints (`b foo:42 if x > 0`) are a small extension once `print <expr>` lands; bundle into this step.
+
+  - *Acceptance:* `test/lsp/test_debugger_repl.py` with stdio-driven fixtures per command; recursion test pinning step-over correctness (the PR #269 regression).
+  - *Implementation:* ``lsp/debugger.py`` grows a step-mode state machine (``_StepMode.{RUN, STEP, NEXT, FINISH, STOP}``) and a depth counter (``_step_depth``) keyed on ``len(self.stack)``.  ``next`` / ``finish`` set ``_step_depth = depth-at-command`` and compare it against ``len(self.stack)`` at every later hook -- that comparison is what fixes PR #269's location-keyed step-over re-trapping on recursion.  Breakpoints are stored as ``_Breakpoint(id, spec, condition)`` and matched on every hook in ``_should_pause_at_{statement,function}``.  ``spec`` is either ``"file:line"`` (dispatched by the colon) or a bare function name (matched against ``base_name(name)``).  Conditions parse a trailing ``" if <expr>"`` and reuse ``_eval_expr`` against the current env.  ``print`` and conditions both go through ``_eval_expr``: snapshot/restore ``rec_desc_parser``'s module-level state, lex+parse the expression, build a uniquify dict from the proof-checker env (inverting ``env.dict``'s unique-name keys back to base names) plus the current frame's params, uniquify, then ``reduce`` with ``reduce_all + eval_all`` so the printed value matches what ``print`` / ``assert`` would compute.  The recursive-function path's pattern-bound names (``subst``) are now plumbed through ``do_function_call``'s hook so ``locals`` and ``print n'`` work inside a ``double(suc(n'))`` case body.  ``list`` reads ``Meta.filename`` and prints ±5 lines around ``Meta.line``; ``where`` walks ``self.stack`` (gdb-style: frame 0 is innermost); ``up`` / ``down`` move a ``_frame_cursor`` and re-display ``where``; ``locals`` dumps the focused frame's params dict.  Unknown commands surface a typo suggestion via ``edit_distance.closest_keyword``.  20-case acceptance test in ``test/lsp/test_debugger_repl.py`` covers each command; ``test_next_doesnt_retrap_after_first_call`` pins the PR #269 recursion fix.
+
+- [x] **Step 23: REPL UX polish.** Pretty-print values via the existing `__str__`; readline tab-completion for command names and in-scope variable names; persistent input history at `~/.config/deduce/debug_history`; empty-input replays last command (kept from PR #269); friendly error messages on unrecognized commands (suggest closest via `edit_distance`).
+
+  - *Acceptance:* manual smoke test on `test/should-validate/comp_switchcase.pf`; `editor/emacs/test/`-style fixture tests for tab-completion.
+  - *Implementation:* GNU ``readline`` is attached only when the REPL is talking to a real terminal (``sys.stdin.isatty()`` and the Debugger's input/output streams are sys.stdin/sys.stdout) -- tests pass ``StringIO`` and fall back to plain stream reads with no filesystem touch.  Completion routes through ``Debugger._complete(text, line, begidx)`` (pure function, tested directly) wrapped by ``_completer`` (the readline-facing entry point).  Context rules: ``begidx == 0`` returns command verbs; otherwise the first token selects the candidate set -- ``print`` / ``break`` get in-scope identifiers (base-name form of the proof-checker env's bindings plus the focused frame's pattern-bound names), ``clear`` gets active breakpoint specs plus in-scope names, ``delete`` gets active breakpoint ids.  Completer delimiters restricted to whitespace so names like ``operator-`` complete.  History stored at ``~/.config/deduce/debug_history`` (path overridable via ``Debugger(history_file=...)``); ``_save_history`` runs in a ``finally`` around the REPL loop so a session that crashes mid-flow doesn't lose history.  Empty-input replay and ``edit_distance``-based typo suggestions for unknown commands were already in place from Step 22.  11-case acceptance test in ``test/lsp/test_debugger_completion.py``.
+
+- [ ] **Step 24: Tactic stepping (opt-in).** Add `--debug=tactics` (CLI) / `"tacticStepping": true` (DAP `launch` arg). When enabled, the `Term.reduce` path used by `evaluate` / `expand` / `replace` / `definition` / `rewrite` traps the same way `Print` reductions do, so users debugging "why didn't `expand` fire" can step in.
+
+  Default off. The existing hooks already cover this — the gating logic lives in `Debugger.should_trap_reduction(env)`, which returns `False` unless tactic-stepping is enabled and the reduction was triggered by a tactic (detect via a stack tag set in `proof_checker.py` around the relevant `reduce` calls).
+
+  - *Acceptance:* fixture proof exercising `expand`, with a scripted REPL session asserting traps fire only with `--debug=tactics`.
+
+- [x] **Step 25: DAP adapter.** `lsp/dap_server.py` as a sibling of `lsp_server.py` and `mcp_server.py`. Stdio transport, no shared daemon — each `launch` spawns its own process to keep the blocking-during-stepping behavior simple.
+
+  Minimum DAP request set:
+
+  | DAP request | Maps to `Debugger` op |
+  | --- | --- |
+  | `initialize` | declare capabilities (`supportsConditionalBreakpoints`, `supportsFunctionBreakpoints`, `supportsEvaluateForHovers`) |
+  | `launch` | spawn `python deduce.py --debug --dap file.pf`; attach `Debugger(io=DAP)` |
+  | `setBreakpoints` | `Debugger.set_file_breakpoints(path, lines, conditions)` |
+  | `setFunctionBreakpoints` | `Debugger.set_function_breakpoints(names)` |
+  | `configurationDone` | release initial pause |
+  | `continue` / `next` / `stepIn` / `stepOut` | the four step modes from Step 22 |
+  | `pause` | trip on next hook |
+  | `threads` | always one thread (id 1) |
+  | `stackTrace` | the stack from Step 22 |
+  | `scopes` / `variables` | params from `on_function`, plus `env.get_value_of_term_var` for in-scope names |
+  | `evaluate` | `parse_term + reduce(env)` (reuses Step 22's `print`) |
+  | `disconnect` / `terminate` | unwind, exit |
+
+  Out of scope for v1: `setExceptionBreakpoints` (Deduce's `MatchFailed` etc. are checker errors, not user-facing), `restart` (just relaunch), `goto` (no jump-to-line semantics).
+
+  - *Acceptance:* `test/lsp/test_dap_server.py` using a small in-memory DAP client (one already exists in [`debugpy`](https://github.com/microsoft/debugpy) as a reference, but a 100-line stdio harness in the test directory is sufficient — DAP is straightforward JSON-RPC). Manual smoke from VS Code with the Step 26 extension.
+  - *Implementation:* ``lsp/dap_server.py`` (~470 lines) hand-rolls DAP framing (Content-Length-prefixed JSON), a single-threaded reader loop, and a background ``deduce-debugger`` thread that drives ``lsp.library.check_file``.  A subclass ``_DAPDebugger(Debugger)`` overrides ``_repl`` to (a) send a ``stopped`` event and (b) block on a queue of step commands from the reader thread; everything else (step modes, breakpoints, skip rules, the pattern-bound locals dict, the ``_eval_expr`` evaluator) is inherited unchanged.  ``setBreakpoints`` / ``setFunctionBreakpoints`` replace the matching subset of ``Debugger.breakpoints`` (DAP's contract is that each call is the canonical set for that source / function class); ``stackTrace`` exports the ``Debugger.stack`` frames gdb-style (frame 0 = innermost); ``scopes`` returns one ``Locals`` scope per frame whose ``variablesReference`` is ``frameId + 1`` so ``variables`` can look up the right frame; ``evaluate`` routes straight through the inherited ``_eval_expr``.  Stop-reason inference: the trap hooks pre-compute ``"breakpoint"`` vs ``"step"`` (or ``"entry"`` for the initial pause) before delegating to the base class, so the editor's UI knows why we paused.  ``disconnect`` / ``terminate`` push a ``disconnect`` sentinel into the step queue so the ``_repl`` unblocks and the program thread unwinds via ``DebuggerQuit``.  Acceptance: 7-case ``test/lsp/test_dap_server.py`` drives an in-memory client over ``os.pipe()``; covers initialize/launch/continue/terminated, unknown-command rejection, stackTrace+scopes+variables inside a function, evaluate (success and error), file:line breakpoint stop-reason, and disconnect.  Subprocess smoke (``python -m lsp.dap_server``) exchanges the expected 8 messages for a continue-to-end session.
+
+- [x] **Step 26: Editor packages.** Wire DAP into both editors:
+    - **VS Code**: add a `debuggers` contribution to the existing extension's `package.json` (the extension already declares `deduce` as a language). Default launch config: `{"type": "deduce", "request": "launch", "program": "${file}"}`. Adapter command: `python -m lsp.dap_server`.
+    - **Emacs**: `editor/emacs/deduce-dap.el` (~30 lines) registering `deduce` as a `dap-mode` debugger via `dap-register-debug-template`. Parallel to `editor/emacs/deduce-lsp.el`. Tests in `editor/emacs/test/deduce-dap-test.el` mirror the existing LSP test pattern.
+
+  - *Acceptance:* manual smoke (the breakpoint UI is the load-bearing thing and isn't unit-testable). Document the launch flow in `editor/emacs/README.md` (debugger section) and the VS Code extension README.
+  - *Implementation:* **Emacs** — ``editor/emacs/deduce-dap.el`` registers a ``dap-mode`` provider + template for ``type "deduce"``; mirrors ``deduce-lsp``'s customisation surface (``deduce-dap-python-program``, ``deduce-dap-deduce-root``, ``deduce-dap-prelude-disabled``, ``deduce-dap-auto-ui``).  ``C-c C-d`` (or ``C-c d d``) launches; ``C-c d {c,n,s,o,b,h,q}`` plus the F-key surface (F5/F10/F11/S-F11/S-F5) drive the session; ``C-c d h`` opens ``dap-hydra'' for a single-key transient menu.  ``deduce-dap-auto-ui'' (default t) enables ``dap-ui-mode'' and opens ``dap-ui-many-windows'' on first launch so the side panes are ready without an extra command.  12-case ert suite in ``editor/emacs/test/deduce-dap-test.el``.  Manual smoke script (steps 14–19) plus dedicated *deduce-dap* subsections under Features / Prerequisites / Customisation / Troubleshooting in ``editor/emacs/README.md``.  **VS Code** — ``editor/vscode/`` is the canonical in-tree home (the previous out-of-tree [HalflingHelper/deduce-mode](https://github.com/HalflingHelper/deduce-mode) is no longer maintained).  Adapter spawn is imperative via a small ``extension.js`` that registers a ``DebugAdapterDescriptorFactory'' -- this is required because ``${workspaceFolder}'' isn't substituted in the static ``contributes.debuggers'' fields, so the script path can't be expressed declaratively.  The factory reads two user-overridable settings (``deduce.pythonPath'', ``deduce.deduceRoot'') and spawns ``<python> <root>/lsp/dap_server.py'' with the correct cwd.  Ships ``package.json'' (debugger contribution + language + settings schema), ``launch.json.sample'', and a step-by-step README covering both standalone (``code --extensionDevelopmentPath``) and packaged-install workflows (``vsce package'' -> ``code --install-extension'').  Syntax highlighting and LSP-client wiring are tracked as follow-up work in ``editor/vscode/README.md``'s roadmap.  The user-facing ``gh_pages/doc/Debugger.md'' gains a refreshed *Editor integration* section pointing at both packages.
+
+### LSP integration: do we need protocol extensions?
+
+**No.** LSP and DAP are sibling protocols; every editor that consumes LSP also has a DAP client (VS Code, Emacs `dap-mode`, Neovim `nvim-dap`, IntelliJ). Adding debugger-shaped requests to `lsp_server.py` would re-invent DAP.
+
+The only thing that *could* go in LSP is a `deduce/runnableLines` custom request — a list of lines on which a breakpoint can be set, used by editors to grey out non-runnable gutter slots. Skip in v1; the editor can ask DAP `setBreakpoints` and read back which lines were validated. Add only if a downstream editor consumer asks.
+
+### Cross-cutting notes for Phase 5
+
+- The DAP adapter does **not** share a process with the LSP/MCP daemon. Stepping blocks reduction; a shared process would freeze concurrent LSP requests. Each DAP `launch` is its own process, which also matches how every other DAP server (debugpy, lldb-vscode, java-debug) is deployed.
+- Step 21 is the highest-risk step (parallel to Step 6's prelude-cache work). Touches three pipeline files and interacts with two prior phases (cache invalidation, prelude bootstrap). Budget ~3 extra days.
+- Steps 22–24 are independent of the DAP adapter and shippable as a CLI-only debugger after Step 23. Use the CLI for ~1 week before starting Step 25 — usage will tell you which commands actually matter and which DAP capabilities to expose.
+- PR #269's source-level `break <expr>` keyword is **dropped**: it adds parser / AST / uniquify surface for a feature that REPL-set breakpoints cover better, and source-level markers fight git noise. If demand surfaces later, recover the parser change from PR #269 and integrate the `Breakpoint` AST node properly against today's pure-uniquify (non-trivial — needs `copy`, `substitute`, `__eq__`, type-check arm, and a `reduce` arm that doesn't double-fire with the `do_function_call` hook).
+
 ## Cross-cutting notes
 
 - Add `lsp/` to the `make tests` target as a separate phase, otherwise it'll bitrot.

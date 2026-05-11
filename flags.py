@@ -136,3 +136,21 @@ def set_target_hole_location(loc):
   global target_hole_location
   target_hole_location = loc
 
+# active debugger session (Phase 5 / Step 21).  ``None`` in non-debug
+# runs; the hook callbacks in ``proof_checker.check_proofs`` and
+# ``abstract_syntax.do_function_call`` / ``Call.reduce`` short-circuit
+# on ``None`` so debugger-disabled runs pay only one attribute load
+# per hook site.  Set by ``lsp.library.check_file`` for the duration
+# of one call (paired ``set_debugger(d)`` / ``set_debugger(None)`` in
+# a try/finally).
+
+debugger = None
+
+def get_debugger():
+  global debugger
+  return debugger
+
+def set_debugger(d):
+  global debugger
+  debugger = d
+

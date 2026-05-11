@@ -1,0 +1,13 @@
+{
+  "//": "Drop this into your workspace's .vscode/launch.json (creating it if needed) once the deduce-debug extension is installed.  ${workspaceFolder} should be your Deduce checkout root so 'python3 -m lsp.dap_server' resolves on Python's import path.  Adjust 'cwd' if your .pf files live in a sibling directory.",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "deduce",
+      "request": "launch",
+      "name": "Debug current Deduce file",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

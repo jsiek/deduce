@@ -24,9 +24,13 @@ Any changes to the Deduce syntax should be reflected in the following places:
 
 When adding a new top-level documentation page under `gh_pages/doc/`, also add an entry for it to all four dictionaries in `gh_pages/scripts/convert.py` (`mdToHtmlName`, `mdToTitle`, `mdToDescription`, `mdToDeduceCode`), and link it from `Index.md`.
 
-**External:**
-- [deduce-mode (vscode)](https://github.com/HalflingHelper/deduce-mode#): Deduce extension for vscode.
-- [deduce-mode (emacs)](https://github.com/mateidragony/deduce-mode#): Deduce package for emacs.
+**In-tree editor integrations:**
+- [`editor/vscode/`](../../editor/vscode/) — canonical VS Code extension.  Today: debugger contribution.  Roadmap: syntax highlighting, LSP client.
+- [`editor/emacs/`](../../editor/emacs/) — Emacs major mode plus the LSP client (`deduce-lsp.el`), DAP client (`deduce-dap.el`), and LLM hole-fill front-end (`deduce-fill-hole.el`).
+
+**External (legacy):**
+- [HalflingHelper/deduce-mode](https://github.com/HalflingHelper/deduce-mode) — no longer maintained.  Replaced by in-tree `editor/vscode/`.
+- [mateidragony/deduce-mode](https://github.com/mateidragony/deduce-mode) — early Emacs prototype, also superseded by the in-tree `editor/emacs/` package.
 
 ## Adding a new standard-library module
 

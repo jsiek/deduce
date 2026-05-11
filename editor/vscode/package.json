@@ -1,0 +1,113 @@
+{
+  "name": "deduce",
+  "displayName": "Deduce",
+  "description": "VS Code integration for the Deduce proof checker and educational programming language.",
+  "version": "0.1.0",
+  "publisher": "deduce",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jsiek/deduce.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers"
+  ],
+  "keywords": [
+    "deduce",
+    "proof",
+    "debugger"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onDebug",
+    "onLanguage:deduce"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "deduce",
+        "extensions": [
+          ".pf"
+        ],
+        "aliases": [
+          "Deduce"
+        ]
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "deduce"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Deduce",
+      "properties": {
+        "deduce.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Path to the Python interpreter used to run the Deduce debug adapter (lsp/dap_server.py).  The interpreter must have lark installed.  Absolute paths are supported; otherwise the binary is looked up on $PATH."
+        },
+        "deduce.deduceRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to your Deduce *installation* (the directory containing lsp/dap_server.py), NOT to your proofs directory.  When empty (the default) the extension uses the open workspace folder; set this only when your workspace is your proofs directory and the Deduce checkout lives elsewhere."
+        }
+      }
+    },
+    "debuggers": [
+      {
+        "type": "deduce",
+        "label": "Deduce",
+        "languages": [
+          "deduce"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Path to the .pf file to debug.",
+                "default": "${file}"
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory for the adapter (usually your Deduce checkout so 'python3 -m lsp.dap_server' resolves).",
+                "default": "${workspaceFolder}"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "deduce",
+            "request": "launch",
+            "name": "Debug current Deduce file",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Deduce: Launch current file",
+            "description": "Launch the active .pf file under the Deduce debugger.",
+            "body": {
+              "type": "deduce",
+              "request": "launch",
+              "name": "${1:Debug current Deduce file}",
+              "program": "^\"\\${file}\"",
+              "cwd": "^\"\\${workspaceFolder}\""
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

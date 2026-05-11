@@ -14,6 +14,10 @@ Three layers, each independently usable:
 - **`deduce-fill-hole`** *(optional)* — ask an LLM to fill the hole at
   point. Validated proofs only; the LLM's output is checked before
   it is spliced into your buffer.
+- **`deduce-dap`** *(optional)* — drive the `python deduce.py --debug`
+  command-line debugger through `dap-mode`, so gutter breakpoints,
+  the call-stack pane, and the locals view all work directly from
+  your `.pf` buffer.
 
 [deduce]: https://github.com/jsiek/deduce
 
@@ -33,6 +37,19 @@ Three layers, each independently usable:
   is built on. Install with `pip install -r requirements-lsp.txt`
   from the repo root. (pygls 2.0.x had a different API and will not
   work.)
+
+### For the debugger (`deduce-dap`)
+
+- **`dap-mode`** — the third-party package that drives the
+  graphical debug UI.  Install from MELPA:
+  `M-x package-install RET dap-mode RET`.  No specific minimum
+  version; `dap-mode` 0.7 or later is widely tested.
+- **The DAP adapter itself** is already part of the Deduce
+  checkout (`lsp/dap_server.py`) and inherits the `python3 +
+  lark` prerequisite listed above.  Make sure the Python you
+  point `deduce-dap-python-program` at (default `"python3"`) is
+  the one that has `lark` — see the troubleshooting entry below
+  for the common pitfall.
 
 ### For LLM-powered hole filling (`deduce-fill-hole`)
 
@@ -85,6 +102,12 @@ form.
   :after (deduce-mode eglot)
   ;; :custom (deduce-lsp-deduce-root "~/src/deduce")
   )
+
+(use-package deduce-dap
+  :load-path "/path/to/deduce/editor/emacs"
+  :after (deduce-mode dap-mode)
+  ;; :custom (deduce-dap-python-program "python3.13")
+  )
 ```
 
 ### Without `use-package`
@@ -95,10 +118,13 @@ form.
 (require 'deduce-mode)
 (require 'deduce-lsp)         ; optional: omit for major mode only
 (require 'deduce-fill-hole)   ; optional: LLM hole filling, depends on deduce-lsp
+(require 'deduce-dap)         ; optional: debugger; requires dap-mode from MELPA
 
 ;; If your .pf files live OUTSIDE the deduce repo, point the LSP
 ;; server at your checkout so the language server can be found:
 ;; (setq deduce-lsp-deduce-root "~/src/deduce")
+;; And/or pin the python interpreter for the debug adapter:
+;; (setq deduce-dap-python-program "python3.13")
 ```
 
 Opening any `.pf` file will then enter `deduce-mode` (registered via
@@ -178,6 +204,72 @@ auto-start hook:
   hypothesis shape; fill-from-given picks by formula equality with
   the goal.
 
+`deduce-dap` (when loaded, also requires the third-party
+`dap-mode` package from MELPA):
+
+- `C-c C-d` — **launch a debug session on the current `.pf`
+  file.**  Spawns `python3 -m lsp.dap_server` as the adapter and
+  drives it via `dap-mode`'s standard UI: gutter breakpoints,
+  call-stack pane (`*dap-ui-sessions*`), locals view
+  (`*dap-ui-locals*`), program-output pane (`*Deduce :: launch
+  current file out*` — `print` results land here), and the
+  Debug Console.  The very first pause lands at your file's
+  first user-level statement, mirroring `python deduce.py
+  --debug`.
+- **Stepping with F-keys.**  `F5` continues, `F10` steps over,
+  `F11` steps in, `S-F11` steps out, `S-F5` disconnects.
+  Bindings are gdb / VS Code conventions and only fire in
+  `deduce-mode` buffers.
+- **Breakpoints.**  `M-x dap-breakpoint-toggle` (or
+  `dap-breakpoint-add`) on a line sets a line breakpoint;
+  breakpoints set before `C-c C-d` are armed via
+  `setBreakpoints` at launch.  Conditional breakpoints work via
+  `M-x dap-breakpoint-condition`.  Function-name breakpoints are
+  not exposed by stock dap-mode — set a line bp on the function
+  definition instead, or use the CLI debugger's `b <name>`.
+- **Evaluate expressions** at a pause: `M-x dap-eval RET <expr>
+  RET` sends a DAP `evaluate` request that drives the same
+  parser + reducer the CLI debugger's `print` command uses.
+- **Pattern-bound locals are visible.**  When you step into a
+  recursive function such as `count_down(suc(n'))`, the locals
+  pane shows the pattern binding (e.g. `n' = suc(zero)`).  Each
+  recursive descent updates it; each return restores the
+  caller's binding.  The Locals tree starts collapsed — click
+  the triangle (or `RET` on the line) to expand.
+- **Return notifications** (`<- returned from count_down(...)`)
+  appear in the per-session output pane as the recursion
+  unwinds, one line per visible frame.
+- Standard-library calls are stepped over automatically
+  (matching the CLI's behavior); see
+  [`gh_pages/doc/Debugger.md`](../../gh_pages/doc/Debugger.md#what-the-debugger-skips)
+  for the full command surface and the skip rules.
+
+Useful `dap-mode` commands you'll want to know about
+(inherited as-is — `deduce-dap` is a thin contribution on top):
+
+| Command                          | What it does                                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `dap-hydra` (bound to `C-c d h`) | Single-key transient menu: `n` next, `s` step-in, `o` step-out, `c` continue, `q` quit, `e` eval, etc.  The OS-independent way to drive the debugger; great on macOS where the F-keys get intercepted. |
+| `dap-breakpoint-toggle`          | Toggle a line breakpoint at point.                                                  |
+| `dap-breakpoint-add`             | Same as toggle when there's no bp; otherwise a no-op (idempotent set).              |
+| `dap-breakpoint-delete-all`      | Clear every breakpoint in every file.                                               |
+| `dap-breakpoint-condition`       | Cursor on an existing breakpoint; prompts for a Deduce expression.  The bp fires only when the expression reduces to `true`. |
+| `dap-breakpoint-log-message`     | Turn a breakpoint into a *logpoint*: instead of pausing it logs a message to the output pane each time it would fire. |
+| `dap-eval`                       | Prompts for an expression and evaluates it via the DAP `evaluate` request (same parser + reducer as the CLI's `print` command). |
+| `dap-eval-region`                | Like `dap-eval` but uses the selected region as the expression.                     |
+| `dap-eval-thing-at-point`        | Sends the identifier under cursor to `evaluate`.                                    |
+| `dap-ui-locals`                  | Open / focus the locals pane (`*dap-ui-locals*`).  The tree starts collapsed — `RET` (or click the triangle) to expand. |
+| `dap-ui-sessions`                | Open the active-sessions pane (`*dap-ui-sessions*`).                                |
+| `dap-ui-breakpoints`             | Open the breakpoints pane (`*dap-ui-breakpoints*`).                                 |
+| `dap-ui-many-windows`            | Open all the standard panes at once.  Handy at the start of a session.              |
+| `dap-debug-restart`              | End the current session and re-launch the same configuration.                       |
+| `dap-delete-session`             | Force-kill the currently-active session (use if it's stuck).                        |
+| `dap-delete-all-sessions`        | Same as above for every session.                                                    |
+
+For the full surface see [emacs-lsp.github.io/dap-mode][dapdoc].
+
+[dapdoc]: https://emacs-lsp.github.io/dap-mode/
+
 `deduce-fill-hole` (additional, requires an LLM API key — Anthropic,
 OpenAI, or IU REALLMs depending on backend choice):
 
@@ -206,11 +298,34 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `C-c C-e` | Prompt for hypothesis, replace `?` with use-fact tactic            | `deduce-lsp-eliminate`           | `deduce-lsp`   |
 | `C-c C-f` | Replace `?` with `conclude ... by H` for a given matching the goal | `deduce-lsp-fill-from-given`     | `deduce-lsp`   |
 | `C-c C-a` | Ask an LLM to fill the `?` at point. Async, non-blocking.          | `deduce-fill-hole`               | `deduce-fill-hole` |
+| `C-c C-d` | Launch a debug session on the current `.pf` file                   | `deduce-dap-debug-current-buffer`| `deduce-dap`   |
+| `F5`      | Continue execution (inside an active debug session)                | `dap-continue`                   | `deduce-dap`   |
+| `F10`     | Step over the current statement / call                             | `dap-next`                       | `deduce-dap`   |
+| `F11`     | Step into the next function call                                   | `dap-step-in`                    | `deduce-dap`   |
+| `S-F11`   | Step out of the current function                                   | `dap-step-out`                   | `deduce-dap`   |
+| `S-F5`    | End the debug session                                              | `dap-disconnect`                 | `deduce-dap`   |
+| `C-c d d` | Same as `C-c C-d` — launch a debug session                         | `deduce-dap-debug-current-buffer`| `deduce-dap`   |
+| `C-c d c` | Continue (F-key-free fallback)                                     | `dap-continue`                   | `deduce-dap`   |
+| `C-c d n` | Next / step-over (F-key-free fallback)                             | `dap-next`                       | `deduce-dap`   |
+| `C-c d s` | Step in (F-key-free fallback)                                      | `dap-step-in`                    | `deduce-dap`   |
+| `C-c d o` | Step out (F-key-free fallback)                                     | `dap-step-out`                   | `deduce-dap`   |
+| `C-c d q` | Disconnect / end session (F-key-free fallback)                     | `dap-disconnect`                 | `deduce-dap`   |
+| `C-c d h` | Open dap-mode's single-key transient menu                          | `dap-hydra`                      | `deduce-dap`   |
+| `C-c d b` | Toggle a breakpoint at the current line                            | `dap-breakpoint-toggle`          | `deduce-dap`   |
+
+> **macOS users:** F5 / F10 / F11 are intercepted *twice* —
+> once by the hardware (brightness / mute / volume) and again
+> by Mission Control (F11 = "Show Desktop").  Either fix both,
+> or use the `C-c d <letter>` fallback bindings above (no
+> F-keys involved).  `M-x dap-hydra` opens dap-mode's single-key
+> transient menu (`n`/`s`/`o`/`c`/`q`) — another good escape
+> hatch.  Troubleshooting section below has the exact menu paths.
 
 ## Customization
 
 All variables are `defcustom`s reachable via `M-x customize-group
-RET deduce RET` or `M-x customize-group RET deduce-lsp RET`.
+RET deduce RET` (root group), or any of the per-layer groups:
+`deduce-lsp`, `deduce-fill-hole`, `deduce-dap`.
 
 ### `deduce-mode`
 
@@ -229,6 +344,22 @@ RET deduce RET` or `M-x customize-group RET deduce-lsp RET`.
 
 For full control over the launch command, `defun deduce-lsp-server-command`
 in your `init.el` returning whatever list eglot should spawn.
+
+### `deduce-dap`
+
+| Variable                       | Default     | Effect                                                                       |
+| ------------------------------ | ----------- | ---------------------------------------------------------------------------- |
+| `deduce-dap-python-program`    | `"python3"` | Python interpreter used to launch the DAP adapter (`lsp/dap_server.py`)      |
+| `deduce-dap-deduce-root`       | `nil`       | Path to a Deduce checkout; sets `PYTHONPATH` so `python3 -m lsp.dap_server` resolves regardless of cwd. By default the adapter's cwd is the project root (via `project-current`), which is enough when your `.pf` lives inside the Deduce repo. |
+| `deduce-dap-prelude-disabled`  | `nil`       | If non-nil, sets `DEDUCE_NO_STDLIB=1` so debug sessions skip the prelude     |
+| `deduce-dap-auto-ui`           | `t`         | If non-nil, set up dap-mode's UI automatically before each launch: enables `dap-ui-mode` (one-time) and opens the standard side panes (locals / sessions / breakpoints / expressions) via `dap-ui-many-windows`. Set to nil to keep the launcher minimal and manage the UI yourself. |
+
+The common gotcha: on systems with multiple Python installs the
+`python3` first on `$PATH` may not be the one you `pip install
+lark`ed into, leading to a `ModuleNotFoundError: No module named
+'lark'` and the session exiting immediately.  Point
+`deduce-dap-python-program` at the right interpreter — see the
+matching troubleshooting entry below.
 
 ### `deduce-fill-hole`
 
@@ -297,6 +428,119 @@ matcher; it doesn't currently handle multi-line type signatures or
 `case` placement perfectly. If `TAB` insists on a column you don't
 want, just type the spaces yourself — the indenter only fires when
 you ask. SMIE-grade alignment is a future enhancement.
+
+### F-keys do macOS / WM things instead of debugger actions
+
+macOS intercepts the function-row keys at two layers before they
+reach Emacs:
+
+1. **Hardware row** — F5 = brightness, F10 = mute, F11 = volume
+   down, etc.  Fix one of:
+   - **One-shot**: hold `fn` while pressing the F-key.  `fn-F11`
+     sends a real F11 to Emacs.
+   - **Permanent (Sonoma / Sequoia)**: System Settings →
+     Keyboard → *Keyboard Shortcuts…* (button) → sidebar:
+     *Function Keys* → toggle on *Use F1, F2, etc. as standard
+     function keys*.
+   - **Permanent (Monterey and older)**: System Preferences →
+     Keyboard → Keyboard tab → check *Use F1, F2, etc. keys as
+     standard function keys*.
+
+2. **Mission Control shortcuts** — even after step 1, macOS still
+   binds F11 to *Show Desktop* and F12 to *Show Dashboard*.
+   System Settings → Keyboard → *Keyboard Shortcuts…* → sidebar:
+   *Mission Control* → uncheck (or rebind) anything you want
+   freed up.  F11 is the usual culprit.
+
+Linux users with `gnome-shell` or KDE sometimes hit the same
+issue with WM-bound F-keys; check your window-manager shortcuts.
+
+**Don't want to fight your OS?**  Two options that never touch
+the function row:
+
+- The `C-c d <letter>` bindings listed in the Keybindings table:
+  `c`ontinue, `n`ext, `s`tep-in, step-`o`ut, `q`uit, `d`ebug
+  (launch), `h`ydra.
+- `C-c d h` (or `M-x dap-hydra`) — the transient menu — is the
+  one to learn if you only learn one.  Single-key actions: `n`/
+  `s`/`o`/`c`/`q`, plus `e` for eval, `b` for breakpoints, etc.
+  Press `q` to dismiss the menu.
+
+Linux users with `gnome-shell` or KDE sometimes hit the same
+issue with WM-bound F-keys; check your window-manager shortcuts
+if your distro intercepts them.
+
+### Gutter-clicking doesn't set breakpoints
+
+dap-mode doesn't bind mouse clicks in the fringe by default
+(VS Code convention; emacs doesn't ship it out of the box) and
+making it work cleanly fights the flymake / eglot fringe
+indicators, which often grab `[left-fringe mouse-1]` to surface
+their own actions.  **Strongly recommended:** use the keyboard
+binding `C-c d b` (`dap-breakpoint-toggle`) instead.
+
+If you really want a mouse click, **shift-click** in the fringe
+avoids the conflict with flymake's plain-mouse-1 capture.  Paste
+into your init after `(require 'deduce-dap)`:
+
+```elisp
+(defun my/dap-toggle-bp-at-mouse (event)
+  "Toggle a dap-mode breakpoint at the clicked fringe line."
+  (interactive "e")
+  (let* ((posn   (event-start event))
+         (window (posn-window posn))
+         (pos    (posn-point posn)))
+    (when (and window pos)
+      (with-selected-window window
+        (goto-char pos)
+        (call-interactively #'dap-breakpoint-toggle)))))
+
+(with-eval-after-load 'deduce-mode
+  (define-key deduce-mode-map [left-fringe S-mouse-1]
+              #'my/dap-toggle-bp-at-mouse))
+```
+
+We attach to `deduce-mode-map' rather than `dap-mode-map' so the
+binding works in `.pf' buffers whether or not a debug session is
+currently active.
+
+### Function breakpoints from the keyboard
+
+Stock dap-mode doesn't expose a command for function-name
+breakpoints (the DAP protocol supports them — our adapter
+implements ``setFunctionBreakpoints'' — but the dap-mode UI is
+line-based).  Workaround: set a line breakpoint on the first
+line of the function definition.  For a pattern-matched
+``recursive'' function, set one breakpoint per arm so each case
+traps.  The CLI debugger's ``b <name>'' command exposes the
+function-bp surface directly if you need it.
+
+### `C-c C-d` reports "Debug session process exited with status: exited abnormally with code 1"
+
+Check the buffer named `*Deduce :: launch current file stderr*`
+(or `M-x switch-to-buffer RET *De TAB`) for the actual error.
+The two most common causes:
+
+1. **`ModuleNotFoundError: No module named 'lark'`** — `lark` isn't
+   installed on whichever `python3` is on your `$PATH`.  Macs and
+   Linux distros routinely have multiple Python installs, and the
+   one `dap-mode` finds first may not be the same one you used to
+   `pip install lark`.  Tell `deduce-dap` which interpreter to use:
+
+   ```elisp
+   (setq deduce-dap-python-program "python3.13")  ;; or wherever lark lives
+   ```
+
+   Confirm from a shell first with `python3.13 -c 'import lark'` —
+   exit code 0 means the variable above is the right setting.
+
+2. **`No module named 'lsp'`** — the adapter's cwd isn't your
+   Deduce checkout, so `python3 -m lsp.dap_server` can't find the
+   `lsp/` directory.  `deduce-dap` defaults `:cwd` to
+   `project-current`'s root; if Emacs can't determine the project
+   root for your buffer, set `deduce-dap-deduce-root` to the
+   absolute path of your checkout (this also feeds `PYTHONPATH`
+   into the adapter's environment).
 
 ## Manual smoke test
 
@@ -422,6 +666,48 @@ verify the LLM path:
     key is missing, the buffer is left untouched and an error
     message is reported.
 
+If you have `deduce-dap` loaded and `dap-mode` installed
+(`M-x package-install RET dap-mode RET` or via MELPA in your config),
+also verify the debugger integration:
+
+14. Open a `.pf` file that has at least one `print` statement —
+    e.g. `tmp/debugger_smoke.pf` if you've worked through the
+    Debugger.md walkthrough, or any prelude module like
+    `lib/UInt.pf` that contains a top-level `print`. Press
+    `C-c C-d`.  `deduce-dap` enables `dap-ui-mode` and opens the
+    standard side panes (locals / sessions / breakpoints /
+    expressions) for you automatically (see
+    `deduce-dap-auto-ui`).  The source buffer should highlight
+    a line at the first user-level statement (matching where
+    `python deduce.py --debug` would initially trap).
+
+15. The Locals tree starts collapsed — `RET` (or click the
+    triangle next to `Locals`) to expand.  Inside a function
+    call, the pattern-bound names appear there.
+
+16. Set a breakpoint at a line of interest: `C-c d b` with
+    cursor on the target line (or `M-x dap-breakpoint-toggle`).
+    Resume with `F5` / `C-c d c`; step over with `F10` /
+    `C-c d n`; step into with `F11` / `C-c d s`.  Or open
+    `dap-hydra` with `C-c d h` for a single-key transient menu.
+    (See the keybinding caveats above if F-keys don't work on
+    your OS.)
+
+17. While paused inside a function, the locals panel should show
+    the pattern-bound names (e.g. `n' = suc(zero)` inside
+    `count_down`'s `suc` case). The call-stack panel shows one
+    entry per frame, gdb-style with the innermost at the top.
+
+18. In the `*dap-ui-repl*` window (or via `dap-eval-region`), type
+    an expression like `suc(zero)` to invoke the DAP `evaluate`
+    request — the same reducer the CLI's `print` command uses.
+
+19. Press `C-c d q` (or `M-x dap-disconnect`) to end the run.
+    The DAP adapter exits cleanly when stdin is closed.
+
+If `dap-mode` isn't installed, `C-c C-d` reports an error pointing
+at the MELPA install command rather than crashing.
+
 ## Development
 
 Run the ert tests in batch mode (no GUI required):
@@ -431,6 +717,8 @@ emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-mode-test -f ert-run-tests-batch-and-exit
 emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-lsp-test -f ert-run-tests-batch-and-exit
+emacs --batch -L editor/emacs -L editor/emacs/test \
+      -l deduce-dap-test -f ert-run-tests-batch-and-exit
 emacs --batch -L editor/emacs -L editor/emacs/test \
       -l deduce-fill-hole-test -f ert-run-tests-batch-and-exit
 ```
@@ -446,7 +734,8 @@ Byte-compile the sources to catch warnings:
 ```sh
 emacs --batch -L editor/emacs \
       -f batch-byte-compile editor/emacs/deduce-mode.el \
-      editor/emacs/deduce-lsp.el editor/emacs/deduce-fill-hole.el
+      editor/emacs/deduce-lsp.el editor/emacs/deduce-fill-hole.el \
+      editor/emacs/deduce-dap.el
 ```
 
 If a stale `.elc` file is loaded instead of the source, `M-x
