@@ -279,6 +279,13 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `S-F11`   | Step out of the current function                                   | `dap-step-out`                   | `deduce-dap`   |
 | `S-F5`    | End the debug session                                              | `dap-disconnect`                 | `deduce-dap`   |
 
+> **macOS users:** F5 / F10 / F11 are intercepted by macOS for
+> brightness / mute / volume before they reach emacs.  Press `fn`
+> with the F-key (e.g. `fn-F11` for step-in) per keystroke, or
+> flip *System Settings → Keyboard → Use F1, F2, etc. keys as
+> standard function keys* on permanently — the standard
+> macOS-developer tweak.
+
 ## Customization
 
 All variables are `defcustom`s reachable via `M-x customize-group
@@ -385,6 +392,22 @@ matcher; it doesn't currently handle multi-line type signatures or
 `case` placement perfectly. If `TAB` insists on a column you don't
 want, just type the spaces yourself — the indenter only fires when
 you ask. SMIE-grade alignment is a future enhancement.
+
+### F-keys do macOS things (volume, brightness) instead of debugger actions
+
+macOS intercepts the function-row keys before they reach Emacs:
+F5 = brightness, F10 = mute, F11 = volume down.  Two fixes:
+
+- **One-shot**: hold `fn` while pressing the F-key.  `fn-F11`
+  sends a real F11 to Emacs.
+- **Permanent**: System Settings → Keyboard → toggle on *Use F1,
+  F2, etc. keys as standard function keys*.  The keys now go to
+  Emacs by default; you press `fn` to get the macOS hardware
+  function.
+
+Linux users with `gnome-shell` or KDE sometimes hit the same
+issue with WM-bound F-keys; check your window-manager shortcuts
+if your distro intercepts them.
 
 ### Gutter-clicking doesn't set breakpoints
 
