@@ -202,12 +202,21 @@ installed; errors out informatively otherwise."
          :program nil)))
 
 
-;; Convenience keybinding -- `C-c C-d' is free of all the existing
-;; deduce-lsp bindings (which take C-c C-g/r/c/i/e/f/a).
+;; Convenience keybindings.  `C-c C-d' is free of all the existing
+;; deduce-lsp bindings (which take C-c C-g/r/c/i/e/f/a).  The F-keys
+;; mirror VS Code / gdb conventions so debug-toolbar muscle memory
+;; transfers; they reference dap-mode commands so they're no-ops
+;; outside an active session and error informatively if dap-mode
+;; itself isn't installed.
 ;;;###autoload
 (with-eval-after-load 'deduce-mode
   (define-key deduce-mode-map (kbd "C-c C-d")
-              #'deduce-dap-debug-current-buffer))
+              #'deduce-dap-debug-current-buffer)
+  (define-key deduce-mode-map (kbd "<f5>")    #'dap-continue)
+  (define-key deduce-mode-map (kbd "<f10>")   #'dap-next)
+  (define-key deduce-mode-map (kbd "<f11>")   #'dap-step-in)
+  (define-key deduce-mode-map (kbd "S-<f11>") #'dap-step-out)
+  (define-key deduce-mode-map (kbd "S-<f5>")  #'dap-disconnect))
 
 
 (provide 'deduce-dap)

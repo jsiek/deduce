@@ -133,5 +133,20 @@ overwritten by the provider hook."
               #'deduce-dap-debug-current-buffer)))
 
 
+(ert-deftest deduce-dap/fkey-bindings-installed ()
+  "F-key bindings (gdb / VS Code convention) cover the four step
+commands plus disconnect, all on `deduce-mode-map'."
+  (should (eq (lookup-key deduce-mode-map (kbd "<f5>"))
+              #'dap-continue))
+  (should (eq (lookup-key deduce-mode-map (kbd "<f10>"))
+              #'dap-next))
+  (should (eq (lookup-key deduce-mode-map (kbd "<f11>"))
+              #'dap-step-in))
+  (should (eq (lookup-key deduce-mode-map (kbd "S-<f11>"))
+              #'dap-step-out))
+  (should (eq (lookup-key deduce-mode-map (kbd "S-<f5>"))
+              #'dap-disconnect)))
+
+
 (provide 'deduce-dap-test)
 ;;; deduce-dap-test.el ends here

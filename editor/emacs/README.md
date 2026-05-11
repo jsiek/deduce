@@ -210,6 +210,12 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `C-c C-e` | Prompt for hypothesis, replace `?` with use-fact tactic            | `deduce-lsp-eliminate`           | `deduce-lsp`   |
 | `C-c C-f` | Replace `?` with `conclude ... by H` for a given matching the goal | `deduce-lsp-fill-from-given`     | `deduce-lsp`   |
 | `C-c C-a` | Ask an LLM to fill the `?` at point. Async, non-blocking.          | `deduce-fill-hole`               | `deduce-fill-hole` |
+| `C-c C-d` | Launch a debug session on the current `.pf` file                   | `deduce-dap-debug-current-buffer`| `deduce-dap`   |
+| `F5`      | Continue execution (inside an active debug session)                | `dap-continue`                   | `deduce-dap`   |
+| `F10`     | Step over the current statement / call                             | `dap-next`                       | `deduce-dap`   |
+| `F11`     | Step into the next function call                                   | `dap-step-in`                    | `deduce-dap`   |
+| `S-F11`   | Step out of the current function                                   | `dap-step-out`                   | `deduce-dap`   |
+| `S-F5`    | End the debug session                                              | `dap-disconnect`                 | `deduce-dap`   |
 
 ## Customization
 
