@@ -311,6 +311,45 @@ def test_definition_of_cross_file_operator() -> None:
     assert loc.range.start.line == 8
 
 
+def test_definition_of_overloaded_operator_preserves_use_site() -> None:
+    """Regression for the type-checker location leak: when an
+    overloaded operator's call gets resolved during type-check,
+    ``type_check_call_helper'' must keep the rator's use-site
+    location on the new ``ResolvedVar''.  Pre-fix it copied the
+    FunctionType's declaration-site location, which made
+    ``_find_reference_at'' miss the use site and F12 returned null.
+
+    ``+'' is overloaded across at least Nat and UInt; both arms
+    exercise the bug, but Nat's is enough.  This test asserts F12
+    on ``+'' returns the Nat operator (and not None), which is
+    only possible when the rator's Var/ResolvedVar still has the
+    use-site Meta in the user-file."""
+    source = (
+        "import Nat\n"                       # line 1
+        "\n"                                  # line 2
+        "theorem add_zero : all n:Nat. zero + n = n\n"   # line 3
+        "proof\n"                                         # line 4
+        "  arbitrary n:Nat\n"                             # line 5
+        "  evaluate\n"                                    # line 6
+        "end\n"                                           # line 7
+    )
+    # line 3: t=1 h=2 e=3 o=4 r=5 e=6 m=7 ' '=8 a=9 d=10 d=11 _=12 z=13
+    # e=14 r=15 o=16 ' '=17 :=18 ' '=19 a=20 l=21 l=22 ' '=23 n=24 :=25
+    # N=26 a=27 t=28 .=29 ' '=30 z=31 e=32 r=33 o=34 ' '=35 +=36
+    loc = definition_of("test.pf", source, Position(line=3, column=36))
+    assert loc is not None, (
+        "F12 on overloaded `+' returned None -- "
+        "type checker is leaking the operator declaration's location "
+        "onto the ResolvedVar, masking the use site"
+    )
+    # ``recursive operator +(Nat,Nat) -> Nat { ... }'' starts on line 8
+    # of lib/NatDefs.pf.
+    assert loc.path.endswith("lib/NatDefs.pf"), (
+        f"expected lib/NatDefs.pf, got {loc.path!r}"
+    )
+    assert loc.range.start.line == 8
+
+
 def test_definition_of_ignores_imported_node_locations() -> None:
     """Issue #398: with the prelude active, post-typecheck nodes copied
     in from library files share Meta line/column with the user's file
