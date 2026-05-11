@@ -8,11 +8,12 @@ lockstep with it.
 
 > **Status (May 2026):** the extension ships syntax highlighting
 > (Phase 6 / Step 27 of `docs/lsp-plan.md`), the LSP client
-> (Step 28), the goal-at-cursor command (Step 29), and the
-> debugger integration (Phase 5 / Step 26).  The structured-
-> editing commands (refine, case split, induction, eliminate,
-> fill-from-given) and in-buffer tab completion are the next
-> chunks.
+> (Step 28), the goal-at-cursor command (Step 29), the
+> structured-editing commands (Step 30), and the debugger
+> integration (Phase 5 / Step 26).  In-buffer tab completion
+> (Step 31, needs server-side work) and LLM hole filling
+> (Step 32) are the remaining chunks before Marketplace
+> publication.
 
 ## What ships today
 
@@ -49,6 +50,21 @@ lockstep with it.
   `deduce/goalAt` request at the cursor and renders the goal +
   givens in a dedicated *Deduce Goal* Output channel.  Mirror of
   Emacs's `C-c C-g` / `deduce-show-goal-at-point`.
+- **Structured-editing commands** — five commands that transform
+  a `?` hole into a step closer to a complete proof.  Mirror of
+  Emacs's `C-c C-{r,c,i,e,f}` bindings (`deduce-lsp.el`):
+
+  | Keybinding   | Command                    | Effect |
+  | ------------ | -------------------------- | ------ |
+  | `Ctrl+Alt+R` | `deduce.refineHole`        | Replace the `?` under the cursor with a goal-shape-driven refinement template (e.g. `if … then …` → `assume <h> <new ?>`). No prompt. |
+  | `Ctrl+Alt+I` | `deduce.induction`         | When the goal has the form `all x:T. P(x)` with `T` a Union, replace the `?` with `induction T\n  case Cons1(...) {?}\n  ...` — one branch per constructor. No prompt. |
+  | `Ctrl+Alt+C` | `deduce.caseSplit`         | Prompt for an in-scope variable (Union-typed term or `or`-shaped proof) via QuickPick, replace the surrounding `?` with the matching `switch` / `cases` skeleton. |
+  | `Ctrl+Alt+E` | `deduce.eliminate`         | Prompt for an in-scope hypothesis label via QuickPick, replace the `?` with a tactic that uses that fact based on its formula shape (modus ponens on `if`, destructure on `and`, etc.). |
+  | `Ctrl+Alt+F` | `deduce.fillFromGiven`     | Pick the first in-scope given whose formula equals the goal and replace the `?` with `conclude <goal> by <label>`. No prompt. |
+
+  After every successful edit the cursor jumps to the first new
+  `?` inside the inserted text, so the next refine / case-split
+  fires immediately without repositioning.
 - A `type: "deduce"` **debugger** contribution.  When you launch a
   debug session, the extension spawns
   `<deduce.pythonPath> <deduce.deduceRoot>/lsp/dap_server.py` as
@@ -361,9 +377,6 @@ deliberately.
 Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
 section.  In rough landing order:
 
-- **Structured-editing commands** (Step 30) — refine, case split,
-  induction, eliminate, fill-from-given.  Emacs equivalents:
-  `C-c C-{r,c,i,e,f}`.
 - **Tab completion** (Step 31).  Needs a new LSP-server feature
   (`textDocument/completion`) returning keywords + in-scope names
   + hole-aware label/variable candidates; once it lands, the LSP
