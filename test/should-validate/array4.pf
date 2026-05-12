@@ -1,10 +1,45 @@
 // Issue #204: arrays should be supported inside formulas.
 // Exercises Array / MakeArray cases in count_marks, find_mark,
 // replace_mark, rewrite_aux (abstract_syntax.py) and find_rec_calls
-// (proof_checker.py).
+// (proof_checker.py), plus the partial-spine reduction in
+// ArrayGet.reduce.
 import UInt
 import List
 import Option
+
+theorem arrtest_uint : all l : List<UInt>.
+  if 0 < length(l) then
+  just((array(l))[0]) = head(l)
+proof
+  arbitrary l:List<UInt>
+  switch l {
+    case empty {
+      assume h: 0 < length(@empty<UInt>)
+      conclude false by expand length in h
+    }
+    case node(x, xs) {
+      assume _h: 0 < length(node(x, xs))
+      expand head.
+    }
+  }
+end
+
+theorem array_node_head_index_zero: all x:UInt. all xs:List<UInt>.
+  (array(node(x, xs)))[0] = x
+proof
+  arbitrary x:UInt
+  arbitrary xs:List<UInt>
+  .
+end
+
+theorem array_node_head_index_one: all x:UInt. all y:UInt. all xs:List<UInt>.
+  (array(node(x, node(y, xs))))[1] = y
+proof
+  arbitrary x:UInt
+  arbitrary y:UInt
+  arbitrary xs:List<UInt>
+  .
+end
 
 theorem array_replace_universal: all l:List<UInt>.
   if l = [42]

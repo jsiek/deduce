@@ -1988,19 +1988,36 @@ class ArrayGet(Term):
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
     position_red = self.position.reduce(env)
+    index = None
+    if isNat(position_red):
+      index = natToInt(position_red)
+    elif isUInt(position_red):
+      index = uintToInt(position_red)
     match subject_red:
       case Array(loc2, _, elements):
-        index = None
-        if isNat(position_red):
-          index = natToInt(position_red)
-        elif isUInt(position_red):
-          index = uintToInt(position_red)
-        else:
-            user_error(self.location, "array access expected number index, not " + str(position_red))
-        if not (index is None):
-          if 0 <= index and index < len(elements):
-            return elements[index].reduce(env)
-          # Don't signal an error for out-of-bounds! -Jeremy
+        if index is None:
+          user_error(self.location, "array access expected number index, not " + str(position_red))
+        if 0 <= index and index < len(elements):
+          return elements[index].reduce(env)
+        # Don't signal an error for out-of-bounds! -Jeremy
+      case MakeArray(loc2, _, list_term):
+        # Peel as many leading `node` constructors off the list as the
+        # index calls for. This lets `array(node(x, xs))[0]` reduce to
+        # `x` even when the tail `xs` is not concrete, which is what
+        # makes arrays useful inside proofs.
+        if index is not None and index >= 0:
+          cur = list_term
+          i = index
+          while True:
+            match cur:
+              case Call(_, _, TermInst(_, _, ctor, _, _), [hd, tl]) \
+                   if _is_named(ctor, 'node'):
+                if i == 0:
+                  return hd.reduce(env)
+                cur = tl
+                i -= 1
+              case _:
+                break
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
     
   def substitute(self, sub):
