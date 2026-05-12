@@ -1,0 +1,17 @@
+// Issue #446 regression: when `expand foo.` fails but another expand
+// would NOT make progress (here, sum is stuck on a free variable xs),
+// the "unfold further" hint must be suppressed — otherwise we'd send
+// the user chasing a remedy that can't help.
+import UInt
+import List
+
+recursive sum_stuck(List<UInt>) -> UInt {
+  sum_stuck(empty) = 0
+  sum_stuck(node(x, xs)) = x + sum_stuck(xs)
+}
+
+theorem bogus_sum_stuck: all xs:List<UInt>. sum_stuck(xs) + sum_stuck([1]) = 99
+proof
+  arbitrary xs:List<UInt>
+  expand sum_stuck | sum_stuck.
+end

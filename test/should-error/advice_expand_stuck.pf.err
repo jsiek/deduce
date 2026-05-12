@@ -1,0 +1,5 @@
+./test/should-error/advice_expand_stuck.pf:16.31-16.32:
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	sum_stuck(xs) + 1 = 99

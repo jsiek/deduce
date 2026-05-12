@@ -1900,7 +1900,7 @@ def check_proof_of(proof, formula, env):
       try:
         _try_check_proof_of(body, red_formula, env)
       except UserError as e:
-        hint = expand_residual_hint(red_formula, defs)
+        hint = expand_residual_hint(red_formula, defs, env)
         if hint:
           raise wrap_user_error(e, hint) from e
         raise
@@ -1962,11 +1962,58 @@ def _ast_mentions_any(node, target_names):
   return False
 
 
-def expand_residual_hint(residual, defs):
+def _expand_would_progress(residual, defs, env):
+  # Would running `expand_definitions` on `residual` with the same `defs`
+  # actually change the formula? Used to gate the "unfold further" hint
+  # so it doesn't fire when more expand wouldn't help -- e.g. when the
+  # def is stuck because its arg is a free variable rather than a
+  # constructor, or when the def has already fully unfolded.
+  current = residual
+  for var in defs:
+    if not isinstance(var, VarRef):
+      continue
+    try:
+      var = var.reduce(env)
+    except Exception:
+      continue
+    if not isinstance(var, VarRef):
+      continue
+    if isinstance(var, OverloadedVar):
+      candidate_names = var.resolved_names
+    else:
+      candidate_names = [var.get_name()]
+    for var_name in candidate_names:
+      if var_name not in env.dict:
+        continue
+      binding = env.dict[var_name]
+      if binding.visibility == 'opaque' \
+         and binding.module != env.get_current_module():
+        continue
+      rvar = ResolvedVar(var.location, var.typeof, var_name)
+      try:
+        rhs = env.get_value_of_term_var(rvar)
+      except Exception:
+        continue
+      if rhs is None:
+        continue
+      try:
+        new = current.substitute({rvar.name: rhs}).reduce(env)
+      except Exception:
+        continue
+      if new != current:
+        return True
+      current = new
+  return False
+
+
+def expand_residual_hint(residual, defs, env):
   # When `expand f.` fails and `f` still appears in the residual goal,
   # tell the user the unfolding depth was too shallow. The common case
   # is a recursive function whose body re-introduces its own name; one
   # extra step (`expand f | f.` or `expand 2*f.`) finishes the proof.
+  # Only fire when another expand pass would actually change the
+  # residual -- otherwise the suggestion is misdirection (e.g. the
+  # function is stuck on a variable arg and the real fix is `switch`).
   still_present = []
   for d in defs:
     if not isinstance(d, VarRef):
@@ -1980,6 +2027,8 @@ def expand_residual_hint(residual, defs):
       if display not in still_present:
         still_present.append(display)
   if not still_present:
+    return ''
+  if not _expand_would_progress(residual, defs, env):
     return ''
   if len(still_present) == 1:
     name = still_present[0]
