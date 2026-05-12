@@ -1,0 +1,4 @@
+theorem t : false
+proof
+  apply foo bar
+end

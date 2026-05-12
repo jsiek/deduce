@@ -1,0 +1,4 @@
+theorem t : false
+proof
+  obtain x bar
+end

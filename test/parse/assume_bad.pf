@@ -1,0 +1,4 @@
+theorem t : if true then true
+proof
+  assume 42
+end

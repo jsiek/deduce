@@ -1,0 +1,14 @@
+./test/parse/assume_bad.pf:1.1-3.9: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+  assume 42
+  ^^^^^^^^^
+
+./test/parse/assume_bad.pf:3.3-3.12: expected an assumption:
+	"assume" label ":" formula
+
+
+  assume 42
+         ^^
+./test/parse/assume_bad.pf:3.10-3.12: expected an identifier, not
+	"42"

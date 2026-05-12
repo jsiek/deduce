@@ -1,0 +1,4 @@
+theorem t : false
+proof
+  obtain x where p : true bar
+end

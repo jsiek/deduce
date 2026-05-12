@@ -1,0 +1,8 @@
+./test/parse/obtain_no_from.pf:1.1-3.26: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+
+  obtain x where p : true bar
+                          ^^^
+
+./test/parse/obtain_no_from.pf:3.27-3.30: expected "from" after "where" part of "obtain", not
+	bar

@@ -1,0 +1,11 @@
+./test/parse/apply_no_to.pf:1.1-3.12: while parsing
+	proof_stmt ::= "theorem" identifier ":" formula "proof" proof "end"
+./test/parse/apply_no_to.pf:3.3-3.12: while parsing apply-to (use a logical implication)
+	conclusion ::= "apply" proof "to" proof
+
+
+  apply foo bar
+            ^^^
+
+./test/parse/apply_no_to.pf:3.13-3.16: expected "to" after implication part of "apply", not
+	bar
