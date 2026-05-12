@@ -4,6 +4,7 @@ LIB_DIR = ./lib
 TEST_PASS_DIR = ./test/should-validate
 TEST_ERROR_DIR = ./test/should-error
 TEST_IMPORT_DIR = ./test/test-imports
+EXAMPLES_DIR = ./examples
 
 default: tests-tokens tests tests-lib
 
@@ -23,6 +24,10 @@ tests-lib:
 	$(PYTHON) ./deduce.py ./lib --lalr --dir $(LIB_DIR)
 
 tests: tests-should-validate tests-should-error
+
+tests-examples:
+	$(PYTHON) ./deduce.py --recursive-descent $(EXAMPLES_DIR)
+	$(PYTHON) ./deduce.py --lalr $(EXAMPLES_DIR)
 
 # A curated subset of LSP / diagnostic-handling tests for rapid
 # iteration on the error.py + check_deduce sink machinery. These are
