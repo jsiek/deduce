@@ -1,0 +1,59 @@
+// sum_correct.pf
+//
+// An introductory-functional-programming example: define `sum` over a
+// list of unsigned integers, then prove two correctness properties of it.
+//
+//   1. sum_append:  sum is a homomorphism from (List, ++) to (UInt, +),
+//                   i.e. sum(xs ++ ys) = sum(xs) + sum(ys).
+//   2. sum_reverse: sum is invariant under reversal,
+//                   i.e. sum(reverse(xs)) = sum(xs).
+//
+// Both proofs go by induction on the list and chain equations with the
+// `equations` tactic; sum_reverse uses sum_append as a lemma.
+
+recursive sum(List<UInt>) -> UInt {
+  sum(empty) = 0
+  sum(node(x, xs)) = x + sum(xs)
+}
+
+// A quick test of the definition.
+define L13 = [1, 2, 3]
+assert sum(L13) = 6
+
+theorem sum_append: all xs:List<UInt>, ys:List<UInt>.
+  sum(xs ++ ys) = sum(xs) + sum(ys)
+proof
+  induction List<UInt>
+  case empty {
+    arbitrary ys:List<UInt>
+    expand sum | operator++.
+  }
+  case node(x, xs') assume IH: (all ys:List<UInt>. sum(xs' ++ ys) = sum(xs') + sum(ys)) {
+    arbitrary ys:List<UInt>
+    equations
+      sum(node(x, xs') ++ ys)
+          = x + sum(xs' ++ ys)              by expand operator++ | sum.
+      ... = x + (sum(xs') + sum(ys))        by replace IH[ys].
+      ... = #sum(node(x, xs'))# + sum(ys)   by expand sum.
+  }
+end
+
+theorem sum_reverse: all xs:List<UInt>.
+  sum(reverse(xs)) = sum(xs)
+proof
+  induction List<UInt>
+  case empty {
+    expand reverse.
+  }
+  case node(x, xs') assume IH: sum(reverse(xs')) = sum(xs') {
+    have head_sum: sum([x]) = x  by expand sum | sum.
+    equations
+      sum(reverse(node(x, xs')))
+          = sum(reverse(xs') ++ [x])      by expand reverse.
+      ... = sum(reverse(xs')) + sum([x])  by sum_append[reverse(xs')][[x]]
+      ... = sum(xs') + sum([x])           by replace IH.
+      ... = sum(xs') + x                  by replace head_sum.
+      ... = x + sum(xs')                  by uint_add_commute
+      ... = #sum(node(x, xs'))#           by expand sum.
+  }
+end
