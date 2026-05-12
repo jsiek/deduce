@@ -1,0 +1,4 @@
+test/should-error/arbitrary_type_mismatch.pf:3.3-3.18: arbitrary expects x to have type
+	UInt
+but got type
+	Nat

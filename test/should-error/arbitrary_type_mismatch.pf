@@ -1,0 +1,5 @@
+theorem t: all x:UInt. length([x]) = 1
+proof
+  arbitrary x:Nat
+  expand 2*length.
+end

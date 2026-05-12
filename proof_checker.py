@@ -1351,15 +1351,21 @@ def check_proof_of(proof, formula, env):
 
       if isinstance(formula, TLet):
         formula = formula.reduceLets(env)
-      
+
       match formula:
         case All(loc2, tyof, var2, (s, e), formula2):
+          x2, ty2 = var2
+          if ty != ty2:
+            add_diagnostic(loc, "arbitrary expects " + base_name(x)
+                  + " to have type\n\t" + str(ty2)
+                  + "\nbut got type\n\t" + str(ty))
+            return
           sub = {}
           sub[ var2[0] ] = OverloadedVar(loc, var[1], [ var[0] ])
-          
+
           frm2 = formula2.substitute(sub)
 
-          if s != 0: 
+          if s != 0:
             frm2 = update_all_head(frm2)
 
           body_env = env.declare_term_vars(loc, [var])
