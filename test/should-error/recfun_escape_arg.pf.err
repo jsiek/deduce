@@ -1,0 +1,1 @@
+./test/should-error/recfun_escape_arg.pf:9.34-9.37: the name 'add' of a recursive function may only appear as the operator of a function call within its own body

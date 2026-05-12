@@ -1,0 +1,10 @@
+import Nat
+
+recursive add(Nat,Nat) -> Nat {
+  add(zero, m) = m
+  add(suc(n), m) =
+    define rec = add;
+    add(n, rec(suc(n), m))
+}
+
+print add(suc(zero), zero)

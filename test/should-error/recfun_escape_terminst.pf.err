@@ -1,0 +1,1 @@
+./test/should-error/recfun_escape_terminst.pf:6.19-6.24: the name 'ident' of a recursive function may only appear as the operator of a function call within its own body

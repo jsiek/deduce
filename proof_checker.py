@@ -2172,7 +2172,7 @@ def check_recursive_call(call, recfun, subterms):
   # print('rator_name = ' + rator_name(call.rator))
   if rator_name(call.rator) != recfun:
       return
-  increment_recursive_call_count()  
+  increment_recursive_call_count()
 
   if isinstance(call.args[0], VarRef):
     if not (call.args[0].get_name() in subterms):
@@ -2185,6 +2185,104 @@ def check_recursive_call(call, recfun, subterms):
           + "expected first argument to be " \
           + " or ".join([base_name(x) for x in subterms]) \
           + ", not " + str(call.args[0]))
+
+def _is_recfun_ref(node, recfun):
+  if isinstance(node, ResolvedVar):
+    return node.name == recfun
+  if isinstance(node, OverloadedVar):
+    return recfun in node.resolved_names
+  if isinstance(node, Var):
+    return node.name == recfun
+  return False
+
+def _escape_error(loc, recfun):
+  user_error(loc,
+        "the name '" + base_name(recfun) + "'"
+        + " of a recursive function may only appear as the operator"
+        + " of a function call within its own body")
+
+def check_no_recfun_escape(term, recfun):
+  # Walk ``term`` and raise an error if ``recfun`` (the uniquified
+  # name of the enclosing recursive function) appears anywhere other
+  # than as the (optionally type-instantiated) operator of a Call.
+  # This is the escape analysis from issue #215: it stops a body from
+  # smuggling the recursive function out via a let-binding, an
+  # argument position, or a return value, which would otherwise let
+  # callers loop without the first-argument decreases check.
+  if term is None:
+    return
+  if isinstance(term, VarRef):
+    if _is_recfun_ref(term, recfun):
+      _escape_error(term.location, recfun)
+    return
+  match term:
+    case Call(loc, ty, rator, args):
+      _check_rator_no_escape(rator, recfun)
+      for a in args:
+        check_no_recfun_escape(a, recfun)
+    case TermInst(loc, ty, subject, type_args, inferred):
+      check_no_recfun_escape(subject, recfun)
+    case Generic(loc, ty, typarams, body):
+      check_no_recfun_escape(body, recfun)
+    case Conditional(loc, ty, cond, thn, els):
+      check_no_recfun_escape(cond, recfun)
+      check_no_recfun_escape(thn, recfun)
+      check_no_recfun_escape(els, recfun)
+    case TAnnote(loc, ty, subject, typ):
+      check_no_recfun_escape(subject, recfun)
+    case Lambda(loc, ty, vars, body):
+      check_no_recfun_escape(body, recfun)
+    case Switch(loc, ty, subject, cases):
+      check_no_recfun_escape(subject, recfun)
+      for c in cases:
+        check_no_recfun_escape(c.body, recfun)
+    case Array(loc, ty, elements):
+      for e in elements:
+        check_no_recfun_escape(e, recfun)
+    case MakeArray(loc, ty, subject):
+      check_no_recfun_escape(subject, recfun)
+    case ArrayGet(loc, ty, subject, position):
+      check_no_recfun_escape(subject, recfun)
+      check_no_recfun_escape(position, recfun)
+    case TLet(loc, ty, var, rhs, body):
+      check_no_recfun_escape(rhs, recfun)
+      check_no_recfun_escape(body, recfun)
+    case Mark(loc, ty, subject):
+      check_no_recfun_escape(subject, recfun)
+    case And(loc, ty, args):
+      for a in args:
+        check_no_recfun_escape(a, recfun)
+    case Or(loc, ty, args):
+      for a in args:
+        check_no_recfun_escape(a, recfun)
+    case IfThen(loc, ty, premise, conclusion):
+      check_no_recfun_escape(premise, recfun)
+      check_no_recfun_escape(conclusion, recfun)
+    case All(loc, ty, var, pos, body):
+      check_no_recfun_escape(body, recfun)
+    case Some(loc, ty, vars, body):
+      check_no_recfun_escape(body, recfun)
+    case Int() | Bool() | Hole() | Omitted():
+      pass
+    case _:
+      # Other AST nodes (e.g. RecFun, GenRecFun appearing as values)
+      # are conservatively rejected if they reference the recfun
+      # name, allowed otherwise.
+      if _is_recfun_ref(term, recfun):
+        _escape_error(term.location, recfun)
+
+def _check_rator_no_escape(rator, recfun):
+  # At a Call rator position, a direct VarRef to ``recfun`` is the
+  # only place the name is legal; TermInst wrapping such a VarRef
+  # (the ``@foo<T>(...)`` syntax) is the same shape. Anything else
+  # is recursively walked as a non-rator subterm.
+  if isinstance(rator, VarRef):
+    return
+  match rator:
+    case TermInst(loc, ty, subject, type_args, inferred):
+      _check_rator_no_escape(subject, recfun)
+    case _:
+      check_no_recfun_escape(rator, recfun)
 
 # Helper for check_type: a bare reference to a generic union (one with N>0
 # type parameters) is ill-formed. The arity check used to live in a separate
@@ -4186,6 +4284,7 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
       case PatternBool(loc, val):
         pat_params = []
     new_body = type_check_term(fun_case.body, returns, body_env, name, pat_params)
+    check_no_recfun_escape(new_body, name)
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
