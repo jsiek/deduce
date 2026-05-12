@@ -1,257 +1,563 @@
-from dataclasses import dataclass
+#!/usr/bin/env python3
+"""Deduce test harness.
+
+Replaces the older subprocess-per-file harness with an in-process
+multiprocessing runner. The parent pays the ~2.3s prelude bootstrap
+once; workers fork from the populated ``uniquified_modules`` cache
+via copy-on-write and run ``lsp.library.check_file`` directly.
+
+Modes
+-----
+Default (no flags): runs ``--cli + --lib + --passable + --errors``.
+
+Per-category flags (combinable):
+    --cli          One subprocess invocation of ``deduce.py example.pf``
+                   to sanity-check the CLI entry point itself.
+    --lib          ``lib/`` with both parsers, no shared cache.
+    --passable     ``test/should-validate``, ``example.pf``,
+                   ``test/prelude`` with both parsers.
+    --errors       ``test/should-error`` (RD only, ``.err`` diff).
+
+Standalone modes (mutually exclusive with the above):
+    --site             Generate ``doc_*.pf`` from ``gh_pages/doc/``
+                       and check them with both parsers.
+    --parser           ``test/parse`` parser-error fixtures (RD only).
+    --regenerate-errors      Regenerate every ``test/should-error/*.err``.
+    --generate-error <path>  Regenerate one ``.err`` fixture.
+    --gen-parse              Regenerate every ``test/parse/*.err``.
+
+Pool sizing:
+    --workers N         Worker count (default ``os.cpu_count()``).
+    --max-threads N     Alias for ``--workers`` (legacy).
+    --serial            Equivalent to ``--workers 1``.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import multiprocessing as mp
 import os
-from signal import signal, SIGINT
+import subprocess
 import sys
-from threading import Thread
+import tempfile
+import time
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+from signal import signal, SIGINT
+
+# Work around macOS sandbox profiles (notably Claude Code's seatbelt
+# sandbox) that deny ``sysconf(_SC_SEM_NSEMS_MAX)``. Python's
+# ``concurrent.futures.process._check_system_limits`` calls that
+# sysconf to verify enough POSIX semaphores are available; it catches
+# ``AttributeError``/``ValueError`` but lets ``PermissionError``
+# propagate, which would crash the pool before any worker spawns.
+# The check is purely advisory -- if the sysconf is denied we wrap it
+# and treat the limit as undetermined (matching the existing -1 path).
+import concurrent.futures.process as _ppmod
+
+_orig_check_system_limits = _ppmod._check_system_limits
 
 
-parsers = ['--recursive-descent', '--lalr']
+def _patched_check_system_limits() -> None:
+    try:
+        _orig_check_system_limits()
+    except PermissionError:
+        pass
 
-lib_dir = './lib'
-pass_dir = './test/should-validate'
-prelude_dir = './test/prelude'
-error_dir = './test/should-error'
-test_imports_dir = './test/test-imports'
-site_dir = './gh_pages/deduce-code'
-parse_dir = './test/parse'
-max_threads = 10
 
-def handle_sigint(signal, stack_frame):
+_ppmod._check_system_limits = _patched_check_system_limits
+
+
+REPO_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO_ROOT))
+sys.setrecursionlimit(10000)
+
+# ``lsp.library`` derives the location of ``Deduce.lark`` from
+# ``os.path.dirname(sys.argv[0])``. When this script is invoked as
+# ``python test-deduce.py`` from the repo root that's an empty string,
+# which produces ``/Deduce.lark`` -- a non-existent absolute path.
+# Spoof argv[0] to a real ``deduce.py`` path so the lookup works
+# regardless of how the script was invoked.
+sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
+
+from abstract_syntax import add_import_directory, init_import_directories
+from flags import set_quiet_mode, set_recursive_descent
+from lsp.library import check_file, reset_prelude_cache
+
+
+# Keep these as relative paths -- ``deduce.py``'s error messages
+# encode the filename as given to the checker, and the ``.err``
+# fixtures were captured against relative-path invocations.
+LIB_DIR = Path("lib")
+PASS_DIR = Path("test/should-validate")
+ERROR_DIR = Path("test/should-error")
+PRELUDE_DIR = Path("test/prelude")
+IMPORTS_DIR = Path("test/test-imports")
+PARSE_DIR = Path("test/parse")
+EXAMPLE_FILE = Path("example.pf")
+
+
+# Module-level globals consumed by worker functions. The parent
+# populates these before forking the pool; workers inherit them via
+# copy-on-write. Avoids pickling a 32-entry tuple per task.
+_WORKER_PREWARM: tuple[str, ...] = ()
+_WORKER_PRELUDE: tuple[str, ...] = ()
+
+
+def handle_sigint(signum, frame):
     print('SIGINT caught, exiting...')
-    exit(137)
+    sys.exit(137)
 
-def test_deduce(parsers, deduce_call, paths, expected_return = 0, extra_arguments=""):
-    if isinstance(paths, list):
-        deduce_call += ' ' + ' '.join(paths)
-    else:
-        deduce_call += paths
-    for parser in parsers:
-        call = deduce_call + ' ' + parser + ' ' + extra_arguments + ' --suppress-theorems' #+ ' --traceback'
-        print('Testing:', call)
-        return_code = os.system(call) // 256 # Why does it multiply the return code by 256???
-        if return_code != expected_return:
-            if return_code == SIGINT:
-                exit(137)
-            elif expected_return == 0:
-                print('\nTest failed!')
-            else:
-                print('\nDeduce failed to catch an error!')
-            exit(1)
-    
-def generate_deduce_errors(deduce_call, path):
-    # We don't pass in the --error flag so we can generate error messages
-    # However, that means we can't levarage deduces already existed directory stuff
-    # So we manually do it here
 
-    if os.path.isfile(path):
-        test_deduce(['--recursive-descent'], deduce_call, path, 1, '> ' + path + '.err')
-    elif os.path.isdir(path):
-        running_threads = []
+def discover_lib_modules() -> tuple[str, ...]:
+    return tuple(sorted(p.stem for p in LIB_DIR.glob("*.pf")))
 
-        if path[-1] != '/' or path[-1] != '\\':
-            path += '/'
-        for file in sorted(os.listdir(path)): 
-            if os.path.isfile(path + file):
-                if file[-3:] == '.pf':
-                    thread = Thread(target=generate_deduce_errors, args=(deduce_call, path + file))
-                    thread.start()
-                    running_threads.append(thread)
 
-                    while len(running_threads) > max_threads:
-                        t = running_threads[0]
-                        t.join()
-                        running_threads.remove(t)
+def setup_paths() -> None:
+    # Run from the repo root so the relative paths above resolve and so
+    # error messages match the existing ``.err`` fixtures. The import
+    # directories must be ``./``-prefixed because the legacy harness
+    # invoked ``deduce.py --dir ./lib --dir ./test/test-imports`` and
+    # that prefix ends up in some error messages (the "declared as
+    # `lemma` in module X (<file>:<line>)" hint, in particular).
+    os.chdir(REPO_ROOT)
+    init_import_directories()
+    add_import_directory("./" + LIB_DIR.as_posix())
+    add_import_directory("./" + IMPORTS_DIR.as_posix())
 
-            elif os.path.isdir(path + file):
-                # TODO: recursive directories
-                pass
-        for t in running_threads:
-            t.join()
-            running_threads.remove(t)
-    else:
-        print(path, 'was not found!')
-        exit(1)
 
-@dataclass
-class ErrorThread:
-    path : str
-    text : str
-    thread : Thread
+def list_pf(d: Path) -> list[str]:
+    # Return ``./test/<...>/foo.pf``-style paths to match how the
+    # ``.err`` fixtures were captured.
+    return sorted(
+        f"./{d.as_posix()}/{p.name}" for p in d.iterdir() if p.suffix == ".pf"
+    )
 
-    def __init__(self, path):
-        self.path = path
-        self.text = None
 
-    def start(self, deduce_call):
-        self.thread = Thread(target=self.test_deduce_errors_thread, args=(deduce_call,))
-        self.thread.start()
+# ---------------------------------------------------------------------------
+# Worker functions (must be picklable for multiprocessing).
+# ---------------------------------------------------------------------------
 
-    def test_deduce_errors_thread(self, deduce_call):
-        text = os.popen(deduce_call + ' ' + self.path).read()
-        self.text = text
 
-def join_error_threads(threads : list[ErrorThread], join_count : int):
-    temp_file  = './actual_error.tmp'
+def _worker_validate(task: tuple[str, bool]) -> tuple[str, bool, str, str]:
+    f, recursive_descent = task
+    set_recursive_descent(recursive_descent)
+    label = "recursive-descent" if recursive_descent else "lalr"
+    result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+    return (f, result.ok, label, result.error_message or "")
 
-    # for thread in threads:
-    for _ in range(join_count):
-        # if join_count <= 0 :
-        if len(threads) == 0: break
 
-        thread = threads[0]
+def _worker_lib(task: tuple[str, bool]) -> tuple[str, bool, str, str]:
+    """Each lib file is checked with no prewarm so the file (and its
+    transitive imports of other lib modules) is freshly parsed --
+    otherwise we'd just typecheck a cached AST that was parsed once by
+    the parent and never exercise the LALR parser on lib code.
+    """
+    f, recursive_descent = task
+    set_recursive_descent(recursive_descent)
+    label = "recursive-descent" if recursive_descent else "lalr"
+    result = check_file(f)
+    return (f, result.ok, label, result.error_message or "")
 
-        if thread.thread.is_alive:
-            thread.thread.join()
 
-        threads.remove(thread)
-        if thread.text == None:
-            print("Got an exception when checking:", thread.path)
-            exit(-1)
-        
-        with open(temp_file, 'w') as fd:
-            fd.write(thread.text)
+def _worker_prelude(task: tuple[str, bool]) -> tuple[str, bool, str, str]:
+    """``test/prelude`` worker. Uses ``prelude=`` (injected imports),
+    not ``prewarm=``."""
+    f, recursive_descent = task
+    set_recursive_descent(recursive_descent)
+    label = "recursive-descent" if recursive_descent else "lalr"
+    result = check_file(f, prelude=_WORKER_PRELUDE)
+    return (f, result.ok, label, result.error_message or "")
 
-        diff_call = 'diff --ignore-space-change ' + thread.path + '.err ' + temp_file
-        ret_code = os.system(diff_call)
-        if ret_code == 0:
-            os.remove(temp_file)
-            print(thread.path, "produces the expected error.")
+
+def _check_against_err(f: str) -> tuple[str, bool, str]:
+    """Run ``f`` and diff its captured stdout against ``f + '.err'``.
+
+    Shared between ``--errors`` (``test/should-error``) and
+    ``--parser`` (``test/parse``); both use the same fixture format.
+    Reproduces the CLI's full stdout (warnings + ``error_message``)
+    and runs ``diff --ignore-space-change`` to match the historical
+    matching semantics exactly.
+    """
+    err_file = f + ".err"
+    if not os.path.isfile(err_file):
+        return (f, False, "missing .pf.err fixture")
+    set_recursive_descent(True)
+    set_quiet_mode(True)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        result = check_file(f, prewarm_modules=_WORKER_PREWARM)
+        if not result.ok:
+            print(result.error_message)
+    if result.ok:
+        return (f, False, "expected error but file was valid")
+    actual = buf.getvalue()
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".tmp", delete=False, encoding="utf-8"
+    ) as tf:
+        tf.write(actual)
+        tmp_path = tf.name
+    try:
+        cp = subprocess.run(
+            ["diff", "--ignore-space-change", err_file, tmp_path],
+            capture_output=True, text=True,
+        )
+        if cp.returncode != 0:
+            return (f, False, f"error message diverged:\n{cp.stdout[:500]}")
+        return (f, True, "")
+    finally:
+        os.unlink(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Orchestration.
+# ---------------------------------------------------------------------------
+
+
+def _make_fork_pool(workers: int):
+    """Fork-based ``ProcessPoolExecutor``: children inherit the
+    parent's populated AST cache via copy-on-write. macOS Python
+    defaults to ``spawn``; we override.
+    """
+    fork_ctx = mp.get_context("fork")
+    return ProcessPoolExecutor(max_workers=workers, mp_context=fork_ctx)
+
+
+def bootstrap_prewarm(lib_modules: tuple[str, ...]) -> None:
+    """Pay the prelude bootstrap once in the parent (prewarm flavour)."""
+    global _WORKER_PREWARM
+    _WORKER_PREWARM = lib_modules
+    set_recursive_descent(True)
+    # ``content=""`` runs the pipeline on an empty buffer -- cheapest
+    # valid trigger for ``_prepare_state``'s bootstrap path.
+    check_file("__warmup__.pf", content="", prewarm_modules=lib_modules)
+
+
+def bootstrap_prelude(lib_modules: tuple[str, ...]) -> None:
+    """Bootstrap with ``prelude=`` (implicit imports) for prelude tests."""
+    global _WORKER_PRELUDE
+    _WORKER_PRELUDE = lib_modules
+    set_recursive_descent(True)
+    check_file("__warmup__.pf", content="", prelude=lib_modules)
+
+
+def _map_or_serial(workers: int, fn, tasks, chunksize: int = 4):
+    """Run ``fn(task)`` over ``tasks`` in a pool, or in-line when
+    ``workers <= 1`` (handy for debugging and the ``--serial`` flag)."""
+    if workers <= 1:
+        return [fn(t) for t in tasks]
+    with _make_fork_pool(workers) as ex:
+        return list(ex.map(fn, tasks, chunksize=chunksize))
+
+
+def run_lib_parallel(workers: int) -> list[tuple[str, str, str]]:
+    """``lib/*.pf`` × both parsers with no shared cache."""
+    files = list_pf(LIB_DIR)
+    tasks = [(f, p) for f in files for p in (True, False)]
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, label, msg in _map_or_serial(workers, _worker_lib, tasks, 2):
+        if not ok:
+            failures.append((f, label, msg))
+    return failures
+
+
+def run_validate_parallel(workers: int) -> list[tuple[str, str, str]]:
+    """``test/should-validate`` + ``example.pf`` × both parsers."""
+    files = list_pf(PASS_DIR) + [f"./{EXAMPLE_FILE.as_posix()}"]
+    tasks = [(f, p) for f in files for p in (True, False)]
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, label, msg in _map_or_serial(workers, _worker_validate, tasks, 4):
+        if not ok:
+            failures.append((f, label, msg))
+    return failures
+
+
+def run_prelude_parallel(workers: int) -> list[tuple[str, str, str]]:
+    """``test/prelude`` × both parsers (uses ``prelude=`` bootstrap)."""
+    files = list_pf(PRELUDE_DIR)
+    tasks = [(f, p) for f in files for p in (True, False)]
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, label, msg in _map_or_serial(workers, _worker_prelude, tasks, 2):
+        if not ok:
+            failures.append((f, label, msg))
+    return failures
+
+
+def run_err_diff_parallel(directory: Path, label: str,
+                          workers: int) -> list[tuple[str, str, str]]:
+    """Run ``.err``-fixture tests in ``directory`` (RD only)."""
+    files = list_pf(directory)
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, msg in _map_or_serial(workers, _check_against_err, files, 4):
+        if not ok:
+            failures.append((f, label, msg))
+    return failures
+
+
+def run_cli_test() -> list[tuple[str, str, str]]:
+    """Sanity-check that ``python deduce.py example.pf`` works end-to-end.
+
+    The in-process runner exercises ``lsp.library.check_file``; this
+    one subprocess invocation makes sure the ``deduce.py`` CLI wrapper
+    itself (arg parsing, ``init_import_directories``,
+    ``print_theorems``, exit codes) hasn't drifted. One file is
+    enough -- we're not re-checking ``example.pf``'s contents (the
+    in-process sweep already does that), we're testing the CLI shape.
+    """
+    cp = subprocess.run(
+        [sys.executable, "deduce.py", "./example.pf"],
+        capture_output=True, text=True,
+    )
+    failures: list[tuple[str, str, str]] = []
+    if cp.returncode != 0:
+        failures.append((
+            "./example.pf", "cli",
+            f"exit {cp.returncode}\nstderr: {cp.stderr[:500]}\n"
+            f"stdout: {cp.stdout[:500]}",
+        ))
+    elif "example.pf is valid" not in cp.stdout:
+        failures.append((
+            "./example.pf", "cli",
+            f"unexpected stdout:\n{cp.stdout[:500]}",
+        ))
+    return failures
+
+
+def run_site(workers: int) -> list[tuple[str, str, str]]:
+    """Generate ``doc_*.pf`` from ``gh_pages/doc/`` and check them."""
+    from gh_pages.scripts.convert import convert_dir
+    convert_dir("./gh_pages/doc/", False)
+    files: list[str] = []
+    for name in sorted(os.listdir(PASS_DIR)):
+        if name.startswith("doc_") and name.endswith(".pf"):
+            files.append(f"./{PASS_DIR.as_posix()}/{name}")
+    tasks = [(f, p) for f in files for p in (True, False)]
+    failures: list[tuple[str, str, str]] = []
+    for f, ok, label, msg in _map_or_serial(workers, _worker_validate, tasks, 2):
+        if not ok:
+            failures.append((f, label, msg))
+    return failures
+
+
+# ---------------------------------------------------------------------------
+# Regeneration of .err fixtures.
+# ---------------------------------------------------------------------------
+
+
+def _capture_err_output(path: str) -> str:
+    """Run ``check_file`` on ``path`` and return the captured stdout.
+
+    Mirrors what ``deduce.py`` would have printed on a failing run:
+    interleaved warnings emitted via ``print()`` followed by the
+    final ``result.error_message`` line.
+    """
+    set_recursive_descent(True)
+    set_quiet_mode(True)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        result = check_file(path, prewarm_modules=_WORKER_PREWARM)
+        if not result.ok:
+            print(result.error_message)
+    return buf.getvalue()
+
+
+def regenerate_one(path: str) -> None:
+    out = _capture_err_output(path)
+    with open(path + ".err", "w", encoding="utf-8") as f:
+        f.write(out)
+    print(f"  wrote {path}.err")
+
+
+def regenerate_dir(directory: Path) -> None:
+    for f in list_pf(directory):
+        regenerate_one(f)
+
+
+# ---------------------------------------------------------------------------
+# CLI.
+# ---------------------------------------------------------------------------
+
+
+def time_section(label: str, fn) -> tuple[float, list]:
+    t0 = time.perf_counter()
+    result = fn()
+    dt = time.perf_counter() - t0
+    print(f"  {label:32s}  {dt:6.2f}s")
+    return dt, result
+
+
+def parse_args(argv: list[str]) -> dict:
+    """Return a dict of flag → value. Tolerates the legacy long-form
+    arguments still in scripts / muscle memory."""
+    flags = {
+        "cli": False, "lib": False, "passable": False, "errors": False,
+        "site": False, "parser": False,
+        "regen_all": False, "regen_files": [], "gen_parse": False,
+        "workers": max(1, (os.cpu_count() or 4)),
+    }
+    standalone = {"site", "parser", "regen_all", "regen_files", "gen_parse"}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--cli": flags["cli"] = True
+        elif a == "--lib": flags["lib"] = True
+        elif a == "--passable": flags["passable"] = True
+        elif a == "--errors": flags["errors"] = True
+        elif a == "--site": flags["site"] = True
+        elif a == "--parser": flags["parser"] = True
+        elif a == "--regenerate-errors": flags["regen_all"] = True
+        elif a == "--generate-error":
+            flags["regen_files"].append(argv[i + 1])
+            i += 1
+        elif a == "--gen-parse": flags["gen_parse"] = True
+        elif a == "--serial": flags["workers"] = 1
+        elif a in ("--workers", "--max-threads"):
+            flags["workers"] = max(1, int(argv[i + 1]))
+            i += 1
         else:
-            print("*** The error message for", thread.path, "has changed! See actual_error.tmp")
-            exit(1)
+            print(f"unknown argument: {a}", file=sys.stderr)
+            sys.exit(2)
+        i += 1
 
-def test_deduce_errors(deduce_call, path):
-    if os.path.isfile(path):
-        thread = ErrorThread(path)
-        join_error_threads([thread], 1)
-    else:
-        if path[-1] != '/' or path[-1] != '\\': # Windows moment
-            path += '/'
+    # If no flags at all, default to the per-PR regression sweep.
+    if not any(flags[k] for k in
+               ("cli", "lib", "passable", "errors", "site", "parser",
+                "regen_all", "gen_parse")) and not flags["regen_files"]:
+        flags["cli"] = flags["lib"] = flags["passable"] = flags["errors"] = True
 
-        threads = []
-        for file in sorted(os.listdir(path)):
-            if os.path.isfile(path + file):
-                if file[-3:] == '.pf':
-                    if not os.path.isfile(path + file + '.err'):
-                        print("Couldn't find an expected error for", path + file)
-                        print("Did you mean to generate it? If so, use --generate-error <filename>")
-                        exit(1)
-                    
-                    thread = ErrorThread(path + file)
-                    threads.append(thread)
-                    thread.start(deduce_call + ' --quiet')
-                    if len(threads) == max_threads:
-                        # I think passing 1 is for the best
-                        # As this function will remove any already finished threads
-                        # And also if we don't pass one, we'll repeatedly get into a situation like
-                        # 5 threads running 0 threads running 5 threads running 0 threads running
-                        # However, we want to maximize the amount of threads running so we're doing more
-                        join_error_threads(threads, 1)
-                    
-            elif os.path.isdir(path + file):
-                # TODO: recursive directories?
-                pass
+    # Standalone modes are mutually exclusive with everything else.
+    if any(flags[k] or flags["regen_files"] for k in standalone):
+        category_flags = ("cli", "lib", "passable", "errors")
+        active_categories = [k for k in category_flags if flags[k]]
+        active_standalone = [k for k in standalone if flags[k] or
+                             (k == "regen_files" and flags["regen_files"])]
+        if active_categories and active_standalone:
+            print(
+                f"--{active_standalone[0]} is standalone; cannot combine with "
+                f"--{active_categories[0]}", file=sys.stderr,
+            )
+            sys.exit(2)
+        if len(active_standalone) > 1:
+            print(
+                f"these flags are mutually exclusive: "
+                f"{', '.join('--' + s for s in active_standalone)}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
-        join_error_threads(threads, len(threads))
+    return flags
+
+
+def main(argv: list[str]) -> int:
+    flags = parse_args(argv)
+    setup_paths()
+    lib_modules = discover_lib_modules()
+    workers = flags["workers"]
+
+    total_failures: list[tuple[str, str, str]] = []
+    total_t0 = time.perf_counter()
+
+    # Standalone: regen / site / parser. Each owns the run.
+    if flags["regen_all"]:
+        print(f"Regenerating ALL errors in {ERROR_DIR}")
+        bootstrap_prewarm(lib_modules)
+        regenerate_dir(ERROR_DIR)
+        return 0
+    if flags["regen_files"]:
+        bootstrap_prewarm(lib_modules)
+        for path in flags["regen_files"]:
+            print(f"Generating error for: {path}")
+            regenerate_one(path)
+        return 0
+    if flags["gen_parse"]:
+        print(f"Regenerating ALL parser errors in {PARSE_DIR}")
+        bootstrap_prewarm(lib_modules)
+        regenerate_dir(PARSE_DIR)
+        return 0
+    if flags["site"]:
+        print(f"=== --site: generate doc_*.pf and check (parallel) ===")
+        bootstrap_prewarm(lib_modules)
+        _, fails = time_section("site doc files × 2 parsers",
+                                lambda: run_site(workers))
+        total_failures.extend(fails)
+        return _report(total_failures, total_t0)
+    if flags["parser"]:
+        print(f"=== --parser: {PARSE_DIR} (RD only, parallel) ===")
+        bootstrap_prewarm(lib_modules)
+        _, fails = time_section("test/parse",
+                                lambda: run_err_diff_parallel(
+                                    PARSE_DIR, "parser", workers))
+        total_failures.extend(fails)
+        return _report(total_failures, total_t0)
+
+    # Combinable per-category sweep.
+    print(f"Discovered {len(lib_modules)} lib modules; workers={workers}")
+
+    if flags["cli"]:
+        print(f"\n=== --cli: deduce.py CLI sanity check ===")
+        _, fails = time_section("deduce.py ./example.pf", run_cli_test)
+        total_failures.extend(fails)
+
+    # Lib pool: clean state (no shared cache).
+    if flags["lib"]:
+        reset_prelude_cache()
+        print(f"\n=== lib (both parsers, parallel) ===")
+        _, fails = time_section("lib × 2 parsers",
+                                lambda: run_lib_parallel(workers))
+        total_failures.extend(fails)
+
+    # Prelude pool: prelude-injection bootstrap.
+    if flags["passable"]:
+        reset_prelude_cache()
+        t0 = time.perf_counter()
+        bootstrap_prelude(lib_modules)
+        print(f"\n  {'bootstrap prelude (parent)':32s}  "
+              f"{time.perf_counter() - t0:6.2f}s")
+        print(f"=== test/prelude (both parsers, parallel) ===")
+        _, fails = time_section("test/prelude × 2 parsers",
+                                lambda: run_prelude_parallel(workers))
+        total_failures.extend(fails)
+
+    # Combined pool: should-validate + should-error share a prewarm bootstrap.
+    if flags["passable"] or flags["errors"]:
+        reset_prelude_cache()
+        t0 = time.perf_counter()
+        bootstrap_prewarm(lib_modules)
+        print(f"\n  {'bootstrap prewarm (parent)':32s}  "
+              f"{time.perf_counter() - t0:6.2f}s")
+
+    if flags["passable"]:
+        print(f"=== should-validate (both parsers, parallel) ===")
+        _, fails = time_section("should-validate × 2 parsers",
+                                lambda: run_validate_parallel(workers))
+        total_failures.extend(fails)
+
+    if flags["errors"]:
+        print(f"\n=== should-error (RD only, parallel) ===")
+        _, fails = time_section("should-error",
+                                lambda: run_err_diff_parallel(
+                                    ERROR_DIR, "recursive-descent", workers))
+        total_failures.extend(fails)
+
+    return _report(total_failures, total_t0)
+
+
+def _report(failures: list[tuple[str, str, str]], t0: float) -> int:
+    print(f"\nTotal wall time: {time.perf_counter() - t0:.2f}s")
+    if failures:
+        print(f"\n{len(failures)} FAILURE(s):")
+        for fpath, label, msg in failures[:20]:
+            print(f"  [{label}] {fpath}")
+            for line in str(msg).splitlines()[:3]:
+                print(f"      {line}")
+        if len(failures) > 20:
+            print(f"  ... and {len(failures) - 20} more")
+        return 1
+    print("\nAll tests passed.")
+    return 0
+
 
 if __name__ == "__main__":
     signal(SIGINT, handle_sigint)
-    # Check command line arguments
-    extra_arguments = []
-
-    regenerables = []
-    generate_errors = False
-
-    test_lib = False
-    test_passable = False
-    test_errors = False
-    test_site = False
-    test_parse = False
-    gen_parse = False
-
-    already_processed_next = False
-    generate_some_errors = False
-    for i in range(1, len(sys.argv)):
-        if already_processed_next:
-            already_processed_next = False
-            continue
-    
-        argument = sys.argv[i]
-        if argument == '--regenerate-errors':
-            generate_errors = True
-        elif argument == '--generate-error':
-            regenerables.append(sys.argv[i + 1])
-            already_processed_next = True
-            generate_some_errors = True
-        elif argument == '--max-threads':
-            max_threads = int(sys.argv[i + 1])
-            already_processed_next = True
-        elif argument == '--lib':
-            test_lib = True
-        elif argument == '--passable':
-            test_passable = True
-        elif argument == '--errors':
-            test_errors = True
-        elif argument == '--parser':
-            test_parse = True
-        elif argument == '--gen-parse':
-            gen_parse = True
-        elif argument == '--site':
-            test_site = True
-        else:
-            extra_arguments.append(argument)
-
-    if generate_errors + generate_some_errors + test_lib + test_passable + test_errors + test_site > 1:
-        print("Error: you specified too many flags, some are mutually exclusive")
-        exit(-1)
-            
-    python_path = ""
-    for i in range(14, 10, -1):
-        python_path = os.popen("command -v python3." + str(i)).read()[0: -1] # strip the newline character with the splicing
-        if python_path != "" and os.system(python_path + " -m pip list | grep lark > /dev/null") == 0:
-            break
-    
-    if python_path == "":
-        print("Could not find a python version at or above 3.11 with lark installed")
-        exit(1)
-    
-    deduce_call = python_path + " ./deduce.py " + " ".join(extra_arguments)
-
-    if generate_errors:
-        print('Regenerating ALL errors')
-        generate_deduce_errors(deduce_call +  f' --dir {test_imports_dir} ', error_dir)
-    elif generate_some_errors:
-        for generable in regenerables:
-            print('Generating error for:', generable)
-            generate_deduce_errors(deduce_call +  f' --dir {test_imports_dir} ', generable)
-            generate_errors = True # So we don't run ALL tests
-    elif gen_parse:
-        print('Regenerating ALL parser errors')
-        generate_deduce_errors(deduce_call, parse_dir)
-
-    elif test_site:
-        # generate test files for doc code without generating html
-        from gh_pages.scripts.convert import convert_dir
-        convert_dir("./gh_pages/doc/", False)
-        # test generated files
-        for f in sorted(os.listdir(pass_dir)):
-            if f.startswith('doc_') and f.endswith('.pf'):
-                test_deduce(parsers, deduce_call + f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', pass_dir + '/' + f)
-    elif test_lib:
-        test_deduce(parsers, deduce_call, lib_dir)
-    elif test_passable:
-        test_deduce(parsers, deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', [pass_dir, './example.pf'])
-        test_deduce(parsers, deduce_call, prelude_dir)
-    elif test_errors:
-        test_deduce_errors(deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', error_dir)
-    elif test_parse:
-        test_deduce_errors(deduce_call + f' --no-stdlib --dir {lib_dir} ', parse_dir)
-    else:
-        # By default, test everything except for the doc code that gets
-        # generated by doc.convert, because that requires markdown and
-        # Jeremy doesn't have that installed.
-        # Also not the parse errors
-        test_deduce(parsers, deduce_call, lib_dir) 
-        test_deduce(parsers, deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', [pass_dir, './example.pf'])
-        test_deduce(parsers, deduce_call, prelude_dir)
-        test_deduce_errors(deduce_call +  f' --no-stdlib --dir {test_imports_dir} --dir {lib_dir} ', error_dir)    
+    sys.exit(main(sys.argv[1:]))

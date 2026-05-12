@@ -11,13 +11,14 @@ default: tests-tokens tests
 tests-tokens:
 	$(PYTHON) ./gh_pages/scripts/keywords.py
 
-# Fast parallel in-process sweep. Matches the coverage of
-# ``test-deduce.py`` default mode (lib + should-validate + test/prelude
-# + should-error with ``.err`` diff), runs ~15x faster by paying the
-# prelude bootstrap once in the parent and forking worker processes
-# that inherit the populated AST cache via copy-on-write.
+# Fast parallel in-process sweep. ``test-deduce.py`` runs the default
+# regression categories (cli + lib + should-validate + test/prelude +
+# should-error with ``.err`` diff). It pays the prelude bootstrap
+# once in the parent and forks worker processes that inherit the
+# populated AST cache via copy-on-write -- ~10x faster than the
+# previous subprocess-per-file harness.
 tests:
-	$(PYTHON) tools/test_runner_inproc.py
+	$(PYTHON) test-deduce.py
 
 # Per-category targets kept for granular debugging; ``make tests``
 # above is the fast all-in-one entry point.
