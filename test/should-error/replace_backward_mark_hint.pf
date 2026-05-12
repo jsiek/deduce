@@ -1,0 +1,18 @@
+// Follow-up to #450: when `replace eq` fails inside an `equations` step
+// because the eq's LHS doesn't appear on the marked side but would match
+// on the unmarked side, the error message should hint at the `#...#`
+// mark form to flip direction.
+import UInt
+import List
+
+theorem hint_test: all x:UInt. all xs:List<UInt>. all ys:List<UInt>.
+  if xs = ys
+  then node(x, ys) = node(x, xs)
+proof
+  arbitrary x:UInt
+  arbitrary xs:List<UInt>
+  arbitrary ys:List<UInt>
+  assume h: xs = ys
+  equations
+    node(x, ys) = node(x, xs)   by replace h.
+end
