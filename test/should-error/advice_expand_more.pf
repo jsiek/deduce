@@ -1,0 +1,16 @@
+// Issue #446: when `expand foo.` fails and the residual goal still
+// contains `foo`, the error message should hint that another expand
+// step is needed.
+import UInt
+import List
+
+recursive sum_test(List<UInt>) -> UInt {
+  sum_test(empty) = 0
+  sum_test(node(x, xs)) = x + sum_test(xs)
+}
+
+theorem head_sum_test: all x:UInt. sum_test([x]) = x
+proof
+  arbitrary x:UInt
+  expand sum_test.
+end

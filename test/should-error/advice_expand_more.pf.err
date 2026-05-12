@@ -1,0 +1,9 @@
+./test/should-error/advice_expand_more.pf:15.18-15.19:
+You provided a proof of:
+	true
+but that is different from what you need to prove:
+	x + sum_test(@[]<UInt>) = x
+The goal still contains `sum_test`. To unfold it again, chain another expand:
+	expand sum_test | sum_test.
+or equivalently
+	expand 2*sum_test.
