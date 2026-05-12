@@ -495,7 +495,7 @@ def collect_all_if_then(loc, frm, env):
         for arg in args:
           try:
             (rest_vars, mps) = collect_all_if_then(loc, arg, env)
-          except:
+          except Exception:
             continue
           # Making the executive decision that we can't apply for alls nested within ands
           if len(rest_vars) > 0: continue
@@ -1081,7 +1081,7 @@ def proof_advice(formula, env):
         ty = None
         try:
           ty = env.get_def_of_type_var(get_type_name(var_ty))
-        except:
+        except Exception:
           pass
 
         match ty:
@@ -1090,7 +1090,6 @@ def proof_advice(formula, env):
 
             if ty.visibility == 'opaque':
               binding = env.dict[name]
-              #if binding.location.filename != formula.location.filename:
               if binding.location.filename != env.get_current_module() and not has_custom_ind:
                 return arb_advice
 
@@ -1504,8 +1503,6 @@ def check_proof_of(proof, formula, env):
 
     # have X: P by frm
     case PLet(loc, label, frm, reason, rest):
-      # print('\nchecking have: ' + label)
-      # print('env: ' + env.proofs_str())
       new_frm = check_formula(frm, env)
       match new_frm:
         case Hole(loc2, tyof):
@@ -1567,12 +1564,6 @@ def check_proof_of(proof, formula, env):
             _try_check_proof_of(rest, new_formula, env)
           case Hole(loc2, tyof):
             newer_formula = check_formula(new_formula, env)
-            # Not sure why we do a try-except here. -Jeremy
-            # try:
-            #   newer_formula = check_formula(new_formula, env)
-            # except Exception as e:
-            #   internal_error(loc2, 'internal error in suffices: ' \
-            #                  + str(new_formula) + '\n' + str(e))
             warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
             check_proof_of(rest, newer_formula, env)
           case _:
@@ -2295,7 +2286,6 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     param_types = [param_types[0]] * len(args)
 
   if len(typarams) == 0:
-    #print('type check call to regular: ' + str(call))
     new_args = []
     for (param_type, arg) in zip(param_types, args):
       new_args.append(type_check_term(arg, param_type, env, recfun, subterms))
@@ -4981,12 +4971,10 @@ def collect_env(stmt, env : Env):
         assoc_formula = All(loc, None, (ty, TypeType(loc)), (i, len(typarams)), assoc_formula)
 
       assoc_formula = type_check_formula(assoc_formula, env)
-        
-      #print('Associative: ' + str(op.resolved_names))
+
       # determine which overload is for the given typ
       resolved_op = None
       op_ty = env.get_type_of_term_var(op)
-      #print('op type = ' + str(op_ty))
       match op_ty:
           case OverloadType(loc2, overloads):
               for (x, funty) in overloads:
@@ -5001,9 +4989,6 @@ def collect_env(stmt, env : Env):
                               continue
           case FunctionType(loc2, typarams2, param_types, return_type):
               resolved_op = op.get_name()
-      #print('resolved_op = ' + str(resolved_op))
-      # print('typarams: ' + ', '.join([str(t) for t in typarams]))
-      # print('typ: ' + str(typ))
       if assoc_formula in env.proofs():
           return env.declare_assoc(loc, resolved_op, typarams, typ)
       else:
@@ -5141,9 +5126,6 @@ def check_proofs(stmt, env: Env):
 
     case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
                    body, terminates):
-      # print('check_proofs: recfun')
-      # print(stmt.pretty_print(0))
-        
       body_env = env.declare_type_vars(loc, typarams)
       
       # find recursive calls in the body
