@@ -290,6 +290,10 @@ class CompletionCandidate:
     - ``"define"`` / ``"function"`` (a ``recursive`` / ``recfun``)
     - ``"union"`` / ``"constructor"``
     - ``"predicate"`` / ``"rule"``
+    - ``"label"`` (a local proof binding -- ``assume H: P``,
+      ``obtain ... where ... from H``, hypotheses from ``cases``, ...)
+    - ``"variable"`` (a local term binding -- ``arbitrary x:T``,
+      pattern-bound names inside ``switch`` / ``case`` blocks, ...)
 
     Adapters map this to their wire format: the LSP server translates
     to ``CompletionItemKind``; MCP would surface the string directly.
@@ -297,11 +301,19 @@ class CompletionCandidate:
     ``detail`` is an optional one-line signature (e.g. ``"plus_zero:
     all n:Nat. n + 0 = n"``) shown alongside the label in the picker
     UI.  ``None`` when no signature is known.
+
+    ``priority`` is a sort hint: smaller floats the candidate to the
+    top of the picker.  ``0`` is reserved for hole-aware matches (a
+    label whose formula equals or implies the goal at the hole the
+    cursor sits on); ``1`` is the default for everything else.  The
+    LSP adapter encodes ``priority`` as the ``sortText`` field, so
+    matches sort lexicographically before the rest.
     """
 
     label: str
     kind: str
     detail: Optional[str] = None
+    priority: int = 1
 
 
 @dataclass(frozen=True)
@@ -1102,49 +1114,217 @@ def completions_at(
        NatDefs / NatAdd / ... .  Diamond imports are guarded by a
        visited-module set.
 
-    Local bindings introduced by ``arbitrary`` / ``assume`` /
-    ``obtain`` are NOT (yet) surfaced -- needs an env walker that
-    handles arbitrary cursor positions, which doesn't exist in the
-    query module today.  Tracked as a follow-up to Step 31.
+    Local bindings carried in the env at ``pos`` are surfaced too --
+    proof labels (``assume H: P``) and term variables (``arbitrary
+    x:T``) and anything else the proof checker has put into scope by
+    the time the cursor's enclosing proof statement runs.  We get the
+    env by inserting a synthetic ``?`` at the cursor (stripping any
+    partial identifier the user is typing first) and reading
+    ``IncompleteProof.env``.
 
-    ``pos`` is accepted but not currently consulted; reserved so a
-    future implementation can scope completions (e.g. only keywords
-    valid inside a ``proof`` block, only constructors inside a
-    ``switch`` pattern position) without breaking the API.
+    Hole-aware priority: when the cursor sits on (or immediately past)
+    an existing ``?`` and the check returns both an env and a goal,
+    any local label whose formula equals or implies the goal is
+    emitted with ``priority=0``.  Everything else stays at the default
+    ``priority=1``.  The LSP adapter encodes this in ``sortText`` so
+    matching labels float to the top of the picker -- user pressing
+    ``Ctrl+Space`` on a ``?`` sees the proof terms that can plausibly
+    close it first.
 
     ``prelude`` matches the meaning in :func:`check`.
 
-    Returns an empty tuple if the file can't be parsed at all and no
-    AST is available -- keywords alone wouldn't add value over the
-    client's word-based fallback, and they're easy enough to recover
-    once the file parses again.
+    Returns at minimum the keyword / constant / type set when nothing
+    else parses -- those alone still beat the client's word-based
+    fallback while the user is mid-edit.
     """
-    from lsp.library import check_file
-
     out: list[CompletionCandidate] = []
-
-    for kw in COMPLETION_KEYWORDS:
-        out.append(CompletionCandidate(label=kw, kind="keyword"))
-    for kw in COMPLETION_CONSTANT_KEYWORDS:
-        out.append(CompletionCandidate(label=kw, kind="constant"))
-    for kw in COMPLETION_TYPE_KEYWORDS:
-        out.append(CompletionCandidate(label=kw, kind="type"))
-
-    result = check_file(path, content=content, prelude=prelude)
-    if result.ast is None:
-        return tuple(out)
-
     seen_labels: set[str] = set()
-    for cand in _collect_completion_names_from_ast(result.ast):
-        # Same name reachable through multiple imports collapses to
-        # one entry.  Order-preserving: user-file decls (walked first)
-        # win, then transitive-import duplicates are dropped.
+
+    def _add(cand: CompletionCandidate) -> None:
         if cand.label in seen_labels:
-            continue
+            return
         seen_labels.add(cand.label)
         out.append(cand)
 
+    for kw in COMPLETION_KEYWORDS:
+        _add(CompletionCandidate(label=kw, kind="keyword"))
+    for kw in COMPLETION_CONSTANT_KEYWORDS:
+        _add(CompletionCandidate(label=kw, kind="constant"))
+    for kw in COMPLETION_TYPE_KEYWORDS:
+        _add(CompletionCandidate(label=kw, kind="type"))
+
+    # Top-level names first.  The env walk below dedups against
+    # ``seen_labels``, so any name already surfaced as a constructor /
+    # theorem / function / ... isn't re-emitted as a generic
+    # ``variable`` -- the AST walk's kind is more specific.
+    from lsp.library import check_file
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ast is not None:
+        for cand in _collect_completion_names_from_ast(result.ast):
+            _add(cand)
+
+    env, goal = _completion_env_and_goal(path, content, pos, prelude)
+
+    if env is not None:
+        matching: set[str] = set()
+        if goal is not None:
+            try:
+                matching = set(_matching_given_names(goal, env))
+            except Exception:
+                # Implication checks can raise on partially-populated
+                # env state.  Treat any failure as "no boost" rather
+                # than dropping local-binding candidates altogether.
+                matching = set()
+        for cand in _local_completion_candidates(env, seen=seen_labels):
+            if cand.label in matching:
+                cand = _bump_priority(cand, 0)
+            _add(cand)
+
     return tuple(out)
+
+
+def _completion_env_and_goal(
+    path: str, content: str, pos: Position, prelude: Sequence[str],
+) -> tuple:
+    """Return ``(env, goal)`` visible at ``pos``, or ``(None, None)``.
+
+    Two paths:
+
+    - Cursor on an existing ``?``: run :func:`check_file` on the
+      original content with the hole targeted, read both fields off
+      the ``IncompleteProof`` exception.
+    - Anywhere else: scan backward over identifier characters to find
+      the start of any partial identifier the user is typing, strip
+      it, insert a synthetic ``?`` at the adjusted position, run
+      :func:`check_file` against the modified content.  ``goal`` is
+      returned alongside the env even though callers usually only
+      care about it in the existing-hole case -- the synthetic-hole
+      branch sets it to whatever goal happens to be visible at that
+      point, which is fine for the matching-given priority boost.
+    """
+    from lsp.library import check_file
+
+    existing = _find_hole_at(content, pos)
+    if existing is not None:
+        target = (existing.start.line, existing.start.column)
+        with _target_hole(target):
+            result = check_file(path, content=content, prelude=prelude)
+        if result.ok:
+            return (None, None)
+        exc = result.exception
+        return (getattr(exc, "env", None), getattr(exc, "formula", None))
+
+    stripped = _strip_partial_word(content, pos)
+    if stripped is None:
+        return (None, None)
+    adjusted_content, adjusted_pos = stripped
+    inserted = _insert_hole(adjusted_content, adjusted_pos)
+    if inserted is None:
+        return (None, None)
+    modified, hole_pos = inserted
+    target = (hole_pos.line, hole_pos.column)
+    with _target_hole(target):
+        result = check_file(path, content=modified, prelude=prelude)
+    if result.ok:
+        return (None, None)
+    exc = result.exception
+    return (getattr(exc, "env", None), getattr(exc, "formula", None))
+
+
+def _is_completion_ident_char(c: str) -> bool:
+    """True iff ``c`` is a continuation character of a Deduce
+    identifier.  Mirrors the ``wordPattern`` in
+    ``editor/vscode/language-configuration.json``: ASCII alphanumerics,
+    underscore, prime, bang, query, and Unicode subscript digits
+    ``₀-₉``.
+    """
+    if c.isalnum():
+        return True
+    if c in ("_", "'", "!", "?"):
+        return True
+    if "₀" <= c <= "₉":
+        return True
+    return False
+
+
+def _strip_partial_word(content: str, pos: Position) -> Optional[tuple]:
+    """Return ``(content with partial word at pos removed, adjusted_pos)``.
+
+    Scans backward from the cursor over identifier characters and
+    drops them from the buffer, returning the adjusted ``Position``
+    of the word's start.  When the cursor isn't sitting just after an
+    identifier (blank line, between tokens) returns ``(content, pos)``
+    unchanged.  ``None`` when ``pos`` is out of range.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return None
+    word_start = offset
+    while word_start > 0 and _is_completion_ident_char(content[word_start - 1]):
+        word_start -= 1
+    if word_start == offset:
+        return (content, pos)
+    stripped = content[:word_start] + content[offset:]
+    prefix = content[:word_start]
+    line_no = prefix.count("\n") + 1
+    last_nl = prefix.rfind("\n")
+    col = word_start - (last_nl + 1) + 1 if last_nl >= 0 else word_start + 1
+    return (stripped, Position(line=line_no, column=col))
+
+
+def _local_completion_candidates(env, seen: set):
+    """Yield :class:`CompletionCandidate` items for in-scope bindings
+    in ``env`` whose base name isn't already in ``seen``.
+
+    Walks ``env.dict`` for ``ProofBinding`` (kind ``"label"``) and
+    ``TermBinding`` (kind ``"variable"``).  The ``local`` flag on
+    ``TermBinding`` is *module visibility*, not lexical scope, so we
+    can't use it to distinguish hypothesis-bound names like the ``n``
+    from ``arbitrary n:Nat`` from imported top-level decls.  Instead we
+    let the AST walker run first and pass its ``seen`` set in, so
+    every top-level name (theorem / define / union / constructor /
+    function / predicate / rule / imported lemma) is already in
+    ``seen`` by the time we get here -- the env walk only contributes
+    *new* names, which by elimination are lexically local.
+
+    ``ProofBinding`` has a real lexical-scope marker (the existing
+    ``local`` flag, set by ``declare_local_proof_var``); we use it as
+    an extra correctness check, though in practice dedup against
+    ``seen`` would catch the same cases.
+    """
+    from abstract_syntax import ProofBinding, TermBinding, base_name
+
+    for unique_name, binding in env.dict.items():
+        name = base_name(unique_name)
+        if name in seen:
+            continue
+        if isinstance(binding, ProofBinding):
+            if not binding.local:
+                continue
+            yield CompletionCandidate(
+                label=name,
+                kind="label",
+                detail=f"{name}: {binding.formula}",
+            )
+        elif isinstance(binding, TermBinding):
+            type_str = str(binding.typ) if binding.typ is not None else ""
+            yield CompletionCandidate(
+                label=name,
+                kind="variable",
+                detail=f"{name}: {type_str}" if type_str else None,
+            )
+
+
+def _bump_priority(cand: CompletionCandidate, priority: int) -> CompletionCandidate:
+    """Return a copy of ``cand`` with ``priority`` overridden.
+    ``CompletionCandidate`` is frozen, so we can't mutate in place.
+    """
+    return CompletionCandidate(
+        label=cand.label,
+        kind=cand.kind,
+        detail=cand.detail,
+        priority=priority,
+    )
 
 
 def _collect_completion_names_from_ast(ast_nodes, _seen=None):

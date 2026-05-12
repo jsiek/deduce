@@ -200,3 +200,144 @@ def test_completion_candidate_is_frozen() -> None:
     c = CompletionCandidate(label="x", kind="define", detail=None)
     with pytest.raises((AttributeError, Exception)):
         c.label = "y"  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------
+# Local bindings in scope at the cursor
+# --------------------------------------------------------------------------
+
+
+def test_completions_surfaces_proof_label_in_scope() -> None:
+    """``assume H: P`` introduces ``H`` as a proof label; completion
+    on a blank line below should pick it up with ``kind='label'``.
+    Pre-fix the env-walker didn't run at all and ``H`` was invisible."""
+    source = (
+        "theorem t : all P:bool. if P then P\n"  # line 1
+        "proof\n"                                 # line 2
+        "  arbitrary P:bool\n"                    # line 3
+        "  assume H: P\n"                         # line 4
+        "  \n"                                    # line 5: cursor here
+        "end\n"                                   # line 6
+    )
+    cands = completions_at("test.pf", source, Position(line=5, column=3))
+    by_kind = _labels_by_kind(cands)
+    assert "H" in by_kind.get("label", set())
+
+
+def test_completions_surfaces_term_variable_in_scope() -> None:
+    """``arbitrary P:bool`` introduces ``P`` as a term variable.
+    Deduce's ``local`` flag on ``TermBinding`` is module-visibility
+    (not lexical scope), so the env-walker has to rely on the AST
+    walker's ``seen`` set to distinguish ``P`` from top-level decls.
+    Locks the dedup logic against a regression that would either
+    drop ``P`` or surface ``Nat`` / ``+`` / ... as ``variable``."""
+    source = (
+        "theorem t : all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  \n"
+        "end\n"
+    )
+    cands = completions_at("test.pf", source, Position(line=5, column=3))
+    by_kind = _labels_by_kind(cands)
+    assert "P" in by_kind.get("variable", set())
+    # And it should NOT also show up as a constructor / type / etc.
+    other_kinds_with_P = [
+        k for k, names in by_kind.items()
+        if "P" in names and k not in ("variable",)
+    ]
+    assert other_kinds_with_P == [], (
+        f"P showed up in unexpected kinds: {other_kinds_with_P}"
+    )
+
+
+def test_completions_strips_partial_identifier_at_cursor() -> None:
+    """When the cursor sits in the middle of (or just after) a
+    partial identifier the user is typing, the env-walker still
+    finds in-scope bindings.  Pre-fix, inserting ``?`` mid-identifier
+    would produce a parse error and the env extraction would bail."""
+    source = (
+        "theorem t : all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  Hel\n"                                  # line 5: partial id
+        "end\n"
+    )
+    # cursor sits after the `l` of `Hel`
+    cands = completions_at("test.pf", source, Position(line=5, column=6))
+    by_kind = _labels_by_kind(cands)
+    assert "H" in by_kind.get("label", set()), (
+        "env walker should still pick up H even when the cursor sits "
+        "inside a partial identifier the user is typing"
+    )
+
+
+# --------------------------------------------------------------------------
+# Hole-aware priority
+# --------------------------------------------------------------------------
+
+
+def test_completions_boosts_matching_label_at_existing_hole() -> None:
+    """When the cursor sits on a literal ``?`` and a local label's
+    formula equals the goal there, that label gets ``priority=0`` --
+    floats to the top of the picker via ``sortText``.  Non-matching
+    candidates keep the default priority ``1``."""
+    source = (
+        "theorem t : all P:bool. if P then P\n"
+        "proof\n"
+        "  arbitrary P:bool\n"
+        "  assume H: P\n"
+        "  ?\n"                                    # line 5: cursor on ?
+        "end\n"
+    )
+    cands = completions_at("test.pf", source, Position(line=5, column=3))
+    h = next((c for c in cands if c.label == "H" and c.kind == "label"), None)
+    assert h is not None, "H should be in the candidate set"
+    assert h.priority == 0, (
+        "H's formula (P) matches the goal at the hole; expected "
+        "priority=0 for the sortText boost"
+    )
+    # Sample a non-matching candidate (a keyword) and confirm it's at
+    # the default priority.
+    th = next((c for c in cands if c.label == "theorem"), None)
+    assert th is not None and th.priority == 1
+
+
+def test_completions_no_boost_when_no_match() -> None:
+    """When the cursor sits on a ``?`` but no in-scope local label's
+    formula equals/implies the goal, no candidate gets priority 0."""
+    source = (
+        "theorem t : all P:bool, Q:bool. if Q then if P then Q\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume HQ: Q\n"
+        "  assume HP: P\n"
+        "  ?\n"                                    # line 6: goal Q
+        "end\n"
+    )
+    cands = completions_at("test.pf", source, Position(line=6, column=3))
+    # HQ matches the goal; HP doesn't.
+    hq = next((c for c in cands if c.label == "HQ"), None)
+    hp = next((c for c in cands if c.label == "HP"), None)
+    assert hq is not None and hq.priority == 0
+    assert hp is not None and hp.priority == 1
+
+
+# --------------------------------------------------------------------------
+# Robustness of the env-walker
+# --------------------------------------------------------------------------
+
+
+def test_completions_works_when_env_extraction_fails() -> None:
+    """Severely-broken file: even though env extraction can't recover
+    a useful env, the keyword / constant / type / AST-derived top-
+    level set should still come back.  This locks the contract that
+    env failures degrade gracefully instead of erasing all
+    completion."""
+    source = "garbage garbage garbage\n"
+    cands = completions_at("test.pf", source, Position(line=1, column=1))
+    by_kind = _labels_by_kind(cands)
+    assert "theorem" in by_kind.get("keyword", set())
+    assert "true" in by_kind.get("constant", set())

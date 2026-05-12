@@ -414,6 +414,8 @@ _COMPLETION_KIND_MAP = {
     "define": lsp_types.CompletionItemKind.Variable,
     "union": lsp_types.CompletionItemKind.Class,
     "constructor": lsp_types.CompletionItemKind.Constructor,
+    "label": lsp_types.CompletionItemKind.Variable,
+    "variable": lsp_types.CompletionItemKind.Variable,
 }
 
 
@@ -424,13 +426,14 @@ _COMPLETION_KIND_MAP = {
 def on_completion(
     ls: LanguageServer, params: lsp_types.CompletionParams
 ) -> Optional[lsp_types.CompletionList]:
-    """In-buffer completion.  Returns keywords plus every top-level
-    name reachable from the file (own declarations + transitive
-    imports), letting the client filter by the typed prefix.
+    """In-buffer completion.  Returns keywords + every top-level name
+    reachable from the file (own declarations + transitive imports) +
+    in-scope local bindings (proof labels and term variables visible
+    at the cursor), letting the client filter by the typed prefix.
 
-    Local bindings (``arbitrary`` / ``assume`` / ``obtain``) are not
-    yet surfaced -- that needs an env walker for arbitrary cursor
-    positions.  Tracked as a follow-up to Step 31.
+    When the cursor sits on an existing ``?`` and a goal is visible,
+    labels whose formula equals or implies the goal sort first via
+    ``sortText`` (priority 0); everything else sorts at priority 1.
     """
     uri = params.text_document.uri
     content = _document_content(ls, uri)
@@ -446,6 +449,12 @@ def on_completion(
             label=c.label,
             kind=_COMPLETION_KIND_MAP.get(c.kind, lsp_types.CompletionItemKind.Text),
             detail=c.detail,
+            # Encode the query-side priority as the LSP ``sortText''
+            # field.  Clients sort lexicographically by it, so priority
+            # 0 (matching-goal labels) come before priority 1 (everyone
+            # else).  Appending the label keeps within-priority order
+            # alphabetical.
+            sort_text=f"{c.priority}{c.label}",
         )
         for c in candidates
     ]
