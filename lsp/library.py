@@ -27,9 +27,15 @@ checks produce reproducible names *and* never collide with
 prelude-cached names.
 
 ``proof_checker.name_id`` (its own counter, used post-uniquify
-for synthesis paths) is still a process-monotonic global; Steps 13
-and 14 may give it the same treatment if cache keys end up
-depending on those names.
+for synthesis paths -- predicate desugaring, induction/switch
+fresh labels) is captured the same way as the tracked containers
+and restored between calls.  Without this, two checks of the same
+source would produce different suffixes for ``EvenDeriv.<id>`` /
+``D_<rule>.<id>`` / etc. -- which would survive the per-statement
+cache only because ``_hash_ast`` is memoised on the pre-decl AST
+node, and any future change that recomputes the hash post-decl
+would silently invalidate the cache for every predicate-using
+module.  Issue #368.
 """
 
 from __future__ import annotations
@@ -379,9 +385,8 @@ def _check_file_impl(
 # state we capture once and restore between calls. The uniquify
 # counter is *not* in this list -- it's now an explicit
 # ``UniquifyContext`` (Step 12) managed via ``_post_prelude_ctx``
-# below.  ``proof_checker.name_id`` is still a process-monotonic
-# global; if a future change adds a new container that contributes
-# to per-call results, it goes here.
+# below.  ``proof_checker.name_id`` is *also* not in this list --
+# it's a scalar and lives in ``_TRACKED_SCALARS`` below.
 _TRACKED_CONTAINERS: tuple[tuple[Any, str], ...] = (
     (_abstract_syntax, "uniquified_modules"),
     (_abstract_syntax, "_predicate_decls_by_unique_name"),
@@ -394,6 +399,18 @@ _TRACKED_CONTAINERS: tuple[tuple[Any, str], ...] = (
     (_proof_checker, "dirty_files"),
 )
 
+# Module-level scalar counters in the pipeline whose post-prelude
+# value we capture and restore between calls.  Scalars are handled
+# separately from containers because they aren't ``.clear()``-able
+# -- restore is a plain ``setattr``.  ``proof_checker.name_id`` is
+# the fresh-name counter consumed during predicate desugaring,
+# induction / switch fresh-label generation, and the rest of the
+# post-uniquify synthesis paths.  Snapshotting it keeps the
+# post-decl AST reproducible across calls (issue #368).
+_TRACKED_SCALARS: tuple[tuple[Any, str], ...] = (
+    (_proof_checker, "name_id"),
+)
+
 # The prelude key (tuple of module names) that the snapshot below was
 # captured for. ``None`` until the first ``check_file`` call.
 _prelude_key: Optional[tuple[str, ...]] = None
@@ -401,6 +418,11 @@ _prelude_key: Optional[tuple[str, ...]] = None
 # Snapshot of ``_TRACKED_CONTAINERS`` taken right after the prelude
 # load. Each entry is a fresh shallow copy of the live container.
 _prelude_snapshot: Optional[dict[tuple[str, str], Any]] = None
+
+# Snapshot of ``_TRACKED_SCALARS`` taken right after the prelude
+# load.  Each entry is the captured scalar value (an int for the
+# fresh-name counter).
+_prelude_scalars: Optional[dict[tuple[str, str], Any]] = None
 
 # Post-prelude ``UniquifyContext`` baseline. After the prelude has
 # been uniquified, its counter records the highest id allocated.
@@ -423,10 +445,11 @@ def _prepare_state(prelude_key: tuple[str, ...]) -> None:
     snapshot. The prelude reload is the expensive part (~3s for the
     full stdlib); restore is a handful of dict/set copies.
     """
-    global _prelude_key, _prelude_snapshot, _post_prelude_ctx
+    global _prelude_key, _prelude_snapshot, _prelude_scalars, _post_prelude_ctx
 
     if _prelude_snapshot is not None and _prelude_key == prelude_key:
         _restore_containers(_prelude_snapshot)
+        _restore_scalars(_prelude_scalars)
         return
 
     _clear_containers()
@@ -446,6 +469,7 @@ def _prepare_state(prelude_key: tuple[str, ...]) -> None:
         )
     _prelude_key = prelude_key
     _prelude_snapshot = _capture_containers()
+    _prelude_scalars = _capture_scalars()
     _post_prelude_ctx = bootstrap_ctx.snapshot()
 
 
@@ -479,6 +503,22 @@ def _restore_containers(snapshot: dict[tuple[str, str], Any]) -> None:
                 f"unexpected container type for {module.__name__}.{attr}: "
                 f"{type(live).__name__}"
             )
+
+
+def _capture_scalars() -> dict[tuple[str, str], Any]:
+    """Capture the current value of each tracked scalar."""
+    snap: dict[tuple[str, str], Any] = {}
+    for module, attr in _TRACKED_SCALARS:
+        snap[(module.__name__, attr)] = getattr(module, attr)
+    return snap
+
+
+def _restore_scalars(snapshot: Optional[dict[tuple[str, str], Any]]) -> None:
+    """Re-bind each tracked scalar to its captured value."""
+    if snapshot is None:
+        return
+    for module, attr in _TRACKED_SCALARS:
+        setattr(module, attr, snapshot[(module.__name__, attr)])
 
 
 def _clear_containers() -> None:
@@ -518,8 +558,9 @@ def reset_prelude_cache() -> None:
     scratch. Used by the test suite to test the bootstrap path and by
     long-running daemons that want to pick up changes to ``lib/``.
     """
-    global _prelude_key, _prelude_snapshot, _post_prelude_ctx
+    global _prelude_key, _prelude_snapshot, _prelude_scalars, _post_prelude_ctx
     _prelude_key = None
     _prelude_snapshot = None
+    _prelude_scalars = None
     _post_prelude_ctx = None
     _clear_containers()
