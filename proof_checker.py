@@ -2133,6 +2133,39 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     # print('}}}')
     return ret
 
+def overload_mismatch_annotation(loc, overload_funty, arg_types, ret_ty):
+  """Return a short annotation explaining why this overload doesn't fit, or
+  ``None`` if neither side matches (in which case the bare overload type is
+  already informative on its own). The annotation distinguishes the two
+  common confusing cases: arguments line up but the return type is wrong,
+  or vice versa."""
+  match overload_funty:
+    case FunctionType(_, typarams, param_types, return_type):
+      type_params = type_names(loc, typarams)
+      args_match = (len(param_types) == len(arg_types))
+      if args_match:
+        m = {}
+        try:
+          for (pt, at) in zip(param_types, arg_types):
+            type_match(loc, type_params, pt, at, m)
+        except MatchFailed:
+          args_match = False
+      ret_matches = True
+      if ret_ty is not None:
+        m = {}
+        try:
+          type_match(loc, type_params, return_type, ret_ty, m)
+        except MatchFailed:
+          ret_matches = False
+      if args_match and ret_ty is not None and not ret_matches:
+        return 'argument types match, but result type ' + str(return_type) \
+               + " doesn't match expected " + str(ret_ty)
+      if ret_ty is not None and ret_matches and not args_match:
+        return "result type matches, but argument types don't"
+      return None
+    case _:
+      return None
+
 def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, call):
   if get_verbose():
       print('tc_call_helper(' + str(call) + ') rator type: ' + str(new_rator.typeof))
@@ -2161,11 +2194,18 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
                 pass
       if num_matches == 0:
           arg_types = [type_synth_term(arg, env, None, []).typeof for arg in args]
-          user_error(loc, 'could not find a match for function call:\n\t' \
-                + str(call) + '\n'\
-                + 'argument types: ' + ', '.join([str(t) for t in arg_types]) + '\n'\
-                + 'overloads:\n\t' \
-                + '\n\t'.join([str(ty) for (x,ty) in overloads]))
+          msg = 'could not find a match for function call:\n\t' \
+                + str(call) + '\n' \
+                + 'argument types: ' + ', '.join([str(t) for t in arg_types]) + '\n'
+          if ret_ty is not None:
+              msg += 'expected return type: ' + str(ret_ty) + '\n'
+          msg += 'overloads:'
+          for (x, ty) in overloads:
+              annotation = overload_mismatch_annotation(loc, ty, arg_types, ret_ty)
+              msg += '\n\t' + str(ty)
+              if annotation is not None:
+                  msg += '   <-- ' + annotation
+          user_error(loc, msg)
       elif num_matches > 1:
           user_error(loc, 'in call to ' + str(new_rator) + '\n'\
                 + 'ambiguous overloads:\n' \
