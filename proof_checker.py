@@ -4886,7 +4886,7 @@ def match_induction_conjuncts(frm, fun, fun_ty, ind_ty):
       
       return conjuncts
     case _:
-      user_error(frm.location, f"Invalid form for inductive declaration theorem. \
+      user_error(frm.location, "Invalid form for inductive declaration theorem. \
             Inductive theorems should be of the form: \n\t \
             all P : fn T -> bool. if prem then all x : T. P(x)")
 

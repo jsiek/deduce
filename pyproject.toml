@@ -1,0 +1,48 @@
+[project]
+name = "deduce"
+version = "0.0.0"
+description = "Proof checker and small functional language for teaching logic"
+# The code uses Python 3.12 f-string syntax (PEP 701: quote reuse and
+# backslash escapes inside f-strings), so 3.12 is the real floor; CI and
+# the Makefile use 3.13.
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = [
+    "lark==1.2.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/jsiek/deduce"
+Documentation = "https://jsiek.github.io/deduce/"
+
+[tool.ruff]
+target-version = "py313"
+exclude = [
+    "__pycache__",
+    "tmp",
+    "lark",
+    "editor",
+    "live_code_vercel_api",
+    "autograder_docker",
+    "gh_pages/pages",
+    "gh_pages/deduce-code",
+]
+
+[tool.ruff.lint]
+# Narrow starting ruleset: the pyflakes rules that pass cleanly today and
+# catch real bugs (undefined names, duplicate dict keys, redefined symbols,
+# stray f-strings). Other pyflakes rules (F401 unused-import, F403/F405
+# star-import side-effects, F841 unused-locals) are deliberately deferred
+# until the codebase is incrementally cleaned up. See issue #472.
+select = ["F541", "F601", "F811", "F821"]
+
+[tool.mypy]
+# Relaxed starter config. The proof-checker core (~11k LOC) is largely
+# untyped today; turning on --strict at the project level would produce
+# thousands of errors. The plan in #472 is to declare per-module overrides
+# and tighten one module at a time.
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+warn_redundant_casts = true
+no_implicit_optional = true

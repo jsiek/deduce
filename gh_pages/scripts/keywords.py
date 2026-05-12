@@ -77,7 +77,6 @@ known_tokens = {
     'MORETHAN': 'operator',
     'NOT': 'keyword',
     'NAT': 'keyword',
-    'PUBLIC': 'keyword',
     'OBTAIN': 'keyword',
     'OF': 'keyword',
     'OPAQUE': 'keyword',
