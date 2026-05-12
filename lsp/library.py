@@ -138,6 +138,7 @@ def check_file(
     content: Optional[str] = None,
     collect_errors: bool = False,
     debugger=None,
+    prewarm_modules: Sequence[str] = (),
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
 
@@ -171,6 +172,17 @@ def check_file(
                             ``lsp.query.check`` opts in to this so
                             every error in the buffer becomes its own
                             editor diagnostic.
+        prewarm_modules:    Module names to pre-load into the
+                            ``uniquified_modules`` cache during prelude
+                            bootstrap, but **not** prepended as imports
+                            to ``filename``. Useful for batch test
+                            runners where many files independently
+                            ``import`` a fixed set of library modules:
+                            paying the parse+uniquify once amortises
+                            across the whole batch, while keeping the
+                            user-visible import surface identical to
+                            ``--no-stdlib`` semantics. Becomes part of
+                            the prelude cache key alongside ``prelude``.
         debugger:           When given, attached to the active session
                             via ``flags.set_debugger`` for the user
                             file's check_proofs / reduce hooks (Phase
@@ -193,6 +205,7 @@ def check_file(
         return _check_file_locked(
             filename, tracing_functions, prelude, content,
             collect_errors=collect_errors, debugger=debugger,
+            prewarm_modules=prewarm_modules,
         )
 
 
@@ -203,13 +216,14 @@ def _check_file_locked(
     content: Optional[str],
     collect_errors: bool,
     debugger,
+    prewarm_modules: Sequence[str] = (),
 ) -> CheckResult:
     """Body of ``check_file``, run under the global pipeline lock."""
     # Prelude bootstrap runs without a debugger attached -- the user
     # asked to step through their own file, not lib/.  Phase 5 plan
     # rationale: this is the only sensible default and avoids PR #269's
     # "first prelude statement traps" bug in long-lived daemons.
-    _prepare_state(tuple(prelude))
+    _prepare_state(tuple(prelude), tuple(prewarm_modules))
     # Each user-file check forks a fresh ctx from the post-prelude
     # baseline so successive checks produce reproducible names.  See
     # ``UniquifyContext`` and the ``_post_prelude_ctx`` machinery
@@ -411,9 +425,13 @@ _TRACKED_SCALARS: tuple[tuple[Any, str], ...] = (
     (_proof_checker, "name_id"),
 )
 
-# The prelude key (tuple of module names) that the snapshot below was
-# captured for. ``None`` until the first ``check_file`` call.
-_prelude_key: Optional[tuple[str, ...]] = None
+# The cache key (prelude tuple, prewarm tuple) the snapshot below was
+# captured for. ``None`` until the first ``check_file`` call. The
+# prewarm half is the set of modules pre-loaded into
+# ``uniquified_modules`` without being injected as imports -- batch
+# test runners use this to amortise lib parsing across a sweep while
+# keeping per-file import semantics intact.
+_prelude_key: Optional[tuple[tuple[str, ...], tuple[str, ...]]] = None
 
 # Snapshot of ``_TRACKED_CONTAINERS`` taken right after the prelude
 # load. Each entry is a fresh shallow copy of the live container.
@@ -433,21 +451,28 @@ _prelude_scalars: Optional[dict[tuple[str, str], Any]] = None
 _post_prelude_ctx: Optional[UniquifyContext] = None
 
 
-def _prepare_state(prelude_key: tuple[str, ...]) -> None:
+def _prepare_state(
+    prelude_key: tuple[str, ...],
+    prewarm_key: tuple[str, ...] = (),
+) -> None:
     """Make the global pipeline state ready for a fresh check.
 
-    First time we see ``prelude_key`` (or any time it changes): clear
-    every tracked container, run the prelude through the pipeline so
-    the lib modules end up cached in ``uniquified_modules`` /
-    ``checked_modules``, then take a snapshot.
+    First time we see ``(prelude_key, prewarm_key)`` (or any time
+    either changes): clear every tracked container, run the prelude
+    through the pipeline so the lib modules end up cached in
+    ``uniquified_modules`` / ``checked_modules``, optionally pre-load
+    any ``prewarm_key`` modules into the same cache (without
+    injecting them as imports into the user buffer), then take a
+    snapshot.
 
-    On subsequent calls with the same prelude key: just restore the
+    On subsequent calls with the same key: just restore the
     snapshot. The prelude reload is the expensive part (~3s for the
     full stdlib); restore is a handful of dict/set copies.
     """
     global _prelude_key, _prelude_snapshot, _prelude_scalars, _post_prelude_ctx
 
-    if _prelude_snapshot is not None and _prelude_key == prelude_key:
+    cache_key = (prelude_key, prewarm_key)
+    if _prelude_snapshot is not None and _prelude_key == cache_key:
         _restore_containers(_prelude_snapshot)
         _restore_scalars(_prelude_scalars)
         return
@@ -467,7 +492,23 @@ def _prepare_state(prelude_key: tuple[str, ...]) -> None:
             content="",
             ctx=bootstrap_ctx,
         )
-    _prelude_key = prelude_key
+    # Pre-warm phase: load each prewarm module into ``uniquified_modules``
+    # by uniquifying a buffer that imports it.  We feed them one at a
+    # time so dependency order doesn't matter -- each ``import`` chases
+    # its own dependencies via the cache mechanism.  The bootstrap env
+    # is discarded, so the prewarm imports don't show up at the
+    # user-file check site.
+    for name in prewarm_key:
+        if name in _abstract_syntax.uniquified_modules:
+            continue
+        _check_file_impl(
+            filename="__prewarm__.pf",
+            tracing_functions=(),
+            prelude=(name,),
+            content="",
+            ctx=bootstrap_ctx,
+        )
+    _prelude_key = cache_key
     _prelude_snapshot = _capture_containers()
     _prelude_scalars = _capture_scalars()
     _post_prelude_ctx = bootstrap_ctx.snapshot()

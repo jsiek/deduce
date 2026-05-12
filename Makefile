@@ -6,11 +6,21 @@ TEST_ERROR_DIR = ./test/should-error
 TEST_IMPORT_DIR = ./test/test-imports
 EXAMPLES_DIR = ./examples
 
-default: tests-tokens tests tests-lib
+default: tests-tokens tests
 
 tests-tokens:
 	$(PYTHON) ./gh_pages/scripts/keywords.py
 
+# Fast parallel in-process sweep. Matches the coverage of
+# ``test-deduce.py`` default mode (lib + should-validate + test/prelude
+# + should-error with ``.err`` diff), runs ~15x faster by paying the
+# prelude bootstrap once in the parent and forking worker processes
+# that inherit the populated AST cache via copy-on-write.
+tests:
+	$(PYTHON) tools/test_runner_inproc.py
+
+# Per-category targets kept for granular debugging; ``make tests``
+# above is the fast all-in-one entry point.
 tests-should-validate:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_PASS_DIR) --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
 	$(PYTHON) ./deduce.py --lalr $(TEST_PASS_DIR) --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
@@ -19,11 +29,9 @@ tests-should-error:
 	$(PYTHON) ./deduce.py --recursive-descent $(TEST_ERROR_DIR) --error --dir $(LIB_DIR)
 	$(PYTHON) ./deduce.py --lalr $(TEST_ERROR_DIR) --error --dir $(LIB_DIR)
 
-tests-lib: 
+tests-lib:
 	$(PYTHON) ./deduce.py ./lib --recursive-descent --dir $(LIB_DIR)
 	$(PYTHON) ./deduce.py ./lib --lalr --dir $(LIB_DIR)
-
-tests: tests-should-validate tests-should-error
 
 tests-examples:
 	$(PYTHON) ./deduce.py --recursive-descent $(EXAMPLES_DIR)
