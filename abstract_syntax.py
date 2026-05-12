@@ -333,10 +333,7 @@ class Declaration(AST):
 
 @dataclass
 class IntType(Type):
-    
-  def copy(self):
-    return IntType(self.location)
-  
+
   def __str__(self):
     return 'int'
 
@@ -346,17 +343,9 @@ class IntType(Type):
   def free_vars(self) -> Set[str]:
     return set()
 
-  def substitute(self, sub) -> Type:
-    return self
-
-  def uniquify(self, env, ctx):
-    return self
-
 @dataclass
 class BoolType(Type):
-  def copy(self):
-    return BoolType(self.location)
-  
+
   def __str__(self):
     return 'bool'
 
@@ -366,20 +355,9 @@ class BoolType(Type):
   def free_vars(self):
     return set()
 
-  def substitute(self, sub):
-    return self
-
-  def uniquify(self, env, ctx):
-    return self
-
-  def reduce(self, env):
-    return self
-
 @dataclass
 class TypeType(Type):
-  def copy(self):
-    return TypeType(self.location)
-  
+
   def __str__(self):
     return 'type'
 
@@ -388,15 +366,6 @@ class TypeType(Type):
 
   def free_vars(self):
     return set()
-
-  def substitute(self, sub):
-    return self
-
-  def uniquify(self, env, ctx):
-    return self
-
-  def reduce(self, env):
-    return self
 
 @dataclass
 class OverloadType(Type):
@@ -420,30 +389,12 @@ class OverloadType(Type):
     fvs = [t.free_vars() for (x,t) in self.types]
     return set().union(*fvs)
 
-  def substitute(self, sub):
-      return OverloadType(self.location, [(x, t.substitute(sub)) \
-                                          for (x,t) in self.types])
 
-    
-  def uniquify(self, env, ctx):
-    return OverloadType(self.location,
-                        [(x, t.uniquify(env, ctx)) for (x,t) in self.types])
-
-  def reduce(self, env):
-    return OverloadType(self.location, [(x, ty.reduce(env)) for (x,ty) in self.types])
-      
-    
 @dataclass
 class FunctionType(Type):
   type_params: List[str]
   param_types: List[Type]
   return_type: Type
-
-  def copy(self):
-    return FunctionType(self.location,
-                        [p for p in self.type_params],
-                        [ty.copy() for ty in self.param_types],
-                        self.return_type.copy())
 
   def __str__(self):
     if len(self.type_params) > 0:
@@ -468,13 +419,6 @@ class FunctionType(Type):
       + [self.return_type.free_vars()]
     return set().union(*fvs) - set(self.type_params)
 
-  def substitute(self, sub):
-      n = len(self.type_params)
-      new_sub = {k:v for (k,v) in sub.items() }
-      return FunctionType(self.location, self.type_params,
-                          [pt.substitute(new_sub) for pt in self.param_types],
-                          self.return_type.substitute(new_sub))
-    
   def uniquify(self, env, ctx):
     body_env = {x:y for (x,y) in env.items()}
     new_type_params = [generate_name(t, ctx) for t in self.type_params]
@@ -485,17 +429,9 @@ class FunctionType(Type):
     return FunctionType(self.location, new_type_params,
                         new_param_types, new_return_type)
 
-  def reduce(self, env):
-    return FunctionType(self.location, self.type_params,
-                        [ty.reduce(env) for ty in self.param_types],
-                        self.return_type.reduce(env))
-    
 @dataclass
 class ArrayType(Type):
   elt_type: Type
-  
-  def copy(self):
-    return ArrayType(self.location, self.elt_type.copy())
 
   def __str__(self):
     return '[' + str(self.elt_type) + ']'
@@ -510,25 +446,11 @@ class ArrayType(Type):
   def free_vars(self):
     return self.elt_type.free_vars()
 
-  def substitute(self, sub):
-    return ArrayType(self.location, self.elt_type.substitute(sub))
-
-  def uniquify(self, env, ctx):
-    return ArrayType(self.location, self.elt_type.uniquify(env, ctx))
-
-  def reduce(self, env):
-    return ArrayType(self.location, self.elt_type.reduce(env))
-      
 @dataclass
 class TypeInst(Type):
   typ: Type
   arg_types: List[Type]
 
-  def copy(self):
-    return TypeInst(self.location,
-                    self.typ.copy(),
-                    [ty.copy() for ty in self.arg_types])
-  
   def __str__(self):
     return str(self.typ) + \
       '<' + ','.join([str(arg) for arg in self.arg_types]) + '>'
@@ -546,29 +468,12 @@ class TypeInst(Type):
   def free_vars(self):
     return set().union(*[at.free_vars() for at in self.arg_types])
 
-  def substitute(self, sub):
-    return TypeInst(self.location, self.typ.substitute(sub),
-                    [ty.substitute(sub) for ty in self.arg_types])
-
-  def uniquify(self, env, ctx):
-    return TypeInst(self.location,
-                    self.typ.uniquify(env, ctx),
-                    [ty.uniquify(env, ctx) for ty in self.arg_types])
-
-  def reduce(self, env):
-    return TypeInst(self.location,
-                    self.typ.reduce(env),
-                    [ty.reduce(env) for ty in self.arg_types])
-      
 # This is the type of a constructor such as 'empty' of a generic union
 # when we do not yet know the type arguments.
 @dataclass
 class GenericUnknownInst(Type):
   typ: Type
 
-  def copy(self):
-    return GenericUnknownInst(self.location, self.typ.copy())
-  
   def __str__(self):
     return str(self.typ) + '<?>'
 
@@ -584,11 +489,12 @@ class GenericUnknownInst(Type):
   def free_vars(self):
     return set()
 
+  # The inner `typ` is the bare constructor name from a generic union
+  # whose type arguments haven't been resolved yet -- substituting
+  # through it would mistake the constructor for a substitutable
+  # variable. Hand-roll a no-op `substitute` to override the default.
   def substitute(self, sub):
     return self
-
-  def uniquify(self, env, ctx):
-    return GenericUnknownInst(self.location, self.typ.uniquify(env, ctx))
 
 def get_type_name(ty):
   if isinstance(ty, VarRef):
@@ -621,17 +527,11 @@ class PatternBool(Pattern):
   def __str__(self):
       return "true" if self.value else "false"
 
-  def uniquify(self, env, ctx):
-    return self
-
   def bindings(self):
     return []
 
   def with_bindings(self, new_bindings):
     return self
-
-  def reduce(self, env):
-      return self
 
 @dataclass
 class PatternCons(Pattern):
@@ -644,24 +544,12 @@ class PatternCons(Pattern):
   def with_bindings(self, params):
     return PatternCons(self.location, self.constructor, params)
 
-  def copy(self):
-    return PatternCons(self.location,
-                       self.constructor.copy(),
-                       [p for p in self.parameters])
-
   def __str__(self):
       if len(self.parameters) > 0:
         return str(self.constructor) \
           + '(' + ', '.join([base_name(p) for p in self.parameters]) + ')'
       else:
         return str(self.constructor)
-
-  def uniquify(self, env, ctx):
-    return PatternCons(self.location, self.constructor.uniquify(env, ctx),
-                       [p for p in self.parameters])
-
-  def reduce(self, env):
-    return self
 
 @dataclass
 class PatternTerm(Pattern):
@@ -674,18 +562,8 @@ class PatternTerm(Pattern):
   def with_bindings(self, params):
     return PatternTerm(self.location, self.term, params)
 
-  def copy(self):
-    return PatternTerm(self.location, self.term.copy(), [x for x in self.parameters])
-
   def __str__(self):
     return str(self.term)
-
-  def uniquify(self, env, ctx):
-    return PatternTerm(self.location, self.term.uniquify(env, ctx),
-                       [p for p in self.parameters])
-
-  def reduce(self, env):
-    return self
     
 ################ Terms ######################################
 
@@ -694,16 +572,11 @@ class Generic(Term):
   type_params: List[str]
   body: Term
 
-  def copy(self):
-    return Generic(self.location, self.typeof,
-                   [T for T in self.type_params],
-                   self.body.copy())
-  
   def __str__(self):
     return "generic " + ",".join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
       + " { " + str(self.body) + " }"
 
-  def pretty_print(self, indent, afterNewline=False):    
+  def pretty_print(self, indent, afterNewline=False):
     return (indent*' ' if afterNewline else '') \
         + 'generic ' + ', '.join([(t if get_verbose() else base_name(t)) for t in self.type_params]) \
       + ' {\n' + self.body.pretty_print(indent+2, True) + '\n' \
@@ -716,15 +589,6 @@ class Generic(Term):
              for (x,y) in zip(self.type_params, other.type_params) }
       new_body = self.body.substitute(ren)
       return new_body == other.body
-
-  def reduce(self, env):
-      return Generic(self.location, self.typeof, self.type_params,
-                     self.body.reduce(env))
-
-  def substitute(self, sub):
-      n = len(self.type_params)
-      new_sub = {k: v for (k,v) in sub.items()}
-      return Generic(self.location, self.subst_typeof(sub), self.type_params, self.body.substitute(new_sub))
 
   def uniquify(self, env, ctx):
     body_env = {x:y for (x,y) in env.items()}
@@ -741,11 +605,6 @@ class Conditional(Term):
   thn: Term
   els: Term
 
-  def copy(self):
-    return Conditional(self.location, self.typeof,
-                       self.cond.copy(),
-                       self.thn.copy(), self.els.copy())
-  
   def __str__(self):
       return '(if ' + str(self.cond) \
         + ' then ' + str(self.thn) \
@@ -756,12 +615,12 @@ class Conditional(Term):
           + self.thn.pretty_print(indent+2, True) + '\n'\
           + indent*' ' + 'else\n' \
           + self.els.pretty_print(indent+2, True)
-  
+
   def __eq__(self, other):
     if not isinstance(other, Conditional):
       return False
     return self.cond == other.cond and self.thn == other.thn and self.els == other.els
-    
+
   def reduce(self, env):
      cond = self.cond.reduce(env)
      if get_reduce_all():   # Does this work? Need to test!
@@ -782,16 +641,6 @@ class Conditional(Term):
              return els
            case _:
              return Conditional(self.location, self.typeof, cond, thn, els)
-  
-  def substitute(self, sub):
-    return Conditional(self.location, self.subst_typeof(sub), self.cond.substitute(sub),
-                       self.thn.substitute(sub), self.els.substitute(sub))
-  
-  def uniquify(self, env, ctx):
-    return Conditional(self.location, self.typeof,
-                       self.cond.uniquify(env, ctx),
-                       self.thn.uniquify(env, ctx),
-                       self.els.uniquify(env, ctx))
 
 
 @dataclass
@@ -799,24 +648,11 @@ class TAnnote(Term):
   subject: Term
   typ: Type
 
-  def copy(self):
-    return TAnnote(self.location, self.typeof, self.subject.copy(),
-                   self.typ.copy())
-  
   def __str__(self):
       return str(self.subject) + ':' + str(self.typ)
-    
+
   def reduce(self, env):
     return self.subject.reduce(env)
-  
-  def substitute(self, sub):
-    return TAnnote(self.location, self.subst_typeof(sub), self.subject.substitute(sub),
-                   self.typ.substitute(sub))
-  
-  def uniquify(self, env, ctx):
-    return TAnnote(self.location, self.typeof,
-                   self.subject.uniquify(env, ctx),
-                   self.typ.uniquify(env, ctx))
 
   def __eq__(self, other):
     return self.subject == other
@@ -1129,27 +965,15 @@ class ResolvedVar(VarRef):
 class Int(Term):
   value: int
 
-  def copy(self):
-    return Int(self.location, self.typeof, self.value)
-  
   def __eq__(self, other):
       if isinstance(other, TermInst):
         return self == other.subject
       elif not isinstance(other, Int):
           return False
       return self.value == other.value
-  
+
   def __str__(self):
     return str(self.value)
-
-  def reduce(self, env):
-      return self
-
-  def substitute(self, sub):
-      return self
-
-  def uniquify(self, env, ctx):
-    return self
 
 
 @dataclass
@@ -1157,11 +981,6 @@ class Lambda(Term):
   vars: List[Tuple[str,Type]]
   body: Term
 
-  def copy(self):
-    return Lambda(self.location, self.typeof,
-                 self.vars,
-                 self.body.copy())
-  
   def __str__(self):
     if get_unique_names():
       params = self.vars
@@ -1196,12 +1015,6 @@ class Lambda(Term):
       return ret
     else:
       return Lambda(self.location, self.typeof, self.vars, self.body.reduce(env))
-
-  def substitute(self, sub):
-      n = len(self.vars)
-      new_vars = [(x, t.substitute(sub) if t else None) for (x,t) in self.vars]
-      return Lambda(self.location, self.subst_typeof(sub), new_vars,
-                    self.body.substitute(sub))
 
   def uniquify(self, env, ctx):
     body_env = {x:y for (x,y) in env.items()}
@@ -1524,14 +1337,6 @@ class Call(Term):
   rator: Term
   args: list[Term]
 
-  def copy(self):
-    ret = Call(self.location, self.typeof,
-                self.rator.copy(),
-                [arg.copy() for arg in self.args])
-    if hasattr(self, 'type_args'):
-      ret.type_args = self.type_args
-    return ret
-
   def __str__(self):
     if is_infix_operator(self.rator) and len(self.args) >= 2:
       op_str = ' ' + operator_name(self.rator) + ' '
@@ -1764,33 +1569,13 @@ class Call(Term):
       return explicit_term_inst(flat_results[0])
     else:
       return Call(self.location, self.typeof, fun, flat_results)
-  
-  def substitute(self, sub):
-    ret = Call(self.location, self.subst_typeof(sub), self.rator.substitute(sub),
-                [arg.substitute(sub) for arg in self.args])
-    if hasattr(self, 'type_args'):
-      ret.type_args = self.type_args
-    return ret
-
-  def uniquify(self, env, ctx):
-    new_rator = self.rator.uniquify(env, ctx)
-    new_args = [a.uniquify(env, ctx) for a in self.args]
-    ret = Call(self.location, self.typeof, new_rator, new_args)
-    if hasattr(self, 'type_args'):
-      ret.type_args = self.type_args
-    return ret
 
 
 @dataclass
 class SwitchCase(AST):
   pattern: Pattern
   body: Term
-  
-  def copy(self):
-    return SwitchCase(self.location,
-                      self.pattern.copy(),
-                      self.body.copy())
-  
+
   def __str__(self):
       return 'case ' + str(self.pattern) + ' { ' + str(self.body) + ' }'
 
@@ -1798,17 +1583,6 @@ class SwitchCase(AST):
       return indent*' ' + 'case ' + str(self.pattern) + ' {\n' \
           + (indent+2)*' ' + str(self.body) + '\n'\
           + indent*' ' + '}'
-  
-  def reduce(self, env):
-      return SwitchCase(self.location,
-                        self.pattern.reduce(env),
-                        self.body.reduce(env))
-    
-  def substitute(self, sub):
-      new_sub = {k: v for (k,v) in sub.items()}
-      return SwitchCase(self.location,
-                        self.pattern,
-                        self.body.substitute(new_sub))
 
   def uniquify(self, env, ctx):
     new_pat = self.pattern.uniquify(env, ctx)
@@ -1842,17 +1616,12 @@ class SwitchCase(AST):
           and new_body == other.body
       case _:
         return False
-    
+
 @dataclass
 class Switch(Term):
   subject: Term
   cases: List[SwitchCase]
 
-  def copy(self):
-    return Switch(self.location, self.typeof,
-                  self.subject.copy(),
-                  [c.copy() for c in self.cases])
-  
   def __str__(self):
       return 'switch ' + str(self.subject) + ' { ' \
           + ' '.join([str(c) for c in self.cases]) \
@@ -1862,7 +1631,7 @@ class Switch(Term):
       return ('' if afterNewline else '\n') + indent*' '+ 'switch ' + str(self.subject) + ' {\n' \
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'\
           + indent*' ' + '}'
-  
+
   def reduce(self, env):
       new_subject = self.subject.reduce(env)
       for c in self.cases:
@@ -1886,16 +1655,6 @@ class Switch(Term):
             return ret
       ret = Switch(self.location, self.typeof, new_subject, self.cases)
       return ret
-  
-  def substitute(self, sub):
-      return Switch(self.location, self.subst_typeof(sub),
-                    self.subject.substitute(sub),
-                    [c.substitute(sub) for c in self.cases])
-
-  def uniquify(self, env, ctx):
-    return Switch(self.location, self.typeof,
-                  self.subject.uniquify(env, ctx),
-                  [c.uniquify(env, ctx) for c in self.cases])
 
   def __eq__(self, other):
     if not isinstance(other, Switch):
@@ -1918,13 +1677,7 @@ class TermInst(Term):
         and all([t1 == t2 for (t1,t2) in zip(self.type_args, other.type_args)])
     else:
       return self.subject == other
-  
-  def copy(self):
-    return TermInst(self.location, self.typeof,
-                    self.subject.copy(),
-                    [ty.copy() for ty in self.type_args],
-                    self.inferred)
-  
+
   def __str__(self):
     if self.inferred and not get_verbose():
       return str(self.subject)
@@ -1944,47 +1697,20 @@ class TermInst(Term):
         #                self.type_args, self.inferred)
         return TermInst(self.location, self.typeof, subject_red,
                         type_args_red, self.inferred)
-    
-  def substitute(self, sub):
-    return TermInst(self.location, self.subst_typeof(sub),
-                    self.subject.substitute(sub),
-                    [ty.substitute(sub) for ty in self.type_args],
-                    self.inferred)
-
-  def uniquify(self, env, ctx):
-    return TermInst(self.location, self.typeof,
-                    self.subject.uniquify(env, ctx),
-                    [ty.uniquify(env, ctx) for ty in self.type_args],
-                    self.inferred)
 
 @dataclass
 class Array(Term):
   elements: List[Term]
-  
+
   def __eq__(self, other):
     if isinstance(other, Array):
       return all([elt == other_elt for (elt, other_elt) in zip(self.elements,
                                                                other.elements)])
     else:
       return False
-  
-  def copy(self):
-    return Array(self.location, [elt.copy() for elt in self.elements])
-  
+
   def __str__(self):
     return 'array(' + ', '.join([str(elt) for elt in self.elements]) + ')'
-
-  def reduce(self, env):
-    return Array(self.location, self.typeof,
-                 [elt.reduce(env) for elt in self.elements])
-    
-  def substitute(self, sub):
-    return Array(self.location, self.subst_typeof(sub),
-                 [elt.substitute(sub) for elt in self.elements])
-                    
-  def uniquify(self, env, ctx):
-    return Array(self.location, self.typeof,
-                 [elt.uniquify(env, ctx) for elt in self.elements])
 
 @dataclass
 class MakeArray(Term):
@@ -1995,11 +1721,7 @@ class MakeArray(Term):
       return self.subject == other.subject
     else:
       return False
-  
-  def copy(self):
-    return MakeArray(self.location, self.typeof,
-                     self.subject.copy())
-  
+
   def __str__(self):
     return 'array(' + str(self.subject) + ')'
 
@@ -2010,13 +1732,6 @@ class MakeArray(Term):
       return Array(self.location, self.typeof, elements)
     else:
       return MakeArray(self.location, self.typeof, self.subject.reduce(env))
-    
-  def substitute(self, sub):
-    return MakeArray(self.location, self.subst_typeof(sub),
-                    self.subject.substitute(sub))
-
-  def uniquify(self, env, ctx):
-    return MakeArray(self.location, self.typeof, self.subject.uniquify(env, ctx))
 
 @dataclass
 class ArrayGet(Term):
@@ -2029,11 +1744,7 @@ class ArrayGet(Term):
         and self.position == other.position
     else:
       return False
-  
-  def copy(self):
-    return ArrayGet(self.location, self.typeof,
-                    self.subject.copy(), self.position.copy())
-  
+
   def __str__(self):
     return str(self.subject) + '[' + str(self.position) + ']'
 
@@ -2071,16 +1782,6 @@ class ArrayGet(Term):
               case _:
                 break
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
-    
-  def substitute(self, sub):
-    return ArrayGet(self.location, self.subst_typeof(sub),
-                    self.subject.substitute(sub),
-                    self.position.substitute(sub))
-
-  def uniquify(self, env, ctx):
-    return ArrayGet(self.location, self.typeof,
-                    self.subject.uniquify(env, ctx),
-                    self.position.uniquify(env, ctx))
 
 @dataclass
 class TLet(Term):
@@ -2103,10 +1804,6 @@ class TLet(Term):
     else:
       return new_body
 
-  def copy(self):
-    return TLet(self.location, self.typeof, self.var,
-                self.rhs.copy(), self.body.copy())
-  
   def uniquify(self, env, ctx):
     new_rhs = self.rhs.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
@@ -2115,31 +1812,11 @@ class TLet(Term):
     new_body = self.body.uniquify(body_env, ctx)
     return TLet(self.location, self.typeof, new_var, new_rhs, new_body)
 
-  def substitute(self, sub):
-    new_rhs = self.rhs.substitute(sub)
-    new_body = self.body.substitute(sub)
-    return TLet(self.location, self.subst_typeof(sub), self.var, new_rhs, new_body)
-
 @dataclass
 class Hole(Term):
-  
+
   def __str__(self):
       return '?'
-
-  def uniquify(self, env, ctx):
-    return self
-
-  def reduce(self, env):
-    return self
-
-  def copy(self):
-    return Hole(self.location, self.typeof)
-
-  def substitute(self, sub):
-    new_typeof = self.subst_typeof(sub)
-    if new_typeof is self.typeof:
-      return self
-    return Hole(self.location, new_typeof)
 
 @dataclass
 class Omitted(Term):
@@ -2147,21 +1824,6 @@ class Omitted(Term):
   def __str__(self):
       return '--'
 
-  def uniquify(self, env, ctx):
-    return self
-
-  def reduce(self, env):
-    return self
-
-  def copy(self):
-    return Omitted(self.location, self.typeof)
-
-  def substitute(self, sub):
-    new_typeof = self.subst_typeof(sub)
-    if new_typeof is self.typeof:
-      return self
-    return Omitted(self.location, new_typeof)
-  
 @dataclass
 class Mark(Term):
   subject: Term
@@ -2171,46 +1833,22 @@ class Mark(Term):
       return self.subject == other.subject
     else:
       return self.subject == other
-  
-  def copy(self):
-    return self.subject.copy()
-
 
   def __str__(self):
     return '#' + str(self.subject) + '#'
-
-  def reduce(self, env):
-    subject_red = self.subject.reduce(env)
-    return Mark(self.location, self.typeof, subject_red)
-    
-  def substitute(self, sub):
-    return Mark(self.location, self.subst_typeof(sub),
-                self.subject.substitute(sub))
-
-  def uniquify(self, env, ctx):
-    return Mark(self.location, self.typeof, self.subject.uniquify(env, ctx))
 
 ################ Formulas ######################################
   
 @dataclass
 class Bool(Formula):
   value: bool
-  
-  def copy(self):
-    return Bool(self.location, self.typeof, self.value)
-  
+
   def __eq__(self, other):
       if not isinstance(other, Bool):
           return False
       return self.value == other.value
   def __str__(self):
     return 'true' if self.value else 'false'
-  def reduce(self, env):
-    return self
-  def substitute(self, sub):
-    return self
-  def uniquify(self, env, ctx):
-    return self
 
 def list_of_and(arg):
   match arg:
@@ -2235,9 +1873,6 @@ def is_true(b):
 class And(Formula):
   args: list[Formula]
 
-  def copy(self):
-    return And(self.location, self.typeof, [arg.copy() for arg in self.args])
-  
   def __str__(self):
     ret_args = []
     skip = False
@@ -2290,15 +1925,6 @@ class And(Formula):
       return newer_args[0]
     else:
       return And(self.location, self.typeof, newer_args)
-  
-  def substitute(self, sub):
-    return And(self.location,
-               self.subst_typeof(sub),
-               [arg.substitute(sub) for arg in self.args])
-  
-  def uniquify(self, env, ctx):
-    return And(self.location, self.typeof,
-               [a.uniquify(env, ctx) for a in self.args])
 
 def list_of_or(arg):
   match arg:
@@ -2315,9 +1941,7 @@ def flatten_or(args):
 @dataclass
 class Or(Formula):
   args: list[Formula]
-  def copy(self):
-    return Or(self.location, self.typeof, [arg.copy() for arg in self.args])
-  
+
   def __str__(self):
     return '(' + ' or '.join([str(arg) for arg in self.args]) + ')'
   
@@ -2346,25 +1970,12 @@ class Or(Formula):
       return newer_args[0]
     else:
       return Or(self.location, self.typeof, newer_args)
-  
-  def substitute(self, sub):
-    return Or(self.location,
-              self.subst_typeof(sub),
-              [arg.substitute(sub) for arg in self.args])
-  
-  def uniquify(self, env, ctx):
-    return Or(self.location, self.typeof,
-              [a.uniquify(env, ctx) for a in self.args])
 
 @dataclass
 class IfThen(Formula):
   premise: Formula
   conclusion : Formula
-  
-  def copy(self):
-    return IfThen(self.location, self.typeof, self.premise.copy(),
-                  self.conclusion.copy())
-  
+
   def __str__(self):
     match self.conclusion:
       case Bool(loc, tyof, False):
@@ -2408,31 +2019,16 @@ class IfThen(Formula):
     if get_verbose():
       print('reduce ' + str(self) + '\n\t==> ' + str(ret))
     return ret
-  
-  def substitute(self, sub):
-    return IfThen(self.location,
-                  self.subst_typeof(sub),
-                  self.premise.substitute(sub),
-                  self.conclusion.substitute(sub))
-  
-  def uniquify(self, env, ctx):
-    return IfThen(self.location, self.typeof,
-                  self.premise.uniquify(env, ctx),
-                  self.conclusion.uniquify(env, ctx))
 
 @dataclass
 class All(Formula):
   var: Tuple[str,Type]
-  # Position (s, e), where 
+  # Position (s, e), where
   #  s : The variable's index in the list, starting from the last var
   #  e : The number of vars in the block
   pos: Tuple[int, int]
   body: Formula
 
-  def copy(self):
-    x, t = self.var
-    return All(self.location, self.typeof, (x, t.copy()), self.pos, self.body.copy())
-  
   def __str__(self):
     v, t = self.var
     v = name2str(v)
@@ -2470,14 +2066,6 @@ class All(Formula):
                    self.pos,
                    new_body)
 
-  def substitute(self, sub):
-    x, ty = self.var
-    return All(self.location,
-               self.subst_typeof(sub),
-               (x, ty.substitute(sub)),
-               self.pos,
-               self.body.substitute(sub))
-  
   def __eq__(self, other):
     if not isinstance(other, All):
       return False
@@ -2502,12 +2090,6 @@ class Some(Formula):
   vars: list[Tuple[str,Type]]
   body: Formula
 
-  def copy(self):
-    return Some(self.location,
-                self.typeof,
-               [(x,ty.copy()) for (x,ty) in self.vars],
-               self.body.copy())
-  
   def __str__(self):
       return 'some ' + ",".join([(v if get_verbose() else base_name(v)) + ":" + str(t) \
                                  for (v,t) in self.vars]) \
@@ -2526,15 +2108,7 @@ class Some(Formula):
                     self.typeof,
                     [(x, ty.reduce(env)) for (x,ty) in self.vars],
                     new_body)
-  
-  def substitute(self, sub):
-    n = len(self.vars)
-    new_sub = {k: v for (k,v) in sub.items()}
-    return Some(self.location,
-                self.subst_typeof(sub),
-                [(x, ty.substitute(sub)) for (x,ty) in self.vars],
-                self.body.substitute(new_sub))
-  
+
   def uniquify(self, env, ctx):
     body_env = {x:y for (x,y) in env.items()}
     new_vars = []
@@ -2561,10 +2135,7 @@ class Some(Formula):
 @dataclass
 class PVar(Proof):
   name: str
-  
-  def copy(self):
-    return PVar(self.location, self.name)
-  
+
   def __eq__(self, other):
     if not isinstance(other, PVar):
       return False
@@ -2604,9 +2175,6 @@ class PLet(Proof):
   because: Proof
   body: Proof
 
-  def copy(self):
-      return PLet(self.location, self.label, self.proved.copy(), self.because.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
       return indent*' ' + 'have ' + base_name(self.label) + ': ' + str(self.proved) + ' by {\n' \
           + self.because.pretty_print(indent+2) + '\n' \
@@ -2632,9 +2200,6 @@ class PTLetNew(Proof):
   rhs : Term
   body: Proof
 
-  def copy(self):
-      return PTLetNew(self.location, self.var, self.rhs.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
       return indent*' ' + 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + '\n' \
           + self.body.pretty_print(indent)
@@ -2656,17 +2221,11 @@ class PTLetNew(Proof):
 class PRecall(Proof):
   facts: List[Formula]
 
-  def copy(self):
-      return PRecall(self.location, [fact.copy() for fact in self.facts])
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
       return 'recall ' + ', '.join([str(f) for f in self.facts])
-
-  def uniquify(self, env, ctx):
-    return PRecall(self.location, [f.uniquify(env, ctx) for f in self.facts])
 
 
 @dataclass
@@ -2674,21 +2233,13 @@ class PAnnot(Proof):
   claim: Formula
   body: Proof
 
-  def copy(self):
-      return PAnnot(self.location, self.claim.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
       return indent*' ' + 'conclude ' + str(self.claim) + ' by {\n' \
           + self.body.pretty_print(indent+2) + '\n' \
           + indent*' ' + '}\n'
-  
+
   def __str__(self):
       return 'conclude ' + str(self.claim) + ' by ' + str(self.body)
-
-  def uniquify(self, env, ctx):
-    return PAnnot(self.location,
-                  self.claim.uniquify(env, ctx),
-                  self.body.uniquify(env, ctx))
 
 @dataclass
 class Suffices(Proof):
@@ -2696,31 +2247,19 @@ class Suffices(Proof):
   reason: Proof
   body: Proof
 
-  def copy(self):
-      return Suffices(self.location, self.claim.copy(), self.reason.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
       return indent*' ' + 'suffices ' + str(self.claim) + '  by {\n' \
           + self.reason.pretty_print(indent+2) + '\n' \
           + maybe_pretty_print(self.body, indent)
-  
+
   def __str__(self):
     return 'suffices ' + str(self.claim) + '  by ' + str(self.reason) + '\n' + maybe_str(self.body)
-
-  def uniquify(self, env, ctx):
-    return Suffices(self.location,
-                    self.claim.uniquify(env, ctx),
-                    self.reason.uniquify(env, ctx),
-                    self.body.uniquify(env, ctx))
 
 @dataclass
 class Cases(Proof):
   subject: Proof
   cases: List[Tuple[str,Formula,Proof]]
 
-  def copy(self):
-      return Cases(self.location, self.subject.copy(), [(l, f.copy(), p.copy()) for (l,f,p) in self.cases])
-  
   def pretty_print(self, indent):
       cases_str = ''
       for (label, frm, body) in self.cases:
@@ -2746,19 +2285,11 @@ class ModusPonens(Proof):
   implication: Proof
   arg: Proof
 
-  def copy(self):
-      return ModusPonens(self.location, self.implication.copy(), self.arg.copy())
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
       return 'apply ' + str(self.implication) + ' to ' + str(self.arg)
-
-  def uniquify(self, env, ctx):
-    return ModusPonens(self.location,
-                       self.implication.uniquify(env, ctx),
-                       self.arg.uniquify(env, ctx))
 
 @dataclass
 class ImpIntro(Proof):
@@ -2766,9 +2297,6 @@ class ImpIntro(Proof):
   premise: Formula
   body: Proof
 
-  def copy(self):
-      return ImpIntro(self.location, self.label, self.premise.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
     return indent*' ' + 'assume ' + str(self.label) + \
       (': ' + str(self.premise) if self.premise else '') + '\n'\
@@ -2790,15 +2318,12 @@ class ImpIntro(Proof):
 @dataclass
 class AllIntro(Proof):
   var: Tuple[str,Type]
-  # Position (s, e), where 
+  # Position (s, e), where
   #  e : The number of vars in the all intro list
   #  s : The variable's index in the list, starting from the last var
   pos: Tuple[int, int]
   body: Proof
 
-  def copy(self):
-      return AllIntro(self.location, (self.var[0], self.var[1].copy()), self.position, self.body.copy())
-  
   def arbitrary_str(self):
     s, e = self.pos
     x, t = self.var
@@ -2838,17 +2363,14 @@ class AllIntro(Proof):
 class AllElimTypes(Proof):
   univ: Proof
   arg: Type
-  # Position (s, e), where 
+  # Position (s, e), where
   #  e : The number of vars in the block
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
-  def copy(self):
-      return AllElimTypes(self.location, self.univ.copy(), self.arg, self.pos)
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     s, e = self.pos
     res = str(self.univ)
@@ -2862,27 +2384,18 @@ class AllElimTypes(Proof):
 
     return res
 
-  def uniquify(self, env, ctx):
-    return AllElimTypes(self.location,
-                        self.univ.uniquify(env, ctx),
-                        self.arg.uniquify(env, ctx),
-                        self.pos)
-
 @dataclass
 class AllElim(Proof):
   univ: Proof
   arg: Term
-  # Position (s, e), where 
+  # Position (s, e), where
   #  e : The number of vars in the list
   #  s : The variable's index in the list, starting from the first var
   pos: Tuple[int, int]
 
-  def copy(self):
-      return AllElim(self.location, self.univ.copy(), self.arg.copy(), self.pos)
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     s, e = self.pos
     res = str(self.univ)
@@ -2896,32 +2409,18 @@ class AllElim(Proof):
 
     return res
 
-  def uniquify(self, env, ctx):
-    return AllElim(self.location,
-                   self.univ.uniquify(env, ctx),
-                   self.arg.uniquify(env, ctx),
-                   self.pos)
-
 @dataclass
 class SomeIntro(Proof):
   witnesses: List[Term]
   body: Proof
 
-  def copy(self):
-      return SomeIntro(self.location, [w.copy() for w in self.witnesses], self.body.copy())
-
   def pretty_print(self, indent):
     return indent*' ' + 'choose ' + ",".join([str(t) for t in self.witnesses]) + '\n' \
         + maybe_pretty_print(self.body, indent)
-  
+
   def __str__(self):
     return 'choose ' + ",".join([str(t) for t in self.witnesses]) \
         + '; ' + maybe_str(self.body)
-  
-  def uniquify(self, env, ctx):
-    return SomeIntro(self.location,
-                     [w.uniquify(env, ctx) for w in self.witnesses],
-                     self.body.uniquify(env, ctx))
 
 @dataclass
 class SomeElim(Proof):
@@ -2931,10 +2430,6 @@ class SomeElim(Proof):
   some: Proof
   body: Proof
 
-  def copy(self):
-      return SomeElim(self.location, self.witnesses, self.label,
-                      self.prop.copy(), self.some.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
     return indent*' ' + 'obtain ' + ",".join(self.witnesses) \
       + ' where ' + self.label \
@@ -2968,17 +2463,11 @@ class SomeElim(Proof):
 class PTuple(Proof):
   args: List[Proof]
 
-  def copy(self) -> Self:
-      return PTuple(self.location, [arg.copy() for arg in self.args])
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return ', '.join([str(arg) for arg in self.args])
-
-  def uniquify(self, env, ctx):
-    return PTuple(self.location, [a.uniquify(env, ctx) for a in self.args])
 
 def extract_tuple(pf):
     match pf:
@@ -2992,156 +2481,95 @@ class PAndElim(Proof):
   which: int
   subject: Proof
 
-  def copy(self):
-      return PAndElim(self.location, self.which, self.subject.copy())
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'conjunct ' + str(self.which) + ' of ' + str(self.subject)
-
-  def uniquify(self, env, ctx):
-    return PAndElim(self.location, self.which, self.subject.uniquify(env, ctx))
 
 @dataclass
 class PTrue(Proof):
 
-  def copy(self):
-      return PTrue(self.location)
-    
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return '.'
-
-  def uniquify(self, env, ctx):
-    return self
 
 @dataclass
 class PReflexive(Proof):
 
-  def copy(self):
-      return PReflexive(self.location)
-    
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'reflexive'
 
-  def uniquify(self, env, ctx):
-    return self
-
 @dataclass
 class PHole(Proof):
-  
-  def copy(self):
-      return PHole(self.location)
-  
+
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
       return '?'
 
-  def uniquify(self, env, ctx):
-    return self
-
 @dataclass
 class PSorry(Proof):
-  
-  def copy(self):
-      return PSorry(self.location)
-  
+
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
       return 'sorry'
-
-  def uniquify(self, env, ctx):
-    return self
 
 @dataclass
 class PHelpUse(Proof):
   proof : Proof
-  
-  def copy(self):
-      return PHelpUse(self.location, self.proof.copy())
-  
+
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
       return 'help ' + str(self.proof)
-
-  def uniquify(self, env, ctx):
-    return PHelpUse(self.location, self.proof.uniquify(env, ctx))
 
 @dataclass
 class PSymmetric(Proof):
   body: Proof
 
-  def copy(self):
-      return PSymmetric(self.location, self.body.copy())
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'symmetric ' + str(self.body)
-
-  def uniquify(self, env, ctx):
-    return PSymmetric(self.location, self.body.uniquify(env, ctx))
 
 @dataclass
 class PTransitive(Proof):
   first: Proof
   second: Proof
-  
-  def copy(self):
-      return PTransitive(self.location, self.first.copy(), self.second.copy())
-  
+
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'transitive ' + str(self.first) + ' ' + str(self.second)
-
-  def uniquify(self, env, ctx):
-    return PTransitive(self.location,
-                       self.first.uniquify(env, ctx),
-                       self.second.uniquify(env, ctx))
 
 @dataclass
 class PInjective(Proof):
   constr: Type
   body: Proof
 
-  def copy(self):
-      return PInjective(self.location, self.constr.copy(), self.body.copy())
-  
   def pretty_print(self, indent):
     return indent*' ' + 'injective ' + str(self.constr) + '\n' \
         + maybe_pretty_print(self.body, indent)
-  
+
   def __str__(self):
     return 'injective ' + str(self.constr) + '; ' + maybe_str(self.body)
-
-  def uniquify(self, env, ctx):
-    return PInjective(self.location,
-                      self.constr.uniquify(env, ctx),
-                      self.body.uniquify(env, ctx))
 
 @dataclass
 class PExtensionality(Proof):
   body: Proof
 
-  def copy(self):
-      return PExtensionality(self.location, self.body.copy())
-  
   def pretty_print(self, indent):
     return indent*' ' + 'extensionality\n' \
         + maybe_pretty_print(self.body, indent)
@@ -3149,20 +2577,12 @@ class PExtensionality(Proof):
   def __str__(self):
     return 'extensionality\n' + maybe_str(self.body)
 
-  def uniquify(self, env, ctx):
-    return PExtensionality(self.location, self.body.uniquify(env, ctx))
-
 @dataclass
 class IndCase(AST):
   pattern: Pattern
   induction_hypotheses: list[Tuple[str,Formula]]
   body: Proof
 
-  def copy(self):
-      return IndCase(self.location, self.pattern.copy(),
-                     [(l,f.copy()) for (l,f) in self.induction_hypotheses],
-                     self.body.copy())
-  
   def pretty_print(self, indent):
     return indent*' ' + 'case ' + str(self.pattern) \
       + ' assume ' + ', '.join([x + ': ' + str(f) for (x,f) in self.induction_hypotheses]) \
@@ -3200,9 +2620,6 @@ class Induction(Proof):
   typ: Type
   cases: List[IndCase]
 
-  def copy(self):
-      return Induction(self.location, self.typ.copy(), [c.copy() for c in self.cases])
-  
   def pretty_print(self, indent):
     return indent*' ' + 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([c.pretty_print(indent) for c in self.cases])
@@ -3210,11 +2627,6 @@ class Induction(Proof):
   def __str__(self):
     return 'induction ' + str(self.typ) + '\n' \
       + '\n'.join([str(c) for c in self.cases])
-  
-  def uniquify(self, env, ctx):
-    return Induction(self.location,
-                     self.typ.uniquify(env, ctx),
-                     [c.uniquify(env, ctx) for c in self.cases])
 
 @dataclass
 class RuleInductionCase(AST):
@@ -3224,9 +2636,6 @@ class RuleInductionCase(AST):
   # `assume` happen inside the body).
   rule_name: str
   body: Proof
-
-  def copy(self):
-    return RuleInductionCase(self.location, self.rule_name, self.body.copy())
 
   def pretty_print(self, indent):
     return indent*' ' + 'case ' + base_name(self.rule_name) + ' {\n' \
@@ -3265,10 +2674,6 @@ class RuleInduction(Proof):
   hyp_name: str
   cases: list
 
-  def copy(self):
-    return RuleInduction(self.location, self.hyp_name,
-                         [c.copy() for c in self.cases])
-
   def pretty_print(self, indent):
     return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
@@ -3304,10 +2709,6 @@ class RuleInversion(Proof):
   hyp_name: str
   cases: list
 
-  def copy(self):
-    return RuleInversion(self.location, self.hyp_name,
-                         [c.copy() for c in self.cases])
-
   def pretty_print(self, indent):
     return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
         + '\n'.join([c.pretty_print(indent) for c in self.cases])
@@ -3340,11 +2741,6 @@ class SwitchProofCase(AST):
   assumptions: list[Tuple[str,Formula]]
   body: Proof
 
-  def copy(self):
-      return SwitchProofCase(self.location, self.pattern.copy(),
-                             [(l,f.copy()) for (l,f) in self.assumptions],
-                             self.body.copy())
-  
   def pretty_print(self, indent):
     return indent*' ' + 'case ' + str(self.pattern) + '{\n' \
         + self.body.pretty_print(indent+2) \
@@ -3378,73 +2774,43 @@ class SwitchProofCase(AST):
 class SwitchProof(Proof):
   subject: Term
   cases: List[SwitchProofCase]
-  
-  def copy(self):
-      return SwitchProof(self.location, self.subject.copy(),
-                         [c.copy() for c in self.cases])
-      
+
   def pretty_print(self, indent):
       return indent*' ' + 'switch ' + str(self.subject) + '{\n' \
           + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) \
           + indent*' ' + '}\n'
-      
+
   def __str__(self):
       return 'switch ' + str(self.subject) \
         + '{' + '\n'.join([str(c) for c in self.cases]) + '}'
-    
-  def uniquify(self, env, ctx):
-    return SwitchProof(self.location,
-                       self.subject.uniquify(env, ctx),
-                       [c.uniquify(env, ctx) for c in self.cases])
 
 @dataclass
 class EvaluateGoal(Proof):
 
-  def copy(self):
-      return EvaluateGoal(self.location)
-
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'evaluate'
-
-  def uniquify(self, env, ctx):
-    return self
 
 @dataclass
 class EvaluateFact(Proof):
   subject: Proof
 
-  def copy(self):
-      return EvaluateFact(self.location, self.subject.copy())
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'evaluate in ' + str(self.subject)
-
-  def uniquify(self, env, ctx):
-    return EvaluateFact(self.location, self.subject.uniquify(env, ctx))
 
 @dataclass
 class SimplifyGoal(Proof):
   body: Proof
   givens: List[Proof]
 
-  def copy(self):
-      return SimplifyGoal(self.location, self.body.copy(),
-                          [p.copy() for p in self.givens])
-  
   def __str__(self):
       return 'simplify ' + ' | '.join([str(p) for p in self.givens]) + '\n' \
           + str(self.body)
-
-  def uniquify(self, env, ctx):
-    return SimplifyGoal(self.location,
-                        self.body.uniquify(env, ctx),
-                        [p.uniquify(env, ctx) for p in self.givens])
 
 
 @dataclass
@@ -3452,94 +2818,49 @@ class SimplifyFact(Proof):
   subject: Proof
   givens: List[Proof]
 
-  def copy(self):
-      return SimplifyFact(self.location, self.subject.copy(),
-                          [p.copy() for p in self.givens])
-  
   def pretty_print(self, indent):
       return str(self)
-  
+
   def __str__(self):
     return 'simplify ' \
         + ' | '.join([str(p) for p in self.givens]) \
         + ' in ' + str(self.subject)
-
-  def uniquify(self, env, ctx):
-    return SimplifyFact(self.location,
-                        self.subject.uniquify(env, ctx),
-                        [p.uniquify(env, ctx) for p in self.givens])
 
 @dataclass
 class ApplyDefsGoal(Proof):
   definitions: List[Term]
   body: Proof
 
-  def copy(self):
-      return ApplyDefsGoal(self.location, [d.copy() for d in self.definitions], self.body.copy())
-  
   def __str__(self):
       return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' ' + str(self.body)
-
-  def uniquify(self, env, ctx):
-    return ApplyDefsGoal(self.location,
-                         [d.uniquify(env, ctx) for d in self.definitions],
-                         self.body.uniquify(env, ctx))
 
 @dataclass
 class ApplyDefsFact(Proof):
   definitions: List[Term]
   subject: Proof
 
-  def copy(self):
-      return ApplyDefsFact(self.location, [t.copy() for t in self.definitions],
-                           self.subject.copy())
-  
   def __str__(self):
       return 'expand ' + ' | '.join([str(d) for d in self.definitions]) \
         + ' in ' + str(self.subject)
-
-  def uniquify(self, env, ctx):
-    return ApplyDefsFact(self.location,
-                         [d.uniquify(env, ctx) for d in self.definitions],
-                         self.subject.uniquify(env, ctx))
 
 @dataclass
 class RewriteGoal(Proof):
   equations: List[Proof]
   body: Proof
 
-  def copy(self):
-      return RewriteGoal(self.location, [p.copy() for p in self.equations],
-                         self.body.copy())
-  
   def __str__(self):
       return 'replace ' + '|'.join([str(eqn) for eqn in self.equations]) \
         + '\n' + str(self.body)
-
-  def uniquify(self, env, ctx):
-    return RewriteGoal(self.location,
-                       [e.uniquify(env, ctx) for e in self.equations],
-                       self.body.uniquify(env, ctx))
 
 @dataclass
 class RewriteFact(Proof):
   subject: Proof
   equations: List[Proof]
 
-  def copy(self):
-      return RewriteFact(self.location,
-                         self.subject.copy(),
-                         [p.copy() for p in self.equations])
-  
   def __str__(self):
       return 'replace ' + ','.join([str(eqn) for eqn in self.equations]) \
         + ' in ' + str(self.subject)
-
-  def uniquify(self, env, ctx):
-    return RewriteFact(self.location,
-                       self.subject.uniquify(env, ctx),
-                       [e.uniquify(env, ctx) for e in self.equations])
 
 ################ Statements ######################################
 
@@ -4164,9 +3485,6 @@ class Assert(Statement):
   def __str__(self):
     return 'assert ' + str(self.formula)
 
-  def uniquify(self, env, ctx):
-    return Assert(self.location, self.formula.uniquify(env, ctx))
-
   def collect_exports(self, export_env, importing_module):
     pass
 
@@ -4176,9 +3494,6 @@ class Print(Statement):
 
   def __str__(self):
     return 'print ' + str(self.term)
-
-  def uniquify(self, env, ctx):
-    return Print(self.location, self.term.uniquify(env, ctx))
 
   def collect_exports(self, export_env, importing_module):
     pass
@@ -4308,28 +3623,20 @@ class Auto(Statement):
 
   def key(self):
       return str(self.name)
-  
+
   def __str__(self):
     return 'auto ' + str(self.name)
-
-  def uniquify(self, env, ctx):
-    return Auto(self.location, self.name.uniquify(env, ctx))
 
   def collect_exports(self, export_env, importing_module):
     pass
 
 @dataclass
 class Inductive(Statement):
-  typ: Type 
+  typ: Type
   thm_name: Term
 
   def __str__(self):
     return 'inductive ' + str(self.typ) + ' by ' + str(self.thm_name)
-
-  def uniquify(self, env, ctx):
-    return Inductive(self.location,
-                     self.typ.uniquify(env, ctx),
-                     self.thm_name.uniquify(env, ctx))
 
   def collect_exports(self, export_env, importing_module):
     pass
@@ -4398,10 +3705,11 @@ class Trace(Statement):
   def __str__(self):
     return 'trace ' + str(self.rec_fun)
 
-  def uniquify(self, env, ctx):
-    return Trace(self.location, self.rec_fun.uniquify(env, ctx))
-
   def reduce(self, env):
+    # Side-effecting: drives the runtime trace flag via `Var.reduce`'s
+    # env-lookup path. Returns None on purpose; the default
+    # `_map_children`-based `reduce` would build a fresh Trace node,
+    # which is not what callers want here.
     self.rec_fun.reduce(env)
 
 # ---------------------

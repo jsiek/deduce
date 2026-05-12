@@ -618,7 +618,11 @@ def parse_tree_to_ast(e, parent):
         eqs = [first]
         for (lhs,rhs, reason) in rest:
             if lhs == None:
-                lhs = eqs[-1][1].copy()
+                # `... = rhs` chains: inherit the previous step's RHS,
+                # stripping any mark via `remove_mark` so each step gets
+                # its own. Previously this used `.copy()` and relied on
+                # a `Mark.copy` bug that dropped the mark.
+                lhs = remove_mark(eqs[-1][1])
             eqs.append((lhs, rhs, reason))
         return build_equations_proof(e.meta, eqs)
     elif e.data == 'recall_proof':

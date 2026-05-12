@@ -728,7 +728,12 @@ def parse_proof_hi():
     eqs = [first]
     for (lhs, rhs, reason) in rest:
         if lhs == None:
-            lhs = eqs[-1][1].copy()
+            # `... = rhs` chains: inherit the previous step's RHS,
+            # stripping any mark the user wrote on it (each step gets
+            # its own mark) via `remove_mark`. Previously this used
+            # `.copy()` and relied on a `Mark.copy` bug that dropped
+            # the mark.
+            lhs = remove_mark(eqs[-1][1])
         eqs.append((lhs, rhs, reason))
     result = None
     meta = meta_from_tokens(token, token)
