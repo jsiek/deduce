@@ -5189,6 +5189,10 @@ def count_marks(formula):
       return 0
     case ArrayGet(loc, tyof, arr, ind):
       return count_marks(arr) + count_marks(ind)
+    case Array(loc, tyof, elements):
+      return sum([count_marks(elt) for elt in elements])
+    case MakeArray(loc, tyof, subject):
+      return count_marks(subject)
     case _:
       internal_error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
@@ -5245,6 +5249,11 @@ def find_mark(formula):
     case ArrayGet(loc2, tyof, arr, ind):
       find_mark(arr)
       find_mark(ind)
+    case Array(loc2, tyof, elements):
+      for elt in elements:
+          find_mark(elt)
+    case MakeArray(loc2, tyof, subject):
+      find_mark(subject)
     case _:
       internal_error(formula.location, 'in find_mark function, unhandled ' + str(formula))
 
@@ -5296,6 +5305,11 @@ def replace_mark(formula, replacement):
       return formula
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
+    case Array(loc2, tyof, elements):
+      return Array(loc2, tyof,
+                   [replace_mark(elt, replacement) for elt in elements])
+    case MakeArray(loc2, tyof, subject):
+      return MakeArray(loc2, tyof, replace_mark(subject, replacement))
     case _:
       internal_error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
@@ -5640,6 +5654,15 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env, depth - 1),
                       rewrite_aux(loc, ind, equation, env, depth - 1))
+
+    case Array(loc2, tyof, elements):
+      return Array(loc, tyof,
+                   [rewrite_aux(loc, elt, equation, env, depth - 1)
+                    for elt in elements])
+
+    case MakeArray(loc2, tyof, subject):
+      return MakeArray(loc, tyof,
+                       rewrite_aux(loc, subject, equation, env, depth - 1))
   
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env, depth - 1),

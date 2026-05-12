@@ -1,0 +1,44 @@
+// Issue #204: arrays should be supported inside formulas.
+// Exercises Array / MakeArray cases in count_marks, find_mark,
+// replace_mark, rewrite_aux (abstract_syntax.py) and find_rec_calls
+// (proof_checker.py).
+import UInt
+import List
+import Option
+
+theorem array_replace_universal: all l:List<UInt>.
+  if l = [42]
+  then just((array(l))[0]) = head(l)
+proof
+  arbitrary l:List<UInt>
+  assume hl: l = [42]
+  replace hl
+  expand head.
+end
+
+theorem array_with_mark: all l:List<UInt>.
+  if l = [7]
+  then #(array(l))[0]# = 7
+proof
+  arbitrary l:List<UInt>
+  assume hl: l = [7]
+  replace hl.
+end
+
+theorem mark_inside_make_array: all l:List<UInt>.
+  if l = [9]
+  then (array(#l#))[0] = 9
+proof
+  arbitrary l:List<UInt>
+  assume hl: l = [9]
+  replace hl.
+end
+
+theorem array_make_in_formula: all l:List<UInt>.
+  if l = [1, 2, 3]
+  then (array(l))[2] = 3
+proof
+  arbitrary l:List<UInt>
+  assume hl: l = [1, 2, 3]
+  replace hl.
+end
