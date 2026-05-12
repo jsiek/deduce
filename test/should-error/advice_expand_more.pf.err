@@ -1,4 +1,4 @@
-test/should-error/advice_expand_more.pf:13.18-13.19: 
+./test/should-error/advice_expand_more.pf:15.18-15.19:
 You provided a proof of:
 	true
 but that is different from what you need to prove:
