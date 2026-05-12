@@ -1,0 +1,11 @@
+./test/should-error/replace_backward_mark_hint.pf:17.36-17.45:
+could not find any matches for
+	xs
+in
+	#node(x, ys)# = node(x, xs)
+(which auto-rule normalization reduced to:
+	node(x, ys))
+while trying to replace using the below equation, left to right
+	xs = ys
+The right-hand side does contain a match, but `replace` only rewrites inside the marked subterm. Inside an `equations` block, the left-hand side of each step is implicitly marked. To rewrite the right-hand side instead, wrap that side in `#...#`:
+	# node(x, xs) #

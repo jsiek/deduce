@@ -2122,6 +2122,42 @@ def expand_backward_mark_hint(formula, var, env):
       return ''
 
 
+def replace_backward_mark_hint(formula, eq, env):
+  # Mirror of `expand_backward_mark_hint` for the `replace` tactic: when
+  # `replace eq` fails inside a marked equation `# L # = R` because the
+  # eq's LHS doesn't appear on the marked side, but it *would* match on
+  # the unmarked side, suggest wrapping that side in `#...#`.
+  if count_marks(formula) != 1:
+    return ''
+  match formula:
+    case Call(_, _, rator, [side0, side1]) \
+         if isinstance(rator, VarRef) and rator.get_name() == '=':
+      marks0 = count_marks(side0)
+      marks1 = count_marks(side1)
+      if marks0 == 1 and marks1 == 0:
+        other = side1
+        other_label = 'right-hand side'
+      elif marks0 == 0 and marks1 == 1:
+        other = side0
+        other_label = 'left-hand side'
+      else:
+        return ''
+      try:
+        reset_num_rewrites()
+        rewrite_aux(formula.location, other, eq, env)
+      except Exception:
+        return ''
+      if get_num_rewrites() == 0:
+        return ''
+      return ('\nThe ' + other_label + ' does contain a match, but `replace` ' \
+              'only rewrites inside the marked subterm. Inside an `equations` ' \
+              'block, the left-hand side of each step is implicitly marked. ' \
+              'To rewrite the ' + other_label + ' instead, wrap that side in `#...#`:\n' \
+              '\t# ' + str(other) + ' #')
+    case _:
+      return ''
+
+
 def expand_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)
   if num_marks == 0:
@@ -2232,7 +2268,8 @@ def apply_rewrites(loc, formula, eqns, env, *, display_formula=None):
             msg += '\n(which auto-rule normalization reduced to:\n\t' \
                    + str(new_formula) + ')'
         msg += '\nwhile trying to replace using the below equation, left to right\n\t' + str(eq) \
-               + auto_simplified_hint(new_formula)
+               + auto_simplified_hint(new_formula) \
+               + replace_backward_mark_hint(formula, eq, env)
         user_error(loc, msg)
     new_formula = new_formula.reduce(env)
       
