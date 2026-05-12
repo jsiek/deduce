@@ -1,0 +1,73 @@
+// replicate.pf
+//
+// The classic Haskell intro-FP function:
+//
+//     replicate :: Int -> a -> [a]
+//     replicate n x = [x, x, ..., x]   -- n copies
+//
+// Below we define replicate over Nat and prove two correctness theorems:
+//
+//   1. replicate_add:      replicate(m + n, x) = replicate(m, x) ++ replicate(n, x)
+//   2. length_replicate:   length(replicate(n, x)) = fromNat(n)
+
+import Nat
+import List
+
+recursive replicate<T>(Nat, T) -> List<T> {
+  replicate(zero, x) = []
+  replicate(suc(n), x) = node(x, replicate(n, x))
+}
+
+assert replicate(ℕ3, 7) = [7, 7, 7]
+
+// replicate distributes over Nat addition into list concatenation.
+theorem replicate_add: all T:type. all m:Nat. all n:Nat, x:T.
+  replicate(m + n, x) = replicate(m, x) ++ replicate(n, x)
+proof
+  arbitrary T:type
+  induction Nat
+  case zero {
+    arbitrary n:Nat, x:T
+    expand replicate | operator++.
+  }
+  case suc(m') assume IH: all n:Nat, x:T.
+      replicate(m' + n, x) = replicate(m', x) ++ replicate(n, x) {
+    arbitrary n:Nat, x:T
+    equations
+      replicate(suc(m') + n, x)
+          = replicate(suc(m' + n), x)               by expand operator+.
+      ... = node(x, replicate(m' + n, x))           by expand replicate.
+      ... = node(x, replicate(m', x) ++ replicate(n, x))
+                                                    by replace IH[n, x].
+      ... = # node(x, replicate(m', x)) ++ replicate(n, x) #
+                                                    by expand operator++.
+      ... = # replicate(suc(m'), x) ++ replicate(n, x) #
+                                                    by expand replicate.
+  }
+end
+
+// The length of replicate(n, x) is n (converted from Nat to UInt because
+// `length` returns UInt).
+theorem length_replicate: all T:type. all n:Nat. all x:T.
+  length(replicate(n, x)) = fromNat(n)
+proof
+  arbitrary T:type
+  induction Nat
+  case zero {
+    arbitrary x:T
+    have zero_eq: fromNat(zero) = 0 by evaluate
+    expand replicate | length
+    replace zero_eq.
+  }
+  case suc(n') assume IH: all x:T. length(replicate(n', x)) = fromNat(n') {
+    arbitrary x:T
+    have suc_eq: suc(n') = ℕ1 + n' by nat_suc_one_add[n']
+    equations
+      length(replicate(suc(n'), x))
+          = length(node(x, replicate(n', x)))      by expand replicate.
+      ... = 1 + length(replicate(n', x))           by expand length.
+      ... = 1 + fromNat(n')                        by replace IH[x].
+      ... = fromNat(ℕ1 + n')                       by symmetric fromNat_add[ℕ1, n']
+      ... = # fromNat(suc(n')) #                   by replace suc_eq.
+  }
+end
