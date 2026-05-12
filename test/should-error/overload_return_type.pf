@@ -1,0 +1,7 @@
+// Regression test for #445: when overload resolution fails because of the
+// expected return type, the error message should report that expected
+// return type and annotate which overloads matched args vs. return.
+import Nat
+import UInt
+
+define n : Nat = 1 + 2

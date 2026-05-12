@@ -1,6 +1,7 @@
 ./test/should-error/overload2.pf:16.26-16.30: could not find a match for function call:
 	f(c)
 argument types: C
+expected return type: bool
 overloads:
-	(fn A -> bool)
-	(fn B -> bool)
+	(fn A -> bool)   <-- result type matches, but argument types don't
+	(fn B -> bool)   <-- result type matches, but argument types don't
