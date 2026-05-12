@@ -1011,8 +1011,11 @@ class Lambda(Term):
           return False
       if len(self.vars) != len(other.vars):
           return False
-      if not all(t1 == t2 for ((x,t1),(y,t2)) in zip(self.vars, other.vars)):
-          return False
+      # `None` (pre-typecheck or syntactically omitted) matches any type;
+      # only two concrete types differing makes the binders unequal.
+      for ((x,t1),(y,t2)) in zip(self.vars, other.vars):
+          if t1 is not None and t2 is not None and t1 != t2:
+              return False
       # ResolvedVar so the substituted bodies compare equal to the
       # uniquified-name references already in `other.body`.
       ren = {x: ResolvedVar(self.location, t2, y) \
@@ -2083,7 +2086,9 @@ class All(Formula):
       return False
     x, tx = self.var
     y, ty = other.var
-    if tx != ty:
+    # `None` (pre-typecheck or syntactically omitted) matches any type;
+    # only two concrete types being different makes the binders unequal.
+    if tx is not None and ty is not None and tx != ty:
       return False
     sub = { y: ResolvedVar(self.location, None, x) }
     result = self.body == other.body.substitute(sub)
