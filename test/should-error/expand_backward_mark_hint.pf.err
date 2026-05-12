@@ -1,4 +1,4 @@
-test/should-error/expand_backward_mark_hint.pf:14.44-14.61: could not find a place to expand definition of ++ in:
+./test/should-error/expand_backward_mark_hint.pf:14.44-14.61: could not find a place to expand definition of ++ in:
 	node(x, xs ++ @[]<UInt>)
 The right-hand side contains `++`, but `expand` only unfolds inside the marked subterm. Inside an `equations` block, the left-hand side of each step is implicitly marked. To unfold the right-hand side instead, wrap that side in `#...#`:
 	# node(x, xs) ++ @[]<UInt> #
