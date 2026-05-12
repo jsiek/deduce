@@ -1,0 +1,5 @@
+./test/should-error/chain_replace_expand.pf:7.43-7.53: `expand` is a goal-directed tactic — it transforms the current goal, but it does not by itself produce a proof of a formula. It cannot be used here.
+
+If you wrote something like `replace eq | expand ...` or `expand f | expand ...`, note that `|` separates arguments to the leading tactic, not a sequence of tactics. To run tactics in sequence, write them as separate proof steps:
+	replace eq
+	expand ...

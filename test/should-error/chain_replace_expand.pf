@@ -1,0 +1,8 @@
+import Nat
+
+theorem chain_replace_expand: all n:Nat. ℕ1 + n = ℕ1 + n
+proof
+  arbitrary n:Nat
+  have h: suc(n) = ℕ1 + n by nat_suc_one_add[n]
+  conclude ℕ1 + n = ℕ1 + n by replace h | expand lit.
+end
