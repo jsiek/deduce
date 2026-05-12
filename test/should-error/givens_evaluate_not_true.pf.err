@@ -1,0 +1,4 @@
+./test/should-error/givens_evaluate_not_true.pf:5.3-5.11: the goal did not evaluate to `true`, but instead:
+	P = Q
+Givens:
+	p: P

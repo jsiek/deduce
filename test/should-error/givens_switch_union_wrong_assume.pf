@@ -1,0 +1,11 @@
+union Color { Red Blue }
+
+theorem T: all c:Color, P:bool. if P then c = c
+proof
+  arbitrary c:Color, P:bool
+  assume p: P
+  switch c {
+    case Red assume eq: c = Blue { . }
+    case Blue { . }
+  }
+end

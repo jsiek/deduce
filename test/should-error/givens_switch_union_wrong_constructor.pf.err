@@ -1,0 +1,3 @@
+./test/should-error/givens_switch_union_wrong_constructor.pf:8.5-8.20: expected a case for Red not Blue
+Givens:
+	p: P

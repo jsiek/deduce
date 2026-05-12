@@ -1,0 +1,7 @@
+theorem T: all P:bool, Q:bool. if P then (if Q then Q)
+proof
+  arbitrary P:bool, Q:bool
+  assume p: P
+  assume r: P
+  r
+end

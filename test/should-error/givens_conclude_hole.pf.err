@@ -1,0 +1,5 @@
+./test/should-error/givens_conclude_hole.pf:5.3-5.18: 
+need to show:
+	P
+Givens:
+	p: P

@@ -1,0 +1,8 @@
+theorem T: all P:bool, Q:bool, R:bool. if P or Q then R
+proof
+  arbitrary P:bool, Q:bool, R:bool
+  assume porq: P or Q
+  cases porq
+  case h1: R { ? }
+  case h2: Q { ? }
+end

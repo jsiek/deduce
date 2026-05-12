@@ -1,0 +1,10 @@
+./test/should-error/givens_induction_wrong_ih.pf:8.32-8.33: incorrect induction hypothesis, expected
+l = l
+but got
+P
+in particular
+P
+≠
+l = l
+Givens:
+	p: P

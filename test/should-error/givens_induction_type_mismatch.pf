@@ -1,0 +1,11 @@
+union N { z s(N) }
+union Color { Red Blue }
+
+theorem T: all P:bool. if P then (all n:N. n = n)
+proof
+  arbitrary P:bool
+  assume p: P
+  induction Color
+  case Red { ? }
+  case Blue { ? }
+end

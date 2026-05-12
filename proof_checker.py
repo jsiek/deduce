@@ -1366,8 +1366,9 @@ def check_proof_of(proof, formula, env):
           _try_check_proof_of(body, frm2, body_env)
         case _:
           add_diagnostic(loc, 'arbitrary is proof of an all formula, not\n' \
-                + str(formula))
-                
+                + str(formula)
+                + givens_str(env))
+
     case SomeIntro(loc, witnesses, body):
       # room for improvement, if var has type annotation, could type_check the witness
       witnesses = [type_synth_term(trm, env, None, []) for trm in witnesses]
@@ -1381,7 +1382,8 @@ def check_proof_of(proof, formula, env):
           body_frm = formula2.substitute(sub)
           _try_check_proof_of(body, body_frm, env)
         case _:
-          add_diagnostic(loc, "choose expects the goal to start with 'some', not " + str(formula))
+          add_diagnostic(loc, "choose expects the goal to start with 'some', not " + str(formula)
+                + givens_str(env))
           
     case SomeElim(loc, witnesses, label, prop, some, body):
       someFormula = check_proof(some, env)
@@ -1404,7 +1406,8 @@ def check_proof_of(proof, formula, env):
           body_env = body_env.declare_local_proof_var(loc, label, prop)
           _try_check_proof_of(body, formula, body_env)
         case _:
-          add_diagnostic(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula))
+          add_diagnostic(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula)
+                + givens_str(env))
         
     case ImpIntro(loc, label, None, body):
 
@@ -1417,7 +1420,8 @@ def check_proof_of(proof, formula, env):
           _try_check_proof_of(body, conc, body_env)
         case _:
           add_diagnostic(proof.location, 'expected proof of ' + str(formula) + \
-                '\n\tnot a proof of if-then: ' + str(proof))
+                '\n\tnot a proof of if-then: ' + str(proof)
+                + givens_str(env))
           
     case ImpIntro(loc, label, prem1, body):
       new_prem1 = check_formula(prem1, env)
@@ -1429,11 +1433,13 @@ def check_proof_of(proof, formula, env):
             (small1, small2) = isolate_difference(prem1_red, prem2_red)
             msg = str(prem1_red) + ' ≠ ' + str(prem2_red) + '\n' \
                 + 'because\n' + str(small1) + ' ≠ ' + str(small2)
-            add_diagnostic(loc, 'mismatch in premise:\n' + msg)
+            add_diagnostic(loc, 'mismatch in premise:\n' + msg
+                + givens_str(env))
           body_env = env.declare_local_proof_var(loc, label, new_prem1)
           _try_check_proof_of(body, conc, body_env)
         case _:
-          add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + repr(formula))
+          add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + str(formula)
+                + givens_str(env))
 
     # define x = t
     case PTLetNew(loc, var, rhs, rest):
@@ -1472,7 +1478,8 @@ def check_proof_of(proof, formula, env):
       match new_claim:
         case Hole(loc2, tyof):
           _try_check_proof_of(reason, formula, env)
-          add_diagnostic(loc, '\nneed to show:\n\t' + str(formula))
+          add_diagnostic(loc, '\nneed to show:\n\t' + str(formula)
+                + givens_str(env))
         case _:
           claim_red = new_claim.reduce(env)
           formula_red = formula.reduce(env)
@@ -1488,7 +1495,8 @@ def check_proof_of(proof, formula, env):
       set_dont_reduce_opaque(False)
       if red_formula != Bool(loc, None, True):
           add_diagnostic(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
-                + str(red_formula))
+                + str(red_formula)
+                + givens_str(env))
 
     #  goal is P
     #  suffices Q by r        r proves (if Q then P)
@@ -1542,7 +1550,8 @@ def check_proof_of(proof, formula, env):
                 warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
                 _try_check_proof_of(rest, prem, env)
               case _:
-                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula))
+                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
+                      + givens_str(env))
           case Omitted(loc2, tyof):
             proved_formula = check_proof(reason, env)
             match proved_formula:
@@ -1550,7 +1559,8 @@ def check_proof_of(proof, formula, env):
                 check_implies(loc, conc, formula)
                 _try_check_proof_of(rest, prem, env)
               case _:
-                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula))
+                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
+                      + givens_str(env))
           case _:
             imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
             _try_check_proof_of(reason, imp, env)
@@ -1583,7 +1593,8 @@ def check_proof_of(proof, formula, env):
                 + '\tfirst tried each subproof in goal-directed mode, but:\n' \
                 + str(ex1) + '\n' \
                 + '\tthen tried synthesis mode, but:\n'\
-                + str(ex2))
+                + str(ex2)
+                + givens_str(env))
             
     case Cases(loc, subject, cases):
       sub_frm = check_proof(subject, env)
@@ -1596,16 +1607,19 @@ def check_proof_of(proof, formula, env):
       match sub_red:
         case Or(loc1, tyof, frms):
           if len(cases) < len(frms):
-              add_diagnostic(loc, "expected " + str(len(frms)) + " cases, not " + str(len(cases)))
+              add_diagnostic(loc, "expected " + str(len(frms)) + " cases, not " + str(len(cases))
+                    + givens_str(env))
           for (frm, (label,frm2,the_case)) in zip(frms, cases):
             if frm2:
                 new_frm2 = check_formula(frm2, env)
             if frm2 and (frm != new_frm2): # was frm != red_frm2
-              add_diagnostic(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm))
+              add_diagnostic(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm)
+                    + givens_str(env))
             body_env = env.declare_local_proof_var(loc, label, frm)
             _try_check_proof_of(the_case, formula, body_env)
         case _:
-          add_diagnostic(proof.location, "expected 'or', not " + str(sub_red))
+          add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
+                + givens_str(env))
           
     case RuleInduction(loc, hyp_name, ri_cases):
       _check_rule_induction(proof, formula, env)
@@ -1622,9 +1636,11 @@ def check_proof_of(proof, formula, env):
         case All(loc2, tyof, (var,ty), _, frm):
           if typ != ty:
             add_diagnostic(loc, "type of induction: " + str(typ) \
-                  + "\ndoes not match the all-formula's type: " + str(ty))
+                  + "\ndoes not match the all-formula's type: " + str(ty)
+                  + givens_str(env))
         case _:
-          add_diagnostic(loc, 'induction expected an all-formula, not ' + str(formula))
+          add_diagnostic(loc, 'induction expected an all-formula, not ' + str(formula)
+                + givens_str(env))
       
       # TODO: Allow for specification of what type to use
       custom_ind = env.get_inductive(typ)
@@ -1679,7 +1695,8 @@ def check_proof_of(proof, formula, env):
           case Union(loc2, name, typarams, alts):
             if len(cases) != len(alts):
               add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
-                    + ', but only have ' + str(len(cases)))
+                    + ', but only have ' + str(len(cases))
+                    + givens_str(env))
             cases_present = {}
             for (constr,indcase) in zip(alts, cases):
               check_pattern(indcase.pattern, typ, env, cases_present)
@@ -1687,11 +1704,13 @@ def check_proof_of(proof, formula, env):
                   print('\nCase ' + str(indcase.pattern))
               if indcase.pattern.constructor.name != constr.name:
                 add_diagnostic(indcase.location, "expected a case for " + str(base_name(constr.name)) \
-                      + " not " + str(base_name(indcase.pattern.constructor.name)))
+                      + " not " + str(base_name(indcase.pattern.constructor.name))
+                      + givens_str(env))
               if len(indcase.pattern.parameters) != len(constr.parameters):
                 add_diagnostic(indcase.location, "expected " + str(len(constr.parameters)) \
                       + " arguments to " + base_name(constr.name) \
-                      + " not " + str(len(indcase.pattern.parameters)))
+                      + " not " + str(len(indcase.pattern.parameters))
+                      + givens_str(env))
               induction_hypotheses = [instantiate(loc, formula,
                                                   ResolvedVar(loc,None, param))
                                       for (param, ty) in 
@@ -1729,7 +1748,8 @@ def check_proof_of(proof, formula, env):
                     msg = 'incorrect induction hypothesis, expected\n' \
                         + str(frm2) + '\nbut got\n' + str(new_frm1) \
                         + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
-                    add_diagnostic(frm1.location, msg)
+                    add_diagnostic(frm1.location, msg
+                          + givens_str(body_env))
                 body_env = body_env.declare_local_proof_var(loc, x, frm2)
 
               _try_check_proof_of(indcase.body, goal, body_env)
@@ -1754,14 +1774,17 @@ def check_proof_of(proof, formula, env):
               case _:
                 internal_error(loc, 'unhandled case in switch proof')
           if not has_true_case:
-            add_diagnostic(loc, 'missing case for true')
+            add_diagnostic(loc, 'missing case for true'
+                + givens_str(env))
           if not has_false_case:
-            add_diagnostic(loc, 'missing case for false')
-            
+            add_diagnostic(loc, 'missing case for false'
+                + givens_str(env))
+
           # check each case
           for scase in cases:
             if not isinstance(scase.pattern, PatternBool):
-              add_diagnostic(scase.location, "expected pattern 'true' or 'false' in switch on bool")
+              add_diagnostic(scase.location, "expected pattern 'true' or 'false' in switch on bool"
+                    + givens_str(env))
               
             subject_case = Bool(scase.location, BoolType(scase.location), True) if scase.pattern.value \
                            else Bool(scase.location, BoolType(scase.location), False)
@@ -1781,33 +1804,39 @@ def check_proof_of(proof, formula, env):
                 msg = 'expected assumption\n' + str(predicate) \
                     + '\nnot\n' + str(assumptions[0][1]) \
                     + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
-                add_diagnostic(scase.location, msg)
+                add_diagnostic(scase.location, msg
+                      + givens_str(env))
               body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], predicate)
 
             if len(assumptions) > 1:
-              add_diagnostic(scase.location, 'only one assumption is allowed in a switch case')
+              add_diagnostic(scase.location, 'only one assumption is allowed in a switch case'
+                    + givens_str(env))
             frm = rewrite(loc, formula.reduce(env), equation.reduce(env), env)
             new_frm = frm.reduce(env)
             _try_check_proof_of(scase.body, new_frm, body_env)
         case TypeType(_):
           # As far as I know, it is not possible to switch on a type
-          add_diagnostic(loc, "In 'switch' expected a term, got " + str(new_subject))
+          add_diagnostic(loc, "In 'switch' expected a term, got " + str(new_subject)
+                + givens_str(env))
         case _:
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
             case Union(loc2, name, typarams, alts):
               if len(cases) != len(alts):
-                add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases)))
+                add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
+                      + givens_str(env))
               cases_present = {}
               for (constr,scase) in zip(alts, cases):
                 check_pattern(scase.pattern, ty, env, cases_present)
                 if scase.pattern.constructor.name != constr.name:
                   add_diagnostic(scase.location, "expected a case for " + str(constr) \
-                        + " not " + str(scase.pattern.constructor))
+                        + " not " + str(scase.pattern.constructor)
+                        + givens_str(env))
                 if len(scase.pattern.parameters) != len(constr.parameters):
                   add_diagnostic(scase.location, "expected " + str(len(constr.parameters)) \
                         + " arguments to " + base_name(constr.name) \
-                        + " not " + str(len(scase.pattern.parameters)))
+                        + " not " + str(len(scase.pattern.parameters))
+                        + givens_str(env))
                 subject_case = pattern_to_term(scase.pattern)
                 body_env = env
 
@@ -1832,11 +1861,13 @@ def check_proof_of(proof, formula, env):
                       case_assumption = type_synth_term(assumptions[0][1], body_env, None, [])
                       if case_assumption != new_assumption:
                           add_diagnostic(scase.location, 'in case, expected assume of\n' + str(new_assumption) \
-                                + '\nnot\n' + str(case_assumption))
+                                + '\nnot\n' + str(case_assumption)
+                                + givens_str(body_env))
                   body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], new_assumption)
                 if len(assumptions) > 1:
-                  add_diagnostic(scase.location, 'only one assumption is allowed in a switch case')
-                  
+                  add_diagnostic(scase.location, 'only one assumption is allowed in a switch case'
+                        + givens_str(body_env))
+
                 if isinstance(new_subject, VarRef):
                   frm = formula.substitute({new_subject.name: new_subject_case})
                 else:
@@ -1844,7 +1875,8 @@ def check_proof_of(proof, formula, env):
                 red_frm = frm.reduce(body_env)
                 _try_check_proof_of(scase.body, red_frm, body_env)
             case _:
-              add_diagnostic(loc, "switch expected union type or bool, not " + str(ty))
+              add_diagnostic(loc, "switch expected union type or bool, not " + str(ty)
+                    + givens_str(env))
           
     case RewriteGoal(loc, equation_proofs, body):
       equations = [check_proof(proof, env) for proof in equation_proofs]

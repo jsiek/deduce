@@ -1,0 +1,3 @@
+./test/should-error/givens_induction_wrong_arg_count.pf:8.3-8.21: expected 2 arguments to Pack not 1
+Givens:
+	p: P

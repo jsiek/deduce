@@ -1,0 +1,3 @@
+./test/should-error/givens_cases_not_or.pf:5.3-5.10: expected 'or', not P
+Givens:
+	p: P

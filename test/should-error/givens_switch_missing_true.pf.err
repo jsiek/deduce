@@ -1,0 +1,3 @@
+./test/should-error/givens_switch_missing_true.pf:5.3-7.4: missing case for true
+Givens:
+	p: P

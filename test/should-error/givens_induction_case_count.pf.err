@@ -1,0 +1,3 @@
+./test/should-error/givens_induction_case_count.pf:7.3-9.18: expected 3 cases for induction, but only have 2
+Givens:
+	p: P

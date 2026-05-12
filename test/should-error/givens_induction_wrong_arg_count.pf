@@ -1,0 +1,9 @@
+union Box { Pack(bool, bool) }
+
+theorem T: all P:bool. if P then (all b:Box. b = b)
+proof
+  arbitrary P:bool
+  assume p: P
+  induction Box
+  case Pack(x) { ? }
+end

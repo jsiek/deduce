@@ -1,0 +1,10 @@
+union Color { Red Blue Green }
+
+theorem T: all P:bool. if P then (all c:Color. c = c)
+proof
+  arbitrary P:bool
+  assume p: P
+  induction Color
+  case Red { ? }
+  case Blue { ? }
+end

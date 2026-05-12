@@ -1,0 +1,3 @@
+./test/should-error/givens_induction_not_all.pf:7.3-7.14: induction expected an all-formula, not P
+Givens:
+	p: P

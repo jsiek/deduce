@@ -1,0 +1,10 @@
+union Box { Pack(bool, bool) }
+
+theorem T: all b:Box, P:bool. if P then b = b
+proof
+  arbitrary b:Box, P:bool
+  assume p: P
+  switch b {
+    case Pack(x) { . }
+  }
+end

@@ -1,0 +1,4 @@
+./test/should-error/givens_induction_type_mismatch.pf:8.3-10.18: type of induction: Color
+does not match the all-formula's type: N
+Givens:
+	p: P
