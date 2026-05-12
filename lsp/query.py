@@ -1341,6 +1341,7 @@ def _collect_completion_names_from_ast(ast_nodes, _seen=None):
     """
     from abstract_syntax import (
         Define,
+        GenRecFun,
         Import,
         Postulate,
         Predicate,
@@ -1373,6 +1374,13 @@ def _collect_completion_names_from_ast(ast_nodes, _seen=None):
             detail = f"define {label}: {stmt.typ}" if stmt.typ is not None else None
             yield CompletionCandidate(label=label, kind="define", detail=detail)
         elif isinstance(stmt, RecFun):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(label=label, kind="function")
+        elif isinstance(stmt, GenRecFun):
+            # ``recfun'' -- the polymorphic-recursion form.  Same
+            # surface as ``recursive''/`RecFun' for completion purposes
+            # (it's a callable with a name); the AST class is
+            # different to track type-parameter bookkeeping.
             label = base_name(stmt.name)
             yield CompletionCandidate(label=label, kind="function")
         elif isinstance(stmt, Union):
@@ -1537,6 +1545,7 @@ def _find_declaration(ast_nodes, target_name: str, _seen=None):
     """
     from abstract_syntax import (
         Define,
+        GenRecFun,
         Import,
         Postulate,
         Predicate,
@@ -1548,7 +1557,12 @@ def _find_declaration(ast_nodes, target_name: str, _seen=None):
     if _seen is None:
         _seen = set()
 
-    decl_types = (Theorem, Postulate, Define, RecFun, Union, Predicate)
+    # ``GenRecFun'' (the ``recfun'' keyword -- polymorphic recursion)
+    # uses a different AST class than ``RecFun'' (``recursive'') but
+    # is structurally the same for F12 purposes: top-level name +
+    # location.  Without it here, F12 on ``gcd'' / ``div_alt'' /
+    # other ``recfun'' declarations returned None.
+    decl_types = (Theorem, Postulate, Define, RecFun, GenRecFun, Union, Predicate)
     for stmt in ast_nodes:
         if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
             return stmt.location
@@ -1605,6 +1619,7 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
     from abstract_syntax import (
         Auto,
         Define,
+        GenRecFun,
         Import,
         Postulate,
         Predicate,
@@ -1629,6 +1644,18 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
     elif isinstance(stmt, RecFun):
         kind = SymbolKind.FUNCTION
         params = ", ".join(str(p) for p in stmt.params)
+        typarams = (
+            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
+        )
+        signature = (
+            f"function {base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
+        )
+    elif isinstance(stmt, GenRecFun):
+        # ``recfun'' -- the polymorphic-recursion form.  Same surface
+        # as ``RecFun'' but parameter list is a list of (name, type)
+        # tuples rather than parsed ``Param'' nodes.
+        kind = SymbolKind.FUNCTION
+        params = ", ".join(f"{n}: {t}" for (n, t) in stmt.vars)
         typarams = (
             f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
         )
