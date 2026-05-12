@@ -1,0 +1,10 @@
+import Nat
+
+recursive ident<T>(Nat, T) -> T {
+  ident(zero, x) = x
+  ident(suc(n), x) =
+    define rec = @ident<T>;
+    rec(n, x)
+}
+
+print ident(suc(zero), zero)

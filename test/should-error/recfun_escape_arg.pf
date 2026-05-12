@@ -1,0 +1,12 @@
+import Nat
+
+fun apply2(f : fn Nat,Nat -> Nat, x : Nat, y : Nat) {
+  f(x, y)
+}
+
+recursive add(Nat,Nat) -> Nat {
+  add(zero, m) = m
+  add(suc(n), m) = add(n, apply2(add, suc(n), m))
+}
+
+print add(suc(zero), zero)
