@@ -1988,19 +1988,36 @@ class ArrayGet(Term):
   def reduce(self, env):
     subject_red = self.subject.reduce(env)
     position_red = self.position.reduce(env)
+    index = None
+    if isNat(position_red):
+      index = natToInt(position_red)
+    elif isUInt(position_red):
+      index = uintToInt(position_red)
     match subject_red:
       case Array(loc2, _, elements):
-        index = None
-        if isNat(position_red):
-          index = natToInt(position_red)
-        elif isUInt(position_red):
-          index = uintToInt(position_red)
-        else:
-            user_error(self.location, "array access expected number index, not " + str(position_red))
-        if not (index is None):
-          if 0 <= index and index < len(elements):
-            return elements[index].reduce(env)
-          # Don't signal an error for out-of-bounds! -Jeremy
+        # If the index is not a concrete number (e.g. a free variable in
+        # a proof), leave the access unreduced rather than erroring.
+        if index is not None and 0 <= index and index < len(elements):
+          return elements[index].reduce(env)
+        # Don't signal an error for out-of-bounds! -Jeremy
+      case MakeArray(loc2, _, list_term):
+        # Peel as many leading `node` constructors off the list as the
+        # index calls for. This lets `array(node(x, xs))[0]` reduce to
+        # `x` even when the tail `xs` is not concrete, which is what
+        # makes arrays useful inside proofs.
+        if index is not None and index >= 0:
+          cur = list_term
+          i = index
+          while True:
+            match cur:
+              case Call(_, _, TermInst(_, _, ctor, _, _), [hd, tl]) \
+                   if _is_named(ctor, 'node'):
+                if i == 0:
+                  return hd.reduce(env)
+                cur = tl
+                i -= 1
+              case _:
+                break
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
     
   def substitute(self, sub):
@@ -5189,6 +5206,10 @@ def count_marks(formula):
       return 0
     case ArrayGet(loc, tyof, arr, ind):
       return count_marks(arr) + count_marks(ind)
+    case Array(loc, tyof, elements):
+      return sum([count_marks(elt) for elt in elements])
+    case MakeArray(loc, tyof, subject):
+      return count_marks(subject)
     case _:
       internal_error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
@@ -5245,6 +5266,11 @@ def find_mark(formula):
     case ArrayGet(loc2, tyof, arr, ind):
       find_mark(arr)
       find_mark(ind)
+    case Array(loc2, tyof, elements):
+      for elt in elements:
+          find_mark(elt)
+    case MakeArray(loc2, tyof, subject):
+      find_mark(subject)
     case _:
       internal_error(formula.location, 'in find_mark function, unhandled ' + str(formula))
 
@@ -5296,6 +5322,11 @@ def replace_mark(formula, replacement):
       return formula
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc2, tyof, replace_mark(arr, replacement), replace_mark(ind, replacement))
+    case Array(loc2, tyof, elements):
+      return Array(loc2, tyof,
+                   [replace_mark(elt, replacement) for elt in elements])
+    case MakeArray(loc2, tyof, subject):
+      return MakeArray(loc2, tyof, replace_mark(subject, replacement))
     case _:
       internal_error(formula.location, 'in replace_mark function, unhandled ' + str(formula))
 
@@ -5640,6 +5671,15 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
     case ArrayGet(loc2, tyof, arr, ind):
       return ArrayGet(loc, tyof, rewrite_aux(loc, arr, equation, env, depth - 1),
                       rewrite_aux(loc, ind, equation, env, depth - 1))
+
+    case Array(loc2, tyof, elements):
+      return Array(loc, tyof,
+                   [rewrite_aux(loc, elt, equation, env, depth - 1)
+                    for elt in elements])
+
+    case MakeArray(loc2, tyof, subject):
+      return MakeArray(loc, tyof,
+                       rewrite_aux(loc, subject, equation, env, depth - 1))
   
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, rewrite_aux(loc, rhs, equation, env, depth - 1),

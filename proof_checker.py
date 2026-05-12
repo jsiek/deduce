@@ -5093,6 +5093,10 @@ def find_rec_calls(name, term, env):
     case ArrayGet(loc2, tyof, arr, ind):
       return find_rec_calls(name, arr, env) \
           + find_rec_calls(name, ind, env)
+    case Array(loc2, tyof, elements):
+      return sum([find_rec_calls(name, elt, env) for elt in elements], [])
+    case MakeArray(loc2, tyof, subject):
+      return find_rec_calls(name, subject, env)
     case TLet(loc2, tyof, var, rhs, body):
       return find_rec_calls(name, rhs, env) \
           + find_rec_calls(name, body, env)
