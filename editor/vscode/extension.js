@@ -204,6 +204,311 @@ function activate(context) {
                 'No matching given at point.',
             )),
     );
+
+    // --- LLM-driven hole filling --------------------------------
+    //
+    // Mirror of editor/emacs/deduce-fill-hole.el (C-c C-a).  Flow:
+    //
+    //   1. Issue `deduce/holeContextAt' to get goal + givens +
+    //      lemmas + a fingerprint.
+    //   2. Snapshot the document version + the hole's text so we can
+    //      verify post-sidecar that nothing has shifted.
+    //   3. Spawn `<python> -m tools.claude_fill_hole' with cwd =
+    //      deduceRoot, write a JSON request to its stdin, await its
+    //      JSON response on stdout.
+    //   4. If validation succeeded AND the hole hasn't moved AND the
+    //      re-fetched fingerprint matches, splice the validated proof
+    //      in via `vscode.workspace.applyEdit'.
+    //
+    // One sidecar per document at a time -- a second invocation while
+    // the first is in flight is rejected.  Different documents can
+    // fill in parallel.
+    const fillHoleInFlight = new Set();
+    context.subscriptions.push(
+        vscode.commands.registerCommand('deduce.fillHole', () =>
+            fillHoleCommand(client, fillHoleInFlight, root)),
+    );
+}
+
+// --- LLM fill-hole helpers ----------------------------------------
+
+const DEFAULT_FILL_HOLE_MODEL = {
+    'anthropic': 'claude-opus-4-7',
+    'openai-compat': 'gemma-4-31B-it',
+};
+
+const DEFAULT_FILL_HOLE_KEY_ENV = {
+    'anthropic': 'ANTHROPIC_API_KEY',
+    'openai-compat': 'OPENAI_API_KEY',
+};
+
+async function fillHoleCommand(client, inFlight, deduceRoot) {
+    const editor = ensureDeduceEditor();
+    if (!editor || !client) return;
+    const uriStr = editor.document.uri.toString();
+    if (inFlight.has(uriStr)) {
+        vscode.window.showInformationMessage(
+            'Deduce: a fill-hole is already in progress in this buffer.');
+        return;
+    }
+
+    // 1. Pull the hole context (goal + givens + lemmas + fingerprint).
+    const ctxParams = {
+        textDocument: { uri: uriStr },
+        position: {
+            line: editor.selection.active.line,
+            character: editor.selection.active.character,
+        },
+    };
+    let ctx;
+    try {
+        ctx = await client.sendRequest('deduce/holeContextAt', ctxParams);
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `Deduce: holeContextAt failed: ${err.message || err}`);
+        return;
+    }
+    if (!ctx) {
+        vscode.window.showInformationMessage(
+            'Deduce: place the cursor on a `?` hole first.');
+        return;
+    }
+
+    const filePath = editor.document.uri.fsPath;
+    if (!filePath) {
+        vscode.window.showErrorMessage(
+            'Deduce fill-hole: the active buffer is not a saved file.');
+        return;
+    }
+    const documentContent = editor.document.getText();
+    const origFingerprint = ctx.fingerprint || '';
+    const holeRange = toVscodeRange(ctx.holeRange);
+
+    // 2. Resolve sidecar configuration.
+    const baseCfg = vscode.workspace.getConfiguration('deduce');
+    const fillCfg = vscode.workspace.getConfiguration('deduce.fillHole');
+    const python = baseCfg.get('pythonPath') || 'python3';
+    const backend = fillCfg.get('backend') || 'anthropic';
+    const model = fillCfg.get('model') || DEFAULT_FILL_HOLE_MODEL[backend] || DEFAULT_FILL_HOLE_MODEL.anthropic;
+    const apiKeyEnv = fillCfg.get('apiKeyEnv') || DEFAULT_FILL_HOLE_KEY_ENV[backend] || DEFAULT_FILL_HOLE_KEY_ENV.anthropic;
+    const baseUrl = fillCfg.get('baseUrl') || '';
+    const maxAttempts = Number(fillCfg.get('maxAttempts')) || 5;
+    const timeoutSec = Number(fillCfg.get('timeout')) || 60;
+    const noStdlib = baseCfg.get('noStdlib') === true;
+
+    const args = [
+        '-m', 'tools.claude_fill_hole',
+        '--backend', backend,
+        '--model', model,
+        '--api-key-env', apiKeyEnv,
+        '--deduce-root', deduceRoot,
+        '--max-attempts', String(maxAttempts),
+        '--timeout', String(timeoutSec),
+    ];
+    if (baseUrl) {
+        args.push('--base-url', baseUrl);
+    }
+    if (noStdlib) {
+        args.push('--no-stdlib');
+    }
+
+    const payload = {
+        file: filePath,
+        holeRange: ctx.holeRange,
+        goal: ctx.goal,
+        givens: ctx.givens || [],
+        lemmasInScope: ctx.lemmasInScope || [],
+        fingerprint: origFingerprint,
+        content: documentContent,
+    };
+
+    // 3. Spawn the sidecar inside a progress notification so the user
+    // can cancel and gets feedback that something's happening.
+    inFlight.add(uriStr);
+    let result;
+    try {
+        result = await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Deduce: asking ${model}…`,
+                cancellable: true,
+            },
+            (progress, token) => runFillHoleSidecar(python, args, JSON.stringify(payload), deduceRoot, token),
+        );
+    } finally {
+        inFlight.delete(uriStr);
+    }
+
+    if (!result) {
+        // Cancelled.
+        return;
+    }
+    if (!result.ok) {
+        const attempts = result.attempts || 0;
+        vscode.window.showErrorMessage(
+            `Deduce fill-hole: ${result.error || 'no proof produced'}`
+            + (attempts ? ` (after ${attempts} attempt${attempts === 1 ? '' : 's'})` : ''));
+        return;
+    }
+
+    // 4. Marker check: hole's text must still be `?` after the
+    // sidecar's round-trip.  If anyone typed inside the hole or moved
+    // it, refuse to splice.
+    const currentText = editor.document.getText(holeRange);
+    if (currentText !== '?') {
+        vscode.window.showErrorMessage(
+            `Deduce fill-hole: hole edited while the model was thinking (now ${JSON.stringify(currentText)}).`);
+        return;
+    }
+
+    // Re-fetch holeContextAt and compare fingerprints.  The lemma
+    // list is excluded from the fingerprint by design (adding a new
+    // lemma between request and response shouldn't invalidate an
+    // otherwise valid proof), so this catches edits to the theorem
+    // statement itself.
+    try {
+        const recheck = await client.sendRequest('deduce/holeContextAt', {
+            textDocument: { uri: uriStr },
+            position: { line: holeRange.start.line, character: holeRange.start.character },
+            includeLemmas: false,
+        });
+        if (recheck && recheck.fingerprint && recheck.fingerprint !== origFingerprint) {
+            vscode.window.showErrorMessage(
+                'Deduce fill-hole: hole context changed while the model was thinking.');
+            return;
+        }
+    } catch {
+        // If the recheck itself fails (server gone away, etc.), fall
+        // through and trust the marker check above.
+    }
+
+    // 5. Splice.
+    const proof = reindentProof(result.proof || '', holeRange.start.character);
+    const wsEdit = new vscode.WorkspaceEdit();
+    wsEdit.replace(editor.document.uri, holeRange, proof);
+    const applied = await vscode.workspace.applyEdit(wsEdit);
+    if (!applied) {
+        vscode.window.showErrorMessage('Deduce fill-hole: workspace edit was rejected.');
+        return;
+    }
+    const attempts = result.attempts || 1;
+    vscode.window.showInformationMessage(
+        `Deduce fill-hole: filled in ${attempts} attempt${attempts === 1 ? '' : 's'}.`);
+}
+
+function toVscodeRange(lspRange) {
+    return new vscode.Range(
+        new vscode.Position(lspRange.start.line, lspRange.start.character),
+        new vscode.Position(lspRange.end.line, lspRange.end.character),
+    );
+}
+
+// Run the hole-fill sidecar as a subprocess.  Writes ``payload'' to
+// stdin, captures stdout (the JSON response) and stderr (NDJSON
+// progress).  Resolves with the parsed response object on success,
+// with ``{ok: false, error, attempts}'' on protocol failure, or with
+// ``null'' if the user cancels via the progress notification.
+function runFillHoleSidecar(python, args, payload, cwd, cancellationToken) {
+    return new Promise((resolve) => {
+        const { spawn } = require('child_process');
+        const env = { ...process.env, PYTHONPATH: cwd };
+        let proc;
+        try {
+            proc = spawn(python, args, { cwd, env });
+        } catch (err) {
+            resolve({
+                ok: false,
+                attempts: 0,
+                error: `failed to spawn sidecar: ${err.message || err}`,
+            });
+            return;
+        }
+        let stdout = '';
+        let stderr = '';
+        let cancelled = false;
+        proc.stdout.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
+        proc.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+        proc.on('error', (err) => {
+            resolve({
+                ok: false,
+                attempts: 0,
+                error: `sidecar error: ${err.message || err}`,
+            });
+        });
+        proc.on('close', (exitCode) => {
+            if (cancelled) {
+                resolve(null);
+                return;
+            }
+            const trimmed = stdout.trim();
+            if (!trimmed) {
+                const tail = stderr.length > 2048 ? stderr.slice(-2048) : stderr;
+                resolve({
+                    ok: false,
+                    attempts: 0,
+                    error: `sidecar exited ${exitCode} without a response. stderr tail:\n${tail.trim() || '(empty)'}`,
+                });
+                return;
+            }
+            try {
+                const parsed = JSON.parse(trimmed);
+                resolve(parsed);
+            } catch (err) {
+                resolve({
+                    ok: false,
+                    attempts: 0,
+                    error: `could not parse sidecar response as JSON: ${err.message || err}\nstdout: ${trimmed.slice(0, 500)}`,
+                });
+            }
+        });
+        if (cancellationToken) {
+            cancellationToken.onCancellationRequested(() => {
+                cancelled = true;
+                try { proc.kill(); } catch { /* already dead */ }
+            });
+        }
+        proc.stdin.write(payload);
+        proc.stdin.end();
+    });
+}
+
+// Re-indent a multi-line proof so that lines after the first start at
+// ``column'' spaces of indentation.  Mirror of
+// editor/emacs/deduce-fill-hole.el's ``deduce-fill-hole--reindent-proof''.
+// The sidecar emits proof text without knowing the column the `?`
+// sits at, so a multi-line response lands with the first line at the
+// hole's column (correct) and every following line at column 0 (wrong).
+function reindentProof(proof, column) {
+    const lines = proof.split('\n');
+    if (lines.length <= 1) return proof;
+    const first = lines[0];
+    const rest = lines.slice(1);
+    const nonBlank = rest.filter((l) => l.replace(/[ \t]/g, '').length > 0);
+    const common = commonLeadingWhitespace(nonBlank);
+    const stripLen = common.length;
+    const pad = ' '.repeat(column);
+    const restFixed = rest.map((line) => {
+        if (line.replace(/[ \t]/g, '').length === 0) return '';
+        if (stripLen > 0 && line.length >= stripLen && line.slice(0, stripLen) === common) {
+            return pad + line.slice(stripLen);
+        }
+        return pad + line;
+    });
+    return [first, ...restFixed].join('\n');
+}
+
+function commonLeadingWhitespace(lines) {
+    if (lines.length === 0) return '';
+    const wsMatch = (l) => (l.match(/^[ \t]*/) || [''])[0];
+    let prefix = wsMatch(lines[0]);
+    for (const line of lines.slice(1)) {
+        const ws = wsMatch(line);
+        let i = 0;
+        const lim = Math.min(prefix.length, ws.length);
+        while (i < lim && prefix[i] === ws[i]) i++;
+        prefix = prefix.slice(0, i);
+    }
+    return prefix;
 }
 
 // --- Shared helpers for the command implementations ---------------
