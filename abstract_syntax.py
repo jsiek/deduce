@@ -566,9 +566,6 @@ class PatternBool(Pattern):
   def __str__(self):
       return "true" if self.value else "false"
 
-  # def __repr__(self):
-  #     return str(self)
-
   def uniquify(self, env, ctx):
     return self
 
@@ -2039,9 +2036,7 @@ class TLet(Term):
   def __str__(self):
     return 'define ' + base_name(self.var) + ' = ' + str(self.rhs) + ';' \
       + '\n\t' + str(self.body)
-  # def __repr__(self):
-  #   return str(self)
-  
+
   def reduce(self, env):
     new_body = self.body.substitute({self.var: self.rhs})
     return new_body.reduce(env)
@@ -2124,9 +2119,8 @@ class Mark(Term):
   
   def copy(self):
     return self.subject.copy()
-    # return Mark(self.location, self.typeof,
-    #             self.subject.copy())
-  
+
+
   def __str__(self):
     return '#' + str(self.subject) + '#'
 
@@ -2156,8 +2150,6 @@ class Bool(Formula):
       return self.value == other.value
   def __str__(self):
     return 'true' if self.value else 'false'
-  # def __repr__(self):
-  #   return str(self)
   def reduce(self, env):
     return self
   def substitute(self, sub):
@@ -2309,13 +2301,6 @@ class Or(Formula):
     return Or(self.location, self.typeof,
               [a.uniquify(env, ctx) for a in self.args])
 
-# @dataclass
-# class Compare(Formula):
-#   op: str
-#   args: list[Term]
-#   def __str__(self):
-#       return str(self.args[0]) + ' ' + self.op + ' ' + str(self.args[1])
-  
 @dataclass
 class IfThen(Formula):
   premise: Formula
