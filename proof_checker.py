@@ -530,7 +530,7 @@ def check_proof(proof, env):
         else:
             user_error(loc, 'Could not find a proof of\n\t' + str(new_fact) \
                   + '\nin the current scope\n' \
-                  + style.yellow('Givens:') + '\n' + env.proofs_str())
+                  + style.orange('Givens:') + '\n' + env.proofs_str())
       if len(results) > 1:
           ret = And(loc, BoolType(loc), results)
       elif len(results) == 1:
@@ -682,7 +682,7 @@ def check_proof(proof, env):
                        +str(univ) + '<' + str(arg) + '>\n')
         case _:
           user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm) \
-                     + '\n' + style.yellow('Givens:') + '\n' + env.proofs_str())
+                     + '\n' + style.orange('Givens:') + '\n' + env.proofs_str())
       return instantiate(loc, allfrm, new_arg)
 
     case AllElimTypes(loc, univ, type_arg, _):
@@ -886,7 +886,7 @@ def generate_label():
     return l
   
 def proof_use_advice(proof, formula, env):
-    prefix = style.bold_green('Advice about using fact:') + '\n' \
+    prefix = style.dark_green('Advice about using fact:') + '\n' \
         + '\t' + str(formula) + '\n\n'
     match formula:
       case Bool(loc, tyof, True):
@@ -1016,7 +1016,7 @@ def gen_custom_induction_advice(conjuncts):
   return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
 
 def proof_advice(formula, env):
-    prefix = style.bold_green('Advice:') + '\n'
+    prefix = style.dark_green('Advice:') + '\n'
 
     red_formula = formula.reduce(env)
     if formula != red_formula:
@@ -1170,7 +1170,7 @@ def proof_advice(formula, env):
 def givens_str(env):
     env_str = env.proofs_str()
     if len(env_str) > 0:
-        givens = '\n' + style.yellow('Givens:') + '\n' + env_str
+        givens = '\n' + style.orange('Givens:') + '\n' + env_str
     else:
         givens = ''
     return givens
@@ -1312,7 +1312,7 @@ def check_proof_of(proof, formula, env):
       if target is not None and (loc.line, loc.column) != target:
         return
       add_incomplete(loc, style.bold_red('incomplete proof') + '\n' \
-                       + style.yellow('Goal:') + '\n\t' + str(new_formula) + '\n'\
+                       + style.orange('Goal:') + '\n\t' + str(new_formula) + '\n'\
                        + proof_advice(new_formula, env) \
                        + givens_str(env),
                        formula=new_formula, env=env)
@@ -1579,7 +1579,7 @@ def check_proof_of(proof, formula, env):
             try:
               check_implies(loc, red_claim, new_formula)
             except UserError as e:
-              raise wrap_user_error(e, '\n' + style.yellow('Givens:') + '\n' + env.proofs_str()) from e
+              raise wrap_user_error(e, '\n' + style.orange('Givens:') + '\n' + env.proofs_str()) from e
             _try_check_proof_of(rest, new_claim, env)
       else:
         new_claim = type_check_term(claim, BoolType(loc), env, None, [])

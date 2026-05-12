@@ -26,6 +26,10 @@ _BOLD_GREEN   = '\033[1;32m'
 _BOLD_YELLOW  = '\033[1;33m'
 _BOLD_BLUE    = '\033[1;34m'
 _BOLD_CYAN    = '\033[1;36m'
+# 256-color extensions: standard 8-color doesn't include orange, and
+# "dark green" needs to be distinguishable from plain green 32.
+_ORANGE       = '\033[38;5;208m'
+_DARK_GREEN   = '\033[38;5;28m'
 
 def enable():
     global enabled
@@ -54,6 +58,8 @@ def green(s):        return _wrap(_GREEN, s)
 def yellow(s):       return _wrap(_YELLOW, s)
 def blue(s):         return _wrap(_BLUE, s)
 def cyan(s):         return _wrap(_CYAN, s)
+def orange(s):       return _wrap(_ORANGE, s)
+def dark_green(s):   return _wrap(_DARK_GREEN, s)
 def bold_red(s):     return _wrap(_BOLD_RED, s)
 def bold_green(s):   return _wrap(_BOLD_GREEN, s)
 def bold_yellow(s):  return _wrap(_BOLD_YELLOW, s)
