@@ -655,9 +655,11 @@ class TAnnote(Term):
     return self.subject.reduce(env)
 
   def __eq__(self, other):
+    if isinstance(other, TAnnote):
+      return self.subject == other.subject
     return self.subject == other
-    
-  
+
+
 @dataclass
 class VarRef(Term):
   # Abstract base for variable references. Concrete subclasses are
@@ -700,6 +702,8 @@ class Var(VarRef):
       elif isinstance(other, GenRecFun):
         result = self.name == other.name
       elif isinstance(other, TermInst):
+        result = self == other.subject
+      elif isinstance(other, TAnnote):
         result = self == other.subject
       elif not isinstance(other, Var):
         result = False
@@ -809,6 +813,8 @@ class OverloadedVar(VarRef):
       return self.resolved_names[0] == other.name
     elif isinstance(other, TermInst):
       return self == other.subject
+    elif isinstance(other, TAnnote):
+      return self == other.subject
     elif isinstance(other, Var):
       # Pre- and post-uniquify references are not interchangeable.
       return False
@@ -908,6 +914,8 @@ class ResolvedVar(VarRef):
       return self.name == other.name
     elif isinstance(other, TermInst):
       return self == other.subject
+    elif isinstance(other, TAnnote):
+      return self == other.subject
     elif isinstance(other, Var):
       # Pre- and post-uniquify references are not interchangeable.
       return False
@@ -1000,6 +1008,10 @@ class Lambda(Term):
 
   def __eq__(self, other):
       if not isinstance(other, Lambda):
+          return False
+      if len(self.vars) != len(other.vars):
+          return False
+      if not all(t1 == t2 for ((x,t1),(y,t2)) in zip(self.vars, other.vars)):
           return False
       # ResolvedVar so the substituted bodies compare equal to the
       # uniquified-name references already in `other.body`.
@@ -2071,6 +2083,8 @@ class All(Formula):
       return False
     x, tx = self.var
     y, ty = other.var
+    if tx != ty:
+      return False
     sub = { y: ResolvedVar(self.location, None, x) }
     result = self.body == other.body.substitute(sub)
     return result
