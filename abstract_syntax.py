@@ -83,6 +83,13 @@ class Term(AST):
   def substitute(self, sub) -> Self:
     internal_error(self.location, 'substitute not implemented')
 
+  def subst_typeof(self, sub) -> Optional[Type]:
+    # Apply `sub` to the cached `typeof` annotation. Substitution sites
+    # that build a fresh node must run this rather than passing
+    # `self.typeof` verbatim — otherwise a type variable substituted
+    # through the term structure leaves a stale name in the annotation.
+    return self.typeof.substitute(sub) if self.typeof is not None else None
+
   def reduce(self, env) -> Self:
     internal_error(self.location, 'reduce not implemented')
 
@@ -665,7 +672,7 @@ class Generic(Term):
   def substitute(self, sub):
       n = len(self.type_params)
       new_sub = {k: v for (k,v) in sub.items()}
-      return Generic(self.location, self.typeof, self.type_params, self.body.substitute(new_sub))
+      return Generic(self.location, self.subst_typeof(sub), self.type_params, self.body.substitute(new_sub))
 
   def uniquify(self, env, ctx):
     body_env = {x:y for (x,y) in env.items()}
@@ -725,7 +732,7 @@ class Conditional(Term):
              return Conditional(self.location, self.typeof, cond, thn, els)
   
   def substitute(self, sub):
-    return Conditional(self.location, self.typeof, self.cond.substitute(sub),
+    return Conditional(self.location, self.subst_typeof(sub), self.cond.substitute(sub),
                        self.thn.substitute(sub), self.els.substitute(sub))
   
   def uniquify(self, env, ctx):
@@ -751,7 +758,7 @@ class TAnnote(Term):
     return self.subject.reduce(env)
   
   def substitute(self, sub):
-    return TAnnote(self.location, self.typeof, self.subject.substitute(sub),
+    return TAnnote(self.location, self.subst_typeof(sub), self.subject.substitute(sub),
                    self.typ.substitute(sub))
   
   def uniquify(self, env, ctx):
@@ -835,7 +842,10 @@ class Var(VarRef):
             add_reduced_def(self.name)
           return trm
       else:
-          return self
+          new_typeof = self.subst_typeof(sub)
+          if new_typeof is self.typeof:
+            return self
+          return Var(self.location, new_typeof, self.name)
 
   def uniquify(self, env, ctx):
     if self.name not in env.keys():
@@ -957,7 +967,10 @@ class OverloadedVar(VarRef):
         add_reduced_def(chosen)
       return trm
     else:
-      return self
+      new_typeof = self.subst_typeof(sub)
+      if new_typeof is self.typeof:
+        return self
+      return OverloadedVar(self.location, new_typeof, list(self.resolved_names))
 
   def uniquify(self, env, ctx):
     # Already uniquified — re-uniquify is a no-op (we'd hit this if
@@ -1050,7 +1063,10 @@ class ResolvedVar(VarRef):
         add_reduced_def(self.name)
       return trm
     else:
-      return self
+      new_typeof = self.subst_typeof(sub)
+      if new_typeof is self.typeof:
+        return self
+      return ResolvedVar(self.location, new_typeof, self.name)
 
   def uniquify(self, env, ctx):
     # Already uniquified.
@@ -1132,7 +1148,7 @@ class Lambda(Term):
   def substitute(self, sub):
       n = len(self.vars)
       new_vars = [(x, t.substitute(sub) if t else None) for (x,t) in self.vars]
-      return Lambda(self.location, self.typeof, new_vars,
+      return Lambda(self.location, self.subst_typeof(sub), new_vars,
                     self.body.substitute(sub))
 
   def uniquify(self, env, ctx):
@@ -1698,7 +1714,7 @@ class Call(Term):
       return Call(self.location, self.typeof, fun, flat_results)
   
   def substitute(self, sub):
-    ret = Call(self.location, self.typeof, self.rator.substitute(sub),
+    ret = Call(self.location, self.subst_typeof(sub), self.rator.substitute(sub),
                 [arg.substitute(sub) for arg in self.args])
     if hasattr(self, 'type_args'):
       ret.type_args = self.type_args
@@ -1820,7 +1836,7 @@ class Switch(Term):
       return ret
   
   def substitute(self, sub):
-      return Switch(self.location, self.typeof,
+      return Switch(self.location, self.subst_typeof(sub),
                     self.subject.substitute(sub),
                     [c.substitute(sub) for c in self.cases])
 
@@ -1878,7 +1894,7 @@ class TermInst(Term):
                         type_args_red, self.inferred)
     
   def substitute(self, sub):
-    return TermInst(self.location, self.typeof,
+    return TermInst(self.location, self.subst_typeof(sub),
                     self.subject.substitute(sub),
                     [ty.substitute(sub) for ty in self.type_args],
                     self.inferred)
@@ -1911,7 +1927,7 @@ class Array(Term):
                  [elt.reduce(env) for elt in self.elements])
     
   def substitute(self, sub):
-    return Array(self.location, self.typeof,
+    return Array(self.location, self.subst_typeof(sub),
                  [elt.substitute(sub) for elt in self.elements])
                     
   def uniquify(self, env, ctx):
@@ -1944,7 +1960,7 @@ class MakeArray(Term):
       return MakeArray(self.location, self.typeof, self.subject.reduce(env))
     
   def substitute(self, sub):
-    return MakeArray(self.location, self.typeof,
+    return MakeArray(self.location, self.subst_typeof(sub),
                     self.subject.substitute(sub))
 
   def uniquify(self, env, ctx):
@@ -1988,7 +2004,7 @@ class ArrayGet(Term):
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
     
   def substitute(self, sub):
-    return ArrayGet(self.location, self.typeof,
+    return ArrayGet(self.location, self.subst_typeof(sub),
                     self.subject.substitute(sub),
                     self.position.substitute(sub))
 
@@ -2035,7 +2051,7 @@ class TLet(Term):
   def substitute(self, sub):
     new_rhs = self.rhs.substitute(sub)
     new_body = self.body.substitute(sub)
-    return TLet(self.location, self.typeof, self.var, new_rhs, new_body)
+    return TLet(self.location, self.subst_typeof(sub), self.var, new_rhs, new_body)
 
 @dataclass
 class Hole(Term):
@@ -2053,7 +2069,10 @@ class Hole(Term):
     return Hole(self.location, self.typeof)
 
   def substitute(self, sub):
-    return self
+    new_typeof = self.subst_typeof(sub)
+    if new_typeof is self.typeof:
+      return self
+    return Hole(self.location, new_typeof)
 
 @dataclass
 class Omitted(Term):
@@ -2071,7 +2090,10 @@ class Omitted(Term):
     return Omitted(self.location, self.typeof)
 
   def substitute(self, sub):
-    return self
+    new_typeof = self.subst_typeof(sub)
+    if new_typeof is self.typeof:
+      return self
+    return Omitted(self.location, new_typeof)
   
 @dataclass
 class Mark(Term):
@@ -2096,7 +2118,7 @@ class Mark(Term):
     return Mark(self.location, self.typeof, subject_red)
     
   def substitute(self, sub):
-    return Mark(self.location, self.typeof,
+    return Mark(self.location, self.subst_typeof(sub),
                 self.subject.substitute(sub))
 
   def uniquify(self, env, ctx):
@@ -2207,7 +2229,7 @@ class And(Formula):
   
   def substitute(self, sub):
     return And(self.location,
-               self.typeof,
+               self.subst_typeof(sub),
                [arg.substitute(sub) for arg in self.args])
   
   def uniquify(self, env, ctx):
@@ -2263,7 +2285,7 @@ class Or(Formula):
   
   def substitute(self, sub):
     return Or(self.location,
-              self.typeof,
+              self.subst_typeof(sub),
               [arg.substitute(sub) for arg in self.args])
   
   def uniquify(self, env, ctx):
@@ -2332,7 +2354,7 @@ class IfThen(Formula):
   
   def substitute(self, sub):
     return IfThen(self.location,
-                  self.typeof,
+                  self.subst_typeof(sub),
                   self.premise.substitute(sub),
                   self.conclusion.substitute(sub))
   
@@ -2394,7 +2416,7 @@ class All(Formula):
   def substitute(self, sub):
     x, ty = self.var
     return All(self.location,
-               self.typeof,
+               self.subst_typeof(sub),
                (x, ty.substitute(sub)),
                self.pos,
                self.body.substitute(sub))
@@ -2452,7 +2474,7 @@ class Some(Formula):
     n = len(self.vars)
     new_sub = {k: v for (k,v) in sub.items()}
     return Some(self.location,
-                self.typeof,
+                self.subst_typeof(sub),
                 [(x, ty.substitute(sub)) for (x,ty) in self.vars],
                 self.body.substitute(new_sub))
   
