@@ -24,7 +24,7 @@
 
 from abstract_syntax import *
 from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, ErrorSink, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
-from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
+from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger, get_unique_names, set_unique_names
 
 imported_modules = set()
 checked_modules = set()
@@ -1351,15 +1351,29 @@ def check_proof_of(proof, formula, env):
 
       if isinstance(formula, TLet):
         formula = formula.reduceLets(env)
-      
+
       match formula:
         case All(loc2, tyof, var2, (s, e), formula2):
+          x2, ty2 = var2
+          # Compare display forms so this catches user-facing mismatches
+          # (Nat vs UInt) without false-flagging two type variables that
+          # share a source name but were uniquified separately (e.g. the
+          # theorem's `T` vs an `arbitrary T:type` in the same proof).
+          saved = get_unique_names()
+          set_unique_names(False)
+          mismatch = str(ty) != str(ty2)
+          set_unique_names(saved)
+          if mismatch:
+            add_diagnostic(loc, "arbitrary expects " + base_name(x)
+                  + " to have type\n\t" + str(ty2)
+                  + "\nbut got type\n\t" + str(ty))
+            return
           sub = {}
           sub[ var2[0] ] = OverloadedVar(loc, var[1], [ var[0] ])
-          
+
           frm2 = formula2.substitute(sub)
 
-          if s != 0: 
+          if s != 0:
             frm2 = update_all_head(frm2)
 
           body_env = env.declare_term_vars(loc, [var])
