@@ -42,7 +42,7 @@ def error_header(location):
         .format(file=location.filename,
                 line1=location.line, column1=location.column,
                 line2=location.end_line, column2=location.end_column)
-    return style.bold_cyan(header) + ' '
+    return style.blue(header) + ' '
   else:
     return '' # Don't want to risk returning None ever leading to issues
 

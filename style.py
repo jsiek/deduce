@@ -19,10 +19,12 @@ _BOLD         = '\033[1m'
 _RED          = '\033[31m'
 _GREEN        = '\033[32m'
 _YELLOW       = '\033[33m'
+_BLUE         = '\033[34m'
 _CYAN         = '\033[36m'
 _BOLD_RED     = '\033[1;31m'
 _BOLD_GREEN   = '\033[1;32m'
 _BOLD_YELLOW  = '\033[1;33m'
+_BOLD_BLUE    = '\033[1;34m'
 _BOLD_CYAN    = '\033[1;36m'
 
 def enable():
@@ -50,8 +52,10 @@ def bold(s):         return _wrap(_BOLD, s)
 def red(s):          return _wrap(_RED, s)
 def green(s):        return _wrap(_GREEN, s)
 def yellow(s):       return _wrap(_YELLOW, s)
+def blue(s):         return _wrap(_BLUE, s)
 def cyan(s):         return _wrap(_CYAN, s)
 def bold_red(s):     return _wrap(_BOLD_RED, s)
 def bold_green(s):   return _wrap(_BOLD_GREEN, s)
 def bold_yellow(s):  return _wrap(_BOLD_YELLOW, s)
+def bold_blue(s):    return _wrap(_BOLD_BLUE, s)
 def bold_cyan(s):    return _wrap(_BOLD_CYAN, s)
