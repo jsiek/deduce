@@ -27,5 +27,5 @@ jobs:
       - name: execute py script # run file
         run: |
           python test-deduce.py --site
-          python test-deduce.py
+          python tools/test_runner_inproc.py
           python test-deduce.py --parser
