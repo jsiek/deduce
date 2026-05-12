@@ -40,9 +40,9 @@ jobs:
 
       # Set up Python environment
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.13.1'
+          python-version: '3.13'
 
       # Install dependencies
       - name: Install dependencies
