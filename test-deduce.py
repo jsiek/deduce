@@ -476,7 +476,7 @@ def main(argv: list[str]) -> int:
         regenerate_dir(PARSE_DIR)
         return 0
     if flags["site"]:
-        print(f"=== --site: generate doc_*.pf and check (parallel) ===")
+        print("=== --site: generate doc_*.pf and check (parallel) ===")
         bootstrap_prewarm(lib_modules)
         _, fails = time_section("site doc files × 2 parsers",
                                 lambda: run_site(workers))
@@ -495,14 +495,14 @@ def main(argv: list[str]) -> int:
     print(f"Discovered {len(lib_modules)} lib modules; workers={workers}")
 
     if flags["cli"]:
-        print(f"\n=== --cli: deduce.py CLI sanity check ===")
+        print("\n=== --cli: deduce.py CLI sanity check ===")
         _, fails = time_section("deduce.py ./example.pf", run_cli_test)
         total_failures.extend(fails)
 
     # Lib pool: clean state (no shared cache).
     if flags["lib"]:
         reset_prelude_cache()
-        print(f"\n=== lib (both parsers, parallel) ===")
+        print("\n=== lib (both parsers, parallel) ===")
         _, fails = time_section("lib × 2 parsers",
                                 lambda: run_lib_parallel(workers))
         total_failures.extend(fails)
@@ -514,7 +514,7 @@ def main(argv: list[str]) -> int:
         bootstrap_prelude(lib_modules)
         print(f"\n  {'bootstrap prelude (parent)':32s}  "
               f"{time.perf_counter() - t0:6.2f}s")
-        print(f"=== test/prelude (both parsers, parallel) ===")
+        print("=== test/prelude (both parsers, parallel) ===")
         _, fails = time_section("test/prelude × 2 parsers",
                                 lambda: run_prelude_parallel(workers))
         total_failures.extend(fails)
@@ -528,13 +528,13 @@ def main(argv: list[str]) -> int:
               f"{time.perf_counter() - t0:6.2f}s")
 
     if flags["passable"]:
-        print(f"=== should-validate (both parsers, parallel) ===")
+        print("=== should-validate (both parsers, parallel) ===")
         _, fails = time_section("should-validate × 2 parsers",
                                 lambda: run_validate_parallel(workers))
         total_failures.extend(fails)
 
     if flags["errors"]:
-        print(f"\n=== should-error (RD only, parallel) ===")
+        print("\n=== should-error (RD only, parallel) ===")
         _, fails = time_section("should-error",
                                 lambda: run_err_diff_parallel(
                                     ERROR_DIR, "recursive-descent", workers))

@@ -12,16 +12,19 @@ jobs:
 
     steps:
       - name: checkout repo content
-        uses: actions/checkout@v2 # checkout the repository content to github runner.
+        uses: actions/checkout@v4 # checkout the repository content to github runner.
       - name: setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.12 #install the python needed
+          python-version: '3.13' # match the Makefile
       - name: Install dependencies
         run: |
             python -m pip install --upgrade pip
             if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
             if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
+            pip install ruff
+      - name: Lint with ruff
+        run: ruff check .
       - name: Check known tokens
         run: python ./gh_pages/scripts/keywords.py
       - name: execute py script # run file
