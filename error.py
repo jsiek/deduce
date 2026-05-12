@@ -1,6 +1,5 @@
 import contextlib
 
-import flags
 import style
 
 class Diagnostic(Exception):

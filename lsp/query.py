@@ -1449,7 +1449,7 @@ def _find_reference_at(ast_nodes, pos: Position, path: str) -> Optional[str]:
     """
     # Late import: lsp/query.py is the protocol-neutral surface, so we
     # don't pull in abstract_syntax until a query actually runs.
-    from abstract_syntax import AST, PVar, Var, VarRef
+    from abstract_syntax import AST, PVar, VarRef
 
     best: list[Optional[str]] = [None]
     best_span: list[Optional[int]] = [None]
@@ -2284,7 +2284,7 @@ def _induction_template(formula, env) -> Optional[str]:
     """Render an ``induction T`` skeleton if ``formula`` is
     ``all x:T. P(x)`` with T a multi-alternative union."""
     from abstract_syntax import (
-        All, TypeBinding, Union, VarRef, base_name, get_type_name,
+        All, TypeBinding, Union, VarRef, get_type_name,
     )
 
     if not isinstance(formula, All):
@@ -2546,8 +2546,7 @@ def _eliminate_template_for_formula(
     a non-None sentinel string when the shape is supported.
     """
     from abstract_syntax import (
-        All, And, Bool, Call, IfThen, Or, ResolvedVar, Some, TypeType,
-        VarRef, base_name,
+        All, And, Bool, Call, IfThen, Or, Some, VarRef,
     )
 
     if isinstance(formula, Bool):

@@ -13,9 +13,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-import pytest
 
-from tools.claude_fill_hole.agent import AgentResult
 from tools.claude_fill_hole.openai_backend import OpenAICompatBackend
 from tools.claude_fill_hole.validator import QueryOutcome, ValidationOutcome
 

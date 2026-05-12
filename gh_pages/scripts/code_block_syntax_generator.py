@@ -1,6 +1,6 @@
 import os
 
-from keywords import get_known_tokens, get_pattern_types
+from keywords import get_pattern_types
 
 if __name__ == '__main__':
     pattern_types = get_pattern_types()

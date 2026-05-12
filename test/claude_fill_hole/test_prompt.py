@@ -10,10 +10,8 @@ a small int) and the substitution behaviour.
 
 from __future__ import annotations
 
-import pytest
 
 from tools.claude_fill_hole.prompt import (
-    SCAFFOLD,
     build_system_prompt,
     build_user_message,
     slice_around_hole,

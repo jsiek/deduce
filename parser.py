@@ -1,12 +1,7 @@
 from abstract_syntax import *
-import dataclasses
-from dataclasses import dataclass
-from lark import Lark, Token, Tree, logger, exceptions
+from lark import Lark, Token, exceptions
 from flags import *
 from error import *
-
-import logging
-#logger.setLevel(logging.DEBUG)
 
 filename = '???'
 

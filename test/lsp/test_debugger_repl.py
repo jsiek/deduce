@@ -28,12 +28,11 @@ import io
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from lsp.debugger import Debugger, DebuggerQuit  # noqa: E402
+from lsp.debugger import Debugger  # noqa: E402
 from lsp.library import check_file  # noqa: E402
 
 

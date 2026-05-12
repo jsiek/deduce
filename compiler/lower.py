@@ -16,7 +16,7 @@ Assert. MakeArray/ArrayGet/GenRecFun/Array etc. raise CompileError.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Set
 
 import abstract_syntax as ast
 

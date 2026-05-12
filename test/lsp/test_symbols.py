@@ -20,7 +20,6 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from lsp.query import (  # noqa: E402
     Position,
-    SymbolInfo,
     SymbolKind,
     definition_of,
     list_symbols,

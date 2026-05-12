@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from compiler import closure, emit_c, ir, lower, prune  # noqa: E402
+from compiler import closure, emit_c, lower, prune  # noqa: E402
 from abstract_syntax import (  # noqa: E402
     add_import_directory,
     init_import_directories,
