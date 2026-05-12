@@ -84,6 +84,11 @@
         "command": "deduce.fillFromGiven",
         "title": "Deduce: Fill hole with matching given",
         "category": "Deduce"
+      },
+      {
+        "command": "deduce.fillHole",
+        "title": "Deduce: Fill hole with LLM",
+        "category": "Deduce"
       }
     ],
     "keybindings": [
@@ -116,6 +121,11 @@
         "command": "deduce.fillFromGiven",
         "key": "ctrl+alt+f",
         "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.fillHole",
+        "key": "ctrl+alt+a",
+        "when": "editorTextFocus && editorLangId == deduce"
       }
     ],
     "configuration": {
@@ -136,6 +146,37 @@
           "type": "boolean",
           "default": false,
           "description": "If true, start the language server without the standard library prelude (sets DEDUCE_NO_STDLIB=1 in the spawned environment, mirroring 'deduce.py --no-stdlib').  Useful when working on lib/ itself or on minimal test fixtures."
+        },
+        "deduce.fillHole.backend": {
+          "type": "string",
+          "enum": ["anthropic", "openai-compat"],
+          "default": "anthropic",
+          "description": "Backend used by the 'Deduce: Fill hole with LLM' command (Ctrl+Alt+A).  'anthropic' uses Anthropic's SDK and reads ANTHROPIC_API_KEY by default; 'openai-compat' uses the OpenAI SDK against the OpenAI API (or any compatible endpoint via deduce.fillHole.baseUrl) and reads OPENAI_API_KEY by default."
+        },
+        "deduce.fillHole.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model ID passed to the hole-fill sidecar.  Leave empty to pick a sensible default per backend ('claude-opus-4-7' for anthropic, 'gemma-4-31B-it' for openai-compat)."
+        },
+        "deduce.fillHole.apiKeyEnv": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the environment variable holding the API key.  Leave empty to pick the backend default (ANTHROPIC_API_KEY / OPENAI_API_KEY).  Useful when routing through a gateway like REALLMS_API_KEY."
+        },
+        "deduce.fillHole.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Override the OpenAI-compatible endpoint URL (e.g. https://reallms.rescloud.iu.edu/direct/v1 for IU's REALLMs gateway, or a local Ollama at http://localhost:11434/v1).  Empty means use the SDK's default (the real OpenAI API).  Ignored when backend is 'anthropic'."
+        },
+        "deduce.fillHole.maxAttempts": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum number of validate-proof attempts the sidecar makes.  The first proof that passes 'deduce/validateProof' wins; the sidecar exits with the failure trace if none of the attempts validate."
+        },
+        "deduce.fillHole.timeout": {
+          "type": "number",
+          "default": 60,
+          "description": "Per-validate-call timeout in seconds passed to the sidecar.  Applies to each attempt's proof-check, not to the total time of the fill-hole session."
         }
       }
     },
