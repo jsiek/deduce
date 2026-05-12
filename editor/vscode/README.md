@@ -10,9 +10,9 @@ lockstep with it.
 > (Phase 6 / Step 27 of `docs/lsp-plan.md`), the LSP client
 > (Step 28), the goal-at-cursor command (Step 29), the
 > structured-editing commands (Step 30), in-buffer tab
-> completion (Step 31), and the debugger integration (Phase 5 /
-> Step 26).  LLM hole filling (Step 32) and Marketplace
-> publication (Step 33) are the remaining chunks.
+> completion (Step 31), LLM hole filling (Step 32), and the
+> debugger integration (Phase 5 / Step 26).  Marketplace
+> publication (Step 33) is the remaining chunk.
 
 ## What ships today
 
@@ -81,6 +81,21 @@ lockstep with it.
   After every successful edit the cursor jumps to the first new
   `?` inside the inserted text, so the next refine / case-split
   fires immediately without repositioning.
+- **LLM hole filling** (`Ctrl+Alt+A`, or Command Palette: *Deduce:
+  Fill hole with LLM*) — cursor on a `?` hole; the extension grabs
+  the goal + givens + lemmas in scope via `deduce/holeContextAt`,
+  spawns the shared `tools/claude_fill_hole` sidecar, and asks
+  Claude (or any OpenAI-compatible endpoint) for a proof.  The
+  sidecar runs a `validate_proof` loop (`deduce.fillHole.maxAttempts`,
+  default 5); the first attempt that checks against the real
+  proof checker wins.  Progress shows in a notification with a
+  cancel button.  On success, the validated proof is spliced into
+  the `?`'s range — but only after a marker + fingerprint
+  re-check, so editing the hole or its enclosing theorem while
+  the model is thinking aborts the splice rather than corrupting
+  the buffer.  Mirror of Emacs's `C-c C-a` / `deduce-fill-hole`
+  and uses the same Python sidecar; configure backend / model /
+  API key via the `deduce.fillHole.*` settings below.
 - A `type: "deduce"` **debugger** contribution.  When you launch a
   debug session, the extension spawns
   `<deduce.pythonPath> <deduce.deduceRoot>/lsp/dap_server.py` as
@@ -102,6 +117,20 @@ lockstep with it.
   Without `pygls`, the syntax highlighting and debugger still
   work, but the language server fails to start and you'll see a
   red status bar entry.
+- For LLM hole filling (`Ctrl+Alt+A`), also install the SDK that
+  matches your chosen `deduce.fillHole.backend` (and export the
+  corresponding API key):
+  ```sh
+  pip install -r requirements-fill-hole.txt   # from the repo root
+  export ANTHROPIC_API_KEY='sk-ant-...'       # for `anthropic'
+  # or:
+  export OPENAI_API_KEY='sk-...'              # for `openai-compat'
+  # or any name you set in `deduce.fillHole.apiKeyEnv'
+  ```
+  The fill-hole command spawns the same `tools/claude_fill_hole`
+  sidecar that Emacs's `deduce-fill-hole.el` does; without the
+  SDK or key it returns a clear error message but doesn't break
+  the other LSP features.
 - A Deduce checkout (this repository).  By default the extension
   expects `.pf` files to live inside the checkout so the adapter
   can find `lsp/dap_server.py` and `lsp/lsp_server.py`; set
@@ -192,7 +221,7 @@ picker offers the "Deduce" snippet from this extension's
 
 ## Settings
 
-The extension exposes three settings under the `Deduce` group
+The extension exposes settings under the `Deduce` group
 (`Cmd+,` → search for "deduce" or edit JSON):
 
 | Setting              | Default     | Effect                                                                                |
@@ -200,6 +229,18 @@ The extension exposes three settings under the `Deduce` group
 | `deduce.pythonPath`  | `"python3"` | Path to the Python interpreter used to run both the language server (`lsp/lsp_server.py`) and the debug adapter (`lsp/dap_server.py`).  Must have `lark` (and, for LSP features, `pygls`) installed.  Absolute paths are supported; otherwise looked up on `$PATH`. |
 | `deduce.deduceRoot`  | `""`        | Absolute path to your Deduce **installation** — the directory containing `lsp/lsp_server.py` and `lsp/dap_server.py`.  **Not** your proofs directory.  Defaults to the workspace folder when empty.  Set this only when your workspace is your proofs directory and the Deduce checkout lives elsewhere. |
 | `deduce.noStdlib`    | `false`     | If true, the language server starts without the standard library prelude (sets `DEDUCE_NO_STDLIB=1`, mirroring `deduce.py --no-stdlib`).  Useful when working on `lib/` itself.  Does not affect the debugger. |
+
+Additionally, the LLM hole-fill command exposes its own settings
+under the `Deduce › Fill Hole` group:
+
+| Setting                       | Default      | Effect                                                                                |
+| ----------------------------- | ------------ | ------------------------------------------------------------------------------------- |
+| `deduce.fillHole.backend`     | `"anthropic"` | `"anthropic"` uses the Anthropic SDK; `"openai-compat"` uses the OpenAI SDK against either the real OpenAI API or a compatible endpoint set via `baseUrl`. |
+| `deduce.fillHole.model`       | `""`         | Model ID passed to the sidecar.  Empty picks the per-backend default: `claude-opus-4-7` for `anthropic`, `gemma-4-31B-it` for `openai-compat`. |
+| `deduce.fillHole.apiKeyEnv`   | `""`         | Name of the environment variable holding the API key.  Empty picks the per-backend default (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`).  Useful for gateways like `REALLMS_API_KEY`. |
+| `deduce.fillHole.baseUrl`     | `""`         | OpenAI-compatible endpoint URL (e.g. `https://reallms.rescloud.iu.edu/direct/v1`, `http://localhost:11434/v1` for a local Ollama).  Empty falls back to the SDK's default.  Ignored when `backend` is `"anthropic"`. |
+| `deduce.fillHole.maxAttempts` | `5`          | Max number of `validate_proof` attempts the sidecar makes; the first attempt that checks wins. |
+| `deduce.fillHole.timeout`     | `60`         | Per-validate-call timeout in seconds. |
 
 **Common pitfall on macOS:** the default `python3` on `$PATH` may
 not be the interpreter you `pip install lark`ed into.  If F5
@@ -393,8 +434,6 @@ deliberately.
 Tracked in [`docs/lsp-plan.md`](../../docs/lsp-plan.md)'s Phase 6
 section.  In rough landing order:
 
-- **LLM hole filling** (Step 32) — VS Code port of
-  [`deduce-fill-hole.el`](../emacs/deduce-fill-hole.el).
 - **Marketplace publication** (Step 33).
 
 [kw]: ../../gh_pages/scripts/keywords.py
