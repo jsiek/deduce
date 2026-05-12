@@ -1651,6 +1651,10 @@ def _splittable_vars(env) -> tuple:
         if isinstance(binding, ProofBinding):
             if isinstance(binding.formula, Or):
                 seen.add(bname)
+            elif _unfold_call_to_or(binding.formula, env) is not None:
+                # Hypothesis whose definition unfolds to Or, e.g.
+                # UInt's ``a ≤ b`` (issue #406).
+                seen.add(bname)
         elif isinstance(binding, TermBinding):
             ty = binding.typ
             try:
@@ -1682,6 +1686,10 @@ def _case_split_template(name: str, env) -> Optional[str]:
     name ``foo``). Dispatches on the binding's kind:
 
     - ``ProofBinding`` whose formula is ``Or(...)`` -> ``cases``
+    - ``ProofBinding`` whose formula is ``f(a, b)`` where ``f``'s
+      definition unfolds to an ``Or`` (e.g. UInt's ``a ≤ b``, defined
+      as ``a < b or a = b``) -> ``have ... by expand f in <var>`` +
+      ``cases``. Issue #406.
     - ``TermBinding`` whose type resolves to a ``Union`` -> ``switch``
 
     Returns ``None`` for any other shape (built-in atom, function,
@@ -1700,6 +1708,10 @@ def _case_split_template(name: str, env) -> Optional[str]:
     if isinstance(binding, ProofBinding):
         if isinstance(binding.formula, Or):
             return _cases_template(name, binding.formula, env)
+        unfolded = _unfold_call_to_or(binding.formula, env)
+        if unfolded is not None:
+            or_formula, op_name = unfolded
+            return _expand_cases_template(name, op_name, or_formula, env)
         return None
 
     if isinstance(binding, TermBinding):
@@ -1748,6 +1760,98 @@ def _cases_template(var_name: str, formula, env) -> str:
         f"  case {fresh()}: {arg} {{ ? }}" for arg in args
     ]
     return f"cases {var_name}\n" + "\n".join(case_lines)
+
+
+def _unfold_call_to_or(formula, env):
+    """Return ``(or_formula, op_source_name)`` when ``formula`` is a
+    ``Call`` to a user-defined function whose body is an ``Or``, with
+    the call's arguments substituted in.  ``None`` otherwise.
+
+    ``op_source_name`` is the rendered name suitable for an ``expand``
+    clause: bare for regular functions (``le``), ``operator <symbol>``
+    for symbolic operators (``operator ≤``) — the rec-desc parser's
+    ``parse_identifier`` requires the ``operator`` prefix to consume
+    the following symbol.
+
+    Drives the issue-#406 case-split path for hypotheses whose type is
+    syntactically a function application (e.g. UInt's ``a ≤ b``,
+    defined as ``a < b or a = b``) but whose unfolded form is a
+    disjunction.  Skips ``opaque`` definitions and any rator whose
+    body isn't a literal ``Or`` -- Nat's recursive ``≤`` (switch-based)
+    and Int's ``opaque`` ``≤`` both fall through, by design: a
+    generated ``expand operator ≤`` would fail there.
+    """
+    from abstract_syntax import (
+        Call, Lambda, Or, TermBinding, VarRef, base_name, is_operator_name,
+    )
+    if not isinstance(formula, Call):
+        return None
+    rator = formula.rator
+    if not isinstance(rator, VarRef):
+        return None
+    op_binding = env.dict.get(rator.get_name())
+    if not isinstance(op_binding, TermBinding):
+        return None
+    if getattr(op_binding, "visibility", None) == "opaque":
+        return None
+    defn = getattr(op_binding, "defn", None)
+    if not isinstance(defn, Lambda):
+        return None
+    if not isinstance(defn.body, Or):
+        return None
+    if len(defn.vars) != len(formula.args):
+        return None
+    sub = {
+        param_name: arg
+        for (param_name, _ty), arg in zip(defn.vars, formula.args)
+    }
+    try:
+        instantiated = defn.body.substitute(sub)
+    except Exception:
+        return None
+    if not isinstance(instantiated, Or):
+        return None
+    op_full = rator.get_name()
+    op_base = base_name(op_full)
+    if is_operator_name(op_full):
+        op_source = f"operator {op_base}"
+    else:
+        op_source = op_base
+    return instantiated, op_source
+
+
+def _expand_cases_template(
+    var_name: str, op_name: str, or_formula, env
+) -> str:
+    """Render the issue-#406 ``expand <op> + cases`` skeleton.
+
+    The first line introduces the unfolded disjunction with a fresh
+    ``or_eq<N>`` label so the subsequent ``cases`` has a proper ``Or``
+    proof variable to destructure.  Each branch gets a fresh ``h<N>``
+    label; both label sets share the env's used-name set so they
+    don't collide with each other.
+    """
+    from abstract_syntax import base_name
+    used = {base_name(k) for k in env.dict.keys()}
+
+    def fresh(stem: str) -> str:
+        n = 1
+        while f"{stem}{n}" in used:
+            n += 1
+        used.add(f"{stem}{n}")
+        return f"{stem}{n}"
+
+    or_label = fresh("or_eq")
+    case_lines = [
+        f"  case {fresh('h')}: {arg} {{ ? }}"
+        for arg in or_formula.args
+    ]
+    return (
+        f"have {or_label}: {or_formula}"
+        f" by expand {op_name} in {var_name}\n"
+        f"cases {or_label}\n"
+        + "\n".join(case_lines)
+    )
 
 
 def _switch_template(var_name: str, union_def, env) -> str:

@@ -470,3 +470,226 @@ def test_case_split_at_picks_second_of_two_holes() -> None:
     # Template covers both disjuncts of `P or Q`.
     assert "case" in edit.new_text
     assert edit.range.start == Position(line=7, column=3)
+
+
+# --------------------------------------------------------------------------
+# Unfold-to-Or proof hypotheses (issue #406)
+# --------------------------------------------------------------------------
+#
+# UInt's ``≤`` is defined as ``a < b or a = b``, so a hypothesis ``H:
+# a ≤ b`` isn't *literally* an ``Or`` but unfolds to one. The standalone
+# UInt test would need the prelude; these fixtures stay in bool-land
+# by defining a one-line wrapper ``fun le(x:bool, y:bool) { x or y }``,
+# which has the same shape.
+
+
+def test_case_split_at_unfolds_function_body_to_or() -> None:
+    """``H: le(P, Q)`` where ``le`` unfolds to ``or`` -> ``expand le
+    in H`` + ``cases``. Mirrors the UInt ``a ≤ b`` shape from #406."""
+    source = (
+        "fun le(x:bool, y:bool) {\n"
+        "  x or y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if le(P, Q) then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: le(P, Q)\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = case_split_at(
+        "test.pf", source, Position(line=9, column=3), "H"
+    )
+    assert edit is not None
+    assert isinstance(edit, WorkspaceEdit)
+    # 2-space indent continuation lines (issue #333).
+    assert edit.new_text == (
+        "have or_eq1: (P or Q) by expand le in H\n"
+        "  cases or_eq1\n"
+        "    case h1: P { ? }\n"
+        "    case h2: Q { ? }"
+    )
+    assert edit.range.start == Position(line=9, column=3)
+
+
+def test_case_split_at_unfolds_then_post_check_holes_inside_cases() -> None:
+    """Plan acceptance: applying the unfold-cases edit and re-checking
+    must produce holes inside the new case bodies, not at the ``have``
+    line. Pins the template against the actual Deduce parser/typechecker."""
+    source = (
+        "fun le(x:bool, y:bool) {\n"
+        "  x or y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if le(P, Q) then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: le(P, Q)\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = case_split_at(
+        "test.pf", source, Position(line=9, column=3), "H"
+    )
+    assert edit is not None
+
+    lines = source.splitlines(keepends=True)
+    line_idx = edit.range.start.line - 1
+    start_col = edit.range.start.column - 1
+    end_col = edit.range.end.column - 1
+    new_line = (
+        lines[line_idx][:start_col]
+        + edit.new_text
+        + lines[line_idx][end_col:]
+    )
+    post = "".join(lines[:line_idx] + [new_line] + lines[line_idx + 1:])
+
+    diags = check("test.pf", post, prelude=())
+    # Expect one diagnostic per remaining ``?``, both for the same
+    # post-cases goal ``Q or P``. The ``have ... by expand`` line and
+    # the ``cases`` step must succeed, otherwise we'd see a goal-level
+    # error too.
+    assert len(diags) >= 1
+    for diag in diags:
+        assert diag.severity == Severity.ERROR
+        assert "incomplete proof" in diag.message
+    # Each remaining hole's goal must be the original post-implication
+    # one (``Q or P``), not the post-have intermediate.
+    for diag in diags:
+        assert "(Q or P)" in diag.message, (
+            f"unexpected goal in {diag.message!r}"
+        )
+
+
+def test_case_split_at_unfolds_operator_with_operator_prefix() -> None:
+    """For a symbolic operator (``fun operator ≲``), the template's
+    ``expand`` clause needs the ``operator`` keyword prefix -- the
+    parser doesn't accept a bare symbol as an identifier. Matches the
+    UInt ``operator ≤`` shape this issue is named for."""
+    source = (
+        "fun operator ≲(x:bool, y:bool) {\n"
+        "  x or y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if P ≲ Q then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: P ≲ Q\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = case_split_at(
+        "test.pf", source, Position(line=9, column=3), "H"
+    )
+    assert edit is not None
+    assert edit.new_text == (
+        "have or_eq1: (P or Q) by expand operator ≲ in H\n"
+        "  cases or_eq1\n"
+        "    case h1: P { ? }\n"
+        "    case h2: Q { ? }"
+    )
+
+    # Pin the post-edit type-check: the ``expand operator ≲`` step
+    # must succeed and the only remaining diagnostics are the two
+    # case-body holes.
+    lines = source.splitlines(keepends=True)
+    line_idx = edit.range.start.line - 1
+    start_col = edit.range.start.column - 1
+    end_col = edit.range.end.column - 1
+    new_line = (
+        lines[line_idx][:start_col]
+        + edit.new_text
+        + lines[line_idx][end_col:]
+    )
+    post = "".join(lines[:line_idx] + [new_line] + lines[line_idx + 1:])
+    diags = check("test.pf", post, prelude=())
+    for diag in diags:
+        assert diag.severity == Severity.ERROR
+        assert "incomplete proof" in diag.message
+        assert "(Q or P)" in diag.message
+
+
+def test_case_split_at_does_not_unfold_opaque_definition() -> None:
+    """``opaque fun le ...`` -> ``expand le`` would fail, so no
+    template is generated. Mirrors Int's opaque ``≤``."""
+    source = (
+        "opaque fun le(x:bool, y:bool) {\n"
+        "  x or y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if le(P, Q) then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: le(P, Q)\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = case_split_at(
+        "test.pf", source, Position(line=9, column=3), "H"
+    )
+    assert edit is None
+
+
+def test_case_split_at_does_not_unfold_non_or_body() -> None:
+    """A function whose body is *not* an ``Or`` produces no template
+    -- ``H: conj(P, Q)`` unfolding to ``P and Q`` isn't case-splittable."""
+    source = (
+        "fun conj(x:bool, y:bool) {\n"
+        "  x and y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if conj(P, Q) then P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: conj(P, Q)\n"
+        "  ?\n"
+        "end\n"
+    )
+    edit = case_split_at(
+        "test.pf", source, Position(line=9, column=3), "H"
+    )
+    assert edit is None
+
+
+def test_splittable_vars_includes_unfold_to_or_proof_variable() -> None:
+    """A proof variable whose formula unfolds to ``or`` must surface
+    in ``splittable_vars_at`` so the editor can offer it as a completion
+    candidate."""
+    source = (
+        "fun le(x:bool, y:bool) {\n"
+        "  x or y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if le(P, Q) then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: le(P, Q)\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = splittable_vars_at(
+        "test.pf", source, Position(line=9, column=3)
+    )
+    assert "H" in candidates
+
+
+def test_splittable_vars_excludes_opaque_unfold_to_or() -> None:
+    """``opaque`` definitions don't expand, so the hypothesis must
+    not be surfaced as splittable."""
+    source = (
+        "opaque fun le(x:bool, y:bool) {\n"
+        "  x or y\n"
+        "}\n"
+        "\n"
+        "theorem t: all P:bool, Q:bool. if le(P, Q) then Q or P\n"
+        "proof\n"
+        "  arbitrary P:bool, Q:bool\n"
+        "  assume H: le(P, Q)\n"
+        "  ?\n"
+        "end\n"
+    )
+    candidates = splittable_vars_at(
+        "test.pf", source, Position(line=9, column=3)
+    )
+    assert "H" not in candidates
