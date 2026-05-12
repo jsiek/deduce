@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
 from typing import Tuple, List, Optional, Set, Self
 from error import user_error, internal_error, warning, static_error, match_failed, MatchFailed, UserError
@@ -44,13 +44,73 @@ def get_predicate_decl(unique_name):
 
 ############ AST Base Classes ###########
 
+def _ast_map(value, f):
+  # Apply `f` to AST-typed values inside a field value, preserving
+  # list / tuple structure. Non-AST scalars (str, int, bool, None) are
+  # returned unchanged. Used by `AST._map_children` to walk dataclass
+  # fields uniformly.
+  if value is None:
+    return None
+  if isinstance(value, AST):
+    return f(value)
+  if isinstance(value, list):
+    return [_ast_map(v, f) for v in value]
+  if isinstance(value, tuple):
+    return tuple(_ast_map(v, f) for v in value)
+  return value
+
+
 @dataclass
 class AST:
   location: Meta
 
+  # Field names that the default `_map_children` walker leaves alone.
+  # `location` is opaque source-position metadata. `Term` extends this
+  # with `'typeof'` because the cached type annotation is rewritten only
+  # by `substitute` (via the `on_typeof` hook), not by `copy` /
+  # `uniquify` / `reduce`.
+  _NON_STRUCTURAL_FIELDS = frozenset({'location'})
+
+  def _map_children(self, f, *, on_typeof=None) -> Self:
+    # Return a fresh instance of the same class with `f` applied to
+    # every AST-typed value in every structural field. Lists and tuples
+    # are walked element-wise; non-AST scalars (strings, ints, bools)
+    # pass through. The `on_typeof` hook lets `substitute` rewrite the
+    # otherwise non-structural `typeof` field via `subst_typeof`.
+    # Non-dataclass attributes attached to `self` after construction
+    # (e.g. `Call.type_args`, `Lambda.env`, `RecFun.old_type_params`)
+    # are carried over to the new instance.
+    cls = type(self)
+    non_struct = cls._NON_STRUCTURAL_FIELDS
+    new_args = {}
+    field_names = set()
+    for fld in dc_fields(self):
+      field_names.add(fld.name)
+      val = getattr(self, fld.name)
+      if fld.name == 'typeof' and on_typeof is not None:
+        new_args['typeof'] = on_typeof(val)
+      elif fld.name in non_struct:
+        new_args[fld.name] = val
+      else:
+        new_args[fld.name] = _ast_map(val, f)
+    new_obj = cls(**new_args)
+    for k, v in self.__dict__.items():
+      if k not in field_names:
+        setattr(new_obj, k, v)
+    return new_obj
+
   def copy(self) -> Self:
-    internal_error(self.location, 'copy not implemented for \n\t' + repr(self))
-    return self
+    return self._map_children(lambda x: x.copy())
+
+  def uniquify(self, env, ctx) -> Self:
+    return self._map_children(lambda x: x.uniquify(env, ctx))
+
+  def substitute(self, sub) -> Self:
+    return self._map_children(lambda x: x.substitute(sub))
+
+  def reduce(self, env) -> Self:
+    return self._map_children(lambda x: x.reduce(env))
+
 
 @dataclass
 class Type(AST):
@@ -59,39 +119,25 @@ class Type(AST):
     internal_error(self.location, 'free_vars not implemented')
     return set()
 
-  def substitute(self, sub) -> Self:
-    internal_error(self.location, 'substitute not implemented')
-
-  def uniquify(self, env, ctx) -> Self:
-    internal_error(self.location, 'uniquify not implemented')
-
-  def reduce(self, env) -> Self:
-    internal_error(self.location, 'reduce not implemented')
-
 
 @dataclass
 class Term(AST):
   typeof: Optional[Type]
 
-  def copy(self) -> Self:
-    internal_error(self.location, 'copy not implemented')
-    return self
-
-  def uniquify(self, env, ctx) -> Self:
-    internal_error(self.location, 'uniquify not implemented')
-
-  def substitute(self, sub) -> Self:
-    internal_error(self.location, 'substitute not implemented')
+  _NON_STRUCTURAL_FIELDS = frozenset({'location', 'typeof'})
 
   def subst_typeof(self, sub) -> Optional[Type]:
-    # Apply `sub` to the cached `typeof` annotation. Substitution sites
-    # that build a fresh node must run this rather than passing
-    # `self.typeof` verbatim — otherwise a type variable substituted
-    # through the term structure leaves a stale name in the annotation.
+    # Apply `sub` to the cached `typeof` annotation. Kept as a named
+    # helper because a handful of bespoke `substitute` methods (Var,
+    # OverloadedVar, ResolvedVar) call it directly to short-circuit
+    # when the annotation didn't actually change.
     return self.typeof.substitute(sub) if self.typeof is not None else None
 
-  def reduce(self, env) -> Self:
-    internal_error(self.location, 'reduce not implemented')
+  def substitute(self, sub) -> Self:
+    return self._map_children(
+      lambda x: x.substitute(sub),
+      on_typeof=lambda t: t.substitute(sub) if t is not None else None,
+    )
 
   def pretty_print(self, indent: int, afterNewline=False) -> str:
       if afterNewline:
@@ -105,16 +151,16 @@ class Formula(Term):
 
 @dataclass
 class Proof(AST):
-    
+
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
 @dataclass
 class Statement(AST):
-    
+
   def key(self) -> str:
       return str(self)
-    
+
   def pretty_print(self, indent: int) -> str:
       return str(self)
 
@@ -557,7 +603,16 @@ def get_type_name(ty):
 
 @dataclass
 class Pattern(AST):
-    pass
+  # Patterns are leaves from `substitute`/`reduce`'s point of view: the
+  # constructor name they carry is a binding occurrence used for
+  # matching, not a variable reference to be rewritten. Compound nodes
+  # (`SwitchCase`, `IndCase`, `FunCase`) call `with_bindings` to
+  # rename pattern parameters during uniquify.
+  def substitute(self, sub):
+    return self
+
+  def reduce(self, env):
+    return self
 
 @dataclass
 class PatternBool(Pattern):
