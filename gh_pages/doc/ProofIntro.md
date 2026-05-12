@@ -158,9 +158,10 @@ end
 In the proof of `length_node42` it did not matter that the element in
 the node was `42`. We can generalize this theorem by using an `all`
 formula. We begin the formula with `all x:UInt.` to say that the
-formula must be true for all natural numbers and the variable `x` will
-be used to refer to the natural number.  We then replace the `42` in
-the formula with `x` to obtain the following theorem statement.
+formula must be true for all unsigned integers and the variable `x`
+will be used to refer to the unsigned integer.  We then replace the
+`42` in the formula with `x` to obtain the following theorem
+statement.
 
     theorem length_uint_one: all x:UInt. length([x]) = 1
     proof
@@ -169,8 +170,14 @@ the formula with `x` to obtain the following theorem statement.
 
 Deduce responds with
 
-    incomplete proof:
-        all x:Nat. length([x]) = 1
+    incomplete proof
+    Goal:
+        (all x:UInt. length([x]) = 1)
+    Advice:
+        Prove this "all" formula with:
+            arbitrary x:UInt
+        followed by a proof of:
+            length([x]) = 1
 
 The most straightforward way to prove an `all` formula in Deduce is
 with an `arbitrary` statement. When you use `arbitrary` you are
@@ -181,17 +188,18 @@ but we could have chosen a different name.
 
     theorem length_uint_one: all x:UInt. length([x]) = 1
     proof
-      arbitrary x:Nat
+      arbitrary x:UInt
       ?
     end
 
 Deduce responds with
 
-    incomplete proof:
+    incomplete proof
+    Goal:
         length([x]) = 1
 
 We don't know anything about this hypothetical `x` other than it being
-a natural number. But as we previously observed, we don't need any
+an unsigned integer. But as we previously observed, we don't need any
 more information about `x` in this example.  We complete the proof as
 before, using the definitions of `length`.
 The notation `2* length` is shorthand for `length | length`.
