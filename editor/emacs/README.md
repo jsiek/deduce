@@ -176,9 +176,16 @@ auto-start hook:
   top-level name reachable from the file (own theorems / defines /
   unions / constructors / predicates / rules, plus the transitive
   walk through imports — so `import Nat` brings in `suc`, `zero`,
-  `+`, `length`, ...).  Set `(setq tab-always-indent 'complete)`
-  in your config if you want plain `TAB` to fall through to
-  completion when indentation would be a no-op.
+  `+`, `length`, ...) **plus the in-scope local bindings at the
+  cursor** (proof labels from `assume`, term variables from
+  `arbitrary` and pattern-bound names from `switch` / `case`).
+  When the cursor sits on a `?` and a local label's formula
+  matches the goal, that label is sorted first in the picker via
+  the LSP `sortText` field — so completion on a hole shows the
+  proof terms that can plausibly close it before the rest.  Set
+  `(setq tab-always-indent 'complete)` in your config if you want
+  plain `TAB` to fall through to completion when indentation
+  would be a no-op.
 - `C-c C-g` — **show the proof goal at point** in a popup buffer,
   along with the givens (named hypotheses) currently in scope.
 - `C-c C-r` — **refine the hole at point.** Replaces a `?` with a

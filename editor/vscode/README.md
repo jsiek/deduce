@@ -49,12 +49,18 @@ lockstep with it.
       type) opens an inline picker.  The candidate set is:
       Deduce keywords (`theorem`, `arbitrary`, `induction`, ...),
       `true`/`false` constants, the built-in types `bool` /
-      `type`, and every top-level name reachable from the file
-      (its own theorems, lemmas, postulates, defines, recursive
+      `type`, every top-level name reachable from the file (its
+      own theorems, lemmas, postulates, defines, recursive
       functions, unions + constructors, predicates + rules,
       *plus* the transitive walk through your imports — so
-      `import Nat` brings in `suc`, `zero`, `+`, `length`, ...).
-      VS Code filters client-side as you type.
+      `import Nat` brings in `suc`, `zero`, `+`, `length`, ...),
+      and **the in-scope local bindings at the cursor** (proof
+      labels from `assume`, term variables from `arbitrary` and
+      pattern-bound names from `switch` / `case`).  When the
+      cursor sits on a `?` and a local label's formula matches
+      the goal, that label floats to the top of the picker via
+      `sortText` — so `Ctrl+Space` on a hole surfaces the proof
+      terms that can plausibly close it first.
 - **Goal-at-cursor command** — `Ctrl+Alt+G` (or Command Palette:
   *Deduce: Show goal at cursor*) issues the custom
   `deduce/goalAt` request at the cursor and renders the goal +
