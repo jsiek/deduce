@@ -1,0 +1,3 @@
+./test/should-error/givens_suffices_hole_not_ifthen.pf:5.3-5.18: expected a proof of an "if"-"then" formula, not P
+Givens:
+	p: P

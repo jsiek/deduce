@@ -1,0 +1,3 @@
+./test/should-error/givens_induction_wrong_constructor.pf:8.3-8.18: expected a case for Red not Blue
+Givens:
+	p: P

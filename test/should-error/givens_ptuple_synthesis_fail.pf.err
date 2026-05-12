@@ -1,0 +1,14 @@
+./test/should-error/givens_ptuple_synthesis_fail.pf:5.3-5.7: failed to prove: (if Q then P)
+	first tried each subproof in goal-directed mode, but:
+./test/should-error/givens_ptuple_synthesis_fail.pf:5.3-5.7: comma proves logical-and, not (if Q then P)
+	then tried synthesis mode, but:
+./test/should-error/givens_ptuple_synthesis_fail.pf:5.3-5.7: 
+Could not prove that
+	(P and P)
+implies
+	(if Q then P)
+because we could not prove at least one of
+	P   implies   (if Q then P)
+	P   implies   (if Q then P)
+Givens:
+	p: P

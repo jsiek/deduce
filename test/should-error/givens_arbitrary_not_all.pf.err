@@ -1,0 +1,4 @@
+./test/should-error/givens_arbitrary_not_all.pf:5.3-5.19: arbitrary is proof of an all formula, not
+P
+Givens:
+	p: P

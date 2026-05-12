@@ -1,0 +1,6 @@
+./test/should-error/givens_switch_union_wrong_assume.pf:8.5-8.39: in case, expected assume of
+c = Red
+not
+c = Blue
+Givens:
+	p: P

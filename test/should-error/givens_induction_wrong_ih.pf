@@ -1,0 +1,12 @@
+union Tree { node(Tree, Tree) leaf }
+
+theorem T: all P:bool. if P then (all t:Tree. t = t)
+proof
+  arbitrary P:bool
+  assume p: P
+  induction Tree
+  case node(l, r) suppose IH1: P, IH2: P {
+    ?
+  }
+  case leaf { ? }
+end

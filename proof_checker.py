@@ -1438,7 +1438,7 @@ def check_proof_of(proof, formula, env):
           body_env = env.declare_local_proof_var(loc, label, new_prem1)
           _try_check_proof_of(body, conc, body_env)
         case _:
-          add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + repr(formula)
+          add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + str(formula)
                 + givens_str(env))
 
     # define x = t

@@ -1,0 +1,3 @@
+./test/should-error/givens_choose_not_some.pf:5.3-5.14: choose expects the goal to start with 'some', not P
+Givens:
+	p: P
