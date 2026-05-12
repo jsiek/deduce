@@ -41,6 +41,18 @@ proof
   .
 end
 
+// Used to crash with "array access expected number index, not i" when
+// the array was a fully concrete `Array(elements)` and the index was a
+// free variable. Now leaves the access unreduced until the index is
+// known.
+theorem free_index_on_concrete_array: all i:UInt.
+  if i = 0 then (array([42]))[i] = 42
+proof
+  arbitrary i:UInt
+  assume hi: i = 0
+  replace hi.
+end
+
 theorem array_replace_universal: all l:List<UInt>.
   if l = [42]
   then just((array(l))[0]) = head(l)

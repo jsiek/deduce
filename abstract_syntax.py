@@ -1995,9 +1995,9 @@ class ArrayGet(Term):
       index = uintToInt(position_red)
     match subject_red:
       case Array(loc2, _, elements):
-        if index is None:
-          user_error(self.location, "array access expected number index, not " + str(position_red))
-        if 0 <= index and index < len(elements):
+        # If the index is not a concrete number (e.g. a free variable in
+        # a proof), leave the access unreduced rather than erroring.
+        if index is not None and 0 <= index and index < len(elements):
           return elements[index].reduce(env)
         # Don't signal an error for out-of-bounds! -Jeremy
       case MakeArray(loc2, _, list_term):
