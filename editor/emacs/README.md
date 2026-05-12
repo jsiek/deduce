@@ -168,6 +168,24 @@ auto-start hook:
   declared. `M-,` pops back.
 - `M-x imenu` — **outline of top-level declarations.** Browse the
   theorems, definitions, unions, etc. in the current file.
+- `M-TAB` (or `C-M-i`) — **in-buffer completion.** Eglot registers
+  itself as a CAPF when the server advertises completion
+  capability (which the Deduce LSP server does as of Step 31), so
+  the standard `completion-at-point` keybinding works without
+  extra config.  The candidate set is Deduce keywords + every
+  top-level name reachable from the file (own theorems / defines /
+  unions / constructors / predicates / rules, plus the transitive
+  walk through imports — so `import Nat` brings in `suc`, `zero`,
+  `+`, `length`, ...) **plus the in-scope local bindings at the
+  cursor** (proof labels from `assume`, term variables from
+  `arbitrary` and pattern-bound names from `switch` / `case`).
+  When the cursor sits on a `?` and a local label's formula
+  matches the goal, that label is sorted first in the picker via
+  the LSP `sortText` field — so completion on a hole shows the
+  proof terms that can plausibly close it before the rest.  Set
+  `(setq tab-always-indent 'complete)` in your config if you want
+  plain `TAB` to fall through to completion when indentation
+  would be a no-op.
 - `C-c C-g` — **show the proof goal at point** in a popup buffer,
   along with the givens (named hypotheses) currently in scope.
 - `C-c C-r` — **refine the hole at point.** Replaces a `?` with a
@@ -295,6 +313,7 @@ OpenAI, or IU REALLMs depending on backend choice):
 | Binding   | Notes                                                              | Command                          | Provided by    |
 | --------- | ------------------------------------------------------------------ | -------------------------------- | -------------- |
 | `TAB`     | Indent the current line                                            | `deduce-mode-indent-line`        | `deduce-mode`  |
+| `M-TAB` / `C-M-i` | Complete the identifier at point                           | `completion-at-point`            | eglot          |
 | `M-.`     | Jump to symbol's definition                                        | `xref-find-definitions`          | eglot          |
 | `M-,`     | Pop the xref stack                                                 | `xref-go-back`                   | eglot          |
 | `M-x imenu` | Outline of top-level declarations                                | `imenu`                          | eglot          |

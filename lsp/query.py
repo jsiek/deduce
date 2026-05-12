@@ -60,6 +60,7 @@ __all__ = [
     "Goal",
     "SymbolInfo",
     "WorkspaceEdit",
+    "CompletionCandidate",
     "UnsupportedRefineShape",
     "LemmaInfo",
     "LemmaMatch",
@@ -73,6 +74,7 @@ __all__ = [
     "goal_at",
     "definition_of",
     "list_symbols",
+    "completions_at",
     "refine_at",
     "case_split_at",
     "splittable_vars_at",
@@ -235,6 +237,83 @@ REFINE_SUPPORTED_SHAPES: tuple = (
     "some _. _",
     "reducible _ = _",
 )
+
+
+# Deduce keywords surfaced by :func:`completions_at`.  Mirrors
+# ``deduce-mode--keywords`` in editor/emacs/deduce-mode.el and the
+# keyword categories in editor/vscode/syntaxes/deduce.tmLanguage.json
+# (kept in sync by hand for now; a generator off ``Deduce.lark`` would
+# eventually replace the three copies).  Categorisation feeds the
+# LSP-side ``CompletionItemKind`` mapping: ``keyword`` -> Keyword,
+# ``constant`` -> Constant, ``type`` -> Class.
+COMPLETION_KEYWORDS: tuple = (
+    # declaration / structure
+    "theorem", "lemma", "postulate", "define", "recursive", "recfun",
+    "union", "inductive", "predicate", "relation", "import", "export",
+    "module", "auto", "assert", "print", "operator", "associative",
+    "terminates", "measure", "trace", "generic", "fun", "λ",
+    # visibility
+    "public", "private", "opaque",
+    # module-import filters
+    "using", "hiding",
+    # proof structure
+    "proof", "end", "case", "cases", "with", "where",
+    # tactics
+    "arbitrary", "assume", "suppose", "have", "show", "obtain", "from", "for",
+    "induction", "rule", "inversion", "switch", "replace", "expand",
+    "evaluate", "simplify", "equations", "recall", "reflexive", "symmetric",
+    "transitive", "injective", "extensionality", "apply", "to", "conclude",
+    "conjunct", "contradict", "suffices", "choose", "stop", "help", "by", "of",
+    # logical / control
+    "if", "then", "else", "all", "some", "in",
+    "not", "and", "or", "iff",
+    # built-in operators / forms
+    "fn", "array",
+)
+
+COMPLETION_CONSTANT_KEYWORDS: tuple = ("true", "false")
+COMPLETION_TYPE_KEYWORDS: tuple = ("bool", "type")
+
+
+@dataclass(frozen=True)
+class CompletionCandidate:
+    """A single completion candidate returned by :func:`completions_at`.
+
+    ``label`` is the user-visible text the client filters against.
+
+    ``kind`` is a string tag from a stable vocabulary:
+
+    - ``"keyword"`` (e.g. ``theorem``, ``arbitrary``, ``proof``)
+    - ``"constant"`` (``true``, ``false``)
+    - ``"type"`` (``bool``, ``type``)
+    - ``"theorem"`` / ``"lemma"`` / ``"postulate"``
+    - ``"define"`` / ``"function"`` (a ``recursive`` / ``recfun``)
+    - ``"union"`` / ``"constructor"``
+    - ``"predicate"`` / ``"rule"``
+    - ``"label"`` (a local proof binding -- ``assume H: P``,
+      ``obtain ... where ... from H``, hypotheses from ``cases``, ...)
+    - ``"variable"`` (a local term binding -- ``arbitrary x:T``,
+      pattern-bound names inside ``switch`` / ``case`` blocks, ...)
+
+    Adapters map this to their wire format: the LSP server translates
+    to ``CompletionItemKind``; MCP would surface the string directly.
+
+    ``detail`` is an optional one-line signature (e.g. ``"plus_zero:
+    all n:Nat. n + 0 = n"``) shown alongside the label in the picker
+    UI.  ``None`` when no signature is known.
+
+    ``priority`` is a sort hint: smaller floats the candidate to the
+    top of the picker.  ``0`` is reserved for hole-aware matches (a
+    label whose formula equals or implies the goal at the hole the
+    cursor sits on); ``1`` is the default for everything else.  The
+    LSP adapter encodes ``priority`` as the ``sortText`` field, so
+    matches sort lexicographically before the rest.
+    """
+
+    label: str
+    kind: str
+    detail: Optional[str] = None
+    priority: int = 1
 
 
 @dataclass(frozen=True)
@@ -1013,6 +1092,314 @@ def list_symbols(
     return out
 
 
+def completions_at(
+    path: str, content: str, pos: Position, prelude: Sequence[str] = (),
+) -> tuple:
+    """Return completion candidates visible at ``pos``.
+
+    Candidate set:
+
+    1. Deduce keywords (always included): the static lists
+       :data:`COMPLETION_KEYWORDS`, :data:`COMPLETION_CONSTANT_KEYWORDS`,
+       :data:`COMPLETION_TYPE_KEYWORDS`.  Clients filter against the
+       prefix the user is typing, so we always return the full set;
+       the cost is fixed and cheap.
+    2. Top-level names declared in ``content`` itself -- theorems,
+       lemmas, postulates, defines, recursive functions, unions (plus
+       their constructors), predicates (plus their introduction rules).
+    3. Top-level names reachable through ``Import.ast`` -- the
+       user-written imports plus the auto-prepended prelude.  Walks
+       transitively so e.g. ``import Nat`` surfaces ``suc``, ``zero``,
+       ``+``, ``length``, ... reached through Nat's barrel chain to
+       NatDefs / NatAdd / ... .  Diamond imports are guarded by a
+       visited-module set.
+
+    Local bindings carried in the env at ``pos`` are surfaced too --
+    proof labels (``assume H: P``) and term variables (``arbitrary
+    x:T``) and anything else the proof checker has put into scope by
+    the time the cursor's enclosing proof statement runs.  We get the
+    env by inserting a synthetic ``?`` at the cursor (stripping any
+    partial identifier the user is typing first) and reading
+    ``IncompleteProof.env``.
+
+    Hole-aware priority: when the cursor sits on (or immediately past)
+    an existing ``?`` and the check returns both an env and a goal,
+    any local label whose formula equals or implies the goal is
+    emitted with ``priority=0``.  Everything else stays at the default
+    ``priority=1``.  The LSP adapter encodes this in ``sortText`` so
+    matching labels float to the top of the picker -- user pressing
+    ``Ctrl+Space`` on a ``?`` sees the proof terms that can plausibly
+    close it first.
+
+    ``prelude`` matches the meaning in :func:`check`.
+
+    Returns at minimum the keyword / constant / type set when nothing
+    else parses -- those alone still beat the client's word-based
+    fallback while the user is mid-edit.
+    """
+    out: list[CompletionCandidate] = []
+    seen_labels: set[str] = set()
+
+    def _add(cand: CompletionCandidate) -> None:
+        if cand.label in seen_labels:
+            return
+        seen_labels.add(cand.label)
+        out.append(cand)
+
+    for kw in COMPLETION_KEYWORDS:
+        _add(CompletionCandidate(label=kw, kind="keyword"))
+    for kw in COMPLETION_CONSTANT_KEYWORDS:
+        _add(CompletionCandidate(label=kw, kind="constant"))
+    for kw in COMPLETION_TYPE_KEYWORDS:
+        _add(CompletionCandidate(label=kw, kind="type"))
+
+    # Top-level names first.  The env walk below dedups against
+    # ``seen_labels``, so any name already surfaced as a constructor /
+    # theorem / function / ... isn't re-emitted as a generic
+    # ``variable`` -- the AST walk's kind is more specific.
+    from lsp.library import check_file
+    result = check_file(path, content=content, prelude=prelude)
+    if result.ast is not None:
+        for cand in _collect_completion_names_from_ast(result.ast):
+            _add(cand)
+
+    env, goal = _completion_env_and_goal(path, content, pos, prelude)
+
+    if env is not None:
+        matching: set[str] = set()
+        if goal is not None:
+            try:
+                matching = set(_matching_given_names(goal, env))
+            except Exception:
+                # Implication checks can raise on partially-populated
+                # env state.  Treat any failure as "no boost" rather
+                # than dropping local-binding candidates altogether.
+                matching = set()
+        for cand in _local_completion_candidates(env, seen=seen_labels):
+            if cand.label in matching:
+                cand = _bump_priority(cand, 0)
+            _add(cand)
+
+    return tuple(out)
+
+
+def _completion_env_and_goal(
+    path: str, content: str, pos: Position, prelude: Sequence[str],
+) -> tuple:
+    """Return ``(env, goal)`` visible at ``pos``, or ``(None, None)``.
+
+    Two paths:
+
+    - Cursor on an existing ``?``: run :func:`check_file` on the
+      original content with the hole targeted, read both fields off
+      the ``IncompleteProof`` exception.
+    - Anywhere else: scan backward over identifier characters to find
+      the start of any partial identifier the user is typing, strip
+      it, insert a synthetic ``?`` at the adjusted position, run
+      :func:`check_file` against the modified content.  ``goal`` is
+      returned alongside the env even though callers usually only
+      care about it in the existing-hole case -- the synthetic-hole
+      branch sets it to whatever goal happens to be visible at that
+      point, which is fine for the matching-given priority boost.
+    """
+    from lsp.library import check_file
+
+    existing = _find_hole_at(content, pos)
+    if existing is not None:
+        target = (existing.start.line, existing.start.column)
+        with _target_hole(target):
+            result = check_file(path, content=content, prelude=prelude)
+        if result.ok:
+            return (None, None)
+        exc = result.exception
+        return (getattr(exc, "env", None), getattr(exc, "formula", None))
+
+    stripped = _strip_partial_word(content, pos)
+    if stripped is None:
+        return (None, None)
+    adjusted_content, adjusted_pos = stripped
+    inserted = _insert_hole(adjusted_content, adjusted_pos)
+    if inserted is None:
+        return (None, None)
+    modified, hole_pos = inserted
+    target = (hole_pos.line, hole_pos.column)
+    with _target_hole(target):
+        result = check_file(path, content=modified, prelude=prelude)
+    if result.ok:
+        return (None, None)
+    exc = result.exception
+    return (getattr(exc, "env", None), getattr(exc, "formula", None))
+
+
+def _is_completion_ident_char(c: str) -> bool:
+    """True iff ``c`` is a continuation character of a Deduce
+    identifier.  Mirrors the ``wordPattern`` in
+    ``editor/vscode/language-configuration.json``: ASCII alphanumerics,
+    underscore, prime, bang, query, and Unicode subscript digits
+    ``₀-₉``.
+    """
+    if c.isalnum():
+        return True
+    if c in ("_", "'", "!", "?"):
+        return True
+    if "₀" <= c <= "₉":
+        return True
+    return False
+
+
+def _strip_partial_word(content: str, pos: Position) -> Optional[tuple]:
+    """Return ``(content with partial word at pos removed, adjusted_pos)``.
+
+    Scans backward from the cursor over identifier characters and
+    drops them from the buffer, returning the adjusted ``Position``
+    of the word's start.  When the cursor isn't sitting just after an
+    identifier (blank line, between tokens) returns ``(content, pos)``
+    unchanged.  ``None`` when ``pos`` is out of range.
+    """
+    offset = _line_col_to_offset(content, pos)
+    if offset is None:
+        return None
+    word_start = offset
+    while word_start > 0 and _is_completion_ident_char(content[word_start - 1]):
+        word_start -= 1
+    if word_start == offset:
+        return (content, pos)
+    stripped = content[:word_start] + content[offset:]
+    prefix = content[:word_start]
+    line_no = prefix.count("\n") + 1
+    last_nl = prefix.rfind("\n")
+    col = word_start - (last_nl + 1) + 1 if last_nl >= 0 else word_start + 1
+    return (stripped, Position(line=line_no, column=col))
+
+
+def _local_completion_candidates(env, seen: set):
+    """Yield :class:`CompletionCandidate` items for in-scope bindings
+    in ``env`` whose base name isn't already in ``seen``.
+
+    Walks ``env.dict`` for ``ProofBinding`` (kind ``"label"``) and
+    ``TermBinding`` (kind ``"variable"``).  The ``local`` flag on
+    ``TermBinding`` is *module visibility*, not lexical scope, so we
+    can't use it to distinguish hypothesis-bound names like the ``n``
+    from ``arbitrary n:Nat`` from imported top-level decls.  Instead we
+    let the AST walker run first and pass its ``seen`` set in, so
+    every top-level name (theorem / define / union / constructor /
+    function / predicate / rule / imported lemma) is already in
+    ``seen`` by the time we get here -- the env walk only contributes
+    *new* names, which by elimination are lexically local.
+
+    ``ProofBinding`` has a real lexical-scope marker (the existing
+    ``local`` flag, set by ``declare_local_proof_var``); we use it as
+    an extra correctness check, though in practice dedup against
+    ``seen`` would catch the same cases.
+    """
+    from abstract_syntax import ProofBinding, TermBinding, base_name
+
+    for unique_name, binding in env.dict.items():
+        name = base_name(unique_name)
+        if name in seen:
+            continue
+        if isinstance(binding, ProofBinding):
+            if not binding.local:
+                continue
+            yield CompletionCandidate(
+                label=name,
+                kind="label",
+                detail=f"{name}: {binding.formula}",
+            )
+        elif isinstance(binding, TermBinding):
+            type_str = str(binding.typ) if binding.typ is not None else ""
+            yield CompletionCandidate(
+                label=name,
+                kind="variable",
+                detail=f"{name}: {type_str}" if type_str else None,
+            )
+
+
+def _bump_priority(cand: CompletionCandidate, priority: int) -> CompletionCandidate:
+    """Return a copy of ``cand`` with ``priority`` overridden.
+    ``CompletionCandidate`` is frozen, so we can't mutate in place.
+    """
+    return CompletionCandidate(
+        label=cand.label,
+        kind=cand.kind,
+        detail=cand.detail,
+        priority=priority,
+    )
+
+
+def _collect_completion_names_from_ast(ast_nodes, _seen=None):
+    """Yield a :class:`CompletionCandidate` per named top-level decl.
+
+    Walks the user file's top-level statements plus ``Import.ast``
+    chains (mirror of the descent used in :func:`_find_declaration`).
+    Constructors inside ``Union.alternatives`` and introduction rules
+    inside ``Predicate.rules`` are yielded as their own candidates so
+    e.g. ``suc`` shows up alongside ``Nat`` in the completion list.
+
+    ``_seen`` is the visited-module set used to break diamond imports;
+    callers should leave it ``None``.
+    """
+    from abstract_syntax import (
+        Define,
+        GenRecFun,
+        Import,
+        Postulate,
+        Predicate,
+        RecFun,
+        Theorem,
+        Union,
+        base_name,
+    )
+
+    if _seen is None:
+        _seen = set()
+
+    for stmt in ast_nodes:
+        if isinstance(stmt, Theorem):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(
+                label=label,
+                kind="lemma" if stmt.isLemma else "theorem",
+                detail=f"{label}: {stmt.what}",
+            )
+        elif isinstance(stmt, Postulate):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(
+                label=label,
+                kind="postulate",
+                detail=f"{label}: {stmt.what}",
+            )
+        elif isinstance(stmt, Define):
+            label = base_name(stmt.name)
+            detail = f"define {label}: {stmt.typ}" if stmt.typ is not None else None
+            yield CompletionCandidate(label=label, kind="define", detail=detail)
+        elif isinstance(stmt, RecFun):
+            label = base_name(stmt.name)
+            yield CompletionCandidate(label=label, kind="function")
+        elif isinstance(stmt, GenRecFun):
+            # ``recfun'' -- the polymorphic-recursion form.  Same
+            # surface as ``recursive''/`RecFun' for completion purposes
+            # (it's a callable with a name); the AST class is
+            # different to track type-parameter bookkeeping.
+            label = base_name(stmt.name)
+            yield CompletionCandidate(label=label, kind="function")
+        elif isinstance(stmt, Union):
+            yield CompletionCandidate(label=base_name(stmt.name), kind="union")
+            for cons in stmt.alternatives:
+                yield CompletionCandidate(
+                    label=base_name(cons.name), kind="constructor"
+                )
+        elif isinstance(stmt, Predicate):
+            yield CompletionCandidate(label=base_name(stmt.name), kind="predicate")
+            for rule in stmt.rules:
+                yield CompletionCandidate(label=base_name(rule.name), kind="rule")
+        elif isinstance(stmt, Import) and stmt.ast:
+            if stmt.name in _seen:
+                continue
+            _seen.add(stmt.name)
+            yield from _collect_completion_names_from_ast(stmt.ast, _seen=_seen)
+
+
 # ---------------------------------------------------------------------------
 # Internals shared by definition_of and list_symbols
 # ---------------------------------------------------------------------------
@@ -1158,6 +1545,7 @@ def _find_declaration(ast_nodes, target_name: str, _seen=None):
     """
     from abstract_syntax import (
         Define,
+        GenRecFun,
         Import,
         Postulate,
         Predicate,
@@ -1169,7 +1557,12 @@ def _find_declaration(ast_nodes, target_name: str, _seen=None):
     if _seen is None:
         _seen = set()
 
-    decl_types = (Theorem, Postulate, Define, RecFun, Union, Predicate)
+    # ``GenRecFun'' (the ``recfun'' keyword -- polymorphic recursion)
+    # uses a different AST class than ``RecFun'' (``recursive'') but
+    # is structurally the same for F12 purposes: top-level name +
+    # location.  Without it here, F12 on ``gcd'' / ``div_alt'' /
+    # other ``recfun'' declarations returned None.
+    decl_types = (Theorem, Postulate, Define, RecFun, GenRecFun, Union, Predicate)
     for stmt in ast_nodes:
         if isinstance(stmt, decl_types) and getattr(stmt, "name", None) == target_name:
             return stmt.location
@@ -1226,6 +1619,7 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
     from abstract_syntax import (
         Auto,
         Define,
+        GenRecFun,
         Import,
         Postulate,
         Predicate,
@@ -1250,6 +1644,18 @@ def _symbol_info_for(stmt, path: str) -> Optional[SymbolInfo]:
     elif isinstance(stmt, RecFun):
         kind = SymbolKind.FUNCTION
         params = ", ".join(str(p) for p in stmt.params)
+        typarams = (
+            f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
+        )
+        signature = (
+            f"function {base_name(stmt.name)}{typarams}({params}) -> {stmt.returns}"
+        )
+    elif isinstance(stmt, GenRecFun):
+        # ``recfun'' -- the polymorphic-recursion form.  Same surface
+        # as ``RecFun'' but parameter list is a list of (name, type)
+        # tuples rather than parsed ``Param'' nodes.
+        kind = SymbolKind.FUNCTION
+        params = ", ".join(f"{n}: {t}" for (n, t) in stmt.vars)
         typarams = (
             f"<{', '.join(stmt.type_params)}>" if stmt.type_params else ""
         )
