@@ -5,6 +5,7 @@ from signal import signal, SIGINT
 import sys
 import os
 from pathlib import Path
+import style
 
 traceback_flag = False
 suppress_theorems = False
@@ -145,6 +146,7 @@ if __name__ == "__main__":
     separate_compile = False
     is_main_module = True
     debug_enabled = False
+    color_mode = 'auto'  # 'auto' | 'always' | 'never'
     init_import_directories()
 
     # TODO: Cleanup 
@@ -207,9 +209,18 @@ if __name__ == "__main__":
             no_prune = True
         elif argument == '--debug':
             debug_enabled = True
+        elif argument == '--no-color':
+            color_mode = 'never'
+        elif argument == '--color':
+            color_mode = 'always'
         else:
             deducables.append(argument)
     
+    if color_mode == 'always':
+        style.enable()
+    elif color_mode == 'auto':
+        style.maybe_enable_for_tty()
+
     prelude = []
     if add_stdlib:
         add_import_directory(stdlib_dir)

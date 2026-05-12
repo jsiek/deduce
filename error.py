@@ -1,6 +1,7 @@
 import contextlib
 
 import flags
+import style
 
 class Diagnostic(Exception):
   """Base class for exceptions that represent user-facing diagnostics.
@@ -37,10 +38,11 @@ def get_location_text_lines(location):
 
 def error_header(location):
   if not location.empty:
-    return '{file}:{line1}.{column1}-{line2}.{column2}: ' \
+    header = '{file}:{line1}.{column1}-{line2}.{column2}:' \
         .format(file=location.filename,
                 line1=location.line, column1=location.column,
                 line2=location.end_line, column2=location.end_column)
+    return style.bold_cyan(header) + ' '
   else:
     return '' # Don't want to risk returning None ever leading to issues
 
@@ -73,7 +75,7 @@ def error_program_text(location):
     lines = list(map(lambda s: s.replace('\t', ' ' * tab_width), lines))
 
     if error[-1] != '\n': error += '\n'
-    error += (' ' * num_space) + ('^' * num_carrot)
+    error += (' ' * num_space) + style.bold_red('^' * num_carrot)
     return ''.join(lines[:-1]) + error
   else:
     return ''
