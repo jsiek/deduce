@@ -13,7 +13,6 @@ hidden tempfile lands somewhere we control).
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -23,9 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 from tools.claude_fill_hole.validator import (  # noqa: E402
     HoleQuerier,
-    QueryOutcome,
     SubprocessValidator,
-    ValidationOutcome,
 )
 
 

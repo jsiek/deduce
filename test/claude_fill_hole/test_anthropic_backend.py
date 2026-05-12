@@ -17,9 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-import pytest
 
-from tools.claude_fill_hole.agent import AgentResult
 from tools.claude_fill_hole.anthropic_backend import AnthropicBackend
 from tools.claude_fill_hole.validator import QueryOutcome, ValidationOutcome
 

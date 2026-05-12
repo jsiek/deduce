@@ -13,7 +13,6 @@ Run from the repo root:
 from __future__ import annotations
 
 import filecmp
-import os
 import shutil
 import subprocess
 import sys

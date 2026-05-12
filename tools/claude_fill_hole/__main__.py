@@ -38,7 +38,7 @@ from .schema import (
     request_from_json,
     response_to_json,
 )
-from .validator import HoleQuerier, SubprocessValidator, ValidationOutcome
+from .validator import HoleQuerier, SubprocessValidator
 
 
 def _default_prelude(deduce_root: Path) -> tuple:

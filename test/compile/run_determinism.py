@@ -12,7 +12,6 @@ Run from the repo root:
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import tempfile

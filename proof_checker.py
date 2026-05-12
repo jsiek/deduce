@@ -23,7 +23,7 @@
 #    reduce some formulas and terms automatically.
 
 from abstract_syntax import *
-from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, ErrorSink, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
+from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
 import style
 

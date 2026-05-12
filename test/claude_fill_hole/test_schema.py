@@ -8,8 +8,6 @@ from tools.claude_fill_hole.schema import (
     HoleFillRequest,
     HoleFillResponse,
     LemmaInfo,
-    LspPosition,
-    LspRange,
     Given,
     ValidationAttempt,
     progress_event,

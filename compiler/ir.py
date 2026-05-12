@@ -21,7 +21,7 @@ against; keep it stable.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 
 # ---------- terms ----------
