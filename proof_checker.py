@@ -2048,6 +2048,43 @@ def expand_residual_hint(residual, defs, env):
           'Chain another expand with `|` (e.g. `expand f | f.`) or use `N*f` to unfold further.')
 
 
+def expand_backward_mark_hint(formula, var, env):
+  # When `expand X` fails inside a marked equation `# L # = R` (or the
+  # mirrored form), expand only saw the marked side. If unfolding X on
+  # the *other* side would succeed, suggest wrapping that side in
+  # `#...#`. This is the common newcomer trip-up in `equations` blocks,
+  # where the LHS of each step is implicitly marked: an `expand` whose
+  # unfolding belongs on the RHS fails with a confusing "could not find
+  # a place to expand" error and no pointer at the mark form.
+  if count_marks(formula) != 1:
+    return ''
+  match formula:
+    case Call(_, _, rator, [side0, side1]) \
+         if isinstance(rator, VarRef) and rator.get_name() == '=':
+      marks0 = count_marks(side0)
+      marks1 = count_marks(side1)
+      if marks0 == 1 and marks1 == 0:
+        other = side1
+        other_label = 'right-hand side'
+      elif marks0 == 0 and marks1 == 1:
+        other = side0
+        other_label = 'left-hand side'
+      else:
+        return ''
+      if not _expand_would_progress(other, [var], env):
+        return ''
+      display_name = name2str(var.get_name()) if isinstance(var, VarRef) \
+                     else str(var)
+      return ('\nThe ' + other_label + ' contains `' + display_name \
+              + '`, but `expand` only unfolds inside the marked subterm. ' \
+              'Inside an `equations` block, the left-hand side of each step is ' \
+              'implicitly marked. To unfold the ' + other_label \
+              + ' instead, wrap that side in `#...#`:\n' \
+              '\t# ' + str(other) + ' #')
+    case _:
+      return ''
+
+
 def expand_definitions(loc, formula, defs, env):
   num_marks = count_marks(formula)
   if num_marks == 0:
@@ -2116,7 +2153,8 @@ def expand_definitions(loc, formula, defs, env):
           user_error(loc, 'could not find a place to expand definition of ' \
                 + name2str(var.name) \
                 + ' in:\n' + '\t' + str(new_formula) \
-                + auto_simplified_hint(new_formula))
+                + auto_simplified_hint(new_formula) \
+                + expand_backward_mark_hint(formula, var, env))
 
   if num_marks == 0:          
       return check_formula(new_formula, env)

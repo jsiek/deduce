@@ -1,0 +1,15 @@
+// Issue #450: when `expand X` fails inside an `equations` step but X
+// would unfold on the other side of the equation, the error message
+// should hint that the user can wrap the other side in `#...#`.
+import UInt
+import List
+
+theorem hint_test: all x:UInt. all xs:List<UInt>.
+  node(x, xs ++ @empty<UInt>) = node(x, xs) ++ @empty<UInt>
+proof
+  arbitrary x:UInt
+  arbitrary xs:List<UInt>
+  equations
+    node(x, xs ++ @empty<UInt>)
+        = node(x, xs) ++ @empty<UInt>   by expand operator++.
+end
