@@ -822,10 +822,47 @@ def check_proof(proof, env):
       else:
         return mkEqual(loc, a, c)
     case _:
-      user_error(proof.location, 'need to be in goal-directed mode for\n\t' + str(proof))
+      user_error(proof.location, goal_only_proof_error(proof))
   if get_verbose():
     print('\t=> ' + str(ret))
   return ret
+
+# Tactic-keyword name used for each "goal-only" Proof class. These tactics
+# transform the current goal rather than producing a proof of a formula, so
+# they can only be checked by `check_proof_of`, not `check_proof`.
+GOAL_ONLY_TACTIC_NAME = {
+  ApplyDefsGoal: 'expand',
+  RewriteGoal: 'replace',
+  SimplifyGoal: 'simplify',
+  EvaluateGoal: 'evaluate',
+  Suffices: 'suffices',
+  Induction: 'induction',
+  RuleInduction: 'induction',
+  RuleInversion: 'cases',
+  Cases: 'cases',
+  SwitchProof: 'switch',
+}
+
+def goal_only_proof_error(proof):
+  """Error message for a proof that can only be used in goal-directed mode.
+
+  Detects common user mistakes (e.g. chaining tactics with `|` as in
+  ``replace eq | expand X``) and offers actionable advice instead of the
+  internal phrase "need to be in goal-directed mode".
+  """
+  tactic = GOAL_ONLY_TACTIC_NAME.get(type(proof))
+  if tactic is None:
+    return 'a proof of a formula is expected here, not the tactic\n\t' \
+        + str(proof)
+  return '`' + tactic + '` is a goal-directed tactic — it transforms ' \
+      + 'the current goal, but it does not by itself produce a proof of a ' \
+      + 'formula. It cannot be used here.\n\n' \
+      + 'If you wrote something like `replace eq | ' + tactic + ' ...` or ' \
+      + '`expand f | ' + tactic + ' ...`, note that `|` separates ' \
+      + 'arguments to the leading tactic, not a sequence of tactics. ' \
+      + 'To run tactics in sequence, write them as separate proof steps:\n' \
+      + '\treplace eq\n' \
+      + '\t' + tactic + ' ...'
 
 def get_type_args(ty):
   if isinstance(ty, VarRef):
