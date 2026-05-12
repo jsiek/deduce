@@ -1897,8 +1897,14 @@ def check_proof_of(proof, formula, env):
     case ApplyDefsGoal(loc, defs, body):
       new_formula = expand_definitions(loc, formula, defs, env)
       red_formula = new_formula.reduce(env)
-      _try_check_proof_of(body, red_formula, env)
-      
+      try:
+        _try_check_proof_of(body, red_formula, env)
+      except UserError as e:
+        hint = expand_residual_hint(red_formula, defs)
+        if hint:
+          raise wrap_user_error(e, hint) from e
+        raise
+
     case _:
       try:
         form = check_proof(proof, env)
@@ -1923,6 +1929,68 @@ def auto_simplified_hint(new_formula):
     return '\nThe goal has been simplified to `true`, possibly by an `auto` rewrite rule.\n' \
            'Finish the proof with `.` (which closes any goal of the form `true`).'
   return ''
+
+
+def _ast_mentions_any(node, target_names):
+  # AST traversal: does `node` reference any name in `target_names`?
+  # No general `free_vars` is defined across all Term subclasses, so we
+  # walk the dataclass fields directly.
+  seen = set()
+  stack = [node]
+  while stack:
+    n = stack.pop()
+    nid = id(n)
+    if nid in seen:
+      continue
+    seen.add(nid)
+    if isinstance(n, VarRef):
+      if isinstance(n, OverloadedVar):
+        for nm in n.resolved_names:
+          if nm in target_names:
+            return True
+      else:
+        if n.get_name() in target_names:
+          return True
+    if hasattr(n, '__dict__'):
+      for v in vars(n).values():
+        if isinstance(v, (list, tuple)):
+          stack.extend(v)
+        elif isinstance(v, dict):
+          stack.extend(v.values())
+        elif v is not None and not isinstance(v, (str, int, float, bool)):
+          stack.append(v)
+  return False
+
+
+def expand_residual_hint(residual, defs):
+  # When `expand f.` fails and `f` still appears in the residual goal,
+  # tell the user the unfolding depth was too shallow. The common case
+  # is a recursive function whose body re-introduces its own name; one
+  # extra step (`expand f | f.` or `expand 2*f.`) finishes the proof.
+  still_present = []
+  for d in defs:
+    if not isinstance(d, VarRef):
+      continue
+    if isinstance(d, OverloadedVar):
+      targets = set(d.resolved_names)
+    else:
+      targets = {d.get_name()}
+    if _ast_mentions_any(residual, targets):
+      display = base_name(d.get_name())
+      if display not in still_present:
+        still_present.append(display)
+  if not still_present:
+    return ''
+  if len(still_present) == 1:
+    name = still_present[0]
+    return ('\nThe goal still contains `' + name + '`. ' \
+            'To unfold it again, chain another expand:\n' \
+            '\texpand ' + name + ' | ' + name + '.\n' \
+            'or equivalently\n' \
+            '\texpand 2*' + name + '.')
+  listed = ', '.join('`' + n + '`' for n in still_present)
+  return ('\nThe goal still contains ' + listed + '. ' \
+          'Chain another expand with `|` (e.g. `expand f | f.`) or use `N*f` to unfold further.')
 
 
 def expand_definitions(loc, formula, defs, env):
