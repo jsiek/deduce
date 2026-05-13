@@ -125,7 +125,7 @@ class OpenAICompatBackend(Backend):
     ) -> AgentResult:
         started = time.monotonic()
 
-        def _progress(event: str, **fields):
+        def _progress(event: str, **fields: Any) -> None:
             if on_progress is not None:
                 on_progress(event, **fields)
 
@@ -134,7 +134,7 @@ class OpenAICompatBackend(Backend):
         # explicit cache breakpoints; servers that support implicit
         # prefix caching (real OpenAI, some LiteLLM deployments) get
         # it for free, others pay full price each attempt.
-        messages: list[dict] = [
+        messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_text},
             {"role": "user", "content": user_message},
         ]
@@ -414,7 +414,7 @@ class OpenAICompatBackend(Backend):
 # ---------------------------------------------------------------------------
 
 
-def _tool_message(tool_call_id: str, payload: dict) -> dict:
+def _tool_message(tool_call_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Format a `role: tool' message carrying a JSON-encoded payload.
 
     Centralised here so the validate_proof and query_goal paths
@@ -427,7 +427,7 @@ def _tool_message(tool_call_id: str, payload: dict) -> dict:
     }
 
 
-def _query_payload(outcome: QueryOutcome) -> dict:
+def _query_payload(outcome: QueryOutcome) -> dict[str, Any]:
     """Convert a QueryOutcome into the JSON shape the model sees in
     the tool_result message: `{goal, givens}` on success, `{error}`
     on failure."""
@@ -442,7 +442,7 @@ def _query_payload(outcome: QueryOutcome) -> dict:
     return {"error": outcome.error or "unknown"}
 
 
-def _first_choice(response):
+def _first_choice(response: Any) -> Any:
     choices = _attr(response, "choices", default=[]) or []
     if not choices:
         # Surface a structured error rather than crashing.
@@ -450,32 +450,35 @@ def _first_choice(response):
     return choices[0]
 
 
-def _choice_message(choice):
+def _choice_message(choice: Any) -> Any:
     return _attr(choice, "message")
 
 
-def _message_content(msg):
+def _message_content(msg: Any) -> Any:
     return _attr(msg, "content")
 
 
-def _tool_calls(msg):
+def _tool_calls(msg: Any) -> list[Any]:
     calls = _attr(msg, "tool_calls", default=None) or []
     return list(calls)
 
 
-def _tool_call_id(tc) -> str:
-    return _attr(tc, "id", default="") or ""
+def _tool_call_id(tc: Any) -> str:
+    val = _attr(tc, "id", default="")
+    return val if isinstance(val, str) else ""
 
 
-def _tool_call_function_name(tc) -> str:
+def _tool_call_function_name(tc: Any) -> str:
     fn = _attr(tc, "function")
-    return _attr(fn, "name", default="") or ""
+    val = _attr(fn, "name", default="")
+    return val if isinstance(val, str) else ""
 
 
-def _tool_call_function_arguments(tc) -> str:
+def _tool_call_function_arguments(tc: Any) -> str:
     """Return the JSON-string ``arguments`` field for a tool call."""
     fn = _attr(tc, "function")
-    return _attr(fn, "arguments", default="") or ""
+    val = _attr(fn, "arguments", default="")
+    return val if isinstance(val, str) else ""
 
 
 def _extract_proof_text(args_raw: str) -> Optional[str]:
@@ -499,7 +502,7 @@ def _extract_proof_text(args_raw: str) -> Optional[str]:
     return proof
 
 
-def _serialize_tool_calls(tool_calls) -> list[dict]:
+def _serialize_tool_calls(tool_calls: list[Any]) -> list[dict[str, Any]]:
     """Re-serialise a list of tool_call objects (Pydantic models or dicts)
     into a plain list of dicts safe to round-trip through the request.
 
@@ -510,7 +513,7 @@ def _serialize_tool_calls(tool_calls) -> list[dict]:
     request and reject malformed bytes from a prior turn.  See
     https://github.com/jsiek/deduce/issues/376.
     """
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for tc in tool_calls:
         name = _tool_call_function_name(tc)
         args_raw = _tool_call_function_arguments(tc)
@@ -556,7 +559,7 @@ def _is_recoverable_malformed_args_error(exc: BaseException) -> bool:
     return any(marker in msg for marker in _RECOVERABLE_BAD_REQUEST_MARKERS)
 
 
-def _strip_trailing_turn_with_synthetic_note(messages: list[dict]) -> list[dict]:
+def _strip_trailing_turn_with_synthetic_note(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Walk back to the last ``role: assistant`` entry, drop it (and
     any tool messages that followed it), and replace it with a plain
     synthetic note pointing the model at what went wrong.
@@ -575,7 +578,7 @@ def _strip_trailing_turn_with_synthetic_note(messages: list[dict]) -> list[dict]
     ]
 
 
-def _attr(obj, name, default=None):
+def _attr(obj: Any, name: str, default: Any = None) -> Any:
     """Read ``name`` off ``obj`` whether it's a dict or attribute object."""
     if obj is None:
         return default
