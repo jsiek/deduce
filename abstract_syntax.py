@@ -158,6 +158,8 @@ def _alpha_equiv(t1, t2, env1, env2) -> bool:
     return _alpha_equiv_some(t1, t2, env1, env2)
   if isinstance(t1, TLet):
     return _alpha_equiv_tlet(t1, t2, env1, env2)
+  if isinstance(t1, FunctionType):
+    return _alpha_equiv_function_type(t1, t2, env1, env2)
   # Default: structural walk. TermInst/TAnnote already unwrapped, so
   # a class mismatch here is real.
   if type(t1) is not type(t2):
@@ -296,6 +298,26 @@ def _alpha_equiv_tlet(t1, t2, env1, env2) -> bool:
   return _alpha_equiv(t1.body, t2.body,
                       _bind(env1, t1.var, tag),
                       _bind(env2, t2.var, tag))
+
+
+def _alpha_equiv_function_type(t1, t2, env1, env2) -> bool:
+  # The only `Type`-level binder: `type_params` is a list of names
+  # bound in `param_types` and `return_type`. Same parallel-walk
+  # pattern as `_alpha_equiv_lambda`, but `type_params` carries no
+  # per-parameter type annotation -- it's just names.
+  if not isinstance(t2, FunctionType):
+    return False
+  if len(t1.type_params) != len(t2.type_params):
+    return False
+  if len(t1.param_types) != len(t2.param_types):
+    return False
+  tags = [object() for _ in t1.type_params]
+  new_env1 = _bind_all(env1, list(zip(t1.type_params, tags)))
+  new_env2 = _bind_all(env2, list(zip(t2.type_params, tags)))
+  for (p1, p2) in zip(t1.param_types, t2.param_types):
+    if not _alpha_equiv(p1, p2, new_env1, new_env2):
+      return False
+  return _alpha_equiv(t1.return_type, t2.return_type, new_env1, new_env2)
 
 
 @dataclass
@@ -591,14 +613,7 @@ class FunctionType(Type):
       + ' -> ' + str(self.return_type) + ')'
 
   def __eq__(self, other):
-    match other:
-      case FunctionType(l2, tv2, pts2, rt2):
-        ret = True
-        for (pt1, pt2) in zip(self.param_types, pts2):
-          ret = ret and pt1 == pt2
-        return ret and self.return_type == rt2
-      case _:
-        return False
+    return _alpha_equiv_function_type(self, other, {}, {})
 
   def free_vars(self):
     fvs = [pt.free_vars() for pt in self.param_types] \
