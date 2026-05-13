@@ -129,6 +129,7 @@ module = [
     "compiler.compile_prelude",
     "compiler.emit_c",
     "compiler.ir",
+    "compiler.lower",
     "compiler.prune",
     "edit_distance",
     "flags",
