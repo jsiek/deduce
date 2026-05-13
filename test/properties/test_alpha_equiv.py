@@ -28,7 +28,6 @@ from abstract_syntax import (  # noqa: E402
     Lambda,
     Some,
     TLet,
-    TypeType,
     Var,
     alpha_equiv,
 )
