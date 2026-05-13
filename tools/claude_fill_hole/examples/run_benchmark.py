@@ -33,6 +33,7 @@ import json
 import os
 import subprocess
 import sys
+from typing import Any
 import time
 from pathlib import Path
 
@@ -82,7 +83,7 @@ def find_first_question_mark(content: str) -> tuple[int, int]:
     raise ValueError("no `?` in fixture")
 
 
-def build_request(fixture: Path) -> dict:
+def build_request(fixture: Path) -> dict[str, Any]:
     content = fixture.read_text()
     line0, char0 = find_first_question_mark(content)
     pos = Position(line=line0 + 1, column=char0 + 1)  # query is 1-indexed
@@ -118,7 +119,7 @@ def build_request(fixture: Path) -> dict:
     }
 
 
-def run_one(fixture: Path, model: str, max_attempts: int, timeout: int) -> dict:
+def run_one(fixture: Path, model: str, max_attempts: int, timeout: int) -> dict[str, Any]:
     request = build_request(fixture)
     cmd = [
         sys.executable, "-m", "tools.claude_fill_hole",
@@ -162,7 +163,7 @@ def run_one(fixture: Path, model: str, max_attempts: int, timeout: int) -> dict:
             "validations": [],
         }
     try:
-        result = json.loads(proc.stdout)
+        result: dict[str, Any] = json.loads(proc.stdout)
     except json.JSONDecodeError as e:
         return {
             "ok": False,
@@ -194,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         print("error: no fixtures found", file=sys.stderr)
         return 2
 
-    results: dict[tuple[str, str], dict] = {}
+    results: dict[tuple[str, str], dict[str, Any]] = {}
     for model in args.models:
         for fixture in fixtures:
             print(f"[{model}] {fixture.name} ...",

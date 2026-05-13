@@ -26,7 +26,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, IO, Optional
 
 from .agent import AgentResult, Backend
 from .prompt import build_system_prompt, build_user_message, slice_around_hole
@@ -41,7 +41,7 @@ from .schema import (
 from .validator import HoleQuerier, SubprocessValidator
 
 
-def _default_prelude(deduce_root: Path) -> tuple:
+def _default_prelude(deduce_root: Path) -> tuple[str, ...]:
     """Return the standard-library prelude tuple for `hole_context_at'.
 
     Matches what `lsp.lsp_server' does: every `.pf' file under `lib/'
@@ -151,7 +151,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         sys.stdout = response_stream
 
 
-def _main_with_response_stream(args: argparse.Namespace, response_stream) -> int:
+def _main_with_response_stream(args: argparse.Namespace, response_stream: IO[str]) -> int:
     raw = sys.stdin.read()
     if not raw.strip():
         _emit_progress("error", message="empty stdin")
@@ -340,7 +340,7 @@ def _build_backend(args: argparse.Namespace, api_key: str) -> Backend:
             ) from e
         from .openai_backend import OpenAICompatBackend
 
-        client_kwargs: dict = {"api_key": api_key}
+        client_kwargs: dict[str, Any] = {"api_key": api_key}
         if args.base_url:
             client_kwargs["base_url"] = args.base_url
         openai_client = openai.OpenAI(**client_kwargs)
@@ -531,7 +531,7 @@ def _run_dry_run(
     request: HoleFillRequest,
     validator: SubprocessValidator,
     args: argparse.Namespace,
-    response_stream,
+    response_stream: IO[str],
 ) -> int:
     """Validate a known-trivial stub proof and report the outcome.
 
@@ -571,7 +571,7 @@ def _run_dry_run(
     return 0 if outcome.ok else 1
 
 
-def _emit_response(stream, response: HoleFillResponse) -> None:
+def _emit_response(stream: IO[str], response: HoleFillResponse) -> None:
     """Write the JSON response and a trailing newline to ``stream``.
 
     All response writes go through this helper so the response channel
@@ -583,7 +583,7 @@ def _emit_response(stream, response: HoleFillResponse) -> None:
     stream.flush()
 
 
-def _emit_progress(event: str, **fields):
+def _emit_progress(event: str, **fields: Any) -> None:
     sys.stderr.write(progress_event(event, **fields))
     sys.stderr.write("\n")
     sys.stderr.flush()

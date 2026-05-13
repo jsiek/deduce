@@ -1,6 +1,7 @@
 from enum import Enum
 import os
 from pathlib import Path
+from typing import Any, Callable, Optional
 
 class VerboseLevel(Enum):
   NONE = 0
@@ -9,53 +10,59 @@ class VerboseLevel(Enum):
 
 # flag for displaying uniquified names
 
-unique_names = False
+unique_names: bool = False
 
-def set_unique_names(b):
+def set_unique_names(b: bool) -> None:
   global unique_names
   unique_names = b
 
-def get_unique_names():
+def get_unique_names() -> bool:
   global unique_names
   return unique_names
 
 # flag for verbose trace
+#
+# `verbose` carries two value shapes: the literal `False` sentinel
+# (used as the off-state and as the falsy value returned by
+# `get_verbose` when the level is `NONE`) and a `VerboseLevel`. Callers
+# rely on both: `if get_verbose():` for truthiness, and
+# `if get_verbose() == VerboseLevel.CURR_ONLY:` for level checks.
 
-verbose = False
+verbose: bool | VerboseLevel = False
 
-def set_verbose(b):
+def set_verbose(b: bool | VerboseLevel) -> None:
   global verbose
   verbose = b
 
-def get_verbose():
+def get_verbose() -> bool | VerboseLevel:
   global verbose
   if verbose == VerboseLevel.NONE:
     return False
   return verbose
 
-def print_verbose(msg_thunk):
+def print_verbose(msg_thunk: Callable[[], str]) -> None:
   if get_verbose():
     print(msg_thunk())
 
 # flag for expect fail
 
-expect_fail_flag = False
+expect_fail_flag: bool = False
 
-def expect_fail():
+def expect_fail() -> bool:
   return expect_fail_flag
 
-def set_expect_fail(b):
+def set_expect_fail(b: bool) -> None:
   global expect_fail_flag
   expect_fail_flag = b
 
 # flag for expect static_fail
 
-expect_static_fail_flag = False
+expect_static_fail_flag: bool = False
 
-def expect_static_fail():
+def expect_static_fail() -> bool:
   return expect_static_fail_flag
 
-def set_expect_static_fail(b):
+def set_expect_static_fail(b: bool) -> None:
   global expect_static_fail_flag
   expect_static_fail_flag = b
 
@@ -63,7 +70,7 @@ def set_expect_static_fail(b):
 
 import_directories: set[str] = set()
 
-def init_import_directories():
+def init_import_directories() -> None:
   import_directories.add(".")
   lib_config_path = Path(os.path.expanduser("~/.config/deduce/libraries"))
   if lib_config_path.exists() and lib_config_path.is_file():
@@ -72,51 +79,51 @@ def init_import_directories():
         import_directories.add(line.strip())
 
 
-def get_import_directories():
+def get_import_directories() -> set[str]:
   global import_directories
   if (get_verbose()):
     print("import directories: ", import_directories)
   return import_directories
 
 
-def add_import_directory(dir):
+def add_import_directory(dir: str) -> None:
   global import_directories
   import_directories.add(dir)
 
 # flag for recursive descent parser
 
-recursive_descent = True
+recursive_descent: bool = True
 
-def get_recursive_descent():
+def get_recursive_descent() -> bool:
   global recursive_descent
   return recursive_descent
 
 
-def set_recursive_descent(b):
+def set_recursive_descent(b: bool) -> None:
   global recursive_descent
   recursive_descent = b
 
 # flag for quiet mode (primarily for testing errors)
 
-quiet_mode = False
+quiet_mode: bool = False
 
-def get_quiet_mode():
+def get_quiet_mode() -> bool:
   global quiet_mode
   return quiet_mode
 
-def set_quiet_mode(b):
+def set_quiet_mode(b: bool) -> None:
   global quiet_mode
   quiet_mode = b
 
 # flag for checking to see if we need to re-deduce imported files
 
-check_imports = True
+check_imports: bool = True
 
-def get_check_imports():
+def get_check_imports() -> bool:
   global check_imports
   return check_imports
 
-def set_check_imports(b):
+def set_check_imports(b: bool) -> None:
   global check_imports
   check_imports = b
 
@@ -126,13 +133,13 @@ def set_check_imports(b):
 # hole matching this location. None (the default) preserves the
 # raise-on-first-hole behavior used by the CLI.
 
-target_hole_location = None
+target_hole_location: Optional[tuple[int, int]] = None
 
-def get_target_hole_location():
+def get_target_hole_location() -> Optional[tuple[int, int]]:
   global target_hole_location
   return target_hole_location
 
-def set_target_hole_location(loc):
+def set_target_hole_location(loc: Optional[tuple[int, int]]) -> None:
   global target_hole_location
   target_hole_location = loc
 
@@ -143,14 +150,17 @@ def set_target_hole_location(loc):
 # per hook site.  Set by ``lsp.library.check_file`` for the duration
 # of one call (paired ``set_debugger(d)`` / ``set_debugger(None)`` in
 # a try/finally).
+#
+# Typed as `Any | None` to avoid an import cycle: flags.py sits at the
+# bottom of the import stack and lsp.debugger imports from it. The
+# stored object is an `lsp.debugger.Debugger` instance.
 
-debugger = None
+debugger: Optional[Any] = None
 
-def get_debugger():
+def get_debugger() -> Optional[Any]:
   global debugger
   return debugger
 
-def set_debugger(d):
+def set_debugger(d: Optional[Any]) -> None:
   global debugger
   debugger = d
-

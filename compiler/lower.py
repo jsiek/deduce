@@ -16,7 +16,9 @@ Assert. MakeArray/ArrayGet/GenRecFun/Array etc. raise CompileError.
 
 from __future__ import annotations
 
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set, Tuple
+
+from lark.tree import Meta
 
 import abstract_syntax as ast
 
@@ -28,24 +30,26 @@ class CompileError(Exception):
     handle. Carries the AST node's location when available so the
     front-end can format it like any other Deduce error."""
 
-    def __init__(self, location, message: str):
+    def __init__(self, location: Optional[Meta], message: str):
         self.location = location
         self.message = message
         super().__init__(_format_loc(location) + message)
 
 
-def _format_loc(loc) -> str:
+def _format_loc(loc: Optional[Meta]) -> str:
     if loc is None:
         return ""
     try:
         if getattr(loc, "empty", True):
             return ""
-        return f"{loc.filename}:{loc.line}: "
+        # `filename` is stashed onto Meta by the parser
+        # (see abstract_syntax.py / parser.py); not a declared field.
+        return f"{getattr(loc, 'filename', '?')}:{loc.line}: "
     except Exception:
         return ""
 
 
-def _ast_loc(loc) -> "str | None":
+def _ast_loc(loc: Optional[Meta]) -> Optional[str]:
     """Format a `lark.tree.Meta` location as `file:line`, or None if
     the location is empty / missing. Used to populate `loc` fields on
     IR nodes for source-map output."""
@@ -54,7 +58,7 @@ def _ast_loc(loc) -> "str | None":
     try:
         if getattr(loc, "empty", True):
             return None
-        return f"{loc.filename}:{loc.line}"
+        return f"{getattr(loc, 'filename', '?')}:{loc.line}"
     except Exception:
         return None
 
@@ -134,7 +138,15 @@ def _flatten_imports(
     stmts: List[ast.Statement],
     main_module: str,
     separate: bool = False,
-):
+) -> Tuple[
+    List[Tuple[ast.Statement, str]],
+    Dict[str, str],
+    Dict[str, int],
+    List[str],
+    Dict[str, int],
+    Set[str],
+    Dict[str, int],
+]:
     """Walk `stmts` and produce a flat list of (statement, module).
 
     In monolithic mode (`separate=False`) splices each `Import.ast`
@@ -281,7 +293,7 @@ class LoweringCtx:
 
     # ---- statements --------------------------------------------------
 
-    def lower_stmt(self, s: ast.Statement, module: str):
+    def lower_stmt(self, s: ast.Statement, module: str) -> Optional[ir.TopLevel]:
         if isinstance(s, ast.Theorem) or isinstance(s, ast.Postulate) \
            or isinstance(s, ast.Predicate) or isinstance(s, ast.Auto) \
            or isinstance(s, ast.Inductive) or isinstance(s, ast.Module) \
@@ -325,7 +337,7 @@ class LoweringCtx:
             f"compiler does not yet support top-level: {type(s).__name__}",
         )
 
-    def lower_define(self, d: ast.Define, module: str):
+    def lower_define(self, d: ast.Define, module: str) -> ir.TopLevel:
         body = d.body
         # `define f = generic <T> { fun x { ... } }` and
         # `define f = fun x { ... }` should both become a top-level
@@ -346,7 +358,7 @@ class LoweringCtx:
         return ir.Global(name=d.name, body=self.lower_term(body),
                          module=module)
 
-    def lower_recfun(self, r: ast.RecFun, module: str):
+    def lower_recfun(self, r: ast.RecFun, module: str) -> ir.Function:
         if len(r.cases) == 0:
             raise CompileError(r.location, "RecFun with no cases")
 
@@ -389,7 +401,7 @@ class LoweringCtx:
             module=module,
         )
 
-    def lower_genrecfun(self, r: ast.GenRecFun, module: str):
+    def lower_genrecfun(self, r: ast.GenRecFun, module: str) -> ir.Function:
         """Recfun-with-measure: a single-body recursive function. The
         measure expression and the `terminates` proof are erased — the
         compiler does no termination checking, just like the Deduce

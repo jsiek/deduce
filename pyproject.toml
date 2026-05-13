@@ -129,12 +129,18 @@ module = [
     "compiler.compile_prelude",
     "compiler.emit_c",
     "compiler.ir",
+    "compiler.lower",
     "compiler.prune",
     "edit_distance",
+    "flags",
+    "lsp.benchmark",
+    "claude_fill_hole.__main__",
     "claude_fill_hole.agent",
+    "claude_fill_hole.anthropic_backend",
     "claude_fill_hole.prompt",
     "claude_fill_hole.schema",
     "claude_fill_hole.validator",
+    "claude_fill_hole.examples.run_benchmark",
 ]
 disallow_any_generics = true
 disallow_untyped_calls = true
