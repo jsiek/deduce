@@ -133,6 +133,7 @@ module = [
     "compiler.prune",
     "edit_distance",
     "flags",
+    "lsp.benchmark",
     "claude_fill_hole.agent",
     "claude_fill_hole.prompt",
     "claude_fill_hole.schema",
