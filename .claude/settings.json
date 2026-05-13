@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pr-subtask-reminder.sh",
+            "if": "Bash(gh pr *)"
+          }
+        ]
+      }
+    ]
+  }
+}
