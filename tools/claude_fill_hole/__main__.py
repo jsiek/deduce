@@ -343,8 +343,8 @@ def _build_backend(args: argparse.Namespace, api_key: str) -> Backend:
         client_kwargs: dict = {"api_key": api_key}
         if args.base_url:
             client_kwargs["base_url"] = args.base_url
-        client = openai.OpenAI(**client_kwargs)
-        return OpenAICompatBackend(client=client, model=args.model)
+        openai_client = openai.OpenAI(**client_kwargs)
+        return OpenAICompatBackend(client=openai_client, model=args.model)
 
     raise _BackendBuildError(f"unknown backend: {args.backend!r}")
 

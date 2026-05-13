@@ -121,7 +121,7 @@ class CheckResult:
     exception: Optional[BaseException]
     module_name: str
     ast: Optional[Any]
-    errors: list = None  # populated by __post_init__ when not provided
+    errors: Optional[list] = None  # populated by __post_init__ when not provided
 
     def __post_init__(self):
         if self.errors is None:

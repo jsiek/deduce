@@ -150,7 +150,7 @@ def closure_convert(p: ir.Program) -> ir.Program:
                 )
 
     return ir.Program(
-        decls=new_decls + lifted,
+        decls=[*new_decls, *lifted],
         name_to_module=new_name_to_module,
         name_to_seq=p.name_to_seq,
         main_module=p.main_module,

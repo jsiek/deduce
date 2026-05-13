@@ -137,7 +137,7 @@ def _to_serializable(obj: Any) -> Any:
     plain dicts/lists for the MCP JSON wire format."""
     if obj is None:
         return None
-    if is_dataclass(obj):
+    if is_dataclass(obj) and not isinstance(obj, type):
         return {k: _to_serializable(v) for k, v in asdict(obj).items()}
     if isinstance(obj, (list, tuple)):
         return [_to_serializable(x) for x in obj]

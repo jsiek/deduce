@@ -2,7 +2,7 @@
 # is to provide better error messages. -Jeremy
 
 from abstract_syntax import *
-from lark import Lark
+from lark import Lark, Token
 from error import *
 from edit_distance import closest_keyword, edit_distance
 
@@ -56,7 +56,7 @@ def init_parser():
 # thrown. -Jeremy
 
 current_position = 0
-token_list = []
+token_list: list[Token] = []
 
 def current_token():
   if end_of_file():

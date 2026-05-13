@@ -114,10 +114,10 @@ def read_message(stream: IO[bytes]) -> Optional[dict]:
     EOF (the editor closed the connection)."""
     headers: dict = {}
     while True:
-        line = stream.readline()
-        if not line:
+        raw = stream.readline()
+        if not raw:
             return None
-        line = line.rstrip(b"\r\n").decode("ascii", errors="replace")
+        line = raw.rstrip(b"\r\n").decode("ascii", errors="replace")
         if not line:
             break
         key, _, val = line.partition(":")
@@ -188,10 +188,23 @@ class _DAPDebugger(Debugger):
         self._stop_reason = self._reason_for_statement(stmt, env)
         super().on_statement(stmt, env)
 
-    def on_function(self, name, location, env, **kw) -> None:
-        defn_loc = kw.get("defn_loc")
+    def on_function(
+        self,
+        name: str,
+        location,
+        env,
+        params: Optional[list] = None,
+        args: Optional[list] = None,
+        subst: Optional[dict] = None,
+        defn_loc=None,
+        display_args: Optional[list] = None,
+    ) -> None:
         self._stop_reason = self._reason_for_function(name, location, defn_loc)
-        super().on_function(name, location, env, **kw)
+        super().on_function(
+            name, location, env,
+            params=params, args=args, subst=subst,
+            defn_loc=defn_loc, display_args=display_args,
+        )
 
     def after_function(self, name, env, return_value=None) -> None:
         # The return-trap (Step 22) is always a step event from the

@@ -16,7 +16,7 @@ Assert. MakeArray/ArrayGet/GenRecFun/Array etc. raise CompileError.
 
 from __future__ import annotations
 
-from typing import Dict, List, Set
+from typing import Dict, List, Set, cast
 
 import abstract_syntax as ast
 
@@ -228,7 +228,9 @@ def _flatten_imports(
                     continue
                 seen.add(s.name)
                 if s.ast is not None:
-                    register_imported(s.ast, s.name)
+                    # Import.ast is typed as a single AST in the dataclass
+                    # but the parser stashes a list[Statement] here. See #480.
+                    register_imported(cast(List[ast.Statement], s.ast), s.name)
             else:
                 record_decl_module(s, current_module)
                 record_imported_kind(s)
@@ -246,7 +248,7 @@ def _flatten_imports(
                     # name_to_module so references mangle correctly.
                     direct_imports.append(s.name)
                     if s.ast is not None:
-                        register_imported(s.ast, s.name)
+                        register_imported(cast(List[ast.Statement], s.ast), s.name)
                     continue
                 if separate:
                     # Indirect import inside an already-handled
@@ -254,7 +256,7 @@ def _flatten_imports(
                     # module's build-system dependency, not ours.
                     continue
                 if s.ast is not None:
-                    walk(s.ast, s.name)
+                    walk(cast(List[ast.Statement], s.ast), s.name)
             else:
                 out.append((s, current_module))
                 record_decl_module(s, current_module)

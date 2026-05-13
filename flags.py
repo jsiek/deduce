@@ -61,7 +61,7 @@ def set_expect_static_fail(b):
 
 # flag for import directories
 
-import_directories = set()
+import_directories: set[str] = set()
 
 def init_import_directories():
   import_directories.add(".")
