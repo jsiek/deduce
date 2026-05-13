@@ -12,7 +12,7 @@ matching their textual expectations.
 import os
 import sys
 
-enabled = False
+enabled: bool = False
 
 _RESET        = '\033[0m'
 _BOLD         = '\033[1m'
@@ -31,15 +31,15 @@ _BOLD_CYAN    = '\033[1;36m'
 _ORANGE       = '\033[38;5;208m'
 _DARK_GREEN   = '\033[38;5;28m'
 
-def enable():
+def enable() -> None:
     global enabled
     enabled = True
 
-def disable():
+def disable() -> None:
     global enabled
     enabled = False
 
-def maybe_enable_for_tty():
+def maybe_enable_for_tty() -> None:
     """Enable colors iff stdout is a TTY and NO_COLOR is unset."""
     if os.environ.get('NO_COLOR'):
         return
@@ -47,21 +47,21 @@ def maybe_enable_for_tty():
         return
     enable()
 
-def _wrap(code, s):
+def _wrap(code: str, s: str) -> str:
     if not enabled:
         return s
     return code + s + _RESET
 
-def bold(s):         return _wrap(_BOLD, s)
-def red(s):          return _wrap(_RED, s)
-def green(s):        return _wrap(_GREEN, s)
-def yellow(s):       return _wrap(_YELLOW, s)
-def blue(s):         return _wrap(_BLUE, s)
-def cyan(s):         return _wrap(_CYAN, s)
-def orange(s):       return _wrap(_ORANGE, s)
-def dark_green(s):   return _wrap(_DARK_GREEN, s)
-def bold_red(s):     return _wrap(_BOLD_RED, s)
-def bold_green(s):   return _wrap(_BOLD_GREEN, s)
-def bold_yellow(s):  return _wrap(_BOLD_YELLOW, s)
-def bold_blue(s):    return _wrap(_BOLD_BLUE, s)
-def bold_cyan(s):    return _wrap(_BOLD_CYAN, s)
+def bold(s: str) -> str:         return _wrap(_BOLD, s)
+def red(s: str) -> str:          return _wrap(_RED, s)
+def green(s: str) -> str:        return _wrap(_GREEN, s)
+def yellow(s: str) -> str:       return _wrap(_YELLOW, s)
+def blue(s: str) -> str:         return _wrap(_BLUE, s)
+def cyan(s: str) -> str:         return _wrap(_CYAN, s)
+def orange(s: str) -> str:       return _wrap(_ORANGE, s)
+def dark_green(s: str) -> str:   return _wrap(_DARK_GREEN, s)
+def bold_red(s: str) -> str:     return _wrap(_BOLD_RED, s)
+def bold_green(s: str) -> str:   return _wrap(_BOLD_GREEN, s)
+def bold_yellow(s: str) -> str:  return _wrap(_BOLD_YELLOW, s)
+def bold_blue(s: str) -> str:    return _wrap(_BOLD_BLUE, s)
+def bold_cyan(s: str) -> str:    return _wrap(_BOLD_CYAN, s)
