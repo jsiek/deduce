@@ -131,6 +131,7 @@ module = [
     "compiler.ir",
     "compiler.prune",
     "edit_distance",
+    "flags",
     "claude_fill_hole.agent",
     "claude_fill_hole.prompt",
     "claude_fill_hole.schema",
