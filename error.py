@@ -1,5 +1,7 @@
 import contextlib
-from typing import NoReturn
+from typing import Any, List, NoReturn, Optional
+
+from lark.tree import Meta
 
 import style
 
@@ -10,21 +12,42 @@ class Diagnostic(Exception):
   errors and control-flow signals (``InternalError``, ``MatchFailed``)
   intentionally do not inherit from this -- they should not be caught
   by the sink machinery."""
-  pass
+
+  # Post-construction-stashed structured fields: every helper that
+  # raises a ``Diagnostic`` (``user_error``, ``incomplete_error``,
+  # ``static_error``, ``match_failed``, ``add_diagnostic``,
+  # ``add_incomplete``) attaches ``location`` and ``message_body`` so
+  # library/LSP/MCP callers can reconstruct ``Diagnostic`` objects
+  # without regex-parsing ``str(exc)``. Declared at the base so every
+  # subclass shares the same shape — mypy then accepts the post-hoc
+  # ``exc.location = ...`` / ``exc.message_body = ...`` assignments
+  # without ``attr-defined`` errors.
+  location: Meta
+  message_body: str
 
 class UserError(Diagnostic):
-  pass
+  # Set by ``user_error`` / ``add_diagnostic`` to 0; currently no
+  # caller reads it, but keeping the slot reserves the field so an
+  # incidental ``exc.depth`` access keeps type-checking. Dead-code
+  # removal is its own cleanup.
+  depth: int
 
 class InternalError(Exception):
   pass
 
 class IncompleteProof(Diagnostic):
-  pass
+  depth: int
+  # Set by ``incomplete_error`` / ``add_incomplete``: optional
+  # structured fields for the LSP/MCP refine pipeline (the goal AST
+  # and the type-checking env at the hole). ``None`` outside of
+  # opted-in flows.
+  formula: Optional[Any]
+  env: Optional[Any]
 
-def get_location_text_lines(location):
+def get_location_text_lines(location: Meta) -> List[str]:
   if not location.empty:
     try:
-      with open(location.filename, 'r') as f:
+      with open(getattr(location, 'filename'), 'r') as f:
         lines = list(f.readlines())
         return lines[location.line-1:location.end_line]
     except OSError:
@@ -32,21 +55,21 @@ def get_location_text_lines(location):
       # that may not exist on disk. Returning an empty source excerpt
       # keeps str(ParseError) from crashing -- the location header
       # still carries the file:line:col coordinates.
-      return ''
+      return []
   else:
-    return ''
+    return []
 
-def error_header(location):
+def error_header(location: Meta) -> str:
   if not location.empty:
     header = '{file}:{line1}.{column1}-{line2}.{column2}:' \
-        .format(file=location.filename,
+        .format(file=getattr(location, 'filename'),
                 line1=location.line, column1=location.column,
                 line2=location.end_line, column2=location.end_column)
     return style.blue(header) + ' '
   else:
     return '' # Don't want to risk returning None ever leading to issues
 
-def error_program_text(location):
+def error_program_text(location: Meta) -> str:
   if not location.empty:
     lines = get_location_text_lines(location)
     if not lines:
@@ -92,19 +115,19 @@ class ErrorSink:
   keeps its raise-on-first-error behavior — preserving CLI semantics
   and the ``goal_at`` / MCP query paths that depend on it.
   """
-  def __init__(self):
+  def __init__(self) -> None:
     self.errors: list[Diagnostic] = []
 
-  def add(self, exc: 'Diagnostic'):
+  def add(self, exc: 'Diagnostic') -> None:
     self.errors.append(exc)
 
-  def __bool__(self):
+  def __bool__(self) -> bool:
     return bool(self.errors)
 
-  def __len__(self):
+  def __len__(self) -> int:
     return len(self.errors)
 
-def user_error(location, msg):
+def user_error(location: Meta, msg: str) -> NoReturn:
   exc = UserError(error_header(location) + msg)
   exc.depth = 0
   # Attach structured fields so library/LSP/MCP callers can build
@@ -114,10 +137,12 @@ def user_error(location, msg):
   exc.message_body = msg
   raise exc
 
-def internal_error(location, msg) -> NoReturn:
+def internal_error(location: Meta, msg: str) -> NoReturn:
   raise InternalError(error_header(location) + msg)
 
-def incomplete_error(location, msg, *, formula=None, env=None):
+def incomplete_error(location: Meta, msg: str, *,
+                     formula: Optional[Any] = None,
+                     env: Optional[Any] = None) -> NoReturn:
   exc = IncompleteProof(error_header(location) + msg)
   exc.depth = 0
   exc.location = location
@@ -129,10 +154,10 @@ def incomplete_error(location, msg, *, formula=None, env=None):
   exc.env = env
   raise exc
 
-def warning(location, msg):
+def warning(location: Meta, msg: str) -> None:
   print(error_header(location) + msg)
 
-def wrap_user_error(inner, context):
+def wrap_user_error(inner: BaseException, context: str) -> UserError:
   """Return a new Exception that re-raises ``inner`` with ``context``
   appended to the message, preserving the structured ``location`` and
   ``message_body`` attributes set by error()/incomplete_error()/
@@ -169,10 +194,10 @@ def wrap_user_error(inner, context):
 # own raise site rather than waiting for a top-level catch. None
 # outside of an opted-in run, so CLI / goal_at / MCP behaviour is
 # untouched.
-_active_sink = None
+_active_sink: Optional[ErrorSink] = None
 
 
-def set_active_sink(sink):
+def set_active_sink(sink: Optional[ErrorSink]) -> Optional[ErrorSink]:
   """Install ``sink`` as the active error sink and return the
   previously installed sink (so callers can restore it on exit
   exactly the way ``check_deduce`` does in its try/finally)."""
@@ -181,7 +206,7 @@ def set_active_sink(sink):
   _active_sink = sink
   return prev
 
-def get_active_sink():
+def get_active_sink() -> Optional[ErrorSink]:
   return _active_sink
 
 # Depth counter for nested speculative_probe blocks. While > 0,
@@ -194,7 +219,7 @@ _speculative_depth = 0
 
 
 @contextlib.contextmanager
-def speculative_probe():
+def speculative_probe() -> Any:
   """Make a speculative proof-checker probe well-behaved when an
   error sink is active.
 
@@ -231,7 +256,7 @@ def speculative_probe():
   finally:
     _speculative_depth -= 1
 
-def add_diagnostic(location, msg):
+def add_diagnostic(location: Meta, msg: str) -> None:
   """Record a user-visible diagnostic in the active sink and *return
   normally*, unlike :func:`user_error` which raises. Use at sites whose
   enclosing function can tolerate falling through.
@@ -255,7 +280,9 @@ def add_diagnostic(location, msg):
   exc.message_body = msg
   _active_sink.add(exc)
 
-def add_incomplete(location, msg, formula=None, env=None):
+def add_incomplete(location: Meta, msg: str,
+                   formula: Optional[Any] = None,
+                   env: Optional[Any] = None) -> None:
   """Record a user-visible diagnostic in the active sink and *return
   normally*, unlike :func:`user_error` which raises. Use at sites whose
   enclosing function can tolerate falling through.
@@ -283,16 +310,20 @@ def add_incomplete(location, msg, formula=None, env=None):
 class StaticError(Diagnostic):
   pass
 
-def static_error(location, msg):
+def static_error(location: Meta, msg: str) -> NoReturn:
   exc = StaticError(error_header(location) + msg)
   exc.location = location
   exc.message_body = msg
   raise exc
 
 class MatchFailed(Exception):
-  pass
+  # Stashed the same way as ``Diagnostic`` subclasses (see base-class
+  # comment) so the LSP/MCP query API can read e.location /
+  # e.message_body uniformly across exception types.
+  location: Meta
+  message_body: str
 
-def match_failed(location, msg):
+def match_failed(location: Meta, msg: str) -> NoReturn:
   exc = MatchFailed(error_header(location) + msg)
   exc.location = location
   exc.message_body = msg
@@ -302,13 +333,14 @@ MAX_ERR_DEPTH = 2
 
 # Parse Errors need to carry around some extra data
 class ParseError(Exception):
-  def __init__(self, loc, msg, depth=0, missing=False, last=False):
+  def __init__(self, loc: Meta, msg: str, depth: int = 0,
+               missing: bool = False, last: bool = False) -> None:
     super().__init__(msg)
     self.loc = loc
     self.depth = depth
     self.missing = missing
     self.last = last
-    self.trace = []
+    self.trace: List['ParseError'] = []
     # Aliases that match the attribute names attached to Exception by
     # error()/incomplete_error()/static_error()/match_failed(), so the
     # query API can read e.location / e.message_body uniformly across
@@ -316,21 +348,21 @@ class ParseError(Exception):
     self.location = loc
     self.message_body = msg
 
-  def extend(self, loc, msg):
+  def extend(self, loc: Meta, msg: str) -> 'ParseError':
     self.trace.append(ParseError(loc, msg))
     return self
 
-  def base_message(self):
+  def base_message(self) -> str:
     return super().__str__()
 
-  def error_base(self):
+  def error_base(self) -> str:
     base =  error_header(self.loc) + super().__str__()
     if self.trace:
       base = "\n" + base
     return base
   # return "\n".join([x.error_str() for x in reversed(self.trace[:MAX_ERR_DEPTH])]) + base
 
-  def __str__(self):
+  def __str__(self) -> str:
     # base =  error_header(self.loc) + super().__str__()
     # if self.trace:
     #   base = "\n" + base

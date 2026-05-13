@@ -126,6 +126,7 @@ exclude = [
 [[tool.mypy.overrides]]
 module = [
     "deduce",
+    "error",
     "compiler.closure",
     "compiler.compile_prelude",
     "compiler.emit_c",
