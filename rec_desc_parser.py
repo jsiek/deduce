@@ -1,6 +1,8 @@
 # The motivation for this recursive-descent version of the parser
 # is to provide better error messages. -Jeremy
 
+from typing import Optional
+
 from abstract_syntax import *
 from lark import Lark, Token
 from error import *
@@ -42,7 +44,7 @@ to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '.-.': '∸',
 
 accessiblity_keywords = {'OPAQUE', 'PRIVATE', 'PUBLIC'}
 
-lark_parser = None
+lark_parser: Optional[Lark] = None
 
 def init_parser():
   global lark_parser

@@ -1,4 +1,5 @@
 import contextlib
+from typing import NoReturn
 
 import style
 
@@ -113,7 +114,7 @@ def user_error(location, msg):
   exc.message_body = msg
   raise exc
 
-def internal_error(location, msg):
+def internal_error(location, msg) -> NoReturn:
   raise InternalError(error_header(location) + msg)
 
 def incomplete_error(location, msg, *, formula=None, env=None):

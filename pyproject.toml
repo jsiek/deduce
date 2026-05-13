@@ -41,17 +41,13 @@ select = ["F401", "F541", "F601", "F811", "F821"]
 # noisy modules out via per-module ignore_errors, then tighten one module
 # at a time in follow-up PRs by deleting its override block below.
 #
-# Remaining tightening order (cheapest first):
-#   1. compiler.emit_c (~7 errors, internal to compiler/)
-#   2. lsp.debugger (~12 errors)
-#   3. compiler.ir (~17 errors)
-#   4. abstract_syntax (~12 errors; blocked on #480 - post-hoc-stashed attrs)
-#   5. proof_checker (~38 errors; pairs with #471 decomposition)
-#
-# Already tightened: flags, deduce, rec_desc_parser, lsp.library,
-# lsp.mcp_server, lsp.benchmark, lsp.dap_server, lsp.query,
-# compiler.closure, compiler.lower, claude_fill_hole.__main__,
-# claude_fill_hole.anthropic_backend, claude_fill_hole.openai_backend.
+# Only proof_checker (~38 errors; pairs with #471 decomposition) remains
+# on the override list. The other 18 modules that originally errored
+# (flags, deduce, rec_desc_parser, lsp.library, lsp.mcp_server,
+# lsp.benchmark, lsp.dap_server, lsp.query, compiler.closure,
+# compiler.lower, claude_fill_hole.__main__, claude_fill_hole.openai_backend,
+# claude_fill_hole.anthropic_backend, compiler.emit_c, lsp.debugger,
+# compiler.ir, abstract_syntax) are now actively type-checked.
 #
 # The `exclude` list below skips paths that would otherwise produce
 # module-name collisions or live outside the source tree:
@@ -87,20 +83,5 @@ exclude = [
 module = "proof_checker"
 ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "compiler.ir"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "lsp.debugger"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "abstract_syntax"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "compiler.emit_c"
-ignore_errors = true
 
 

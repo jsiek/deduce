@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Tuple, List, Optional, Set, Self
+from typing import Any, Tuple, List, Optional, Set, Self
 from error import user_error, internal_error, warning, static_error, match_failed, MatchFailed, UserError
 from flags import *
 from pathlib import Path
@@ -37,7 +37,7 @@ def set_current_module(name):
 # node. Populated during Predicate.uniquify and read by the proof checker
 # when desugaring `rule induction`. Persisted across check_deduce
 # invocations because uniquify happens once per file.
-_predicate_decls_by_unique_name = {}
+_predicate_decls_by_unique_name: dict[str, Any] = {}
 
 def get_predicate_decl(unique_name):
   return _predicate_decls_by_unique_name.get(unique_name)
@@ -359,7 +359,7 @@ def copy_dict(d):
 def maybe_str(o: Optional[str], default='') -> str:
   return str(o) if o is not None else default
 
-def maybe_pretty_print(o: Optional[str], indent, default='') -> str:
+def maybe_pretty_print(o: Optional[Any], indent, default='') -> str:
   return o.pretty_print(indent) if o is not None else default
 
 class UniquifyContext:
@@ -411,7 +411,7 @@ def base_name(name: str) -> str:
 
 def type_names(loc, names: List[str]):
   index = 0
-  result = []
+  result: list = []
   for n in reversed(names):
     result.insert(0, ResolvedVar(loc, None, n))
     index += 1
@@ -1263,7 +1263,7 @@ def is_match(pattern, arg, subst):
     return ret
 
 # The variables that should be reduced.
-reduce_only = []
+reduce_only: list = []
 
 def set_reduce_only(defs):
   global reduce_only
@@ -1305,7 +1305,7 @@ def set_eval_all(b):
   eval_all = b
 
 # Definitions that were reduced.
-reduced_defs = set()
+reduced_defs: set = set()
 
 def reset_reduced_defs():
   global reduced_defs
@@ -3613,7 +3613,7 @@ class Define(Declaration):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
-uniquified_modules = {}
+uniquified_modules: dict = {}
 
 def get_uniquified_modules():
   global uniquified_modules
@@ -3703,7 +3703,7 @@ def _stmt_primary_name(stmt):
 @dataclass
 class Import(Declaration):
   name: str
-  ast: AST = None
+  ast: Optional[AST] = None
   using:  Optional[List[str]] = None    # whitelist; None means no whitelist
   hiding: Optional[List[str]] = None    # blacklist; None means no blacklist
 
@@ -4266,15 +4266,15 @@ class Binding(AST):
 
 @dataclass
 class TypeBinding(Binding):
-  defn : AST = None
-  
+  defn : Optional[AST] = None
+
   def __str__(self):
     return str(self.defn)
-  
+
 @dataclass
 class TermBinding(Binding):
   typ : Type
-  defn : Term = None
+  defn : Optional[Term] = None
   local : bool = False
   
   def __str__(self):
@@ -4620,7 +4620,7 @@ class Env:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
 
-collected_imports = set()
+collected_imports: set = set()
 
 def collect_public(s, to_print):
     global collected_imports
@@ -5018,7 +5018,7 @@ def uniquify_deduce(ast, ctx: UniquifyContext):
   -- without it, the structural hash of every downstream statement
   drifts on every edit and the cache is useless.
   """
-  env = {}
+  env: dict[str, Any] = {}
   env['≠'] = ['≠']
   env['='] = ['=']
   # Using a space in the name to not collide with deduce identifiers

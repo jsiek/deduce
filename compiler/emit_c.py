@@ -582,7 +582,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                 # closure with empty env. Phase 1 doesn't exercise this,
                 # but supporting it is a few lines.
                 arity = ctx.top_funcs[name]
-                stmts = []
+                stmts: List[str] = []
                 tmp = ctx.fresh_tmp()
                 stmts.append(
                     f"deduce_value {tmp} = deduce_make_closure("
@@ -620,7 +620,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             sthn, ethn = _emit_term(thn, ctx, locals_in_scope)
             sels, eels = _emit_term(els, ctx, locals_in_scope)
             tmp = ctx.fresh_tmp()
-            stmts: List[str] = []
+            stmts = []
             stmts.extend(scond)
             stmts.append(f"deduce_value {tmp};")
             stmts.append(f"if (deduce_get_bool({econd})) {{")
@@ -636,7 +636,7 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
 
         case ir.Let(name, rhs, body):
             srhs, erhs = _emit_term(rhs, ctx, locals_in_scope)
-            stmts: List[str] = []
+            stmts = []
             stmts.extend(srhs)
             stmts.append(f"deduce_value {_local_id(name)} = {erhs};")
             sbody, ebody = _emit_term(body, ctx, locals_in_scope | {name})
@@ -696,8 +696,8 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
             return stmts, tmp
 
         case ir.App(rator, args):
-            arg_stmts: List[str] = []
-            arg_exprs: List[str] = []
+            arg_stmts = []
+            arg_exprs = []
             for a in args:
                 sa, ea = _emit_term(a, ctx, locals_in_scope)
                 arg_stmts.extend(sa)
@@ -781,14 +781,14 @@ def _emit_term(t: ir.Term, ctx: EmitCtx, locals_in_scope: Set[str]) -> Tuple[Lis
                     pc: ir.PatCon = arm.pattern
                     stmts.append(f"case {ctx.ctor_id_macro(pc.ctor)}: {{")
                     inner_scope = locals_in_scope | set(pc.binds)
-                    for i, b in enumerate(pc.binds):
+                    for i, bind in enumerate(pc.binds):
                         # Cast to (void) to silence -Wunused on bindings
                         # the case body happens to ignore.
                         stmts.append(
-                            f"    deduce_value {_local_id(b)} = "
+                            f"    deduce_value {_local_id(bind)} = "
                             f"deduce_ctor_field({subj_var}, {i});"
                         )
-                        stmts.append(f"    (void){_local_id(b)};")
+                        stmts.append(f"    (void){_local_id(bind)};")
                     bs, be = _emit_term(arm.body, ctx, inner_scope)
                     for s in bs:
                         stmts.append("    " + s)
