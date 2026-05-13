@@ -3182,6 +3182,11 @@ class Predicate(Declaration):
   # / `rule inversion` proofs. `None` on a pre-uniquify Predicate.
   rule_induction_name: Optional[str] = None
   rule_inversion_name: Optional[str] = None
+  # The Predicate's impredicative-encoding translation (Define + one
+  # Postulate per rule), populated by `process_declaration`'s Predicate
+  # arm after it threads the synthesised decls through the pipeline.
+  # `None` on a Predicate that hasn't been processed yet.
+  translated_ast: Optional[List["Statement"]] = None
 
   def reduce(self, env):
     return self
@@ -3703,7 +3708,11 @@ def _stmt_primary_name(stmt):
 @dataclass
 class Import(Declaration):
   name: str
-  ast: Optional[AST] = None
+  # `ast` is the parsed module body (a list of top-level Statements),
+  # not a single AST node. The dataclass field is annotated as such so
+  # downstream consumers (lower.py, the proof-checker's Import-arm
+  # process_declaration loop) get the right narrowing.
+  ast: Optional[List["Statement"]] = None
   using:  Optional[List[str]] = None    # whitelist; None means no whitelist
   hiding: Optional[List[str]] = None    # blacklist; None means no blacklist
 

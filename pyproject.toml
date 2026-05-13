@@ -35,19 +35,13 @@ exclude = [
 select = ["F401", "F541", "F601", "F811", "F821"]
 
 [tool.mypy]
-# Relaxed starter config. The proof-checker core (~11k LOC) is largely
-# untyped today; turning on --strict at the project level would produce
-# thousands of errors. The strategy (#479) is to keep CI green by opting
-# noisy modules out via per-module ignore_errors, then tighten one module
-# at a time in follow-up PRs by deleting its override block below.
-#
-# Only proof_checker (~38 errors; pairs with #471 decomposition) remains
-# on the override list. The other 18 modules that originally errored
-# (flags, deduce, rec_desc_parser, lsp.library, lsp.mcp_server,
-# lsp.benchmark, lsp.dap_server, lsp.query, compiler.closure,
-# compiler.lower, claude_fill_hole.__main__, claude_fill_hole.openai_backend,
-# claude_fill_hole.anthropic_backend, compiler.emit_c, lsp.debugger,
-# compiler.ir, abstract_syntax) are now actively type-checked.
+# Relaxed starter config (#479). The proof-checker core (~11k LOC) is
+# largely untyped; turning on --strict at the project level would
+# produce thousands of errors. Instead, every in-tree module is now
+# type-checked under this relaxed config — no per-module overrides
+# remain. Further tightening (per-module strict flags, decode-time
+# annotations, --check-untyped-defs, etc.) belongs in follow-up
+# issues so each step can be reviewed independently.
 #
 # The `exclude` list below skips paths that would otherwise produce
 # module-name collisions or live outside the source tree:
@@ -74,14 +68,4 @@ exclude = [
     '^autograder_docker/',
     '^gh_pages/',
 ]
-
-# Per-module overrides — one per noisy module, sorted by error count
-# (descending). Delete an entry and ensure `mypy .` is still clean to
-# tighten that module.
-
-[[tool.mypy.overrides]]
-module = "proof_checker"
-ignore_errors = true
-
-
 
