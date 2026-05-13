@@ -22,7 +22,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -158,7 +158,7 @@ class LspValidator(Validator):
     the LSP daemon's ``deduce/validateProof`` becomes the cheap path.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         raise NotImplementedError(
             "LspValidator is a follow-up; use SubprocessValidator for now"
         )
@@ -209,7 +209,7 @@ class QueryOutcome:
 
     ok: bool
     goal: Optional[str] = None
-    givens: tuple = ()
+    givens: tuple[_Given, ...] = ()
     error: Optional[str] = None
 
 
@@ -233,7 +233,7 @@ class HoleQuerier:
         content: str,
         hole_start_offset: int,
         hole_end_offset: int,
-        prelude: tuple = (),
+        prelude: tuple[str, ...] = (),
         max_proof_text_bytes: int = 32 * 1024,
     ) -> None:
         self.file_path = file_path
@@ -319,7 +319,7 @@ class HoleQuerier:
         return QueryOutcome(ok=True, goal=ctx.goal, givens=givens)
 
 
-def _offset_to_line_col_1indexed(text: str, offset: int) -> tuple:
+def _offset_to_line_col_1indexed(text: str, offset: int) -> tuple[int, int]:
     """Convert a 0-indexed byte offset to a 1-indexed (line, column).
 
     Mirrors lsp.query._offset_to_line_col but lives here so HoleQuerier

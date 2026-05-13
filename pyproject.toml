@@ -77,3 +77,60 @@ exclude = [
     '^gh_pages/',
 ]
 
+# Per-module strict: modules that pass --strict get listed here so the
+# heavyweight bits (check_untyped_defs, disallow_untyped_defs,
+# disallow_untyped_calls, disallow_any_generics, warn_return_any,
+# disallow_incomplete_defs) are enforced going forward and any
+# regression is caught in CI. Add a module here once `mypy --strict
+# <module> --follow-imports=silent` is clean.
+#
+# The order of expected wins from the remaining error counts (mypy
+# 2.1.0, --python-version 3.12, against this config — measured
+# 2026-05-13):
+#
+#   lsp/benchmark.py                            (4 errors; transitive
+#                                                untyped calls into
+#                                                flags.py / lsp.library
+#                                                — touching those
+#                                                ripples wider)
+#   compiler/lower.py                           (8; missing annotations
+#                                                on helpers and lower_*
+#                                                methods)
+#   tools/claude_fill_hole/__main__.py          (13)
+#   tools/claude_fill_hole/anthropic_backend.py (13)
+#   tools/claude_fill_hole/openai_backend.py    (30)
+#   lsp/mcp_server.py                           (30)
+#   style.py                                    (31)
+#   lsp/debugger.py                             (38)
+#   lsp/dap_server.py                           (49)
+#   error.py                                    (65)
+#   lsp/lsp_server.py                           (74)
+#   lsp/query.py                                (132)
+#   parser.py                                   (310)
+#   abstract_syntax.py                          (1192)
+#   proof_checker.py                            (1337)
+#   rec_desc_parser.py                          (1348)
+#
+# NOTE: mypy does not honor `strict = true` inside per-module overrides
+# (the meta-flag is global-only). The bits it would turn on are set
+# individually below — the full --strict expansion minus the ones
+# already enabled globally above.
+[[tool.mypy.overrides]]
+module = [
+    "compiler.closure",
+    "compiler.compile_prelude",
+    "compiler.emit_c",
+    "compiler.ir",
+    "compiler.prune",
+    "edit_distance",
+    "claude_fill_hole.agent",
+    "claude_fill_hole.prompt",
+    "claude_fill_hole.schema",
+    "claude_fill_hole.validator",
+]
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_return_any = true
