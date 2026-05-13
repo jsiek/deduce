@@ -3,24 +3,24 @@ from lark import Lark, Token, exceptions
 from flags import *
 from error import *
 
-filename = '???'
+filename: str = '???'
 
-def set_filename(fname):
+def set_filename(fname: str) -> None:
     global filename
     filename = fname
 
-def get_filename():
+def get_filename() -> str:
     global filename
     return filename
 
 
-deduce_directory = '???'
+deduce_directory: str = '???'
 
-def set_deduce_directory(dir):
+def set_deduce_directory(dir: str) -> None:
     global deduce_directory
     deduce_directory = dir
 
-def get_deduce_directory():
+def get_deduce_directory() -> str:
     global deduce_directory
     return deduce_directory
 
@@ -30,7 +30,7 @@ def get_deduce_directory():
 
 lark_parser = None
 
-def init_parser():
+def init_parser() -> None:
   global lark_parser
   lark_file = get_deduce_directory() + "/Deduce.lark"
   lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
@@ -843,7 +843,9 @@ def parse_tree_to_ast(e, parent):
 def token_str(token, program_text):
     return program_text[token.start_pos:token.end_pos]
 
-def parse(program_text, trace = False, error_expected = False):
+def parse(program_text: str,
+          trace: "bool | VerboseLevel" = False,
+          error_expected: bool = False) -> "list[Statement]":
   try:    
     # if trace:
     #     print('lexing!')
@@ -855,6 +857,7 @@ def parse(program_text, trace = False, error_expected = False):
     #     print('')
     if trace:
         print('parsing!')
+    assert lark_parser is not None, "init_parser() must be called before parse()"
     parse_tree = lark_parser.parse(program_text)
     if trace:
         print('parse tree: ')

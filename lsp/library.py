@@ -121,9 +121,14 @@ class CheckResult:
     exception: Optional[BaseException]
     module_name: str
     ast: Optional[Any]
-    errors: Optional[list] = None  # populated by __post_init__ when not provided
+    # In collect-errors mode every entry is a ``Diagnostic``; in
+    # single-error fallback mode (see ``__post_init__``) the list
+    # carries whatever was raised — including non-``Diagnostic``
+    # exceptions like ``InternalError``. Typed as ``BaseException`` so
+    # both shapes flow through unchanged.
+    errors: Optional[list[BaseException]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.errors is None:
             # Default: a single-error result (or no error). Mirrors the
             # historical ``exception`` field so unchanged callers see
@@ -137,7 +142,7 @@ def check_file(
     prelude: Sequence[str] = (),
     content: Optional[str] = None,
     collect_errors: bool = False,
-    debugger=None,
+    debugger: Optional[Any] = None,
     prewarm_modules: Sequence[str] = (),
 ) -> CheckResult:
     """Run the Deduce pipeline on ``filename`` and return a CheckResult.
@@ -215,7 +220,7 @@ def _check_file_locked(
     prelude: Sequence[str],
     content: Optional[str],
     collect_errors: bool,
-    debugger,
+    debugger: Optional[Any],
     prewarm_modules: Sequence[str] = (),
 ) -> CheckResult:
     """Body of ``check_file``, run under the global pipeline lock."""
@@ -329,7 +334,11 @@ def _check_file_impl(
                     and (s.using is not None or s.hiding is not None)
                 }
                 imports = [
-                    Import(Meta(), name, visibility="private")
+                    # `Meta` is from lark.tree and has minimal type
+                    # stubs (mypy reports its constructor as untyped).
+                    # Tag the call with `type: ignore[no-untyped-call]`;
+                    # the runtime behavior is unchanged.
+                    Import(Meta(), name, visibility="private")  # type: ignore[no-untyped-call]
                     for name in prelude
                     if name not in user_filtered_modules
                 ]

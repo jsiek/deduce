@@ -23,10 +23,10 @@
 #    reduce some formulas and terms automatically.
 
 from dataclasses import dataclass
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, cast
 
 from abstract_syntax import *
-from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
+from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, ErrorSink, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
 import style
 
@@ -5266,7 +5266,9 @@ def check_proofs(stmt, env: Env):
   if _dbg is not None:
     _dbg.after_statement(stmt, env)
 
-def check_deduce(ast, module_name, modified, tracing_functions, error_sink=None):
+def check_deduce(ast: List[Statement], module_name: str, modified: bool,
+                 tracing_functions: List[str],
+                 error_sink: Optional[ErrorSink] = None) -> List[Statement]:
   """Run the four-phase pipeline (process_declarations, type_check_stmt,
   collect_env, check_proofs) over ``ast``.
 

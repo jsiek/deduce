@@ -8,24 +8,24 @@ from lark import Lark, Token
 from error import *
 from edit_distance import closest_keyword, edit_distance
 
-filename = '???'
+filename: str = '???'
 
-def set_filename(fname):
+def set_filename(fname: str) -> None:
     global filename
     filename = fname
 
-def get_filename():
+def get_filename() -> str:
     global filename
     return filename
 
 
-deduce_directory = '???'
+deduce_directory: str = '???'
 
-def set_deduce_directory(dir):
+def set_deduce_directory(dir: str) -> None:
     global deduce_directory
     deduce_directory = dir
 
-def get_deduce_directory():
+def get_deduce_directory() -> str:
     global deduce_directory
     return deduce_directory
 
@@ -46,7 +46,7 @@ accessiblity_keywords = {'OPAQUE', 'PRIVATE', 'PUBLIC'}
 
 lark_parser: Optional[Lark] = None
 
-def init_parser():
+def init_parser() -> None:
   global lark_parser
   lark_file = get_deduce_directory() + "/Deduce.lark"
   lark_parser = Lark(open(lark_file, encoding="utf-8").read(),
@@ -94,9 +94,12 @@ def consume_token(expected, display, context = "", advice=""):
   
 check_closest_kwd = False
 
-def parse(program_text, trace = False, error_expected = False):
+def parse(program_text: str,
+          trace: "bool | VerboseLevel" = False,
+          error_expected: bool = False) -> "list[Statement]":
   global token_list, current_position, check_closest_kwd
   try:
+    assert lark_parser is not None, "init_parser() must be called before parse()"
     lexed = lark_parser.lex(program_text)
     token_list = []
     current_position = 0
