@@ -3647,13 +3647,13 @@ class Define(Declaration):
       return
     extend(export_env, base_name(self.name), self.name, self.location)
 
-uniquified_modules: dict = {}
+uniquified_modules: "dict[str, List[Statement]]" = {}
 
-def get_uniquified_modules():
+def get_uniquified_modules() -> "dict[str, List[Statement]]":
   global uniquified_modules
   return uniquified_modules
 
-def add_uniquified_module(module_name, ast):
+def add_uniquified_module(module_name: str, ast: "List[Statement]") -> None:
   global uniquified_modules
   uniquified_modules[module_name] = ast
 

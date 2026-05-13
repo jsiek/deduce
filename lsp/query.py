@@ -4483,7 +4483,7 @@ def auto_rules_at(
     for module_name, module_ast in cached_modules.items():
         if module_name == user_module:
             continue
-        for stmt in module_ast or ():
+        for stmt in module_ast:
             if isinstance(stmt, (Theorem, Postulate)):
                 formula_by_name[stmt.name] = str(stmt.what)
     if result.ast is not None:
@@ -4496,9 +4496,7 @@ def auto_rules_at(
     for module_name in sorted(cached_modules.keys()):
         if module_name == user_module:
             continue
-        module_ast = cached_modules.get(module_name)
-        if module_ast is None:
-            continue
+        module_ast = cached_modules[module_name]
         for stmt in module_ast:
             if isinstance(stmt, Auto):
                 rules.append(_auto_rule_from_stmt(stmt, module_name, formula_by_name))
