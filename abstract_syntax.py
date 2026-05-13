@@ -113,6 +113,191 @@ class AST:
     return self._map_children(lambda x: x.reduce(env))
 
 
+def alpha_equiv(t1, t2) -> bool:
+  """Test alpha-equivalence between two ASTs.
+
+  Uses a parallel walk with a two-sided binding environment: each
+  side tracks ``name -> fresh tag`` for the names it has bound. At
+  a variable reference, look up the name in the side's environment:
+  if bound on both sides, the tags must match; if bound on one side
+  only, the terms are not alpha-equivalent; if free on both, the
+  names must match (modulo the pre/post-uniquify isolation that
+  ``Var.__eq__`` already encodes).
+
+  Used by ``Lambda.__eq__`` / ``All.__eq__`` / ``Some.__eq__`` /
+  ``TLet.__eq__``. Replaces the older approach of substituting one
+  body to rename binders before comparing -- that approach was
+  per-comparison O(|body|) allocation and got the asymmetric case
+  (``Lambda(y, Var(x))`` vs ``Lambda(x, Var(x))``, the constant-x
+  function vs the identity function) wrong in one direction.
+  """
+  return _alpha_equiv(t1, t2, {}, {})
+
+
+def _alpha_equiv(t1, t2, env1, env2) -> bool:
+  # TermInst / TAnnote are transparent for equality -- existing
+  # __eq__ methods unwrap them. Unwrap on both sides so the rest of
+  # this function only deals with the wrapped term.
+  while isinstance(t1, (TermInst, TAnnote)):
+    t1 = t1.subject
+  while isinstance(t2, (TermInst, TAnnote)):
+    t2 = t2.subject
+  # Fast path: top-level (no renaming in scope). Defer to existing
+  # __eq__ which encodes the leaf-level cross-class semantics.
+  if not env1 and not env2:
+    return t1 == t2
+  if not isinstance(t1, AST):
+    return t1 == t2
+  if isinstance(t1, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
+    return _alpha_equiv_varref(t1, t2, env1, env2)
+  if isinstance(t1, Lambda):
+    return _alpha_equiv_lambda(t1, t2, env1, env2)
+  if isinstance(t1, All):
+    return _alpha_equiv_all(t1, t2, env1, env2)
+  if isinstance(t1, Some):
+    return _alpha_equiv_some(t1, t2, env1, env2)
+  if isinstance(t1, TLet):
+    return _alpha_equiv_tlet(t1, t2, env1, env2)
+  # Default: structural walk. TermInst/TAnnote already unwrapped, so
+  # a class mismatch here is real.
+  if type(t1) is not type(t2):
+    return False
+  for fld in dc_fields(t1):
+    if fld.name in t1._NON_STRUCTURAL_FIELDS:
+      continue
+    if not _alpha_equiv_value(getattr(t1, fld.name),
+                              getattr(t2, fld.name), env1, env2):
+      return False
+  return True
+
+
+def _alpha_equiv_value(v1, v2, env1, env2) -> bool:
+  if isinstance(v1, AST):
+    return _alpha_equiv(v1, v2, env1, env2)
+  if isinstance(v1, list):
+    if not isinstance(v2, list) or len(v1) != len(v2):
+      return False
+    return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
+  if isinstance(v1, tuple):
+    if not isinstance(v2, tuple) or len(v1) != len(v2):
+      return False
+    return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
+  return v1 == v2
+
+
+def _varref_name(t):
+  # Var / OverloadedVar / ResolvedVar / RecFun / GenRecFun all expose
+  # a canonical name -- the first three via get_name(), the others
+  # via .name. Unified here so dispatch can stay flat.
+  if isinstance(t, (Var, ResolvedVar)):
+    return t.name
+  if isinstance(t, OverloadedVar):
+    return t.resolved_names[0]
+  return t.name  # RecFun / GenRecFun
+
+
+def _alpha_equiv_varref(t1, t2, env1, env2) -> bool:
+  # Names of comparable kinds. If t2 is not a comparable kind, fail.
+  if not isinstance(t2, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
+    return False
+  n1 = _varref_name(t1)
+  n2 = _varref_name(t2)
+  in1 = n1 in env1
+  in2 = n2 in env2
+  if in1 != in2:
+    # One bound, the other free -- not equal.
+    return False
+  if in1:
+    # Both bound -- tags must match (i.e. same binder pair).
+    if env1[n1] is not env2[n2]:
+      return False
+  else:
+    # Both free -- names must match.
+    if n1 != n2:
+      return False
+  # Phase isolation, mirroring the existing __eq__ rules:
+  #   * Var (pre-uniquify) only matches Var / RecFun / GenRecFun
+  #   * OverloadedVar / ResolvedVar (post-uniquify) match each other
+  #     and RecFun / GenRecFun, never Var
+  #   * RecFun / GenRecFun match any variant by name (no phase)
+  if isinstance(t1, (RecFun, GenRecFun)):
+    return True
+  if isinstance(t1, Var):
+    return isinstance(t2, (Var, RecFun, GenRecFun))
+  return isinstance(t2, (OverloadedVar, ResolvedVar, RecFun, GenRecFun))
+
+
+def _alpha_equiv_binder_types(vars1, vars2, env1, env2) -> bool:
+  # Shared by Lambda / Some: matched (name, type) pairs where `None`
+  # types match any concrete type. Types are compared under the
+  # *outer* envs -- the inner binder names are added only for the
+  # body. This matters when a type annotation references an outer
+  # bound name (e.g. `Set<T>` in `all T:type. all A:Set<T>. ...`).
+  if len(vars1) != len(vars2):
+    return False
+  for ((_, t1), (_, t2)) in zip(vars1, vars2):
+    if t1 is not None and t2 is not None and not _alpha_equiv(t1, t2, env1, env2):
+      return False
+  return True
+
+
+def _bind(env, name, tag):
+  new = dict(env)
+  new[name] = tag
+  return new
+
+
+def _bind_all(env, pairs):
+  new = dict(env)
+  for (name, tag) in pairs:
+    new[name] = tag
+  return new
+
+
+def _alpha_equiv_lambda(t1, t2, env1, env2) -> bool:
+  if not isinstance(t2, Lambda):
+    return False
+  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
+    return False
+  tags = [object() for _ in t1.vars]
+  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
+  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
+  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
+
+
+def _alpha_equiv_all(t1, t2, env1, env2) -> bool:
+  if not isinstance(t2, All):
+    return False
+  (x, tx) = t1.var
+  (y, ty) = t2.var
+  if tx is not None and ty is not None and not _alpha_equiv(tx, ty, env1, env2):
+    return False
+  tag = object()
+  return _alpha_equiv(t1.body, t2.body, _bind(env1, x, tag), _bind(env2, y, tag))
+
+
+def _alpha_equiv_some(t1, t2, env1, env2) -> bool:
+  if not isinstance(t2, Some):
+    return False
+  if not _alpha_equiv_binder_types(t1.vars, t2.vars, env1, env2):
+    return False
+  tags = [object() for _ in t1.vars]
+  new_env1 = _bind_all(env1, [(x, tag) for ((x, _), tag) in zip(t1.vars, tags)])
+  new_env2 = _bind_all(env2, [(y, tag) for ((y, _), tag) in zip(t2.vars, tags)])
+  return _alpha_equiv(t1.body, t2.body, new_env1, new_env2)
+
+
+def _alpha_equiv_tlet(t1, t2, env1, env2) -> bool:
+  if not isinstance(t2, TLet):
+    return False
+  if not _alpha_equiv(t1.rhs, t2.rhs, env1, env2):
+    return False
+  tag = object()
+  return _alpha_equiv(t1.body, t2.body,
+                      _bind(env1, t1.var, tag),
+                      _bind(env2, t2.var, tag))
+
+
 @dataclass
 class Type(AST):
 
@@ -1012,21 +1197,7 @@ class Lambda(Term):
         + indent*' ' + '}'
 
   def __eq__(self, other):
-      if not isinstance(other, Lambda):
-          return False
-      if len(self.vars) != len(other.vars):
-          return False
-      # `None` (pre-typecheck or syntactically omitted) matches any type;
-      # only two concrete types differing makes the binders unequal.
-      for ((x,t1),(y,t2)) in zip(self.vars, other.vars):
-          if t1 is not None and t2 is not None and t1 != t2:
-              return False
-      # ResolvedVar so the substituted bodies compare equal to the
-      # uniquified-name references already in `other.body`.
-      ren = {x: ResolvedVar(self.location, t2, y) \
-             for ((x,t1),(y,t2)) in zip(self.vars, other.vars) }
-      new_body = self.body.substitute(ren)
-      return new_body == other.body
+      return _alpha_equiv_lambda(self, other, {}, {})
 
   def reduce(self, env):
     if get_eval_all():
@@ -1827,6 +1998,9 @@ class TLet(Term):
     new_body = self.body.uniquify(body_env, ctx)
     return TLet(self.location, self.typeof, new_var, new_rhs, new_body)
 
+  def __eq__(self, other):
+    return _alpha_equiv_tlet(self, other, {}, {})
+
 @dataclass
 class Hole(Term):
 
@@ -2082,17 +2256,7 @@ class All(Formula):
                    new_body)
 
   def __eq__(self, other):
-    if not isinstance(other, All):
-      return False
-    x, tx = self.var
-    y, ty = other.var
-    # `None` (pre-typecheck or syntactically omitted) matches any type;
-    # only two concrete types being different makes the binders unequal.
-    if tx is not None and ty is not None and tx != ty:
-      return False
-    sub = { y: ResolvedVar(self.location, None, x) }
-    result = self.body == other.body.substitute(sub)
-    return result
+    return _alpha_equiv_all(self, other, {}, {})
 
   def uniquify(self, env, ctx):
     body_env = {x:y for (x,y) in env.items()}
@@ -2140,14 +2304,7 @@ class Some(Formula):
     return Some(self.location, self.typeof, new_vars, new_body)
 
   def __eq__(self, other):
-    if not isinstance(other, Some):
-      return False
-    if all([tx == ty for ((x,tx),(y,ty))in zip(self.vars, other.vars)]):
-      sub = {y: ResolvedVar(self.location, None, x) \
-             for ((x,tx),(y,ty)) in zip(self.vars, other.vars)}
-      return self.body == other.body.substitute(sub)
-    else:
-      return False
+    return _alpha_equiv_some(self, other, {}, {})
   
 ################ Proofs ######################################
   
