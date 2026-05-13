@@ -48,7 +48,9 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 
 | Form | Meaning |
 | --- | --- |
-| `lemma[t1, t2]` | Instantiate the leading `∀` variables. Produces a proof term. |
+| `lemma<T1, T2>` | Instantiate the leading type `∀` variables (when the leading `∀` binds types). |
+| `lemma[t1, t2]` | Instantiate the leading term `∀` variables. Produces a proof term. |
+| `lemma<T>[t1, t2]` | Combined: instantiate type variables, then term variables. |
 | `apply lemma to p` | Modus ponens: given `lemma : if P then Q` and `p : P`, returns a proof of `Q`. |
 | `apply lemma to p1, p2` | Same, when the antecedent is `P1 and P2` — the comma builds the conjunction. |
 | `apply lemma[t] to p` | Combined instantiation and modus ponens. |
