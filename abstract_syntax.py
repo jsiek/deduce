@@ -145,9 +145,9 @@ def _alpha_equiv(t1, t2, env1, env2) -> bool:
   # Fast path: top-level (no renaming in scope). Defer to existing
   # __eq__ which encodes the leaf-level cross-class semantics.
   if not env1 and not env2:
-    return t1 == t2
+    return bool(t1 == t2)
   if not isinstance(t1, AST):
-    return t1 == t2
+    return bool(t1 == t2)
   if isinstance(t1, (Var, OverloadedVar, ResolvedVar, RecFun, GenRecFun)):
     return _alpha_equiv_varref(t1, t2, env1, env2)
   if isinstance(t1, Lambda):
@@ -184,7 +184,7 @@ def _alpha_equiv_value(v1, v2, env1, env2) -> bool:
     if not isinstance(v2, tuple) or len(v1) != len(v2):
       return False
     return all(_alpha_equiv_value(a, b, env1, env2) for a, b in zip(v1, v2))
-  return v1 == v2
+  return bool(v1 == v2)
 
 
 def _varref_name(t):
@@ -380,7 +380,7 @@ def copy_dict(d):
 def maybe_str(o: Optional[str], default='') -> str:
   return str(o) if o is not None else default
 
-def maybe_pretty_print(o: Optional[Any], indent, default='') -> str:
+def maybe_pretty_print(o: Optional["Proof"], indent: int, default: str = '') -> str:
   return o.pretty_print(indent) if o is not None else default
 
 class UniquifyContext:
