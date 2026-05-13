@@ -1,0 +1,69 @@
+// Issue #469: index-shift reduction for ArrayGet on a MakeArray subject
+// with a node-headed list and a positive symbolic index.  Without the
+// new rule in `ArrayGet.reduce`, an inductive proof over a universally
+// quantified index gets stuck on `array(node(x, xs))[i]` because there
+// is no reduction (or library lemma) that steps it to
+// `array(xs)[i - 1]`.
+import UInt
+import List
+import Option
+
+// Direct smoke test: the new rule fires when the index has the
+// `1 + i'` shape (the form `induction UInt` produces in its successor
+// case), peeling one node off the list and decrementing the index.
+theorem array_index_shift_one_plus:
+  all x:UInt. all xs:List<UInt>. all i':UInt.
+  (array(node(x, xs)))[1 + i'] = (array(xs))[i']
+proof
+  arbitrary x:UInt
+  arbitrary xs:List<UInt>
+  arbitrary i':UInt
+  .
+end
+
+// The acceptance test from #469: arrays and `get` agree at every
+// in-bounds index.
+theorem array_get_consistent : all l:List<UInt>. all i:UInt.
+  if i < length(l)
+  then just((array(l))[i]) = get(l, i)
+proof
+  have lem: all i:UInt. all l:List<UInt>.
+    if i < length(l) then just((array(l))[i]) = get(l, i)
+    by {
+    induction UInt
+    case 0 {
+      arbitrary l:List<UInt>
+      switch l {
+        case empty {
+          assume h: 0 < length(@empty<UInt>)
+          conclude false by expand length in h
+        }
+        case node(x, xs) {
+          assume _h: 0 < length(node(x, xs))
+          expand get.
+        }
+      }
+    }
+    case with i'. 1 + i' assume IH {
+      arbitrary l:List<UInt>
+      switch l {
+        case empty {
+          assume h: (1 + i') < length(@empty<UInt>)
+          have h2: (1 + i') < 0 by expand length in h
+          conclude false by apply uint_not_less_zero[1 + i'] to h2
+        }
+        case node(x, xs) {
+          assume h: (1 + i') < length(node(x, xs))
+          have less_xs: i' < length(xs) by {
+            have h2: (1 + i') < (1 + length(xs)) by expand length in h
+            apply uint_add_both_sides_of_less[1, i', length(xs)] to h2
+          }
+          expand get
+          apply IH[xs] to less_xs
+        }
+      }
+    }
+  }
+  arbitrary l:List<UInt>, i:UInt
+  lem[i][l]
+end

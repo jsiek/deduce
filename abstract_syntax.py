@@ -1949,7 +1949,7 @@ class ArrayGet(Term):
         if index is not None and 0 <= index and index < len(elements):
           return elements[index].reduce(env)
         # Don't signal an error for out-of-bounds! -Jeremy
-      case MakeArray(loc2, _, list_term):
+      case MakeArray(loc2, marr_ty, list_term):
         # Peel as many leading `node` constructors off the list as the
         # index calls for. This lets `array(node(x, xs))[0]` reduce to
         # `x` even when the tail `xs` is not concrete, which is what
@@ -1967,6 +1967,21 @@ class ArrayGet(Term):
                 i -= 1
               case _:
                 break
+        else:
+          # Index-shift rule (#469): when the position is symbolic but
+          # has a "successor"-shaped constructor (UInt `dub_inc` /
+          # `inc_dub`, or Nat `suc`), peel one leading node off the list
+          # and rebuild the access with the decremented index. This
+          # unblocks inductive proofs over a universally-quantified index.
+          match list_term:
+            case Call(_, _, TermInst(_, _, ctor, _, _), [_hd, tl]) \
+                 if _is_named(ctor, 'node'):
+              new_pos = _array_index_predecessor(position_red, env)
+              if new_pos is not None:
+                new_subject = MakeArray(loc2, marr_ty, tl)
+                new_get = ArrayGet(self.location, self.typeof,
+                                   new_subject, new_pos)
+                return new_get.reduce(env)
     return ArrayGet(self.location, self.typeof, subject_red, position_red)
 
 @dataclass
@@ -4003,6 +4018,93 @@ def uint_inc(loc, x):
         return mkDubInc(loc, get_arg(x))
     else:
         internal_error(loc, 'not a UInt constructor: ' + str(x))
+
+def isSuc(t):
+  match t:
+    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+         if base_name(n) == 'suc':
+      return True
+    case _:
+      return False
+
+def _array_index_predecessor(pos, env):
+    """Compute the predecessor of `pos` as an AST, for the index-shift
+    rule in `ArrayGet.reduce` (#469).  Returns None when no decrement
+    can be produced -- in which case the caller leaves the array access
+    unreduced.
+
+    Handles these positive-shape positions:
+      * `1 + j` / `j + 1` (UInt) -> j  (the form produced by
+        `induction UInt` / `case with i'. 1 + i'`)
+      * `dub_inc(j)`      (UInt) -> `inc_dub(j)`
+      * `inc_dub(j)`      (UInt) -> 2*j, computed via `_uint_double`
+      * `suc(j)`          (Nat)  -> j
+    """
+    one_plus_arg = _try_match_one_plus(pos)
+    if one_plus_arg is not None:
+      return one_plus_arg
+    loc = pos.location
+    if isSuc(pos):
+      return get_arg(pos)
+    if isDubInc(pos):
+      inc_dub_name = env.base_to_unique('inc_dub')
+      if inc_dub_name is None:
+        return None
+      return mkIncDub(loc, get_arg(pos), cname=inc_dub_name)
+    if isIncDub(pos):
+      return _uint_double(loc, get_arg(pos), env)
+    return None
+
+def _try_match_one_plus(t):
+    """If `t` is `1 + x` or `x + 1` (a Call to `+` with a numeric `1`
+    on either side), return the non-`1` argument.  Otherwise return None.
+    """
+    if not isinstance(t, Call) or len(t.args) != 2:
+      return None
+    name = rator_name(t.rator)
+    if name == 'no_name' or base_name(name) != '+':
+      return None
+    a, b = t.args
+    if (isUInt(a) and uintToInt(a) == 1) \
+       or (isNat(a) and natToInt(a) == 1):
+      return b
+    if (isUInt(b) and uintToInt(b) == 1) \
+       or (isNat(b) and natToInt(b) == 1):
+      return a
+    return None
+
+def _uint_double(loc, x, env):
+    """Return `2 * x` as a UInt AST.  Tries to reduce structurally
+    (handling the three UInt constructor shapes); for a symbolic `x`
+    falls back to a `Call` to the private library helper `dub` if it
+    is reachable in `env`.  Returns None if neither path works.
+    """
+    if isBZero(x):
+      bzero_name = env.base_to_unique('bzero')
+      if bzero_name is None:
+        return None
+      return mkBZero(loc, zname=bzero_name)
+    if isDubInc(x):
+      # 2 * dub_inc(k) = dub_inc(inc_dub(k))
+      dub_inc_name = env.base_to_unique('dub_inc')
+      inc_dub_name = env.base_to_unique('inc_dub')
+      if dub_inc_name is None or inc_dub_name is None:
+        return None
+      return mkDubInc(loc, mkIncDub(loc, get_arg(x), cname=inc_dub_name),
+                      cname=dub_inc_name)
+    if isIncDub(x):
+      # 2 * inc_dub(k) = dub_inc(2 * k)
+      inner = _uint_double(loc, get_arg(x), env)
+      if inner is None:
+        return None
+      dub_inc_name = env.base_to_unique('dub_inc')
+      if dub_inc_name is None:
+        return None
+      return mkDubInc(loc, inner, cname=dub_inc_name)
+    dub_name = env.base_to_unique('dub')
+    if dub_name is None:
+      return None
+    return Call(loc, None, ResolvedVar(loc, None, dub_name), [x])
 
 # The parsers use this function to create unsigned integer literals.
 def intToUInt(loc, n, bzero='bzero', dubinc='dub_inc',
