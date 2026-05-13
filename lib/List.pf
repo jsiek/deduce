@@ -314,17 +314,17 @@ proof
   }
 end
 
-theorem map_append: all T:type, f: fn T->T, ys:List<T>, xs:List<T>.
+theorem map_append: all T:type, U:type, f: fn T->U, ys:List<T>, xs:List<T>.
   map(xs ++ ys, f) = map(xs,f) ++ map(ys, f)
 proof
-  arbitrary T:type
-  arbitrary f:fn T->T, ys:List<T>
+  arbitrary T:type, U:type
+  arbitrary f:fn T->U, ys:List<T>
   induction List<T>
   case empty {
     equations
       map(@empty<T> ++ ys, f)
           = map(ys, f)                          by expand operator++.
-      ... =# @empty<T> ++ map(ys, f) #          by expand operator++.
+      ... =# @empty<U> ++ map(ys, f) #          by expand operator++.
       ... =# map(@empty<T>, f) ++ map(ys, f) #  by expand map.
   }
   case node(x, xs')
