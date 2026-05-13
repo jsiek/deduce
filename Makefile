@@ -65,6 +65,13 @@ quick-lsp:
 tests-lsp:
 	$(PYTHON) -m pytest test/lsp/
 
+# Python-level unit tests for AST helpers (issue #475). Fast: runs in
+# under a second. Hand-built AST specimens exercise ``__eq__`` /
+# ``copy`` / field-completeness so a regression points at the
+# offending method directly rather than at a downstream ``.pf`` diff.
+tests-unit:
+	$(PYTHON) -m pytest test/unit/
+
 quick-tests: 
 	$(PYTHON) ./deduce.py --recursive-descent lib/Nat.pf --dir $(LIB_DIR) --dir $(TEST_IMPORT_DIR)
 	$(PYTHON) ./deduce.py --recursive-descent ./test/should-error/induction2.pf --error --dir $(LIB_DIR)
