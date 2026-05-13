@@ -64,8 +64,8 @@ Goal:
 	1 = x
 Advice:
 	To prove this equality, one of these statements might help:
-		definition
-		rewrite
+		expand
+		replace
 		equations
 ```
 
