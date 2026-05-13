@@ -44,7 +44,6 @@ from abstract_syntax import (  # noqa: E402
     Lambda,
     OverloadedVar,
     ResolvedVar,
-    Term,
     Var,
     alpha_equiv,
     reset_reduced_defs,
