@@ -1,0 +1,16 @@
+import UInt
+import List
+
+theorem map_append_cross_type:
+  all f: fn UInt -> bool, xs:List<UInt>, ys:List<UInt>.
+  map(xs ++ ys, f) = map(xs, f) ++ map(ys, f)
+proof
+  arbitrary f: fn UInt -> bool, xs:List<UInt>, ys:List<UInt>
+  map_append<UInt, bool>[f, ys, xs]
+end
+
+private define is_zero : fn UInt -> bool = fun n:UInt { n = 0 }
+private define A : List<UInt> = node(0, node(1, empty))
+private define B : List<UInt> = node(2, node(0, empty))
+
+assert map(A ++ B, is_zero) = map(A, is_zero) ++ map(B, is_zero)
