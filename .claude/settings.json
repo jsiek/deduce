@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 deduce.py *)",
+      "Bash(python3 deduce.py)",
+      "Bash(python3.13 deduce.py *)",
+      "Bash(python3.13 deduce.py)",
+      "Bash(python3 test-deduce.py *)",
+      "Bash(python3 test-deduce.py)",
+      "Bash(python3.13 test-deduce.py *)",
+      "Bash(python3.13 test-deduce.py)",
+      "Bash(make tests)",
+      "Bash(make tests-lib)",
+      "Bash(make tests *)",
+      "Bash(make tests-lib *)",
+
+      "Bash(cp /Users/jsiek/deduce/** /Users/jsiek/deduce/**)",
+      "Bash(mv /Users/jsiek/deduce/** /Users/jsiek/deduce/**)",
+      "Bash(touch /Users/jsiek/deduce/**)",
+
+      "Bash(make tests-compile)",
+      "Bash(make tests-compile *)",
+      "Bash(python3 test/compile/run_lower.py)",
+      "Bash(python3 test/compile/run_lower.py *)",
+      "Bash(python3.13 test/compile/run_lower.py)",
+      "Bash(python3.13 test/compile/run_lower.py *)",
+      "Bash(python3 test/compile/run_e2e.py)",
+      "Bash(python3 test/compile/run_e2e.py *)",
+      "Bash(python3.13 test/compile/run_e2e.py)",
+      "Bash(python3.13 test/compile/run_e2e.py *)",
+      "Bash(python3 ./gh_pages/scripts/keywords.py)",
+      "Bash(python3 ./gh_pages/scripts/keywords.py *)",
+      "Bash(python3.13 ./gh_pages/scripts/keywords.py)",
+      "Bash(python3.13 ./gh_pages/scripts/keywords.py *)",
+      "Bash(python3 gh_pages/scripts/keywords.py)",
+      "Bash(python3 gh_pages/scripts/keywords.py *)",
+      "Bash(python3.13 gh_pages/scripts/keywords.py)",
+      "Bash(python3.13 gh_pages/scripts/keywords.py *)",
+      "Bash(/Applications/Emacs.app/Contents/MacOS/Emacs *)"
+    ]
+  }
+}
