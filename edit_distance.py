@@ -1,8 +1,10 @@
 from math import ceil
+from typing import Iterable, Optional
 
-def edit_distance(s1, s2):
+
+def edit_distance(s1: str, s2: str) -> int:
     m = len(s1); n = len(s2)
-    F = {}
+    F: dict[tuple[int, int], int] = {}
     F[(0, 0)] = 0
     for i in range(1, m+1):
         F[(i, 0)] = i
@@ -18,12 +20,12 @@ def edit_distance(s1, s2):
             F[(i, j)] = min(match, delete, insert)
     return F[(m, n)]
 
-def closest_keyword(word, keywords):
-    best_yet = None
+def closest_keyword(word: str, keywords: Iterable[str]) -> Optional[str]:
+    best_yet: Optional[tuple[str, int]] = None
     for kw in keywords:
         d = edit_distance(word, kw)
         if d <= ceil(len(word) / 6):
-            if best_yet == None or d < best_yet[1]:
+            if best_yet is None or d < best_yet[1]:
                 best_yet = (kw, d)
     if best_yet:
         return best_yet[0]

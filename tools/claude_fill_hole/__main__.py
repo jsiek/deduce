@@ -319,7 +319,7 @@ def _build_backend(args: argparse.Namespace, api_key: str) -> Backend:
     """
     if args.backend == "anthropic":
         try:
-            import anthropic  # type: ignore[import-not-found]
+            import anthropic
         except ImportError as e:
             raise _BackendBuildError(
                 "the `anthropic` package is required for --backend anthropic; "
@@ -332,7 +332,7 @@ def _build_backend(args: argparse.Namespace, api_key: str) -> Backend:
 
     if args.backend == "openai-compat":
         try:
-            import openai  # type: ignore[import-not-found]
+            import openai
         except ImportError as e:
             raise _BackendBuildError(
                 "the `openai` package is required for --backend openai-compat; "

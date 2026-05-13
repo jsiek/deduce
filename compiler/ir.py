@@ -464,7 +464,7 @@ def verify(p: Program) -> None:
                 check_term(t, "assert_bool")
 
 
-def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
+def free_vars(t: Term, bound: frozenset[str] = frozenset()) -> set[str]:
     match t:
         case Var(name):
             return set() if name in bound else {name}
@@ -473,7 +473,7 @@ def free_vars(t: Term, bound: frozenset = frozenset()) -> set:
         case Lam(params, body):
             return free_vars(body, bound | set(params))
         case MkClosure(_, caps):
-            out: set = set()
+            out: set[str] = set()
             for c in caps:
                 out |= free_vars(c, bound)
             return out

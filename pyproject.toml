@@ -35,13 +35,16 @@ exclude = [
 select = ["F401", "F541", "F601", "F811", "F821"]
 
 [tool.mypy]
-# Relaxed starter config (#479). The proof-checker core (~11k LOC) is
-# largely untyped; turning on --strict at the project level would
-# produce thousands of errors. Instead, every in-tree module is now
-# type-checked under this relaxed config — no per-module overrides
-# remain. Further tightening (per-module strict flags, decode-time
-# annotations, --check-untyped-defs, etc.) belongs in follow-up
-# issues so each step can be reviewed independently.
+# Starter config (#479) + first tightening pass toward --strict. The
+# proof-checker core (~11k LOC) is largely untyped, so the heavyweight
+# --strict flags (--check-untyped-defs, --disallow-untyped-defs,
+# --disallow-untyped-calls, --disallow-any-generics, --warn-return-any)
+# still produce hundreds to thousands of errors and remain off
+# globally; they are enabled per-module via [[tool.mypy.overrides]]
+# below as individual modules are cleaned up.
+#
+# The cheap --strict-equivalent flags are on globally: every flag in
+# the `[tool.mypy]` block below is one of the bits --strict turns on.
 #
 # The `exclude` list below skips paths that would otherwise produce
 # module-name collisions or live outside the source tree:
@@ -55,9 +58,22 @@ select = ["F401", "F541", "F601", "F811", "F821"]
 #     gh_pages/    match the ruff `exclude` list above.
 python_version = "3.12"
 ignore_missing_imports = true
-warn_unused_ignores = false
+warn_unused_ignores = true
 warn_redundant_casts = true
+warn_unreachable = true
 no_implicit_optional = true
+strict_equality = true
+disallow_subclassing_any = true
+# disallow_untyped_decorators is intentionally NOT enabled globally:
+# lsp/lsp_server.py and lsp/mcp_server.py use `@server.feature(...)`
+# / `@mcp.tool(...)` from `pygls` and `mcp`, neither of which is
+# installed in CI (they're optional and only needed when running the
+# LSP/MCP servers). Under `ignore_missing_imports = true` those
+# packages resolve to Any, which makes every decorator from them
+# "untyped" and trips the flag. The flag is set per-module in the
+# strict overrides below so the protection still applies to modules
+# whose decorators are real.
+no_implicit_reexport = true
 exclude = [
     '^test/',
     '^test-deduce\.py$',
@@ -69,3 +85,61 @@ exclude = [
     '^gh_pages/',
 ]
 
+# Per-module strict: modules that pass --strict get listed here so the
+# heavyweight bits (check_untyped_defs, disallow_untyped_defs,
+# disallow_untyped_calls, disallow_any_generics, warn_return_any,
+# disallow_incomplete_defs) are enforced going forward and any
+# regression is caught in CI. Add a module here once `mypy --strict
+# <module> --follow-imports=silent` is clean.
+#
+# The order of expected wins from the remaining error counts (mypy
+# 2.1.0, --python-version 3.12, against this config — measured
+# 2026-05-13):
+#
+#   lsp/benchmark.py                            (4 errors; transitive
+#                                                untyped calls into
+#                                                flags.py / lsp.library
+#                                                — touching those
+#                                                ripples wider)
+#   compiler/lower.py                           (8; missing annotations
+#                                                on helpers and lower_*
+#                                                methods)
+#   tools/claude_fill_hole/__main__.py          (13)
+#   tools/claude_fill_hole/anthropic_backend.py (13)
+#   tools/claude_fill_hole/openai_backend.py    (30)
+#   lsp/mcp_server.py                           (30)
+#   style.py                                    (31)
+#   lsp/debugger.py                             (38)
+#   lsp/dap_server.py                           (49)
+#   error.py                                    (65)
+#   lsp/lsp_server.py                           (74)
+#   lsp/query.py                                (132)
+#   parser.py                                   (310)
+#   abstract_syntax.py                          (1192)
+#   proof_checker.py                            (1337)
+#   rec_desc_parser.py                          (1348)
+#
+# NOTE: mypy does not honor `strict = true` inside per-module overrides
+# (the meta-flag is global-only). The bits it would turn on are set
+# individually below — the full --strict expansion minus the ones
+# already enabled globally above.
+[[tool.mypy.overrides]]
+module = [
+    "compiler.closure",
+    "compiler.compile_prelude",
+    "compiler.emit_c",
+    "compiler.ir",
+    "compiler.prune",
+    "edit_distance",
+    "claude_fill_hole.agent",
+    "claude_fill_hole.prompt",
+    "claude_fill_hole.schema",
+    "claude_fill_hole.validator",
+]
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_return_any = true
