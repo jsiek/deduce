@@ -22,7 +22,8 @@
 #    run the print and assert statements,
 #    reduce some formulas and terms automatically.
 
-from typing import cast
+from dataclasses import dataclass
+from typing import List, Tuple, cast
 
 from abstract_syntax import *
 from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe

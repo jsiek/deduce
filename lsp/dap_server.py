@@ -212,7 +212,7 @@ class _DAPDebugger(Debugger):
         self._stop_reason = "step"
         super().after_function(name, env, return_value=return_value)
 
-    def _print(self, msg: str) -> None:  # type: ignore[override]
+    def _print(self, msg: str) -> None:
         """Override the text-mode helper so debugger-emitted messages
         (``-> call ...``, ``-> statement ...``, ``<- returned ...``,
         REPL output) reach the editor as DAP ``output`` events

@@ -120,7 +120,7 @@ def request_from_json(text: str) -> HoleFillRequest:
     return _request_from_dict(raw)
 
 
-def _request_from_dict(raw: dict) -> HoleFillRequest:
+def _request_from_dict(raw: dict[str, Any]) -> HoleFillRequest:
     range_raw = raw["holeRange"]
     hole_range = LspRange(
         start=LspPosition(

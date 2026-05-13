@@ -444,7 +444,7 @@ def emit_header(
         elif isinstance(d, ir.Global):
             ctx.top_globals.add(d.name)
 
-    def in_module(decl) -> bool:
+    def in_module(decl: ir.TopLevel) -> bool:
         return getattr(decl, "module", None) == module_name
 
     guard = "DEDUCE_" + _mangle(module_name) + "_H"

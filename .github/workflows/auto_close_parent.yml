@@ -1,0 +1,37 @@
+name: Auto-close parent when all sub-issues closed
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  maybe-close-parent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close parent if all sub-issues are done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          CLOSED_ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -e
+          parent_json=$(gh api "repos/$REPO/issues/$CLOSED_ISSUE/parent" 2>/dev/null) || {
+            echo "Issue #$CLOSED_ISSUE has no parent — nothing to do."
+            exit 0
+          }
+          parent_num=$(printf '%s' "$parent_json" | jq -r '.number')
+          parent_state=$(printf '%s' "$parent_json" | jq -r '.state')
+          if [ "$parent_state" != "open" ]; then
+            echo "Parent #$parent_num is already $parent_state — nothing to do."
+            exit 0
+          fi
+          open_count=$(gh api --paginate "repos/$REPO/issues/$parent_num/sub_issues" --jq '.[].state' | grep -c '^open$' || true)
+          if [ "$open_count" = "0" ]; then
+            echo "All sub-issues of #$parent_num are closed. Closing parent."
+            gh issue close "$parent_num" --repo "$REPO" --reason completed --comment "All sub-issues complete — closing automatically."
+          else
+            echo "$open_count sub-issues of #$parent_num still open. Leaving parent open."
+          fi
