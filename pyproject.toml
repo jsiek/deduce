@@ -37,10 +37,118 @@ select = ["F401", "F541", "F601", "F811", "F821"]
 [tool.mypy]
 # Relaxed starter config. The proof-checker core (~11k LOC) is largely
 # untyped today; turning on --strict at the project level would produce
-# thousands of errors. The plan in #472 is to declare per-module overrides
-# and tighten one module at a time.
+# thousands of errors. The strategy (#479) is to keep CI green by opting
+# noisy modules out via per-module ignore_errors, then tighten one module
+# at a time in follow-up PRs by deleting its override block below.
+#
+# Suggested tightening order (cheapest first):
+#   1. flags, deduce, rec_desc_parser, lsp.* singletons (1-3 errors each)
+#   2. compiler.closure, compiler.lower, tools.claude_fill_hole.*
+#      (3-7 errors, isolated from the AST)
+#   3. compiler.ir, compiler.emit_c (mid-size, internal to compiler/)
+#   4. abstract_syntax (blocked on #480 - post-hoc-stashed attrs)
+#   5. proof_checker (largest; pairs with #471 decomposition)
+#
+# The `exclude` list below skips paths that would otherwise produce
+# module-name collisions or live outside the source tree:
+#   - test/         duplicate-module name (test/claude_fill_hole vs
+#                   tools/claude_fill_hole); pytest test files can be
+#                   wired in once they live under unique package names.
+#   - test-deduce.py the hyphen makes it an invalid Python module name,
+#                   so [[tool.mypy.overrides]] cannot target it; revisit
+#                   if/when it is renamed.
+#   - tmp/, lark/, editor/, live_code_vercel_api/, autograder_docker/,
+#     gh_pages/    match the ruff `exclude` list above.
 python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_ignores = false
 warn_redundant_casts = true
 no_implicit_optional = true
+exclude = [
+    '^test/',
+    '^test-deduce\.py$',
+    '^tmp/',
+    '^lark/',
+    '^editor/',
+    '^live_code_vercel_api/',
+    '^autograder_docker/',
+    '^gh_pages/',
+]
+
+# Per-module overrides — one per noisy module, sorted by error count
+# (descending). Delete an entry and ensure `mypy .` is still clean to
+# tighten that module.
+
+[[tool.mypy.overrides]]
+module = "proof_checker"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "compiler.ir"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "lsp.debugger"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "abstract_syntax"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "compiler.emit_c"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# tools/claude_fill_hole/* — note the package name is "claude_fill_hole",
+# not "tools.claude_fill_hole", because tools/ has no __init__.py.
+module = "claude_fill_hole.openai_backend"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "claude_fill_hole.anthropic_backend"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "lsp.query"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "lsp.dap_server"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "compiler.lower"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "lsp.benchmark"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "claude_fill_hole.__main__"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "rec_desc_parser"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "lsp.mcp_server"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "lsp.library"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "flags"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "deduce"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "compiler.closure"
+ignore_errors = true
