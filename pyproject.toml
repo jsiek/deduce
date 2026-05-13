@@ -136,6 +136,7 @@ module = [
     "lsp.benchmark",
     "claude_fill_hole.__main__",
     "claude_fill_hole.agent",
+    "claude_fill_hole.anthropic_backend",
     "claude_fill_hole.prompt",
     "claude_fill_hole.schema",
     "claude_fill_hole.validator",

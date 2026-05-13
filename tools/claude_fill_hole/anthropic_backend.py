@@ -92,7 +92,7 @@ class AnthropicBackend(Backend):
     ) -> AgentResult:
         started = time.monotonic()
 
-        def _progress(event: str, **fields):
+        def _progress(event: str, **fields: Any) -> None:
             if on_progress is not None:
                 on_progress(event, **fields)
 
@@ -108,7 +108,7 @@ class AnthropicBackend(Backend):
         if querier is not None:
             tools = [_VALIDATE_TOOL, _QUERY_GOAL_TOOL]
 
-        messages: list[dict] = [{"role": "user", "content": user_message}]
+        messages: list[dict[str, Any]] = [{"role": "user", "content": user_message}]
         history: list[AttemptRecord] = []
 
         _progress("start", maxAttempts=max_attempts)
@@ -176,7 +176,7 @@ class AnthropicBackend(Backend):
                 {"role": "assistant", "content": response.content}
             )
 
-            tool_results: list[dict] = []
+            tool_results: list[dict[str, Any]] = []
             success_proof: Optional[str] = None
 
             for block in tool_uses:
@@ -366,29 +366,26 @@ class AnthropicBackend(Backend):
 # ---------------------------------------------------------------------------
 
 
-def _is_tool_use(block) -> bool:
+def _is_tool_use(block: Any) -> bool:
     return _block_type(block) == "tool_use"
 
 
-def _block_type(block) -> str:
-    if isinstance(block, dict):
-        return block.get("type", "")
-    return getattr(block, "type", "")
+def _block_type(block: Any) -> str:
+    val = block.get("type", "") if isinstance(block, dict) else getattr(block, "type", "")
+    return val if isinstance(val, str) else ""
 
 
-def _block_id(block) -> str:
-    if isinstance(block, dict):
-        return block.get("id", "")
-    return getattr(block, "id", "")
+def _block_id(block: Any) -> str:
+    val = block.get("id", "") if isinstance(block, dict) else getattr(block, "id", "")
+    return val if isinstance(val, str) else ""
 
 
-def _tool_use_name(block) -> str:
-    if isinstance(block, dict):
-        return block.get("name", "") or ""
-    return getattr(block, "name", "") or ""
+def _tool_use_name(block: Any) -> str:
+    val = block.get("name", "") if isinstance(block, dict) else getattr(block, "name", "")
+    return val if isinstance(val, str) else ""
 
 
-def _extract_proof_text(block) -> Optional[str]:
+def _extract_proof_text(block: Any) -> Optional[str]:
     if isinstance(block, dict):
         inp = block.get("input", {})
     else:
@@ -403,7 +400,7 @@ def _extract_proof_text(block) -> Optional[str]:
 
 def _tool_result_block(
     tool_use_id: str, *, ok: bool, error: Optional[str]
-) -> dict:
+) -> dict[str, Any]:
     """Format a tool_result the API will accept, carrying our outcome."""
     if ok:
         content = "ok"
@@ -417,7 +414,7 @@ def _tool_result_block(
     }
 
 
-def _query_result_block(tool_use_id: str, outcome: QueryOutcome) -> dict:
+def _query_result_block(tool_use_id: str, outcome: QueryOutcome) -> dict[str, Any]:
     """Format a tool_result carrying a structured query response.
 
     JSON-encode the {goal, givens} (or {error}) payload so the model
