@@ -22,7 +22,9 @@ if str(REPO_ROOT) not in sys.path:
 from abstract_syntax import (  # noqa: E402
     All,
     Bool,
+    BoolType,
     Call,
+    FunctionType,
     Int,
     IntType,
     Lambda,
@@ -202,3 +204,132 @@ def test_nested_lambda_inner_uses_outer():
     l3 = Lambda(_m(), None, [("a", None)],
                 Lambda(_m(), None, [("b", None)], Var(_m(), None, "b")))
     assert l1 != l3
+
+
+# ---------- FunctionType: the only Type-level binder ---------------------
+#
+# FunctionType binds `type_params` over its `param_types` and `return_type`.
+# Before #491, `FunctionType.__eq__` ignored `type_params` entirely:
+# fn<T> T -> T compared *equal* to fn<> Int -> Int (different arities) and
+# fn<T> T -> T compared *equal* to fn<U> U -> U only by accident (the body
+# references the bound name, which differs between sides). The parallel
+# walk fixes both.
+
+
+def _ft_id(tv):
+    # fn<tv> tv -> tv  -- the polymorphic identity type, with binder
+    # name `tv`. Constructed so the body references the bound name
+    # through a Var, which is how the parser emits type-param uses.
+    return FunctionType(_m(), [tv],
+                        [Var(_m(), None, tv)],
+                        Var(_m(), None, tv))
+
+
+@given(st.sampled_from(NAMES), st.sampled_from(NAMES))
+def test_function_type_alpha_renaming(x, y):
+    # fn<x> x -> x == fn<y> y -> y -- alpha-renaming of the bound
+    # type parameter.
+    assert _ft_id(x) == _ft_id(y)
+
+
+def test_function_type_type_params_arity_difference_detected():
+    # The bug fixed by #491: previously, two FunctionTypes whose
+    # param/return types were structurally equal but whose
+    # `type_params` had different *lengths* compared equal.
+    poly = _ft_id("T")
+    mono = FunctionType(_m(), [],
+                        [Var(_m(), None, "T")],
+                        Var(_m(), None, "T"))
+    assert poly != mono
+
+
+def test_function_type_capture_not_introduced():
+    # fn<x> y -> y  vs  fn<y> y -> y. The first has `y` free, the
+    # second has `y` bound. Alpha-equiv must distinguish them.
+    free_y = FunctionType(_m(), ["x"],
+                          [Var(_m(), None, "y")],
+                          Var(_m(), None, "y"))
+    bound_y = FunctionType(_m(), ["y"],
+                           [Var(_m(), None, "y")],
+                           Var(_m(), None, "y"))
+    assert free_y != bound_y
+
+
+def test_function_type_param_count_difference_detected():
+    f1 = FunctionType(_m(), [], [IntType(_m())], IntType(_m()))
+    f2 = FunctionType(_m(), [], [IntType(_m()), IntType(_m())], IntType(_m()))
+    assert f1 != f2
+
+
+def test_function_type_return_type_difference_detected():
+    f1 = FunctionType(_m(), [], [IntType(_m())], IntType(_m()))
+    f2 = FunctionType(_m(), [], [IntType(_m())], BoolType(_m()))
+    assert f1 != f2
+
+
+def test_function_type_two_params_alpha_renamed():
+    # fn<A, B> A -> B  ==  fn<X, Y> X -> Y  (parallel renaming of two binders)
+    f1 = FunctionType(_m(), ["A", "B"],
+                      [Var(_m(), None, "A")],
+                      Var(_m(), None, "B"))
+    f2 = FunctionType(_m(), ["X", "Y"],
+                      [Var(_m(), None, "X")],
+                      Var(_m(), None, "Y"))
+    assert f1 == f2
+    # But swapping the order of usage breaks the equivalence:
+    # fn<X, Y> Y -> X is *not* the same as fn<A, B> A -> B.
+    f3 = FunctionType(_m(), ["X", "Y"],
+                      [Var(_m(), None, "Y")],
+                      Var(_m(), None, "X"))
+    assert f1 != f3
+
+
+def test_function_type_nested_in_lambda_annotation():
+    # The Lambda annotation `fn<T> T -> T` is alpha-renamable inside
+    # the type position of a Lambda binder.
+    l1 = Lambda(_m(), None, [("f", _ft_id("T"))], Int(_m(), None, 0))
+    l2 = Lambda(_m(), None, [("f", _ft_id("U"))], Int(_m(), None, 0))
+    assert l1 == l2
+
+
+# Add a FunctionType generator to the pool. Bodies reference either
+# a bound type-param or an outer free name -- both shapes exercise
+# the binding-env lookup. We use `IntType` / `BoolType` as
+# non-variable leaves so the generator can terminate without forcing
+# a type variable in every position.
+
+type_leaf_st = st.one_of(
+    st.builds(lambda: IntType(_m())),
+    st.builds(lambda: BoolType(_m())),
+    st.builds(lambda v: Var(_m(), None, v), st.sampled_from(NAMES)),
+)
+
+
+function_type_st = st.recursive(
+    type_leaf_st,
+    lambda children: st.builds(
+        lambda tps, pts, rt: FunctionType(_m(), tps, pts, rt),
+        st.lists(st.sampled_from(NAMES), min_size=0, max_size=2, unique=True),
+        st.lists(children, min_size=0, max_size=2),
+        children,
+    ),
+    max_leaves=5,
+)
+
+
+@given(function_type_st)
+def test_function_type_reflexive(t):
+    assert t == t
+    assert alpha_equiv(t, t)
+
+
+@given(function_type_st, function_type_st)
+def test_function_type_symmetric(a, b):
+    assert (a == b) == (b == a)
+
+
+@settings(suppress_health_check=[HealthCheck.too_slow])
+@given(function_type_st, function_type_st, function_type_st)
+def test_function_type_transitive(a, b, c):
+    if a == b and b == c:
+        assert a == c
