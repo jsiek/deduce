@@ -64,7 +64,15 @@ warn_unreachable = true
 no_implicit_optional = true
 strict_equality = true
 disallow_subclassing_any = true
-disallow_untyped_decorators = true
+# disallow_untyped_decorators is intentionally NOT enabled globally:
+# lsp/lsp_server.py and lsp/mcp_server.py use `@server.feature(...)`
+# / `@mcp.tool(...)` from `pygls` and `mcp`, neither of which is
+# installed in CI (they're optional and only needed when running the
+# LSP/MCP servers). Under `ignore_missing_imports = true` those
+# packages resolve to Any, which makes every decorator from them
+# "untyped" and trips the flag. The flag is set per-module in the
+# strict overrides below so the protection still applies to modules
+# whose decorators are real.
 no_implicit_reexport = true
 exclude = [
     '^test/',
@@ -131,6 +139,7 @@ module = [
 disallow_any_generics = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true
+disallow_untyped_decorators = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
