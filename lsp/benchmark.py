@@ -175,8 +175,8 @@ def main(argv: list[str]) -> int:
 
     for fixture in abs_fixtures:
         rel = fixture.relative_to(REPO_ROOT)
-        cold = _measure(f"cold:{rel}", lambda f=fixture: _cold_run(str(f)))
-        warm = _measure(f"warm:{rel}", lambda f=fixture: runner(str(f)))
+        cold = _measure(f"cold:{rel}", lambda: _cold_run(str(fixture)))
+        warm = _measure(f"warm:{rel}", lambda: runner(str(fixture)))
         speedup = cold / warm if warm > 0 else float("inf")
         print(
             f"{str(rel):<48}{_format_seconds(cold):>10}"

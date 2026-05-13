@@ -292,16 +292,16 @@ class AnthropicBackend(Backend):
                             errorTail="missing proof_text",
                         )
                         continue
-                    outcome = querier.query(proof_text)
+                    query_outcome = querier.query(proof_text)
                     tool_results.append(
-                        _query_result_block(_block_id(block), outcome)
+                        _query_result_block(_block_id(block), query_outcome)
                     )
                     _progress(
                         "tool_result",
                         tool=QUERY_GOAL_TOOL_NAME,
-                        ok=outcome.ok,
-                        goal=preview(outcome.goal or "", 100),
-                        errorTail=preview(outcome.error or "", 200),
+                        ok=query_outcome.ok,
+                        goal=preview(query_outcome.goal or "", 100),
+                        errorTail=preview(query_outcome.error or "", 200),
                     )
                 else:
                     tool_results.append(

@@ -26,7 +26,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from os.path import basename
-from typing import IO, Optional
+from typing import IO, Any, Optional
 
 
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.config/deduce/debug_history")
@@ -211,9 +211,9 @@ class Debugger:
         self._frame_cursor = -1
         # Filled by ``on_statement`` and ``on_function``; the REPL
         # consumes them for ``print`` (env) and ``list`` (location).
-        self._current_stmt = None
-        self._current_env = None
-        self._current_loc = None
+        self._current_stmt: Optional[Any] = None
+        self._current_env: Optional[Any] = None
+        self._current_loc: Optional[Any] = None
         # Mirror of ``_current_stmt`` for use by ``list`` -- the very
         # first ``on_statement`` is the only place we learn the user's
         # source path.  Subsequent hooks (function calls) preserve
@@ -533,6 +533,8 @@ class Debugger:
         """Install the completer and load the history file.  Called
         once during ``__init__`` when readline is available."""
         r = self._readline
+        history_file = self._history_file
+        assert r is not None and history_file is not None
         r.set_completer(self._completer)
         r.parse_and_bind("tab: complete")
         # ``readline`` defaults its delimiters to include ``-``,
@@ -542,12 +544,12 @@ class Debugger:
         # syntax.
         r.set_completer_delims(" \t\n")
         try:
-            os.makedirs(os.path.dirname(self._history_file), exist_ok=True)
+            os.makedirs(os.path.dirname(history_file), exist_ok=True)
         except OSError:  # pragma: no cover -- best-effort
             return
-        if os.path.exists(self._history_file):
+        if os.path.exists(history_file):
             try:
-                r.read_history_file(self._history_file)
+                r.read_history_file(history_file)
             except OSError:  # pragma: no cover -- defensive
                 pass
 
@@ -996,6 +998,7 @@ class Debugger:
         try:
             _p.set_filename("<debugger>")
             _p.init_parser()
+            assert _p.lark_parser is not None
             _p.token_list = list(_p.lark_parser.lex(expr_text))
             _p.current_position = 0
             _p.check_closest_kwd = False
@@ -1035,7 +1038,7 @@ class Debugger:
         # but the hooks also mutate ``_current_*`` and ``stack`` --
         # save/restore those so the surrounding session resumes
         # with the same "where am I" state.
-        saved = (
+        saved_state = (
             self._step_mode, self._step_depth,
             self._current_env, self._current_loc, self._current_stmt,
             list(self.stack),
@@ -1046,7 +1049,7 @@ class Debugger:
         finally:
             (self._step_mode, self._step_depth,
              self._current_env, self._current_loc, self._current_stmt,
-             self.stack) = saved
+             self.stack) = saved_state
             set_eval_all(False)
             set_reduce_all(False)
 

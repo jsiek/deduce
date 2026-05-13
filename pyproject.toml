@@ -35,12 +35,37 @@ exclude = [
 select = ["F401", "F541", "F601", "F811", "F821"]
 
 [tool.mypy]
-# Relaxed starter config. The proof-checker core (~11k LOC) is largely
-# untyped today; turning on --strict at the project level would produce
-# thousands of errors. The plan in #472 is to declare per-module overrides
-# and tighten one module at a time.
+# Relaxed starter config (#479). The proof-checker core (~11k LOC) is
+# largely untyped; turning on --strict at the project level would
+# produce thousands of errors. Instead, every in-tree module is now
+# type-checked under this relaxed config — no per-module overrides
+# remain. Further tightening (per-module strict flags, decode-time
+# annotations, --check-untyped-defs, etc.) belongs in follow-up
+# issues so each step can be reviewed independently.
+#
+# The `exclude` list below skips paths that would otherwise produce
+# module-name collisions or live outside the source tree:
+#   - test/         duplicate-module name (test/claude_fill_hole vs
+#                   tools/claude_fill_hole); pytest test files can be
+#                   wired in once they live under unique package names.
+#   - test-deduce.py the hyphen makes it an invalid Python module name,
+#                   so [[tool.mypy.overrides]] cannot target it; revisit
+#                   if/when it is renamed.
+#   - tmp/, lark/, editor/, live_code_vercel_api/, autograder_docker/,
+#     gh_pages/    match the ruff `exclude` list above.
 python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_ignores = false
 warn_redundant_casts = true
 no_implicit_optional = true
+exclude = [
+    '^test/',
+    '^test-deduce\.py$',
+    '^tmp/',
+    '^lark/',
+    '^editor/',
+    '^live_code_vercel_api/',
+    '^autograder_docker/',
+    '^gh_pages/',
+]
+

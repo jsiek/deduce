@@ -344,16 +344,16 @@ class OpenAICompatBackend(Backend):
                             errorTail="missing proof_text",
                         )
                         continue
-                    outcome = querier.query(proof_text)
+                    query_outcome = querier.query(proof_text)
                     messages.append(
-                        _tool_message(tc_id, _query_payload(outcome))
+                        _tool_message(tc_id, _query_payload(query_outcome))
                     )
                     _progress(
                         "tool_result",
                         tool=QUERY_GOAL_TOOL_NAME,
-                        ok=outcome.ok,
-                        goal=preview(outcome.goal or "", 100),
-                        errorTail=preview(outcome.error or "", 200),
+                        ok=query_outcome.ok,
+                        goal=preview(query_outcome.goal or "", 100),
+                        errorTail=preview(query_outcome.error or "", 200),
                     )
 
                 else:

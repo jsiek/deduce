@@ -44,7 +44,7 @@ import re
 import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union
 
 
 __all__ = [
@@ -601,12 +601,12 @@ def _diagnostic_from_exception(
         rng = sentinel
 
     formula = getattr(exc, "formula", None)
+    body: str
     if formula is not None:
         body = _format_incomplete_proof_message(formula)
     else:
-        body = getattr(exc, "message_body", None)
-        if body is None:
-            body = _format_unstructured_exception(exc, str_fallback)
+        msg = getattr(exc, "message_body", None)
+        body = msg if msg is not None else _format_unstructured_exception(exc, str_fallback)
 
     return Diagnostic(severity=Severity.ERROR, range=rng, message=body)
 
@@ -3213,6 +3213,7 @@ def _splice_apply_args(
     """
     start_off = _line_col_to_offset(content, hole_range.start)
     end_off = _line_col_to_offset(content, hole_range.end)
+    assert start_off is not None and end_off is not None
     indent = _line_indent_at(content, hole_range.start)
 
     define_lines = "".join(
@@ -3285,7 +3286,7 @@ def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
                 }
             reasons = []
             for prem, conc in imps:
-                matching = {}
+                matching: dict[str, Any] = {}
                 try:
                     formula_match(location, vars, conc, goal, matching, env)
                 except MatchFailed as e:

@@ -22,9 +22,11 @@ jobs:
             python -m pip install --upgrade pip
             if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
             if [ -f ./gh_pages/requirements.txt ]; then pip install -r ./gh_pages/requirements.txt; fi
-            pip install ruff
+            pip install ruff mypy
       - name: Lint with ruff
         run: ruff check .
+      - name: Type-check with mypy
+        run: mypy .
       - name: Check known tokens
         run: python ./gh_pages/scripts/keywords.py
       - name: execute py script # run file

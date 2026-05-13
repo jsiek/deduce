@@ -22,13 +22,15 @@
 #    run the print and assert statements,
 #    reduce some formulas and terms automatically.
 
+from typing import cast
+
 from abstract_syntax import *
 from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
 import style
 
-imported_modules = set()
-checked_modules = set()
+imported_modules: set = set()
+checked_modules: set = set()
 
 name_id = 0
 
@@ -73,7 +75,14 @@ def _try_check_proof_of(pf, frm, env):
       raise
     get_active_sink().add(e)
 
-def generate_name(name):
+def generate_proof_name(name):
+    """Allocate a fresh label/binder name at proof-check time.
+
+    Uses ``proof_checker.name_id`` rather than a ``UniquifyContext`` —
+    these are generated during proof checking (e.g. for synthesised
+    induction-case bindings and rule-induction validators), not during
+    the uniquify pass. Distinct counter so the names don't collide
+    with the ones uniquify already minted."""
     global name_id
     ls = name.split('.')
     new_id = name_id
@@ -1367,7 +1376,7 @@ def check_proof_of(proof, formula, env):
       (lhs,rhs) = split_equation(loc, formula, env)
       match lhs.typeof:
         case FunctionType(loc2, [], typs, ret_ty):
-          names = [generate_name('x') for ty in typs]
+          names = [generate_proof_name('x') for ty in typs]
           args = [ResolvedVar(loc, None, x) for x in names]
           call_lhs = Call(loc, None, lhs, args)
           call_rhs = Call(loc, None, rhs, args)
@@ -1773,7 +1782,7 @@ def check_proof_of(proof, formula, env):
 
               # fill the rest of the given induction_hypotheses with _ labels
               for i in range(len(indcase.induction_hypotheses), len(induction_hypotheses)):
-                indcase.induction_hypotheses.append((generate_name('_'), None))
+                indcase.induction_hypotheses.append((generate_proof_name('_'), None))
 
               for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
                 if frm1 != None:
@@ -1830,7 +1839,7 @@ def check_proof_of(proof, formula, env):
             body_env = env
 
             if len(scase.assumptions) == 0:
-                  scase.assumptions.append((generate_name('_'), None))
+                  scase.assumptions.append((generate_proof_name('_'), None))
 
             assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
             if len(assumptions) == 1:
@@ -1886,7 +1895,7 @@ def check_proof_of(proof, formula, env):
                     new_subject_case.inferred = False
 
                 if len(scase.assumptions) == 0:
-                  scase.assumptions.append((generate_name('_'), None))
+                  scase.assumptions.append((generate_proof_name('_'), None))
                   
                 assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
                 if len(assumptions) == 1:
@@ -3245,9 +3254,9 @@ def check_pattern(pattern, typ, env, cases_present):
 def check_formula(frm, env, recfun=None, subterms=[]):
   return type_check_term(frm, BoolType(frm.location), env, recfun, subterms)
 
-modules = set()
+modules: set = set()
 
-dirty_files = set()
+dirty_files: set = set()
 
 def is_modified(filename):
     path = Path(filename)
@@ -3620,8 +3629,8 @@ def _decompose_rule_for_translation(rule, pred_name, keyword):
       if _is_recursive_atom(atom, pred_name):
         premises.append(_PremiseInfo(
           atom=atom.copy(), is_recursive=True, orig_idx=idx,
-          sub_deriv_name=generate_name('d'),
-          deriv_label=generate_name('deriv'),
+          sub_deriv_name=generate_proof_name('d'),
+          deriv_label=generate_proof_name('deriv'),
           rec_args=[a.copy() for a in atom.args]))
       else:
         premises.append(_PremiseInfo(
@@ -3633,7 +3642,7 @@ def _decompose_rule_for_translation(rule, pred_name, keyword):
           "expected a Call in conclusion of rule '"
           + base_name(rule.name) + "' (validation should have caught this)")
   conclusion_args = [a.copy() for a in conclusion.args]
-  validator_arg_names = [generate_name('m') for _ in conclusion_args]
+  validator_arg_names = [generate_proof_name('m') for _ in conclusion_args]
 
   return _RuleTranslation(rule=rule,
                           bound_vars=bound_vars,
@@ -3656,8 +3665,8 @@ def _build_predicate_translation(decl, param_types):
                        for r in rules]
 
   # 1. Build the derivation union.
-  deriv_union_name = generate_name(base_pred + 'Deriv')
-  constr_names = [generate_name('D_' + base_name(r.name)) for r in rules]
+  deriv_union_name = generate_proof_name(base_pred + 'Deriv')
+  constr_names = [generate_proof_name('D_' + base_name(r.name)) for r in rules]
 
   # The type-arg-applied form of the derivation type, used both as the
   # type of sub-derivations inside constructors and as the existential's
@@ -3680,7 +3689,7 @@ def _build_predicate_translation(decl, param_types):
                       visibility='public')
 
   # 2. Build the validator.
-  is_deriv_name = generate_name('is_' + base_pred + '_deriv')
+  is_deriv_name = generate_proof_name('is_' + base_pred + '_deriv')
   fun_cases = []
   for cname, rt in zip(constr_names, rule_translations):
     pat_param_names = [v for (v, _) in rt.bound_vars] + \
@@ -3735,7 +3744,7 @@ def _build_predicate_translation(decl, param_types):
     # whose body is a `switch` on the derivation. The cases match the
     # `fun_cases` we already built — we just rebuild them as switch cases
     # with the m_i parameters captured by the lambda.
-    d_param_name = generate_name('d')
+    d_param_name = generate_proof_name('d')
     d_param_var = ResolvedVar(loc, None, d_param_name)
     switch_cases = []
     for fc in fun_cases:
@@ -3754,9 +3763,9 @@ def _build_predicate_translation(decl, param_types):
                        visibility=decl.visibility)
 
   # 3. Build the predicate's `define` body: fun args { some d. is_*_deriv(d, args) }
-  arg_var_names = [generate_name('x') for _ in range(arity)]
+  arg_var_names = [generate_proof_name('x') for _ in range(arity)]
   arg_vars = [ResolvedVar(loc, None, x) for x in arg_var_names]
-  d_name = generate_name('d')
+  d_name = generate_proof_name('d')
   is_deriv_call = Call(loc, BoolType(loc),
                        ResolvedVar(loc, None, is_deriv_name),
                        [ResolvedVar(loc, None, d_name)] + arg_vars)
@@ -3806,7 +3815,7 @@ def _build_predicate_translation(decl, param_types):
 def _build_intro_theorem(rt, pred_name, pred_var, is_deriv_var, constr_name):
   """Build a `Theorem` for one rule's intro lemma."""
   loc = rt.rule.location
-  hyp_label = generate_name('hyp')
+  hyp_label = generate_proof_name('hyp')
   n_premises = len(rt.premises)
 
   # Constructor witness: D_<rule>(<bound vars>, <obtained derivation labels>)
@@ -3906,7 +3915,7 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
   thm_name = decl.rule_inversion_name if is_inversion \
              else decl.rule_induction_name
 
-  motive_name = generate_name('M')
+  motive_name = generate_proof_name('M')
   if arity > 0:
     motive_type = FunctionType(loc, [], [t.copy() for t in param_types],
                                BoolType(loc))
@@ -3966,7 +3975,7 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
   else:
     rules_hyp_formula = And(loc, BoolType(loc), rule_conjuncts)
 
-  outer_arg_names = [generate_name('x') for _ in range(arity)]
+  outer_arg_names = [generate_proof_name('x') for _ in range(arity)]
   outer_arg_types_pairs = list(zip(outer_arg_names, param_types))
   pred_call_outer = apply_pred([ResolvedVar(loc, None, x)
                                 for x in outer_arg_names])
@@ -3980,12 +3989,12 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
     IfThen(loc, BoolType(loc), rules_hyp_formula, main_conc))
 
   # ---- proof body --------------------------------------------------------
-  rules_hyp_label = generate_name('rules_hyp')
-  helper_label = generate_name('helper')
+  rules_hyp_label = generate_proof_name('rules_hyp')
+  helper_label = generate_proof_name('helper')
 
   # helper formula: all d. all ms. if is_<pred>_deriv(d, ms) then M(ms)
-  helper_d_name = generate_name('d')
-  helper_m_names = [generate_name('m') for _ in range(arity)]
+  helper_d_name = generate_proof_name('d')
+  helper_m_names = [generate_proof_name('m') for _ in range(arity)]
   helper_m_pairs = list(zip(helper_m_names, param_types))
   helper_validator_call = Call(
     loc, BoolType(loc), is_deriv_var(loc),
@@ -4010,9 +4019,9 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
   helper_proof = Induction(loc, deriv_type_inst.copy(), ind_cases)
 
   # ---- final assembly ----------------------------------------------------
-  final_d_name = generate_name('d')
-  final_deriv_label = generate_name('deriv')
-  pred_h_label = generate_name('pred_h')
+  final_d_name = generate_proof_name('d')
+  final_deriv_label = generate_proof_name('deriv')
+  pred_h_label = generate_proof_name('pred_h')
 
   pred_h_validator = Call(
     loc, BoolType(loc), is_deriv_var(loc),
@@ -4072,10 +4081,10 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
   pattern = PatternCons(loc, ResolvedVar(loc, None, constr_name),
                         pat_param_names)
 
-  case_ih_labels = [generate_name('IH') for _ in rt.recursive_premises]
+  case_ih_labels = [generate_proof_name('IH') for _ in rt.recursive_premises]
   ind_hyps = []
   for ih_label, p in zip(case_ih_labels, rt.recursive_premises):
-    ih_m_names = [generate_name('m') for _ in range(arity)]
+    ih_m_names = [generate_proof_name('m') for _ in range(arity)]
     ih_m_vars = [ResolvedVar(loc, None, m) for m in ih_m_names]
     ih_validator = Call(
       loc, BoolType(loc), is_deriv_var(loc),
@@ -4085,7 +4094,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
     ih_inner = wrap_alls(ih_inner, list(zip(ih_m_names, param_types)))
     ind_hyps.append((ih_label, ih_inner))
 
-  m_names = [generate_name('m') for _ in range(arity)]
+  m_names = [generate_proof_name('m') for _ in range(arity)]
   m_vars = [ResolvedVar(loc, None, m) for m in m_names]
   m_pairs = list(zip(m_names, param_types))
 
@@ -4098,7 +4107,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
   else:
     constr_term = ResolvedVar(loc, None, constr_name)
 
-  dh_label = generate_name('dh')
+  dh_label = generate_proof_name('dh')
   dh_formula = Call(loc, BoolType(loc), is_deriv_var(loc),
                     [constr_term] + m_vars)
 
@@ -4107,7 +4116,7 @@ def _build_rule_induction_case(constr_name, rt, rule_idx, n_rules,
   num_rec = len(rt.recursive_premises)
   total_conjuncts = num_eq + num_nr + num_rec
 
-  dh_unfolded_label = generate_name('dh_u')
+  dh_unfolded_label = generate_proof_name('dh_u')
   # If total_conjuncts == 1 the validator body isn't a conjunction; we use
   # the unfolded fact directly and conjunct extraction is a no-op.
   def conj_proof(idx):
@@ -4321,15 +4330,15 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       return decl, env.declare_term_var(loc, name, fun_type,
                                         visibility=decl.visibility)
 
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+    case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
                    body, terminates):
       body_env = env.declare_type_vars(loc, typarams)
       check_type(returns, body_env)
-      for (p,t) in params:
+      for (p,t) in param_pairs:
           if t:
               check_type(t, body_env)
-      vars = [p for (p,t) in params]
-      param_types = [t for (p,t) in params]
+      vars = [p for (p,t) in param_pairs]
+      param_types = [t for (p,t) in param_pairs]
       if any([t == None for t in param_types]):
           user_error(loc, 'Add type annotations to the parameters.')
 
@@ -4344,18 +4353,22 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl, decl.visibility)
-      union_type = ResolvedVar(loc, None, name)
+      # ResolvedVar is a VarRef in the class hierarchy but acts as a
+      # Type wherever a Deduce type is named by an identifier (e.g.
+      # `T<X>` parses to `TypeInst(typ=ResolvedVar("T"), ...)`).
+      # Cast at the construction sites rather than widening every
+      # `typ: Type` annotation across abstract_syntax.py.
+      union_type = cast(Type, ResolvedVar(loc, None, name))
       body_env = env.declare_type_vars(loc, typarams)
       body_union_type = union_type
-      # Infer per-parameter polarities first so check_strict_positivity (and
-      # any future checks on later unions) can consult them.
       infer_param_polarities(decl, body_env)
       new_alts = []
       for constr in alts:
+        constr_type: Type
         if len(constr.parameters) > 0:
           if len(typarams) > 0:
-            tyvars = [ResolvedVar(loc, None, p) for p in typarams]
-            return_type = TypeInst(loc, body_union_type, tyvars)
+            tyvars = [cast(Type, ResolvedVar(loc, None, p)) for p in typarams]
+            return_type: Type = TypeInst(loc, body_union_type, tyvars)
           else:
             return_type = body_union_type
           # Narrow each constructor parameter's type. The check_type
@@ -4405,6 +4418,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
           needs_checking = [get_check_imports() and is_modified(filename)]
 
           ast2 = []
+          assert ast is not None
           for s in ast:
             new_s, env = process_declaration(s, env, module_chain, needs_checking)
             ast2.append(new_s)
@@ -4470,6 +4484,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       # type-check correctly. The predicate's full type combines the outer
       # type parameters from `predicate FOO<...>` with anything declared
       # inside the signature itself.
+      pred_type: Type
       if isinstance(sig, FunctionType):
         pred_type = FunctionType(sig.location,
                                  list(typarams) + list(sig.type_params),
@@ -4615,7 +4630,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
 
     case RecFun(loc, name, typarams, params, returns, cases):
       # alpha rename the type parameters in the function's type
-      new_typarams = [generate_name(t) for t in typarams]
+      new_typarams = [generate_proof_name(t) for t in typarams]
       sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
       new_params = [p.substitute(sub) for p in params]
       new_returns = returns.substitute(sub)
@@ -4623,7 +4638,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
-      cases_present = {}
+      cases_present: dict = {}
       body_env = env.declare_type_vars(loc, typarams)
       # Narrow params and returns once we have body_env (with the
       # original typarams in scope, since `params`/`returns` reference
@@ -4647,26 +4662,26 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
       return RecFun(loc, name, typarams, checked_params, checked_returns,
                     new_cases, visibility=stmt.visibility)
 
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+    case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
                    body, terminates):
       # alpha rename the type parameters in the function's type
-      new_typarams = [generate_name(t) for t in typarams]
+      new_typarams = [generate_proof_name(t) for t in typarams]
       sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
-      new_params = [(x,p.substitute(sub)) for (x,p) in params]
+      new_param_pairs = [(x,p.substitute(sub)) for (x,p) in param_pairs]
       new_returns = returns.substitute(sub)
-      fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_params],
+      fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_param_pairs],
                               new_returns)
-      
+
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
 
       body_env = env.declare_type_vars(loc, typarams)
-      body_env = body_env.declare_term_vars(loc, params)
+      body_env = body_env.declare_term_vars(loc, param_pairs)
       new_measure = type_check_term(measure, measure_ty, body_env, None, [])
-      
+
       new_body = type_check_term(body, returns, body_env, None, [])
 
-      new_recfun = GenRecFun(loc, name, typarams, params, returns,
+      new_recfun = GenRecFun(loc, name, typarams, param_pairs, returns,
                              new_measure, measure_ty, new_body, terminates,
                              visibility=stmt.visibility)
       # print('type check stmt:')
@@ -4771,7 +4786,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
       return AllIntro(loc, (inst_name, ty), (0, 1), 
                       generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1))
     case IfThen(loc, ty, prem, conc):
-      ind_hyp = generate_name("_")
+      ind_hyp = generate_proof_name("_")
       if len(case.induction_hypotheses) > 0:
         ind_hyp = case.induction_hypotheses[0][0]
         case.induction_hypotheses = case.induction_hypotheses[1:]
@@ -4953,11 +4968,11 @@ def collect_env(stmt, env : Env):
     case Associative(loc, typarams, op, typ):
       # Example proof of associativity:
       # all U :type. all xs :List<U>, ys :List<U>, zs:List<U>. (xs ++ ys) ++ zs = xs ++ (ys ++ zs)
-      m_name = generate_name("m")
+      m_name = generate_proof_name("m")
       m_var = ResolvedVar(loc, typ, m_name)
-      n_name = generate_name("n")
+      n_name = generate_proof_name("n")
       n_var = ResolvedVar(loc, typ, n_name)
-      o_name = generate_name("o")
+      o_name = generate_proof_name("o")
       o_var = ResolvedVar(loc, typ, o_name)
       def makeOp(left, right):
           return Call(loc, typ, op, [left,right])
@@ -4967,8 +4982,8 @@ def collect_env(stmt, env : Env):
       for i, var in enumerate(reversed(vars)):
         assoc_formula = All(loc, None, var, (i,len(vars)), assoc_formula)
       
-      for i, ty in enumerate(reversed(typarams)):
-        assoc_formula = All(loc, None, (ty, TypeType(loc)), (i, len(typarams)), assoc_formula)
+      for i, tp_name in enumerate(reversed(typarams)):
+        assoc_formula = All(loc, None, (tp_name, TypeType(loc)), (i, len(typarams)), assoc_formula)
 
       assoc_formula = type_check_formula(assoc_formula, env)
 
@@ -4981,13 +4996,14 @@ def collect_env(stmt, env : Env):
                   match funty:
                       case FunctionType(loc3, typarams2, param_types, return_type):
                           try:
-                              matching = {}
+                              matching: dict = {}
                               type_match(loc, typarams2, param_types[0], typ, matching)
                               resolved_op = x
                               break
                           except MatchFailed as ex:
                               continue
           case FunctionType(loc2, typarams2, param_types, return_type):
+              assert isinstance(op, VarRef)
               resolved_op = op.get_name()
       if assoc_formula in env.proofs():
           return env.declare_assoc(loc, resolved_op, typarams, typ)
@@ -5130,8 +5146,8 @@ def check_proofs(stmt, env: Env):
       
       # find recursive calls in the body
       calls = find_rec_calls(name, body, body_env)
-      formulas = []
-      
+      formulas: list[Formula] = []
+
       # create a formula Fi for each
       for call in calls:
         lhs = measure.substitute({x: arg for ((x,t),arg) in zip(params,call.args)})
@@ -5139,20 +5155,22 @@ def check_proofs(stmt, env: Env):
         #less = env.base_to_unique('<') # This doesn't work!
         less_ovlds = env.base_to_overloads('<')
         less = OverloadedVar(loc, None, less_ovlds)
-        less_frm = Call(loc, None, less, [lhs,rhs])
+        # `Call` is a Term in the class hierarchy but acts as a Formula
+        # when its return type is Bool (here: `<` overloads).
+        less_frm = cast(Formula, Call(loc, None, less, [lhs,rhs]))
         condition = And(loc, None, call.conditions) \
             if len(call.conditions) > 0 else None
-        if condition is not None:
-            frm = IfThen(loc, None, condition, less_frm)
-        else:
-            frm = less_frm
+        # `frm` is a name reused by the outer `match stmt:` Theorem
+        # arm at line 5129 (also a Formula); the annotation lives there.
+        frm = IfThen(loc, None, condition, less_frm) if condition is not None else less_frm
         i = 0
         for var in reversed(call.vars):
             frm = All(loc, None, var, (i,len(call.vars)),frm)
             i += 1
         formulas.append(frm)
-        
+
       # combine into formula: all params. F1 and ... and Fn
+      formula: Formula
       if len(formulas) > 1:
           formula = And(loc, None, formulas)
       elif len(formulas) == 1:

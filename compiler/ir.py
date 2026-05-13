@@ -348,10 +348,10 @@ def pp_term(t: Term, indent: int) -> str:
                 match arm.pattern:
                     case PatBool(v):
                         ps = "true" if v else "false"
-                    case PatCon(c, []):
-                        ps = c
-                    case PatCon(c, binds):
-                        ps = c + "(" + ", ".join(binds) + ")"
+                    case PatCon(ctor_name, []):
+                        ps = ctor_name
+                    case PatCon(ctor_name, binds):
+                        ps = ctor_name + "(" + ", ".join(binds) + ")"
                     case _:
                         raise AssertionError("pp_term: bad pattern")
                 arm_strs.append("| " + ps + " -> " + pp_term(arm.body, indent))

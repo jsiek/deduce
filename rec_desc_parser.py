@@ -1,8 +1,10 @@
 # The motivation for this recursive-descent version of the parser
 # is to provide better error messages. -Jeremy
 
+from typing import Optional
+
 from abstract_syntax import *
-from lark import Lark
+from lark import Lark, Token
 from error import *
 from edit_distance import closest_keyword, edit_distance
 
@@ -42,7 +44,7 @@ to_unicode = {'.o.': '∘', '|': '∪', '&': '∩', '.+.': '⨄', '.-.': '∸',
 
 accessiblity_keywords = {'OPAQUE', 'PRIVATE', 'PUBLIC'}
 
-lark_parser = None
+lark_parser: Optional[Lark] = None
 
 def init_parser():
   global lark_parser
@@ -56,7 +58,7 @@ def init_parser():
 # thrown. -Jeremy
 
 current_position = 0
-token_list = []
+token_list: list[Token] = []
 
 def current_token():
   if end_of_file():
