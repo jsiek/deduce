@@ -655,9 +655,11 @@ class TAnnote(Term):
     return self.subject.reduce(env)
 
   def __eq__(self, other):
+    if isinstance(other, TAnnote):
+      return self.subject == other.subject
     return self.subject == other
-    
-  
+
+
 @dataclass
 class VarRef(Term):
   # Abstract base for variable references. Concrete subclasses are
@@ -700,6 +702,8 @@ class Var(VarRef):
       elif isinstance(other, GenRecFun):
         result = self.name == other.name
       elif isinstance(other, TermInst):
+        result = self == other.subject
+      elif isinstance(other, TAnnote):
         result = self == other.subject
       elif not isinstance(other, Var):
         result = False
@@ -809,6 +813,8 @@ class OverloadedVar(VarRef):
       return self.resolved_names[0] == other.name
     elif isinstance(other, TermInst):
       return self == other.subject
+    elif isinstance(other, TAnnote):
+      return self == other.subject
     elif isinstance(other, Var):
       # Pre- and post-uniquify references are not interchangeable.
       return False
@@ -908,6 +914,8 @@ class ResolvedVar(VarRef):
       return self.name == other.name
     elif isinstance(other, TermInst):
       return self == other.subject
+    elif isinstance(other, TAnnote):
+      return self == other.subject
     elif isinstance(other, Var):
       # Pre- and post-uniquify references are not interchangeable.
       return False
@@ -1001,6 +1009,13 @@ class Lambda(Term):
   def __eq__(self, other):
       if not isinstance(other, Lambda):
           return False
+      if len(self.vars) != len(other.vars):
+          return False
+      # `None` (pre-typecheck or syntactically omitted) matches any type;
+      # only two concrete types differing makes the binders unequal.
+      for ((x,t1),(y,t2)) in zip(self.vars, other.vars):
+          if t1 is not None and t2 is not None and t1 != t2:
+              return False
       # ResolvedVar so the substituted bodies compare equal to the
       # uniquified-name references already in `other.body`.
       ren = {x: ResolvedVar(self.location, t2, y) \
@@ -2071,6 +2086,10 @@ class All(Formula):
       return False
     x, tx = self.var
     y, ty = other.var
+    # `None` (pre-typecheck or syntactically omitted) matches any type;
+    # only two concrete types being different makes the binders unequal.
+    if tx is not None and ty is not None and tx != ty:
+      return False
     sub = { y: ResolvedVar(self.location, None, x) }
     result = self.body == other.body.substitute(sub)
     return result
