@@ -1,0 +1,78 @@
+// concat.pf
+//
+// The classic Haskell intro-FP function for flattening a list of lists:
+//
+//     concat :: [[a]] -> [a]
+//     concat [] = []
+//     concat (xs:xss) = xs ++ concat xss
+//
+// We define `concat` and prove that it is a homomorphism from
+// (List<List<T>>, ++) to (List<T>, ++):
+//
+//   concat(xss ++ yss) = concat(xss) ++ concat(yss)
+
+import List
+
+recursive concat<T>(List< List<T> >) -> List<T> {
+  concat(empty) = empty
+  concat(node(xs, xss)) = xs ++ concat(xss)
+}
+
+assert concat([[1,2], [3], [4,5,6]]) = [1,2,3,4,5,6]
+assert concat(@[]< List<UInt> >) = []
+
+theorem concat_append: all T:type. all xss:List< List<T> >. all yss:List< List<T> >.
+  concat(xss ++ yss) = concat(xss) ++ concat(yss)
+proof
+  arbitrary T:type
+  induction List< List<T> >
+  case empty {
+    arbitrary yss:List< List<T> >
+    expand concat | operator++.
+  }
+  case node(xs, xss') assume IH: all yss:List< List<T> >.
+      concat(xss' ++ yss) = concat(xss') ++ concat(yss) {
+    arbitrary yss:List< List<T> >
+    equations
+      concat(node(xs, xss') ++ yss)
+          = concat(node(xs, xss' ++ yss))      by expand operator++.
+      ... = xs ++ concat(xss' ++ yss)          by expand concat.
+      ... = xs ++ (concat(xss') ++ concat(yss)) by replace IH[yss].
+      ... = (xs ++ concat(xss')) ++ concat(yss) by symmetric append_assoc<T>[xs, concat(xss'), concat(yss)]
+      ... = #concat(node(xs, xss'))# ++ concat(yss) by expand concat.
+  }
+end
+
+// concat of a singleton list-of-lists is the inner list.
+theorem concat_singleton: all T:type. all xs:List<T>.
+  concat([xs]) = xs
+proof
+  arbitrary T:type
+  arbitrary xs:List<T>
+  expand 2*concat
+  append_empty<T>[xs]
+end
+
+// Length of the concatenation equals the sum of the lengths.
+recursive sum_lengths<T>(List< List<T> >) -> UInt {
+  sum_lengths(empty) = 0
+  sum_lengths(node(xs, xss)) = length(xs) + sum_lengths(xss)
+}
+
+theorem length_concat: all T:type. all xss:List< List<T> >.
+  length(concat(xss)) = sum_lengths(xss)
+proof
+  arbitrary T:type
+  induction List< List<T> >
+  case empty {
+    expand concat | sum_lengths | length.
+  }
+  case node(xs, xss') assume IH: length(concat(xss')) = sum_lengths(xss') {
+    equations
+      length(concat(node(xs, xss')))
+          = length(xs ++ concat(xss'))         by expand concat.
+      ... = length(xs) + length(concat(xss'))  by length_append<T>[xs, concat(xss')]
+      ... = length(xs) + sum_lengths(xss')     by replace IH.
+      ... = #sum_lengths(node(xs, xss'))#      by expand sum_lengths.
+  }
+end
