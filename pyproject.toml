@@ -65,6 +65,7 @@ no_implicit_optional = true
 strict_equality = true
 disallow_subclassing_any = true
 disallow_untyped_decorators = true
+no_implicit_reexport = true
 exclude = [
     '^test/',
     '^test-deduce\.py$',
