@@ -39,7 +39,7 @@ import os
 import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +147,25 @@ def _to_serializable(obj: Any) -> Any:
     return obj
 
 
+def _to_dict_or_none(obj: Any) -> Optional[dict[str, Any]]:
+    """Typed wrapper: serialize an optional dataclass to a dict-or-None.
+
+    The query helpers that feed the @mcp.tool functions return either
+    a frozen dataclass or None; `_to_serializable` collapses that to
+    `dict[str, Any] | None`, but its declared return type is `Any`
+    (it has to cover the recursive list/scalar branches too). This
+    wrapper pins the type at the @mcp.tool boundary so the tool's
+    declared return type narrows cleanly under --strict."""
+    return cast(Optional[dict[str, Any]], _to_serializable(obj))
+
+
+def _to_list_of_dicts(items: Any) -> list[dict[str, Any]]:
+    """Typed wrapper: serialize an iterable of dataclasses to a list
+    of dicts. Pairs with _to_dict_or_none for tools whose query helper
+    returns a sequence."""
+    return cast(list[dict[str, Any]], _to_serializable(items))
+
+
 def _read_file(path: str) -> str:
     """Read a file with the same encoding ``check_file`` uses."""
     with open(path, "r", encoding="utf-8") as f:
@@ -154,7 +173,7 @@ def _read_file(path: str) -> str:
 
 
 @mcp.tool()
-def check_file(path: str) -> dict:
+def check_file(path: str) -> dict[str, Any]:
     """Run the Deduce pipeline on ``path`` and return diagnostics.
 
     The standard library at ``lib/`` is auto-prepended unless the
@@ -170,7 +189,7 @@ def check_file(path: str) -> dict:
 
 
 @mcp.tool()
-def goal_at(path: str, line: int, column: int) -> Optional[dict]:
+def goal_at(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
     """Return the proof obligation visible at ``line``:``column``.
 
     Lines and columns are 1-indexed (matching the location text in
@@ -190,11 +209,11 @@ def goal_at(path: str, line: int, column: int) -> Optional[dict]:
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
     goal = query.goal_at(path, content, pos, prelude=_prelude_for(path))
-    return _to_serializable(goal)
+    return _to_dict_or_none(goal)
 
 
 @mcp.tool()
-def definition_of(path: str, line: int, column: int) -> Optional[dict]:
+def definition_of(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
     """Return the source location of the symbol at ``line``:``column``.
 
     Returns ``None`` when the cursor isn't on a resolvable symbol or
@@ -204,11 +223,11 @@ def definition_of(path: str, line: int, column: int) -> Optional[dict]:
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
     loc = query.definition_of(path, content, pos, prelude=_prelude_for(path))
-    return _to_serializable(loc)
+    return _to_dict_or_none(loc)
 
 
 @mcp.tool()
-def refine_at(path: str, line: int, column: int) -> Optional[dict]:
+def refine_at(path: str, line: int, column: int) -> Optional[dict[str, Any]]:
     """Propose a refinement template for the hole at ``line``:``column``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token.
@@ -235,13 +254,13 @@ def refine_at(path: str, line: int, column: int) -> Optional[dict]:
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
     edit = query.refine_at(path, content, pos, prelude=_prelude_for(path))
-    return _to_serializable(edit)
+    return _to_dict_or_none(edit)
 
 
 @mcp.tool()
 def case_split_at(
     path: str, line: int, column: int, variable: str
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Generate a case-split skeleton at the hole at ``line``:``column``,
     splitting on ``variable``.
 
@@ -266,7 +285,7 @@ def case_split_at(
     edit = query.case_split_at(
         path, content, pos, variable, prelude=_prelude_for(path)
     )
-    return _to_serializable(edit)
+    return _to_dict_or_none(edit)
 
 
 @mcp.tool()
@@ -294,7 +313,7 @@ def splittable_vars_at(path: str, line: int, column: int) -> list[str]:
 @mcp.tool()
 def induction_skeleton_at(
     path: str, line: int, column: int
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Generate an ``induction T`` skeleton for the goal at ``line``:``column``.
 
     The cursor must sit on (or immediately adjacent to) a ``?`` token
@@ -321,13 +340,13 @@ def induction_skeleton_at(
     edit = query.induction_skeleton_at(
         path, content, pos, prelude=_prelude_for(path)
     )
-    return _to_serializable(edit)
+    return _to_dict_or_none(edit)
 
 
 @mcp.tool()
 def eliminate_at(
     path: str, line: int, column: int, label: str
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Generate a tactic that uses ``label`` to derive a fact (or
     discharge the goal) at the hole at ``line``:``column``.
 
@@ -357,7 +376,7 @@ def eliminate_at(
     edit = query.eliminate_at(
         path, content, pos, label, prelude=_prelude_for(path)
     )
-    return _to_serializable(edit)
+    return _to_dict_or_none(edit)
 
 
 @mcp.tool()
@@ -384,7 +403,7 @@ def eliminable_vars_at(
 @mcp.tool()
 def fill_from_given_at(
     path: str, line: int, column: int, label: str
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Fill the hole at ``line``:``column`` with ``conclude <goal> by
     <label>``.
 
@@ -405,7 +424,7 @@ def fill_from_given_at(
     edit = query.fill_from_given_at(
         path, content, pos, label, prelude=_prelude_for(path)
     )
-    return _to_serializable(edit)
+    return _to_dict_or_none(edit)
 
 
 @mcp.tool()
@@ -429,7 +448,7 @@ def matching_givens_at(
 @mcp.tool()
 def preview_conclude_at(
     path: str, line: int, column: int, label: str
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Preview ``conclude <goal> by <label>`` modulo auto-rule
     normalization at the hole at ``line``:``column``.
 
@@ -476,7 +495,7 @@ def apply_at(
     path: str, line: int, column: int,
     theorem: str,
     args: Optional[list[str]] = None,
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Preview ``apply <theorem>[<args>] to ?`` at the hole at
     ``line``:``column``.
 
@@ -524,7 +543,7 @@ def apply_at(
 @mcp.tool()
 def preview_replace_at(
     path: str, line: int, column: int, equation: str
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Preview the result of ``replace <equation>`` at the hole at
     ``line``:``column``.
 
@@ -558,13 +577,13 @@ def preview_replace_at(
     preview = query.preview_replace_at(
         path, content, pos, equation, prelude=_prelude_for(path)
     )
-    return _to_serializable(preview)
+    return _to_dict_or_none(preview)
 
 
 @mcp.tool()
 def preview_expand_at(
     path: str, line: int, column: int, names: list[str]
-) -> Optional[dict]:
+) -> Optional[dict[str, Any]]:
     """Preview the result of ``expand <names>`` at the hole at
     ``line``:``column``.
 
@@ -594,7 +613,7 @@ def preview_expand_at(
     preview = query.preview_expand_at(
         path, content, pos, names, prelude=_prelude_for(path)
     )
-    return _to_serializable(preview)
+    return _to_dict_or_none(preview)
 
 
 @mcp.tool()
@@ -604,7 +623,7 @@ def available_lemmas_at(
     column: int,
     query: Optional[str] = None,
     limit: int = 50,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Search for theorems/lemmas/postulates relevant at a position.
 
     The cursor at ``line``:``column`` is interpreted as follows:
@@ -647,11 +666,11 @@ def available_lemmas_at(
         prelude=_prelude_for(path),
         limit=limit,
     )
-    return [_to_serializable(m) for m in matches]
+    return _to_list_of_dicts(matches)
 
 
 @mcp.tool()
-def auto_rules_at(path: str, line: int, column: int) -> list[dict]:
+def auto_rules_at(path: str, line: int, column: int) -> list[dict[str, Any]]:
     """Return ``auto`` rewrite rules in scope at ``line``:``column``.
 
     Lines and columns are 1-indexed.  Each entry has ``name`` (the
@@ -670,11 +689,11 @@ def auto_rules_at(path: str, line: int, column: int) -> list[dict]:
     content = _read_file(path)
     pos = query.Position(line=line, column=column)
     rules = query.auto_rules_at(path, content, pos, prelude=_prelude_for(path))
-    return _to_serializable(rules)
+    return _to_list_of_dicts(rules)
 
 
 @mcp.tool()
-def list_symbols(path: str) -> list[dict]:
+def list_symbols(path: str) -> list[dict[str, Any]]:
     """Return all top-level declarations in ``path``.
 
     Includes theorems, lemmas, postulates, defines, recursive
@@ -686,7 +705,7 @@ def list_symbols(path: str) -> list[dict]:
     """
     content = _read_file(path)
     syms = query.list_symbols(path, content, prelude=_prelude_for(path))
-    return _to_serializable(syms)
+    return _to_list_of_dicts(syms)
 
 
 def main() -> None:

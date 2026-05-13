@@ -136,6 +136,7 @@ module = [
     "flags",
     "style",
     "lsp.benchmark",
+    "lsp.mcp_server",
     "claude_fill_hole.__main__",
     "claude_fill_hole.agent",
     "claude_fill_hole.anthropic_backend",
