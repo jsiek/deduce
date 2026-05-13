@@ -125,6 +125,7 @@ exclude = [
 # already enabled globally above.
 [[tool.mypy.overrides]]
 module = [
+    "deduce",
     "compiler.closure",
     "compiler.compile_prelude",
     "compiler.emit_c",

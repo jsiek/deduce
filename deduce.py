@@ -5,17 +5,21 @@ from signal import signal, SIGINT
 import sys
 import os
 from pathlib import Path
+from types import FrameType
+from typing import Any, Optional, Sequence
 import style
 
 traceback_flag = False
 suppress_theorems = False
 
-def handle_sigint(signal, stack_frame):
+def handle_sigint(signal: int, stack_frame: Optional[FrameType]) -> None:
     print('SIGINT caught, exiting...')
     exit(137)
 
-def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] = [],
-                debugger=None):
+def deduce_file(filename: str, error_expected: bool,
+                tracing_functions: Sequence[str],
+                prelude: list[str] = [],
+                debugger: Optional[Any] = None) -> None:
     """CLI wrapper around lsp.library.check_file.
 
     Translates CheckResult into the historical print/exit behavior so
@@ -32,6 +36,7 @@ def deduce_file(filename, error_expected, tracing_functions, prelude: list[str] 
             print('an error was expected in', filename, "but it was not caught")
             exit(-1)
         if not suppress_theorems:
+            assert result.ast is not None
             print_theorems(filename, result.ast)
         print(filename + ' is valid')
     else:
@@ -104,8 +109,10 @@ def compile_file(filename: str, output: str, prelude: list[str],
         with open(output, "w", encoding="utf-8") as f:
             f.write(src)
 
-def deduce_directory(directory, recursive_directories, tracing_functions, prelude: list[str] = [],
-                     debugger=None):
+def deduce_directory(directory: str, recursive_directories: bool,
+                     tracing_functions: Sequence[str],
+                     prelude: list[str] = [],
+                     debugger: Optional[Any] = None) -> None:
     for file in sorted(os.listdir(directory)):
         fpath = os.path.join(directory, file)
         if os.path.isfile(fpath):
