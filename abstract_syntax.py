@@ -4775,12 +4775,12 @@ def print_theorems_statement(s, f):
     elif isinstance(s, Declaration) and not s.visibility == 'private':
       print(s.pretty_print(0), file=f)
       
-def print_theorems(filename, ast):
+def print_theorems(filename: str, ast: "List[Statement]") -> None:
   global collected_imports
   collected_imports = set()
   fullpath = Path(filename)
   theorem_filename = fullpath.with_suffix('.thm')
-  to_print = []
+  to_print: "List[Statement]" = []
   
   for s in ast:
     collect_public(s, to_print)
