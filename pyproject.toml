@@ -35,13 +35,16 @@ exclude = [
 select = ["F401", "F541", "F601", "F811", "F821"]
 
 [tool.mypy]
-# Relaxed starter config (#479). The proof-checker core (~11k LOC) is
-# largely untyped; turning on --strict at the project level would
-# produce thousands of errors. Instead, every in-tree module is now
-# type-checked under this relaxed config — no per-module overrides
-# remain. Further tightening (per-module strict flags, decode-time
-# annotations, --check-untyped-defs, etc.) belongs in follow-up
-# issues so each step can be reviewed independently.
+# Starter config (#479) + first tightening pass toward --strict. The
+# proof-checker core (~11k LOC) is largely untyped, so the heavyweight
+# --strict flags (--check-untyped-defs, --disallow-untyped-defs,
+# --disallow-untyped-calls, --disallow-any-generics, --warn-return-any)
+# still produce hundreds to thousands of errors and remain off
+# globally; they are enabled per-module via [[tool.mypy.overrides]]
+# below as individual modules are cleaned up.
+#
+# The cheap --strict-equivalent flags are on globally: every flag in
+# the `[tool.mypy]` block below is one of the bits --strict turns on.
 #
 # The `exclude` list below skips paths that would otherwise produce
 # module-name collisions or live outside the source tree:
@@ -55,9 +58,13 @@ select = ["F401", "F541", "F601", "F811", "F821"]
 #     gh_pages/    match the ruff `exclude` list above.
 python_version = "3.12"
 ignore_missing_imports = true
-warn_unused_ignores = false
+warn_unused_ignores = true
 warn_redundant_casts = true
+warn_unreachable = true
 no_implicit_optional = true
+strict_equality = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
 exclude = [
     '^test/',
     '^test-deduce\.py$',

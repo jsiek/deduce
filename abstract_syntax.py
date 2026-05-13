@@ -303,7 +303,6 @@ class Type(AST):
 
   def free_vars(self) -> Set[str]:
     internal_error(self.location, 'free_vars not implemented')
-    return set()
 
 
 @dataclass
@@ -3567,7 +3566,7 @@ class GenRecFun(Declaration):
 @dataclass
 class Define(Declaration):
   name: str
-  typ: Type
+  typ: Optional[Type]
   body: Term
 
   def str_header(self):
