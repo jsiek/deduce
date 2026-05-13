@@ -48,21 +48,14 @@ private fun UIntDivPred(n:UInt) {
   all m:UInt. if 0 < m then some r:UInt. (n / m) * m + r = n and r < m
 }
 
-private fun NatHasUIntDivPred(k:Nat) {
-  all n:UInt. if toNat(n) = k then UIntDivPred(n)
-}
-
 lemma uint_division: all n:UInt, m:UInt.
   if 0 < m
   then some r:UInt. (n/m)*m + r = n and r < m
 proof
-  have SI: all j:Nat. if (all i:Nat. if i < j then NatHasUIntDivPred(i))
-                      then NatHasUIntDivPred(j) by {
-    arbitrary j:Nat
-    assume prem: all i:Nat. if i < j then NatHasUIntDivPred(i)
-    expand NatHasUIntDivPred
+  have SI: all nn:UInt. if (all i:UInt. if i < nn then UIntDivPred(i))
+                        then UIntDivPred(nn) by {
     arbitrary nn:UInt
-    assume tn_j: toNat(nn) = j
+    assume prem: all i:UInt. if i < nn then UIntDivPred(i)
     expand UIntDivPred
     arbitrary m:UInt
     assume m_pos: 0 < m
@@ -87,13 +80,9 @@ proof
             by apply uint_less_add_pos[nn ∸ m, m] to expand lit | fromNat in m_pos
           replace step1 in step2
         }
-        have tnm_lt_tn: toNat(nn ∸ m) < toNat(nn) by apply toNat_less to nm_n
-        have tnm_lt_j: toNat(nn ∸ m) < j by replace tn_j in tnm_lt_tn
-        have IH_a: NatHasUIntDivPred(toNat(nn ∸ m)) by apply prem to tnm_lt_j
-        have IH_b: UIntDivPred(nn ∸ m)
-          by apply (expand NatHasUIntDivPred in IH_a)[nn ∸ m] to .
+        have IH_a: UIntDivPred(nn ∸ m) by apply prem to nm_n
         have IH_c: some r:UInt. ((nn ∸ m) / m) * m + r = (nn ∸ m) and r < m
-          by apply (expand UIntDivPred in IH_b)[m] to m_pos
+          by apply (expand UIntDivPred in IH_a)[m] to m_pos
         obtain r0 where R: ((nn ∸ m) / m) * m + r0 = (nn ∸ m) and r0 < m from IH_c
         choose r0
         have conj0: (nn / m) * m + r0 = nn by {
@@ -110,8 +99,7 @@ proof
     }
   }
   arbitrary n:UInt
-  have Q: NatHasUIntDivPred(toNat(n)) by apply strong_induction[NatHasUIntDivPred, toNat(n)] to SI
-  have R: UIntDivPred(n) by apply (expand NatHasUIntDivPred in Q)[n] to .
+  have R: UIntDivPred(n) by apply uint_strong_induction[UIntDivPred, n] to SI
   expand UIntDivPred in R
 end
 
