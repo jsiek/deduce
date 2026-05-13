@@ -172,3 +172,17 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
 warn_return_any = true
+
+# abstract_syntax.py is too big for a one-shot --strict adoption
+# (~1192 errors against full --strict — see #506). Ratchet the
+# heavyweight bits on one flag at a time, cheapest first; once they
+# are all on, move the module into the unified strict block above.
+# Order so far (per the table in #506):
+#   warn_return_any        (4 errors, fixed here)
+#   disallow_any_generics  (6 errors, next)
+#   disallow_untyped_calls (16)
+#   check_untyped_defs     (77)
+#   disallow_untyped_defs  (493)
+[[tool.mypy.overrides]]
+module = ["abstract_syntax"]
+warn_return_any = true
