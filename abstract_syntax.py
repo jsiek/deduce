@@ -77,9 +77,10 @@ class AST:
     # are walked element-wise; non-AST scalars (strings, ints, bools)
     # pass through. The `on_typeof` hook lets `substitute` rewrite the
     # otherwise non-structural `typeof` field via `subst_typeof`.
-    # Non-dataclass attributes attached to `self` after construction
-    # (e.g. `Call.type_args`, `Lambda.env`, `RecFun.old_type_params`)
-    # are carried over to the new instance.
+    # The trailing loop preserves any non-dataclass attribute attached
+    # to `self` after construction. New post-hoc attributes are
+    # discouraged — declare an `Optional[...]` field on the dataclass
+    # instead (see issue #480) — but the loop is kept as a safety net.
     cls = type(self)
     non_struct = cls._NON_STRUCTURAL_FIELDS
     new_args = {}
@@ -988,6 +989,10 @@ class Int(Term):
 class Lambda(Term):
   vars: List[Tuple[str,Type]]
   body: Term
+  # Captured runtime environment, populated by `Lambda.reduce` under
+  # `--eval-all` so the closure can be applied later. `None` for an
+  # un-reduced lambda.
+  env: Optional['Env'] = None
 
   def __str__(self):
     if get_unique_names():
@@ -1025,9 +1030,8 @@ class Lambda(Term):
 
   def reduce(self, env):
     if get_eval_all():
-      ret = Lambda(self.location, self.typeof, self.vars, self.body)
-      ret.env = self.env if hasattr(self, 'env') else env
-      return ret
+      return Lambda(self.location, self.typeof, self.vars, self.body,
+                    env=self.env if self.env is not None else env)
     else:
       return Lambda(self.location, self.typeof, self.vars, self.body.reduce(env))
 
@@ -1414,9 +1418,7 @@ class Call(Term):
       case (OverloadedVar() | ResolvedVar()) if is_assoc:
         ret = Call(self.location, self.typeof, fun,
                    flatten_assoc_list(rator_name(self.rator), args))
-        if hasattr(self, 'type_args'):
-          ret.type_args = self.type_args
-            
+
       case Lambda(loc, ty, vars, body):
         # Note (Phase 5 / Step 22): no debugger hook here.
         # ``do_call`` forwards to ``do_function_call`` which is
@@ -1427,7 +1429,7 @@ class Call(Term):
         # name (e.g. a ``define f = λ ...``) rather than a generic
         # ``anonymous``; literal lambdas with no name fall back to
         # ``<lambda>``.
-        call_env = fun.env if hasattr(fun, 'env') else env
+        call_env = fun.env if fun.env is not None else env
         rn = rator_name(self.rator)
         if rn == 'no_name':
           display_name = '<lambda>'
@@ -1469,8 +1471,6 @@ class Call(Term):
         internal_error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
         ret = Call(self.location, self.typeof, fun, args)
-        if hasattr(self, 'type_args'):
-          ret.type_args = self.type_args
 
     if not get_eval_all():
         ret = auto_rewrites(ret, env)
@@ -3019,6 +3019,12 @@ class Predicate(Declaration):
   signature: Type
   rules: List[Rule]
   original_keyword: str = 'predicate'
+  # Names of the auto-generated `<pred>_rule_induction` and
+  # `<pred>_rule_inversion` theorems. Populated by `Predicate.uniquify`
+  # so the proof checker can find them when desugaring `rule induction`
+  # / `rule inversion` proofs. `None` on a pre-uniquify Predicate.
+  rule_induction_name: Optional[str] = None
+  rule_inversion_name: Optional[str] = None
 
   def reduce(self, env):
     return self
@@ -3071,9 +3077,9 @@ class Predicate(Declaration):
     new_pred = Predicate(self.location, new_name, new_type_params,
                          new_signature, new_rules,
                          self.original_keyword,
+                         rule_induction_name=rule_ind_unique,
+                         rule_inversion_name=rule_inv_unique,
                          visibility=self.visibility)
-    new_pred.rule_induction_name = rule_ind_unique
-    new_pred.rule_inversion_name = rule_inv_unique
     # Register a back-pointer keyed by the predicate's uniquified name so
     # the proof checker can recover this AST node (specifically
     # `rule_induction_name` / `rule_inversion_name` and the rule list)
@@ -3087,7 +3093,7 @@ class Predicate(Declaration):
     export_env[base_name(self.name)] = [self.name]
     for rule in self.rules:
       extend(export_env, base_name(rule.name), rule.name, self.location)
-    if hasattr(self, 'rule_induction_name'):
+    if self.rule_induction_name is not None:
       extend(export_env, base_name(self.rule_induction_name),
              self.rule_induction_name, self.location)
 
@@ -3227,11 +3233,9 @@ class RecFun(Declaration):
     new_returns = self.returns.uniquify(body_env, ctx)
     new_cases = [c.uniquify(body_env, old_name, ctx) for c in self.cases]
 
-    new_recfun = RecFun(self.location, new_name, new_type_params,
-                        new_params, new_returns, new_cases,
-                        visibility=self.visibility)
-    new_recfun.old_type_params = self.type_params
-    return new_recfun
+    return RecFun(self.location, new_name, new_type_params,
+                  new_params, new_returns, new_cases,
+                  visibility=self.visibility)
       
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and importing_module != get_current_module():
@@ -3337,12 +3341,10 @@ class GenRecFun(Declaration):
     new_terminates = self.terminates.uniquify(terminates_env, ctx)
     new_body = self.body.uniquify(body_env, ctx)
 
-    new_recfun = GenRecFun(self.location, new_name, new_type_params,
-                           new_vars, new_returns, new_measure,
-                           new_measure_ty, new_body, new_terminates,
-                           visibility=self.visibility)
-    new_recfun.old_type_params = self.type_params
-    return new_recfun
+    return GenRecFun(self.location, new_name, new_type_params,
+                     new_vars, new_returns, new_measure,
+                     new_measure_ty, new_body, new_terminates,
+                     visibility=self.visibility)
     
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and (importing_module != get_current_module()):
@@ -4898,11 +4900,7 @@ def explicit_term_inst(term):
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, explicit_term_inst(body))
     case Lambda(loc2, tyof, vars, body):
-
-      ret = Lambda(loc2, tyof, vars, explicit_term_inst(body))
-      if hasattr(term, 'env'):
-        ret.env = term.env
-      return ret
+      return Lambda(loc2, tyof, vars, explicit_term_inst(body), env=term.env)
     case Mark(loc2, tyof, subject):
       return Mark(loc2, tyof, explicit_term_inst(subject))
     case Conditional(loc2, tyof, cond, thn, els):
@@ -5010,10 +5008,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
         else:
             return output_terms[0]
       else: # not an associative rator
-        call = Call(loc2, tyof, new_rator, new_args)
-        if hasattr(formula, 'type_args'):
-          call.type_args = formula.type_args
-        return call
+        return Call(loc2, tyof, new_rator, new_args)
   
     case Switch(loc2, tyof, subject, cases):
       return Switch(loc2, tyof, rewrite_aux(loc, subject, equation, env, depth - 1),
