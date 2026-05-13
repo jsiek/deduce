@@ -3,6 +3,7 @@ module UInt
 import Base
 import Nat
 import UIntDefs
+import UIntToFrom
 import UIntLess
 import UIntAdd
 import UIntMonus
@@ -290,13 +291,113 @@ proof
   expand P in apply uint_induction[P] to base, ind
 end
 
-// DIFFICULTY: A direct proof would prove the helper lemma
-//   fromNat_div: fromNat(x) / fromNat(y) = fromNat(x / y)
-// by strong induction on x. The case x < y and the recursive case
-// (when x >= y > 0) work, but the case y = 0 is awkward because
-// expanding `operator/` mixes literals from the recfun body ((0:UInt))
-// with the substituted argument (bzero), and the `replace` tactic
-// fails to unify `0` with `bzero` even though they are equal.
-postulate uint_lit_div: all x:Nat, y:Nat. (fromNat(lit(x)) / fromNat(lit(y))) = fromNat(lit(x) / lit(y))
+theorem uint_div_zero: all n:UInt. n / 0 = 0
+proof
+  arbitrary n:UInt
+  expand operator/
+  replace (apply eq_false to uint_not_less_zero[n]).
+end
+
+theorem fromNat_div: all x:Nat, y:Nat. fromNat(x) / fromNat(y) = fromNat(x / y)
+proof
+  have lem: all y:Nat. all x:Nat. fromNat(x) / fromNat(y) = fromNat(x / y) by {
+    arbitrary y:Nat
+    cases nat_zero_or_positive[y]
+    case y_z {
+      arbitrary x:Nat
+      replace y_z
+      have xz: x / ℕ0 = ℕ0 by expand operator/ | lit.
+      replace xz
+      uint_div_zero[fromNat(x)]
+    }
+    case y_pos {
+      have y_pos_nat: zero < y by expand lit in y_pos
+      have y_ne_zero: not (y = zero) by {
+        assume y_z
+        replace y_z in y_pos_nat
+      }
+      have fy_pos: 0 < fromNat(y) by replace from_zero in apply less_fromNat to y_pos
+      have fy_ne_zero: not (fromNat(y) = 0) by apply uint_pos_not_zero to fy_pos
+      define P = fun x:Nat { fromNat(x) / fromNat(y) = fromNat(x / y) }
+      have SI: all i:Nat. if (all j:Nat. if j < i then P(j)) then P(i) by {
+        arbitrary i:Nat
+        assume IH: all j:Nat. if j < i then P(j)
+        expand P
+        switch i < y {
+          case true assume i_y_t {
+            have i_less_y: i < y by simplify with i_y_t.
+            have fi_less_fy: fromNat(i) < fromNat(y) by apply less_fromNat to i_less_y
+            have lhs_zero: fromNat(i) / fromNat(y) = 0 by {
+              expand operator/
+              replace (apply eq_true to fi_less_fy).
+            }
+            have rhs_zero: i / y = zero by {
+              expand operator/
+              replace (apply eq_true to i_less_y).
+            }
+            replace lhs_zero | rhs_zero
+            expand lit.
+          }
+          case false assume i_y_f {
+            have not_i_y: not (i < y) by i_y_f
+            have y_le_i: y ≤ i by apply not_less_implies_less_equal to not_i_y
+            have not_fi_fy: not (fromNat(i) < fromNat(y)) by {
+              assume fi_fy
+              have A: toNat(fromNat(i)) < toNat(fromNat(y)) by apply toNat_less to fi_fy
+              have i_less_y: i < y by replace uint_toNat_fromNat in A
+              apply not_i_y to i_less_y
+            }
+            have monus_eq: fromNat(i) ∸ fromNat(y) = fromNat(i ∸ y) by {
+              suffices toNat(fromNat(i) ∸ fromNat(y)) = toNat(fromNat(i ∸ y))
+                by uint_toNat_injective
+              replace toNat_monus | uint_toNat_fromNat.
+            }
+            have im_less_i: i ∸ y < i by {
+              suffices y + (i ∸ y) < y + i by add_both_sides_of_less[y, i ∸ y, i]
+              suffices i < y + i by replace apply monus_add_identity[i, y] to y_le_i.
+              replace add_commute[y, i]
+              apply nat_less_add_pos[i, y] to y_pos
+            }
+            have ih_app: P(i ∸ y) by apply IH to im_less_i
+            have ih_eq: fromNat(i ∸ y) / fromNat(y) = fromNat((i ∸ y) / y)
+              by expand P in ih_app
+            have rhs_step: i / y = suc(zero) + (i ∸ y) / y by {
+              equations
+                i / y
+                    = suc(zero) + (i ∸ y) / y by {
+                        expand operator/
+                        replace (apply eq_false to not_i_y)
+                              | (apply eq_false to y_ne_zero).
+                      }
+            }
+            equations
+              fromNat(i) / fromNat(y)
+                  = 1 + (fromNat(i) ∸ fromNat(y)) / fromNat(y)   by {
+                      expand operator/
+                      replace (apply eq_false to not_fi_fy)
+                            | (apply eq_false to fy_ne_zero).
+                    }
+              ... = 1 + fromNat(i ∸ y) / fromNat(y)              by replace monus_eq.
+              ... = 1 + fromNat((i ∸ y) / y)                     by replace ih_eq.
+              ... = fromNat(lit(suc(zero)) + (i ∸ y) / y)        by symmetric fromNat_add[lit(suc(zero)), (i ∸ y) / y]
+              ... = fromNat(suc(zero) + (i ∸ y) / y)             by expand lit.
+              ... = # fromNat(i / y) #                           by replace rhs_step.
+          }
+        }
+      }
+      arbitrary x:Nat
+      have hx: P(x) by apply strong_induction[P, x] to SI
+      expand P in hx
+    }
+  }
+  arbitrary x:Nat, y:Nat
+  lem[y, x]
+end
+
+theorem uint_lit_div: all x:Nat, y:Nat. (fromNat(lit(x)) / fromNat(lit(y))) = fromNat(lit(x) / lit(y))
+proof
+  arbitrary x:Nat, y:Nat
+  fromNat_div[lit(x), lit(y)]
+end
 
 auto uint_lit_div
