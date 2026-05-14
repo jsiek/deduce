@@ -35,10 +35,11 @@ make              # tests + tests-lib (default)
 `test-deduce.py` is the higher-level harness used in CI:
 
 ```sh
-python test-deduce.py                  # default: lib + should-validate + should-error + prelude
+python test-deduce.py                  # default: lib + should-validate + should-error + prelude + parser equivalence
 python test-deduce.py --lib            # only ./lib
 python test-deduce.py --passable       # only test/should-validate
 python test-deduce.py --errors         # only test/should-error (diff vs .err files)
+python test-deduce.py --equiv          # compare RD/LALR ASTs for accepted lib + should-validate files
 python test-deduce.py --parser         # only test/parse (parser-error fixtures)
 python test-deduce.py --site           # generates and checks doc code from gh_pages/doc
 

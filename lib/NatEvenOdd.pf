@@ -6,6 +6,13 @@ import NatAdd
 import NatMult
 
 /*
+  Nat parity support.
+
+  `is_even` and `is_odd` compute boolean parity, while `EvenNat` and
+  `OddNat` are existential propositions useful in proofs.
+*/
+
+/*
  Odd and Even Numbers
  */
 
@@ -224,4 +231,3 @@ proof
     fwd, bkwd
   }
 end
-

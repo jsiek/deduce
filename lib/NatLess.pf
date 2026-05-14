@@ -8,6 +8,15 @@ import NatMonus
 import NatMult
 
 /*
+  Theorems about Nat order.
+
+  The primitive order is boolean-valued. This file connects `<` and
+  `≤`, proves reflexivity/transitivity/antisymmetry and arithmetic
+  monotonicity, and supplies common comparison lemmas used across the
+  numeric library.
+*/
+
+/*
  Properties of Less-Than, Greater∸Than, etc.
 */
 

@@ -6,6 +6,14 @@ import NatMult
 import NatLess
 
 /*
+  Finite summation over Nat ranges.
+
+  `summation(k, s, f)` sums `f(s)`, ..., `f(s + k - 1)`. Theorems
+  here cover congruence, splitting off the next term, and
+  distributing summation over addition.
+*/
+
+/*
  Properties of Summation
  */
 
@@ -198,4 +206,3 @@ proof
   }
   replace add_commute[suc(zero),n] | C | D.
 end
-

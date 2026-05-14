@@ -3,6 +3,15 @@ module UInt
 import Base
 import Nat
 
+/*
+  Core UInt definitions.
+
+  UInt uses a binary representation inspired by the Agda standard
+  library. The representation is opaque to clients; the public API
+  exposes arithmetic and order while `toNat` provides the specification
+  used in many proofs.
+*/
+
 // This follows the representation for binary numbers in the Agda
 // standard library. The representation is not the standard one, but
 // it is easier to work with.
@@ -13,12 +22,14 @@ opaque union UInt {
   inc_dub(UInt) // 1 + 2x
 }
 
+// Interpret a UInt as a Nat.
 opaque recursive toNat(UInt) -> Nat {
   toNat(bzero) = ℕ0
   toNat(dub_inc(x)) = ℕ2 * suc(toNat(x))
   toNat(inc_dub(x)) = suc(ℕ2 * toNat(x))
 }
 
+// Sanity checks documenting the first few binary representations.
 assert toNat(bzero)                   = ℕ0    //   0
 assert toNat(inc_dub(bzero))          = ℕ1    //   1
 assert toNat(dub_inc(bzero))          = ℕ2    //  10
@@ -198,4 +209,3 @@ fun min(x : UInt, y : UInt) {
   if x < y then x
   else y
 }
-

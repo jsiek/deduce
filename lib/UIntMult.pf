@@ -7,6 +7,14 @@ import UIntToFrom
 import UIntLess
 import UIntAdd
 
+/*
+  Theorems about UInt multiplication.
+
+  As with addition, the main specification theorem shows that UInt
+  multiplication agrees with Nat multiplication under `toNat`; the
+  rest of the file builds the usual algebraic and order facts.
+*/
+
 theorem toNat_mult: all x:UInt, y:UInt.
   toNat(x * y) = toNat(x) * toNat(y)
 proof
@@ -270,4 +278,74 @@ proof
   suffices toNat(n * x) < toNat(n * y) by less_toNat
   replace toNat_mult
   apply pos_mult_both_sides_of_less to zn, xy
+end
+
+theorem uint_pos_mult_left_cancel: all n:UInt, x:UInt, y:UInt.
+  (if 0 < n and n * x = n * y then x = y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  assume prem
+  have zn0: toNat((0:UInt)) < toNat(n) by apply toNat_less to (conjunct 0 of prem)
+  have toNat_zero: toNat((0:UInt)) = ℕ0 by evaluate
+  have zn: ℕ0 < toNat(n) by replace toNat_zero in zn0
+  have nxy: toNat(n) * toNat(x) = toNat(n) * toNat(y) by {
+    have xy: toNat(n * x) = toNat(n * y) by replace (conjunct 1 of prem).
+    replace symmetric toNat_mult[n, x] | symmetric toNat_mult[n, y]
+    xy
+  }
+  have xy: toNat(x) = toNat(y) by apply pos_mult_left_cancel[toNat(n), toNat(x), toNat(y)] to zn, nxy
+  apply uint_toNat_injective to xy
+end
+
+theorem uint_pos_mult_right_cancel: all n:UInt, x:UInt, y:UInt.
+  (if 0 < n and x * n = y * n then x = y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  replace uint_mult_commute[x, n] | uint_mult_commute[y, n]
+  uint_pos_mult_left_cancel
+end
+
+theorem uint_pos_mult_left_cancel_less: all n:UInt, x:UInt, y:UInt.
+  (if 0 < n and n * x < n * y then x < y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  assume prem
+  have nxy: toNat(n) * toNat(x) < toNat(n) * toNat(y) by {
+    have xy: toNat(n * x) < toNat(n * y) by apply toNat_less to (conjunct 1 of prem)
+    replace toNat_mult in xy
+  }
+  have xy: toNat(x) < toNat(y) by apply mult_cancel_left_less to nxy
+  apply less_toNat to xy
+end
+
+theorem uint_pos_mult_right_cancel_less: all n:UInt, x:UInt, y:UInt.
+  (if 0 < n and x * n < y * n then x < y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  replace uint_mult_commute[x, n] | uint_mult_commute[y, n]
+  uint_pos_mult_left_cancel_less
+end
+
+theorem uint_pos_mult_left_cancel_less_equal: all n:UInt, x:UInt, y:UInt.
+  (if 0 < n and n * x ≤ n * y then x ≤ y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  assume prem
+  have zn0: toNat((0:UInt)) < toNat(n) by apply toNat_less to (conjunct 0 of prem)
+  have toNat_zero: toNat((0:UInt)) = ℕ0 by evaluate
+  have zn: ℕ0 < toNat(n) by replace toNat_zero in zn0
+  have nxy: toNat(n) * toNat(x) ≤ toNat(n) * toNat(y) by {
+    have xy: toNat(n * x) ≤ toNat(n * y) by apply toNat_less_equal to (conjunct 1 of prem)
+    replace toNat_mult in xy
+  }
+  have xy: toNat(x) ≤ toNat(y) by apply pos_mult_left_cancel_less_equal[toNat(n), toNat(x), toNat(y)] to zn, nxy
+  apply less_equal_toNat to xy
+end
+
+theorem uint_pos_mult_right_cancel_less_equal: all n:UInt, x:UInt, y:UInt.
+  (if 0 < n and x * n ≤ y * n then x ≤ y)
+proof
+  arbitrary n:UInt, x:UInt, y:UInt
+  replace uint_mult_commute[x, n] | uint_mult_commute[y, n]
+  uint_pos_mult_left_cancel_less_equal
 end

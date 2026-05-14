@@ -1306,92 +1306,154 @@ def _check_rule_induction_or_inversion(proof, goal, env, is_inversion):
 
   _try_check_proof_of(desugared, goal, env)
 
+def _check_proof_of_hole(proof, formula, env):
+  loc = proof.location
+  new_formula = check_formula(remove_mark(formula), env)
+  # Uncommented by i ran into a proof where I had to prove
+  # (A = A or A = B) which should have just reduced to A = A
+  # but it didn't.
+  # new_formula = new_formula.reduce(env)
+  target = get_target_hole_location()
+  if target is not None and (loc.line, loc.column) != target:
+    return
+  add_incomplete(loc, style.bold_red('incomplete proof') + '\n' \
+                   + style.orange('Goal:') + '\n\t' + str(new_formula) + '\n'\
+                   + proof_advice(new_formula, env) \
+                   + givens_str(env),
+                   formula=new_formula, env=env)
+
+def _check_proof_of_sorry(proof, formula, env):
+  warning(proof.location, 'unfinished proof')
+
+def _check_proof_of_reflexive(proof, formula, env):
+  match formula:
+    case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      lhsNF = lhs.reduce(env)
+      rhsNF = rhs.reduce(env)
+      if lhsNF != rhsNF:
+        (small_lhs, small_rhs) = isolate_difference(lhsNF, rhsNF)
+        msg = 'error in proof by reflexive:\n'
+        if small_lhs == lhsNF:
+          msg = msg + str(lhsNF) + ' ≠ ' + str(rhsNF)
+        else:
+          msg = msg + str(small_lhs) + ' ≠ ' + str(small_rhs) + '\n' \
+            + 'therefore\n' + str(lhsNF) + ' ≠ ' + str(rhsNF)
+        user_error(proof.location, msg + '\n' + givens_str(env))
+    case _:
+      add_diagnostic(proof.location,
+                     'reflexive proves an equality, not\n\t' \
+                     + str(formula) \
+                     + givens_str(env))
+
+def _check_proof_of_symmetric(proof, formula, env):
+  loc = proof.location
+  (a,b) = split_equation(loc, formula, env)
+  flip_formula = mkEqual(loc, b, a)
+  _try_check_proof_of(proof.body, flip_formula, env)
+
+def _check_proof_of_transitive(proof, formula, env):
+  loc = proof.location
+  (a1,c) = split_equation(loc, formula, env)
+
+  eq1 = check_proof(proof.first, env)
+  (a2,b) = split_equation(loc, eq1, env)
+
+  _try_check_proof_of(proof.second, mkEqual(loc, b, c), env)
+
+  a1r = a1.reduce(env)
+  a2r = a2.reduce(env)
+  if remove_mark(a1r) != remove_mark(a2r):
+    add_diagnostic(loc, 'for transitive, from proofs of\n'
+          + '\t' + str(eq1) + '\n'
+          + 'and\n'
+          + '\t' + str(b) + ' = ' + str(c) + '\n'
+          + 'the transitive rule concludes\n\t' + str(a2) + ' = ' + str(c) + '\n'
+          + 'but that does not match the goal\n\t' + str(formula) + '\n'
+          + givens_str(env))
+
+def _check_proof_of_extensionality(proof, formula, env):
+  loc = proof.location
+  (lhs,rhs) = split_equation(loc, formula, env)
+  match lhs.typeof:
+    case FunctionType(loc2, [], typs, ret_ty):
+      names = [generate_proof_name('x') for ty in typs]
+      args = [ResolvedVar(loc, None, x) for x in names]
+      call_lhs = Call(loc, None, lhs, args)
+      call_rhs = Call(loc, None, rhs, args)
+      formula = mkEqual(loc, call_lhs, call_rhs)
+      for i, v in enumerate(reversed(list(zip(names, typs)))):
+        formula = All(loc, None, v, (i, len(names)), formula)
+      _try_check_proof_of(proof.body, formula, env)
+    case FunctionType(loc2, ty_params, params, ret_ty):
+      add_diagnostic(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params))
+            + givens_str(env))
+    case _:
+      add_diagnostic(loc, 'extensionality expects a function, not ' + str(lhs.typeof)
+            + givens_str(env))
+
+def _check_proof_of_evaluate_goal(proof, formula, env):
+  loc = proof.location
+  set_reduce_all(True)
+  set_dont_reduce_opaque(True)
+  red_formula = remove_mark(formula).reduce(env)
+  set_reduce_all(False)
+  set_dont_reduce_opaque(False)
+  if red_formula != Bool(loc, None, True):
+    add_diagnostic(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
+          + str(red_formula)
+          + givens_str(env))
+
+def _check_proof_of_rewrite_goal(proof, formula, env):
+  loc = proof.location
+  equations = [check_proof(proof, env) for proof in proof.equations]
+  eqns = [equation.reduce(env) for equation in equations]
+  new_formula = formula.reduce(env)
+  new_formula = apply_rewrites(loc, new_formula, eqns, env,
+                               display_formula=formula)
+  _try_check_proof_of(proof.body, new_formula, env)
+
+def _check_proof_of_simplify_goal(proof, formula, env):
+  loc = proof.location
+  preds = [check_proof(proof, env) for proof in proof.givens]
+  equations = [pred_to_equality(loc, p) for p in preds]
+  eqns = [equation.reduce(env) for equation in equations]
+  new_formula = apply_rewrites(loc, formula, eqns, env)
+  new_formula = new_formula.reduce(env)
+  _try_check_proof_of(proof.body, new_formula, env)
+
+def _check_proof_of_apply_defs_goal(proof, formula, env):
+  loc = proof.location
+  new_formula = expand_definitions(loc, formula, proof.definitions, env)
+  red_formula = new_formula.reduce(env)
+  try:
+    _try_check_proof_of(proof.body, red_formula, env)
+  except UserError as e:
+    hint = expand_residual_hint(red_formula, proof.definitions, env)
+    if hint:
+      raise wrap_user_error(e, hint) from e
+    raise
+
+_CHECK_PROOF_OF_HANDLERS = {
+  PHole: _check_proof_of_hole,
+  PSorry: _check_proof_of_sorry,
+  PReflexive: _check_proof_of_reflexive,
+  PSymmetric: _check_proof_of_symmetric,
+  PTransitive: _check_proof_of_transitive,
+  PExtensionality: _check_proof_of_extensionality,
+  EvaluateGoal: _check_proof_of_evaluate_goal,
+  RewriteGoal: _check_proof_of_rewrite_goal,
+  SimplifyGoal: _check_proof_of_simplify_goal,
+  ApplyDefsGoal: _check_proof_of_apply_defs_goal,
+}
+
 def check_proof_of(proof, formula, env):
   if get_verbose():
     print('check_proof_of: ' + str(formula) + '?')
     print('\t' + str(proof))
+  handler = _CHECK_PROOF_OF_HANDLERS.get(type(proof))
+  if handler is not None:
+    return handler(proof, formula, env)
   match proof:
-    case PHole(loc):
-      new_formula = check_formula(remove_mark(formula), env)
-      # Uncommented by i ran into a proof where I had to prove
-      # (A = A or A = B) which should have just reduced to A = A
-      # but it didn't.
-      # new_formula = new_formula.reduce(env)
-      target = get_target_hole_location()
-      if target is not None and (loc.line, loc.column) != target:
-        return
-      add_incomplete(loc, style.bold_red('incomplete proof') + '\n' \
-                       + style.orange('Goal:') + '\n\t' + str(new_formula) + '\n'\
-                       + proof_advice(new_formula, env) \
-                       + givens_str(env),
-                       formula=new_formula, env=env)
-
-    case PSorry(loc):
-      warning(loc, 'unfinished proof')
-      
-    case PReflexive(loc):
-      match formula:
-        case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
-          lhsNF = lhs.reduce(env)
-          rhsNF = rhs.reduce(env)
-          if lhsNF != rhsNF:
-            (small_lhs, small_rhs) = isolate_difference(lhsNF, rhsNF)
-            msg = 'error in proof by reflexive:\n'
-            if small_lhs == lhsNF:
-              msg = msg + str(lhsNF) + ' ≠ ' + str(rhsNF)
-            else:
-              msg = msg + str(small_lhs) + ' ≠ ' + str(small_rhs) + '\n' \
-                + 'therefore\n' + str(lhsNF) + ' ≠ ' + str(rhsNF)
-            user_error(proof.location, msg + '\n' + givens_str(env))
-        case _:
-          add_diagnostic(proof.location,
-                         'reflexive proves an equality, not\n\t' \
-                         + str(formula) \
-                         + givens_str(env))
-          
-    case PSymmetric(loc, eq_pf):
-      (a,b) = split_equation(loc, formula, env)
-      flip_formula = mkEqual(loc, b, a)
-      _try_check_proof_of(eq_pf, flip_formula, env)
-
-    case PTransitive(loc, eq_pf1, eq_pf2):
-      (a1,c) = split_equation(loc, formula, env)
-      
-      eq1 = check_proof(eq_pf1, env)
-      (a2,b) = split_equation(loc, eq1, env)
-      
-      _try_check_proof_of(eq_pf2, mkEqual(loc, b, c), env)
-      
-      a1r = a1.reduce(env)
-      a2r = a2.reduce(env)
-      if remove_mark(a1r) != remove_mark(a2r):
-        add_diagnostic(loc, 'for transitive, from proofs of\n'
-              + '\t' + str(eq1) + '\n'
-              + 'and\n' 
-              + '\t' + str(b) + ' = ' + str(c) + '\n'
-              + 'the transitive rule concludes\n\t' + str(a2) + ' = ' + str(c) + '\n'
-              + 'but that does not match the goal\n\t' + str(formula) + '\n' 
-              + givens_str(env))
-
-    case PExtensionality(loc, proof):
-      (lhs,rhs) = split_equation(loc, formula, env)
-      match lhs.typeof:
-        case FunctionType(loc2, [], typs, ret_ty):
-          names = [generate_proof_name('x') for ty in typs]
-          args = [ResolvedVar(loc, None, x) for x in names]
-          call_lhs = Call(loc, None, lhs, args)
-          call_rhs = Call(loc, None, rhs, args)
-          formula = mkEqual(loc, call_lhs, call_rhs)
-          for i, v in enumerate(reversed(list(zip(names, typs)))):
-            formula = All(loc, None, v, (i, len(names)), formula)
-          _try_check_proof_of(proof, formula, env)
-        case FunctionType(loc2, ty_params, params, ret_ty):
-          add_diagnostic(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params))
-                + givens_str(env))
-        case _:
-          add_diagnostic(loc, 'extensionality expects a function, not ' + str(lhs.typeof)
-                + givens_str(env))
-      
     case AllIntro(loc, var, _, body):
       x, ty = var
       check_type(ty, env)
@@ -1537,17 +1599,6 @@ def check_proof_of(proof, formula, env):
           check_implies(loc, remove_mark(claim_red).reduce(env),
                         remove_mark(formula_red).reduce(env))
           _try_check_proof_of(reason, claim_red, env)
-
-    case EvaluateGoal(loc):
-      set_reduce_all(True)
-      set_dont_reduce_opaque(True)
-      red_formula = remove_mark(formula).reduce(env)
-      set_reduce_all(False)
-      set_dont_reduce_opaque(False)
-      if red_formula != Bool(loc, None, True):
-          add_diagnostic(loc, 'the goal did not evaluate to `true`, but instead:\n\t' \
-                + str(red_formula)
-                + givens_str(env))
 
     #  goal is P
     #  suffices Q by r        r proves (if Q then P)
@@ -1923,33 +1974,6 @@ def check_proof_of(proof, formula, env):
               add_diagnostic(loc, "switch expected union type or bool, not " + str(ty)
                     + givens_str(env))
           
-    case RewriteGoal(loc, equation_proofs, body):
-      equations = [check_proof(proof, env) for proof in equation_proofs]
-      eqns = [equation.reduce(env) for equation in equations]
-      new_formula = formula.reduce(env)
-      new_formula = apply_rewrites(loc, new_formula, eqns, env,
-                                   display_formula=formula)
-      _try_check_proof_of(body, new_formula, env)
-
-    case SimplifyGoal(loc, body, givens):
-      preds = [check_proof(proof, env) for proof in givens]
-      equations = [pred_to_equality(loc, p) for p in preds]
-      eqns = [equation.reduce(env) for equation in equations]
-      new_formula = apply_rewrites(loc, formula, eqns, env)
-      new_formula = new_formula.reduce(env)
-      _try_check_proof_of(body, new_formula, env)
-      
-    case ApplyDefsGoal(loc, defs, body):
-      new_formula = expand_definitions(loc, formula, defs, env)
-      red_formula = new_formula.reduce(env)
-      try:
-        _try_check_proof_of(body, red_formula, env)
-      except UserError as e:
-        hint = expand_residual_hint(red_formula, defs, env)
-        if hint:
-          raise wrap_user_error(e, hint) from e
-        raise
-
     case _:
       try:
         form = check_proof(proof, env)

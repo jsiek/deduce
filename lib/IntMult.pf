@@ -6,6 +6,14 @@ import Base
 import IntDefs
 import IntAddSub
 
+/*
+  Theorems about Int multiplication.
+
+  Multiplication is defined by combining signs and multiplying
+  absolute values; these proofs establish the expected sign cases and
+  algebraic laws.
+*/
+
 // Properties of Multiplication
 
 lemma mult_pos_pos: all x:UInt, y:UInt. pos(x) * pos(y) = pos(x * y)

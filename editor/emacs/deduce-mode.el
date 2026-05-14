@@ -293,6 +293,46 @@ at true symbol edges."
   "Font-lock keywords for `deduce-mode'.")
 
 
+(defun deduce-mode--identifier-char-p (pos)
+  "Return non-nil if POS is on a Deduce identifier character."
+  (and (<= (point-min) pos)
+       (< pos (point-max))
+       (memq (char-syntax (char-after pos)) '(?w ?_))))
+
+(defun deduce-mode--standalone-hole-at-p (pos)
+  "Return non-nil if POS is a standalone proof hole."
+  (and (eq (char-after pos) ??)
+       (not (deduce-mode--identifier-char-p (1- pos)))
+       (not (deduce-mode--identifier-char-p (1+ pos)))))
+
+(defun deduce-mode--search-next-hole (limit)
+  "Search forward for the next standalone proof hole before LIMIT."
+  (let ((found nil))
+    (while (and (not found)
+                (search-forward "?" limit t))
+      (when (deduce-mode--standalone-hole-at-p (1- (point)))
+        (setq found t)))
+    found))
+
+(defun deduce-mode-next-hole ()
+  "Move point to the next standalone `?' proof hole.
+
+Search starts after point and wraps once at end of buffer."
+  (interactive)
+  (let ((start (point))
+        found)
+    (unless (eobp)
+      (forward-char 1))
+    (setq found (deduce-mode--search-next-hole nil))
+    (unless found
+      (goto-char (point-min))
+      (setq found (deduce-mode--search-next-hole start)))
+    (if found
+        (goto-char (match-beginning 0))
+      (goto-char start)
+      (user-error "No proof hole found"))))
+
+
 (defvar deduce-mode-syntax-table
   (let ((st (make-syntax-table)))
     ;; Comment markers.  `/' is the first character of `/*' (start
@@ -368,6 +408,8 @@ steps; LSP integration lives in `deduce-lsp.el'.
   ;; Indentation (Step 3).  TAB and (via electric-indent-mode) RET
   ;; both call this.
   (setq-local indent-line-function #'deduce-mode-indent-line))
+
+(define-key deduce-mode-map (kbd "C-c C-n") #'deduce-mode-next-hole)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.pf\\'" . deduce-mode))

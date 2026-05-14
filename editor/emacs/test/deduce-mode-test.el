@@ -183,6 +183,34 @@ and `Pos' default-faced inside `Foo<Bar>'."
               'font-lock-warning-face)))
 
 
+(ert-deftest deduce-mode/next-hole-bound-to-c-c-c-n ()
+  "`C-c C-n' in deduce-mode-map runs `deduce-mode-next-hole'."
+  (should (eq (lookup-key deduce-mode-map (kbd "C-c C-n"))
+              #'deduce-mode-next-hole)))
+
+
+(ert-deftest deduce-mode/next-hole-moves-to-next-standalone-question-mark ()
+  "Move to the next hole, skipping identifier suffixes."
+  (with-temp-buffer
+    (insert "define done?: bool = true\nproof\n  ?\n  ?\nend\n")
+    (deduce-mode)
+    (goto-char (point-min))
+    (deduce-mode-next-hole)
+    (should (= (line-number-at-pos) 3))
+    (deduce-mode-next-hole)
+    (should (= (line-number-at-pos) 4))))
+
+
+(ert-deftest deduce-mode/next-hole-wraps-once ()
+  "At the last hole, move to the first hole in the buffer."
+  (with-temp-buffer
+    (insert "proof\n  ?\n  ?\nend\n")
+    (deduce-mode)
+    (goto-char (point-max))
+    (deduce-mode-next-hole)
+    (should (= (line-number-at-pos) 2))))
+
+
 (ert-deftest deduce-mode/sorry-gets-warning-face ()
   (should (eq (deduce-mode-test--face-at
                "sorry"

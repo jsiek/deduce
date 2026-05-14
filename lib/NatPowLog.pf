@@ -10,6 +10,13 @@ import NatLess
 import NatDiv
 
 /*
+  Theorems about powers of two, exponentiation, square, and logarithm.
+
+  The file starts from `pow2` and then develops the facts needed to
+  reason about `^`, `sqr`, and `log` over Nat.
+*/
+
+/*
  Properties of pow2
  */
  
@@ -589,4 +596,3 @@ proof
   }
   apply pos_find_log2_greater[n, n, zero] to prem
 end
-

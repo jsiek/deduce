@@ -1,10 +1,16 @@
 module Option
 
+/*
+  Optional values. `none` represents absence; `just(x)` represents a
+  present value.
+*/
+
 union Option<T> {
   none
   just(T)
 }
 
+// Map a function over a present optional value.
 fun after<T,U>(o : Option<T>, f : fn (T) -> U) {
   switch o {
     case none { @none<U> }
@@ -12,6 +18,7 @@ fun after<T,U>(o : Option<T>, f : fn (T) -> U) {
   }
 }
 
+// Return the contained value, or the supplied default when it is absent.
 fun default<T>(o : Option<T>, y : T) {
   switch o {
     case none { y }
