@@ -20,4 +20,3 @@ Advice:
 		case suc(N1) assume IH1: (all y:Nat, z:Nat. (N1 + (y + z)) + ℕ0 = (N1 + y) + z) {
 		  ?
 		}
-

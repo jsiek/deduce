@@ -1,0 +1,73 @@
+import Nat
+import List
+
+union JList<T> {
+  JNil
+  Unit(T)
+  Join(JList<T>, JList<T>)
+}
+
+union JConsView<T> {
+  JViewNil
+  JViewCons(T, JList<T>)
+}
+
+fun jjoin<T>(left:JList<T>, right:JList<T>) {
+  switch left {
+    case JNil { right }
+    case Unit(x) { Join(left, right) }
+    case Join(l, r) { Join(left, right) }
+  }
+}
+
+recursive join_view<T>(JList<T>) -> JConsView<T> {
+  join_view(JNil) = JViewNil
+  join_view(Unit(x)) = JViewCons(x, JNil)
+  join_view(Join(left, right)) =
+    switch join_view(left) {
+      case JViewNil { join_view(right) }
+      case JViewCons(x, rest) { JViewCons(x, jjoin(rest, right)) }
+    }
+}
+
+fun join_unview<T>(v:JConsView<T>) {
+  switch v {
+    case JViewNil { @JNil<T> }
+    case JViewCons(x, rest) { Join(Unit(x), rest) }
+  }
+}
+
+theorem join_view_unview: all T:type, v:JConsView<T>.
+  join_view(join_unview(v)) = v
+proof
+  arbitrary T:type, v:JConsView<T>
+  switch v {
+    case JViewNil {
+      evaluate
+    }
+    case JViewCons(x, rest) {
+      evaluate
+    }
+  }
+end
+
+view JCons<T> {
+  source JList<T>
+  target JConsView<T>
+  into join_view
+  out join_unview
+  roundtrip join_view_unview
+}
+
+recursive to_list<T>(JCons<T>) -> List<T> {
+  to_list(JViewNil) = []
+  to_list(JViewCons(x, rest)) = node(x, to_list(rest))
+}
+
+theorem to_list_join_example:
+  to_list(Join(Unit(ℕ1), Join(JNil, Unit(ℕ2)))) = [ℕ1, ℕ2]
+proof
+  evaluate
+end
+
+print to_list(Join(Unit(ℕ1), Join(JNil, Unit(ℕ2))))

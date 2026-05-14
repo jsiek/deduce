@@ -1,0 +1,1 @@
+./test/should-error/uint_viewrec_missing_case.pf:3.1-5.2: recursive function using view UInt is missing a view case for UIntSucc

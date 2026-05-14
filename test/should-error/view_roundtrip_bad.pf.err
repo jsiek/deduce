@@ -1,0 +1,4 @@
+./test/should-error/view_roundtrip_bad.pf:28.1-34.2: view roundtrip proof not_the_view_law proves
+	(all v:NView. n_unview(v) = n_unview(v))
+but expected
+	(all v:NView. n_view(n_unview(v)) = v)

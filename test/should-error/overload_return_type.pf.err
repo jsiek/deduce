@@ -1,7 +1,7 @@
 ./test/should-error/overload_return_type.pf:7.18-7.23: could not find a match for function call:
 	1 + 2
-argument types: UInt, UInt
+argument types: Binary, Binary
 expected return type: Nat
 overloads:
 	(fn Nat, Nat -> Nat)   <-- result type matches, but argument types don't
-	(fn UInt, UInt -> UInt)   <-- argument types match, but result type UInt doesn't match expected Nat
+	(fn Binary, Binary -> Binary)   <-- argument types match, but result type Binary doesn't match expected Nat

@@ -15,4 +15,3 @@ Advice:
 		case suc(N1) assume IH1: suc(length(null)) = length(cons(N1, null)) {
 		  ?
 		}
-

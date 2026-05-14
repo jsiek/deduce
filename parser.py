@@ -356,7 +356,6 @@ def parse_tree_to_ast(e, parent):
         e1 , e2 = e.children
         return Switch(e.meta, None, parse_tree_to_ast(e1, e),
                       parse_tree_to_list(e2, e))
-    
     # proofs
     if e.data == 'proof_var':
         return PVar(e.meta, str(e.children[0].value))
@@ -661,21 +660,30 @@ def parse_tree_to_ast(e, parent):
     
     # theorem definitions
     elif e.data == 'theorem':
-        return Theorem(e.meta,
-                       str(e.children[0].value),
-                       parse_tree_to_ast(e.children[1], e),
-                       parse_tree_to_ast(e.children[2], e),
-                       False)
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = Theorem(e.meta,
+                            str(e.children[1].value),
+                            parse_tree_to_ast(e.children[2], e),
+                            parse_tree_to_ast(e.children[3], e),
+                            False)
+        set_visibility(statement, visibility)
+        return statement
     elif e.data == 'lemma':
-        return Theorem(e.meta,
-                       str(e.children[0].value),
-                       parse_tree_to_ast(e.children[1], e),
-                       parse_tree_to_ast(e.children[2], e),
-                       True)
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = Theorem(e.meta,
+                            str(e.children[1].value),
+                            parse_tree_to_ast(e.children[2], e),
+                            parse_tree_to_ast(e.children[3], e),
+                            True)
+        set_visibility(statement, visibility)
+        return statement
     elif e.data == 'postulate':
-        return Postulate(e.meta,
-                         str(e.children[0].value),
-                         parse_tree_to_ast(e.children[1], e))
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = Postulate(e.meta,
+                              str(e.children[1].value),
+                              parse_tree_to_ast(e.children[2], e))
+        set_visibility(statement, visibility)
+        return statement
     elif e.data == 'assoc_decl':
         op_var = parse_tree_to_ast(e.children[0], e)
         typarams = parse_tree_to_list(e.children[1], e)
@@ -763,6 +771,19 @@ def parse_tree_to_ast(e, parent):
                               parse_tree_to_ast(e.children[6], e),
                               parse_tree_to_ast(e.children[7], e),
                               parse_tree_to_ast(e.children[8], e))
+        set_visibility(statement, visibility)
+        return statement
+
+    elif e.data == 'view_decl':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = ViewDecl(e.meta,
+                             str(e.children[1]),
+                             parse_tree_to_list(e.children[2], e),
+                             parse_tree_to_ast(e.children[3], e),
+                             parse_tree_to_ast(e.children[4], e),
+                             parse_tree_to_ast(e.children[5], e),
+                             parse_tree_to_ast(e.children[6], e),
+                             parse_tree_to_ast(e.children[7], e))
         set_visibility(statement, visibility)
         return statement
         

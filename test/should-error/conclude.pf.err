@@ -5,4 +5,3 @@ Advice:
 	Prove "false" by proving a contradiction:
 	if you prove both "P" and "not P", 
 	then "contradict (recall not P), (recall P)" proves "false".
-

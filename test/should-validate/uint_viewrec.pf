@@ -1,0 +1,15 @@
+import UInt
+import List
+
+fun keep(n:UInt) {
+  n
+}
+
+assert keep(2) = 2
+
+recursive replicate<T>(UInt, T) -> List<T> {
+  replicate(UIntZero, x) = []
+  replicate(UIntSucc(p), x) = node(x, replicate(p, x))
+}
+
+print replicate(3, 42)

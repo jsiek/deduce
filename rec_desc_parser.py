@@ -1494,6 +1494,39 @@ def parse_gen_rec_function(visibility):
     raise ParseError(meta_from_tokens(start_token, previous_token()),
                      "Unexpected error while parsing:\n\t" + str(e))
 
+def parse_view_decl(visibility):
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "view" identifier type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    typarams = parse_type_parameters()
+
+    consume_token('LBRACE', '"{"', context='after view name')
+    consume_token('SOURCE', '"source"', context='inside view declaration')
+    source = parse_type()
+    consume_token('TARGET', '"target"', context='inside view declaration')
+    target = parse_type()
+    consume_token('INTO', '"into"', context='inside view declaration')
+    into = parse_identifier()
+    consume_token('OUT', '"out"', context='inside view declaration')
+    out = parse_identifier()
+    consume_token('ROUNDTRIP', '"roundtrip"', context='inside view declaration')
+    roundtrip = parse_identifier()
+    consume_token('RBRACE', '"}"', context='after view declaration')
+
+    meta = meta_from_tokens(start_token, previous_token())
+    return ViewDecl(meta, name, typarams, source, target, into, out,
+                    roundtrip, visibility=visibility)
+
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
 def parse_recursive_function(visibility):
   while_parsing = 'while parsing\n' \
       + '\tstatement ::= "recursive" identifier type_params_opt' \
@@ -1554,7 +1587,7 @@ def parse_define(visibility):
 
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
-                      'relation', 'fun', 'trace', 'union' }
+                      'relation', 'fun', 'trace', 'union', 'view' }
 
 def parse_statement():
   if end_of_file():
@@ -1590,6 +1623,9 @@ def parse_statement():
 
   elif token.type == 'RECFUN':
     return parse_gen_rec_function(visibility)
+
+  elif token.type == 'VIEW':
+    return parse_view_decl(visibility)
 
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \

@@ -2646,6 +2646,110 @@ var_list ::= ident "," var_list
 A comma-separated list of variable declarations. Each variable may
 optionally be annotated with its type.
 
+## View (Statement)
+
+```
+statement ::= visibility "view" identifier type_params_opt "{"
+                "source" type
+                "target" type
+                "into" identifier
+                "out" identifier
+                "roundtrip" identifier
+              "}"
+
+statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")"
+                "->" type "{" fun_case+ "}"
+```
+
+A `view` declaration describes how to pattern match on a value through
+another union type. The `source` is the type being viewed, and the
+`target` is the union type whose constructors may appear in the
+recursive function cases. The `into` function converts from the source
+type to the target type, and the `out` function converts a target value
+back to a source value.
+
+The `roundtrip` name must refer to a theorem that proves:
+
+```
+all v:Target. into(out(v)) = v
+```
+
+For a generic view, the theorem must quantify the type parameters
+first:
+
+```
+all T:type, v:Target<T>. into(out(v)) = v
+```
+
+Deduce checks that the `into` and `out` functions have the expected
+types, and that the `roundtrip` theorem proves the expected formula.
+The opposite direction, `out(into(x)) = x`, is not required. This
+allows a view to forget representation details while still presenting
+a complete pattern-matching interface.
+
+The view name can be used wherever a type is expected. In ordinary type
+positions it stands for the view's source type. When it appears as the
+first parameter type of a `recursive` function, Deduce checks the cases
+against the view's target constructors instead of the source
+representation's constructors.
+
+The following example defines a simple predecessor view for a unary
+number type, then uses the normal `recursive` syntax to recurse
+through that view.
+
+```{.deduce^#view_example}
+union Unary {
+  UZero
+  USucc(Unary)
+}
+
+union UnaryView {
+  ViewZero
+  ViewSucc(Unary)
+}
+
+fun unary_into(n:Unary) {
+  switch n {
+    case UZero { ViewZero }
+    case USucc(p) { ViewSucc(p) }
+  }
+}
+
+fun unary_out(v:UnaryView) {
+  switch v {
+    case ViewZero { UZero }
+    case ViewSucc(p) { USucc(p) }
+  }
+}
+
+theorem unary_roundtrip: all v:UnaryView. unary_into(unary_out(v)) = v
+proof
+  arbitrary v:UnaryView
+  switch v {
+    case ViewZero { evaluate }
+    case ViewSucc(p) { evaluate }
+  }
+end
+
+view UnaryPred {
+  source Unary
+  target UnaryView
+  into unary_into
+  out unary_out
+  roundtrip unary_roundtrip
+}
+
+recursive unary_length(UnaryPred) -> UInt {
+  unary_length(ViewZero) = 0
+  unary_length(ViewSucc(p)) = 1 + unary_length(p)
+}
+```
+
+In the example above, `unary_length` has type `fn Unary -> UInt`, and
+the recursive call
+`unary_length(p)` is allowed because the `ViewSucc` case binds
+`p : Unary`.
+
 ## Visibility
 
 ```deduce-grammar
@@ -2735,6 +2839,7 @@ import Pair
 <<multiply_example>>
 <<true_example>>
 <<union_example>>
+<<view_example>>
 <<fun_interchange_example>>
 <<generic_fun_example>>
 <<contradiction_example>>

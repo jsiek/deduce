@@ -18,10 +18,11 @@ A deduce file contains a list of statements. Each statement can be one of:
 3. [Predicate](./Reference.md#predicate-statement) (or [Relation](./Reference.md#relation-statement))
 4. [Function](./Reference.md#function-statement)
 5. [Recursive Function](./Reference.md#recursive-function-statement)
-6. [Define](./Reference.md#define-statement)
-7. [Import](./Reference.md#import-statement)
-8. [Assert](./Reference.md#assert-statement)
-9. [Print](./Reference.md#print-statement)
+6. [View](./Reference.md#view-statement)
+7. [Define](./Reference.md#define-statement)
+8. [Import](./Reference.md#import-statement)
+9. [Assert](./Reference.md#assert-statement)
+10. [Print](./Reference.md#print-statement)
 
 ## Proofs
 

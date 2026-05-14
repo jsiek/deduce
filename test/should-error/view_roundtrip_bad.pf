@@ -1,0 +1,34 @@
+union N {
+  Z
+  S(N)
+}
+
+union NView {
+  VZ
+  VS(N)
+}
+
+fun n_view(n : N) {
+  switch n {
+    case Z { VZ }
+    case S(p) { VS(p) }
+  }
+}
+
+fun n_unview(v : NView) {
+  switch v {
+    case VZ { Z }
+    case VS(p) { S(p) }
+  }
+}
+
+postulate not_the_view_law:
+  all v:NView. n_unview(v) = n_unview(v)
+
+view NPred {
+  source N
+  target NView
+  into n_view
+  out n_unview
+  roundtrip not_the_view_law
+}

@@ -1,0 +1,6 @@
+import UInt
+
+recursive countdown(UInt) -> UInt {
+  countdown(UIntZero) = 0
+  countdown(UIntSucc(p)) = countdown(0)
+}

@@ -5,7 +5,6 @@ suffices to prove:
 Goal:
 	P
 
-
 Givens:
 	pq: (if P then Q),
 	prem: (P and (if P then Q))

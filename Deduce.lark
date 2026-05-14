@@ -251,9 +251,9 @@ ident: IDENT              -> ident
 ?case_list: case                                        -> single
     | case case_list                                    -> push
 
-?theorem: "theorem" IDENT ":" term reason              -> theorem
- | "lemma" IDENT ":" term reason                       -> lemma
- | "postulate" IDENT ":" term                          -> postulate
+?theorem: visibility "theorem" IDENT ":" term reason   -> theorem
+ | visibility "lemma" IDENT ":" term reason            -> lemma
+ | visibility "postulate" IDENT ":" term               -> postulate
 
 ?type: "fn" type_params_opt type_list "->" type        -> function_type
  | IDENT "<" type_list ">"                             -> type_inst
@@ -316,6 +316,8 @@ ident: IDENT              -> ident
 
 ?gen_rec_fun: visibility "recfun" ident type_params_opt "(" var_list ")" "->" type "measure" term "of" type "{" term "}" "terminates" proof -> gen_rec_fun
 
+?view_decl: visibility "view" IDENT type_params_opt "{" "source" type "target" type "into" ident "out" ident "roundtrip" ident "}" -> view_decl
+
 ?definition: visibility "define" ident "=" term        -> define
  | visibility "define" ident ":" type "=" term         -> define_annot
 
@@ -345,6 +347,7 @@ ident: IDENT              -> ident
  | rec_function
  | function
  | gen_rec_fun
+ | view_decl
  | definition
  | assoc_decl
  | auto_decl
