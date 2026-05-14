@@ -34,7 +34,7 @@
 ;;
 ;; Phase 3 / Step 7 only -- this is the MVP.  Step 8 polish
 ;; (cancellation, fallback buffer for stale-marker cases, mode-line
-;; indicator, multiple concurrent sessions) lands separately.
+;; indicator) lands separately.
 
 ;;; Code:
 
@@ -181,14 +181,15 @@ model and the loop continues until the budget is exhausted."
 
 
 ;; ---------------------------------------------------------------------
-;; Internal state -- the active session for the buffer-local fill-hole
+;; Internal state -- in-flight sessions for the buffer-local fill-hole
 ;; ---------------------------------------------------------------------
 
-(defvar-local deduce-fill-hole--session nil
-  "Active hole-fill session in this buffer, or nil.
+(defvar-local deduce-fill-hole--sessions nil
+  "In-flight hole-fill sessions for this buffer.
 
-When non-nil, this is a plist describing the in-flight request:
+Each element is a plist describing one active request:
 
+  :request-id    -- monotonically increasing integer for this buffer
   :process       -- the `make-process' handle
   :source-buffer -- the .pf buffer the user invoked from (where the
                     proof gets spliced).  Tracked separately because
@@ -201,10 +202,31 @@ When non-nil, this is a plist describing the in-flight request:
   :stdout-buffer -- buffer accumulating sidecar stdout
   :stderr-buffer -- buffer accumulating sidecar stderr (NDJSON progress)
 
-Only one fill-hole can run per buffer at a time; a second
-invocation while the first is in flight is rejected.  Buffer-local
-so two different .pf buffers can each have their own session in
-parallel (Step 8 polish).")
+Multiple fills may run concurrently in the same buffer.  Each keeps
+its own marker pair + fingerprint, so if one request applies first,
+later results will fail the existing stale-marker check instead of
+silently patching the wrong location.")
+
+
+(defvar-local deduce-fill-hole--next-request-id 0
+  "Next request id for `deduce-fill-hole--sessions' in this buffer.")
+
+
+(defun deduce-fill-hole--allocate-request-id ()
+  "Return a fresh request id for the current buffer."
+  (setq deduce-fill-hole--next-request-id
+        (1+ deduce-fill-hole--next-request-id)))
+
+
+(defun deduce-fill-hole--register-session (session)
+  "Add SESSION to the current buffer's in-flight session list."
+  (push session deduce-fill-hole--sessions))
+
+
+(defun deduce-fill-hole--drop-session (session)
+  "Remove SESSION from the current buffer's in-flight session list."
+  (setq deduce-fill-hole--sessions
+        (delq session deduce-fill-hole--sessions)))
 
 
 (defun deduce-fill-hole--effective-deduce-root ()
@@ -377,8 +399,7 @@ without touching the source."
        "deduce-fill-hole: source buffer was killed before result arrived"))
      (t
       (with-current-buffer source-buffer
-        (when (eq deduce-fill-hole--session session)
-          (setq deduce-fill-hole--session nil))
+        (deduce-fill-hole--drop-session session)
         (let* ((response (deduce-fill-hole--parse-response (or raw "")))
                (ok (plist-get response :ok))
                (proof (plist-get response :proof))
@@ -717,15 +738,9 @@ fingerprint hasn't changed, then splices the validated proof in.
 On stale marker or fingerprint mismatch, errors with a clear
 message and leaves the buffer untouched.
 
-Only one fill-hole per buffer at a time; a second invocation while
-the first is in flight is rejected.  Different buffers can each
-have their own session in parallel."
+Multiple fill-hole requests may run in parallel, including in the
+same buffer.  Different buffers keep separate session lists."
   (interactive)
-  (when (and deduce-fill-hole--session
-             (process-live-p (plist-get deduce-fill-hole--session :process)))
-    (user-error
-     "deduce-fill-hole: a fill-hole is already in progress in this buffer"))
-
   (let* ((context (deduce-fill-hole--hole-context))
          (range (plist-get context :holeRange))
          (start (plist-get range :start))
@@ -739,6 +754,7 @@ have their own session in parallel."
          (start-marker (copy-marker start-pt nil))   ; insertion-type nil
          (end-marker (copy-marker end-pt t))         ; advance on insert
          (fingerprint (or (plist-get context :fingerprint) ""))
+         (request-id (deduce-fill-hole--allocate-request-id))
          (stdout-buffer (deduce-fill-hole--make-stdout-buffer))
          (stderr-buffer (deduce-fill-hole--make-stderr-buffer
                          (current-buffer)))
@@ -746,7 +762,7 @@ have their own session in parallel."
                       (deduce-fill-hole--build-cli-args)))
          (process
           (make-process
-           :name "deduce-fill-hole"
+           :name (format "deduce-fill-hole<%d>" request-id)
            :buffer stdout-buffer
            :command cmd
            :connection-type 'pipe
@@ -754,7 +770,8 @@ have their own session in parallel."
            :coding 'utf-8
            :noquery t
            :sentinel #'deduce-fill-hole--sentinel)))
-    (let ((session (list :process process
+    (let ((session (list :request-id request-id
+                         :process process
                          :source-buffer (current-buffer)
                          :start-marker start-marker
                          :end-marker end-marker
@@ -762,11 +779,12 @@ have their own session in parallel."
                          :stdout-buffer stdout-buffer
                          :stderr-buffer stderr-buffer)))
       (process-put process 'deduce-fill-hole-session session)
-      (setq deduce-fill-hole--session session))
+      (deduce-fill-hole--register-session session))
     (process-send-string process
                          (deduce-fill-hole--build-request context))
     (process-send-eof process)
-    (message "deduce-fill-hole: asking %s..."
+    (message "deduce-fill-hole[%d]: asking %s..."
+             request-id
              (deduce-fill-hole--effective-model))))
 
 
