@@ -205,6 +205,36 @@ async def test_goal_at_returns_null_outside_proof(server, tmp_path):
     assert payload is None
 
 
+@pytest.mark.anyio
+async def test_goal_at_returns_stdlib_hole_goal(server, monkeypatch):
+    base = (REPO_ROOT / "lib" / "UIntDiv.pf").read_text()
+    src = base + (
+        "\n\n"
+        "theorem uint_mult_mod_tmp: all a:UInt, b:UInt, m:UInt.\n"
+        "  if 0 < m then (a * b) % m = ((a % m) * (b % m)) % m\n"
+        "proof\n"
+        "  arbitrary a:UInt, b:UInt, m:UInt\n"
+        "  assume m_pos: 0 < m\n"
+        "  ?\n"
+        "end\n"
+    )
+    hole_line = src[: src.index("  ?\n", len(base))].count("\n") + 1
+    stdlib_path = REPO_ROOT / "lib" / "UIntDiv.pf"
+
+    monkeypatch.setattr(_server_module, "_read_file", lambda path: src)
+
+    payload = await _call(
+        server,
+        "goal_at",
+        {"path": str(stdlib_path), "line": hole_line, "column": 3},
+    )
+    assert payload is not None
+    assert payload["formula"] == "(a * b) % m = ((a % m) * (b % m)) % m"
+    assert payload["givens"] == [
+        {"label": "m_pos", "formula": "0 < m", "formula_normalized": None}
+    ]
+
+
 # --------------------------------------------------------------------------
 # definition_of
 # --------------------------------------------------------------------------
