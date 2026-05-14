@@ -62,6 +62,9 @@ jobs:
       - name: Check known tokens
         run: python ./gh_pages/scripts/keywords.py
 
+      - name: Check reference grammar snippets
+        run: python ./gh_pages/scripts/reference_grammar.py
+
         # Run the Python lib generate script
       - name: Run lib generate script
         run: python ./gh_pages/scripts/lib_generate.py
@@ -89,4 +92,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

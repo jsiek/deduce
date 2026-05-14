@@ -10,6 +10,7 @@ default: tests-tokens tests
 
 tests-tokens:
 	$(PYTHON) ./gh_pages/scripts/keywords.py
+	$(PYTHON) ./gh_pages/scripts/reference_grammar.py
 
 # Fast parallel in-process sweep. ``test-deduce.py`` runs the default
 # regression categories (cli + lib + should-validate + test/prelude +

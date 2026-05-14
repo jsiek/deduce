@@ -7,6 +7,9 @@ feature in alphabetical order by keyword. It gives the grammar rule
 In the grammar rules, an unquoted asterisk means zero-or more
 repetitions of the grammar item that it follows.
 The symbol ε means the empty string.
+Grammar blocks marked `deduce-grammar` are checked against `Deduce.lark`
+by CI. Unmarked grammar blocks may intentionally use a simplified
+presentation while they are migrated to the strict check.
 
 
 ## Add
@@ -2534,17 +2537,19 @@ end
 
 ## Type
 
-```
+```deduce-grammar
 type ::= "bool"                                        // type of a Boolean
+type ::= "type"                                        // the universe of types
 type ::= identifier                                    // type of a union
 type ::= identifier "<" type_list ">"                  // type of a generic union
+type ::= "[" type "]"                                  // type of an array
 type ::= "fn" type_params_opt type_list "->" type      // type of a function 
 type ::= "(" type ")"
 ```
 
 ## Type List
 
-```
+```deduce-grammar
 type_list ::= ε
 type_list ::= type
 type_list ::= type "," type_list
@@ -2555,7 +2560,7 @@ A type list is a comma-separated list of zero or more types.
 
 ## Type Parameters
 
-```
+```deduce-grammar
 type_params_opt ::= ε
 type_params_opt ::= "<" identifier_list ">"
 ```
@@ -2643,7 +2648,7 @@ optionally be annotated with its type.
 
 ## Visibility
 
-```
+```deduce-grammar
 visibility ::= ε
 visibility ::= "public"
 visibility ::= "private"
