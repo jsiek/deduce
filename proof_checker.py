@@ -1444,8 +1444,8 @@ def _check_proof_of_all_intro(proof, formula, env):
     formula = formula.reduceLets(env)
 
   match formula:
-    case All(loc2, tyof, var2, (s, e), formula2):
-      x2, ty2 = var2
+    case All(_, _, var2, (s, _), formula2):
+      _, ty2 = var2
       if ty != ty2:
         add_diagnostic(loc, "arbitrary expects " + base_name(x)
               + " to have type\n\t" + str(ty2)
@@ -1475,7 +1475,7 @@ def _check_proof_of_some_intro(proof, formula, env):
     formula = formula.reduceLets(env)
 
   match formula:
-    case Some(loc2, tyof, vars, formula2):
+    case Some(_, _, vars, formula2):
       sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
       body_frm = formula2.substitute(sub)
       _try_check_proof_of(proof.body, body_frm, env)
@@ -1491,7 +1491,7 @@ def _check_proof_of_some_elim(proof, formula, env):
     someFormula = someFormula.reduceLets(env)
 
   match someFormula:
-    case Some(loc2, tyof, vars, formula2):
+    case Some(loc2, _, vars, formula2):
       sub = {var[0]: ResolvedVar(loc2, None, x) for (var,x) in zip(vars,proof.witnesses)}
       witnessFormula = formula2.substitute(sub)
 
@@ -1516,7 +1516,7 @@ def _check_proof_of_imp_intro(proof, formula, env):
       formula = formula.reduceLets(env)
 
     match formula:
-      case IfThen(loc2, tyof, prem, conc):
+      case IfThen(_, _, prem, conc):
         body_env = env.declare_local_proof_var(loc, proof.label, prem)
         _try_check_proof_of(proof.body, conc, body_env)
       case _:
@@ -1527,7 +1527,7 @@ def _check_proof_of_imp_intro(proof, formula, env):
 
   new_prem1 = check_formula(proof.premise, env)
   match formula:
-    case IfThen(loc2, tyof, prem2, conc):
+    case IfThen(_, _, prem2, conc):
       prem1_red = new_prem1.reduce(env)
       prem2_red = prem2.reduce(env)
       if prem1_red != prem2_red:
@@ -1563,7 +1563,7 @@ def _check_proof_of_let(proof, formula, env):
   loc = proof.location
   new_frm = check_formula(proof.proved, env)
   match new_frm:
-    case Hole(loc2, tyof):
+    case Hole(_, _):
       proved_formula = check_proof(proof.because, env)
       warning(loc, "\nhave " + base_name(proof.label) + ':\n\t' + str(proved_formula))
       body_env = env.declare_local_proof_var(loc, proof.label, proved_formula)
@@ -1576,7 +1576,7 @@ def _check_proof_of_annot(proof, formula, env):
   loc = proof.location
   new_claim = check_formula(proof.claim, env)
   match new_claim:
-    case Hole(loc2, tyof):
+    case Hole(_, _):
       _try_check_proof_of(proof.body, formula, env)
       add_diagnostic(loc, '\nneed to show:\n\t' + str(formula)
             + givens_str(env))
@@ -1743,7 +1743,7 @@ def check_proof_of(proof, formula, env):
       if isinstance(formula, TLet):
         formula = formula.reduceLets(env)
       match formula:
-        case All(loc2, _, (var,ty), _, frm):
+        case All(_, _, (_,ty), _, frm):
           if typ != ty:
             add_diagnostic(loc, "type of induction: " + str(typ) \
                   + "\ndoes not match the all-formula's type: " + str(ty)
