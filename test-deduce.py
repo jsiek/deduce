@@ -401,7 +401,14 @@ def run_parser_equivalence() -> list[tuple[str, str, str]]:
     RD-only because those fixtures intentionally lock down beginner-facing RD
     diagnostics, while the LALR parser is kept as an executable grammar spec.
     """
-    files = list_pf(LIB_DIR) + list_pf(PASS_DIR)
+    # ``--site`` generates ``doc_*.pf`` files into ``test/should-validate``.
+    # They are already validated with both parsers by the site mode itself;
+    # keep this drift baseline focused on checked-in should-validate files.
+    pass_files = [
+        f for f in list_pf(PASS_DIR)
+        if not Path(f).name.startswith("doc_")
+    ]
+    files = list_pf(LIB_DIR) + pass_files
     failures: list[tuple[str, str, str]] = []
     seen_divergences: set[str] = set()
     for path in files:
