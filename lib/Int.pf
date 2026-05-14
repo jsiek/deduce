@@ -4,6 +4,14 @@ import Nat
 import UInt
 import Base
 
+/*
+  Signed integers represented as nonnegative values `pos(n)` and
+  negative successors `negsuc(n)`, where `negsuc(0)` is -1.
+
+  This module gathers the definitions, addition/subtraction,
+  multiplication, literals, and order facts for Int.
+*/
+
 public import IntDefs
 public import IntAddSub
 public import IntMult
@@ -15,7 +23,7 @@ export zero
 export suc
 export fromNat
 
-// Properties of Less-Than or Equal
+// Properties of less-than or equal.
 
 theorem int_less_equal_refl: all n:Int. n ≤ n
 proof

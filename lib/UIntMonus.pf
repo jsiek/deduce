@@ -8,6 +8,14 @@ import UIntLess
 import UIntAdd
 import UIntMult
 
+/*
+  Theorems about UInt truncated subtraction (`∸`).
+
+  Subtraction is specified by conversion to Nat, and the lemmas here
+  provide zero laws, cancellation-style facts, and interaction with
+  addition and order.
+*/
+
 lemma inc_dub_monus_dub_inc_less: all x:UInt, y:UInt.
   if x < y
   then inc_dub(x) ∸ dub_inc(y) = bzero

@@ -1,5 +1,14 @@
 module Base
 
+/*
+  Core propositional facts used throughout the standard library.
+
+  This file deliberately stays small and dependency-free: it gives
+  reusable lemmas about booleans, negation, implication, iff, and
+  common proof patterns such as contrapositive reasoning.
+*/
+
+// Eliminate the left side of a disjunction when it is known false.
 theorem or_not: all P:bool, Q:bool.
   if (P or Q) and not P
   then Q
@@ -15,6 +24,7 @@ proof
   }
 end
 
+// Boolean excluded middle: every boolean is either true or false.
 theorem ex_mid: all b:bool. b or not b
 proof
   arbitrary b:bool
@@ -24,6 +34,7 @@ proof
   }
 end
 
+// Disjunction is symmetric.
 theorem or_sym: all P:bool, Q:bool.  (P or Q) = (Q or P)
 proof
   arbitrary P:bool, Q:bool
@@ -33,6 +44,7 @@ proof
   }
 end
 
+// Conjunction is symmetric.
 theorem and_sym: all P:bool, Q:bool.  (P and Q) = (Q and P)
 proof
   arbitrary P:bool, Q:bool
@@ -42,6 +54,7 @@ proof
   }
 end
 
+// Relate a proposition to equality with the boolean value true.
 theorem eq_true: all P:bool. P ⇔ (P = true)
 proof
   arbitrary P:bool
@@ -51,6 +64,7 @@ proof
   }
 end
 
+// Relate negation to equality with the boolean value false.
 theorem eq_false: all P:bool. not P ⇔ P = false
 proof
   arbitrary P:bool
@@ -60,6 +74,7 @@ proof
   }
 end
 
+// Convert a logical iff into boolean equality.
 theorem iff_equal: all P:bool, Q:bool.
   if (P ⇔ Q)  
   then P = Q

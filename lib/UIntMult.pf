@@ -7,6 +7,14 @@ import UIntToFrom
 import UIntLess
 import UIntAdd
 
+/*
+  Theorems about UInt multiplication.
+
+  As with addition, the main specification theorem shows that UInt
+  multiplication agrees with Nat multiplication under `toNat`; the
+  rest of the file builds the usual algebraic and order facts.
+*/
+
 theorem toNat_mult: all x:UInt, y:UInt.
   toNat(x * y) = toNat(x) * toNat(y)
 proof

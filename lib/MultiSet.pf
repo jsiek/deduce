@@ -1,8 +1,12 @@
 module MultiSet
 
 /*
-  Represent multisets as function to Nat.
-  */
+  Multisets represented as count functions from elements to UInt.
+
+  A multiset keeps multiplicity but not order. `cnt(M)(x)` is the
+  number of occurrences of `x`, `m_one(x)` is a singleton multiset,
+  and `P ⨄ Q` adds multiplicities pointwise.
+*/
 
 import Base
 import UInt
@@ -12,24 +16,29 @@ opaque union MultiSet<T> {
   m_fun(fn(T) -> UInt)
 }
 
+// The multiplicity/count function for a multiset.
 opaque fun cnt<T>(M : MultiSet<T>) {
   switch M {
     case m_fun(f) { f }
   }
 }
 
+// Empty multiset: every element has count zero.
 opaque fun m_empty<T>() {
   m_fun(λy:T{0})
 }
 
+// Singleton multiset: `x` has count one and all other elements zero.
 opaque fun m_one<T>(x:T) {
   m_fun(λy:T{if x = y then 1 else 0})
 }
 
+// Multiset sum, adding counts pointwise.
 opaque fun operator ⨄ <T>(P: MultiSet<T>, Q: MultiSet<T>) {
   m_fun(λx:T{ cnt(P)(x) + cnt(Q)(x) })
 }
 
+// Representation helper used by the multiset proofs below.
 lemma cnt_m_fun: all T:type, f: fn T -> UInt. cnt(m_fun(f)) = f
 proof
   arbitrary T:type, f:(fn T -> UInt)
