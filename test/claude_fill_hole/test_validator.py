@@ -20,6 +20,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+from tools.claude_fill_hole.__main__ import _bootstrap_deduce_env  # noqa: E402
 from tools.claude_fill_hole.validator import (  # noqa: E402
     HoleQuerier,
     SubprocessValidator,
@@ -62,6 +63,11 @@ def make_validator(tmp_path):
         kwargs.update(overrides)
         return SubprocessValidator(**kwargs)
     return _build
+
+
+@pytest.fixture
+def bootstrapped_deduce_env():
+    _bootstrap_deduce_env(REPO_ROOT)
 
 
 def test_valid_proof_returns_ok(make_validator):
@@ -131,6 +137,81 @@ def test_two_validate_calls_in_a_row_are_independent(make_validator):
     b = v.validate("reflexive")
     assert a.ok is True
     assert b.ok is True
+
+
+def test_validate_can_ignore_unrelated_later_hole(make_validator, bootstrapped_deduce_env):
+    """Parallel fill-hole requests validate one target while other
+    original holes may still be open elsewhere in the buffer."""
+    source = (
+        "theorem t1: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem t2: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    v = make_validator(source=source, allow_other_holes=True, prelude=())
+    outcome = v.validate(".")
+    assert outcome.ok is True
+    assert outcome.error is None
+
+
+def test_validate_can_ignore_unrelated_earlier_hole(
+    make_validator, tmp_path, bootstrapped_deduce_env
+):
+    source = (
+        "theorem t1: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem t2: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    second = source.rindex("?")
+    file_path = tmp_path / "proof.pf"
+    file_path.write_text(source)
+    v = SubprocessValidator(
+        file_path=str(file_path),
+        content=source,
+        hole_start_offset=second,
+        hole_end_offset=second + 1,
+        deduce_cmd=(sys.executable, str(REPO_ROOT / "deduce.py")),
+        deduce_root=str(REPO_ROOT),
+        no_stdlib=True,
+        timeout_seconds=60.0,
+        prelude=(),
+        allow_other_holes=True,
+    )
+    outcome = v.validate(".")
+    assert outcome.ok is True
+    assert outcome.error is None
+
+
+def test_validate_still_rejects_target_hole_errors(
+    make_validator, bootstrapped_deduce_env
+):
+    source = (
+        "theorem t1: all P:bool. P = P\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem t2: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    v = make_validator(source=source, allow_other_holes=True, prelude=())
+    outcome = v.validate("definitely_undefined_label")
+    assert outcome.ok is False
+    assert outcome.error
+    assert "definitely_undefined_label" in outcome.error
 
 
 def test_failed_call_doesnt_break_subsequent_call(make_validator):

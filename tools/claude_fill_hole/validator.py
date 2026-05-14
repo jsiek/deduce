@@ -22,7 +22,7 @@ import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -64,6 +64,8 @@ class SubprocessValidator(Validator):
         no_stdlib: bool = False,
         timeout_seconds: float = 60.0,
         max_proof_text_bytes: int = 32 * 1024,
+        prelude: Sequence[str] = (),
+        allow_other_holes: bool = False,
     ) -> None:
         self.file_path = file_path
         self.content = content
@@ -74,6 +76,8 @@ class SubprocessValidator(Validator):
         self.no_stdlib = no_stdlib
         self.timeout_seconds = timeout_seconds
         self.max_proof_text_bytes = max_proof_text_bytes
+        self.prelude = tuple(prelude)
+        self.allow_other_holes = allow_other_holes
         self._call_count = 0
 
     def validate(self, proof_text: str) -> ValidationOutcome:
@@ -103,7 +107,10 @@ class SubprocessValidator(Validator):
                 cmd.append("--no-stdlib")
             cmd.append(tmp_path)
 
-            return self._run_deduce(cmd)
+            outcome = self._run_deduce(cmd)
+            if outcome.ok or not self.allow_other_holes:
+                return outcome
+            return self._validate_allowing_other_holes(spliced, proof_text, outcome)
         finally:
             try:
                 os.unlink(tmp_path)
@@ -148,6 +155,60 @@ class SubprocessValidator(Validator):
         # context window.
         error_text = (proc.stderr or proc.stdout or "").strip()
         return ValidationOutcome(ok=False, error=_tail(error_text, 4096))
+
+    def _validate_allowing_other_holes(
+        self,
+        spliced: str,
+        proof_text: str,
+        fallback: ValidationOutcome,
+    ) -> ValidationOutcome:
+        """Accept a candidate when only unrelated original holes remain.
+
+        Parallel editor requests intentionally validate one target hole
+        while other `?' holes may still exist elsewhere in the buffer.
+        The CLI fails fast on the first incomplete proof, so a valid
+        candidate can look invalid merely because another theorem still
+        has a hole. In that case, rerun through library mode with
+        multi-error collection and ignore only `IncompleteProof`s at
+        original non-target hole locations.
+        """
+        try:
+            from error import IncompleteProof
+            from lsp.library import check_file
+        except ImportError:
+            return fallback
+
+        ignored_locations = set(
+            _other_hole_locations_after_splice(
+                self.content,
+                spliced,
+                self.hole_start_offset,
+                self.hole_end_offset,
+                len(proof_text),
+            )
+        )
+        if not ignored_locations:
+            return fallback
+
+        result = check_file(
+            self.file_path,
+            content=spliced,
+            prelude=self.prelude,
+            collect_errors=True,
+        )
+        if result.ok:
+            return ValidationOutcome(ok=True)
+
+        remaining: list[BaseException] = []
+        for exc in result.errors or []:
+            if isinstance(exc, IncompleteProof) and _exception_location(exc) in ignored_locations:
+                continue
+            remaining.append(exc)
+
+        if not remaining:
+            return ValidationOutcome(ok=True)
+
+        return ValidationOutcome(ok=False, error=_tail(str(remaining[0]), 4096))
 
 
 class LspValidator(Validator):
@@ -335,6 +396,33 @@ def _offset_to_line_col_1indexed(text: str, offset: int) -> tuple[int, int]:
         else:
             col += 1
     return line, col
+
+
+def _other_hole_locations_after_splice(
+    content: str,
+    spliced: str,
+    hole_start_offset: int,
+    hole_end_offset: int,
+    proof_text_len: int,
+) -> tuple[tuple[int, int], ...]:
+    """Return 1-indexed locations of original non-target holes after splice."""
+    delta = proof_text_len - (hole_end_offset - hole_start_offset)
+    locations: list[tuple[int, int]] = []
+    for i, ch in enumerate(content):
+        if ch != "?":
+            continue
+        if hole_start_offset <= i < hole_end_offset:
+            continue
+        spliced_offset = i if i < hole_start_offset else i + delta
+        locations.append(_offset_to_line_col_1indexed(spliced, spliced_offset))
+    return tuple(locations)
+
+
+def _exception_location(exc: BaseException) -> Optional[tuple[int, int]]:
+    location = getattr(exc, "location", None)
+    if location is None or getattr(location, "empty", True):
+        return None
+    return (int(location.line), int(location.column))
 
 
 def _tail(text: str, max_bytes: int) -> str:
