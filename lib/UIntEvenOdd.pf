@@ -13,6 +13,130 @@ fun Odd(n : UInt) {
   some m:UInt. n = 1 + (2 * m)
 }
 
+theorem uint_two_even: all n:UInt. Even(2 * n)
+proof
+  arbitrary n:UInt
+  expand Even
+  choose n.
+end
+
+theorem uint_one_two_odd: all n:UInt. Odd(1 + 2 * n)
+proof
+  arbitrary n:UInt
+  expand Odd
+  choose n.
+end
+
+theorem uint_even_add_even: all x:UInt, y:UInt.
+  if Even(x) and Even(y) then Even(x + y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Even(x) and Even(y)
+  obtain a where x_2a: x = 2 * a from expand Even in (conjunct 0 of prem)
+  obtain b where y_2b: y = 2 * b from expand Even in (conjunct 1 of prem)
+  expand Even
+  choose a + b
+  equations
+      x + y
+    = 2 * a + 2 * b by replace x_2a | y_2b.
+  ... = #2 * (a + b)# by replace uint_dist_mult_add.
+end
+
+theorem uint_even_add_odd: all x:UInt, y:UInt.
+  if Even(x) and Odd(y) then Odd(x + y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Even(x) and Odd(y)
+  obtain a where x_2a: x = 2 * a from expand Even in (conjunct 0 of prem)
+  obtain b where y_1_2b: y = 1 + 2 * b from expand Odd in (conjunct 1 of prem)
+  expand Odd
+  choose a + b
+  equations
+      x + y
+    = 2 * a + (1 + 2 * b) by replace x_2a | y_1_2b.
+  ... = (2 * a + 1) + 2 * b by .
+  ... = (1 + 2 * a) + 2 * b by replace uint_add_commute[2 * a, 1].
+  ... = 1 + (2 * a + 2 * b) by .
+  ... = 1 + #2 * (a + b)# by replace uint_dist_mult_add.
+end
+
+theorem uint_odd_add_even: all x:UInt, y:UInt.
+  if Odd(x) and Even(y) then Odd(x + y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Odd(x) and Even(y)
+  have odd_yx: Odd(y + x) by {
+    apply uint_even_add_odd[y, x] to (conjunct 1 of prem), (conjunct 0 of prem)
+  }
+  replace uint_add_commute[x, y]
+  odd_yx
+end
+
+theorem uint_odd_add_odd: all x:UInt, y:UInt.
+  if Odd(x) and Odd(y) then Even(x + y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Odd(x) and Odd(y)
+  obtain a where x_1_2a: x = 1 + 2 * a from expand Odd in (conjunct 0 of prem)
+  obtain b where y_1_2b: y = 1 + 2 * b from expand Odd in (conjunct 1 of prem)
+  expand Even
+  choose 1 + (a + b)
+  equations
+      x + y
+    = (1 + 2 * a) + (1 + 2 * b) by replace x_1_2a | y_1_2b.
+  ... = 1 + (2 * a + (1 + 2 * b)) by .
+  ... = 1 + ((2 * a + 1) + 2 * b) by .
+  ... = 1 + ((1 + 2 * a) + 2 * b) by replace uint_add_commute[2 * a, 1].
+  ... = 1 + (1 + (2 * a + 2 * b)) by .
+  ... = 2 + (2 * a + 2 * b) by .
+  ... = 2 + #2 * (a + b)# by replace uint_dist_mult_add.
+  ... = #2 * (1 + (a + b))# by replace uint_dist_mult_add.
+end
+
+theorem uint_even_mult_left: all x:UInt, y:UInt.
+  if Even(x) then Even(x * y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Even(x)
+  obtain a where x_2a: x = 2 * a from expand Even in prem
+  expand Even
+  choose a * y
+  equations
+      x * y
+    = (2 * a) * y by replace x_2a.
+  ... = 2 * (a * y) by .
+end
+
+theorem uint_even_mult_right: all x:UInt, y:UInt.
+  if Even(y) then Even(x * y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Even(y)
+  have even_yx: Even(y * x) by apply uint_even_mult_left[y, x] to prem
+  replace uint_mult_commute[x, y]
+  even_yx
+end
+
+theorem uint_odd_mult_odd: all x:UInt, y:UInt.
+  if Odd(x) and Odd(y) then Odd(x * y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem: Odd(x) and Odd(y)
+  obtain a where x_1_2a: x = 1 + 2 * a from expand Odd in (conjunct 0 of prem)
+  obtain b where y_1_2b: y = 1 + 2 * b from expand Odd in (conjunct 1 of prem)
+  expand Odd
+  choose b + a * (1 + 2 * b)
+  equations
+      x * y
+    = (1 + 2 * a) * y by replace x_1_2a.
+  ... = 1 * y + (2 * a) * y by replace uint_dist_mult_add_right.
+  ... = y + (2 * a) * y by .
+  ... = (1 + 2 * b) + (2 * a) * (1 + 2 * b) by replace y_1_2b.
+  ... = 1 + (2 * b + (2 * a) * (1 + 2 * b)) by .
+  ... = 1 + (2 * b + 2 * (a * (1 + 2 * b))) by .
+  ... = 1 + #2 * (b + a * (1 + 2 * b))# by replace uint_dist_mult_add.
+end
+
 theorem uint_Even_or_Odd: all n:UInt. Even(n) or Odd(n)
 proof
   induction UInt
