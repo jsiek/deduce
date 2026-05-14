@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field, fields as dc_fields
 from lark.tree import Meta
-from typing import Any, Tuple, List, Optional, Set, Self
+from typing import Any, Callable, Iterator, Tuple, List, Optional, Set, Self
 from error import user_error, internal_error, warning, static_error, match_failed, MatchFailed, UserError
 from flags import *
 from pathlib import Path
@@ -44,7 +44,7 @@ def get_predicate_decl(unique_name):
 
 ############ AST Base Classes ###########
 
-def _ast_map(value, f):
+def _ast_map(value: Any, f: Callable[[Any], Any]) -> Any:
   # Apply `f` to AST-typed values inside a field value, preserving
   # list / tuple structure. Non-AST scalars (str, int, bool, None) are
   # returned unchanged. Used by `AST._map_children` to walk dataclass
@@ -187,7 +187,7 @@ def _alpha_equiv_value(v1, v2, env1, env2) -> bool:
   return bool(v1 == v2)
 
 
-def _varref_name(t):
+def _varref_name(t: Any) -> str:
   # Var / OverloadedVar / ResolvedVar / RecFun / GenRecFun all expose
   # a canonical name -- the first three via get_name(), the others
   # via .name. Unified here so dispatch can stay flat.
@@ -195,7 +195,7 @@ def _varref_name(t):
     return t.name
   if isinstance(t, OverloadedVar):
     return t.resolved_names[0]
-  return t.name  # RecFun / GenRecFun
+  return str(t.name)  # RecFun / GenRecFun
 
 
 def _alpha_equiv_varref(t1, t2, env1, env2) -> bool:
@@ -243,13 +243,13 @@ def _alpha_equiv_binder_types(vars1, vars2, env1, env2) -> bool:
   return True
 
 
-def _bind(env, name, tag):
+def _bind(env: dict[str, object], name: str, tag: object) -> dict[str, object]:
   new = dict(env)
   new[name] = tag
   return new
 
 
-def _bind_all(env, pairs):
+def _bind_all(env: dict[str, object], pairs: list[tuple[str, object]]) -> dict[str, object]:
   new = dict(env)
   for (name, tag) in pairs:
     new[name] = tag
@@ -373,7 +373,7 @@ class Statement(AST):
 
 ################ Miscellaneous Functions #####################
 
-def copy_dict(d):
+def copy_dict(d: dict[str, Any]) -> dict[str, Any]:
   return {k: v for k, v in d.items()}
 
 
@@ -4438,7 +4438,7 @@ class AssociativeBinding(Binding):
                         for (type_params, t) in self.types)
 
 class Env:
-  def __init__(self, env = None):
+  def __init__(self, env: Optional[dict[str, Any]] = None) -> None:
     if env:
       self.dict = copy_dict(env)
     else:
@@ -4747,7 +4747,7 @@ class Env:
 
 collected_imports: set[str] = set()
 
-def collect_public(s, to_print):
+def collect_public(s: "Statement", to_print: list["Statement"]) -> None:
     global collected_imports
     if isinstance(s, Theorem) and not s.isLemma:
       to_print.append(s)
@@ -4765,7 +4765,7 @@ def collect_public(s, to_print):
     elif isinstance(s, Declaration) and not s.visibility == 'private':
       to_print.append(s)
 
-def print_theorems_statement(s, f):
+def print_theorems_statement(s: "Statement", f: Any) -> None:
     if isinstance(s, Theorem) and not s.isLemma:
         print(base_name(s.name) + ': ' + str(s.what) + '\n', file=f)
     elif isinstance(s, Postulate):
@@ -5024,13 +5024,13 @@ def extract_or(frm):
 # new class hierarchy.
 # --------------------------------------------------------------------------
 
-def _walk_ast_descendants(roots):
+def _walk_ast_descendants(roots: Any) -> Iterator[Any]:
   """Yield every AST descendant reachable from ``roots`` (a single
   node or an iterable). Memoized by ``id()`` so shared sub-ASTs
   (e.g. cached imported-module statements) aren't revisited."""
   from dataclasses import fields, is_dataclass
-  seen = set()
-  stack = []
+  seen: set[int] = set()
+  stack: list[Any] = []
   if isinstance(roots, list) or isinstance(roots, tuple):
     stack.extend(roots)
   else:
@@ -5061,7 +5061,7 @@ def _walk_ast_descendants(roots):
           continue
         stack.append(child)
 
-def check_post_uniquify_invariants(ast_list):
+def check_post_uniquify_invariants(ast_list: Any) -> None:
   """Assert that the AST is in canonical post-uniquify shape: every
   variable reference is an ``OverloadedVar`` or ``ResolvedVar``; no
   pre-uniquify ``Var`` survives. ``ResolvedVar`` is allowed because
