@@ -1,5 +1,10 @@
 /*
-Represent sets as predicates, that is, functions to bool.
+  Sets represented extensionally as predicates, that is, functions
+  from elements to bool.
+
+  The concrete predicate representation is opaque, so clients reason
+  through membership, subset, union, intersection, and extensionality
+  lemmas rather than by depending on the representation directly.
 */
 
 import Base
@@ -8,12 +13,14 @@ opaque union Set<T> {
   char_fun(fn (T) -> bool)
 }
 
+// Reveal the characteristic predicate inside the implementation.
 opaque fun rep<T>(S : Set<T>) {
   switch S {
     case char_fun(f) { f }
   }
 }
 
+// Build a set from a predicate.
 opaque fun set_of_pred<T>(f : fn T -> bool) {
   char_fun(f)
 }
@@ -29,22 +36,27 @@ opaque fun empty_set<T>() {
   char_fun(λx:T{false})
 }
 
+// Singleton set containing exactly `x`.
 opaque fun single<V>(x : V) {
   char_fun(fun y:V {x = y})
 }
 
+// Set union.
 opaque fun operator ∪ <E>(P: Set<E>, Q: Set<E>) {
   char_fun(fun x:E { rep(P)(x) or rep(Q)(x) })
 }
 
+// Set intersection.
 opaque fun operator ∩ <T>(P : Set<T>, Q : Set<T>) {
   char_fun(fun x:T { rep(P)(x) and rep(Q)(x) })
 }
 
+// Membership.
 opaque fun operator ∈ <T>(x : T, S : Set<T>) {
   rep(S)(x)
 }
 
+// Subset relation.
 fun operator ⊆ <T>(P : Set<T>, Q : Set<T>) {
   all x:T. if x ∈ P then x ∈ Q
 }

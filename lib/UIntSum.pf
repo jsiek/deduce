@@ -88,7 +88,7 @@ theorem uint_summation_add:
   all a:UInt. all b:UInt, s:UInt, t:UInt,
       f:fn UInt->UInt, g:fn UInt->UInt, h:fn UInt->UInt.
   if (all i:Nat. if i < toNat(a) then g(s + fromNat(i)) = f(s + fromNat(i)))
-  and (all i:Nat. if i < toNat(b) then h(t + fromNat(i)) = f(s + a + fromNat(i)))
+  and (all i:Nat. if i < toNat(b) then h(t + fromNat(i)) = f((s + a) + fromNat(i)))
   then uint_summation(a + b, s, f) = uint_summation(a, s, g) + uint_summation(b, t, h)
 proof
   arbitrary a:UInt
@@ -112,13 +112,13 @@ proof
   }
   have p2: all i:Nat. (if i < toNat(b)
       then toNat(h(fromNat(toNat(t) + i)))
-         = toNat(f(fromNat(toNat(s) + toNat(a) + i)))) by {
+         = toNat(f(fromNat((toNat(s) + toNat(a)) + i)))) by {
     arbitrary i:Nat
     suppose i_b
-    have hf: h(t + fromNat(i)) = f(s + a + fromNat(i))
+    have hf: h(t + fromNat(i)) = f((s + a) + fromNat(i))
       by apply (conjunct 1 of g_f_and_h_f)[i] to i_b
     replace fromNat_toNat_add[t, i]
-    suffices toNat(h(t + fromNat(i))) = toNat(f(fromNat(toNat(s) + toNat(a) + i)))
+    suffices toNat(h(t + fromNat(i))) = toNat(f(fromNat((toNat(s) + toNat(a)) + i)))
       by .
     replace symmetric toNat_add[s, a]
     replace fromNat_toNat_add[s + a, i] | hf.

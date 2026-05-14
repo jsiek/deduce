@@ -1,29 +1,44 @@
 module Nat
 
+/*
+  Core Nat definitions.
+
+  `Nat` is the unary natural number type with constructors `zero`
+  and `suc`. This file defines the primitive operations that the Nat
+  theorem files prove properties about: arithmetic, comparisons,
+  division helpers, literals, parity predicates, powers, and logs.
+*/
+
+// Unary natural numbers.
 union Nat {
   zero
   suc(Nat)
 }
 
+// Addition by recursion on the left argument.
 recursive operator +(Nat,Nat) -> Nat {
   operator +(zero, m) = m
   operator +(suc(n), m) = suc(n + m)
 }
 
+// Multiplication by repeated addition.
 recursive operator *(Nat,Nat) -> Nat {
   operator *(zero, m) = zero
   operator *(suc(n), m) = m + (n * m)
 }
 
+// Exponentiation: `expt(p, n)` is `n` raised to power `p`.
 recursive expt(Nat, Nat) -> Nat {
   expt(zero, n) = suc(zero)
   expt(suc(p), n) = n * expt(p, n)
 }
 
+// Infix exponentiation, with the base written before the exponent.
 fun operator ^(a : Nat, b : Nat)  {
   expt(b, a)
 }
 
+// Maximum of two naturals.
 recursive max(Nat,Nat) -> Nat {
   max(zero, n) = n
   max(suc(m'), n) =
@@ -33,6 +48,7 @@ recursive max(Nat,Nat) -> Nat {
     }
 }
 
+// Minimum of two naturals.
 recursive min(Nat,Nat) -> Nat {
   min(zero, n) = zero
   min(suc(m'), n) =
@@ -42,6 +58,7 @@ recursive min(Nat,Nat) -> Nat {
     }
 }
 
+// Predecessor, with `pred(zero) = zero`.
 fun pred(n : Nat) {
   switch n {
     case zero { zero }
@@ -49,6 +66,7 @@ fun pred(n : Nat) {
   }
 }
 
+// Truncated subtraction: `x ∸ y` is zero when `y` is larger than `x`.
 recursive operator ∸(Nat,Nat) -> Nat {
   operator ∸(zero, m) = zero
   operator ∸(suc(n), m) =
@@ -58,6 +76,7 @@ recursive operator ∸(Nat,Nat) -> Nat {
     }
 }
 
+// Boolean less-than-or-equal.
 recursive operator ≤(Nat,Nat) -> bool {
   operator ≤(zero, m) = true
   operator ≤(suc(n'), m) =
@@ -162,4 +181,3 @@ define log2 : fn Nat -> Nat = λn{ find_log2(n, n, zero) }
 
 // Invariant: only apply lit to a literal Nat.
 fun lit(a : Nat) { a }
-

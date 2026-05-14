@@ -5,6 +5,16 @@ import Nat
 import UIntDefs
 import UIntToFrom
 
+/*
+  Theorems about UInt order.
+
+  The primitive UInt comparison is implemented over the binary
+  representation. This file connects it to Nat order through `toNat`
+  and develops the standard order laws and arithmetic monotonicity
+  lemmas used by the rest of the UInt library.
+*/
+
+// UInt less-than implies Nat less-than after conversion.
 theorem toNat_less: all x:UInt, y:UInt.
   if x < y then toNat(x) < toNat(y)
 proof
@@ -783,4 +793,3 @@ proof
     prem
   }
 end
-
