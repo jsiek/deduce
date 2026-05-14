@@ -19,6 +19,8 @@ Initial coverage:
   populated dataclass fields as the original -- catches arity
   drift like the historical ``AllIntro.copy`` /
   ``Array.copy`` issues mentioned in #475.
+- `__hash__` policy: AST nodes remain unhashable while equality is
+  structural and instances are mutable.
 
 A meta-test (``test_specimen_coverage_report``) lists concrete AST
 subclasses that are not yet covered by a specimen so the registry
@@ -26,7 +28,7 @@ can be grown over time. It is informational only; it does not
 fail the build for uncovered classes.
 
 The follow-up items from #475 (``substitute`` capture-avoidance,
-proof-side walker completeness, ``typeof`` policy invariants) are
+proof-side walker completeness, broader ``typeof`` coverage) are
 deferred to subsequent PRs.
 """
 
@@ -813,6 +815,28 @@ def test_copy_field_completeness(cls: type) -> None:
         f"{sorted(expected - actual)} or gained "
         f"{sorted(actual - expected)}"
     )
+
+
+@pytest.mark.parametrize(
+    "cls",
+    sorted(_SPECIMEN_FACTORIES, key=lambda c: c.__name__),
+    ids=_specimen_ids(),
+)
+def test_structural_eq_nodes_are_unhashable(cls: type) -> None:
+    """Mutable structural-equality nodes should not define ``__hash__``.
+
+    A value-based hash would have to mirror every bespoke ``__eq__``
+    implementation, including alpha-equivalence and cross-class wrappers.
+    Keeping AST nodes unhashable avoids silently corrupting dict/set keys
+    when a mutable node changes after insertion.
+    """
+    node = _make(cls)
+    copied = node.copy()
+    assert node == copied
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(node)
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(copied)
 
 
 def test_specimen_coverage_report(capsys: pytest.CaptureFixture[str]) -> None:
