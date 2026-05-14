@@ -1,0 +1,9 @@
+import UInt
+
+theorem bad_uint_induction_missing_case : all x : UInt. x = x
+proof
+  induction UInt
+  case 0 {
+    .
+  }
+end

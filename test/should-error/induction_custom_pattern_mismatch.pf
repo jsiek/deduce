@@ -1,0 +1,12 @@
+import UInt
+
+theorem bad_uint_induction_pattern : all x : UInt. x = x
+proof
+  induction UInt
+  case 0 {
+    .
+  }
+  case with x. x assume IH {
+    .
+  }
+end

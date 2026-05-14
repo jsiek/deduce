@@ -1281,6 +1281,19 @@ instantiate them. For example:
 case with x. 1 + x assume IH { ... }
 ```
 
+For `UInt`, this means `induction UInt` uses the public zero/successor
+view from `uint_induction`, not the private binary constructors. The two
+cases are:
+
+```
+case 0 { ... }
+case with n. 1 + n assume IH { ... }
+```
+
+If a custom induction proof has the wrong number of cases, or if a
+`with` pattern does not match the custom induction theorem, Deduce reports
+the expected case shape in the error message.
+
 ## Injective (Proof)
 
 ```
