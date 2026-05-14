@@ -94,7 +94,6 @@ known_tokens = {
     'RECALL': 'keyword',
     'RECURSIVE': 'keyword',
     'RECFUN': 'keyword',
-    'VIEWREC': 'keyword',
     'VIEW': 'keyword',
     'SOURCE': 'keyword',
     'TARGET': 'keyword',
