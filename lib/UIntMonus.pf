@@ -228,6 +228,15 @@ proof
   add_both_monus
 end
 
+theorem uint_dist_mult_monus: all x:UInt. all y:UInt, z:UInt.
+  x * (y ∸ z) = x * y ∸ x * z
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  suffices toNat(x * (y ∸ z)) = toNat(x * y ∸ x * z) by uint_toNat_injective
+  replace toNat_mult | toNat_monus | toNat_mult
+  dist_mult_monus
+end
+
 theorem lit_monus_fromNat: all x:Nat, y:Nat. fromNat(lit(x)) ∸ fromNat(lit(y)) = fromNat(lit(x) ∸ lit(y))
 proof
   arbitrary x:Nat, y:Nat
@@ -249,6 +258,44 @@ proof
   have A: toNat(m) ≤ toNat(n) by apply toNat_less_equal to prem
   conclude toNat(m) + (toNat(n) ∸ toNat(m)) = toNat(n)
     by apply monus_add_identity to A
+end
+
+theorem uint_le_exists_monus : all n : UInt, m : UInt.
+  if n <= m then some x : UInt. m = n + x
+proof
+  arbitrary n : UInt, m : UInt
+  assume prem
+  choose m ∸ n
+  symmetric apply uint_monus_add_identity[m, n] to prem
+end
+
+theorem uint_monus_zero_iff_less_eq : all x : UInt, y : UInt.
+  x ≤ y ⇔ x ∸ y = 0
+proof
+  arbitrary x : UInt, y : UInt
+  have fwd: if x ≤ y then x ∸ y = 0 by {
+    assume x_le_y
+    suffices toNat(x ∸ y) = toNat((0:UInt)) by uint_toNat_injective
+    replace toNat_monus
+    have nx_le_ny: toNat(x) ≤ toNat(y) by apply toNat_less_equal to x_le_y
+    replace apply nat_monus_zero_iff_less_eq to nx_le_ny
+    evaluate
+  }
+  have bkwd: if x ∸ y = 0 then x ≤ y by {
+    assume xy_zero
+    have nxy_zero: toNat(x) ∸ toNat(y) = zero by {
+      have A: toNat(x ∸ y) = toNat((0:UInt)) by replace xy_zero.
+      have B: toNat(x) ∸ toNat(y) = toNat((0:UInt)) by replace toNat_monus in A
+      evaluate in B
+    }
+    have nxy_zero_nat: toNat(x) ∸ toNat(y) = ℕ0 by {
+      expand lit
+      nxy_zero
+    }
+    have nx_le_ny: toNat(x) ≤ toNat(y) by apply nat_monus_zero_iff_less_eq to nxy_zero_nat
+    apply less_equal_toNat to nx_le_ny
+  }
+  fwd, bkwd
 end
 
 theorem uint_monus_add_assoc: all n:UInt, l:UInt,m:UInt.
