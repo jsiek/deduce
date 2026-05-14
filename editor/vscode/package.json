@@ -61,6 +61,11 @@
         "category": "Deduce"
       },
       {
+        "command": "deduce.nextHole",
+        "title": "Deduce: Go to next hole",
+        "category": "Deduce"
+      },
+      {
         "command": "deduce.refineHole",
         "title": "Deduce: Refine hole at cursor",
         "category": "Deduce"
@@ -95,6 +100,11 @@
       {
         "command": "deduce.showGoal",
         "key": "ctrl+alt+g",
+        "when": "editorTextFocus && editorLangId == deduce"
+      },
+      {
+        "command": "deduce.nextHole",
+        "key": "ctrl+alt+n",
         "when": "editorTextFocus && editorLangId == deduce"
       },
       {

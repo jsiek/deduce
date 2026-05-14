@@ -66,6 +66,10 @@ lockstep with it.
   `deduce/goalAt` request at the cursor and renders the goal +
   givens in a dedicated *Deduce Goal* Output channel.  Mirror of
   Emacs's `C-c C-g` / `deduce-show-goal-at-point`.
+- **Next-hole command** — `Ctrl+Alt+N` (or Command Palette:
+  *Deduce: Go to next hole*) moves the cursor to the next
+  standalone `?` proof hole, wrapping once at end of file.  Mirror
+  of Emacs's `C-c C-n` / `deduce-mode-next-hole`.
 - **Structured-editing commands** — five commands that transform
   a `?` hole into a step closer to a complete proof.  Mirror of
   Emacs's `C-c C-{r,c,i,e,f}` bindings (`deduce-lsp.el`):
