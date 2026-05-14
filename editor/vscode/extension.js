@@ -173,6 +173,8 @@ function activate(context) {
     // can fire immediately without repositioning.
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('deduce.nextHole', () =>
+            nextHoleCommand()),
         vscode.commands.registerCommand('deduce.refineHole', () =>
             applyCodeActionByTitle(client, 'Refine hole', 'No refinement available at point.')),
         vscode.commands.registerCommand('deduce.induction', () =>
@@ -538,6 +540,45 @@ function textDocumentPosition(editor) {
     };
 }
 
+function nextHoleCommand() {
+    const editor = ensureDeduceEditor();
+    if (!editor) return;
+    const doc = editor.document;
+    const startOffset = doc.offsetAt(editor.selection.active);
+    const foundOffset = findNextHoleOffset(doc.getText(), startOffset);
+    if (foundOffset === undefined) {
+        vscode.window.showInformationMessage('Deduce: no proof hole found.');
+        return;
+    }
+    const pos = doc.positionAt(foundOffset);
+    editor.selection = new vscode.Selection(pos, pos);
+    editor.revealRange(new vscode.Range(pos, pos));
+}
+
+function findNextHoleOffset(text, startOffset) {
+    const after = findHoleOffsetInRange(text, Math.min(startOffset + 1, text.length), text.length);
+    if (after !== undefined) return after;
+    return findHoleOffsetInRange(text, 0, startOffset);
+}
+
+function findHoleOffsetInRange(text, startOffset, endOffset) {
+    for (let i = startOffset; i < endOffset; i++) {
+        if (text[i] === '?' && isStandaloneHoleAt(text, i)) {
+            return i;
+        }
+    }
+    return undefined;
+}
+
+function isStandaloneHoleAt(text, index) {
+    return !isDeduceIdentifierChar(text[index - 1])
+        && !isDeduceIdentifierChar(text[index + 1]);
+}
+
+function isDeduceIdentifierChar(ch) {
+    return ch !== undefined && /[A-Za-z0-9_?!']/.test(ch);
+}
+
 // Translate an LSP WorkspaceEdit's {changes: {uri: TextEdit[]}} shape
 // into a vscode.WorkspaceEdit, then apply it via the workspace API.
 // We don't use client.protocol2CodeConverter because it expects fully
@@ -723,4 +764,9 @@ function deactivate() {
     return client.stop();
 }
 
-module.exports = { activate, deactivate };
+module.exports = {
+    activate,
+    deactivate,
+    findNextHoleOffset,
+    isStandaloneHoleAt,
+};

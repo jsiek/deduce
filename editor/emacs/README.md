@@ -317,6 +317,7 @@ OpenAI, or IU REALLMs depending on backend choice):
 | `M-.`     | Jump to symbol's definition                                        | `xref-find-definitions`          | eglot          |
 | `M-,`     | Pop the xref stack                                                 | `xref-go-back`                   | eglot          |
 | `M-x imenu` | Outline of top-level declarations                                | `imenu`                          | eglot          |
+| `C-c C-n` | Move to the next standalone `?` hole                               | `deduce-mode-next-hole`          | `deduce-mode`  |
 | `C-c C-g` | Goal + givens at cursor                                            | `deduce-show-goal-at-point`      | `deduce-lsp`   |
 | `C-c C-r` | Apply the suggested template at hole                               | `deduce-lsp-refine-hole`         | `deduce-lsp`   |
 | `C-c C-c` | Prompt for variable, replace `?` with case skeleton                | `deduce-lsp-case-split`          | `deduce-lsp`   |
