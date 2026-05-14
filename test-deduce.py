@@ -17,11 +17,17 @@ Per-category flags (combinable):
     --passable     ``test/should-validate``, ``example.pf``,
                    ``test/prelude`` with both parsers.
     --errors       ``test/should-error`` (RD only, ``.err`` diff).
+    --equiv        Parse ``lib/`` and ``test/should-validate/`` with both
+                   parsers and compare structural ASTs. Known historical
+                   divergences are allowlisted so CI catches new drift.
 
 Standalone modes (mutually exclusive with the above):
     --site             Generate ``doc_*.pf`` from ``gh_pages/doc/``
                        and check them with both parsers.
     --parser           ``test/parse`` parser-error fixtures (RD only).
+                       These stay RD-only because RD diagnostics are the
+                       user-facing diagnostics; LALR is checked for accepted
+                       syntax and AST shape by ``--equiv`` instead.
     --regenerate-errors      Regenerate every ``test/should-error/*.err``.
     --generate-error <path>  Regenerate one ``.err`` fixture.
     --gen-parse              Regenerate every ``test/parse/*.err``.
@@ -43,8 +49,10 @@ import sys
 import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import fields as dc_fields, is_dataclass
 from pathlib import Path
 from signal import signal, SIGINT
+from lark import Token
 
 # Work around macOS sandbox profiles (notably Claude Code's seatbelt
 # sandbox) that deny ``sysconf(_SC_SEM_NSEMS_MAX)``. Python's
@@ -84,6 +92,8 @@ sys.argv = [str(REPO_ROOT / "deduce.py")] + sys.argv[1:]
 from abstract_syntax import add_import_directory, init_import_directories
 from flags import set_quiet_mode, set_recursive_descent
 from lsp.library import check_file, reset_prelude_cache
+import parser as _equiv_lark_parser
+import rec_desc_parser as _equiv_rd_parser
 
 
 # Keep these as relative paths -- ``deduce.py``'s error messages
@@ -96,6 +106,51 @@ PRELUDE_DIR = Path("test/prelude")
 IMPORTS_DIR = Path("test/test-imports")
 PARSE_DIR = Path("test/parse")
 EXAMPLE_FILE = Path("example.pf")
+
+
+# Current parser-equivalence baseline. These files parse successfully with
+# both parsers but produce structurally different ASTs today. Keeping the
+# baseline explicit makes any new drift fail CI, and also fails when a listed
+# file becomes equivalent so the list gets smaller over time.
+PARSER_EQUIV_EXPECTED_DIVERGENCES = frozenset({
+    "./lib/BigO.pf",
+    "./lib/IntAddSub.pf",
+    "./lib/IntDefs.pf",
+    "./lib/IntMult.pf",
+    "./lib/List.pf",
+    "./lib/MultiSet.pf",
+    "./lib/NatDiv.pf",
+    "./lib/NatMult.pf",
+    "./lib/NatPowLog.pf",
+    "./lib/NatSum.pf",
+    "./lib/Set.pf",
+    "./lib/UIntAdd.pf",
+    "./lib/UIntDefs.pf",
+    "./lib/UIntDiv.pf",
+    "./lib/UIntMonus.pf",
+    "./lib/UIntPowLog.pf",
+    "./test/should-validate/NatTests.pf",
+    "./test/should-validate/UIntLogTests.pf",
+    "./test/should-validate/all-elim-types-tlet.pf",
+    "./test/should-validate/assoc1.pf",
+    "./test/should-validate/assoc2.pf",
+    "./test/should-validate/assoc3.pf",
+    "./test/should-validate/auto1.pf",
+    "./test/should-validate/bicond2.pf",
+    "./test/should-validate/bintree.pf",
+    "./test/should-validate/eval-fact.pf",
+    "./test/should-validate/eval-goal.pf",
+    "./test/should-validate/expand-repeat.pf",
+    "./test/should-validate/fib.pf",
+    "./test/should-validate/inst3.pf",
+    "./test/should-validate/int_arith.pf",
+    "./test/should-validate/map_append_cross_type.pf",
+    "./test/should-validate/nat_arith.pf",
+    "./test/should-validate/postulate1.pf",
+    "./test/should-validate/replace_generic.pf",
+    "./test/should-validate/rewrite_all_mark.pf",
+    "./test/should-validate/uint_arith.pf",
+})
 
 
 # Module-level globals consumed by worker functions. The parent
@@ -295,6 +350,94 @@ def run_err_diff_parallel(directory: Path, label: str,
     return failures
 
 
+def _canonical_ast(value, *, parent_class: str | None = None,
+                   field_name: str | None = None):
+    """Canonical structural form for comparing parser ASTs.
+
+    Source locations are intentionally ignored. Lark ``Token`` values are
+    converted to plain strings because the RD parser usually emits strings for
+    the same identifier/operator leaves. The RD parser also preserves the
+    historical ``default`` visibility sentinel; normalize it to the LALR
+    parser's concrete visibility for this comparison.
+    """
+    if isinstance(value, Token):
+        return str(value)
+    if field_name == "visibility" and value == "default":
+        value = "private" if parent_class == "Import" else "public"
+    if is_dataclass(value):
+        cls_name = type(value).__name__
+        return (
+            cls_name,
+            tuple(
+                (fld.name, _canonical_ast(
+                    getattr(value, fld.name),
+                    parent_class=cls_name,
+                    field_name=fld.name,
+                ))
+                for fld in dc_fields(value)
+                if fld.name != "location"
+            ),
+        )
+    if isinstance(value, list):
+        return [_canonical_ast(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_canonical_ast(v) for v in value)
+    return value
+
+
+def _parse_for_equivalence(path: str, *, recursive_descent: bool):
+    parser_mod = _equiv_rd_parser if recursive_descent else _equiv_lark_parser
+    parser_mod.set_deduce_directory(str(REPO_ROOT))
+    parser_mod.set_filename(path)
+    parser_mod.init_parser()
+    with open(path, encoding="utf-8") as f:
+        return parser_mod.parse(f.read())
+
+
+def run_parser_equivalence() -> list[tuple[str, str, str]]:
+    """Compare RD and LALR ASTs for accepted syntax.
+
+    This covers ``lib/`` and ``test/should-validate/``. ``test/parse`` remains
+    RD-only because those fixtures intentionally lock down beginner-facing RD
+    diagnostics, while the LALR parser is kept as an executable grammar spec.
+    """
+    files = list_pf(LIB_DIR) + list_pf(PASS_DIR)
+    failures: list[tuple[str, str, str]] = []
+    seen_divergences: set[str] = set()
+    for path in files:
+        try:
+            rd_ast = _canonical_ast(
+                _parse_for_equivalence(path, recursive_descent=True)
+            )
+            lalr_ast = _canonical_ast(
+                _parse_for_equivalence(path, recursive_descent=False)
+            )
+        except Exception as exc:
+            failures.append((path, "parser-equivalence",
+                             f"{type(exc).__name__}: {exc}"))
+            continue
+
+        if rd_ast == lalr_ast:
+            if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
+                failures.append((path, "parser-equivalence",
+                                 "listed as a divergence but now matches"))
+            continue
+
+        if path in PARSER_EQUIV_EXPECTED_DIVERGENCES:
+            seen_divergences.add(path)
+        else:
+            failures.append((path, "parser-equivalence",
+                             "RD and LALR ASTs differ"))
+
+    stale = PARSER_EQUIV_EXPECTED_DIVERGENCES - seen_divergences - {
+        f for f in files if f in PARSER_EQUIV_EXPECTED_DIVERGENCES
+    }
+    for path in sorted(stale):
+        failures.append((path, "parser-equivalence",
+                         "expected divergence path no longer exists"))
+    return failures
+
+
 def run_cli_test() -> list[tuple[str, str, str]]:
     """Sanity-check that ``python deduce.py example.pf`` works end-to-end.
 
@@ -392,7 +535,7 @@ def parse_args(argv: list[str]) -> dict:
     arguments still in scripts / muscle memory."""
     flags = {
         "cli": False, "lib": False, "passable": False, "errors": False,
-        "site": False, "parser": False,
+        "equiv": False, "site": False, "parser": False,
         "regen_all": False, "regen_files": [], "gen_parse": False,
         "workers": max(1, (os.cpu_count() or 4)),
     }
@@ -404,6 +547,7 @@ def parse_args(argv: list[str]) -> dict:
         elif a == "--lib": flags["lib"] = True
         elif a == "--passable": flags["passable"] = True
         elif a == "--errors": flags["errors"] = True
+        elif a == "--equiv": flags["equiv"] = True
         elif a == "--site": flags["site"] = True
         elif a == "--parser": flags["parser"] = True
         elif a == "--regenerate-errors": flags["regen_all"] = True
@@ -423,12 +567,13 @@ def parse_args(argv: list[str]) -> dict:
     # If no flags at all, default to the per-PR regression sweep.
     if not any(flags[k] for k in
                ("cli", "lib", "passable", "errors", "site", "parser",
-                "regen_all", "gen_parse")) and not flags["regen_files"]:
-        flags["cli"] = flags["lib"] = flags["passable"] = flags["errors"] = True
+                "equiv", "regen_all", "gen_parse")) and not flags["regen_files"]:
+        flags["cli"] = flags["lib"] = flags["passable"] = True
+        flags["errors"] = flags["equiv"] = True
 
     # Standalone modes are mutually exclusive with everything else.
     if any(flags[k] or flags["regen_files"] for k in standalone):
-        category_flags = ("cli", "lib", "passable", "errors")
+        category_flags = ("cli", "lib", "passable", "errors", "equiv")
         active_categories = [k for k in category_flags if flags[k]]
         active_standalone = [k for k in standalone if flags[k] or
                              (k == "regen_files" and flags["regen_files"])]
@@ -538,6 +683,12 @@ def main(argv: list[str]) -> int:
         _, fails = time_section("should-error",
                                 lambda: run_err_diff_parallel(
                                     ERROR_DIR, "recursive-descent", workers))
+        total_failures.extend(fails)
+
+    if flags["equiv"]:
+        print("\n=== parser equivalence (RD vs LALR ASTs) ===")
+        _, fails = time_section("lib + should-validate",
+                                run_parser_equivalence)
         total_failures.extend(fails)
 
     return _report(total_failures, total_t0)
