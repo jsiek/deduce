@@ -793,3 +793,230 @@ proof
     prem
   }
 end
+
+theorem uint_max_greater_left: all x:UInt, y:UInt.
+  x ≤ max(x, y)
+proof
+  arbitrary x:UInt, y:UInt
+  expand max
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y
+    apply uint_less_implies_less_equal to x_l_y
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y
+    uint_less_equal_refl[x]
+  }
+end
+
+theorem uint_max_greater_right: all x:UInt, y:UInt.
+  y ≤ max(x, y)
+proof
+  arbitrary x:UInt, y:UInt
+  expand max
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y
+    uint_less_equal_refl[y]
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y
+    apply uint_not_less_implies_less_equal to not_x_l_y
+  }
+end
+
+theorem uint_max_is_left_or_right: all x:UInt, y:UInt.
+  max(x, y) = x or max(x, y) = y
+proof
+  arbitrary x:UInt, y:UInt
+  expand max
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y.
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y.
+  }
+end
+
+theorem uint_max_idempotent: all x:UInt.
+  max(x, x) = x
+proof
+  arbitrary x:UInt
+  expand max
+  .
+end
+
+theorem uint_min_less_equal_left: all x:UInt, y:UInt.
+  min(x, y) ≤ x
+proof
+  arbitrary x:UInt, y:UInt
+  expand min
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y
+    uint_less_equal_refl[x]
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y
+    apply uint_not_less_implies_less_equal to not_x_l_y
+  }
+end
+
+theorem uint_min_less_equal_right: all x:UInt, y:UInt.
+  min(x, y) ≤ y
+proof
+  arbitrary x:UInt, y:UInt
+  expand min
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y
+    apply uint_less_implies_less_equal to x_l_y
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y
+    uint_less_equal_refl[y]
+  }
+end
+
+theorem uint_min_equal_less_left: all x:UInt, y:UInt.
+  (if x ≤ y then min(x, y) = x)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  expand min
+  have x_l_y_or_eq: x < y or x = y by expand operator≤ in prem
+  cases x_l_y_or_eq
+  case x_l_y: x < y {
+    simplify with x_l_y.
+  }
+  case x_eq_y: x = y {
+    have not_x_l_y: not (x < y) by {
+      replace x_eq_y
+      uint_less_irreflexive[y]
+    }
+    simplify with not_x_l_y
+    symmetric x_eq_y
+  }
+end
+
+theorem uint_min_equal_less_right: all x:UInt, y:UInt.
+  (if y ≤ x then min(x, y) = y)
+proof
+  arbitrary x:UInt, y:UInt
+  assume prem
+  expand min
+  have not_x_l_y: not (x < y) by {
+    assume x_l_y
+    have y_l_x_or_eq: y < x or y = x by expand operator≤ in prem
+    cases y_l_x_or_eq
+    case y_l_x: y < x {
+      have x_l_x: x < x by apply uint_less_trans to x_l_y, y_l_x
+      apply uint_less_irreflexive to x_l_x
+    }
+    case y_eq_x: y = x {
+      have x_l_x: x < x by replace y_eq_x in x_l_y
+      apply uint_less_irreflexive to x_l_x
+    }
+  }
+  simplify with not_x_l_y.
+end
+
+theorem uint_min_is_left_or_right: all x:UInt, y:UInt.
+  min(x, y) = x or min(x, y) = y
+proof
+  arbitrary x:UInt, y:UInt
+  expand min
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y.
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y.
+  }
+end
+
+theorem uint_min_idempotent: all x:UInt.
+  min(x, x) = x
+proof
+  arbitrary x:UInt
+  expand min
+  .
+end
+
+theorem uint_min_symmetric: all x:UInt, y:UInt.
+  min(x, y) = min(y, x)
+proof
+  arbitrary x:UInt, y:UInt
+  expand min
+  have tri: x < y  or  x = y  or  y < x by uint_trichotomy[x,y]
+  cases tri
+  case x_l_y: x < y {
+    have not_y_l_x: not (y < x) by apply uint_less_implies_not_greater to x_l_y
+    simplify with x_l_y | not_y_l_x.
+  }
+  case x_eq_y: x = y {
+    replace x_eq_y.
+  }
+  case y_l_x: y < x {
+    have not_x_l_y: not (x < y) by apply uint_less_implies_not_greater to y_l_x
+    simplify with y_l_x | not_x_l_y.
+  }
+end
+
+theorem uint_min_greatest_less_equal: all x:UInt, y:UInt, z:UInt.
+  (if z ≤ x and z ≤ y then z ≤ min(x, y))
+proof
+  arbitrary x:UInt, y:UInt, z:UInt
+  assume prem
+  expand min
+  have xy: x < y or not (x < y) by ex_mid[x < y]
+  cases xy
+  case x_l_y: x < y {
+    simplify with x_l_y
+    show z ≤ x
+    prem
+  }
+  case not_x_l_y: not (x < y) {
+    simplify with not_x_l_y
+    show z ≤ y
+    prem
+  }
+end
+
+theorem uint_min_max_absorb_left: all x:UInt, y:UInt.
+  min(x, max(x, y)) = x
+proof
+  arbitrary x:UInt, y:UInt
+  apply uint_min_equal_less_left[x, max(x, y)] to uint_max_greater_left[x,y]
+end
+
+theorem uint_max_min_absorb_left: all x:UInt, y:UInt.
+  max(x, min(x, y)) = x
+proof
+  arbitrary x:UInt, y:UInt
+  apply uint_max_equal_greater_left[x, min(x, y)] to uint_min_less_equal_left[x,y]
+end
+
+theorem uint_min_max_absorb_right: all x:UInt, y:UInt.
+  min(max(x, y), x) = x
+proof
+  arbitrary x:UInt, y:UInt
+  replace uint_min_symmetric[max(x, y), x]
+  uint_min_max_absorb_left[x,y]
+end
+
+theorem uint_max_min_absorb_right: all x:UInt, y:UInt.
+  max(min(x, y), x) = x
+proof
+  arbitrary x:UInt, y:UInt
+  replace uint_max_symmetric[min(x, y), x]
+  uint_max_min_absorb_left[x,y]
+end

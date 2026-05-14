@@ -874,7 +874,7 @@ def test_chained_refine_after_workspace_update(server, open_doc):
         f"first codeAction should return one refine action; got {actions1!r}"
     )
     assert actions1[0].title == "Refine hole"
-    edit1 = actions1[0].edit.changes[uri][0]
+    assert actions1[0].edit.changes[uri]
     # Eglot would apply this edit locally and then send didChange.
     # Simulate the post-edit content here.
     new_text = "arbitrary P:bool\n  ?"

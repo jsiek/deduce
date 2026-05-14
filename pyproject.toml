@@ -30,9 +30,9 @@ exclude = [
 
 [tool.ruff.lint]
 # Pyflakes rules enabled incrementally as the codebase is cleaned up
-# (see issue #481). F403/F405 (star-import side-effects) and F841
-# (unused-locals) are still deferred.
-select = ["F401", "F541", "F601", "F811", "F821"]
+# (see issue #481). F403/F405 (star-import side-effects) are still
+# deferred.
+select = ["F401", "F541", "F601", "F811", "F821", "F841"]
 
 [tool.mypy]
 # Starter config (#479) + first tightening pass toward --strict. The

@@ -299,7 +299,7 @@ def test_stack_trace_inside_function(dap_session, tmp_path):
     client.request("continue")
     while True:
         try:
-            evt = client.wait_for_event("stopped", timeout=2.0)
+            client.wait_for_event("stopped", timeout=2.0)
         except TimeoutError:
             break
         client.request("continue")

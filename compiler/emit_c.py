@@ -201,7 +201,7 @@ def emit_program(p: ir.Program) -> str:
         )
     for d in p.decls:
         if isinstance(d, ir.Global):
-            tmp = ctx.fresh_tmp()
+            ctx.fresh_tmp()
             stmts, expr = _emit_term(d.body, ctx, locals_in_scope=set())
             for s in stmts:
                 out.append("    " + s)
