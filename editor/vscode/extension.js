@@ -220,10 +220,11 @@ function activate(context) {
     //      re-fetched fingerprint matches, splice the validated proof
     //      in via `vscode.workspace.applyEdit'.
     //
-    // One sidecar per document at a time -- a second invocation while
-    // the first is in flight is rejected.  Different documents can
-    // fill in parallel.
-    const fillHoleInFlight = new Set();
+    // Multiple sidecars may run concurrently, including in the same
+    // document.  Each request keeps its own hole range +
+    // fingerprint, so later completions still go through the normal
+    // stale-marker check before editing.
+    const fillHoleInFlight = new Map();
     context.subscriptions.push(
         vscode.commands.registerCommand('deduce.fillHole', () =>
             fillHoleCommand(client, fillHoleInFlight, root)),
@@ -246,11 +247,7 @@ async function fillHoleCommand(client, inFlight, deduceRoot) {
     const editor = ensureDeduceEditor();
     if (!editor || !client) return;
     const uriStr = editor.document.uri.toString();
-    if (inFlight.has(uriStr)) {
-        vscode.window.showInformationMessage(
-            'Deduce: a fill-hole is already in progress in this buffer.');
-        return;
-    }
+    const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     // 1. Pull the hole context (goal + givens + lemmas + fingerprint).
     const ctxParams = {
@@ -324,7 +321,7 @@ async function fillHoleCommand(client, inFlight, deduceRoot) {
 
     // 3. Spawn the sidecar inside a progress notification so the user
     // can cancel and gets feedback that something's happening.
-    inFlight.add(uriStr);
+    inFlight.set(requestId, { uri: uriStr, holeRange: ctx.holeRange });
     let result;
     try {
         result = await vscode.window.withProgress(
@@ -336,7 +333,7 @@ async function fillHoleCommand(client, inFlight, deduceRoot) {
             (progress, token) => runFillHoleSidecar(python, args, JSON.stringify(payload), deduceRoot, token),
         );
     } finally {
-        inFlight.delete(uriStr);
+        inFlight.delete(requestId);
     }
 
     if (!result) {

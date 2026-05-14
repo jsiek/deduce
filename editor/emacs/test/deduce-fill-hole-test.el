@@ -458,6 +458,25 @@ markers, because splice-proof reads them after cleanup runs."
       (should (marker-position end)))))
 
 
+(ert-deftest deduce-fill-hole/session-registry-supports-multiple-in-flight ()
+  "Multiple fill-hole sessions can coexist in one buffer and be
+removed independently."
+  (with-temp-buffer
+    (let ((session-a (list :request-id 1))
+          (session-b (list :request-id 2)))
+      (deduce-fill-hole--register-session session-a)
+      (deduce-fill-hole--register-session session-b)
+      (should (equal (mapcar (lambda (s) (plist-get s :request-id))
+                             deduce-fill-hole--sessions)
+                     '(2 1)))
+      (deduce-fill-hole--drop-session session-a)
+      (should (equal (mapcar (lambda (s) (plist-get s :request-id))
+                             deduce-fill-hole--sessions)
+                     '(2)))
+      (deduce-fill-hole--drop-session session-b)
+      (should (null deduce-fill-hole--sessions)))))
+
+
 (ert-deftest deduce-fill-hole/sentinel-success-splices-proof ()
   "When stdout is `{ok: true, proof: ...}' and the buffer state
 hasn't changed, the proof replaces the `?' and the user gets a

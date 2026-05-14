@@ -94,6 +94,15 @@ def test_build_user_message_shape():
     assert "  ?" in out
 
 
+def test_system_prompt_warns_not_to_fill_neighbor_holes():
+    out = build_system_prompt(max_attempts=5)
+    assert "<<<TARGET_HOLE>>>?" in out
+    assert "Other ``?`` holes" in out
+    assert "valid" in out
+    assert "``proof_text``" in out
+    assert "exactly ``.``" in out
+
+
 def test_slice_around_hole_returns_context():
     content = "line0\nline1\nline2\nline3\nline4\nline5\n"
     # Hole at offset 12 (start of "line2") — context_lines defaults to 15
@@ -101,6 +110,32 @@ def test_slice_around_hole_returns_context():
     out = slice_around_hole(content, 12, 13)
     assert "line0" in out
     assert "line5" in out
+    assert "<<<TARGET_HOLE>>>l<<<END_TARGET_HOLE>>>ine2" in out
+
+
+def test_slice_around_hole_marks_only_target_question_mark():
+    content = (
+        "theorem t1: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem t2: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+        "\n"
+        "theorem t3: true\n"
+        "proof\n"
+        "  ?\n"
+        "end\n"
+    )
+    target = content.rindex("?")
+    out = slice_around_hole(content, target, target + 1)
+    assert out.count("<<<TARGET_HOLE>>>") == 1
+    assert out.count("<<<END_TARGET_HOLE>>>") == 1
+    assert out.count("?") == 3
+    assert "<<<TARGET_HOLE>>>?<<<END_TARGET_HOLE>>>" in out
 
 
 def test_slice_around_hole_empty_content():

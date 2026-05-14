@@ -89,6 +89,12 @@ Rules:
   are already in the source.  A trailing ``end'' in your
   ``proof_text'' will produce a parse error ("expected a
   statement, not end") because the source already has its own.
+- The source excerpt marks the target as ``<<<TARGET_HOLE>>>?``.
+  Only replace that one marker. Other ``?`` holes in the excerpt
+  belong to other requests or later work; leave them alone.
+- For a target theorem ``theorem t: true proof ? end``, a valid
+  ``proof_text`` is exactly ``.``. Invalid examples: ``. . .``,
+  ``. end``, or text that repeats another ``theorem`` block.
 - Keep edits to the hole only. Do not modify anything outside it.
 - Prefer existing givens and the listed lemmas over postulates.
 - If the goal reduces trivially (e.g. ``true``, reflexive
@@ -237,4 +243,15 @@ def slice_around_hole(
 
     first = max(0, start_line - context_lines)
     last = min(len(lines), end_line + context_lines + 1)
-    return "".join(lines[first:last]).rstrip("\n")
+    excerpt_start = line_starts[first]
+    rel_start = hole_start_offset - excerpt_start
+    rel_end = hole_end_offset - excerpt_start
+    excerpt = "".join(lines[first:last])
+    marked = (
+        excerpt[:rel_start]
+        + "<<<TARGET_HOLE>>>"
+        + excerpt[rel_start:rel_end]
+        + "<<<END_TARGET_HOLE>>>"
+        + excerpt[rel_end:]
+    )
+    return marked.rstrip("\n")

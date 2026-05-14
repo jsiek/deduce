@@ -305,8 +305,9 @@ OpenAI, or IU REALLMs depending on backend choice):
   validation attempts; first valid proof wins). On completion, if
   the buffer around the hole hasn't drifted in the meantime, the
   validated proof is spliced in; otherwise the command errors and
-  leaves the buffer untouched. One fill-hole per buffer at a time;
-  multiple buffers can fill in parallel.
+  leaves the buffer untouched. Multiple fill-hole requests can run in
+  parallel, including in the same buffer; each still has to pass the
+  marker and fingerprint checks before it edits.
 
 ## Keybindings
 

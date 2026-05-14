@@ -203,6 +203,21 @@ def _main_with_response_stream(args: argparse.Namespace, response_stream: IO[str
         )
         return 2
 
+    # Bootstrap the deduce env so HoleQuerier's in-process
+    # `lsp.query.hole_context_at' call can resolve imports.  Best-
+    # effort: query_goal will fail with a clear message if the
+    # bootstrap couldn't load `abstract_syntax' (e.g. user pointed
+    # --deduce-root somewhere else than a real checkout).  Use the
+    # sidecar's own location as the deduce root when --deduce-root
+    # isn't given -- the sidecar lives at <root>/tools/claude_fill_hole/.
+    sidecar_root = (
+        Path(args.deduce_root)
+        if args.deduce_root
+        else Path(__file__).resolve().parents[2]
+    )
+    _bootstrap_deduce_env(sidecar_root)
+    prelude = () if args.no_stdlib else _default_prelude(sidecar_root)
+
     # Default `--deduce-cmd` to `<this Python> deduce.py` so the
     # checker subprocess inherits our site-packages.  Bare "python3"
     # picks up whatever's first on PATH, which on macOS GUI emacs is
@@ -221,22 +236,10 @@ def _main_with_response_stream(args: argparse.Namespace, response_stream: IO[str
         deduce_root=args.deduce_root,
         no_stdlib=args.no_stdlib,
         timeout_seconds=float(args.timeout),
+        prelude=prelude,
+        allow_other_holes=True,
     )
 
-    # Bootstrap the deduce env so HoleQuerier's in-process
-    # `lsp.query.hole_context_at' call can resolve imports.  Best-
-    # effort: query_goal will fail with a clear message if the
-    # bootstrap couldn't load `abstract_syntax' (e.g. user pointed
-    # --deduce-root somewhere else than a real checkout).  Use the
-    # sidecar's own location as the deduce root when --deduce-root
-    # isn't given -- the sidecar lives at <root>/tools/claude_fill_hole/.
-    sidecar_root = (
-        Path(args.deduce_root)
-        if args.deduce_root
-        else Path(__file__).resolve().parents[2]
-    )
-    _bootstrap_deduce_env(sidecar_root)
-    prelude = () if args.no_stdlib else _default_prelude(sidecar_root)
     querier = HoleQuerier(
         file_path=request.file,
         content=content,
