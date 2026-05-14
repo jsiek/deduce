@@ -12,18 +12,55 @@ union JConsView<T> {
   JViewCons(T, JList<T>)
 }
 
+fun jjoin<T>(left:JList<T>, right:JList<T>) {
+  switch left {
+    case JNil { right }
+    case Unit(x) { Join(left, right) }
+    case Join(l, r) { Join(left, right) }
+  }
+}
+
 recursive join_view<T>(JList<T>) -> JConsView<T> {
   join_view(JNil) = JViewNil
   join_view(Unit(x)) = JViewCons(x, JNil)
   join_view(Join(left, right)) =
     switch join_view(left) {
       case JViewNil { join_view(right) }
-      case JViewCons(x, rest) { JViewCons(x, Join(rest, right)) }
+      case JViewCons(x, rest) { JViewCons(x, jjoin(rest, right)) }
     }
 }
 
+fun join_unview<T>(v:JConsView<T>) {
+  switch v {
+    case JViewNil { @JNil<T> }
+    case JViewCons(x, rest) { Join(Unit(x), rest) }
+  }
+}
+
+theorem join_view_unview: all T:type, v:JConsView<T>.
+  join_view(join_unview(v)) = v
+proof
+  arbitrary T:type, v:JConsView<T>
+  switch v {
+    case JViewNil {
+      evaluate
+    }
+    case JViewCons(x, rest) {
+      evaluate
+    }
+  }
+end
+
+view JCons<T> {
+  source JList<T>
+  target JConsView<T>
+  into join_view
+  out join_unview
+  roundtrip join_view_unview
+}
+
 viewrec to_list<T>(xs : JList<T>) -> List<T>
-  view join_view(xs)
+  view JCons(xs)
 case JViewNil {
   []
 }

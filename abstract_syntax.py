@@ -3600,7 +3600,8 @@ class ViewRecFun(Declaration):
   type_params: List[str]
   vars: List[Tuple[str,Type]]
   returns: Type
-  view: Term
+  view_name: str
+  view_subject: Term
   cases: List[SwitchCase]
 
   def uniquify(self, env, ctx):
@@ -3630,10 +3631,17 @@ class ViewRecFun(Declaration):
       new_body = c.body.uniquify(case_env, ctx)
       return SwitchCase(c.location, new_pat, new_body)
 
-    new_view = self.view.uniquify(body_env, ctx)
+    if self.view_name not in env.keys():
+      user_error(self.location, "undefined view " + self.view_name)
+    if len(env[self.view_name]) != 1:
+      user_error(self.location, "view names may not be overloaded: "
+                 + self.view_name)
+    new_view_name = env[self.view_name][0]
+    new_view_subject = self.view_subject.uniquify(body_env, ctx)
     new_cases = [uniquify_case(c) for c in self.cases]
     return ViewRecFun(self.location, new_name, new_type_params,
-                      new_vars, new_returns, new_view, new_cases,
+                      new_vars, new_returns, new_view_name,
+                      new_view_subject, new_cases,
                       visibility=self.visibility)
 
   def collect_exports(self, export_env, importing_module):
@@ -3650,8 +3658,69 @@ class ViewRecFun(Declaration):
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)
-    ret = 'viewrec ' + header + '\nview ' + str(self.view) + '\n' \
+    ret = 'viewrec ' + header + '\nview ' + base_name(self.view_name) \
+      + '(' + str(self.view_subject) + ')\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'
+    return indent*' ' + ret
+
+@dataclass
+class ViewDecl(Declaration):
+  name: str
+  type_params: List[str]
+  source: Type
+  target: Type
+  into: str
+  out: str
+  roundtrip: str
+
+  def uniquify(self, env, ctx):
+    if self.name in env.keys():
+      user_error(self.location, "view names may not be overloaded")
+    new_name = generate_name(self.name, ctx)
+    env[self.name] = [new_name]
+    env['no overload'][self.name] = 'view'
+
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t, ctx) for t in self.type_params]
+    for (old, new) in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+
+    def resolve_name(name, kind):
+      if name not in env.keys():
+        user_error(self.location, "undefined " + kind + " " + name)
+      if len(env[name]) != 1:
+        user_error(self.location, kind + " names may not be overloaded: "
+                   + name)
+      return env[name][0]
+
+    new_source = self.source.uniquify(body_env, ctx)
+    new_target = self.target.uniquify(body_env, ctx)
+    new_into = resolve_name(self.into, "view function")
+    new_out = resolve_name(self.out, "view function")
+    new_roundtrip = resolve_name(self.roundtrip, "proof")
+    return ViewDecl(self.location, new_name, new_type_params,
+                    new_source, new_target, new_into, new_out,
+                    new_roundtrip, visibility=self.visibility)
+
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and (importing_module != get_current_module()):
+      return
+    extend(export_env, base_name(self.name), self.name, self.location)
+
+  def __str__(self):
+    return self.name if get_unique_names() else base_name(self.name)
+
+  def pretty_print(self, indent):
+    header = complete_name(self.name) \
+      + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
+         if len(self.type_params) > 0 else '')
+    ret = 'view ' + header + ' {\n' \
+      + '  source ' + str(self.source) + '\n' \
+      + '  target ' + str(self.target) + '\n' \
+      + '  into ' + base_name(self.into) + '\n' \
+      + '  out ' + base_name(self.out) + '\n' \
+      + '  roundtrip ' + base_name(self.roundtrip) + '\n' \
+      + '}\n'
     return indent*' ' + ret
 
 @dataclass
@@ -4481,6 +4550,13 @@ class AutoEquationBinding(Binding):
   def __str__(self):
     return ', '.join([str(e) for e in self.equations])
 
+@dataclass
+class ViewBinding(Binding):
+  view: ViewDecl
+
+  def __str__(self):
+    return str(self.view)
+
 
 def type_params_str(type_params):
   if len(type_params) > 0:
@@ -4552,6 +4628,13 @@ class Env:
       internal_error(loc, 'None not allowed in define_type')
     new_env = Env(self.dict)
     new_env.dict[name] = TypeBinding(loc, defn, module=self.get_current_module(), visibility=visibility)
+    return new_env
+
+  def declare_view(self, loc, view, visibility='public'):
+    new_env = Env(self.dict)
+    new_env.dict[view.name] = ViewBinding(loc, view,
+                                          module=self.get_current_module(),
+                                          visibility=visibility)
     return new_env
   
   def declare_term_var(self, loc, name, typ, local = False, visibility='public'):
@@ -4695,6 +4778,8 @@ class Env:
         return binding.typ
       elif isinstance(binding, TypeBinding):
         return TypeType(None)
+      elif isinstance(binding, ViewBinding):
+        raise Exception('expected a term or type variable, not view ' + base_name(name))
       else:
         raise Exception('expected a term or type variable, not ' + base_name(name))
     else:
@@ -4766,6 +4851,11 @@ class Env:
     if isinstance(var, VarRef):
       return self._def_of_type_var(self.dict, var.get_name())
     raise Exception('get_def_of_type_var: unexpected ' + str(var))
+
+  def get_view(self, name):
+    if name in self.dict and isinstance(self.dict[name], ViewBinding):
+      return self.dict[name].view
+    return None
       
   def get_formula_of_proof_var(self, pvar):
     match pvar:

@@ -1496,7 +1496,7 @@ def parse_gen_rec_function(visibility):
 
 def parse_view_rec_function(visibility):
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "viewrec" identifier type_params_opt "(" variable_list ")" "->" type "view" term viewrec_case+\n'
+      + '\tstatement ::= "viewrec" identifier type_params_opt "(" variable_list ")" "->" type "view" identifier "(" term ")" viewrec_case+\n'
   try:
     start_token = current_token()
     advance()
@@ -1512,7 +1512,10 @@ def parse_view_rec_function(visibility):
     return_type = parse_type()
 
     consume_token('VIEW', '"view"', context='after return type of viewrec')
-    view = parse_term()
+    view_name = parse_identifier()
+    consume_token('LPAR', '"("', context='after view name')
+    view_subject = parse_term()
+    consume_token('RPAR', '")"', context='after view subject')
 
     cases = []
     while not end_of_file() and current_token().type == 'CASE':
@@ -1522,8 +1525,41 @@ def parse_view_rec_function(visibility):
       consume_token('CASE', '"case"', context='after return type of viewrec')
 
     meta = meta_from_tokens(start_token, previous_token())
-    return ViewRecFun(meta, name, typarams, params, return_type, view, cases,
-                      visibility=visibility)
+    return ViewRecFun(meta, name, typarams, params, return_type, view_name,
+                      view_subject, cases, visibility=visibility)
+
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
+def parse_view_decl(visibility):
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "view" identifier type_params_opt "{" "source" type "target" type "into" identifier "out" identifier "roundtrip" identifier "}"\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    typarams = parse_type_parameters()
+
+    consume_token('LBRACE', '"{"', context='after view name')
+    consume_token('SOURCE', '"source"', context='inside view declaration')
+    source = parse_type()
+    consume_token('TARGET', '"target"', context='inside view declaration')
+    target = parse_type()
+    consume_token('INTO', '"into"', context='inside view declaration')
+    into = parse_identifier()
+    consume_token('OUT', '"out"', context='inside view declaration')
+    out = parse_identifier()
+    consume_token('ROUNDTRIP', '"roundtrip"', context='inside view declaration')
+    roundtrip = parse_identifier()
+    consume_token('RBRACE', '"}"', context='after view declaration')
+
+    meta = meta_from_tokens(start_token, previous_token())
+    return ViewDecl(meta, name, typarams, source, target, into, out,
+                    roundtrip, visibility=visibility)
 
   except ParseError as e:
     raise e.extend(meta_from_tokens(start_token, previous_token()),
@@ -1592,7 +1628,8 @@ def parse_define(visibility):
 
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
-                      'relation', 'fun', 'trace', 'union', 'viewrec' }
+                      'relation', 'fun', 'trace', 'union', 'view',
+                      'viewrec' }
 
 def parse_statement():
   if end_of_file():
@@ -1631,6 +1668,9 @@ def parse_statement():
 
   elif token.type == 'VIEWREC':
     return parse_view_rec_function(visibility)
+
+  elif token.type == 'VIEW':
+    return parse_view_decl(visibility)
 
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \

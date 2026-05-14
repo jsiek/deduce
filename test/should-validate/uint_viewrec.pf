@@ -1,13 +1,31 @@
 import UInt
 import List
 
+fun uint_unview(v : UIntView) {
+  switch v {
+    case UIntZero { 0 }
+    case UIntSucc(p) { 1 + p }
+  }
+}
+
+postulate uint_view_unview:
+  all v:UIntView. uint_view(uint_unview(v)) = v
+
+view UIntCons {
+  source UInt
+  target UIntView
+  into uint_view
+  out uint_unview
+  roundtrip uint_view_unview
+}
+
 viewrec replicate<T>(n : UInt, x : T) -> List<T>
-  view uint_view(n)
+  view UIntCons(n)
 case UIntZero {
   []
 }
-case UIntSucc(pred) {
-  node(x, replicate(pred, x))
+case UIntSucc(p) {
+  node(x, replicate(p, x))
 }
 
 print replicate(3, 42)

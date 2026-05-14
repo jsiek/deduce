@@ -1,10 +1,28 @@
 import UInt
 
+fun uint_unview(v : UIntView) {
+  switch v {
+    case UIntZero { 0 }
+    case UIntSucc(p) { 1 + p }
+  }
+}
+
+postulate uint_view_unview:
+  all v:UIntView. uint_view(uint_unview(v)) = v
+
+view UIntCons {
+  source UInt
+  target UIntView
+  into uint_view
+  out uint_unview
+  roundtrip uint_view_unview
+}
+
 viewrec countdown(n : UInt) -> UInt
-  view uint_view(n)
+  view UIntCons(n)
 case 0 {
   0
 }
-case UIntSucc(pred) {
-  countdown(pred)
+case UIntSucc(p) {
+  countdown(p)
 }

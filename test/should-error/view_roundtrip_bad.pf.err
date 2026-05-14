@@ -1,0 +1,4 @@
+./test/should-error/view_roundtrip_bad.pf:13.1-19.2: view roundtrip proof not_the_view_law proves
+	(all v:UIntView. uint_unview(v) = uint_unview(v))
+but expected
+	(all v:UIntView. uint_view(uint_unview(v)) = v)

@@ -1,1 +1,1 @@
-./test/should-error/uint_viewrec_bad_pattern.pf:5.8-5.9: zero is not a constructor of union UIntView
+./test/should-error/uint_viewrec_bad_pattern.pf:23.8-23.9: zero is not a constructor of union UIntView

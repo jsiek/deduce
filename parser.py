@@ -770,7 +770,7 @@ def parse_tree_to_ast(e, parent):
         set_visibility(statement, visibility)
         return statement
 
-    # UInt public-view recursion
+    # View-based recursion
     elif e.data == 'view_rec_fun':
         visibility = parse_tree_to_ast(e.children[0], e)
         statement = ViewRecFun(e.meta,
@@ -779,7 +779,21 @@ def parse_tree_to_ast(e, parent):
                                parse_tree_to_list(e.children[3], e),
                                parse_tree_to_ast(e.children[4], e),
                                parse_tree_to_ast(e.children[5], e),
-                               parse_tree_to_list(e.children[6], e))
+                               parse_tree_to_ast(e.children[6], e),
+                               parse_tree_to_list(e.children[7], e))
+        set_visibility(statement, visibility)
+        return statement
+
+    elif e.data == 'view_decl':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = ViewDecl(e.meta,
+                             str(e.children[1]),
+                             parse_tree_to_list(e.children[2], e),
+                             parse_tree_to_ast(e.children[3], e),
+                             parse_tree_to_ast(e.children[4], e),
+                             parse_tree_to_ast(e.children[5], e),
+                             parse_tree_to_ast(e.children[6], e),
+                             parse_tree_to_ast(e.children[7], e))
         set_visibility(statement, visibility)
         return statement
         

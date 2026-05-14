@@ -219,7 +219,8 @@ by `electric-indent-mode' on RET."
 
 (defconst deduce-mode--keywords
   '(;; declaration / structure
-    "theorem" "lemma" "postulate" "define" "recursive" "recfun" "viewrec"
+         "theorem" "lemma" "postulate" "define" "recursive" "recfun" "viewrec"
+         "view" "source" "target" "into" "out" "roundtrip"
     "union" "inductive" "predicate" "relation" "import" "export"
     "module" "auto" "assert" "print" "operator" "associative"
     "terminates" "measure" "trace" "generic" "fun" "λ"

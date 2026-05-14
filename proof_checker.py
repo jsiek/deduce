@@ -220,6 +220,12 @@ def _collect_referenced_names(node, out=None) -> set:
         # Imports are treated as a global barrier by the caller; we
         # don't want to recurse into the imported module's AST here.
         return out
+    if isinstance(node, ViewDecl):
+        out.add(node.into)
+        out.add(node.out)
+        out.add(node.roundtrip)
+    if isinstance(node, ViewRecFun):
+        out.add(node.view_name)
     if hasattr(node, "__dict__"):
         for k, v in node.__dict__.items():
             if k in ("location", "__hash_cache__"):
@@ -4405,7 +4411,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       return (decl, env.declare_term_var(loc, name, fun_type,
                                          visibility=decl.visibility))
 
-    case ViewRecFun(loc, name, typarams, param_pairs, returns, _, _):
+    case ViewRecFun(loc, name, typarams, param_pairs, returns, _, _, _):
       body_env = env.declare_type_vars(loc, typarams)
       check_type(returns, body_env)
       for (p,t) in param_pairs:
@@ -4420,6 +4426,24 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       fun_type = FunctionType(loc, typarams, param_types, returns)
       return (decl, env.declare_term_var(loc, name, fun_type,
                                          visibility=decl.visibility))
+
+    case ViewDecl(loc, name, typarams, source, target, into, out, roundtrip):
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_source = check_type(source, body_env)
+      checked_target = check_type(target, body_env)
+      checked_decl = ViewDecl(loc, name, typarams, checked_source,
+                              checked_target, into, out, roundtrip,
+                              visibility=decl.visibility)
+      _check_view_function_type(loc, into,
+                                FunctionType(loc, typarams,
+                                             [checked_source], checked_target),
+                                env, "into")
+      _check_view_function_type(loc, out,
+                                FunctionType(loc, typarams,
+                                             [checked_target], checked_source),
+                                env, "out")
+      return checked_decl, env.declare_view(loc, checked_decl,
+                                            decl.visibility)
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl, decl.visibility)
@@ -4694,13 +4718,59 @@ def _viewrec_recursive_binders(pattern, rec_ty, env):
           binders.append(name)
   return binders
 
+def _check_view_function_type(loc, name, expected, env, label):
+  actual = env.get_type_of_term_var(ResolvedVar(loc, None, name))
+  if actual is None:
+    user_error(loc, "undefined " + label + " function for view: "
+               + base_name(name))
+  if not alpha_equiv(actual, expected):
+    user_error(loc, "view " + label + " function " + base_name(name)
+               + " has type\n\t" + str(actual)
+               + "\nbut expected\n\t" + str(expected))
+
+def _view_call(loc, fun_name, arg):
+  return Call(loc, None, ResolvedVar(loc, None, fun_name), [arg])
+
+def _view_roundtrip_formula(loc, view):
+  value_name = generate_proof_name("v")
+  value = ResolvedVar(loc, view.target, value_name)
+  formula = mkEqual(loc,
+                    _view_call(loc, view.into,
+                               _view_call(loc, view.out, value)),
+                    value)
+  formula = All(loc, None, (value_name, view.target), (0, 1), formula)
+  for i, tp in enumerate(reversed(view.type_params)):
+    formula = All(loc, None, (tp, TypeType(loc)),
+                  (i, len(view.type_params)), formula)
+  return formula
+
+def _check_view_roundtrip(loc, view, env):
+  expected = type_check_formula(_view_roundtrip_formula(loc, view), env)
+  actual = env.get_formula_of_proof_var(PVar(loc, view.roundtrip))
+  if actual is None:
+    user_error(loc, "undefined roundtrip proof for view: "
+               + base_name(view.roundtrip))
+  if not alpha_equiv(actual, expected):
+    user_error(loc, "view roundtrip proof " + base_name(view.roundtrip)
+               + " proves\n\t" + str(actual)
+               + "\nbut expected\n\t" + str(expected))
+
+def _instantiate_view_for_subject(loc, view, subject_ty):
+  matching = {}
+  type_match(loc, type_names(loc, view.type_params),
+             view.source, subject_ty, matching)
+  return (view.source.substitute(matching),
+          view.target.substitute(matching),
+          matching)
+
 def type_check_viewrec(stmt, env):
   loc = stmt.location
   name = stmt.name
   typarams = stmt.type_params
   param_pairs = stmt.vars
   returns = stmt.returns
-  view = stmt.view
+  view_name = stmt.view_name
+  view_subject = stmt.view_subject
   cases = stmt.cases
 
   body_env = env.declare_type_vars(loc, typarams)
@@ -4714,8 +4784,20 @@ def type_check_viewrec(stmt, env):
   case_env = env.declare_type_vars(loc, typarams)
   case_env = case_env.declare_term_vars(loc, checked_params)
 
-  checked_view = type_synth_term(view, case_env, None, [])
-  view_ty = checked_view.typeof
+  view_decl = env.get_view(view_name)
+  if view_decl is None:
+    user_error(loc, "undefined view " + base_name(view_name))
+  checked_subject = type_synth_term(view_subject, case_env, None, [])
+  source_ty, view_ty, _ = _instantiate_view_for_subject(
+      loc, view_decl, checked_subject.typeof)
+  if source_ty != checked_params[0][1]:
+    user_error(loc, "viewrec recurses on " + str(checked_params[0][1])
+               + " but view " + base_name(view_name)
+               + " views " + str(source_ty))
+  checked_subject = type_check_term(view_subject, source_ty, case_env, None, [])
+  checked_view = type_check_term(_view_call(loc, view_decl.into,
+                                           checked_subject),
+                                 view_ty, case_env, None, [])
   cases_present = {}
   new_cases = []
   reset_recursive_call_count()
@@ -4831,10 +4913,14 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
       # print(new_recfun.pretty_print(4))
       return new_recfun
 
-    case ViewRecFun(loc, name, typarams, param_pairs, returns, view, cases):
+    case ViewRecFun(loc, name, typarams, param_pairs, returns, view_name,
+                    view_subject, cases):
       if len(param_pairs) == 0:
         user_error(loc, 'viewrec needs at least one parameter to recurse on.')
       return type_check_viewrec(stmt, env)
+
+    case ViewDecl():
+      return stmt
     
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
@@ -5078,10 +5164,14 @@ def collect_env(stmt, env : Env):
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
 
-    case ViewRecFun(loc, name, typarams, params, returns, _, _):
+    case ViewRecFun(loc, name, typarams, params, returns, _, _, _):
       fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
+
+    case ViewDecl(loc, name, _, _, _, _, _, _):
+      _check_view_roundtrip(loc, stmt, env)
+      return env.declare_view(loc, stmt, stmt.visibility)
       
     case Union(loc, name, typarams, _):
       return env
@@ -5350,6 +5440,9 @@ def check_proofs(stmt, env: Env):
       _try_check_proof_of(terminates, formula, body_env)
   
     case Union(loc, name, typarams, _):
+      pass
+
+    case ViewDecl():
       pass
   
     case Export(loc, name):

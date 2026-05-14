@@ -7,19 +7,13 @@ fun uint_unview(v : UIntView) {
   }
 }
 
-postulate uint_view_unview:
-  all v:UIntView. uint_view(uint_unview(v)) = v
+postulate not_the_view_law:
+  all v:UIntView. uint_unview(v) = uint_unview(v)
 
 view UIntCons {
   source UInt
   target UIntView
   into uint_view
   out uint_unview
-  roundtrip uint_view_unview
-}
-
-viewrec countdown(n : UInt) -> UInt
-  view UIntCons(n)
-case UIntZero {
-  0
+  roundtrip not_the_view_law
 }
