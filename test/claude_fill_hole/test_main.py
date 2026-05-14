@@ -196,7 +196,6 @@ def test_stray_print_does_not_corrupt_response(monkeypatch, tmp_path):
     source = "theorem t: bool = true\n"
     file_path = tmp_path / "proof.pf"
     file_path.write_text(source)
-    request = _build_request(str(file_path), "?")  # placeholder; we use --dry-run
 
     request_json = json.dumps(
         {
