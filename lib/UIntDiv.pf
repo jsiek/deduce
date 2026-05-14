@@ -149,6 +149,15 @@ proof
   conjunct 1 of R
 end
 
+theorem uint_mod_small: all n:UInt, m:UInt. if n < m then n % m = n
+proof
+  arbitrary n:UInt, m:UInt
+  assume n_m: n < m
+  expand operator% | operator/
+  replace (apply eq_true to n_m)
+  uint_monus_zero[n]
+end
+
 fun divides(a : UInt, b : UInt) {
   some k:UInt. a * k = b
 }
@@ -260,7 +269,7 @@ theorem uint_mult_div_inverse: all n:UInt, m:UInt.
   (if 0 < m then (n * m) / m = n)
 proof
   define P = fun n:UInt { all m:UInt. if 0 < m then (n * m) / m = n }
-  have base: P(0) by {
+  have base_case: P(0) by {
     expand P
     arbitrary m:UInt
     assume m_pos
@@ -284,7 +293,78 @@ proof
       (n * m + m) / m = 1 + (n * m) / m  by apply uint_add_div_one[n * m, m] to m_pos
                   ... = 1 + n             by replace apply IH[m] to m_pos.
   }
-  expand P in apply uint_induction[P] to base, ind
+  expand P in apply uint_induction[P] to base_case, ind
+end
+
+theorem uint_mult_mod_right_zero: all n:UInt, m:UInt.
+  if 0 < m then (n * m) % m = 0
+proof
+  arbitrary n:UInt, m:UInt
+  assume m_pos: 0 < m
+  expand operator%
+  replace (apply uint_mult_div_inverse[n, m] to m_pos)
+  uint_monus_cancel[n * m]
+end
+
+theorem uint_mult_mod_left_zero: all n:UInt, m:UInt.
+  if 0 < m then (m * n) % m = 0
+proof
+  arbitrary n:UInt, m:UInt
+  assume m_pos: 0 < m
+  replace uint_mult_commute[m, n]
+  apply uint_mult_mod_right_zero[n, m] to m_pos
+end
+
+theorem uint_mult_add_div: all k:UInt, n:UInt, m:UInt.
+  if 0 < m then (k * m + n) / m = k + n / m
+proof
+  define P = fun k:UInt { all n:UInt, m:UInt.
+    if 0 < m then (k * m + n) / m = k + n / m }
+  have base_case: P(0) by {
+    expand P.
+  }
+  have ind: all k:UInt. if P(k) then P(1 + k) by {
+    arbitrary k:UInt
+    assume IH: P(k)
+    expand P
+    arbitrary n:UInt, m:UInt
+    assume m_pos: 0 < m
+    have step_arg: (1 + k) * m + n = (k * m + n) + m by {
+      suffices toNat((1 + k) * m + n) = toNat((k * m + n) + m)
+        by uint_toNat_injective
+      replace toNat_add
+      replace toNat_mult[1 + k, m] | toNat_mult[k, m]
+      replace toNat_add[1, k] | toNat_add[n, m]
+      have one_toNat: toNat(1) = ℕ1 by evaluate
+      replace one_toNat
+      replace dist_mult_add_right[ℕ1, toNat(k), toNat(m)]
+      replace add_commute[toNat(m), toNat(k) * toNat(m)]
+      replace add_commute[toNat(m), toNat(n)].
+    }
+    equations
+      ((1 + k) * m + n) / m
+          = ((k * m + n) + m) / m  by replace step_arg.
+      ... = 1 + (k * m + n) / m    by apply uint_add_div_one[k * m + n, m] to m_pos
+      ... = 1 + (k + n / m)        by {
+              have IH_all: all n0:UInt, m0:UInt.
+                if 0 < m0 then (k * m0 + n0) / m0 = k + n0 / m0
+                by expand P in IH
+              replace apply IH_all[n, m] to m_pos.
+            }
+      ... = (1 + k) + n / m        by .
+  }
+  expand P in apply uint_induction[P] to base_case, ind
+end
+
+theorem uint_mult_add_mod: all k:UInt, n:UInt, m:UInt.
+  if 0 < m then (k * m + n) % m = n % m
+proof
+  arbitrary k:UInt, n:UInt, m:UInt
+  assume m_pos: 0 < m
+  expand operator%
+  replace (apply uint_mult_add_div[k, n, m] to m_pos)
+  replace uint_dist_mult_add_right[k, n / m, m]
+  uint_add_both_monus[k * m, n, (n / m) * m]
 end
 
 theorem uint_div_zero: all n:UInt. n / 0 = 0
@@ -388,6 +468,26 @@ proof
   }
   arbitrary x:Nat, y:Nat
   lem[y, x]
+end
+
+theorem fromNat_mod: all x:Nat, y:Nat. fromNat(x) % fromNat(y) = fromNat(x % y)
+proof
+  arbitrary x:Nat, y:Nat
+  suffices toNat(fromNat(x) % fromNat(y)) = toNat(fromNat(x % y))
+    by uint_toNat_injective
+  expand operator%
+  replace toNat_monus | toNat_mult | fromNat_div | uint_toNat_fromNat.
+end
+
+theorem toNat_mod: all x:UInt, y:UInt. toNat(x % y) = toNat(x) % toNat(y)
+proof
+  arbitrary x:UInt, y:UInt
+  replace symmetric uint_fromNat_toNat[x]
+  replace symmetric uint_fromNat_toNat[y]
+  replace fromNat_mod[toNat(x), toNat(y)]
+  replace uint_toNat_fromNat[toNat(x)]
+  replace uint_toNat_fromNat[toNat(y)]
+  uint_toNat_fromNat[toNat(x) % toNat(y)]
 end
 
 theorem uint_lit_div: all x:Nat, y:Nat. (fromNat(lit(x)) / fromNat(lit(y))) = fromNat(lit(x) / lit(y))
