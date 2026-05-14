@@ -1790,7 +1790,7 @@ class SwitchCase(AST):
     match new_pat:
       case PatternBool(_, _):
         pass
-      case PatternCons(_, _, params):
+      case PatternCons(_, _, params) | PatternTerm(_, _, params):
         new_params = [generate_name(x, ctx) for x in params]
         for (old,new) in zip(params, new_params):
           overwrite(body_env, old, new, self.location)
@@ -3506,6 +3506,7 @@ class GenRecFun(Declaration):
   measure_ty: Type
   body: Term
   terminates: Proof
+  trusted_terminates: bool = False
 
   def uniquify(self, env, ctx):
     new_name = generate_name(self.name, ctx)
@@ -3535,7 +3536,7 @@ class GenRecFun(Declaration):
     return GenRecFun(self.location, new_name, new_type_params,
                      new_vars, new_returns, new_measure,
                      new_measure_ty, new_body, new_terminates,
-                     visibility=self.visibility)
+                     self.trusted_terminates, visibility=self.visibility)
     
   def collect_exports(self, export_env, importing_module):
     if self.visibility == 'private' and (importing_module != get_current_module()):
@@ -3592,6 +3593,64 @@ class GenRecFun(Declaration):
 
   def substitute(self, sub):
     return self
+
+@dataclass
+class ViewRecFun(Declaration):
+  name: str
+  type_params: List[str]
+  vars: List[Tuple[str,Type]]
+  returns: Type
+  cases: List[SwitchCase]
+
+  def uniquify(self, env, ctx):
+    new_name = generate_name(self.name, ctx)
+    extend(env, self.name, new_name, self.location)
+
+    body_env = copy_dict(env)
+    new_type_params = [generate_name(t, ctx) for t in self.type_params]
+    for (old, new) in zip(self.type_params, new_type_params):
+      extend(body_env, old, new, self.location)
+
+    new_returns = self.returns.uniquify(body_env, ctx)
+    new_var_types = [t.uniquify(body_env, ctx) if t else None
+                     for (_, t) in self.vars]
+    new_vars = [(generate_name(x, ctx), nt)
+                for ((x, _), nt) in zip(self.vars, new_var_types)]
+    for ((old, _), (new, _)) in zip(self.vars, new_vars):
+      overwrite(body_env, old, new, self.location)
+
+    def uniquify_case(c):
+      case_env = copy_dict(body_env)
+      params = c.pattern.bindings()
+      new_params = [generate_name(x, ctx) for x in params]
+      for (old, new) in zip(params, new_params):
+        case_env[old] = [new]
+      new_pat = c.pattern.with_bindings(new_params).uniquify(case_env, ctx)
+      new_body = c.body.uniquify(case_env, ctx)
+      return SwitchCase(c.location, new_pat, new_body)
+
+    new_cases = [uniquify_case(c) for c in self.cases]
+    return ViewRecFun(self.location, new_name, new_type_params,
+                      new_vars, new_returns, new_cases,
+                      visibility=self.visibility)
+
+  def collect_exports(self, export_env, importing_module):
+    if self.visibility == 'private' and (importing_module != get_current_module()):
+      return
+    extend(export_env, base_name(self.name), self.name, self.location)
+
+  def __str__(self):
+    return self.name if get_unique_names() else base_name(self.name)
+
+  def pretty_print(self, indent):
+    header = complete_name(self.name) \
+        + ('<' + ','.join([name2str(t) for t in self.type_params]) + '>' \
+           if len(self.type_params) > 0 else '') \
+      + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
+      + ') -> ' + str(self.returns)
+    ret = 'viewrec ' + header + '\n' \
+      + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'
+    return indent*' ' + ret
 
 @dataclass
 class Define(Declaration):

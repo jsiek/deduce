@@ -1494,6 +1494,41 @@ def parse_gen_rec_function(visibility):
     raise ParseError(meta_from_tokens(start_token, previous_token()),
                      "Unexpected error while parsing:\n\t" + str(e))
 
+def parse_view_rec_function(visibility):
+  while_parsing = 'while parsing\n' \
+      + '\tstatement ::= "viewrec" identifier type_params_opt "(" variable_list ")" "->" type viewrec_case+\n'
+  try:
+    start_token = current_token()
+    advance()
+    name = parse_identifier()
+    typarams = parse_type_parameters()
+
+    if current_token().type == 'LPAR':
+      advance()
+      params = parse_var_list()
+      consume_token('RPAR', 'a closing parenthesis ")"')
+
+    consume_token('ARROW', '"->"', context='between parameter types and return type')
+    return_type = parse_type()
+
+    cases = []
+    while not end_of_file() and current_token().type == 'CASE':
+      cases.append(parse_switch_case())
+
+    if len(cases) == 0:
+      consume_token('CASE', '"case"', context='after return type of viewrec')
+
+    meta = meta_from_tokens(start_token, previous_token())
+    return ViewRecFun(meta, name, typarams, params, return_type, cases,
+                      visibility=visibility)
+
+  except ParseError as e:
+    raise e.extend(meta_from_tokens(start_token, previous_token()),
+                   while_parsing)
+  except Exception as e:
+    raise ParseError(meta_from_tokens(start_token, previous_token()),
+                     "Unexpected error while parsing:\n\t" + str(e))
+
 def parse_recursive_function(visibility):
   while_parsing = 'while parsing\n' \
       + '\tstatement ::= "recursive" identifier type_params_opt' \
@@ -1554,7 +1589,7 @@ def parse_define(visibility):
 
 statement_keywords = {'assert', 'define', 'import', 'inductive', 'print',
                       'theorem', 'lemma', 'postulate', 'predicate', 'recursive',
-                      'relation', 'fun', 'trace', 'union' }
+                      'relation', 'fun', 'trace', 'union', 'viewrec' }
 
 def parse_statement():
   if end_of_file():
@@ -1590,6 +1625,9 @@ def parse_statement():
 
   elif token.type == 'RECFUN':
     return parse_gen_rec_function(visibility)
+
+  elif token.type == 'VIEWREC':
+    return parse_view_rec_function(visibility)
 
   elif token.type == 'ASSERT':
     while_parsing = 'while parsing assert\n' \

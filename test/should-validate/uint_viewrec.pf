@@ -1,0 +1,12 @@
+import UInt
+import List
+
+viewrec replicate<T>(n : UInt, x : T) -> List<T>
+case 0 {
+  []
+}
+case with pred. 1 + pred {
+  node(x, replicate(pred, x))
+}
+
+print replicate(3, 42)

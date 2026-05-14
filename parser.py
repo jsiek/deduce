@@ -356,6 +356,10 @@ def parse_tree_to_ast(e, parent):
         e1 , e2 = e.children
         return Switch(e.meta, None, parse_tree_to_ast(e1, e),
                       parse_tree_to_list(e2, e))
+    elif e.data == 'view_rec_case':
+        e1 , e2 = e.children
+        return SwitchCase(e.meta, parse_tree_to_ast(e1, e),
+                          parse_tree_to_ast(e2, e))
     
     # proofs
     if e.data == 'proof_var':
@@ -763,6 +767,18 @@ def parse_tree_to_ast(e, parent):
                               parse_tree_to_ast(e.children[6], e),
                               parse_tree_to_ast(e.children[7], e),
                               parse_tree_to_ast(e.children[8], e))
+        set_visibility(statement, visibility)
+        return statement
+
+    # UInt public-view recursion
+    elif e.data == 'view_rec_fun':
+        visibility = parse_tree_to_ast(e.children[0], e)
+        statement = ViewRecFun(e.meta,
+                               parse_tree_to_ast(e.children[1], e),
+                               parse_tree_to_list(e.children[2], e),
+                               parse_tree_to_list(e.children[3], e),
+                               parse_tree_to_ast(e.children[4], e),
+                               parse_tree_to_list(e.children[5], e))
         set_visibility(statement, visibility)
         return statement
         

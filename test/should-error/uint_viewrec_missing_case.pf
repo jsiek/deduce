@@ -1,0 +1,6 @@
+import UInt
+
+viewrec countdown(n : UInt) -> UInt
+case 0 {
+  0
+}

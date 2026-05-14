@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple, cast
 
 from abstract_syntax import *
+from abstract_syntax import _try_match_one_plus
 from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, ErrorSink, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
 from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
 import style
@@ -4404,6 +4405,22 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       # changed to decl
       return (decl, env.declare_term_var(loc, name, fun_type,
                                          visibility=decl.visibility))
+
+    case ViewRecFun(loc, name, typarams, param_pairs, returns, _):
+      body_env = env.declare_type_vars(loc, typarams)
+      check_type(returns, body_env)
+      for (p,t) in param_pairs:
+          if t:
+              check_type(t, body_env)
+      param_types = [t for (p,t) in param_pairs]
+      if any([t == None for t in param_types]):
+          user_error(loc, 'Add type annotations to the parameters.')
+      if len(param_pairs) == 0:
+          user_error(loc, 'viewrec needs at least one parameter to recurse on.')
+
+      fun_type = FunctionType(loc, typarams, param_types, returns)
+      return (decl, env.declare_term_var(loc, name, fun_type,
+                                         visibility=decl.visibility))
   
     case Union(loc, name, typarams, alts):
       env = env.define_type(loc, name, decl, decl.visibility)
@@ -4655,6 +4672,50 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
+def _viewrec_public_case_kind(pattern):
+  match pattern:
+    case PatternCons(_, constr, []):
+      if base_name(constr.get_name()) == 'zero':
+        return ('zero', None)
+    case PatternTerm(_, term, [pred_name]):
+      predecessor = _try_match_one_plus(term)
+      if isinstance(predecessor, VarRef) and predecessor.get_name() == pred_name:
+        return ('succ', pred_name)
+  return (None, None)
+
+def _viewrec_uint_zero(loc, env):
+  zero_name = env.base_to_unique('zero')
+  suc_name = env.base_to_unique('suc')
+  lit_name = env.base_to_unique('lit')
+  from_nat_name = env.base_to_unique('fromNat')
+  if not all([zero_name, suc_name, lit_name, from_nat_name]):
+    user_error(loc, 'viewrec over UInt requires UInt and Nat support in scope')
+  nat_zero = intToNat(loc, 0, zname=zero_name, sname=suc_name)
+  lit_zero = Call(loc, None, ResolvedVar(loc, None, lit_name), [nat_zero])
+  return Call(loc, None, ResolvedVar(loc, None, from_nat_name), [lit_zero])
+
+def _viewrec_unique_unary_for_arg(loc, env, base, arg_ty):
+  for candidate in env.base_to_overloads(base):
+    ty = env.get_type_of_term_var(ResolvedVar(loc, None, candidate))
+    match ty:
+      case FunctionType(_, _, [param_ty], _):
+        if param_ty == arg_ty:
+          return candidate
+  return None
+
+def _viewrec_desugar_body(loc, subject_name, subject_ty, zero_body,
+                          pred_name, succ_body, env):
+  pred_fun = _viewrec_unique_unary_for_arg(loc, env, 'pred', subject_ty)
+  if pred_fun is None:
+    user_error(loc, 'viewrec over UInt requires UInt support in scope')
+  subject = ResolvedVar(loc, None, subject_name)
+  zero = _viewrec_uint_zero(loc, env)
+  eq = ResolvedVar(loc, None, '=')
+  cond = Call(loc, None, eq, [subject.copy(), zero])
+  pred_call = Call(loc, None, ResolvedVar(loc, None, pred_fun), [subject.copy()])
+  succ_with_pred = succ_body.substitute({pred_name: pred_call})
+  return Conditional(loc, None, cond, zero_body, succ_with_pred)
+
 def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
@@ -4737,10 +4798,76 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
 
       new_recfun = GenRecFun(loc, name, typarams, param_pairs, returns,
                              new_measure, measure_ty, new_body, terminates,
+                             stmt.trusted_terminates,
                              visibility=stmt.visibility)
       # print('type check stmt:')
       # print(new_recfun.pretty_print(4))
       return new_recfun
+
+    case ViewRecFun(loc, name, typarams, param_pairs, returns, cases):
+      if len(param_pairs) == 0:
+        user_error(loc, 'viewrec needs at least one parameter to recurse on.')
+      if len(cases) != 2:
+        user_error(loc, 'viewrec over UInt expects exactly these public cases:\n\tcase 0\n\tcase with n. 1 + n')
+
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_params = [(x, check_type(t, body_env)) for (x, t) in param_pairs]
+      checked_returns = check_type(returns, body_env)
+      uint_name = env.base_to_unique('UInt')
+      if uint_name is None or checked_params[0][1] != ResolvedVar(loc, None, uint_name):
+        user_error(loc, 'viewrec currently supports recursion on a first parameter of type UInt')
+
+      by_kind = {}
+      pred_name = None
+      for c in cases:
+        kind, binder = _viewrec_public_case_kind(c.pattern)
+        if kind is None:
+          user_error(c.location, 'viewrec over UInt expects public cases `0` and `with n. 1 + n`, not `' + str(c.pattern) + '`')
+        if kind in by_kind:
+          user_error(c.location, 'duplicate viewrec case for ' + ('0' if kind == 'zero' else 'with n. 1 + n'))
+        by_kind[kind] = c
+        if kind == 'succ':
+          pred_name = binder
+      if 'zero' not in by_kind:
+        user_error(loc, 'viewrec over UInt is missing case `0`')
+      if 'succ' not in by_kind:
+        user_error(loc, 'viewrec over UInt is missing case `with n. 1 + n`')
+
+      new_typarams = [generate_proof_name(t) for t in typarams]
+      sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
+      fun_type = FunctionType(loc, new_typarams,
+                              [t.substitute(sub) for (_, t) in checked_params],
+                              checked_returns.substitute(sub))
+      fun_value = GenRecFun(loc, name, typarams, checked_params, checked_returns,
+                            ResolvedVar(loc, None, checked_params[0][0]),
+                            checked_params[0][1], Hole(loc, None),
+                            PSorry(loc), True,
+                            visibility=stmt.visibility)
+      env = env.define_term_var(loc, name, fun_type, fun_value, stmt.visibility)
+      case_env = env.declare_type_vars(loc, typarams)
+      case_env = case_env.declare_term_vars(loc, checked_params)
+
+      reset_recursive_call_count()
+      zero_body = type_check_term(by_kind['zero'].body, checked_returns,
+                                  case_env, name, [])
+      check_no_recfun_escape(zero_body, name)
+      succ_body = type_check_term(by_kind['succ'].body, checked_returns,
+                                  case_env.declare_term_var(loc, pred_name,
+                                                            checked_params[0][1]),
+                                  name, [pred_name])
+      check_no_recfun_escape(succ_body, name)
+      if get_recursive_call_count() == 0:
+          user_error(loc, name + ' is declared viewrec, but does not make any recursive calls.\n' \
+                + 'Use a "fun" statement instead.')
+
+      body = _viewrec_desugar_body(loc, checked_params[0][0],
+                                   checked_params[0][1], zero_body,
+                                   pred_name, succ_body, env)
+      measure = ResolvedVar(loc, checked_params[0][1], checked_params[0][0])
+      new_body = type_check_term(body, checked_returns, case_env, None, [])
+      return GenRecFun(loc, name, typarams, checked_params, checked_returns,
+                       measure, checked_params[0][1], new_body, PSorry(loc),
+                       True, visibility=stmt.visibility)
     
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
@@ -4983,6 +5110,11 @@ def collect_env(stmt, env : Env):
       fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
+
+    case ViewRecFun(loc, name, typarams, params, returns, _):
+      fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
+      return env.define_term_var(loc, name, fun_type, stmt,
+                                 stmt.visibility)
       
     case Union(loc, name, typarams, _):
       return env
@@ -5206,6 +5338,8 @@ def check_proofs(stmt, env: Env):
 
     case GenRecFun(loc, name, typarams, params, _, measure, _,
                    body, terminates):
+      if stmt.trusted_terminates:
+        return
       body_env = env.declare_type_vars(loc, typarams)
       
       # find recursive calls in the body

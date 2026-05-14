@@ -1,0 +1,1 @@
+./test/should-error/uint_viewrec_bad_pattern.pf:4.1-6.2: viewrec over UInt expects public cases `0` and `with n. 1 + n`, not `pred`
