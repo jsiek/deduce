@@ -29,6 +29,8 @@ jobs:
         run: mypy .
       - name: Check known tokens
         run: python ./gh_pages/scripts/keywords.py
+      - name: Check reference grammar snippets
+        run: python ./gh_pages/scripts/reference_grammar.py
       - name: execute py script # run file
         run: |
           python test-deduce.py --site
