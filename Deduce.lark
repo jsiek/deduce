@@ -42,14 +42,14 @@ ARROW: "->"
     | term_compare "in" term_add                       -> membership
     | term_add
 
-?term_add: term_med "+" term_add                   -> add
-    | term_med "∪" term_add                        -> union_op
-    | term_med "|" term_add                        -> union_op
-    | term_med "∩" term_add                        -> intersect
-    | term_med "&" term_add                        -> intersect
-    | term_med "⨄" term_add                        -> multiset_sum
-    | term_med ".+." term_add                      -> multiset_sum
-    | term_med "++" term_add                       -> append
+?term_add: term_add "+" term_med                   -> add
+    | term_add "∪" term_med                        -> union_op
+    | term_add "|" term_med                        -> union_op
+    | term_add "∩" term_med                        -> intersect
+    | term_add "&" term_med                        -> intersect
+    | term_add "⨄" term_med                        -> multiset_sum
+    | term_add ".+." term_med                      -> multiset_sum
+    | term_add "++" term_med                       -> append
     | term_add "-" term_med                        -> sub
     | term_add "∸" term_med                        -> nat_sub
     | term_add ".-." term_med                      -> nat_sub
@@ -58,7 +58,7 @@ ARROW: "->"
 
 ?term_med: term_med "/" term_exp                    -> div
     | term_med "%" term_exp                         -> mod
-    | term_exp "*" term_med                         -> mul
+    | term_med "*" term_exp                         -> mul
     | term_med "∘" term_exp                         -> circ
     | term_med ".o." term_exp                       -> circ
     | term_exp
