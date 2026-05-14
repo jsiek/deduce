@@ -367,6 +367,111 @@ proof
   uint_add_both_monus[k * m, n, (n / m) * m]
 end
 
+theorem uint_mod_mod: all n:UInt, m:UInt.
+  if 0 < m then (n % m) % m = n % m
+proof
+  arbitrary n:UInt, m:UInt
+  assume m_pos: 0 < m
+  have nm_lt_m: n % m < m by apply uint_mod_less_divisor[n, m] to m_pos
+  apply uint_mod_small[n % m, m] to nm_lt_m
+end
+
+theorem uint_add_mod: all a:UInt, b:UInt, m:UInt.
+  if 0 < m then (a + b) % m = ((a % m) + (b % m)) % m
+proof
+  arbitrary a:UInt, b:UInt, m:UInt
+  assume m_pos: 0 < m
+  have a_div: (a / m) * m + (a % m) = a
+    by apply uint_div_mod[a, m] to m_pos
+  have b_div: (b / m) * m + (b % m) = b
+    by apply uint_div_mod[b, m] to m_pos
+  have decomp:
+    a + b = ((a / m) + (b / m)) * m + ((a % m) + (b % m)) by {
+    suffices toNat(a + b) =
+             toNat(((a / m) + (b / m)) * m + ((a % m) + (b % m)))
+      by uint_toNat_injective
+    have a_nat: toNat((a / m) * m + (a % m)) = toNat(a)
+      by replace a_div.
+    have b_nat: toNat((b / m) * m + (b % m)) = toNat(b)
+      by replace b_div.
+    have a_nat2: toNat(a / m) * toNat(m) + toNat(a % m) = toNat(a)
+      by replace toNat_add | toNat_mult in a_nat
+    have b_nat2: toNat(b / m) * toNat(m) + toNat(b % m) = toNat(b)
+      by replace toNat_add | toNat_mult in b_nat
+    replace toNat_add | toNat_mult
+    replace symmetric a_nat2 | symmetric b_nat2
+    replace toNat_add[a / m, b / m] | toNat_add[a % m, b % m]
+    replace add_commute[toNat(a % m), toNat(b / m) * toNat(m)]
+    replace symmetric dist_mult_add_right[toNat(a / m), toNat(b / m), toNat(m)].
+  }
+  replace decomp
+  apply uint_mult_add_mod[(a / m) + (b / m), (a % m) + (b % m), m] to m_pos
+end
+
+theorem uint_mult_mod: all a:UInt, b:UInt, m:UInt.
+  if 0 < m then (a * b) % m = ((a % m) * (b % m)) % m
+proof
+  arbitrary a:UInt, b:UInt, m:UInt
+  assume m_pos: 0 < m
+  have a_div: (a / m) * m + (a % m) = a
+    by apply uint_div_mod[a, m] to m_pos
+  have b_div: (b / m) * m + (b % m) = b
+    by apply uint_div_mod[b, m] to m_pos
+  have a_prod: a * b = ((a / m) * b) * m + (a % m) * b by {
+    suffices toNat(a * b) = toNat(((a / m) * b) * m + (a % m) * b)
+      by uint_toNat_injective
+    have a_nat: toNat((a / m) * m + (a % m)) = toNat(a)
+      by replace a_div.
+    have a_nat2: toNat(a / m) * toNat(m) + toNat(a % m) = toNat(a)
+      by replace toNat_add | toNat_mult in a_nat
+    replace toNat_add | toNat_mult
+    replace symmetric a_nat2
+    replace toNat_mult[b, m]
+    replace dist_mult_add_right[toNat(a / m) * toNat(m), toNat(a % m), toNat(b)]
+    replace mult_commute[toNat(m), toNat(b)].
+  }
+  have a_zero: (((a / m) * b) * m) % m = 0
+    by apply uint_mult_mod_right_zero[(a / m) * b, m] to m_pos
+  have reduce_a: (a * b) % m = ((a % m) * b) % m by {
+    equations
+      (a * b) % m
+          = ((((a / m) * b) * m + (a % m) * b) % m) by replace a_prod.
+      ... = (((((a / m) * b) * m) % m) + (((a % m) * b) % m)) % m
+            by apply uint_add_mod[((a / m) * b) * m, (a % m) * b, m] to m_pos
+      ... = (0 + (((a % m) * b) % m)) % m by replace a_zero.
+      ... = (((a % m) * b) % m) % m by .
+      ... = ((a % m) * b) % m by apply uint_mod_mod[(a % m) * b, m] to m_pos
+  }
+  have b_prod: (a % m) * b = ((a % m) * (b / m)) * m + (a % m) * (b % m) by {
+    suffices toNat((a % m) * b) = toNat(((a % m) * (b / m)) * m + (a % m) * (b % m))
+      by uint_toNat_injective
+    have b_nat: toNat((b / m) * m + (b % m)) = toNat(b)
+      by replace b_div.
+    have b_nat2: toNat(b / m) * toNat(m) + toNat(b % m) = toNat(b)
+      by replace toNat_add | toNat_mult in b_nat
+    replace toNat_add | toNat_mult
+    replace symmetric b_nat2
+    replace toNat_mult[b / m, m]
+    replace dist_mult_add[toNat(a % m), toNat(b / m) * toNat(m), toNat(b % m)].
+  }
+  have b_zero: (((a % m) * (b / m)) * m) % m = 0
+    by apply uint_mult_mod_right_zero[(a % m) * (b / m), m] to m_pos
+  have reduce_b: ((a % m) * b) % m = ((a % m) * (b % m)) % m by {
+    equations
+      ((a % m) * b) % m
+          = ((((a % m) * (b / m)) * m + (a % m) * (b % m)) % m)
+            by replace b_prod.
+      ... = (((((a % m) * (b / m)) * m) % m) + (((a % m) * (b % m)) % m)) % m
+            by apply uint_add_mod[((a % m) * (b / m)) * m, (a % m) * (b % m), m] to m_pos
+      ... = (0 + (((a % m) * (b % m)) % m)) % m by replace b_zero.
+      ... = (((a % m) * (b % m)) % m) % m by .
+      ... = ((a % m) * (b % m)) % m by apply uint_mod_mod[(a % m) * (b % m), m] to m_pos
+  }
+  equations
+    (a * b) % m = ((a % m) * b) % m by reduce_a
+    ... = ((a % m) * (b % m)) % m by reduce_b
+end
+
 theorem uint_div_zero: all n:UInt. n / 0 = 0
 proof
   arbitrary n:UInt
