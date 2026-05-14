@@ -271,6 +271,28 @@ recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
 }
 ```
 
+Unsigned integers are not exposed as an ordinary recursive union, so
+functions that count down over `UInt` should currently use `recfun`
+with an explicit measure. The recursive call below is accepted because
+the `terminates` proof shows that `n ∸ 1` is smaller than `n` whenever
+the nonzero branch is taken.
+
+```{.deduce^#replicate_uint}
+recfun replicate<T>(n : UInt, x : T) -> List<T>
+  measure n of UInt
+{
+  if n = 0 then []
+  else node(x, replicate(n ∸ 1, x))
+}
+terminates {
+  arbitrary n:UInt, x:T
+  uint_monus_one_less[n]
+}
+```
+
+The usual zero/successor-style induction rule for `UInt` is still
+available for proofs about these functions.
+
 
 ## Generic Functions
 

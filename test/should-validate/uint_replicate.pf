@@ -1,15 +1,3 @@
-// replicate.pf
-//
-// The classic Haskell intro-FP function:
-//
-//     replicate :: Int -> a -> [a]
-//     replicate n x = [x, x, ..., x]   -- n copies
-//
-// Below we define replicate over UInt and prove two correctness theorems:
-//
-//   1. replicate_add:      replicate(m + n, x) = replicate(m, x) ++ replicate(n, x)
-//   2. length_replicate:   length(replicate(n, x)) = n
-
 import UInt
 import List
 
@@ -26,7 +14,6 @@ terminates {
 
 assert replicate(3, 7) = [7, 7, 7]
 
-// replicate distributes over UInt addition into list concatenation.
 theorem replicate_add: all T:type. all m:UInt. all n:UInt, x:T.
   replicate(m + n, x) = replicate(m, x) ++ replicate(n, x)
 proof
@@ -52,7 +39,6 @@ proof
   }
 end
 
-// The length of replicate(n, x) is n.
 theorem length_replicate: all T:type. all n:UInt. all x:T.
   length(replicate(n, x)) = n
 proof
