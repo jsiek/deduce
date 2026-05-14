@@ -1433,6 +1433,160 @@ def _check_proof_of_apply_defs_goal(proof, formula, env):
       raise wrap_user_error(e, hint) from e
     raise
 
+def _check_proof_of_all_intro(proof, formula, env):
+  loc = proof.location
+  var = proof.var
+  body = proof.body
+  x, ty = var
+  check_type(ty, env)
+
+  if isinstance(formula, TLet):
+    formula = formula.reduceLets(env)
+
+  match formula:
+    case All(loc2, tyof, var2, (s, e), formula2):
+      x2, ty2 = var2
+      if ty != ty2:
+        add_diagnostic(loc, "arbitrary expects " + base_name(x)
+              + " to have type\n\t" + str(ty2)
+              + "\nbut got type\n\t" + str(ty))
+        return
+      sub = {}
+      sub[ var2[0] ] = OverloadedVar(loc, var[1], [ var[0] ])
+
+      frm2 = formula2.substitute(sub)
+
+      if s != 0:
+        frm2 = update_all_head(frm2)
+
+      body_env = env.declare_term_vars(loc, [var])
+      _try_check_proof_of(body, frm2, body_env)
+    case _:
+      add_diagnostic(loc, 'arbitrary is proof of an all formula, not\n' \
+            + str(formula)
+            + givens_str(env))
+
+def _check_proof_of_some_intro(proof, formula, env):
+  loc = proof.location
+  # room for improvement, if var has type annotation, could type_check the witness
+  witnesses = [type_synth_term(trm, env, None, []) for trm in proof.witnesses]
+
+  if isinstance(formula, TLet):
+    formula = formula.reduceLets(env)
+
+  match formula:
+    case Some(loc2, tyof, vars, formula2):
+      sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
+      body_frm = formula2.substitute(sub)
+      _try_check_proof_of(proof.body, body_frm, env)
+    case _:
+      add_diagnostic(loc, "choose expects the goal to start with 'some', not " + str(formula)
+            + givens_str(env))
+
+def _check_proof_of_some_elim(proof, formula, env):
+  loc = proof.location
+  someFormula = check_proof(proof.some, env)
+
+  if isinstance(someFormula, TLet):
+    someFormula = someFormula.reduceLets(env)
+
+  match someFormula:
+    case Some(loc2, tyof, vars, formula2):
+      sub = {var[0]: ResolvedVar(loc2, None, x) for (var,x) in zip(vars,proof.witnesses)}
+      witnessFormula = formula2.substitute(sub)
+
+      witnesses_types = [(x,var[1]) for (var,x) in zip(vars,proof.witnesses)]
+      body_env = env.declare_term_vars(loc, witnesses_types)
+      if proof.prop:
+        prop = check_formula(proof.prop, body_env)
+        check_implies(loc, witnessFormula.reduce(env), prop.reduce(body_env))
+      else:
+        prop = witnessFormula
+      body_env = body_env.declare_local_proof_var(loc, proof.label, prop)
+      _try_check_proof_of(proof.body, formula, body_env)
+    case _:
+      add_diagnostic(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula)
+            + givens_str(env))
+
+def _check_proof_of_imp_intro(proof, formula, env):
+  loc = proof.location
+
+  if proof.premise is None:
+    if isinstance(formula, TLet):
+      formula = formula.reduceLets(env)
+
+    match formula:
+      case IfThen(loc2, tyof, prem, conc):
+        body_env = env.declare_local_proof_var(loc, proof.label, prem)
+        _try_check_proof_of(proof.body, conc, body_env)
+      case _:
+        add_diagnostic(proof.location, 'expected proof of ' + str(formula) + \
+              '\n\tnot a proof of if-then: ' + str(proof)
+              + givens_str(env))
+    return
+
+  new_prem1 = check_formula(proof.premise, env)
+  match formula:
+    case IfThen(loc2, tyof, prem2, conc):
+      prem1_red = new_prem1.reduce(env)
+      prem2_red = prem2.reduce(env)
+      if prem1_red != prem2_red:
+        (small1, small2) = isolate_difference(prem1_red, prem2_red)
+        msg = str(prem1_red) + ' ≠ ' + str(prem2_red) + '\n' \
+            + 'because\n' + str(small1) + ' ≠ ' + str(small2)
+        add_diagnostic(loc, 'mismatch in premise:\n' + msg
+            + givens_str(env))
+      body_env = env.declare_local_proof_var(loc, proof.label, new_prem1)
+      _try_check_proof_of(proof.body, conc, body_env)
+    case _:
+      add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + str(formula)
+            + givens_str(env))
+
+def _check_proof_of_tlet_new(proof, formula, env):
+  loc = proof.location
+  new_rhs = type_synth_term(proof.rhs, env, None, [])
+  body_env = env.define_term_var(loc, proof.var, new_rhs.typeof, new_rhs)
+  equation = mkEqual(loc, new_rhs, ResolvedVar(loc, None, proof.var)).reduce(env)
+  red_formula = formula.reduce(env)
+  if get_verbose():
+      print('define ' + str(proof.var) + '\n\trewrite with ' + str(equation) + '\n\tin ' \
+            + str(red_formula))
+  frm = rewrite(loc, red_formula, equation, env)
+  new_body_env = Env({k: ProofBinding(b.location, \
+                                      rewrite(loc, b.formula, equation, env), \
+                                      b.local, module=env.get_current_module()) \
+                      if isinstance(b, ProofBinding) else b \
+                       for (k,b) in body_env.dict.items()})
+  _try_check_proof_of(proof.body, frm, new_body_env)
+
+def _check_proof_of_let(proof, formula, env):
+  loc = proof.location
+  new_frm = check_formula(proof.proved, env)
+  match new_frm:
+    case Hole(loc2, tyof):
+      proved_formula = check_proof(proof.because, env)
+      warning(loc, "\nhave " + base_name(proof.label) + ':\n\t' + str(proved_formula))
+      body_env = env.declare_local_proof_var(loc, proof.label, proved_formula)
+    case _:
+      _try_check_proof_of(proof.because, new_frm, env)
+      body_env = env.declare_local_proof_var(loc, proof.label, remove_mark(new_frm))
+  _try_check_proof_of(proof.body, formula, body_env)
+
+def _check_proof_of_annot(proof, formula, env):
+  loc = proof.location
+  new_claim = check_formula(proof.claim, env)
+  match new_claim:
+    case Hole(loc2, tyof):
+      _try_check_proof_of(proof.body, formula, env)
+      add_diagnostic(loc, '\nneed to show:\n\t' + str(formula)
+            + givens_str(env))
+    case _:
+      claim_red = new_claim.reduce(env)
+      formula_red = formula.reduce(env)
+      check_implies(loc, remove_mark(claim_red).reduce(env),
+                    remove_mark(formula_red).reduce(env))
+      _try_check_proof_of(proof.body, claim_red, env)
+
 _CHECK_PROOF_OF_HANDLERS = {
   PHole: _check_proof_of_hole,
   PSorry: _check_proof_of_sorry,
@@ -1444,6 +1598,13 @@ _CHECK_PROOF_OF_HANDLERS = {
   RewriteGoal: _check_proof_of_rewrite_goal,
   SimplifyGoal: _check_proof_of_simplify_goal,
   ApplyDefsGoal: _check_proof_of_apply_defs_goal,
+  AllIntro: _check_proof_of_all_intro,
+  SomeIntro: _check_proof_of_some_intro,
+  SomeElim: _check_proof_of_some_elim,
+  ImpIntro: _check_proof_of_imp_intro,
+  PTLetNew: _check_proof_of_tlet_new,
+  PLet: _check_proof_of_let,
+  PAnnot: _check_proof_of_annot,
 }
 
 def check_proof_of(proof, formula, env):
@@ -1454,152 +1615,6 @@ def check_proof_of(proof, formula, env):
   if handler is not None:
     return handler(proof, formula, env)
   match proof:
-    case AllIntro(loc, var, _, body):
-      x, ty = var
-      check_type(ty, env)
-
-      if isinstance(formula, TLet):
-        formula = formula.reduceLets(env)
-
-      match formula:
-        case All(loc2, tyof, var2, (s, e), formula2):
-          x2, ty2 = var2
-          if ty != ty2:
-            add_diagnostic(loc, "arbitrary expects " + base_name(x)
-                  + " to have type\n\t" + str(ty2)
-                  + "\nbut got type\n\t" + str(ty))
-            return
-          sub = {}
-          sub[ var2[0] ] = OverloadedVar(loc, var[1], [ var[0] ])
-
-          frm2 = formula2.substitute(sub)
-
-          if s != 0:
-            frm2 = update_all_head(frm2)
-
-          body_env = env.declare_term_vars(loc, [var])
-          _try_check_proof_of(body, frm2, body_env)
-        case _:
-          add_diagnostic(loc, 'arbitrary is proof of an all formula, not\n' \
-                + str(formula)
-                + givens_str(env))
-
-    case SomeIntro(loc, witnesses, body):
-      # room for improvement, if var has type annotation, could type_check the witness
-      witnesses = [type_synth_term(trm, env, None, []) for trm in witnesses]
-
-      if isinstance(formula, TLet):
-        formula = formula.reduceLets(env)
-      
-      match formula:
-        case Some(loc2, tyof, vars, formula2):
-          sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
-          body_frm = formula2.substitute(sub)
-          _try_check_proof_of(body, body_frm, env)
-        case _:
-          add_diagnostic(loc, "choose expects the goal to start with 'some', not " + str(formula)
-                + givens_str(env))
-          
-    case SomeElim(loc, witnesses, label, prop, some, body):
-      someFormula = check_proof(some, env)
-
-      if isinstance(someFormula, TLet):
-        someFormula = someFormula.reduceLets(env)
-      
-      match someFormula:
-        case Some(loc2, tyof, vars, formula2):
-          sub = {var[0]: ResolvedVar(loc2, None, x) for (var,x) in zip(vars,witnesses)}
-          witnessFormula = formula2.substitute(sub)
-          
-          witnesses_types = [(x,var[1]) for (var,x) in zip(vars,witnesses)]
-          body_env = env.declare_term_vars(loc, witnesses_types)
-          if prop:
-            prop = check_formula(prop, body_env)
-            check_implies(loc, witnessFormula.reduce(env), prop.reduce(body_env))
-          else:
-            prop = witnessFormula
-          body_env = body_env.declare_local_proof_var(loc, label, prop)
-          _try_check_proof_of(body, formula, body_env)
-        case _:
-          add_diagnostic(loc, "obtain expects 'from' to be a proof of a 'some' formula, not " + str(someFormula)
-                + givens_str(env))
-        
-    case ImpIntro(loc, label, None, body):
-
-      if isinstance(formula, TLet):
-        formula = formula.reduceLets(env)
-
-      match formula:
-        case IfThen(loc2, tyof, prem, conc):
-          body_env = env.declare_local_proof_var(loc, label, prem)
-          _try_check_proof_of(body, conc, body_env)
-        case _:
-          add_diagnostic(proof.location, 'expected proof of ' + str(formula) + \
-                '\n\tnot a proof of if-then: ' + str(proof)
-                + givens_str(env))
-          
-    case ImpIntro(loc, label, prem1, body):
-      new_prem1 = check_formula(prem1, env)
-      match formula:
-        case IfThen(loc2, tyof, prem2, conc):
-          prem1_red = new_prem1.reduce(env)
-          prem2_red = prem2.reduce(env)
-          if prem1_red != prem2_red:
-            (small1, small2) = isolate_difference(prem1_red, prem2_red)
-            msg = str(prem1_red) + ' ≠ ' + str(prem2_red) + '\n' \
-                + 'because\n' + str(small1) + ' ≠ ' + str(small2)
-            add_diagnostic(loc, 'mismatch in premise:\n' + msg
-                + givens_str(env))
-          body_env = env.declare_local_proof_var(loc, label, new_prem1)
-          _try_check_proof_of(body, conc, body_env)
-        case _:
-          add_diagnostic(proof.location, 'the assume statement is for if-then formula, not ' + str(formula)
-                + givens_str(env))
-
-    # define x = t
-    case PTLetNew(loc, var, rhs, rest):
-      new_rhs = type_synth_term(rhs, env, None, [])
-      body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
-      equation = mkEqual(loc, new_rhs, ResolvedVar(loc, None, var)).reduce(env)
-      red_formula = formula.reduce(env)
-      if get_verbose():
-          print('define ' + str(var) + '\n\trewrite with ' + str(equation) + '\n\tin ' \
-                + str(red_formula))
-      frm = rewrite(loc, red_formula, equation, env)
-      new_body_env = Env({k: ProofBinding(b.location, \
-                                          rewrite(loc, b.formula, equation, env), \
-                                          b.local, module=env.get_current_module()) \
-                          if isinstance(b, ProofBinding) else b \
-                           for (k,b) in body_env.dict.items()})
-      _try_check_proof_of(rest, frm, new_body_env)
-
-    # have X: P by frm
-    case PLet(loc, label, frm, reason, rest):
-      new_frm = check_formula(frm, env)
-      match new_frm:
-        case Hole(loc2, tyof):
-          proved_formula = check_proof(reason, env)
-          warning(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
-          body_env = env.declare_local_proof_var(loc, label, proved_formula)
-        case _:
-          _try_check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
-      _try_check_proof_of(rest, formula, body_env)
-
-    case PAnnot(loc, claim, reason):
-      new_claim = check_formula(claim, env)
-      match new_claim:
-        case Hole(loc2, tyof):
-          _try_check_proof_of(reason, formula, env)
-          add_diagnostic(loc, '\nneed to show:\n\t' + str(formula)
-                + givens_str(env))
-        case _:
-          claim_red = new_claim.reduce(env)
-          formula_red = formula.reduce(env)
-          check_implies(loc, remove_mark(claim_red).reduce(env),
-                        remove_mark(formula_red).reduce(env))
-          _try_check_proof_of(reason, claim_red, env)
-
     #  goal is P
     #  suffices Q by r        r proves (if Q then P)
     #  goal is Q

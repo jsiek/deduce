@@ -22,9 +22,31 @@ def test_check_proof_of_registers_extracted_goal_handlers() -> None:
         ast.RewriteGoal,
         ast.SimplifyGoal,
         ast.ApplyDefsGoal,
+        ast.AllIntro,
+        ast.SomeIntro,
+        ast.SomeElim,
+        ast.ImpIntro,
+        ast.PTLetNew,
+        ast.PLet,
+        ast.PAnnot,
     }
 
     assert expected <= set(proof_checker._CHECK_PROOF_OF_HANDLERS)
+
+
+def test_check_proof_of_registers_extracted_intro_and_local_handlers() -> None:
+    expected = {
+        ast.AllIntro: proof_checker._check_proof_of_all_intro,
+        ast.SomeIntro: proof_checker._check_proof_of_some_intro,
+        ast.SomeElim: proof_checker._check_proof_of_some_elim,
+        ast.ImpIntro: proof_checker._check_proof_of_imp_intro,
+        ast.PTLetNew: proof_checker._check_proof_of_tlet_new,
+        ast.PLet: proof_checker._check_proof_of_let,
+        ast.PAnnot: proof_checker._check_proof_of_annot,
+    }
+
+    for proof_type, handler in expected.items():
+        assert proof_checker._CHECK_PROOF_OF_HANDLERS[proof_type] is handler
 
 
 def test_check_proof_of_dispatches_registered_handler(monkeypatch) -> None:
