@@ -432,7 +432,7 @@ def base_name(name: str) -> str:
 
 def type_names(loc, names: List[str]):
   index = 0
-  result: list = []
+  result: List["ResolvedVar"] = []
   for n in reversed(names):
     result.insert(0, ResolvedVar(loc, None, n))
     index += 1
@@ -1277,7 +1277,7 @@ def is_match(pattern, arg, subst):
     return ret
 
 # The variables that should be reduced.
-reduce_only: list = []
+reduce_only: List["VarRef"] = []
 
 def set_reduce_only(defs):
   global reduce_only
@@ -1319,7 +1319,7 @@ def set_eval_all(b):
   eval_all = b
 
 # Definitions that were reduced.
-reduced_defs: set = set()
+reduced_defs: set[str] = set()
 
 def reset_reduced_defs():
   global reduced_defs
@@ -2877,7 +2877,7 @@ class RuleInduction(Proof):
   # <case_k>)`. The motive is inferred from the goal, which must have
   # the shape `all xs. if <pred>(xs) then Q(xs)`.
   hyp_name: str
-  cases: list
+  cases: List[RuleInductionCase]
 
   def pretty_print(self, indent):
     return indent*' ' + 'rule induction ' + base_name(self.hyp_name) + '\n' \
@@ -2912,7 +2912,7 @@ class RuleInversion(Proof):
   # `<pred>_rule_inversion` theorem instead — the cases prove the
   # *non*-augmented rule conjuncts (no induction hypothesis).
   hyp_name: str
-  cases: list
+  cases: List[RuleInductionCase]
 
   def pretty_print(self, indent):
     return indent*' ' + 'rule inversion ' + base_name(self.hyp_name) + '\n' \
@@ -4745,7 +4745,7 @@ class Env:
     return [b.formula for (name, b) in self.dict.items() \
             if isinstance(b, ProofBinding)]
 
-collected_imports: set = set()
+collected_imports: set[str] = set()
 
 def collect_public(s, to_print):
     global collected_imports

@@ -10,6 +10,13 @@ import NatLess
 import NatEvenOdd
 
 /*
+  Theorems about Nat division, modulo, and divisibility.
+
+  The definitions live in `NatDefs.pf`; this file proves their basic
+  equations, bounds, and algebraic properties.
+*/
+
+/*
  Properties of div2
  */
 

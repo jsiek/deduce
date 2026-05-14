@@ -4,6 +4,14 @@ import Base
 import NatDefs
 
 /*
+  Theorems about Nat literals and addition.
+
+  This file proves neutral-element, associativity, commutativity, and
+  monotonicity facts for `+`, and registers the literal rewrites that
+  make arithmetic on Nat literals evaluate smoothly.
+*/
+
+/*
  Properties of lit
  */
  
@@ -28,6 +36,7 @@ auto suc_lit
  Properties of Addition
  */
 
+// Zero is the left identity for addition.
 lemma zero_add: all n:Nat.
   zero + n = n
 proof
@@ -37,6 +46,7 @@ end
 
 auto zero_add
 
+// Literal zero is also the left identity.
 theorem nat_zero_add: all y:Nat.
   lit(zero) + y = y
 proof
@@ -46,6 +56,7 @@ end
 
 auto nat_zero_add
 
+// Zero is the right identity for addition.
 lemma add_zero: all n:Nat.
   n + zero = n
 proof

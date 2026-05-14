@@ -6,6 +6,16 @@ import UIntDefs
 import UIntToFrom
 import UIntLess
 
+/*
+  Theorems about UInt addition.
+
+  Most proofs specify UInt operations by translating through `toNat`.
+  This file proves that UInt addition agrees with Nat addition, then
+  builds the usual identity, associativity, commutativity, cancellation,
+  and monotonicity lemmas.
+*/
+
+// UInt addition agrees with Nat addition under `toNat`.
 theorem toNat_add: all x:UInt, y:UInt.
   toNat(x + y) = toNat(x) + toNat(y)
 proof

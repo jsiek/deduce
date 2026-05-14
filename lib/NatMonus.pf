@@ -6,6 +6,14 @@ import NatDefs
 import NatAdd
 
 /*
+  Theorems about Nat truncated subtraction (`∸`).
+
+  Nat subtraction never goes below zero. These lemmas establish the
+  expected zero/cancellation laws and connect subtraction with
+  addition and order.
+*/
+
+/*
  Properties of Subtraction
  */
  

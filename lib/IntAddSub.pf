@@ -4,6 +4,13 @@ import UInt
 import Base
 import IntDefs
 
+/*
+  Theorems about Int signs, negation, addition, and subtraction.
+
+  The implementation reduces integer arithmetic to unsigned arithmetic
+  on absolute values plus a sign calculation.
+*/
+
 // Properties of signs
 
 lemma sign_pos: all n:UInt. sign(pos(n)) = positive

@@ -2,6 +2,16 @@ module Nat
 
 import Option
 import Base
+
+/*
+  Public entry point for natural numbers.
+
+  This module re-exports the Nat definition, arithmetic, order,
+  division, parity, powers/logarithms, and summation support, then
+  adds cross-cutting facts such as boolean equality, gcd, and literal
+  arithmetic rewrite support.
+*/
+
 public import NatDefs
 public import NatAdd
 public import NatMonus
@@ -593,4 +603,3 @@ proof
 end
 
 auto lit_one_expt
-

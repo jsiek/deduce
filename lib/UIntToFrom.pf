@@ -4,6 +4,14 @@ import Base
 import Nat
 import UIntDefs
 
+/*
+  Conversion facts between Nat and UInt.
+
+  `fromNat` embeds natural numbers into UInt and `toNat` specifies
+  UInt values as natural numbers. The lemmas here are the bridge used
+  by most UInt arithmetic proofs.
+*/
+
 lemma from_zero: fromNat(ℕ0) = 0
 proof
   evaluate
@@ -209,4 +217,3 @@ proof
 end
 
 auto uint_equal
-

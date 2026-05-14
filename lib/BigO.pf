@@ -2,28 +2,41 @@ module BigO
 
 import UInt
 
+/*
+  Elementary asymptotic notation for functions `UInt -> UInt`.
+
+  The relation `f ≲ g` means that, after some threshold `n0`, `f` is
+  bounded above by a constant multiple of `g`. The relation `f ≈ g`
+  is the induced two-sided equivalence.
+*/
+
+// Pointwise addition of cost functions.
 fun operator + (f : fn UInt -> UInt, g : fn UInt -> UInt) {
   fun x:UInt {
     f(x) + g(x)
   }
 }
 
+// Pointwise multiplication of cost functions.
 fun operator * (f : fn UInt -> UInt, g : fn UInt -> UInt) {
   fun x:UInt {
     f(x) * g(x)
   }
 }
 
+// Scale a cost function by a constant.
 fun operator * (k : UInt, g : fn UInt -> UInt) {
   fun x:UInt {
     k * g(x)
   }
 }
 
+// Big-O preorder.
 fun operator ≲ (f : fn UInt -> UInt, g : fn UInt -> UInt) {
   some n0 :UInt, c:UInt. all n:UInt. if n0 ≤ n then f(n) ≤ c * g(n)
 }
 
+// Asymptotic equivalence.
 fun operator ≈ (f : fn UInt -> UInt, g : fn UInt -> UInt) {
   (f ≲ g) and (g ≲ f)
 }
@@ -301,4 +314,3 @@ proof
     by apply log_sum_less_equal_product[f,g] to f_pos, g_pos
   A, B
 end
-

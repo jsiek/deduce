@@ -1,1 +1,1 @@
-./test/should-error/private_lemma_hint_stdlib.pf:13.3-13.12: 'zero_mult' is declared as a `lemma` in module Nat (./lib/NatMult.pf:13); lemmas are module-private and not accessible from other modules. To make it accessible here, change `lemma` to `theorem` there.
+./test/should-error/private_lemma_hint_stdlib.pf:13.3-13.12: 'zero_mult' is declared as a `lemma` in module Nat (./lib/NatMult.pf:20); lemmas are module-private and not accessible from other modules. To make it accessible here, change `lemma` to `theorem` there.
