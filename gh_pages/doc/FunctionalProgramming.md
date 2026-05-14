@@ -11,6 +11,7 @@ Deduce supports the following language features:
 * [Lists](#lists)
 * [Booleans, Conditionals, and Assert](#booleans-conditionals-and-assert)
 * [Recursive Functions](#recursive-functions)
+* [Views](#views)
 * [Generic Functions](#generic-functions)
 * [Higher-order Functions](#higher-order-functions)
 * [Pairs](#pairs)
@@ -271,28 +272,77 @@ recursive zip<T,U>(List<T>, List<U>) -> List< Pair<T, U> > {
 }
 ```
 
-Unsigned integers are not exposed as an ordinary recursive union, so
-functions that count down over `UInt` should currently use `recfun`
-with an explicit measure. The recursive call below is accepted because
-the `terminates` proof shows that `n ∸ 1` is smaller than `n` whenever
-the nonzero branch is taken.
+## Views
 
-```{.deduce^#replicate_uint}
-recfun replicate<T>(n : UInt, x : T) -> List<T>
-  measure n of UInt
-{
-  if n = 0 then []
-  else node(x, replicate(n ∸ 1, x))
+A recursive function normally recurses by matching directly on the
+constructors of its first argument. A `view` lets you present a
+different union of cases for that argument. This is useful when the
+real representation is hidden, or when the representation is efficient
+but not the shape you want users to program against.
+
+A view has a source type, a target union type, a function from source
+to target, a function back from target to source, and a theorem proving
+that every target value survives the round trip through the source.
+After the view is declared, the view name can be used wherever a type is
+expected. In the first parameter type of a `recursive` function, the
+view also lets the function recurse by matching on the target
+constructors. The resulting function still accepts values represented by
+the source type.
+
+Here is a small view that exposes a unary number as either zero or a
+successor, then uses that view to define `replicate`.
+
+```{.deduce^#unary_view}
+union Unary {
+  UZero
+  USucc(Unary)
 }
-terminates {
-  arbitrary n:UInt, x:T
-  uint_monus_one_less[n]
+
+union UnaryView {
+  ViewZero
+  ViewSucc(Unary)
+}
+
+fun unary_into(n:Unary) {
+  switch n {
+    case UZero { ViewZero }
+    case USucc(p) { ViewSucc(p) }
+  }
+}
+
+fun unary_out(v:UnaryView) {
+  switch v {
+    case ViewZero { UZero }
+    case ViewSucc(p) { USucc(p) }
+  }
+}
+
+theorem unary_roundtrip: all v:UnaryView. unary_into(unary_out(v)) = v
+proof
+  arbitrary v:UnaryView
+  switch v {
+    case ViewZero { evaluate }
+    case ViewSucc(p) { evaluate }
+  }
+end
+
+view UnaryPred {
+  source Unary
+  target UnaryView
+  into unary_into
+  out unary_out
+  roundtrip unary_roundtrip
+}
+
+recursive replicate<T>(UnaryPred, T) -> List<T> {
+  replicate(ViewZero, x) = []
+  replicate(ViewSucc(p), x) = node(x, replicate(p, x))
 }
 ```
 
-The usual zero/successor-style induction rule for `UInt` is still
-available for proofs about these functions.
-
+The theorem `unary_roundtrip` is part of the declaration: Deduce checks
+that it proves `unary_into(unary_out(v)) = v`. The reverse equation is
+not required, so a view may hide details of the source representation.
 
 ## Generic Functions
 
@@ -452,6 +502,7 @@ The division operator `/`  is defined in `UInt.pf`.
 <<assert_if_true>>
 <<lenUIntList>>
 <<app>>
+<<unary_view>>
 <<length>>
 <<apply_length>>
 <<apply_length_empty>>
