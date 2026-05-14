@@ -1606,6 +1606,63 @@ def _check_proof_of_annot(proof, formula, env):
                     remove_mark(formula_red).reduce(env))
       _try_check_proof_of(proof.body, claim_red, env)
 
+def _check_proof_of_tuple(proof, formula, env):
+  loc = proof.location
+  try:
+    with speculative_probe():
+      red_formula = formula.reduce(env)
+      match red_formula:
+        case And(_, _, frms):
+          for (frm,pf) in zip(frms, proof.args):
+            check_proof_of(pf, frm, env)
+          if len(proof.args) < len(frms):
+            incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
+                             + str(len(proof.args)))
+        case _:
+          user_error(loc, 'comma proves logical-and, not ' + str(red_formula))
+  except IncompleteProof as ex:
+    raise ex
+  except UserError as ex1:
+    try:
+      with speculative_probe():
+        form = check_proof(proof, env)
+        form_red = form.reduce(env)
+        formula_red = formula.reduce(env)
+        check_implies(proof.location, form_red, remove_mark(formula_red))
+    except UserError as ex2:
+      add_diagnostic(loc, 'failed to prove: ' + str(formula) + '\n' \
+            + '\tfirst tried each subproof in goal-directed mode, but:\n' \
+            + str(ex1) + '\n' \
+            + '\tthen tried synthesis mode, but:\n'\
+            + str(ex2)
+            + givens_str(env))
+
+def _check_proof_of_cases(proof, formula, env):
+  loc = proof.location
+  sub_frm = check_proof(proof.subject, env)
+
+  # sub_red = sub_frm.reduce(env)
+  sub_red = sub_frm
+  if isinstance(sub_frm, TLet):
+    sub_red = sub_frm.reduceLets(env)
+
+  match sub_red:
+    case Or(_, _, frms):
+      if len(proof.cases) < len(frms):
+          add_diagnostic(loc, "expected " + str(len(frms)) + " cases, not " + str(len(proof.cases))
+                + givens_str(env))
+      for (frm, (label,frm2,the_case)) in zip(frms, proof.cases):
+        if frm2:
+            new_frm2 = check_formula(frm2, env)
+        if frm2 and (frm != new_frm2): # was frm != red_frm2
+          add_diagnostic(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm)
+                + givens_str(env))
+        body_env = env.declare_local_proof_var(loc, label, frm)
+        _try_check_proof_of(the_case, formula, body_env)
+    case _:
+      add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
+            + givens_str(env))
+
 _CHECK_PROOF_OF_HANDLERS = {
   PHole: _check_proof_of_hole,
   PSorry: _check_proof_of_sorry,
@@ -1624,6 +1681,8 @@ _CHECK_PROOF_OF_HANDLERS = {
   PTLetNew: _check_proof_of_tlet_new,
   PLet: _check_proof_of_let,
   PAnnot: _check_proof_of_annot,
+  PTuple: _check_proof_of_tuple,
+  Cases: _check_proof_of_cases,
 }
 
 def check_proof_of(proof, formula, env):
@@ -1695,61 +1754,6 @@ def check_proof_of(proof, formula, env):
             _try_check_proof_of(reason, imp, env)
             _try_check_proof_of(rest, claim_red, env)
 
-    case PTuple(loc, pfs):
-      try:
-        with speculative_probe():
-          red_formula = formula.reduce(env)
-          match red_formula:
-            case And(loc2, _, frms):
-              for (frm,pf) in zip(frms, pfs):
-                check_proof_of(pf, frm, env)
-              if len(pfs) < len(frms):
-                incomplete_error(loc, 'expected ' + str(len(frms)) + ' proofs but only got '\
-                                 + str(len(pfs)))
-            case _:
-              user_error(loc, 'comma proves logical-and, not ' + str(red_formula))
-      except IncompleteProof as ex:
-        raise ex
-      except UserError as ex1:
-        try:
-          with speculative_probe():
-            form = check_proof(proof, env)
-            form_red = form.reduce(env)
-            formula_red = formula.reduce(env)
-            check_implies(proof.location, form_red, remove_mark(formula_red))
-        except UserError as ex2:
-          add_diagnostic(loc, 'failed to prove: ' + str(formula) + '\n' \
-                + '\tfirst tried each subproof in goal-directed mode, but:\n' \
-                + str(ex1) + '\n' \
-                + '\tthen tried synthesis mode, but:\n'\
-                + str(ex2)
-                + givens_str(env))
-            
-    case Cases(loc, subject, cases):
-      sub_frm = check_proof(subject, env)
-
-      # sub_red = sub_frm.reduce(env)
-      sub_red = sub_frm
-      if isinstance(sub_frm, TLet):
-        sub_red = sub_frm.reduceLets(env)
-
-      match sub_red:
-        case Or(_, _, frms):
-          if len(cases) < len(frms):
-              add_diagnostic(loc, "expected " + str(len(frms)) + " cases, not " + str(len(cases))
-                    + givens_str(env))
-          for (frm, (label,frm2,the_case)) in zip(frms, cases):
-            if frm2:
-                new_frm2 = check_formula(frm2, env)
-            if frm2 and (frm != new_frm2): # was frm != red_frm2
-              add_diagnostic(loc, 'case ' + str(new_frm2) + '\ndoes not match alternative in goal: \n' + str(frm)
-                    + givens_str(env))
-            body_env = env.declare_local_proof_var(loc, label, frm)
-            _try_check_proof_of(the_case, formula, body_env)
-        case _:
-          add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
-                + givens_str(env))
-          
     case RuleInduction(loc, _, _):
       _check_rule_induction(proof, formula, env)
 

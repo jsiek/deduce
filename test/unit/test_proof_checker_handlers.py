@@ -29,6 +29,8 @@ def test_check_proof_of_registers_extracted_goal_handlers() -> None:
         ast.PTLetNew,
         ast.PLet,
         ast.PAnnot,
+        ast.PTuple,
+        ast.Cases,
     }
 
     assert expected <= set(proof_checker._CHECK_PROOF_OF_HANDLERS)
@@ -43,6 +45,8 @@ def test_check_proof_of_registers_extracted_intro_and_local_handlers() -> None:
         ast.PTLetNew: proof_checker._check_proof_of_tlet_new,
         ast.PLet: proof_checker._check_proof_of_let,
         ast.PAnnot: proof_checker._check_proof_of_annot,
+        ast.PTuple: proof_checker._check_proof_of_tuple,
+        ast.Cases: proof_checker._check_proof_of_cases,
     }
 
     for proof_type, handler in expected.items():
