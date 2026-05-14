@@ -343,4 +343,16 @@ proof
   replace toNat_pred | toNat_monus | uint_toNat_fromNat | nat_monus_one_pred.
 end
 
+theorem uint_monus_one_less: all n:UInt.
+  if not (n = 0) then n ∸ 1 < n
+proof
+  arbitrary n:UInt
+  assume n_nz
+  have n_pos: 0 < n by apply uint_not_zero_pos to n_nz
+  have one_le_n: 1 ≤ n by apply uint_pos_implies_one_le to n_pos
+  suffices 1 + (n ∸ 1) < 1 + n by uint_add_both_sides_of_less[1, n ∸ 1, n]
+  suffices n < 1 + n by replace (apply uint_monus_add_identity[n, 1] to one_le_n).
+  uint_less_plus1[n]
+end
+
   
