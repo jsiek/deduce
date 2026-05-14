@@ -3308,6 +3308,7 @@ class Union(Declaration):
   name: str
   type_params: List[str]
   alternatives: List[Constructor]
+  param_polarities: Optional[List[str]] = None
 
   def reduce(self, env):
     return self

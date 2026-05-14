@@ -4422,8 +4422,9 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       param_types = [t for (p,t) in checked_param_pairs]
       if any([t == None for t in param_types]):
           user_error(loc, 'Add type annotations to the parameters.')
+      checked_param_types: List[Type] = [cast(Type, t) for t in param_types]
 
-      fun_type = FunctionType(loc, typarams, param_types, checked_returns)
+      fun_type = FunctionType(loc, typarams, checked_param_types, checked_returns)
       # print('process declaration:')
       # print(decl.pretty_print(4))
       check_type(measure_ty, env)
@@ -4441,10 +4442,11 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       param_types = [t for (p,t) in param_pairs]
       if any([t == None for t in param_types]):
           user_error(loc, 'Add type annotations to the parameters.')
+      checked_param_types = [cast(Type, t) for t in param_types]
       if len(param_pairs) == 0:
           user_error(loc, 'viewrec needs at least one parameter to recurse on.')
 
-      fun_type = FunctionType(loc, typarams, param_types, returns)
+      fun_type = FunctionType(loc, typarams, checked_param_types, returns)
       return (decl, env.declare_term_var(loc, name, fun_type,
                                          visibility=decl.visibility))
 
@@ -4510,7 +4512,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
         new_alts.append(new_constr)
       checked_union = Union(loc, name, typarams, new_alts,
                             visibility=decl.visibility)
-      if hasattr(decl, 'param_polarities'):
+      if decl.param_polarities is not None:
         checked_union.param_polarities = decl.param_polarities
       env = env.define_type(loc, name, checked_union, decl.visibility)
       return checked_union, env
