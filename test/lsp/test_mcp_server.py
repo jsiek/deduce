@@ -138,6 +138,25 @@ async def test_check_file_on_error_file_returns_one_diagnostic(server):
     assert "incomplete proof" in diag["message"]
 
 
+@pytest.mark.anyio
+async def test_check_file_on_stdlib_file_does_not_prepend_stdlib(
+    server, monkeypatch
+):
+    lib_file = REPO_ROOT / "lib" / "UIntDiv.pf"
+    if not lib_file.exists():
+        pytest.skip(f"{lib_file} not present in this checkout")
+
+    # Simulate a normally configured MCP server with a non-empty
+    # stdlib prelude. A lib/* target must still run with an empty
+    # prelude, or the target file is imported twice and reports
+    # duplicate theorem declarations.
+    monkeypatch.setattr(_server_module, "_PRELUDE", ("UIntDiv",))
+
+    payload = await _call(server, "check_file", {"path": str(lib_file)})
+
+    assert payload == {"diagnostics": []}
+
+
 # --------------------------------------------------------------------------
 # goal_at
 # --------------------------------------------------------------------------
