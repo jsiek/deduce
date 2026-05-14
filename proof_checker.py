@@ -5053,8 +5053,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
       # print(new_recfun.pretty_print(4))
       return new_recfun
 
-    case ViewRecFun(loc, name, typarams, param_pairs, returns, view_name,
-                    view_subject, cases):
+    case ViewRecFun(loc, name, typarams, param_pairs, returns, _, _, cases):
       if len(param_pairs) == 0:
         user_error(loc, 'viewrec needs at least one parameter to recurse on.')
       return type_check_viewrec(stmt, env)
