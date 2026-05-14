@@ -11,6 +11,7 @@ public import UIntMonus
 public import UIntDiv
 public import UIntPowLog
 public import UIntEvenOdd
+public import UIntSum
 
 // Need lit, zero, and suc for unsigned integer literals.
 export lit
