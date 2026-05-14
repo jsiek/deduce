@@ -22,6 +22,11 @@ opaque union UInt {
   inc_dub(UInt) // 1 + 2x
 }
 
+union UIntView {
+  UIntZero
+  UIntSucc(UInt)
+}
+
 // Interpret a UInt as a Nat.
 opaque recursive toNat(UInt) -> Nat {
   toNat(bzero) = ℕ0
@@ -89,6 +94,10 @@ private fun pred(x:UInt) {
     case dub_inc(x') { inc_dub(x') }
     case inc_dub(x') { dub(x') }
   }
+}
+
+fun uint_view(x:UInt) {
+  if x = bzero then UIntZero else UIntSucc(pred(x))
 }
 
 opaque fun div2(b : UInt) {

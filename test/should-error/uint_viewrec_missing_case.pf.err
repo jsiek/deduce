@@ -1,3 +1,1 @@
-./test/should-error/uint_viewrec_missing_case.pf:3.1-6.2: viewrec over UInt expects exactly these public cases:
-	case 0
-	case with n. 1 + n
+./test/should-error/uint_viewrec_missing_case.pf:3.1-7.2: viewrec is missing a view case for UIntSucc

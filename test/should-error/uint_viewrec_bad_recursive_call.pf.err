@@ -1,2 +1,2 @@
-./test/should-error/uint_viewrec_bad_recursive_call.pf:8.3-8.15: ill-formed recursive call
+./test/should-error/uint_viewrec_bad_recursive_call.pf:9.3-9.15: ill-formed recursive call
 expected first argument to be pred, not n

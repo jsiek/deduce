@@ -1496,7 +1496,7 @@ def parse_gen_rec_function(visibility):
 
 def parse_view_rec_function(visibility):
   while_parsing = 'while parsing\n' \
-      + '\tstatement ::= "viewrec" identifier type_params_opt "(" variable_list ")" "->" type viewrec_case+\n'
+      + '\tstatement ::= "viewrec" identifier type_params_opt "(" variable_list ")" "->" type "view" term viewrec_case+\n'
   try:
     start_token = current_token()
     advance()
@@ -1511,6 +1511,9 @@ def parse_view_rec_function(visibility):
     consume_token('ARROW', '"->"', context='between parameter types and return type')
     return_type = parse_type()
 
+    consume_token('VIEW', '"view"', context='after return type of viewrec')
+    view = parse_term()
+
     cases = []
     while not end_of_file() and current_token().type == 'CASE':
       cases.append(parse_switch_case())
@@ -1519,7 +1522,7 @@ def parse_view_rec_function(visibility):
       consume_token('CASE', '"case"', context='after return type of viewrec')
 
     meta = meta_from_tokens(start_token, previous_token())
-    return ViewRecFun(meta, name, typarams, params, return_type, cases,
+    return ViewRecFun(meta, name, typarams, params, return_type, view, cases,
                       visibility=visibility)
 
   except ParseError as e:

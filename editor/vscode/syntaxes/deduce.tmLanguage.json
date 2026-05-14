@@ -60,7 +60,7 @@
         {
           "comment": "Declaration / structure",
           "name": "keyword.other.declaration.deduce",
-          "match": "\\b(theorem|lemma|postulate|define|recursive|recfun|viewrec|union|inductive|predicate|relation|import|export|module|auto|assert|print|operator|associative|terminates|measure|trace|generic|fun)\\b"
+          "match": "\\b(theorem|lemma|postulate|define|recursive|recfun|viewrec|view|union|inductive|predicate|relation|import|export|module|auto|assert|print|operator|associative|terminates|measure|trace|generic|fun)\\b"
         },
         {
           "comment": "Lambda symbol",

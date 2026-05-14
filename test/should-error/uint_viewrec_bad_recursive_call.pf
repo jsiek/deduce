@@ -1,9 +1,10 @@
 import UInt
 
 viewrec countdown(n : UInt) -> UInt
-case 0 {
+  view uint_view(n)
+case UIntZero {
   0
 }
-case with pred. 1 + pred {
+case UIntSucc(pred) {
   countdown(n)
 }

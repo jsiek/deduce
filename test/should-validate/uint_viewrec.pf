@@ -2,10 +2,11 @@ import UInt
 import List
 
 viewrec replicate<T>(n : UInt, x : T) -> List<T>
-case 0 {
+  view uint_view(n)
+case UIntZero {
   []
 }
-case with pred. 1 + pred {
+case UIntSucc(pred) {
   node(x, replicate(pred, x))
 }
 

@@ -3600,6 +3600,7 @@ class ViewRecFun(Declaration):
   type_params: List[str]
   vars: List[Tuple[str,Type]]
   returns: Type
+  view: Term
   cases: List[SwitchCase]
 
   def uniquify(self, env, ctx):
@@ -3629,9 +3630,10 @@ class ViewRecFun(Declaration):
       new_body = c.body.uniquify(case_env, ctx)
       return SwitchCase(c.location, new_pat, new_body)
 
+    new_view = self.view.uniquify(body_env, ctx)
     new_cases = [uniquify_case(c) for c in self.cases]
     return ViewRecFun(self.location, new_name, new_type_params,
-                      new_vars, new_returns, new_cases,
+                      new_vars, new_returns, new_view, new_cases,
                       visibility=self.visibility)
 
   def collect_exports(self, export_env, importing_module):
@@ -3648,7 +3650,7 @@ class ViewRecFun(Declaration):
            if len(self.type_params) > 0 else '') \
       + '(' + ', '.join([base_name(x) + ':' + str(t) if t else x for (x,t) in self.vars])\
       + ') -> ' + str(self.returns)
-    ret = 'viewrec ' + header + '\n' \
+    ret = 'viewrec ' + header + '\nview ' + str(self.view) + '\n' \
       + '\n'.join([c.pretty_print(indent+2) for c in self.cases]) + '\n'
     return indent*' ' + ret
 

@@ -319,7 +319,7 @@ ident: IDENT              -> ident
 ?view_rec_case: "case" pattern "{" term "}"              -> view_rec_case
 ?view_rec_case_list: view_rec_case                        -> single
     | view_rec_case view_rec_case_list                    -> push
-?view_rec_fun: visibility "viewrec" ident type_params_opt "(" var_list ")" "->" type view_rec_case_list -> view_rec_fun
+?view_rec_fun: visibility "viewrec" ident type_params_opt "(" var_list ")" "->" type "view" term view_rec_case_list -> view_rec_fun
 
 ?definition: visibility "define" ident "=" term        -> define
  | visibility "define" ident ":" type "=" term         -> define_annot

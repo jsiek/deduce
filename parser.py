@@ -778,7 +778,8 @@ def parse_tree_to_ast(e, parent):
                                parse_tree_to_list(e.children[2], e),
                                parse_tree_to_list(e.children[3], e),
                                parse_tree_to_ast(e.children[4], e),
-                               parse_tree_to_list(e.children[5], e))
+                               parse_tree_to_ast(e.children[5], e),
+                               parse_tree_to_list(e.children[6], e))
         set_visibility(statement, visibility)
         return statement
         
