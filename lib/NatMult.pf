@@ -7,6 +7,13 @@ import NatAdd
 import NatMonus
 
 /*
+  Theorems about Nat multiplication.
+
+  This file proves zero/one laws, distributivity, associativity,
+  commutativity, cancellation, and monotonicity facts for `*`.
+*/
+
+/*
  Properties of Multiplication
 */
 

@@ -5,6 +5,13 @@ public import UIntDefs
 import UIntAdd
 import UIntMult
 
+/*
+  UInt parity predicates.
+
+  `Even(n)` means `n` is twice another UInt, and `Odd(n)` means `n`
+  is one plus twice another UInt.
+*/
+
 fun Even(n : UInt) {
   some m:UInt. n = 2 * m
 }

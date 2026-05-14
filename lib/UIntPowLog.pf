@@ -8,6 +8,14 @@ import UIntMult
 import UIntMonus
 import UIntLess
 
+/*
+  Theorems about UInt exponentiation, square, powers of two, and log.
+
+  These facts mirror the Nat power/log library, with proofs typically
+  reducing correctness to the corresponding Nat theorem through
+  `toNat`.
+*/
+
 lemma expt_dub_inc: all n:UInt, p:UInt. n ^ dub_inc(p) = sqr(n * (n^p))
 proof
   arbitrary n:UInt, p:UInt

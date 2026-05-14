@@ -9,6 +9,14 @@ import UIntAdd
 import UIntMonus
 import UIntMult
 
+/*
+  UInt division, modulo, and divisibility.
+
+  Division and modulo are defined by repeated subtraction over UInt.
+  The proofs below establish their Nat correspondence, divisor
+  bounds, inverse facts, and divisibility lemmas.
+*/
+
 recfun operator /(n : UInt, m : UInt) -> UInt
   measure n of UInt
 {

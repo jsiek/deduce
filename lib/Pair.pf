@@ -1,37 +1,47 @@
+/*
+  Ordered pairs and their basic projections.
+*/
+
 union Pair<T,U> {
   pair(T,U)
 }
 
+// First component of a pair.
 fun first<T,U>(p : Pair<T,U>)  {
   switch p {
     case pair(x,y) { x }
   }
 }
 
+// Second component of a pair.
 fun second<T,U>(p : Pair<T,U>) {
   switch p {
     case pair(x,y) { y }
   }
 }
 
+// Map a pair componentwise.
 fun pairfun<T1,T2,U1,U2>(f : fn T1->T2, g : fn U1->U2) {
   fun p: Pair<T1,U1> {
     pair(f(first(p)), g(second(p)))
   }
 }
 
+// Projecting the first component of a pair returns the first argument.
 theorem first_pair: all T:type,U:type, x:T, y:U. first(pair(x,y)) = x
 proof
   arbitrary T:type,U:type, x:T, y:U
   expand first.
 end
   
+// Projecting the second component of a pair returns the second argument.
 theorem second_pair: all T:type,U:type, x:T, y:U. second(pair(x,y)) = y
 proof
   arbitrary T:type,U:type, x:T, y:U
   expand second.
 end
   
+// Every pair is recovered from its two projections.
 theorem pair_first_second: <T, U> all p:Pair<T, U>.
   pair(first(p), second(p)) = p
 proof
@@ -42,4 +52,3 @@ proof
     }
   }
 end
-

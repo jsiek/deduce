@@ -4,10 +4,11 @@ public import UInt
 import Base
 
 /*
+  Core Int definitions.
 
- This mechanization of integer arithmetic is adapted from the Integer
- module in the Agda standard library.
-
+  This mechanization of integer arithmetic is adapted from the Integer
+  module in the Agda standard library. `pos(n)` represents nonnegative
+  integers and `negsuc(n)` represents `-(1+n)`.
 */
 
 // Can't make Int opaque right now because the parser uses pos.
@@ -155,4 +156,3 @@ opaque fun operator ≤(a : Int, y : Int) {
     }
   }
 }
-

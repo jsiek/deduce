@@ -2,6 +2,16 @@ module UInt
 
 import Base
 import Nat
+
+/*
+  Public entry point for unsigned integers.
+
+  This module re-exports the UInt representation-independent API:
+  conversions to/from Nat, order, arithmetic, division, powers,
+  logarithms, and parity facts. Import this module when proving about
+  ordinary unsigned integer arithmetic.
+*/
+
 public import UIntDefs
 public import UIntToFrom
 public import UIntLess
@@ -17,5 +27,6 @@ export lit
 export zero
 export suc
 
-// Declaring at the end of the library, so that 
+// Declaring at the end of the library, so that the induction rule is
+// available after the supporting UInt facts have been loaded.
 inductive UInt by uint_induction
