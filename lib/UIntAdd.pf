@@ -636,3 +636,29 @@ proof
   expand Q in apply uint_induction[Q] to base, ind_case
 end
 
+theorem uint_strong_induction: all P: fn UInt -> bool, n:UInt.
+  if (all j:UInt. if (all i:UInt. if i < j then P(i)) then P(j))
+  then P(n)
+proof
+  arbitrary P: fn UInt -> bool, n:UInt
+  assume prem
+  define Q = fun j:Nat { P(fromNat(j)) }
+  have nat_step: all j:Nat. if (all i:Nat. if i < j then Q(i)) then Q(j) by {
+    arbitrary j:Nat
+    assume IH: all i:Nat. if i < j then Q(i)
+    expand Q
+    have smaller: all i:UInt. if i < fromNat(j) then P(i) by {
+      arbitrary i:UInt
+      assume i_lt_j
+      have nat_i_lt_j: toNat(i) < toNat(fromNat(j)) by apply toNat_less to i_lt_j
+      have nat_i_lt_j': toNat(i) < j by replace uint_toNat_fromNat in nat_i_lt_j
+      have Qi: Q(toNat(i)) by apply IH[toNat(i)] to nat_i_lt_j'
+      have Pi: P(fromNat(toNat(i))) by expand Q in Qi
+      conclude P(i) by replace uint_fromNat_toNat in Pi
+    }
+    conclude P(fromNat(j)) by apply prem[fromNat(j)] to smaller
+  }
+  have Qn: Q(toNat(n)) by apply strong_induction[Q, toNat(n)] to nat_step
+  have Pn: P(fromNat(toNat(n))) by expand Q in Qn
+  conclude P(n) by replace uint_fromNat_toNat in Pn
+end
