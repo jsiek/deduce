@@ -3652,6 +3652,7 @@ def _collect_lemma_candidates(
     )
 
     out = []
+    seen_names: set[str] = set()
     user_module = _module_for_path(path)
     prelude_set = set(prelude)
     seen_modules: set = set()
@@ -3666,7 +3667,8 @@ def _collect_lemma_candidates(
                 continue
             if isinstance(stmt, (Theorem, Postulate)):
                 info = _lemma_info_for(stmt, public_only=True)
-                if info is not None:
+                if info is not None and info.name not in seen_names:
+                    seen_names.add(info.name)
                     out.append((info, stmt.what, module_name))
             elif isinstance(stmt, _ImportNode) and stmt.visibility == "public":
                 if stmt.name in seen_modules or stmt.name == user_module:
@@ -3692,6 +3694,9 @@ def _collect_lemma_candidates(
             info = _lemma_info_for(stmt, public_only=False)
             if info is None:
                 continue
+            if info.name in seen_names:
+                continue
+            seen_names.add(info.name)
             out.append((info, stmt.what, user_module))
 
     if prelude:
@@ -4068,7 +4073,11 @@ def _rank_lemmas(
 
     raw_scores.sort(key=lambda t: (-t[0], t[1].name))
     matches = []
+    seen_names: set[str] = set()
     for raw, info, module in raw_scores:
+        if info.name in seen_names:
+            continue
+        seen_names.add(info.name)
         matches.append(
             LemmaMatch(
                 name=info.name,

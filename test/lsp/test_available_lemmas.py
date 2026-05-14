@@ -24,10 +24,14 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from lsp.query import (  # noqa: E402
     LemmaMatch,
+    LemmaInfo,
     Position,
     SymbolKind,
+    _rank_lemmas,
     available_lemmas_at,
 )
+from lsp.library import check_file  # noqa: E402
+from abstract_syntax import Theorem, base_name  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +373,27 @@ def test_limit_caps_result_count() -> None:
         limit=2,
     )
     assert len(matches) == 2
+
+
+def test_rank_lemmas_dedupes_same_declaration_name() -> None:
+    """Different import/prelude walks can reach the same declaration;
+    only one recommendation should be returned for a theorem name."""
+    source = "theorem helper: true\nproof\n  .\nend\n"
+    result = check_file("lemmas.pf", content=source)
+    assert result.ok
+    helper = next(
+        stmt
+        for stmt in result.ast
+        if isinstance(stmt, Theorem) and base_name(stmt.name) == "helper"
+    )
+    info = LemmaInfo("helper", SymbolKind.THEOREM, "helper: true")
+    matches = _rank_lemmas(
+        ((info, helper.what, "lemmas"), (info, helper.what, "lemmas")),
+        goal_text=None,
+        query=None,
+        user_module="lemmas",
+    )
+    assert [m.name for m in matches] == ["helper"]
 
 
 # ---------------------------------------------------------------------------
