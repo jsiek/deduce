@@ -4290,7 +4290,56 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
     case _:
       pass
 
-def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
+_DECLARATION_PHASE_KINDS = (
+  Define,
+  RecFun,
+  GenRecFun,
+  Union,
+  Import,
+  Predicate,
+)
+
+_STATEMENT_PHASE_KINDS = _DECLARATION_PHASE_KINDS + (
+  Theorem,
+  Postulate,
+  Assert,
+  Print,
+  Auto,
+  Associative,
+  Export,
+  Module,
+  Trace,
+  Inductive,
+)
+
+_STATEMENT_PHASE_REGISTRY = {
+  "process_declaration_visibility": _DECLARATION_PHASE_KINDS,
+  "process_declaration": _STATEMENT_PHASE_KINDS,
+  "type_check_stmt": _STATEMENT_PHASE_KINDS,
+  "collect_env": _STATEMENT_PHASE_KINDS,
+  "check_proofs": _STATEMENT_PHASE_KINDS,
+}
+
+def _dispatch_statement_kind(stmt, handlers, phase_name):
+  for kind in _STATEMENT_PHASE_KINDS:
+    if isinstance(stmt, kind):
+      if kind in handlers:
+        return handlers[kind](stmt)
+      break
+  internal_error(stmt.location,
+                 phase_name + ": unrecognized statement:\n" + str(stmt))
+
+def _dispatch_declaration_kind(decl, handlers, phase_name):
+  for kind in _DECLARATION_PHASE_KINDS:
+    if isinstance(decl, kind):
+      if kind in handlers:
+        return handlers[kind](decl)
+      break
+  internal_error(decl.location,
+                 phase_name + ": unrecognized declaration:\n" + str(decl))
+
+
+def _process_declaration_visibility_impl(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:
     case Define(loc, name, ty, body):
       if ty == None:
@@ -4536,53 +4585,69 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       internal_error(decl.location, "unrecognized declaration:\n" + str(decl))
 
 
+def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
+  return _dispatch_declaration_kind(
+      decl,
+      {
+        Define: lambda d: _process_declaration_visibility_impl(
+            d, env, module_chain, downstream_needs_checking),
+        RecFun: lambda d: _process_declaration_visibility_impl(
+            d, env, module_chain, downstream_needs_checking),
+        GenRecFun: lambda d: _process_declaration_visibility_impl(
+            d, env, module_chain, downstream_needs_checking),
+        Union: lambda d: _process_declaration_visibility_impl(
+            d, env, module_chain, downstream_needs_checking),
+        Import: lambda d: _process_declaration_visibility_impl(
+            d, env, module_chain, downstream_needs_checking),
+        Predicate: lambda d: _process_declaration_visibility_impl(
+            d, env, module_chain, downstream_needs_checking),
+      },
+      "process_declaration_visibility")
+
+
+def _process_declaration_associative(stmt, env):
+  body_env = env.declare_type_vars(stmt.location, stmt.type_params)
+  check_type(stmt.typeof, body_env)
+  return stmt, env
+
+def _process_declaration_inductive(stmt, env):
+  # `inductive Foo by ...` names a union by its bare name; suppress the
+  # generic-arity check so `inductive Foo by ...` works for generic unions.
+  check_type(stmt.typ, env, arity_required=False)
+  return stmt, env
+
+
 def process_declaration(stmt : Statement, env : Env, module_chain, downstream_needs_checking):
   if get_verbose():
     print('process_declaration(' + str(stmt) + ')')
-    
-  match stmt:
-    case Declaration():
-      return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
-          
-    case Theorem(loc, name, frm, pf):
-      return stmt, env
-  
-    case Postulate(loc, name, frm):
-      return stmt, env
-  
-    case Assert(loc, frm):
-      return stmt, env
-  
-    case Print(loc, trm):
-      return stmt, env
 
-    case Auto(loc, name):
-      return stmt, env
-  
-    case Associative(loc, typarams, op, typeof):
-      body_env = env.declare_type_vars(loc, typarams)
-      check_type(typeof, body_env)
-      return stmt, env
-  
-    case Export(loc, name):
-      return stmt, env
-        
-    case Module(loc, name):
-      return stmt, env.declare_module(name)
-    
-    case Trace(loc, name):
-      return stmt, env
-    
-    case Inductive(loc, typ, name):
-      # `inductive Foo by ...` names a union by its bare name; suppress
-      # the generic-arity check so `inductive Foo by ...` works when Foo
-      # is a generic union. The `case Inductive(...)` in check_proofs
-      # enforces that ``typ`` is a ``VarRef``.
-      check_type(typ, env, arity_required=False)
-      return stmt, env
-  
-    case _:
-      internal_error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
+  return _dispatch_statement_kind(
+      stmt,
+      {
+        Define: lambda s: process_declaration_visibility(
+            s, env, module_chain, downstream_needs_checking),
+        RecFun: lambda s: process_declaration_visibility(
+            s, env, module_chain, downstream_needs_checking),
+        GenRecFun: lambda s: process_declaration_visibility(
+            s, env, module_chain, downstream_needs_checking),
+        Union: lambda s: process_declaration_visibility(
+            s, env, module_chain, downstream_needs_checking),
+        Import: lambda s: process_declaration_visibility(
+            s, env, module_chain, downstream_needs_checking),
+        Predicate: lambda s: process_declaration_visibility(
+            s, env, module_chain, downstream_needs_checking),
+        Theorem: lambda s: (s, env),
+        Postulate: lambda s: (s, env),
+        Assert: lambda s: (s, env),
+        Print: lambda s: (s, env),
+        Auto: lambda s: (s, env),
+        Associative: lambda s: _process_declaration_associative(s, env),
+        Export: lambda s: (s, env),
+        Module: lambda s: (s, env.declare_module(s.name)),
+        Trace: lambda s: (s, env),
+        Inductive: lambda s: _process_declaration_inductive(s, env),
+      },
+      "process_declaration")
 
 def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present):
     body_env = check_pattern(fun_case.pattern, params[0], body_env, cases_present)
@@ -4602,7 +4667,7 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
-def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
+def _type_check_stmt_impl(stmt, env, error_on_next_import : dict[str, bool]):
   if get_verbose():
     print('type_check_stmt(' + str(stmt) + ')')
   match stmt:
@@ -4744,6 +4809,33 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
     case _:
       internal_error(stmt.location,
                      "type checking, unrecognized statement:\n" + str(stmt))
+
+
+def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
+  return _dispatch_statement_kind(
+      stmt,
+      {
+        Define: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        RecFun: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        GenRecFun: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Union: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Import: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Predicate: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Theorem: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Postulate: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Assert: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Print: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Auto: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Associative: lambda s: _type_check_stmt_impl(
+            s, env, error_on_next_import),
+        Export: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Module: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Trace: lambda s: _type_check_stmt_impl(s, env, error_on_next_import),
+        Inductive: lambda s: _type_check_stmt_impl(
+            s, env, error_on_next_import),
+      },
+      "type_check_stmt")
+
 
 def validate_conjunct(loc, conj, fun):
   match conj:
@@ -4903,7 +4995,7 @@ def match_induction(frm, ind_ty):
 
   return {"tys": ty_tys, "conjuncts": conjuncts, "fun": fun, "ind_ty": ind_ty, "fun_ty": fun_ty}
 
-def collect_env(stmt, env : Env):
+def _collect_env_impl(stmt, env : Env):
   if get_verbose():
     print('collect_env(' + str(stmt) + ')')
   match stmt:
@@ -5018,6 +5110,30 @@ def collect_env(stmt, env : Env):
       internal_error(stmt.location, "collect_env, unrecognized statement:\n" + str(stmt))
 
 
+def collect_env(stmt, env : Env):
+  return _dispatch_statement_kind(
+      stmt,
+      {
+        Define: lambda s: _collect_env_impl(s, env),
+        RecFun: lambda s: _collect_env_impl(s, env),
+        GenRecFun: lambda s: _collect_env_impl(s, env),
+        Union: lambda s: _collect_env_impl(s, env),
+        Import: lambda s: _collect_env_impl(s, env),
+        Predicate: lambda s: _collect_env_impl(s, env),
+        Theorem: lambda s: _collect_env_impl(s, env),
+        Postulate: lambda s: _collect_env_impl(s, env),
+        Assert: lambda s: _collect_env_impl(s, env),
+        Print: lambda s: _collect_env_impl(s, env),
+        Auto: lambda s: _collect_env_impl(s, env),
+        Associative: lambda s: _collect_env_impl(s, env),
+        Export: lambda s: _collect_env_impl(s, env),
+        Module: lambda s: _collect_env_impl(s, env),
+        Trace: lambda s: _collect_env_impl(s, env),
+        Inductive: lambda s: _collect_env_impl(s, env),
+      },
+      "collect_env")
+
+
 @dataclass
 class RecCall:
   vars: List[Tuple[str,Type]]  # variables introduced by switch cases
@@ -5111,7 +5227,7 @@ def find_rec_calls(name, term, env):
                      'in find_rec_calls, unhandled ' + str(term))
     
 
-def check_proofs(stmt, env: Env):
+def _check_proofs_impl(stmt, env: Env):
   if get_verbose():
     print('\n\ncheck_proofs(' + str(stmt) + ')')
   # Phase 5 / Step 21 hook: trap before evaluating each top-level
@@ -5265,6 +5381,31 @@ def check_proofs(stmt, env: Env):
 
   if _dbg is not None:
     _dbg.after_statement(stmt, env)
+
+
+def check_proofs(stmt, env: Env):
+  return _dispatch_statement_kind(
+      stmt,
+      {
+        Define: lambda s: _check_proofs_impl(s, env),
+        RecFun: lambda s: _check_proofs_impl(s, env),
+        GenRecFun: lambda s: _check_proofs_impl(s, env),
+        Union: lambda s: _check_proofs_impl(s, env),
+        Import: lambda s: _check_proofs_impl(s, env),
+        Predicate: lambda s: _check_proofs_impl(s, env),
+        Theorem: lambda s: _check_proofs_impl(s, env),
+        Postulate: lambda s: _check_proofs_impl(s, env),
+        Assert: lambda s: _check_proofs_impl(s, env),
+        Print: lambda s: _check_proofs_impl(s, env),
+        Auto: lambda s: _check_proofs_impl(s, env),
+        Associative: lambda s: _check_proofs_impl(s, env),
+        Export: lambda s: _check_proofs_impl(s, env),
+        Module: lambda s: _check_proofs_impl(s, env),
+        Trace: lambda s: _check_proofs_impl(s, env),
+        Inductive: lambda s: _check_proofs_impl(s, env),
+      },
+      "check_proofs")
+
 
 def check_deduce(ast: List[Statement], module_name: str, modified: bool,
                  tracing_functions: List[str],
