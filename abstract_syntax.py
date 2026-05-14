@@ -4766,7 +4766,10 @@ class Env:
   
   def _def_of_type_var(self, curr, name):
     if name in curr.keys():
-      return curr[name].defn
+      binding = curr[name]
+      if isinstance(binding, ViewBinding):
+        return binding.view.source
+      return binding.defn
     else:
       raise Exception('variable not in env: ' + name)
   
@@ -4853,6 +4856,8 @@ class Env:
     raise Exception('get_def_of_type_var: unexpected ' + str(var))
 
   def get_view(self, name):
+    if isinstance(name, VarRef):
+      name = name.get_name()
     if name in self.dict and isinstance(self.dict[name], ViewBinding):
       return self.dict[name].view
     return None

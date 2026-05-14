@@ -2,7 +2,7 @@
 You provided a proof of:
 	true
 but that is different from what you need to prove:
-	x + sum_test(@[]<UInt>) = x
+	x + sum_test(@[]<Binary>) = x
 The goal still contains `sum_test`. To unfold it again, chain another expand:
 	expand sum_test | sum_test.
 or equivalently

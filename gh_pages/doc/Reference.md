@@ -2657,20 +2657,16 @@ statement ::= visibility "view" identifier type_params_opt "{"
                 "roundtrip" identifier
               "}"
 
-statement ::= visibility "viewrec" identifier type_params_opt "(" var_list ")"
-                "->" type
-                "view" identifier "(" term ")"
-                view_rec_case+
-
-view_rec_case ::= "case" pattern "{" term "}"
+statement ::= visibility "recursive" identifier type_params_opt "(" type_list ")"
+                "->" type "{" fun_case+ "}"
 ```
 
 A `view` declaration describes how to pattern match on a value through
 another union type. The `source` is the type being viewed, and the
 `target` is the union type whose constructors may appear in the
-`viewrec` cases. The `into` function converts from the source type to
-the target type, and the `out` function converts a target value back
-to a source value.
+recursive function cases. The `into` function converts from the source
+type to the target type, and the `out` function converts a target value
+back to a source value.
 
 The `roundtrip` name must refer to a theorem that proves:
 
@@ -2691,8 +2687,15 @@ The opposite direction, `out(into(x)) = x`, is not required. This
 allows a view to forget representation details while still presenting
 a complete pattern-matching interface.
 
+The view name can be used wherever a type is expected. In ordinary type
+positions it stands for the view's source type. When it appears as the
+first parameter type of a `recursive` function, Deduce checks the cases
+against the view's target constructors instead of the source
+representation's constructors.
+
 The following example defines a simple predecessor view for a unary
-number type, then uses `viewrec` to recurse through that view.
+number type, then uses the normal `recursive` syntax to recurse
+through that view.
 
 ```{.deduce^#view_example}
 union Unary {
@@ -2736,20 +2739,16 @@ view UnaryPred {
   roundtrip unary_roundtrip
 }
 
-viewrec unary_length(n:Unary) -> UInt
-  view UnaryPred(n)
-case ViewZero {
-  0
-}
-case ViewSucc(p) {
-  1 + unary_length(p)
+recursive unary_length(UnaryPred) -> UInt {
+  unary_length(ViewZero) = 0
+  unary_length(ViewSucc(p)) = 1 + unary_length(p)
 }
 ```
 
-Within a `viewrec`, recursive calls are allowed on values bound by the
-view cases whose type is the same as the first parameter's type. In
-the example above, the recursive call `unary_length(p)` is allowed
-because the `ViewSucc` case binds `p : Unary`.
+In the example above, `unary_length` has type `fn Unary -> UInt`, and
+the recursive call
+`unary_length(p)` is allowed because the `ViewSucc` case binds
+`p : Unary`.
 
 ## Visibility
 

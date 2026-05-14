@@ -6,8 +6,8 @@ import Nat
 /*
   Core UInt definitions.
 
-  UInt uses a binary representation inspired by the Agda standard
-  library. The representation is opaque to clients; the public API
+  UInt uses a private binary representation inspired by the Agda standard
+  library. The representation is hidden from clients; the public API
   exposes arithmetic and order while `toNat` provides the specification
   used in many proofs.
 */
@@ -16,19 +16,21 @@ import Nat
 // standard library. The representation is not the standard one, but
 // it is easier to work with.
 
-opaque union UInt {
+private union Binary {
   bzero         // 0
-  dub_inc(UInt) // 2(1 + x)
-  inc_dub(UInt) // 1 + 2x
+  dub_inc(Binary) // 2(1 + x)
+  inc_dub(Binary) // 1 + 2x
 }
 
-union UIntView {
+private union UIntView {
   UIntZero
-  UIntSucc(UInt)
+  UIntSucc(Binary)
 }
+export UIntZero
+export UIntSucc
 
 // Interpret a UInt as a Nat.
-opaque recursive toNat(UInt) -> Nat {
+opaque recursive toNat(Binary) -> Nat {
   toNat(bzero) = ℕ0
   toNat(dub_inc(x)) = ℕ2 * suc(toNat(x))
   toNat(inc_dub(x)) = suc(ℕ2 * toNat(x))
@@ -41,7 +43,7 @@ assert toNat(dub_inc(bzero))          = ℕ2    //  10
 assert toNat(inc_dub(inc_dub(bzero))) = ℕ3    //  11
 assert toNat(dub_inc(inc_dub(bzero))) = ℕ4    // 100
 
-opaque recursive operator< (UInt, UInt) -> bool {
+opaque recursive operator< (Binary, Binary) -> bool {
   operator < (bzero, y) =
     switch y {
       case bzero { false }
@@ -62,19 +64,19 @@ opaque recursive operator< (UInt, UInt) -> bool {
     }
 }
 
-fun operator ≤ (x:UInt, y:UInt) {
+fun operator ≤ (x:Binary, y:Binary) {
   x < y or x = y
 }
 
-fun operator > (x:UInt, y:UInt) {
+fun operator > (x:Binary, y:Binary) {
   y < x
 }
 
-fun operator ≥ (x:UInt, y:UInt) {
+fun operator ≥ (x:Binary, y:Binary) {
   y ≤ x
 }
 
-private recursive dub(UInt) -> UInt {
+private recursive dub(Binary) -> Binary {
   dub(bzero) = bzero
   dub(dub_inc(x)) = dub_inc(inc_dub(x))
     // because 2*2*(1+x) = 4 + 4x = 2*(2+2x) = 2*(1+(1+2*x))
@@ -82,13 +84,13 @@ private recursive dub(UInt) -> UInt {
     // because 2*(1+2x) = 2*(1+2x)
 }
 
-private recursive inc(UInt) -> UInt {
+private recursive inc(Binary) -> Binary {
   inc(bzero) = inc_dub(bzero)
   inc(dub_inc(x)) = inc_dub(inc(x))
   inc(inc_dub(x)) = dub_inc(x)
 }
 
-private fun pred(x:UInt) {
+private fun pred(x:Binary) {
   switch x {
     case bzero { bzero }
     case dub_inc(x') { inc_dub(x') }
@@ -96,8 +98,68 @@ private fun pred(x:UInt) {
   }
 }
 
-fun uint_view(x:UInt) {
+fun uint_view(x:Binary) {
   if x = bzero then UIntZero else UIntSucc(pred(x))
+}
+
+private fun uint_unview(v:UIntView) {
+  switch v {
+    case UIntZero { bzero }
+    case UIntSucc(p) { inc(p) }
+  }
+}
+
+lemma dub_inc_is_dub_inc: all x:Binary. dub(inc(x)) = dub_inc(x)
+proof
+  induction Binary
+  case bzero {
+    evaluate
+  }
+  case dub_inc(x) assume IH {
+    expand inc | dub
+    replace IH
+    .
+  }
+  case inc_dub(x) assume IH {
+    evaluate
+  }
+end
+
+lemma uint_view_inc: all x:Binary. uint_view(inc(x)) = UIntSucc(x)
+proof
+  induction Binary
+  case bzero {
+    evaluate
+  }
+  case dub_inc(x) assume IH {
+    suffices uint_view(inc(dub_inc(x))) = UIntSucc(dub_inc(x)) by .
+    expand uint_view | inc | pred
+    replace dub_inc_is_dub_inc[x]
+    .
+  }
+  case inc_dub(x) assume IH {
+    evaluate
+  }
+end
+
+lemma uint_view_unview: all v:UIntView. uint_view(uint_unview(v)) = v
+proof
+  arbitrary v:UIntView
+  switch v {
+    case UIntZero { evaluate }
+    case UIntSucc(p) {
+      expand uint_unview
+      uint_view_inc[p]
+    }
+  }
+end
+
+view UInt {
+  source Binary
+  target UIntView
+  into uint_view
+  out uint_unview
+  roundtrip uint_view_unview
 }
 
 opaque fun div2(b : UInt) {
@@ -108,7 +170,7 @@ opaque fun div2(b : UInt) {
   }
 }
 
-private recursive cnt_dubs(UInt) -> UInt {
+private recursive cnt_dubs(Binary) -> Binary {
   cnt_dubs(bzero) = bzero
   cnt_dubs(dub_inc(x)) = inc(cnt_dubs(x))
   cnt_dubs(inc_dub(x)) = inc(cnt_dubs(x))
@@ -118,7 +180,7 @@ fun log(b : UInt) {
   cnt_dubs(pred(b))
 }
 
-opaque recursive operator+(UInt, UInt) -> UInt {
+opaque recursive operator+(Binary, Binary) -> Binary {
   operator+(bzero, y) = y
   operator+(dub_inc(x), y) =
     switch y {
@@ -134,7 +196,7 @@ opaque recursive operator+(UInt, UInt) -> UInt {
     }
 }
 
-opaque recursive operator ∸ (UInt, UInt) -> UInt {
+opaque recursive operator ∸ (Binary, Binary) -> Binary {
   operator∸(bzero, y) = bzero
   operator∸(dub_inc(x), y) =
     switch y {
@@ -157,7 +219,7 @@ opaque recursive operator ∸ (UInt, UInt) -> UInt {
     }
 }
 
-opaque recursive operator *(UInt, UInt) -> UInt {
+opaque recursive operator *(Binary, Binary) -> Binary {
   operator*(bzero, y) = bzero
   operator*(dub_inc(x), y) =
     switch y {
@@ -194,7 +256,7 @@ opaque recursive operator *(UInt, UInt) -> UInt {
 
 fun sqr(a : UInt) { a * a }
 
-private recursive expt(UInt, UInt) -> UInt {
+private recursive expt(Binary, Binary) -> Binary {
   expt(bzero, a) = inc_dub(bzero)
   expt(dub_inc(p), a) = sqr(a * expt(p, a))  // a^(2*(1+p)) = a^2 * (a^p)^2 = (a * a^p)^2
   expt(inc_dub(p), a) = a * sqr(expt(p, a))  // a^(1+2*p) = a * (a^p)^2

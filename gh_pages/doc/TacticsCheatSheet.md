@@ -19,7 +19,7 @@ If a name on this page is unfamiliar, follow the link in the Reference column fo
 | `auto name` | Register an equation `name : LHS = RHS` as an automatic rewrite. Subsequent goals are simplified silently using it. |
 | `associative operator* in T` | Register `*` as associative for `T`; `replace` and `evaluate` will renormalize accordingly. |
 | `view V { source S target T into f out g roundtrip thm }` | Declare a checked pattern-matching view. `thm` must prove `f(g(v)) = v` for all viewed values. |
-| `viewrec f(x:S) -> R view V(x) case C(args) { ... }` | Define a terminating recursive function by matching on the target constructors of view `V`. |
+| `recursive f(V, A) -> R { f(C(args), y) = ... }` | If `V` is a view, define a terminating recursive function by matching on `V`'s target constructors. |
 
 ## Proof structure
 

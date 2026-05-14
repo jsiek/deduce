@@ -59,13 +59,9 @@ view JCons<T> {
   roundtrip join_view_unview
 }
 
-viewrec to_list<T>(xs : JList<T>) -> List<T>
-  view JCons(xs)
-case JViewNil {
-  []
-}
-case JViewCons(x, rest) {
-  node(x, to_list(rest))
+recursive to_list<T>(JCons<T>) -> List<T> {
+  to_list(JViewNil) = []
+  to_list(JViewCons(x, rest)) = node(x, to_list(rest))
 }
 
 theorem to_list_join_example:

@@ -664,13 +664,14 @@ def check_proof(proof, env):
     case AllIntro(loc, var, pos, body):      
       body_env = env
       x, ty = var
-      check_type(ty, env)
-      if isinstance(ty, TypeType):
+      checked_ty = check_type(ty, env)
+      checked_var = (x, checked_ty)
+      if isinstance(checked_ty, TypeType):
         body_env = body_env.declare_type(loc, x)
       else:
-        body_env = body_env.declare_term_var(loc, x, ty)
+        body_env = body_env.declare_term_var(loc, x, checked_ty)
       formula = check_proof(body, body_env)
-      ret = All(loc, BoolType(loc), var, pos, formula)
+      ret = All(loc, BoolType(loc), checked_var, pos, formula)
       
     case AllElim(loc, univ, arg, pos):
       allfrm = check_proof(univ, env)
@@ -711,9 +712,9 @@ def check_proof(proof, env):
         case All(loc2, tyof, vars, _, frm):
           sub = {}
           var, ty = vars
-          check_type(type_arg, env)
+          type_arg = check_type(type_arg, env)
           if not isinstance(ty, TypeType):
-              user_error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
+            user_error(loc, 'unexpected term parameter ' + str(var) + ' in type instantiation')
           sub[var] = type_arg
         case _:
           user_error(loc, 'expected all formula to instantiate, not ' + str(allfrm))
@@ -997,6 +998,8 @@ def is_recursive(name, typ):
     match typ:
       case OverloadedVar(_, _, rs):
         return name == rs[0]
+      case ResolvedVar(_, _, r):
+        return name == r
       case TypeInst(_, ty, _):
         return is_recursive(name, ty)
       case _:
@@ -1186,7 +1189,7 @@ def proof_advice(formula, env):
                         + ' by ' + base_name(name)                
                 return msg
 
-        return '\n'
+        return ''
 
 def givens_str(env):
     env_str = env.proofs_str()
@@ -1328,10 +1331,14 @@ def _check_proof_of_hole(proof, formula, env):
   target = get_target_hole_location()
   if target is not None and (loc.line, loc.column) != target:
     return
+  advice = proof_advice(new_formula, env)
+  givens = givens_str(env)
+  if not givens:
+    advice = advice.rstrip('\n')
   add_incomplete(loc, style.bold_red('incomplete proof') + '\n' \
                    + style.orange('Goal:') + '\n\t' + str(new_formula) + '\n'\
-                   + proof_advice(new_formula, env) \
-                   + givens_str(env),
+                   + advice \
+                   + givens,
                    formula=new_formula, env=env)
 
 def _check_proof_of_sorry(proof, formula, env):
@@ -1450,7 +1457,7 @@ def _check_proof_of_all_intro(proof, formula, env):
   var = proof.var
   body = proof.body
   x, ty = var
-  check_type(ty, env)
+  checked_ty = check_type(ty, env)
 
   if isinstance(formula, TLet):
     formula = formula.reduceLets(env)
@@ -1458,20 +1465,20 @@ def _check_proof_of_all_intro(proof, formula, env):
   match formula:
     case All(_, _, var2, (s, _), formula2):
       _, ty2 = var2
-      if ty != ty2:
+      if checked_ty != ty2:
         add_diagnostic(loc, "arbitrary expects " + base_name(x)
               + " to have type\n\t" + str(ty2)
               + "\nbut got type\n\t" + str(ty))
         return
       sub = {}
-      sub[ var2[0] ] = OverloadedVar(loc, var[1], [ var[0] ])
+      sub[ var2[0] ] = OverloadedVar(loc, checked_ty, [ var[0] ])
 
       frm2 = formula2.substitute(sub)
 
       if s != 0:
         frm2 = update_all_head(frm2)
 
-      body_env = env.declare_term_vars(loc, [var])
+      body_env = env.declare_term_vars(loc, [(x, checked_ty)])
       _try_check_proof_of(body, frm2, body_env)
     case _:
       add_diagnostic(loc, 'arbitrary is proof of an all formula, not\n' \
@@ -1750,7 +1757,7 @@ def check_proof_of(proof, formula, env):
       _check_rule_inversion(proof, formula, env)
 
     case Induction(loc, typ, cases):
-      check_type(typ, env)
+      typ = check_type(typ, env)
 
       if isinstance(formula, TLet):
         formula = formula.reduceLets(env)
@@ -2685,6 +2692,10 @@ def check_type(typ, env, arity_required=True):
         user_error(loc, 'undefined type variable ' + str(typ))
       if len(rs) > 1:
         user_error(loc, 'type names may not be overloaded ' + str(typ))
+      view_info = _instantiate_view_type(loc, typ, env)
+      if view_info is not None:
+        _, source_ty, _ = view_info
+        return source_ty
       if arity_required:
         _check_union_arity(typ, 0, env)
       # len(rs) == 1: this is a non-overloaded type reference. Promote.
@@ -2692,6 +2703,10 @@ def check_type(typ, env, arity_required=True):
     case ResolvedVar(loc, tyof, _):
       if not env.type_var_is_defined(typ):
         user_error(loc, 'undefined type variable ' + str(typ))
+      view_info = _instantiate_view_type(loc, typ, env)
+      if view_info is not None:
+        _, source_ty, _ = view_info
+        return source_ty
       if arity_required:
         _check_union_arity(typ, 0, env)
       return typ
@@ -2703,6 +2718,10 @@ def check_type(typ, env, arity_required=True):
       new_return_type = check_type(return_type, body_env)
       return FunctionType(loc, typarams, new_param_types, new_return_type)
     case TypeInst(loc, inner_typ, arg_types):
+      view_info = _instantiate_view_type(loc, typ, env)
+      if view_info is not None:
+        _, source_ty, _ = view_info
+        return source_ty
       # The head is a generic-union reference applied to ``arg_types``;
       # suppress the bare-head arity check and validate against the
       # actual arg count instead.
@@ -2740,8 +2759,7 @@ def type_first_letter(typ):
       exit(-1)
 
 def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
-  for ty in tyargs:
-      check_type(ty, env)
+  tyargs = [check_type(ty, env) for ty in tyargs]
   new_subject = type_synth_term(subject, env, recfun, subterms)
   ty = new_subject.typeof
   if isinstance(ty, VarRef):
@@ -2761,8 +2779,7 @@ def type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env):
 
 def type_check_term_inst_var(loc, subject_var, tyargs, inferred, env):
   if isinstance(subject_var, VarRef):
-      for ty in tyargs:
-          check_type(ty, env)
+      tyargs = [check_type(ty, env) for ty in tyargs]
       ty = env.get_type_of_term_var(subject_var)
       if isinstance(ty, VarRef):
         retty = TypeInst(loc, ty, tyargs)
@@ -2837,18 +2854,17 @@ def type_synth_term(term, env, recfun, subterms):
                 + str(new_body.typeof))
 
     case Lambda(loc, _, params, body):
-      for (p,t) in params:
-          if t:
-              check_type(t, env)
+      checked_params = [(p, check_type(t, env) if t else None)
+                        for (p, t) in params]
       vars = [p for (p,t) in params]
-      param_types = [t for (p,t) in params]
+      param_types = [t for (p,t) in checked_params]
       if any([t == None for t in param_types]):
           user_error(loc, 'Cannot synthesize a type for ' + str(term) + '.\n'\
                 + 'Add type annotations to the parameters.')
-      body_env = env.declare_term_vars(loc, params)
+      body_env = env.declare_term_vars(loc, checked_params)
       new_body = type_synth_term(body, body_env, recfun, subterms)
       typ = FunctionType(loc, [], param_types, new_body.typeof)
-      return Lambda(loc, typ, params, new_body)
+      return Lambda(loc, typ, checked_params, new_body)
       
     case TLet(loc, _, var, rhs, body):
       new_rhs = type_synth_term(rhs, env, recfun, subterms)
@@ -3009,8 +3025,8 @@ def type_synth_term(term, env, recfun, subterms):
       ret = type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
 
     case TAnnote(loc, _, subject, typ):
-      check_type(typ, env)
-      ret = type_check_term(subject, typ, env, recfun, subterms)
+      checked_typ = check_type(typ, env)
+      ret = type_check_term(subject, checked_typ, env, recfun, subterms)
 
     case RecFun(loc, name, typarams, params, returns, cases):
       fun_type = FunctionType(loc, typarams, params, returns)
@@ -3468,15 +3484,15 @@ def infer_param_polarities(union_decl, env):
 # the user can locate which rule misfired without re-reading the whole block.
 
 def _validate_predicate_signature(sig, name, keyword, env):
-  check_type(sig, env)
-  if isinstance(sig, BoolType):
-    return 0, []
-  if isinstance(sig, FunctionType):
-    if not isinstance(sig.return_type, BoolType):
-      user_error(sig.return_type.location,
+  checked_sig = check_type(sig, env)
+  if isinstance(checked_sig, BoolType):
+    return 0, [], checked_sig
+  if isinstance(checked_sig, FunctionType):
+    if not isinstance(checked_sig.return_type, BoolType):
+      user_error(checked_sig.return_type.location,
             "the result type of a " + keyword + " must be 'bool', not '"
-            + str(sig.return_type) + "'")
-    return len(sig.param_types), sig.param_types
+            + str(checked_sig.return_type) + "'")
+    return len(checked_sig.param_types), checked_sig.param_types, checked_sig
   user_error(sig.location,
         "the type of " + keyword + " '" + base_name(name)
         + "' must be 'bool' or 'fn ... -> bool', not '" + str(sig) + "'")
@@ -4356,9 +4372,8 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
         new_body = type_synth_term(body, env, None, [])
         new_ty = new_body.typeof
       else:
-        check_type(ty, env)
+        new_ty = check_type(ty, env)
         new_body = body
-        new_ty = ty
 
       # Only allow overloading of functions
       unique_name = {base_name(n): n for n in env.dict.keys()}
@@ -4381,10 +4396,17 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
   
     case RecFun(loc, name, typarams, params, returns, _):
       body_env = env.declare_type_vars(loc, typarams)
-      check_type(returns, body_env)
-      for t in params:
-          check_type(t, body_env)
-      fun_type = FunctionType(loc, typarams, params, returns)
+      checked_returns = check_type(returns, body_env)
+      if len(params) == 0:
+          user_error(loc, 'recursive functions need at least one parameter.')
+      view_info = _instantiate_view_type(loc, params[0], body_env)
+      if view_info is None:
+        checked_params = [check_type(t, body_env) for t in params]
+      else:
+        _, source_ty, _ = view_info
+        checked_params = [source_ty] + [check_type(t, body_env)
+                                       for t in params[1:]]
+      fun_type = FunctionType(loc, typarams, checked_params, checked_returns)
       # print('process declaration:')
       # print(decl.pretty_print(4))
       return decl, env.declare_term_var(loc, name, fun_type,
@@ -4393,16 +4415,15 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
     case GenRecFun(loc, name, typarams, param_pairs, returns, _, measure_ty,
                    body, _):
       body_env = env.declare_type_vars(loc, typarams)
-      check_type(returns, body_env)
-      for (p,t) in param_pairs:
-          if t:
-              check_type(t, body_env)
-      [p for (p,t) in param_pairs]
-      param_types = [t for (p,t) in param_pairs]
+      checked_returns = check_type(returns, body_env)
+      checked_param_pairs = [(p, check_type(t, body_env) if t else None)
+                             for (p, t) in param_pairs]
+      [p for (p,t) in checked_param_pairs]
+      param_types = [t for (p,t) in checked_param_pairs]
       if any([t == None for t in param_types]):
           user_error(loc, 'Add type annotations to the parameters.')
 
-      fun_type = FunctionType(loc, typarams, param_types, returns)
+      fun_type = FunctionType(loc, typarams, param_types, checked_returns)
       # print('process declaration:')
       # print(decl.pretty_print(4))
       check_type(measure_ty, env)
@@ -4487,7 +4508,12 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
         env = env.declare_term_var(loc, constr.name, constr_type,
                                    visibility=decl.visibility)
         new_alts.append(new_constr)
-      return Union(loc, name, typarams, new_alts, visibility=decl.visibility), env
+      checked_union = Union(loc, name, typarams, new_alts,
+                            visibility=decl.visibility)
+      if hasattr(decl, 'param_polarities'):
+        checked_union.param_polarities = decl.param_polarities
+      env = env.define_type(loc, name, checked_union, decl.visibility)
+      return checked_union, env
 
     case Import(loc, name, ast, visibility=vis):
       old_verbose = get_verbose()
@@ -4569,8 +4595,8 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
 
       body_env = env.declare_type_vars(loc, typarams)
 
-      arity, param_types = _validate_predicate_signature(sig, name, keyword,
-                                                         body_env)
+      arity, param_types, checked_sig = _validate_predicate_signature(
+          sig, name, keyword, body_env)
 
       _predicate_style_hint(loc, name, keyword, arity)
 
@@ -4579,24 +4605,27 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       # type parameters from `predicate FOO<...>` with anything declared
       # inside the signature itself.
       pred_type: Type
-      if isinstance(sig, FunctionType):
-        pred_type = FunctionType(sig.location,
-                                 list(typarams) + list(sig.type_params),
-                                 sig.param_types, sig.return_type)
+      if isinstance(checked_sig, FunctionType):
+        pred_type = FunctionType(checked_sig.location,
+                                 list(typarams) + list(checked_sig.type_params),
+                                 checked_sig.param_types,
+                                 checked_sig.return_type)
       else:
-        pred_type = sig
+        pred_type = checked_sig
       rule_env = body_env.declare_term_var(loc, name, pred_type,
                                            visibility=decl.visibility)
 
+      checked_rules = []
       for rule in rules:
         _validate_predicate_rule_shape(rule, name, keyword, arity, rule_env)
         # Type-check the rule's body. This catches argument-type mismatches
         # in both the conclusion and the premises (which the shape pass does
         # not look at), and is what makes `even(true)` an error here rather
         # than later in the pipeline.
-        check_formula(rule.formula, rule_env)
+        checked_formula = check_formula(rule.formula, rule_env)
+        checked_rules.append(Rule(rule.location, rule.name, checked_formula))
 
-      for rule in rules:
+      for rule in checked_rules:
         _check_predicate_strict_positivity(rule, name, keyword, body_env)
 
       # Translation: lower this predicate to a Define (impredicative
@@ -4604,6 +4633,8 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       # threaded through the rest of the pipeline inline (mirroring how
       # Import processes its sub-AST), then stashed on the Predicate AST
       # node so the outer passes can recognise it as already handled.
+      decl.signature = checked_sig
+      decl.rules = checked_rules
       translated = _build_predicate_translation(decl, param_types)
 
       processed = []
@@ -4654,8 +4685,8 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
   
     case Associative(loc, typarams, _, typeof):
       body_env = env.declare_type_vars(loc, typarams)
-      check_type(typeof, body_env)
-      return stmt, env
+      checked_type = check_type(typeof, body_env)
+      return Associative(loc, typarams, stmt.op, checked_type), env
   
     case Export(loc, name):
       return stmt, env
@@ -4671,8 +4702,8 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
       # the generic-arity check so `inductive Foo by ...` works when Foo
       # is a generic union. The `case Inductive(...)` in check_proofs
       # enforces that ``typ`` is a ``VarRef``.
-      check_type(typ, env, arity_required=False)
-      return stmt, env
+      checked_typ = check_type(typ, env, arity_required=False)
+      return Inductive(loc, checked_typ, name), env
   
     case _:
       internal_error(stmt.location, "in process_declaration, unrecognized statement:\n" + str(stmt))
@@ -4695,12 +4726,109 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     return FunCase(fun_case.location, fun_case.rator,
                    fun_case.pattern, fun_case.parameters, new_body)
 
+def type_check_view_recursive_fun(stmt, env, view_info):
+  loc = stmt.location
+  name = stmt.name
+  typarams = stmt.type_params
+  params = stmt.params
+  returns = stmt.returns
+  cases = stmt.cases
+  view_decl, source_ty, view_ty = view_info
+
+  body_env = env.declare_type_vars(loc, typarams)
+  checked_params = [source_ty] + [check_type(p, body_env)
+                                 for p in params[1:]]
+  checked_returns = check_type(returns, body_env)
+  param_names = [generate_proof_name("view_arg")] \
+    + [generate_proof_name("arg") for _ in checked_params[1:]]
+  param_pairs = _as_param_pairs(param_names, checked_params)
+
+  fun_type = _viewrec_function_type(loc, typarams, param_pairs,
+                                    checked_returns)
+  fun_value = _viewrec_placeholder(loc, name, typarams, param_pairs,
+                                   checked_returns, stmt.visibility)
+  env = env.define_term_var(loc, name, fun_type, fun_value, stmt.visibility)
+  case_env = env.declare_type_vars(loc, typarams)
+  case_env = case_env.declare_term_vars(loc, param_pairs)
+
+  checked_subject = ResolvedVar(loc, checked_params[0], param_names[0])
+  checked_view = type_check_term(_view_call(loc, view_decl.into,
+                                           checked_subject),
+                                 view_ty, case_env, None, [])
+  cases_present = {}
+  new_cases = []
+  reset_recursive_call_count()
+  rec_ty = checked_params[0]
+
+  for c in cases:
+    new_env = check_pattern(c.pattern, view_ty, case_env, cases_present)
+    if len(c.parameters) != len(checked_params[1:]):
+      user_error(c.location, 'incorrect number of parameters, expected '
+                 + str(len(checked_params) - 1))
+    new_env = new_env.declare_term_vars(c.location,
+                                        zip(c.parameters, checked_params[1:]))
+    subterms = _viewrec_recursive_binders(c.pattern, rec_ty, new_env)
+    new_body = type_check_term(c.body, checked_returns, new_env, name,
+                               subterms)
+    check_no_recfun_escape(new_body, name)
+    for i, p in reversed(list(enumerate(c.parameters, start=1))):
+      rhs = ResolvedVar(c.location, checked_params[i], param_names[i])
+      new_body = TLet(c.location, checked_returns, p, rhs, new_body)
+    new_cases.append(SwitchCase(c.location, c.pattern, new_body))
+
+  uniondef = lookup_union(loc, view_ty, env)
+  for alt in uniondef.alternatives:
+    if alt.name not in cases_present.keys():
+      user_error(loc, 'recursive function using view '
+                 + base_name(view_decl.name)
+                 + ' is missing a view case for ' + base_name(alt.name))
+
+  if get_recursive_call_count() == 0:
+      user_error(loc, name + ' is declared recursive, but does not make any recursive calls.\n' \
+            + 'Use a "fun" statement instead.')
+
+  body = Switch(loc, checked_returns, checked_view, new_cases)
+  measure = ResolvedVar(loc, rec_ty, param_names[0])
+  return GenRecFun(loc, name, typarams, param_pairs, checked_returns,
+                   measure, rec_ty, body, PSorry(loc), True,
+                   visibility=stmt.visibility)
+
 def _viewrec_function_type(loc, typarams, params, returns):
   new_typarams = [generate_proof_name(t) for t in typarams]
   sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
   return FunctionType(loc, new_typarams,
                       [t.substitute(sub) for (_, t) in params],
                       returns.substitute(sub))
+
+def _view_type_head_and_args(typ):
+  if isinstance(typ, VarRef):
+    return typ, []
+  match typ:
+    case TypeInst(_, head, args) if isinstance(head, VarRef):
+      return head, args
+    case _:
+      return None, []
+
+def _instantiate_view_type(loc, typ, env):
+  head, args = _view_type_head_and_args(typ)
+  if head is None:
+    return None
+  view = env.get_view(head)
+  if view is None:
+    return None
+  if len(args) != len(view.type_params):
+    user_error(loc, "view " + base_name(view.name) + " expects "
+               + str(len(view.type_params)) + " type argument"
+               + ("" if len(view.type_params) == 1 else "s")
+               + ", not " + str(len(args)))
+  checked_args = [check_type(arg, env) for arg in args]
+  sub = {x: t for (x, t) in zip(view.type_params, checked_args)}
+  source = view.source.substitute(sub)
+  target = view.target.substitute(sub)
+  return view, source, target
+
+def _as_param_pairs(names, types):
+  return [(x, t) for (x, t) in zip(names, types)]
 
 def _viewrec_placeholder(loc, name, typarams, params, returns, visibility):
   return GenRecFun(loc, name, typarams, params, returns,
@@ -4853,22 +4981,27 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
       return stmt
 
     case RecFun(loc, name, typarams, params, returns, cases):
+      if len(params) == 0:
+        user_error(loc, 'recursive functions need at least one parameter.')
+      view_info = _instantiate_view_type(loc, params[0],
+                                         env.declare_type_vars(loc, typarams))
+      if view_info is not None:
+        return type_check_view_recursive_fun(stmt, env, view_info)
+
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_params = [check_type(p, body_env) for p in params]
+      checked_returns = check_type(returns, body_env)
+
       # alpha rename the type parameters in the function's type
       new_typarams = [generate_proof_name(t) for t in typarams]
       sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
-      new_params = [p.substitute(sub) for p in params]
-      new_returns = returns.substitute(sub)
+      new_params = [p.substitute(sub) for p in checked_params]
+      new_returns = checked_returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, new_params, new_returns)
 
       env = env.define_term_var(loc, name, fun_type, stmt.reduce(env),
                                 stmt.visibility)
       cases_present: dict = {}
-      body_env = env.declare_type_vars(loc, typarams)
-      # Narrow params and returns once we have body_env (with the
-      # original typarams in scope, since `params`/`returns` reference
-      # them, not `new_typarams`).
-      checked_params = [check_type(p, body_env) for p in params]
-      checked_returns = check_type(returns, body_env)
       reset_recursive_call_count()
       new_cases = [type_check_fun_case(c, name, checked_params, checked_returns,
                                        body_env, cases_present) \
@@ -4888,11 +5021,17 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
 
     case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
                    body, terminates):
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_param_pairs = [(x, check_type(p, body_env))
+                             for (x, p) in param_pairs]
+      checked_returns = check_type(returns, body_env)
+      checked_measure_ty = check_type(measure_ty, body_env)
+
       # alpha rename the type parameters in the function's type
       new_typarams = [generate_proof_name(t) for t in typarams]
       sub = {x: ResolvedVar(loc, None, y) for (x,y) in zip(typarams, new_typarams)}
-      new_param_pairs = [(x,p.substitute(sub)) for (x,p) in param_pairs]
-      new_returns = returns.substitute(sub)
+      new_param_pairs = [(x,p.substitute(sub)) for (x,p) in checked_param_pairs]
+      new_returns = checked_returns.substitute(sub)
       fun_type = FunctionType(loc, new_typarams, [t for (x,t) in new_param_pairs],
                               new_returns)
 
@@ -4900,13 +5039,14 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
                                 stmt.visibility)
 
       body_env = env.declare_type_vars(loc, typarams)
-      body_env = body_env.declare_term_vars(loc, param_pairs)
-      new_measure = type_check_term(measure, measure_ty, body_env, None, [])
+      body_env = body_env.declare_term_vars(loc, checked_param_pairs)
+      new_measure = type_check_term(measure, checked_measure_ty, body_env, None, [])
 
-      new_body = type_check_term(body, returns, body_env, None, [])
+      new_body = type_check_term(body, checked_returns, body_env, None, [])
 
-      new_recfun = GenRecFun(loc, name, typarams, param_pairs, returns,
-                             new_measure, measure_ty, new_body, terminates,
+      new_recfun = GenRecFun(loc, name, typarams, checked_param_pairs,
+                             checked_returns, new_measure, checked_measure_ty,
+                             new_body, terminates,
                              stmt.trusted_terminates,
                              visibility=stmt.visibility)
       # print('type check stmt:')
@@ -4966,7 +5106,9 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
   
     case Associative(loc, typarams, op, typ):
       new_op = type_synth_term(op, env, None, [])
-      return Associative(loc, typarams, new_op, typ)
+      body_env = env.declare_type_vars(loc, typarams)
+      checked_type = check_type(typ, body_env)
+      return Associative(loc, typarams, new_op, checked_type)
   
     case Module(loc, name):
       return stmt

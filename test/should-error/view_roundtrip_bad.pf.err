@@ -1,4 +1,4 @@
-./test/should-error/view_roundtrip_bad.pf:13.1-19.2: view roundtrip proof not_the_view_law proves
-	(all v:UIntView. uint_unview(v) = uint_unview(v))
+./test/should-error/view_roundtrip_bad.pf:28.1-34.2: view roundtrip proof not_the_view_law proves
+	(all v:NView. n_unview(v) = n_unview(v))
 but expected
-	(all v:UIntView. uint_view(uint_unview(v)) = v)
+	(all v:NView. n_view(n_unview(v)) = v)

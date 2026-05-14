@@ -7,7 +7,7 @@ and 6 make use of the table below.
 
 2. If the goal formula involves a function that is defined using a [`switch`](./Reference.md#switch-term), then it is a good idea to use the [`switch`](./Reference.md#switch-proof) proof statement.
 
-3. If a recursive function is defined with [`viewrec`](./Reference.md#view-statement), reason about the view's target constructors. The view declaration itself requires a theorem of the form `into(out(v)) = v`.
+3. If a [`recursive`](./Reference.md#recursive-function-statement) function's first parameter type is a [`view`](./Reference.md#view-statement), reason about the view's target constructors. The view declaration itself requires a theorem of the form `into(out(v)) = v`.
 
 4. Work backwards from the goal using a [`suffices`](./Reference.md#suffices-proof-statement) statement. After the `by` keyword, write the reason, often [`expand`](./Reference.md#expand-proof) and/or [`replace`](./Reference.md#replace-proof), which transform the goal formula.
 
