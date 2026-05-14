@@ -1025,6 +1025,12 @@ def gen_conjunct_advice(conjunct, arbs, ihs):
 def gen_custom_induction_advice(conjuncts):
   return "\n".join([gen_conjunct_advice(c, [], []) for c in conjuncts])
 
+def _custom_induction_expected_cases(conjuncts):
+  return gen_custom_induction_advice(conjuncts).replace('\t\t', '\t')
+
+def _custom_induction_case_hint(conjunct):
+  return gen_conjunct_advice(conjunct, [], []).replace('\t\t', '\t')
+
 def proof_advice(formula, env):
     prefix = style.dark_green('Advice:') + '\n'
 
@@ -1765,6 +1771,15 @@ def check_proof_of(proof, formula, env):
         type_subst = {}
 
         types_elimmed = custom_ind["thm"]
+
+        if len(cases) != len(conjuncts):
+          plural = '' if len(conjuncts) == 1 else 's'
+          add_diagnostic(loc, 'expected ' + str(len(conjuncts)) \
+                + ' case' + plural + ' for custom induction on ' + str(typ) \
+                + ', but have ' + str(len(cases)) \
+                + '\nExpected cases:\n' + _custom_induction_expected_cases(conjuncts) \
+                + givens_str(env))
+          return
 
         if type_vars != []:
           match typ:
@@ -4811,40 +4826,47 @@ def extract_conjuncts(prem, fun):
     case _:
       return [validate_conjunct(prem.location, prem, fun)]
 
-def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0):
+def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0, case_hint = None):
   if get_verbose():
     print("generate_conjunct_body", conjunct)
+  if case_hint is None:
+    case_hint = _custom_induction_case_hint(conjunct)
   match conjunct:
     case All(_, _, (name, ty), _, body):
       if len(case.pattern.parameters) <= param_i:
-        user_error(loc, "Parameters in induction case didn't match parameters in conjunct")
-      # TODO: This is really slapdash, it would be nice to know for the error message, for example, how many parameters the conjunct expects
+        user_error(case.pattern.location, "custom induction case pattern is missing a bound variable"
+              + "\nExpected a case shaped like:\n" + case_hint)
       inst_name = case.pattern.parameters[param_i]
       subst[inst_name]= ResolvedVar(loc, ty, name)
       env = env.declare_term_var(loc, inst_name, ty)
       return AllIntro(loc, (inst_name, ty), (0, 1), 
-                      generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1))
+                      generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1, case_hint))
     case IfThen(loc, ty, _, conc):
       ind_hyp = generate_proof_name("_")
       if len(case.induction_hypotheses) > 0:
         ind_hyp = case.induction_hypotheses[0][0]
         case.induction_hypotheses = case.induction_hypotheses[1:]
-      return ImpIntro(loc, ind_hyp, None, generate_conjunct_body(loc, conc, case, fun_var, subst, env, param_i))
+      return ImpIntro(loc, ind_hyp, None, generate_conjunct_body(loc, conc, case, fun_var, subst, env, param_i, case_hint))
     case Call(loc, ty, rator, [arg]):
       match case.pattern:
         case PatternTerm(loc, _, _):
           try:
             case.pattern.term = type_check_term(case.pattern.term, arg.typeof.substitute(subst), env, None, [])
           except UserError as e:
-            # TODO: Better way to communicate about parameter order
-            user_error(loc, "Problem type checking induction pattern\n" + str(e))
+            user_error(case.pattern.location, "problem type checking custom induction pattern"
+                  + "\nExpected a case shaped like:\n" + case_hint
+                  + "\n" + str(e))
           new_case = case.pattern.term.copy()
           new_case = new_case.substitute(subst)
           if new_case != arg:
-            user_error(loc, "Induction pattern didn't match\n\t" + str(case.pattern.term) + "\ndid not match with\n\t" + str(arg))
+            user_error(case.pattern.location, "custom induction pattern did not match"
+                  + "\nExpected a case shaped like:\n" + case_hint
+                  + "\nThe pattern\n\t" + str(case.pattern.term)
+                  + "\ndid not match\n\t" + str(arg))
 
         case PatternBool():
-          user_error(loc, "No pattern bool allowed for custom induction")
+          user_error(case.pattern.location, "boolean patterns are not allowed in custom induction"
+                + "\nExpected a case shaped like:\n" + case_hint)
         # TODO: Do I really need to handle constructors without parameters differently?
         case PatternCons(loc, constructor, []):
           if isUInt(arg):
@@ -4852,7 +4874,8 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
             if i == 0 and base_name(constructor.name) == 'zero':
               pass
             else:
-              user_error(loc, "UInt Mismatch")
+              user_error(case.pattern.location, "custom induction pattern did not match UInt literal " + str(i)
+                    + "\nExpected a case shaped like:\n" + case_hint)
           else:
             arg = type_synth_term(arg, env, False, [])
             constructor = type_check_term(constructor,  arg.typeof, env, False, [])
@@ -4870,9 +4893,11 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
               args_eq = len(new_args) == len(call_args) and all([arg1 == arg2 for arg1,arg2 in zip(new_args, call_args)])
 
               if not (args_eq and rator_eq):
-                internal_error(loc, "Pattern cons didn't math")
+                user_error(case.pattern.location, "custom induction pattern did not match"
+                      + "\nExpected a case shaped like:\n" + case_hint)
             case _:
-              user_error(loc, "Arg expected to be a call")
+              user_error(case.pattern.location, "custom induction case expected a constructor-like pattern"
+                    + "\nExpected a case shaped like:\n" + case_hint)
         case _:
           internal_error("Unsupported pattern type: " + str(type(case.pattern)))
       return case.body

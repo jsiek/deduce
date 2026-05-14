@@ -1,0 +1,9 @@
+./test/should-error/induction_custom_pattern_mismatch.pf:9.8-9.24: custom induction pattern did not match
+Expected a case shaped like:
+	case with m. 1 + m assume IH0  {
+		?
+	}
+The pattern
+	x
+did not match
+	1 + m
