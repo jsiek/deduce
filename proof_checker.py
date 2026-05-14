@@ -286,7 +286,7 @@ def check_implies(loc, frm1, frm2):
               + '\t' + str(frm2)
           raise wrap_user_error(e, context) from e
 
-    case(Or(loc1, tyof1, args1), _):
+    case(Or(_, _, args1), _):
       for arg1 in args1:
         try:
           check_implies(loc, arg1, frm2)
@@ -304,10 +304,10 @@ def check_implies(loc, frm1, frm2):
         try:
           check_implies(loc, arg1, frm2)
           return
-        except UserError as e:
+        except UserError:
           # implicit modus ponens
           match arg1:
-            case IfThen(loc3, tyof3, prem, conc):
+            case IfThen(_, _, prem, conc):
               try:
                   check_implies(loc, conc, frm2)
                   remaining = [arg for arg in args1 if arg != arg1]
@@ -319,7 +319,7 @@ def check_implies(loc, frm1, frm2):
                     rest = And(loc2, tyof2, remaining)
                   check_implies(loc, rest, prem)
                   return
-              except UserError as e2:
+              except UserError:
                   pass
             case _:
               pass
@@ -335,7 +335,7 @@ def check_implies(loc, frm1, frm2):
         try:
           check_implies(loc, frm1, arg2)
           return
-        except UserError as e:
+        except UserError:
           continue
       user_error(loc, '\nCould not prove that\n\t' + str(frm1) + '\n' \
                  + 'implies\n\t' + str(frm2) + '\n' \
@@ -343,7 +343,7 @@ def check_implies(loc, frm1, frm2):
                  + '\n'.join(['\t' + str(frm1) + '   implies   ' + str(arg2)\
                               for arg2 in args2]))
       
-    case (IfThen(loc1, tyof1, prem1, conc1), IfThen(loc2, tyof2, prem2, conc2)):
+    case (IfThen(_, _, prem1, conc1), IfThen(loc2, tyof2, prem2, conc2)):
       try:
         check_implies(loc, prem2, prem1)
         check_implies(loc, conc1, conc2)
@@ -353,7 +353,7 @@ def check_implies(loc, frm1, frm2):
             + '\t' + str(frm2)
         raise wrap_user_error(e, context) from e
 
-    case (All(loc1, tyof1, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
+    case (All(_, _, var1, _, body1), All(loc2, tyof2, var2, _, body2)):
       try:
           sub = { var2[0]: OverloadedVar(loc2, var1[1], [var1[0]]) }
           body2a = body2.substitute(sub)
@@ -364,7 +364,7 @@ def check_implies(loc, frm1, frm2):
             + '\t' + str(frm2)
         raise wrap_user_error(e, context) from e
 
-    case (All(loc1, tyof1, vars1, _, body1), _):
+    case (All(_, _, _, _, body1), _):
        matching = {}
        try:
          vars, body = collect_all(frm1)
@@ -395,7 +395,7 @@ def check_implies(loc, frm1, frm2):
                     
 def instantiate(loc, allfrm, arg):
   match allfrm:
-    case All(loc2, tyof, (var, ty), (s, e), frm):
+    case All(_, _, (var, _), (s, _), frm):
       sub = { var : arg }
       ret = frm.substitute(sub)
       if s != 0:
@@ -459,10 +459,10 @@ def isolate_difference(term1, term2):
     return None
   else:
     match (term1, term2):
-      case (Lambda(l1, tyof1, vs1, body1), Lambda(l2, tyof2, vs2, body2)):
+      case (Lambda(l1, _, vs1, body1), Lambda(_, _, vs2, body2)):
         ren = {x: ResolvedVar(l1, t2, y) for ((x,t1),(y,t2)) in zip(vs1, vs2)}
         return isolate_difference(body1.substitute(ren), body2)
-      case (Call(l1, tyof1, fun1, args1), Call(l2, tyof2, fun2, args2)):
+      case (Call(l1, _, fun1, args1), Call(_, _, fun2, args2)):
         if fun1 == fun2:
           if len(args1) == len(args2):
               return isolate_difference_list(args1, args2)
@@ -470,19 +470,19 @@ def isolate_difference(term1, term2):
               return (term1, term2)
         else:
           return isolate_difference(fun1, fun2)
-      case (SwitchCase(l1, p1, body1), SwitchCase(l2, p2, body2)):
+      case (SwitchCase(l1, p1, body1), SwitchCase(_, p2, body2)):
         if p1 == p2:
           return isolate_difference(body1, body2)
         else:
           return (p1, p2)
-      case (Switch(l1, tyof1, s1, cs1), Switch(l2, tyof2, s2, cs2)):
+      case (Switch(l1, _, s1, cs1), Switch(_, _, s2, cs2)):
         if s1 == s2:
           return isolate_difference_list(cs1, cs2)
         else:
           return (s1, s2)
-      case(And(l1, tyof1, args1), And(l2, tyof2, args2)):
+      case(And(l1, _, args1), And(_, _, args2)):
         return isolate_difference_list(args1, args2)
-      case (All(l1, tyof1, var1, _, body1), All(l2, tyof2, var2, _, body2)):
+      case (All(l1, _, _, _, body1), All(_, _, _, _, body2)):
         return (term1, term2)
       case _:
         return (term1, term2)
@@ -494,13 +494,13 @@ def collect_all_if_then(loc, frm, env):
       frm = frm.reduceLets(env)
 
     match frm:
-      case All(loc2, tyof, var, _, frm):
+      case All(loc2, _, var, _, frm):
         (rest_vars, mps) = collect_all_if_then(loc, frm, env)
         x, t = var
         return ([ResolvedVar(loc2, t, x)] + rest_vars, mps)
-      case IfThen(loc2, tyof, prem, conc):
+      case IfThen(loc2, _, prem, conc):
         return ([], [(prem, conc)])
-      case And(loc2, tyof, args):
+      case And(loc2, _, args):
         mps1 = []
         for arg in args:
           try:
@@ -518,7 +518,7 @@ def collect_all_if_then(loc, frm, env):
 
 def collect_all(frm):
     match frm:
-      case All(loc2, tyof, var, _, frm):
+      case All(loc2, _, var, _, frm):
         (rest_vars, body) = collect_all(frm)
         x, t = var
         return ([ResolvedVar(loc2, t, x)] + rest_vars, body)
@@ -737,7 +737,7 @@ def check_proof(proof, env):
               with speculative_probe():
                 check_proof_of(arg, prem, env)
               rets.append(conc)
-            except UserError as e:
+            except UserError:
               pass
           if len(rets) == 1: ret = rets[0]
           elif len(rets) > 1: ret = And(loc2, tyof, rets)
@@ -792,8 +792,8 @@ def check_proof(proof, env):
       formula = check_proof(eq_pf, env)
       (a,b) = split_equation(loc, formula, env)
       match (a,b):
-        case (Call(loc2, tyof2, rator1, args1),
-              Call(loc4, tyof4, rator2, args2)) if len(args1) == len(args2):
+        case (Call(loc2, _, rator1, args1),
+              Call(_, _, rator2, args2)) if len(args1) == len(args2):
           f1 = base_name(rator_name(rator1))
           f2 = base_name(rator_name(rator2))
           if f1 != f2:
@@ -879,7 +879,7 @@ def get_type_args(ty):
   if isinstance(ty, VarRef):
     return []
   match ty:
-    case TypeInst(l1, ty, type_args):
+    case TypeInst(_, ty, type_args):
       return type_args
     case _:
       raise InternalError('unhandled case in get_type_args: ' + repr(ty))
@@ -887,7 +887,7 @@ def get_type_args(ty):
 label_count = 0
 
 def reset_label():
-    label_count = 1
+    pass
 
 def generate_label():
     global label_count
@@ -899,23 +899,23 @@ def proof_use_advice(proof, formula, env):
     prefix = style.dark_green('Advice about using fact:') + '\n' \
         + '\t' + str(formula) + '\n\n'
     match formula:
-      case Bool(loc, tyof, True):
+      case Bool(loc, _, True):
         return prefix + '\tThe "true" fact is useless.\n'
-      case Bool(loc, tyof, False):
+      case Bool(loc, _, False):
         return prefix \
             + '\tUse this "false" fact to implicitly prove anything!\n'
-      case And(loc, tyof, args):
+      case And(loc, _, args):
         return prefix \
             + '\tUse this logical-and to implicitly prove any of its parts:\n' \
             + '\n'.join('\t\t' + str(arg) for arg in args)
-      case Or(loc, tyof, args):
+      case Or(loc, _, args):
         reset_label()
         return prefix \
             + '\tUse this logical-or by proceeding with a "cases" statement:\n'\
             + '\t\tcases ' + str(proof) + '\n' \
             + '\n'.join(['\t\tcase ' + generate_label() + ' : ' + str(arg) \
                          + ' { ? }' for arg in args])
-      case IfThen(loc, tyof, prem, conc):
+      case IfThen(loc, _, prem, conc):
         return prefix \
             + '\tApply this if-then formula to a proof of its premise:\n' \
             + '\t\t' + str(prem) + '\n' \
@@ -923,11 +923,11 @@ def proof_use_advice(proof, formula, env):
             + '\t\t' + str(conc) + '\n' \
             + '\tby using an apply-to statement:\n' \
             + '\t\tapply ' + str(proof) + ' to ?'
-      case All(loc, tyof, var, (s, e), body):
+      case All(loc, _, var, (s, _), body):
         vars = [var]
         while s != 0:
           match body:
-            case All(loc2, tyof2, var2, (s, e2), body):
+            case All(_, _, var2, (s, _), body):
               vars.append(var2)
 
         letters = []
@@ -956,7 +956,7 @@ def proof_use_advice(proof, formula, env):
             + '\tby writing ' + pronoun + how \
             + '\tto obtain a proof of:\n' \
             + '\t\t' + str(body.substitute(new_vars))
-      case Some(loc, tyof, vars, body):
+      case Some(loc, _, vars, body):
         letters = []
         new_vars = {}
         i = 65
@@ -974,7 +974,7 @@ def proof_use_advice(proof, formula, env):
                else ' is a new name of your choice' ) + ',\n' \
             + 'followed by a proof of the goal.'
 
-      case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      case Call(_, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
         return prefix \
             + '\tYou can use this equality in a replace statement:\n' \
             + '\t\treplace ' + str(proof) + '\n'
@@ -989,9 +989,9 @@ def make_unique(name, env):
 
 def is_recursive(name, typ):
     match typ:
-      case OverloadedVar(l1, tyof, rs):
+      case OverloadedVar(_, _, rs):
         return name == rs[0]
-      case TypeInst(l1, ty, type_args):
+      case TypeInst(_, ty, _):
         return is_recursive(name, ty)
       case _:
         return False
@@ -1008,7 +1008,7 @@ def update_all_head(r):
 
 def gen_conjunct_advice(conjunct, arbs, ihs):
   match conjunct:
-    case All(_, _, (n, t), _, b):
+    case All(_, _, (n, _), _, b):
       return gen_conjunct_advice(b, arbs + [base_name(n)], ihs)
     case IfThen(_, _, _, b):
       return gen_conjunct_advice(b, arbs, ihs + [f"IH{len(ihs)}"])
@@ -1034,29 +1034,29 @@ def proof_advice(formula, env):
             + '\tConsider using\n\t\tsimplify\n\n'
     
     match formula:
-      case Bool(loc, tyof, True):
+      case Bool(loc, _, True):
         return prefix + '\tYou can prove "true" with a period.\n'
-      case Bool(loc, tyof, False):
+      case Bool(loc, _, False):
         return prefix \
             + '\tProve "false" by proving a contradiction:\n' \
             + '\tif you prove both "P" and "not P", \n' \
             + '\tthen "contradict (recall not P), (recall P)" proves "false".\n'
-      case And(loc, tyof, args):
+      case And(loc, _, args):
         return prefix \
             + '\tProve this logical-and formula by proving each of its'\
             + ' parts,\n\tshown below, then combine the proofs with commas.\n' \
             + '\n'.join('\t\t' + str(arg) for arg in args)
-      case Or(loc, tyof, args):
+      case Or(loc, _, args):
         return prefix \
             + '\tProve this logical-or formula by proving one of its parts:\n' \
             + '\n'.join('\t\t' + str(arg) for arg in args)
-      case IfThen(loc, tyof, prem, conc):
+      case IfThen(loc, _, prem, conc):
         return prefix \
             + '\tProve this if-then formula with:\n' \
             + '\t\tassume label: ' + str(prem) + '\n' \
             + '\tfollowed by a proof of:\n' \
             + '\t\t' + str(conc)
-      case All(loc, tyof, var, (s, e), body):
+      case All(loc, _, var, (s, _), body):
         pf = "arbitrary "
         cur = formula
         prev_s = s + 1 # This variable stops spillover into other alls
@@ -1095,7 +1095,7 @@ def proof_advice(formula, env):
           pass
 
         match ty:
-          case Union(loc2, name, typarams, alts):
+          case Union(_, name, _, alts):
             has_custom_ind = env.get_inductive(var_ty)
 
             if ty.visibility == 'opaque':
@@ -1140,7 +1140,7 @@ def proof_advice(formula, env):
             return arb_advice
 
 
-      case Some(loc, tyof, vars, body):
+      case Some(loc, _, vars, body):
         letters = []
         new_vars = {}
         i = 65
@@ -1155,13 +1155,13 @@ def proof_advice(formula, env):
             + ' with your choice(s),\n' \
             + '\tthen prove:\n' \
             + '\t\t' + str(body.substitute(new_vars))
-      case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+      case Call(_, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
         return prefix \
             + '\tTo prove this equality, one of these statements might help:\n'\
             + '\t\texpand\n' \
             + '\t\treplace\n' \
             + '\t\tequations\n'
-      case TLet(loc2, _, var, rhs, body):
+      case TLet(_, _, var, _, body):
         return proof_advice(body, env)
       case _:
         for (name, b) in env.dict.items():
@@ -1186,7 +1186,7 @@ def givens_str(env):
 
 def pred_to_equality(meta, pred):
     match pred:
-      case IfThen(meta1, ty1, p, Bool(meta2, ty2, False)):
+      case IfThen(_, _, p, Bool(_, _, False)):
           return Call(meta, None, ResolvedVar(meta, None, '='),
                       [p , Bool(meta, None, False)])
       case _:
@@ -1331,7 +1331,7 @@ def check_proof_of(proof, formula, env):
       
     case PReflexive(loc):
       match formula:
-        case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+        case Call(loc2, _, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
           lhsNF = lhs.reduce(env)
           rhsNF = rhs.reduce(env)
           if lhsNF != rhsNF:
@@ -1376,7 +1376,7 @@ def check_proof_of(proof, formula, env):
     case PExtensionality(loc, proof):
       (lhs,rhs) = split_equation(loc, formula, env)
       match lhs.typeof:
-        case FunctionType(loc2, [], typs, ret_ty):
+        case FunctionType(loc2, [], typs, _):
           names = [generate_proof_name('x') for ty in typs]
           args = [ResolvedVar(loc, None, x) for x in names]
           call_lhs = Call(loc, None, lhs, args)
@@ -1385,7 +1385,7 @@ def check_proof_of(proof, formula, env):
           for i, v in enumerate(reversed(list(zip(names, typs)))):
             formula = All(loc, None, v, (i, len(names)), formula)
           _try_check_proof_of(proof, formula, env)
-        case FunctionType(loc2, ty_params, params, ret_ty):
+        case FunctionType(loc2, ty_params, params, _):
           add_diagnostic(loc, 'extensionality expects function without any type parameters, not ' + str(len(ty_params))
                 + givens_str(env))
         case _:
@@ -1400,7 +1400,7 @@ def check_proof_of(proof, formula, env):
         formula = formula.reduceLets(env)
 
       match formula:
-        case All(loc2, tyof, var2, (s, e), formula2):
+        case All(loc2, _, var2, (s, e), formula2):
           x2, ty2 = var2
           if ty != ty2:
             add_diagnostic(loc, "arbitrary expects " + base_name(x)
@@ -1430,7 +1430,7 @@ def check_proof_of(proof, formula, env):
         formula = formula.reduceLets(env)
       
       match formula:
-        case Some(loc2, tyof, vars, formula2):
+        case Some(loc2, _, vars, formula2):
           sub = {var[0]: trm for (var,trm) in zip(vars, witnesses) }
           body_frm = formula2.substitute(sub)
           _try_check_proof_of(body, body_frm, env)
@@ -1445,7 +1445,7 @@ def check_proof_of(proof, formula, env):
         someFormula = someFormula.reduceLets(env)
       
       match someFormula:
-        case Some(loc2, tyof, vars, formula2):
+        case Some(loc2, _, vars, formula2):
           sub = {var[0]: ResolvedVar(loc2, None, x) for (var,x) in zip(vars,witnesses)}
           witnessFormula = formula2.substitute(sub)
           
@@ -1468,7 +1468,7 @@ def check_proof_of(proof, formula, env):
         formula = formula.reduceLets(env)
 
       match formula:
-        case IfThen(loc2, tyof, prem, conc):
+        case IfThen(loc2, _, prem, conc):
           body_env = env.declare_local_proof_var(loc, label, prem)
           _try_check_proof_of(body, conc, body_env)
         case _:
@@ -1479,7 +1479,7 @@ def check_proof_of(proof, formula, env):
     case ImpIntro(loc, label, prem1, body):
       new_prem1 = check_formula(prem1, env)
       match formula:
-        case IfThen(loc2, tyof, prem2, conc):
+        case IfThen(loc2, _, prem2, conc):
           prem1_red = new_prem1.reduce(env)
           prem2_red = prem2.reduce(env)
           if prem1_red != prem2_red:
@@ -1515,7 +1515,7 @@ def check_proof_of(proof, formula, env):
     case PLet(loc, label, frm, reason, rest):
       new_frm = check_formula(frm, env)
       match new_frm:
-        case Hole(loc2, tyof):
+        case Hole(loc2, _):
           proved_formula = check_proof(reason, env)
           warning(loc, "\nhave " + base_name(label) + ':\n\t' + str(proved_formula))
           body_env = env.declare_local_proof_var(loc, label, proved_formula)
@@ -1527,7 +1527,7 @@ def check_proof_of(proof, formula, env):
     case PAnnot(loc, claim, reason):
       new_claim = check_formula(claim, env)
       match new_claim:
-        case Hole(loc2, tyof):
+        case Hole(loc2, _):
           _try_check_proof_of(reason, formula, env)
           add_diagnostic(loc, '\nneed to show:\n\t' + str(formula)
                 + givens_str(env))
@@ -1555,7 +1555,6 @@ def check_proof_of(proof, formula, env):
     case Suffices(loc, claim, reason, rest):
       evaluate = False
 
-      definitions = []
       match reason:
         case EvaluateGoal(loc2):
            evaluate = True
@@ -1570,9 +1569,9 @@ def check_proof_of(proof, formula, env):
         set_dont_reduce_opaque(False)
 
         match red_claim:
-          case Omitted(loc2, tyof):
+          case Omitted(loc2, _):
             _try_check_proof_of(rest, new_formula, env)
-          case Hole(loc2, tyof):
+          case Hole(loc2, _):
             newer_formula = check_formula(new_formula, env)
             warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
             check_proof_of(rest, newer_formula, env)
@@ -1587,20 +1586,20 @@ def check_proof_of(proof, formula, env):
         claim_red = new_claim.reduce(env)
 
         match claim_red:
-          case Hole(loc2, tyof):
+          case Hole(loc2, _):
             proved_formula = check_proof(reason, env)
             match proved_formula:
-              case IfThen(loc3, _, prem, conc):
+              case IfThen(_, _, prem, conc):
                 check_implies(loc, conc, formula)
                 warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
                 _try_check_proof_of(rest, prem, env)
               case _:
                 add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
                       + givens_str(env))
-          case Omitted(loc2, tyof):
+          case Omitted(loc2, _):
             proved_formula = check_proof(reason, env)
             match proved_formula:
-              case IfThen(loc3, _, prem, conc):
+              case IfThen(_, _, prem, conc):
                 check_implies(loc, conc, formula)
                 _try_check_proof_of(rest, prem, env)
               case _:
@@ -1616,7 +1615,7 @@ def check_proof_of(proof, formula, env):
         with speculative_probe():
           red_formula = formula.reduce(env)
           match red_formula:
-            case And(loc2, tyof2, frms):
+            case And(loc2, _, frms):
               for (frm,pf) in zip(frms, pfs):
                 check_proof_of(pf, frm, env)
               if len(pfs) < len(frms):
@@ -1650,7 +1649,7 @@ def check_proof_of(proof, formula, env):
         sub_red = sub_frm.reduceLets(env)
 
       match sub_red:
-        case Or(loc1, tyof, frms):
+        case Or(_, _, frms):
           if len(cases) < len(frms):
               add_diagnostic(loc, "expected " + str(len(frms)) + " cases, not " + str(len(cases))
                     + givens_str(env))
@@ -1666,10 +1665,10 @@ def check_proof_of(proof, formula, env):
           add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
                 + givens_str(env))
           
-    case RuleInduction(loc, hyp_name, ri_cases):
+    case RuleInduction(loc, _, _):
       _check_rule_induction(proof, formula, env)
 
-    case RuleInversion(loc, hyp_name, ri_cases):
+    case RuleInversion(loc, _, _):
       _check_rule_inversion(proof, formula, env)
 
     case Induction(loc, typ, cases):
@@ -1678,7 +1677,7 @@ def check_proof_of(proof, formula, env):
       if isinstance(formula, TLet):
         formula = formula.reduceLets(env)
       match formula:
-        case All(loc2, tyof, (var,ty), _, frm):
+        case All(loc2, _, (var,ty), _, frm):
           if typ != ty:
             add_diagnostic(loc, "type of induction: " + str(typ) \
                   + "\ndoes not match the all-formula's type: " + str(ty)
@@ -1703,7 +1702,7 @@ def check_proof_of(proof, formula, env):
 
         if type_vars != []:
           match typ:
-            case TypeInst(loc, t, params):
+            case TypeInst(loc, _, params):
               assert len(type_vars) == len(params) # Enforced by match_induction_fun
               for k, v in zip(type_vars, params):
                 type_subst[k] = v
@@ -1812,9 +1811,9 @@ def check_proof_of(proof, formula, env):
           has_false_case = False
           for scase in cases:
             match scase.pattern:
-              case PatternBool(l1, True):
+              case PatternBool(_, True):
                 has_true_case = True
-              case PatternBool(l1, False):
+              case PatternBool(_, False):
                 has_false_case = True
               case _:
                 internal_error(loc, 'unhandled case in switch proof')
@@ -2311,7 +2310,7 @@ def type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty,
     if ret_ty:
       try:
           type_match(loc, type_params, return_type, ret_ty, matching)
-      except MatchFailed as e:
+      except MatchFailed:
         new_msg = 'expected type ' + str(ret_ty) + '\n' \
             + '\tbut the call ' + str(call) + '\n' \
             + '\thas return type ' + str(return_type) + '\n\n' \
@@ -2407,11 +2406,11 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
       print('tc_call_helper(' + str(call) + ') rator type: ' + str(new_rator.typeof))
   funty = new_rator.typeof
   match funty:
-    case OverloadType(loc2, overloads):
+    case OverloadType(_, overloads):
       num_matches = 0
       for (x, funty) in overloads:
           match funty:
-            case FunctionType(loc2, typarams, param_types, return_type):
+            case FunctionType(_, typarams, param_types, return_type):
               # Preserve the rator's use-site location (e.g. the `+'
               # token in `x + y') on the resolved variable.  Using
               # `loc2' (the FunctionType's declaration site) here
@@ -2426,7 +2425,7 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
                                                  subterms, ret_ty, call,
                                                  typarams, param_types, return_type)
                 num_matches += 1
-              except (UserError, MatchFailed) as e:
+              except (UserError, MatchFailed):
                 pass
       if num_matches == 0:
           arg_types = [type_synth_term(arg, env, None, []).typeof for arg in args]
@@ -2448,7 +2447,7 @@ def type_check_call_helper(loc, new_rator, args, env, recfun, subterms, ret_ty, 
                 + '\n'.join([error_header(ty.location) + str(ty) for (x,ty) in overloads]))
       else:
           return new_call
-    case FunctionType(loc2, typarams, param_types, return_type):
+    case FunctionType(_, typarams, param_types, return_type):
       return type_check_call_funty(loc, new_rator, args, env, recfun, subterms, ret_ty, call,
                                    typarams, param_types, return_type)
     case _:
@@ -2524,51 +2523,51 @@ def check_no_recfun_escape(term, recfun):
       _escape_error(term.location, recfun)
     return
   match term:
-    case Call(loc, ty, rator, args):
+    case Call(_, _, rator, args):
       _check_rator_no_escape(rator, recfun)
       for a in args:
         check_no_recfun_escape(a, recfun)
-    case TermInst(loc, ty, subject, type_args, inferred):
+    case TermInst(_, _, subject, _, _):
       check_no_recfun_escape(subject, recfun)
-    case Generic(loc, ty, typarams, body):
+    case Generic(_, _, _, body):
       check_no_recfun_escape(body, recfun)
-    case Conditional(loc, ty, cond, thn, els):
+    case Conditional(_, _, cond, thn, els):
       check_no_recfun_escape(cond, recfun)
       check_no_recfun_escape(thn, recfun)
       check_no_recfun_escape(els, recfun)
-    case TAnnote(loc, ty, subject, typ):
+    case TAnnote(_, _, subject, _):
       check_no_recfun_escape(subject, recfun)
-    case Lambda(loc, ty, vars, body):
+    case Lambda(_, _, _, body):
       check_no_recfun_escape(body, recfun)
-    case Switch(loc, ty, subject, cases):
+    case Switch(_, _, subject, cases):
       check_no_recfun_escape(subject, recfun)
       for c in cases:
         check_no_recfun_escape(c.body, recfun)
-    case Array(loc, ty, elements):
+    case Array(_, _, elements):
       for e in elements:
         check_no_recfun_escape(e, recfun)
-    case MakeArray(loc, ty, subject):
+    case MakeArray(_, _, subject):
       check_no_recfun_escape(subject, recfun)
-    case ArrayGet(loc, ty, subject, position):
+    case ArrayGet(_, _, subject, position):
       check_no_recfun_escape(subject, recfun)
       check_no_recfun_escape(position, recfun)
-    case TLet(loc, ty, var, rhs, body):
+    case TLet(_, _, _, rhs, body):
       check_no_recfun_escape(rhs, recfun)
       check_no_recfun_escape(body, recfun)
-    case Mark(loc, ty, subject):
+    case Mark(_, _, subject):
       check_no_recfun_escape(subject, recfun)
-    case And(loc, ty, args):
+    case And(_, _, args):
       for a in args:
         check_no_recfun_escape(a, recfun)
-    case Or(loc, ty, args):
+    case Or(_, _, args):
       for a in args:
         check_no_recfun_escape(a, recfun)
-    case IfThen(loc, ty, premise, conclusion):
+    case IfThen(_, _, premise, conclusion):
       check_no_recfun_escape(premise, recfun)
       check_no_recfun_escape(conclusion, recfun)
-    case All(loc, ty, var, pos, body):
+    case All(_, _, _, _, body):
       check_no_recfun_escape(body, recfun)
-    case Some(loc, ty, vars, body):
+    case Some(_, _, _, body):
       check_no_recfun_escape(body, recfun)
     case Int() | Bool() | Hole() | Omitted():
       pass
@@ -2587,7 +2586,7 @@ def _check_rator_no_escape(rator, recfun):
   if isinstance(rator, VarRef):
     return
   match rator:
-    case TermInst(loc, ty, subject, type_args, inferred):
+    case TermInst(_, _, subject, _, _):
       _check_rator_no_escape(subject, recfun)
     case _:
       check_no_recfun_escape(rator, recfun)
@@ -2630,7 +2629,7 @@ def check_type(typ, env, arity_required=True):
         _check_union_arity(typ, 0, env)
       # len(rs) == 1: this is a non-overloaded type reference. Promote.
       return ResolvedVar(loc, tyof, rs[0])
-    case ResolvedVar(loc, tyof, name):
+    case ResolvedVar(loc, tyof, _):
       if not env.type_var_is_defined(typ):
         user_error(loc, 'undefined type variable ' + str(typ))
       if arity_required:
@@ -2664,17 +2663,17 @@ def type_first_letter(typ):
   if isinstance(typ, VarRef):
     return typ.get_name()[0]
   match typ:
-    case IntType(loc):
+    case IntType(_):
       return 'i'
-    case BoolType(loc):
+    case BoolType(_):
       return 'b'
-    case TypeType(loc):
+    case TypeType(_):
       return 't'
-    case FunctionType(loc, typarams, param_types, return_type):
+    case FunctionType(_, _, _, _):
       return 'f'
-    case TypeInst(loc, typ, arg_types):
+    case TypeInst(_, typ, _):
       return type_first_letter(typ)
-    case GenericUnknownInst(loc, typ):
+    case GenericUnknownInst(_, typ):
       return type_first_letter(typ)
     case _:
       print('error in type_first_letter: unhandled type ' + repr(typ))
@@ -2730,7 +2729,7 @@ def type_synth_term(term, env, recfun, subterms):
     print('type_synth_term: ' + str(term) + '\n' \
           + '\tin ' + str(recfun))
   match term:
-    case Mark(loc, tyof, subject):
+    case Mark(loc, _, subject):
       new_subject = type_synth_term(subject, env, recfun, subterms)
       ret = Mark(loc, new_subject.typeof, new_subject)
   
@@ -2743,7 +2742,7 @@ def type_synth_term(term, env, recfun, subterms):
       except Exception as e:
         user_error(loc, str(e))
       match ty:
-        case GenericUnknownInst(loc2, union_type):
+        case GenericUnknownInst(loc2, _):
           user_error(loc, 'Cannot infer type arguments for\n' \
                 + '\t' + base_name(rs[0]) + '\nPlease make them explicit.')
 
@@ -2761,7 +2760,7 @@ def type_synth_term(term, env, recfun, subterms):
       if ty is None:
         user_error(loc, 'while type checking, undefined variable ' + str(term))
       match ty:
-        case GenericUnknownInst(loc2, union_type):
+        case GenericUnknownInst(loc2, _):
           user_error(loc, 'Cannot infer type arguments for\n' \
                 + '\t' + base_name(name) + '\nPlease make them explicit.')
       ret = ResolvedVar(loc, ty, name)
@@ -2921,9 +2920,9 @@ def type_synth_term(term, env, recfun, subterms):
           has_false_case = False
           for scase in cases:
             match scase.pattern:
-              case PatternBool(l1, True):
+              case PatternBool(_, True):
                 has_true_case = True
-              case PatternBool(l1, False):
+              case PatternBool(_, False):
                 has_false_case = True
               case _:
                 user_error(c.location, 'not an appropriate case for bool\n\t' \
@@ -2949,7 +2948,7 @@ def type_synth_term(term, env, recfun, subterms):
     case TermInst(loc, _, subject, tyargs, inferred):
       ret = type_check_term_inst(loc, subject, tyargs, inferred, recfun, subterms, env)
 
-    case TAnnote(loc, tyof, subject, typ):
+    case TAnnote(loc, _, subject, typ):
       check_type(typ, env)
       ret = type_check_term(subject, typ, env, recfun, subterms)
 
@@ -2958,8 +2957,8 @@ def type_synth_term(term, env, recfun, subterms):
       ret = term
       term.typeof = fun_type
       
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                   body, terminates):
+    case GenRecFun(loc, name, typarams, params, returns, _, _,
+                   body, _):
       param_types = [t for (p,t) in params]
       fun_type = FunctionType(loc, typarams, param_types, returns)
       ret = term
@@ -2982,12 +2981,12 @@ def type_check_term(term, typ, env, recfun, subterms):
   if get_verbose():
     print('\ntype_check_term: ' + str(term) + ' : ' + str(typ) + '?\n')
   match term:
-    case Mark(loc, tyof, subject):
+    case Mark(loc, _, subject):
       new_subject = type_check_term(subject, typ, env, recfun, subterms)
       return Mark(loc, new_subject.typeof, new_subject)
-    case Hole(loc, tyof):
+    case Hole(loc, _):
       return Hole(loc, typ)
-    case Omitted(loc, tyof):
+    case Omitted(loc, _):
       return Omitted(loc, typ)
     case Generic(loc, _, type_params, body):
       match typ:
@@ -3008,11 +3007,11 @@ def type_check_term(term, typ, env, recfun, subterms):
       if var_typ is None:
         user_error(loc, 'variable ' + str(term) + ' is not defined')
       match (var_typ, typ):
-        case (GenericUnknownInst(loc2, union1), TypeInst(loc3, union2, tyargs)):
+        case (GenericUnknownInst(loc2, union1), TypeInst(_, union2, tyargs)):
           if union1 == union2:
             return TermInst(loc, typ, ResolvedVar(loc, typ, name),
                             tyargs, True)
-        case (FunctionType(loc1, typarams, param_types1, ret_type1),
+        case (FunctionType(_, typarams, param_types1, ret_type1),
               FunctionType(loc2, [], param_types2, ret_type2)):
           if len(typarams) > 0:
             matching = {}
@@ -3048,11 +3047,11 @@ def type_check_term(term, typ, env, recfun, subterms):
                   return ResolvedVar(loc, typ, x)
           user_error(loc, 'could not find an overload of ' + base_name(rs[0]) \
                 + ' of type ' + str(typ) + '\nin: ' + str(var_typ))
-        case (GenericUnknownInst(loc2, union1), TypeInst(loc3, union2, tyargs)):
+        case (GenericUnknownInst(loc2, union1), TypeInst(_, union2, tyargs)):
           if union1 == union2:
               return TermInst(loc, typ, ResolvedVar(loc, typ, rs[0]),
                               tyargs, True)
-        case (FunctionType(loc1, typarams, param_types1, ret_type1),
+        case (FunctionType(_, typarams, param_types1, ret_type1),
               FunctionType(loc2, [], param_types2, ret_type2)):
           if len(typarams) > 0:
             matching = {}
@@ -3064,7 +3063,7 @@ def type_check_term(term, typ, env, recfun, subterms):
               type_args = [matching[x] for x in type_params]
               return TermInst(ResolvedVar(loc, var_typ, rs[0]),
                               type_args, True)
-            except UserError as e:
+            except UserError:
               pass
       if var_typ != typ:
         user_error(loc, 'expected a term of type ' + str(typ) \
@@ -3097,8 +3096,8 @@ def type_check_term(term, typ, env, recfun, subterms):
       new_body = type_check_term(body, typ, body_env, recfun, subterms)
       return TLet(loc, typ, var, new_rhs, new_body)
       
-    case Call(loc, _, (OverloadedVar(loc2, vt, [op_name, *_])
-                       | ResolvedVar(loc2, vt, op_name)), args) \
+    case Call(loc, _, (OverloadedVar(loc2, _, [op_name, *_])
+                       | ResolvedVar(loc2, _, op_name)), args) \
         if op_name == '=' or op_name == '≠':
       new_term = type_synth_term(term, env, recfun, subterms)
       ty = new_term.typeof
@@ -3178,7 +3177,7 @@ def lookup_union(loc, typ, env):
   if isinstance(typ, VarRef):
     return env.get_def_of_type_var(typ)
   match typ:
-    case TypeInst(loc2, inst_typ, tyargs):
+    case TypeInst(_, inst_typ, _):
       return env.get_def_of_type_var(inst_typ)
     case _:
       user_error(loc, 'expected a union type but instead got ' + str(typ))
@@ -3190,7 +3189,7 @@ def check_constructor_pattern(loc, pat_constr, params, typ, env, cases_present):
   if get_verbose():
     print('for union: ' + str(defn))
   match defn:
-    case Union(loc2, name, typarams, alts):
+    case Union(_, _, typarams, alts):
       # example:
       # typ is List<E>
       # union List<T> { empty; node(T, List<T>); }
@@ -3237,7 +3236,7 @@ def check_pattern(pattern, typ, env, cases_present):
   match pattern:
     case PatternBool(loc, value):
       match typ:
-        case BoolType(loc2):
+        case BoolType(_):
           cases_present[str(value)] = True
           return env
         case _:
@@ -3314,7 +3313,7 @@ def check_strict_positivity(ty, union_name, env, forbidden=False):
             f"inconsistent (Russell's paradox)")
     return
   match ty:
-    case TypeInst(loc, head, type_args):
+    case TypeInst(_, head, type_args):
       check_strict_positivity(head, union_name, env, forbidden)
       head_pols = _lookup_param_polarities(head, env)
       for i, t in enumerate(type_args):
@@ -3325,11 +3324,11 @@ def check_strict_positivity(ty, union_name, env, forbidden=False):
         else:
           eff_forbidden = forbidden
         check_strict_positivity(t, union_name, env, eff_forbidden)
-    case FunctionType(loc, ty_params, param_types, return_type):
+    case FunctionType(_, _, param_types, return_type):
       for t in param_types:
         check_strict_positivity(t, union_name, env, forbidden=True)
       check_strict_positivity(return_type, union_name, env, forbidden)
-    case ArrayType(loc, elt_ty):
+    case ArrayType(_, elt_ty):
       check_strict_positivity(elt_ty, union_name, env, forbidden)
     case _:
       pass
@@ -3358,7 +3357,7 @@ def infer_param_polarities(union_decl, env):
           polarities[idx] = '-'
       return
     match ty:
-      case TypeInst(loc, head, type_args):
+      case TypeInst(_, head, type_args):
         walk(head, current)
         head_pols = _lookup_param_polarities(head, env)
         for i, arg in enumerate(type_args):
@@ -3370,11 +3369,11 @@ def infer_param_polarities(union_decl, env):
           else:
             eff = current
           walk(arg, eff)
-      case FunctionType(loc, ty_params, param_types, return_type):
+      case FunctionType(_, _, param_types, return_type):
         for t in param_types:
           walk(t, '-')
         walk(return_type, current)
-      case ArrayType(loc, elt_ty):
+      case ArrayType(_, elt_ty):
         walk(elt_ty, current)
       case _:
         pass
@@ -3907,7 +3906,7 @@ def _build_rule_induction_theorem(decl, param_types, rule_translations,
   derivation `union` (we just don't use the induction hypotheses)."""
   loc = decl.location
   pred_name = decl.name
-  base_pred = base_name(pred_name)
+  base_name(pred_name)
   arity = len(param_types)
 
   # The theorem's uniquified name was pre-registered in env during
@@ -4306,7 +4305,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       orig_name = base_name(name)
       if orig_name in unique_name.keys():
           match new_ty:
-            case FunctionType(loc2, ty_params, params, ret_ty):
+            case FunctionType(_, _, params, _):
               pass
             case _:
               binding = env.dict[unique_name[orig_name]]
@@ -4320,7 +4319,7 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
               env.declare_term_var(loc, name, new_ty,
                                    visibility=decl.visibility)
   
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, _):
       body_env = env.declare_type_vars(loc, typarams)
       check_type(returns, body_env)
       for t in params:
@@ -4331,14 +4330,14 @@ def process_declaration_visibility(decl : Declaration, env: Env, module_chain, d
       return decl, env.declare_term_var(loc, name, fun_type,
                                         visibility=decl.visibility)
 
-    case GenRecFun(loc, name, typarams, param_pairs, returns, measure, measure_ty,
-                   body, terminates):
+    case GenRecFun(loc, name, typarams, param_pairs, returns, _, measure_ty,
+                   body, _):
       body_env = env.declare_type_vars(loc, typarams)
       check_type(returns, body_env)
       for (p,t) in param_pairs:
           if t:
               check_type(t, body_env)
-      vars = [p for (p,t) in param_pairs]
+      [p for (p,t) in param_pairs]
       param_types = [t for (p,t) in param_pairs]
       if any([t == None for t in param_types]):
           user_error(loc, 'Add type annotations to the parameters.')
@@ -4544,22 +4543,22 @@ def process_declaration(stmt : Statement, env : Env, module_chain, downstream_ne
     case Declaration():
       return process_declaration_visibility(stmt, env, module_chain, downstream_needs_checking)
           
-    case Theorem(loc, name, frm, pf):
+    case Theorem(loc, name, _, _):
       return stmt, env
   
-    case Postulate(loc, name, frm):
+    case Postulate(loc, name, _):
       return stmt, env
   
-    case Assert(loc, frm):
+    case Assert(loc, _):
       return stmt, env
   
-    case Print(loc, trm):
+    case Print(loc, _):
       return stmt, env
 
     case Auto(loc, name):
       return stmt, env
   
-    case Associative(loc, typarams, op, typeof):
+    case Associative(loc, typarams, _, typeof):
       body_env = env.declare_type_vars(loc, typarams)
       check_type(typeof, body_env)
       return stmt, env
@@ -4593,9 +4592,9 @@ def type_check_fun_case(fun_case, name, params, returns, body_env, cases_present
     body_env = body_env.declare_term_vars(fun_case.location,
                                           zip(fun_case.parameters, params[1:]))
     match fun_case.pattern:
-      case PatternCons(loc, cons, parameters):
+      case PatternCons(_, _, parameters):
         pat_params = parameters
-      case PatternBool(loc, val):
+      case PatternBool(_, _):
         pat_params = []
     new_body = type_check_term(fun_case.body, returns, body_env, name, pat_params)
     check_no_recfun_escape(new_body, name)
@@ -4692,19 +4691,19 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
     case Trace(loc, var):
       var_ty = env.get_type_of_term_var(var)
       match var_ty:
-        case FunctionType(loc2, args, typs, ret_ty):
+        case FunctionType(_, _, _, _):
           pass
         case _:
           user_error(var.location, 'trace expects an identifer of type function, but instead got type ' + str(var_ty))
       return stmt
   
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, _):
       return stmt
   
     case Export(loc, name):
         return stmt
     
-    case Import(loc, name, ast):
+    case Import(loc, name, _):
       if name in error_on_next_import:
         if error_on_next_import[name]:
           # The first import was from the prelude
@@ -4747,7 +4746,7 @@ def type_check_stmt(stmt, env, error_on_next_import : dict[str, bool]):
 
 def validate_conjunct(loc, conj, fun):
   match conj:
-    case All(loc1, _, (name, ty), pos, body):
+    case All(loc1, _, (_, ty), _, body):
       # Make sure that  body is valid
       # Am I checking that all parameters are used? No.
       if validate_conjunct(loc, body, fun):
@@ -4768,7 +4767,7 @@ def validate_conjunct(loc, conj, fun):
 
 def extract_conjuncts(prem, fun):
   match prem:
-    case And(loc, ty, args):
+    case And(loc, _, args):
       return [validate_conjunct(loc, c, fun) for c in args]
     case _:
       return [validate_conjunct(prem.location, prem, fun)]
@@ -4777,7 +4776,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
   if get_verbose():
     print("generate_conjunct_body", conjunct)
   match conjunct:
-    case All(loc1, _, (name, ty), _, body):
+    case All(_, _, (name, ty), _, body):
       if len(case.pattern.parameters) <= param_i:
         user_error(loc, "Parameters in induction case didn't match parameters in conjunct")
       # TODO: This is really slapdash, it would be nice to know for the error message, for example, how many parameters the conjunct expects
@@ -4786,7 +4785,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
       env = env.declare_term_var(loc, inst_name, ty)
       return AllIntro(loc, (inst_name, ty), (0, 1), 
                       generate_conjunct_body(loc, body, case, fun_var, subst, env, param_i + 1))
-    case IfThen(loc, ty, prem, conc):
+    case IfThen(loc, ty, _, conc):
       ind_hyp = generate_proof_name("_")
       if len(case.induction_hypotheses) > 0:
         ind_hyp = case.induction_hypotheses[0][0]
@@ -4794,7 +4793,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
       return ImpIntro(loc, ind_hyp, None, generate_conjunct_body(loc, conc, case, fun_var, subst, env, param_i))
     case Call(loc, ty, rator, [arg]):
       match case.pattern:
-        case PatternTerm(loc, term, params):
+        case PatternTerm(loc, _, _):
           try:
             case.pattern.term = type_check_term(case.pattern.term, arg.typeof.substitute(subst), env, None, [])
           except UserError as e:
@@ -4843,7 +4842,7 @@ def generate_conjunct_body(loc, conjunct, case, fun_var, subst, env, param_i = 0
 
 def match_induction_generics(frm):
   match frm:
-    case All(loc, _, (name, ty), _, body) if isinstance(ty, TypeType):
+    case All(_, _, (name, ty), _, body) if isinstance(ty, TypeType):
       new_frm, tys = match_induction_generics(body)
       return new_frm, [name] + tys
     case _:
@@ -4851,10 +4850,10 @@ def match_induction_generics(frm):
 
 def match_induction_fun(frm, ty_tys, ind_ty):
   match frm:
-    case All(loc, _, (name, FunctionType(loc1, tps, [param_ty], BoolType())), _, body):
+    case All(loc, _, (_, FunctionType(_, _, [param_ty], BoolType())), _, body):
       type_mismatch = False
       match param_ty:
-        case TypeInst(loc1, typ, ps):
+        case TypeInst(_, typ, ps):
           if len(ps) != len(ty_tys):
             user_error(loc, "Theorem and predicate should have the same number of type parameters")
           # TODO: Name should be defined for the parameters all the time?
@@ -4884,7 +4883,7 @@ def match_induction_conjuncts(frm, fun, fun_ty, ind_ty):
                        Call(loc, fun_ty, ResolvedVar(loc, None, fun), [ResolvedVar(loc, None, 'x')]))
 
       match conc:
-        case All(_, typeof, (name, ty), pos, Call(loc, tyof, rator, [arg])) \
+        case All(_, _, (name, _), _, Call(loc, _, rator, [arg])) \
           if rator.name == fun and arg.name == name:
             pass
         case _:
@@ -4910,21 +4909,21 @@ def collect_env(stmt, env : Env):
     case Define(loc, name, ty, body):
       return env.define_term_var(loc, name, ty, body, stmt.visibility)
       
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, returns, _):
       fun_type = FunctionType(loc, typarams, params, returns)
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
 
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                  body, terminates):
+    case GenRecFun(loc, name, typarams, params, returns, _, _,
+                  body, _):
       fun_type = FunctionType(loc, typarams, [t for (x,t) in params], returns)
       return env.define_term_var(loc, name, fun_type, stmt,
                                  stmt.visibility)
       
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, _):
       return env
           
-    case Theorem(loc, name, frm, pf, isLemma):
+    case Theorem(loc, name, frm, _, _):
       return env.declare_proof_var(loc, name, frm)
 
     case Postulate(loc, name, frm):
@@ -4934,16 +4933,16 @@ def collect_env(stmt, env : Env):
       # Already collected inline during process_declaration.
       return env
 
-    case Export(loc, name, ast):
+    case Export(loc, name, _):
       return env
 
-    case Import(loc, name, ast):
+    case Import(loc, name, _):
       return env
   
     case Assert(loc, frm):
       return env
   
-    case Print(loc, trm):
+    case Print(loc, _):
       return env
 
     case Module(loc, name):
@@ -4992,18 +4991,18 @@ def collect_env(stmt, env : Env):
       resolved_op = None
       op_ty = env.get_type_of_term_var(op)
       match op_ty:
-          case OverloadType(loc2, overloads):
+          case OverloadType(_, overloads):
               for (x, funty) in overloads:
                   match funty:
-                      case FunctionType(loc3, typarams2, param_types, return_type):
+                      case FunctionType(_, typarams2, param_types, _):
                           try:
                               matching: dict = {}
                               type_match(loc, typarams2, param_types[0], typ, matching)
                               resolved_op = x
                               break
-                          except MatchFailed as ex:
+                          except MatchFailed:
                               continue
-          case FunctionType(loc2, typarams2, param_types, return_type):
+          case FunctionType(_, typarams2, param_types, _):
               assert isinstance(op, VarRef)
               resolved_op = op.get_name()
       if assoc_formula in env.proofs():
@@ -5032,30 +5031,30 @@ def add_vars(vars, call):
 
 def find_rec_calls(name, term, env):
   match term:
-    case TermInst(loc2, tyof, subject, tyargs, inferred):
+    case TermInst(loc2, _, subject, _, _):
       return find_rec_calls(name, subject, env)
     case Var() | OverloadedVar() | ResolvedVar():
       return []
-    case Bool(loc2, tyof, val):
+    case Bool(loc2, _, _):
       return []
-    case And(loc2, tyof, args):
+    case And(loc2, _, args):
       return sum([find_rec_calls(name, arg, env) for arg in args], [])
-    case Or(loc2, tyof, args):
+    case Or(loc2, _, args):
       return sum([find_rec_calls(name, arg, env) for arg in args], [])
-    case IfThen(loc2, tyof, prem, conc):
+    case IfThen(loc2, _, prem, conc):
       return find_rec_calls(name, prem, env) + find_rec_calls(name, conc, env)
-    case All(loc2, tyof, var, pos, frm2):
+    case All(loc2, _, _, _, frm2):
       return find_rec_calls(name, frm2, env)
-    case Some(loc2, tyof, vars, frm2):
+    case Some(loc2, _, _, frm2):
       return find_rec_calls(name, frm2, env)
-    case Call(loc2, tyof, rator, args):
+    case Call(loc2, _, rator, args):
       calls = find_rec_calls(name, rator, env) + \
           sum([find_rec_calls(name, arg, env) for arg in args], [])
       if rator_name(rator) == name:
           return [RecCall([], [], args)] + calls
       else:
           return calls
-    case Switch(loc2, tyof, subject, cases):
+    case Switch(loc2, _, subject, cases):
       calls = []
       for c in cases:
         c_body_calls = find_rec_calls(name, c.body, env)
@@ -5074,37 +5073,37 @@ def find_rec_calls(name, term, env):
         calls += new_c_body_calls
       return calls
   
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, name, _, params, _, cases):
       return []
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
-                   body, terminates):
+    case GenRecFun(_, name, _, params, _, _, _,
+                   body, _):
       return []
-    case Conditional(loc2, tyof, cond, thn, els):
+    case Conditional(loc2, _, cond, thn, els):
       thn_calls = find_rec_calls(name, thn, env)
       els_calls = find_rec_calls(name, els, env)
       new_thn_calls = [add_condition(cond, call) for call in thn_calls]
       not_cond = IfThen(loc2, None, cond, Bool(loc2, None, False))
       new_els_calls = [add_condition(not_cond, call) for call in els_calls]
       return find_rec_calls(name, cond, env) + new_thn_calls + new_els_calls
-    case Lambda(loc2, tyof, vars, body):
+    case Lambda(loc2, _, _, body):
       return find_rec_calls(name, body, env)
-    case Generic(loc2, tyof, typarams, body):
+    case Generic(loc2, _, _, body):
       return find_rec_calls(name, body, env)
-    case TAnnote(loc2, tyof, subject, typ):
+    case TAnnote(loc2, _, subject, _):
       return find_rec_calls(name, subject, env)
-    case ArrayGet(loc2, tyof, arr, ind):
+    case ArrayGet(loc2, _, arr, ind):
       return find_rec_calls(name, arr, env) \
           + find_rec_calls(name, ind, env)
-    case Array(loc2, tyof, elements):
+    case Array(loc2, _, elements):
       return sum([find_rec_calls(name, elt, env) for elt in elements], [])
-    case MakeArray(loc2, tyof, subject):
+    case MakeArray(loc2, _, subject):
       return find_rec_calls(name, subject, env)
-    case TLet(loc2, tyof, var, rhs, body):
+    case TLet(loc2, _, _, rhs, body):
       return find_rec_calls(name, rhs, env) \
           + find_rec_calls(name, body, env)
-    case Hole(loc2, tyof):
+    case Hole(loc2, _):
       return []
-    case Omitted(loc2, tyof):
+    case Omitted(loc2, _):
       return []
     case _:
       internal_error(getattr(term, 'location', None),
@@ -5125,9 +5124,9 @@ def check_proofs(stmt, env: Env):
   if _dbg is not None:
     _dbg.on_statement(stmt, env)
   match stmt:
-    case Define(loc, name, ty, body):
+    case Define(loc, name, _, body):
       pass
-    case Theorem(loc, name, frm, pf, isLemma):
+    case Theorem(loc, name, frm, pf, _):
       if get_verbose():
         print('checking proof of theorem ' + base_name(name))
       _try_check_proof_of(pf, frm, env)
@@ -5138,10 +5137,10 @@ def check_proofs(stmt, env: Env):
     case Predicate():
       pass
 
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, name, typarams, params, _, _):
       pass
 
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty,
+    case GenRecFun(loc, name, typarams, params, _, measure, _,
                    body, terminates):
       body_env = env.declare_type_vars(loc, typarams)
       
@@ -5185,13 +5184,13 @@ def check_proofs(stmt, env: Env):
       # check that the terminates proof proves the above formula
       _try_check_proof_of(terminates, formula, body_env)
   
-    case Union(loc, name, typarams, alts):
+    case Union(loc, name, typarams, _):
       pass
   
     case Export(loc, name):
       pass
   
-    case Import(loc, name, ast):
+    case Import(loc, name, _):
       pass
   
     case Print(loc, trm):
@@ -5204,7 +5203,7 @@ def check_proofs(stmt, env: Env):
       
     case Assert(loc, frm):
       match frm:
-        case Call(loc2, tyof2, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+        case Call(_, _, rator, [lhs, rhs]) if isinstance(rator, VarRef) and rator.get_name() == '=':
           set_reduce_all(True)
           set_eval_all(True)
           L = lhs.reduce(env)
@@ -5216,7 +5215,7 @@ def check_proofs(stmt, env: Env):
           else:
               user_error(loc, 'assertion failed:\n' +
                     '\t' + str(L) + ' ≠ ' + str(R) + '\n')
-        case IfThen(loc2, tyof2,
+        case IfThen(_, _,
                     Call(_, _, rator, [lhs, rhs]),
                     Bool(_, _, False)) if isinstance(rator, VarRef) and rator.get_name() == '=':
           set_reduce_all(True)
@@ -5237,18 +5236,18 @@ def check_proofs(stmt, env: Env):
           set_eval_all(False)
           set_reduce_all(False)
           match result:
-            case Bool(loc2, tyof, True):
+            case Bool(_, _, True):
               pass
-            case Bool(loc2, tyof, False):
+            case Bool(_, _, False):
               user_error(loc, 'assertion failed: ' + str(frm))
             case result:
               user_error(loc, 'assertion expected Boolean result, not ' \
                     + str(result))
 
-    case Auto(loc, pvar):
+    case Auto(loc, _):
       pass
   
-    case Associative(loc, typarams, op, typ):
+    case Associative(loc, typarams, _, _):
       pass
   
     case Inductive():
@@ -5257,7 +5256,7 @@ def check_proofs(stmt, env: Env):
     case Module(loc, name):
       pass
 
-    case Trace(loc, function_name):
+    case Trace(loc, _):
       pass
 
     case _:

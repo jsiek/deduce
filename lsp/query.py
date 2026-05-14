@@ -3795,7 +3795,6 @@ def _find_top_level(s: str, needle: str) -> Optional[int]:
     """Return the offset of ``needle`` at paren-depth 0 in ``s``, or
     ``None``.  Used to strip top-level binders from rendered goals."""
     depth = 0
-    n = len(needle)
     for i, ch in enumerate(s):
         if ch == "(":
             depth += 1

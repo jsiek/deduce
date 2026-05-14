@@ -466,18 +466,18 @@ def type_match(loc, tyvars, param_ty, arg_ty, matching):
      and param_ty.get_name() == arg_ty.get_name():
     return
   match (param_ty, arg_ty):
-    case (FunctionType(l1, tv1, pts1, rt1), FunctionType(l2, tv2, pts2, rt2)) \
+    case (FunctionType(_, tv1, pts1, rt1), FunctionType(_, tv2, pts2, rt2)) \
       if len(tv1) == len(tv2) and len(pts1) == len(pts2):
       for (pt1, pt2) in zip(pts1, pts2):
         type_match(loc, tyvars, pt1, pt2, matching)
       type_match(loc, tyvars, rt1, rt2, matching)
-    case (TypeInst(l1, n1, args1), TypeInst(l2, n2, args2)):
+    case (TypeInst(_, n1, args1), TypeInst(_, n2, args2)):
       if n1 != n2 or len(args1) != len(args2):
         match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
       for (arg1, arg2) in zip(args1, args2):
         type_match(loc, tyvars, arg1, arg2, matching)
     # How to handle GenericUnknownInst?
-    case (TypeInst(l1, n1, args1), GenericUnknownInst(l2, n2)):
+    case (TypeInst(_, n1, args1), GenericUnknownInst(_, n2)):
       if n1 != n2:
         match_failed(loc, str(arg_ty) + " does not match " + str(param_ty))
     case _:
@@ -492,7 +492,7 @@ def is_associative(loc, opname, typ, env):
     try:
       type_match(loc, type_params, ty, typ, matching)
       return True
-    except MatchFailed as e:
+    except MatchFailed:
       pass
   return False
 
@@ -500,15 +500,15 @@ def rator_name(rator):
   if isinstance(rator, VarRef):
     return rator.get_name()
   match rator:
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, name, _, _, _, _):
       return name
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
+    case GenRecFun(_, name, _, _, _, _, _, _, _):
       return name
-    case Lambda(loc, ty, vars, body):
+    case Lambda(_, _, _, _):
       return 'no_name'
-    case TermInst(loc3, tyof, arg2, tyargs):
+    case TermInst(_, _, arg2, _):
       return rator_name(arg2)
-    case Generic(loc2, tyof, typarams, body):
+    case Generic(_, _, _, _):
       return 'no_name'
     case _:
       return 'no_name'
@@ -516,7 +516,7 @@ def rator_name(rator):
 
 def flatten_assoc(op_name, trm):
   match trm:
-    case Call(loc2, tyof, rator, args) if rator_name(rator) == op_name:
+    case Call(_, _, rator, args) if rator_name(rator) == op_name:
       return sum([flatten_assoc(op_name, arg) for arg in args], [])
     case _:
       return [trm]
@@ -584,7 +584,7 @@ class OverloadType(Type):
 
   def __eq__(self, other):
     match other:
-      case OverloadType(l2, types2):
+      case OverloadType(_, types2):
         ret = True
         for ((x,t1), (y,t2)) in zip(self.types, types2):
           ret = ret and t1 == t2
@@ -638,7 +638,7 @@ class ArrayType(Type):
 
   def __eq__(self, other):
     match other:
-      case ArrayType(loc, elt_type):
+      case ArrayType(_, elt_type):
         return self.elt_type == elt_type
       case _:
         return False
@@ -657,7 +657,7 @@ class TypeInst(Type):
 
   def __eq__(self, other):
     match other:
-      case TypeInst(l, typ, arg_types):
+      case TypeInst(_, typ, arg_types):
         return self.typ == typ and \
           all([t1 == t2 for (t1, t2) in zip(self.arg_types, arg_types)])
       # case GenericUnknownInst(loc, typ):
@@ -681,7 +681,7 @@ class GenericUnknownInst(Type):
     match other:
       # case TypeInst(l, typ, arg_types):
       #   return self.typ == typ
-      case GenericUnknownInst(l, typ):
+      case GenericUnknownInst(_, typ):
         return self.typ == typ
       case _:
         return False
@@ -700,7 +700,7 @@ def get_type_name(ty):
   if isinstance(ty, VarRef):
     return ty
   match ty:
-    case TypeInst(l1, ty, type_args):
+    case TypeInst(_, ty, _):
       return get_type_name(ty)
     case _:
       raise InternalError('unhandled case in get_type_name: ' + repr(ty))
@@ -825,9 +825,9 @@ class Conditional(Term):
      cond = self.cond.reduce(env)
      if get_reduce_all():   # Does this work? Need to test!
          match cond:
-           case Bool(l1, tyof, True):
+           case Bool(_, _, True):
              return self.thn.reduce(env)
-           case Bool(l1, tyof, False):
+           case Bool(_, _, False):
              return self.els.reduce(env)
            case _:
              return Conditional(self.location, self.typeof, cond, self.thn, self.els)
@@ -835,9 +835,9 @@ class Conditional(Term):
          thn = self.thn.reduce(env)
          els = self.els.reduce(env)
          match cond:
-           case Bool(l1, tyof, True):
+           case Bool(_, _, True):
              return thn
-           case Bool(l1, tyof, False):
+           case Bool(_, _, False):
              return els
            case _:
              return Conditional(self.location, self.typeof, cond, thn, els)
@@ -1235,7 +1235,7 @@ def is_match(pattern, arg, subst):
     match pattern:
       case PatternBool(loc1, value):
         match arg:
-          case Bool(loc2, tyof, arg_value):
+          case Bool(_, _, arg_value):
             ret = arg_value == value
           case _ if isinstance(arg, VarRef):
             ret = False
@@ -1247,14 +1247,14 @@ def is_match(pattern, arg, subst):
           ret = constr == arg
         else:
           match arg:
-            case TermInst(loc3, tyof, arg2, tyargs):
+            case TermInst(_, _, arg2, _):
               ret = is_match(pattern, arg2, subst)
             case _:
               ret = False
 
       case PatternCons(loc1, constr, params):
         match arg:
-          case Call(loc2, cty, rator, args):
+          case Call(_, _, rator, args):
             # `rator` may be a (possibly term-instantiated) VarRef.
             inner = rator
             if isinstance(inner, TermInst):
@@ -1354,11 +1354,11 @@ def is_operator(trm):
   if isinstance(trm, VarRef):
     return is_operator_name(trm.get_name())
   match trm:
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, name, _, _, _, _):
       return is_operator_name(name)
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
+    case GenRecFun(_, name, _, _, _, _, _, _, _):
       return is_operator_name(name)
-    case TermInst(loc, tyof, subject, tyargs, inferred):
+    case TermInst(_, _, subject, _, _):
       return is_operator(subject)
     case _:
       return False
@@ -1368,11 +1368,11 @@ def operator_name(trm):
     nm = trm.get_name()
     return nm if get_unique_names() else base_name(nm)
   match trm:
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, name, _, _, _, _):
       return base_name(name)
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, terminates):
+    case GenRecFun(_, name, _, _, _, _, _, _, _):
       return base_name(name)
-    case TermInst(loc, tyof, subject, tyargs):
+    case TermInst(_, _, subject, _):
       return operator_name(subject)
     case _:
       raise InternalError('operator_name, unexpected term ' + str(trm))
@@ -1385,7 +1385,7 @@ def is_prefix_operator(trm):
 
 def precedence(trm):
   match trm:
-    case Call(loc1, tyof, rator, args) if is_operator(rator):
+    case Call(_, _, rator, args) if is_operator(rator):
       op_name = operator_name(rator)
       if len(args) >= 2:
         return infix_precedence.get(op_name, None)
@@ -1398,7 +1398,7 @@ def precedence(trm):
 
 def left_child(parent, child):
   match parent:
-    case Call(loc1, tyof, rator, [left, right]):
+    case Call(_, _, _, [left, _]):
       return child is left
     case _:
       return False
@@ -1593,7 +1593,7 @@ class Call(Term):
     args = [arg.reduce(env) for arg in flat_args]
     ret = None
     match fun:
-      case Var(loc, ty, '=') | OverloadedVar(loc, ty, ['=']) | ResolvedVar(loc, ty, '='):
+      case Var(loc, _, '=') | OverloadedVar(loc, _, ['=']) | ResolvedVar(loc, _, '='):
         if args[0] == args[1]:
           ret = Bool(loc, BoolType(loc), True)
         elif constructor_conflict(args[0], args[1], env):
@@ -1604,7 +1604,7 @@ class Call(Term):
         ret = Call(self.location, self.typeof, fun,
                    flatten_assoc_list(rator_name(self.rator), args))
 
-      case Lambda(loc, ty, vars, body):
+      case Lambda(loc, _, vars, body):
         # Note (Phase 5 / Step 22): no debugger hook here.
         # ``do_call`` forwards to ``do_function_call`` which is
         # already hooked; trapping a second time here would
@@ -1622,8 +1622,8 @@ class Call(Term):
           display_name = rn
         ret = self.do_call(loc, vars, body, args, call_env, name=display_name)
     
-      case GenRecFun(loc, name, [], params, returns, measure, measure_ty,
-                   body, terminates):
+      case GenRecFun(loc, name, [], params, returns, _, _,
+                   body, _):
         if env.get_tracing(name):
           global recursion_depth
           recursion_depth += 1
@@ -1634,9 +1634,9 @@ class Call(Term):
                                body, subst, env, None,
                                display_args=args)
 
-      case TermInst(loc, tyof,
-                    GenRecFun(loc2, name, typarams, params, returns,
-                              measure, measure_ty, body, terminates),
+      case TermInst(loc, _,
+                    GenRecFun(_, name, typarams, params, returns,
+                              _, _, body, _),
                     type_args):
         subst = {k: v for ((k,t),v) in zip(params, args)}
         ret = do_function_call(loc, name, typarams, type_args, [x for (x,t) in params], args,
@@ -1646,13 +1646,13 @@ class Call(Term):
       case RecFun(loc, name, [], params, returns, cases):
         ret = self.do_recursive_call(loc, name, fun, [], [], params, args,
                                      returns, cases, is_assoc, env)
-      case TermInst(loc, tyof,
-                    RecFun(loc2, name, typarams, params, returns, cases),
+      case TermInst(loc, _,
+                    RecFun(_, name, typarams, params, returns, cases),
                     type_args):
         ret = self.do_recursive_call(loc, name, fun, typarams, type_args,
                                      params, args, returns, cases, is_assoc,
                                      env)
-      case Generic(loc2, tyof, typarams, body):
+      case Generic(_, _, typarams, body):
         internal_error(self.location, 'in reduction, call to generic\n\t' + str(self))
       case _:
         ret = Call(self.location, self.typeof, fun, args)
@@ -1788,9 +1788,9 @@ class SwitchCase(AST):
     new_pat = self.pattern.uniquify(env, ctx)
     body_env = {x:y for (x,y) in env.items()}
     match new_pat:
-      case PatternBool(loc, value):
+      case PatternBool(_, _):
         pass
-      case PatternCons(loc, constr, params):
+      case PatternCons(_, _, params):
         new_params = [generate_name(x, ctx) for x in params]
         for (old,new) in zip(params, new_params):
           overwrite(body_env, old, new, self.location)
@@ -1802,9 +1802,9 @@ class SwitchCase(AST):
     if not isinstance(other, SwitchCase):
       return False
     match self.pattern, other.pattern:
-      case PatternBool(loc1, value1), PatternBool(loc2, value2):
+      case PatternBool(_, value1), PatternBool(_, value2):
         return value1 == value2 and self.body == other.body
-      case PatternCons(loc1, constr1, params1), PatternCons(loc2, constr2, params2):
+      case PatternCons(_, constr1, params1), PatternCons(_, constr2, params2):
         # Use ResolvedVar in the rename so substituted-in references
         # compare equal to the (already uniquified) ResolvedVars in
         # `other.body`. Picking Var here would break post-uniquify
@@ -1888,7 +1888,7 @@ class TermInst(Term):
     subject_red = self.subject.reduce(env)
     type_args_red = [t.reduce(env) for t in self.type_args]
     match subject_red:
-      case Generic(loc2, tyof, typarams, body):
+      case Generic(_, _, typarams, body):
         # sub = {x:t for (x,t) in zip(typarams, self.type_args)}
         sub = {x:t for (x,t) in zip(typarams, type_args_red)}
         return body.substitute(sub)
@@ -2070,7 +2070,7 @@ class Bool(Formula):
 
 def list_of_and(arg):
   match arg:
-    case And(loc, tyof, args):
+    case And(_, _, args):
       return args
     case _:
       return [arg]
@@ -2082,7 +2082,7 @@ def flatten_and(args):
 
 def is_true(b):
   match b:
-    case Bool(loc, ty, val):
+    case Bool(_, _, val):
         return val
     case _:
         return False
@@ -2130,7 +2130,7 @@ class And(Formula):
     newer_args = []
     for arg in new_args:
       match arg:
-        case Bool(loc, ty, val):
+        case Bool(_, _, val):
           if val:  # true: throw this away
             pass
           else:    # false: the whole thing is false
@@ -2146,7 +2146,7 @@ class And(Formula):
 
 def list_of_or(arg):
   match arg:
-    case Or(loc, tyof, args):
+    case Or(_, _, args):
       return args
     case _:
       return [arg]
@@ -2175,7 +2175,7 @@ class Or(Formula):
     newer_args = []
     for arg in new_args:
       match arg:
-        case Bool(loc, ty, val):
+        case Bool(_, _, val):
           if val:  # true: the whole thing is true
             return arg 
           else:    # false: throw this away
@@ -2196,7 +2196,7 @@ class IfThen(Formula):
 
   def __str__(self):
     match self.conclusion:
-      case Bool(loc, tyof, False):
+      case Bool(_, _, False):
         return str(Call(self.location, self.typeof,
                         Var(self.location, None, 'not'),
                         [self.premise]))
@@ -2272,7 +2272,7 @@ class All(Formula):
   def reduce(self, env):
     new_body = self.body.reduce(env)
     match new_body:
-      case Bool(loc, tyof, b):
+      case Bool(_, _, _):
         if get_verbose():
           print('reduce ' + str(self) + '\n\t==> ' + str(new_body))
         return new_body
@@ -2308,12 +2308,12 @@ class Some(Formula):
         + '. ' + str(self.body)
   
   def reduce(self, env):
-    n = len(self.vars)
+    len(self.vars)
     new_body = self.body.reduce(env)
     match new_body:
-      case Bool(loc2, tyof, True):
+      case Bool(_, _, True):
         return new_body
-      case Bool(loc2, tyof, False):
+      case Bool(_, _, False):
         return new_body
       case _:
         return Some(self.location,
@@ -2676,7 +2676,7 @@ class PTuple(Proof):
 
 def extract_tuple(pf):
     match pf:
-      case PTuple(loc, pfs):
+      case PTuple(_, pfs):
         return pfs
       case _:
        return [pf]
@@ -3386,12 +3386,12 @@ class FunCase(AST):
     body_env = copy_dict(env)
 
     match new_pat:
-      case PatternCons(loc, cons, parameters):
+      case PatternCons(_, _, parameters):
         new_pat_params = [generate_name(x, ctx) for x in parameters]
         for (old, new) in zip(parameters, new_pat_params):
           overwrite(body_env, old, new, self.location)
         new_pat = new_pat.with_bindings(new_pat_params)
-      case PatternBool(loc, b):
+      case PatternBool(_, _):
         pass
 
     new_params = [generate_name(x, ctx) for x in self.parameters]
@@ -3940,18 +3940,18 @@ def split_equation(loc, equation, env):
     equation = equation.reduceLets(env)
     
   match equation:
-    case Call(loc1, tyof, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+    case Call(_, _, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return (L, R)
-    case All(loc1, tyof, var, pos, body):
+    case All(_, _, _, _, body):
       return split_equation(loc, body, env)
     case _:
       internal_error(loc, 'expected an equality, not ' + str(equation))
 
 def equation_vars(formula):
   match formula:
-    case Call(loc1, tyof, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+    case Call(loc1, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return []
-    case All(loc1, tyof, var, pos, body):
+    case All(loc1, _, var, _, body):
       x, t = var
       v = ResolvedVar(loc1, None, x)
       v.typeof = t
@@ -3961,24 +3961,24 @@ def equation_vars(formula):
       
 def is_equation(formula):
   match formula:
-    case Call(loc1, tyof, rator, [L, R]) if isinstance(rator, VarRef) and rator.get_name() == '=':
+    case Call(_, _, rator, [_, _]) if isinstance(rator, VarRef) and rator.get_name() == '=':
       return True
-    case All(loc1, tyof, var, pos, body):
+    case All(_, _, _, _, body):
       return is_equation(body)
     case _:
       return False
 
 def isUInt(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return True
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'inc_dub':
         return isUInt(arg)
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'dub_inc':
         return isUInt(arg)
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'fromNat':
         return isNat(arg)
     case _:
@@ -3986,14 +3986,14 @@ def isUInt(t):
 
 def isBZero(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return True
     case _:
       return False
   
 def isDubInc(t):
   match t:
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'dub_inc':
         return True
     case _:
@@ -4001,7 +4001,7 @@ def isDubInc(t):
   
 def isIncDub(t):
   match t:
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'inc_dub':
         return True
     case _:
@@ -4009,7 +4009,7 @@ def isIncDub(t):
 
 def get_arg(t):
   match t:
-    case Call(loc, tyof1, rator, [arg]):
+    case Call(_, _, _, [arg]):
       return arg
     case _:
       raise InternalError('get_arg')
@@ -4035,7 +4035,7 @@ def uint_inc(loc, x):
 
 def isSuc(t):
   match t:
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
          if base_name(n) == 'suc':
       return True
     case _:
@@ -4153,12 +4153,12 @@ def intToNat(loc, n, zname='zero', sname='suc', ty=None):
 
 def isNat(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return True
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'suc':
       return isNat(arg)
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'lit':
       return isNat(arg)
     case _:
@@ -4166,7 +4166,7 @@ def isNat(t):
 
 def isLitNat(t):
   match t:
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'lit':
       return isNat(arg)
     case _:
@@ -4174,7 +4174,7 @@ def isLitNat(t):
 
 def isLitUInt(t):
   match t:
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
          if base_name(n) == 'fromNat':
       return isLitNat(arg)
     case _:
@@ -4182,10 +4182,10 @@ def isLitUInt(t):
   
 def isInt(t):
   match t:
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'pos':
       return isUInt(arg)
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'negsuc':
       return isUInt(arg)
     case _:
@@ -4193,9 +4193,9 @@ def isInt(t):
   
 def getZero(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return n
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'suc':
       return getZero(arg)
     case _:
@@ -4203,9 +4203,9 @@ def getZero(t):
 
 def getSuc(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return False
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [_]) \
       if base_name(n) == 'suc':
       return n
     case _:
@@ -4213,12 +4213,12 @@ def getSuc(t):
 
 def natToInt(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'zero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'zero':
       return 0
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'suc':
       return 1 + natToInt(arg)
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'lit':
       return natToInt(arg)
     case _:
@@ -4226,15 +4226,15 @@ def natToInt(t):
 
 def uintToInt(t):
   match t:
-    case (OverloadedVar(loc, tyof, [n, *_]) | ResolvedVar(loc, tyof, n)) if base_name(n) == 'bzero':
+    case (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)) if base_name(n) == 'bzero':
       return 0
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'dub_inc':
       return 2 * (1 + uintToInt(arg))
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'inc_dub':
       return 1 + 2 * uintToInt(arg)
-    case Call(loc, tyof1, (OverloadedVar(loc2, tyof2, [n, *_]) | ResolvedVar(loc2, tyof2, n)), [arg]) \
+    case Call(_, _, (OverloadedVar(_, _, [n, *_]) | ResolvedVar(_, _, n)), [arg]) \
       if base_name(n) == 'fromNat':
       return natToInt(arg)
     case _:
@@ -4260,18 +4260,18 @@ def mkIntLit(loc, n, sign):
 
 def isDeduceInt(t):
   match t:
-    case Call(loc, tyof1, (Var(loc2, tyof2, name) | OverloadedVar(loc2, tyof2, [name, *_]) | ResolvedVar(loc2, tyof2, name)), [arg]) if base_name(name) == 'pos':
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
       return isUInt(arg)
-    case Call(loc, tyof1, (Var(loc2, tyof2, name) | OverloadedVar(loc2, tyof2, [name, *_]) | ResolvedVar(loc2, tyof2, name)), [arg]) if base_name(name) == 'negsuc':
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'negsuc':
       return isUInt(arg)
     case _:
       return False
 
 def deduceIntToInt(t):
   match t:
-    case Call(loc, tyof1, (Var(loc2, tyof2, name) | OverloadedVar(loc2, tyof2, [name, *_]) | ResolvedVar(loc2, tyof2, name)), [arg]) if base_name(name) == 'pos':
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'pos':
       return '+' + str(uintToInt(arg))
-    case Call(loc, tyof1, (Var(loc2, tyof2, name) | OverloadedVar(loc2, tyof2, [name, *_]) | ResolvedVar(loc2, tyof2, name)), [arg]) if base_name(name) == 'negsuc':
+    case Call(_, _, (Var(_, _, name) | OverloadedVar(_, _, [name, *_]) | ResolvedVar(_, _, name)), [arg]) if base_name(name) == 'negsuc':
       return '-' + str(1 + uintToInt(arg))
     case _:
       internal_error(t.location, 'deduceIntToInt: expected an int, not ' + str(t))
@@ -4280,7 +4280,7 @@ def is_constructor(constr_name, env):
   for (name,binding) in env.dict.items():
     if isinstance(binding, TypeBinding):
       match binding.defn:
-        case Union(loc2, name, typarams, alts):
+        case Union(_, _, _, alts):
           for constr in alts:
             if constr.name == constr_name:
               return True
@@ -4292,7 +4292,7 @@ def is_constr_term(term, env):
   if isinstance(term, VarRef):
     return is_constructor(term.get_name(), env)
   match term:
-    case TermInst(loc, ty, body):
+    case TermInst(_, _, body):
       return is_constr_term(body, env)
     case _:
       return False
@@ -4301,32 +4301,32 @@ def constr_name(term):
   if isinstance(term, VarRef):
     return term.get_name()
   match term:
-    case TermInst(loc, ty, body):
+    case TermInst(_, _, body):
       return constr_name(body)
     case _:
       raise InternalError('constr_name unhandled ' + str(term))
     
 def constructor_conflict(term1, term2, env):
   match (term1, term2):
-    case (Call(loc1, tyof1, rator1, rands1),
-          Call(loc2, tyof3, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
+    case (Call(_, _, rator1, rands1),
+          Call(_, _, rator2, rands2)) if is_constr_term(rator1, env) and is_constr_term(rator2, env):
      if constr_name(rator1) != constr_name(rator2):
        return True
      else:
        return any([constructor_conflict(rand1, rand2, env) \
                    for (rand1, rand2) in zip(rands1, rands2)])
-    case (Call(loc1, tyof1, rator1, rands1), term2) if is_constr_term(rator1, env) and is_constr_term(term2, env):
+    case (Call(_, _, rator1, rands1), term2) if is_constr_term(rator1, env) and is_constr_term(term2, env):
       if constr_name(rator1) != constr_name(term2):
         return True
     case (term1, term2) if is_constr_term(term1, env) and is_constr_term(term2, env):
       if constr_name(term1) != constr_name(term2):
         return True
-    case (term1, Call(loc2, tyof2, rator2, rands2)) if is_constr_term(term1, env) and is_constr_term(rator2, env):
+    case (term1, Call(_, _, rator2, rands2)) if is_constr_term(term1, env) and is_constr_term(rator2, env):
       if constr_name(term1) != constr_name(rator2):
         return True
-    case (Bool(_, tyof1, True), Bool(_, tyof2, False)):
+    case (Bool(_, _, True), Bool(_, _, False)):
       return True
-    case (Bool(_, tyof1, False), Bool(_, tyof2, True)):
+    case (Bool(_, _, False), Bool(_, _, True)):
       return True
   return False
 
@@ -4339,27 +4339,27 @@ def _is_named(node, base):
 
 def isNodeList(t):
   match t:
-    case TermInst(loc2, tyof2, ctor, tyargs, inferred) if _is_named(ctor, 'empty'):
+    case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
       return True
-    case Call(loc, tyof1, TermInst(loc2, tyof2, ctor, tyargs, inferred),
-              [arg, ls]) if _is_named(ctor, 'node'):
+    case Call(_, _, TermInst(_, _, ctor, _, _),
+              [_, ls]) if _is_named(ctor, 'node'):
       return isNodeList(ls)
     case _:
       return False
 
 def nodeListToList(t):
   match t:
-    case TermInst(loc2, tyof2, ctor, tyargs, inferred) if _is_named(ctor, 'empty'):
+    case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
       return []
-    case Call(loc, tyof1, TermInst(loc2, tyof2, ctor, tyargs, inferred),
+    case Call(_, _, TermInst(_, _, ctor, _, _),
               [arg, ls]) if _is_named(ctor, 'node'):
       return [arg] + nodeListToList(ls)
 
 def nodeListToString(t):
   match t:
-    case TermInst(loc2, tyof2, ctor, tyargs, inferred) if _is_named(ctor, 'empty'):
+    case TermInst(_, _, ctor, _, _) if _is_named(ctor, 'empty'):
       return ''
-    case Call(loc, tyof1, TermInst(loc2, tyof2, ctor, tyargs, inferred),
+    case Call(_, _, TermInst(_, _, ctor, _, _),
               [arg, ls]) if _is_named(ctor, 'node'):
       return str(arg) + ', ' + nodeListToString(ls)
 
@@ -4377,8 +4377,8 @@ def listToNodeList(loc, lst):
 
 def isEmptySet(t):
   match t:
-    case Call(loc2, tyof2, fun,
-              [Lambda(loc3, tyof3, vars, Bool(loc4, tyof4, False))]) \
+    case Call(_, _, fun,
+              [Lambda(_, _, _, Bool(_, _, False))]) \
               if base_name(rator_name(fun)) == 'char_fun':
       return True
     case _:
@@ -4655,9 +4655,9 @@ class Env:
   def _formula_of_proof_var(self, curr, name):
     if name in curr.keys():
       match curr[name]:
-        case ProofBinding(loc, formula):
+        case ProofBinding(_, formula):
           return formula
-        case TermBinding(loc, FunctionType()):
+        case TermBinding(_, FunctionType()):
           raise UserError('expected a proof but instead got term `' + base_name(name) + '`.'\
                         + '\nPerhaps you meant `expand ' + base_name(name) + '`?')
         case TermBinding():
@@ -4677,16 +4677,16 @@ class Env:
 
   def term_var_is_defined(self, tvar):
     match tvar:
-      case OverloadedVar(loc, tyof, resolved_names):
+      case OverloadedVar(_, _, resolved_names):
         return any([self._term_var_defined(self.dict, x) for x in resolved_names])
-      case ResolvedVar(loc, tyof, name):
+      case ResolvedVar(_, _, name):
         return self._term_var_defined(self.dict, name)
-      case Var(loc, tyof, name):
+      case Var(_, _, name):
         return self._term_var_defined(self.dict, name)
         
   def proof_var_is_defined(self, pvar):
     match pvar:
-      case PVar(loc, name):
+      case PVar(_, name):
         if self._formula_of_proof_var(self.dict, name):
           return True
         else:
@@ -4708,14 +4708,14 @@ class Env:
       
   def get_formula_of_proof_var(self, pvar):
     match pvar:
-      case PVar(loc, name):
+      case PVar(_, name):
         return self._formula_of_proof_var(self.dict, name)
       case _:
         raise Exception('get_formula_of_proof_var: expected PVar, not ' + str(pvar))
           
   def get_type_of_term_var(self, tvar):
     match tvar:
-      case OverloadedVar(loc, tyof, resolved_names):
+      case OverloadedVar(loc, _, resolved_names):
         looked_up = [(x, self._type_of_term_var(self.dict, x)) for x in resolved_names]
         # Drop candidates not in env (e.g., overloads from modules
         # that haven't been imported here).
@@ -4725,9 +4725,9 @@ class Env:
         if len(overloads) > 1:
           return OverloadType(loc, overloads)
         return overloads[0][1]
-      case ResolvedVar(loc, tyof, name):
+      case ResolvedVar(loc, _, name):
         return self._type_of_term_var(self.dict, name)
-      case Var(loc, tyof, name):
+      case Var(loc, _, name):
         return self._type_of_term_var(self.dict, name)
 
   def get_value_of_term_var(self, tvar):
@@ -4813,114 +4813,114 @@ class MarkException(BaseException):
 
 def count_marks(formula):
   match formula:
-    case Mark(loc2, tyof, subject):
+    case Mark(_, _, subject):
       return 1 + count_marks(subject)
-    case TermInst(loc2, tyof, subject, tyargs, inferred):
+    case TermInst(_, _, subject, _, _):
       return count_marks(subject)
     case Var() | OverloadedVar() | ResolvedVar():
       return 0
-    case Bool(loc2, tyof, val):
+    case Bool(_, _, _):
       return 0
-    case And(loc2, tyof, args):
+    case And(_, _, args):
       return sum([count_marks(arg) for arg in args])
-    case Or(loc2, tyof, args):
+    case Or(_, _, args):
       return sum([count_marks(arg) for arg in args])
-    case IfThen(loc2, tyof, prem, conc):
+    case IfThen(_, _, prem, conc):
       return count_marks(prem) + count_marks(conc)
-    case All(loc2, tyof, var, _, frm2):
+    case All(_, _, _, _, frm2):
       return count_marks(frm2)
-    case Some(loc2, tyof, vars, frm2):
+    case Some(_, _, _, frm2):
       return count_marks(frm2)
-    case Call(loc2, tyof, rator, args):
+    case Call(_, _, rator, args):
       return count_marks(rator) + sum([count_marks(arg) for arg in args])
-    case Switch(loc2, tyof, subject, cases):
+    case Switch(_, _, subject, cases):
       return count_marks(subject) + sum([count_marks(c) for c in cases])
-    case SwitchCase(loc2, pat, body):
+    case SwitchCase(_, _, body):
       return count_marks(body)
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, _, _, _, _, cases):
       return 0
-    case GenRecFun(loc, name, typarams, params, returns, measure, measure_ty, body, trm):
+    case GenRecFun(_, _, _, _, _, _, _, body, _):
       return 0
-    case Conditional(loc2, tyof, cond, thn, els):
+    case Conditional(_, _, cond, thn, els):
       return count_marks(cond) + count_marks(thn) + count_marks(els)
-    case Lambda(loc2, tyof, vars, body):
+    case Lambda(_, _, _, body):
       return count_marks(body)
-    case Generic(loc2, tyof, typarams, body):
+    case Generic(_, _, _, body):
       return count_marks(body)
-    case TAnnote(loc2, tyof, subject, typ):
+    case TAnnote(_, _, subject, _):
       return count_marks(subject)
-    case TLet(loc2, tyof, var, rhs, body):
+    case TLet(_, _, _, rhs, body):
       return count_marks(rhs) + count_marks(body)
-    case Hole(loc2, tyof):
+    case Hole(_, _):
       return 0
-    case Omitted(loc2, tyof):
+    case Omitted(_, _):
       return 0
-    case ArrayGet(loc, tyof, arr, ind):
+    case ArrayGet(_, _, arr, ind):
       return count_marks(arr) + count_marks(ind)
-    case Array(loc, tyof, elements):
+    case Array(_, _, elements):
       return sum([count_marks(elt) for elt in elements])
-    case MakeArray(loc, tyof, subject):
+    case MakeArray(_, _, subject):
       return count_marks(subject)
     case _:
       internal_error(formula.location, 'in count_marks function, unhandled ' + str(formula))
 
 def find_mark(formula):
   match formula:
-    case Mark(loc2, tyof, subject):
+    case Mark(_, _, subject):
       raise MarkException(subject)
-    case TermInst(loc2, tyof, subject, tyargs, inferred):
+    case TermInst(_, _, subject, _, _):
       find_mark(subject)
     case Var() | OverloadedVar() | ResolvedVar():
       pass
-    case Bool(loc2, tyof, val):
+    case Bool(_, _, _):
       pass
-    case And(loc2, tyof, args):
+    case And(_, _, args):
       for arg in args:
           find_mark(arg)
-    case Or(loc2, tyof, args):
+    case Or(_, _, args):
       for arg in args:
           find_mark(arg)
-    case IfThen(loc2, tyof, prem, conc):
+    case IfThen(_, _, prem, conc):
       find_mark(prem)
       find_mark(conc)
-    case All(loc2, tyof, var, pos, frm2):
+    case All(_, _, _, _, frm2):
       find_mark(frm2)
-    case Some(loc2, tyof, vars, frm2):
+    case Some(_, _, _, frm2):
       find_mark(frm2)
-    case Call(loc2, tyof, rator, args):
+    case Call(_, _, rator, args):
       find_mark(rator)
       for arg in args:
           find_mark(arg)
-    case Switch(loc2, tyof, subject, cases):
+    case Switch(_, _, subject, cases):
       find_mark(subject)
       for c in cases:
           find_mark(c)
-    case SwitchCase(loc2, pat, body):
+    case SwitchCase(_, _, body):
       find_mark(body)
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, _, _, _, _, cases):
       pass
-    case Conditional(loc2, tyof, cond, thn, els):
+    case Conditional(_, _, cond, thn, els):
       find_mark(cond)
       find_mark(thn)
       find_mark(els)
-    case Lambda(loc2, tyof, vars, body):
+    case Lambda(_, _, _, body):
       find_mark(body)
-    case Generic(loc2, tyof, typarams, body):
+    case Generic(_, _, _, body):
       find_mark(body)
-    case TAnnote(loc2, tyof, subject, typ):
+    case TAnnote(_, _, subject, _):
       find_mark(subject)
-    case TLet(loc2, tyof, var, rhs, body):
+    case TLet(_, _, _, rhs, body):
       find_mark(rhs)
       find_mark(body)
-    case Hole(loc2, tyof):
+    case Hole(_, _):
       pass
-    case ArrayGet(loc2, tyof, arr, ind):
+    case ArrayGet(_, _, arr, ind):
       find_mark(arr)
       find_mark(ind)
-    case Array(loc2, tyof, elements):
+    case Array(_, _, elements):
       for elt in elements:
           find_mark(elt)
-    case MakeArray(loc2, tyof, subject):
+    case MakeArray(_, _, subject):
       find_mark(subject)
     case _:
       internal_error(formula.location, 'in find_mark function, unhandled ' + str(formula))
@@ -4933,7 +4933,7 @@ def replace_mark(formula, replacement):
       return TermInst(loc2, tyof, replace_mark(subject, replacement), tyargs, inferred)
     case Var() | OverloadedVar() | ResolvedVar():
       return formula
-    case Bool(loc2, tyof, val):
+    case Bool(loc2, tyof, _):
       return formula
     case And(loc2, tyof, args):
       return And(loc2, tyof, [replace_mark(arg, replacement) for arg in args])
@@ -4954,7 +4954,7 @@ def replace_mark(formula, replacement):
                     [replace_mark(c, replacement) for c in cases])
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, replace_mark(body, replacement))
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(_, _, typarams, _, _, cases):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
       return Conditional(loc2, tyof, replace_mark(cond, replacement),
@@ -4964,7 +4964,7 @@ def replace_mark(formula, replacement):
       return Lambda(loc2, tyof, vars, replace_mark(body, replacement))
     case Generic(loc2, tyof, typarams, body):
       return Generic(loc2, tyof, typarams, replace_mark(body, replacement))
-    case TAnnote(loc2, tyof, subject, typ):
+    case TAnnote(loc2, tyof, subject, _):
       return TAnnote(loc2, tyof, replace_mark(subject, replacement))
     case TLet(loc2, tyof, var, rhs, body):
       return TLet(loc2, tyof, var, replace_mark(rhs, replacement),
@@ -4995,14 +4995,14 @@ def remove_mark(formula):
       
 def extract_and(frm):
     match frm:
-      case And(loc, tyof, args):
+      case And(_, _, args):
         return args
       case _:
        return [frm]
 
 def extract_or(frm):
     match frm:
-      case Or(loc, tyof, args):
+      case Or(_, _, args):
         return args
       case _:
        return [frm]
@@ -5174,7 +5174,7 @@ def make_switch_for(meta, defs, subject, cases):
 
 def explicit_term_inst(term):
   match term:
-    case TermInst(loc2, tyof, subject, tyargs, inferred):
+    case TermInst(loc2, tyof, subject, tyargs, _):
       return TermInst(loc2, tyof, subject, tyargs, False)
     case Switch(loc2, tyof, subject, cases):
       return Switch(loc2, tyof, explicit_term_inst(subject),
@@ -5218,7 +5218,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
     rhs = try_rewrite(loc, formula, equation, env)
     inc_rewrites()
     return rhs
-  except MatchFailed as e:
+  except MatchFailed:
     if get_verbose():
       print('\tno match')
     pass
@@ -5228,7 +5228,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
                       tyargs, inferred)
     case OverloadedVar() | ResolvedVar() | Var():
       return formula
-    case Bool(loc2, tyof, val):
+    case Bool(loc2, tyof, _):
       return formula
     case And(loc2, tyof, args):
       return And(loc2, tyof, [rewrite_aux(loc, arg, equation, env, depth - 1) for arg in args])
@@ -5267,7 +5267,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
             old_num_rewrites = get_num_rewrites()
             try:
                new_tmp = rewrite_aux(loc, tmp, equation, env, depth)
-            except MatchFailed as e:
+            except MatchFailed:
                new_tmp = tmp
             new_num_rewrites = get_num_rewrites()
             if new_num_rewrites == old_num_rewrites:
@@ -5297,7 +5297,7 @@ def rewrite_aux(loc, formula, equation, env, depth = -1):
                     [rewrite_aux(loc, c, equation, env, depth - 1) for c in cases])
     case SwitchCase(loc2, pat, body):
       return SwitchCase(loc2, pat, rewrite_aux(loc, body, equation, env, depth - 1))
-    case RecFun(loc, name, typarams, params, returns, cases):
+    case RecFun(loc, _, typarams, _, _, cases):
       return formula
     case Conditional(loc2, tyof, cond, thn, els):
       return Conditional(loc2, tyof, rewrite_aux(loc, cond, equation, env, depth - 1),
@@ -5361,8 +5361,8 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
     print("\tin  " + ','.join([str(x) for x in vars]))
     print("\twith " + ','.join([x + ' := ' + str(f) for (x,f) in matching.items()]))
   match (pattern_frm, frm):
-    case (TermInst(loc1, tyof1, subject1, tyargs1, inferred1),
-          TermInst(loc2, tyof2, subject2, tyargs2, inferred2)) \
+    case (TermInst(_, _, subject1, tyargs1, _),
+          TermInst(_, _, subject2, tyargs2, _)) \
           if len(tyargs1) == len(tyargs2):
       try:
         matching2 = dict(matching)
@@ -5371,13 +5371,13 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
         formula_match(loc, vars, subject1, subject2, matching2, env)
         matching.clear()
         matching.update(matching2)
-      except MatchFailed as ex:
+      except MatchFailed:
         formula_match(loc, vars, subject1, frm, matching, env)
         
-    case (TermInst(loc2, tyof, subject, tyargs, inferred), _):
+    case (TermInst(_, _, subject, _, _), _):
       formula_match(loc, vars, subject, frm, matching, env)
       
-    case (_, TermInst(loc2, tyof, subject, tyargs, inferred)):
+    case (_, TermInst(_, _, subject, _, _)):
       formula_match(loc, vars, pattern_frm, subject, matching, env)
       
     case _ if isinstance(pattern_frm, VarRef) and isinstance(frm, VarRef) \
@@ -5392,7 +5392,7 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
             print("formula_match, " + base_name(tyvar_name) + ' := ' + str(frm))
         matching[tyvar_name] = frm
         
-    case (Call(loc2, tyof2, goal_rator, goal_rands),
+    case (Call(_, _, goal_rator, goal_rands),
           Call(loc3, tyof3, rator, rands)):
       if False and get_verbose():
           print("matching Call with Call\n\trator pattern: " + str(goal_rator) + '\n'\
@@ -5418,17 +5418,17 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
         match_failed(loc, "formula: " + str(frm) + "\n" \
                      + "does not match expected formula: " + str(pattern_frm))
         
-    case (And(loc2, tyof2, goal_args),
+    case (And(_, _, goal_args),
           And(loc3, tyof3, args)):
       for (goal_arg, arg) in zip(goal_args, args):
           new_goal_arg = goal_arg.substitute(matching)
           formula_match(loc, vars, new_goal_arg, arg, matching, env)
-    case (Or(loc2, tyof2, goal_args),
+    case (Or(_, _, goal_args),
           Or(loc3, tyof3, args)):
       for (goal_arg, arg) in zip(goal_args, args):
           new_goal_arg = goal_arg.substitute(matching)
           formula_match(loc, vars, new_goal_arg, arg, matching, env)
-    case (IfThen(loc2, tyof2, goal_prem, goal_conc),
+    case (IfThen(_, _, goal_prem, goal_conc),
           IfThen(loc3, tyof3, prem, conc)):
       formula_match(loc, vars, goal_prem, prem, matching, env)
       new_goal_conc = goal_conc.substitute(matching)
@@ -5443,20 +5443,19 @@ def formula_match(loc, vars, pattern_frm, frm, matching, env):
 
 def call_arity(call):
     match call:
-      case Call(loc2, tyof, rator, args):
+      case Call(_, _, _, args):
         return len(args)
       case _:
         return 1 #raise Exception('call_arity: not a call ' + str(call))
 
 def term_head(term):
     match term:
-      case Call(loc, ty1, rator, args):
+      case Call(_, _, rator, _):
           return base_name(rator_name(rator)) # TODO: remove base_name -Jeremy
       case _:
           return 'no_name'
     
 def auto_rewrites(term, env):
-    orig_term = term
     # Iterate until we can't rewrite anymore (to a fixed point)
     while True:
         current = get_num_rewrites()
