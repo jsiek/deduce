@@ -44,7 +44,7 @@ import re
 import traceback as _traceback
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union, cast
 
 
 __all__ = [
@@ -92,6 +92,11 @@ __all__ = [
     "preview_expand_at",
     "auto_rules_at",
 ]
+
+
+def _call_untyped(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Typed boundary for calls into not-yet-strict Deduce core modules."""
+    return fn(*args, **kwargs)
 
 
 class Severity(Enum):
@@ -895,7 +900,7 @@ def _normalize_formula(formula_ast, env, rendered: str) -> Optional[str]:
     return text
 
 
-def _attach_normalized_givens(givens: tuple, env) -> tuple:
+def _attach_normalized_givens(givens: tuple, env: Any) -> tuple:
     """Add ``formula_normalized`` to each given when env exposes its AST.
 
     Walks ``env``'s ``ProofBinding`` entries to map each printed label
@@ -915,7 +920,7 @@ def _attach_normalized_givens(givens: tuple, env) -> tuple:
     for unique, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
-        label = name2str(unique)
+        label = cast(str, _call_untyped(name2str, unique))
         # A label could appear more than once across nested scopes;
         # keep the most recent (later-inserted) binding to match what
         # the proof checker resolves to at the hole.
@@ -1327,7 +1332,10 @@ def _bump_priority(cand: CompletionCandidate, priority: int) -> CompletionCandid
     )
 
 
-def _collect_completion_names_from_ast(ast_nodes, _seen=None):
+def _collect_completion_names_from_ast(
+    ast_nodes: Any,
+    _seen: Optional[set[Any]] = None,
+) -> Any:
     """Yield a :class:`CompletionCandidate` per named top-level decl.
 
     Walks the user file's top-level statements plus ``Import.ast``
@@ -1588,7 +1596,12 @@ def _find_declaration(ast_nodes, target_name: str, _seen=None):
     return None
 
 
-def _walk_ast(node, visit, ast_class, seen=None):
+def _walk_ast(
+    node: Any,
+    visit: Callable[[Any], None],
+    ast_class: type[Any],
+    seen: Optional[set[int]] = None,
+) -> None:
     """Recursively visit every AST descendant of ``node``.
 
     Uses dataclass reflection so we don't have to enumerate every
@@ -2064,7 +2077,7 @@ def _splittable_vars(env) -> tuple:
         elif isinstance(binding, TermBinding):
             ty = binding.typ
             try:
-                type_var = get_type_name(ty)
+                type_var = _call_untyped(get_type_name, ty)
             except Exception:
                 continue
             # Match any name-resolution stage: pre-uniquify ``Var',
@@ -2120,7 +2133,7 @@ def _case_split_template(name: str, env) -> Optional[str]:
         # ``ResolvedVar'' (issue: PR #330 split these classes).
         ty = binding.typ
         try:
-            type_var = get_type_name(ty)
+            type_var = _call_untyped(get_type_name, ty)
         except Exception:
             return None
         if not isinstance(type_var, VarRef):
@@ -2297,7 +2310,7 @@ def _induction_template(formula, env) -> Optional[str]:
     body = formula.body
 
     try:
-        type_var = get_type_name(var_ty)
+        type_var = _call_untyped(get_type_name, var_ty)
     except Exception:
         return None
     if not isinstance(type_var, VarRef):
@@ -2354,13 +2367,15 @@ def _render_induction(var_x, var_ty, body, union_def, env) -> str:
 
         # Recursive params -> IH bindings.
         rec_params = [
-            (p, ty) for (p, ty) in params if is_recursive(union_name, ty)
+            (p, ty)
+            for (p, ty) in params
+            if cast(bool, _call_untyped(is_recursive, union_name, ty))
         ]
         if rec_params:
             ih_clauses = []
             for i, (p, p_ty) in enumerate(rec_params):
                 ih_var = ResolvedVar(p_ty.location, p_ty, p)
-                ih_body = update_all_head(body.substitute({var_x: ih_var}))
+                ih_body = _call_untyped(update_all_head, body.substitute({var_x: ih_var}))
                 ih_clauses.append(f"IH{i + 1}: {ih_body}")
             line += " assume " + ", ".join(ih_clauses)
 
@@ -2837,7 +2852,7 @@ def _implies(frm1, frm2) -> bool:
     saved = flags.verbose
     flags.verbose = False
     try:
-        check_implies(frm1.location, frm1, frm2)
+        _call_untyped(check_implies, frm1.location, frm1, frm2)
         return True
     except Exception:
         return False
@@ -2845,7 +2860,7 @@ def _implies(frm1, frm2) -> bool:
         flags.verbose = saved
 
 
-def _matching_given_names(goal, env) -> tuple:
+def _matching_given_names(goal: Any, env: Any) -> tuple[str, ...]:
     """Names of local proof bindings that discharge ``goal``.
 
     Exact equality matches come first (alphabetical), followed by
@@ -2856,8 +2871,8 @@ def _matching_given_names(goal, env) -> tuple:
     """
     from abstract_syntax import ProofBinding, base_name
 
-    exact: set = set()
-    implies: set = set()
+    exact: set[str] = set()
+    implies: set[str] = set()
     for unique, binding in env.dict.items():
         if not isinstance(binding, ProofBinding):
             continue
@@ -3016,7 +3031,7 @@ def preview_conclude_at(
     from abstract_syntax import remove_mark
 
     given_red = binding.formula.reduce(env)
-    goal_red = remove_mark(goal).reduce(env)
+    goal_red = _call_untyped(remove_mark, goal).reduce(env)
 
     if given_red == goal_red or _implies(given_red, goal_red):
         return {
@@ -3153,11 +3168,11 @@ def apply_at(
     # user-visible string is unaffected by the splice.
     from abstract_syntax import set_reduce_all
     if args:
-        set_reduce_all(True)
+        _call_untyped(set_reduce_all, True)
         try:
             goal_for_display = goal.reduce(env)
         finally:
-            set_reduce_all(False)
+            _call_untyped(set_reduce_all, False)
         goal_str = str(goal_for_display)
     else:
         goal_str = str(goal)
@@ -3198,7 +3213,7 @@ def apply_at(
                     "expected": already_consumed,
                     "got": len(args),
                 }
-            formula = instantiate(formula.location, formula, binding.defn)
+            formula = _call_untyped(instantiate, formula.location, formula, binding.defn)
 
     return _apply_match_manual(formula, goal, env, goal_str)
 
@@ -3257,7 +3272,7 @@ def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
 
     location = formula.location
 
-    set_reduce_all(True)
+    _call_untyped(set_reduce_all, True)
     try:
         if isinstance(formula, IfThen):
             if formula.conclusion.reduce(env) == goal.reduce(env):
@@ -3278,7 +3293,7 @@ def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
 
         if isinstance(formula, All):
             try:
-                vars, imps = collect_all_if_then(location, formula, env)
+                vars, imps = _call_untyped(collect_all_if_then, location, formula, env)
             except Exception as e:
                 msg = getattr(e, "message_body", None) or str(e) or ""
                 return {
@@ -3292,8 +3307,16 @@ def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
             for prem, conc in imps:
                 matching: dict[str, Any] = {}
                 try:
-                    formula_match(location, vars, conc, goal, matching, env,
-                                  numeric_literals=True)
+                    _call_untyped(
+                        formula_match,
+                        location,
+                        vars,
+                        conc,
+                        goal,
+                        matching,
+                        env,
+                        numeric_literals=True,
+                    )
                 except MatchFailed as e:
                     reasons.append(str(e))
                     continue
@@ -3324,10 +3347,10 @@ def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
             "reason": "expected an if-then formula, not " + str(formula),
         }
     finally:
-        set_reduce_all(False)
+        _call_untyped(set_reduce_all, False)
 
 
-def _split_premise_on_and(formula) -> list:
+def _split_premise_on_and(formula: Any) -> list[str]:
     """If ``formula`` is a top-level conjunction, render each conjunct
     separately so the result maps to what the user would put after
     ``to`` (Deduce desugars ``to A, B`` into a tuple proof of an
@@ -3542,7 +3565,7 @@ def _lemma_info_for(stmt, public_only: bool = False) -> Optional[LemmaInfo]:
         else:
             kind = SymbolKind.PREDICATE
         name = base_name(str(stmt.name)) if getattr(stmt, "name", None) else ""
-        signature = stmt.pretty_print(0).rstrip("\n")
+        signature = cast(str, _call_untyped(stmt.pretty_print, 0)).rstrip("\n")
     else:
         return None
 
@@ -3946,7 +3969,7 @@ def _formula_symbols(formula) -> frozenset:
     return frozenset(out)
 
 
-def _query_pattern(query: Optional[str]):
+def _query_pattern(query: Optional[str]) -> Optional[re.Pattern[str]]:
     """Return a compiled regex if ``query`` is a goal-shape pattern
     (contains ``_``), else ``None``.  Each ``_`` becomes ``.+?`` and
     other characters are matched literally with whitespace
@@ -4275,7 +4298,7 @@ def _preview_replace(
         return RewritePreview(outcome="unbound", name=original_input)
 
     eq_formula = binding.formula
-    if not is_equation(eq_formula):
+    if not cast(bool, _call_untyped(is_equation, eq_formula)):
         return RewritePreview(
             outcome="not_an_equation",
             formula=str(eq_formula),
@@ -4287,13 +4310,13 @@ def _preview_replace(
         # equations drops the quantifier; preview_replace mirrors that
         # so the preview matches what the real tactic would do.
         try:
-            (lhs, rhs) = split_equation(loc, eq_formula, env)
+            (lhs, rhs) = _call_untyped(split_equation, loc, eq_formula, env)
         except Exception:
             return RewritePreview(
                 outcome="not_an_equation",
                 formula=str(eq_formula),
             )
-        eq_formula = mkEqual(loc, rhs, lhs)
+        eq_formula = _call_untyped(mkEqual, loc, rhs, lhs)
 
     eq_reduced = eq_formula.reduce(env)
     before = formula.reduce(env)
@@ -4302,7 +4325,7 @@ def _preview_replace(
     from proof_checker import apply_rewrites
 
     try:
-        after = apply_rewrites(loc, before, [eq_reduced], env)
+        after = _call_untyped(apply_rewrites, loc, before, [eq_reduced], env)
     except UserError as exc:
         msg = getattr(exc, "message_body", None) or str(exc)
         if "no need for replace" in msg:
@@ -4312,7 +4335,7 @@ def _preview_replace(
             )
         elif "could not find any matches" in msg:
             try:
-                (lhs, _rhs) = split_equation(loc, eq_reduced, env)
+                (lhs, _rhs) = _call_untyped(split_equation, loc, eq_reduced, env)
                 reason = (
                     f"LHS '{lhs}' does not occur in the current goal"
                 )
@@ -4413,7 +4436,7 @@ def _preview_expand(
     from proof_checker import expand_definitions
 
     try:
-        after = expand_definitions(loc, formula, defs, env)
+        after = _call_untyped(expand_definitions, loc, formula, defs, env)
     except UserError as exc:
         msg = getattr(exc, "message_body", None) or str(exc)
         # Find which name failed by parsing the message: messages from
