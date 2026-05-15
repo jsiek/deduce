@@ -7,10 +7,13 @@ feature in alphabetical order by keyword. It gives the grammar rule
 In the grammar rules, an unquoted asterisk means zero-or more
 repetitions of the grammar item that it follows.
 The symbol ε means the empty string.
+
+<!--
+Note to maintainers:
 Grammar blocks marked `deduce-grammar` are checked against `Deduce.lark`
 by CI. Unmarked grammar blocks may intentionally use a simplified
 presentation while they are migrated to the strict check.
-
+-->
 
 ## Add
 
