@@ -1833,7 +1833,7 @@ def check_proof_of(proof, formula, env):
         _try_check_proof_of(new_pf, formula, env)
       else:
         match env.get_def_of_type_var(get_type_name(typ)):
-          case Union(loc2, name, typarams, alts):
+          case Union(_, name, typarams, alts):
             if len(cases) != len(alts):
               add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
                     + ', but only have ' + str(len(cases))
@@ -1902,7 +1902,7 @@ def check_proof_of(proof, formula, env):
       new_subject = type_synth_term(subject, env, None, [])
       ty = new_subject.typeof
       match ty:
-        case BoolType(loc2):
+        case BoolType(_):
           # check exhaustiveness
           has_true_case = False
           has_false_case = False
@@ -1962,7 +1962,7 @@ def check_proof_of(proof, formula, env):
         case _:
           tname = get_type_name(ty)
           match env.get_def_of_type_var(tname):
-            case Union(loc2, name, typarams, alts):
+            case Union(_, name, typarams, alts):
               if len(cases) != len(alts):
                 add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
                       + givens_str(env))
