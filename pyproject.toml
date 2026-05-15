@@ -187,3 +187,12 @@ module = ["abstract_syntax"]
 disallow_any_generics = true
 disallow_untyped_calls = true
 warn_return_any = true
+
+# parser.py is also being ratcheted in small strictness slices for #506.
+# These cheap flags are clean; later passes should add check_untyped_defs
+# and disallow_untyped_defs once their larger error sets are fixed.
+[[tool.mypy.overrides]]
+module = ["parser"]
+disallow_any_generics = true
+disallow_untyped_calls = true
+warn_return_any = true

@@ -20,6 +20,7 @@ from abstract_syntax import (
 )
 from lark import Lark, Token, exceptions
 from lark.tree import Meta
+from typing import Any, cast
 from flags import VerboseLevel
 from error import ParseError
 
@@ -881,8 +882,11 @@ def parse_tree_to_ast(e, parent):
     else:
         raise Exception('unhandled parse tree', e)
 
-def token_str(token, program_text):
+def token_str(token: Token, program_text: str) -> str:
     return program_text[token.start_pos:token.end_pos]
+
+def parse_program_tree(parse_tree: Any) -> list[Statement]:
+    return cast(list[Statement], parse_tree_to_ast(parse_tree, None))  # type: ignore[no-untyped-call]
 
 def parse(program_text: str,
           trace: "bool | VerboseLevel" = False,
@@ -904,7 +908,7 @@ def parse(program_text: str,
         print('parse tree: ')
         print(parse_tree)
         print('')
-    ast = parse_tree_to_ast(parse_tree, None)
+    ast = parse_program_tree(parse_tree)
     if trace:
         print('abstract syntax tree: ')
         print(ast)
