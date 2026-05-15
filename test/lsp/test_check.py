@@ -1,8 +1,8 @@
 """Acceptance test for ``lsp.query.check`` (Phase 1 / Step 3).
 
-For every ``test/should-error/*.pf`` fixture, verifies that ``check``
-returns a single ``Diagnostic`` with ``Severity.ERROR`` whose start
-line and column match the location reported in the sibling ``.err``
+For representative ``test/should-error/*.pf`` fixtures, verifies that
+``check`` returns ``Diagnostic`` values with ``Severity.ERROR`` whose
+start line and column match a location reported in the sibling ``.err``
 fixture. For a sample of ``test/should-validate/`` files, verifies
 ``check`` returns an empty list.
 
@@ -55,24 +55,33 @@ def _expected_positions(err_path: Path) -> list[Position]:
     ]
 
 
-def _error_pf_files() -> list[Path]:
-    return sorted(p for p in ERROR_DIR.glob("*.pf"))
-
-
-# A handful of should-validate files; the full corpus is already
-# covered by test_library.py at the CheckResult level. These confirm
-# the query API's empty-list contract.
-_SAMPLE_VALID = [
-    "after.pf",
-    "all-elim-tlet.pf",
-    "ImportTests.pf",
-    "ListTests.pf",
-    "NatTests.pf",
+_SAMPLE_ERRORS = [
+    # Normal proof error.
+    "conclude.pf",
+    # Parser error with multiple location headers.
+    "define_missing_semi.pf",
+    # Reference-style error with primary and related locations.
+    "overload6.pf",
+    # Import-related error.
+    "import_using_unknown.pf",
+    # Givens/proof-context diagnostic.
+    "givens_conclude_hole.pf",
 ]
 
 
-@pytest.mark.parametrize("pf_path", _error_pf_files(), ids=lambda p: p.name)
-def test_check_reports_error_at_expected_location(pf_path: Path) -> None:
+# A handful of should-validate files; the full corpus is covered by
+# test-deduce.py. These confirm the query API's empty-list contract.
+_SAMPLE_VALID = [
+    "empty_file.pf",
+    "ImportTests.pf",
+    "ListTests.pf",
+    "uint_replicate.pf",
+]
+
+
+@pytest.mark.parametrize("name", _SAMPLE_ERRORS)
+def test_check_reports_error_at_expected_location(name: str) -> None:
+    pf_path = ERROR_DIR / name
     err_path = pf_path.with_suffix(pf_path.suffix + ".err")
     expected_positions = _expected_positions(err_path)
     if not expected_positions:

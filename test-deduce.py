@@ -11,8 +11,9 @@ Modes
 Default (no flags): runs ``--cli + --lib + --passable + --errors``.
 
 Per-category flags (combinable):
-    --cli          One subprocess invocation of ``deduce.py example.pf``
-                   to sanity-check the CLI entry point itself.
+    --cli          One subprocess invocation of ``deduce.py`` on a tiny
+                   no-stdlib proof to sanity-check the CLI entry point
+                   itself.
     --lib          ``lib/`` with both parsers, no shared cache.
     --passable     ``test/should-validate``, ``example.pf``,
                    ``test/prelude`` with both parsers.
@@ -417,29 +418,29 @@ def run_parser_equivalence() -> list[tuple[str, str, str]]:
 
 
 def run_cli_test() -> list[tuple[str, str, str]]:
-    """Sanity-check that ``python deduce.py example.pf`` works end-to-end.
+    """Sanity-check that ``python deduce.py`` works end-to-end.
 
     The in-process runner exercises ``lsp.library.check_file``; this
     one subprocess invocation makes sure the ``deduce.py`` CLI wrapper
-    itself (arg parsing, ``init_import_directories``,
-    ``print_theorems``, exit codes) hasn't drifted. One file is
-    enough -- we're not re-checking ``example.pf``'s contents (the
-    in-process sweep already does that), we're testing the CLI shape.
+    itself (arg parsing, no-stdlib mode, exit codes, success output)
+    hasn't drifted. A tiny no-stdlib file is enough -- we're testing
+    the CLI shape without paying for a full stdlib bootstrap.
     """
+    cli_path = "./test/should-validate/theorem_true.pf"
     cp = subprocess.run(
-        [sys.executable, "deduce.py", "./example.pf"],
+        [sys.executable, "deduce.py", "--no-stdlib", cli_path],
         capture_output=True, text=True,
     )
     failures: list[tuple[str, str, str]] = []
     if cp.returncode != 0:
         failures.append((
-            "./example.pf", "cli",
+            cli_path, "cli",
             f"exit {cp.returncode}\nstderr: {cp.stderr[:500]}\n"
             f"stdout: {cp.stdout[:500]}",
         ))
-    elif "example.pf is valid" not in cp.stdout:
+    elif "theorem_true.pf is valid" not in cp.stdout:
         failures.append((
-            "./example.pf", "cli",
+            cli_path, "cli",
             f"unexpected stdout:\n{cp.stdout[:500]}",
         ))
     return failures
@@ -619,7 +620,9 @@ def main(argv: list[str]) -> int:
 
     if flags["cli"]:
         print("\n=== --cli: deduce.py CLI sanity check ===")
-        _, fails = time_section("deduce.py ./example.pf", run_cli_test)
+        _, fails = time_section(
+            "deduce.py --no-stdlib theorem_true.pf", run_cli_test
+        )
         total_failures.extend(fails)
 
     # Lib pool: clean state (no shared cache).

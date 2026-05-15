@@ -11,11 +11,8 @@ adding ``lib/`` and ``test/test-imports/`` to the import path,
 bumping the recursion limit). All test modules in this directory
 inherit it automatically.
 
-The ``_reset_prelude_per_test`` fixture drops the prelude cache
-between tests so each test starts from a clean slate. Strictly
-optional now that ``check_file`` is self-contained, but it makes
-test failures less puzzling -- a leak in the new state machinery
-shows up as a single failing test rather than as a cascade.
+Tests that need to force a fresh bootstrap call ``reset_prelude_cache``
+explicitly; ordinary tests rely on ``check_file`` to restore state.
 """
 
 import sys
@@ -36,7 +33,6 @@ from abstract_syntax import (  # noqa: E402
     init_import_directories,
 )
 from flags import set_quiet_mode  # noqa: E402
-from lsp.library import reset_prelude_cache  # noqa: E402
 
 
 LIB_DIR = REPO_ROOT / "lib"
@@ -51,16 +47,4 @@ def _set_up_globals():
     add_import_directory(str(LIB_DIR))
     add_import_directory(str(TEST_IMPORTS_DIR))
     sys.setrecursionlimit(10000)
-    yield
-
-
-@pytest.fixture(autouse=True)
-def _reset_prelude_per_test():
-    """Drop the prelude snapshot between tests for tidier isolation.
-
-    ``check_file``'s automatic state restore is enough for correctness,
-    but starting each test from a fresh bootstrap keeps test ordering
-    invisible.
-    """
-    reset_prelude_cache()
     yield

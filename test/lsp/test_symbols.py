@@ -26,6 +26,13 @@ from lsp.query import (  # noqa: E402
 )
 
 
+def _line_starting_with(path: Path, prefix: str) -> int:
+    for index, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if line.startswith(prefix):
+            return index
+    raise AssertionError(f"{path} has no line starting with {prefix!r}")
+
+
 # --------------------------------------------------------------------------
 # list_symbols
 # --------------------------------------------------------------------------
@@ -283,9 +290,10 @@ def test_definition_of_cross_file_constructor() -> None:
     assert loc.path.endswith("lib/NatDefs.pf"), (
         f"expected lib/NatDefs.pf, got {loc.path!r}"
     )
-    # The ``suc(Nat)`` constructor sits inside ``union Nat { ... }`` on
-    # line 5 of NatDefs.pf.
-    assert loc.range.start.line == 5
+    # The ``suc(Nat)`` constructor sits inside ``union Nat { ... }``.
+    assert loc.range.start.line == _line_starting_with(
+        REPO_ROOT / "lib" / "NatDefs.pf", "  suc(Nat)"
+    )
 
 
 def test_definition_of_cross_file_operator() -> None:
@@ -306,8 +314,10 @@ def test_definition_of_cross_file_operator() -> None:
     assert loc.path.endswith("lib/NatDefs.pf"), (
         f"expected lib/NatDefs.pf, got {loc.path!r}"
     )
-    # ``recursive operator +(Nat,Nat) -> Nat { ... }'' starts on line 8.
-    assert loc.range.start.line == 8
+    assert loc.range.start.line == _line_starting_with(
+        REPO_ROOT / "lib" / "NatDefs.pf",
+        "recursive operator +(Nat,Nat) -> Nat {",
+    )
 
 
 def test_definition_of_overloaded_operator_preserves_use_site() -> None:
@@ -341,12 +351,13 @@ def test_definition_of_overloaded_operator_preserves_use_site() -> None:
         "type checker is leaking the operator declaration's location "
         "onto the ResolvedVar, masking the use site"
     )
-    # ``recursive operator +(Nat,Nat) -> Nat { ... }'' starts on line 8
-    # of lib/NatDefs.pf.
     assert loc.path.endswith("lib/NatDefs.pf"), (
         f"expected lib/NatDefs.pf, got {loc.path!r}"
     )
-    assert loc.range.start.line == 8
+    assert loc.range.start.line == _line_starting_with(
+        REPO_ROOT / "lib" / "NatDefs.pf",
+        "recursive operator +(Nat,Nat) -> Nat {",
+    )
 
 
 def test_definition_of_ignores_imported_node_locations() -> None:
