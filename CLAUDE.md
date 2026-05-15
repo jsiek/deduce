@@ -26,10 +26,11 @@ python deduce.py path/to/file.pf
 python deduce.py --recursive-descent file.pf
 python deduce.py --lalr file.pf
 
-# Make targets run BOTH parsers across the test/lib tree
-make tests        # should-validate + should-error
+# Make targets run static checks and BOTH parsers across the test/lib tree
+make static       # ruff + mypy
+make tests        # static + should-validate + should-error
 make tests-lib    # checks the stdlib itself
-make              # tests + tests-lib (default)
+make              # static + token checks + tests (default)
 ```
 
 `test-deduce.py` is the higher-level harness used in CI:
