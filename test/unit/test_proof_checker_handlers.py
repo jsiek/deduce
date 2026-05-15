@@ -104,6 +104,13 @@ def test_check_proof_registers_extracted_synthesis_handlers() -> None:
         ast.PVar: proof_checker._check_proof_var,
         ast.PTrue: proof_checker._check_proof_true,
         ast.PAndElim: proof_checker._check_proof_and_elim,
+        ast.EvaluateFact: proof_checker._check_proof_evaluate_fact,
+        ast.ApplyDefsFact: proof_checker._check_proof_apply_defs_fact,
+        ast.RewriteFact: proof_checker._check_proof_rewrite_fact,
+        ast.SimplifyFact: proof_checker._check_proof_simplify_fact,
+        ast.PHole: proof_checker._check_proof_hole,
+        ast.PSorry: proof_checker._check_proof_sorry,
+        ast.PHelpUse: proof_checker._check_proof_help_use,
     }
 
     for proof_type, handler in expected.items():

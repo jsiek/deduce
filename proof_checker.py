@@ -632,11 +632,56 @@ def _check_proof_and_elim(proof, env):
     case _:
       user_error(loc, 'expected a conjunction, not ' + str(formula))
 
+def _check_proof_evaluate_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  set_reduce_all(True)
+  try:
+    return formula.reduce(env)
+  finally:
+    set_reduce_all(False)
+
+def _check_proof_apply_defs_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  return expand_definitions(proof.location, formula, proof.definitions, env)
+
+def _check_proof_rewrite_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  eqns = [check_proof(equation_proof, env)
+          for equation_proof in proof.equations]
+  red_formula = formula.reduce(env)
+  return apply_rewrites(proof.location, red_formula, eqns, env,
+                        display_formula=formula)
+
+def _check_proof_simplify_fact(proof, env):
+  formula = check_proof(proof.subject, env)
+  preds = [check_proof(given, env) for given in proof.givens]
+  equations = [pred_to_equality(proof.location, p) for p in preds]
+  eqns = [equation.reduce(env) for equation in equations]
+  new_formula = apply_rewrites(proof.location, formula, eqns, env)
+  return new_formula.reduce(env)
+
+def _check_proof_hole(proof, env):
+  incomplete_error(proof.location, 'unfinished proof')
+
+def _check_proof_sorry(proof, env):
+  user_error(proof.location, "can't use sorry in context with unknown goal")
+
+def _check_proof_help_use(proof, env):
+  formula = check_proof(proof.proof, env)
+  user_error(proof.location, proof_use_advice(proof.proof, formula, env))
+
 _CHECK_PROOF_HANDLERS = {
   PRecall: _check_proof_recall,
   PVar: _check_proof_var,
   PTrue: _check_proof_true,
   PAndElim: _check_proof_and_elim,
+  EvaluateFact: _check_proof_evaluate_fact,
+  ApplyDefsFact: _check_proof_apply_defs_fact,
+  RewriteFact: _check_proof_rewrite_fact,
+  SimplifyFact: _check_proof_simplify_fact,
+  PHole: _check_proof_hole,
+  PSorry: _check_proof_sorry,
+  PHelpUse: _check_proof_help_use,
 }
 
 def check_proof(proof, env):
@@ -648,45 +693,6 @@ def check_proof(proof, env):
     return handler(proof, env)
   ret = None
   match proof:
-    case EvaluateFact(loc, subject):
-      formula = check_proof(subject, env)
-      set_reduce_all(True)
-      red_formula = formula.reduce(env)
-      set_reduce_all(False)
-      ret = red_formula
-          
-    case ApplyDefsFact(loc, definitions, subject):
-      formula = check_proof(subject, env)
-      new_formula = expand_definitions(loc, formula, definitions, env)
-      ret = new_formula
-      
-    case RewriteFact(loc, subject, equation_proofs):
-      formula = check_proof(subject, env)
-      eqns = [check_proof(proof, env) for proof in equation_proofs]
-      red_formula = formula.reduce(env)
-      current_formula = red_formula
-      current_formula = apply_rewrites(loc, current_formula, eqns, env,
-                                       display_formula=formula)
-      ret = current_formula
-
-    case SimplifyFact(loc, subject, givens):
-      formula = check_proof(subject, env)
-      preds = [check_proof(proof, env) for proof in givens]
-      equations = [pred_to_equality(loc, p) for p in preds]
-      eqns = [equation.reduce(env) for equation in equations]
-      new_formula = apply_rewrites(loc, formula, eqns, env)
-      ret = new_formula.reduce(env)
-      
-    case PHole(loc):
-      incomplete_error(loc, 'unfinished proof')
-      
-    case PSorry(loc):
-      user_error(loc, "can't use sorry in context with unknown goal")
-
-    case PHelpUse(loc, proof):
-      formula = check_proof(proof, env)
-      user_error(loc, proof_use_advice(proof, formula, env))
-      
     case PTLetNew(loc, var, rhs, rest):
       new_rhs = type_synth_term(rhs, env, None, [])
       body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
