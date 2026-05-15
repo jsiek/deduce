@@ -1663,6 +1663,270 @@ def _check_proof_of_cases(proof, formula, env):
       add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
             + givens_str(env))
 
+def _check_proof_of_induction(proof, formula, env):
+  loc = proof.location
+  typ = check_type(proof.typ, env)
+  cases = proof.cases
+
+  if isinstance(formula, TLet):
+    formula = formula.reduceLets(env)
+  match formula:
+    case All(_, _, (_,ty), _, _):
+      if typ != ty:
+        add_diagnostic(loc, "type of induction: " + str(typ) \
+              + "\ndoes not match the all-formula's type: " + str(ty)
+              + givens_str(env))
+    case _:
+      add_diagnostic(loc, 'induction expected an all-formula, not ' + str(formula)
+            + givens_str(env))
+
+  # TODO: Allow for specification of what type to use
+  custom_ind = env.get_inductive(typ)
+
+  if custom_ind:
+    if get_verbose():
+      print(f"Using custom induction for type {typ}")
+    conjuncts = custom_ind["conjuncts"]
+    fun_name = custom_ind["fun"]
+    fun_ty = custom_ind['fun_ty']
+    type_vars = custom_ind['tys']
+    type_subst = {}
+
+    types_elimmed = custom_ind["thm"]
+
+    if len(cases) != len(conjuncts):
+      plural = '' if len(conjuncts) == 1 else 's'
+      add_diagnostic(loc, 'expected ' + str(len(conjuncts)) \
+            + ' case' + plural + ' for custom induction on ' + str(typ) \
+            + ', but have ' + str(len(cases)) \
+            + '\nExpected cases:\n' + _custom_induction_expected_cases(conjuncts) \
+            + givens_str(env))
+      return
+
+    if type_vars != []:
+      match typ:
+        case TypeInst(loc, _, params):
+          assert len(type_vars) == len(params) # Enforced by match_induction_fun
+          for k, v in zip(type_vars, params):
+            type_subst[k] = v
+            types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
+        case _:
+          internal_error("Expected a type inst")
+
+    pfun = Lambda(loc, fun_ty, [formula.var], formula.body)
+    fun_var = ResolvedVar(loc, fun_ty, fun_name)
+
+    annots = []
+
+    for (conjunct, case) in zip(conjuncts, cases):
+      conjunct = conjunct.substitute(type_subst)
+      new_body = generate_conjunct_body(loc, conjunct, case, fun_var, type_subst, env)
+      new_body = ApplyDefsGoal(loc, [fun_var], new_body)
+
+      annot = PAnnot(loc, conjunct, new_body)
+      annots.append(annot)
+
+    new_pf = PTLetNew(loc, fun_name, pfun,
+                      ApplyDefsFact(loc, [fun_var],
+                                    ModusPonens(loc,
+                                                AllElim(loc, types_elimmed, fun_var,  (0, 1)),
+                                                PTuple(loc, annots))))
+
+    if get_verbose():
+      print("Generated custom induction:")
+      print(new_pf)
+
+    _try_check_proof_of(new_pf, formula, env)
+  else:
+    match env.get_def_of_type_var(get_type_name(typ)):
+      case Union(_, name, typarams, alts):
+        if len(cases) != len(alts):
+          add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
+                + ', but only have ' + str(len(cases))
+                + givens_str(env))
+        cases_present = {}
+        for (constr,indcase) in zip(alts, cases):
+          check_pattern(indcase.pattern, typ, env, cases_present)
+          if get_verbose():
+              print('\nCase ' + str(indcase.pattern))
+          if indcase.pattern.constructor.name != constr.name:
+            add_diagnostic(indcase.location, "expected a case for " + str(base_name(constr.name)) \
+                  + " not " + str(base_name(indcase.pattern.constructor.name))
+                  + givens_str(env))
+          if len(indcase.pattern.parameters) != len(constr.parameters):
+            add_diagnostic(indcase.location, "expected " + str(len(constr.parameters)) \
+                  + " arguments to " + base_name(constr.name) \
+                  + " not " + str(len(indcase.pattern.parameters))
+                  + givens_str(env))
+          induction_hypotheses = [instantiate(loc, formula,
+                                              ResolvedVar(loc,None, param))
+                                  for (param, ty) in
+                                  zip(indcase.pattern.parameters,
+                                      constr.parameters)
+                                  if is_recursive(name, ty)]
+          body_env = env
+
+          if len(typarams) > 0:
+            sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
+            parameter_types = [p.substitute(sub) for p in constr.parameters]
+          else:
+            parameter_types = constr.parameters
+          body_env = body_env.declare_term_vars(loc,
+                                                zip(indcase.pattern.parameters,
+                                                    parameter_types),
+                                                True)
+
+          trm = pattern_to_term(indcase.pattern)
+          new_trm = type_check_term(trm, typ, body_env, None, [])
+          if isinstance(new_trm, TermInst):
+              new_trm.inferred = False
+          pre_goal = instantiate(loc, formula, new_trm)
+          goal = check_formula(pre_goal, body_env)
+
+          # fill the rest of the given induction_hypotheses with _ labels
+          for i in range(len(indcase.induction_hypotheses), len(induction_hypotheses)):
+            indcase.induction_hypotheses.append((generate_proof_name('_'), None))
+
+          for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
+            if frm1 != None:
+              new_frm1 = check_formula(frm1, body_env)
+              if new_frm1 != frm2:
+                (small_frm1,small_frm2) = isolate_difference(new_frm1, frm2)
+                msg = 'incorrect induction hypothesis, expected\n' \
+                    + str(frm2) + '\nbut got\n' + str(new_frm1) \
+                    + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2)
+                add_diagnostic(frm1.location, msg
+                      + givens_str(body_env))
+            body_env = body_env.declare_local_proof_var(loc, x, frm2)
+
+          _try_check_proof_of(indcase.body, goal, body_env)
+      case blah:
+        add_diagnostic(loc, "induction expected name of union, not " + str(typ)
+              + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
+
+def _check_proof_of_switch(proof, formula, env):
+  loc = proof.location
+  new_subject = type_synth_term(proof.subject, env, None, [])
+  cases = proof.cases
+  ty = new_subject.typeof
+  match ty:
+    case BoolType(_):
+      # check exhaustiveness
+      has_true_case = False
+      has_false_case = False
+      for scase in cases:
+        match scase.pattern:
+          case PatternBool(_, True):
+            has_true_case = True
+          case PatternBool(_, False):
+            has_false_case = True
+          case _:
+            internal_error(loc, 'unhandled case in switch proof')
+      if not has_true_case:
+        add_diagnostic(loc, 'missing case for true'
+            + givens_str(env))
+      if not has_false_case:
+        add_diagnostic(loc, 'missing case for false'
+            + givens_str(env))
+
+      # check each case
+      for scase in cases:
+        if not isinstance(scase.pattern, PatternBool):
+          add_diagnostic(scase.location, "expected pattern 'true' or 'false' in switch on bool"
+                + givens_str(env))
+
+        subject_case = Bool(scase.location, BoolType(scase.location), True) if scase.pattern.value \
+                       else Bool(scase.location, BoolType(scase.location), False)
+        equation = mkEqual(scase.location, new_subject, subject_case)
+        predicate = new_subject if scase.pattern.value \
+                                else IfThen(loc, None, new_subject, Bool(loc, None, False))
+
+        body_env = env
+
+        if len(scase.assumptions) == 0:
+              scase.assumptions.append((generate_proof_name('_'), None))
+
+        assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
+        if len(assumptions) == 1:
+          if assumptions[0][1] != None and assumptions[0][1] != predicate:
+            (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], predicate)
+            msg = 'expected assumption\n' + str(predicate) \
+                + '\nnot\n' + str(assumptions[0][1]) \
+                + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
+            add_diagnostic(scase.location, msg
+                  + givens_str(env))
+          body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], predicate)
+
+        if len(assumptions) > 1:
+          add_diagnostic(scase.location, 'only one assumption is allowed in a switch case'
+                + givens_str(env))
+        frm = rewrite(loc, formula.reduce(env), equation.reduce(env), env)
+        new_frm = frm.reduce(env)
+        _try_check_proof_of(scase.body, new_frm, body_env)
+    case TypeType(_):
+      # As far as I know, it is not possible to switch on a type
+      add_diagnostic(loc, "In 'switch' expected a term, got " + str(new_subject)
+            + givens_str(env))
+    case _:
+      tname = get_type_name(ty)
+      match env.get_def_of_type_var(tname):
+        case Union(_, _, typarams, alts):
+          if len(cases) != len(alts):
+            add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
+                  + givens_str(env))
+          cases_present = {}
+          for (constr,scase) in zip(alts, cases):
+            check_pattern(scase.pattern, ty, env, cases_present)
+            if scase.pattern.constructor.name != constr.name:
+              add_diagnostic(scase.location, "expected a case for " + str(constr) \
+                    + " not " + str(scase.pattern.constructor)
+                    + givens_str(env))
+            if len(scase.pattern.parameters) != len(constr.parameters):
+              add_diagnostic(scase.location, "expected " + str(len(constr.parameters)) \
+                    + " arguments to " + base_name(constr.name) \
+                    + " not " + str(len(scase.pattern.parameters))
+                    + givens_str(env))
+            subject_case = pattern_to_term(scase.pattern)
+            body_env = env
+
+            tyargs = get_type_args(ty)
+            sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
+            constr_params = [ty.substitute(sub) for ty in constr.parameters]
+            body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
+                                                           constr_params))
+
+            new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
+            if isinstance(new_subject_case, TermInst):
+                new_subject_case.inferred = False
+
+            if len(scase.assumptions) == 0:
+              scase.assumptions.append((generate_proof_name('_'), None))
+
+            assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
+            if len(assumptions) == 1:
+              assumption = mkEqual(scase.location, new_subject, subject_case)
+              new_assumption = type_synth_term(assumption, body_env, None, [])
+              if assumptions[0][1] != None:
+                  case_assumption = type_synth_term(assumptions[0][1], body_env, None, [])
+                  if case_assumption != new_assumption:
+                      add_diagnostic(scase.location, 'in case, expected assume of\n' + str(new_assumption) \
+                            + '\nnot\n' + str(case_assumption)
+                            + givens_str(body_env))
+              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], new_assumption)
+            if len(assumptions) > 1:
+              add_diagnostic(scase.location, 'only one assumption is allowed in a switch case'
+                    + givens_str(body_env))
+
+            if isinstance(new_subject, VarRef):
+              frm = formula.substitute({new_subject.name: new_subject_case})
+            else:
+              frm = formula
+            red_frm = frm.reduce(body_env)
+            _try_check_proof_of(scase.body, red_frm, body_env)
+        case _:
+          add_diagnostic(loc, "switch expected union type or bool, not " + str(ty)
+                + givens_str(env))
+
 _CHECK_PROOF_OF_HANDLERS = {
   PHole: _check_proof_of_hole,
   PSorry: _check_proof_of_sorry,
@@ -1683,6 +1947,8 @@ _CHECK_PROOF_OF_HANDLERS = {
   PAnnot: _check_proof_of_annot,
   PTuple: _check_proof_of_tuple,
   Cases: _check_proof_of_cases,
+  Induction: _check_proof_of_induction,
+  SwitchProof: _check_proof_of_switch,
 }
 
 def check_proof_of(proof, formula, env):
@@ -1760,266 +2026,6 @@ def check_proof_of(proof, formula, env):
     case RuleInversion(loc, _, _):
       _check_rule_inversion(proof, formula, env)
 
-    case Induction(loc, typ, cases):
-      typ = check_type(typ, env)
-
-      if isinstance(formula, TLet):
-        formula = formula.reduceLets(env)
-      match formula:
-        case All(_, _, (_,ty), _, frm):
-          if typ != ty:
-            add_diagnostic(loc, "type of induction: " + str(typ) \
-                  + "\ndoes not match the all-formula's type: " + str(ty)
-                  + givens_str(env))
-        case _:
-          add_diagnostic(loc, 'induction expected an all-formula, not ' + str(formula)
-                + givens_str(env))
-      
-      # TODO: Allow for specification of what type to use
-      custom_ind = env.get_inductive(typ)
-
-      if custom_ind:
-        if get_verbose():
-          print(f"Using custom induction for type {typ}")
-        conjuncts = custom_ind["conjuncts"]
-        fun_name = custom_ind["fun"]
-        fun_ty = custom_ind['fun_ty']
-        type_vars = custom_ind['tys'] 
-        type_subst = {}
-
-        types_elimmed = custom_ind["thm"]
-
-        if len(cases) != len(conjuncts):
-          plural = '' if len(conjuncts) == 1 else 's'
-          add_diagnostic(loc, 'expected ' + str(len(conjuncts)) \
-                + ' case' + plural + ' for custom induction on ' + str(typ) \
-                + ', but have ' + str(len(cases)) \
-                + '\nExpected cases:\n' + _custom_induction_expected_cases(conjuncts) \
-                + givens_str(env))
-          return
-
-        if type_vars != []:
-          match typ:
-            case TypeInst(loc, _, params):
-              assert len(type_vars) == len(params) # Enforced by match_induction_fun
-              for k, v in zip(type_vars, params):
-                type_subst[k] = v
-                types_elimmed = AllElimTypes(loc, types_elimmed, v, (0, 1))
-            case _:
-              internal_error("Expected a type inst")
-
-        pfun = Lambda(loc, fun_ty, [formula.var], formula.body)
-        fun_var = ResolvedVar(loc, fun_ty, fun_name)
-
-        annots = []
-
-        for (conjunct, case) in zip(conjuncts, cases):
-          conjunct = conjunct.substitute(type_subst)
-          new_body = generate_conjunct_body(loc, conjunct, case, fun_var, type_subst, env)
-          new_body = ApplyDefsGoal(loc, [fun_var], new_body)
-
-          annot = PAnnot(loc, conjunct, new_body)
-          annots.append(annot)
-        
-        new_pf = PTLetNew(loc, fun_name, pfun, 
-                          ApplyDefsFact(loc, [fun_var],
-                                        ModusPonens(loc, 
-                                                    AllElim(loc, types_elimmed, fun_var,  (0, 1)),
-                                                    PTuple(loc, annots))))
-        
-        if get_verbose():
-          print("Generated custom induction:")
-          print(new_pf)
-        
-        _try_check_proof_of(new_pf, formula, env)
-      else:
-        match env.get_def_of_type_var(get_type_name(typ)):
-          case Union(loc2, name, typarams, alts):
-            if len(cases) != len(alts):
-              add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases for induction' \
-                    + ', but only have ' + str(len(cases))
-                    + givens_str(env))
-            cases_present = {}
-            for (constr,indcase) in zip(alts, cases):
-              check_pattern(indcase.pattern, typ, env, cases_present)
-              if get_verbose():
-                  print('\nCase ' + str(indcase.pattern))
-              if indcase.pattern.constructor.name != constr.name:
-                add_diagnostic(indcase.location, "expected a case for " + str(base_name(constr.name)) \
-                      + " not " + str(base_name(indcase.pattern.constructor.name))
-                      + givens_str(env))
-              if len(indcase.pattern.parameters) != len(constr.parameters):
-                add_diagnostic(indcase.location, "expected " + str(len(constr.parameters)) \
-                      + " arguments to " + base_name(constr.name) \
-                      + " not " + str(len(indcase.pattern.parameters))
-                      + givens_str(env))
-              induction_hypotheses = [instantiate(loc, formula,
-                                                  ResolvedVar(loc,None, param))
-                                      for (param, ty) in 
-                                      zip(indcase.pattern.parameters,
-                                          constr.parameters)
-                                      if is_recursive(name, ty)]
-              body_env = env
-
-              if len(typarams) > 0:
-                sub = { T: ty for (T,ty) in zip(typarams, typ.arg_types)}
-                parameter_types = [p.substitute(sub) for p in constr.parameters]
-              else:
-                parameter_types = constr.parameters
-              body_env = body_env.declare_term_vars(loc,
-                                                    zip(indcase.pattern.parameters,
-                                                        parameter_types),
-                                                    True)
-
-              trm = pattern_to_term(indcase.pattern)
-              new_trm = type_check_term(trm, typ, body_env, None, [])
-              if isinstance(new_trm, TermInst):
-                  new_trm.inferred = False
-              pre_goal = instantiate(loc, formula, new_trm)
-              goal = check_formula(pre_goal, body_env)
-
-              # fill the rest of the given induction_hypotheses with _ labels
-              for i in range(len(indcase.induction_hypotheses), len(induction_hypotheses)):
-                indcase.induction_hypotheses.append((generate_proof_name('_'), None))
-
-              for ((x,frm1),frm2) in zip(indcase.induction_hypotheses, induction_hypotheses):
-                if frm1 != None:
-                  new_frm1 = check_formula(frm1, body_env)
-                  if new_frm1 != frm2:
-                    (small_frm1,small_frm2) = isolate_difference(new_frm1, frm2)
-                    msg = 'incorrect induction hypothesis, expected\n' \
-                        + str(frm2) + '\nbut got\n' + str(new_frm1) \
-                        + '\nin particular\n' + str(small_frm1) + '\n≠\n' + str(small_frm2) 
-                    add_diagnostic(frm1.location, msg
-                          + givens_str(body_env))
-                body_env = body_env.declare_local_proof_var(loc, x, frm2)
-
-              _try_check_proof_of(indcase.body, goal, body_env)
-          case blah:
-            add_diagnostic(loc, "induction expected name of union, not " + str(typ)
-                  + '\nwhich resolves to\n' + str(blah) + '\nin ' + str(env))
-
-    case SwitchProof(loc, subject, cases):
-      new_subject = type_synth_term(subject, env, None, [])
-      ty = new_subject.typeof
-      match ty:
-        case BoolType(loc2):
-          # check exhaustiveness
-          has_true_case = False
-          has_false_case = False
-          for scase in cases:
-            match scase.pattern:
-              case PatternBool(_, True):
-                has_true_case = True
-              case PatternBool(_, False):
-                has_false_case = True
-              case _:
-                internal_error(loc, 'unhandled case in switch proof')
-          if not has_true_case:
-            add_diagnostic(loc, 'missing case for true'
-                + givens_str(env))
-          if not has_false_case:
-            add_diagnostic(loc, 'missing case for false'
-                + givens_str(env))
-
-          # check each case
-          for scase in cases:
-            if not isinstance(scase.pattern, PatternBool):
-              add_diagnostic(scase.location, "expected pattern 'true' or 'false' in switch on bool"
-                    + givens_str(env))
-              
-            subject_case = Bool(scase.location, BoolType(scase.location), True) if scase.pattern.value \
-                           else Bool(scase.location, BoolType(scase.location), False)
-            equation = mkEqual(scase.location, new_subject, subject_case)
-            predicate = new_subject if scase.pattern.value \
-                                    else IfThen(loc, None, new_subject, Bool(loc, None, False))
-            
-            body_env = env
-
-            if len(scase.assumptions) == 0:
-                  scase.assumptions.append((generate_proof_name('_'), None))
-
-            assumptions = [(label, check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
-            if len(assumptions) == 1:
-              if assumptions[0][1] != None and assumptions[0][1] != predicate:
-                (small_case_asm, small_eqn) = isolate_difference(assumptions[0][1], predicate)
-                msg = 'expected assumption\n' + str(predicate) \
-                    + '\nnot\n' + str(assumptions[0][1]) \
-                    + '\nbecause\n\t' + str(small_case_asm) + ' ≠ ' + str(small_eqn)
-                add_diagnostic(scase.location, msg
-                      + givens_str(env))
-              body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], predicate)
-
-            if len(assumptions) > 1:
-              add_diagnostic(scase.location, 'only one assumption is allowed in a switch case'
-                    + givens_str(env))
-            frm = rewrite(loc, formula.reduce(env), equation.reduce(env), env)
-            new_frm = frm.reduce(env)
-            _try_check_proof_of(scase.body, new_frm, body_env)
-        case TypeType(_):
-          # As far as I know, it is not possible to switch on a type
-          add_diagnostic(loc, "In 'switch' expected a term, got " + str(new_subject)
-                + givens_str(env))
-        case _:
-          tname = get_type_name(ty)
-          match env.get_def_of_type_var(tname):
-            case Union(loc2, name, typarams, alts):
-              if len(cases) != len(alts):
-                add_diagnostic(loc, 'expected ' + str(len(alts)) + ' cases in switch, but only have ' + str(len(cases))
-                      + givens_str(env))
-              cases_present = {}
-              for (constr,scase) in zip(alts, cases):
-                check_pattern(scase.pattern, ty, env, cases_present)
-                if scase.pattern.constructor.name != constr.name:
-                  add_diagnostic(scase.location, "expected a case for " + str(constr) \
-                        + " not " + str(scase.pattern.constructor)
-                        + givens_str(env))
-                if len(scase.pattern.parameters) != len(constr.parameters):
-                  add_diagnostic(scase.location, "expected " + str(len(constr.parameters)) \
-                        + " arguments to " + base_name(constr.name) \
-                        + " not " + str(len(scase.pattern.parameters))
-                        + givens_str(env))
-                subject_case = pattern_to_term(scase.pattern)
-                body_env = env
-
-                tyargs = get_type_args(ty)
-                sub = {T:ty for (T,ty) in zip(typarams, tyargs)}
-                constr_params = [ty.substitute(sub) for ty in constr.parameters]
-                body_env = body_env.declare_term_vars(loc, zip(scase.pattern.parameters,
-                                                               constr_params))
-                
-                new_subject_case = type_check_term(subject_case, ty, body_env, None, [])
-                if isinstance(new_subject_case, TermInst):
-                    new_subject_case.inferred = False
-
-                if len(scase.assumptions) == 0:
-                  scase.assumptions.append((generate_proof_name('_'), None))
-                  
-                assumptions = [(label,check_formula(asm, body_env) if asm else None) for (label,asm) in scase.assumptions]
-                if len(assumptions) == 1:
-                  assumption = mkEqual(scase.location, new_subject, subject_case)
-                  new_assumption = type_synth_term(assumption, body_env, None, [])
-                  if assumptions[0][1] != None:
-                      case_assumption = type_synth_term(assumptions[0][1], body_env, None, [])
-                      if case_assumption != new_assumption:
-                          add_diagnostic(scase.location, 'in case, expected assume of\n' + str(new_assumption) \
-                                + '\nnot\n' + str(case_assumption)
-                                + givens_str(body_env))
-                  body_env = body_env.declare_local_proof_var(loc, assumptions[0][0], new_assumption)
-                if len(assumptions) > 1:
-                  add_diagnostic(scase.location, 'only one assumption is allowed in a switch case'
-                        + givens_str(body_env))
-
-                if isinstance(new_subject, VarRef):
-                  frm = formula.substitute({new_subject.name: new_subject_case})
-                else:
-                  frm = formula
-                red_frm = frm.reduce(body_env)
-                _try_check_proof_of(scase.body, red_frm, body_env)
-            case _:
-              add_diagnostic(loc, "switch expected union type or bool, not " + str(ty)
-                    + givens_str(env))
-          
     case _:
       try:
         form = check_proof(proof, env)
