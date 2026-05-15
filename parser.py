@@ -1,7 +1,27 @@
-from abstract_syntax import *
+from abstract_syntax import (
+    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    ApplyDefsGoal, ArrayGet, ArrayType, Assert, Associative, Auto,
+    Bool, BoolType, Call, Cases, Conditional, Constructor,
+    Define, EvaluateFact, EvaluateGoal, Export, FunCase, FunctionType,
+    GenRecFun, Generic, Hole, IfThen, ImpIntro, Import,
+    IndCase, Induction, Inductive, IntType, Lambda, MakeArray,
+    Mark, Module, ModusPonens, Omitted, Or, PAndElim,
+    PAnnot, PExtensionality, PHelpUse, PHole, PInjective, PLet,
+    PRecall, PReflexive, PSorry, PSymmetric, PTLetNew, PTransitive,
+    PTrue, PTuple, PVar, PatternBool, PatternCons, PatternTerm,
+    Postulate, Predicate, Print, RecFun, RewriteFact, RewriteGoal,
+    Rule, RuleInduction, RuleInductionCase, RuleInversion, SimplifyFact,
+    SimplifyGoal, Some, SomeElim, SomeIntro, Statement, Suffices, Switch,
+    SwitchCase, SwitchProof, SwitchProofCase, TAnnote, TLet, TermInst,
+    Theorem, Trace, TypeInst, TypeType, Union, Var,
+    ViewDecl, count_marks, extract_and, extract_or, extract_tuple,
+    get_default_mark_LHS, intToNat, listToNodeList, mkEqual, mkIntLit,
+    mkUIntLit, remove_mark,
+)
 from lark import Lark, Token, exceptions
-from flags import *
-from error import *
+from lark.tree import Meta
+from flags import VerboseLevel
+from error import ParseError
 
 filename: str = '???'
 

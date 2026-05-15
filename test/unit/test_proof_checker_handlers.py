@@ -33,6 +33,9 @@ def test_check_proof_of_registers_extracted_goal_handlers() -> None:
         ast.Cases,
         ast.Induction,
         ast.SwitchProof,
+        ast.Suffices,
+        ast.RuleInduction,
+        ast.RuleInversion,
     }
 
     assert expected <= set(proof_checker._CHECK_PROOF_OF_HANDLERS)
@@ -51,6 +54,9 @@ def test_check_proof_of_registers_extracted_intro_and_local_handlers() -> None:
         ast.Cases: proof_checker._check_proof_of_cases,
         ast.Induction: proof_checker._check_proof_of_induction,
         ast.SwitchProof: proof_checker._check_proof_of_switch,
+        ast.Suffices: proof_checker._check_proof_of_suffices,
+        ast.RuleInduction: proof_checker._check_rule_induction,
+        ast.RuleInversion: proof_checker._check_rule_inversion,
     }
 
     for proof_type, handler in expected.items():

@@ -25,9 +25,64 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, cast
 
-from abstract_syntax import *
-from error import user_error, incomplete_error, internal_error, warning, error_header, Diagnostic, ErrorSink, IncompleteProof, match_failed, MatchFailed, wrap_user_error, get_active_sink, set_active_sink, add_incomplete, add_diagnostic, speculative_probe
-from flags import get_verbose, set_verbose, print_verbose, VerboseLevel, get_target_hole_location, get_debugger
+from abstract_syntax import (
+    All, AllElim, AllElimTypes, AllIntro, And, ApplyDefsFact,
+    ApplyDefsGoal, Array, ArrayGet, ArrayType, Assert, Associative,
+    Auto, Bool, BoolType, Call, Cases, Conditional,
+    Constructor, Declaration, Define, Env, EvaluateFact, EvaluateGoal,
+    Export, Formula, FunCase, FunctionType, GenRecFun, Generic,
+    GenericUnknownInst, Hole, IfThen, ImpIntro, Import, IndCase,
+    Induction, Inductive, Int, IntType, Lambda, MakeArray,
+    Mark, MarkException, Module, ModusPonens, Omitted, Or,
+    OverloadType, OverloadedVar, PAndElim, PAnnot, PExtensionality, PHelpUse,
+    PHole, PInjective, PLet, PRecall, PReflexive, PSorry,
+    PSymmetric, PTLetNew, PTransitive, PTrue, PTuple, PVar,
+    PatternBool, PatternCons, PatternTerm, Postulate, Predicate, Print,
+    ProofBinding, RecFun, ResolvedVar, RewriteFact, RewriteGoal, Rule,
+    RuleInduction, RuleInversion, SimplifyFact, SimplifyGoal, Some,
+    SomeElim, SomeIntro, Statement, Suffices, Switch, SwitchCase, SwitchProof,
+    TAnnote, TLet, Term, TermInst, Theorem, Trace, Type, TypeInst, TypeType,
+    Union, Var, VarRef, ViewDecl, ViewRecFun, alpha_equiv, base_name,
+    check_post_typecheck_invariants, count_marks, find_file, find_mark,
+    formula_match, get_num_rewrites, get_predicate_decl, get_reduced_defs,
+    get_type_name, isUInt, is_associative, is_constructor, is_equation,
+    is_true, mkEqual, name2str, print_theorems, rator_name, remove_mark,
+    replace_mark, reset_num_rewrites, reset_reduced_defs, rewrite_aux,
+    set_dont_reduce_opaque, set_eval_all, set_reduce_all, split_equation,
+    type_match, type_names, uintToInt, uniquify_deduce as uniquify_deduce,
+)
+from edit_distance import edit_distance
+from error import (
+    Diagnostic,
+    ErrorSink,
+    IncompleteProof,
+    InternalError,
+    MatchFailed,
+    UserError,
+    add_diagnostic,
+    add_incomplete,
+    error_header,
+    get_active_sink,
+    incomplete_error,
+    internal_error,
+    match_failed,
+    set_active_sink,
+    speculative_probe,
+    user_error,
+    warning,
+    wrap_user_error,
+)
+from flags import (
+    VerboseLevel,
+    get_check_imports,
+    get_debugger,
+    get_quiet_mode,
+    get_target_hole_location,
+    get_verbose,
+    print_verbose,
+    set_verbose,
+)
+from pathlib import Path
 import style
 
 imported_modules: set = set()
@@ -1663,6 +1718,69 @@ def _check_proof_of_cases(proof, formula, env):
       add_diagnostic(proof.location, "expected 'or', not " + str(sub_red)
             + givens_str(env))
 
+def _check_proof_of_suffices(proof, formula, env):
+  loc = proof.location
+  claim = proof.claim
+  reason = proof.reason
+  rest = proof.body
+  evaluate = False
+
+  match reason:
+    case EvaluateGoal(_):
+       evaluate = True
+
+  if evaluate:
+    new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+    set_reduce_all(True)
+    set_dont_reduce_opaque(True)
+    new_formula = formula.reduce(env)
+    red_claim = new_claim.reduce(env)
+    set_reduce_all(False)
+    set_dont_reduce_opaque(False)
+
+    match red_claim:
+      case Omitted(_, _):
+        _try_check_proof_of(rest, new_formula, env)
+      case Hole(loc2, _):
+        newer_formula = check_formula(new_formula, env)
+        warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
+        check_proof_of(rest, newer_formula, env)
+      case _:
+        try:
+          check_implies(loc, red_claim, new_formula)
+        except UserError as e:
+          raise wrap_user_error(e, '\n' + style.orange('Givens:') + '\n' + env.proofs_str()) from e
+        _try_check_proof_of(rest, new_claim, env)
+    return
+
+  new_claim = type_check_term(claim, BoolType(loc), env, None, [])
+  claim_red = new_claim.reduce(env)
+
+  match claim_red:
+    case Hole(loc2, _):
+      proved_formula = check_proof(reason, env)
+      match proved_formula:
+        case IfThen(_, _, prem, conc):
+          check_implies(loc, conc, formula)
+          warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
+          _try_check_proof_of(rest, prem, env)
+        case _:
+          add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
+                + givens_str(env))
+    case Omitted(_, _):
+      proved_formula = check_proof(reason, env)
+      match proved_formula:
+        case IfThen(_, _, prem, conc):
+          check_implies(loc, conc, formula)
+          _try_check_proof_of(rest, prem, env)
+        case _:
+          add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
+                + givens_str(env))
+    case _:
+      imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
+      _try_check_proof_of(reason, imp, env)
+      _try_check_proof_of(rest, claim_red, env)
+
 def _check_proof_of_induction(proof, formula, env):
   loc = proof.location
   typ = check_type(proof.typ, env)
@@ -1949,6 +2067,9 @@ _CHECK_PROOF_OF_HANDLERS = {
   Cases: _check_proof_of_cases,
   Induction: _check_proof_of_induction,
   SwitchProof: _check_proof_of_switch,
+  Suffices: _check_proof_of_suffices,
+  RuleInduction: _check_rule_induction,
+  RuleInversion: _check_rule_inversion,
 }
 
 def check_proof_of(proof, formula, env):
@@ -1959,73 +2080,6 @@ def check_proof_of(proof, formula, env):
   if handler is not None:
     return handler(proof, formula, env)
   match proof:
-    #  goal is P
-    #  suffices Q by r        r proves (if Q then P)
-    #  goal is Q
-    case Suffices(loc, claim, reason, rest):
-      evaluate = False
-
-      match reason:
-        case EvaluateGoal(loc2):
-           evaluate = True
-
-      if evaluate:
-        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-        set_reduce_all(True)
-        set_dont_reduce_opaque(True)
-        new_formula = formula.reduce(env)
-        red_claim = new_claim.reduce(env)
-        set_reduce_all(False)
-        set_dont_reduce_opaque(False)
-
-        match red_claim:
-          case Omitted(loc2, _):
-            _try_check_proof_of(rest, new_formula, env)
-          case Hole(loc2, _):
-            newer_formula = check_formula(new_formula, env)
-            warning(loc, '\nsuffices to prove:\n\t' + str(newer_formula))
-            check_proof_of(rest, newer_formula, env)
-          case _:
-            try:
-              check_implies(loc, red_claim, new_formula)
-            except UserError as e:
-              raise wrap_user_error(e, '\n' + style.orange('Givens:') + '\n' + env.proofs_str()) from e
-            _try_check_proof_of(rest, new_claim, env)
-      else:
-        new_claim = type_check_term(claim, BoolType(loc), env, None, [])
-        claim_red = new_claim.reduce(env)
-
-        match claim_red:
-          case Hole(loc2, _):
-            proved_formula = check_proof(reason, env)
-            match proved_formula:
-              case IfThen(_, _, prem, conc):
-                check_implies(loc, conc, formula)
-                warning(loc2, '\nsuffices to prove:\n\t' + str(prem))
-                _try_check_proof_of(rest, prem, env)
-              case _:
-                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
-                      + givens_str(env))
-          case Omitted(loc2, _):
-            proved_formula = check_proof(reason, env)
-            match proved_formula:
-              case IfThen(_, _, prem, conc):
-                check_implies(loc, conc, formula)
-                _try_check_proof_of(rest, prem, env)
-              case _:
-                add_diagnostic(loc, 'expected a proof of an "if"-"then" formula, not ' + str(proved_formula)
-                      + givens_str(env))
-          case _:
-            imp = IfThen(loc, BoolType(loc), claim_red, formula).reduce(env)
-            _try_check_proof_of(reason, imp, env)
-            _try_check_proof_of(rest, claim_red, env)
-
-    case RuleInduction(loc, _, _):
-      _check_rule_induction(proof, formula, env)
-
-    case RuleInversion(loc, _, _):
-      _check_rule_inversion(proof, formula, env)
-
     case _:
       try:
         form = check_proof(proof, env)
@@ -3011,7 +3065,7 @@ def type_synth_term(term, env, recfun, subterms):
               case PatternBool(_, False):
                 has_false_case = True
               case _:
-                user_error(c.location, 'not an appropriate case for bool\n\t' \
+                user_error(scase.location, 'not an appropriate case for bool\n\t' \
                            + str(scase))
           if not has_true_case:
             user_error(loc, 'missing case for true')
@@ -4335,45 +4389,6 @@ def _build_validator_body_formula(rt, m_vars, is_deriv_var, pred_var, loc):
   if len(clauses) == 1:
     return clauses[0]
   return And(loc, BoolType(loc), clauses)
-  """Walk a premise looking for occurrences of the predicate. The
-  `forbidden` flag flips on under 'not' / 'if/then' premises and stays on
-  through subsequent nesting (sticky semantics, matching the union check)."""
-  match formula:
-    case Call(loc, _, rator, args):
-      ratname = None
-      if isinstance(rator, VarRef):
-        ratname = rator.get_name()
-      if forbidden and ratname == pred_name:
-        user_error(loc,
-              keyword + " '" + base_name(pred_name) + "' must not occur "
-              "in a negative position (under 'not' or to the left of an "
-              "inner 'then') of its own introduction rules; this would "
-              "make the definition circular and inconsistent.\n"
-              "In rule '" + base_name(rule.name) + "'.")
-      for a in args:
-        _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
-    case OverloadedVar(loc, _, rns):
-      ref = rns[0]
-      if forbidden and ref == pred_name:
-        user_error(loc,
-              keyword + " '" + base_name(pred_name) + "' must not occur "
-              "in a negative position of its own introduction rules.\n"
-              "In rule '" + base_name(rule.name) + "'.")
-    case IfThen(loc, _, prem, conc):
-      _walk_pred_premise(prem, pred_name, keyword, rule, forbidden=True)
-      _walk_pred_premise(conc, pred_name, keyword, rule, forbidden)
-    case And(loc, _, parts):
-      for a in parts:
-        _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
-    case Or(loc, _, parts):
-      for a in parts:
-        _walk_pred_premise(a, pred_name, keyword, rule, forbidden)
-    case All(loc, _, _, _, body):
-      _walk_pred_premise(body, pred_name, keyword, rule, forbidden)
-    case Some(loc, _, _, body):
-      _walk_pred_premise(body, pred_name, keyword, rule, forbidden)
-    case _:
-      pass
 
 def process_declaration_visibility(decl : Declaration, env: Env, module_chain, downstream_needs_checking):
   match decl:

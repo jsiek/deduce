@@ -6,7 +6,11 @@ TEST_ERROR_DIR = ./test/should-error
 TEST_IMPORT_DIR = ./test/test-imports
 EXAMPLES_DIR = ./examples
 
-default: tests-tokens tests
+default: static tests-tokens tests
+
+static:
+	$(PYTHON) -m ruff check .
+	$(PYTHON) -m mypy .
 
 tests-tokens:
 	$(PYTHON) ./gh_pages/scripts/keywords.py
@@ -18,7 +22,7 @@ tests-tokens:
 # once in the parent and forks worker processes that inherit the
 # populated AST cache via copy-on-write -- ~10x faster than the
 # previous subprocess-per-file harness.
-tests:
+tests: static
 	$(PYTHON) test-deduce.py
 
 # Per-category targets kept for granular debugging; ``make tests``
