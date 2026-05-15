@@ -196,3 +196,10 @@ module = ["parser"]
 disallow_any_generics = true
 disallow_untyped_calls = true
 warn_return_any = true
+
+# lsp/query.py is being ratcheted in #506. This slice enforces concrete
+# returns for annotated helpers; the remaining strict bits are larger
+# follow-up passes.
+[[tool.mypy.overrides]]
+module = ["lsp.query"]
+warn_return_any = true
