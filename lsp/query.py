@@ -3288,7 +3288,8 @@ def _apply_match_manual(formula, goal, env, goal_str: str) -> dict:
             for prem, conc in imps:
                 matching: dict[str, Any] = {}
                 try:
-                    formula_match(location, vars, conc, goal, matching, env)
+                    formula_match(location, vars, conc, goal, matching, env,
+                                  numeric_literals=True)
                 except MatchFailed as e:
                     reasons.append(str(e))
                     continue

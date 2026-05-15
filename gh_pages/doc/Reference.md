@@ -182,6 +182,10 @@ so long as
 * `X` proves `(if P then Q)`,
 * `Y` proves `P`.
 
+When matching `P` and `Q`, Deduce treats equivalent Nat and UInt
+numeric literal spellings as the same value. For example, `zero`,
+`lit(zero)`, and `ℕ0` can match each other in Nat formulas.
+
 Example:
 
 ```{.deduce^#apply_to_example}
