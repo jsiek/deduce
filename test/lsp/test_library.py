@@ -18,6 +18,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from abstract_syntax import get_uniquified_modules  # noqa: E402
 from lsp.library import CheckResult, check_file  # noqa: E402
 
 PASS_DIR = REPO_ROOT / "test" / "should-validate"
@@ -64,8 +65,35 @@ def test_lib_collect_errors_no_false_positives(path: Path) -> None:
     used to leak failed-probe errors into the sink even when the
     enclosing rule recovered."""
     result = check_file(str(path), collect_errors=True, prelude=())
+    assert result.errors is not None
     assert result.ok, (
         f"{path.name} should validate but collect_errors mode reported "
         f"{len(result.errors)} error(s); first:\n{result.error_message}"
     )
     assert result.errors == []
+
+
+def test_matching_disk_content_populates_module_cache(tmp_path: Path) -> None:
+    """MCP tools pass disk-backed content into ``check_file``; that
+    content should still use the on-disk module cache."""
+    path = tmp_path / "Cacheable.pf"
+    source = "theorem cached: true\nproof\n  .\nend\n"
+    path.write_text(source, encoding="utf-8")
+
+    result = check_file(str(path), content=source, prelude=())
+
+    assert result.ok
+    assert path.stem in get_uniquified_modules()
+
+
+def test_unsaved_content_bypasses_module_cache(tmp_path: Path) -> None:
+    """Content that differs from disk is an editor buffer snapshot and
+    must not be cached as the file's module."""
+    path = tmp_path / "Unsaved.pf"
+    path.write_text("theorem disk: true\nproof\n  .\nend\n", encoding="utf-8")
+    unsaved = "theorem buffer: true\nproof\n  .\nend\n"
+
+    result = check_file(str(path), content=unsaved, prelude=())
+
+    assert result.ok
+    assert path.stem not in get_uniquified_modules()
