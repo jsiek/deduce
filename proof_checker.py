@@ -670,6 +670,64 @@ def _check_proof_help_use(proof, env):
   formula = check_proof(proof.proof, env)
   user_error(proof.location, proof_use_advice(proof.proof, formula, env))
 
+def _check_proof_tlet_new(proof, env):
+  new_rhs = type_synth_term(proof.rhs, env, None, [])
+  body_env = env.define_term_var(proof.location, proof.var,
+                                 new_rhs.typeof, new_rhs)
+  return check_proof(proof.body, body_env)
+
+def _check_proof_let(proof, env):
+  loc = proof.location
+  new_frm = check_formula(proof.proved, env)
+  match new_frm:
+    case Hole(_, _):
+      proved_formula = check_proof(proof.because, env)
+      user_error(loc, "\nhave " + proof.label + ':\n\t' + str(proved_formula))
+    case _:
+      _try_check_proof_of(proof.because, new_frm, env)
+      body_env = env.declare_local_proof_var(loc, proof.label,
+                                             remove_mark(new_frm))
+      return check_proof(proof.body, body_env)
+
+def _check_proof_annot(proof, env):
+  loc = proof.location
+  new_claim = check_formula(proof.claim, env)
+  match new_claim:
+    case Hole(_, _):
+      proved_formula = check_proof(proof.body, env)
+      user_error(loc, '\nconclude ' + str(proved_formula))
+    case _:
+      _try_check_proof_of(proof.body, new_claim, env)
+      return remove_mark(new_claim)
+
+def _check_proof_tuple(proof, env):
+  loc = proof.location
+  frms = [check_proof(pf, env) for pf in proof.args]
+  return And(loc, BoolType(loc), frms)
+
+def _check_proof_imp_intro(proof, env):
+  loc = proof.location
+  if proof.premise is not None:
+      new_prem = check_formula(proof.premise, env)
+  else:
+      new_prem = None
+  body_env = env.declare_local_proof_var(loc, proof.label, new_prem)
+  conc = check_proof(proof.body, body_env)
+  return IfThen(loc, BoolType(loc), new_prem, conc)
+
+def _check_proof_all_intro(proof, env):
+  loc = proof.location
+  body_env = env
+  x, ty = proof.var
+  checked_ty = check_type(ty, env)
+  checked_var = (x, checked_ty)
+  if isinstance(checked_ty, TypeType):
+    body_env = body_env.declare_type(loc, x)
+  else:
+    body_env = body_env.declare_term_var(loc, x, checked_ty)
+  formula = check_proof(proof.body, body_env)
+  return All(loc, BoolType(loc), checked_var, proof.pos, formula)
+
 _CHECK_PROOF_HANDLERS = {
   PRecall: _check_proof_recall,
   PVar: _check_proof_var,
@@ -682,6 +740,12 @@ _CHECK_PROOF_HANDLERS = {
   PHole: _check_proof_hole,
   PSorry: _check_proof_sorry,
   PHelpUse: _check_proof_help_use,
+  PTLetNew: _check_proof_tlet_new,
+  PLet: _check_proof_let,
+  PAnnot: _check_proof_annot,
+  PTuple: _check_proof_tuple,
+  ImpIntro: _check_proof_imp_intro,
+  AllIntro: _check_proof_all_intro,
 }
 
 def check_proof(proof, env):
@@ -693,58 +757,7 @@ def check_proof(proof, env):
     return handler(proof, env)
   ret = None
   match proof:
-    case PTLetNew(loc, var, rhs, rest):
-      new_rhs = type_synth_term(rhs, env, None, [])
-      body_env = env.define_term_var(loc, var, new_rhs.typeof, new_rhs)
-      ret = check_proof(rest, body_env)
-      
-    case PLet(loc, label, frm, reason, rest):
-      new_frm = check_formula(frm, env)
-      match new_frm:
-        case Hole(loc2, tyof):
-          proved_formula = check_proof(reason, env)
-          user_error(loc, "\nhave " + label + ':\n\t' + str(proved_formula))
-        case _:
-          _try_check_proof_of(reason, new_frm, env)
-          body_env = env.declare_local_proof_var(loc, label, remove_mark(new_frm))
-          ret = check_proof(rest, body_env)
-      
-    case PAnnot(loc, claim, reason):
-      new_claim = check_formula(claim, env)
-      match new_claim:
-        case Hole(loc2, tyof):
-          proved_formula = check_proof(reason, env)
-          user_error(loc, '\nconclude ' + str(proved_formula))
-        case _:
-          _try_check_proof_of(reason, new_claim, env)
-          ret = remove_mark(new_claim)
-      
-    case PTuple(loc, pfs):
-      frms = [check_proof(pf, env) for pf in pfs]
-      ret = And(loc, BoolType(loc), frms)
-      
-    case ImpIntro(loc, label, prem, body):
-      if prem is not None:
-          new_prem = check_formula(prem, env)
-      else:
-          new_prem = None
-      body_env = env.declare_local_proof_var(loc, label, new_prem)
-      conc = check_proof(body, body_env)
-      ret = IfThen(loc, BoolType(loc), new_prem, conc)
-      
-    case AllIntro(loc, var, pos, body):      
-      body_env = env
-      x, ty = var
-      checked_ty = check_type(ty, env)
-      checked_var = (x, checked_ty)
-      if isinstance(checked_ty, TypeType):
-        body_env = body_env.declare_type(loc, x)
-      else:
-        body_env = body_env.declare_term_var(loc, x, checked_ty)
-      formula = check_proof(body, body_env)
-      ret = All(loc, BoolType(loc), checked_var, pos, formula)
-      
-    case AllElim(loc, univ, arg, pos):
+    case AllElim(loc, univ, arg, _):
       allfrm = check_proof(univ, env)
 
       if isinstance(allfrm, TLet):
@@ -796,7 +809,7 @@ def check_proof(proof, env):
       match ifthen:
         case IfThen(loc2, tyof, prem, conc):
           pass
-        case All(loc2, tyof, var, _, body):
+        case All(loc2, tyof, var, _, _):
           pass
         case And(loc2, tyof, _):
           pass
@@ -825,7 +838,7 @@ def check_proof(proof, env):
                        + "\n\t".join([str(p) for p, _ in imps])
                        + "\nfor application of \n\t"+str(ifthen)
                        + "\nto \n\t" + str(arg) + ': ' + str(arg_frm))
-        case All(loc2, tyof, _, _, body):
+        case All(loc2, tyof, _, _, _):
           (vars, imps) = collect_all_if_then(loc, ifthen, env)
           rets = []
           reasons = []

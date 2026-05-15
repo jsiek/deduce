@@ -111,6 +111,12 @@ def test_check_proof_registers_extracted_synthesis_handlers() -> None:
         ast.PHole: proof_checker._check_proof_hole,
         ast.PSorry: proof_checker._check_proof_sorry,
         ast.PHelpUse: proof_checker._check_proof_help_use,
+        ast.PTLetNew: proof_checker._check_proof_tlet_new,
+        ast.PLet: proof_checker._check_proof_let,
+        ast.PAnnot: proof_checker._check_proof_annot,
+        ast.PTuple: proof_checker._check_proof_tuple,
+        ast.ImpIntro: proof_checker._check_proof_imp_intro,
+        ast.AllIntro: proof_checker._check_proof_all_intro,
     }
 
     for proof_type, handler in expected.items():
